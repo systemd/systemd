@@ -28,7 +28,11 @@
 #include "memory-util-fundamental.h"
 #include "sha1-fundamental.h"
 
-static void get_chid(const char16_t *const smbios_fields[static _CHID_SMBIOS_FIELDS_MAX], uint32_t mask, EFI_GUID *ret_chid) {
+static void get_chid(
+                const char16_t *const smbios_fields[static _CHID_SMBIOS_FIELDS_MAX],
+                uint32_t mask,
+                EFI_GUID *ret_chid) {
+
         assert(mask != 0);
         assert(ret_chid);
         const EFI_GUID namespace = { UINT32_C(0x12d8ff70), UINT16_C(0x7f4c), UINT16_C(0x7d4c), {} }; /* Swapped to BE */
@@ -38,12 +42,21 @@ static void get_chid(const char16_t *const smbios_fields[static _CHID_SMBIOS_FIE
 
         sha1_process_bytes(&namespace, sizeof(namespace), &ctx);
 
-        for (unsigned i = 0; i < _CHID_SMBIOS_FIELDS_MAX; i++)
-                if ((mask >> i) & 1) {
-                        if (i > 0)
-                                sha1_process_bytes(L"&", 2, &ctx);
-                        sha1_process_bytes(smbios_fields[i], strlen16(smbios_fields[i]) * sizeof(char16_t), &ctx);
+        for (unsigned i = 0; i < _CHID_SMBIOS_FIELDS_MAX; i++) {
+                if (!((mask >> i) & 1))
+                        continue;
+
+                if (!smbios_fields[i]) {
+                        /* If some SMBIOS field is missing, don't generate the CHID, as per spec */
+                        memzero(ret_chid, sizeof(EFI_GUID));
+                        return;
                 }
+
+                if (i > 0)
+                        sha1_process_bytes(L"&", 2, &ctx);
+
+                sha1_process_bytes(smbios_fields[i], strlen16(smbios_fields[i]) * sizeof(char16_t), &ctx);
+        }
 
         uint8_t hash[SHA1_DIGEST_SIZE];
         sha1_finish_ctx(&ctx, hash);
@@ -111,9 +124,12 @@ void chid_calculate(const char16_t *const smbios_fields[static _CHID_SMBIOS_FIEL
         assert(smbios_fields);
         assert(ret_chids);
 
-        for (size_t i = 0; i < CHID_TYPES_MAX; i++)
-                if (chid_smbios_table[i] != 0)
-                        get_chid(smbios_fields, chid_smbios_table[i], &ret_chids[i]);
-                else
+        for (size_t i = 0; i < CHID_TYPES_MAX; i++) {
+                if (chid_smbios_table[i] == 0) {
                         memzero(&ret_chids[i], sizeof(EFI_GUID));
+                        continue;
+                }
+
+                get_chid(smbios_fields, chid_smbios_table[i], &ret_chids[i]);
+        }
 }
