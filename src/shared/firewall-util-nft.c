@@ -34,7 +34,26 @@
 
 #define UDP_DPORT_OFFSET 2
 
-static sd_netlink_message **netlink_message_unref_many(sd_netlink_message **m) {
+/* for testing */
+static const char* nft_table_name(void) {
+        static const char *cached;
+
+        if (!cached)
+                cached = getenv("TEST_FIREWALL_UTIL_NFT_TABLE_NAME") ?: NFT_SYSTEMD_TABLE_NAME;
+
+        return cached;
+}
+
+static const char* dnat_map_name(void) {
+        static const char *cached;
+
+        if (!cached)
+                cached = getenv("TEST_FIREWALL_UTIL_DNAT_MAP_NAME") ?: NFT_SYSTEMD_DNAT_MAP_NAME;
+
+        return cached;
+}
+
+static sd_netlink_message** netlink_message_unref_many(sd_netlink_message **m) {
         if (!m)
                 return NULL;
 
@@ -327,7 +346,7 @@ static int sd_nfnl_message_new_masq_rule(
         assert(IN_SET(family, AF_INET, AF_INET6));
         assert(chain);
 
-        r = sd_nfnl_nft_message_new_rule(nfnl, &m, family, NFT_SYSTEMD_TABLE_NAME, chain);
+        r = sd_nfnl_nft_message_new_rule(nfnl, &m, family, nft_table_name(), chain);
         if (r < 0)
                 return r;
 
@@ -382,7 +401,7 @@ static int sd_nfnl_message_new_dnat_rule_pre(
         assert(IN_SET(family, AF_INET, AF_INET6));
         assert(chain);
 
-        r = sd_nfnl_nft_message_new_rule(nfnl, &m, family, NFT_SYSTEMD_TABLE_NAME, chain);
+        r = sd_nfnl_nft_message_new_rule(nfnl, &m, family, nft_table_name(), chain);
         if (r < 0)
                 return r;
 
@@ -412,7 +431,7 @@ static int sd_nfnl_message_new_dnat_rule_pre(
 
         /* 3rd statement: lookup 'l4proto . dport', e.g. 'tcp . 22' as key and
          * store address and port for the dnat mapping in REG1/REG2. */
-        r = nfnl_add_expr_lookup(m, NFT_SYSTEMD_DNAT_MAP_NAME, NFT_REG32_01, NFT_REG32_01);
+        r = nfnl_add_expr_lookup(m, dnat_map_name(), NFT_REG32_01, NFT_REG32_01);
         if (r < 0)
                 return r;
 
@@ -445,7 +464,7 @@ static int sd_nfnl_message_new_dnat_rule_out(
         assert(IN_SET(family, AF_INET, AF_INET6));
         assert(chain);
 
-        r = sd_nfnl_nft_message_new_rule(nfnl, &m, family, NFT_SYSTEMD_TABLE_NAME, chain);
+        r = sd_nfnl_nft_message_new_rule(nfnl, &m, family, nft_table_name(), chain);
         if (r < 0)
                 return r;
 
@@ -507,7 +526,7 @@ static int sd_nfnl_message_new_dnat_rule_out(
          *
          * reg1 and reg2 are clobbered and will then contain the new
          * address/port number. */
-        r = nfnl_add_expr_lookup(m, NFT_SYSTEMD_DNAT_MAP_NAME, NFT_REG32_01, NFT_REG32_01);
+        r = nfnl_add_expr_lookup(m, dnat_map_name(), NFT_REG32_01, NFT_REG32_01);
         if (r < 0)
                 return r;
 
@@ -544,7 +563,7 @@ static int nft_new_set(
         assert(IN_SET(family, AF_INET, AF_INET6));
         assert(set_name);
 
-        r = sd_nfnl_nft_message_new_set(nfnl, &m, family, NFT_SYSTEMD_TABLE_NAME, set_name, set_id, klen);
+        r = sd_nfnl_nft_message_new_set(nfnl, &m, family, nft_table_name(), set_name, set_id, klen);
         if (r < 0)
                 return r;
 
@@ -730,23 +749,23 @@ static int fw_nftables_init_family(sd_netlink *nfnl, int family) {
         assert(IN_SET(family, AF_INET, AF_INET6));
 
         /* Set F_EXCL so table add fails if the table already exists. */
-        r = sd_nfnl_nft_message_new_table(nfnl, &messages[msgcnt++], family, NFT_SYSTEMD_TABLE_NAME);
+        r = sd_nfnl_nft_message_new_table(nfnl, &messages[msgcnt++], family, nft_table_name());
         if (r < 0)
                 return r;
 
-        r = sd_nfnl_nft_message_new_basechain(nfnl, &messages[msgcnt++], family, NFT_SYSTEMD_TABLE_NAME,
+        r = sd_nfnl_nft_message_new_basechain(nfnl, &messages[msgcnt++], family, nft_table_name(),
                                               "prerouting", "nat",
                                               NF_INET_PRE_ROUTING, NF_IP_PRI_NAT_DST + 1);
         if (r < 0)
                 return r;
 
-        r = sd_nfnl_nft_message_new_basechain(nfnl, &messages[msgcnt++], family, NFT_SYSTEMD_TABLE_NAME,
+        r = sd_nfnl_nft_message_new_basechain(nfnl, &messages[msgcnt++], family, nft_table_name(),
                                               "output", "nat",
                                               NF_INET_LOCAL_OUT, NF_IP_PRI_NAT_DST + 1);
         if (r < 0)
                 return r;
 
-        r = sd_nfnl_nft_message_new_basechain(nfnl, &messages[msgcnt++], family, NFT_SYSTEMD_TABLE_NAME,
+        r = sd_nfnl_nft_message_new_basechain(nfnl, &messages[msgcnt++], family, nft_table_name(),
                                               "postrouting", "nat",
                                               NF_INET_POST_ROUTING, NF_IP_PRI_NAT_SRC + 1);
         if (r < 0)
@@ -772,7 +791,7 @@ static int fw_nftables_init_family(sd_netlink *nfnl, int family) {
          * Example: ip protocol . tcp daddr is sizeof(uint32_t) + sizeof(uint32_t), not
          * sizeof(uint8_t) + sizeof(uint16_t).
          */
-        r = nft_new_map(nfnl, &messages[msgcnt++], family, NFT_SYSTEMD_DNAT_MAP_NAME, ++set_id, 0,
+        r = nft_new_map(nfnl, &messages[msgcnt++], family, dnat_map_name(), ++set_id, 0,
                         concat_types2(TYPE_INET_PROTOCOL, TYPE_INET_SERVICE), sizeof(uint32_t) * 2,
                         concat_types2(ip_type, TYPE_INET_SERVICE), ip_type_size + sizeof(uint32_t));
         if (r < 0)
@@ -1033,7 +1052,7 @@ int fw_nftables_add_masquerade(
         if (!socket_ipv6_is_supported() && af == AF_INET6)
                 return -EOPNOTSUPP;
 
-        r = nft_set_element_modify_iprange(ctx, add, af_to_nfproto(af), af, NFT_SYSTEMD_TABLE_NAME, NFT_SYSTEMD_MASQ_SET_NAME,
+        r = nft_set_element_modify_iprange(ctx, add, af_to_nfproto(af), af, nft_table_name(), NFT_SYSTEMD_MASQ_SET_NAME,
                                            source, source_prefixlen);
         if (r != -ENOENT)
                 return r;
@@ -1059,7 +1078,7 @@ int fw_nftables_add_masquerade(
         if (r < 0)
                 return r;
 
-        return nft_set_element_modify_iprange(ctx, add, af_to_nfproto(af), af, NFT_SYSTEMD_TABLE_NAME, NFT_SYSTEMD_MASQ_SET_NAME,
+        return nft_set_element_modify_iprange(ctx, add, af_to_nfproto(af), af, nft_table_name(), NFT_SYSTEMD_MASQ_SET_NAME,
                                               source, source_prefixlen);
 }
 
@@ -1118,7 +1137,7 @@ static int fw_nftables_add_local_dnat_internal(
                 else
                         memcpy(data, &previous_remote->in6, sizeof(previous_remote->in6));
 
-                r = nft_del_element(nfnl, &messages[msgcnt++], af, NFT_SYSTEMD_TABLE_NAME, NFT_SYSTEMD_DNAT_MAP_NAME,
+                r = nft_del_element(nfnl, &messages[msgcnt++], af, nft_table_name(), dnat_map_name(),
                                     key, sizeof(key), data, dlen);
                 if (r < 0)
                         return r;
@@ -1130,10 +1149,10 @@ static int fw_nftables_add_local_dnat_internal(
                 memcpy(data, &remote->in6, sizeof(remote->in6));
 
         if (add)
-                r = nft_add_element(nfnl, &messages[msgcnt++], af_to_nfproto(af), NFT_SYSTEMD_TABLE_NAME, NFT_SYSTEMD_DNAT_MAP_NAME,
+                r = nft_add_element(nfnl, &messages[msgcnt++], af_to_nfproto(af), nft_table_name(), dnat_map_name(),
                                     key, sizeof(key), data, dlen);
         else
-                r = nft_del_element(nfnl, &messages[msgcnt++], af_to_nfproto(af), NFT_SYSTEMD_TABLE_NAME, NFT_SYSTEMD_DNAT_MAP_NAME,
+                r = nft_del_element(nfnl, &messages[msgcnt++], af_to_nfproto(af), nft_table_name(), dnat_map_name(),
                                     key, sizeof(key), data, dlen);
         if (r < 0)
                 return r;
