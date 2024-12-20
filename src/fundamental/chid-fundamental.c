@@ -43,7 +43,7 @@ static void get_chid(
         sha1_process_bytes(&namespace, sizeof(namespace), &ctx);
 
         for (ChidSmbiosFields i = 0; i < _CHID_SMBIOS_FIELDS_MAX; i++) {
-                if (!((mask >> i) & 1))
+                if (!FLAGS_SET(mask, UINT32_C(1) << i))
                         continue;
 
                 if (!smbios_fields[i]) {
