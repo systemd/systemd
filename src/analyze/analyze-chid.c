@@ -4,6 +4,7 @@
 #include "analyze-chid.h"
 #include "chid-fundamental.h"
 #include "efi-api.h"
+#include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-table.h"
@@ -30,6 +31,20 @@ static int parse_chid_type(const char *s, size_t *ret) {
         return 0;
 }
 
+static const char *const chid_smbios_friendly[_CHID_SMBIOS_FIELDS_MAX] = {
+        [CHID_SMBIOS_MANUFACTURER]           = "manufacturer",
+        [CHID_SMBIOS_FAMILY]                 = "family",
+        [CHID_SMBIOS_PRODUCT_NAME]           = "product-name",
+        [CHID_SMBIOS_PRODUCT_SKU]            = "product-sku",
+        [CHID_SMBIOS_BASEBOARD_MANUFACTURER] = "baseboard-manufacturer",
+        [CHID_SMBIOS_BASEBOARD_PRODUCT]      = "baseboard-product",
+        [CHID_SMBIOS_BIOS_VENDOR]            = "bios-vendor",
+        [CHID_SMBIOS_BIOS_VERSION]           = "bios-version",
+        [CHID_SMBIOS_BIOS_MAJOR]             = "bios-major",
+        [CHID_SMBIOS_BIOS_MINOR]             = "bios-minor",
+        [CHID_SMBIOS_ENCLOSURE_TYPE]         = "enclosure-type",
+};
+
 static const char chid_smbios_fields_char[_CHID_SMBIOS_FIELDS_MAX] = {
         [CHID_SMBIOS_MANUFACTURER]           = 'M',
         [CHID_SMBIOS_FAMILY]                 = 'F',
@@ -37,6 +52,11 @@ static const char chid_smbios_fields_char[_CHID_SMBIOS_FIELDS_MAX] = {
         [CHID_SMBIOS_PRODUCT_SKU]            = 'S',
         [CHID_SMBIOS_BASEBOARD_MANUFACTURER] = 'm',
         [CHID_SMBIOS_BASEBOARD_PRODUCT]      = 'p',
+        [CHID_SMBIOS_BIOS_VENDOR]            = 'B',
+        [CHID_SMBIOS_BIOS_VERSION]           = 'v',
+        [CHID_SMBIOS_BIOS_MAJOR]             = 'R',
+        [CHID_SMBIOS_BIOS_MINOR]             = 'r',
+        [CHID_SMBIOS_ENCLOSURE_TYPE]         = 'e',
 };
 
 static char *chid_smbios_fields_string(uint32_t combination) {
@@ -87,7 +107,7 @@ static void smbios_fields_free(char16_t *(*fields)[_CHID_SMBIOS_FIELDS_MAX]) {
                 free(*i);
 }
 
-int verb_chid(int argc, char *argv[], void *userdata) {
+static int smbios_fields_acquire(char16_t *fields[static _CHID_SMBIOS_FIELDS_MAX]) {
 
         static const char *const smbios_files[_CHID_SMBIOS_FIELDS_MAX] = {
                 [CHID_SMBIOS_MANUFACTURER]           = "sys_vendor",
@@ -96,7 +116,114 @@ int verb_chid(int argc, char *argv[], void *userdata) {
                 [CHID_SMBIOS_PRODUCT_SKU]            = "product_sku",
                 [CHID_SMBIOS_BASEBOARD_MANUFACTURER] = "board_vendor",
                 [CHID_SMBIOS_BASEBOARD_PRODUCT]      = "board_name",
+                [CHID_SMBIOS_BIOS_VENDOR]            = "bios_vendor",
+                [CHID_SMBIOS_BIOS_VERSION]           = "bios_version",
+                [CHID_SMBIOS_BIOS_MAJOR]             = "bios_release",
+                [CHID_SMBIOS_BIOS_MINOR]             = "bios_release",
+                [CHID_SMBIOS_ENCLOSURE_TYPE]         = "chassis_type",
         };
+
+        int r;
+
+        _cleanup_close_ int smbios_fd = open("/sys/class/dmi/id", O_RDONLY|O_DIRECTORY|O_CLOEXEC);
+        if (smbios_fd < 0)
+                return log_error_errno(errno, "Failed to open SMBIOS sysfs object: %m");
+
+        for (ChidSmbiosFields f = 0; f < _CHID_SMBIOS_FIELDS_MAX; f++) {
+                _cleanup_free_ char *buf = NULL;
+                size_t size;
+
+                /* According to the CHID spec we should not generate CHIDs for SMBIOS fields that aren't set
+                 * or are set to an empty string. Hence leave them NULL here. */
+
+                if (!smbios_files[f])
+                        continue;
+
+                r = read_virtual_file_at(smbios_fd, smbios_files[f], SIZE_MAX, &buf, &size);
+                if (r == -ENOENT) {
+                        log_debug_errno(r, "SMBIOS field '%s' not set, skipping.", smbios_files[f]);
+                        continue;
+                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read SMBIOS field '%s': %m", smbios_files[f]);
+
+                if (size == 0 || (size == 1 && buf[0] == '\n')) {
+                        log_debug("SMBIOS field '%s' is empty, skipping.", smbios_files[f]);
+                        continue;
+                }
+
+                if (buf[size-1] != '\n')
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expected SMBIOS field '%s' to end in newline, but it doesn't, refusing.", smbios_files[f]);
+
+                buf[size-1] = 0;
+                size--;
+
+                switch (f) {
+
+                case CHID_SMBIOS_BIOS_MAJOR:
+                case CHID_SMBIOS_BIOS_MINOR: {
+                        /* The kernel exposes this a string <major>.<minor>, split them apart again. */
+                        char *dot = memchr(buf, '.', size);
+                        if (!dot)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "BIOS release field '%s' contains no dot?", smbios_files[f]);
+
+                        const char *p;
+                        if (f == CHID_SMBIOS_BIOS_MAJOR) {
+                                *dot = 0;
+                                p = buf;
+                        } else {
+                                assert(f == CHID_SMBIOS_BIOS_MINOR);
+                                p = dot + 1;
+                        }
+
+                        /* The kernel exports the enclosure in decimal, we need it in hex (zero left-padded) */
+
+                        uint8_t u;
+                        r = safe_atou8(p, &u);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse BIOS release: %s", p);
+
+                        buf = mfree(buf);
+                        if (asprintf(&buf, "%02x", u) < 0)
+                                return log_oom();
+
+                        size = strlen(buf);
+                        break;
+                }
+
+                case CHID_SMBIOS_ENCLOSURE_TYPE: {
+                        /* The kernel exports the enclosure in decimal, we need it in hex (no padding!) */
+
+                        uint8_t u;
+                        r = safe_atou8(buf, &u);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse enclosure type: %s", buf);
+
+                        buf = mfree(buf);
+                        if (u == 0)
+                                buf = strdup(""); /* zero is mapped to empty string */
+                        else
+                                (void) asprintf(&buf, "%x", u);
+                        if (!buf)
+                                return log_oom();
+
+                        size = strlen(buf);
+                        break;
+                }
+
+                default:
+                        break;
+                }
+
+                fields[f] = utf8_to_utf16(buf, size);
+                if (!fields[f])
+                        return log_oom();
+        }
+
+        return 0;
+}
+
+int verb_chid(int argc, char *argv[], void *userdata) {
 
         _cleanup_(table_unrefp) Table *table = NULL;
         int r;
@@ -111,28 +238,10 @@ int verb_chid(int argc, char *argv[], void *userdata) {
         (void) table_set_align_percent(table, table_get_cell(table, 0, 0), 100);
         (void) table_set_align_percent(table, table_get_cell(table, 0, 1), 50);
 
-        _cleanup_close_ int smbios_fd = open("/sys/class/dmi/id", O_RDONLY|O_DIRECTORY|O_CLOEXEC);
-        if (smbios_fd < 0)
-                return log_error_errno(errno, "Failed to open SMBIOS sysfs object: %m");
-
         _cleanup_(smbios_fields_free) char16_t* smbios_fields[_CHID_SMBIOS_FIELDS_MAX] = {};
-        for (ChidSmbiosFields f = 0; f < _CHID_SMBIOS_FIELDS_MAX; f++) {
-                _cleanup_free_ char *buf = NULL;
-                size_t size;
-
-                r = read_virtual_file_at(smbios_fd, smbios_files[f], SIZE_MAX, &buf, &size);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to read SMBIOS field '%s': %m", smbios_files[f]);
-
-                if (size < 1 || buf[size-1] != '\n')
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expected SMBIOS field '%s' to end in newline, but it doesn't, refusing.", smbios_files[f]);
-
-                size--;
-
-                smbios_fields[f] = utf8_to_utf16(buf, size);
-                if (!smbios_fields[f])
-                        return log_oom();
-        }
+        r = smbios_fields_acquire(smbios_fields);
+        if (r < 0)
+                return r;
 
         EFI_GUID chids[CHID_TYPES_MAX] = {};
         chid_calculate((const char16_t* const*) smbios_fields, chids);
@@ -172,9 +281,19 @@ int verb_chid(int argc, char *argv[], void *userdata) {
                         return log_oom();
 
                 for (ChidSmbiosFields f = 0; f < _CHID_SMBIOS_FIELDS_MAX; f++) {
-                        _cleanup_free_ char *c = utf16_to_utf8(smbios_fields[f], SIZE_MAX);
-                        if (!c)
-                                return log_oom();
+                        _cleanup_free_ char *c = NULL;
+
+                        if (smbios_fields[f]) {
+                                _cleanup_free_ char *u = NULL;
+
+                                u = utf16_to_utf8(smbios_fields[f], SIZE_MAX);
+                                if (!u)
+                                        return log_oom();
+
+                                c = cescape(u);
+                                if (!c)
+                                        return log_oom();
+                        }
 
                         if (!strextend(&legend,
                                        ansi_grey(),
@@ -188,11 +307,11 @@ int verb_chid(int argc, char *argv[], void *userdata) {
                                        special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
                                        " ",
                                        ansi_normal(),
-                                       smbios_files[f],
+                                       chid_smbios_friendly[f],
                                        ansi_grey(),
                                        " (",
-                                       ansi_highlight(),
-                                       c,
+                                       c ? ansi_highlight() : ansi_grey(),
+                                       strna(c),
                                        ansi_grey(),
                                        ")",
                                        ansi_normal()))
@@ -200,9 +319,9 @@ int verb_chid(int argc, char *argv[], void *userdata) {
 
                         w += separator * 3 +
                                 4 +
-                                utf8_console_width(smbios_files[f]) +
+                                utf8_console_width(chid_smbios_friendly[f]) +
                                 2 +
-                                utf8_console_width(c) +
+                                utf8_console_width(strna(c)) +
                                 1;
 
                         if (w > 79) {
