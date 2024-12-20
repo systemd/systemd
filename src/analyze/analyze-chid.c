@@ -107,7 +107,7 @@ static void smbios_fields_free(char16_t *(*fields)[_CHID_SMBIOS_FIELDS_MAX]) {
                 free(*i);
 }
 
-int verb_chid(int argc, char *argv[], void *userdata) {
+static int smbios_fields_acquire(char16_t *fields[static _CHID_SMBIOS_FIELDS_MAX]) {
 
         static const char *const smbios_files[_CHID_SMBIOS_FIELDS_MAX] = {
                 [CHID_SMBIOS_MANUFACTURER]           = "sys_vendor",
@@ -118,24 +118,12 @@ int verb_chid(int argc, char *argv[], void *userdata) {
                 [CHID_SMBIOS_BASEBOARD_PRODUCT]      = "board_name",
         };
 
-        _cleanup_(table_unrefp) Table *table = NULL;
         int r;
-
-        if (detect_container() > 0)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Container environments do not have SMBIOS.");
-
-        table = table_new("type", "input", "chid");
-        if (!table)
-                return log_oom();
-
-        (void) table_set_align_percent(table, table_get_cell(table, 0, 0), 100);
-        (void) table_set_align_percent(table, table_get_cell(table, 0, 1), 50);
 
         _cleanup_close_ int smbios_fd = open("/sys/class/dmi/id", O_RDONLY|O_DIRECTORY|O_CLOEXEC);
         if (smbios_fd < 0)
                 return log_error_errno(errno, "Failed to open SMBIOS sysfs object: %m");
 
-        _cleanup_(smbios_fields_free) char16_t* smbios_fields[_CHID_SMBIOS_FIELDS_MAX] = {};
         for (ChidSmbiosFields f = 0; f < _CHID_SMBIOS_FIELDS_MAX; f++) {
                 _cleanup_free_ char *buf = NULL;
                 size_t size;
@@ -164,10 +152,33 @@ int verb_chid(int argc, char *argv[], void *userdata) {
 
                 size--;
 
-                smbios_fields[f] = utf8_to_utf16(buf, size);
-                if (!smbios_fields[f])
+                fields[f] = utf8_to_utf16(buf, size);
+                if (!fields[f])
                         return log_oom();
         }
+
+        return 0;
+}
+
+int verb_chid(int argc, char *argv[], void *userdata) {
+
+        _cleanup_(table_unrefp) Table *table = NULL;
+        int r;
+
+        if (detect_container() > 0)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Container environments do not have SMBIOS.");
+
+        table = table_new("type", "input", "chid");
+        if (!table)
+                return log_oom();
+
+        (void) table_set_align_percent(table, table_get_cell(table, 0, 0), 100);
+        (void) table_set_align_percent(table, table_get_cell(table, 0, 1), 50);
+
+        _cleanup_(smbios_fields_free) char16_t* smbios_fields[_CHID_SMBIOS_FIELDS_MAX] = {};
+        r = smbios_fields_acquire(smbios_fields);
+        if (r < 0)
+                return r;
 
         EFI_GUID chids[CHID_TYPES_MAX] = {};
         chid_calculate((const char16_t* const*) smbios_fields, chids);
