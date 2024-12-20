@@ -4,6 +4,7 @@
 #include "analyze-chid.h"
 #include "chid-fundamental.h"
 #include "efi-api.h"
+#include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-table.h"
@@ -209,7 +210,13 @@ int verb_chid(int argc, char *argv[], void *userdata) {
                         _cleanup_free_ char *c = NULL;
 
                         if (smbios_fields[f]) {
-                                c = utf16_to_utf8(smbios_fields[f], SIZE_MAX);
+                                _cleanup_free_ char *u = NULL;
+
+                                u = utf16_to_utf8(smbios_fields[f], SIZE_MAX);
+                                if (!u)
+                                        return log_oom();
+
+                                c = cescape(u);
                                 if (!c)
                                         return log_oom();
                         }
