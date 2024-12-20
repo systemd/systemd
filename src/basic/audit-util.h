@@ -9,8 +9,8 @@
 
 #define AUDIT_SESSION_INVALID UINT32_MAX
 
-int audit_session_from_pid(const PidRef *pid, uint32_t *id);
-int audit_loginuid_from_pid(const PidRef *pid, uid_t *uid);
+int audit_session_from_pid(const PidRef *pid, uint32_t *ret_id);
+int audit_loginuid_from_pid(const PidRef *pid, uid_t *ret_uid);
 
 bool use_audit(void);
 
