@@ -75,6 +75,30 @@ static void get_chid(
 }
 
 const uint32_t chid_smbios_table[CHID_TYPES_MAX] = {
+        [0] = (UINT32_C(1) << CHID_SMBIOS_MANUFACTURER) |
+              (UINT32_C(1) << CHID_SMBIOS_FAMILY) |
+              (UINT32_C(1) << CHID_SMBIOS_PRODUCT_NAME) |
+              (UINT32_C(1) << CHID_SMBIOS_PRODUCT_SKU) |
+              (UINT32_C(1) << CHID_SMBIOS_BIOS_VENDOR) |
+              (UINT32_C(1) << CHID_SMBIOS_BIOS_VERSION) |
+              (UINT32_C(1) << CHID_SMBIOS_BIOS_MAJOR) |
+              (UINT32_C(1) << CHID_SMBIOS_BIOS_MINOR),
+
+        [1] = (UINT32_C(1) << CHID_SMBIOS_MANUFACTURER) |
+              (UINT32_C(1) << CHID_SMBIOS_FAMILY) |
+              (UINT32_C(1) << CHID_SMBIOS_PRODUCT_NAME) |
+              (UINT32_C(1) << CHID_SMBIOS_BIOS_VENDOR) |
+              (UINT32_C(1) << CHID_SMBIOS_BIOS_VERSION) |
+              (UINT32_C(1) << CHID_SMBIOS_BIOS_MAJOR) |
+              (UINT32_C(1) << CHID_SMBIOS_BIOS_MINOR),
+
+        [2] = (UINT32_C(1) << CHID_SMBIOS_MANUFACTURER) |
+              (UINT32_C(1) << CHID_SMBIOS_PRODUCT_NAME) |
+              (UINT32_C(1) << CHID_SMBIOS_BIOS_VENDOR) |
+              (UINT32_C(1) << CHID_SMBIOS_BIOS_VERSION) |
+              (UINT32_C(1) << CHID_SMBIOS_BIOS_MAJOR) |
+              (UINT32_C(1) << CHID_SMBIOS_BIOS_MINOR),
+
         [3] = (UINT32_C(1) << CHID_SMBIOS_MANUFACTURER) |
               (UINT32_C(1) << CHID_SMBIOS_FAMILY) |
               (UINT32_C(1) << CHID_SMBIOS_PRODUCT_NAME) |
@@ -115,9 +139,14 @@ const uint32_t chid_smbios_table[CHID_TYPES_MAX] = {
         [11] = (UINT32_C(1) << CHID_SMBIOS_MANUFACTURER) |
                (UINT32_C(1) << CHID_SMBIOS_FAMILY),
 
+        [12] = (UINT32_C(1) << CHID_SMBIOS_MANUFACTURER) |
+               (UINT32_C(1) << CHID_SMBIOS_ENCLOSURE_TYPE),
+
         [13] = (UINT32_C(1) << CHID_SMBIOS_MANUFACTURER) |
                (UINT32_C(1) << CHID_SMBIOS_BASEBOARD_MANUFACTURER) |
                (UINT32_C(1) << CHID_SMBIOS_BASEBOARD_PRODUCT),
+
+        [14] = (UINT32_C(1) << CHID_SMBIOS_MANUFACTURER),
 };
 
 void chid_calculate(const char16_t *const smbios_fields[static _CHID_SMBIOS_FIELDS_MAX], EFI_GUID ret_chids[static CHID_TYPES_MAX]) {
