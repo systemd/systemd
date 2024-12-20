@@ -3296,17 +3296,29 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly u StateDirectoryMode = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b StateDirectoryAccounting = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly (tub) StateDirectoryQuota = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as StateDirectory = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly a(sst) CacheDirectorySymlink = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly u CacheDirectoryMode = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b CacheDirectoryAccounting = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly (tub) CacheDirectoryQuota = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as CacheDirectory = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly a(sst) LogsDirectorySymlink = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly u LogsDirectoryMode = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b LogsDirectoryAccounting = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly (tub) LogsDirectoryQuota = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as LogsDirectory = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -3359,6 +3371,12 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       readonly s MountImagePolicy = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s ExtensionImagePolicy = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly (bbtt) StateDirectoryQuotaUsage = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly (bbtt) CacheDirectoryQuotaUsage = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly (bbtt) LogsDirectoryQuotaUsage = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s KillMode = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -3895,9 +3913,21 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <!--property StateDirectoryMode is not documented!-->
 
+    <!--property StateDirectoryAccounting is not documented!-->
+
+    <!--property StateDirectoryQuota is not documented!-->
+
     <!--property CacheDirectoryMode is not documented!-->
 
+    <!--property CacheDirectoryAccounting is not documented!-->
+
+    <!--property CacheDirectoryQuota is not documented!-->
+
     <!--property LogsDirectoryMode is not documented!-->
+
+    <!--property LogsDirectoryAccounting is not documented!-->
+
+    <!--property LogsDirectoryQuota is not documented!-->
 
     <!--property ConfigurationDirectoryMode is not documented!-->
 
@@ -3944,6 +3974,12 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <!--property MountImagePolicy is not documented!-->
 
     <!--property ExtensionImagePolicy is not documented!-->
+
+    <!--property StateDirectoryQuotaUsage is not documented!-->
+
+    <!--property CacheDirectoryQuotaUsage is not documented!-->
+
+    <!--property LogsDirectoryQuotaUsage is not documented!-->
 
     <!--property KillMode is not documented!-->
 
@@ -4591,17 +4627,29 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <variablelist class="dbus-property" generated="True" extra-ref="StateDirectoryMode"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="StateDirectoryAccounting"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="StateDirectoryQuota"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="StateDirectory"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="CacheDirectorySymlink"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="CacheDirectoryMode"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="CacheDirectoryAccounting"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="CacheDirectoryQuota"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="CacheDirectory"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="LogsDirectorySymlink"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="LogsDirectoryMode"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="LogsDirectoryAccounting"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="LogsDirectoryQuota"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="LogsDirectory"/>
 
@@ -4654,6 +4702,12 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="MountImagePolicy"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ExtensionImagePolicy"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="StateDirectoryQuotaUsage"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="CacheDirectoryQuotaUsage"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="LogsDirectoryQuotaUsage"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="KillMode"/>
 
@@ -5449,17 +5503,29 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly u StateDirectoryMode = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b StateDirectoryAccounting = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly (tub) StateDirectoryQuota = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as StateDirectory = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly a(sst) CacheDirectorySymlink = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly u CacheDirectoryMode = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b CacheDirectoryAccounting = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly (tub) CacheDirectoryQuota = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as CacheDirectory = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly a(sst) LogsDirectorySymlink = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly u LogsDirectoryMode = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b LogsDirectoryAccounting = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly (tub) LogsDirectoryQuota = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as LogsDirectory = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -5512,6 +5578,12 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       readonly s MountImagePolicy = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s ExtensionImagePolicy = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly (bbtt) StateDirectoryQuotaUsage = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly (bbtt) CacheDirectoryQuotaUsage = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly (bbtt) LogsDirectoryQuotaUsage = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s KillMode = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -6060,9 +6132,21 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
 
     <!--property StateDirectoryMode is not documented!-->
 
+    <!--property StateDirectoryAccounting is not documented!-->
+
+    <!--property StateDirectoryQuota is not documented!-->
+
     <!--property CacheDirectoryMode is not documented!-->
 
+    <!--property CacheDirectoryAccounting is not documented!-->
+
+    <!--property CacheDirectoryQuota is not documented!-->
+
     <!--property LogsDirectoryMode is not documented!-->
+
+    <!--property LogsDirectoryAccounting is not documented!-->
+
+    <!--property LogsDirectoryQuota is not documented!-->
 
     <!--property ConfigurationDirectoryMode is not documented!-->
 
@@ -6109,6 +6193,12 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <!--property MountImagePolicy is not documented!-->
 
     <!--property ExtensionImagePolicy is not documented!-->
+
+    <!--property StateDirectoryQuotaUsage is not documented!-->
+
+    <!--property CacheDirectoryQuotaUsage is not documented!-->
+
+    <!--property LogsDirectoryQuotaUsage is not documented!-->
 
     <!--property KillMode is not documented!-->
 
@@ -6728,17 +6818,29 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
 
     <variablelist class="dbus-property" generated="True" extra-ref="StateDirectoryMode"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="StateDirectoryAccounting"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="StateDirectoryQuota"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="StateDirectory"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="CacheDirectorySymlink"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="CacheDirectoryMode"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="CacheDirectoryAccounting"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="CacheDirectoryQuota"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="CacheDirectory"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="LogsDirectorySymlink"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="LogsDirectoryMode"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="LogsDirectoryAccounting"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="LogsDirectoryQuota"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="LogsDirectory"/>
 
@@ -6791,6 +6893,12 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <variablelist class="dbus-property" generated="True" extra-ref="MountImagePolicy"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ExtensionImagePolicy"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="StateDirectoryQuotaUsage"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="CacheDirectoryQuotaUsage"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="LogsDirectoryQuotaUsage"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="KillMode"/>
 
@@ -7418,17 +7526,29 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly u StateDirectoryMode = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b StateDirectoryAccounting = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly (tub) StateDirectoryQuota = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as StateDirectory = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly a(sst) CacheDirectorySymlink = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly u CacheDirectoryMode = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b CacheDirectoryAccounting = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly (tub) CacheDirectoryQuota = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as CacheDirectory = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly a(sst) LogsDirectorySymlink = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly u LogsDirectoryMode = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b LogsDirectoryAccounting = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly (tub) LogsDirectoryQuota = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as LogsDirectory = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -7481,6 +7601,12 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       readonly s MountImagePolicy = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s ExtensionImagePolicy = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly (bbtt) StateDirectoryQuotaUsage = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly (bbtt) CacheDirectoryQuotaUsage = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly (bbtt) LogsDirectoryQuotaUsage = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s KillMode = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -7959,9 +8085,21 @@ node /org/freedesktop/systemd1/unit/home_2emount {
 
     <!--property StateDirectoryMode is not documented!-->
 
+    <!--property StateDirectoryAccounting is not documented!-->
+
+    <!--property StateDirectoryQuota is not documented!-->
+
     <!--property CacheDirectoryMode is not documented!-->
 
+    <!--property CacheDirectoryAccounting is not documented!-->
+
+    <!--property CacheDirectoryQuota is not documented!-->
+
     <!--property LogsDirectoryMode is not documented!-->
+
+    <!--property LogsDirectoryAccounting is not documented!-->
+
+    <!--property LogsDirectoryQuota is not documented!-->
 
     <!--property ConfigurationDirectoryMode is not documented!-->
 
@@ -8008,6 +8146,12 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <!--property MountImagePolicy is not documented!-->
 
     <!--property ExtensionImagePolicy is not documented!-->
+
+    <!--property StateDirectoryQuotaUsage is not documented!-->
+
+    <!--property CacheDirectoryQuotaUsage is not documented!-->
+
+    <!--property LogsDirectoryQuotaUsage is not documented!-->
 
     <!--property KillMode is not documented!-->
 
@@ -8543,17 +8687,29 @@ node /org/freedesktop/systemd1/unit/home_2emount {
 
     <variablelist class="dbus-property" generated="True" extra-ref="StateDirectoryMode"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="StateDirectoryAccounting"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="StateDirectoryQuota"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="StateDirectory"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="CacheDirectorySymlink"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="CacheDirectoryMode"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="CacheDirectoryAccounting"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="CacheDirectoryQuota"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="CacheDirectory"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="LogsDirectorySymlink"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="LogsDirectoryMode"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="LogsDirectoryAccounting"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="LogsDirectoryQuota"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="LogsDirectory"/>
 
@@ -8606,6 +8762,12 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <variablelist class="dbus-property" generated="True" extra-ref="MountImagePolicy"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ExtensionImagePolicy"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="StateDirectoryQuotaUsage"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="CacheDirectoryQuotaUsage"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="LogsDirectoryQuotaUsage"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="KillMode"/>
 
@@ -9360,17 +9522,29 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly u StateDirectoryMode = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b StateDirectoryAccounting = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly (tub) StateDirectoryQuota = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as StateDirectory = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly a(sst) CacheDirectorySymlink = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly u CacheDirectoryMode = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b CacheDirectoryAccounting = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly (tub) CacheDirectoryQuota = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as CacheDirectory = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly a(sst) LogsDirectorySymlink = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly u LogsDirectoryMode = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b LogsDirectoryAccounting = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly (tub) LogsDirectoryQuota = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as LogsDirectory = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -9423,6 +9597,12 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       readonly s MountImagePolicy = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s ExtensionImagePolicy = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly (bbtt) StateDirectoryQuotaUsage = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly (bbtt) CacheDirectoryQuotaUsage = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly (bbtt) LogsDirectoryQuotaUsage = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s KillMode = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -9883,9 +10063,21 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
 
     <!--property StateDirectoryMode is not documented!-->
 
+    <!--property StateDirectoryAccounting is not documented!-->
+
+    <!--property StateDirectoryQuota is not documented!-->
+
     <!--property CacheDirectoryMode is not documented!-->
 
+    <!--property CacheDirectoryAccounting is not documented!-->
+
+    <!--property CacheDirectoryQuota is not documented!-->
+
     <!--property LogsDirectoryMode is not documented!-->
+
+    <!--property LogsDirectoryAccounting is not documented!-->
+
+    <!--property LogsDirectoryQuota is not documented!-->
 
     <!--property ConfigurationDirectoryMode is not documented!-->
 
@@ -9932,6 +10124,12 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <!--property MountImagePolicy is not documented!-->
 
     <!--property ExtensionImagePolicy is not documented!-->
+
+    <!--property StateDirectoryQuotaUsage is not documented!-->
+
+    <!--property CacheDirectoryQuotaUsage is not documented!-->
+
+    <!--property LogsDirectoryQuotaUsage is not documented!-->
 
     <!--property KillMode is not documented!-->
 
@@ -10449,17 +10647,29 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
 
     <variablelist class="dbus-property" generated="True" extra-ref="StateDirectoryMode"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="StateDirectoryAccounting"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="StateDirectoryQuota"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="StateDirectory"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="CacheDirectorySymlink"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="CacheDirectoryMode"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="CacheDirectoryAccounting"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="CacheDirectoryQuota"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="CacheDirectory"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="LogsDirectorySymlink"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="LogsDirectoryMode"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="LogsDirectoryAccounting"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="LogsDirectoryQuota"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="LogsDirectory"/>
 
@@ -10512,6 +10722,12 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <variablelist class="dbus-property" generated="True" extra-ref="MountImagePolicy"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ExtensionImagePolicy"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="StateDirectoryQuotaUsage"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="CacheDirectoryQuotaUsage"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="LogsDirectoryQuotaUsage"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="KillMode"/>
 
@@ -12033,6 +12249,15 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <para><varname>WantsMountsFor</varname> was added in version 256.</para>
       <para><varname>DebugInvocation</varname>, and
       <varname>CanLiveMount</varname> were added in version 257.</para>
+      <para><varname>StateDirectoryQuota</varname>,
+      <varname>StateDirectoryAccounting</varname>,
+      <varname>StateDirectoryQuotaUsage</varname>,
+      <varname>CacheDirectoryQuota</varname>,
+      <varname>CacheDirectoryAccounting</varname>,
+      <varname>CacheDirectoryQuotaUsage</varname>,
+      <varname>LogsDirectoryQuota</varname>,
+      <varname>LogsDirectoryAccounting</varname>, and
+      <varname>LogsDirectoryQuotaUsage</varname>, were added in version 258.</para>
     </refsect2>
     <refsect2>
       <title>Service Unit Objects</title>
@@ -12088,8 +12313,14 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>PrivateUsersEx</varname>, and
       <varname>PrivatePIDs</varname> were added in version 257.</para>
       <para><varname>ProtectHostnameEx</varname>,
-      <varname>DelegateNamespaces</varname>, and
-      <function>RemoveSubGroup()</function> were added in version 258.</para>
+      <varname>DelegateNamespaces</varname>,
+      <function>RemoveSubGroup()</function>,
+      <varname>StateDirectoryQuota</varname>,
+      <varname>StateDirectoryAccounting</varname>,
+      <varname>CacheDirectoryQuota</varname>,
+      <varname>CacheDirectoryAccounting</varname>,
+      <varname>LogsDirectoryQuota</varname>, and
+      <varname>LogsDirectoryAccounting</varname>, were added in version 258.</para>
     </refsect2>
     <refsect2>
       <title>Socket Unit Objects</title>
