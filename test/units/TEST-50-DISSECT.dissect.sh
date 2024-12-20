@@ -615,6 +615,10 @@ grep -q -F '{"name":"b","type":"raw","class":"portable","ro":false,"path":"/run/
 grep -q -F '{"name":"c","type":"raw","class":"sysext","ro":false,"path":"/run/extensions/c.raw"' /tmp/discover.json
 rm /tmp/discover.json /run/machines/a.raw /run/portables/b.raw /run/extensions/c.raw
 
+systemd-dissect --discover --system
+systemd-dissect --discover --user
+systemd-dissect --discover --system --user
+
 LOOP="$(systemd-dissect --attach --loop-ref=waldo "$MINIMAL_IMAGE.raw")"
 
 # Wait until the symlinks we want to test are established
