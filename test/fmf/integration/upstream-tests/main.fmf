@@ -1,0 +1,41 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+summary: Run the upstream integration test suite
+test: ./test.sh
+duration: 2h
+require:
+    - coreutils
+    - distribution-gpg-keys
+    - dnf
+    - dnsmasq
+    - dosfstools
+    - e2fsprogs
+    - elfutils
+    - findutils
+    - gcc
+    - git-core
+    - gperf
+    - integritysetup
+    - libcap-devel
+    - libmount-devel
+    - koji
+    - meson
+    - python3-jinja2
+    - python3-pytest
+    - qemu-kvm
+    - qemu-system-aarch64
+    - rpm-build
+    - squashfs-tools
+    - strace
+    - swtpm
+    - swtpm-tools
+    - systemd-container
+    - systemd-udev
+    - systemd-ukify
+    - tpm2-tools
+    - util-linux
+    - zstd
+recommend:
+    - dnf-plugins-core
+    - dnf5-plugins
+    - systemd-journal-remote
