@@ -377,6 +377,9 @@ typedef struct Unit {
          * ones which might have appeared. */
         sd_event_source *rewatch_pids_event_source;
 
+        /* A bus name that we are watching. Only one name is supported. */
+        char *bus_name;
+
         /* How to start OnSuccess=/OnFailure= units */
         JobMode on_success_job_mode;
         JobMode on_failure_job_mode;
