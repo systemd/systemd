@@ -46,6 +46,8 @@ typedef struct Manager {
         Hashmap *polkit_registry;
 
         sd_event_source *notify_event;
+
+        RuntimeScope runtime_scope; /* For now only RUNTIME_SCOPE_SYSTEM */
 } Manager;
 
 /* Forward declare so that jobs can call it on exit */
@@ -1730,9 +1732,13 @@ static int manager_new(Manager **ret) {
 
         assert(ret);
 
-        m = new0(Manager, 1);
+        m = new(Manager, 1);
         if (!m)
                 return -ENOMEM;
+
+        *m = (Manager) {
+                .runtime_scope = RUNTIME_SCOPE_SYSTEM,
+        };
 
         r = sd_event_default(&m->event);
         if (r < 0)
@@ -1795,7 +1801,7 @@ static int manager_enumerate_image_class(Manager *m, TargetClass class) {
         if (!images)
                 return -ENOMEM;
 
-        r = image_discover((ImageClass) class, NULL, images);
+        r = image_discover(m->runtime_scope, (ImageClass) class, NULL, images);
         if (r < 0)
                 return r;
 
