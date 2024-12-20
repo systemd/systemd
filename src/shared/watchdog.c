@@ -311,11 +311,15 @@ static int watchdog_update_timeout(void) {
 }
 
 static int watchdog_open(void) {
+        static RateLimit watchdog_open_ratelimit = { 5 * USEC_PER_SEC, 1 };
         struct watchdog_info ident;
         char **try_order;
         int r;
 
         assert(watchdog_fd < 0);
+
+        if (!ratelimit_below(&watchdog_open_ratelimit))
+                return -EWOULDBLOCK;
 
         /* Let's prefer new-style /dev/watchdog0 (i.e. kernel 3.5+) over classic /dev/watchdog. The former
          * has the benefit that we can easily find the matching directory in sysfs from it, as the relevant
