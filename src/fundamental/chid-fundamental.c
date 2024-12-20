@@ -42,7 +42,7 @@ static void get_chid(
         static const EFI_GUID namespace = { UINT32_C(0x12d8ff70), UINT16_C(0x7f4c), UINT16_C(0x7d4c), {} }; /* Swapped to BE */
         sha1_process_bytes(&namespace, sizeof(namespace), &ctx);
 
-        for (unsigned i = 0; i < _CHID_SMBIOS_FIELDS_MAX; i++) {
+        for (ChidSmbiosFields i = 0; i < _CHID_SMBIOS_FIELDS_MAX; i++) {
                 if (!((mask >> i) & 1))
                         continue;
 
