@@ -60,6 +60,7 @@ static const char *user_disposition_to_color(UserDisposition d) {
                 return ansi_green();
 
         case USER_CONTAINER:
+        case USER_FOREIGN:
                 return ansi_cyan();
 
         case USER_RESERVED:
@@ -168,6 +169,12 @@ static const struct {
                 .last = CONTAINER_UID_MAX,
                 .name = "container",
                 .disposition = USER_CONTAINER,
+        },
+        {
+                .first = FOREIGN_UID_MIN,
+                .last = FOREIGN_UID_MAX,
+                .name = "foreign",
+                .disposition = USER_FOREIGN,
         },
 #if ENABLE_HOMED
         {
@@ -1329,7 +1336,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'N':
-                        arg_userdb_flags |= USERDB_EXCLUDE_NSS|USERDB_DONT_SYNTHESIZE;
+                        arg_userdb_flags |= USERDB_EXCLUDE_NSS|USERDB_DONT_SYNTHESIZE_INTRINSIC|USERDB_DONT_SYNTHESIZE_FOREIGN;
                         break;
 
                 case ARG_WITH_NSS:
@@ -1361,7 +1368,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
 
-                        SET_FLAG(arg_userdb_flags, USERDB_DONT_SYNTHESIZE, !r);
+                        SET_FLAG(arg_userdb_flags, USERDB_DONT_SYNTHESIZE_INTRINSIC|USERDB_DONT_SYNTHESIZE_FOREIGN, !r);
                         break;
 
                 case ARG_MULTIPLEXER:
