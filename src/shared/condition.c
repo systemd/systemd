@@ -21,6 +21,7 @@
 #include "battery-util.h"
 #include "blockdev-util.h"
 #include "cap-list.h"
+#include "capability-util.h"
 #include "cgroup-util.h"
 #include "compare-operator.h"
 #include "condition.h"
@@ -701,45 +702,23 @@ static int condition_test_security(Condition *c, char **env) {
 }
 
 static int condition_test_capability(Condition *c, char **env) {
-        unsigned long long capabilities = (unsigned long long) -1;
-        _cleanup_fclose_ FILE *f = NULL;
-        int value, r;
+        int r;
 
         assert(c);
         assert(c->parameter);
         assert(c->type == CONDITION_CAPABILITY);
 
         /* If it's an invalid capability, we don't have it */
-        value = capability_from_name(c->parameter);
+        int value = capability_from_name(c->parameter);
         if (value < 0)
                 return -EINVAL;
 
-        /* If it's a valid capability we default to assume
-         * that we have it */
+        CapabilityQuintet q;
+        r = pidref_get_capability(&PIDREF_MAKE_FROM_PID(getpid_cached()), &q);
+        if (r < 0)
+                return r;
 
-        f = fopen("/proc/self/status", "re");
-        if (!f)
-                return -errno;
-
-        for (;;) {
-                _cleanup_free_ char *line = NULL;
-
-                r = read_line(f, LONG_LINE_MAX, &line);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        break;
-
-                const char *p = startswith(line, "CapBnd:");
-                if (p) {
-                        if (sscanf(p, "%llx", &capabilities) != 1)
-                                return -EIO;
-
-                        break;
-                }
-        }
-
-        return !!(capabilities & (1ULL << value));
+        return !!(q.bounding & ((UINT64_C(1) << value)));
 }
 
 static int condition_test_needs_update(Condition *c, char **env) {
