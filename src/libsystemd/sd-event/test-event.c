@@ -526,7 +526,7 @@ static void test_inotify_one(unsigned n_create_events) {
                 char buf[DECIMAL_STR_MAX(unsigned)+1];
                 _cleanup_free_ char *z = NULL;
 
-                xsprintf(buf, "%u", i);
+                xsprintf(buf, DECIMAL_STR_FMT(i), i);
                 assert_se(z = path_join(p, buf));
 
                 assert_se(touch(z) >= 0);
