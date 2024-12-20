@@ -482,6 +482,18 @@ int watchdog_ping(void) {
         return watchdog_ping_now();
 }
 
+void watchdog_report_missing(void) {
+        /* If we failed to open the watchdog because the device doesn't exist, report why. If we successfully
+         * opened a device, or opening failed for a different reason, we logged then. But ENOENT failure may
+         * be transient, for example because modules being loaded or the hardware is being detected. This
+         * function can be called to log after things have settled down. */
+        if (watchdog_fd == -ENOENT)
+                log_debug_errno(watchdog_fd, "Failed to open %swatchdog device%s%s: %m",
+                                watchdog_device ? "" : "any ",
+                                watchdog_device ? " " : "",
+                                strempty(watchdog_device));
+}
+
 void watchdog_close(bool disarm) {
 
         /* Once closed, pinging the device becomes a NOP and we request a new
