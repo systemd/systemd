@@ -116,6 +116,11 @@ static int smbios_fields_acquire(char16_t *fields[static _CHID_SMBIOS_FIELDS_MAX
                 [CHID_SMBIOS_PRODUCT_SKU]            = "product_sku",
                 [CHID_SMBIOS_BASEBOARD_MANUFACTURER] = "board_vendor",
                 [CHID_SMBIOS_BASEBOARD_PRODUCT]      = "board_name",
+                [CHID_SMBIOS_BIOS_VENDOR]            = "bios_vendor",
+                [CHID_SMBIOS_BIOS_VERSION]           = "bios_version",
+                [CHID_SMBIOS_BIOS_MAJOR]             = "bios_release",
+                [CHID_SMBIOS_BIOS_MINOR]             = "bios_release",
+                [CHID_SMBIOS_ENCLOSURE_TYPE]         = "chassis_type",
         };
 
         int r;
@@ -150,7 +155,65 @@ static int smbios_fields_acquire(char16_t *fields[static _CHID_SMBIOS_FIELDS_MAX
                 if (buf[size-1] != '\n')
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expected SMBIOS field '%s' to end in newline, but it doesn't, refusing.", smbios_files[f]);
 
+                buf[size-1] = 0;
                 size--;
+
+                switch (f) {
+
+                case CHID_SMBIOS_BIOS_MAJOR:
+                case CHID_SMBIOS_BIOS_MINOR: {
+                        /* The kernel exposes this a string <major>.<minor>, split them apart again. */
+                        char *dot = memchr(buf, '.', size);
+                        if (!dot)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "BIOS release field '%s' contains no dot?", smbios_files[f]);
+
+                        const char *p;
+                        if (f == CHID_SMBIOS_BIOS_MAJOR) {
+                                *dot = 0;
+                                p = buf;
+                        } else {
+                                assert(f == CHID_SMBIOS_BIOS_MINOR);
+                                p = dot + 1;
+                        }
+
+                        /* The kernel exports the enclosure in decimal, we need it in hex (zero left-padded) */
+
+                        uint8_t u;
+                        r = safe_atou8(p, &u);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse BIOS release: %s", p);
+
+                        buf = mfree(buf);
+                        if (asprintf(&buf, "%02x", u) < 0)
+                                return log_oom();
+
+                        size = strlen(buf);
+                        break;
+                }
+
+                case CHID_SMBIOS_ENCLOSURE_TYPE: {
+                        /* The kernel exports the enclosure in decimal, we need it in hex (no padding!) */
+
+                        uint8_t u;
+                        r = safe_atou8(buf, &u);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse enclosure type: %s", buf);
+
+                        buf = mfree(buf);
+                        if (u == 0)
+                                buf = strdup(""); /* zero is mapped to empty string */
+                        else
+                                (void) asprintf(&buf, "%x", u);
+                        if (!buf)
+                                return log_oom();
+
+                        size = strlen(buf);
+                        break;
+                }
+
+                default:
+                        break;
+                }
 
                 fields[f] = utf8_to_utf16(buf, size);
                 if (!fields[f])
