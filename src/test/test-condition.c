@@ -819,7 +819,7 @@ TEST(condition_test_group) {
         ASSERT_OK_ZERO(r);
         condition_free(condition);
 
-        xsprintf(gid, "%u", getgid());
+        xsprintf(gid, DECIMAL_STR_FMT(getgid()), getgid());
         ASSERT_NOT_NULL(condition = condition_new(CONDITION_GROUP, gid, false, false));
         r = condition_test(condition, environ);
         log_info("ConditionGroup=%s → %i", gid, r);
@@ -838,7 +838,7 @@ TEST(condition_test_group) {
         for (i = 0; i < ngroups; i++) {
                 _cleanup_free_ char *name = NULL;
 
-                xsprintf(gid, "%u", gids[i]);
+                xsprintf(gid, DECIMAL_STR_FMT(gids[i]), gids[i]);
                 ASSERT_NOT_NULL(condition = condition_new(CONDITION_GROUP, gid, false, false));
                 r = condition_test(condition, environ);
                 log_info("ConditionGroup=%s → %i", gid, r);
@@ -858,7 +858,7 @@ TEST(condition_test_group) {
                 max_gid = gids[i] > max_gid ? gids[i] : max_gid;
         }
 
-        xsprintf(gid, "%u", max_gid + 1);
+        xsprintf(gid, DECIMAL_STR_FMT(max_gid + 1), max_gid + 1);
         ASSERT_NOT_NULL(condition = condition_new(CONDITION_GROUP, gid, false, false));
         r = condition_test(condition, environ);
         log_info("ConditionGroup=%s → %i", gid, r);

@@ -61,7 +61,7 @@ TEST(strpcpyf) {
         assert_se(space_left == 3);
         ASSERT_STREQ(target, "space left: 25. foobar");
 
-        space_left = strpcpyf_full(&s, space_left, &truncated, "%i", 42);
+        space_left = strpcpyf_full(&s, space_left, &truncated, DECIMAL_STR_FMT(42), 42);
         assert_se(!truncated);
         assert_se(space_left == 1);
         ASSERT_STREQ(target, "space left: 25. foobar42");

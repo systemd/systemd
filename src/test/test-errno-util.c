@@ -36,7 +36,7 @@ TEST(STRERROR) {
 
         const char *c = STRERROR(INT_MAX);
         char buf[DECIMAL_STR_MAX(int)];
-        xsprintf(buf, "%d", INT_MAX);  /* INT_MAX is hexadecimal, use printf to convert to decimal */
+        xsprintf(buf, DECIMAL_STR_FMT(INT_MAX), INT_MAX);  /* INT_MAX is hexadecimal, use printf to convert to decimal */
         log_info("STRERROR(%d) → %s", INT_MAX, c);
         assert_se(strstr(c, buf));
 }
