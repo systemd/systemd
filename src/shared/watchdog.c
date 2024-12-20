@@ -312,8 +312,7 @@ static int watchdog_open(void) {
         char **try_order;
         int r;
 
-        if (watchdog_fd >= 0)
-                return 0;
+        assert(watchdog_fd < 0);
 
         /* Let's prefer new-style /dev/watchdog0 (i.e. kernel 3.5+) over classic /dev/watchdog. The former
          * has the benefit that we can easily find the matching directory in sysfs from it, as the relevant
@@ -446,15 +445,13 @@ usec_t watchdog_runtime_wait(void) {
                 usec_t ntime = now(CLOCK_BOOTTIME);
 
                 assert(ntime >= watchdog_last_ping);
-                return usec_sub_unsigned(watchdog_last_ping + (timeout / 2), ntime);
+                return usec_sub_unsigned(watchdog_last_ping + timeout/2, ntime);
         }
 
         return timeout / 2;
 }
 
 int watchdog_ping(void) {
-        usec_t ntime, timeout;
-
         if (watchdog_timeout == 0)
                 return 0;
 
@@ -462,14 +459,15 @@ int watchdog_ping(void) {
                 /* open_watchdog() will automatically ping the device for us if necessary */
                 return watchdog_open();
 
-        ntime = now(CLOCK_BOOTTIME);
-        timeout = watchdog_calc_timeout();
-
         /* Never ping earlier than watchdog_timeout/4 and try to ping
          * by watchdog_timeout/2 plus scheduling latencies at the latest */
         if (timestamp_is_set(watchdog_last_ping)) {
+                usec_t ntime = now(CLOCK_BOOTTIME),
+                       timeout = watchdog_calc_timeout();
+
                 assert(ntime >= watchdog_last_ping);
-                if ((ntime - watchdog_last_ping) < (timeout / 4))
+
+                if (ntime - watchdog_last_ping < timeout/4)
                         return 0;
         }
 
