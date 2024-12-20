@@ -16,6 +16,7 @@
 #include "fileio.h"
 #include "macro.h"
 #include "missing_threads.h"
+#include "namespace-util.h"
 #include "process-util.h"
 #include "stat-util.h"
 #include "string-table.h"
