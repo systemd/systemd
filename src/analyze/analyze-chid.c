@@ -120,11 +120,26 @@ int verb_chid(int argc, char *argv[], void *userdata) {
                 _cleanup_free_ char *buf = NULL;
                 size_t size;
 
+                /* According to the CHID spec we should not generate CHIDs for SMBIOS fields that aren't set
+                 * or are set to an empty string. Hence leave them NULL here. */
+
+                if (!smbios_files[f])
+                        continue;
+
                 r = read_virtual_file_at(smbios_fd, smbios_files[f], SIZE_MAX, &buf, &size);
+                if (r == -ENOENT) {
+                        log_debug_errno(r, "SMBIOS field '%s' not set, skipping.", smbios_files[f]);
+                        continue;
+                }
                 if (r < 0)
                         return log_error_errno(r, "Failed to read SMBIOS field '%s': %m", smbios_files[f]);
 
-                if (size < 1 || buf[size-1] != '\n')
+                if (size == 0 || (size == 1 && buf[0] == '\n')) {
+                        log_debug("SMBIOS field '%s' is empty, skipping.", smbios_files[f]);
+                        continue;
+                }
+
+                if (buf[size-1] != '\n')
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expected SMBIOS field '%s' to end in newline, but it doesn't, refusing.", smbios_files[f]);
 
                 size--;
@@ -172,9 +187,13 @@ int verb_chid(int argc, char *argv[], void *userdata) {
                         return log_oom();
 
                 for (ChidSmbiosFields f = 0; f < _CHID_SMBIOS_FIELDS_MAX; f++) {
-                        _cleanup_free_ char *c = utf16_to_utf8(smbios_fields[f], SIZE_MAX);
-                        if (!c)
-                                return log_oom();
+                        _cleanup_free_ char *c = NULL;
+
+                        if (smbios_fields[f]) {
+                                c = utf16_to_utf8(smbios_fields[f], SIZE_MAX);
+                                if (!c)
+                                        return log_oom();
+                        }
 
                         if (!strextend(&legend,
                                        ansi_grey(),
@@ -191,8 +210,8 @@ int verb_chid(int argc, char *argv[], void *userdata) {
                                        smbios_files[f],
                                        ansi_grey(),
                                        " (",
-                                       ansi_highlight(),
-                                       c,
+                                       c ? ansi_highlight() : ansi_grey(),
+                                       strna(c),
                                        ansi_grey(),
                                        ")",
                                        ansi_normal()))
@@ -202,7 +221,7 @@ int verb_chid(int argc, char *argv[], void *userdata) {
                                 4 +
                                 utf8_console_width(smbios_files[f]) +
                                 2 +
-                                utf8_console_width(c) +
+                                utf8_console_width(strna(c)) +
                                 1;
 
                         if (w > 79) {
