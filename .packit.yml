@@ -57,8 +57,7 @@ jobs:
 
 - job: tests
   trigger: pull_request
-  fmf_url: https://src.fedoraproject.org/tests/systemd
-  fmf_ref: main
+  fmf_path: test/fmf
   tmt_plan: ci
   targets:
   - fedora-rawhide-x86_64
