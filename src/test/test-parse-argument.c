@@ -45,7 +45,7 @@ TEST(parse_signal_argument) {
         assert_se(signal == SIGABRT);
 
         char buf[DECIMAL_STR_MAX(int)];
-        xsprintf(buf, "%d", SIGABRT);
+        xsprintf(buf, DECIMAL_STR_FMT(SIGABRT), SIGABRT);
         assert_se(parse_signal_argument(buf, &signal) == 1);
         assert_se(signal == SIGABRT);
 }

@@ -763,7 +763,7 @@ TEST(hashmap_free) {
                         char s[DECIMAL_STR_MAX(unsigned)];
                         char *k, *v;
 
-                        xsprintf(s, "%u", i);
+                        xsprintf(s, DECIMAL_STR_FMT(i), i);
                         assert_se(k = strdup(s));
                         assert_se(v = strdup(s));
                         custom_counter += 2;
