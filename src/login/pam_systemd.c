@@ -1047,6 +1047,10 @@ static int register_session(
         if (!logind_running())
                 goto skip;
 
+        /* We don't register session class none with logind */
+        if (streq(c->class, "none"))
+                goto skip;
+
         /* Talk to logind over the message bus */
         r = pam_acquire_bus_connection(handle, "pam-systemd", debug, &bus, &d);
         if (r != PAM_SUCCESS)
