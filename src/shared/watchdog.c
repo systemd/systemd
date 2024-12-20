@@ -195,10 +195,13 @@ usec_t watchdog_get_last_ping(clockid_t clock) {
 }
 
 static int watchdog_ping_now(void) {
+        int r;
+
         assert(watchdog_fd >= 0);
 
-        if (ioctl(watchdog_fd, WDIOC_KEEPALIVE, 0) < 0)
-                return log_warning_errno(errno, "Failed to ping hardware watchdog, ignoring: %m");
+        r = RET_NERRNO(ioctl(watchdog_fd, WDIOC_KEEPALIVE, 0));
+        if (r < 0)
+                return log_warning_errno(r, "Failed to ping hardware watchdog, ignoring: %m");
 
         watchdog_last_ping = now(CLOCK_BOOTTIME);
 
@@ -308,12 +311,15 @@ static int watchdog_update_timeout(void) {
 }
 
 static int watchdog_open(void) {
+        static RateLimit watchdog_open_ratelimit = { 5 * USEC_PER_SEC, 1 };
         struct watchdog_info ident;
         char **try_order;
         int r;
 
-        if (watchdog_fd >= 0)
-                return 0;
+        assert(watchdog_fd < 0);
+
+        if (!ratelimit_below(&watchdog_open_ratelimit))
+                return -EWOULDBLOCK;
 
         /* Let's prefer new-style /dev/watchdog0 (i.e. kernel 3.5+) over classic /dev/watchdog. The former
          * has the benefit that we can easily find the matching directory in sysfs from it, as the relevant
@@ -323,7 +329,7 @@ static int watchdog_open(void) {
                 STRV_MAKE("/dev/watchdog0", "/dev/watchdog") : STRV_MAKE(watchdog_device);
 
         STRV_FOREACH(wd, try_order) {
-                watchdog_fd = open(*wd, O_WRONLY|O_CLOEXEC);
+                watchdog_fd = RET_NERRNO(open(*wd, O_WRONLY|O_CLOEXEC));
                 if (watchdog_fd >= 0) {
                         if (free_and_strdup(&watchdog_device, *wd) < 0) {
                                 r = log_oom_debug();
@@ -333,22 +339,27 @@ static int watchdog_open(void) {
                         break;
                 }
 
-                if (errno != ENOENT)
-                        return log_debug_errno(errno, "Failed to open watchdog device %s: %m", *wd);
+                if (watchdog_fd != -ENOENT)
+                        return log_warning_errno(watchdog_fd, "Failed to open watchdog device %s: %m", *wd);
         }
 
         if (watchdog_fd < 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(ENOENT), "Failed to open watchdog device %s.", watchdog_device ?: "auto");
+                return log_debug_errno(watchdog_fd, "Failed to open %swatchdog device%s%s.",
+                                       watchdog_device ? "" : "any ",
+                                       watchdog_device ? " " : "",
+                                       strempty(watchdog_device));
 
         watchdog_last_ping = USEC_INFINITY;
 
-        if (ioctl(watchdog_fd, WDIOC_GETSUPPORT, &ident) < 0)
-                log_debug_errno(errno, "Hardware watchdog %s does not support WDIOC_GETSUPPORT ioctl, ignoring: %m", watchdog_device);
+        r = RET_NERRNO(ioctl(watchdog_fd, WDIOC_GETSUPPORT, &ident));
+        if (r < 0)
+                log_info_errno(r, "Using hardware watchdog %s, no support for WDIOC_GETSUPPORT ioctl: %m",
+                               watchdog_device);
         else
-                log_info("Using hardware watchdog '%s', version %x, device %s",
+                log_info("Using hardware watchdog %s: '%s', version %x.",
+                         watchdog_device,
                          ident.identity,
-                         ident.firmware_version,
-                         watchdog_device);
+                         ident.firmware_version),
 
         r = watchdog_update_timeout();
         if (r < 0)
@@ -446,15 +457,13 @@ usec_t watchdog_runtime_wait(void) {
                 usec_t ntime = now(CLOCK_BOOTTIME);
 
                 assert(ntime >= watchdog_last_ping);
-                return usec_sub_unsigned(watchdog_last_ping + (timeout / 2), ntime);
+                return usec_sub_unsigned(watchdog_last_ping + timeout/2, ntime);
         }
 
         return timeout / 2;
 }
 
 int watchdog_ping(void) {
-        usec_t ntime, timeout;
-
         if (watchdog_timeout == 0)
                 return 0;
 
@@ -462,18 +471,31 @@ int watchdog_ping(void) {
                 /* open_watchdog() will automatically ping the device for us if necessary */
                 return watchdog_open();
 
-        ntime = now(CLOCK_BOOTTIME);
-        timeout = watchdog_calc_timeout();
-
         /* Never ping earlier than watchdog_timeout/4 and try to ping
          * by watchdog_timeout/2 plus scheduling latencies at the latest */
         if (timestamp_is_set(watchdog_last_ping)) {
+                usec_t ntime = now(CLOCK_BOOTTIME),
+                       timeout = watchdog_calc_timeout();
+
                 assert(ntime >= watchdog_last_ping);
-                if ((ntime - watchdog_last_ping) < (timeout / 4))
+
+                if (ntime - watchdog_last_ping < timeout/4)
                         return 0;
         }
 
         return watchdog_ping_now();
+}
+
+void watchdog_report_missing(void) {
+        /* If we failed to open the watchdog because the device doesn't exist, report why. If we successfully
+         * opened a device, or opening failed for a different reason, we logged then. But ENOENT failure may
+         * be transient, for example because modules being loaded or the hardware is being detected. This
+         * function can be called to log after things have settled down. */
+        if (watchdog_fd == -ENOENT)
+                log_debug_errno(watchdog_fd, "Failed to open %swatchdog device%s%s: %m",
+                                watchdog_device ? "" : "any ",
+                                watchdog_device ? " " : "",
+                                strempty(watchdog_device));
 }
 
 void watchdog_close(bool disarm) {
