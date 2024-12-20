@@ -28,22 +28,35 @@
 #include "memory-util-fundamental.h"
 #include "sha1-fundamental.h"
 
-static void get_chid(const char16_t *const smbios_fields[static _CHID_SMBIOS_FIELDS_MAX], uint32_t mask, EFI_GUID *ret_chid) {
+static void get_chid(
+                const char16_t *const smbios_fields[static _CHID_SMBIOS_FIELDS_MAX],
+                uint32_t mask,
+                EFI_GUID *ret_chid) {
+
         assert(mask != 0);
         assert(ret_chid);
-        const EFI_GUID namespace = { UINT32_C(0x12d8ff70), UINT16_C(0x7f4c), UINT16_C(0x7d4c), {} }; /* Swapped to BE */
 
         struct sha1_ctx ctx = {};
         sha1_init_ctx(&ctx);
 
+        static const EFI_GUID namespace = { UINT32_C(0x12d8ff70), UINT16_C(0x7f4c), UINT16_C(0x7d4c), {} }; /* Swapped to BE */
         sha1_process_bytes(&namespace, sizeof(namespace), &ctx);
 
-        for (unsigned i = 0; i < _CHID_SMBIOS_FIELDS_MAX; i++)
-                if ((mask >> i) & 1) {
-                        if (i > 0)
-                                sha1_process_bytes(L"&", 2, &ctx);
-                        sha1_process_bytes(smbios_fields[i], strlen16(smbios_fields[i]) * sizeof(char16_t), &ctx);
+        for (ChidSmbiosFields i = 0; i < _CHID_SMBIOS_FIELDS_MAX; i++) {
+                if (!FLAGS_SET(mask, UINT32_C(1) << i))
+                        continue;
+
+                if (!smbios_fields[i]) {
+                        /* If some SMBIOS field is missing, don't generate the CHID, as per spec */
+                        memzero(ret_chid, sizeof(EFI_GUID));
+                        return;
                 }
+
+                if (i > 0)
+                        sha1_process_bytes(L"&", 2, &ctx);
+
+                sha1_process_bytes(smbios_fields[i], strlen16(smbios_fields[i]) * sizeof(char16_t), &ctx);
+        }
 
         uint8_t hash[SHA1_DIGEST_SIZE];
         sha1_finish_ctx(&ctx, hash);
@@ -62,6 +75,30 @@ static void get_chid(const char16_t *const smbios_fields[static _CHID_SMBIOS_FIE
 }
 
 const uint32_t chid_smbios_table[CHID_TYPES_MAX] = {
+        [0] = (UINT32_C(1) << CHID_SMBIOS_MANUFACTURER) |
+              (UINT32_C(1) << CHID_SMBIOS_FAMILY) |
+              (UINT32_C(1) << CHID_SMBIOS_PRODUCT_NAME) |
+              (UINT32_C(1) << CHID_SMBIOS_PRODUCT_SKU) |
+              (UINT32_C(1) << CHID_SMBIOS_BIOS_VENDOR) |
+              (UINT32_C(1) << CHID_SMBIOS_BIOS_VERSION) |
+              (UINT32_C(1) << CHID_SMBIOS_BIOS_MAJOR) |
+              (UINT32_C(1) << CHID_SMBIOS_BIOS_MINOR),
+
+        [1] = (UINT32_C(1) << CHID_SMBIOS_MANUFACTURER) |
+              (UINT32_C(1) << CHID_SMBIOS_FAMILY) |
+              (UINT32_C(1) << CHID_SMBIOS_PRODUCT_NAME) |
+              (UINT32_C(1) << CHID_SMBIOS_BIOS_VENDOR) |
+              (UINT32_C(1) << CHID_SMBIOS_BIOS_VERSION) |
+              (UINT32_C(1) << CHID_SMBIOS_BIOS_MAJOR) |
+              (UINT32_C(1) << CHID_SMBIOS_BIOS_MINOR),
+
+        [2] = (UINT32_C(1) << CHID_SMBIOS_MANUFACTURER) |
+              (UINT32_C(1) << CHID_SMBIOS_PRODUCT_NAME) |
+              (UINT32_C(1) << CHID_SMBIOS_BIOS_VENDOR) |
+              (UINT32_C(1) << CHID_SMBIOS_BIOS_VERSION) |
+              (UINT32_C(1) << CHID_SMBIOS_BIOS_MAJOR) |
+              (UINT32_C(1) << CHID_SMBIOS_BIOS_MINOR),
+
         [3] = (UINT32_C(1) << CHID_SMBIOS_MANUFACTURER) |
               (UINT32_C(1) << CHID_SMBIOS_FAMILY) |
               (UINT32_C(1) << CHID_SMBIOS_PRODUCT_NAME) |
@@ -102,18 +139,26 @@ const uint32_t chid_smbios_table[CHID_TYPES_MAX] = {
         [11] = (UINT32_C(1) << CHID_SMBIOS_MANUFACTURER) |
                (UINT32_C(1) << CHID_SMBIOS_FAMILY),
 
+        [12] = (UINT32_C(1) << CHID_SMBIOS_MANUFACTURER) |
+               (UINT32_C(1) << CHID_SMBIOS_ENCLOSURE_TYPE),
+
         [13] = (UINT32_C(1) << CHID_SMBIOS_MANUFACTURER) |
                (UINT32_C(1) << CHID_SMBIOS_BASEBOARD_MANUFACTURER) |
                (UINT32_C(1) << CHID_SMBIOS_BASEBOARD_PRODUCT),
+
+        [14] = (UINT32_C(1) << CHID_SMBIOS_MANUFACTURER),
 };
 
 void chid_calculate(const char16_t *const smbios_fields[static _CHID_SMBIOS_FIELDS_MAX], EFI_GUID ret_chids[static CHID_TYPES_MAX]) {
         assert(smbios_fields);
         assert(ret_chids);
 
-        for (size_t i = 0; i < CHID_TYPES_MAX; i++)
-                if (chid_smbios_table[i] != 0)
-                        get_chid(smbios_fields, chid_smbios_table[i], &ret_chids[i]);
-                else
+        for (size_t i = 0; i < CHID_TYPES_MAX; i++) {
+                if (chid_smbios_table[i] == 0) {
                         memzero(&ret_chids[i], sizeof(EFI_GUID));
+                        continue;
+                }
+
+                get_chid(smbios_fields, chid_smbios_table[i], &ret_chids[i]);
+        }
 }
