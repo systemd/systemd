@@ -1,27 +1,39 @@
 #!/bin/bash
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-if command -v flatpak-spawn >/dev/null; then
-    SPAWN=(flatpak-spawn --host)
-else
-    SPAWN=()
+set -eu
+
+# Check if we are already inside the mkosi sandbox
+if [ -z "${MKOSI_CONFIG-}" ]; then
+    if command -v flatpak-spawn >/dev/null; then
+        MKOSI=(flatpak-spawn --host mkosi)
+    else
+        MKOSI=(mkosi)
+    fi
+
+    # shellcheck disable=SC2093 # exec not last command
+    exec "${MKOSI[@]}" \
+        --incremental=strict \
+        --build-sources-ephemeral=no \
+        --format=none \
+        --environment=NO_BUILD=1 \
+        --build-script= \
+        --build-script="$(realpath "$0")" \
+        build
+        "$@"
 fi
 
-MKOSI_CONFIG="$("${SPAWN[@]}" --host mkosi --json summary | jq -r .Images[-1])"
-DISTRIBUTION="$(jq -r .Distribution <<< "$MKOSI_CONFIG")"
-RELEASE="$(jq -r .Release <<< "$MKOSI_CONFIG")"
-ARCH="$(jq -r .Architecture <<< "$MKOSI_CONFIG")"
+DISTRIBUTION="$(jq -r .Distribution "$MKOSI_CONFIG")"
+RELEASE="$(jq -r .Release "$MKOSI_CONFIG")"
+ARCH="$(jq -r .Architecture "$MKOSI_CONFIG")"
 
-exec "${SPAWN[@]}" mkosi \
-    --incremental=strict \
-    --build-sources-ephemeral=no \
-    --format=none \
-    build \
-    clangd \
+BUILD_DIRECTORY="$(jq -r .BuildDirectory "$MKOSI_CONFIG")"
+CACHE_DIRECTORY="$(jq -r .CacheDirectory "$MKOSI_CONFIG")"
+
+exec clangd \
     --compile-commands-dir=/work/build \
     --path-mappings="\
-$(pwd)=/work/src,\
-$(pwd)/build/mkosi.builddir/$DISTRIBUTION~$RELEASE~$ARCH/=/work/build,\
-$(pwd)/build/mkosi.cache/$DISTRIBUTION~$RELEASE~$ARCH~build.cache/usr/include/=/usr/include" \
+$PWD=$SRCDIR,\
+$BUILD_DIRECTORY/=$BUILDDIR/,\
+$CACHE_DIRECTORY/$DISTRIBUTION~$RELEASE~$ARCH~build.cache/usr/include/=$BUILDROOT/usr/include" \
     "$@"
-
