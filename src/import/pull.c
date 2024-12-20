@@ -33,6 +33,7 @@ static ImportFlags arg_import_flags = IMPORT_PULL_SETTINGS | IMPORT_PULL_ROOTHAS
 static uint64_t arg_offset = UINT64_MAX, arg_size_max = UINT64_MAX;
 static char *arg_checksum = NULL;
 static ImageClass arg_class = IMAGE_MACHINE;
+static RuntimeScope arg_runtime_scope = _RUNTIME_SCOPE_INVALID;
 
 STATIC_DESTRUCTOR_REGISTER(arg_checksum, freep);
 
@@ -66,7 +67,7 @@ static int normalize_local(const char *local, const char *url, char **ret) {
                                                local);
 
                 if (!FLAGS_SET(arg_import_flags, IMPORT_FORCE)) {
-                        r = image_find(arg_class, local, NULL, NULL);
+                        r = image_find(arg_runtime_scope, arg_class, local, NULL, NULL);
                         if (r < 0) {
                                 if (r != -ENOENT)
                                         return log_error_errno(r, "Failed to check whether image '%s' exists: %m", local);

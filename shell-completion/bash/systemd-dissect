@@ -29,6 +29,8 @@ _systemd_dissect() {
     local cur=${COMP_WORDS[COMP_CWORD]} prev_1=${COMP_WORDS[COMP_CWORD-1]} prev_2=${COMP_WORDS[COMP_CWORD-2]} words cword
     local -A OPTS=(
         [STANDALONE]='-h --help --version
+                     --user
+                     --system
                      --discover
                      --no-pager
                      --no-legend

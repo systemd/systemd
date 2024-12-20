@@ -42,6 +42,8 @@ struct Manager {
 
         sd_varlink_server *varlink_userdb_server;
         sd_varlink_server *varlink_machine_server;
+
+        RuntimeScope runtime_scope; /* for now: always RUNTIME_SCOPE_SYSTEM */
 };
 
 int manager_add_machine(Manager *m, const char *name, Machine **ret);

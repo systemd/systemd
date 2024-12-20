@@ -122,6 +122,18 @@ Deprecations and removals:
 
 Features:
 
+* importd: introduce a per-user instance, that downloads into per-user DDI dirs
+
+* sysupdated: similar
+
+* portabled: similar
+
+* machined: implement a per-user instance, that manages per-user DDI dirs for
+  images. systemd-nspawn/systemd-vmspawn should probably register with both the
+  system and the user scoped machined instance. The former to get the machine
+  name registered as hostname, and the latter so that the image stuff is nicely
+  per-user managed.
+
 * resolved: make resolved process DNR DHCP info
 
 * Teach systemd-ssh-generator to generated an /run/issue.d/ drop-in telling
@@ -390,8 +402,6 @@ Features:
   this together: downloads a suitable image if not done so yet, starts it in
   the bg via vmspawn/nspawn if not done so yet and then requests a shell inside
   it for the invoking user.
-
-* importd/…: define per-user dirs for container/VM images too.
 
 * add a new specifier to unit files that figures out the DDI the unit file is
   from, tracing through overlayfs, DM, loopback block device.
