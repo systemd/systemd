@@ -7,6 +7,14 @@ on:
     # Calculate coverage daily at midnight
     - cron:  '0 0 * * *'
 
+  pull_request:
+    branches:
+      - main
+      - v[0-9]+-stable
+    paths:
+      - .github/workflows/coverage.yml
+      - test/integration-test-wrapper.py
+
 permissions:
   contents: read
 
