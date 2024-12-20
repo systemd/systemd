@@ -172,14 +172,14 @@ int verb_list_dependencies(int argc, char *argv[], void *userdata) {
                 return r;
 
         patterns = strv_skip(argv, 1);
-        if (strv_isempty(patterns)) {
-                units = strv_new(SPECIAL_DEFAULT_TARGET);
-                if (!units)
-                        return log_oom();
-        } else {
+        if (patterns) {
                 r = expand_unit_names(bus, patterns, NULL, &units, NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to expand names: %m");
+        } else {
+                units = strv_new(SPECIAL_DEFAULT_TARGET);
+                if (!units)
+                        return log_oom();
         }
 
         pager_open(arg_pager_flags);
