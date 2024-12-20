@@ -31,7 +31,7 @@ TEST(dump_run_utmp) {
                         u->ut_type == ACCOUNTING    ? "ACCOUNTING" :
                         _type_buf;
                 if (type == _type_buf)
-                        xsprintf(_type_buf, "%hd", u->ut_type);
+                        xsprintf(_type_buf, DECIMAL_STR_FMT(u->ut_type), u->ut_type);
 
                 union in_addr_union addr = {};
                 memcpy(&addr, u->ut_addr_v6, MIN(sizeof(addr), sizeof(u->ut_addr_v6)));
