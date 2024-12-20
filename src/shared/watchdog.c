@@ -310,12 +310,20 @@ static int watchdog_update_timeout(void) {
         return watchdog_ping_now();
 }
 
-static int watchdog_open(void) {
+static int watchdog_open(bool ignore_ratelimit) {
+        static RateLimit watchdog_open_ratelimit = { 0, 1 }; /* The interval is initialized dynamically below. */
         struct watchdog_info ident;
         char **try_order;
         int r;
 
         assert(watchdog_fd < 0);
+        assert(watchdog_timeout > 0);
+
+        watchdog_open_ratelimit.interval = MIN(watchdog_timeout / 2, 5 * USEC_PER_SEC);
+
+        if (!ratelimit_below(&watchdog_open_ratelimit))
+                if (!ignore_ratelimit)  /* If ignore_ratelimit, we update the timestamp, but continue. */
+                        return -EWOULDBLOCK;
 
         /* Let's prefer new-style /dev/watchdog0 (i.e. kernel 3.5+) over classic /dev/watchdog. The former
          * has the benefit that we can easily find the matching directory in sysfs from it, as the relevant
@@ -405,7 +413,7 @@ int watchdog_setup(usec_t timeout) {
         watchdog_timeout = timeout;
 
         if (watchdog_fd < 0)
-                return watchdog_open();
+                return watchdog_open(/* ignore_ratelimit= */ false);
 
         r = watchdog_update_timeout();
         if (r < 0)
@@ -465,7 +473,7 @@ int watchdog_ping(void) {
 
         if (watchdog_fd < 0)
                 /* open_watchdog() will automatically ping the device for us if necessary */
-                return watchdog_open();
+                return watchdog_open(/* ignore_ratelimit= */ false);
 
         /* Never ping earlier than watchdog_timeout/4 and try to ping
          * by watchdog_timeout/2 plus scheduling latencies at the latest */
@@ -490,13 +498,19 @@ void watchdog_report_if_missing(void) {
          *
          * If a device was specified explicitly, raise level. */
 
-        if (watchdog_fd == -ENOENT)
-                log_full_errno(watchdog_device ? LOG_WARNING : LOG_NOTICE,
-                               watchdog_fd,
-                               "Failed to open %swatchdog device%s%s before the initial transaction completed: %m",
-                               watchdog_device ? "" : "any ",
-                               watchdog_device ? " " : "",
-                               strempty(watchdog_device));
+        if (watchdog_fd != -ENOENT)
+                return;
+
+        /* We attempt to open the watchdog one last time here, so that if we log, we log accurately. */
+        if (watchdog_open(/* ignore_ratelimit= */ true) >= 0)
+                return;
+
+        log_full_errno(watchdog_device ? LOG_WARNING : LOG_NOTICE,
+                       watchdog_fd,
+                       "Failed to open %swatchdog device%s%s before the initial transaction completed: %m",
+                       watchdog_device ? "" : "any ",
+                       watchdog_device ? " " : "",
+                       strempty(watchdog_device));
 }
 
 void watchdog_close(bool disarm) {
