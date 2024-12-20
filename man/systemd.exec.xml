@@ -1645,6 +1645,24 @@ StateDirectory=aaa/bbb ccc</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>StateDirectoryQuota=</varname></term>
+        <term><varname>CacheDirectoryQuota=</varname></term>
+        <term><varname>LogsDirectoryQuota=</varname></term>
+
+        <listitem><para>Specifies the storage limits for the directories specified in <varname>StateDirectory=</varname>,
+        <varname>CacheDirectory=</varname>, or <varname>LogsDirectory=</varname> respectively, as a percentage (e.g. 10%).
+        Defaults to <constant>0%</constant>, in which case no storage limits will be set.</para>
+
+        <para>The storage quota is defined in terms of disk blocks and inodes, as per
+        <ulink url="https://man7.org/linux/man-pages/man2/quotactl.2.html">quotactl</ulink>.
+        The same percent quota is applied for blocks and inodes. Only hard limits are set, not soft limits.
+        If the underlying filesystem for the specified directories is not backed by a block device or does not support project
+        quotas, the specified storage limits will not be set. Quotas must be turned on for the limits to take effect.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>RuntimeDirectoryPreserve=</varname></term>
 
         <listitem><para>Takes a boolean argument or <option>restart</option>. If set to <option>no</option> (the

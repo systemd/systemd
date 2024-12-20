@@ -170,6 +170,7 @@ typedef struct ExecDirectory {
         mode_t mode;
         size_t n_items;
         ExecDirectoryItem *items;
+        uint32_t percent_quota;
 } ExecDirectory;
 
 typedef enum ExecCleanMask {

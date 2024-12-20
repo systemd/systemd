@@ -849,3 +849,36 @@ bool path_below_api_vfs(const char *p) {
         /* API VFS are either directly mounted on any of these three paths, or below it. */
         return PATH_STARTSWITH_SET(p, "/dev", "/sys", "/proc");
 }
+
+int find_mountpoint(const char *device_path, char **ret_mountpoint) {
+
+        _cleanup_fclose_ FILE *fp = NULL;
+        fp = fopen("/proc/mounts", "r");
+        if (!fp)
+                return -1;
+
+        int r = 0;
+        for (;;) {
+                _cleanup_free_ char *line = NULL;
+
+                r = read_line(fp, LONG_LINE_MAX, &line);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                _cleanup_free_ char *dev_name = NULL;
+                _cleanup_free_ char *mount = NULL;
+                if (sscanf(line, "%ms %ms", &dev_name, &mount) != 2)
+                        continue;
+
+                if(streq(dev_name, device_path)) {
+                        r = strdup_to(ret_mountpoint, mount);
+                        if (r < 0)
+                                return r;
+                        break;
+                }
+        }
+
+        return r;
+}

@@ -5,6 +5,7 @@
 #include <sys/ioctl.h>
 #include <sys/mount.h>
 #include <sys/prctl.h>
+#include <sys/statvfs.h>
 
 #if HAVE_PAM
 #include <security/pam_appl.h>
@@ -23,6 +24,7 @@
 #include "argv-util.h"
 #include "barrier.h"
 #include "bitfield.h"
+#include "blockdev-util.h"
 #include "bpf-dlopen.h"
 #include "bpf-restrict-fs.h"
 #include "btrfs-util.h"
@@ -32,6 +34,7 @@
 #include "chattr-util.h"
 #include "chown-recursive.h"
 #include "copy.h"
+#include "device-util.h"
 #include "env-util.h"
 #include "escape.h"
 #include "exec-credential.h"
@@ -39,6 +42,7 @@
 #include "execute.h"
 #include "exit-status.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "hexdecoct.h"
 #include "hostname-setup.h"
 #include "io-util.h"
@@ -51,9 +55,13 @@
 #include "missing_securebits.h"
 #include "missing_syscall.h"
 #include "mkdir-label.h"
+#include "mountpoint-util.h"
+#include "MurmurHash2.h"
+#include "percent-util.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
 #include "psi-util.h"
+#include "quota-util.h"
 #include "rlimit-util.h"
 #include "seccomp-util.h"
 #include "selinux-util.h"
@@ -2440,6 +2448,91 @@ static int create_many_symlinks(const char *root, const char *source, char **sym
         return 0;
 }
 
+static int apply_exec_quotas(const char *target_dir, const char *cgroup_path, ExecDirectoryType type, uint32_t percent_quota) {
+        assert(target_dir);
+        assert(percent_quota > 0);
+        int r = 0;
+
+        dev_t devno;
+        r = get_block_device(target_dir, &devno);
+        if (r < 0)
+                return log_debug_errno(r, "Exec quotas: Failed to determine block device backing %s: %m", target_dir);
+        else if (devno == 0) {
+                log_warning("Not applying storage quotas for %s: File system not backed by a block device.", target_dir);
+                return 0;
+        }
+
+        /* Generate projid: cgroup path + exec directory type */
+        size_t buffer_size = strlen(cgroup_path) + snprintf(NULL, 0, "%d", INT_MIN) + 1;
+        char proj_id_plain[buffer_size];
+
+        r = snprintf(proj_id_plain, buffer_size, "%s%d", cgroup_path, type);
+        if (r < 0)
+                return log_debug_errno(r, "Exec quotas: Failed to generate project id for %s: %m", target_dir);
+        else if ((size_t) r >= buffer_size) {
+                log_debug("Exec quotas: Failed to generate project id for %s", target_dir);
+                return -1;
+        }
+
+        uint32_t proj_id = MurmurHash2(proj_id_plain, strlen(proj_id_plain), 0);
+
+        /* Check if project quotas are supported */
+        struct dqblk req;
+        r = quotactl_devnum(QCMD_FIXED(Q_GETQUOTA, PRJQUOTA), devno, proj_id, &req);
+        if (r == -ESRCH || ERRNO_IS_NEG_NOT_SUPPORTED(r)) {
+                log_warning("Not applying storage quotas: project quotas are not supported for %s", target_dir);
+                return 0;
+        } else if (r < 0)
+                return log_debug_errno(r, "Exec quotas: Failed to query disk quota for prjid %u: %m", proj_id);
+
+        /* Set projid (equivalent to chattr +P -p) */
+        struct fsxattr attrs;
+        int fd = xopenat(AT_FDCWD, target_dir, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
+        r = ioctl(fd, FS_IOC_FSGETXATTR, &attrs);
+        if (r < 0)
+                return log_debug_errno(r, "Exec quotas: Failed to get fsxattr for %s", target_dir);
+
+        attrs.fsx_xflags = FS_XFLAG_PROJINHERIT;
+        attrs.fsx_projid = proj_id;
+
+        r = ioctl(fd, FS_IOC_FSSETXATTR, &attrs);
+        if (r < 0)
+                return log_debug_errno(r, "Exec quotas: Failed to set project id for %s: %m", target_dir);
+
+        /* Set Quotas */
+        _cleanup_free_ char *devpath = NULL;
+        r = device_open_from_devnum(S_IFBLK, devno, O_RDONLY|O_CLOEXEC, &devpath);
+        if (r < 0)
+                return log_debug_errno(r, "Exec quotas: Failed to get device path for %s: %m", target_dir);
+
+        _cleanup_free_ char *devmountpoint = NULL;
+        r = find_mountpoint(devpath, &devmountpoint);
+        if (r < 0)
+                return log_debug_errno(r, "Exec quotas: Failed to find device mountpoint for %s: %m", target_dir);
+
+        struct statvfs disk_st;
+        r = statvfs(devmountpoint, &disk_st);
+        if (r < 0)
+                return log_debug_errno(r, "Exec quotas: Failed to get filesystem data for %s: %m", target_dir);
+
+        double percent = UINT32_SCALE_TO_PERCENT(percent_quota) / 100.0;
+        uint64_t block_limit = (uint64_t)(disk_st.f_blocks * percent);
+        uint64_t inode_limit = (uint64_t)(disk_st.f_files * percent);
+
+        req.dqb_bhardlimit = block_limit;
+        req.dqb_bsoftlimit = 0;
+        req.dqb_ihardlimit = inode_limit;
+        req.dqb_isoftlimit = 0;
+        req.dqb_valid = QIF_LIMITS;
+        r = quotactl_devnum(QCMD_FIXED(Q_SETQUOTA, PRJQUOTA), devno, proj_id, &req);
+        if (r < 0)
+                return log_debug_errno(r, "Exec quotas: Failed to set project quotas for %s: %m", target_dir);
+
+        log_debug("Storage quotas set for %s. Block limit = %lu, inode limit = %lu", target_dir, block_limit, inode_limit);
+
+        return r;
+}
+
 static int setup_exec_directory(
                 const ExecContext *context,
                 const ExecParameters *params,
@@ -2768,6 +2861,17 @@ static int setup_exec_directory(
                         r = path_chown_recursive(target_dir, chown_uid, chown_gid, context->dynamic_user ? 01777 : 07777, AT_SYMLINK_FOLLOW);
                         if (r < 0)
                                 goto fail;
+                }
+
+                /* Apply storage quotas if needed */
+                uint32_t exec_dir_quota = context->directories[type].percent_quota;
+
+                if (IN_SET(type, EXEC_DIRECTORY_STATE, EXEC_DIRECTORY_CACHE, EXEC_DIRECTORY_LOGS) && exec_dir_quota > 0) {
+                        r = apply_exec_quotas(target_dir, params->cgroup_path, type, exec_dir_quota);
+                        if (r < 0) {
+                                log_debug("Unable to set storage limits for %s", target_dir);
+                                goto fail;
+                        }
                 }
         }
 

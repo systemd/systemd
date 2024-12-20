@@ -4765,6 +4765,37 @@ int config_parse_exec_directories(
         }
 }
 
+int config_parse_exec_quota(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        uint32_t *limit = data;
+        int r;
+
+        if (isempty(rvalue)) {
+                *limit = 0;
+                return 0;
+        }
+
+        r = parse_permyriad(rvalue);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse disk quota value, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        /* Normalize to 2^32-1 == 100% */
+        *limit = UINT32_SCALE_FROM_PERMYRIAD(r);
+        return 0;
+}
+
 int config_parse_set_credential(
                 const char *unit,
                 const char *filename,
