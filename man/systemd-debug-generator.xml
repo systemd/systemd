@@ -56,7 +56,7 @@
         <command>mask</command> command. This is useful to boot with certain units removed from the initial
         boot transaction for debugging system startup. May be specified more than once. The option prefixed
         with <literal>rd.</literal> is honored only in the initrd, while the one without prefix is only
-        honored in the main system.</para>
+        honored on the host.</para>
 
         <xi:include href="version-info.xml" xpointer="v215"/></listitem>
       </varlistentry>
@@ -68,7 +68,7 @@
         <listitem><para>These options take a unit name as argument. A start job for this unit is added to the
         initial transaction. This is useful to start one or more additional units at boot. May be specified
         more than once. The option prefixed with <literal>rd.</literal> is honored only in the initrd, while
-        the one that is not prefixed only in the main system.</para>
+        the one that is not prefixed only on the host.</para>
 
         <xi:include href="version-info.xml" xpointer="v215"/></listitem>
       </varlistentry>
@@ -89,7 +89,7 @@
         shell may also be turned on persistently by enabling it with
         <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
         <command>enable</command> command. The options prefixed with <literal>rd.</literal> are honored only
-        in the initrd, while the ones without prefix are only honored in the main system.</para>
+        in the initrd, while the ones without prefix are only honored on the host.</para>
 
         <xi:include href="version-info.xml" xpointer="v215"/></listitem>
       </varlistentry>
@@ -103,8 +103,8 @@
         <literal>rd.</literal> option). It also accepts multiple values separated by comma
         (<literal>,</literal>). These options allow to pause the boot process at a certain point and spawn a
         debug shell. After exiting this shell, the system will resume booting. The option prefixed with
-        <literal>rd.</literal> is honored only in the initrd, while the one without prefix is only honored in
-        the main system.</para>
+        <literal>rd.</literal> is honored only in the initrd, while the one without prefix is only honored on
+        the host.</para>
 
         <table>
           <title>Available breakpoints</title>
@@ -113,13 +113,13 @@
             <colspec colname='breakpoint' />
             <colspec colname='description' />
             <colspec colname='initrd' />
-            <colspec colname='main' />
+            <colspec colname='host' />
             <thead>
               <row>
                 <entry>Breakpoints</entry>
                 <entry>Description</entry>
                 <entry>Can be used in the initrd</entry>
-                <entry>Can be used in the main system</entry>
+                <entry>Can be used on the host</entry>
               </row>
             </thead>
             <tbody>
