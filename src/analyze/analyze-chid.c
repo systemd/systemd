@@ -30,6 +30,15 @@ static int parse_chid_type(const char *s, size_t *ret) {
         return 0;
 }
 
+static const char *const chid_smbios_friendly[_CHID_SMBIOS_FIELDS_MAX] = {
+        [CHID_SMBIOS_MANUFACTURER]           = "manufacturer",
+        [CHID_SMBIOS_FAMILY]                 = "family",
+        [CHID_SMBIOS_PRODUCT_NAME]           = "product-name",
+        [CHID_SMBIOS_PRODUCT_SKU]            = "product-sku",
+        [CHID_SMBIOS_BASEBOARD_MANUFACTURER] = "baseboard-manufacturer",
+        [CHID_SMBIOS_BASEBOARD_PRODUCT]      = "baseboard-product",
+};
+
 static const char chid_smbios_fields_char[_CHID_SMBIOS_FIELDS_MAX] = {
         [CHID_SMBIOS_MANUFACTURER]           = 'M',
         [CHID_SMBIOS_FAMILY]                 = 'F',
@@ -207,7 +216,7 @@ int verb_chid(int argc, char *argv[], void *userdata) {
                                        special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
                                        " ",
                                        ansi_normal(),
-                                       smbios_files[f],
+                                       chid_smbios_friendly[f],
                                        ansi_grey(),
                                        " (",
                                        c ? ansi_highlight() : ansi_grey(),
@@ -219,7 +228,7 @@ int verb_chid(int argc, char *argv[], void *userdata) {
 
                         w += separator * 3 +
                                 4 +
-                                utf8_console_width(smbios_files[f]) +
+                                utf8_console_width(chid_smbios_friendly[f]) +
                                 2 +
                                 utf8_console_width(strna(c)) +
                                 1;
