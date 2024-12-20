@@ -35,11 +35,11 @@ static void get_chid(
 
         assert(mask != 0);
         assert(ret_chid);
-        const EFI_GUID namespace = { UINT32_C(0x12d8ff70), UINT16_C(0x7f4c), UINT16_C(0x7d4c), {} }; /* Swapped to BE */
 
         struct sha1_ctx ctx = {};
         sha1_init_ctx(&ctx);
 
+        static const EFI_GUID namespace = { UINT32_C(0x12d8ff70), UINT16_C(0x7f4c), UINT16_C(0x7d4c), {} }; /* Swapped to BE */
         sha1_process_bytes(&namespace, sizeof(namespace), &ctx);
 
         for (unsigned i = 0; i < _CHID_SMBIOS_FIELDS_MAX; i++) {
