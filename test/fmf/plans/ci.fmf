@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+summary: systemd Fedora test suite
+discover:
+  how: fmf
+prepare:
+  - name: systemd
+    how: install
+    exclude:
+      - systemd-standalone-.*
+execute:
+  how: tmt
