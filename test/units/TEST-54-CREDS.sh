@@ -490,7 +490,7 @@ cmp /tmp/vlcredsdata /tmp/vlcredsdata2
 rm /tmp/vlcredsdata /tmp/vlcredsdata2
 
 clean_usertest() {
-    rm -f /tmp/usertest.data /tmp/usertest.data
+    rm -f /tmp/usertest.data /tmp/usertest.data /tmp/brummbaer.data
 }
 
 trap clean_usertest EXIT
@@ -519,6 +519,12 @@ XDG_RUNTIME_DIR=/run/user/0 systemd-run --pipe --user --unit=waldi.service -p Lo
 
 # Test mount unit with credential
 test_mount_with_credential
+
+# Fully unpriv operation
+dd if=/dev/urandom of=/tmp/brummbaer.data bs=4096 count=1
+run0 -u testuser --pipe mkdir -p /home/testuser/.config/credstore.encrypted
+run0 -u testuser --pipe systemd-creds encrypt --user --name=brummbaer - /home/testuser/.config/credstore.encrypted/brummbaer < /tmp/brummbaer.data
+run0 -u testuser --pipe systemd-run --user --pipe -p ImportCredential=brummbaer systemd-creds cat brummbaer | cmp /tmp/brummbaer.data
 
 systemd-analyze log-level info
 

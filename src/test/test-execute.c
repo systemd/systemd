@@ -1398,6 +1398,10 @@ static void run_tests(RuntimeScope scope, char **patterns) {
         ASSERT_NOT_NULL(unit_paths = strjoin(PRIVATE_UNIT_DIR, ":", user_runtime_unit_dir));
         ASSERT_OK(setenv_unit_path(unit_paths));
 
+        /* Write credential for test-execute-load-credential to the fake runtime dir, too */
+        _cleanup_free_ char *j = ASSERT_PTR(path_join(runtime_dir, "credstore/test-execute.load-credential"));
+        ASSERT_OK(write_string_file(j, "foo", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755));
+
         r = manager_new(scope, MANAGER_TEST_RUN_BASIC, &m);
         if (manager_errno_skip_test(r))
                 return (void) log_tests_skipped_errno(r, "manager_new");
