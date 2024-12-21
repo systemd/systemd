@@ -24,8 +24,8 @@ if command -v authselect >/dev/null; then
 
     authselect select "$PROFILE"
 
-    if authselect list-features "$PROFILE" | grep -q "with-homed"; then
-        authselect enable-feature with-homed
+    if authselect list-features "$PROFILE" | grep -q "with-systemd-homed"; then
+        authselect enable-feature with-systemd-homed
     fi
 fi
 
