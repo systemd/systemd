@@ -214,7 +214,7 @@ char* strrep(const char *s, unsigned n);
                 _d_;                                                    \
         })
 
-int split_pair(const char *s, const char *sep, char **l, char **r);
+int split_pair(const char *s, const char *sep, char **ret_first, char **ret_second);
 
 int free_and_strdup(char **p, const char *s);
 static inline int free_and_strdup_warn(char **p, const char *s) {
