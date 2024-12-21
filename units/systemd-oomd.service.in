@@ -20,7 +20,7 @@ ConditionPathExists=/proc/pressure/cpu
 ConditionPathExists=/proc/pressure/io
 ConditionPathExists=/proc/pressure/memory
 Requires=systemd-oomd.socket
-After=systemd-oomd.socket
+After=systemd-oomd.socket systemd-sysusers.service
 
 [Service]
 AmbientCapabilities=CAP_KILL CAP_DAC_OVERRIDE
