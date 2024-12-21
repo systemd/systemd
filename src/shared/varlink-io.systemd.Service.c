@@ -72,7 +72,7 @@ int varlink_method_set_log_level(sd_varlink *link, sd_json_variant *parameters, 
         if (r < 0)
                 return r;
 
-        if (uid != getuid() && uid != 0)
+        if (uid != 0 && uid != getuid())
                 return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, parameters);
 
         log_debug("Received io.systemd.Service.SetLogLevel(%i)", level);
