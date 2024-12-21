@@ -3660,7 +3660,7 @@ _public_ int sd_varlink_server_add_connection_stdio(sd_varlink_server *s, sd_var
         return 0;
 }
 
-_public_ int sd_varlink_server_listen_auto(sd_varlink_server *s) {
+_public_ int sd_varlink_server_listen_name(sd_varlink_server *s, const char *name) {
         _cleanup_strv_free_ char **names = NULL;
         int r, n = 0;
 
@@ -3680,7 +3680,7 @@ _public_ int sd_varlink_server_listen_auto(sd_varlink_server *s) {
                 int b, fd;
                 socklen_t l = sizeof(b);
 
-                if (!streq(names[i], "varlink"))
+                if (!streq(names[i], name))
                         continue;
 
                 fd = SD_LISTEN_FDS_START + i;
@@ -3714,6 +3714,10 @@ _public_ int sd_varlink_server_listen_auto(sd_varlink_server *s) {
         }
 
         return n;
+}
+
+_public_ int sd_varlink_server_listen_auto(sd_varlink_server *s) {
+        return sd_varlink_server_listen_name(s, "varlink");
 }
 
 _public_ void* sd_varlink_server_set_userdata(sd_varlink_server *s, void *userdata) {
