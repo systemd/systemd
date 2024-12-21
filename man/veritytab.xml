@@ -217,7 +217,10 @@ This is based on crypttab(5).
 
         <listitem><para>A base64 string encoding the root hash signature prefixed by <literal>base64:</literal> or a
         path to roothash signature file used to verify the root hash (in kernel). This feature requires Linux kernel
-        version 5.4 or more recent.</para>
+        version 5.4 or more recent. Since version 257, if not specified and the data device is in a GPT image with a
+        <ulink url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">
+        Discoverable Partitions Specification</ulink> compliant matching signature partition, it will be
+        automatically loaded and used.</para>
 
         <xi:include href="version-info.xml" xpointer="v248"/></listitem>
       </varlistentry>
