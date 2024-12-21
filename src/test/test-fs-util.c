@@ -713,6 +713,34 @@ TEST(xopenat_full) {
         assert_se((fd2 = xopenat_full(fd, "", O_RDWR|O_CLOEXEC, 0, 0644)) >= 0);
 }
 
+TEST(xopenat_regular) {
+
+        _cleanup_close_ int fd = -EBADF;
+
+        assert_se(xopenat_full(AT_FDCWD, "/dev/null", O_RDWR|O_CLOEXEC, XO_REGULAR, 0) == -EBADFD);
+        assert_se(xopenat_full(AT_FDCWD, "/proc", O_RDONLY|O_CLOEXEC, XO_REGULAR, 0) == -EISDIR);
+        assert_se(xopenat_full(AT_FDCWD, "/proc/self", O_RDONLY|O_CLOEXEC, XO_REGULAR, 0) == -EISDIR);
+        assert_se(xopenat_full(AT_FDCWD, "/proc/self", O_RDONLY|O_CLOEXEC|O_NOFOLLOW, XO_REGULAR, 0) == -ELOOP);
+
+        fd = xopenat_full(AT_FDCWD, "/proc/mounts", O_RDONLY|O_CLOEXEC, XO_REGULAR, 0);
+        assert_se(fd >= 0);
+        fd = safe_close(fd);
+
+        assert_se(xopenat_full(AT_FDCWD, "/proc/mounts", O_RDONLY|O_CLOEXEC|O_NOFOLLOW, XO_REGULAR, 0) == -ELOOP);
+
+        fd = xopenat_full(AT_FDCWD, "/proc/mounts", O_RDONLY|O_CLOEXEC|O_PATH, XO_REGULAR, 0);
+        assert_se(fd >= 0);
+        fd = safe_close(fd);
+
+        fd = xopenat_full(AT_FDCWD, "/tmp/xopenat-regular-test", O_RDWR|O_CLOEXEC|O_CREAT, XO_REGULAR, 0600);
+        assert_se(fd >= 0);
+        fd = safe_close(fd);
+
+        assert_se(xopenat_full(AT_FDCWD, "/tmp/xopenat-regular-test", O_RDWR|O_CLOEXEC|O_CREAT|O_EXCL, XO_REGULAR, 0600) == -EEXIST);
+
+        assert_se(unlink("/tmp/xopenat-regular-test") >= 0);
+}
+
 TEST(xopenat_lock_full) {
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
         _cleanup_close_ int tfd = -EBADF, fd = -EBADF;
