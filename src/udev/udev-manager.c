@@ -871,19 +871,15 @@ static int on_ctrl_msg(UdevCtrl *uctrl, UdevCtrlMessageType type, const UdevCtrl
                 log_debug("Received udev control message (RELOAD)");
                 manager_reload(manager, /* force = */ true);
                 break;
-        case UDEV_CTRL_SET_ENV: {
-                const char *eq;
-
-                eq = strchr(value->buf, '=');
-                if (!eq) {
-                        log_error("Invalid key format '%s'", value->buf);
-                        return 1;
+        case UDEV_CTRL_SET_ENV:
+                if (!udev_property_assignment_is_valid(value->buf)) {
+                        log_debug("Received invalid udev control message(SET_ENV, %s), ignoring.", value->buf);
+                        break;
                 }
 
                 log_debug("Received udev control message(SET_ENV, %s)", value->buf);
                 manager_set_environment(manager, STRV_MAKE(value->buf));
                 break;
-        }
         case UDEV_CTRL_SET_CHILDREN_MAX:
                 if (value->intval < 0) {
                         log_debug("Received invalid udev control message (SET_MAX_CHILDREN, %i), ignoring.", value->intval);
