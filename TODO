@@ -300,10 +300,6 @@ Features:
   set Slice=protected.sice, RefuseManualStart=yes, RefuseManualStop=yes and a
   couple of other things.
 
-* add feature to xopenat() that implements O_REGULAR in userspace: i.e. let's
-  open the inode via O_PATH first, then validate its type, and then convert to
-  proper fd via fd_reopen()
-
 * rough proposed implementation design for remote attestation infra: add a tool
   that generates a quote of local PCRs and NvPCRs, along with synchronous log
   snapshot. use "audit session" logic for that, so that we get read-outs and
