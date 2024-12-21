@@ -733,6 +733,10 @@ units = [
           'symlinks' : ['sockets.target.wants/'],
         },
         {
+          'file' : 'systemd-udevd-varlink.socket',
+          'symlinks' : ['sockets.target.wants/'],
+        },
+        {
           'file' : 'systemd-udevd.service.in',
           'symlinks' : ['sysinit.target.wants/'],
         },
