@@ -19,16 +19,6 @@ udevadm_sources = files(
 
 libudevd_core_sources = files(
         'net/link-config.c',
-        'udev-config.c',
-        'udev-ctrl.c',
-        'udev-event.c',
-        'udev-format.c',
-        'udev-manager.c',
-        'udev-node.c',
-        'udev-rules.c',
-        'udev-spawn.c',
-        'udev-watch.c',
-        'udev-worker.c',
         'udev-builtin-btrfs.c',
         'udev-builtin-hwdb.c',
         'udev-builtin-input_id.c',
@@ -39,6 +29,16 @@ libudevd_core_sources = files(
         'udev-builtin-path_id.c',
         'udev-builtin-usb_id.c',
         'udev-builtin.c',
+        'udev-config.c',
+        'udev-ctrl.c',
+        'udev-event.c',
+        'udev-format.c',
+        'udev-manager.c',
+        'udev-node.c',
+        'udev-rules.c',
+        'udev-spawn.c',
+        'udev-watch.c',
+        'udev-worker.c',
 )
 
 if conf.get('HAVE_KMOD') == 1
