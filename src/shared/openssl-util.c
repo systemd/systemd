@@ -1399,7 +1399,7 @@ static int openssl_ask_password_ui_read(UI *ui, UI_STRING *uis) {
                 req->message = UI_get0_output_string(uis);
 
                 _cleanup_(strv_freep) char **l = NULL;
-                r = ask_password_auto(req, /*until=*/ 0, ASK_PASSWORD_ACCEPT_CACHED|ASK_PASSWORD_PUSH_CACHE, &l);
+                r = ask_password_auto(req, ASK_PASSWORD_ACCEPT_CACHED|ASK_PASSWORD_PUSH_CACHE, &l);
                 if (r < 0) {
                         log_error_errno(r, "Failed to query for PIN: %m");
                         return 0;
