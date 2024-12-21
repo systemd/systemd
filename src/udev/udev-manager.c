@@ -144,7 +144,7 @@ Manager* manager_free(Manager *manager) {
         event_queue_cleanup(manager, EVENT_UNDEF);
 
         safe_close(manager->inotify_fd);
-        safe_close_pair(manager->worker_watch);
+        safe_close(manager->worker_notify_fd);
 
         sd_device_monitor_unref(manager->monitor);
         udev_ctrl_unref(manager->ctrl);
@@ -406,7 +406,7 @@ static int worker_spawn(Manager *manager, Event *event) {
                         .monitor = TAKE_PTR(worker_monitor),
                         .properties = TAKE_PTR(manager->properties),
                         .rules = TAKE_PTR(manager->rules),
-                        .pipe_fd = TAKE_FD(manager->worker_watch[WRITE_END]),
+                        .pipe_fd = TAKE_FD(manager->worker_notify_fd),
                         .inotify_fd = TAKE_FD(manager->inotify_fd),
                         .config = manager->config,
                 };
@@ -1173,7 +1173,7 @@ Manager* manager_new(void) {
 
         *manager = (Manager) {
                 .inotify_fd = -EBADF,
-                .worker_watch = EBADF_PAIR,
+                .worker_notify_fd = -EBADF,
                 .config_by_udev_conf = UDEV_CONFIG_INIT,
                 .config_by_command = UDEV_CONFIG_INIT,
                 .config_by_kernel = UDEV_CONFIG_INIT,
@@ -1371,24 +1371,39 @@ static int manager_start_inotify(Manager *manager) {
 }
 
 static int manager_start_worker_event(Manager *manager) {
+        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
         int r;
 
         assert(manager);
         assert(manager->event);
 
         /* unnamed socket from workers to the main daemon */
-        r = socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, manager->worker_watch);
+        r = socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, pair);
         if (r < 0)
                 return log_error_errno(errno, "Failed to create socketpair for communicating with workers: %m");
 
-        r = setsockopt_int(manager->worker_watch[READ_END], SOL_SOCKET, SO_PASSCRED, true);
+        r = setsockopt_int(pair[READ_END], SOL_SOCKET, SO_PASSCRED, true);
         if (r < 0)
                 return log_error_errno(r, "Failed to enable SO_PASSCRED: %m");
 
-        r = sd_event_add_io(manager->event, NULL, manager->worker_watch[READ_END], EPOLLIN, on_worker, manager);
+        r = sd_event_add_io(manager->event, &s, pair[READ_END], EPOLLIN, on_worker, manager);
         if (r < 0)
                 return log_error_errno(r, "Failed to create worker event source: %m");
 
+        (void) sd_event_source_set_description(s, "manager-worker-event");
+
+        r = sd_event_source_set_io_fd_own(s, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to make worker event source own file descriptor: %m");
+
+        TAKE_FD(pair[READ_END]);
+
+        r = sd_event_source_set_floating(s, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to make worker event source floating: %m");
+
+        manager->worker_notify_fd = TAKE_FD(pair[WRITE_END]);
         return 0;
 }
 
