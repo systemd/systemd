@@ -25,6 +25,7 @@
 #include "varlink-io.systemd.Resolve.h"
 #include "varlink-io.systemd.Resolve.Monitor.h"
 #include "varlink-io.systemd.Service.h"
+#include "varlink-io.systemd.Udev.h"
 #include "varlink-io.systemd.UserDatabase.h"
 #include "varlink-io.systemd.oom.h"
 #include "varlink-io.systemd.sysext.h"
@@ -193,6 +194,8 @@ TEST(parse_format) {
         test_parse_format_one(&vl_interface_io_systemd_Machine);
         print_separator();
         test_parse_format_one(&vl_interface_io_systemd_MachineImage);
+        print_separator();
+        test_parse_format_one(&vl_interface_io_systemd_Udev);
         print_separator();
         test_parse_format_one(&vl_interface_xyz_test);
 }
