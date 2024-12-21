@@ -1123,6 +1123,9 @@ int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_
 
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
 
+        if (FLAGS_SET(open_flags, O_DIRECTORY) && FLAGS_SET(xopen_flags, XO_REGULAR))
+                return -EINVAL;
+
         /* This is like openat(), but has a few tricks up its sleeves, extending behaviour:
          *
          *   • O_DIRECTORY|O_CREAT is supported, which causes a directory to be created, and immediately
@@ -1133,10 +1136,19 @@ int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_
          *   • If the path is specified NULL or empty, behaves like fd_reopen().
          *
          *   • If XO_NOCOW is specified will turn on the NOCOW btrfs flag on the file, if available.
+         *
+         *   • if XO_REGULAR is specified will return an error if inode is not a regular file.
          */
 
         if (isempty(path)) {
                 assert(!FLAGS_SET(open_flags, O_CREAT|O_EXCL));
+
+                if (FLAGS_SET(xopen_flags, XO_REGULAR)) {
+                        r = fd_verify_regular(dir_fd);
+                        if (r < 0)
+                                return r;
+                }
+
                 return fd_reopen(dir_fd, open_flags & ~O_NOFOLLOW);
         }
 
@@ -1166,10 +1178,66 @@ int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_
                 open_flags &= ~(O_EXCL|O_CREAT);
         }
 
-        fd = openat_report_new(dir_fd, path, open_flags, mode, &made_file);
-        if (fd < 0) {
-                r = fd;
-                goto error;
+        if (FLAGS_SET(xopen_flags, XO_REGULAR)) {
+                /* Guarantee we return a regular fd only, and don't open the file unless we verified it
+                 * first */
+
+                if (FLAGS_SET(open_flags, O_PATH)) {
+                        fd = openat(dir_fd, path, open_flags, mode);
+                        if (fd < 0) {
+                                r = -errno;
+                                goto error;
+                        }
+
+                        r = fd_verify_regular(fd);
+                        if (r < 0)
+                                goto error;
+
+                } else if (FLAGS_SET(open_flags, O_CREAT|O_EXCL)) {
+                        /* In O_EXCL mode we can just create the thing, everything is dealt with for us */
+                        fd = openat(dir_fd, path, open_flags, mode);
+                        if (fd < 0) {
+                                r = -errno;
+                                goto error;
+                        }
+
+                        made_file = true;
+                } else {
+                        /* Otherwise pin the inode first via O_PATH */
+                        _cleanup_close_ int inode_fd = openat(dir_fd, path, O_PATH|O_CLOEXEC|(open_flags & O_NOFOLLOW));
+                        if (inode_fd < 0) {
+                                if (errno != ENOENT || !FLAGS_SET(open_flags, O_CREAT)) {
+                                        r = -errno;
+                                        goto error;
+                                }
+
+                                /* Doesn't exist yet, then try to create it */
+                                fd = openat(dir_fd, path, open_flags|O_EXCL, mode);
+                                if (fd < 0) {
+                                        r = -errno;
+                                        goto error;
+                                }
+
+                                made_file = true;
+                        } else {
+                                /* OK, we pinned it. Now verify it's actually a regular file, and then reopen it */
+                                r = fd_verify_regular(inode_fd);
+                                if (r < 0)
+                                        goto error;
+
+                                fd = fd_reopen(inode_fd, open_flags & ~O_NOFOLLOW);
+                                if (fd < 0) {
+                                        r = fd;
+                                        goto error;
+                                }
+                        }
+                }
+        } else {
+                fd = openat_report_new(dir_fd, path, open_flags, mode, &made_file);
+                if (fd < 0) {
+                        r = fd;
+                        goto error;
+                }
         }
 
         if (call_label_ops_post) {
