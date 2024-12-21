@@ -7,8 +7,11 @@
 #include "bus-util.h"
 #include "device-private.h"
 #include "path-util.h"
+#include "udev-ctrl.h"
+#include "udev-varlink.h"
 #include "udevadm-util.h"
 #include "unit-name.h"
+#include "varlink-util.h"
 
 static int find_device_from_unit(const char *unit_name, sd_device **ret) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -121,4 +124,38 @@ int parse_device_action(const char *str, sd_device_action_t *action) {
 
         *action = a;
         return 1;
+}
+
+int udev_ping(usec_t timeout_usec, bool ignore_connection_failure) {
+        _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *link = NULL;
+        int r;
+
+        r = udev_varlink_connect(&link, timeout_usec);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to connect to udev via varlink, falling back to use legacy control socket, ignoring: %m");
+
+                _cleanup_(udev_ctrl_unrefp) UdevCtrl *uctrl = NULL;
+                r = udev_ctrl_new(&uctrl);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to initialize udev control: %m");
+
+                r = udev_ctrl_send_ping(uctrl);
+                if (r < 0) {
+                        log_full_errno(ignore_connection_failure ? LOG_DEBUG : LOG_ERR, r,
+                                       "Failed to connect to udev daemon%s: %m",
+                                       ignore_connection_failure ? ", ignoring" : "");
+                        return ignore_connection_failure ? 0 : r;
+                }
+
+                r = udev_ctrl_wait(uctrl, timeout_usec);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to wait for daemon to reply: %m");
+
+        } else {
+                r = varlink_call_and_log(link, "org.systemd.Service.Ping", /* parameters = */ NULL, /* reply = */ NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        return 1; /* received reply */
 }
