@@ -3,7 +3,7 @@
 #include <unistd.h>
 
 #include "macro.h"
-#include "varlink-io.systemd.service.h"
+#include "varlink-io.systemd.Service.h"
 
 static SD_VARLINK_DEFINE_METHOD(Ping);
 
@@ -14,8 +14,8 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_DEFINE_INPUT(level, SD_VARLINK_INT, 0));
 
 SD_VARLINK_DEFINE_INTERFACE(
-                io_systemd_service,
-                "io.systemd.service",
+                io_systemd_Service,
+                "io.systemd.Service",
                 &vl_method_Ping,
                 &vl_method_Reload,
                 &vl_method_SetLogLevel);
@@ -26,7 +26,7 @@ int varlink_method_ping(sd_varlink *link, sd_json_variant *parameters, sd_varlin
         if (sd_json_variant_elements(parameters) > 0)
                 return sd_varlink_error_invalid_parameter(link, parameters);
 
-        log_debug("Received io.systemd.service.Ping");
+        log_debug("Received io.systemd.Service.Ping");
 
         return sd_varlink_reply(link, NULL);
 }
@@ -63,7 +63,7 @@ int varlink_method_set_log_level(sd_varlink *link, sd_json_variant *parameters, 
         if (uid != getuid() && uid != 0)
                 return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, parameters);
 
-        log_debug("Received io.systemd.service.SetLogLevel(%" PRIi64 ")", level);
+        log_debug("Received io.systemd.Service.SetLogLevel(%" PRIi64 ")", level);
 
         log_set_max_level(level);
 
