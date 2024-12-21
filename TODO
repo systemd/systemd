@@ -195,8 +195,6 @@ Features:
   differences in the parsers (see #25371 for example), and it hence makes sense
   if we stick to one set of parsers on this, not mix both.
 
-* run0 and run0 --user=root have different effect on tty ownership?
-
 * get rid of compat with libidn.so.11 (retain only for libidn.so.12)
 
 * get rid of compat with libbpf.so.0 (retainly only for libbpf.so.1)
