@@ -33,6 +33,7 @@
 #include "udev-spawn.h"
 #include "udev-trace.h"
 #include "udev-util.h"
+#include "udev-varlink.h"
 #include "udev-watch.h"
 #include "udev-worker.h"
 
@@ -149,6 +150,7 @@ Manager* manager_free(Manager *manager) {
 
         sd_device_monitor_unref(manager->monitor);
         udev_ctrl_unref(manager->ctrl);
+        sd_varlink_server_unref(manager->varlink_server);
 
         sd_event_source_unref(manager->inotify_event);
         sd_event_source_unref(manager->kill_workers_event);
@@ -214,7 +216,7 @@ void manager_kill_workers(Manager *manager, bool force) {
         }
 }
 
-static void manager_exit(Manager *manager) {
+void manager_exit(Manager *manager) {
         assert(manager);
 
         manager->exit = true;
@@ -223,7 +225,7 @@ static void manager_exit(Manager *manager) {
 
         /* close sources of new events and discard buffered events */
         manager->ctrl = udev_ctrl_unref(manager->ctrl);
-
+        manager->varlink_server = sd_varlink_server_unref(manager->varlink_server);
         manager->inotify_event = sd_event_source_disable_unref(manager->inotify_event);
         manager->inotify_fd = safe_close(manager->inotify_fd);
 
@@ -247,7 +249,7 @@ void notify_ready(Manager *manager) {
 }
 
 /* reload requested, HUP signal received, rules changed, builtin changed */
-static void manager_reload(Manager *manager, bool force) {
+void manager_reload(Manager *manager, bool force) {
         _cleanup_(udev_rules_freep) UdevRules *rules = NULL;
         usec_t now_usec;
         int r;
@@ -1152,6 +1154,9 @@ static int listen_fds(int *ret_ctrl, int *ret_netlink) {
         for (int i = 0; i < n; i++) {
                 int fd = SD_LISTEN_FDS_START + i;
 
+                if (streq(names[i], "varlink"))
+                        continue; /* The fd will be handled by sd_varlink_server_listen_auto(). */
+
                 if (sd_is_socket(fd, AF_UNIX, SOCK_SEQPACKET, -1) > 0) {
                         if (ctrl_fd >= 0) {
                                 log_debug("Received multiple seqpacket socket (%s), ignoring.", names[i]);
@@ -1416,6 +1421,10 @@ int manager_main(Manager *manager) {
                 return r;
 
         r = manager_start_ctrl(manager);
+        if (r < 0)
+                return r;
+
+        r = manager_start_varlink_server(manager);
         if (r < 0)
                 return r;
 
