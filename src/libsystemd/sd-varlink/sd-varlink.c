@@ -3660,11 +3660,12 @@ _public_ int sd_varlink_server_add_connection_stdio(sd_varlink_server *s, sd_var
         return 0;
 }
 
-_public_ int sd_varlink_server_listen_auto(sd_varlink_server *s) {
+_public_ int sd_varlink_server_listen_name(sd_varlink_server *s, const char *name) {
         _cleanup_strv_free_ char **names = NULL;
         int r, n = 0;
 
         assert_return(s, -EINVAL);
+        assert_return(name, -EINVAL);
 
         /* Adds all passed fds marked as "varlink" to our varlink server. These fds can either refer to a
          * listening socket or to a connection socket.
@@ -3680,7 +3681,7 @@ _public_ int sd_varlink_server_listen_auto(sd_varlink_server *s) {
                 int b, fd;
                 socklen_t l = sizeof(b);
 
-                if (!streq(names[i], "varlink"))
+                if (!streq(names[i], name))
                         continue;
 
                 fd = SD_LISTEN_FDS_START + i;
@@ -3700,9 +3701,21 @@ _public_ int sd_varlink_server_listen_auto(sd_varlink_server *s) {
                 n++;
         }
 
+        return n;
+}
+
+_public_ int sd_varlink_server_listen_auto(sd_varlink_server *s) {
+        int n;
+
+        assert_return(s, -EINVAL);
+
+        n = sd_varlink_server_listen_name(s, "varlink");
+
         /* Let's listen on an explicitly specified address */
         const char *e = secure_getenv("SYSTEMD_VARLINK_LISTEN");
         if (e) {
+                int r;
+
                 if (streq(e, "-"))
                         r = sd_varlink_server_add_connection_stdio(s, /* ret= */ NULL);
                 else
