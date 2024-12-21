@@ -4,7 +4,7 @@
 #include "sd-varlink.h"
 #include "sd-varlink-idl.h"
 
-extern const sd_varlink_interface vl_interface_io_systemd_service;
+extern const sd_varlink_interface vl_interface_io_systemd_Service;
 
 int varlink_method_ping(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata);
 int varlink_method_set_log_level(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata);
