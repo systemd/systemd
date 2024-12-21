@@ -8091,14 +8091,14 @@ int tpm2_parse_pcr_argument_append(const char *arg, Tpm2PCRValue **pcr_values, s
  * algorithm is included in the pcr values array this results in error. This retains the previous behavior of
  * tpm2_parse_pcr_argument() of clearing the mask if 'arg' is empty, replacing the mask if it is set to
  * UINT32_MAX, and or-ing the mask otherwise. */
-int tpm2_parse_pcr_argument_to_mask(const char *arg, uint32_t *ret_mask) {
+int tpm2_parse_pcr_argument_to_mask(const char *arg, uint32_t *mask) {
 #if HAVE_TPM2
         _cleanup_free_ Tpm2PCRValue *pcr_values = NULL;
         size_t n_pcr_values;
         int r;
 
         assert(arg);
-        assert(ret_mask);
+        assert(mask);
 
         r = tpm2_parse_pcr_argument(arg, &pcr_values, &n_pcr_values);
         if (r < 0)
@@ -8106,7 +8106,7 @@ int tpm2_parse_pcr_argument_to_mask(const char *arg, uint32_t *ret_mask) {
 
         if (n_pcr_values == 0) {
                 /* This retains the previous behavior of clearing the mask if the arg is empty */
-                *ret_mask = 0;
+                *mask = 0;
                 return 0;
         }
 
@@ -8123,10 +8123,10 @@ int tpm2_parse_pcr_argument_to_mask(const char *arg, uint32_t *ret_mask) {
         if (r < 0)
                 return log_error_errno(r, "Could not get pcr values mask: %m");
 
-        if (*ret_mask == UINT32_MAX)
-                *ret_mask = new_mask;
+        if (*mask == UINT32_MAX)
+                *mask = new_mask;
         else
-                *ret_mask |= new_mask;
+                *mask |= new_mask;
 
         return 0;
 #else
