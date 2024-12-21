@@ -1232,6 +1232,48 @@ static int listen_fds(int *ret_ctrl, int *ret_netlink) {
         return 0;
 }
 
+static int manager_init_ctrl(Manager *manager, int fd_ctrl) {
+        _cleanup_(udev_ctrl_unrefp) UdevCtrl *ctrl = NULL;
+        _cleanup_close_ int fd = fd_ctrl;
+        int r;
+
+        assert(manager);
+
+        /* This consumes passed file descriptor. */
+
+        r = udev_ctrl_new_from_fd(&ctrl, fd);
+        if (r < 0)
+                return log_error_errno(r, "Failed to initialize udev control socket: %m");
+        TAKE_FD(fd);
+
+        r = udev_ctrl_enable_receiving(ctrl);
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind udev control socket: %m");
+
+        manager->ctrl = TAKE_PTR(ctrl);
+        return 0;
+}
+
+static int manager_init_device_monitor(Manager *manager, int fd_uevent) {
+        _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor = NULL;
+        _cleanup_close_ int fd = fd_uevent;
+        int r;
+
+        assert(manager);
+
+        /* This consumes passed file descriptor. */
+
+        r = device_monitor_new_full(&monitor, MONITOR_GROUP_KERNEL, fd);
+        if (r < 0)
+                return log_error_errno(r, "Failed to initialize device monitor: %m");
+        TAKE_FD(fd);
+
+        (void) sd_device_monitor_set_description(monitor, "manager");
+
+        manager->monitor = TAKE_PTR(monitor);
+        return 0;
+}
+
 int manager_init(Manager *manager) {
         _cleanup_close_ int fd_ctrl = -EBADF, fd_uevent = -EBADF;
         _cleanup_free_ char *cgroup = NULL;
@@ -1243,21 +1285,13 @@ int manager_init(Manager *manager) {
         if (r < 0)
                 return log_error_errno(r, "Failed to listen on fds: %m");
 
-        r = udev_ctrl_new_from_fd(&manager->ctrl, fd_ctrl);
+        r = manager_init_ctrl(manager, TAKE_FD(fd_ctrl));
         if (r < 0)
-                return log_error_errno(r, "Failed to initialize udev control socket: %m");
-        TAKE_FD(fd_ctrl);
+                return r;
 
-        r = udev_ctrl_enable_receiving(manager->ctrl);
+        r = manager_init_device_monitor(manager, TAKE_FD(fd_uevent));
         if (r < 0)
-                return log_error_errno(r, "Failed to bind udev control socket: %m");
-
-        r = device_monitor_new_full(&manager->monitor, MONITOR_GROUP_KERNEL, fd_uevent);
-        if (r < 0)
-                return log_error_errno(r, "Failed to initialize device monitor: %m");
-        TAKE_FD(fd_uevent);
-
-        (void) sd_device_monitor_set_description(manager->monitor, "manager");
+                return r;
 
         r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, 0, &cgroup);
         if (r < 0)
@@ -1270,48 +1304,11 @@ int manager_init(Manager *manager) {
         return 0;
 }
 
-int manager_main(Manager *manager) {
-        int fd_worker, r;
+static int manager_start_ctrl(Manager *manager) {
+        int r;
 
-        /* unnamed socket from workers to the main daemon */
-        r = socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, manager->worker_watch);
-        if (r < 0)
-                return log_error_errno(errno, "Failed to create socketpair for communicating with workers: %m");
-
-        fd_worker = manager->worker_watch[READ_END];
-
-        r = setsockopt_int(fd_worker, SOL_SOCKET, SO_PASSCRED, true);
-        if (r < 0)
-                return log_error_errno(r, "Failed to enable SO_PASSCRED: %m");
-
-        manager->inotify_fd = inotify_init1(IN_CLOEXEC);
-        if (manager->inotify_fd < 0)
-                return log_error_errno(errno, "Failed to create inotify descriptor: %m");
-
-        udev_watch_restore(manager->inotify_fd);
-
-        /* block SIGCHLD for listening child events. */
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD) >= 0);
-
-        r = sd_event_default(&manager->event);
-        if (r < 0)
-                return log_error_errno(r, "Failed to allocate event loop: %m");
-
-        r = sd_event_add_signal(manager->event, NULL, SIGINT | SD_EVENT_SIGNAL_PROCMASK, on_sigterm, manager);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create SIGINT event source: %m");
-
-        r = sd_event_add_signal(manager->event, NULL, SIGTERM | SD_EVENT_SIGNAL_PROCMASK, on_sigterm, manager);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create SIGTERM event source: %m");
-
-        r = sd_event_add_signal(manager->event, NULL, SIGHUP | SD_EVENT_SIGNAL_PROCMASK, on_sighup, manager);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create SIGHUP event source: %m");
-
-        r = sd_event_set_watchdog(manager->event, true);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create watchdog event source: %m");
+        assert(manager);
+        assert(manager->ctrl);
 
         r = udev_ctrl_attach_event(manager->ctrl, manager->event);
         if (r < 0)
@@ -1321,17 +1318,21 @@ int manager_main(Manager *manager) {
         if (r < 0)
                 return log_error_errno(r, "Failed to start udev control: %m");
 
-        /* This needs to be after the inotify and uevent handling, to make sure
-         * that the ping is send back after fully processing the pending uevents
-         * (including the synthetic ones we may create due to inotify events).
-         */
+        /* This needs to be after the inotify and uevent handling, to make sure that the ping is send back
+         * after fully processing the pending uevents (including the synthetic ones we may create due to
+         * inotify events). */
         r = sd_event_source_set_priority(udev_ctrl_get_event_source(manager->ctrl), SD_EVENT_PRIORITY_IDLE);
         if (r < 0)
                 return log_error_errno(r, "Failed to set IDLE event priority for udev control event source: %m");
 
-        r = sd_event_add_io(manager->event, &manager->inotify_event, manager->inotify_fd, EPOLLIN, on_inotify, manager);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create inotify event source: %m");
+        return 0;
+}
+
+static int manager_start_device_monitor(Manager *manager) {
+        int r;
+
+        assert(manager);
+        assert(manager->monitor);
 
         r = sd_device_monitor_attach_event(manager->monitor, manager->event);
         if (r < 0)
@@ -1341,24 +1342,128 @@ int manager_main(Manager *manager) {
         if (r < 0)
                 return log_error_errno(r, "Failed to start device monitor: %m");
 
-        r = sd_event_add_io(manager->event, NULL, fd_worker, EPOLLIN, on_worker, manager);
+        return 0;
+}
+
+static int manager_start_inotify(Manager *manager) {
+        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        _cleanup_close_ int fd = -EBADF;
+        int r;
+
+        assert(manager);
+        assert(manager->event);
+
+        fd = inotify_init1(IN_CLOEXEC);
+        if (fd < 0)
+                return log_error_errno(errno, "Failed to create inotify descriptor: %m");
+
+        udev_watch_restore(fd);
+
+        r = sd_event_add_io(manager->event, &s, fd, EPOLLIN, on_inotify, manager);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create inotify event source: %m");
+
+        (void) sd_event_source_set_description(s, "manager-inotify");
+
+        manager->inotify_fd = TAKE_FD(fd);
+        manager->inotify_event = TAKE_PTR(s);
+        return 0;
+}
+
+static int manager_start_worker_event(Manager *manager) {
+        int r;
+
+        assert(manager);
+        assert(manager->event);
+
+        /* unnamed socket from workers to the main daemon */
+        r = socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, manager->worker_watch);
+        if (r < 0)
+                return log_error_errno(errno, "Failed to create socketpair for communicating with workers: %m");
+
+        r = setsockopt_int(manager->worker_watch[READ_END], SOL_SOCKET, SO_PASSCRED, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enable SO_PASSCRED: %m");
+
+        r = sd_event_add_io(manager->event, NULL, manager->worker_watch[READ_END], EPOLLIN, on_worker, manager);
         if (r < 0)
                 return log_error_errno(r, "Failed to create worker event source: %m");
 
-        r = sd_event_add_post(manager->event, NULL, on_post, manager);
+        return 0;
+}
+
+static int manager_setup_event(Manager *manager) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        int r;
+
+        assert(manager);
+
+        /* block SIGCHLD for listening child events. */
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD) >= 0);
+
+        r = sd_event_default(&e);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate event loop: %m");
+
+        r = sd_event_add_signal(e, /* ret_event_source = */ NULL, SIGINT | SD_EVENT_SIGNAL_PROCMASK, on_sigterm, manager);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create SIGINT event source: %m");
+
+        r = sd_event_add_signal(e, /* ret_event_source = */ NULL, SIGTERM | SD_EVENT_SIGNAL_PROCMASK, on_sigterm, manager);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create SIGTERM event source: %m");
+
+        r = sd_event_add_signal(e, /* ret_event_source = */ NULL, SIGHUP | SD_EVENT_SIGNAL_PROCMASK, on_sighup, manager);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create SIGHUP event source: %m");
+
+        r = sd_event_add_post(e, /* ret_event_source = */ NULL, on_post, manager);
         if (r < 0)
                 return log_error_errno(r, "Failed to create post event source: %m");
 
         /* Eventually, we probably want to do more here on memory pressure, for example, kill idle workers immediately */
-        r = sd_event_add_memory_pressure(manager->event, /* ret_event_source= */ NULL, /* callback= */ NULL, /* userdata= */ NULL);
+        r = sd_event_add_memory_pressure(e, /* ret_event_source= */ NULL, /* callback= */ NULL, /* userdata= */ NULL);
         if (r < 0)
                 log_full_errno(ERRNO_IS_NOT_SUPPORTED(r) || ERRNO_IS_PRIVILEGE(r) || (r == -EHOSTDOWN) ? LOG_DEBUG : LOG_WARNING, r,
                                "Failed to allocate memory pressure watch, ignoring: %m");
 
-        r = sd_event_add_signal(manager->event, /* ret_event_source= */ NULL,
+        r = sd_event_add_signal(e, /* ret_event_source= */ NULL,
                                 (SIGRTMIN+18) | SD_EVENT_SIGNAL_PROCMASK, sigrtmin18_handler, /* userdata= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate SIGRTMIN+18 event source, ignoring: %m");
+
+        r = sd_event_set_watchdog(e, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create watchdog event source: %m");
+
+        manager->event = TAKE_PTR(e);
+        return 0;
+}
+
+int manager_main(Manager *manager) {
+        int r;
+
+        assert(manager);
+
+        r = manager_setup_event(manager);
+        if (r < 0)
+                return r;
+
+        r = manager_start_ctrl(manager);
+        if (r < 0)
+                return r;
+
+        r = manager_start_device_monitor(manager);
+        if (r < 0)
+                return r;
+
+        r = manager_start_inotify(manager);
+        if (r < 0)
+                return r;
+
+        r = manager_start_worker_event(manager);
+        if (r < 0)
+                return r;
 
         manager->last_usec = now(CLOCK_MONOTONIC);
 
