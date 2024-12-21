@@ -1992,6 +1992,9 @@ UserDisposition user_record_disposition(UserRecord *h) {
         if (uid_is_container(h->uid))
                 return USER_CONTAINER;
 
+        if (uid_is_foreign(h->uid))
+                return USER_FOREIGN;
+
         if (h->uid > INT32_MAX)
                 return USER_RESERVED;
 
@@ -2711,6 +2714,7 @@ static const char* const user_disposition_table[_USER_DISPOSITION_MAX] = {
         [USER_DYNAMIC]   = "dynamic",
         [USER_REGULAR]   = "regular",
         [USER_CONTAINER] = "container",
+        [USER_FOREIGN]   = "foreign",
         [USER_RESERVED]  = "reserved",
 };
 

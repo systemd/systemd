@@ -3,7 +3,7 @@
 #include <stdlib.h>
 
 #include "log.h"
-#include "nspawn-patch-uid.h"
+#include "shift-uid.h"
 #include "user-util.h"
 #include "string-util.h"
 #include "tests.h"

@@ -456,6 +456,7 @@ int unit_check_oomd_kill(Unit *u);
 int unit_check_oom(Unit *u);
 
 int unit_attach_pids_to_cgroup(Unit *u, Set *pids, const char *suffix_path);
+int unit_remove_subcgroup(Unit *u, const char *suffix_path);
 
 int manager_setup_cgroup(Manager *m);
 void manager_shutdown_cgroup(Manager *m, bool delete);
