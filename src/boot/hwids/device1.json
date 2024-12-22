@@ -1,4 +1,5 @@
 {
+    "type": "devicetree"
     "name": "Device 1",
     "compatible": "test,device-1",
     "hwids": [
