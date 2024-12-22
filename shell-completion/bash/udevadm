@@ -58,7 +58,7 @@ _udevadm() {
                     --json --subsystem-match --subsystem-nomatch --attr-match --attr-nomatch --property-match
                     --tag-match --sysname-match --name-match --parent-match'
         [TRIGGER_STANDALONE]='-v --verbose -n --dry-run -q --quiet -w --settle --wait-daemon --uuid
-                              --initialized-match --initialized-nomatch'
+                              --initialized-match --initialized-nomatch --include-parents'
         [TRIGGER_ARG]='-t --type -c --action -s --subsystem-match -S --subsystem-nomatch
                        -a --attr-match -A --attr-nomatch -p --property-match
                        -g --tag-match -y --sysname-match --name-match -b --parent-match

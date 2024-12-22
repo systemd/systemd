@@ -1769,14 +1769,11 @@ static int service_spawn_internal(
         if (r < 0)
                 return r;
 
-        our_env = new0(char*, 14);
+        our_env = new0(char*, 13);
         if (!our_env)
                 return -ENOMEM;
 
         if (service_exec_needs_notify_socket(s, exec_params.flags)) {
-                if (asprintf(our_env + n_env++, "NOTIFY_SOCKET=%s", UNIT(s)->manager->notify_socket) < 0)
-                        return -ENOMEM;
-
                 exec_params.notify_socket = UNIT(s)->manager->notify_socket;
 
                 if (s->n_fd_store_max > 0)

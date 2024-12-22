@@ -199,8 +199,9 @@ static int do_execute(
                         }
 
                         if (callbacks) {
-                                if (lseek(fd, 0, SEEK_SET) < 0)
-                                        return log_error_errno(errno, "Failed to seek on serialization fd: %m");
+                                r = finish_serialization_fd(fd);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to finish serialization fd: %m");
 
                                 r = callbacks[STDOUT_GENERATE](TAKE_FD(fd), callback_args[STDOUT_GENERATE]);
                                 if (r < 0)
@@ -290,12 +291,14 @@ int execute_strv(
         if (!callbacks)
                 return 0;
 
-        if (lseek(fd, 0, SEEK_SET) < 0)
-                return log_error_errno(errno, "Failed to rewind serialization fd: %m");
+        r = finish_serialization_fd(fd);
+        if (r < 0)
+                return log_error_errno(r, "Failed to finish serialization fd: %m");
 
         r = callbacks[STDOUT_CONSUME](TAKE_FD(fd), callback_args[STDOUT_CONSUME]);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse returned data: %m");
+
         return 0;
 }
 
@@ -488,9 +491,10 @@ static const char* const exec_command_strings[] = {
         "ignore-failure", /* EXEC_COMMAND_IGNORE_FAILURE */
         "privileged",     /* EXEC_COMMAND_FULLY_PRIVILEGED */
         "no-setuid",      /* EXEC_COMMAND_NO_SETUID */
-        "ambient",        /* EXEC_COMMAND_AMBIENT_MAGIC */
         "no-env-expand",  /* EXEC_COMMAND_NO_ENV_EXPAND */
 };
+
+assert_cc((1 << ELEMENTSOF(exec_command_strings)) - 1 == _EXEC_COMMAND_FLAGS_ALL);
 
 const char* exec_command_flags_to_string(ExecCommandFlags i) {
         for (size_t idx = 0; idx < ELEMENTSOF(exec_command_strings); idx++)
@@ -503,12 +507,14 @@ const char* exec_command_flags_to_string(ExecCommandFlags i) {
 ExecCommandFlags exec_command_flags_from_string(const char *s) {
         ssize_t idx;
 
-        idx = string_table_lookup(exec_command_strings, ELEMENTSOF(exec_command_strings), s);
+        if (streq(s, "ambient")) /* Compatibility with ambient hack, removed in v258, map to no bits set */
+                return 0;
 
+        idx = string_table_lookup(exec_command_strings, ELEMENTSOF(exec_command_strings), s);
         if (idx < 0)
                 return _EXEC_COMMAND_FLAGS_INVALID;
-        else
-                return 1 << idx;
+
+        return 1 << idx;
 }
 
 int fexecve_or_execve(int executable_fd, const char *executable, char *const argv[], char *const envp[]) {

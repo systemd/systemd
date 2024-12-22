@@ -935,6 +935,14 @@ static void mount_enter_mounted(Mount *m, MountResult f) {
         if (m->result == MOUNT_SUCCESS)
                 m->result = f;
 
+        /* Refer to service_set_state() handling of SERVICE_EXITED state for rationale. In particular
+         * for mount units let's not leave cred mounts around, otherwise the actual number of mounts would be
+         * somewhat doubled.
+         *
+         * Note that this effectively means fresh creds are used during remount, but that's mostly what
+         * users would expect anyways. */
+        unit_destroy_runtime_data(UNIT(m), &m->exec_context, /* destroy_runtime_dir = */ false);
+
         mount_set_state(m, MOUNT_MOUNTED);
 }
 

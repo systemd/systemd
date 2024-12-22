@@ -93,7 +93,7 @@
         XML file.
         This may be used by software centers (such as GNOME Software or KDE Discover) to present rich
         metadata about this feature.
-        This includes display names, chagnelogs, icons, and more.
+        This includes display names, changelogs, icons, and more.
         This setting supports specifier expansion; see below for details on supported specifiers.</para>
 
         <xi:include href="version-info.xml" xpointer="v257"/></listitem>
@@ -177,7 +177,7 @@ Enabled=false
 </programlisting></para>
 
       <para>The above defines the <literal>devel</literal> feature, and disables it by default.
-      Now let's a define a transfer that's associated with this feature:</para>
+      Now let's define a transfer that's associated with this feature:</para>
 
       <para><programlisting># /usr/lib/sysupdate.d/50-devel.transfer
 [Transfer]

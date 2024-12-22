@@ -1982,6 +1982,10 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
         if (r < 0)
                 return r;
 
+        r = serialize_item(f, "exec-context-private-hostname", c->private_hostname);
+        if (r < 0)
+                return r;
+
         r = serialize_item(f, "exec-context-protect-proc", protect_proc_to_string(c->protect_proc));
         if (r < 0)
                 return r;
@@ -2884,6 +2888,10 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         c->protect_hostname = protect_hostname_from_string(val);
                         if (c->protect_hostname < 0)
                                 return -EINVAL;
+                } else if ((val = startswith(l, "exec-context-private-hostname="))) {
+                        r = free_and_strdup(&c->private_hostname, val);
+                        if (r < 0)
+                                return r;
                 } else if ((val = startswith(l, "exec-context-protect-proc="))) {
                         c->protect_proc = protect_proc_from_string(val);
                         if (c->protect_proc < 0)

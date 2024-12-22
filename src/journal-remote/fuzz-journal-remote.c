@@ -24,7 +24,6 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_(unlink_and_freep) char *name = NULL;
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
         _cleanup_(journal_remote_server_destroy) RemoteServer s = {};
-        void *mem;
         int fdin, r;
 
         if (outside_size_range(size, 3, 65536))
@@ -35,12 +34,9 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         assert_se(mkdtemp_malloc("/tmp/fuzz-journal-remote-XXXXXX", &tmp) >= 0);
         assert_se(name = path_join(tmp, "fuzz-journal-remote.XXXXXX.journal"));
 
-        fdin = fdin_close = memfd_new_and_map("fuzz-journal-remote", size, &mem);
+        fdin = fdin_close = memfd_new_and_seal("fuzz-journal-remote", data, size);
         if (fdin < 0)
                 return log_error_errno(fdin, "memfd_new_and_map() failed: %m");
-
-        memcpy(mem, data, size);
-        assert_se(munmap(mem, size) == 0);
 
         fdout = mkostemps(name, STRLEN(".journal"), O_CLOEXEC);
         if (fdout < 0)

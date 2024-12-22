@@ -19,6 +19,7 @@ udevadm_sources = files(
 
 libudevd_core_sources = files(
         'net/link-config.c',
+        'udev-config.c',
         'udev-ctrl.c',
         'udev-event.c',
         'udev-format.c',

@@ -3,9 +3,11 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "bitfield.h"
 #include "creds-util.h"
 #include "dropin.h"
 #include "errno-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "generator.h"
@@ -27,12 +29,98 @@ static char **arg_wants = NULL;
 static bool arg_debug_shell = false;
 static char *arg_debug_tty = NULL;
 static char *arg_default_debug_tty = NULL;
+static uint32_t arg_breakpoints = 0;
 
 STATIC_DESTRUCTOR_REGISTER(arg_default_unit, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_mask, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_wants, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_debug_tty, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_default_debug_tty, freep);
+
+typedef enum BreakpointType {
+        BREAKPOINT_PRE_UDEV,
+        BREAKPOINT_PRE_BASIC,
+        BREAKPOINT_PRE_SYSROOT_MOUNT,
+        BREAKPOINT_PRE_SWITCH_ROOT,
+        _BREAKPOINT_TYPE_MAX,
+        _BREAKPOINT_TYPE_INVALID = -EINVAL,
+} BreakpointType;
+
+typedef enum BreakpointValidity {
+        BREAKPOINT_DEFAULT   = 1 << 0,
+        BREAKPOINT_IN_INITRD = 1 << 1,
+        BREAKPOINT_ON_HOST   = 1 << 2,
+} BreakpointValidity;
+
+typedef struct BreakpointInfo {
+        BreakpointType type;
+        const char *name;
+        const char *unit;
+        BreakpointValidity validity;
+} BreakpointInfo;
+
+static const struct BreakpointInfo breakpoint_info_table[_BREAKPOINT_TYPE_MAX] = {
+        { BREAKPOINT_PRE_UDEV,          "pre-udev",        "breakpoint-pre-udev.service",        BREAKPOINT_IN_INITRD | BREAKPOINT_ON_HOST },
+        { BREAKPOINT_PRE_BASIC,         "pre-basic",       "breakpoint-pre-basic.service",       BREAKPOINT_IN_INITRD | BREAKPOINT_ON_HOST },
+        { BREAKPOINT_PRE_SYSROOT_MOUNT, "pre-mount",       "breakpoint-pre-mount.service",       BREAKPOINT_IN_INITRD                      },
+        { BREAKPOINT_PRE_SWITCH_ROOT,   "pre-switch-root", "breakpoint-pre-switch-root.service", BREAKPOINT_IN_INITRD | BREAKPOINT_DEFAULT },
+};
+
+static BreakpointType parse_breakpoint_from_string_one(const char *s) {
+        assert(s);
+
+        FOREACH_ARRAY(i, breakpoint_info_table, ELEMENTSOF(breakpoint_info_table))
+                if (streq(i->name, s))
+                        return i->type;
+
+        return _BREAKPOINT_TYPE_INVALID;
+}
+
+static int parse_breakpoint_from_string(const char *s, uint32_t *ret_breakpoints) {
+        uint32_t breakpoints = 0;
+        int r;
+
+        assert(ret_breakpoints);
+
+        /* Empty value? set default breakpoint */
+        if (isempty(s)) {
+                if (in_initrd()) {
+                        FOREACH_ARRAY(i, breakpoint_info_table, ELEMENTSOF(breakpoint_info_table))
+                                if (i->validity & BREAKPOINT_DEFAULT) {
+                                        breakpoints |= 1 << i->type;
+                                        break;
+                                }
+                } else
+                        log_warning("No default breakpoint defined on the host, ignoring breakpoint request from kernel command line.");
+        } else
+                for (;;) {
+                        _cleanup_free_ char *t = NULL;
+                        BreakpointType tt;
+
+                        r = extract_first_word(&s, &t, ",", EXTRACT_DONT_COALESCE_SEPARATORS);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                break;
+
+                        tt = parse_breakpoint_from_string_one(t);
+                        if (tt < 0) {
+                                log_warning("Invalid breakpoint value '%s', ignoring.", t);
+                                continue;
+                        }
+
+                        if (in_initrd() && !FLAGS_SET(breakpoint_info_table[tt].validity, BREAKPOINT_IN_INITRD))
+                                log_warning("Breakpoint '%s' not valid in the initrd, ignoring.", t);
+                        else if (!in_initrd() && !FLAGS_SET(breakpoint_info_table[tt].validity, BREAKPOINT_ON_HOST))
+                                log_warning("Breakpoint '%s' not valid on the host, ignoring.", t);
+                        else
+                                breakpoints |= 1 << tt;
+                }
+
+        *ret_breakpoints = breakpoints;
+
+        return 0;
+}
 
 static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
         int r;
@@ -87,6 +175,15 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                         return 0;
 
                 return free_and_strdup_warn(&arg_default_unit, value);
+
+        } else if (streq(key, "systemd.break")) {
+                uint32_t breakpoints = 0;
+
+                r = parse_breakpoint_from_string(value, &breakpoints);
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to parse breakpoint value '%s': %m", value);
+
+                arg_breakpoints |= breakpoints;
 
         } else if (!value) {
                 const char *target;
@@ -268,6 +365,10 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
 
                 RET_GATHER(r, install_debug_shell_dropin());
         }
+
+        BIT_FOREACH(i, arg_breakpoints)
+                if (strv_extend(&arg_wants, breakpoint_info_table[i].unit) < 0)
+                        return log_oom();
 
         if (get_credentials_dir(&credentials_dir) >= 0)
                 RET_GATHER(r, process_unit_credentials(credentials_dir));

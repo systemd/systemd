@@ -475,7 +475,7 @@ int netns_get_nsid(int netnsfd, uint32_t *ret) {
                 if (r < 0)
                         return r;
 
-                if (u == UINT32_MAX) /* no NSID assigned yet */
+                if (u == (uint32_t) NETNSA_NSID_NOT_ASSIGNED) /* no NSID assigned yet */
                         return -ENODATA;
 
                 if (ret)

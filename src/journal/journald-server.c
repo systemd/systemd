@@ -1109,7 +1109,7 @@ static void server_dispatch_message_real(
                          * Let's use a heap allocation for this one. */
                         cmdline1 = set_iovec_string_field(iovec, &n, "_CMDLINE=", c->cmdline);
 
-                IOVEC_ADD_STRING_FIELD(iovec, n, c->capeff, "_CAP_EFFECTIVE"); /* Read from /proc/.../status */
+                IOVEC_ADD_NUMERIC_FIELD(iovec, n, c->capability_quintet.effective, uint64_t, capability_is_set, "%" PRIx64, "_CAP_EFFECTIVE");
                 IOVEC_ADD_SIZED_FIELD(iovec, n, c->label, c->label_size, "_SELINUX_CONTEXT");
                 IOVEC_ADD_NUMERIC_FIELD(iovec, n, c->auditid, uint32_t, audit_session_is_valid, "%" PRIu32, "_AUDIT_SESSION");
                 IOVEC_ADD_NUMERIC_FIELD(iovec, n, c->loginuid, uid_t, uid_is_valid, UID_FMT, "_AUDIT_LOGINUID");
@@ -1144,7 +1144,7 @@ static void server_dispatch_message_real(
                 if (o->cmdline)
                         cmdline2 = set_iovec_string_field(iovec, &n, "OBJECT_CMDLINE=", o->cmdline);
 
-                IOVEC_ADD_STRING_FIELD(iovec, n, o->capeff, "OBJECT_CAP_EFFECTIVE");
+                IOVEC_ADD_NUMERIC_FIELD(iovec, n, o->capability_quintet.effective, uint64_t, capability_is_set, "%" PRIx64, "OBJECT_CAP_EFFECTIVE");
                 IOVEC_ADD_SIZED_FIELD(iovec, n, o->label, o->label_size, "OBJECT_SELINUX_CONTEXT");
                 IOVEC_ADD_NUMERIC_FIELD(iovec, n, o->auditid, uint32_t, audit_session_is_valid, "%" PRIu32, "OBJECT_AUDIT_SESSION");
                 IOVEC_ADD_NUMERIC_FIELD(iovec, n, o->loginuid, uid_t, uid_is_valid, UID_FMT, "OBJECT_AUDIT_LOGINUID");

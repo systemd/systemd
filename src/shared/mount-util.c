@@ -536,6 +536,8 @@ int mount_switch_root_full(const char *path, unsigned long mount_propagation_fla
                 }
         }
 
+        log_debug("Successfully switched root to '%s'.", path);
+
         /* Finally, let's establish the requested propagation flags. */
         if (mount_propagation_flag == 0)
                 return 0;
@@ -1319,7 +1321,7 @@ int make_userns(uid_t uid_shift, uid_t uid_range, uid_t source_owner, uid_t dest
          * process whose only purpose is to give us a new user namespace. It's killed when we got it. */
 
         if (!userns_shift_range_valid(uid_shift, uid_range))
-                return -EINVAL;
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid UID range for user namespace.");
 
         if (IN_SET(idmapping, REMOUNT_IDMAPPING_NONE, REMOUNT_IDMAPPING_HOST_ROOT)) {
                 if (asprintf(&line, UID_FMT " " UID_FMT " " UID_FMT "\n", 0u, uid_shift, uid_range) < 0)

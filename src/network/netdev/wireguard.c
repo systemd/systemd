@@ -1198,7 +1198,7 @@ static int wireguard_verify(NetDev *netdev, const char *filename) {
         r = wireguard_read_key_file(w->private_key_file, w->private_key);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r,
-                                              "Failed to read private key from %s. Ignoring network device.",
+                                              "Failed to read private key from '%s', ignoring network device: %m",
                                               w->private_key_file);
 
         if (eqzero(w->private_key)) {

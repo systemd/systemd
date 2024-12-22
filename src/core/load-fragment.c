@@ -40,6 +40,7 @@
 #include "fs-util.h"
 #include "fstab-util.h"
 #include "hexdecoct.h"
+#include "hostname-util.h"
 #include "iovec-util.h"
 #include "ioprio-util.h"
 #include "ip-protocol-list.h"
@@ -141,7 +142,6 @@ DEFINE_CONFIG_PARSE_ENUM(config_parse_exec_utmp_mode, exec_utmp_mode, ExecUtmpMo
 DEFINE_CONFIG_PARSE_ENUM(config_parse_job_mode, job_mode, JobMode);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_notify_access, notify_access, NotifyAccess);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_protect_home, protect_home, ProtectHome);
-DEFINE_CONFIG_PARSE_ENUM(config_parse_protect_hostname, protect_hostname, ProtectHostname);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_protect_system, protect_system, ProtectSystem);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_exec_preserve_mode, exec_preserve_mode, ExecPreserveMode);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_service_type, service_type, ServiceType);
@@ -933,7 +933,7 @@ int config_parse_exec(
                 }
 
                 const char *f = firstword;
-                bool ignore, separate_argv0 = false;
+                bool ignore, separate_argv0 = false, ambient_hack = false;
                 ExecCommandFlags flags = 0;
 
                 for (;; f++) {
@@ -944,28 +944,29 @@ int config_parse_exec(
                          * ":":  Disable environment variable substitution
                          * "+":  Run with full privileges and no sandboxing
                          * "!":  Apply sandboxing except for user/group credentials
-                         * "!!": Apply user/group credentials if the kernel supports ambient capabilities -
-                         *       if it doesn't we don't apply the credentials themselves, but do apply
-                         *       most other sandboxing, with some special exceptions for changing UID.
-                         *
-                         * The idea is that '!!' may be used to write services that can take benefit of
-                         * systemd's UID/GID dropping if the kernel supports ambient creds, but provide
-                         * an automatic fallback to privilege dropping within the daemon if the kernel
-                         * does not offer that. */
+                         */
 
-                        if (*f == '-' && !(flags & EXEC_COMMAND_IGNORE_FAILURE))
+                        if (*f == '-' && !FLAGS_SET(flags, EXEC_COMMAND_IGNORE_FAILURE))
                                 flags |= EXEC_COMMAND_IGNORE_FAILURE;
                         else if (*f == '@' && !separate_argv0)
                                 separate_argv0 = true;
-                        else if (*f == ':' && !(flags & EXEC_COMMAND_NO_ENV_EXPAND))
+                        else if (*f == ':' && !FLAGS_SET(flags, EXEC_COMMAND_NO_ENV_EXPAND))
                                 flags |= EXEC_COMMAND_NO_ENV_EXPAND;
-                        else if (*f == '+' && !(flags & (EXEC_COMMAND_FULLY_PRIVILEGED|EXEC_COMMAND_NO_SETUID|EXEC_COMMAND_AMBIENT_MAGIC)))
+                        else if (*f == '+' && !(flags & (EXEC_COMMAND_FULLY_PRIVILEGED|EXEC_COMMAND_NO_SETUID)) && !ambient_hack)
                                 flags |= EXEC_COMMAND_FULLY_PRIVILEGED;
-                        else if (*f == '!' && !(flags & (EXEC_COMMAND_FULLY_PRIVILEGED|EXEC_COMMAND_NO_SETUID|EXEC_COMMAND_AMBIENT_MAGIC)))
+                        else if (*f == '!' && !(flags & (EXEC_COMMAND_FULLY_PRIVILEGED|EXEC_COMMAND_NO_SETUID)) && !ambient_hack)
                                 flags |= EXEC_COMMAND_NO_SETUID;
-                        else if (*f == '!' && !(flags & (EXEC_COMMAND_FULLY_PRIVILEGED|EXEC_COMMAND_AMBIENT_MAGIC))) {
+                        else if (*f == '!' && !FLAGS_SET(flags, EXEC_COMMAND_FULLY_PRIVILEGED) && !ambient_hack) {
+                                /* Compatibility with the old !! ambient caps hack (removed in v258). Since
+                                 * we don't support that anymore and !! was a noop on non-supporting systems,
+                                 * we'll just turn off the EXEC_COMMAND_NO_SETUID flag again and be done with
+                                 * it. */
                                 flags &= ~EXEC_COMMAND_NO_SETUID;
-                                flags |= EXEC_COMMAND_AMBIENT_MAGIC;
+                                ambient_hack = true;
+
+                                log_syntax(unit, LOG_NOTICE, filename, line, 0,
+                                           "The !! modifier for %s= lines is no longer supported and is now ignored. "
+                                           "Please update your unit files and remove the modifier.", lvalue);
                         } else
                                 break;
                 }
@@ -6742,4 +6743,54 @@ int config_parse_cgroup_nft_set(
         Unit *u = ASSERT_PTR(userdata);
 
         return config_parse_nft_set(unit, filename, line, section, section_line, lvalue, ltype, rvalue, &c->nft_set_context, u);
+}
+
+int config_parse_protect_hostname(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        ExecContext *c = ASSERT_PTR(data);
+        Unit *u = ASSERT_PTR(userdata);
+        _cleanup_free_ char *h = NULL, *p = NULL;
+        int r;
+
+        if (isempty(rvalue)) {
+                c->protect_hostname = PROTECT_HOSTNAME_NO;
+                c->private_hostname = mfree(c->private_hostname);
+                return 1;
+        }
+
+        const char *colon = strchr(rvalue, ':');
+        if (colon) {
+                r = unit_full_printf_full(u, colon + 1, HOST_NAME_MAX, &h);
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Failed to resolve unit specifiers in '%s', ignoring: %m", colon + 1);
+                        return 0;
+                }
+
+                if (!hostname_is_valid(h, /* flags = */ 0))
+                        return log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                          "Invalid hostname is specified to %s=, ignoring: %s", lvalue, h);
+
+                p = strndup(rvalue, colon - rvalue);
+                if (!p)
+                        return log_oom();
+        }
+
+        ProtectHostname t = protect_hostname_from_string(p ?: rvalue);
+        if (t < 0 || (t == PROTECT_HOSTNAME_NO && h))
+                return log_syntax_parse_error(unit, filename, line, 0, lvalue, rvalue);
+
+        c->protect_hostname = t;
+        free_and_replace(c->private_hostname, h);
+        return 1;
 }

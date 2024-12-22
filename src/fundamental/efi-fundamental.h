@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#if !SD_BOOT
-#  include <stdbool.h>
-#  include <stdint.h>
-#  include <string.h>
+#include <stdint.h>
 
 /* Matches EFI API definition of the same structure for userspace */
 typedef struct {
@@ -14,9 +11,13 @@ typedef struct {
         uint8_t Data4[8];
 } EFI_GUID;
 
+#if !SD_BOOT
+#  include <stdbool.h>
+#  include <string.h>
 static inline bool efi_guid_equal(const EFI_GUID *a, const EFI_GUID *b) {
         return memcmp(a, b, sizeof(EFI_GUID)) == 0;
 }
+#endif
 
 typedef struct {
         EFI_GUID SignatureOwner;
@@ -66,6 +67,9 @@ typedef struct {
 #define GUID_DEF(d1, d2, d3, d4_1, d4_2, d4_3, d4_4, d4_5, d4_6, d4_7, d4_8) \
     { d1, d2, d3, { d4_1, d4_2, d4_3, d4_4, d4_5, d4_6, d4_7, d4_8 } }
 
+/* Creates a EFI_GUID pointer suitable for EFI APIs. Use of const allows the compiler to merge multiple
+ * uses (although, currently compilers do that regardless). Most EFI APIs declare their EFI_GUID input
+ * as non-const, but almost all of them are in fact const. */
 #define MAKE_GUID_PTR(name) ((EFI_GUID *) &(const EFI_GUID) name##_GUID)
 
 #define EFI_GLOBAL_VARIABLE \
@@ -77,5 +81,3 @@ typedef struct {
         GUID_DEF(0xa5c059a1, 0x94e4, 0x4aa7, 0x87, 0xb5, 0xab, 0x15, 0x5c, 0x2b, 0xf0, 0x72)
 #define EFI_CERT_TYPE_PKCS7_GUID \
         GUID_DEF(0x4aafd29d, 0x68df, 0x49ee, 0x8a, 0xa9, 0x34, 0x7d, 0x37, 0x56, 0x65, 0xa7)
-
-#endif

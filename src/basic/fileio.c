@@ -14,6 +14,7 @@
 
 #include "alloc-util.h"
 #include "chase.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
@@ -856,35 +857,49 @@ int read_full_file_full(
         return read_full_stream_full(f, filename, offset, size, flags, ret_contents, ret_size);
 }
 
-int executable_is_script(const char *path, char **interpreter) {
-        _cleanup_free_ char *line = NULL;
-        size_t len;
-        char *ans;
+int script_get_shebang_interpreter(const char *path, char **ret) {
+        _cleanup_fclose_ FILE *f = NULL;
         int r;
 
         assert(path);
 
-        r = read_one_line_file(path, &line);
-        if (r == -ENOBUFS) /* First line overly long? if so, then it's not a script */
-                return 0;
+        f = fopen(path, "re");
+        if (!f)
+                return -errno;
+
+        char c;
+        r = safe_fgetc(f, &c);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -EBADMSG;
+        if (c != '#')
+                return -EMEDIUMTYPE;
+        r = safe_fgetc(f, &c);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -EBADMSG;
+        if (c != '!')
+                return -EMEDIUMTYPE;
+
+        _cleanup_free_ char *line = NULL;
+        r = read_line(f, LONG_LINE_MAX, &line);
         if (r < 0)
                 return r;
 
-        if (!startswith(line, "#!"))
-                return 0;
+        _cleanup_free_ char *p = NULL;
+        const char *s = line;
 
-        ans = strstrip(line + 2);
-        len = strcspn(ans, " \t");
+        r = extract_first_word(&s, &p, /* separators = */ NULL, /* flags = */ 0);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -ENOEXEC;
 
-        if (len == 0)
-                return 0;
-
-        ans = strndup(ans, len);
-        if (!ans)
-                return -ENOMEM;
-
-        *interpreter = ans;
-        return 1;
+        if (ret)
+                *ret = TAKE_PTR(p);
+        return 0;
 }
 
 /**
@@ -957,19 +972,21 @@ int get_proc_field(const char *filename, const char *pattern, const char *termin
         return 0;
 }
 
-DIR *xopendirat(int fd, const char *name, int flags) {
-        _cleanup_close_ int nfd = -EBADF;
+DIR* xopendirat(int dir_fd, const char *name, int flags) {
+        _cleanup_close_ int fd = -EBADF;
 
-        assert(!(flags & O_CREAT));
+        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
+        assert(name);
+        assert(!(flags & (O_CREAT|O_TMPFILE)));
 
-        if (fd == AT_FDCWD && flags == 0)
+        if (dir_fd == AT_FDCWD && flags == 0)
                 return opendir(name);
 
-        nfd = openat(fd, name, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|flags, 0);
-        if (nfd < 0)
+        fd = openat(dir_fd, name, O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|flags);
+        if (fd < 0)
                 return NULL;
 
-        return take_fdopendir(&nfd);
+        return take_fdopendir(&fd);
 }
 
 int fopen_mode_to_flags(const char *mode) {

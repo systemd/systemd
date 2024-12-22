@@ -3684,7 +3684,7 @@ static int parse_line(
                 else {
                         *invalid_config = true;
                         return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EBADMSG),
-                                          "Unknown modifiers in command '%s'.", action);
+                                          "Unknown modifiers in command: %s", action);
                 }
 
         if (boot && !arg_boot) {

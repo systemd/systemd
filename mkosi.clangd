@@ -1,5 +1,6 @@
 #!/bin/bash
 # SPDX-License-Identifier: LGPL-2.1-or-later
+set -e
 
 if command -v flatpak-spawn >/dev/null; then
     SPAWN=(flatpak-spawn --host)
@@ -7,7 +8,7 @@ else
     SPAWN=()
 fi
 
-MKOSI_CONFIG="$("${SPAWN[@]}" --host mkosi --json summary | jq -r .Images[-1])"
+MKOSI_CONFIG="$("${SPAWN[@]}" mkosi --json summary | jq -r .Images[-1])"
 DISTRIBUTION="$(jq -r .Distribution <<< "$MKOSI_CONFIG")"
 RELEASE="$(jq -r .Release <<< "$MKOSI_CONFIG")"
 ARCH="$(jq -r .Architecture <<< "$MKOSI_CONFIG")"

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 # -*- mode: shell-script; indent-tabs-mode: nil; sh-basic-offset: 4; -*-
 # ex: ts=8 sw=4 sts=4 et filetype=sh
-# shellcheck disable=SC2233,SC2235
+# shellcheck disable=SC2233,SC2235,SC2016
 set -eux
 set -o pipefail
 
@@ -78,6 +78,37 @@ systemd-dissect --umount "$IMAGE_DIR/mount2"
 systemd-run --wait -p RootImage="$MINIMAL_IMAGE.raw" mountpoint /run/systemd/journal/socket
 (! systemd-run --wait -p RootImage="$MINIMAL_IMAGE.raw" -p BindLogSockets=no ls /run/systemd/journal/socket)
 (! systemd-run --wait -p RootImage="$MINIMAL_IMAGE.raw" -p MountAPIVFS=no ls /run/systemd/journal/socket)
+
+# Test that the notify socket is bind mounted to /run/host/notify in sandboxed environments and
+# $NOTIFY_SOCKET is set correctly.
+systemd-run \
+    --wait \
+    -p RootImage="$MINIMAL_IMAGE.raw" \
+    -p NotifyAccess=all \
+    bash -xec \
+    '
+        [[ "$$NOTIFY_SOCKET" == "/run/host/notify" ]]
+        test -S /run/host/notify
+    '
+if [[ "$(findmnt -n -o FSTYPE /)" == btrfs ]]; then
+    [[ -d /test-dissect-btrfs-snapshot ]] && btrfs subvolume delete /test-dissect-btrfs-snapshot
+    btrfs subvolume snapshot / /test-dissect-btrfs-snapshot
+
+    # Same test with RootDirectory=, also try to send READY=1, as we can use systemd-notify.
+    systemd-run \
+        --wait \
+        -p RootDirectory=/test-dissect-btrfs-snapshot \
+        -p NotifyAccess=all \
+        --service-type=notify \
+        bash -xec \
+        '
+            systemd-notify --pid=auto --ready
+            [[ "$$NOTIFY_SOCKET" == "/run/host/notify" ]]
+            test -S /run/host/notify
+        '
+
+    btrfs subvolume delete /test-dissect-btrfs-snapshot
+fi
 
 systemd-run -P -p RootImage="$MINIMAL_IMAGE.raw" cat /usr/lib/os-release | grep -q -F "MARKER=1"
 mv "$MINIMAL_IMAGE.verity" "$MINIMAL_IMAGE.fooverity"
@@ -583,6 +614,10 @@ grep -q -F '{"name":"a","type":"raw","class":"machine","ro":false,"path":"/run/m
 grep -q -F '{"name":"b","type":"raw","class":"portable","ro":false,"path":"/run/portables/b.raw"' /tmp/discover.json
 grep -q -F '{"name":"c","type":"raw","class":"sysext","ro":false,"path":"/run/extensions/c.raw"' /tmp/discover.json
 rm /tmp/discover.json /run/machines/a.raw /run/portables/b.raw /run/extensions/c.raw
+
+systemd-dissect --discover --system
+systemd-dissect --discover --user
+systemd-dissect --discover --system --user
 
 LOOP="$(systemd-dissect --attach --loop-ref=waldo "$MINIMAL_IMAGE.raw")"
 

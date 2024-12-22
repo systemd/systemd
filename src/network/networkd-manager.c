@@ -666,7 +666,7 @@ Manager* manager_free(Manager *m) {
         if (!m)
                 return NULL;
 
-        sysctl_remove_monitor(m);
+        manager_remove_sysctl_monitor(m);
 
         free(m->state_file);
 
@@ -742,7 +742,7 @@ int manager_start(Manager *m) {
 
         log_debug("Starting...");
 
-        (void) sysctl_add_monitor(m);
+        (void) manager_install_sysctl_monitor(m);
 
         /* Loading BPF programs requires CAP_SYS_ADMIN and CAP_BPF.
          * Drop the capabilities here, regardless if the load succeeds or not. */

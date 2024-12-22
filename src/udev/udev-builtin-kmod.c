@@ -68,11 +68,10 @@ static int builtin_kmod_init(void) {
 
 /* called on udev shutdown and reload request */
 static void builtin_kmod_exit(void) {
-        log_debug("Unload kernel module index.");
-
         if (!ctx)
                 return;
 
+        log_debug("Unload kernel module index.");
         ctx = sym_kmod_unref(ctx);
 }
 

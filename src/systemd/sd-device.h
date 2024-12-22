@@ -137,6 +137,7 @@ int sd_device_enumerator_add_nomatch_sysname(sd_device_enumerator *enumerator, c
 int sd_device_enumerator_add_match_tag(sd_device_enumerator *enumerator, const char *tag);
 int sd_device_enumerator_add_match_parent(sd_device_enumerator *enumerator, sd_device *parent);
 int sd_device_enumerator_allow_uninitialized(sd_device_enumerator *enumerator);
+int sd_device_enumerator_add_all_parents(sd_device_enumerator *enumerator);
 
 /* device monitor */
 

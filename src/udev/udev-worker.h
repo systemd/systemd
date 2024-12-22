@@ -10,6 +10,7 @@
 #include "errno-list.h"
 #include "hashmap.h"
 #include "time-util.h"
+#include "udev-config.h"
 
 #define DEFAULT_WORKER_TIMEOUT_USEC (3 * USEC_PER_MINUTE)
 #define MIN_WORKER_TIMEOUT_USEC     (1 * USEC_PER_MSEC)
@@ -27,11 +28,7 @@ typedef struct UdevWorker {
         int pipe_fd;
         int inotify_fd; /* Do not close! */
 
-        usec_t exec_delay_usec;
-        usec_t timeout_usec;
-        int timeout_signal;
-        int log_level;
-        bool blockdev_read_only;
+        UdevConfig config;
 } UdevWorker;
 
 /* passed from worker to main process */

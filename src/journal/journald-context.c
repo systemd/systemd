@@ -132,6 +132,7 @@ static int client_context_new(Server *s, pid_t pid, ClientContext **ret) {
                 .log_level_max = -1,
                 .log_ratelimit_interval = s->ratelimit_interval,
                 .log_ratelimit_burst = s->ratelimit_burst,
+                .capability_quintet = CAPABILITY_QUINTET_NULL,
         };
 
         r = hashmap_ensure_put(&s->client_contexts, NULL, PID_TO_PTR(pid), c);
@@ -154,7 +155,6 @@ static void client_context_reset(Server *s, ClientContext *c) {
         c->comm = mfree(c->comm);
         c->exe = mfree(c->exe);
         c->cmdline = mfree(c->cmdline);
-        c->capeff = mfree(c->capeff);
 
         c->auditid = AUDIT_SESSION_INVALID;
         c->loginuid = UID_INVALID;
@@ -184,6 +184,8 @@ static void client_context_reset(Server *s, ClientContext *c) {
 
         c->log_filter_allowed_patterns = set_free_free(c->log_filter_allowed_patterns);
         c->log_filter_denied_patterns = set_free_free(c->log_filter_denied_patterns);
+
+        c->capability_quintet = CAPABILITY_QUINTET_NULL;
 }
 
 static ClientContext* client_context_free(Server *s, ClientContext *c) {
@@ -233,8 +235,7 @@ static void client_context_read_basic(ClientContext *c) {
         if (pid_get_cmdline(c->pid, SIZE_MAX, PROCESS_CMDLINE_QUOTE, &t) >= 0)
                 free_and_replace(c->cmdline, t);
 
-        if (get_process_capeff(c->pid, &t) >= 0)
-                free_and_replace(c->capeff, t);
+        (void) pidref_get_capability(&PIDREF_MAKE_FROM_PID(c->pid), &c->capability_quintet);
 }
 
 static int client_context_read_label(

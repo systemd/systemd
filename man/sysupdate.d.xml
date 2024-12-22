@@ -672,7 +672,7 @@
 
         <listitem><para>Specifies what anchor point <varname>Path=</varname> should be relative to. Takes one
         of <constant>root</constant>, <constant>esp</constant>, <constant>xbootldr</constant>,
-        <constant>boot</constant> or <constant>directory</constant>. If unspecified, defaults to
+        <constant>boot</constant> or <constant>explicit</constant>. If unspecified, defaults to
         <constant>root</constant>.</para>
 
         <para>If set to <constant>root</constant>, <constant>esp</constant>, <constant>xbootldr</constant>,

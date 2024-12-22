@@ -8,9 +8,9 @@
 #include "sd-json.h"
 #include "sd-varlink.h"
 
-#include "data-fd-util.h"
 #include "fd-util.h"
 #include "json-util.h"
+#include "memfd-util.h"
 #include "rm-rf.h"
 #include "strv.h"
 #include "tests.h"
@@ -134,8 +134,8 @@ static int method_passfd(sd_varlink *link, sd_json_variant *parameters, sd_varli
         test_fd(yy, "bar", 3);
         test_fd(zz, "quux", 4);
 
-        _cleanup_close_ int vv = acquire_data_fd("miau");
-        _cleanup_close_ int ww = acquire_data_fd("wuff");
+        _cleanup_close_ int vv = memfd_new_and_seal_string("data", "miau");
+        _cleanup_close_ int ww = memfd_new_and_seal_string("data", "wuff");
 
         assert_se(vv >= 0);
         assert_se(ww >= 0);
@@ -284,9 +284,9 @@ static void *thread(void *arg) {
         assert_se(sd_json_variant_integer(sd_json_variant_by_key(o, "sum")) == 88 + 99);
         assert_se(!e);
 
-        int fd1 = acquire_data_fd("foo");
-        int fd2 = acquire_data_fd("bar");
-        int fd3 = acquire_data_fd("quux");
+        int fd1 = memfd_new_and_seal_string("data", "foo");
+        int fd2 = memfd_new_and_seal_string("data", "bar");
+        int fd3 = memfd_new_and_seal_string("data", "quux");
 
         assert_se(fd1 >= 0);
         assert_se(fd2 >= 0);

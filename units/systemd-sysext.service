@@ -15,13 +15,13 @@ ConditionCapability=CAP_SYS_ADMIN
 ConditionDirectoryNotEmpty=|/etc/extensions
 ConditionDirectoryNotEmpty=|/run/extensions
 ConditionDirectoryNotEmpty=|/var/lib/extensions
-ConditionDirectoryNotEmpty=|/.extra/sysext
+ConditionPathExists=!/etc/initrd-release
 
 DefaultDependencies=no
 After=local-fs.target
 Before=sysinit.target systemd-tmpfiles-setup.service
-Conflicts=shutdown.target initrd-switch-root.target
-Before=shutdown.target initrd-switch-root.target
+Conflicts=shutdown.target
+Before=shutdown.target
 
 [Service]
 Type=oneshot

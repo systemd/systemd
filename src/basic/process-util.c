@@ -500,22 +500,6 @@ int pidref_is_kernel_thread(const PidRef *pid) {
         return result;
 }
 
-int get_process_capeff(pid_t pid, char **ret) {
-        const char *p;
-        int r;
-
-        assert(pid >= 0);
-        assert(ret);
-
-        p = procfs_file_alloca(pid, "status");
-
-        r = get_proc_field(p, "CapEff", WHITESPACE, ret);
-        if (r == -ENOENT)
-                return -ESRCH;
-
-        return r;
-}
-
 static int get_process_link_contents(pid_t pid, const char *proc_file, char **ret) {
         const char *p;
         int r;

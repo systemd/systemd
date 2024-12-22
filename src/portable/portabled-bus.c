@@ -165,6 +165,7 @@ static int method_list_images(sd_bus_message *message, void *userdata, sd_bus_er
                         return r;
 
                 r = portable_get_state(
+                                m->runtime_scope,
                                 sd_bus_message_get_bus(message),
                                 image->path,
                                 NULL,
@@ -225,6 +226,7 @@ static int method_get_image_metadata(sd_bus_message *message, void *userdata, sd
 
 static int method_get_image_state(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_strv_free_ char **extension_images = NULL;
+        Manager *m = ASSERT_PTR(userdata);
         const char *name_or_path;
         PortableState state;
         int r;
@@ -254,6 +256,7 @@ static int method_get_image_state(sd_bus_message *message, void *userdata, sd_bu
         }
 
         r = portable_get_state(
+                        m->runtime_scope,
                         sd_bus_message_get_bus(message),
                         name_or_path,
                         extension_images,
@@ -330,6 +333,7 @@ static int method_detach_image(sd_bus_message *message, void *userdata, sd_bus_e
                 return 1; /* Will call us back */
 
         r = portable_detach(
+                        m->runtime_scope,
                         sd_bus_message_get_bus(message),
                         name_or_path,
                         extension_images,

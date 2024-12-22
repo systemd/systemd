@@ -28,13 +28,13 @@ typedef enum IPReversePathFilter {
 } IPReversePathFilter;
 
 #if HAVE_VMLINUX_H
-int sysctl_add_monitor(Manager *manager);
-void sysctl_remove_monitor(Manager *manager);
-int sysctl_clear_link_shadows(Link *link);
+int manager_install_sysctl_monitor(Manager *manager);
+void manager_remove_sysctl_monitor(Manager *manager);
+int link_clear_sysctl_shadows(Link *link);
 #else
-static inline int sysctl_add_monitor(Manager *manager) { return 0; }
-static inline void sysctl_remove_monitor(Manager *manager) { }
-static inline int sysctl_clear_link_shadows(Link *link) { return 0; }
+static inline int manager_install_sysctl_monitor(Manager *manager) { return 0; }
+static inline void manager_remove_sysctl_monitor(Manager *manager) { }
+static inline int link_clear_sysctl_shadows(Link *link) { return 0; }
 #endif
 
 void manager_set_sysctl(Manager *manager);

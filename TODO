@@ -101,13 +101,6 @@ Deprecations and removals:
   and then rework cgroupsv2 support around fds, i.e. keep one fd per active
   unit around, and always operate on that, instead of cgroup fs paths.
 
-* drop support for kernels that lack ambient capabilities support (i.e. make
-  4.3 new baseline). Then drop support for "!!" modifier for ExecStart= which
-  is only supported for such old kernels.
-
-* drop support for kernels lacking memfd_create() (i.e. make 3.17 new
-  baseline), then drop all pipe() based fallbacks.
-
 * drop support for getrandom()-less kernels. (GRND_INSECURE means once kernel
   5.6 becomes our baseline). See
   https://github.com/systemd/systemd/pull/24101#issuecomment-1193966468 for
@@ -129,8 +122,19 @@ Deprecations and removals:
 
 Features:
 
-* our logging tools should look for $DEBUG_INVOCATION and consider equivalent
-  to $SYSTEMD_LOG_LEVEL=debug
+* importd: introduce a per-user instance, that downloads into per-user DDI dirs
+
+* sysupdated: similar
+
+* portabled: similar
+
+* machined: implement a per-user instance, that manages per-user DDI dirs for
+  images. systemd-nspawn/systemd-vmspawn should probably register with both the
+  system and the user scoped machined instance. The former to get the machine
+  name registered as hostname, and the latter so that the image stuff is nicely
+  per-user managed.
+
+* resolved: make resolved process DNR DHCP info
 
 * Teach systemd-ssh-generator to generated an /run/issue.d/ drop-in telling
   users how to connect to the system via the AF_VSOCK, as per:
@@ -399,8 +403,6 @@ Features:
   the bg via vmspawn/nspawn if not done so yet and then requests a shell inside
   it for the invoking user.
 
-* importd/…: define per-user dirs for container/VM images too.
-
 * add a new specifier to unit files that figures out the DDI the unit file is
   from, tracing through overlayfs, DM, loopback block device.
 
@@ -453,10 +455,6 @@ Features:
 
 * credentials: add a flag to the scoped credentials that if set require PK
   reauthentication when unlocking a secret.
-
-* teach systemd --user to properly load credentials off disk, with
-  /etc/credstore equivalent and similar. Make sure that $CREDENTIALS_DIRECTORY=
-  actually works too when run with user privs.
 
 * extend the smbios11 logic for passing credentials so that instead of passing
   the credential data literally it can also just reference an AF_VSOCK CID/port
@@ -803,7 +801,7 @@ Features:
 * udevd: extend memory pressure logic: also kill any idle worker processes
 
 * udevadm: to make symlink querying with udevadm nicer:
-  - do not enable the pager for queries like 'udevadm info -q -r symlink'
+  - do not enable the pager for queries like 'udevadm info -q symlink -r'
   - add mode with newlines instead of spaces (for grep)?
 
 * SIGRTMIN+18 and memory pressure handling should still be added to: hostnamed,

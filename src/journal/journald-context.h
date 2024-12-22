@@ -7,6 +7,7 @@
 
 #include "sd-id128.h"
 
+#include "capability-util.h"
 #include "set.h"
 #include "time-util.h"
 
@@ -27,7 +28,7 @@ struct ClientContext {
         char *comm;
         char *exe;
         char *cmdline;
-        char *capeff;
+        CapabilityQuintet capability_quintet;
 
         uint32_t auditid;
         uid_t loginuid;

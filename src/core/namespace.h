@@ -73,6 +73,7 @@ typedef enum PrivateUsers {
         PRIVATE_USERS_NO,
         PRIVATE_USERS_SELF,
         PRIVATE_USERS_IDENTITY,
+        PRIVATE_USERS_FULL,
         _PRIVATE_USERS_MAX,
         _PRIVATE_USERS_INVALID = -EINVAL,
 } PrivateUsers;
@@ -173,7 +174,8 @@ struct NamespaceParameters {
         const char *incoming_dir;
 
         const char *private_namespace_dir;
-        const char *notify_socket;
+        const char *host_notify_socket;
+        const char *notify_socket_path;
         const char *host_os_release_stage;
 
         bool ignore_protect_paths;
@@ -181,7 +183,6 @@ struct NamespaceParameters {
         bool protect_kernel_tunables;
         bool protect_kernel_modules;
         bool protect_kernel_logs;
-        bool protect_hostname;
 
         bool private_dev;
         bool private_network;
@@ -193,6 +194,7 @@ struct NamespaceParameters {
 
         ProtectControlGroups protect_control_groups;
         ProtectHome protect_home;
+        ProtectHostname protect_hostname;
         ProtectSystem protect_system;
         ProtectProc protect_proc;
         ProcSubset proc_subset;

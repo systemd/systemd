@@ -143,8 +143,9 @@ int vt_release(int fd, bool restore_vt);
 
 void get_log_colors(int priority, const char **on, const char **off, const char **highlight);
 
-/* This assumes there is a 'tty' group */
-#define TTY_MODE 0620
+/* Assume TTY_MODE is defined in config.h. Also, this assumes there is a 'tty' group. */
+assert_cc((TTY_MODE & ~0666) == 0);
+assert_cc((TTY_MODE & 0711) == 0600);
 
 void termios_disable_echo(struct termios *termios);
 

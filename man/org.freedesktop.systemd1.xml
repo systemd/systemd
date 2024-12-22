@@ -3359,7 +3359,7 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b ProtectHostname = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
-      readonly s ProtectHostnameEx = '...';
+      readonly (ss) ProtectHostnameEx = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b MemoryKSM = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -4885,8 +4885,9 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       <para><varname>ProtectHostnameEx</varname> implement the destination parameter of the
       unit file setting <varname>ProtectHostname=</varname> listed in
       <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-      Unlike boolean <varname>ProtectHostname</varname>, <varname>ProtectHostnameEx</varname>
-      is a string type.</para>
+      Unlike boolean <varname>ProtectHostname</varname>, <varname>ProtectHostnameEx</varname> is a pair of
+      strings, the first one is a boolean string or special value <literal>private</literal>, and the second
+      one is an optional private hostname that will be set in a new UTS namespace for the unit.</para>
     </refsect2>
   </refsect1>
 
@@ -5552,7 +5553,7 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b ProtectHostname = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
-      readonly s ProtectHostnameEx = '...';
+      readonly (ss) ProtectHostnameEx = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b MemoryKSM = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -7561,7 +7562,7 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b ProtectHostname = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
-      readonly s ProtectHostnameEx = '...';
+      readonly (ss) ProtectHostnameEx = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b MemoryKSM = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -9537,7 +9538,7 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b ProtectHostname = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
-      readonly s ProtectHostnameEx = '...';
+      readonly (ss) ProtectHostnameEx = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b MemoryKSM = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")

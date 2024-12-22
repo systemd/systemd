@@ -159,6 +159,7 @@ def property_grammar():
              ('ID_AUTOSUSPEND', Or((Literal('0'), Literal('1')))),
              ('ID_AUTOSUSPEND_DELAY_MS', INTEGER),
              ('ID_AV_PRODUCTION_CONTROLLER', Or((Literal('0'), Literal('1')))),
+             ('ID_AV_LIGHTS', Or((Literal('0'), Literal('1')))),
              ('ID_PERSIST', Or((Literal('0'), Literal('1')))),
              ('ID_PDA', Or((Literal('0'), Literal('1')))),
              ('ID_INPUT', id_input_setting),

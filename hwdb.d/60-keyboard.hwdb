@@ -739,6 +739,19 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHP*G60*Notebook*PC:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*2570p*:*
  KEYBOARD_KEY_f8=wlan                                   # Wireless HW switch button
 
+# 2170p running coreboot
+evdev:atkbd:dmi:bvncoreboot:bvr*:bd*:svnHewlett-Packard*:pn*EliteBook2170p:*
+evdev:atkbd:dmi:bvncoreboot:bvr*:bd*:svnHP*:pn*EliteBook2170p:*
+ KEYBOARD_KEY_66=backspace
+ KEYBOARD_KEY_be=battery		# Fn+F2
+ KEYBOARD_KEY_d7=switchvideomode	# Fn+F4
+ KEYBOARD_KEY_a3=mute			# Fn+F5
+ KEYBOARD_KEY_a1=volumedown		# Fn+F6
+ KEYBOARD_KEY_a2=volumeup		# Fn+F7
+ KEYBOARD_KEY_a4=brightnessdown		# Fn+F9
+ KEYBOARD_KEY_c3=brightnessup		# Fn+F10
+ KEYBOARD_KEY_e3=wlan			# Fn+F12
+
 # Elitebook 2760p
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*2760p*:*
  KEYBOARD_KEY_89=battery                                # Fn+F8
@@ -1438,10 +1451,15 @@ evdev:input:b0003v046DpC309*
  KEYBOARD_KEY_c01b6=images                              # My Pictures (F11)
  KEYBOARD_KEY_c01b7=audio                               # My Music (F12)
 
+# The wireless receiver b0003v046Dp4092* seems to be used by multiple models.
+# See issue #35691. Hence, the entry below cannot be enabled by default. If
+# you're using the model below, consider copying the entry to a custom hwdb
+# file to enable the setting.
+#
 # Logitech MX Keys for Mac
-evdev:input:b0003v046Dp4092*
- KEYBOARD_KEY_70035=102nd                               # '<' key
- KEYBOARD_KEY_70064=grave                               # '^' key
+#evdev:input:b0003v046Dp4092*
+# KEYBOARD_KEY_70035=102nd                               # '<' key
+# KEYBOARD_KEY_70064=grave                               # '^' key
 
 ###########################################################
 # Maxdata
@@ -1512,7 +1530,6 @@ evdev:input:b0003v1532p0200*
 
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMICRO-STAR*:pn*:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMicro-Star*:pn*:*
- KEYBOARD_KEY_76=f21                                    # Toggle touchpad, sends meta+ctrl+toggle
  KEYBOARD_KEY_91=config                                 # MSIControl Center
  KEYBOARD_KEY_a0=mute                                   # Fn+F9
  KEYBOARD_KEY_ae=volumedown                             # Fn+F7
@@ -1530,6 +1547,10 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMicro-Star*:pn*:*
  KEYBOARD_KEY_f7=brightnessdown                         # Fn+F4
  KEYBOARD_KEY_f8=brightnessup                           # Fn+F5
  KEYBOARD_KEY_f9=search
+
+# MSI GF63 toggles touchpad using Fn+F3 where the keyboard key is 29
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMICRO-STAR*:pnGF63*:*
+ KEYBOARD_KEY_85=f21                                    # Toggle touchpad, sends meta+ctrl+toggle
 
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMICRO-STAR*:pnGE60*:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMICRO-STAR*:pnGE70*:*
@@ -1557,6 +1578,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMICRO-STAR*:pnU90/U100:*
 # Keymaps MSI Prestige And MSI Modern FnKeys and Special keys
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMicro-Star*:pn*Prestige*:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMicro-Star*:pn*Modern*:*
+ KEYBOARD_KEY_76=f21                                    # Toggle touchpad, sends meta+ctrl+toggle
  KEYBOARD_KEY_91=prog1                                  # Fn+F7 Creation Center, sometime F7
  KEYBOARD_KEY_f2=rotate_display                         # Fn+F12 Screen rotation
  KEYBOARD_KEY_8d=prog3                                  # Fn+A Change True Color selections
@@ -2205,6 +2227,11 @@ evdev:name:AT Translated Set 2 keyboard:dmi:bvn*:bvr*:bd*:svnPositivoBahia-VAIO:
 # Vaio FE14 (VJFE41F11X, VJE42F11X, VJFE44F11X, VJFE54F11X)
 evdev:name:AT Translated Set 2 keyboard:dmi:bvn*:bvr*:bd*:svnPositivoBahia-VAIO:pnVJFE*:pvr*:*
  KEYBOARD_KEY_76=f21                                    # Fn+F1 toggle touchpad
+
+# VAIO VJFH52
+evdev:name:AT Translated Set 2 keyboard:dmi:bvn*:bvr*:bd*:svnPositivoBahia-VAIO:pnVJFH52F11X*:pvr*:*
+ KEYBOARD_KEY_f7=f23		                        # Fn+F1 toggle touchpad off
+ KEYBOARD_KEY_f8=f22		                        # Fn+F1 toggle touchpad on
 
 ###########################################################
 # Positivo

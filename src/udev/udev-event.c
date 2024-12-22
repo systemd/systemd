@@ -12,12 +12,14 @@
 #include "strv.h"
 #include "udev-event.h"
 #include "udev-node.h"
+#include "udev-rules.h"
 #include "udev-trace.h"
 #include "udev-util.h"
+#include "udev-worker.h"
 #include "user-util.h"
 
-UdevEvent *udev_event_new(sd_device *dev, UdevWorker *worker, EventMode mode) {
-        int log_level = worker ? worker->log_level : log_get_max_level();
+UdevEvent* udev_event_new(sd_device *dev, UdevWorker *worker, EventMode mode) {
+        int log_level = worker ? worker->config.log_level : log_get_max_level();
         UdevEvent *event;
 
         assert(dev);
@@ -27,6 +29,7 @@ UdevEvent *udev_event_new(sd_device *dev, UdevWorker *worker, EventMode mode) {
                 return NULL;
 
         *event = (UdevEvent) {
+                .n_ref = 1,
                 .worker = worker,
                 .rtnl = worker ? sd_netlink_ref(worker->rtnl) : NULL,
                 .dev = sd_device_ref(dev),
@@ -42,7 +45,7 @@ UdevEvent *udev_event_new(sd_device *dev, UdevWorker *worker, EventMode mode) {
         return event;
 }
 
-UdevEvent *udev_event_free(UdevEvent *event) {
+static UdevEvent* udev_event_free(UdevEvent *event) {
         if (!event)
                 return NULL;
 
@@ -57,6 +60,8 @@ UdevEvent *udev_event_free(UdevEvent *event) {
 
         return mfree(event);
 }
+
+DEFINE_TRIVIAL_REF_UNREF_FUNC(UdevEvent, udev_event, udev_event_free);
 
 static int device_rename(sd_device *device, const char *name) {
         _cleanup_free_ char *new_syspath = NULL;

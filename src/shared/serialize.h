@@ -51,3 +51,6 @@ void deserialize_ratelimit(RateLimit *rl, const char *name, const char *value);
 
 int open_serialization_fd(const char *ident);
 int open_serialization_file(const char *ident, FILE **ret);
+
+int finish_serialization_fd(int fd);
+int finish_serialization_file(FILE *f);
