@@ -13,9 +13,9 @@
 #include "terminal-util.h"
 
 #define ANSI_WHITE_ON_BLACK "\033[40;37;1m"
-#define UNICODE_FULL_BLOCK       u8"█"
-#define UNICODE_LOWER_HALF_BLOCK u8"▄"
-#define UNICODE_UPPER_HALF_BLOCK u8"▀"
+#define UNICODE_FULL_BLOCK       ((const char*) u8"█")
+#define UNICODE_LOWER_HALF_BLOCK ((const char*) u8"▄")
+#define UNICODE_UPPER_HALF_BLOCK ((const char*) u8"▀")
 
 static void *qrcode_dl = NULL;
 
