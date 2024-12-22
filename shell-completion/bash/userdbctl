@@ -26,8 +26,15 @@ __contains_word () {
     done
 }
 
-__get_all_users () { userdbctl user --no-legend -B | { while read -r a b; do printf "%s\n" "$a"; done; } ; }
-__get_all_groups () { userdbctl group --no-legend -B | { while read -r a b; do printf "%s\n" "$a"; done; } ; }
+__get_all_users () {
+    local a b
+    userdbctl user --no-legend -B | { while read -r a b; do printf "%s\n" "$a"; done; }
+}
+
+__get_all_groups () {
+    local a b
+    userdbctl group --no-legend -B | { while read -r a b; do printf "%s\n" "$a"; done; }
+}
 
 _userdbctl () {
     local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
@@ -49,7 +56,7 @@ _userdbctl () {
                 comps=''
                 ;;
             --with-nss|--synthesize|--with-dropin|--with-varlink|--multiplexer|--boundaries)
-                comps='true false'
+                comps='yes no'
                 ;;
             --json)
                 comps=$( userdbctl --json=help 2>/dev/null )
@@ -94,6 +101,5 @@ _userdbctl () {
     COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
     return 0
 }
-
 
 complete -F _userdbctl userdbctl
