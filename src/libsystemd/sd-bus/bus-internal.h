@@ -327,6 +327,8 @@ struct sd_bus {
 
         /* zero means use value specified by $SYSTEMD_BUS_TIMEOUT= environment variable or built-in default */
         usec_t method_call_timeout;
+
+        bool queue_toggle;
 };
 
 /* For method calls we timeout at 25s, like in the D-Bus reference implementation */
