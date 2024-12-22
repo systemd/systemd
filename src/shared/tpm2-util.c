@@ -1845,8 +1845,11 @@ int tpm2_pcr_values_from_mask(uint32_t mask, TPMI_ALG_HASH hash, Tpm2PCRValue **
         return 0;
 }
 
-int tpm2_pcr_values_to_mask(const Tpm2PCRValue *pcr_values, size_t n_pcr_values, TPMI_ALG_HASH hash, uint32_t *ret_mask) {
-        uint32_t mask = 0;
+int tpm2_pcr_values_to_mask(
+                const Tpm2PCRValue *pcr_values,
+                size_t n_pcr_values,
+                TPMI_ALG_HASH hash,
+                uint32_t *ret_mask) {
 
         assert(pcr_values || n_pcr_values == 0);
         assert(ret_mask);
@@ -1854,12 +1857,12 @@ int tpm2_pcr_values_to_mask(const Tpm2PCRValue *pcr_values, size_t n_pcr_values,
         if (!tpm2_pcr_values_valid(pcr_values, n_pcr_values))
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid PCR values.");
 
+        uint32_t mask = 0;
         FOREACH_ARRAY(v, pcr_values, n_pcr_values)
-                if (v->hash == hash)
+                if (hash == 0 || v->hash == hash)
                         SET_BIT(mask, v->index);
 
         *ret_mask = mask;
-
         return 0;
 }
 
@@ -8093,13 +8096,13 @@ int tpm2_parse_pcr_argument_append(const char *arg, Tpm2PCRValue **pcr_values, s
  * UINT32_MAX, and or-ing the mask otherwise. */
 int tpm2_parse_pcr_argument_to_mask(const char *arg, uint32_t *mask) {
 #if HAVE_TPM2
-        _cleanup_free_ Tpm2PCRValue *pcr_values = NULL;
-        size_t n_pcr_values;
         int r;
 
         assert(arg);
         assert(mask);
 
+        _cleanup_free_ Tpm2PCRValue *pcr_values = NULL;
+        size_t n_pcr_values;
         r = tpm2_parse_pcr_argument(arg, &pcr_values, &n_pcr_values);
         if (r < 0)
                 return r;
@@ -8110,16 +8113,8 @@ int tpm2_parse_pcr_argument_to_mask(const char *arg, uint32_t *mask) {
                 return 0;
         }
 
-        size_t hash_count;
-        r = tpm2_pcr_values_hash_count(pcr_values, n_pcr_values, &hash_count);
-        if (r < 0)
-                return log_error_errno(r, "Could not get hash count from pcr values: %m");
-
-        if (hash_count > 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Multiple PCR hash banks selected.");
-
         uint32_t new_mask;
-        r = tpm2_pcr_values_to_mask(pcr_values, n_pcr_values, pcr_values[0].hash, &new_mask);
+        r = tpm2_pcr_values_to_mask(pcr_values, n_pcr_values, /* algorithm= */ 0, &new_mask);
         if (r < 0)
                 return log_error_errno(r, "Could not get pcr values mask: %m");
 
