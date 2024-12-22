@@ -27,6 +27,7 @@
 #include "process-util.h"
 #include "rlimit-util.h"
 #include "string-util.h"
+#include "user-util.h"
 
 #define FRAMES_MAX 64
 #define THREADS_MAX 64
@@ -800,11 +801,15 @@ int parse_elf_object(int fd, const char *executable, const char *root, bool fork
          * bound since the core files have an upper size limit. It's also not doing any
          * system call or interacting with the system in any way, besides reading from
          * the file descriptor and writing into these four pipes. */
+        ForkFlags fork_flags = FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_WAIT|FORK_REOPEN_LOG|FORK_LOG;
+        if (userns_supported())
+                fork_flags |= FORK_NEW_USERNS|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE;
+
         r = safe_fork_full("(sd-parse-elf)",
                            NULL,
                            (int[]){ fd, error_pipe[1], return_pipe[1], json_pipe[1] },
                            4,
-                           FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE|FORK_NEW_USERNS|FORK_WAIT|FORK_REOPEN_LOG,
+                           fork_flags,
                            NULL);
         if (r < 0) {
                 if (r == -EPROTO) { /* We should have the errno from the child, but don't clobber original error */
