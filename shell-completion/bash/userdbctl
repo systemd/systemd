@@ -1,0 +1,105 @@
+# shellcheck shell=bash
+# userdbctl(1) completion                                  -*- shell-script -*-
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# This file is part of systemd.
+#
+# Copyright © 2010 Ran Benita
+#
+# systemd is free software; you can redistribute it and/or modify it
+# under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation; either version 2.1 of the License, or
+# (at your option) any later version.
+#
+# systemd is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with systemd; If not, see <https://www.gnu.org/licenses/>.
+
+__contains_word () {
+    local w word=$1; shift
+    for w in "$@"; do
+        [[ $w = "$word" ]] && return
+    done
+}
+
+__get_all_users () {
+    local a b
+    userdbctl user --no-legend -B | { while read -r a b; do printf "%s\n" "$a"; done; }
+}
+
+__get_all_groups () {
+    local a b
+    userdbctl group --no-legend -B | { while read -r a b; do printf "%s\n" "$a"; done; }
+}
+
+_userdbctl () {
+    local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
+    local i verb comps
+
+    local -A OPTS=(
+        [STANDALONE]='-h --help --version --no-pager --no-legend
+                      -j -N --chain -z --fuzzy -I -S -R -B'
+        [ARG]='--output -s --service --with-nss --synthesize --with-dropin --with-varlink
+               --multiplexer --json --uid-min --uid-max --disposition --boundaries'
+    )
+
+    if __contains_word "$prev" ${OPTS[ARG]}; then
+        case $prev in
+            --output)
+                comps=$( userdbctl --output=help 2>/dev/null )
+                ;;
+            -s|--service|--uid-min|--uid-max)
+                comps=''
+                ;;
+            --with-nss|--synthesize|--with-dropin|--with-varlink|--multiplexer|--boundaries)
+                comps='yes no'
+                ;;
+            --json)
+                comps=$( userdbctl --json=help 2>/dev/null )
+                ;;
+            --disposition)
+                comps='intrinsic system dynamic regular container reserved'
+                ;;
+        esac
+        COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+        return 0
+    fi
+
+    if [[ "$cur" = -* ]]; then
+        COMPREPLY=( $(compgen -W '${OPTS[*]}' -- "$cur") )
+        return 0
+    fi
+
+    local -A VERBS=(
+        [USERS]='ssh-authorized-keys user users-in-group'
+        [GROUPS]='group groups-of-user'
+        [STANDALONE]='services'
+    )
+
+    for ((i=0; i < COMP_CWORD; i++)); do
+        if __contains_word "${COMP_WORDS[i]}" ${VERBS[*]} &&
+                ! __contains_word "${COMP_WORDS[i-1]}" ${OPTS[ARG]}; then
+            verb=${COMP_WORDS[i]}
+            break
+        fi
+    done
+
+    if   [[ -z ${verb-} ]]; then
+        comps="${VERBS[*]}"
+    elif __contains_word "$verb" ${VERBS[USERS]}; then
+        comps=$( __get_all_users )
+    elif __contains_word "$verb" ${VERBS[GROUPS]}; then
+        comps=$( __get_all_groups )
+    elif __contains_word "$verb" ${VERBS[STANDALONE]}; then
+        comps=''
+    fi
+
+    COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+    return 0
+}
+
+complete -F _userdbctl userdbctl
