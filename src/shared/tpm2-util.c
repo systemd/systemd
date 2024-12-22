@@ -8090,13 +8090,14 @@ int tpm2_parse_pcr_argument_append(const char *arg, Tpm2PCRValue **pcr_values, s
 #endif
 }
 
-/* Same as tpm2_parse_pcr_argument() but converts the pcr values to a pcr mask. If more than one hash
- * algorithm is included in the pcr values array this results in error. This retains the previous behavior of
- * tpm2_parse_pcr_argument() of clearing the mask if 'arg' is empty, replacing the mask if it is set to
- * UINT32_MAX, and or-ing the mask otherwise. */
 int tpm2_parse_pcr_argument_to_mask(const char *arg, uint32_t *mask) {
 #if HAVE_TPM2
         int r;
+
+       /* Same as tpm2_parse_pcr_argument() but converts the pcr values to a pcr mask. If a hash algorithm or
+        * hash value is specified an error is generated (after all we only return the mask here, nothing
+        * else). This retains the previous behavior of tpm2_parse_pcr_argument() of clearing the mask if
+        * 'arg' is empty, replacing the mask if it is set to UINT32_MAX, and or-ing the mask otherwise. */
 
         assert(arg);
         assert(mask);
@@ -8111,6 +8112,15 @@ int tpm2_parse_pcr_argument_to_mask(const char *arg, uint32_t *mask) {
                 /* This retains the previous behavior of clearing the mask if the arg is empty */
                 *mask = 0;
                 return 0;
+        }
+
+        FOREACH_ARRAY(v, pcr_values, n_pcr_values) {
+                if (v->hash != 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Not expecting hash algorithm specification in PCR mask value, refusing: %s", arg);
+                if (v->value.size != 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Not expecting hash value specification in PCR mask value, refusing: %s", arg);
         }
 
         uint32_t new_mask;
