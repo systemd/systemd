@@ -886,6 +886,9 @@ container_uid_base_max = get_option('container-uid-base-max')
 conf.set('CONTAINER_UID_BASE_MIN', container_uid_base_min)
 conf.set('CONTAINER_UID_BASE_MAX', container_uid_base_max)
 
+foreign_uid_base = get_option('foreign-uid-base')
+conf.set('FOREIGN_UID_BASE', foreign_uid_base)
+
 nobody_user = get_option('nobody-user')
 nobody_group = get_option('nobody-group')
 
@@ -3001,6 +3004,7 @@ summary({
                                                                          conf.get('SYSTEM_ALLOC_GID_MIN')),
         'dynamic UIDs' :                    '@0@…@1@'.format(dynamic_uid_min, dynamic_uid_max),
         'container UID bases' :             '@0@…@1@'.format(container_uid_base_min, container_uid_base_max),
+        'foreign UID base' :                '@0@'.format(foreign_uid_base),
         'static UID/GID allocations' :      ' '.join(static_ugids),
         '/dev/kvm access mode' :            get_option('dev-kvm-mode'),
         'render group access mode' :        get_option('group-render-mode'),

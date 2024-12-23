@@ -4,15 +4,29 @@
 
 static SD_VARLINK_DEFINE_METHOD(
                 AllocateUserRange,
+                SD_VARLINK_FIELD_COMMENT("The name for the user namespce, a short string that must be fit to be included in a file name and in a user name"),
                 SD_VARLINK_DEFINE_INPUT(name, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("Controls whether to mangle the provided name if needed so that it is suitable for naming a user namespace. If true this will shorten the name as necessary or randomize it if that's not sufficient. If null defaults to false."),
+                SD_VARLINK_DEFINE_INPUT(mangleName, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The number of UIDs to assign. Must be 1 or 65536"),
                 SD_VARLINK_DEFINE_INPUT(size, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("The target UID inside the user namespace"),
                 SD_VARLINK_DEFINE_INPUT(target, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
-                SD_VARLINK_DEFINE_INPUT(userNamespaceFileDescriptor, SD_VARLINK_INT, 0));
+                SD_VARLINK_FIELD_COMMENT("A file descriptor to an allocated userns with no current UID range assignments"),
+                SD_VARLINK_DEFINE_INPUT(userNamespaceFileDescriptor, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("The name assigned to the user namespace"),
+                SD_VARLINK_DEFINE_OUTPUT(name, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_METHOD(
                 RegisterUserNamespace,
+                SD_VARLINK_FIELD_COMMENT("The name for the user namespce, a short string that must be fit to be included in a file name and in a user name"),
                 SD_VARLINK_DEFINE_INPUT(name, SD_VARLINK_STRING, 0),
-                SD_VARLINK_DEFINE_INPUT(userNamespaceFileDescriptor, SD_VARLINK_INT, 0));
+                SD_VARLINK_FIELD_COMMENT("Controls whether to mangle the provided name if needed so that it is suitable for naming a user namespace. If true this will shorten the name as necessary or randomize it if that's not sufficient. If null defaults to false."),
+                SD_VARLINK_DEFINE_INPUT(mangleName, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("A user namespace file descriptor that is fully initialized"),
+                SD_VARLINK_DEFINE_INPUT(userNamespaceFileDescriptor, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("The name assigned to the user namespace"),
+                SD_VARLINK_DEFINE_OUTPUT(name, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_METHOD(
                 AddMountToUserNamespace,
