@@ -145,6 +145,22 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--dns</option></term>
+
+        <listitem><para>Waiting for DNS servers to be accessible on each interface. If this
+        option is specified with <option>--any</option>, then
+        <command>systemd-networkd-wait-online</command> exits with success when at least one interface
+        becomes online and has an accessible DNS server.</para>
+        <para>If a link has the property <varname>DefaultRoute=yes</varname> (either because the
+        <varname>DNSDefaultRoute=</varname> network property is explicitly configured, or
+        because the link does not have any "routing-only" domains), or if the search domain "." is
+        configured, then wait for link-specific DNS servers to be accessible. Otherwise, allow global
+        DNS servers to satisfy the condition.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--any</option></term>
 
         <listitem><para>Even if several interfaces are in configuring state,
