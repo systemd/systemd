@@ -28,7 +28,7 @@ typedef struct Manager {
 
         sd_device_monitor *monitor;
         UdevCtrl *ctrl;
-        int worker_watch[2];
+        int worker_notify_fd;
 
         /* used by udev-watch */
         int inotify_fd;
