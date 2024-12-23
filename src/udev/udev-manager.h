@@ -55,4 +55,8 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 int manager_init(Manager *manager);
 int manager_main(Manager *manager);
 
+void notify_ready(Manager *manager);
+
+void manager_kill_workers(Manager *manager, bool force);
+
 bool devpath_conflict(const char *a, const char *b);
