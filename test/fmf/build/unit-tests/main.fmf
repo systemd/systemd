@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+summary: Concise summary describing what the test does
+test: ./test.sh
+require:
+    - acl
+    - python3-pytest
+    - systemd-tests
