@@ -4,6 +4,7 @@
 typedef struct Machine Machine;
 typedef enum KillWhom KillWhom;
 
+#include "copy.h"
 #include "list.h"
 #include "machined.h"
 #include "operation.h"
@@ -107,6 +108,7 @@ int machine_start_shell(Machine *m, int ptmx_fd, const char *ptmx_name, const ch
 #define machine_default_shell_path() ("/bin/sh")
 char** machine_default_shell_args(const char *user);
 
+int machine_copy_from_to(Manager *manager, Machine *machine, const char *host_path, const char *container_path, bool copy_from, CopyFlags copy_flags, Operation **ret);
 int machine_get_uid_shift(Machine *m, uid_t *ret);
 
 int machine_owns_uid(Machine *m, uid_t host_uid, uid_t *ret_internal_uid);
