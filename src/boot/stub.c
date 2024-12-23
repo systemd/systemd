@@ -232,6 +232,17 @@ nothing:
         return false;
 }
 
+static char16_t * strip_stub_cmdline(char16_t *cmdline, const char16_t *file_path) {
+        if (file_path == NULL || strlen16(file_path) == 0) return cmdline;
+        int ret = strcmp16(cmdline, file_path);
+        if (!ret) {
+                return NULL;
+        } else if (ret > 0) {
+                return cmdline + strlen16(file_path) + 1;
+        }
+        return cmdline;
+}
+
 static void process_arguments(
                 EFI_HANDLE stub_image,
                 EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
@@ -253,11 +264,19 @@ static void process_arguments(
                 if (loaded_image->LoadOptionsSize < sizeof(char16_t) || ((const char16_t *) loaded_image->LoadOptions)[0] <= 0x1F)
                         goto nothing;
 
-                /* Not running from EFI shell, use entire LoadOptions. Note that LoadOptions is a void*, so
+                /* Not running from EFI shell. Note that LoadOptions is a void*, so
                  * it could actually be anything! */
                 char16_t *c = xstrndup16(loaded_image->LoadOptions, loaded_image->LoadOptionsSize / sizeof(char16_t));
                 parse_profile_from_cmdline(&c, ret_profile);
                 *ret_cmdline = mangle_stub_cmdline(c);
+
+                /* When LoadOptions starts with the stub path ignore it */
+                _cleanup_free_ char16_t *p = NULL;
+                if (loaded_image->FilePath && device_path_to_str(loaded_image->FilePath, &p) == EFI_SUCCESS) {
+                        *ret_cmdline = strip_stub_cmdline(*ret_cmdline, p);
+                        if (*ret_cmdline == NULL) *ret_cmdline = mfree(*ret_cmdline);
+                }
+
                 return;
         }
 
