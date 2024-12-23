@@ -35,6 +35,14 @@ static const RawSmbiosInfo smbios_info[] = {
                 .baseboard_product      = "FODM2",
                 .baseboard_manufacturer = "First ODM",
         },
+        {
+                .manufacturer           = "VMware, Inc.",
+                .product_name           = "VMware20,1",
+                .product_sku            = "0000000000000001",
+                .family                 = "VMware",
+                .baseboard_product      = "VBSA",
+                .baseboard_manufacturer = "VMware, Inc.",
+        },
 };
 
 static struct {
@@ -44,6 +52,7 @@ static struct {
         { "Device 1", "test,device-1" },
         { "Device 2", "test,device-2" },
         { "Device 3", "test,device-3" },
+        { "Device 4", "test,vmware" },
 };
 
 static RawSmbiosInfo current_info = {};
