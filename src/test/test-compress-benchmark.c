@@ -13,7 +13,7 @@
 #include "tests.h"
 
 typedef int (compress_t)(const void *src, uint64_t src_size, void *dst,
-                         size_t dst_alloc_size, size_t *dst_size);
+                         size_t dst_alloc_size, size_t *dst_size, int level);
 typedef int (decompress_t)(const void *src, uint64_t src_size,
                            void **dst, size_t* dst_size, size_t dst_max);
 
@@ -100,7 +100,7 @@ static void test_compress_decompress(const char* label, const char* type,
 
                 memzero(buf, MIN(size + 1000, MAX_SIZE));
 
-                r = compress(text, size, buf, size, &j);
+                r = compress(text, size, buf, size, &j, /* level = */ -1);
                 /* assume compression must be successful except for small or random inputs */
                 assert_se(r >= 0 || (size < 2048 && r == -ENOBUFS) || streq(type, "random"));
 
