@@ -3,6 +3,7 @@
 systemd_journal_upload_sources = files(
         'journal-upload-journal.c',
         'journal-upload.c',
+        'header-util.c',
 )
 
 libsystemd_journal_remote_sources = files(
@@ -85,6 +86,12 @@ executables += [
                         libshared,
                         libsystemd_journal_remote,
                 ],
+        },
+]
+
+executables += [
+        test_template + {
+                'sources' : files('test-header-util.c', 'header-util.c'),
         },
 ]
 
