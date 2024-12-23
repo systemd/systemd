@@ -103,6 +103,9 @@ int main(int argc, char *argv[]) {
         if (getuid() != 0)
                 return log_tests_skipped("not root");
 
+        ASSERT_OK_ERRNO(setenv("TEST_FIREWALL_UTIL_NFT_TABLE_NAME", "io.systemd-test.nat", /* overwrite = */ true));
+        ASSERT_OK_ERRNO(setenv("TEST_FIREWALL_UTIL_DNAT_MAP_NAME", "test_map_port_ipport", /* overwrite = */ true));
+
         ASSERT_OK(fw_ctx_new(&ctx));
         ASSERT_NOT_NULL(ctx);
 
