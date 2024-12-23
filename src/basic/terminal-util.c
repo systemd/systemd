@@ -761,26 +761,24 @@ bool tty_is_console(const char *tty) {
 }
 
 int vtnr_from_tty(const char *tty) {
-        int i, r;
+        int r;
 
         assert(tty);
 
         tty = skip_dev_prefix(tty);
 
-        if (!startswith(tty, "tty") )
+        const char *e = startswith(tty, "tty");
+        if (!e)
                 return -EINVAL;
 
-        if (!ascii_isdigit(tty[3]))
-                return -EINVAL;
-
-        r = safe_atoi(tty+3, &i);
+        unsigned u;
+        r = safe_atou(e, &u);
         if (r < 0)
                 return r;
+        if (!vtnr_is_valid(u))
+                return -ERANGE;
 
-        if (i < 0 || i > 63)
-                return -EINVAL;
-
-        return i;
+        return (int) u;
 }
 
 int resolve_dev_console(char **ret) {
