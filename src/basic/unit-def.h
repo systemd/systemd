@@ -168,6 +168,7 @@ typedef enum SliceState {
 typedef enum SocketState {
         SOCKET_DEAD,
         SOCKET_START_PRE,
+        SOCKET_START_OPEN,
         SOCKET_START_CHOWN,
         SOCKET_START_POST,
         SOCKET_LISTENING,
