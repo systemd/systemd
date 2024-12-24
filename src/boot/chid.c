@@ -131,6 +131,10 @@ EFI_STATUS chid_match(const void *hwid_buffer, size_t hwid_length, uint32_t matc
                 FOREACH_ARRAY(dev, devices, n_devices) {
                         /* Can't take a pointer to a packed struct member, so copy to a local variable */
                         EFI_GUID chid = dev->chid;
+                        uint32_t dev_type;
+                        dev_type = DEVICE_TYPE_FROM_DESCRIPTOR(dev->descriptor);
+                        if (dev_type != match_type)
+                                continue;
                         if (efi_guid_equal(&chids[*i], &chid)) {
                                 *ret_device = dev;
                                 return EFI_SUCCESS;
