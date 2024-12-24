@@ -39,17 +39,17 @@ Then, you can build and run systemd executables as follows:
 
 ```sh
 $ mkosi -f sandbox meson setup build
-$ mkosi -f sandbox ninja -C build
+$ mkosi -f sandbox meson compile -C build
 $ mkosi -f sandbox build/systemctl --version
 ```
 
 To build and boot an OS image with the latest systemd installed:
 
 ```sh
-$ mkosi -f genkey                       # Generate signing keys once.
-$ mkosi -f sandbox ninja -C build mkosi # (re-)build the OS image
-$ sudo mkosi boot                       # Boot the image with systemd-nspawn.
-$ mkosi qemu                            # Boot the image with qemu.
+$ mkosi -f genkey                               # Generate signing keys once.
+$ mkosi -f sandbox meson compile -C build mkosi # (re-)build the OS image
+$ sudo mkosi boot                               # Boot the image with systemd-nspawn.
+$ mkosi qemu                                    # Boot the image with qemu.
 ```
 
 Putting this all together, here's a series of commands for preparing a patch for
@@ -60,15 +60,15 @@ $ git clone https://github.com/systemd/mkosi.git
 $ ln -s $PWD/mkosi/bin/mkosi ~/.local/bin/mkosi # Make sure ~/.local/bin is in $PATH.
 $ git clone https://github.com/systemd/systemd.git
 $ cd systemd
-$ git checkout -b <BRANCH>              # where BRANCH is the name of the branch
-$ $EDITOR src/core/main.c               # or wherever you'd like to make your changes
-$ mkosi -f sandbox meson setup build    # Set up meson
-$ mkosi -f genkey                       # Generate signing keys once.
-$ mkosi -f sandbox ninja -C build mkosi # (re-)build the test image
-$ mkosi qemu                            # Boot the image in qemu
-$ git add -p                            # interactively put together your patch
-$ git commit                            # commit it
-$ git push -u <REMOTE>                  # where REMOTE is your "fork" on GitHub
+$ git checkout -b <BRANCH>                      # where BRANCH is the name of the branch
+$ $EDITOR src/core/main.c                       # or wherever you'd like to make your changes
+$ mkosi -f sandbox meson setup build            # Set up meson
+$ mkosi -f genkey                               # Generate signing keys once.
+$ mkosi -f sandbox meson compile -C build mkosi # (re-)build the test image
+$ mkosi qemu                                    # Boot the image in qemu
+$ git add -p                                    # interactively put together your patch
+$ git commit                                    # commit it
+$ git push -u <REMOTE>                          # where REMOTE is your "fork" on GitHub
 ```
 
 And after that, head over to your repo on GitHub and click "Compare & pull
