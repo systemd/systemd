@@ -23,8 +23,11 @@
 
 /* Validate the descriptor macros a bit that they match our expectations */
 assert_cc(DEVICE_DESCRIPTOR_DEVICETREE == UINT32_C(0x1000001C));
+assert_cc(DEVICE_DESCRIPTOR_FW == UINT32_C(0x2000001C));
 assert_cc(DEVICE_SIZE_FROM_DESCRIPTOR(DEVICE_DESCRIPTOR_DEVICETREE) == sizeof(Device));
 assert_cc(DEVICE_TYPE_FROM_DESCRIPTOR(DEVICE_DESCRIPTOR_DEVICETREE) == DEVICE_TYPE_DEVICETREE);
+assert_cc(DEVICE_SIZE_FROM_DESCRIPTOR(DEVICE_DESCRIPTOR_FW) == sizeof(Device));
+assert_cc(DEVICE_TYPE_FROM_DESCRIPTOR(DEVICE_DESCRIPTOR_FW) == DEVICE_TYPE_FW);
 
 /**
  * smbios_to_hashable_string() - Convert ascii smbios string to stripped char16_t.
@@ -88,7 +91,7 @@ static EFI_STATUS populate_board_chids(EFI_GUID ret_chids[static CHID_TYPES_MAX]
         return EFI_SUCCESS;
 }
 
-EFI_STATUS chid_match(const void *hwid_buffer, size_t hwid_length, const Device **ret_device) {
+EFI_STATUS chid_match(const void *hwid_buffer, size_t hwid_length, uint32_t match_type, const Device **ret_device) {
         EFI_STATUS status;
 
         if ((uintptr_t) hwid_buffer % alignof(Device) != 0)
@@ -112,9 +115,11 @@ EFI_STATUS chid_match(const void *hwid_buffer, size_t hwid_length, const Device 
         /* Count devices and check validity */
         for (; (n_devices + 1) * sizeof(*devices) < hwid_length;) {
 
+                uint32_t dev_type;
+                dev_type = DEVICE_TYPE_FROM_DESCRIPTOR(devices[n_devices].descriptor);
                 if (devices[n_devices].descriptor == DEVICE_DESCRIPTOR_EOL)
                         break;
-                if (devices[n_devices].descriptor != DEVICE_DESCRIPTOR_DEVICETREE)
+                if ((dev_type != DEVICE_TYPE_FW) && (dev_type != DEVICE_TYPE_DEVICETREE))
                         return EFI_UNSUPPORTED;
                 n_devices++;
         }
@@ -126,6 +131,10 @@ EFI_STATUS chid_match(const void *hwid_buffer, size_t hwid_length, const Device 
                 FOREACH_ARRAY(dev, devices, n_devices) {
                         /* Can't take a pointer to a packed struct member, so copy to a local variable */
                         EFI_GUID chid = dev->chid;
+                        uint32_t dev_type;
+                        dev_type = DEVICE_TYPE_FROM_DESCRIPTOR(dev->descriptor);
+                        if (dev_type != match_type)
+                                continue;
                         if (efi_guid_equal(&chids[*i], &chid)) {
                                 *ret_device = dev;
                                 return EFI_SUCCESS;
