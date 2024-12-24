@@ -771,7 +771,6 @@ if not cc.has_header('sys/capability.h')
 endif
 foreach header : ['crypt.h',
                   'linux/ioprio.h',
-                  'linux/memfd.h',
                   'linux/time_types.h',
                   'sys/auxv.h',
                   'sys/sdt.h',

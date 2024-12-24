@@ -1,9 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#if HAVE_LINUX_MEMFD_H
-#include <linux/memfd.h>
-#endif
-
 #include <sys/mman.h>
 #include <sys/quota.h>
 #include <sys/vfs.h>
