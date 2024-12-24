@@ -663,11 +663,7 @@ int pidref_get_capability(const PidRef *pidref, CapabilityQuintet *ret) {
                 }
         }
 
-        if (q.effective == CAP_MASK_UNSET ||
-            q.inheritable == CAP_MASK_UNSET ||
-            q.permitted == CAP_MASK_UNSET ||
-            q.effective == CAP_MASK_UNSET ||
-            q.ambient == CAP_MASK_UNSET)
+        if (!capability_quintet_is_fully_set(&q))
                 return -EBADMSG;
 
         r = pidref_verify(pidref);
