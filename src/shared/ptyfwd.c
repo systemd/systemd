@@ -619,10 +619,8 @@ static int do_shovel(PTYForward *f) {
                 f->out_buffer_size = MALLOC_SIZEOF_SAFE(p);
         }
 
-        while ((f->stdin_readable && f->in_buffer_full <= 0) ||
-               (f->master_writable && f->in_buffer_full > 0) ||
-               (f->master_readable && f->out_buffer_full <= 0) ||
-               (f->stdout_writable && f->out_buffer_full > 0)) {
+        for (;;) {
+                bool did_something = false;
 
                 if (f->stdin_readable && f->in_buffer_full < LINE_MAX) {
 
@@ -652,6 +650,8 @@ static int do_shovel(PTYForward *f) {
 
                                 f->in_buffer_full += (size_t) k;
                         }
+
+                        did_something = true;
                 }
 
                 if (f->master_writable && f->in_buffer_full > 0) {
@@ -673,6 +673,8 @@ static int do_shovel(PTYForward *f) {
                                 memmove(f->in_buffer, f->in_buffer + k, f->in_buffer_full - k);
                                 f->in_buffer_full -= k;
                         }
+
+                        did_something = true;
                 }
 
                 if (f->master_readable && f->out_buffer_full < MIN(f->out_buffer_size, (size_t) LINE_MAX)) {
@@ -702,6 +704,8 @@ static int do_shovel(PTYForward *f) {
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to scan for ANSI sequences: %m");
                         }
+
+                        did_something = true;
                 }
 
                 if (f->stdout_writable && f->out_buffer_write_len > 0) {
@@ -738,7 +742,12 @@ static int do_shovel(PTYForward *f) {
                                 f->out_buffer_full -= k;
                                 f->out_buffer_write_len -= k;
                         }
+
+                        did_something = true;
                 }
+
+                if (!did_something)
+                        break;
         }
 
         if (f->stdin_hangup || f->stdout_hangup || f->master_hangup) {
