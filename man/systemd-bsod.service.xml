@@ -52,7 +52,7 @@
         <term><option>--continuous</option></term>
 
         <listitem><para>When specified, <command>systemd-bsod</command> waits continuously for changes in the
-        journal if it doesn't find any emergency messages on the initial attempt.</para>
+        journal if it does not find any emergency messages on the initial attempt.</para>
 
          <xi:include href="version-info.xml" xpointer="v255"/></listitem>
       </varlistentry>

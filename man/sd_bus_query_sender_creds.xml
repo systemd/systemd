@@ -52,7 +52,7 @@
     for a list of possible flags. First, this message checks if the requested credentials are attached to the
     message itself. If not, but the message contains the pid of the sender and the caller specified the
     <constant index='false'>SD_BUS_CREDS_AUGMENT</constant> flag, this function tries to figure out
-    the missing credentials via other means (starting from the pid). If the pid isn't available but the
+    the missing credentials via other means (starting from the pid). If the PID is not available but the
     message has a sender, this function calls
     <citerefentry><refentrytitle>sd_bus_get_name_creds</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     to get the requested credentials. If the message has no sender (when a direct connection is used), this

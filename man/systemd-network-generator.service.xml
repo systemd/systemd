@@ -142,7 +142,7 @@
         credential <filename>network.link.50-foobar</filename> will be copied into a configuration file
         <filename>50-foobar.link</filename>.</para>
 
-        <para>Note that the resulting files are created world-readable, it's hence recommended to not include
+        <para>Note that the resulting files are created world-readable, it is hence recommended to not include
         secrets in these credentials, but supply them via separate credentials directly to
         <filename>systemd-networkd.service</filename>.</para>
 

@@ -137,7 +137,7 @@
     read from or written to the file descriptor to reset the mask of events seen.</para>
 
     <para>Setting the I/O event mask to watch for to 0 does not mean
-    that the event source won't be triggered anymore, as
+    that the event source will not be triggered anymore, as
     <constant>EPOLLHUP</constant> and <constant>EPOLLERR</constant>
     may be triggered even with a zero event mask. To temporarily
     disable an I/O event source use

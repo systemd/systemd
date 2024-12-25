@@ -33,7 +33,7 @@
 
     <para><filename>systemd-tpm2-setup.service</filename> and
     <filename>systemd-tpm2-setup-early.service</filename> are services that generate the Storage Root Key
-    (SRK) if it hasn't been generated yet, and stores it in the TPM.</para>
+    (SRK) if it has not been generated yet, and stores it in the TPM.</para>
 
     <para>The services will store the public key of the SRK key pair in a PEM file in
     <filename>/run/systemd/tpm2-srk-public-key.pem</filename> and

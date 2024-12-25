@@ -46,7 +46,7 @@
     The result may optionally be signed cryptographically, to allow TPM2 policies that can only be unlocked
     if a certain set of kernels is booted, for which such a PCR signature can be provided.</para>
 
-    <para>It usually doesn't make sense to call this tool directly when constructing a UKI. Instead,
+    <para>It usually does not make sense to call this tool directly when constructing a UKI. Instead,
     <citerefentry><refentrytitle>ukify</refentrytitle><manvolnum>1</manvolnum></citerefentry> should be used;
     it will invoke <command>systemd-measure</command> and take care of embedding the resulting measurements
     into the UKI.</para>
@@ -234,7 +234,7 @@
         <literal>enter-initrd:leave-initrd:sysinit:ready</literal>, i.e. calculates expected PCR values for
         the boot phase in the initrd, during early boot, during later boot, and during system runtime, but
         excluding the phases before the initrd or when shutting down. This setting is honoured both by
-        <command>calculate</command> and <command>sign</command>. When used with the latter it's particularly
+        <command>calculate</command> and <command>sign</command>. When used with the latter it is particularly
         useful for generating PCR signatures that can only be used for unlocking resources during specific
         parts of the boot process.</para>
 

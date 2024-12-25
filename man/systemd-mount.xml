@@ -77,7 +77,7 @@
     <para>If two arguments are specified, the first indicates the mount source (the
     <replaceable>WHAT</replaceable>) and the second indicates the path to mount it on (the
     <replaceable>WHERE</replaceable>). In this mode no probing of the source is attempted, and a backing
-    device node doesn't have to exist. However, if this mode is combined with <option>--discover</option>,
+    device node does not have to exist. However, if this mode is combined with <option>--discover</option>,
     device node probing for additional metadata is enabled, and – much like in the single-argument case
     discussed above – the specified device has to exist at the time of invocation of the command.</para>
 

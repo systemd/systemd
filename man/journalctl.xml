@@ -737,7 +737,7 @@
       <varlistentry>
         <term><option>--no-hostname</option></term>
 
-        <listitem><para>Don't show the hostname field of log messages originating from the local host. This
+        <listitem><para>Do not show the hostname field of log messages originating from the local host. This
         switch has an effect only on the <option>short</option> family of output modes (see above).</para>
 
         <para>Note: this option does not remove occurrences of the hostname from log entries themselves, so

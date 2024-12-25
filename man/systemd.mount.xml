@@ -556,7 +556,7 @@
         for details. This setting is optional.</para>
 
         <para>If the type is <literal>overlay</literal>, and <literal>upperdir=</literal> or
-        <literal>workdir=</literal> are specified as options and the directories don't exist, they will be created.
+        <literal>workdir=</literal> are specified as options and the directories do not exist, they will be created.
         </para></listitem>
       </varlistentry>
 

@@ -61,7 +61,7 @@
     <filename>/usr/lib/systemd/</filename>.
     The vendor version of the file contains commented out entries showing the defaults as a guide to the
     administrator. Local overrides can also be created by creating drop-ins, as described below. The main
-    configuration file can also be edited for this purpose (or a copy in <filename>/etc/</filename> if it's
+    configuration file can also be edited for this purpose (or a copy in <filename>/etc/</filename> if it is
     shipped under <filename>/usr/</filename>), however using drop-ins for local configuration is recommended
     over modifications to the main configuration file.</para>
 

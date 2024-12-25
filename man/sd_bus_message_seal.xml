@@ -45,7 +45,7 @@
     corresponding request. <parameter>timeout_usec</parameter> specifies the maximum time in
     microseconds to wait for a reply to arrive.</para>
 
-    <para>Note that in most scenarios, it's not necessary to call this function directly.
+    <para>Note that in most scenarios, it is not necessary to call this function directly.
     <citerefentry><refentrytitle>sd_bus_call</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
     <citerefentry><refentrytitle>sd_bus_call_async</refentrytitle><manvolnum>3</manvolnum></citerefentry> and
     <citerefentry><refentrytitle>sd_bus_send</refentrytitle><manvolnum>3</manvolnum></citerefentry>

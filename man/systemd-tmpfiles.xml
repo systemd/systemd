@@ -204,7 +204,7 @@
 
       <varlistentry>
         <term><option>--dry-run</option></term>
-        <listitem><para>Process the configuration and print what operations would be performed, but don't
+        <listitem><para>Process the configuration and print what operations would be performed, but do not
         actually change anything in the file system.</para>
 
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>

@@ -120,7 +120,7 @@
 
       <para>In the <filename>extension-release.<replaceable>IMAGE</replaceable></filename> filename, the
       <replaceable>IMAGE</replaceable> part must exactly match the file name of the containing image with the
-      suffix removed. In case it is not possible to guarantee that an image file name is stable and doesn't
+      suffix removed. In case it is not possible to guarantee that an image file name is stable and does not
       change between the build and the deployment phases, it is possible to relax this check: if exactly one
       file whose name matches <literal><filename>extension-release.*</filename></literal> is present in this
       directory, and the file is tagged with a <varname>user.extension-release.strict</varname>
