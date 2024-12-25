@@ -453,7 +453,7 @@
         <term><option>--nv-index=</option></term>
 
         <listitem><para>Specifies the NV index to store the policy in. Honoured by
-        <command>make-policy</command>. If not specified the command will automatically pick a free NV
+        <command>make-policy</command>. If not specified, the command will automatically pick a free NV
         index.</para>
 
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
@@ -464,7 +464,7 @@
 
         <listitem><para>Takes a path to read <filename>*.pcrlock</filename> and
         <filename>*.pcrlock.d/*.pcrlock</filename> files from. May be used more than once to specify multiple
-        such directories. If not specified defaults to <filename>/etc/pcrlock.d/</filename>,
+        such directories. If not specified, defaults to <filename>/etc/pcrlock.d/</filename>,
         <filename>/run/pcrlock.d/</filename>, <filename>/var/lib/pcrlock.d/</filename>,
         <filename>/usr/local/pcrlock.d/</filename>, <filename>/usr/lib/pcrlock.d/</filename>.</para>
 
@@ -534,7 +534,7 @@
         <term><option>--policy=</option></term>
 
         <listitem><para>Takes a file system path as argument. If specified, configures where to write pcrlock
-        policy metadata to. If not specified defaults to
+        policy metadata to. If not specified, defaults to
         <filename>/var/lib/systemd/pcrlock.json</filename>.</para>
 
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>

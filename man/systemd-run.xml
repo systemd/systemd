@@ -675,7 +675,7 @@ There is a screen on:
       <citerefentry project='man-pages'><refentrytitle>bash</refentrytitle><manvolnum>1</manvolnum></citerefentry>
       shell which is started by the service unit. The shell expands <literal>$SHELL</literal> to the path of
       the shell, and <literal>$$</literal> to its process number, and then those strings are passed to the
-      <command>echo</command> built-in and printed to standard output (which in this case is connected to the
+      <command>echo</command> built-in and printed to standard output (which, in this case, is connected to the
       calling terminal).</para>
     </example>
 

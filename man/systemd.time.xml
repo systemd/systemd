@@ -101,7 +101,7 @@
     <para>In some cases timestamps are shown in the UTC timezone instead of the local timezone, which is indicated via
     the <literal>UTC</literal> timezone specifier in the output.</para>
 
-    <para>In some cases timestamps are shown with microsecond granularity. In this case the sub-second remainder is
+    <para>In some cases timestamps are shown with microsecond granularity. In this case, the sub-second remainder is
     separated by a full stop from the seconds component.</para>
   </refsect1>
 

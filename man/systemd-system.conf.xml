@@ -371,7 +371,7 @@
         running and hence <varname>RuntimeWatchdogSec=</varname> is still honoured. In order to define a
         timeout on this first phase of system shutdown, configure <varname>JobTimeoutSec=</varname> and
         <varname>JobTimeoutAction=</varname> in the [Unit] section of the
-        <filename>shutdown.target</filename> unit. By default <varname>RuntimeWatchdogSec=</varname> defaults
+        <filename>shutdown.target</filename> unit. By default, <varname>RuntimeWatchdogSec=</varname> defaults
         to 0 (off), and <varname>RebootWatchdogSec=</varname> to 10min.</para>
 
         <para><varname>KExecWatchdogSec=</varname> may be used to additionally enable the watchdog when kexec

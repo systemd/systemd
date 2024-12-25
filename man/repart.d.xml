@@ -60,7 +60,7 @@
     no matching partition file are left as they are.</para>
 
     <para>Note that these definitions may only be used to create and initialize new partitions or to grow
-    existing ones. In the latter case it will not grow the contained files systems however; separate
+    existing ones. In the latter case, it will not grow the contained files systems however; separate
     mechanisms, such as
     <citerefentry><refentrytitle>systemd-growfs</refentrytitle><manvolnum>8</manvolnum></citerefentry> may be
     used to grow the file systems inside of these partitions. Partitions may also be marked for automatic
@@ -250,7 +250,7 @@
         <listitem><para>The textual label to assign to the partition if none is assigned yet. Note that this
         setting is not used for matching. It is also not used when a label is already set for an existing
         partition. It is thus only used when a partition is newly created or when an existing one had a no
-        label set (that is: an empty label). If not specified a label derived from the partition type is
+        label set (that is: an empty label). If not specified, a label derived from the partition type is
         automatically used. Simple specifier expansion is supported, see below.</para>
 
         <xi:include href="version-info.xml" xpointer="v245"/></listitem>
@@ -338,7 +338,7 @@
         <varname>SizeMaxBytes=</varname>) otherwise. If the backing device does not provide enough space to
         fulfill the constraints placing the partition will fail. For partitions that shall be created,
         depending on the setting of <varname>Priority=</varname> (see above) the partition might be dropped
-        and the placing algorithm restarted. By default a minimum size constraint of 10M and no maximum size
+        and the placing algorithm restarted. By default, a minimum size constraint of 10M and no maximum size
         constraint is set.</para>
 
         <xi:include href="version-info.xml" xpointer="v245"/></listitem>
@@ -351,7 +351,7 @@
         <listitem><para>Specifies minimum and maximum size constraints in bytes for the free space after the
         partition (the "padding"). Semantics are similar to <varname>SizeMinBytes=</varname> and
         <varname>SizeMaxBytes=</varname>, except that unlike partition sizes free space can be shrunk and can
-        be as small as zero. By default no size constraints on padding are set, so that only
+        be as small as zero. By default, no size constraints on padding are set, so that only
         <varname>PaddingWeight=</varname> determines the size of the padding applied.</para>
 
         <xi:include href="version-info.xml" xpointer="v245"/></listitem>
@@ -718,7 +718,7 @@
         <term><varname>Flags=</varname></term>
 
         <listitem><para>Configures the 64-bit GPT partition flags field to set for the partition when creating
-        it. This option has no effect if the partition already exists. If not specified the flags values is
+        it. This option has no effect if the partition already exists. If not specified, the flags value is
         set to all zeroes, except for the three bits that can also be configured via
         <varname>NoAuto=</varname>, <varname>ReadOnly=</varname> and <varname>GrowFileSystem=</varname>; see
         below for details on the defaults for these three flags. Specify the flags value in hexadecimal (by

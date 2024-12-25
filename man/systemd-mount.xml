@@ -138,7 +138,7 @@
         <listitem><para>Enable probing of the mount source. This switch is implied if a single argument is specified on
         the command line. If passed, additional metadata is read from the device to enhance the unit to create. For
         example, a descriptive string for the transient units is generated from the file system label and device
-        model. Moreover if a removable block device (e.g. USB stick) is detected an automount unit instead of a regular
+        model. Moreover, if a removable block device (e.g. USB stick) is detected an automount unit instead of a regular
         mount unit is created, with a short idle timeout, in order to ensure the file-system is placed in a clean
         state quickly after each access.</para>
 
@@ -218,7 +218,7 @@
         accessed. In automount mode the <option>--timeout-idle-sec=</option> switch (see below) may be used to ensure
         the mount point is unmounted automatically after the last access and an idle period passed.</para>
 
-        <para>If this switch is not specified it defaults to false. If not specified and <option>--discover</option> is
+        <para>If this switch is not specified, it defaults to false. If not specified and <option>--discover</option> is
         used (or only a single argument passed, which implies <option>--discover</option>, see above), and the file
         system block device is detected to be removable, it is set to true, in order to increase the chance that the
         file system is in a fully clean state if the device is unplugged abruptly.</para>
@@ -238,7 +238,7 @@
         <term><option>--timeout-idle-sec=</option></term>
 
         <listitem><para>Takes a time value that controls the idle timeout in automount mode. If set to
-        <literal>infinity</literal> (the default) no automatic unmounts are done. Otherwise the file system backing the
+        <literal>infinity</literal> (the default) no automatic unmounts are done. Otherwise, the file system backing the
         automount point is detached after the last access and the idle timeout passed. See
         <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry> for details on
         the time syntax supported. This option has no effect if only a regular mount is established, and automounting
@@ -265,7 +265,7 @@
 
         <listitem><para>This option only has an effect in automount mode,
         and controls whether the automount unit shall be bound to the backing device's lifetime. If set, the
-        automount unit will be stopped automatically when the backing device vanishes. By default the automount unit
+        automount unit will be stopped automatically when the backing device vanishes. By default, the automount unit
         stays around, and subsequent accesses will block until backing device is replugged. This option has no effect
         in case of non-device mounts, such as network or virtual file system mounts.</para>
 

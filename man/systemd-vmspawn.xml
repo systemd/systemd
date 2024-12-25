@@ -131,7 +131,7 @@
         <varlistentry>
           <term><option>--kvm=<replaceable>BOOL</replaceable></option></term>
 
-          <listitem><para>If <option>--kvm=</option> is not specified KVM support will be
+          <listitem><para>If <option>--kvm=</option> is not specified, KVM support will be
           detected automatically. If true, KVM is always used, and if false, KVM is never used.</para>
 
           <xi:include href="version-info.xml" xpointer="v255"/></listitem>
@@ -140,7 +140,7 @@
         <varlistentry>
           <term><option>--vsock=<replaceable>BOOL</replaceable></option></term>
 
-          <listitem><para>If <option>--vsock=</option> is not specified VSOCK networking support will be
+          <listitem><para>If <option>--vsock=</option> is not specified, VSOCK networking support will be
           detected automatically. If true, VSOCK networking is always used, and if false, VSOCK networking is never used.</para>
 
           <xi:include href="version-info.xml" xpointer="v255"/></listitem>
@@ -152,7 +152,7 @@
           <listitem>
             <para>Sets the specific CID to use for the guest.
             Valid CIDs are in the range <constant>3</constant> to <constant>4294967294</constant> (<constant>0xFFFF_FFFE</constant>).
-            CIDs outside of this range are reserved. By default vmspawn will attempt to derive a CID for the guest derived from the machine name,
+            CIDs outside of this range are reserved. By default, vmspawn will attempt to derive a CID for the guest derived from the machine name,
             falling back to a random CID if this CID is taken.</para>
 
             <xi:include href="version-info.xml" xpointer="v255"/>
@@ -163,7 +163,7 @@
           <term><option>--tpm=<replaceable>BOOL</replaceable></option></term>
 
           <listitem>
-            <para>If <option>--tpm=</option> is not specified vmspawn will detect the presence of <citerefentry project='debian'>
+            <para>If <option>--tpm=</option> is not specified, vmspawn will detect the presence of <citerefentry project='debian'>
             <refentrytitle>swtpm</refentrytitle><manvolnum>8</manvolnum></citerefentry> and use it if available.
             If yes is specified <citerefentry project='debian'><refentrytitle>swtpm</refentrytitle><manvolnum>8</manvolnum></citerefentry>
             is always used, and if no is set <citerefentry project='debian'><refentrytitle>swtpm</refentrytitle>
@@ -238,7 +238,7 @@
 
           <listitem><para>Takes an absolute path, or a relative path beginning with
           <filename>./</filename>. Specifies a JSON firmware definition file, which allows selecting the
-          firmware to boot in the VM. If not specified a suitable firmware is automatically discovered. If the
+          firmware to boot in the VM. If not specified, a suitable firmware is automatically discovered. If the
           special string <literal>list</literal> is specified lists all discovered firmwares.</para>
 
           <xi:include href="version-info.xml" xpointer="v256"/></listitem>
@@ -259,9 +259,9 @@
 
           <listitem><para>Configure whether to search for firmware which supports Secure Boot.</para>
 
-          <para>If the option is not specified the first firmware which is detected will be used.
-          If the option is set to yes then the first firmware with Secure Boot support will be selected.
-          If no is specified then the first firmware without Secure Boot will be selected.</para>
+          <para>If the option is not specified, the first firmware which is detected will be used.
+          If the option is set to yes, then the first firmware with Secure Boot support will be selected.
+          If no is specified, then the first firmware without Secure Boot will be selected.</para>
 
           <xi:include href="version-info.xml" xpointer="v255"/></listitem>
         </varlistentry>
@@ -402,7 +402,7 @@
         <varlistentry>
           <term><option>--pass-ssh-key=<replaceable>BOOL</replaceable></option></term>
 
-          <listitem><para>By default an SSH key is generated to allow <command>systemd-vmspawn</command> to open
+          <listitem><para>By default, an SSH key is generated to allow <command>systemd-vmspawn</command> to open
           a D-Bus connection to the VM's systemd bus. Setting this to "no" will disable SSH key generation.</para>
 
           <para>The generated keys are ephemeral. That is they are valid only for the current invocation of <command>systemd-vmspawn</command>,
@@ -419,7 +419,7 @@
           <citerefentry project="man-pages"><refentrytitle>ssh-keygen</refentrytitle><manvolnum>1</manvolnum></citerefentry>
           for more information.</para>
 
-          <para>By default <literal>ed25519</literal> keys are generated, however <literal>rsa</literal> keys
+          <para>By default, <literal>ed25519</literal> keys are generated, however <literal>rsa</literal> keys
           may also be useful if the VM has a particularly old version of
           <citerefentry project='man-pages'><refentrytitle>sshd</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
 
@@ -566,7 +566,7 @@ $ ssh root@vsock/$my_vsock_cid -i /run/user/$UID/systemd/vmspawn/machine-*-syste
 
     <para>If an error occurred the value errno is propagated to the return code.
     If EXIT_STATUS is supplied by the running image that is returned.
-    Otherwise EXIT_SUCCESS is returned.</para>
+    Otherwise, EXIT_SUCCESS is returned.</para>
   </refsect1>
 
   <refsect1>

@@ -91,7 +91,7 @@
 
         <listitem><para>Controls which services to query for users/groups. Takes a list of one or more
         service names, separated by <literal>:</literal>. See below for a list of well-known service
-        names. If not specified all available services are queried at once.</para>
+        names. If not specified, all available services are queried at once.</para>
 
         <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
@@ -136,7 +136,7 @@
         <term><option>--synthesize=<replaceable>BOOL</replaceable></option></term>
 
         <listitem><para>Controls whether to synthesize records for the root and nobody users/groups if they
-        are not defined otherwise. By default (or <literal>yes</literal>) such records are implicitly
+        are not defined otherwise. By default (or <literal>yes</literal>), such records are implicitly
         synthesized if otherwise missing since they have special significance to the OS. When
         <literal>no</literal> this synthesizing is turned off.</para>
 
@@ -289,7 +289,7 @@
         <term><command>groups-of-user</command> <optional><replaceable>USER</replaceable>…</optional></term>
 
         <listitem><para>List groups that the specified users are members of. If no users are specified list
-        all user/group memberships defined (in this case <command>groups-of-user</command> and
+        all user/group memberships defined (in this case, <command>groups-of-user</command> and
         <command>users-in-group</command> are equivalent). Use <option>--output=</option> to tweak output
         mode.</para>
 

@@ -49,7 +49,7 @@
     <para><filename>systemd-journal-remote.service</filename> is a system service that uses
     <command>systemd-journal-remote</command> to listen for connections.
     <filename>systemd-journal-remote.socket</filename> configures the network address that
-    <filename>systemd-journal-remote.service</filename> listens on. By default this is port 19532.
+    <filename>systemd-journal-remote.service</filename> listens on. By default, this is port 19532.
     What connections are accepted and how the received data is stored can be configured through the
     <citerefentry><refentrytitle>journal-remote.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     configuration file.</para>

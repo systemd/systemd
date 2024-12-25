@@ -156,7 +156,7 @@
     <para>If the second parameter of
     <function>sd_event_add_io()</function> is
     <constant>NULL</constant> no reference to the event source object
-    is returned. In this case the event source is considered
+    is returned. In this case, the event source is considered
     "floating", and will be destroyed implicitly when the event loop
     itself is destroyed.</para>
 
@@ -227,7 +227,7 @@
     event source shall take ownership of the file descriptor. Takes a boolean parameter
     <parameter>b</parameter>. When true (nonzero), the file descriptor will be closed automatically when the
     event source is freed or when the file descriptor is replaced by
-    <function>sd_event_source_set_io_fd()</function>. By default the descriptor is not owned by the event
+    <function>sd_event_source_set_io_fd()</function>. By default, the descriptor is not owned by the event
     source, and the application has to do close it on its own if needed.</para>
 
     <para><function>sd_event_source_get_io_fd_own()</function> may be used to query the current setting of the file

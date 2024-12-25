@@ -59,7 +59,7 @@
           <listitem>
             <para>List units that <command>systemd</command> currently has in memory. This includes units that are
             either referenced directly or through a dependency, units that are pinned by applications programmatically,
-            or units that were active in the past and have failed. By default only units which are active, have pending
+            or units that were active in the past and have failed. By default, only units which are active, have pending
             jobs, or have failed are shown; this can be changed with option <option>--all</option>. If one or more
             <replaceable>PATTERN</replaceable>s are specified, only units matching one of them are shown. The units
             that are shown are additionally filtered by <option>--type=</option> and <option>--state=</option> if those
@@ -1108,7 +1108,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
                   </row>
                   <row>
                     <entry><literal>bad</literal></entry>
-                    <entry>The unit file is invalid or another error occurred. Note that <command>is-enabled</command> will not actually return this state, but print an error message instead. However the unit file listing printed by <command>list-unit-files</command> might show it.</entry>
+                    <entry>The unit file is invalid or another error occurred. Note that <command>is-enabled</command> will not actually return this state, but print an error message instead. However, the unit file listing printed by <command>list-unit-files</command> might show it.</entry>
                     <entry>&gt; 0</entry>
                   </row>
                   <row>

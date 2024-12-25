@@ -487,7 +487,7 @@
         <para>Note that this option does not control whether <command>systemd-journald</command> collects
         generated audit records, it just controls whether it tells the kernel to generate them. If you need
         to prevent <command>systemd-journald</command> from collecting the generated messages, the socket
-        unit <literal>systemd-journald-audit.socket</literal> can be disabled and in this case this setting
+        unit <literal>systemd-journald-audit.socket</literal> can be disabled and, in this case, this setting
         is without effect.</para>
 
         <xi:include href="version-info.xml" xpointer="v246"/>

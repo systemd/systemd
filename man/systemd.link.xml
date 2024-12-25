@@ -889,7 +889,7 @@
             </tgroup>
           </table>
 
-          By default this is unset, i.e. all possible modes will be advertised.
+          By default, this is unset, i.e. all possible modes will be advertised.
           This option may be specified more than once, in which case all specified speeds and modes are advertised.
           If the empty string is assigned to this option, the list is reset, and all prior assignments have no effect.
           </para>

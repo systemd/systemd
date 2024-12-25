@@ -371,7 +371,7 @@
 
         <listitem><para>Takes an image policy string as argument, as per
         <citerefentry><refentrytitle>systemd.image-policy</refentrytitle><manvolnum>7</manvolnum></citerefentry>. The
-        policy is enforced when operating on system extension disk images. If not specified defaults to
+        policy is enforced when operating on system extension disk images. If not specified, defaults to
         <literal>root=verity+signed+encrypted+unprotected+absent:usr=verity+signed+encrypted+unprotected+absent</literal>
         for system extensions, i.e. only the root and <filename>/usr/</filename> file systems in the image
         are used. For configuration extensions defaults to

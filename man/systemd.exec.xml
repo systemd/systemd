@@ -458,14 +458,14 @@
         is already marked read-only), while <varname>BindReadOnlyPaths=</varname> creates read-only bind mounts. These
         settings may be used more than once, each usage appends to the unit's list of bind mounts. If the empty string
         is assigned to either of these two options the entire list of bind mounts defined prior to this is reset. Note
-        that in this case both read-only and regular bind mounts are reset, regardless which of the two settings is
+        that, in this case, both read-only and regular bind mounts are reset, regardless which of the two settings is
         used.</para>
 
         <para>Using this option implies that a mount namespace is allocated for the unit, i.e. it implies the
         effect of <varname>PrivateMounts=</varname> (see below).</para>
 
         <para>This option is particularly useful when <varname>RootDirectory=</varname>/<varname>RootImage=</varname>
-        is used. In this case the source path refers to a path on the host file system, while the destination path
+        is used. In this case, the source path refers to a path on the host file system, while the destination path
         refers to a path below the root directory of the unit.</para>
 
         <para>Note that the destination directory must exist or systemd must be able to create it. Thus, it
@@ -697,7 +697,7 @@
         leave files around after unit termination. Furthermore
         <varname>NoNewPrivileges=</varname> and <varname>RestrictSUIDSGID=</varname> are implicitly enabled
         (and cannot be disabled), to ensure that processes invoked cannot take benefit or create SUID/SGID
-        files or directories. Moreover <varname>ProtectSystem=strict</varname> and
+        files or directories. Moreover, <varname>ProtectSystem=strict</varname> and
         <varname>ProtectHome=read-only</varname> are implied, thus prohibiting the service to write to
         arbitrary file system locations. In order to allow the service to write to certain directories, they
         have to be allow-listed using <varname>ReadWritePaths=</varname>, but care must be taken so that
@@ -835,7 +835,7 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         capabilities to the ambient capability set adds them to the process's inherited capability set.</para>
 
         <para>Ambient capability sets are useful if you want to execute a process as a non-privileged user but
-        still want to give it some capabilities. Note that in this case option <constant>keep-caps</constant>
+        still want to give it some capabilities. Note that, in this case, option <constant>keep-caps</constant>
         is automatically added to <varname>SecureBits=</varname> to retain the capabilities over the user
         change. <varname>AmbientCapabilities=</varname> does not affect commands prefixed with
         <literal>+</literal>.</para>
@@ -1219,7 +1219,7 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         executed processes. Takes an integer between -1000 (to disable OOM killing of processes of this unit)
         and 1000 (to make killing of processes of this unit under memory pressure very likely). See <ulink
         url="https://docs.kernel.org/filesystems/proc.html">The /proc Filesystem</ulink> for
-        details. If not specified defaults to the OOM score adjustment level of the service manager itself,
+        details. If not specified, defaults to the OOM score adjustment level of the service manager itself,
         which is normally at 0.</para>
 
         <para>Use the <varname>OOMPolicy=</varname> setting of service units to configure how the service
@@ -1805,7 +1805,7 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         <varname>ReadOnlyPaths=</varname> and related calls, see above. If set to <literal>true</literal>
         (as opposed to <literal>disconnected</literal>), this has the side effect of adding
         <varname>Requires=</varname> and <varname>After=</varname> dependencies on all mount units necessary
-        to access <filename>/tmp/</filename> and <filename>/var/tmp/</filename> on the host. Moreover an
+        to access <filename>/tmp/</filename> and <filename>/var/tmp/</filename> on the host. Moreover, an
         implicitly <varname>After=</varname> ordering on
         <citerefentry><refentrytitle>systemd-tmpfiles-setup.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         is added.</para>
@@ -3140,7 +3140,7 @@ SystemCallErrorNumber=EPERM</programlisting>
         <para>If the standard output (or error output, see below) of a unit is connected to the journal or
         the kernel log buffer, the unit will implicitly gain a dependency of type <varname>After=</varname>
         on <filename>systemd-journald.socket</filename> (also see the "Implicit Dependencies" section
-        above). Also note that in this case stdout (or stderr, see below) will be an
+        above). Also note that, in this case, stdout (or stderr, see below) will be an
         <constant>AF_UNIX</constant> stream socket, and not a pipe or FIFO that can be reopened. This means
         when executing shell scripts the construct <command>echo "hello" &gt; /dev/stderr</command> for
         writing text to stderr will not work. To mitigate this use the construct <command>echo "hello"
@@ -3225,7 +3225,7 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
         <option>notice</option>, <option>info</option>, <option>debug</option> (highest log level, also lowest priority
         messages). See <citerefentry
         project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry> for
-        details. By default no filtering is applied (i.e. the default maximum log level is <option>debug</option>). Use
+        details. By default, no filtering is applied (i.e. the default maximum log level is <option>debug</option>). Use
         this option to configure the logging system to drop log messages of a specific service above the specified
         level. For example, set <varname>LogLevelMax=</varname><option>info</option> in order to turn off debug logging
         of a particularly chatty unit. Note that the configured level is applied to any log messages written by any
@@ -3571,7 +3571,7 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
         url="https://www.dmtf.org/standards/smbios">DMI/SMBIOS</ulink> OEM string table entries (field type
         11) with a prefix of <literal>io.systemd.credential:</literal> or
         <literal>io.systemd.credential.binary:</literal>. In both cases a key/value pair separated by
-        <literal>=</literal> is expected, in the latter case the right-hand side is Base64 decoded when
+        <literal>=</literal> is expected. In the latter case, the right-hand side is Base64 decoded when
         parsed (thus permitting binary data to be passed in). Example <ulink
         url="https://www.qemu.org/docs/master/system/index.html">qemu</ulink> switch: <literal>-smbios
         type=11,value=io.systemd.credential:xx=yy</literal>, or <literal>-smbios
@@ -3673,7 +3673,7 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
         <varname>LoadCredential=</varname>, <varname>LoadCredentialEncrypted=</varname> and
         <varname>ImportCredential=</varname> take priority over credentials found by
         <varname>SetCredential=</varname>. As such, <varname>SetCredential=</varname> will act as default if
-        no credentials are found by any of the former. In this case not being able to retrieve the credential
+        no credentials are found by any of the former. In this case, not being able to retrieve the credential
         from the path specified in <varname>LoadCredential=</varname> or
         <varname>LoadCredentialEncrypted=</varname> is not considered fatal.</para>
 
