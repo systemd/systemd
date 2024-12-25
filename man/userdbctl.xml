@@ -216,7 +216,7 @@
         <term><option>--uid-max=</option></term>
 
         <listitem><para>When used with the <command>user</command> or <command>group</command> command,
-        filters the output by UID/GID ranges. Takes numeric minimum resp. maximum UID/GID values. Shows only
+        filters the output by UID/GID ranges. Takes numeric minimum or maximum UID/GID values, respectively. Shows only
         records within the specified range. When applied to the <command>user</command> command matches
         against UIDs, when applied to the <command>group</command> command against GIDs (despite the name of
         the switch). If unspecified defaults to 0 (for the minimum) and 4294967294 (for the maximum), i.e. by

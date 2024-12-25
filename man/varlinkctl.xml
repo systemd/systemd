@@ -106,7 +106,7 @@
       <literal>./</literal>).</para></listitem>
 
       <listitem><para>A file system path to an executable, either absolute or relative (as above, must begin
-      with <literal>/</literal>, resp. <literal>./</literal>).</para></listitem>
+      with <literal>/</literal> or <literal>./</literal>, respectively).</para></listitem>
     </itemizedlist>
   </refsect1>
 
