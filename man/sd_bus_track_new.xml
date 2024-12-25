@@ -137,7 +137,7 @@
     irrelevant and the tracking of the specific peer is immediately
     removed. <function>sd_bus_track_get_recursive()</function> may be used to determine whether the bus peer tracking
     object is operating in recursive mode. <function>sd_bus_track_set_recursive()</function> may be used to enable or
-    disable recursive mode. By default a bus peer tracking object operates in non-recursive mode, and
+    disable recursive mode. By default, a bus peer tracking object operates in non-recursive mode, and
     <function>sd_bus_track_get_recursive()</function> for a newly allocated object hence returns a value equal to
     zero. Use <function>sd_bus_track_set_recursive()</function> to enable recursive mode, right after allocation. It
     takes a boolean argument to enable or disable recursive mode. Note that tracking objects for which

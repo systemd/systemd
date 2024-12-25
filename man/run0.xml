@@ -215,7 +215,7 @@
 
         <listitem><para>Set a shell prompt prefix string. This ultimately controls the
         <varname>$SHELL_PROMPT_PREFIX</varname> environment variable for the invoked program, which is
-        typically imported into the shell prompt. By default – if emojis are supported – a superhero emoji is
+        typically imported into the shell prompt. By default – if emojis are supported –, a superhero emoji is
         shown (🦸). This default may also be changed (or turned off) by passing the
         <varname>$SYSTEMD_RUN_SHELL_PROMPT_PREFIX</varname> environment variable to <varname>run0</varname>,
         see below. Set to an empty string to disable shell prompt prefixing.</para>
@@ -291,7 +291,7 @@
 
       <varlistentry>
         <term><varname>$SHELL_PROMPT_PREFIX</varname></term>
-        <listitem><para>By default set to the superhero emoji (if supported), but may be overridden with the
+        <listitem><para>By default, set to the superhero emoji (if supported), but may be overridden with the
         <varname>$SYSTEMD_RUN_SHELL_PROMPT_PREFIX</varname> environment variable (see below), or the
         <option>--shell-prompt-prefix=</option> switch (see above).</para>
 

@@ -201,7 +201,7 @@
         returned data could not be verified (either because the data
         was found unsigned in the DNS, or the DNS server did not
         support DNSSEC or no appropriate trust anchors were known). In
-        the latter case it is assumed that client programs employ a
+        the latter case, it is assumed that client programs employ a
         secondary scheme to validate the returned DNS data, should
         this be required.</para>
 

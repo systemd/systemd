@@ -31,7 +31,7 @@
     <title>Description</title>
 
     <para><command>systemd-ac-power</command> may be used to check whether the system
-    is running on AC power or not. By default it will simply return success (if we
+    is running on AC power or not. By default, it will simply return success (if we
     can detect that we are running on AC power) or failure, with no output.
     This can be useful for example to debug <varname>ConditionACPower=</varname> (see
     <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>).</para>
@@ -55,7 +55,7 @@
       <varlistentry>
         <term><option>--low</option></term>
 
-        <listitem><para>Instead of showing AC power state, show low battery state. In this case will return
+        <listitem><para>Instead of showing AC power state, show low battery state. In this case, will return
         zero if all batteries are currently discharging and below 5% of maximum charge. Returns non-zero
         otherwise.</para>
 

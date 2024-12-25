@@ -351,7 +351,7 @@
         <listitem><para>Takes an image policy string as argument, as per
         <citerefentry><refentrytitle>systemd.image-policy</refentrytitle><manvolnum>7</manvolnum></citerefentry>. The
         policy is enforced when operating on the disk image specified via <option>--image=</option>, see
-        above. If not specified defaults to
+        above. If not specified, defaults to
         <literal>root=verity+signed+encrypted+unprotected+absent:usr=verity+signed+encrypted+unprotected+absent:home=encrypted+unprotected+absent:srv=encrypted+unprotected+absent:esp=unprotected+absent:xbootldr=unprotected+absent:tmp=encrypted+unprotected+absent:var=encrypted+unprotected+absent</literal>,
         i.e. all recognized file systems in the image are used, but not the swap partition.</para>
 
@@ -363,7 +363,7 @@
 
         <listitem><para>Takes the path to an OCI runtime bundle to invoke, as specified in the <ulink
         url="https://github.com/opencontainers/runtime-spec/blob/master/spec.md">OCI Runtime Specification</ulink>. In
-        this case no <filename>.nspawn</filename> file is loaded, and the root directory and various settings are read
+        this case, no <filename>.nspawn</filename> file is loaded, and the root directory and various settings are read
         from the OCI runtime JSON data (but data passed on the command line takes precedence).</para>
 
         <xi:include href="version-info.xml" xpointer="v242"/></listitem>
@@ -375,7 +375,7 @@
         <listitem><para>Mount the container's root file system (and any other file systems contained in the container
         image) read-only. This has no effect on additional mounts made with <option>--bind=</option>,
         <option>--tmpfs=</option> and similar options. This mode is implied if the container image file or directory is
-        marked read-only itself. It is also implied if <option>--volatile=</option> is used. In this case the container
+        marked read-only itself. It is also implied if <option>--volatile=</option> is used. In this case, the container
         image on disk is strictly read-only, while changes are permitted but kept non-persistently in memory only. For
         further details, see below.</para></listitem>
       </varlistentry>
@@ -626,7 +626,7 @@
         <constant>SIGTERM</constant>, in order to trigger an orderly shutdown of the container. Defaults to
         <constant>SIGRTMIN+3</constant> if <option>--boot</option> is used (on systemd-compatible init systems
         <constant>SIGRTMIN+3</constant> triggers an orderly shutdown). If <option>--boot</option> is not used and this
-        option is not specified the container's processes are terminated abruptly via <constant>SIGKILL</constant>. For
+        option is not specified, the container's processes are terminated abruptly via <constant>SIGKILL</constant>. For
         a list of valid signals, see <citerefentry
         project='man-pages'><refentrytitle>signal</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
 
@@ -1416,7 +1416,7 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
 
         <para>It's recommended to use <literal>copy-…</literal> or <literal>replace-…</literal> if the
         container shall be able to make changes to the DNS configuration on its own, deviating from the
-        host's settings. Otherwise <literal>bind</literal> is preferable, as it means direct changes to
+        host's settings. Otherwise, <literal>bind</literal> is preferable, as it means direct changes to
         <filename>/etc/resolv.conf</filename> in the container are not allowed, as it is a read-only bind
         mount (but note that if the container has enough privileges, it might simply go ahead and unmount the
         bind mount anyway). Note that both if the file is bind mounted and if it is copied no further

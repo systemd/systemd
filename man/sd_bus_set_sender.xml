@@ -50,7 +50,7 @@
     that are sent on the connection and have no sender set yet, for example through
     <citerefentry><refentrytitle>sd_bus_message_set_sender</refentrytitle><manvolnum>3</manvolnum></citerefentry>. Note
     that this function is only supported on direct connections, i.e. not on connections to a bus broker as the broker
-    will fill in the sender service name automatically anyway. By default no sender name is configured, and hence
+    will fill in the sender service name automatically anyway. By default, no sender name is configured, and hence
     messages are sent without sender field set. If the <parameter>name</parameter> parameter is specified as
     <constant>NULL</constant> the default sender service name is cleared, returning to the default state if a default
     sender service name was set before. If passed as non-<constant>NULL</constant> the specified name must be a valid

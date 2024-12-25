@@ -724,7 +724,7 @@
           <listitem>
             <para>A special target unit that sets up all slice units (see
             <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-            for details) that shall always be active after boot. By default the generic
+            for details) that shall always be active after boot. By default, the generic
             <filename>system.slice</filename> slice unit as well as the root slice unit
             <filename>-.slice</filename> are pulled in and ordered before this unit (see
             below).</para>

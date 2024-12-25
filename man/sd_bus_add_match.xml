@@ -134,7 +134,7 @@
 
     <para>If an error occurs during the callback invocation, the callback should return a negative error number
     (optionally, a more precise error may be returned in <parameter>ret_error</parameter>, as well). If it wants other
-    callbacks that match the same rule to be called, it should return 0. Otherwise it should return a positive integer.
+    callbacks that match the same rule to be called, it should return 0. Otherwise, it should return a positive integer.
     </para>
 
     <para>If the <parameter>bus</parameter> refers to a direct connection (i.e. not a bus connection, as set with

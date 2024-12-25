@@ -99,7 +99,7 @@
     <title>Output directories</title>
 
     <para>Generators are invoked with three arguments: paths to directories where generators can place their
-    generated unit files or symlinks. By default those paths are runtime directories that are included in the
+    generated unit files or symlinks. By default, those paths are runtime directories that are included in the
     search path of <command>systemd</command>, but a generator may be called with different paths for
     debugging purposes. If only one argument is provided, the generator should use the same directory as the
     three output paths.</para>

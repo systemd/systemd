@@ -139,7 +139,7 @@
         <term><varname>AllowHybridSleep=</varname></term>
         <term><varname>AllowSuspendThenHibernate=</varname></term>
 
-        <listitem><para>By default any power-saving mode is advertised if possible (i.e.
+        <listitem><para>By default, any power-saving mode is advertised if possible (i.e.
         the kernel supports that mode, the necessary resources are available). Those
         switches can be used to disable specific modes.</para>
 

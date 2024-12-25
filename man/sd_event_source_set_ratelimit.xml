@@ -74,10 +74,10 @@
     dispatched more often than the specified burst within the specified interval it is placed in a mode
     similar to being disabled with
     <citerefentry><refentrytitle>sd_event_source_set_enabled</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-    and the <constant>SD_EVENT_OFF</constant> parameter. However it is disabled only temporarily – once the
+    and the <constant>SD_EVENT_OFF</constant> parameter. However, it is disabled only temporarily – once the
     specified interval is over regular operation resumes. It is again disabled temporarily once the specified rate
     limiting is hit the next time. If either the interval or the burst value are specified as zero, rate
-    limiting is turned off. By default event sources do not have rate limiting enabled. Note that rate
+    limiting is turned off. By default, event sources do not have rate limiting enabled. Note that rate
     limiting and disabling via <function>sd_event_source_set_enabled()</function> are independent of each
     other, and an event source will only effect event loop wake-ups and is dispatched while it both is
     enabled and rate limiting is not in effect.</para>

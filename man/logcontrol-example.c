@@ -220,7 +220,7 @@ int main(int argc, char **argv) {
   if (r < 0)
     return log_error(o.log_level, r, "sd_bus_add_object_vtable()");
 
-  /* By default the service is assigned an ephemeral name. Also add a fixed
+  /* By default, the service is assigned an ephemeral name. Also add a fixed
    * one, so that clients know whom to call.
    * https://www.freedesktop.org/software/systemd/man/sd_bus_request_name.html
    */
