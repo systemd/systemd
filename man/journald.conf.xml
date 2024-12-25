@@ -422,7 +422,7 @@
         where the console is often a slow, virtual serial port.
         Since journald is implemented as a conventional single-process daemon, forwarding to a completely
         hung console will block journald. This can have a cascading effect resulting in any services synchronously
-        logging to the blocked journal also becoming blocked.  Unless actively debugging/developing something, it's
+        logging to the blocked journal also becoming blocked.  Unless actively debugging/developing something, it is
         generally preferable to setup a <command>journalctl --follow</command> style service redirected to the
         console, instead of ForwardToConsole=yes, for production use.</para>
         </listitem>
@@ -487,7 +487,7 @@
         <para>Note that this option does not control whether <command>systemd-journald</command> collects
         generated audit records, it just controls whether it tells the kernel to generate them. If you need
         to prevent <command>systemd-journald</command> from collecting the generated messages, the socket
-        unit <literal>systemd-journald-audit.socket</literal> can be disabled and in this case this setting
+        unit <literal>systemd-journald-audit.socket</literal> can be disabled and, in this case, this setting
         is without effect.</para>
 
         <xi:include href="version-info.xml" xpointer="v246"/>

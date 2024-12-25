@@ -176,7 +176,7 @@
             proceed starting follow-up units, right after creating the main service process, and before
             executing the service's binary. Note that this means <command>systemctl start</command> command
             lines for <option>simple</option> services will report success even if the service's binary
-            cannot be invoked successfully (for example because the selected <varname>User=</varname> doesn't
+            cannot be invoked successfully (for example because the selected <varname>User=</varname> does not
             exist, or the service binary is missing).</para></listitem>
 
             <listitem><para>The <option>exec</option> type is similar to <option>simple</option>, but the
@@ -187,7 +187,7 @@
             <function>fork()</function> and <function>execve()</function> in the service process succeeded.)
             Note that this means <command>systemctl start</command> command lines for <option>exec</option>
             services will report failure when the service's binary cannot be invoked successfully (for
-            example because the selected <varname>User=</varname> doesn't exist, or the service binary is
+            example because the selected <varname>User=</varname> does not exist, or the service binary is
             missing). This type is implied if credentials are used (refer to <varname>LoadCredential=</varname>
             in <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
             for details).</para></listitem>
@@ -274,9 +274,9 @@
 
           <para>It is recommended to use <varname>Type=</varname><option>exec</option> for long-running
           services, as it ensures that process setup errors (e.g. errors such as a missing service
-          executable, or missing user) are properly tracked. However, as this service type won't propagate
+          executable, or missing user) are properly tracked. However, as this service type will not propagate
           the failures in the service's own startup code (as opposed to failures in the preparatory steps the
-          service manager executes before <function>execve()</function>) and doesn't allow ordering of other
+          service manager executes before <function>execve()</function>) and does not allow ordering of other
           units against completion of initialization of the service code itself (which for example is useful
           if clients need to connect to the service through some form of IPC, and the IPC channel is only
           established by the service itself — in contrast to doing this ahead of time through socket or bus
@@ -286,7 +286,7 @@
           precisely schedule when to consider the service started up successfully and when to proceed with
           follow-up units. The <option>notify</option>/<option>notify-reload</option> service types require
           explicit support in the service codebase (as <function>sd_notify()</function> or an equivalent API
-          needs to be invoked by the service at the appropriate time) — if it's not supported, then
+          needs to be invoked by the service at the appropriate time) — if it is not supported, then
           <option>forking</option> is an alternative: it supports the traditional heavy-weight UNIX service
           start-up protocol. Note that using any type other than <option>simple</option> possibly delays the
           boot process, as the service manager needs to wait for at least some service initialization to
@@ -525,7 +525,7 @@
         <para>Note that the commands specified in <varname>ExecStop=</varname> are only executed when the service
         started successfully first. They are not invoked if the service was never started at all, or in case its
         start-up failed, for example because any of the commands specified in <varname>ExecStart=</varname>,
-        <varname>ExecStartPre=</varname> or <varname>ExecStartPost=</varname> failed (and weren't prefixed with
+        <varname>ExecStartPre=</varname> or <varname>ExecStartPost=</varname> failed (and were not prefixed with
         <literal>-</literal>, see above) or timed out. Use <varname>ExecStopPost=</varname> to invoke commands when a
         service failed to start up correctly and is shut down again. Also note that the stop operation is always
         performed if the service started successfully, even if the processes in the service terminated on their
@@ -620,7 +620,7 @@
         <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>).
         </para>
 
-        <para>Note that the start timeout is also applied to service reloads, regardless if implemented
+        <para>Note that the start timeout is also applied to service reloads, regardless of whether implemented
         through <varname>ExecReload=</varname> or via the reload logic enabled via <varname>Type=notify-reload</varname>.
         If the reload does not complete within the configured time, the reload will be considered failed and
         the service will continue running with the old configuration. This will not affect the running service,
@@ -636,7 +636,7 @@
         are skipped and the service will be terminated by <constant>SIGTERM</constant>. If no <varname>ExecStop=</varname>
         commands are specified, the service gets the <constant>SIGTERM</constant> immediately. This default behavior
         can be changed by the <varname>TimeoutStopFailureMode=</varname> option. Second, it configures the time
-        to wait for the service itself to stop. If it doesn't terminate in the specified time, it will be forcibly terminated
+        to wait for the service itself to stop. If it does not terminate in the specified time, it will be forcibly terminated
         by <constant>SIGKILL</constant> (see <varname>KillMode=</varname> in
         <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
         Takes a unit-less value in seconds, or a time span value such
@@ -945,7 +945,7 @@
                 <varname>ExecStopPost=</varname> is still invoked.
                 <varname>OnSuccess=</varname> and <varname>OnFailure=</varname> are skipped.</para>
 
-                <para>This option is useful in cases where a dependency can fail temporarily but we don't
+                <para>This option is useful in cases where a dependency can fail temporarily but we do not
                 want these temporary failures to make the dependent units fail. Dependent units are not
                 notified of these temporary failures.</para>
 
@@ -1309,7 +1309,7 @@
         See <citerefentry><refentrytitle>sd_listen_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry>
         for more details on how to retrieve these file descriptors.</para>
 
-        <para>This setting is useful to allow services to access files/sockets that they can't access themselves
+        <para>This setting is useful to allow services to access files/sockets that they cannot access themselves
         (due to running in a separate mount namespace, not having privileges, ...).</para>
 
         <para>This setting can be specified multiple times, in which case all the specified paths are opened and the file descriptors passed to the service.

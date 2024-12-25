@@ -55,7 +55,7 @@
     <citerefentry><refentrytitle>sd-event</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     event loop, see
     <citerefentry><refentrytitle>sd_bus_attach_event</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
-    By default this mechanism is enabled and makes sure that any pending messages that have not been
+    By default, this mechanism is enabled and makes sure that any pending messages that have not been
     written to the bus connection are written out when the event loop is shutting down. In some
     cases this behaviour is not desirable, for example when the bus connection shall remain usable
     until after the event loop exited. If <parameter>b</parameter> is true, the feature is enabled

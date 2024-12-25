@@ -58,7 +58,7 @@
     will be automatically read and processed, and outgoing messages written, whenever the event loop is run. When the
     event loop is about to terminate, the bus connection is automatically flushed and closed (see
     <citerefentry><refentrytitle>sd_bus_set_close_on_exit</refentrytitle><manvolnum>3</manvolnum></citerefentry> for
-    details on this). By default bus connection objects are not attached to any event loop. When a bus connection
+    details on this). By default, bus connection objects are not attached to any event loop. When a bus connection
     object is attached to one it is not necessary to invoke
     <citerefentry><refentrytitle>sd_bus_wait</refentrytitle><manvolnum>3</manvolnum></citerefentry> or
     <citerefentry><refentrytitle>sd_bus_process</refentrytitle><manvolnum>3</manvolnum></citerefentry> as this

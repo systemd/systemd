@@ -568,7 +568,7 @@ node /org/freedesktop/home1/home {
       operate like their matching counterparts on the <classname>org.freedesktop.home1.Manager</classname>
       interface (see above). The main difference is that they are methods of the home directory objects, and
       hence carry no additional user name parameter. Which of the two flavors of methods to call depends on
-      the handles to the user known on the client side: if only the user name is known, it's preferable to use
+      the handles to the user known on the client side: if only the user name is known, it is preferable to use
       the methods on the manager object since they operate with user names only. Clients can also easily operate
       on their own home area by using the methods on the manager object with an empty string as the user name.
       If the client has the home's object path already acquired in some way, however, it is preferable to operate

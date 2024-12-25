@@ -65,8 +65,8 @@
         user concurrently uses graphical login sessions that implement the required re-authentication
         mechanism and console logins that do not, the home directory is not locked during suspend, due to the
         logic explained above. That said, it is possible to set this field for TTY logins too, ignoring the
-        fact that TTY logins actually don't support the re-authentication mechanism. In that case the TTY
-        sessions will appear hung until the user logs in on another virtual terminal (regardless if via
+        fact that TTY logins actually do not support the re-authentication mechanism. In that case the TTY
+        sessions will appear hung until the user logs in on another virtual terminal (regardless of whether via
         another TTY session or graphically) which will resume the home directory and unblock the original TTY
         session. (Do note that lack of screen locking on TTY sessions means even though the TTY session
         appears hung, keypresses can still be queued into it, and the existing screen contents be read

@@ -8,7 +8,7 @@ sudo systemd-cryptenroll --tpm2-device=auto --tpm2-pcrs=7 /dev/sdXn
 sudo systemd-cryptsetup attach mytest /dev/sdXn - tpm2-device=auto
 
 # If that worked, let's now add the same line persistently to /etc/crypttab,
-# for the future. We don't want to use the (unstable) /dev/sdX name, so let's
+# for the future. We do not want to use the (unstable) /dev/sdX name, so let's
 # figure out a stable link:
 udevadm info -q symlink -r /dev/sdXn
 

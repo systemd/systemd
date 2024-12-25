@@ -77,7 +77,7 @@
     <constant>CLOCK_MONOTONIC</constant> and specified in microseconds. When converting this value in order
     to pass it as third argument to <function>poll()</function> (which expects relative milliseconds), care
     should be taken to convert to a relative time and use a division that rounds up to ensure the I/O polling
-    operation doesn't sleep for shorter than necessary, which might result in unintended busy looping
+    operation does not sleep for shorter than necessary, which might result in unintended busy looping
     (alternatively, use <citerefentry
     project='man-pages'><refentrytitle>ppoll</refentrytitle><manvolnum>2</manvolnum></citerefentry> instead
     of plain <function>poll()</function>, which understands timeouts with nano-second granularity).</para>

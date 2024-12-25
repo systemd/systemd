@@ -108,8 +108,8 @@
         <varname>SYSTEMD_READY=</varname> (see below) to configure when a udev device shall be considered active, and
         thus when to trigger the dependencies.</para>
 
-        <!-- Note that we don't document here that we actually apply unit_name_mangle() to all specified names, since
-             that's kinda ugly, and people should instead specify correctly escaped names -->
+        <!-- Note that we do not document here that we actually apply unit_name_mangle() to all specified names, since
+             that is kind of ugly, and people should instead specify correctly escaped names -->
 
         <para>The specified property value should be a space-separated list of valid unit names. If a unit template
         name is specified (that is, a unit name containing an <literal>@</literal> character indicating a unit name to

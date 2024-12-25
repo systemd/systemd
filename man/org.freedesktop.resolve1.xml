@@ -500,7 +500,7 @@ node /org/freedesktop/resolve1 {
         hence where the data was found.</para>
 
         <para>The primary use cases for these five flags are follow-up look-ups based on DNS data retrieved
-        earlier. In this case it is often a good idea to limit the follow-up look-up to the protocol that was
+        earlier. In this case, it is often a good idea to limit the follow-up look-up to the protocol that was
         used to discover the first DNS result.</para>
 
         <para>The NO_CNAME flag controls whether CNAME/DNAME resource records shall be followed during the
@@ -625,7 +625,7 @@ node /org/freedesktop/resolve1 {
       each non-existence proof. The secure counter is increased for each operation that successfully verified
       a signed reply, the insecure counter is increased for each operation that successfully verified that an
       unsigned reply is rightfully unsigned. The bogus counter is increased for each operation where the
-      validation did not check out and the data is likely to have been tempered with. Finally the
+      validation did not check out and the data is likely to have been tempered with. Finally, the
       indeterminate counter is increased for each operation which did not complete because the necessary keys
       could not be acquired or the cryptographic algorithms were unknown.</para>
 

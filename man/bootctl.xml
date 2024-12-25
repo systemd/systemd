@@ -406,7 +406,7 @@
 
       <varlistentry>
         <term><option>--random-seed=yes|no</option></term>
-        <listitem><para>By default the <command>install</command> command initializes a random seed file in
+        <listitem><para>By default, the <command>install</command> command initializes a random seed file in
         the ESP. When creating an image it may be desirable to disable that in order to avoid having the
         same seed in all instances.</para>
 
@@ -468,8 +468,8 @@
         <filename>os-release</filename> (e.g. <literal>vendorx-cashier-system</literal>).</para>
 
         <para>If set to <option>auto</option> (the default), the <filename>/etc/kernel/entry-token</filename>
-        file will be read if it exists, and the stored value used.  Otherwise if the local machine ID is
-        initialized it is used. Otherwise <varname>IMAGE_ID=</varname> from <filename>os-release</filename>
+        file will be read if it exists, and the stored value used. Otherwise, if the local machine ID is
+        initialized it is used. Otherwise, <varname>IMAGE_ID=</varname> from <filename>os-release</filename>
         will be used, if set.  Otherwise, <varname>ID=</varname> from <filename>os-release</filename> will be
         used, if set.</para>
 
@@ -509,7 +509,7 @@
         <para>Using the default entry name <literal>Linux Boot Manager</literal> is generally preferable as only
         one bootloader installed to a single ESP partition should be used to boot any number of OS installations
         found on the various disks installed in the system. Specifically distributions should not use this flag
-        to install a branded entry in the boot option list. However in situations with multiple disks, each with
+        to install a branded entry in the boot option list. However, in situations with multiple disks, each with
         their own ESP partition, it can be beneficial to make it easier to identify the bootloader being used in
         the firmware's boot option menu.</para>
 

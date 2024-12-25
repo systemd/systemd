@@ -40,7 +40,7 @@
 
     <para>The API's central data structure is <type>JsonVariant</type> which encapsulates a JSON object,
     array, string, boolean, number or null value. These data structures are mostly considered immutable after
-    construction (i.e. their contents won't change, but some meta-data might, such as reference counters).</para>
+    construction (i.e. their contents will not change, but some meta-data might, such as reference counters).</para>
 
     <para>The APIs broadly fall into five categories:</para>
 

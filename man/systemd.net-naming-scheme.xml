@@ -243,7 +243,7 @@
           name and the bus number are ignored.</para>
 
           <para>In some configurations a parent PCI bridge of a given network controller may be associated
-          with a slot. In such case we don't generate this device property to avoid possible naming conflicts.</para>
+          with a slot. In such case we do not generate this device property to avoid possible naming conflicts.</para>
 
           <xi:include href="version-info.xml" xpointer="v243"/>
           </listitem>
@@ -431,7 +431,7 @@
           <listitem><para>When a PCI slot is associated with a PCI bridge that has multiple child network
           controllers, the same value of the <varname>ID_NET_NAME_SLOT</varname> property might be derived
           for those controllers. This would cause a naming conflict if the property is selected as the device
-          name. Now, we detect this situation and don't produce the <varname>ID_NET_NAME_SLOT</varname>
+          name. Now, we detect this situation and do not produce the <varname>ID_NET_NAME_SLOT</varname>
           property.</para>
 
           <xi:include href="version-info.xml" xpointer="v247"/></listitem>
