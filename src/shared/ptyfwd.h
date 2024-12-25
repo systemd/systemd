@@ -33,6 +33,8 @@ bool pty_forward_get_ignore_vhangup(PTYForward *f);
 
 void pty_forward_set_handler(PTYForward *f, PTYForwardHandler handler, void *userdata);
 
+bool pty_forward_drain(PTYForward *f);
+
 int pty_forward_set_priority(PTYForward *f, int64_t priority);
 
 int pty_forward_set_width_height(PTYForward *f, unsigned width, unsigned height);
