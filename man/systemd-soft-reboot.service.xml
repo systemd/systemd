@@ -58,7 +58,7 @@
       <listitem><para>The initrd initialization.</para></listitem>
     </itemizedlist>
 
-    <para>However this form of reboot comes with drawbacks as well:</para>
+    <para>However, this form of reboot comes with drawbacks as well:</para>
 
     <itemizedlist>
       <listitem><para>The OS update remains incomplete, as the kernel is not reset and continues

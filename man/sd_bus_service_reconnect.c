@@ -181,7 +181,7 @@ static int setup(object *o) {
                                o);
   if (r < 0)
     return log_error(r, "sd_bus_add_object_vtable()");
-  /* By default the service is only assigned an ephemeral name. Also add a
+  /* By default, the service is only assigned an ephemeral name. Also add a
    * well-known one, so that clients know whom to call. This needs to be
    * asynchronous, as D-Bus might not be yet available. The callback will check
    * whether the error is expected or not, in case it fails.
@@ -242,7 +242,7 @@ int main(int argc, char **argv) {
   if (r < 0)
     return log_error(r, "sd_event_default()");
 
-  /* By default the event loop will terminate when all sources have disappeared,
+  /* By default, the event loop will terminate when all sources have disappeared,
    * so we have to keep it 'occupied'. Register signal handling to do so.
    * https://www.freedesktop.org/software/systemd/man/sd_event_add_signal.html
    */

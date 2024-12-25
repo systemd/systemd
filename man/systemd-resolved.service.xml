@@ -224,7 +224,7 @@
       and no global DNS server configured, one of the compiled-in fallback DNS servers is used.</para>
       </listitem>
 
-      <listitem><para>Otherwise the unicast DNS query fails, as no suitable DNS servers can be determined.
+      <listitem><para>Otherwise, the unicast DNS query fails, as no suitable DNS servers can be determined.
       </para></listitem>
     </itemizedlist>
 

@@ -119,7 +119,7 @@
           <filename>/run/portables/</filename>, to make sure it is included in it.</para></listitem>
         </orderedlist>
 
-        <para>By default all unit files whose names start with a prefix generated from the image's file name are copied
+        <para>By default, all unit files whose names start with a prefix generated from the image's file name are copied
         out. Specifically, the prefix is determined from the image file name with any suffix such as
         <filename>.raw</filename> removed, truncated at the first occurrence of an underscore character
         (<literal>_</literal>), if there is one. The underscore logic is supposed to be used to versioning so that the
@@ -186,7 +186,7 @@
         <listitem><para>Extracts various metadata from a portable service image and presents it to the
         caller. Specifically, the
         <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry> file of the
-        image is retrieved as well as all matching unit files. By default a short summary showing the most relevant
+        image is retrieved as well as all matching unit files. By default, a short summary showing the most relevant
         metadata in combination with a list of matching unit files is shown (that is the unit files
         <command>attach</command> would install to the host system). If combined with <option>--cat</option> (see
         above), the <filename>os-release</filename> data and the units files' contents is displayed unprocessed. This
@@ -314,7 +314,7 @@
         <term><option>-p</option> <replaceable>PROFILE</replaceable></term>
         <term><option>--profile=<replaceable>PROFILE</replaceable></option></term>
 
-        <listitem><para>When attaching an image, select the profile to use. By default the <literal>default</literal>
+        <listitem><para>When attaching an image, select the profile to use. By default, the <literal>default</literal>
         profile is used. For details about profiles, see below.</para>
 
         <xi:include href="version-info.xml" xpointer="v239"/></listitem>

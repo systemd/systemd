@@ -628,7 +628,7 @@
         <filename>/etc/systemd/</filename>, <filename>/run/systemd/</filename>,
         <filename>/usr/lib/systemd/</filename> (searched in this order), it is automatically used. The
         <option>--tpm2-public-key-pcrs=</option> option takes a list of TPM2 PCR indexes to bind to (same
-        syntax as <option>--tpm2-pcrs=</option> described above). If not specified defaults to 11 (i.e. this
+        syntax as <option>--tpm2-pcrs=</option> described above). If not specified, defaults to 11 (i.e. this
         binds the policy to any unified kernel image for which a PCR signature can be provided).</para>
 
         <para>Note the difference between <option>--tpm2-pcrs=</option> and

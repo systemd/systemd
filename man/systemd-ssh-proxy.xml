@@ -71,7 +71,7 @@ Host .host
     <ulink url="https://github.com/cloud-hypervisor/cloud-hypervisor/blob/main/docs/vsock.md">cloud-hypervisor VSOCK support</ulink>
     and <ulink url="https://github.com/firecracker-microvm/firecracker/blob/main/docs/vsock.md">Using the Firecracker Virtio-vsock Device</ulink>.</para>
 
-    <para>Moreover connecting to <literal>.host</literal> will connect to the local host via SSH, without
+    <para>Moreover, connecting to <literal>.host</literal> will connect to the local host via SSH, without
     involving networking.</para>
 
     <para>This tool is supposed to be used together with

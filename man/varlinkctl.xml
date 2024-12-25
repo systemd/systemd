@@ -80,11 +80,11 @@
     <itemizedlist>
       <listitem><para>A Varlink service reference starting with the <literal>unix:</literal> string, followed
       by an absolute <constant>AF_UNIX</constant> socket path, or by <literal>@</literal> and an arbitrary
-      string (the latter for referencing sockets in the abstract namespace). In this case a stream socket
+      string (the latter for referencing sockets in the abstract namespace). In this case, a stream socket
       connection is made to the specified socket.</para></listitem>
 
       <listitem><para>A Varlink service reference starting with the <literal>exec:</literal> string, followed
-      by an absolute path of a binary to execute. In this case the specified process is forked off locally,
+      by an absolute path of a binary to execute. In this case, the specified process is forked off locally,
       with a connected stream socket passed in.</para></listitem>
 
       <listitem><para>A Varlink service reference starting with the <literal>ssh-unix:</literal> string, followed
@@ -94,11 +94,11 @@
 
       <listitem><para>A Varlink service reference starting with the <literal>ssh-exec:</literal> string,
       followed by an SSH host specification, followed by <literal>:</literal>, followed by a command line. In
-      this case the command is invoked and the Varlink protocol is spoken on the standard input and output of
+      this case, the command is invoked and the Varlink protocol is spoken on the standard input and output of
       the invoked command.</para></listitem>
     </itemizedlist>
 
-    <para>For convenience these two simpler (redundant) service address syntaxes are also supported:</para>
+    <para>For convenience, these two simpler (redundant) service address syntaxes are also supported:</para>
 
     <itemizedlist>
       <listitem><para>A file system path to an <constant>AF_UNIX</constant> socket, either absolute
@@ -174,7 +174,7 @@
 
         <listitem><para>Reads a Varlink interface definition file, parses and validates it, then outputs it
         with syntax highlighting. This checks for syntax and internal consistency of the interface. Expects a
-        file name to read the interface definition from. If omitted reads the interface definition from
+        file name to read the interface definition from. If omitted, reads the interface definition from
         STDIN.</para>
 
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
@@ -300,7 +300,7 @@
         <term><option>--timeout=</option></term>
 
         <listitem>
-          <para>Expects a timeout in seconds as parameter. By default a timeout of 45s is enforced. To turn
+          <para>Expects a timeout in seconds as parameter. By default, a timeout of 45s is enforced. To turn
           off the timeout specify <literal>infinity</literal> or an empty string.</para>
 
           <xi:include href="version-info.xml" xpointer="v257"/>

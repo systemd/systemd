@@ -178,7 +178,7 @@
         same PEM key should be supplied in both cases.</para>
 
         <para>If the <option>--public-key=</option> is not specified but <option>--private-key=</option> is
-        specified the public key is automatically derived from the private key.</para>
+        specified, the public key is automatically derived from the private key.</para>
 
         <para><option>--certificate=</option> can be used to specify an X.509 certificate as an alternative
         to <option>--public-key=</option> since v256.</para>

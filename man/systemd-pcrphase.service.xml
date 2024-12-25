@@ -141,7 +141,7 @@
       <varlistentry>
         <term><option>--bank=</option></term>
 
-        <listitem><para>Takes the PCR banks to extend the specified word into. If not specified the tool
+        <listitem><para>Takes the PCR banks to extend the specified word into. If not specified, the tool
         automatically determines all enabled PCR banks and measures the word into all of
         them.</para>
 
@@ -173,7 +173,7 @@
         <term><option>--graceful</option></term>
 
         <listitem><para>If no TPM2 firmware, kernel subsystem, kernel driver or device support is found, exit
-        with exit status 0 (i.e. indicate success). If this is not specified any attempt to measure without a
+        with exit status 0 (i.e. indicate success). If this is not specified, any attempt to measure without a
         TPM2 device will cause the invocation to fail.</para>
 
         <xi:include href="version-info.xml" xpointer="v253"/></listitem>
