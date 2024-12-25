@@ -1511,7 +1511,7 @@ DuplicateAddressDetection=none</programlisting></para>
           <warning>
             <para>Once labeling is enabled for network traffic, a lot of LSM access control points in
             Linux networking stack go from dormant to active. Care should be taken to avoid getting into a
-            situation where for example remote connectivity is broken, when the security policy hasn't been
+            situation where for example remote connectivity is broken, when the security policy has not been
             updated to consider LSM per-packet access controls and no rules would allow any network
             traffic. Also note that additional configuration with <citerefentry
             project='man-pages'><refentrytitle>netlabelctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>
@@ -2100,7 +2100,7 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
             </listitem>
 
             <listitem>
-              <para><literal>nowhere</literal> means the destination doesn't exist.</para>
+              <para><literal>nowhere</literal> means the destination does not exist.</para>
             </listitem>
           </itemizedlist>
 
@@ -4177,7 +4177,7 @@ ServerAddress=192.168.0.1/24</programlisting>
         <listitem>
           <para>Configures the time, used in the Neighbor Unreachability Detection algorithm, for which
           clients can assume a neighbor is reachable after having received a reachability confirmation. Takes
-          a time span in the range 0…4294967295 ms. When 0, clients will handle it as if the value wasn't
+          a time span in the range 0…4294967295 ms. When 0, clients will handle it as if the value was not
           specified. Defaults to 0.</para>
 
           <xi:include href="version-info.xml" xpointer="v256"/>
@@ -4667,7 +4667,7 @@ ServerAddress=192.168.0.1/24</programlisting>
           indicate to the kernel that the fdb entry is in use. <literal>self</literal> means
           the address is associated with the port drivers fdb. Usually hardware. <literal>master</literal>
           means the address is associated with master devices fdb. <literal>router</literal> means
-          the destination address is associated with a router. Note that it's valid if the referenced
+          the destination address is associated with a router. Note that it is valid if the referenced
           device is a VXLAN type device and has route shortcircuit enabled. Defaults to <literal>self</literal>.</para>
 
           <xi:include href="version-info.xml" xpointer="v243"/>
@@ -6546,7 +6546,7 @@ Bond=bond1
       <para>Add the <literal>bond1</literal> interface to the VRF master interface
       <literal>vrf1</literal>. This will redirect routes generated on this interface to be
       within the routing table defined during VRF creation. For kernels before 4.8 traffic
-      won't be redirected towards the VRFs routing table unless specific ip-rules are added.
+      will not be redirected towards the VRFs routing table unless specific ip-rules are added.
       </para>
       <programlisting># /etc/systemd/network/25-vrf.network
 [Match]

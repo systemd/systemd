@@ -1283,7 +1283,7 @@ node /org/freedesktop/systemd1 {
       its dependencies, possibly replacing already queued jobs that conflict with it. If
       <literal>fail</literal>, the method will start the unit and its dependencies, but will fail if this would
       change an already queued job. If <literal>isolate</literal>, the method will start the unit in question
-      and terminate all units that aren't dependencies of it. If <literal>ignore-dependencies</literal>, it
+      and terminate all units that are not dependencies of it. If <literal>ignore-dependencies</literal>, it
       will start a unit but ignore all its dependencies. If <literal>ignore-requirements</literal>, it will
       start a unit but only ignore the requirement dependencies. It is not recommended to make use of the
       latter two options. On reply, if successful, this method returns the newly created job object
@@ -1309,8 +1309,8 @@ node /org/freedesktop/systemd1 {
       <function>TryRestartUnit()</function>, <function>ReloadOrRestartUnit()</function>, or
       <function>ReloadOrTryRestartUnit()</function> may be used to restart and/or reload a unit. These methods take
       similar arguments as <function>StartUnit()</function>. Reloading is done only if the unit is already
-      running and fails otherwise. If a service is restarted that isn't running, it will be started unless
-      the "Try" flavor is used in which case a service that isn't running is not affected by the restart. The
+      running and fails otherwise. If a service is restarted that is not running, it will be started unless
+      the "Try" flavor is used in which case a service that is not running is not affected by the restart. The
       "ReloadOrRestart" flavors attempt a reload if the unit supports it and use a restart otherwise.</para>
 
       <para><function>EnqueueMarkedJobs()</function> creates reload/restart jobs for units which have been
@@ -1619,12 +1619,12 @@ node /org/freedesktop/systemd1 {
       <literal>failed</literal>, <literal>dependency</literal>, or
       <literal>skipped</literal>. <literal>done</literal> indicates successful execution of a
       job. <literal>canceled</literal> indicates that a job has been canceled (via
-      <function>CancelJob()</function> above) before it finished execution (this doesn't necessarily mean
+      <function>CancelJob()</function> above) before it finished execution (this does not necessarily mean
       though that the job operation is actually cancelled too, see above). <literal>timeout</literal>
       indicates that the job timeout was reached. <literal>failed</literal> indicates that the job
       failed. <literal>dependency</literal> indicates that a job this job depended on failed and the job hence
       was removed as well. <literal>skipped</literal> indicates that a job was skipped because
-      it didn't apply to the unit's current state.</para>
+      it did not apply to the unit's current state.</para>
 
       <para><function>StartupFinished()</function> is sent out when startup finishes. It carries six
       microsecond timespan values, each indicating how much boot time has been spent in the firmware (if
@@ -2575,7 +2575,7 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       reboot). <literal>masked</literal> indicates that the unit file is masked permanently.
       <literal>masked-runtime</literal> indicates that it is masked in <filename>/run/</filename> temporarily
       (until the next reboot). <literal>static</literal> indicates that the unit is statically enabled, i.e.
-      always enabled and doesn't need to be enabled explicitly. <literal>invalid</literal> indicates that it
+      always enabled and does not need to be enabled explicitly. <literal>invalid</literal> indicates that it
       could not be determined whether the unit file is enabled.</para>
 
       <para><varname>InactiveExitTimestamp</varname>, <varname>InactiveExitTimestampMonotonic</varname>,
@@ -2636,7 +2636,7 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       five fields are given: condition type (e.g. <varname>ConditionPathExists</varname>), whether the
       condition is a trigger condition, whether the condition is reversed, the right hand side of the
       condition (e.g. the path in case of <varname>ConditionPathExists</varname>), and the status. The status
-      can be 0, in which case the condition hasn't been checked yet, a positive value, in which case the
+      can be 0, in which case the condition has not been checked yet, a positive value, in which case the
       condition passed, or a negative value, in which case the condition is not met. Currently only 0, +1, and -1
       are used, but additional values may be used in the future, retaining the meaning of
       zero/positive/negative values.</para>
@@ -4767,7 +4767,7 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       with runtime data.</para>
 
       <para><varname>LimitCPU</varname> (and related properties) map more or less directly to the
-      corresponding settings in the service unit files except that if they aren't set, their value is
+      corresponding settings in the service unit files except that if they are not set their value is
       18446744073709551615 (i.e. -1).</para>
 
       <para><varname>Capabilities</varname> contains the configured capabilities, as formatted with
@@ -4813,7 +4813,7 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       <para><varname>Result</varname> encodes the execution result of the last run of the service. It is
       useful to determine the reason a service failed if it is in the <literal>failed</literal> state (see
       <varname>ActiveState</varname> above). The following values are currently known:
-      <literal>success</literal> is set if the unit didn't fail. <literal>resources</literal> indicates that
+      <literal>success</literal> is set if the unit did not fail. <literal>resources</literal> indicates that
       not enough resources were available to fork off and execute the service
       processes. <literal>timeout</literal> indicates that a timeout occurred while executing a service
       operation. <literal>exit-code</literal> indicates that a service process exited with an unclean exit

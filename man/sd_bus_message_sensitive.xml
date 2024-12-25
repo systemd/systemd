@@ -39,7 +39,7 @@
     sensitive data. This ensures that the message data is carefully removed from memory (specifically,
     overwritten with zero bytes) when released. It is recommended to mark all incoming and outgoing messages
     like this that contain security credentials and similar data that should be dealt with carefully. Note
-    that it is not possible to unmark messages like this, it's a one way operation. If a message is already
+    that it is not possible to unmark messages like this, it is a one way operation. If a message is already
     marked sensitive and then marked sensitive a second time the message remains marked so and no further
     operation is executed.</para>
 

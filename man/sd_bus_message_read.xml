@@ -209,7 +209,7 @@ sd_bus_message_read(m, "x", &amp;x);</programlisting>
     <para>Read a boolean value:</para>
 
     <programlisting>sd_bus_message *m;
-int x; /* Do not use C99 'bool' type here, it's typically smaller
+int x; /* Do not use C99 "bool" type here, it is typically smaller
           in memory and would cause memory corruption */
 
 sd_bus_message_read(m, "b", &amp;x);</programlisting>

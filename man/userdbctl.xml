@@ -136,7 +136,7 @@
         <term><option>--synthesize=<replaceable>BOOL</replaceable></option></term>
 
         <listitem><para>Controls whether to synthesize records for the root and nobody users/groups if they
-        aren't defined otherwise. By default (or <literal>yes</literal>) such records are implicitly
+        are not defined otherwise. By default (or <literal>yes</literal>) such records are implicitly
         synthesized if otherwise missing since they have special significance to the OS. When
         <literal>no</literal> this synthesizing is turned off.</para>
 
@@ -423,7 +423,7 @@ AuthorizedKeysCommand /usr/bin/userdbctl ssh-authorized-keys %u
 AuthorizedKeysCommandUser root
 …</programlisting>
 
-    <para>Sometimes it's useful to allow chain invocation of another program to list SSH authorized keys. By
+    <para>Sometimes it is useful to allow chain invocation of another program to list SSH authorized keys. By
     using the <option>--chain</option> such a tool may be chain executed by <command>userdbctl
     ssh-authorized-keys</command> once a lookup completes (regardless of whether an SSH key was found or
     not). Example:</para>

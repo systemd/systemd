@@ -1420,7 +1420,7 @@ node /org/freedesktop/login1/session/1 {
       only works on devices that are attached to the seat of the given session. A process is not required to
       have direct access to the device node. <filename>systemd-logind</filename> only requires you to be the
       active session controller (see <function>TakeControl()</function>). Also note that any device can only
-      be requested once. As long as you don't release it, further <function>TakeDevice()</function> calls
+      be requested once. As long as you do not release it, further <function>TakeDevice()</function> calls
       will fail.</para>
 
       <para><function>ReleaseDevice()</function> releases a device again (see
@@ -1465,7 +1465,7 @@ node /org/freedesktop/login1/session/1 {
       notification. <function>pause</function> means <filename>systemd-logind</filename> grants you a limited amount of time to pause the device. You must respond to this via
       <function>PauseDeviceComplete()</function>. This synchronous pausing mechanism is used for
       backwards-compatibility to VTs and <filename>systemd-logind</filename> is free to not make use of
-      it. It is also free to send a forced <function>PauseDevice()</function> if you don't respond in a timely
+      it. It is also free to send a forced <function>PauseDevice()</function> if you do not respond in a timely
       manner (or for any other reason). <function>gone</function> means the device was unplugged from the
       system and you will no longer get any notifications about it. There is no need to call
       <function>ReleaseDevice()</function>. You may call <function>TakeDevice()</function> again if a new

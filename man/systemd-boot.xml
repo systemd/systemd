@@ -602,7 +602,7 @@
 
     <orderedlist>
       <listitem><para>If the 'tries left' counter of an entry is greater than zero the entry is considered to be in
-      'indeterminate' state. This means the entry has not completed booting successfully yet, but also hasn't been
+      'indeterminate' state. This means the entry has not completed booting successfully yet, but also has not been
       determined not to work.</para></listitem>
 
       <listitem><para>If the 'tries left' counter of an entry is zero it is considered to be in 'bad' state. This means

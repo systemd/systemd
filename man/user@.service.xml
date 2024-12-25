@@ -173,7 +173,7 @@ After=systemd-user-sessions.service
 
 [Slice]
 TasksMax=33%</programlisting>
-     <para>The <filename>user-<replaceable>UID</replaceable>.slice</filename> units by default don't
+     <para>The <filename>user-<replaceable>UID</replaceable>.slice</filename> units by default do not
      have a unit file. The resource limits are set through a drop-in, which can be easily replaced
      or extended following standard drop-in mechanisms discussed in the first section.</para>
     </example>

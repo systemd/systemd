@@ -512,7 +512,7 @@ r! /tmp/.X[0-9]*-lock</programlisting>
       an error.</para>
 
       <para>For example:
-      <programlisting># Modify sysfs but don't fail if we are in a container with a read-only /proc
+      <programlisting># Modify sysfs but do not fail if we are in a container with a read-only /proc
 w- /proc/sys/vm/swappiness - - - - 10</programlisting></para>
 
       <para>If the equals sign (<literal>=</literal>) is used, the file types of existing objects in the specified path

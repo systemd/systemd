@@ -540,7 +540,7 @@ $ systemd-vmspawn \
     enforcing=0
 </programlisting>
 
-      <para>Note: this example also uses a kernel command line argument to ensure SELinux isn't started in
+      <para>Note: this example also uses a kernel command line argument to ensure SELinux is not started in
       enforcing mode.</para>
     </example>
 

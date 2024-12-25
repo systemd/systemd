@@ -65,7 +65,7 @@ Host .host
     must be of type <constant>SOCK_STREAM</constant>. Similar, SSH connections to <literal>vsock/</literal>
     followed by an <constant>AF_VSOCK</constant> CID will result in an SSH connection made to that
     CID. <literal>vsock-mux/</literal> followed by an absolute <constant>AF_UNIX</constant> file system
-    path to a socket is similar but for cloud-hypervisor/firecracker which don't allow
+    path to a socket is similar but for cloud-hypervisor/firecracker which do not allow
     direct <constant>AF_VSOCK</constant> communication between the host and guests, and provide their own
     multiplexer over <constant>AF_UNIX</constant> sockets. See
     <ulink url="https://github.com/cloud-hypervisor/cloud-hypervisor/blob/main/docs/vsock.md">cloud-hypervisor VSOCK support</ulink>

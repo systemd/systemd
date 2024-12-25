@@ -73,7 +73,7 @@
       <varname>MemoryAccounting=</varname>/<varname>TasksAccounting=</varname>/<varname>IOAccounting=</varname>
       settings. Because of how the cgroup hierarchy works, controllers will be automatically enabled for all
       parent units and for any sibling units starting with the lowest level at which a controller is enabled.
-      Units for which a controller is enabled may be subject to resource control even if they don't have any
+      Units for which a controller is enabled may be subject to resource control even if they do not have any
       explicit configuration.</para>
 
       <para>Setting <varname>Delegate=</varname> enables any delegated controllers for that unit (see below).
@@ -172,7 +172,7 @@ CPUWeight=20   DisableControllers=cpu              /          \
     </itemizedlist>
   </refsect1>
 
-  <!-- We don't have any default dependency here. -->
+  <!-- We do not have any default dependency here. -->
 
   <refsect1>
     <title>Options</title>
@@ -304,7 +304,7 @@ CPUWeight=20   DisableControllers=cpu              /          \
           <para>Restrict processes to be executed on specific CPUs. Takes a list of CPU indices or ranges separated by either
           whitespace or commas. CPU ranges are specified by the lower and upper CPU indices separated by a dash.</para>
 
-          <para>Setting <varname>AllowedCPUs=</varname> or <varname>StartupAllowedCPUs=</varname> doesn't guarantee that all
+          <para>Setting <varname>AllowedCPUs=</varname> or <varname>StartupAllowedCPUs=</varname> does not guarantee that all
           of the CPUs will be used by the processes as it may be limited by parent units. The effective configuration is
           reported as <varname>EffectiveCPUs=</varname>.</para>
 
@@ -533,7 +533,7 @@ CPUWeight=20   DisableControllers=cpu              /          \
           or ranges separated by either whitespace or commas. Memory NUMA nodes ranges are specified by the lower and upper
           NUMA nodes indices separated by a dash.</para>
 
-          <para>Setting <varname>AllowedMemoryNodes=</varname> or <varname>StartupAllowedMemoryNodes=</varname> doesn't
+          <para>Setting <varname>AllowedMemoryNodes=</varname> or <varname>StartupAllowedMemoryNodes=</varname> does not
           guarantee that all of the memory NUMA nodes will be used by the processes as it may be limited by parent units.
           The effective configuration is reported as <varname>EffectiveMemoryNodes=</varname>.</para>
 
@@ -1429,7 +1429,7 @@ DeviceAllow=/dev/loop-control
 
           <para>Not all of these controllers are available on all kernels however, and some are specific to
           the unified hierarchy while others are specific to the legacy hierarchy. Also note that the kernel
-          might support further controllers, which aren't covered here yet as delegation is either not
+          might support further controllers, which are not covered here yet, as delegation is either not
           supported at all for them or not defined cleanly.</para>
 
           <para>Note that because of the hierarchical nature of cgroup hierarchy, any controllers that are
@@ -1459,7 +1459,7 @@ DeviceAllow=/dev/loop-control
           ownership is passed to the unit's configured user/group) when a process is started in it.</para>
 
           <para>This option is useful to avoid manually moving the invoked process into a subgroup after it
-          has been started. Since no processes should live in inner nodes of the control group tree it's
+          has been started. Since no processes should live in inner nodes of the control group tree it is
           almost always necessary to run the main ("supervising") process of a unit that has delegation
           turned on in a subgroup.</para>
 
@@ -1625,7 +1625,7 @@ DeviceAllow=/dev/loop-control
         disabled otherwise. If set to <literal>skip</literal> the logic is neither enabled, nor disabled and
         the two environment variables are not set.</para>
 
-        <para>Note that services are free to use the two environment variables, but it's unproblematic if
+        <para>Note that services are free to use the two environment variables, but it is unproblematic if
         they ignore them. Memory pressure handling must be implemented individually in each service, and
         usually means different things for different software. For further details on memory pressure
         handling see <ulink url="https://systemd.io/MEMORY_PRESSURE">Memory Pressure Handling in

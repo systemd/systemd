@@ -79,7 +79,7 @@
     </itemizedlist>
   </refsect1>
 
-  <!-- We don't have any default dependency here. -->
+  <!-- We do not have any default dependency here. -->
 
   <refsect1>
     <title>Paths</title>
@@ -407,7 +407,7 @@
         cannot be used for services that need to access metainformation about other users' processes. This
         option implies <varname>MountAPIVFS=</varname>.</para>
 
-        <para>If the kernel doesn't support per-mount point <option>hidepid=</option> mount options this
+        <para>If the kernel does not support per-mount point <option>hidepid=</option> mount options this
         setting remains without effect, and the unit's processes will be able to access and see other process
         as if the option was not used.</para>
 
@@ -701,7 +701,7 @@
         <varname>ProtectHome=read-only</varname> are implied, thus prohibiting the service to write to
         arbitrary file system locations. In order to allow the service to write to certain directories, they
         have to be allow-listed using <varname>ReadWritePaths=</varname>, but care must be taken so that
-        UID/GID recycling doesn't create security issues involving files created by the service. Use
+        UID/GID recycling does not create security issues involving files created by the service. Use
         <varname>RuntimeDirectory=</varname> (see below) in order to assign a writable runtime directory to a
         service, owned by the dynamic user/group and removed automatically when the unit is terminated. Use
         <varname>StateDirectory=</varname>, <varname>CacheDirectory=</varname> and
@@ -902,8 +902,8 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <listitem><para>Set the SELinux security context of the executed process. If set, this will override the
         automated domain transition. However, the policy still needs to authorize the transition. This directive is
         ignored if SELinux is disabled. If prefixed by <literal>-</literal>, failing to set the SELinux
-        security context will be ignored, but it's still possible that the subsequent
-        <function>execve()</function> may fail if the policy doesn't allow the transition for the
+        security context will be ignored, but it is still possible that the subsequent
+        <function>execve()</function> may fail if the policy does not allow the transition for the
         non-overridden context. This does not affect commands prefixed with <literal>+</literal>. See
         <citerefentry
         project='die-net'><refentrytitle>setexeccon</refentrytitle><manvolnum>3</manvolnum></citerefentry>
@@ -1059,7 +1059,7 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
                 <entry>LimitDATA=</entry>
                 <entry>ulimit -d</entry>
                 <entry>Bytes</entry>
-                <entry>Don't use. This limits the allowed address range, not memory use! Defaults to unlimited and should not be lowered. To limit memory use, see <varname>MemoryMax=</varname> in <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</entry>
+                <entry>Do not use. This limits the allowed address range, not memory use! Defaults to unlimited and should not be lowered. To limit memory use, see <varname>MemoryMax=</varname> in <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</entry>
               </row>
               <row>
                 <entry>LimitSTACK=</entry>
@@ -1077,25 +1077,25 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
                 <entry>LimitRSS=</entry>
                 <entry>ulimit -m</entry>
                 <entry>Bytes</entry>
-                <entry>Don't use. No effect on Linux.</entry>
+                <entry>Do not use. No effect on Linux.</entry>
               </row>
               <row>
                 <entry>LimitNOFILE=</entry>
                 <entry>ulimit -n</entry>
                 <entry>Number of File Descriptors</entry>
-                <entry>Don't use. Be careful when raising the soft limit above 1024, since <citerefentry project='man-pages'><refentrytitle>select</refentrytitle><manvolnum>2</manvolnum></citerefentry> cannot function with file descriptors above 1023 on Linux. Nowadays, the hard limit defaults to 524288, a very high value compared to historical defaults. Typically applications should increase their soft limit to the hard limit on their own, if they are OK with working with file descriptors above 1023, i.e. do not use <citerefentry project='man-pages'><refentrytitle>select</refentrytitle><manvolnum>2</manvolnum></citerefentry>. Note that file descriptors are nowadays accounted like any other form of memory, thus there should not be any need to lower the hard limit. Use <varname>MemoryMax=</varname> to control overall service memory use, including file descriptor memory.</entry>
+                <entry>Do not use. Be careful when raising the soft limit above 1024, since <citerefentry project='man-pages'><refentrytitle>select</refentrytitle><manvolnum>2</manvolnum></citerefentry> cannot function with file descriptors above 1023 on Linux. Nowadays, the hard limit defaults to 524288, a very high value compared to historical defaults. Typically applications should increase their soft limit to the hard limit on their own, if they are OK with working with file descriptors above 1023, i.e. do not use <citerefentry project='man-pages'><refentrytitle>select</refentrytitle><manvolnum>2</manvolnum></citerefentry>. Note that file descriptors are nowadays accounted like any other form of memory, thus there should not be any need to lower the hard limit. Use <varname>MemoryMax=</varname> to control overall service memory use, including file descriptor memory.</entry>
               </row>
               <row>
                 <entry>LimitAS=</entry>
                 <entry>ulimit -v</entry>
                 <entry>Bytes</entry>
-                <entry>Don't use. This limits the allowed address range, not memory use! Defaults to unlimited and should not be lowered. To limit memory use, see <varname>MemoryMax=</varname> in <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</entry>
+                <entry>Do not use. This limits the allowed address range, not memory use! Defaults to unlimited and should not be lowered. To limit memory use, see <varname>MemoryMax=</varname> in <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</entry>
               </row>
               <row>
                 <entry>LimitNPROC=</entry>
                 <entry>ulimit -u</entry>
                 <entry>Number of Processes</entry>
-                <entry>This limit is enforced based on the number of processes belonging to the user. Typically it's better to track processes per service, i.e. use <varname>TasksMax=</varname>, see <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</entry>
+                <entry>This limit is enforced based on the number of processes belonging to the user. Typically it is better to track processes per service, i.e. use <varname>TasksMax=</varname>, see <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</entry>
               </row>
               <row>
                 <entry>LimitMEMLOCK=</entry>
@@ -1976,7 +1976,7 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         kernel documentation.</para>
 
         <para>Note that this functionality might not be available, for example if KSM is disabled in the
-        kernel, or the kernel doesn't support controlling KSM at the process level through
+        kernel, or the kernel does not support controlling KSM at the process level through
         <citerefentry><refentrytitle>prctl</refentrytitle><manvolnum>2</manvolnum></citerefentry>.</para>
 
         <xi:include href="version-info.xml" xpointer="v254"/>
@@ -2522,7 +2522,7 @@ RestrictNamespaces=~cgroup net</programlisting>
 
         <para>It is not recommended to use <option>private</option> mount propagation for units, as this means
         temporary mounts (such as removable media) of the host will stay mounted and thus indefinitely busy in forked
-        off processes, as unmount propagation events won't be received by the file system namespace of the unit.</para>
+        off processes, as unmount propagation events will not be received by the file system namespace of the unit.</para>
 
         <para>Usually, it is best to leave this setting unmodified, and use higher level file system namespacing
         options instead, in particular <varname>PrivateMounts=</varname>, see above.</para>
@@ -3096,7 +3096,7 @@ SystemCallErrorNumber=EPERM</programlisting>
         <para>The <option>file:<replaceable>path</replaceable></option> option may be used to connect a specific file
         system object to standard output. The semantics are similar to the same option of
         <varname>StandardInput=</varname>, see above. If <replaceable>path</replaceable> refers to a regular file
-        on the filesystem, it is opened (created if it doesn't exist yet using privileges of the user executing the
+        on the filesystem, it is opened (created if it does not exist yet using privileges of the user executing the
         systemd process) for writing at the beginning of the file, but without truncating it.
         If standard input and output are directed to the same file path, it is opened only once — for reading as well
         as writing — and duplicated. This is particularly useful when the specified path refers to an
@@ -3310,7 +3310,7 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
         <para>Filtering is based on the unit for which <varname>LogFilterPatterns=</varname> is defined, meaning log
         messages coming from
         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry> about the
-        unit are not taken into account. Filtered log messages won't be forwarded to traditional syslog daemons,
+        unit are not taken into account. Filtered log messages will not be forwarded to traditional syslog daemons,
         the kernel log buffer (kmsg), the systemd console, or sent as wall messages to all logged-in
         users.</para>
 
@@ -3544,7 +3544,7 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
         specific user or the system as a whole, and it is ensured that per-user service managers cannot
         decrypt secrets intended for the system or for other users.</para>
 
-        <para>The credential files/IPC sockets must be accessible to the service manager, but don't have to
+        <para>The credential files/IPC sockets must be accessible to the service manager, but do not have to
         be directly accessible to the unit's processes: the credential data is read and copied into separate,
         read-only copies for the unit that are accessible to appropriately privileged processes. This is
         particularly useful in combination with <varname>DynamicUser=</varname> as this way privileged data
@@ -3612,7 +3612,7 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
       <varlistentry>
         <term><varname>ImportCredential=</varname><replaceable>GLOB</replaceable></term>
 
-        <listitem><para>Pass one or more credentials to the unit. Takes a credential name for which we'll
+        <listitem><para>Pass one or more credentials to the unit. Takes a credential name for which we will
         attempt to find a credential that the service manager itself received under the specified name —
         which may be used to propagate credentials from an invoking environment (e.g. a container manager
         that invoked the service manager) into a service. If the credential name is a glob, all credentials
@@ -4690,7 +4690,7 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
           <row>
             <entry>71</entry>
             <entry><constant>EX_OSERR</constant></entry>
-            <entry>System error (e.g., can't fork)</entry>
+            <entry>System error (e.g., cannot fork)</entry>
           </row>
           <row>
             <entry>72</entry>
@@ -4700,7 +4700,7 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
           <row>
             <entry>73</entry>
             <entry><constant>EX_CANTCREAT</constant></entry>
-            <entry>Can't create (user) output file</entry>
+            <entry>Cannot create (user) output file</entry>
           </row>
           <row>
             <entry>74</entry>

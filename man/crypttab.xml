@@ -984,10 +984,10 @@
         <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         units marked with <option>x-initrd.mount</option>.</para>
 
-        <para>Although it's not necessary to mark the mount entry for the root file system with
+        <para>Although it is not necessary to mark the mount entry for the root file system with
         <option>x-initrd.mount</option>, <option>x-initrd.attach</option> is still recommended with
         the encrypted block device containing the root file system as otherwise systemd will
-        attempt to detach the device during the regular system shutdown while it's still in
+        attempt to detach the device during the regular system shutdown while it is still in
         use. With this option the device will still be detached but later after the root file
         system is unmounted.</para>
 

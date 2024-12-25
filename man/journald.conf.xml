@@ -422,7 +422,7 @@
         where the console is often a slow, virtual serial port.
         Since journald is implemented as a conventional single-process daemon, forwarding to a completely
         hung console will block journald. This can have a cascading effect resulting in any services synchronously
-        logging to the blocked journal also becoming blocked.  Unless actively debugging/developing something, it's
+        logging to the blocked journal also becoming blocked.  Unless actively debugging/developing something, it is
         generally preferable to setup a <command>journalctl --follow</command> style service redirected to the
         console, instead of ForwardToConsole=yes, for production use.</para>
         </listitem>

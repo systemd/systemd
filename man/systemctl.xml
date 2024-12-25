@@ -66,7 +66,7 @@
             options are specified.</para>
 
             <para>Note that this command does not show unit templates, but only instances of unit
-            templates. Units templates that aren't instantiated are not runnable, and will thus never show up
+            templates. Units templates that are not instantiated are not runnable, and will thus never show up
             in the output of this command. Specifically this means that <filename>foo@.service</filename>
             will never be shown in this list — unless instantiated, e.g. as
             <filename>foo@bar.service</filename>. Use <command>list-unit-files</command> (see below) for
@@ -357,7 +357,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             on disk, which might not match the system manager's
             understanding of these units if any unit files were
             updated on disk and the <command>daemon-reload</command>
-            command wasn't issued since.</para>
+            command was not issued since.</para>
 
             <xi:include href="version-info.xml" xpointer="v209"/>
           </listitem>
@@ -391,7 +391,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             <filename>default.target</filename> is implied.</para>
 
             <para>The units that are shown are additionally filtered by <option>--type=</option> and
-            <option>--state=</option> if those options are specified. Note that we won't be able to
+            <option>--state=</option> if those options are specified. Note that we will not be able to
             use a tree structure in this case, so <option>--plain</option> is implied.</para>
 
             <para>By default, only target units are recursively
@@ -405,7 +405,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
 
             <para>Note that this command only lists units currently loaded into memory by the service manager. In
             particular, this command is not suitable to get a comprehensive list at all reverse dependencies on a
-            specific unit, as it won't list the dependencies declared by units currently not loaded.</para>
+            specific unit, as it will not list the dependencies declared by units currently not loaded.</para>
 
             <xi:include href="version-info.xml" xpointer="v198"/>
           </listitem>
@@ -496,8 +496,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             <para>Stop and then start one or more units specified on the
             command line if the units are running. This does nothing
             if units are not running.</para>
-            <!-- Note that we don't document condrestart here, as that is just compatibility support, and we generally
-                 don't document that. -->
+            <!-- Note that we do not document condrestart here, as that is just compatibility support, and we generally
+                 do not document that. -->
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -514,8 +514,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           <listitem>
             <para>Reload one or more units if they support it. If not, stop and then start them instead. This does
             nothing if the units are not running.</para>
-            <!-- Note that we don't document force-reload here, as that is just compatibility support, and we generally
-                 don't document that. -->
+            <!-- Note that we do not document force-reload here, as that is just compatibility support, and we generally
+                 do not document that. -->
 
             <xi:include href="version-info.xml" xpointer="v229"/>
           </listitem>
@@ -629,7 +629,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             command line using cgroup freezer</para>
 
             <para>Freezing the unit will cause all processes contained within the cgroup corresponding to the unit
-            to be suspended. Being suspended means that unit's processes won't be scheduled to run on CPU until thawed.
+            to be suspended. Being suspended means that unit's processes will not be scheduled to run on CPU until thawed.
             Note that this command is supported only on systems that use unified cgroup hierarchy. Unit is automatically
             thawed just before we execute a job against the unit, e.g. before the unit is stopped.</para>
 
@@ -1113,7 +1113,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
                   </row>
                   <row>
                     <entry><literal>not-found</literal></entry>
-                    <entry>The unit file doesn't exist.</entry>
+                    <entry>The unit file does not exist.</entry>
                     <entry>4</entry>
                   </row>
                 </tbody>
@@ -1142,7 +1142,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             specified). If a matching unit file already exists under these directories this operation will
             hence fail. This means that the operation is primarily useful to mask units shipped by the vendor
             (as those are shipped in <filename>/usr/lib/systemd/system/</filename> and not the aforementioned
-            two directories), but typically doesn't work for units created locally (as those are typically
+            two directories), but typically does not work for units created locally (as those are typically
             placed precisely in the two aforementioned directories). Similar restrictions apply for
             <option>--user</option> mode, in which case the directories are below the user's home directory
             however.</para>
@@ -1740,7 +1740,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
 
           <listitem>
             <para>Shut down and reboot the system via <command>kexec</command>. This command will load a
-            kexec kernel if one wasn't loaded yet or fail. A kernel may be loaded earlier by a separate step,
+            kexec kernel if one was not loaded yet or fail. A kernel may be loaded earlier by a separate step,
             this is particularly useful if a custom initrd or additional kernel command line options are
             desired. The <option>--force</option> can be used to continue without a kexec kernel, i.e. to
             perform a normal reboot. The final reboot step is equivalent to
@@ -1939,7 +1939,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
       units currently in memory, and patterns which do not match anything
       are silently skipped. For example:
       <programlisting># systemctl stop "sshd@*.service"</programlisting>
-      will stop all <filename>sshd@.service</filename> instances. Note that alias names of units, and units that aren't
+      will stop all <filename>sshd@.service</filename> instances. Note that alias names of units, and units that are not
       in memory are not considered for glob expansion.
       </para>
 
@@ -2350,7 +2350,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         <term><option>--no-warn</option></term>
 
         <listitem>
-          <para>Don't generate the warnings shown by default in the following cases:
+          <para>Do not generate the warnings shown by default in the following cases:
           <itemizedlist>
             <listitem>
               <para>when <command>systemctl</command> is invoked without procfs mounted on
@@ -2358,7 +2358,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             </listitem>
             <listitem>
               <para>when using <command>enable</command> or <command>disable</command> on units without
-              install information (i.e. don't have or have an empty [Install] section),</para>
+              install information (i.e. do not have or have an empty [Install] section),</para>
             </listitem>
             <listitem>
               <para>when using <command>disable</command> combined with <option>--user</option> on units

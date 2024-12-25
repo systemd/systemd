@@ -88,7 +88,7 @@
 
         <listitem><para>Generates a host encryption key for credentials, if one has not been generated
         already. This ensures the <filename>/var/lib/systemd/credential.secret</filename> file is initialized
-        with a random secret key if it doesn't exist yet. This secret key is used when encrypting/decrypting
+        with a random secret key if it does not exist yet. This secret key is used when encrypting/decrypting
         credentials with <command>encrypt</command> or <command>decrypt</command>, and is only accessible to
         the root user. Note that there's typically no need to invoke this command explicitly as it is
         implicitly called when <command>encrypt</command> is invoked, and credential host key encryption
@@ -247,7 +247,7 @@
         <term><option>--newline=</option></term>
 
         <listitem><para>When specified with <command>cat</command> or <command>decrypt</command> controls
-        whether to add a trailing newline character to the end of the output if it doesn't end in one,
+        whether to add a trailing newline character to the end of the output if it does not end in one,
         anyway. Takes one of <literal>auto</literal>, <literal>yes</literal> or <literal>no</literal>. The
         default mode of <literal>auto</literal> will suffix the output with a single newline character only
         when writing credential data to a TTY.</para>
@@ -284,7 +284,7 @@
         done.</para>
 
         <para>Embedding the credential name in the encrypted credential is done in order to protect against
-        reuse of credentials for purposes they weren't originally intended for, under the assumption the
+        reuse of credentials for purposes they were not originally intended for, under the assumption the
         credential name is chosen carefully to encode its intended purpose.</para>
 
         <xi:include href="version-info.xml" xpointer="v250"/></listitem>

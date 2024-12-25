@@ -98,7 +98,7 @@
 
       <listitem>
         <para>After a reboot, now that the <filename>/system-update</filename> and
-        <filename>/etc/system-update</filename> symlink is gone, the generator won't redirect
+        <filename>/etc/system-update</filename> symlink is gone, the generator will not redirect
         <filename>default.target</filename> anymore and the system now boots into the default
         target again.</para>
       </listitem>

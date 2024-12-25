@@ -127,7 +127,7 @@
     multi-profile UKIs, see below.</para> <para>If UEFI SecureBoot is enabled and the
     <literal>.cmdline</literal> section is present in the executed image, any attempts to override the kernel
     command line by passing one as invocation parameters to the EFI binary are ignored. Thus, in order to
-    allow overriding the kernel command line, either disable UEFI SecureBoot, or don't include a kernel
+    allow overriding the kernel command line, either disable UEFI SecureBoot, or do not include a kernel
     command line PE section in the kernel image file. If a command line is accepted via EFI invocation
     parameters to the EFI binary it is measured into TPM PCR 12 (if a TPM is present).</para> <para>If a
     DeviceTree is embedded in the <literal>.dtb</literal> section, it replaces an existing DeviceTree in the
@@ -345,12 +345,12 @@
     </table>
 
     <para>The section list above would define three profiles. The first four sections make up the base
-    profile. A <literal>.profile</literal> section then introduces profile @0. It doesn't override any
+    profile. A <literal>.profile</literal> section then introduces profile @0. It does not override any
     sections (or add any) from the base section, hence it is immediately followed by another
     <literal>.profile</literal> section that then introduces section @1. This profile overrides the kernel
     command line. Finally, the last two sections define section @2, again overriding the command line. (Note
     that in this example the first <literal>.cmdline</literal> could also moved behind the first
-    <literal>.profile</literal> with equivalent effect. To keep things nicely extensible, it's probably a
+    <literal>.profile</literal> with equivalent effect. To keep things nicely extensible, it is probably a
     good idea to keep the generic command line in the base section instead of profile 0, in case later added
     profiles might want to reuse it.)</para>
 
@@ -597,7 +597,7 @@
     </variablelist>
 
     <para>Note that some of the variables above may also be set by the boot loader. The stub will only set
-    them if they aren't set already. Some of these variables are defined by the <ulink
+    them if they are not set already. Some of these variables are defined by the <ulink
     url="https://systemd.io/BOOT_LOADER_INTERFACE">Boot Loader Interface</ulink>.</para>
   </refsect1>
 

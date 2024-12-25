@@ -533,7 +533,7 @@
     <para>It is important to distinguish "linked unit files" from "unit file aliases": any symlink where the
     symlink <emphasis>target</emphasis> is within the unit load path becomes an alias: the source name and
     the target file name must satisfy specific constraints listed above in the discussion of aliases, but the
-    symlink target doesn't have to exist, and in fact the symlink target path is not used, except to check
+    symlink target does not have to exist, and in fact the symlink target path is not used, except to check
     whether the target is within the unit load path. In contrast, a symlink which goes outside of the unit
     load path signifies a linked unit file. The symlink is followed when loading the file, but the
     destination name is otherwise unused (and may even not be a valid unit file name). For example, symlinks
@@ -599,7 +599,7 @@
         <term><varname>Description=</varname></term>
         <listitem><para>A short human readable title of the unit. This may be used by
         <command>systemd</command> (and other UIs) as a user-visible label for the unit, so this string
-        should identify the unit rather than describe it, despite the name. This string also shouldn't just
+        should identify the unit rather than describe it, despite the name. This string also should not just
         repeat the unit name. <literal>Apache2 Web Server</literal> is a good example. Bad examples are
         <literal>high-performance lightweight HTTP server</literal> (too generic) or
         <literal>Apache2</literal> (meaningless for people who do not know Apache, duplicates the unit
@@ -789,7 +789,7 @@
         <para>Note that this setting does not imply an ordering dependency, similarly to the
         <varname>Wants=</varname> and <varname>Requires=</varname> dependencies described above. This means
         that to ensure that the conflicting unit is stopped before the other unit is started, an
-        <varname>After=</varname> or <varname>Before=</varname> dependency must be declared. It doesn't
+        <varname>After=</varname> or <varname>Before=</varname> dependency must be declared. It does not
         matter which of the two ordering dependencies is used, because stop jobs are always ordered before
         start jobs, see the discussion in <varname>Before=</varname>/<varname>After=</varname> below.</para>
 
@@ -824,8 +824,8 @@
         start-up order is applied. I.e. if a unit is configured with <varname>After=</varname> on another
         unit, the former is stopped before the latter if both are shut down. Given two units with any
         ordering dependency between them, if one unit is shut down and the other is started up, the shutdown
-        is ordered before the start-up. It doesn't matter if the ordering dependency is
-        <varname>After=</varname> or <varname>Before=</varname>, in this case. It also doesn't matter which
+        is ordered before the start-up. It does not matter if the ordering dependency is
+        <varname>After=</varname> or <varname>Before=</varname>, in this case. It also does not matter which
         of the two is shut down, as long as one is shut down and the other is started up; the shutdown is
         ordered before the start-up in all cases. If two units have no ordering dependencies between them,
         they are shut down or started up simultaneously, and no ordering takes place. It depends on the unit
@@ -1265,7 +1265,7 @@
       unit was successfully activated, and the conditions and asserts are executed the precise moment the
       unit would normally start and thus can validate system state after the units ordered before completed
       initialization. Use condition expressions for skipping units that do not apply to the local system, for
-      example because the kernel or runtime environment doesn't require their functionality.
+      example because the kernel or runtime environment does not require their functionality.
       </para>
 
       <para>If multiple conditions are specified, the unit will be executed if all of them apply (i.e. a
@@ -2463,7 +2463,7 @@ Note that this setting is <emphasis>not</emphasis> influenced by the <varname>Us
           <row>
             <entry><literal>%y</literal></entry>
             <entry>The path to the fragment</entry>
-            <entry>This is the path where the main part of the unit file is located. For linked unit files, the real path outside of the unit search directories is used. For units that don't have a fragment file, this specifier will raise an error.</entry>
+            <entry>This is the path where the main part of the unit file is located. For linked unit files, the real path outside of the unit search directories is used. For units that do not have a fragment file, this specifier will raise an error.</entry>
           </row>
           <row>
             <entry><literal>%Y</literal></entry>
@@ -2657,7 +2657,7 @@ OnFailure=failure-handler@%N.service
     in the creation of a recursive dependency chain. systemd will try to detect
     these recursive dependency chains where a template unit directly and
     recursively depends on itself and will remove such dependencies
-    automatically if it finds them. If systemd doesn't detect the recursive
+    automatically if it finds them. If systemd does not detect the recursive
     dependency chain, we can break the chain ourselves by disabling the drop-in
     for the template instance units via a symlink to
     <filename index='false'>/dev/null</filename>:</para>

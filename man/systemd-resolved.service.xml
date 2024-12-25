@@ -178,7 +178,7 @@
       DNS servers, unless the domain is specified explicitly as routing or search domain for the DNS server
       and interface. This means that on networks where the <literal>.local</literal> domain is defined in a
       site-specific DNS server, explicit search or routing domains need to be configured to make lookups work
-      within this DNS domain. Note that these days, it's generally recommended to avoid defining
+      within this DNS domain. Note that these days, it is generally recommended to avoid defining
       <literal>.local</literal> in a DNS server, as <ulink
       url="https://tools.ietf.org/html/rfc6762">RFC6762</ulink> reserves this domain for exclusive
       MulticastDNS use.</para></listitem>
@@ -213,7 +213,7 @@
 
       <para>In case of single-label names, when search domains are defined, the same logic applies, except
       that the name is first suffixed by each of the search domains in turn. Note that this search logic
-      doesn't apply to any names with at least one dot. Also see the discussion about compatibility with
+      does not apply to any names with at least one dot. Also see the discussion about compatibility with
       the traditional glibc resolver below.</para></listitem>
 
       <listitem><para>If a query does not match any configured routing domain (either per-link or global), it

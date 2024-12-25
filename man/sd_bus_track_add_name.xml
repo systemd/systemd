@@ -159,7 +159,7 @@
 
     <para>On success, <function>sd_bus_track_add_name()</function> and <function>sd_bus_track_add_sender()</function>
     return 0 if the specified name has already been added to the bus peer tracking object before and positive if it
-    hasn't. On failure, they return a negative errno-style error code.</para>
+    has not. On failure, they return a negative errno-style error code.</para>
 
     <para><function>sd_bus_track_remove_name()</function> and <function>sd_bus_track_remove_sender()</function> return
     positive if the specified name was previously tracked by the bus peer tracking object and has now been removed. In

@@ -204,7 +204,7 @@
 
         <listitem><para>Takes a boolean. If this switch is not specified <option>--discard=yes</option> is
         the implied default. Controls whether to issue the <constant>BLKDISCARD</constant> I/O control
-        command on the space taken up by any added partitions or on the space in between them. Usually, it's
+        command on the space taken up by any added partitions or on the space in between them. Usually, it is
         a good idea to issue this request since it tells the underlying hardware that the covered blocks
         shall be considered empty, improving performance. If operating on a regular file instead of a block
         device node, a sparse file is generated.</para>
@@ -455,7 +455,7 @@
         <term><option>--exclude-partitions=<replaceable>PARTITIONS</replaceable></option></term>
 
         <listitem><para>These options specify which partition types <command>systemd-repart</command> should
-        operate on. If <option>--include-partitions=</option> is used, all partitions that aren't specified
+        operate on. If <option>--include-partitions=</option> is used, all partitions that are not specified
         are excluded. If <option>--exclude-partitions=</option> is used, all partitions that are specified
         are excluded. Both options take a comma separated list of GPT partition type UUIDs or identifiers
         (see <varname>Type=</varname> in
@@ -470,7 +470,7 @@
 
         <listitem><para>This option specifies for which partition types <command>systemd-repart</command>
         should defer. All partitions that are deferred using this option are still taken into account when
-        calculating the sizes and offsets of other partitions, but aren't actually written to the disk image.
+        calculating the sizes and offsets of other partitions, but are not actually written to the disk image.
         The net effect of this option is that if you run <command>systemd-repart</command> again without this
         option, the missing partitions will be added as if they had not been deferred the first time
         <command>systemd-repart</command> was executed.</para>

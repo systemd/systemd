@@ -688,7 +688,7 @@
 
         <programlisting>dd if=/dev/urandom bs=512 count=1 status=none | base64 -w 0</programlisting>
 
-        <para>Again: do not use this option outside of testing environments, it's a security risk elsewhere,
+        <para>Again: do not use this option outside of testing environments, it is a security risk elsewhere,
         as secret key material derived from the entropy pool can possibly be reconstructed by unprivileged
         programs.</para>
 
