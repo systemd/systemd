@@ -55,12 +55,12 @@
       <varlistentry>
         <term><option>--output=<replaceable>MODE</replaceable></option></term>
 
-        <listitem><para>Choose the output mode, takes one of <literal>classic</literal>,
-        <literal>friendly</literal>, <literal>table</literal>, <literal>json</literal>. If
+        <listitem><para>Chooses the output mode. Takes one of <literal>classic</literal>,
+        <literal>friendly</literal>, <literal>table</literal> or <literal>json</literal>. If
         <literal>classic</literal>, an output very close to the format of <filename>/etc/passwd</filename> or
-        <filename>/etc/group</filename> is generated. If <literal>friendly</literal> a more comprehensive and
-        user friendly, human readable output is generated; if <literal>table</literal> a minimal, tabular
-        output is generated; if <literal>json</literal> a JSON formatted output is generated. Defaults to
+        <filename>/etc/group</filename> is generated. If <literal>friendly</literal>, a more comprehensive and
+        user friendly, human readable output is generated. If <literal>table</literal>, a minimal, tabular
+        output is generated. If <literal>json</literal>, a JSON formatted output is generated. Defaults to
         <literal>friendly</literal> if a user/group is specified on the command line,
         <literal>table</literal> otherwise.</para>
 
@@ -100,8 +100,8 @@
         <term><option>--with-nss=<replaceable>BOOL</replaceable></option></term>
 
         <listitem><para>Controls whether to include classic glibc/NSS user/group lookups in the output. If
-        <option>--with-nss=no</option> is used any attempts to resolve or enumerate users/groups provided
-        only via glibc NSS is suppressed. If <option>--with-nss=yes</option> is specified such users/groups
+        <option>--with-nss=no</option> is used, any attempts to resolve or enumerate users/groups provided
+        only via glibc NSS is suppressed. If <option>--with-nss=yes</option> is specified, such users/groups
         are included in the output (which is the default).</para>
 
         <xi:include href="version-info.xml" xpointer="v245"/></listitem>
@@ -112,9 +112,9 @@
 
         <listitem><para>Controls whether to include Varlink user/group lookups in the output, i.e. those done
         via the <ulink url="https://systemd.io/USER_GROUP_API">User/Group Record Lookup API via
-        Varlink</ulink>. If <option>--with-varlink=no</option> is used any attempts to resolve or enumerate
+        Varlink</ulink>. If <option>--with-varlink=no</option> is used, any attempts to resolve or enumerate
         users/groups provided only via Varlink are suppressed. If <option>--with-varlink=yes</option> is
-        specified such users/groups are included in the output (which is the default).</para>
+        specified, such users/groups are included in the output (which is the default).</para>
 
         <xi:include href="version-info.xml" xpointer="v249"/></listitem>
       </varlistentry>
@@ -125,8 +125,8 @@
         <listitem><para>Controls whether to include user/group lookups in the output that are defined using
         drop-in files in <filename>/etc/userdb/</filename>, <filename>/run/userdb/</filename>,
         <filename>/run/host/userdb/</filename>, <filename>/usr/lib/userdb/</filename>. If
-        <option>--with-dropin=no</option> is used these records are suppressed. If
-        <option>--with-dropin=yes</option> is specified such users/groups are included in the output (which
+        <option>--with-dropin=no</option> is used, these records are suppressed. If
+        <option>--with-dropin=yes</option> is specified, such users/groups are included in the output (which
         is the default).</para>
 
         <xi:include href="version-info.xml" xpointer="v249"/></listitem>
@@ -136,9 +136,9 @@
         <term><option>--synthesize=<replaceable>BOOL</replaceable></option></term>
 
         <listitem><para>Controls whether to synthesize records for the root and nobody users/groups if they
-        are not defined otherwise. By default (or <literal>yes</literal>), such records are implicitly
+        are not defined otherwise. By default (or with <literal>yes</literal>), such records are implicitly
         synthesized if otherwise missing since they have special significance to the OS. When
-        <literal>no</literal> this synthesizing is turned off.</para>
+        <literal>no</literal>, this synthesizing is turned off.</para>
 
         <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
@@ -217,10 +217,10 @@
 
         <listitem><para>When used with the <command>user</command> or <command>group</command> command,
         filters the output by UID/GID ranges. Takes numeric minimum or maximum UID/GID values, respectively. Shows only
-        records within the specified range. When applied to the <command>user</command> command matches
-        against UIDs, when applied to the <command>group</command> command against GIDs (despite the name of
-        the switch). If unspecified defaults to 0 (for the minimum) and 4294967294 (for the maximum), i.e. by
-        default no filtering is applied as the whole UID/GID range is covered.</para>
+        records within the specified range. When applied to the <command>user</command> command, it matches
+        against UIDs. When applied to the <command>group</command> command, matches against GIDs (despite the name of
+        the switch). If unspecified, defaults to 0 (for the minimum) and 4294967294 (for the maximum), i.e. by
+        default, no filtering is applied, as the whole UID/GID range is covered.</para>
 
         <xi:include href="version-info.xml" xpointer="v257"/></listitem>
       </varlistentry>
@@ -270,7 +270,7 @@
         <term><command>group</command> <optional><replaceable>GROUP</replaceable>…</optional></term>
 
         <listitem><para>List all known group records or show details of one or more specified group
-        records. Use <option>--output=</option> to tweak output mode.</para>
+        records. Use <option>--output=</option> to tweak the output mode.</para>
 
         <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
@@ -278,8 +278,8 @@
       <varlistentry>
         <term><command>users-in-group</command> <optional><replaceable>GROUP</replaceable>…</optional></term>
 
-        <listitem><para>List users that are members of the specified groups. If no groups are specified list
-        all user/group memberships defined. Use <option>--output=</option> to tweak output
+        <listitem><para>List users that are members of the specified groups. If no groups are specified, list
+        all user/group memberships defined. Use <option>--output=</option> to tweak the output
         mode.</para>
 
         <xi:include href="version-info.xml" xpointer="v245"/></listitem>
@@ -288,9 +288,9 @@
       <varlistentry>
         <term><command>groups-of-user</command> <optional><replaceable>USER</replaceable>…</optional></term>
 
-        <listitem><para>List groups that the specified users are members of. If no users are specified list
+        <listitem><para>Lists groups that the specified users are members of. If no users are specified, lists
         all user/group memberships defined (in this case, <command>groups-of-user</command> and
-        <command>users-in-group</command> are equivalent). Use <option>--output=</option> to tweak output
+        <command>users-in-group</command> are equivalent). Use <option>--output=</option> to tweak the output
         mode.</para>
 
         <xi:include href="version-info.xml" xpointer="v245"/></listitem>
@@ -364,7 +364,7 @@
         <listitem><para>This service is provided by
         <citerefentry><refentrytitle>systemd-userdbd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         and multiplexes user/group look-ups to all other running lookup services. This is the primary entry point
-        for user/group record clients, as it simplifies client side implementation substantially since they
+        for user/group record clients, as it simplifies client side implementation substantially, since they
         can ask a single service for lookups instead of asking all running services in parallel.
         <command>userdbctl</command> uses this service preferably, too, unless <option>--with-nss=</option>
         or <option>--service=</option> are used, in which case finer control over the services to talk to is
@@ -406,7 +406,7 @@
 
     <para>Note that <command>userdbctl</command> has internal support for NSS-based lookups too. This means
     that if neither <constant>io.systemd.Multiplexer</constant> nor
-    <constant>io.systemd.NameServiceSwitch</constant> are running look-ups into the basic user/group
+    <constant>io.systemd.NameServiceSwitch</constant> are running, look-ups into the basic user/group
     databases will still work.</para>
   </refsect1>
 
@@ -414,7 +414,7 @@
     <title>Integration with SSH</title>
 
     <para>The <command>userdbctl</command> tool may be used to make the list of SSH authorized keys possibly
-    contained in a user record available to the SSH daemon for authentication. For that configure the
+    contained in a user record available to the SSH daemon for authentication. For that, configure the
     following in <citerefentry
     project='man-pages'><refentrytitle>sshd_config</refentrytitle><manvolnum>5</manvolnum></citerefentry>:</para>
 
@@ -423,10 +423,10 @@ AuthorizedKeysCommand /usr/bin/userdbctl ssh-authorized-keys %u
 AuthorizedKeysCommandUser root
 …</programlisting>
 
-    <para>Sometimes it is useful to allow chain invocation of another program to list SSH authorized keys. By
-    using the <option>--chain</option> such a tool may be chain executed by <command>userdbctl
-    ssh-authorized-keys</command> once a lookup completes (regardless of whether an SSH key was found or
-    not). Example:</para>
+    <para>Sometimes, it is useful to allow chain invocation of another program to list SSH authorized keys. By
+    using the <option>--chain</option> option, such a tool may be chain executed by <command>userdbctl
+    ssh-authorized-keys</command> once a lookup completes, regardless of whether an SSH key was found or
+    not. Example:</para>
 
     <programlisting>…
 AuthorizedKeysCommand /usr/bin/userdbctl ssh-authorized-keys %u --chain /usr/bin/othertool %u
@@ -440,7 +440,7 @@ AuthorizedKeysCommandUser root
   <refsect1>
     <title>Exit status</title>
 
-    <para>On success, 0 is returned, a non-zero failure code otherwise.</para>
+    <para>On success, 0 is returned, and a non-zero failure code otherwise.</para>
   </refsect1>
 
   <xi:include href="common-variables.xml" />
