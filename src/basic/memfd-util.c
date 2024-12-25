@@ -1,13 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
-#include <sys/stat.h>
-#include <unistd.h>
-#if HAVE_LINUX_MEMFD_H
-#include <linux/memfd.h>
-#endif
 #include <stdio.h>
 #include <sys/prctl.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "errno-util.h"
