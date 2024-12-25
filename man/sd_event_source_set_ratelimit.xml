@@ -111,7 +111,7 @@
     return a negative errno-style error code. <function>sd_event_source_is_ratelimited()</function> returns
     zero if rate limiting is currently not in effect and greater than zero if it is in effect; it returns a
     negative errno-style error code on failure. <function>sd_event_source_leave_ratelimit()</function>
-    returns zero if rate limiting wasn't in effect on the specified event source, and positive if it was and
+    returns zero if rate limiting was not in effect on the specified event source, and positive if it was and
     rate limiting is now turned off again; it returns a negative errno-style error code on failure.</para>
 
     <refsect2>
@@ -151,7 +151,7 @@
           <term><constant>-ENOEXEC</constant></term>
 
           <listitem><para><function>sd_event_source_get_ratelimit()</function> was called on an event source
-          that doesn't have rate limiting configured.</para>
+          that does not have rate limiting configured.</para>
 
           <xi:include href="version-info.xml" xpointer="v248"/></listitem>
         </varlistentry>

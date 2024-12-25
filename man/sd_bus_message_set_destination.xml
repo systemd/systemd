@@ -81,7 +81,7 @@
     <function>sd_bus_message_get_member()</function> return the destination, path, interface, and
     member fields from <parameter>message</parameter> header. The return value will be
     <constant>NULL</constant> is <parameter>message</parameter> is <constant>NULL</constant> or the
-    message is of a type that doesn't use those fields or the message doesn't have them set. See
+    message is of a type that does not use those fields or the message does not have them set. See
     <citerefentry><refentrytitle>sd_bus_message_new_method_call</refentrytitle><manvolnum>3</manvolnum></citerefentry> and
     <citerefentry><refentrytitle>sd_bus_message_set_destination</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     for more discussion of those values.</para>
@@ -96,7 +96,7 @@
 
     <para>When a string is returned, it is a pointer to internal storage, and may not be modified or
     freed. It is only valid as long as the <parameter>message</parameter> remains referenced and
-    this field hasn't been changed by a different call.</para>
+    this field has not been changed by a different call.</para>
   </refsect1>
 
   <refsect1>

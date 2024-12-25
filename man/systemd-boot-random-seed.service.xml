@@ -43,12 +43,12 @@
     the random seed stored in the ESP is refreshed on <emphasis>every</emphasis> reboot ensuring that
     multiple subsequent boots will boot with different seeds. On the other hand, the system token is
     generated randomly <emphasis>once</emphasis>, and then persistently stored in the system's EFI variable
-    storage, ensuring the same disk image won't result in the same series of boot loader seed values if used
+    storage, ensuring the same disk image will not result in the same series of boot loader seed values if used
     on multiple systems in parallel.</para>
 
     <para>The <filename>systemd-boot-random-seed.service</filename> unit invokes the <command>bootctl
     random-seed</command> command, which updates the random seed in the ESP, and initializes the system
-    token if it's not initialized yet. The service is conditionalized so that it is run only when a boot
+    token if it is not initialized yet. The service is conditionalized so that it is run only when a boot
     loader is used that implements the <ulink url="https://systemd.io/BOOT_LOADER_INTERFACE">Boot Loader
     Interface</ulink>.</para> <para>For further details see
     <citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>, regarding

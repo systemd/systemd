@@ -39,7 +39,7 @@
     <citerefentry><refentrytitle>systemd-homed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>, or <citerefentry><refentrytitle>systemd-machined.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
 
     <para>This module also ensures that the root and nobody users and groups (i.e. the users/groups with the UIDs/GIDs
-    0 and 65534) remain resolvable at all times, even if they aren't listed in <filename>/etc/passwd</filename> or
+    0 and 65534) remain resolvable at all times, even if they are not listed in <filename>/etc/passwd</filename> or
     <filename>/etc/group</filename>, or if these files are missing.</para>
 
     <para>This module preferably utilizes

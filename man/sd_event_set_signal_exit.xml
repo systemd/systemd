@@ -51,7 +51,7 @@
     state before it was turned on, for the two signals. By default the two signals are not handled by the
     event loop, and Linux' default signal handling for them is in effect.</para>
 
-    <para>It's customary for UNIX programs to exit on either of these two signals, hence it's typically a
+    <para>It is customary for UNIX programs to exit on either of these two signals, hence it is typically a
     good idea to enable this functionality for the main event loop of a program.</para>
   </refsect1>
 

@@ -52,13 +52,13 @@
     (i.e. <constant>SD_LISTEN_FDS_START</constant>), the remaining descriptors follow at 4, 5, 6, …, if
     any.</para>
 
-    <para>The file descriptors passed this way may be closed at will by the processes receiving them: it's up
+    <para>The file descriptors passed this way may be closed at will by the processes receiving them: it is up
     to the processes themselves to close them after use or whether to leave them open until the process exits
     (in which case the kernel closes them automatically). Note that the file descriptors received by daemons
     are duplicates of the file descriptors the service manager originally allocated and bound and of which it
     continuously keeps a copy (except if <varname>Accept=yes</varname> is used). This means any socket option
     changes and other changes made to the sockets will be visible to the service manager too. Most
-    importantly this means it's generally not a good idea to invoke <citerefentry
+    importantly this means it is generally not a good idea to invoke <citerefentry
     project='man-pages'><refentrytitle>shutdown</refentrytitle><manvolnum>2</manvolnum></citerefentry> on
     such sockets, since it will shut down communication on the file descriptor the service manager holds for
     the same socket too. Also note that if a daemon is restarted (and its associated sockets are not) it will

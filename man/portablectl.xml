@@ -170,7 +170,7 @@
         <listitem><para>Detaches an existing portable service image from the host, and immediately attaches it again.
         This is useful in case the image was replaced. Running units are not stopped during the process. Partial matching,
         to allow for different versions in the image name, is allowed: only the part before the first <literal>_</literal>
-        character has to match. If the new image doesn't exist, the existing one will not be detached. The parameters
+        character has to match. If the new image does not exist, the existing one will not be detached. The parameters
         follow the same syntax as the <command>attach</command> command.</para>
 
         <para>If <option>--now</option> and/or <option>--enable</option> are passed, the portable services are
@@ -350,7 +350,7 @@
       <varlistentry>
         <term><option>--no-reload</option></term>
 
-        <listitem><para>Don't reload the service manager after attaching or detaching a portable service
+        <listitem><para>Do not reload the service manager after attaching or detaching a portable service
         image. Normally the service manager is reloaded to ensure it is aware of added or removed unit
         files.</para>
 
@@ -388,7 +388,7 @@
       <varlistentry>
         <term><option>--no-block</option></term>
 
-        <listitem><para>Don't block waiting for attach --now to complete.</para>
+        <listitem><para>Do not block waiting for attach --now to complete.</para>
 
         <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>

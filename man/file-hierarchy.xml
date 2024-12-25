@@ -72,7 +72,7 @@
         <listitem><para>If the boot partition <filename>/boot/</filename> is maintained separately from the
         EFI System Partition (ESP), the latter is mounted here. Tools that need to operate on the EFI system
         partition should look for it at this mount point first, and fall back to <filename>/boot/</filename>
-        — if the former doesn't qualify (for example if it is not a mount point or does not have the correct
+        — if the former does not qualify (for example if it is not a mount point or does not have the correct
         file system type <constant>MSDOS_SUPER_MAGIC</constant>).</para></listitem>
       </varlistentry>
 
@@ -534,7 +534,7 @@
       possible to mount them <option>noexec</option>, because various programs use those directories for
       dynamically generated or optimized code, and with that flag those use cases would break. Using this
       flag is OK on special-purpose installations or systems where all software that may be installed is
-      known and doesn't require such functionality. See the discussion of
+      known and does not require such functionality. See the discussion of
       <option>nosuid</option>/<option>nodev</option>/<option>noexec</option> in <citerefentry
       project='man-pages'><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry> and
       <constant>PROT_EXEC</constant> in <citerefentry
