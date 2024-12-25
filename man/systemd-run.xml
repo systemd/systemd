@@ -475,7 +475,7 @@
         all units that ran and failed are kept in memory until the user explicitly resets their failure state with
         <command>systemctl reset-failed</command> or an equivalent command. On the other hand, units that ran
         successfully are unloaded immediately. If this option is turned on the "garbage collection" of units is more
-        aggressive, and unloads units regardless if they exited successfully or failed. This option is a shortcut for
+        aggressive, and unloads units regardless of whether they exited successfully or failed. This option is a shortcut for
         <command>--property=CollectMode=inactive-or-failed</command>, see the explanation for
         <varname>CollectMode=</varname> in
         <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry> for further

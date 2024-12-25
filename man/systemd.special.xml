@@ -1187,7 +1187,7 @@
             milestone indicating if and when SSH access into the system is available. It should only become
             active when an SSH port is bound for remote clients (i.e. if SSH is used as a local privilege
             escalation mechanism, it should <emphasis>not</emphasis> involve this target unit), regardless of
-            the protocol choices, i.e. regardless if IPv4, IPv6 or <constant>AF_VSOCK</constant> is
+            the protocol choices, i.e. regardless of whether IPv4, IPv6 or <constant>AF_VSOCK</constant> is
             used.</para>
             <xi:include href="version-info.xml" xpointer="v256"/>
           </listitem>

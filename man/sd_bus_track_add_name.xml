@@ -126,7 +126,7 @@
     <para><function>sd_bus_track_count()</function> returns the number of names currently being tracked by the
     specified bus peer tracking object. Note that this function always returns the actual number of names tracked, and
     hence if <function>sd_bus_track_add_name()</function> has been invoked multiple times for the same name it is only
-    counted as one, regardless if recursive mode is used or not.</para>
+    counted as one, regardless of whether recursive mode is used or not.</para>
 
     <para><function>sd_bus_track_count_name()</function> returns the current per-name counter for the specified
     name. If non-recursive mode is used this returns either 1 or 0, depending on whether the specified name has been

@@ -399,7 +399,7 @@
 
         <listitem><para>Takes a boolean parameter; used in conjunction with <command>query</command>. If true
         (the default), lookups use the local DNS resource record cache. If false, lookups are routed to the
-        network instead, regardless if already available in the local cache.</para>
+        network instead, regardless of whether already available in the local cache.</para>
 
         <xi:include href="version-info.xml" xpointer="v248"/></listitem>
       </varlistentry>

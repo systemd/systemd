@@ -202,7 +202,7 @@
 
     <para><function>sd_event_source_get_child_pidfd()</function> retrieves the file descriptor referencing
     the watched process ("pidfd") if this functionality is available. On kernels that support the concept the
-    event loop will make use of pidfds to watch child processes, regardless if the individual event sources
+    event loop will make use of pidfds to watch child processes, regardless of whether the individual event sources
     are allocated via <function>sd_event_add_child()</function> or
     <function>sd_event_add_child_pidfd()</function>. If the latter call was used to allocate the event
     source, this function returns the file descriptor used for allocation. On kernels that do not support the

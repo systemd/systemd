@@ -400,7 +400,7 @@
 
         <para>Note that if one of the volatile modes is chosen, its effect is limited to the root file system
         (or <filename>/var/</filename> in case of <option>state</option>), and any other mounts placed in the
-        hierarchy are unaffected — regardless if they are established automatically (e.g. the EFI system
+        hierarchy are unaffected — regardless of whether they are established automatically (e.g. the EFI system
         partition that might be mounted to <filename>/efi/</filename> or <filename>/boot/</filename>) or
         explicitly (e.g. through an additional command line option such as <option>--bind=</option>, see
         below). This means, even if <option>--volatile=overlay</option> is used changes to
