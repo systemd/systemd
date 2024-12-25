@@ -81,6 +81,7 @@ struct PTYForward {
         bool read_from_master:1;
 
         bool done:1;
+        bool drain:1;
 
         bool last_char_set:1;
         char last_char;
@@ -239,6 +240,9 @@ static bool drained(PTYForward *f) {
         int q = 0;
 
         assert(f);
+
+        if (f->done)
+                return true;
 
         if (f->out_buffer_full > 0)
                 return false;
@@ -759,6 +763,11 @@ static int do_shovel(PTYForward *f) {
                         return pty_forward_done(f, 0);
         }
 
+        /* If we were asked to drain, and there's nothing more to handle from the master, then call the callback
+         * too. */
+        if (f->drain && drained(f))
+                return pty_forward_done(f, 0);
+
         return 0;
 }
 
@@ -1084,6 +1093,20 @@ void pty_forward_set_handler(PTYForward *f, PTYForwardHandler cb, void *userdata
 
         f->handler = cb;
         f->userdata = userdata;
+}
+
+bool pty_forward_drain(PTYForward *f) {
+        assert(f);
+
+        /* Starts draining the forwarder. Specifically:
+         *
+         * - Returns true if there are no unprocessed bytes from the pty, false otherwise
+         *
+         * - Makes sure the handler function is called the next time the number of unprocessed bytes hits zero
+         */
+
+        f->drain = true;
+        return drained(f);
 }
 
 int pty_forward_set_priority(PTYForward *f, int64_t priority) {
