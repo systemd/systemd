@@ -849,14 +849,8 @@ static int on_exit_event(sd_event_source *e, void *userdata) {
         assert(e);
         assert(e == f->exit_event_source);
 
-        /* Drain the buffer on exit. */
-
-        if (f->done)
-                return 0;
-
-        for (unsigned trial = 0; trial < 1000; trial++) {
-                if (drained(f))
-                        return pty_forward_done(f, 0);
+        if (!pty_forward_drain(f)) {
+                /* If not drained, try to drain the buffer. */
 
                 if (!f->master_hangup)
                         f->master_writable = f->master_readable = true;
@@ -868,12 +862,9 @@ static int on_exit_event(sd_event_source *e, void *userdata) {
                 r = shovel(f);
                 if (r < 0)
                         return r;
-                if (f->done)
-                        return 0;
         }
 
-        /* If we could not drain, then propagate recognizable error code. */
-        return pty_forward_done(f, -ELOOP);
+        return pty_forward_done(f, 0);
 }
 
 int pty_forward_new(
