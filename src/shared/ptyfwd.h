@@ -23,7 +23,7 @@ typedef enum PTYForwardFlags {
         PTY_FORWARD_DUMB_TERMINAL          = 1 << 3,
 } PTYForwardFlags;
 
-typedef int (*PTYForwardHandler)(PTYForward *f, int rcode, void *userdata);
+typedef int (*PTYForwardHandler)(sd_event *e, PTYForward *f, int rcode, void *userdata);
 
 int pty_forward_new(sd_event *event, int master, PTYForwardFlags flags, PTYForward **ret);
 PTYForward* pty_forward_free(PTYForward *f);
