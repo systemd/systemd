@@ -1475,6 +1475,9 @@ int safe_fork_full(
         assert(!FLAGS_SET(flags, FORK_DETACH) ||
                (!ret_pid && (flags & (FORK_WAIT|FORK_DEATHSIG_SIGTERM|FORK_DEATHSIG_SIGINT|FORK_DEATHSIG_SIGKILL)) == 0));
 
+        if (FLAGS_SET(flags, FORK_TIOCSCTTY))
+                assert(FLAGS_SET(flags, FORK_SETSID));
+
         /* A wrapper around fork(), that does a couple of important initializations in addition to mere forking. Always
          * returns the child's PID in *ret_pid. Returns == 0 in the child, and > 0 in the parent. */
 
@@ -1678,6 +1681,16 @@ int safe_fork_full(
                         log_full_errno(prio, errno, "Failed to connect stdout to stderr: %m");
                         _exit(EXIT_FAILURE);
                 }
+        }
+
+        if (FLAGS_SET(flags, FORK_SETSID) && setsid() < 0) {
+                log_full_errno(prio, errno, "Failed to create a new session: %m");
+                _exit(EXIT_FAILURE);
+        }
+
+        if (FLAGS_SET(flags, FORK_TIOCSCTTY) && ioctl(STDERR_FILENO, TIOCSCTTY) < 0) {
+                log_full_errno(prio, errno, "Failed to acquire controlling TTY: %m");
+                _exit(EXIT_FAILURE);
         }
 
         if (flags & FORK_CLOSE_ALL_FDS) {
