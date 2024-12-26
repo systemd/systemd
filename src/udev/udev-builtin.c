@@ -3,6 +3,7 @@
 #include <getopt.h>
 #include <stdio.h>
 
+#include "bitfield.h"
 #include "device-private.h"
 #include "device-util.h"
 #include "string-util.h"
@@ -57,7 +58,7 @@ UdevReloadFlags udev_builtin_should_reload(void) {
 
 void udev_builtin_reload(UdevReloadFlags flags) {
         for (UdevBuiltinCommand i = 0; i < _UDEV_BUILTIN_MAX; i++) {
-                if (!FLAGS_SET(flags, 1u << i) || !builtins[i])
+                if (!BIT_SET(flags, i) || !builtins[i])
                         continue;
                 if (builtins[i]->exit)
                         builtins[i]->exit();

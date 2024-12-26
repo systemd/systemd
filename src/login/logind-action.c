@@ -5,6 +5,7 @@
 #include "sd-messages.h"
 
 #include "alloc-util.h"
+#include "bitfield.h"
 #include "bus-error.h"
 #include "bus-unit-util.h"
 #include "bus-util.h"
@@ -158,7 +159,7 @@ int handle_action_get_enabled_sleep_actions(HandleActionSleepMask mask, char ***
         assert(ret);
 
         FOREACH_ELEMENT(i, sleep_actions)
-                if (FLAGS_SET(mask, 1U << *i)) {
+                if (BIT_SET(mask, *i)) {
                         r = strv_extend(&actions, handle_action_to_string(*i));
                         if (r < 0)
                                 return r;
