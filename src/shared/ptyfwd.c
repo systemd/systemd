@@ -81,6 +81,7 @@ struct PTYForward {
         bool read_from_master:1;
 
         bool done:1;
+        bool drain:1;
 
         bool last_char_set:1;
         char last_char;
@@ -239,6 +240,9 @@ static bool drained(PTYForward *f) {
         int q = 0;
 
         assert(f);
+
+        if (f->done)
+                return true;
 
         if (f->out_buffer_full > 0)
                 return false;
@@ -619,10 +623,8 @@ static int do_shovel(PTYForward *f) {
                 f->out_buffer_size = MALLOC_SIZEOF_SAFE(p);
         }
 
-        while ((f->stdin_readable && f->in_buffer_full <= 0) ||
-               (f->master_writable && f->in_buffer_full > 0) ||
-               (f->master_readable && f->out_buffer_full <= 0) ||
-               (f->stdout_writable && f->out_buffer_full > 0)) {
+        for (;;) {
+                bool did_something = false;
 
                 if (f->stdin_readable && f->in_buffer_full < LINE_MAX) {
 
@@ -652,6 +654,8 @@ static int do_shovel(PTYForward *f) {
 
                                 f->in_buffer_full += (size_t) k;
                         }
+
+                        did_something = true;
                 }
 
                 if (f->master_writable && f->in_buffer_full > 0) {
@@ -673,6 +677,8 @@ static int do_shovel(PTYForward *f) {
                                 memmove(f->in_buffer, f->in_buffer + k, f->in_buffer_full - k);
                                 f->in_buffer_full -= k;
                         }
+
+                        did_something = true;
                 }
 
                 if (f->master_readable && f->out_buffer_full < MIN(f->out_buffer_size, (size_t) LINE_MAX)) {
@@ -702,6 +708,8 @@ static int do_shovel(PTYForward *f) {
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to scan for ANSI sequences: %m");
                         }
+
+                        did_something = true;
                 }
 
                 if (f->stdout_writable && f->out_buffer_write_len > 0) {
@@ -738,7 +746,12 @@ static int do_shovel(PTYForward *f) {
                                 f->out_buffer_full -= k;
                                 f->out_buffer_write_len -= k;
                         }
+
+                        did_something = true;
                 }
+
+                if (!did_something)
+                        break;
         }
 
         if (f->stdin_hangup || f->stdout_hangup || f->master_hangup) {
@@ -749,6 +762,11 @@ static int do_shovel(PTYForward *f) {
                     (f->in_buffer_full <= 0 || f->master_hangup))
                         return pty_forward_done(f, 0);
         }
+
+        /* If we were asked to drain, and there's nothing more to handle from the master, then call the callback
+         * too. */
+        if (f->drain && drained(f))
+                return pty_forward_done(f, 0);
 
         return 0;
 }
@@ -831,14 +849,8 @@ static int on_exit_event(sd_event_source *e, void *userdata) {
         assert(e);
         assert(e == f->exit_event_source);
 
-        /* Drain the buffer on exit. */
-
-        if (f->done)
-                return 0;
-
-        for (unsigned trial = 0; trial < 1000; trial++) {
-                if (drained(f))
-                        return pty_forward_done(f, 0);
+        if (!pty_forward_drain(f)) {
+                /* If not drained, try to drain the buffer. */
 
                 if (!f->master_hangup)
                         f->master_writable = f->master_readable = true;
@@ -850,12 +862,9 @@ static int on_exit_event(sd_event_source *e, void *userdata) {
                 r = shovel(f);
                 if (r < 0)
                         return r;
-                if (f->done)
-                        return 0;
         }
 
-        /* If we could not drain, then propagate recognizable error code. */
-        return pty_forward_done(f, -ELOOP);
+        return pty_forward_done(f, 0);
 }
 
 int pty_forward_new(
@@ -1075,6 +1084,20 @@ void pty_forward_set_handler(PTYForward *f, PTYForwardHandler cb, void *userdata
 
         f->handler = cb;
         f->userdata = userdata;
+}
+
+bool pty_forward_drain(PTYForward *f) {
+        assert(f);
+
+        /* Starts draining the forwarder. Specifically:
+         *
+         * - Returns true if there are no unprocessed bytes from the pty, false otherwise
+         *
+         * - Makes sure the handler function is called the next time the number of unprocessed bytes hits zero
+         */
+
+        f->drain = true;
+        return drained(f);
 }
 
 int pty_forward_set_priority(PTYForward *f, int64_t priority) {

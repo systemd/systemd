@@ -1557,7 +1557,12 @@ static int run_context_reconnect(RunContext *c) {
 static void run_context_check_done(RunContext *c) {
         assert(c);
 
-        if (STRPTR_IN_SET(c->active_state, "inactive", "failed") && !c->has_job)
+        bool done = STRPTR_IN_SET(c->active_state, "inactive", "failed") && !c->has_job;
+
+        if (done && c->forward) /* If the service is gone, it's time to drain the output */
+                done = pty_forward_drain(c->forward);
+
+        if (done)
                 (void) sd_event_exit(c->event, EXIT_SUCCESS);
 }
 
