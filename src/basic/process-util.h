@@ -193,6 +193,8 @@ typedef enum ForkFlags {
         FORK_NEW_USERNS         = 1 << 19, /* Run child in its own user namespace                                💣 DO NOT USE IN THREADED PROGRAMS! 💣 */
         FORK_NEW_NETNS          = 1 << 20, /* Run child in its own network namespace                             💣 DO NOT USE IN THREADED PROGRAMS! 💣 */
         FORK_NEW_PIDNS          = 1 << 21, /* Run child in its own PID namespace                                 💣 DO NOT USE IN THREADED PROGRAMS! 💣 */
+        FORK_SETSID             = 1 << 22, /* Run child in a separate session */
+        FORK_TIOCSCTTY          = 1 << 23, /* Make TTY attached to child's stderr the new controlling terminal of the session (depends on FORK_SETSID) */
 } ForkFlags;
 
 int safe_fork_full(
