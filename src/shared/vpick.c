@@ -3,6 +3,7 @@
 #include <sys/stat.h>
 
 #include "architecture.h"
+#include "bitfield.h"
 #include "chase.h"
 #include "fd-util.h"
 #include "fs-util.h"
@@ -108,7 +109,7 @@ static int errno_from_mode(uint32_t type_mask, mode_t found) {
         if (type_mask == 0) /* type doesn't matter */
                 return 0;
 
-        if (FLAGS_SET(type_mask, UINT32_C(1) << IFTODT(found)))
+        if (BIT_SET(type_mask, IFTODT(found)))
                 return 0;
 
         if (type_mask == (UINT32_C(1) << DT_BLK))
@@ -164,7 +165,7 @@ static int pin_choice(
                 return log_debug_errno(errno, "Failed to stat discovered inode '%s': %m", prefix_roota(toplevel_path, inode_path));
 
         if (filter->type_mask != 0 &&
-            !FLAGS_SET(filter->type_mask, UINT32_C(1) << IFTODT(st.st_mode)))
+            !BIT_SET(filter->type_mask, IFTODT(st.st_mode)))
                 return log_debug_errno(
                                 SYNTHETIC_ERRNO(errno_from_mode(filter->type_mask, st.st_mode)),
                                 "Inode '%s' has wrong type, found '%s'.",
@@ -596,7 +597,7 @@ int path_pick(
                 filter_type_mask = filter->type_mask;
                 if (slash_suffix) {
                         /* If the pattern is suffixed by a / then we are looking for directories apparently. */
-                        if (filter_type_mask != 0 && !FLAGS_SET(filter_type_mask, UINT32_C(1) << DT_DIR))
+                        if (filter_type_mask != 0 && !BIT_SET(filter_type_mask, DT_DIR))
                                 return log_debug_errno(SYNTHETIC_ERRNO(errno_from_mode(filter_type_mask, S_IFDIR)),
                                                        "Specified pattern ends in '/', but not looking for directories, refusing.");
                         filter_type_mask = UINT32_C(1) << DT_DIR;
