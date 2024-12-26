@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "bitfield.h"
 #include "dissect-image.h"
 #include "extract-word.h"
 #include "fd-util.h"
@@ -149,7 +150,7 @@ int fdisk_partition_set_attrs_as_uint64(struct fdisk_partition *pa, uint64_t fla
         assert(pa);
 
         for (unsigned i = 0; i < sizeof(flags) * 8; i++) {
-                if (!FLAGS_SET(flags, UINT64_C(1) << i))
+                if (!BIT_SET(flags, i))
                         continue;
 
                 r = strextendf_with_separator(&attrs, ",", "%u", i);
