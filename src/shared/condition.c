@@ -19,6 +19,7 @@
 #include "architecture.h"
 #include "audit-util.h"
 #include "battery-util.h"
+#include "bitfield.h"
 #include "blockdev-util.h"
 #include "cap-list.h"
 #include "capability-util.h"

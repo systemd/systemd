@@ -10,6 +10,7 @@
 #include "sd-json.h"
 
 #include "alloc-util.h"
+#include "bitfield.h"
 #include "bus-common-errors.h"
 #include "bus-get-properties.h"
 #include "bus-log-control-api.h"
@@ -88,7 +89,7 @@ static void context_reset(Context *c, uint64_t mask) {
         assert(c);
 
         for (int p = 0; p < _PROP_MAX; p++) {
-                if (!FLAGS_SET(mask, UINT64_C(1) << p))
+                if (!BIT_SET(mask, p))
                         continue;
 
                 c->data[p] = mfree(c->data[p]);
