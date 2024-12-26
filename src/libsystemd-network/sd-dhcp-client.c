@@ -1602,14 +1602,19 @@ static int client_parse_message(
                 assert_not_reached();
         }
 
-        lease->next_server = message->siaddr;
-        lease->address = message->yiaddr;
-
         if (client->bootp) {
                 lease->lifetime = USEC_INFINITY;
 
-                log_dhcp_client(client, "BOOTP identified, using infinite lease and server_address=(%#x)", lease->server_address);
-        }
+                log_dhcp_client(client, "BOOTP identified, using infinite lease. BOOTP siaddr=(%#x), DHCP Server Identifier=(%#x)",
+                        message->siaddr,
+                        lease->server_address);
+
+                lease->server_address = message->siaddr || lease->server_address;
+                lease->next_server = 0;
+        } else
+                lease->next_server = message->siaddr;
+
+        lease->address = message->yiaddr;
 
         if (lease->address == 0 ||
             lease->server_address == 0 ||
