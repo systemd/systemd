@@ -1598,15 +1598,19 @@ static int client_parse_message(
                 assert_not_reached();
         }
 
-        lease->next_server = message->siaddr;
-        lease->address = message->yiaddr;
-
-        if (client->bootp)
+        if (client->bootp) {
                 lease->lifetime = USEC_INFINITY;
 
-        if (lease->server_address == 0 && !client->bootp)
-                return log_dhcp_client_errno(client, SYNTHETIC_ERRNO(ENOMSG),
-                                             "received lease lacks server address, ignoring.");
+                log_dhcp_client(client, "BOOTP identified, using infinite lease. BOOTP siaddr=(%#x), DHCP Server Identifier=(%#x)",
+                        message->siaddr,
+                        lease->server_address);
+
+                lease->server_address = message->siaddr || lease->server_address;
+                lease->next_server = 0;
+        } else
+                lease->next_server = message->siaddr;
+
+        lease->address = message->yiaddr;
 
         if (lease->address == 0 ||
             lease->lifetime == 0)
