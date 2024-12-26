@@ -5,6 +5,8 @@
  * Copyright © 2009 Scott James Remnant <scott@netsplit.com>
  */
 
+#include <unistd.h>
+
 #include "errno-util.h"
 #include "fd-util.h"
 #include "mkdir.h"
