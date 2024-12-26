@@ -38,12 +38,9 @@ int network_config_state_to_string_alloc(NetworkConfigState s, char **ret) {
         assert(ret);
 
         for (size_t i = 0; i < ELEMENTSOF(states); i++)
-                if (FLAGS_SET(s, 1 << i)) {
-                        assert(states[i]);
-
-                        if (!strextend_with_separator(&buf, ",", states[i]))
+                if (BIT_SET(s, i))
+                        if (!strextend_with_separator(&buf, ",", ASSERT_PTR(states[i])))
                                 return -ENOMEM;
-                }
 
         *ret = TAKE_PTR(buf);
         return 0;

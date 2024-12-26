@@ -6687,7 +6687,7 @@ int tpm2_pcr_prediction_to_json(
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *vj = NULL;
                 Tpm2PCRPredictionResult *banks;
 
-                if (!FLAGS_SET(prediction->pcrs, UINT32_C(1) << pcr))
+                if (!BIT_SET(prediction->pcrs, pcr))
                         continue;
 
                 ORDERED_SET_FOREACH(banks, prediction->results[pcr]) {
@@ -6812,7 +6812,7 @@ int tpm2_calculate_policy_super_pcr(
         _cleanup_free_ Tpm2PCRValue *single_values = NULL;
         size_t n_single_values = 0;
         for (uint32_t pcr = 0; pcr < TPM2_PCRS_MAX; pcr++) {
-                if (!FLAGS_SET(prediction->pcrs, UINT32_C(1) << pcr))
+                if (!BIT_SET(prediction->pcrs, pcr))
                         continue;
 
                 if (ordered_set_size(prediction->results[pcr]) != 1)
@@ -6848,7 +6848,7 @@ int tpm2_calculate_policy_super_pcr(
                 size_t n_pcr_policy_digest_variants = 0;
                 Tpm2PCRPredictionResult *banks;
 
-                if (!FLAGS_SET(prediction->pcrs, UINT32_C(1) << pcr))
+                if (!BIT_SET(prediction->pcrs, pcr))
                         continue;
 
                 if (ordered_set_size(prediction->results[pcr]) <= 1) /* We only care for PCRs with 2 or more variants in this loop */
@@ -6921,7 +6921,7 @@ int tpm2_policy_super_pcr(
 
         /* Look for all PCRs that have only a singled allowed hash value, and synthesize a single PolicyPCR policy item for them */
         for (uint32_t pcr = 0; pcr < TPM2_PCRS_MAX; pcr++) {
-                if (!FLAGS_SET(prediction->pcrs, UINT32_C(1) << pcr))
+                if (!BIT_SET(prediction->pcrs, pcr))
                         continue;
 
                 if (ordered_set_size(prediction->results[pcr]) != 1)
@@ -6951,7 +6951,7 @@ int tpm2_policy_super_pcr(
         for (uint32_t pcr = 0; pcr < TPM2_PCRS_MAX; pcr++) {
                 size_t n_branches;
 
-                if (!FLAGS_SET(prediction->pcrs, UINT32_C(1) << pcr))
+                if (!BIT_SET(prediction->pcrs, pcr))
                         continue;
 
                 n_branches = ordered_set_size(prediction->results[pcr]);

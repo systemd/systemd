@@ -334,7 +334,7 @@ int group_record_match(GroupRecord *h, const UserDBMatch *match) {
         if (h->gid < match->gid_min || h->gid > match->gid_max)
                 return false;
 
-        if (!FLAGS_SET(match->disposition_mask, UINT64_C(1) << group_record_disposition(h)))
+        if (!BIT_SET(match->disposition_mask, group_record_disposition(h)))
                 return false;
 
         if (!strv_isempty(match->fuzzy_names)) {

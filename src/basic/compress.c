@@ -124,7 +124,10 @@ bool compression_supported(Compression c) {
                 (1U << COMPRESSION_LZ4) * HAVE_LZ4 |
                 (1U << COMPRESSION_ZSTD) * HAVE_ZSTD;
 
-        return c >= 0 && c < _COMPRESSION_MAX && FLAGS_SET(supported, 1U << c);
+        assert(c >= 0);
+        assert(c < _COMPRESSION_MAX);
+
+        return BIT_SET(supported, c);
 }
 
 #if HAVE_XZ

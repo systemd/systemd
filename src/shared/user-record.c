@@ -2671,7 +2671,7 @@ int user_record_match(UserRecord *u, const UserDBMatch *match) {
         if (u->uid < match->uid_min || u->uid > match->uid_max)
                 return false;
 
-        if (!FLAGS_SET(match->disposition_mask, UINT64_C(1) << user_record_disposition(u)))
+        if (!BIT_SET(match->disposition_mask, user_record_disposition(u)))
                 return false;
 
         if (!strv_isempty(match->fuzzy_names)) {

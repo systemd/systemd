@@ -2085,9 +2085,9 @@ static int method_enqueue_marked_jobs(sd_bus_message *message, void *userdata, s
                         continue;
 
                 BusUnitQueueFlags flags;
-                if (FLAGS_SET(u->markers, 1u << UNIT_MARKER_NEEDS_RESTART))
+                if (BIT_SET(u->markers, UNIT_MARKER_NEEDS_RESTART))
                         flags = 0;
-                else if (FLAGS_SET(u->markers, 1u << UNIT_MARKER_NEEDS_RELOAD))
+                else if (BIT_SET(u->markers, UNIT_MARKER_NEEDS_RELOAD))
                         flags = BUS_UNIT_QUEUE_RELOAD_IF_POSSIBLE;
                 else
                         continue;
