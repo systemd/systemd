@@ -3710,6 +3710,8 @@ _public_ int sd_varlink_server_listen_auto(sd_varlink_server *s) {
         assert_return(s, -EINVAL);
 
         n = sd_varlink_server_listen_name(s, "varlink");
+        if (n < 0)
+                return n;
 
         /* Let's listen on an explicitly specified address */
         const char *e = secure_getenv("SYSTEMD_VARLINK_LISTEN");
