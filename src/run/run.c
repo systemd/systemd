@@ -36,7 +36,7 @@
 #include "polkit-agent.h"
 #include "pretty-print.h"
 #include "process-util.h"
-#include "ptyfwd.h"
+#include "ptyfwd-util.h"
 #include "signal-util.h"
 #include "special.h"
 #include "strv.h"

@@ -25,7 +25,7 @@
 #include "io-util.h"
 #include "log.h"
 #include "macro.h"
-#include "ptyfwd.h"
+#include "ptyfwd-util.h"
 #include "stat-util.h"
 #include "strv.h"
 #include "terminal-util.h"
