@@ -718,7 +718,7 @@ static int condition_test_capability(Condition *c, char **env) {
         if (r < 0)
                 return r;
 
-        return !!(q.bounding & ((UINT64_C(1) << value)));
+        return BIT_SET(q.bounding, value);
 }
 
 static int condition_test_needs_update(Condition *c, char **env) {
