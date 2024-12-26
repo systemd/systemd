@@ -405,7 +405,7 @@ int route_flags_to_string_alloc(uint32_t flags, char **ret) {
         assert(ret);
 
         for (size_t i = 0; i < ELEMENTSOF(map); i++)
-                if (FLAGS_SET(flags, 1 << i) && map[i])
+                if (BIT_SET(flags, i) && map[i])
                         if (!strextend_with_separator(&str, ",", map[i]))
                                 return -ENOMEM;
 

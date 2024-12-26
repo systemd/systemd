@@ -72,7 +72,7 @@ static int property_get_can_clean(
                 return r;
 
         for (ExecDirectoryType t = 0; t < _EXEC_DIRECTORY_TYPE_MAX; t++) {
-                if (!FLAGS_SET(mask, 1U << t))
+                if (!BIT_SET(mask, t))
                         continue;
 
                 r = sd_bus_message_append(reply, "s", exec_resource_type_to_string(t));
@@ -353,15 +353,11 @@ static int property_get_markers(
         if (r < 0)
                 return r;
 
-        /* Make sure out values fit in the bitfield. */
-        assert_cc(_UNIT_MARKER_MAX <= sizeof(((Unit){}).markers) * 8);
-
-        for (UnitMarker m = 0; m < _UNIT_MARKER_MAX; m++)
-                if (FLAGS_SET(*markers, 1u << m)) {
-                        r = sd_bus_message_append(reply, "s", unit_marker_to_string(m));
-                        if (r < 0)
-                                return r;
-                }
+        BIT_FOREACH(m, *markers) {
+                r = sd_bus_message_append(reply, "s", unit_marker_to_string(m));
+                if (r < 0)
+                        return r;
+        }
 
         return sd_bus_message_close_container(reply);
 }

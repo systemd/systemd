@@ -108,9 +108,8 @@ static Window* window_unlink(Window *w) {
                 m->n_unused--;
         }
 
-        for (unsigned i = 0; i < _MMAP_CACHE_CATEGORY_MAX; i++)
-                if (FLAGS_SET(w->flags, 1u << i))
-                        assert_se(TAKE_PTR(m->windows_by_category[i]) == w);
+        BIT_FOREACH(i, w->flags)
+                assert_se(TAKE_PTR(m->windows_by_category[i]) == w);
 
         return LIST_REMOVE(windows, w->fd->windows, w);
 }
@@ -193,7 +192,7 @@ static void category_detach_window(MMapCache *m, MMapCacheCategory c) {
         if (!w)
                 return; /* Nothing attached. */
 
-        assert(FLAGS_SET(w->flags, 1u << c));
+        assert(BIT_SET(w->flags, c));
         w->flags &= ~(1u << c);
 
         if (WINDOW_IS_UNUSED(w)) {

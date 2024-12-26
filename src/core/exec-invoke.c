@@ -5359,7 +5359,7 @@ int exec_invoke(
                         }
 
                         if (keep_seccomp_privileges) {
-                                if (!FLAGS_SET(capability_ambient_set, (UINT64_C(1) << CAP_SETUID))) {
+                                if (!BIT_SET(capability_ambient_set, CAP_SETUID)) {
                                         r = drop_capability(CAP_SETUID);
                                         if (r < 0) {
                                                 *exit_status = EXIT_USER;
@@ -5585,7 +5585,7 @@ int exec_invoke(
 
                         /* Only drop CAP_SYS_ADMIN if it's not in the bounding set, otherwise we'll break
                          * applications that use it. */
-                        if (!FLAGS_SET(saved_bset, (UINT64_C(1) << CAP_SYS_ADMIN))) {
+                        if (!BIT_SET(saved_bset, CAP_SYS_ADMIN)) {
                                 r = drop_capability(CAP_SYS_ADMIN);
                                 if (r < 0) {
                                         *exit_status = EXIT_USER;
@@ -5595,7 +5595,7 @@ int exec_invoke(
 
                         /* Only drop CAP_SETPCAP if it's not in the bounding set, otherwise we'll break
                          * applications that use it. */
-                        if (!FLAGS_SET(saved_bset, (UINT64_C(1) << CAP_SETPCAP))) {
+                        if (!BIT_SET(saved_bset, CAP_SETPCAP)) {
                                 r = drop_capability(CAP_SETPCAP);
                                 if (r < 0) {
                                         *exit_status = EXIT_USER;

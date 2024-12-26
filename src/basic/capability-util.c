@@ -113,16 +113,12 @@ int capability_ambient_set_apply(uint64_t set, bool also_inherit) {
         int r;
 
         /* Remove capabilities requested in ambient set, but not in the bounding set */
-        for (unsigned i = 0; i <= cap_last_cap(); i++) {
-                if (set == 0)
-                        break;
-
-                if (FLAGS_SET(set, (UINT64_C(1) << i)) && prctl(PR_CAPBSET_READ, i) != 1) {
+        for (unsigned i = 0; i <= cap_last_cap() && set > 0; i++)
+                if (BIT_SET(set, i) && prctl(PR_CAPBSET_READ, i) != 1) {
                         log_debug("Ambient capability %s requested but missing from bounding set,"
-                                        " suppressing automatically.", capability_to_name(i));
+                                  " suppressing automatically.", capability_to_name(i));
                         set &= ~(UINT64_C(1) << i);
                 }
-        }
 
         /* Add the capabilities to the ambient set (an possibly also the inheritable set) */
 
@@ -399,17 +395,15 @@ bool capability_quintet_mangle(CapabilityQuintet *q) {
 
         combined = q->effective | q->bounding | q->inheritable | q->permitted | q->ambient;
 
-        for (unsigned i = 0; i <= cap_last_cap(); i++) {
-                unsigned long bit = UINT64_C(1) << i;
-                if (!FLAGS_SET(combined, bit))
+        BIT_FOREACH(i, combined) {
+                assert((unsigned) i <= cap_last_cap());
+
+                if (prctl(PR_CAPBSET_READ, (unsigned long) i) > 0)
                         continue;
 
-                if (prctl(PR_CAPBSET_READ, i) > 0)
-                        continue;
+                drop |= UINT64_C(1) << i;
 
-                drop |= bit;
-
-                log_debug("Not in the current bounding set: %s", capability_to_name(i));
+                log_debug("Dropping capability not in the current bounding set: %s", capability_to_name(i));
         }
 
         q->effective &= ~drop;
@@ -602,7 +596,6 @@ int capability_get_ambient(uint64_t *ret) {
                 r = prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_IS_SET, i, 0, 0);
                 if (r < 0)
                         return -errno;
-
                 if (r)
                         a |= UINT64_C(1) << i;
         }
@@ -669,11 +662,7 @@ int pidref_get_capability(const PidRef *pidref, CapabilityQuintet *ret) {
                 }
         }
 
-        if (q.effective == CAP_MASK_UNSET ||
-            q.inheritable == CAP_MASK_UNSET ||
-            q.permitted == CAP_MASK_UNSET ||
-            q.effective == CAP_MASK_UNSET ||
-            q.ambient == CAP_MASK_UNSET)
+        if (!capability_quintet_is_fully_set(&q))
                 return -EBADMSG;
 
         r = pidref_verify(pidref);

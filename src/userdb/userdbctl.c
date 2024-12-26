@@ -194,7 +194,7 @@ static int table_add_uid_boundaries(Table *table, const UIDRange *p) {
         FOREACH_ELEMENT(i, uid_range_table) {
                 _cleanup_free_ char *name = NULL, *comment = NULL;
 
-                if (!FLAGS_SET(arg_disposition_mask, UINT64_C(1) << i->disposition))
+                if (!BIT_SET(arg_disposition_mask, i->disposition))
                         continue;
 
                 if (!uid_range_covers(p, i->first, i->last - i->first + 1))
@@ -585,7 +585,7 @@ static int table_add_gid_boundaries(Table *table, const UIDRange *p) {
         FOREACH_ELEMENT(i, uid_range_table) {
                 _cleanup_free_ char *name = NULL, *comment = NULL;
 
-                if (!FLAGS_SET(arg_disposition_mask, UINT64_C(1) << i->disposition))
+                if (!BIT_SET(arg_disposition_mask, i->disposition))
                         continue;
 
                 if (!uid_range_covers(p, i->first, i->last - i->first + 1))

@@ -22,9 +22,8 @@ static int serialize_markers(FILE *f, unsigned markers) {
                 return 0;
 
         fputs("markers=", f);
-        for (UnitMarker m = 0; m < _UNIT_MARKER_MAX; m++)
-                if (FLAGS_SET(markers, 1u << m))
-                        fputs(unit_marker_to_string(m), f);
+        BIT_FOREACH(m, markers)
+                fputs(unit_marker_to_string(m), f);
         fputc('\n', f);
         return 0;
 }
@@ -494,9 +493,8 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
         if (u->markers != 0) {
                 fprintf(f, "%s\tMarkers:", prefix);
 
-                for (UnitMarker marker = 0; marker < _UNIT_MARKER_MAX; marker++)
-                        if (FLAGS_SET(u->markers, 1u << marker))
-                                fprintf(f, " %s", unit_marker_to_string(marker));
+                BIT_FOREACH(m, u->markers)
+                        fprintf(f, " %s", unit_marker_to_string(m));
                 fputs("\n", f);
         }
 

@@ -83,7 +83,7 @@ int capability_set_to_string(uint64_t set, char **ret) {
         for (unsigned i = 0; i <= cap_last_cap(); i++) {
                 const char *p;
 
-                if (!FLAGS_SET(set, UINT64_C(1) << i))
+                if (!BIT_SET(set, i))
                         continue;
 
                 p = CAPABILITY_TO_STRING(i);
@@ -143,7 +143,7 @@ int capability_set_to_strv(uint64_t set, char ***ret) {
         for (unsigned i = 0; i <= cap_last_cap(); i++) {
                 const char *p;
 
-                if (!FLAGS_SET(set, UINT64_C(1) << i))
+                if (!BIT_SET(set, i))
                         continue;
 
                 p = CAPABILITY_TO_STRING(i);

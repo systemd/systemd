@@ -3120,7 +3120,7 @@ static char *age_by_to_string(AgeBy ab, bool is_dir) {
                 return NULL;
 
         for (size_t i = 0; i < ELEMENTSOF(ab_map); i++)
-                if (FLAGS_SET(ab, 1U << i))
+                if (BIT_SET(ab, i))
                         ret[j++] = is_dir ? ascii_toupper(ab_map[i]) : ab_map[i];
 
         ret[j] = 0;
