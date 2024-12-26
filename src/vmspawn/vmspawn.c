@@ -55,7 +55,7 @@
 #include "pidref.h"
 #include "pretty-print.h"
 #include "process-util.h"
-#include "ptyfwd.h"
+#include "ptyfwd-util.h"
 #include "random-util.h"
 #include "rm-rf.h"
 #include "signal-util.h"

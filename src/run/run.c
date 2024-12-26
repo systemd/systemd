@@ -36,7 +36,7 @@
 #include "polkit-agent.h"
 #include "pretty-print.h"
 #include "process-util.h"
-#include "ptyfwd.h"
+#include "ptyfwd-util.h"
 #include "signal-util.h"
 #include "special.h"
 #include "strv.h"
@@ -1703,7 +1703,7 @@ static void run_context_detach_bus(RunContext *c) {
         c->match_disconnected = sd_bus_slot_unref(c->match_disconnected);
 }
 
-static int pty_forward_handler(PTYForward *f, int rcode, void *userdata) {
+static int pty_forward_handler(sd_event *e, PTYForward *f, int rcode, void *userdata) {
         RunContext *c = ASSERT_PTR(userdata);
 
         assert(f);
@@ -1711,12 +1711,12 @@ static int pty_forward_handler(PTYForward *f, int rcode, void *userdata) {
         if (rcode == -ECANCELED) {
                 log_debug_errno(rcode, "PTY forwarder disconnected.");
                 if (!arg_wait)
-                        return sd_event_exit(c->event, EXIT_SUCCESS);
+                        return sd_event_exit(e, EXIT_SUCCESS);
 
                 /* If --wait is specified, we'll only exit the pty forwarding, but will continue to wait
                  * for the service to end. If the user hits ^C we'll exit too. */
         } else if (rcode < 0) {
-                (void) sd_event_exit(c->event, EXIT_FAILURE);
+                (void) sd_event_exit(e, EXIT_FAILURE);
                 return log_error_errno(rcode, "Error on PTY forwarding logic: %m");
         }
 

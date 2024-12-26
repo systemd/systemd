@@ -90,7 +90,7 @@
 #include "parse-util.h"
 #include "pretty-print.h"
 #include "process-util.h"
-#include "ptyfwd.h"
+#include "ptyfwd-util.h"
 #include "random-util.h"
 #include "raw-clone.h"
 #include "resolve-util.h"

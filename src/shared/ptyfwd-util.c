@@ -25,7 +25,7 @@
 #include "io-util.h"
 #include "log.h"
 #include "macro.h"
-#include "ptyfwd.h"
+#include "ptyfwd-util.h"
 #include "stat-util.h"
 #include "strv.h"
 #include "terminal-util.h"
@@ -188,7 +188,7 @@ static int pty_forward_done(PTYForward *f, int rcode) {
         pty_forward_disconnect(f);
 
         if (f->handler)
-                return f->handler(f, rcode, f->userdata);
+                return f->handler(e, f, rcode, f->userdata);
         else
                 return sd_event_exit(e, rcode < 0 ? EXIT_FAILURE : rcode);
 }

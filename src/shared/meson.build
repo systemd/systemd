@@ -146,7 +146,7 @@ shared_sources = files(
         'portable-util.c',
         'pretty-print.c',
         'capsule-util.c',
-        'ptyfwd.c',
+        'ptyfwd-util.c',
         'qrcode-util.c',
         'quota-util.c',
         'reboot-util.c',
