@@ -21,10 +21,12 @@ static int serialize_markers(FILE *f, unsigned markers) {
         if (markers == 0)
                 return 0;
 
+        bool space = false;
+
         fputs("markers=", f);
         for (UnitMarker m = 0; m < _UNIT_MARKER_MAX; m++)
                 if (FLAGS_SET(markers, 1u << m))
-                        fputs(unit_marker_to_string(m), f);
+                        fputs_with_separator(f, unit_marker_to_string(m), /* separator = */ NULL, &space);
         fputc('\n', f);
         return 0;
 }
