@@ -8,6 +8,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "bitfield.h"
 #include "cap-list.h"
 #include "capability-util.h"
 #include "fd-util.h"
@@ -113,14 +114,13 @@ int capability_ambient_set_apply(uint64_t set, bool also_inherit) {
         int r;
 
         /* Remove capabilities requested in ambient set, but not in the bounding set */
-        for (unsigned i = 0; i <= cap_last_cap(); i++) {
-                if (set == 0)
-                        break;
+        BIT_FOREACH(i, set) {
+                assert((unsigned) i <= cap_last_cap());
 
-                if (FLAGS_SET(set, (UINT64_C(1) << i)) && prctl(PR_CAPBSET_READ, i) != 1) {
-                        log_debug("Ambient capability %s requested but missing from bounding set,"
-                                        " suppressing automatically.", capability_to_name(i));
-                        set &= ~(UINT64_C(1) << i);
+                if (prctl(PR_CAPBSET_READ, (unsigned long) i) != 1) {
+                        log_debug("Ambient capability %s requested but missing from bounding set, suppressing automatically.",
+                                  capability_to_name(i));
+                        CLEAR_BIT(set, i);
                 }
         }
 
@@ -140,23 +140,18 @@ int capability_ambient_set_apply(uint64_t set, bool also_inherit) {
         }
 
         for (unsigned i = 0; i <= cap_last_cap(); i++) {
-
-                if (set & (UINT64_C(1) << i)) {
-
+                if (BIT_SET(set, i)) {
                         /* Add the capability to the ambient set. */
                         if (prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, i, 0, 0) < 0)
                                 return -errno;
                 } else {
-
                         /* Drop the capability so we don't inherit capabilities we didn't ask for. */
                         r = prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_IS_SET, i, 0, 0);
                         if (r < 0)
                                 return -errno;
-
-                        if (r)
+                        if (r > 0)
                                 if (prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_LOWER, i, 0, 0) < 0)
                                         return -errno;
-
                 }
         }
 
@@ -399,17 +394,15 @@ bool capability_quintet_mangle(CapabilityQuintet *q) {
 
         combined = q->effective | q->bounding | q->inheritable | q->permitted | q->ambient;
 
-        for (unsigned i = 0; i <= cap_last_cap(); i++) {
-                unsigned long bit = UINT64_C(1) << i;
-                if (!FLAGS_SET(combined, bit))
+        BIT_FOREACH(i, combined) {
+                assert((unsigned) i <= cap_last_cap());
+
+                if (prctl(PR_CAPBSET_READ, (unsigned long) i) > 0)
                         continue;
 
-                if (prctl(PR_CAPBSET_READ, i) > 0)
-                        continue;
+                SET_BIT(drop, i);
 
-                drop |= bit;
-
-                log_debug("Not in the current bounding set: %s", capability_to_name(i));
+                log_debug("Dropping capability not in the current bounding set: %s", capability_to_name(i));
         }
 
         q->effective &= ~drop;
@@ -602,9 +595,8 @@ int capability_get_ambient(uint64_t *ret) {
                 r = prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_IS_SET, i, 0, 0);
                 if (r < 0)
                         return -errno;
-
-                if (r)
-                        a |= UINT64_C(1) << i;
+                if (r > 0)
+                        SET_BIT(a, i);
         }
 
         *ret = a;
