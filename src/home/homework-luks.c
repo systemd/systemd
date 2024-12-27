@@ -2780,6 +2780,7 @@ static int get_maximum_partition_size(
 
         _cleanup_(fdisk_unref_contextp) struct fdisk_context *c = NULL;
         uint64_t start_lba, start, last_lba, end;
+        fdisk_sector_t fdisk_sector_size;
         int r;
 
         assert(fd >= 0);
@@ -2790,13 +2791,15 @@ static int get_maximum_partition_size(
         if (r < 0)
                 return log_error_errno(r, "Failed to create fdisk context: %m");
 
+        /* Get the probed sector size by fdisk */
+        fdisk_sector_size = fdisk_get_sector_size(c);
         start_lba = fdisk_partition_get_start(p);
-        assert(start_lba <= UINT64_MAX/512);
-        start = start_lba * 512;
+        assert(start_lba <= UINT64_MAX/fdisk_sector_size);
+        start = start_lba * fdisk_sector_size;
 
         last_lba = fdisk_get_last_lba(c); /* One sector before boundary where usable space ends */
-        assert(last_lba < UINT64_MAX/512);
-        end = DISK_SIZE_ROUND_DOWN((last_lba + 1) * 512); /* Round down to multiple of 4K */
+        assert(last_lba < UINT64_MAX/fdisk_sector_size);
+        end = DISK_SIZE_ROUND_DOWN((last_lba + 1) * fdisk_sector_size);
 
         if (start > end)
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Last LBA is before partition start.");
