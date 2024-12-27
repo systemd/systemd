@@ -463,6 +463,7 @@ udev.xml /refsect1[title="Rules Files"]/refsect2[title="Keys"]/variablelist[3]/v
 udev.xml /refsect1[title="Rules Files"]/refsect2[title="Keys"]/variablelist[3]/varlistentry[term="IMPORT{type}"]/listitem/variablelist/varlistentry[term="parent"]
 udev.xml /refsect1[title="Rules Files"]/refsect2[title="Keys"]/variablelist[3]/varlistentry[term="OPTIONS"]/listitem/variablelist/varlistentry[term="link_priority=value"]
 udev.xml /refsect1[title="Rules Files"]/refsect2[title="Keys"]/variablelist[3]/varlistentry[term="OPTIONS"]/listitem/variablelist/varlistentry[term="string_escape=none|replace"]
+udev.xml /refsect1[title="Rules Files"]/refsect2[title="Keys"]/variablelist[3]/varlistentry[term="OPTIONS"]/listitem/variablelist/varlistentry[term="program_result_escape=none|replace"]
 udev.xml /refsect1[title="Rules Files"]/refsect2[title="Keys"]/variablelist[3]/varlistentry[term="OPTIONS"]/listitem/variablelist/varlistentry[term="static_node="]
 udev.xml /refsect1[title="Rules Files"]/refsect2[title="Keys"]/variablelist[3]/varlistentry[term="OPTIONS"]/listitem/variablelist/varlistentry[term="watch"]
 udev.xml /refsect1[title="Rules Files"]/refsect2[title="Keys"]/variablelist[3]/varlistentry[term="OPTIONS"]/listitem/variablelist/varlistentry[term="nowatch"]
