@@ -1552,7 +1552,7 @@ int ipc_encrypt_credential(const char *name, usec_t timestamp, usec_t not_after,
 
         json_variant_sensitive(jinput);
 
-        _cleanup_(json_variant_unrefp) JsonVariant *reply = NULL;
+        JsonVariant *reply = NULL;
         const char *error_id = NULL;
         r = varlink_callb(vl,
                           "io.systemd.Credentials.Encrypt",
@@ -1612,7 +1612,7 @@ int ipc_decrypt_credential(const char *validate_name, usec_t validate_timestamp,
 
         json_variant_sensitive(jinput);
 
-        _cleanup_(json_variant_unrefp) JsonVariant *reply = NULL;
+        JsonVariant *reply = NULL;
         const char *error_id = NULL;
         r = varlink_callb(vl,
                           "io.systemd.Credentials.Decrypt",
