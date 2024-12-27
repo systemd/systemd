@@ -1731,6 +1731,7 @@ static int luks_format(
                 const PasswordCache *cache,
                 char **effective_passwords,
                 bool discard,
+                uint64_t sector_size,
                 UserRecord *hr,
                 struct crypt_device **ret) {
 
@@ -1787,7 +1788,7 @@ static int luks_format(
                         &(struct crypt_params_luks2) {
                                 .label = label,
                                 .subsystem = "systemd-home",
-                                .sector_size = user_record_luks_sector_size(hr),
+                                .sector_size = sector_size,
                                 .pbkdf = &good_pbkdf,
                         });
         if (r < 0)
@@ -2145,7 +2146,7 @@ int home_create_luks(
                 UserRecord **ret_home) {
 
         _cleanup_free_ char *subdir = NULL, *disk_uuid_path = NULL;
-        uint64_t encrypted_size,
+        uint64_t encrypted_size, image_sector_size, luks_sector_size,
                 host_size = 0, partition_offset = 0, partition_size = 0; /* Unnecessary initialization to appease gcc */
         _cleanup_(user_record_unrefp) UserRecord *new_home = NULL;
         sd_id128_t partition_uuid, fs_uuid, luks_uuid, disk_uuid;
@@ -2316,9 +2317,17 @@ int home_create_luks(
                 log_info("Allocating image file completed.");
         }
 
+        if ( h->luks_sector_size == UINT64_MAX) {
+                /* if sector size is not specified, select UINT32_MAX, i.e. auto-probe */
+                image_sector_size = UINT32_MAX;
+                /* Let cryptsetup decide if the sector size if not specified in home record */
+                luks_sector_size = 0;
+        } else {
+               luks_sector_size = image_sector_size = user_record_luks_sector_size(h);
+        }
         r = make_partition_table(
                         setup->image_fd,
-                        user_record_luks_sector_size(h),
+                        image_sector_size,
                         user_record_user_name_and_realm(h),
                         partition_uuid,
                         &partition_offset,
@@ -2334,7 +2343,7 @@ int home_create_luks(
                         O_RDWR,
                         partition_offset,
                         partition_size,
-                        user_record_luks_sector_size(h),
+                        image_sector_size,
                         0,
                         LOCK_EX,
                         &setup->loop);
@@ -2358,6 +2367,7 @@ int home_create_luks(
                         cache,
                         effective_passwords,
                         user_record_luks_discard(h) || user_record_luks_offline_discard(h),
+                        luks_sector_size,
                         h,
                         &setup->crypt_device);
         if (r < 0)
