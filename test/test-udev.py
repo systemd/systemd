@@ -1598,6 +1598,16 @@ SUBSYSTEMS=="scsi", PROGRAM=="/bin/sh -c \"printf %%s 'foo1 foo2' | grep 'foo1 f
         """),
 
     Rules.new(
+        "suppression of untrusted string sanitize",
+        Device(
+            "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda1",
+            exp_links       = ["passed"],
+        ),
+        rules = r"""
+        SUBSYSTEMS=="scsi", KERNEL=="sda1", OPTIONS="program_result_escape=none", PROGRAM=="/bin/echo a\\x2db", RESULT=="a\\x2db", SYMLINK+="passed"
+        """),
+
+    Rules.new(
         "read sysfs value from parent device",
         Device(
             "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
