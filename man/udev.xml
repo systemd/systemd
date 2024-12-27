@@ -660,6 +660,17 @@
                   </listitem>
                 </varlistentry>
                 <varlistentry>
+                  <term><option>program_result_escape=<replaceable>none|replace</replaceable></option></term>
+                  <listitem>
+                    <para>When <literal>replace</literal>, possibly unsafe characters in the
+                    PROGRAM key output will be replaced. When <literal>none</literal>, no replacement
+                    is performed. When unset, the behaviour is the same as for <literal>replace</literal>.
+                    Defaults to unset.</para>
+                    <para>Use the option <literal>none</literal> only if you know that the program cannot
+                    be malicious and you trust the program output.</para>
+                  </listitem>
+                </varlistentry>
+                <varlistentry>
                   <term><option>static_node=</option></term>
                   <listitem>
                     <para>Apply the permissions specified in this rule to the
