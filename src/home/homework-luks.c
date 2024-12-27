@@ -1887,7 +1887,7 @@ static int make_partition_table(
         _cleanup_(fdisk_unref_parttypep) struct fdisk_parttype *t = NULL;
         _cleanup_(fdisk_unref_contextp) struct fdisk_context *c = NULL;
         _cleanup_free_ char *disk_uuid_as_string = NULL;
-        uint64_t offset, size, first_lba, start, last_lba, end;
+        uint64_t offset, size, first_lba, start, last_lba, end, fdisk_sector_size;
         sd_id128_t disk_uuid;
         int r;
 
@@ -1924,9 +1924,13 @@ static int make_partition_table(
         if (r < 0)
                 return log_error_errno(r, "Failed to place partition at first free partition index: %m");
 
+        /* Use same sector size as the fdisk context when converting to bytes */
+        fdisk_sector_size = fdisk_get_sector_size(c);
+        assert(fdisk_sector_size > 0);
+
         first_lba = fdisk_get_first_lba(c); /* Boundary where usable space starts */
-        assert(first_lba <= UINT64_MAX/512);
-        start = DISK_SIZE_ROUND_UP(first_lba * 512); /* Round up to multiple of 4K */
+        assert(first_lba <= UINT64_MAX/fdisk_sector_size);
+        start = DISK_SIZE_ROUND_UP(first_lba * fdisk_sector_size);
 
         log_debug("Starting partition at offset %" PRIu64, start);
 
@@ -1934,17 +1938,17 @@ static int make_partition_table(
                 return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "Overflow while rounding up start LBA.");
 
         last_lba = fdisk_get_last_lba(c); /* One sector before boundary where usable space ends */
-        assert(last_lba < UINT64_MAX/512);
-        end = DISK_SIZE_ROUND_DOWN((last_lba + 1) * 512); /* Round down to multiple of 4K */
+        assert(last_lba < UINT64_MAX/fdisk_sector_size);
+        end = DISK_SIZE_ROUND_DOWN((last_lba + 1) * fdisk_sector_size);
 
         if (end <= start)
                 return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "Resulting partition size zero or negative.");
 
-        r = fdisk_partition_set_start(p, start / 512);
+        r = fdisk_partition_set_start(p, start / fdisk_sector_size);
         if (r < 0)
                 return log_error_errno(r, "Failed to place partition at offset %" PRIu64 ": %m", start);
 
-        r = fdisk_partition_set_size(p, (end - start) / 512);
+        r = fdisk_partition_set_size(p, (end - start) / fdisk_sector_size);
         if (r < 0)
                 return log_error_errno(r, "Failed to end partition at offset %" PRIu64 ": %m", end);
 
@@ -1978,16 +1982,16 @@ static int make_partition_table(
 
         assert(fdisk_partition_has_start(q));
         offset = fdisk_partition_get_start(q);
-        if (offset > UINT64_MAX / 512U)
+        if (offset > UINT64_MAX / fdisk_sector_size)
                 return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "Partition offset too large.");
 
         assert(fdisk_partition_has_size(q));
         size = fdisk_partition_get_size(q);
-        if (size > UINT64_MAX / 512U)
+        if (size > UINT64_MAX / fdisk_sector_size)
                 return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "Partition size too large.");
 
-        *ret_offset = offset * 512U;
-        *ret_size = size * 512U;
+        *ret_offset = offset * fdisk_sector_size;
+        *ret_size = size * fdisk_sector_size;
         *ret_disk_uuid = disk_uuid;
 
         return 0;
@@ -2753,6 +2757,7 @@ static int prepare_resize_partition(
         n_partitions = fdisk_table_get_nents(t);
         for (size_t i = 0; i < n_partitions; i++)  {
                 struct fdisk_partition *p;
+                uint64_t fdisk_sector_size;
 
                 p = fdisk_table_get_partition(t, i);
                 if (!p)
@@ -2763,14 +2768,16 @@ static int prepare_resize_partition(
                 if (fdisk_partition_has_start(p) <= 0 || fdisk_partition_has_size(p) <= 0 || fdisk_partition_has_end(p) <= 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Found partition without a size.");
 
-                if (fdisk_partition_get_start(p) == partition_offset / 512U &&
-                    fdisk_partition_get_size(p) == old_partition_size / 512U) {
+                fdisk_sector_size = fdisk_get_sector_size(c);
+                assert(fdisk_sector_size > 0);
+                if (fdisk_partition_get_start(p) == partition_offset / fdisk_sector_size &&
+                    fdisk_partition_get_size(p) == old_partition_size / fdisk_sector_size) {
 
                         if (found)
                                 return log_error_errno(SYNTHETIC_ERRNO(ENOTUNIQ), "Partition found twice, refusing.");
 
                         found = p;
-                } else if (fdisk_partition_get_end(p) > partition_offset / 512U)
+                } else if (fdisk_partition_get_end(p) > partition_offset / fdisk_sector_size)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Can't extend, not last partition in image.");
         }
 
@@ -2790,7 +2797,7 @@ static int get_maximum_partition_size(
                 uint64_t *ret_maximum_partition_size) {
 
         _cleanup_(fdisk_unref_contextp) struct fdisk_context *c = NULL;
-        uint64_t start_lba, start, last_lba, end;
+        uint64_t start_lba, start, last_lba, end, fdisk_sector_size;
         int r;
 
         assert(fd >= 0);
@@ -2801,13 +2808,15 @@ static int get_maximum_partition_size(
         if (r < 0)
                 return log_error_errno(r, "Failed to create fdisk context: %m");
 
+        /* Get the probed sector size by fdisk */
+        fdisk_sector_size = fdisk_get_sector_size(c);
         start_lba = fdisk_partition_get_start(p);
-        assert(start_lba <= UINT64_MAX/512);
-        start = start_lba * 512;
+        assert(start_lba <= UINT64_MAX/fdisk_sector_size);
+        start = start_lba * fdisk_sector_size;
 
         last_lba = fdisk_get_last_lba(c); /* One sector before boundary where usable space ends */
-        assert(last_lba < UINT64_MAX/512);
-        end = DISK_SIZE_ROUND_DOWN((last_lba + 1) * 512); /* Round down to multiple of 4K */
+        assert(last_lba < UINT64_MAX/fdisk_sector_size);
+        end = DISK_SIZE_ROUND_DOWN((last_lba + 1) * fdisk_sector_size);
 
         if (start > end)
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Last LBA is before partition start.");
@@ -2860,15 +2869,6 @@ static int apply_resize_partition(
 
         assert(p);
 
-        /* Before writing our partition patch the final size in */
-        r = fdisk_partition_size_explicit(p, 1);
-        if (r < 0)
-                return log_error_errno(r, "Failed to enable explicit partition size: %m");
-
-        r = fdisk_partition_set_size(p, new_partition_size / 512U);
-        if (r < 0)
-                return log_error_errno(r, "Failed to change partition size: %m");
-
         r = probe_sector_size(fd, &ssz);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine current sector size: %m");
@@ -2888,6 +2888,14 @@ static int apply_resize_partition(
         if (r < 0)
                 return log_error_errno(r, "Failed to open device: %m");
 
+        /* Before writing our partition patch the final size in */
+        r = fdisk_partition_size_explicit(p, 1);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enable explicit partition size: %m");
+
+        r = fdisk_partition_set_size(p, new_partition_size / ssz);
+        if (r < 0)
+                return log_error_errno(r, "Failed to change partition size: %m");
         r = fdisk_create_disklabel(c, "gpt");
         if (r < 0)
                 return log_error_errno(r, "Failed to create GPT disk label: %m");
@@ -3536,7 +3544,7 @@ int home_resize_luks(
         if (new_fs_size < old_fs_size) { /* → Shrink */
 
                 /* Shrink the LUKS device now, matching the new file system size */
-                r = sym_crypt_resize(setup->crypt_device, setup->dm_name, new_fs_size / 512);
+                r = sym_crypt_resize(setup->crypt_device, setup->dm_name, new_fs_size / 512U);
                 if (r < 0)
                         return log_error_errno(r, "Failed to shrink LUKS device: %m");
 
