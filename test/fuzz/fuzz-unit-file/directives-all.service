@@ -381,6 +381,7 @@ SYSTEMD_WANTS=
 link_priority=
 static_node=
 string_escape=
+program_result_escape=
 ARP=
 ARPAllTargets=
 ARPIPTargets=
