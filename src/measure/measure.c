@@ -158,9 +158,9 @@ static int parse_argv(int argc, char *argv[]) {
                 _ARG_PCRSIG, /* the .pcrsig section is not input for signing, hence not actually an argument here */
                 ARG_PCRPKEY,
                 ARG_PROFILE,
-                ARG_HWIDS,
+                ARG_DTBAUTO,
                 _ARG_SECTION_LAST,
-                ARG_DTBAUTO = _ARG_SECTION_LAST,
+                ARG_HWIDS = _ARG_SECTION_LAST,
                 ARG_BANK,
                 ARG_PRIVATE_KEY,
                 ARG_PRIVATE_KEY_SOURCE,
