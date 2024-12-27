@@ -66,16 +66,16 @@
 #include "user-record.h"
 #include "user-util.h"
 
-/* Round down to the nearest 4K size. Given that newer hardware generally prefers 4K sectors, let's align our
- * partitions to that too. In the worst case we'll waste 3.5K per partition that way, but I think I can live
+/* Round down to the nearest 1 MiB size. Given that most tools generally align partitions to 1 MiB boundaries, let's align our
+ * partitions to that too. In the worst case we'll waste 1 MiB per partition that way, but I think I can live
  * with that. */
-#define DISK_SIZE_ROUND_DOWN(x) ((x) & ~UINT64_C(4095))
+#define DISK_SIZE_ROUND_DOWN(x) ((x) & ~(U64_MB - 1))
 
-/* Rounds up to the nearest 4K boundary. Returns UINT64_MAX on overflow */
+/* Rounds up to the nearest 1 MiB boundary. Returns UINT64_MAX on overflow */
 #define DISK_SIZE_ROUND_UP(x)                                           \
         ({                                                              \
                 uint64_t _x = (x);                                      \
-                _x > UINT64_MAX - 4095U ? UINT64_MAX : (_x + 4095U) & ~UINT64_C(4095); \
+                _x > UINT64_MAX - (U64_MB - 1) ? UINT64_MAX : (DISK_SIZE_ROUND_DOWN(_x + U64_MB - 1)); \
         })
 
 /* How much larger will the image on disk be than the fs inside it, i.e. the space we pay for the GPT and
