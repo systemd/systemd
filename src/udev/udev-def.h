@@ -19,8 +19,10 @@ typedef enum EventMode {
 
 typedef enum UdevRuleEscapeType {
         ESCAPE_UNSET,
-        ESCAPE_NONE,    /* OPTIONS="string_escape=none" */
-        ESCAPE_REPLACE, /* OPTIONS="string_escape=replace" */
+        ESCAPE_NONE,    /* OPTIONS="string_escape=none" or
+                           OPTIONS="program_result_escape=none" */
+        ESCAPE_REPLACE, /* OPTIONS="string_escape=replace" or
+                           OPTIONS="program_result_escape=replace" */
         _ESCAPE_TYPE_MAX,
         _ESCAPE_TYPE_INVALID = -EINVAL,
 } UdevRuleEscapeType;
