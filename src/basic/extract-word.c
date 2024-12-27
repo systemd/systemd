@@ -129,7 +129,12 @@ int extract_first_word(const char **p, char **ret, const char *separators, Extra
                                                 break;
                                 } else if (c == '\\' && !(flags & EXTRACT_RETAIN_ESCAPE)) {
                                         backslash = true;
-                                        break;
+                                        if (!(flags & EXTRACT_EMULATE_FOREACH_WORD_QUOTED)) {
+                                                /* FOREACH_WORD_QUOTED() used to pass backslashes through
+                                                 * to the output string, even when the backslash was escaping
+                                                 * something */
+                                                break;
+                                        }
                                 }
 
                                 if (!GREEDY_REALLOC(s, sz+2))
@@ -137,7 +142,7 @@ int extract_first_word(const char **p, char **ret, const char *separators, Extra
 
                                 s[sz++] = c;
 
-                                if (quote == 0)
+                                if (quote == 0 || backslash)
                                         break;
                         }
 
@@ -151,7 +156,12 @@ int extract_first_word(const char **p, char **ret, const char *separators, Extra
                                                 break;
                                 } else if (c == '\\' && !(flags & EXTRACT_RETAIN_ESCAPE)) {
                                         backslash = true;
-                                        break;
+                                        if (!(flags & EXTRACT_EMULATE_FOREACH_WORD_QUOTED)) {
+                                                /* FOREACH_WORD_QUOTED() used to pass backslashes through
+                                                 * to the output string, even when the backslash was escaping
+                                                 * something */
+                                                break;
+                                        }
                                 } else if (strchr(separators, c)) {
                                         if (flags & EXTRACT_DONT_COALESCE_SEPARATORS) {
                                                 if (!(flags & EXTRACT_RETAIN_SEPARATORS))
@@ -175,7 +185,7 @@ int extract_first_word(const char **p, char **ret, const char *separators, Extra
 
                                 s[sz++] = c;
 
-                                if (quote != 0)
+                                if (quote != 0 || backslash)
                                         break;
                         }
                 }
