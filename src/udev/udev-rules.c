@@ -119,6 +119,8 @@ typedef enum {
         /* lvalues which take one of assign operators */
         TK_A_OPTIONS_STRING_ESCAPE_NONE,    /* no argument */
         TK_A_OPTIONS_STRING_ESCAPE_REPLACE, /* no argument */
+        TK_A_OPTIONS_PROGRAM_RESULT_ESCAPE_NONE,    /* no argument */
+        TK_A_OPTIONS_PROGRAM_RESULT_ESCAPE_REPLACE, /* no argument */
         TK_A_OPTIONS_DB_PERSIST,            /* no argument */
         TK_A_OPTIONS_INOTIFY_WATCH,         /* boolean */
         TK_A_OPTIONS_DEVLINK_PRIORITY,      /* int */
@@ -909,6 +911,10 @@ static int parse_token(UdevRuleLine *rule_line, const char *key, char *attr, Ude
                         r = rule_line_add_token(rule_line, TK_A_OPTIONS_STRING_ESCAPE_NONE, op, NULL, NULL, /* is_case_insensitive = */ false);
                 else if (streq(value, "string_escape=replace"))
                         r = rule_line_add_token(rule_line, TK_A_OPTIONS_STRING_ESCAPE_REPLACE, op, NULL, NULL, /* is_case_insensitive = */ false);
+                else if (streq(value, "program_result_escape=none"))
+                        r = rule_line_add_token(rule_line, TK_A_OPTIONS_PROGRAM_RESULT_ESCAPE_NONE, op, NULL, NULL, /* is_case_insensitive = */ false);
+                else if (streq(value, "program_result_escape=replace"))
+                        r = rule_line_add_token(rule_line, TK_A_OPTIONS_PROGRAM_RESULT_ESCAPE_REPLACE, op, NULL, NULL, /* is_case_insensitive = */ false);
                 else if (streq(value, "db_persist"))
                         r = rule_line_add_token(rule_line, TK_A_OPTIONS_DB_PERSIST, op, NULL, NULL, /* is_case_insensitive = */ false);
                 else if (streq(value, "watch"))
@@ -2154,11 +2160,13 @@ static int udev_rule_apply_token_to_event(
                 }
 
                 delete_trailing_chars(result, "\n");
-                count = udev_replace_chars(result, UDEV_ALLOWED_CHARS_INPUT);
-                if (count > 0)
-                        log_event_debug(dev, token,
-                                        "Replaced %zu character(s) in result of \"%s\"",
-                                        count, buf);
+                if (IN_SET(event->program_esc, ESCAPE_UNSET, ESCAPE_REPLACE)) {
+                        count = udev_replace_chars(result, UDEV_ALLOWED_CHARS_INPUT);
+                        if (count > 0)
+                                log_event_debug(dev, token,
+                                                "Replaced %zu character(s) in result of \"%s\"",
+                                                count, buf);
+                }
 
                 event->program_result = strdup(result);
                 return token->op == OP_MATCH;
@@ -2374,6 +2382,12 @@ static int udev_rule_apply_token_to_event(
                 break;
         case TK_A_OPTIONS_STRING_ESCAPE_REPLACE:
                 event->esc = ESCAPE_REPLACE;
+                break;
+        case TK_A_OPTIONS_PROGRAM_RESULT_ESCAPE_NONE:
+                event->program_esc = ESCAPE_NONE;
+                break;
+        case TK_A_OPTIONS_PROGRAM_RESULT_ESCAPE_REPLACE:
+                event->program_esc = ESCAPE_REPLACE;
                 break;
         case TK_A_OPTIONS_DB_PERSIST:
                 device_set_db_persist(dev);
@@ -2899,6 +2913,7 @@ static int udev_rule_apply_line_to_event(
                 return 0;
 
         event->esc = ESCAPE_UNSET;
+        event->program_esc = ESCAPE_UNSET;
 
         DEVICE_TRACE_POINT(rules_apply_line, event->dev, line->rule_file->filename, line->line_number);
 
