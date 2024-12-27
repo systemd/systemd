@@ -997,7 +997,8 @@ int generator_write_veritysetup_service_section(
 void log_setup_generator(void) {
         if (invoked_by_systemd()) {
                 /* Disable talking to syslog/journal (i.e. the two IPC-based loggers) if we run in system context. */
-                if (cg_pid_get_owner_uid(0, NULL) == -ENXIO /* not running in a per-user slice */)
+                int r = cg_pid_get_owner_uid(0, NULL);
+                if (r == -ENXIO /* not running in a per-user slice */ || r == -EACCES /*Permission denied when selinux label changes*/)
                         log_set_prohibit_ipc(true);
 
                 /* This effectively means: journal for per-user generators, kmsg otherwise */
