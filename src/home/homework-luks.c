@@ -2856,9 +2856,7 @@ static int apply_resize_partition(
                 size_t new_partition_size) {
 
         _cleanup_(fdisk_unref_contextp) struct fdisk_context *c = NULL;
-        _cleanup_free_ void *two_zero_lbas = NULL;
         uint32_t ssz;
-        ssize_t n;
         int r;
 
         assert(fd >= 0);
@@ -2872,17 +2870,6 @@ static int apply_resize_partition(
         r = probe_sector_size(fd, &ssz);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine current sector size: %m");
-
-        two_zero_lbas = malloc0(ssz * 2);
-        if (!two_zero_lbas)
-                return log_oom();
-
-        /* libfdisk appears to get confused by the existing PMBR. Let's explicitly flush it out. */
-        n = pwrite(fd, two_zero_lbas, ssz * 2, 0);
-        if (n < 0)
-                return log_error_errno(errno, "Failed to wipe partition table: %m");
-        if ((size_t) n != ssz * 2)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short write while wiping partition table.");
 
         r = fdisk_new_context_at(fd, /* path= */ NULL, /* read_only= */ false, ssz, &c);
         if (r < 0)
