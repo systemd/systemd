@@ -378,7 +378,7 @@ Various services shipped with `systemd` consume credentials for tweaking behavio
   Note that in case the hypervisor does not support `SOCK_DGRAM` over `AF_VSOCK`,
   `SOCK_SEQPACKET` will be tried instead.
   The credential payload should be in the form: `vsock:<CID>:<PORT>`.
-  Also note that this requires support for VHOST to be built-in both the guest and the host kernels, and the kernel modules to be loaded.
+  Also note that this requires support for VSOCK to be built-in both the guest and the host kernels, and the kernel modules to be loaded.
 
 * [`systemd-sysusers(8)`](https://www.freedesktop.org/software/systemd/man/systemd-sysusers.html)
   will look for the credentials `passwd.hashed-password.<username>`,
