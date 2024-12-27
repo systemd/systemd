@@ -103,25 +103,11 @@ void dnstls_stream_free(DnsStream *stream) {
 }
 
 int dnstls_stream_on_io(DnsStream *stream, uint32_t revents) {
-        int r;
-
         assert(stream);
         assert(stream->encrypted);
         assert(stream->dnstls_data.session);
 
-        if (stream->dnstls_data.shutdown) {
-                r = gnutls_bye(stream->dnstls_data.session, GNUTLS_SHUT_RDWR);
-                if (r == GNUTLS_E_AGAIN) {
-                        stream->dnstls_events = gnutls_record_get_direction(stream->dnstls_data.session) == 1 ? EPOLLOUT : EPOLLIN;
-                        return -EAGAIN;
-                } else if (r < 0)
-                        log_debug("Failed to invoke gnutls_bye: %s", gnutls_strerror(r));
-
-                stream->dnstls_events = 0;
-                stream->dnstls_data.shutdown = false;
-                dns_stream_unref(stream);
-                return DNSTLS_STREAM_CLOSED;
-        } else if (stream->dnstls_data.handshake < 0) {
+        if (stream->dnstls_data.handshake < 0) {
                 stream->dnstls_data.handshake = gnutls_handshake(stream->dnstls_data.session);
                 if (stream->dnstls_data.handshake == GNUTLS_E_AGAIN) {
                         stream->dnstls_events = gnutls_record_get_direction(stream->dnstls_data.session) == 1 ? EPOLLOUT : EPOLLIN;
@@ -150,14 +136,16 @@ int dnstls_stream_shutdown(DnsStream *stream, int error) {
                 gnutls_session_get_data2(stream->dnstls_data.session, &stream->server->dnstls_data.session_data);
 
         if (IN_SET(error, ETIMEDOUT, 0)) {
-                r = gnutls_bye(stream->dnstls_data.session, GNUTLS_SHUT_RDWR);
-                if (r == GNUTLS_E_AGAIN) {
-                        if (!stream->dnstls_data.shutdown) {
-                                stream->dnstls_data.shutdown = true;
-                                dns_stream_ref(stream);
-                                return -EAGAIN;
-                        }
-                } else if (r < 0)
+                /* shut down only the write half to avoid hanging waiting for the remote to respond.
+                 *
+                 * RFC5246 7.2.1. "Closure Alerts"
+                 *
+                 * It is not required for the initiator of the close to wait for the
+                 * responding close_notify alert before closing the read side of the
+                 * connection.
+                 */
+                r = gnutls_bye(stream->dnstls_data.session, GNUTLS_SHUT_WR);
+                if (r < 0)
                         log_debug("Failed to invoke gnutls_bye: %s", gnutls_strerror(r));
         }
 
