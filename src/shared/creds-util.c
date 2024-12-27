@@ -1560,7 +1560,7 @@ int ipc_encrypt_credential(const char *name, usec_t timestamp, usec_t not_after,
 
         sd_json_variant_sensitive(jinput);
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *reply = NULL;
+        sd_json_variant *reply = NULL;
         const char *error_id = NULL;
         r = sd_varlink_callbo(
                         vl,
@@ -1618,7 +1618,7 @@ int ipc_decrypt_credential(const char *validate_name, usec_t validate_timestamp,
 
         sd_json_variant_sensitive(jinput);
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *reply = NULL;
+        sd_json_variant *reply = NULL;
         const char *error_id = NULL;
         r = sd_varlink_callbo(
                         vl,
