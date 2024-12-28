@@ -5,6 +5,7 @@
 
 #include "sd-device.h"
 #include "sd-event.h"
+#include "sd-varlink.h"
 
 #include "hashmap.h"
 #include "macro.h"
@@ -28,7 +29,8 @@ typedef struct Manager {
 
         sd_device_monitor *monitor;
         UdevCtrl *ctrl;
-        int worker_watch[2];
+        sd_varlink_server *varlink_server;
+        int worker_notify_fd;
 
         /* used by udev-watch */
         int inotify_fd;
@@ -54,5 +56,11 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 
 int manager_init(Manager *manager);
 int manager_main(Manager *manager);
+void manager_reload(Manager *manager, bool force);
+void manager_exit(Manager *manager);
+
+void notify_ready(Manager *manager);
+
+void manager_kill_workers(Manager *manager, bool force);
 
 bool devpath_conflict(const char *a, const char *b);
