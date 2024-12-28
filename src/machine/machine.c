@@ -571,6 +571,9 @@ bool machine_may_gc(Machine *m, bool drop_not_started) {
         if (m->class == MACHINE_HOST)
                 return false;
 
+        if (!pidref_is_set(&m->leader))
+                return true;
+
         if (drop_not_started && !m->started)
                 return true;
 
