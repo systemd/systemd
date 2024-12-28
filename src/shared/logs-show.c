@@ -335,7 +335,7 @@ static int output_timestamp_monotonic(
         assert(previous_boot_id);
 
         if (!VALID_MONOTONIC(display_ts->monotonic))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No valid monotonic timestamp available");
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "No valid monotonic timestamp available, skipping showing journal entry.");
 
         written_chars += fprintf(f, "[%5"PRI_USEC".%06"PRI_USEC, display_ts->monotonic / USEC_PER_SEC, display_ts->monotonic % USEC_PER_SEC);
 
@@ -375,15 +375,14 @@ static int output_timestamp_realtime(
         assert(j);
 
         if (!VALID_REALTIME(usec))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No valid realtime timestamp available.");
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "No valid realtime timestamp available, skipping showing journal entry.");
 
         switch (mode) {
 
         case OUTPUT_SHORT_FULL:
         case OUTPUT_WITH_UNIT: {
                 if (!format_timestamp_style(buf, sizeof(buf), usec, flags & OUTPUT_UTC ? TIMESTAMP_UTC : TIMESTAMP_PRETTY))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Failed to format timestamp: %" PRIu64, usec);
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to format timestamp (%"PRIu64"), skipping showing journal entry.", usec);
                 break;
         }
 
@@ -623,6 +622,8 @@ static int output_short(
                 parse_display_realtime(j, realtime, monotonic, &usec);
                 r = output_timestamp_realtime(f, j, mode, flags, usec);
         }
+        if (r == -EINVAL)
+                return 0;
         if (r < 0)
                 return r;
         n += r;
