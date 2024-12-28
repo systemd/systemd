@@ -16,6 +16,7 @@
 #include "path-util.h"
 #include "rm-rf.h"
 #include "strv.h"
+#include "tests.h"
 #include "tmpfile-util.h"
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
@@ -54,14 +55,11 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
                 return r;
         }
 
-        r = journal_remote_add_source(&s, fdin, (char*) "fuzz-data", false);
-        if (r < 0)
-                return r;
+        ASSERT_OK_POSITIVE(journal_remote_add_source(&s, fdin, (char*) "fuzz-data", false));
         TAKE_FD(fdin_close);
-        assert(r > 0);
 
         while (s.active)
-                assert_se(journal_remote_handle_raw_source(NULL, fdin, 0, &s) >= 0);
+                ASSERT_OK(journal_remote_handle_raw_source(NULL, fdin, 0, &s));
 
         assert_se(close(fdin) < 0 && errno == EBADF); /* Check that the fd is closed already */
 
@@ -84,11 +82,8 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         for (OutputMode mode = 0; mode < _OUTPUT_MODE_MAX; mode++) {
                 if (!dev_null)
                         log_info("/* %s */", output_mode_to_string(mode));
-                r = show_journal(dev_null ?: stdout, j, mode, 0, 0, -1, 0, NULL);
-                assert_se(r >= 0);
-
-                r = sd_journal_seek_head(j);
-                assert_se(r >= 0);
+                ASSERT_OK(show_journal(dev_null ?: stdout, j, mode, 0, 0, -1, 0, NULL));
+                ASSERT_OK(sd_journal_seek_head(j));
         }
 
         return 0;
