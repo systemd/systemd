@@ -671,8 +671,8 @@
       --phases='enter-initrd:leave-initrd enter-initrd:leave-initrd:sysinit \
                 enter-initrd:leave-initrd:sysinit:ready' \
       --pcr-banks=sha384,sha512 \
-      --secureboot-private-key=sb.key \
-      --secureboot-certificate=sb.cert \
+      --secureboot-private-key=secure-boot-key.pem \
+      --secureboot-certificate=secure-boot-certificate.pem \
       --sign-kernel \
       --cmdline='quiet rw rhgb'
 </programlisting>
@@ -685,7 +685,7 @@
       <filename index='false'>tpm2-pcr-private-key-initrd.pem</filename>, and for the main system (phases
       <constant>leave-initrd</constant>, <constant>sysinit</constant>, <constant>ready</constant>) with the
       key <filename index='false'>tpm2-pcr-private-key-system.pem</filename>. The Linux binary and the resulting
-      combined image will be signed with the SecureBoot key <filename index='false'>sb.key</filename>.</para>
+      combined image will be signed with the SecureBoot key <filename index='false'>secure-boot-key.pem</filename>.</para>
     </example>
 
     <example>
