@@ -88,7 +88,7 @@
 
         <listitem><para>Generates a host encryption key for credentials, if one has not been generated
         already. This ensures the <filename>/var/lib/systemd/credential.secret</filename> file is initialized
-        with a random secret key if it doesn't exist yet. This secret key is used when encrypting/decrypting
+        with a random secret key if it does not exist yet. This secret key is used when encrypting/decrypting
         credentials with <command>encrypt</command> or <command>decrypt</command>, and is only accessible to
         the root user. Note that there's typically no need to invoke this command explicitly as it is
         implicitly called when <command>encrypt</command> is invoked, and credential host key encryption
@@ -247,7 +247,7 @@
         <term><option>--newline=</option></term>
 
         <listitem><para>When specified with <command>cat</command> or <command>decrypt</command> controls
-        whether to add a trailing newline character to the end of the output if it doesn't end in one,
+        whether to add a trailing newline character to the end of the output if it does not end in one,
         anyway. Takes one of <literal>auto</literal>, <literal>yes</literal> or <literal>no</literal>. The
         default mode of <literal>auto</literal> will suffix the output with a single newline character only
         when writing credential data to a TTY.</para>
@@ -271,20 +271,20 @@
         <term><option>--name=<replaceable>name</replaceable></option></term>
 
         <listitem><para>When specified with the <command>encrypt</command> command controls the credential
-        name to embed in the encrypted credential data. If not specified the name is chosen automatically
+        name to embed in the encrypted credential data. If not specified, the name is chosen automatically
         from the filename component of the specified output path. If specified as empty string no
         credential name is embedded in the encrypted credential, and no verification of credential name is
         done when the credential is decrypted.</para>
 
         <para>When specified with the <command>decrypt</command> command control the credential name to
-        validate the credential name embedded in the encrypted credential with. If not specified the name is
+        validate the credential name embedded in the encrypted credential with. If not specified, the name is
         chosen automatically from the filename component of the specified input path. If no credential name
         is embedded in the encrypted credential file (i.e. the <option>--name=</option> with an empty string
         was used when encrypted) the specified name has no effect as no credential name validation is
         done.</para>
 
         <para>Embedding the credential name in the encrypted credential is done in order to protect against
-        reuse of credentials for purposes they weren't originally intended for, under the assumption the
+        reuse of credentials for purposes they were not originally intended for, under the assumption the
         credential name is chosen carefully to encode its intended purpose.</para>
 
         <xi:include href="version-info.xml" xpointer="v250"/></listitem>
@@ -300,7 +300,7 @@
 
         <para>When specified with the <command>decrypt</command> command controls the timestamp to use to
         validate the "not-after" timestamp that was configured with <option>--not-after=</option> during
-        encryption. If not specified defaults to the current system time.</para>
+        encryption. If not specified, defaults to the current system time.</para>
 
         <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
@@ -311,7 +311,7 @@
         <listitem><para>When specified with the <command>encrypt</command> command controls the time when the
         credential shall not be used anymore. This embeds the specified timestamp in the encrypted
         credential. During decryption the timestamp is checked against the current system clock, and if the
-        timestamp is in the past the decryption will fail. By default no such timestamp is set. Takes a
+        timestamp is in the past the decryption will fail. By default, no such timestamp is set. Takes a
         timestamp specification in the format described in
         <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
 
@@ -392,7 +392,7 @@
         <filename>/etc/systemd/</filename>, <filename>/run/systemd/</filename>,
         <filename>/usr/lib/systemd/</filename> (searched in this order), it is automatically used. The
         <option>--tpm2-public-key-pcrs=</option> option takes a list of TPM2 PCR indexes to bind to (same
-        syntax as <option>--tpm2-pcrs=</option> described above). If not specified defaults to 11 (i.e. this
+        syntax as <option>--tpm2-pcrs=</option> described above). If not specified, defaults to 11 (i.e. this
         binds the policy to any unified kernel image for which a PCR signature can be provided).</para>
 
         <para>Note the difference between <option>--tpm2-pcrs=</option> and

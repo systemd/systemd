@@ -152,7 +152,7 @@
         unmounted.</para>
 
         <para>The OS image may either be specified as path to an OS image stored in a regular file or may
-        refer to block device node (in the latter case the block device must be the "whole" device, i.e. not
+        refer to block device node (in the latter case, the block device must be the "whole" device, i.e. not
         a partition device). (The other supported commands described here support this, too.)</para>
 
         <para>All mounted file systems are checked with the appropriate <citerefentry
@@ -215,7 +215,7 @@
 
         <listitem><para>Detach the specified disk image from a loopback block device. This undoes the effect
         of <option>--attach</option> above. This expects either a path to a loopback block device as an
-        argument, or the path to the backing image file. In the latter case it will automatically determine
+        argument, or the path to the backing image file. In the latter case, it will automatically determine
         the right device to detach.</para>
 
         <xi:include href="version-info.xml" xpointer="v254"/></listitem>
@@ -277,9 +277,9 @@
         the current working directory, or an absolute path, both outside of the image). If the destination
         path is omitted or specified as dash (<literal>-</literal>), the specified file is written to
         standard output. If the source path in the image file system refers to a regular file it is copied to
-        the destination path. In this case access mode, extended attributes and timestamps are copied as
+        the destination path. In this case, access mode, extended attributes and timestamps are copied as
         well, but file ownership is not. If the source path in the image refers to a directory, it is copied
-        to the destination path, recursively with all containing files and directories. In this case the file
+        to the destination path, recursively with all containing files and directories. In this case, the file
         ownership is copied too.</para>
 
         <xi:include href="version-info.xml" xpointer="v247"/></listitem>
@@ -295,9 +295,9 @@
         image) and a destination path (relative to the image's root directory). If the source path is omitted
         or specified as dash (<literal>-</literal>), the data to write is read from standard input. If the
         source path in the host file system refers to a regular file, it is copied to the destination path.
-        In this case access mode, extended attributes and timestamps are copied as well, but file ownership
+        In this case, access mode, extended attributes and timestamps are copied as well, but file ownership
         is not. If the source path in the host file system refers to a directory it is copied to the
-        destination path, recursively with all containing files and directories. In this case the file
+        destination path, recursively with all containing files and directories. In this case, the file
         ownership is copied too.</para>
 
         <para>As with <option>--mount</option> file system checks are implicitly run before the copy
@@ -344,7 +344,7 @@
         dissection policy into account. Since this operation does not mount file systems, this command –
         unlike all other commands implemented by this tool – requires no privileges other than the ability to
         access the specified file. Prints "OK" and returns zero if the image appears to be in order and
-        matches the specified image dissection policy. Otherwise prints an error message and returns
+        matches the specified image dissection policy. Otherwise, prints an error message and returns
         non-zero.</para>
 
         <xi:include href="version-info.xml" xpointer="v254"/></listitem>
@@ -366,7 +366,7 @@
         <term><option>--read-only</option></term>
         <term><option>-r</option></term>
 
-        <listitem><para>Operate in read-only mode. By default <option>--mount</option> will establish
+        <listitem><para>Operate in read-only mode. By default, <option>--mount</option> will establish
         writable mount points. If this option is specified they are established in read-only mode
         instead.</para>
 
@@ -376,7 +376,7 @@
       <varlistentry>
         <term><option>--fsck=no</option></term>
 
-        <listitem><para>Turn off automatic file system checking. By default when an image is accessed for
+        <listitem><para>Turn off automatic file system checking. By default, when an image is accessed for
         writing (by <option>--mount</option> or <option>--copy-to</option>) the file systems contained in the
         OS image are automatically checked using the appropriate <citerefentry
         project='man-pages'><refentrytitle>fsck</refentrytitle><manvolnum>8</manvolnum></citerefentry>
@@ -390,7 +390,7 @@
         <term><option>--growfs=no</option></term>
 
         <listitem><para>Turn off automatic growing of accessed file systems to their partition size, if
-        marked for that in the GPT partition table. By default when an image is accessed for writing (by
+        marked for that in the GPT partition table. By default, when an image is accessed for writing (by
         <option>--mount</option> or <option>--copy-to</option>) the file systems contained in the OS image
         are automatically grown to their partition sizes, if bit 59 in the GPT partition flags is set for
         partition types that are defined by the <ulink

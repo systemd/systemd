@@ -126,7 +126,7 @@
     <citerefentry><refentrytitle>sd_event_source_set_enabled</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
 
     <para>If the second parameter of <function>sd_event_add_inotify()</function> is passed as
-    <constant>NULL</constant> no reference to the event source object is returned. In this case the event
+    <constant>NULL</constant> no reference to the event source object is returned. In this case, the event
     source is considered "floating", and will be destroyed implicitly when the event loop itself is
     destroyed.</para>
 

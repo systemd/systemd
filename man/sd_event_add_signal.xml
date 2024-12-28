@@ -107,7 +107,7 @@
     <para>If the second parameter of
     <function>sd_event_add_signal()</function> is
     <constant>NULL</constant> no reference to the event source object
-    is returned. In this case the event source is considered
+    is returned. In this case, the event source is considered
     "floating", and will be destroyed implicitly when the event loop
     itself is destroyed.</para>
 

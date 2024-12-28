@@ -163,7 +163,7 @@
   <refsect1>
     <title>Miscellaneous options and directives</title>
 
-    <para>Other configuration elements which don't fit in any of the above groups.</para>
+    <para>Other configuration elements which do not fit in any of the above groups.</para>
 
     <variablelist id='miscellaneous' />
   </refsect1>

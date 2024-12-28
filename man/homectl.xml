@@ -261,7 +261,7 @@
 
         <listitem><para>Takes a path to use as home directory for the user. Note that this is the directory
         the user's home directory is mounted to while the user is logged in. This is not where the user's
-        data is actually stored, see <option>--image-path=</option> for that. If not specified defaults to
+        data is actually stored, see <option>--image-path=</option> for that. If not specified, defaults to
         <filename>/home/$USER</filename>.</para>
 
         <xi:include href="version-info.xml" xpointer="v245"/></listitem>
@@ -329,7 +329,7 @@
 
         <listitem><para>Takes a file system path to a directory. Specifies the skeleton directory to
         initialize the home directory with. All files and directories in the specified path are copied into
-        any newly create home directory. If not specified defaults to <filename>/etc/skel/</filename>.
+        any newly create home directory. If not specified, defaults to <filename>/etc/skel/</filename>.
         </para>
 
         <xi:include href="version-info.xml" xpointer="v245"/></listitem>
@@ -339,7 +339,7 @@
         <term><option>--shell=<replaceable>SHELL</replaceable></option></term>
 
         <listitem><para>Takes a file system path. Specifies the shell binary to execute on terminal
-        logins. If not specified defaults to <filename>/bin/bash</filename>.</para>
+        logins. If not specified, defaults to <filename>/bin/bash</filename>.</para>
 
         <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
@@ -633,7 +633,7 @@
         After this time passes logging in may only proceed after the password is changed.
         <option>--password-change-warn=</option> specifies how much earlier than then the time configured
         with <option>--password-change-max=</option> the user is warned at login to change their password as
-        it will expire soon. Finally <option>--password-change-inactive=</option> configures the time which
+        it will expire soon. Finally, <option>--password-change-inactive=</option> configures the time which
         has to pass after the password as expired until the user is not permitted to log in or change the
         password anymore. Note that these options only apply to password authentication, and do not apply to
         other forms of authentication, for example PKCS#11-based security token
@@ -896,7 +896,7 @@
         loopback file system instead of immediately from a common pool like the other backends do it). In
         regular intervals free disk space in the active home areas and their backing storage is redistributed
         among them, taking the weight value configured here into account. Expects an integer in the range
-        1…10000, or the special string <literal>off</literal>. If not specified defaults to 100. The weight
+        1…10000, or the special string <literal>off</literal>. If not specified, defaults to 100. The weight
         is used to scale free space made available to the home areas: a home area with a weight of 200 will
         get twice the free space as one with a weight of 100; a home area with a weight of 50 will get half
         of that. The backing file system will be assigned space for a weight of 20. If set to
@@ -914,7 +914,7 @@
         <term><option>--noexec=<replaceable>BOOL</replaceable></option></term>
 
         <listitem><para>Configures the <literal>nosuid</literal>, <literal>nodev</literal> and
-        <literal>noexec</literal> mount options for the home directories. By default <literal>nodev</literal>
+        <literal>noexec</literal> mount options for the home directories. By default, <literal>nodev</literal>
         and <literal>nosuid</literal> are on, while <literal>noexec</literal> is off. For details about these
         mount options see <citerefentry
         project='man-pages'><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
@@ -932,7 +932,7 @@
         directory/user account, as well as the file share ("service") to mount as directory. The latter is
         used when <literal>cifs</literal> storage is selected. The file share should be specified in format
         <literal>//<replaceable>host</replaceable>/<replaceable>share</replaceable>/<replaceable>directory/…</replaceable></literal>. The
-        directory part is optional — if not specified the home directory will be placed in the top-level
+        directory part is optional — if not specified, the home directory will be placed in the top-level
         directory of the share. The <option>--cifs-extra-mount-options=</option> setting allows specifying
         additional mount options when mounting the share, see <citerefentry
         project='man-pages'><refentrytitle>mount.cifs</refentrytitle><manvolnum>8</manvolnum></citerefentry>
@@ -948,7 +948,7 @@
         sessions of the user ended. The default is configured in
         <citerefentry><refentrytitle>logind.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry> (for
         home directories of LUKS2 storage located on removable media this defaults to 0 though). A longer
-        time makes sure quick, repetitive logins are more efficient as the user's service manager doesn't
+        time makes sure quick, repetitive logins are more efficient as the user's service manager does not
         have to be started every time.</para>
 
         <xi:include href="version-info.xml" xpointer="v245"/></listitem>
@@ -1310,7 +1310,7 @@ ykman piv generate-key -a RSA2048 9d pubkey.pem
 # Create a self-signed certificate from this public key, and store it on the device.
 ykman piv generate-certificate --subject "Knobelei" 9d pubkey.pem
 
-# We don't need the public key on disk anymore
+# We do not need the public key on disk anymore
 rm pubkey.pem
 
 # Allow the security token to unlock the account of user 'lafcadio'.

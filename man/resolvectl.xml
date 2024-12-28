@@ -43,7 +43,7 @@
 
     <para>The program's output contains information about the protocol used for the look-up and on which network
     interface the data was discovered. It also contains information on whether the information could be
-    authenticated. All data for which local DNSSEC validation succeeds is considered authenticated. Moreover all data
+    authenticated. All data for which local DNSSEC validation succeeds is considered authenticated. Moreover, all data
     originating from local, trusted sources is also reported authenticated, including resolution of the local host
     name, the <literal>localhost</literal> hostname or all data from <filename>/etc/hosts</filename>.</para>
   </refsect1>
@@ -84,10 +84,10 @@
         <ulink url="https://tools.ietf.org/html/rfc2782">RFC 2782 SRV</ulink> services, depending on the
         specified list of parameters. If three parameters are passed the first is assumed to be the DNS-SD
         service name, the second the <constant class='dns'>SRV</constant> service type, and the third the
-        domain to search in. In this case a full DNS-SD style <constant class='dns'>SRV</constant> and
+        domain to search in. In this case, a full DNS-SD style <constant class='dns'>SRV</constant> and
         <constant class='dns'>TXT</constant> lookup is executed. If only two parameters are specified, the
         first is assumed to be the <constant class='dns'>SRV</constant> service type, and the second the
-        domain to look in. In this case no <constant class='dns'>TXT</constant> resource record is requested.
+        domain to look in. In this case, no <constant class='dns'>TXT</constant> resource record is requested.
         Finally, if only one parameter is specified, it is assumed to be a domain name, that is already
         prefixed with an <constant class='dns'>SRV</constant> type, and an <constant
         class='dns'>SRV</constant> lookup is done (no <constant class='dns'>TXT</constant>).</para>
@@ -298,7 +298,7 @@
         <literal>llmnr-ipv4</literal>, <literal>llmnr-ipv6</literal> (LLMNR via the indicated underlying IP
         protocols), <literal>mdns</literal> (<ulink url="https://www.ietf.org/rfc/rfc6762.txt">Multicast DNS</ulink>),
         <literal>mdns-ipv4</literal>, <literal>mdns-ipv6</literal> (MDNS via the indicated underlying IP protocols).
-        By default the lookup is done via all protocols suitable for the lookup. If used, limits the set of
+        By default, the lookup is done via all protocols suitable for the lookup. If used, limits the set of
         protocols that may be used. Use this option multiple times to enable resolving via multiple protocols at the
         same time. The setting <literal>llmnr</literal> is identical to specifying this switch once with
         <literal>llmnr-ipv4</literal> and once via <literal>llmnr-ipv6</literal>. Note that this option does not force
@@ -399,7 +399,7 @@
 
         <listitem><para>Takes a boolean parameter; used in conjunction with <command>query</command>. If true
         (the default), lookups use the local DNS resource record cache. If false, lookups are routed to the
-        network instead, regardless if already available in the local cache.</para>
+        network instead, regardless of whether already available in the local cache.</para>
 
         <xi:include href="version-info.xml" xpointer="v248"/></listitem>
       </varlistentry>

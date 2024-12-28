@@ -58,7 +58,7 @@
       <listitem><para>The initrd initialization.</para></listitem>
     </itemizedlist>
 
-    <para>However this form of reboot comes with drawbacks as well:</para>
+    <para>However, this form of reboot comes with drawbacks as well:</para>
 
     <itemizedlist>
       <listitem><para>The OS update remains incomplete, as the kernel is not reset and continues
@@ -149,7 +149,7 @@ DefaultDependencies=no</programlisting>
     <para>Even though passing resources from one soft reboot cycle to the next is possible this way, we
     strongly suggest to use this functionality sparingly only, as it creates a more fragile system as
     resources from different versions of the OS and applications might be mixed with unforeseen
-    consequences. In particular it's recommended to <emphasis>avoid</emphasis> allowing processes to survive
+    consequences. In particular it is recommended to <emphasis>avoid</emphasis> allowing processes to survive
     the soft reboot operation, as this means code updates will necessarily be incomplete, and processes
     typically pin various other resources (such as the file system they are backed by), thus increasing
     memory usage (as two versions of the OS/application/file system might be kept in memory). Leaving

@@ -164,7 +164,7 @@
     <para>If the second parameter of
     <function>sd_event_add_time()</function> is
     <constant>NULL</constant> no reference to the event source object
-    is returned. In this case the event source is considered
+    is returned. In this case, the event source is considered
     "floating", and will be destroyed implicitly when the event loop
     itself is destroyed.</para>
 
@@ -197,7 +197,7 @@
     base the <parameter>usec</parameter> parameter passed to the timer
     callback, or the timestamp returned by
     <function>sd_event_now()</function>. In the former case timer
-    events will be regular, while in the latter case the scheduling
+    events will be regular, while in the latter case, the scheduling
     latency will keep accumulating on the timer.</para>
 
     <para><function>sd_event_source_get_time()</function> retrieves the configured time value of an event

@@ -471,7 +471,7 @@
         <term><option>nofail</option></term>
 
         <listitem><para>With <option>nofail</option>, this mount will be only wanted, not required, by
-        <filename>local-fs.target</filename> or <filename>remote-fs.target</filename>. Moreover the mount unit is not
+        <filename>local-fs.target</filename> or <filename>remote-fs.target</filename>. Moreover, the mount unit is not
         ordered before these target units. This means that the boot will continue without waiting for the mount unit
         and regardless whether the mount point can be mounted successfully.</para>
 
@@ -556,7 +556,7 @@
         for details. This setting is optional.</para>
 
         <para>If the type is <literal>overlay</literal>, and <literal>upperdir=</literal> or
-        <literal>workdir=</literal> are specified as options and the directories don't exist, they will be created.
+        <literal>workdir=</literal> are specified as options and the directories do not exist, they will be created.
         </para></listitem>
       </varlistentry>
 

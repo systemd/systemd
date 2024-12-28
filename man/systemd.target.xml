@@ -113,7 +113,7 @@ Requires=emergency.target systemd-networkd.service
 After=emergency.target systemd-networkd.service
 AllowIsolate=yes</programlisting>
 
-      <para>When adding dependencies to other units, it's important to check if they set
+      <para>When adding dependencies to other units, it is important to check if they set
       <varname>DefaultDependencies=</varname>. Service units, unless they set
       <varname>DefaultDependencies=no</varname>, automatically get a dependency on
       <filename>sysinit.target</filename>. In this case, both

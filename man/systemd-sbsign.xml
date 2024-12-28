@@ -43,7 +43,7 @@
 
         <listitem><para>Signs the given PE binary for EFI Secure Boot. Takes a path to a PE binary as its
         argument. If the PE binary already has a certificate table, the new signature will be added to it.
-        Otherwise a new certificate table will be created. The signed PE binary will be written to the path
+        Otherwise, a new certificate table will be created. The signed PE binary will be written to the path
         specified with <option>--output=</option>.</para>
 
         <xi:include href="version-info.xml" xpointer="v257"/>

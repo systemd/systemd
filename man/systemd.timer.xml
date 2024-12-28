@@ -198,7 +198,7 @@
         it is subject to the <varname>AccuracySec=</varname> setting below.</para>
 
         <para>May be specified more than once, in which case the timer unit will trigger whenever any of the
-        specified expressions elapse. Moreover calendar timers and monotonic timers (see above) may be
+        specified expressions elapse. Moreover, calendar timers and monotonic timers (see above) may be
         combined within the same timer unit.</para>
 
         <para>If the empty string is assigned to any of these options, the list of timers is reset (both
