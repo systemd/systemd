@@ -1403,7 +1403,6 @@ int home_setup_luks(
                 assert(setup->root_fd < 0);
                 assert(!setup->crypt_device);
                 assert(!setup->loop);
-
                 ip = force_image_path ?: user_record_image_path(h);
 
                 subdir = path_join(HOME_RUNTIME_WORK_DIR, user_record_user_name_and_realm(h));
@@ -1431,6 +1430,11 @@ int home_setup_luks(
                         if (r < 0)
                                 return r;
                 }
+
+                /* Before we make the loop device, make sure offset is zero & we are using the full partition
+                 * If our offset is not zero, loop_device_make will create a loop device on top of the block device */
+                if (S_ISBLK(st.st_mode))
+                        assert(offset == 0 && size == UINT64_MAX);
 
                 r = loop_device_make(
                                 setup->image_fd,
@@ -2190,6 +2194,7 @@ int home_create_luks(
         _cleanup_close_ int mount_fd = -EBADF;
         const char *fstype, *ip;
         struct statfs sfs;
+        struct stat st;
         int r;
         _cleanup_strv_free_ char **extra_mkfs_options = NULL;
 
@@ -2262,7 +2267,6 @@ int home_create_luks(
         if (path_startswith(ip, "/dev/")) {
                 _cleanup_free_ char *sysfs = NULL;
                 uint64_t block_device_size;
-                struct stat st;
 
                 /* Let's place the home directory on a real device, i.e. a USB stick or such */
 
@@ -2375,21 +2379,45 @@ int home_create_luks(
 
         log_info("Writing of partition table completed.");
 
-        r = loop_device_make(
-                        setup->image_fd,
-                        O_RDWR,
-                        partition_offset,
-                        partition_size,
-                        image_sector_size,
-                        0,
-                        LOCK_EX,
-                        &setup->loop);
-        if (r == -ENOENT) /* this means /dev/loop-control doesn't exist, i.e. we are in a container
-                           * or similar and loopback bock devices are not available, return a
-                           * recognizable error in this case. */
-                return log_error_errno(SYNTHETIC_ERRNO(ENOLINK), "Loopback block device support is not available on this system.");
-        if (r < 0)
-                return log_error_errno(r, "Failed to set up loopback device for %s: %m", setup->temporary_image_path);
+        if (fstat(setup->image_fd, &st) < 0)
+                return -errno;
+        /* Ensure we don't create a loop device over block device as it leads to huge overhead for discard operations
+         * if the device does not support discard_zeroes_data */
+        if (S_ISBLK(st.st_mode)) {
+                _cleanup_free_ char *partition_path = NULL;
+                assert(!sd_id128_is_null(partition_uuid));
+                if (asprintf(&partition_path, "/dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR, SD_ID128_FORMAT_VAL(partition_uuid)) < 0)
+                        return log_oom();
+                /* Release the lock, so that udev can find the partition */
+                setup->image_fd = safe_close(setup->image_fd);
+                (void) wait_for_devlink(partition_path);
+                setup->image_fd = open_image_file(h, ip, &st);
+                if (setup->image_fd < 0)
+                        return setup->image_fd;
+                r = loop_device_open_from_path(
+                                partition_path,
+                                O_RDWR,
+                                LOCK_EX,
+                                &setup->loop);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to open newly written partition device: %s", partition_path);
+        } else {
+                r = loop_device_make(
+                                setup->image_fd,
+                                O_RDWR,
+                                partition_offset,
+                                partition_size,
+                                image_sector_size,
+                                0,
+                                LOCK_EX,
+                                &setup->loop);
+                if (r == -ENOENT) /* this means /dev/loop-control doesn't exist, i.e. we are in a container
+                                   * or similar and loopback bock devices are not available, return a
+                                   * recognizable error in this case. */
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOLINK), "Loopback block device support is not available on this system.");
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set up loopback device for %s: %m", setup->temporary_image_path);
+        }
 
         log_info("Setting up loopback device %s completed.", setup->loop->node ?: ip);
 
