@@ -671,8 +671,8 @@
       --phases='enter-initrd:leave-initrd enter-initrd:leave-initrd:sysinit \
                 enter-initrd:leave-initrd:sysinit:ready' \
       --pcr-banks=sha384,sha512 \
-      --secureboot-private-key=sb.key \
-      --secureboot-certificate=sb.cert \
+      --secureboot-private-key=secureboot-private-key.pem \
+      --secureboot-certificate=secureboot-certificate.pem \
       --sign-kernel \
       --cmdline='quiet rw rhgb'
 </programlisting>
@@ -685,7 +685,7 @@
       <filename index='false'>tpm2-pcr-private-key-initrd.pem</filename>, and for the main system (phases
       <constant>leave-initrd</constant>, <constant>sysinit</constant>, <constant>ready</constant>) with the
       key <filename index='false'>tpm2-pcr-private-key-system.pem</filename>. The Linux binary and the resulting
-      combined image will be signed with the SecureBoot key <filename index='false'>sb.key</filename>.</para>
+      combined image will be signed with the SecureBoot key <filename index='false'>secureboot-private-key.pem</filename>.</para>
     </example>
 
     <example>
@@ -699,8 +699,8 @@
 Initrd=early_cpio
 Cmdline=quiet rw rhgb
 
-SecureBootPrivateKey=secure-boot-key.pem
-SecureBootCertificate=secure-boot-certificate.pem
+SecureBootPrivateKey=secureboot-private-key.pem
+SecureBootCertificate=secureboot-certificate.pem
 SignKernel=yes
 PCRBanks=sha384,sha512
 
@@ -731,8 +731,8 @@ $ ukify -c ukify.conf build \
       <title>Kernel command line PE addon</title>
 
       <programlisting>ukify build \
-      --secureboot-private-key=secure-boot-key.pem \
-      --secureboot-certificate=secure-boot-certificate.pem \
+      --secureboot-private-key=secureboot-private-key.pem \
+      --secureboot-certificate=secureboot-certificate.pem \
       --cmdline='debug' \
       --sbat='sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md
       uki-addon.author,1,UKI Addon for System,uki-addon.author,1,https://www.freedesktop.org/software/systemd/man/systemd-stub.html'
@@ -753,8 +753,8 @@ $ ukify -c ukify.conf build \
 
       <para>Next, we can generate the certificate and keys:</para>
       <programlisting># ukify genkey --config=/etc/kernel/uki.conf
-Writing SecureBoot private key to /etc/kernel/secure-boot-key.pem
-Writing SecureBoot certificate to /etc/kernel/secure-boot-certificate.pem
+Writing SecureBoot private key to /etc/kernel/secureboot-private-key.pem
+Writing SecureBoot certificate to /etc/kernel/secureboot-certificate.pem
 Writing private key for PCR signing to /etc/systemd/tpm2-pcr-private-key-initrd.pem
 Writing public key for PCR signing to /etc/systemd/tpm2-pcr-public-key-initrd.pem
 Writing private key for PCR signing to /etc/systemd/tpm2-pcr-private-key-system.pem
