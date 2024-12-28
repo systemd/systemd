@@ -650,6 +650,7 @@ static int luks_validate(
                 int fd,
                 const char *label,
                 sd_id128_t partition_uuid,
+                uint64_t sector_size,
                 sd_id128_t *ret_partition_uuid,
                 uint64_t *ret_offset,
                 uint64_t *ret_size) {
@@ -666,6 +667,7 @@ static int luks_validate(
         assert(label);
         assert(ret_offset);
         assert(ret_size);
+        assert(sector_size);
 
         b = blkid_new_probe();
         if (!b)
@@ -676,6 +678,12 @@ static int luks_validate(
         if (r != 0)
                 return errno_or_else(ENOMEM);
 
+        /* Set probing sector size if explicitly specified */
+        if (sector_size != UINT32_MAX) {
+                r = blkid_probe_set_sectorsize(b, sector_size);
+                if(r != 0)
+                        return errno_or_else(EINVAL);
+        }
         (void) blkid_probe_enable_superblocks(b, 1);
         (void) blkid_probe_set_superblocks_flags(b, BLKID_SUBLKS_TYPE);
         (void) blkid_probe_enable_partitions(b, 1);
@@ -757,6 +765,7 @@ static int luks_validate(
         if ((uint64_t) size > UINT64_MAX / 512U)
                 return -EINVAL;
 
+        /* libblkid returns partitions size in count of 512-sectors */
         *ret_offset = offset * 512U;
         *ret_size = size * 512U;
         *ret_partition_uuid = found_partition_uuid;
@@ -1377,7 +1386,14 @@ int home_setup_luks(
                 if (!subdir)
                         return log_oom();
 
-                r = luks_validate(setup->image_fd, user_record_user_name_and_realm(h), h->partition_uuid, &found_partition_uuid, &offset, &size);
+                r = luks_validate(
+                        setup->image_fd,
+                        user_record_user_name_and_realm(h),
+                        h->partition_uuid,
+                        h->luks_sector_size == UINT64_MAX ? UINT32_MAX : user_record_luks_sector_size(h), /* if sector size is not specified, select UINT32_MAX, i.e. auto-probe */
+                        &found_partition_uuid,
+                        &offset,
+                        &size);
                 if (r < 0)
                         return log_error_errno(r, "Failed to validate disk label: %m");
 
