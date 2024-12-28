@@ -10,8 +10,10 @@
 #include "missing_capability.h"
 #include "pidref.h"
 
-/* Special marker used when storing a capabilities mask as "unset" */
+/* Special marker used when storing a capabilities mask as "unset". This would need to be updated as soon as
+ * Linux learns more than 63 caps. */
 #define CAP_MASK_UNSET UINT64_MAX
+assert_cc(CAP_LAST_CAP < 64);
 
 /* All possible capabilities bits on */
 #define CAP_MASK_ALL UINT64_C(0x7fffffffffffffff)
@@ -19,6 +21,10 @@
 /* The largest capability we can deal with, given we want to be able to store cap masks in uint64_t but still
  * be able to use UINT64_MAX as indicator for "not set". The latter makes capability 63 unavailable. */
 #define CAP_LIMIT 62
+
+static inline bool capability_is_set(uint64_t v) {
+        return v != CAP_MASK_UNSET;
+}
 
 unsigned cap_last_cap(void);
 int have_effective_cap(int value);
@@ -56,8 +62,7 @@ static inline bool cap_test_all(uint64_t caps) {
 #define CAP_TO_MASK_CORRECTED(x) (1U << ((x) & 31U))
 
 typedef struct CapabilityQuintet {
-        /* Stores all five types of capabilities in one go. Note that we use UINT64_MAX for unset here. This hence
-         * needs to be updated as soon as Linux learns more than 63 caps. */
+        /* Stores all five types of capabilities in one go. */
         uint64_t effective;
         uint64_t bounding;
         uint64_t inheritable;
@@ -65,19 +70,21 @@ typedef struct CapabilityQuintet {
         uint64_t ambient;
 } CapabilityQuintet;
 
-assert_cc(CAP_LAST_CAP < 64);
-
-#define CAPABILITY_QUINTET_NULL (CapabilityQuintet) { CAP_MASK_UNSET, CAP_MASK_UNSET, CAP_MASK_UNSET, CAP_MASK_UNSET, CAP_MASK_UNSET }
-
-static inline bool capability_is_set(uint64_t v) {
-        return v != CAP_MASK_UNSET;
-}
+#define CAPABILITY_QUINTET_NULL (const CapabilityQuintet) { CAP_MASK_UNSET, CAP_MASK_UNSET, CAP_MASK_UNSET, CAP_MASK_UNSET, CAP_MASK_UNSET }
 
 static inline bool capability_quintet_is_set(const CapabilityQuintet *q) {
         return capability_is_set(q->effective) ||
                 capability_is_set(q->bounding) ||
                 capability_is_set(q->inheritable) ||
                 capability_is_set(q->permitted) ||
+                capability_is_set(q->ambient);
+}
+
+static inline bool capability_quintet_is_fully_set(const CapabilityQuintet *q) {
+        return capability_is_set(q->effective) &&
+                capability_is_set(q->bounding) &&
+                capability_is_set(q->inheritable) &&
+                capability_is_set(q->permitted) &&
                 capability_is_set(q->ambient);
 }
 
