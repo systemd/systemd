@@ -2362,7 +2362,13 @@ int home_create_luks(
                 /* Let cryptsetup decide if the sector size is not specified in home record */
                 luks_sector_size = 0;
         } else {
-               luks_sector_size = image_sector_size = user_record_luks_sector_size(h);
+                if (S_ISBLK(st.st_mode)) {
+                        /* For physical block devices always use the actual device logical
+                         * sector size. Else the partition will not be discoverable by kernel. */
+                        image_sector_size = UINT32_MAX;
+                        luks_sector_size = user_record_luks_sector_size(h);
+                } else
+                        image_sector_size = luks_sector_size = user_record_luks_sector_size(h);
         }
         r = make_partition_table(
                         setup->image_fd,
