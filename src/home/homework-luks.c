@@ -2903,7 +2903,6 @@ static int apply_resize_partition(
                 size_t new_partition_size) {
 
         _cleanup_(fdisk_unref_contextp) struct fdisk_context *c = NULL;
-        _cleanup_free_ void *two_zero_lbas = NULL;
         uint32_t ssz;
         int r;
 
