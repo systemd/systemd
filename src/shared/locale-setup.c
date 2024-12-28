@@ -75,7 +75,7 @@ static int locale_context_load_conf(LocaleContext *c, LocaleLoadFlag flag) {
 
         /* If the file is not changed, then we do not need to re-read the file. */
         if (stat_inode_unmodified(&c->st, &st))
-                return 0;
+                return 1; /* (already) loaded */
 
         c->st = st;
         locale_context_clear(c);
