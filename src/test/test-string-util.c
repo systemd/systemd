@@ -572,21 +572,22 @@ TEST(in_charset) {
 TEST(split_pair) {
         _cleanup_free_ char *a = NULL, *b = NULL;
 
-        assert_se(split_pair("", "", &a, &b) == -EINVAL);
-        assert_se(split_pair("foo=bar", "", &a, &b) == -EINVAL);
-        assert_se(split_pair("", "=", &a, &b) == -EINVAL);
-        assert_se(split_pair("foo=bar", "=", &a, &b) >= 0);
+        ASSERT_SIGNAL(split_pair("", NULL, &a, &b), SIGABRT);
+        ASSERT_SIGNAL(split_pair("", "", &a, &b), SIGABRT);
+        ASSERT_SIGNAL(split_pair("foo=bar", "", &a, &b), SIGABRT);
+        ASSERT_SIGNAL(split_pair(NULL, "=", &a, &b), SIGABRT);
+        ASSERT_ERROR(split_pair("", "=", &a, &b), EINVAL);
+        ASSERT_OK(split_pair("foo=bar", "=", &a, &b));
         ASSERT_STREQ(a, "foo");
         ASSERT_STREQ(b, "bar");
-        free(a);
-        free(b);
-        assert_se(split_pair("==", "==", &a, &b) >= 0);
+        a = mfree(a);
+        b = mfree(b);
+        ASSERT_OK(split_pair("==", "==", &a, &b));
         ASSERT_STREQ(a, "");
         ASSERT_STREQ(b, "");
-        free(a);
-        free(b);
-
-        assert_se(split_pair("===", "==", &a, &b) >= 0);
+        a = mfree(a);
+        b = mfree(b);
+        ASSERT_OK(split_pair("===", "==", &a, &b));
         ASSERT_STREQ(a, "");
         ASSERT_STREQ(b, "=");
 }
