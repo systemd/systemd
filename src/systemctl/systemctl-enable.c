@@ -71,6 +71,7 @@ int verb_enable(int argc, char *argv[], void *userdata) {
         const char *verb = ASSERT_PTR(argv[0]);
         _cleanup_strv_free_ char **names = NULL;
         int carries_install_info = -1;
+        int units_enabled = 0;
         bool ignore_carries_install_info = arg_quiet || arg_no_warn;
         sd_bus *bus = NULL;
         int r;
@@ -388,6 +389,13 @@ int verb_enable(int argc, char *argv[], void *userdata) {
                 }
 
                 return verb_start(strv_length(new_args), new_args, userdata);
+        }
+        if (carries_install_info >= 0 && !ignore_carries_install_info) {
+                units_enabled += carries_install_info;
+        }
+
+        if (units_enabled > 0) {
+                log_notice("%d unit files successfully enabled.", units_enabled);
         }
 
         return 0;
