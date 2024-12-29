@@ -3623,7 +3623,6 @@ int unit_install_bus_match(Unit *u, sd_bus *bus, const char *name) {
                         get_name_owner_handler,
                         u,
                         timeout_usec);
-
         if (r < 0) {
                 u->match_bus_slot = sd_bus_slot_unref(u->match_bus_slot);
                 return r;
