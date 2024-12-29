@@ -1,6 +1,6 @@
 [UKI]
-SecureBootPrivateKey=/etc/kernel/secure-boot-key.pem
-SecureBootCertificate=/etc/kernel/secure-boot-certificate.pem
+SecureBootPrivateKey=/etc/kernel/secureboot-private-key.pem
+SecureBootCertificate=/etc/kernel/secureboot-certificate.pem
 
 [PCRSignature:initrd]
 Phases=enter-initrd
