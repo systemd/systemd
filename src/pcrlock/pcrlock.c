@@ -10,6 +10,7 @@
 #include "sd-varlink.h"
 
 #include "ask-password-api.h"
+#include "bitfield.h"
 #include "blockdev-util.h"
 #include "boot-entry.h"
 #include "build.h"
@@ -2260,7 +2261,7 @@ static int show_pcr_table(EventLog *el, sd_json_variant **ret_variant) {
                 bool fully_recognized = el->registers[pcr].fully_recognized;
 
                 /* Whether any unmatched components touch this PCR */
-                bool missing_components = FLAGS_SET(el->missing_component_pcrs, UINT32_C(1) << pcr);
+                bool missing_components = BIT_SET(el->missing_component_pcrs, pcr);
 
                 const char *emoji = special_glyph(
                                 !hash_match ? SPECIAL_GLYPH_DEPRESSED_SMILEY :
@@ -2675,7 +2676,7 @@ static int event_log_pcr_mask_checks_out(EventLog *el, uint32_t mask) {
 
         for (uint32_t pcr = 0; pcr < TPM2_PCRS_MAX; pcr++) {
 
-                if (!FLAGS_SET(mask, UINT32_C(1) << pcr))
+                if (!BIT_SET(mask, pcr))
                         continue;
 
                 if (!event_log_pcr_checks_out(el, el->registers + pcr))
@@ -2815,7 +2816,7 @@ static int make_pcrlock_record_from_stream(
         for (uint32_t i = 0; i < TPM2_PCRS_MAX; i++) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *record = NULL;
 
-                if (!FLAGS_SET(pcr_mask, UINT32_C(1) << i))
+                if (!BIT_SET(pcr_mask, i))
                         continue;
 
                 r = sd_json_buildo(
@@ -3669,7 +3670,7 @@ static int verb_lock_pe(int argc, char *argv[], void *userdata) {
         for (uint32_t i = 0; i < TPM2_PCRS_MAX; i++) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *digests = NULL;
 
-                if (!FLAGS_SET(arg_pcr_mask, UINT32_C(1) << i))
+                if (!BIT_SET(arg_pcr_mask, i))
                         continue;
 
                 FOREACH_ARRAY(pa, tpm2_hash_algorithms, TPM2_N_HASH_ALGORITHMS) {
@@ -3894,7 +3895,7 @@ static int event_log_reduce_to_safe_pcrs(EventLog *el, uint32_t *pcrs) {
 
         for (uint32_t pcr = 0; pcr < TPM2_PCRS_MAX; pcr++) {
 
-                if (!FLAGS_SET(*pcrs, UINT32_C(1) << pcr))
+                if (!BIT_SET(*pcrs, pcr))
                         continue;
 
                 if (!event_log_pcr_checks_out(el, el->registers + pcr)) {
@@ -3907,7 +3908,7 @@ static int event_log_reduce_to_safe_pcrs(EventLog *el, uint32_t *pcrs) {
                         goto drop;
                 }
 
-                if (FLAGS_SET(el->missing_component_pcrs, UINT32_C(1) << pcr)) {
+                if (BIT_SET(el->missing_component_pcrs, pcr)) {
                         log_notice("PCR %" PRIu32 " (%s) is touched by component we can't find in event log. Removing from set of PCRs.", pcr, strna(tpm2_pcr_index_to_string(pcr)));
                         goto drop;
                 }
@@ -4191,7 +4192,7 @@ static int event_log_show_predictions(Tpm2PCRPrediction *context, uint16_t alg) 
 
         for (uint32_t pcr = 0; pcr < TPM2_PCRS_MAX; pcr++) {
                 Tpm2PCRPredictionResult *result;
-                if (!FLAGS_SET(context->pcrs, UINT32_C(1) << pcr))
+                if (!BIT_SET(context->pcrs, pcr))
                         continue;
 
                 if (ordered_set_isempty(context->results[pcr])) {
@@ -4240,7 +4241,7 @@ static int tpm2_pcr_prediction_run(
         for (uint32_t pcr = 0; pcr < TPM2_PCRS_MAX; pcr++) {
                 _cleanup_free_ Tpm2PCRPredictionResult *result = NULL;
 
-                if (!FLAGS_SET(context->pcrs, UINT32_C(1) << pcr))
+                if (!BIT_SET(context->pcrs, pcr))
                         continue;
 
                 result = new0(Tpm2PCRPredictionResult, 1);

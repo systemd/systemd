@@ -5,6 +5,7 @@
 
 #include "af-list.h"
 #include "alloc-util.h"
+#include "bitfield.h"
 #include "firewall-util.h"
 #include "in-addr-prefix-util.h"
 #include "logarithm.h"
@@ -84,7 +85,7 @@ int address_flags_to_string_alloc(uint32_t flags, int family, char **ret) {
         assert(ret);
 
         for (size_t i = 0; i < ELEMENTSOF(map); i++)
-                if (FLAGS_SET(flags, 1 << i) && map[i])
+                if (BIT_SET(flags, i) && map[i])
                         if (!strextend_with_separator(
                                             &str, ",",
                                             family == AF_INET6 && (1 << i) == IFA_F_SECONDARY ? "temporary" : map[i]))
