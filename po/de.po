@@ -15,9 +15,8 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2024-11-28 18:16+0900\n"
-"PO-Revision-Date: 2024-11-17 15:48+0000\n"
-"Last-Translator: Weblate Translation Memory <noreply-mt-weblate-translation-"
-"memory@weblate.org>\n"
+"PO-Revision-Date: 2024-12-30 22:38+0000\n"
+"Last-Translator: Ettore Atalan <atalanttore@googlemail.com>\n"
 "Language-Team: German <https://translate.fedoraproject.org/projects/systemd/"
 "main/de/>\n"
 "Language: de\n"
@@ -25,7 +24,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 5.8.2\n"
+"X-Generator: Weblate 5.9.2\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -137,11 +136,9 @@ msgstr "Deinen persönlichen Bereich aktualisieren"
 
 # https://www.freedesktop.org/software/systemd/man/sd-login.html
 #: src/home/org.freedesktop.home1.policy:54
-#, fuzzy
 msgid "Authentication is required to update your home area."
 msgstr ""
-"Legitimierung ist zum Aktualisieren des persönlichen Bereichs eines "
-"Benutzers notwendig."
+"Legitimierung ist zum Aktualisieren Ihres persönlichen Bereichs notwendig."
 
 #: src/home/org.freedesktop.home1.policy:63
 msgid "Resize a home area"
@@ -171,10 +168,9 @@ msgid "Activate a home area"
 msgstr "Einen persönlichen Bereich anlegen"
 
 #: src/home/org.freedesktop.home1.policy:84
-#, fuzzy
 msgid "Authentication is required to activate a user's home area."
 msgstr ""
-"Legitimierung ist zum Anlegen des persönlichen Bereichs eines Benutzers "
+"Legitimierung ist zum Aktivieren des persönlichen Bereichs eines Benutzers "
 "notwendig."
 
 #: src/home/pam_systemd_home.c:293
@@ -867,7 +863,7 @@ msgstr "Nachricht an alle einstellen"
 #: src/login/org.freedesktop.login1.policy:397
 #, fuzzy
 msgid "Authentication is required to set a wall message."
-msgstr "Legitimierung ist zum Einstellen einer Nachricht an alle notwendig"
+msgstr "Legitimierung ist zum Einstellen einer Nachricht an alle notwendig."
 
 #: src/login/org.freedesktop.login1.policy:406
 msgid "Change Session"
@@ -1172,9 +1168,8 @@ msgid "Unregister a DNS-SD service"
 msgstr "Einen DNS-SD-Dienst deregistrieren"
 
 #: src/resolve/org.freedesktop.resolve1.policy:34
-#, fuzzy
 msgid "Authentication is required to unregister a DNS-SD service."
-msgstr "Legitimierung ist zum Abmelden eines DNS-SD-Dienstes notwendig"
+msgstr "Legitimierung ist zum Deregistrieren eines DNS-SD-Dienstes notwendig."
 
 #: src/resolve/org.freedesktop.resolve1.policy:132
 msgid "Revert name resolution settings"
@@ -1270,9 +1265,8 @@ msgstr "Optionale Funktionen verwalten"
 
 # https://www.freedesktop.org/software/systemd/man/sd-login.html
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:76
-#, fuzzy
 msgid "Authentication is required to manage optional features."
-msgstr "Legitimierung ist zur Verwaltung optionaler Funktionen erforderlich"
+msgstr "Legitimierung ist zur Verwaltung optionaler Funktionen erforderlich."
 
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"
