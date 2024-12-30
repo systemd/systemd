@@ -257,6 +257,20 @@
 
     <variablelist class='network-directives'>
       <varlistentry>
+        <term><varname>ClientIdentifier=</varname></term>
+        <listitem>
+          <para>Specifies the default DHCPv4 client identifier to be used. Takes one of <option>mac</option>
+          or <option>duid</option>. If set to <option>mac</option>, the MAC address of each link will be used.
+          If set to <option>duid</option>, an RFC4361-compliant Client ID, which is the combination of IAID
+          and DUID, is used. IAID can be configured by <varname>IAID=</varname> in each matching
+          <filename>.network</filename> file. DUID can be configured by <varname>DUIDType=</varname> and
+          <varname>DUIDRawData=</varname>. Defaults to <option>duid</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>DUIDType=</varname></term>
         <listitem><para>Specifies how the DUID should be generated. See
         <ulink url="https://tools.ietf.org/html/rfc3315#section-9">RFC 3315</ulink>

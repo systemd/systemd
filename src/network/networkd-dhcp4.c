@@ -52,7 +52,7 @@ void network_adjust_dhcp4(Network *network) {
         }
 
         if (network->dhcp_client_identifier < 0)
-                network->dhcp_client_identifier = network->dhcp_anonymize ? DHCP_CLIENT_ID_MAC : DHCP_CLIENT_ID_DUID;
+                network->dhcp_client_identifier = network->dhcp_anonymize ? DHCP_CLIENT_ID_MAC : network->manager->dhcp_client_identifier;
 
         /* By default, RapidCommit= is enabled when Anonymize=no and neither AllowList= nor DenyList= is specified. */
         if (network->dhcp_use_rapid_commit < 0)
