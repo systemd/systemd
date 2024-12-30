@@ -1118,7 +1118,7 @@ def make_uki(opts: UkifyConfig) -> None:
             signtool.sign(os.fspath(opts.linux), os.fspath(linux), opts=opts)
 
     if opts.uname is None and opts.linux is not None:
-        print('Kernel version not specified, starting autodetection 😖.')
+        print('Kernel version not specified, starting autodetection.')
         opts.uname = Uname.scrape(opts.linux, opts=opts)
 
     uki = UKI(opts.stub)
