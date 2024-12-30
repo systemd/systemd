@@ -78,6 +78,7 @@ struct Manager {
         UseDomains dhcp6_use_domains;
         UseDomains ndisc_use_domains;
 
+        DHCPClientIdentifier dhcp_client_identifier;
         DUID dhcp_duid;
         DUID dhcp6_duid;
         DUID duid_product_uuid;
