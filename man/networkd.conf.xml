@@ -247,10 +247,9 @@
   <refsect1>
     <title>[DHCPv4] Section Options</title>
 
-    <para>This section configures the DHCP Unique Identifier (DUID) value used by DHCP protocol. DHCPv4
-    client protocol sends IAID and DUID to the DHCP server when acquiring a dynamic IPv4 address if
-    <option>ClientIdentifier=duid</option>. IAID and DUID allows a DHCP server to uniquely identify the
-    machine and the interface requesting a DHCP IP address. To configure IAID and ClientIdentifier, see
+    <para>This section configures the default configurations of DHCPv4 client. If the DHCPv4 client is
+    enabled on an interface, then the configurations below will be used by default unless explicitly
+    specified in the corresponding <filename>.network</filename> file. See also
     <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
     </para>
 
@@ -354,11 +353,9 @@ DUIDRawData=00:00:ab:11:f9:2a:c2:77:29:f9:5c:00</programlisting>
   <refsect1>
     <title>[DHCPv6] Section Options</title>
 
-    <para>This section configures the DHCP Unique Identifier (DUID) value used by DHCPv6 protocol.
-    DHCPv6 client protocol sends the DHCP Unique Identifier and the interface Identity Association
-    Identifier (IAID) to a DHCPv6 server when acquiring a dynamic IPv6 address. IAID and DUID allows a
-    DHCPv6 server to uniquely identify the machine and the interface requesting a DHCP IP address. To
-    configure IAID, see
+    <para>This section configures the default configurations of DHCPv6 client. If the DHCPv6 client is
+    enabled on an interface, then the configurations below will be used by default unless explicitly
+    specified in the corresponding <filename>.network</filename> file. See also
     <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
     </para>
 
