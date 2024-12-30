@@ -827,13 +827,13 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
         cgroup_context_dump(UNIT(s), f, prefix);
 }
 
-static int instance_from_socket(int fd, unsigned nr, char **instance) {
-        socklen_t l;
-        char *r;
+static int instance_from_socket(int fd, unsigned nr, char **ret) {
         union sockaddr_union local, remote;
+        socklen_t l;
+        int r;
 
         assert(fd >= 0);
-        assert(instance);
+        assert(ret);
 
         l = sizeof(local);
         if (getsockname(fd, &local.sa, &l) < 0)
@@ -843,6 +843,8 @@ static int instance_from_socket(int fd, unsigned nr, char **instance) {
         if (getpeername(fd, &remote.sa, &l) < 0)
                 return -errno;
 
+        char *s;
+
         switch (local.sa.sa_family) {
 
         case AF_INET: {
@@ -850,7 +852,7 @@ static int instance_from_socket(int fd, unsigned nr, char **instance) {
                         a = be32toh(local.in.sin_addr.s_addr),
                         b = be32toh(remote.in.sin_addr.s_addr);
 
-                if (asprintf(&r,
+                if (asprintf(&s,
                              "%u-%u.%u.%u.%u:%u-%u.%u.%u.%u:%u",
                              nr,
                              a >> 24, (a >> 16) & 0xFF, (a >> 8) & 0xFF, a & 0xFF,
@@ -873,7 +875,7 @@ static int instance_from_socket(int fd, unsigned nr, char **instance) {
                                 *a = local.in6.sin6_addr.s6_addr+12,
                                 *b = remote.in6.sin6_addr.s6_addr+12;
 
-                        if (asprintf(&r,
+                        if (asprintf(&s,
                                      "%u-%u.%u.%u.%u:%u-%u.%u.%u.%u:%u",
                                      nr,
                                      a[0], a[1], a[2], a[3],
@@ -882,7 +884,7 @@ static int instance_from_socket(int fd, unsigned nr, char **instance) {
                                      be16toh(remote.in6.sin6_port)) < 0)
                                 return -ENOMEM;
                 } else {
-                        if (asprintf(&r,
+                        if (asprintf(&s,
                                      "%u-%s:%u-%s:%u",
                                      nr,
                                      IN6_ADDR_TO_STRING(&local.in6.sin6_addr),
@@ -897,30 +899,35 @@ static int instance_from_socket(int fd, unsigned nr, char **instance) {
 
         case AF_UNIX: {
                 struct ucred ucred;
-                int k;
 
-                k = getpeercred(fd, &ucred);
-                if (k >= 0) {
-                        if (asprintf(&r,
-                                     "%u-"PID_FMT"-"UID_FMT,
-                                     nr, ucred.pid, ucred.uid) < 0)
+                r = getpeercred(fd, &ucred);
+                if (r >= 0) {
+                        _cleanup_close_ int pidfd = -EBADF;
+                        uint64_t pidfd_id;
+
+                        if (getpeerpidfd(fd, &pidfd) >= 0 && pidfd_get_inode_id(pidfd, &pidfd_id) >= 0)
+                                r = asprintf(&s, "%u-" PID_FMT "_%" PRIu64 "-" UID_FMT,
+                                             nr, ucred.pid, pidfd_id, ucred.uid);
+                        else
+                                r = asprintf(&s, "%u-" PID_FMT "-" UID_FMT,
+                                             nr, ucred.pid, ucred.uid);
+                        if (r < 0)
                                 return -ENOMEM;
-                } else if (k == -ENODATA) {
-                        /* This handles the case where somebody is
-                         * connecting from another pid/uid namespace
+                } else if (r == -ENODATA) {
+                        /* This handles the case where somebody is connecting from another pid/uid namespace
                          * (e.g. from outside of our container). */
-                        if (asprintf(&r,
+                        if (asprintf(&s,
                                      "%u-unknown",
                                      nr) < 0)
                                 return -ENOMEM;
                 } else
-                        return k;
+                        return r;
 
                 break;
         }
 
         case AF_VSOCK:
-                if (asprintf(&r,
+                if (asprintf(&s,
                              "%u-%u:%u-%u:%u",
                              nr,
                              local.vm.svm_cid, local.vm.svm_port,
@@ -933,7 +940,7 @@ static int instance_from_socket(int fd, unsigned nr, char **instance) {
                 assert_not_reached();
         }
 
-        *instance = r;
+        *ret = s;
         return 0;
 }
 
@@ -1412,15 +1419,14 @@ int socket_load_service_unit(Socket *s, int cfd, Unit **ret) {
 
         if (cfd >= 0) {
                 r = instance_from_socket(cfd, s->n_accepted, &instance);
-                if (r < 0) {
-                        if (ERRNO_IS_DISCONNECT(r))
-                                /* ENOTCONN is legitimate if TCP RST was received. Other socket families might return
-                                 * different errors. This connection is over, but the socket unit lives on. */
-                                return log_unit_debug_errno(UNIT(s), r,
-                                                            "Got %s on incoming socket, assuming aborted connection attempt, ignoring.",
-                                                            errno_to_name(r));
+                if (ERRNO_IS_NEG_DISCONNECT(r))
+                        /* ENOTCONN is legitimate if TCP RST was received. Other socket families might return
+                         * different errors. This connection is over, but the socket unit lives on. */
+                        return log_unit_debug_errno(UNIT(s), r,
+                                                    "Got %s on incoming socket, assuming aborted connection attempt, ignoring.",
+                                                    errno_to_name(r));
+                if (r < 0)
                         return r;
-                }
         }
 
         /* For accepting sockets, we don't know how the instance will be called until we get a connection and
