@@ -1126,8 +1126,8 @@ def make_uki(opts: UkifyConfig) -> None:
 
     pcrpkey: Union[bytes, Path, None] = opts.pcrpkey
     if pcrpkey is None:
-        measure_tool = find_tool('systemd-keyutil', '/usr/lib/systemd/systemd-keyutil')
-        cmd = [measure_tool, 'public']
+        keyutil_tool = find_tool('systemd-keyutil', '/usr/lib/systemd/systemd-keyutil')
+        cmd = [keyutil_tool, 'public']
 
         if opts.pcr_public_keys and len(opts.pcr_public_keys) == 1:
             # If we're using an engine or provider, the public key will be an X.509 certificate.
@@ -2140,10 +2140,10 @@ def finalize_options(opts: argparse.Namespace) -> None:
         opts.signtool = 'pesign'
 
     if opts.signing_provider and opts.signtool != 'systemd-sbsign':
-        raise ValueError('--signing-provider= can only be used with--signtool=systemd-sbsign')
+        raise ValueError('--signing-provider= can only be used with --signtool=systemd-sbsign')
 
     if opts.certificate_provider and opts.signtool != 'systemd-sbsign':
-        raise ValueError('--certificate-provider= can only be used with--signtool=systemd-sbsign')
+        raise ValueError('--certificate-provider= can only be used with --signtool=systemd-sbsign')
 
     if opts.sign_kernel and not opts.sb_key and not opts.sb_cert_name:
         raise ValueError(
