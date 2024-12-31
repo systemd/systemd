@@ -10,6 +10,8 @@ static const struct errno_name* lookup_errno(register const char *str,
                                              register GPERF_LEN_TYPE len);
 
 #include "errno-from-name.h"
+
+#if !HAVE_STRERRORNAME_NP
 #include "errno-to-name.h"
 
 const char* errno_to_name(int id) {
@@ -22,6 +24,7 @@ const char* errno_to_name(int id) {
 
         return errno_names[id];
 }
+#endif
 
 int errno_from_name(const char *name) {
         const struct errno_name *sc;
