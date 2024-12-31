@@ -701,13 +701,14 @@ background_at_return() {
 
 testcase_background() {
 
-    local uid TRANSIENTUNIT1 TRANSIENTUNIT2
+    local uid TRANSIENTUNIT0 TRANSIENTUNIT1 TRANSIENTUNIT2
 
     uid=$(id -u logind-test-user)
 
     systemctl stop user@"$uid".service
 
     PAMSERVICE="pamserv$RANDOM"
+    TRANSIENTUNIT0="none$RANDOM.service"
     TRANSIENTUNIT1="bg$RANDOM.service"
     TRANSIENTUNIT2="bgg$RANDOM.service"
 
@@ -721,6 +722,13 @@ account required   pam_permit.so
 session optional   pam_systemd.so debug
 session required   pam_unix.so
 EOF
+
+    systemd-run -u "$TRANSIENTUNIT0" -p PAMName="$PAMSERVICE" -p "Environment=XDG_SESSION_CLASS=none" -p Type=exec -p User=logind-test-user sleep infinity
+
+    # This was a 'none' service, so logind should take no action
+    (! systemctl is-active user-"$uid".slice )
+
+    systemctl stop "$TRANSIENTUNIT0"
 
     systemd-run -u "$TRANSIENTUNIT1" -p PAMName="$PAMSERVICE" -p "Environment=XDG_SESSION_CLASS=background-light" -p Type=exec -p User=logind-test-user sleep infinity
 
