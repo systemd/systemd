@@ -1571,7 +1571,7 @@ Features:
 * add a new flag to chase() that stops chasing once the first missing
   component is found and then allows the caller to create the rest.
 
-* make use of new glibc 2.32 APIs sigabbrev_np() and strerrorname_np().
+* make use of new glibc 2.32 APIs sigabbrev_np().
 
 * if /usr/bin/swapoff fails due to OOM, log a friendly explanatory message about it
 
