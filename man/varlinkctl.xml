@@ -442,7 +442,7 @@ method Extend(
       <para>To invoke a Varlink service binary directly on the remote host, rather than talking to a service
       via <constant>AF_UNIX</constant> can be done like this:</para>
 
-      <programlisting># varlinkctl call ssh-exec:somehost:/usr/bin/systemd-creds org.varlink.service.GetInfo '{}'</programlisting>
+      <programlisting># varlinkctl call ssh-exec:somehost:systemd-creds org.varlink.service.GetInfo '{}'</programlisting>
     </example>
 
   </refsect1>
