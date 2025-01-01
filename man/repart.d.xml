@@ -877,6 +877,12 @@
                 <entry>lz4, lz4hc, lzma, deflate, libdeflate, zstd</entry>
                 <entry><member><citerefentry project='man-pages'><refentrytitle>mkfs.erofs</refentrytitle><manvolnum>1</manvolnum></citerefentry></member></entry>
               </row>
+
+              <row>
+                <entry><constant>btrfs</constant></entry>
+                <entry>zlib, lzo, zstd</entry>
+                <entry><member><citerefentry project='man-pages'><refentrytitle>mkfs.btrfs</refentrytitle><manvolnum>8</manvolnum></citerefentry></member></entry>
+              </row>
             </tbody>
           </tgroup>
         </table>
