@@ -109,6 +109,8 @@ DnsOverTlsMode link_get_dns_over_tls_mode(Link *l);
 ResolveSupport link_get_llmnr_support(Link *link);
 ResolveSupport link_get_mdns_support(Link *link);
 
+bool link_get_default_route(Link *l);
+
 int link_save_user(Link *l);
 int link_load_user(Link *l);
 void link_remove_user(Link *l);
