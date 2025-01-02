@@ -682,15 +682,6 @@ foreach ident : [
         conf.set10('HAVE_' + ident[0].to_upper(), have)
 endforeach
 
-if cc.has_function('getrandom', prefix : '''#include <sys/random.h>''', args : '-D_GNU_SOURCE')
-        conf.set10('USE_SYS_RANDOM_H', true)
-        conf.set10('HAVE_GETRANDOM', true)
-else
-        have = cc.has_function('getrandom', prefix : '''#include <linux/random.h>''')
-        conf.set10('USE_SYS_RANDOM_H', false)
-        conf.set10('HAVE_GETRANDOM', have)
-endif
-
 #####################################################################
 
 sh = find_program('sh')
@@ -773,7 +764,7 @@ endif
 foreach header : ['crypt.h',
                   'linux/ioprio.h',
                   'linux/time_types.h',
-                  'sys/auxv.h',
+                  'sys/random.h',
                   'sys/sdt.h',
                   'threads.h',
                   'valgrind/memcheck.h',
