@@ -17,6 +17,8 @@
 #include "time-util.h"
 #include "udevadm.h"
 #include "udev-ctrl.h"
+#include "udev-varlink.h"
+#include "varlink-util.h"
 #include "virt.h"
 
 static char **arg_env = NULL;
@@ -174,7 +176,71 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-static int send_control_commands(void) {
+static int varlink_send_commands(void) {
+        _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *link = NULL;
+        int r;
+
+        r = udev_varlink_connect(&link, arg_timeout);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to connect to udev via varlink, falling back to use legacy control socket, ignoring: %m");
+                return 0;
+        }
+
+        if (arg_exit) {
+                r = varlink_call_and_log(link, "io.systemd.Udev.Exit", /* parameters = */ NULL, /* reply = */ NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        if (arg_log_level >= 0) {
+                r = varlink_callbo_and_log(link, "io.systemd.Service.SetLogLevel", /* reply = */ NULL,
+                                           SD_JSON_BUILD_PAIR_INTEGER("level", arg_log_level));
+                if (r < 0)
+                        return r;
+        }
+
+        if (arg_start_exec_queue == true) {
+                r = varlink_call_and_log(link, "io.systemd.Udev.StartExecQueue", /* parameters = */ NULL, /* reply = */ NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        if (arg_start_exec_queue == false) {
+                r = varlink_call_and_log(link, "io.systemd.Udev.StopExecQueue", /* parameters = */ NULL, /* reply = */ NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        if (arg_reload) {
+                r = varlink_call_and_log(link, "io.systemd.Service.Reload", /* parameters = */ NULL, /* reply = */ NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        if (!strv_isempty(arg_env)) {
+                r = varlink_callbo_and_log(link, "io.systemd.Udev.SetEnvironment", /* reply = */ NULL,
+                                           SD_JSON_BUILD_PAIR_STRV("assignments", arg_env));
+                if (r < 0)
+                        return r;
+        }
+
+        if (arg_max_children >= 0) {
+                r = varlink_callbo_and_log(link, "io.systemd.Udev.SetChildrenMax", /* reply = */ NULL,
+                                           SD_JSON_BUILD_PAIR_UNSIGNED("number", arg_max_children));
+                if (r < 0)
+                        return r;
+        }
+
+        if (arg_ping) {
+                r = varlink_call_and_log(link, "io.systemd.Service.Ping", /* parameters = */ NULL, /* reply = */ NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        return 1; /* done */
+}
+
+static int ctrl_send_commands(void) {
         _cleanup_(udev_ctrl_unrefp) UdevCtrl *uctrl = NULL;
         int r;
 
@@ -238,6 +304,19 @@ static int send_control_commands(void) {
         return 0;
 }
 
+static int send_control_commands(void) {
+        int r;
+
+        if (!arg_has_control_commands())
+                return 0;
+
+        r = varlink_send_commands();
+        if (r != 0)
+                return r;
+
+        return ctrl_send_commands();
+}
+
 int control_main(int argc, char *argv[], void *userdata) {
         int r;
 
@@ -260,11 +339,5 @@ int control_main(int argc, char *argv[], void *userdata) {
                         return r;
         }
 
-        if (arg_has_control_commands()) {
-                r = send_control_commands();
-                if (r < 0)
-                        return r;
-        }
-
-        return 0;
+        return send_control_commands();
 }

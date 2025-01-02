@@ -11,8 +11,8 @@
 Description=Cleanup udev Database
 DefaultDependencies=no
 AssertPathExists=/etc/initrd-release
-Conflicts=systemd-udevd.service systemd-udevd-control.socket systemd-udevd-kernel.socket systemd-udev-trigger.service systemd-udev-settle.service
-After=systemd-udevd.service systemd-udevd-control.socket systemd-udevd-kernel.socket systemd-udev-trigger.service systemd-udev-settle.service
+Conflicts=systemd-udevd.service systemd-udevd-control.socket systemd-udevd-kernel.socket systemd-udevd-varlink.socket systemd-udev-trigger.service systemd-udev-settle.service
+After=systemd-udevd.service systemd-udevd-control.socket systemd-udevd-kernel.socket systemd-udevd-varlink.socket systemd-udev-trigger.service systemd-udev-settle.service
 Before=initrd-switch-root.target
 
 [Service]
