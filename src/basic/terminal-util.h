@@ -134,8 +134,8 @@ int getttyname_harder(int fd, char **ret);
 
 int ptsname_malloc(int fd, char **ret);
 
-int openpt_allocate(int flags, char **ret_slave);
-int openpt_allocate_in_namespace(pid_t pid, int flags, char **ret_slave);
+int openpt_allocate(int flags, char **ret_peer);
+int openpt_allocate_in_namespace(pid_t pid, int flags, char **ret_peer);
 int open_terminal_in_namespace(pid_t pid, const char *name, int mode);
 
 int vt_restore(int fd);
