@@ -35,14 +35,17 @@ static int get_pin(
                                         "Use the '$PIN' environment variable.");
 
                 AskPasswordRequest req = {
+                        .tty_fd = -EBADF,
                         .message = "Please enter TPM2 PIN:",
                         .icon = "drive-harddisk",
                         .keyring = "tpm2-pin",
                         .credential = askpw_credential,
+                        .until = until,
+                        .hup_fd = -EBADF,
                 };
 
                 pin = strv_free_erase(pin);
-                r = ask_password_auto(&req, until, askpw_flags, &pin);
+                r = ask_password_auto(&req, askpw_flags, &pin);
                 if (r < 0)
                         return log_error_errno(r, "Failed to ask for user pin: %m");
                 assert(strv_length(pin) == 1);
