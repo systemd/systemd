@@ -235,6 +235,8 @@ static int swap_entry_get_resume_config(SwapEntry *swap) {
         r = get_block_device_fd(fd, &swap->devno);
         if (r < 0)
                 return r;
+        if (r == 0)
+                return -EMEDIUMTYPE;
 
         r = fd_is_fs_type(fd, BTRFS_SUPER_MAGIC);
         if (r < 0)
@@ -362,14 +364,16 @@ int find_suitable_hibernation_device_full(HibernationDevice *ret_device, uint64_
 
         FOREACH_ARRAY(swap, entries.swaps, entries.n_swaps) {
                 r = swap_entry_get_resume_config(swap);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to get devno and offset for swap '%s': %m", swap->path);
-                if (swap->devno == 0) {
+                if (r == -EMEDIUMTYPE) {
                         assert(swap->swapfile);
 
-                        log_debug("Swap file '%s' is not backed by block device, ignoring: %m", swap->path);
+                        log_debug_errno(r, "Unable to acquire backing block device for swap file '%s' (maybe on a RAID btrfs?), ignoring.",
+                                        swap->path);
                         continue;
                 }
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to get devno and offset for swap '%s': %m", swap->path);
+                assert(swap->devno > 0);
 
                 if (resume_config_devno > 0) {
                         if (swap->devno == resume_config_devno &&
