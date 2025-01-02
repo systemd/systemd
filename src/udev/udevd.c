@@ -13,6 +13,7 @@
 #include "process-util.h"
 #include "rlimit-util.h"
 #include "selinux-util.h"
+#include "terminal-util.h"
 #include "udev-config.h"
 #include "udev-manager.h"
 #include "udevd.h"
@@ -74,7 +75,7 @@ int run_udevd(int argc, char *argv[]) {
                         return 0;
 
                 /* child */
-                (void) setsid();
+                terminal_detach_session();
         }
 
         return manager_main(manager);

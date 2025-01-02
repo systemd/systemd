@@ -7,6 +7,7 @@
 #include <syslog.h>
 #include <sys/types.h>
 #include <termios.h>
+#include <unistd.h>
 
 #include "macro.h"
 #include "time-util.h"
@@ -64,18 +65,11 @@ typedef enum AcquireTerminalFlags {
 int acquire_terminal(const char *name, AcquireTerminalFlags flags, usec_t timeout);
 int release_terminal(void);
 
-/* Limits the use of ANSI colors to a subset. */
-typedef enum ColorMode {
-        COLOR_OFF,   /* No colors, monochrome output. */
-        COLOR_16,    /* Only the base 16 colors. */
-        COLOR_256,   /* Only 256 colors. */
-        COLOR_24BIT, /* For truecolor or 24bit color support, no restriction. */
-        _COLOR_MODE_MAX,
-        _COLOR_MODE_INVALID = -EINVAL,
-} ColorMode;
-
-const char* color_mode_to_string(ColorMode m) _const_;
-ColorMode color_mode_from_string(const char *s) _pure_;
+int terminal_new_session(void);
+static inline void terminal_detach_session(void) {
+        (void) setsid();
+        (void) release_terminal();
+}
 
 int terminal_vhangup_fd(int fd);
 int terminal_vhangup(const char *tty);
@@ -117,14 +111,28 @@ void reset_terminal_feature_caches(void);
 bool on_tty(void);
 bool getenv_terminal_is_dumb(void);
 bool terminal_is_dumb(void);
-ColorMode get_color_mode(void);
-bool underline_enabled(void);
-bool dev_console_colors_enabled(void);
 
+/* Limits the use of ANSI colors to a subset. */
+typedef enum ColorMode {
+        COLOR_OFF,   /* No colors, monochrome output. */
+        COLOR_16,    /* Only the base 16 colors. */
+        COLOR_256,   /* Only 256 colors. */
+        COLOR_24BIT, /* For truecolor or 24bit color support, no restriction. */
+        _COLOR_MODE_MAX,
+        _COLOR_MODE_INVALID = -EINVAL,
+} ColorMode;
+
+const char* color_mode_to_string(ColorMode m) _const_;
+ColorMode color_mode_from_string(const char *s) _pure_;
+
+ColorMode get_color_mode(void);
 static inline bool colors_enabled(void) {
         /* Returns true if colors are considered supported on our stdout. */
         return get_color_mode() != COLOR_OFF;
 }
+
+bool underline_enabled(void);
+bool dev_console_colors_enabled(void);
 
 int get_ctty_devnr(pid_t pid, dev_t *ret);
 int get_ctty(pid_t, dev_t *ret_devnr, char **ret);

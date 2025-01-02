@@ -14,6 +14,7 @@
 #include "fs-util.h"
 #include "macro.h"
 #include "path-util.h"
+#include "process-util.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "tests.h"
@@ -312,6 +313,38 @@ TEST(pty_open_peer) {
         assert(read(peer_fd, &buf, sizeof(buf)) == sizeof(x));
         assert(buf[0] == x[0]);
         assert(buf[1] == x[1]);
+}
+
+TEST(terminal_new_session) {
+        _cleanup_close_ int pty_fd = -EBADF, peer_fd = -EBADF;
+        int r;
+
+        ASSERT_OK(pty_fd = openpt_allocate(O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK, NULL));
+        ASSERT_OK(peer_fd = pty_open_peer(pty_fd, O_RDWR|O_NOCTTY|O_CLOEXEC));
+
+        r = safe_fork_full("test-term-session",
+                           (int[]) { peer_fd, peer_fd, peer_fd },
+                           NULL, 0,
+                           FORK_DEATHSIG_SIGKILL|FORK_LOG|FORK_WAIT|FORK_REARRANGE_STDIO,
+                           NULL);
+        ASSERT_OK(r);
+        if (r == 0) {
+                ASSERT_OK(terminal_new_session());
+                ASSERT_OK(get_ctty_devnr(0, NULL));
+
+                terminal_detach_session();
+                ASSERT_ERROR(get_ctty_devnr(0, NULL), ENXIO);
+
+                ASSERT_OK(terminal_new_session());
+                ASSERT_OK(get_ctty_devnr(0, NULL));
+
+                terminal_detach_session();
+                ASSERT_OK(rearrange_stdio(-EBADF, STDOUT_FILENO, STDERR_FILENO));
+                ASSERT_ERROR(get_ctty_devnr(0, NULL), ENXIO);
+                ASSERT_ERROR(terminal_new_session(), ENXIO);
+
+                _exit(EXIT_SUCCESS);
+        }
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);
