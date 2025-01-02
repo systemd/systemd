@@ -91,12 +91,7 @@ static inline int missing_memfd_create(const char *name, unsigned int flags) {
 #if !HAVE_GETRANDOM
 /* glibc says getrandom() returns ssize_t */
 static inline ssize_t missing_getrandom(void *buffer, size_t count, unsigned flags) {
-#  ifdef __NR_getrandom
         return syscall(__NR_getrandom, buffer, count, flags);
-#  else
-        errno = ENOSYS;
-        return -1;
-#  endif
 }
 
 #  define getrandom missing_getrandom
