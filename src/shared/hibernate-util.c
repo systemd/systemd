@@ -146,19 +146,14 @@ static int read_resume_config(dev_t *ret_devno, uint64_t *ret_offset) {
                 return log_debug_errno(r, "Failed to parse /sys/power/resume devno '%s': %m", devno_str);
 
         r = read_one_line_file("/sys/power/resume_offset", &offset_str);
-        if (r == -ENOENT) {
-                log_debug_errno(r, "Kernel does not expose resume_offset, skipping.");
-                offset = UINT64_MAX;
-        } else if (r < 0)
+        if (r < 0)
                 return log_debug_errno(r, "Failed to read /sys/power/resume_offset: %m");
-        else {
-                r = safe_atou64(offset_str, &offset);
-                if (r < 0)
-                        return log_debug_errno(r,
-                                               "Failed to parse /sys/power/resume_offset '%s': %m", offset_str);
-        }
 
-        if (devno == 0 && offset > 0 && offset != UINT64_MAX)
+        r = safe_atou64(offset_str, &offset);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse /sys/power/resume_offset '%s': %m", offset_str);
+
+        if (devno == 0 && offset > 0)
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOMEDIUM),
                                        "Found populated /sys/power/resume_offset (%" PRIu64 ") but /sys/power/resume is not set, refusing.",
                                        offset);
@@ -375,10 +370,9 @@ int find_suitable_hibernation_device_full(HibernationDevice *ret_device, uint64_
 
                 if (resume_config_devno > 0) {
                         if (swap->devno == resume_config_devno &&
-                            (!swap->swapfile || resume_config_offset == UINT64_MAX || swap->offset == resume_config_offset)) {
+                            (!swap->swapfile || swap->offset == resume_config_offset)) {
                                 /* /sys/power/resume (resume=) is set, and the calculated swap file offset
-                                 * matches with /sys/power/resume_offset. If /sys/power/resume_offset is not
-                                 * exposed, we can't do proper check anyway, so use the found swap file too. */
+                                 * matches with /sys/power/resume_offset. */
                                 entry = swap;
                                 break;
                         }
@@ -496,28 +490,16 @@ int write_resume_config(dev_t devno, uint64_t offset, const char *device) {
         devno_str = FORMAT_DEVNUM(devno);
         xsprintf(offset_str, "%" PRIu64, offset);
 
-        /* We write the offset first since it's safer. Note that this file is only available in 4.17+, so
-         * fail gracefully if it doesn't exist and we're only overwriting it with 0. */
         r = write_string_file("/sys/power/resume_offset", offset_str, WRITE_STRING_FILE_DISABLE_BUFFER);
-        if (r == -ENOENT) {
-                if (offset != 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                               "Can't configure swap file offset %s, kernel does not support /sys/power/resume_offset. Refusing.",
-                                               offset_str);
-
-                log_warning_errno(r, "/sys/power/resume_offset is unavailable, skipping writing swap file offset.");
-        } else if (r < 0)
-                return log_error_errno(r,
-                                       "Failed to write swap file offset %s to /sys/power/resume_offset for device '%s': %m",
+        if (r < 0)
+                return log_error_errno(r, "Failed to write swap file offset %s to /sys/power/resume_offset for device '%s': %m",
                                        offset_str, device);
-        else
-                log_debug("Wrote resume_offset=%s for device '%s' to /sys/power/resume_offset.",
-                          offset_str, device);
+        log_debug("Wrote resume_offset=%s for device '%s' to /sys/power/resume_offset.",
+                  offset_str, device);
 
         r = write_string_file("/sys/power/resume", devno_str, WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0)
-                return log_error_errno(r,
-                                       "Failed to write device '%s' (%s) to /sys/power/resume: %m",
+                return log_error_errno(r, "Failed to write device '%s' (%s) to /sys/power/resume: %m",
                                        device, devno_str);
         log_debug("Wrote resume=%s for device '%s' to /sys/power/resume.", devno_str, device);
 
