@@ -923,6 +923,14 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP:pnHPEliteDragonfly13.5inchG3NotebookPC:pvr*
  KEYBOARD_KEY_c8=pageup
  KEYBOARD_KEY_d0=pagedown
 
+# HP 430 Programmable Wireless Keypad
+evdev:input:b0005v03F0p854Ae044C*
+ KEYBOARD_KEY_700f3=macro1
+ KEYBOARD_KEY_700f4=macro2
+ KEYBOARD_KEY_700fc=macro3
+ KEYBOARD_KEY_700fd=macro4
+ KEYBOARD_KEY_700fe=macro5
+
 ##########################################################
 # Huawei
 ##########################################################
