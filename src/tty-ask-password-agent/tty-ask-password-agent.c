@@ -705,15 +705,10 @@ static int run(int argc, char *argv[]) {
                  */
                 return ask_on_consoles(argv);
 
-        if (arg_device) {
-                /*
-                 * Later on, a controlling terminal will be acquired,
-                 * therefore the current process has to become a session
-                 * leader and should not have a controlling terminal already.
-                 */
-                (void) setsid();
-                (void) release_terminal();
-        }
+        if (arg_device)
+                /* Later on, a controlling terminal will be acquired, therefore the current process has to
+                 * become a session leader and should not have a controlling terminal already. */
+                terminal_detach_session();
 
         return process_and_watch_password_files(!IN_SET(arg_action, ACTION_QUERY, ACTION_LIST));
 }
