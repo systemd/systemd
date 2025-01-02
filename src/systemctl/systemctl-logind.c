@@ -152,7 +152,7 @@ int logind_check_inhibitors(enum action a) {
                 return 0;
 
         r = acquire_bus_full(BUS_FULL, /* graceful = */ true, &bus);
-        if (ERRNO_IS_NEG_DISCONNECT(r) && geteuid() == 0)
+        if ((ERRNO_IS_NEG_DISCONNECT(r) || r == -ENOENT) && geteuid() == 0)
                 return 0; /* When D-Bus is not running (ECONNREFUSED) or D-Bus socket is not created (ENOENT),
                            * allow root to force a shutdown. E.g. when running at the emergency console. */
         if (r < 0)
