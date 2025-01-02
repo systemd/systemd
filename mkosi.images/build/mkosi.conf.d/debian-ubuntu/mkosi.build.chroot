@@ -130,6 +130,10 @@ if ! build; then
 
     # Otherwise, we append the unpackaged files to the filelist for the systemd package and retry the build.
     cat /tmp/unpackaged-files >>debian/systemd.install
+
+    # Print a warning in the CI job so that we noticed when the packaging needs to be updated
+    cp /tmp/unpackaged-files "$BUILDDIR"
+
     build
 fi
 

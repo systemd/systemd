@@ -187,7 +187,9 @@ jobs:
         run: mkosi sandbox meson setup --buildtype=debugoptimized -Dintegration-tests=true build
 
       - name: Build image
-        run: sudo --preserve-env mkosi sandbox meson compile -C build mkosi
+        run: |
+          sudo --preserve-env mkosi sandbox meson compile -C build mkosi
+          if [[ -f build/unpackaged-files ]]; then echo -e "::warning title=UNPACKAGED-FILES::The following files were not picked up by the package, please update the packaging recipe to include:\n$(cat build/unpackaged-files)"; fi
 
       - name: Run integration tests
         run: |
