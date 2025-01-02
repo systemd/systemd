@@ -11,7 +11,7 @@ reconfiguring meson to make sure it is picked up properly.
 We also need to make sure the required meson options are enabled:
 
 ```shell
-$ meson setup --reconfigure build -Dremote=enabled
+$ mkosi -f sandbox meson setup --reconfigure build -Dremote=enabled
 ```
 
 To make sure `mkosi` doesn't try to build systemd from source during the image build
@@ -31,7 +31,7 @@ to /etc which is used when building the image instead.
 Next, we can build the integration test image with meson:
 
 ```shell
-$ meson compile -C build mkosi
+$ mkosi -f sandbox meson compile -C build mkosi
 ```
 
 By default, the `mkosi` meson target which builds the integration test image depends on
@@ -52,24 +52,24 @@ directory (`OutputDirectory=`) to point to the other directory using `mkosi.loca
 After the image has been built, the integration tests can be run with:
 
 ```shell
-$ env SYSTEMD_INTEGRATION_TESTS=1 meson test -C build --no-rebuild --suite integration-tests --num-processes "$(($(nproc) / 4))"
+$ env SYSTEMD_INTEGRATION_TESTS=1 mkosi -f sandbox meson test -C build --no-rebuild --suite integration-tests --num-processes "$(($(nproc) / 4))"
 ```
 
 As usual, specific tests can be run in meson by appending the name of the test
 which is usually the name of the directory e.g.
 
 ```shell
-$ env SYSTEMD_INTEGRATION_TESTS=1 meson test -C build --no-rebuild -v TEST-01-BASIC
+$ env SYSTEMD_INTEGRATION_TESTS=1 mkosi -f sandbox meson test -C build --no-rebuild -v TEST-01-BASIC
 ```
 
-See `meson introspect build --tests` for a list of tests.
+See `mkosi -f sandbox meson introspect build --tests` for a list of tests.
 
 To interactively debug a failing integration test, the `--interactive` option
 (`-i`) for `meson test` can be used. Note that this requires meson v1.5.0 or
 newer:
 
 ```shell
-$ env SYSTEMD_INTEGRATION_TESTS=1 meson test -C build --no-rebuild -i TEST-01-BASIC
+$ env SYSTEMD_INTEGRATION_TESTS=1 mkosi -f sandbox meson test -C build --no-rebuild -i TEST-01-BASIC
 ```
 
 Due to limitations in meson, the integration tests do not yet depend on the
@@ -78,7 +78,7 @@ running the integration tests. To rebuild the image and rerun a test, the
 following command can be used:
 
 ```shell
-$ meson compile -C build mkosi && env SYSTEMD_INTEGRATION_TESTS=1 meson test -C build --no-rebuild -v TEST-01-BASIC
+$ mkosi -f sandbox meson compile -C build mkosi && env SYSTEMD_INTEGRATION_TESTS=1 mkosi -f sandbox meson test -C build --no-rebuild -v TEST-01-BASIC
 ```
 
 The integration tests use the same mkosi configuration that's used when you run
@@ -92,7 +92,7 @@ To iterate on an integration test, let's first get a shell in the integration te
 the following:
 
 ```shell
-$ meson compile -C build mkosi && env SYSTEMD_INTEGRATION_TESTS=1 TEST_SHELL=1 meson test -C build --no-rebuild -i TEST-01-BASIC
+$ mkosi -f sandbox meson compile -C build mkosi && env SYSTEMD_INTEGRATION_TESTS=1 TEST_SHELL=1 mkosi -f sandbox meson test -C build --no-rebuild -i TEST-01-BASIC
 ```
 
 This will get us a shell in the integration test environment after booting the machine without running the
@@ -428,32 +428,33 @@ see `--help` for an exhaustive list.
 
 ## Code coverage
 
-We have a daily cron job in CentOS CI which runs all unit and integration tests,
-collects coverage using gcov/lcov, and uploads the report to
+We have a daily cron job in Github Actions which runs all unit and integration
+tests, collects coverage using gcov/lcov, and uploads the report to
 [Coveralls](https://coveralls.io/github/systemd/systemd). In order to collect
 the most accurate coverage information, some measures have to be taken regarding
 sandboxing, namely:
 
  - ProtectSystem= and ProtectHome= need to be turned off
- - the $BUILD_DIR with necessary .gcno files needs to be present in the image
-   and needs to be writable by all processes
+ - the coverage files (*.gcda) files need to be present in the image and need
+   to be writable by all processes
 
 The first point is relatively easy to handle and is handled automagically by
-our test "framework" by creating necessary dropins.
+mkosi by creating the necessary dropins when `COVERAGE=1` is passed via the
+`Environment=` setting.
 
-Making the `$BUILD_DIR` accessible to _everything_ is slightly more complicated.
-First, and foremost, the `$BUILD_DIR` has a POSIX ACL that makes it writable
-to everyone. However, this is not enough in some cases, like for services
-that use DynamicUser=yes, since that implies ProtectSystem=strict that can't
-be turned off. A solution to this is to use `ReadWritePaths=$BUILD_DIR`, which
-works for the majority of cases, but can't be turned on globally, since
-ReadWritePaths= creates its own mount namespace which might break some
-services. Hence, the `ReadWritePaths=$BUILD_DIR` is enabled for all services
-with the `test-` prefix (i.e. test-foo.service or test-foo-bar.service), both
-in the system and the user managers.
+Making the coverage files accessible and writable to _everything_ is achieved by
+pre-creating all the files and making them world readable and writable. However,
+this is not enough in some cases, like for services that use DynamicUser=yes,
+since that implies ProtectSystem=strict that can't be turned off. A solution to
+this is to use `ReadWritePaths=/coverage`, which works for the majority of
+cases, but can't be turned on globally, since ReadWritePaths= creates its own
+mount namespace which might break some services. Hence, the
+`ReadWritePaths=/coverage` is enabled for all services with the `test-` prefix
+(i.e. test-foo.service or test-foo-bar.service), both in the system and the user
+managers.
 
 So, if you're considering writing an integration test that makes use of
-DynamicUser=yes, or other sandboxing stuff that implies it, please prefix the
+`DynamicUser=yes`, or other sandboxing stuff that implies it, please prefix the
 test unit (be it a static one or a transient one created via systemd-run), with
 `test-`, unless the test unit needs to be able to install mount points in the
 main mount namespace - in that case use `IGNORE_MISSING_COVERAGE=yes` in the
