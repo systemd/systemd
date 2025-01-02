@@ -113,6 +113,10 @@ _journalctl() {
                 ;;
             --user-unit)
                 comps=$(journalctl -F '_SYSTEMD_USER_UNIT' 2>/dev/null)
+                if ! [[ $cur =~ '\\' ]]; then
+                    cur="$(printf '%q' $cur)"
+                fi
+                compopt -o filenames
                 ;;
             --identifier|-t|--exclude-identifier|-T)
                 comps=$(journalctl -F 'SYSLOG_IDENTIFIER' 2>/dev/null)
