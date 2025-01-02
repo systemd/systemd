@@ -498,6 +498,22 @@ int release_terminal(void) {
         return r;
 }
 
+int terminal_new_session(void) {
+
+        /* Make us the new session leader, and set stdin tty to be our controlling terminal.
+         *
+         * Why stdin? Well, the ctty logic is relevant for signal delivery mostly, i.e. if people hit C-c
+         * or the line is hung up. Such events are basically just a form of input, via a side channel
+         * (that side channel being signal delivery, i.e. SIGINT, SIGHUP et al). Hence we focus on input,
+         * not output here. */
+
+        if (!isatty_safe(STDIN_FILENO))
+                return -ENXIO;
+
+        (void) setsid();
+        return RET_NERRNO(ioctl(STDIN_FILENO, TIOCSCTTY, 0));
+}
+
 int terminal_vhangup_fd(int fd) {
         assert(fd >= 0);
         return RET_NERRNO(ioctl(fd, TIOCVHANGUP));

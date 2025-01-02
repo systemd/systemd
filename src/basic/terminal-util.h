@@ -7,6 +7,7 @@
 #include <syslog.h>
 #include <sys/types.h>
 #include <termios.h>
+#include <unistd.h>
 
 #include "macro.h"
 #include "time-util.h"
@@ -63,6 +64,12 @@ typedef enum AcquireTerminalFlags {
 
 int acquire_terminal(const char *name, AcquireTerminalFlags flags, usec_t timeout);
 int release_terminal(void);
+
+int terminal_new_session(void);
+static inline void terminal_detach_session(void) {
+        (void) setsid();
+        (void) release_terminal();
+}
 
 int terminal_vhangup_fd(int fd);
 int terminal_vhangup(const char *tty);
