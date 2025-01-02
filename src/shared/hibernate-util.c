@@ -364,10 +364,10 @@ int find_suitable_hibernation_device_full(HibernationDevice *ret_device, uint64_
                 r = swap_entry_get_resume_config(swap);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to get devno and offset for swap '%s': %m", swap->path);
+
                 if (swap->devno == 0) {
                         assert(swap->swapfile);
-
-                        log_debug("Swap file '%s' is not backed by block device, ignoring: %m", swap->path);
+                        log_debug("Swap file '%s' is not backed by a block device (maybe on a RAID btrfs?), ignoring.", swap->path);
                         continue;
                 }
 
@@ -391,16 +391,17 @@ int find_suitable_hibernation_device_full(HibernationDevice *ret_device, uint64_
                         entry = swap;
         }
 
-        if (!entry) {
-                /* No need to check n_swaps == 0, since it's rejected early */
-                assert(resume_config_devno > 0);
-                return log_debug_errno(SYNTHETIC_ERRNO(ESTALE), "Cannot find swap entry corresponding to /sys/power/resume.");
-        }
+        if (!entry)
+                return log_debug_errno(SYNTHETIC_ERRNO(ESTALE),
+                                       resume_config_devno > 0 ?
+                                       "Cannot find swap entry corresponding to /sys/power/resume." :
+                                       "Cannot find suitable swap entry for hibernation.");
 
         if (ret_device) {
                 char *path;
 
                 if (entry->swapfile) {
+                        assert(entry->devno != 0);
                         r = device_path_make_canonical(S_IFBLK, entry->devno, &path);
                         if (r < 0)
                                 return log_debug_errno(r,
