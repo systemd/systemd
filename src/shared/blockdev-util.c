@@ -263,9 +263,7 @@ int get_block_device_fd(int fd, dev_t *ret) {
         }
 
         r = btrfs_get_block_device_fd(fd, ret);
-        if (r > 0)
-                return 1;
-        if (r != -ENOTTY) /* not btrfs */
+        if (r != -ENOTTY) /* ENOTTY: not btrfs */
                 return r;
 
         *ret = 0;
