@@ -83,6 +83,7 @@ typedef struct Context {
         sd_bus *bus;
         sd_varlink_server *varlink_server;
         Hashmap *polkit_registry;
+        sd_device *device_dmi;
 } Context;
 
 static void context_reset(Context *c, uint64_t mask) {
@@ -104,6 +105,7 @@ static void context_destroy(Context *c) {
         sd_event_unref(c->event);
         sd_bus_flush_close_unref(c->bus);
         sd_varlink_server_unref(c->varlink_server);
+        sd_device_unref(c->device_dmi);
 }
 
 static void context_read_etc_hostname(Context *c) {
@@ -191,122 +193,153 @@ static void context_read_os_release(Context *c) {
         c->etc_os_release_stat = current_stat;
 }
 
-static bool use_dmi_data(void) {
+static int context_init_dmi_device(Context *c) {
         int r;
+
+        assert(c);
+        assert(!c->device_dmi);
 
         r = getenv_bool("SYSTEMD_HOSTNAME_FORCE_DMI");
         if (r >= 0) {
                 log_debug("Honouring $SYSTEMD_HOSTNAME_FORCE_DMI override: %s", yes_no(r));
-                return r;
+                if (r == 0)
+                        return 0;
         }
         if (r != -ENXIO)
                 log_debug_errno(r, "Failed to parse $SYSTEMD_HOSTNAME_FORCE_DMI, ignoring: %m");
 
         if (detect_container() > 0) {
                 log_debug("Running in a container, not using DMI hardware data.");
-                return false;
+                return 0;
         }
 
-        return true;
-}
-
-static int get_dmi_data(const char *database_key, const char *regular_key, char **ret) {
-        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
-        const char *s = NULL;
-        int r;
-
-        if (!use_dmi_data())
-                return -ENOENT;
-
-        r = sd_device_new_from_syspath(&device, "/sys/class/dmi/id");
-        if (r < 0)
-                return log_debug_errno(r, "Failed to open /sys/class/dmi/id device, ignoring: %m");
-
-        if (database_key)
-                (void) sd_device_get_property_value(device, database_key, &s);
-        if (!s && regular_key)
-                (void) sd_device_get_property_value(device, regular_key, &s);
-
-        return strdup_to_full(ret, s);
-}
-
-static int get_hardware_vendor(char **ret) {
-        return get_dmi_data("ID_VENDOR_FROM_DATABASE", "ID_VENDOR", ret);
-}
-
-static int get_hardware_model(char **ret) {
-        return get_dmi_data("ID_MODEL_FROM_DATABASE", "ID_MODEL", ret);
-}
-
-static int get_hardware_firmware_data(const char *sysattr, char **ret) {
-        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
-        const char *s = NULL;
-        int r;
-
-        assert(sysattr);
-
-        if (!use_dmi_data())
-                return -ENOENT;
-
-        r = sd_device_new_from_syspath(&device, "/sys/class/dmi/id");
-        if (r < 0)
-                return log_debug_errno(r, "Failed to open /sys/class/dmi/id device, ignoring: %m");
-
-        (void) sd_device_get_sysattr_value(device, sysattr, &s);
-
-        return strdup_to_full(ret, empty_to_null(s));
-}
-
-static int get_hardware_serial(char **ret) {
-        _cleanup_free_ char *b = NULL;
-        int r = 0;
-
-        FOREACH_STRING(attr, "product_serial", "board_serial") {
-                r = get_hardware_firmware_data(attr, &b);
-                if (r != 0 && !ERRNO_IS_NEG_DEVICE_ABSENT(r))
-                        break;
+        r = sd_device_new_from_syspath(&c->device_dmi, "/sys/class/dmi/id/");
+        if (ERRNO_IS_NEG_DEVICE_ABSENT(r)) {
+                log_debug_errno(r, "Failed to open /sys/class/dmi/id/ device, ignoring: %m");
+                return 0;
         }
         if (r < 0)
-                return r;
-        if (r == 0)
-                return -ENOENT;
+                return log_error_errno(r, "Failed to open /sys/class/dmi/id/ device: %m");
+
+        return 1;
+}
+
+static bool string_is_safe_for_dbus(const char *s) {
+        assert(s);
 
         /* Do some superficial validation: do not allow CCs and make sure D-Bus won't kick us off the bus
          * because we send invalid UTF-8 data */
 
-        if (string_has_cc(b, /* ok= */ NULL))
-                return -ENOENT;
+        if (string_has_cc(s, /* ok= */ NULL))
+                return false;
 
-        if (!utf8_is_valid(b))
-                return -ENOENT;
-
-        if (ret)
-                *ret = TAKE_PTR(b);
-
-        return 0;
+        return utf8_is_valid(s);
 }
 
-static int get_firmware_version(char **ret) {
-        return get_hardware_firmware_data("bios_version", ret);
+static int get_dmi_property(Context *c, const char *key, char **ret) {
+        const char *s;
+        int r;
+
+        assert(c);
+        assert(key);
+        assert(ret);
+
+        if (!c->device_dmi)
+                return -ENODEV;
+
+        r = sd_device_get_property_value(c->device_dmi, key, &s);
+        if (r < 0)
+                return r;
+
+        if (!string_is_safe_for_dbus(s))
+                return -ENXIO;
+
+        return strdup_to(ret, s);
 }
 
-static int get_firmware_vendor(char **ret) {
-        return get_hardware_firmware_data("bios_vendor", ret);
+static int get_dmi_properties(Context *c, const char * const * keys, char **ret) {
+        int r = -ENOENT;
+
+        assert(c);
+        assert(ret);
+
+        STRV_FOREACH(k, keys) {
+                r = get_dmi_property(c, *k, ret);
+                if (r >= 0 || !ERRNO_IS_NEG_DEVICE_ABSENT(r))
+                        return r;
+        }
+
+        return r;
 }
 
-static int get_firmware_date(usec_t *ret) {
+static int get_hardware_vendor(Context *c, char **ret) {
+        return get_dmi_properties(c, STRV_MAKE_CONST("ID_VENDOR_FROM_DATABASE", "ID_VENDOR"), ret);
+}
+
+static int get_hardware_model(Context *c, char **ret) {
+        return get_dmi_properties(c, STRV_MAKE_CONST("ID_MODEL_FROM_DATABASE", "ID_MODEL"), ret);
+}
+
+static int get_sysattr(sd_device *device, const char *key, char **ret) {
+        const char *s;
+        int r;
+
+        assert(key);
+        assert(ret);
+
+        if (!device)
+                return -ENODEV;
+
+        r = sd_device_get_sysattr_value(device, key, &s);
+        if (r < 0)
+                return r;
+
+        if (!string_is_safe_for_dbus(s))
+                return -ENXIO;
+
+        return strdup_to(ret, empty_to_null(s));
+}
+
+static int get_dmi_sysattr(Context *c, const char *key, char **ret) {
+        return get_sysattr(ASSERT_PTR(c)->device_dmi, key, ret);
+}
+
+static int get_hardware_serial(Context *c, char **ret) {
+        int r;
+
+        assert(c);
+        assert(ret);
+
+        FOREACH_STRING(attr, "product_serial", "board_serial") {
+                r = get_dmi_sysattr(c, attr, ret);
+                if (r >= 0 || !ERRNO_IS_NEG_DEVICE_ABSENT(r))
+                        return r;
+        }
+
+        return r;
+}
+
+static int get_firmware_version(Context *c, char **ret) {
+        return get_dmi_sysattr(c, "bios_version", ret);
+}
+
+static int get_firmware_vendor(Context *c, char **ret) {
+        return get_dmi_sysattr(c, "bios_vendor", ret);
+}
+
+static int get_firmware_date(Context *c, usec_t *ret) {
         _cleanup_free_ char *bios_date = NULL, *month = NULL, *day = NULL, *year = NULL;
         int r;
 
         assert(ret);
 
-        r = get_hardware_firmware_data("bios_date", &bios_date);
-        if (r < 0)
-                return r;
-        if (r == 0) {
+        r = get_dmi_sysattr(c, "bios_date", &bios_date);
+        if (ERRNO_IS_NEG_DEVICE_ABSENT(r)) {
                 *ret = USEC_INFINITY;
                 return 0;
         }
+        if (r < 0)
+                return r;
 
         const char *p = bios_date;
         r = extract_many_words(&p, "/", EXTRACT_DONT_COALESCE_SEPARATORS, &month, &day, &year);
@@ -523,7 +556,7 @@ static char* context_get_chassis(Context *c) {
         if (!isempty(c->data[PROP_CHASSIS]))
                 return strdup(c->data[PROP_CHASSIS]);
 
-        if (get_dmi_data("ID_CHASSIS", NULL, &dmi) > 0)
+        if (get_dmi_property(c, "ID_CHASSIS", &dmi) >= 0)
                 return dmi;
 
         fallback = fallback_chassis();
@@ -678,7 +711,7 @@ static int property_get_hardware_property(
                 sd_bus_message *reply,
                 Context *c,
                 HostProperty prop,
-                int (*getter)(char **)) {
+                int (*getter)(Context *c, char **ret)) {
 
         _cleanup_free_ char *from_dmi = NULL;
 
@@ -690,7 +723,7 @@ static int property_get_hardware_property(
         context_read_machine_info(c);
 
         if (isempty(c->data[prop]))
-                (void) getter(&from_dmi);
+                (void) getter(c, &from_dmi);
 
         return sd_bus_message_append(reply, "s", from_dmi ?: c->data[prop]);
 }
@@ -729,8 +762,9 @@ static int property_get_firmware_version(
                 sd_bus_error *error) {
 
         _cleanup_free_ char *firmware_version = NULL;
+        Context *c = ASSERT_PTR(userdata);
 
-        (void) get_firmware_version(&firmware_version);
+        (void) get_firmware_version(c, &firmware_version);
 
         return sd_bus_message_append(reply, "s", firmware_version);
 }
@@ -745,8 +779,9 @@ static int property_get_firmware_vendor(
                 sd_bus_error *error) {
 
         _cleanup_free_ char *firmware_vendor = NULL;
+        Context *c = ASSERT_PTR(userdata);
 
-        (void) get_firmware_vendor(&firmware_vendor);
+        (void) get_firmware_vendor(c, &firmware_vendor);
 
         return sd_bus_message_append(reply, "s", firmware_vendor);
 }
@@ -761,8 +796,9 @@ static int property_get_firmware_date(
                 sd_bus_error *error) {
 
         usec_t firmware_date = USEC_INFINITY;
+        Context *c = ASSERT_PTR(userdata);
 
-        (void) get_firmware_date(&firmware_date);
+        (void) get_firmware_date(c, &firmware_date);
 
         return sd_bus_message_append(reply, "t", firmware_date);
 }
@@ -1335,7 +1371,7 @@ static int method_get_hardware_serial(sd_bus_message *m, void *userdata, sd_bus_
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        r = get_hardware_serial(&serial);
+        r = get_hardware_serial(c, &serial);
         if (r < 0)
                 return sd_bus_error_set(error, BUS_ERROR_NO_HARDWARE_SERIAL,
                                         "Failed to read hardware serial from firmware.");
@@ -1385,18 +1421,18 @@ static int build_describe_response(Context *c, bool privileged, sd_json_variant 
         assert_se(uname(&u) >= 0);
 
         if (isempty(c->data[PROP_HARDWARE_VENDOR]))
-                (void) get_hardware_vendor(&vendor);
+                (void) get_hardware_vendor(c, &vendor);
         if (isempty(c->data[PROP_HARDWARE_MODEL]))
-                (void) get_hardware_model(&model);
+                (void) get_hardware_model(c, &model);
 
         if (privileged) {
                 /* The product UUID and hardware serial is only available to privileged clients */
                 (void) id128_get_product(&product_uuid);
-                (void) get_hardware_serial(&serial);
+                (void) get_hardware_serial(c, &serial);
         }
-        (void) get_firmware_version(&firmware_version);
-        (void) get_firmware_vendor(&firmware_vendor);
-        (void) get_firmware_date(&firmware_date);
+        (void) get_firmware_version(c, &firmware_version);
+        (void) get_firmware_vendor(c, &firmware_vendor);
+        (void) get_firmware_date(c, &firmware_date);
 
         if (c->data[PROP_OS_SUPPORT_END])
                 (void) os_release_support_ended(c->data[PROP_OS_SUPPORT_END], /* quiet= */ false, &eol);
@@ -1709,6 +1745,10 @@ static int run(int argc, char *argv[]) {
         umask(0022);
 
         r = mac_init();
+        if (r < 0)
+                return r;
+
+        r = context_init_dmi_device(&context);
         if (r < 0)
                 return r;
 
