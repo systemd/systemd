@@ -84,6 +84,7 @@ typedef struct Context {
         sd_varlink_server *varlink_server;
         Hashmap *polkit_registry;
         sd_device *device_dmi;
+        sd_device *device_tree;
 } Context;
 
 static void context_reset(Context *c, uint64_t mask) {
@@ -106,6 +107,7 @@ static void context_destroy(Context *c) {
         sd_bus_flush_close_unref(c->bus);
         sd_varlink_server_unref(c->varlink_server);
         sd_device_unref(c->device_dmi);
+        sd_device_unref(c->device_tree);
 }
 
 static void context_read_etc_hostname(Context *c) {
@@ -224,6 +226,23 @@ static int context_acquire_dmi_device(Context *c) {
         return 1;
 }
 
+static int context_acquire_device_tree(Context *c) {
+        int r;
+
+        assert(c);
+        assert(!c->device_tree);
+
+        r = sd_device_new_from_path(&c->device_dmi, "/proc/device-tree/");
+        if (ERRNO_IS_NEG_DEVICE_ABSENT(r)) {
+                log_debug_errno(r, "Failed to open /proc/device-tree/ device, ignoring: %m");
+                return 0;
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to open /proc/device-tree/ device: %m");
+
+        return 1;
+}
+
 static bool string_is_safe_for_dbus(const char *s) {
         assert(s);
 
@@ -304,6 +323,10 @@ static int get_dmi_sysattr(Context *c, const char *key, char **ret) {
         return get_sysattr(ASSERT_PTR(c)->device_dmi, key, ret);
 }
 
+static int get_device_tree_sysattr(Context *c, const char *key, char **ret) {
+        return get_sysattr(ASSERT_PTR(c)->device_tree, key, ret);
+}
+
 static int get_hardware_serial(Context *c, char **ret) {
         int r;
 
@@ -316,7 +339,7 @@ static int get_hardware_serial(Context *c, char **ret) {
                         return r;
         }
 
-        return r;
+        return get_device_tree_sysattr(c, "serial-number", ret);
 }
 
 static int get_firmware_version(Context *c, char **ret) {
@@ -1755,6 +1778,10 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         r = context_acquire_dmi_device(&context);
+        if (r < 0)
+                return r;
+
+        r = context_acquire_device_tree(&context);
         if (r < 0)
                 return r;
 
