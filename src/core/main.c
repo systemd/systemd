@@ -2971,12 +2971,9 @@ static void setup_console_terminal(bool skip_setup) {
         if (arg_runtime_scope != RUNTIME_SCOPE_SYSTEM)
                 return;
 
-        /* Become a session leader if we aren't one yet. */
-        (void) setsid();
-
         /* If we are init, we connect stdin/stdout/stderr to /dev/null and make sure we don't have a
          * controlling tty. */
-        (void) release_terminal();
+        terminal_detach_session();
 
         /* Reset the console, but only if this is really init and we are freshly booted */
         if (!skip_setup)
