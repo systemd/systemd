@@ -359,8 +359,6 @@ int find_suitable_hibernation_device_full(HibernationDevice *ret_device, uint64_
         r = read_swap_entries(&entries);
         if (r < 0)
                 return r;
-        if (entries.n_swaps == 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(ENOSPC), "No swap space available for hibernation.");
 
         FOREACH_ARRAY(swap, entries.swaps, entries.n_swaps) {
                 r = swap_entry_get_resume_config(swap);
@@ -396,9 +394,10 @@ int find_suitable_hibernation_device_full(HibernationDevice *ret_device, uint64_
         }
 
         if (!entry) {
-                /* No need to check n_swaps == 0, since it's rejected early */
-                assert(resume_config_devno > 0);
-                return log_debug_errno(SYNTHETIC_ERRNO(ESTALE), "Cannot find swap entry corresponding to /sys/power/resume.");
+                if (resume_config_devno > 0)
+                        return log_debug_errno(SYNTHETIC_ERRNO(ESTALE), "Cannot find swap entry corresponding to /sys/power/resume.");
+
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOSPC), "No swap space available for hibernation.");
         }
 
         if (ret_device) {
