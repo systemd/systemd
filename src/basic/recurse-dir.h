@@ -8,6 +8,28 @@
 #include "stat-util.h"
 #include "macro.h"
 
+typedef enum RecurseDirFlags {
+        /* Interpreted by readdir_all() */
+        RECURSE_DIR_SORT         = 1 << 0,  /* sort file directory entries before processing them */
+        RECURSE_DIR_IGNORE_DOT   = 1 << 1,  /* ignore all dot files ("." and ".." are always ignored) */
+        RECURSE_DIR_ENSURE_TYPE  = 1 << 2,  /* guarantees that 'd_type' field of 'de' is not DT_UNKNOWN */
+
+        /* Interpreted by recurse_dir() */
+        RECURSE_DIR_SAME_MOUNT   = 1 << 3,  /* skips over subdirectories that are submounts */
+        RECURSE_DIR_INODE_FD     = 1 << 4,  /* passes an opened inode fd (O_DIRECTORY fd in case of dirs, O_PATH otherwise) */
+        RECURSE_DIR_TOPLEVEL     = 1 << 5,  /* call RECURSE_DIR_ENTER/RECURSE_DIR_LEAVE once for top-level dir, too, with dir_fd=-1 and NULL dirent */
+} RecurseDirFlags;
+
+typedef struct DirectoryEntries {
+        size_t n_entries;
+        struct dirent **entries;
+        size_t buffer_size;
+        struct dirent buffer[];
+} DirectoryEntries;
+
+int readdir_all(int dir_fd, RecurseDirFlags flags, DirectoryEntries **ret);
+int readdir_all_at(int fd, const char *path, RecurseDirFlags flags, DirectoryEntries **ret);
+
 typedef enum RecurseDirEvent {
         RECURSE_DIR_ENTER,      /* only for dir inodes */
         RECURSE_DIR_LEAVE,      /* only for dir inodes */
@@ -55,28 +77,6 @@ typedef int (*recurse_dir_func_t)(
                 const struct dirent *de, /* directory entry (always valid) */
                 const struct statx *sx,  /* statx data (only if statx_mask was non-zero) */
                 void *userdata);
-
-typedef enum RecurseDirFlags {
-        /* Interpreted by readdir_all() */
-        RECURSE_DIR_SORT         = 1 << 0,  /* sort file directory entries before processing them */
-        RECURSE_DIR_IGNORE_DOT   = 1 << 1,  /* ignore all dot files ("." and ".." are always ignored) */
-        RECURSE_DIR_ENSURE_TYPE  = 1 << 2,  /* guarantees that 'd_type' field of 'de' is not DT_UNKNOWN */
-
-        /* Interpreted by recurse_dir() */
-        RECURSE_DIR_SAME_MOUNT   = 1 << 3,  /* skips over subdirectories that are submounts */
-        RECURSE_DIR_INODE_FD     = 1 << 4,  /* passes an opened inode fd (O_DIRECTORY fd in case of dirs, O_PATH otherwise) */
-        RECURSE_DIR_TOPLEVEL     = 1 << 5,  /* call RECURSE_DIR_ENTER/RECURSE_DIR_LEAVE once for top-level dir, too, with dir_fd=-1 and NULL dirent */
-} RecurseDirFlags;
-
-typedef struct DirectoryEntries {
-        size_t n_entries;
-        struct dirent** entries;
-        size_t buffer_size;
-        struct dirent buffer[];
-} DirectoryEntries;
-
-int readdir_all(int dir_fd, RecurseDirFlags flags, DirectoryEntries **ret);
-int readdir_all_at(int fd, const char *path, RecurseDirFlags flags, DirectoryEntries **ret);
 
 int recurse_dir(int dir_fd, const char *path, unsigned statx_mask, unsigned n_depth_max, RecurseDirFlags flags, recurse_dir_func_t func, void *userdata);
 int recurse_dir_at(int atfd, const char *path, unsigned statx_mask, unsigned n_depth_max, RecurseDirFlags flags, recurse_dir_func_t func, void *userdata);

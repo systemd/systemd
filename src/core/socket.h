@@ -176,7 +176,7 @@ int socket_collect_fds(Socket *s, int **ret);
 /* Called from the service code when a per-connection service ended */
 void socket_connection_unref(Socket *s);
 
-SocketPort *socket_port_free(SocketPort *p);
+SocketPort* socket_port_free(SocketPort *p);
 DEFINE_TRIVIAL_CLEANUP_FUNC(SocketPort*, socket_port_free);
 
 void socket_free_ports(Socket *s);
