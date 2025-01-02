@@ -74,7 +74,7 @@ int run_udevd(int argc, char *argv[]) {
                         return 0;
 
                 /* child */
-                (void) setsid();
+                terminal_detach_session();
         }
 
         return manager_main(manager);
