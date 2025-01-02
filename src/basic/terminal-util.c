@@ -498,6 +498,15 @@ int release_terminal(void) {
         return r;
 }
 
+int terminal_new_session(void) {
+
+        if (!isatty_safe(STDOUT_FILENO) || !isatty_safe(STDERR_FILENO))
+                return -ENXIO;
+
+        (void) setsid();
+        return RET_NERRNO(ioctl(STDERR_FILENO, TIOCSCTTY, 0));
+}
+
 int terminal_vhangup_fd(int fd) {
         assert(fd >= 0);
         return RET_NERRNO(ioctl(fd, TIOCVHANGUP));
