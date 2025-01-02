@@ -34,12 +34,19 @@ REQUIREMENTS:
                      ≥ 4.6 for cgroup namespaces
                      ≥ 4.9 for RENAME_NOREPLACE support in vfat
                      ≥ 4.10 for cgroup-bpf egress and ingress hooks
+                     ≥ 4.11 for nsfs
                      ≥ 4.15 for cgroup-bpf device hook and cpu controller in cgroup v2
-                     ≥ 4.17 for cgroup-bpf socket address hooks
+                     ≥ 4.17 for cgroup-bpf socket address hooks and /sys/power/resume_offset
                      ≥ 4.20 for PSI (used by systemd-oomd)
+                     ≥ 5.2 for cgroup freezer
                      ≥ 5.3 for bounded loops in BPF program
-                     ≥ 5.4 for pidfd and signed Verity images
+                     ≥ 5.4 for pidfd, new mount API, and signed Verity images
                      ≥ 5.7 for CLONE_INTO_CGROUP, BPF links and the BPF LSM hook
+                     ≥ 5.8 for LOOP_CONFIGURE and STATX_ATTR_MOUNT_ROOT
+                     ≥ 6.3 for MFD_EXEC/MFD_NOEXEC_SEAL and tmpfs noswap option
+                     ≥ 6.5 for name_to_handle_at() AT_HANDLE_FID, SO_PEERPIDFD/SO_PASSPIDFD,
+                               and MOVE_MOUNT_BENEATH
+                     ≥ 6.9 for pidfs
 
         ⛔ Kernel versions below 4.3 ("minimum baseline") are not supported at
         all, and are missing required functionality (e.g. CLOCK_BOOTTIME
