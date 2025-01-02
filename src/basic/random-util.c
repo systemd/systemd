@@ -8,12 +8,9 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/auxv.h>
 #include <sys/ioctl.h>
 #include <sys/time.h>
-
-#if HAVE_SYS_AUXV_H
-#  include <sys/auxv.h>
-#endif
 
 #include "alloc-util.h"
 #include "env-util.h"
@@ -31,7 +28,7 @@
 #include "sha256.h"
 #include "time-util.h"
 
-/* This is a "best effort" kind of thing, but has no real security value.  So, this should only be used by
+/* This is a "best effort" kind of thing, but has no real security value. So, this should only be used by
  * random_bytes(), which is not meant for crypto. This could be made better, but we're *not* trying to roll a
  * userspace prng here, or even have forward secrecy, but rather just do the shortest thing that is at least
  * better than libc rand(). */
@@ -53,9 +50,7 @@ static void fallback_random_bytes(void *p, size_t n) {
                 .tid = gettid(),
         };
 
-#if HAVE_SYS_AUXV_H
         memcpy(state.auxval, ULONG_TO_PTR(getauxval(AT_RANDOM)), sizeof(state.auxval));
-#endif
 
         while (n > 0) {
                 struct sha256_ctx ctx;
