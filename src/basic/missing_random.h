@@ -3,7 +3,7 @@
 
 #include "macro.h"
 
-#if USE_SYS_RANDOM_H
+#if HAVE_SYS_RANDOM_H
 #  include <sys/random.h>
 #else
 #  include <linux/random.h>
