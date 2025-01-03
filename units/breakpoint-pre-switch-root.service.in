@@ -12,10 +12,10 @@ Description=Breakpoint Before Switching Root
 Documentation=man:systemd-debug-generator(8)
 AssertPathExists=/etc/initrd-release
 DefaultDependencies=no
+RefuseManualStart=yes
 Conflicts=shutdown.target emergency.target
-Wants=remote-fs.target
-After=initrd.target initrd-parse-etc.service sysroot.mount remote-fs.target systemd-vconsole-setup.service
-Before=initrd-cleanup.service
+After=initrd.target initrd-parse-etc.service remote-fs.target systemd-vconsole-setup.service
+Before=initrd-cleanup.service shutdown.target emergency.target
 
 [Service]
 Environment=SHELL_PROMPT_PREFIX="pre-switch-root "

@@ -8,13 +8,14 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Breakpoint Before Mounting the Root Filesystem on /sysroot
+Description=Breakpoint Before Mounting the Root Filesystem on /sysroot/
 Documentation=man:systemd-debug-generator(8)
 AssertPathExists=/etc/initrd-release
 DefaultDependencies=no
+RefuseManualStart=yes
 Conflicts=shutdown.target emergency.target
 After=basic.target systemd-vconsole-setup.service
-Before=initrd-root-fs.target sysroot.mount systemd-fsck-root.service
+Before=initrd-root-fs.target sysroot.mount systemd-fsck-root.service shutdown.target emergency.target
 
 [Service]
 Environment=SHELL_PROMPT_PREFIX="pre-mount "
