@@ -80,12 +80,7 @@ static inline int missing_ioprio_set(int which, int who, int ioprio) {
 
 #if !HAVE_MEMFD_CREATE
 static inline int missing_memfd_create(const char *name, unsigned int flags) {
-#  ifdef __NR_memfd_create
         return syscall(__NR_memfd_create, name, flags);
-#  else
-        errno = ENOSYS;
-        return -1;
-#  endif
 }
 
 #  define memfd_create missing_memfd_create
@@ -96,12 +91,7 @@ static inline int missing_memfd_create(const char *name, unsigned int flags) {
 #if !HAVE_GETRANDOM
 /* glibc says getrandom() returns ssize_t */
 static inline ssize_t missing_getrandom(void *buffer, size_t count, unsigned flags) {
-#  ifdef __NR_getrandom
         return syscall(__NR_getrandom, buffer, count, flags);
-#  else
-        errno = ENOSYS;
-        return -1;
-#  endif
 }
 
 #  define getrandom missing_getrandom

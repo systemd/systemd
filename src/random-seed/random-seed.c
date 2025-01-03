@@ -5,9 +5,6 @@
 #include <getopt.h>
 #include <linux/random.h>
 #include <sys/ioctl.h>
-#if USE_SYS_RANDOM_H
-#  include <sys/random.h>
-#endif
 #include <sys/stat.h>
 #include <sys/xattr.h>
 #include <unistd.h>

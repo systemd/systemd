@@ -676,20 +676,12 @@ foreach ident : [
         ['getdents64',        '''#include <dirent.h>'''],
         ['pidfd_spawn',       '''#include <spawn.h>'''],
         ['strerrorname_np',   '''#include <string.h>'''],
+        ['getrandom',         '''#include <sys/random.h>'''],
 ]
 
         have = cc.has_function(ident[0], prefix : ident[1], args : '-D_GNU_SOURCE')
         conf.set10('HAVE_' + ident[0].to_upper(), have)
 endforeach
-
-if cc.has_function('getrandom', prefix : '''#include <sys/random.h>''', args : '-D_GNU_SOURCE')
-        conf.set10('USE_SYS_RANDOM_H', true)
-        conf.set10('HAVE_GETRANDOM', true)
-else
-        have = cc.has_function('getrandom', prefix : '''#include <linux/random.h>''')
-        conf.set10('USE_SYS_RANDOM_H', false)
-        conf.set10('HAVE_GETRANDOM', have)
-endif
 
 #####################################################################
 
@@ -773,7 +765,6 @@ endif
 foreach header : ['crypt.h',
                   'linux/ioprio.h',
                   'linux/time_types.h',
-                  'sys/auxv.h',
                   'sys/sdt.h',
                   'threads.h',
                   'valgrind/memcheck.h',
