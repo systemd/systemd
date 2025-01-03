@@ -215,7 +215,7 @@ static int vl_method_get_user_record(sd_varlink *link, sd_json_variant *paramete
         }
 
         if ((uid_is_valid(p.uid) && hr->uid != p.uid) ||
-            (p.user_name && !streq(hr->user_name, p.user_name)))
+            (p.user_name && !user_record_matches_user_name(hr, p.user_name)))
                 return sd_varlink_error(link, "io.systemd.UserDatabase.ConflictingRecordFound", NULL);
 
         r = build_user_json(link, hr, &v);
@@ -345,7 +345,7 @@ static int vl_method_get_group_record(sd_varlink *link, sd_json_variant *paramet
         }
 
         if ((uid_is_valid(p.gid) && g->gid != p.gid) ||
-            (p.group_name && !streq(g->group_name, p.group_name)))
+            (p.group_name && !group_record_matches_group_name(g, p.group_name)))
                 return sd_varlink_error(link, "io.systemd.UserDatabase.ConflictingRecordFound", NULL);
 
         r = build_group_json(link, g, &v);
