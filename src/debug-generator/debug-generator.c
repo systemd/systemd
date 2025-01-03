@@ -66,10 +66,23 @@ static const struct BreakpointInfo breakpoint_info_table[_BREAKPOINT_TYPE_MAX] =
         { BREAKPOINT_PRE_SWITCH_ROOT,   "pre-switch-root", "breakpoint-pre-switch-root.service", BREAKPOINT_IN_INITRD | BREAKPOINT_DEFAULT },
 };
 
+static bool breakpoint_applies(const BreakpointInfo *info, int log_level) {
+        assert(info);
+
+        if (in_initrd() && !FLAGS_SET(info->validity, BREAKPOINT_IN_INITRD))
+                log_full(log_level, "Breakpoint '%s' not valid in the initrd, ignoring.", info->name);
+        else if (!in_initrd() && !FLAGS_SET(info->validity, BREAKPOINT_ON_HOST))
+                log_full(log_level, "Breakpoint '%s' not valid on the host, ignoring.", info->name);
+        else
+                return true;
+
+        return false;
+}
+
 static BreakpointType parse_breakpoint_from_string_one(const char *s) {
         assert(s);
 
-        FOREACH_ARRAY(i, breakpoint_info_table, ELEMENTSOF(breakpoint_info_table))
+        FOREACH_ELEMENT(i, breakpoint_info_table)
                 if (streq(i->name, s))
                         return i->type;
 
@@ -84,14 +97,18 @@ static int parse_breakpoint_from_string(const char *s, uint32_t *ret_breakpoints
 
         /* Empty value? set default breakpoint */
         if (isempty(s)) {
-                if (in_initrd()) {
-                        FOREACH_ARRAY(i, breakpoint_info_table, ELEMENTSOF(breakpoint_info_table))
-                                if (i->validity & BREAKPOINT_DEFAULT) {
-                                        breakpoints |= 1 << i->type;
-                                        break;
-                                }
-                } else
-                        log_warning("No default breakpoint defined on the host, ignoring breakpoint request from kernel command line.");
+                bool found_default = false;
+
+                FOREACH_ELEMENT(i, breakpoint_info_table)
+                        if (FLAGS_SET(i->validity, BREAKPOINT_DEFAULT) && breakpoint_applies(i, INT_MAX)) {
+                                breakpoints |= 1 << i->type;
+                                found_default = true;
+                                break;
+                        }
+
+                if (!found_default)
+                        log_warning("No default breakpoint defined %s, ignoring.",
+                                    in_initrd() ? "in the initrd" : "on the host");
         } else
                 for (;;) {
                         _cleanup_free_ char *t = NULL;
@@ -109,11 +126,7 @@ static int parse_breakpoint_from_string(const char *s, uint32_t *ret_breakpoints
                                 continue;
                         }
 
-                        if (in_initrd() && !FLAGS_SET(breakpoint_info_table[tt].validity, BREAKPOINT_IN_INITRD))
-                                log_warning("Breakpoint '%s' not valid in the initrd, ignoring.", t);
-                        else if (!in_initrd() && !FLAGS_SET(breakpoint_info_table[tt].validity, BREAKPOINT_ON_HOST))
-                                log_warning("Breakpoint '%s' not valid on the host, ignoring.", t);
-                        else
+                        if (breakpoint_applies(&breakpoint_info_table[tt], LOG_WARNING))
                                 breakpoints |= 1 << tt;
                 }
 
