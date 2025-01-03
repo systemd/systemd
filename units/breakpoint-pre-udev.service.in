@@ -11,10 +11,11 @@
 Description=Breakpoint Before Starting to Process Kernel uevents
 Documentation=man:systemd-debug-generator(8)
 DefaultDependencies=no
+RefuseManualStart=yes
 Conflicts=shutdown.target emergency.target
 Wants=systemd-journald.socket
 After=systemd-journald.socket systemd-vconsole-setup.service
-Before=systemd-udevd.service systemd-udev-trigger.service
+Before=systemd-udevd.service systemd-udev-trigger.service shutdown.target emergency.target
 
 [Service]
 Environment=SHELL_PROMPT_PREFIX="pre-udev "
