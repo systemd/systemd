@@ -534,6 +534,33 @@ TEST(extract_first_word) {
         ASSERT_STREQ(p, ":b");
         free(t);
 
+        p = "triggered\\x2dby\\x2dudev";
+        assert_se(extract_first_word(&p, &t, NULL, EXTRACT_UNQUOTE|EXTRACT_EMULATE_FOREACH_WORD_QUOTED) > 0);
+        ASSERT_STREQ(t, "triggered\\x2dby\\x2dudev");
+        free(t);
+        ASSERT_NULL(p);
+
+        p = "a b";
+        assert_se(extract_first_word(&p, &t, NULL, EXTRACT_UNQUOTE|EXTRACT_EMULATE_FOREACH_WORD_QUOTED) > 0);
+        ASSERT_STREQ(t, "a");
+        free(t);
+        assert_se(extract_first_word(&p, &t, NULL, EXTRACT_UNQUOTE|EXTRACT_EMULATE_FOREACH_WORD_QUOTED) > 0);
+        ASSERT_STREQ(t, "b");
+        free(t);
+        ASSERT_NULL(p);
+
+        p = "a\\ b";
+        assert_se(extract_first_word(&p, &t, NULL, EXTRACT_UNQUOTE|EXTRACT_EMULATE_FOREACH_WORD_QUOTED) > 0);
+        ASSERT_STREQ(t, "a\\ b");
+        free(t);
+        ASSERT_NULL(p);
+
+        p = "\"a\\\"b\"";
+        assert_se(extract_first_word(&p, &t, NULL, EXTRACT_UNQUOTE|EXTRACT_EMULATE_FOREACH_WORD_QUOTED) > 0);
+        ASSERT_STREQ(t, "a\\\"b");
+        free(t);
+        ASSERT_NULL(p);
+
         p = original = "zażółcić 👊🔪💐 가너도루";
         assert_se(extract_first_word(&p, &t, NULL, 0) > 0);
         ASSERT_STREQ(t, "zażółcić");
