@@ -840,7 +840,7 @@ static int fd_copy_regular(
         if (r > 0) /* worked! */
                 return 0;
 
-        fdf = xopenat(df, from, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
+        fdf = xopenat_full(df, from, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, XO_REGULAR, 0);
         if (fdf < 0)
                 return fdf;
 
@@ -1398,13 +1398,9 @@ int copy_file_fd_at_full(
         assert(fdt >= 0);
         assert(!FLAGS_SET(copy_flags, COPY_LOCK_BSD));
 
-        fdf = xopenat(dir_fdf, from, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+        fdf = xopenat_full(dir_fdf, from, O_RDONLY|O_CLOEXEC|O_NOCTTY, XO_REGULAR, 0);
         if (fdf < 0)
                 return fdf;
-
-        r = fd_verify_regular(fdf);
-        if (r < 0)
-                return r;
 
         if (fstat(fdt, &st) < 0)
                 return -errno;
@@ -1453,38 +1449,33 @@ int copy_file_at_full(
                 void *userdata) {
 
         _cleanup_close_ int fdf = -EBADF, fdt = -EBADF;
-        struct stat st;
         int r;
 
         assert(dir_fdf >= 0 || dir_fdf == AT_FDCWD);
         assert(dir_fdt >= 0 || dir_fdt == AT_FDCWD);
         assert(to);
 
-        fdf = xopenat(dir_fdf, from, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+        fdf = xopenat_full(dir_fdf, from, O_RDONLY|O_CLOEXEC|O_NOCTTY, XO_REGULAR, 0);
         if (fdf < 0)
                 return fdf;
 
-        if (fstat(fdf, &st) < 0)
-                return -errno;
+        if (mode == MODE_INVALID) {
+                struct stat st;
 
-        r = stat_verify_regular(&st);
-        if (r < 0)
-                return r;
+                if (fstat(fdf, &st) < 0)
+                        return -errno;
+
+                mode = st.st_mode;
+        }
 
         WITH_UMASK(0000) {
                 fdt = xopenat_lock_full(dir_fdt, to,
                                         flags|O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY,
-                                        (copy_flags & COPY_MAC_CREATE ? XO_LABEL : 0),
-                                        mode != MODE_INVALID ? mode : st.st_mode,
+                                        XO_REGULAR | (copy_flags & COPY_MAC_CREATE ? XO_LABEL : 0),
+                                        mode,
                                         copy_flags & COPY_LOCK_BSD ? LOCK_BSD : LOCK_NONE, LOCK_EX);
                 if (fdt < 0)
                         return fdt;
-        }
-
-        if (!FLAGS_SET(flags, O_EXCL)) { /* if O_EXCL was used we created the thing as regular file, no need to check again */
-                r = fd_verify_regular(fdt);
-                if (r < 0)
-                        goto fail;
         }
 
         r = prepare_nocow(fdf, /*from=*/ NULL, fdt, &chattr_mask, &chattr_flags);
