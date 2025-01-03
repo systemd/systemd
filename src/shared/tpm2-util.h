@@ -479,7 +479,7 @@ static inline bool tpm2_is_fully_supported(void) {
 int verb_has_tpm2_generic(bool quiet);
 
 int tpm2_parse_pcr_argument(const char *arg, Tpm2PCRValue **ret_pcr_values, size_t *ret_n_pcr_values);
-int tpm2_parse_pcr_argument_append(const char *arg, Tpm2PCRValue **ret_pcr_values, size_t *ret_n_pcr_values);
+int tpm2_parse_pcr_argument_append(const char *arg, Tpm2PCRValue **pcr_values, size_t *n_pcr_values);
 int tpm2_parse_pcr_argument_to_mask(const char *arg, uint32_t *mask);
 
 int tpm2_load_pcr_signature(const char *path, sd_json_variant **ret);
