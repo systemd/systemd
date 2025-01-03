@@ -216,6 +216,8 @@ static UserRecord* user_record_free(UserRecord *h) {
         strv_free(h->self_modifiable_blobs);
         strv_free(h->self_modifiable_privileged);
 
+        free(h->default_area);
+
         sd_json_variant_unref(h->json);
 
         return mfree(h);
@@ -1316,6 +1318,7 @@ static int dispatch_per_machine(const char *name, sd_json_variant *variant, sd_j
                 { "tmpLimitScale",              _SD_JSON_VARIANT_TYPE_INVALID, dispatch_tmpfs_limit_scale,           offsetof(UserRecord, tmp_limit),                     0,             },
                 { "devShmLimit",                _SD_JSON_VARIANT_TYPE_INVALID, dispatch_tmpfs_limit,                 offsetof(UserRecord, dev_shm_limit),                 0,             },
                 { "devShmLimitScale",           _SD_JSON_VARIANT_TYPE_INVALID, dispatch_tmpfs_limit_scale,           offsetof(UserRecord, dev_shm_limit),                 0,             },
+                { "defaultArea",                SD_JSON_VARIANT_STRING,        json_dispatch_filename,               offsetof(UserRecord, default_area),                  0              },
                 {},
         };
 
@@ -1369,6 +1372,7 @@ static int dispatch_status(const char *name, sd_json_variant *variant, sd_json_d
                 { "fallbackShell",              SD_JSON_VARIANT_STRING,        json_dispatch_filename_or_path, offsetof(UserRecord, fallback_shell),                0              },
                 { "fallbackHomeDirectory",      SD_JSON_VARIANT_STRING,        json_dispatch_home_directory,   offsetof(UserRecord, fallback_home_directory),       0              },
                 { "useFallback",                SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,       offsetof(UserRecord, use_fallback),                  0              },
+                { "defaultArea",                SD_JSON_VARIANT_STRING,        json_dispatch_filename,         offsetof(UserRecord, default_area),                  0              },
                 {},
         };
 
@@ -1670,6 +1674,7 @@ int user_record_load(UserRecord *h, sd_json_variant *v, UserRecordLoadFlags load
                 { "tmpLimitScale",              _SD_JSON_VARIANT_TYPE_INVALID, dispatch_tmpfs_limit_scale,           offsetof(UserRecord, tmp_limit),                     0,             },
                 { "devShmLimit",                _SD_JSON_VARIANT_TYPE_INVALID, dispatch_tmpfs_limit,                 offsetof(UserRecord, dev_shm_limit),                 0,             },
                 { "devShmLimitScale",           _SD_JSON_VARIANT_TYPE_INVALID, dispatch_tmpfs_limit_scale,           offsetof(UserRecord, dev_shm_limit),                 0,             },
+                { "defaultArea",                SD_JSON_VARIANT_STRING,        json_dispatch_filename,               offsetof(UserRecord, default_area),                  0              },
 
                 { "secret",                     SD_JSON_VARIANT_OBJECT,        dispatch_secret,                      0,                                                   0              },
                 { "privileged",                 SD_JSON_VARIANT_OBJECT,        dispatch_privileged,                  0,                                                   0              },
@@ -2229,6 +2234,7 @@ const char** user_record_self_modifiable_fields(UserRecord *h) {
                 "additionalLanguages",
                 "preferredSessionLauncher",
                 "preferredSessionType",
+                "defaultArea",
 
                 /* Authentication methods */
                 "pkcs11TokenUri",
