@@ -66,6 +66,7 @@ int bus_path_encode_unique(sd_bus *b, const char *prefix, const char *sender_id,
 int bus_path_decode_unique(const char *path, const char *prefix, char **ret_sender, char **ret_external);
 
 int bus_track_add_name_many(sd_bus_track *t, char **l);
+int bus_track_to_strv(sd_bus_track *t, char ***ret);
 
 int bus_open_system_watch_bind_with_description(sd_bus **ret, const char *description);
 static inline int bus_open_system_watch_bind(sd_bus **ret) {
