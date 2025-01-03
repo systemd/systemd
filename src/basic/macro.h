@@ -139,6 +139,8 @@ static inline int __coverity_check_and_return__(int condition) {
 
 #define assert_message_se(expr, message) __coverity_check__(!!(expr))
 
+#define safe_assert_se(expr) __coverity_check_and_return__(!!(expr))
+
 #define assert_log(expr, message) __coverity_check_and_return__(!!(expr))
 
 #else  /* ! __COVERITY__ */
@@ -147,6 +149,15 @@ static inline int __coverity_check_and_return__(int condition) {
         do {                                                            \
                 if (_unlikely_(!(expr)))                                \
                         log_assert_failed(message, PROJECT_FILE, __LINE__, __func__); \
+        } while (false)
+
+#define safe_assert_se(expr)                                                            \
+        do {                                                                            \
+                if (_unlikely_(!(expr))) {                                              \
+                        log_assert(LOG_CRIT, #expr, PROJECT_FILE, __LINE__, __func__,   \
+                                "Assertion '%s' failed at %s:%u, function %s().");      \
+                        log_backtrace(LOG_CRIT);                                        \
+                }                                                                       \
         } while (false)
 
 #define assert_log(expr, message) ((_likely_(expr))                     \
