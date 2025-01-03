@@ -2625,6 +2625,19 @@ int user_record_is_nobody(const UserRecord *u) {
         return u->uid == UID_NOBODY || STRPTR_IN_SET(u->user_name, NOBODY_USER_NAME, "nobody");
 }
 
+bool user_record_matches_user_name(const UserRecord *u, const char *user_name) {
+        assert(u);
+        assert(user_name);
+
+        if (streq_ptr(u->user_name, user_name))
+                return true;
+
+        if (streq_ptr(u->user_name_and_realm_auto, user_name))
+                return true;
+
+        return false;
+}
+
 int suitable_blob_filename(const char *name) {
         /* Enforces filename requirements as described in docs/USER_RECORD_BULK_DIRS.md */
         return filename_is_valid(name) &&

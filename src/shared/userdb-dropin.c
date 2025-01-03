@@ -4,6 +4,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
+#include "group-record.h"
 #include "path-util.h"
 #include "stdio-util.h"
 #include "user-util.h"
@@ -87,7 +88,7 @@ static int load_user(
         if (r < 0)
                 return r;
 
-        if (name && !streq_ptr(name, u->user_name))
+        if (name && !user_record_matches_user_name(u, name))
                 return -EINVAL;
 
         if (uid_is_valid(uid) && uid != u->uid)
@@ -231,7 +232,7 @@ static int load_group(
         if (r < 0)
                 return r;
 
-        if (name && !streq_ptr(name, g->group_name))
+        if (name && !group_record_matches_group_name(g, name))
                 return -EINVAL;
 
         if (gid_is_valid(gid) && gid != g->gid)

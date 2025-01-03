@@ -220,7 +220,7 @@ static int acquire_user_record(
                 return pam_syslog_errno(handle, LOG_ERR, r, "Failed to load user record: %m");
 
         /* Safety check if cached record actually matches what we are looking for */
-        if (!streq_ptr(username, ur->user_name))
+        if (!user_record_matches_user_name(ur, username))
                 return pam_syslog_pam_error(handle, LOG_ERR, PAM_SERVICE_ERR,
                                             "Acquired user record does not match user name.");
 
