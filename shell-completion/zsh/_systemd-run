@@ -22,6 +22,13 @@ __systemctl() {
         _describe 'slices' _slices
     }
 
+(( $+functions[_systemd-run_job_modes] )) ||
+    _systemd-run_job_modes() {
+        local -a _modes
+        _modes=(fail replace replace-irreversibly isolate ignore-dependencies ignore-requirements flush)
+        _values -s , "${_modes[@]}"
+    }
+
 _arguments \
     '(-G --collect)'{-G,--collect}'[Unload the transient unit after it completed]' \
     '--description=[Description for unit]:description' \
@@ -60,6 +67,7 @@ _arguments \
     '(-t --pty)'{-t,--pty}'[The service connects to the terminal]' \
     '(-q --quiet)'{-q,--quiet}'[Suppresses additional informational output]' \
     '--json=[Output as JSON]:JSON:(pretty short off)' \
+    '--job-mode=[Specify how to deal with other jobs]:mode:_systemd-run_job_modes' \
     '(-r --remain-after-exit)'{-r,--remain-after-exit}'[Leave service around until explicitly stopped]' \
     '(-d --same-dir)'{-d,--same-dir}'[Run on the current working directory]' \
     '--scope[Run this as scope rather than service]' \

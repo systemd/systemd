@@ -131,6 +131,12 @@ _systemd_run() {
             COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
             return 0
             ;;
+        --job-mode)
+            local comps='fail replace replace-irreversibly isolate
+                         ignore-dependencies ignore-requirements flush'
+            COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+            return 0
+            ;;
     esac
 
     COMPREPLY=( $(compgen -W '${OPTS[*]}' -- "$cur") )

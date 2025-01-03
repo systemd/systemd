@@ -28,6 +28,7 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "job-mode.h"
 #include "hostname-util.h"
 #include "main-func.h"
 #include "parse-argument.h"
@@ -39,6 +40,7 @@
 #include "ptyfwd.h"
 #include "signal-util.h"
 #include "special.h"
+#include "string-table.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "uid-classification.h"
@@ -81,6 +83,7 @@ static bool arg_quiet = false;
 static bool arg_aggressive_gc = false;
 static char *arg_working_directory = NULL;
 static bool arg_shell = false;
+static JobMode arg_job_mode = JOB_FAIL;
 static char **arg_cmdline = NULL;
 static char *arg_exec_path = NULL;
 static bool arg_ignore_failure = false;
@@ -141,6 +144,8 @@ static int help(void) {
                "     --json=pretty|short|off      Print unit name and invocation id as JSON\n"
                "  -G --collect                    Unload unit after it ran, even when failed\n"
                "  -S --shell                      Invoke a $SHELL interactively\n"
+               "     --job-mode=MODE              Specify how to deal with already queued jobs,\n"
+               "                                  when queueing a new job\n"
                "     --ignore-failure             Ignore the exit status of the invoked process\n"
                "     --background=COLOR           Set ANSI color for background\n"
                "\n%3$sPath options:%4$s\n"
@@ -274,6 +279,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_WAIT,
                 ARG_WORKING_DIRECTORY,
                 ARG_SHELL,
+                ARG_JOB_MODE,
                 ARG_IGNORE_FAILURE,
                 ARG_BACKGROUND,
                 ARG_JSON,
@@ -323,6 +329,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "working-directory",  required_argument, NULL, ARG_WORKING_DIRECTORY  },
                 { "same-dir",           no_argument,       NULL, 'd'                    },
                 { "shell",              no_argument,       NULL, 'S'                    },
+                { "job-mode",           required_argument, NULL, ARG_JOB_MODE           },
                 { "ignore-failure",     no_argument,       NULL, ARG_IGNORE_FAILURE     },
                 { "background",         required_argument, NULL, ARG_BACKGROUND         },
                 { "json",               required_argument, NULL, ARG_JSON               },
@@ -615,6 +622,19 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'S':
                         arg_shell = true;
+                        break;
+
+                case ARG_JOB_MODE:
+                        if (streq(optarg, "help")) {
+                                DUMP_STRING_TABLE(job_mode, JobMode, _JOB_MODE_MAX);
+                                return 0;
+                        }
+
+                        r = job_mode_from_string(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Invalid job mode: %s", optarg);
+
+                        arg_job_mode = r;
                         break;
 
                 case ARG_IGNORE_FAILURE:
@@ -1743,7 +1763,7 @@ static int make_transient_service_unit(
                 return bus_log_create_error(r);
 
         /* Name and mode */
-        r = sd_bus_message_append(m, "ss", service, "fail");
+        r = sd_bus_message_append(m, "ss", service, job_mode_to_string(arg_job_mode));
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -2201,7 +2221,7 @@ static int start_transient_scope(sd_bus *bus) {
                         return bus_log_create_error(r);
 
                 /* Name and Mode */
-                r = sd_bus_message_append(m, "ss", scope, "fail");
+                r = sd_bus_message_append(m, "ss", scope, job_mode_to_string(arg_job_mode));
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -2370,7 +2390,7 @@ static int make_transient_trigger_unit(
                 return bus_log_create_error(r);
 
         /* Name and Mode */
-        r = sd_bus_message_append(m, "ss", trigger, "fail");
+        r = sd_bus_message_append(m, "ss", trigger, job_mode_to_string(arg_job_mode));
         if (r < 0)
                 return bus_log_create_error(r);
 
