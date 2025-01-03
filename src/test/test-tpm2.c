@@ -556,8 +556,13 @@ static void check_parse_pcr_argument(
 
                 assert_se(tpm2_pcr_values_to_mask(expected_values, n_expected_values, expected_values[0].hash, &expected_mask) == 0);
 
-                assert_se(tpm2_parse_pcr_argument_to_mask(arg, &mask) == 0);
-                assert_se(mask == expected_mask);
+                _cleanup_free_ Tpm2PCRValue *arg_pcr_values = NULL;
+                size_t n_arg_pcr_values = 0;
+                assert_se(tpm2_parse_pcr_argument(arg, &arg_pcr_values, &n_arg_pcr_values) >= 0);
+                uint32_t mask2 = UINT32_MAX;
+                assert_se(tpm2_pcr_values_to_mask(arg_pcr_values, n_arg_pcr_values, /* algorithm= */ 0, &mask2) >= 0);
+
+                assert_se((mask == UINT32_MAX ? mask2 : (mask|mask2)) == expected_mask);
         }
 
         size_t old_n_values = n_values;
@@ -701,6 +706,10 @@ TEST(parse_pcr_argument) {
         check_parse_pcr_argument_to_mask("sysexts+17+23", 0x822000);
         check_parse_pcr_argument_to_mask("6+boot-loader-code,44", -EINVAL);
         check_parse_pcr_argument_to_mask("debug+24", -EINVAL);
+        check_parse_pcr_argument_to_mask("5:sha1=f013d66c7f6817d08b7eb2a93e6d0440c1f3e7f8", -EINVAL);
+        check_parse_pcr_argument_to_mask("0:sha256=f013d66c7f6817d08b7eb2a93e6d0440c1f3e7f8", -EINVAL);
+        check_parse_pcr_argument_to_mask("5:sha1=f013d66c7f6817d08b7eb2a93e6d0440c1f3e7f8,3", -EINVAL);
+        check_parse_pcr_argument_to_mask("3,0:sha256=f013d66c7f6817d08b7eb2a93e6d0440c1f3e7f8", -EINVAL);
 }
 
 static const TPMT_PUBLIC test_rsa_template = {
