@@ -1052,6 +1052,7 @@ manpages = [
    'systemd-shutdown'],
   ''],
  ['systemd-pstore.service', '8', ['systemd-pstore'], 'ENABLE_PSTORE'],
+ ['systemd-pty-forward', '1', [], ''],
  ['systemd-quotacheck.service',
   '8',
   ['systemd-quotacheck'],

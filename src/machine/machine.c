@@ -668,19 +668,19 @@ int machine_kill(Machine *m, KillWhom whom, int signo) {
         return manager_kill_unit(m->manager, m->unit, signo, NULL);
 }
 
-int machine_openpt(Machine *m, int flags, char **ret_slave) {
+int machine_openpt(Machine *m, int flags, char **ret_peer) {
         assert(m);
 
         switch (m->class) {
 
         case MACHINE_HOST:
-                return openpt_allocate(flags, ret_slave);
+                return openpt_allocate(flags, ret_peer);
 
         case MACHINE_CONTAINER:
                 if (!pidref_is_set(&m->leader))
                         return -EINVAL;
 
-                return openpt_allocate_in_namespace(m->leader.pid, flags, ret_slave);
+                return openpt_allocate_in_namespace(m->leader.pid, flags, ret_peer);
 
         default:
                 return -EOPNOTSUPP;
