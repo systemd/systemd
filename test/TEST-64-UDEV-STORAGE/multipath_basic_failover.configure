@@ -18,7 +18,7 @@ for ndisk in range(16):
 
     for nback in range(4):
         id = f"drive{ndisk}x{nback}"
-        config["QemuDrives"] += [
+        config["Drives"] += [
             {
                 "Id": id,
                 "Size": size,
