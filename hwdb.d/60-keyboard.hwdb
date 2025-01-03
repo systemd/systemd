@@ -1976,6 +1976,7 @@ evdev:name:Sony Vaio Keys:dmi:bvn*:bvr*:bd*:svnSony*:pnVPC*:*
 ###########################################################
 
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnSystem76*:pn*:*
+ KEYBOARD_KEY_81=micmute                                # Mic mute
  KEYBOARD_KEY_f7=touchpad_toggle                        # Touchpad toggle
  KEYBOARD_KEY_f8=touchpad_toggle                        # Touchpad toggle
 
