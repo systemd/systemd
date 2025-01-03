@@ -3616,7 +3616,6 @@ int bus_add_match_full(
                                                                  add_match_callback,
                                                                  s,
                                                                  timeout_usec);
-
                                 if (r < 0)
                                         return r;
 
