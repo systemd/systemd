@@ -1778,13 +1778,13 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (!escaped_image)
                         log_oom();
 
-                r = strv_extendf(&cmdline, "if=none,id=mkosi,file=%s,format=raw,discard=%s", escaped_image, on_off(arg_discard_disk));
+                r = strv_extendf(&cmdline, "if=none,id=vmspawn,file=%s,format=raw,discard=%s", escaped_image, on_off(arg_discard_disk));
                 if (r < 0)
                         return log_oom();
 
                 r = strv_extend_many(&cmdline,
                         "-device", "virtio-scsi-pci,id=scsi",
-                        "-device", "scsi-hd,drive=mkosi,bootindex=1");
+                        "-device", "scsi-hd,drive=vmspawn,bootindex=1");
                 if (r < 0)
                         return log_oom();
         }
