@@ -74,6 +74,14 @@
         <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--read-only</option></term>
+
+        <listitem><para>Do not accept any user input on standard input.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help"/>
       <xi:include href="standard-options.xml" xpointer="version"/>
     </variablelist>
