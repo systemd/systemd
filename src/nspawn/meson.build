@@ -7,7 +7,6 @@ libnspawn_core_sources = files(
         'nspawn-mount.c',
         'nspawn-network.c',
         'nspawn-oci.c',
-        'nspawn-patch-uid.c',
         'nspawn-register.c',
         'nspawn-seccomp.c',
         'nspawn-settings.c',
