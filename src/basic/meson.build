@@ -72,6 +72,7 @@ basic_sources = files(
         'parse-util.c',
         'path-util.c',
         'percent-util.c',
+        'pidfd-util.c',
         'pidref.c',
         'prioq.c',
         'proc-cmdline.c',
