@@ -111,7 +111,8 @@ if ! build; then
     if [[ -f debian/not-installed ]]; then
         pushd debian/tmp
         grep --invert-match "^#" ../not-installed |
-            xargs -I {} bash -O nullglob -c "printf '%s\n' {}" |
+            xargs -I {} sh -c "test -d '{}' && echo '{}/**/*' || echo '{}'" |
+            xargs -I {} bash -O nullglob -O globstar -c "printf '%s\n' {}" |
             sed "/^$/d" |
             xargs -I {} sh -c "test -f '{}' && echo '{}' || true" >>/tmp/packaged-files
         popd
