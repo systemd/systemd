@@ -1043,6 +1043,12 @@ static int register_session(
         assert(ur);
         assert(ret_seat);
 
+        /* We don't register session class none with logind */
+        if (streq(c->class, "none")) {
+                pam_debug_syslog(handle, debug, "Skipping logind registration for session class none");
+                goto skip;
+        }
+
         /* Make most of this a NOP on non-logind systems */
         if (!logind_running())
                 goto skip;

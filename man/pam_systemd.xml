@@ -143,6 +143,10 @@
                 <entry><constant>manager-early</constant></entry>
                 <entry>Similar to <constant>manager</constant>, but for the root user. Compare with the <constant>user</constant> vs. <constant>user-early</constant> situation. (Added in v256.)</entry>
               </row>
+              <row>
+                <entry><constant>none</constant></entry>
+                <entry>Skips registering this session with logind. No session scope will be created, and the user service manager will not be started. (Added in v258.)</entry>
+              </row>
             </tbody>
           </tgroup>
         </table>
