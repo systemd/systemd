@@ -62,7 +62,7 @@ static bool home_user_match_lookup_parameters(LookupParameters *p, Home *h) {
         assert(p);
         assert(h);
 
-        if (p->user_name && !streq(p->user_name, h->user_name))
+        if (p->user_name && !user_record_matches_user_name(h->record, p->user_name))
                 return false;
 
         if (uid_is_valid(p->uid) && h->uid != p->uid)
@@ -175,7 +175,7 @@ static bool home_group_match_lookup_parameters(LookupParameters *p, Home *h) {
         assert(p);
         assert(h);
 
-        if (p->group_name && !streq(h->user_name, p->group_name))
+        if (p->group_name && !user_record_matches_user_name(h->record, p->group_name))
                 return false;
 
         if (gid_is_valid(p->gid) && h->uid != (uid_t) p->gid)
