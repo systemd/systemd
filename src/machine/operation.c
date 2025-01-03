@@ -46,10 +46,12 @@ static int operation_done(sd_event_source *s, const siginfo_t *si, void *userdat
         if (r < 0)
                 log_debug_errno(r, "Operation failed: %m");
 
-        /* If a completion routine (o->done) is set for this operation, call it. It sends a response, but can return an error in which case it expect us to reply.
-         * Otherwise, the default action is to simply return an error on failure or an empty success message on success. */
-
         if (o->message) {
+                /* If o->done set, call it. It sends a response, but can return
+                 * an error in which case it expect this code to reply.
+                 * If o->done is not set, the default action is to simply return
+                 * an error on failure or an empty success message on success.*/
+
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 if (o->done)
                         r = o->done(o, r, &error);
@@ -68,13 +70,16 @@ static int operation_done(sd_event_source *s, const siginfo_t *si, void *userdat
                                 log_error_errno(r, "Failed to reply to dbus message: %m");
                 }
         } else if (o->link) {
-                if (o->done)
-                        r = o->done(o, r, /* error = */ NULL);
+                /* If o->done set, call it. Unlike o->message case above, this
+                 * code expect o->done to reply in all cases.
+                 * If o->done is not set, the default action is to simply return
+                 * an error on failure or an empty success message on success.*/
 
-                if (r < 0)
+                if (o->done)
+                        (void) o->done(o, r, /* error = */ NULL);
+                else if (r < 0)
                         (void) sd_varlink_error_errno(o->link, r);
-                else if (!o->done)
-                        /* when o->done set it's responsible for sending reply in a happy-path case */
+                else
                         (void) sd_varlink_reply(o->link, NULL);
         } else
                 assert_not_reached();
@@ -83,21 +88,18 @@ static int operation_done(sd_event_source *s, const siginfo_t *si, void *userdat
         return 0;
 }
 
-int operation_new(Manager *manager, Machine *machine, pid_t child, sd_bus_message *message, sd_varlink *link, int errno_fd, Operation **ret) {
+int operation_new(Manager *manager, Machine *machine, pid_t child, int errno_fd, Operation **ret) {
         Operation *o;
         int r;
 
         assert(manager);
         assert(child > 1);
         assert(errno_fd >= 0);
-        assert(message || link);
-        assert(!(message && link));
+        assert(ret);
 
-        o = new0(Operation, 1);
+        o = new(Operation, 1);
         if (!o)
                 return -ENOMEM;
-
-        o->extra_fd = -EBADF;
 
         r = sd_event_add_child(manager->event, &o->event_source, child, WEXITED, operation_done, o);
         if (r < 0) {
@@ -105,14 +107,15 @@ int operation_new(Manager *manager, Machine *machine, pid_t child, sd_bus_messag
                 return r;
         }
 
-        o->pid = child;
-        o->message = sd_bus_message_ref(message);
-        o->link = sd_varlink_ref(link);
-        o->errno_fd = errno_fd;
-
         LIST_PREPEND(operations, manager->operations, o);
         manager->n_operations++;
-        o->manager = manager;
+
+        *o = (Operation) {
+                .pid = child,
+                .errno_fd = errno_fd,
+                .extra_fd = -EBADF,
+                .manager = manager
+        };
 
         if (machine) {
                 LIST_PREPEND(operations_by_machine, machine->operations, o);
@@ -123,9 +126,7 @@ int operation_new(Manager *manager, Machine *machine, pid_t child, sd_bus_messag
 
         /* At this point we took ownership of both the child and the errno file descriptor! */
 
-        if (ret)
-                *ret = o;
-
+        *ret = o;
         return 0;
 }
 
