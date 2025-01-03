@@ -125,14 +125,13 @@ int json_dispatch_in_addr(const char *name, sd_json_variant *variant, sd_json_di
         return 0;
 }
 
-int json_dispatch_path(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
-        char **p = ASSERT_PTR(userdata);
-        const char *path;
+int json_dispatch_const_path(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        const char **p = ASSERT_PTR(userdata), *path;
 
         assert(variant);
 
         if (sd_json_variant_is_null(variant)) {
-                *p = mfree(*p);
+                *p = NULL;
                 return 0;
         }
 
@@ -145,8 +144,24 @@ int json_dispatch_path(const char *name, sd_json_variant *variant, sd_json_dispa
         if (!path_is_absolute(path))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an absolute file system path.", strna(name));
 
-        if (free_and_strdup(p, path) < 0)
-                return json_log_oom(variant, flags);
+        *p = path;
+        return 0;
+}
+
+int json_dispatch_path(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        char **s = ASSERT_PTR(userdata);
+        const char *p;
+        int r;
+
+        assert_return(variant, -EINVAL);
+
+        r = json_dispatch_const_path(name, variant, flags, &p);
+        if (r < 0)
+                return r;
+
+        r = free_and_strdup(s, p);
+        if (r < 0)
+                return json_log(variant, flags, r, "Failed to allocate path string: %m");
 
         return 0;
 }
