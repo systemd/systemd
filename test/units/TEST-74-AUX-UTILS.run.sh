@@ -200,6 +200,16 @@ grep -q "^SocketMode=0644$" "/run/systemd/transient/$UNIT.socket"
 grep -qE "^ExecStart=.*/bin/true.*$" "/run/systemd/transient/$UNIT.service"
 systemctl stop "$UNIT.socket" "$UNIT.service" || :
 
+: "Job mode"
+systemd-run --job-mode=help
+(! systemd-run --job-mode=foo --scope true)
+systemd-run --no-block --unit=slowly-activating.service --collect \
+    --service-type=oneshot --remain-after-exit \
+    sleep 30
+(! systemd-run --scope --property=Conflicts=slowly-activating.service true)
+(! systemd-run --scope --property=Conflicts=slowly-activating.service --job-mode=fail true)
+systemd-run --scope --property=Conflicts=slowly-activating.service --job-mode=replace true
+
 : "Interactive options"
 SHELL=/bin/true systemd-run --shell
 SHELL=/bin/true systemd-run --scope --shell
