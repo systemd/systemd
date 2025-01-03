@@ -13,6 +13,7 @@
 #include "strv.h"
 
 static bool arg_quiet = false;
+static bool arg_read_only = false;
 static char *arg_background = NULL;
 static char *arg_title = NULL;
 
@@ -33,6 +34,7 @@ static int help(void) {
                "  -h --help              Show this help\n"
                "     --version           Print version\n"
                "  -q --quiet             Suppress information messages during runtime\n"
+               "     --read-only         Do not accept any user input on stdin\n"
                "     --background=COLOR  Set ANSI color for background\n"
                "     --title=TITLE       Set terminal title\n"
                "\nSee the %2$s for details.\n",
@@ -49,6 +51,7 @@ static int help(void) {
 static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
+                ARG_READ_ONLY,
                 ARG_BACKGROUND,
                 ARG_TITLE,
         };
@@ -57,6 +60,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "help",               no_argument,       NULL, 'h'                    },
                 { "version",            no_argument,       NULL, ARG_VERSION            },
                 { "quiet",              no_argument,       NULL, 'q'                    },
+                { "read-only",          no_argument,       NULL, ARG_READ_ONLY          },
                 { "background",         required_argument, NULL, ARG_BACKGROUND         },
                 { "title",              required_argument, NULL, ARG_TITLE              },
                 {}
@@ -79,6 +83,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'q':
                         arg_quiet = true;
+                        break;
+
+                case ARG_READ_ONLY:
+                        arg_read_only = true;
                         break;
 
                 case ARG_BACKGROUND:
@@ -161,7 +169,7 @@ static int run(int argc, char *argv[]) {
         if (!arg_quiet)
                 log_info("Press ^] three times within 1s to disconnect TTY.");
 
-        r = pty_forward_new(event, pty_fd, /*flags=*/ 0, &forward);
+        r = pty_forward_new(event, pty_fd, arg_read_only ? PTY_FORWARD_READ_ONLY : 0, &forward);
         if (r < 0)
                 return log_error_errno(r, "Failed to create PTY forwarder: %m");
 
