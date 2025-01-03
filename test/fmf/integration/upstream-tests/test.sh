@@ -39,9 +39,14 @@ tee mkosi.local.conf <<EOF
 Release=${VERSION_ID:-rawhide}
 
 [Build]
-ToolsTree=
-SandboxTrees=/etc/yum.repos.d/:/etc/yum.repos.d/
-             /var/share/test-artifacts/:/var/share/test-artifacts/
+ToolsTreeDistribution=$ID
+ToolsTreeRelease=${VERSION_ID:-rawhide}
+ToolsTreeSandboxTrees=
+        /etc/yum.repos.d/:/etc/yum.repos.d/
+        /var/share/test-artifacts/:/var/share/test-artifacts/
+SandboxTrees=
+        /etc/yum.repos.d/:/etc/yum.repos.d/
+        /var/share/test-artifacts/:/var/share/test-artifacts/
 Environment=NO_BUILD=1
 EOF
 
@@ -61,11 +66,11 @@ if [[ ! -e /dev/kvm ]]; then
 fi
 
 mkosi summary
-meson setup build -Dintegration-tests=true
+mkosi -f sandbox meson setup build -Dintegration-tests=true
 mkosi genkey
-meson compile -C build mkosi
-export PATH="$PWD/build:$PATH"
-meson test \
+mkosi -f sandbox meson compile -C build mkosi
+mkosi -f sandbox \
+    meson test \
     -C build \
     --no-rebuild \
     --suite integration-tests \
