@@ -7,7 +7,6 @@ libnspawn_core_sources = files(
         'nspawn-mount.c',
         'nspawn-network.c',
         'nspawn-oci.c',
-        'nspawn-patch-uid.c',
         'nspawn-register.c',
         'nspawn-seccomp.c',
         'nspawn-settings.c',
@@ -62,12 +61,6 @@ executables += [
         },
         nspawn_test_template + {
                 'sources' : files('test-nspawn-util.c'),
-        },
-        test_template + {
-                'sources' : files('test-patch-uid.c'),
-                'link_with' : nspawn_libs,
-                'dependencies' : libacl,
-                'type' : 'manual',
         },
         nspawn_fuzz_template + {
                 'sources' : files('fuzz-nspawn-settings.c'),
