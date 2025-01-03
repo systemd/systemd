@@ -16,7 +16,7 @@ if 'name "nvme"' not in result.stdout:
     exit(77)
 
 for id in ("nvme0", "nvme1"):
-    config["QemuDrives"] += [
+    config["Drives"] += [
         {
             "Id": id,
             "Size": "1M",
