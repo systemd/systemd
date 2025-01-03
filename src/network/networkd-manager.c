@@ -647,6 +647,7 @@ int manager_new(Manager **ret, bool test_mode) {
                 .dhcp_use_domains = _USE_DOMAINS_INVALID,
                 .dhcp6_use_domains = _USE_DOMAINS_INVALID,
                 .ndisc_use_domains = _USE_DOMAINS_INVALID,
+                .dhcp_client_identifier = DHCP_CLIENT_ID_DUID,
                 .dhcp_duid.type = DUID_TYPE_EN,
                 .dhcp6_duid.type = DUID_TYPE_EN,
                 .duid_product_uuid.type = DUID_TYPE_UUID,

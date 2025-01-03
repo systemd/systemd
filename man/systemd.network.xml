@@ -2371,8 +2371,11 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
           <option>duid</option>. If set to <option>mac</option>, the MAC address of the link is used. If set
           to <option>duid</option>, an RFC4361-compliant Client ID, which is the combination of IAID and
           DUID, is used. IAID can be configured by <varname>IAID=</varname>. DUID can be configured by
-          <varname>DUIDType=</varname> and <varname>DUIDRawData=</varname>. Defaults to
-          <option>duid</option>.</para>
+          <varname>DUIDType=</varname> and <varname>DUIDRawData=</varname>. When
+          <varname>Anonymize=</varname> is enabled, <option>mac</option> is unconditionally used and the
+          specified value will be ignored. When unspecified, the value specified in the same setting in
+          <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          will be used.</para>
 
         <xi:include href="version-info.xml" xpointer="v220"/>
         </listitem>

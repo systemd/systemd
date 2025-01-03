@@ -6742,8 +6742,9 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
         self.assertIn('Gateway: 192.168.5.1', output)
         self.assertIn('Time Zone: Europe/Berlin', output)
 
-    def test_dhcp_server_static_lease(self):
+    def test_dhcp_server_static_lease_mac_by_network(self):
         copy_network_unit('25-veth.netdev', '25-dhcp-client-static-lease.network', '25-dhcp-server-static-lease.network')
+        copy_networkd_conf_dropin('10-dhcp-client-id-duid.conf')
         start_networkd()
         self.wait_online('veth99:routable', 'veth-peer:routable')
 
@@ -6752,7 +6753,18 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
         self.assertIn('Address: 10.1.1.200 (DHCPv4 via 10.1.1.1)', output)
         self.assertIn('DHCPv4 Client ID: 12:34:56:78:9a:bc', output)
 
-    def test_dhcp_server_static_lease_default_client_id(self):
+    def test_dhcp_server_static_lease_mac_by_global(self):
+        copy_network_unit('25-veth.netdev', '25-dhcp-client.network', '25-dhcp-server-static-lease.network')
+        copy_networkd_conf_dropin('10-dhcp-client-id-mac.conf')
+        start_networkd()
+        self.wait_online('veth99:routable', 'veth-peer:routable')
+
+        output = networkctl_status('veth99')
+        print(output)
+        self.assertIn('Address: 10.1.1.200 (DHCPv4 via 10.1.1.1)', output)
+        self.assertIn('DHCPv4 Client ID: 12:34:56:78:9a:bc', output)
+
+    def test_dhcp_server_static_lease_duid(self):
         copy_network_unit('25-veth.netdev', '25-dhcp-client.network', '25-dhcp-server-static-lease.network')
         start_networkd()
         self.wait_online('veth99:routable', 'veth-peer:routable')
