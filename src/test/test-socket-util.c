@@ -584,4 +584,25 @@ TEST(sockaddr_un_set_path) {
         assert_se(connect(fd2, &sa.sa, SOCKADDR_LEN(sa)) >= 0);
 }
 
+TEST(getpeerpidref) {
+        _cleanup_close_pair_ int fd[2] = EBADF_PAIR;
+
+        ASSERT_OK(socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0, fd));
+
+        _cleanup_(pidref_done) PidRef pidref0 = PIDREF_NULL, pidref1 = PIDREF_NULL, pidref_self = PIDREF_NULL, pidref_pid1 = PIDREF_NULL;
+        ASSERT_OK(getpeerpidref(fd[0], &pidref0));
+        ASSERT_OK(getpeerpidref(fd[1], &pidref1));
+
+        ASSERT_OK(pidref_set_self(&pidref_self));
+        ASSERT_OK(pidref_set_pid(&pidref_pid1, 1));
+
+        ASSERT_TRUE(pidref_equal(&pidref0, &pidref1));
+        ASSERT_TRUE(pidref_equal(&pidref0, &pidref_self));
+        ASSERT_TRUE(pidref_equal(&pidref1, &pidref_self));
+
+        ASSERT_TRUE(!pidref_equal(&pidref_self, &pidref_pid1));
+        ASSERT_TRUE(!pidref_equal(&pidref1, &pidref_pid1));
+        ASSERT_TRUE(!pidref_equal(&pidref0, &pidref_pid1));
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
