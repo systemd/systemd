@@ -1,0 +1,9 @@
+{
+    "type": "uefi-fw",
+    "name": "Device 4",
+    "fwid": "test,vmware",
+    "hwids": [
+        "208a77d5-ba4b-518a-8ea7-18eab0e50654",
+        "4a8a248d-9e6b-5216-b83e-6cdf9bde8d0d"
+    ]
+}

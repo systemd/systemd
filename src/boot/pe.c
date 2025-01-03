@@ -323,7 +323,7 @@ static void pe_locate_sections(
                 if (PE_SECTION_VECTOR_IS_SET(&hwids_section)) {
                         hwids = (const uint8_t *) SIZE_TO_PTR(validate_base) + hwids_section.memory_offset;
 
-                        EFI_STATUS err = chid_match(hwids, hwids_section.memory_size, &device);
+                        EFI_STATUS err = chid_match(hwids, hwids_section.memory_size, DEVICE_TYPE_DEVICETREE, &device);
                         if (err != EFI_SUCCESS) {
                                 log_error_status(err, "HWID matching failed, no DT blob will be selected: %m");
                                 hwids = NULL;
