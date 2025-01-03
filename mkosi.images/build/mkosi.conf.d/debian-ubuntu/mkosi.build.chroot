@@ -128,6 +128,8 @@ if ! build; then
         exit 1
     fi
 
+    echo -e "::warning title=UNPACKAGED-FILES::The following files were not picked up by the package, please update the packaging recipe to include:\n$(cat /tmp/unpackaged-files | tr '\n' ' ')"
+
     # Otherwise, we append the unpackaged files to the filelist for the systemd package and retry the build.
     cat /tmp/unpackaged-files >>debian/systemd.install
     build
