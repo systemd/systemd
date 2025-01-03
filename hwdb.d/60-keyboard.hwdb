@@ -1980,8 +1980,11 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnSystem76*:pn*:*
  KEYBOARD_KEY_f7=touchpad_toggle                        # Touchpad toggle
  KEYBOARD_KEY_f8=touchpad_toggle                        # Touchpad toggle
 
-# Pangolin 12
+# Pangolin
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnSystem76*:pnPangolin*:pvrpang12*
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnSystem76*:pnPangolin*:pvrpang13*
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnSystem76*:pnPangolin*:pvrpang14*
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnSystem76*:pnPangolin*:pvrpang15*
  KEYBOARD_KEY_76=touchpad_toggle                        # Touchpad toggle
 
 ###########################################################
