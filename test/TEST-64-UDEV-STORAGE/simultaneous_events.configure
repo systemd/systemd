@@ -9,7 +9,7 @@ config = json.load(sys.stdin)
 
 for i in range(10):
     id = f"drivesimultaneousevents{i}"
-    config["QemuDrives"] += [
+    config["Drives"] += [
         {
             "Id": id,
             "Size": "128M",
