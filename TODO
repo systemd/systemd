@@ -330,10 +330,6 @@ Features:
   probably should measure the dm-verity root hash from the kernel side, but
   DDI meta info from userspace.
 
-* rework tpm2_parse_pcr_argument_to_mask() to refuse literal hash value
-  specifications. They are currently parsed but ignored. We should refuse them
-  however, to not confuse people.
-
 * use name_to_handle_at() with AT_HANDLE_FID instead of .st_ino (inode
   number) for identifying inodes, for example in copy.c when finding hard
   links, or loop-util.c for tracking backing files, and other places.
