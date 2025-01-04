@@ -676,6 +676,13 @@ static int ask_on_consoles(char *argv[]) {
         if (!arguments)
                 return log_oom();
 
+        /* Grant agents we spawn notify access too, so that once an agent establishes inotify watch
+         * READY=1 is properly sent to service manager. See process_and_watch_password_files() for details.
+         *
+         * Note that when any agent exits STOPPING=1 would also be sent, but that's utterly what we want,
+         * i.e. the password is answered on one console and other agents get killed below. */
+        (void) sd_notify(/* unset_environment = */ false, "NOTIFYACCESS=all");
+
         /* Start an agent on each console. */
         STRV_FOREACH(tty, consoles) {
                 r = ask_on_this_console(*tty, &pid, arguments);
