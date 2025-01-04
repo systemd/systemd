@@ -227,7 +227,7 @@ static int validate_userns(sd_varlink *link, int *userns_fd) {
         if (r < 0)
                 return log_debug_errno(r, "User namespace file descriptor has unsafe flags set: %m");
 
-        r = fd_is_ns(*userns_fd, CLONE_NEWUSER);
+        r = fd_is_namespace(*userns_fd, NAMESPACE_USER);
         if (r < 0)
                 return r;
         if (r == 0)
