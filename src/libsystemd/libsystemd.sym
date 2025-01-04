@@ -1063,7 +1063,6 @@ global:
 LIBSYSTEMD_258 {
 global:
         sd_device_enumerator_add_all_parents;
-        sd_device_enumerator_add_all_parents;
         sd_json_variant_type_from_string;
         sd_json_variant_type_to_string;
         sd_varlink_get_input_fd;
