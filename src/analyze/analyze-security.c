@@ -1591,7 +1591,7 @@ static const struct security_assessor security_assessor_table[] = {
         {
                 .id = "IPAddressDeny=",
                 .json_field = "IPAddressDeny",
-                .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#IPAddressDeny=",
+                .url = "https://www.freedesktop.org/software/systemd/man/systemd.resource-control.html#IPAddressAllow=ADDRESS%5B/PREFIXLENGTH%5D…",
                 .weight = 1000,
                 .range = 10,
                 .assess = assess_ip_address_allow,
@@ -1599,7 +1599,7 @@ static const struct security_assessor security_assessor_table[] = {
         {
                 .id = "DeviceAllow=",
                 .json_field = "DeviceAllow",
-                .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#DeviceAllow=",
+                .url = "https://www.freedesktop.org/software/systemd/man/systemd.resource-control.html#DeviceAllow=",
                 .weight = 1000,
                 .range = 10,
                 .assess = assess_device_allow,
