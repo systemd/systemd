@@ -1170,13 +1170,14 @@ static void sigterm_handler(int signal, siginfo_t *info, void *ucontext) {
 }
 
 static int run_debug(int argc, char **argv, void *userdata) {
-        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
-        _cleanup_free_ char *exe = NULL, *path = NULL;
-        _cleanup_strv_free_ char **debugger_call = NULL;
-        struct sigaction sa = {
+        static const struct sigaction sa = {
                 .sa_sigaction = sigterm_handler,
                 .sa_flags = SA_SIGINFO,
         };
+
+        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+        _cleanup_free_ char *exe = NULL, *path = NULL;
+        _cleanup_strv_free_ char **debugger_call = NULL;
         bool unlink_path = false;
         const char *data, *fork_name;
         size_t len;

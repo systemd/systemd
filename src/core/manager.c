@@ -517,7 +517,7 @@ static int manager_enable_special_signals(Manager *m) {
 #define RTSIG_IF_AVAILABLE(signum) (signum <= SIGRTMAX ? signum : -1)
 
 static int manager_setup_signals(Manager *m) {
-        struct sigaction sa = {
+        static const struct sigaction sa = {
                 .sa_handler = SIG_DFL,
                 .sa_flags = SA_NOCLDSTOP|SA_RESTART,
         };

@@ -52,8 +52,13 @@ _noreturn_ void freeze_or_exit_or_reboot(void) {
 }
 
 _noreturn_ static void crash(int sig, siginfo_t *siginfo, void *context) {
-        struct sigaction sa;
+        static const struct sigaction sa_nocldwait = {
+                .sa_handler = SIG_IGN,
+                .sa_flags = SA_NOCLDSTOP|SA_NOCLDWAIT|SA_RESTART,
+        };
+
         pid_t pid;
+        int r;
 
         /* NB: 💣 💣 💣 This is a signal handler, most likely executed in a situation where we have corrupted
          * memory. Thus: please avoid any libc memory allocation here, or any functions that internally use
@@ -69,13 +74,8 @@ _noreturn_ static void crash(int sig, siginfo_t *siginfo, void *context) {
                            LOG_MESSAGE("Caught <%s>, not dumping core.", signal_to_string(sig)),
                            "MESSAGE_ID=" SD_MESSAGE_CRASH_NO_COREDUMP_STR);
         else {
-                sa = (struct sigaction) {
-                        .sa_handler = nop_signal_handler,
-                        .sa_flags = SA_NOCLDSTOP|SA_RESTART,
-                };
-
                 /* We want to wait for the core process, hence let's enable SIGCHLD */
-                (void) sigaction(SIGCHLD, &sa, NULL);
+                (void) sigaction(SIGCHLD, &sigaction_nop_nocldstop, NULL);
 
                 pid = raw_clone(SIGCHLD);
                 if (pid < 0)
@@ -99,7 +99,6 @@ _noreturn_ static void crash(int sig, siginfo_t *siginfo, void *context) {
                         _exit(EXIT_EXCEPTION);
                 } else {
                         siginfo_t status;
-                        int r;
 
                         if (siginfo) {
                                 if (siginfo->si_pid == 0)
@@ -146,13 +145,8 @@ _noreturn_ static void crash(int sig, siginfo_t *siginfo, void *context) {
         if (arg_crash_chvt >= 0)
                 (void) chvt(arg_crash_chvt);
 
-        sa = (struct sigaction) {
-                .sa_handler = SIG_IGN,
-                .sa_flags = SA_NOCLDSTOP|SA_NOCLDWAIT|SA_RESTART,
-        };
-
         /* Let the kernel reap children for us */
-        (void) sigaction(SIGCHLD, &sa, NULL);
+        (void) sigaction(SIGCHLD, &sa_nocldwait, NULL);
 
         if (arg_crash_shell) {
                 log_notice("Executing crash shell...");
