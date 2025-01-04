@@ -32,6 +32,7 @@
 #include "udev-spawn.h"
 #include "udev-trace.h"
 #include "udev-util.h"
+#include "udev-varlink.h"
 #include "udev-watch.h"
 #include "udev-worker.h"
 
@@ -148,6 +149,7 @@ Manager* manager_free(Manager *manager) {
 
         sd_device_monitor_unref(manager->monitor);
         udev_ctrl_unref(manager->ctrl);
+        sd_varlink_server_unref(manager->varlink_server);
 
         sd_event_source_unref(manager->inotify_event);
         sd_event_source_unref(manager->kill_workers_event);
@@ -194,7 +196,7 @@ static int worker_new(Worker **ret, Manager *manager, sd_device_monitor *worker_
         return 0;
 }
 
-static void manager_kill_workers(Manager *manager, bool force) {
+void manager_kill_workers(Manager *manager, bool force) {
         Worker *worker;
 
         assert(manager);
@@ -213,7 +215,7 @@ static void manager_kill_workers(Manager *manager, bool force) {
         }
 }
 
-static void manager_exit(Manager *manager) {
+void manager_exit(Manager *manager) {
         assert(manager);
 
         manager->exit = true;
@@ -222,7 +224,7 @@ static void manager_exit(Manager *manager) {
 
         /* close sources of new events and discard buffered events */
         manager->ctrl = udev_ctrl_unref(manager->ctrl);
-
+        manager->varlink_server = sd_varlink_server_unref(manager->varlink_server);
         manager->inotify_event = sd_event_source_disable_unref(manager->inotify_event);
         manager->inotify_fd = safe_close(manager->inotify_fd);
 
@@ -233,7 +235,7 @@ static void manager_exit(Manager *manager) {
         manager_kill_workers(manager, true);
 }
 
-static void notify_ready(Manager *manager) {
+void notify_ready(Manager *manager) {
         int r;
 
         assert(manager);
@@ -246,7 +248,7 @@ static void notify_ready(Manager *manager) {
 }
 
 /* reload requested, HUP signal received, rules changed, builtin changed */
-static void manager_reload(Manager *manager, bool force) {
+void manager_reload(Manager *manager, bool force) {
         _cleanup_(udev_rules_freep) UdevRules *rules = NULL;
         usec_t now_usec;
         int r;
@@ -844,7 +846,6 @@ static int on_worker(sd_event_source *s, int fd, uint32_t revents, void *userdat
 /* receive the udevd message from userspace */
 static int on_ctrl_msg(UdevCtrl *uctrl, UdevCtrlMessageType type, const UdevCtrlMessageValue *value, void *userdata) {
         Manager *manager = ASSERT_PTR(userdata);
-        int r;
 
         assert(value);
 
@@ -857,13 +858,7 @@ static int on_ctrl_msg(UdevCtrl *uctrl, UdevCtrlMessageType type, const UdevCtrl
 
                 log_debug("Received udev control message (SET_LOG_LEVEL), setting log_level=%i", value->intval);
 
-                r = log_get_max_level();
-                if (r == value->intval)
-                        break;
-
-                log_set_max_level(value->intval);
-                manager->config.log_level = manager->config_by_control.log_level = value->intval;
-                manager_kill_workers(manager, false);
+                manager_set_log_level(manager, value->intval);
                 break;
         case UDEV_CTRL_STOP_EXEC_QUEUE:
                 log_debug("Received udev control message (STOP_EXEC_QUEUE)");
@@ -878,54 +873,15 @@ static int on_ctrl_msg(UdevCtrl *uctrl, UdevCtrlMessageType type, const UdevCtrl
                 log_debug("Received udev control message (RELOAD)");
                 manager_reload(manager, /* force = */ true);
                 break;
-        case UDEV_CTRL_SET_ENV: {
-                _unused_ _cleanup_free_ char *old_val = NULL, *old_key = NULL;
-                _cleanup_free_ char *key = NULL, *val = NULL;
-                const char *eq;
-
-                eq = strchr(value->buf, '=');
-                if (!eq) {
-                        log_error("Invalid key format '%s'", value->buf);
-                        return 1;
+        case UDEV_CTRL_SET_ENV:
+                if (!udev_property_assignment_is_valid(value->buf)) {
+                        log_debug("Received invalid udev control message(SET_ENV, %s), ignoring.", value->buf);
+                        break;
                 }
 
-                key = strndup(value->buf, eq - value->buf);
-                if (!key) {
-                        log_oom();
-                        return 1;
-                }
-
-                old_val = hashmap_remove2(manager->properties, key, (void **) &old_key);
-
-                r = hashmap_ensure_allocated(&manager->properties, &string_hash_ops);
-                if (r < 0) {
-                        log_oom();
-                        return 1;
-                }
-
-                eq++;
-                if (isempty(eq))
-                        log_debug("Received udev control message (ENV), unsetting '%s'", key);
-                else {
-                        val = strdup(eq);
-                        if (!val) {
-                                log_oom();
-                                return 1;
-                        }
-
-                        log_debug("Received udev control message (ENV), setting '%s=%s'", key, val);
-
-                        r = hashmap_put(manager->properties, key, val);
-                        if (r < 0) {
-                                log_oom();
-                                return 1;
-                        }
-                }
-
-                key = val = NULL;
-                manager_kill_workers(manager, false);
+                log_debug("Received udev control message(SET_ENV, %s)", value->buf);
+                manager_set_environment(manager, STRV_MAKE(value->buf));
                 break;
-        }
         case UDEV_CTRL_SET_CHILDREN_MAX:
                 if (value->intval < 0) {
                         log_debug("Received invalid udev control message (SET_MAX_CHILDREN, %i), ignoring.", value->intval);
@@ -933,13 +889,8 @@ static int on_ctrl_msg(UdevCtrl *uctrl, UdevCtrlMessageType type, const UdevCtrl
                 }
 
                 log_debug("Received udev control message (SET_MAX_CHILDREN), setting children_max=%i", value->intval);
-                manager->config_by_control.children_max = value->intval;
 
-                /* When 0 is specified, determine the maximum based on the system resources. */
-                udev_config_set_default_children_max(&manager->config_by_control);
-                manager->config.children_max = manager->config_by_control.children_max;
-
-                notify_ready(manager);
+                manager_set_children_max(manager, value->intval);
                 break;
         case UDEV_CTRL_PING:
                 log_debug("Received udev control message (PING)");
@@ -1200,6 +1151,9 @@ static int listen_fds(int *ret_ctrl, int *ret_netlink) {
 
         for (int i = 0; i < n; i++) {
                 int fd = SD_LISTEN_FDS_START + i;
+
+                if (streq(names[i], "varlink"))
+                        continue; /* The fd will be handled by sd_varlink_server_listen_auto(). */
 
                 if (sd_is_socket(fd, AF_UNIX, SOCK_SEQPACKET, -1) > 0) {
                         if (ctrl_fd >= 0) {
@@ -1465,6 +1419,10 @@ int manager_main(Manager *manager) {
                 return r;
 
         r = manager_start_ctrl(manager);
+        if (r < 0)
+                return r;
+
+        r = manager_start_varlink_server(manager);
         if (r < 0)
                 return r;
 

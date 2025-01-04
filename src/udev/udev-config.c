@@ -271,7 +271,7 @@ static void manager_merge_config(Manager *manager) {
         MERGE_BOOL(blockdev_read_only);
 }
 
-void udev_config_set_default_children_max(UdevConfig *config) {
+static void udev_config_set_default_children_max(UdevConfig *config) {
         uint64_t cpu_limit, mem_limit, cpu_count = 1;
         int r;
 
@@ -291,6 +291,30 @@ void udev_config_set_default_children_max(UdevConfig *config) {
 
         config->children_max = MIN3(cpu_limit, mem_limit, WORKER_NUM_MAX);
         log_debug("Set children_max to %u", config->children_max);
+}
+
+void manager_set_children_max(Manager *manager, unsigned n) {
+        assert(manager);
+
+        manager->config_by_control.children_max = n;
+        /* When 0 is specified, determine the maximum based on the system resources. */
+        udev_config_set_default_children_max(&manager->config_by_control);
+        manager->config.children_max = manager->config_by_control.children_max;
+
+        notify_ready(manager);
+}
+
+void manager_set_log_level(Manager *manager, int log_level) {
+        assert(manager);
+        assert(LOG_PRI(log_level) == log_level);
+
+        int old = log_get_max_level();
+
+        log_set_max_level(log_level);
+        manager->config.log_level = manager->config_by_control.log_level = log_level;
+
+        if (log_level != old)
+                manager_kill_workers(manager, /* force = */ false);
 }
 
 static void manager_adjust_config(UdevConfig *config) {
@@ -313,6 +337,58 @@ static void manager_adjust_config(UdevConfig *config) {
         }
 
         udev_config_set_default_children_max(config);
+}
+
+static int manager_set_environment_one(Manager *manager, const char *s) {
+        int r;
+
+        assert(manager);
+        assert(s);
+
+        _cleanup_free_ char *key = NULL, *value = NULL;
+        r = split_pair(s, "=", &key, &value);
+        if (r < 0)
+                return r;
+
+        if (isempty(value)) {
+                _cleanup_free_ char *old_key = NULL, *old_value = NULL;
+                old_value = hashmap_remove2(manager->properties, key, (void**) &old_key);
+                return !!old_value;
+        }
+
+        if (streq_ptr(value, hashmap_get(manager->properties, key)))
+                return 0;
+
+        _cleanup_free_ char *old_key = NULL, *old_value = NULL;
+        old_value = hashmap_get2(manager->properties, key, (void**) &old_key);
+
+        r = hashmap_ensure_replace(&manager->properties, &string_hash_ops, key, value);
+        if (r < 0) {
+                assert(!old_key);
+                assert(!old_value);
+                return r;
+        }
+
+        TAKE_PTR(key);
+        TAKE_PTR(value);
+        return 1;
+}
+
+void manager_set_environment(Manager *manager, char * const *v) {
+        bool changed = false;
+        int r;
+
+        assert(manager);
+
+        STRV_FOREACH(s, v) {
+                r = manager_set_environment_one(manager, *s);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to update environment '%s', ignoring: %m", *s);
+                changed = changed || r > 0;
+        }
+
+        if (changed)
+                manager_kill_workers(manager, /* force = */ false);
 }
 
 int manager_load(Manager *manager, int argc, char *argv[]) {

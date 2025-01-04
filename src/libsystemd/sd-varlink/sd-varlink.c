@@ -1542,6 +1542,25 @@ _public_ int sd_varlink_dispatch_again(sd_varlink *v) {
         return 0;
 }
 
+_public_ int sd_varlink_get_current_method(sd_varlink *v, const char **ret) {
+        assert_return(v, -EINVAL);
+
+        if (!v->current)
+                return -ENODATA;
+
+        sd_json_variant *p = sd_json_variant_by_key(v->current, "method");
+        if (!p)
+                return -ENODATA;
+
+        const char *s = sd_json_variant_string(p);
+        if (!s)
+                return -ENODATA;
+
+        if (ret)
+                *ret = s;
+        return 0;
+}
+
 _public_ int sd_varlink_get_current_parameters(sd_varlink *v, sd_json_variant **ret) {
         sd_json_variant *p;
 
