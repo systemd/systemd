@@ -178,6 +178,7 @@ int sd_varlink_notifyb(sd_varlink *v, ...);
 int sd_varlink_dispatch_again(sd_varlink *v);
 
 /* Get the currently processed incoming message */
+int sd_varlink_get_current_method(sd_varlink *v, const char **ret);
 int sd_varlink_get_current_parameters(sd_varlink *v, sd_json_variant **ret);
 
 /* Parsing incoming data via json_dispatch() and generate a nice error on parse errors */
