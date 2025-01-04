@@ -69,13 +69,8 @@ _noreturn_ static void crash(int sig, siginfo_t *siginfo, void *context) {
                            LOG_MESSAGE("Caught <%s>, not dumping core.", signal_to_string(sig)),
                            "MESSAGE_ID=" SD_MESSAGE_CRASH_NO_COREDUMP_STR);
         else {
-                sa = (struct sigaction) {
-                        .sa_handler = nop_signal_handler,
-                        .sa_flags = SA_NOCLDSTOP|SA_RESTART,
-                };
-
                 /* We want to wait for the core process, hence let's enable SIGCHLD */
-                (void) sigaction(SIGCHLD, &sa, NULL);
+                (void) sigaction(SIGCHLD, &sigaction_nop_nocldstop, NULL);
 
                 pid = raw_clone(SIGCHLD);
                 if (pid < 0)
