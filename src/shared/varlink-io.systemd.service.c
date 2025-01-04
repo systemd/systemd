@@ -2,7 +2,7 @@
 
 #include <unistd.h>
 
-#include "macro.h"
+#include "json-util.h"
 #include "varlink-io.systemd.service.h"
 
 static SD_VARLINK_DEFINE_METHOD(Ping);
@@ -33,13 +33,12 @@ int varlink_method_ping(sd_varlink *link, sd_json_variant *parameters, sd_varlin
 
 int varlink_method_set_log_level(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "level", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int64, 0, SD_JSON_MANDATORY },
+                { "level", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_log_level, 0, SD_JSON_MANDATORY },
                 {}
         };
 
-        int64_t level;
+        int r, level;
         uid_t uid;
-        int r;
 
         assert(link);
         assert(parameters);
@@ -53,9 +52,6 @@ int varlink_method_set_log_level(sd_varlink *link, sd_json_variant *parameters, 
         if (r != 0)
                 return r;
 
-        if (LOG_PRI(level) != level)
-                return sd_varlink_error_invalid_parameter(link, parameters);
-
         r = sd_varlink_get_peer_uid(link, &uid);
         if (r < 0)
                 return r;
@@ -63,7 +59,7 @@ int varlink_method_set_log_level(sd_varlink *link, sd_json_variant *parameters, 
         if (uid != getuid() && uid != 0)
                 return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, parameters);
 
-        log_debug("Received io.systemd.service.SetLogLevel(%" PRIi64 ")", level);
+        log_debug("Received io.systemd.service.SetLogLevel(%i)", level);
 
         log_set_max_level(level);
 
