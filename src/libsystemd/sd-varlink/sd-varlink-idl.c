@@ -101,7 +101,7 @@ static int varlink_idl_format_comment_fields(
         return 0;
 }
 
-static const sd_varlink_field *varlink_idl_symbol_find_start_comment(
+static const sd_varlink_field* varlink_idl_symbol_find_start_comment(
                 const sd_varlink_symbol *symbol,
                 const sd_varlink_field *field) {
 
@@ -562,7 +562,7 @@ _public_ int sd_varlink_idl_format(const sd_varlink_interface *interface, char *
         return sd_varlink_idl_format_full(interface, 0, SIZE_MAX, ret);
 }
 
-static sd_varlink_symbol *varlink_symbol_free(sd_varlink_symbol *symbol) {
+static sd_varlink_symbol* varlink_symbol_free(sd_varlink_symbol *symbol) {
         if (!symbol)
                 return NULL;
 
