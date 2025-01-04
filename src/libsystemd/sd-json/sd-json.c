@@ -216,7 +216,7 @@ static bool json_variant_is_regular(const sd_json_variant *v) {
         return (((uintptr_t) v) & 1) == 0;
 }
 
-static sd_json_variant *json_variant_dereference(sd_json_variant *v) {
+static sd_json_variant* json_variant_dereference(sd_json_variant *v) {
 
         /* Recursively dereference variants that are references to other variants */
 
@@ -244,7 +244,7 @@ static uint16_t json_variant_depth(sd_json_variant *v) {
         return v->depth;
 }
 
-static sd_json_variant *json_variant_formalize(sd_json_variant *v) {
+static sd_json_variant* json_variant_formalize(sd_json_variant *v) {
 
         /* Converts json variant pointers to their normalized form, i.e. fully dereferenced and wherever
          * possible converted to the "magic" version if there is one */
@@ -285,7 +285,7 @@ static sd_json_variant *json_variant_formalize(sd_json_variant *v) {
         }
 }
 
-static sd_json_variant *json_variant_conservative_formalize(sd_json_variant *v) {
+static sd_json_variant* json_variant_conservative_formalize(sd_json_variant *v) {
 
         /* Much like json_variant_formalize(), but won't simplify if the variant has a source/line location
          * attached to it, in order not to lose context */
@@ -5067,7 +5067,7 @@ int json_log_internal(
                                 NULL);
 }
 
-static void *dispatch_userdata(const sd_json_dispatch_field *p, void *userdata) {
+static void* dispatch_userdata(const sd_json_dispatch_field *p, void *userdata) {
 
         /* When the userdata pointer is passed in as NULL, then we'll just use the offset as a literal
          * address, and convert it to a pointer.  Note that might as well just add the offset to the NULL

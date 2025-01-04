@@ -1779,6 +1779,7 @@ _public_ int sd_varlink_flush(sd_varlink *v) {
 
 static void varlink_detach_server(sd_varlink *v) {
         sd_varlink_server *saved_server;
+
         assert(v);
 
         if (!v->server)
