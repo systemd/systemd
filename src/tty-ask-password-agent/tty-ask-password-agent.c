@@ -567,11 +567,15 @@ static int parse_argv(int argc, char *argv[]) {
 /*
  * To be able to ask on all terminal devices of /dev/console the devices are collected. If more than one
  * device is found, then on each of the terminals an inquiring task is forked.  Every task has its own session
- * and its own controlling terminal.  If one of the tasks does handle a password, the remaining tasks will be
+ * and its own controlling terminal. If one of the tasks does handle a password, the remaining tasks will be
  * terminated.
  */
-static int ask_on_this_console(const char *tty, pid_t *ret_pid, char **arguments) {
+static int ask_on_this_console(const char *tty, char **arguments, pid_t *ret_pid) {
         int r;
+
+        assert(tty);
+        assert(arguments);
+        assert(ret_pid);
 
         assert_se(sigaction(SIGCHLD, &sigaction_nop_nocldstop, NULL) >= 0);
         assert_se(sigaction(SIGHUP, &sigaction_default, NULL) >= 0);
@@ -654,11 +658,11 @@ static void terminate_agents(Set *pids) {
 }
 
 static int ask_on_consoles(char *argv[]) {
-        _cleanup_set_free_ Set *pids = NULL;
         _cleanup_strv_free_ char **consoles = NULL, **arguments = NULL;
-        siginfo_t status = {};
-        pid_t pid;
+        _cleanup_set_free_ Set *pids = NULL;
         int r;
+
+        assert(argv);
 
         r = get_kernel_consoles(&consoles);
         if (r < 0)
@@ -674,7 +678,9 @@ static int ask_on_consoles(char *argv[]) {
 
         /* Start an agent on each console. */
         STRV_FOREACH(tty, consoles) {
-                r = ask_on_this_console(*tty, &pid, arguments);
+                pid_t pid;
+
+                r = ask_on_this_console(*tty, arguments, &pid);
                 if (r < 0)
                         return r;
 
@@ -684,21 +690,21 @@ static int ask_on_consoles(char *argv[]) {
 
         /* Wait for an agent to exit. */
         for (;;) {
-                zero(status);
+                siginfo_t status = {};
 
                 if (waitid(P_ALL, 0, &status, WEXITED) < 0) {
                         if (errno == EINTR)
                                 continue;
 
-                        return log_error_errno(errno, "waitid() failed: %m");
+                        return log_error_errno(errno, "Failed to wait for console ask-password agent: %m");
                 }
+
+                if (!is_clean_exit(status.si_code, status.si_status, EXIT_CLEAN_DAEMON, NULL))
+                        log_error("Password agent failed with: %d", status.si_status);
 
                 set_remove(pids, PID_TO_PTR(status.si_pid));
                 break;
         }
-
-        if (!is_clean_exit(status.si_code, status.si_status, EXIT_CLEAN_DAEMON, NULL))
-                log_error("Password agent failed with: %d", status.si_status);
 
         terminate_agents(pids);
         return 0;
