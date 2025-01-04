@@ -128,7 +128,7 @@ static int pty_forward_handler(PTYForward *f, int rcode, void *userdata) {
 }
 
 static int helper_on_exit(sd_event_source *s, const siginfo_t *si, void *userdata) {
-        /* Add 128 to signal exit statuses to mimick shells. */
+        /* Add 128 to signal exit statuses to mimic shells. */
         return sd_event_exit(sd_event_source_get_event(s), si->si_status + (si->si_code == CLD_EXITED ? 0 : 128));
 }
 
