@@ -3,6 +3,8 @@
 
 #include <errno.h>
 
+#include "env-util.h"
+
 #define UDEV_NAME_SIZE   512
 #define UDEV_PATH_SIZE  1024
 #define UDEV_LINE_SIZE 16384
@@ -78,3 +80,9 @@ typedef enum UdevReloadFlags {
         UDEV_RELOAD_KILL_WORKERS     = 1u << (_UDEV_BUILTIN_MAX + 0),
         UDEV_RELOAD_RULES            = 1u << (_UDEV_BUILTIN_MAX + 1),
 } UdevReloadFlags;
+
+/* udev properties are conceptually close to environment variables. Let's validate names, values, and
+ * assignments in the same way. */
+#define udev_property_name_is_valid(x)       env_name_is_valid(x)
+#define udev_property_value_is_valid(x)      env_value_is_valid(x)
+#define udev_property_assignment_is_valid(x) env_assignment_is_valid(x)

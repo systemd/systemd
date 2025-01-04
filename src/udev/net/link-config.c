@@ -15,7 +15,6 @@
 #include "creds-util.h"
 #include "device-private.h"
 #include "device-util.h"
-#include "env-util.h"
 #include "escape.h"
 #include "ethtool-util.h"
 #include "fd-util.h"
@@ -1111,8 +1110,7 @@ int config_parse_udev_property(
                         continue;
                 }
 
-                /* The restriction for udev property is not clear. Let's apply the one for environment variable here. */
-                if (!env_assignment_is_valid(resolved)) {
+                if (!udev_property_assignment_is_valid(resolved)) {
                         log_syntax(unit, LOG_WARNING, filename, line, 0,
                                    "Invalid udev property, ignoring assignment: %s", word);
                         continue;
@@ -1181,8 +1179,7 @@ int config_parse_udev_property_name(
                         continue;
                 }
 
-                /* The restriction for udev property is not clear. Let's apply the one for environment variable here. */
-                if (!env_name_is_valid(resolved)) {
+                if (!udev_property_name_is_valid(resolved)) {
                         log_syntax(unit, LOG_WARNING, filename, line, 0,
                                    "Invalid udev property name, ignoring assignment: %s", resolved);
                         continue;
