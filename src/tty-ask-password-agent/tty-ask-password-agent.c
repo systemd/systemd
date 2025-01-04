@@ -581,7 +581,7 @@ static int ask_on_this_console(const char *tty, char **arguments, pid_t *ret_pid
         assert_se(sigaction(SIGHUP, &sigaction_default, NULL) >= 0);
         assert_se(sigprocmask_many(SIG_UNBLOCK, NULL, SIGHUP, SIGCHLD) >= 0);
 
-        r = safe_fork("(sd-passwd)", FORK_RESET_SIGNALS|FORK_LOG, ret_pid);
+        r = safe_fork("(sd-passwd)", FORK_RESET_SIGNALS|FORK_KEEP_NOTIFY_SOCKET|FORK_LOG, ret_pid);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -675,6 +675,13 @@ static int ask_on_consoles(char *argv[]) {
         arguments = strv_copy(argv);
         if (!arguments)
                 return log_oom();
+
+        /* Grant agents we spawn notify access too, so that once an agent establishes inotify watch
+         * READY=1 from them is accepted by service manager (see process_and_watch_password_files()).
+         *
+         * Note that when any agent exits STOPPING=1 would also be sent, but that's utterly what we want,
+         * i.e. the password is answered on one console and other agents get killed below. */
+        (void) sd_notify(/* unset_environment = */ false, "NOTIFYACCESS=all");
 
         /* Start an agent on each console. */
         STRV_FOREACH(tty, consoles) {
