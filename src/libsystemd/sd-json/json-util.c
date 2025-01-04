@@ -341,6 +341,26 @@ int json_dispatch_ifindex(const char *name, sd_json_variant *variant, sd_json_di
         return 0;
 }
 
+int json_dispatch_log_level(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        int *log_level = ASSERT_PTR(userdata), r, t;
+
+        if (sd_json_variant_is_null(variant)) {
+                *log_level = -1;
+                return 0;
+        }
+
+        r = sd_json_dispatch_int(name, variant, flags, &t);
+        if (r < 0)
+                return r;
+
+        /* If SD_JSON_RELAX is set allow a zero interface index, otherwise refuse. */
+        if (LOG_PRI(t) != t)
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a valid log level.", strna(name));
+
+        *log_level = t;
+        return 0;
+}
+
 int json_variant_new_devnum(sd_json_variant **ret, dev_t devnum) {
         if (devnum == 0)
                 return sd_json_variant_new_null(ret);
