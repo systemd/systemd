@@ -216,7 +216,7 @@ static bool json_variant_is_regular(const sd_json_variant *v) {
         return (((uintptr_t) v) & 1) == 0;
 }
 
-static sd_json_variant *json_variant_dereference(sd_json_variant *v) {
+static sd_json_variant* json_variant_dereference(sd_json_variant *v) {
 
         /* Recursively dereference variants that are references to other variants */
 
@@ -244,7 +244,7 @@ static uint16_t json_variant_depth(sd_json_variant *v) {
         return v->depth;
 }
 
-static sd_json_variant *json_variant_formalize(sd_json_variant *v) {
+static sd_json_variant* json_variant_formalize(sd_json_variant *v) {
 
         /* Converts json variant pointers to their normalized form, i.e. fully dereferenced and wherever
          * possible converted to the "magic" version if there is one */
@@ -285,7 +285,7 @@ static sd_json_variant *json_variant_formalize(sd_json_variant *v) {
         }
 }
 
-static sd_json_variant *json_variant_conservative_formalize(sd_json_variant *v) {
+static sd_json_variant* json_variant_conservative_formalize(sd_json_variant *v) {
 
         /* Much like json_variant_formalize(), but won't simplify if the variant has a source/line location
          * attached to it, in order not to lose context */
@@ -900,10 +900,8 @@ _public_ sd_json_variant *sd_json_variant_unref(sd_json_variant *v) {
 }
 
 _public_ void sd_json_variant_unref_many(sd_json_variant **array, size_t n) {
-        assert(array || n == 0);
-
-        for (size_t i = 0; i < n; i++)
-                sd_json_variant_unref(array[i]);
+        FOREACH_ARRAY(v, array, n)
+                sd_json_variant_unref(*v);
 
         free(array);
 }
@@ -5069,7 +5067,7 @@ int json_log_internal(
                                 NULL);
 }
 
-static void *dispatch_userdata(const sd_json_dispatch_field *p, void *userdata) {
+static void* dispatch_userdata(const sd_json_dispatch_field *p, void *userdata) {
 
         /* When the userdata pointer is passed in as NULL, then we'll just use the offset as a literal
          * address, and convert it to a pointer.  Note that might as well just add the offset to the NULL
@@ -5254,9 +5252,10 @@ _public_ int sd_json_dispatch(
 }
 
 _public_ int sd_json_dispatch_stdbool(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
-        bool *b = ASSERT_PTR(userdata);
+        bool *b = userdata;
 
         assert_return(variant, -EINVAL);
+        assert_return(userdata, -EINVAL);
 
         if (!sd_json_variant_is_boolean(variant))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a boolean.", strna(name));
@@ -5266,9 +5265,10 @@ _public_ int sd_json_dispatch_stdbool(const char *name, sd_json_variant *variant
 }
 
 _public_ int sd_json_dispatch_intbool(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
-        int *b = ASSERT_PTR(userdata);
+        int *b = userdata;
 
         assert_return(variant, -EINVAL);
+        assert_return(userdata, -EINVAL);
 
         if (!sd_json_variant_is_boolean(variant))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a boolean.", strna(name));
@@ -5278,9 +5278,10 @@ _public_ int sd_json_dispatch_intbool(const char *name, sd_json_variant *variant
 }
 
 _public_ int sd_json_dispatch_tristate(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
-        int *b = ASSERT_PTR(userdata);
+        int *b = userdata;
 
         assert_return(variant, -EINVAL);
+        assert_return(userdata, -EINVAL);
 
         if (sd_json_variant_is_null(variant)) {
                 *b = -1;
@@ -5295,9 +5296,10 @@ _public_ int sd_json_dispatch_tristate(const char *name, sd_json_variant *varian
 }
 
 _public_ int sd_json_dispatch_int64(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
-        int64_t *i = ASSERT_PTR(userdata);
+        int64_t *i = userdata;
 
         assert_return(variant, -EINVAL);
+        assert_return(userdata, -EINVAL);
 
         /* Also accept numbers formatted as string, to increase compatibility with less capable JSON
          * implementations that cannot do 64bit integers. */
@@ -5312,9 +5314,10 @@ _public_ int sd_json_dispatch_int64(const char *name, sd_json_variant *variant, 
 }
 
 _public_ int sd_json_dispatch_uint64(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
-        uint64_t *u = ASSERT_PTR(userdata);
+        uint64_t *u = userdata;
 
         assert_return(variant, -EINVAL);
+        assert_return(userdata, -EINVAL);
 
         /* Since 64bit values (in particular unsigned ones) in JSON are problematic, let's also accept them
          * formatted as strings. If this is not desired make sure to set the .type field in
@@ -5332,11 +5335,12 @@ _public_ int sd_json_dispatch_uint64(const char *name, sd_json_variant *variant,
 }
 
 _public_ int sd_json_dispatch_uint32(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
-        uint32_t *u = ASSERT_PTR(userdata);
+        uint32_t *u = userdata;
         uint64_t u64;
         int r;
 
         assert_return(variant, -EINVAL);
+        assert_return(userdata, -EINVAL);
 
         r = sd_json_dispatch_uint64(name, variant, flags, &u64);
         if (r < 0)
@@ -5353,11 +5357,12 @@ _public_ int sd_json_dispatch_uint32(const char *name, sd_json_variant *variant,
 assert_cc(sizeof(uint32_t) == sizeof(unsigned));
 
 _public_ int sd_json_dispatch_int32(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
-        int32_t *i = ASSERT_PTR(userdata);
+        int32_t *i = userdata;
         int64_t i64;
         int r;
 
         assert_return(variant, -EINVAL);
+        assert_return(userdata, -EINVAL);
 
         r = sd_json_dispatch_int64(name, variant, flags, &i64);
         if (r < 0)
@@ -5374,11 +5379,12 @@ _public_ int sd_json_dispatch_int32(const char *name, sd_json_variant *variant, 
 assert_cc(sizeof(int32_t) == sizeof(int));
 
 _public_ int sd_json_dispatch_int16(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
-        int16_t *i = ASSERT_PTR(userdata);
+        int16_t *i = userdata;
         int64_t i64;
         int r;
 
         assert_return(variant, -EINVAL);
+        assert_return(userdata, -EINVAL);
 
         r = sd_json_dispatch_int64(name, variant, flags, &i64);
         if (r < 0)
@@ -5392,11 +5398,12 @@ _public_ int sd_json_dispatch_int16(const char *name, sd_json_variant *variant, 
 }
 
 _public_ int sd_json_dispatch_uint16(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
-        uint16_t *u = ASSERT_PTR(userdata);
+        uint16_t *u = userdata;
         uint64_t u64;
         int r;
 
         assert_return(variant, -EINVAL);
+        assert_return(userdata, -EINVAL);
 
         r = sd_json_dispatch_uint64(name, variant, flags, &u64);
         if (r < 0)
@@ -5410,11 +5417,12 @@ _public_ int sd_json_dispatch_uint16(const char *name, sd_json_variant *variant,
 }
 
 _public_ int sd_json_dispatch_int8(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
-        int8_t *i = ASSERT_PTR(userdata);
+        int8_t *i = userdata;
         int64_t i64;
         int r;
 
         assert_return(variant, -EINVAL);
+        assert_return(userdata, -EINVAL);
 
         r = sd_json_dispatch_int64(name, variant, flags, &i64);
         if (r < 0)
@@ -5428,11 +5436,12 @@ _public_ int sd_json_dispatch_int8(const char *name, sd_json_variant *variant, s
 }
 
 _public_ int sd_json_dispatch_uint8(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
-        uint8_t *u = ASSERT_PTR(userdata);
+        uint8_t *u = userdata;
         uint64_t u64;
         int r;
 
         assert_return(variant, -EINVAL);
+        assert_return(userdata, -EINVAL);
 
         r = sd_json_dispatch_uint64(name, variant, flags, &u64);
         if (r < 0)
@@ -5446,9 +5455,10 @@ _public_ int sd_json_dispatch_uint8(const char *name, sd_json_variant *variant, 
 }
 
 _public_ int sd_json_dispatch_double(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
-        double *d = ASSERT_PTR(userdata);
+        double *d = userdata;
 
         assert_return(variant, -EINVAL);
+        assert_return(userdata, -EINVAL);
 
         /* Note, this will take care of parsing NaN, -Infinity, Infinity for us */
         if (sd_json_variant_is_string(variant) && safe_atod(sd_json_variant_string(variant), d) >= 0)
@@ -5462,11 +5472,12 @@ _public_ int sd_json_dispatch_double(const char *name, sd_json_variant *variant,
 }
 
 _public_ int sd_json_dispatch_string(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
-        char **s = ASSERT_PTR(userdata);
+        char **s = userdata;
         const char *n;
         int r;
 
         assert_return(variant, -EINVAL);
+        assert_return(userdata, -EINVAL);
 
         r = sd_json_dispatch_const_string(name, variant, flags, &n);
         if (r < 0)
@@ -5480,9 +5491,10 @@ _public_ int sd_json_dispatch_string(const char *name, sd_json_variant *variant,
 }
 
 _public_ int sd_json_dispatch_const_string(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
-        const char **s = ASSERT_PTR(userdata);
+        const char **s = userdata;
 
         assert_return(variant, -EINVAL);
+        assert_return(userdata, -EINVAL);
 
         if (sd_json_variant_is_null(variant)) {
                 *s = NULL;
@@ -5501,11 +5513,12 @@ _public_ int sd_json_dispatch_const_string(const char *name, sd_json_variant *va
 
 _public_ int sd_json_dispatch_strv(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         _cleanup_strv_free_ char **l = NULL;
-        char ***s = ASSERT_PTR(userdata);
+        char ***s = userdata;
         sd_json_variant *e;
         int r;
 
         assert_return(variant, -EINVAL);
+        assert_return(userdata, -EINVAL);
 
         if (sd_json_variant_is_null(variant)) {
                 *s = strv_free(*s);
@@ -5545,9 +5558,10 @@ _public_ int sd_json_dispatch_strv(const char *name, sd_json_variant *variant, s
 }
 
 _public_ int sd_json_dispatch_variant(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
-        sd_json_variant **p = ASSERT_PTR(userdata);
+        sd_json_variant **p = userdata;
 
         assert_return(variant, -EINVAL);
+        assert_return(userdata, -EINVAL);
 
         /* Takes a reference */
         JSON_VARIANT_REPLACE(*p, sd_json_variant_ref(variant));
@@ -5555,9 +5569,10 @@ _public_ int sd_json_dispatch_variant(const char *name, sd_json_variant *variant
 }
 
 _public_ int sd_json_dispatch_variant_noref(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
-        sd_json_variant **p = ASSERT_PTR(userdata);
+        sd_json_variant **p = userdata;
 
         assert_return(variant, -EINVAL);
+        assert_return(userdata, -EINVAL);
 
         /* Doesn't take a reference */
         *p = variant;
@@ -5569,6 +5584,7 @@ _public_ int sd_json_dispatch_uid_gid(const char *name, sd_json_variant *variant
         uint64_t k;
 
         assert_return(variant, -EINVAL);
+        assert_return(userdata, -EINVAL);
 
         assert_cc(sizeof(uid_t) == sizeof(uint32_t));
         assert_cc(sizeof(gid_t) == sizeof(uint32_t));
@@ -5598,6 +5614,7 @@ _public_ int sd_json_dispatch_id128(const char *name, sd_json_variant *variant, 
         int r;
 
         assert_return(variant, -EINVAL);
+        assert_return(userdata, -EINVAL);
 
         if (sd_json_variant_is_null(variant)) {
                 *uuid = SD_ID128_NULL;
@@ -5615,9 +5632,10 @@ _public_ int sd_json_dispatch_id128(const char *name, sd_json_variant *variant, 
 }
 
 _public_ int sd_json_dispatch_signal(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
-        int *signo = ASSERT_PTR(userdata), r;
+        int *signo = userdata, r;
 
         assert_return(variant, -EINVAL);
+        assert_return(userdata, -EINVAL);
 
         if (sd_json_variant_is_null(variant)) {
                 *signo = SIGNO_INVALID;
