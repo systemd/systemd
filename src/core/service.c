@@ -21,6 +21,7 @@
 #include "devnum-util.h"
 #include "env-util.h"
 #include "escape.h"
+#include "execute.h"
 #include "exec-credential.h"
 #include "exit-status.h"
 #include "fd-util.h"
@@ -33,11 +34,13 @@
 #include "manager.h"
 #include "missing_audit.h"
 #include "mount-util.h"
+#include "namespace.h"
 #include "open-file.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "random-util.h"
+#include "runtime-scope.h"
 #include "selinux-util.h"
 #include "serialize.h"
 #include "service.h"
@@ -2700,6 +2703,70 @@ static void service_enter_reload_by_notify(Service *s) {
                 log_unit_warning(UNIT(s), "Failed to schedule propagation of reload, ignoring: %s", bus_error_message(&error, r));
 }
 
+static bool service_should_reload_extensions(Service *s) {
+        int r;
+
+        assert(s);
+
+        /* Only support this for notify-reload service types. */
+        if (s->type != SERVICE_NOTIFY_RELOAD)
+                return false;
+
+        /* TODO: Add support for user services, which can use
+         * ExtensionDirectories= + notify-reload. For now, skip for user
+         * services. */
+        if (UNIT(s)->manager->runtime_scope != RUNTIME_SCOPE_SYSTEM) {
+                log_once(LOG_WARNING, "Not reloading extensions for user services.");
+                return false;
+        }
+
+        r = exec_context_has_vpicked_extensions(&s->exec_context);
+        if (r < 0) {
+                log_unit_warning_errno(UNIT(s), r, "Failed to determine if service should reload extensions, assuming false: %m");
+                return false;
+        }
+        return r > 0;
+}
+
+static int service_reload_extensions(Service *s) {
+        /* TODO: do this asynchronously */
+        _cleanup_free_ char *propagate_dir = NULL;
+        PidRef *unit_pid = NULL;
+
+        assert(s);
+
+        unit_pid = unit_main_pid(UNIT(s));
+        if (!pidref_is_set(unit_pid)) {
+                log_unit_debug(UNIT(s), "Not reloading extensions for service without main PID.");
+                return 0;
+        }
+
+        if (!service_should_reload_extensions(s))
+                return 0;
+
+        propagate_dir = path_join("/run/systemd/propagate/", UNIT(s)->id);
+        if (!propagate_dir)
+                return -ENOMEM;
+
+        NamespaceParameters p = {
+                .private_namespace_dir = "/run/systemd",
+                .incoming_dir = "/run/systemd/incoming",
+                .propagate_dir = propagate_dir,
+                .runtime_scope = UNIT(s)->manager->runtime_scope,
+                .extension_images = s->exec_context.extension_images,
+                .n_extension_images = s->exec_context.n_extension_images,
+                .extension_directories = s->exec_context.extension_directories,
+                .extension_image_policy = s->exec_context.extension_image_policy,
+        };
+
+        /* Only reload confext, and not sysext, because it doesn't make sense
+        for program code to be swapped at reload. */
+        return refresh_extensions_in_namespace(
+                        unit_pid,
+                        "SYSTEMD_CONFEXT_HIERARCHIES",
+                        &p);
+}
+
 static void service_enter_reload(Service *s) {
         bool killed = false;
         int r;
@@ -2710,6 +2777,14 @@ static void service_enter_reload(Service *s) {
         s->reload_result = SERVICE_SUCCESS;
 
         usec_t ts = now(CLOCK_MONOTONIC);
+
+        /* If we have confexts extensions, try to reload vpick'd confext extensions, which is particularly
+         * beneficial for notify-reload services that could potentially pick up a new version of its
+         * configuration.
+         */
+        r = service_reload_extensions(s);
+        if (r < 0)
+                log_unit_warning_errno(UNIT(s), r, "Failed to reload confexts, ignoring: %m");
 
         if (s->type == SERVICE_NOTIFY_RELOAD && pidref_is_set(&s->main_pid)) {
                 r = pidref_kill_and_sigcont(&s->main_pid, s->reload_signal);
