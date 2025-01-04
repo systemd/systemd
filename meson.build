@@ -2767,12 +2767,8 @@ install_data('LICENSE.GPL2',
              'LICENSE.LGPL2.1',
              'NEWS',
              'README',
-             'docs/CODING_STYLE.md',
-             'docs/DISTRO_PORTING.md',
              'docs/ENVIRONMENT.md',
-             'docs/HACKING.md',
              'docs/TRANSIENT-SETTINGS.md',
-             'docs/TRANSLATORS.md',
              'docs/UIDS-GIDS.md',
              install_dir : docdir)
 
