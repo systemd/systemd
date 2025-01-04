@@ -11,13 +11,18 @@ static SD_VARLINK_DEFINE_METHOD(Reload);
 
 static SD_VARLINK_DEFINE_METHOD(
                 SetLogLevel,
+                SD_VARLINK_FIELD_COMMENT("The maximum log level."),
                 SD_VARLINK_DEFINE_INPUT(level, SD_VARLINK_INT, 0));
 
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_service,
                 "io.systemd.service",
+                SD_VARLINK_INTERFACE_COMMENT("An interface to control basic properties of systemd services."),
+                SD_VARLINK_SYMBOL_COMMENT("Checks if the service is running."),
                 &vl_method_Ping,
+                SD_VARLINK_SYMBOL_COMMENT("Reloads configurations."),
                 &vl_method_Reload,
+                SD_VARLINK_SYMBOL_COMMENT("Sets the maximum log level."),
                 &vl_method_SetLogLevel);
 
 int varlink_method_ping(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
