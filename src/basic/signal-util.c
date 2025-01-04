@@ -302,6 +302,11 @@ const struct sigaction sigaction_default = {
         .sa_flags = SA_RESTART,
 };
 
+const struct sigaction sigaction_nop_nocldstop = {
+        .sa_handler = nop_signal_handler,
+        .sa_flags = SA_NOCLDSTOP|SA_RESTART,
+};
+
 int parse_signo(const char *s, int *ret) {
         int sig, r;
 

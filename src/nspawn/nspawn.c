@@ -5175,11 +5175,6 @@ static int run_container(
                 pid_t *pid,
                 int *ret) {
 
-        static const struct sigaction sa = {
-                .sa_handler = nop_signal_handler,
-                .sa_flags = SA_NOCLDSTOP|SA_RESTART,
-        };
-
         _cleanup_(release_lock_file) LockFile uid_shift_lock = LOCK_FILE_INIT;
         _cleanup_close_ int etc_passwd_lock = -EBADF;
         _cleanup_close_pair_ int
@@ -5240,7 +5235,7 @@ static int run_container(
         if (r < 0)
                 return log_error_errno(errno, "Failed to change the signal mask: %m");
 
-        r = sigaction(SIGCHLD, &sa, NULL);
+        r = sigaction(SIGCHLD, &sigaction_nop_nocldstop, NULL);
         if (r < 0)
                 return log_error_errno(errno, "Failed to install SIGCHLD handler: %m");
 

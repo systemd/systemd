@@ -68,5 +68,6 @@ void propagate_signal(int sig, siginfo_t *siginfo);
 
 extern const struct sigaction sigaction_ignore;
 extern const struct sigaction sigaction_default;
+extern const struct sigaction sigaction_nop_nocldstop;
 
 int parse_signo(const char *s, int *ret);
