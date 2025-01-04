@@ -234,7 +234,7 @@ int device_set_syspath(sd_device *device, const char *_syspath, bool verify) {
 
                 r = path_simplify_alloc(_syspath, &syspath);
                 if (r < 0)
-                        return r;
+                        return log_oom_debug();
         }
 
         assert_se(devpath = startswith(syspath, "/sys"));
