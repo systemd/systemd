@@ -68,6 +68,27 @@ int cg_cgroupid_open(int cgroupfs_fd, uint64_t id) {
         return RET_NERRNO(open_by_handle_at(cgroupfs_fd, &fh.file_handle, O_DIRECTORY|O_CLOEXEC));
 }
 
+int cg_path_from_cgroupid(int cgroupfs_fd, uint64_t id, char **ret) {
+        _cleanup_close_ int cgfd = -EBADF;
+        int r;
+
+        cgfd = cg_cgroupid_open(cgroupfs_fd, id);
+        if (cgfd < 0)
+                return cgfd;
+
+        _cleanup_free_ char *path = NULL;
+        r = fd_get_path(cgfd, &path);
+        if (r < 0)
+                return r;
+
+        if (!path_startswith(path, "/sys/fs/cgroup/"))
+                return -EXDEV; /* recognizable error */
+
+        if (ret)
+                *ret = TAKE_PTR(path);
+        return 0;
+}
+
 int cg_get_cgroupid_at(int dfd, const char *path, uint64_t *ret) {
         cg_file_handle fh = CG_FILE_HANDLE_INIT;
         int mnt_id;
@@ -839,6 +860,10 @@ int cg_pidref_get_path(const char *controller, const PidRef *pidref, char **ret_
 
         if (!pidref_is_set(pidref))
                 return -ESRCH;
+
+        // XXX: Ideally we'd use pidfd_get_cgroupid() + cg_path_from_cgroupid() here, to extract this
+        // bit of information from pidfd directly. However, the latter requires privilege and it's
+        // not entirely clear how to handle cgroups from outer namespace.
 
         r = cg_pid_get_path(controller, pidref->pid, &path);
         if (r < 0)
