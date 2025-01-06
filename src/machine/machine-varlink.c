@@ -398,16 +398,18 @@ DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(machine_open_mode, MachineOpenMod
 static JSON_DISPATCH_ENUM_DEFINE(json_dispatch_machine_open_mode, MachineOpenMode, machine_open_mode_from_string);
 
 typedef struct MachineOpenParameters {
-        const char *name, *user;
+        const char *name;
+        const char *user;
         PidRef pidref;
         MachineOpenMode mode;
-        char *path, **args, **env;
+        const char *path;
+        char **args;
+        char **env;
 } MachineOpenParameters;
 
 static void machine_open_paramaters_done(MachineOpenParameters *p) {
         assert(p);
         pidref_done(&p->pidref);
-        free(p->path);
         strv_free(p->args);
         strv_free(p->env);
 }
@@ -453,7 +455,7 @@ int vl_method_open(sd_varlink *link, sd_json_variant *parameters, sd_varlink_met
                 VARLINK_DISPATCH_MACHINE_LOOKUP_FIELDS(MachineOpenParameters),
                 { "mode",        SD_JSON_VARIANT_STRING, json_dispatch_machine_open_mode,     offsetof(MachineOpenParameters, mode), SD_JSON_MANDATORY },
                 { "user",        SD_JSON_VARIANT_STRING, json_dispatch_const_user_group_name, offsetof(MachineOpenParameters, user), SD_JSON_RELAX     },
-                { "path",        SD_JSON_VARIANT_STRING, json_dispatch_path,                  offsetof(MachineOpenParameters, path), 0                 },
+                { "path",        SD_JSON_VARIANT_STRING, json_dispatch_const_path,            offsetof(MachineOpenParameters, path), 0                 },
                 { "args",        SD_JSON_VARIANT_ARRAY,  sd_json_dispatch_strv,               offsetof(MachineOpenParameters, args), 0                 },
                 { "environment", SD_JSON_VARIANT_ARRAY,  json_dispatch_strv_environment,      offsetof(MachineOpenParameters, env),  0                 },
                 VARLINK_DISPATCH_POLKIT_FIELD,
@@ -486,7 +488,7 @@ int vl_method_open(sd_varlink *link, sd_json_variant *parameters, sd_varlink_met
 
         if (p.mode == MACHINE_OPEN_MODE_SHELL) {
                 /* json_dispatch_const_user_group_name() does valid_user_group_name(p.user) */
-                /* json_dispatch_path() does path_is_absolute(p.path) */
+                /* json_dispatch_const_path() does path_is_absolute(p.path) */
                 /* json_dispatch_strv_environment() does validation of p.env */
 
                 user = p.user ?: "root";
@@ -733,8 +735,8 @@ int vl_method_map_to(sd_varlink *link, sd_json_variant *parameters, sd_varlink_m
 typedef struct MachineMountParameters {
         const char *name;
         PidRef pidref;
-        char *src;
-        char *dest;
+        const char *src;
+        const char *dest;
         bool read_only;
         bool mkdir;
 } MachineMountParameters;
@@ -743,15 +745,13 @@ static void machine_mount_paramaters_done(MachineMountParameters *p) {
         assert(p);
 
         pidref_done(&p->pidref);
-        free(p->src);
-        free(p->dest);
 }
 
 int vl_method_bind_mount(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field dispatch_table[] = {
                 VARLINK_DISPATCH_MACHINE_LOOKUP_FIELDS(MachineOpenParameters),
-                { "source",      SD_JSON_VARIANT_STRING,  json_dispatch_path,       offsetof(MachineMountParameters, src),       SD_JSON_MANDATORY },
-                { "destination", SD_JSON_VARIANT_STRING,  json_dispatch_path,       offsetof(MachineMountParameters, dest),      0                 },
+                { "source",      SD_JSON_VARIANT_STRING,  json_dispatch_const_path, offsetof(MachineMountParameters, src),       SD_JSON_MANDATORY },
+                { "destination", SD_JSON_VARIANT_STRING,  json_dispatch_const_path, offsetof(MachineMountParameters, dest),      0                 },
                 { "readOnly",    SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(MachineMountParameters, read_only), 0                 },
                 { "mkdir",       SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(MachineMountParameters, mkdir),     0                 },
                 VARLINK_DISPATCH_POLKIT_FIELD,
@@ -760,7 +760,7 @@ int vl_method_bind_mount(sd_varlink *link, sd_json_variant *parameters, sd_varli
 
         Manager *manager = ASSERT_PTR(userdata);
         _cleanup_(machine_mount_paramaters_done) MachineMountParameters p = {
-                .pidref = PIDREF_NULL
+                .pidref = PIDREF_NULL,
         };
         MountInNamespaceFlags mount_flags = 0;
         uid_t uid_shift;
@@ -773,7 +773,7 @@ int vl_method_bind_mount(sd_varlink *link, sd_json_variant *parameters, sd_varli
         if (r != 0)
                 return r;
 
-        /* There is no need for extra validation since json_dispatch_path() does path_is_valid() and path_is_absolute().*/
+        /* There is no need for extra validation since json_dispatch_const_path() does path_is_valid() and path_is_absolute().*/
         const char *dest = p.dest ?: p.src;
 
         Machine *machine;
