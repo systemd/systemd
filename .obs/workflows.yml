@@ -1,0 +1,10 @@
+rebuild:
+  steps:
+    - trigger_services:
+        project: home:bluca:systemd
+        package: systemd
+  filters:
+    event: push
+    branches:
+      only:
+        - main
