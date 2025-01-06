@@ -183,22 +183,6 @@ int terminal_urlify_man(const char *page, const char *section, char **ret) {
         return terminal_urlify(url, text, ret);
 }
 
-typedef enum {
-        LINE_SECTION,
-        LINE_COMMENT,
-        LINE_NORMAL,
-} LineType;
-
-static LineType classify_line_type(const char *line, CatFlags flags) {
-        const char *t = skip_leading_chars(line, WHITESPACE);
-
-        if ((flags & CAT_FORMAT_HAS_SECTIONS) && *t == '[')
-                return LINE_SECTION;
-        if (IN_SET(*t, '#', ';', '\0'))
-                return LINE_COMMENT;
-        return LINE_NORMAL;
-}
-
 static int cat_file(const char *filename, bool newline, CatFlags flags) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *urlified = NULL, *section = NULL, *old_section = NULL;
@@ -228,58 +212,57 @@ static int cat_file(const char *filename, bool newline, CatFlags flags) {
                 if (r == 0)
                         break;
 
-                LineType line_type = classify_line_type(line, flags);
-                if (FLAGS_SET(flags, CAT_TLDR)) {
-                        if (line_type == LINE_SECTION) {
-                                /* The start of a section, let's not print it yet. */
+                const char *l = skip_leading_chars(line, WHITESPACE);
+
+                /* comment */
+                if (*l != '\0' && strchr(COMMENTS, *l)) {
+                        if (!FLAGS_SET(flags, CAT_TLDR))
+                                printf("%s%s%s\n", ansi_highlight_grey(), line, ansi_normal());
+                        continue;
+                }
+
+                /* empty line */
+                if (isempty(l) && FLAGS_SET(flags, CAT_TLDR))
+                        continue;
+
+                /* section */
+                if (FLAGS_SET(flags, CAT_FORMAT_HAS_SECTIONS) && *l == '[') {
+                        if (FLAGS_SET(flags, CAT_TLDR))
+                                /* On TLDR, let's not print it yet. */
                                 free_and_replace(section, line);
-                                continue;
-                        }
+                        else
+                                printf("%s%s%s\n", ansi_highlight_cyan(), line, ansi_normal());
+                        continue;
+                }
 
-                        if (line_type == LINE_COMMENT)
-                                continue;
+                /* normal line */
 
-                        /* Before we print the actual line, print the last section header */
-                        if (section) {
-                                /* Do not print redundant section headers */
-                                if (!streq_ptr(section, old_section))
-                                        printf("%s%s%s\n",
-                                               ansi_highlight_cyan(),
-                                               section,
-                                               ansi_normal());
+                /* Before we print the line, print the last section header. */
+                if (FLAGS_SET(flags, CAT_TLDR) && section) {
+                        /* Do not print redundant section headers */
+                        if (!streq_ptr(section, old_section))
+                                printf("%s%s%s\n", ansi_highlight_cyan(), section, ansi_normal());
 
-                                free_and_replace(old_section, section);
-                        }
+                        free_and_replace(old_section, section);
                 }
 
                 /* Highlight the left side (directive) of a Foo=bar assignment */
-                if (FLAGS_SET(flags, CAT_FORMAT_HAS_SECTIONS) && line_type == LINE_NORMAL) {
+                if (FLAGS_SET(flags, CAT_FORMAT_HAS_SECTIONS)) {
                         const char *p = strchr(line, '=');
                         if (p) {
-                                _cleanup_free_ char *highlighted = NULL, *directive = NULL;
+                                _cleanup_free_ char *directive = NULL;
 
                                 directive = strndup(line, p - line);
                                 if (!directive)
                                         return log_oom();
 
-                                highlighted = strjoin(ansi_highlight_green(),
-                                                      directive,
-                                                      "=",
-                                                      ansi_normal(),
-                                                      p + 1);
-                                if (!highlighted)
-                                        return log_oom();
-
-                                free_and_replace(line, highlighted);
+                                printf("%s%s=%s%s\n", ansi_highlight_green(), directive, ansi_normal(), p + 1);
+                                continue;
                         }
                 }
 
-                printf("%s%s%s\n",
-                       line_type == LINE_SECTION ? ansi_highlight_cyan() :
-                       line_type == LINE_COMMENT ? ansi_highlight_grey() :
-                       "",
-                       line,
-                       line_type != LINE_NORMAL ? ansi_normal() : "");
+                /* Otherwise, print the line as is. */
+                printf("%s\n", line);
         }
 
         return 0;
