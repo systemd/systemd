@@ -1351,10 +1351,6 @@ libgcrypt = dependency('libgcrypt',
                        required : feature)
 libgpg_error = dependency('gpg-error',
                           required : feature.disabled() ? feature : false)
-if not libgpg_error.found()
-        # CentOS 8 does not provide the .pc file.
-        libgpg_error = cc.find_library('gpg-error', required : feature)
-endif
 
 have = libgcrypt.found() and libgpg_error.found()
 if not have
