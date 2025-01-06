@@ -1096,6 +1096,8 @@ int pidref_is_my_child(const PidRef *pid) {
 
         pid_t ppid;
         r = pidref_get_ppid(pid, &ppid);
+        if (r == -EADDRNOTAVAIL) /* if this process its outside of our pidns, it is definitely not our child */
+                return false;
         if (r < 0)
                 return r;
 
