@@ -558,7 +558,7 @@ static int device_add_udev_wants(Unit *u, sd_device *dev) {
         for (;;) {
                 _cleanup_free_ char *word = NULL, *k = NULL;
 
-                r = extract_first_word(&wants, &word, NULL, EXTRACT_UNQUOTE);
+                r = extract_first_word(&wants, &word, NULL, EXTRACT_UNQUOTE | EXTRACT_RETAIN_ESCAPE);
                 if (r == 0)
                         break;
                 if (r == -ENOMEM)
