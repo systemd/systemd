@@ -2324,7 +2324,7 @@ static int partition_finalize_fstype(Partition *p, const char *path) {
                 return log_oom();
 
         const char *v = secure_getenv(e);
-        if (!v || streq(p->format, v))
+        if (!v || streq_ptr(p->format, v))
                 return 0;
 
         log_syntax(NULL, LOG_NOTICE, path, 1, 0,
