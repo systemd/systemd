@@ -1637,14 +1637,6 @@ static int process_connection(sd_varlink_server *server, int _fd) {
         TAKE_FD(fd);
         vl = sd_varlink_ref(vl);
 
-        r = sd_varlink_set_allow_fd_passing_input(vl, true);
-        if (r < 0)
-                return log_error_errno(r, "Failed to enable fd passing for read: %m");
-
-        r = sd_varlink_set_allow_fd_passing_output(vl, true);
-        if (r < 0)
-                return log_error_errno(r, "Failed to enable fd passing for write: %m");
-
         for (;;) {
                 r = sd_varlink_process(vl);
                 if (r == -ENOTCONN) {
@@ -1690,7 +1682,11 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to turn off non-blocking mode for listening socket: %m");
 
-        r = varlink_server_new(&server, SD_VARLINK_SERVER_INHERIT_USERDATA, NULL);
+        r = varlink_server_new(
+                        &server,
+                        SD_VARLINK_SERVER_INHERIT_USERDATA|
+                        SD_VARLINK_SERVER_ALLOW_FD_PASSING_INPUT|SD_VARLINK_SERVER_ALLOW_FD_PASSING_OUTPUT,
+                        NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate varlink server: %m");
 
