@@ -403,6 +403,10 @@ grep -q "BAR" /tmp/none-existent-file
 
 # io.systemd.Machine.BindMount is covered by testcase_check_machinectl_bind() in nspawn tests
 
+# test io.systemd.Machine.OpenRootDirectory
+varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.OpenRootDirectory '{"name": ".host"}'
+varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.OpenRootDirectory '{"name": "long-running"}'
+
 # terminate machines
 machinectl terminate long-running
 # wait for the container being stopped, otherwise acquiring image metadata by io.systemd.MachineImage.List may fail in the below.
