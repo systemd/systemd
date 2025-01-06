@@ -674,71 +674,11 @@ int bus_machine_method_open_root_directory(sd_bus_message *message, void *userda
         if (r == 0)
                 return 1; /* Will call us back */
 
-        switch (m->class) {
-
-        case MACHINE_HOST:
-                fd = open("/", O_RDONLY|O_CLOEXEC|O_DIRECTORY);
-                if (fd < 0)
-                        return -errno;
-
-                break;
-
-        case MACHINE_CONTAINER: {
-                _cleanup_close_ int mntns_fd = -EBADF, root_fd = -EBADF;
-                _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
-                pid_t child;
-
-                r = pidref_namespace_open(&m->leader,
-                                          /* ret_pidns_fd = */ NULL,
-                                          &mntns_fd,
-                                          /* ret_netns_fd = */ NULL,
-                                          /* ret_userns_fd = */ NULL,
-                                          &root_fd);
-                if (r < 0)
-                        return r;
-
-                if (socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) < 0)
-                        return -errno;
-
-                r = namespace_fork("(sd-openrootns)", "(sd-openroot)", NULL, 0, FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL,
-                                   -1, mntns_fd, -1, -1, root_fd, &child);
-                if (r < 0)
-                        return sd_bus_error_set_errnof(error, r, "Failed to fork(): %m");
-                if (r == 0) {
-                        _cleanup_close_ int dfd = -EBADF;
-
-                        pair[0] = safe_close(pair[0]);
-
-                        dfd = open("/", O_RDONLY|O_CLOEXEC|O_DIRECTORY);
-                        if (dfd < 0)
-                                _exit(EXIT_FAILURE);
-
-                        r = send_one_fd(pair[1], dfd, 0);
-                        dfd = safe_close(dfd);
-                        if (r < 0)
-                                _exit(EXIT_FAILURE);
-
-                        _exit(EXIT_SUCCESS);
-                }
-
-                pair[1] = safe_close(pair[1]);
-
-                r = wait_for_terminate_and_check("(sd-openrootns)", child, 0);
-                if (r < 0)
-                        return sd_bus_error_set_errnof(error, r, "Failed to wait for child: %m");
-                if (r != EXIT_SUCCESS)
-                        return sd_bus_error_set(error, SD_BUS_ERROR_FAILED, "Child died abnormally.");
-
-                fd = receive_one_fd(pair[0], MSG_DONTWAIT);
-                if (fd < 0)
-                        return fd;
-
-                break;
-        }
-
-        default:
+        fd = machine_open_root_directory(m);
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(fd))
                 return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "Opening the root directory is only supported on container machines.");
-        }
+        if (fd < 0)
+                return sd_bus_error_set_errnof(error, fd, "Failed to open root directory of machine '%s': %m", m->name);
 
         return sd_bus_reply_method_return(message, "h", fd);
 }
