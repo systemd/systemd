@@ -774,7 +774,7 @@ int vl_method_bind_mount(sd_varlink *link, sd_json_variant *parameters, sd_varli
         if (r != 0)
                 return r;
 
-        /* There is no need for extra validation since json_dispatch_const_path() does path_is_valid() and path_is_absolute().*/
+        /* There is no need for extra validation since json_dispatch_const_path() does path_is_valid() and path_is_absolute(). */
         const char *dest = p.dest ?: p.src;
 
         Machine *machine;
@@ -881,7 +881,7 @@ int vl_method_copy_internal(sd_varlink *link, sd_json_variant *parameters, sd_va
         if (r != 0)
                 return r;
 
-        /* There is no need for extra validation since json_dispatch_path() does path_is_valid() and path_is_absolute().*/
+        /* There is no need for extra validation since json_dispatch_const_path() does path_is_valid() and path_is_absolute(). */
         const char *dest = p.dest ?: p.src;
         const char *container_path = copy_from ? p.src : dest;
         const char *host_path = copy_from ? dest : p.src;
