@@ -179,6 +179,12 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_FIELD_COMMENT("If true the destination will be replaced"),
                 SD_VARLINK_DEFINE_INPUT(replace, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
 
+static SD_VARLINK_DEFINE_METHOD(
+                OpenRootDirectory,
+                VARLINK_DEFINE_MACHINE_LOOKUP_AND_POLKIT_INPUT_FIELDS,
+                SD_VARLINK_FIELD_COMMENT("File descriptor of opened root directory"),
+                SD_VARLINK_DEFINE_OUTPUT(fileDescriptor, SD_VARLINK_INT, 0));
+
 static SD_VARLINK_DEFINE_ERROR(NoSuchMachine);
 static SD_VARLINK_DEFINE_ERROR(MachineExists);
 static SD_VARLINK_DEFINE_ERROR(NoPrivateNetworking);
@@ -225,6 +231,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_CopyFrom,
                 SD_VARLINK_SYMBOL_COMMENT("Copy files or directories from the host into a container"),
                 &vl_method_CopyTo,
+                SD_VARLINK_SYMBOL_COMMENT("Opens machine's root directory"),
+                &vl_method_OpenRootDirectory,
                 SD_VARLINK_SYMBOL_COMMENT("No matching machine currently running"),
                 &vl_error_NoSuchMachine,
                 &vl_error_MachineExists,
