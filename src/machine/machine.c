@@ -988,7 +988,7 @@ int machine_copy_from_to(
                 CopyFlags copy_flags,
                 Operation **ret) {
 
-        _cleanup_close_ int host_fd = -EBADF, mntns_fd = -EBADF;
+        _cleanup_close_ int host_fd = -EBADF, target_mntns_fd = -EBADF, source_mntns_fd = -EBADF;
         _cleanup_close_pair_ int errno_pipe_fd[2] = EBADF_PAIR;
         _cleanup_free_ char *host_basename = NULL, *container_basename = NULL;
         uid_t uid_shift;
@@ -1018,14 +1018,13 @@ int machine_copy_from_to(
         if (r < 0)
                 return log_debug_errno(r, "Failed to get UID shift of machine '%s': %m", machine->name);
 
-        r = pidref_namespace_open(&machine->leader,
-                        /* ret_pidns_fd = */  NULL,
-                        &mntns_fd,
-                        /* ret_netns_fd = */  NULL,
-                        /* ret_userns_fd = */ NULL,
-                        /* ret_root_fd = */   NULL);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to open mount namespace of machine '%s': %m", machine->name);
+        target_mntns_fd = pidref_namespace_open_by_type(&machine->leader, NAMESPACE_MOUNT);
+        if (target_mntns_fd < 0)
+                return log_debug_errno(target_mntns_fd, "Failed to open mount namespace of machine '%s': %m", machine->name);
+
+        source_mntns_fd = namespace_open_by_type(NAMESPACE_MOUNT);
+        if (source_mntns_fd < 0)
+                return log_debug_errno(source_mntns_fd, "Failed to open our own mount namespace: %m");
 
         if (pipe2(errno_pipe_fd, O_CLOEXEC|O_NONBLOCK) < 0)
                 return log_debug_errno(errno, "Failed to create pipe: %m");
@@ -1036,7 +1035,7 @@ int machine_copy_from_to(
                            /* n_except_fds = */ 0,
                            FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL,
                            /* pidns_fd = */ -EBADF,
-                           mntns_fd,
+                           target_mntns_fd,
                            /* netns_fd = */ -EBADF,
                            /* userns_fd = */ -EBADF,
                            /* root_fd = */ -EBADF,
@@ -1051,6 +1050,13 @@ int machine_copy_from_to(
                 if (container_fd < 0) {
                         log_debug_errno(container_fd, "Failed to open destination directory: %m");
                         report_errno_and_exit(errno_pipe_fd[1], container_fd);
+                }
+
+                /* Rejoin the host namespace, so that /proc/self/fd/… works, which copy_tree_at() relies on
+                 * in some cases (by means of fd_reopen()) */
+                if (setns(source_mntns_fd, CLONE_NEWNS) < 0) {
+                        r = log_debug_errno(errno, "Failed to rejoin namespace of host: %m");
+                        report_errno_and_exit(errno_pipe_fd[1], r);
                 }
 
                 /* Run the actual copy operation. Note that when a UID shift is set we'll either clamp the UID/GID to
