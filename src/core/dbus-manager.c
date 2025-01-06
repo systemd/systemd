@@ -2763,7 +2763,7 @@ static int method_add_dependency_unit_files(sd_bus_message *message, void *userd
         flags = unit_file_bools_to_flags(runtime, force);
 
         dep = unit_dependency_from_string(type);
-        if (dep < 0)
+        if (dep < 0 || !IN_SET(dep, UNIT_WANTS, UNIT_REQUIRES))
                 return -EINVAL;
 
         r = unit_file_add_dependency(m->runtime_scope, flags, NULL, l, target, dep, &changes, &n_changes);
