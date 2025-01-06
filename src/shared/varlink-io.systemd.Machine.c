@@ -150,9 +150,9 @@ static SD_VARLINK_DEFINE_METHOD(
 static SD_VARLINK_DEFINE_METHOD(
                 BindMount,
                 VARLINK_DEFINE_MACHINE_LOOKUP_AND_POLKIT_INPUT_FIELDS,
-                SD_VARLINK_FIELD_COMMENT("The source directory/file on the host"),
+                SD_VARLINK_FIELD_COMMENT("The source directory/file on the host. The path must be absolute."),
                 SD_VARLINK_DEFINE_INPUT(source, SD_VARLINK_STRING, 0),
-                SD_VARLINK_FIELD_COMMENT("The destination directory/file in the container. If null, it's equal to 'source'"),
+                SD_VARLINK_FIELD_COMMENT("The destination directory/file in the container. The path must be absolute. If null, it's equal to 'source'"),
                 SD_VARLINK_DEFINE_INPUT(destination, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("If true, the bind mount shall be read-only"),
                 SD_VARLINK_DEFINE_INPUT(readOnly, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
