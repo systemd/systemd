@@ -972,6 +972,7 @@ static int mount_in_namespace_legacy(
                                 image_policy,
                                 /* image_filter= */ NULL,
                                 /* extension_release_data= */ NULL,
+                                /* required_class= */ _IMAGE_CLASS_INVALID,
                                 /* verity= */ NULL,
                                 /* ret_image= */ NULL);
         else
@@ -1193,6 +1194,7 @@ static int mount_in_namespace(
                                 image_policy,
                                 /* image_filter= */ NULL,
                                 /* extension_release_data= */ NULL,
+                                /* required_class= */ _IMAGE_CLASS_INVALID,
                                 /* verity= */ NULL,
                                 &img);
                 if (r < 0)
