@@ -16,6 +16,7 @@ typedef struct MountImage MountImage;
 #include "fs-util.h"
 #include "macro.h"
 #include "namespace-util.h"
+#include "pidref.h"
 #include "runtime-scope.h"
 #include "string-util.h"
 
@@ -258,3 +259,8 @@ int temporary_filesystem_add(TemporaryFileSystem **t, size_t *n,
 
 MountImage* mount_image_free_many(MountImage *m, size_t *n);
 int mount_image_add(MountImage **m, size_t *n, const MountImage *item);
+
+int refresh_extensions_in_namespace(
+                const PidRef *target,
+                const char *hierarchy_env,
+                const NamespaceParameters *p);
