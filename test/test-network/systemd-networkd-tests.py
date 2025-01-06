@@ -2862,10 +2862,6 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
     @expectedFailureIfModuleIsNotAvailable('fou')
     def test_fou(self):
-        # The following redundant check is necessary for CentOS CI.
-        # Maybe, error handling in lookup_id() in sd-netlink/generic-netlink.c needs to be updated.
-        self.assertTrue(is_module_available('fou'))
-
         copy_network_unit('25-fou-ipproto-ipip.netdev', '25-fou-ipproto-gre.netdev',
                           '25-fou-ipip.netdev', '25-fou-sit.netdev',
                           '25-fou-gre.netdev', '25-fou-gretap.netdev')
