@@ -203,7 +203,7 @@ static int cat_file(const char *filename, bool newline, CatFlags flags) {
                ansi_normal());
         fflush(stdout);
 
-        for (;;) {
+        for (bool continued = false;;) {
                 _cleanup_free_ char *line = NULL;
 
                 r = read_line(f, LONG_LINE_MAX, &line);
@@ -222,11 +222,11 @@ static int cat_file(const char *filename, bool newline, CatFlags flags) {
                 }
 
                 /* empty line */
-                if (isempty(l) && FLAGS_SET(flags, CAT_TLDR))
+                if (isempty(l) && FLAGS_SET(flags, CAT_TLDR) && !continued)
                         continue;
 
                 /* section */
-                if (FLAGS_SET(flags, CAT_FORMAT_HAS_SECTIONS) && *l == '[') {
+                if (FLAGS_SET(flags, CAT_FORMAT_HAS_SECTIONS) && *l == '[' && !continued) {
                         if (FLAGS_SET(flags, CAT_TLDR))
                                 /* On TLDR, let's not print it yet. */
                                 free_and_replace(section, line);
@@ -246,8 +246,17 @@ static int cat_file(const char *filename, bool newline, CatFlags flags) {
                         free_and_replace(old_section, section);
                 }
 
+                /* Check if the line ends with a backslash. */
+                bool escaped = false;
+                for (const char *e = line; *e != '\0'; e++) {
+                        if (escaped)
+                                escaped = false;
+                        else if (*e == '\\')
+                                escaped = true;
+                }
+
                 /* Highlight the left side (directive) of a Foo=bar assignment */
-                if (FLAGS_SET(flags, CAT_FORMAT_HAS_SECTIONS)) {
+                if (FLAGS_SET(flags, CAT_FORMAT_HAS_SECTIONS) && !continued) {
                         const char *p = strchr(line, '=');
                         if (p) {
                                 _cleanup_free_ char *directive = NULL;
@@ -257,12 +266,14 @@ static int cat_file(const char *filename, bool newline, CatFlags flags) {
                                         return log_oom();
 
                                 printf("%s%s=%s%s\n", ansi_highlight_green(), directive, ansi_normal(), p + 1);
+                                continued = escaped;
                                 continue;
                         }
                 }
 
                 /* Otherwise, print the line as is. */
                 printf("%s\n", line);
+                continued = escaped;
         }
 
         return 0;
