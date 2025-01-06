@@ -96,8 +96,13 @@
   },
   {
     "category": "Publications",
-    "title": "RHEL7 docs",
-    "url": "https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html/system_administrators_guide/chap-managing_services_with_systemd"
+    "title": "RHEL9 docs - Configuring basic system settings - Managing systemd",
+    "url": "https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/9/html/configuring_basic_system_settings/managing-systemd_configuring-basic-system-settings#managing-systemd_configuring-basic-system-settings"
+  },
+  {
+    "category": "Publications",
+    "title": "RHEL9 docs - Using systemd unit files to customize and optimize your system",
+    "url": "https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/9/html/using_systemd_unit_files_to_customize_and_optimize_your_system/index"
   },
   {
     "category": "Publications",
