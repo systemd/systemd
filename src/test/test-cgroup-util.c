@@ -210,11 +210,11 @@ TEST(proc) {
                 if (pidref_is_kernel_thread(&pid) != 0)
                         continue;
 
-                cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, pid.pid, &path);
+                cg_pidref_get_path(SYSTEMD_CGROUP_CONTROLLER, &pid, &path);
                 cg_pid_get_path_shifted(pid.pid, NULL, &path_shifted);
                 cg_pidref_get_owner_uid(&pid, &uid);
                 cg_pidref_get_session(&pid, &session);
-                cg_pid_get_unit(pid.pid, &unit);
+                cg_pidref_get_unit(&pid, &unit);
                 cg_pid_get_user_unit(pid.pid, &user_unit);
                 cg_pid_get_machine_name(pid.pid, &machine);
                 cg_pid_get_slice(pid.pid, &slice);

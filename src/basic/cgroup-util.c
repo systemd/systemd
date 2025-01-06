@@ -839,6 +839,8 @@ int cg_pidref_get_path(const char *controller, const PidRef *pidref, char **ret_
 
         if (!pidref_is_set(pidref))
                 return -ESRCH;
+        if (pidref_is_remote(pidref))
+                return -EREMOTE;
 
         r = cg_pid_get_path(controller, pidref->pid, &path);
         if (r < 0)
@@ -1204,6 +1206,8 @@ int cg_pidref_get_unit(const PidRef *pidref, char **ret) {
 
         if (!pidref_is_set(pidref))
                 return -ESRCH;
+        if (pidref_is_remote(pidref))
+                return -EREMOTE;
 
         r = cg_pid_get_unit(pidref->pid, &unit);
         if (r < 0)
