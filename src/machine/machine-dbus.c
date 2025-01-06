@@ -589,20 +589,23 @@ int bus_machine_method_copy(sd_bus_message *message, void *userdata, sd_bus_erro
         if (r < 0)
                 return sd_bus_error_set_errnof(error, r, "Failed to fork(): %m");
         if (r == 0) {
-                int containerfd;
-                const char *q;
-                int mntfd;
+                _cleanup_close_ int target_mntfd = -EBADF, source_mntfd = -EBADF, containerfd = -EBADF;
 
                 errno_pipe_fd[0] = safe_close(errno_pipe_fd[0]);
 
-                q = procfs_file_alloca(m->leader.pid, "ns/mnt");
-                mntfd = open(q, O_RDONLY|O_NOCTTY|O_CLOEXEC);
-                if (mntfd < 0) {
-                        r = log_error_errno(errno, "Failed to open mount namespace of leader: %m");
+                target_mntfd = pidref_namespace_open_by_type(&m->leader, NAMESPACE_MOUNT);
+                if (target_mntfd < 0) {
+                        r = log_error_errno(target_mntfd, "Failed to open mount namespace of leader: %m");
                         goto child_fail;
                 }
 
-                if (setns(mntfd, CLONE_NEWNS) < 0) {
+                source_mntfd = namespace_open_by_type(NAMESPACE_MOUNT);
+                if (source_mntfd < 0) {
+                        r = log_error_errno(source_mntfd, "Failed to open our own mount namespace: %m");
+                        goto child_fail;
+                }
+
+                if (setns(target_mntfd, CLONE_NEWNS) < 0) {
                         r = log_error_errno(errno, "Failed to join namespace of leader: %m");
                         goto child_fail;
                 }
@@ -610,6 +613,14 @@ int bus_machine_method_copy(sd_bus_message *message, void *userdata, sd_bus_erro
                 containerfd = open_parent(container_path, O_CLOEXEC, 0);
                 if (containerfd < 0) {
                         r = log_error_errno(containerfd, "Failed to open destination directory: %m");
+                        goto child_fail;
+                }
+
+                /* Let's return to our source namespace, so that /proc/self/fd/ works correctly for us, which
+                 * copy_tree_at() needs (because it might end up calling fd_reopen() internally, which relies
+                 * on this.) */
+                if (setns(source_mntfd, CLONE_NEWNS) < 0) {
+                        r = log_error_errno(errno, "Failed to rejoin namespace of host: %m");
                         goto child_fail;
                 }
 
