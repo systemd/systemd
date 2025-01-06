@@ -115,6 +115,8 @@ int machine_owns_gid(Machine *m, gid_t host_gid, gid_t *ret_internal_gid);
 int machine_translate_uid(Machine *m, uid_t internal_uid, uid_t *ret_host_uid);
 int machine_translate_gid(Machine *m, gid_t internal_gid, gid_t *ret_host_gid);
 
+int machine_open_root_directory(Machine *machine);
+
 typedef enum AcquireMetadata {
         ACQUIRE_METADATA_NO,
         ACQUIRE_METADATA_YES,
