@@ -991,8 +991,8 @@ int machine_copy_from_to(
         _cleanup_close_ int host_fd = -EBADF, target_mntns_fd = -EBADF, source_mntns_fd = -EBADF;
         _cleanup_close_pair_ int errno_pipe_fd[2] = EBADF_PAIR;
         _cleanup_free_ char *host_basename = NULL, *container_basename = NULL;
+        _cleanup_(sigkill_waitp) pid_t child = 0;
         uid_t uid_shift;
-        pid_t child;
         int r;
 
         assert(manager);
@@ -1094,12 +1094,12 @@ int machine_copy_from_to(
 
         Operation *operation;
         r = operation_new(manager, machine, child, errno_pipe_fd[0], &operation);
-        if (r < 0) {
-                sigkill_wait(child);
+        if (r < 0)
                 return r;
-        }
 
         TAKE_FD(errno_pipe_fd[0]);
+        TAKE_PID(child);
+
         *ret = operation;
         return 0;
 }
