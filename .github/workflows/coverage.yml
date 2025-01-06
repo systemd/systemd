@@ -64,7 +64,7 @@ jobs:
                   COVERAGE=1
 
           [Runtime]
-          QemuMem=4G
+          RAM=4G
           EOF
 
       - name: Generate secure boot key
