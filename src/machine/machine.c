@@ -1049,7 +1049,7 @@ int machine_copy_from_to(
                 _cleanup_close_ int container_fd = -EBADF;
                 container_fd = open_parent(container_path, O_CLOEXEC, 0);
                 if (container_fd < 0) {
-                        log_debug_errno(container_fd, "Failed to open destination directory: %m");
+                        log_debug_errno(container_fd, "Failed to open container directory: %m");
                         report_errno_and_exit(errno_pipe_fd[1], container_fd);
                 }
 
