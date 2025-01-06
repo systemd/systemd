@@ -250,11 +250,21 @@ static int cat_file(const char *filename, bool newline, CatFlags flags) {
 
                 /* Check if the line ends with a backslash. */
                 bool escaped = false;
-                for (const char *e = line; *e != '\0'; e++) {
+                char *e;
+                for (e = line; *e != '\0'; e++) {
                         if (escaped)
                                 escaped = false;
                         else if (*e == '\\')
                                 escaped = true;
+                }
+
+                /* Highlight the trailing backslash. */
+                if (escaped) {
+                        assert(e > line);
+                        *(e-1) = '\0';
+
+                        if (!strextend(&line, ansi_highlight_red(), "\\", ansi_normal()))
+                                return log_oom();
                 }
 
                 /* Highlight the left side (directive) of a Foo=bar assignment */
