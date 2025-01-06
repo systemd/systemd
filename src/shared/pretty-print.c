@@ -556,7 +556,7 @@ void clear_progress_bar_unbuffered(const char *prefix) {
                       stderr);
         else
                 /* Undo Windows Terminal progress indication again. */
-                fputs(ANSI_OSC "9;4;0;;" ANSI_ST
+                fputs(ANSI_OSC "9;4;0;" ANSI_ST
                       ANSI_ERASE_TO_END_OF_LINE, stderr);
 
         fputc('\r', stderr);
