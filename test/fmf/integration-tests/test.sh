@@ -17,19 +17,13 @@ if [[ -n "${PACKIT_SOURCE_URL:-}" ]]; then
     git merge "pr/$PACKIT_SOURCE_BRANCH"
 fi
 git log --oneline -5
-popd
 
 # Now prepare mkosi, possibly at the same version required by the systemd repo
 git clone https://github.com/systemd/mkosi
-# If we have it, pin the mkosi version to the same one used by Github Actions, to ensure consistency
-if [ -f .github/workflows/mkosi.yml ]; then
-    mkosi_hash="$(grep systemd/mkosi@ .github/workflows/mkosi.yml | sed "s|.*systemd/mkosi@||g")"
-    git -C mkosi checkout "$mkosi_hash"
-fi
+mkosi_hash="$(grep systemd/mkosi@ .github/workflows/mkosi.yml | sed "s|.*systemd/mkosi@||g")"
+git -C mkosi checkout "$mkosi_hash"
 
 export PATH="$PWD/mkosi/bin:$PATH"
-
-pushd systemd
 
 # shellcheck source=/dev/null
 . /etc/os-release || . /usr/lib/os-release
