@@ -7,29 +7,51 @@ set -o pipefail
 # Switch SELinux to permissive, since the tests don't set proper contexts
 setenforce 0
 
-# Prepare systemd source tree
-git clone "$PACKIT_TARGET_URL" systemd
-pushd systemd
-# If we're running in a pull request job, merge the remote branch into the current main
-if [[ -n "${PACKIT_SOURCE_URL:-}" ]]; then
-    git remote add pr "${PACKIT_SOURCE_URL:?}"
-    git fetch pr "${PACKIT_SOURCE_BRANCH:?}"
-    git merge "pr/$PACKIT_SOURCE_BRANCH"
+# Allow running the integration tests downstream in dist-git with something like
+# the following snippet which makes the dist-git sources available in $TMT_SOURCE_DIR:
+#
+# summary: systemd Fedora test suite
+# discover:
+#   how: fmf
+#   url: https://github.com/systemd/systemd
+#   ref: main
+#   path: test/fmf
+#   dist-git-source: true
+#   dist-git-install-builddeps: false
+# prepare:
+#   - name: systemd
+#     how: install
+#     exclude:
+#       - systemd-standalone-.*
+# execute:
+#   how: tmt
+
+if [[ -n "${TMT_SOURCE_DIR:-}" ]]; then
+    pushd "$TMT_SOURCE_DIR/*/"
+elif [[ -n "${PACKIT_TARGET_URL:-}" ]]; then
+    # Prepare systemd source tree
+    git clone "$PACKIT_TARGET_URL" systemd
+    pushd systemd
+
+    # If we're running in a pull request job, merge the remote branch into the current main
+    if [[ -n "${PACKIT_SOURCE_URL:-}" ]]; then
+        git remote add pr "${PACKIT_SOURCE_URL:?}"
+        git fetch pr "${PACKIT_SOURCE_BRANCH:?}"
+        git merge "pr/$PACKIT_SOURCE_BRANCH"
+    fi
+
+    git log --oneline -5
+else
+    echo "Not running within packit or Fedora CI"
+    exit 1
 fi
-git log --oneline -5
-popd
 
 # Now prepare mkosi, possibly at the same version required by the systemd repo
 git clone https://github.com/systemd/mkosi
-# If we have it, pin the mkosi version to the same one used by Github Actions, to ensure consistency
-if [ -f .github/workflows/mkosi.yml ]; then
-    mkosi_hash="$(grep systemd/mkosi@ .github/workflows/mkosi.yml | sed "s|.*systemd/mkosi@||g")"
-    git -C mkosi checkout "$mkosi_hash"
-fi
+mkosi_hash="$(grep systemd/mkosi@ .github/workflows/mkosi.yml | sed "s|.*systemd/mkosi@||g")"
+git -C mkosi checkout "$mkosi_hash"
 
 export PATH="$PWD/mkosi/bin:$PATH"
-
-pushd systemd
 
 # shellcheck source=/dev/null
 . /etc/os-release || . /usr/lib/os-release
