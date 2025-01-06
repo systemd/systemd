@@ -389,6 +389,11 @@ TEST(fstype_can_norecovery) {
         ASSERT_NULL(fstype_norecovery_option("tmpfs"));
 }
 
+TEST(fstype_can_fmask_dmask) {
+        assert_se(fstype_can_fmask_dmask("vfat"));
+        assert_se(!fstype_can_umask("tmpfs"));
+}
+
 TEST(fstype_can_umask) {
         assert_se(fstype_can_umask("vfat"));
         assert_se(!fstype_can_umask("tmpfs"));
