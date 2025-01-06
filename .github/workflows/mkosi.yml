@@ -138,9 +138,6 @@ jobs:
 
       - name: Configure
         run: |
-          # XXX: drop after the HyperV bug that breaks secure boot KVM guests is solved
-          sed -i "s/'firmware'\s*:\s*'auto'/'firmware' : 'uefi'/g" test/*/meson.build
-
           tee mkosi.local.conf <<EOF
           [Distribution]
           Distribution=${{ matrix.distro }}
