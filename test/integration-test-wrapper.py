@@ -479,9 +479,8 @@ def main() -> None:
         '--runtime-network=none',
         '--runtime-scratch=no',
         *args.mkosi_args,
-        '--qemu-firmware',
-        args.firmware,
-        *(['--qemu-kvm', 'no'] if int(os.getenv('TEST_NO_KVM', '0')) else []),
+        '--firmware', args.firmware,
+        *(['--kvm', 'no'] if int(os.getenv('TEST_NO_KVM', '0')) else []),
         '--kernel-command-line-extra',
         ' '.join(
             [
@@ -504,7 +503,7 @@ def main() -> None:
         ),
         '--credential', f"journal.storage={'persistent' if sys.stderr.isatty() else args.storage}",
         *(['--runtime-build-sources=no'] if not sys.stderr.isatty() else []),
-        'qemu' if args.vm or os.getuid() != 0 or os.getenv('TEST_PREFER_QEMU', '0') == '1' else 'boot',
+        'vm' if args.vm or os.getuid() != 0 or os.getenv('TEST_PREFER_QEMU', '0') == '1' else 'boot',
     ]  # fmt: skip
 
     result = subprocess.run(cmd)
