@@ -12,7 +12,7 @@ for i in range(4):
 
 for i in range(128):
     id = f"drive{i}"
-    config["QemuDrives"] += [
+    config["Drives"] += [
         {
             "Id": id,
             "Size": "1M",
