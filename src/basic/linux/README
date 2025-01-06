@@ -1,6 +1,0 @@
-The headers in this directory are from kernel v6.10-rc1 (1613e604df0cd359cf2a7fbd9be7a0bcfacfabd0),
-and the following modifications are applied:
-- auto_dev-ioctl.h: set AUTOFS_DEV_IOCTL_VERSION_MINOR to 0
-- btrfs.h: guard linux/fs.h include to avoid conflict with glibc 2.36
-- dm-ioctl.h: set DM_VERSION_MINOR to 27
-- ethtool.h: add casts in ethtool_cmd_speed()
