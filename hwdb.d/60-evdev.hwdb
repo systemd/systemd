@@ -942,6 +942,12 @@ evdev:input:b0003v172Fp0031*
  EVDEV_ABS_00=0:10000:400
  EVDEV_ABS_01=0:6250:400
 
+# WALTOP International Corp. Slim Tablet Stylus
+evdev:input:b0003v172Fp0034*
+ EVDEV_ABS_00=0:20000:80
+ EVDEV_ABS_01=0:12500:80
+ EVDEV_ABS_24=0:1023:500
+
 # WALTOP International Corp. Graphics Tablet
 evdev:input:b0003v172Fp0047*
  EVDEV_ABS_00=0:20000:80
