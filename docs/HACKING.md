@@ -51,7 +51,7 @@ To build and boot an OS image with the latest systemd installed:
 $ mkosi -f genkey                               # Generate signing keys once.
 $ mkosi -f sandbox meson compile -C build mkosi # (re-)build the OS image
 $ sudo mkosi boot                               # Boot the image with systemd-nspawn.
-$ mkosi qemu                                    # Boot the image with qemu.
+$ mkosi vm                                      # Boot the image with qemu.
 ```
 
 Putting this all together, here's a series of commands for preparing a patch for
@@ -67,7 +67,7 @@ $ $EDITOR src/core/main.c                       # or wherever you'd like to make
 $ mkosi -f sandbox meson setup build            # Set up meson
 $ mkosi -f genkey                               # Generate signing keys once.
 $ mkosi -f sandbox meson compile -C build mkosi # (re-)build the test image
-$ mkosi qemu                                    # Boot the image in qemu
+$ mkosi vm                                      # Boot the image in qemu
 $ git add -p                                    # interactively put together your patch
 $ git commit                                    # commit it
 $ git push -u <REMOTE>                          # where REMOTE is your "fork" on GitHub
@@ -214,7 +214,7 @@ To simplify debugging systemd when testing changes using mkosi, we're going to s
 
 To allow VSCode's debugger to attach to systemd running in a mkosi image,
 we have to make sure it can access the virtual machine spawned by mkosi where systemd is running.
-After booting the image with `mkosi qemu`,
+After booting the image with `mkosi vm`,
 you should now be able to connect to it by running `mkosi ssh` from the same directory in another terminal window.
 
 Now we need to configure VSCode.
