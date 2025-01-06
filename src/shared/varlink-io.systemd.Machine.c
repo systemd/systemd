@@ -159,6 +159,12 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_FIELD_COMMENT("The destination mount point shall be created first, if it is missing"),
                 SD_VARLINK_DEFINE_INPUT(mkdir, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
 
+static SD_VARLINK_DEFINE_METHOD(
+                OpenRootDirectory,
+                VARLINK_DEFINE_MACHINE_LOOKUP_AND_POLKIT_INPUT_FIELDS,
+                SD_VARLINK_FIELD_COMMENT("File descriptor of opened root directory"),
+                SD_VARLINK_DEFINE_OUTPUT(fileDescriptor, SD_VARLINK_INT, 0));
+
 static SD_VARLINK_DEFINE_ERROR(NoSuchMachine);
 static SD_VARLINK_DEFINE_ERROR(MachineExists);
 static SD_VARLINK_DEFINE_ERROR(NoPrivateNetworking);
@@ -201,6 +207,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_MapTo,
                 SD_VARLINK_SYMBOL_COMMENT("Bind mounts a file or directory from the host into the container"),
                 &vl_method_BindMount,
+                SD_VARLINK_SYMBOL_COMMENT("Opens machine's root directory"),
+                &vl_method_OpenRootDirectory,
                 SD_VARLINK_SYMBOL_COMMENT("No matching machine currently running"),
                 &vl_error_NoSuchMachine,
                 &vl_error_MachineExists,
