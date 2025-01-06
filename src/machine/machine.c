@@ -1347,6 +1347,99 @@ int machine_translate_gid(Machine *machine, gid_t gid, gid_t *ret_host_gid) {
         return machine_translate_uid_internal(machine, "gid_map", (uid_t) gid, (uid_t*) ret_host_gid);
 }
 
+int machine_open_root_directory(Machine *machine) {
+        int r;
+
+        assert(machine);
+
+        switch (machine->class) {
+        case MACHINE_HOST: {
+                int fd = open("/", O_RDONLY|O_CLOEXEC|O_DIRECTORY);
+                if (fd < 0)
+                        return log_debug_errno(errno, "Failed to open host root directory: %m");
+
+                return fd;
+        }
+
+        case MACHINE_CONTAINER: {
+                _cleanup_close_ int mntns_fd = -EBADF, root_fd = -EBADF;
+                _cleanup_close_pair_ int errno_pipe_fd[2] = EBADF_PAIR, fd_pass_socket[2] = EBADF_PAIR;
+                pid_t child;
+
+                r = pidref_namespace_open(&machine->leader,
+                                          /* ret_pidns_fd = */ NULL,
+                                          &mntns_fd,
+                                          /* ret_netns_fd = */ NULL,
+                                          /* ret_userns_fd = */ NULL,
+                                          &root_fd);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to open mount namespace of machine '%s': %m", machine->name);
+
+                if (pipe2(errno_pipe_fd, O_CLOEXEC|O_NONBLOCK) < 0)
+                        return log_debug_errno(errno, "Failed to open pipe: %m");
+
+                if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, fd_pass_socket) < 0)
+                        return log_debug_errno(errno, "Failed to create socket pair: %m");
+
+                r = namespace_fork(
+                                "(sd-openrootns)",
+                                "(sd-openroot)",
+                                /* except_fds = */ NULL,
+                                /* n_except_fds = */ 0,
+                                FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL,
+                                /* pidns_fd = */  -EBADF,
+                                mntns_fd,
+                                /* netns_fd = */  -EBADF,
+                                /* userns_fd = */ -EBADF,
+                                root_fd,
+                                &child);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to fork into mount namespace of machine '%s': %m", machine->name);
+                if (r == 0) {
+                        _cleanup_close_ int dfd = -EBADF;
+
+                        errno_pipe_fd[0] = safe_close(errno_pipe_fd[0]);
+                        fd_pass_socket[0] = safe_close(fd_pass_socket[0]);
+
+                        dfd = open("/", O_RDONLY|O_CLOEXEC|O_DIRECTORY);
+                        if (dfd < 0) {
+                                log_debug_errno(dfd, "Failed to open root directory of machine '%s': %m", machine->name);
+                                report_errno_and_exit(errno_pipe_fd[1], dfd);
+                        }
+
+                        r = send_one_fd(fd_pass_socket[1], dfd, /* flags = */ 0);
+                        dfd = safe_close(dfd);
+                        if (r < 0) {
+                                log_debug_errno(r, "Failed to send FD over socket: %m");
+                                report_errno_and_exit(errno_pipe_fd[1], r);
+                        }
+
+                        _exit(EXIT_SUCCESS);
+                }
+
+                errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
+                fd_pass_socket[1] = safe_close(fd_pass_socket[1]);
+
+                r = wait_for_terminate_and_check("(sd-openrootns)", child, /* flags = */ 0);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to wait for child: %m");
+
+                r = read_errno(errno_pipe_fd[0]); /* the function does debug reporting */
+                if (r < 0)
+                        return r;
+
+                int fd = receive_one_fd(fd_pass_socket[0], MSG_DONTWAIT);
+                if (fd < 0)
+                        return log_debug_errno(fd, "Failed to receive FD from child: %m");
+
+                return fd;
+        }
+
+        default:
+                return -EOPNOTSUPP;
+        }
+}
+
 static const char* const machine_class_table[_MACHINE_CLASS_MAX] = {
         [MACHINE_CONTAINER] = "container",
         [MACHINE_VM] = "vm",
