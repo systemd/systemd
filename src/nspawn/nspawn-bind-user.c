@@ -231,7 +231,7 @@ int bind_user_prepare(
                 _cleanup_(group_record_unrefp) GroupRecord *g = NULL, *cg = NULL;
                 _cleanup_free_ char *sm = NULL, *sd = NULL;
 
-                r = userdb_by_name(*n, USERDB_DONT_SYNTHESIZE, &u);
+                r = userdb_by_name(*n, USERDB_DONT_SYNTHESIZE_INTRINSIC|USERDB_DONT_SYNTHESIZE_FOREIGN, &u);
                 if (r < 0)
                         return log_error_errno(r, "Failed to resolve user '%s': %m", *n);
 
@@ -252,7 +252,7 @@ int bind_user_prepare(
                 if (u->uid >= uid_shift && u->uid < uid_shift + uid_range)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "UID of user '%s' to map is already in container UID range, refusing.", u->user_name);
 
-                r = groupdb_by_gid(u->gid, USERDB_DONT_SYNTHESIZE, &g);
+                r = groupdb_by_gid(u->gid, USERDB_DONT_SYNTHESIZE_INTRINSIC|USERDB_DONT_SYNTHESIZE_FOREIGN, &g);
                 if (r < 0)
                         return log_error_errno(r, "Failed to resolve group of user '%s': %m", u->user_name);
 
