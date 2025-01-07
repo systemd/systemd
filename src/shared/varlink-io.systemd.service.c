@@ -11,8 +11,8 @@ static SD_VARLINK_DEFINE_METHOD(Reload);
 
 static SD_VARLINK_DEFINE_METHOD(
                 SetLogLevel,
-                SD_VARLINK_FIELD_COMMENT("The maximum log level."),
-                SD_VARLINK_DEFINE_INPUT(level, SD_VARLINK_INT, 0));
+                SD_VARLINK_FIELD_COMMENT("The maximum log level. If set to 'null' or a negative value turns off logging entirely."),
+                SD_VARLINK_DEFINE_INPUT(level, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
 
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_service,
@@ -38,7 +38,8 @@ int varlink_method_ping(sd_varlink *link, sd_json_variant *parameters, sd_varlin
 
 int varlink_method_set_log_level(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "level", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_log_level, 0, SD_JSON_MANDATORY },
+                /* We set SD_JSON_RELAX → we treat 'null' assignment as LOG_NULL, i.e. to turn off logging */
+                { "level", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_log_level, 0, SD_JSON_MANDATORY|SD_JSON_RELAX},
                 {}
         };
 

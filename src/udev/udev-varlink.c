@@ -25,7 +25,7 @@ static int vl_method_set_log_level(sd_varlink *link, sd_json_variant *parameters
         int r, level;
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "level", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_log_level, 0, SD_JSON_MANDATORY },
+                { "level", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_log_level, 0, SD_JSON_MANDATORY|SD_JSON_STRICT },
                 {}
         };
 
