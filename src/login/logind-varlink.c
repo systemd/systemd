@@ -10,6 +10,7 @@
 #include "terminal-util.h"
 #include "user-util.h"
 #include "varlink-io.systemd.Login.h"
+#include "varlink-io.systemd.service.h"
 #include "varlink-util.h"
 
 static int manager_varlink_get_session_by_peer(
@@ -355,14 +356,20 @@ int manager_varlink_init(Manager *m) {
 
         sd_varlink_server_set_userdata(s, m);
 
-        r = sd_varlink_server_add_interface(s, &vl_interface_io_systemd_Login);
+        r = sd_varlink_server_add_interface_many(
+                        s,
+                        &vl_interface_io_systemd_Login,
+                        &vl_interface_io_systemd_service);
         if (r < 0)
                 return log_error_errno(r, "Failed to add Login interface to varlink server: %m");
 
         r = sd_varlink_server_bind_method_many(
                         s,
-                        "io.systemd.Login.CreateSession",  vl_method_create_session,
-                        "io.systemd.Login.ReleaseSession", vl_method_release_session);
+                        "io.systemd.Login.CreateSession",    vl_method_create_session,
+                        "io.systemd.Login.ReleaseSession",   vl_method_release_session,
+                        "io.systemd.service.Ping",           varlink_method_ping,
+                        "io.systemd.service.SetLogLevel",    varlink_method_set_log_level,
+                        "io.systemd.service.GetEnvironment", varlink_method_get_environment);
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink methods: %m");
 

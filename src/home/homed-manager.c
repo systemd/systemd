@@ -54,6 +54,7 @@
 #include "user-record-util.h"
 #include "user-record.h"
 #include "user-util.h"
+#include "varlink-io.systemd.service.h"
 #include "varlink-io.systemd.UserDatabase.h"
 #include "varlink-util.h"
 
@@ -1012,7 +1013,10 @@ static int manager_bind_varlink(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate varlink server: %m");
 
-        r = sd_varlink_server_add_interface(m->varlink_server, &vl_interface_io_systemd_UserDatabase);
+        r = sd_varlink_server_add_interface_many(
+                        m->varlink_server,
+                        &vl_interface_io_systemd_UserDatabase,
+                        &vl_interface_io_systemd_service);
         if (r < 0)
                 return log_error_errno(r, "Failed to add UserDatabase interface to varlink server: %m");
 
@@ -1020,7 +1024,10 @@ static int manager_bind_varlink(Manager *m) {
                         m->varlink_server,
                         "io.systemd.UserDatabase.GetUserRecord",  vl_method_get_user_record,
                         "io.systemd.UserDatabase.GetGroupRecord", vl_method_get_group_record,
-                        "io.systemd.UserDatabase.GetMemberships", vl_method_get_memberships);
+                        "io.systemd.UserDatabase.GetMemberships", vl_method_get_memberships,
+                        "io.systemd.service.Ping",                varlink_method_ping,
+                        "io.systemd.service.SetLogLevel",         varlink_method_set_log_level,
+                        "io.systemd.service.GetEnvironment",      varlink_method_get_environment);
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink methods: %m");
 
