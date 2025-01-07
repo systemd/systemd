@@ -479,10 +479,6 @@ int vl_method_open(sd_varlink *link, sd_json_variant *parameters, sd_varlink_met
         assert(link);
         assert(parameters);
 
-        r = sd_varlink_set_allow_fd_passing_output(link, true);
-        if (r < 0)
-                return log_error_errno(r, "Failed to enable varlink fd passing for write: %m");
-
         r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
         if (r != 0)
                 return r;
@@ -559,7 +555,8 @@ int vl_method_open(sd_varlink *link, sd_json_variant *parameters, sd_varlink_met
         }
 
         ptmx_fd_idx = sd_varlink_push_fd(link, ptmx_fd);
-        /* no need to handle -EPERM because we do sd_varlink_set_allow_fd_passing_output() above */
+        if (ERRNO_IS_PRIVILEGE(ptmx_fd_idx))
+                return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, NULL);
         if (ptmx_fd_idx < 0)
                 return log_debug_errno(ptmx_fd_idx, "Failed to push file descriptor over varlink: %m");
 
@@ -944,7 +941,8 @@ int vl_method_open_root_directory_internal(sd_varlink *link, sd_json_variant *pa
                 return log_debug_errno(fd, "Failed to open root directory of machine '%s': %m", machine->name);
 
         int fd_idx = sd_varlink_push_fd(link, fd);
-        /* no need to handle -EPERM because server has SD_VARLINK_SERVER_ALLOW_FD_PASSING_OUTPUT */
+        if (ERRNO_IS_PRIVILEGE(fd_idx))
+                return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, NULL);
         if (fd_idx < 0)
                 return log_debug_errno(fd_idx, "Failed to push file descriptor over varlink: %m");
 
