@@ -27,6 +27,7 @@
 #include "pretty-print.h"
 #include "utf8.h"
 #include "varlink-io.systemd.BootControl.h"
+#include "varlink-util.h"
 #include "verbs.h"
 #include "virt.h"
 
@@ -656,7 +657,7 @@ static int run(int argc, char *argv[]) {
 
                 /* Invocation as Varlink service */
 
-                r = sd_varlink_server_new(&varlink_server, SD_VARLINK_SERVER_ROOT_ONLY);
+                r = varlink_server_new(&varlink_server, SD_VARLINK_SERVER_ROOT_ONLY, NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to allocate Varlink server: %m");
 

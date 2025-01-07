@@ -5,6 +5,7 @@
 #include "sd-messages.h"
 
 #include "alloc-util.h"
+#include "bitfield.h"
 #include "bus-error.h"
 #include "bus-unit-util.h"
 #include "bus-util.h"
@@ -158,7 +159,7 @@ int handle_action_get_enabled_sleep_actions(HandleActionSleepMask mask, char ***
         assert(ret);
 
         FOREACH_ELEMENT(i, sleep_actions)
-                if (FLAGS_SET(mask, 1U << *i)) {
+                if (BIT_SET(mask, *i)) {
                         r = strv_extend(&actions, handle_action_to_string(*i));
                         if (r < 0)
                                 return r;
@@ -234,7 +235,7 @@ static int handle_action_execute(
         /* If the actual operation is inhibited, warn and fail */
         if (inhibit_what_is_valid(inhibit_operation) &&
             !ignore_inhibited &&
-            manager_is_inhibited(m, inhibit_operation, /* block= */ true, NULL, false, false, 0, &offending)) {
+            manager_is_inhibited(m, inhibit_operation, NULL, /* flags= */ 0, UID_INVALID, &offending)) {
                 _cleanup_free_ char *comm = NULL, *u = NULL;
 
                 (void) pidref_get_comm(&offending->pid, &comm);
@@ -372,7 +373,7 @@ int manager_handle_action(
 
         /* If the key handling is inhibited, don't do anything */
         if (inhibit_key > 0) {
-                if (manager_is_inhibited(m, inhibit_key, /* block= */ true, NULL, true, false, 0, NULL)) {
+                if (manager_is_inhibited(m, inhibit_key, NULL, MANAGER_IS_INHIBITED_IGNORE_INACTIVE, UID_INVALID, NULL)) {
                         log_debug("Refusing %s operation, %s is inhibited.",
                                   handle_action_to_string(handle),
                                   inhibit_what_to_string(inhibit_key));

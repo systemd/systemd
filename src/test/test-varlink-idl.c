@@ -11,6 +11,7 @@
 #include "varlink-idl-util.h"
 #include "varlink-io.systemd.h"
 #include "varlink-io.systemd.BootControl.h"
+#include "varlink-io.systemd.AskPassword.h"
 #include "varlink-io.systemd.Credentials.h"
 #include "varlink-io.systemd.Import.h"
 #include "varlink-io.systemd.Journal.h"
@@ -29,6 +30,7 @@
 #include "varlink-io.systemd.service.h"
 #include "varlink-io.systemd.sysext.h"
 #include "varlink-org.varlink.service.h"
+#include "varlink-util.h"
 
 static SD_VARLINK_DEFINE_ENUM_TYPE(
                 EnumTest,
@@ -192,6 +194,8 @@ TEST(parse_format) {
         test_parse_format_one(&vl_interface_io_systemd_Machine);
         print_separator();
         test_parse_format_one(&vl_interface_io_systemd_MachineImage);
+        print_separator();
+        test_parse_format_one(&vl_interface_io_systemd_AskPassword);
         print_separator();
         test_parse_format_one(&vl_interface_xyz_test);
 }
@@ -378,6 +382,7 @@ static void* server_thread(void *userdata) {
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
 
         assert_se(sd_varlink_server_new(&server, 0) >= 0);
+        assert_se(varlink_set_info_systemd(server) >= 0);
         assert_se(sd_varlink_server_add_interface(server, &vl_interface_xyz) >= 0);
         assert_se(sd_varlink_server_bind_method(server, "xyz.TestMethod", test_method) >= 0);
         assert_se(sd_varlink_server_bind_method(server, "xyz.Done", done_method) >= 0);

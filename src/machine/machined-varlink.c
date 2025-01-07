@@ -17,6 +17,7 @@
 #include "varlink-io.systemd.Machine.h"
 #include "varlink-io.systemd.MachineImage.h"
 #include "varlink-io.systemd.UserDatabase.h"
+#include "varlink-util.h"
 
 typedef struct LookupParameters {
         const char *user_name;
@@ -640,6 +641,7 @@ static int list_image_one_and_maybe_read_metadata(sd_varlink *link, Image *image
 }
 
 static int vl_method_list_images(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
         struct params {
                 const char *image_name;
                 AcquireMetadata acquire_metadata;
@@ -666,7 +668,7 @@ static int vl_method_list_images(sd_varlink *link, sd_json_variant *parameters, 
                 if (!image_name_is_valid(p.image_name))
                         return sd_varlink_error_invalid_parameter_name(link, "name");
 
-                r = image_find(IMAGE_MACHINE, p.image_name, /* root = */ NULL, &found);
+                r = image_find(m->runtime_scope, IMAGE_MACHINE, p.image_name, /* root = */ NULL, &found);
                 if (r == -ENOENT)
                         return sd_varlink_error(link, "io.systemd.MachineImage.NoSuchImage", NULL);
                 if (r < 0)
@@ -682,7 +684,7 @@ static int vl_method_list_images(sd_varlink *link, sd_json_variant *parameters, 
         if (!images)
                 return -ENOMEM;
 
-        r = image_discover(IMAGE_MACHINE, /* root = */ NULL, images);
+        r = image_discover(m->runtime_scope, IMAGE_MACHINE, /* root = */ NULL, images);
         if (r < 0)
                 return log_debug_errno(r, "Failed to discover images: %m");
 
@@ -712,11 +714,9 @@ static int manager_varlink_init_userdb(Manager *m) {
         if (m->varlink_userdb_server)
                 return 0;
 
-        r = sd_varlink_server_new(&s, SD_VARLINK_SERVER_ACCOUNT_UID|SD_VARLINK_SERVER_INHERIT_USERDATA);
+        r = varlink_server_new(&s, SD_VARLINK_SERVER_ACCOUNT_UID|SD_VARLINK_SERVER_INHERIT_USERDATA, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate varlink server object: %m");
-
-        sd_varlink_server_set_userdata(s, m);
 
         r = sd_varlink_server_add_interface(s, &vl_interface_io_systemd_UserDatabase);
         if (r < 0)
@@ -753,11 +753,9 @@ static int manager_varlink_init_machine(Manager *m) {
         if (m->varlink_machine_server)
                 return 0;
 
-        r = sd_varlink_server_new(&s, SD_VARLINK_SERVER_ACCOUNT_UID|SD_VARLINK_SERVER_INHERIT_USERDATA);
+        r = varlink_server_new(&s, SD_VARLINK_SERVER_ACCOUNT_UID|SD_VARLINK_SERVER_INHERIT_USERDATA, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate varlink server object: %m");
-
-        sd_varlink_server_set_userdata(s, m);
 
         r = sd_varlink_server_add_interface_many(
                         s,
@@ -774,6 +772,9 @@ static int manager_varlink_init_machine(Manager *m) {
                         "io.systemd.Machine.Terminate",   vl_method_terminate,
                         "io.systemd.Machine.Kill",        vl_method_kill,
                         "io.systemd.Machine.Open",        vl_method_open,
+                        "io.systemd.Machine.MapFrom",     vl_method_map_from,
+                        "io.systemd.Machine.MapTo",       vl_method_map_to,
+                        "io.systemd.Machine.BindMount",   vl_method_bind_mount,
                         "io.systemd.MachineImage.List",   vl_method_list_images,
                         "io.systemd.MachineImage.Update", vl_method_update_image,
                         "io.systemd.MachineImage.Clone",  vl_method_clone_image,

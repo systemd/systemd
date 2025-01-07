@@ -6,8 +6,8 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-11-06 14:42+0000\n"
-"PO-Revision-Date: 2024-11-07 09:30+0000\n"
+"POT-Creation-Date: 2024-11-28 18:16+0900\n"
+"PO-Revision-Date: 2024-11-28 11:23+0000\n"
 "Last-Translator: Piotr Drąg <piotrdrag@gmail.com>\n"
 "Language-Team: Polish <https://translate.fedoraproject.org/projects/systemd/"
 "main/pl/>\n"
@@ -1213,7 +1213,7 @@ msgid "Manage optional features"
 msgstr "Zarządzanie funkcjami opcjonalnymi"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:76
-msgid "Authentication is required to manage optional features"
+msgid "Authentication is required to manage optional features."
 msgstr "Wymagane jest uwierzytelnienie, aby zarządzać funkcjami opcjonalnymi."
 
 #: src/timedate/org.freedesktop.timedate1.policy:22

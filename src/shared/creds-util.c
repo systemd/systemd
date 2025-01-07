@@ -853,7 +853,8 @@ int encrypt_credential_and_warn(
                             CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED,
                             CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED)) {
                 if (!uid_is_valid(uid))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Scoped credential selected, but no UID specified.");
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Scoped credential key type "SD_ID128_FORMAT_STR" selected, but no UID specified.", SD_ID128_FORMAT_VAL(with_key));
         } else
                 uid = UID_INVALID;
 
@@ -1559,7 +1560,7 @@ int ipc_encrypt_credential(const char *name, usec_t timestamp, usec_t not_after,
 
         sd_json_variant_sensitive(jinput);
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *reply = NULL;
+        sd_json_variant *reply = NULL;
         const char *error_id = NULL;
         r = sd_varlink_callbo(
                         vl,
@@ -1617,7 +1618,7 @@ int ipc_decrypt_credential(const char *validate_name, usec_t validate_timestamp,
 
         sd_json_variant_sensitive(jinput);
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *reply = NULL;
+        sd_json_variant *reply = NULL;
         const char *error_id = NULL;
         r = sd_varlink_callbo(
                         vl,

@@ -19,6 +19,7 @@
 
 #include "acl-util.h"
 #include "alloc-util.h"
+#include "bitfield.h"
 #include "btrfs-util.h"
 #include "build.h"
 #include "capability-util.h"
@@ -3120,7 +3121,7 @@ static char *age_by_to_string(AgeBy ab, bool is_dir) {
                 return NULL;
 
         for (size_t i = 0; i < ELEMENTSOF(ab_map); i++)
-                if (FLAGS_SET(ab, 1U << i))
+                if (BIT_SET(ab, i))
                         ret[j++] = is_dir ? ascii_toupper(ab_map[i]) : ab_map[i];
 
         ret[j] = 0;
@@ -3684,7 +3685,7 @@ static int parse_line(
                 else {
                         *invalid_config = true;
                         return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EBADMSG),
-                                          "Unknown modifiers in command '%s'.", action);
+                                          "Unknown modifiers in command: %s", action);
                 }
 
         if (boot && !arg_boot) {

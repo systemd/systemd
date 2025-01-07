@@ -143,7 +143,7 @@
     <filename>/var/lib/machines/mymachine.raw.v/mymachine_7.5.14_x86-64.raw</filename>. Explanation: even
     though <filename>mymachine_7.7.0_x86-64+0-5.raw</filename> has the newest version, it is not preferred
     because its tries left counter is zero. And even though <filename>mymachine_7.6.0_arm64.raw</filename>
-    has the second newest version it is also not considered, in this case because we operate on an x86_64
+    has the second newest version it is also not considered in this case, because we operate on an x86_64
     system and the image is intended for arm64 CPUs. Finally, the <filename>mymachine_7.5.13.raw</filename>
     image is not considered because it is older than <filename>mymachine_7.5.14_x86-64.raw</filename>.</para>
   </refsect1>

@@ -122,6 +122,43 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_FIELD_COMMENT("Path to the allocated pseudo TTY"),
                 SD_VARLINK_DEFINE_OUTPUT(ptyPath, SD_VARLINK_STRING, 0));
 
+static SD_VARLINK_DEFINE_METHOD(
+                MapFrom,
+                VARLINK_DEFINE_MACHINE_LOOKUP_AND_POLKIT_INPUT_FIELDS,
+                SD_VARLINK_FIELD_COMMENT("UID in the machine to map to host UID"),
+                SD_VARLINK_DEFINE_INPUT(uid, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("GID in the machine to map to host GID"),
+                SD_VARLINK_DEFINE_INPUT(gid, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Mapped UID"),
+                SD_VARLINK_DEFINE_OUTPUT(uid, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Mapped GID"),
+                SD_VARLINK_DEFINE_OUTPUT(gid, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_METHOD(
+                MapTo,
+                SD_VARLINK_FIELD_COMMENT("Host UID to map to machine UID"),
+                SD_VARLINK_DEFINE_INPUT(uid, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Host GID to map to machine GID"),
+                SD_VARLINK_DEFINE_INPUT(gid, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Mapped UID"),
+                SD_VARLINK_DEFINE_OUTPUT(uid, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Mapped GID"),
+                SD_VARLINK_DEFINE_OUTPUT(gid, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Machine's name which owns mapped UID/GID"),
+                SD_VARLINK_DEFINE_OUTPUT(machineName, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_METHOD(
+                BindMount,
+                VARLINK_DEFINE_MACHINE_LOOKUP_AND_POLKIT_INPUT_FIELDS,
+                SD_VARLINK_FIELD_COMMENT("The source directory/file on the host. The path must be absolute."),
+                SD_VARLINK_DEFINE_INPUT(source, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("The destination directory/file in the container. The path must be absolute. If null, it's equal to 'source'"),
+                SD_VARLINK_DEFINE_INPUT(destination, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("If true, the bind mount shall be read-only"),
+                SD_VARLINK_DEFINE_INPUT(readOnly, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The destination mount point shall be created first, if it is missing"),
+                SD_VARLINK_DEFINE_INPUT(mkdir, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
+
 static SD_VARLINK_DEFINE_ERROR(NoSuchMachine);
 static SD_VARLINK_DEFINE_ERROR(MachineExists);
 static SD_VARLINK_DEFINE_ERROR(NoPrivateNetworking);
@@ -130,6 +167,10 @@ static SD_VARLINK_DEFINE_ERROR(NoUIDShift);
 static SD_VARLINK_DEFINE_ERROR(NotAvailable);
 static SD_VARLINK_DEFINE_ERROR(NotSupported);
 static SD_VARLINK_DEFINE_ERROR(NoIPC);
+static SD_VARLINK_DEFINE_ERROR(NoSuchUser);
+static SD_VARLINK_DEFINE_ERROR(NoSuchGroup);
+static SD_VARLINK_DEFINE_ERROR(UserInHostRange);
+static SD_VARLINK_DEFINE_ERROR(GroupInHostRange);
 
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_Machine,
@@ -154,6 +195,12 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_MachineOpenMode,
                 SD_VARLINK_SYMBOL_COMMENT("Allocates a pseudo TTY in the container in various modes"),
                 &vl_method_Open,
+                SD_VARLINK_SYMBOL_COMMENT("Maps given machine's UID/GID to host's UID/GID"),
+                &vl_method_MapFrom,
+                SD_VARLINK_SYMBOL_COMMENT("Maps given host's UID/GID to a machine and corresponding UID/GID"),
+                &vl_method_MapTo,
+                SD_VARLINK_SYMBOL_COMMENT("Bind mounts a file or directory from the host into the container"),
+                &vl_method_BindMount,
                 SD_VARLINK_SYMBOL_COMMENT("No matching machine currently running"),
                 &vl_error_NoSuchMachine,
                 &vl_error_MachineExists,
@@ -168,4 +215,12 @@ SD_VARLINK_DEFINE_INTERFACE(
                 SD_VARLINK_SYMBOL_COMMENT("Requested operation is not supported"),
                 &vl_error_NotSupported,
                 SD_VARLINK_SYMBOL_COMMENT("There is no IPC service (such as system bus or varlink) in the container"),
-                &vl_error_NoIPC);
+                &vl_error_NoIPC,
+                SD_VARLINK_SYMBOL_COMMENT("No such user"),
+                &vl_error_NoSuchUser,
+                SD_VARLINK_SYMBOL_COMMENT("No such group"),
+                &vl_error_NoSuchGroup,
+                SD_VARLINK_SYMBOL_COMMENT("User belongs to host UID range"),
+                &vl_error_UserInHostRange,
+                SD_VARLINK_SYMBOL_COMMENT("Group belongs to host GID range"),
+                &vl_error_GroupInHostRange);

@@ -24,8 +24,8 @@ if command -v authselect >/dev/null; then
 
     authselect select "$PROFILE"
 
-    if authselect list-features "$PROFILE" | grep -q "with-homed"; then
-        authselect enable-feature with-homed
+    if authselect list-features "$PROFILE" | grep -q "with-systemd-homed"; then
+        authselect enable-feature with-systemd-homed
     fi
 fi
 
@@ -47,6 +47,10 @@ cp "$SRCDIR/factory/etc/nsswitch.conf" /etc/nsswitch.conf
 
 # Remove to make TEST-73-LOCALE pass on Ubuntu.
 rm -f /etc/default/keyboard
+
+# These don't ship proper units with [Install] directives so we have to mask them instead.
+systemctl mask isc-dhcp-server.service
+systemctl mask mdmonitor.service
 
 # This is executed inside the chroot so no need to disable any features as the default features will match
 # the kernel's supported features.

@@ -28,9 +28,13 @@ static int manager_new(Manager **ret) {
 
         assert(ret);
 
-        m = new0(Manager, 1);
+        m = new(Manager, 1);
         if (!m)
                 return -ENOMEM;
+
+        *m = (Manager) {
+                .runtime_scope = RUNTIME_SCOPE_SYSTEM,
+        };
 
         r = sd_event_default(&m->event);
         if (r < 0)

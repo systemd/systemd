@@ -858,7 +858,7 @@ static void generate_sidecar_initrds(
                       /* access_mode= */ 0444,
                       /* tpm_pcr= */ TPM2_PCR_SYSEXTS,
                       u"System extension initrd",
-                      initrds + INITRD_CONFEXT,
+                      initrds + INITRD_SYSEXT,
                       &m) == EFI_SUCCESS)
                 combine_measured_flag(sysext_measured, m);
 
@@ -871,7 +871,7 @@ static void generate_sidecar_initrds(
                       /* access_mode= */ 0444,
                       /* tpm_pcr= */ TPM2_PCR_KERNEL_CONFIG,
                       u"Configuration extension initrd",
-                      initrds + INITRD_SYSEXT,
+                      initrds + INITRD_CONFEXT,
                       &m) == EFI_SUCCESS)
                 combine_measured_flag(confext_measured, m);
 }

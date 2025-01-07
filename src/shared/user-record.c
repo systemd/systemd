@@ -2,6 +2,7 @@
 
 #include <sys/mount.h>
 
+#include "bitfield.h"
 #include "cap-list.h"
 #include "cgroup-util.h"
 #include "dns-domain.h"
@@ -2165,8 +2166,15 @@ const char** user_record_self_modifiable_fields(UserRecord *h) {
 
         assert(h);
 
+        /* Note: if the self_modifiable_fields field in UserRecord is NULL we'll apply a default, if we have
+         * one. If it is a non-NULL empty strv, we'll report it as explicit empty list. When the field is
+         * NULL and we have no default list we'll return NULL. */
+
         /* Note that we intentionally distinguish between NULL and an empty array here */
-        return (const char**) h->self_modifiable_fields ?: (const char**) default_fields;
+        if (h->self_modifiable_fields)
+                return (const char**) h->self_modifiable_fields;
+
+        return user_record_disposition(h) == USER_REGULAR ? (const char**) default_fields : NULL;
 }
 
 const char** user_record_self_modifiable_blobs(UserRecord *h) {
@@ -2180,7 +2188,10 @@ const char** user_record_self_modifiable_blobs(UserRecord *h) {
         assert(h);
 
         /* Note that we intentionally distinguish between NULL and an empty array here */
-        return (const char**) h->self_modifiable_blobs ?: (const char**) default_blobs;
+        if (h->self_modifiable_blobs)
+                return (const char**) h->self_modifiable_blobs;
+
+        return user_record_disposition(h) == USER_REGULAR ? (const char**) default_blobs : NULL;
 }
 
 const char** user_record_self_modifiable_privileged(UserRecord *h) {
@@ -2201,7 +2212,10 @@ const char** user_record_self_modifiable_privileged(UserRecord *h) {
         assert(h);
 
         /* Note that we intentionally distinguish between NULL and an empty array here */
-        return (const char**) h->self_modifiable_privileged ?: (const char**) default_fields;
+        if (h->self_modifiable_privileged)
+                return (const char**) h->self_modifiable_privileged;
+
+        return user_record_disposition(h) == USER_REGULAR ? (const char**) default_fields : NULL;
 }
 
 static int remove_self_modifiable_json_fields_common(UserRecord *current, sd_json_variant **target) {
@@ -2658,7 +2672,7 @@ int user_record_match(UserRecord *u, const UserDBMatch *match) {
         if (u->uid < match->uid_min || u->uid > match->uid_max)
                 return false;
 
-        if (!FLAGS_SET(match->disposition_mask, UINT64_C(1) << user_record_disposition(u)))
+        if (!BIT_SET(match->disposition_mask, user_record_disposition(u)))
                 return false;
 
         if (!strv_isempty(match->fuzzy_names)) {

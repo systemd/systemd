@@ -250,7 +250,7 @@ static const MountEntry protect_system_strict_table[] = {
 };
 
 /* ProtectHostname=yes able */
-static const MountEntry protect_hostname_table[] = {
+static const MountEntry protect_hostname_yes_table[] = {
         { "/proc/sys/kernel/hostname",   MOUNT_READ_ONLY, false },
         { "/proc/sys/kernel/domainname", MOUNT_READ_ONLY, false },
 };
@@ -480,13 +480,20 @@ static int append_bind_mounts(MountList *ml, const BindMount *binds, size_t n) {
 }
 
 static int append_mount_images(MountList *ml, const MountImage *mount_images, size_t n) {
+        int r;
+
         assert(ml);
         assert(mount_images || n == 0);
 
         FOREACH_ARRAY(m, mount_images, n) {
+                _cleanup_(verity_settings_done) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
                 MountEntry *me = mount_list_extend(ml);
                 if (!me)
                         return log_oom_debug();
+
+                r = verity_settings_load(&verity, m->source, /* root_hash_path= */ NULL, /* root_hash_sig_path= */ NULL);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to check verity root hash of %s: %m", m->source);
 
                 *me = (MountEntry) {
                         .path_const = m->destination,
@@ -494,6 +501,7 @@ static int append_mount_images(MountList *ml, const MountImage *mount_images, si
                         .source_const = m->source,
                         .image_options_const = m->mount_options,
                         .ignore = m->ignore_enoent,
+                        .verity = TAKE_GENERIC(verity, VeritySettings, VERITY_SETTINGS_DEFAULT),
                 };
         }
 
@@ -2637,13 +2645,15 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                         return r;
         }
 
-        /* Note, if proc is mounted with subset=pid then neither of the two paths will exist, i.e. they are
-         * implicitly protected by the mount option. */
-        if (p->protect_hostname) {
+        /* Only mount /proc/sys/kernel/hostname and domainname read-only if ProtectHostname=yes. Otherwise,
+         * ProtectHostname=no allows changing hostname for the host, and ProtectHostname=private allows
+         * changing the hostname in the unit's UTS namespace. Note, if proc is mounted with subset=pid then
+         * neither of the two paths will exist, i.e. they are implicitly protected by the mount option. */
+        if (p->protect_hostname == PROTECT_HOSTNAME_YES) {
                 r = append_static_mounts(
                                 &ml,
-                                protect_hostname_table,
-                                ELEMENTSOF(protect_hostname_table),
+                                protect_hostname_yes_table,
+                                ELEMENTSOF(protect_hostname_yes_table),
                                 ignore_protect_proc);
                 if (r < 0)
                         return r;
@@ -2752,14 +2762,14 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                 };
         }
 
-        if (p->notify_socket) {
+        if (p->notify_socket_path) {
                 MountEntry *me = mount_list_extend(&ml);
                 if (!me)
                         return log_oom_debug();
 
                 *me = (MountEntry) {
-                        .path_const = p->notify_socket,
-                        .source_const = p->notify_socket,
+                        .path_const = p->notify_socket_path,
+                        .source_const = p->host_notify_socket,
                         .mode = MOUNT_BIND,
                         .read_only = true,
                 };
@@ -3243,6 +3253,7 @@ int setup_shareable_ns(int ns_storage_socket[static 2], unsigned long nsflag) {
 
 int open_shareable_ns_path(int ns_storage_socket[static 2], const char *path, unsigned long nsflag) {
         _cleanup_close_ int ns = -EBADF;
+        NamespaceType type;
         int r;
 
         assert(ns_storage_socket);
@@ -3253,6 +3264,9 @@ int open_shareable_ns_path(int ns_storage_socket[static 2], const char *path, un
         /* If the storage socket doesn't contain a ns fd yet, open one via the file system and store it in
          * it. This is supposed to be called ahead of time, i.e. before setup_shareable_ns() which will
          * allocate a new anonymous ns if needed. */
+
+        type = clone_flag_to_namespace_type(nsflag);
+        assert(type >= 0);
 
         r = posix_lock(ns_storage_socket[0], LOCK_EX);
         if (r < 0)
@@ -3272,11 +3286,11 @@ int open_shareable_ns_path(int ns_storage_socket[static 2], const char *path, un
         if (ns < 0)
                 return -errno;
 
-        r = fd_is_ns(ns, nsflag);
+        r = fd_is_namespace(ns, type);
+        if (r < 0)
+                return r;
         if (r == 0)
                 return -EINVAL;
-        if (r < 0 && r != -EUCLEAN) /* EUCLEAN: we don't know */
-                return r;
 
         r = send_one_fd(ns_storage_socket[1], ns, MSG_DONTWAIT);
         if (r < 0)
@@ -3304,6 +3318,14 @@ static const char *const protect_home_table[_PROTECT_HOME_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(protect_home, ProtectHome, PROTECT_HOME_YES);
+
+static const char *const protect_hostname_table[_PROTECT_HOSTNAME_MAX] = {
+        [PROTECT_HOSTNAME_NO]      = "no",
+        [PROTECT_HOSTNAME_YES]     = "yes",
+        [PROTECT_HOSTNAME_PRIVATE] = "private",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(protect_hostname, ProtectHostname, PROTECT_HOSTNAME_YES);
 
 static const char *const protect_system_table[_PROTECT_SYSTEM_MAX] = {
         [PROTECT_SYSTEM_NO]     = "no",
@@ -3364,6 +3386,7 @@ static const char* const private_users_table[_PRIVATE_USERS_MAX] = {
         [PRIVATE_USERS_NO]       = "no",
         [PRIVATE_USERS_SELF]     = "self",
         [PRIVATE_USERS_IDENTITY] = "identity",
+        [PRIVATE_USERS_FULL]     = "full",
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(private_users, PrivateUsers, PRIVATE_USERS_SELF);

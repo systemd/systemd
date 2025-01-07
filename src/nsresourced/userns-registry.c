@@ -530,11 +530,11 @@ static int userns_destroy_cgroup(uint64_t cgroup_id) {
 
         cgroup_fd = cg_cgroupid_open(/* cgroupfsfd= */ -EBADF, cgroup_id);
         if (cgroup_fd == -ESTALE) {
-                log_debug_errno(cgroup_fd, "Control group %" PRIu64 " already gone, ignoring: %m", cgroup_id);
+                log_debug_errno(cgroup_fd, "Control group %" PRIu64 " already gone, ignoring.", cgroup_id);
                 return 0;
         }
         if (cgroup_fd < 0)
-                return log_debug_errno(errno, "Failed to open cgroup %" PRIu64 ", ignoring: %m", cgroup_id);
+                return log_debug_errno(cgroup_fd, "Failed to open cgroup %" PRIu64 ", ignoring: %m", cgroup_id);
 
         _cleanup_free_ char *path = NULL;
         r = fd_get_path(cgroup_fd, &path);
@@ -547,7 +547,7 @@ static int userns_destroy_cgroup(uint64_t cgroup_id) {
         if (isempty(e))
                 return log_debug_errno(SYNTHETIC_ERRNO(EPERM), "Got root cgroup path, which can't be right, refusing.");
 
-        log_debug("Path of cgroup %" PRIu64 " is: %s", cgroup_id, path);
+        log_debug("Destroying cgroup %" PRIu64 " (%s)", cgroup_id, path);
 
         _cleanup_free_ char *fname = NULL;
         r = path_extract_filename(path, &fname);
@@ -567,7 +567,7 @@ static int userns_destroy_cgroup(uint64_t cgroup_id) {
 
         cgroup_fd = safe_close(cgroup_fd);
 
-        r = rm_rf_child(parent_fd, fname, REMOVE_ONLY_DIRECTORIES|REMOVE_PHYSICAL|REMOVE_CHMOD);
+        r = rm_rf_child(parent_fd, fname, REMOVE_ONLY_DIRECTORIES|REMOVE_CHMOD);
         if (r < 0)
                 log_debug_errno(r, "Failed to remove delegated cgroup %" PRIu64 ", ignoring: %m", cgroup_id);
 

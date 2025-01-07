@@ -9,6 +9,9 @@
 #include "tests.h"
 
 TEST(errno_list) {
+        ASSERT_NULL(errno_names[0]);
+        ASSERT_NULL(errno_to_name(0));
+
         for (size_t i = 0; i < ELEMENTSOF(errno_names); i++) {
                 if (errno_names[i]) {
                         ASSERT_STREQ(errno_to_name(i), errno_names[i]);

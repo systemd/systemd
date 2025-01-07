@@ -8,3 +8,4 @@ ExecStart=sh -x -c 'test "$$(id -g)" = "1" && test "$$(id -u)" = "1"'
 Type=oneshot
 User=1
 DynamicUser=yes
+ReadWritePaths=-/coverage

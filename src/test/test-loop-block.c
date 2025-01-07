@@ -224,15 +224,11 @@ static int run(int argc, char *argv[]) {
         dissected = dissected_image_unref(dissected);
 #endif
 
-        if (geteuid() != 0 || have_effective_cap(CAP_SYS_ADMIN) <= 0) {
-                log_tests_skipped("not running privileged");
-                return 0;
-        }
+        if (geteuid() != 0 || have_effective_cap(CAP_SYS_ADMIN) <= 0)
+                return log_tests_skipped("not running privileged");
 
-        if (detect_container() > 0) {
-                log_tests_skipped("Test not supported in a container, requires udev/uevent notifications");
-                return 0;
-        }
+        if (detect_container() > 0)
+                return log_tests_skipped("Test not supported in a container, requires udev/uevent notifications");
 
         assert_se(loop_device_make(fd, O_RDWR, 0, UINT64_MAX, 0, LO_FLAGS_PARTSCAN, LOCK_EX, &loop) >= 0);
 

@@ -578,6 +578,17 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><option>--include-parents</option></term>
+          <listitem>
+            <para>Trigger parent devices of found devices even if the parents
+            will not match the filter condition.
+            This is useful if we are interested to limit the coldplug activities to
+            some devices or subsystems.</para>
+
+            <xi:include href="version-info.xml" xpointer="v258"/>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><option>-w</option></term>
           <term><option>--settle</option></term>
           <listitem>
@@ -1140,7 +1151,7 @@
       <title>Format a File System</title>
 
       <para>Take a lock on the backing block device while creating a file system, to ensure that
-      <command>systemd-udevd</command> doesn't probe or announce the new superblock before it is
+      <command>systemd-udevd</command> does not probe or announce the new superblock before it is
       comprehensively written:</para>
 
       <programlisting># udevadm lock --device=/dev/sda1 mkfs.ext4 /dev/sda1</programlisting>
@@ -1158,7 +1169,7 @@
       <title>Copy in a File System</title>
 
       <para>Take a lock on the backing block device while copying in a prepared file system image, to ensure
-      that <command>systemd-udevd</command> doesn't probe or announce the new superblock before it is fully
+      that <command>systemd-udevd</command> does not probe or announce the new superblock before it is fully
       written:</para>
 
       <programlisting># udevadm lock -d /dev/sda1 dd if=fs.raw of=/dev/sda1</programlisting>

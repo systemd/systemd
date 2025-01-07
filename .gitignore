@@ -7,6 +7,7 @@
 .config.args
 .gdb_history
 .deps/
+.venv/
 .mypy_cache/
 __pycache__/
 /*.gcda

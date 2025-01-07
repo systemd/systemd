@@ -77,7 +77,7 @@ static int add_pcr_to_table(Table *table, const char *alg, uint32_t pcr) {
                 /* Grey out PCRs that are not sensibly initialized */
                 if (memeqbyte(0, buf, bufsize) ||
                     memeqbyte(0xFFU, buf, bufsize))
-                        color = ANSI_GREY;
+                        color = ansi_grey();
         }
 
         r = table_add_many(table,

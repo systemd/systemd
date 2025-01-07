@@ -750,7 +750,7 @@ static int ndisc_option_parse_route(Set **options, size_t offset, size_t len, co
         usec_t lifetime = unaligned_be32_sec_to_usec(opt + 4, /* max_as_infinity = */ true);
 
         struct in6_addr prefix;
-        memcpy(&prefix, opt + 8, len - 8);
+        memcpy_safe(&prefix, opt + 8, len - 8);
         in6_addr_mask(&prefix, prefixlen);
 
         return ndisc_option_add_route(options, offset, preference, prefixlen, &prefix, lifetime);

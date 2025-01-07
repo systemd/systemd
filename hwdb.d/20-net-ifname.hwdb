@@ -3,3 +3,7 @@
 # Dell iDRAC Virtual USB NIC
 usb:v413CpA102*
  ID_NET_NAME_FROM_DATABASE=idrac
+
+# Disable inclusion of PCI domain in interface names on Azure MANA
+pci:v00001414d000000BA*
+ ID_NET_NAME_INCLUDE_DOMAIN=0

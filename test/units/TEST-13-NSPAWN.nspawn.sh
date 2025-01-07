@@ -796,7 +796,7 @@ EOF
 
 testcase_machinectl_bind() {
     local service_path service_name root container_name ec
-    local cmd='for i in $(seq 1 20); do if test -f /tmp/marker; then exit 0; fi; sleep .5; done; exit 1;'
+    local cmd='for i in $(seq 1 20); do if test -f /tmp/marker && test -f /tmp/marker-varlink; then exit 0; fi; sleep .5; done; exit 1;'
 
     root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.machinectl-bind.XXX)"
     create_dummy_container "$root"
@@ -814,6 +814,8 @@ EOF
     systemctl start "$service_name"
     touch /tmp/marker
     machinectl bind --mkdir "$container_name" /tmp/marker
+    touch /tmp/marker-varlink
+    varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.BindMount "{\"name\": \"$container_name\", \"source\": \"/tmp/marker-varlink\", \"mkdir\": true}"
 
     timeout 10 bash -c "while [[ '\$(systemctl show -P SubState $service_name)' == running ]]; do sleep .2; done"
     ec="$(systemctl show -P ExecMainStatus "$service_name")"
@@ -1129,7 +1131,7 @@ testcase_unpriv() {
 
     local tmpdir name
     tmpdir="$(mktemp -d /var/tmp/TEST-13-NSPAWN.unpriv.XXX)"
-    name="unpriv-${tmpdir##*.}"
+    name="unprv-${tmpdir##*.}"
     trap 'rm -fr ${tmpdir@Q} || true; rm -f /run/verity.d/test-13-nspawn-${name@Q} || true' RETURN ERR
     create_dummy_ddi "$tmpdir" "$name"
     chown --recursive testuser: "$tmpdir"
@@ -1140,6 +1142,17 @@ testcase_unpriv() {
         --property=Delegate=yes \
         -- \
         systemd-nspawn --pipe --private-network --register=no --keep-unit --image="$tmpdir/$name.raw" echo hello >"$tmpdir/stdout.txt"
+    echo hello | cmp "$tmpdir/stdout.txt" -
+
+    # Make sure per-user search path logic works
+    systemd-run --pipe --uid=testuser mkdir -p /home/testuser/.local/state/machines
+    systemd-run --pipe --uid=testuser ln -s "$tmpdir/$name.raw" /home/testuser/.local/state/machines/"x$name.raw"
+    systemd-run \
+        --pipe \
+        --uid=testuser \
+        --property=Delegate=yes \
+        -- \
+        systemd-nspawn --pipe --private-network --register=no --keep-unit --machine="x$name" echo hello >"$tmpdir/stdout.txt"
     echo hello | cmp "$tmpdir/stdout.txt" -
 }
 
@@ -1238,7 +1251,7 @@ test_tun() {
     # Without DeviceAllow= for /dev/net/tun, see issue #35116.
     assert_rc \
         "$expect" \
-        systemd-run --pty --wait -p DevicePolicy=closed -p DeviceAllow="char-pts rw" \
+        systemd-run --wait -p Environment=SYSTEMD_LOG_LEVEL=debug -p DevicePolicy=closed -p DeviceAllow="char-pts rw" \
         systemd-nspawn "$@" bash -xec "$command"
 
     [[ "$(stat /dev/net/tun --format=%u)" == 0 ]]

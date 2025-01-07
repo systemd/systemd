@@ -32,7 +32,7 @@
       <arg choice="plain">VOLUME</arg>
       <arg choice="plain">SOURCE-DEVICE</arg>
       <arg choice="opt">KEY-FILE</arg>
-      <arg choice="opt">CONFIG</arg>
+      <arg choice="opt">CRYPTTAB-OPTIONS</arg>
     </cmdsynopsis>
 
     <cmdsynopsis>
@@ -150,7 +150,7 @@
       <varlistentry>
         <term><varname>cryptsetup.luks2-pin</varname></term>
 
-        <listitem><para>This credential specifies the PIN requested by generic LUKS2 token modules.</para>
+        <listitem><para>This credential specifies the pin requested by generic LUKS2 token modules.</para>
 
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>

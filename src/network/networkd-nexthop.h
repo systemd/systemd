@@ -22,7 +22,7 @@ typedef int (*nexthop_netlink_handler_t)(
                 sd_netlink_message *m,
                 Request *req,
                 Link *link,
-                NextHop *address);
+                NextHop *nexthop);
 
 struct NextHop {
         Network *network;

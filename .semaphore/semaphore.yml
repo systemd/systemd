@@ -15,7 +15,7 @@ auto_cancel:
     when: "true"
 
 execution_time_limit:
-  hours: 1
+  hours: 2
 
 blocks:
   - name: "Setup & test"

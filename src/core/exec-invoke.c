@@ -22,6 +22,7 @@
 #endif
 #include "argv-util.h"
 #include "barrier.h"
+#include "bitfield.h"
 #include "bpf-dlopen.h"
 #include "bpf-restrict-fs.h"
 #include "btrfs-util.h"
@@ -31,7 +32,6 @@
 #include "chattr-util.h"
 #include "chown-recursive.h"
 #include "copy.h"
-#include "data-fd-util.h"
 #include "env-util.h"
 #include "escape.h"
 #include "exec-credential.h"
@@ -40,9 +40,11 @@
 #include "exit-status.h"
 #include "fd-util.h"
 #include "hexdecoct.h"
+#include "hostname-setup.h"
 #include "io-util.h"
 #include "iovec-util.h"
 #include "journal-send.h"
+#include "memfd-util.h"
 #include "missing_ioprio.h"
 #include "missing_prctl.h"
 #include "missing_sched.h"
@@ -405,7 +407,7 @@ static int setup_input(
         case EXEC_INPUT_DATA: {
                 int fd;
 
-                fd = acquire_data_fd_full(context->stdin_data, context->stdin_data_size, /* flags = */ 0);
+                fd = memfd_new_and_seal("exec-input", context->stdin_data, context->stdin_data_size);
                 if (fd < 0)
                         return fd;
 
@@ -854,9 +856,6 @@ static int get_fixed_user(
 
         assert(user_or_uid);
         assert(ret_username);
-
-        /* Note that we don't set $HOME or $SHELL if they are not particularly enlightening anyway
-         * (i.e. are "/" or "/bin/nologin"). */
 
         r = get_user_creds(&user_or_uid, ret_uid, ret_gid, ret_home, ret_shell, USER_CREDS_CLEAN);
         if (r < 0)
@@ -1344,7 +1343,7 @@ static bool context_has_seccomp(const ExecContext *c) {
                 c->memory_deny_write_execute ||
                 c->private_devices ||
                 c->protect_clock ||
-                c->protect_hostname ||
+                c->protect_hostname == PROTECT_HOSTNAME_YES ||
                 c->protect_kernel_tunables ||
                 c->protect_kernel_modules ||
                 c->protect_kernel_logs ||
@@ -1409,7 +1408,7 @@ static bool skip_seccomp_unavailable(const ExecContext *c, const ExecParameters 
         return true;
 }
 
-static int apply_syscall_filter(const ExecContext *c, const ExecParameters *p, bool needs_ambient_hack) {
+static int apply_syscall_filter(const ExecContext *c, const ExecParameters *p) {
         uint32_t negative_action, default_action, action;
         int r;
 
@@ -1430,12 +1429,6 @@ static int apply_syscall_filter(const ExecContext *c, const ExecParameters *p, b
         } else {
                 default_action = SCMP_ACT_ALLOW;
                 action = negative_action;
-        }
-
-        if (needs_ambient_hack) {
-                r = seccomp_filter_set_add(c->syscall_filter, c->syscall_allow_list, syscall_filter_sets + SYSCALL_FILTER_SET_SETUID);
-                if (r < 0)
-                        return r;
         }
 
         /* Sending over exec_fd or handoff_timestamp_fd requires write() syscall. */
@@ -1701,43 +1694,47 @@ static int apply_restrict_filesystems(const ExecContext *c, const ExecParameters
 #endif
 
 static int apply_protect_hostname(const ExecContext *c, const ExecParameters *p, int *ret_exit_status) {
+        int r;
+
         assert(c);
         assert(p);
 
-        if (!c->protect_hostname)
+        if (c->protect_hostname == PROTECT_HOSTNAME_NO)
                 return 0;
 
         if (ns_type_supported(NAMESPACE_UTS)) {
                 if (unshare(CLONE_NEWUTS) < 0) {
                         if (!ERRNO_IS_NOT_SUPPORTED(errno) && !ERRNO_IS_PRIVILEGE(errno)) {
                                 *ret_exit_status = EXIT_NAMESPACE;
-                                return log_exec_error_errno(c,
-                                                            p,
-                                                            errno,
-                                                            "Failed to set up UTS namespacing: %m");
+                                return log_exec_error_errno(c, p, errno, "Failed to set up UTS namespacing: %m");
                         }
 
-                        log_exec_warning(c,
-                                         p,
-                                         "ProtectHostname=yes is configured, but UTS namespace setup is "
-                                         "prohibited (container manager?), ignoring namespace setup.");
+                        log_exec_warning(c, p,
+                                         "ProtectHostname=%s is configured, but UTS namespace setup is prohibited (container manager?), ignoring namespace setup.",
+                                         protect_hostname_to_string(c->protect_hostname));
+
+                } else if (c->private_hostname) {
+                        r = sethostname_idempotent(c->private_hostname);
+                        if (r < 0) {
+                                *ret_exit_status = EXIT_NAMESPACE;
+                                return log_exec_error_errno(c, p, r, "Failed to set private hostname '%s': %m", c->private_hostname);
+                        }
                 }
         } else
-                log_exec_warning(c,
-                                 p,
-                                 "ProtectHostname=yes is configured, but the kernel does not "
-                                 "support UTS namespaces, ignoring namespace setup.");
+                log_exec_warning(c, p,
+                                 "ProtectHostname=%s is configured, but the kernel does not support UTS namespaces, ignoring namespace setup.",
+                                 protect_hostname_to_string(c->protect_hostname));
 
 #if HAVE_SECCOMP
-        int r;
+        if (c->protect_hostname == PROTECT_HOSTNAME_YES) {
+                if (skip_seccomp_unavailable(c, p, "ProtectHostname="))
+                        return 0;
 
-        if (skip_seccomp_unavailable(c, p, "ProtectHostname="))
-                return 0;
-
-        r = seccomp_protect_hostname();
-        if (r < 0) {
-                *ret_exit_status = EXIT_SECCOMP;
-                return log_exec_error_errno(c, p, r, "Failed to apply hostname restrictions: %m");
+                r = seccomp_protect_hostname();
+                if (r < 0) {
+                        *ret_exit_status = EXIT_SECCOMP;
+                        return log_exec_error_errno(c, p, r, "Failed to apply hostname restrictions: %m");
+                }
         }
 #endif
 
@@ -1797,6 +1794,7 @@ static int build_environment(
                 dev_t journal_stream_dev,
                 ino_t journal_stream_ino,
                 const char *memory_pressure_path,
+                bool needs_sandboxing,
                 char ***ret) {
 
         _cleanup_strv_free_ char **our_env = NULL;
@@ -1808,7 +1806,7 @@ static int build_environment(
         assert(p);
         assert(ret);
 
-#define N_ENV_VARS 19
+#define N_ENV_VARS 20
         our_env = new0(char*, N_ENV_VARS + _EXEC_DIRECTORY_TYPE_MAX);
         if (!our_env)
                 return -ENOMEM;
@@ -1883,7 +1881,10 @@ static int build_environment(
                 }
         }
 
-        if (home && set_user_login_env) {
+        /* Note that we don't set $HOME or $SHELL if they are not particularly enlightening anyway
+         * (i.e. are "/" or "/bin/nologin"). */
+
+        if (home && set_user_login_env && !empty_or_root(home)) {
                 x = strjoin("HOME=", home);
                 if (!x)
                         return -ENOMEM;
@@ -1892,7 +1893,7 @@ static int build_environment(
                 our_env[n_env++] = x;
         }
 
-        if (shell && set_user_login_env) {
+        if (shell && set_user_login_env && !shell_is_placeholder(shell)) {
                 x = strjoin("SHELL=", shell);
                 if (!x)
                         return -ENOMEM;
@@ -2042,6 +2043,14 @@ static int build_environment(
                 }
         }
 
+        if (p->notify_socket) {
+                x = strjoin("NOTIFY_SOCKET=", exec_get_private_notify_socket_path(c, p, needs_sandboxing) ?: p->notify_socket);
+                if (!x)
+                        return -ENOMEM;
+
+                our_env[n_env++] = x;
+        }
+
         assert(n_env < N_ENV_VARS + _EXEC_DIRECTORY_TYPE_MAX);
 #undef N_ENV_VARS
 
@@ -2077,7 +2086,7 @@ static int build_pass_environment(const ExecContext *c, char ***ret) {
         return 0;
 }
 
-static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogid, uid_t uid, gid_t gid) {
+static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogid, uid_t uid, gid_t gid, bool allow_setgroups) {
         _cleanup_free_ char *uid_map = NULL, *gid_map = NULL;
         _cleanup_close_pair_ int errno_pipe[2] = EBADF_PAIR;
         _cleanup_close_ int unshare_ready_fd = -EBADF;
@@ -2103,6 +2112,29 @@ static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogi
                 uid_map = strdup("0 0 65536\n");
                 if (!uid_map)
                         return -ENOMEM;
+        } else if (private_users == PRIVATE_USERS_FULL) {
+                /* Map all UID/GID from original to new user namespace. We can't use `0 0 UINT32_MAX` because
+                 * this is the same UID/GID map as the init user namespace and systemd's running_in_userns()
+                 * checks whether its in a user namespace by comparing uid_map/gid_map to `0 0 UINT32_MAX`.
+                 * Thus, we still map all UIDs/GIDs but do it using two extents to differentiate the new user
+                 * namespace from the init namespace:
+                 *   0 0 1
+                 *   1 1 UINT32_MAX - 1
+                 *
+                 * systemd will remove the heuristic in running_in_userns() and use namespace inodes in version 258
+                 * (PR #35382). But some users may be running a container image with older systemd < 258 so we keep
+                 * this uid_map/gid_map hack until version 259 for version N-1 compatibility.
+                 *
+                 * TODO: Switch to `0 0 UINT32_MAX` in systemd v259.
+                 *
+                 * Note the kernel defines the UID range between 0 and UINT32_MAX so we map all UIDs even though
+                 * the UID range beyond INT32_MAX (e.g. i.e. the range above the signed 32-bit range) is
+                 * icky. For example, setfsuid() returns the old UID as signed integer. But units can decide to
+                 * use these UIDs/GIDs so we need to map them. */
+                r = asprintf(&uid_map, "0 0 1\n"
+                                       "1 1 " UID_FMT "\n", (uid_t) (UINT32_MAX - 1));
+                if (r < 0)
+                        return -ENOMEM;
         /* Can only set up multiple mappings with CAP_SETUID. */
         } else if (have_effective_cap(CAP_SETUID) > 0 && uid != ouid && uid_is_valid(uid)) {
                 r = asprintf(&uid_map,
@@ -2122,6 +2154,11 @@ static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogi
         if (private_users == PRIVATE_USERS_IDENTITY) {
                 gid_map = strdup("0 0 65536\n");
                 if (!gid_map)
+                        return -ENOMEM;
+        } else if (private_users == PRIVATE_USERS_FULL) {
+                r = asprintf(&gid_map, "0 0 1\n"
+                                       "1 1 " GID_FMT "\n", (gid_t) (UINT32_MAX - 1));
+                if (r < 0)
                         return -ENOMEM;
         /* Can only set up multiple mappings with CAP_SETGID. */
         } else if (have_effective_cap(CAP_SETGID) > 0 && gid != ogid && gid_is_valid(gid)) {
@@ -2168,7 +2205,8 @@ static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogi
                 if (read(unshare_ready_fd, &c, sizeof(c)) < 0)
                         report_errno_and_exit(errno_pipe[1], -errno);
 
-                /* Disable the setgroups() system call in the child user namespace, for good. */
+                /* Disable the setgroups() system call in the child user namespace, for good, unless PrivateUsers=full
+                 * and using the system service manager. */
                 a = procfs_file_alloca(ppid, "setgroups");
                 fd = open(a, O_WRONLY|O_CLOEXEC);
                 if (fd < 0) {
@@ -2179,8 +2217,9 @@ static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogi
 
                         /* If the file is missing the kernel is too old, let's continue anyway. */
                 } else {
-                        if (write(fd, "deny\n", 5) < 0) {
-                                r = log_debug_errno(errno, "Failed to write \"deny\" to %s: %m", a);
+                        const char *setgroups = allow_setgroups ? "allow\n" : "deny\n";
+                        if (write(fd, setgroups, strlen(setgroups)) < 0) {
+                                r = log_debug_errno(errno, "Failed to write '%s' to %s: %m", setgroups, a);
                                 report_errno_and_exit(errno_pipe[1], r);
                         }
 
@@ -3405,7 +3444,8 @@ static int apply_mount_namespace(
                 .propagate_dir = propagate_dir,
                 .incoming_dir = incoming_dir,
                 .private_namespace_dir = private_namespace_dir,
-                .notify_socket = root_dir || root_image ? params->notify_socket : NULL,
+                .host_notify_socket = params->notify_socket,
+                .notify_socket_path = exec_get_private_notify_socket_path(context, params, needs_sandboxing),
                 .host_os_release_stage = host_os_release_stage,
 
                 /* If DynamicUser=no and RootDirectory= is set then lets pass a relaxed sandbox info,
@@ -3417,13 +3457,12 @@ static int apply_mount_namespace(
                 .protect_kernel_tunables = needs_sandboxing && context->protect_kernel_tunables,
                 .protect_kernel_modules = needs_sandboxing && context->protect_kernel_modules,
                 .protect_kernel_logs = needs_sandboxing && context->protect_kernel_logs,
-                .protect_hostname = needs_sandboxing && context->protect_hostname,
 
                 .private_dev = needs_sandboxing && context->private_devices,
                 .private_network = needs_sandboxing && exec_needs_network_namespace(context),
                 .private_ipc = needs_sandboxing && exec_needs_ipc_namespace(context),
                 .private_pids = needs_sandboxing && exec_needs_pid_namespace(context) ? context->private_pids : PRIVATE_PIDS_NO,
-                .private_tmp = needs_sandboxing ? context->private_tmp : false,
+                .private_tmp = needs_sandboxing ? context->private_tmp : PRIVATE_TMP_NO,
 
                 .mount_apivfs = needs_sandboxing && exec_context_get_effective_mount_apivfs(context),
                 .bind_log_sockets = needs_sandboxing && exec_context_get_effective_bind_log_sockets(context),
@@ -3431,10 +3470,11 @@ static int apply_mount_namespace(
                 /* If NNP is on, we can turn on MS_NOSUID, since it won't have any effect anymore. */
                 .mount_nosuid = needs_sandboxing && context->no_new_privileges && !mac_selinux_use(),
 
-                .protect_home = needs_sandboxing ? context->protect_home : false,
-                .protect_system = needs_sandboxing ? context->protect_system : false,
-                .protect_proc = needs_sandboxing ? context->protect_proc : false,
-                .proc_subset = needs_sandboxing ? context->proc_subset : false,
+                .protect_home = needs_sandboxing ? context->protect_home : PROTECT_HOME_NO,
+                .protect_hostname = needs_sandboxing ? context->protect_hostname : PROTECT_HOSTNAME_NO,
+                .protect_system = needs_sandboxing ? context->protect_system : PROTECT_SYSTEM_NO,
+                .protect_proc = needs_sandboxing ? context->protect_proc : PROTECT_PROC_DEFAULT,
+                .proc_subset = needs_sandboxing ? context->proc_subset : PROC_SUBSET_ALL,
         };
 
         r = setup_namespace(&parameters, reterr_path);
@@ -3471,20 +3511,16 @@ static int apply_working_directory(
                 const ExecContext *context,
                 const ExecParameters *params,
                 ExecRuntime *runtime,
-                const char *home,
-                int *exit_status) {
+                const char *home) {
 
         const char *wd;
         int r;
 
         assert(context);
-        assert(exit_status);
 
         if (context->working_directory_home) {
-                if (!home) {
-                        *exit_status = EXIT_CHDIR;
+                if (!home)
                         return -ENXIO;
-                }
 
                 wd = home;
         } else
@@ -3503,13 +3539,7 @@ static int apply_working_directory(
                 if (r >= 0)
                         r = RET_NERRNO(fchdir(dfd));
         }
-
-        if (r < 0 && !context->working_directory_missing_ok) {
-                *exit_status = EXIT_CHDIR;
-                return r;
-        }
-
-        return 0;
+        return context->working_directory_missing_ok ? 0 : r;
 }
 
 static int apply_root_directory(
@@ -3785,7 +3815,7 @@ static int acquire_home(const ExecContext *c, const char **home, char **ret_buf)
         if (!c->working_directory_home)
                 return 0;
 
-        if (c->dynamic_user)
+        if (c->dynamic_user || (c->user && is_this_me(c->user) <= 0))
                 return -EADDRNOTAVAIL;
 
         r = get_home_dir(ret_buf);
@@ -4065,7 +4095,7 @@ static bool exec_context_need_unprivileged_private_users(
                context->protect_kernel_logs ||
                exec_needs_cgroup_mount(context, params) ||
                context->protect_clock ||
-               context->protect_hostname ||
+               context->protect_hostname != PROTECT_HOSTNAME_NO ||
                !strv_isempty(context->read_write_paths) ||
                !strv_isempty(context->read_only_paths) ||
                !strv_isempty(context->inaccessible_paths) ||
@@ -4262,8 +4292,7 @@ int exec_invoke(
         bool userns_set_up = false;
         bool needs_sandboxing,          /* Do we need to set up full sandboxing? (i.e. all namespacing, all MAC stuff, caps, yadda yadda */
                 needs_setuid,           /* Do we need to do the actual setresuid()/setresgid() calls? */
-                needs_mount_namespace,  /* Do we need to set up a mount namespace for this kernel? */
-                needs_ambient_hack;     /* Do we need to apply the ambient capabilities hack? */
+                needs_mount_namespace;  /* Do we need to set up a mount namespace for this kernel? */
         bool keep_seccomp_privileges = false;
         bool has_cap_sys_admin = false;
 #if HAVE_SELINUX
@@ -4543,7 +4572,7 @@ int exec_invoke(
         r = acquire_home(context, &home, &home_buffer);
         if (r < 0) {
                 *exit_status = EXIT_CHDIR;
-                return log_exec_error_errno(context, params, r, "Failed to determine $HOME for user: %m");
+                return log_exec_error_errno(context, params, r, "Failed to determine $HOME for the invoking user: %m");
         }
 
         /* If a socket is connected to STDIN/STDOUT/STDERR, we must drop O_NONBLOCK */
@@ -4852,6 +4881,7 @@ int exec_invoke(
                         journal_stream_dev,
                         journal_stream_ino,
                         memory_pressure_path,
+                        needs_sandboxing,
                         &our_env);
         if (r < 0) {
                 *exit_status = EXIT_MEMORY;
@@ -4903,17 +4933,9 @@ int exec_invoke(
                 return log_exec_error_errno(context, params, r, "Failed to set up kernel keyring: %m");
         }
 
-        /* We need the ambient capability hack, if the caller asked us to apply it and the command is marked
-         * for it, and the kernel doesn't actually support ambient caps. */
-        needs_ambient_hack = (params->flags & EXEC_APPLY_SANDBOXING) && (command->flags & EXEC_COMMAND_AMBIENT_MAGIC) && !ambient_capabilities_supported();
-
         /* We need setresuid() if the caller asked us to apply sandboxing and the command isn't explicitly
-         * excepted from either whole sandboxing or just setresuid() itself, and the ambient hack is not
-         * desired. */
-        if (needs_ambient_hack)
-                needs_setuid = false;
-        else
-                needs_setuid = (params->flags & EXEC_APPLY_SANDBOXING) && !(command->flags & (EXEC_COMMAND_FULLY_PRIVILEGED|EXEC_COMMAND_NO_SETUID));
+         * excepted from either whole sandboxing or just setresuid() itself. */
+        needs_setuid = (params->flags & EXEC_APPLY_SANDBOXING) && !(command->flags & (EXEC_COMMAND_FULLY_PRIVILEGED|EXEC_COMMAND_NO_SETUID));
 
         uint64_t capability_ambient_set = context->capability_ambient_set;
 
@@ -4960,19 +4982,16 @@ int exec_invoke(
                         return log_exec_error_errno(context, params, r, "Failed to set up PAM session: %m");
                 }
 
-                if (ambient_capabilities_supported()) {
-                        uint64_t ambient_after_pam;
-
-                        /* PAM modules might have set some ambient caps. Query them here and merge them into
-                         * the caps we want to set in the end, so that we don't end up unsetting them. */
-                        r = capability_get_ambient(&ambient_after_pam);
-                        if (r < 0) {
-                                *exit_status = EXIT_CAPABILITIES;
-                                return log_exec_error_errno(context, params, r, "Failed to query ambient caps: %m");
-                        }
-
-                        capability_ambient_set |= ambient_after_pam;
+                /* PAM modules might have set some ambient caps. Query them here and merge them into
+                 * the caps we want to set in the end, so that we don't end up unsetting them. */
+                uint64_t ambient_after_pam;
+                r = capability_get_ambient(&ambient_after_pam);
+                if (r < 0) {
+                        *exit_status = EXIT_CAPABILITIES;
+                        return log_exec_error_errno(context, params, r, "Failed to query ambient caps: %m");
                 }
+
+                capability_ambient_set |= ambient_after_pam;
 
                 ngids_after_pam = getgroups_alloc(&gids_after_pam);
                 if (ngids_after_pam < 0) {
@@ -4989,7 +5008,9 @@ int exec_invoke(
                 if (pu == PRIVATE_USERS_NO)
                         pu = PRIVATE_USERS_SELF;
 
-                r = setup_private_users(pu, saved_uid, saved_gid, uid, gid);
+                /* The kernel requires /proc/pid/setgroups be set to "deny" prior to writing /proc/pid/gid_map in
+                 * unprivileged user namespaces. */
+                r = setup_private_users(pu, saved_uid, saved_gid, uid, gid, /* allow_setgroups= */ false);
                 /* If it was requested explicitly and we can't set it up, fail early. Otherwise, continue and let
                  * the actual requested operations fail (or silently continue). */
                 if (r < 0 && context->private_users != PRIVATE_USERS_NO) {
@@ -5159,7 +5180,8 @@ int exec_invoke(
          * different user namespace). */
 
         if (needs_sandboxing && !userns_set_up) {
-                r = setup_private_users(context->private_users, saved_uid, saved_gid, uid, gid);
+                r = setup_private_users(context->private_users, saved_uid, saved_gid, uid, gid,
+                                        /* allow_setgroups= */ context->private_users == PRIVATE_USERS_FULL);
                 if (r < 0) {
                         *exit_status = EXIT_USER;
                         return log_exec_error_errno(context, params, r, "Failed to set up user namespacing: %m");
@@ -5273,13 +5295,6 @@ int exec_invoke(
 #endif
 
                 bset = context->capability_bounding_set;
-                /* If the ambient caps hack is enabled (which means the kernel can't do them, and the user asked for
-                 * our magic fallback), then let's add some extra caps, so that the service can drop privs of its own,
-                 * instead of us doing that */
-                if (needs_ambient_hack)
-                        bset |= (UINT64_C(1) << CAP_SETPCAP) |
-                                (UINT64_C(1) << CAP_SETUID) |
-                                (UINT64_C(1) << CAP_SETGID);
 
 #if HAVE_SECCOMP
                 /* If the service has any form of a seccomp filter and it allows dropping privileges, we'll
@@ -5322,7 +5337,7 @@ int exec_invoke(
                  *
                  * The requested ambient capabilities are raised in the inheritable set if the second
                  * argument is true. */
-                if (!needs_ambient_hack && capability_ambient_set != 0) {
+                if (capability_ambient_set != 0) {
                         r = capability_ambient_set_apply(capability_ambient_set, /* also_inherit= */ true);
                         if (r < 0) {
                                 *exit_status = EXIT_CAPABILITIES;
@@ -5345,7 +5360,7 @@ int exec_invoke(
                         }
 
                         if (keep_seccomp_privileges) {
-                                if (!FLAGS_SET(capability_ambient_set, (UINT64_C(1) << CAP_SETUID))) {
+                                if (!BIT_SET(capability_ambient_set, CAP_SETUID)) {
                                         r = drop_capability(CAP_SETUID);
                                         if (r < 0) {
                                                 *exit_status = EXIT_USER;
@@ -5366,7 +5381,7 @@ int exec_invoke(
                                 }
                         }
 
-                        if (!needs_ambient_hack && capability_ambient_set != 0) {
+                        if (capability_ambient_set != 0) {
 
                                 /* Raise the ambient capabilities after user change. */
                                 r = capability_ambient_set_apply(capability_ambient_set, /* also_inherit= */ false);
@@ -5382,9 +5397,11 @@ int exec_invoke(
          * running this service might have the correct privilege to change to the working directory. Also, it
          * is absolutely 💣 crucial 💣 we applied all mount namespacing rearrangements before this, so that
          * the cwd cannot be used to pin directories outside of the sandbox. */
-        r = apply_working_directory(context, params, runtime, home, exit_status);
-        if (r < 0)
+        r = apply_working_directory(context, params, runtime, home);
+        if (r < 0) {
+                *exit_status = EXIT_CHDIR;
                 return log_exec_error_errno(context, params, r, "Changing to the requested working directory failed: %m");
+        }
 
         if (needs_sandboxing) {
                 /* Apply other MAC contexts late, but before seccomp syscall filtering, as those should really be last to
@@ -5550,7 +5567,7 @@ int exec_invoke(
 #if HAVE_SECCOMP
                 /* This really should remain as close to the execve() as possible, to make sure our own code is affected
                  * by the filter as little as possible. */
-                r = apply_syscall_filter(context, params, needs_ambient_hack);
+                r = apply_syscall_filter(context, params);
                 if (r < 0) {
                         *exit_status = EXIT_SECCOMP;
                         return log_exec_error_errno(context, params, r, "Failed to apply system call filters: %m");
@@ -5569,7 +5586,7 @@ int exec_invoke(
 
                         /* Only drop CAP_SYS_ADMIN if it's not in the bounding set, otherwise we'll break
                          * applications that use it. */
-                        if (!FLAGS_SET(saved_bset, (UINT64_C(1) << CAP_SYS_ADMIN))) {
+                        if (!BIT_SET(saved_bset, CAP_SYS_ADMIN)) {
                                 r = drop_capability(CAP_SYS_ADMIN);
                                 if (r < 0) {
                                         *exit_status = EXIT_USER;
@@ -5579,7 +5596,7 @@ int exec_invoke(
 
                         /* Only drop CAP_SETPCAP if it's not in the bounding set, otherwise we'll break
                          * applications that use it. */
-                        if (!FLAGS_SET(saved_bset, (UINT64_C(1) << CAP_SETPCAP))) {
+                        if (!BIT_SET(saved_bset, CAP_SETPCAP)) {
                                 r = drop_capability(CAP_SETPCAP);
                                 if (r < 0) {
                                         *exit_status = EXIT_USER;

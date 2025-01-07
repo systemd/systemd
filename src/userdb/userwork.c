@@ -20,6 +20,7 @@
 #include "user-util.h"
 #include "userdb.h"
 #include "varlink-io.systemd.UserDatabase.h"
+#include "varlink-util.h"
 
 #define ITERATIONS_MAX 64U
 #define RUNTIME_MAX_USEC (5 * USEC_PER_MINUTE)
@@ -489,9 +490,9 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to turn off non-blocking mode for listening socket: %m");
 
-        r = sd_varlink_server_new(&server, 0);
+        r = varlink_server_new(&server, 0, NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to allocate server: %m");
+                return log_error_errno(r, "Failed to allocate varlink server: %m");
 
         r = sd_varlink_server_add_interface(server, &vl_interface_io_systemd_UserDatabase);
         if (r < 0)

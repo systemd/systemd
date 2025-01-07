@@ -6,6 +6,7 @@ systemd_analyze_sources = files(
         'analyze-calendar.c',
         'analyze-capability.c',
         'analyze-cat-config.c',
+        'analyze-chid.c',
         'analyze-compare-versions.c',
         'analyze-condition.c',
         'analyze-critical-chain.c',

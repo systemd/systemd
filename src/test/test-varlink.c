@@ -8,14 +8,15 @@
 #include "sd-json.h"
 #include "sd-varlink.h"
 
-#include "data-fd-util.h"
 #include "fd-util.h"
 #include "json-util.h"
+#include "memfd-util.h"
 #include "rm-rf.h"
 #include "strv.h"
 #include "tests.h"
 #include "tmpfile-util.h"
 #include "user-util.h"
+#include "varlink-util.h"
 
 /* Let's pick some high value, that is higher than the largest listen() backlog, but leaves enough room below
    the typical RLIMIT_NOFILE value of 1024 so that we can process both sides of each socket in our
@@ -133,8 +134,8 @@ static int method_passfd(sd_varlink *link, sd_json_variant *parameters, sd_varli
         test_fd(yy, "bar", 3);
         test_fd(zz, "quux", 4);
 
-        _cleanup_close_ int vv = acquire_data_fd("miau");
-        _cleanup_close_ int ww = acquire_data_fd("wuff");
+        _cleanup_close_ int vv = memfd_new_and_seal_string("data", "miau");
+        _cleanup_close_ int ww = memfd_new_and_seal_string("data", "wuff");
 
         assert_se(vv >= 0);
         assert_se(ww >= 0);
@@ -283,9 +284,9 @@ static void *thread(void *arg) {
         assert_se(sd_json_variant_integer(sd_json_variant_by_key(o, "sum")) == 88 + 99);
         assert_se(!e);
 
-        int fd1 = acquire_data_fd("foo");
-        int fd2 = acquire_data_fd("bar");
-        int fd3 = acquire_data_fd("quux");
+        int fd1 = memfd_new_and_seal_string("data", "foo");
+        int fd2 = memfd_new_and_seal_string("data", "bar");
+        int fd3 = memfd_new_and_seal_string("data", "quux");
 
         assert_se(fd1 >= 0);
         assert_se(fd2 >= 0);
@@ -359,7 +360,9 @@ TEST(chat) {
         assert_se(sd_event_source_set_priority(block_event, SD_EVENT_PRIORITY_IMPORTANT) >= 0);
         block_write_fd = TAKE_FD(block_fds[1]);
 
-        assert_se(sd_varlink_server_new(&s, SD_VARLINK_SERVER_ACCOUNT_UID) >= 0);
+        assert_se(varlink_server_new(&s, SD_VARLINK_SERVER_ACCOUNT_UID, NULL) >= 0);
+        assert_se(sd_varlink_server_set_info(s, "Vendor", "Product", "Version", "URL") >= 0);
+        assert_se(varlink_set_info_systemd(s) >= 0);
         assert_se(sd_varlink_server_set_description(s, "our-server") >= 0);
 
         assert_se(sd_varlink_server_bind_method(s, "io.test.PassFD", method_passfd) >= 0);

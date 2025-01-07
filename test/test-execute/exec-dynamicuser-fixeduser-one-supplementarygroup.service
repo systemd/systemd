@@ -9,3 +9,4 @@ Type=oneshot
 User=1
 DynamicUser=yes
 SupplementaryGroups=1
+ReadWritePaths=-/coverage

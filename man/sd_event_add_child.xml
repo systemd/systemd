@@ -155,7 +155,7 @@
     project='man-pages'><refentrytitle>pthread_sigmask</refentrytitle><manvolnum>3</manvolnum></citerefentry>).</para>
 
     <para>If the second parameter of <function>sd_event_add_child()</function> is passed as
-    <constant>NULL</constant> no reference to the event source object is returned. In this case the event
+    <constant>NULL</constant> no reference to the event source object is returned. In this case, the event
     source is considered "floating", and will be destroyed implicitly when the event loop itself is
     destroyed.</para>
 
@@ -202,7 +202,7 @@
 
     <para><function>sd_event_source_get_child_pidfd()</function> retrieves the file descriptor referencing
     the watched process ("pidfd") if this functionality is available. On kernels that support the concept the
-    event loop will make use of pidfds to watch child processes, regardless if the individual event sources
+    event loop will make use of pidfds to watch child processes, regardless of whether the individual event sources
     are allocated via <function>sd_event_add_child()</function> or
     <function>sd_event_add_child_pidfd()</function>. If the latter call was used to allocate the event
     source, this function returns the file descriptor used for allocation. On kernels that do not support the
@@ -212,7 +212,7 @@
 
     <para><function>sd_event_source_get_child_pidfd_own()</function> may be used to query whether the pidfd
     the event source encapsulates shall be closed when the event source is freed. This function returns zero
-    if the pidfd shall be left open, and positive if it shall be closed automatically. By default this
+    if the pidfd shall be left open, and positive if it shall be closed automatically. By default, this
     setting defaults to on if the event source was allocated via <function>sd_event_add_child()</function>
     and off if it was allocated via <function>sd_event_add_child_pidfd()</function>. The
     <function>sd_event_source_set_child_pidfd_own()</function> function may be used to change the setting and
@@ -221,7 +221,7 @@
     <para><function>sd_event_source_get_child_process_own()</function> may be used to query whether the
     process the event source watches shall be killed (with <constant>SIGKILL</constant>) and reaped when the
     event source is freed. This function returns zero if the process shell be left running, and positive if
-    it shall be killed and reaped automatically. By default this setting defaults to off. The
+    it shall be killed and reaped automatically. By default, this setting defaults to off. The
     <function>sd_event_source_set_child_process_own()</function> function may be used to change the setting
     and takes a boolean parameter with the new setting. Note that currently if the calling process is
     terminated abnormally the watched process might survive even thought the event source ceases to

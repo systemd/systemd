@@ -1137,19 +1137,14 @@ static const char* extract_multiplier(const char *p, usec_t *ret) {
 
 int parse_time(const char *t, usec_t *ret, usec_t default_unit) {
         const char *p, *s;
-        usec_t usec = 0;
-        bool something = false;
 
         assert(t);
         assert(default_unit > 0);
 
-        p = t;
-
-        p += strspn(p, WHITESPACE);
+        p = skip_leading_chars(t, /* bad = */ NULL);
         s = startswith(p, "infinity");
         if (s) {
-                s += strspn(s, WHITESPACE);
-                if (*s != 0)
+                if (!in_charset(s, WHITESPACE))
                         return -EINVAL;
 
                 if (ret)
@@ -1157,13 +1152,14 @@ int parse_time(const char *t, usec_t *ret, usec_t default_unit) {
                 return 0;
         }
 
-        for (;;) {
+        usec_t usec = 0;
+
+        for (bool something = false;;) {
                 usec_t multiplier = default_unit, k;
                 long long l;
                 char *e;
 
-                p += strspn(p, WHITESPACE);
-
+                p = skip_leading_chars(p, /* bad = */ NULL);
                 if (*p == 0) {
                         if (!something)
                                 return -EINVAL;

@@ -617,7 +617,7 @@
         optional.</para>
 
         <para>If the source type is <constant>regular-file</constant> or <constant>directory</constant>, the
-        pattern may contain slash characters. In this case it will match the file or directory in
+        pattern may contain slash characters. In this case, it will match the file or directory in
         corresponding subdirectory. For example <literal>MatchPattern=foo_@v/bar.efi</literal> will match
         <literal>bar.efi</literal> in directory <literal>foo_1</literal>. </para>
 
@@ -672,7 +672,7 @@
 
         <listitem><para>Specifies what anchor point <varname>Path=</varname> should be relative to. Takes one
         of <constant>root</constant>, <constant>esp</constant>, <constant>xbootldr</constant>,
-        <constant>boot</constant> or <constant>directory</constant>. If unspecified, defaults to
+        <constant>boot</constant> or <constant>explicit</constant>. If unspecified, defaults to
         <constant>root</constant>.</para>
 
         <para>If set to <constant>root</constant>, <constant>esp</constant>, <constant>xbootldr</constant>,
@@ -713,7 +713,7 @@
         naming newly installed versions.</para>
 
         <para>If the target type is <constant>regular-file</constant> or <constant>directory</constant>, the
-        pattern may contain slash characters. In this case it will match the file or directory in
+        pattern may contain slash characters. In this case, it will match the file or directory in
         corresponding subdirectory. For example <literal>MatchPattern=foo_@v/bar.efi</literal> will match
         <literal>bar.efi</literal> in directory <literal>foo_1</literal>. Directories in the path will be
         created when file is installed. Empty directories will be removed when file is removed.</para>

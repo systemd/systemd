@@ -596,7 +596,7 @@ int transfer_read_definition(Transfer *t, const char *path, const char **dirs, H
              !IN_SET(t->target.type, RESOURCE_DIRECTORY, RESOURCE_SUBVOLUME)))
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
                                   "Target type '%s' is incompatible with source type '%s', refusing.",
-                                  resource_type_to_string(t->source.type), resource_type_to_string(t->target.type));
+                                  resource_type_to_string(t->target.type), resource_type_to_string(t->source.type));
 
         if (!t->source.path && !t->source.path_auto)
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),

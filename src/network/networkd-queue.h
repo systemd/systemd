@@ -184,7 +184,7 @@ int remove_request_add(
                 _r = remove_request_add(manager, link, _data,           \
                                         (mfree_func_t) name##_unref,    \
                                         nl, m, handler);                \
-                if (_r >= 0)                                            \
+                if (_r > 0)                                             \
                         name##_ref(_data);                              \
                 _r;                                                     \
         })

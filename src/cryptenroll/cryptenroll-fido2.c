@@ -193,7 +193,7 @@ int enroll_fido2(
                 fflush(stdout);
 
                 fprintf(stderr,
-                        "\nPlease save this FIDO2 credential ID. It is required when unloocking the volume\n"
+                        "\nPlease save this FIDO2 credential ID. It is required when unlocking the volume\n"
                         "using the associated FIDO2 keyslot which we just created. To configure automatic\n"
                         "unlocking using this FIDO2 token, add an appropriate entry to your /etc/crypttab\n"
                         "file, see %s for details.\n", link);

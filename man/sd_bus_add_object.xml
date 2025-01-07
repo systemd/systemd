@@ -589,6 +589,9 @@
           <constant>org.freedesktop.systemd1.Privileged</constant> annotation with value
           <literal>true</literal> will be shown in introspection data.</para>
 
+          <para><constant>SD_BUS_VTABLE_UNPRIVILEGED</constant> may not be applied to read-only properties,
+          but read access (to both read-only and writable properties) is always unrestricted.</para>
+
           <para>Note that this page describes checks implemented in the D-Bus client. The D-Bus server has an
           additional policy that may permit or deny connections, see
           "CONFIGURATION FILE" in

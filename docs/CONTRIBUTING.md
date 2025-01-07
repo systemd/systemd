@@ -40,10 +40,9 @@ See [reporting of security vulnerabilities](https://systemd.io/SECURITY).
 * Make sure to post PRs only relative to a recent tip of the `main` branch.
 * Follow our [Coding Style](https://systemd.io/CODING_STYLE) when contributing code. This is a requirement for all code we merge.
 * Please make sure to test your change before submitting the PR. See the [Hacking guide](https://systemd.io/HACKING) for details on how to do this.
-* Make sure to run the test suite locally, before posting your PR. We use a CI system, meaning we don't even look at your PR if the build and tests don't pass.
+* Make sure to run the test suite locally, before posting your PR. We use a CI system, meaning we don't even look at a PR if the build fails or the unit tests don't pass.
 * If you need to update the code in an existing PR, force-push into the same branch, overriding old commits with new versions.
 * After you have pushed a new version, add a comment explaining the latest changes.
-  If you are a member of the systemd project on GitHub, remove the `reviewed/needs-rework`/`ci-fails/needs-rework`/`needs-rebase` labels.
 * If you are copying existing code from another source (eg: a compat header), please make sure the license is compatible with `LGPL-2.1-or-later`.
   If the license is not `LGPL-2.1-or-later`, please add a note to [`LICENSES/README.md`](https://github.com/systemd/systemd/blob/main/LICENSES/README.md).
 * If the pull request stalls without review, post a ping in a comment after some time has passed.

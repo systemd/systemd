@@ -98,6 +98,18 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>systemd.break=</varname></term>
+        <term><varname>rd.systemd.break=</varname></term>
+        <listitem>
+          <para>Parameters understood by
+          <citerefentry><refentrytitle>systemd-debug-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+          to pause the boot process at a certain point and spawn a debug shell.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>systemd.run=</varname></term>
         <term><varname>systemd.run_success_action=</varname></term>
         <term><varname>systemd.run_failure_action=</varname></term>
@@ -156,7 +168,7 @@
           the special value <literal>state</literal>. If false (the default), normal boot mode is selected, the root
           directory and <filename>/var/</filename> are mounted as specified on the kernel command line or
           <filename>/etc/fstab</filename>, or otherwise configured. If true, full state-less boot mode is selected. In
-          this case the root directory is mounted as volatile memory file system (<literal>tmpfs</literal>), and only
+          this case, the root directory is mounted as volatile memory file system (<literal>tmpfs</literal>), and only
           <filename>/usr/</filename> is mounted from the file system configured as root device, in read-only mode. This
           enables fully state-less boots were the vendor-supplied OS is used as shipped, with only default
           configuration and no stored state in effect, as <filename>/etc/</filename> and <filename>/var/</filename> (as
@@ -391,7 +403,7 @@
           <para>If <varname>root=</varname> is not set (or set to <literal>gpt-auto</literal>) the automatic
           root partition discovery implemented by
           <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-          will be in effect. In this case <varname>rootfstype=</varname>, <varname>rootflags=</varname>,
+          will be in effect. In this case, <varname>rootfstype=</varname>, <varname>rootflags=</varname>,
           <varname>ro</varname>, <varname>rw</varname> will be interpreted by
           <command>systemd-gpt-auto-generator</command>.</para>
 
@@ -421,7 +433,7 @@
         <term><varname>rd.systemd.verity=</varname></term>
         <term><varname>systemd.verity_root_data=</varname></term>
         <term><varname>systemd.verity_root_hash=</varname></term>
-        <term><varname>systemd.verity.root_options=</varname></term>
+        <term><varname>systemd.verity_root_options=</varname></term>
         <term><varname>usrhash=</varname></term>
         <term><varname>systemd.verity_usr_data=</varname></term>
         <term><varname>systemd.verity_usr_hash=</varname></term>
@@ -461,7 +473,6 @@
 
       <varlistentry>
         <term><varname>systemd.image_policy=</varname></term>
-        <term><varname>rd.systemd.image_policy=</varname></term>
 
         <listitem><para>When GPT-based partition auto-discovery is used, configures the image dissection
         policy string to apply, as per
@@ -677,7 +688,7 @@
 
         <programlisting>dd if=/dev/urandom bs=512 count=1 status=none | base64 -w 0</programlisting>
 
-        <para>Again: do not use this option outside of testing environments, it's a security risk elsewhere,
+        <para>Again: do not use this option outside of testing environments, it is a security risk elsewhere,
         as secret key material derived from the entropy pool can possibly be reconstructed by unprivileged
         programs.</para>
 

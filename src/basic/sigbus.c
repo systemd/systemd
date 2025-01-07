@@ -121,7 +121,7 @@ static void sigbus_handler(int sn, siginfo_t *si, void *data) {
 }
 
 void sigbus_install(void) {
-        struct sigaction sa = {
+        static const struct sigaction sa = {
                 .sa_sigaction = sigbus_handler,
                 .sa_flags = SA_SIGINFO,
         };

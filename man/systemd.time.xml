@@ -101,7 +101,7 @@
     <para>In some cases timestamps are shown in the UTC timezone instead of the local timezone, which is indicated via
     the <literal>UTC</literal> timezone specifier in the output.</para>
 
-    <para>In some cases timestamps are shown with microsecond granularity. In this case the sub-second remainder is
+    <para>In some cases timestamps are shown with microsecond granularity. In this case, the sub-second remainder is
     separated by a full stop from the seconds component.</para>
   </refsect1>
 
@@ -120,9 +120,8 @@
     <para>The timezone defaults to the current timezone if not specified explicitly.
     It may be given after a space, like above, in which case it can be:
     <literal>UTC</literal>,
-    an entry in the installed IANA timezone database (<literal>CET</literal>, <literal>Asia/Tokyo</literal>, &amp;c.;
-    complete list obtainable with <literal>timedatectl
-    list-timezones</literal> (see
+    an entry in the installed IANA timezone database (e.g. <literal>CET</literal>, <literal>Asia/Tokyo</literal>,
+    where the complete list can be obtained with <command>timedatectl list-timezones</command> (see
     <citerefentry><refentrytitle>timedatectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>)),
     or <literal>±<replaceable>05</replaceable></literal>,
     <literal>±<replaceable>05</replaceable><replaceable>30</replaceable></literal>,
@@ -140,7 +139,7 @@
     <para>A timestamp can start with a field containing a weekday, which can be in an abbreviated
     (<literal>Wed</literal>) or non-abbreviated (<literal>Wednesday</literal>) English language form (case
     does not matter), regardless of the locale.
-    However, if a weekday <emphasis>is</emphasis> specified and doesn't match the date, the timestamp is rejected.</para>
+    However, if a weekday <emphasis>is</emphasis> specified and does not match the date, the timestamp is rejected.</para>
 
     <para>If the date is omitted, it defaults to today. If the time is omitted, it defaults to 00:00:00.
     Fractional seconds can be specified down to 1µs precision. The seconds field can also be omitted, defaulting to 0.</para>

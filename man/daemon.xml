@@ -685,6 +685,15 @@ fi</programlisting>
   </refsect1>
 
   <refsect1>
+    <title>Notes</title>
+
+    <para>
+       All example codes in this page are licensed under <literal>MIT No Attribution</literal>
+      (SPDX-License-Identifier: MIT-0).
+    </para>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
     <para><simplelist type="inline">
       <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>

@@ -2,10 +2,6 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 set -e
 
-if [[ "$1" == "clangd" ]]; then
-    exec "$@"
-fi
-
 if [[ ! -f "pkg/$PKG_SUBDIR/PKGBUILD" ]]; then
     echo "PKGBUILD not found at pkg/$PKG_SUBDIR/PKGBUILD, run mkosi once with -ff to make sure the PKGBUILD is cloned" >&2
     exit 1
@@ -32,9 +28,13 @@ if ((LLVM)) && [[ -n "$SANITIZERS" ]]; then
     MKOSI_LDFLAGS="$MKOSI_LDFLAGS -Wl,-rpath=$(realpath "$(clang --print-runtime-dir)")"
 fi
 
-MKOSI_MESON_OPTIONS="-D mode=developer -D b_sanitize=${SANITIZERS:-none}"
+MKOSI_MESON_OPTIONS="-D mode=developer -D vcs-tag=${VCS_TAG:-true} -D b_sanitize=${SANITIZERS:-none}"
 if ((WIPE)) && [[ -d "$BUILDDIR/meson-private" ]]; then
     MKOSI_MESON_OPTIONS="$MKOSI_MESON_OPTIONS --wipe"
+fi
+if ((COVERAGE)); then
+    MKOSI_MESON_OPTIONS="$MKOSI_MESON_OPTIONS -D b_coverage=true"
+    MKOSI_CFLAGS="$MKOSI_CFLAGS -fprofile-dir=/coverage"
 fi
 
 # Override the default options. We specifically disable "strip", "zipman" and "lto" as they slow down builds

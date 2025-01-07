@@ -3,7 +3,6 @@
 #include "blockdev-util.h"
 #include "cgroup-util.h"
 #include "common-signal.h"
-#include "cpu-set-util.h"
 #include "daemon-util.h"
 #include "device-monitor-private.h"
 #include "device-private.h"
@@ -15,7 +14,6 @@
 #include "hashmap.h"
 #include "inotify-util.h"
 #include "iovec-util.h"
-#include "limits-util.h"
 #include "list.h"
 #include "mkdir.h"
 #include "process-util.h"
@@ -25,17 +23,17 @@
 #include "string-util.h"
 #include "syslog-util.h"
 #include "udev-builtin.h"
+#include "udev-config.h"
 #include "udev-ctrl.h"
 #include "udev-event.h"
 #include "udev-manager.h"
 #include "udev-node.h"
+#include "udev-rules.h"
 #include "udev-spawn.h"
 #include "udev-trace.h"
 #include "udev-util.h"
 #include "udev-watch.h"
 #include "udev-worker.h"
-
-#define WORKER_NUM_MAX UINT64_C(2048)
 
 #define EVENT_RETRY_INTERVAL_USEC (200 * USEC_PER_MSEC)
 #define EVENT_RETRY_TIMEOUT_USEC  (3 * USEC_PER_MINUTE)
@@ -146,7 +144,7 @@ Manager* manager_free(Manager *manager) {
         event_queue_cleanup(manager, EVENT_UNDEF);
 
         safe_close(manager->inotify_fd);
-        safe_close_pair(manager->worker_watch);
+        safe_close(manager->worker_notify_fd);
 
         sd_device_monitor_unref(manager->monitor);
         udev_ctrl_unref(manager->ctrl);
@@ -196,7 +194,7 @@ static int worker_new(Worker **ret, Manager *manager, sd_device_monitor *worker_
         return 0;
 }
 
-static void manager_kill_workers(Manager *manager, bool force) {
+void manager_kill_workers(Manager *manager, bool force) {
         Worker *worker;
 
         assert(manager);
@@ -235,14 +233,14 @@ static void manager_exit(Manager *manager) {
         manager_kill_workers(manager, true);
 }
 
-static void notify_ready(Manager *manager) {
+void notify_ready(Manager *manager) {
         int r;
 
         assert(manager);
 
         r = sd_notifyf(/* unset= */ false,
                        "READY=1\n"
-                       "STATUS=Processing with %u children at max", manager->children_max);
+                       "STATUS=Processing with %u children at max", manager->config.children_max);
         if (r < 0)
                 log_warning_errno(r, "Failed to send readiness notification, ignoring: %m");
 }
@@ -264,23 +262,26 @@ static void manager_reload(Manager *manager, bool force) {
         /* Reload SELinux label database, to make the child inherit the up-to-date database. */
         mac_selinux_maybe_reload();
 
-        /* Nothing changed. It is not necessary to reload. */
-        if (!udev_rules_should_reload(manager->rules) && !udev_builtin_should_reload()) {
+        UdevReloadFlags flags = udev_builtin_should_reload();
+        if (udev_rules_should_reload(manager->rules))
+                flags |= UDEV_RELOAD_RULES | UDEV_RELOAD_KILL_WORKERS;
+        if (flags == 0 && !force)
+                /* Neither .rules files nor config files for builtins e.g. .link files changed. It is not
+                 * necessary to reload configs. Note, udev.conf is not checked in the above, hence reloaded
+                 * when explicitly requested or at least one .rules file or friend is updated. */
+                return;
 
-                if (!force)
-                        return;
+        (void) notify_reloading();
 
-                /* If we eat this up, then tell our service manager to just continue */
-                (void) notify_reloading_full("Skipping configuration reloading, nothing changed.");
-        } else {
-                (void) notify_reloading();
+        flags |= manager_reload_config(manager);
 
+        if (FLAGS_SET(flags, UDEV_RELOAD_KILL_WORKERS))
                 manager_kill_workers(manager, false);
 
-                udev_builtin_exit();
-                udev_builtin_init();
+        udev_builtin_reload(flags);
 
-                r = udev_rules_load(&rules, manager->resolve_name_timing);
+        if (FLAGS_SET(flags, UDEV_RELOAD_RULES)) {
+                r = udev_rules_load(&rules, manager->config.resolve_name_timing);
                 if (r < 0)
                         log_warning_errno(r, "Failed to read udev rules, using the previously loaded rules, ignoring: %m");
                 else
@@ -305,7 +306,7 @@ static int on_event_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
         assert(event->manager);
         assert(event->worker);
 
-        kill_and_sigcont(event->worker->pid, event->manager->timeout_signal);
+        kill_and_sigcont(event->worker->pid, event->manager->config.timeout_signal);
         event->worker->state = WORKER_KILLED;
 
         log_device_error(event->dev, "Worker ["PID_FMT"] processing SEQNUM=%"PRIu64" killed", event->worker->pid, event->seqnum);
@@ -365,7 +366,7 @@ static void worker_attach_event(Worker *worker, Event *event) {
         event->worker = worker;
 
         (void) sd_event_add_time_relative(e, &event->timeout_warning_event, CLOCK_MONOTONIC,
-                                          udev_warn_timeout(manager->timeout_usec), USEC_PER_SEC,
+                                          udev_warn_timeout(manager->config.timeout_usec), USEC_PER_SEC,
                                           on_event_timeout_warning, event);
 
         /* Manager.timeout_usec is also used as the timeout for running programs specified in
@@ -373,7 +374,7 @@ static void worker_attach_event(Worker *worker, Event *event) {
          * kills a worker, to make it possible that the worker detects timed out of spawned programs,
          * kills them, and finalizes the event. */
         (void) sd_event_add_time_relative(e, &event->timeout_event, CLOCK_MONOTONIC,
-                                          usec_add(manager->timeout_usec, extra_timeout_usec()), USEC_PER_SEC,
+                                          usec_add(manager->config.timeout_usec, extra_timeout_usec()), USEC_PER_SEC,
                                           on_event_timeout, event);
 }
 
@@ -405,13 +406,9 @@ static int worker_spawn(Manager *manager, Event *event) {
                         .monitor = TAKE_PTR(worker_monitor),
                         .properties = TAKE_PTR(manager->properties),
                         .rules = TAKE_PTR(manager->rules),
-                        .pipe_fd = TAKE_FD(manager->worker_watch[WRITE_END]),
+                        .pipe_fd = TAKE_FD(manager->worker_notify_fd),
                         .inotify_fd = TAKE_FD(manager->inotify_fd),
-                        .exec_delay_usec = manager->exec_delay_usec,
-                        .timeout_usec = manager->timeout_usec,
-                        .timeout_signal = manager->timeout_signal,
-                        .log_level = manager->log_level,
-                        .blockdev_read_only = manager->blockdev_read_only,
+                        .config = manager->config,
                 };
 
                 /* Worker process */
@@ -460,10 +457,10 @@ static int event_run(Event *event) {
                 return 1; /* event is now processing. */
         }
 
-        if (hashmap_size(manager->workers) >= manager->children_max) {
+        if (hashmap_size(manager->workers) >= manager->config.children_max) {
                 /* Avoid spamming the debug logs if the limit is already reached and
                  * many events still need to be processed */
-                if (log_children_max_reached && manager->children_max > 1) {
+                if (log_children_max_reached && manager->config.children_max > 1) {
                         log_debug("Maximum number (%u) of children reached.", hashmap_size(manager->workers));
                         log_children_max_reached = false;
                 }
@@ -844,32 +841,9 @@ static int on_worker(sd_event_source *s, int fd, uint32_t revents, void *userdat
         return 1;
 }
 
-static void manager_set_default_children_max(Manager *manager) {
-        uint64_t cpu_limit, mem_limit, cpu_count = 1;
-        int r;
-
-        assert(manager);
-
-        if (manager->children_max != 0)
-                return;
-
-        r = cpus_in_affinity_mask();
-        if (r < 0)
-                log_warning_errno(r, "Failed to determine number of local CPUs, ignoring: %m");
-        else
-                cpu_count = r;
-
-        cpu_limit = cpu_count * 2 + 16;
-        mem_limit = MAX(physical_memory() / (128*1024*1024), UINT64_C(10));
-
-        manager->children_max = MIN3(cpu_limit, mem_limit, WORKER_NUM_MAX);
-        log_debug("Set children_max to %u", manager->children_max);
-}
-
 /* receive the udevd message from userspace */
 static int on_ctrl_msg(UdevCtrl *uctrl, UdevCtrlMessageType type, const UdevCtrlMessageValue *value, void *userdata) {
         Manager *manager = ASSERT_PTR(userdata);
-        int r;
 
         assert(value);
 
@@ -882,13 +856,7 @@ static int on_ctrl_msg(UdevCtrl *uctrl, UdevCtrlMessageType type, const UdevCtrl
 
                 log_debug("Received udev control message (SET_LOG_LEVEL), setting log_level=%i", value->intval);
 
-                r = log_get_max_level();
-                if (r == value->intval)
-                        break;
-
-                log_set_max_level(value->intval);
-                manager->log_level = value->intval;
-                manager_kill_workers(manager, false);
+                manager_set_log_level(manager, value->intval);
                 break;
         case UDEV_CTRL_STOP_EXEC_QUEUE:
                 log_debug("Received udev control message (STOP_EXEC_QUEUE)");
@@ -903,54 +871,15 @@ static int on_ctrl_msg(UdevCtrl *uctrl, UdevCtrlMessageType type, const UdevCtrl
                 log_debug("Received udev control message (RELOAD)");
                 manager_reload(manager, /* force = */ true);
                 break;
-        case UDEV_CTRL_SET_ENV: {
-                _unused_ _cleanup_free_ char *old_val = NULL, *old_key = NULL;
-                _cleanup_free_ char *key = NULL, *val = NULL;
-                const char *eq;
-
-                eq = strchr(value->buf, '=');
-                if (!eq) {
-                        log_error("Invalid key format '%s'", value->buf);
-                        return 1;
+        case UDEV_CTRL_SET_ENV:
+                if (!udev_property_assignment_is_valid(value->buf)) {
+                        log_debug("Received invalid udev control message(SET_ENV, %s), ignoring.", value->buf);
+                        break;
                 }
 
-                key = strndup(value->buf, eq - value->buf);
-                if (!key) {
-                        log_oom();
-                        return 1;
-                }
-
-                old_val = hashmap_remove2(manager->properties, key, (void **) &old_key);
-
-                r = hashmap_ensure_allocated(&manager->properties, &string_hash_ops);
-                if (r < 0) {
-                        log_oom();
-                        return 1;
-                }
-
-                eq++;
-                if (isempty(eq))
-                        log_debug("Received udev control message (ENV), unsetting '%s'", key);
-                else {
-                        val = strdup(eq);
-                        if (!val) {
-                                log_oom();
-                                return 1;
-                        }
-
-                        log_debug("Received udev control message (ENV), setting '%s=%s'", key, val);
-
-                        r = hashmap_put(manager->properties, key, val);
-                        if (r < 0) {
-                                log_oom();
-                                return 1;
-                        }
-                }
-
-                key = val = NULL;
-                manager_kill_workers(manager, false);
+                log_debug("Received udev control message(SET_ENV, %s)", value->buf);
+                manager_set_environment(manager, STRV_MAKE(value->buf));
                 break;
-        }
         case UDEV_CTRL_SET_CHILDREN_MAX:
                 if (value->intval < 0) {
                         log_debug("Received invalid udev control message (SET_MAX_CHILDREN, %i), ignoring.", value->intval);
@@ -958,12 +887,8 @@ static int on_ctrl_msg(UdevCtrl *uctrl, UdevCtrlMessageType type, const UdevCtrl
                 }
 
                 log_debug("Received udev control message (SET_MAX_CHILDREN), setting children_max=%i", value->intval);
-                manager->children_max = value->intval;
 
-                /* When 0 is specified, determine the maximum based on the system resources. */
-                manager_set_default_children_max(manager);
-
-                notify_ready(manager);
+                manager_set_children_max(manager, value->intval);
                 break;
         case UDEV_CTRL_PING:
                 log_debug("Received udev control message (PING)");
@@ -1197,57 +1122,125 @@ Manager* manager_new(void) {
 
         *manager = (Manager) {
                 .inotify_fd = -EBADF,
-                .worker_watch = EBADF_PAIR,
-                .log_level = LOG_INFO,
-                .resolve_name_timing = RESOLVE_NAME_EARLY,
-                .timeout_usec = DEFAULT_WORKER_TIMEOUT_USEC,
-                .timeout_signal = SIGKILL,
+                .worker_notify_fd = -EBADF,
+                .config_by_udev_conf = UDEV_CONFIG_INIT,
+                .config_by_command = UDEV_CONFIG_INIT,
+                .config_by_kernel = UDEV_CONFIG_INIT,
+                .config_by_control = UDEV_CONFIG_INIT,
+                .config = UDEV_CONFIG_INIT,
         };
 
         return manager;
 }
 
-void manager_adjust_arguments(Manager *manager) {
-        assert(manager);
+static int listen_fds(int *ret_ctrl, int *ret_netlink) {
+        _cleanup_strv_free_ char **names = NULL;
+        _cleanup_close_ int ctrl_fd = -EBADF, netlink_fd = -EBADF;
 
-        if (manager->timeout_usec < MIN_WORKER_TIMEOUT_USEC) {
-                log_debug("Timeout (%s) for processing event is too small, using the default: %s",
-                          FORMAT_TIMESPAN(manager->timeout_usec, 1),
-                          FORMAT_TIMESPAN(DEFAULT_WORKER_TIMEOUT_USEC, 1));
+        assert(ret_ctrl);
+        assert(ret_netlink);
 
-                manager->timeout_usec = DEFAULT_WORKER_TIMEOUT_USEC;
+        int n = sd_listen_fds_with_names(/* unset_environment = */ true, &names);
+        if (n < 0)
+                return n;
+
+        if (strv_length(names) != (size_t) n)
+                return -EIO;
+
+        for (int i = 0; i < n; i++) {
+                int fd = SD_LISTEN_FDS_START + i;
+
+                if (sd_is_socket(fd, AF_UNIX, SOCK_SEQPACKET, -1) > 0) {
+                        if (ctrl_fd >= 0) {
+                                log_debug("Received multiple seqpacket socket (%s), ignoring.", names[i]);
+                                goto unused;
+                        }
+
+                        ctrl_fd = fd;
+                        continue;
+                }
+
+                if (sd_is_socket(fd, AF_NETLINK, SOCK_RAW, -1) > 0) {
+                        if (netlink_fd >= 0) {
+                                log_debug("Received multiple netlink socket (%s), ignoring.", names[i]);
+                                goto unused;
+                        }
+
+                        netlink_fd = fd;
+                        continue;
+                }
+
+                log_debug("Received unexpected fd (%s), ignoring.", names[i]);
+
+        unused:
+                close_and_notify_warn(fd, names[i]);
         }
 
-        if (manager->exec_delay_usec >= manager->timeout_usec) {
-                log_debug("Delay (%s) for executing RUN= commands is too large compared with the timeout (%s) for event execution, ignoring the delay.",
-                          FORMAT_TIMESPAN(manager->exec_delay_usec, 1),
-                          FORMAT_TIMESPAN(manager->timeout_usec, 1));
-
-                manager->exec_delay_usec = 0;
-        }
+        *ret_ctrl = TAKE_FD(ctrl_fd);
+        *ret_netlink = TAKE_FD(netlink_fd);
+        return 0;
 }
 
-int manager_init(Manager *manager, int fd_ctrl, int fd_uevent) {
+static int manager_init_ctrl(Manager *manager, int fd_ctrl) {
+        _cleanup_(udev_ctrl_unrefp) UdevCtrl *ctrl = NULL;
+        _cleanup_close_ int fd = fd_ctrl;
+        int r;
+
+        assert(manager);
+
+        /* This consumes passed file descriptor. */
+
+        r = udev_ctrl_new_from_fd(&ctrl, fd);
+        if (r < 0)
+                return log_error_errno(r, "Failed to initialize udev control socket: %m");
+        TAKE_FD(fd);
+
+        r = udev_ctrl_enable_receiving(ctrl);
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind udev control socket: %m");
+
+        manager->ctrl = TAKE_PTR(ctrl);
+        return 0;
+}
+
+static int manager_init_device_monitor(Manager *manager, int fd_uevent) {
+        _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor = NULL;
+        _cleanup_close_ int fd = fd_uevent;
+        int r;
+
+        assert(manager);
+
+        /* This consumes passed file descriptor. */
+
+        r = device_monitor_new_full(&monitor, MONITOR_GROUP_KERNEL, fd);
+        if (r < 0)
+                return log_error_errno(r, "Failed to initialize device monitor: %m");
+        TAKE_FD(fd);
+
+        (void) sd_device_monitor_set_description(monitor, "manager");
+
+        manager->monitor = TAKE_PTR(monitor);
+        return 0;
+}
+
+int manager_init(Manager *manager) {
+        _cleanup_close_ int fd_ctrl = -EBADF, fd_uevent = -EBADF;
         _cleanup_free_ char *cgroup = NULL;
         int r;
 
         assert(manager);
 
-        r = udev_ctrl_new_from_fd(&manager->ctrl, fd_ctrl);
+        r = listen_fds(&fd_ctrl, &fd_uevent);
         if (r < 0)
-                return log_error_errno(r, "Failed to initialize udev control socket: %m");
+                return log_error_errno(r, "Failed to listen on fds: %m");
 
-        r = udev_ctrl_enable_receiving(manager->ctrl);
+        r = manager_init_ctrl(manager, TAKE_FD(fd_ctrl));
         if (r < 0)
-                return log_error_errno(r, "Failed to bind udev control socket: %m");
+                return r;
 
-        r = device_monitor_new_full(&manager->monitor, MONITOR_GROUP_KERNEL, fd_uevent);
+        r = manager_init_device_monitor(manager, TAKE_FD(fd_uevent));
         if (r < 0)
-                return log_error_errno(r, "Failed to initialize device monitor: %m");
-
-        (void) sd_device_monitor_set_description(manager->monitor, "manager");
-
-        manager->log_level = log_get_max_level();
+                return r;
 
         r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, 0, &cgroup);
         if (r < 0)
@@ -1260,50 +1253,11 @@ int manager_init(Manager *manager, int fd_ctrl, int fd_uevent) {
         return 0;
 }
 
-int manager_main(Manager *manager) {
-        int fd_worker, r;
+static int manager_start_ctrl(Manager *manager) {
+        int r;
 
-        manager_set_default_children_max(manager);
-
-        /* unnamed socket from workers to the main daemon */
-        r = socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, manager->worker_watch);
-        if (r < 0)
-                return log_error_errno(errno, "Failed to create socketpair for communicating with workers: %m");
-
-        fd_worker = manager->worker_watch[READ_END];
-
-        r = setsockopt_int(fd_worker, SOL_SOCKET, SO_PASSCRED, true);
-        if (r < 0)
-                return log_error_errno(r, "Failed to enable SO_PASSCRED: %m");
-
-        manager->inotify_fd = inotify_init1(IN_CLOEXEC);
-        if (manager->inotify_fd < 0)
-                return log_error_errno(errno, "Failed to create inotify descriptor: %m");
-
-        udev_watch_restore(manager->inotify_fd);
-
-        /* block SIGCHLD for listening child events. */
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD) >= 0);
-
-        r = sd_event_default(&manager->event);
-        if (r < 0)
-                return log_error_errno(r, "Failed to allocate event loop: %m");
-
-        r = sd_event_add_signal(manager->event, NULL, SIGINT | SD_EVENT_SIGNAL_PROCMASK, on_sigterm, manager);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create SIGINT event source: %m");
-
-        r = sd_event_add_signal(manager->event, NULL, SIGTERM | SD_EVENT_SIGNAL_PROCMASK, on_sigterm, manager);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create SIGTERM event source: %m");
-
-        r = sd_event_add_signal(manager->event, NULL, SIGHUP | SD_EVENT_SIGNAL_PROCMASK, on_sighup, manager);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create SIGHUP event source: %m");
-
-        r = sd_event_set_watchdog(manager->event, true);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create watchdog event source: %m");
+        assert(manager);
+        assert(manager->ctrl);
 
         r = udev_ctrl_attach_event(manager->ctrl, manager->event);
         if (r < 0)
@@ -1313,17 +1267,21 @@ int manager_main(Manager *manager) {
         if (r < 0)
                 return log_error_errno(r, "Failed to start udev control: %m");
 
-        /* This needs to be after the inotify and uevent handling, to make sure
-         * that the ping is send back after fully processing the pending uevents
-         * (including the synthetic ones we may create due to inotify events).
-         */
+        /* This needs to be after the inotify and uevent handling, to make sure that the ping is send back
+         * after fully processing the pending uevents (including the synthetic ones we may create due to
+         * inotify events). */
         r = sd_event_source_set_priority(udev_ctrl_get_event_source(manager->ctrl), SD_EVENT_PRIORITY_IDLE);
         if (r < 0)
                 return log_error_errno(r, "Failed to set IDLE event priority for udev control event source: %m");
 
-        r = sd_event_add_io(manager->event, &manager->inotify_event, manager->inotify_fd, EPOLLIN, on_inotify, manager);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create inotify event source: %m");
+        return 0;
+}
+
+static int manager_start_device_monitor(Manager *manager) {
+        int r;
+
+        assert(manager);
+        assert(manager->monitor);
 
         r = sd_device_monitor_attach_event(manager->monitor, manager->event);
         if (r < 0)
@@ -1333,30 +1291,149 @@ int manager_main(Manager *manager) {
         if (r < 0)
                 return log_error_errno(r, "Failed to start device monitor: %m");
 
-        r = sd_event_add_io(manager->event, NULL, fd_worker, EPOLLIN, on_worker, manager);
+        return 0;
+}
+
+static int manager_start_inotify(Manager *manager) {
+        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        _cleanup_close_ int fd = -EBADF;
+        int r;
+
+        assert(manager);
+        assert(manager->event);
+
+        fd = inotify_init1(IN_CLOEXEC);
+        if (fd < 0)
+                return log_error_errno(errno, "Failed to create inotify descriptor: %m");
+
+        udev_watch_restore(fd);
+
+        r = sd_event_add_io(manager->event, &s, fd, EPOLLIN, on_inotify, manager);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create inotify event source: %m");
+
+        (void) sd_event_source_set_description(s, "manager-inotify");
+
+        manager->inotify_fd = TAKE_FD(fd);
+        manager->inotify_event = TAKE_PTR(s);
+        return 0;
+}
+
+static int manager_start_worker_event(Manager *manager) {
+        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
+        int r;
+
+        assert(manager);
+        assert(manager->event);
+
+        /* unnamed socket from workers to the main daemon */
+        r = socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, pair);
+        if (r < 0)
+                return log_error_errno(errno, "Failed to create socketpair for communicating with workers: %m");
+
+        r = setsockopt_int(pair[READ_END], SOL_SOCKET, SO_PASSCRED, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enable SO_PASSCRED: %m");
+
+        r = sd_event_add_io(manager->event, &s, pair[READ_END], EPOLLIN, on_worker, manager);
         if (r < 0)
                 return log_error_errno(r, "Failed to create worker event source: %m");
 
-        r = sd_event_add_post(manager->event, NULL, on_post, manager);
+        (void) sd_event_source_set_description(s, "manager-worker-event");
+
+        r = sd_event_source_set_io_fd_own(s, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to make worker event source own file descriptor: %m");
+
+        TAKE_FD(pair[READ_END]);
+
+        r = sd_event_source_set_floating(s, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to make worker event source floating: %m");
+
+        manager->worker_notify_fd = TAKE_FD(pair[WRITE_END]);
+        return 0;
+}
+
+static int manager_setup_event(Manager *manager) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        int r;
+
+        assert(manager);
+
+        /* block SIGCHLD for listening child events. */
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD) >= 0);
+
+        r = sd_event_default(&e);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate event loop: %m");
+
+        r = sd_event_add_signal(e, /* ret_event_source = */ NULL, SIGINT | SD_EVENT_SIGNAL_PROCMASK, on_sigterm, manager);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create SIGINT event source: %m");
+
+        r = sd_event_add_signal(e, /* ret_event_source = */ NULL, SIGTERM | SD_EVENT_SIGNAL_PROCMASK, on_sigterm, manager);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create SIGTERM event source: %m");
+
+        r = sd_event_add_signal(e, /* ret_event_source = */ NULL, SIGHUP | SD_EVENT_SIGNAL_PROCMASK, on_sighup, manager);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create SIGHUP event source: %m");
+
+        r = sd_event_add_post(e, /* ret_event_source = */ NULL, on_post, manager);
         if (r < 0)
                 return log_error_errno(r, "Failed to create post event source: %m");
 
         /* Eventually, we probably want to do more here on memory pressure, for example, kill idle workers immediately */
-        r = sd_event_add_memory_pressure(manager->event, /* ret_event_source= */ NULL, /* callback= */ NULL, /* userdata= */ NULL);
+        r = sd_event_add_memory_pressure(e, /* ret_event_source= */ NULL, /* callback= */ NULL, /* userdata= */ NULL);
         if (r < 0)
                 log_full_errno(ERRNO_IS_NOT_SUPPORTED(r) || ERRNO_IS_PRIVILEGE(r) || (r == -EHOSTDOWN) ? LOG_DEBUG : LOG_WARNING, r,
                                "Failed to allocate memory pressure watch, ignoring: %m");
 
-        r = sd_event_add_signal(manager->event, /* ret_event_source= */ NULL,
+        r = sd_event_add_signal(e, /* ret_event_source= */ NULL,
                                 (SIGRTMIN+18) | SD_EVENT_SIGNAL_PROCMASK, sigrtmin18_handler, /* userdata= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate SIGRTMIN+18 event source, ignoring: %m");
+
+        r = sd_event_set_watchdog(e, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create watchdog event source: %m");
+
+        manager->event = TAKE_PTR(e);
+        return 0;
+}
+
+int manager_main(Manager *manager) {
+        int r;
+
+        assert(manager);
+
+        r = manager_setup_event(manager);
+        if (r < 0)
+                return r;
+
+        r = manager_start_ctrl(manager);
+        if (r < 0)
+                return r;
+
+        r = manager_start_device_monitor(manager);
+        if (r < 0)
+                return r;
+
+        r = manager_start_inotify(manager);
+        if (r < 0)
+                return r;
+
+        r = manager_start_worker_event(manager);
+        if (r < 0)
+                return r;
 
         manager->last_usec = now(CLOCK_MONOTONIC);
 
         udev_builtin_init();
 
-        r = udev_rules_load(&manager->rules, manager->resolve_name_timing);
+        r = udev_rules_load(&manager->rules, manager->config.resolve_name_timing);
         if (r < 0)
                 return log_error_errno(r, "Failed to read udev rules: %m");
 

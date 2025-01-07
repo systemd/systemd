@@ -11,7 +11,7 @@ config["QemuArgs"] += ["-device", "virtio-scsi-pci,id=scsi0"]
 
 for i in range(5):
     id = f"drivemdadmlvm{i}"
-    config["QemuDrives"] += [
+    config["Drives"] += [
         {
             "Id": id,
             "Size": "64M",

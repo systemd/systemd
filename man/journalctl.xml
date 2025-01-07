@@ -206,8 +206,8 @@
       <varlistentry>
         <term><option>--namespace=<replaceable>NAMESPACE</replaceable></option></term>
 
-        <listitem><para>Takes a journal namespace identifier string as argument. If not specified the data
-        collected by the default namespace is shown. If specified shows the log data of the specified
+        <listitem><para>Takes a journal namespace identifier string as argument. If not specified, the data
+        collected by the default namespace is shown. If specified, shows the log data of the specified
         namespace instead. If the namespace is specified as <literal>*</literal> data from all namespaces is
         shown, interleaved. If the namespace identifier is prefixed with <literal>+</literal> data from the
         specified namespace and the default namespace is shown, interleaved, but no other. For details about
@@ -272,7 +272,7 @@
         <term><option>--cursor-file=<replaceable>FILE</replaceable></option></term>
 
         <listitem><para>If <replaceable>FILE</replaceable> exists and contains a cursor, start showing
-        entries <emphasis>after</emphasis> this location.  Otherwise show entries according to the other
+        entries <emphasis>after</emphasis> this location. Otherwise, show entries according to the other
         given options. At the end, write the cursor of the last entry to
         <replaceable>FILE</replaceable>. Use this option to continually read the journal by sequentially
         calling <command>journalctl</command>.</para>
@@ -474,8 +474,8 @@
         <term><option>-k</option></term>
         <term><option>--dmesg</option></term>
 
-        <listitem><para>Show only kernel messages. This implies <option>-b</option> and adds the match
-        <literal>_TRANSPORT=kernel</literal>.</para>
+        <listitem><para>Show only kernel messages. This adds the match <literal>_TRANSPORT=kernel</literal>.
+        This implies <option>--boot=0</option> unless explicitly specified otherwise.</para>
 
         <xi:include href="version-info.xml" xpointer="v205"/></listitem>
       </varlistentry>
@@ -737,7 +737,7 @@
       <varlistentry>
         <term><option>--no-hostname</option></term>
 
-        <listitem><para>Don't show the hostname field of log messages originating from the local host. This
+        <listitem><para>Do not show the hostname field of log messages originating from the local host. This
         switch has an effect only on the <option>short</option> family of output modes (see above).</para>
 
         <para>Note: this option does not remove occurrences of the hostname from log entries themselves, so
@@ -809,11 +809,10 @@
         <term><option>--pager-end</option></term>
 
         <listitem><para>Immediately jump to the end of the journal inside the implied pager tool. This
-        implies <option>-n1000</option> to guarantee that the pager will not buffer logs of unbounded
-        size. This may be overridden with an explicit <option>-n</option> with some other numeric value,
-        while <option>-nall</option> will disable this cap.  Note that this option is only supported for
-        the <citerefentry
-        project='man-pages'><refentrytitle>less</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        implies <option>--lines=1000</option> and <option>--boot=0</option> unless explicitly specified
+        otherwise, to guarantee that the pager will not buffer logs of unbounded size. Note that this option
+        is only supported for the
+        <citerefentry project='man-pages'><refentrytitle>less</refentrytitle><manvolnum>1</manvolnum></citerefentry>
         pager.</para>
 
         <xi:include href="version-info.xml" xpointer="v198"/></listitem>
@@ -834,6 +833,9 @@
         <listitem><para>Specifies the change interval for the sealing key when generating an FSS key pair
         with <option>--setup-keys</option>. Shorter intervals increase CPU consumption but shorten the time
         range of undetectable journal alterations. Defaults to 15min.</para>
+
+        <para>Note, <option>--output=json-sse</option> and <option>--output=json-seq</option> are silently
+        migrated to <option>--output=json</option>.</para>
 
         <xi:include href="version-info.xml" xpointer="v189"/></listitem>
       </varlistentry>

@@ -73,7 +73,7 @@
       <varname>MemoryAccounting=</varname>/<varname>TasksAccounting=</varname>/<varname>IOAccounting=</varname>
       settings. Because of how the cgroup hierarchy works, controllers will be automatically enabled for all
       parent units and for any sibling units starting with the lowest level at which a controller is enabled.
-      Units for which a controller is enabled may be subject to resource control even if they don't have any
+      Units for which a controller is enabled may be subject to resource control even if they do not have any
       explicit configuration.</para>
 
       <para>Setting <varname>Delegate=</varname> enables any delegated controllers for that unit (see below).
@@ -172,7 +172,7 @@ CPUWeight=20   DisableControllers=cpu              /          \
     </itemizedlist>
   </refsect1>
 
-  <!-- We don't have any default dependency here. -->
+  <!-- We do not have any default dependency here. -->
 
   <refsect1>
     <title>Options</title>
@@ -210,7 +210,7 @@ CPUWeight=20   DisableControllers=cpu              /          \
         <listitem>
           <para>These settings control the <option>cpu</option> controller in the unified hierarchy.</para>
 
-          <para>These options accept an integer value or a the special string "idle":</para>
+          <para>These options accept an integer value or the special string "idle":</para>
             <itemizedlist>
               <listitem>
                 <para>If set to an integer value, assign the specified CPU time weight to the processes
@@ -304,7 +304,7 @@ CPUWeight=20   DisableControllers=cpu              /          \
           <para>Restrict processes to be executed on specific CPUs. Takes a list of CPU indices or ranges separated by either
           whitespace or commas. CPU ranges are specified by the lower and upper CPU indices separated by a dash.</para>
 
-          <para>Setting <varname>AllowedCPUs=</varname> or <varname>StartupAllowedCPUs=</varname> doesn't guarantee that all
+          <para>Setting <varname>AllowedCPUs=</varname> or <varname>StartupAllowedCPUs=</varname> does not guarantee that all
           of the CPUs will be used by the processes as it may be limited by parent units. The effective configuration is
           reported as <varname>EffectiveCPUs=</varname>.</para>
 
@@ -533,7 +533,7 @@ CPUWeight=20   DisableControllers=cpu              /          \
           or ranges separated by either whitespace or commas. Memory NUMA nodes ranges are specified by the lower and upper
           NUMA nodes indices separated by a dash.</para>
 
-          <para>Setting <varname>AllowedMemoryNodes=</varname> or <varname>StartupAllowedMemoryNodes=</varname> doesn't
+          <para>Setting <varname>AllowedMemoryNodes=</varname> or <varname>StartupAllowedMemoryNodes=</varname> does not
           guarantee that all of the memory NUMA nodes will be used by the processes as it may be limited by parent units.
           The effective configuration is reported as <varname>EffectiveMemoryNodes=</varname>.</para>
 
@@ -797,7 +797,7 @@ CPUWeight=20   DisableControllers=cpu              /          \
           <para>The access lists configured with this option are applied to all sockets created by processes
           of this unit (or in the case of socket units, associated with it). The lists are implicitly
           combined with any lists configured for any of the parent slice units this unit might be a member
-          of. By default both access lists are empty. Both ingress and egress traffic is filtered by these
+          of. By default, both access lists are empty. Both ingress and egress traffic is filtered by these
           settings. In case of ingress traffic the source IP address is checked against these access lists,
           in case of egress traffic the destination IP address is checked. The following rules are applied in
           turn:</para>
@@ -896,7 +896,7 @@ CPUWeight=20   DisableControllers=cpu              /          \
         <listitem>
           <para>Configures restrictions on the ability of unit processes to invoke <citerefentry
           project='man-pages'><refentrytitle>bind</refentrytitle><manvolnum>2</manvolnum></citerefentry> on a
-          socket. Both allow and deny rules may defined that restrict which addresses a socket may be bound
+          socket. Both allow and deny rules to be defined that restrict which addresses a socket may be bound
           to.</para>
 
           <para><replaceable>bind-rule</replaceable> describes socket properties such as <replaceable>address-family</replaceable>,
@@ -998,7 +998,7 @@ SocketBindDeny=any
 
         <listitem>
           <para>Takes a list of space-separated network interface names. This option restricts the network
-          interfaces that processes of this unit can use. By default processes can only use the network interfaces
+          interfaces that processes of this unit can use. By default, processes can only use the network interfaces
           listed (allow-list). If the first character of the rule is <literal>~</literal>, the effect is inverted:
           the processes can only use network interfaces not listed (deny-list).
           </para>
@@ -1150,7 +1150,7 @@ NFTSet=cgroup:inet:filter:my_service user:inet:filter:serviceuser
           of this unit (or in the case of socket units, associated with it). The filters are loaded in addition
           to filters any of the parent slice units this unit might be a member of as well as any
           <varname>IPAddressAllow=</varname> and <varname>IPAddressDeny=</varname> filters in any of these units.
-          By default there are no filters specified.</para>
+          By default, there are no filters specified.</para>
 
           <para>If these settings are used multiple times in the same unit all the specified programs are attached. If an
           empty string is assigned to these settings the program list is reset and all previous specified programs ignored.</para>
@@ -1429,7 +1429,7 @@ DeviceAllow=/dev/loop-control
 
           <para>Not all of these controllers are available on all kernels however, and some are specific to
           the unified hierarchy while others are specific to the legacy hierarchy. Also note that the kernel
-          might support further controllers, which aren't covered here yet as delegation is either not
+          might support further controllers, which are not covered here yet, as delegation is either not
           supported at all for them or not defined cleanly.</para>
 
           <para>Note that because of the hierarchical nature of cgroup hierarchy, any controllers that are
@@ -1459,7 +1459,7 @@ DeviceAllow=/dev/loop-control
           ownership is passed to the unit's configured user/group) when a process is started in it.</para>
 
           <para>This option is useful to avoid manually moving the invoked process into a subgroup after it
-          has been started. Since no processes should live in inner nodes of the control group tree it's
+          has been started. Since no processes should live in inner nodes of the control group tree it is
           almost always necessary to run the main ("supervising") process of a unit that has delegation
           turned on in a subgroup.</para>
 
@@ -1625,7 +1625,7 @@ DeviceAllow=/dev/loop-control
         disabled otherwise. If set to <literal>skip</literal> the logic is neither enabled, nor disabled and
         the two environment variables are not set.</para>
 
-        <para>Note that services are free to use the two environment variables, but it's unproblematic if
+        <para>Note that services are free to use the two environment variables, but it is unproblematic if
         they ignore them. Memory pressure handling must be implemented individually in each service, and
         usually means different things for different software. For further details on memory pressure
         handling see <ulink url="https://systemd.io/MEMORY_PRESSURE">Memory Pressure Handling in
@@ -1647,7 +1647,7 @@ DeviceAllow=/dev/loop-control
 
         <listitem><para>Sets the memory pressure threshold time for memory pressure monitor as configured via
         <varname>MemoryPressureWatch=</varname>. Specifies the maximum allocation latency before a memory
-        pressure event is signalled to the service, per 2s window. If not specified defaults to the
+        pressure event is signalled to the service, per 2s window. If not specified, defaults to the
         <varname>DefaultMemoryPressureThresholdSec=</varname> setting in
         <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         (which in turn defaults to 200ms). The specified value expects a time unit such as
@@ -1673,7 +1673,8 @@ DeviceAllow=/dev/loop-control
         <para>When <command>systemd-coredump</command> is handling a coredump for a process from a container,
         if the container's leader process is a descendant of a cgroup with <varname>CoredumpReceive=yes</varname>
         and <varname>Delegate=yes</varname>, then <command>systemd-coredump</command> will attempt to forward
-        the coredump to <command>systemd-coredump</command> within the container.</para>
+        the coredump to <command>systemd-coredump</command> within the container. See also
+        <citerefentry><refentrytitle>systemd-coredump</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
 
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
       </varlistentry>

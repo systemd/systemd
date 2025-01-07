@@ -22,26 +22,24 @@ TEST(destroy_callback) {
         int r, n_called = 0;
 
         r = bus_open_system_watch_bind_with_description(&bus, "test-bus");
-        if (r < 0) {
-                log_error_errno(r, "Failed to connect to bus: %m");
-                return;
-        }
+        if (r < 0)
+                return (void) log_error_errno(r, "Failed to connect to bus: %m");
 
-        r = sd_bus_request_name_async(bus, &slot, "org.freedesktop.systemd.test-bus-util", 0, callback, &n_called);
-        assert_se(r == 1);
+        ASSERT_OK_EQ(sd_bus_request_name_async(bus, &slot, "org.freedesktop.systemd.test-bus-util", 0, callback, &n_called),
+                     1);
 
-        assert_se(sd_bus_slot_get_destroy_callback(slot, NULL) == 0);
-        assert_se(sd_bus_slot_get_destroy_callback(slot, &t) == 0);
+        ASSERT_EQ(sd_bus_slot_get_destroy_callback(slot, NULL), 0);
+        ASSERT_EQ(sd_bus_slot_get_destroy_callback(slot, &t), 0);
 
-        assert_se(sd_bus_slot_set_destroy_callback(slot, destroy_callback) == 0);
-        assert_se(sd_bus_slot_get_destroy_callback(slot, NULL) == 1);
-        assert_se(sd_bus_slot_get_destroy_callback(slot, &t) == 1);
+        ASSERT_EQ(sd_bus_slot_set_destroy_callback(slot, destroy_callback), 0);
+        ASSERT_EQ(sd_bus_slot_get_destroy_callback(slot, NULL), 1);
+        ASSERT_EQ(sd_bus_slot_get_destroy_callback(slot, &t), 1);
         assert_se(t == destroy_callback);
 
         /* Force cleanup so we can look at n_called */
-        assert_se(n_called == 0);
+        ASSERT_EQ(n_called, 0);
         sd_bus_slot_unref(slot);
-        assert_se(n_called == 1);
+        ASSERT_EQ(n_called, 1);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

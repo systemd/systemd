@@ -50,6 +50,7 @@ static int add_syscall_filters(
                 { CAP_IPC_LOCK,       "@memlock"                     },
 
                 /* Plus a good set of additional syscalls which are not part of any of the groups above */
+                { 0,                  "arm_fadvise64_64"             },
                 { 0,                  "brk"                          },
                 { 0,                  "capget"                       },
                 { 0,                  "capset"                       },

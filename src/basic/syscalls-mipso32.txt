@@ -149,6 +149,7 @@ gettimeofday	4078
 getuid	4024
 getuid32
 getxattr	4227
+getxattrat	4464
 getxgid
 getxpid
 getxuid
@@ -190,6 +191,7 @@ linkat	4296
 listen	4174
 listmount	4458
 listxattr	4230
+listxattrat	4465
 llistxattr	4231
 llseek
 lookup_dcookie	4247
@@ -341,6 +343,7 @@ recvmmsg_time64	4417
 recvmsg	4177
 remap_file_pages	4251
 removexattr	4233
+removexattrat	4466
 rename	4038
 renameat	4295
 renameat2	4351
@@ -429,6 +432,7 @@ settimeofday	4079
 setuid	4023
 setuid32
 setxattr	4224
+setxattrat	4463
 sgetmask	4068
 shmat	4397
 shmctl	4396

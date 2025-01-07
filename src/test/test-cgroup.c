@@ -14,28 +14,28 @@
 TEST(cg_split_spec) {
         char *c, *p;
 
-        assert_se(cg_split_spec("foobar:/", &c, &p) == 0);
+        ASSERT_OK_ZERO(cg_split_spec("foobar:/", &c, &p));
         ASSERT_STREQ(c, "foobar");
         ASSERT_STREQ(p, "/");
         c = mfree(c);
         p = mfree(p);
 
-        assert_se(cg_split_spec("foobar:", &c, &p) == 0);
+        ASSERT_OK_ZERO(cg_split_spec("foobar:", &c, &p));
         c = mfree(c);
         p = mfree(p);
 
-        assert_se(cg_split_spec("foobar:asdfd", &c, &p) < 0);
-        assert_se(cg_split_spec(":///", &c, &p) < 0);
-        assert_se(cg_split_spec(":", &c, &p) < 0);
-        assert_se(cg_split_spec("", &c, &p) < 0);
-        assert_se(cg_split_spec("fo/obar:/", &c, &p) < 0);
+        ASSERT_FAIL(cg_split_spec("foobar:asdfd", &c, &p));
+        ASSERT_FAIL(cg_split_spec(":///", &c, &p));
+        ASSERT_FAIL(cg_split_spec(":", &c, &p));
+        ASSERT_FAIL(cg_split_spec("", &c, &p));
+        ASSERT_FAIL(cg_split_spec("fo/obar:/", &c, &p));
 
-        assert_se(cg_split_spec("/", &c, &p) >= 0);
+        ASSERT_OK(cg_split_spec("/", &c, &p));
         ASSERT_NULL(c);
         ASSERT_STREQ(p, "/");
         p = mfree(p);
 
-        assert_se(cg_split_spec("foo", &c, &p) >= 0);
+        ASSERT_OK(cg_split_spec("foo", &c, &p));
         ASSERT_STREQ(c, "foo");
         ASSERT_NULL(p);
         c = mfree(c);
@@ -49,10 +49,10 @@ TEST(cg_create) {
                 log_tests_skipped("cgroupfs is not mounted");
                 return;
         }
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         _cleanup_free_ char *here = NULL;
-        assert_se(cg_pid_get_path_shifted(0, NULL, &here) >= 0);
+        ASSERT_OK(cg_pid_get_path_shifted(0, NULL, &here));
 
         const char *test_a = prefix_roota(here, "/test-a"),
                    *test_b = prefix_roota(here, "/test-b"),
@@ -72,29 +72,29 @@ TEST(cg_create) {
                 return;
         }
 
-        assert_se(r == 1);
-        assert_se(cg_create(SYSTEMD_CGROUP_CONTROLLER, test_a) == 0);
-        assert_se(cg_create(SYSTEMD_CGROUP_CONTROLLER, test_b) == 1);
-        assert_se(cg_create(SYSTEMD_CGROUP_CONTROLLER, test_c) == 1);
-        assert_se(cg_create_and_attach(SYSTEMD_CGROUP_CONTROLLER, test_b, 0) == 0);
+        ASSERT_OK_EQ(r, 1);
+        ASSERT_OK_ZERO(cg_create(SYSTEMD_CGROUP_CONTROLLER, test_a));
+        ASSERT_OK_EQ(cg_create(SYSTEMD_CGROUP_CONTROLLER, test_b), 1);
+        ASSERT_OK_EQ(cg_create(SYSTEMD_CGROUP_CONTROLLER, test_c), 1);
+        ASSERT_OK_ZERO(cg_create_and_attach(SYSTEMD_CGROUP_CONTROLLER, test_b, 0));
 
-        assert_se(cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, getpid_cached(), &path) == 0);
+        ASSERT_OK_ZERO(cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, getpid_cached(), &path));
         ASSERT_STREQ(path, test_b);
         free(path);
 
-        assert_se(cg_attach(SYSTEMD_CGROUP_CONTROLLER, test_a, 0) == 0);
+        ASSERT_OK_ZERO(cg_attach(SYSTEMD_CGROUP_CONTROLLER, test_a, 0));
 
-        assert_se(cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, getpid_cached(), &path) == 0);
-        assert_se(path_equal(path, test_a));
+        ASSERT_OK_ZERO(cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, getpid_cached(), &path));
+        ASSERT_TRUE(path_equal(path, test_a));
         free(path);
 
-        assert_se(cg_create_and_attach(SYSTEMD_CGROUP_CONTROLLER, test_d, 0) == 1);
+        ASSERT_OK_EQ(cg_create_and_attach(SYSTEMD_CGROUP_CONTROLLER, test_d, 0), 1);
 
-        assert_se(cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, getpid_cached(), &path) == 0);
-        assert_se(path_equal(path, test_d));
+        ASSERT_OK_ZERO(cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, getpid_cached(), &path));
+        ASSERT_TRUE(path_equal(path, test_d));
         free(path);
 
-        assert_se(cg_get_path(SYSTEMD_CGROUP_CONTROLLER, test_d, NULL, &path) == 0);
+        ASSERT_OK_ZERO(cg_get_path(SYSTEMD_CGROUP_CONTROLLER, test_d, NULL, &path));
         log_debug("test_d: %s", path);
         const char *full_d;
         if (cg_all_unified())
@@ -103,24 +103,24 @@ TEST(cg_create) {
                 full_d = strjoina("/sys/fs/cgroup/unified", test_d);
         else
                 full_d = strjoina("/sys/fs/cgroup/systemd", test_d);
-        assert_se(path_equal(path, full_d));
+        ASSERT_TRUE(path_equal(path, full_d));
         free(path);
 
-        assert_se(cg_is_empty(SYSTEMD_CGROUP_CONTROLLER, test_a) > 0);
-        assert_se(cg_is_empty(SYSTEMD_CGROUP_CONTROLLER, test_b) > 0);
-        assert_se(cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, test_a) > 0);
-        assert_se(cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, test_b) == 0);
+        ASSERT_OK_POSITIVE(cg_is_empty(SYSTEMD_CGROUP_CONTROLLER, test_a));
+        ASSERT_OK_POSITIVE(cg_is_empty(SYSTEMD_CGROUP_CONTROLLER, test_b));
+        ASSERT_OK_POSITIVE(cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, test_a));
+        ASSERT_OK_ZERO(cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, test_b));
 
-        assert_se(cg_kill_recursive(test_a, 0, 0, NULL, NULL, NULL) == 0);
-        assert_se(cg_kill_recursive(test_b, 0, 0, NULL, NULL, NULL) > 0);
+        ASSERT_OK_ZERO(cg_kill_recursive(test_a, 0, 0, NULL, NULL, NULL));
+        ASSERT_OK_POSITIVE(cg_kill_recursive(test_b, 0, 0, NULL, NULL, NULL));
 
-        assert_se(cg_migrate_recursive(SYSTEMD_CGROUP_CONTROLLER, test_b, SYSTEMD_CGROUP_CONTROLLER, test_a, 0) > 0);
+        ASSERT_OK_POSITIVE(cg_migrate_recursive(SYSTEMD_CGROUP_CONTROLLER, test_b, SYSTEMD_CGROUP_CONTROLLER, test_a, 0));
 
-        assert_se(cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, test_a) == 0);
-        assert_se(cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, test_b) > 0);
+        ASSERT_OK_ZERO(cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, test_a));
+        ASSERT_OK_POSITIVE(cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, test_b));
 
-        assert_se(cg_kill_recursive(test_a, 0, 0, NULL, NULL, NULL) > 0);
-        assert_se(cg_kill_recursive(test_b, 0, 0, NULL, NULL, NULL) == 0);
+        ASSERT_OK_POSITIVE(cg_kill_recursive(test_a, 0, 0, NULL, NULL, NULL));
+        ASSERT_OK_ZERO(cg_kill_recursive(test_b, 0, 0, NULL, NULL, NULL));
 
         ASSERT_OK(cg_trim(SYSTEMD_CGROUP_CONTROLLER, test_b, true));
 }
@@ -140,15 +140,15 @@ TEST(id) {
                 log_tests_skipped("cgroupfs is not mounted");
                 return;
         }
-        assert_se(r > 0);
+        ASSERT_OK_POSITIVE(r);
 
         fd = cg_path_open(SYSTEMD_CGROUP_CONTROLLER, "/");
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
 
-        assert_se(fd_get_path(fd, &p) >= 0);
-        assert_se(path_equal(p, "/sys/fs/cgroup"));
+        ASSERT_OK(fd_get_path(fd, &p));
+        ASSERT_TRUE(path_equal(p, "/sys/fs/cgroup"));
 
-        assert_se(cg_fd_get_cgroupid(fd, &id) >= 0);
+        ASSERT_OK(cg_fd_get_cgroupid(fd, &id));
 
         fd2 = cg_cgroupid_open(fd, id);
 
@@ -157,16 +157,16 @@ TEST(id) {
         else if (ERRNO_IS_NEG_NOT_SUPPORTED(fd2))
                 log_notice("Skipping open-by-cgroup-id test because syscall is missing or blocked.");
         else {
-                assert_se(fd2 >= 0);
+                ASSERT_OK(fd2);
 
-                assert_se(fd_get_path(fd2, &p2) >= 0);
-                assert_se(path_equal(p2, "/sys/fs/cgroup"));
+                ASSERT_OK(fd_get_path(fd2, &p2));
+                ASSERT_TRUE(path_equal(p2, "/sys/fs/cgroup"));
 
-                assert_se(cg_fd_get_cgroupid(fd2, &id2) >= 0);
+                ASSERT_OK(cg_fd_get_cgroupid(fd2, &id2));
 
-                assert_se(id == id2);
+                ASSERT_EQ(id, id2);
 
-                assert_se(inode_same_at(fd, NULL, fd2, NULL, AT_EMPTY_PATH) > 0);
+                ASSERT_OK_EQ(inode_same_at(fd, NULL, fd2, NULL, AT_EMPTY_PATH), true);
         }
 }
 

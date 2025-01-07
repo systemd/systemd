@@ -427,7 +427,10 @@ int wipe_slots(struct crypt_device *cd,
         for (size_t i = n_ordered_slots; i > 0; i--) {
                 r = crypt_keyslot_destroy(cd, ordered_slots[i - 1]);
                 if (r < 0) {
-                        log_warning_errno(r, "Failed to wipe slot %i, continuing: %m", ordered_slots[i - 1]);
+                        if (r == -ENOENT)
+                                log_warning_errno(r, "Failed to wipe non-existent slot %i, continuing.", ordered_slots[i - 1]);
+                        else
+                                log_warning_errno(r, "Failed to wipe slot %i, continuing: %m", ordered_slots[i - 1]);
                         if (ret == 0)
                                 ret = r;
                 } else

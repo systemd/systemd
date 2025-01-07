@@ -50,7 +50,7 @@ extern bool arg_no_tail;
 extern bool arg_truncate_newline;
 extern bool arg_quiet;
 extern bool arg_merge;
-extern bool arg_boot;
+extern int arg_boot;
 extern sd_id128_t arg_boot_id;
 extern int arg_boot_offset;
 extern bool arg_dmesg;

@@ -27,7 +27,7 @@ event_timeout=10
 timeout_signal=SIGABRT
 EOF
 
-    systemctl restart systemd-udevd.service
+    systemctl reload systemd-udevd.service
 }
 
 # shellcheck disable=SC2317
@@ -40,7 +40,7 @@ teardown() {
 
     rm -rf "$TMPDIR"
     rm -f "$TEST_RULE" "$TEST_CONF"
-    systemctl restart systemd-udevd.service
+    systemctl reload systemd-udevd.service
 }
 
 run_test_timeout() {

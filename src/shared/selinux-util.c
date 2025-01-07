@@ -584,10 +584,7 @@ int mac_selinux_create_file_prepare_at(
                 return 0;
 
         if (isempty(path) || !path_is_absolute(path)) {
-                if (dir_fd == AT_FDCWD)
-                        r = safe_getcwd(&abspath);
-                else
-                        r = fd_get_path(dir_fd, &abspath);
+                r = fd_get_path(dir_fd, &abspath);
                 if (r < 0)
                         return r;
 

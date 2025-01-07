@@ -20,6 +20,7 @@
 #include "af-list.h"
 #include "alloc-util.h"
 #include "async.h"
+#include "bitfield.h"
 #include "cap-list.h"
 #include "capability-util.h"
 #include "cgroup-setup.h"
@@ -346,6 +347,28 @@ bool exec_needs_mount_namespace(
         return false;
 }
 
+const char* exec_get_private_notify_socket_path(const ExecContext *context, const ExecParameters *params, bool needs_sandboxing) {
+        assert(context);
+        assert(params);
+
+        if (!params->notify_socket)
+                return NULL;
+
+        if (!needs_sandboxing)
+                return NULL;
+
+        if (!context->root_directory && !context->root_image)
+                return NULL;
+
+        if (!exec_context_get_effective_mount_apivfs(context))
+                return NULL;
+
+        if (!FLAGS_SET(params->flags, EXEC_APPLY_CHROOT))
+                return NULL;
+
+        return "/run/host/notify";
+}
+
 bool exec_directory_is_private(const ExecContext *context, ExecDirectoryType type) {
         assert(context);
 
@@ -494,8 +517,9 @@ int exec_spawn(
         if (r < 0)
                 return log_unit_error_errno(unit, r, "Failed to serialize parameters: %m");
 
-        if (fseeko(f, 0, SEEK_SET) < 0)
-                return log_unit_error_errno(unit, errno, "Failed to reseek on serialization stream: %m");
+        r = finish_serialization_file(f);
+        if (r < 0)
+                return log_unit_error_errno(unit, r, "Failed to finish serialization stream: %m");
 
         r = fd_cloexec(fileno(f), false);
         if (r < 0)
@@ -672,6 +696,7 @@ void exec_context_done(ExecContext *c) {
 
         c->syscall_filter = hashmap_free(c->syscall_filter);
         c->syscall_archs = set_free(c->syscall_archs);
+        c->syscall_log = hashmap_free(c->syscall_log);
         c->address_families = set_free(c->address_families);
 
         FOREACH_ARRAY(d, c->directories, _EXEC_DIRECTORY_TYPE_MAX)
@@ -700,6 +725,8 @@ void exec_context_done(ExecContext *c) {
         c->root_image_policy = image_policy_free(c->root_image_policy);
         c->mount_image_policy = image_policy_free(c->mount_image_policy);
         c->extension_image_policy = image_policy_free(c->extension_image_policy);
+
+        c->private_hostname = mfree(c->private_hostname);
 }
 
 int exec_context_destroy_runtime_directory(const ExecContext *c, const char *runtime_prefix) {
@@ -1043,7 +1070,7 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 "%sRestrictRealtime: %s\n"
                 "%sRestrictSUIDSGID: %s\n"
                 "%sKeyringMode: %s\n"
-                "%sProtectHostname: %s\n"
+                "%sProtectHostname: %s%s%s\n"
                 "%sProtectProc: %s\n"
                 "%sProcSubset: %s\n",
                 prefix, c->umask,
@@ -1070,7 +1097,7 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 prefix, yes_no(c->restrict_realtime),
                 prefix, yes_no(c->restrict_suid_sgid),
                 prefix, exec_keyring_mode_to_string(c->keyring_mode),
-                prefix, yes_no(c->protect_hostname),
+                prefix, protect_hostname_to_string(c->protect_hostname), c->private_hostname ? ":" : "", strempty(c->private_hostname),
                 prefix, protect_proc_to_string(c->protect_proc),
                 prefix, proc_subset_to_string(c->proc_subset));
 
@@ -1640,7 +1667,7 @@ int exec_context_get_clean_directories(
         assert(ret);
 
         for (ExecDirectoryType t = 0; t < _EXEC_DIRECTORY_TYPE_MAX; t++) {
-                if (!FLAGS_SET(mask, 1U << t))
+                if (!BIT_SET(mask, t))
                         continue;
 
                 if (!prefix[t])

@@ -168,7 +168,7 @@
       <varlistentry>
         <term><option>--dry-run=</option></term>
 
-        <listitem><para>Takes a boolean. If this switch is not specified <option>--dry-run=yes</option> is
+        <listitem><para>Takes a boolean. If this switch is not specified, <option>--dry-run=yes</option> is
         the implied default. Controls whether <filename>systemd-repart</filename> executes the requested
         re-partition operations or whether it should only show what it would do. Unless
         <option>--dry-run=no</option> is specified <filename>systemd-repart</filename> will not actually
@@ -183,7 +183,7 @@
         <listitem><para>Takes one of <literal>refuse</literal>, <literal>allow</literal>,
         <literal>require</literal>, <literal>force</literal> or <literal>create</literal>. Controls how to
         operate on block devices that are entirely empty, i.e. carry no partition table/disk label yet. If
-        this switch is not specified the implied default is <literal>refuse</literal>.</para>
+        this switch is not specified, the implied default is <literal>refuse</literal>.</para>
 
         <para>If <literal>refuse</literal> <command>systemd-repart</command> requires that the block device
         it shall operate on already carries a partition table and refuses operation if none is found. If
@@ -202,9 +202,9 @@
       <varlistentry>
         <term><option>--discard=</option></term>
 
-        <listitem><para>Takes a boolean. If this switch is not specified <option>--discard=yes</option> is
+        <listitem><para>Takes a boolean. If this switch is not specified ,<option>--discard=yes</option> is
         the implied default. Controls whether to issue the <constant>BLKDISCARD</constant> I/O control
-        command on the space taken up by any added partitions or on the space in between them. Usually, it's
+        command on the space taken up by any added partitions or on the space in between them. Usually, it is
         a good idea to issue this request since it tells the underlying hardware that the covered blocks
         shall be considered empty, improving performance. If operating on a regular file instead of a block
         device node, a sparse file is generated.</para>
@@ -242,7 +242,7 @@
       <varlistentry>
         <term><option>--factory-reset=</option></term>
 
-        <listitem><para>Takes boolean. If this switch is not specified <option>--factory=reset=no</option> is
+        <listitem><para>Takes boolean. If this switch is not specified, <option>--factory=reset=no</option> is
         the implied default. Controls whether to operate in "factory reset" mode, see above. If set to true
         this will remove all existing partitions marked with <varname>FactoryReset=</varname> set to yes
         early while executing the re-partitioning algorithm. Use with care, this is a great way to lose all
@@ -299,7 +299,7 @@
 
         <listitem><para>Takes a UUID as argument or the special value <constant>random</constant>. If a UUID
         is specified the UUIDs to assign to partitions and the partition table itself are derived via
-        cryptographic hashing from it. If not specified it is attempted to read the machine ID from the host
+        cryptographic hashing from it. If not specified, it is attempted to read the machine ID from the host
         (or more precisely, the root directory configured via <option>--root=</option>) and use it as seed
         instead, falling back to a randomized seed otherwise. Use <option>--seed=random</option> to force a
         randomized seed. Explicitly specifying the seed may be used to generated strictly reproducible
@@ -337,8 +337,8 @@
         <listitem><para>Takes a file system path. Configures the encryption key to use when setting up LUKS2
         volumes configured with the <varname>Encrypt=key-file</varname> setting in partition files. Should
         refer to a regular file containing the key, or an <constant>AF_UNIX</constant> stream socket in the
-        file system. In the latter case a connection is made to it and the key read from it. If this switch
-        is not specified the empty key (i.e. zero length key) is used. This behaviour is useful for setting
+        file system. In the latter case, a connection is made to it and the key read from it. If this switch
+        is not specified, the empty key (i.e. zero length key) is used. This behaviour is useful for setting
         up encrypted partitions during early first boot that receive their user-supplied password only in a
         later setup step.</para>
 
@@ -455,7 +455,7 @@
         <term><option>--exclude-partitions=<replaceable>PARTITIONS</replaceable></option></term>
 
         <listitem><para>These options specify which partition types <command>systemd-repart</command> should
-        operate on. If <option>--include-partitions=</option> is used, all partitions that aren't specified
+        operate on. If <option>--include-partitions=</option> is used, all partitions that are not specified
         are excluded. If <option>--exclude-partitions=</option> is used, all partitions that are specified
         are excluded. Both options take a comma separated list of GPT partition type UUIDs or identifiers
         (see <varname>Type=</varname> in
@@ -470,7 +470,7 @@
 
         <listitem><para>This option specifies for which partition types <command>systemd-repart</command>
         should defer. All partitions that are deferred using this option are still taken into account when
-        calculating the sizes and offsets of other partitions, but aren't actually written to the disk image.
+        calculating the sizes and offsets of other partitions, but are not actually written to the disk image.
         The net effect of this option is that if you run <command>systemd-repart</command> again without this
         option, the missing partitions will be added as if they had not been deferred the first time
         <command>systemd-repart</command> was executed.</para>
@@ -569,7 +569,7 @@
         (sysext, see
         <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         for details), configuration extension (confext) or <ulink
-        url="https://systemd.io/PORTABLE_SERVICES">portable service</ulink>. The generated image will consist
+        url="https://systemd.io/PORTABLE_SERVICES">Portable Services</ulink>. The generated image will consist
         of a signed Verity <literal>erofs</literal> file system as root partition. In this mode of operation
         the partition definitions in <filename>/usr/lib/repart.d/*.conf</filename> and related directories
         are not read, and <option>--definitions=</option> is not supported, as appropriate definitions for
@@ -605,10 +605,11 @@
       <varlistentry>
         <term><option>--generate-fstab=<replaceable>PATH</replaceable></option></term>
 
-        <listitem><para>Specifies a path where to write fstab entries for the mountpoints configured with
-        <option>MountPoint=</option> in the root directory specified with <option>--copy-source=</option> or
-        <option>--root=</option> or in the host's root directory if neither is specified. Disabled by
-        default.</para>
+        <listitem><para>Specifies a path where to write
+        <citerefentry project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        entries for the mountpoints configured with <option>MountPoint=</option> in the root directory
+        specified with <option>--copy-source=</option> or <option>--root=</option> or in the host's root
+        directory if neither is specified. Disabled by default.</para>
 
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
@@ -680,7 +681,7 @@ systemd-confext refresh</programlisting>
       <title>Generate a system extension image and sign it via PKCS11</title>
 
       <para>The following creates a system extension DDI (sysext) for an
-      <filename>/usr/foo</filename> update and signs it with a hardware token via PKCS11.</para>
+      <filename>/usr/foo</filename> update and signs it with a hardware token via PKCS11:</para>
 
       <programlisting>mkdir -p tree/usr/lib/extension-release.d
 echo "Hello World" >tree/usr/foo

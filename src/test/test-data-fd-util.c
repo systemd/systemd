@@ -7,57 +7,11 @@
 
 #include "data-fd-util.h"
 #include "fd-util.h"
+#include "memfd-util.h"
 #include "memory-util.h"
 #include "process-util.h"
-#include "tests.h"
 #include "random-util.h"
-
-static void test_acquire_data_fd_one(unsigned flags) {
-        char wbuffer[196*1024 - 7];
-        char rbuffer[sizeof(wbuffer)];
-        int fd;
-
-        fd = acquire_data_fd_full("foo", 3, flags);
-        assert_se(fd >= 0);
-
-        zero(rbuffer);
-        assert_se(read(fd, rbuffer, sizeof(rbuffer)) == 3);
-        ASSERT_STREQ(rbuffer, "foo");
-
-        fd = safe_close(fd);
-
-        fd = acquire_data_fd_full("", SIZE_MAX, flags);
-        assert_se(fd >= 0);
-
-        zero(rbuffer);
-        assert_se(read(fd, rbuffer, sizeof(rbuffer)) == 0);
-        ASSERT_STREQ(rbuffer, "");
-
-        fd = safe_close(fd);
-
-        random_bytes(wbuffer, sizeof(wbuffer));
-
-        fd = acquire_data_fd_full(wbuffer, sizeof(wbuffer), flags);
-        assert_se(fd >= 0);
-
-        zero(rbuffer);
-        assert_se(read(fd, rbuffer, sizeof(rbuffer)) == sizeof(rbuffer));
-        assert_se(memcmp(rbuffer, wbuffer, sizeof(rbuffer)) == 0);
-
-        fd = safe_close(fd);
-}
-
-TEST(acquire_data_fd) {
-        test_acquire_data_fd_one(0);
-        test_acquire_data_fd_one(ACQUIRE_NO_DEV_NULL);
-        test_acquire_data_fd_one(ACQUIRE_NO_MEMFD);
-        test_acquire_data_fd_one(ACQUIRE_NO_DEV_NULL|ACQUIRE_NO_MEMFD);
-        test_acquire_data_fd_one(ACQUIRE_NO_PIPE);
-        test_acquire_data_fd_one(ACQUIRE_NO_DEV_NULL|ACQUIRE_NO_PIPE);
-        test_acquire_data_fd_one(ACQUIRE_NO_MEMFD|ACQUIRE_NO_PIPE);
-        test_acquire_data_fd_one(ACQUIRE_NO_DEV_NULL|ACQUIRE_NO_MEMFD|ACQUIRE_NO_PIPE);
-        test_acquire_data_fd_one(ACQUIRE_NO_DEV_NULL|ACQUIRE_NO_MEMFD|ACQUIRE_NO_PIPE|ACQUIRE_NO_TMPFILE);
-}
+#include "tests.h"
 
 static void assert_equal_fd(int fd1, int fd2) {
         for (;;) {
@@ -98,14 +52,14 @@ TEST(copy_data_fd) {
         fd1 = safe_close(fd1);
         fd2 = safe_close(fd2);
 
-        fd1 = acquire_data_fd("hallo");
+        fd1 = memfd_new_and_seal_string("data", "hallo");
         assert_se(fd1 >= 0);
 
         fd2 = copy_data_fd(fd1);
         assert_se(fd2 >= 0);
 
         safe_close(fd1);
-        fd1 = acquire_data_fd("hallo");
+        fd1 = memfd_new_and_seal_string("data", "hallo");
         assert_se(fd1 >= 0);
 
         assert_equal_fd(fd1, fd2);

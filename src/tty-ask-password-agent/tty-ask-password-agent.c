@@ -21,6 +21,7 @@
 #include "build.h"
 #include "conf-parser.h"
 #include "constants.h"
+#include "daemon-util.h"
 #include "devnum-util.h"
 #include "dirent-util.h"
 #include "exit-status.h"
@@ -147,10 +148,14 @@ static int agent_ask_password_tty(
         }
 
         AskPasswordRequest req = {
+                .tty_fd = tty_fd,
                 .message = message,
+                .flag_file = flag_file,
+                .until = until,
+                .hup_fd = -EBADF,
         };
 
-        r = ask_password_tty(tty_fd, &req, until, flags, flag_file, ret);
+        r = ask_password_tty(&req, flags, ret);
 
         if (arg_console) {
                 assert(tty_fd >= 0);
@@ -243,20 +248,32 @@ static int process_one_password_file(const char *filename, FILE *f) {
                 SET_FLAG(flags, ASK_PASSWORD_ECHO, echo);
                 SET_FLAG(flags, ASK_PASSWORD_SILENT, silent);
 
-                if (arg_plymouth) {
-                        AskPasswordRequest req = {
-                                .message = message,
-                        };
+                /* Allow providing a password via env var, for debugging purposes */
+                const char *e = secure_getenv("SYSTEMD_ASK_PASSWORD_AGENT_PASSWORD");
+                if (e) {
+                        passwords = strv_new(e);
+                        if (!passwords)
+                                return log_oom();
+                } else {
+                        if (arg_plymouth) {
+                                AskPasswordRequest req = {
+                                        .tty_fd = -EBADF,
+                                        .message = message,
+                                        .flag_file = filename,
+                                        .until = not_after,
+                                        .hup_fd = -EBADF,
+                                };
 
-                        r = ask_password_plymouth(&req, not_after, flags, filename, &passwords);
-                } else
-                        r = agent_ask_password_tty(message, not_after, flags, filename, &passwords);
-                if (r < 0) {
-                        /* If the query went away, that's OK */
-                        if (IN_SET(r, -ETIME, -ENOENT))
-                                return 0;
+                                r = ask_password_plymouth(&req, flags, &passwords);
+                        } else
+                                r = agent_ask_password_tty(message, not_after, flags, filename, &passwords);
+                        if (r < 0) {
+                                /* If the query went away, that's OK */
+                                if (IN_SET(r, -ETIME, -ENOENT))
+                                        return 0;
 
-                        return log_error_errno(r, "Failed to query password: %m");
+                                return log_error_errno(r, "Failed to query password: %m");
+                        }
                 }
 
                 assert(!strv_isempty(passwords));
@@ -384,6 +401,9 @@ static int process_and_watch_password_files(bool watch) {
 
                 pollfd[FD_INOTIFY] = (struct pollfd) { .fd = notify, .events = POLLIN };
         }
+
+        _unused_ _cleanup_(notify_on_cleanup) const char *notify_stop =
+                notify_start(NOTIFY_READY, NOTIFY_STOPPING);
 
         for (;;) {
                 usec_t timeout = USEC_INFINITY;
@@ -547,21 +567,21 @@ static int parse_argv(int argc, char *argv[]) {
 /*
  * To be able to ask on all terminal devices of /dev/console the devices are collected. If more than one
  * device is found, then on each of the terminals an inquiring task is forked.  Every task has its own session
- * and its own controlling terminal.  If one of the tasks does handle a password, the remaining tasks will be
+ * and its own controlling terminal. If one of the tasks does handle a password, the remaining tasks will be
  * terminated.
  */
-static int ask_on_this_console(const char *tty, pid_t *ret_pid, char **arguments) {
-        static const struct sigaction sigchld = {
-                .sa_handler = nop_signal_handler,
-                .sa_flags = SA_NOCLDSTOP | SA_RESTART,
-        };
+static int ask_on_this_console(const char *tty, char **arguments, pid_t *ret_pid) {
         int r;
 
-        assert_se(sigaction(SIGCHLD, &sigchld, NULL) >= 0);
+        assert(tty);
+        assert(arguments);
+        assert(ret_pid);
+
+        assert_se(sigaction(SIGCHLD, &sigaction_nop_nocldstop, NULL) >= 0);
         assert_se(sigaction(SIGHUP, &sigaction_default, NULL) >= 0);
         assert_se(sigprocmask_many(SIG_UNBLOCK, NULL, SIGHUP, SIGCHLD) >= 0);
 
-        r = safe_fork("(sd-passwd)", FORK_RESET_SIGNALS|FORK_LOG, ret_pid);
+        r = safe_fork("(sd-passwd)", FORK_RESET_SIGNALS|FORK_KEEP_NOTIFY_SOCKET|FORK_LOG, ret_pid);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -638,11 +658,11 @@ static void terminate_agents(Set *pids) {
 }
 
 static int ask_on_consoles(char *argv[]) {
-        _cleanup_set_free_ Set *pids = NULL;
         _cleanup_strv_free_ char **consoles = NULL, **arguments = NULL;
-        siginfo_t status = {};
-        pid_t pid;
+        _cleanup_set_free_ Set *pids = NULL;
         int r;
+
+        assert(argv);
 
         r = get_kernel_consoles(&consoles);
         if (r < 0)
@@ -656,9 +676,18 @@ static int ask_on_consoles(char *argv[]) {
         if (!arguments)
                 return log_oom();
 
+        /* Grant agents we spawn notify access too, so that once an agent establishes inotify watch
+         * READY=1 from them is accepted by service manager (see process_and_watch_password_files()).
+         *
+         * Note that when any agent exits STOPPING=1 would also be sent, but that's utterly what we want,
+         * i.e. the password is answered on one console and other agents get killed below. */
+        (void) sd_notify(/* unset_environment = */ false, "NOTIFYACCESS=all");
+
         /* Start an agent on each console. */
         STRV_FOREACH(tty, consoles) {
-                r = ask_on_this_console(*tty, &pid, arguments);
+                pid_t pid;
+
+                r = ask_on_this_console(*tty, arguments, &pid);
                 if (r < 0)
                         return r;
 
@@ -668,21 +697,21 @@ static int ask_on_consoles(char *argv[]) {
 
         /* Wait for an agent to exit. */
         for (;;) {
-                zero(status);
+                siginfo_t status = {};
 
                 if (waitid(P_ALL, 0, &status, WEXITED) < 0) {
                         if (errno == EINTR)
                                 continue;
 
-                        return log_error_errno(errno, "waitid() failed: %m");
+                        return log_error_errno(errno, "Failed to wait for console ask-password agent: %m");
                 }
+
+                if (!is_clean_exit(status.si_code, status.si_status, EXIT_CLEAN_DAEMON, NULL))
+                        log_error("Password agent failed with: %d", status.si_status);
 
                 set_remove(pids, PID_TO_PTR(status.si_pid));
                 break;
         }
-
-        if (!is_clean_exit(status.si_code, status.si_status, EXIT_CLEAN_DAEMON, NULL))
-                log_error("Password agent failed with: %d", status.si_status);
 
         terminate_agents(pids);
         return 0;
@@ -705,15 +734,10 @@ static int run(int argc, char *argv[]) {
                  */
                 return ask_on_consoles(argv);
 
-        if (arg_device) {
-                /*
-                 * Later on, a controlling terminal will be acquired,
-                 * therefore the current process has to become a session
-                 * leader and should not have a controlling terminal already.
-                 */
-                (void) setsid();
-                (void) release_terminal();
-        }
+        if (arg_device)
+                /* Later on, a controlling terminal will be acquired, therefore the current process has to
+                 * become a session leader and should not have a controlling terminal already. */
+                terminal_detach_session();
 
         return process_and_watch_password_files(!IN_SET(arg_action, ACTION_QUERY, ACTION_LIST));
 }

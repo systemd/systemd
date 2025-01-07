@@ -6,11 +6,11 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
-#include "data-fd-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
 #include "macro.h"
+#include "memfd-util.h"
 #include "memory-util.h"
 #include "missing_syscall.h"
 #include "mkdir.h"
@@ -76,9 +76,9 @@ TEST(same_fd) {
 
         assert_se(pipe2(p, O_CLOEXEC) >= 0);
         assert_se((a = fcntl(p[0], F_DUPFD, 3)) >= 0);
-        assert_se((b = open("/dev/null", O_RDONLY|O_CLOEXEC)) >= 0);
+        assert_se((b = open("/bin/sh", O_RDONLY|O_CLOEXEC)) >= 0);
         assert_se((c = fcntl(a, F_DUPFD, 3)) >= 0);
-        assert_se((d = open("/dev/null", O_RDONLY|O_CLOEXEC|O_PATH)) >= 0); /* O_PATH changes error returns in F_DUPFD_QUERY, let's test explicitly */
+        assert_se((d = open("/bin/sh", O_RDONLY|O_CLOEXEC|O_PATH)) >= 0); /* O_PATH changes error returns in F_DUPFD_QUERY, let's test explicitly */
         assert_se((e = fcntl(d, F_DUPFD, 3)) >= 0);
 
         assert_se(same_fd(p[0], p[0]) > 0);
@@ -127,6 +127,8 @@ TEST(open_serialization_fd) {
         assert_se(fd >= 0);
 
         assert_se(write(fd, "test\n", 5) == 5);
+
+        assert_se(finish_serialization_fd(fd) >= 0);
 }
 
 TEST(open_serialization_file) {
@@ -138,6 +140,8 @@ TEST(open_serialization_file) {
         assert_se(f);
 
         assert_se(fwrite("test\n", 1, 5, f) == 5);
+
+        assert_se(finish_serialization_file(f) >= 0);
 }
 
 TEST(fd_move_above_stdio) {
@@ -203,7 +207,7 @@ TEST(rearrange_stdio) {
                 assert_se(pipe_read_fd >= 3);
 
                 assert_se(open("/dev/full", O_WRONLY|O_CLOEXEC) == 0);
-                assert_se(acquire_data_fd("foobar") == 2);
+                assert_se(memfd_new_and_seal_string("data", "foobar") == 2);
 
                 assert_se(rearrange_stdio(2, 0, 1) >= 0);
 
@@ -389,6 +393,8 @@ TEST(close_all_fds) {
                         test_close_all_fds_inner();
                 _exit(EXIT_SUCCESS);
         }
+        if (ERRNO_IS_NEG_PRIVILEGE(r))
+                return (void) log_tests_skipped("Lacking privileges for test in namespace with /proc/ overmounted");
         assert_se(r >= 0);
 
         if (!is_seccomp_available())

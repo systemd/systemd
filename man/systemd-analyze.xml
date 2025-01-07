@@ -205,6 +205,11 @@
       <arg choice="opt" rep="repeat">OPTIONS</arg>
       <arg choice="plain">smbios11</arg>
     </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-analyze</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">chid</arg>
+    </cmdsynopsis>
   </refsynopsisdiv>
 
   <refsect1>
@@ -250,7 +255,7 @@ multi-user.target reached after 47.820s in userspace
       <para>This command prints a list of all running units, ordered by the time they took to initialize.
       This information may be used to optimize boot-up times. Note that the output might be misleading as the
       initialization of one service might be slow simply because it waits for the initialization of another
-      service to complete.  Also note: <command>systemd-analyze blame</command> doesn't display results for
+      service to complete.  Also note: <command>systemd-analyze blame</command> does not display results for
       services with <varname>Type=simple</varname>, because systemd considers such services to be started
       immediately, hence no measurement of the initialization delays can be done. Also note that this command
       only shows the time units took for starting up, it does not show how long unit jobs spent in the
@@ -286,7 +291,7 @@ multi-user.target reached after 47.820s in userspace
       <command>blame</command> command, this only takes into account the time units spent in
       <literal>activating</literal> state, and hence does not cover units that never went through an
       <literal>activating</literal> state (such as device units that transition directly from
-      <literal>inactive</literal> to <literal>active</literal>). Moreover it does not show information on
+      <literal>inactive</literal> to <literal>active</literal>). Moreover, it does not show information on
       jobs (and in particular not jobs that timed out).</para>
 
       <example>
@@ -366,8 +371,8 @@ $ eog bootup.svg&amp;
 
       <para>Note that this plot is based on the most recent per-unit timing data of loaded units. This means
       that if a unit gets started, then stopped and then started again the information shown will cover the
-      most recent start cycle, not the first one. Thus it's recommended to consult this information only
-      shortly after boot, so that this distinction doesn't matter. Moreover, units that are not referenced by
+      most recent start cycle, not the first one. Thus it is recommended to consult this information only
+      shortly after boot, so that this distinction does not matter. Moreover, units that are not referenced by
       any other unit through a dependency might be unloaded by the service manager once they terminate (and
       did not fail). Such units will not show up in the plot.</para>
     </refsect2>
@@ -683,7 +688,7 @@ NAutoVTs=8
       <para>This command has two distinct modes of operation, depending on whether the operator
       <replaceable>OP</replaceable> is specified.</para>
 
-      <para>In the first mode — when <replaceable>OP</replaceable> is not specified — it will compare the two
+      <para>In the first mode — when <replaceable>OP</replaceable> is not specified —, it will compare the two
       version strings and print either <literal><replaceable>VERSION1</replaceable> &lt;
       <replaceable>VERSION2</replaceable></literal>, or <literal><replaceable>VERSION1</replaceable> ==
       <replaceable>VERSION2</replaceable></literal>, or <literal><replaceable>VERSION1</replaceable> &gt;
@@ -959,7 +964,7 @@ default         ignore      -         -</programlisting>
       <para>Reports whether the system is equipped with a usable TPM2 device. If a TPM2 device has been
       discovered, is supported, and is being used by firmware, by the OS kernel drivers and by userspace
       (i.e. systemd) this prints <literal>yes</literal> and exits with exit status zero. If no such device is
-      discovered/supported/used, prints <literal>no</literal>. Otherwise prints
+      discovered/supported/used, prints <literal>no</literal>. Otherwise, prints
       <literal>partial</literal>. In either of these two cases exits with non-zero exit status. It also shows
       five lines indicating separately whether firmware, drivers, the system, the kernel and libraries
       discovered/support/use TPM2. Currently, required libraries are <filename>libtss2-esys.so.0</filename>,
@@ -1082,6 +1087,37 @@ io.systemd.credential:vmm.notify_socket=vsock-stream:2:254570042
       </example>
 
       <xi:include href="version-info.xml" xpointer="v257"/>
+    </refsect2>
+
+    <refsect2>
+      <title><command>systemd-analyze chid</command></title>
+
+      <para>Shows a list of Computer Hardware IDs (CHIDs) of the local system. These IDs identify the
+      system's computer hardware, based on SMBIOS data. See <ulink
+      url="https://learn.microsoft.com/en-us/windows-hardware/drivers/dashboard/using-chids">Using Computer
+      Hardware IDs (CHIDs)</ulink> for details about CHIDs.</para>
+
+      <example>
+        <title>Example output</title>
+        <programlisting>$ systemd-analyze chid
+TYPE INPUT  CHID
+   3 MFPSmp 520537c0-3b59-504f-b062-9682ea236b21
+   4 MFPS-- edf05dc8-a53d-5b2c-8023-630bca2a2463
+   5 MFP--- ebc6a4d9-ec48-537a-916b-c69fa4fdd814
+   6 M--Smp 5ebe4bba-f598-5e90-9ff2-9fd0d3211465
+   7 M--S-- 1a3fb835-b42a-5f9c-a38c-eff5bfd5c41d
+   8 M-P-mp 2a831dce-8163-5bad-8406-435b8c752dd8
+   9 M-P--- 7c21c878-4a75-50f7-9816-21e811588da0
+  10 MF--mp 9a003537-bcc5-500e-b10a-8d8892e4fc64
+  11 MF---- bb9122bb-8a5c-50d2-a742-a85beb719909
+  13 M---mp bfc36935-5032-5987-a0a3-6311f01de33a
+
+LEGEND: M → sys_vendor (LENOVO) ┄ F → product_family (ThinkPad X1 Carbon Gen 9) ┄ P → product_name (20XW0055GE)
+        S → product_sku (LENOVO_MT_20XW_BU_Think_FM_ThinkPad X1 Carbon Gen 9) ┄ m → board_vendor (LENOVO)
+        p → board_name (20XW0055GE)</programlisting>
+      </example>
+
+      <xi:include href="version-info.xml" xpointer="v258"/>
     </refsect2>
 
   </refsect1>
@@ -1594,7 +1630,7 @@ io.systemd.credential:vmm.notify_socket=vsock-stream:2:254570042
         <term><option>--base-time=<replaceable>TIMESTAMP</replaceable></option></term>
 
         <listitem><para>When used with the <command>calendar</command> command, show next iterations relative
-        to the specified point in time. If not specified defaults to the current time.</para>
+        to the specified point in time. If not specified, defaults to the current time.</para>
 
         <xi:include href="version-info.xml" xpointer="v244"/></listitem>
       </varlistentry>
@@ -1694,7 +1730,7 @@ io.systemd.credential:vmm.notify_socket=vsock-stream:2:254570042
     <constant>0</constant> or <constant>1</constant> if the condition is respectively true or false.</para>
 
     <para>In case of the <command>has-tpm2</command> command returns 0 if a TPM2 device is discovered,
-    supported and used by firmware, driver, and userspace (i.e. systemd). Otherwise returns the OR
+    supported and used by firmware, driver, and userspace (i.e. systemd). Otherwise, returns the OR
     combination of the value 1 (in case firmware support is missing), 2 (in case driver support is missing)
     and 4 (in case userspace support is missing). If no TPM2 support is available at all, value 7 is hence
     returned.</para>

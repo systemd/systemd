@@ -582,11 +582,9 @@ int manager_setup_varlink_server(Manager *m) {
         if (!MANAGER_IS_SYSTEM(m))
                 return -EINVAL;
 
-        r = sd_varlink_server_new(&s, SD_VARLINK_SERVER_ACCOUNT_UID|SD_VARLINK_SERVER_INHERIT_USERDATA);
+        r = varlink_server_new(&s, SD_VARLINK_SERVER_ACCOUNT_UID|SD_VARLINK_SERVER_INHERIT_USERDATA, m);
         if (r < 0)
-                return log_debug_errno(r, "Failed to allocate varlink server object: %m");
-
-        sd_varlink_server_set_userdata(s, m);
+                return log_debug_errno(r, "Failed to allocate Varlink server: %m");
 
         r = sd_varlink_server_add_interface_many(
                         s,

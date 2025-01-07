@@ -21,10 +21,10 @@
 #include "capsule-util.h"
 #include "chase.h"
 #include "daemon-util.h"
-#include "data-fd-util.h"
 #include "env-util.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "memfd-util.h"
 #include "memstream-util.h"
 #include "path-util.h"
 #include "socket-util.h"
@@ -51,14 +51,14 @@ int bus_log_address_error(int r, BusTransport transport) {
                                       "Failed to set bus address: %m");
 }
 
-int bus_log_connect_error(int r, BusTransport transport, RuntimeScope scope) {
+int bus_log_connect_full(int log_level, int r, BusTransport transport, RuntimeScope scope) {
         bool hint_vars = transport == BUS_TRANSPORT_LOCAL && r == -ENOMEDIUM,
              hint_addr = transport == BUS_TRANSPORT_LOCAL && ERRNO_IS_PRIVILEGE(r);
 
-        return log_error_errno(r,
-                               hint_vars ? "Failed to connect to %s scope bus via %s transport: $DBUS_SESSION_BUS_ADDRESS and $XDG_RUNTIME_DIR not defined (consider using --machine=<user>@.host --user to connect to bus of other user)" :
-                               hint_addr ? "Failed to connect to %s scope bus via %s transport: Operation not permitted (consider using --machine=<user>@.host --user to connect to bus of other user)" :
-                                           "Failed to connect to %s scope bus via %s transport: %m", runtime_scope_to_string(scope), bus_transport_to_string(transport));
+        return log_full_errno(log_level, r,
+                              hint_vars ? "Failed to connect to %s scope bus via %s transport: $DBUS_SESSION_BUS_ADDRESS and $XDG_RUNTIME_DIR not defined (consider using --machine=<user>@.host --user to connect to bus of other user)" :
+                              hint_addr ? "Failed to connect to %s scope bus via %s transport: Operation not permitted (consider using --machine=<user>@.host --user to connect to bus of other user)" :
+                                          "Failed to connect to %s scope bus via %s transport: %m", runtime_scope_to_string(scope), bus_transport_to_string(transport));
 }
 
 int bus_async_unregister_and_exit(sd_event *e, sd_bus *bus, const char *name) {
@@ -803,7 +803,7 @@ static int method_dump_memory_state_by_fd(sd_bus_message *message, void *userdat
         if (r < 0)
                 return r;
 
-        fd = acquire_data_fd_full(dump, dump_size, /* flags = */ 0);
+        fd = memfd_new_and_seal("malloc-info", dump, dump_size);
         if (fd < 0)
                 return fd;
 

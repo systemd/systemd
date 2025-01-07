@@ -3511,6 +3511,32 @@ int unit_load_related_unit(Unit *u, const char *type, Unit **_found) {
         return r;
 }
 
+static int signal_name_owner_changed_install_handler(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Unit *u = ASSERT_PTR(userdata);
+        const sd_bus_error *e;
+        int r;
+
+        e = sd_bus_message_get_error(message);
+        if (!e) {
+                log_unit_trace(u, "Successfully installed NameOwnerChanged signal match.");
+                return 0;
+        }
+
+        r = sd_bus_error_get_errno(e);
+        log_unit_error_errno(u, r,
+                             "Unexpected error response on installing NameOwnerChanged signal match: %s",
+                             bus_error_message(e, r));
+
+        /* If we failed to install NameOwnerChanged signal, also unref the bus slot of GetNameOwner(). */
+        u->match_bus_slot = sd_bus_slot_unref(u->match_bus_slot);
+        u->get_name_owner_slot = sd_bus_slot_unref(u->get_name_owner_slot);
+
+        if (UNIT_VTABLE(u)->bus_name_owner_change)
+                UNIT_VTABLE(u)->bus_name_owner_change(u, NULL);
+
+        return 0;
+}
+
 static int signal_name_owner_changed(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         const char *new_owner;
         Unit *u = ASSERT_PTR(userdata);
@@ -3593,10 +3619,10 @@ int unit_install_bus_match(Unit *u, sd_bus *bus, const char *name) {
         r = bus_add_match_full(
                         bus,
                         &u->match_bus_slot,
-                        true,
+                        /* asynchronous = */ true,
                         match,
                         signal_name_owner_changed,
-                        NULL,
+                        signal_name_owner_changed_install_handler,
                         u,
                         timeout_usec);
         if (r < 0)
@@ -3623,7 +3649,6 @@ int unit_install_bus_match(Unit *u, sd_bus *bus, const char *name) {
                         get_name_owner_handler,
                         u,
                         timeout_usec);
-
         if (r < 0) {
                 u->match_bus_slot = sd_bus_slot_unref(u->match_bus_slot);
                 return r;
@@ -6148,13 +6173,13 @@ int unit_test_trigger_loaded(Unit *u) {
         return 0;
 }
 
-void unit_destroy_runtime_data(Unit *u, const ExecContext *context) {
+void unit_destroy_runtime_data(Unit *u, const ExecContext *context, bool destroy_runtime_dir) {
         assert(u);
         assert(u->manager);
         assert(context);
 
         /* EXEC_PRESERVE_RESTART is handled via unit_release_resources()! */
-        if (context->runtime_directory_preserve_mode == EXEC_PRESERVE_NO)
+        if (destroy_runtime_dir && context->runtime_directory_preserve_mode == EXEC_PRESERVE_NO)
                 exec_context_destroy_runtime_directory(context, u->manager->prefix[EXEC_DIRECTORY_RUNTIME]);
 
         exec_context_destroy_credentials(context, u->manager->prefix[EXEC_DIRECTORY_RUNTIME], u->id);

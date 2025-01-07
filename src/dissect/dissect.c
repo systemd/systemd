@@ -95,6 +95,8 @@ static char *arg_loop_ref = NULL;
 static ImagePolicy *arg_image_policy = NULL;
 static bool arg_mtree_hash = true;
 static bool arg_via_service = false;
+static RuntimeScope arg_runtime_scope = _RUNTIME_SCOPE_INVALID;
+static bool arg_all = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
@@ -151,6 +153,9 @@ static int help(void) {
                "                          Generate JSON output\n"
                "     --loop-ref=NAME      Set reference string for loopback device\n"
                "     --mtree-hash=BOOL    Whether to include SHA256 hash in the mtree output\n"
+               "     --user               Discover user images\n"
+               "     --system             Discover system images\n"
+               "     --all                Show hidden images too\n"
                "\n%3$sCommands:%4$s\n"
                "  -h --help               Show this help\n"
                "     --version            Show package version\n"
@@ -274,6 +279,9 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VALIDATE,
                 ARG_MTREE_HASH,
                 ARG_MAKE_ARCHIVE,
+                ARG_SYSTEM,
+                ARG_USER,
+                ARG_ALL,
         };
 
         static const struct option options[] = {
@@ -307,10 +315,14 @@ static int parse_argv(int argc, char *argv[]) {
                 { "validate",      no_argument,       NULL, ARG_VALIDATE      },
                 { "mtree-hash",    required_argument, NULL, ARG_MTREE_HASH    },
                 { "make-archive",  no_argument,       NULL, ARG_MAKE_ARCHIVE  },
+                { "system",        no_argument,       NULL, ARG_SYSTEM        },
+                { "user",          no_argument,       NULL, ARG_USER          },
+                { "all",           no_argument,       NULL, ARG_ALL           },
                 {}
         };
 
         _cleanup_free_ char **buf = NULL; /* we use free(), not strv_free() here, as we don't copy the strings here */
+        bool system_scope_requested = false, user_scope_requested = false;
         int c, r;
 
         assert(argc >= 0);
@@ -531,12 +543,23 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_MAKE_ARCHIVE:
-
                         r = dlopen_libarchive();
                         if (r < 0)
                                 return log_error_errno(r, "Archive support not available (compiled without libarchive, or libarchive not installed?).");
 
                         arg_action = ACTION_MAKE_ARCHIVE;
+                        break;
+
+                case ARG_SYSTEM:
+                        system_scope_requested = true;
+                        break;
+
+                case ARG_USER:
+                        user_scope_requested = true;
+                        break;
+
+                case ARG_ALL:
+                        arg_all = true;
                         break;
 
                 case '?':
@@ -546,6 +569,10 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached();
                 }
         }
+
+        if (system_scope_requested || user_scope_requested)
+                arg_runtime_scope = system_scope_requested && user_scope_requested ? _RUNTIME_SCOPE_INVALID :
+                        system_scope_requested ? RUNTIME_SCOPE_SYSTEM : RUNTIME_SCOPE_USER;
 
         switch (arg_action) {
 
@@ -1445,7 +1472,7 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
                 if (r < 0)
                         return r;
 
-                mounted_dir = TAKE_PTR(t);
+                root = mounted_dir = TAKE_PTR(t);
 
                 if (d) {
                         r = loop_device_flock(d, LOCK_UN);
@@ -1456,11 +1483,10 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
                 r = dissected_image_relinquish(m);
                 if (r < 0)
                         return log_error_errno(r, "Failed to relinquish DM and loopback block devices: %m");
-        }
 
-        root = mounted_dir ?: arg_root;
-
-        dissected_image_close(m);
+                dissected_image_close(m);
+        } else
+                root = arg_root;
 
         switch (arg_action) {
 
@@ -1851,7 +1877,7 @@ static int action_discover(void) {
                 return log_oom();
 
         for (ImageClass cl = 0; cl < _IMAGE_CLASS_MAX; cl++) {
-                r = image_discover(cl, NULL, images);
+                r = image_discover(arg_runtime_scope, cl, NULL, images);
                 if (r < 0)
                         return log_error_errno(r, "Failed to discover images: %m");
         }
@@ -1870,18 +1896,21 @@ static int action_discover(void) {
 
         HASHMAP_FOREACH(img, images) {
 
-                if (!IN_SET(img->type, IMAGE_RAW, IMAGE_BLOCK))
+                if (!arg_all && startswith(img->name, "."))
                         continue;
 
                 r = table_add_many(
                                 t,
                                 TABLE_STRING, img->name,
+                                TABLE_SET_COLOR, startswith(img->name, ".") ? ANSI_GREY : NULL,
                                 TABLE_STRING, image_type_to_string(img->type),
                                 TABLE_STRING, image_class_to_string(img->class),
                                 TABLE_BOOLEAN, img->read_only,
+                                TABLE_SET_COLOR, !img->read_only ? ANSI_HIGHLIGHT_GREEN : ANSI_HIGHLIGHT_RED,
                                 TABLE_PATH, img->path,
                                 TABLE_TIMESTAMP, img->mtime != 0 ? img->mtime : img->crtime,
-                                TABLE_SIZE, img->usage);
+                                TABLE_SIZE, img->usage,
+                                TABLE_SET_COLOR, img->usage <= 0 ? ANSI_HIGHLIGHT_RED : NULL);
                 if (r < 0)
                         return table_log_add_error(r);
         }
@@ -2030,6 +2059,16 @@ static int run(int argc, char *argv[]) {
                 r = path_pick_update_warn(
                                 &arg_image,
                                 &pick_filter_image_raw,
+                                PICK_ARCHITECTURE|PICK_TRIES,
+                                /* ret_result= */ NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        if (arg_root) {
+                r = path_pick_update_warn(
+                                &arg_root,
+                                &pick_filter_image_dir,
                                 PICK_ARCHITECTURE|PICK_TRIES,
                                 /* ret_result= */ NULL);
                 if (r < 0)

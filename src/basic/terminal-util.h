@@ -7,6 +7,7 @@
 #include <syslog.h>
 #include <sys/types.h>
 #include <termios.h>
+#include <unistd.h>
 
 #include "macro.h"
 #include "time-util.h"
@@ -64,18 +65,11 @@ typedef enum AcquireTerminalFlags {
 int acquire_terminal(const char *name, AcquireTerminalFlags flags, usec_t timeout);
 int release_terminal(void);
 
-/* Limits the use of ANSI colors to a subset. */
-typedef enum ColorMode {
-        COLOR_OFF,   /* No colors, monochrome output. */
-        COLOR_16,    /* Only the base 16 colors. */
-        COLOR_256,   /* Only 256 colors. */
-        COLOR_24BIT, /* For truecolor or 24bit color support, no restriction. */
-        _COLOR_MODE_MAX,
-        _COLOR_MODE_INVALID = -EINVAL,
-} ColorMode;
-
-const char* color_mode_to_string(ColorMode m) _const_;
-ColorMode color_mode_from_string(const char *s) _pure_;
+int terminal_new_session(void);
+static inline void terminal_detach_session(void) {
+        (void) setsid();
+        (void) release_terminal();
+}
 
 int terminal_vhangup_fd(int fd);
 int terminal_vhangup(const char *tty);
@@ -117,14 +111,28 @@ void reset_terminal_feature_caches(void);
 bool on_tty(void);
 bool getenv_terminal_is_dumb(void);
 bool terminal_is_dumb(void);
-ColorMode get_color_mode(void);
-bool underline_enabled(void);
-bool dev_console_colors_enabled(void);
 
+/* Limits the use of ANSI colors to a subset. */
+typedef enum ColorMode {
+        COLOR_OFF,   /* No colors, monochrome output. */
+        COLOR_16,    /* Only the base 16 colors. */
+        COLOR_256,   /* Only 256 colors. */
+        COLOR_24BIT, /* For truecolor or 24bit color support, no restriction. */
+        _COLOR_MODE_MAX,
+        _COLOR_MODE_INVALID = -EINVAL,
+} ColorMode;
+
+const char* color_mode_to_string(ColorMode m) _const_;
+ColorMode color_mode_from_string(const char *s) _pure_;
+
+ColorMode get_color_mode(void);
 static inline bool colors_enabled(void) {
         /* Returns true if colors are considered supported on our stdout. */
         return get_color_mode() != COLOR_OFF;
 }
+
+bool underline_enabled(void);
+bool dev_console_colors_enabled(void);
 
 int get_ctty_devnr(pid_t pid, dev_t *ret);
 int get_ctty(pid_t, dev_t *ret_devnr, char **ret);
@@ -134,8 +142,8 @@ int getttyname_harder(int fd, char **ret);
 
 int ptsname_malloc(int fd, char **ret);
 
-int openpt_allocate(int flags, char **ret_slave);
-int openpt_allocate_in_namespace(pid_t pid, int flags, char **ret_slave);
+int openpt_allocate(int flags, char **ret_peer);
+int openpt_allocate_in_namespace(pid_t pid, int flags, char **ret_peer);
 int open_terminal_in_namespace(pid_t pid, const char *name, int mode);
 
 int vt_restore(int fd);
@@ -143,8 +151,9 @@ int vt_release(int fd, bool restore_vt);
 
 void get_log_colors(int priority, const char **on, const char **off, const char **highlight);
 
-/* This assumes there is a 'tty' group */
-#define TTY_MODE 0620
+/* Assume TTY_MODE is defined in config.h. Also, this assumes there is a 'tty' group. */
+assert_cc((TTY_MODE & ~0666) == 0);
+assert_cc((TTY_MODE & 0711) == 0600);
 
 void termios_disable_echo(struct termios *termios);
 
@@ -157,3 +166,13 @@ int terminal_is_pty_fd(int fd);
 
 int pty_open_peer_racefree(int fd, int mode);
 int pty_open_peer(int fd, int mode);
+
+static inline bool osc_char_is_valid(char c) {
+        /* Checks whether the specified character is safe to be included inside an ANSI OSC sequence, as per
+         * ECMA-48 5th edition, section 8.3.89 */
+        return (unsigned char) c >= 32U && (unsigned char) c < 127;
+}
+
+static inline bool vtnr_is_valid(unsigned n) {
+        return n >= 1 && n <= 63;
+}

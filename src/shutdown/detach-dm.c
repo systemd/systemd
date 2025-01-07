@@ -98,15 +98,17 @@ static int delete_dm(DeviceMapper *m) {
         assert(major(m->devnum) != 0);
         assert(m->path);
 
+        fd = open(m->path, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
+        if (fd < 0)
+                log_debug_errno(errno, "Failed to open DM block device %s for syncing, ignoring: %m", m->path);
+        else {
+                (void) sync_with_progress(fd);
+                fd = safe_close(fd);
+        }
+
         fd = open("/dev/mapper/control", O_RDWR|O_CLOEXEC);
         if (fd < 0)
-                return -errno;
-
-        _cleanup_close_ int block_fd = open(m->path, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
-        if (block_fd < 0)
-                log_debug_errno(errno, "Failed to open DM block device %s for syncing, ignoring: %m", m->path);
-        else
-                (void) sync_with_progress(block_fd);
+                return log_debug_errno(errno, "Failed to open /dev/mapper/control: %m");
 
         return RET_NERRNO(ioctl(fd, DM_DEV_REMOVE, &(struct dm_ioctl) {
                 .version = {

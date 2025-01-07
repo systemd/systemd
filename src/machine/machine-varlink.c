@@ -12,6 +12,7 @@
 #include "json-util.h"
 #include "machine-varlink.h"
 #include "machine.h"
+#include "mount-util.h"
 #include "path-util.h"
 #include "pidref.h"
 #include "process-util.h"
@@ -397,16 +398,18 @@ DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(machine_open_mode, MachineOpenMod
 static JSON_DISPATCH_ENUM_DEFINE(json_dispatch_machine_open_mode, MachineOpenMode, machine_open_mode_from_string);
 
 typedef struct MachineOpenParameters {
-        const char *name, *user;
+        const char *name;
+        const char *user;
         PidRef pidref;
         MachineOpenMode mode;
-        char *path, **args, **env;
+        const char *path;
+        char **args;
+        char **env;
 } MachineOpenParameters;
 
 static void machine_open_paramaters_done(MachineOpenParameters *p) {
         assert(p);
         pidref_done(&p->pidref);
-        free(p->path);
         strv_free(p->args);
         strv_free(p->env);
 }
@@ -452,7 +455,7 @@ int vl_method_open(sd_varlink *link, sd_json_variant *parameters, sd_varlink_met
                 VARLINK_DISPATCH_MACHINE_LOOKUP_FIELDS(MachineOpenParameters),
                 { "mode",        SD_JSON_VARIANT_STRING, json_dispatch_machine_open_mode,     offsetof(MachineOpenParameters, mode), SD_JSON_MANDATORY },
                 { "user",        SD_JSON_VARIANT_STRING, json_dispatch_const_user_group_name, offsetof(MachineOpenParameters, user), SD_JSON_RELAX     },
-                { "path",        SD_JSON_VARIANT_STRING, json_dispatch_path,                  offsetof(MachineOpenParameters, path), 0                 },
+                { "path",        SD_JSON_VARIANT_STRING, json_dispatch_const_path,            offsetof(MachineOpenParameters, path), 0                 },
                 { "args",        SD_JSON_VARIANT_ARRAY,  sd_json_dispatch_strv,               offsetof(MachineOpenParameters, args), 0                 },
                 { "environment", SD_JSON_VARIANT_ARRAY,  json_dispatch_strv_environment,      offsetof(MachineOpenParameters, env),  0                 },
                 VARLINK_DISPATCH_POLKIT_FIELD,
@@ -485,7 +488,7 @@ int vl_method_open(sd_varlink *link, sd_json_variant *parameters, sd_varlink_met
 
         if (p.mode == MACHINE_OPEN_MODE_SHELL) {
                 /* json_dispatch_const_user_group_name() does valid_user_group_name(p.user) */
-                /* json_dispatch_path() does path_is_absolute(p.path) */
+                /* json_dispatch_const_path() does path_is_absolute(p.path) */
                 /* json_dispatch_strv_environment() does validation of p.env */
 
                 user = p.user ?: "root";
@@ -569,4 +572,256 @@ int vl_method_open(sd_varlink *link, sd_json_variant *parameters, sd_varlink_met
                 return r;
 
         return sd_varlink_reply(link, v);
+}
+
+typedef struct MachineMapParameters {
+        const char *name;
+        PidRef pidref;
+        uid_t uid;
+        gid_t gid;
+} MachineMapParameters;
+
+static void machine_map_paramaters_done(MachineMapParameters *p) {
+        assert(p);
+        pidref_done(&p->pidref);
+}
+
+int vl_method_map_from(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                VARLINK_DISPATCH_MACHINE_LOOKUP_FIELDS(MachineOpenParameters),
+                { "uid", SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uid_gid, offsetof(MachineMapParameters, uid), 0 },
+                { "gid", SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uid_gid, offsetof(MachineMapParameters, gid), 0 },
+                {}
+        };
+
+        Manager *manager = ASSERT_PTR(userdata);
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_(machine_map_paramaters_done) MachineMapParameters p = {
+                .pidref = PIDREF_NULL,
+                .uid = UID_INVALID,
+                .gid = GID_INVALID,
+        };
+        uid_t converted_uid = UID_INVALID;
+        gid_t converted_gid = GID_INVALID;
+        Machine *machine;
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        if (p.uid != UID_INVALID && !uid_is_valid(p.uid))
+                return sd_varlink_error_invalid_parameter_name(link, "uid");
+
+        if (p.gid != GID_INVALID && !gid_is_valid(p.gid))
+                return sd_varlink_error_invalid_parameter_name(link, "gid");
+
+        r = lookup_machine_by_name_or_pidref(link, manager, p.name, &p.pidref, &machine);
+        if (r == -ESRCH)
+                return sd_varlink_error(link, "io.systemd.Machine.NoSuchMachine", NULL);
+        if (r < 0)
+                return r;
+
+        if (machine->class != MACHINE_CONTAINER)
+                return sd_varlink_error(link, "io.systemd.Machine.NotSupported", NULL);
+
+        if (p.uid != UID_INVALID) {
+                r = machine_translate_uid(machine, p.uid, &converted_uid);
+                if (r == -ESRCH)
+                        return sd_varlink_error(link, "io.systemd.Machine.NoSuchUser", NULL);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to map uid=%u for machine '%s': %m", p.uid, machine->name);
+        }
+
+        if (p.gid != UID_INVALID) {
+                r = machine_translate_gid(machine, p.gid, &converted_gid);
+                if (r == -ESRCH)
+                        return sd_varlink_error(link, "io.systemd.Machine.NoSuchGroup", NULL);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to map gid=%u for machine '%s': %m", p.gid, machine->name);
+        }
+
+        r = sd_json_buildo(&v,
+                           JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("uid", converted_uid, UID_INVALID),
+                           JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("gid", converted_gid, GID_INVALID));
+        if (r < 0)
+                return r;
+
+        return sd_varlink_reply(link, v);
+}
+
+int vl_method_map_to(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "uid", SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uid_gid, offsetof(MachineMapParameters, uid), 0 },
+                { "gid", SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uid_gid, offsetof(MachineMapParameters, gid), 0 },
+                {}
+        };
+
+        Manager *manager = ASSERT_PTR(userdata);
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_(machine_map_paramaters_done) MachineMapParameters p = {
+                .pidref = PIDREF_NULL,
+                .uid = UID_INVALID,
+                .gid = GID_INVALID,
+        };
+        Machine *machine_by_uid = NULL, *machine_by_gid = NULL;
+        uid_t converted_uid = UID_INVALID;
+        gid_t converted_gid = GID_INVALID;
+        const char *machine_name = NULL;
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        if (p.uid != UID_INVALID) {
+                if (!uid_is_valid(p.uid))
+                        return sd_varlink_error_invalid_parameter_name(link, "uid");
+                if (p.uid < 0x10000)
+                        return sd_varlink_error(link, "io.systemd.Machine.UserInHostRange", NULL);
+        }
+
+        if (p.gid != GID_INVALID) {
+                if (!gid_is_valid(p.gid))
+                        return sd_varlink_error_invalid_parameter_name(link, "gid");
+                if (p.gid < 0x10000)
+                        return sd_varlink_error(link, "io.systemd.Machine.GroupInHostRange", NULL);
+        }
+
+        if (p.uid != UID_INVALID) {
+                r = manager_find_machine_for_uid(manager, p.uid, &machine_by_uid, &converted_uid);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to find machine for uid=%u: %m", p.uid);
+                if (!r)
+                        return sd_varlink_error(link, "io.systemd.Machine.NoSuchUser", NULL);
+        }
+
+        if (p.gid != GID_INVALID) {
+                r = manager_find_machine_for_gid(manager, p.gid, &machine_by_gid, &converted_gid);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to find machine for gid=%u: %m", p.gid);
+                if (!r)
+                        return sd_varlink_error(link, "io.systemd.Machine.NoSuchGroup", NULL);
+        }
+
+        if (machine_by_uid && machine_by_gid && machine_by_uid != machine_by_gid) {
+                log_debug_errno(SYNTHETIC_ERRNO(ESRCH), "Mapping of UID %u and GID %u resulted in two different machines", p.uid, p.gid);
+                return sd_varlink_error(link, "io.systemd.Machine.NoSuchMachine", NULL);
+        }
+
+        if (machine_by_uid)
+                machine_name = machine_by_uid->name;
+        else if (machine_by_gid)
+                machine_name = machine_by_gid->name;
+        else
+                return sd_varlink_error(link, "io.systemd.Machine.NoSuchMachine", NULL);
+
+        r = sd_json_buildo(&v,
+                           JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("uid", converted_uid, UID_INVALID),
+                           JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("gid", converted_gid, GID_INVALID),
+                           JSON_BUILD_PAIR_STRING_NON_EMPTY("machineName", machine_name));
+        if (r < 0)
+                return r;
+
+        return sd_varlink_reply(link, v);
+}
+
+typedef struct MachineMountParameters {
+        const char *name;
+        PidRef pidref;
+        const char *src;
+        const char *dest;
+        bool read_only;
+        bool mkdir;
+} MachineMountParameters;
+
+static void machine_mount_paramaters_done(MachineMountParameters *p) {
+        assert(p);
+
+        pidref_done(&p->pidref);
+}
+
+int vl_method_bind_mount(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                VARLINK_DISPATCH_MACHINE_LOOKUP_FIELDS(MachineOpenParameters),
+                { "source",      SD_JSON_VARIANT_STRING,  json_dispatch_const_path, offsetof(MachineMountParameters, src),       SD_JSON_MANDATORY },
+                { "destination", SD_JSON_VARIANT_STRING,  json_dispatch_const_path, offsetof(MachineMountParameters, dest),      0                 },
+                { "readOnly",    SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(MachineMountParameters, read_only), 0                 },
+                { "mkdir",       SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(MachineMountParameters, mkdir),     0                 },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        };
+
+        Manager *manager = ASSERT_PTR(userdata);
+        _cleanup_(machine_mount_paramaters_done) MachineMountParameters p = {
+                .pidref = PIDREF_NULL,
+        };
+        MountInNamespaceFlags mount_flags = 0;
+        uid_t uid_shift;
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        /* There is no need for extra validation since json_dispatch_const_path() does path_is_valid() and path_is_absolute().*/
+        const char *dest = p.dest ?: p.src;
+
+        Machine *machine;
+        r = lookup_machine_by_name_or_pidref(link, manager, p.name, &p.pidref, &machine);
+        if (r == -ESRCH)
+                return sd_varlink_error(link, "io.systemd.Machine.NoSuchMachine", NULL);
+        if (r != 0)
+                return r;
+
+        if (machine->class != MACHINE_CONTAINER)
+                return sd_varlink_error(link, "io.systemd.Machine.NotSupported", NULL);
+
+        r = varlink_verify_polkit_async(
+                        link,
+                        manager->bus,
+                        "org.freedesktop.machine1.manage-machines",
+                        (const char**) STRV_MAKE("name", machine->name,
+                                                 "verb", "bind",
+                                                 "src", p.src,
+                                                 "dest", dest),
+                        &manager->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        r = machine_get_uid_shift(machine, &uid_shift);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get machine UID shift: %m");
+        if (uid_shift != 0) {
+                log_debug("Can't bind mount on container '%s' with user namespacing applied", machine->name);
+                return sd_varlink_error(link, "io.systemd.Machine.NotSupported", NULL);
+        }
+
+        if (p.read_only)
+                mount_flags |= MOUNT_IN_NAMESPACE_READ_ONLY;
+        if (p.mkdir)
+                mount_flags |= MOUNT_IN_NAMESPACE_MAKE_FILE_OR_DIRECTORY;
+
+        const char *propagate_directory = strjoina("/run/systemd/nspawn/propagate/", machine->name);
+
+        r = bind_mount_in_namespace(
+                        &machine->leader,
+                        propagate_directory,
+                        "/run/host/incoming/",
+                        p.src,
+                        dest,
+                        mount_flags);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to mount %s on %s in the namespace of machine '%s': %m", p.src, dest, machine->name);
+
+        return sd_varlink_reply(link, NULL);
 }

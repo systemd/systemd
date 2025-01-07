@@ -79,7 +79,7 @@
     </itemizedlist>
   </refsect1>
 
-  <!-- We don't have any default dependency here. -->
+  <!-- We do not have any default dependency here. -->
 
   <refsect1>
     <title>Paths</title>
@@ -407,7 +407,7 @@
         cannot be used for services that need to access metainformation about other users' processes. This
         option implies <varname>MountAPIVFS=</varname>.</para>
 
-        <para>If the kernel doesn't support per-mount point <option>hidepid=</option> mount options this
+        <para>If the kernel does not support per-mount point <option>hidepid=</option> mount options this
         setting remains without effect, and the unit's processes will be able to access and see other process
         as if the option was not used.</para>
 
@@ -458,14 +458,14 @@
         is already marked read-only), while <varname>BindReadOnlyPaths=</varname> creates read-only bind mounts. These
         settings may be used more than once, each usage appends to the unit's list of bind mounts. If the empty string
         is assigned to either of these two options the entire list of bind mounts defined prior to this is reset. Note
-        that in this case both read-only and regular bind mounts are reset, regardless which of the two settings is
+        that, in this case, both read-only and regular bind mounts are reset, regardless which of the two settings is
         used.</para>
 
         <para>Using this option implies that a mount namespace is allocated for the unit, i.e. it implies the
         effect of <varname>PrivateMounts=</varname> (see below).</para>
 
         <para>This option is particularly useful when <varname>RootDirectory=</varname>/<varname>RootImage=</varname>
-        is used. In this case the source path refers to a path on the host file system, while the destination path
+        is used. In this case, the source path refers to a path on the host file system, while the destination path
         refers to a path below the root directory of the unit.</para>
 
         <para>Note that the destination directory must exist or systemd must be able to create it. Thus, it
@@ -697,11 +697,11 @@
         leave files around after unit termination. Furthermore
         <varname>NoNewPrivileges=</varname> and <varname>RestrictSUIDSGID=</varname> are implicitly enabled
         (and cannot be disabled), to ensure that processes invoked cannot take benefit or create SUID/SGID
-        files or directories. Moreover <varname>ProtectSystem=strict</varname> and
+        files or directories. Moreover, <varname>ProtectSystem=strict</varname> and
         <varname>ProtectHome=read-only</varname> are implied, thus prohibiting the service to write to
         arbitrary file system locations. In order to allow the service to write to certain directories, they
         have to be allow-listed using <varname>ReadWritePaths=</varname>, but care must be taken so that
-        UID/GID recycling doesn't create security issues involving files created by the service. Use
+        UID/GID recycling does not create security issues involving files created by the service. Use
         <varname>RuntimeDirectory=</varname> (see below) in order to assign a writable runtime directory to a
         service, owned by the dynamic user/group and removed automatically when the unit is terminated. Use
         <varname>StateDirectory=</varname>, <varname>CacheDirectory=</varname> and
@@ -832,10 +832,11 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         assigned to this option, the ambient capability set is reset to the empty capability set, and all prior
         settings have no effect. If set to <literal>~</literal> (without any further argument), the ambient capability
         set is reset to the full set of available capabilities, also undoing any previous settings. Note that adding
-        capabilities to the ambient capability set adds them to the process's inherited capability set. </para><para>
-        Ambient capability sets are useful if you want to execute a process as a non-privileged user but still want to
-        give it some capabilities. Note that in this case option <constant>keep-caps</constant> is automatically added
-        to <varname>SecureBits=</varname> to retain the capabilities over the user
+        capabilities to the ambient capability set adds them to the process's inherited capability set.</para>
+
+        <para>Ambient capability sets are useful if you want to execute a process as a non-privileged user but
+        still want to give it some capabilities. Note that, in this case, option <constant>keep-caps</constant>
+        is automatically added to <varname>SecureBits=</varname> to retain the capabilities over the user
         change. <varname>AmbientCapabilities=</varname> does not affect commands prefixed with
         <literal>+</literal>.</para>
 
@@ -901,8 +902,8 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <listitem><para>Set the SELinux security context of the executed process. If set, this will override the
         automated domain transition. However, the policy still needs to authorize the transition. This directive is
         ignored if SELinux is disabled. If prefixed by <literal>-</literal>, failing to set the SELinux
-        security context will be ignored, but it's still possible that the subsequent
-        <function>execve()</function> may fail if the policy doesn't allow the transition for the
+        security context will be ignored, but it is still possible that the subsequent
+        <function>execve()</function> may fail if the policy does not allow the transition for the
         non-overridden context. This does not affect commands prefixed with <literal>+</literal>. See
         <citerefentry
         project='die-net'><refentrytitle>setexeccon</refentrytitle><manvolnum>3</manvolnum></citerefentry>
@@ -1058,7 +1059,7 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
                 <entry>LimitDATA=</entry>
                 <entry>ulimit -d</entry>
                 <entry>Bytes</entry>
-                <entry>Don't use. This limits the allowed address range, not memory use! Defaults to unlimited and should not be lowered. To limit memory use, see <varname>MemoryMax=</varname> in <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</entry>
+                <entry>Do not use. This limits the allowed address range, not memory use! Defaults to unlimited and should not be lowered. To limit memory use, see <varname>MemoryMax=</varname> in <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</entry>
               </row>
               <row>
                 <entry>LimitSTACK=</entry>
@@ -1076,25 +1077,25 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
                 <entry>LimitRSS=</entry>
                 <entry>ulimit -m</entry>
                 <entry>Bytes</entry>
-                <entry>Don't use. No effect on Linux.</entry>
+                <entry>Do not use. No effect on Linux.</entry>
               </row>
               <row>
                 <entry>LimitNOFILE=</entry>
                 <entry>ulimit -n</entry>
                 <entry>Number of File Descriptors</entry>
-                <entry>Don't use. Be careful when raising the soft limit above 1024, since <citerefentry project='man-pages'><refentrytitle>select</refentrytitle><manvolnum>2</manvolnum></citerefentry> cannot function with file descriptors above 1023 on Linux. Nowadays, the hard limit defaults to 524288, a very high value compared to historical defaults. Typically applications should increase their soft limit to the hard limit on their own, if they are OK with working with file descriptors above 1023, i.e. do not use <citerefentry project='man-pages'><refentrytitle>select</refentrytitle><manvolnum>2</manvolnum></citerefentry>. Note that file descriptors are nowadays accounted like any other form of memory, thus there should not be any need to lower the hard limit. Use <varname>MemoryMax=</varname> to control overall service memory use, including file descriptor memory.</entry>
+                <entry>Do not use. Be careful when raising the soft limit above 1024, since <citerefentry project='man-pages'><refentrytitle>select</refentrytitle><manvolnum>2</manvolnum></citerefentry> cannot function with file descriptors above 1023 on Linux. Nowadays, the hard limit defaults to 524288, a very high value compared to historical defaults. Typically applications should increase their soft limit to the hard limit on their own, if they are OK with working with file descriptors above 1023, i.e. do not use <citerefentry project='man-pages'><refentrytitle>select</refentrytitle><manvolnum>2</manvolnum></citerefentry>. Note that file descriptors are nowadays accounted like any other form of memory, thus there should not be any need to lower the hard limit. Use <varname>MemoryMax=</varname> to control overall service memory use, including file descriptor memory.</entry>
               </row>
               <row>
                 <entry>LimitAS=</entry>
                 <entry>ulimit -v</entry>
                 <entry>Bytes</entry>
-                <entry>Don't use. This limits the allowed address range, not memory use! Defaults to unlimited and should not be lowered. To limit memory use, see <varname>MemoryMax=</varname> in <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</entry>
+                <entry>Do not use. This limits the allowed address range, not memory use! Defaults to unlimited and should not be lowered. To limit memory use, see <varname>MemoryMax=</varname> in <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</entry>
               </row>
               <row>
                 <entry>LimitNPROC=</entry>
                 <entry>ulimit -u</entry>
                 <entry>Number of Processes</entry>
-                <entry>This limit is enforced based on the number of processes belonging to the user. Typically it's better to track processes per service, i.e. use <varname>TasksMax=</varname>, see <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</entry>
+                <entry>This limit is enforced based on the number of processes belonging to the user. Typically it is better to track processes per service, i.e. use <varname>TasksMax=</varname>, see <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</entry>
               </row>
               <row>
                 <entry>LimitMEMLOCK=</entry>
@@ -1218,7 +1219,7 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         executed processes. Takes an integer between -1000 (to disable OOM killing of processes of this unit)
         and 1000 (to make killing of processes of this unit under memory pressure very likely). See <ulink
         url="https://docs.kernel.org/filesystems/proc.html">The /proc Filesystem</ulink> for
-        details. If not specified defaults to the OOM score adjustment level of the service manager itself,
+        details. If not specified, defaults to the OOM score adjustment level of the service manager itself,
         which is normally at 0.</para>
 
         <para>Use the <varname>OOMPolicy=</varname> setting of service units to configure how the service
@@ -1804,7 +1805,7 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         <varname>ReadOnlyPaths=</varname> and related calls, see above. If set to <literal>true</literal>
         (as opposed to <literal>disconnected</literal>), this has the side effect of adding
         <varname>Requires=</varname> and <varname>After=</varname> dependencies on all mount units necessary
-        to access <filename>/tmp/</filename> and <filename>/var/tmp/</filename> on the host. Moreover an
+        to access <filename>/tmp/</filename> and <filename>/var/tmp/</filename> on the host. Moreover, an
         implicitly <varname>After=</varname> ordering on
         <citerefentry><refentrytitle>systemd-tmpfiles-setup.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         is added.</para>
@@ -1975,7 +1976,7 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         kernel documentation.</para>
 
         <para>Note that this functionality might not be available, for example if KSM is disabled in the
-        kernel, or the kernel doesn't support controlling KSM at the process level through
+        kernel, or the kernel does not support controlling KSM at the process level through
         <citerefentry><refentrytitle>prctl</refentrytitle><manvolnum>2</manvolnum></citerefentry>.</para>
 
         <xi:include href="version-info.xml" xpointer="v254"/>
@@ -2009,8 +2010,8 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
       <varlistentry>
         <term><varname>PrivateUsers=</varname></term>
 
-        <listitem><para>Takes a boolean argument or one of <literal>self</literal> or
-        <literal>identity</literal>. Defaults to false. If enabled, sets up a new user namespace for the
+        <listitem><para>Takes a boolean argument or one of <literal>self</literal>, <literal>identity</literal>,
+        or <literal>full</literal>. Defaults to false. If enabled, sets up a new user namespace for the
         executed processes and configures a user and group mapping. If set to a true value or
         <literal>self</literal>, a minimal user and group mapping is configured that maps the
         <literal>root</literal> user and group as well as the unit's own user and group to themselves and
@@ -2026,8 +2027,15 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         since all UIDs/GIDs are chosen identically it does provide process capability isolation, and hence is
         often a good choice if proper user namespacing with distinct UID maps is not appropriate.</para>
 
+        <para>If the parameter is <literal>full</literal>, user namespacing is set up with an identity
+        mapping for all UIDs/GIDs. In addition, for system services, <literal>full</literal> allows the unit
+        to call <function>setgroups()</function> system calls (by setting
+        <filename>/proc/<replaceable>pid</replaceable>/setgroups</filename> to <literal>allow</literal>).
+        Similar to <literal>identity</literal>, this does not provide UID/GID isolation, but it does provide
+        process capability isolation.</para>
+
         <para>If this mode is enabled, all unit processes are run without privileges in the host user
-        namespace (regardless if the unit's own user/group is <literal>root</literal> or not). Specifically
+        namespace (regardless of whether the unit's own user/group is <literal>root</literal> or not). Specifically
         this means that the process will have zero process capabilities on the host's user namespace, but
         full capabilities within the service's user namespace. Settings such as
         <varname>CapabilityBoundingSet=</varname> will affect only the latter, and there's no way to acquire
@@ -2045,18 +2053,19 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         databases in the root directory and on the host is reduced, as the only users and groups who need to be matched
         are <literal>root</literal>, <literal>nobody</literal> and the unit's own user and group.</para>
 
-        <para>Note that the implementation of this setting might be impossible (for example if user namespaces are not
-        available), and the unit should be written in a way that does not solely rely on this setting for
-        security.</para>
-
         <xi:include href="version-info.xml" xpointer="v232"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>ProtectHostname=</varname></term>
 
-        <listitem><para>Takes a boolean argument. When set, sets up a new UTS namespace for the executed
-        processes. In addition, changing hostname or domainname is prevented. Defaults to off.</para>
+        <listitem><para>Takes a boolean argument or <literal>private</literal>. If enabled, sets up a new UTS
+        namespace for the executed processes. If enabled, a hostname can be optionally specified following a
+        colon (e.g. <literal>yes:foo</literal> or <literal>private:host.example.com</literal>), and the
+        hostname is set in the new UTS namespace for the unit. If set to a true value, changing hostname or
+        domainname via <function>sethostname()</function> and <function>setdomainname()</function> system
+        calls is prevented. If set to <literal>private</literal>, changing hostname or domainname is allowed
+        but only affects the unit's UTS namespace. Defaults to off.</para>
 
         <para>Note that the implementation of this setting might be impossible (for example if UTS namespaces
         are not available), and the unit should be written in a way that does not solely rely on this setting
@@ -2065,6 +2074,12 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         <para>Note that when this option is enabled for a service hostname changes no longer propagate from
         the system into the service, it is hence not suitable for services that need to take notice of system
         hostname changes dynamically.</para>
+
+        <para>Note that this option does not prevent changing system hostname via <command>hostnamectl</command>.
+        However, <varname>User=</varname> and <varname>Group=</varname> may be used to run as an unprivileged user
+        to disallow changing system hostname. See <function>SetHostname()</function> in
+        <citerefentry project="man-pages"><refentrytitle>org.freedesktop.hostname1</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for more details.</para>
 
         <xi:include href="system-or-user-ns.xml" xpointer="singular"/>
 
@@ -2322,15 +2337,15 @@ RestrictFileSystems=ext4</programlisting>
         restrictions on namespace creation and switching are made. If true, access to any kind of namespacing is
         prohibited. Otherwise, a space-separated list of namespace type identifiers must be specified, consisting of
         any combination of: <constant>cgroup</constant>, <constant>ipc</constant>, <constant>net</constant>,
-        <constant>mnt</constant>, <constant>pid</constant>, <constant>user</constant> and <constant>uts</constant>. Any
-        namespace type listed is made accessible to the unit's processes, access to namespace types not listed is
-        prohibited (allow-listing). By prepending the list with a single tilde character (<literal>~</literal>) the
-        effect may be inverted: only the listed namespace types will be made inaccessible, all unlisted ones are
-        permitted (deny-listing). If the empty string is assigned, the default namespace restrictions are applied,
-        which is equivalent to false. This option may appear more than once, in which case the namespace types are
-        merged by <constant>OR</constant>, or by <constant>AND</constant> if the lines are prefixed with
-        <literal>~</literal> (see examples below). Internally, this setting limits access to the
-        <citerefentry><refentrytitle>unshare</refentrytitle><manvolnum>2</manvolnum></citerefentry>,
+        <constant>mnt</constant>, <constant>pid</constant>, <constant>user</constant>, <constant>uts</constant>, and
+        <constant>time</constant>. Any namespace type listed is made accessible to the unit's processes, access to
+        namespace types not listed is prohibited (allow-listing). By prepending the list with a single tilde
+        character (<literal>~</literal>) the effect may be inverted: only the listed namespace types will be made
+        inaccessible, all unlisted ones are permitted (deny-listing). If the empty string is assigned, the default
+        namespace restrictions are applied, which is equivalent to false. This option may appear more than once, in
+        which case the namespace types are merged by <constant>OR</constant>, or by <constant>AND</constant> if the
+        lines are prefixed with <literal>~</literal> (see examples below). Internally, this setting limits access to
+        the <citerefentry><refentrytitle>unshare</refentrytitle><manvolnum>2</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>clone</refentrytitle><manvolnum>2</manvolnum></citerefentry> and
         <citerefentry><refentrytitle>setns</refentrytitle><manvolnum>2</manvolnum></citerefentry> system calls, taking
         the specified flags parameters into account. Note that — if this option is used — in addition to restricting
@@ -2503,7 +2518,7 @@ RestrictNamespaces=~cgroup net</programlisting>
 
         <para>It is not recommended to use <option>private</option> mount propagation for units, as this means
         temporary mounts (such as removable media) of the host will stay mounted and thus indefinitely busy in forked
-        off processes, as unmount propagation events won't be received by the file system namespace of the unit.</para>
+        off processes, as unmount propagation events will not be received by the file system namespace of the unit.</para>
 
         <para>Usually, it is best to leave this setting unmodified, and use higher level file system namespacing
         options instead, in particular <varname>PrivateMounts=</varname>, see above.</para>
@@ -3077,7 +3092,7 @@ SystemCallErrorNumber=EPERM</programlisting>
         <para>The <option>file:<replaceable>path</replaceable></option> option may be used to connect a specific file
         system object to standard output. The semantics are similar to the same option of
         <varname>StandardInput=</varname>, see above. If <replaceable>path</replaceable> refers to a regular file
-        on the filesystem, it is opened (created if it doesn't exist yet using privileges of the user executing the
+        on the filesystem, it is opened (created if it does not exist yet using privileges of the user executing the
         systemd process) for writing at the beginning of the file, but without truncating it.
         If standard input and output are directed to the same file path, it is opened only once — for reading as well
         as writing — and duplicated. This is particularly useful when the specified path refers to an
@@ -3121,7 +3136,7 @@ SystemCallErrorNumber=EPERM</programlisting>
         <para>If the standard output (or error output, see below) of a unit is connected to the journal or
         the kernel log buffer, the unit will implicitly gain a dependency of type <varname>After=</varname>
         on <filename>systemd-journald.socket</filename> (also see the "Implicit Dependencies" section
-        above). Also note that in this case stdout (or stderr, see below) will be an
+        above). Also note that, in this case, stdout (or stderr, see below) will be an
         <constant>AF_UNIX</constant> stream socket, and not a pipe or FIFO that can be reopened. This means
         when executing shell scripts the construct <command>echo "hello" &gt; /dev/stderr</command> for
         writing text to stderr will not work. To mitigate this use the construct <command>echo "hello"
@@ -3206,7 +3221,7 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
         <option>notice</option>, <option>info</option>, <option>debug</option> (highest log level, also lowest priority
         messages). See <citerefentry
         project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry> for
-        details. By default no filtering is applied (i.e. the default maximum log level is <option>debug</option>). Use
+        details. By default, no filtering is applied (i.e. the default maximum log level is <option>debug</option>). Use
         this option to configure the logging system to drop log messages of a specific service above the specified
         level. For example, set <varname>LogLevelMax=</varname><option>info</option> in order to turn off debug logging
         of a particularly chatty unit. Note that the configured level is applied to any log messages written by any
@@ -3291,7 +3306,7 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
         <para>Filtering is based on the unit for which <varname>LogFilterPatterns=</varname> is defined, meaning log
         messages coming from
         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry> about the
-        unit are not taken into account. Filtered log messages won't be forwarded to traditional syslog daemons,
+        unit are not taken into account. Filtered log messages will not be forwarded to traditional syslog daemons,
         the kernel log buffer (kmsg), the systemd console, or sent as wall messages to all logged-in
         users.</para>
 
@@ -3308,7 +3323,7 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
         user-defined string identifying the namespace. If not used the processes of the service are run in
         the default journal namespace, i.e. their log stream is collected and processed by
         <filename>systemd-journald.service</filename>. If this option is used any log data generated by
-        processes of this unit (regardless if via the <function>syslog()</function>, journal native logging
+        processes of this unit (regardless of whether via the <function>syslog()</function>, journal native logging
         or stdout/stderr logging) is collected and processed by an instance of the
         <filename>systemd-journald@.service</filename> template unit, which manages the specified
         namespace. The log data is stored in a data store independent from the default log namespace's data
@@ -3449,37 +3464,43 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
         <term><varname>LoadCredentialEncrypted=</varname><replaceable>ID</replaceable><optional>:<replaceable>PATH</replaceable></optional></term>
 
         <listitem><para>Pass a credential to the unit. Credentials are limited-size binary or textual objects
-        that may be passed to unit processes. They are primarily used for passing cryptographic keys (both
-        public and private) or certificates, user account information or identity information from host to
-        services. The data is accessible from the unit's processes via the file system, at a read-only
-        location that (if possible and permitted) is backed by non-swappable memory. The data is only
-        accessible to the user associated with the unit, via the
-        <varname>User=</varname>/<varname>DynamicUser=</varname> settings (as well as the superuser). When
-        available, the location of credentials is exported as the <varname>$CREDENTIALS_DIRECTORY</varname>
-        environment variable to the unit's processes.</para>
+        that may be passed to unit processes. They are primarily intended for passing cryptographic keys
+        (both public and private) or certificates, user account information or identity information from host
+        to services, but can be freely used to pass any kind of limited-size information to a service. The
+        data is accessible from the unit's processes via the file system, at a read-only location that (if
+        possible and permitted) is backed by non-swappable memory. The data is only accessible to the user
+        associated with the unit, via the <varname>User=</varname>/<varname>DynamicUser=</varname> settings
+        (as well as the superuser). When available, the location of credentials is exported as the
+        <varname>$CREDENTIALS_DIRECTORY</varname> environment variable to the unit's processes.</para>
 
         <para>The <varname>LoadCredential=</varname> setting takes a textual ID to use as name for a
         credential plus a file system path, separated by a colon. The ID must be a short ASCII string
         suitable as filename in the filesystem, and may be chosen freely by the user. If the specified path
         is absolute it is opened as regular file and the credential data is read from it. If the absolute
         path refers to an <constant>AF_UNIX</constant> stream socket in the file system a connection is made
-        to it (only once at unit start-up) and the credential data read from the connection, providing an
+        to it (once at process invocation) and the credential data read from the connection, providing an
         easy IPC integration point for dynamically transferring credentials from other services.</para>
 
         <para>If the specified path is not absolute and itself qualifies as valid credential identifier it is
         attempted to find a credential that the service manager itself received under the specified name —
         which may be used to propagate credentials from an invoking environment (e.g. a container manager
-        that invoked the service manager) into a service. If no matching system credential is found, the
-        directories <filename>/etc/credstore/</filename>, <filename>/run/credstore/</filename> and
-        <filename>/usr/lib/credstore/</filename> are searched for files under the credential's name — which
-        hence are recommended locations for credential data on disk. If
+        that invoked the service manager) into a service. If no matching passed credential is found, the
+        system service manager will search the directories <filename>/etc/credstore/</filename>,
+        <filename>/run/credstore/</filename> and <filename>/usr/lib/credstore/</filename> for files under the
+        credential's name — which hence are recommended locations for credential data on disk. If
         <varname>LoadCredentialEncrypted=</varname> is used <filename>/run/credstore.encrypted/</filename>,
         <filename>/etc/credstore.encrypted/</filename>, and
-        <filename>/usr/lib/credstore.encrypted/</filename> are searched as well.</para>
+        <filename>/usr/lib/credstore.encrypted/</filename> are searched as well. The per-user service manager
+        will search <filename>$XDG_CONFIG_HOME/credstore/</filename>,
+        <filename>$XDG_RUNTIME_DIR/credstore/</filename>, <filename>$HOME/.local/lib/credstore/</filename>
+        (and the counterparts ending with <filename>…/credstore.encrypted/</filename>) instead. The
+        <citerefentry><refentrytitle>systemd-path</refentrytitle><manvolnum>1</manvolnum></citerefentry> tool
+        may be used to query the precise credential store search path.</para>
 
         <para>If the file system path is omitted it is chosen identical to the credential name, i.e. this is
-        a terse way to declare credentials to inherit from the service manager into a service. This option
-        may be used multiple times, each time defining an additional credential to pass to the unit.</para>
+        a terse way to declare credentials to inherit from the service manager or credstore directories into
+        a service. This option may be used multiple times, each time defining an additional credential to
+        pass to the unit.</para>
 
         <para>Note that if the path is not specified or a valid credential identifier is given, i.e.
         in the above two cases, a missing credential is not considered fatal.</para>
@@ -3519,7 +3540,7 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
         specific user or the system as a whole, and it is ensured that per-user service managers cannot
         decrypt secrets intended for the system or for other users.</para>
 
-        <para>The credential files/IPC sockets must be accessible to the service manager, but don't have to
+        <para>The credential files/IPC sockets must be accessible to the service manager, but do not have to
         be directly accessible to the unit's processes: the credential data is read and copied into separate,
         read-only copies for the unit that are accessible to appropriately privileged processes. This is
         particularly useful in combination with <varname>DynamicUser=</varname> as this way privileged data
@@ -3546,7 +3567,7 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
         url="https://www.dmtf.org/standards/smbios">DMI/SMBIOS</ulink> OEM string table entries (field type
         11) with a prefix of <literal>io.systemd.credential:</literal> or
         <literal>io.systemd.credential.binary:</literal>. In both cases a key/value pair separated by
-        <literal>=</literal> is expected, in the latter case the right-hand side is Base64 decoded when
+        <literal>=</literal> is expected. In the latter case, the right-hand side is Base64 decoded when
         parsed (thus permitting binary data to be passed in). Example <ulink
         url="https://www.qemu.org/docs/master/system/index.html">qemu</ulink> switch: <literal>-smbios
         type=11,value=io.systemd.credential:xx=yy</literal>, or <literal>-smbios
@@ -3587,7 +3608,7 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
       <varlistentry>
         <term><varname>ImportCredential=</varname><replaceable>GLOB</replaceable></term>
 
-        <listitem><para>Pass one or more credentials to the unit. Takes a credential name for which we'll
+        <listitem><para>Pass one or more credentials to the unit. Takes a credential name for which we will
         attempt to find a credential that the service manager itself received under the specified name —
         which may be used to propagate credentials from an invoking environment (e.g. a container manager
         that invoked the service manager) into a service. If the credential name is a glob, all credentials
@@ -3648,7 +3669,7 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
         <varname>LoadCredential=</varname>, <varname>LoadCredentialEncrypted=</varname> and
         <varname>ImportCredential=</varname> take priority over credentials found by
         <varname>SetCredential=</varname>. As such, <varname>SetCredential=</varname> will act as default if
-        no credentials are found by any of the former. In this case not being able to retrieve the credential
+        no credentials are found by any of the former. In this case, not being able to retrieve the credential
         from the path specified in <varname>LoadCredential=</varname> or
         <varname>LoadCredentialEncrypted=</varname> is not considered fatal.</para>
 
@@ -4182,7 +4203,8 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
           <varname>$MONITOR_INVOCATION_ID</varname> and <varname>$MONITOR_UNIT</varname> are set to the
           invocation id and unit name of the service which triggered the dependency.</para>
 
-          <para>Note that when multiple services trigger the same unit, those variables will be
+          <para>Note that when multiple services specify the same unit as their
+          <varname>OnFailure=</varname> or <varname>OnSuccess=</varname> handler, those variables will
           <emphasis>not</emphasis> be passed. Consider using a template handler unit for that case instead:
           <literal>OnFailure=<replaceable>handler</replaceable>@%n.service</literal> for non-templated units,
           or <literal>OnFailure=<replaceable>handler</replaceable>@%p-%i.service</literal> for templated
@@ -4664,7 +4686,7 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
           <row>
             <entry>71</entry>
             <entry><constant>EX_OSERR</constant></entry>
-            <entry>System error (e.g., can't fork)</entry>
+            <entry>System error (e.g., cannot fork)</entry>
           </row>
           <row>
             <entry>72</entry>
@@ -4674,7 +4696,7 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
           <row>
             <entry>73</entry>
             <entry><constant>EX_CANTCREAT</constant></entry>
-            <entry>Can't create (user) output file</entry>
+            <entry>Cannot create (user) output file</entry>
           </row>
           <row>
             <entry>74</entry>

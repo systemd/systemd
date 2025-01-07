@@ -12,6 +12,7 @@
 #include "networkd-manager-varlink.h"
 #include "stat-util.h"
 #include "varlink-io.systemd.Network.h"
+#include "varlink-util.h"
 
 static int vl_method_get_states(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
@@ -249,18 +250,6 @@ static int vl_method_set_persistent_storage(sd_varlink *vlink, sd_json_variant *
         return sd_varlink_reply(vlink, NULL);
 }
 
-static int on_connect(sd_varlink_server *s, sd_varlink *vlink, void *userdata) {
-        int r;
-
-        assert(vlink);
-
-        r = sd_varlink_set_allow_fd_passing_input(vlink, true);
-        if (r < 0)
-                return log_warning_errno(r, "Failed to allow receiving file descriptor through varlink: %m");
-
-        return 0;
-}
-
 int manager_connect_varlink(Manager *m) {
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
         int r;
@@ -270,11 +259,13 @@ int manager_connect_varlink(Manager *m) {
         if (m->varlink_server)
                 return 0;
 
-        r = sd_varlink_server_new(&s, SD_VARLINK_SERVER_ACCOUNT_UID|SD_VARLINK_SERVER_INHERIT_USERDATA);
+        r = varlink_server_new(
+                        &s,
+                        SD_VARLINK_SERVER_ACCOUNT_UID|SD_VARLINK_SERVER_INHERIT_USERDATA|
+                        SD_VARLINK_SERVER_ALLOW_FD_PASSING_INPUT,
+                        m);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate varlink server object: %m");
-
-        sd_varlink_server_set_userdata(s, m);
 
         (void) sd_varlink_server_set_description(s, "varlink-api-network");
 
@@ -298,10 +289,6 @@ int manager_connect_varlink(Manager *m) {
         r = sd_varlink_server_attach_event(s, m->event, SD_EVENT_PRIORITY_NORMAL);
         if (r < 0)
                 return log_error_errno(r, "Failed to attach varlink connection to event loop: %m");
-
-        r = sd_varlink_server_bind_connect(s, on_connect);
-        if (r < 0)
-                return log_error_errno(r, "Failed to set on-connect callback for varlink: %m");
 
         m->varlink_server = TAKE_PTR(s);
         return 0;

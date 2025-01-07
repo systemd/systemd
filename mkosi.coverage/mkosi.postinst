@@ -1,0 +1,58 @@
+#!/bin/bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
+set -e
+
+(
+    shopt -s nullglob
+    rm -f "$BUILDROOT"/coverage/*.gcda
+)
+
+mkdir -p "$BUILDROOT/coverage"
+
+# When using -fprofile-dir=, GCC creates all gcda files under the given directory at the same location as the
+# gcno file in the build directory, but with each '/' replaced with '#'. LLVM creates each gcda file under
+# the given directory without replacing each '/' with '#'. Because we want all processes to be able to write
+# gcda files under /coverage regardless of which user they are running as, we pre-create all files under
+# /coverage and make them world readable and writable so that we don't have to mess with umasks for each
+# process that writes to /coverage.
+if ((LLVM)); then
+    rsync --recursive --include='*/' --exclude='*' --relative "$BUILDDIR" "$BUILDROOT/coverage"
+    find "$BUILDDIR" -name '*.gcno' | sed 's/gcno/gcda/' | xargs -I '{}' touch "$BUILDROOT/coverage/{}"
+else
+    find "$BUILDDIR" -name '*.gcno' | sed 's/gcno/gcda/' | sed 's/\//#/g' | xargs -I '{}' touch "$BUILDROOT/coverage/{}"
+fi
+
+chmod --recursive 777 "$BUILDROOT/coverage"
+
+# When built with gcov, disable ProtectSystem= and ProtectHome= in the test images, since it prevents gcov to
+# write the coverage reports (*.gcda files).
+mkdir -p "$BUILDROOT/usr/lib/systemd/system/service.d/"
+cat >"$BUILDROOT/usr/lib/systemd/system/service.d/99-gcov-override.conf" <<EOF
+[Service]
+ProtectSystem=no
+ProtectHome=no
+EOF
+
+# Similarly, set ReadWritePaths= to the coverage directory in the test image to make the coverage work with
+# units using DynamicUser=yes. Do this only for services with test- prefix and a couple of known-to-use
+# DynamicUser=yes services, as setting this system-wide has many undesirable side-effects, as it creates its
+# own namespace.
+for service in capsule@ test- systemd-journal-{gatewayd,upload}; do
+    mkdir -p "$BUILDROOT/usr/lib/systemd/system/$service.service.d/"
+    cat >"$BUILDROOT/usr/lib/systemd/system/$service.service.d/99-gcov-rwpaths-override.conf" <<EOF
+[Service]
+ReadWritePaths=/coverage
+EOF
+done
+
+# Ditto, but for the user daemon.
+mkdir -p "$BUILDROOT/usr/lib/systemd/user/test-.service.d/"
+cat >"$BUILDROOT/usr/lib/systemd/user/test-.service.d/99-gcov-rwpaths-override.conf" <<EOF
+[Service]
+ReadWritePaths=/coverage
+EOF
+
+# Bind the coverage directory into nspawn containers that are executed using machinectl. Unfortunately, the
+# .nspawn files don't support drop-ins so we have to inject the bind mount directly into the
+# systemd-nspawn@.service unit.
+sed -ri "s/^ExecStart=.+$/& --bind=\/coverage/" "$BUILDROOT/usr/lib/systemd/system/systemd-nspawn@.service"

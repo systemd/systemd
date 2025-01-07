@@ -211,10 +211,8 @@ static int sync_making_progress(unsigned long long *prev_dirty) {
                         continue;
 
                 errno = 0;
-                if (sscanf(line, "%*s %llu %*s", &ull) != 1) {
-                        log_warning_errno(errno_or_else(EIO), "Failed to parse /proc/meminfo field, ignoring: %m");
-                        return false;
-                }
+                if (sscanf(line, "%*s %llu %*s", &ull) != 1)
+                        return log_warning_errno(errno_or_else(EIO), "Failed to parse /proc/meminfo field: %m");
 
                 val += ull;
         }

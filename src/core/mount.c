@@ -854,9 +854,19 @@ static void mount_dump(Unit *u, FILE *f, const char *prefix) {
         }
 }
 
-static int mount_spawn(Mount *m, ExecCommand *c, PidRef *ret_pid) {
-        _cleanup_(exec_params_shallow_clear) ExecParameters exec_params = EXEC_PARAMETERS_INIT(
-                        EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN);
+static ExecFlags mount_exec_flags(MountState state) {
+        ExecFlags flags = EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN;
+
+        assert(IN_SET(state, MOUNT_MOUNTING, MOUNT_REMOUNTING, MOUNT_UNMOUNTING));
+
+        if (IN_SET(state, MOUNT_MOUNTING, MOUNT_REMOUNTING))
+                flags |= EXEC_SETUP_CREDENTIALS;
+
+        return flags;
+}
+
+static int mount_spawn(Mount *m, ExecCommand *c, ExecFlags flags, PidRef *ret_pid) {
+        _cleanup_(exec_params_shallow_clear) ExecParameters exec_params = EXEC_PARAMETERS_INIT(flags);
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         int r;
 
@@ -910,7 +920,7 @@ static void mount_enter_dead(Mount *m, MountResult f, bool flush_result) {
 
         m->exec_runtime = exec_runtime_destroy(m->exec_runtime);
 
-        unit_destroy_runtime_data(UNIT(m), &m->exec_context);
+        unit_destroy_runtime_data(UNIT(m), &m->exec_context, /* destroy_runtime_dir = */ true);
 
         unit_unref_uid_gid(UNIT(m), true);
 
@@ -924,6 +934,14 @@ static void mount_enter_mounted(Mount *m, MountResult f) {
 
         if (m->result == MOUNT_SUCCESS)
                 m->result = f;
+
+        /* Refer to service_set_state() handling of SERVICE_EXITED state for rationale. In particular
+         * for mount units let's not leave cred mounts around, otherwise the actual number of mounts would be
+         * somewhat doubled.
+         *
+         * Note that this effectively means fresh creds are used during remount, but that's mostly what
+         * users would expect anyways. */
+        unit_destroy_runtime_data(UNIT(m), &m->exec_context, /* destroy_runtime_dir = */ false);
 
         mount_set_state(m, MOUNT_MOUNTED);
 }
@@ -1047,7 +1065,7 @@ static void mount_enter_unmounting(Mount *m) {
 
         mount_unwatch_control_pid(m);
 
-        r = mount_spawn(m, m->control_command, &m->control_pid);
+        r = mount_spawn(m, m->control_command, mount_exec_flags(MOUNT_UNMOUNTING), &m->control_pid);
         if (r < 0) {
                 log_unit_warning_errno(UNIT(m), r, "Failed to spawn 'umount' task: %m");
                 goto fail;
@@ -1192,7 +1210,7 @@ static void mount_enter_mounting(Mount *m) {
 
         mount_unwatch_control_pid(m);
 
-        r = mount_spawn(m, m->control_command, &m->control_pid);
+        r = mount_spawn(m, m->control_command, mount_exec_flags(MOUNT_MOUNTING), &m->control_pid);
         if (r < 0) {
                 log_unit_warning_errno(UNIT(m), r, "Failed to spawn 'mount' task: %m");
                 goto fail;
@@ -1257,7 +1275,7 @@ static void mount_enter_remounting(Mount *m) {
 
         mount_unwatch_control_pid(m);
 
-        r = mount_spawn(m, m->control_command, &m->control_pid);
+        r = mount_spawn(m, m->control_command, mount_exec_flags(MOUNT_REMOUNTING), &m->control_pid);
         if (r < 0) {
                 log_unit_warning_errno(UNIT(m), r, "Failed to spawn 'remount' task: %m");
                 goto fail;

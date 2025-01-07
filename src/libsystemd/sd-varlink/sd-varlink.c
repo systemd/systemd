@@ -31,7 +31,6 @@
 #include "varlink-internal.h"
 #include "varlink-io.systemd.h"
 #include "varlink-org.varlink.service.h"
-#include "version.h"
 
 #define VARLINK_DEFAULT_CONNECTIONS_MAX 4096U
 #define VARLINK_DEFAULT_CONNECTIONS_PER_UID_MAX 1024U
@@ -70,7 +69,7 @@ DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(varlink_state, VarlinkState);
 static int varlink_format_queue(sd_varlink *v);
 static void varlink_server_test_exit_on_idle(sd_varlink_server *s);
 
-static VarlinkJsonQueueItem *varlink_json_queue_item_free(VarlinkJsonQueueItem *q) {
+static VarlinkJsonQueueItem* varlink_json_queue_item_free(VarlinkJsonQueueItem *q) {
         if (!q)
                 return NULL;
 
@@ -80,7 +79,7 @@ static VarlinkJsonQueueItem *varlink_json_queue_item_free(VarlinkJsonQueueItem *
         return mfree(q);
 }
 
-static VarlinkJsonQueueItem *varlink_json_queue_item_new(sd_json_variant *m, const int fds[], size_t n_fds) {
+static VarlinkJsonQueueItem* varlink_json_queue_item_new(sd_json_variant *m, const int fds[], size_t n_fds) {
         VarlinkJsonQueueItem *q;
 
         assert(m);
@@ -1193,20 +1192,16 @@ static int generic_method_get_info(
                 void *userdata) {
 
         _cleanup_strv_free_ char **interfaces = NULL;
-        _cleanup_free_ char *product = NULL;
         int r;
 
         assert(link);
+        assert(link->server);
 
         if (sd_json_variant_elements(parameters) != 0)
                 return sd_varlink_error_invalid_parameter(link, parameters);
 
-        product = strjoin("systemd (", program_invocation_short_name, ")");
-        if (!product)
-                return -ENOMEM;
-
         sd_varlink_interface *interface;
-        HASHMAP_FOREACH(interface, ASSERT_PTR(link->server)->interfaces) {
+        HASHMAP_FOREACH(interface, link->server->interfaces) {
                 r = strv_extend(&interfaces, interface->name);
                 if (r < 0)
                         return r;
@@ -1216,10 +1211,10 @@ static int generic_method_get_info(
 
         return sd_varlink_replybo(
                         link,
-                        SD_JSON_BUILD_PAIR_STRING("vendor", "The systemd Project"),
-                        SD_JSON_BUILD_PAIR_STRING("product", product),
-                        SD_JSON_BUILD_PAIR_STRING("version", PROJECT_VERSION_FULL " (" GIT_VERSION ")"),
-                        SD_JSON_BUILD_PAIR_STRING("url", "https://systemd.io/"),
+                        SD_JSON_BUILD_PAIR_STRING("vendor", strempty(link->server->vendor)),
+                        SD_JSON_BUILD_PAIR_STRING("product", strempty(link->server->product)),
+                        SD_JSON_BUILD_PAIR_STRING("version", strempty(link->server->version)),
+                        SD_JSON_BUILD_PAIR_STRING("url", strempty(link->server->url)),
                         SD_JSON_BUILD_PAIR_STRV("interfaces", interfaces));
 }
 
@@ -1547,6 +1542,25 @@ _public_ int sd_varlink_dispatch_again(sd_varlink *v) {
         return 0;
 }
 
+_public_ int sd_varlink_get_current_method(sd_varlink *v, const char **ret) {
+        assert_return(v, -EINVAL);
+
+        if (!v->current)
+                return -ENODATA;
+
+        sd_json_variant *p = sd_json_variant_by_key(v->current, "method");
+        if (!p)
+                return -ENODATA;
+
+        const char *s = sd_json_variant_string(p);
+        if (!s)
+                return -ENODATA;
+
+        if (ret)
+                *ret = s;
+        return 0;
+}
+
 _public_ int sd_varlink_get_current_parameters(sd_varlink *v, sd_json_variant **ret) {
         sd_json_variant *p;
 
@@ -1678,6 +1692,30 @@ _public_ int sd_varlink_get_fd(sd_varlink *v) {
         return v->input_fd;
 }
 
+_public_ int sd_varlink_get_input_fd(sd_varlink *v) {
+
+        assert_return(v, -EINVAL);
+
+        if (v->state == VARLINK_DISCONNECTED)
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(ENOTCONN), "Not connected.");
+        if (v->input_fd < 0)
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(EBADF), "No valid input fd.");
+
+        return v->input_fd;
+}
+
+_public_ int sd_varlink_get_output_fd(sd_varlink *v) {
+
+        assert_return(v, -EINVAL);
+
+        if (v->state == VARLINK_DISCONNECTED)
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(ENOTCONN), "Not connected.");
+        if (v->output_fd < 0)
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(EBADF), "No valid output fd.");
+
+        return v->output_fd;
+}
+
 _public_ int sd_varlink_get_events(sd_varlink *v) {
         int ret = 0;
 
@@ -1698,7 +1736,8 @@ _public_ int sd_varlink_get_events(sd_varlink *v) {
                 ret |= EPOLLIN;
 
         if (!v->write_disconnected &&
-            v->output_buffer_size > 0)
+            (v->output_queue ||
+             v->output_buffer_size > 0))
                 ret |= EPOLLOUT;
 
         return ret;
@@ -1759,6 +1798,7 @@ _public_ int sd_varlink_flush(sd_varlink *v) {
 
 static void varlink_detach_server(sd_varlink *v) {
         sd_varlink_server *saved_server;
+
         assert(v);
 
         if (!v->server)
@@ -2500,12 +2540,13 @@ _public_ int sd_varlink_replyb(sd_varlink *v, ...) {
         return sd_varlink_reply(v, parameters);
 }
 
-static int varlink_reset_fds(sd_varlink *v) {
+_public_ int sd_varlink_reset_fds(sd_varlink *v) {
         assert_return(v, -EINVAL);
 
         /* Closes all currently pending fds to send. This may be used whenever the caller is in the process
          * of putting together a message with fds, and then eventually something fails and they need to
-         * rollback the fds. Note that this is implicitly called whenever an error reply is sent, see above. */
+         * rollback the fds. Note that this is implicitly called whenever an error reply is sent, see
+         * below. */
 
         close_many(v->output_fds, v->n_output_fds);
         v->n_output_fds = 0;
@@ -2531,7 +2572,7 @@ _public_ int sd_varlink_error(sd_varlink *v, const char *error_id, sd_json_varia
          * fails. In that case the pushed fds need to be flushed out again. Under the assumption that it
          * never makes sense to send fds along with errors we simply flush them out here beforehand, so that
          * the callers don't need to do this explicitly. */
-        varlink_reset_fds(v);
+        sd_varlink_reset_fds(v);
 
         r = varlink_sanitize_parameters(&parameters);
         if (r < 0)
@@ -3034,7 +3075,7 @@ _public_ void sd_varlink_detach_event(sd_varlink *v) {
         v->event = sd_event_unref(v->event);
 }
 
-_public_ sd_event *sd_varlink_get_event(sd_varlink *v) {
+_public_ sd_event* sd_varlink_get_event(sd_varlink *v) {
         assert_return(v, NULL);
 
         return v->event;
@@ -3218,7 +3259,13 @@ _public_ int sd_varlink_server_new(sd_varlink_server **ret, sd_varlink_server_fl
         int r;
 
         assert_return(ret, -EINVAL);
-        assert_return((flags & ~(SD_VARLINK_SERVER_ROOT_ONLY|SD_VARLINK_SERVER_MYSELF_ONLY|SD_VARLINK_SERVER_ACCOUNT_UID|SD_VARLINK_SERVER_INHERIT_USERDATA|SD_VARLINK_SERVER_INPUT_SENSITIVE)) == 0, -EINVAL);
+        assert_return((flags & ~(SD_VARLINK_SERVER_ROOT_ONLY|
+                                 SD_VARLINK_SERVER_MYSELF_ONLY|
+                                 SD_VARLINK_SERVER_ACCOUNT_UID|
+                                 SD_VARLINK_SERVER_INHERIT_USERDATA|
+                                 SD_VARLINK_SERVER_INPUT_SENSITIVE|
+                                 SD_VARLINK_SERVER_ALLOW_FD_PASSING_INPUT|
+                                 SD_VARLINK_SERVER_ALLOW_FD_PASSING_OUTPUT)) == 0, -EINVAL);
 
         s = new(sd_varlink_server, 1);
         if (!s)
@@ -3261,11 +3308,40 @@ static sd_varlink_server* varlink_server_destroy(sd_varlink_server *s) {
         sd_event_unref(s->event);
 
         free(s->description);
+        free(s->vendor);
+        free(s->product);
+        free(s->version);
+        free(s->url);
 
         return mfree(s);
 }
 
-DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_varlink_server, sd_varlink_server, varlink_server_destroy);
+DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_varlink_server, sd_varlink_server, varlink_server_destroy);
+
+_public_ int sd_varlink_server_set_info(
+                sd_varlink_server *s,
+                const char *vendor,
+                const char *product,
+                const char *version,
+                const char *url) {
+
+        assert_return(s, -EINVAL);
+
+        _cleanup_free_ char
+                *a = vendor ? strdup(vendor) : NULL,
+                *b = product ? strdup(product) : NULL,
+                *c = version ? strdup(version) : NULL,
+                *d = url ? strdup(url) : NULL;
+        if ((vendor && !a) || (product && !b) || (version && !c) || (url && !d))
+                return log_oom_debug();
+
+        free_and_replace(s->vendor, a);
+        free_and_replace(s->product, b);
+        free_and_replace(s->version, c);
+        free_and_replace(s->url, d);
+
+        return 0;
+}
 
 static int validate_connection(sd_varlink_server *server, const struct ucred *ucred) {
         int allowed = -1;
@@ -3399,6 +3475,9 @@ _public_ int sd_varlink_server_add_connection_pair(
         if (asprintf(&desc, "%s-%i-%i", varlink_server_description(server), input_fd, output_fd) >= 0)
                 v->description = TAKE_PTR(desc);
 
+        (void) sd_varlink_set_allow_fd_passing_input(v, FLAGS_SET(server->flags, SD_VARLINK_SERVER_ALLOW_FD_PASSING_INPUT));
+        (void) sd_varlink_set_allow_fd_passing_output(v, FLAGS_SET(server->flags, SD_VARLINK_SERVER_ALLOW_FD_PASSING_OUTPUT));
+
         /* Link up the server and the connection, and take reference in both directions. Note that the
          * reference on the connection is left dangling. It will be dropped when the connection is closed,
          * which happens in varlink_close(), including in the event loop quit callback. */
@@ -3428,7 +3507,7 @@ _public_ int sd_varlink_server_add_connection(sd_varlink_server *server, int fd,
         return sd_varlink_server_add_connection_pair(server, fd, fd, /* override_ucred= */ NULL, ret);
 }
 
-VarlinkServerSocket *varlink_server_socket_free(VarlinkServerSocket *ss) {
+VarlinkServerSocket* varlink_server_socket_free(VarlinkServerSocket *ss) {
         if (!ss)
                 return NULL;
 
@@ -3634,13 +3713,14 @@ _public_ int sd_varlink_server_add_connection_stdio(sd_varlink_server *s, sd_var
         return 0;
 }
 
-_public_ int sd_varlink_server_listen_auto(sd_varlink_server *s) {
+_public_ int sd_varlink_server_listen_name(sd_varlink_server *s, const char *name) {
         _cleanup_strv_free_ char **names = NULL;
         int r, n = 0;
 
         assert_return(s, -EINVAL);
+        assert_return(name, -EINVAL);
 
-        /* Adds all passed fds marked as "varlink" to our varlink server. These fds can either refer to a
+        /* Adds all passed fds marked as "name" to our varlink server. These fds can either refer to a
          * listening socket or to a connection socket.
          *
          * See https://varlink.org/#activation for the environment variables this is backed by and the
@@ -3654,7 +3734,7 @@ _public_ int sd_varlink_server_listen_auto(sd_varlink_server *s) {
                 int b, fd;
                 socklen_t l = sizeof(b);
 
-                if (!streq(names[i], "varlink"))
+                if (!streq(names[i], name))
                         continue;
 
                 fd = SD_LISTEN_FDS_START + i;
@@ -3673,6 +3753,18 @@ _public_ int sd_varlink_server_listen_auto(sd_varlink_server *s) {
 
                 n++;
         }
+
+        return n;
+}
+
+_public_ int sd_varlink_server_listen_auto(sd_varlink_server *s) {
+        int r, n;
+
+        assert_return(s, -EINVAL);
+
+        n = sd_varlink_server_listen_name(s, "varlink");
+        if (n < 0)
+                return n;
 
         /* Let's listen on an explicitly specified address */
         const char *e = secure_getenv("SYSTEMD_VARLINK_LISTEN");
@@ -3834,7 +3926,7 @@ _public_ int sd_varlink_server_detach_event(sd_varlink_server *s) {
         return 0;
 }
 
-_public_ sd_event *sd_varlink_server_get_event(sd_varlink_server *s) {
+_public_ sd_event* sd_varlink_server_get_event(sd_varlink_server *s) {
         assert_return(s, NULL);
 
         return s->event;

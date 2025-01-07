@@ -199,8 +199,9 @@ static int do_execute(
                         }
 
                         if (callbacks) {
-                                if (lseek(fd, 0, SEEK_SET) < 0)
-                                        return log_error_errno(errno, "Failed to seek on serialization fd: %m");
+                                r = finish_serialization_fd(fd);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to finish serialization fd: %m");
 
                                 r = callbacks[STDOUT_GENERATE](TAKE_FD(fd), callback_args[STDOUT_GENERATE]);
                                 if (r < 0)
@@ -290,12 +291,14 @@ int execute_strv(
         if (!callbacks)
                 return 0;
 
-        if (lseek(fd, 0, SEEK_SET) < 0)
-                return log_error_errno(errno, "Failed to rewind serialization fd: %m");
+        r = finish_serialization_fd(fd);
+        if (r < 0)
+                return log_error_errno(r, "Failed to finish serialization fd: %m");
 
         r = callbacks[STDOUT_CONSUME](TAKE_FD(fd), callback_args[STDOUT_CONSUME]);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse returned data: %m");
+
         return 0;
 }
 
@@ -488,9 +491,10 @@ static const char* const exec_command_strings[] = {
         "ignore-failure", /* EXEC_COMMAND_IGNORE_FAILURE */
         "privileged",     /* EXEC_COMMAND_FULLY_PRIVILEGED */
         "no-setuid",      /* EXEC_COMMAND_NO_SETUID */
-        "ambient",        /* EXEC_COMMAND_AMBIENT_MAGIC */
         "no-env-expand",  /* EXEC_COMMAND_NO_ENV_EXPAND */
 };
+
+assert_cc((1 << ELEMENTSOF(exec_command_strings)) - 1 == _EXEC_COMMAND_FLAGS_ALL);
 
 const char* exec_command_flags_to_string(ExecCommandFlags i) {
         for (size_t idx = 0; idx < ELEMENTSOF(exec_command_strings); idx++)
@@ -503,12 +507,14 @@ const char* exec_command_flags_to_string(ExecCommandFlags i) {
 ExecCommandFlags exec_command_flags_from_string(const char *s) {
         ssize_t idx;
 
-        idx = string_table_lookup(exec_command_strings, ELEMENTSOF(exec_command_strings), s);
+        if (streq(s, "ambient")) /* Compatibility with ambient hack, removed in v258, map to no bits set */
+                return 0;
 
+        idx = string_table_lookup(exec_command_strings, ELEMENTSOF(exec_command_strings), s);
         if (idx < 0)
                 return _EXEC_COMMAND_FLAGS_INVALID;
-        else
-                return 1 << idx;
+
+        return 1 << idx;
 }
 
 int fexecve_or_execve(int executable_fd, const char *executable, char *const argv[], char *const envp[]) {
@@ -543,11 +549,24 @@ int fexecve_or_execve(int executable_fd, const char *executable, char *const arg
         return -errno;
 }
 
+int shall_fork_agent(void) {
+        int r;
+
+        /* Check if we have a controlling terminal. If not (ENXIO here), we aren't actually invoked
+         * interactively on a terminal, hence fail. */
+        r = get_ctty_devnr(0, NULL);
+        if (r == -ENXIO)
+                return false;
+        if (r < 0)
+                return r;
+
+        if (!is_main_thread())
+                return -EPERM;
+
+        return true;
+}
+
 int _fork_agent(const char *name, const int except[], size_t n_except, pid_t *ret_pid, const char *path, ...) {
-        bool stdout_is_tty, stderr_is_tty;
-        size_t n, i;
-        va_list ap;
-        char **l;
         int r;
 
         assert(path);
@@ -567,56 +586,43 @@ int _fork_agent(const char *name, const int except[], size_t n_except, pid_t *re
 
         /* In the child: */
 
-        stdout_is_tty = isatty_safe(STDOUT_FILENO);
-        stderr_is_tty = isatty_safe(STDERR_FILENO);
+        bool stdin_is_tty = isatty_safe(STDIN_FILENO),
+                stdout_is_tty = isatty_safe(STDOUT_FILENO),
+                stderr_is_tty = isatty_safe(STDERR_FILENO);
 
-        if (!stdout_is_tty || !stderr_is_tty) {
+        if (!stdin_is_tty || !stdout_is_tty || !stderr_is_tty) {
                 int fd;
 
-                /* Detach from stdout/stderr and reopen /dev/tty for them. This is important to ensure that
-                 * when systemctl is started via popen() or a similar call that expects to read EOF we
+                /* Detach from stdin/stdout/stderr and reopen /dev/tty for them. This is important to ensure
+                 * that when systemctl is started via popen() or a similar call that expects to read EOF we
                  * actually do generate EOF and not delay this indefinitely by keeping an unused copy of
                  * stdin around. */
-                fd = open("/dev/tty", O_WRONLY);
+                fd = open_terminal("/dev/tty", stdin_is_tty ? O_WRONLY : (stdout_is_tty && stderr_is_tty) ? O_RDONLY : O_RDWR);
                 if (fd < 0) {
-                        if (errno != ENXIO) {
-                                log_error_errno(errno, "Failed to open /dev/tty: %m");
-                                _exit(EXIT_FAILURE);
-                        }
-
-                        /* If we get ENXIO here we have no controlling TTY even though stdout/stderr are
-                         * connected to a TTY. That's a weird setup, but let's handle it gracefully: let's
-                         * skip the forking of the agents, given the TTY setup is not in order. */
-                } else {
-                        if (!stdout_is_tty && dup2(fd, STDOUT_FILENO) < 0) {
-                                log_error_errno(errno, "Failed to dup2 /dev/tty: %m");
-                                _exit(EXIT_FAILURE);
-                        }
-
-                        if (!stderr_is_tty && dup2(fd, STDERR_FILENO) < 0) {
-                                log_error_errno(errno, "Failed to dup2 /dev/tty: %m");
-                                _exit(EXIT_FAILURE);
-                        }
-
-                        fd = safe_close_above_stdio(fd);
+                        log_error_errno(fd, "Failed to open /dev/tty: %m");
+                        _exit(EXIT_FAILURE);
                 }
+
+                if (!stdin_is_tty && dup2(fd, STDIN_FILENO) < 0) {
+                        log_error_errno(errno, "Failed to dup2 /dev/tty to STDIN: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                if (!stdout_is_tty && dup2(fd, STDOUT_FILENO) < 0) {
+                        log_error_errno(errno, "Failed to dup2 /dev/tty to STDOUT: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                if (!stderr_is_tty && dup2(fd, STDERR_FILENO) < 0) {
+                        log_error_errno(errno, "Failed to dup2 /dev/tty to STDERR: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                fd = safe_close_above_stdio(fd);
         }
 
         /* Count arguments */
-        va_start(ap, path);
-        for (n = 0; va_arg(ap, char*); n++)
-                ;
-        va_end(ap);
-
-        /* Allocate strv */
-        l = newa(char*, n + 1);
-
-        /* Fill in arguments */
-        va_start(ap, path);
-        for (i = 0; i <= n; i++)
-                l[i] = va_arg(ap, char*);
-        va_end(ap);
-
+        char **l = strv_from_stdarg_alloca(path);
         execv(path, l);
         log_error_errno(errno, "Failed to execute %s: %m", path);
         _exit(EXIT_FAILURE);

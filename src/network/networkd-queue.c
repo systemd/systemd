@@ -439,7 +439,7 @@ int remove_request_add(
          * MANAGER_TERMINATING or MANAGER_RESTARTING. When the manager is in MANAGER_STOPPED, we cannot
          * queue new remove requests anymore with the same reason explained in request_new(). */
         if (manager->state == MANAGER_STOPPED)
-                return 0;
+                return 0; /* ignored */
 
         req = new(RemoveRequest, 1);
         if (!req)
@@ -462,7 +462,7 @@ int remove_request_add(
         req->unref_func = unref_func;
 
         TAKE_PTR(req);
-        return 0;
+        return 1; /* queued */
 }
 
 int manager_process_remove_requests(Manager *manager) {

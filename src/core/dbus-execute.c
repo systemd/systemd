@@ -21,6 +21,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "hexdecoct.h"
+#include "hostname-util.h"
 #include "iovec-util.h"
 #include "ioprio-util.h"
 #include "journal-file.h"
@@ -1068,6 +1069,35 @@ static int property_get_protect_control_groups(
         return sd_bus_message_append_basic(reply, 'b', &b);
 }
 
+static int property_get_protect_hostname(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        ProtectHostname *p = ASSERT_PTR(userdata);
+        int b = *p != PROTECT_HOSTNAME_NO;
+
+        return sd_bus_message_append_basic(reply, 'b', &b);
+}
+
+static int property_get_protect_hostname_ex(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        ExecContext *c = ASSERT_PTR(userdata);
+
+        return sd_bus_message_append(reply, "(ss)", protect_hostname_to_string(c->protect_hostname), c->private_hostname);
+}
+
 const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Environment", "as", NULL, offsetof(ExecContext, environment), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -1242,7 +1272,8 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("KeyringMode", "s", property_get_exec_keyring_mode, offsetof(ExecContext, keyring_mode), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ProtectProc", "s", property_get_protect_proc, offsetof(ExecContext, protect_proc), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ProcSubset", "s", property_get_proc_subset, offsetof(ExecContext, proc_subset), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("ProtectHostname", "b", bus_property_get_bool, offsetof(ExecContext, protect_hostname), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("ProtectHostname", "b", property_get_protect_hostname, offsetof(ExecContext, protect_hostname), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("ProtectHostnameEx", "(ss)", property_get_protect_hostname_ex, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("MemoryKSM", "b", bus_property_get_tristate, offsetof(ExecContext, memory_ksm), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("NetworkNamespacePath", "s", NULL, offsetof(ExecContext, network_namespace_path), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("IPCNamespacePath", "s", NULL, offsetof(ExecContext, ipc_namespace_path), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -1426,8 +1457,7 @@ static char *exec_command_flags_to_exec_chars(ExecCommandFlags flags) {
         return strjoin(FLAGS_SET(flags, EXEC_COMMAND_IGNORE_FAILURE)   ? "-" : "",
                        FLAGS_SET(flags, EXEC_COMMAND_NO_ENV_EXPAND)    ? ":" : "",
                        FLAGS_SET(flags, EXEC_COMMAND_FULLY_PRIVILEGED) ? "+" : "",
-                       FLAGS_SET(flags, EXEC_COMMAND_NO_SETUID)        ? "!" : "",
-                       FLAGS_SET(flags, EXEC_COMMAND_AMBIENT_MAGIC)    ? "!!" : "");
+                       FLAGS_SET(flags, EXEC_COMMAND_NO_SETUID)        ? "!" : "");
 }
 
 int bus_set_transient_exec_command(
@@ -1993,6 +2023,51 @@ int bus_exec_context_set_transient_property(
                 return 1;
         }
 
+        if (streq(name, "ProtectHostname")) {
+                int v;
+
+                r = sd_bus_message_read(message, "b", &v);
+                if (r < 0)
+                        return r;
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        c->protect_hostname = v ? PROTECT_HOSTNAME_YES : PROTECT_HOSTNAME_NO;
+                        (void) unit_write_settingf(u, flags, name, "%s=%s", name, yes_no(v));
+                }
+
+                return 1;
+
+        }
+
+        if (streq(name, "ProtectHostnameEx")) {
+                const char *s, *h = NULL;
+
+                r = sd_bus_message_read(message, "(ss)", &s, &h);
+                if (r < 0)
+                        return r;
+
+                if (!isempty(h) && !hostname_is_valid(h, /* flags = */ 0))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid hostname in %s setting: %s", name, h);
+
+                ProtectHostname t = protect_hostname_from_string(s);
+                if (t < 0 || (t == PROTECT_HOSTNAME_NO && !isempty(h)))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid %s setting: %s", name, s);
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        c->protect_hostname = t;
+                        r = free_and_strdup(&c->private_hostname, empty_to_null(h));
+                        if (r < 0)
+                                return r;
+
+                        (void) unit_write_settingf(u, flags, name, "ProtectHostname=%s%s%s",
+                                                   protect_hostname_to_string(c->protect_hostname),
+                                                   c->private_hostname ? ":" : "",
+                                                   strempty(c->private_hostname));
+                }
+
+                return 1;
+        }
+
         if (streq(name, "PrivateDevices"))
                 return bus_set_transient_bool(u, name, &c->private_devices, message, flags, error);
 
@@ -2052,9 +2127,6 @@ int bus_exec_context_set_transient_property(
 
         if (streq(name, "LockPersonality"))
                 return bus_set_transient_bool(u, name, &c->lock_personality, message, flags, error);
-
-        if (streq(name, "ProtectHostname"))
-                return bus_set_transient_bool(u, name, &c->protect_hostname, message, flags, error);
 
         if (streq(name, "MemoryKSM"))
                 return bus_set_transient_tristate(u, name, &c->memory_ksm, message, flags, error);

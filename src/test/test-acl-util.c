@@ -29,17 +29,16 @@ TEST_RET(add_acls_for_user) {
                         return log_tests_skipped_errno(r, "Could not find %s binary: %m", s);
         }
 
-        fd = mkostemp_safe(fn);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd = mkostemp_safe(fn));
 
         /* Use the mode that user journal files use */
-        assert_se(fchmod(fd, 0640) == 0);
+        ASSERT_OK_ZERO_ERRNO(fchmod(fd, 0640));
 
         cmd = strjoina("ls -l ", fn);
-        assert_se(system(cmd) == 0);
+        ASSERT_OK_ZERO_ERRNO(system(cmd));
 
         cmd = strjoina("getfacl -p ", fn);
-        assert_se(system(cmd) == 0);
+        ASSERT_OK_ZERO_ERRNO(system(cmd));
 
         if (getuid() == 0 && !userns_has_single_user()) {
                 const char *nobody = NOBODY_USER_NAME;
@@ -57,21 +56,19 @@ TEST_RET(add_acls_for_user) {
         assert_se(r >= 0);
 
         cmd = strjoina("ls -l ", fn);
-        assert_se(system(cmd) == 0);
+        ASSERT_OK_ZERO_ERRNO(system(cmd));
 
         cmd = strjoina("getfacl -p ", fn);
-        assert_se(system(cmd) == 0);
+        ASSERT_OK_ZERO_ERRNO(system(cmd));
 
         /* set the acls again */
-
-        r = fd_add_uid_acl_permission(fd, uid, ACL_READ);
-        assert_se(r >= 0);
+        ASSERT_OK(fd_add_uid_acl_permission(fd, uid, ACL_READ));
 
         cmd = strjoina("ls -l ", fn);
-        assert_se(system(cmd) == 0);
+        ASSERT_OK_ZERO_ERRNO(system(cmd));
 
         cmd = strjoina("getfacl -p ", fn);
-        assert_se(system(cmd) == 0);
+        ASSERT_OK_ZERO_ERRNO(system(cmd));
 
         return 0;
 }
@@ -89,56 +86,55 @@ TEST_RET(fd_acl_make_read_only) {
                         return log_tests_skipped_errno(r, "Could not find %s binary: %m", s);
         }
 
-        fd = mkostemp_safe(fn);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd = mkostemp_safe(fn));
 
         /* make it more exciting */
         (void) fd_add_uid_acl_permission(fd, 1, ACL_READ|ACL_WRITE|ACL_EXECUTE);
 
         ASSERT_OK_ERRNO(fstat(fd, &st));
-        assert_se(FLAGS_SET(st.st_mode, 0200));
+        ASSERT_TRUE(FLAGS_SET(st.st_mode, 0200));
 
         cmd = strjoina("getfacl -p ", fn);
-        assert_se(system(cmd) == 0);
+        ASSERT_OK_ZERO_ERRNO(system(cmd));
 
         cmd = strjoina("stat ", fn);
-        assert_se(system(cmd) == 0);
+        ASSERT_OK_ZERO_ERRNO(system(cmd));
 
         log_info("read-only");
-        assert_se(fd_acl_make_read_only(fd));
+        ASSERT_OK_POSITIVE(fd_acl_make_read_only(fd));
 
         ASSERT_OK_ERRNO(fstat(fd, &st));
-        assert_se((st.st_mode & 0222) == 0000);
+        ASSERT_EQ(st.st_mode & 0222, 0000u);
 
         cmd = strjoina("getfacl -p ", fn);
-        assert_se(system(cmd) == 0);
+        ASSERT_OK_ZERO_ERRNO(system(cmd));
 
         cmd = strjoina("stat ", fn);
-        assert_se(system(cmd) == 0);
+        ASSERT_OK_ZERO_ERRNO(system(cmd));
 
         log_info("writable");
-        assert_se(fd_acl_make_writable(fd));
+        ASSERT_OK_POSITIVE(fd_acl_make_writable(fd));
 
         ASSERT_OK_ERRNO(fstat(fd, &st));
-        assert_se((st.st_mode & 0222) == 0200);
+        ASSERT_EQ(st.st_mode & 0222, 0200u);
 
         cmd = strjoina("getfacl -p ", fn);
-        assert_se(system(cmd) == 0);
+        ASSERT_OK_ZERO_ERRNO(system(cmd));
 
         cmd = strjoina("stat ", fn);
-        assert_se(system(cmd) == 0);
+        ASSERT_OK_ZERO_ERRNO(system(cmd));
 
         log_info("read-only");
-        assert_se(fd_acl_make_read_only(fd));
+        ASSERT_OK_POSITIVE(fd_acl_make_read_only(fd));
 
         ASSERT_OK_ERRNO(fstat(fd, &st));
-        assert_se((st.st_mode & 0222) == 0000);
+        ASSERT_EQ(st.st_mode & 0222, 0000u);
 
         cmd = strjoina("getfacl -p ", fn);
-        assert_se(system(cmd) == 0);
+        ASSERT_OK_ZERO_ERRNO(system(cmd));
 
         cmd = strjoina("stat ", fn);
-        assert_se(system(cmd) == 0);
+        ASSERT_OK_ZERO_ERRNO(system(cmd));
 
         return 0;
 }

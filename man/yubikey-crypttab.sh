@@ -12,7 +12,7 @@ ykman piv generate-key -a RSA2048 9d pubkey.pem
 # the token with.
 ykman piv generate-certificate --subject "Knobelei" 9d pubkey.pem
 
-# We don't need the public key anymore, let's remove it. Since it is not
+# We do not need the public key anymore, let's remove it. Since it is not
 # security sensitive we just do a regular "rm" here.
 rm pubkey.pem
 
@@ -24,9 +24,9 @@ sudo systemd-cryptenroll --pkcs11-token-uri=auto /dev/sdXn
 sudo systemd-cryptsetup attach mytest /dev/sdXn - pkcs11-uri=auto
 
 # If that worked, let's now add the same line persistently to /etc/crypttab,
-# for the future. We don't want to use the (unstable) /dev/sdX name, so let's
+# for the future. We do not want to use the (unstable) /dev/sdX name, so let's
 # figure out a stable link:
-udevadm info -q -r symlink /dev/sdXn
+udevadm info -q symlink -r /dev/sdXn
 
 # Now add the line using the by-uuid symlink to /etc/crypttab:
 sudo bash -c 'echo "mytest /dev/disk/by-uuid/... - pkcs11-uri=auto" >>/etc/crypttab'

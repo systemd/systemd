@@ -647,6 +647,7 @@ int manager_new(Manager **ret, bool test_mode) {
                 .dhcp_use_domains = _USE_DOMAINS_INVALID,
                 .dhcp6_use_domains = _USE_DOMAINS_INVALID,
                 .ndisc_use_domains = _USE_DOMAINS_INVALID,
+                .dhcp_client_identifier = DHCP_CLIENT_ID_DUID,
                 .dhcp_duid.type = DUID_TYPE_EN,
                 .dhcp6_duid.type = DUID_TYPE_EN,
                 .duid_product_uuid.type = DUID_TYPE_UUID,
@@ -666,7 +667,7 @@ Manager* manager_free(Manager *m) {
         if (!m)
                 return NULL;
 
-        sysctl_remove_monitor(m);
+        manager_remove_sysctl_monitor(m);
 
         free(m->state_file);
 
@@ -705,10 +706,6 @@ Manager* manager_free(Manager *m) {
         sd_netlink_unref(m->genl);
         sd_resolve_unref(m->resolve);
 
-        /* reject (e.g. unreachable) type routes are managed by Manager, but may be referenced by a
-         * link. E.g., DHCP6 with prefix delegation creates unreachable routes, and they are referenced
-         * by the upstream link. And the links may be referenced by netlink slots. Hence, two
-         * set_free() must be called after the above sd_netlink_unref(). */
         m->routes = set_free(m->routes);
 
         m->nexthops_by_id = hashmap_free(m->nexthops_by_id);
@@ -746,7 +743,7 @@ int manager_start(Manager *m) {
 
         log_debug("Starting...");
 
-        (void) sysctl_add_monitor(m);
+        (void) manager_install_sysctl_monitor(m);
 
         /* Loading BPF programs requires CAP_SYS_ADMIN and CAP_BPF.
          * Drop the capabilities here, regardless if the load succeeds or not. */

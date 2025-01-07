@@ -675,20 +675,13 @@ foreach ident : [
         ['fsmount',           '''#include <sys/mount.h>'''],
         ['getdents64',        '''#include <dirent.h>'''],
         ['pidfd_spawn',       '''#include <spawn.h>'''],
+        ['strerrorname_np',   '''#include <string.h>'''],
+        ['getrandom',         '''#include <sys/random.h>'''],
 ]
 
         have = cc.has_function(ident[0], prefix : ident[1], args : '-D_GNU_SOURCE')
         conf.set10('HAVE_' + ident[0].to_upper(), have)
 endforeach
-
-if cc.has_function('getrandom', prefix : '''#include <sys/random.h>''', args : '-D_GNU_SOURCE')
-        conf.set10('USE_SYS_RANDOM_H', true)
-        conf.set10('HAVE_GETRANDOM', true)
-else
-        have = cc.has_function('getrandom', prefix : '''#include <linux/random.h>''')
-        conf.set10('USE_SYS_RANDOM_H', false)
-        conf.set10('HAVE_GETRANDOM', have)
-endif
 
 #####################################################################
 
@@ -771,9 +764,7 @@ if not cc.has_header('sys/capability.h')
 endif
 foreach header : ['crypt.h',
                   'linux/ioprio.h',
-                  'linux/memfd.h',
                   'linux/time_types.h',
-                  'sys/auxv.h',
                   'sys/sdt.h',
                   'threads.h',
                   'valgrind/memcheck.h',
@@ -978,6 +969,16 @@ conf.set10('DEV_KVM_UACCESS', dev_kvm_mode != '0666')
 group_render_mode = get_option('group-render-mode')
 conf.set_quoted('GROUP_RENDER_MODE', group_render_mode)
 conf.set10('GROUP_RENDER_UACCESS', group_render_mode != '0666')
+tty_mode = get_option('tty-mode')
+# The setting is used as both octal integer and string through STRINGIFY().
+# Here, only check if the value starts with '06', and further check will be done in terminal-util.h.
+if not tty_mode.startswith('06')
+        error('Unexpected access mode "@0@" is specified for TTY/PTS device nodes, it must be "06xx".'.format(tty_mode))
+elif tty_mode != '0600' and tty_mode != '0620'
+        warning('Unexpected access mode "@0@" is specified for TTY/PTS device nodes, typically it should be "0600" or "0620", proceeding anyway.'.format(tty_mode))
+endif
+# Do not use set_quoted() here, so that the value is available as an integer.
+conf.set('TTY_MODE', tty_mode)
 
 kill_user_processes = get_option('default-kill-user-processes')
 conf.set10('KILL_USER_PROCESSES', kill_user_processes)
@@ -1522,7 +1523,7 @@ if dbus_interfaces_dir == '' or dbus_interfaces_dir == 'yes'
         endif
 endif
 
-dmi_arches = ['x86', 'x86_64', 'aarch64', 'arm', 'ia64', 'loongarch64', 'mips']
+dmi_arches = ['x86', 'x86_64', 'aarch64', 'arm', 'ia64', 'loongarch64', 'mips', 'riscv64']
 conf.set10('HAVE_DMI', host_machine.cpu_family() in dmi_arches)
 
 # We support one or the other. If gcrypt is available, we assume it's there to
@@ -2401,6 +2402,7 @@ subdir('src/pcrextend')
 subdir('src/pcrlock')
 subdir('src/portable')
 subdir('src/pstore')
+subdir('src/ptyfwd')
 subdir('src/quotacheck')
 subdir('src/random-seed')
 subdir('src/rc-local-generator')
@@ -2674,6 +2676,14 @@ endif
 
 #####################################################################
 
+ukify_depends = []
+
+foreach executable : ['systemd-measure', 'systemd-sbsign', 'systemd-keyutil']
+        if executable in executables_by_name
+                ukify_depends += [executables_by_name[executable]]
+        endif
+endforeach
+
 ukify = custom_target(
         'ukify',
         input : 'src/ukify/ukify.py',
@@ -2681,6 +2691,7 @@ ukify = custom_target(
         command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
         install : want_ukify,
         install_mode : 'rwxr-xr-x',
+        depends : ukify_depends,
         install_dir : bindir)
 if want_ukify
         public_programs += ukify
@@ -2700,7 +2711,7 @@ endif
 
 mkosi_depends = public_programs
 
-foreach executable : ['systemd-journal-remote', 'systemd-measure', 'systemd-sbsign', 'systemd-keyutil']
+foreach executable : ['systemd-journal-remote', 'systemd-sbsign', 'systemd-keyutil']
         if executable in executables_by_name
                 mkosi_depends += [executables_by_name[executable]]
         endif

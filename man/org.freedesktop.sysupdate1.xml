@@ -284,7 +284,7 @@ node /org/freedesktop/sysupdate1/target/host {
       software center to correctly associate the catalogs with this target.</para>
 
       <para><function>GetVersion()</function> returns the current version of this target, if any. The current
-      version is the newest version that is installed. Note that this isn't necessarily the same thing as the
+      version is the newest version that is installed. Note that this is not necessarily the same thing as the
       booted or currently-in-use version of the target.  For example, on the host system the booted version
       is the current version most of the time, but if an update is installed and pending a reboot it will
       become the current version instead.  You can query the booted version of the host system via

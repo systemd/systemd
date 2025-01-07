@@ -42,6 +42,7 @@
 #include "copy.h"
 #include "cpu-set-util.h"
 #include "dev-setup.h"
+#include "devnum-util.h"
 #include "discover-image.h"
 #include "dissect-image.h"
 #include "env-util.h"
@@ -73,7 +74,6 @@
 #include "nspawn-mount.h"
 #include "nspawn-network.h"
 #include "nspawn-oci.h"
-#include "nspawn-patch-uid.h"
 #include "nspawn-register.h"
 #include "nspawn-seccomp.h"
 #include "nspawn-settings.h"
@@ -96,6 +96,7 @@
 #include "rlimit-util.h"
 #include "rm-rf.h"
 #include "seccomp-util.h"
+#include "shift-uid.h"
 #include "signal-util.h"
 #include "socket-util.h"
 #include "stat-util.h"
@@ -477,7 +478,8 @@ static int custom_mount_check_all(void) {
                 if (path_equal(m->destination, "/") && arg_userns_mode != USER_NAMESPACE_NO) {
                         if (arg_userns_ownership != USER_NAMESPACE_OWNERSHIP_OFF)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "--private-users-ownership=own may not be combined with custom root mounts.");
+                                                       "--private-users-ownership=%s may not be combined with custom root mounts.",
+                                                       user_namespace_ownership_to_string(arg_userns_ownership));
                         if (arg_uid_shift == UID_INVALID)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "--private-users with automatic UID shift may not be combined with custom root mounts.");
@@ -1249,7 +1251,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 arg_uid_range = UINT32_C(0x10000);
 
                         } else if (streq(optarg, "identity")) {
-                                /* identity: User namespaces on, UID range is map the 0…0xFFFF range to
+                                /* identity: User namespaces on, UID range is map of the 0…0xFFFF range to
                                  * itself, i.e. we don't actually map anything, but do take benefit of
                                  * isolation of capability sets. */
                                 arg_userns_mode = USER_NAMESPACE_FIXED;
@@ -1761,7 +1763,7 @@ static int verify_arguments(void) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid namespacing settings. Mounting sysfs with --private-users requires --private-network.");
 
         if (arg_userns_mode != USER_NAMESPACE_NO && !(arg_mount_settings & MOUNT_APPLY_APIVFS_RO))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot combine --private-users with read-write mounts.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot combine --private-users with read-write API VFS mounts.");
 
         if (arg_expose_ports && !arg_private_network)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot use --port= without private networking.");
@@ -1807,8 +1809,8 @@ static int verify_network_interfaces_initialized(void) {
         return 0;
 }
 
-int userns_lchown(const char *p, uid_t uid, gid_t gid) {
-        assert(p);
+static int userns_chown_at(int fd, const char *fname, uid_t uid, gid_t gid, int flags) {
+        assert(fd >= 0 || fd == AT_FDCWD);
 
         if (arg_userns_mode == USER_NAMESPACE_NO)
                 return 0;
@@ -1830,21 +1832,31 @@ int userns_lchown(const char *p, uid_t uid, gid_t gid) {
                         return -EOVERFLOW;
         }
 
-        return RET_NERRNO(lchown(p, uid, gid));
+        return RET_NERRNO(fchownat(fd, strempty(fname), uid, gid, flags));
+}
+
+int userns_lchown(const char *path, uid_t uid, gid_t gid) {
+        return userns_chown_at(AT_FDCWD, path, uid, gid, AT_SYMLINK_NOFOLLOW);
 }
 
 int userns_mkdir(const char *root, const char *path, mode_t mode, uid_t uid, gid_t gid) {
-        const char *q;
         int r;
 
-        q = prefix_roota(root, path);
-        r = RET_NERRNO(mkdir(q, mode));
-        if (r == -EEXIST)
-                return 0;
+        assert(path);
+
+        _cleanup_close_ int parent_fd = -EBADF;
+        _cleanup_free_ char *dname = NULL;
+        r = chase(path, root, CHASE_PARENT|CHASE_PREFIX_ROOT|CHASE_EXTRACT_FILENAME, &dname, &parent_fd);
         if (r < 0)
                 return r;
 
-        return userns_lchown(q, uid, gid);
+        _cleanup_close_ int dir_fd = open_mkdir_at(parent_fd, dname, O_EXCL|O_CLOEXEC, mode);
+        if (dir_fd == -EEXIST)
+                return 0;
+        if (dir_fd < 0)
+                return dir_fd;
+
+        return userns_chown_at(dir_fd, /* fname= */ NULL, uid, gid, AT_SYMLINK_NOFOLLOW|AT_EMPTY_PATH);
 }
 
 static const char *timezone_from_path(const char *path) {
@@ -2279,10 +2291,9 @@ static int copy_devnode_one(const char *dest, const char *node, bool ignore_mkno
         r = path_extract_directory(from, &parent);
         if (r < 0)
                 return log_error_errno(r, "Failed to extract directory from %s: %m", from);
-        if (!path_equal(parent, "/dev/")) {
-                if (userns_mkdir(dest, parent, 0755, 0, 0) < 0)
-                        return log_error_errno(r, "Failed to create directory %s: %m", parent);
-        }
+        r = userns_mkdir(dest, parent, 0755, 0, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create directory %s: %m", parent);
 
         if (mknod(to, st.st_mode, st.st_rdev) < 0) {
                 r = -errno; /* Save the original error code. */
@@ -2323,7 +2334,7 @@ static int copy_devnode_one(const char *dest, const char *node, bool ignore_mkno
                 return log_error_errno(r, "Failed to create '%s': %m", dn);
 
         _cleanup_free_ char *sl = NULL;
-        if (asprintf(&sl, "%s/%u:%u", dn, major(st.st_rdev), minor(st.st_rdev)) < 0)
+        if (asprintf(&sl, "%s/" DEVNUM_FORMAT_STR, dn, DEVNUM_FORMAT_VAL(st.st_rdev)) < 0)
                 return log_oom();
 
         _cleanup_free_ char *prefixed = path_join(dest, sl);
@@ -2399,13 +2410,13 @@ static int setup_pts(const char *dest) {
 #if HAVE_SELINUX
         if (arg_selinux_apifs_context)
                 (void) asprintf(&options,
-                                "newinstance,ptmxmode=0666,mode=620,gid=" GID_FMT ",context=\"%s\"",
+                                "newinstance,ptmxmode=0666,mode=" STRINGIFY(TTY_MODE) ",gid=" GID_FMT ",context=\"%s\"",
                                 arg_uid_shift + TTY_GID,
                                 arg_selinux_apifs_context);
         else
 #endif
                 (void) asprintf(&options,
-                                "newinstance,ptmxmode=0666,mode=620,gid=" GID_FMT,
+                                "newinstance,ptmxmode=0666,mode=" STRINGIFY(TTY_MODE) ",gid=" GID_FMT,
                                 arg_uid_shift + TTY_GID);
 
         if (!options)
@@ -2568,10 +2579,9 @@ static int setup_credentials(const char *root) {
                 if (fchmod(fd, world_readable ? 0444 : 0400) < 0)
                         return log_error_errno(errno, "Failed to adjust access mode of %s: %m", j);
 
-                if (arg_userns_mode != USER_NAMESPACE_NO) {
+                if (arg_userns_mode != USER_NAMESPACE_NO)
                         if (fchown(fd, arg_uid_shift, arg_uid_shift) < 0)
                                 return log_error_errno(errno, "Failed to adjust ownership of %s: %m", j);
-                }
         }
 
         if (chmod(q, world_readable ? 0555 : 0500) < 0)
@@ -2811,7 +2821,7 @@ static int drop_capabilities(uid_t uid) {
                 if (q.permitted == UINT64_MAX)
                         q.permitted = uid == 0 ? q.bounding : arg_caps_ambient;
 
-                if (q.ambient == UINT64_MAX && ambient_capabilities_supported())
+                if (q.ambient == UINT64_MAX)
                         q.ambient = arg_caps_ambient;
 
                 if (capability_quintet_mangle(&q))
@@ -2823,7 +2833,7 @@ static int drop_capabilities(uid_t uid) {
                         .effective = uid == 0 ? arg_caps_retain : 0,
                         .inheritable = uid == 0 ? arg_caps_retain : arg_caps_ambient,
                         .permitted = uid == 0 ? arg_caps_retain : arg_caps_ambient,
-                        .ambient = ambient_capabilities_supported() ? arg_caps_ambient : UINT64_MAX,
+                        .ambient = arg_caps_ambient,
                 };
 
                 /* If we're not using OCI, proceed with mangled capabilities (so we don't error out)
@@ -2847,7 +2857,7 @@ static int reset_audit_loginuid(void) {
         if (!arg_privileged)
                 return 0;
 
-        r = read_one_line_file("/proc/self/loginuid", &p);
+        r = read_virtual_file("/proc/self/loginuid", SIZE_MAX, &p, /* ret_size= */ NULL);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
@@ -3166,7 +3176,8 @@ static int determine_names(void) {
                 if (arg_machine) {
                         _cleanup_(image_unrefp) Image *i = NULL;
 
-                        r = image_find(IMAGE_MACHINE, arg_machine, NULL, &i);
+                        r = image_find(arg_privileged ? RUNTIME_SCOPE_SYSTEM : RUNTIME_SCOPE_USER,
+                                       IMAGE_MACHINE, arg_machine, NULL, &i);
                         if (r == -ENOENT)
                                 return log_error_errno(r, "No image for machine '%s'.", arg_machine);
                         if (r < 0)
@@ -3254,6 +3265,7 @@ static int chase_and_update(char **p, unsigned flags) {
 }
 
 static int determine_uid_shift(const char *directory) {
+        assert(directory);
 
         if (arg_userns_mode == USER_NAMESPACE_NO) {
                 arg_uid_shift = 0;
@@ -3435,10 +3447,9 @@ static int inner_child(
         if (!arg_network_namespace_path && arg_private_network) {
                 _cleanup_close_ int netns_fd = -EBADF;
 
-                if (arg_privileged) {
+                if (arg_privileged)
                         if (unshare(CLONE_NEWNET) < 0)
                                 return log_error_errno(errno, "Failed to unshare network namespace: %m");
-                }
 
                 netns_fd = namespace_open_by_type(NAMESPACE_NET);
                 if (netns_fd < 0)
@@ -3697,7 +3708,7 @@ static int inner_child(
                         return log_error_errno(errno, "Failed to acquire controlling TTY: %m");
         }
 
-        log_debug("Inner child completed, invoking payload.");
+        log_debug("Inner child finished, invoking payload.");
 
         /* Now, explicitly close the log, so that we then can close all remaining fds. Closing the log explicitly first
          * has the benefit that the logging subsystem knows about it, and is thus ready to be reopened should we need
@@ -3932,7 +3943,7 @@ static int outer_child(
 
         _cleanup_(bind_user_context_freep) BindUserContext *bind_user_context = NULL;
         _cleanup_strv_free_ char **os_release_pairs = NULL;
-        _cleanup_close_ int fd = -EBADF, mntns_fd = -EBADF;
+        _cleanup_close_ int mntns_fd = -EBADF;
         bool idmap = false, enable_fuse;
         const char *p;
         pid_t pid;
@@ -4325,6 +4336,7 @@ static int outer_child(
          * visible. Hence there we do it the other way round: we first allocate a new set of namespaces
          * (and fork for it) for which we then mount sysfs/procfs, and only then switch root. */
 
+        _cleanup_close_ int notify_fd = -EBADF;
         if (arg_privileged) {
                 /* Mark everything as shared so our mounts get propagated down. This is required to make new
                  * bind mounts available in systemd services inside the container that create a new mount
@@ -4355,16 +4367,16 @@ static int outer_child(
                          * Note, the inner child wouldn't be able to unmount the instances on its own since
                          * it doesn't own the originating mount namespace. IOW, the outer child needs to do
                          * this. */
-                        r = pin_fully_visible_fs();
+                        r = pin_fully_visible_api_fs();
                         if (r < 0)
                                 return r;
                 }
 
-                fd = setup_notify_child(NULL);
+                notify_fd = setup_notify_child(NULL);
         } else
-                fd = setup_notify_child(directory);
-        if (fd < 0)
-                return fd;
+                notify_fd = setup_notify_child(directory);
+        if (notify_fd < 0)
+                return notify_fd;
 
         pid = raw_clone(SIGCHLD|CLONE_NEWNS|
                         arg_clone_ns_flags |
@@ -4429,7 +4441,7 @@ static int outer_child(
                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
                                        "Short write while sending machine ID.");
 
-        l = send_one_fd(fd_outer_socket, fd, 0);
+        l = send_one_fd(fd_outer_socket, notify_fd, 0);
         if (l < 0)
                 return log_error_errno(l, "Failed to send notify fd: %m");
 
@@ -4653,7 +4665,7 @@ static int nspawn_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t r
 
         ucred = CMSG_FIND_DATA(&msghdr, SOL_SOCKET, SCM_CREDENTIALS, struct ucred);
         if (!ucred || ucred->pid != inner_child_pid) {
-                log_debug("Received notify message without valid credentials. Ignoring.");
+                log_debug("Received notify message from process that is not the payload's PID 1. Ignoring.");
                 return 0;
         }
 
@@ -5074,7 +5086,7 @@ static int load_settings(void) {
                 return 0;
 
         /* We first look in the admin's directories in /etc and /run */
-        if (arg_privileged) {
+        if (arg_privileged)
                 FOREACH_STRING(i, "/etc/systemd/nspawn", "/run/systemd/nspawn") {
                         _cleanup_free_ char *j = NULL;
 
@@ -5096,7 +5108,6 @@ static int load_settings(void) {
                         if (errno != ENOENT)
                                 return log_error_errno(errno, "Failed to open %s: %m", j);
                 }
-        }
 
         if (!f) {
                 /* After that, let's look for a file next to the
@@ -5164,11 +5175,6 @@ static int run_container(
                 pid_t *pid,
                 int *ret) {
 
-        static const struct sigaction sa = {
-                .sa_handler = nop_signal_handler,
-                .sa_flags = SA_NOCLDSTOP|SA_RESTART,
-        };
-
         _cleanup_(release_lock_file) LockFile uid_shift_lock = LOCK_FILE_INIT;
         _cleanup_close_ int etc_passwd_lock = -EBADF;
         _cleanup_close_pair_ int
@@ -5229,7 +5235,7 @@ static int run_container(
         if (r < 0)
                 return log_error_errno(errno, "Failed to change the signal mask: %m");
 
-        r = sigaction(SIGCHLD, &sa, NULL);
+        r = sigaction(SIGCHLD, &sigaction_nop_nocldstop, NULL);
         if (r < 0)
                 return log_error_errno(errno, "Failed to install SIGCHLD handler: %m");
 
@@ -5238,12 +5244,10 @@ static int run_container(
                 if (child_netns_fd < 0)
                         return log_error_errno(errno, "Cannot open file %s: %m", arg_network_namespace_path);
 
-                r = fd_is_ns(child_netns_fd, CLONE_NEWNET);
-                if (r == -EUCLEAN)
-                        log_debug_errno(r, "Cannot determine if passed network namespace path '%s' really refers to a network namespace, assuming it does.", arg_network_namespace_path);
-                else if (r < 0)
+                r = fd_is_namespace(child_netns_fd, NAMESPACE_NET);
+                if (r < 0)
                         return log_error_errno(r, "Failed to check %s fs type: %m", arg_network_namespace_path);
-                else if (r == 0)
+                if (r == 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Path %s doesn't refer to a network namespace, refusing.", arg_network_namespace_path);
         }
@@ -5623,7 +5627,7 @@ static int run_container(
                 return log_error_errno(SYNTHETIC_ERRNO(ESRCH), "Child died too early.");
 
         if (arg_userns_mode != USER_NAMESPACE_NO) {
-                r = wipe_fully_visible_fs(mntns_fd);
+                r = wipe_fully_visible_api_fs(mntns_fd);
                 if (r < 0)
                         return r;
                 mntns_fd = safe_close(mntns_fd);
@@ -5740,16 +5744,6 @@ static int run_container(
         if (r < 0)
                 return log_error_errno(r, "Failed to run event loop: %m");
 
-        if (forward) {
-                char last_char = 0;
-
-                (void) pty_forward_get_last_char(forward, &last_char);
-                forward = pty_forward_free(forward);
-
-                if (!arg_quiet && last_char != '\n')
-                        putc('\n', stdout);
-        }
-
         /* Kill if it is not dead yet anyway */
         if (!arg_register && !arg_keep_unit && bus)
                 terminate_scope(bus, arg_machine);
@@ -5772,7 +5766,7 @@ static int run_container(
         r = wait_for_container(TAKE_PID(*pid), &container_status);
 
         /* Tell machined that we are gone. */
-        if (bus)
+        if (arg_register && bus)
                 (void) unregister_machine(bus, arg_machine);
 
         if (r < 0)
@@ -6200,9 +6194,12 @@ static int run(int argc, char *argv[]) {
                                 goto finish;
                         }
 
-                        if (access_nofollow(p, F_OK) < 0) {
-                                r = log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                    "Directory %s doesn't look like it has an OS tree (/usr/ directory is missing). Refusing.", arg_directory);
+                        r = access_nofollow(p, F_OK);
+                        if (r == -ENOENT) {
+                                log_error_errno(r, "Directory %s doesn't look like it has an OS tree (/usr/ directory is missing). Refusing.", arg_directory);
+                                goto finish;
+                        } else if (r < 0) {
+                                log_error_errno(r, "Unable to determine if %s looks like it has an OS tree (i.e. whether /usr/ exists): %m", arg_directory);
                                 goto finish;
                         }
                 }

@@ -101,7 +101,7 @@ ssize_t string_table_lookup(const char * const *table, size_t len, const char *k
         _DEFINE_STRING_TABLE_LOOKUP_FROM_STRING_FALLBACK(name,type,max,static)
 
 #define DUMP_STRING_TABLE(name,type,max)                                \
-        do {                                                            \
+        ({                                                              \
                 flockfile(stdout);                                      \
                 for (type _k = 0; _k < (max); _k++) {                   \
                         const char *_t;                                 \
@@ -112,4 +112,5 @@ ssize_t string_table_lookup(const char * const *table, size_t len, const char *k
                         fputc_unlocked('\n', stdout);                   \
                 }                                                       \
                 funlockfile(stdout);                                    \
-        } while (false)
+                0;                                                      \
+        })

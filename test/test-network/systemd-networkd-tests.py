@@ -732,6 +732,9 @@ def read_ipv6_neigh_sysctl_attr(link, attribute):
 def read_ipv4_sysctl_attr(link, attribute):
     return read_ip_sysctl_attr(link, attribute, 'ipv4')
 
+def read_mpls_sysctl_attr(link, attribute):
+    return read_ip_sysctl_attr(link, attribute, 'mpls')
+
 def stop_by_pid_file(pid_file):
     if not os.path.exists(pid_file):
         return
@@ -929,17 +932,25 @@ def read_networkd_log(invocation_id=None, since=None):
 def networkd_is_failed():
     return call_quiet('systemctl is-failed -q systemd-networkd.service') != 1
 
-def stop_networkd(show_logs=True):
+def stop_networkd(show_logs=True, check_failed=True):
     global show_journal
     show_logs = show_logs and show_journal
     if show_logs:
         invocation_id = networkd_invocation_id()
-    check_output('systemctl stop systemd-networkd.socket')
-    check_output('systemctl stop systemd-networkd.service')
+
+    if check_failed:
+        check_output('systemctl stop systemd-networkd.socket')
+        check_output('systemctl stop systemd-networkd.service')
+    else:
+        call('systemctl stop systemd-networkd.socket')
+        call('systemctl stop systemd-networkd.service')
+
     if show_logs:
         print(read_networkd_log(invocation_id))
+
     # Check if networkd exits cleanly.
-    assert not networkd_is_failed()
+    if check_failed:
+        assert not networkd_is_failed()
 
 def start_networkd():
     check_output('systemctl start systemd-networkd')
@@ -1024,7 +1035,7 @@ def tear_down_common():
     flush_links()
 
     # 5. stop networkd
-    stop_networkd()
+    stop_networkd(check_failed=False)
 
     # 6. remove configs
     clear_network_units()
@@ -1040,6 +1051,9 @@ def tear_down_common():
     # 8. flush stream buffer and journals to make not any output from the test with the next one
     sys.stdout.flush()
     check_output('journalctl --sync')
+
+    # 9. check the status of networkd
+    assert not networkd_is_failed()
 
 def setUpModule():
     rm_rf(networkd_ci_temp_dir)
@@ -1105,6 +1119,9 @@ class Utilities():
 
     def check_ipv6_neigh_sysctl_attr(self, link, attribute, expected):
         self.assertEqual(read_ipv6_neigh_sysctl_attr(link, attribute), expected)
+
+    def check_mpls_sysctl_attr(self, link, attribute, expected):
+        self.assertEqual(read_mpls_sysctl_attr(link, attribute), expected)
 
     def wait_links(self, *links, trial=40):
         for _ in range(trial):
@@ -4557,6 +4574,15 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, 'via 2607:5300:203:39ff:ff:ff:ff:ff')
 
+    @expectedFailureIfModuleIsNotAvailable('mpls_router')
+    def test_sysctl_mpls(self):
+        check_output('modprobe mpls_router')
+        copy_network_unit('25-sysctl-mpls.network', '12-dummy.netdev')
+        start_networkd()
+        self.wait_online('dummy98:degraded')
+
+        self.check_mpls_sysctl_attr('dummy98', 'input', '1')
+
     def test_bind_carrier(self):
         copy_network_unit('25-bind-carrier.network', '11-dummy.netdev')
         start_networkd()
@@ -6391,6 +6417,27 @@ class NetworkdRATests(unittest.TestCase, Utilities):
 
         self.check_ipv6_sysctl_attr('client', 'hop_limit', '43')
 
+    def check_router_preference(self, suffix, metric_1, preference_1, metric_2, preference_2):
+        self.wait_online('client:routable')
+        self.wait_address('client', f'2002:da8:1:99:1034:56ff:fe78:9a{suffix}/64', ipv='-6', timeout_sec=10)
+        self.wait_address('client', f'2002:da8:1:98:1034:56ff:fe78:9a{suffix}/64', ipv='-6', timeout_sec=10)
+        self.wait_route('client', rf'default nhid [0-9]* via fe80::1034:56ff:fe78:9a99 proto ra metric {metric_1}', ipv='-6', timeout_sec=10)
+        self.wait_route('client', rf'default nhid [0-9]* via fe80::1034:56ff:fe78:9a98 proto ra metric {metric_2}', ipv='-6', timeout_sec=10)
+
+        print('### ip -6 route show dev client default')
+        output = check_output('ip -6 route show dev client default')
+        print(output)
+        self.assertRegex(output, rf'default nhid [0-9]* via fe80::1034:56ff:fe78:9a99 proto ra metric {metric_1} expires [0-9]*sec pref {preference_1}')
+        self.assertRegex(output, rf'default nhid [0-9]* via fe80::1034:56ff:fe78:9a98 proto ra metric {metric_2} expires [0-9]*sec pref {preference_2}')
+
+        for i in [100, 200, 300, 512, 1024, 2048]:
+            if i not in [metric_1, metric_2]:
+                self.assertNotIn(f'metric {i} ', output)
+
+        for i in ['low', 'medium', 'high']:
+            if i not in [preference_1, preference_2]:
+                self.assertNotIn(f'pref {i}', output)
+
     def test_router_preference(self):
         copy_network_unit('25-veth-client.netdev',
                           '25-veth-router-high.netdev',
@@ -6409,72 +6456,47 @@ class NetworkdRATests(unittest.TestCase, Utilities):
 
         networkctl_reconfigure('client')
         self.wait_online('client:routable')
+        self.check_router_preference('00', 512, 'high', 2048, 'low')
 
-        self.wait_address('client', '2002:da8:1:99:1034:56ff:fe78:9a00/64', ipv='-6', timeout_sec=10)
-        self.wait_address('client', '2002:da8:1:98:1034:56ff:fe78:9a00/64', ipv='-6', timeout_sec=10)
-        self.wait_route('client', r'default nhid [0-9]* via fe80::1034:56ff:fe78:9a99 proto ra metric 512', ipv='-6', timeout_sec=10)
-        self.wait_route('client', r'default nhid [0-9]* via fe80::1034:56ff:fe78:9a98 proto ra metric 2048', ipv='-6', timeout_sec=10)
-
-        print('### ip -6 route show dev client default')
-        output = check_output('ip -6 route show dev client default')
-        print(output)
-        self.assertRegex(output, r'default nhid [0-9]* via fe80::1034:56ff:fe78:9a99 proto ra metric 512 expires [0-9]*sec pref high')
-        self.assertRegex(output, r'default nhid [0-9]* via fe80::1034:56ff:fe78:9a98 proto ra metric 2048 expires [0-9]*sec pref low')
-
+        # change the map from preference to metric.
         with open(os.path.join(network_unit_dir, '25-veth-client.network'), mode='a', encoding='utf-8') as f:
             f.write('\n[Link]\nMACAddress=12:34:56:78:9a:01\n[IPv6AcceptRA]\nRouteMetric=100:200:300\n')
-
         networkctl_reload()
-        self.wait_online('client:routable')
-
-        self.wait_address('client', '2002:da8:1:99:1034:56ff:fe78:9a01/64', ipv='-6', timeout_sec=10)
-        self.wait_address('client', '2002:da8:1:98:1034:56ff:fe78:9a01/64', ipv='-6', timeout_sec=10)
-        self.wait_route('client', r'default nhid [0-9]* via fe80::1034:56ff:fe78:9a99 proto ra metric 100', ipv='-6', timeout_sec=10)
-        self.wait_route('client', r'default nhid [0-9]* via fe80::1034:56ff:fe78:9a98 proto ra metric 300', ipv='-6', timeout_sec=10)
-
-        print('### ip -6 route show dev client default')
-        output = check_output('ip -6 route show dev client default')
-        print(output)
-        self.assertRegex(output, r'default nhid [0-9]* via fe80::1034:56ff:fe78:9a99 proto ra metric 100 expires [0-9]*sec pref high')
-        self.assertRegex(output, r'default nhid [0-9]* via fe80::1034:56ff:fe78:9a98 proto ra metric 300 expires [0-9]*sec pref low')
-        self.assertNotIn('metric 512', output)
-        self.assertNotIn('metric 2048', output)
+        self.check_router_preference('01', 100, 'high', 300, 'low')
 
         # swap the preference (for issue #28439)
-        remove_network_unit('25-veth-router-high.network', '25-veth-router-low.network')
-        copy_network_unit('25-veth-router-high2.network', '25-veth-router-low2.network')
+        with open(os.path.join(network_unit_dir, '25-veth-router-high.network'), mode='a', encoding='utf-8') as f:
+            f.write('\n[IPv6SendRA]\nRouterPreference=low\n')
+        with open(os.path.join(network_unit_dir, '25-veth-router-low.network'), mode='a', encoding='utf-8') as f:
+            f.write('\n[IPv6SendRA]\nRouterPreference=high\n')
         networkctl_reload()
-        self.wait_route('client', r'default nhid [0-9]* via fe80::1034:56ff:fe78:9a99 proto ra metric 300', ipv='-6', timeout_sec=10)
-        self.wait_route('client', r'default nhid [0-9]* via fe80::1034:56ff:fe78:9a98 proto ra metric 100', ipv='-6', timeout_sec=10)
-
-        print('### ip -6 route show dev client default')
-        output = check_output('ip -6 route show dev client default')
-        print(output)
-        self.assertRegex(output, r'default nhid [0-9]* via fe80::1034:56ff:fe78:9a99 proto ra metric 300 expires [0-9]*sec pref low')
-        self.assertRegex(output, r'default nhid [0-9]* via fe80::1034:56ff:fe78:9a98 proto ra metric 100 expires [0-9]*sec pref high')
-        self.assertNotRegex(output, r'default nhid [0-9]* via fe80::1034:56ff:fe78:9a99 proto ra metric 100')
-        self.assertNotRegex(output, r'default nhid [0-9]* via fe80::1034:56ff:fe78:9a98 proto ra metric 300')
-        self.assertNotIn('metric 512', output)
-        self.assertNotIn('metric 2048', output)
+        self.check_router_preference('01', 300, 'low', 100, 'high')
 
         # Use the same preference, and check if the two routes are not coalesced. See issue #33470.
-        with open(os.path.join(network_unit_dir, '25-veth-router-high2.network'), mode='a', encoding='utf-8') as f:
+        with open(os.path.join(network_unit_dir, '25-veth-router-high.network'), mode='a', encoding='utf-8') as f:
             f.write('\n[IPv6SendRA]\nRouterPreference=medium\n')
-        with open(os.path.join(network_unit_dir, '25-veth-router-low2.network'), mode='a', encoding='utf-8') as f:
+        with open(os.path.join(network_unit_dir, '25-veth-router-low.network'), mode='a', encoding='utf-8') as f:
             f.write('\n[IPv6SendRA]\nRouterPreference=medium\n')
         networkctl_reload()
-        self.wait_route('client', r'default nhid [0-9]* via fe80::1034:56ff:fe78:9a99 proto ra metric 200', ipv='-6', timeout_sec=10)
-        self.wait_route('client', r'default nhid [0-9]* via fe80::1034:56ff:fe78:9a98 proto ra metric 200', ipv='-6', timeout_sec=10)
+        self.check_router_preference('01', 200, 'medium', 200, 'medium')
 
-        print('### ip -6 route show dev client default')
-        output = check_output('ip -6 route show dev client default')
-        print(output)
-        self.assertRegex(output, r'default nhid [0-9]* via fe80::1034:56ff:fe78:9a99 proto ra metric 200 expires [0-9]*sec pref medium')
-        self.assertRegex(output, r'default nhid [0-9]* via fe80::1034:56ff:fe78:9a98 proto ra metric 200 expires [0-9]*sec pref medium')
-        self.assertNotIn('pref high', output)
-        self.assertNotIn('pref low', output)
-        self.assertNotIn('metric 512', output)
-        self.assertNotIn('metric 2048', output)
+        # Use route options to configure default routes.
+        # The preference specified in the RA header should be ignored. See issue #33468.
+        with open(os.path.join(network_unit_dir, '25-veth-router-high.network'), mode='a', encoding='utf-8') as f:
+            f.write('\n[IPv6SendRA]\nRouterPreference=high\n[IPv6RoutePrefix]\nRoute=::/0\nLifetimeSec=1200\n')
+        with open(os.path.join(network_unit_dir, '25-veth-router-low.network'), mode='a', encoding='utf-8') as f:
+            f.write('\n[IPv6SendRA]\nRouterPreference=low\n[IPv6RoutePrefix]\nRoute=::/0\nLifetimeSec=1200\n')
+        networkctl_reload()
+        self.check_router_preference('01', 200, 'medium', 200, 'medium')
+
+        # Set zero lifetime to the route options.
+        # The preference specified in the RA header should be used.
+        with open(os.path.join(network_unit_dir, '25-veth-router-high.network'), mode='a', encoding='utf-8') as f:
+            f.write('LifetimeSec=0\n')
+        with open(os.path.join(network_unit_dir, '25-veth-router-low.network'), mode='a', encoding='utf-8') as f:
+            f.write('LifetimeSec=0\n')
+        networkctl_reload()
+        self.check_router_preference('01', 100, 'high', 300, 'low')
 
     def _test_ndisc_vs_static_route(self, manage_foreign_nexthops):
         if not manage_foreign_nexthops:
@@ -6720,8 +6742,9 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
         self.assertIn('Gateway: 192.168.5.1', output)
         self.assertIn('Time Zone: Europe/Berlin', output)
 
-    def test_dhcp_server_static_lease(self):
+    def test_dhcp_server_static_lease_mac_by_network(self):
         copy_network_unit('25-veth.netdev', '25-dhcp-client-static-lease.network', '25-dhcp-server-static-lease.network')
+        copy_networkd_conf_dropin('10-dhcp-client-id-duid.conf')
         start_networkd()
         self.wait_online('veth99:routable', 'veth-peer:routable')
 
@@ -6730,7 +6753,18 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
         self.assertIn('Address: 10.1.1.200 (DHCPv4 via 10.1.1.1)', output)
         self.assertIn('DHCPv4 Client ID: 12:34:56:78:9a:bc', output)
 
-    def test_dhcp_server_static_lease_default_client_id(self):
+    def test_dhcp_server_static_lease_mac_by_global(self):
+        copy_network_unit('25-veth.netdev', '25-dhcp-client.network', '25-dhcp-server-static-lease.network')
+        copy_networkd_conf_dropin('10-dhcp-client-id-mac.conf')
+        start_networkd()
+        self.wait_online('veth99:routable', 'veth-peer:routable')
+
+        output = networkctl_status('veth99')
+        print(output)
+        self.assertIn('Address: 10.1.1.200 (DHCPv4 via 10.1.1.1)', output)
+        self.assertIn('DHCPv4 Client ID: 12:34:56:78:9a:bc', output)
+
+    def test_dhcp_server_static_lease_duid(self):
         copy_network_unit('25-veth.netdev', '25-dhcp-client.network', '25-dhcp-server-static-lease.network')
         start_networkd()
         self.wait_online('veth99:routable', 'veth-peer:routable')
@@ -8659,7 +8693,7 @@ if __name__ == '__main__':
     asan_options = ns.asan_options
     lsan_options = ns.lsan_options
     ubsan_options = ns.ubsan_options
-    with_coverage = ns.with_coverage
+    with_coverage = ns.with_coverage or "COVERAGE_BUILD_DIR" in os.environ
     show_journal = ns.show_journal
 
     if use_valgrind:

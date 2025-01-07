@@ -7,6 +7,10 @@ units = [
         { 'file' : 'blockdev@.target' },
         { 'file' : 'bluetooth.target' },
         { 'file' : 'boot-complete.target' },
+        { 'file' : 'breakpoint-pre-basic.service.in' },
+        { 'file' : 'breakpoint-pre-mount.service.in' },
+        { 'file' : 'breakpoint-pre-switch-root.service.in' },
+        { 'file' : 'breakpoint-pre-udev.service.in' },
         { 'file' : 'capsule@.service.in' },
         { 'file' : 'capsule.slice' },
         { 'file' : 'console-getty.service.in' },
@@ -242,6 +246,11 @@ units = [
         { 'file' : 'system-update-pre.target' },
         { 'file' : 'system-update.target' },
         {
+          'file' : 'systemd-ask-password.socket',
+          'symlinks' : ['sockets.target.wants/']
+        },
+        { 'file' : 'systemd-ask-password@.service' },
+        {
           'file' : 'systemd-ask-password-console.path',
           'symlinks' : ['sysinit.target.wants/'],
         },
@@ -286,6 +295,11 @@ units = [
         {
           'file' : 'systemd-confext.service',
           'conditions' : ['ENABLE_SYSEXT'],
+        },
+        {
+          'file' : 'systemd-confext-initrd.service',
+          'conditions' : ['ENABLE_INITRD', 'ENABLE_SYSEXT'],
+          'symlinks' : ['initrd.target.wants/'],
         },
         {
           'file' : 'systemd-coredump.socket',
@@ -618,6 +632,11 @@ units = [
         {
           'file' : 'systemd-sysext.service',
           'conditions' : ['ENABLE_SYSEXT'],
+        },
+        {
+          'file' : 'systemd-sysext-initrd.service',
+          'conditions' : ['ENABLE_INITRD', 'ENABLE_SYSEXT'],
+          'symlinks' : ['initrd.target.wants/'],
         },
         {
           'file' : 'systemd-sysext.socket',

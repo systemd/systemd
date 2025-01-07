@@ -10,3 +10,4 @@ ExecStart=sh -x -c 'test "$$(id -nG)" = "adm" && test "$$(id -ng)" = "adm" && te
 ExecStart=sh -x -c 'test "$$(id -nG)" = "adm" && test "$$(id -ng)" = "adm" && test "$$(id -nu)" = "adm"'
 DynamicUser=yes
 User=adm
+ReadWritePaths=-/coverage

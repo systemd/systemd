@@ -349,8 +349,8 @@ int verb_edit(int argc, char *argv[], void *userdata) {
 
         STRV_FOREACH(tmp, names) {
                 r = unit_is_masked(bus, *tmp);
-                if (r < 0)
-                        return r;
+                if (r < 0 && r != -ENOENT)
+                        return log_error_errno(r, "Failed to check if unit %s is masked: %m", *tmp);
                 if (r > 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot edit %s: unit is masked.", *tmp);
         }

@@ -6,6 +6,7 @@
 #include <linux/if_bridge.h>
 #include <linux/ipv6.h>
 
+#include "device-private.h"
 #include "missing_network.h"
 #include "netif-util.h"
 #include "netlink-util.h"
@@ -579,6 +580,25 @@ static int link_is_ready_to_set_link(Link *link, Request *req) {
                         r = link_down_now(link);
                         if (r < 0)
                                 return r;
+                }
+
+                if (link->network->bridge && !FLAGS_SET(link->flags, IFF_UP) && link->dev) {
+                        /* Some devices require the port to be up before joining the bridge.
+                         *
+                         * E.g. Texas Instruments SoC Ethernet running in switch mode:
+                         * https://docs.kernel.org/networking/device_drivers/ethernet/ti/am65_nuss_cpsw_switchdev.html#enabling-switch
+                         * > Port’s netdev devices have to be in UP before joining to the bridge to avoid
+                         * > overwriting of bridge configuration as CPSW switch driver completely reloads its
+                         * > configuration when first port changes its state to UP. */
+
+                        r = device_get_property_bool(link->dev, "ID_NET_BRING_UP_BEFORE_JOINING_BRIDGE");
+                        if (r < 0 && r != -ENOENT)
+                                log_link_warning_errno(link, r, "Failed to get or parse ID_NET_BRING_UP_BEFORE_JOINING_BRIDGE property, ignoring: %m");
+                        else if (r > 0) {
+                                r = link_up_now(link);
+                                if (r < 0)
+                                        return r;
+                        }
                 }
 
                 req->userdata = UINT32_TO_PTR(m);
@@ -1211,7 +1231,7 @@ int link_request_to_bring_up_or_down(Link *link, bool up) {
         return 0;
 }
 
-static int link_down_now_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+static int link_up_or_down_now_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link, const char *msg) {
         int r;
 
         assert(m);
@@ -1225,7 +1245,7 @@ static int link_down_now_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0)
-                log_link_message_warning_errno(link, m, r, "Could not bring down interface, ignoring");
+                log_link_message_warning_errno(link, m, r, msg);
 
         r = link_call_getlink(link, get_link_update_flag_handler);
         if (r < 0) {
@@ -1237,7 +1257,15 @@ static int link_down_now_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *
         return 0;
 }
 
-int link_down_now(Link *link) {
+static int link_up_now_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+        return link_up_or_down_now_handler(rtnl, m, link, "Could not bring up interface, ignoring");
+}
+
+static int link_down_now_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+        return link_up_or_down_now_handler(rtnl, m, link, "Could not bring down interface, ignoring");
+}
+
+int link_up_or_down_now(Link *link, bool up) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
 
@@ -1245,17 +1273,18 @@ int link_down_now(Link *link) {
         assert(link->manager);
         assert(link->manager->rtnl);
 
-        log_link_debug(link, "Bringing link down");
+        log_link_debug(link, "Bringing link %s", up ? "up" : "down");
 
         r = sd_rtnl_message_new_link(link->manager->rtnl, &req, RTM_SETLINK, link->ifindex);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Could not allocate RTM_SETLINK message: %m");
 
-        r = sd_rtnl_message_link_set_flags(req, 0, IFF_UP);
+        r = sd_rtnl_message_link_set_flags(req, up ? IFF_UP : 0, IFF_UP);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Could not set link flags: %m");
 
-        r = netlink_call_async(link->manager->rtnl, NULL, req, link_down_now_handler,
+        r = netlink_call_async(link->manager->rtnl, NULL, req,
+                               up ? link_up_now_handler : link_down_now_handler,
                                link_netlink_destroy_callback, link);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Could not send rtnetlink message: %m");

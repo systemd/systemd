@@ -1,0 +1,35 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# This file is part of systemd.
+#
+# systemd is free software; you can redistribute it and/or modify it
+# under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation; either version 2.1 of the License, or
+# (at your option) any later version.
+
+[Unit]
+Description=Merge System Configuration Images into /etc/
+Documentation=man:systemd-confext-initrd.service(8)
+
+ConditionCapability=CAP_SYS_ADMIN
+ConditionDirectoryNotEmpty=|/run/confexts
+ConditionDirectoryNotEmpty=|/var/lib/confexts
+ConditionDirectoryNotEmpty=|/usr/local/lib/confexts
+ConditionDirectoryNotEmpty=|/usr/lib/confexts
+ConditionDirectoryNotEmpty=|/.extra/confext
+ConditionPathExists=/etc/initrd-release
+
+DefaultDependencies=no
+Before=local-fs-pre.target cryptsetup-pre.target systemd-tmpfiles-setup.service
+Wants=local-fs-pre.target cryptsetup-pre.target
+Conflicts=initrd-switch-root.target
+Before=initrd-switch-root.target
+Wants=modprobe@loop.service modprobe@dm_mod.service modprobe@squashfs.service modprobe@erofs.service
+After=modprobe@loop.service modprobe@dm_mod.service modprobe@squashfs.service modprobe@erofs.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=systemd-confext refresh
+ExecReload=systemd-confext refresh
+ExecStop=systemd-confext unmerge

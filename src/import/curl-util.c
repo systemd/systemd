@@ -75,6 +75,10 @@ static int curl_glue_socket_callback(CURL *curl, curl_socket_t s, int action, vo
                 return 0;
         }
 
+        /* Don't configure io event source anymore when the event loop is dead already. */
+        if (g->event && sd_event_get_state(g->event) == SD_EVENT_FINISHED)
+                return 0;
+
         r = hashmap_ensure_allocated(&g->ios, &trivial_hash_ops);
         if (r < 0) {
                 log_oom();

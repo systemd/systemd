@@ -2,14 +2,17 @@
 
 #include <unistd.h>
 
+#include "glob-util.h"
 #include "id128-util.h"
 #include "journal-util.h"
 #include "journalctl.h"
 #include "journalctl-util.h"
 #include "logs-show.h"
+#include "nulstr-util.h"
 #include "rlimit-util.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "unit-name.h"
 
 char* format_timestamp_maybe_utc(char *buf, size_t l, usec_t t) {
         assert(buf);
@@ -74,12 +77,8 @@ int journal_acquire_boot(sd_journal *j) {
 
         assert(j);
 
-        if (!arg_boot) {
-                /* Clear relevant field for safety. */
-                arg_boot_id = SD_ID128_NULL;
-                arg_boot_offset = 0;
+        if (!arg_boot)
                 return 0;
-        }
 
         /* Take a shortcut and use the current boot_id, which we can do very quickly.
          * We can do this only when the logs are coming from the current machine,
@@ -115,9 +114,61 @@ int journal_acquire_boot(sd_journal *j) {
         return 1;
 }
 
-int acquire_unit(const char *option_name, const char **ret_unit, LogIdType *ret_type) {
-        size_t n;
+int get_possible_units(
+                sd_journal *j,
+                const char *fields,
+                char * const *patterns,
+                Set **ret) {
 
+        _cleanup_set_free_ Set *found = NULL;
+        int r;
+
+        assert(j);
+        assert(fields);
+        assert(ret);
+
+        NULSTR_FOREACH(field, fields) {
+                const void *data;
+                size_t size;
+
+                r = sd_journal_query_unique(j, field);
+                if (r < 0)
+                        return r;
+
+                SD_JOURNAL_FOREACH_UNIQUE(j, data, size) {
+                        _cleanup_free_ char *u = NULL;
+                        char *eq;
+
+                        eq = memchr(data, '=', size);
+                        if (eq) {
+                                size -= eq - (char*) data + 1;
+                                data = ++eq;
+                        }
+
+                        u = strndup(data, size);
+                        if (!u)
+                                return -ENOMEM;
+
+                        size_t i;
+                        if (!strv_fnmatch_full(patterns, u, FNM_NOESCAPE, &i))
+                                continue;
+
+                        log_debug("Matched %s with pattern %s=%s", u, field, patterns[i]);
+                        r = set_ensure_consume(&found, &string_hash_ops_free, TAKE_PTR(u));
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        *ret = TAKE_PTR(found);
+        return 0;
+}
+
+int acquire_unit(sd_journal *j, const char *option_name, const char **ret_unit, LogIdType *ret_type) {
+        size_t n;
+        int r;
+
+        assert(j);
         assert(option_name);
         assert(ret_unit);
         assert(ret_type);
@@ -132,15 +183,44 @@ int acquire_unit(const char *option_name, const char **ret_unit, LogIdType *ret_
                                        "Using %s with multiple units is not supported.",
                                        option_name);
 
+        LogIdType type;
+        char **units;
         if (!strv_isempty(arg_system_units)) {
-                *ret_type = LOG_SYSTEM_UNIT_INVOCATION_ID;
-                *ret_unit = arg_system_units[0];
+                type = LOG_SYSTEM_UNIT_INVOCATION_ID;
+                units = arg_system_units;
         } else {
                 assert(!strv_isempty(arg_user_units));
-                *ret_type = LOG_USER_UNIT_INVOCATION_ID;
-                *ret_unit = arg_user_units[0];
+                type = LOG_USER_UNIT_INVOCATION_ID;
+                units = arg_user_units;
         }
 
+        _cleanup_free_ char *u = NULL;
+        r = unit_name_mangle(units[0], UNIT_NAME_MANGLE_GLOB | (arg_quiet ? 0 : UNIT_NAME_MANGLE_WARN), &u);
+        if (r < 0)
+                return log_error_errno(r, "Failed to mangle unit name '%s': %m", units[0]);
+
+        if (string_is_glob(u)) {
+                _cleanup_set_free_ Set *s = NULL;
+
+                r = get_possible_units(j, type == LOG_SYSTEM_UNIT_INVOCATION_ID ? SYSTEM_UNITS : USER_UNITS,
+                                       STRV_MAKE(u), &s);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get matching unit '%s' from journal: %m", u);
+                if (set_isempty(s))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No matching unit found for '%s' in journal.", u);
+                if (set_size(s) > 1)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Multiple matching units found for '%s' in journal.", u);
+
+                char *found = set_steal_first(s);
+                log_debug("Found matching unit '%s' for '%s'.", found, u);
+
+                free_and_replace(units[0], found);
+                assert(set_isempty(s));
+        } else
+                free_and_replace(units[0], u);
+
+        *ret_type = type;
+        *ret_unit = units[0];
         return 0;
 }
 
@@ -165,7 +245,7 @@ int journal_acquire_invocation(sd_journal *j) {
          * system unit or user unit, and calling without unit name is allowed. Otherwise, a unit name must
          * be specified. */
         if (arg_invocation_offset != 0 || sd_id128_is_null(arg_invocation_id)) {
-                r = acquire_unit("-I/--invocation= with an offset", &unit, &type);
+                r = acquire_unit(j, "-I/--invocation= with an offset", &unit, &type);
                 if (r < 0)
                         return r;
         }

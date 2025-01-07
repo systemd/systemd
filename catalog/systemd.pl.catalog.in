@@ -123,6 +123,18 @@ Documentation: sd-login(3)
 
 Stanowisko @SEAT_ID@ zostało usunięte i nie jest już dostępne.
 
+-- b2bcbaf5edf948e093ce50bbea0e81ec
+Subject: Klawisz SAK (Secure Attention Key) został naciśnięty na stanowisku @SEAT_ID@
+Defined-By: systemd
+Support: %SUPPORT_URL%
+Documentation: man:systemd-logind.service(8)
+
+Klawisz SAK (Secure Attention Key), Ctrl+Alt+Shift+Esc, został naciśnięty
+na stanowisku @SEAT_ID@.
+
+Naciśnięcie klawisza SAK wskazuje na bezpośrednie żądanie użytkownika,
+aby system wyświetlił zabezpieczone okno lub ekran logowania.
+
 -- c7a787079b354eaaa9e77b371893cd27
 Subject: Zmiana czasu
 Defined-By: systemd
@@ -791,3 +803,31 @@ Documentation: https://systemd.io/PORTABLE_SERVICES/
 Z systemu odłączono usługę przenośną @PORTABLE_ROOT@ (z rozszerzeniami:
 @PORTABLE_EXTENSION@) i nie jest już dostępna do użytku. Polecenie
 „portablectl list” wyświetli listę dołączonych usług przenośnych.
+
+-- ad7089f928ac4f7ea00c07457d47ba8a
+Subject: Niepowodzenie upoważnienia podczas próby zapisania klucza SRK w układzie TPM
+Defined-By: systemd
+Support: %SUPPORT_URL%
+Documentation: man:systemd-tpm2-setup.service(8)
+
+Wystąpiło niepowodzenie upoważnienia podczas próby zapisania klucza
+SRK (Storage Root Key) na układzie TPM (Trusted Platform Module).
+Najprawdopodobniej oznacza to, że kod PIN/hasło (authValue) zostało
+ustawione na hierarchii właściciela (Owner) układu TPM.
+
+Automatyczny zapis klucza SRK na układach TPM w takich przypadkach
+nie jest obsługiwany. Aby usunąć ustawienie ochrony kodem PIN/hasłem
+na hierarchii właściciela, należy wykonać to polecenie:
+„tpm2_changeauth -c o -p <POPRZEDNIE-HASŁO> ""”.
+
+-- 9cf56b8baf9546cf9478783a8de42113
+Subject: Obcy proces zmienił sysctl zarządzane przez systemd-networkd
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+Ustawienie konfiguracji sysctl @SYSCTL@, które jest zarządzane przez
+systemd-networkd, zostało zmienione przez inny, niepowiązany proces
+(„@OBJECT_COMM@”, PID @OBJECT_PID@). To tworzy konflikt właścicielstwa,
+co prawdopodobnie spowoduje problemy w późniejszym czasie.
+
+Wartość zmieniła się na „@NEWVALUE@”, a powinna wynosić „@OURVALUE@”.

@@ -125,14 +125,13 @@ int json_dispatch_in_addr(const char *name, sd_json_variant *variant, sd_json_di
         return 0;
 }
 
-int json_dispatch_path(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
-        char **p = ASSERT_PTR(userdata);
-        const char *path;
+int json_dispatch_const_path(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        const char **p = ASSERT_PTR(userdata), *path;
 
         assert(variant);
 
         if (sd_json_variant_is_null(variant)) {
-                *p = mfree(*p);
+                *p = NULL;
                 return 0;
         }
 
@@ -144,6 +143,21 @@ int json_dispatch_path(const char *name, sd_json_variant *variant, sd_json_dispa
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a normalized file system path.", strna(name));
         if (!path_is_absolute(path))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an absolute file system path.", strna(name));
+
+        *p = path;
+        return 0;
+}
+
+int json_dispatch_path(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        char **p = ASSERT_PTR(userdata);
+        const char *path;
+        int r;
+
+        assert_return(variant, -EINVAL);
+
+        r = json_dispatch_const_path(name, variant, flags, &path);
+        if (r < 0)
+                return r;
 
         if (free_and_strdup(p, path) < 0)
                 return json_log_oom(variant, flags);
@@ -324,6 +338,26 @@ int json_dispatch_ifindex(const char *name, sd_json_variant *variant, sd_json_di
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is out of bounds for an interface index.", strna(name));
 
         *ifi = t;
+        return 0;
+}
+
+int json_dispatch_log_level(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        int *log_level = ASSERT_PTR(userdata), r, t;
+
+        if (sd_json_variant_is_null(variant)) {
+                *log_level = -1;
+                return 0;
+        }
+
+        r = sd_json_dispatch_int(name, variant, flags, &t);
+        if (r < 0)
+                return r;
+
+        /* If SD_JSON_RELAX is set allow a zero interface index, otherwise refuse. */
+        if (LOG_PRI(t) != t)
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a valid log level.", strna(name));
+
+        *log_level = t;
         return 0;
 }
 

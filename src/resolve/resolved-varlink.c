@@ -9,6 +9,7 @@
 #include "socket-netlink.h"
 #include "varlink-io.systemd.Resolve.h"
 #include "varlink-io.systemd.Resolve.Monitor.h"
+#include "varlink-util.h"
 
 typedef struct LookupParameters {
         int ifindex;
@@ -1361,11 +1362,9 @@ static int varlink_monitor_server_init(Manager *m) {
         if (m->varlink_monitor_server)
                 return 0;
 
-        r = sd_varlink_server_new(&server, SD_VARLINK_SERVER_ACCOUNT_UID|SD_VARLINK_SERVER_INHERIT_USERDATA);
+        r = varlink_server_new(&server, SD_VARLINK_SERVER_ACCOUNT_UID|SD_VARLINK_SERVER_INHERIT_USERDATA, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate varlink server object: %m");
-
-        sd_varlink_server_set_userdata(server, m);
 
         r = sd_varlink_server_add_interface(server, &vl_interface_io_systemd_Resolve_Monitor);
         if (r < 0)
@@ -1407,11 +1406,9 @@ static int varlink_main_server_init(Manager *m) {
         if (m->varlink_server)
                 return 0;
 
-        r = sd_varlink_server_new(&s, SD_VARLINK_SERVER_ACCOUNT_UID);
+        r = varlink_server_new(&s, SD_VARLINK_SERVER_ACCOUNT_UID, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate varlink server object: %m");
-
-        sd_varlink_server_set_userdata(s, m);
 
         r = sd_varlink_server_add_interface(s, &vl_interface_io_systemd_Resolve);
         if (r < 0)

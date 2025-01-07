@@ -234,5 +234,5 @@ service, which then propagates this through D-Bus to the applications. This is
 typically less than ideal, since this means each notification event has to
 traverse three processes before being handled. This traversal creates
 additional latencies at a time where the system is already experiencing adverse
-latencies. Moreover, it focusses on system-wide PSI events, even though
+latencies. Moreover, it focuses on system-wide PSI events, even though
 service-local ones are generally the better approach.

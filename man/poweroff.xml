@@ -129,7 +129,7 @@
         <term><option>-n</option></term>
         <term><option>--no-sync</option></term>
 
-        <listitem><para>Don't sync hard disks/storage media before power-off, reboot, or halt.
+        <listitem><para>Do not sync hard disks/storage media before power-off, reboot, or halt.
         </para>
 
         <xi:include href="version-info.xml" xpointer="v253"/></listitem>

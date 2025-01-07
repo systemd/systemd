@@ -1,0 +1,37 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Breakpoint Before Starting to Process Kernel uevents
+Documentation=man:systemd-debug-generator(8)
+DefaultDependencies=no
+RefuseManualStart=yes
+Conflicts=shutdown.target emergency.target
+Wants=systemd-journald.socket
+After=systemd-journald.socket systemd-vconsole-setup.service
+Before=systemd-udevd.service systemd-udev-trigger.service shutdown.target emergency.target
+
+[Service]
+Environment=SHELL_PROMPT_PREFIX="pre-udev "
+Type=oneshot
+ExecStartPre=-plymouth --wait quit
+# Execute shell with "-" prefix to not consider the unit failed if it exits with
+# a non-zero value
+ExecStart=-{{SUSHELL}}
+StandardInput=tty-force
+StandardOutput=inherit
+StandardError=inherit
+KillMode=process
+IgnoreSIGPIPE=no
+# bash ignores SIGTERM
+KillSignal=SIGHUP
+
+# Unset locale for the console getty since the console has problems
+# displaying some internationalized messages.
+UnsetEnvironment=LANG LANGUAGE LC_CTYPE LC_NUMERIC LC_TIME LC_COLLATE LC_MONETARY LC_MESSAGES LC_PAPER LC_NAME LC_ADDRESS LC_TELEPHONE LC_MEASUREMENT LC_IDENTIFICATION

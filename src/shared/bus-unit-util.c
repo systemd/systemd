@@ -266,7 +266,7 @@ static int bus_append_parse_size(sd_bus_message *m, const char *field, const cha
 }
 
 static int bus_append_exec_command(sd_bus_message *m, const char *field, const char *eq) {
-        bool explicit_path = false, done = false;
+        bool explicit_path = false, done = false, ambient_hack = false;
         _cleanup_strv_free_ char **l = NULL, **ex_opts = NULL;
         _cleanup_free_ char *path = NULL, *upgraded_name = NULL;
         ExecCommandFlags flags = 0;
@@ -304,7 +304,7 @@ static int bus_append_exec_command(sd_bus_message *m, const char *field, const c
                         break;
 
                 case '+':
-                        if (flags & (EXEC_COMMAND_FULLY_PRIVILEGED|EXEC_COMMAND_NO_SETUID|EXEC_COMMAND_AMBIENT_MAGIC))
+                        if ((flags & (EXEC_COMMAND_FULLY_PRIVILEGED|EXEC_COMMAND_NO_SETUID)) != 0 || ambient_hack)
                                 done = true;
                         else {
                                 flags |= EXEC_COMMAND_FULLY_PRIVILEGED;
@@ -313,12 +313,18 @@ static int bus_append_exec_command(sd_bus_message *m, const char *field, const c
                         break;
 
                 case '!':
-                        if (flags & (EXEC_COMMAND_FULLY_PRIVILEGED|EXEC_COMMAND_AMBIENT_MAGIC))
+                        if (FLAGS_SET(flags, EXEC_COMMAND_FULLY_PRIVILEGED) || ambient_hack)
                                 done = true;
                         else if (FLAGS_SET(flags, EXEC_COMMAND_NO_SETUID)) {
+                                /* Compatibility with the old !! ambient caps hack (removed in v258). Since
+                                 * we don't support that anymore and !! was a noop on non-supporting systems,
+                                 * we'll just turn off the EXEC_COMMAND_NO_SETUID flag again and be done with
+                                 * it. */
                                 flags &= ~EXEC_COMMAND_NO_SETUID;
-                                flags |= EXEC_COMMAND_AMBIENT_MAGIC;
                                 eq++;
+                                ambient_hack = true;
+
+                                log_notice("!! modifier for %s= fields is no longer supported and is now ignored.", field);
                         } else {
                                 flags |= EXEC_COMMAND_NO_SETUID;
                                 eq++;
@@ -331,7 +337,7 @@ static int bus_append_exec_command(sd_bus_message *m, const char *field, const c
                 }
         } while (!done);
 
-        if (!is_ex_prop && (flags & (EXEC_COMMAND_NO_ENV_EXPAND|EXEC_COMMAND_FULLY_PRIVILEGED|EXEC_COMMAND_NO_SETUID|EXEC_COMMAND_AMBIENT_MAGIC))) {
+        if (!is_ex_prop && (flags & (EXEC_COMMAND_NO_ENV_EXPAND|EXEC_COMMAND_FULLY_PRIVILEGED|EXEC_COMMAND_NO_SETUID))) {
                 /* Upgrade the ExecXYZ= property to ExecXYZEx= for convenience */
                 is_ex_prop = true;
                 upgraded_name = strjoin(field, "Ex");
@@ -2268,6 +2274,24 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                 return 1;
         }
 
+        if (streq(field, "ProtectHostnameEx")) {
+                const char *colon = strchr(eq, ':');
+                if (colon) {
+                        if (isempty(colon + 1))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse argument: %s=%s", field, eq);
+
+                        _cleanup_free_ char *p = strndup(eq, colon - eq);
+                        if (!p)
+                                return -ENOMEM;
+
+                        r = sd_bus_message_append(m, "(sv)", field, "(ss)", p, colon + 1);
+                } else
+                        r = sd_bus_message_append(m, "(sv)", field, "(ss)", eq, NULL);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                return 1;
+        }
         return 0;
 }
 

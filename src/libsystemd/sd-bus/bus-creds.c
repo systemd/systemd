@@ -754,13 +754,11 @@ _public_ int sd_bus_creds_has_bounding_cap(sd_bus_creds *c, int capability) {
 
 static int parse_caps(sd_bus_creds *c, unsigned offset, const char *p) {
         size_t sz, max;
-        unsigned i, j;
 
         assert(c);
         assert(p);
 
         max = DIV_ROUND_UP(cap_last_cap()+1, 32U);
-        p += strspn(p, WHITESPACE);
 
         sz = strlen(p);
         if (sz % 8 != 0)
@@ -776,10 +774,10 @@ static int parse_caps(sd_bus_creds *c, unsigned offset, const char *p) {
                         return -ENOMEM;
         }
 
-        for (i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; i++) {
                 uint32_t v = 0;
 
-                for (j = 0; j < 8; ++j) {
+                for (unsigned j = 0; j < 8; j++) {
                         int t;
 
                         t = unhexchar(*p++);
@@ -882,16 +880,13 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, PidRef *pidref, pid_t tid
                                         break;
 
                                 if (missing & SD_BUS_CREDS_PPID) {
-                                        p = startswith(line, "PPid:");
+                                        p = first_word(line, "PPid:");
                                         if (p) {
-                                                p += strspn(p, WHITESPACE);
-
                                                 /* Explicitly check for PPID 0 (which is the case for PID 1) */
                                                 if (!streq(p, "0")) {
                                                         r = parse_pid(p, &c->ppid);
                                                         if (r < 0)
                                                                 return r;
-
                                                 } else
                                                         c->ppid = 0;
 
@@ -901,11 +896,10 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, PidRef *pidref, pid_t tid
                                 }
 
                                 if (missing & (SD_BUS_CREDS_UID|SD_BUS_CREDS_EUID|SD_BUS_CREDS_SUID|SD_BUS_CREDS_FSUID)) {
-                                        p = startswith(line, "Uid:");
+                                        p = first_word(line, "Uid:");
                                         if (p) {
                                                 unsigned long uid, euid, suid, fsuid;
 
-                                                p += strspn(p, WHITESPACE);
                                                 if (sscanf(p, "%lu %lu %lu %lu", &uid, &euid, &suid, &fsuid) != 4)
                                                         return -EIO;
 
@@ -924,11 +918,10 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, PidRef *pidref, pid_t tid
                                 }
 
                                 if (missing & (SD_BUS_CREDS_GID|SD_BUS_CREDS_EGID|SD_BUS_CREDS_SGID|SD_BUS_CREDS_FSGID)) {
-                                        p = startswith(line, "Gid:");
+                                        p = first_word(line, "Gid:");
                                         if (p) {
                                                 unsigned long gid, egid, sgid, fsgid;
 
-                                                p += strspn(p, WHITESPACE);
                                                 if (sscanf(p, "%lu %lu %lu %lu", &gid, &egid, &sgid, &fsgid) != 4)
                                                         return -EIO;
 
@@ -953,7 +946,7 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, PidRef *pidref, pid_t tid
                                                         unsigned long g;
                                                         int n = 0;
 
-                                                        p += strspn(p, WHITESPACE);
+                                                        p = skip_leading_chars(p, /* bad = */ NULL);
                                                         if (*p == 0)
                                                                 break;
 
@@ -973,7 +966,7 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, PidRef *pidref, pid_t tid
                                 }
 
                                 if (missing & SD_BUS_CREDS_EFFECTIVE_CAPS) {
-                                        p = startswith(line, "CapEff:");
+                                        p = first_word(line, "CapEff:");
                                         if (p) {
                                                 r = parse_caps(c, CAP_OFFSET_EFFECTIVE, p);
                                                 if (r < 0)
@@ -985,7 +978,7 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, PidRef *pidref, pid_t tid
                                 }
 
                                 if (missing & SD_BUS_CREDS_PERMITTED_CAPS) {
-                                        p = startswith(line, "CapPrm:");
+                                        p = first_word(line, "CapPrm:");
                                         if (p) {
                                                 r = parse_caps(c, CAP_OFFSET_PERMITTED, p);
                                                 if (r < 0)
@@ -997,7 +990,7 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, PidRef *pidref, pid_t tid
                                 }
 
                                 if (missing & SD_BUS_CREDS_INHERITABLE_CAPS) {
-                                        p = startswith(line, "CapInh:");
+                                        p = first_word(line, "CapInh:");
                                         if (p) {
                                                 r = parse_caps(c, CAP_OFFSET_INHERITABLE, p);
                                                 if (r < 0)
@@ -1009,7 +1002,7 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, PidRef *pidref, pid_t tid
                                 }
 
                                 if (missing & SD_BUS_CREDS_BOUNDING_CAPS) {
-                                        p = startswith(line, "CapBnd:");
+                                        p = first_word(line, "CapBnd:");
                                         if (p) {
                                                 r = parse_caps(c, CAP_OFFSET_BOUNDING, p);
                                                 if (r < 0)
@@ -1101,10 +1094,8 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, PidRef *pidref, pid_t tid
 
                 if (!c->cgroup) {
                         r = cg_pid_get_path(NULL, pidref->pid, &c->cgroup);
-                        if (r < 0) {
-                                if (!ERRNO_IS_PRIVILEGE(r))
-                                        return r;
-                        }
+                        if (r < 0 && !ERRNO_IS_NEG_PRIVILEGE(r))
+                                return r;
                 }
 
                 if (!c->cgroup_root) {
@@ -1398,7 +1389,7 @@ int bus_creds_extend_by_pid(sd_bus_creds *c, uint64_t mask, sd_bus_creds **ret) 
 
         /* Get more data */
 
-        r = bus_creds_add_more(n, mask, 0, 0);
+        r = bus_creds_add_more(n, mask, /* pidref = */ NULL, /* tid = */ 0);
         if (r < 0)
                 return r;
 

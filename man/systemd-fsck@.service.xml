@@ -57,7 +57,9 @@
     last check, number of mounts, unclean unmount, etc.</para>
 
     <para><filename>systemd-fsck-root.service</filename> and <filename>systemd-fsck-usr.service</filename>
-    will activate <filename>reboot.target</filename> if <command>fsck</command> returns the "System
+    will activate <filename>reboot.target</filename> if
+    <citerefentry project='man-pages'><refentrytitle>fsck</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    returns the "System
     should reboot" condition, or <filename>emergency.target</filename> if <command>fsck</command>
     returns the "Filesystem errors left uncorrected" condition.</para>
 

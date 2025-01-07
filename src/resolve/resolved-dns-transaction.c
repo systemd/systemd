@@ -14,13 +14,10 @@
 #include "resolved-dns-transaction.h"
 #include "resolved-dnstls.h"
 #include "resolved-llmnr.h"
+#include "resolved-timeouts.h"
 #include "string-table.h"
 
 #define TRANSACTIONS_MAX 4096
-#define TRANSACTION_TCP_TIMEOUT_USEC (10U*USEC_PER_SEC)
-
-/* After how much time to repeat classic DNS requests */
-#define DNS_TIMEOUT_USEC (SD_RESOLVED_QUERY_TIMEOUT_USEC / DNS_TRANSACTION_ATTEMPTS_MAX)
 
 static void dns_transaction_reset_answer(DnsTransaction *t) {
         assert(t);
@@ -1632,13 +1629,10 @@ static usec_t transaction_get_resend_timeout(DnsTransaction *t) {
 
         case DNS_PROTOCOL_DNS:
 
-                /* When we do TCP, grant a much longer timeout, as in this case there's no need for us to quickly
-                 * resend, as the kernel does that anyway for us, and we really don't want to interrupt it in that
-                 * needlessly. */
                 if (t->stream)
                         return TRANSACTION_TCP_TIMEOUT_USEC;
 
-                return DNS_TIMEOUT_USEC;
+                return TRANSACTION_UDP_TIMEOUT_USEC;
 
         case DNS_PROTOCOL_MDNS:
                 if (t->probing)

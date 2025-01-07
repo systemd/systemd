@@ -164,6 +164,31 @@ TEST(ipcns) {
         test_shareable_ns(CLONE_NEWIPC);
 }
 
+TEST(fd_is_namespace) {
+        _cleanup_close_ int fd = -EBADF;
+
+        ASSERT_OK_ZERO(fd_is_namespace(STDIN_FILENO, NAMESPACE_NET));
+        ASSERT_OK_ZERO(fd_is_namespace(STDOUT_FILENO, NAMESPACE_NET));
+        ASSERT_OK_ZERO(fd_is_namespace(STDERR_FILENO, NAMESPACE_NET));
+
+        fd = namespace_open_by_type(NAMESPACE_MOUNT);
+        if (IN_SET(fd, -ENOSYS, -ENOENT)) {
+                log_notice("Path %s not found, skipping test", "/proc/self/ns/mnt");
+                return;
+        }
+        ASSERT_OK(fd);
+        ASSERT_OK_POSITIVE(fd_is_namespace(fd, NAMESPACE_MOUNT));
+        ASSERT_OK_ZERO(fd_is_namespace(fd, NAMESPACE_NET));
+        fd = safe_close(fd);
+
+        ASSERT_OK(fd = namespace_open_by_type(NAMESPACE_IPC));
+        ASSERT_OK_POSITIVE(fd_is_namespace(fd, NAMESPACE_IPC));
+        fd = safe_close(fd);
+
+        ASSERT_OK(fd = namespace_open_by_type(NAMESPACE_NET));
+        ASSERT_OK_POSITIVE(fd_is_namespace(fd, NAMESPACE_NET));
+}
+
 TEST(protect_kernel_logs) {
         static const NamespaceParameters p = {
                 .runtime_scope = RUNTIME_SCOPE_SYSTEM,
@@ -213,9 +238,23 @@ TEST(idmapping_supported) {
         assert_se(is_idmapping_supported("/etc") >= 0);
 }
 
+TEST(namespace_is_init) {
+        int r;
+
+        for (NamespaceType t = 0; t < _NAMESPACE_TYPE_MAX; t++) {
+                r = namespace_is_init(t);
+                if (r == -EBADR)
+                        log_info_errno(r, "In root namespace of type '%s': don't know", namespace_info[t].proc_name);
+                else {
+                        ASSERT_OK(r);
+                        log_info("In root namespace of type '%s': %s", namespace_info[t].proc_name, yes_no(r));
+                }
+        }
+}
+
 static int intro(void) {
         if (!have_namespaces())
-                return log_tests_skipped("Don't have namespace support");
+                return log_tests_skipped("Don't have namespace support or lacking privileges");
 
         return EXIT_SUCCESS;
 }

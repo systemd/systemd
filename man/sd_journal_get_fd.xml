@@ -192,7 +192,7 @@ else {
       invocation.</para></listitem>
 
       <listitem><para>If <constant>SD_JOURNAL_APPEND</constant> is returned, new entries have been appended to the end
-      of the journal. In this case it is sufficient to simply continue reading at the previous end location of the
+      of the journal. In this case, it is sufficient to simply continue reading at the previous end location of the
       journal, to read the newly added entries.</para></listitem>
 
       <listitem><para>If <constant>SD_JOURNAL_INVALIDATE</constant>, journal files were added to or removed from the

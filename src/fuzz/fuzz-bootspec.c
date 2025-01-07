@@ -55,7 +55,7 @@ static int json_dispatch_entries(const char *name, sd_json_variant *variant, sd_
                         _cleanup_fclose_ FILE *f = NULL;
                         assert_se(f = data_to_file((const uint8_t*) data, len));
 
-                        assert_se(boot_config_load_type1(config, f, "/", "/entries", id) != -ENOMEM);
+                        assert_se(boot_config_load_type1(config, f, "/", BOOT_ENTRY_ESP, "/entries", id) != -ENOMEM);
                 }
         }
 

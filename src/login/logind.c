@@ -64,7 +64,6 @@ static int manager_new(Manager **ret) {
         *m = (Manager) {
                 .console_active_fd = -EBADF,
                 .reserve_vt_fd = -EBADF,
-                .enable_wall_messages = true,
                 .idle_action_not_before_usec = now(CLOCK_MONOTONIC),
                 .scheduled_shutdown_action = _HANDLE_ACTION_INVALID,
 
@@ -99,6 +98,8 @@ static int manager_new(Manager **ret) {
                 log_debug_errno(r, "Failed allocate memory pressure event source, ignoring: %m");
 
         (void) sd_event_set_watchdog(m->event, true);
+
+        dual_timestamp_now(&m->init_ts);
 
         manager_reset_config(m);
 

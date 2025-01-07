@@ -289,7 +289,7 @@ static int add_swap(
                 return log_error_errno(r, "Failed to write unit file %s: %m", name);
 
         /* use what as where, to have a nicer error message */
-        r = generator_write_timeouts(arg_dest, what, what, options, NULL);
+        r = generator_write_device_timeout(arg_dest, what, options, NULL);
         if (r < 0)
                 return r;
 
@@ -325,47 +325,9 @@ static bool mount_in_initrd(const char *where, const char *options, bool accept_
                 (where && PATH_IN_SET(where, "/usr", accept_root ? "/" : NULL));
 }
 
-static int write_timeout(
-                FILE *f,
-                const char *where,
-                const char *opts,
-                const char *filter,
-                const char *unit_setting) {
-
-        _cleanup_free_ char *timeout = NULL;
-        usec_t u;
-        int r;
-
-        assert(f);
-        assert(where);
-        assert(filter);
-        assert(unit_setting);
-
-        r = fstab_filter_options(opts, filter, NULL, &timeout, NULL, NULL);
-        if (r < 0)
-                return log_error_errno(r, "Failed to parse options for '%s': %m", where);
-        if (r == 0)
-                return 0;
-
-        r = parse_sec_fix_0(timeout, &u);
-        if (r < 0) {
-                log_warning_errno(r, "Failed to parse timeout '%s' for '%s', ignoring: %m", timeout, where);
-                return 0;
-        }
-
-        fprintf(f, "%s=%s\n", unit_setting, FORMAT_TIMESPAN(u, 0));
-
-        return 0;
-}
-
 static int write_idle_timeout(FILE *f, const char *where, const char *opts) {
-        return write_timeout(f, where, opts,
-                             "x-systemd.idle-timeout\0", "TimeoutIdleSec");
-}
-
-static int write_mount_timeout(FILE *f, const char *where, const char *opts) {
-        return write_timeout(f, where, opts,
-                             "x-systemd.mount-timeout\0", "TimeoutSec");
+        return generator_write_unit_timeout(f, where, opts,
+                                            "x-systemd.idle-timeout\0", "TimeoutIdleSec");
 }
 
 static int write_dependency(
@@ -670,11 +632,11 @@ static int add_mount(
                 fprintf(f, "Type=%s\n", t);
         }
 
-        r = generator_write_timeouts(dest, what, where, opts, &filtered);
+        r = generator_write_device_timeout(dest, what, opts, &filtered);
         if (r < 0)
                 return r;
 
-        r = generator_write_device_deps(dest, what, where, opts);
+        r = generator_write_network_device_deps(dest, what, where, opts);
         if (r < 0)
                 return r;
 
@@ -684,7 +646,7 @@ static int add_mount(
                         return r;
         }
 
-        r = write_mount_timeout(f, where, opts);
+        r = generator_write_mount_timeout(f, where, opts);
         if (r < 0)
                 return r;
 

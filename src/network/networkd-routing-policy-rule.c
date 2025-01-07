@@ -550,6 +550,23 @@ static void log_routing_policy_rule_debug(const RoutingPolicyRule *rule, const c
                        strna(rule->iif), strna(rule->oif), strna(table));
 }
 
+static void routing_policy_rule_forget(Manager *manager, RoutingPolicyRule *rule, const char *msg) {
+        assert(manager);
+        assert(rule);
+        assert(msg);
+
+        Request *req;
+        if (routing_policy_rule_get_request(manager, rule, rule->family, &req) >= 0)
+                routing_policy_rule_enter_removed(req->userdata);
+
+        if (!rule->manager && routing_policy_rule_get(manager, rule, rule->family, &rule) < 0)
+                return;
+
+        routing_policy_rule_enter_removed(rule);
+        log_routing_policy_rule_debug(rule, "Forgetting", NULL, manager);
+        routing_policy_rule_detach(rule);
+}
+
 static int routing_policy_rule_set_netlink_message(const RoutingPolicyRule *rule, sd_netlink_message *m) {
         int r;
 
@@ -708,16 +725,8 @@ static int routing_policy_rule_remove_handler(sd_netlink *rtnl, sd_netlink_messa
                                        (r == -ENOENT || !rule->manager) ? LOG_DEBUG : LOG_WARNING,
                                        r, "Could not drop routing policy rule, ignoring");
 
-                if (rule->manager) {
-                        /* If the rule cannot be removed, then assume the rule is already removed. */
-                        log_routing_policy_rule_debug(rule, "Forgetting", NULL, manager);
-
-                        Request *req;
-                        if (routing_policy_rule_get_request(manager, rule, rule->family, &req) >= 0)
-                                routing_policy_rule_enter_removed(req->userdata);
-
-                        routing_policy_rule_detach(rule);
-                }
+                /* If the rule cannot be removed, then assume the rule is already removed. */
+                routing_policy_rule_forget(manager, rule, "Forgetting");
         }
 
         return 1;
@@ -1046,10 +1055,6 @@ static bool routing_policy_rule_is_created_by_kernel(const RoutingPolicyRule *ru
 }
 
 int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, Manager *m) {
-        _cleanup_(routing_policy_rule_unrefp) RoutingPolicyRule *tmp = NULL;
-        RoutingPolicyRule *rule = NULL;
-        Request *req = NULL;
-        uint16_t type;
         int r;
 
         assert(rtnl);
@@ -1063,6 +1068,7 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, Man
                 return 0;
         }
 
+        uint16_t type;
         r = sd_netlink_message_get_type(message, &type);
         if (r < 0) {
                 log_warning_errno(r, "rtnl: could not get message type, ignoring: %m");
@@ -1072,6 +1078,7 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, Man
                 return 0;
         }
 
+        _cleanup_(routing_policy_rule_unrefp) RoutingPolicyRule *tmp = NULL;
         r = routing_policy_rule_new(&tmp);
         if (r < 0) {
                 log_oom();
@@ -1240,22 +1247,19 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, Man
                 return 0;
         }
 
+        RoutingPolicyRule *rule = NULL;
         (void) routing_policy_rule_get(m, tmp, tmp->family, &rule);
-        (void) routing_policy_rule_get_request(m, tmp, tmp->family, &req);
 
         if (type == RTM_DELRULE) {
-                if (rule) {
-                        routing_policy_rule_enter_removed(rule);
-                        log_routing_policy_rule_debug(rule, "Forgetting removed", NULL, m);
-                        routing_policy_rule_detach(rule);
-                } else
+                if (rule)
+                        routing_policy_rule_forget(m, rule, "Forgetting removed");
+                else
                         log_routing_policy_rule_debug(tmp, "Kernel removed unknown", NULL, m);
-
-                if (req)
-                        routing_policy_rule_enter_removed(req->userdata);
-
                 return 0;
         }
+
+        Request *req = NULL;
+        (void) routing_policy_rule_get_request(m, tmp, tmp->family, &req);
 
         bool is_new = false;
         if (!rule) {

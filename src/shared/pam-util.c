@@ -253,19 +253,43 @@ int pam_get_item_many_internal(pam_handle_t *handle, ...) {
         va_list ap;
         int r;
 
+        assert(handle);
+
         va_start(ap, handle);
         for (;;) {
                 int item_type = va_arg(ap, int);
-
                 if (item_type <= 0) {
                         r = PAM_SUCCESS;
                         break;
                 }
 
                 const void **value = ASSERT_PTR(va_arg(ap, const void **));
-
                 r = pam_get_item(handle, item_type, value);
                 if (!IN_SET(r, PAM_BAD_ITEM, PAM_SUCCESS))
+                        break;
+        }
+        va_end(ap);
+
+        return r;
+}
+
+int pam_get_data_many_internal(pam_handle_t *handle, ...) {
+        va_list ap;
+        int r;
+
+        assert(handle);
+
+        va_start(ap, handle);
+        for (;;) {
+                const char *data_name = va_arg(ap, const char *);
+                if (!data_name) {
+                        r = PAM_SUCCESS;
+                        break;
+                }
+
+                const void **value = ASSERT_PTR(va_arg(ap, const void **));
+                r = pam_get_data(handle, data_name, value);
+                if (!IN_SET(r, PAM_NO_MODULE_DATA, PAM_SUCCESS))
                         break;
         }
         va_end(ap);

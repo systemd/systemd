@@ -177,7 +177,7 @@ testcase_nvme_basic() {
     local expected_symlinks=()
     local i
 
-    for (( i = 0; i < 5; i++ )); do
+    for i in {0..4}; do
         expected_symlinks+=(
             # both replace mode provides the same devlink
             /dev/disk/by-id/nvme-QEMU_NVMe_Ctrl_deadbeef"$i"
@@ -185,7 +185,7 @@ testcase_nvme_basic() {
             /dev/disk/by-id/nvme-QEMU_NVMe_Ctrl_deadbeef"$i"_1
         )
     done
-    for (( i = 5; i < 10; i++ )); do
+    for i in {5..9}; do
         expected_symlinks+=(
             # old replace mode
             /dev/disk/by-id/nvme-QEMU_NVMe_Ctrl__deadbeef_"$i"
@@ -195,7 +195,7 @@ testcase_nvme_basic() {
             /dev/disk/by-id/nvme-QEMU_NVMe_Ctrl_____deadbeef__"$i"_1
         )
     done
-    for (( i = 10; i < 15; i++ )); do
+    for i in {10..14}; do
         expected_symlinks+=(
             # old replace mode does not provide devlink, as serial contains "/"
             # newer replace mode
@@ -204,7 +204,7 @@ testcase_nvme_basic() {
             /dev/disk/by-id/nvme-QEMU_NVMe_Ctrl_____dead_beef_"$i"_1
         )
     done
-    for (( i = 15; i < 20; i++ )); do
+    for i in {15..19}; do
         expected_symlinks+=(
             # old replace mode does not provide devlink, as serial contains "/"
             # newer replace mode
@@ -1080,7 +1080,7 @@ testcase_mdadm_basic() {
         "/dev/disk/by-label/$part_name" # ext4 partition
     )
     # Create a simple RAID 1 with an ext4 filesystem
-    echo y | mdadm --create "$raid_dev" --name "$raid_name" --uuid "$uuid" /dev/disk/by-id/scsi-0systemd_foobar_deadbeefmdadm{0..1} -v -f --level=1 --raid-devices=2
+    printf 'y\ny\n' | mdadm --create "$raid_dev" --name "$raid_name" --uuid "$uuid" /dev/disk/by-id/scsi-0systemd_foobar_deadbeefmdadm{0..1} -v -f --level=1 --raid-devices=2
     udevadm wait --settle --timeout=30 "$raid_dev"
     # udevd does not lock md devices, hence we need to trigger uevent after creating filesystem.
     mkfs.ext4 -L "$part_name" "$raid_dev"
@@ -1111,7 +1111,7 @@ testcase_mdadm_basic() {
         "/dev/disk/by-label/$part_name" # ext4 partition
     )
     # Create a simple RAID 5 with an ext4 filesystem
-    echo y | mdadm --create "$raid_dev" --name "$raid_name" --uuid "$uuid" /dev/disk/by-id/scsi-0systemd_foobar_deadbeefmdadm{0..2} -v -f --level=5 --raid-devices=3
+    printf 'y\ny\n' | mdadm --create "$raid_dev" --name "$raid_name" --uuid "$uuid" /dev/disk/by-id/scsi-0systemd_foobar_deadbeefmdadm{0..2} -v -f --level=5 --raid-devices=3
     udevadm wait --settle --timeout=30 "$raid_dev"
     mkfs.ext4 -L "$part_name" "$raid_dev"
     udevadm trigger --settle "$raid_dev"
@@ -1152,7 +1152,7 @@ testcase_mdadm_basic() {
         "/dev/disk/by-id/md-uuid-$uuid-part3"
     )
     # Create a simple RAID 10 with an ext4 filesystem
-    echo y | mdadm --create "$raid_dev" --name "$raid_name" --uuid "$uuid" /dev/disk/by-id/scsi-0systemd_foobar_deadbeefmdadm{0..3} -v -f --level=10 --raid-devices=4
+    printf 'y\ny\n' | mdadm --create "$raid_dev" --name "$raid_name" --uuid "$uuid" /dev/disk/by-id/scsi-0systemd_foobar_deadbeefmdadm{0..3} -v -f --level=10 --raid-devices=4
     udevadm wait --settle --timeout=30 "$raid_dev"
     # Partition the raid device
     # Here, 'udevadm lock' is meaningless, as udevd does not lock MD devices.
@@ -1208,7 +1208,7 @@ testcase_mdadm_lvm() {
         "/dev/disk/by-label/$part_name" # ext4 partition
     )
     # Create a RAID 10 with LVM + ext4
-    echo y | mdadm --create "$raid_dev" --name "$raid_name" --uuid "$uuid" /dev/disk/by-id/scsi-0systemd_foobar_deadbeefmdadmlvm{0..3} -v -f --level=10 --raid-devices=4
+    printf 'y\ny\n' | mdadm --create "$raid_dev" --name "$raid_name" --uuid "$uuid" /dev/disk/by-id/scsi-0systemd_foobar_deadbeefmdadmlvm{0..3} -v -f --level=10 --raid-devices=4
     udevadm wait --settle --timeout=30 "$raid_dev"
     # Create an LVM on the MD
     lvm pvcreate -y "$raid_dev"

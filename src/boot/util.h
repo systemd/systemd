@@ -3,10 +3,13 @@
 
 #include "efi.h"
 #include "efi-string.h"
-#include "log.h"
 #include "memory-util-fundamental.h"
-#include "proto/file-io.h"
 #include "string-util-fundamental.h"
+
+#if SD_BOOT
+
+#include "log.h"
+#include "proto/file-io.h"
 
 /* This is provided by the linker. */
 extern uint8_t __executable_start[];
@@ -100,6 +103,13 @@ static inline Pages xmalloc_pages(
 }
 
 static inline Pages xmalloc_initrd_pages(size_t n_pages) {
+        /* The original native x86 boot protocol of the Linux kernel was not 64bit safe, hence we allocate
+         * memory for the initrds below the 4G boundary on x86, since we don't know early enough which
+         * protocol we'll use to ultimately boot the kernel. This restriction is somewhat obsolete, since
+         * these days we generally prefer the kernel's newer EFI entrypoint instead, which has no such
+         * limitations. On other architectures we do not bother with any restriction on this, in particular
+         * as some of them don't even have RAM mapped to such low addresses. */
+
 #if defined(__i386__) || defined(__x86_64__)
         return xmalloc_pages(
                         AllocateMaxAddress,
@@ -229,3 +239,11 @@ char16_t *get_extra_dir(const EFI_DEVICE_PATH *file_path);
 
 #define bswap_16(x) __builtin_bswap16(x)
 #define bswap_32(x) __builtin_bswap32(x)
+
+#else
+
+#include "alloc-util.h"
+
+#define xnew0(type, n) ASSERT_PTR(new0(type, n))
+
+#endif

@@ -65,11 +65,46 @@ int cg_cgroupid_open(int cgroupfs_fd, uint64_t id) {
         cg_file_handle fh = CG_FILE_HANDLE_INIT;
         CG_FILE_HANDLE_CGROUPID(fh) = id;
 
-        int fd = open_by_handle_at(cgroupfs_fd, &fh.file_handle, O_DIRECTORY|O_CLOEXEC);
-        if (fd < 0)
-                return -errno;
+        return RET_NERRNO(open_by_handle_at(cgroupfs_fd, &fh.file_handle, O_DIRECTORY|O_CLOEXEC));
+}
 
-        return fd;
+int cg_path_from_cgroupid(int cgroupfs_fd, uint64_t id, char **ret) {
+        _cleanup_close_ int cgfd = -EBADF;
+        int r;
+
+        cgfd = cg_cgroupid_open(cgroupfs_fd, id);
+        if (cgfd < 0)
+                return cgfd;
+
+        _cleanup_free_ char *path = NULL;
+        r = fd_get_path(cgfd, &path);
+        if (r < 0)
+                return r;
+
+        if (!path_startswith(path, "/sys/fs/cgroup/"))
+                return -EXDEV; /* recognizable error */
+
+        if (ret)
+                *ret = TAKE_PTR(path);
+        return 0;
+}
+
+int cg_get_cgroupid_at(int dfd, const char *path, uint64_t *ret) {
+        cg_file_handle fh = CG_FILE_HANDLE_INIT;
+        int mnt_id;
+
+        assert(dfd >= 0 || (dfd == AT_FDCWD && path_is_absolute(path)));
+        assert(ret);
+
+        /* This is cgroupfs so we know the size of the handle, thus no need to loop around like
+         * name_to_handle_at_loop() does in mountpoint-util.c */
+        if (name_to_handle_at(dfd, strempty(path), &fh.file_handle, &mnt_id, isempty(path) ? AT_EMPTY_PATH : 0) < 0) {
+                assert(errno != EOVERFLOW);
+                return -errno;
+        }
+
+        *ret = CG_FILE_HANDLE_CGROUPID(fh);
+        return 0;
 }
 
 static int cg_enumerate_items(const char *controller, const char *path, FILE **ret, const char *item) {
@@ -799,16 +834,20 @@ int cg_pid_get_path(const char *controller, pid_t pid, char **ret_path) {
                                 continue;
                 }
 
-                char *path = strdup(e + 1);
+                _cleanup_free_ char *path = strdup(e + 1);
                 if (!path)
                         return -ENOMEM;
+
+                /* Refuse cgroup paths from outside our cgroup namespace */
+                if (startswith(path, "/../"))
+                        return -EUNATCH;
 
                 /* Truncate suffix indicating the process is a zombie */
                 e = endswith(path, " (deleted)");
                 if (e)
                         *e = 0;
 
-                *ret_path = path;
+                *ret_path = TAKE_PTR(path);
                 return 0;
         }
 }
@@ -821,6 +860,12 @@ int cg_pidref_get_path(const char *controller, const PidRef *pidref, char **ret_
 
         if (!pidref_is_set(pidref))
                 return -ESRCH;
+        if (pidref_is_remote(pidref))
+                return -EREMOTE;
+
+        // XXX: Ideally we'd use pidfd_get_cgroupid() + cg_path_from_cgroupid() here, to extract this
+        // bit of information from pidfd directly. However, the latter requires privilege and it's
+        // not entirely clear how to handle cgroups from outer namespace.
 
         r = cg_pid_get_path(controller, pidref->pid, &path);
         if (r < 0)
@@ -1186,6 +1231,8 @@ int cg_pidref_get_unit(const PidRef *pidref, char **ret) {
 
         if (!pidref_is_set(pidref))
                 return -ESRCH;
+        if (pidref_is_remote(pidref))
+                return -EREMOTE;
 
         r = cg_pid_get_unit(pidref->pid, &unit);
         if (r < 0)
@@ -1345,36 +1392,6 @@ int cg_pid_get_machine_name(pid_t pid, char **ret_machine) {
         return cg_path_get_machine_name(cgroup, ret_machine);
 }
 
-int cg_path_get_cgroupid(const char *path, uint64_t *ret) {
-        cg_file_handle fh = CG_FILE_HANDLE_INIT;
-        int mnt_id;
-
-        assert(path);
-        assert(ret);
-
-        /* This is cgroupfs so we know the size of the handle, thus no need to loop around like
-         * name_to_handle_at_loop() does in mountpoint-util.c */
-        if (name_to_handle_at(AT_FDCWD, path, &fh.file_handle, &mnt_id, 0) < 0)
-                return -errno;
-
-        *ret = CG_FILE_HANDLE_CGROUPID(fh);
-        return 0;
-}
-
-int cg_fd_get_cgroupid(int fd, uint64_t *ret) {
-        cg_file_handle fh = CG_FILE_HANDLE_INIT;
-        int mnt_id = -1;
-
-        assert(fd >= 0);
-        assert(ret);
-
-        if (name_to_handle_at(fd, "", &fh.file_handle, &mnt_id, AT_EMPTY_PATH) < 0)
-                return -errno;
-
-        *ret = CG_FILE_HANDLE_CGROUPID(fh);
-        return 0;
-}
-
 int cg_path_get_session(const char *path, char **ret_session) {
         _cleanup_free_ char *unit = NULL;
         char *start, *end;
@@ -1414,6 +1431,28 @@ int cg_pid_get_session(pid_t pid, char **ret_session) {
         return cg_path_get_session(cgroup, ret_session);
 }
 
+int cg_pidref_get_session(const PidRef *pidref, char **ret) {
+        int r;
+
+        if (!pidref_is_set(pidref))
+                return -ESRCH;
+        if (pidref_is_remote(pidref))
+                return -EREMOTE;
+
+        _cleanup_free_ char *session = NULL;
+        r = cg_pid_get_session(pidref->pid, &session);
+        if (r < 0)
+                return r;
+
+        r = pidref_verify(pidref);
+        if (r < 0)
+                return r;
+
+        if (ret)
+                *ret = TAKE_PTR(session);
+        return 0;
+}
+
 int cg_path_get_owner_uid(const char *path, uid_t *ret_uid) {
         _cleanup_free_ char *slice = NULL;
         char *start, *end;
@@ -1449,6 +1488,29 @@ int cg_pid_get_owner_uid(pid_t pid, uid_t *ret_uid) {
                 return r;
 
         return cg_path_get_owner_uid(cgroup, ret_uid);
+}
+
+int cg_pidref_get_owner_uid(const PidRef *pidref, uid_t *ret) {
+        int r;
+
+        if (!pidref_is_set(pidref))
+                return -ESRCH;
+        if (pidref_is_remote(pidref))
+                return -EREMOTE;
+
+        uid_t uid;
+        r = cg_pid_get_owner_uid(pidref->pid, &uid);
+        if (r < 0)
+                return r;
+
+        r = pidref_verify(pidref);
+        if (r < 0)
+                return r;
+
+        if (ret)
+                *ret = uid;
+
+        return 0;
 }
 
 int cg_path_get_slice(const char *p, char **ret_slice) {

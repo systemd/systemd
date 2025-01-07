@@ -6,7 +6,7 @@ set -o pipefail
 # Test that KillMode=mixed does not leave left over processes with ExecStopPost=
 # Issue: https://github.com/systemd/systemd/issues/14566
 
-if [[ -n "${ASAN_OPTIONS:-}" ]]; then
+if [[ -v ASAN_OPTIONS ]]; then
     # Temporarily skip this test when running with sanitizers due to a deadlock
     # See: https://bugzilla.redhat.com/show_bug.cgi?id=2098125
     echo "Sanitizers detected, skipping the test..."

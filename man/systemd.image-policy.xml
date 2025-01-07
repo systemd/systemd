@@ -138,7 +138,7 @@
     <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     is responsible for processing the GPT partition table and making use of the included discoverable
     partitions. It accepts an image policy via the kernel command line option
-    <option>systemd.image-policy=</option>.</para>
+    <option>systemd.image_policy=</option>.</para>
 
     <para>Note that image policies do not dictate how the components will mount and use disk images — they
     only dictate which parts to avoid and which protection level and arrangement to require while
@@ -149,7 +149,7 @@
     included in the image, regardless whether the configured image policy would allow access to it or
     not. Similar,
     <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry> is not
-    going to make use of any discovered swap device, regardless if the policy would allow that or not.</para>
+    going to make use of any discovered swap device, regardless of whether the policy would allow that or not.</para>
 
     <para>Use the <command>image-policy</command> command of the
     <citerefentry><refentrytitle>systemd-analyze</refentrytitle><manvolnum>1</manvolnum></citerefentry> tool
@@ -172,7 +172,7 @@
     <programlisting>root=encrypted+read-only-off:srv=encrypted+absent:swap=absent</programlisting>
 
     <para>The following image policy string dictates a single root partition that may be encrypted, but
-    doesn't have to be, and ignores swap partitions, and uses all other partitions if they are available, possibly with encryption.</para>
+    does not have to be, and ignores swap partitions, and uses all other partitions if they are available, possibly with encryption.</para>
 
     <programlisting>root=unprotected+encrypted:swap=absent+unused:=unprotected+encrypted+absent</programlisting>
   </refsect1>

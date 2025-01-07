@@ -48,7 +48,7 @@
     and transfer them as a whole between systems. When these images are attached to the local system, the contained units
     may run in most ways like regular system-provided units, either with full privileges or inside strict sandboxing,
     depending on the selected configuration. For more details, see
-    <ulink url="https://systemd.io/PORTABLE_SERVICES">Portable Services Documentation</ulink>.</para>
+    <ulink url="https://systemd.io/PORTABLE_SERVICES">Portable Services</ulink>.</para>
 
     <para>Portable service images may be of the following kinds:</para>
 
@@ -119,7 +119,7 @@
           <filename>/run/portables/</filename>, to make sure it is included in it.</para></listitem>
         </orderedlist>
 
-        <para>By default all unit files whose names start with a prefix generated from the image's file name are copied
+        <para>By default, all unit files whose names start with a prefix generated from the image's file name are copied
         out. Specifically, the prefix is determined from the image file name with any suffix such as
         <filename>.raw</filename> removed, truncated at the first occurrence of an underscore character
         (<literal>_</literal>), if there is one. The underscore logic is supposed to be used to versioning so that the
@@ -170,7 +170,7 @@
         <listitem><para>Detaches an existing portable service image from the host, and immediately attaches it again.
         This is useful in case the image was replaced. Running units are not stopped during the process. Partial matching,
         to allow for different versions in the image name, is allowed: only the part before the first <literal>_</literal>
-        character has to match. If the new image doesn't exist, the existing one will not be detached. The parameters
+        character has to match. If the new image does not exist, the existing one will not be detached. The parameters
         follow the same syntax as the <command>attach</command> command.</para>
 
         <para>If <option>--now</option> and/or <option>--enable</option> are passed, the portable services are
@@ -186,7 +186,7 @@
         <listitem><para>Extracts various metadata from a portable service image and presents it to the
         caller. Specifically, the
         <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry> file of the
-        image is retrieved as well as all matching unit files. By default a short summary showing the most relevant
+        image is retrieved as well as all matching unit files. By default, a short summary showing the most relevant
         metadata in combination with a list of matching unit files is shown (that is the unit files
         <command>attach</command> would install to the host system). If combined with <option>--cat</option> (see
         above), the <filename>os-release</filename> data and the units files' contents is displayed unprocessed. This
@@ -314,7 +314,7 @@
         <term><option>-p</option> <replaceable>PROFILE</replaceable></term>
         <term><option>--profile=<replaceable>PROFILE</replaceable></option></term>
 
-        <listitem><para>When attaching an image, select the profile to use. By default the <literal>default</literal>
+        <listitem><para>When attaching an image, select the profile to use. By default, the <literal>default</literal>
         profile is used. For details about profiles, see below.</para>
 
         <xi:include href="version-info.xml" xpointer="v239"/></listitem>
@@ -350,7 +350,7 @@
       <varlistentry>
         <term><option>--no-reload</option></term>
 
-        <listitem><para>Don't reload the service manager after attaching or detaching a portable service
+        <listitem><para>Do not reload the service manager after attaching or detaching a portable service
         image. Normally the service manager is reloaded to ensure it is aware of added or removed unit
         files.</para>
 
@@ -388,7 +388,7 @@
       <varlistentry>
         <term><option>--no-block</option></term>
 
-        <listitem><para>Don't block waiting for attach --now to complete.</para>
+        <listitem><para>Do not block waiting for attach --now to complete.</para>
 
         <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
@@ -417,7 +417,7 @@
         <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
         Images can be block images, btrfs subvolumes or directories. For more information on portable
         services with extensions, see the <literal>Extension Images</literal> paragraph on
-        <ulink url="https://systemd.io/PORTABLE_SERVICES">Portable Services Documentation</ulink>.
+        <ulink url="https://systemd.io/PORTABLE_SERVICES">Portable Services</ulink>.
         </para>
 
         <para>Note that the same extensions have to be specified, in the same order, when attaching

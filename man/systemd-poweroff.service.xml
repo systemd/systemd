@@ -53,7 +53,7 @@
     might be broken — the running PID 1 could still depend on libraries which are not available any more,
     thus keeping the file system busy, which then cannot be re-mounted read-only.</para>
 
-    <para>Shortly before executing the actual system power-off/halt/reboot/kexec
+    <para>Shortly before executing the actual system power-off/halt/reboot/kexec,
     <filename>systemd-shutdown</filename> will run all executables in
     <filename>/usr/lib/systemd/system-shutdown/</filename> and pass one arguments to them: either
     <literal>poweroff</literal>, <literal>halt</literal>, <literal>reboot</literal>, or

@@ -12,10 +12,10 @@ static int add_arch(Table *t, Architecture a) {
 
         if (a == native_architecture()) {
                 c = "native";
-                color = ANSI_HIGHLIGHT_GREEN;
+                color = ansi_highlight_green();
         } else if (a == uname_architecture()) {
                 c = "uname";
-                color = ANSI_HIGHLIGHT;
+                color = ansi_highlight();
 #ifdef ARCHITECTURE_SECONDARY
         } else if (a == ARCHITECTURE_SECONDARY) {
                 c = "secondary";
@@ -23,7 +23,7 @@ static int add_arch(Table *t, Architecture a) {
 #endif
         } else {
                 c = "foreign";
-                color = ANSI_GREY;
+                color = ansi_grey();
         }
 
         r = table_add_many(t,

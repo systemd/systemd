@@ -103,7 +103,7 @@ int chattr_full(
                         continue;
 
                 if (ioctl(fd, FS_IOC_SETFLAGS, &new_one) < 0) {
-                        if (errno != EINVAL && !ERRNO_IS_NOT_SUPPORTED(errno))
+                        if (!ERRNO_IS_IOCTL_NOT_SUPPORTED(errno))
                                 return -errno;
 
                         log_full_errno(FLAGS_SET(flags, CHATTR_WARN_UNSUPPORTED_FLAGS) ? LOG_WARNING : LOG_DEBUG,
@@ -145,6 +145,11 @@ int read_attr_fd(int fd, unsigned *ret) {
         if (!S_ISDIR(st.st_mode) && !S_ISREG(st.st_mode))
                 return -ENOTTY;
 
+        _cleanup_close_ int fd_close = -EBADF;
+        fd = fd_reopen_condition(fd, O_RDONLY|O_CLOEXEC|O_NOCTTY, O_PATH, &fd_close); /* drop O_PATH if it is set */
+        if (fd < 0)
+                return fd;
+
         return RET_NERRNO(ioctl(fd, FS_IOC_GETFLAGS, ret));
 }
 
@@ -155,11 +160,9 @@ int read_attr_at(int dir_fd, const char *path, unsigned *ret) {
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
         assert(ret);
 
-        if (isempty(path)) {
-                fd = fd_reopen_condition(dir_fd, O_RDONLY|O_CLOEXEC|O_NOCTTY, O_PATH, &fd_close); /* drop O_PATH if it is set */
-                if (fd < 0)
-                        return fd;
-        } else {
+        if (isempty(path) && dir_fd != AT_FDCWD)
+                fd = dir_fd;
+        else {
                 fd_close = xopenat(dir_fd, path, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
                 if (fd_close < 0)
                         return fd_close;

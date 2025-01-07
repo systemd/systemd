@@ -60,7 +60,7 @@
     no matching partition file are left as they are.</para>
 
     <para>Note that these definitions may only be used to create and initialize new partitions or to grow
-    existing ones. In the latter case it will not grow the contained files systems however; separate
+    existing ones. In the latter case, it will not grow the contained files systems however; separate
     mechanisms, such as
     <citerefentry><refentrytitle>systemd-growfs</refentrytitle><manvolnum>8</manvolnum></citerefentry> may be
     used to grow the file systems inside of these partitions. Partitions may also be marked for automatic
@@ -250,7 +250,7 @@
         <listitem><para>The textual label to assign to the partition if none is assigned yet. Note that this
         setting is not used for matching. It is also not used when a label is already set for an existing
         partition. It is thus only used when a partition is newly created or when an existing one had a no
-        label set (that is: an empty label). If not specified a label derived from the partition type is
+        label set (that is: an empty label). If not specified, a label derived from the partition type is
         automatically used. Simple specifier expansion is supported, see below.</para>
 
         <xi:include href="version-info.xml" xpointer="v245"/></listitem>
@@ -338,7 +338,7 @@
         <varname>SizeMaxBytes=</varname>) otherwise. If the backing device does not provide enough space to
         fulfill the constraints placing the partition will fail. For partitions that shall be created,
         depending on the setting of <varname>Priority=</varname> (see above) the partition might be dropped
-        and the placing algorithm restarted. By default a minimum size constraint of 10M and no maximum size
+        and the placing algorithm restarted. By default, a minimum size constraint of 10M and no maximum size
         constraint is set.</para>
 
         <xi:include href="version-info.xml" xpointer="v245"/></listitem>
@@ -351,7 +351,7 @@
         <listitem><para>Specifies minimum and maximum size constraints in bytes for the free space after the
         partition (the "padding"). Semantics are similar to <varname>SizeMinBytes=</varname> and
         <varname>SizeMaxBytes=</varname>, except that unlike partition sizes free space can be shrunk and can
-        be as small as zero. By default no size constraints on padding are set, so that only
+        be as small as zero. By default, no size constraints on padding are set, so that only
         <varname>PaddingWeight=</varname> determines the size of the padding applied.</para>
 
         <xi:include href="version-info.xml" xpointer="v245"/></listitem>
@@ -391,7 +391,7 @@
         <para>This option has no effect if the partition it is declared for already exists, i.e. existing
         data is never overwritten. Note that the data is copied in before the partition table is updated,
         i.e. before the partition actually is persistently created. This provides robustness: it is
-        guaranteed that the partition either doesn't exist or exists fully populated; it is not possible that
+        guaranteed that the partition either does not exist or exists fully populated; it is not possible that
         the partition exists but is not or only partially populated.</para>
 
         <para>This option cannot be combined with <varname>Format=</varname> or
@@ -445,7 +445,7 @@
         <para>The copy operation is executed before the file system is registered in the partition table,
         thus ensuring that a file system populated this way only ever exists fully initialized.</para>
 
-        <para>Note that <varname>CopyFiles=</varname> will skip copying files that aren't supported by the
+        <para>Note that <varname>CopyFiles=</varname> will skip copying files that are not supported by the
         target filesystem (e.g symlinks, fifos, sockets and devices on vfat). When an unsupported file type
         is encountered, <command>systemd-repart</command> will skip copying this file and write a log message
         about it.</para>
@@ -606,7 +606,8 @@
         <varname>Subvolumes=</varname>.</para>
 
         <para>Note that this option only takes effect if the target filesystem supports subvolumes, such as
-        <literal>btrfs</literal>.</para>
+        <citerefentry project="url"><refentrytitle url="https://btrfs.readthedocs.io/en/latest/btrfs.html">btrfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+        </para>
 
         <para>Note that this option is only supported in combination with <option>--offline=yes</option>
         since btrfs-progs 6.11 or newer.</para>
@@ -686,7 +687,7 @@
 
         <listitem><para>Configures the data block size of the generated verity hash partition. Must be between 512 and
         4096 bytes and must be a power of 2. Defaults to the sector size if configured explicitly, or the underlying
-        block device sector size, or 4K if systemd-repart is not operating on a block device.
+        block device sector size, or 4K if <command>systemd-repart</command> is not operating on a block device.
         </para>
 
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
@@ -697,7 +698,7 @@
 
         <listitem><para>Configures the hash block size of the generated verity hash partition. Must be between 512 and
         4096 bytes and must be a power of 2. Defaults to the sector size if configured explicitly, or the underlying
-        block device sector size, or 4K if systemd-repart is not operating on a block device.
+        block device sector size, or 4K if <command>systemd-repart</command> is not operating on a block device.
         </para>
 
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
@@ -717,7 +718,7 @@
         <term><varname>Flags=</varname></term>
 
         <listitem><para>Configures the 64-bit GPT partition flags field to set for the partition when creating
-        it. This option has no effect if the partition already exists. If not specified the flags values is
+        it. This option has no effect if the partition already exists. If not specified, the flags value is
         set to all zeroes, except for the three bits that can also be configured via
         <varname>NoAuto=</varname>, <varname>ReadOnly=</varname> and <varname>GrowFileSystem=</varname>; see
         below for details on the defaults for these three flags. Specify the flags value in hexadecimal (by
@@ -807,7 +808,9 @@
         mount options. These fields correspond to the second and fourth column of the
         <citerefentry project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         format. This setting may be specified multiple times to mount the partition multiple times. This can
-        be used to add mounts for different btrfs subvolumes located on the same btrfs partition.</para>
+        be used to add mounts for different
+        <citerefentry project="url"><refentrytitle url="https://btrfs.readthedocs.io/en/latest/btrfs.html">btrfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        subvolumes located on the same btrfs partition.</para>
 
         <para>Note that this setting is only taken into account when <option>--generate-fstab=</option> is
         specified on the <command>systemd-repart</command> command line.</para>
@@ -818,7 +821,7 @@
       <varlistentry>
         <term><varname>EncryptedVolume=</varname></term>
 
-        <listitem><para>Specify how the encrypted partition should be set up. Takes at least one and at most
+        <listitem><para>Specifies how the encrypted partition should be set up. Takes at least one and at most
         three fields separated with a colon (<literal>:</literal>). The first field specifies the encrypted
         volume name under <filename>/dev/mapper/</filename>. If not specified, <literal>luks-UUID</literal>
         will be used where <literal>UUID</literal> is the LUKS UUID. The second field specifies the keyfile
@@ -837,13 +840,14 @@
       <varlistentry>
         <term><varname>Compression=</varname></term>
 
-        <listitem><para>Specify the compression algorithm to use for the filesystem configured with
+        <listitem><para>Specifies the compression algorithm to use for the filesystem configured with
         <varname>Format=</varname>. Takes a single argument specifying the compression algorithm.</para>
 
         <para>Note that this setting is only taken into account when the filesystem configured with
-        <varname>Format=</varname> supports compression (btrfs, squashfs, erofs). Here's an incomplete list
-        of compression algorithms supported by the filesystems known to
-        <command>systemd-repart</command>:</para>
+        <varname>Format=</varname> supports compression (
+        <citerefentry project="url"><refentrytitle url="https://btrfs.readthedocs.io/en/latest/btrfs.html">btrfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+        squashfs, erofs). Here's an incomplete list of compression algorithms supported by the filesystems
+        known to <command>systemd-repart</command>:</para>
 
         <table>
           <title>File System Compression Algorithms</title>
@@ -883,7 +887,7 @@
       <varlistentry>
         <term><varname>CompressionLevel=</varname></term>
 
-        <listitem><para>Specify the compression level to use for the filesystem configured with
+        <listitem><para>Specifies the compression level to use for the filesystem configured with
         <varname>Format=</varname>. Takes a single argument specifying the compression level to use for the
         configured compression algorithm. The possible compression levels and their meaning are filesystem
         specific (refer to the filesystem's documentation for the exact meaning of a particular compression

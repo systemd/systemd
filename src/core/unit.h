@@ -1036,7 +1036,7 @@ int unit_failure_action_exit_status(Unit *u);
 
 int unit_test_trigger_loaded(Unit *u);
 
-void unit_destroy_runtime_data(Unit *u, const ExecContext *context);
+void unit_destroy_runtime_data(Unit *u, const ExecContext *context, bool destroy_runtime_dir);
 int unit_clean(Unit *u, ExecCleanMask mask);
 int unit_can_clean(Unit *u, ExecCleanMask *ret_mask);
 

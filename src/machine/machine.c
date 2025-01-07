@@ -610,6 +610,9 @@ bool machine_may_gc(Machine *m, bool drop_not_started) {
         if (m->class == MACHINE_HOST)
                 return false;
 
+        if (!pidref_is_set(&m->leader))
+                return true;
+
         if (drop_not_started && !m->started)
                 return true;
 
@@ -665,19 +668,19 @@ int machine_kill(Machine *m, KillWhom whom, int signo) {
         return manager_kill_unit(m->manager, m->unit, signo, NULL);
 }
 
-int machine_openpt(Machine *m, int flags, char **ret_slave) {
+int machine_openpt(Machine *m, int flags, char **ret_peer) {
         assert(m);
 
         switch (m->class) {
 
         case MACHINE_HOST:
-                return openpt_allocate(flags, ret_slave);
+                return openpt_allocate(flags, ret_peer);
 
         case MACHINE_CONTAINER:
                 if (!pidref_is_set(&m->leader))
                         return -EINVAL;
 
-                return openpt_allocate_in_namespace(m->leader.pid, flags, ret_slave);
+                return openpt_allocate_in_namespace(m->leader.pid, flags, ret_peer);
 
         default:
                 return -EOPNOTSUPP;
@@ -804,8 +807,10 @@ int machine_start_shell(
         /* First try to get an fd for the PTY peer via the new racefree ioctl(), directly. Otherwise go via
          * joining the namespace, because it goes by path */
         pty_fd = pty_open_peer_racefree(ptmx_fd, O_RDWR|O_NOCTTY|O_CLOEXEC);
-        if (ERRNO_IS_NEG_NOT_SUPPORTED(pty_fd))
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(pty_fd)) {
+                log_debug_errno(pty_fd, "Failed to get PTY peer via racefree ioctl() (ptmx_fd=%d). Trying via joining the namespace (ptmx_name=%s): %m", ptmx_fd, ptmx_name);
                 pty_fd = machine_open_terminal(m, ptmx_name, O_RDWR|O_NOCTTY|O_CLOEXEC);
+        }
         if (pty_fd < 0)
                 return log_debug_errno(pty_fd, "Failed to open terminal: %m");
 

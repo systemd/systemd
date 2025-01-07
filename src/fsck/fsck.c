@@ -98,16 +98,11 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 }
         }
 
-#if HAVE_SYSV_COMPAT
-        else if (streq(key, "fastboot") && !value) {
-                log_warning("Please pass 'fsck.mode=skip' rather than 'fastboot' on the kernel command line.");
+        else if (streq(key, "fastboot") && !value)
                 arg_skip = true;
 
-        } else if (streq(key, "forcefsck") && !value) {
-                log_warning("Please pass 'fsck.mode=force' rather than 'forcefsck' on the kernel command line.");
+        else if (streq(key, "forcefsck") && !value)
                 arg_force = true;
-        }
-#endif
 
         return 0;
 }

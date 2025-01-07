@@ -23,6 +23,7 @@
 #include "stat-util.h"
 #include "user-util.h"
 #include "varlink-io.systemd.MountFileSystem.h"
+#include "varlink-util.h"
 
 #define ITERATIONS_MAX 64U
 #define RUNTIME_MAX_USEC (5 * USEC_PER_MINUTE)
@@ -226,7 +227,7 @@ static int validate_userns(sd_varlink *link, int *userns_fd) {
         if (r < 0)
                 return log_debug_errno(r, "User namespace file descriptor has unsafe flags set: %m");
 
-        r = fd_is_ns(*userns_fd, CLONE_NEWUSER);
+        r = fd_is_namespace(*userns_fd, NAMESPACE_USER);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -552,14 +553,6 @@ static int process_connection(sd_varlink_server *server, int _fd) {
         TAKE_FD(fd);
         vl = sd_varlink_ref(vl);
 
-        r = sd_varlink_set_allow_fd_passing_input(vl, true);
-        if (r < 0)
-                return log_error_errno(r, "Failed to enable fd passing for read: %m");
-
-        r = sd_varlink_set_allow_fd_passing_output(vl, true);
-        if (r < 0)
-                return log_error_errno(r, "Failed to enable fd passing for write: %m");
-
         r = sd_event_loop(event);
         if (r < 0)
                 return log_error_errno(r, "Failed to run event loop: %m");
@@ -595,7 +588,10 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to turn off non-blocking mode for listening socket: %m");
 
-        r = sd_varlink_server_new(&server, SD_VARLINK_SERVER_INHERIT_USERDATA);
+        r = varlink_server_new(&server,
+                               SD_VARLINK_SERVER_INHERIT_USERDATA|
+                               SD_VARLINK_SERVER_ALLOW_FD_PASSING_INPUT|SD_VARLINK_SERVER_ALLOW_FD_PASSING_OUTPUT,
+                               NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate server: %m");
 

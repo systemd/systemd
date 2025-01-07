@@ -46,7 +46,7 @@
 
     <para>If the specified path does not reference a <literal>.v/</literal> path (i.e. neither the final
     component ends in <literal>.v</literal>, nor the penultimate does or the final one does contain a triple
-    underscore) it specified path is written unmodified to standard output.</para>
+    underscore) its specified path is written unmodified to standard output.</para>
   </refsect1>
 
   <refsect1>
@@ -81,7 +81,7 @@
         <term><option>-A</option></term>
 
         <listitem><para>Explicitly configures the architecture to select. If specified, a filename with the
-        specified architecture identifier will be looked for. If not specified only filenames with a locally
+        specified architecture identifier will be looked for. If not specified, only filenames with a locally
         supported architecture are considered, or those without any architecture identifier.</para>
 
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
@@ -117,7 +117,7 @@
         <term><option>--print=</option></term>
         <term><option>-p</option></term>
 
-        <listitem><para>Configures what precisely to write to standard output. If not specified prints the
+        <listitem><para>Configures what precisely to write to standard output. If not specified, prints the
         full, resolved path of the newest matching file in the <literal>.v/</literal> directory. This switch can be set to one of the following:</para>
 
         <itemizedlist>

@@ -26,12 +26,12 @@ CapabilityBoundingSet=CAP_SYS_TIME
 # correct time to work, but we likely won't acquire that without NTP. Let's
 # break this chicken-and-egg cycle here.
 Environment=SYSTEMD_NSS_RESOLVE_VALIDATE=0
-ExecStart=!!{{LIBEXECDIR}}/systemd-timesyncd
+ExecStart={{LIBEXECDIR}}/systemd-timesyncd
 LockPersonality=yes
 MemoryDenyWriteExecute=yes
 NoNewPrivileges=yes
 PrivateDevices=yes
-PrivateTmp=yes
+PrivateTmp=disconnected
 ProtectProc=invisible
 ProtectControlGroups=yes
 ProtectHome=yes

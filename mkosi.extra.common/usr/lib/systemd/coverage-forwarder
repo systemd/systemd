@@ -1,0 +1,9 @@
+#!/bin/bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+logger --journald <<EOF
+MESSAGE=Tarball with coverage data from /coverage
+COVERAGE_TAR=$(tar --create --file - --directory /coverage --zstd . | base64 --wrap=0)
+EOF
+
+journalctl --flush

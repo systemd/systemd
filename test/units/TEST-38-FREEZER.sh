@@ -7,6 +7,11 @@ set -o pipefail
 # shellcheck source=test/units/test-control.sh
 . "$(dirname "$0")"/test-control.sh
 
+if [[ -n "${COVERAGE_BUILD_DIR:-}" ]]; then
+    echo "TEST-38-FREEZER freezes when systemd is built with coverage enabled" >/skipped
+    exit 77
+fi
+
 systemd-analyze log-level debug
 
 unit=TEST-38-FREEZER-sleep.service

@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+[Unit]
+Description=Forward coverage data to the journal before shutting down
+ConditionEnvironment=COVERAGE_BUILD_DIR
+
+DefaultDependencies=no
+After=systemd-journald.socket
+Requires=systemd-journald.socket
+After=shutdown.target initrd-switch-root.target
+Before=final.target initrd-switch-root.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/systemd/coverage-forwarder
+
+[Install]
+WantedBy=final.target initrd-switch-root.target

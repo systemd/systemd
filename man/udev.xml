@@ -86,7 +86,7 @@
           <varlistentry>
             <term><literal>!=</literal></term>
             <listitem>
-              <para>Compare for inequality. (The specified key doesn't have the specified value, or the
+              <para>Compare for inequality. (The specified key does not have the specified value, or the
               specified key is not present at all.)
               </para>
             </listitem>

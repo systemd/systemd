@@ -148,7 +148,7 @@ int vl_method_clone_image(sd_varlink *link, sd_json_variant *parameters, sd_varl
                 return log_debug_errno(r, "Failed to fork: %m");
         if (r == 0) {
                 errno_pipe_fd[0] = safe_close(errno_pipe_fd[0]);
-                r = image_clone(image, p.new_name, p.read_only > 0);
+                r = image_clone(image, p.new_name, p.read_only > 0, manager->runtime_scope);
                 report_errno_and_exit(errno_pipe_fd[1], r);
         }
 

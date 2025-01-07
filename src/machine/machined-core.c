@@ -7,6 +7,7 @@
 #include "fileio.h"
 #include "iovec-util.h"
 #include "machined.h"
+#include "namespace-util.h"
 #include "process-util.h"
 #include "socket-util.h"
 #include "strv.h"
@@ -182,7 +183,7 @@ void manager_enqueue_gc(Manager *m) {
         (void) sd_event_source_set_description(m->deferred_gc_event_source, "deferred-gc");
 }
 
-int machine_get_addresses(Machine* machine, struct local_address **ret_addresses) {
+int machine_get_addresses(Machine *machine, struct local_address **ret_addresses) {
         assert(machine);
         assert(ret_addresses);
 
@@ -206,7 +207,7 @@ int machine_get_addresses(Machine* machine, struct local_address **ret_addresses
                 pid_t child;
                 int r;
 
-                r = in_same_namespace(/* pid1 = */ 0, machine->leader.pid, NAMESPACE_NET);
+                r = pidref_in_same_namespace(/* pid1 = */ NULL, &machine->leader, NAMESPACE_NET);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to check if container has private network: %m");
                 if (r > 0)
@@ -440,7 +441,7 @@ int manager_acquire_image(Manager *m, const char *name, Image **ret) {
                 return log_debug_errno(r, "Failed to enable source: %m") ;
 
         _cleanup_(image_unrefp) Image *image = NULL;
-        r = image_find(IMAGE_MACHINE, name, NULL, &image);
+        r = image_find(m->runtime_scope, IMAGE_MACHINE, name, NULL, &image);
         if (r < 0)
                 return log_debug_errno(r, "Failed to find image: %m");
 
@@ -467,7 +468,7 @@ int rename_image_and_update_cache(Manager *m, Image *image, const char* new_name
         /* The image is cached with its name, hence it is necessary to remove from the cache before renaming. */
         assert_se(hashmap_remove_value(m->image_cache, image->name, image));
 
-        r = image_rename(image, new_name);
+        r = image_rename(image, new_name, m->runtime_scope);
         if (r < 0) {
                 image = image_unref(image);
                 return r;

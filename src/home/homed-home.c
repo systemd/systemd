@@ -1,9 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#if HAVE_LINUX_MEMFD_H
-#include <linux/memfd.h>
-#endif
-
 #include <sys/mman.h>
 #include <sys/quota.h>
 #include <sys/vfs.h>
@@ -13,7 +9,6 @@
 #include "build-path.h"
 #include "bus-common-errors.h"
 #include "bus-locator.h"
-#include "data-fd-util.h"
 #include "env-util.h"
 #include "errno-list.h"
 #include "errno-util.h"
@@ -1266,13 +1261,13 @@ static int home_start_work(
         if (r < 0)
                 return r;
 
-        stdin_fd = acquire_data_fd(formatted);
+        stdin_fd = memfd_new_and_seal_string("request", formatted);
         if (stdin_fd < 0)
                 return stdin_fd;
 
         log_debug("Sending to worker: %s", formatted);
 
-        stdout_fd = memfd_create_wrapper("homework-stdout", MFD_CLOEXEC | MFD_NOEXEC_SEAL);
+        stdout_fd = memfd_new("homework-stdout");
         if (stdout_fd < 0)
                 return stdout_fd;
 

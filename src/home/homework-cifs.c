@@ -5,7 +5,6 @@
 #include <linux/fs.h>
 #endif
 
-#include "data-fd-util.h"
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -13,6 +12,7 @@
 #include "fs-util.h"
 #include "homework-cifs.h"
 #include "homework-mount.h"
+#include "memfd-util.h"
 #include "mkdir.h"
 #include "mount-util.h"
 #include "process-util.h"
@@ -76,7 +76,7 @@ int home_setup_cifs(
                 pid_t mount_pid;
                 int exit_status;
 
-                passwd_fd = acquire_data_fd(*pw);
+                passwd_fd = memfd_new_and_seal_string("cifspw", *pw);
                 if (passwd_fd < 0)
                         return log_error_errno(passwd_fd, "Failed to create data FD for password: %m");
 
