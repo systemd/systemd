@@ -236,9 +236,9 @@ static int run(int argc, char *argv[]) {
                 t = usec_sub_unsigned(MIN(timeout_a, timeout_b), now(CLOCK_MONOTONIC));
 
                 struct pollfd p[3] = {
-                        { .fd = fd,            .events = events_a           },
-                        { .fd = STDIN_FILENO,  .events = events_b & POLLIN  },
-                        { .fd = STDOUT_FILENO, .events = events_b & POLLOUT },
+                        { .fd = fd,     .events = events_a           },
+                        { .fd = in_fd,  .events = events_b & POLLIN  },
+                        { .fd = out_fd, .events = events_b & POLLOUT },
                 };
 
                 r = ppoll_usec(p, ELEMENTSOF(p), t);
