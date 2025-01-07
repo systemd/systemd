@@ -13,6 +13,7 @@
 #include "path-util.h"
 #include "process-util.h"
 #include "string-util.h"
+#include "syslog-util.h"
 #include "user-util.h"
 
 int json_dispatch_unbase64_iovec(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
@@ -362,7 +363,7 @@ int json_dispatch_log_level(const char *name, sd_json_variant *variant, sd_json_
 
         if (FLAGS_SET(flags, SD_JSON_RELAX) && t < 0)
                 t = LOG_NULL;
-        else if (LOG_PRI(t) != t)
+        else if (!log_level_is_valid(t))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a valid log level.", strna(name));
 
         *log_level = t;
