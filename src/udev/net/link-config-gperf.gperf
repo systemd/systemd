@@ -63,6 +63,7 @@ Link.TransmitChecksumOffload,              config_parse_tristate,               
 Link.GenericSegmentationOffload,           config_parse_tristate,                 0,                             offsetof(LinkConfig, features[NET_DEV_FEAT_GSO])
 Link.TCPSegmentationOffload,               config_parse_tristate,                 0,                             offsetof(LinkConfig, features[NET_DEV_FEAT_TSO])
 Link.TCP6SegmentationOffload,              config_parse_tristate,                 0,                             offsetof(LinkConfig, features[NET_DEV_FEAT_TSO6])
+Link.PartialGenericSegmentationOffload,    config_parse_tristate,                 0,                             offsetof(LinkConfig, features[NET_DEV_FEAT_GSO_PARTIAL])
 Link.UDPSegmentationOffload,               config_parse_warn_compat,              DISABLED_LEGACY,               0
 Link.GenericReceiveOffload,                config_parse_tristate,                 0,                             offsetof(LinkConfig, features[NET_DEV_FEAT_GRO])
 Link.GenericReceiveOffloadHardware,        config_parse_tristate,                 0,                             offsetof(LinkConfig, features[NET_DEV_FEAT_GRO_HW])
@@ -72,6 +73,8 @@ Link.TransmitVLANCTAGHardwareAcceleration, config_parse_tristate,               
 Link.ReceiveVLANCTAGFilter,                config_parse_tristate,                 0,                             offsetof(LinkConfig, features[NET_DEV_FEAT_HW_VLAN_CTAG_FILTER])
 Link.TransmitVLANSTAGHardwareAcceleration, config_parse_tristate,                 0,                             offsetof(LinkConfig, features[NET_DEV_FEAT_HW_VLAN_STAG_TX])
 Link.NTupleFilter,                         config_parse_tristate,                 0,                             offsetof(LinkConfig, features[NET_DEV_FEAT_NTUPLE])
+Link.ReceiveFCS,                           config_parse_tristate,                 0,                             offsetof(LinkConfig, features[NET_DEV_FEAT_RXFCS])
+Link.ReceiveAll,                           config_parse_tristate,                 0,                             offsetof(LinkConfig, features[NET_DEV_FEAT_RXALL])
 Link.RxChannels,                           config_parse_ring_buffer_or_channel,   0,                             offsetof(LinkConfig, channels.rx)
 Link.TxChannels,                           config_parse_ring_buffer_or_channel,   0,                             offsetof(LinkConfig, channels.tx)
 Link.OtherChannels,                        config_parse_ring_buffer_or_channel,   0,                             offsetof(LinkConfig, channels.other)
