@@ -757,31 +757,34 @@ static int compose_open_fds(pid_t pid, char **ret) {
  * container parent (the pid's process isn't 'containerized').
  * Returns a negative number on errors.
  */
-static int get_process_container_parent_cmdline(pid_t pid, char** cmdline) {
-        pid_t container_pid;
+static int get_process_container_parent_cmdline(PidRef *pid, char** ret_cmdline) {
         const char *proc_root_path;
         struct stat root_stat, proc_root_stat;
         int r;
+
+        assert(pid);
+        assert(ret_cmdline);
 
         /* To compare inodes of / and /proc/[pid]/root */
         if (stat("/", &root_stat) < 0)
                 return -errno;
 
-        proc_root_path = procfs_file_alloca(pid, "root");
+        proc_root_path = procfs_file_alloca(pid->pid, "root");
         if (stat(proc_root_path, &proc_root_stat) < 0)
                 return -errno;
 
         /* The process uses system root. */
         if (stat_inode_same(&proc_root_stat, &root_stat)) {
-                *cmdline = NULL;
+                *ret_cmdline = NULL;
                 return 0;
         }
 
+        _cleanup_(pidref_done) PidRef container_pid = PIDREF_NULL;
         r = namespace_get_leader(pid, NAMESPACE_MOUNT, &container_pid);
         if (r < 0)
                 return r;
 
-        r = pid_get_cmdline(container_pid, SIZE_MAX, PROCESS_CMDLINE_QUOTE_POSIX, cmdline);
+        r = pidref_get_cmdline(&container_pid, SIZE_MAX, PROCESS_CMDLINE_QUOTE_POSIX, ret_cmdline);
         if (r < 0)
                 return r;
 
@@ -1451,7 +1454,7 @@ static int gather_pid_metadata_from_procfs(struct iovec_wrapper *iovw, Context *
 
                 /* If the process' root is "/", then there is a chance it has
                  * mounted own root and hence being containerized. */
-                if (proc_self_root_is_slash && get_process_container_parent_cmdline(pid, &t) > 0)
+                if (proc_self_root_is_slash && get_process_container_parent_cmdline(&context->pidref, &t) > 0)
                         (void) iovw_put_string_field_free(iovw, "COREDUMP_CONTAINER_CMDLINE=", t);
         }
 
@@ -1518,11 +1521,13 @@ static int receive_ucred(int transport_fd, struct ucred *ret_ucred) {
         return 0;
 }
 
-static int can_forward_coredump(pid_t pid) {
+static int can_forward_coredump(const PidRef *pid) {
         _cleanup_free_ char *cgroup = NULL, *path = NULL, *unit = NULL;
         int r;
 
-        r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, pid, &cgroup);
+        assert(pidref_is_set(pid));
+
+        r = cg_pidref_get_path(SYSTEMD_CGROUP_CONTROLLER, pid, &cgroup);
         if (r < 0)
                 return r;
 
@@ -1551,7 +1556,7 @@ static int can_forward_coredump(pid_t pid) {
 static int forward_coredump_to_container(Context *context) {
         _cleanup_close_ int pidnsfd = -EBADF, mntnsfd = -EBADF, netnsfd = -EBADF, usernsfd = -EBADF, rootfd = -EBADF;
         _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
-        pid_t leader_pid, child;
+        pid_t child;
         struct ucred ucred = {
                 .pid = context->pidref.pid,
                 .uid = context->uid,
@@ -1561,11 +1566,12 @@ static int forward_coredump_to_container(Context *context) {
 
         assert(context);
 
-        r = namespace_get_leader(context->pidref.pid, NAMESPACE_PID, &leader_pid);
+        _cleanup_(pidref_done) PidRef leader_pid = PIDREF_NULL;
+        r = namespace_get_leader(&context->pidref, NAMESPACE_PID, &leader_pid);
         if (r < 0)
                 return log_debug_errno(r, "Failed to get namespace leader: %m");
 
-        r = can_forward_coredump(leader_pid);
+        r = can_forward_coredump(&leader_pid);
         if (r < 0)
                 return log_debug_errno(r, "Failed to check if coredump can be forwarded: %m");
         if (r == 0)
@@ -1580,15 +1586,15 @@ static int forward_coredump_to_container(Context *context) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to set SO_PASSCRED: %m");
 
-        r = namespace_open(leader_pid, &pidnsfd, &mntnsfd, &netnsfd, &usernsfd, &rootfd);
+        r = pidref_namespace_open(&leader_pid, &pidnsfd, &mntnsfd, &netnsfd, &usernsfd, &rootfd);
         if (r < 0)
-                return log_debug_errno(r, "Failed to join namespaces of PID " PID_FMT ": %m", leader_pid);
+                return log_debug_errno(r, "Failed to open namespaces of PID " PID_FMT ": %m", leader_pid.pid);
 
         r = namespace_fork("(sd-coredumpns)", "(sd-coredump)", NULL, 0,
                            FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM,
                            pidnsfd, mntnsfd, netnsfd, usernsfd, rootfd, &child);
         if (r < 0)
-                return log_debug_errno(r, "Failed to fork into namespaces of PID " PID_FMT ": %m", leader_pid);
+                return log_debug_errno(r, "Failed to fork into namespaces of PID " PID_FMT ": %m", leader_pid.pid);
         if (r == 0) {
                 pair[0] = safe_close(pair[0]);
 
