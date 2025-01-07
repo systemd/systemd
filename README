@@ -29,38 +29,43 @@ LICENSE:
         LGPL-2.1-or-later for all code, exceptions noted in LICENSES/README.md
 
 REQUIREMENTS:
-        Linux kernel ≥ 4.3
+        Linux kernel ≥ 3.15 for timerfd_create() CLOCK_BOOTTIME support
+                     ≥ 3.17 for memfd_create() and getrandom()
+                     ≥ 4.3 for ambient capabilities
                      ≥ 4.5 for pids controller in cgroup v2
                      ≥ 4.6 for cgroup namespaces
                      ≥ 4.9 for RENAME_NOREPLACE support in vfat
                      ≥ 4.10 for cgroup-bpf egress and ingress hooks
-                     ≥ 4.11 for nsfs
-                     # FIXME: drop compat glue and remove entries above before v258
+                     ≥ 4.11 for nsfs NS_GET_NSTYPE
                      ≥ 4.15 for cgroup-bpf device hook and cpu controller in cgroup v2
                      ≥ 4.17 for cgroup-bpf socket address hooks and /sys/power/resume_offset
                      ≥ 4.20 for PSI (used by systemd-oomd)
                      ≥ 5.2 for cgroup freezer
                      ≥ 5.3 for bounded loops in BPF program
                      ≥ 5.4 for pidfd, new mount API, and signed Verity images
-                     ≥ 5.6 for getrandom() GRND_INSECURE
+
+        ⛔ Kernel versions below 5.4 ("minimum baseline") are not supported at all,
+           and are missing required functionality as listed above.
+           # FIXME: actually drop compat glue before v258
+
+        Linux kernel ≥ 5.6 for getrandom() GRND_INSECURE
                      ≥ 5.7 for CLONE_INTO_CGROUP, BPF links and the BPF LSM hook
-                     ≥ 5.8 for LOOP_CONFIGURE and STATX_ATTR_MOUNT_ROOT
+
+        ⚠️ Kernel versions below 5.7 ("recommended baseline") have significant gaps
+           in functionality and are not recommended for use with this version
+           of systemd. Taint flag 'old-kernel' will be set. systemd will most likely
+           still function, but upstream support and testing are limited.
+
+        Linux kernel ≥ 5.8 for LOOP_CONFIGURE and STATX_ATTR_MOUNT_ROOT
                      ≥ 5.9 for close_range()
+                     ≥ 5.14 for cgroup.kill
                      ≥ 6.3 for MFD_EXEC/MFD_NOEXEC_SEAL and tmpfs noswap option
                      ≥ 6.5 for name_to_handle_at() AT_HANDLE_FID, SO_PEERPIDFD/SO_PASSPIDFD,
                                and MOVE_MOUNT_BENEATH
                      ≥ 6.9 for pidfs
 
-        ⛔ Kernel versions below 4.11 ("minimum baseline") are not supported at
-        all, and are missing required functionality (e.g. CLOCK_BOOTTIME support
-        for timerfd_create(), getrandom(), ambient capabilities, memfd_create(),
-        or nsfs (NS_GET_NSTYPE)).
-
-        ⚠️ Kernel versions below 5.4 ("recommended baseline") have significant
-        gaps in functionality and are not recommended for use with this version
-        of systemd (e.g. lack race-free process tracking by pidfd and new mount API
-        support). Taint flag 'old-kernel' will be set. systemd will most likely
-        still function, but upstream support and testing are limited.
+        ✅ systemd utilizes several new kernel APIs, but will fall back gracefully
+           when unavailable.
 
         Kernel Config Options:
           CONFIG_DEVTMPFS
