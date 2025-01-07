@@ -103,6 +103,11 @@ udevadm info -e --initialized-nomatch >/dev/null
 # udevadm info -c
 udevadm info -w /sys/class/net/$netdev
 udevadm info --wait-for-initialization=5 /sys/class/net/$netdev
+pushd /dev
+udevadm info null >/dev/null
+udevadm info ./null >/dev/null
+popd
+udevadm info /usr/../dev/null >/dev/null
 udevadm info -h
 
 assert_rc 124 timeout 1 udevadm monitor
