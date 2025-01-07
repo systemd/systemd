@@ -42,6 +42,7 @@
 #include "user-util.h"
 #include "utf8.h"
 #include "varlink-io.systemd.Hostname.h"
+#include "varlink-io.systemd.service.h"
 #include "varlink-util.h"
 #include "virt.h"
 
@@ -1771,13 +1772,19 @@ static int connect_varlink(Context *c) {
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate Varlink server: %m");
 
-        r = sd_varlink_server_add_interface(c->varlink_server, &vl_interface_io_systemd_Hostname);
+        r = sd_varlink_server_add_interface_many(
+                        c->varlink_server,
+                        &vl_interface_io_systemd_Hostname,
+                        &vl_interface_io_systemd_service);
         if (r < 0)
                 return log_error_errno(r, "Failed to add Hostname interface to Varlink server: %m");
 
         r = sd_varlink_server_bind_method_many(
                         c->varlink_server,
-                        "io.systemd.Hostname.Describe", vl_method_describe);
+                        "io.systemd.Hostname.Describe",      vl_method_describe,
+                        "io.systemd.service.Ping",           varlink_method_ping,
+                        "io.systemd.service.SetLogLevel",    varlink_method_set_log_level,
+                        "io.systemd.service.GetEnvironment", varlink_method_get_environment);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind Varlink method calls: %m");
 
