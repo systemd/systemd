@@ -1447,14 +1447,9 @@ int wipe_fully_visible_api_fs(int mntns_fd) {
 
         log_debug("Wiping fully visible API FS");
 
-        r = namespace_open(0,
-                           /* ret_pidns_fd = */ NULL,
-                           &orig_mntns_fd,
-                           /* ret_netns_fd = */ NULL,
-                           /* ret_userns_fd = */ NULL,
-                           /* ret_root_fd = */ NULL);
-        if (r < 0)
-                return log_error_errno(r, "Failed to pin originating mount namespace: %m");
+        orig_mntns_fd = namespace_open_by_type(NAMESPACE_MOUNT);
+        if (orig_mntns_fd < 0)
+                return log_error_errno(orig_mntns_fd, "Failed to pin originating mount namespace: %m");
 
         r = namespace_enter(/* pidns_fd = */ -EBADF,
                             mntns_fd,

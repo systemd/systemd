@@ -428,15 +428,9 @@ int netns_get_nsid(int netnsfd, uint32_t *ret) {
         int r;
 
         if (netnsfd < 0) {
-                r = namespace_open(
-                                0,
-                                /* ret_pidns_fd = */ NULL,
-                                /* ret_mntns_fd = */ NULL,
-                                &_netns_fd,
-                                /* ret_userns_fd = */ NULL,
-                                /* ret_root_fd = */ NULL);
-                if (r < 0)
-                        return r;
+                _netns_fd = namespace_open_by_type(NAMESPACE_NET);
+                if (_netns_fd < 0)
+                        return _netns_fd;
 
                 netnsfd = _netns_fd;
         }
