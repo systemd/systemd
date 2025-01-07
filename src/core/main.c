@@ -1973,8 +1973,23 @@ static int do_reexecute(
 
         if (r < 0) {
                 r = chase("/sbin/init", switch_root_dir, CHASE_PREFIX_ROOT, NULL, NULL);
-                if (r < 0)
+                if (r < 0) {
+                        *ret_error_message = "Failed to chase /sbin/init";
                         return log_error_errno(r, "Failed to chase %s/sbin/init", strempty(switch_root_dir));
+                }
+        }
+
+        if (switch_root_dir) {
+                struct utsname uts;
+
+                assert_se(uname(&uts) >= 0);
+
+                const char *kernel_path = strjoina("/lib/modules/", uts.release);
+                r = chase(kernel_path, switch_root_dir, CHASE_PREFIX_ROOT, NULL, NULL);
+                if (r < 0) {
+                        *ret_error_message = "Failed to chase kernel on the host";
+                        return log_error_errno(r, "Failed to chase %s%s", switch_root_dir, kernel_path);
+                }
         }
 
         /* Close and disarm the watchdog, so that the new instance can reinitialize it, but doesn't get
