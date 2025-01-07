@@ -1710,12 +1710,13 @@ static int acquire_pid_mount_tree_fd(const Context *context, int *ret_fd) {
         if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, pair) < 0)
                 return log_error_errno(errno, "Failed to create socket pair: %m");
 
-        r = namespace_open(context->pidref.pid,
-                           /* ret_pidns_fd= */ NULL,
-                           &mntns_fd,
-                           /* ret_netns_fd= */ NULL,
-                           /* ret_userns_fd= */ NULL,
-                           &root_fd);
+        r = pidref_namespace_open(
+                        &context->pidref,
+                        /* ret_pidns_fd= */ NULL,
+                        &mntns_fd,
+                        /* ret_netns_fd= */ NULL,
+                        /* ret_userns_fd= */ NULL,
+                        &root_fd);
         if (r < 0)
                 return log_error_errno(r, "Failed to open mount namespace of crashing process: %m");
 
