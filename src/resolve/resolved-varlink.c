@@ -9,6 +9,7 @@
 #include "socket-netlink.h"
 #include "varlink-io.systemd.Resolve.h"
 #include "varlink-io.systemd.Resolve.Monitor.h"
+#include "varlink-io.systemd.service.h"
 #include "varlink-util.h"
 
 typedef struct LookupParameters {
@@ -1410,7 +1411,10 @@ static int varlink_main_server_init(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate varlink server object: %m");
 
-        r = sd_varlink_server_add_interface(s, &vl_interface_io_systemd_Resolve);
+        r = sd_varlink_server_add_interface_many(
+                        s,
+                        &vl_interface_io_systemd_Resolve,
+                        &vl_interface_io_systemd_service);
         if (r < 0)
                 return log_error_errno(r, "Failed to add Resolve interface to varlink server: %m");
 
@@ -1419,7 +1423,10 @@ static int varlink_main_server_init(Manager *m) {
                         "io.systemd.Resolve.ResolveHostname", vl_method_resolve_hostname,
                         "io.systemd.Resolve.ResolveAddress",  vl_method_resolve_address,
                         "io.systemd.Resolve.ResolveService",  vl_method_resolve_service,
-                        "io.systemd.Resolve.ResolveRecord",   vl_method_resolve_record);
+                        "io.systemd.Resolve.ResolveRecord",   vl_method_resolve_record,
+                        "io.systemd.service.Ping",            varlink_method_ping,
+                        "io.systemd.service.SetLogLevel",     varlink_method_set_log_level,
+                        "io.systemd.service.GetEnvironment",  varlink_method_get_environment);
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink methods: %m");
 
