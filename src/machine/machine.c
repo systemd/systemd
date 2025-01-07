@@ -681,7 +681,7 @@ int machine_openpt(Machine *m, int flags, char **ret_peer) {
                 if (!pidref_is_set(&m->leader))
                         return -EINVAL;
 
-                return openpt_allocate_in_namespace(m->leader.pid, flags, ret_peer);
+                return openpt_allocate_in_namespace(&m->leader, flags, ret_peer);
 
         default:
                 return -EOPNOTSUPP;
@@ -700,7 +700,7 @@ int machine_open_terminal(Machine *m, const char *path, int mode) {
                 if (!pidref_is_set(&m->leader))
                         return -EINVAL;
 
-                return open_terminal_in_namespace(m->leader.pid, path, mode);
+                return open_terminal_in_namespace(&m->leader, path, mode);
 
         default:
                 return -EOPNOTSUPP;

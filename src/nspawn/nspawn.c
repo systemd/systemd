@@ -4012,14 +4012,9 @@ static int outer_child(
                 return r;
 
         if (arg_userns_mode != USER_NAMESPACE_NO) {
-                r = namespace_open(0,
-                                   /* ret_pidns_fd = */ NULL,
-                                   &mntns_fd,
-                                   /* ret_netns_fd = */ NULL,
-                                   /* ret_userns_fd = */ NULL,
-                                   /* ret_root_fd = */ NULL);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to pin outer mount namespace: %m");
+                mntns_fd = namespace_open_by_type(NAMESPACE_MOUNT);
+                if (mntns_fd < 0)
+                        return log_error_errno(mntns_fd, "Failed to pin outer mount namespace: %m");
 
                 l = send_one_fd(fd_outer_socket, mntns_fd, 0);
                 if (l < 0)
