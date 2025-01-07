@@ -54,11 +54,6 @@ int varlink_method_set_log_level(sd_varlink *link, sd_json_variant *parameters, 
         assert(link);
         assert(parameters);
 
-        /* NOTE: The method does have 1 parameter, but we must compare to 2 here, because
-         * sd_json_variant_elements() breaks abstraction and exposes internal structure of JsonObject. */
-        if (sd_json_variant_elements(parameters) != 2)
-                return sd_varlink_error_invalid_parameter(link, parameters);
-
         r = sd_varlink_dispatch(link, parameters, dispatch_table, &level);
         if (r != 0)
                 return r;
