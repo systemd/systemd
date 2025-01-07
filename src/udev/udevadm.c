@@ -26,6 +26,7 @@ static int help(void) {
                 { "test",         "Test an event run"                 },
                 { "test-builtin", "Test a built-in command"           },
                 { "verify",       "Verify udev rules files"           },
+                { "cat",          "Show udev rules files"             },
                 { "wait",         "Wait for device or device symlink" },
                 { "lock",         "Lock a block device"               },
         };
@@ -97,6 +98,7 @@ static int help_main(int argc, char *argv[], void *userdata) {
 
 static int udevadm_main(int argc, char *argv[]) {
         static const Verb verbs[] = {
+                { "cat",          VERB_ANY, VERB_ANY, 0, cat_main     },
                 { "info",         VERB_ANY, VERB_ANY, 0, info_main    },
                 { "trigger",      VERB_ANY, VERB_ANY, 0, trigger_main },
                 { "settle",       VERB_ANY, VERB_ANY, 0, settle_main  },
