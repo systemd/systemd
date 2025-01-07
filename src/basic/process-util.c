@@ -2215,3 +2215,26 @@ _noreturn_ void report_errno_and_exit(int errno_fd, int error) {
 
         _exit(EXIT_FAILURE);
 }
+
+int read_errno(int errno_fd) {
+        int r;
+
+        assert(errno_fd >= 0);
+
+        ssize_t n = loop_read(errno_fd, &r, sizeof(r), /* do_pool = */ 0);
+        if (n < 0) {
+                log_debug_errno(n, "Failed to read errno: %m");
+                return -EIO;
+        }
+        if (n == sizeof(r)) {
+                /* child processes reported a error, return it */
+                if (r < 0)
+                        return log_debug_errno(r, "Child process failed with errno: %m");
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Received a errno, but it's a positive value");
+        }
+        if (n != 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Received unexpected amount of bytes while reading errno");
+
+        /* the process existed without reporting a error, assuming success */
+        return 0;
+}
