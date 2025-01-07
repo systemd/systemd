@@ -2755,7 +2755,6 @@ _public_ int sd_varlink_dispatch(sd_varlink *v, sd_json_variant *parameters, con
         int r;
 
         assert_return(v, -EINVAL);
-        assert_return(table, -EINVAL);
 
         /* A wrapper around json_dispatch_full() that returns a nice InvalidParameter error if we hit a problem with some field. */
 
