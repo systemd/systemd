@@ -18,6 +18,7 @@
 #include "path-util.h"
 #include "percent-util.h"
 #include "varlink-io.systemd.oom.h"
+#include "varlink-io.systemd.service.h"
 #include "varlink-util.h"
 
 typedef struct ManagedOOMMessage {
@@ -725,13 +726,21 @@ static int manager_varlink_init(Manager *m, int fd) {
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate varlink server object: %m");
 
-        r = sd_varlink_server_add_interface(s, &vl_interface_io_systemd_oom);
+        r = sd_varlink_server_add_interface_many(
+                        s,
+                        &vl_interface_io_systemd_oom,
+                        &vl_interface_io_systemd_service);
         if (r < 0)
-                return log_error_errno(r, "Failed to add oom interface to varlink server: %m");
+                return log_error_errno(r, "Failed to add Varlink interfaces to varlink server: %m");
 
-        r = sd_varlink_server_bind_method(s, "io.systemd.oom.ReportManagedOOMCGroups", process_managed_oom_request);
+        r = sd_varlink_server_bind_method_many(
+                        s,
+                        "io.systemd.oom.ReportManagedOOMCGroups", process_managed_oom_request,
+                        "io.systemd.service.Ping",                varlink_method_ping,
+                        "io.systemd.service.SetLogLevel",         varlink_method_set_log_level,
+                        "io.systemd.service.GetEnvironment",      varlink_method_get_environment);
         if (r < 0)
-                return log_error_errno(r, "Failed to register varlink method: %m");
+                return log_error_errno(r, "Failed to register varlink methods: %m");
 
         if (fd < 0)
                 r = sd_varlink_server_listen_address(s, VARLINK_ADDR_PATH_MANAGED_OOM_USER, 0666);
