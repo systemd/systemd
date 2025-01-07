@@ -20,7 +20,7 @@ SD_VARLINK_DEFINE_INTERFACE(
                 SD_VARLINK_INTERFACE_COMMENT("An interface to control basic properties of systemd services."),
                 SD_VARLINK_SYMBOL_COMMENT("Checks if the service is running."),
                 &vl_method_Ping,
-                SD_VARLINK_SYMBOL_COMMENT("Reloads configurations."),
+                SD_VARLINK_SYMBOL_COMMENT("Reloads configuration files."),
                 &vl_method_Reload,
                 SD_VARLINK_SYMBOL_COMMENT("Sets the maximum log level."),
                 &vl_method_SetLogLevel);
