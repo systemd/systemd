@@ -71,13 +71,19 @@ static int pidref_namespace_open_by_type_internal(const PidRef *pidref, Namespac
         const char *p;
 
         p = pid_namespace_path(pidref->pid, type);
-        nsfd = open(p, O_RDONLY|O_NOCTTY|O_CLOEXEC);
-        if (nsfd < 0) {
-                if (errno == ENOENT && proc_mounted() == 0)
-                        return -ENOSYS;
+        nsfd = RET_NERRNO(open(p, O_RDONLY|O_NOCTTY|O_CLOEXEC));
+        if (nsfd == -ENOENT) {
+                r = proc_mounted();
+                if (r == 0)
+                        return -ENOSYS;  /* /proc/ is not available or not set up properly, we're most likely
+                                            in some chroot environment. */
+                if (r > 0)
+                        return -ENOPKG;  /* If /proc/ is definitely around then this means the namespace type is not supported */
 
-                return -errno;
+                /* can't determine? then propagate original error */
         }
+        if (nsfd < 0)
+                return nsfd;
 
         if (!need_verify) { /* Otherwise we verify on our own */
                 r = pidref_verify(pidref);
@@ -143,7 +149,7 @@ int pidref_namespace_open(
 
         if (ret_userns_fd) {
                 userns_fd = pidref_namespace_open_by_type_internal(pidref, NAMESPACE_USER, &need_verify);
-                if (userns_fd < 0 && !IN_SET(userns_fd, -ENOENT, -ENOPKG))
+                if (userns_fd < 0 && userns_fd != -ENOPKG)
                         return userns_fd;
         }
 
