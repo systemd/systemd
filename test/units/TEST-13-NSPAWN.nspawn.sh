@@ -1131,7 +1131,10 @@ testcase_unpriv() {
 
     local tmpdir name
     tmpdir="$(mktemp -d /var/tmp/TEST-13-NSPAWN.unpriv.XXX)"
-    name="unprv-${tmpdir##*.}"
+    # Note: we pick the machine name short enough to be a valid machine name,
+    # but definitely longer than 16 chars, so that userns name mangling in the
+    # nsresourced userns allocation logic is triggered and tested. */
+    name="unprv-${tmpdir##*.}-somelongsuffix"
     trap 'rm -fr ${tmpdir@Q} || true; rm -f /run/verity.d/test-13-nspawn-${name@Q} || true' RETURN ERR
     create_dummy_ddi "$tmpdir" "$name"
     chown --recursive testuser: "$tmpdir"
