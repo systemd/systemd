@@ -46,6 +46,18 @@ __get_all_devices() {
     __get_all_device_units
 }
 
+__get_udev_rules_files() {
+    ls /usr/lib/udev/rules.d/*.rules \
+        /usr/local/lib/udev/rules.d/*.rules \
+        /run/udev/rules.d/*.rules \
+        /etc/udev/rules.d/*.rules 2>/dev/null
+}
+
+__get_udev_rules_names() {
+    local -a rules=( $( __get_udev_rules_files ) )
+    printf '%s\n' "${rules[@]##*/}"
+}
+
 _udevadm() {
     local i verb comps builtin
     local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
@@ -72,11 +84,12 @@ _udevadm() {
         [TEST]='-a --action -N --resolve-names'
         [TEST_BUILTIN]='-a --action'
         [VERIFY]='-N --resolve-names --root --no-summary --no-style'
+        [CAT]='--root --tldr --config'
         [WAIT]='-t --timeout --initialized=no --removed --settle'
         [LOCK]='-t --timeout -d --device -b --backing -p --print'
     )
 
-    local verbs=(info trigger settle control monitor test-builtin test verify wait lock)
+    local verbs=(info trigger settle control monitor test-builtin test verify cat wait lock)
     local builtins=(blkid btrfs hwdb input_id keyboard kmod net_driver net_id net_setup_link path_id uaccess usb_id)
 
     for ((i=0; i < COMP_CWORD; i++)); do
@@ -287,6 +300,30 @@ _udevadm() {
                 comps="${OPTS[COMMON]} ${OPTS[VERIFY]}"
             else
                 comps=$( compgen -A file -- "$cur" )
+            fi
+            ;;
+
+        'cat')
+            if __contains_word "$prev" ${OPTS[CAT]}; then
+                case $prev in
+                    --root)
+                        comps=$(compgen -A directory -- "$cur" )
+                        compopt -o dirnames
+                        ;;
+                    *)
+                        comps=''
+                        ;;
+                esac
+                COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+                return 0
+            fi
+
+            if [[ $cur = -* ]]; then
+                comps="${OPTS[COMMON]} ${OPTS[CAT]}"
+            elif [[ $cur = /* ]]; then
+                comps=$( __get_udev_rules_files )
+            else
+                comps=$( __get_udev_rules_names )
             fi
             ;;
 
