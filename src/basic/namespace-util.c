@@ -307,9 +307,14 @@ int namespace_is_init(NamespaceType type) {
 
         struct stat st;
         r = RET_NERRNO(stat(p, &st));
-        if (r == -ENOENT)
+        if (r == -ENOENT) {
                 /* If the /proc/ns/<type> API is not around in /proc/ then ns is off in the kernel and we are in the init ns */
-                return proc_mounted() == 0 ? -ENOSYS : true;
+                r = proc_mounted();
+                if (r < 0)
+                        return -ENOENT; /* If we can't determine if /proc/ is mounted propagate original error */
+
+                return r ? true : -ENOSYS;
+        }
         if (r < 0)
                 return r;
 
