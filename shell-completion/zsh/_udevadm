@@ -123,6 +123,17 @@ _udevadm_verify(){
         '*::files:_files'
 }
 
+(( $+functions[_udevadm_cat] )) ||
+_udevadm_cat(){
+    _arguments \
+        '(- *)'{-h,--help}'[Show help]' \
+        '(- *)'{-V,--version}'[Show package version]' \
+        '--root=[Operate on catalog hierarchy under specified directory]:directories:_directories' \
+        --tldr'[Skip comments and empty lines.]' \
+        --config'[Show udev.conf.]' \
+        '*::files:_files'
+}
+
 (( $+functions[_udevadm_wait] )) ||
 _udevadm_wait(){
     _arguments \

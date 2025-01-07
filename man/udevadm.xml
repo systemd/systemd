@@ -54,6 +54,11 @@
       <arg choice="opt" rep="repeat"><replaceable>file</replaceable></arg>
     </cmdsynopsis>
     <cmdsynopsis>
+      <command>udevadm cat</command>
+      <arg choice="opt" rep="repeat">options</arg>
+      <arg choice="opt" rep="repeat"><replaceable>file</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
       <command>udevadm wait <optional>options</optional> <replaceable>device|syspath</replaceable></command>
     </cmdsynopsis>
     <cmdsynopsis>
@@ -971,6 +976,53 @@
             the exit status is <constant>0</constant> if no syntactic or semantic errors are found.</para>
 
             <xi:include href="version-info.xml" xpointer="v254"/>
+          </listitem>
+        </varlistentry>
+
+        <xi:include href="standard-options.xml" xpointer="help" />
+      </variablelist>
+    </refsect2>
+
+    <refsect2>
+      <title>udevadm cat
+      <optional><replaceable>options</replaceable></optional>
+      <optional><replaceable>file</replaceable></optional>
+      …
+      </title>
+
+      <para>Show udev rules files or udev.conf.</para>
+
+      <para>Positional arguments could be used to specify one or more files to show.
+      If no files are specified, the udev rules are read from the files located in
+      the same udev/rules.d directories that are processed by the udev daemon.</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><option>--root=<replaceable>PATH</replaceable></option></term>
+          <listitem>
+            <para>When looking for udev rules files located in udev/rules.d directories,
+            operate on files underneath the specified root path <replaceable>PATH</replaceable>.</para>
+
+            <xi:include href="version-info.xml" xpointer="v258"/>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--tldr</option></term>
+          <listitem>
+            <para>Only print the "interesting" parts of the configuration files, skipping comments and empty
+            lines and section headers followed only by comments and empty lines.</para>
+
+            <xi:include href="version-info.xml" xpointer="v258"/>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--config</option></term>
+          <listitem>
+            <para>Shows udev.conf, rather than udev rules files.</para>
+
+            <xi:include href="version-info.xml" xpointer="v258"/>
           </listitem>
         </varlistentry>
 
