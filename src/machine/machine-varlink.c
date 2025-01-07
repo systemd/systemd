@@ -479,10 +479,6 @@ int vl_method_open(sd_varlink *link, sd_json_variant *parameters, sd_varlink_met
         assert(link);
         assert(parameters);
 
-        r = sd_varlink_set_allow_fd_passing_output(link, true);
-        if (r < 0)
-                return log_error_errno(r, "Failed to enable varlink fd passing for write: %m");
-
         r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
         if (r != 0)
                 return r;
@@ -559,7 +555,7 @@ int vl_method_open(sd_varlink *link, sd_json_variant *parameters, sd_varlink_met
         }
 
         ptmx_fd_idx = sd_varlink_push_fd(link, ptmx_fd);
-        /* no need to handle -EPERM because we do sd_varlink_set_allow_fd_passing_output() above */
+        /* no need to handle -EPERM because server has SD_VARLINK_SERVER_ALLOW_FD_PASSING_OUTPUT */
         if (ptmx_fd_idx < 0)
                 return log_debug_errno(ptmx_fd_idx, "Failed to push file descriptor over varlink: %m");
 
@@ -918,4 +914,41 @@ int vl_method_copy_internal(sd_varlink *link, sd_json_variant *parameters, sd_va
         operation_attach_varlink_reply(op, link);
         op->done = copy_done;
         return 1;
+}
+
+int vl_method_open_root_directory_internal(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_close_ int fd = -EBADF;
+        Machine *machine = ASSERT_PTR(userdata);
+        Manager *manager = ASSERT_PTR(machine->manager);
+        int r;
+
+        r = varlink_verify_polkit_async(
+                        link,
+                        manager->bus,
+                        "org.freedesktop.machine1.manage-machines",
+                        (const char**) STRV_MAKE("name", machine->name,
+                                                 "verb", "open_root_directory"),
+                        &manager->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        fd = machine_open_root_directory(machine);
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(fd))
+                return sd_varlink_error(link, "io.systemd.Machine.NotSupported", NULL);
+        if (fd < 0)
+                return log_debug_errno(fd, "Failed to open root directory of machine '%s': %m", machine->name);
+
+        int fd_idx = sd_varlink_push_fd(link, fd);
+        /* no need to handle -EPERM because server has SD_VARLINK_SERVER_ALLOW_FD_PASSING_OUTPUT */
+        if (fd_idx < 0)
+                return log_debug_errno(fd_idx, "Failed to push file descriptor over varlink: %m");
+
+        TAKE_FD(fd);
+
+        r = sd_json_buildo(&v, SD_JSON_BUILD_PAIR_INTEGER("fileDescriptor", fd_idx));
+        if (r < 0)
+                return r;
+
+        return sd_varlink_reply(link, v);
 }
