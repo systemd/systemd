@@ -4,8 +4,8 @@ set -e
 
 . mkosi.functions
 
-if [[ ! -f "pkg/$PKG_SUBDIR/systemd.spec" ]]; then
-    echo "spec not found at pkg/$PKG_SUBDIR/systemd.spec, run mkosi once with -ff to make sure the spec is cloned" >&2
+if [[ ! -f "pkg/$PKG_SUBDIR${GIT_SUBDIR:+/$GIT_SUBDIR}/systemd.spec" ]]; then
+    echo "spec not found at pkg/$PKG_SUBDIR${GIT_SUBDIR:+/$GIT_SUBDIR}/systemd.spec, run mkosi once with -ff to make sure the spec is cloned" >&2
     exit 1
 fi
 
@@ -14,7 +14,7 @@ TS="${SOURCE_DATE_EPOCH:-$(date +%s)}"
 # The openSUSE filelists hardcode the manpage compression extension. This causes rpmbuild errors since we
 # disable manpage compression as the files cannot be found. Fix the issue by removing the compression
 # extension.
-find "pkg/$PKG_SUBDIR" -name "files.*" -exec sed --in-place 's/\.gz$//' {} \;
+find "pkg/$PKG_SUBDIR${GIT_SUBDIR:+/$GIT_SUBDIR}" -name "files.*" -exec sed --in-place 's/\.gz$//' {} \;
 
 if [[ "$(rpm --eval "%{lua:print(rpm.vercmp('$(rpm --version | cut -d ' ' -f3)', '4.20'))}")" == "-1" ]]; then
     # Fix the %install override so debuginfo packages are generated.
@@ -54,7 +54,7 @@ if ((WIPE)) && [[ -d "$BUILDDIR/meson-private" ]]; then
 fi
 
 # TODO: Drop when the spec is fixed (either the patch is adapted or not applied when building for upstream).
-sed --in-place '/0009-pid1-handle-console-specificities-weirdness-for-s390.patch/d' "pkg/$PKG_SUBDIR/systemd.spec"
+sed --in-place '/0009-pid1-handle-console-specificities-weirdness-for-s390.patch/d' "pkg/$PKG_SUBDIR${GIT_SUBDIR:+/$GIT_SUBDIR}/systemd.spec"
 
 build() {
     IFS=
@@ -74,7 +74,7 @@ build() {
         --with upstream \
         $( ((WITH_TESTS)) || echo "--nocheck") \
         --define "_topdir /var/tmp" \
-        --define "_sourcedir $PWD/pkg/$PKG_SUBDIR" \
+        --define "_sourcedir $PWD/pkg/$PKG_SUBDIR${GIT_SUBDIR:+/$GIT_SUBDIR}" \
         --define "_rpmdir $OUTPUTDIR" \
         ${BUILDDIR:+"--define=_vpath_builddir $BUILDDIR"} \
         --define "_build_name_fmt %%{NAME}-%%{VERSION}-%%{RELEASE}.%%{ARCH}.rpm" \
@@ -96,7 +96,7 @@ build() {
         --define "_find_debuginfo_opts --unique-debug-src-base \"%{name}\"" \
         --noclean \
         "$@" \
-        "pkg/$PKG_SUBDIR/systemd.spec"
+        "pkg/$PKG_SUBDIR${GIT_SUBDIR:+/$GIT_SUBDIR}/systemd.spec"
 
     EXIT_STATUS=$?
 
@@ -115,7 +115,7 @@ if ! build; then
     # warnings.
     rm systemd.lang
 
-    grep -v ".debug" /tmp/unpackaged-files >>"pkg/$PKG_SUBDIR/files.systemd"
+    grep -v ".debug" /tmp/unpackaged-files >>"pkg/$PKG_SUBDIR${GIT_SUBDIR:+/$GIT_SUBDIR}/files.systemd"
     build --noprep --nocheck
 fi
 

@@ -107,8 +107,9 @@ if ! build; then
     if [[ -f debian/not-installed ]]; then
         pushd debian/tmp
         grep --invert-match "^#" ../not-installed |
-            xargs -I {} bash -O nullglob -c "printf '%s\n' {}" |
-            sed "/^$/d" |
+            xargs -I {} sh -c "test -d '{}' && echo '{}/**/*' || echo '{}'" |
+            xargs -I {} bash -O nullglob -O globstar -c "printf '%s\n' {}" |
+            sed --expression "/^$/d" --expression "s#//*#/#g" |
             xargs -I {} sh -c "test -f '{}' && echo '{}' || true" >>/tmp/packaged-files
         popd
     fi
@@ -122,6 +123,8 @@ if ! build; then
     if [[ ! -s /tmp/unpackaged-files ]]; then
         exit 1
     fi
+
+    echo -e "::warning title=UNPACKAGED-FILES::The following files were not picked up by the package, please update the packaging recipe to include: $(tr '\n' ' ' </tmp/unpackaged-files)"
 
     # Otherwise, we append the unpackaged files to the filelist for the systemd package and retry the build.
     cat /tmp/unpackaged-files >>debian/systemd.install

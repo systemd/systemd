@@ -651,13 +651,16 @@ int link_update(Link *l) {
                 r = manager_llmnr_start(l->manager);
                 if (r < 0)
                         return r;
-        }
+        } else
+                manager_llmnr_stop(l->manager);
+
 
         if (link_get_mdns_support(l) != RESOLVE_SUPPORT_NO) {
                 r = manager_mdns_start(l->manager);
                 if (r < 0)
                         return r;
-        }
+        } else
+                manager_mdns_stop(l->manager);
 
         link_allocate_scopes(l);
         link_add_rrs(l, false);
