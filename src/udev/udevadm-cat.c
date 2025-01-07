@@ -1,0 +1,147 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
+
+#include <getopt.h>
+
+#include "conf-files.h"
+#include "constants.h"
+#include "errno-util.h"
+#include "log.h"
+#include "parse-argument.h"
+#include "path-util.h"
+#include "pretty-print.h"
+#include "static-destruct.h"
+#include "strv.h"
+#include "udevadm.h"
+
+static char *arg_root = NULL;
+static CatFlags arg_cat_flags = 0;
+static bool arg_config = false;
+
+STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
+
+static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("udevadm", "8", &link);
+        if (r < 0)
+                return log_oom();
+
+        printf("%s cat [OPTIONS] [FILE...]\n"
+               "\n%sShow udev rules files.%s\n\n"
+               "  -h --help            Show this help\n"
+               "  -V --version         Show package version\n"
+               "     --root=PATH       Operate on an alternate filesystem root\n"
+               "     --tldr            Skip comments and empty lines\n"
+               "     --config          Show udev.conf rather than udev rules files\n"
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               ansi_highlight(),
+               ansi_normal(),
+               link);
+
+        return 0;
+}
+
+static int parse_argv(int argc, char *argv[]) {
+        enum {
+                ARG_ROOT = 0x100,
+                ARG_TLDR,
+                ARG_CONFIG,
+        };
+        static const struct option options[] = {
+                { "help",          no_argument,       NULL, 'h'             },
+                { "version",       no_argument,       NULL, 'V'             },
+                { "root",          required_argument, NULL, ARG_ROOT        },
+                { "tldr",          no_argument,       NULL, ARG_TLDR        },
+                { "config",        no_argument,       NULL, ARG_CONFIG      },
+                {}
+        };
+
+        int r, c;
+
+        assert(argc >= 0);
+        assert(argv);
+
+        while ((c = getopt_long(argc, argv, "hVN:", options, NULL)) >= 0)
+                switch (c) {
+                case 'h':
+                        return help();
+                case 'V':
+                        return print_version();
+                case ARG_ROOT:
+                        r = parse_path_argument(optarg, /* suppress_root= */ true, &arg_root);
+                        if (r < 0)
+                                return r;
+                        break;
+                case ARG_TLDR:
+                        arg_cat_flags = CAT_TLDR;
+                        break;
+                case ARG_CONFIG:
+                        arg_config = true;
+                        break;
+                case '?':
+                        return -EINVAL;
+                default:
+                        assert_not_reached();
+                }
+
+        if (arg_root && optind < argc)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Combination of --root= and FILEs is not supported.");
+
+        if (arg_config && optind < argc)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Combination of --config and FILEs is not supported.");
+
+        return 1;
+}
+
+int cat_main(int argc, char *argv[], void *userdata) {
+        int r, ret = 0;
+
+        r = parse_argv(argc, argv);
+        if (r <= 0)
+                return r;
+
+        if (arg_config)
+                return conf_files_cat(arg_root, "udev/udev.conf", arg_cat_flags);
+
+        if (optind >= argc) {
+                _cleanup_strv_free_ char **files = NULL;
+
+                r = conf_files_list_strv(&files, ".rules", arg_root, 0, (const char* const*) CONF_PATHS_STRV("udev/rules.d"));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to enumerate rules files: %m");
+
+                if (arg_root && strv_isempty(files))
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
+                                               "No rules files found in %s.", arg_root);
+
+                /* udev rules file does not support dropin configs. So, we can safely pass multiple files as dropins. */
+                return cat_files(/* file = */ NULL, /* dropins = */ files, arg_cat_flags);
+        }
+
+        bool needs_newline = false;
+        STRV_FOREACH(s, strv_skip(argv, optind)) {
+                _cleanup_free_ char *path = NULL;
+
+                r = path_make_absolute_cwd(*s, &path);
+                if (r < 0)
+                        return log_oom();
+
+                if (needs_newline)
+                        puts("");
+
+                if (!endswith(path, ".rules")) {
+                        log_warning("%s: File name must end with '.rules', ignoring.", path);
+                        needs_newline = false;
+                        continue;
+                }
+
+                RET_GATHER(ret, cat_files(*s, /* dropins = */ NULL, arg_cat_flags));
+                needs_newline = true;
+        }
+
+        return ret;
+}
