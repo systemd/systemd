@@ -1385,10 +1385,10 @@ static int gather_pid_metadata_from_procfs(struct iovec_wrapper *iovw, Context *
         if (cg_pid_get_user_unit(pid, &t) >= 0)
                 (void) iovw_put_string_field_free(iovw, "COREDUMP_USER_UNIT=", t);
 
-        if (sd_pid_get_session(pid, &t) >= 0)
+        if (cg_pidref_get_session(&context->pidref, &t) >= 0)
                 (void) iovw_put_string_field_free(iovw, "COREDUMP_SESSION=", t);
 
-        if (sd_pid_get_owner_uid(pid, &owner_uid) >= 0) {
+        if (cg_pidref_get_owner_uid(&context->pidref, &owner_uid) >= 0) {
                 r = asprintf(&t, UID_FMT, owner_uid);
                 if (r > 0)
                         (void) iovw_put_string_field_free(iovw, "COREDUMP_OWNER_UID=", t);
