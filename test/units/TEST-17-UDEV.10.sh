@@ -28,9 +28,15 @@ blk="$(mktemp)"
 dd if=/dev/zero of="$blk" bs=1M count=1
 loopdev="$(losetup --show -f "$blk")"
 
+# Wait for devices created in the above being processed.
+udevadm settle --timeout 30
+
 udevadm -h
 
+INVOCATION_ID=$(systemctl show --property InvocationID --value systemd-udevd.service)
 udevadm control -e
+# Wait for systemd-udevd.service being restarted.
+timeout 30 bash -ec "while [[ \"\$(systemctl show --property InvocationID --value systemd-udevd.service)\" == \"$INVOCATION_ID\" ]]; do sleep .5; done"
 udevadm control -l emerg
 udevadm control -l alert
 udevadm control -l crit
