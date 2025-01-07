@@ -11,6 +11,7 @@
 #include "fileio.h"
 #include "log.h"
 #include "main-func.h"
+#include "oomd-conf.h"
 #include "oomd-manager-bus.h"
 #include "oomd-manager.h"
 #include "parse-util.h"
@@ -19,62 +20,6 @@
 #include "signal-util.h"
 
 static bool arg_dry_run = false;
-static int arg_swap_used_limit_permyriad = -1;
-static int arg_mem_pressure_limit_permyriad = -1;
-static usec_t arg_mem_pressure_usec = DEFAULT_MEM_PRESSURE_DURATION_USEC;
-
-static int config_parse_duration(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        usec_t usec, *duration = ASSERT_PTR(data);
-        int r;
-
-        if (isempty(rvalue)) {
-                *duration = DEFAULT_MEM_PRESSURE_DURATION_USEC;
-                return 0;
-        }
-
-        r = parse_sec(rvalue, &usec);
-        if (r < 0)
-                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
-
-        if (usec == 0) {
-                /* Map zero -> default for backwards compatibility. */
-                *duration = DEFAULT_MEM_PRESSURE_DURATION_USEC;
-                return 0;
-        }
-
-        if (usec < 1 * USEC_PER_SEC || usec == USEC_INFINITY)
-                return log_syntax(unit, LOG_WARNING, filename, line, 0, "%s= must be at least 1s and less than infinity, ignoring: %s", lvalue, rvalue);
-
-        *duration = usec;
-        return 0;
-}
-
-static int parse_config(void) {
-        static const ConfigTableItem items[] = {
-                { "OOM", "SwapUsedLimit",                    config_parse_permyriad, 0, &arg_swap_used_limit_permyriad    },
-                { "OOM", "DefaultMemoryPressureLimit",       config_parse_permyriad, 0, &arg_mem_pressure_limit_permyriad },
-                { "OOM", "DefaultMemoryPressureDurationSec", config_parse_duration,  0, &arg_mem_pressure_usec            },
-                {}
-        };
-
-        return config_parse_standard_file_with_dropins(
-                        "systemd/oomd.conf",
-                        "OOM\0",
-                        config_item_table_lookup, items,
-                        CONFIG_PARSE_WARN,
-                        /* userdata= */ NULL);
-}
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
@@ -166,10 +111,6 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        r = parse_config();
-        if (r < 0)
-                return r;
-
         /* Do some basic requirement checks for running systemd-oomd. It's not exhaustive as some of the other
          * requirements do not have a reliable means to check for in code. */
 
@@ -211,9 +152,6 @@ static int run(int argc, char *argv[]) {
         r = manager_start(
                         m,
                         arg_dry_run,
-                        arg_swap_used_limit_permyriad,
-                        arg_mem_pressure_limit_permyriad,
-                        arg_mem_pressure_usec,
                         fd);
         if (r < 0)
                 return log_error_errno(r, "Failed to start up daemon: %m");
