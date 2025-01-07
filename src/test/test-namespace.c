@@ -172,7 +172,7 @@ TEST(fd_is_namespace) {
         ASSERT_OK_ZERO(fd_is_namespace(STDERR_FILENO, NAMESPACE_NET));
 
         fd = namespace_open_by_type(NAMESPACE_MOUNT);
-        if (IN_SET(fd, -ENOSYS, -ENOENT)) {
+        if (IN_SET(fd, -ENOSYS, -ENOPKG)) {
                 log_notice("Path %s not found, skipping test", "/proc/self/ns/mnt");
                 return;
         }
