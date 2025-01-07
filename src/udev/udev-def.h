@@ -50,10 +50,10 @@ typedef enum UdevBuiltinCommand {
         UDEV_BUILTIN_NET_ID,
         UDEV_BUILTIN_NET_LINK,
         UDEV_BUILTIN_PATH_ID,
-        UDEV_BUILTIN_USB_ID,
 #if HAVE_ACL
         UDEV_BUILTIN_UACCESS,
 #endif
+        UDEV_BUILTIN_USB_ID,
         _UDEV_BUILTIN_MAX,
         _UDEV_BUILTIN_INVALID = -EINVAL,
 } UdevBuiltinCommand;
@@ -73,10 +73,10 @@ typedef enum UdevReloadFlags {
         UDEV_RELOAD_BUILTIN_NET_ID   = 1u << UDEV_BUILTIN_NET_ID,
         UDEV_RELOAD_BUILTIN_NET_LINK = 1u << UDEV_BUILTIN_NET_LINK,
         UDEV_RELOAD_BUILTIN_PATH_ID  = 1u << UDEV_BUILTIN_PATH_ID,
-        UDEV_RELOAD_BUILTIN_USB_ID   = 1u << UDEV_BUILTIN_USB_ID,
 #if HAVE_ACL
         UDEV_RELOAD_BUILTIN_UACCESS  = 1u << UDEV_BUILTIN_UACCESS,
 #endif
+        UDEV_RELOAD_BUILTIN_USB_ID   = 1u << UDEV_BUILTIN_USB_ID,
         UDEV_RELOAD_KILL_WORKERS     = 1u << (_UDEV_BUILTIN_MAX + 0),
         UDEV_RELOAD_RULES            = 1u << (_UDEV_BUILTIN_MAX + 1),
 } UdevReloadFlags;
