@@ -339,31 +339,35 @@ int pidref_in_same_namespace(PidRef *pid1, PidRef *pid2, NamespaceType type) {
         return fd_inode_same(ns1, ns2);
 }
 
-int namespace_get_leader(pid_t pid, NamespaceType type, pid_t *ret) {
+int namespace_get_leader(PidRef *pidref, NamespaceType type, PidRef *ret) {
         int r;
 
-        assert(pid >= 0);
         assert(type >= 0 && type < _NAMESPACE_TYPE_MAX);
         assert(ret);
 
-        for (;;) {
-                pid_t ppid;
+        _cleanup_(pidref_done) PidRef current = PIDREF_NULL;
+        PidRef *c = pidref;
 
-                r = pid_get_ppid(pid, &ppid);
+        for (;;) {
+                 _cleanup_(pidref_done) PidRef parent = PIDREF_NULL;
+
+                r = pidref_get_ppid_as_pidref(c, &parent);
                 if (r < 0)
                         return r;
 
-                r = in_same_namespace(pid, ppid, type);
+                r = pidref_in_same_namespace(c, &parent, type);
                 if (r < 0)
                         return r;
                 if (r == 0) {
                         /* If the parent and the child are not in the same namespace, then the child is
                          * the leader we are looking for. */
-                        *ret = pid;
+                        *ret = TAKE_PIDREF(parent);
                         return 0;
                 }
 
-                pid = ppid;
+                pidref_done(&current);
+                current = TAKE_PIDREF(parent);
+                c = &current;
         }
 }
 
