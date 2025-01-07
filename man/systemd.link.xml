@@ -1030,6 +1030,25 @@
         </listitem>
       </varlistentry>
       <varlistentry>
+        <term><varname>ReciveFCS=</varname></term>
+        <listitem>
+          <para>Takes a boolean. If set to true, pass the FCS value up the stack without trimming it, and
+          allow userspace to calculate error rate or link health.
+          When unset, the kernel's default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>ReciveAll=</varname></term>
+        <listitem>
+          <para>Takes a boolean. If set to true, allow to also receive damaged ethernet frames.
+          When unset, the kernel's default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
         <term><varname>RxChannels=</varname></term>
         <term><varname>TxChannels=</varname></term>
         <term><varname>OtherChannels=</varname></term>
