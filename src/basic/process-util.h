@@ -54,6 +54,7 @@ int get_process_root(pid_t pid, char **ret);
 int get_process_environ(pid_t pid, char **ret);
 int pid_get_ppid(pid_t pid, pid_t *ret);
 int pidref_get_ppid(const PidRef *pidref, pid_t *ret);
+int pidref_get_ppid_as_pidref(const PidRef *pidref, PidRef *ret);
 int pid_get_start_time(pid_t pid, usec_t *ret);
 int pidref_get_start_time(const PidRef *pid, usec_t *ret);
 int get_process_umask(pid_t pid, mode_t *ret);
