@@ -62,7 +62,7 @@ static inline int in_same_namespace(pid_t pid1, pid_t pid2, NamespaceType type) 
                                         type);
 }
 
-int namespace_get_leader(pid_t pid, NamespaceType type, pid_t *ret);
+int namespace_get_leader(PidRef *pidref, NamespaceType type, PidRef *ret);
 
 int detach_mount_namespace(void);
 int detach_mount_namespace_harder(uid_t target_uid, gid_t target_gid);
