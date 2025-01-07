@@ -227,6 +227,95 @@ EOF
     [[ $(stat -c "%u" /var/lib/testidmapped/testfile) == 0 ]]
 }
 
+test_quotas() {
+
+    local directory="$1"
+    local exec_directory_directive="$2"
+    local exec_quota_directive="$3"
+    local found_mountpoint=""
+
+    state_directory=$(readlink -f "${directory}")
+
+    while IFS= read -r mount; do
+        mountpoint=$(echo "$mount" | awk '{print $1}')
+        if [[ "$state_directory" == "$mountpoint" || "$state_directory" == "$mountpoint/"* ]]; then
+            found_mountpoint="$mountpoint"
+            break
+        fi
+    done < <(findmnt -t ext4 -n -l -o TARGET)
+
+    if [ -n "$found_mountpoint" ]; then
+        if ! findmnt -o OPTIONS "$found_mountpoint" | grep -q 'prjquota'; then
+            return 0
+        fi
+    else
+        return 0
+    fi
+
+    rm -rf "${directory}/quotadir"
+
+    cat >/run/systemd/system/testservice-34-check-quotas.service <<EOF
+[Unit]
+Description=Check quotas with ExecDirectory
+
+[Service]
+# Relevant only for sanitizer runs
+EnvironmentFile=-/usr/lib/systemd/systemd-asan-env
+Type=oneshot
+
+MountAPIVFS=yes
+DynamicUser=yes
+PrivateUsers=yes
+TemporaryFileSystem=/run /var/opt /var/lib /vol
+${exec_directory_directive}
+${exec_quota_directive}
+ExecStart=/bin/bash -c ' \
+    set -eux; \
+    set -o pipefail; \
+    touch ${directory}/quotadir/testfile; \
+'
+EOF
+
+    systemctl daemon-reload
+    systemctl start testservice-34-check-quotas.service
+
+    proj_id=$(lsattr -p ${directory} | grep quotadir | awk '{print $1}')
+    [[ $proj_id -gt 0 ]]
+
+    block_limit=$(repquota -P "$found_mountpoint" | grep -E "#$proj_id[[:space:]]+" | awk '{print $5}')
+    inode_limit=$(repquota -P "$found_mountpoint" | grep -E "#$proj_id[[:space:]]+" | awk '{print $8}')
+    [[ $block_limit -gt 0 ]]
+    [[ $inode_limit -gt 0 ]]
+
+    # Test exceed limit
+    rm -rf "${directory}/quotadir"
+
+    cat >/run/systemd/system/testservice-34-check-quotas.service <<EOF
+[Unit]
+Description=Check quotas with ExecDirectory
+
+[Service]
+# Relevant only for sanitizer runs
+EnvironmentFile=-/usr/lib/systemd/systemd-asan-env
+Type=oneshot
+
+MountAPIVFS=yes
+DynamicUser=yes
+PrivateUsers=yes
+TemporaryFileSystem=/run /var/opt /var/lib /vol
+${exec_directory_directive}
+${exec_quota_directive}
+ExecStart=/bin/bash -c ' \
+    set -eux; \
+    set -o pipefail; \
+    (! fallocate -l 10000G ${directory}/quotadir/largefile); \
+'
+EOF
+
+    systemctl daemon-reload
+    systemctl start testservice-34-check-quotas.service
+}
+
 test_directory "StateDirectory" "/var/lib"
 test_directory "RuntimeDirectory" "/run"
 test_directory "CacheDirectory" "/var/cache"
@@ -238,6 +327,16 @@ if systemd-analyze compare-versions "$(uname -r)" ge 5.12; then
     test_check_idmapped_mounts
     test_check_idmapped_mounts_root
 fi
+
+declare -a quotas_list
+quotas_list[0]="/var/lib/private,StateDirectory=quotadir,StateDirectoryQuota=1%"
+quotas_list[1]="/var/cache/private,CacheDirectory=quotadir,CacheDirectoryQuota=1%"
+quotas_list[2]="/var/log/private,LogsDirectory=quotadir,LogsDirectoryQuota=1%"
+
+for exec_dir in "${quotas_list[@]}"; do
+    IFS=',' read -r -a exec_elements <<< "$exec_dir"
+    test_quotas "${exec_elements[0]}" "${exec_elements[1]}" "${exec_elements[2]}"
+done
 
 systemd-analyze log-level info
 
