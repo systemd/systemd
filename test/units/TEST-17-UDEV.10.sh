@@ -30,6 +30,10 @@ loopdev="$(losetup --show -f "$blk")"
 
 udevadm -h
 
+udevadm cat
+udevadm cat --config
+udevadm cat -h
+
 udevadm control -e
 udevadm control -l emerg
 udevadm control -l alert
