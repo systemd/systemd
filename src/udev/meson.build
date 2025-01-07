@@ -37,6 +37,7 @@ libudevd_core_sources = files(
         'udev-node.c',
         'udev-rules.c',
         'udev-spawn.c',
+        'udev-varlink.c',
         'udev-watch.c',
         'udev-worker.c',
 )
