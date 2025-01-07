@@ -266,9 +266,6 @@ Features:
   /tmp/ + /dev/shm/. But do so only in case of tmpfs, because otherwise quota
   is persistent and any persistent settings mean we don#t have to reapply them.
 
-* initrd: when transitioning from initrd to host, validate that
-  /lib/modules/`uname -r` exists, refuse otherwise
-
 * signed bpf loading: to address need for signature verification for bpf
   programs when they are loaded, and given the bpf folks don't think this is
   realistic in kernel space, maybe add small daemon that facilitates this
