@@ -306,7 +306,7 @@ void manager_set_children_max(Manager *manager, unsigned n) {
 
 void manager_set_log_level(Manager *manager, int log_level) {
         assert(manager);
-        assert(LOG_PRI(log_level) == log_level);
+        assert(log_level_is_valid(log_level));
 
         int old = log_get_max_level();
 
