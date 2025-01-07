@@ -30,7 +30,7 @@ if [[ -n "${TMT_SOURCE_DIR:-}" ]]; then
     pushd "$TMT_SOURCE_DIR/*/"
 elif [[ -n "${PACKIT_TARGET_URL:-}" ]]; then
     # Prepare systemd source tree
-    git clone "$PACKIT_TARGET_URL" systemd
+    git clone "$PACKIT_TARGET_URL" systemd --branch "$PACKIT_TARGET_BRANCH"
     pushd systemd
 
     # If we're running in a pull request job, merge the remote branch into the current main
