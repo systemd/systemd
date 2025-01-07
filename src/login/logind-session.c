@@ -29,6 +29,7 @@
 #include "logind-session-dbus.h"
 #include "logind-session.h"
 #include "logind-user-dbus.h"
+#include "logind-varlink.h"
 #include "mkdir-label.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -191,6 +192,8 @@ Session* session_free(Session *s) {
 
         sd_bus_message_unref(s->create_message);
         sd_bus_message_unref(s->upgrade_message);
+
+        sd_varlink_unref(s->create_link);
 
         free(s->tty);
         free(s->display);
@@ -1646,6 +1649,35 @@ void session_drop_controller(Session *s) {
         session_release_controller(s, false);
         (void) session_save(s);
         session_restore_vt(s);
+}
+
+bool session_job_pending(Session *s) {
+        assert(s);
+        assert(s->user);
+
+        /* Check if we have some jobs enqueued and not finished yet. Each time we get JobRemoved signal about
+         * relevant units, session_send_create_reply and hence us is called (see match_job_removed).
+         * Note that we don't care about job result here. */
+
+        return s->scope_job ||
+               s->user->runtime_dir_job ||
+               (SESSION_CLASS_WANTS_SERVICE_MANAGER(s->class) && s->user->service_manager_job);
+}
+
+int session_send_create_reply(Session *s, const sd_bus_error *error) {
+        int r;
+
+        assert(s);
+
+        /* If error occurred, return it immediately. Otherwise let's wait for all jobs to finish before
+         * continuing. */
+        if (!sd_bus_error_is_set(error) && session_job_pending(s))
+                return 0;
+
+        r = 0;
+        RET_GATHER(r, session_send_create_reply_bus(s, error));
+        RET_GATHER(r, session_send_create_reply_varlink(s, error));
+        return r;
 }
 
 static const char* const session_state_table[_SESSION_STATE_MAX] = {
