@@ -1,10 +1,11 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 systemd_oomd_sources = files(
-        'oomd-manager-bus.c',
-        'oomd-manager.c',
-        'oomd-util.c',
         'oomd.c',
+        'oomd-conf.c',
+        'oomd-manager.c',
+        'oomd-manager-bus.c',
+        'oomd-util.c',
 )
 
 executables += [
