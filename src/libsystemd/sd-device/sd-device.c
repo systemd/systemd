@@ -541,10 +541,8 @@ _public_ int sd_device_new_from_stat_rdev(sd_device **ret, const struct stat *st
         return device_new_from_mode_and_devnum(ret, st->st_mode, st->st_rdev);
 }
 
-_public_ int sd_device_new_from_devname(sd_device **ret, const char *devname) {
-        struct stat st;
-        dev_t devnum;
-        mode_t mode;
+static int device_new_from_devname(sd_device **ret, const char *devname, bool strict) {
+        int r;
 
         assert_return(ret, -EINVAL);
         assert_return(devname, -EINVAL);
@@ -552,28 +550,41 @@ _public_ int sd_device_new_from_devname(sd_device **ret, const char *devname) {
         /* This function actually accepts both devlinks and devnames, i.e. both symlinks and device
          * nodes below /dev/. */
 
-        /* Also ignore when the specified path is "/dev". */
-        if (isempty(path_startswith(devname, "/dev")))
+        if (strict && isempty(path_startswith(devname, "/dev/")))
                 return -EINVAL;
 
+        dev_t devnum;
+        mode_t mode;
         if (device_path_parse_major_minor(devname, &mode, &devnum) >= 0)
                 /* Let's shortcut when "/dev/block/maj:min" or "/dev/char/maj:min" is specified.
                  * In that case, we can directly convert the path to syspath, hence it is not necessary
                  * that the specified path exists. So, this works fine without udevd being running. */
                 return device_new_from_mode_and_devnum(ret, mode, devnum);
 
-        if (stat(devname, &st) < 0)
-                return ERRNO_IS_DEVICE_ABSENT(errno) ? -ENODEV : -errno;
+        _cleanup_free_ char *resolved = NULL;
+        struct stat st;
+        r = chase_and_stat(devname, /* root = */ NULL, /* flags = */ 0, &resolved, &st);
+        if (ERRNO_IS_NEG_DEVICE_ABSENT(r))
+                return -ENODEV;
+        if (r < 0)
+                return r;
+
+        if (isempty(path_startswith(resolved, "/dev/")))
+                return -EINVAL;
 
         return sd_device_new_from_stat_rdev(ret, &st);
+}
+
+_public_ int sd_device_new_from_devname(sd_device **ret, const char *devname) {
+        return device_new_from_devname(ret, devname, /* strict = */ true);
 }
 
 _public_ int sd_device_new_from_path(sd_device **ret, const char *path) {
         assert_return(ret, -EINVAL);
         assert_return(path, -EINVAL);
 
-        if (path_startswith(path, "/dev"))
-                return sd_device_new_from_devname(ret, path);
+        if (device_new_from_devname(ret, path, /* strict = */ false) >= 0)
+                return 0;
 
         return device_new_from_syspath(ret, path, /* strict = */ false);
 }
