@@ -335,7 +335,7 @@ enum {
         DNS_EDE_RCODE_BLOCKED                = 15, /* RFC 8914, Section 4.16 */
         DNS_EDE_RCODE_CENSORED               = 16, /* RFC 8914, Section 4.17 */
         DNS_EDE_RCODE_FILTERED               = 17, /* RFC 8914, Section 4.18 */
-        DNS_EDE_RCODE_PROHIBITIED            = 18, /* RFC 8914, Section 4.19 */
+        DNS_EDE_RCODE_PROHIBITED             = 18, /* RFC 8914, Section 4.19 */
         DNS_EDE_RCODE_STALE_NXDOMAIN_ANSWER  = 19, /* RFC 8914, Section 4.20 */
         DNS_EDE_RCODE_NOT_AUTHORITATIVE      = 20, /* RFC 8914, Section 4.21 */
         DNS_EDE_RCODE_NOT_SUPPORTED          = 21, /* RFC 8914, Section 4.22 */
