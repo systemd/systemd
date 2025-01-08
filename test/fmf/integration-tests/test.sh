@@ -4,8 +4,8 @@
 set -eux
 set -o pipefail
 
-# Switch SELinux to permissive, since the tests don't set proper contexts
-setenforce 0
+# Switch SELinux to permissive if possible, since the tests don't set proper contexts
+setenforce 0 || true
 
 # Allow running the integration tests downstream in dist-git with something like
 # the following snippet which makes the dist-git sources available in $TMT_SOURCE_DIR:
@@ -13,9 +13,6 @@ setenforce 0
 # summary: systemd Fedora test suite
 # discover:
 #   how: fmf
-#   url: https://github.com/systemd/systemd
-#   ref: main
-#   path: test/fmf
 #   dist-git-source: true
 #   dist-git-install-builddeps: false
 # prepare:
@@ -27,7 +24,9 @@ setenforce 0
 #   how: tmt
 
 if [[ -n "${TMT_SOURCE_DIR:-}" ]]; then
-    pushd "$TMT_SOURCE_DIR/*/"
+    # Match either directories ending with branch names (e.g. systemd-fmf) or releases (e.g systemd-257.1).
+    shopt -s extglob
+    pushd "$TMT_SOURCE_DIR"/systemd-+([0-9a-z.~])/
 elif [[ -n "${PACKIT_TARGET_URL:-}" ]]; then
     # Prepare systemd source tree
     git clone "$PACKIT_TARGET_URL" systemd --branch "$PACKIT_TARGET_BRANCH"
