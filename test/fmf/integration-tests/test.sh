@@ -24,7 +24,7 @@ setenforce 0 || true
 #   how: tmt
 
 if [[ -n "${TMT_SOURCE_DIR:-}" ]]; then
-    pushd "$TMT_SOURCE_DIR/*/"
+    pushd "$TMT_SOURCE_DIR"/*
 elif [[ -n "${PACKIT_TARGET_URL:-}" ]]; then
     # Prepare systemd source tree
     git clone "$PACKIT_TARGET_URL" systemd --branch "$PACKIT_TARGET_BRANCH"
