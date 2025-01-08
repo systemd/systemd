@@ -461,7 +461,6 @@ int detach_mount_namespace_userns(int userns_fd) {
 
 int userns_acquire_empty(void) {
         _cleanup_(sigkill_waitp) pid_t pid = 0;
-        _cleanup_close_ int userns_fd = -EBADF;
         int r;
 
         r = safe_fork("(sd-mkuserns)", FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGKILL|FORK_NEW_USERNS, &pid);
@@ -471,17 +470,12 @@ int userns_acquire_empty(void) {
                 /* Child. We do nothing here, just freeze until somebody kills us. */
                 freeze();
 
-        r = namespace_open(pid, NULL, NULL, NULL, &userns_fd, NULL);
-        if (r < 0)
-                return log_error_errno(r, "Failed to open userns fd: %m");
-
-        return TAKE_FD(userns_fd);
+        return pidref_namespace_open_by_type(&PIDREF_MAKE_FROM_PID(pid), NAMESPACE_USER);
 }
 
 int userns_acquire(const char *uid_map, const char *gid_map) {
         char path[STRLEN("/proc//uid_map") + DECIMAL_STR_MAX(pid_t) + 1];
         _cleanup_(sigkill_waitp) pid_t pid = 0;
-        _cleanup_close_ int userns_fd = -EBADF;
         int r;
 
         assert(uid_map);
@@ -508,43 +502,93 @@ int userns_acquire(const char *uid_map, const char *gid_map) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to write GID map: %m");
 
-        r = namespace_open(pid,
-                           /* ret_pidns_fd = */ NULL,
-                           /* ret_mntns_fd = */ NULL,
-                           /* ret_netns_fd = */ NULL,
-                           &userns_fd,
-                           /* ret_root_fd = */ NULL);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to open userns fd: %m");
-
-        return TAKE_FD(userns_fd);
+        return pidref_namespace_open_by_type(&PIDREF_MAKE_FROM_PID(pid), NAMESPACE_USER);
 }
 
-int netns_acquire(void) {
+int userns_enter_and_pin(int userns_fd, pid_t *ret_pid) {
+        _cleanup_(close_pairp) int pfd[2] = EBADF_PAIR;
         _cleanup_(sigkill_waitp) pid_t pid = 0;
-        _cleanup_close_ int netns_fd = -EBADF;
+        ssize_t n;
+        char x;
         int r;
 
-        /* Forks off a process in a new network namespace, acquires a network namespace fd, and then kills
-         * the process again. This way we have a netns fd that is not bound to any process. */
+        assert(userns_fd >= 0);
+        assert(ret_pid);
 
-        r = safe_fork("(sd-mknetns)", FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGKILL|FORK_NEW_NETNS, &pid);
+        if (pipe2(pfd, O_CLOEXEC) < 0)
+                return -errno;
+
+        r = safe_fork_full(
+                        "(sd-pinuserns)",
+                        /* stdio_fds= */ NULL,
+                        (int[]) { pfd[1], userns_fd }, 2,
+                        FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGKILL,
+                        &pid);
         if (r < 0)
-                return log_debug_errno(r, "Failed to fork process (sd-mknetns): %m");
-        if (r == 0)
-                /* Child. We do nothing here, just freeze until somebody kills us. */
+                return r;
+        if (r == 0) {
+                /* Child. */
+
+                if (setns(userns_fd, CLONE_NEWUSER) < 0) {
+                        log_debug_errno(errno, "Failed to join userns: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                userns_fd = safe_close(userns_fd);
+
+                n = write(pfd[1], &(const char) { 'x' }, 1);
+                if (n < 0) {
+                        log_debug_errno(errno, "Failed to write to pipe: %m");
+                        _exit(EXIT_FAILURE);
+                }
+                assert(n == 1);
+
                 freeze();
+        }
 
-        r = namespace_open(pid,
-                           /* ret_pidns_fd = */ NULL,
-                           /* ret_mntns_fd = */ NULL,
-                           &netns_fd,
-                           /* ret_userns_fd = */ NULL,
-                           /* ret_root_fd = */ NULL);
+        pfd[1] = safe_close(pfd[1]);
+
+        n = read(pfd[0], &x, 1);
+        if (n < 0)
+                return -errno;
+        if (n == 0)
+                return -EPROTO;
+        assert(n == 1);
+        assert(x == 'x');
+
+        *ret_pid = TAKE_PID(pid);
+        return 0;
+}
+
+int userns_get_base_uid(int userns_fd, uid_t *ret_uid, gid_t *ret_gid) {
+        _cleanup_(sigkill_waitp) pid_t pid = 0;
+        int r;
+
+        assert(userns_fd >= 0);
+
+        r = userns_enter_and_pin(userns_fd, &pid);
         if (r < 0)
-                return log_debug_errno(r, "Failed to open netns fd: %m");
+                return r;
 
-        return TAKE_FD(netns_fd);
+        uid_t uid;
+        r = uid_map_search_root(pid, UID_RANGE_USERNS_OUTSIDE, &uid);
+        if (r < 0)
+                return r;
+
+        gid_t gid;
+        r = uid_map_search_root(pid, GID_RANGE_USERNS_OUTSIDE, &gid);
+        if (r < 0)
+                return r;
+
+        if (!ret_gid && uid != gid)
+                return -EUCLEAN;
+
+        if (ret_uid)
+                *ret_uid = uid;
+        if (ret_gid)
+                *ret_gid = gid;
+
+        return 0;
 }
 
 int parse_userns_uid_range(const char *s, uid_t *ret_uid_shift, uid_t *ret_uid_range) {
@@ -583,6 +627,23 @@ int parse_userns_uid_range(const char *s, uid_t *ret_uid_shift, uid_t *ret_uid_r
                 *ret_uid_range = uid_range;
 
         return 0;
+}
+
+int netns_acquire(void) {
+        _cleanup_(sigkill_waitp) pid_t pid = 0;
+        int r;
+
+        /* Forks off a process in a new network namespace, acquires a network namespace fd, and then kills
+         * the process again. This way we have a netns fd that is not bound to any process. */
+
+        r = safe_fork("(sd-mknetns)", FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGKILL|FORK_NEW_NETNS, &pid);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to fork process (sd-mknetns): %m");
+        if (r == 0)
+                /* Child. We do nothing here, just freeze until somebody kills us. */
+                freeze();
+
+        return pidref_namespace_open_by_type(&PIDREF_MAKE_FROM_PID(pid), NAMESPACE_NET);
 }
 
 int is_idmapping_supported(const char *path) {
@@ -638,84 +699,13 @@ int is_idmapping_supported(const char *path) {
         return true;
 }
 
-int userns_get_base_uid(int userns_fd, uid_t *ret_uid, gid_t *ret_gid) {
-        _cleanup_(close_pairp) int pfd[2] = EBADF_PAIR;
-        _cleanup_(sigkill_waitp) pid_t pid = 0;
-        ssize_t n;
-        char x;
-        int r;
-
-        assert(userns_fd >= 0);
-
-        if (pipe2(pfd, O_CLOEXEC) < 0)
-                return -errno;
-
-        r = safe_fork_full(
-                        "(sd-baseuns)",
-                        /* stdio_fds= */ NULL,
-                        (int[]) { pfd[1], userns_fd }, 2,
-                        FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGKILL,
-                        &pid);
-        if (r < 0)
-                return r;
-        if (r == 0) {
-                /* Child. */
-
-                if (setns(userns_fd, CLONE_NEWUSER) < 0) {
-                        log_debug_errno(errno, "Failed to join userns: %m");
-                        _exit(EXIT_FAILURE);
-                }
-
-                userns_fd = safe_close(userns_fd);
-
-                n = write(pfd[1], &(const char) { 'x' }, 1);
-                if (n < 0) {
-                        log_debug_errno(errno, "Failed to write to pipe: %m");
-                        _exit(EXIT_FAILURE);
-                }
-                assert(n == 1);
-
-                freeze();
-        }
-
-        pfd[1] = safe_close(pfd[1]);
-
-        n = read(pfd[0], &x, 1);
-        if (n < 0)
-                return -errno;
-        if (n == 0)
-                return -EPROTO;
-        assert(n == 1);
-        assert(x == 'x');
-
-        uid_t uid;
-        r = uid_map_search_root(pid, "uid_map", &uid);
-        if (r < 0)
-                return r;
-
-        gid_t gid;
-        r = uid_map_search_root(pid, "gid_map", &gid);
-        if (r < 0)
-                return r;
-
-        if (!ret_gid && uid != gid)
-                return -EUCLEAN;
-
-        if (ret_uid)
-                *ret_uid = uid;
-        if (ret_gid)
-                *ret_gid = gid;
-
-        return 0;
-}
-
 int process_is_owned_by_uid(const PidRef *pidref, uid_t uid) {
-        assert(uid_is_valid(uid));
-
         int r;
 
         /* Checks if the specified process either is owned directly by the specified user, or if it is inside
          * a user namespace owned by it. */
+
+        assert(uid_is_valid(uid));
 
         uid_t process_uid;
         r = pidref_get_uid(pidref, &process_uid);

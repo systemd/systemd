@@ -1504,9 +1504,6 @@ int safe_fork_full(
         }
 
         if (FLAGS_SET(flags, FORK_DETACH)) {
-                assert(!FLAGS_SET(flags, FORK_WAIT));
-                assert(!ret_pid);
-
                 /* Fork off intermediary child if needed */
 
                 r = is_reaper_process();
