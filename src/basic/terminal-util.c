@@ -1355,14 +1355,16 @@ static int ptsname_namespace(int pty, char **ret) {
         return 0;
 }
 
-int openpt_allocate_in_namespace(pid_t pid, int flags, char **ret_peer_path) {
+int openpt_allocate_in_namespace(
+                const PidRef *pidref,
+                int flags,
+                char **ret_peer_path) {
+
         _cleanup_close_ int pidnsfd = -EBADF, mntnsfd = -EBADF, usernsfd = -EBADF, rootfd = -EBADF, fd = -EBADF;
         _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
         int r;
 
-        assert(pid > 0);
-
-        r = namespace_open(pid, &pidnsfd, &mntnsfd, /* ret_netns_fd = */ NULL, &usernsfd, &rootfd);
+        r = pidref_namespace_open(pidref, &pidnsfd, &mntnsfd, /* ret_netns_fd = */ NULL, &usernsfd, &rootfd);
         if (r < 0)
                 return r;
 
@@ -1411,15 +1413,18 @@ int openpt_allocate_in_namespace(pid_t pid, int flags, char **ret_peer_path) {
         return TAKE_FD(fd);
 }
 
-int open_terminal_in_namespace(pid_t pid, const char *name, int mode) {
+int open_terminal_in_namespace(
+                const PidRef *pidref,
+                const char *name,
+                int mode) {
+
         _cleanup_close_ int pidnsfd = -EBADF, mntnsfd = -EBADF, usernsfd = -EBADF, rootfd = -EBADF;
         _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
         int r;
 
-        assert(pid > 0);
         assert(name);
 
-        r = namespace_open(pid, &pidnsfd, &mntnsfd, /* ret_netns_fd= */ NULL, &usernsfd, &rootfd);
+        r = pidref_namespace_open(pidref, &pidnsfd, &mntnsfd, /* ret_netns_fd= */ NULL, &usernsfd, &rootfd);
         if (r < 0)
                 return r;
 
