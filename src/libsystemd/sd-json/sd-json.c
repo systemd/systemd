@@ -5104,7 +5104,7 @@ _public_ int sd_json_dispatch_full(
         }
 
         m = 0;
-        for (const sd_json_dispatch_field *p = table; p->name; p++)
+        for (const sd_json_dispatch_field *p = table; p && p->name; p++)
                 m++;
 
         found = newa0(bool, m);
@@ -5117,12 +5117,12 @@ _public_ int sd_json_dispatch_full(
                 assert_se(key = sd_json_variant_by_index(v, i));
                 assert_se(value = sd_json_variant_by_index(v, i+1));
 
-                for (p = table; p->name; p++)
+                for (p = table; p && p->name; p++)
                         if (p->name == POINTER_MAX ||
                             streq_ptr(sd_json_variant_string(key), p->name))
                                 break;
 
-                if (p->name) { /* Found a matching entry! 🙂 */
+                if (p && p->name) { /* Found a matching entry! 🙂 */
                         sd_json_dispatch_flags_t merged_flags;
 
                         merged_flags = flags | p->flags;
@@ -5223,7 +5223,7 @@ _public_ int sd_json_dispatch_full(
                 }
         }
 
-        for (const sd_json_dispatch_field *p = table; p->name; p++) {
+        for (const sd_json_dispatch_field *p = table; p && p->name; p++) {
                 sd_json_dispatch_flags_t merged_flags = p->flags | flags;
 
                 if ((merged_flags & SD_JSON_MANDATORY) && !found[p-table]) {

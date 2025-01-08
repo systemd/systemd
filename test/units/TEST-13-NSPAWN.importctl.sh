@@ -83,3 +83,10 @@ systemctl daemon-reload
 
 systemctl start import0.service
 cmp /var/tmp/importtest /var/lib/confexts/importtest9/importtest
+
+# Verify generic service calls, too
+varlinkctl call --more /run/systemd/io.systemd.Import io.systemd.service.Ping '{}'
+varlinkctl call --more /run/systemd/io.systemd.Import io.systemd.service.SetLogLevel '{"level":"7"}'
+varlinkctl call --more /run/systemd/io.systemd.Import io.systemd.service.SetLogLevel '{"level":"1"}'
+varlinkctl call --more /run/systemd/io.systemd.Import io.systemd.service.SetLogLevel '{"level":"7"}'
+varlinkctl call --more /run/systemd/io.systemd.Import io.systemd.service.GetEnvironment '{}'

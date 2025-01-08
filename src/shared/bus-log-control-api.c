@@ -1,11 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-bus.h"
+
 #include "alloc-util.h"
 #include "bus-get-properties.h"
 #include "bus-log-control-api.h"
 #include "bus-util.h"
 #include "log.h"
-#include "sd-bus.h"
 #include "syslog-util.h"
 
 int bus_property_get_log_level(
@@ -23,7 +24,7 @@ int bus_property_get_log_level(
         assert(bus);
         assert(reply);
 
-        r = log_level_to_string_alloc(log_get_max_level(), &t);
+        r = log_max_level_to_string_alloc(log_get_max_level(), &t);
         if (r < 0)
                 return r;
 
@@ -40,7 +41,7 @@ int bus_property_set_log_level(
                 sd_bus_error *error) {
 
         const char *t;
-        int r;
+        int r, level;
 
         assert(bus);
         assert(value);
@@ -49,12 +50,15 @@ int bus_property_set_log_level(
         if (r < 0)
                 return r;
 
-        r = log_level_from_string(t);
-        if (r < 0)
+        level = log_max_level_from_string(t);
+        if (level < 0)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid log level '%s'", t);
 
-        log_info("Setting log level to %s.", t);
-        log_set_max_level(r);
+        _cleanup_free_ char *normalized = NULL;
+        (void) log_max_level_to_string_alloc(level, &normalized);
+
+        log_info("Setting log level to %s.", strna(normalized));
+        log_set_max_level(level);
 
         return 0;
 }

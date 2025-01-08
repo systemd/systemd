@@ -397,7 +397,7 @@ void log_forget_fds(void) {
 }
 
 int log_set_max_level(int level) {
-        assert(level == LOG_NULL || LOG_PRI(level) == level);
+        assert(log_max_level_is_valid(level));
 
         int old = log_max_level;
         log_max_level = level;
@@ -1259,7 +1259,7 @@ int log_set_max_level_from_string(const char *e) {
 
                 colon = strchr(word, ':');
                 if (!colon) {
-                        r = log_level_from_string(word);
+                        r = log_max_level_from_string(word);
                         if (r < 0)
                                 return r;
 
@@ -1278,7 +1278,7 @@ int log_set_max_level_from_string(const char *e) {
                 if (target >= _LOG_TARGET_SINGLE_MAX)
                         return -EINVAL;
 
-                r = log_level_from_string(colon + 1);
+                r = log_max_level_from_string(colon + 1);
                 if (r < 0)
                         return r;
 
@@ -1294,7 +1294,7 @@ int log_max_levels_to_string(int level, char **ret) {
 
         assert(ret);
 
-        r = log_level_to_string_alloc(level, &s);
+        r = log_max_level_to_string_alloc(level, &s);
         if (r < 0)
                 return r;
 
@@ -1304,7 +1304,7 @@ int log_max_levels_to_string(int level, char **ret) {
                 if (log_target_max_level[target] == INT_MAX)
                         continue;
 
-                r = log_level_to_string_alloc(log_target_max_level[target], &l);
+                r = log_max_level_to_string_alloc(log_target_max_level[target], &l);
                 if (r < 0)
                         return r;
 
