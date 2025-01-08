@@ -16,10 +16,11 @@
 #include "set.h"
 #include "socket-util.h"
 #include "strv.h"
+#include "uid-classification.h"
 #include "user-record-nss.h"
 #include "user-util.h"
-#include "userdb-dropin.h"
 #include "userdb.h"
+#include "userdb-dropin.h"
 
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(link_hash_ops, void, trivial_hash_func, trivial_compare_func, sd_varlink, sd_varlink_unref);
 
@@ -116,8 +117,8 @@ static UserDBIterator* userdb_iterator_new(LookupWhat what, UserDBFlags flags) {
         *i = (UserDBIterator) {
                 .what = what,
                 .flags = flags,
-                .synthesize_root = !FLAGS_SET(flags, USERDB_DONT_SYNTHESIZE),
-                .synthesize_nobody = !FLAGS_SET(flags, USERDB_DONT_SYNTHESIZE),
+                .synthesize_root = !FLAGS_SET(flags, USERDB_DONT_SYNTHESIZE_INTRINSIC),
+                .synthesize_nobody = !FLAGS_SET(flags, USERDB_DONT_SYNTHESIZE_INTRINSIC),
         };
 
         return i;
@@ -434,7 +435,7 @@ static int userdb_start_query(
         }
 
         /* First, let's talk to the multiplexer, if we can */
-        if ((flags & (USERDB_AVOID_MULTIPLEXER|USERDB_EXCLUDE_DYNAMIC_USER|USERDB_EXCLUDE_NSS|USERDB_EXCLUDE_DROPIN|USERDB_DONT_SYNTHESIZE)) == 0 &&
+        if ((flags & (USERDB_AVOID_MULTIPLEXER|USERDB_EXCLUDE_DYNAMIC_USER|USERDB_EXCLUDE_NSS|USERDB_EXCLUDE_DROPIN|USERDB_DONT_SYNTHESIZE_INTRINSIC|USERDB_DONT_SYNTHESIZE_FOREIGN)) == 0 &&
             !strv_contains(except, "io.systemd.Multiplexer") &&
             (!only || strv_contains(only, "io.systemd.Multiplexer"))) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *patched_query = sd_json_variant_ref(query);
@@ -617,6 +618,63 @@ static int synthetic_nobody_user_build(UserRecord **ret) {
                                           SD_JSON_BUILD_PAIR("disposition", JSON_BUILD_CONST_STRING("intrinsic"))));
 }
 
+static int synthetic_foreign_user_build(uid_t foreign_uid, UserRecord **ret) {
+        assert(ret);
+
+        if (!uid_is_valid(foreign_uid))
+                return -ESRCH;
+        if (foreign_uid > 0xFFFF)
+                return -ESRCH;
+
+        _cleanup_free_ char *un = NULL;
+        if (asprintf(&un, "foreign-" UID_FMT, foreign_uid) < 0)
+                return -ENOMEM;
+
+        _cleanup_free_ char *rn = NULL;
+        if (asprintf(&rn, "Foreign System Image UID " UID_FMT, foreign_uid) < 0)
+                return -ENOMEM;
+
+        return user_record_build(
+                        ret,
+                        SD_JSON_BUILD_OBJECT(
+                                        SD_JSON_BUILD_PAIR("userName", SD_JSON_BUILD_STRING(un)),
+                                        SD_JSON_BUILD_PAIR("realName", SD_JSON_BUILD_STRING(rn)),
+                                        SD_JSON_BUILD_PAIR("uid", SD_JSON_BUILD_UNSIGNED(FOREIGN_UID_BASE + foreign_uid)),
+                                        SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(FOREIGN_UID_BASE + foreign_uid)),
+                                        SD_JSON_BUILD_PAIR("shell", JSON_BUILD_CONST_STRING(NOLOGIN)),
+                                        SD_JSON_BUILD_PAIR("locked", SD_JSON_BUILD_BOOLEAN(true)),
+                                        SD_JSON_BUILD_PAIR("disposition", JSON_BUILD_CONST_STRING("foreign"))));
+}
+
+static int user_name_foreign_extract_uid(const char *name, uid_t *ret_uid) {
+        int r;
+
+        assert(name);
+        assert(ret_uid);
+
+        /* Parses the inner UID from a user name of the foreign UID range, in the form "foreign-NNN". Returns
+         * > 0 if that worked, 0 if it didn't. */
+
+        const char *e = startswith(name, "foreign-");
+        if (!e)
+                goto nomatch;
+
+        uid_t uid;
+        r = parse_uid(e, &uid);
+        if (r < 0)
+                goto nomatch;
+
+        if (uid > 0xFFFF)
+                goto nomatch;
+
+        *ret_uid = uid;
+        return 1;
+
+nomatch:
+        *ret_uid = UID_INVALID;
+        return 0;
+}
+
 int userdb_by_name(const char *name, UserDBFlags flags, UserRecord **ret) {
         _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *query = NULL;
@@ -658,12 +716,22 @@ int userdb_by_name(const char *name, UserDBFlags flags, UserRecord **ret) {
                 }
         }
 
-        if (!FLAGS_SET(flags, USERDB_DONT_SYNTHESIZE)) {
+        if (!FLAGS_SET(flags, USERDB_DONT_SYNTHESIZE_INTRINSIC)) {
                 if (streq(name, "root"))
                         return synthetic_root_user_build(ret);
 
                 if (streq(name, NOBODY_USER_NAME) && synthesize_nobody())
                         return synthetic_nobody_user_build(ret);
+        }
+
+        if (!FLAGS_SET(flags, USERDB_DONT_SYNTHESIZE_FOREIGN)) {
+                uid_t foreign_uid;
+                r = user_name_foreign_extract_uid(name, &foreign_uid);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        return synthetic_foreign_user_build(foreign_uid, ret);
+                r = -ESRCH;
         }
 
         return r;
@@ -708,13 +776,16 @@ int userdb_by_uid(uid_t uid, UserDBFlags flags, UserRecord **ret) {
                 }
         }
 
-        if (!FLAGS_SET(flags, USERDB_DONT_SYNTHESIZE)) {
+        if (!FLAGS_SET(flags, USERDB_DONT_SYNTHESIZE_INTRINSIC)) {
                 if (uid == 0)
                         return synthetic_root_user_build(ret);
 
                 if (uid == UID_NOBODY && synthesize_nobody())
                         return synthetic_nobody_user_build(ret);
         }
+
+        if (!FLAGS_SET(flags, USERDB_DONT_SYNTHESIZE_FOREIGN) && uid_is_foreign(uid))
+                return synthetic_foreign_user_build(uid - FOREIGN_UID_BASE, ret);
 
         return r;
 }
@@ -750,6 +821,8 @@ int userdb_all(UserDBFlags flags, UserDBIterator **ret) {
                 if (r < 0)
                         log_debug_errno(r, "Failed to find user drop-ins, ignoring: %m");
         }
+
+        /* Note that we do not enumerate the foreign users, since those would be just 64K of noise */
 
         /* propagate IPC error, but only if there are no drop-ins */
         if (qr < 0 &&
@@ -888,6 +961,31 @@ static int synthetic_nobody_group_build(GroupRecord **ret) {
                                           SD_JSON_BUILD_PAIR("disposition", JSON_BUILD_CONST_STRING("intrinsic"))));
 }
 
+static int synthetic_foreign_group_build(gid_t foreign_gid, GroupRecord **ret) {
+        assert(ret);
+
+        if (!gid_is_valid(foreign_gid))
+                return -ESRCH;
+        if (foreign_gid > 0xFFFF)
+                return -ESRCH;
+
+        _cleanup_free_ char *gn = NULL;
+        if (asprintf(&gn, "foreign-" GID_FMT, foreign_gid) < 0)
+                return -ENOMEM;
+
+        _cleanup_free_ char *d = NULL;
+        if (asprintf(&d, "Foreign System Image GID " GID_FMT, foreign_gid) < 0)
+                return -ENOMEM;
+
+        return group_record_build(
+                        ret,
+                        SD_JSON_BUILD_OBJECT(
+                                        SD_JSON_BUILD_PAIR("groupName", SD_JSON_BUILD_STRING(gn)),
+                                        SD_JSON_BUILD_PAIR("description", SD_JSON_BUILD_STRING(d)),
+                                        SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(FOREIGN_UID_BASE + foreign_gid)),
+                                        SD_JSON_BUILD_PAIR("disposition", JSON_BUILD_CONST_STRING("foreign"))));
+}
+
 int groupdb_by_name(const char *name, UserDBFlags flags, GroupRecord **ret) {
         _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *query = NULL;
@@ -926,12 +1024,22 @@ int groupdb_by_name(const char *name, UserDBFlags flags, GroupRecord **ret) {
                 }
         }
 
-        if (!FLAGS_SET(flags, USERDB_DONT_SYNTHESIZE)) {
+        if (!FLAGS_SET(flags, USERDB_DONT_SYNTHESIZE_INTRINSIC)) {
                 if (streq(name, "root"))
                         return synthetic_root_group_build(ret);
 
                 if (streq(name, NOBODY_GROUP_NAME) && synthesize_nobody())
                         return synthetic_nobody_group_build(ret);
+        }
+
+        if (!FLAGS_SET(flags, USERDB_DONT_SYNTHESIZE_FOREIGN)) {
+                uid_t foreign_gid;
+                r = user_name_foreign_extract_uid(name, &foreign_gid); /* Same for UID + GID */
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        return synthetic_foreign_group_build(foreign_gid, ret);
+                r = -ESRCH;
         }
 
         return r;
@@ -975,13 +1083,16 @@ int groupdb_by_gid(gid_t gid, UserDBFlags flags, GroupRecord **ret) {
                 }
         }
 
-        if (!FLAGS_SET(flags, USERDB_DONT_SYNTHESIZE)) {
+        if (!FLAGS_SET(flags, USERDB_DONT_SYNTHESIZE_INTRINSIC)) {
                 if (gid == 0)
                         return synthetic_root_group_build(ret);
 
                 if (gid == GID_NOBODY && synthesize_nobody())
                         return synthetic_nobody_group_build(ret);
         }
+
+        if (!FLAGS_SET(flags, USERDB_DONT_SYNTHESIZE_FOREIGN) && gid_is_foreign(gid))
+                return synthetic_foreign_group_build(gid - FOREIGN_UID_BASE, ret);
 
         return r;
 }
