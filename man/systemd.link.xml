@@ -943,6 +943,18 @@
         </listitem>
       </varlistentry>
       <varlistentry>
+        <term><varname>PartialGenericSegmentationOffload=</varname></term>
+        <listitem>
+          <para>Takes a boolean. If set to true, Partial Generic Segmentation Offload (GSO_Partial) is
+          enabled. See
+          <ulink url="https://docs.kernel.org/networking/segmentation-offloads.html#partial-generic-segmentation-offload">
+          Partial Generic Segmentation Offload</ulink> for more details.
+          When unset, the kernel's default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
         <term><varname>GenericReceiveOffload=</varname></term>
         <listitem>
           <para>Takes a boolean. If set to true, Generic Receive Offload (GRO) is enabled.
@@ -1027,6 +1039,25 @@
           When unset, the kernel's default will be used.</para>
 
           <xi:include href="version-info.xml" xpointer="v250"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>ReceiveFCS=</varname></term>
+        <listitem>
+          <para>Takes a boolean. If set to true, pass the Frame Check Sequence (FCS) value up the stack
+          without trimming it, and allow userspace to calculate error rate or link health.
+          When unset, the kernel's default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>ReceiveAll=</varname></term>
+        <listitem>
+          <para>Takes a boolean. If set to true, allow to also receive damaged ethernet frames.
+          When unset, the kernel's default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/>
         </listitem>
       </varlistentry>
       <varlistentry>
