@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: LGPL-2.1-or-later
+# shellcheck disable=SC2235
 set -eux
 set -o pipefail
 
@@ -85,6 +86,39 @@ testcase_scope_unpriv_delegation() {
                 test -w /sys/fs/cgroup/workload.slice/test-workload0.scope -a \
                      -w /sys/fs/cgroup/workload.slice/test-workload0.scope/cgroup.procs -a \
                      -w /sys/fs/cgroup/workload.slice/test-workload0.scope/cgroup.subtree_control
+}
+
+testcase_user_unpriv_delegation() {
+    # Check that delegation works for unpriv users, and that we can insert a
+    # subcgroup owned by a different user (which can happen in case unpriv
+    # userns where a UID range was delegated), which is still cleaned up
+    # correctly when it goes down.
+
+    run0 -u testuser systemd-run --user \
+                --property="Delegate=yes" \
+                --unit=test-chown-subcgroup \
+                --service-type=exec \
+                sleep infinity
+
+    TESTUID=$(id -u testuser)
+    CGROUP="/sys/fs/cgroup/user.slice/user-$TESTUID.slice/user@$TESTUID.service/app.slice/test-chown-subcgroup.service"
+    test -d "$CGROUP"
+
+    # Create a subcgroup, and make it owned by some unrelated user
+    SUBCGROUP="$CGROUP/subcgroup"
+    mkdir "$SUBCGROUP"
+    chown 1:1 "$SUBCGROUP"
+
+    # Make sure the subcgroup is not empty (empty dirs owned by other users can
+    # be removed if one owns the dir they are contained in, after all)
+    mkdir "$SUBCGROUP"/filler
+
+    run0 -u testuser systemctl stop --user test-chown-subcgroup.service
+
+    # Verify that the subcgroup got correctly removed
+    (! test -e "$CGROUP")
+
+    systemctl stop user@testuser.service
 }
 
 testcase_subgroup() {
