@@ -15,7 +15,7 @@ typedef struct UIDRange {
         size_t n_entries;
 } UIDRange;
 
-UIDRange *uid_range_free(UIDRange *range);
+UIDRange* uid_range_free(UIDRange *range);
 DEFINE_TRIVIAL_CLEANUP_FUNC(UIDRange*, uid_range_free);
 
 int uid_range_add_internal(UIDRange **range, uid_t start, uid_t nr, bool coalesce);
@@ -77,4 +77,4 @@ int uid_range_load_userns_by_fd(int userns_fd, UIDRangeUsernsMode mode, UIDRange
 
 bool uid_range_overlaps(const UIDRange *range, uid_t start, uid_t nr);
 
-int uid_map_search_root(pid_t pid, const char *filename, uid_t *ret);
+int uid_map_search_root(pid_t pid, UIDRangeUsernsMode mode, uid_t *ret);
