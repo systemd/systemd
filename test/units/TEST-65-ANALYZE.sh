@@ -202,6 +202,105 @@ systemd-analyze cat-config --tldr /etc/systemd/system.conf >/dev/null
 systemd-analyze cat-config --tldr systemd/system.conf systemd/journald.conf >/dev/null
 systemd-analyze cat-config --tldr systemd/system.conf foo/bar systemd/journald.conf >/dev/null
 systemd-analyze cat-config --tldr foo/bar
+mkdir -p /run/test-analyze-cat-config/main.conf.d
+cat >/run/test-analyze-cat-config/main.conf <<EOF
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it under the
+#  terms of the GNU Lesser General Public License as published by the Free
+#  Software Foundation; either version 2.1 of the License, or (at your option)
+#  any later version.
+#
+# Entries in this file show the compile time defaults. Local configuration
+# should be created by either modifying this file (or a copy of it placed in
+# /etc/ if the original file is shipped in /usr/), or by creating "drop-ins" in
+# the /etc/systemd/networkd.conf.d/ directory. The latter is generally
+# recommended. Defaults can be restored by simply deleting the main
+# configuration file and all drop-ins located in /etc/.
+#
+# Use 'systemd-analyze cat-config systemd/networkd.conf' to display the full config.
+#
+# See networkd.conf(5) for details.
+
+[Network]
+#SpeedMeter=no
+#SpeedMeterIntervalSec=10sec
+#ManageForeignRoutingPolicyRules=yes
+#ManageForeignRoutes=yes
+#ManageForeignNextHops=yes
+#RouteTable=
+#IPv4Forwarding=
+#IPv6Forwarding=
+#IPv6PrivacyExtensions=no
+#UseDomains=no
+
+#[IPv6AddressLabel]
+#Prefix=
+#Label=
+
+[IPv6AcceptRA]
+#UseDomains=
+
+[DHCPv4]
+ClientIdentifier=duid
+#DUIDType=vendor
+#DUIDRawData=
+#UseDomains=
+
+[DHCPv6]
+#DUIDType=vendor
+#DUIDRawData=
+#UseDomains=
+
+[DHCPServer]
+PersistLeases=yes
+EOF
+cat >/run/test-analyze-cat-config/main.conf.d/override.conf <<EOF
+[DHCPServer]
+PersistLeases=no
+
+[Network]
+[Network]
+[Network]
+SpeedMeter=yes
+
+Continuation=foo \\
+             bar \\
+# comment
+             hogehoge \\
+             \\
+             aaa \\
+
+
+             bbb
+AAAA=bbbb
+EOF
+diff -u <(echo '# /run/test-analyze-cat-config/main.conf'
+          cat /run/test-analyze-cat-config/main.conf
+          echo
+          echo '# /run/test-analyze-cat-config/main.conf.d/override.conf'
+          cat /run/test-analyze-cat-config/main.conf.d/override.conf) \
+         <(systemd-analyze cat-config test-analyze-cat-config/main.conf)
+diff -u - <<EOF <(systemd-analyze --tldr cat-config test-analyze-cat-config/main.conf)
+# /run/test-analyze-cat-config/main.conf
+[DHCPv4]
+ClientIdentifier=duid
+[DHCPServer]
+PersistLeases=yes
+
+# /run/test-analyze-cat-config/main.conf.d/override.conf
+[DHCPServer]
+PersistLeases=no
+[Network]
+SpeedMeter=yes
+Continuation=foo \\
+             bar \\
+             hogehoge \\
+             aaa \\
+             bbb
+AAAA=bbbb
+EOF
+rm -rf /run/test-analyze-cat-config
 (! systemd-analyze cat-config --global systemd/system.conf)
 # security
 systemd-analyze security
