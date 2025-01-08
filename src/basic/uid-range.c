@@ -186,9 +186,6 @@ int uid_map_read_one(FILE *f, uid_t *ret_base, uid_t *ret_shift, uid_t *ret_rang
         int r;
 
         assert(f);
-        assert(ret_base);
-        assert(ret_shift);
-        assert(ret_range);
 
         errno = 0;
         r = fscanf(f, UID_FMT " " UID_FMT " " UID_FMT "\n", &uid_base, &uid_shift, &uid_range);
@@ -197,10 +194,15 @@ int uid_map_read_one(FILE *f, uid_t *ret_base, uid_t *ret_shift, uid_t *ret_rang
         assert(r >= 0);
         if (r != 3)
                 return -EBADMSG;
+        if (uid_range <= 0)
+                return -EBADMSG;
 
-        *ret_base = uid_base;
-        *ret_shift = uid_shift;
-        *ret_range = uid_range;
+        if (ret_base)
+                *ret_base = uid_base;
+        if (ret_shift)
+                *ret_shift = uid_shift;
+        if (ret_range)
+                *ret_range = uid_range;
 
         return 0;
 }
@@ -359,4 +361,38 @@ bool uid_range_equal(const UIDRange *a, const UIDRange *b) {
         }
 
         return true;
+}
+
+int uid_map_search_root(pid_t pid, const char *filename, uid_t *ret) {
+        int r;
+
+        assert(pid_is_valid(pid));
+        assert(filename);
+
+        const char *p = procfs_file_alloca(pid, filename);
+        _cleanup_fclose_ FILE *f = fopen(p, "re");
+        if (!f) {
+                if (errno != ENOENT)
+                        return -errno;
+
+                r = proc_mounted();
+                if (r < 0)
+                        return -ENOENT; /* original error, if we can't determine /proc/ state */
+
+                return r ? -ENOPKG : -ENOSYS;
+        }
+
+        for (;;) {
+                uid_t uid_base = UID_INVALID, uid_shift = UID_INVALID;
+
+                r = uid_map_read_one(f, &uid_base, &uid_shift, /* ret_uid_range= */ NULL);
+                if (r < 0)
+                        return r;
+
+                if (uid_base == 0) {
+                        if (ret)
+                                *ret = uid_shift;
+                        return 0;
+                }
+        }
 }
