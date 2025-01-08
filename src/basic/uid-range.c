@@ -324,13 +324,13 @@ bool uid_range_equal(const UIDRange *a, const UIDRange *b) {
         return true;
 }
 
-int uid_map_search_root(pid_t pid, const char *filename, uid_t *ret) {
+int uid_map_search_root(pid_t pid, UIDRangeUsernsMode mode, uid_t *ret) {
         int r;
 
         assert(pid_is_valid(pid));
-        assert(filename);
+        assert(IN_SET(mode, UID_RANGE_USERNS_OUTSIDE, GID_RANGE_USERNS_OUTSIDE));
 
-        const char *p = procfs_file_alloca(pid, filename);
+        const char *p = procfs_file_alloca(pid, mode == UID_RANGE_USERNS_OUTSIDE ? "uid_map" : "gid_map");
         _cleanup_fclose_ FILE *f = fopen(p, "re");
         if (!f) {
                 if (errno != ENOENT)
