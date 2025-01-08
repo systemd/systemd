@@ -264,10 +264,7 @@ int uid_range_load_userns(const char *path, UIDRangeUsernsMode mode, UIDRange **
 }
 
 int uid_range_load_userns_by_fd(int userns_fd, UIDRangeUsernsMode mode, UIDRange **ret) {
-        _cleanup_(close_pairp) int pfd[2] = EBADF_PAIR;
         _cleanup_(sigkill_waitp) pid_t pid = 0;
-        ssize_t n;
-        char x;
         int r;
 
         assert(userns_fd >= 0);
@@ -275,46 +272,9 @@ int uid_range_load_userns_by_fd(int userns_fd, UIDRangeUsernsMode mode, UIDRange
         assert(mode < _UID_RANGE_USERNS_MODE_MAX);
         assert(ret);
 
-        if (pipe2(pfd, O_CLOEXEC) < 0)
-                return -errno;
-
-        r = safe_fork_full(
-                        "(sd-mkuserns)",
-                        /* stdio_fds= */ NULL,
-                        (int[]) { pfd[1], userns_fd }, 2,
-                        FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGKILL,
-                        &pid);
+        r = userns_enter_and_pin(userns_fd, &pid);
         if (r < 0)
                 return r;
-        if (r == 0) {
-                /* Child. */
-
-                if (setns(userns_fd, CLONE_NEWUSER) < 0) {
-                        log_debug_errno(errno, "Failed to join userns: %m");
-                        _exit(EXIT_FAILURE);
-                }
-
-                userns_fd = safe_close(userns_fd);
-
-                n = write(pfd[1], &(const char) { 'x' }, 1);
-                if (n < 0) {
-                        log_debug_errno(errno, "Failed to write to fifo: %m");
-                        _exit(EXIT_FAILURE);
-                }
-                assert(n == 1);
-
-                freeze();
-        }
-
-        pfd[1] = safe_close(pfd[1]);
-
-        n = read(pfd[0], &x, 1);
-        if (n < 0)
-                return -errno;
-        if (n == 0)
-                return -EPROTO;
-        assert(n == 1);
-        assert(x == 'x');
 
         const char *p = procfs_file_alloca(
                         pid,

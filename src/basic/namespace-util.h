@@ -83,15 +83,16 @@ static inline bool userns_shift_range_valid(uid_t shift, uid_t range) {
         return true;
 }
 
+int parse_userns_uid_range(const char *s, uid_t *ret_uid_shift, uid_t *ret_uid_range);
+
 int userns_acquire_empty(void);
 int userns_acquire(const char *uid_map, const char *gid_map);
+int userns_enter_and_pin(int userns_fd, pid_t *ret_pid);
+
+int userns_get_base_uid(int userns_fd, uid_t *ret_uid, gid_t *ret_gid);
 
 int netns_acquire(void);
 
-int parse_userns_uid_range(const char *s, uid_t *ret_uid_shift, uid_t *ret_uid_range);
-
 int is_idmapping_supported(const char *path);
-
-int userns_get_base_uid(int userns_fd, uid_t *ret_uid, gid_t *ret_gid);
 
 int process_is_owned_by_uid(const PidRef *pidref, uid_t uid);
