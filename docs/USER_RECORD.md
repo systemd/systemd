@@ -259,14 +259,17 @@ It's probably wise to use a location string processable by geo-location subsyste
 Example: `Berlin, Germany` or `Basement, Room 3a`.
 
 `disposition` → A string, one of `intrinsic`, `system`, `dynamic`, `regular`,
-`container`, `reserved`. If specified clarifies the disposition of the user,
+`container`, `foreign`, `reserved`. If specified clarifies the disposition of the user,
 i.e. the context it is defined in.
 For regular, "human" users this should be `regular`, for system users (i.e. users that system services run under, and similar) this should be `system`.
 The `intrinsic` disposition should be used only for the two users that have special meaning to the OS kernel itself,
 i.e. the `root` and `nobody` users.
 The `container` string should be used for users that are used by an OS container, and hence will show up in `ps` listings
 and such, but are only defined in container context.
-Finally `reserved` should be used for any users outside of these use-cases.
+The `foreign` string should be used for users from UID ranges which are used
+for OS images from foreign systems, i.e. where local resolution would not make
+sense.
+Finally, `reserved` should be used for any users outside of these use-cases.
 Note that this property is entirely optional and applications are assumed to be able to derive the
 disposition of a user automatically from a record even in absence of this
 field, based on other fields, for example the numeric UID. By setting this

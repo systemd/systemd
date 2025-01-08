@@ -273,6 +273,8 @@ option('container-uid-base-min', type : 'integer', value : 0x00080000,
        description : 'minimum container UID base')
 option('container-uid-base-max', type : 'integer', value : 0x6FFF0000,
        description : 'maximum container UID base')
+option('foreign-uid-base', type : 'integer', value : 0x7FFE0000,
+       description : 'foreign OS image UID base')
 option('adm-group', type : 'boolean',
        description : 'the ACL for adm group should be added')
 option('wheel-group', type : 'boolean',
