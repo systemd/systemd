@@ -78,6 +78,9 @@ fi
 
 if [[ -n "${TESTING_FARM_REQUEST_ID:-}" ]]; then
     tee --append mkosi.local.conf <<EOF
+[Content]
+SELinuxRelabel=yes
+
 [Build]
 ToolsTreeSandboxTrees=
         /etc/yum.repos.d/:/etc/yum.repos.d/
