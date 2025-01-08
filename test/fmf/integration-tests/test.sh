@@ -65,6 +65,13 @@ ToolsTreeDistribution=$ID
 ToolsTreeRelease=${VERSION_ID:-rawhide}
 EOF
 
+if [[ -n "${TEST_SELINUX_CHECK_AVCS:-}" ]]; then
+    tee --append mkosi.local.conf <<EOF
+[Runtime]
+KernelCommandLineExtra=systemd.setenv=TEST_SELINUX_CHECK_AVCS=$TEST_SELINUX_CHECK_AVCS
+EOF
+fi
+
 if [[ -n "${TESTING_FARM_REQUEST_ID:-}" ]]; then
     tee --append mkosi.local.conf <<EOF
 [Build]
