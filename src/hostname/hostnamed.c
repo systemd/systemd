@@ -17,6 +17,7 @@
 #include "bus-polkit.h"
 #include "constants.h"
 #include "daemon-util.h"
+#include "device-private.h"
 #include "env-file-label.h"
 #include "env-file.h"
 #include "env-util.h"
@@ -84,6 +85,7 @@ typedef struct Context {
         sd_varlink_server *varlink_server;
         Hashmap *polkit_registry;
         sd_device *device_dmi;
+        sd_device *device_acpi;
         sd_device *device_tree;
 } Context;
 
@@ -107,6 +109,7 @@ static void context_destroy(Context *c) {
         sd_bus_flush_close_unref(c->bus);
         sd_varlink_server_unref(c->varlink_server);
         sd_device_unref(c->device_dmi);
+        sd_device_unref(c->device_acpi);
         sd_device_unref(c->device_tree);
 }
 
@@ -230,6 +233,23 @@ static int context_acquire_dmi_device(Context *c) {
         }
         if (r < 0)
                 return log_error_errno(r, "Failed to open /sys/class/dmi/id/ device: %m");
+
+        return 1;
+}
+
+static int context_acquire_acpi_device(Context *c) {
+        int r;
+
+        assert(c);
+        assert(!c->device_acpi);
+
+        r = sd_device_new_from_syspath(&c->device_acpi, "/sys/firmware/acpi/");
+        if (ERRNO_IS_NEG_DEVICE_ABSENT(r)) {
+                log_debug_errno(r, "Failed to open /sys/firmware/acpi/ device, ignoring: %m");
+                return 0;
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to open /sys/firmware/acpi/ device: %m");
 
         return 1;
 }
@@ -443,31 +463,34 @@ static bool valid_deployment(const char *deployment) {
         return in_charset(deployment, VALID_DEPLOYMENT_CHARS);
 }
 
-static const char* fallback_chassis(void) {
-        const char *chassis;
-        _cleanup_free_ char *type = NULL;
-        Virtualization v;
+static const char* fallback_chassis_by_virtualization(void) {
+        Virtualization v = detect_virtualization();
+        if (v < 0) {
+                log_debug_errno(v, "Failed to detect virtualization, ignoring: %m");
+                return NULL;
+        }
+
+        if (VIRTUALIZATION_IS_VM(v))
+                return "vm";
+        if (VIRTUALIZATION_IS_CONTAINER(v))
+                return "container";
+
+        return NULL;
+}
+
+static const char* fallback_chassis_by_dmi(Context *c) {
         unsigned t;
         int r;
 
-        v = detect_virtualization();
-        if (v < 0)
-                log_debug_errno(v, "Failed to detect virtualization, ignoring: %m");
-        else if (VIRTUALIZATION_IS_VM(v))
-                return "vm";
-        else if (VIRTUALIZATION_IS_CONTAINER(v))
-                return "container";
+        assert(c);
 
-        r = read_one_line_file("/sys/class/dmi/id/chassis_type", &type);
-        if (r < 0) {
-                log_debug_errno(r, "Failed to read DMI chassis type, ignoring: %m");
-                goto try_acpi;
-        }
+        if (!c->device_dmi)
+                return NULL;
 
-        r = safe_atou(type, &t);
+        r = device_get_sysattr_unsigned(c->device_dmi, "chassis_type", &t);
         if (r < 0) {
-                log_debug_errno(r, "Failed to parse DMI chassis type \"%s\", ignoring: %m", type);
-                goto try_acpi;
+                log_debug_errno(r, "Failed to read/parse DMI chassis type, ignoring: %m");
+                return NULL;
         }
 
         /* We only list the really obvious cases here. The DMI data is unreliable enough, so let's not do any
@@ -516,20 +539,23 @@ static const char* fallback_chassis(void) {
 
         default:
                 log_debug("Unhandled DMI chassis type 0x%02x, ignoring.", t);
+                return NULL;
         }
+}
 
-try_acpi:
-        type = mfree(type);
-        r = read_one_line_file("/sys/firmware/acpi/pm_profile", &type);
-        if (r < 0) {
-                log_debug_errno(r, "Failed read ACPI PM profile, ignoring: %m");
-                goto try_devicetree;
-        }
+static const char* fallback_chassis_by_acpi(Context *c) {
+        unsigned t;
+        int r;
 
-        r = safe_atou(type, &t);
+        assert(c);
+
+        if (!c->device_acpi)
+                return NULL;
+
+        r = device_get_sysattr_unsigned(c->device_acpi, "pm_profile", &t);
         if (r < 0) {
-                log_debug_errno(r, "Failed parse ACPI PM profile \"%s\", ignoring: %m", type);
-                goto try_devicetree;
+                log_debug_errno(r, "Failed read/parse ACPI PM profile, ignoring: %m");
+                return NULL;
         }
 
         /* We only list the really obvious cases here as the ACPI data is not really super reliable.
@@ -559,11 +585,20 @@ try_acpi:
 
         default:
                 log_debug("Unhandled ACPI PM profile 0x%02x, ignoring.", t);
+                return NULL;
         }
+}
 
-try_devicetree:
-        type = mfree(type);
-        r = read_one_line_file("/proc/device-tree/chassis-type", &type);
+static const char* fallback_chassis_by_device_tree(Context *c) {
+        const char *type, *chassis;
+        int r;
+
+        assert(c);
+
+        if (!c->device_tree)
+                return NULL;
+
+        r = sd_device_get_sysattr_value(c->device_tree, "chassis-type", &type);
         if (r < 0) {
                 log_debug_errno(r, "Failed to read device-tree chassis type, ignoring: %m");
                 return NULL;
@@ -573,10 +608,21 @@ try_devicetree:
          * of chassis types as we do, hence we do not need to translate these types:
          *
          * https://github.com/devicetree-org/devicetree-specification/blob/master/source/chapter3-devicenodes.rst */
+
         chassis = valid_chassis(type);
         if (!chassis)
                 log_debug("Invalid device-tree chassis type \"%s\", ignoring.", type);
         return chassis;
+}
+
+static const char* fallback_chassis(Context *c) {
+        assert(c);
+
+        return
+                fallback_chassis_by_virtualization() ?:
+                fallback_chassis_by_dmi(c) ?:
+                fallback_chassis_by_acpi(c) ?:
+                fallback_chassis_by_device_tree(c);
 }
 
 static char* context_get_chassis(Context *c) {
@@ -591,7 +637,7 @@ static char* context_get_chassis(Context *c) {
         if (get_dmi_property(c, "ID_CHASSIS", &dmi) >= 0)
                 return dmi;
 
-        fallback = fallback_chassis();
+        fallback = fallback_chassis(c);
         if (fallback)
                 return strdup(fallback);
 
@@ -1781,6 +1827,10 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         r = context_acquire_dmi_device(&context);
+        if (r < 0)
+                return r;
+
+        r = context_acquire_acpi_device(&context);
         if (r < 0)
                 return r;
 
