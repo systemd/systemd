@@ -447,7 +447,14 @@ varlinkctl call /run/systemd/machine/io.systemd.MachineImage io.systemd.MachineI
 varlinkctl call /run/systemd/machine/io.systemd.MachineImage io.systemd.MachineImage.Clone '{"name":"long-running", "newName": "long-running-cloned", "readOnly": true}'
 varlinkctl call /run/systemd/machine/io.systemd.MachineImage io.systemd.MachineImage.List '{"name":"long-running-cloned"}'
 varlinkctl call /run/systemd/machine/io.systemd.MachineImage io.systemd.MachineImage.List '{"name":"long-running-cloned"}' | jq '.readOnly' | grep 'true'
+# this is for io.systemd.MachineImage.CleanPool test
+varlinkctl call /run/systemd/machine/io.systemd.MachineImage io.systemd.MachineImage.Clone '{"name":"long-running", "newName": "long-running-to-cleanup", "readOnly": true}'
 
 # test io.systemd.MachineImage.Remove
 varlinkctl call /run/systemd/machine/io.systemd.MachineImage io.systemd.MachineImage.Remove '{"name":"long-running-cloned"}'
 (! varlinkctl call /run/systemd/machine/io.systemd.MachineImage io.systemd.MachineImage.List '{"name":"long-running-cloned"}')
+
+# test io.systemd.MachineImage.CleanPool
+varlinkctl call /run/systemd/machine/io.systemd.MachineImage io.systemd.MachineImage.List '{"name":"long-running-to-cleanup"}'
+varlinkctl --more call /run/systemd/machine/io.systemd.MachineImage io.systemd.MachineImage.CleanPool '{"mode":"all"}'
+(! varlinkctl call /run/systemd/machine/io.systemd.MachineImage io.systemd.MachineImage.List '{"name":"long-running-to-cleanup"}')
