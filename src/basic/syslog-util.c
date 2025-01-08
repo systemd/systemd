@@ -102,6 +102,29 @@ bool log_level_is_valid(int level) {
         return level >= 0 && level <= LOG_DEBUG;
 }
 
+int log_max_level_to_string_alloc(int i, char **ret) {
+        if (i < 0)
+                return strdup_to(ret, "null");
+
+        return log_level_to_string_alloc(i, ret);
+}
+
+int log_max_level_from_string(const char *s) {
+        if (streq(s, "null"))
+                return LOG_NULL;
+
+        /* Consider any negative log level as null */
+        int level;
+        if (safe_atoi(s, &level) >= 0 && level < 0)
+                return LOG_NULL;
+
+        return log_level_from_string(s);
+}
+
+bool log_max_level_is_valid(int level) {
+        return level == LOG_NULL || log_level_is_valid(level);
+}
+
 /* The maximum size for a log namespace length. This is the file name size limit 255 minus the size of a
  * formatted machine ID minus a separator char */
 #define LOG_NAMESPACE_MAX (NAME_MAX - (SD_ID128_STRING_MAX - 1) - 1)
