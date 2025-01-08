@@ -23,7 +23,7 @@ static int make_pid_name(char **ret) {
         /* So the namespace name should be 16 chars at max (because we want that it is usable in usernames,
          * which have a limit of 31 chars effectively, and the nsresourced service wants to prefix/suffix
          * some bits). But it also should be unique if we are called multiple times in a row. Hence we take
-         * the "comm" name (which is 15 chars), and suffix it with the UID, possibly overriding the end. */
+         * the "comm" name (which is 15 chars), and suffix it with the PID, possibly overriding the end. */
         assert_cc(TASK_COMM_LEN == 15 + 1);
 
         char spid[DECIMAL_STR_MAX(pid_t)];
@@ -83,6 +83,7 @@ int nsresource_allocate_userns(const char *name, uint64_t size) {
                         &reply,
                         &error_id,
                         SD_JSON_BUILD_PAIR("name", SD_JSON_BUILD_STRING(name)),
+                        SD_JSON_BUILD_PAIR("mangleName", SD_JSON_BUILD_BOOLEAN(true)),
                         SD_JSON_BUILD_PAIR("size", SD_JSON_BUILD_UNSIGNED(size)),
                         SD_JSON_BUILD_PAIR("userNamespaceFileDescriptor", SD_JSON_BUILD_UNSIGNED(userns_fd_idx)));
         if (r < 0)
@@ -139,6 +140,7 @@ int nsresource_register_userns(const char *name, int userns_fd) {
                         &reply,
                         &error_id,
                         SD_JSON_BUILD_PAIR("name", SD_JSON_BUILD_STRING(name)),
+                        SD_JSON_BUILD_PAIR("mangleName", SD_JSON_BUILD_BOOLEAN(true)),
                         SD_JSON_BUILD_PAIR("userNamespaceFileDescriptor", SD_JSON_BUILD_UNSIGNED(userns_fd_idx)));
         if (r < 0)
                 return log_debug_errno(r, "Failed to call RegisterUserNamespace() varlink call: %m");
