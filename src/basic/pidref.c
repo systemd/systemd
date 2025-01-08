@@ -84,8 +84,8 @@ int pidref_set_pid(PidRef *pidref, pid_t pid) {
 
         fd = pidfd_open(pid, 0);
         if (fd < 0) {
-                /* Graceful fallback in case the kernel doesn't support pidfds or is out of fds */
-                if (!ERRNO_IS_NOT_SUPPORTED(errno) && !ERRNO_IS_PRIVILEGE(errno) && !ERRNO_IS_RESOURCE(errno))
+                /* Graceful fallback in case the kernel is out of fds */
+                if (!ERRNO_IS_RESOURCE(errno))
                         return log_debug_errno(errno, "Failed to open pidfd for pid " PID_FMT ": %m", pid);
 
                 fd = -EBADF;
