@@ -7,6 +7,10 @@ set -o pipefail
 # Switch SELinux to permissive if possible, since the tests don't set proper contexts
 setenforce 0 || true
 
+echo "CPU and Memory information:"
+lscpu
+lsmem
+
 # Allow running the integration tests downstream in dist-git with something like
 # the following snippet which makes the dist-git sources available in $TMT_SOURCE_DIR:
 #
