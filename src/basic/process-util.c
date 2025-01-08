@@ -1783,11 +1783,15 @@ int pidref_safe_fork_full(
         pid_t pid;
         int r, q;
 
-        assert(!FLAGS_SET(flags, FORK_WAIT));
-
         r = safe_fork_full(name, stdio_fds, except_fds, n_except_fds, flags, &pid);
-        if (r < 0)
+        if (r < 0 || !ret_pid)
                 return r;
+
+        if (r > 0 && FLAGS_SET(flags, FORK_WAIT)) {
+                /* If we are in the parent and successfully waited, then the process doesn't exist anymore */
+                *ret_pid = PIDREF_NULL;
+                return r;
+        }
 
         q = pidref_set_pid(ret_pid, pid);
         if (q < 0) /* Let's not fail for this, no matter what, the process exists after all, and that's key */
