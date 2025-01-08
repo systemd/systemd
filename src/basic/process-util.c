@@ -742,6 +742,44 @@ int pidref_get_ppid(const PidRef *pidref, pid_t *ret) {
         return 0;
 }
 
+int pidref_get_ppid_as_pidref(const PidRef *pidref, PidRef *ret) {
+        pid_t ppid;
+        int r;
+
+        assert(ret);
+
+        r = pidref_get_ppid(pidref, &ppid);
+        if (r < 0)
+                return r;
+
+        for (unsigned attempt = 0; attempt < 16; attempt++) {
+                _cleanup_(pidref_done) PidRef parent = PIDREF_NULL;
+
+                r = pidref_set_pid(&parent, ppid);
+                if (r < 0)
+                        return r;
+
+                /* If we have a pidfd of the original PID, let's verify that the process we acquired really
+                 * is the parent still */
+                if (pidref->fd >= 0) {
+                        r = pidref_get_ppid(pidref, &ppid);
+                        if (r < 0)
+                                return r;
+
+                        /* Did the PPID change since we queried it? if so we might have pinned the wrong
+                         * process, if its PID got reused by now. Let's try again */
+                        if (parent.pid != ppid)
+                                continue;
+                }
+
+                *ret = TAKE_PIDREF(parent);
+                return 0;
+        }
+
+        /* Give up after 15 tries */
+        return -ENOTRECOVERABLE;
+}
+
 int pid_get_start_time(pid_t pid, usec_t *ret) {
         _cleanup_free_ char *line = NULL;
         const char *p;
@@ -1745,11 +1783,15 @@ int pidref_safe_fork_full(
         pid_t pid;
         int r, q;
 
-        assert(!FLAGS_SET(flags, FORK_WAIT));
-
         r = safe_fork_full(name, stdio_fds, except_fds, n_except_fds, flags, &pid);
-        if (r < 0)
+        if (r < 0 || !ret_pid)
                 return r;
+
+        if (r > 0 && FLAGS_SET(flags, FORK_WAIT)) {
+                /* If we are in the parent and successfully waited, then the process doesn't exist anymore */
+                *ret_pid = PIDREF_NULL;
+                return r;
+        }
 
         q = pidref_set_pid(ret_pid, pid);
         if (q < 0) /* Let's not fail for this, no matter what, the process exists after all, and that's key */

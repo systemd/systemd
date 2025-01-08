@@ -301,14 +301,9 @@ int machine_id_commit(const char *root) {
         fd = safe_close(fd);
 
         /* Store current mount namespace */
-        r = namespace_open(0,
-                           /* ret_pidns_fd = */ NULL,
-                           &initial_mntns_fd,
-                           /* ret_netns_fd = */ NULL,
-                           /* ret_userns_fd = */ NULL,
-                           /* ret_root_fd = */ NULL);
-        if (r < 0)
-                return log_error_errno(r, "Can't fetch current mount namespace: %m");
+        initial_mntns_fd = namespace_open_by_type(NAMESPACE_MOUNT);
+        if (initial_mntns_fd < 0)
+                return log_error_errno(initial_mntns_fd, "Can't fetch current mount namespace: %m");
 
         /* Switch to a new mount namespace, isolate ourself and unmount etc_machine_id in our new namespace */
         r = detach_mount_namespace();
