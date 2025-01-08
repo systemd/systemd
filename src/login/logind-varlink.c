@@ -101,36 +101,18 @@ int session_send_create_reply_varlink(Session *s, const sd_bus_error *error) {
         if (sd_bus_error_is_set(error))
                 return sd_varlink_error(vl, "io.systemd.Login.UnitAllocationFailed", /* parameters= */ NULL);
 
-        _cleanup_close_ int fifo_fd = session_create_fifo(s);
-        if (fifo_fd < 0)
-                return fifo_fd;
-
-        /* Update the session state file before we notify the client about the result. */
-        session_save(s);
-
         log_debug("Sending Varlink reply about created session: "
-                  "id=%s uid=" UID_FMT " runtime_path=%s "
-                  "session_fd=%d seat=%s vtnr=%u",
+                  "id=%s uid=" UID_FMT " runtime_path=%s seat=%s vtnr=%u",
                   s->id,
                   s->user->user_record->uid,
                   s->user->runtime_path,
-                  fifo_fd,
                   s->seat ? s->seat->id : "",
                   s->vtnr);
-
-        int fifo_fd_idx = sd_varlink_push_fd(vl, fifo_fd);
-        if (fifo_fd_idx < 0) {
-                log_error_errno(fifo_fd_idx, "Failed to push FIFO fd to Varlink: %m");
-                return sd_varlink_error_errno(vl, fifo_fd_idx);
-        }
-
-        TAKE_FD(fifo_fd);
 
         return sd_varlink_replybo(
                         vl,
                         SD_JSON_BUILD_PAIR_STRING("Id", s->id),
                         SD_JSON_BUILD_PAIR_STRING("RuntimePath", s->user->runtime_path),
-                        SD_JSON_BUILD_PAIR_UNSIGNED("SessionFileDescriptor", fifo_fd_idx),
                         SD_JSON_BUILD_PAIR_UNSIGNED("UID", s->user->user_record->uid),
                         SD_JSON_BUILD_PAIR_CONDITION(!!s->seat, "Seat", SD_JSON_BUILD_STRING(s->seat ? s->seat->id : NULL)),
                         SD_JSON_BUILD_PAIR_CONDITION(s->vtnr > 0, "VTNr", SD_JSON_BUILD_UNSIGNED(s->vtnr)),
@@ -167,7 +149,7 @@ static int vl_method_create_session(sd_varlink *link, sd_json_variant *parameter
 
         static const sd_json_dispatch_field dispatch_table[] = {
                 { "UID",        _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uid_gid,      offsetof(CreateSessionParameters, uid),         SD_JSON_MANDATORY },
-                { "PID",        _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_pidref,          offsetof(CreateSessionParameters, pid),         SD_JSON_RELAX     },
+                { "PID",        _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_pidref,          offsetof(CreateSessionParameters, pid),         SD_JSON_STRICT    },
                 { "Service",    SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(CreateSessionParameters, service),     0                 },
                 { "Type",       SD_JSON_VARIANT_STRING,        json_dispatch_session_type,    offsetof(CreateSessionParameters, type),        SD_JSON_MANDATORY },
                 { "Class",      SD_JSON_VARIANT_STRING,        json_dispatch_session_class,   offsetof(CreateSessionParameters, class),       SD_JSON_MANDATORY },
@@ -251,6 +233,9 @@ static int vl_method_create_session(sd_varlink *link, sd_json_variant *parameter
                 if (r < 0)
                         return log_debug_errno(r, "Failed to get peer pidref: %m");
         }
+
+        if (p.pid.fd < 0)
+                return sd_varlink_error(link, "io.systemd.Login.NoSessionPIDFD", /* parameters= */ NULL);
 
         Session *session;
         r = manager_create_session(
