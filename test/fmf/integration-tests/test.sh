@@ -13,9 +13,6 @@ setenforce 0 || true
 # summary: systemd Fedora test suite
 # discover:
 #   how: fmf
-#   url: https://github.com/systemd/systemd
-#   ref: main
-#   path: test/fmf
 #   dist-git-source: true
 #   dist-git-install-builddeps: false
 # prepare:
