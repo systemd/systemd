@@ -54,6 +54,11 @@
       <arg choice="opt" rep="repeat"><replaceable>file</replaceable></arg>
     </cmdsynopsis>
     <cmdsynopsis>
+      <command>udevadm cat</command>
+      <arg choice="opt" rep="repeat">options</arg>
+      <arg choice="opt" rep="repeat"><replaceable>file</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
       <command>udevadm wait <optional>options</optional> <replaceable>device|syspath</replaceable></command>
     </cmdsynopsis>
     <cmdsynopsis>
@@ -979,6 +984,60 @@
     </refsect2>
 
     <refsect2>
+      <title>udevadm cat
+      <optional><replaceable>options</replaceable></optional>
+      <optional><replaceable>file</replaceable></optional>
+      …
+      </title>
+
+      <para>Show udev rules files or udev.conf.</para>
+
+      <para>Positional arguments could be used to specify one or more files to show. Each argument must be an
+      absolute path to a udev rules file or file name of udev rules file (e.g.
+      <filename>99-systemd.rules</filename>). If a file name is specified, searched in the
+      <filename>udev/rules.d</filename> directories that are processed by <command>systemd-udevd</command>.
+      If no files are specified, the udev rules are read from the files located in the same
+      <filename>udev/rules.d</filename> directories that are processed by <command>systemd-udevd</command>.
+      See <citerefentry><refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum></citerefentry> for the
+      search paths.</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><option>--root=<replaceable>PATH</replaceable></option></term>
+          <listitem>
+            <para>When looking for udev rules files located in udev/rules.d directories,
+            operate on files underneath the specified root path <replaceable>PATH</replaceable>.</para>
+
+            <xi:include href="version-info.xml" xpointer="v258"/>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--tldr</option></term>
+          <listitem>
+            <para>Only print the "interesting" parts of the configuration files, skipping comments and empty
+            lines and section headers followed only by comments and empty lines.</para>
+
+            <xi:include href="version-info.xml" xpointer="v258"/>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--config</option></term>
+          <listitem>
+            <para>Shows
+            <citerefentry><refentrytitle>udev.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+            files, rather than udev rules files.</para>
+
+            <xi:include href="version-info.xml" xpointer="v258"/>
+          </listitem>
+        </varlistentry>
+
+        <xi:include href="standard-options.xml" xpointer="help" />
+      </variablelist>
+    </refsect2>
+
+    <refsect2>
       <title>udevadm wait
       <optional><replaceable>options</replaceable></optional>
       <optional><replaceable>device|syspath</replaceable></optional>
@@ -1179,12 +1238,9 @@
   <refsect1>
     <title>See Also</title>
     <para><simplelist type="inline">
-      <member><citerefentry>
-        <refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum>
-      </citerefentry></member>
-      <member><citerefentry>
-        <refentrytitle>systemd-udevd.service</refentrytitle><manvolnum>8</manvolnum>
-      </citerefentry></member>
+      <member><citerefentry><refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-udevd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>udev.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
     </simplelist></para>
   </refsect1>
 </refentry>
