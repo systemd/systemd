@@ -100,6 +100,13 @@ if [[ ! -e /dev/kvm ]]; then
     export TEST_NO_QEMU=1
 fi
 
+NPROC=$(nproc)
+if [[ $NPROC -ge 10 ]]; then
+    NPROC=$((NPROC / 2))
+else
+    NPROC=$((NPROC - 1))
+fi
+
 # Create missing mountpoint for mkosi sandbox.
 mkdir -p /etc/pacman.d/gnupg
 
@@ -115,6 +122,6 @@ mkosi -f sandbox \
     --suite integration-tests \
     --print-errorlogs \
     --no-stdsplit \
-    --num-processes "$(($(nproc) - 1))"
+    --num-processes "$NPROC"
 
 popd
