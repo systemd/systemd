@@ -222,6 +222,7 @@ PidRef* pidref_free(PidRef *pidref) {
 int pidref_copy(const PidRef *pidref, PidRef *dest) {
         _cleanup_close_ int dup_fd = -EBADF;
         pid_t dup_pid = 0;
+        uint64_t dup_fd_id = 0;
 
         /* If NULL is passed we'll generate a PidRef that refers to no process. This makes it easy to
          * copy pidref fields that might or might not reference a process yet. */
@@ -243,11 +244,14 @@ int pidref_copy(const PidRef *pidref, PidRef *dest) {
 
                 if (pidref->pid > 0)
                         dup_pid = pidref->pid;
+
+                dup_fd_id = pidref->fd_id;
         }
 
         *dest = (PidRef) {
                 .fd = TAKE_FD(dup_fd),
                 .pid = dup_pid,
+                .fd_id = dup_fd_id,
         };
 
         return 0;
@@ -406,21 +410,16 @@ int pidref_wait(const PidRef *pidref, siginfo_t *ret, int options) {
                 return -ECHILD;
 
         siginfo_t si = {};
-
-        if (pidref->fd >= 0) {
+        if (pidref->fd >= 0)
                 r = RET_NERRNO(waitid(P_PIDFD, pidref->fd, &si, options));
-                if (r >= 0) {
-                        if (ret)
-                                *ret = si;
-                        return r;
-                }
-                if (r != -EINVAL) /* P_PIDFD was added in kernel 5.4 only */
-                        return r;
-        }
+        else
+                r = RET_NERRNO(waitid(P_PID, pidref->pid, &si, options));
+        if (r < 0)
+                return r;
 
-        r = RET_NERRNO(waitid(P_PID, pidref->pid, &si, options));
-        if (r >= 0 && ret)
+        if (ret)
                 *ret = si;
+
         return r;
 }
 
