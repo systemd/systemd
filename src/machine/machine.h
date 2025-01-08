@@ -108,7 +108,7 @@ int machine_start_shell(Machine *m, int ptmx_fd, const char *ptmx_name, const ch
 #define machine_default_shell_path() ("/bin/sh")
 char** machine_default_shell_args(const char *user);
 
-int machine_copy_from_to(
+int machine_copy_from_to_operation(
                 Manager *manager,
                 Machine *machine,
                 const char *host_path,
