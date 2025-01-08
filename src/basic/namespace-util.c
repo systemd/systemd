@@ -498,28 +498,22 @@ int parse_userns_uid_range(const char *s, uid_t *ret_uid_shift, uid_t *ret_uid_r
 }
 
 int userns_acquire_empty(void) {
-        _cleanup_(sigkill_waitp) pid_t pid = 0;
-        _cleanup_close_ int userns_fd = -EBADF;
+        _cleanup_(pidref_done_sigkill_wait) PidRef pid = PIDREF_NULL;
         int r;
 
-        r = safe_fork("(sd-mkuserns)", FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGKILL|FORK_NEW_USERNS, &pid);
+        r = pidref_safe_fork("(sd-mkuserns)", FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGKILL|FORK_NEW_USERNS, &pid);
         if (r < 0)
                 return r;
         if (r == 0)
                 /* Child. We do nothing here, just freeze until somebody kills us. */
                 freeze();
 
-        r = namespace_open(pid, NULL, NULL, NULL, &userns_fd, NULL);
-        if (r < 0)
-                return log_error_errno(r, "Failed to open userns fd: %m");
-
-        return TAKE_FD(userns_fd);
+        return pidref_namespace_open_by_type(&pid, NAMESPACE_USER);
 }
 
 int userns_acquire(const char *uid_map, const char *gid_map) {
         char path[STRLEN("/proc//uid_map") + DECIMAL_STR_MAX(pid_t) + 1];
-        _cleanup_(sigkill_waitp) pid_t pid = 0;
-        _cleanup_close_ int userns_fd = -EBADF;
+        _cleanup_(pidref_done_sigkill_wait) PidRef pid = PIDREF_NULL;
         int r;
 
         assert(uid_map);
@@ -529,7 +523,7 @@ int userns_acquire(const char *uid_map, const char *gid_map) {
          * and then kills the process again. This way we have a userns fd that is not bound to any
          * process. We can use that for file system mounts and similar. */
 
-        r = safe_fork("(sd-mkuserns)", FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGKILL|FORK_NEW_USERNS, &pid);
+        r = pidref_safe_fork("(sd-mkuserns)", FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGKILL|FORK_NEW_USERNS, &pid);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -546,16 +540,7 @@ int userns_acquire(const char *uid_map, const char *gid_map) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to write GID map: %m");
 
-        r = namespace_open(pid,
-                           /* ret_pidns_fd = */ NULL,
-                           /* ret_mntns_fd = */ NULL,
-                           /* ret_netns_fd = */ NULL,
-                           &userns_fd,
-                           /* ret_root_fd = */ NULL);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to open userns fd: %m");
-
-        return TAKE_FD(userns_fd);
+        return pidref_namespace_open_by_type(&pid, NAMESPACE_USER);
 }
 
 int userns_enter_and_pin(int userns_fd, pid_t *ret_pid) {
@@ -753,29 +738,19 @@ int is_idmapping_supported(const char *path) {
 }
 
 int netns_acquire(void) {
-        _cleanup_(sigkill_waitp) pid_t pid = 0;
-        _cleanup_close_ int netns_fd = -EBADF;
+        _cleanup_(pidref_done_sigkill_wait) PidRef pid = PIDREF_NULL;
         int r;
 
         /* Forks off a process in a new network namespace, acquires a network namespace fd, and then kills
          * the process again. This way we have a netns fd that is not bound to any process. */
 
-        r = safe_fork("(sd-mknetns)", FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGKILL|FORK_NEW_NETNS, &pid);
+        r = pidref_safe_fork("(sd-mknetns)", FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGKILL|FORK_NEW_NETNS, &pid);
         if (r < 0)
-                return log_debug_errno(r, "Failed to fork process (sd-mknetns): %m");
+                return log_debug_errno(r, "Failed to fork process into new netns: %m");
         if (r == 0)
                 /* Child. We do nothing here, just freeze until somebody kills us. */
                 freeze();
 
-        r = namespace_open(pid,
-                           /* ret_pidns_fd = */ NULL,
-                           /* ret_mntns_fd = */ NULL,
-                           &netns_fd,
-                           /* ret_userns_fd = */ NULL,
-                           /* ret_root_fd = */ NULL);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to open netns fd: %m");
-
-        return TAKE_FD(netns_fd);
+        return pidref_namespace_open_by_type(&pid, NAMESPACE_NET);
 }
 
