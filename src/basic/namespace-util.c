@@ -624,12 +624,12 @@ int userns_get_base_uid(int userns_fd, uid_t *ret_uid, gid_t *ret_gid) {
                 return r;
 
         uid_t uid;
-        r = uid_map_search_root(pid, "uid_map", &uid);
+        r = uid_map_search_root(pid, UID_RANGE_USERNS_OUTSIDE, &uid);
         if (r < 0)
                 return r;
 
         gid_t gid;
-        r = uid_map_search_root(pid, "gid_map", &gid);
+        r = uid_map_search_root(pid, GID_RANGE_USERNS_OUTSIDE, &gid);
         if (r < 0)
                 return r;
 
