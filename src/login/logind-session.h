@@ -138,10 +138,6 @@ struct Session {
         pid_t deserialized_pid; /* PID deserialized from state file (for verification when pidfd is used) */
         uint32_t audit_id;
 
-        int fifo_fd;
-        char *fifo_path;
-
-        sd_event_source *fifo_event_source;
         sd_event_source *leader_pidfd_event_source;
 
         bool in_gc_queue;
@@ -194,7 +190,6 @@ void session_set_type(Session *s, SessionType t);
 void session_set_class(Session *s, SessionClass c);
 int session_set_display(Session *s, const char *display);
 int session_set_tty(Session *s, const char *tty);
-int session_create_fifo(Session *s);
 int session_start(Session *s, sd_bus_message *properties, sd_bus_error *error);
 int session_stop(Session *s, bool force);
 int session_finalize(Session *s);

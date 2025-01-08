@@ -73,6 +73,12 @@ CHANGES WITH 258 in spe:
           removed. Also, 'cryptolib' meson option has been deprecated, and will
           be removed in a future release.
 
+        * systemd-logind's session tracking, which used to be performed via
+          fifo fd installed in the client, has been fully switched to be
+          pidfd-based. The fd returned by CreateSession() and related calls
+          is therefore unused. Moreover, the exit of session leader process
+          will immediately cause the session to be stopped.
+
         Announcements of Future Feature Removals:
 
         * The D-Bus method org.freedesktop.systemd1.StartAuxiliaryScope() is
