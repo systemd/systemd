@@ -560,13 +560,13 @@ const char* fstype_norecovery_option(const char *fstype) {
         return mount_option_supported(fstype, "norecovery", NULL) > 0 ? "norecovery" : NULL;
 }
 
-bool fstype_can_umask(const char *fstype) {
+bool fstype_can_fmask_dmask(const char *fstype) {
         assert(fstype);
 
         /* Use a curated list as first check, to avoid calling fsopen() which might load kmods, which might
          * not be allowed in our MAC context. If we don't know ourselves, on new kernels we can just ask the
          * kernel. */
-        return streq(fstype, "vfat") || mount_option_supported(fstype, "umask", "0077") > 0;
+        return streq(fstype, "vfat") || (mount_option_supported(fstype, "fmask", "0177") > 0 && mount_option_supported(fstype, "dmask", "0077") > 0);
 }
 
 bool fstype_can_uid_gid(const char *fstype) {
