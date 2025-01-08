@@ -558,7 +558,7 @@ int userns_acquire(const char *uid_map, const char *gid_map) {
         return TAKE_FD(userns_fd);
 }
 
-int userns_get_base_uid(int userns_fd, uid_t *ret_uid, gid_t *ret_gid) {
+int userns_enter_and_pin(int userns_fd, pid_t *ret_pid) {
         _cleanup_(close_pairp) int pfd[2] = EBADF_PAIR;
         _cleanup_(sigkill_waitp) pid_t pid = 0;
         ssize_t n;
@@ -566,12 +566,13 @@ int userns_get_base_uid(int userns_fd, uid_t *ret_uid, gid_t *ret_gid) {
         int r;
 
         assert(userns_fd >= 0);
+        assert(ret_pid);
 
         if (pipe2(pfd, O_CLOEXEC) < 0)
                 return -errno;
 
         r = safe_fork_full(
-                        "(sd-baseuns)",
+                        "(sd-pinuserns)",
                         /* stdio_fds= */ NULL,
                         (int[]) { pfd[1], userns_fd }, 2,
                         FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGKILL,
@@ -608,6 +609,20 @@ int userns_get_base_uid(int userns_fd, uid_t *ret_uid, gid_t *ret_gid) {
         assert(n == 1);
         assert(x == 'x');
 
+        *ret_pid = TAKE_PID(pid);
+        return 0;
+}
+
+int userns_get_base_uid(int userns_fd, uid_t *ret_uid, gid_t *ret_gid) {
+        _cleanup_(sigkill_waitp) pid_t pid = 0;
+        int r;
+
+        assert(userns_fd >= 0);
+
+        r = userns_enter_and_pin(userns_fd, &pid);
+        if (r < 0)
+                return r;
+
         uid_t uid;
         r = uid_map_search_root(pid, "uid_map", &uid);
         if (r < 0)
@@ -630,12 +645,12 @@ int userns_get_base_uid(int userns_fd, uid_t *ret_uid, gid_t *ret_gid) {
 }
 
 int process_is_owned_by_uid(const PidRef *pidref, uid_t uid) {
-        assert(uid_is_valid(uid));
-
         int r;
 
         /* Checks if the specified process either is owned directly by the specified user, or if it is inside
          * a user namespace owned by it. */
+
+        assert(uid_is_valid(uid));
 
         uid_t process_uid;
         r = pidref_get_uid(pidref, &process_uid);
