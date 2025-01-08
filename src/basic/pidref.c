@@ -401,22 +401,17 @@ int pidref_wait(const PidRef *pidref, siginfo_t *ret, int options) {
                 return -ECHILD;
 
         siginfo_t si = {};
-
-        if (pidref->fd >= 0) {
+        if (pidref->fd >= 0)
                 r = RET_NERRNO(waitid(P_PIDFD, pidref->fd, &si, options));
-                if (r >= 0) {
-                        if (ret)
-                                *ret = si;
-                        return r;
-                }
-                if (r != -EINVAL) /* P_PIDFD was added in kernel 5.4 only */
-                        return r;
-        }
+        else
+                r = RET_NERRNO(waitid(P_PID, pidref->pid, &si, options));
+        if (r < 0)
+                return r;
 
-        r = RET_NERRNO(waitid(P_PID, pidref->pid, &si, options));
-        if (r >= 0 && ret)
+        if (ret)
                 *ret = si;
-        return r;
+
+        return 0;
 }
 
 int pidref_wait_for_terminate(const PidRef *pidref, siginfo_t *ret) {
