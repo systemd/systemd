@@ -23,8 +23,11 @@ setenforce 0 || true
 # execute:
 #   how: tmt
 
+shopt -s extglob
+
 if [[ -n "${TMT_SOURCE_DIR:-}" ]]; then
-    pushd "$TMT_SOURCE_DIR/*/"
+    # Match either directories ending with branch names (e.g. systemd-fmf) or releases (e.g systemd-257.1).
+    pushd "$TMT_SOURCE_DIR"/systemd-+([0-9a-z.~])/
 elif [[ -n "${PACKIT_TARGET_URL:-}" ]]; then
     # Prepare systemd source tree
     git clone "$PACKIT_TARGET_URL" systemd --branch "$PACKIT_TARGET_BRANCH"
