@@ -797,7 +797,8 @@ static int manager_varlink_init_machine(Manager *m) {
                         "io.systemd.MachineImage.List",         vl_method_list_images,
                         "io.systemd.MachineImage.Update",       vl_method_update_image,
                         "io.systemd.MachineImage.Clone",        vl_method_clone_image,
-                        "io.systemd.MachineImage.Remove",       vl_method_remove_image);
+                        "io.systemd.MachineImage.Remove",       vl_method_remove_image,
+                        "io.systemd.MachineImage.CleanPool",    vl_method_clean_pool);
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink methods: %m");
 
