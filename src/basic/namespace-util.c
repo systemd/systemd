@@ -461,7 +461,6 @@ int detach_mount_namespace_userns(int userns_fd) {
 
 int userns_acquire_empty(void) {
         _cleanup_(sigkill_waitp) pid_t pid = 0;
-        _cleanup_close_ int userns_fd = -EBADF;
         int r;
 
         r = safe_fork("(sd-mkuserns)", FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGKILL|FORK_NEW_USERNS, &pid);
@@ -471,17 +470,12 @@ int userns_acquire_empty(void) {
                 /* Child. We do nothing here, just freeze until somebody kills us. */
                 freeze();
 
-        r = namespace_open(pid, NULL, NULL, NULL, &userns_fd, NULL);
-        if (r < 0)
-                return log_error_errno(r, "Failed to open userns fd: %m");
-
-        return TAKE_FD(userns_fd);
+        return pidref_namespace_open_by_type(&PIDREF_MAKE_FROM_PID(pid), NAMESPACE_USER);
 }
 
 int userns_acquire(const char *uid_map, const char *gid_map) {
         char path[STRLEN("/proc//uid_map") + DECIMAL_STR_MAX(pid_t) + 1];
         _cleanup_(sigkill_waitp) pid_t pid = 0;
-        _cleanup_close_ int userns_fd = -EBADF;
         int r;
 
         assert(uid_map);
@@ -508,16 +502,7 @@ int userns_acquire(const char *uid_map, const char *gid_map) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to write GID map: %m");
 
-        r = namespace_open(pid,
-                           /* ret_pidns_fd = */ NULL,
-                           /* ret_mntns_fd = */ NULL,
-                           /* ret_netns_fd = */ NULL,
-                           &userns_fd,
-                           /* ret_root_fd = */ NULL);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to open userns fd: %m");
-
-        return TAKE_FD(userns_fd);
+        return pidref_namespace_open_by_type(&PIDREF_MAKE_FROM_PID(pid), NAMESPACE_USER);
 }
 
 int userns_enter_and_pin(int userns_fd, pid_t *ret_pid) {
@@ -646,7 +631,6 @@ int parse_userns_uid_range(const char *s, uid_t *ret_uid_shift, uid_t *ret_uid_r
 
 int netns_acquire(void) {
         _cleanup_(sigkill_waitp) pid_t pid = 0;
-        _cleanup_close_ int netns_fd = -EBADF;
         int r;
 
         /* Forks off a process in a new network namespace, acquires a network namespace fd, and then kills
@@ -659,16 +643,7 @@ int netns_acquire(void) {
                 /* Child. We do nothing here, just freeze until somebody kills us. */
                 freeze();
 
-        r = namespace_open(pid,
-                           /* ret_pidns_fd = */ NULL,
-                           /* ret_mntns_fd = */ NULL,
-                           &netns_fd,
-                           /* ret_userns_fd = */ NULL,
-                           /* ret_root_fd = */ NULL);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to open netns fd: %m");
-
-        return TAKE_FD(netns_fd);
+        return pidref_namespace_open_by_type(&PIDREF_MAKE_FROM_PID(pid), NAMESPACE_NET);
 }
 
 int is_idmapping_supported(const char *path) {
