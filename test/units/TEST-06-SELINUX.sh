@@ -46,4 +46,8 @@ NSPAWN_ARGS=(systemd-nspawn -q --volatile=yes --directory=/ --bind-ro=/etc --ina
 [[ "$("${NSPAWN_ARGS[@]}" --selinux-apifs-context="$CONTEXT" stat --printf %C /run)" == "$CONTEXT" ]]
 [[ "$("${NSPAWN_ARGS[@]}" --selinux-apifs-context="$CONTEXT" --tmpfs=/tmp stat --printf %C /tmp)" == "$CONTEXT" ]]
 
+if [[ -n "${TEST_SELINUX_CHECK_AVCS:-}" ]] && ((TEST_SELINUX_CHECK_AVCS)); then
+    (! journalctl -t audit -g AVC -o cat)
+fi
+
 touch /testok
