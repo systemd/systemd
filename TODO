@@ -122,6 +122,19 @@ Deprecations and removals:
 
 Features:
 
+* account number of units currently in activating/active/deactivating state in
+  each slice, and expose this as a property of the slice, given this is a key
+  metric of the resource management entity that a slice is. (maybe add a 2nd
+  metric for units assigned to the slice, that also includes those with pending
+  jobs)
+
+* maybe allow putting a "soft" limit on the number concurrently active units in
+  a slice, as per the previous item. When the limit is reached delay further
+  activations until number is below the threshold again, leaving the unit in
+  the job queue. Thus, multiple resource intensive tasks can be scheduled as
+  units in the same slice and they will be executed with an upper limit on
+  concurrently running tasks.
+
 * importd: introduce a per-user instance, that downloads into per-user DDI dirs
 
 * sysupdated: similar
