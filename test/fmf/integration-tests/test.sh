@@ -63,6 +63,10 @@ Release=${VERSION_ID:-rawhide}
 [Build]
 ToolsTreeDistribution=$ID
 ToolsTreeRelease=${VERSION_ID:-rawhide}
+EOF
+
+if [[ -n "${TESTING_FARM_REQUEST_ID:-}" ]]; then
+    tee --append mkosi.local.conf <<EOF
 ToolsTreeSandboxTrees=
         /etc/yum.repos.d/:/etc/yum.repos.d/
         /var/share/test-artifacts/:/var/share/test-artifacts/
@@ -72,14 +76,15 @@ SandboxTrees=
 Environment=NO_BUILD=1
 EOF
 
-cat /etc/dnf/dnf.conf
-cat /etc/yum.repos.d/*
+    cat /etc/dnf/dnf.conf
+    cat /etc/yum.repos.d/*
 
-# Ensure packages built for this test have highest priority
-echo -e "\npriority=1" >> /etc/yum.repos.d/copr_build*
+    # Ensure packages built for this test have highest priority
+    echo -e "\npriority=1" >> /etc/yum.repos.d/copr_build*
 
-# Disable mkosi's own repository logic
-touch /etc/yum.repos.d/mkosi.repo
+    # Disable mkosi's own repository logic
+    touch /etc/yum.repos.d/mkosi.repo
+fi
 
 # TODO: drop once BTRFS regression is fixed in kernel 6.13
 sed -i "s/Format=btrfs/Format=ext4/" mkosi.repart/10-root.conf
