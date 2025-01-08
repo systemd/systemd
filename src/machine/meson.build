@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 libmachine_core_sources = files(
+        'image.c',
         'image-dbus.c',
         'image-varlink.c',
         'machine-dbus.c',

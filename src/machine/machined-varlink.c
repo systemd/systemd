@@ -774,21 +774,22 @@ static int manager_varlink_init_machine(Manager *m) {
 
         r = sd_varlink_server_bind_method_many(
                         s,
-                        "io.systemd.Machine.Register",    vl_method_register,
-                        "io.systemd.Machine.List",        vl_method_list,
-                        "io.systemd.Machine.Unregister",  vl_method_unregister,
-                        "io.systemd.Machine.Terminate",   vl_method_terminate,
-                        "io.systemd.Machine.Kill",        vl_method_kill,
-                        "io.systemd.Machine.Open",        vl_method_open,
-                        "io.systemd.Machine.MapFrom",     vl_method_map_from,
-                        "io.systemd.Machine.MapTo",       vl_method_map_to,
-                        "io.systemd.Machine.BindMount",   vl_method_bind_mount,
-                        "io.systemd.Machine.CopyFrom",    vl_method_copy_from,
-                        "io.systemd.Machine.CopyTo",      vl_method_copy_to,
-                        "io.systemd.MachineImage.List",   vl_method_list_images,
-                        "io.systemd.MachineImage.Update", vl_method_update_image,
-                        "io.systemd.MachineImage.Clone",  vl_method_clone_image,
-                        "io.systemd.MachineImage.Remove", vl_method_remove_image);
+                        "io.systemd.Machine.Register",          vl_method_register,
+                        "io.systemd.Machine.List",              vl_method_list,
+                        "io.systemd.Machine.Unregister",        vl_method_unregister,
+                        "io.systemd.Machine.Terminate",         vl_method_terminate,
+                        "io.systemd.Machine.Kill",              vl_method_kill,
+                        "io.systemd.Machine.Open",              vl_method_open,
+                        "io.systemd.Machine.MapFrom",           vl_method_map_from,
+                        "io.systemd.Machine.MapTo",             vl_method_map_to,
+                        "io.systemd.Machine.BindMount",         vl_method_bind_mount,
+                        "io.systemd.Machine.CopyFrom",          vl_method_copy_from,
+                        "io.systemd.Machine.CopyTo",            vl_method_copy_to,
+                        "io.systemd.MachineImage.List",         vl_method_list_images,
+                        "io.systemd.MachineImage.Update",       vl_method_update_image,
+                        "io.systemd.MachineImage.Clone",        vl_method_clone_image,
+                        "io.systemd.MachineImage.Remove",       vl_method_remove_image,
+                        "io.systemd.MachineImage.CleanPool",    vl_method_clean_pool);
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink methods: %m");
 
