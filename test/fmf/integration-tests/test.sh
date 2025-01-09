@@ -11,6 +11,8 @@ echo "CPU and Memory information:"
 lscpu
 lsmem
 
+echo "Clock source: $(cat /sys/devices/system/clocksource/clocksource0/current_clocksource)"
+
 # Allow running the integration tests downstream in dist-git with something like
 # the following snippet which makes the dist-git sources available in $TMT_SOURCE_DIR:
 #
