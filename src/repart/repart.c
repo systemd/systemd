@@ -6310,20 +6310,15 @@ static int context_acquire_partition_uuids_and_labels(Context *context) {
 
 static int set_gpt_flags(struct fdisk_partition *q, uint64_t flags) {
         _cleanup_free_ char *a = NULL;
+        int r;
 
-        for (unsigned i = 0; i < sizeof(flags) * 8; i++) {
-                uint64_t bit = UINT64_C(1) << i;
-                char buf[DECIMAL_STR_MAX(unsigned)+1];
-
-                if (!FLAGS_SET(flags, bit))
-                        continue;
-
-                xsprintf(buf, "%u", i);
-                if (!strextend_with_separator(&a, ",", buf))
-                        return -ENOMEM;
+        BIT_FOREACH(i, flags) {
+                r = strextendf_with_separator(&a, ",", "%i", i);
+                if (r < 0)
+                        return r;
         }
 
-        return fdisk_partition_set_attrs(q, a);
+        return fdisk_partition_set_attrs(q, strempty(a));
 }
 
 static uint64_t partition_merge_flags(Partition *p) {
