@@ -682,7 +682,7 @@ static int vl_method_list_images(sd_varlink *link, sd_json_variant *parameters, 
 
                 r = image_find(m->runtime_scope, IMAGE_MACHINE, p.image_name, /* root = */ NULL, &found);
                 if (r == -ENOENT)
-                        return sd_varlink_error(link, "io.systemd.MachineImage.NoSuchImage", NULL);
+                        return sd_varlink_error(link, VARLINK_ERROR_MACHINE_IMAGE_NO_SUCH_IMAGE, NULL);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to find image: %m");
 
@@ -714,7 +714,7 @@ static int vl_method_list_images(sd_varlink *link, sd_json_variant *parameters, 
         if (previous)
                 return list_image_one_and_maybe_read_metadata(link, previous, /* more = */ false, p.acquire_metadata);
 
-        return sd_varlink_error(link, "io.systemd.MachineImage.NoSuchImage", NULL);
+        return sd_varlink_error(link, VARLINK_ERROR_MACHINE_IMAGE_NO_SUCH_IMAGE, NULL);
 }
 
 static int manager_varlink_init_userdb(Manager *m) {

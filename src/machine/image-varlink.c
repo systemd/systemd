@@ -52,7 +52,7 @@ int vl_method_update_image(sd_varlink *link, sd_json_variant *parameters, sd_var
 
         r = manager_acquire_image(manager, p.name, &image);
         if (r == -ENOENT)
-                return sd_varlink_error(link, "io.systemd.MachineImage.NoSuchImage", NULL);
+                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_IMAGE_NO_SUCH_IMAGE, NULL);
         if (r < 0)
                 return r;
 
@@ -111,7 +111,7 @@ int vl_method_clone_image(sd_varlink *link, sd_json_variant *parameters, sd_varl
         assert(parameters);
 
         if (manager->n_operations >= OPERATIONS_MAX)
-                return sd_varlink_error(link, "io.systemd.MachineImage.TooManyOperations", NULL);
+                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_IMATE_TOO_MANY_OPERATIONS, NULL);
 
         r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
         if (r != 0)
@@ -125,7 +125,7 @@ int vl_method_clone_image(sd_varlink *link, sd_json_variant *parameters, sd_varl
 
         r = manager_acquire_image(manager, p.name, &image);
         if (r == -ENOENT)
-                return sd_varlink_error(link, "io.systemd.MachineImage.NoSuchImage", NULL);
+                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_IMAGE_NO_SUCH_IMAGE, NULL);
         if (r < 0)
                 return r;
 
@@ -182,7 +182,7 @@ int vl_method_remove_image(sd_varlink *link, sd_json_variant *parameters, sd_var
         assert(parameters);
 
         if (manager->n_operations >= OPERATIONS_MAX)
-                return sd_varlink_error(link, "io.systemd.MachineImage.TooManyOperations", NULL);
+                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_IMATE_TOO_MANY_OPERATIONS, NULL);
 
         r = sd_varlink_dispatch(link, parameters, dispatch_table, &image_name);
         if (r != 0)
@@ -193,7 +193,7 @@ int vl_method_remove_image(sd_varlink *link, sd_json_variant *parameters, sd_var
 
         r = manager_acquire_image(manager, image_name, &image);
         if (r == -ENOENT)
-                return sd_varlink_error(link, "io.systemd.MachineImage.NoSuchImage", NULL);
+                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_IMAGE_NO_SUCH_IMAGE, NULL);
         if (r < 0)
                 return r;
 
