@@ -102,6 +102,7 @@ units = [
         {
           'file' : 'initrd-udevadm-cleanup-db.service',
           'conditions' : ['ENABLE_INITRD'],
+          'install_tag' : 'udev',
         },
         {
           'file' : 'initrd-usr-fs.target',
@@ -365,6 +366,7 @@ units = [
           'file' : 'systemd-hwdb-update.service.in',
           'conditions' : ['ENABLE_HWDB'],
           'symlinks' : ['sysinit.target.wants/'],
+          'install_tag' : 'hwdb',
         },
         {
           'file' : 'systemd-hybrid-sleep.service.in',
@@ -718,27 +720,38 @@ units = [
           'conditions' : ['ENABLE_TMPFILES'],
           'symlinks' : ['sysinit.target.wants/'],
         },
-        { 'file' : 'systemd-udev-load-credentials.service' },
-        { 'file' : 'systemd-udev-settle.service' },
+        {
+          'file' : 'systemd-udev-load-credentials.service',
+          'install_tag' : 'udev',
+        },
+        {
+          'file' : 'systemd-udev-settle.service',
+          'install_tag' : 'udev',
+        },
         {
           'file' : 'systemd-udev-trigger.service',
           'symlinks' : ['sysinit.target.wants/'],
+          'install_tag' : 'udev',
         },
         {
           'file' : 'systemd-udevd-control.socket',
           'symlinks' : ['sockets.target.wants/'],
+          'install_tag' : 'udev',
         },
         {
           'file' : 'systemd-udevd-kernel.socket',
           'symlinks' : ['sockets.target.wants/'],
+          'install_tag' : 'udev',
         },
         {
           'file' : 'systemd-udevd-varlink.socket',
           'symlinks' : ['sockets.target.wants/'],
+          'install_tag' : 'udev',
         },
         {
           'file' : 'systemd-udevd.service.in',
           'symlinks' : ['sysinit.target.wants/'],
+          'install_tag' : 'udev',
         },
         {
           'file' : 'systemd-update-done.service.in',
@@ -848,23 +861,28 @@ foreach unit : units
                         output : name,
                         command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
                         install : install,
-                        install_dir : systemunitdir)
+                        install_dir : systemunitdir,
+                        install_tag : unit.get('install_tag', ''))
         elif install
                 install_data(source,
-                             install_dir : systemunitdir)
+                             install_dir : systemunitdir,
+                             install_tag : unit.get('install_tag', ''))
         endif
 
         if install
                 foreach target : unit.get('symlinks', [])
                         if target.endswith('/')
-                                install_emptydir(systemunitdir / target)
+                                install_emptydir(systemunitdir / target,
+                                                 install_tag : unit.get('install_tag', ''))
                                 meson.add_install_script(sh, '-c',
                                                          ln_s.format(systemunitdir / name,
-                                                                     systemunitdir / target / name))
+                                                                     systemunitdir / target / name),
+                                                         install_tag : unit.get('install_tag', ''))
                         else
                                 meson.add_install_script(sh, '-c',
                                                          ln_s.format(systemunitdir / name,
-                                                                     systemunitdir / target))
+                                                                     systemunitdir / target),
+                                                         install_tag : unit.get('install_tag', ''))
                         endif
                 endforeach
         endif
