@@ -422,6 +422,10 @@ varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.CopyF
 diff /var/lib/machines/long-running/foo /foo
 rm -f /var/lib/machines/long-running/root/foo /foo
 
+# test io.systemd.Machine.OpenRootDirectory
+varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.OpenRootDirectory '{"name": ".host"}'
+varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.OpenRootDirectory '{"name": "long-running"}'
+
 # Terminating machine, otherwise acquiring image metadata by io.systemd.MachineImage.List may fail in the below.
 machinectl terminate long-running
 # wait for the container being stopped, otherwise acquiring image metadata by io.systemd.MachineImage.List may fail in the below.
