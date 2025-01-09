@@ -1678,6 +1678,7 @@ static const char* const session_class_table[_SESSION_CLASS_MAX] = {
         [SESSION_BACKGROUND_LIGHT]  = "background-light",
         [SESSION_MANAGER]           = "manager",
         [SESSION_MANAGER_EARLY]     = "manager-early",
+        [SESSION_NONE]              = "none",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(session_class, SessionClass);
