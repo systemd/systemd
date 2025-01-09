@@ -122,6 +122,11 @@ Deprecations and removals:
 
 Features:
 
+* in pid1: before processing subscribed_as_strv when we come back from a
+  bus disconnect, let's check the bus 128bit id reported by the bus driver: if
+  it doesn't equal the one from before we should skip reinstalling the bus
+  tracker objects.
+
 * account number of units currently in activating/active/deactivating state in
   each slice, and expose this as a property of the slice, given this is a key
   metric of the resource management entity that a slice is. (maybe add a 2nd
