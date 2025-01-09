@@ -459,6 +459,15 @@ def main() -> None:
             """
         )
 
+    if sys.stderr.isatty():
+        dropin += textwrap.dedent(
+            """
+            [Service]
+            ExecStartPre=/usr/lib/systemd/tests/testdata/integration-test-setup.sh setup
+            ExecStopPost=/usr/lib/systemd/tests/testdata/integration-test-setup.sh finalize
+            """
+        )
+
     cmd = [
         args.mkosi,
         '--directory', os.fspath(args.meson_source_dir),
