@@ -11,6 +11,8 @@ echo "CPU and Memory information:"
 lscpu
 lsmem
 
+echo "Clock source: $(cat /sys/devices/system/clocksource/clocksource0/current_clocksource)"
+
 # Allow running the integration tests downstream in dist-git with something like
 # the following snippet which makes the dist-git sources available in $TMT_SOURCE_DIR:
 #
@@ -132,6 +134,11 @@ mkosi -f sandbox \
     --suite integration-tests \
     --print-errorlogs \
     --no-stdsplit \
-    --num-processes "$NPROC"
+    --num-processes "$NPROC" && EC=0 || EC=$?
+
+find build/meson-logs -type f -exec mv {} "$TMT_TEST_DATA" \;
+find build/test/journal -type f -exec mv {} "$TMT_TEST_DATA" \;
 
 popd
+
+exit "$EC"
