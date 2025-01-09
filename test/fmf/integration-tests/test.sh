@@ -11,6 +11,8 @@ echo "CPU and Memory information:"
 lscpu
 lsmem
 
+echo "Clock source: $(cat /sys/devices/system/clocksource/clocksource0/current_clocksource)"
+
 # Allow running the integration tests downstream in dist-git with something like
 # the following snippet which makes the dist-git sources available in $TMT_SOURCE_DIR:
 #
@@ -110,13 +112,6 @@ if [[ ! -e /dev/kvm ]]; then
     export TEST_NO_QEMU=1
 fi
 
-NPROC=$(nproc)
-if [[ $NPROC -ge 10 ]]; then
-    NPROC=$((NPROC / 2))
-else
-    NPROC=$((NPROC - 1))
-fi
-
 # Create missing mountpoint for mkosi sandbox.
 mkdir -p /etc/pacman.d/gnupg
 
@@ -132,6 +127,11 @@ mkosi -f sandbox \
     --suite integration-tests \
     --print-errorlogs \
     --no-stdsplit \
-    --num-processes "$NPROC"
+    --num-processes "$(($(nproc) - 1))" && EC=0 || EC=$?
+
+find build/meson-logs -type f -exec mv {} "$TMT_TEST_DATA" \;
+find build/test/journal -type f -exec mv {} "$TMT_TEST_DATA" \;
 
 popd
+
+exit "$EC"
