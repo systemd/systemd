@@ -80,8 +80,15 @@ static SD_VARLINK_DEFINE_METHOD(
                 Remove,
                 VARLINK_DEFINE_IMAGE_LOOKUP_AND_POLKIT_FIELDS);
 
+static SD_VARLINK_DEFINE_METHOD(
+                SetPoolLimit,
+                VARLINK_DEFINE_POLKIT_INPUT,
+                SD_VARLINK_FIELD_COMMENT("New image quota limit"),
+                SD_VARLINK_DEFINE_INPUT(limit, SD_VARLINK_INT, 0));
+
 static SD_VARLINK_DEFINE_ERROR(NoSuchImage);
 static SD_VARLINK_DEFINE_ERROR(TooManyOperations);
+static SD_VARLINK_DEFINE_ERROR(NotSupported);
 
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_MachineImage,
@@ -90,13 +97,17 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_AcquireMetadata,
                 SD_VARLINK_SYMBOL_COMMENT("List images"),
                 &vl_method_List,
-                SD_VARLINK_SYMBOL_COMMENT("Update image allowing to rename or toggle read-only flag"),
+                SD_VARLINK_SYMBOL_COMMENT("Update image allowing to rename, toggle read-only flag, or set a limit"),
                 &vl_method_Update,
                 SD_VARLINK_SYMBOL_COMMENT("Clone image"),
                 &vl_method_Clone,
                 SD_VARLINK_SYMBOL_COMMENT("Remove image"),
                 &vl_method_Remove,
+                SD_VARLINK_SYMBOL_COMMENT("Sets an overall quota limit on the pool of images"),
+                &vl_method_SetPoolLimit,
                 SD_VARLINK_SYMBOL_COMMENT("No matching image exists"),
                 &vl_error_NoSuchImage,
                 SD_VARLINK_SYMBOL_COMMENT("Too many ongoing background operations"),
-                &vl_error_TooManyOperations);
+                &vl_error_TooManyOperations,
+                SD_VARLINK_SYMBOL_COMMENT("Requested operation is not supported"),
+                &vl_error_NotSupported);
