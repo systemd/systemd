@@ -7,7 +7,6 @@
 
 #define DOS_FILE_MAGIC "MZ"
 #define PE_FILE_MAGIC  "PE\0\0"
-#define MAX_SECTIONS 96
 
 #if defined(__i386__)
 #  define TARGET_MACHINE_TYPE 0x014CU

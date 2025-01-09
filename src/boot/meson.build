@@ -137,6 +137,11 @@ if efi_conf.get('SBAT_DISTRO', '') != ''
                 section : 'UEFI')
 endif
 
+# 96 is the previous hardcoded define we had in the stub for the maximum number of
+# allowed sections we loop over. Add it to the user-defined value so that we can do
+# at least the previous number + at least the minimum number defined at build time.
+efi_conf.set('MAX_SECTIONS', 96 + get_option('efi-stub-extra-sections'))
+
 configure_file(
         output : 'efi_config.h',
         configuration : efi_conf)
