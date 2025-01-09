@@ -954,9 +954,15 @@
 
       <para>Verify syntactic, semantic, and stylistic correctness of udev rules files.</para>
 
-      <para>Positional arguments could be used to specify one or more files to check.
-      If no files are specified, the udev rules are read from the files located in
-      the same udev/rules.d directories that are processed by the udev daemon.</para>
+      <para>Positional arguments can be used to specify one or more files to check. Each argument must be an
+      absolute path to a udev rules file or a directory that contains rules files, or a file name of udev
+      rules file (e.g. <filename>99-systemd.rules</filename>). If a file name is specified, the file will be
+      searched in the <filename>udev/rules.d</filename> directories that are processed by
+      <command>systemd-udevd</command>, and searched in the current working directory if not found. If no
+      files are specified, the udev rules are read from the files located in the same
+      <filename>udev/rules.d</filename> directories that are processed by <command>systemd-udevd</command>.
+      See <citerefentry><refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum></citerefentry> for more
+      details about the search paths.</para>
 
       <para>The exit status is <constant>0</constant> if all specified udev
       rules files are syntactically, semantically, and stylistically correct,
@@ -980,8 +986,11 @@
         <varlistentry>
           <term><option>--root=<replaceable>PATH</replaceable></option></term>
           <listitem>
-            <para>When looking for udev rules files located in udev/rules.d directories,
-            operate on files underneath the specified root path <replaceable>PATH</replaceable>.</para>
+            <para>When looking for udev rules files located in the <filename>udev/rules.d</filename>
+            directories, operate on files underneath the specified root path <replaceable>PATH</replaceable>.
+            When a file name is specified, and it is not found in the <filename>udev/rules.d</filename>
+            directories, the file will be searched in the specified root path
+            <replaceable>PATH</replaceable>, rather than the current working directory.</para>
 
             <xi:include href="version-info.xml" xpointer="v254"/>
           </listitem>
@@ -1211,12 +1220,9 @@
   <refsect1>
     <title>See Also</title>
     <para><simplelist type="inline">
-      <member><citerefentry>
-        <refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum>
-      </citerefentry></member>
-      <member><citerefentry>
-        <refentrytitle>systemd-udevd.service</refentrytitle><manvolnum>8</manvolnum>
-      </citerefentry></member>
+      <member><citerefentry><refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-udevd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>udev.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
     </simplelist></para>
   </refsect1>
 </refentry>
