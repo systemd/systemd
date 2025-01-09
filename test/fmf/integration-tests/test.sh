@@ -102,7 +102,7 @@ fi
 
 NPROC=$(nproc)
 if [[ $NPROC -ge 10 ]]; then
-    NPROC=$((NPROC / 2))
+    NPROC=$((NPROC / 3))
 else
     NPROC=$((NPROC - 1))
 fi
