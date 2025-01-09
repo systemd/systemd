@@ -122,6 +122,15 @@ Deprecations and removals:
 
 Features:
 
+* logind: introduce "user-light" session class, that is to "user" what
+  "background-light" is to "background". Then, in logind, if no user class is
+  specified, and we are not logging in graphically default to this session
+  class for non-regular users.  Effect: if you log into a system user for some
+  reason, yu won't get the service manager by default.
+
+* in pid1: include ExecStart= cmdlines (and other Exec*= cmdlines) in polkit
+  request, so that policies can match against command lines.
+
 * in pid1: before processing subscribed_as_strv when we come back from a
   bus disconnect, let's check the bus 128bit id reported by the bus driver: if
   it doesn't equal the one from before we should skip reinstalling the bus
