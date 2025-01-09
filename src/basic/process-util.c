@@ -2221,14 +2221,15 @@ int read_errno(int errno_fd) {
 
         assert(errno_fd >= 0);
 
-        ssize_t n = loop_read(errno_fd, &r, sizeof(r), /* do_pool = */ 0);
+        ssize_t n = loop_read(errno_fd, &r, sizeof(r), /* do_pool = */ false);
         if (n < 0) {
                 log_debug_errno(n, "Failed to read errno: %m");
                 return -EIO;
         }
         if (n == sizeof(r)) {
-                /* child processes reported a error, return it */
-                if (r < 0)
+                if (r == 0)
+                        return 0;
+                if (r < 0) /* child processes reported a error, return it */
                         return log_debug_errno(r, "Child process failed with errno: %m");
                 return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Received a errno, but it's a positive value");
         }
