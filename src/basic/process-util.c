@@ -1395,11 +1395,6 @@ int must_be_root(void) {
         return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Need to be root.");
 }
 
-static void restore_sigsetp(sigset_t **ssp) {
-        if (*ssp)
-                (void) sigprocmask(SIG_SETMASK, *ssp, NULL);
-}
-
 pid_t clone_with_nested_stack(int (*fn)(void *), int flags, void *userdata) {
         size_t ps;
         pid_t pid;
@@ -1437,6 +1432,11 @@ pid_t clone_with_nested_stack(int (*fn)(void *), int flags, void *userdata) {
                 return -errno;
 
         return pid;
+}
+
+static void restore_sigsetp(sigset_t **ssp) {
+        if (*ssp)
+                (void) sigprocmask(SIG_SETMASK, *ssp, NULL);
 }
 
 static int fork_flags_to_signal(ForkFlags flags) {
@@ -1491,8 +1491,8 @@ int safe_fork_full(
         }
 
         if (block_signals) {
-                if (sigprocmask(SIG_SETMASK, &ss, &saved_ss) < 0)
-                        return log_full_errno(prio, errno, "Failed to set signal mask: %m");
+                if (sigprocmask(SIG_BLOCK, &ss, &saved_ss) < 0)
+                        return log_full_errno(prio, errno, "Failed to block signal mask: %m");
                 saved_ssp = &saved_ss;
         }
 
