@@ -455,3 +455,9 @@ varlinkctl call /run/systemd/machine/io.systemd.MachineImage io.systemd.MachineI
 # test io.systemd.MachineImage.Remove
 varlinkctl call /run/systemd/machine/io.systemd.MachineImage io.systemd.MachineImage.Remove '{"name":"long-running-cloned"}'
 (! varlinkctl call /run/systemd/machine/io.systemd.MachineImage io.systemd.MachineImage.List '{"name":"long-running-cloned"}')
+
+# test io.systemd.MachineImage.SetPoolLimit
+FSTYPE="$(stat --file-system --format "%T" /var/lib/machines)"
+if [[ "$FSTYPE" == "btrfs" ]]; then
+     varlinkctl call /run/systemd/machine/io.systemd.MachineImage io.systemd.MachineImage.SetPoolLimit '{"limit": 18446744073709551615}' # UINT64_MAX
+fi
