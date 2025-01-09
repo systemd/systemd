@@ -429,9 +429,9 @@ static int list_machine_one_and_maybe_read_metadata(sd_varlink *link, Machine *m
                 if (r < 0 && am == ACQUIRE_METADATA_GRACEFUL)
                         log_debug_errno(r, "Failed to get address (graceful mode), ignoring: %m");
                 else if (r == -ENONET)
-                        return sd_varlink_error(link, "io.systemd.Machine.NoPrivateNetworking", NULL);
+                        return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NO_PRIVATE_NETWORKING, NULL);
                 else if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
-                        return sd_varlink_error(link, "io.systemd.Machine.NotAvailable", NULL);
+                        return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NOT_AVAILABLE, NULL);
                 else if (r < 0)
                         return log_debug_errno(r, "Failed to get addresses: %m");
                 else {
@@ -444,9 +444,9 @@ static int list_machine_one_and_maybe_read_metadata(sd_varlink *link, Machine *m
                 if (r < 0 && am == ACQUIRE_METADATA_GRACEFUL)
                         log_debug_errno(r, "Failed to get OS release (graceful mode), ignoring: %m");
                 else if (r == -ENONET)
-                        return sd_varlink_error(link, "io.systemd.Machine.NoOSReleaseInformation", NULL);
+                        return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NO_OS_RELEASE_INFORMATION, NULL);
                 else if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
-                        return sd_varlink_error(link, "io.systemd.Machine.NotAvailable", NULL);
+                        return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NOT_AVAILABLE, NULL);
                 else if (r < 0)
                         return log_debug_errno(r, "Failed to get OS release: %m");
 
@@ -454,9 +454,9 @@ static int list_machine_one_and_maybe_read_metadata(sd_varlink *link, Machine *m
                 if (r < 0 && am == ACQUIRE_METADATA_GRACEFUL)
                         log_debug_errno(r, "Failed to get UID shift (graceful mode), ignoring: %m");
                 else if (r == -ENXIO)
-                        return sd_varlink_error(link, "io.systemd.Machine.NoUIDShift", NULL);
+                        return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NO_UID_SHIFT, NULL);
                 else if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
-                        return sd_varlink_error(link, "io.systemd.Machine.NotAvailable", NULL);
+                        return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NOT_AVAILABLE, NULL);
                 else if (r < 0)
                         return log_debug_errno(r, "Failed to get UID shift: %m");
         }
@@ -526,7 +526,7 @@ static int vl_method_list(sd_varlink *link, sd_json_variant *parameters, sd_varl
         if (p.name || pidref_is_set(&p.pidref) || pidref_is_automatic(&p.pidref)) {
                 r = lookup_machine_by_name_or_pidref(link, m, p.name, &p.pidref, &machine);
                 if (r == -ESRCH)
-                        return sd_varlink_error(link, "io.systemd.Machine.NoSuchMachine", NULL);
+                        return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NO_SUCH_MACHINE, NULL);
                 if (r < 0)
                         return r;
 
@@ -550,7 +550,7 @@ static int vl_method_list(sd_varlink *link, sd_json_variant *parameters, sd_varl
         if (previous)
                 return list_machine_one_and_maybe_read_metadata(link, previous, /* more = */ false, p.acquire_metadata);
 
-        return sd_varlink_error(link, "io.systemd.Machine.NoSuchMachine", NULL);
+        return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NO_SUCH_MACHINE, NULL);
 }
 
 static int lookup_machine_and_call_method(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata, sd_varlink_method_t method) {
@@ -576,7 +576,7 @@ static int lookup_machine_and_call_method(sd_varlink *link, sd_json_variant *par
 
         r = lookup_machine_by_name_or_pidref(link, manager, p.name, &p.pidref, &machine);
         if (r == -ESRCH)
-                return sd_varlink_error(link, "io.systemd.Machine.NoSuchMachine", NULL);
+                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NO_SUCH_MACHINE, NULL);
         if (r < 0)
                 return r;
 
