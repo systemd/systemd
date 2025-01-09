@@ -132,6 +132,7 @@ udev_plugin_template = executable_template + {
         'link_with' : udev_link_with,
         'install_rpath' : udev_rpath,
         'install_dir' : udevlibexecdir,
+        'install_tag' : 'udev',
 }
 
 udev_common_template = {
@@ -155,6 +156,7 @@ executables += [
                 'link_with' : [libudevd_core],
                 'dependencies' : udev_dependencies,
                 'install_rpath' : udev_rpath,
+                'install_tag' : 'udev',
         },
         udev_plugin_template + {
                 'name' : 'ata_id',
@@ -254,13 +256,16 @@ executables += [
 ]
 
 meson.add_install_script(sh, '-c', ln_s.format(bindir / 'udevadm',
-                                               libexecdir / 'systemd-udevd'))
+                                               libexecdir / 'systemd-udevd'),
+                         install_tag : 'udev')
 
 if install_sysconfdir_samples
         install_data('udev.conf',
-                     install_dir : configfiledir / 'udev')
+                     install_dir : configfiledir / 'udev',
+                     install_tag : 'udev')
         install_data('iocost/iocost.conf',
-                     install_dir : configfiledir / 'udev')
+                     install_dir : configfiledir / 'udev',
+                     install_tag : 'udev')
 endif
 
 udev_pc = custom_target(
@@ -273,5 +278,5 @@ udev_pc = custom_target(
         install_dir : pkgconfigdatadir)
 
 if install_sysconfdir
-        install_emptydir(sysconfdir / 'udev/rules.d')
+        install_emptydir(sysconfdir / 'udev/rules.d', install_tag : 'udev')
 endif

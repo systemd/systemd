@@ -135,6 +135,9 @@ $CC --version
 meson --version
 ninja --version
 
+# TODO: drop once minimum meson version is bumped to 0.62 or newer
+find . -type f -name meson.build -exec sed -i 's/install_emptydir(\(.*\), install_tag : .*)/install_emptydir(\1)/g' '{}' '+'
+
 for args in "${ARGS[@]}"; do
     SECONDS=0
 

@@ -49,7 +49,8 @@ all_rules = []
 foreach tuple : rules
         if tuple.length() == 1 or tuple[1]
                 install_data(tuple[0],
-                             install_dir : udevrulesdir)
+                             install_dir : udevrulesdir,
+                             install_tag : 'udev')
                 all_rules += tuple[0]
         endif
 endforeach
@@ -76,7 +77,8 @@ foreach tuple : rules_in
                 output: tuple[0],
                 command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
                 install : want,
-                install_dir : udevrulesdir)
+                install_dir : udevrulesdir,
+                install_tag : 'udev')
 
         if want
                 all_rules += rule
