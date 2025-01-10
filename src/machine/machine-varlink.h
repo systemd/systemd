@@ -5,6 +5,20 @@
 
 #include "machine.h"
 
+#define VARLINK_ERROR_MACHINE_NO_SUCH_MACHINE           "io.systemd.Machine.NoSuchMachine"
+#define VARLINK_ERROR_MACHINE_EXISTS                    "io.systemd.Machine.MachineExists"
+#define VARLINK_ERROR_MACHINE_NO_PRIVATE_NETWORKING     "io.systemd.Machine.NoPrivateNetworking"
+#define VARLINK_ERROR_MACHINE_NO_OS_RELEASE_INFORMATION "io.systemd.Machine.NoOSReleaseInformation"
+#define VARLINK_ERROR_MACHINE_NO_UID_SHIFT              "io.systemd.Machine.NoUIDShift"
+#define VARLINK_ERROR_MACHINE_NOT_AVAILABLE             "io.systemd.Machine.NotAvailable"
+#define VARLINK_ERROR_MACHINE_NOT_SUPPORTED             "io.systemd.Machine.NotSupported"
+#define VARLINK_ERROR_MACHINE_TOO_MANY_OPERATIONS       "io.systemd.Machine.TooManyOperations"
+#define VARLINK_ERROR_MACHINE_NO_IPC                    "io.systemd.Machine.NoIPC"
+#define VARLINK_ERROR_MACHINE_NO_SUCH_USER              "io.systemd.Machine.NoSuchUser"
+#define VARLINK_ERROR_MACHINE_NO_SUCH_GROUP             "io.systemd.Machine.NoSuchGroup"
+#define VARLINK_ERROR_MACHINE_USER_IN_HOST_RANGE        "io.systemd.Machine.UserInHostRange"
+#define VARLINK_ERROR_MACHINE_GROUP_IN_HOST_RANGE       "io.systemd.Machine.GroupInHostRange"
+
 #define VARLINK_DISPATCH_MACHINE_LOOKUP_FIELDS(t) {                     \
                 .name = "name",                                         \
                 .type = SD_JSON_VARIANT_STRING,                         \
