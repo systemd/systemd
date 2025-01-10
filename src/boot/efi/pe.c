@@ -5,7 +5,6 @@
 
 #define DOS_FILE_MAGIC "MZ"
 #define PE_FILE_MAGIC  "PE\0\0"
-#define MAX_SECTIONS 96
 
 #if defined(__i386__)
 #  define TARGET_MACHINE_TYPE 0x014CU
@@ -130,7 +129,6 @@ static bool verify_pe(const PeFileHeader *pe, bool allow_compatibility) {
                (pe->FileHeader.Machine == TARGET_MACHINE_TYPE ||
                 (allow_compatibility && pe->FileHeader.Machine == TARGET_MACHINE_TYPE_COMPATIBILITY)) &&
                pe->FileHeader.NumberOfSections > 0 &&
-               pe->FileHeader.NumberOfSections <= MAX_SECTIONS &&
                IN_SET(pe->OptionalHeader.Magic, OPTHDR32_MAGIC, OPTHDR64_MAGIC);
 }
 
