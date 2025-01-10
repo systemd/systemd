@@ -848,6 +848,29 @@ TEST(pid_get_ppid) {
 
                 pid = ppid;
         }
+
+        /* the same via pidref */
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        ASSERT_OK(pidref_set_self(&pidref));
+        for (;;) {
+                _cleanup_free_ char *c1 = NULL, *c2 = NULL;
+                _cleanup_(pidref_done) PidRef parent = PIDREF_NULL;
+                r = pidref_get_ppid_as_pidref(&pidref, &parent);
+                if (r == -EADDRNOTAVAIL) {
+                        log_info("No further parent PID");
+                        break;
+                }
+
+                ASSERT_OK(r);
+
+                ASSERT_OK(pidref_get_cmdline(&pidref, SIZE_MAX, PROCESS_CMDLINE_COMM_FALLBACK, &c1));
+                ASSERT_OK(pidref_get_cmdline(&parent, SIZE_MAX, PROCESS_CMDLINE_COMM_FALLBACK, &c2));
+
+                log_info("Parent of " PID_FMT " (%s) is " PID_FMT " (%s).", pidref.pid, c1, parent.pid, c2);
+
+                pidref_done(&pidref);
+                pidref = TAKE_PIDREF(parent);
+        }
 }
 
 TEST(set_oom_score_adjust) {
