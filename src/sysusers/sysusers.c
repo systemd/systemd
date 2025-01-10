@@ -1039,11 +1039,8 @@ static int uid_is_ok(
         return 1;
 }
 
-static int root_stat(const char *p, struct stat *st) {
-        const char *fix;
-
-        fix = prefix_roota(arg_root, p);
-        return RET_NERRNO(stat(fix, st));
+static int root_stat(const char *p, struct stat *ret_st) {
+        return chase_and_stat(p, arg_root, CHASE_PREFIX_ROOT, /* ret_path= */ NULL, ret_st);
 }
 
 static int read_id_from_file(Item *i, uid_t *ret_uid, gid_t *ret_gid) {
