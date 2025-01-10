@@ -4,8 +4,14 @@
 set -eux
 set -o pipefail
 
-# Switch SELinux to permissive, since the tests don't set proper contexts
-setenforce 0
+# Switch SELinux to permissive if possible, since the tests don't set proper contexts
+setenforce 0 || true
+
+echo "CPU and Memory information:"
+lscpu
+lsmem
+
+echo "Clock source: $(cat /sys/devices/system/clocksource/clocksource0/current_clocksource)"
 
 # Allow running the integration tests downstream in dist-git with something like
 # the following snippet which makes the dist-git sources available in $TMT_SOURCE_DIR:
@@ -13,9 +19,6 @@ setenforce 0
 # summary: systemd Fedora test suite
 # discover:
 #   how: fmf
-#   url: https://github.com/systemd/systemd
-#   ref: main
-#   path: test/fmf
 #   dist-git-source: true
 #   dist-git-install-builddeps: false
 # prepare:
@@ -26,8 +29,11 @@ setenforce 0
 # execute:
 #   how: tmt
 
+shopt -s extglob
+
 if [[ -n "${TMT_SOURCE_DIR:-}" ]]; then
-    pushd "$TMT_SOURCE_DIR/*/"
+    # Match either directories ending with branch names (e.g. systemd-fmf) or releases (e.g systemd-257.1).
+    pushd "$TMT_SOURCE_DIR"/systemd-+([0-9a-z.~])/
 elif [[ -n "${PACKIT_TARGET_URL:-}" ]]; then
     # Prepare systemd source tree
     git clone "$PACKIT_TARGET_URL" systemd --branch "$PACKIT_TARGET_BRANCH"
@@ -63,6 +69,21 @@ Release=${VERSION_ID:-rawhide}
 [Build]
 ToolsTreeDistribution=$ID
 ToolsTreeRelease=${VERSION_ID:-rawhide}
+EOF
+
+if [[ -n "${TEST_SELINUX_CHECK_AVCS:-}" ]]; then
+    tee --append mkosi.local.conf <<EOF
+[Runtime]
+KernelCommandLineExtra=systemd.setenv=TEST_SELINUX_CHECK_AVCS=$TEST_SELINUX_CHECK_AVCS
+EOF
+fi
+
+if [[ -n "${TESTING_FARM_REQUEST_ID:-}" ]]; then
+    tee --append mkosi.local.conf <<EOF
+[Content]
+SELinuxRelabel=yes
+
+[Build]
 ToolsTreeSandboxTrees=
         /etc/yum.repos.d/:/etc/yum.repos.d/
         /var/share/test-artifacts/:/var/share/test-artifacts/
@@ -72,14 +93,15 @@ SandboxTrees=
 Environment=NO_BUILD=1
 EOF
 
-cat /etc/dnf/dnf.conf
-cat /etc/yum.repos.d/*
+    cat /etc/dnf/dnf.conf
+    cat /etc/yum.repos.d/*
 
-# Ensure packages built for this test have highest priority
-echo -e "\npriority=1" >> /etc/yum.repos.d/copr_build*
+    # Ensure packages built for this test have highest priority
+    echo -e "\npriority=1" >> /etc/yum.repos.d/copr_build*
 
-# Disable mkosi's own repository logic
-touch /etc/yum.repos.d/mkosi.repo
+    # Disable mkosi's own repository logic
+    touch /etc/yum.repos.d/mkosi.repo
+fi
 
 # TODO: drop once BTRFS regression is fixed in kernel 6.13
 sed -i "s/Format=btrfs/Format=ext4/" mkosi.repart/10-root.conf
@@ -105,6 +127,11 @@ mkosi -f sandbox \
     --suite integration-tests \
     --print-errorlogs \
     --no-stdsplit \
-    --num-processes "$(($(nproc) - 1))"
+    --num-processes "$(($(nproc) - 1))" && EC=0 || EC=$?
+
+find build/meson-logs -type f -exec mv {} "$TMT_TEST_DATA" \;
+find build/test/journal -type f -exec mv {} "$TMT_TEST_DATA" \;
 
 popd
+
+exit "$EC"

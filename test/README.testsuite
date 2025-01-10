@@ -151,6 +151,16 @@ that make use of `run_testcases`.
 
 `TEST_SKIP_TESTCASE=testcase`: takes a space separated list of testcases to skip.
 
+### SELinux AVCs
+
+To have `TEST-06-SELINUX` check for SELinux denials, write the following to
+mkosi.local.conf:
+
+```conf
+[Runtime]
+KernelCommandLineExtra=systemd.setenv=TEST_SELINUX_CHECK_AVCS=1
+```
+
 ## Ubuntu CI
 
 New PRs submitted to the project are run through regression tests, and one set
