@@ -404,6 +404,8 @@ static int putsgent_with_members(
 #endif
 
 static const char* pick_shell(const Item *i) {
+        assert(i);
+
         if (i->type != ADD_USER)
                 return NULL;
         if (i->shell)
