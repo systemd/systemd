@@ -13,7 +13,7 @@ Documentation=man:systemd-update-utmp.service(8) man:utmp(5)
 ConditionPathExists=!/etc/initrd-release
 
 DefaultDependencies=no
-After=systemd-remount-fs.service systemd-tmpfiles-setup.service auditd.service
+After=systemd-remount-fs.service systemd-tmpfiles-setup.service
 Before=sysinit.target
 Conflicts=shutdown.target
 Before=shutdown.target
