@@ -151,6 +151,10 @@ that make use of `run_testcases`.
 
 `TEST_SKIP_TESTCASE=testcase`: takes a space separated list of testcases to skip.
 
+`TEST_JOURNAL_USE_TMP=1`: Write test journal to `/tmp` while the test is in
+progress and only move the journal to its final location in the build directory
+(`$BUILD_DIR/test/journal`) when the test is finished.
+
 ### SELinux AVCs
 
 To have `TEST-06-SELINUX` check for SELinux denials, write the following to
