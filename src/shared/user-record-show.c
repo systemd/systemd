@@ -7,6 +7,7 @@
 #include "hashmap.h"
 #include "hexdecoct.h"
 #include "path-util.h"
+#include "percent-util.h"
 #include "pretty-print.h"
 #include "process-util.h"
 #include "rlimit-util.h"
@@ -52,6 +53,26 @@ static void show_self_modifiable(
                 /* Case 4: we have a list provided by the administrator */
                 STRV_FOREACH(i, value)
                         printf("%13s %s\n", i == value ? heading : "", *i);
+}
+
+static void show_tmpfs_limit(const char *tmpfs, const TmpfsLimit *limit, uint32_t scale) {
+        assert(tmpfs);
+        assert(limit);
+
+        if (!limit->is_set)
+                return;
+
+        printf("   %s Limit:", tmpfs);
+
+        if (limit->limit != UINT64_MAX)
+                printf(" %s", FORMAT_BYTES(limit->limit));
+        if (limit->limit == UINT64_MAX || limit->limit_scale != UINT32_MAX) {
+                if (limit->limit != UINT64_MAX)
+                        printf(" or");
+
+                printf(" %i%%", UINT32_SCALE_TO_PERCENT(scale));
+        }
+        printf("\n");
 }
 
 void user_record_show(UserRecord *hr, bool show_full_group_info) {
@@ -367,6 +388,9 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
 
         if (hr->io_weight != UINT64_MAX)
                 printf("   IO Weight: %" PRIu64 "\n", hr->io_weight);
+
+        show_tmpfs_limit("TMP", &hr->tmp_limit, user_record_tmp_limit_scale(hr));
+        show_tmpfs_limit("SHM", &hr->dev_shm_limit, user_record_dev_shm_limit_scale(hr));
 
         if (hr->access_mode != MODE_INVALID)
                 printf(" Access Mode: 0%03o\n", user_record_access_mode(hr));
