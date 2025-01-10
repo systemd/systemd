@@ -13,6 +13,10 @@ lsmem
 
 echo "Clock source: $(cat /sys/devices/system/clocksource/clocksource0/current_clocksource)"
 
+# Bump inotify limits so nspawn containers don't run out of inotify file descriptors.
+sysctl fs.inotify.max_user_watches=65536
+sysctl fs.inotify.max_user_instances=1024
+
 # Allow running the integration tests downstream in dist-git with something like
 # the following snippet which makes the dist-git sources available in $TMT_SOURCE_DIR:
 #
