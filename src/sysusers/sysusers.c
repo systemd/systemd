@@ -3,6 +3,7 @@
 #include <getopt.h>
 
 #include "alloc-util.h"
+#include "audit-util.h"
 #include "build.h"
 #include "chase.h"
 #include "conf-files.h"
@@ -106,6 +107,8 @@ STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 
 typedef struct Context {
+        int audit_fd;
+
         OrderedHashmap *users, *groups;
         OrderedHashmap *todo_uids, *todo_gids;
         OrderedHashmap *members;
@@ -125,6 +128,8 @@ typedef struct Context {
 
 static void context_done(Context *c) {
         assert(c);
+
+        c->audit_fd = close_audit_fd(c->audit_fd);
 
         ordered_hashmap_free(c->groups);
         ordered_hashmap_free(c->users);
@@ -161,6 +166,49 @@ static void maybe_emit_login_defs_warning(Context *c) {
                             (gid_t) SYSTEM_ALLOC_GID_MIN, (gid_t) SYSTEM_GID_MAX);
 
         c->login_defs_need_warning = false;
+}
+
+static void log_audit_accounts(Context *c, ItemType what) {
+#if HAVE_AUDIT
+        assert(c);
+        assert(IN_SET(what, ADD_USER, ADD_GROUP));
+
+        if (arg_dry_run || c->audit_fd < 0)
+                return;
+
+        Item *i;
+        int type = what == ADD_USER ? AUDIT_ADD_USER : AUDIT_ADD_GROUP;
+        const char *op = what == ADD_USER ? "adding-user" : "adding-group";
+
+        /* Notes:
+         *
+         * The op must not contains whitespace. The format with a dash matches what Fedora shadow-utils is
+         * doing.
+         *
+         * We send id == -1, even though we know the number, in particular on success. This is because if we
+         * send the id, the generated audit message will not contain the name. The name seems more useful
+         * than the number, hence send just the name:
+         *
+         * type=ADD_USER msg=audit(01/10/2025 16:02:00.639:3854) :
+         *   pid=3846380 uid=root auid=zbyszek ses=2 msg='op=adding-user id=unknown(952) exe=systemd-sysusers ... res=success'
+         * vs.
+         * type=ADD_USER msg=audit(01/10/2025 16:03:15.457:3908) :
+         *   pid=3846607 uid=root auid=zbyszek ses=2 msg='op=adding-user acct=foo5 exe=systemd-sysusers ... res=success'
+         */
+
+        ORDERED_HASHMAP_FOREACH(i, what == ADD_USER ? c->todo_uids : c->todo_gids)
+                audit_log_acct_message(
+                                c->audit_fd,
+                                type,
+                                program_invocation_short_name,
+                                op,
+                                i->name,
+                                /* id= */ (unsigned) -1,
+                                /* host= */ NULL,
+                                /* addr= */ NULL,
+                                /* tty= */ NULL,
+                                /* success= */ 1);
+#endif
 }
 
 static int load_user_database(Context *c) {
@@ -971,6 +1019,8 @@ static int write_files(Context *c) {
                                                group_tmp, group_path);
                 group_tmp = mfree(group_tmp);
         }
+        /* OK, we have written the group entries successfully */
+        log_audit_accounts(c, ADD_GROUP);
         if (gshadow) {
                 r = rename_and_apply_smack_floor_label(gshadow_tmp, gshadow_path);
                 if (r < 0)
@@ -988,6 +1038,8 @@ static int write_files(Context *c) {
 
                 passwd_tmp = mfree(passwd_tmp);
         }
+        /* OK, we have written the user entries successfully */
+        log_audit_accounts(c, ADD_USER);
         if (shadow) {
                 r = rename_and_apply_smack_floor_label(shadow_tmp, shadow_path);
                 if (r < 0)
@@ -2232,6 +2284,7 @@ static int run(int argc, char *argv[]) {
 #endif
         _cleanup_close_ int lock = -EBADF;
         _cleanup_(context_done) Context c = {
+                .audit_fd = -EBADF,
                 .search_uid = UID_INVALID,
         };
 
@@ -2280,6 +2333,10 @@ static int run(int argc, char *argv[]) {
 #else
         assert(!arg_image);
 #endif
+
+        /* Prepare to emit audit events, but only if we're operating on the host system. */
+        if (!arg_root)
+                c.audit_fd = open_audit_fd_or_warn();
 
         /* If command line arguments are specified along with --replace, read all configuration files and
          * insert the positional arguments at the specified place. Otherwise, if command line arguments are
