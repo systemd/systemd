@@ -88,6 +88,7 @@ _udevadm_test(){
         '(-)'{-V,--version}'[Show package version]' \
         '--action=[The action string.]:actions:(add change remove move online offline bind unbind)' \
         '--subsystem=[The subsystem string.]' \
+        '(-v --verbose)'{-v,--verbose}'[Show verbose logs.]' \
         '*::devpath:_files -P /sys/ -W /sys'
 }
 

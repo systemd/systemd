@@ -141,6 +141,7 @@ udevadm test -N early /sys/class/net/$netdev
 udevadm test -N late /sys/class/net/$netdev
 udevadm test --resolve-names never /sys/class/net/$netdev
 (! udevadm test -N hello /sys/class/net/$netdev)
+udevadm test -v /sys/class/net/$netdev
 udevadm test -h
 
 # udevadm test-builtin path_id "$loopdev"
