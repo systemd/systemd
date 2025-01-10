@@ -124,6 +124,10 @@ else
     NPROC="$((NPROC - 1))"
 fi
 
+# This test is only really useful if we're building with sanitizers and takes a long time, so let's skip it
+# for now.
+export TEST_SKIP="TEST-21-DFUZZER"
+
 # Create missing mountpoint for mkosi sandbox.
 mkdir -p /etc/pacman.d/gnupg
 
