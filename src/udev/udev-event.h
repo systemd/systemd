@@ -48,6 +48,7 @@ typedef struct UdevEvent {
         bool name_final;
         bool devlink_final;
         bool run_final;
+        bool trace;
         bool log_level_was_debug;
         int default_log_level;
         EventMode event_mode;
