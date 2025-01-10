@@ -14,6 +14,20 @@ CHANGES WITH 258 in spe:
           enabled by default. This brings cmdline expansion of transient
           scopes on par with services.
 
+        * systemd-logind PAM sessions that previously were automatically
+          determined to be of class "background", and which are owned by system
+          accounts, will now automatically be set to class "background-light"
+          instead. This effectively means that cron jobs or FTP sessions
+          (i.e. all PAM sessions that have no TTY assigned and neither are
+          graphical) for system users no longer pull in a service manager by
+          default. This behaviour can be changed by explicitly setting the
+          session class (for example via the class= parameter to
+          pam_systemd.so, or by setting the XDG_SESSION_CLASS environment
+          variable as input for the service's PAM stack). This change does not
+          affect graphical sessions, nor does it affect regular users. This is
+          an incompatible change of sorts, since per-user services will likely
+          not be available for such PAM sessions of system users.
+
         Announcements of Future Feature Removals:
 
         * The D-Bus method org.freedesktop.systemd1.StartAuxiliaryScope() is
