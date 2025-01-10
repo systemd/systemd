@@ -65,6 +65,9 @@ typedef enum SessionClass {
 /* Which session classes allow changing session types */
 #define SESSION_CLASS_CAN_CHANGE_TYPE(class) (IN_SET((class), SESSION_USER, SESSION_USER_EARLY, SESSION_GREETER, SESSION_LOCK_SCREEN))
 
+/* Which session classes are taken into acccount when deciding whether shutdown shall be allowed if other users are logged in */
+#define SESSION_CLASS_IS_INHIBITOR_LIKE(class) IN_SET((class), SESSION_USER, SESSION_USER_EARLY)
+
 typedef enum SessionType {
         SESSION_UNSPECIFIED,
         SESSION_TTY,

@@ -1835,7 +1835,7 @@ static int have_multiple_sessions(
         /* Check for other users' sessions. Greeter sessions do not
          * count, and non-login sessions do not count either. */
         HASHMAP_FOREACH(session, m->sessions)
-                if (IN_SET(session->class, SESSION_USER, SESSION_USER_EARLY) &&
+                if (SESSION_CLASS_IS_INHIBITOR_LIKE(session->class) &&
                     session->user->user_record->uid != uid)
                         return true;
 
