@@ -10,6 +10,7 @@ import json
 import os
 import re
 import shlex
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -429,7 +430,7 @@ def main() -> None:
         dropin += textwrap.dedent(
             f"""
             [Service]
-            Environment=TEST_MATCH_SUBTEST={os.environ["TEST_MATCH_SUBTEST"]}
+            Environment=TEST_MATCH_SUBTEST={os.environ['TEST_MATCH_SUBTEST']}
             """
         )
 
@@ -437,11 +438,15 @@ def main() -> None:
         dropin += textwrap.dedent(
             f"""
             [Service]
-            Environment=TEST_MATCH_TESTCASE={os.environ["TEST_MATCH_TESTCASE"]}
+            Environment=TEST_MATCH_TESTCASE={os.environ['TEST_MATCH_TESTCASE']}
             """
         )
 
-    journal_file = (args.meson_build_dir / (f'test/journal/{name}.journal')).absolute()
+    if os.getenv('TEST_JOURNAL_USE_TMP', '0') == '1':
+        journal_file = Path(f'/tmp/systemd-integration-tests/journal/{name.journal}')
+    else:
+        journal_file = (args.meson_build_dir / f'test/journal/{name}.journal').absolute()
+
     journal_file.unlink(missing_ok=True)
 
     if not sys.stderr.isatty():
@@ -456,6 +461,16 @@ def main() -> None:
             """
             [Unit]
             Wants=multi-user.target
+            """
+        )
+
+    if sys.stderr.isatty():
+        dropin += textwrap.dedent(
+            """
+            [Service]
+            ExecStartPre=/usr/lib/systemd/tests/testdata/integration-test-setup.sh setup
+            ExecStopPost=/usr/lib/systemd/tests/testdata/integration-test-setup.sh finalize
+            StateDirectory=%N
             """
         )
 
@@ -502,7 +517,7 @@ def main() -> None:
             ]
         ),
         '--credential', f"journal.storage={'persistent' if sys.stderr.isatty() else args.storage}",
-        *(['--runtime-build-sources=no'] if not sys.stderr.isatty() else []),
+        *(['--runtime-build-sources=no', '--register=no'] if not sys.stderr.isatty() else []),
         'vm' if args.vm or os.getuid() != 0 or os.getenv('TEST_PREFER_QEMU', '0') == '1' else 'boot',
     ]  # fmt: skip
 
@@ -542,6 +557,11 @@ def main() -> None:
     ):
         journal_file.unlink(missing_ok=True)
 
+    if os.getenv('TEST_JOURNAL_USE_TMP', '0') == '1':
+        dst = args.meson_build_dir / f'test/journal/{name}.journal'
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(journal_file, dst)
+
     if shell or (result.returncode in (args.exit_code, 77) and not coredumps and not sanitizer):
         exit(0 if shell or result.returncode == args.exit_code else 77)
 
@@ -559,7 +579,7 @@ def main() -> None:
 
     ops += [f'journalctl --file {journal_file} --no-hostname -o short-monotonic -u {args.unit} -p info']
 
-    print("Test failed, relevant logs can be viewed with: \n\n" f"{(' && '.join(ops))}\n", file=sys.stderr)
+    print(f'Test failed, relevant logs can be viewed with: \n\n{(" && ".join(ops))}\n', file=sys.stderr)
 
     # 0 also means we failed so translate that to a non-zero exit code to mark the test as failed.
     exit(result.returncode or 1)
