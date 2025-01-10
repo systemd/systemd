@@ -17,6 +17,7 @@ typedef enum UserDisposition {
         USER_DYNAMIC,     /* dynamically allocated users for system services */
         USER_REGULAR,     /* regular (typically human users) */
         USER_CONTAINER,   /* UID ranges allocated for container uses */
+        USER_FOREIGN,     /* UID range allocated for foreign OS images */
         USER_RESERVED,    /* Range above 2^31 */
         _USER_DISPOSITION_MAX,
         _USER_DISPOSITION_INVALID = -EINVAL,
