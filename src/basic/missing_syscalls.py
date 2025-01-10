@@ -23,6 +23,7 @@ SYSCALLS = [
     'renameat2',
     'setns',
     'statx',
+    'quotactl_fd',
 ]
 
 def dictify(f):
