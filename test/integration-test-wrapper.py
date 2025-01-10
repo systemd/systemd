@@ -10,6 +10,7 @@ import json
 import os
 import re
 import shlex
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -441,7 +442,11 @@ def main() -> None:
             """
         )
 
-    journal_file = (args.meson_build_dir / (f'test/journal/{name}.journal')).absolute()
+    if os.getenv('TEST_JOURNAL_USE_TMP', '0') == '1':
+        journal_file = Path(f'/tmp/systemd-integration-tests/journal/{name.journal}')
+    else:
+        journal_file = (args.meson_build_dir / f'test/journal/{name}.journal').absolute()
+
     journal_file.unlink(missing_ok=True)
 
     if not sys.stderr.isatty():
@@ -550,6 +555,11 @@ def main() -> None:
         and not sanitizer
     ):
         journal_file.unlink(missing_ok=True)
+
+    if os.getenv('TEST_JOURNAL_USE_TMP', '0') == '1':
+        dst = args.meson_build_dir / f'test/journal/{name}.journal'
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(journal_file, dst)
 
     if shell or (result.returncode in (args.exit_code, 77) and not coredumps and not sanitizer):
         exit(0 if shell or result.returncode == args.exit_code else 77)
