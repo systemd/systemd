@@ -116,6 +116,14 @@ if [[ ! -e /dev/kvm ]]; then
     export TEST_NO_QEMU=1
 fi
 
+NPROC="$(nproc)"
+if [[ "$NPROC" -ge 10 ]]; then
+    export TEST_JOURNAL_USE_TMP=1
+    NPROC="$((NPROC / 3))"
+else
+    NPROC="$((NPROC - 1))"
+fi
+
 # Create missing mountpoint for mkosi sandbox.
 mkdir -p /etc/pacman.d/gnupg
 
@@ -131,7 +139,7 @@ mkosi -f sandbox \
     --suite integration-tests \
     --print-errorlogs \
     --no-stdsplit \
-    --num-processes "$(($(nproc) - 1))" && EC=0 || EC=$?
+    --num-processes "$NPROC" && EC=0 || EC=$?
 
 find build/meson-logs -type f -exec mv {} "$TMT_TEST_DATA" \;
 find build/test/journal -type f -exec mv {} "$TMT_TEST_DATA" \;
