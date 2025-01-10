@@ -164,28 +164,16 @@ static void maybe_emit_login_defs_warning(Context *c) {
 }
 
 static int load_user_database(Context *c) {
+        _cleanup_free_ char *passwd_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        const char *passwd_path;
         struct passwd *pw;
         int r;
 
         assert(c);
 
-        passwd_path = prefix_roota(arg_root, "/etc/passwd");
-        f = fopen(passwd_path, "re");
-        if (!f)
-                return errno == ENOENT ? 0 : -errno;
-
-        r = hashmap_ensure_allocated(&c->database_by_username, &string_hash_ops);
-        if (r < 0)
-                return r;
-
-        r = hashmap_ensure_allocated(&c->database_by_uid, NULL);
-        if (r < 0)
-                return r;
-
-        /* Note that we use NULL, i.e. trivial_hash_ops here, so identical strings can exist in the set. */
-        r = set_ensure_allocated(&c->names, NULL);
+        r = chase_and_fopen_unlocked("/etc/passwd", arg_root, CHASE_PREFIX_ROOT, "re", &passwd_path, &f);
+        if (r == -ENOENT)
+                return 0;
         if (r < 0)
                 return r;
 
@@ -195,19 +183,21 @@ static int load_user_database(Context *c) {
                 if (!n)
                         return -ENOMEM;
 
-                r = set_consume(c->names, n);
+                /* Note that we use NULL hash_ops (i.e. trivial_hash_ops) here, so identical strings can
+                 * exist in the set. */
+                r = set_ensure_consume(&c->names, /* hash_ops= */ NULL, n);
                 if (r < 0)
                         return r;
                 assert(r > 0);  /* The set uses pointer comparisons, so n must not be in the set. */
 
-                r = hashmap_put(c->database_by_username, n, UID_TO_PTR(pw->pw_uid));
+                r = hashmap_ensure_put(&c->database_by_username, &string_hash_ops, n, UID_TO_PTR(pw->pw_uid));
                 if (r == -EEXIST)
                         log_debug_errno(r, "%s: user '%s' is listed twice, ignoring duplicate uid.",
                                         passwd_path, n);
                 else if (r < 0)
                         return r;
 
-                r = hashmap_put(c->database_by_uid, UID_TO_PTR(pw->pw_uid), n);
+                r = hashmap_ensure_put(&c->database_by_uid, /* hash_ops= */ NULL, UID_TO_PTR(pw->pw_uid), n);
                 if (r == -EEXIST)
                         log_debug_errno(r, "%s: uid "UID_FMT" is listed twice, ignoring duplicate name.",
                                         passwd_path, pw->pw_uid);
@@ -218,50 +208,39 @@ static int load_user_database(Context *c) {
 }
 
 static int load_group_database(Context *c) {
+        _cleanup_free_ char *group_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        const char *group_path;
         struct group *gr;
         int r;
 
         assert(c);
 
-        group_path = prefix_roota(arg_root, "/etc/group");
-        f = fopen(group_path, "re");
-        if (!f)
-                return errno == ENOENT ? 0 : -errno;
-
-        r = hashmap_ensure_allocated(&c->database_by_groupname, &string_hash_ops);
-        if (r < 0)
-                return r;
-
-        r = hashmap_ensure_allocated(&c->database_by_gid, NULL);
-        if (r < 0)
-                return r;
-
-        /* Note that we use NULL, i.e. trivial_hash_ops here, so identical strings can exist in the set. */
-        r = set_ensure_allocated(&c->names, NULL);
+        r = chase_and_fopen_unlocked("/etc/group", arg_root, CHASE_PREFIX_ROOT, "re", &group_path, &f);
+        if (r == -ENOENT)
+                return 0;
         if (r < 0)
                 return r;
 
         while ((r = fgetgrent_sane(f, &gr)) > 0) {
-
                 char *n = strdup(gr->gr_name);
                 if (!n)
                         return -ENOMEM;
 
-                r = set_consume(c->names, n);
+                /* Note that we use NULL hash_ops (i.e. trivial_hash_ops) here, so identical strings can
+                 * exist in the set. */
+                r = set_ensure_consume(&c->names, /* hash_ops= */ NULL, n);
                 if (r < 0)
                         return r;
                 assert(r > 0);  /* The set uses pointer comparisons, so n must not be in the set. */
 
-                r = hashmap_put(c->database_by_groupname, n, GID_TO_PTR(gr->gr_gid));
+                r = hashmap_ensure_put(&c->database_by_groupname, &string_hash_ops, n, GID_TO_PTR(gr->gr_gid));
                 if (r == -EEXIST)
                         log_debug_errno(r, "%s: group '%s' is listed twice, ignoring duplicate gid.",
                                         group_path, n);
                 else if (r < 0)
                         return r;
 
-                r = hashmap_put(c->database_by_gid, GID_TO_PTR(gr->gr_gid), n);
+                r = hashmap_ensure_put(&c->database_by_gid, /* hash_ops= */ NULL, GID_TO_PTR(gr->gr_gid), n);
                 if (r == -EEXIST)
                         log_debug_errno(r, "%s: gid "GID_FMT" is listed twice, ignoring duplicate name.",
                                         group_path, gr->gr_gid);
