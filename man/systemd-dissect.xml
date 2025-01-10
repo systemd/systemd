@@ -279,8 +279,8 @@
         standard output. If the source path in the image file system refers to a regular file it is copied to
         the destination path. In this case, access mode, extended attributes and timestamps are copied as
         well, but file ownership is not. If the source path in the image refers to a directory, it is copied
-        to the destination path, recursively with all containing files and directories. In this case, the file
-        ownership is copied too.</para>
+        to the destination path, recursively with all containing files and directories, merging into existing
+        directories and updating already existing files. In this case, the file ownership is copied too.</para>
 
         <xi:include href="version-info.xml" xpointer="v247"/></listitem>
       </varlistentry>
@@ -297,8 +297,8 @@
         source path in the host file system refers to a regular file, it is copied to the destination path.
         In this case, access mode, extended attributes and timestamps are copied as well, but file ownership
         is not. If the source path in the host file system refers to a directory it is copied to the
-        destination path, recursively with all containing files and directories. In this case, the file
-        ownership is copied too.</para>
+        destination path, recursively with all containing files and directories, merging into existing
+        directories and updating already existing files.. In this case, the file ownership is copied too.</para>
 
         <para>As with <option>--mount</option> file system checks are implicitly run before the copy
         operation begins.</para>
