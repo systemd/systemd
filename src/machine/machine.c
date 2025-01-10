@@ -1403,8 +1403,8 @@ int machine_open_root_directory(Machine *machine) {
 
                         dfd = open("/", O_RDONLY|O_CLOEXEC|O_DIRECTORY);
                         if (dfd < 0) {
-                                log_debug_errno(dfd, "Failed to open root directory of machine '%s': %m", machine->name);
-                                report_errno_and_exit(errno_pipe_fd[1], dfd);
+                                log_debug_errno(errno, "Failed to open root directory of machine '%s': %m", machine->name);
+                                report_errno_and_exit(errno_pipe_fd[1], -errno);
                         }
 
                         r = send_one_fd(fd_pass_socket[1], dfd, /* flags = */ 0);
