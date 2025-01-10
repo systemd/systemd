@@ -2395,11 +2395,18 @@ static int udev_rule_apply_token_to_event(
                 if (level < 0)
                         level = event->default_log_level;
 
-                log_set_max_level(level);
+                if (event->event_mode == EVENT_UDEV_WORKER)
+                        log_set_max_level(level);
+                else {
+                        _cleanup_free_ char *level_str = NULL;
+                        (void) log_level_to_string_alloc(level, &level_str);
+                        log_event_debug(dev, token, "Running in test mode, skipping changing maximum log level to %s.", strna(level_str));
+                }
 
                 if (level == LOG_DEBUG && !event->log_level_was_debug) {
                         /* The log level becomes LOG_DEBUG at first time. Let's log basic information. */
-                        log_device_uevent(dev, "The log level is changed to 'debug' while processing device");
+                        if (EVENT_MODE_DESTRUCTIVE(event))
+                                log_device_uevent(dev, "The log level is changed to 'debug' while processing device");
                         event->log_level_was_debug = true;
                 }
 
