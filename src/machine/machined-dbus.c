@@ -862,9 +862,7 @@ static int method_set_pool_limit(sd_bus_message *message, void *userdata, sd_bus
         if (r < 0)
                 return r;
 
-        (void) btrfs_qgroup_set_limit("/var/lib/machines", 0, limit);
-
-        r = btrfs_subvol_set_subtree_quota_limit("/var/lib/machines", 0, limit);
+        r = image_set_pool_limit(limit);
         if (r == -ENOTTY)
                 return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "Quota is only supported on btrfs.");
         if (r < 0)
