@@ -346,7 +346,7 @@ static void log_event_truncated(
 
 /*** Other functions ***/
 
-static UdevRuleToken *udev_rule_token_free(UdevRuleToken *token) {
+static UdevRuleToken* udev_rule_token_free(UdevRuleToken *token) {
         if (!token)
                 return NULL;
 
@@ -365,7 +365,7 @@ static void udev_rule_line_clear_tokens(UdevRuleLine *rule_line) {
                 udev_rule_token_free(i);
 }
 
-static UdevRuleLine *udev_rule_line_free(UdevRuleLine *rule_line) {
+static UdevRuleLine* udev_rule_line_free(UdevRuleLine *rule_line) {
         if (!rule_line)
                 return NULL;
 
@@ -380,7 +380,7 @@ static UdevRuleLine *udev_rule_line_free(UdevRuleLine *rule_line) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(UdevRuleLine*, udev_rule_line_free);
 
-static UdevRuleFile *udev_rule_file_free(UdevRuleFile *rule_file) {
+static UdevRuleFile* udev_rule_file_free(UdevRuleFile *rule_file) {
         if (!rule_file)
                 return NULL;
 
