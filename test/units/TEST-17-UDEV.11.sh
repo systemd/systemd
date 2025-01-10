@@ -174,7 +174,7 @@ assert_0 "${rules}"
 printf 'RUN+="/bin/true"%8176s\\\n #\n' ' ' ' ' >"${rules}"
 echo >>"${rules}"
 cat >"${exp}" <<EOF
-${rules}:5 Line is too long, ignored.
+${rules}:1 Line is too long, ignored.
 ${rules}: udev rules check failed.
 EOF
 assert_1 "${rules}"

@@ -1631,10 +1631,8 @@ static void udev_check_rule_line(UdevRuleLine *line) {
 
 int udev_rules_parse_file(UdevRules *rules, const char *filename, bool extra_checks, UdevRuleFile **ret) {
         _cleanup_(udev_rule_file_freep) UdevRuleFile *rule_file = NULL;
-        _cleanup_free_ char *continuation = NULL, *name = NULL;
+        _cleanup_free_ char *name = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        bool ignore_line = false;
-        unsigned line_nr = 0;
         struct stat st;
         int r;
 
@@ -1685,6 +1683,9 @@ int udev_rules_parse_file(UdevRules *rules, const char *filename, bool extra_che
 
         LIST_APPEND(rule_files, rules->rule_files, rule_file);
 
+        _cleanup_free_ char *continuation = NULL;
+        unsigned line_nr = 0, current_line_nr = 0;
+        bool ignore_line = false;
         for (;;) {
                 _cleanup_free_ char *buf = NULL;
                 size_t len;
@@ -1696,7 +1697,10 @@ int udev_rules_parse_file(UdevRules *rules, const char *filename, bool extra_che
                 if (r == 0)
                         break;
 
-                line_nr++;
+                current_line_nr++;
+                if (!continuation)
+                        line_nr = current_line_nr;
+
                 line = skip_leading_chars(buf, NULL);
 
                 /* Lines beginning with '#' are ignored regardless of line continuation. */
