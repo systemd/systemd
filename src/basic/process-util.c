@@ -2221,20 +2221,25 @@ int read_errno(int errno_fd) {
 
         assert(errno_fd >= 0);
 
-        ssize_t n = loop_read(errno_fd, &r, sizeof(r), /* do_pool = */ 0);
+        /* The issue here is that it's impossible to distinguish between
+         * an error code returned by child and IO error arrised when reading it.
+         * So, the function logs errors and return EIO for the later case. */
+
+        ssize_t n = loop_read(errno_fd, &r, sizeof(r), /* do_poll = */ false);
         if (n < 0) {
                 log_debug_errno(n, "Failed to read errno: %m");
                 return -EIO;
         }
         if (n == sizeof(r)) {
-                /* child processes reported a error, return it */
-                if (r < 0)
+                if (r == 0)
+                        return 0;
+                if (r < 0) /* child process reported an error, return it */
                         return log_debug_errno(r, "Child process failed with errno: %m");
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Received a errno, but it's a positive value");
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Received an errno, but it's a positive value.");
         }
         if (n != 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Received unexpected amount of bytes while reading errno");
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Received unexpected amount of bytes while reading errno.");
 
-        /* the process exited without reporting a error, assuming success */
+        /* the process exited without reporting an error, assuming success */
         return 0;
 }
