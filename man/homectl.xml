@@ -749,6 +749,22 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--tmp-limit=<replaceable>BYTES</replaceable></option></term>
+        <term><option>--tmp-limit=<replaceable>PERCENT</replaceable></option></term>
+        <term><option>--dev-shm-limit=<replaceable>BYTES</replaceable></option></term>
+        <term><option>--dev-shm-limit=<replaceable>PERCENT</replaceable></option></term>
+
+        <listitem><para>Controls the per-user quota on <filename>/tmp/</filename> and
+        <filename>/dev/shm/</filename> that is applied when the user logs in. Takes either an absolute value
+        in bytes (with the usual K, M, G, T suffixes to the base of 1024), or a percentage. In the latter
+        case the limit is applied relative to the size of the respective file system. This limit is only
+        applied if the relevant file system is <literal>tmpfs</literal> and has no effect otherwise. Note
+        that if these options are not used, a default quota might still be enforced (typically 80%.)</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--storage=<replaceable>STORAGE</replaceable></option></term>
 
         <listitem><para>Selects the storage mechanism to use for this home directory. Takes one of
