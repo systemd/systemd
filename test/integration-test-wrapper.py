@@ -429,7 +429,7 @@ def main() -> None:
         dropin += textwrap.dedent(
             f"""
             [Service]
-            Environment=TEST_MATCH_SUBTEST={os.environ["TEST_MATCH_SUBTEST"]}
+            Environment=TEST_MATCH_SUBTEST={os.environ['TEST_MATCH_SUBTEST']}
             """
         )
 
@@ -437,7 +437,7 @@ def main() -> None:
         dropin += textwrap.dedent(
             f"""
             [Service]
-            Environment=TEST_MATCH_TESTCASE={os.environ["TEST_MATCH_TESTCASE"]}
+            Environment=TEST_MATCH_TESTCASE={os.environ['TEST_MATCH_TESTCASE']}
             """
         )
 
@@ -456,6 +456,15 @@ def main() -> None:
             """
             [Unit]
             Wants=multi-user.target
+            """
+        )
+
+    if sys.stderr.isatty():
+        dropin += textwrap.dedent(
+            """
+            [Service]
+            ExecStartPre=/usr/lib/systemd/tests/testdata/integration-test-setup.sh setup
+            ExecStopPost=/usr/lib/systemd/tests/testdata/integration-test-setup.sh finalize
             """
         )
 
@@ -559,7 +568,7 @@ def main() -> None:
 
     ops += [f'journalctl --file {journal_file} --no-hostname -o short-monotonic -u {args.unit} -p info']
 
-    print("Test failed, relevant logs can be viewed with: \n\n" f"{(' && '.join(ops))}\n", file=sys.stderr)
+    print(f'Test failed, relevant logs can be viewed with: \n\n{(" && ".join(ops))}\n', file=sys.stderr)
 
     # 0 also means we failed so translate that to a non-zero exit code to mark the test as failed.
     exit(result.returncode or 1)
