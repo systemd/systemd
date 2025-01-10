@@ -226,7 +226,18 @@ static ConfidentialVirtualization detect_confidential_virtualization_impl(void) 
 
         return CONFIDENTIAL_VIRTUALIZATION_NONE;
 }
+#elif defined(__aarch64__)
+static ConfidentialVirtualization detect_confidential_virtualization_impl(void) {
+        _cleanup_free_ char *s = NULL;
+        size_t readsize;
+        int r;
 
+        r = read_full_virtual_file("/sys/devices/platform/arm-cca-dev/modalias", &s, &readsize);
+        if (r >= 0 && readsize >= 1)
+                return CONFIDENTIAL_VIRTUALIZATION_CCA;
+
+        return CONFIDENTIAL_VIRTUALIZATION_NONE;
+}
 #else /* ! x86_64 */
 static ConfidentialVirtualization detect_confidential_virtualization_impl(void) {
         log_debug("No confidential virtualization detection on this architecture");
@@ -250,6 +261,7 @@ static const char *const confidential_virtualization_table[_CONFIDENTIAL_VIRTUAL
         [CONFIDENTIAL_VIRTUALIZATION_SEV_SNP]  = "sev-snp",
         [CONFIDENTIAL_VIRTUALIZATION_TDX]      = "tdx",
         [CONFIDENTIAL_VIRTUALIZATION_PROTVIRT] = "protvirt",
+        [CONFIDENTIAL_VIRTUALIZATION_CCA]      = "cca",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(confidential_virtualization, ConfidentialVirtualization);
