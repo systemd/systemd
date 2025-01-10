@@ -470,6 +470,7 @@ def main() -> None:
             [Service]
             ExecStartPre=/usr/lib/systemd/tests/testdata/integration-test-setup.sh setup
             ExecStopPost=/usr/lib/systemd/tests/testdata/integration-test-setup.sh finalize
+            StateDirectory=%N
             """
         )
 
