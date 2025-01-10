@@ -237,11 +237,11 @@ int pidref_copy(const PidRef *pidref, PidRef *ret) {
                                         return -errno;
 
                                 copy.fd = -EBADF;
-                        }
+                        } else
+                                copy.fd_id = pidref->fd_id;
                 }
 
                 copy.pid = pidref->pid;
-                copy.fd_id = pidref->fd_id;
         }
 
         *ret = TAKE_PIDREF(copy);
