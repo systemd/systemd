@@ -2,6 +2,14 @@
 
 #include <getopt.h>
 
+#if HAVE_AUDIT
+#  include <libaudit.h>
+#else
+/* Define those numbers to fake values to avoid having messy ifdefs below */
+#  define AUDIT_ADD_USER -1
+#  define AUDIT_ADD_GROUP -1
+#endif
+
 #include "alloc-util.h"
 #include "build.h"
 #include "chase.h"
@@ -106,6 +114,10 @@ STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 
 typedef struct Context {
+#if HAVE_AUDIT
+        int audit_fd;
+#endif
+
         OrderedHashmap *users, *groups;
         OrderedHashmap *todo_uids, *todo_gids;
         OrderedHashmap *members;
@@ -125,6 +137,12 @@ typedef struct Context {
 
 static void context_done(Context *c) {
         assert(c);
+
+#if HAVE_AUDIT
+        if (c->audit_fd >= 0)
+                audit_close(c->audit_fd);
+        c->audit_fd = -EBADF;
+#endif
 
         ordered_hashmap_free(c->groups);
         ordered_hashmap_free(c->users);
@@ -161,6 +179,55 @@ static void maybe_emit_login_defs_warning(Context *c) {
                             (gid_t) SYSTEM_ALLOC_GID_MIN, (gid_t) SYSTEM_GID_MAX);
 
         c->login_defs_need_warning = false;
+}
+
+static void log_audit_op(
+                Context *c,
+                int type,
+                const char *op,
+                const char *name,
+                unsigned id,
+                bool success) {
+#if HAVE_AUDIT
+        assert(c);
+
+        if (arg_dry_run || c->audit_fd < 0)
+                return;
+
+        log_trace("Emitting audit message: %s, %s, %u, %s",
+                  op, strna(name), id, success ? "good" : "bad");
+
+        audit_log_acct_message(
+                        c->audit_fd,
+                        type,
+                        program_invocation_short_name,
+                        op, name, id,
+                        /* host= */ NULL,
+                        /* addr= */ NULL,
+                        /* tty= */ NULL,
+                        success ? 1 : 0);
+#endif
+}
+
+static void log_audit_failures(
+                Context *c,
+                bool users_failed,
+                bool groups_failed) {
+        /* Generate audit events to describe the failure.
+         *
+         * The audit system expects individual failure messages for each user and group. We write the db one
+         * file at a time, so we can't say that one user or group "failed". Let's generate a failure message
+         * for each and every entry, matching the "add" events we emitted earlier.
+         */
+
+        Item *i;
+
+        if (users_failed)
+                ORDERED_HASHMAP_FOREACH(i, c->todo_uids)
+                        log_audit_op(c, AUDIT_ADD_USER, "adding user", i->name, -1, /* success= */ false);
+        if (groups_failed)
+                ORDERED_HASHMAP_FOREACH(i, c->todo_gids)
+                        log_audit_op(c, AUDIT_ADD_GROUP, "adding group", i->name, -1, /* success= */ false);
 }
 
 static int load_user_database(Context *c) {
@@ -911,7 +978,7 @@ static int write_temporary_gshadow(
         return 0;
 }
 
-static int write_files(Context *c) {
+static int write_files(Context *c, bool *ret_users_failed, bool *ret_groups_failed) {
         _cleanup_fclose_ FILE *passwd = NULL, *group = NULL, *shadow = NULL, *gshadow = NULL;
         _cleanup_(unlink_and_freep) char *passwd_tmp = NULL, *group_tmp = NULL, *shadow_tmp = NULL, *gshadow_tmp = NULL;
         int r;
@@ -923,6 +990,12 @@ static int write_files(Context *c) {
                 *gshadow_path = prefix_roota(arg_root, "/etc/gshadow");
 
         assert(c);
+
+        /* Immediately mark users and groups as not failed, iff there is nothing to write. */
+        if (ordered_hashmap_isempty(c->todo_uids))
+                *ret_users_failed = false;
+        if (ordered_hashmap_isempty(c->todo_gids) && ordered_hashmap_isempty(c->members))
+                *ret_groups_failed = false;
 
         r = write_temporary_group(c, group_path, &group, &group_tmp);
         if (r < 0)
@@ -979,6 +1052,7 @@ static int write_files(Context *c) {
 
                 gshadow_tmp = mfree(gshadow_tmp);
         }
+        *ret_groups_failed = false;  /* OK, we have written the group entries successfully */
 
         if (passwd) {
                 r = rename_and_apply_smack_floor_label(passwd_tmp, passwd_path);
@@ -996,6 +1070,7 @@ static int write_files(Context *c) {
 
                 shadow_tmp = mfree(shadow_tmp);
         }
+        *ret_users_failed = false;  /* OK, we have written the user entries successfully */
 
         return 0;
 }
@@ -1235,6 +1310,7 @@ static int add_user(Context *c, Item *i) {
         i->todo_user = true;
         log_info("Creating user '%s' (%s) with UID " UID_FMT " and GID " GID_FMT ".",
                  i->name, strna(i->description), i->uid, i->gid);
+        log_audit_op(c, AUDIT_ADD_USER, "adding user", i->name, i->uid, /* success= */ true);
 
         return 0;
 }
@@ -1425,6 +1501,7 @@ static int add_group(Context *c, Item *i) {
 
         i->todo_group = true;
         log_info("Creating group '%s' with GID " GID_FMT ".", i->name, i->gid);
+        log_audit_op(c, AUDIT_ADD_GROUP, "adding group", i->name, i->gid, /* success= */ true);
 
         return 0;
 }
@@ -2232,6 +2309,9 @@ static int run(int argc, char *argv[]) {
 #endif
         _cleanup_close_ int lock = -EBADF;
         _cleanup_(context_done) Context c = {
+#if HAVE_AUDIT
+                .audit_fd = -EBADF,
+#endif
                 .search_uid = UID_INVALID,
         };
 
@@ -2279,6 +2359,17 @@ static int run(int argc, char *argv[]) {
         }
 #else
         assert(!arg_image);
+#endif
+
+#if HAVE_AUDIT
+        /* Prepare to emit audit events, but only if we're operating on the host system. */
+        if (!arg_root) {
+                /* If the kernel lacks netlink or audit support, don't worry about it. */
+                c.audit_fd = audit_open();
+                if (c.audit_fd < 0)
+                        log_full_errno(IN_SET(errno, EAFNOSUPPORT, EPROTONOSUPPORT) ? LOG_DEBUG : LOG_WARNING,
+                                       errno, "Failed to connect to audit log, ignoring: %m");
+        }
 #endif
 
         /* If command line arguments are specified along with --replace, read all configuration files and
@@ -2350,7 +2441,10 @@ static int run(int argc, char *argv[]) {
         ORDERED_HASHMAP_FOREACH(i, c.users)
                 (void) process_item(&c, i);
 
-        return write_files(&c);
+        bool users_failed = true, groups_failed = true;
+        r = write_files(&c, &users_failed, &groups_failed);
+        log_audit_failures(&c, users_failed, groups_failed);
+        return r;
 }
 
 DEFINE_MAIN_FUNCTION(run);
