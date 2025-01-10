@@ -2014,12 +2014,14 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...] [CONFIGURATION FILE...]\n\n"
-               "Creates system user accounts.\n\n"
-               "  -h --help                 Show this help\n"
-               "     --version              Show package version\n"
+        printf("%1$s [OPTIONS...] [CONFIGURATION FILE...]\n"
+               "\n%2$sCreates system user and group accounts.%4$s\n"
+               "\n%3$sCommands:%4$s\n"
                "     --cat-config           Show configuration files\n"
                "     --tldr                 Show non-comment parts of configuration\n"
+               "  -h --help                 Show this help\n"
+               "     --version              Show package version\n"
+               "\n%3$sOptions:%4$s\n"
                "     --root=PATH            Operate on an alternate filesystem root\n"
                "     --image=PATH           Operate on disk image as filesystem root\n"
                "     --image-policy=POLICY  Specify disk image dissection policy\n"
@@ -2027,8 +2029,11 @@ static int help(void) {
                "     --dry-run              Just print what would be done\n"
                "     --inline               Treat arguments as configuration lines\n"
                "     --no-pager             Do not pipe output into a pager\n"
-               "\nSee the %s for details.\n",
+               "\nSee the %5$s for details.\n",
                program_invocation_short_name,
+               ansi_highlight(),
+               ansi_underline(),
+               ansi_normal(),
                link);
 
         return 0;
