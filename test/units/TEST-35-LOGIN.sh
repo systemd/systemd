@@ -711,6 +711,8 @@ testcase_background() {
     TRANSIENTUNIT0="none$RANDOM.service"
     TRANSIENTUNIT1="bg$RANDOM.service"
     TRANSIENTUNIT2="bgg$RANDOM.service"
+    TRANSIENTUNIT3="bgg$RANDOM.service"
+    TRANSIENTUNIT4="bgg$RANDOM.service"
 
     trap background_at_return RETURN
 
@@ -745,6 +747,17 @@ EOF
     systemctl stop "$TRANSIENTUNIT2"
 
     systemctl stop user@"$uid".service
+
+    # Now check that system users automatically get the light session class assigned
+    systemd-sysusers --inline "u lightuser"
+
+    systemd-run -u "$TRANSIENTUNIT3" -p PAMName="$PAMSERVICE" -p "Environment=XDG_SESSION_TYPE=unspecified" -p Type=exec -p User=lightuser sleep infinity
+    loginctl | grep lightuser | grep -q background-light
+    systemctl stop "$TRANSIENTUNIT3"
+
+    systemd-run -u "$TRANSIENTUNIT4" -p PAMName="$PAMSERVICE" -p "Environment=XDG_SESSION_TYPE=tty" -p Type=exec -p User=lightuser sleep infinity
+    loginctl | grep lightuser | grep -q user-light
+    systemctl stop "$TRANSIENTUNIT4"
 }
 
 setup_test_user
