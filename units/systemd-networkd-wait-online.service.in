@@ -14,7 +14,7 @@ ConditionCapability=CAP_NET_ADMIN
 DefaultDependencies=no
 Conflicts=shutdown.target
 BindsTo=systemd-networkd.service
-After=systemd-networkd.service
+After=systemd-networkd.service systemd-resolved.service
 Before=network-online.target shutdown.target
 
 [Service]
