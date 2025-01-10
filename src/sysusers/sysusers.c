@@ -186,7 +186,6 @@ static void log_audit_op(
                 int type,
                 const char *op,
                 const char *name,
-                unsigned id,
                 bool success) {
 #if HAVE_AUDIT
         assert(c);
@@ -197,11 +196,23 @@ static void log_audit_op(
         log_trace("Emitting audit message: %s, %s, %u, %s",
                   op, strna(name), id, success ? "good" : "bad");
 
+        /* Note: we send == -1, even though we know the number, in particular on success. This is because if
+         * we send the id, the generated audit message will not contain the name. The name seems more useful
+         * than the number, hence send just the name:
+         *
+         * type=ADD_USER msg=audit(01/10/2025 16:02:00.639:3854) :
+         *   pid=3846380 uid=root auid=zbyszek ses=2 msg='op=adding user id=unknown(952) exe=systemd-sysusers ... res=success'
+         * vs.
+         * type=ADD_USER msg=audit(01/10/2025 16:03:15.457:3908) :
+         *   pid=3846607 uid=root auid=zbyszek ses=2 msg='op=adding user acct=foo5 exe=systemd-sysusers ... res=success'
+         */
+
         audit_log_acct_message(
                         c->audit_fd,
                         type,
                         program_invocation_short_name,
-                        op, name, id,
+                        op, name,
+                        /* id= */ -1,
                         /* host= */ NULL,
                         /* addr= */ NULL,
                         /* tty= */ NULL,
@@ -224,10 +235,10 @@ static void log_audit_failures(
 
         if (users_failed)
                 ORDERED_HASHMAP_FOREACH(i, c->todo_uids)
-                        log_audit_op(c, AUDIT_ADD_USER, "adding user", i->name, -1, /* success= */ false);
+                        log_audit_op(c, AUDIT_ADD_USER, "adding user", i->name, /* success= */ false);
         if (groups_failed)
                 ORDERED_HASHMAP_FOREACH(i, c->todo_gids)
-                        log_audit_op(c, AUDIT_ADD_GROUP, "adding group", i->name, -1, /* success= */ false);
+                        log_audit_op(c, AUDIT_ADD_GROUP, "adding group", i->name, /* success= */ false);
 }
 
 static int load_user_database(Context *c) {
@@ -1310,7 +1321,7 @@ static int add_user(Context *c, Item *i) {
         i->todo_user = true;
         log_info("Creating user '%s' (%s) with UID " UID_FMT " and GID " GID_FMT ".",
                  i->name, strna(i->description), i->uid, i->gid);
-        log_audit_op(c, AUDIT_ADD_USER, "adding user", i->name, i->uid, /* success= */ true);
+        log_audit_op(c, AUDIT_ADD_USER, "adding user", i->name, /* success= */ true);
 
         return 0;
 }
@@ -1501,7 +1512,7 @@ static int add_group(Context *c, Item *i) {
 
         i->todo_group = true;
         log_info("Creating group '%s' with GID " GID_FMT ".", i->name, i->gid);
-        log_audit_op(c, AUDIT_ADD_GROUP, "adding group", i->name, i->gid, /* success= */ true);
+        log_audit_op(c, AUDIT_ADD_GROUP, "adding group", i->name, /* success= */ true);
 
         return 0;
 }
