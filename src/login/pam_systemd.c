@@ -751,7 +751,7 @@ static int apply_user_record_settings(
 
         if (nice_is_valid(ur->nice_level)) {
                 if (nice(ur->nice_level) < 0)
-                        pam_syslog_errno(handle, LOG_ERR, errno,
+                        pam_syslog_errno(handle, LOG_WARNING, errno,
                                          "Failed to set nice level to %i, ignoring: %m", ur->nice_level);
                 else
                         pam_debug_syslog(handle, debug,
@@ -759,7 +759,6 @@ static int apply_user_record_settings(
         }
 
         for (int rl = 0; rl < _RLIMIT_MAX; rl++) {
-
                 if (!ur->rlimits[rl])
                         continue;
 
