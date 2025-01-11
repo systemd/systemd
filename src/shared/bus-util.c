@@ -862,43 +862,6 @@ int bus_register_malloc_status(sd_bus *bus, const char *destination) {
         return 0;
 }
 
-int bus_message_append_string_set(sd_bus_message *m, Set *set) {
-        const char *s;
-        int r;
-
-        assert(m);
-
-        r = sd_bus_message_open_container(m, 'a', "s");
-        if (r < 0)
-                return r;
-
-        SET_FOREACH(s, set) {
-                r = sd_bus_message_append(m, "s", s);
-                if (r < 0)
-                        return r;
-        }
-
-        return sd_bus_message_close_container(m);
-}
-
-int bus_property_get_string_set(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        Set **s = ASSERT_PTR(userdata);
-
-        assert(bus);
-        assert(property);
-        assert(reply);
-
-        return bus_message_append_string_set(reply, *s);
-}
-
 int bus_creds_get_pidref(
                 sd_bus_creds *c,
                 PidRef *ret) {
