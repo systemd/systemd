@@ -18,6 +18,7 @@
 #include "fs-util.h"
 #include "glob-util.h"
 #include "list.h"
+#include "memstream-util.h"
 #include "mkdir.h"
 #include "netif-naming-scheme.h"
 #include "nulstr-util.h"
@@ -118,6 +119,7 @@ typedef enum {
 #define _TK_A_MIN _TK_M_MAX
 
         /* lvalues which take one of assign operators */
+        TK_A_OPTIONS_DUMP,                  /* no argument */
         TK_A_OPTIONS_STRING_ESCAPE_NONE,    /* no argument */
         TK_A_OPTIONS_STRING_ESCAPE_REPLACE, /* no argument */
         TK_A_OPTIONS_DB_PERSIST,            /* no argument */
@@ -973,7 +975,9 @@ static int parse_token(
                 if (op == OP_ADD)
                         op = OP_ASSIGN;
 
-                if (streq(value, "string_escape=none"))
+                if (streq(value, "dump"))
+                        r = rule_line_add_token(rule_line, TK_A_OPTIONS_DUMP, op, NULL, NULL, /* is_case_insensitive = */ false, token_str);
+                else if (streq(value, "string_escape=none"))
                         r = rule_line_add_token(rule_line, TK_A_OPTIONS_STRING_ESCAPE_NONE, op, NULL, NULL, /* is_case_insensitive = */ false, token_str);
                 else if (streq(value, "string_escape=replace"))
                         r = rule_line_add_token(rule_line, TK_A_OPTIONS_STRING_ESCAPE_REPLACE, op, NULL, NULL, /* is_case_insensitive = */ false, token_str);
@@ -2532,6 +2536,33 @@ static int udev_rule_apply_token_to_event(
         }
         case TK_M_RESULT:
                 return token_match_string(event, token, event->program_result, /* log_result = */ true);
+
+        case TK_A_OPTIONS_DUMP: {
+                log_event_info(event, token, "Dumping current state:");
+
+                if (event->event_mode == EVENT_UDEV_WORKER) {
+                        _cleanup_(memstream_done) MemStream m = {};
+                        FILE *f = memstream_init(&m);
+                        if (!f)
+                                return log_oom();
+
+                        dump_event(event, f);
+
+                        _cleanup_free_ char *buf = NULL;
+                        r = memstream_finalize(&m, &buf, NULL);
+                        if (r < 0)
+                                log_event_warning_errno(event, token, r, "Failed to finalize memory stream, ignoring: %m");
+                        else
+                                log_info("%s", buf);
+                        log_event_info(event, token, "Done");
+                        return true;
+                }
+
+                puts("============================");
+                dump_event(event, stdout);
+                puts("============================");
+                break;
+        }
         case TK_A_OPTIONS_STRING_ESCAPE_NONE:
                 event->esc = ESCAPE_NONE;
                 break;
