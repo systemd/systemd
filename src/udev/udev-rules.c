@@ -32,6 +32,7 @@
 #include "sysctl-util.h"
 #include "syslog-util.h"
 #include "udev-builtin.h"
+#include "udev-dump.h"
 #include "udev-event.h"
 #include "udev-format.h"
 #include "udev-node.h"
@@ -2788,8 +2789,15 @@ static int udev_rule_apply_token_to_event(
                                               WRITE_STRING_FILE_VERIFY_IGNORE_NEWLINE);
                         if (r < 0)
                                 log_event_error_errno(dev, token, r, "Failed to write ATTR{%s}=\"%s\", ignoring: %m", buf, value);
-                } else
+                        else
+                                event_cache_written_sysattr(event, buf, value);
+                } else {
                         log_event_debug(dev, token, "Running in test mode, skipping writing ATTR{%s}=\"%s\".", buf, value);
+
+                        r = verify_regular_at(AT_FDCWD, buf, /* follow = */ true);
+                        if (r >= 0 || ERRNO_IS_NEG_PRIVILEGE(r))
+                                event_cache_written_sysattr(event, buf, value);
+                }
 
                 break;
         }

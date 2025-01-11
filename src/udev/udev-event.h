@@ -36,6 +36,7 @@ typedef struct UdevEvent {
         gid_t gid;
         OrderedHashmap *seclabel_list;
         OrderedHashmap *run_list;
+        Hashmap *written_sysattrs;
         usec_t birth_usec;
         unsigned builtin_run;
         unsigned builtin_ret;

@@ -10,11 +10,29 @@
 #include "udev-event.h"
 #include "user-util.h"
 
+void event_cache_written_sysattr(UdevEvent *event, const char *attr, const char *value) {
+        assert(event);
+
+        _unused_ _cleanup_free_ void *key = NULL;
+        free(hashmap_remove2(event->written_sysattrs, attr, &key));
+
+        if (hashmap_put_strdup_full(&event->written_sysattrs, &path_hash_ops_free_free, attr, value) < 0)
+                log_oom_debug();
+}
+
 void dump_event(UdevEvent *event, FILE *f) {
         sd_device *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
 
         if (!f)
                 f = stdout;
+
+        if (!hashmap_isempty(event->written_sysattrs)) {
+                const char *key, *value;
+
+                fprintf(f, "%sWritten sysfs attributes:%s\n", ansi_highlight(), ansi_normal());
+                HASHMAP_FOREACH_KEY(value, key, event->written_sysattrs)
+                        fprintf(f, "  %s : %s\n", key, value);
+        }
 
         fprintf(f, "%sProperties:%s\n", ansi_highlight(), ansi_normal());
         FOREACH_DEVICE_PROPERTY(dev, key, value)
