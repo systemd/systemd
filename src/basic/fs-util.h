@@ -31,7 +31,10 @@ int readlinkat_malloc(int fd, const char *p, char **ret);
 static inline int readlink_malloc(const char *p, char **ret) {
         return readlinkat_malloc(AT_FDCWD, p, ret);
 }
-int readlink_value(const char *p, char **ret);
+int readlinkat_value(int fd, const char *p, char **ret);
+static inline int readlink_value(const char *p, char **ret) {
+        return readlinkat_value(AT_FDCWD, p, ret);
+}
 int readlink_and_make_absolute(const char *p, char **ret);
 
 int chmod_and_chown_at(int dir_fd, const char *path, mode_t mode, uid_t uid, gid_t gid);
