@@ -78,10 +78,6 @@ int bus_reply_pair_array(sd_bus_message *m, char **l);
 /* Listen to GetMallocInfo() calls to 'destination' and return malloc_info() via FD */
 int bus_register_malloc_status(sd_bus *bus, const char *destination);
 
-int bus_message_append_string_set(sd_bus_message *m, Set *s);
-
-int bus_property_get_string_set(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error);
-
 int bus_creds_get_pidref(sd_bus_creds *c, PidRef *ret);
 int bus_query_sender_pidref(sd_bus_message *m, PidRef *ret);
 
