@@ -249,9 +249,8 @@ finish:
         return 0;
 }
 
-int machine_id_commit(const char *root) {
+int machine_id_commit(void) {
         _cleanup_close_ int fd = -EBADF, initial_mntns_fd = -EBADF;
-        const char *etc_machine_id;
         sd_id128_t id;
         int r;
 
@@ -271,7 +270,7 @@ int machine_id_commit(const char *root) {
          * in a mount namespace, a new file is created at the right place. Afterwards the mount is also removed in the
          * original mount namespace, thus revealing the file that was just created. */
 
-        etc_machine_id = prefix_roota(root, "/etc/machine-id");
+        const char *etc_machine_id = "/etc/machine-id";
 
         r = path_is_mount_point(etc_machine_id);
         if (r < 0)
