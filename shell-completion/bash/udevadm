@@ -66,7 +66,7 @@ _udevadm() {
         [SETTLE]='-t --timeout -E --exit-if-exists'
         [CONTROL_STANDALONE]='-e --exit -s --stop-exec-queue -S --start-exec-queue -R --reload --ping
                               --load-credentials'
-        [CONTROL_ARG]='-l --log-priority -p --property -m --children-max -t --timeout'
+        [CONTROL_ARG]='-l --log-priority -p --property -m --children-max -t --timeout --trace'
         [MONITOR_STANDALONE]='-k --kernel -u --udev -p --property'
         [MONITOR_ARG]='-s --subsystem-match -t --tag-match'
         [TEST_STANDALONE]='-v --verbose'
@@ -190,6 +190,9 @@ _udevadm() {
                 case $prev in
                     -l|--log-priority)
                         comps='alert crit debug emerg err info notice warning'
+                        ;;
+                    --trace)
+                        comps='yes no'
                         ;;
                     *)
                         comps=''
