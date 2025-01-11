@@ -52,6 +52,8 @@ udevadm control -R
 udevadm control -p HELLO=world
 udevadm control -m 42
 udevadm control --ping -t 5
+udevadm control --trace yes
+udevadm control --trace no
 udevadm control --load-credentials
 udevadm control -h
 
