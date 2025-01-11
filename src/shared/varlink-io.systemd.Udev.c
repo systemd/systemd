@@ -3,6 +3,11 @@
 #include "varlink-io.systemd.Udev.h"
 
 static SD_VARLINK_DEFINE_METHOD(
+                SetTrace,
+                SD_VARLINK_FIELD_COMMENT("Enable/disable."),
+                SD_VARLINK_DEFINE_INPUT(enable, SD_VARLINK_BOOL, 0));
+
+static SD_VARLINK_DEFINE_METHOD(
                 SetChildrenMax,
                 SD_VARLINK_FIELD_COMMENT("The maximum number of child processes. When 0 is specified, the maximum is determined based on the system resources."),
                 SD_VARLINK_DEFINE_INPUT(number, SD_VARLINK_INT, 0));
@@ -22,6 +27,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_Udev,
                 "io.systemd.Udev",
                 SD_VARLINK_INTERFACE_COMMENT("An interface for controlling systemd-udevd."),
+                SD_VARLINK_SYMBOL_COMMENT("Enable/disable trace logging."),
+                &vl_method_SetTrace,
                 SD_VARLINK_SYMBOL_COMMENT("Sets the maximum number of child processes."),
                 &vl_method_SetChildrenMax,
                 SD_VARLINK_SYMBOL_COMMENT("Sets the global udev properties."),
