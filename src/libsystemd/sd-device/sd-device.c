@@ -2326,56 +2326,128 @@ void device_clear_sysattr_cache(sd_device *device) {
         device->sysattr_values = hashmap_free(device->sysattr_values);
 }
 
-int device_cache_sysattr_value(sd_device *device, const char *key, char *value) {
-        _unused_ _cleanup_free_ char *old_value = NULL;
-        _cleanup_free_ char *new_key = NULL;
+typedef struct SysAttrCacheEntry {
+        char *key;
+        char *value;
+        int error;
+} SysAttrCacheEntry;
+
+static SysAttrCacheEntry* sysattr_cache_entry_free(SysAttrCacheEntry *p) {
+        if (!p)
+                return NULL;
+
+        free(p->key);
+        free(p->value);
+        return mfree(p);
+}
+
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+                sysattr_cache_hash_ops,
+                char, path_hash_func, path_compare,
+                SysAttrCacheEntry, sysattr_cache_entry_free);
+
+int device_cache_sysattr_value(sd_device *device, char *key, char *value, int error) {
         int r;
 
         assert(device);
         assert(key);
+        assert(value || error > 0);
 
-        /* This takes the reference of the input value. The input value may be NULL.
-         * This replaces the value if it already exists. */
+        /* This takes the reference of the input arguments on success. The input value may be NULL.
+         * This replaces an already existing entry. */
 
-        /* First, remove the old cache entry. So, we do not need to clear cache on error. */
-        old_value = hashmap_remove2(device->sysattr_values, key, (void **) &new_key);
-        if (!new_key) {
-                new_key = strdup(key);
-                if (!new_key)
-                        return -ENOMEM;
-        }
+        /* Remove the old cache entry. So, we do not need to clear cache on error. */
+        sysattr_cache_entry_free(hashmap_remove(device->sysattr_values, key));
 
-        r = hashmap_ensure_put(&device->sysattr_values, &path_hash_ops_free_free, new_key, value);
+        /* We use ENOANO as a recognizable error code when we have not read the attribute. */
+        if (error == ENOANO)
+                error = ESTALE;
+
+        _cleanup_free_ SysAttrCacheEntry *entry = new(SysAttrCacheEntry, 1);
+        if (!entry)
+                return -ENOMEM;
+
+        *entry = (SysAttrCacheEntry) {
+                .key = key,
+                .value = value,
+                .error = error,
+        };
+
+        r = hashmap_ensure_put(&device->sysattr_values, &sysattr_cache_hash_ops, entry->key, entry);
         if (r < 0)
                 return r;
 
-        TAKE_PTR(new_key);
-
+        TAKE_PTR(entry);
         return 0;
 }
 
 int device_get_cached_sysattr_value(sd_device *device, const char *key, const char **ret_value) {
-        const char *k = NULL, *value;
+        SysAttrCacheEntry *entry;
 
         assert(device);
         assert(key);
 
-        value = hashmap_get2(device->sysattr_values, key, (void **) &k);
-        if (!k)
-                return -ESTALE; /* We have not read the attribute. */
-        if (!value)
-                return -ENOENT; /* We have looked up the attribute before and it did not exist. */
+        entry = hashmap_get(device->sysattr_values, key);
+        if (!entry)
+                return -ENOANO; /* We have not read the attribute. */
+        if (!entry->value) {
+                /* We have looked up the attribute before and failed. Return the cached error code. */
+                assert(entry->error > 0);
+                return -entry->error;
+        }
         if (ret_value)
-                *ret_value = value;
+                *ret_value = entry->value;
+        return 0;
+}
+
+int device_chase(sd_device *device, const char *path, ChaseFlags flags, char **ret_resolved, int *ret_fd) {
+        int r;
+
+        assert(device);
+        assert(path);
+
+        const char *syspath;
+        r = sd_device_get_syspath(device, &syspath);
+        if (r < 0)
+                return r;
+
+        /* Here, CHASE_PREFIX_ROOT is borrowed. if it is set, the specified path will be prefixed with the syspath. */
+        _cleanup_free_ char *prefixed = NULL;
+        if (FLAGS_SET(flags, CHASE_PREFIX_ROOT)) {
+                prefixed = path_join(syspath, path);
+                if (!prefixed)
+                        return -ENOMEM;
+                path = prefixed;
+                flags &= ~CHASE_PREFIX_ROOT;
+        }
+
+        _cleanup_free_ char *resolved = NULL;
+        _cleanup_close_ int fd = -EBADF;
+        r = chase(path, /* root = */ NULL, CHASE_NO_AUTOFS | flags, &resolved, ret_fd ? &fd : NULL);
+        if (r < 0)
+                return r;
+
+        /* Refuse to reading/writing files outside of sysfs. */
+        if (!path_startswith(resolved, "/sys/"))
+                return -EINVAL;
+
+        if (ret_resolved) {
+                /* Always return relative path. */
+                r = path_make_relative(syspath, resolved, ret_resolved);
+                if (r < 0)
+                        return r;
+        }
+
+        if (ret_fd)
+                *ret_fd = TAKE_FD(fd);
+
         return 0;
 }
 
 /* We cache all sysattr lookups. If an attribute does not exist, it is stored
  * with a NULL value in the cache, otherwise the returned string is stored */
 _public_ int sd_device_get_sysattr_value(sd_device *device, const char *sysattr, const char **ret_value) {
-        _cleanup_free_ char *value = NULL, *path = NULL;
-        const char *syspath;
-        struct stat statbuf;
+        _cleanup_free_ char *value = NULL;
         int r;
 
         assert_return(device, -EINVAL);
@@ -2383,66 +2455,80 @@ _public_ int sd_device_get_sysattr_value(sd_device *device, const char *sysattr,
 
         /* look for possibly already cached result */
         r = device_get_cached_sysattr_value(device, sysattr, ret_value);
-        if (r != -ESTALE)
+        if (r != -ENOANO)
                 return r;
 
-        r = sd_device_get_syspath(device, &syspath);
-        if (r < 0)
+        _cleanup_free_ char *resolved = NULL;
+        _cleanup_close_ int fd = -EBADF;
+        r = device_chase(device, sysattr, CHASE_PREFIX_ROOT | CHASE_NOFOLLOW, &resolved, &fd);
+        if (r == -ENOMEM)
+                return r;
+        if (r < 0) {
+                resolved = strdup(sysattr);
+                if (!resolved)
+                        return r;
+                goto cache_failure;
+        }
+
+        /* look for cacheed result again. */
+        r = device_get_cached_sysattr_value(device, resolved, ret_value);
+        if (r != -ENOANO)
                 return r;
 
-        path = path_join(syspath, sysattr);
-        if (!path)
-                return -ENOMEM;
-
-        if (lstat(path, &statbuf) < 0) {
-                int k;
-
+        struct stat st;
+        if (fstat(fd, &st) < 0) {
                 r = -errno;
+                goto cache_failure;
+        }
 
-                /* remember that we could not access the sysattr */
-                k = device_cache_sysattr_value(device, sysattr, NULL);
-                if (k < 0)
-                        log_device_debug_errno(device, k,
-                                               "sd-device: failed to cache attribute '%s' with NULL, ignoring: %m",
-                                               sysattr);
-
-                return r;
-        } else if (S_ISLNK(statbuf.st_mode)) {
+        r = stat_verify_regular(&st);
+        if (r == -ELOOP) {
                 /* Some core links return only the last element of the target path,
                  * these are just values, the paths should not be exposed. */
-                if (STR_IN_SET(sysattr, "driver", "subsystem", "module")) {
-                        r = readlink_value(path, &value);
-                        if (r < 0)
+                if (STR_IN_SET(resolved, "driver", "subsystem", "module")) {
+                        r = readlinkat_value(fd, NULL, &value);
+                        if (r == -ENOMEM)
                                 return r;
-                } else
-                        return -EINVAL;
-        } else if (S_ISDIR(statbuf.st_mode))
-                /* skip directories */
-                return -EISDIR;
-        else if (!(statbuf.st_mode & S_IRUSR))
-                /* skip non-readable files */
-                return -EPERM;
-        else {
-                size_t size;
-
-                /* Read attribute value, Some attributes contain embedded '\0'. So, it is necessary to
-                 * also get the size of the result. See issue #20025. */
-                r = read_full_virtual_file(path, &value, &size);
-                if (r < 0)
-                        return r;
-
-                /* drop trailing newlines */
-                while (size > 0 && strchr(NEWLINE, value[--size]))
-                        value[size] = '\0';
+                        if (r < 0)
+                                goto cache_failure;
+                        goto cache_result;
+                }
         }
+        if (r < 0)
+                goto cache_failure;
+
+        if (!(st.st_mode & S_IRUSR)) {
+                /* skip non-readable files */
+                r = -EPERM;
+                goto cache_failure;
+        }
+
+        r = fd = fd_reopen(fd, O_RDONLY | O_NOCTTY | O_CLOEXEC);
+        if (r < 0)
+                goto cache_failure;
+
+        /* Read attribute value, Some attributes contain embedded '\0'. So, it is necessary to also get the
+         * size of the result. See issue #20025. */
+        size_t size;
+        r = read_virtual_file_fd(fd, SIZE_MAX, &value, &size);
+        if (r == -ENOMEM)
+                return r;
+        if (r < 0)
+                goto cache_failure;
+
+        delete_trailing_chars(value, NEWLINE);
+        r = 0;
+
+cache_result:
+        assert(value);
 
         /* Unfortunately, we need to return 'const char*' instead of 'char*'. Hence, failure in caching
          * sysattr value is critical unlike the other places. */
-        r = device_cache_sysattr_value(device, sysattr, value);
+        r = device_cache_sysattr_value(device, resolved, value, 0);
         if (r < 0) {
                 log_device_debug_errno(device, r,
                                        "sd-device: failed to cache attribute '%s' with '%s'%s: %m",
-                                       sysattr, value, ret_value ? "" : ", ignoring");
+                                       resolved, value, ret_value ? "" : ", ignoring");
                 if (ret_value)
                         return r;
 
@@ -2452,8 +2538,22 @@ _public_ int sd_device_get_sysattr_value(sd_device *device, const char *sysattr,
         if (ret_value)
                 *ret_value = value;
 
+        TAKE_PTR(resolved);
         TAKE_PTR(value);
         return 0;
+
+cache_failure:
+        assert(r < 0);
+
+        /* remember that we could not access the sysattr */
+        int k = device_cache_sysattr_value(device, resolved, NULL, -r);
+        if (k < 0)
+                log_device_debug_errno(device, k,
+                                       "sd-device: failed to cache error code (%i) in reading attribute '%s', ignoring: %m",
+                                       -r, resolved);
+        else
+                TAKE_PTR(resolved);
+        return r;
 }
 
 int device_get_sysattr_int(sd_device *device, const char *sysattr, int *ret_value) {
@@ -2527,19 +2627,22 @@ int device_get_sysattr_bool(sd_device *device, const char *sysattr) {
         return parse_boolean(value);
 }
 
-static void device_remove_cached_sysattr_value(sd_device *device, const char *_key) {
-        _cleanup_free_ char *key = NULL;
+static int device_remove_cached_sysattr_value(sd_device *device, const char *sysattr) {
+        int r;
 
         assert(device);
-        assert(_key);
+        assert(sysattr);
 
-        free(hashmap_remove2(device->sysattr_values, _key, (void **) &key));
+        _cleanup_free_ char *resolved = NULL;
+        r = device_chase(device, sysattr, CHASE_PREFIX_ROOT | CHASE_NONEXISTENT, &resolved, /* ret_fd = */ NULL);
+        if (r < 0)
+                return r;
+
+        sysattr_cache_entry_free(hashmap_remove(device->sysattr_values, resolved));
+        return 0;
 }
 
-_public_ int sd_device_set_sysattr_value(sd_device *device, const char *sysattr, const char *_value) {
-        _cleanup_free_ char *value = NULL, *path = NULL;
-        const char *syspath;
-        size_t len;
+_public_ int sd_device_set_sysattr_value(sd_device *device, const char *sysattr, const char *value) {
         int r;
 
         assert_return(device, -EINVAL);
@@ -2547,52 +2650,52 @@ _public_ int sd_device_set_sysattr_value(sd_device *device, const char *sysattr,
 
         /* Set the attribute and save it in the cache. */
 
-        if (!_value) {
+        if (!value)
                 /* If input value is NULL, then clear cache and not write anything. */
-                device_remove_cached_sysattr_value(device, sysattr);
-                return 0;
+                return device_remove_cached_sysattr_value(device, sysattr);
+
+        _cleanup_free_ char *resolved = NULL;
+        _cleanup_close_ int fd = -EBADF;
+        r = device_chase(device, sysattr, CHASE_PREFIX_ROOT, &resolved, &fd);
+        if (r < 0) {
+                /* On failure, clear cache entry, hopefully, 'sysattr' is normalized. */
+                sysattr_cache_entry_free(hashmap_remove(device->sysattr_values, sysattr));
+                return r;
         }
 
-        r = sd_device_get_syspath(device, &syspath);
-        if (r < 0)
-                return r;
-
-        path = path_join(syspath, sysattr);
-        if (!path)
+        /* value length is limited to 4k */
+        _cleanup_free_ char *copied = strndup(value, 4096);
+        if (!copied)
                 return -ENOMEM;
-
-        len = strlen(_value);
 
         /* drop trailing newlines */
-        while (len > 0 && strchr(NEWLINE, _value[len - 1]))
-                len--;
+        delete_trailing_chars(copied, NEWLINE);
 
-        /* value length is limited to 4k */
-        if (len > 4096)
-                return -EINVAL;
-
-        value = strndup(_value, len);
-        if (!value)
-                return -ENOMEM;
-
-        r = write_string_file(path, value, WRITE_STRING_FILE_DISABLE_BUFFER | WRITE_STRING_FILE_NOFOLLOW);
+        r = write_string_file_at(fd, "", copied,
+                                 WRITE_STRING_FILE_DISABLE_BUFFER |
+                                 WRITE_STRING_FILE_NOFOLLOW |
+                                 WRITE_STRING_FILE_VERIFY_ON_FAILURE |
+                                 WRITE_STRING_FILE_AVOID_NEWLINE |
+                                 WRITE_STRING_FILE_VERIFY_IGNORE_NEWLINE);
         if (r < 0) {
                 /* On failure, clear cache entry, as we do not know how it fails. */
-                device_remove_cached_sysattr_value(device, sysattr);
+                sysattr_cache_entry_free(hashmap_remove(device->sysattr_values, resolved));
                 return r;
         }
 
         /* Do not cache action string written into uevent file. */
-        if (streq(sysattr, "uevent"))
+        if (streq(last_path_component(resolved), "uevent"))
                 return 0;
 
-        r = device_cache_sysattr_value(device, sysattr, value);
+        r = device_cache_sysattr_value(device, resolved, copied, 0);
         if (r < 0)
                 log_device_debug_errno(device, r,
                                        "sd-device: failed to cache attribute '%s' with '%s', ignoring: %m",
-                                       sysattr, value);
-        else
-                TAKE_PTR(value);
+                                       resolved, copied);
+        else {
+                TAKE_PTR(resolved);
+                TAKE_PTR(copied);
+        }
 
         return 0;
 }
