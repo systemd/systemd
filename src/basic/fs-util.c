@@ -153,14 +153,14 @@ int readlinkat_malloc(int fd, const char *p, char **ret) {
         }
 }
 
-int readlink_value(const char *p, char **ret) {
+int readlinkat_value(int fd, const char *p, char **ret) {
         _cleanup_free_ char *link = NULL, *name = NULL;
         int r;
 
-        assert(p);
+        assert(fd >= 0 || fd == AT_FDCWD);
         assert(ret);
 
-        r = readlink_malloc(p, &link);
+        r = readlinkat_malloc(fd, p, &link);
         if (r < 0)
                 return r;
 
