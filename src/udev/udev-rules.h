@@ -14,7 +14,7 @@ int udev_rule_parse_value(char *str, char **ret_value, char **ret_endpos, bool *
 int udev_rules_parse_file(UdevRules *rules, const char *filename, bool extra_checks, UdevRuleFile **ret);
 unsigned udev_rule_file_get_issues(UdevRuleFile *rule_file);
 UdevRules* udev_rules_new(ResolveNameTiming resolve_name_timing);
-int udev_rules_load(UdevRules **ret_rules, ResolveNameTiming resolve_name_timing);
+int udev_rules_load(UdevRules **ret_rules, ResolveNameTiming resolve_name_timing, char * const *extra);
 UdevRules* udev_rules_free(UdevRules *rules);
 DEFINE_TRIVIAL_CLEANUP_FUNC(UdevRules*, udev_rules_free);
 #define udev_rules_free_and_replace(a, b) free_and_replace_full(a, b, udev_rules_free)
