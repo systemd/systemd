@@ -10,6 +10,7 @@
 #include "bus-common-errors.h"
 #include "bus-get-properties.h"
 #include "bus-locator.h"
+#include "bus-message-util.h"
 #include "bus-polkit.h"
 #include "cgroup-util.h"
 #include "discover-image.h"

@@ -7,6 +7,7 @@
 #include "bpf-firewall.h"
 #include "bpf-foreign.h"
 #include "bus-get-properties.h"
+#include "bus-message-util.h"
 #include "bus-util.h"
 #include "cgroup-util.h"
 #include "cgroup.h"
