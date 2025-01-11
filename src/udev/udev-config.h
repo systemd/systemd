@@ -18,6 +18,7 @@ typedef struct UdevConfig {
         usec_t timeout_usec;
         int timeout_signal;
         bool blockdev_read_only;
+        bool trace;
 } UdevConfig;
 
 #define UDEV_CONFIG_INIT                                             \
