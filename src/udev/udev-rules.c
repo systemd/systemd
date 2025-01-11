@@ -1778,16 +1778,26 @@ UdevRules* udev_rules_new(ResolveNameTiming resolve_name_timing) {
         return rules;
 }
 
-int udev_rules_load(UdevRules **ret_rules, ResolveNameTiming resolve_name_timing) {
+int udev_rules_load(UdevRules **ret_rules, ResolveNameTiming resolve_name_timing, char * const *extra) {
         _cleanup_(udev_rules_freep) UdevRules *rules = NULL;
-        _cleanup_strv_free_ char **files = NULL;
+        _cleanup_strv_free_ char **files = NULL, **directories = NULL;
         int r;
 
         rules = udev_rules_new(resolve_name_timing);
         if (!rules)
                 return -ENOMEM;
 
-        r = conf_files_list_strv(&files, ".rules", NULL, 0, RULES_DIRS);
+        if (!strv_isempty(extra)) {
+                directories = strv_copy(extra);
+                if (!directories)
+                        return -ENOMEM;
+        }
+
+        r = strv_extend_strv(&directories, CONF_PATHS_STRV("udev/rules.d"), /* filter_duplicates = */ false);
+        if (r < 0)
+                return r;
+
+        r = conf_files_list_strv(&files, ".rules", NULL, 0, (const char* const*) directories);
         if (r < 0)
                 return log_debug_errno(r, "Failed to enumerate rules files: %m");
 
