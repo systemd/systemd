@@ -32,6 +32,7 @@
 #include "sysctl-util.h"
 #include "syslog-util.h"
 #include "udev-builtin.h"
+#include "udev-dump.h"
 #include "udev-event.h"
 #include "udev-format.h"
 #include "udev-node.h"
@@ -2867,11 +2868,19 @@ static int udev_rule_apply_token_to_event(
                                               WRITE_STRING_FILE_VERIFY_IGNORE_NEWLINE);
                         if (r < 0)
                                 log_event_error_errno(event, token, r, "Failed to write \"%s\" to sysfs attribute \"%s\", ignoring: %m", value, buf);
-                        else
+                        else {
+                                event_cache_written_sysattr(event, buf, value);
                                 log_event_trace(event, token, "DONE");
-                } else
+                        }
+                } else {
                         log_event_debug(event, token, "Running in test mode, skipping writing \"%s\" to sysfs attribute \"%s\".", value, buf);
 
+                        r = verify_regular_at(AT_FDCWD, buf, /* follow = */ false);
+                        if (r < 0 && !ERRNO_IS_NEG_PRIVILEGE(r))
+                                log_event_error_errno(event, token, r, "Failed to verify sysfs attribute \"%s\" is a regular file: %m", buf);
+                        else
+                                event_cache_written_sysattr(event, buf, value);
+                }
                 return true;
         }
         case TK_A_SYSCTL: {
@@ -2890,11 +2899,23 @@ static int udev_rule_apply_token_to_event(
                         r = sysctl_write(buf, value);
                         if (r < 0)
                                 log_event_error_errno(event, token, r, "Failed to write \"%s\" to sysctl entry \"%s\", ignoring: %m", value, buf);
-                        else
+                        else {
+                                event_cache_written_sysctl(event, buf, value);
                                 log_event_trace(event, token, "DONE");
-                } else
+                        }
+                } else {
                         log_event_debug(event, token, "Running in test mode, skipping writing \"%s\" to sysctl entry \"%s\".", value, buf);
 
+                        _cleanup_free_ char *path = path_join("/proc/sys/", buf);
+                        if (!path)
+                                return log_oom();
+
+                        r = verify_regular_at(AT_FDCWD, path, /* follow = */ true);
+                        if (r < 0 && !ERRNO_IS_NEG_PRIVILEGE(r))
+                                log_event_error_errno(event, token, r, "Failed to verify sysctl entry \"%s\" is a regular file: %m", buf);
+                        else
+                                event_cache_written_sysctl(event, buf, value);
+                }
                 return true;
         }
         case TK_A_RUN_BUILTIN:
