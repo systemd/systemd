@@ -78,15 +78,7 @@ int bus_reply_pair_array(sd_bus_message *m, char **l);
 /* Listen to GetMallocInfo() calls to 'destination' and return malloc_info() via FD */
 int bus_register_malloc_status(sd_bus *bus, const char *destination);
 
-extern const struct hash_ops bus_message_hash_ops;
-
-int bus_message_append_string_set(sd_bus_message *m, Set *s);
-
-int bus_property_get_string_set(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error);
-
 int bus_creds_get_pidref(sd_bus_creds *c, PidRef *ret);
 int bus_query_sender_pidref(sd_bus_message *m, PidRef *ret);
-
-int bus_message_read_id128(sd_bus_message *m, sd_id128_t *ret);
 
 const char* bus_transport_to_string(BusTransport transport) _const_;
