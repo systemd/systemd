@@ -2960,50 +2960,69 @@ static int udev_rule_apply_token_to_event(
         }
         case TK_A_ATTR: {
                 char buf[UDEV_PATH_SIZE], value[UDEV_NAME_SIZE];
-                const char *val, *key_name = token->data;
+                const char *key = token->data;
 
-                if (udev_resolve_subsys_kernel(key_name, buf, sizeof(buf), false) < 0 &&
-                    sd_device_get_syspath(dev, &val) >= 0) {
+                if (udev_resolve_subsys_kernel(key, buf, sizeof(buf), false) < 0) {
+
+                        /* First, make the path to sysfs attribute absolute, to make '*' resolvable by attr_subst_subdir(). */
+                        const char *syspath;
+                        r = sd_device_get_syspath(dev, &syspath);
+                        if (r < 0)
+                                return log_event_error_errno(event, token, r, "Failed to get syspath: %m");
+
                         bool truncated;
-                        strscpyl_full(buf, sizeof(buf), &truncated, val, "/", key_name, NULL);
+                        strscpyl_full(buf, sizeof(buf), &truncated, syspath, "/", key, NULL);
                         if (truncated) {
                                 log_event_warning(event, token,
                                                   "The path to the attribute \"%s/%s\" is too long, refusing to set the attribute.",
-                                                  val, key_name);
+                                                  syspath, key);
+                                return true;
+                        }
+
+                        /* Resolve '*' in the path. */
+                        r = attr_subst_subdir(buf);
+                        if (r < 0) {
+                                log_event_error_errno(event, token, r, "Could not find file matches \"%s\", ignoring: %m", buf);
                                 return true;
                         }
                 }
 
-                r = attr_subst_subdir(buf);
+                /* Then, make the path relative again. This also checks if the path being inside of the sysfs. */
+                _cleanup_free_ char *resolved = NULL;
+                _cleanup_close_ int fd = -EBADF;
+                r = device_chase(dev, buf, /* flags = */ 0, &resolved, &fd);
                 if (r < 0) {
-                        log_event_error_errno(event, token, r, "Could not find file matches \"%s\", ignoring: %m", buf);
+                        log_event_error_errno(event, token, r, "Could not chase sysfs attribute \"%s\", ignoring: %m", buf);
                         return true;
                 }
 
+                /* Apply formatting to the value. */
                 if (!apply_format_value(event, token, value, sizeof(value), "attribute value"))
                         return true;
 
                 if (EVENT_MODE_DESTRUCTIVE(event)) {
-                        log_event_debug(event, token, "Writing \"%s\" to sysfs attribute \"%s\".", value, buf);
-                        r = write_string_file(buf, value,
-                                              WRITE_STRING_FILE_VERIFY_ON_FAILURE |
-                                              WRITE_STRING_FILE_DISABLE_BUFFER |
-                                              WRITE_STRING_FILE_AVOID_NEWLINE |
-                                              WRITE_STRING_FILE_VERIFY_IGNORE_NEWLINE);
+                        log_event_debug(event, token, "Writing \"%s\" to sysfs attribute \"%s\".", value, resolved);
+                        r = sd_device_set_sysattr_value(dev, resolved, value);
                         if (r < 0)
-                                log_event_error_errno(event, token, r, "Failed to write \"%s\" to sysfs attribute \"%s\", ignoring: %m", value, buf);
+                                log_event_error_errno(event, token, r, "Failed to write \"%s\" to sysfs attribute \"%s\", ignoring: %m", value, resolved);
                         else {
-                                event_cache_written_sysattr(event, buf, value);
+                                event_cache_written_sysattr(event, resolved, value);
                                 log_event_done(event, token);
                         }
                 } else {
-                        log_event_debug(event, token, "Running in test mode, skipping writing \"%s\" to sysfs attribute \"%s\".", value, buf);
+                        log_event_debug(event, token, "Running in test mode, skipping writing \"%s\" to sysfs attribute \"%s\".", value, resolved);
 
-                        r = verify_regular_at(AT_FDCWD, buf, /* follow = */ false);
+                        /* If the path points to a regular file, then we assume it is writable, and cache the
+                         * value to make it shown by OPTIONS="dump" or obtained by later ATTR match token. */
+                        r = fd_verify_regular(fd);
                         if (r < 0 && !ERRNO_IS_NEG_PRIVILEGE(r))
-                                log_event_error_errno(event, token, r, "Failed to verify sysfs attribute \"%s\" is a regular file: %m", buf);
-                        else
-                                event_cache_written_sysattr(event, buf, value);
+                                log_event_error_errno(event, token, r, "Failed to verify sysfs attribute \"%s\" is a regular file: %m", resolved);
+                        else {
+                                if (!streq(last_path_component(resolved), "uevent"))
+                                        device_cache_sysattr_value(dev, resolved, value, /* error = */ 0);
+
+                                event_cache_written_sysattr(event, resolved, value);
+                        }
                 }
                 return true;
         }
