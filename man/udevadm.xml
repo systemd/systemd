@@ -889,6 +889,21 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><option>-D <replaceable>DIR</replaceable></option></term>
+          <term><option>--extra-rules-dir=<replaceable>DIR</replaceable></option></term>
+          <listitem>
+            <para>Also load udev rules files from the specified directory. This option can be specified
+            multiple times. It may be useful for debugging udev rules by copying some udev rules files to a
+            temporary directory, editing them, and specifying the directory with this option. Files found in
+            the specified directories have a higher priority than rules files in the default
+            <filename>udev/rules.d</filename> directories used by <command>systemd-udevd</command>. See
+            <citerefentry><refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum></citerefentry> for more
+            details about the search paths.</para>
+
+            <xi:include href="version-info.xml" xpointer="v258"/>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><option>-v</option></term>
           <term><option>--verbose</option></term>
           <listitem>
