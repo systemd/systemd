@@ -1727,16 +1727,11 @@ _public_ int sd_event_add_child_pidfd(
 
         s->wakeup = WAKEUP_EVENT_SOURCE;
         s->child.pidfd = pidfd;
-        s->child.pid = pid;
         s->child.options = options;
         s->child.callback = callback;
         s->child.pidfd_owned = false; /* If we got the pidfd passed in we don't own it by default (similar to the IO fd case) */
         s->userdata = userdata;
         s->enabled = SD_EVENT_ONESHOT;
-
-        r = hashmap_put(e->child_sources, PID_TO_PTR(pid), s);
-        if (r < 0)
-                return r;
 
         if (EVENT_SOURCE_WATCH_PIDFD(s)) {
                 /* We only want to watch for WEXITED */
@@ -1752,6 +1747,11 @@ _public_ int sd_event_add_child_pidfd(
                 e->need_process_child = true;
         }
 
+        r = hashmap_put(e->child_sources, PID_TO_PTR(pid), s);
+        if (r < 0)
+                return r;
+
+        s->child.pid = pid;
         e->n_online_child_sources++;
 
         if (ret)
