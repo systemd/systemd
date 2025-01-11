@@ -459,6 +459,44 @@ int detach_mount_namespace_userns(int userns_fd) {
         return detach_mount_namespace();
 }
 
+int parse_userns_uid_range(const char *s, uid_t *ret_uid_shift, uid_t *ret_uid_range) {
+        _cleanup_free_ char *buffer = NULL;
+        const char *range, *shift;
+        int r;
+        uid_t uid_shift, uid_range = 65536;
+
+        assert(s);
+
+        range = strchr(s, ':');
+        if (range) {
+                buffer = strndup(s, range - s);
+                if (!buffer)
+                        return log_oom();
+                shift = buffer;
+
+                range++;
+                r = safe_atou32(range, &uid_range);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse UID range \"%s\": %m", range);
+        } else
+                shift = s;
+
+        r = parse_uid(shift, &uid_shift);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse UID \"%s\": %m", s);
+
+        if (!userns_shift_range_valid(uid_shift, uid_range))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "UID range cannot be empty or go beyond " UID_FMT ".", UID_INVALID);
+
+        if (ret_uid_shift)
+                *ret_uid_shift = uid_shift;
+
+        if (ret_uid_range)
+                *ret_uid_range = uid_range;
+
+        return 0;
+}
+
 int userns_acquire_empty(void) {
         _cleanup_(sigkill_waitp) pid_t pid = 0;
         _cleanup_close_ int userns_fd = -EBADF;
@@ -518,124 +556,6 @@ int userns_acquire(const char *uid_map, const char *gid_map) {
                 return log_debug_errno(r, "Failed to open userns fd: %m");
 
         return TAKE_FD(userns_fd);
-}
-
-int netns_acquire(void) {
-        _cleanup_(sigkill_waitp) pid_t pid = 0;
-        _cleanup_close_ int netns_fd = -EBADF;
-        int r;
-
-        /* Forks off a process in a new network namespace, acquires a network namespace fd, and then kills
-         * the process again. This way we have a netns fd that is not bound to any process. */
-
-        r = safe_fork("(sd-mknetns)", FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGKILL|FORK_NEW_NETNS, &pid);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to fork process (sd-mknetns): %m");
-        if (r == 0)
-                /* Child. We do nothing here, just freeze until somebody kills us. */
-                freeze();
-
-        r = namespace_open(pid,
-                           /* ret_pidns_fd = */ NULL,
-                           /* ret_mntns_fd = */ NULL,
-                           &netns_fd,
-                           /* ret_userns_fd = */ NULL,
-                           /* ret_root_fd = */ NULL);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to open netns fd: %m");
-
-        return TAKE_FD(netns_fd);
-}
-
-int parse_userns_uid_range(const char *s, uid_t *ret_uid_shift, uid_t *ret_uid_range) {
-        _cleanup_free_ char *buffer = NULL;
-        const char *range, *shift;
-        int r;
-        uid_t uid_shift, uid_range = 65536;
-
-        assert(s);
-
-        range = strchr(s, ':');
-        if (range) {
-                buffer = strndup(s, range - s);
-                if (!buffer)
-                        return log_oom();
-                shift = buffer;
-
-                range++;
-                r = safe_atou32(range, &uid_range);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to parse UID range \"%s\": %m", range);
-        } else
-                shift = s;
-
-        r = parse_uid(shift, &uid_shift);
-        if (r < 0)
-                return log_error_errno(r, "Failed to parse UID \"%s\": %m", s);
-
-        if (!userns_shift_range_valid(uid_shift, uid_range))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "UID range cannot be empty or go beyond " UID_FMT ".", UID_INVALID);
-
-        if (ret_uid_shift)
-                *ret_uid_shift = uid_shift;
-
-        if (ret_uid_range)
-                *ret_uid_range = uid_range;
-
-        return 0;
-}
-
-int is_idmapping_supported(const char *path) {
-        _cleanup_close_ int mount_fd = -EBADF, userns_fd = -EBADF, dir_fd = -EBADF;
-        _cleanup_free_ char *uid_map = NULL, *gid_map = NULL;
-        int r;
-
-        assert(path);
-
-        if (!mount_new_api_supported())
-                return false;
-
-        r = strextendf(&uid_map, UID_FMT " " UID_FMT " " UID_FMT "\n", UID_NOBODY, UID_NOBODY, 1u);
-        if (r < 0)
-                return r;
-
-        r = strextendf(&gid_map, GID_FMT " " GID_FMT " " GID_FMT "\n", GID_NOBODY, GID_NOBODY, 1u);
-        if (r < 0)
-                return r;
-
-        userns_fd = r = userns_acquire(uid_map, gid_map);
-        if (ERRNO_IS_NEG_NOT_SUPPORTED(r) || ERRNO_IS_NEG_PRIVILEGE(r) || r == -EINVAL)
-                return false;
-        if (r == -ENOSPC) {
-                log_debug_errno(r, "Failed to acquire new user namespace, user.max_user_namespaces seems to be exhausted or maybe even zero, assuming ID-mapping is not supported: %m");
-                return false;
-        }
-        if (r < 0)
-                return log_debug_errno(r, "Failed to acquire new user namespace for checking if '%s' supports ID-mapping: %m", path);
-
-        dir_fd = r = RET_NERRNO(open(path, O_RDONLY | O_CLOEXEC | O_NOFOLLOW));
-        if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
-                return false;
-        if (r < 0)
-                return log_debug_errno(r, "Failed to open '%s', cannot determine if ID-mapping is supported: %m", path);
-
-        mount_fd = r = RET_NERRNO(open_tree(dir_fd, "", AT_EMPTY_PATH | OPEN_TREE_CLONE | OPEN_TREE_CLOEXEC));
-        if (ERRNO_IS_NEG_NOT_SUPPORTED(r) || ERRNO_IS_NEG_PRIVILEGE(r) || r == -EINVAL)
-                return false;
-        if (r < 0)
-                return log_debug_errno(r, "Failed to open mount tree '%s', cannot determine if ID-mapping is supported: %m", path);
-
-        r = RET_NERRNO(mount_setattr(mount_fd, "", AT_EMPTY_PATH,
-                       &(struct mount_attr) {
-                                .attr_set = MOUNT_ATTR_IDMAP | MOUNT_ATTR_NOSUID | MOUNT_ATTR_NOEXEC | MOUNT_ATTR_RDONLY | MOUNT_ATTR_NODEV,
-                                .userns_fd = userns_fd,
-                        }, sizeof(struct mount_attr)));
-        if (ERRNO_IS_NEG_NOT_SUPPORTED(r) || ERRNO_IS_NEG_PRIVILEGE(r) || r == -EINVAL)
-                return false;
-        if (r < 0)
-                return log_debug_errno(r, "Failed to set mount attribute to '%s', cannot determine if ID-mapping is supported: %m", path);
-
-        return true;
 }
 
 int userns_get_base_uid(int userns_fd, uid_t *ret_uid, gid_t *ret_gid) {
@@ -763,3 +683,84 @@ int process_is_owned_by_uid(const PidRef *pidref, uid_t uid) {
                 close_and_replace(userns_fd, parent_fd);
         }
 }
+
+int is_idmapping_supported(const char *path) {
+        _cleanup_close_ int mount_fd = -EBADF, userns_fd = -EBADF, dir_fd = -EBADF;
+        _cleanup_free_ char *uid_map = NULL, *gid_map = NULL;
+        int r;
+
+        assert(path);
+
+        if (!mount_new_api_supported())
+                return false;
+
+        r = strextendf(&uid_map, UID_FMT " " UID_FMT " " UID_FMT "\n", UID_NOBODY, UID_NOBODY, 1u);
+        if (r < 0)
+                return r;
+
+        r = strextendf(&gid_map, GID_FMT " " GID_FMT " " GID_FMT "\n", GID_NOBODY, GID_NOBODY, 1u);
+        if (r < 0)
+                return r;
+
+        userns_fd = r = userns_acquire(uid_map, gid_map);
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(r) || ERRNO_IS_NEG_PRIVILEGE(r) || r == -EINVAL)
+                return false;
+        if (r == -ENOSPC) {
+                log_debug_errno(r, "Failed to acquire new user namespace, user.max_user_namespaces seems to be exhausted or maybe even zero, assuming ID-mapping is not supported: %m");
+                return false;
+        }
+        if (r < 0)
+                return log_debug_errno(r, "Failed to acquire new user namespace for checking if '%s' supports ID-mapping: %m", path);
+
+        dir_fd = r = RET_NERRNO(open(path, O_RDONLY | O_CLOEXEC | O_NOFOLLOW));
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                return false;
+        if (r < 0)
+                return log_debug_errno(r, "Failed to open '%s', cannot determine if ID-mapping is supported: %m", path);
+
+        mount_fd = r = RET_NERRNO(open_tree(dir_fd, "", AT_EMPTY_PATH | OPEN_TREE_CLONE | OPEN_TREE_CLOEXEC));
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(r) || ERRNO_IS_NEG_PRIVILEGE(r) || r == -EINVAL)
+                return false;
+        if (r < 0)
+                return log_debug_errno(r, "Failed to open mount tree '%s', cannot determine if ID-mapping is supported: %m", path);
+
+        r = RET_NERRNO(mount_setattr(mount_fd, "", AT_EMPTY_PATH,
+                       &(struct mount_attr) {
+                                .attr_set = MOUNT_ATTR_IDMAP | MOUNT_ATTR_NOSUID | MOUNT_ATTR_NOEXEC | MOUNT_ATTR_RDONLY | MOUNT_ATTR_NODEV,
+                                .userns_fd = userns_fd,
+                        }, sizeof(struct mount_attr)));
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(r) || ERRNO_IS_NEG_PRIVILEGE(r) || r == -EINVAL)
+                return false;
+        if (r < 0)
+                return log_debug_errno(r, "Failed to set mount attribute to '%s', cannot determine if ID-mapping is supported: %m", path);
+
+        return true;
+}
+
+int netns_acquire(void) {
+        _cleanup_(sigkill_waitp) pid_t pid = 0;
+        _cleanup_close_ int netns_fd = -EBADF;
+        int r;
+
+        /* Forks off a process in a new network namespace, acquires a network namespace fd, and then kills
+         * the process again. This way we have a netns fd that is not bound to any process. */
+
+        r = safe_fork("(sd-mknetns)", FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGKILL|FORK_NEW_NETNS, &pid);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to fork process (sd-mknetns): %m");
+        if (r == 0)
+                /* Child. We do nothing here, just freeze until somebody kills us. */
+                freeze();
+
+        r = namespace_open(pid,
+                           /* ret_pidns_fd = */ NULL,
+                           /* ret_mntns_fd = */ NULL,
+                           &netns_fd,
+                           /* ret_userns_fd = */ NULL,
+                           /* ret_root_fd = */ NULL);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to open netns fd: %m");
+
+        return TAKE_FD(netns_fd);
+}
+
