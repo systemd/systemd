@@ -168,6 +168,16 @@
         </listitem>
       </varlistentry>
       <varlistentry>
+        <term><varname>udev.trace[=<replaceable>BOOL</replaceable>]</varname></term>
+        <term><varname>rd.udev.trace[=<replaceable>BOOL</replaceable>]</varname></term>
+        <listitem>
+          <para>Enable/disable trace logging. When enabled, <varname>udev.log_level=</varname> will be
+          ignored, and <literal>debug</literal> level is assumed.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
         <term><varname>udev.children_max=</varname></term>
         <term><varname>rd.udev.children_max=</varname></term>
         <listitem>
