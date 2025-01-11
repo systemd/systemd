@@ -112,6 +112,20 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
                 return 0;
 
+        } else if (proc_cmdline_key_streq(key, "udev.trace")) {
+
+                if (!value)
+                        config->trace = true;
+                else {
+                        r = parse_boolean(value);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to parse udev.trace argument, ignoring: %s", value);
+                        else
+                                config->trace = r;
+                }
+
+                return 0;
+
         } else {
                 if (startswith(key, "udev."))
                         log_warning("Unknown udev kernel command line option \"%s\", ignoring.", key);
@@ -269,6 +283,7 @@ static void manager_merge_config(Manager *manager) {
         MERGE_NON_ZERO(timeout_usec, DEFAULT_WORKER_TIMEOUT_USEC);
         MERGE_NON_ZERO(timeout_signal, SIGKILL);
         MERGE_BOOL(blockdev_read_only);
+        MERGE_BOOL(trace);
 }
 
 static void udev_config_set_default_children_max(UdevConfig *config) {
@@ -319,6 +334,11 @@ void manager_set_log_level(Manager *manager, int log_level) {
 
 static void manager_adjust_config(UdevConfig *config) {
         assert(config);
+
+        if (config->trace)
+                config->log_level = LOG_DEBUG;
+
+        log_set_max_level(config->log_level);
 
         if (config->timeout_usec < MIN_WORKER_TIMEOUT_USEC) {
                 log_debug("Timeout (%s) for processing event is too small, using the default: %s",
@@ -411,7 +431,6 @@ int manager_load(Manager *manager, int argc, char *argv[]) {
         if (arg_debug)
                 log_set_target(LOG_TARGET_CONSOLE);
 
-        log_set_max_level(manager->config.log_level);
         manager_adjust_config(&manager->config);
         return 1;
 }
@@ -424,7 +443,6 @@ UdevReloadFlags manager_reload_config(Manager *manager) {
         manager->config_by_udev_conf = UDEV_CONFIG_INIT;
         manager_parse_udev_config(&manager->config_by_udev_conf);
         manager_merge_config(manager);
-        log_set_max_level(manager->config.log_level);
         manager_adjust_config(&manager->config);
 
         if (manager->config.resolve_name_timing != old.resolve_name_timing)
@@ -434,7 +452,8 @@ UdevReloadFlags manager_reload_config(Manager *manager) {
             manager->config.exec_delay_usec != old.exec_delay_usec ||
             manager->config.timeout_usec != old.timeout_usec ||
             manager->config.timeout_signal != old.timeout_signal ||
-            manager->config.blockdev_read_only != old.blockdev_read_only)
+            manager->config.blockdev_read_only != old.blockdev_read_only ||
+            manager->config.trace != old.trace)
                 return UDEV_RELOAD_KILL_WORKERS;
 
         return 0;
