@@ -4,6 +4,7 @@
 
 #include "alloc-util.h"
 #include "bus-common-errors.h"
+#include "bus-message-util.h"
 #include "bus-polkit.h"
 #include "format-util.h"
 #include "home-util.h"
@@ -704,17 +705,17 @@ static int method_rebalance(sd_bus_message *message, void *userdata, sd_bus_erro
         int r;
 
         r = manager_schedule_rebalance(m, /* immediately= */ true);
-        if (r == 0)
-                return sd_bus_reply_method_errorf(message, BUS_ERROR_REBALANCE_NOT_NEEDED, "No home directories need rebalancing.");
         if (r < 0)
                 return r;
+        if (r == 0)
+                return sd_bus_reply_method_errorf(message, BUS_ERROR_REBALANCE_NOT_NEEDED, "No home directories need rebalancing.");
 
         /* Keep a reference to this message, so that we can reply to it once we are done */
-        r = set_ensure_put(&m->rebalance_queued_method_calls, &bus_message_hash_ops, message);
+        r = set_ensure_consume(&m->rebalance_queued_method_calls, &bus_message_hash_ops, sd_bus_message_ref(message));
         if (r < 0)
                 return log_error_errno(r, "Failed to track rebalance bus message: %m");
+        assert(r > 0);
 
-        sd_bus_message_ref(message);
         return 1;
 }
 
