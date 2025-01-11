@@ -216,6 +216,25 @@ clear:
         return r;
 }
 
+int bus_message_append_string_set(sd_bus_message *m, const Set *set) {
+        int r;
+
+        assert(m);
+
+        r = sd_bus_message_open_container(m, 'a', "s");
+        if (r < 0)
+                return r;
+
+        const char *s;
+        SET_FOREACH(s, set) {
+                r = sd_bus_message_append(m, "s", s);
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_bus_message_close_container(m);
+}
+
 int bus_message_dump_string(sd_bus_message *message) {
         const char *s;
         int r;

@@ -19,6 +19,8 @@ int bus_message_read_dns_servers(
                         struct in_addr_full ***ret_dns,
                         size_t *ret_n_dns);
 
+int bus_message_append_string_set(sd_bus_message *m, const Set *s);
+
 int bus_message_dump_string(sd_bus_message *message);
 int bus_message_dump_fd(sd_bus_message *message);
 
