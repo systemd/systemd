@@ -5,6 +5,7 @@
 #include "bus-util.h"
 #include "strv.h"
 #include "bus-message.h"
+#include "bus-message-util.h"
 
 int bus_map_id128(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
         sd_id128_t *p = userdata;
