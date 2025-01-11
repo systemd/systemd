@@ -65,7 +65,7 @@ static inline int bus_log_connect_error(int r, BusTransport transport, RuntimeSc
 int bus_path_encode_unique(sd_bus *b, const char *prefix, const char *sender_id, const char *external_id, char **ret_path);
 int bus_path_decode_unique(const char *path, const char *prefix, char **ret_sender, char **ret_external);
 
-int bus_track_add_name_many(sd_bus_track *t, char **l);
+int bus_track_add_name_many(sd_bus_track *t, char * const *l);
 int bus_track_to_strv(sd_bus_track *t, char ***ret);
 
 int bus_open_system_watch_bind_with_description(sd_bus **ret, const char *description);
