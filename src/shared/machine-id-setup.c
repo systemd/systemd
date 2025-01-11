@@ -132,40 +132,69 @@ static int acquire_machine_id(const char *root, bool machine_id_from_firmware, s
 
 int machine_id_setup(const char *root, sd_id128_t machine_id, MachineIdSetupFlags flags, sd_id128_t *ret) {
         _cleanup_(unlink_and_freep) char *run_machine_id = NULL;
+        _cleanup_free_ char *etc_machine_id = NULL;
         bool writable, write_run_machine_id = true;
         _cleanup_close_ int fd = -EBADF;
-        const char *etc_machine_id;
         int r;
 
-        etc_machine_id = prefix_roota(root, "/etc/machine-id");
-
         WITH_UMASK(0000) {
-                /* We create this 0444, to indicate that this isn't really
-                 * something you should ever modify. Of course, since the file
-                 * will be owned by root it doesn't matter much, but maybe
-                 * people look. */
+                _cleanup_close_ int inode_fd = -EBADF;
 
-                (void) mkdir_parents(etc_machine_id, 0755);
-                fd = open(etc_machine_id, O_RDWR|O_CREAT|O_CLOEXEC|O_NOCTTY, 0444);
-                if (fd < 0) {
-                        int old_errno = errno;
+                r = chase("/etc/machine-id", root, CHASE_PREFIX_ROOT, &etc_machine_id, &inode_fd);
+                if (r == -ENOENT) {
+                        _cleanup_close_ int etc_fd = -EBADF;
+                        _cleanup_free_ char *etc = NULL;
 
-                        fd = open(etc_machine_id, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                        r = chase("/etc/", root, CHASE_PREFIX_ROOT|CHASE_MKDIR_0755, &etc, &etc_fd);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to open '/etc/': %m");
+
+                        etc_machine_id = path_join(etc, "machine-id");
+                        if (!etc_machine_id)
+                                return log_oom();
+
+                        /* We create this 0444, to indicate that this isn't really something you should ever
+                         * modify. Of course, since the file will be owned by root it doesn't matter much, but maybe
+                         * people look. */
+
+                        fd = openat(etc_fd, "machine-id", O_CREAT|O_EXCL|O_RDWR|O_NOFOLLOW|O_CLOEXEC, 0444);
                         if (fd < 0) {
-                                if (old_errno == EROFS && errno == ENOENT)
+                                if (errno == EROFS)
                                         return log_error_errno(errno,
-                                                  "System cannot boot: Missing /etc/machine-id and /etc is mounted read-only.\n"
-                                                  "Booting up is supported only when:\n"
-                                                  "1) /etc/machine-id exists and is populated.\n"
-                                                  "2) /etc/machine-id exists and is empty.\n"
-                                                  "3) /etc/machine-id is missing and /etc is writable.\n");
-                                else
-                                        return log_error_errno(errno, "Cannot open %s: %m", etc_machine_id);
+                                                               "System cannot boot: Missing %s and %s/ is read-only.\n"
+                                                               "Booting up is supported only when:\n"
+                                                               "1) /etc/machine-id exists and is populated.\n"
+                                                               "2) /etc/machine-id exists and is empty.\n"
+                                                               "3) /etc/machine-id is missing and /etc/ is writable.",
+                                                               etc_machine_id,
+                                                               etc);
+
+                                return log_error_errno(errno, "Cannot create '%s': %m", etc_machine_id);
                         }
 
-                        writable = false;
-                } else
+                        log_debug("Successfully opened new '%s' file.", etc_machine_id);
                         writable = true;
+                } else if (r < 0)
+                        return log_error_errno(r, "Cannot open '/etc/machine-id': %m");
+                else {
+                        /* We pinned the inode, now try to convert it into a writable file */
+
+                        fd = xopenat_full(inode_fd, /* path= */ NULL, O_RDWR|O_CLOEXEC, XO_REGULAR, 0444);
+                        if (fd < 0) {
+                                log_debug_errno(fd, "Failed to topen '%s' in writable mode, retrying in read-only mode: %m", etc_machine_id);
+
+                                /* If that didn't work, convert it into a readable file */
+                                fd = xopenat_full(inode_fd, /* path= */ NULL, O_RDONLY|O_CLOEXEC, XO_REGULAR, MODE_INVALID);
+                                if (fd < 0)
+                                        return log_error_errno(fd, "Cannot open '%s' in neither writable nor read-only mode: %m", etc_machine_id);
+
+                                log_debug("Successfully opened existing '%s' file in read-only mode.", etc_machine_id);
+                                writable = false;
+                        } else {
+                                log_debug("Successfully opened existing '%s' file in writable mode.", etc_machine_id);
+                                writable = true;
+                        }
+                }
         }
 
         /* A we got a valid machine ID argument, that's what counts */
