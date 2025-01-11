@@ -21,6 +21,7 @@
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-map-properties.h"
+#include "bus-message-util.h"
 #include "bus-print-properties.h"
 #include "bus-unit-procs.h"
 #include "bus-unit-util.h"

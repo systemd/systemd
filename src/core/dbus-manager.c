@@ -12,6 +12,7 @@
 #include "bus-common-errors.h"
 #include "bus-get-properties.h"
 #include "bus-log-control-api.h"
+#include "bus-message-util.h"
 #include "bus-util.h"
 #include "chase.h"
 #include "confidential-virt.h"

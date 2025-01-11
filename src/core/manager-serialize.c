@@ -158,6 +158,7 @@ int manager_serialize(
         (void) serialize_ratelimit(f, "dump-ratelimit", &m->dump_ratelimit);
         (void) serialize_ratelimit(f, "reload-reexec-ratelimit", &m->reload_reexec_ratelimit);
 
+        (void) serialize_item(f, "bus-id", m->bus_id);
         bus_track_serialize(m->subscribed, f, "subscribed");
 
         r = dynamic_user_serialize(m, f, fds);
@@ -487,7 +488,12 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         manager_deserialize_gid_refs_one(m, val);
                 else if ((val = startswith(l, "exec-runtime=")))
                         (void) exec_shared_runtime_deserialize_one(m, val, fds);
-                else if ((val = startswith(l, "subscribed="))) {
+                else if ((val = startswith(l, "bus-id="))) {
+
+                        r = free_and_strdup(&m->deserialized_bus_id, val);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "subscribed="))) {
 
                         r = strv_extend(&m->subscribed_as_strv, val);
                         if (r < 0)

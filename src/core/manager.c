@@ -1806,6 +1806,8 @@ Manager* manager_free(Manager *m) {
 
         sd_bus_track_unref(m->subscribed);
         strv_free(m->subscribed_as_strv);
+        free(m->bus_id);
+        free(m->deserialized_bus_id);
 
         unit_defaults_done(&m->defaults);
 
@@ -1817,15 +1819,16 @@ Manager* manager_free(Manager *m) {
         hashmap_free(m->uid_refs);
         hashmap_free(m->gid_refs);
 
-        for (ExecDirectoryType dt = 0; dt < _EXEC_DIRECTORY_TYPE_MAX; dt++)
-                m->prefix[dt] = mfree(m->prefix[dt]);
+        FOREACH_ARRAY(i, m->prefix, _EXEC_DIRECTORY_TYPE_MAX)
+                free(*i);
+
         free(m->received_credentials_directory);
         free(m->received_encrypted_credentials_directory);
 
         free(m->watchdog_pretimeout_governor);
         free(m->watchdog_pretimeout_governor_overridden);
 
-        m->fw_ctx = fw_ctx_free(m->fw_ctx);
+        fw_ctx_free(m->fw_ctx);
 
 #if BPF_FRAMEWORK
         bpf_restrict_fs_destroy(m->restrict_fs);
@@ -2141,12 +2144,6 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds, const char *roo
 
                 /* Connect to the bus if we are good for it */
                 manager_setup_bus(m);
-
-                /* Now that we are connected to all possible buses, let's deserialize who is tracking us. */
-                r = bus_track_coldplug(m->api_bus, &m->subscribed, false, m->subscribed_as_strv);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to deserialized tracked clients, ignoring: %m");
-                m->subscribed_as_strv = strv_free(m->subscribed_as_strv);
 
                 r = manager_varlink_init(m);
                 if (r < 0)
