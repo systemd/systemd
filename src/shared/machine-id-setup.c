@@ -250,8 +250,6 @@ finish:
 }
 
 int machine_id_commit(const char *root) {
-        _cleanup_close_ int fd = -EBADF, initial_mntns_fd = -EBADF;
-        const char *etc_machine_id;
         sd_id128_t id;
         int r;
 
@@ -274,9 +272,21 @@ int machine_id_commit(const char *root) {
          * in a mount namespace, a new file is created at the right place. Afterwards the mount is also removed in the
          * original mount namespace, thus revealing the file that was just created. */
 
-        etc_machine_id = prefix_roota(root, "/etc/machine-id");
+        _cleanup_close_ int etc_fd = -EBADF;
+        _cleanup_free_ char *etc = NULL;
+        r = chase("/etc/", root, CHASE_PREFIX_ROOT, &etc, &etc_fd);
+        if (r < 0)
+                return log_error_errno(r, "Failed to open /etc/: %m");
 
-        r = path_is_mount_point(etc_machine_id);
+        _cleanup_free_ char *etc_machine_id = path_join(etc, "machine-id");
+        if (!etc_machine_id)
+                return log_oom();
+
+        r = fd_is_mount_point(etc_fd, "machine-id", /* flags= */ 0);
+        if (r == -ELOOP) {
+                log_debug("%s is a symlink. Nothing to do.", etc_machine_id);
+                return 0;
+        }
         if (r < 0)
                 return log_error_errno(r, "Failed to determine whether %s is a mount point: %m", etc_machine_id);
         if (r == 0) {
@@ -285,9 +295,12 @@ int machine_id_commit(const char *root) {
         }
 
         /* Read existing machine-id */
-        fd = open(etc_machine_id, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+
+        _cleanup_close_ int fd = xopenat_full(etc_fd, "machine-id", O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, XO_REGULAR, MODE_INVALID);
         if (fd < 0)
-                return log_error_errno(errno, "Cannot open %s: %m", etc_machine_id);
+                return log_error_errno(fd, "Cannot open %s: %m", etc_machine_id);
+
+        etc_fd = safe_close(etc_fd);
 
         r = fd_is_temporary_fs(fd);
         if (r < 0)
@@ -301,10 +314,8 @@ int machine_id_commit(const char *root) {
         if (r < 0)
                 return log_error_errno(r, "We didn't find a valid machine ID in %s: %m", etc_machine_id);
 
-        fd = safe_close(fd);
-
         /* Store current mount namespace */
-        initial_mntns_fd = namespace_open_by_type(NAMESPACE_MOUNT);
+        _cleanup_close_ int initial_mntns_fd = namespace_open_by_type(NAMESPACE_MOUNT);
         if (initial_mntns_fd < 0)
                 return log_error_errno(initial_mntns_fd, "Can't fetch current mount namespace: %m");
 
@@ -313,14 +324,22 @@ int machine_id_commit(const char *root) {
         if (r < 0)
                 return log_error_errno(r, "Failed to set up new mount namespace: %m");
 
-        r = umount_verbose(LOG_ERR, etc_machine_id, 0);
+        /* Open /etc/ again after we transitione into our own private mount namespace */
+        _cleanup_close_ int etc_fd_again = -EBADF;
+        r = chase("/etc/", root, CHASE_PREFIX_ROOT, /* ret_path= */ NULL, &etc_fd_again);
+        if (r < 0)
+                return log_error_errno(r, "Failed to open /etc/: %m");
+
+        r = umountat_detach_verbose(LOG_ERR, etc_fd_again, "machine-id");
         if (r < 0)
                 return r;
 
         /* Update a persistent version of etc_machine_id */
-        r = id128_write(etc_machine_id, ID128_FORMAT_PLAIN | ID128_SYNC_ON_WRITE, id);
+        r = id128_write_at(etc_fd_again, "machine-id", ID128_FORMAT_PLAIN | ID128_SYNC_ON_WRITE, id);
         if (r < 0)
                 return log_error_errno(r, "Cannot write %s. This is mandatory to get a persistent machine ID: %m", etc_machine_id);
+
+        etc_fd_again = safe_close(etc_fd_again);
 
         /* Return to initial namespace and proceed a lazy tmpfs unmount */
         r = namespace_enter(/* pidns_fd = */ -EBADF,
@@ -329,10 +348,15 @@ int machine_id_commit(const char *root) {
                             /* userns_fd = */ -EBADF,
                             /* root_fd = */ -EBADF);
         if (r < 0)
-                return log_warning_errno(r, "Failed to switch back to initial mount namespace: %m.\nWe'll keep transient %s file until next reboot.", etc_machine_id);
+                return log_warning_errno(r,
+                                         "Failed to switch back to initial mount namespace: %m.\n"
+                                         "We'll keep transient %s file until next reboot.", etc_machine_id);
 
-        if (umount2(etc_machine_id, MNT_DETACH) < 0)
-                return log_warning_errno(errno, "Failed to unmount transient %s file: %m.\nWe keep that mount until next reboot.", etc_machine_id);
+        r = umountat_detach_verbose(LOG_DEBUG, fd, /* filename= */ NULL);
+        if (r < 0)
+                return log_warning_errno(r,
+                                         "Failed to unmount transient %s file: %m.\n"
+                                         "We keep that mount until next reboot.", etc_machine_id);
 
         return 0;
 }
