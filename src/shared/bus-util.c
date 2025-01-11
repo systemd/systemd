@@ -862,16 +862,6 @@ int bus_register_malloc_status(sd_bus *bus, const char *destination) {
         return 0;
 }
 
-static void bus_message_unref_wrapper(void *m) {
-        sd_bus_message_unref(m);
-}
-
-const struct hash_ops bus_message_hash_ops = {
-        .hash = trivial_hash_func,
-        .compare = trivial_compare_func,
-        .free_value = bus_message_unref_wrapper,
-};
-
 int bus_message_append_string_set(sd_bus_message *m, Set *set) {
         const char *s;
         int r;

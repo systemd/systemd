@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "bus-message-util.h"
 #include "bus-util.h"
 #include "device-util.h"
 #include "hash-funcs.h"
@@ -173,10 +174,9 @@ static int set_add_message(Set **set, sd_bus_message *message) {
         if (r <= 0)
                 return r;
 
-        r = set_ensure_put(set, &bus_message_hash_ops, message);
+        r = set_ensure_consume(set, &bus_message_hash_ops, sd_bus_message_ref(message));
         if (r <= 0)
                 return r;
-        sd_bus_message_ref(message);
 
         return 1;
 }
