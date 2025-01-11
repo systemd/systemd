@@ -21,3 +21,5 @@ int bus_message_read_dns_servers(
 
 int bus_message_dump_string(sd_bus_message *message);
 int bus_message_dump_fd(sd_bus_message *message);
+
+extern const struct hash_ops bus_message_hash_ops;
