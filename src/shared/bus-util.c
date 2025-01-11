@@ -686,7 +686,7 @@ int bus_path_decode_unique(const char *path, const char *prefix, char **ret_send
         return 1;
 }
 
-int bus_track_add_name_many(sd_bus_track *t, char **l) {
+int bus_track_add_name_many(sd_bus_track *t, char * const *l) {
         int r = 0;
 
         assert(t);
@@ -700,16 +700,15 @@ int bus_track_add_name_many(sd_bus_track *t, char **l) {
 
 int bus_track_to_strv(sd_bus_track *t, char ***ret) {
         _cleanup_strv_free_ char **subscribed = NULL;
-        int r = 0;
+        int r;
 
         assert(ret);
 
         for (const char *n = sd_bus_track_first(t); n; n = sd_bus_track_next(t)) {
-                r = sd_bus_track_count_name(t, n);
-                if (r < 0)
-                        return r;
+                int c = sd_bus_track_count_name(t, n);
+                assert(c >= 0);
 
-                for (int j = 0; j < r; j++) {
+                for (int j = 0; j < c; j++) {
                         r = strv_extend(&subscribed, n);
                         if (r < 0)
                                 return r;
@@ -717,7 +716,7 @@ int bus_track_to_strv(sd_bus_track *t, char ***ret) {
         }
 
         *ret = TAKE_PTR(subscribed);
-        return r;
+        return 0;
 }
 
 int bus_open_system_watch_bind_with_description(sd_bus **ret, const char *description) {
@@ -862,53 +861,6 @@ int bus_register_malloc_status(sd_bus *bus, const char *destination) {
         return 0;
 }
 
-static void bus_message_unref_wrapper(void *m) {
-        sd_bus_message_unref(m);
-}
-
-const struct hash_ops bus_message_hash_ops = {
-        .hash = trivial_hash_func,
-        .compare = trivial_compare_func,
-        .free_value = bus_message_unref_wrapper,
-};
-
-int bus_message_append_string_set(sd_bus_message *m, Set *set) {
-        const char *s;
-        int r;
-
-        assert(m);
-
-        r = sd_bus_message_open_container(m, 'a', "s");
-        if (r < 0)
-                return r;
-
-        SET_FOREACH(s, set) {
-                r = sd_bus_message_append(m, "s", s);
-                if (r < 0)
-                        return r;
-        }
-
-        return sd_bus_message_close_container(m);
-}
-
-int bus_property_get_string_set(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        Set **s = ASSERT_PTR(userdata);
-
-        assert(bus);
-        assert(property);
-        assert(reply);
-
-        return bus_message_append_string_set(reply, *s);
-}
-
 int bus_creds_get_pidref(
                 sd_bus_creds *c,
                 PidRef *ret) {
@@ -951,34 +903,6 @@ int bus_query_sender_pidref(
                 return r;
 
         return bus_creds_get_pidref(creds, ret);
-}
-
-int bus_message_read_id128(sd_bus_message *m, sd_id128_t *ret) {
-        const void *a;
-        size_t sz;
-        int r;
-
-        assert(m);
-
-        r = sd_bus_message_read_array(m, 'y', &a, &sz);
-        if (r < 0)
-                return r;
-
-        switch (sz) {
-        case 0:
-                if (ret)
-                        *ret = SD_ID128_NULL;
-                return 0;
-
-        case sizeof(sd_id128_t):
-                if (ret)
-                        memcpy(ret, a, sz);
-                return !memeqzero(a, sz); /* This mimics sd_id128_is_null(), but ret may be NULL,
-                                           * and a may be misaligned, so use memeqzero() here. */
-
-        default:
-                return -EINVAL;
-        }
 }
 
 static const char* const bus_transport_table[] = {
