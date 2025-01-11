@@ -112,6 +112,20 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
                 return 0;
 
+        } else if (proc_cmdline_key_streq(key, "udev.trace")) {
+
+                if (!value)
+                        config->trace = true;
+                else {
+                        r = parse_boolean(value);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to parse udev.trace argument, ignoring: %s", value);
+                        else
+                                config->trace = r;
+                }
+
+                return 0;
+
         } else {
                 if (startswith(key, "udev."))
                         log_warning("Unknown udev kernel command line option \"%s\", ignoring.", key);
@@ -257,13 +271,24 @@ static int parse_argv(int argc, char *argv[], UdevConfig *config) {
                 manager->config_by_command.name ||                      \
                 manager->config_by_udev_conf.name;
 
+static void manager_merge_config_log_level(Manager *manager) {
+        assert(manager);
+
+        MERGE_BOOL(trace);
+
+        if (manager->config.trace)
+                manager->config.log_level = LOG_DEBUG;
+        else
+                MERGE_NON_NEGATIVE(log_level, log_get_max_level());
+}
+
 static void manager_merge_config(Manager *manager) {
         assert(manager);
 
         /* udev.conf has the lowest priority, then followed by command line arguments, kernel command line
            options, and values set by udev control. */
 
-        MERGE_NON_NEGATIVE(log_level, log_get_max_level());
+        manager_merge_config_log_level(manager);
         MERGE_NON_NEGATIVE(resolve_name_timing, RESOLVE_NAME_EARLY);
         MERGE_NON_ZERO(exec_delay_usec, 0);
         MERGE_NON_ZERO(timeout_usec, DEFAULT_WORKER_TIMEOUT_USEC);
@@ -310,11 +335,14 @@ void manager_set_log_level(Manager *manager, int log_level) {
 
         int old = log_get_max_level();
 
-        log_set_max_level(log_level);
-        manager->config.log_level = manager->config_by_control.log_level = log_level;
+        manager->config_by_control.log_level = log_level;
+        manager_merge_config_log_level(manager);
 
-        if (log_level != old)
-                manager_kill_workers(manager, /* force = */ false);
+        if (manager->config.log_level == old)
+                return;
+
+        log_set_max_level(manager->config.log_level);
+        manager_kill_workers(manager, /* force = */ false);
 }
 
 static void manager_adjust_config(UdevConfig *config) {
@@ -434,7 +462,8 @@ UdevReloadFlags manager_reload_config(Manager *manager) {
             manager->config.exec_delay_usec != old.exec_delay_usec ||
             manager->config.timeout_usec != old.timeout_usec ||
             manager->config.timeout_signal != old.timeout_signal ||
-            manager->config.blockdev_read_only != old.blockdev_read_only)
+            manager->config.blockdev_read_only != old.blockdev_read_only ||
+            manager->config.trace != old.trace)
                 return UDEV_RELOAD_KILL_WORKERS;
 
         return 0;
