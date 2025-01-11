@@ -325,10 +325,33 @@ void manager_set_log_level(Manager *manager, int log_level) {
 
         int old = log_get_max_level();
 
+        manager->config_by_control.log_level = log_level; /* Set the provided value. */
+
+        if (manager->config.trace)
+                log_level = LOG_DEBUG;
+        manager->config.log_level = log_level; /* Set adjusted value, i.e. LOG_DEBUG when trace logging is enabled. */
+
         log_set_max_level(log_level);
-        manager->config.log_level = manager->config_by_control.log_level = log_level;
 
         if (log_level != old)
+                manager_kill_workers(manager, /* force = */ false);
+}
+
+void manager_set_trace(Manager *manager, bool enable) {
+        assert(manager);
+
+        bool changed = manager->config.trace != enable;
+
+        manager->config.trace = manager->config_by_control.trace = enable;
+
+        if (enable) {
+                log_set_max_level(LOG_DEBUG);
+
+                changed = changed || manager->config.log_level != LOG_DEBUG;
+                manager->config.log_level = LOG_DEBUG;
+        }
+
+        if (changed)
                 manager_kill_workers(manager, /* force = */ false);
 }
 
