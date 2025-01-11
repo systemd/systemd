@@ -2142,12 +2142,6 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds, const char *roo
                 /* Connect to the bus if we are good for it */
                 manager_setup_bus(m);
 
-                /* Now that we are connected to all possible buses, let's deserialize who is tracking us. */
-                r = bus_track_coldplug(m->api_bus, &m->subscribed, false, m->subscribed_as_strv);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to deserialized tracked clients, ignoring: %m");
-                m->subscribed_as_strv = strv_free(m->subscribed_as_strv);
-
                 r = manager_varlink_init(m);
                 if (r < 0)
                         log_warning_errno(r, "Failed to set up Varlink, ignoring: %m");
