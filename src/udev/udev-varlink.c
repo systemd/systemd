@@ -43,6 +43,26 @@ static int vl_method_set_log_level(sd_varlink *link, sd_json_variant *parameters
         return sd_varlink_reply(link, NULL);
 }
 
+static int vl_method_set_trace(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        bool enable;
+        int r;
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "enable", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, 0, SD_JSON_MANDATORY },
+                {}
+        };
+
+        assert(link);
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &enable);
+        if (r != 0)
+                return r;
+
+        log_debug("Received io.systemd.service.SetTrace(%s)", yes_no(enable));
+        manager_set_trace(userdata, enable);
+        return sd_varlink_reply(link, NULL);
+}
+
 static int vl_method_set_children_max(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         unsigned n;
         int r;
@@ -160,6 +180,7 @@ int manager_start_varlink_server(Manager *manager) {
                         "io.systemd.service.Reload",         vl_method_reload,
                         "io.systemd.service.SetLogLevel",    vl_method_set_log_level,
                         "io.systemd.service.GetEnvironment", varlink_method_get_environment,
+                        "io.systemd.Udev.SetTrace",          vl_method_set_trace,
                         "io.systemd.Udev.SetChildrenMax",    vl_method_set_children_max,
                         "io.systemd.Udev.SetEnvironment",    vl_method_set_environment,
                         "io.systemd.Udev.StartExecQueue",    vl_method_start_stop_exec_queue,

@@ -345,6 +345,21 @@ void manager_set_log_level(Manager *manager, int log_level) {
         manager_kill_workers(manager, /* force = */ false);
 }
 
+void manager_set_trace(Manager *manager, bool enable) {
+        assert(manager);
+
+        bool old = manager->config.trace;
+
+        manager->config_by_control.trace = enable;
+        manager_merge_config_log_level(manager);
+
+        if (manager->config.trace == old)
+                return;
+
+        log_set_max_level(manager->config.log_level);
+        manager_kill_workers(manager, /* force = */ false);
+}
+
 static void manager_adjust_config(UdevConfig *config) {
         assert(config);
 
