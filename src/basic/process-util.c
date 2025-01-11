@@ -2045,7 +2045,7 @@ int posix_spawn_wrapper(
          * issues.
          *
          * Also, move the newly-created process into 'cgroup' through POSIX_SPAWN_SETCGROUP (clone3())
-         * if available. Note that CLONE_INTO_CGROUP is only supported on cgroup v2.
+         * if available.
          * returns 1: We're already in the right cgroup
          *         0: 'cgroup' not specified or POSIX_SPAWN_SETCGROUP is not supported. The caller
          *            needs to call 'cg_attach' on their own */
@@ -2064,14 +2064,10 @@ int posix_spawn_wrapper(
         _unused_ _cleanup_(posix_spawnattr_destroyp) posix_spawnattr_t *attr_destructor = &attr;
 
 #if HAVE_PIDFD_SPAWN
-        static enum {
-                CLONE_ONLY_PID,
-                CLONE_CAN_PIDFD,  /* 5.2 */
-                CLONE_CAN_CGROUP, /* 5.7 */
-        } clone_support = CLONE_CAN_CGROUP;
+        static bool have_clone_into_cgroup = true; /* kernel 5.7+ */
         _cleanup_close_ int cgroup_fd = -EBADF;
 
-        if (cgroup && clone_support >= CLONE_CAN_CGROUP) {
+        if (cgroup && have_clone_into_cgroup) {
                 _cleanup_free_ char *resolved_cgroup = NULL;
 
                 r = cg_get_path_and_check(
@@ -2102,47 +2098,41 @@ int posix_spawn_wrapper(
                 return -r;
 
 #if HAVE_PIDFD_SPAWN
-        if (clone_support >= CLONE_CAN_PIDFD) {
-                _cleanup_close_ int pidfd = -EBADF;
+        _cleanup_close_ int pidfd = -EBADF;
 
-                r = pidfd_spawn(&pidfd, path, NULL, &attr, argv, envp);
-                if (ERRNO_IS_NOT_SUPPORTED(r) && FLAGS_SET(flags, POSIX_SPAWN_SETCGROUP) &&
-                    cg_is_threaded(cgroup) > 0) /* clone3() could also return EOPNOTSUPP if the target cgroup is in threaded mode. */
-                        return -EUCLEAN;
-                if ((ERRNO_IS_NOT_SUPPORTED(r) || ERRNO_IS_PRIVILEGE(r) || r == E2BIG) &&
-                    FLAGS_SET(flags, POSIX_SPAWN_SETCGROUP)) {
-                        /* Compiled on a newer host, or seccomp&friends blocking clone3()? Fallback, but
-                         * need to disable POSIX_SPAWN_SETCGROUP, which is what redirects to clone3().
-                         * Note that we might get E2BIG here since some kernels (e.g. 5.4) support clone3()
-                         * but not CLONE_INTO_CGROUP. */
+        r = pidfd_spawn(&pidfd, path, NULL, &attr, argv, envp);
+        if (ERRNO_IS_NOT_SUPPORTED(r) && FLAGS_SET(flags, POSIX_SPAWN_SETCGROUP) && cg_is_threaded(cgroup) > 0)
+                return -EUCLEAN; /* clone3() could also return EOPNOTSUPP if the target cgroup is in threaded mode,
+                                    turn that into something recognizable */
+        if ((ERRNO_IS_NOT_SUPPORTED(r) || ERRNO_IS_PRIVILEGE(r) || r == E2BIG) &&
+            FLAGS_SET(flags, POSIX_SPAWN_SETCGROUP)) {
+                /* Compiled on a newer host, or seccomp&friends blocking clone3()? Fallback, but
+                 * need to disable POSIX_SPAWN_SETCGROUP, which is what redirects to clone3().
+                 * Note that we might get E2BIG here since some kernels (e.g. 5.4) support clone3()
+                 * but not CLONE_INTO_CGROUP. */
 
-                        /* CLONE_INTO_CGROUP definitely won't work, hence remember the fact so that we don't
-                         * retry every time. */
-                        assert(clone_support >= CLONE_CAN_CGROUP);
-                        clone_support = CLONE_CAN_PIDFD;
+                /* CLONE_INTO_CGROUP definitely won't work, hence remember the fact so that we don't
+                 * retry every time. */
+                have_clone_into_cgroup = false;
 
-                        flags &= ~POSIX_SPAWN_SETCGROUP;
-                        r = posix_spawnattr_setflags(&attr, flags);
-                        if (r != 0)
-                                return -r;
-
-                        r = pidfd_spawn(&pidfd, path, NULL, &attr, argv, envp);
-                }
-                if (r == 0) {
-                        r = pidref_set_pidfd_consume(ret_pidref, TAKE_FD(pidfd));
-                        if (r < 0)
-                                return r;
-
-                        return FLAGS_SET(flags, POSIX_SPAWN_SETCGROUP);
-                }
-                if (!ERRNO_IS_NOT_SUPPORTED(r) && !ERRNO_IS_PRIVILEGE(r))
+                flags &= ~POSIX_SPAWN_SETCGROUP;
+                r = posix_spawnattr_setflags(&attr, flags);
+                if (r != 0)
                         return -r;
 
-                clone_support = CLONE_ONLY_PID; /* No CLONE_PIDFD either? */
+                r = pidfd_spawn(&pidfd, path, NULL, &attr, argv, envp);
         }
-#endif
+        if (r != 0)
+                return -r;
 
+        r = pidref_set_pidfd_consume(ret_pidref, TAKE_FD(pidfd));
+        if (r < 0)
+                return r;
+
+        return FLAGS_SET(flags, POSIX_SPAWN_SETCGROUP);
+#else
         pid_t pid;
+
         r = posix_spawn(&pid, path, NULL, &attr, argv, envp);
         if (r != 0)
                 return -r;
@@ -2152,6 +2142,7 @@ int posix_spawn_wrapper(
                 return r;
 
         return 0; /* We did not use CLONE_INTO_CGROUP so return 0, the caller will have to move the child */
+#endif
 }
 
 int proc_dir_open(DIR **ret) {
