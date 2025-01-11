@@ -20,7 +20,7 @@ typedef enum RebalanceState {
         REBALANCE_WAITING,   /* Rebalancing has been requested for a later point in time */
         REBALANCE_PENDING,   /* Rebalancing has been requested and will be executed ASAP */
         REBALANCE_SHRINKING, /* Rebalancing ongoing, and we are running all shrinking operations */
-        REBALANCE_GROWING,   /* Rebalancing ongoign, and we are running all growing operations */
+        REBALANCE_GROWING,   /* Rebalancing ongoing, and we are running all growing operations */
         _REBALANCE_STATE_MAX,
         _REBALANCE_STATE_INVALID = -1,
 } RebalanceState;
