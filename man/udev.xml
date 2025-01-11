@@ -720,6 +720,15 @@ SUBSYSTEM=="net", OPTIONS="log_level=debug"</programlisting></para>
                     <xi:include href="version-info.xml" xpointer="v248"/>
                   </listitem>
                 </varlistentry>
+                <varlistentry>
+                  <term><option>dump</option></term>
+                  <listitem>
+                    <para>Dump the status of the event currently processing. It may be useful for debugging
+                    udev rules by inserting this option.</para>
+
+                    <xi:include href="version-info.xml" xpointer="v258"/>
+                  </listitem>
+                </varlistentry>
               </variablelist>
             </listitem>
           </varlistentry>
