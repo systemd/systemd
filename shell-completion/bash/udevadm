@@ -69,7 +69,8 @@ _udevadm() {
         [CONTROL_ARG]='-l --log-priority -p --property -m --children-max -t --timeout'
         [MONITOR_STANDALONE]='-k --kernel -u --udev -p --property'
         [MONITOR_ARG]='-s --subsystem-match -t --tag-match'
-        [TEST]='-a --action -N --resolve-names'
+        [TEST_STANDALONE]='-v --verbose'
+        [TEST_ARG]='-a --action -N --resolve-names'
         [TEST_BUILTIN]='-a --action'
         [VERIFY]='-N --resolve-names --root --no-summary --no-style'
         [WAIT]='-t --timeout --initialized=no --removed --settle'
@@ -216,7 +217,7 @@ _udevadm() {
             ;;
 
         'test')
-            if __contains_word "$prev" ${OPTS[TEST]}; then
+            if __contains_word "$prev" ${OPTS[TEST_ARG]}; then
                 case $prev in
                     -a|--action)
                         comps=$( udevadm test --action help )
@@ -225,12 +226,8 @@ _udevadm() {
                         comps='early late never'
                         ;;
                 esac
-                COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
-                return 0
-            fi
-
-            if [[ $cur = -* ]]; then
-                comps="${OPTS[COMMON]} ${OPTS[TEST]}"
+            elif [[ $cur = -* ]]; then
+                comps="${OPTS[COMMON]} ${OPTS[TEST_ARG]} ${OPTS[TEST_STANDALONE]}"
             else
                 comps=$( __get_all_devices )
                 local IFS=$'\n'
