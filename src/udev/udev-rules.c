@@ -327,6 +327,20 @@ static bool token_is_for_parents(UdevRuleToken *token) {
 #define log_event_truncated(event, token, what, format)                 \
         _log_event_truncated(event, token, UNIQ_T(t, UNIQ), what, format)
 
+#define _log_event_line(event, event_u, line, ...)                      \
+        ({                                                              \
+                UdevEvent *event_u = ASSERT_PTR(event);                 \
+                                                                        \
+                event_u->trace ?                                        \
+                        log_udev_rule_line_full(                        \
+                                        event_u->dev, line,             \
+                                        LOG_DEBUG, 0, __VA_ARGS__) :    \
+                        0;                                              \
+        })
+
+#define log_event_line(event, line, ...)                                \
+        _log_event_line(event, UNIQ_T(e, UNIQ), line, __VA_ARGS__)
+
 /* Mainly used when parsing .rules files. */
 #define log_file_full_errno_zerook(...)                                 \
         log_udev_rule_file_full(NULL, __VA_ARGS__)
@@ -2933,14 +2947,30 @@ static int udev_rule_apply_parent_token_to_event(UdevRuleToken *head_token, Udev
         int r;
 
         assert(head_token);
+        assert(token_is_for_parents(head_token));
         assert(event);
+
+        UdevRuleLine *line = head_token->rule_line;
+        if (event->trace) {
+                _cleanup_free_ char *joined = NULL;
+
+                LIST_FOREACH(tokens, token, head_token)
+                        if (token_is_for_parents(token))
+                                (void) strextend_with_separator(&joined, ", ", token->token_str);
+                        else
+                                break;
+
+                log_event_line(event, line, "Checking conditions for parent devices: %s", strna(joined));
+        }
 
         event->dev_parent = ASSERT_PTR(event->dev);
 
         for (;;) {
                 LIST_FOREACH(tokens, token, head_token) {
-                        if (!token_is_for_parents(token))
-                                return true; /* All parent tokens match. */
+                        if (!token_is_for_parents(token)) {
+                                r = 1; /* avoid false maybe-uninitialized warning */
+                                break; /* All parent tokens match. */
+                        }
 
                         r = udev_rule_apply_token_to_event(token, event->dev_parent, event);
                         if (r < 0)
@@ -2948,12 +2978,18 @@ static int udev_rule_apply_parent_token_to_event(UdevRuleToken *head_token, Udev
                         if (r == 0)
                                 break;
                 }
-                if (r > 0)
-                        /* All parent tokens match, and no more token (except for GOTO) in the line. */
+                if (r > 0) {
+                        if (event->trace) {
+                                const char *s = NULL;
+                                (void) sd_device_get_syspath(event->dev_parent, &s);
+                                log_event_line(event, line, "Parent device \"%s\" passed all parent conditions.", strna(s));
+                        }
                         return true;
+                }
 
                 if (sd_device_get_parent(event->dev_parent, &event->dev_parent) < 0) {
                         event->dev_parent = NULL;
+                        log_event_line(event, line, "No parent device passed parent conditions.");
                         return false;
                 }
         }
@@ -3010,8 +3046,10 @@ static int udev_rule_apply_line_to_event(
                         return r;
         }
 
-        if (line->goto_line)
+        if (line->goto_line) {
+                log_event_line(event, line, "GOTO=%s", strna(line->goto_label));
                 *next_line = line->goto_line; /* update next_line only when the line has GOTO token. */
+        }
 
         return 0;
 }
