@@ -1822,10 +1822,11 @@ static bool apply_format_attr(
         return apply_format_full(event, token, token->data, result, result_size, /* replace_whitespace = */ false, what);
 }
 
-static bool token_match_string(UdevRuleToken *token, const char *str) {
+static bool token_match_string(UdevEvent *event, UdevRuleToken *token, const char *str, bool log_result) {
         const char *value;
         bool match = false, case_insensitive;
 
+        assert(event);
         assert(token);
         assert(token->value);
         assert(token->type < _TK_M_MAX);
@@ -1874,7 +1875,51 @@ static bool token_match_string(UdevRuleToken *token, const char *str) {
                 assert_not_reached();
         }
 
-        return token->op == (match ? OP_MATCH : OP_NOMATCH);
+        bool result = token->op == (match ? OP_MATCH : OP_NOMATCH);
+
+        if (event->trace)
+                switch (token->match_type & _MATCH_TYPE_MASK) {
+                case MATCH_TYPE_EMPTY:
+                        log_event_trace(event, token, "String \"%s\" is%s empty%s",
+                                        strempty(str), match ? "" : " not",
+                                        log_result ? result ? ": PASS" : ": FAIL" : ".");
+                        break;
+                case MATCH_TYPE_SUBSYSTEM:
+                        log_event_trace(event, token,
+                                        "String \"%s\" matches %s of \"subsystem\", \"class\", or \"bus\"%s",
+                                        strempty(str), match ? "one" : "neither",
+                                        log_result ? result ? ": PASS" : ": FAIL" : ".");
+                        break;
+                case MATCH_TYPE_PLAIN_WITH_EMPTY:
+                case MATCH_TYPE_PLAIN:
+                case MATCH_TYPE_GLOB_WITH_EMPTY:
+                case MATCH_TYPE_GLOB: {
+                        _cleanup_free_ char *joined = NULL;
+                        unsigned c = 0;
+
+                        if (IN_SET(token->match_type & _MATCH_TYPE_MASK, MATCH_TYPE_PLAIN_WITH_EMPTY, MATCH_TYPE_GLOB_WITH_EMPTY)) {
+                                (void) strextend_with_separator(&joined, ", ", "\"\"");
+                                c++;
+                        }
+
+                        NULSTR_FOREACH(i, value) {
+                                (void) strextendf_with_separator(&joined, ", ", "\"%s\"", i);
+                                c++;
+                        }
+
+                        assert(c > 0);
+                        log_event_trace(event, token, "String \"%s\" %s %s%s",
+                                        strempty(str),
+                                        match ? (c > 1 ? "matches one of" : "matches") : (c > 1 ? "matches neither of" : "does not match"),
+                                        strempty(joined),
+                                        log_result ? result ? ": PASS" : ": FAIL" : ".");
+                        break;
+                }
+                default:
+                        assert_not_reached();
+                }
+
+        return result;
 }
 
 static bool token_match_attr(UdevRuleToken *token, sd_device *dev, UdevEvent *event) {
@@ -1905,7 +1950,7 @@ static bool token_match_attr(UdevRuleToken *token, sd_device *dev, UdevEvent *ev
                         value = delete_trailing_chars(vbuf, NULL);
                 }
 
-                return token_match_string(token, value);
+                return token_match_string(event, token, value, /* log_result = */ true);
 
         case SUBST_TYPE_SUBSYS:
                 if (udev_resolve_subsys_kernel(name, vbuf, sizeof(vbuf), true) < 0)
@@ -1915,7 +1960,7 @@ static bool token_match_attr(UdevRuleToken *token, sd_device *dev, UdevEvent *ev
                 if (FLAGS_SET(token->match_type, MATCH_REMOVE_TRAILING_WHITESPACE))
                         delete_trailing_chars(vbuf, NULL);
 
-                return token_match_string(token, vbuf);
+                return token_match_string(event, token, vbuf, /* log_result = */ true);
 
         default:
                 assert_not_reached();
@@ -2075,7 +2120,7 @@ static int udev_rule_apply_token_to_event(
                 if (r < 0)
                         return log_event_error_errno(event, token, r, "Failed to get uevent action type: %m");
 
-                return token_match_string(token, device_action_to_string(a));
+                return token_match_string(event, token, device_action_to_string(a), /* log_result = */ true);
         }
         case TK_M_DEVPATH: {
                 const char *val;
@@ -2084,7 +2129,7 @@ static int udev_rule_apply_token_to_event(
                 if (r < 0)
                         return log_event_error_errno(event, token, r, "Failed to get devpath: %m");
 
-                return token_match_string(token, val);
+                return token_match_string(event, token, val, /* log_result = */ true);
         }
         case TK_M_KERNEL:
         case TK_M_PARENTS_KERNEL: {
@@ -2094,21 +2139,23 @@ static int udev_rule_apply_token_to_event(
                 if (r < 0)
                         return log_event_error_errno(event, token, r, "Failed to get sysname: %m");
 
-                return token_match_string(token, val);
+                return token_match_string(event, token, val, /* log_result = */ true);
         }
         case TK_M_DEVLINK:
                 FOREACH_DEVICE_DEVLINK(dev, val)
-                        if (token_match_string(token, strempty(startswith(val, "/dev/"))) == (token->op == OP_MATCH))
+                        if (token_match_string(event, token, strempty(startswith(val, "/dev/")), /* log_result = */ false) == (token->op == OP_MATCH))
                                 return token->op == OP_MATCH;
                 return token->op == OP_NOMATCH;
+
         case TK_M_NAME:
-                return token_match_string(token, event->name);
+                return token_match_string(event, token, event->name, /* log_result = */ true);
+
         case TK_M_ENV: {
                 const char *val = NULL;
 
                 (void) device_get_property_value_with_fallback(dev, token->data, event->worker ? event->worker->properties : NULL, &val);
 
-                return token_match_string(token, val);
+                return token_match_string(event, token, val, /* log_result = */ true);
         }
         case TK_M_CONST: {
                 const char *val, *k = token->data;
@@ -2121,14 +2168,15 @@ static int udev_rule_apply_token_to_event(
                         val = confidential_virtualization_to_string(detect_confidential_virtualization());
                 else
                         assert_not_reached();
-                return token_match_string(token, val);
+                return token_match_string(event, token, val, /* log_result = */ true);
         }
         case TK_M_TAG:
         case TK_M_PARENTS_TAG:
                 FOREACH_DEVICE_CURRENT_TAG(dev, val)
-                        if (token_match_string(token, val) == (token->op == OP_MATCH))
+                        if (token_match_string(event, token, val, /* log_result = */ false) == (token->op == OP_MATCH))
                                 return token->op == OP_MATCH;
                 return token->op == OP_NOMATCH;
+
         case TK_M_SUBSYSTEM:
         case TK_M_PARENTS_SUBSYSTEM: {
                 const char *val;
@@ -2139,7 +2187,7 @@ static int udev_rule_apply_token_to_event(
                 else if (r < 0)
                         return log_event_error_errno(event, token, r, "Failed to get subsystem: %m");
 
-                return token_match_string(token, val);
+                return token_match_string(event, token, val, /* log_result = */ true);
         }
         case TK_M_DRIVER:
         case TK_M_PARENTS_DRIVER: {
@@ -2151,11 +2199,12 @@ static int udev_rule_apply_token_to_event(
                 else if (r < 0)
                         return log_event_error_errno(event, token, r, "Failed to get driver: %m");
 
-                return token_match_string(token, val);
+                return token_match_string(event, token, val, /* log_result = */ true);
         }
         case TK_M_ATTR:
         case TK_M_PARENTS_ATTR:
                 return token_match_attr(token, dev, event);
+
         case TK_M_SYSCTL: {
                 _cleanup_free_ char *value = NULL;
                 char buf[UDEV_PATH_SIZE];
@@ -2167,7 +2216,7 @@ static int udev_rule_apply_token_to_event(
                 if (r < 0 && r != -ENOENT)
                         return log_event_error_errno(event, token, r, "Failed to read sysctl '%s': %m", buf);
 
-                return token_match_string(token, strstrip(value));
+                return token_match_string(event, token, strstrip(value), /* log_result = */ true);
         }
         case TK_M_TEST: {
                 mode_t mode = PTR_TO_MODE(token->data);
@@ -2430,7 +2479,7 @@ static int udev_rule_apply_token_to_event(
                 return token->op == (r > 0 ? OP_MATCH : OP_NOMATCH);
         }
         case TK_M_RESULT:
-                return token_match_string(token, event->program_result);
+                return token_match_string(event, token, event->program_result, /* log_result = */ true);
         case TK_A_OPTIONS_STRING_ESCAPE_NONE:
                 event->esc = ESCAPE_NONE;
                 break;
