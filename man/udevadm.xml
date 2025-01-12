@@ -880,6 +880,15 @@
             <xi:include href="version-info.xml" xpointer="v209"/>
           </listitem>
         </varlistentry>
+        <varlistentry>
+          <term><option>-v</option></term>
+          <term><option>--verbose</option></term>
+          <listitem>
+            <para>Shows verbose logs in processing udev rules.</para>
+
+            <xi:include href="version-info.xml" xpointer="v258"/>
+          </listitem>
+        </varlistentry>
 
         <xi:include href="standard-options.xml" xpointer="help" />
       </variablelist>
