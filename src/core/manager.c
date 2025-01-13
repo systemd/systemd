@@ -1817,15 +1817,16 @@ Manager* manager_free(Manager *m) {
         hashmap_free(m->uid_refs);
         hashmap_free(m->gid_refs);
 
-        for (ExecDirectoryType dt = 0; dt < _EXEC_DIRECTORY_TYPE_MAX; dt++)
-                m->prefix[dt] = mfree(m->prefix[dt]);
+        FOREACH_ARRAY(i, m->prefix, _EXEC_DIRECTORY_TYPE_MAX)
+                free(*i);
+
         free(m->received_credentials_directory);
         free(m->received_encrypted_credentials_directory);
 
         free(m->watchdog_pretimeout_governor);
         free(m->watchdog_pretimeout_governor_overridden);
 
-        m->fw_ctx = fw_ctx_free(m->fw_ctx);
+        fw_ctx_free(m->fw_ctx);
 
 #if BPF_FRAMEWORK
         bpf_restrict_fs_destroy(m->restrict_fs);
