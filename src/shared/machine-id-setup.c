@@ -214,7 +214,10 @@ int machine_id_setup(const char *root, sd_id128_t machine_id, MachineIdSetupFlag
         /* Hmm, we couldn't or shouldn't write the machine-id to /etc?
          * So let's write it to /run/machine-id as a replacement */
 
-        run_machine_id = prefix_roota(root, "/run/machine-id");
+        if (!isempty(root))
+                return log_error_errno(SYNTHETIC_ERRNO(EROFS), "Unable to write machine ID to /etc/machine-id, as root directory '%s' appears to be read-only?", root);
+
+        run_machine_id = "/run/machine-id";
 
         if (write_run_machine_id) {
                 WITH_UMASK(0022)
