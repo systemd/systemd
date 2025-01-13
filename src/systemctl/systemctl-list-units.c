@@ -5,6 +5,7 @@
 #include "ansi-color.h"
 #include "bus-error.h"
 #include "bus-locator.h"
+#include "bus-message-util.h"
 #include "format-table.h"
 #include "locale-util.h"
 #include "path-util.h"
