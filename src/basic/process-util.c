@@ -1766,6 +1766,9 @@ int safe_fork_full(
                 }
         }
 
+        if (FLAGS_SET(flags, FORK_FREEZE))
+                freeze();
+
         if (ret_pid)
                 *ret_pid = getpid_cached();
 
