@@ -182,6 +182,16 @@ int serialize_strv(FILE *f, const char *key, char * const *l) {
         return ret;
 }
 
+int serialize_id128(FILE *f, const char *key, sd_id128_t id) {
+        assert(f);
+        assert(key);
+
+        if (sd_id128_is_null(id))
+                return 0;
+
+        return serialize_item_format(f, key, SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(id));
+}
+
 int serialize_pidref(FILE *f, FDSet *fds, const char *key, PidRef *pidref) {
         int r;
 
