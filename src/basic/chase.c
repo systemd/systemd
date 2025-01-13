@@ -91,7 +91,6 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
         assert(!FLAGS_SET(flags, CHASE_PREFIX_ROOT));
         assert(!FLAGS_SET(flags, CHASE_STEP|CHASE_EXTRACT_FILENAME));
         assert(!FLAGS_SET(flags, CHASE_TRAIL_SLASH|CHASE_EXTRACT_FILENAME));
-        assert(!FLAGS_SET(flags, CHASE_MKDIR_0755) || (flags & (CHASE_NONEXISTENT | CHASE_PARENT)) != 0);
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
 
         /* Either the file may be missing, or we return an fd to the final object, but both make no sense */
@@ -370,13 +369,13 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
                         if (r != -ENOENT)
                                 return r;
 
-                        if (!isempty(todo) && !path_is_safe(todo))
+                        if (!isempty(todo) && !path_is_safe(todo)) /* Refuse parent/mkdir handling if suffix contains ".." or something weird */
                                 return r;
 
-                        if (FLAGS_SET(flags, CHASE_MKDIR_0755) && !isempty(todo)) {
+                        if (FLAGS_SET(flags, CHASE_MKDIR_0755) && (!isempty(todo) || !(flags & (CHASE_PARENT|CHASE_NONEXISTENT)))) {
                                 child = xopenat_full(fd,
                                                      first,
-                                                     O_DIRECTORY|O_CREAT|O_EXCL|O_NOFOLLOW|O_CLOEXEC,
+                                                     O_DIRECTORY|O_CREAT|O_EXCL|O_NOFOLLOW|O_PATH|O_CLOEXEC,
                                                      /* xopen_flags = */ 0,
                                                      0755);
                                 if (child < 0)
