@@ -3827,6 +3827,10 @@ int manager_reload(Manager *m) {
         (void) manager_setup_handoff_timestamp_fd(m);
         (void) manager_setup_pidref_transport_fd(m);
 
+        /* Clean up deserialized bus track information. They're never consumed during reload (as opposed to
+         * reexec) since we do not disconnect from the bus. */
+        m->subscribed_as_strv = strv_free(m->subscribed_as_strv);
+
         /* Third, fire things up! */
         manager_coldplug(m);
 
