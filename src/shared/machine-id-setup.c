@@ -140,12 +140,12 @@ int machine_id_setup(const char *root, sd_id128_t machine_id, MachineIdSetupFlag
         WITH_UMASK(0000) {
                 _cleanup_close_ int inode_fd = -EBADF;
 
-                r = chase("/etc/machine-id", root, CHASE_PREFIX_ROOT, &etc_machine_id, &inode_fd);
+                r = chase("/etc/machine-id", root, CHASE_PREFIX_ROOT|CHASE_MUST_BE_REGULAR, &etc_machine_id, &inode_fd);
                 if (r == -ENOENT) {
                         _cleanup_close_ int etc_fd = -EBADF;
                         _cleanup_free_ char *etc = NULL;
 
-                        r = chase("/etc/", root, CHASE_PREFIX_ROOT|CHASE_MKDIR_0755, &etc, &etc_fd);
+                        r = chase("/etc/", root, CHASE_PREFIX_ROOT|CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY, &etc, &etc_fd);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to open '/etc/': %m");
 
