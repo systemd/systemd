@@ -80,6 +80,24 @@ static SD_VARLINK_DEFINE_METHOD(
                 Remove,
                 VARLINK_DEFINE_IMAGE_LOOKUP_AND_POLKIT_FIELDS);
 
+static SD_VARLINK_DEFINE_ENUM_TYPE(
+                CleanPoolMode,
+                SD_VARLINK_FIELD_COMMENT("Remove all unused images"),
+                SD_VARLINK_DEFINE_ENUM_VALUE(all),
+                SD_VARLINK_FIELD_COMMENT("Remove only hidden images"),
+                SD_VARLINK_DEFINE_ENUM_VALUE(hidden));
+
+static SD_VARLINK_DEFINE_METHOD_FULL(
+                CleanPool,
+                SD_VARLINK_SUPPORTS_MORE,
+                VARLINK_DEFINE_POLKIT_INPUT,
+                SD_VARLINK_FIELD_COMMENT("Allows removing all or only hidden images"),
+                SD_VARLINK_DEFINE_INPUT_BY_TYPE(mode, CleanPoolMode, 0),
+                SD_VARLINK_FIELD_COMMENT("Image name"),
+                SD_VARLINK_DEFINE_OUTPUT(name, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("The image disk usage (exclusive)"),
+                SD_VARLINK_DEFINE_OUTPUT(usageExclusive, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
+
 static SD_VARLINK_DEFINE_ERROR(NoSuchImage);
 static SD_VARLINK_DEFINE_ERROR(TooManyOperations);
 
@@ -96,6 +114,10 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_Clone,
                 SD_VARLINK_SYMBOL_COMMENT("Remove image"),
                 &vl_method_Remove,
+                SD_VARLINK_SYMBOL_COMMENT("A enum field allowing to control what type of images are cleaned up"),
+                &vl_type_CleanPoolMode,
+                SD_VARLINK_SYMBOL_COMMENT("Clean unused images depending on the specified mode. Note that it does not process vendon and host images."),
+                &vl_method_CleanPool,
                 SD_VARLINK_SYMBOL_COMMENT("No matching image exists"),
                 &vl_error_NoSuchImage,
                 SD_VARLINK_SYMBOL_COMMENT("Too many ongoing background operations"),
