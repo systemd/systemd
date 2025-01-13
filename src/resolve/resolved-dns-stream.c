@@ -69,15 +69,10 @@ static int dns_stream_complete(DnsStream *s, int error) {
          * and received exactly one packet each (in the LLMNR client case). */
 
 #if ENABLE_DNS_OVER_TLS
-        if (s->encrypted) {
-                int r;
-
-                r = dnstls_stream_shutdown(s, error);
-                if (r != -EAGAIN)
-                        dns_stream_stop(s);
-        } else
+        if (s->encrypted)
+                dnstls_stream_shutdown(s, error);
 #endif
-                dns_stream_stop(s);
+        dns_stream_stop(s);
 
         dns_stream_detach(s);
 
@@ -306,8 +301,6 @@ static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *use
 #if ENABLE_DNS_OVER_TLS
         if (s->encrypted) {
                 r = dnstls_stream_on_io(s, revents);
-                if (r == DNSTLS_STREAM_CLOSED)
-                        return 0;
                 if (r == -EAGAIN)
                         return dns_stream_update_io(s);
                 if (r < 0)
