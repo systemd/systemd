@@ -3801,6 +3801,12 @@ int manager_reload(Manager *m) {
         (void) manager_setup_handoff_timestamp_fd(m);
         (void) manager_setup_pidref_transport_fd(m);
 
+        // XXX: Clean up deserialized bus track information. They're never consumed during reload (as opposed
+        // to reexec) since we do not disconnect from the bus. manager_(de)serialize() should probably
+        // distinguish reload/reexec properly in the first place.
+        m->subscribed_as_strv = strv_free(m->subscribed_as_strv);
+        m->deserialized_bus_id = SD_ID128_NULL;
+
         /* Third, fire things up! */
         manager_coldplug(m);
 
