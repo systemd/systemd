@@ -5,6 +5,7 @@
 #include <unistd.h>
 
 #include "sd-bus.h"
+#include "sd-id128.h"
 
 #include "alloc-util.h"
 #include "bus-common-errors.h"
@@ -774,6 +775,24 @@ static int bus_on_connection(sd_event_source *s, int fd, uint32_t revents, void 
         return 0;
 }
 
+static int bus_track_coldplug(sd_bus *bus, sd_bus_track **t, char * const *l) {
+        int r;
+
+        assert(bus);
+        assert(t);
+
+        if (strv_isempty(l))
+                return 0;
+
+        if (!*t) {
+                r = sd_bus_track_new(bus, t, NULL, NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        return bus_track_add_name_many(*t, l);
+}
+
 static int bus_setup_api(Manager *m, sd_bus *bus) {
         char *name;
         Unit *u;
@@ -860,10 +879,15 @@ int bus_init_api(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to set up API bus: %m");
 
-        (void) bus_track_coldplug(bus, &m->subscribed, /* recursive= */ false, m->subscribed_as_strv);
+        r = bus_get_instance_id(bus, &m->bus_id);
+        if (r < 0)
+                log_warning_errno(r, "Failed to query API bus instance ID, not deserializing subscriptions: %m");
+        else if (sd_id128_is_null(m->deserialized_bus_id) || sd_id128_equal(m->bus_id, m->deserialized_bus_id))
+                (void) bus_track_coldplug(bus, &m->subscribed, m->subscribed_as_strv);
         m->subscribed_as_strv = strv_free(m->subscribed_as_strv);
-        m->api_bus = TAKE_PTR(bus);
+        m->deserialized_bus_id = SD_ID128_NULL;
 
+        m->api_bus = TAKE_PTR(bus);
         return 0;
 }
 
@@ -1015,6 +1039,9 @@ static void destroy_bus(Manager *m, sd_bus **bus) {
                         log_warning_errno(r, "Failed to serialize api subscribers, ignoring: %m");
                 strv_free_and_replace(m->subscribed_as_strv, subscribed);
 
+                m->deserialized_bus_id = m->bus_id;
+                m->bus_id = SD_ID128_NULL;
+
                 m->subscribed = sd_bus_track_unref(m->subscribed);
         }
 
@@ -1161,30 +1188,6 @@ void bus_track_serialize(sd_bus_track *t, FILE *f, const char *prefix) {
                 for (j = 0; j < c; j++)
                         (void) serialize_item(f, prefix, n);
         }
-}
-
-int bus_track_coldplug(sd_bus *bus, sd_bus_track **t, bool recursive, char **l) {
-        int r;
-
-        assert(t);
-
-        if (strv_isempty(l))
-                return 0;
-
-        if (!bus)
-                return 0;
-
-        if (!*t) {
-                r = sd_bus_track_new(bus, t, NULL, NULL);
-                if (r < 0)
-                        return r;
-        }
-
-        r = sd_bus_track_set_recursive(*t, recursive);
-        if (r < 0)
-                return r;
-
-        return bus_track_add_name_many(*t, l);
 }
 
 uint64_t manager_bus_n_queued_write(Manager *m) {
