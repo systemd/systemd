@@ -686,7 +686,7 @@ int bus_path_decode_unique(const char *path, const char *prefix, char **ret_send
         return 1;
 }
 
-int bus_track_add_name_many(sd_bus_track *t, char **l) {
+int bus_track_add_name_many(sd_bus_track *t, char * const *l) {
         int r = 0;
 
         assert(t);
