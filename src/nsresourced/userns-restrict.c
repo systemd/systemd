@@ -54,8 +54,11 @@ int userns_restrict_install(
         int r;
 
         r = lsm_supported("bpf");
+        if (r == -ENOPKG)
+                /* We propagate this as EOPNOTSUPP! */
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "bpf-lsm support not available, as securityfs is not mounted.");
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to check if bpf-lsm support is available: %m");
         if (r == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "bpf-lsm not supported, can't lock down user namespace.");
 
