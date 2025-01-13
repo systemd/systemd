@@ -205,8 +205,8 @@ int machine_id_setup(const char *root, sd_id128_t machine_id, MachineIdSetupFlag
                         r = id128_write_fd(fd, ID128_FORMAT_PLAIN | ID128_SYNC_ON_WRITE, machine_id);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to write %s: %m", etc_machine_id);
-                        else
-                                goto finish;
+
+                        goto finish;
                 }
         }
 
