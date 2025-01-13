@@ -905,6 +905,29 @@ int bus_query_sender_pidref(
         return bus_creds_get_pidref(creds, ret);
 }
 
+int bus_get_instance_id(sd_bus *bus, sd_id128_t *ret) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        int r;
+
+        assert(bus);
+        assert(ret);
+
+        r = sd_bus_call_method(bus,
+                               "org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus", "GetId",
+                               /* error = */ NULL, &reply,
+                               NULL);
+        if (r < 0)
+                return r;
+
+        const char *id;
+
+        r = sd_bus_message_read_basic(reply, 's', &id);
+        if (r < 0)
+                return r;
+
+        return sd_id128_from_string(id, ret);
+}
+
 static const char* const bus_transport_table[] = {
         [BUS_TRANSPORT_LOCAL]   = "local",
         [BUS_TRANSPORT_REMOTE]  = "remote",
