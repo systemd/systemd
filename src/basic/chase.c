@@ -89,9 +89,8 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
         int r;
 
         assert(!FLAGS_SET(flags, CHASE_PREFIX_ROOT));
+        assert(!FLAGS_SET(flags, CHASE_MUST_BE_DIRECTORY|CHASE_MUST_BE_REGULAR));
         assert(!FLAGS_SET(flags, CHASE_STEP|CHASE_EXTRACT_FILENAME));
-        assert(!FLAGS_SET(flags, CHASE_TRAIL_SLASH|CHASE_EXTRACT_FILENAME));
-        assert(!FLAGS_SET(flags, CHASE_MKDIR_0755) || (flags & (CHASE_NONEXISTENT | CHASE_PARENT)) != 0);
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
 
         /* Either the file may be missing, or we return an fd to the final object, but both make no sense */
@@ -244,8 +243,15 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
         if (root_fd < 0)
                 return -errno;
 
-        if (FLAGS_SET(flags, CHASE_TRAIL_SLASH))
-                append_trail_slash = ENDSWITH_SET(buffer, "/", "/.");
+        if (ENDSWITH_SET(buffer, "/", "/.")) {
+                flags |= CHASE_MUST_BE_DIRECTORY;
+                if (FLAGS_SET(flags, CHASE_TRAIL_SLASH))
+                        append_trail_slash = true;
+        } else if (dot_or_dot_dot(buffer) || endswith(buffer, "/.."))
+                flags |= CHASE_MUST_BE_DIRECTORY;
+
+        if (FLAGS_SET(flags, CHASE_PARENT))
+                flags |= CHASE_MUST_BE_DIRECTORY;
 
         for (todo = buffer;;) {
                 _cleanup_free_ char *first = NULL;
@@ -256,19 +262,15 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
                 r = path_find_first_component(&todo, /* accept_dot_dot= */ true, &e);
                 if (r < 0)
                         return r;
-                if (r == 0) { /* We reached the end. */
-                        if (append_trail_slash)
-                                if (!strextend(&done, "/"))
-                                        return -ENOMEM;
+                if (r == 0) /* We reached the end. */
                         break;
-                }
 
                 first = strndup(e, r);
                 if (!first)
                         return -ENOMEM;
 
                 /* Two dots? Then chop off the last bit of what we already found out. */
-                if (path_equal(first, "..")) {
+                if (streq(first, "..")) {
                         _cleanup_free_ char *parent = NULL;
                         _cleanup_close_ int fd_parent = -EBADF;
                         struct stat st_parent;
@@ -370,13 +372,13 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
                         if (r != -ENOENT)
                                 return r;
 
-                        if (!isempty(todo) && !path_is_safe(todo))
+                        if (!isempty(todo) && !path_is_safe(todo)) /* Refuse parent/mkdir handling if suffix contains ".." or something weird */
                                 return r;
 
-                        if (FLAGS_SET(flags, CHASE_MKDIR_0755) && !isempty(todo)) {
+                        if (FLAGS_SET(flags, CHASE_MKDIR_0755) && (!isempty(todo) || !(flags & (CHASE_PARENT|CHASE_NONEXISTENT)))) {
                                 child = xopenat_full(fd,
                                                      first,
-                                                     O_DIRECTORY|O_CREAT|O_EXCL|O_NOFOLLOW|O_CLOEXEC,
+                                                     O_DIRECTORY|O_CREAT|O_EXCL|O_NOFOLLOW|O_PATH|O_CLOEXEC,
                                                      /* xopen_flags = */ 0,
                                                      0755);
                                 if (child < 0)
@@ -477,8 +479,14 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
                 close_and_replace(fd, child);
         }
 
-        if (FLAGS_SET(flags, CHASE_PARENT)) {
+        if (FLAGS_SET(flags, CHASE_MUST_BE_DIRECTORY)) {
                 r = stat_verify_directory(&st);
+                if (r < 0)
+                        return r;
+        }
+
+        if (FLAGS_SET(flags, CHASE_MUST_BE_REGULAR)) {
+                r = stat_verify_regular(&st);
                 if (r < 0)
                         return r;
         }
@@ -497,10 +505,14 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
 
                 if (!done) {
                         assert(!need_absolute || FLAGS_SET(flags, CHASE_EXTRACT_FILENAME));
-                        done = strdup(append_trail_slash ? "./" : ".");
+                        done = strdup(".");
                         if (!done)
                                 return -ENOMEM;
                 }
+
+                if (append_trail_slash)
+                        if (!strextend(&done, "/"))
+                                return -ENOMEM;
 
                 *ret_path = TAKE_PTR(done);
         }

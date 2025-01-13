@@ -8,5 +8,5 @@ typedef enum MachineIdSetupFlags {
         MACHINE_ID_SETUP_FORCE_FIRMWARE  = 1 << 1,
 } MachineIdSetupFlags;
 
-int machine_id_commit(const char *root);
+int machine_id_commit(void);
 int machine_id_setup(const char *root, sd_id128_t machine_id, MachineIdSetupFlags flags, sd_id128_t *ret);
