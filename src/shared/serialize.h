@@ -3,6 +3,8 @@
 
 #include <stdio.h>
 
+#include "sd-id128.h"
+
 #include "fdset.h"
 #include "image-policy.h"
 #include "macro.h"
@@ -22,6 +24,7 @@ int serialize_fd_many(FILE *f, FDSet *fds, const char *key, const int fd_array[]
 int serialize_usec(FILE *f, const char *key, usec_t usec);
 int serialize_dual_timestamp(FILE *f, const char *key, const dual_timestamp *t);
 int serialize_strv(FILE *f, const char *key, char * const *l);
+int serialize_id128(FILE *f, const char *key, sd_id128_t id);
 int serialize_pidref(FILE *f, FDSet *fds, const char *key, PidRef *pidref);
 int serialize_ratelimit(FILE *f, const char *key, const RateLimit *rl);
 int serialize_string_set(FILE *f, const char *key, const Set *s);

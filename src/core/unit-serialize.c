@@ -117,8 +117,7 @@ int unit_serialize_state(Unit *u, FILE *f, FDSet *fds, bool switching_root) {
         if (gid_is_valid(u->ref_gid))
                 (void) serialize_item_format(f, "ref-gid", GID_FMT, u->ref_gid);
 
-        if (!sd_id128_is_null(u->invocation_id))
-                (void) serialize_item_format(f, "invocation-id", SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(u->invocation_id));
+        (void) serialize_id128(f, "invocation-id", u->invocation_id);
 
         (void) serialize_item(f, "freezer-state", freezer_state_to_string(u->freezer_state));
 
