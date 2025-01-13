@@ -81,4 +81,6 @@ int bus_register_malloc_status(sd_bus *bus, const char *destination);
 int bus_creds_get_pidref(sd_bus_creds *c, PidRef *ret);
 int bus_query_sender_pidref(sd_bus_message *m, PidRef *ret);
 
+int bus_get_instance_id(sd_bus *bus, sd_id128_t *ret);
+
 const char* bus_transport_to_string(BusTransport transport) _const_;
