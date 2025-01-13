@@ -10,7 +10,6 @@ import json
 import os
 import re
 import shlex
-import shutil
 import subprocess
 import sys
 import tempfile
@@ -560,7 +559,7 @@ def main() -> None:
     if os.getenv('TEST_JOURNAL_USE_TMP', '0') == '1':
         dst = args.meson_build_dir / f'test/journal/{name}.journal'
         dst.parent.mkdir(parents=True, exist_ok=True)
-        shutil.move(journal_file, dst)
+        subprocess.run(["mv", journal_file, dst], check=True)
 
     if shell or (result.returncode in (args.exit_code, 77) and not coredumps and not sanitizer):
         exit(0 if shell or result.returncode == args.exit_code else 77)
