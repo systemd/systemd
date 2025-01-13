@@ -1228,18 +1228,53 @@ int pidref_is_alive(const PidRef *pidref) {
         return result;
 }
 
-int pid_from_same_root_fs(pid_t pid) {
-        const char *root;
+int pidref_from_same_root_fs(PidRef *a, PidRef *b) {
+        PidRef self;
+        int r;
 
-        if (pid < 0)
+        /* Checks if the two specified processes have the same root fs. Either can be specified as NULL in
+         * which case we'll check against ourselves. */
+
+        if (!a || !b) {
+                r = pidref_set_self(&self);
+                if (r < 0)
+                        return r;
+                if (!a)
+                        a = &self;
+                if (!b)
+                        b = &self;
+        }
+
+        if (!pidref_is_set(a) || !pidref_is_set(b))
+                return -ESRCH;
+
+        /* If one of the two processes have the same root they cannot have the same root fs, but if both of
+         * them do we don't know */
+        if (pidref_is_remote(a) && pidref_is_remote(b))
+                return -EREMOTE;
+        if (pidref_is_remote(a) || pidref_is_remote(b))
                 return false;
 
-        if (pid == 0 || pid == getpid_cached())
+        if (pidref_equal(a, b))
                 return true;
 
-        root = procfs_file_alloca(pid, "root");
+        const char *roota = procfs_file_alloca(a->pid, "root");
+        const char *rootb = procfs_file_alloca(b->pid, "root");
 
-        return inode_same(root, "/proc/1/root", 0);
+        int result = inode_same(roota, rootb, 0);
+        if (result == -ENOENT)
+                return proc_mounted() == 0 ? -ENOSYS : -ESRCH;
+        if (result < 0)
+                return result;
+
+        r = pidref_verify(a);
+        if (r < 0)
+                return r;
+        r = pidref_verify(b);
+        if (r < 0)
+                return r;
+
+        return result;
 }
 
 bool is_main_thread(void) {
