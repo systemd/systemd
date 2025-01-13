@@ -335,12 +335,15 @@ struct Manager {
         int private_listen_fd;
         sd_event_source *private_listen_event_source;
 
-        /* Contains all the clients that are subscribed to signals via
-        the API bus. Note that private bus connections are always
-        considered subscribes, since they last for very short only,
-        and it is much simpler that way. */
+        /* Contains all the clients that are subscribed to signals via the API bus. Note that private bus
+         * connections are always considered subscribes, since they last for very short only, and it is
+         * much simpler that way. */
         sd_bus_track *subscribed;
         char **subscribed_as_strv;
+
+        /* The bus id of API bus acquired through org.freedesktop.DBus.GetId, which before deserializing
+         * subscriptions we'd use to verify the bus is still the same instance as before. */
+        sd_id128_t bus_id, deserialized_bus_id;
 
         /* This is used during reloading: before the reload we queue
          * the reply message here, and afterwards we send it */
