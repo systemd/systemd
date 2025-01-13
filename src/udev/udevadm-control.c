@@ -10,6 +10,7 @@
 
 #include "creds-util.h"
 #include "errno-util.h"
+#include "parse-argument.h"
 #include "parse-util.h"
 #include "process-util.h"
 #include "static-destruct.h"
@@ -30,6 +31,7 @@ static bool arg_exit = false;
 static int arg_max_children = -1;
 static int arg_log_level = -1;
 static int arg_start_exec_queue = -1;
+static int arg_trace = -1;
 static bool arg_load_credentials = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_env, strv_freep);
@@ -42,7 +44,8 @@ static bool arg_has_control_commands(void) {
                 arg_reload ||
                 !strv_isempty(arg_env) ||
                 arg_max_children >= 0 ||
-                arg_ping;
+                arg_ping ||
+                arg_trace >= 0;
 }
 
 static int help(void) {
@@ -58,6 +61,7 @@ static int help(void) {
                "  -p --property=KEY=VALUE  Set a global property for all events\n"
                "  -m --children-max=N      Maximum number of children\n"
                "     --ping                Wait for udev to respond to a ping message\n"
+               "     --trace=BOOL          Enable/disable trace logging\n"
                "  -t --timeout=SECONDS     Maximum time to block for a reply\n"
                "     --load-credentials    Load udev rules from credentials\n",
                program_invocation_short_name);
@@ -68,6 +72,7 @@ static int help(void) {
 static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_PING = 0x100,
+                ARG_TRACE,
                 ARG_LOAD_CREDENTIALS,
         };
 
@@ -83,6 +88,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "env",              required_argument, NULL, 'p'                  }, /* alias for -p */
                 { "children-max",     required_argument, NULL, 'm'                  },
                 { "ping",             no_argument,       NULL, ARG_PING             },
+                { "trace",            required_argument, NULL, ARG_TRACE            },
                 { "timeout",          required_argument, NULL, 't'                  },
                 { "load-credentials", no_argument,       NULL, ARG_LOAD_CREDENTIALS },
                 { "version",          no_argument,       NULL, 'V'                  },
@@ -141,6 +147,14 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_PING:
                         arg_ping = true;
+                        break;
+
+                case ARG_TRACE:
+                        r = parse_boolean_argument("--trace=", optarg, NULL);
+                        if (r < 0)
+                                return r;
+
+                        arg_trace = r;
                         break;
 
                 case 't':
@@ -292,6 +306,13 @@ static int send_control_commands(void) {
 
         if (arg_ping) {
                 r = varlink_call_and_log(link, "io.systemd.service.Ping", /* parameters = */ NULL, /* reply = */ NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        if (arg_trace >= 0) {
+                r = varlink_callbo_and_log(link, "io.systemd.Udev.SetTrace", /* reply = */ NULL,
+                                           SD_JSON_BUILD_PAIR_BOOLEAN("enable", arg_trace));
                 if (r < 0)
                         return r;
         }

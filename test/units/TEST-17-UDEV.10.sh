@@ -52,6 +52,8 @@ udevadm control -R
 udevadm control -p HELLO=world
 udevadm control -m 42
 udevadm control --ping -t 5
+udevadm control --trace yes
+udevadm control --trace no
 udevadm control --load-credentials
 udevadm control -h
 
@@ -141,6 +143,7 @@ udevadm test -N early /sys/class/net/$netdev
 udevadm test -N late /sys/class/net/$netdev
 udevadm test --resolve-names never /sys/class/net/$netdev
 (! udevadm test -N hello /sys/class/net/$netdev)
+udevadm test -v /sys/class/net/$netdev
 udevadm test -h
 
 # udevadm test-builtin path_id "$loopdev"
