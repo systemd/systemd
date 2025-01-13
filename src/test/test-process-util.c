@@ -1007,7 +1007,7 @@ TEST(pid_get_start_time) {
 
         _cleanup_(pidref_done_sigkill_wait) PidRef child = PIDREF_NULL;
 
-        ASSERT_OK(pidref_safe_fork("(stub)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_REOPEN_LOG, &child));
+        ASSERT_OK_EQ_ERRNO(pidref_safe_fork("(stub)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_REOPEN_LOG|FORK_FREEZE, &child), 1);
 
         usec_t start_time2;
         ASSERT_OK(pidref_get_start_time(&child, &start_time2));
