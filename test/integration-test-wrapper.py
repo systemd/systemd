@@ -443,7 +443,7 @@ def main() -> None:
         )
 
     if os.getenv('TEST_JOURNAL_USE_TMP', '0') == '1':
-        journal_file = Path(f'/tmp/systemd-integration-tests/journal/{name.journal}')
+        journal_file = Path(f'/tmp/systemd-integration-tests/journal/{name}.journal')
     else:
         journal_file = (args.meson_build_dir / f'test/journal/{name}.journal').absolute()
 
