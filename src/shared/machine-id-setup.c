@@ -209,8 +209,6 @@ int machine_id_setup(const char *root, sd_id128_t machine_id, MachineIdSetupFlag
                 }
         }
 
-        fd = safe_close(fd);
-
         /* Hmm, we couldn't or shouldn't write the machine-id to /etc?
          * So let's write it to /run/machine-id as a replacement */
 
@@ -226,7 +224,7 @@ int machine_id_setup(const char *root, sd_id128_t machine_id, MachineIdSetupFlag
         }
 
         /* And now, let's mount it over */
-        r = mount_follow_verbose(LOG_ERR, run_machine_id, etc_machine_id, NULL, MS_BIND, NULL);
+        r = mount_follow_verbose(LOG_ERR, run_machine_id, FORMAT_PROC_FD_PATH(fd), /* fstype= */ NULL, MS_BIND, /* options= */ NULL);
         if (r < 0) {
                 (void) unlink(run_machine_id);
                 return r;
@@ -234,10 +232,8 @@ int machine_id_setup(const char *root, sd_id128_t machine_id, MachineIdSetupFlag
 
         log_full(FLAGS_SET(flags, MACHINE_ID_SETUP_FORCE_TRANSIENT) ? LOG_DEBUG : LOG_INFO, "Installed transient %s file.", etc_machine_id);
 
-        /* Mark the mount read-only */
-        r = mount_follow_verbose(LOG_WARNING, NULL, etc_machine_id, NULL, MS_BIND|MS_RDONLY|MS_REMOUNT, NULL);
-        if (r < 0)
-                return r;
+        /* Mark the mount read-only (note: we are not going via FORMAT_PROC_FD_PATH() here because that fd is not updated to our new bind mount) */
+        (void) mount_follow_verbose(LOG_WARNING, /* source= */ NULL, etc_machine_id, /* fstype= */ NULL, MS_BIND|MS_RDONLY|MS_REMOUNT, /* options= */ NULL);
 
 finish:
         if (!in_initrd())
