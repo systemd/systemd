@@ -3,6 +3,7 @@
 #include <fcntl.h>
 #include <linux/oom.h>
 #include <pthread.h>
+#include <sys/eventfd.h>
 #include <sys/mount.h>
 #include <sys/personality.h>
 #include <sys/prctl.h>
@@ -1015,6 +1016,53 @@ TEST(pid_get_start_time) {
         log_info("child starttime: " USEC_FMT, start_time2);
 
         ASSERT_GE(start_time2, start_time);
+}
+
+TEST(pidref_from_same_root_fs) {
+        int r;
+
+        _cleanup_(pidref_done) PidRef pid1 = PIDREF_NULL, self = PIDREF_NULL;
+
+        ASSERT_OK(pidref_set_self(&self));
+        ASSERT_OK(pidref_set_pid(&pid1, 1));
+
+        ASSERT_OK_POSITIVE(pidref_from_same_root_fs(&self, &self));
+        ASSERT_OK_POSITIVE(pidref_from_same_root_fs(&pid1, &pid1));
+
+        r = pidref_from_same_root_fs(&pid1, &self);
+        if (ERRNO_IS_NEG_PRIVILEGE(r))
+                return (void) log_tests_skipped("skipping pidref_from_same_root_fs() test, lacking privileged.");
+        ASSERT_OK(r);
+        log_info("PID1 and us have the same rootfs: %s", yes_no(r));
+
+        int q = pidref_from_same_root_fs(&self, &pid1);
+        ASSERT_OK(q);
+        ASSERT_EQ(r, q);
+
+        _cleanup_(pidref_done_sigkill_wait) PidRef child1 = PIDREF_NULL;
+        ASSERT_OK(pidref_safe_fork("(child1)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_REOPEN_LOG|FORK_FREEZE, &child1));
+        ASSERT_OK_POSITIVE(pidref_from_same_root_fs(&self, &child1));
+
+        _cleanup_close_ int efd = eventfd(0, EFD_CLOEXEC);
+        ASSERT_OK_ERRNO(efd);
+
+        _cleanup_(pidref_done_sigkill_wait) PidRef child2 = PIDREF_NULL;
+        r = pidref_safe_fork("(child2)", FORK_RESET_SIGNALS|FORK_REOPEN_LOG, &child2);
+        ASSERT_OK(r);
+
+        if (r == 0) {
+                ASSERT_OK_ERRNO(chroot("/usr"));
+                uint64_t u = 1;
+
+                ASSERT_OK_EQ_ERRNO(write(efd, &u, sizeof(u)), (ssize_t) sizeof(u));
+                freeze();
+        }
+
+        uint64_t u;
+        ASSERT_OK_EQ_ERRNO(read(efd, &u, sizeof(u)), (ssize_t) sizeof(u));
+
+        ASSERT_OK_ZERO(pidref_from_same_root_fs(&self, &child2));
+        ASSERT_OK_ZERO(pidref_from_same_root_fs(&child2, &self));
 }
 
 static int intro(void) {
