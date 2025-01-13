@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "bus-get-properties.h"
+#include "bus-message-util.h"
 #include "rlimit-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
@@ -163,4 +164,22 @@ int bus_property_get_rlimit(
         u = x == RLIM_INFINITY ? UINT64_MAX : (uint64_t) x;
 
         return sd_bus_message_append(reply, "t", u);
+}
+
+int bus_property_get_string_set(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Set **s = ASSERT_PTR(userdata);
+
+        assert(bus);
+        assert(property);
+        assert(reply);
+
+        return bus_message_append_string_set(reply, *s);
 }
