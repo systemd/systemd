@@ -91,7 +91,6 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
         assert(!FLAGS_SET(flags, CHASE_PREFIX_ROOT));
         assert(!FLAGS_SET(flags, CHASE_MUST_BE_DIRECTORY|CHASE_MUST_BE_REGULAR));
         assert(!FLAGS_SET(flags, CHASE_STEP|CHASE_EXTRACT_FILENAME));
-        assert(!FLAGS_SET(flags, CHASE_TRAIL_SLASH|CHASE_EXTRACT_FILENAME));
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
 
         /* Either the file may be missing, or we return an fd to the final object, but both make no sense */
@@ -263,12 +262,8 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
                 r = path_find_first_component(&todo, /* accept_dot_dot= */ true, &e);
                 if (r < 0)
                         return r;
-                if (r == 0) { /* We reached the end. */
-                        if (append_trail_slash)
-                                if (!strextend(&done, "/"))
-                                        return -ENOMEM;
+                if (r == 0) /* We reached the end. */
                         break;
-                }
 
                 first = strndup(e, r);
                 if (!first)
@@ -510,10 +505,14 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
 
                 if (!done) {
                         assert(!need_absolute || FLAGS_SET(flags, CHASE_EXTRACT_FILENAME));
-                        done = strdup(append_trail_slash ? "./" : ".");
+                        done = strdup(".");
                         if (!done)
                                 return -ENOMEM;
                 }
+
+                if (append_trail_slash)
+                        if (!strextend(&done, "/"))
+                                return -ENOMEM;
 
                 *ret_path = TAKE_PTR(done);
         }
