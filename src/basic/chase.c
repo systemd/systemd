@@ -267,7 +267,7 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
                         return -ENOMEM;
 
                 /* Two dots? Then chop off the last bit of what we already found out. */
-                if (path_equal(first, "..")) {
+                if (streq(first, "..")) {
                         _cleanup_free_ char *parent = NULL;
                         _cleanup_close_ int fd_parent = -EBADF;
                         struct stat st_parent;
