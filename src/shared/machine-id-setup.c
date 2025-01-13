@@ -131,9 +131,10 @@ static int acquire_machine_id(const char *root, bool machine_id_from_firmware, s
 }
 
 int machine_id_setup(const char *root, sd_id128_t machine_id, MachineIdSetupFlags flags, sd_id128_t *ret) {
-        const char *etc_machine_id, *run_machine_id;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(unlink_and_freep) char *run_machine_id = NULL;
         bool writable, write_run_machine_id = true;
+        _cleanup_close_ int fd = -EBADF;
+        const char *etc_machine_id;
         int r;
 
         etc_machine_id = prefix_roota(root, "/etc/machine-id");
@@ -209,31 +210,32 @@ int machine_id_setup(const char *root, sd_id128_t machine_id, MachineIdSetupFlag
                 }
         }
 
-        /* Hmm, we couldn't or shouldn't write the machine-id to /etc?
-         * So let's write it to /run/machine-id as a replacement */
+        /* Hmm, we couldn't or shouldn't write the machine-id to /etc/? So let's write it to /run/machine-id
+         * as a replacement */
 
         if (!isempty(root))
                 return log_error_errno(SYNTHETIC_ERRNO(EROFS), "Unable to write machine ID to /etc/machine-id, as root directory '%s' appears to be read-only?", root);
 
-        run_machine_id = "/run/machine-id";
+        run_machine_id = strdup("/run/machine-id");
+        if (!run_machine_id)
+                return log_oom();
 
         if (write_run_machine_id) {
                 WITH_UMASK(0022)
                         r = id128_write(run_machine_id, ID128_FORMAT_PLAIN, machine_id);
-                if (r < 0) {
-                        (void) unlink(run_machine_id);
+                if (r < 0)
                         return log_error_errno(r, "Cannot write %s: %m", run_machine_id);
-                }
         }
 
         /* And now, let's mount it over */
         r = mount_follow_verbose(LOG_ERR, run_machine_id, FORMAT_PROC_FD_PATH(fd), /* fstype= */ NULL, MS_BIND, /* options= */ NULL);
-        if (r < 0) {
-                (void) unlink(run_machine_id);
+        if (r < 0)
                 return r;
-        }
 
         log_full(FLAGS_SET(flags, MACHINE_ID_SETUP_FORCE_TRANSIENT) ? LOG_DEBUG : LOG_INFO, "Installed transient %s file.", etc_machine_id);
+
+        /* Free this explicitly, so that the unlink_and_freep() logic is disabled from here on. */
+        run_machine_id = mfree(run_machine_id);
 
         /* Mark the mount read-only (note: we are not going via FORMAT_PROC_FD_PATH() here because that fd is not updated to our new bind mount) */
         (void) mount_follow_verbose(LOG_WARNING, /* source= */ NULL, etc_machine_id, /* fstype= */ NULL, MS_BIND|MS_RDONLY|MS_REMOUNT, /* options= */ NULL);
