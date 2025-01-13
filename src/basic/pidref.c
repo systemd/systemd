@@ -40,6 +40,10 @@ int pidref_acquire_pidfd_id(PidRef *pidref) {
 
 bool pidref_equal(PidRef *a, PidRef *b) {
 
+        /* If this is the very same structure, it definitely refers to the same process */
+        if (a == b)
+                return true;
+
         if (!pidref_is_set(a))
                 return !pidref_is_set(b);
 
@@ -58,8 +62,14 @@ bool pidref_equal(PidRef *a, PidRef *b) {
                 if (a->fd_id == 0 || b->fd_id == 0)
                         return true;
         } else {
+                /* If the other side is remote, then this is not the same */
                 if (pidref_is_remote(b))
                         return false;
+
+                /* PID1 cannot exit, hence it cannot change pidfs ids, hence no point in comparing them, we
+                 * can shortcut things */
+                if (a->pid == 1)
+                        return true;
 
                 /* Try to compare pidfds using their inode numbers. This way we can ensure that we
                  * don't spuriously consider two PidRefs equal if the pid has been reused once. Note
