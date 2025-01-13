@@ -89,6 +89,7 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
         int r;
 
         assert(!FLAGS_SET(flags, CHASE_PREFIX_ROOT));
+        assert(!FLAGS_SET(flags, CHASE_MUST_BE_DIRECTORY|CHASE_MUST_BE_REGULAR));
         assert(!FLAGS_SET(flags, CHASE_STEP|CHASE_EXTRACT_FILENAME));
         assert(!FLAGS_SET(flags, CHASE_TRAIL_SLASH|CHASE_EXTRACT_FILENAME));
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
@@ -243,8 +244,15 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
         if (root_fd < 0)
                 return -errno;
 
-        if (FLAGS_SET(flags, CHASE_TRAIL_SLASH))
-                append_trail_slash = ENDSWITH_SET(buffer, "/", "/.");
+        if (ENDSWITH_SET(buffer, "/", "/.")) {
+                flags |= CHASE_MUST_BE_DIRECTORY;
+                if (FLAGS_SET(flags, CHASE_TRAIL_SLASH))
+                        append_trail_slash = true;
+        } else if (dot_or_dot_dot(buffer) || endswith(buffer, "/.."))
+                flags |= CHASE_MUST_BE_DIRECTORY;
+
+        if (FLAGS_SET(flags, CHASE_PARENT))
+                flags |= CHASE_MUST_BE_DIRECTORY;
 
         for (todo = buffer;;) {
                 _cleanup_free_ char *first = NULL;
@@ -476,8 +484,14 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
                 close_and_replace(fd, child);
         }
 
-        if (FLAGS_SET(flags, CHASE_PARENT)) {
+        if (FLAGS_SET(flags, CHASE_MUST_BE_DIRECTORY)) {
                 r = stat_verify_directory(&st);
+                if (r < 0)
+                        return r;
+        }
+
+        if (FLAGS_SET(flags, CHASE_MUST_BE_REGULAR)) {
+                r = stat_verify_regular(&st);
                 if (r < 0)
                         return r;
         }

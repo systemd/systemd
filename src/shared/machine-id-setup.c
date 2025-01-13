@@ -74,7 +74,7 @@ static int acquire_machine_id(const char *root, bool machine_id_from_firmware, s
         }
 
         /* Then, try reading the D-Bus machine ID, unless it is a symlink */
-        fd = chase_and_open("/var/lib/dbus/machine-id", root, CHASE_PREFIX_ROOT | CHASE_NOFOLLOW, O_RDONLY|O_CLOEXEC|O_NOCTTY, NULL);
+        fd = chase_and_open("/var/lib/dbus/machine-id", root, CHASE_PREFIX_ROOT|CHASE_NOFOLLOW|CHASE_MUST_BE_REGULAR, O_RDONLY|O_CLOEXEC|O_NOCTTY, NULL);
         if (fd >= 0 && id128_read_fd(fd, ID128_FORMAT_PLAIN | ID128_REFUSE_NULL, ret) >= 0) {
                 log_info("Initializing machine ID from D-Bus machine ID.");
                 return 0;
@@ -140,12 +140,12 @@ int machine_id_setup(const char *root, sd_id128_t machine_id, MachineIdSetupFlag
         WITH_UMASK(0000) {
                 _cleanup_close_ int inode_fd = -EBADF;
 
-                r = chase("/etc/machine-id", root, CHASE_PREFIX_ROOT, &etc_machine_id, &inode_fd);
+                r = chase("/etc/machine-id", root, CHASE_PREFIX_ROOT|CHASE_MUST_BE_REGULAR, &etc_machine_id, &inode_fd);
                 if (r == -ENOENT) {
                         _cleanup_close_ int etc_fd = -EBADF;
                         _cleanup_free_ char *etc = NULL;
 
-                        r = chase("/etc/", root, CHASE_PREFIX_ROOT|CHASE_MKDIR_0755, &etc, &etc_fd);
+                        r = chase("/etc/", root, CHASE_PREFIX_ROOT|CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY, &etc, &etc_fd);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to open '/etc/': %m");
 
@@ -250,7 +250,7 @@ int machine_id_setup(const char *root, sd_id128_t machine_id, MachineIdSetupFlag
         if (write_run_machine_id) {
                 _cleanup_free_ char *run = NULL;
 
-                r = chase("/run/", root, CHASE_PREFIX_ROOT|CHASE_MKDIR_0755, &run, &run_fd);
+                r = chase("/run/", root, CHASE_PREFIX_ROOT|CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY, &run, &run_fd);
                 if (r < 0)
                         return log_error_errno(r, "Failed to open '/run/': %m");
 
@@ -266,7 +266,7 @@ int machine_id_setup(const char *root, sd_id128_t machine_id, MachineIdSetupFlag
 
                 unlink_run_machine_id = true;
         } else {
-                r = chase("/run/machine-id", root, CHASE_PREFIX_ROOT, &run_machine_id, /* ret_inode_fd= */ NULL);
+                r = chase("/run/machine-id", root, CHASE_PREFIX_ROOT|CHASE_MUST_BE_REGULAR, &run_machine_id, /* ret_inode_fd= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to open '/run/machine-id': %m");
         }
@@ -321,7 +321,7 @@ int machine_id_commit(const char *root) {
 
         _cleanup_close_ int etc_fd = -EBADF;
         _cleanup_free_ char *etc = NULL;
-        r = chase("/etc/", root, CHASE_PREFIX_ROOT, &etc, &etc_fd);
+        r = chase("/etc/", root, CHASE_PREFIX_ROOT|CHASE_MUST_BE_DIRECTORY, &etc, &etc_fd);
         if (r < 0)
                 return log_error_errno(r, "Failed to open /etc/: %m");
 
@@ -369,7 +369,7 @@ int machine_id_commit(const char *root) {
 
         /* Open /etc/ again after we transitioned into our own private mount namespace */
         _cleanup_close_ int etc_fd_again = -EBADF;
-        r = chase("/etc/", root, CHASE_PREFIX_ROOT, /* ret_path= */ NULL, &etc_fd_again);
+        r = chase("/etc/", root, CHASE_PREFIX_ROOT|CHASE_MUST_BE_DIRECTORY, /* ret_path= */ NULL, &etc_fd_again);
         if (r < 0)
                 return log_error_errno(r, "Failed to open /etc/: %m");
 
