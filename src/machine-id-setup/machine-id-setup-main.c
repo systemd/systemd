@@ -131,6 +131,9 @@ static int parse_argv(int argc, char *argv[]) {
         if (arg_image && arg_root)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Please specify either --root= or --image=, the combination of both is not supported.");
 
+        if (arg_commit && (arg_image || arg_root))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--commit is not supported in combination with --root=/--image=.");
+
         return 1;
 }
 
@@ -170,8 +173,9 @@ static int run(int argc, char *argv[]) {
 
         if (arg_commit) {
                 sd_id128_t id;
+                assert(isempty(arg_root));
 
-                r = machine_id_commit(arg_root);
+                r = machine_id_commit();
                 if (r < 0)
                         return r;
 
