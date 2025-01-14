@@ -122,6 +122,10 @@ Deprecations and removals:
 
 Features:
 
+* the ordering cycle log messages in transaction_verify_order_one() should
+  really be recognizable via a message id and come with an explanatory catalog
+  message
+
 * logind: introduce "user-light" session class, that is to "user" what
   "background-light" is to "background". Then, in logind, if no user class is
   specified, and we are not logging in graphically default to this session
