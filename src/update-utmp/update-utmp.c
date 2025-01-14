@@ -5,12 +5,9 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#if HAVE_AUDIT
-#include <libaudit.h>
-#endif
-
 #include "sd-bus.h"
 
+#include "audit-util.h"
 #include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-locator.h"
@@ -30,20 +27,14 @@
 
 typedef struct Context {
         sd_bus *bus;
-#if HAVE_AUDIT
         int audit_fd;
-#endif
 } Context;
 
 static void context_clear(Context *c) {
         assert(c);
 
         c->bus = sd_bus_flush_close_unref(c->bus);
-#if HAVE_AUDIT
-        if (c->audit_fd >= 0)
-                audit_close(c->audit_fd);
-        c->audit_fd = -EBADF;
-#endif
+        c->audit_fd = close_audit_fd(c->audit_fd);
 }
 
 static int get_startup_monotonic_time(Context *c, usec_t *ret) {
@@ -256,22 +247,14 @@ static int run(int argc, char *argv[]) {
         };
 
         _cleanup_(context_clear) Context c = {
-#if HAVE_AUDIT
                 .audit_fd = -EBADF,
-#endif
         };
 
         log_setup();
 
         umask(0022);
 
-#if HAVE_AUDIT
-        /* If the kernel lacks netlink or audit support, don't worry about it. */
-        c.audit_fd = audit_open();
-        if (c.audit_fd < 0)
-                log_full_errno(IN_SET(errno, EAFNOSUPPORT, EPROTONOSUPPORT) ? LOG_DEBUG : LOG_WARNING,
-                               errno, "Failed to connect to audit log, ignoring: %m");
-#endif
+        c.audit_fd = open_audit_fd_or_warn();
 
         return dispatch_verb(argc, argv, verbs, &c);
 }
