@@ -145,8 +145,8 @@ mkosi -f sandbox \
     --no-stdsplit \
     --num-processes "$NPROC" && EC=0 || EC=$?
 
-find build/meson-logs -type f -exec mv {} "$TMT_TEST_DATA" \;
-find build/test/journal -type f -exec mv {} "$TMT_TEST_DATA" \;
+[[ -d build/meson-logs ]] && find build/meson-logs -type f -exec mv {} "$TMT_TEST_DATA" \;
+[[ -d build/test/journal ]] && find build/test/journal -type f -exec mv {} "$TMT_TEST_DATA" \;
 
 popd
 
