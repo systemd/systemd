@@ -1964,11 +1964,8 @@ static int start_transient_service(sd_bus *bus) {
                         if (!pty_path)
                                 return log_oom();
 
-                        peer_fd = pty_open_peer_racefree(pty_fd, O_RDWR|O_NOCTTY|O_CLOEXEC);
-                        if (ERRNO_IS_NEG_NOT_SUPPORTED(peer_fd))
-                                log_debug_errno(r, "TIOCGPTPEER ioctl not available, falling back to race-ful PTY peer opening: %m");
-                                /* We do not open the peer_fd in this case, we let systemd on the remote side open it instead */
-                        else if (peer_fd < 0)
+                        peer_fd = pty_open_peer(pty_fd, O_RDWR|O_NOCTTY|O_CLOEXEC);
+                        if (peer_fd < 0)
                                 return log_debug_errno(peer_fd, "Failed to open PTY peer: %m");
 
                         // FIXME: Introduce OpenMachinePTYEx() that accepts ownership/permission as param
