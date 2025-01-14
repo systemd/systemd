@@ -30,6 +30,8 @@ typedef enum UserDBFlags {
         /* Combinations */
         USERDB_NSS_ONLY = USERDB_EXCLUDE_VARLINK|USERDB_EXCLUDE_DROPIN|USERDB_DONT_SYNTHESIZE_INTRINSIC|USERDB_DONT_SYNTHESIZE_FOREIGN,
         USERDB_DROPIN_ONLY = USERDB_EXCLUDE_NSS|USERDB_EXCLUDE_VARLINK|USERDB_DONT_SYNTHESIZE_INTRINSIC|USERDB_DONT_SYNTHESIZE_FOREIGN,
+
+        USERDB_PARSE_NUMERIC             = 1 << 8,  /* if a numeric UID is specified as name, parse it and look up by UID/GID */
 } UserDBFlags;
 
 /* Well-known errors we'll return here:
