@@ -681,10 +681,10 @@ static int log_do_header(
                      error ? "ERRNO=" : "",
                      error ? 1 : 0, error,
                      error ? "\n" : "",
-                     isempty(object) ? "" : object_field,
+                     isempty(object) ? "" : isempty(object_field) ? "" : object_field,
                      isempty(object) ? "" : object,
                      isempty(object) ? "" : "\n",
-                     isempty(extra) ? "" : extra_field,
+                     isempty(extra) ? "" : isempty(extra_field) ? "" : extra_field,
                      isempty(extra) ? "" : extra,
                      isempty(extra) ? "" : "\n",
                      program_invocation_short_name);
