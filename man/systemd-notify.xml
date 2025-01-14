@@ -125,12 +125,19 @@
         argument is specified as <literal>self</literal>, the PID of the <command>systemd-notify</command>
         command itself is used, and if <literal>parent</literal> is specified the calling process' PID is
         used — even if it is the service manager. <option>--pid=auto</option> is equivalent to <command>systemd-notify
-        MAINPID=$PID</command>. For details about the semantics of this option see
+        --pid=$PID</command>. For details about the semantics of this option see
         <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
 
-        <para>If this switch is used in an <command>systemd-notify</command> invocation from a process that
-        shall become the new main process of a service — and which is not the process forked off by the
-        service manager (or the current main process) —, then it is essential to set
+        <para><command>systemd-notify</command> will first attempt to invoke <function>sd_notify()</function>
+        pretending to have the PID specified with <option>--pid=</option>. This will only succeed when
+        invoked with sufficient privileges. On failure, it will then fall back to invoking it under its own
+        PID. Effectively, this means that a privileged invocation of <command>systemd-notify --pid=</command>
+        may circumvent <varname>NotifyAccess=main</varname> or <varname>NotifyAccess=exec</varname>
+        restrictions enforced for a service.</para>
+
+        <para>If this switch is used in an unprivileged <command>systemd-notify</command> invocation from a
+        process that shall become the new main process of a service — and which is not the process forked off
+        by the service manager (or the current main process) —, then it is essential to set
         <varname>NotifyAccess=all</varname> in the service unit file, or otherwise the notification will be
         ignored for security reasons. See
         <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
