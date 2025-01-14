@@ -1590,6 +1590,25 @@ int image_set_limit(Image *i, uint64_t referenced_max) {
         return 0;
 }
 
+int image_set_pool_limit(uint64_t referenced_max) {
+        const char *dir = image_root_to_string(IMAGE_MACHINE);
+        int r;
+
+        r = btrfs_qgroup_set_limit(dir, /* qgroupid = */ 0, referenced_max);
+        if (r == -ENOTTY)
+                return -EOPNOTSUPP;
+        if (r < 0)
+                log_debug_errno(r, "Failed to set limit on btrfs quota group for '%s', ignoring: %m", dir);
+
+        r = btrfs_subvol_set_subtree_quota_limit(dir, /* subvol_id = */ 0, referenced_max);
+        if (r == -ENOTTY)
+                return -EOPNOTSUPP;
+        if (r < 0)
+                return log_debug_errno(r, "Failed to set subtree quota limit for '%s': %m", dir);
+
+        return 0;
+}
+
 int image_read_metadata(Image *i, const ImagePolicy *image_policy) {
         _cleanup_(release_lock_file) LockFile global_lock = LOCK_FILE_INIT, local_lock = LOCK_FILE_INIT;
         int r;

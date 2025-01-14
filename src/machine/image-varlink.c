@@ -4,9 +4,12 @@
 #include "sd-varlink.h"
 
 #include "bus-polkit.h"
+#include "btrfs-util.h"
 #include "fd-util.h"
 #include "image-varlink.h"
+#include "io-util.h"
 #include "machine.h"
+#include "machine-pool.h"
 #include "string-util.h"
 
 typedef struct ImageUpdateParameters {
@@ -229,4 +232,48 @@ int vl_method_remove_image(sd_varlink *link, sd_json_variant *parameters, sd_var
 
         TAKE_FD(errno_pipe_fd[0]);
         return 1;
+}
+
+int vl_method_set_pool_limit(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "limit", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64, 0, SD_JSON_MANDATORY },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        };
+
+        Manager *manager = ASSERT_PTR(userdata);
+        uint64_t limit;
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &limit);
+        if (r != 0)
+                return r;
+
+        if (!FILE_SIZE_VALID_OR_INFINITY(limit))
+                return sd_varlink_error_invalid_parameter_name(link, "limit");
+
+        r = varlink_verify_polkit_async(
+                        link,
+                        manager->bus,
+                        "org.freedesktop.machine1.manage-images",
+                        (const char**) STRV_MAKE("verb", "set_pool_limit"),
+                        &manager->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        /* Set up the machine directory if necessary */
+        r = setup_machine_directory(/* error = */ NULL, /* use_btrfs_subvol= */ true, /* use_btrfs_quota= */ true);
+        if (r < 0)
+                return r;
+
+        r = image_set_pool_limit(limit);
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_IMAGE_NOT_SUPPORTED, NULL);
+        if (r < 0)
+                return r;
+
+        return sd_varlink_reply(link, NULL);
 }
