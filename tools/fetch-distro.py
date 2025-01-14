@@ -60,35 +60,55 @@ def checkout_distro(args, distro: str, config: dict):
 
     url = config['Environment']['GIT_URL']
     branch = config['Environment']['GIT_BRANCH']
+    subdir = config['Environment']['GIT_SUBDIR'] if 'GIT_SUBDIR' in config['Environment'] else None
+
+    # Do not checkout the full sources if the package is in a subdirectory,
+    # a sparse checkout will be done after
+    sparse = ['--no-checkout', '--filter=blob:none'] if subdir is not None else []
 
     # Only debian uses source-git for now…
-    reference = [f'--reference-if-able=.'] if distro == 'debian' else []
+    reference = ['--reference-if-able=.'] if distro == 'debian' else []
 
     cmd = [
         'git', 'clone', url,
         f'--branch={branch}',
+        *sparse,
         dest.as_posix(),
         *reference,
     ]
     print(f"+ {shlex.join(cmd)}")
     subprocess.check_call(cmd)
 
+    # Sparse checkout if the package is in a subdirectory
+    if subdir is not None:
+        cmd = ['git', '-C', f'pkg/{distro}', 'sparse-checkout', 'set',
+               '--no-cone', f'{subdir}']
+        print(f"+ {shlex.join(cmd)}")
+        subprocess.check_call(cmd)
+
+        cmd = ['git', '-C', f'pkg/{distro}', 'checkout', 'HEAD']
+        print(f"+ {shlex.join(cmd)}")
+        subprocess.check_call(cmd)
+
     args.fetch = False  # no need to fetch if we just cloned
 
 def update_distro(args, distro: str, config: dict):
     branch = config['Environment']['GIT_BRANCH']
+    subdir = [config['Environment']['GIT_SUBDIR']] if 'GIT_SUBDIR' in config['Environment'] else []
     old_commit = config['Environment']['GIT_COMMIT']
 
     cmd = ['git', '-C', f'pkg/{distro}', 'switch', branch]
     print(f"+ {shlex.join(cmd)}")
     subprocess.check_call(cmd)
 
-    cmd = ['git', '-C', f'pkg/{distro}', 'fetch', 'origin', '-v',
-           f'{branch}:remotes/origin/{branch}']
-    print(f"+ {shlex.join(cmd)}")
-    subprocess.check_call(cmd)
+    if args.fetch:
+        cmd = ['git', '-C', f'pkg/{distro}', 'fetch', 'origin', '-v',
+               f'{branch}:remotes/origin/{branch}']
+        print(f"+ {shlex.join(cmd)}")
+        subprocess.check_call(cmd)
 
-    cmd = ['git', '-C', f'pkg/{distro}', 'rev-parse', f'refs/remotes/origin/{branch}']
+    cmd = ['git', '-C', f'pkg/{distro}', 'log', '-n1', '--format=%H',
+           f'refs/remotes/origin/{branch}', *subdir]
     print(f"+ {shlex.join(cmd)}")
     new_commit = subprocess.check_output(cmd, text=True).strip()
 
@@ -98,7 +118,7 @@ def update_distro(args, distro: str, config: dict):
 
     cmd = ['git', '-C', f'pkg/{distro}', 'log', '--graph', '--first-parent',
            '--pretty=oneline', '--no-decorate', '--abbrev-commit', '--abbrev=10',
-           f'{old_commit}..{new_commit}']
+           f'{old_commit}..{new_commit}', *subdir]
     print(f"+ {shlex.join(cmd)}")
     changes = subprocess.check_output(cmd, text=True).strip()
 
