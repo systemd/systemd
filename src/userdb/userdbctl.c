@@ -405,12 +405,8 @@ static int display_user(int argc, char *argv[], void *userdata) {
         if (argc > 1 && !arg_fuzzy)
                 STRV_FOREACH(i, argv + 1) {
                         _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
-                        uid_t uid;
 
-                        if (parse_uid(*i, &uid) >= 0)
-                                r = userdb_by_uid(uid, arg_userdb_flags, &ur);
-                        else
-                                r = userdb_by_name(*i, arg_userdb_flags, &ur);
+                        r = userdb_by_name(*i, arg_userdb_flags|USERDB_PARSE_NUMERIC, &ur);
                         if (r < 0) {
                                 if (r == -ESRCH)
                                         log_error_errno(r, "User %s does not exist.", *i);
@@ -741,12 +737,8 @@ static int display_group(int argc, char *argv[], void *userdata) {
         if (argc > 1 && !arg_fuzzy)
                 STRV_FOREACH(i, argv + 1) {
                         _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
-                        gid_t gid;
 
-                        if (parse_gid(*i, &gid) >= 0)
-                                r = groupdb_by_gid(gid, arg_userdb_flags, &gr);
-                        else
-                                r = groupdb_by_name(*i, arg_userdb_flags, &gr);
+                        r = groupdb_by_name(*i, arg_userdb_flags|USERDB_PARSE_NUMERIC, &gr);
                         if (r < 0) {
                                 if (r == -ESRCH)
                                         log_error_errno(r, "Group %s does not exist.", *i);
