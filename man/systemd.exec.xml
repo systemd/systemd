@@ -770,6 +770,15 @@
         changes in the original unit through notification messages. These messages will be considered belonging to the
         session scope unit and not the original unit. It is hence not recommended to use <varname>PAMName=</varname> in
         combination with <varname>NotifyAccess=</varname><option>all</option>.</para>
+
+        <para>If a PAM module interactively requests input (a password or suchlike) it will be attempted to
+        be read from a service credential (as configured via <varname>SetCredential=</varname>,
+        <varname>ImportCredential=</varname> and related calls) under the name
+        <varname>pam.authtok.<replaceable>pamservice</replaceable></varname>, where
+        <replaceable>pamservice</replaceable> is replaced by the PAM service name as configured with
+        <varname>PAMName=</varname>. (Note that the credential remains accessible for the runtime of the
+        service!) If no matching credential is set, the user is prompted for it interactively via the <ulink
+        url="https://systemd.io/PASSWORD_AGENTS">Password Agent</ulink> logic.</para>
         </listitem>
       </varlistentry>
 
