@@ -7,6 +7,18 @@
 #  include <libaudit.h>
 #endif
 
+#ifndef AUDIT_ADD_USER
+#  define AUDIT_ADD_USER 1114 /* A user account was created */
+#else
+assert_cc(AUDIT_ADD_USER == 1114);
+#endif
+
+#ifndef AUDIT_ADD_GROUP
+#  define AUDIT_ADD_GROUP 1116 /* A group account was created */
+#else
+assert_cc(AUDIT_ADD_GROUP == 1116);
+#endif
+
 #ifndef AUDIT_SERVICE_START
 #  define AUDIT_SERVICE_START 1130 /* Service (daemon) start */
 #else
