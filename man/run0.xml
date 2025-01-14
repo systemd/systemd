@@ -225,6 +225,21 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--lightweight=<replaceable>BOOLEAN</replaceable></option></term>
+
+        <listitem><para>Controls whether to activate the per-user service manager for the target user. By
+        default if the target user is <literal>root</literal> or a system user the per-user service manager
+        is not activated as effect of the <command>run0</command> invocation, otherwise it is.</para>
+
+        <para>This ultimately controls the <varname>$XDG_SESSION_CLASS</varname> variable
+        <citerefentry><refentrytitle>pam_systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        respects.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--machine=</option></term>
 
         <listitem>
@@ -320,7 +335,8 @@
       <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd-run</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry project='man-pages'><refentrytitle>sudo</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
-      <member><citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>,
+      <member><citerefentry><refentrytitle>pam_systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
     </simplelist></para>
   </refsect1>
 
