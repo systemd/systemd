@@ -128,6 +128,9 @@ Features:
   class for non-regular users.  Effect: if you log into a system user for some
   reason, yu won't get the service manager by default.
 
+* introduce new ANSI sequence for communicating log level and structured error
+  metadata to terminals.
+
 * in pid1: include ExecStart= cmdlines (and other Exec*= cmdlines) in polkit
   request, so that policies can match against command lines.
 
