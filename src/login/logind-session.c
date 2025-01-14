@@ -859,7 +859,13 @@ int session_start(Session *s, sd_bus_message *properties, sd_bus_error *error) {
                    "SESSION_ID=%s", s->id,
                    "USER_ID=%s", s->user->user_record->user_name,
                    "LEADER="PID_FMT, s->leader.pid,
-                   LOG_MESSAGE("New session %s of user %s.", s->id, s->user->user_record->user_name));
+                   "CLASS=%s", session_class_to_string(s->class),
+                   "TYPE=%s", session_type_to_string(s->type),
+                   LOG_MESSAGE("New session '%s' of user '%s' with class '%s' and type '%s'.",
+                               s->id,
+                               s->user->user_record->user_name,
+                               session_class_to_string(s->class),
+                               session_type_to_string(s->type)));
 
         if (!dual_timestamp_is_set(&s->timestamp))
                 dual_timestamp_now(&s->timestamp);
