@@ -131,7 +131,8 @@ static int compare_unit_start(const UnitTimes *a, const UnitTimes *b) {
 
 static void svg_graph_box(double height, double begin, double end) {
         /* outside box, fill */
-        svg("<rect class=\"box\" x=\"0\" y=\"0\" width=\"%.03f\" height=\"%.03f\" />\n",
+        svg("<rect class=\"box\" x=\"%.03f\" y=\"0\" width=\"%.03f\" height=\"%.03f\" />\n",
+            SCALE_X * (begin),
             SCALE_X * (end - begin),
             SCALE_Y * height);
 
