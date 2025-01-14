@@ -1901,6 +1901,46 @@ static int print_unit_invocation(const char *unit, sd_id128_t invocation_id) {
         return sd_json_variant_dump(v, arg_json_format_flags, stdout, NULL);
 }
 
+typedef struct JobDoneContext {
+        char *unit;
+        char *start_job;
+        sd_bus_slot *match;
+} JobDoneContext;
+
+static void job_done_context_done(JobDoneContext *c) {
+        assert(c);
+
+        c->unit = mfree(c->unit);
+        c->start_job = mfree(c->start_job);
+        c->match = sd_bus_slot_unref(c->match);
+}
+
+static int match_job_removed(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        JobDoneContext *c = ASSERT_PTR(userdata);
+        const char *path, *unit, *result;
+        int r;
+
+        assert(m);
+
+        r = sd_bus_message_read(m, "uoss", /* id = */ NULL, &path, &unit, &result);
+        if (r < 0) {
+                bus_log_parse_error(r);
+                return 0;
+        }
+
+        if (!streq_ptr(path, c->start_job))
+                return 0;
+
+        /* Notify our caller that the service is now running, just in case. */
+        (void) sd_notifyf(/* unset_environment= */ false,
+                          "READY=1\n"
+                          "RUN_UNIT=%s",
+                          c->unit);
+
+        job_done_context_done(c);
+        return 0;
+}
+
 static int start_transient_service(sd_bus *bus) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -1977,16 +2017,6 @@ static int start_transient_service(sd_bus *bus) {
                         assert_not_reached();
         }
 
-        /* Optionally, wait for the start job to complete. If we are supposed to read the service's stdin
-         * lets skip this however, because we should start that already when the start job is running, and
-         * there's little point in waiting for the start job to complete in that case anyway, as we'll wait
-         * for EOF anyway, which is going to be much later. */
-        if (!arg_no_block && arg_stdio == ARG_STDIO_NONE) {
-                r = bus_wait_for_jobs_new(bus, &w);
-                if (r < 0)
-                        return log_error_errno(r, "Could not watch jobs: %m");
-        }
-
         if (arg_unit) {
                 r = unit_name_mangle_with_suffix(arg_unit, "as unit",
                                                  arg_quiet ? 0 : UNIT_NAME_MANGLE_WARN,
@@ -1999,6 +2029,36 @@ static int start_transient_service(sd_bus *bus) {
                         return r;
         }
 
+        /* Optionally, wait for the start job to complete. If we are supposed to read the service's stdin
+         * lets skip this however, because we should start that already when the start job is running, and
+         * there's little point in waiting for the start job to complete in that case anyway, as we'll wait
+         * for EOF anyway, which is going to be much later. */
+        _cleanup_(job_done_context_done) JobDoneContext job_done_context = {};
+        if (!arg_no_block) {
+                if (arg_stdio == ARG_STDIO_NONE) {
+                        r = bus_wait_for_jobs_new(bus, &w);
+                        if (r < 0)
+                                return log_error_errno(r, "Could not watch jobs: %m");
+                } else {
+                        job_done_context.unit = strdup(service);
+                        if (!job_done_context.unit)
+                                return log_oom();
+
+                        /* When we are a bus client we match by sender. Direct connections OTOH have no
+                         * initialized sender field, and hence we ignore the sender then */
+                        r = sd_bus_match_signal_async(
+                                        bus,
+                                        &job_done_context.match,
+                                        sd_bus_is_bus_client(bus) ? "org.freedesktop.systemd1" : NULL,
+                                        "/org/freedesktop/systemd1",
+                                        "org.freedesktop.systemd1.Manager",
+                                        "JobRemoved",
+                                        match_job_removed, NULL, &job_done_context);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to install JobRemove match: %m");
+                }
+        }
+
         r = make_transient_service_unit(bus, &m, service, pty_path, peer_fd);
         if (r < 0)
                 return r;
@@ -2008,23 +2068,26 @@ static int start_transient_service(sd_bus *bus) {
         if (r < 0)
                 return r;
 
+        const char *object;
+        r = sd_bus_message_read(reply, "o", &object);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
         if (w) {
-                const char *object;
-
-                r = sd_bus_message_read(reply, "o", &object);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-
                 r = bus_wait_for_jobs_one(w,
                                           object,
                                           arg_quiet ? 0 : BUS_WAIT_JOBS_LOG_ERROR,
                                           arg_runtime_scope == RUNTIME_SCOPE_USER ? STRV_MAKE_CONST("--user") : NULL);
                 if (r < 0)
                         return r;
+        } else if (job_done_context.match) {
+                job_done_context.start_job = strdup(object);
+                if (!job_done_context.start_job)
+                        return log_oom();
         }
 
         if (!arg_quiet) {
-                sd_id128_t invocation_id;
+                sd_id128_t invocation_id = SD_ID128_NULL;
 
                 r = acquire_invocation_id(bus, service, &invocation_id);
                 if (r < 0)
