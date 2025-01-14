@@ -293,7 +293,7 @@ static int produce_plot_as_svg(
             "      rect.initrd       { fill: rgb(150,150,150); fill-opacity: 0.7; }\n"
             "      rect.firmware     { fill: rgb(150,150,150); fill-opacity: 0.7; }\n"
             "      rect.loader       { fill: rgb(150,150,150); fill-opacity: 0.7; }\n"
-            "      rect.userspace    { fill: rgb(150,150,150); fill-opacity: 0.7; }\n"
+            "      rect.soft-reboot  { fill: rgb(150,150,150); fill-opacity: 0.7; }\n"
             "      rect.security     { fill: rgb(144,238,144); fill-opacity: 0.7; }\n"
             "      rect.generators   { fill: rgb(102,204,255); fill-opacity: 0.7; }\n"
             "      rect.unitsload    { fill: rgb( 82,184,255); fill-opacity: 0.7; }\n"
