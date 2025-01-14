@@ -258,6 +258,11 @@
             <entry><varname>protvirt</varname></entry>
             <entry>IBM Protected Virtualization (Secure Execution)</entry>
           </row>
+          <row>
+            <entry>arm64</entry>
+            <entry><varname>cca</varname></entry>
+            <entry>Arm Confidential Compute Architecture</entry>
+          </row>
         </tbody>
       </tgroup>
     </table>
