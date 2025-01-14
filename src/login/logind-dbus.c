@@ -893,6 +893,7 @@ int manager_create_session(
                 const char *remote_host,
                 Session **ret_session) {
 
+        bool mangle_class = false;
         int r;
 
         assert(m);
@@ -920,6 +921,10 @@ int manager_create_session(
                         class = SESSION_BACKGROUND;
                 else
                         class = SESSION_USER;
+
+                /* If we determined the class automatically, then let's later potentially change it to early
+                 * or light flavours, once we learn the disposition of the user */
+                mangle_class = true;
         }
 
         /* Check if we are already in a logind session, and if so refuse. */
@@ -961,6 +966,25 @@ int manager_create_session(
         r = manager_add_user_by_uid(m, uid, &user);
         if (r < 0)
                 goto fail;
+
+        /* If we picked the session class on our own, and the user is not a regular one, and the session is
+         * not a graphical one then do not pull in session manager by default. For root make a special
+         * exception: for TTY logins leave the service manager on, but relax the /run/nologin
+         * restrictions. */
+        if (mangle_class &&
+            IN_SET(user_record_disposition(user->user_record), USER_INTRINSIC, USER_SYSTEM, USER_DYNAMIC)) {
+
+                if (class == SESSION_USER) {
+                        if (user_record_is_root(user->user_record))
+                                class = SESSION_USER_EARLY;
+                        else if (SESSION_TYPE_IS_GRAPHICAL(type))
+                                class = SESSION_USER;
+                        else
+                                class = SESSION_USER_LIGHT;
+
+                } else if (class == SESSION_BACKGROUND)
+                        class = SESSION_BACKGROUND_LIGHT;
+        }
 
         r = manager_add_session(m, id, &session);
         if (r < 0)
@@ -1835,7 +1859,7 @@ static int have_multiple_sessions(
         /* Check for other users' sessions. Greeter sessions do not
          * count, and non-login sessions do not count either. */
         HASHMAP_FOREACH(session, m->sessions)
-                if (IN_SET(session->class, SESSION_USER, SESSION_USER_EARLY) &&
+                if (SESSION_CLASS_IS_INHIBITOR_LIKE(session->class) &&
                     session->user->user_record->uid != uid)
                         return true;
 

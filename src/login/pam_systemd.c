@@ -751,7 +751,7 @@ static int apply_user_record_settings(
 
         if (nice_is_valid(ur->nice_level)) {
                 if (nice(ur->nice_level) < 0)
-                        pam_syslog_errno(handle, LOG_ERR, errno,
+                        pam_syslog_errno(handle, LOG_WARNING, errno,
                                          "Failed to set nice level to %i, ignoring: %m", ur->nice_level);
                 else
                         pam_debug_syslog(handle, debug,
@@ -759,7 +759,6 @@ static int apply_user_record_settings(
         }
 
         for (int rl = 0; rl < _RLIMIT_MAX; rl++) {
-
                 if (!ur->rlimits[rl])
                         continue;
 
@@ -1003,14 +1002,36 @@ static void session_context_mangle(
                 c->vtnr = 0;
         }
 
-        if (isempty(c->type))
+        if (isempty(c->type)) {
                 c->type = !isempty(c->display) ? "x11" :
                               !isempty(c->tty) ? "tty" : "unspecified";
+                pam_debug_syslog(handle, debug, "Automatically chose session type '%s'.", c->type);
+        }
 
-        if (isempty(c->class))
-                c->class = streq(c->type, "unspecified") ? "background" :
-                        ((IN_SET(user_record_disposition(ur), USER_INTRINSIC, USER_SYSTEM, USER_DYNAMIC) &&
-                         streq(c->type, "tty")) ? "user-early" : "user");
+        if (isempty(c->class)) {
+                c->class = streq(c->type, "unspecified") ? "background" : "user";
+
+                /* For non-regular users tweak the type a bit:
+                 *
+                 * - Allow root tty logins *before* systemd-user-sessions.service is run, to allow early boot
+                 *   logins to debug things.
+                 *
+                 * - Non-graphical sessions shall be invoked without service manager.
+                 *
+                 * (Note that this somewhat replicates the class mangling logic on systemd-logind.service's
+                 * server side to some degree, in case clients allocate a session and don't specify a
+                 * class. This is somewhat redundant, but we need the class set up properly below.) */
+
+                if (IN_SET(user_record_disposition(ur), USER_INTRINSIC, USER_SYSTEM, USER_DYNAMIC)) {
+                        if (streq(c->class, "user"))
+                                c->class = user_record_is_root(ur) ? "user-early" :
+                                        (STR_IN_SET(c->type, "x11", "wayland", "mir") ? "user" : "user-light");
+                        else if (streq(c->class, "background"))
+                                c->class = "background-light";
+                }
+
+                pam_debug_syslog(handle, debug, "Automatically chose session class '%s'.", c->class);
+        }
 
         if (c->incomplete) {
                 if (streq(c->class, "user"))
