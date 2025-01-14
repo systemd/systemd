@@ -161,14 +161,15 @@ static void log_job_error_with_service_result(const char* service, const char *r
         static const struct {
                 const char *result, *explanation;
         } explanations[] = {
-                { "resources",   "of unavailable resources or another system error"                      },
-                { "protocol",    "the service did not take the steps required by its unit configuration" },
-                { "timeout",     "a timeout was exceeded"                                                },
-                { "exit-code",   "the control process exited with error code"                            },
-                { "signal",      "a fatal signal was delivered to the control process"                   },
-                { "core-dump",   "a fatal signal was delivered causing the control process to dump core" },
-                { "watchdog",    "the service failed to send watchdog ping"                              },
-                { "start-limit", "start of the service was attempted too often"                          },
+                { "resources",       "of unavailable resources or another system error"                      },
+                { "protocol",        "the service did not take the steps required by its unit configuration" },
+                { "timeout",         "a timeout was exceeded"                                                },
+                { "exit-code",       "the control process exited with error code"                            },
+                { "signal",          "a fatal signal was delivered to the control process"                   },
+                { "core-dump",       "a fatal signal was delivered causing the control process to dump core" },
+                { "watchdog",        "the service failed to send watchdog ping"                              },
+                { "start-limit-hit", "start of the service was attempted too often"                          },
+                { "oom-kill",        "of an out-of-memory (OOM) siutation"                                   },
         };
 
         _cleanup_free_ char *service_shell_quoted = NULL;
@@ -205,7 +206,7 @@ static void log_job_error_with_service_result(const char* service, const char *r
 
 extra:
         /* For some results maybe additional explanation is required */
-        if (streq_ptr(result, "start-limit"))
+        if (streq_ptr(result, "start-limit-hit"))
                 log_info("To force a start use \"%1$s reset-failed %2$s\"\n"
                          "followed by \"%1$s start %2$s\" again.",
                          systemctl,
