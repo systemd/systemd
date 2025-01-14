@@ -204,7 +204,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  critical-chain [UNIT...]   Print a tree of the time critical chain\n"
                "                             of units\n"
                "\n%3$sDependency Analysis:%4$s\n"
-               "  plot                       Output SVG graphic showing service\n"
+               "  plot [OPTIONS]             Output SVG graphic showing service\n"
                "                             initialization\n"
                "  dot [UNIT...]              Output dependency graph in %7$s format\n"
                "  dump [PATTERN...]          Output state serialization of service\n"
@@ -379,7 +379,10 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hqH:M:U:m", options, NULL)) >= 0)
+        /* Resetting to 0 forces the invocation of an internal initialization routine of getopt_long()
+         * that checks for GNU extensions in optstring ('-' or '+' at the beginning). */
+        optind = 0;
+        while ((c = getopt_long(argc, argv, "+hqH:M:U:m", options, NULL)) >= 0)
                 switch (c) {
 
                 case 'h':
@@ -650,7 +653,7 @@ static int run(int argc, char *argv[]) {
                 { "time",              VERB_ANY, 1,        VERB_DEFAULT, verb_time              },
                 { "blame",             VERB_ANY, 1,        0,            verb_blame             },
                 { "critical-chain",    VERB_ANY, VERB_ANY, 0,            verb_critical_chain    },
-                { "plot",              VERB_ANY, 1,        0,            verb_plot              },
+                { "plot",              VERB_ANY, VERB_ANY, 0,            verb_plot              },
                 { "dot",               VERB_ANY, VERB_ANY, 0,            verb_dot               },
                 /* ↓ The following seven verbs are deprecated, from here … ↓ */
                 { "log-level",         VERB_ANY, 2,        0,            verb_log_control       },

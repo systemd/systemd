@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <getopt.h>
+
 #include "analyze-plot.h"
 #include "analyze-time-data.h"
 #include "analyze.h"
@@ -42,6 +44,12 @@ typedef struct HostInfo {
         char *virtualization;
         char *architecture;
 } HostInfo;
+
+static bool arg_hide_firmware = false;
+static bool arg_hide_loader = false;
+static bool arg_hide_kernel = false;
+static bool arg_hide_initrd = false;
+static bool arg_hide_reboot = false;
 
 static HostInfo *free_host_info(HostInfo *hi) {
         if (!hi)
@@ -130,8 +138,15 @@ static int compare_unit_start(const UnitTimes *a, const UnitTimes *b) {
 }
 
 static void svg_graph_box(double height, double begin, double end) {
+        /* show timestamps relative to the beginning of the plot
+         * keep the firmware and loader timestamps at the negative side */
+        if (begin > 0) {
+                end = end - begin;
+                begin = 0;
+        }
         /* outside box, fill */
-        svg("<rect class=\"box\" x=\"0\" y=\"0\" width=\"%.03f\" height=\"%.03f\" />\n",
+        svg("<rect class=\"box\" x=\"%.03f\" y=\"0\" width=\"%.03f\" height=\"%.03f\" />\n",
+            SCALE_X * (begin),
             SCALE_X * (end - begin),
             SCALE_Y * height);
 
@@ -180,7 +195,7 @@ static void plot_tooltip(const UnitTimes *ut) {
                 }
 }
 
-static int plot_unit_times(UnitTimes *u, double width, int y) {
+static int plot_unit_times(UnitTimes *u, double width, double graph_start_time, int y) {
         bool b;
 
         if (!u->name)
@@ -195,7 +210,7 @@ static int plot_unit_times(UnitTimes *u, double width, int y) {
         svg_bar("deactivating", u->deactivating, u->deactivated, y);
 
         /* place the text on the left if we have passed the half of the svg width */
-        b = u->activating * SCALE_X < width / 2;
+        b = (u->activating - graph_start_time) * SCALE_X < width / 2;
         if (u->time)
                 svg_text(b, u->activating, y, "%s (%s)",
                          u->name, FORMAT_TIMESPAN(u->time, USEC_PER_MSEC));
@@ -227,20 +242,30 @@ static int produce_plot_as_svg(
         UnitTimes *u;
         double width;
 
-        width = SCALE_X * (boot->firmware_time + boot->finish_time);
+        double graph_start_time = -(double) boot->firmware_time;
+        if ((arg_hide_reboot && boot->soft_reboots_count > 0) || arg_hide_initrd)
+                graph_start_time = (double) boot->userspace_time;
+        else if (arg_hide_kernel)
+                graph_start_time = (double) boot->kernel_done_time;
+        else if (arg_hide_loader)
+                graph_start_time = 0;
+        else if (arg_hide_firmware)
+                graph_start_time = -(double) boot->loader_time;
+
+        width = SCALE_X * (boot->finish_time - graph_start_time);
         if (width < 800.0)
                 width = 800.0;
 
-        if (boot->firmware_time > boot->loader_time)
+        if (!arg_hide_firmware && boot->firmware_time > boot->loader_time)
                 m++;
-        if (timestamp_is_set(boot->loader_time)) {
+        if (!arg_hide_loader && timestamp_is_set(boot->loader_time)) {
                 m++;
                 if (width < 1000.0)
                         width = 1000.0;
         }
-        if (timestamp_is_set(boot->initrd_time))
+        if (!arg_hide_initrd && timestamp_is_set(boot->initrd_time))
                 m++;
-        if (timestamp_is_set(boot->kernel_done_time))
+        if (!arg_hide_kernel && timestamp_is_set(boot->kernel_done_time))
                 m++;
 
         for (u = times; u->has_data; u++) {
@@ -292,7 +317,7 @@ static int produce_plot_as_svg(
             "      rect.initrd       { fill: rgb(150,150,150); fill-opacity: 0.7; }\n"
             "      rect.firmware     { fill: rgb(150,150,150); fill-opacity: 0.7; }\n"
             "      rect.loader       { fill: rgb(150,150,150); fill-opacity: 0.7; }\n"
-            "      rect.userspace    { fill: rgb(150,150,150); fill-opacity: 0.7; }\n"
+            "      rect.soft-reboot  { fill: rgb(150,150,150); fill-opacity: 0.7; }\n"
             "      rect.security     { fill: rgb(144,238,144); fill-opacity: 0.7; }\n"
             "      rect.generators   { fill: rgb(102,204,255); fill-opacity: 0.7; }\n"
             "      rect.unitsload    { fill: rgb( 82,184,255); fill-opacity: 0.7; }\n"
@@ -319,28 +344,32 @@ static int produce_plot_as_svg(
                     strempty(host->architecture),
                     strempty(host->virtualization));
 
-        svg("<g transform=\"translate(%.3f,100)\">\n", 20.0 + (SCALE_X * boot->firmware_time));
-        if (boot->soft_reboots_count > 0)
+        svg("<g transform=\"translate(%.3f,100)\">\n",
+            20.0 - (SCALE_X * (graph_start_time < 0 ? graph_start_time : 0)));
+        if (!arg_hide_reboot && boot->soft_reboots_count > 0)
                 svg_graph_box(m, 0, boot->finish_time);
         else
-                svg_graph_box(m, -(double) boot->firmware_time, boot->finish_time);
+                svg_graph_box(m, graph_start_time, boot->finish_time);
 
-        if (timestamp_is_set(boot->firmware_time)) {
+        if (!arg_hide_firmware && timestamp_is_set(boot->firmware_time)) {
                 svg_bar("firmware", -(double) boot->firmware_time, -(double) boot->loader_time, y);
                 svg_text(true, -(double) boot->firmware_time, y, "firmware");
                 y++;
         }
-        if (timestamp_is_set(boot->loader_time)) {
+        if (!arg_hide_loader && timestamp_is_set(boot->loader_time)) {
                 svg_bar("loader", -(double) boot->loader_time, 0, y);
                 svg_text(true, -(double) boot->loader_time, y, "loader");
                 y++;
         }
-        if (timestamp_is_set(boot->kernel_done_time)) {
+        if (!arg_hide_kernel && timestamp_is_set(boot->kernel_done_time)) {
                 svg_bar("kernel", 0, boot->kernel_done_time, y);
                 svg_text(true, 0, y, "kernel");
                 y++;
         }
-        if (timestamp_is_set(boot->initrd_time)) {
+
+        svg("<g transform=\"translate(%.3f,0)\">\n", -(SCALE_X * (graph_start_time > 0 ? graph_start_time : 0)));
+
+        if (!arg_hide_initrd && timestamp_is_set(boot->initrd_time)) {
                 svg_bar("initrd", boot->initrd_time, boot->userspace_time, y);
                 if (boot->initrd_security_start_time < boot->initrd_security_finish_time)
                         svg_bar("security", boot->initrd_security_start_time, boot->initrd_security_finish_time, y);
@@ -351,7 +380,7 @@ static int produce_plot_as_svg(
                 svg_text(true, boot->initrd_time, y, "initrd");
                 y++;
         }
-        if (boot->soft_reboots_count > 0) {
+        if (!arg_hide_reboot && boot->soft_reboots_count > 0) {
                 svg_bar("soft-reboot", 0, boot->userspace_time, y);
                 svg_text(true, 0, y, "soft-reboot");
                 y++;
@@ -361,7 +390,7 @@ static int produce_plot_as_svg(
                 if (u->activating >= boot->userspace_time)
                         break;
 
-                y += plot_unit_times(u, width, y);
+                y += plot_unit_times(u, width, graph_start_time, y);
         }
 
         svg_bar("active", boot->userspace_time, boot->finish_time, y);
@@ -375,9 +404,9 @@ static int produce_plot_as_svg(
         y++;
 
         for (; u->has_data; u++)
-                y += plot_unit_times(u, width, y);
+                y += plot_unit_times(u, width, graph_start_time, y);
 
-        svg("</g>\n");
+        svg("</g></g>\n");
 
         /* Legend */
         svg("<g transform=\"translate(20,100)\">\n");
@@ -463,6 +492,64 @@ static int produce_plot_as_text(UnitTimes *times, const BootTimes *boot) {
         return show_table(table, "Units");
 }
 
+static int help(void) {
+        printf("%s plot [OPTIONS]\n\n"
+               "Output SVG graphic showing service initialization\n"
+               "  -h --help                                Show this help\n"
+               "  -f --hide-firmware                       Do not plot firmware events\n"
+               "  -l --hide-loader                         Do not plot bootloader events\n"
+               "  -k --hide-kernel                         Do not plot kernel events\n"
+               "  -i --hide-initrd                         Do not plot initrd events\n"
+               "  -i --hide-reboot                         Do not plot soft-reboot events\n",
+               program_invocation_short_name);
+
+        return 0;
+}
+
+static int parse_argv(int argc, char *argv[]) {
+        static const struct option options[] = {
+                { "help",          no_argument, NULL, 'h' },
+                { "hide-firmware", no_argument, NULL, 'f' },
+                { "hide-loader",   no_argument, NULL, 'l' },
+                { "hide-kernel",   no_argument, NULL, 'k' },
+                { "hide-initrd",   no_argument, NULL, 'i' },
+                { "hide-reboot",   no_argument, NULL, 'r' },
+                {}
+        };
+
+        int c;
+
+        while ((c= getopt_long(argc, argv, "fhiklr", options, NULL)) >= 0)
+                 switch (c) {
+                 case 'f':
+                         arg_hide_firmware = true;
+                         break;
+                 case 'l':
+                         arg_hide_loader = true;
+                         arg_hide_firmware = true;
+                         break;
+                 case 'k':
+                         arg_hide_kernel = true;
+                         arg_hide_firmware = arg_hide_loader = true;
+                         break;
+                 case 'i':
+                         arg_hide_initrd = true;
+                         arg_hide_firmware = arg_hide_loader = arg_hide_kernel = true;
+                         break;
+                 case 'r':
+                         arg_hide_reboot = true;
+                         break;
+                 case 'h':
+                         return help();
+                 case '?':
+                         return -EINVAL;
+                 default:
+                         assert_not_reached();
+                 }
+
+        return 1;
+}
+
 int verb_plot(int argc, char *argv[], void *userdata) {
         _cleanup_(free_host_infop) HostInfo *host = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
@@ -471,6 +558,10 @@ int verb_plot(int argc, char *argv[], void *userdata) {
         bool use_full_bus = arg_runtime_scope == RUNTIME_SCOPE_SYSTEM;
         BootTimes *boot;
         int n, r;
+
+        r = parse_argv(argc, argv);
+        if (r <= 0)
+                goto finalize;
 
         r = acquire_bus(&bus, &use_full_bus);
         if (r < 0)
@@ -503,5 +594,6 @@ int verb_plot(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
+finalize:
         return EXIT_SUCCESS;
 }
