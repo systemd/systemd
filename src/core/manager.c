@@ -3562,7 +3562,7 @@ void manager_send_unit_audit(Manager *m, Unit *u, int type, bool success) {
         if (MANAGER_IS_RELOADING(m))
                 return;
 
-        audit_fd = get_audit_fd();
+        audit_fd = get_core_audit_fd();
         if (audit_fd < 0)
                 return;
 
@@ -3577,7 +3577,7 @@ void manager_send_unit_audit(Manager *m, Unit *u, int type, bool success) {
                 if (ERRNO_IS_PRIVILEGE(errno)) {
                         /* We aren't allowed to send audit messages?  Then let's not retry again. */
                         log_debug_errno(errno, "Failed to send audit message, closing audit socket: %m");
-                        close_audit_fd();
+                        close_core_audit_fd();
                 } else
                         log_warning_errno(errno, "Failed to send audit message, ignoring: %m");
         }
