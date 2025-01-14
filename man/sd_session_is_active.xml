@@ -216,10 +216,10 @@
 
     <para><function>sd_session_get_class()</function> may be used to determine the class of the session
     identified by the specified session identifier. The returned string is one of <literal>user</literal>,
-    <literal>user-early</literal>, <literal>user-incomplete</literal>, <literal>greeter</literal>,
-    <literal>lock-screen</literal>, <literal>background</literal>, <literal>background-light</literal>,
-    <literal>manager</literal> or <literal>manager-early</literal> and needs to be freed with the libc
-    <citerefentry
+    <literal>user-early</literal>, <literal>user-light</literal>, <literal>user-early-light</literal>,
+    <literal>user-incomplete</literal>, <literal>greeter</literal>, <literal>lock-screen</literal>,
+    <literal>background</literal>, <literal>background-light</literal>, <literal>manager</literal> or
+    <literal>manager-early</literal> and needs to be freed with the libc <citerefentry
     project='man-pages'><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry> call after
     use.</para>
 
