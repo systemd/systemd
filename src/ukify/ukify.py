@@ -763,7 +763,7 @@ def call_systemd_measure(uki: UKI, opts: UkifyConfig, profile_start: int = 0) ->
             cmd = [
                 measure_tool,
                 'calculate',
-                *(f"--{s.name.removeprefix('.')}={s.content}" for s in to_measure.values()),
+                *(f'--{s.name.removeprefix(".")}={s.content}' for s in to_measure.values()),
                 *(f'--bank={bank}' for bank in banks),
                 # For measurement, the keys are not relevant, so we can lump all the phase paths
                 # into one call to systemd-measure calculate.
@@ -786,7 +786,7 @@ def call_systemd_measure(uki: UKI, opts: UkifyConfig, profile_start: int = 0) ->
             cmd = [
                 measure_tool,
                 'sign',
-                *(f"--{s.name.removeprefix('.')}={s.content}" for s in to_measure.values()),
+                *(f'--{s.name.removeprefix(".")}={s.content}' for s in to_measure.values()),
                 *(f'--bank={bank}' for bank in banks),
             ]
 
@@ -1284,7 +1284,7 @@ def make_uki(opts: UkifyConfig) -> None:
         os.umask(umask := os.umask(0))
         os.chmod(opts.output, 0o777 & ~umask)
 
-    print(f"Wrote {'signed' if sign_args_present else 'unsigned'} {opts.output}")
+    print(f'Wrote {"signed" if sign_args_present else "unsigned"} {opts.output}')
 
 
 @contextlib.contextmanager
