@@ -556,8 +556,7 @@ def main() -> None:
         and not sanitizer
     ):
         journal_file.unlink(missing_ok=True)
-
-    if os.getenv('TEST_JOURNAL_USE_TMP', '0') == '1':
+    elif os.getenv('TEST_JOURNAL_USE_TMP', '0') == '1':
         dst = args.meson_build_dir / f'test/journal/{name}.journal'
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.move(journal_file, dst)
