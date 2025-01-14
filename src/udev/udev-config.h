@@ -18,6 +18,7 @@ typedef struct UdevConfig {
         usec_t timeout_usec;
         int timeout_signal;
         bool blockdev_read_only;
+        bool trace;
 } UdevConfig;
 
 #define UDEV_CONFIG_INIT                                             \
@@ -28,6 +29,7 @@ typedef struct UdevConfig {
 
 void manager_set_children_max(Manager *manager, unsigned n);
 void manager_set_log_level(Manager *manager, int log_level);
+void manager_set_trace(Manager *manager, bool enable);
 void manager_set_environment(Manager *manager, char * const *v);
 
 int manager_load(Manager *manager, int argc, char *argv[]);
