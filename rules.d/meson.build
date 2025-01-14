@@ -45,6 +45,8 @@ rules = [
 ]
 
 all_rules = []
+# For the udev alias
+buildable_rules = []
 
 foreach tuple : rules
         if tuple.length() == 1 or tuple[1]
@@ -82,5 +84,6 @@ foreach tuple : rules_in
 
         if want
                 all_rules += rule
+                buildable_rules += rule
         endif
 endforeach

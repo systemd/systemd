@@ -833,6 +833,10 @@ units = [
         },
 ]
 
+# For the udev/hwdb aliases
+udev_units = []
+hwdb_units = []
+
 foreach unit : units
         source = unit.get('file')
 
@@ -855,7 +859,7 @@ foreach unit : units
         endforeach
 
         if needs_jinja
-                custom_target(
+                t = custom_target(
                         name,
                         input : source,
                         output : name,
@@ -863,6 +867,11 @@ foreach unit : units
                         install : install,
                         install_dir : systemunitdir,
                         install_tag : unit.get('install_tag', ''))
+                if unit.get('install_tag', '') == 'udev'
+                        udev_units += t
+                elif unit.get('install_tag', '') == 'hwdb'
+                        hwdb_units += t
+                endif
         elif install
                 install_data(source,
                              install_dir : systemunitdir,
