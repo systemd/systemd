@@ -46,7 +46,7 @@ but many other existing tools will do too.
 Portable services may also be constructed from layers, similarly to container environments.
 See [Extension Images](#extension-images) below.
 
-If you so will, "Portable Services" are a nicer way to manage chroot()
+If you so will, "Portable Services" are a nicer way to manage `chroot()`
 environments, with better security, tooling and behavior.
 
 ## Where's the difference to a "Container"?
@@ -73,7 +73,7 @@ This focus includes system extensions otherwise sometimes called "super-privileg
 
 Note that portable services are only available for system services, not for
 user services (i.e. the functionality cannot be used for the stuff
-bubblewrap/flatpak is focusing on).
+[`bubblewrap`](https://github.com/containers/bubblewrap)/[`flatpak`](https://flatpak.org/) is focusing on).
 
 ## Mode of Operation
 
@@ -166,7 +166,7 @@ Specifically, the following requirements are made for an image that can be attac
 
 3. The image must at least contain one matching unit file, with the right name
    prefix and suffix (see above).
-   The unit file is searched in the usual paths, i.e. primarily /etc/systemd/system/ and /usr/lib/systemd/system/ within the image.
+   The unit file is searched in the usual paths, i.e. primarily `/etc/systemd/system/` and `/usr/lib/systemd/system/` within the image.
    (The implementation will check a couple of other paths too, but it's recommended to use these two paths.)
 
 4. The image must contain an os-release file, either in `/etc/os-release` or
