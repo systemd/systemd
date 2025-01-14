@@ -4838,9 +4838,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       code. <literal>signal</literal> indicates that a service process exited with an uncaught
       signal. <literal>core-dump</literal> indicates that a service process exited uncleanly and dumped
       core. <literal>watchdog</literal> indicates that a service did not send out watchdog ping messages
-      often enough. <literal>start-limit</literal> indicates that a service has been started too frequently
-      in a specific time frame (as configured in <varname>StartLimitInterval</varname>,
-      <varname>StartLimitBurst</varname>).</para>
+      often enough. <literal>start-limit-hit</literal> indicates that a service has been started too
+      frequently in a specific time frame (as configured in <varname>StartLimitInterval</varname>,
+      <varname>StartLimitBurst</varname>). <literal>oom-kill</literal> indicates that the service was
+      terminated due to an out-of-memory (OOM) situation.</para>
 
       <para><varname>ControlGroup</varname> indicates the control group path the processes of this service
       unit are placed in.</para>
