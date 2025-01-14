@@ -88,6 +88,7 @@ static bool arg_ignore_failure = false;
 static char *arg_background = NULL;
 static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 static char *arg_shell_prompt_prefix = NULL;
+static int arg_lightweight = -1;
 
 STATIC_DESTRUCTOR_REGISTER(arg_description, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_environment, strv_freep);
@@ -199,6 +200,8 @@ static int help_sudo_mode(void) {
                "     --pty                        Request allocation of a pseudo TTY for stdio\n"
                "     --pipe                       Request direct pipe for stdio\n"
                "     --shell-prompt-prefix=PREFIX Set $SHELL_PROMPT_PREFIX\n"
+               "     --lightweight=BOOLEAN        Control whether to register a session with service manager\n"
+               "                                  or without\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -778,6 +781,7 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                 ARG_PTY,
                 ARG_PIPE,
                 ARG_SHELL_PROMPT_PREFIX,
+                ARG_LIGHTWEIGHT,
         };
 
         /* If invoked as "run0" binary, let's expose a more sudo-like interface. We add various extensions
@@ -802,6 +806,7 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                 { "pty",                 no_argument,       NULL, ARG_PTY                 },
                 { "pipe",                no_argument,       NULL, ARG_PIPE                },
                 { "shell-prompt-prefix", required_argument, NULL, ARG_SHELL_PROMPT_PREFIX },
+                { "lightweight",         required_argument, NULL, ARG_LIGHTWEIGHT         },
                 {},
         };
 
@@ -914,6 +919,12 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                                 return r;
                         break;
 
+                case ARG_LIGHTWEIGHT:
+                        r = parse_tristate_argument("--lightweight=", optarg, &arg_lightweight);
+                        if (r < 0)
+                                return r;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -946,6 +957,8 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
 
         if (IN_SET(arg_stdio, ARG_STDIO_NONE, ARG_STDIO_AUTO))
                 arg_stdio = isatty_safe(STDIN_FILENO) && isatty_safe(STDOUT_FILENO) && isatty_safe(STDERR_FILENO) ? ARG_STDIO_PTY : ARG_STDIO_DIRECT;
+
+        log_debug("Using %s stdio mode.", arg_stdio == ARG_STDIO_PTY ? "pty" : "direct");
 
         arg_expand_environment = false;
         arg_send_sighup = true;
@@ -1043,6 +1056,28 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                 r = strv_env_assign(&arg_environment, "SHELL_PROMPT_PREFIX", arg_shell_prompt_prefix);
                 if (r < 0)
                         return log_error_errno(r, "Failed to set $SHELL_PROMPT_PREFIX environment variable: %m");
+        }
+
+        /* When using run0 to acquire privileges temporarily, let's not pull in session manager by
+         * default. Note that pam_logind/systemd-logind doesn't distinguish between run0-style privilege
+         * escalation on a TTY and first class (getty-style) TTY logins (and thus gives root a per-session
+         * manager for interactive TTY sessions), hence let's override the logic explicitly here. We only do
+         * this for root though, under the assumption that if a regular user temporarily transitions into
+         * another regular user it's a better default that the full user environment is uniformly
+         * available. */
+        if (arg_lightweight < 0 && !strv_env_get(arg_environment, "XDG_SESSION_CLASS") && privileged_execution())
+                arg_lightweight = true;
+
+        if (arg_lightweight >= 0) {
+                const char *class =
+                        arg_lightweight ? (arg_stdio == ARG_STDIO_PTY ? (privileged_execution() ? "user-early-light" : "user-light") : "background-light") :
+                                          (arg_stdio == ARG_STDIO_PTY ? (privileged_execution() ? "user-early" : "user") : "background");
+
+                log_debug("Setting XDG_SESSION_CLASS to '%s'.", class);
+
+                r = strv_env_assign(&arg_environment, "XDG_SESSION_CLASS", class);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set $XDG_SESSION_CLASS environment variable: %m");
         }
 
         return 1;
