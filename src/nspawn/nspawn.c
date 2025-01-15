@@ -3943,7 +3943,6 @@ static int outer_child(
 
         _cleanup_(bind_user_context_freep) BindUserContext *bind_user_context = NULL;
         _cleanup_strv_free_ char **os_release_pairs = NULL;
-        _cleanup_close_ int mntns_fd = -EBADF;
         bool idmap = false, enable_fuse;
         const char *p;
         pid_t pid;
@@ -4012,6 +4011,8 @@ static int outer_child(
                 return r;
 
         if (arg_userns_mode != USER_NAMESPACE_NO) {
+                _cleanup_close_ int mntns_fd = -EBADF;
+
                 mntns_fd = namespace_open_by_type(NAMESPACE_MOUNT);
                 if (mntns_fd < 0)
                         return log_error_errno(mntns_fd, "Failed to pin outer mount namespace: %m");
