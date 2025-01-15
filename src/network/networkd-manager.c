@@ -230,9 +230,6 @@ static int manager_listen_fds(Manager *m, int *ret_rtnl_fd) {
         if (n < 0)
                 return n;
 
-        if (strv_length(names) != (size_t) n)
-                return -EINVAL;
-
         for (int i = 0; i < n; i++) {
                 int fd = i + SD_LISTEN_FDS_START;
 
