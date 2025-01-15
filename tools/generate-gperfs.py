@@ -16,9 +16,7 @@ if __name__ == '__main__':
 
     print("""\
 %{
-#if __GNUC__ >= 7
 _Pragma("GCC diagnostic ignored \\"-Wimplicit-fallthrough\\"")
-#endif
 %}""")
     print(f"""\
 struct {name}_name {{ const char* name; int id; }};
