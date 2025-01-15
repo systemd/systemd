@@ -1153,7 +1153,7 @@ static int transient_service_set_properties(sd_bus_message *m, const char *pty_p
         bool use_ex_prop = !arg_expand_environment;
 
         assert(m);
-        assert(pty_path || pty_fd < 0);
+        assert((!!pty_path) == (pty_fd >= 0));
 
         r = transient_unit_set_properties(m, UNIT_SERVICE, arg_property);
         if (r < 0)
@@ -1208,18 +1208,11 @@ static int transient_service_set_properties(sd_bus_message *m, const char *pty_p
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                if (pty_fd >= 0)
-                        r = sd_bus_message_append(m,
-                                                  "(sv)(sv)(sv)",
-                                                  "StandardInputFileDescriptor", "h", pty_fd,
-                                                  "StandardOutputFileDescriptor", "h", pty_fd,
-                                                  "StandardErrorFileDescriptor", "h", pty_fd);
-                else
-                        r = sd_bus_message_append(m,
-                                                  "(sv)(sv)(sv)",
-                                                  "StandardInput", "s", "tty",
-                                                  "StandardOutput", "s", "tty",
-                                                  "StandardError", "s", "tty");
+                r = sd_bus_message_append(m,
+                                          "(sv)(sv)(sv)",
+                                          "StandardInputFileDescriptor", "h", pty_fd,
+                                          "StandardOutputFileDescriptor", "h", pty_fd,
+                                          "StandardErrorFileDescriptor", "h", pty_fd);
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -1967,9 +1960,6 @@ static int start_transient_service(sd_bus *bus) {
                         peer_fd = pty_open_peer(pty_fd, O_RDWR|O_NOCTTY|O_CLOEXEC);
                         if (peer_fd < 0)
                                 return log_error_errno(peer_fd, "Failed to open PTY peer: %m");
-
-                        // FIXME: Introduce OpenMachinePTYEx() that accepts ownership/permission as param
-                        // and additionally returns the pty fd, for #33216 and #32999
                 } else
                         assert_not_reached();
         }
