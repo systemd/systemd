@@ -487,7 +487,7 @@ TEST(restrict_address_families) {
                 safe_close(fd);
 
                 assert_se(s = set_new(NULL));
-                assert_se(set_put(s, INT_TO_PTR(AF_UNIX)) >= 0);
+                ASSERT_OK(set_put(s, INT_TO_PTR(AF_UNIX)));
 
                 assert_se(seccomp_restrict_address_families(s, false) >= 0);
 
@@ -510,7 +510,7 @@ TEST(restrict_address_families) {
 
                 set_clear(s);
 
-                assert_se(set_put(s, INT_TO_PTR(AF_INET)) >= 0);
+                ASSERT_OK(set_put(s, INT_TO_PTR(AF_INET)));
 
                 assert_se(seccomp_restrict_address_families(s, true) >= 0);
 
@@ -751,7 +751,7 @@ TEST(restrict_archs) {
                 assert_se(s = set_new(NULL));
 
 #ifdef __x86_64__
-                assert_se(set_put(s, UINT32_TO_PTR(SCMP_ARCH_X86+1)) >= 0);
+                ASSERT_OK(set_put(s, UINT32_TO_PTR(SCMP_ARCH_X86+1)));
 #endif
                 assert_se(seccomp_restrict_archs(s) >= 0);
 
@@ -901,7 +901,7 @@ TEST(native_syscalls_filtered) {
                 /* Passing "native" or an empty set is equivalent, just do both here. */
                 assert_se(arch_s = set_new(NULL));
                 assert_se(seccomp_restrict_archs(arch_s) >= 0);
-                assert_se(set_put(arch_s, SCMP_ARCH_NATIVE) >= 0);
+                ASSERT_OK(set_put(arch_s, SCMP_ARCH_NATIVE));
                 assert_se(seccomp_restrict_archs(arch_s) >= 0);
 
                 assert_se(access("/", F_OK) >= 0);

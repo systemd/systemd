@@ -5201,8 +5201,8 @@ static int tpm2_calculate_seal_ecc_seed(
         r = ecc_pkey_to_curve_x_y(
                         parent_pkey,
                         &curve_id,
-                        /* ret_x= */ NULL, /* ret_x_size= */ 0,
-                        /* ret_y= */ NULL, /* ret_y_size= */ 0);
+                        /* ret_x= */ NULL, /* ret_x_size= */ NULL,
+                        /* ret_y= */ NULL, /* ret_y_size= */ NULL);
         if (r < 0)
                 return r;
 

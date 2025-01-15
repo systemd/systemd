@@ -412,6 +412,7 @@ possible_common_cc_flags = [
         '-Wunterminated-string-initialization',
         '-Wunused-function',
         '-Wwrite-strings',
+        '-Wzero-as-null-pointer-constant',
         '-Wzero-length-bounds',
 
         # negative arguments are correctly detected starting with meson 0.46.
