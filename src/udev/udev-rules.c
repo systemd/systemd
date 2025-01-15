@@ -346,7 +346,7 @@ static void log_event_truncated(
 
 /*** Other functions ***/
 
-static UdevRuleToken *udev_rule_token_free(UdevRuleToken *token) {
+static UdevRuleToken* udev_rule_token_free(UdevRuleToken *token) {
         if (!token)
                 return NULL;
 
@@ -365,7 +365,7 @@ static void udev_rule_line_clear_tokens(UdevRuleLine *rule_line) {
                 udev_rule_token_free(i);
 }
 
-static UdevRuleLine *udev_rule_line_free(UdevRuleLine *rule_line) {
+static UdevRuleLine* udev_rule_line_free(UdevRuleLine *rule_line) {
         if (!rule_line)
                 return NULL;
 
@@ -380,7 +380,7 @@ static UdevRuleLine *udev_rule_line_free(UdevRuleLine *rule_line) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(UdevRuleLine*, udev_rule_line_free);
 
-static UdevRuleFile *udev_rule_file_free(UdevRuleFile *rule_file) {
+static UdevRuleFile* udev_rule_file_free(UdevRuleFile *rule_file) {
         if (!rule_file)
                 return NULL;
 
@@ -2395,11 +2395,18 @@ static int udev_rule_apply_token_to_event(
                 if (level < 0)
                         level = event->default_log_level;
 
-                log_set_max_level(level);
+                if (event->event_mode == EVENT_UDEV_WORKER)
+                        log_set_max_level(level);
+                else {
+                        _cleanup_free_ char *level_str = NULL;
+                        (void) log_level_to_string_alloc(level, &level_str);
+                        log_event_debug(dev, token, "Running in test mode, skipping changing maximum log level to %s.", strna(level_str));
+                }
 
                 if (level == LOG_DEBUG && !event->log_level_was_debug) {
                         /* The log level becomes LOG_DEBUG at first time. Let's log basic information. */
-                        log_device_uevent(dev, "The log level is changed to 'debug' while processing device");
+                        if (event->event_mode == EVENT_UDEV_WORKER)
+                                log_device_uevent(dev, "The log level is changed to 'debug' while processing device");
                         event->log_level_was_debug = true;
                 }
 
