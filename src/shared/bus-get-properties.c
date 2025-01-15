@@ -3,6 +3,7 @@
 #include "bus-get-properties.h"
 #include "bus-message-util.h"
 #include "rlimit-util.h"
+#include "set.h"
 #include "stdio-util.h"
 #include "string-util.h"
 
