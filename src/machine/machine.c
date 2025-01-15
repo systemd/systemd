@@ -688,25 +688,6 @@ int machine_openpt(Machine *m, int flags, char **ret_peer) {
         }
 }
 
-int machine_open_terminal(Machine *m, const char *path, int mode) {
-        assert(m);
-
-        switch (m->class) {
-
-        case MACHINE_HOST:
-                return open_terminal(path, mode);
-
-        case MACHINE_CONTAINER:
-                if (!pidref_is_set(&m->leader))
-                        return -EINVAL;
-
-                return open_terminal_in_namespace(&m->leader, path, mode);
-
-        default:
-                return -EOPNOTSUPP;
-        }
-}
-
 static int machine_bus_new(Machine *m, sd_bus_error *error, sd_bus **ret) {
         int r;
 

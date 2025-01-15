@@ -145,7 +145,6 @@ int ptsname_malloc(int fd, char **ret);
 
 int openpt_allocate(int flags, char **ret_peer);
 int openpt_allocate_in_namespace(const PidRef *pidref, int flags, char **ret_peer);
-int open_terminal_in_namespace(const PidRef *pidref, const char *name, int mode);
 
 int vt_restore(int fd);
 int vt_release(int fd, bool restore_vt);
