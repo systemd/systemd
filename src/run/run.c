@@ -1966,7 +1966,7 @@ static int start_transient_service(sd_bus *bus) {
 
                         peer_fd = pty_open_peer(pty_fd, O_RDWR|O_NOCTTY|O_CLOEXEC);
                         if (peer_fd < 0)
-                                return log_debug_errno(peer_fd, "Failed to open PTY peer: %m");
+                                return log_error_errno(peer_fd, "Failed to open PTY peer: %m");
 
                         // FIXME: Introduce OpenMachinePTYEx() that accepts ownership/permission as param
                         // and additionally returns the pty fd, for #33216 and #32999
