@@ -4,6 +4,7 @@
 #include "sd-bus.h"
 
 #include "in-addr-util.h"
+#include "set.h"
 #include "socket-netlink.h"
 
 int bus_message_read_id128(sd_bus_message *m, sd_id128_t *ret);
