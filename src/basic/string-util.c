@@ -77,38 +77,6 @@ char* strnappend(const char *s, const char *suffix, size_t b) {
         return r;
 }
 
-char* strjoin_real(const char *x, ...) {
-        va_list ap;
-        size_t l = 1;
-        char *r, *p;
-
-        va_start(ap, x);
-        for (const char *t = x; t; t = va_arg(ap, const char *)) {
-                size_t n;
-
-                n = strlen(t);
-                if (n > SIZE_MAX - l) {
-                        va_end(ap);
-                        return NULL;
-                }
-                l += n;
-        }
-        va_end(ap);
-
-        p = r = new(char, l);
-        if (!r)
-                return NULL;
-
-        va_start(ap, x);
-        for (const char *t = x; t; t = va_arg(ap, const char *))
-                p = stpcpy(p, t);
-        va_end(ap);
-
-        *p = 0;
-
-        return r;
-}
-
 char* strstrip(char *s) {
         if (!s)
                 return NULL;
@@ -843,12 +811,14 @@ char* strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
 }
 
 char* strextend_with_separator_internal(char **x, const char *separator, ...) {
+        _cleanup_free_ char *buffer = NULL;
         size_t f, l, l_separator;
         bool need_separator;
         char *nr, *p;
         va_list ap;
 
-        assert(x);
+        if (!x)
+                x = &buffer;
 
         l = f = strlen_ptr(*x);
 
@@ -856,13 +826,14 @@ char* strextend_with_separator_internal(char **x, const char *separator, ...) {
         l_separator = strlen_ptr(separator);
 
         va_start(ap, separator);
-        for (;;) {
-                const char *t;
+        for (const char *t;;) {
                 size_t n;
 
                 t = va_arg(ap, const char *);
                 if (!t)
                         break;
+                if (t == POINTER_MAX)
+                        continue;
 
                 n = strlen(t);
 
@@ -895,6 +866,8 @@ char* strextend_with_separator_internal(char **x, const char *separator, ...) {
                 t = va_arg(ap, const char *);
                 if (!t)
                         break;
+                if (t == POINTER_MAX)
+                        continue;
 
                 if (need_separator && separator)
                         p = stpcpy(p, separator);
@@ -906,9 +879,13 @@ char* strextend_with_separator_internal(char **x, const char *separator, ...) {
         va_end(ap);
 
         assert(p == nr + l);
-
         *p = 0;
 
+        /* If no buffer to extend was passed in return the start of the buffer */
+        if (buffer)
+                return TAKE_PTR(buffer);
+
+        /* Otherwise we extended the buffer: return the end */
         return p;
 }
 
