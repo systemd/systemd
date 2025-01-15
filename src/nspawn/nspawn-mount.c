@@ -595,11 +595,11 @@ int mount_all(const char *dest,
                 { "tmpfs",                  "/tmp",                         "tmpfs", "mode=01777" NESTED_TMPFS_LIMITS, MS_NOSUID|MS_NODEV|MS_STRICTATIME,
                   MOUNT_FATAL|MOUNT_APPLY_TMPFS_TMP|MOUNT_MKDIR },
                 { "tmpfs",                  "/sys",                         "tmpfs", "mode=0555" TMPFS_LIMITS_SYS,     MS_NOSUID|MS_NOEXEC|MS_NODEV,
-                  MOUNT_FATAL|MOUNT_APPLY_APIVFS_NETNS|MOUNT_MKDIR|MOUNT_PRIVILEGED },
+                  MOUNT_FATAL|MOUNT_APPLY_APIVFS_NETNS|MOUNT_MKDIR|MOUNT_UNMANAGED },
                 { "sysfs",                  "/sys",                         "sysfs", NULL,                             SYS_DEFAULT_MOUNT_FLAGS,
-                  MOUNT_FATAL|MOUNT_APPLY_APIVFS_RO|MOUNT_MKDIR|MOUNT_PRIVILEGED },    /* skipped if above was mounted */
+                  MOUNT_FATAL|MOUNT_APPLY_APIVFS_RO|MOUNT_MKDIR|MOUNT_UNMANAGED },    /* skipped if above was mounted */
                 { "sysfs",                  "/sys",                         "sysfs", NULL,                             MS_NOSUID|MS_NOEXEC|MS_NODEV,
-                  MOUNT_FATAL|MOUNT_MKDIR|MOUNT_PRIVILEGED },                          /* skipped if above was mounted */
+                  MOUNT_FATAL|MOUNT_MKDIR|MOUNT_UNMANAGED },                          /* skipped if above was mounted */
                 { "tmpfs",                  "/dev",                         "tmpfs", "mode=0755" TMPFS_LIMITS_PRIVATE_DEV, MS_NOSUID|MS_STRICTATIME,
                   MOUNT_FATAL|MOUNT_MKDIR },
                 { "tmpfs",                  "/dev/shm",                     "tmpfs", "mode=01777" NESTED_TMPFS_LIMITS, MS_NOSUID|MS_NODEV|MS_STRICTATIME,
@@ -622,9 +622,9 @@ int mount_all(const char *dest,
                 { "/sys/fs/selinux",        "/sys/fs/selinux",              NULL,    NULL,                             MS_BIND,
                   MOUNT_MKDIR|MOUNT_PRIVILEGED },  /* Bind mount first (mkdir/chown the mount point in case /sys/ is mounted as minimal skeleton tmpfs) */
                 { NULL,                     "/sys/fs/selinux",              NULL,    NULL,                             MS_BIND|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_REMOUNT,
-                  MOUNT_PRIVILEGED },              /* Then, make it r/o (don't mkdir/chown the mount point here, the previous entry already did that) */
+                  MOUNT_UNMANAGED|MOUNT_PRIVILEGED },  /* Then, make it r/o (don't mkdir/chown the mount point here, the previous entry already did that) */
                 { NULL,                     "/sys/fs/selinux",              NULL,    NULL,                             MS_PRIVATE,
-                  MOUNT_PRIVILEGED },              /* Turn off propagation (we only want that for the mount propagation tunnel dir) */
+                  MOUNT_UNMANAGED|MOUNT_PRIVILEGED },  /* Turn off propagation (we only want that for the mount propagation tunnel dir) */
 #endif
         };
 
@@ -633,6 +633,7 @@ int mount_all(const char *dest,
         bool ro = FLAGS_SET(mount_settings, MOUNT_APPLY_APIVFS_RO);
         bool in_userns = FLAGS_SET(mount_settings, MOUNT_IN_USERNS);
         bool tmpfs_tmp = FLAGS_SET(mount_settings, MOUNT_APPLY_TMPFS_TMP);
+        bool unmanaged = FLAGS_SET(mount_settings, MOUNT_UNMANAGED);
         bool privileged = FLAGS_SET(mount_settings, MOUNT_PRIVILEGED);
         int r;
 
@@ -642,7 +643,7 @@ int mount_all(const char *dest,
                 const char *o;
 
                 /* If we are not privileged but the entry is marked as privileged and to be mounted outside the user namespace, then skip it */
-                if (!privileged && FLAGS_SET(m->mount_settings, MOUNT_PRIVILEGED) && !FLAGS_SET(m->mount_settings, MOUNT_IN_USERNS))
+                if (!unmanaged && FLAGS_SET(m->mount_settings, MOUNT_UNMANAGED) && !FLAGS_SET(m->mount_settings, MOUNT_IN_USERNS))
                         continue;
 
                 if (in_userns != FLAGS_SET(m->mount_settings, MOUNT_IN_USERNS))
@@ -655,6 +656,9 @@ int mount_all(const char *dest,
                         continue;
 
                 if (!tmpfs_tmp && FLAGS_SET(m->mount_settings, MOUNT_APPLY_TMPFS_TMP))
+                        continue;
+
+                if (!privileged && FLAGS_SET(m->mount_settings, MOUNT_PRIVILEGED))
                         continue;
 
                 r = chase(m->where, dest, CHASE_NONEXISTENT|CHASE_PREFIX_ROOT, &where, NULL);
