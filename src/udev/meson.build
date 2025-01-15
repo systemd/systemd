@@ -148,7 +148,7 @@ udev_common_template = {
 udev_test_template = test_template + udev_common_template
 udev_fuzz_template = fuzz_template + udev_common_template
 
-executables += [
+udev_binaries_dict = [
         executable_template + {
                 'name' : 'udevadm',
                 'public' : true,
@@ -200,6 +200,15 @@ executables += [
                 'name' : 'v4l_id',
                 'sources' : files('v4l_id/v4l_id.c'),
         },
+]
+# For the udev alias
+udev_binaries = []
+foreach binary : udev_binaries_dict
+        udev_binaries += binary.get('name')
+endforeach
+
+executables += udev_binaries_dict
+executables += [
         test_template + {
                 'sources' : files(
                         'fido_id/test-fido-id-desc.c',

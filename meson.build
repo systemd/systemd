@@ -2952,6 +2952,18 @@ custom_target('installed-unit-files.txt',
 
 #####################################################################
 
+udev_targets = []
+foreach bin : udev_binaries
+        if executables_by_name.has_key(bin)
+                udev_targets += executables_by_name.get(bin)
+        endif
+endforeach
+alias_target('udev', buildable_rules, udev_targets, udev_units)
+
+if conf.get('ENABLE_HWDB') == 1
+        alias_target('hwdb', auto_suspend_rules, executables_by_name.get('systemd-hwdb'), hwdb_units)
+endif
+
 alt_time_epoch = run_command('date', '-Is', '-u', '-d', '@@0@'.format(time_epoch),
                              check : true).stdout().strip()
 
