@@ -10,9 +10,7 @@ name, prefix, input = sys.argv[1:]
 
 print("""\
 %{
-#if __GNUC__ >= 7
 _Pragma("GCC diagnostic ignored \\"-Wimplicit-fallthrough\\"")
-#endif
 %}""")
 print("""\
 struct {}_name {{ const char* name; int id; }};
