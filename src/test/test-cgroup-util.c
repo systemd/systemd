@@ -210,14 +210,14 @@ TEST(proc) {
                 if (pidref_is_kernel_thread(&pid) != 0)
                         continue;
 
-                cg_pidref_get_path(SYSTEMD_CGROUP_CONTROLLER, &pid, &path);
-                cg_pid_get_path_shifted(pid.pid, NULL, &path_shifted);
-                cg_pidref_get_owner_uid(&pid, &uid);
-                cg_pidref_get_session(&pid, &session);
-                cg_pidref_get_unit(&pid, &unit);
-                cg_pid_get_user_unit(pid.pid, &user_unit);
-                cg_pid_get_machine_name(pid.pid, &machine);
-                cg_pid_get_slice(pid.pid, &slice);
+                ASSERT_OK_ZERO(cg_pidref_get_path(SYSTEMD_CGROUP_CONTROLLER, &pid, &path));
+                ASSERT_OK_ZERO(cg_pid_get_path_shifted(pid.pid, NULL, &path_shifted));
+                ASSERT_OK_ZERO(cg_pidref_get_owner_uid(&pid, &uid));
+                ASSERT_OK_ZERO(cg_pidref_get_session(&pid, &session));
+                ASSERT_OK_ZERO(cg_pidref_get_unit(&pid, &unit));
+                ASSERT_OK_ZERO(cg_pid_get_user_unit(pid.pid, &user_unit));
+                ASSERT_OK_ZERO(cg_pid_get_machine_name(pid.pid, &machine));
+                ASSERT_OK_ZERO(cg_pid_get_slice(pid.pid, &slice));
 
                 printf(PID_FMT"\t%s\t%s\t"UID_FMT"\t%s\t%s\t%s\t%s\t%s\n",
                        pid.pid,
