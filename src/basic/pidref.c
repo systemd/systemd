@@ -305,6 +305,7 @@ int pidref_new_from_pid(pid_t pid, PidRef **ret) {
 }
 
 int pidref_kill(const PidRef *pidref, int sig) {
+        int r;
 
         if (!pidref)
                 return -ESRCH;
@@ -312,8 +313,12 @@ int pidref_kill(const PidRef *pidref, int sig) {
         if (pidref_is_remote(pidref))
                 return -EREMOTE;
 
-        if (pidref->fd >= 0)
-                return RET_NERRNO(pidfd_send_signal(pidref->fd, sig, NULL, 0));
+        if (pidref->fd >= 0) {
+                /* Valgrind doesn't support pidfd_send_signal(), hence keep a fallback */
+                r = RET_NERRNO(pidfd_send_signal(pidref->fd, sig, NULL, 0));
+                if (!ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                        return r;
+        }
 
         if (pidref->pid > 0)
                 return RET_NERRNO(kill(pidref->pid, sig));
