@@ -385,27 +385,13 @@ int curl_header_strdup(const void *contents, size_t sz, const char *field, char 
 }
 
 int curl_parse_http_time(const char *t, usec_t *ret) {
-        _cleanup_(freelocalep) locale_t loc = (locale_t) 0;
-        const char *e;
-        struct tm tm;
+        time_t v;
+        struct tm *tm;
 
         assert(t);
         assert(ret);
 
-        loc = newlocale(LC_TIME_MASK, "C", (locale_t) 0);
-        if (loc == (locale_t) 0)
-                return -errno;
-
-        /* RFC822 */
-        e = strptime_l(t, "%a, %d %b %Y %H:%M:%S %Z", &tm, loc);
-        if (!e || *e != 0)
-                /* RFC 850 */
-                e = strptime_l(t, "%A, %d-%b-%y %H:%M:%S %Z", &tm, loc);
-        if (!e || *e != 0)
-                /* ANSI C */
-                e = strptime_l(t, "%a %b %d %H:%M:%S %Y", &tm, loc);
-        if (!e || *e != 0)
-                return -EINVAL;
-
-        return mktime_or_timegm_usec(&tm, /* usec= */ true, ret);
+        v = curl_getdate(t, NULL);
+        tm = gmtime(&v);
+        return mktime_or_timegm_usec(tm, /* usec= */ true, ret);
 }
