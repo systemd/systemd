@@ -121,6 +121,7 @@ char *arg_profile = NULL;
 bool arg_legend = true;
 bool arg_table = false;
 ImagePolicy *arg_image_policy = NULL;
+PlotHideMode arg_plot_hide_mode = HIDE_NONE;
 
 STATIC_DESTRUCTOR_REGISTER(arg_dot_from_patterns, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_dot_to_patterns, strv_freep);
@@ -130,6 +131,20 @@ STATIC_DESTRUCTOR_REGISTER(arg_security_policy, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_unit, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_profile, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
+
+const char* plot_hide_mode_to_string(PlotHideMode i) _const_;
+PlotHideMode plot_hide_mode_from_string(const char *s) _pure_;
+
+static const char* const plot_hide_mode_table[_HIDE_MAX] = {
+        [HIDE_NONE] = "none",
+        [HIDE_FIRMWARE] = "firmware",
+        [HIDE_LOADER] = "loader",
+        [HIDE_KERNEL] = "kernel",
+        [HIDE_INITRD] = "initrd",
+        [HIDE_SOFT_REBOOT] = "soft-reboot",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(plot_hide_mode, PlotHideMode);
 
 int acquire_bus(sd_bus **bus, bool *use_full_bus) {
         int r;
@@ -204,7 +219,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  critical-chain [UNIT...]   Print a tree of the time critical chain\n"
                "                             of units\n"
                "\n%3$sDependency Analysis:%4$s\n"
-               "  plot                       Output SVG graphic showing service\n"
+               "  plot [OPTIONS]             Output SVG graphic showing service\n"
                "                             initialization\n"
                "  dot [UNIT...]              Output dependency graph in %7$s format\n"
                "  dump [PATTERN...]          Output state serialization of service\n"
@@ -279,6 +294,9 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --scale-svg=FACTOR      Stretch x-axis of plot by FACTOR (default: 1.0)\n"
                "     --detailed              Add more details to SVG plot,\n"
                "                             e.g. show activation timestamps\n"
+               "     --hide=PART             On a plot hide starting parts up to and including\n"
+               "                             PART. Possible values of PART: firmware, loader,\n"
+               "                             kernel, initrd, soft-reboot."
                "  -h --help                  Show this help\n"
                "     --version               Show package version\n"
                "  -q --quiet                 Do not emit hints\n"
@@ -333,6 +351,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_TLDR,
                 ARG_SCALE_FACTOR_SVG,
                 ARG_DETAILED_SVG,
+                ARG_HIDE,
         };
 
         static const struct option options[] = {
@@ -371,6 +390,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "mask",             no_argument,       NULL, 'm'                  },
                 { "scale-svg",        required_argument, NULL, ARG_SCALE_FACTOR_SVG },
                 { "detailed",         no_argument,       NULL, ARG_DETAILED_SVG     },
+                { "hide",             required_argument, NULL, ARG_HIDE             },
                 {}
         };
 
@@ -379,6 +399,9 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
+        /* Resetting to 0 forces the invocation of an internal initialization routine of getopt_long()
+         * that checks for GNU extensions in optstring ('-' or '+' at the beginning). */
+        optind = 0;
         while ((c = getopt_long(argc, argv, "hqH:M:U:m", options, NULL)) >= 0)
                 switch (c) {
 
@@ -580,6 +603,12 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_detailed_svg = true;
                         break;
 
+                case ARG_HIDE:
+                        r = plot_hide_mode_from_string(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Unknown hide mode %s: %m", optarg);
+                        arg_plot_hide_mode = r;
+                        break;
                 case '?':
                         return -EINVAL;
 
@@ -650,7 +679,7 @@ static int run(int argc, char *argv[]) {
                 { "time",              VERB_ANY, 1,        VERB_DEFAULT, verb_time              },
                 { "blame",             VERB_ANY, 1,        0,            verb_blame             },
                 { "critical-chain",    VERB_ANY, VERB_ANY, 0,            verb_critical_chain    },
-                { "plot",              VERB_ANY, 1,        0,            verb_plot              },
+                { "plot",              VERB_ANY, VERB_ANY, 0,            verb_plot              },
                 { "dot",               VERB_ANY, VERB_ANY, 0,            verb_dot               },
                 /* ↓ The following seven verbs are deprecated, from here … ↓ */
                 { "log-level",         VERB_ANY, 2,        0,            verb_log_control       },
