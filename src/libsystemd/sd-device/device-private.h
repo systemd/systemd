@@ -9,6 +9,7 @@
 
 #include "sd-device.h"
 
+#include "chase.h"
 #include "macro.h"
 
 int device_new_from_mode_and_devnum(sd_device **ret, mode_t mode, dev_t devnum);
@@ -31,8 +32,9 @@ int device_get_devnode_mode(sd_device *device, mode_t *ret);
 int device_get_devnode_uid(sd_device *device, uid_t *ret);
 int device_get_devnode_gid(sd_device *device, gid_t *ret);
 
+int device_chase(sd_device *device, const char *path, ChaseFlags flags, char **ret_resolved, int *ret_fd);
 void device_clear_sysattr_cache(sd_device *device);
-int device_cache_sysattr_value(sd_device *device, const char *key, char *value);
+int device_cache_sysattr_value(sd_device *device, char *key, char *value, int error);
 int device_get_cached_sysattr_value(sd_device *device, const char *key, const char **ret_value);
 
 void device_seal(sd_device *device);
