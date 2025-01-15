@@ -17,6 +17,9 @@ if __name__ == '__main__':
     print("""\
 %{
 _Pragma("GCC diagnostic ignored \\"-Wimplicit-fallthrough\\"")
+#if __GNUC__ >= 15
+_Pragma("GCC diagnostic ignored \\"-Wzero-as-null-pointer-constant\\"")
+#endif
 %}""")
     print(f"""\
 struct {name}_name {{ const char* name; int id; }};
