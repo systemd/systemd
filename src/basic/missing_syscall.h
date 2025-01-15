@@ -685,3 +685,19 @@ int __clone2(int (*fn)(void *), void *stack_base, size_t stack_size, int flags, 
  * at build time) and just define it. Once the kernel drops ia64 support, we can drop this too. */
 #define HAVE_CLONE 1
 #endif
+
+/* ======================================================================= */
+
+#if !HAVE_QUOTACTL_FD
+
+static inline int missing_quotactl_fd(int fd, int cmd, int id, void *addr) {
+#if defined __NR_quotactl_fd
+        return syscall(__NR_quotactl_fd, fd, cmd, id, addr);
+#else
+        errno = ENOSYS;
+        return -1;
+#endif
+}
+
+#  define quotactl_fd missing_quotactl_fd
+#endif
