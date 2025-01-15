@@ -116,6 +116,14 @@
                 <entry>Similar to <literal>user</literal> but sessions of this class are not ordered after <citerefentry><refentrytitle>systemd-user-sessions.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>, i.e. may be started before regular sessions are allowed to be established. This session class is the default for sessions of the root user that would otherwise qualify for the <constant>user</constant> class, see above. (Added in v256.)</entry>
               </row>
               <row>
+                <entry><constant>user-light</constant></entry>
+                <entry>Similar to <constant>user</constant>, but but sessions of this class will not pull in the <citerefentry><refentrytitle>user@.service</refentrytitle><manvolnum>5</manvolnum></citerefentry> of the user, and thus possibly have no service manager of the user running. (Added in v258.)</entry>
+              </row>
+              <row>
+                <entry><constant>user-early-light</constant></entry>
+                <entry>Similar to <constant>user-early</constant>, but but sessions of this class will not pull in the <citerefentry><refentrytitle>user@.service</refentrytitle><manvolnum>5</manvolnum></citerefentry> of the user, and thus possibly have no service manager of the user running. (Added in v258.)</entry>
+              </row>
+              <row>
                 <entry><constant>user-incomplete</constant></entry>
                 <entry>Similar to <literal>user</literal> but for sessions which are not fully set up yet, i.e. have no home directory mounted or similar. This is used by <citerefentry><refentrytitle>systemd-homed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry> to allow users to log in via <citerefentry project='man-pages'><refentrytitle>ssh</refentrytitle><manvolnum>1</manvolnum></citerefentry> before their home directory is mounted, delaying the mount until the user provided the unlock password. Sessions of this class are upgraded to the regular <constant>user</constant> class once the home directory is activated.</entry>
               </row>
@@ -133,7 +141,7 @@
               </row>
               <row>
                 <entry><constant>background-light</constant></entry>
-                <entry>Similar to <constant>background</constant>, but sessions of this class will not pull in the <citerefentry><refentrytitle>user@.service</refentrytitle><manvolnum>5</manvolnum></citerefentry> of the user, and thus possibly have no services of the user running. (Added in v256.)</entry>
+                <entry>Similar to <constant>background</constant>, but sessions of this class will not pull in the <citerefentry><refentrytitle>user@.service</refentrytitle><manvolnum>5</manvolnum></citerefentry> of the user, and thus possibly have no service manager of the user running. (Added in v256.)</entry>
               </row>
               <row>
                 <entry><constant>manager</constant></entry>
