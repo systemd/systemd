@@ -134,12 +134,6 @@ Features:
   really be recognizable via a message id and come with an explanatory catalog
   message
 
-* logind: introduce "user-light" session class, that is to "user" what
-  "background-light" is to "background". Then, in logind, if no user class is
-  specified, and we are not logging in graphically default to this session
-  class for non-regular users.  Effect: if you log into a system user for some
-  reason, yu won't get the service manager by default.
-
 * introduce new ANSI sequence for communicating log level and structured error
   metadata to terminals.
 
