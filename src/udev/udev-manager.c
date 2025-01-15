@@ -1111,9 +1111,6 @@ static int manager_listen_fds(Manager *manager) {
         if (n < 0)
                 return n;
 
-        if (strv_length(names) != (size_t) n)
-                return -EIO;
-
         for (int i = 0; i < n; i++) {
                 int fd = SD_LISTEN_FDS_START + i;
 
