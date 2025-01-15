@@ -72,7 +72,7 @@ int apply_numa_policy(const NUMAPolicy *policy) {
 
         assert(policy);
 
-        if (get_mempolicy(NULL, NULL, 0, 0, 0) < 0 && errno == ENOSYS)
+        if (get_mempolicy(NULL, NULL, 0, NULL, 0) < 0 && errno == ENOSYS)
                 return -EOPNOTSUPP;
 
         if (!numa_policy_is_valid(policy))
