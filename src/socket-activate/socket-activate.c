@@ -284,7 +284,7 @@ static int install_chld_handler(void) {
                 .sa_handler = sigchld_hdl,
         };
 
-        if (sigaction(SIGCHLD, &act, 0) < 0)
+        if (sigaction(SIGCHLD, &act, NULL) < 0)
                 return log_error_errno(errno, "Failed to install SIGCHLD handler: %m");
 
         return 0;
