@@ -185,7 +185,7 @@ static int run(int argc, char *argv[]) {
                         return log_error_errno(r, "Failed to set title: %m");
         }
 
-        pty_forward_set_handler(forward, pty_forward_handler, &event);
+        pty_forward_set_handler(forward, pty_forward_handler, event);
 
         r = pidref_safe_fork_full(
                         "(sd-ptyfwd)",
