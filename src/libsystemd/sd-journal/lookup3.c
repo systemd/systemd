@@ -55,9 +55,7 @@ on 1 byte), but shoehorning those bytes into integers efficiently is messy.
 # include <endian.h>    /* attempt to define endianness */
 #endif
 
-#if __GNUC__ >= 7
 _Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
-#endif
 
 /*
  * My best guess at if you are big-endian or little-endian.  This may
