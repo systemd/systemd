@@ -758,23 +758,16 @@ static int compose_open_fds(pid_t pid, char **ret) {
  * Returns a negative number on errors.
  */
 static int get_process_container_parent_cmdline(PidRef *pid, char** ret_cmdline) {
-        const char *proc_root_path;
-        struct stat root_stat, proc_root_stat;
         int r;
 
         assert(pidref_is_set(pid));
         assert(!pidref_is_remote(pid));
 
-        /* To compare inodes of / and /proc/[pid]/root */
-        if (stat("/", &root_stat) < 0)
-                return -errno;
-
-        proc_root_path = procfs_file_alloca(pid->pid, "root");
-        if (stat(proc_root_path, &proc_root_stat) < 0)
-                return -errno;
-
-        /* The process uses system root. */
-        if (stat_inode_same(&proc_root_stat, &root_stat)) {
+        r = pidref_from_same_root_fs(pid, &PIDREF_MAKE_FROM_PID(1));
+        if (r < 0)
+                return r;
+        if (r > 0) {
+                /* The process uses system root. */
                 *ret_cmdline = NULL;
                 return 0;
         }

@@ -23,22 +23,26 @@
 #include "string-util.h"
 #include "terminal-util.h"
 
-static bool argv_has_at(pid_t pid) {
-        _cleanup_fclose_ FILE *f = NULL;
-        const char *p;
-        char c = 0;
+static int argv_has_at(const PidRef *pid) {
+        int r;
 
-        p = procfs_file_alloca(pid, "cmdline");
-        f = fopen(p, "re");
-        if (!f) {
-                log_debug_errno(errno, "Failed to open %s, ignoring: %m", p);
-                return true; /* not really, but has the desired effect */
-        }
+        assert(pidref_is_set(pid));
+        assert(!pidref_is_remote(pid));
+
+        const char *p = procfs_file_alloca(pid->pid, "cmdline");
+        _cleanup_fclose_ FILE *f = fopen(p, "re");
+        if (!f)
+                return log_debug_errno(errno, "Failed to open %s, ignoring: %m", p);
 
         /* Try to read the first character of the command line. If the cmdline is empty (which might be the case for
          * kernel threads but potentially also other stuff), this line won't do anything, but we don't care much, as
          * actual kernel threads are already filtered out above. */
+        char c = 0;
         (void) fread(&c, 1, 1, f);
+
+        r = pidref_verify(pid);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to verify pid " PID_FMT ", ingoring: %m", pid->pid);
 
         /* Processes with argv[0][0] = '@' we ignore from the killing spree.
          *
@@ -74,7 +78,7 @@ static bool is_in_survivor_cgroup(const PidRef *pid) {
         return r > 0;
 }
 
-static bool ignore_proc(const PidRef *pid, bool warn_rootfs) {
+static bool ignore_proc(PidRef *pid, bool warn_rootfs) {
         uid_t uid;
         int r;
 
@@ -101,12 +105,10 @@ static bool ignore_proc(const PidRef *pid, bool warn_rootfs) {
         if (uid != 0)
                 return false;
 
-        if (!argv_has_at(pid->pid))
-                return false;
+        if (argv_has_at(pid) != 0)
+                return false; /* if this fails, ignore the process */
 
-        if (warn_rootfs &&
-            pid_from_same_root_fs(pid->pid) > 0) {
-
+        if (pidref_from_same_root_fs(pid, NULL) > 0) {
                 _cleanup_free_ char *comm = NULL;
 
                 (void) pidref_get_comm(pid, &comm);

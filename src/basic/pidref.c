@@ -46,6 +46,10 @@ bool pidref_equal(PidRef *a, PidRef *b) {
         if (!pidref_is_set(b))
                 return false;
 
+        /* If this is the very same structure, it definitely refers to the same process */
+        if (a == b)
+                return true;
+
         if (a->pid != b->pid)
                 return false;
 
@@ -58,15 +62,23 @@ bool pidref_equal(PidRef *a, PidRef *b) {
                 if (a->fd_id == 0 || b->fd_id == 0)
                         return true;
         } else {
+                /* If the other side is remote, then this is not the same */
                 if (pidref_is_remote(b))
                         return false;
 
-                /* Try to compare pidfds using their inode numbers. This way we can ensure that we
-                 * don't spuriously consider two PidRefs equal if the pid has been reused once. Note
-                 * that we ignore all errors here, not only EOPNOTSUPP, as fstat() might fail due to
-                 * many reasons. */
-                if (pidref_acquire_pidfd_id(a) < 0 || pidref_acquire_pidfd_id(b) < 0)
+                /* PID1 cannot exit, hence it cannot change pidfs ids, hence no point in comparing them, we
+                 * can shortcut things */
+                if (a->pid == 1)
                         return true;
+
+                /* Try to compare pidfds using their inode numbers. This way we can ensure that we don't
+                 * spuriously consider two PidRefs equal if the pid has been reused once. Note that we ignore
+                 * all errors here, not only EOPNOTSUPP, as fstat() might fail due to many reasons. Note that
+                 * we only acquire the fd id if we already have the other one, because otherwise we'd just
+                 * acquire the same id twice. */
+                if ((a->fd_id == 0) != (b->fd_id == 0))
+                        if (pidref_acquire_pidfd_id(a) < 0 || pidref_acquire_pidfd_id(b) < 0)
+                                return true;
         }
 
         return a->fd_id == b->fd_id;
@@ -293,6 +305,7 @@ int pidref_new_from_pid(pid_t pid, PidRef **ret) {
 }
 
 int pidref_kill(const PidRef *pidref, int sig) {
+        int r;
 
         if (!pidref)
                 return -ESRCH;
@@ -300,8 +313,12 @@ int pidref_kill(const PidRef *pidref, int sig) {
         if (pidref_is_remote(pidref))
                 return -EREMOTE;
 
-        if (pidref->fd >= 0)
-                return RET_NERRNO(pidfd_send_signal(pidref->fd, sig, NULL, 0));
+        if (pidref->fd >= 0) {
+                /* Valgrind doesn't support pidfd_send_signal(), hence keep a fallback */
+                r = RET_NERRNO(pidfd_send_signal(pidref->fd, sig, NULL, 0));
+                if (!ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                        return r;
+        }
 
         if (pidref->pid > 0)
                 return RET_NERRNO(kill(pidref->pid, sig));
