@@ -247,7 +247,10 @@ int namespace_enter(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int
                         return -errno;
         }
 
-        return reset_uid_gid();
+        if (userns_fd >= 0)
+                return reset_uid_gid();
+
+        return 0;
 }
 
 int fd_is_namespace(int fd, NamespaceType type) {
@@ -768,4 +771,3 @@ int netns_acquire(void) {
 
         return pidref_namespace_open_by_type(&pid, NAMESPACE_NET);
 }
-
