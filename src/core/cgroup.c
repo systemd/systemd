@@ -4386,9 +4386,6 @@ int unit_cgroup_freezer_action(Unit *u, FreezerAction action) {
         assert(action >= 0);
         assert(action < _FREEZER_ACTION_MAX);
 
-        if (!cg_freezer_supported())
-                return 0;
-
         unit_next_freezer_state(u, action, &next, &objective);
 
         CGroupRuntime *crt = unit_get_cgroup_runtime(u);
