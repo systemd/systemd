@@ -1135,12 +1135,67 @@ Manager* manager_new(void) {
         return manager;
 }
 
-static int listen_fds(int *ret_ctrl, int *ret_netlink) {
-        _cleanup_strv_free_ char **names = NULL;
-        _cleanup_close_ int ctrl_fd = -EBADF, netlink_fd = -EBADF;
+static int manager_init_ctrl(Manager *manager, int fd) {
+        int r;
 
-        assert(ret_ctrl);
-        assert(ret_netlink);
+        assert(manager);
+
+        /* This consumes passed file descriptor on success. */
+
+        if (fd >= 0) {
+                if (manager->ctrl)
+                        return log_warning_errno(SYNTHETIC_ERRNO(EALREADY), "Received multiple control socket (%i), ignoring.", fd);
+
+                r = sd_is_socket(fd, AF_UNIX, SOCK_SEQPACKET, -1);
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to verify socket type of %i, ignoring: %m", fd);
+                if (r == 0)
+                        return log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "Received invalid control socket (%i), ignoring.", fd);
+        } else {
+                if (manager->ctrl)
+                        return 0;
+        }
+
+        r = udev_ctrl_new_from_fd(&manager->ctrl, fd);
+        if (r < 0)
+                return log_error_errno(r, "Failed to initialize udev control socket: %m");
+
+        return 0;
+}
+
+static int manager_init_device_monitor(Manager *manager, int fd) {
+        int r;
+
+        assert(manager);
+
+        /* This consumes passed file descriptor on success. */
+
+        if (fd >= 0) {
+                if (manager->monitor)
+                        return log_warning_errno(SYNTHETIC_ERRNO(EALREADY), "Received multiple netlink socket (%i), ignoring.", fd);
+
+                r = sd_is_socket(fd, AF_NETLINK, SOCK_RAW, /* listening = */ -1);
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to verify socket type of %i, ignoring: %m", fd);
+                if (r == 0)
+                        return log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "Received invalid netlink socket (%i), ignoring.", fd);
+        } else {
+                if (manager->monitor)
+                        return 0;
+        }
+
+        r = device_monitor_new_full(&manager->monitor, MONITOR_GROUP_KERNEL, fd);
+        if (r < 0)
+                return log_error_errno(r, "Failed to initialize device monitor: %m");
+
+        return 0;
+}
+
+static int manager_listen_fds(Manager *manager) {
+        _cleanup_strv_free_ char **names = NULL;
+        int r;
+
+        assert(manager);
 
         int n = sd_listen_fds_with_names(/* unset_environment = */ true, &names);
         if (n < 0)
@@ -1152,101 +1207,32 @@ static int listen_fds(int *ret_ctrl, int *ret_netlink) {
         for (int i = 0; i < n; i++) {
                 int fd = SD_LISTEN_FDS_START + i;
 
-                if (streq(names[i], "varlink"))
-                        continue; /* The fd will be handled by sd_varlink_server_listen_auto(). */
-
-                if (sd_is_socket(fd, AF_UNIX, SOCK_SEQPACKET, -1) > 0) {
-                        if (ctrl_fd >= 0) {
-                                log_debug("Received multiple seqpacket socket (%s), ignoring.", names[i]);
-                                goto unused;
-                        }
-
-                        ctrl_fd = fd;
-                        continue;
-                }
-
-                if (sd_is_socket(fd, AF_NETLINK, SOCK_RAW, -1) > 0) {
-                        if (netlink_fd >= 0) {
-                                log_debug("Received multiple netlink socket (%s), ignoring.", names[i]);
-                                goto unused;
-                        }
-
-                        netlink_fd = fd;
-                        continue;
-                }
-
-                log_debug("Received unexpected fd (%s), ignoring.", names[i]);
-
-        unused:
-                close_and_notify_warn(fd, names[i]);
+                if (streq(names[i], "systemd-udevd-varlink.socket"))
+                        r = manager_init_varlink_server(manager, fd);
+                else if (streq(names[i], "systemd-udevd-control.socket"))
+                        r = manager_init_ctrl(manager, fd);
+                else if (streq(names[i], "systemd-udevd-kernel.socket"))
+                        r = manager_init_device_monitor(manager, fd);
+                else
+                        r = log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                            "Received unexpected fd (%s), ignoring.", names[i]);
+                if (r < 0)
+                        close_and_notify_warn(fd, names[i]);
         }
 
-        *ret_ctrl = TAKE_FD(ctrl_fd);
-        *ret_netlink = TAKE_FD(netlink_fd);
-        return 0;
-}
-
-static int manager_init_ctrl(Manager *manager, int fd_ctrl) {
-        _cleanup_(udev_ctrl_unrefp) UdevCtrl *ctrl = NULL;
-        _cleanup_close_ int fd = fd_ctrl;
-        int r;
-
-        assert(manager);
-
-        /* This consumes passed file descriptor. */
-
-        r = udev_ctrl_new_from_fd(&ctrl, fd);
-        if (r < 0)
-                return log_error_errno(r, "Failed to initialize udev control socket: %m");
-        TAKE_FD(fd);
-
-        r = udev_ctrl_enable_receiving(ctrl);
-        if (r < 0)
-                return log_error_errno(r, "Failed to bind udev control socket: %m");
-
-        manager->ctrl = TAKE_PTR(ctrl);
-        return 0;
-}
-
-static int manager_init_device_monitor(Manager *manager, int fd_uevent) {
-        _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor = NULL;
-        _cleanup_close_ int fd = fd_uevent;
-        int r;
-
-        assert(manager);
-
-        /* This consumes passed file descriptor. */
-
-        r = device_monitor_new_full(&monitor, MONITOR_GROUP_KERNEL, fd);
-        if (r < 0)
-                return log_error_errno(r, "Failed to initialize device monitor: %m");
-        TAKE_FD(fd);
-
-        (void) sd_device_monitor_set_description(monitor, "manager");
-
-        manager->monitor = TAKE_PTR(monitor);
         return 0;
 }
 
 int manager_init(Manager *manager) {
-        _cleanup_close_ int fd_ctrl = -EBADF, fd_uevent = -EBADF;
-        _cleanup_free_ char *cgroup = NULL;
         int r;
 
         assert(manager);
 
-        r = listen_fds(&fd_ctrl, &fd_uevent);
-        if (r < 0)
-                return log_error_errno(r, "Failed to listen on fds: %m");
-
-        r = manager_init_ctrl(manager, TAKE_FD(fd_ctrl));
+        r = manager_listen_fds(manager);
         if (r < 0)
                 return r;
 
-        r = manager_init_device_monitor(manager, TAKE_FD(fd_uevent));
-        if (r < 0)
-                return r;
-
+        _cleanup_free_ char *cgroup = NULL;
         r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, 0, &cgroup);
         if (r < 0)
                 log_debug_errno(r, "Failed to get cgroup, ignoring: %m");
@@ -1262,7 +1248,14 @@ static int manager_start_ctrl(Manager *manager) {
         int r;
 
         assert(manager);
-        assert(manager->ctrl);
+
+        r = manager_init_ctrl(manager, -EBADF);
+        if (r < 0)
+                return r;
+
+        r = udev_ctrl_enable_receiving(manager->ctrl);
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind udev control socket: %m");
 
         r = udev_ctrl_attach_event(manager->ctrl, manager->event);
         if (r < 0)
@@ -1286,7 +1279,12 @@ static int manager_start_device_monitor(Manager *manager) {
         int r;
 
         assert(manager);
-        assert(manager->monitor);
+
+        r = manager_init_device_monitor(manager, -EBADF);
+        if (r < 0)
+                return r;
+
+        (void) sd_device_monitor_set_description(manager->monitor, "manager");
 
         r = sd_device_monitor_attach_event(manager->monitor, manager->event);
         if (r < 0)

@@ -7,5 +7,6 @@
 
 typedef struct Manager Manager;
 
+int manager_init_varlink_server(Manager *manager, int fd);
 int manager_start_varlink_server(Manager *manager);
 int udev_varlink_connect(sd_varlink **ret, usec_t timeout);
