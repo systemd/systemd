@@ -1413,56 +1413,6 @@ int openpt_allocate_in_namespace(
         return TAKE_FD(fd);
 }
 
-int open_terminal_in_namespace(
-                const PidRef *pidref,
-                const char *name,
-                int mode) {
-
-        _cleanup_close_ int pidnsfd = -EBADF, mntnsfd = -EBADF, usernsfd = -EBADF, rootfd = -EBADF;
-        _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
-        int r;
-
-        assert(name);
-
-        r = pidref_namespace_open(pidref, &pidnsfd, &mntnsfd, /* ret_netns_fd= */ NULL, &usernsfd, &rootfd);
-        if (r < 0)
-                return r;
-
-        if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, pair) < 0)
-                return -errno;
-
-        r = namespace_fork(
-                        "(sd-terminalns)",
-                        "(sd-terminal)",
-                        /* except_fds= */ NULL,
-                        /* n_except_fds= */ 0,
-                        FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL|FORK_WAIT,
-                        pidnsfd,
-                        mntnsfd,
-                        /* netnsd_fd= */ -EBADF,
-                        usernsfd,
-                        rootfd,
-                        /* ret_pid= */ NULL);
-        if (r < 0)
-                return r;
-        if (r == 0) {
-                pair[0] = safe_close(pair[0]);
-
-                int pty_fd = open_terminal(name, mode|O_NOCTTY|O_CLOEXEC);
-                if (pty_fd < 0)
-                        _exit(EXIT_FAILURE);
-
-                if (send_one_fd(pair[1], pty_fd, 0) < 0)
-                        _exit(EXIT_FAILURE);
-
-                _exit(EXIT_SUCCESS);
-        }
-
-        pair[1] = safe_close(pair[1]);
-
-        return receive_one_fd(pair[0], 0);
-}
-
 static bool on_dev_null(void) {
         struct stat dst, ost, est;
 
