@@ -11,3 +11,36 @@ rebuild:
     branches:
       only:
         - main
+pull_request:
+  steps:
+    - branch_package:
+        source_project: home:bluca:systemd
+        source_package: systemd
+        target_project: home:bluca:systemd:ci
+    - branch_package:
+        source_project: home:bluca:systemd
+        source_package: systemd-fedora
+        target_project: home:bluca:systemd:ci
+    - configure_repositories:
+        project: home:bluca:systemd:ci
+        repositories:
+          - name: Debian_Testing
+            paths:
+              - target_project: home:bluca:systemd
+                target_repository: Debian_Testing
+            architectures:
+              - x86_64
+          - name: Ubuntu_24.04
+            paths:
+              - target_project: home:bluca:systemd
+                target_repository: Ubuntu_24.04
+            architectures:
+              - x86_64
+          - name: Fedora_41
+            paths:
+              - target_project: home:bluca:systemd
+                target_repository: Fedora_41
+            architectures:
+              - x86_64
+  filters:
+    event: pull_request
