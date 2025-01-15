@@ -98,7 +98,7 @@ static int show_user(UserRecord *ur, Table *table) {
                 break;
 
         case OUTPUT_JSON:
-                sd_json_variant_dump(ur->json, arg_json_format_flags, NULL, 0);
+                sd_json_variant_dump(ur->json, arg_json_format_flags, NULL, NULL);
                 break;
 
         case OUTPUT_FRIENDLY:
@@ -540,7 +540,7 @@ static int show_group(GroupRecord *gr, Table *table) {
         }
 
         case OUTPUT_JSON:
-                sd_json_variant_dump(gr->json, arg_json_format_flags, NULL, 0);
+                sd_json_variant_dump(gr->json, arg_json_format_flags, NULL, NULL);
                 break;
 
         case OUTPUT_FRIENDLY:

@@ -10,8 +10,9 @@ name, prefix, input = sys.argv[1:]
 
 print("""\
 %{
-#if __GNUC__ >= 7
 _Pragma("GCC diagnostic ignored \\"-Wimplicit-fallthrough\\"")
+#if __GNUC__ >= 15
+_Pragma("GCC diagnostic ignored \\"-Wzero-as-null-pointer-constant\\"")
 #endif
 %}""")
 print("""\
