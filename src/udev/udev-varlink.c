@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "json-util.h"
+#include "socket-util.h"
 #include "strv.h"
 #include "udev-manager.h"
 #include "udev-varlink.h"
@@ -113,42 +114,68 @@ static int vl_method_exit(sd_varlink *link, sd_json_variant *parameters, sd_varl
         return sd_varlink_reply(link, NULL);
 }
 
+int manager_init_varlink_server(Manager *manager, int fd) {
+        int r;
+
+        assert(manager);
+
+        /* This takes passed file descriptor on success. */
+
+        if (fd >= 0) {
+                if (manager->varlink_server)
+                        return log_warning_errno(SYNTHETIC_ERRNO(EALREADY), "Received multiple varlink socket (%i), ignoring.", fd);
+
+                int b;
+                r = getsockopt_int(fd, SOL_SOCKET, SO_ACCEPTCONN, &b);
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to check if fd is a listening socket, ignoring: %m");
+                if (b == 0)
+                        return log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "Received varlink socket without SO_ACCEPTCONN enabled, ignoring.");
+        } else {
+                if (manager->varlink_server)
+                        return 0;
+        }
+
+        r = varlink_server_new(&manager->varlink_server, SD_VARLINK_SERVER_ROOT_ONLY | SD_VARLINK_SERVER_INHERIT_USERDATA, manager);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate Varlink server: %m");
+
+        if (fd >= 0)
+                r = sd_varlink_server_listen_fd(manager->varlink_server, fd);
+        else
+                r = sd_varlink_server_listen_address(manager->varlink_server, UDEV_VARLINK_ADDRESS, 0600);
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind to Varlink socket: %m");
+
+        return 0;
+}
+
 int manager_start_varlink_server(Manager *manager) {
-        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *v = NULL;
         int r;
 
         assert(manager);
         assert(manager->event);
 
-        r = varlink_server_new(&v, SD_VARLINK_SERVER_ROOT_ONLY | SD_VARLINK_SERVER_INHERIT_USERDATA, manager);
+        r = manager_init_varlink_server(manager, -EBADF);
         if (r < 0)
-                return log_error_errno(r, "Failed to allocate Varlink server: %m");
+                return r;
 
         /* This needs to be after the inotify and uevent handling, to make sure that the ping is send back
          * after fully processing the pending uevents (including the synthetic ones we may create due to
          * inotify events). */
-        r = sd_varlink_server_attach_event(v, manager->event, SD_EVENT_PRIORITY_IDLE);
+        r = sd_varlink_server_attach_event(manager->varlink_server, manager->event, SD_EVENT_PRIORITY_IDLE);
         if (r < 0)
                 return log_error_errno(r, "Failed to attach Varlink connection to event loop: %m");
 
-        r = sd_varlink_server_listen_auto(v);
-        if (r < 0)
-                return log_error_errno(r, "Failed to bind to passed Varlink socket: %m");
-        if (r == 0) {
-                r = sd_varlink_server_listen_address(v, UDEV_VARLINK_ADDRESS, 0600);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to bind to Varlink socket: %m");
-        }
-
         r = sd_varlink_server_add_interface_many(
-                        v,
+                        manager->varlink_server,
                         &vl_interface_io_systemd_service,
                         &vl_interface_io_systemd_Udev);
         if (r < 0)
                 return log_error_errno(r, "Failed to add Varlink interface: %m");
 
         r = sd_varlink_server_bind_method_many(
-                        v,
+                        manager->varlink_server,
                         "io.systemd.service.Ping",          varlink_method_ping,
                         "io.systemd.service.Reload",        vl_method_reload,
                         "io.systemd.service.SetLogLevel",   vl_method_set_log_level,
@@ -160,7 +187,6 @@ int manager_start_varlink_server(Manager *manager) {
         if (r < 0)
                 return log_error_errno(r, "Failed to bind Varlink methods: %m");
 
-        manager->varlink_server = TAKE_PTR(v);
         return 0;
 }
 

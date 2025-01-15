@@ -1135,10 +1135,12 @@ Manager* manager_new(void) {
         return manager;
 }
 
-static int listen_fds(int *ret_ctrl, int *ret_netlink) {
+static int manager_listen_fds(Manager *manager, int *ret_ctrl, int *ret_netlink) {
         _cleanup_strv_free_ char **names = NULL;
         _cleanup_close_ int ctrl_fd = -EBADF, netlink_fd = -EBADF;
+        int r;
 
+        assert(manager);
         assert(ret_ctrl);
         assert(ret_netlink);
 
@@ -1151,9 +1153,6 @@ static int listen_fds(int *ret_ctrl, int *ret_netlink) {
 
         for (int i = 0; i < n; i++) {
                 int fd = SD_LISTEN_FDS_START + i;
-
-                if (streq(names[i], "varlink"))
-                        continue; /* The fd will be handled by sd_varlink_server_listen_auto(). */
 
                 if (sd_is_socket(fd, AF_UNIX, SOCK_SEQPACKET, -1) > 0) {
                         if (ctrl_fd >= 0) {
@@ -1175,7 +1174,13 @@ static int listen_fds(int *ret_ctrl, int *ret_netlink) {
                         continue;
                 }
 
-                log_debug("Received unexpected fd (%s), ignoring.", names[i]);
+                if (streq(names[i], "systemd-udevd-varlink.socket"))
+                        r = manager_init_varlink_server(manager, fd);
+                else
+                        r = log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                            "Received unexpected fd (%s), ignoring.", names[i]);
+                if (r < 0)
+                        goto unused;
 
         unused:
                 close_and_notify_warn(fd, names[i]);
@@ -1235,7 +1240,7 @@ int manager_init(Manager *manager) {
 
         assert(manager);
 
-        r = listen_fds(&fd_ctrl, &fd_uevent);
+        r = manager_listen_fds(manager, &fd_ctrl, &fd_uevent);
         if (r < 0)
                 return log_error_errno(r, "Failed to listen on fds: %m");
 
