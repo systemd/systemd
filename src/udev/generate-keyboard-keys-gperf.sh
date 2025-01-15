@@ -6,8 +6,9 @@ set -eu
 awk '
     BEGIN {
         print "%{\n\
-#if __GNUC__ >= 7\n\
 _Pragma(\"GCC diagnostic ignored \\\"-Wimplicit-fallthrough\\\"\")\n\
+#if __GNUC__ >= 15\n\
+_Pragma(\"GCC diagnostic ignored \\\"-Wzero-as-null-pointer-constant\\\"\")\n\
 #endif\n\
 %}"
         print "struct key_name { const char* name; unsigned short id; };"

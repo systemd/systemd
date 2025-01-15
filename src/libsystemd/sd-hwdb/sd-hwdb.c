@@ -319,7 +319,7 @@ static int hwdb_new(const char *path, sd_hwdb **ret) {
         if (file_offset_beyond_memory_size(hwdb->st.st_size))
                 return log_debug_errno(SYNTHETIC_ERRNO(EFBIG), "File %s is too long.", path);
 
-        hwdb->map = mmap(0, hwdb->st.st_size, PROT_READ, MAP_SHARED, fileno(hwdb->f), 0);
+        hwdb->map = mmap(NULL, hwdb->st.st_size, PROT_READ, MAP_SHARED, fileno(hwdb->f), 0);
         if (hwdb->map == MAP_FAILED)
                 return log_debug_errno(errno, "Failed to map %s: %m", path);
 
