@@ -82,7 +82,7 @@ static int test_tunnel_configure(sd_netlink *rtnl) {
         assert_se(sd_netlink_message_close_container(m) >= 0);
         assert_se(sd_netlink_message_close_container(m) >= 0);
 
-        assert_se(sd_netlink_call(rtnl, m, -1, 0) == 1);
+        ASSERT_OK_POSITIVE(sd_netlink_call(rtnl, m, -1, NULL));
 
         ASSERT_NULL((m = sd_netlink_message_unref(m)));
 
@@ -108,7 +108,7 @@ static int test_tunnel_configure(sd_netlink *rtnl) {
         assert_se(sd_netlink_message_close_container(n) >= 0);
         assert_se(sd_netlink_message_close_container(n) >= 0);
 
-        assert_se(sd_netlink_call(rtnl, n, -1, 0) == 1);
+        ASSERT_OK_POSITIVE(sd_netlink_call(rtnl, n, -1, NULL));
 
         ASSERT_NULL((n = sd_netlink_message_unref(n)));
 
