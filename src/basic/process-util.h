@@ -93,7 +93,7 @@ int pid_is_unwaited(pid_t pid);
 int pidref_is_unwaited(const PidRef *pidref);
 int pid_is_my_child(pid_t pid);
 int pidref_is_my_child(const PidRef *pidref);
-int pid_from_same_root_fs(pid_t pid);
+int pidref_from_same_root_fs(PidRef *a, PidRef *b);
 
 bool is_main_thread(void);
 
@@ -192,6 +192,7 @@ typedef enum ForkFlags {
         FORK_NEW_USERNS         = 1 << 19, /* Run child in its own user namespace                                💣 DO NOT USE IN THREADED PROGRAMS! 💣 */
         FORK_NEW_NETNS          = 1 << 20, /* Run child in its own network namespace                             💣 DO NOT USE IN THREADED PROGRAMS! 💣 */
         FORK_NEW_PIDNS          = 1 << 21, /* Run child in its own PID namespace                                 💣 DO NOT USE IN THREADED PROGRAMS! 💣 */
+        FORK_FREEZE             = 1 << 22, /* Don't return in child, just call freeze() instead */
 } ForkFlags;
 
 int safe_fork_full(
