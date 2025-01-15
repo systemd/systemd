@@ -859,7 +859,13 @@ int session_start(Session *s, sd_bus_message *properties, sd_bus_error *error) {
                    "SESSION_ID=%s", s->id,
                    "USER_ID=%s", s->user->user_record->user_name,
                    "LEADER="PID_FMT, s->leader.pid,
-                   LOG_MESSAGE("New session %s of user %s.", s->id, s->user->user_record->user_name));
+                   "CLASS=%s", session_class_to_string(s->class),
+                   "TYPE=%s", session_type_to_string(s->type),
+                   LOG_MESSAGE("New session '%s' of user '%s' with class '%s' and type '%s'.",
+                               s->id,
+                               s->user->user_record->user_name,
+                               session_class_to_string(s->class),
+                               session_type_to_string(s->type)));
 
         if (!dual_timestamp_is_set(&s->timestamp))
                 dual_timestamp_now(&s->timestamp);
@@ -1704,6 +1710,8 @@ static const char* const session_class_table[_SESSION_CLASS_MAX] = {
         [SESSION_USER]              = "user",
         [SESSION_USER_EARLY]        = "user-early",
         [SESSION_USER_INCOMPLETE]   = "user-incomplete",
+        [SESSION_USER_LIGHT]        = "user-light",
+        [SESSION_USER_EARLY_LIGHT]  = "user-early-light",
         [SESSION_GREETER]           = "greeter",
         [SESSION_LOCK_SCREEN]       = "lock-screen",
         [SESSION_BACKGROUND]        = "background",
