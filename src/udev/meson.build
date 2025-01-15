@@ -31,6 +31,7 @@ libudevd_core_sources = files(
         'udev-builtin.c',
         'udev-config.c',
         'udev-ctrl.c',
+        'udev-dump.c',
         'udev-event.c',
         'udev-format.c',
         'udev-manager.c',
