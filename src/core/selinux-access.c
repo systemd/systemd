@@ -98,9 +98,7 @@ _printf_(2, 3) static int log_callback(int type, const char *fmt, ...) {
         const char *fmt2;
 
 #if HAVE_AUDIT
-        int fd;
-
-        fd = get_audit_fd();
+        int fd = get_core_audit_fd();
 
         if (fd >= 0) {
                 _cleanup_free_ char *buf = NULL;
@@ -112,9 +110,9 @@ _printf_(2, 3) static int log_callback(int type, const char *fmt, ...) {
 
                 if (r >= 0) {
                         if (type == SELINUX_AVC)
-                                audit_log_user_avc_message(get_audit_fd(), AUDIT_USER_AVC, buf, NULL, NULL, NULL, getuid());
+                                audit_log_user_avc_message(fd, AUDIT_USER_AVC, buf, NULL, NULL, NULL, getuid());
                         else if (type == SELINUX_ERROR)
-                                audit_log_user_avc_message(get_audit_fd(), AUDIT_USER_SELINUX_ERR, buf, NULL, NULL, NULL, getuid());
+                                audit_log_user_avc_message(fd, AUDIT_USER_SELINUX_ERR, buf, NULL, NULL, NULL, getuid());
 
                         return 0;
                 }
