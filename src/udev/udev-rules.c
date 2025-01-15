@@ -2380,15 +2380,18 @@ static int udev_rule_apply_token_to_event(
                 }
 
                 if (truncated) {
-                        bool found = false;
+                        log_event_debug(event, token, "Result of \"%s\" is too long and truncated, ignoring the last line of the result.", buf);
 
                         /* Drop the last line. */
+                        bool found = false;
                         for (char *p = PTR_SUB1(buf + strlen(buf), buf); p; p = PTR_SUB1(p, buf))
                                 if (strchr(NEWLINE, *p)) {
                                         *p = '\0';
                                         found = true;
-                                } else if (found)
                                         break;
+                                }
+                        if (!found)
+                                buf[0] = '\0';
                 }
 
                 r = strv_split_newlines_full(&lines, result, EXTRACT_RETAIN_ESCAPE);
