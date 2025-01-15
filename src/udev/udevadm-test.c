@@ -34,6 +34,7 @@
 static sd_device_action_t arg_action = SD_DEVICE_ADD;
 static ResolveNameTiming arg_resolve_name_timing = RESOLVE_NAME_EARLY;
 static const char *arg_syspath = NULL;
+static bool arg_verbose = false;
 
 static int help(void) {
 
@@ -42,7 +43,8 @@ static int help(void) {
                "  -h --help                            Show this help\n"
                "  -V --version                         Show package version\n"
                "  -a --action=ACTION|help              Set action string\n"
-               "  -N --resolve-names=early|late|never  When to resolve names\n",
+               "  -N --resolve-names=early|late|never  When to resolve names\n"
+               "  -v --verbose                         Show verbose logs\n",
                program_invocation_short_name);
 
         return 0;
@@ -52,6 +54,7 @@ static int parse_argv(int argc, char *argv[]) {
         static const struct option options[] = {
                 { "action",        required_argument, NULL, 'a' },
                 { "resolve-names", required_argument, NULL, 'N' },
+                { "verbose",       no_argument,       NULL, 'v' },
                 { "version",       no_argument,       NULL, 'V' },
                 { "help",          no_argument,       NULL, 'h' },
                 {}
@@ -59,7 +62,7 @@ static int parse_argv(int argc, char *argv[]) {
 
         int r, c;
 
-        while ((c = getopt_long(argc, argv, "a:N:Vh", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "a:N:vVh", options, NULL)) >= 0)
                 switch (c) {
                 case 'a':
                         r = parse_device_action(optarg, &arg_action);
@@ -73,6 +76,9 @@ static int parse_argv(int argc, char *argv[]) {
                         if (arg_resolve_name_timing < 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "--resolve-names= must be early, late or never");
+                        break;
+                case 'v':
+                        arg_verbose = true;
                         break;
                 case 'V':
                         return print_version();
@@ -105,20 +111,23 @@ int test_main(int argc, char *argv[], void *userdata) {
         if (r <= 0)
                 return r;
 
-        printf("This program is for debugging only, it does not run any program\n"
-               "specified by a RUN key. It may show incorrect results, because\n"
-               "some values may be different, or not available at a simulation run.\n"
-               "\n");
+        puts("This program is for debugging only, it does not run any program\n"
+             "specified by a RUN key. It may show incorrect results, because\n"
+             "some values may be different, or not available at a simulation run.");
 
         assert_se(sigprocmask(SIG_SETMASK, NULL, &sigmask_orig) >= 0);
 
+        puts("\nLoading builtins...");
         udev_builtin_init();
+        puts("Loading builtins done.");
 
+        puts("\nLoading udev rules files...");
         r = udev_rules_load(&rules, arg_resolve_name_timing);
         if (r < 0) {
                 log_error_errno(r, "Failed to read udev rules: %m");
                 goto out;
         }
+        puts("Loading udev rules files done.");
 
         r = find_device_with_action(arg_syspath, arg_action, &dev);
         if (r < 0) {
@@ -134,12 +143,16 @@ int test_main(int argc, char *argv[], void *userdata) {
                 log_oom();
                 goto out;
         }
+        event->trace = arg_verbose;
 
         assert_se(sigfillset(&mask) >= 0);
         assert_se(sigprocmask(SIG_SETMASK, &mask, &sigmask_orig) >= 0);
 
+        printf("\nProcessing udev rules%s...\n", arg_verbose ? "" : " (verbose logs can be shown by -v/--verbose)");
         udev_event_execute_rules(event, rules);
+        puts("Processing udev rules done.");
 
+        puts("");
         printf("%sProperties:%s\n", ansi_highlight(), ansi_normal());
         FOREACH_DEVICE_PROPERTY(dev, key, value)
                 printf("  %s=%s\n", key, value);
