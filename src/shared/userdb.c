@@ -680,6 +680,13 @@ int userdb_by_name(const char *name, UserDBFlags flags, UserRecord **ret) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *query = NULL;
         int r;
 
+        if (FLAGS_SET(flags, USERDB_PARSE_NUMERIC)) {
+                uid_t uid;
+
+                if (parse_uid(name, &uid) >= 0)
+                        return userdb_by_uid(uid, flags, ret);
+        }
+
         if (!valid_user_group_name(name, VALID_USER_RELAX))
                 return -EINVAL;
 
@@ -990,6 +997,13 @@ int groupdb_by_name(const char *name, UserDBFlags flags, GroupRecord **ret) {
         _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *query = NULL;
         int r;
+
+        if (FLAGS_SET(flags, USERDB_PARSE_NUMERIC)) {
+                gid_t gid;
+
+                if (parse_gid(name, &gid) >= 0)
+                        return groupdb_by_gid(gid, flags, ret);
+        }
 
         if (!valid_user_group_name(name, VALID_USER_RELAX))
                 return -EINVAL;
