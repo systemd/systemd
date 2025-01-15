@@ -276,8 +276,7 @@ int locale_is_installed(const char *name) {
         if (STR_IN_SET(name, "C", "POSIX")) /* These ones are always OK */
                 return true;
 
-        _cleanup_(freelocalep) locale_t loc =
-                newlocale(LC_ALL_MASK, name, 0);
+        _cleanup_(freelocalep) locale_t loc = newlocale(LC_ALL_MASK, name, (locale_t) 0);
         if (loc == (locale_t) 0)
                 return errno == ENOMEM ? -ENOMEM : false;
 

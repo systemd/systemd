@@ -1455,7 +1455,7 @@ static int manager_generate_key_pair(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to open key file for writing: %m");
 
-        if (PEM_write_PrivateKey(fprivate, m->private_key, NULL, NULL, 0, NULL, 0) <= 0)
+        if (PEM_write_PrivateKey(fprivate, m->private_key, NULL, NULL, 0, NULL, NULL) <= 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to write private key pair.");
 
         r = fflush_sync_and_check(fprivate);
