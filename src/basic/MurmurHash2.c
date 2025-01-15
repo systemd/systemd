@@ -16,9 +16,7 @@
 
 #include "MurmurHash2.h"
 
-#if __GNUC__ >= 7
 _Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
-#endif
 
 //-----------------------------------------------------------------------------
 // Platform-specific functions and macros
