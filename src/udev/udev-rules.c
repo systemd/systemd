@@ -2080,7 +2080,7 @@ static int attr_subst_subdir(char attr[static UDEV_PATH_SIZE]) {
         return -ENOENT;
 }
 
-static size_t udev_replace_ifname(char *str) {
+static size_t udev_replace_ifname_strict(char *str) {
         size_t replaced = 0;
 
         assert(str);
@@ -2094,6 +2094,35 @@ static size_t udev_replace_ifname(char *str) {
                 }
 
         return replaced;
+}
+
+static void udev_replace_ifname(UdevEvent *event, UdevRuleToken *token, char *buf) {
+        assert(event);
+        assert(token);
+        assert(buf);
+
+        size_t count;
+        if (naming_scheme_has(NAMING_REPLACE_STRICTLY))
+                count = udev_replace_ifname_strict(buf);
+        else
+                count = udev_replace_chars(buf, "/");
+        if (count > 0)
+                log_event_trace(event, token,
+                                "Replaced %zu character(s) from network interface name, results to \"%s\"",
+                                count, buf);
+}
+
+static void udev_replace_chars_and_log(UdevEvent *event, UdevRuleToken *token, char *buf, const char *allow, const char *what) {
+        assert(event);
+        assert(token);
+        assert(buf);
+        assert(what);
+
+        size_t count = udev_replace_chars(buf, allow);
+        if (count > 0)
+                log_event_trace(event, token,
+                                "Replaced %zu character(s) from %s, results to \"%s\"",
+                                count, what, buf);
 }
 
 static int udev_rule_apply_token_to_event(
@@ -2261,7 +2290,6 @@ static int udev_rule_apply_token_to_event(
         }
         case TK_M_PROGRAM: {
                 char buf[UDEV_LINE_SIZE], result[UDEV_LINE_SIZE];
-                size_t count;
 
                 event->program_result = mfree(event->program_result);
 
@@ -2280,11 +2308,7 @@ static int udev_rule_apply_token_to_event(
                 }
 
                 delete_trailing_chars(result, "\n");
-                count = udev_replace_chars(result, UDEV_ALLOWED_CHARS_INPUT);
-                if (count > 0)
-                        log_event_debug(event, token,
-                                        "Replaced %zu character(s) in result of \"%s\"",
-                                        count, buf);
+                udev_replace_chars_and_log(event, token, result, UDEV_ALLOWED_CHARS_INPUT, "command output");
 
                 event->program_result = strdup(result);
                 return token->op == OP_MATCH;
@@ -2645,7 +2669,7 @@ static int udev_rule_apply_token_to_event(
         case TK_A_ENV: {
                 const char *val, *name = token->data;
                 char value_new[UDEV_NAME_SIZE], *p = value_new;
-                size_t count, l = sizeof(value_new);
+                size_t l = sizeof(value_new);
 
                 if (isempty(token->value)) {
                         if (token->op == OP_ADD)
@@ -2671,13 +2695,8 @@ static int udev_rule_apply_token_to_event(
                 if (!apply_format_value(event, token, p, l, "property value"))
                         return true;
 
-                if (event->esc == ESCAPE_REPLACE) {
-                        count = udev_replace_chars(p, NULL);
-                        if (count > 0)
-                                log_event_debug(event, token,
-                                                "Replaced %zu slash(es) from result of ENV{%s}%s=\"%s\"",
-                                                count, name, token->op == OP_ADD ? "+" : "", token->value);
-                }
+                if (event->esc == ESCAPE_REPLACE)
+                        udev_replace_chars_and_log(event, token, p, /* allow = */ NULL, "property value");
 
                 r = device_add_property(dev, name, value_new);
                 if (r < 0)
@@ -2706,7 +2725,6 @@ static int udev_rule_apply_token_to_event(
         }
         case TK_A_NAME: {
                 char buf[UDEV_PATH_SIZE];
-                size_t count;
 
                 if (event->name_final)
                         break;
@@ -2723,16 +2741,9 @@ static int udev_rule_apply_token_to_event(
                 if (!apply_format_value(event, token, buf, sizeof(buf), "network interface name"))
                         return true;
 
-                if (IN_SET(event->esc, ESCAPE_UNSET, ESCAPE_REPLACE)) {
-                        if (naming_scheme_has(NAMING_REPLACE_STRICTLY))
-                                count = udev_replace_ifname(buf);
-                        else
-                                count = udev_replace_chars(buf, "/");
-                        if (count > 0)
-                                log_event_debug(event, token,
-                                                "Replaced %zu character(s) from result of NAME=\"%s\"",
-                                                count, token->value);
-                }
+                if (IN_SET(event->esc, ESCAPE_UNSET, ESCAPE_REPLACE))
+                        udev_replace_ifname(event, token, buf);
+
                 r = free_and_strdup_warn(&event->name, buf);
                 if (r < 0)
                         return r;
@@ -2742,7 +2753,6 @@ static int udev_rule_apply_token_to_event(
         }
         case TK_A_DEVLINK: {
                 char buf[UDEV_PATH_SIZE];
-                size_t count;
 
                 if (event->devlink_final)
                         break;
@@ -2760,15 +2770,9 @@ static int udev_rule_apply_token_to_event(
 
                 /* By default or string_escape=none, allow multiple symlinks separated by spaces. */
                 if (event->esc == ESCAPE_UNSET)
-                        count = udev_replace_chars(buf, /* allow = */ "/ ");
+                        udev_replace_chars_and_log(event, token, buf, /* allow = */ "/ ", "device node symlink");
                 else if (event->esc == ESCAPE_REPLACE)
-                        count = udev_replace_chars(buf, /* allow = */ "/");
-                else
-                        count = 0;
-                if (count > 0)
-                        log_event_debug(event, token,
-                                        "Replaced %zu character(s) from result of SYMLINK=\"%s\"",
-                                        count, token->value);
+                        udev_replace_chars_and_log(event, token, buf, /* allow = */ "/", "device node symlink");
 
                 for (const char *p = buf;;) {
                         _cleanup_free_ char *path = NULL;
