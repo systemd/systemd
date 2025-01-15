@@ -262,6 +262,12 @@ TEST(strextend) {
         ASSERT_STREQ(str, "0123");
         assert_se(strextend(&str, "456", "78", "9"));
         ASSERT_STREQ(str, "0123456789");
+
+        assert_se(strextend(&str, "more", NULL, "huch"));
+        ASSERT_STREQ(str, "0123456789more");
+
+        assert_se(strextend(&str, "MORE", POINTER_MAX, "HUCH"));
+        ASSERT_STREQ(str, "0123456789moreMOREHUCH");
 }
 
 TEST(strextend_with_separator) {
@@ -285,6 +291,9 @@ TEST(strextend_with_separator) {
         ASSERT_STREQ(str, "start,,1,234");
         assert_se(strextend_with_separator(&str, ";", "more", "5", "678"));
         ASSERT_STREQ(str, "start,,1,234;more;5;678");
+
+        assert_se(strextend_with_separator(&str, ";", "xxxx", POINTER_MAX, "yyy"));
+        ASSERT_STREQ(str, "start,,1,234;more;5;678;xxxx;yyy");
 }
 
 TEST(strrep) {
@@ -399,6 +408,10 @@ TEST(strjoin) {
 
         actual = strjoin("foo", NULL, "bar");
         ASSERT_STREQ(actual, "foo");
+        free(actual);
+
+        actual = strjoin("foo", POINTER_MAX, "bar");
+        ASSERT_STREQ(actual, "foobar");
         free(actual);
 }
 

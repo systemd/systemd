@@ -108,8 +108,7 @@ char* first_word(const char *s, const char *word) _pure_;
 
 char* strnappend(const char *s, const char *suffix, size_t length);
 
-char* strjoin_real(const char *x, ...) _sentinel_;
-#define strjoin(a, ...) strjoin_real((a), __VA_ARGS__, NULL)
+#define strjoin(a, ...) strextend_with_separator_internal(NULL, NULL, a, __VA_ARGS__, NULL)
 
 #define strjoina(a, ...)                                                \
         ({                                                              \
