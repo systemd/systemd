@@ -542,7 +542,7 @@ int mount_switch_root_full(const char *path, unsigned long mount_propagation_fla
         if (mount_propagation_flag == 0)
                 return 0;
 
-        if (mount(NULL, ".", NULL, mount_propagation_flag | MS_REC, 0) < 0)
+        if (mount(NULL, ".", NULL, mount_propagation_flag | MS_REC, NULL) < 0)
                 return log_debug_errno(errno, "Failed to turn new rootfs '%s' into %s mount: %m",
                                        mount_propagation_flag_to_string(mount_propagation_flag), path);
 
