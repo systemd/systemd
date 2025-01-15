@@ -58,6 +58,7 @@ REQUIREMENTS:
 
         Linux kernel ≥ 5.8 for LOOP_CONFIGURE and STATX_ATTR_MOUNT_ROOT
                      ≥ 5.9 for close_range()
+                     ≥ 5.12 for idmapped mount
                      ≥ 5.14 for cgroup.kill
                      ≥ 6.3 for MFD_EXEC/MFD_NOEXEC_SEAL and tmpfs noswap option
                      ≥ 6.5 for name_to_handle_at() AT_HANDLE_FID, SO_PEERPIDFD/SO_PASSPIDFD,
