@@ -14,6 +14,7 @@
 #include "parse-util.h"
 #include "process-util.h"
 #include "serialize.h"
+#include "set.h"
 #include "strv.h"
 #include "tmpfile-util.h"
 
