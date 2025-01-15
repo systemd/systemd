@@ -42,7 +42,6 @@ static void fallback_random_bytes(void *p, size_t n) {
                 uint8_t auxval[16];
         } state = {
                 /* Arbitrary domain separation to prevent other usage of AT_RANDOM from clashing. */
-                .label = "systemd fallback random bytes v1",
                 .call_id = fallback_counter++,
                 .stamp_mono = now(CLOCK_MONOTONIC),
                 .stamp_real = now(CLOCK_REALTIME),
@@ -50,6 +49,7 @@ static void fallback_random_bytes(void *p, size_t n) {
                 .tid = gettid(),
         };
 
+        memcpy(state.label, "systemd fallback random bytes v1", sizeof(state.label));
         memcpy(state.auxval, ULONG_TO_PTR(getauxval(AT_RANDOM)), sizeof(state.auxval));
 
         while (n > 0) {
