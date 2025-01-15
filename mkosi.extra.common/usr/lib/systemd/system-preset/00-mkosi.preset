@@ -41,3 +41,14 @@ disable iscsiuio.socket
 disable selinux-autorelabel-mark.service
 
 enable coverage-forwarder.service
+
+# Old multipathd.service pulls deprecated systemd-udev-settle.service, and it
+# may timeout on a slow CI environment. We manually start the service in
+# TEST-64-UDEV-STORAGE, hence it is not to necessary enable it by default.
+# Note, in the upstream, the dependency was removed by
+# https://github.com/opensvc/multipath-tools/commit/c9689b678f53a468be0af0b6fdcd0538ccf635cb
+disable multipathd.service
+
+# The socket unit is disabled by default in the upstream:
+# https://github.com/opensvc/multipath-tools/commit/346e9adda4e5f0ccfcbb7a3eccf5f96001d95027
+disable multipathd.socket
