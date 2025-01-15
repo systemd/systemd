@@ -1997,7 +1997,8 @@ _noreturn_ void freeze(void) {
                         break;
         }
 
-        /* waitid() failed with an unexpected error, things are really borked. Freeze now! */
+        /* waitid() failed with an ECHLD error (because there are no left-over child processes) or any other
+         * (unexpected) error. Freeze for good now! */
         for (;;)
                 pause();
 }
