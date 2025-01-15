@@ -102,7 +102,6 @@ const char* kill_whom_to_string(KillWhom k) _const_;
 KillWhom kill_whom_from_string(const char *s) _pure_;
 
 int machine_openpt(Machine *m, int flags, char **ret_peer);
-int machine_open_terminal(Machine *m, const char *path, int mode);
 int machine_start_getty(Machine *m, const char *ptmx_name, sd_bus_error *error);
 int machine_start_shell(Machine *m, int ptmx_fd, const char *ptmx_name, const char *user, const char *path, char **args, char **env, sd_bus_error *error);
 #define machine_default_shell_path() ("/bin/sh")
