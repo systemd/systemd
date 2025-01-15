@@ -96,6 +96,22 @@ int efi_get_variable(
                                 (void) usleep_safe(EFI_RETRY_DELAY);
                 }
 
+                /* Unfortunately kernel reports EOF if there's an inconsistency between efivarfs var list
+                 * and what's actually stored in firmware, c.f. #34304. A zero size env var is not allowed in
+                 * efi and hence the variable doesn't really exist in the backing store as long as it is zero
+                 * sized, and the kernel calls this "uncommitted". Hence we translate EOF back to ENOENT here,
+                 * as with kernel behavior before
+                 * https://github.com/torvalds/linux/commit/3fab70c165795431f00ddf9be8b84ddd07bd1f8f
+                 *
+                 * If the kernel changes behaviour (to flush dentries on resume), we can drop
+                 * this at some point in the future. But note that the commit is 11
+                 * years old at this point so we'll need to deal with the current behaviour for
+                 * a long time.
+                 */
+                if (n == 0)
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOENT),
+                                               "EFI variable %s is uncommitted", p);
+
                 if (n != sizeof(a))
                         return log_debug_errno(SYNTHETIC_ERRNO(EIO),
                                                "Read %zi bytes from EFI variable %s, expected %zu.",  n, p, sizeof(a));
