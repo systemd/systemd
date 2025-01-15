@@ -66,6 +66,7 @@ _udevadm_control(){
         '(-R --reload)'{-R,--reload}'[Signal systemd-udevd to reload the rules files and other databases like the kernel module index.]' \
         '(-p --property)'{-p,--property=}'[Set a global property for all events.]:KEY=VALUE' \
         '(-m --children-max=)'{-m,--children-max=}'[Set the maximum number of events.]:N' \
+        '--trace=[Enable/disable trace logging.]:BOOL' \
         '(-t --timeout=)'{-t,--timeout=}'[The maximum number of seconds to wait for a reply from systemd-udevd.]:SECONDS'
 }
 
@@ -88,6 +89,8 @@ _udevadm_test(){
         '(-)'{-V,--version}'[Show package version]' \
         '--action=[The action string.]:actions:(add change remove move online offline bind unbind)' \
         '--subsystem=[The subsystem string.]' \
+        '(-D --extra-rules-dir=)'{-D,--extra-rules-dir=}'[Also load rules from the directory.]' \
+        '(-v --verbose)'{-v,--verbose}'[Show verbose logs.]' \
         '*::devpath:_files -P /sys/ -W /sys'
 }
 
