@@ -122,6 +122,14 @@ Deprecations and removals:
 
 Features:
 
+* add a small tool that reads user records/group records from a credential, and
+  then places them in the userdb drop-in dirs (either /run/ or /var/). While
+  doing so it processes them:
+  - split privileged part from unprivileged part (the way userdb dropins want
+    it
+  - write out membership files based on the listed group memberships
+  - maybe: also allocate a UID if none is included.
+
 * the ordering cycle log messages in transaction_verify_order_one() should
   really be recognizable via a message id and come with an explanatory catalog
   message
