@@ -231,6 +231,8 @@ static void mount_done(Unit *u) {
         mount_unwatch_control_pid(m);
 
         m->timer_event_source = sd_event_source_disable_unref(m->timer_event_source);
+
+        m->graceful_options = strv_free(m->graceful_options);
 }
 
 static int update_parameters_proc_self_mountinfo(
@@ -1079,6 +1081,44 @@ fail:
         mount_enter_dead_or_mounted(m, MOUNT_FAILURE_RESOURCES, /* flush_result = */ false);
 }
 
+static int mount_append_graceful_options(Mount *m, const MountParameters *p, char **opts) {
+        int r;
+
+        assert(m);
+        assert(p);
+        assert(opts);
+
+        if (strv_isempty(m->graceful_options))
+                return 0;
+
+        if (!p->fstype) {
+                log_unit_warning(UNIT(m), "GracefulOptions= used but file system type not known, suppressing all graceful options.");
+                return 0;
+        }
+
+        STRV_FOREACH(o, m->graceful_options) {
+                _cleanup_free_ char *k = NULL, *v = NULL;
+
+                r = split_pair(*o, "=", &k, &v);
+                if (r < 0 && r != -EINVAL) /* EINVAL → not a key/value pair */
+                        return r;
+
+                r = mount_option_supported(p->fstype, k ?: *o, k ? v : NULL);
+                if (r < 0)
+                        log_unit_warning_errno(UNIT(m), r, "GracefulOptions=%s specified, but cannot determine availability, suppressing.", *o);
+                else if (r == 0)
+                        log_unit_info(UNIT(m), "GracefulOptions=%s specified, but option is not available, suppressing.", *o);
+                else {
+                        log_unit_debug(UNIT(m), "GracefulOptions=%s specified and supported, appending to mount option string.", *o);
+
+                        if (!strextend_with_separator(opts, ",", *o))
+                                return -ENOMEM;
+                }
+        }
+
+        return 0;
+}
+
 static int mount_set_mount_command(Mount *m, ExecCommand *c, const MountParameters *p) {
         int r;
 
@@ -1110,6 +1150,10 @@ static int mount_set_mount_command(Mount *m, ExecCommand *c, const MountParamete
 
         _cleanup_free_ char *opts = NULL;
         r = fstab_filter_options(p->options, "nofail\0" "noauto\0" "auto\0", NULL, NULL, NULL, &opts);
+        if (r < 0)
+                return r;
+
+        r = mount_append_graceful_options(m, p, &opts);
         if (r < 0)
                 return r;
 
