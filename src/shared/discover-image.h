@@ -78,6 +78,7 @@ int image_path_lock(const char *path, int operation, LockFile *global, LockFile 
 int image_name_lock(const char *name, int operation, LockFile *ret);
 
 int image_set_limit(Image *i, uint64_t referenced_max);
+int image_set_pool_limit(ImageClass class, uint64_t referenced_max);
 
 int image_read_metadata(Image *i, const ImagePolicy *image_policy);
 
