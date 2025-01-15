@@ -151,7 +151,7 @@ static int pin_choice(
                 r = chaseat(toplevel_fd,
                             inode_path,
                             CHASE_AT_RESOLVE_IN_ROOT,
-                            FLAGS_SET(flags, PICK_RESOLVE) ? &resolved_path : 0,
+                            FLAGS_SET(flags, PICK_RESOLVE) ? &resolved_path : NULL,
                             inode_fd < 0 ? &inode_fd : NULL);
                 if (r < 0)
                         return r;

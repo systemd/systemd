@@ -330,7 +330,7 @@ static void test_oomd_mem_and_swap_free_below(void) {
 
 static void test_oomd_sort_cgroups(void) {
         _cleanup_hashmap_free_ Hashmap *h = NULL;
-        _cleanup_free_ OomdCGroupContext **sorted_cgroups;
+        _cleanup_free_ OomdCGroupContext **sorted_cgroups = NULL;
         char **paths = STRV_MAKE("/herp.slice",
                                  "/herp.slice/derp.scope",
                                  "/herp.slice/derp.scope/sheep.service",
@@ -408,12 +408,11 @@ static void test_oomd_sort_cgroups(void) {
         assert_se(oomd_sort_cgroup_contexts(h, compare_pgscan_rate_and_memory_usage, "/herp.slice/derp.scope", &sorted_cgroups) == 2);
         assert_se(sorted_cgroups[0] == &ctx[2]);
         assert_se(sorted_cgroups[1] == &ctx[1]);
-        assert_se(sorted_cgroups[2] == 0);
-        assert_se(sorted_cgroups[3] == 0);
-        assert_se(sorted_cgroups[4] == 0);
-        assert_se(sorted_cgroups[5] == 0);
-        assert_se(sorted_cgroups[6] == 0);
-        sorted_cgroups = mfree(sorted_cgroups);
+        ASSERT_NULL(sorted_cgroups[2]);
+        ASSERT_NULL(sorted_cgroups[3]);
+        ASSERT_NULL(sorted_cgroups[4]);
+        ASSERT_NULL(sorted_cgroups[5]);
+        ASSERT_NULL(sorted_cgroups[6]);
 }
 
 static void test_oomd_fetch_cgroup_oom_preference(void) {
