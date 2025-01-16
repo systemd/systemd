@@ -74,7 +74,7 @@ static int acquire_machine_id(const char *root, bool machine_id_from_firmware, s
         }
 
         /* Then, try reading the D-Bus machine ID, unless it is a symlink */
-        fd = chase_and_open("/var/lib/dbus/machine-id", root, CHASE_PREFIX_ROOT | CHASE_NOFOLLOW, O_RDONLY|O_CLOEXEC|O_NOCTTY, NULL);
+        fd = chase_and_open("/var/lib/dbus/machine-id", root, CHASE_PREFIX_ROOT|CHASE_NOFOLLOW|CHASE_MUST_BE_REGULAR, O_RDONLY|O_CLOEXEC|O_NOCTTY, NULL);
         if (fd >= 0 && id128_read_fd(fd, ID128_FORMAT_PLAIN | ID128_REFUSE_NULL, ret) >= 0) {
                 log_info("Initializing machine ID from D-Bus machine ID.");
                 return 0;
@@ -131,54 +131,89 @@ static int acquire_machine_id(const char *root, bool machine_id_from_firmware, s
 }
 
 int machine_id_setup(const char *root, sd_id128_t machine_id, MachineIdSetupFlags flags, sd_id128_t *ret) {
-        const char *etc_machine_id, *run_machine_id;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_free_ char *etc_machine_id = NULL, *run_machine_id = NULL;
         bool writable, write_run_machine_id = true;
+        _cleanup_close_ int fd = -EBADF, run_fd = -EBADF;
+        bool unlink_run_machine_id = false;
         int r;
 
-        etc_machine_id = prefix_roota(root, "/etc/machine-id");
-
         WITH_UMASK(0000) {
-                /* We create this 0444, to indicate that this isn't really
-                 * something you should ever modify. Of course, since the file
-                 * will be owned by root it doesn't matter much, but maybe
-                 * people look. */
+                _cleanup_close_ int inode_fd = -EBADF;
 
-                (void) mkdir_parents(etc_machine_id, 0755);
-                fd = open(etc_machine_id, O_RDWR|O_CREAT|O_CLOEXEC|O_NOCTTY, 0444);
-                if (fd < 0) {
-                        int old_errno = errno;
+                r = chase("/etc/machine-id", root, CHASE_PREFIX_ROOT|CHASE_MUST_BE_REGULAR, &etc_machine_id, &inode_fd);
+                if (r == -ENOENT) {
+                        _cleanup_close_ int etc_fd = -EBADF;
+                        _cleanup_free_ char *etc = NULL;
 
-                        fd = open(etc_machine_id, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                        r = chase("/etc/", root, CHASE_PREFIX_ROOT|CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY, &etc, &etc_fd);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to open '/etc/': %m");
+
+                        etc_machine_id = path_join(etc, "machine-id");
+                        if (!etc_machine_id)
+                                return log_oom();
+
+                        /* We create this 0444, to indicate that this isn't really something you should ever
+                         * modify. Of course, since the file will be owned by root it doesn't matter much, but maybe
+                         * people look. */
+
+                        fd = openat(etc_fd, "machine-id", O_CREAT|O_EXCL|O_RDWR|O_NOFOLLOW|O_CLOEXEC, 0444);
                         if (fd < 0) {
-                                if (old_errno == EROFS && errno == ENOENT)
+                                if (errno == EROFS)
                                         return log_error_errno(errno,
-                                                  "System cannot boot: Missing /etc/machine-id and /etc is mounted read-only.\n"
-                                                  "Booting up is supported only when:\n"
-                                                  "1) /etc/machine-id exists and is populated.\n"
-                                                  "2) /etc/machine-id exists and is empty.\n"
-                                                  "3) /etc/machine-id is missing and /etc is writable.\n");
-                                else
-                                        return log_error_errno(errno, "Cannot open %s: %m", etc_machine_id);
+                                                               "System cannot boot: Missing %s and %s/ is read-only.\n"
+                                                               "Booting up is supported only when:\n"
+                                                               "1) /etc/machine-id exists and is populated.\n"
+                                                               "2) /etc/machine-id exists and is empty.\n"
+                                                               "3) /etc/machine-id is missing and /etc/ is writable.",
+                                                               etc_machine_id,
+                                                               etc);
+
+                                return log_error_errno(errno, "Cannot create '%s': %m", etc_machine_id);
                         }
 
-                        writable = false;
-                } else
+                        log_debug("Successfully opened new '%s' file.", etc_machine_id);
                         writable = true;
+                } else if (r < 0)
+                        return log_error_errno(r, "Cannot open '/etc/machine-id': %m");
+                else {
+                        /* We pinned the inode, now try to convert it into a writable file */
+
+                        fd = xopenat_full(inode_fd, /* path= */ NULL, O_RDWR|O_CLOEXEC, XO_REGULAR, 0444);
+                        if (fd < 0) {
+                                log_debug_errno(fd, "Failed to topen '%s' in writable mode, retrying in read-only mode: %m", etc_machine_id);
+
+                                /* If that didn't work, convert it into a readable file */
+                                fd = xopenat_full(inode_fd, /* path= */ NULL, O_RDONLY|O_CLOEXEC, XO_REGULAR, MODE_INVALID);
+                                if (fd < 0)
+                                        return log_error_errno(fd, "Cannot open '%s' in neither writable nor read-only mode: %m", etc_machine_id);
+
+                                log_debug("Successfully opened existing '%s' file in read-only mode.", etc_machine_id);
+                                writable = false;
+                        } else {
+                                log_debug("Successfully opened existing '%s' file in writable mode.", etc_machine_id);
+                                writable = true;
+                        }
+                }
         }
 
         /* A we got a valid machine ID argument, that's what counts */
         if (sd_id128_is_null(machine_id) || FLAGS_SET(flags, MACHINE_ID_SETUP_FORCE_FIRMWARE)) {
 
                 /* Try to read any existing machine ID */
-                if (id128_read_fd(fd, ID128_FORMAT_PLAIN, &machine_id) >= 0)
+                r = id128_read_fd(fd, ID128_FORMAT_PLAIN, &machine_id);
+                if (r >= 0)
                         goto finish;
+
+                log_debug_errno(r, "Unable to read current machine ID, acquiring new one: %m");
 
                 /* Hmm, so, the id currently stored is not useful, then let's acquire one. */
                 r = acquire_machine_id(root, FLAGS_SET(flags, MACHINE_ID_SETUP_FORCE_FIRMWARE), &machine_id);
                 if (r < 0)
                         return r;
-                write_run_machine_id = !r;
+
+                write_run_machine_id = !r; /* acquire_machine_id() returns 1 in case we read this machine ID
+                                            * from /run/machine-id */
         }
 
         if (writable) {
@@ -204,42 +239,54 @@ int machine_id_setup(const char *root, sd_id128_t machine_id, MachineIdSetupFlag
                         r = id128_write_fd(fd, ID128_FORMAT_PLAIN | ID128_SYNC_ON_WRITE, machine_id);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to write %s: %m", etc_machine_id);
-                        else
-                                goto finish;
+
+                        goto finish;
                 }
         }
 
-        fd = safe_close(fd);
-
-        /* Hmm, we couldn't or shouldn't write the machine-id to /etc?
-         * So let's write it to /run/machine-id as a replacement */
-
-        run_machine_id = prefix_roota(root, "/run/machine-id");
+        /* Hmm, we couldn't or shouldn't write the machine-id to /etc/? So let's write it to /run/machine-id
+         * as a replacement */
 
         if (write_run_machine_id) {
-                WITH_UMASK(0022)
-                        r = id128_write(run_machine_id, ID128_FORMAT_PLAIN, machine_id);
-                if (r < 0) {
-                        (void) unlink(run_machine_id);
-                        return log_error_errno(r, "Cannot write %s: %m", run_machine_id);
+                _cleanup_free_ char *run = NULL;
+
+                r = chase("/run/", root, CHASE_PREFIX_ROOT|CHASE_MUST_BE_DIRECTORY, &run, &run_fd);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to open '/run/': %m");
+
+                run_machine_id = path_join(run, "machine-id");
+                if (!run_machine_id)
+                        return log_oom();
+
+                WITH_UMASK(0022) {
+                        r = id128_write_at(run_fd, "machine-id", ID128_FORMAT_PLAIN, machine_id);
+                        if (r < 0)
+                                return log_error_errno(r, "Cannot write '%s': %m", run_machine_id);
                 }
+
+                unlink_run_machine_id = true;
+        } else {
+                r = chase("/run/machine-id", root, CHASE_PREFIX_ROOT|CHASE_MUST_BE_REGULAR, &run_machine_id, /* ret_inode_fd= */ NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to open '/run/machine-id': %m");
         }
 
         /* And now, let's mount it over */
-        r = mount_follow_verbose(LOG_ERR, run_machine_id, etc_machine_id, NULL, MS_BIND, NULL);
-        if (r < 0) {
-                (void) unlink(run_machine_id);
-                return r;
-        }
-
-        log_full(FLAGS_SET(flags, MACHINE_ID_SETUP_FORCE_TRANSIENT) ? LOG_DEBUG : LOG_INFO, "Installed transient %s file.", etc_machine_id);
-
-        /* Mark the mount read-only */
-        r = mount_follow_verbose(LOG_WARNING, NULL, etc_machine_id, NULL, MS_BIND|MS_RDONLY|MS_REMOUNT, NULL);
+        r = mount_follow_verbose(LOG_ERR, run_machine_id, FORMAT_PROC_FD_PATH(fd), /* fstype= */ NULL, MS_BIND, /* options= */ NULL);
         if (r < 0)
                 return r;
 
+        log_full(FLAGS_SET(flags, MACHINE_ID_SETUP_FORCE_TRANSIENT) ? LOG_DEBUG : LOG_INFO, "Installed transient '%s' file.", etc_machine_id);
+
+        unlink_run_machine_id = false;
+
+        /* Mark the mount read-only (note: we are not going via FORMAT_PROC_FD_PATH() here because that fd is not updated to our new bind mount) */
+        (void) mount_follow_verbose(LOG_WARNING, /* source= */ NULL, etc_machine_id, /* fstype= */ NULL, MS_BIND|MS_RDONLY|MS_REMOUNT, /* options= */ NULL);
+
 finish:
+        if (unlink_run_machine_id)
+                (void) unlinkat(ASSERT_FD(run_fd), "machine-id", /* flags= */ 0);
+
         if (!in_initrd())
                 (void) sd_notifyf(/* unset_environment= */ false, "X_SYSTEMD_MACHINE_ID=" SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(machine_id));
 
@@ -250,30 +297,43 @@ finish:
 }
 
 int machine_id_commit(const char *root) {
-        _cleanup_close_ int fd = -EBADF, initial_mntns_fd = -EBADF;
-        const char *etc_machine_id;
         sd_id128_t id;
         int r;
 
-        /* Before doing anything, sync everything to ensure any changes by first-boot units are persisted.
-         *
-         * First, explicitly sync the file systems we care about and check if it worked. */
-        FOREACH_STRING(sync_path, "/etc/", "/var/") {
-                r = syncfs_path(AT_FDCWD, sync_path);
-                if (r < 0)
-                        return log_error_errno(r, "Cannot sync %s: %m", sync_path);
-        }
+        if (empty_or_root(root)) {
+                /* Before doing anything, sync everything to ensure any changes by first-boot units are
+                 * persisted.
+                 *
+                 * First, explicitly sync the file systems we care about and check if it worked. */
+                FOREACH_STRING(sync_path, "/etc/", "/var/") {
+                        r = syncfs_path(AT_FDCWD, sync_path);
+                        if (r < 0)
+                                return log_error_errno(r, "Cannot sync %s: %m", sync_path);
+                }
 
-        /* Afterwards, sync() the rest too, but we can't check the return value for these. */
-        sync();
+                /* Afterwards, sync() the rest too, but we can't check the return value for these. */
+                sync();
+        }
 
         /* Replaces a tmpfs bind mount of /etc/machine-id by a proper file, atomically. For this, the umount is removed
          * in a mount namespace, a new file is created at the right place. Afterwards the mount is also removed in the
          * original mount namespace, thus revealing the file that was just created. */
 
-        etc_machine_id = prefix_roota(root, "/etc/machine-id");
+        _cleanup_close_ int etc_fd = -EBADF;
+        _cleanup_free_ char *etc = NULL;
+        r = chase("/etc/", root, CHASE_PREFIX_ROOT|CHASE_MUST_BE_DIRECTORY, &etc, &etc_fd);
+        if (r < 0)
+                return log_error_errno(r, "Failed to open /etc/: %m");
 
-        r = path_is_mount_point(etc_machine_id);
+        _cleanup_free_ char *etc_machine_id = path_join(etc, "/etc/machine-id");
+        if (!etc_machine_id)
+                return log_oom();
+
+        r = fd_is_mount_point(etc_fd, "machine-id", /* flags= */ 0);
+        if (r == -ELOOP) {
+                log_debug("%s is a symlink. Nothing to do.", etc_machine_id);
+                return 0;
+        }
         if (r < 0)
                 return log_error_errno(r, "Failed to determine whether %s is a mount point: %m", etc_machine_id);
         if (r == 0) {
@@ -282,9 +342,12 @@ int machine_id_commit(const char *root) {
         }
 
         /* Read existing machine-id */
-        fd = open(etc_machine_id, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+
+        _cleanup_close_ int fd = xopenat_full(etc_fd, "machine-id", O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, XO_REGULAR, MODE_INVALID);
         if (fd < 0)
-                return log_error_errno(errno, "Cannot open %s: %m", etc_machine_id);
+                return log_error_errno(fd, "Cannot open %s: %m", etc_machine_id);
+
+        etc_fd = safe_close(etc_fd);
 
         r = fd_is_temporary_fs(fd);
         if (r < 0)
@@ -298,10 +361,8 @@ int machine_id_commit(const char *root) {
         if (r < 0)
                 return log_error_errno(r, "We didn't find a valid machine ID in %s: %m", etc_machine_id);
 
-        fd = safe_close(fd);
-
         /* Store current mount namespace */
-        initial_mntns_fd = namespace_open_by_type(NAMESPACE_MOUNT);
+        _cleanup_close_ int initial_mntns_fd = namespace_open_by_type(NAMESPACE_MOUNT);
         if (initial_mntns_fd < 0)
                 return log_error_errno(initial_mntns_fd, "Can't fetch current mount namespace: %m");
 
@@ -310,14 +371,22 @@ int machine_id_commit(const char *root) {
         if (r < 0)
                 return log_error_errno(r, "Failed to set up new mount namespace: %m");
 
-        r = umount_verbose(LOG_ERR, etc_machine_id, 0);
+        /* Open /etc/ again after we transitione into our own private mount namespace */
+        _cleanup_close_ int etc_fd_again = -EBADF;
+        r = chase("/etc/", root, CHASE_PREFIX_ROOT|CHASE_MUST_BE_DIRECTORY, /* ret_path= */ NULL, &etc_fd_again);
+        if (r < 0)
+                return log_error_errno(r, "Failed to open /etc/: %m");
+
+        r = umountat_detach_verbose(LOG_ERR, etc_fd_again, "machine-id");
         if (r < 0)
                 return r;
 
         /* Update a persistent version of etc_machine_id */
-        r = id128_write(etc_machine_id, ID128_FORMAT_PLAIN | ID128_SYNC_ON_WRITE, id);
+        r = id128_write_at(etc_fd_again, "machine-id", ID128_FORMAT_PLAIN | ID128_SYNC_ON_WRITE, id);
         if (r < 0)
                 return log_error_errno(r, "Cannot write %s. This is mandatory to get a persistent machine ID: %m", etc_machine_id);
+
+        etc_fd_again = safe_close(etc_fd_again);
 
         /* Return to initial namespace and proceed a lazy tmpfs unmount */
         r = namespace_enter(/* pidns_fd = */ -EBADF,
@@ -326,10 +395,15 @@ int machine_id_commit(const char *root) {
                             /* userns_fd = */ -EBADF,
                             /* root_fd = */ -EBADF);
         if (r < 0)
-                return log_warning_errno(r, "Failed to switch back to initial mount namespace: %m.\nWe'll keep transient %s file until next reboot.", etc_machine_id);
+                return log_warning_errno(r,
+                                         "Failed to switch back to initial mount namespace: %m.\n"
+                                         "We'll keep transient %s file until next reboot.", etc_machine_id);
 
-        if (umount2(etc_machine_id, MNT_DETACH) < 0)
-                return log_warning_errno(errno, "Failed to unmount transient %s file: %m.\nWe keep that mount until next reboot.", etc_machine_id);
+        r = umountat_detach_verbose(LOG_DEBUG, fd, /* filename= */ NULL);
+        if (r < 0)
+                return log_warning_errno(r,
+                                         "Failed to unmount transient %s file: %m.\n"
+                                         "We keep that mount until next reboot.", etc_machine_id);
 
         return 0;
 }
