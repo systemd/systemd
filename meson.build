@@ -4,7 +4,7 @@ project('systemd', 'c',
         version : files('meson.version'),
         license : 'LGPLv2+',
         default_options: [
-                'c_std=gnu11',
+                'c_std=gnu17',
                 'prefix=/usr',
                 'sysconfdir=/etc',
                 'localstatedir=/var',
@@ -1758,7 +1758,7 @@ python_39 = python.language_version().version_compare('>=3.9')
 
 if conf.get('BPF_FRAMEWORK') == 1
         bpf_clang_flags = [
-                '-std=gnu11',
+                '-std=gnu17',
                 '-Wno-compare-distinct-pointer-types',
                 '-fno-stack-protector',
                 '-O2',
@@ -1769,7 +1769,7 @@ if conf.get('BPF_FRAMEWORK') == 1
         ]
 
         bpf_gcc_flags = [
-                '-std=gnu11',
+                '-std=gnu17',
                 '-fno-stack-protector',
                 '-fno-ssa-phiopt',
                 '-O2',
