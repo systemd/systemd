@@ -383,8 +383,8 @@ USERS AND GROUPS:
         need to be resolvable by getgrnam() at any time, even in the very early
         boot stages, where no other databases and network are available:
 
-        audio, cdrom, clock, dialout, disk, input, kmem, kvm, lp, render, tape,
-        tty, video
+          audio, cdrom, clock, dialout, disk, input, kmem, kvm, lp, render,
+          sgx, tape, tty, video
 
         During runtime, the journal daemon requires the "systemd-journal" system
         group to exist. New journal files will be readable by this group (but
