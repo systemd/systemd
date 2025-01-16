@@ -101,6 +101,9 @@ typedef struct GetentData {
         bool by_membership;
 } GetentData;
 
+/* On current glibc PTHREAD_MUTEX_INITIALIZER is defined in a way incompatible with
+ * -Wzero-as-null-pointer-constant, work around this for now. */
+DISABLE_WARNING_ZERO_AS_NULL_POINTER_CONSTANT;
 static GetentData getpwent_data = {
         .mutex = PTHREAD_MUTEX_INITIALIZER,
 };
@@ -116,6 +119,7 @@ static GetentData getspent_data = {
 static GetentData getsgent_data = {
         .mutex = PTHREAD_MUTEX_INITIALIZER,
 };
+REENABLE_WARNING;
 
 static void setup_logging_once(void) {
         static pthread_once_t once = PTHREAD_ONCE_INIT;
