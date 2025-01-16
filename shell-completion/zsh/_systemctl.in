@@ -105,6 +105,7 @@
         "hibernate:Hibernate the system"
         "hybrid-sleep:Hibernate and suspend the system"
         "suspend-then-hibernate:Suspend the system for a period of time, and then hibernate it"
+        "sleep:Put the system to sleep"
     )
 
     local -a groups=( unit machine unit_file job environment manager_state system )
