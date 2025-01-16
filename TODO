@@ -122,6 +122,8 @@ Deprecations and removals:
 
 Features:
 
+* systemd-firstboot: optionally install am ssh key for root for offline use.
+
 * add a small tool that reads user records/group records from a credential, and
   then places them in the userdb drop-in dirs (either /run/ or /var/). While
   doing so it processes them:
