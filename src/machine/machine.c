@@ -954,7 +954,7 @@ char** machine_default_shell_args(const char *user) {
         return TAKE_PTR(args);
 }
 
-int machine_copy_from_to(
+int machine_copy_from_to_operation(
                 Manager *manager,
                 Machine *machine,
                 const char *host_path,
