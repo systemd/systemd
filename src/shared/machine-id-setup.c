@@ -255,17 +255,20 @@ int machine_id_commit(const char *root) {
         sd_id128_t id;
         int r;
 
-        /* Before doing anything, sync everything to ensure any changes by first-boot units are persisted.
-         *
-         * First, explicitly sync the file systems we care about and check if it worked. */
-        FOREACH_STRING(sync_path, "/etc/", "/var/") {
-                r = syncfs_path(AT_FDCWD, sync_path);
-                if (r < 0)
-                        return log_error_errno(r, "Cannot sync %s: %m", sync_path);
-        }
+        if (empty_or_root(root)) {
+                /* Before doing anything, sync everything to ensure any changes by first-boot units are
+                 * persisted.
+                 *
+                 * First, explicitly sync the file systems we care about and check if it worked. */
+                FOREACH_STRING(sync_path, "/etc/", "/var/") {
+                        r = syncfs_path(AT_FDCWD, sync_path);
+                        if (r < 0)
+                                return log_error_errno(r, "Cannot sync %s: %m", sync_path);
+                }
 
-        /* Afterwards, sync() the rest too, but we can't check the return value for these. */
-        sync();
+                /* Afterwards, sync() the rest too, but we can't check the return value for these. */
+                sync();
+        }
 
         /* Replaces a tmpfs bind mount of /etc/machine-id by a proper file, atomically. For this, the umount is removed
          * in a mount namespace, a new file is created at the right place. Afterwards the mount is also removed in the
