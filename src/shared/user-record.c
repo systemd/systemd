@@ -140,6 +140,7 @@ static UserRecord* user_record_free(UserRecord *h) {
         free(h->user_name);
         free(h->realm);
         free(h->user_name_and_realm_auto);
+        strv_free(h->aliases);
         free(h->real_name);
         free(h->email_address);
         erase_and_free(h->password_hint);
@@ -1538,6 +1539,7 @@ int user_record_load(UserRecord *h, sd_json_variant *v, UserRecordLoadFlags load
 
         static const sd_json_dispatch_field user_dispatch_table[] = {
                 { "userName",                   SD_JSON_VARIANT_STRING,        json_dispatch_user_group_name,        offsetof(UserRecord, user_name),                     SD_JSON_RELAX  },
+                { "aliases",                    SD_JSON_VARIANT_ARRAY,         json_dispatch_user_group_list,        offsetof(UserRecord, aliases),                       SD_JSON_RELAX  },
                 { "realm",                      SD_JSON_VARIANT_STRING,        json_dispatch_realm,                  offsetof(UserRecord, realm),                         0              },
                 { "blobDirectory",              SD_JSON_VARIANT_STRING,        json_dispatch_path,                   offsetof(UserRecord, blob_directory),                SD_JSON_STRICT },
                 { "blobManifest",               SD_JSON_VARIANT_OBJECT,        dispatch_blob_manifest,               offsetof(UserRecord, blob_manifest),                 0              },
@@ -2635,6 +2637,15 @@ bool user_record_matches_user_name(const UserRecord *u, const char *user_name) {
         if (streq_ptr(u->user_name_and_realm_auto, user_name))
                 return true;
 
+        if (strv_contains(u->aliases, user_name))
+                return true;
+
+        const char *realm = strrchr(user_name, '@');
+        if (realm && streq_ptr(realm+1, u->realm))
+                STRV_FOREACH(a, u->aliases)
+                        if (startswith(user_name, *a) == realm)
+                                return true;
+
         return false;
 }
 
@@ -2704,7 +2715,8 @@ int user_record_match(UserRecord *u, const UserDBMatch *match) {
                         u->cifs_user_name,
                 };
 
-                if (!user_name_fuzzy_match(names, ELEMENTSOF(names), match->fuzzy_names))
+                if (!user_name_fuzzy_match(names, ELEMENTSOF(names), match->fuzzy_names) &&
+                    !user_name_fuzzy_match((const char**) u->aliases, strv_length(u->aliases), match->fuzzy_names))
                         return false;
         }
 
