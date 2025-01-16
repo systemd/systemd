@@ -10,6 +10,7 @@ SUBSYSTEM=="block", KERNEL=="md*", ENV{ID_IGNORE_DISKSEQ}="1"
 
 SUBSYSTEM=="virtio-ports", KERNEL=="vport*", ATTR{name}=="?*", SYMLINK+="virtio-ports/$attr{name}"
 
+SUBSYSTEM=="rtc", GROUP="clock", MODE="0660"
 # select "system RTC" or just use the first one
 SUBSYSTEM=="rtc", ATTR{hctosys}=="1", SYMLINK+="rtc"
 SUBSYSTEM=="rtc", KERNEL=="rtc0", SYMLINK+="rtc", OPTIONS+="link_priority=-100"
@@ -30,6 +31,7 @@ SUBSYSTEM=="pci|usb|platform", IMPORT{builtin}="path_id"
 
 SUBSYSTEM=="net", IMPORT{builtin}="net_driver"
 
+SUBSYSTEM=="ptp", GROUP="clock", MODE="0660"
 SUBSYSTEM=="ptp", ATTR{clock_name}=="KVM virtual PTP", SYMLINK+="ptp_kvm"
 SUBSYSTEM=="ptp", ATTR{clock_name}=="hyperv", SYMLINK+="ptp_hyperv"
 
