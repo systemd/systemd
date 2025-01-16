@@ -516,9 +516,6 @@ add_project_link_arguments(
 userspace_c_args += cc.get_supported_arguments(possible_cc_flags)
 userspace_c_ld_args += cc.get_supported_link_arguments(possible_link_flags)
 
-have = cc.has_argument('-Wzero-length-bounds')
-conf.set10('HAVE_ZERO_LENGTH_BOUNDS', have)
-
 if cc.compiles('''
    #include <time.h>
    #include <inttypes.h>
@@ -537,6 +534,14 @@ if cxx_cmd != ''
 endif
 
 cpp = ' '.join(cc.cmd_array() + get_option('c_args')) + ' -E'
+
+# new in GCC 10
+have = cc.has_argument('-Wzero-length-bounds')
+conf.set10('HAVE_WARNING_ZERO_LENGTH_BOUNDS', have)
+
+# new in GCC 15
+have = cc.has_argument('-Wzero-as-null-pointer-constant')
+conf.set10('HAVE_WARNING_ZERO_AS_NULL_POINTER_CONSTANT', have)
 
 #####################################################################
 # compilation result tests

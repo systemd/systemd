@@ -52,13 +52,21 @@
         _Pragma("GCC diagnostic push");                                 \
         _Pragma("GCC diagnostic ignored \"-Wstringop-truncation\"")
 
-#define DISABLE_WARNING_ZERO_LENGTH_BOUNDS                              \
+#if HAVE_WARNING_ZERO_LENGTH_BOUNDS
+#  define DISABLE_WARNING_ZERO_LENGTH_BOUNDS                            \
         _Pragma("GCC diagnostic push");                                 \
         _Pragma("GCC diagnostic ignored \"-Wzero-length-bounds\"")
+#else
+#  define DISABLE_WARNING_ZERO_LENGTH_BOUNDS
+#endif
 
-#define DISABLE_WARNING_ZERO_AS_NULL_POINTER_CONSTANT                   \
+#if HAVE_WARNING_ZERO_AS_NULL_POINTER_CONSTANT
+#  define DISABLE_WARNING_ZERO_AS_NULL_POINTER_CONSTANT                 \
         _Pragma("GCC diagnostic push");                                 \
         _Pragma("GCC diagnostic ignored \"-Wzero-as-null-pointer-constant\"")
+#else
+#  define DISABLE_WARNING_ZERO_AS_NULL_POINTER_CONSTANT
+#endif
 
 #define REENABLE_WARNING                                                \
         _Pragma("GCC diagnostic pop")
