@@ -7,3 +7,4 @@
 
 int dump_lldp_neighbors(sd_varlink *vl, Table *table, int ifindex);
 int link_lldp_status(int argc, char *argv[], void *userdata);
+int dump_lldp_neighbors_legacy(Table *table, const char *prefix, int ifindex);

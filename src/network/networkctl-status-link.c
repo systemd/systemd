@@ -267,7 +267,6 @@ static int link_status_one(
 
         assert(bus);
         assert(rtnl);
-        assert(vl);
         assert(info);
 
         (void) sd_network_link_get_operational_state(info->ifindex, &operational_state);
@@ -904,7 +903,7 @@ static int link_status_one(
                         return table_log_add_error(r);
         }
 
-        r = dump_lldp_neighbors(vl, table, info->ifindex);
+        r = vl ? dump_lldp_neighbors(vl, table, info->ifindex) : dump_lldp_neighbors_legacy(table, "Connected To", info->ifindex);
         if (r < 0)
                 return r;
 
@@ -955,8 +954,10 @@ int link_status(int argc, char *argv[], void *userdata) {
                 log_debug_errno(r, "Failed to open hardware database: %m");
 
         r = varlink_connect_networkd(&vl);
-        if (r < 0)
-                return r;
+        if (r < 0) {
+                log_warning("Varlink connection failed, fallback to D-Bus.");
+                vl = NULL;
+        }
 
         if (arg_all)
                 c = acquire_link_info(bus, rtnl, NULL, &links);
