@@ -187,7 +187,6 @@ static int acquire_user_record(
         r = pam_get_user(handle, &username, NULL);
         if (r != PAM_SUCCESS)
                 return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get user name: @PAMERR@");
-
         if (isempty(username))
                 return pam_syslog_pam_error(handle, LOG_ERR, PAM_SERVICE_ERR, "User name not valid.");
 
@@ -224,7 +223,7 @@ static int acquire_user_record(
                 _cleanup_free_ char *formatted = NULL;
 
                 /* Request the record ourselves */
-                r = userdb_by_name(username, 0, &ur);
+                r = userdb_by_name(username, /* flags= */ 0, &ur);
                 if (r < 0) {
                         pam_syslog_errno(handle, LOG_ERR, r, "Failed to get user record: %m");
                         return PAM_USER_UNKNOWN;
@@ -1468,12 +1467,12 @@ _public_ PAM_EXTERN int pam_sm_close_session(
 
         if (parse_argv(handle,
                        argc, argv,
-                       NULL,
-                       NULL,
-                       NULL,
+                       /* class= */ NULL,
+                       /* type= */ NULL,
+                       /* deskop= */ NULL,
                        &debug,
-                       NULL,
-                       NULL) < 0)
+                       /* default_capability_bounding_set */ NULL,
+                       /* default_capability_ambient_set= */ NULL) < 0)
                 return PAM_SESSION_ERR;
 
         pam_debug_syslog(handle, debug, "pam-systemd shutting down");
