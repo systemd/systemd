@@ -95,6 +95,7 @@ static bool arg_prompt_new_user = false;
 static char *arg_blob_dir = NULL;
 static bool arg_blob_clear = false;
 static Hashmap *arg_blob_files = NULL;
+static char **arg_aliases = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_identity_extra, sd_json_variant_unrefp);
 STATIC_DESTRUCTOR_REGISTER(arg_identity_extra_this_machine, sd_json_variant_unrefp);
@@ -106,6 +107,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_pkcs11_token_uri, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_fido2_device, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_blob_dir, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_blob_files, hashmap_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_aliases, strv_freep);
 
 static const BusLocator *bus_mgr;
 
@@ -2756,6 +2758,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "\n%4$sGeneral User Record Properties:%5$s\n"
                "  -c --real-name=REALNAME      Real name for user\n"
                "     --realm=REALM             Realm to create user in\n"
+               "     --alias=ALIAS             Define alias usernames for this account\n"
                "     --email-address=EMAIL     Email address for user\n"
                "     --location=LOCATION       Set location of user on earth\n"
                "     --icon-name=NAME          Icon name for user\n"
@@ -2900,6 +2903,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NO_ASK_PASSWORD,
                 ARG_OFFLINE,
                 ARG_REALM,
+                ARG_ALIAS,
                 ARG_EMAIL_ADDRESS,
                 ARG_DISK_SIZE,
                 ARG_ACCESS_MODE,
@@ -2991,6 +2995,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "real-name",                    required_argument, NULL, 'c'                             },
                 { "comment",                      required_argument, NULL, 'c'                             }, /* Compat alias to keep thing in sync with useradd(8) */
                 { "realm",                        required_argument, NULL, ARG_REALM                       },
+                { "alias",                        required_argument, NULL, ARG_ALIAS                       },
                 { "email-address",                required_argument, NULL, ARG_EMAIL_ADDRESS               },
                 { "location",                     required_argument, NULL, ARG_LOCATION                    },
                 { "password-hint",                required_argument, NULL, ARG_PASSWORD_HINT               },
@@ -3145,6 +3150,53 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_error_errno(r, "Failed to set realName field: %m");
 
                         break;
+
+                case ARG_ALIAS: {
+                        if (isempty(optarg)) {
+                                r = drop_from_identity("aliases");
+                                if (r < 0)
+                                        return r;
+                                break;
+                        }
+
+                        for (const char *p = optarg;;) {
+                                _cleanup_free_ char *word = NULL;
+
+                                r = extract_first_word(&p, &word, ",", 0);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse alias list: %m");
+                                if (r == 0)
+                                        break;
+
+                                if (!valid_user_group_name(word, 0))
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid alias user name %s.", word);
+
+                                _cleanup_(sd_json_variant_unrefp) sd_json_variant *av =
+                                        sd_json_variant_ref(sd_json_variant_by_key(arg_identity_extra, "aliases"));
+
+                                _cleanup_strv_free_ char **list = NULL;
+                                r = sd_json_variant_strv(av, &list);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse group list: %m");
+
+                                r = strv_extend(&list, word);
+                                if (r < 0)
+                                        return log_oom();
+
+                                strv_sort_uniq(list);
+
+                                av = sd_json_variant_unref(av);
+                                r = sd_json_variant_new_array_strv(&av, list);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to create alias list JSON: %m");
+
+                                r = sd_json_variant_set_field(&arg_identity_extra, "aliases", av);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to update alias list: %m");
+                        }
+
+                        break;
+                }
 
                 case 'd': {
                         _cleanup_free_ char *hd = NULL;
