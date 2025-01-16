@@ -202,7 +202,7 @@ static int acquire_user_record(
                 r = pam_set_data(handle, generic_field, json_copy, pam_cleanup_free);
                 if (r != PAM_SUCCESS)
                         return pam_syslog_pam_error(handle, LOG_ERR, r,
-                                                    "Failed to set PAM user record data '%s': @PAMERR@", homed_field);
+                                                    "Failed to set PAM user record data '%s': @PAMERR@", generic_field);
 
                 TAKE_PTR(json_copy);
         }
