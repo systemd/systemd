@@ -100,15 +100,17 @@ int vl_method_get_user_record(sd_varlink *link, sd_json_variant *parameters, sd_
 
         if (uid_is_valid(p.uid))
                 h = hashmap_get(m->homes_by_uid, UID_TO_PTR(p.uid));
-        else if (p.user_name)
-                h = hashmap_get(m->homes_by_name, p.user_name);
-        else {
+        else if (p.user_name) {
+                r = manager_get_home_by_name(m, p.user_name, &h);
+                if (r < 0)
+                        return r;
+        } else {
 
                 /* If neither UID nor name was specified, then dump all homes. Do so with varlink_notify()
                  * for all entries but the last, so that clients can stream the results, and easily process
                  * them piecemeal. */
 
-                HASHMAP_FOREACH(h, m->homes_by_name) {
+                HASHMAP_FOREACH(h, m->homes_by_uid) {
 
                         if (!home_user_match_lookup_parameters(&p, h))
                                 continue;
@@ -212,11 +214,13 @@ int vl_method_get_group_record(sd_varlink *link, sd_json_variant *parameters, sd
 
         if (gid_is_valid(p.gid))
                 h = hashmap_get(m->homes_by_uid, UID_TO_PTR((uid_t) p.gid));
-        else if (p.group_name)
-                h = hashmap_get(m->homes_by_name, p.group_name);
-        else {
+        else if (p.group_name) {
+                r = manager_get_home_by_name(m, p.group_name, &h);
+                if (r < 0)
+                        return r;
+        } else {
 
-                HASHMAP_FOREACH(h, m->homes_by_name) {
+                HASHMAP_FOREACH(h, m->homes_by_uid) {
 
                         if (!home_group_match_lookup_parameters(&p, h))
                                 continue;
@@ -279,7 +283,9 @@ int vl_method_get_memberships(sd_varlink *link, sd_json_variant *parameters, sd_
         if (p.user_name) {
                 const char *last = NULL;
 
-                h = hashmap_get(m->homes_by_name, p.user_name);
+                r = manager_get_home_by_name(m, p.user_name, &h);
+                if (r < 0)
+                        return r;
                 if (!h)
                         return sd_varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
 
@@ -315,7 +321,7 @@ int vl_method_get_memberships(sd_varlink *link, sd_json_variant *parameters, sd_
         } else if (p.group_name) {
                 const char *last = NULL;
 
-                HASHMAP_FOREACH(h, m->homes_by_name) {
+                HASHMAP_FOREACH(h, m->homes_by_uid) {
 
                         if (!strv_contains(h->record->member_of, p.group_name))
                                 continue;
@@ -340,7 +346,7 @@ int vl_method_get_memberships(sd_varlink *link, sd_json_variant *parameters, sd_
         } else {
                 const char *last_user_name = NULL, *last_group_name = NULL;
 
-                HASHMAP_FOREACH(h, m->homes_by_name)
+                HASHMAP_FOREACH(h, m->homes_by_uid)
                         STRV_FOREACH(j, h->record->member_of) {
 
                                 if (last_user_name) {
