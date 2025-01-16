@@ -171,6 +171,10 @@ New PRs submitted to the project are run through regression tests, and one set
 of those is the 'autopkgtest' runs for several different architectures, called
 'Ubuntu CI'.  Part of that testing is to run all these tests.
 
+Known issues affecting the infrastructure/testbed can be seen on this Ubuntu page:
+
+https://discourse.ubuntu.com/t/autopkgtest-service/34490
+
 In case a test fails, the full set of artifacts, including the journal of the
 failed run, can be downloaded from the artifacts.tar.gz archive which will be
 reachable in the same URL parent directory as the logs.gz that gets linked on
