@@ -65,6 +65,13 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
         printf("   User name: %s\n",
                user_record_user_name_and_realm(hr));
 
+        if (!strv_isempty(hr->aliases)) {
+                STRV_FOREACH(i, hr->aliases)
+                        printf(i == hr->aliases ?
+                               "       Alias: %s" : ", %s", *i);
+                putchar('\n');
+        }
+
         if (hr->state) {
                 const char *color;
 

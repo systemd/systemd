@@ -226,6 +226,14 @@ This field is optional, when unset the user should not be considered part of any
 A user record with a realm set is never compatible (for the purpose of updates,
 see above) with a user record without one set, even if the `userName` field matches.
 
+`aliases` → An array of strings, each being a valid UNIX user name. If
+specified, a list of additional UNIX user names this record shall be known
+under. These are *alias* names only, the name in `userName` is always the
+primary name. Typically, a user record that carries this field shall be
+retrievable and resolvable under every name listed here, pretty much everywhere
+the primary user name is. If logging in is attempted via an alias name it
+should be normalized to the primary name.
+
 `blobDirectory` → The absolute path to a world-readable copy of the user's blob
 directory. See [Blob Directories](/USER_RECORD_BLOB_DIRS) for more details.
 
