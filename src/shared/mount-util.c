@@ -736,16 +736,62 @@ int mount_verbose_full(
 
 int umount_verbose(
                 int error_log_level,
-                const char *what,
+                const char *where,
                 int flags) {
 
-        assert(what);
+        assert(where);
 
-        log_debug("Umounting %s...", what);
+        log_debug("Unmounting '%s'...", where);
 
-        if (umount2(what, flags) < 0)
-                return log_full_errno(error_log_level, errno,
-                                      "Failed to unmount %s: %m", what);
+        if (umount2(where, flags) < 0)
+                return log_full_errno(error_log_level, errno, "Failed to unmount '%s': %m", where);
+
+        return 0;
+}
+
+int umountat_detach_verbose(
+                int error_log_level,
+                int fd,
+                const char *where) {
+
+        /* Similar to umountat_verbose(), but goes by fd + path. This implies MNT_DETACH, since to do this we
+         * must pin the inode in question via an fd. */
+
+        assert(fd >= 0 || fd == AT_FDCWD);
+
+        /* If neither fd nor path are specified take this as reference to the cwd */
+        if (fd == AT_FDCWD && isempty(where))
+                return umount_verbose(error_log_level, ".", MNT_DETACH|UMOUNT_NOFOLLOW);
+
+        /* If we don't actually take the fd into consideration for this operation shortcut things, so that we
+         * don't have to open the inode */
+        if (fd == AT_FDCWD || path_is_absolute(where))
+                return umount_verbose(error_log_level, where, MNT_DETACH|UMOUNT_NOFOLLOW);
+
+        _cleanup_free_ char *prefix = NULL;
+        const char *p;
+        if (fd_get_path(fd, &prefix) < 0)
+                p = "...";
+        else
+                p = prefix;
+        _cleanup_free_ char *joined = isempty(where) ? strdup(p) : path_join(p, where);
+
+        log_debug("Unmounting '%s'...", strna(joined));
+
+        _cleanup_close_ int inode_fd = -EBADF;
+        int mnt_fd;
+        if (isempty(where))
+                mnt_fd = fd;
+        else {
+                inode_fd = openat(fd, where, O_PATH|O_CLOEXEC|O_NOFOLLOW);
+                if (inode_fd < 0)
+                        return log_full_errno(error_log_level, errno, "Failed to pin '%s': %m", strna(joined));
+
+                mnt_fd = inode_fd;
+        }
+
+        if (umount2(FORMAT_PROC_FD_PATH(mnt_fd), MNT_DETACH) < 0)
+                return log_full_errno(error_log_level, errno, "Failed to unmount '%s': %m", strna(joined));
 
         return 0;
 }
