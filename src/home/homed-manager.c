@@ -75,7 +75,6 @@ static bool uid_is_home(uid_t uid) {
 #define UID_CLAMP_INTO_HOME_RANGE(rnd) (((uid_t) (rnd) % (HOME_UID_MAX - HOME_UID_MIN + 1)) + HOME_UID_MIN)
 
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(homes_by_uid_hash_ops, void, trivial_hash_func, trivial_compare_func, Home, home_free);
-DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(homes_by_name_hash_ops, char, string_hash_func, string_compare_func, Home, home_free);
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(homes_by_worker_pid_hash_ops, void, trivial_hash_func, trivial_compare_func, Home, home_free);
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(homes_by_sysfs_hash_ops, char, path_hash_func, path_compare, Home, home_free);
 
@@ -191,7 +190,7 @@ static int on_home_inotify(sd_event_source *s, const struct inotify_event *event
                         log_debug("%s has been moved away, revalidating.", j);
 
                 h = hashmap_get(m->homes_by_name, n);
-                if (h) {
+                if (h && streq(h->user_name, n)) {
                         manager_revalidate_image(m, h);
                         (void) bus_manager_emit_auto_login_changed(m);
                 }
@@ -242,7 +241,7 @@ int manager_new(Manager **ret) {
         if (!m->homes_by_uid)
                 return -ENOMEM;
 
-        m->homes_by_name = hashmap_new(&homes_by_name_hash_ops);
+        m->homes_by_name = hashmap_new(&string_hash_ops);
         if (!m->homes_by_name)
                 return -ENOMEM;
 
@@ -696,6 +695,11 @@ static int manager_add_home_by_image(
         h = hashmap_get(m->homes_by_name, user_name);
         if (h) {
                 bool same;
+
+                if (!streq(h->user_name, user_name)) {
+                        log_debug("Found an image for user %s which already is an alias for another user, skipping.", user_name);
+                        return 0; /* Ignore images that would synthesize a user that conflicts with an alias of another user */
+                }
 
                 if (h->state != HOME_UNFIXATED) {
                         log_debug("Found an image for user %s which already has a record, skipping.", user_name);
@@ -1714,7 +1718,7 @@ int manager_gc_images(Manager *m) {
         } else {
                 /* Gc all */
 
-                HASHMAP_FOREACH(h, m->homes_by_name)
+                HASHMAP_FOREACH(h, m->homes_by_uid)
                         manager_revalidate_image(m, h);
         }
 
@@ -1734,12 +1738,14 @@ static int manager_gc_blob(Manager *m) {
                 return log_error_errno(errno, "Failed to open %s: %m", home_system_blob_dir());
         }
 
-        FOREACH_DIRENT(de, d, return log_error_errno(errno, "Failed to read system blob directory: %m"))
-                if (!hashmap_contains(m->homes_by_name, de->d_name)) {
+        FOREACH_DIRENT(de, d, return log_error_errno(errno, "Failed to read system blob directory: %m")) {
+                Home *found = hashmap_get(m->homes_by_name, de->d_name);
+                if (!found || !streq(found->user_name, de->d_name)) {
                         r = rm_rf_at(dirfd(d), de->d_name, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to delete blob dir for missing user '%s', ignoring: %m", de->d_name);
                 }
+        }
 
         return 0;
 }
@@ -1834,7 +1840,7 @@ static bool manager_shall_rebalance(Manager *m) {
         if (IN_SET(m->rebalance_state, REBALANCE_PENDING, REBALANCE_SHRINKING, REBALANCE_GROWING))
                 return true;
 
-        HASHMAP_FOREACH(h, m->homes_by_name)
+        HASHMAP_FOREACH(h, m->homes_by_uid)
                 if (home_shall_rebalance(h))
                         return true;
 
@@ -1880,7 +1886,7 @@ static int manager_rebalance_calculate(Manager *m) {
                                                 * (home dirs get 100 by default, i.e. 5x more). This weight
                                                 * is not configurable, the per-home weights are. */
 
-        HASHMAP_FOREACH(h, m->homes_by_name) {
+        HASHMAP_FOREACH(h, m->homes_by_uid) {
                 statfs_f_type_t fstype;
                 h->rebalance_pending = false; /* First, reset the flag, we only want it to be true for the
                                                * homes that qualify for rebalancing */
@@ -2017,7 +2023,7 @@ static int manager_rebalance_apply(Manager *m) {
 
         assert(m);
 
-        HASHMAP_FOREACH(h, m->homes_by_name) {
+        HASHMAP_FOREACH(h, m->homes_by_uid) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
                 if (!h->rebalance_pending)
@@ -2257,4 +2263,30 @@ int manager_reschedule_rebalance(Manager *m) {
                 return r;
 
         return 1;
+}
+
+int manager_get_home_by_name(Manager *m, const char *user_name, Home **ret) {
+        assert(m);
+        assert(user_name);
+
+        Home *h = hashmap_get(m->homes_by_name, user_name);
+        if (!h) {
+                /* Also search by username and realm. For that simply chop off realm, then look for the home, and verify it afterwards. */
+                const char *realm = strrchr(user_name, '@');
+                if (realm) {
+                        _cleanup_free_ char *prefix = strndup(user_name, realm - user_name);
+                        if (!prefix)
+                                return -ENOMEM;
+
+                        Home *j;
+                        j = hashmap_get(m->homes_by_name, prefix);
+                        if (j && user_record_matches_user_name(j->record, user_name))
+                                h = j;
+                }
+        }
+
+        if (ret)
+                *ret = h;
+
+        return !!h;
 }
