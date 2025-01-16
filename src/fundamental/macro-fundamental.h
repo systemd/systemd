@@ -48,6 +48,18 @@
         _Pragma("GCC diagnostic push");                                 \
         _Pragma("GCC diagnostic ignored \"-Waddress\"")
 
+#define DISABLE_WARNING_STRINGOP_TRUNCATION                             \
+        _Pragma("GCC diagnostic push");                                 \
+        _Pragma("GCC diagnostic ignored \"-Wstringop-truncation\"")
+
+#define DISABLE_WARNING_ZERO_LENGTH_BOUNDS                              \
+        _Pragma("GCC diagnostic push");                                 \
+        _Pragma("GCC diagnostic ignored \"-Wzero-length-bounds\"")
+
+#define DISABLE_WARNING_ZERO_AS_NULL_POINTER_CONSTANT                   \
+        _Pragma("GCC diagnostic push");                                 \
+        _Pragma("GCC diagnostic ignored \"-Wzero-as-null-pointer-constant\"")
+
 #define REENABLE_WARNING                                                \
         _Pragma("GCC diagnostic pop")
 

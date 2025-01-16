@@ -30,15 +30,6 @@
 #define _function_no_sanitize_float_cast_overflow_
 #endif
 
-#if HAVE_WSTRINGOP_TRUNCATION
-#  define DISABLE_WARNING_STRINGOP_TRUNCATION                           \
-        _Pragma("GCC diagnostic push");                                 \
-        _Pragma("GCC diagnostic ignored \"-Wstringop-truncation\"")
-#else
-#  define DISABLE_WARNING_STRINGOP_TRUNCATION                           \
-        _Pragma("GCC diagnostic push")
-#endif
-
 /* test harness */
 #define EXIT_TEST_SKIP 77
 

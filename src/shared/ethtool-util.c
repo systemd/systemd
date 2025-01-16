@@ -11,6 +11,7 @@
 #include "extract-word.h"
 #include "fd-util.h"
 #include "log.h"
+#include "macro-fundamental.h"
 #include "memory-util.h"
 #include "socket-util.h"
 #include "string-table.h"
@@ -452,12 +453,9 @@ static int get_stringset(int ethtool_fd, const char *ifname, enum ethtool_string
         if (buffer.info.sset_mask == 0)
                 return -EOPNOTSUPP;
 
-#pragma GCC diagnostic push
-#if HAVE_ZERO_LENGTH_BOUNDS
-#  pragma GCC diagnostic ignored "-Wzero-length-bounds"
-#endif
+        DISABLE_WARNING_ZERO_LENGTH_BOUNDS;
         len = buffer.info.data[0];
-#pragma GCC diagnostic pop
+        REENABLE_WARNING;
         if (len == 0)
                 return -EOPNOTSUPP;
 
