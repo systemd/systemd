@@ -538,14 +538,11 @@ endif
 
 cpp = ' '.join(cc.cmd_array() + get_option('c_args')) + ' -E'
 
-has_wstringop_truncation = cc.has_argument('-Wstringop-truncation')
-
 #####################################################################
 # compilation result tests
 
 conf.set('_GNU_SOURCE', 1)
 conf.set('__SANE_USERSPACE_TYPES__', true)
-conf.set10('HAVE_WSTRINGOP_TRUNCATION', has_wstringop_truncation)
 
 conf.set('SIZEOF_DEV_T', cc.sizeof('dev_t', prefix : '#include <sys/types.h>'))
 conf.set('SIZEOF_INO_T', cc.sizeof('ino_t', prefix : '#include <sys/types.h>'))
