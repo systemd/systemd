@@ -851,7 +851,7 @@ static int on_ctrl_msg(UdevCtrl *uctrl, UdevCtrlMessageType type, const UdevCtrl
 
         switch (type) {
         case UDEV_CTRL_SET_LOG_LEVEL:
-                if (LOG_PRI(value->intval) != value->intval) {
+                if (!log_level_is_valid(value->intval)) {
                         log_debug("Received invalid udev control message (SET_LOG_LEVEL, %i), ignoring.", value->intval);
                         break;
                 }

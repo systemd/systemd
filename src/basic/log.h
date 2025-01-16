@@ -34,6 +34,7 @@ typedef enum LogTarget{
 /* This log level disables logging completely. It can only be passed to log_set_max_level() and cannot be
  * used as a regular log level. */
 #define LOG_NULL (LOG_EMERG - 1)
+assert_cc(LOG_NULL == -1);
 
 #define SYNTHETIC_ERRNO(num)                (abs(num) | (1 << 30))
 #define IS_SYNTHETIC_ERRNO(val)             (((val) >> 30) == 1)
