@@ -115,7 +115,6 @@ static int acquire_user_record(
                 r = pam_get_user(handle, &username, NULL);
                 if (r != PAM_SUCCESS)
                         return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get user name: @PAMERR@");
-
                 if (isempty(username))
                         return pam_syslog_pam_error(handle, LOG_ERR, PAM_SERVICE_ERR, "User name not set.");
         }
@@ -535,7 +534,6 @@ static int acquire_home(
         r = pam_get_user(handle, &username, NULL);
         if (r != PAM_SUCCESS)
                 return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get user name: @PAMERR@");
-
         if (isempty(username))
                 return pam_syslog_pam_error(handle, LOG_ERR, PAM_SERVICE_ERR, "User name not set.");
 
@@ -879,7 +877,6 @@ _public_ PAM_EXTERN int pam_sm_close_session(
         r = pam_get_user(handle, &username, NULL);
         if (r != PAM_SUCCESS)
                 return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get user name: @PAMERR@");
-
         if (isempty(username))
                 return pam_syslog_pam_error(handle, LOG_ERR, PAM_SERVICE_ERR, "User name not set.");
 
@@ -949,7 +946,7 @@ _public_ PAM_EXTERN int pam_sm_acct_mgmt(
         if (r != PAM_SUCCESS)
                 return r;
 
-        r = acquire_user_record(handle, NULL, debug, &ur, NULL);
+        r = acquire_user_record(handle, /* username= */ NULL, debug, &ur, /* bus_data= */ NULL);
         if (r != PAM_SUCCESS)
                 return r;
 
@@ -1057,7 +1054,7 @@ _public_ PAM_EXTERN int pam_sm_chauthtok(
 
         pam_debug_syslog(handle, debug, "pam-systemd-homed account management");
 
-        r = acquire_user_record(handle, NULL, debug, &ur, NULL);
+        r = acquire_user_record(handle, /* username= */ NULL, debug, &ur, /* bus_data= */ NULL);
         if (r != PAM_SUCCESS)
                 return r;
 
