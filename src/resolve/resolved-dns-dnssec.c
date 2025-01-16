@@ -15,11 +15,10 @@
 #include "string-table.h"
 
 #if PREFER_OPENSSL && OPENSSL_VERSION_MAJOR >= 3
-#  pragma GCC diagnostic push
-#    pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+DISABLE_WARNING_DEPRECATED_DECLARATIONS;
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(RSA*, RSA_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EC_KEY*, EC_KEY_free, NULL);
-#  pragma GCC diagnostic pop
+REENABLE_WARNING;
 #endif
 
 #define VERIFY_RRS_MAX 256
@@ -101,8 +100,7 @@ static int dnssec_rsa_verify_raw(
         int r;
 
 #if PREFER_OPENSSL
-#  pragma GCC diagnostic push
-#    pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+        DISABLE_WARNING_DEPRECATED_DECLARATIONS;
         _cleanup_(RSA_freep) RSA *rpubkey = NULL;
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *epubkey = NULL;
         _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx = NULL;
@@ -153,7 +151,7 @@ static int dnssec_rsa_verify_raw(
                 return log_debug_errno(SYNTHETIC_ERRNO(EIO),
                                        "Signature verification failed: 0x%lx", ERR_get_error());
 
-#  pragma GCC diagnostic pop
+        REENABLE_WARNING;
 #else
         gcry_sexp_t public_key_sexp = NULL, data_sexp = NULL, signature_sexp = NULL;
         gcry_mpi_t n = NULL, e = NULL, s = NULL;
@@ -303,8 +301,7 @@ static int dnssec_ecdsa_verify_raw(
         int k;
 
 #if PREFER_OPENSSL
-#  pragma GCC diagnostic push
-#    pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+        DISABLE_WARNING_DEPRECATED_DECLARATIONS;
         _cleanup_(EC_GROUP_freep) EC_GROUP *ec_group = NULL;
         _cleanup_(EC_POINT_freep) EC_POINT *p = NULL;
         _cleanup_(EC_KEY_freep) EC_KEY *eckey = NULL;
@@ -365,7 +362,7 @@ static int dnssec_ecdsa_verify_raw(
                 return log_debug_errno(SYNTHETIC_ERRNO(EIO),
                                        "Signature verification failed: 0x%lx", ERR_get_error());
 
-#  pragma GCC diagnostic pop
+        REENABLE_WARNING;
 #else
         gcry_sexp_t public_key_sexp = NULL, data_sexp = NULL, signature_sexp = NULL;
         gcry_mpi_t q = NULL, r = NULL, s = NULL;
