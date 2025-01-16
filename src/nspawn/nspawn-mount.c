@@ -593,7 +593,7 @@ int mount_all(const char *dest,
 
                 /* Then we list outer child mounts (i.e. mounts applied *before* entering user namespacing when we are privileged) */
                 { "tmpfs",                  "/tmp",                         "tmpfs", "mode=01777" NESTED_TMPFS_LIMITS, MS_NOSUID|MS_NODEV|MS_STRICTATIME,
-                  MOUNT_FATAL|MOUNT_APPLY_TMPFS_TMP|MOUNT_MKDIR },
+                  MOUNT_FATAL|MOUNT_APPLY_TMPFS_TMP|MOUNT_MKDIR|MOUNT_TMPFS_USRQUOTA },
                 { "tmpfs",                  "/sys",                         "tmpfs", "mode=0555" TMPFS_LIMITS_SYS,     MS_NOSUID|MS_NOEXEC|MS_NODEV,
                   MOUNT_FATAL|MOUNT_APPLY_APIVFS_NETNS|MOUNT_MKDIR|MOUNT_PRIVILEGED },
                 { "sysfs",                  "/sys",                         "sysfs", NULL,                             SYS_DEFAULT_MOUNT_FLAGS,
@@ -603,7 +603,7 @@ int mount_all(const char *dest,
                 { "tmpfs",                  "/dev",                         "tmpfs", "mode=0755" TMPFS_LIMITS_PRIVATE_DEV, MS_NOSUID|MS_STRICTATIME,
                   MOUNT_FATAL|MOUNT_MKDIR },
                 { "tmpfs",                  "/dev/shm",                     "tmpfs", "mode=01777" NESTED_TMPFS_LIMITS, MS_NOSUID|MS_NODEV|MS_STRICTATIME,
-                  MOUNT_FATAL|MOUNT_MKDIR },
+                  MOUNT_FATAL|MOUNT_MKDIR|MOUNT_TMPFS_USRQUOTA },
                 { "tmpfs",                  "/run",                         "tmpfs", "mode=0755" TMPFS_LIMITS_RUN,     MS_NOSUID|MS_NODEV|MS_STRICTATIME,
                   MOUNT_FATAL|MOUNT_MKDIR },
                 { "/run/host",              "/run/host",                    NULL,    NULL,                             MS_BIND,
@@ -709,6 +709,23 @@ int mount_all(const char *dest,
                                 return log_oom();
                         if (r > 0)
                                 o = options;
+                }
+
+                if (FLAGS_SET(m->mount_settings, MOUNT_TMPFS_USRQUOTA)) {
+                        r = mount_option_supported("tmpfs", /* key= */ "usrquota", /* value= */ NULL);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to determine if 'tmpfs' supports 'usrquota', assuming it doesn't: %m");
+                        else if (r == 0)
+                                log_warning("Kernel doesn't support 'usrquota' on 'tmpfs', not including in mount options for '%s'.", m->where);
+                        else {
+                                _cleanup_free_ char *joined = NULL;
+
+                                if (!strextend_with_separator(&joined, ",", o ?: POINTER_MAX, "usrquota"))
+                                        return log_oom();
+
+                                free_and_replace(options, joined);
+                                o = options;
+                        }
                 }
 
                 if (FLAGS_SET(m->mount_settings, MOUNT_PREFIX_ROOT)) {
