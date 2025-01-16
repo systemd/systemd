@@ -24,12 +24,8 @@ static int pidfd_check_pidfs(void) {
                 return have_pidfs;
 
         _cleanup_close_ int fd = pidfd_open(getpid_cached(), 0);
-        if (fd < 0) {
-                if (ERRNO_IS_NOT_SUPPORTED(errno))
-                        return (have_pidfs = false);
-
+        if (fd < 0)
                 return -errno;
-        }
 
         return (have_pidfs = fd_is_fs_type(fd, PID_FS_MAGIC));
 }
