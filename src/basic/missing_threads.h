@@ -5,7 +5,7 @@
 #if HAVE_THREADS_H
 #  include <threads.h>
 #elif !(defined(thread_local))
-#  if __STDC_VERSION__ >= 201112L && !(defined(__STDC_NO_THREADS__))
+#  ifndef __STDC_NO_THREADS__
 #    define thread_local _Thread_local
 #  else
 #    define thread_local __thread
