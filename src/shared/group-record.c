@@ -331,6 +331,19 @@ int group_record_clone(GroupRecord *h, UserRecordLoadFlags flags, GroupRecord **
         return 0;
 }
 
+bool group_record_matches_group_name(const GroupRecord *g, const char *group_name) {
+        assert(g);
+        assert(group_name);
+
+        if (streq_ptr(g->group_name, group_name))
+                return true;
+
+        if (streq_ptr(g->group_name_and_realm_auto, group_name))
+                return true;
+
+        return false;
+}
+
 int group_record_match(GroupRecord *h, const UserDBMatch *match) {
         assert(h);
         assert(match);
