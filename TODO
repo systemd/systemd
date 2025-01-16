@@ -262,12 +262,6 @@ Features:
   suffix the escape sequence with one more decimal digit, because compilers
   think you might actually specify a value outside the 8bit range with that.
 
-* homed: allow login via username + realm on getty/login prompt. Then rewrite
-  the user name in the PAM stack
-
-* homed/userdb: add "aliases" field to user record, which can alternatively be
-  used for logging in. Rewrite user name in the PAM stack once acquired.
-
 * confext/sysext: instead of mounting the overlayfs directly on /etc/ + /usr/,
   insert an intermediary bind mount on itself there. This has the benefit that
   services where mount propagation from the root fs is off, an still have
@@ -380,11 +374,6 @@ Features:
 
 * Clean up "reboot argument" handling, i.e. set it through some IPC service
   instead of directly via /run/, so that it can be sensible set remotely.
-
-* userdb: add concept for user "aliases", to cover for cases where you can log
-  in under the name lennart@somenetworkfsserver, and it would automatically
-  generate a local user, and from the one both names can be used to allow
-  logins into the same account.
 
 * systemd-tpm2-support: add a some logic that detects if system is in DA
   lockout mode, and queries the user for TPM recovery PIN then.
