@@ -102,19 +102,19 @@ typedef struct GetentData {
 } GetentData;
 
 static GetentData getpwent_data = {
-        .mutex = PTHREAD_MUTEX_INITIALIZER,
+        .mutex = (pthread_mutex_t) PTHREAD_MUTEX_INITIALIZER,
 };
 
 static GetentData getgrent_data = {
-        .mutex = PTHREAD_MUTEX_INITIALIZER,
+        .mutex = (pthread_mutex_t) PTHREAD_MUTEX_INITIALIZER,
 };
 
 static GetentData getspent_data = {
-        .mutex = PTHREAD_MUTEX_INITIALIZER,
+        .mutex = (pthread_mutex_t) PTHREAD_MUTEX_INITIALIZER,
 };
 
 static GetentData getsgent_data = {
-        .mutex = PTHREAD_MUTEX_INITIALIZER,
+        .mutex = (pthread_mutex_t) PTHREAD_MUTEX_INITIALIZER,
 };
 
 static void setup_logging_once(void) {
