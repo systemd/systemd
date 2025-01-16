@@ -231,7 +231,7 @@ int lock_generic_with_timeout(int fd, LockType type, int operation, usec_t timeo
                         .sigev_notify = SIGEV_SIGNAL,
                         .sigev_signo = SIGALRM,
                 };
-                timer_t id = 0;
+                timer_t id;
 
                 if (timer_create(CLOCK_MONOTONIC, &sev, &id) < 0) {
                         log_error_errno(errno, "Failed to allocate CLOCK_MONOTONIC timer: %m");
