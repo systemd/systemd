@@ -74,6 +74,12 @@ if conf.get('ENABLE_BOOTLOADER') != 1
 endif
 
 efi_conf = configuration_data()
+
+# import several configs from userspace
+foreach name : ['HAVE_WARNING_ZERO_LENGTH_BOUNDS', 'HAVE_WARNING_ZERO_AS_NULL_POINTER_CONSTANT']
+        efi_conf.set10(name, conf.get(name) == 1)
+endforeach
+
 efi_conf.set10('ENABLE_TPM', get_option('tpm'))
 
 foreach ctype : ['color-normal', 'color-entry', 'color-highlight', 'color-edit']
