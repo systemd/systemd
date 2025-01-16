@@ -25,6 +25,7 @@ g utmp    {{UTMP_GID   }}     -            -
 # Physical and virtual hardware access groups
 g audio   {{AUDIO_GID  }}     -            -
 g cdrom   {{CDROM_GID  }}     -            -
+g clock   {{CLOCK_GID  }}     -            -
 g dialout {{DIALOUT_GID}}     -            -
 g disk    {{DISK_GID   }}     -            -
 g input   {{INPUT_GID  }}     -            -

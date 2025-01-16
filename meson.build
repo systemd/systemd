@@ -937,6 +937,7 @@ static_ugids = []
 foreach option : ['adm-gid',
                   'audio-gid',
                   'cdrom-gid',
+                  'clock-gid',
                   'dialout-gid',
                   'disk-gid',
                   'input-gid',
