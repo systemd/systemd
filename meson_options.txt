@@ -291,6 +291,8 @@ option('audio-gid', type : 'integer', value : 0,
        description : 'soft-static allocation for the "audio" group')
 option('cdrom-gid', type : 'integer', value : 0,
        description : 'soft-static allocation for the "cdrom" group')
+option('clock-gid', type : 'integer', value : 0,
+       description : 'soft-static allocation for the "clock" group')
 option('dialout-gid', type : 'integer', value : 0,
        description : 'soft-static allocation for the "dialout" group')
 option('disk-gid', type : 'integer', value : 0,
