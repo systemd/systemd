@@ -177,13 +177,11 @@ static int acquire_user_record(
                 pam_handle_t *handle,
                 UserRecord **ret_record) {
 
-        _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
-        const char *username = NULL, *json = NULL;
-        _cleanup_free_ char *field = NULL;
         int r;
 
         assert(handle);
 
+        const char *username = NULL;
         r = pam_get_user(handle, &username, NULL);
         if (r != PAM_SUCCESS)
                 return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get user name: @PAMERR@");
@@ -192,10 +190,12 @@ static int acquire_user_record(
 
         /* If pam_systemd_homed (or some other module) already acquired the user record we can reuse it
          * here. */
-        field = strjoin("systemd-user-record-", username);
+        _cleanup_free_ char *field = strjoin("systemd-user-record-", username);
         if (!field)
                 return pam_log_oom(handle);
 
+        _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
+        const char *json = NULL;
         r = pam_get_data(handle, field, (const void**) &json);
         if (!IN_SET(r, PAM_SUCCESS, PAM_NO_MODULE_DATA))
                 return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get PAM user record data: @PAMERR@");
