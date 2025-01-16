@@ -955,7 +955,7 @@ TEST(read_full_file_socket) {
                 _cleanup_close_ int rfd = -EBADF;
                 /* child */
 
-                rfd = accept4(listener, NULL, 0, SOCK_CLOEXEC);
+                rfd = accept4(listener, NULL, NULL, SOCK_CLOEXEC);
                 assert_se(rfd >= 0);
 
                 assert_se(getpeername(rfd, &peer.sa, &peerlen) >= 0);
