@@ -629,6 +629,29 @@ EOF
     wait_for_state homedsshtest inactive
 fi
 
+NEWPASSWORD=hunter4711 homectl create aliastest --storage=directory --alias=aliastest2 --alias=aliastest3 --realm=myrealm
+
+homectl inspect aliastest
+homectl inspect aliastest2
+homectl inspect aliastest3
+homectl inspect aliastest@myrealm
+homectl inspect aliastest2@myrealm
+homectl inspect aliastest3@myrealm
+
+userdbctl user aliastest
+userdbctl user aliastest2
+userdbctl user aliastest3
+userdbctl user aliastest@myrealm
+userdbctl user aliastest2@myrealm
+userdbctl user aliastest3@myrealm
+
+getent passwd aliastest
+getent passwd aliastest2
+getent passwd aliastest3
+getent passwd aliastest@myrealm
+getent passwd aliastest2@myrealm
+getent passwd aliastest3@myrealm
+
 systemd-analyze log-level info
 
 touch /testok
