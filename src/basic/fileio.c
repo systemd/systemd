@@ -298,19 +298,22 @@ int write_string_file_full(
         _cleanup_close_ int fd = -EBADF;
         int r;
 
-        assert(fn);
+        assert(dir_fd == AT_FDCWD || dir_fd >= 0);
         assert(line);
 
         /* We don't know how to verify whether the file contents was already on-disk. */
         assert(!((flags & WRITE_STRING_FILE_VERIFY_ON_FAILURE) && (flags & WRITE_STRING_FILE_SYNC)));
 
         if (flags & WRITE_STRING_FILE_MKDIR_0755) {
+                assert(fn);
+
                 r = mkdirat_parents(dir_fd, fn, 0755);
                 if (r < 0)
                         return r;
         }
 
         if (flags & WRITE_STRING_FILE_ATOMIC) {
+                assert(fn);
                 assert(flags & WRITE_STRING_FILE_CREATE);
 
                 r = write_string_file_atomic_at(dir_fd, fn, line, flags, ts);
@@ -320,25 +323,31 @@ int write_string_file_full(
                 return r;
         }
 
-        mode_t mode = write_string_file_flags_to_mode(flags);
-
-        if (FLAGS_SET(flags, WRITE_STRING_FILE_LABEL|WRITE_STRING_FILE_CREATE)) {
-                r = label_ops_pre(dir_fd, label_fn ?: fn, mode);
-                if (r < 0)
-                        goto fail;
-
-                call_label_ops_post = true;
-        }
-
         /* We manually build our own version of fopen(..., "we") that works without O_CREAT and with O_NOFOLLOW if needed. */
-        fd = openat_report_new(
-                        dir_fd, fn, O_CLOEXEC | O_NOCTTY |
-                        (FLAGS_SET(flags, WRITE_STRING_FILE_NOFOLLOW) ? O_NOFOLLOW : 0) |
-                        (FLAGS_SET(flags, WRITE_STRING_FILE_CREATE) ? O_CREAT : 0) |
-                        (FLAGS_SET(flags, WRITE_STRING_FILE_TRUNCATE) ? O_TRUNC : 0) |
-                        (FLAGS_SET(flags, WRITE_STRING_FILE_SUPPRESS_REDUNDANT_VIRTUAL) ? O_RDWR : O_WRONLY),
-                        mode,
-                        &made_file);
+        if (isempty(fn))
+                fd = fd_reopen(ASSERT_FD(dir_fd), O_CLOEXEC | O_NOCTTY |
+                               (FLAGS_SET(flags, WRITE_STRING_FILE_TRUNCATE) ? O_TRUNC : 0) |
+                               (FLAGS_SET(flags, WRITE_STRING_FILE_SUPPRESS_REDUNDANT_VIRTUAL) ? O_RDWR : O_WRONLY));
+        else {
+                mode_t mode = write_string_file_flags_to_mode(flags);
+
+                if (FLAGS_SET(flags, WRITE_STRING_FILE_LABEL|WRITE_STRING_FILE_CREATE)) {
+                        r = label_ops_pre(dir_fd, label_fn ?: fn, mode);
+                        if (r < 0)
+                                goto fail;
+
+                        call_label_ops_post = true;
+                }
+
+                fd = openat_report_new(
+                                dir_fd, fn, O_CLOEXEC | O_NOCTTY |
+                                (FLAGS_SET(flags, WRITE_STRING_FILE_NOFOLLOW) ? O_NOFOLLOW : 0) |
+                                (FLAGS_SET(flags, WRITE_STRING_FILE_CREATE) ? O_CREAT : 0) |
+                                (FLAGS_SET(flags, WRITE_STRING_FILE_TRUNCATE) ? O_TRUNC : 0) |
+                                (FLAGS_SET(flags, WRITE_STRING_FILE_SUPPRESS_REDUNDANT_VIRTUAL) ? O_RDWR : O_WRONLY),
+                                mode,
+                                &made_file);
+        }
         if (fd < 0) {
                 r = fd;
                 goto fail;
@@ -442,7 +451,6 @@ int verify_file_at(int dir_fd, const char *fn, const char *blob, bool accept_ext
         size_t l, k;
         int r;
 
-        assert(fn);
         assert(blob);
 
         l = strlen(blob);
@@ -454,7 +462,7 @@ int verify_file_at(int dir_fd, const char *fn, const char *blob, bool accept_ext
         if (!buf)
                 return -ENOMEM;
 
-        r = fopen_unlocked_at(dir_fd, fn, "re", 0, &f);
+        r = fopen_unlocked_at(dir_fd, strempty(fn), "re", 0, &f);
         if (r < 0)
                 return r;
 
