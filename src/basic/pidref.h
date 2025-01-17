@@ -39,7 +39,7 @@ struct PidRef {
                            their own pidfs and each process comes with a unique inode number */
 };
 
-#define PIDREF_NULL (const PidRef) { .fd = -EBADF }
+#define PIDREF_NULL (PidRef) { .fd = -EBADF }
 
 /* A special pidref value that we are using when a PID shall be automatically acquired from some surrounding
  * context, for example connection peer. Much like PIDREF_NULL it will be considered unset by
@@ -77,7 +77,7 @@ static inline int pidref_set_self(PidRef *pidref) {
         return pidref_set_pid(pidref, 0);
 }
 
-bool pidref_is_self(const PidRef *pidref);
+bool pidref_is_self(PidRef *pidref);
 
 void pidref_done(PidRef *pidref);
 PidRef* pidref_free(PidRef *pidref);
@@ -92,8 +92,8 @@ int pidref_kill(const PidRef *pidref, int sig);
 int pidref_kill_and_sigcont(const PidRef *pidref, int sig);
 int pidref_sigqueue(const PidRef *pidref, int sig, int value);
 
-int pidref_wait(const PidRef *pidref, siginfo_t *siginfo, int options);
-int pidref_wait_for_terminate(const PidRef *pidref, siginfo_t *ret);
+int pidref_wait(PidRef *pidref, siginfo_t *siginfo, int options);
+int pidref_wait_for_terminate(PidRef *pidref, siginfo_t *ret);
 
 static inline void pidref_done_sigkill_wait(PidRef *pidref) {
         if (!pidref_is_set(pidref))
