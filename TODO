@@ -215,9 +215,9 @@ Features:
   be established on top of dm-crypt or dm-verity devices, or an allowlist of
   file systems (which should probably include vfat, for compat with the ESP)
 
-* $LISTEN_PID, $MAINPID and $SYSTEMD_EXECPID env vars that the service manager
-  sets should be augmented with $LISTEN_PIDFDID, $MAINPIDFDID and
-  $SYSTEMD_EXECPIDFD (and similar for other env vars we might send).
+* $LISTEN_PID, $SYSTEMD_EXECPID env vars that the service manager sets should
+  be augmented with $LISTEN_PIDFDID, and $SYSTEMD_EXECPIDFD (and similar for
+  other env vars we might send).
 
 * port copy.c over to use LabelOps for all labelling.
 
