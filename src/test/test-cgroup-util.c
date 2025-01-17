@@ -194,6 +194,12 @@ TEST(proc) {
         _cleanup_closedir_ DIR *d = NULL;
         int r;
 
+        r = cg_unified();
+        if (IN_SET(r, -ENOENT, -ENOMEDIUM)) {
+                log_tests_skipped("skipping as cg_pidref_get_path() needs cgroupfs nowadays");
+                return;
+        }
+
         ASSERT_OK(proc_dir_open(&d));
 
         for (;;) {
