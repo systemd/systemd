@@ -377,6 +377,7 @@ possible_common_cc_flags = [
         '-Warray-bounds=2',
         '-Wdate-time',
         '-Wendif-labels',
+        '-Werror=discarded-qualifiers',
         '-Werror=format=2',
         '-Werror=format-signedness',
         '-Werror=implicit-function-declaration',
