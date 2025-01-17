@@ -90,9 +90,6 @@ static inline int read_full_stream(FILE *f, char **ret_contents, size_t *ret_siz
 }
 
 int verify_file_at(int dir_fd, const char *fn, const char *blob, bool accept_extra_nl);
-static inline int verify_file(const char *fn, const char *blob, bool accept_extra_nl) {
-        return verify_file_at(AT_FDCWD, fn, blob, accept_extra_nl);
-}
 
 int script_get_shebang_interpreter(const char *path, char **ret);
 

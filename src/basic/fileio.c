@@ -380,7 +380,7 @@ fail:
 
         /* OK, the operation failed, but let's see if the right contents in place already. If so, eat up the
          * error. */
-        if (verify_file(fn, line, !(flags & WRITE_STRING_FILE_AVOID_NEWLINE) || (flags & WRITE_STRING_FILE_VERIFY_IGNORE_NEWLINE)) > 0)
+        if (verify_file_at(dir_fd, fn, line, !(flags & WRITE_STRING_FILE_AVOID_NEWLINE) || (flags & WRITE_STRING_FILE_VERIFY_IGNORE_NEWLINE)) > 0)
                 return 0;
 
         return r;
