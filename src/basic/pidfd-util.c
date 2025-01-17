@@ -18,16 +18,14 @@
 
 static int have_pidfs = -1;
 
-static int pidfd_check_pidfs(void) {
+static int pidfd_check_pidfs(int pid_fd) {
+
+        /* NB: the passed fd *must* be a acquired via pidfd_open(), i.e. must be a true pidfd! */
 
         if (have_pidfs >= 0)
                 return have_pidfs;
 
-        _cleanup_close_ int fd = pidfd_open(getpid_cached(), 0);
-        if (fd < 0)
-                return -errno;
-
-        return (have_pidfs = fd_is_fs_type(fd, PID_FS_MAGIC));
+        return (have_pidfs = fd_is_fs_type(pid_fd, PID_FS_MAGIC));
 }
 
 int pidfd_get_namespace(int fd, unsigned long ns_type_cmd) {
@@ -231,7 +229,7 @@ int pidfd_get_inode_id(int fd, uint64_t *ret) {
 
         assert(fd >= 0);
 
-        r = pidfd_check_pidfs();
+        r = pidfd_check_pidfs(fd);
         if (r < 0)
                 return r;
         if (r == 0)
