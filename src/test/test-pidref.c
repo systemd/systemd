@@ -231,7 +231,7 @@ TEST(pidref_is_remote) {
         assert_se(!pidref_is_remote(&PIDREF_MAKE_FROM_PID(getpid_cached())));
         assert_se(!pidref_is_remote(&PIDREF_AUTOMATIC));
 
-        static const PidRef p = {
+        PidRef p = {
                 .pid = 1,
                 .fd = -EREMOTE,
                 .fd_id = 4711,

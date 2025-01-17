@@ -1004,7 +1004,7 @@ int unit_warn_leftover_processes(Unit *u, bool start);
 
 bool unit_needs_console(Unit *u);
 
-int unit_pid_attachable(Unit *unit, const PidRef *pid, sd_bus_error *error);
+int unit_pid_attachable(Unit *unit, PidRef *pid, sd_bus_error *error);
 
 static inline bool unit_has_job_type(Unit *u, JobType type) {
         return u && u->job && u->job->type == type;
