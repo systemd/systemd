@@ -36,6 +36,7 @@
 #include "open-file.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pidfd-util.h"
 #include "process-util.h"
 #include "random-util.h"
 #include "selinux-util.h"
@@ -1769,7 +1770,7 @@ static int service_spawn_internal(
         if (r < 0)
                 return r;
 
-        our_env = new0(char*, 13);
+        our_env = new0(char*, 15);
         if (!our_env)
                 return -ENOMEM;
 
@@ -1781,13 +1782,24 @@ static int service_spawn_internal(
                                 return -ENOMEM;
         }
 
-        if (pidref_is_set(&s->main_pid))
+        if (pidref_is_set(&s->main_pid)) {
                 if (asprintf(our_env + n_env++, "MAINPID="PID_FMT, s->main_pid.pid) < 0)
                         return -ENOMEM;
 
-        if (MANAGER_IS_USER(UNIT(s)->manager))
+                if (pidref_acquire_pidfd_id(&s->main_pid) >= 0)
+                        if (asprintf(our_env + n_env++, "MAINPIDFDID=%" PRIu64, s->main_pid.fd_id) < 0)
+                                return -ENOMEM;
+        }
+
+        if (MANAGER_IS_USER(UNIT(s)->manager)) {
                 if (asprintf(our_env + n_env++, "MANAGERPID="PID_FMT, getpid_cached()) < 0)
                         return -ENOMEM;
+
+                uint64_t pidfdid;
+                if (pidfd_get_inode_id_self_cached(&pidfdid) >= 0)
+                        if (asprintf(our_env + n_env++, "MANAGERPIDFDID=%" PRIu64, pidfdid) < 0)
+                                return -ENOMEM;
+        }
 
         if (s->pid_file)
                 if (asprintf(our_env + n_env++, "PIDFILE=%s", s->pid_file) < 0)
