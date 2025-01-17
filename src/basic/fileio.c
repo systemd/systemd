@@ -485,7 +485,13 @@ int verify_file_at(int dir_fd, const char *fn, const char *blob, bool accept_ext
         return 1;
 }
 
-int read_virtual_file_fd(int fd, size_t max_size, char **ret_contents, size_t *ret_size) {
+int read_virtual_file_at(
+                int dir_fd,
+                const char *filename,
+                size_t max_size,
+                char **ret_contents,
+                size_t *ret_size) {
+
         _cleanup_free_ char *buf = NULL;
         size_t n, size;
         int n_retries;
@@ -504,8 +510,19 @@ int read_virtual_file_fd(int fd, size_t max_size, char **ret_contents, size_t *r
          * contents* may be returned. (Though the read is still done using one syscall.) Returns 0 on
          * partial success, 1 if untruncated contents were read. */
 
-        assert(fd >= 0);
+        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
         assert(max_size <= READ_VIRTUAL_BYTES_MAX || max_size == SIZE_MAX);
+
+        _cleanup_close_ int fd = -EBADF;
+        if (isempty(filename)) {
+                if (dir_fd == AT_FDCWD)
+                        return -EBADF;
+
+                fd = fd_reopen(dir_fd, O_RDONLY | O_NOCTTY | O_CLOEXEC);
+        } else
+                fd = RET_NERRNO(openat(dir_fd, filename, O_RDONLY | O_NOCTTY | O_CLOEXEC));
+        if (fd < 0)
+                return fd;
 
         /* Limit the number of attempts to read the number of bytes returned by fstat(). */
         n_retries = 3;
@@ -628,31 +645,6 @@ int read_virtual_file_fd(int fd, size_t max_size, char **ret_contents, size_t *r
                 *ret_size = n;
 
         return !truncated;
-}
-
-int read_virtual_file_at(
-                int dir_fd,
-                const char *filename,
-                size_t max_size,
-                char **ret_contents,
-                size_t *ret_size) {
-
-        _cleanup_close_ int fd = -EBADF;
-
-        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
-
-        if (!filename) {
-                if (dir_fd == AT_FDCWD)
-                        return -EBADF;
-
-                return read_virtual_file_fd(dir_fd, max_size, ret_contents, ret_size);
-        }
-
-        fd = openat(dir_fd, filename, O_RDONLY | O_NOCTTY | O_CLOEXEC);
-        if (fd < 0)
-                return -errno;
-
-        return read_virtual_file_fd(fd, max_size, ret_contents, ret_size);
 }
 
 int read_full_stream_full(
