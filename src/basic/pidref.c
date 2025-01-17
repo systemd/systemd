@@ -83,14 +83,17 @@ bool pidref_equal(PidRef *a, PidRef *b) {
 }
 
 int pidref_set_pid(PidRef *pidref, pid_t pid) {
+        uint64_t pidfdid = 0;
         int fd;
 
         assert(pidref);
 
         if (pid < 0)
                 return -ESRCH;
-        if (pid == 0)
+        if (pid == 0) {
                 pid = getpid_cached();
+                (void) pidfd_get_inode_id_self_cached(&pidfdid);
+        }
 
         fd = pidfd_open(pid, 0);
         if (fd < 0) {
@@ -104,6 +107,7 @@ int pidref_set_pid(PidRef *pidref, pid_t pid) {
         *pidref = (PidRef) {
                 .fd = fd,
                 .pid = pid,
+                .fd_id = pidfdid,
         };
 
         return 0;
@@ -388,17 +392,32 @@ int pidref_verify(const PidRef *pidref) {
         return 1; /* We have a pidfd and it still points to the PID we have, hence all is *really* OK → return 1 */
 }
 
-bool pidref_is_self(const PidRef *pidref) {
-        if (!pidref)
+bool pidref_is_self(PidRef *pidref) {
+        if (!pidref_is_set(pidref))
                 return false;
 
         if (pidref_is_remote(pidref))
                 return false;
 
-        return pidref->pid == getpid_cached();
+        if (pidref->pid != getpid_cached())
+                return false;
+
+        /* PID1 cannot exit, hence no point in comparing pidfd IDs, they can never change */
+        if (pidref->pid == 1)
+                return true;
+
+        /* Also compare pidfd ID if we have can get it */
+        if (pidref_acquire_pidfd_id(pidref) < 0)
+                return true;
+
+        uint64_t self_id;
+        if (pidfd_get_inode_id_self_cached(&self_id) < 0)
+                return true;
+
+        return pidref->fd_id == self_id;
 }
 
-int pidref_wait(const PidRef *pidref, siginfo_t *ret, int options) {
+int pidref_wait(PidRef *pidref, siginfo_t *ret, int options) {
         int r;
 
         if (!pidref_is_set(pidref))
@@ -424,7 +443,7 @@ int pidref_wait(const PidRef *pidref, siginfo_t *ret, int options) {
         return 0;
 }
 
-int pidref_wait_for_terminate(const PidRef *pidref, siginfo_t *ret) {
+int pidref_wait_for_terminate(PidRef *pidref, siginfo_t *ret) {
         int r;
 
         for (;;) {

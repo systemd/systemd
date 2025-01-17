@@ -1120,7 +1120,7 @@ int getenv_for_pid(pid_t pid, const char *field, char **ret) {
         return 0;
 }
 
-int pidref_is_my_child(const PidRef *pid) {
+int pidref_is_my_child(PidRef *pid) {
         int r;
 
         if (!pidref_is_set(pid))
@@ -1150,7 +1150,7 @@ int pid_is_my_child(pid_t pid) {
         return pidref_is_my_child(&PIDREF_MAKE_FROM_PID(pid));
 }
 
-int pidref_is_unwaited(const PidRef *pid) {
+int pidref_is_unwaited(PidRef *pid) {
         int r;
 
         /* Checks whether a PID is still valid at all, including a zombie */
