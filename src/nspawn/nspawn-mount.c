@@ -150,7 +150,7 @@ static int allocate_temporary_source(CustomMount *m) {
 int custom_mount_prepare_all(const char *dest, CustomMount *l, size_t n) {
         int r;
 
-        /* Prepare all custom mounts. This will make source we know all temporary directories. This is called in the
+        /* Prepare all custom mounts. This will make sure we know all temporary directories. This is called in the
          * parent process, so that we know the temporary directories to remove on exit before we fork off the
          * children. */
 
@@ -159,9 +159,7 @@ int custom_mount_prepare_all(const char *dest, CustomMount *l, size_t n) {
         /* Order the custom mounts, and make sure we have a working directory */
         typesafe_qsort(l, n, custom_mount_compare);
 
-        for (size_t i = 0; i < n; i++) {
-                CustomMount *m = l + i;
-
+        FOREACH_ARRAY(m, l, n) {
                 /* /proc we mount in the inner child, i.e. when we acquired CLONE_NEWPID. All other mounts we mount
                  * already in the outer child, so that the mounts are already established before CLONE_NEWPID and in
                  * particular CLONE_NEWUSER. This also means any custom mounts below /proc also need to be mounted in

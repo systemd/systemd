@@ -3437,7 +3437,7 @@ static int inner_child(
                         return r;
         }
 
-        r = mount_all(NULL,
+        r = mount_all(/* dest= */ NULL,
                       arg_mount_settings | MOUNT_IN_USERNS,
                       arg_uid_shift,
                       arg_selinux_apifs_context);
