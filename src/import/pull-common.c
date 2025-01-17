@@ -22,6 +22,7 @@
 #include "siphash24.h"
 #include "string-util.h"
 #include "strv.h"
+#include "tmpfile-util.h"
 #include "web-util.h"
 
 #define FILENAME_ESCAPE "/.#\"\'"
@@ -378,9 +379,9 @@ static int verify_gpg(
                 const void *signature, size_t signature_size) {
 
         _cleanup_close_pair_ int gpg_pipe[2] = EBADF_PAIR;
-        char sig_file_path[] = "/tmp/sigXXXXXX", gpg_home[] = "/tmp/gpghomeXXXXXX";
+        _cleanup_(rm_rf_physical_and_freep) char *gpg_home = NULL;
+        char sig_file_path[] = "/tmp/sigXXXXXX";
         _cleanup_(sigkill_waitp) pid_t pid = 0;
-        bool gpg_home_created = false;
         int r;
 
         assert(payload || payload_size == 0);
@@ -404,12 +405,11 @@ static int verify_gpg(
                 }
         }
 
-        if (!mkdtemp(gpg_home)) {
-                r = log_error_errno(errno, "Failed to create temporary home for gpg: %m");
+        r = mkdtemp_malloc("/tmp/gpghomeXXXXXX", &gpg_home);
+        if (r < 0) {
+                log_error_errno(r, "Failed to create temporary home for gpg: %m");
                 goto finish;
         }
-
-        gpg_home_created = true;
 
         r = safe_fork_full("(gpg)",
                            (int[]) { gpg_pipe[0], -EBADF, STDERR_FILENO },
@@ -484,9 +484,6 @@ static int verify_gpg(
 finish:
         if (signature_size > 0)
                 (void) unlink(sig_file_path);
-
-        if (gpg_home_created)
-                (void) rm_rf(gpg_home, REMOVE_ROOT|REMOVE_PHYSICAL);
 
         return r;
 }
