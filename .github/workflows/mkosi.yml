@@ -159,8 +159,8 @@ jobs:
 
           [Build]
           UseSubvolumes=yes
-          ToolsTreeDistribution=fedora
-          ToolsTreeRelease=rawhide
+          ToolsTreeDistribution=${{ matrix.distro }}
+          ToolsTreeRelease=${{ matrix.release }}
 
           WorkspaceDirectory=$TMPDIR
           PackageCacheDirectory=$TMPDIR/cache
@@ -198,6 +198,12 @@ jobs:
 
       - name: Run integration tests
         run: |
+          if [[ "$(mkosi sandbox meson test --help)" == *"--max-lines"* ]]; then
+              MAX_LINES=(--max-lines 300)
+          else
+              MAX_LINES=()
+          fi
+
           sudo --preserve-env \
             mkosi sandbox \
             env \
@@ -210,7 +216,7 @@ jobs:
             --print-errorlogs \
             --no-stdsplit \
             --num-processes "$(($(nproc) - 1))" \
-            --max-lines 300
+            "${MAX_LINES[@]}"
 
       - name: Archive failed test journals
         uses: actions/upload-artifact@v4
