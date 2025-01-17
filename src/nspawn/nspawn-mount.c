@@ -127,18 +127,15 @@ static char *resolve_source_path(const char *dest, const char *source) {
 }
 
 static int allocate_temporary_source(CustomMount *m) {
+        int r;
+
         assert(m);
         assert(!m->source);
         assert(!m->rm_rf_tmpdir);
 
-        m->rm_rf_tmpdir = strdup("/var/tmp/nspawn-temp-XXXXXX");
-        if (!m->rm_rf_tmpdir)
-                return log_oom();
-
-        if (!mkdtemp(m->rm_rf_tmpdir)) {
-                m->rm_rf_tmpdir = mfree(m->rm_rf_tmpdir);
-                return log_error_errno(errno, "Failed to acquire temporary directory: %m");
-        }
+        r = mkdtemp_malloc("/var/tmp/nspawn-temp-XXXXXX", &m->rm_rf_tmpdir);
+        if (r < 0)
+                return log_error_errno(r, "Failed to acquire temporary directory: %m");
 
         m->source = path_join(m->rm_rf_tmpdir, "src");
         if (!m->source)
@@ -1101,7 +1098,7 @@ static int setup_volatile_state_after_remount_idmap(const char *directory, uid_t
 
 static int setup_volatile_yes(const char *directory, uid_t uid_shift, const char *selinux_apifs_context) {
         bool tmpfs_mounted = false, bind_mounted = false;
-        char template[] = "/tmp/nspawn-volatile-XXXXXX";
+        _cleanup_(rmdir_and_freep) char *template = NULL;
         _cleanup_free_ char *buf = NULL, *bindir = NULL;
         const char *f, *t, *options;
         struct stat st;
@@ -1130,8 +1127,9 @@ static int setup_volatile_yes(const char *directory, uid_t uid_shift, const char
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Error starting image: if --volatile=yes is used /bin must be a symlink (for merged /usr support) or non-existent (in which case a symlink is created automatically).");
 
-        if (!mkdtemp(template))
-                return log_error_errno(errno, "Failed to create temporary directory: %m");
+        r = mkdtemp_malloc("/tmp/nspawn-volatile-XXXXXX", &template);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create temporary directory: %m");
 
         options = "mode=0755" TMPFS_LIMITS_ROOTFS;
         r = tmpfs_patch_options(options, uid_shift == 0 ? UID_INVALID : uid_shift, selinux_apifs_context, &buf);
@@ -1182,13 +1180,12 @@ fail:
         if (tmpfs_mounted)
                 (void) umount_verbose(LOG_ERR, template, UMOUNT_NOFOLLOW);
 
-        (void) rmdir(template);
         return r;
 }
 
 static int setup_volatile_overlay(const char *directory, uid_t uid_shift, const char *selinux_apifs_context) {
         _cleanup_free_ char *buf = NULL, *escaped_directory = NULL, *escaped_upper = NULL, *escaped_work = NULL;
-        char template[] = "/tmp/nspawn-volatile-XXXXXX";
+        _cleanup_(rmdir_and_freep) char *template = NULL;
         const char *upper, *work, *options;
         bool tmpfs_mounted = false;
         int r;
@@ -1197,8 +1194,9 @@ static int setup_volatile_overlay(const char *directory, uid_t uid_shift, const 
 
         /* --volatile=overlay means we mount an overlayfs to the root dir. */
 
-        if (!mkdtemp(template))
-                return log_error_errno(errno, "Failed to create temporary directory: %m");
+        r = mkdtemp_malloc("/tmp/nspawn-volatile-XXXXXX", &template);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create temporary directory: %m");
 
         options = "mode=0755" TMPFS_LIMITS_ROOTFS;
         r = tmpfs_patch_options(options, uid_shift == 0 ? UID_INVALID : uid_shift, selinux_apifs_context, &buf);
@@ -1243,7 +1241,6 @@ finish:
         if (tmpfs_mounted)
                 (void) umount_verbose(LOG_ERR, template, UMOUNT_NOFOLLOW);
 
-        (void) rmdir(template);
         return r;
 }
 
@@ -1322,8 +1319,7 @@ int pivot_root_parse(char **pivot_root_new, char **pivot_root_old, const char *s
 int setup_pivot_root(const char *directory, const char *pivot_root_new, const char *pivot_root_old) {
         _cleanup_free_ char *directory_pivot_root_new = NULL;
         _cleanup_free_ char *pivot_tmp_pivot_root_old = NULL;
-        char pivot_tmp[] = "/tmp/nspawn-pivot-XXXXXX";
-        bool remove_pivot_tmp = false;
+        _cleanup_(rmdir_and_freep) char *pivot_tmp = NULL;
         int r;
 
         assert(directory);
@@ -1364,43 +1360,33 @@ int setup_pivot_root(const char *directory, const char *pivot_root_new, const ch
         /* Remount directory_pivot_root_new to make it movable. */
         r = mount_nofollow_verbose(LOG_ERR, directory_pivot_root_new, directory_pivot_root_new, NULL, MS_BIND, NULL);
         if (r < 0)
-                goto done;
+                return r;
 
         if (pivot_root_old) {
-                if (!mkdtemp(pivot_tmp)) {
-                        r = log_error_errno(errno, "Failed to create temporary directory: %m");
-                        goto done;
-                }
+                r = mkdtemp_malloc("/tmp/nspawn-pivot-XXXXXX", &pivot_tmp);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create temporary directory: %m");
 
-                remove_pivot_tmp = true;
                 pivot_tmp_pivot_root_old = path_join(pivot_tmp, pivot_root_old);
-                if (!pivot_tmp_pivot_root_old) {
-                        r = log_oom();
-                        goto done;
-                }
+                if (!pivot_tmp_pivot_root_old)
+                        return log_oom();
 
                 r = mount_nofollow_verbose(LOG_ERR, directory_pivot_root_new, pivot_tmp, NULL, MS_MOVE, NULL);
                 if (r < 0)
-                        goto done;
+                        return r;
 
                 r = mount_nofollow_verbose(LOG_ERR, directory, pivot_tmp_pivot_root_old, NULL, MS_MOVE, NULL);
                 if (r < 0)
-                        goto done;
+                        return r;
 
                 r = mount_nofollow_verbose(LOG_ERR, pivot_tmp, directory, NULL, MS_MOVE, NULL);
-                if (r < 0)
-                        goto done;
-        } else {
+        } else
                 r = mount_nofollow_verbose(LOG_ERR, directory_pivot_root_new, directory, NULL, MS_MOVE, NULL);
-                if (r < 0)
-                        goto done;
-        }
 
-done:
-        if (remove_pivot_tmp)
-                (void) rmdir(pivot_tmp);
+        if (r < 0)
+                return r;
 
-        return r;
+        return 0;
 }
 
 #define NSPAWN_PRIVATE_FULLY_VISIBLE_PROCFS "/run/host/proc"
