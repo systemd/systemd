@@ -27,12 +27,10 @@ typedef enum ChaseFlags {
                                              * also points to the result path even if this flag is set.
                                              * When this specified, chase() will succeed with 1 even if the
                                              * file points to the last path component does not exist. */
-        CHASE_MKDIR_0755         = 1 << 11, /* Create any missing parent directories in the given path. This
-                                             * needs to be set with CHASE_NONEXISTENT and/or CHASE_PARENT.
-                                             * Note, chase_and_open() or friends always add CHASE_PARENT flag
-                                             * when internally call chase(), hence CHASE_MKDIR_0755 can be
-                                             * safely set without CHASE_NONEXISTENT and CHASE_PARENT. */
+        CHASE_MKDIR_0755         = 1 << 11, /* Create any missing directories in the given path. */
         CHASE_EXTRACT_FILENAME   = 1 << 12, /* Only return the last component of the resolved path */
+        CHASE_MUST_BE_DIRECTORY  = 1 << 13, /* Fail if returned inode fd is not a dir */
+        CHASE_MUST_BE_REGULAR    = 1 << 14, /* Fail if returned inode fd is not a regular file */
 } ChaseFlags;
 
 bool unsafe_transition(const struct stat *a, const struct stat *b);
