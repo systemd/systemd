@@ -18,15 +18,12 @@
 
 static int have_pidfs = -1;
 
-static int pidfd_check_pidfs(void) {
+static int pidfd_check_pidfs(int fd) {
 
         if (have_pidfs >= 0)
                 return have_pidfs;
 
-        _cleanup_close_ int fd = pidfd_open(getpid_cached(), 0);
-        if (fd < 0)
-                return -errno;
-
+        /* Allocate a pidfd to ourselves if no fd passed */
         return (have_pidfs = fd_is_fs_type(fd, PID_FS_MAGIC));
 }
 
@@ -231,7 +228,7 @@ int pidfd_get_inode_id(int fd, uint64_t *ret) {
 
         assert(fd >= 0);
 
-        r = pidfd_check_pidfs();
+        r = pidfd_check_pidfs(fd);
         if (r < 0)
                 return r;
         if (r == 0)
