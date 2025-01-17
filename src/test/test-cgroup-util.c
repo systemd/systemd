@@ -194,6 +194,12 @@ TEST(proc) {
         _cleanup_closedir_ DIR *d = NULL;
         int r;
 
+        r = cg_unified();
+        if (IN_SET(r, -ENOENT, -ENOMEDIUM)) {
+                log_tests_skipped("skipping as cg_pidref_get_path() needs cgroupfs nowadays");
+                return;
+        }
+
         ASSERT_OK(proc_dir_open(&d));
 
         for (;;) {
@@ -210,14 +216,20 @@ TEST(proc) {
                 if (pidref_is_kernel_thread(&pid) != 0)
                         continue;
 
-                cg_pidref_get_path(SYSTEMD_CGROUP_CONTROLLER, &pid, &path);
-                cg_pid_get_path_shifted(pid.pid, NULL, &path_shifted);
-                cg_pidref_get_owner_uid(&pid, &uid);
-                cg_pidref_get_session(&pid, &session);
-                cg_pidref_get_unit(&pid, &unit);
-                cg_pid_get_user_unit(pid.pid, &user_unit);
-                cg_pid_get_machine_name(pid.pid, &machine);
-                cg_pid_get_slice(pid.pid, &slice);
+                ASSERT_OK_ZERO(cg_pidref_get_path(SYSTEMD_CGROUP_CONTROLLER, &pid, &path));
+                ASSERT_OK_ZERO(cg_pid_get_path_shifted(pid.pid, NULL, &path_shifted));
+                ASSERT_OK_ZERO(cg_pidref_get_unit(&pid, &unit));
+                ASSERT_OK_ZERO(cg_pid_get_slice(pid.pid, &slice));
+
+                /* Not all processes belong to a specific user or a machine */
+                r = cg_pidref_get_owner_uid(&pid, &uid);
+                ASSERT_TRUE(r == 0 || r == -ENXIO);
+                r = cg_pidref_get_session(&pid, &session);
+                ASSERT_TRUE(r == 0 || r == -ENXIO);
+                r = cg_pid_get_user_unit(pid.pid, &user_unit);
+                ASSERT_TRUE(r == 0 || r == -ENXIO);
+                r = cg_pid_get_machine_name(pid.pid, &machine);
+                ASSERT_TRUE(r == 0 || r == -ENOENT);
 
                 printf(PID_FMT"\t%s\t%s\t"UID_FMT"\t%s\t%s\t%s\t%s\t%s\n",
                        pid.pid,
