@@ -56,6 +56,9 @@ int write_string_file_full(int dir_fd, const char *fn, const char *line, WriteSt
 static inline int write_string_file_at(int dir_fd, const char *fn, const char *line, WriteStringFileFlags flags) {
         return write_string_file_full(dir_fd, fn, line, flags, NULL, NULL);
 }
+static inline int write_string_file_fd(int dir_fd, const char *line, WriteStringFileFlags flags) {
+        return write_string_file_at(dir_fd, NULL, line, flags);
+}
 static inline int write_string_file(const char *fn, const char *line, WriteStringFileFlags flags) {
         return write_string_file_at(AT_FDCWD, fn, line, flags);
 }
