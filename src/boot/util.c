@@ -280,8 +280,7 @@ EFI_STATUS readdir(
 
         if (sz == 0) {
                 /* End of directory */
-                free(*buffer);
-                *buffer = NULL;
+                *buffer = mfree(*buffer);
                 *buffer_size = 0;
         }
 
@@ -306,8 +305,7 @@ char16_t **strv_free(char16_t **v) {
         for (char16_t **i = v; *i; i++)
                 free(*i);
 
-        free(v);
-        return NULL;
+        return mfree(v);
 }
 
 EFI_STATUS open_directory(
