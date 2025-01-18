@@ -612,7 +612,7 @@ DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
                 dns_stream_unref);
 
 int dns_stream_disconnect_all(Manager *m) {
-        _cleanup_(set_freep) Set *closed = NULL;
+        _cleanup_set_free_ Set *closed = NULL;
         int r;
 
         assert(m);

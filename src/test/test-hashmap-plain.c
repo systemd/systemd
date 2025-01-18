@@ -646,7 +646,7 @@ TEST(hashmap_get) {
 }
 
 TEST(hashmap_get2) {
-        _cleanup_(hashmap_free_free_freep) Hashmap *m = NULL;
+        _cleanup_hashmap_free_free_free_ Hashmap *m = NULL;
         char *r;
         char *val;
         char key_orig[] = "Key 1";

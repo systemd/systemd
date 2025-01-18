@@ -1425,7 +1425,7 @@ static int run(int argc, char *argv[]) {
 
         if (arg_varlink) {
                 _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *varlink_server = NULL;
-                _cleanup_(hashmap_freep) Hashmap *polkit_registry = NULL;
+                _cleanup_hashmap_free_ Hashmap *polkit_registry = NULL;
 
                 /* Invocation as Varlink service */
 

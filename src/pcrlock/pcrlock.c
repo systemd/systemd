@@ -4548,7 +4548,7 @@ static int make_policy(bool force, RecoveryPinMode recovery_pin_mode) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to acquire PIN from environment: %m");
                 if (r == 0) {
-                        _cleanup_(strv_free_erasep) char **l = NULL;
+                        _cleanup_strv_free_erase_ char **l = NULL;
 
                         AskPasswordRequest req = {
                                 .tty_fd = -EBADF,
