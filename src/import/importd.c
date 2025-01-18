@@ -42,6 +42,7 @@
 #include "syslog-util.h"
 #include "user-util.h"
 #include "varlink-io.systemd.Import.h"
+#include "varlink-io.systemd.service.h"
 #include "varlink-util.h"
 #include "web-util.h"
 
@@ -1979,14 +1980,20 @@ static int manager_connect_varlink(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate varlink server object: %m");
 
-        r = sd_varlink_server_add_interface(m->varlink_server, &vl_interface_io_systemd_Import);
+        r = sd_varlink_server_add_interface_many(
+                        m->varlink_server,
+                        &vl_interface_io_systemd_Import,
+                        &vl_interface_io_systemd_service);
         if (r < 0)
                 return log_error_errno(r, "Failed to add Import interface to varlink server: %m");
 
         r = sd_varlink_server_bind_method_many(
                         m->varlink_server,
-                        "io.systemd.Import.ListTransfers", vl_method_list_transfers,
-                        "io.systemd.Import.Pull",          vl_method_pull);
+                        "io.systemd.Import.ListTransfers",   vl_method_list_transfers,
+                        "io.systemd.Import.Pull",            vl_method_pull,
+                        "io.systemd.service.Ping",           varlink_method_ping,
+                        "io.systemd.service.SetLogLevel",    varlink_method_set_log_level,
+                        "io.systemd.service.GetEnvironment", varlink_method_get_environment);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind Varlink method calls: %m");
 

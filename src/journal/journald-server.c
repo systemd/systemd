@@ -64,6 +64,7 @@
 #include "uid-classification.h"
 #include "user-util.h"
 #include "varlink-io.systemd.Journal.h"
+#include "varlink-io.systemd.service.h"
 #include "varlink-util.h"
 
 #define USER_JOURNALS_MAX 1024
@@ -2334,16 +2335,22 @@ static int server_open_varlink(Server *s, const char *socket, int fd) {
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate varlink server object: %m");
 
-        r = sd_varlink_server_add_interface(s->varlink_server, &vl_interface_io_systemd_Journal);
+        r = sd_varlink_server_add_interface_many(
+                        s->varlink_server,
+                        &vl_interface_io_systemd_Journal,
+                        &vl_interface_io_systemd_service);
         if (r < 0)
                 return log_error_errno(r, "Failed to add Journal interface to varlink server: %m");
 
         r = sd_varlink_server_bind_method_many(
                         s->varlink_server,
-                        "io.systemd.Journal.Synchronize",   vl_method_synchronize,
-                        "io.systemd.Journal.Rotate",        vl_method_rotate,
-                        "io.systemd.Journal.FlushToVar",    vl_method_flush_to_var,
-                        "io.systemd.Journal.RelinquishVar", vl_method_relinquish_var);
+                        "io.systemd.Journal.Synchronize",    vl_method_synchronize,
+                        "io.systemd.Journal.Rotate",         vl_method_rotate,
+                        "io.systemd.Journal.FlushToVar",     vl_method_flush_to_var,
+                        "io.systemd.Journal.RelinquishVar",  vl_method_relinquish_var,
+                        "io.systemd.service.Ping",           varlink_method_ping,
+                        "io.systemd.service.SetLogLevel",    varlink_method_set_log_level,
+                        "io.systemd.service.GetEnvironment", varlink_method_get_environment);
         if (r < 0)
                 return r;
 
