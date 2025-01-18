@@ -369,7 +369,7 @@
         <para>In order to unlock a LUKS2 volume with an enrolled PKCS#11 security token, specify the
         <option>pkcs11-uri=</option> option in the respective <filename>/etc/crypttab</filename> line:</para>
 
-        <programlisting>myvolume /dev/sda1 - pkcs11-uri=auto</programlisting>
+        <programlisting>myvolume /dev/sda1 none pkcs11-uri=auto</programlisting>
 
         <para>See
         <citerefentry><refentrytitle>crypttab</refentrytitle><manvolnum>5</manvolnum></citerefentry> for a
@@ -403,7 +403,7 @@
         <para>In order to unlock a LUKS2 volume with an enrolled FIDO2 security token, specify the
         <option>fido2-device=</option> option in the respective <filename>/etc/crypttab</filename> line:</para>
 
-        <programlisting>myvolume /dev/sda1 - fido2-device=auto</programlisting>
+        <programlisting>myvolume /dev/sda1 none fido2-device=auto</programlisting>
 
         <para>See
         <citerefentry><refentrytitle>crypttab</refentrytitle><manvolnum>5</manvolnum></citerefentry> for a
@@ -507,7 +507,7 @@
         <para>In order to unlock a LUKS2 volume with an enrolled TPM2 security chip, specify the
         <option>tpm2-device=</option> option in the respective <filename>/etc/crypttab</filename> line:</para>
 
-        <programlisting>myvolume /dev/sda1 - tpm2-device=auto</programlisting>
+        <programlisting>myvolume /dev/sda1 none tpm2-device=auto</programlisting>
 
         <para>See
         <citerefentry><refentrytitle>crypttab</refentrytitle><manvolnum>5</manvolnum></citerefentry> for a

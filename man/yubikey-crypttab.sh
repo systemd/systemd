@@ -21,7 +21,7 @@ rm pubkey.pem
 sudo systemd-cryptenroll --pkcs11-token-uri=auto /dev/sdXn
 
 # Test: Let's run systemd-cryptsetup to test if this all worked.
-sudo systemd-cryptsetup attach mytest /dev/sdXn - pkcs11-uri=auto
+sudo systemd-cryptsetup attach mytest /dev/sdXn none pkcs11-uri=auto
 
 # If that worked, let's now add the same line persistently to /etc/crypttab,
 # for the future. We do not want to use the (unstable) /dev/sdX name, so let's
@@ -29,7 +29,7 @@ sudo systemd-cryptsetup attach mytest /dev/sdXn - pkcs11-uri=auto
 udevadm info -q symlink -r /dev/sdXn
 
 # Now add the line using the by-uuid symlink to /etc/crypttab:
-sudo bash -c 'echo "mytest /dev/disk/by-uuid/... - pkcs11-uri=auto" >>/etc/crypttab'
+sudo bash -c 'echo "mytest /dev/disk/by-uuid/... none pkcs11-uri=auto" >>/etc/crypttab'
 
 # Depending on your distribution and encryption setup, you may need to manually
 # regenerate your initramfs to be able to use a Yubikey / PKCS#11 token to
