@@ -116,6 +116,10 @@ int device_get_devnode_mode(sd_device *device, mode_t *ret) {
 
         assert(device);
 
+        r = device_read_uevent_file(device);
+        if (r < 0)
+                return r;
+
         r = device_read_db(device);
         if (r < 0)
                 return r;
@@ -134,6 +138,10 @@ int device_get_devnode_uid(sd_device *device, uid_t *ret) {
 
         assert(device);
 
+        r = device_read_uevent_file(device);
+        if (r < 0)
+                return r;
+
         r = device_read_db(device);
         if (r < 0)
                 return r;
@@ -147,7 +155,7 @@ int device_get_devnode_uid(sd_device *device, uid_t *ret) {
         return 0;
 }
 
-static int device_set_devuid(sd_device *device, const char *uid) {
+int device_set_devuid(sd_device *device, const char *uid) {
         uid_t u;
         int r;
 
@@ -172,6 +180,10 @@ int device_get_devnode_gid(sd_device *device, gid_t *ret) {
 
         assert(device);
 
+        r = device_read_uevent_file(device);
+        if (r < 0)
+                return r;
+
         r = device_read_db(device);
         if (r < 0)
                 return r;
@@ -185,7 +197,7 @@ int device_get_devnode_gid(sd_device *device, gid_t *ret) {
         return 0;
 }
 
-static int device_set_devgid(sd_device *device, const char *gid) {
+int device_set_devgid(sd_device *device, const char *gid) {
         gid_t g;
         int r;
 
