@@ -140,6 +140,8 @@ static inline void file_closep(EFI_FILE **handle) {
         (*handle)->Close(*handle);
 }
 
+#define _cleanup_file_close_ _cleanup_(file_closep)
+
 static inline void unload_imagep(EFI_HANDLE *image) {
         if (*image)
                 (void) BS->UnloadImage(*image);

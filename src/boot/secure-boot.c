@@ -115,7 +115,7 @@ EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path, bool 
                 printf("\n");
         }
 
-        _cleanup_(file_closep) EFI_FILE *dir = NULL;
+        _cleanup_file_close_ EFI_FILE *dir = NULL;
 
         err = open_directory(root_dir, path, &dir);
         if (err != EFI_SUCCESS)
