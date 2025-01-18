@@ -169,6 +169,8 @@ static inline void strv_freep(char16_t ***p) {
         strv_free(*p);
 }
 
+#define _cleanup_strv_free_ _cleanup_(strv_freep)
+
 EFI_STATUS open_directory(EFI_FILE *root_dir, const char16_t *path, EFI_FILE **ret);
 
 /* Conversion between EFI_PHYSICAL_ADDRESS and pointers is not obvious. The former is always 64-bit, even on

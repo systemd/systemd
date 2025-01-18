@@ -683,7 +683,7 @@ static bool menu_run(
         bool new_mode = true, clear = true;
         bool refresh = true, highlight = false;
         size_t x_start = 0, y_start = 0, y_status = 0, x_max, y_max;
-        _cleanup_(strv_freep) char16_t **lines = NULL;
+        _cleanup_strv_free_ char16_t **lines = NULL;
         _cleanup_free_ char16_t *clearline = NULL, *separator = NULL, *status = NULL;
         uint64_t timeout_efivar_saved = config->timeout_sec_efivar;
         uint32_t timeout_remain = config->timeout_sec == TIMEOUT_MENU_FORCE ? 0 : config->timeout_sec;

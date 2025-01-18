@@ -547,7 +547,7 @@ static EFI_STATUS load_addons(
                 NamedAddon **ucode_addons,                  /* Ditto */
                 size_t *n_ucode_addons) {
 
-        _cleanup_(strv_freep) char16_t **items = NULL;
+        _cleanup_strv_free_ char16_t **items = NULL;
         _cleanup_file_close_ EFI_FILE *root = NULL;
         size_t n_items = 0, n_allocated = 0;
         EFI_STATUS err;
