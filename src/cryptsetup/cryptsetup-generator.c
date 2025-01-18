@@ -796,7 +796,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
         return 0;
 }
 
-static int add_crypttab_device(const char *name, const char *device,  const char *keyspec, const char *options) {
+static int add_crypttab_device(const char *name, const char *device, const char *keyspec, const char *options) {
         _cleanup_free_ char *keyfile = NULL, *keydev = NULL, *headerdev = NULL, *filtered_header = NULL;
         crypto_device *d = NULL;
         char *uuid;
