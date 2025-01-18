@@ -587,4 +587,24 @@ TEST(path_is_network_fs_harder) {
         }
 }
 
+TEST(umountat) {
+        int r;
+
+        _cleanup_(rm_rf_physical_and_freep) char *p = NULL;
+        _cleanup_close_ int dfd = mkdtemp_open(NULL, O_CLOEXEC, &p);
+        ASSERT_OK(dfd);
+
+        ASSERT_OK(mkdirat(dfd, "foo", 0777));
+
+        _cleanup_free_ char *q = ASSERT_PTR(path_join(p, "foo"));
+
+        r = mount_nofollow_verbose(LOG_ERR, "tmpfs", q, "tmpfs", 0, NULL);
+        if (ERRNO_IS_NEG_PRIVILEGE(r))
+                return (void) log_tests_skipped("not running privileged");
+
+        ASSERT_OK(r);
+        ASSERT_OK(umountat_detach_verbose(LOG_ERR, dfd, "foo"));
+        ASSERT_ERROR(umountat_detach_verbose(LOG_ERR, dfd, "foo"), EINVAL);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
