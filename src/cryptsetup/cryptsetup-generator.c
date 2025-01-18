@@ -6,6 +6,7 @@
 #include <sys/types.h>
 
 #include "alloc-util.h"
+#include "cryptsetup-util.h"
 #include "dropin.h"
 #include "escape.h"
 #include "fd-util.h"
@@ -232,7 +233,7 @@ static int print_dependencies(FILE *f, const char* device_path, const char* time
         assert(f);
         assert(device_path);
 
-        if (STR_IN_SET(device_path, "-", "none"))
+        if (!mangle_none(device_path))
                 /* None, nothing to do */
                 return 0;
 
