@@ -766,16 +766,24 @@ static int handle_uevent_line(
         assert(major);
         assert(minor);
 
+        if (streq(key, "SUBSYSTEM"))
+                return device_set_subsystem(device, value);
         if (streq(key, "DEVTYPE"))
                 return device_set_devtype(device, value);
         if (streq(key, "IFINDEX"))
                 return device_set_ifindex(device, value);
         if (streq(key, "DEVNAME"))
                 return device_set_devname(device, value);
+        if (streq(key, "DEVUID"))
+                return device_set_devuid(device, value);
+        if (streq(key, "DEVGID"))
+                return device_set_devgid(device, value);
         if (streq(key, "DEVMODE"))
                 return device_set_devmode(device, value);
         if (streq(key, "DISKSEQ"))
                 return device_set_diskseq(device, value);
+        if (streq(key, "DRIVER"))
+                return device_set_driver(device, value);
         if (streq(key, "MAJOR"))
                 *major = value;
         else if (streq(key, "MINOR"))
@@ -833,6 +841,13 @@ int device_read_uevent_file(sd_device *device) {
                         log_device_debug_errno(device, r,
                                                "sd-device: Failed to set 'MAJOR=%s' and/or 'MINOR=%s' from uevent, ignoring: %m",
                                                major, strna(minor));
+        }
+
+        if (device_in_subsystem(device, "drivers")) {
+                r = device_set_drivers_subsystem(device);
+                if (r < 0)
+                        log_device_debug_errno(device, r,
+                                               "sd-device: Failed to set driver subsystem, ignoring: %m");
         }
 
         return 0;
@@ -1177,6 +1192,10 @@ _public_ int sd_device_get_subsystem(sd_device *device, const char **ret) {
 
         assert_return(device, -EINVAL);
 
+        r = device_read_uevent_file(device);
+        if (r < 0)
+                return r;
+
         if (!device->subsystem_set) {
                 const char *subsystem;
 
@@ -1307,6 +1326,10 @@ _public_ int sd_device_get_driver(sd_device *device, const char **ret) {
         int r;
 
         assert_return(device, -EINVAL);
+
+        r = device_read_uevent_file(device);
+        if (r < 0)
+                return r;
 
         if (!device->driver_set) {
                 const char *driver = NULL;
