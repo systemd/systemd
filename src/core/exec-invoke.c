@@ -5567,7 +5567,7 @@ int exec_invoke(
                          *
                          * Hence there is no security impact to raise it in the effective set before execve
                          */
-                        r = capability_gain_cap_setpcap(/* return_caps= */ NULL);
+                        r = capability_gain_cap_setpcap(/* ret_before_caps = */ NULL);
                         if (r < 0) {
                                 *exit_status = EXIT_CAPABILITIES;
                                 return log_exec_error_errno(context, params, r, "Failed to gain CAP_SETPCAP for setting secure bits");
