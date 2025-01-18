@@ -34,11 +34,12 @@
 #include "virt.h"
 
 typedef enum MountMode {
-        MNT_NONE           = 0,
-        MNT_FATAL          = 1 << 0,
-        MNT_IN_CONTAINER   = 1 << 1,
-        MNT_CHECK_WRITABLE = 1 << 2,
-        MNT_FOLLOW_SYMLINK = 1 << 3,
+        MNT_NONE              = 0,
+        MNT_FATAL             = 1 << 0,
+        MNT_IN_CONTAINER      = 1 << 1,
+        MNT_CHECK_WRITABLE    = 1 << 2,
+        MNT_FOLLOW_SYMLINK    = 1 << 3,
+        MNT_USRQUOTA_GRACEFUL = 1 << 4,
 } MountMode;
 
 typedef struct MountPoint {
@@ -92,7 +93,7 @@ static const MountPoint mount_table[] = {
           mac_smack_use, MNT_FATAL                  },
 #endif
         { "tmpfs",       "/dev/shm",                  "tmpfs",      "mode=01777",                               MS_NOSUID|MS_NODEV|MS_STRICTATIME,
-          NULL,          MNT_FATAL|MNT_IN_CONTAINER },
+          NULL,          MNT_FATAL|MNT_IN_CONTAINER|MNT_USRQUOTA_GRACEFUL },
         { "devpts",      "/dev/pts",                  "devpts",     "mode=" STRINGIFY(TTY_MODE) ",gid=" STRINGIFY(TTY_GID), MS_NOSUID|MS_NOEXEC,
           NULL,          MNT_IN_CONTAINER           },
 #if ENABLE_SMACK
@@ -189,13 +190,29 @@ static int mount_one(const MountPoint *p, bool relabel) {
         else
                 (void) mkdir_p(p->where, 0755);
 
+        _cleanup_free_ char *extend_options = NULL;
+        const char *o = p->options;
+        if (FLAGS_SET(p->mode, MNT_USRQUOTA_GRACEFUL)) {
+                r = mount_option_supported(p->type, "usrquota", /* value= */ NULL);
+                if (r < 0)
+                        log_warning_errno(r, "Unable to determine whether %s supports 'usrquota' mount option, assuming not: %m", p->type);
+                else if (r == 0)
+                        log_info("Not enabling 'usrquota' on '%s' as kernel lacks support for it.", p->where);
+                else {
+                        if (!strextend_with_separator(&extend_options, ",", p->options ?: POINTER_MAX, "usrquota"))
+                                return log_oom();
+
+                        o = extend_options;
+                }
+        }
+
         log_debug("Mounting %s to %s of type %s with options %s.",
                   p->what,
                   p->where,
                   p->type,
-                  strna(p->options));
+                  strna(o));
 
-        r = mount_verbose_full(priority, p->what, p->where, p->type, p->flags, p->options, FLAGS_SET(p->mode, MNT_FOLLOW_SYMLINK));
+        r = mount_verbose_full(priority, p->what, p->where, p->type, p->flags, o, FLAGS_SET(p->mode, MNT_FOLLOW_SYMLINK));
         if (r < 0)
                 return FLAGS_SET(p->mode, MNT_FATAL) ? r : 0;
 

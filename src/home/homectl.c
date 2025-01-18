@@ -2837,6 +2837,9 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --memory-max=BYTES        Set maximum memory limit\n"
                "     --cpu-weight=WEIGHT       Set CPU weight\n"
                "     --io-weight=WEIGHT        Set IO weight\n"
+               "     --tmp-limit=BYTES|PERCENT Set limit on /tmp/\n"
+               "     --dev-shm-limit=BYTES|PERCENT\n"
+               "                               Set limit on /dev/shm/\n"
                "\n%4$sStorage User Record Properties:%5$s\n"
                "     --storage=STORAGE         Storage type to use (luks, fscrypt, directory,\n"
                "                               subvolume, cifs)\n"
@@ -2984,6 +2987,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_PROMPT_NEW_USER,
                 ARG_AVATAR,
                 ARG_LOGIN_BACKGROUND,
+                ARG_TMP_LIMIT,
+                ARG_DEV_SHM_LIMIT,
         };
 
         static const struct option options[] = {
@@ -3083,6 +3088,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "blob",                         required_argument, NULL, 'b'                             },
                 { "avatar",                       required_argument, NULL, ARG_AVATAR                      },
                 { "login-background",             required_argument, NULL, ARG_LOGIN_BACKGROUND            },
+                { "tmp-limit",                    required_argument, NULL, ARG_TMP_LIMIT                   },
+                { "dev-shm-limit",                required_argument, NULL, ARG_DEV_SHM_LIMIT               },
                 {}
         };
 
@@ -4465,6 +4472,56 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_error_errno(r, "Failed to map %s to %s in blob directory: %m", path, filename);
                         TAKE_PTR(filename); /* hashmap takes ownership */
                         TAKE_FD(fd);
+
+                        break;
+                }
+
+                case ARG_TMP_LIMIT:
+                case ARG_DEV_SHM_LIMIT: {
+                        const char *field =
+                                    c == ARG_TMP_LIMIT ? "tmpLimit" :
+                                c == ARG_DEV_SHM_LIMIT ? "devShmLimit" : NULL;
+                        const char *field_scale =
+                                    c == ARG_TMP_LIMIT ? "tmpLimitScale" :
+                                c == ARG_DEV_SHM_LIMIT ? "devShmLimitScale" : NULL;
+
+                        assert(field);
+                        assert(field_scale);
+
+                        if (isempty(optarg)) {
+                                r = drop_from_identity(field);
+                                if (r < 0)
+                                        return r;
+                                r = drop_from_identity(field_scale);
+                                if (r < 0)
+                                        return r;
+                                break;
+                        }
+
+                        r = parse_permyriad(optarg);
+                        if (r < 0) {
+                                uint64_t u;
+
+                                r = parse_size(optarg, 1024, &u);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse %s parameter: %s", field, optarg);
+
+                                r = sd_json_variant_set_field_unsigned(&arg_identity_extra, field, u);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to set %s field: %m", field);
+
+                                r = drop_from_identity(field_scale);
+                                if (r < 0)
+                                        return r;
+                        } else {
+                                r = sd_json_variant_set_field_unsigned(&arg_identity_extra, field_scale, UINT32_SCALE_FROM_PERMYRIAD(r));
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to set %s field: %m", field);
+
+                                r = drop_from_identity(field);
+                                if (r < 0)
+                                        return r;
+                        }
 
                         break;
                 }
