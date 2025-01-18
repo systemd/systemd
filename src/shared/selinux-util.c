@@ -31,7 +31,6 @@
 
 #if HAVE_SELINUX
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(context_t, context_free, NULL);
-#define _cleanup_context_free_ _cleanup_(context_freep)
 
 typedef enum Initialized {
         UNINITIALIZED,
@@ -471,7 +470,7 @@ int mac_selinux_get_our_label(char **ret) {
 int mac_selinux_get_child_mls_label(int socket_fd, const char *exe, const char *exec_label, char **ret_label) {
 #if HAVE_SELINUX
         _cleanup_freecon_ char *mycon = NULL, *peercon = NULL, *fcon = NULL;
-        _cleanup_context_free_ context_t pcon = NULL, bcon = NULL;
+        _cleanup_(context_freep) context_t pcon = NULL, bcon = NULL;
         const char *range = NULL, *bcon_str = NULL;
         security_class_t sclass;
         int r;
