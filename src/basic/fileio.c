@@ -298,19 +298,22 @@ int write_string_file_full(
         _cleanup_close_ int fd = -EBADF;
         int r;
 
-        assert(fn);
+        assert(dir_fd == AT_FDCWD || dir_fd >= 0);
         assert(line);
 
         /* We don't know how to verify whether the file contents was already on-disk. */
         assert(!((flags & WRITE_STRING_FILE_VERIFY_ON_FAILURE) && (flags & WRITE_STRING_FILE_SYNC)));
 
         if (flags & WRITE_STRING_FILE_MKDIR_0755) {
+                assert(fn);
+
                 r = mkdirat_parents(dir_fd, fn, 0755);
                 if (r < 0)
                         return r;
         }
 
         if (flags & WRITE_STRING_FILE_ATOMIC) {
+                assert(fn);
                 assert(flags & WRITE_STRING_FILE_CREATE);
 
                 r = write_string_file_atomic_at(dir_fd, fn, line, flags, ts);
@@ -320,25 +323,34 @@ int write_string_file_full(
                 return r;
         }
 
-        mode_t mode = write_string_file_flags_to_mode(flags);
-
-        if (FLAGS_SET(flags, WRITE_STRING_FILE_LABEL|WRITE_STRING_FILE_CREATE)) {
-                r = label_ops_pre(dir_fd, label_fn ?: fn, mode);
-                if (r < 0)
-                        goto fail;
-
-                call_label_ops_post = true;
-        }
-
         /* We manually build our own version of fopen(..., "we") that works without O_CREAT and with O_NOFOLLOW if needed. */
-        fd = openat_report_new(
-                        dir_fd, fn, O_CLOEXEC | O_NOCTTY |
-                        (FLAGS_SET(flags, WRITE_STRING_FILE_NOFOLLOW) ? O_NOFOLLOW : 0) |
-                        (FLAGS_SET(flags, WRITE_STRING_FILE_CREATE) ? O_CREAT : 0) |
-                        (FLAGS_SET(flags, WRITE_STRING_FILE_TRUNCATE) ? O_TRUNC : 0) |
-                        (FLAGS_SET(flags, WRITE_STRING_FILE_SUPPRESS_REDUNDANT_VIRTUAL) ? O_RDWR : O_WRONLY),
-                        mode,
-                        &made_file);
+        if (isempty(fn)) {
+                if (dir_fd == AT_FDCWD)
+                        return -EBADF;
+
+                fd = fd_reopen(dir_fd, O_CLOEXEC | O_NOCTTY |
+                               (FLAGS_SET(flags, WRITE_STRING_FILE_TRUNCATE) ? O_TRUNC : 0) |
+                               (FLAGS_SET(flags, WRITE_STRING_FILE_SUPPRESS_REDUNDANT_VIRTUAL) ? O_RDWR : O_WRONLY));
+        } else {
+                mode_t mode = write_string_file_flags_to_mode(flags);
+
+                if (FLAGS_SET(flags, WRITE_STRING_FILE_LABEL|WRITE_STRING_FILE_CREATE)) {
+                        r = label_ops_pre(dir_fd, label_fn ?: fn, mode);
+                        if (r < 0)
+                                goto fail;
+
+                        call_label_ops_post = true;
+                }
+
+                fd = openat_report_new(
+                                dir_fd, fn, O_CLOEXEC | O_NOCTTY |
+                                (FLAGS_SET(flags, WRITE_STRING_FILE_NOFOLLOW) ? O_NOFOLLOW : 0) |
+                                (FLAGS_SET(flags, WRITE_STRING_FILE_CREATE) ? O_CREAT : 0) |
+                                (FLAGS_SET(flags, WRITE_STRING_FILE_TRUNCATE) ? O_TRUNC : 0) |
+                                (FLAGS_SET(flags, WRITE_STRING_FILE_SUPPRESS_REDUNDANT_VIRTUAL) ? O_RDWR : O_WRONLY),
+                                mode,
+                                &made_file);
+        }
         if (fd < 0) {
                 r = fd;
                 goto fail;
@@ -380,7 +392,7 @@ fail:
 
         /* OK, the operation failed, but let's see if the right contents in place already. If so, eat up the
          * error. */
-        if (verify_file(fn, line, !(flags & WRITE_STRING_FILE_AVOID_NEWLINE) || (flags & WRITE_STRING_FILE_VERIFY_IGNORE_NEWLINE)) > 0)
+        if (verify_file_at(dir_fd, fn, line, !(flags & WRITE_STRING_FILE_AVOID_NEWLINE) || (flags & WRITE_STRING_FILE_VERIFY_IGNORE_NEWLINE)) > 0)
                 return 0;
 
         return r;
@@ -442,7 +454,6 @@ int verify_file_at(int dir_fd, const char *fn, const char *blob, bool accept_ext
         size_t l, k;
         int r;
 
-        assert(fn);
         assert(blob);
 
         l = strlen(blob);
@@ -454,7 +465,7 @@ int verify_file_at(int dir_fd, const char *fn, const char *blob, bool accept_ext
         if (!buf)
                 return -ENOMEM;
 
-        r = fopen_unlocked_at(dir_fd, fn, "re", 0, &f);
+        r = fopen_unlocked_at(dir_fd, strempty(fn), "re", 0, &f);
         if (r < 0)
                 return r;
 
@@ -474,7 +485,13 @@ int verify_file_at(int dir_fd, const char *fn, const char *blob, bool accept_ext
         return 1;
 }
 
-int read_virtual_file_fd(int fd, size_t max_size, char **ret_contents, size_t *ret_size) {
+int read_virtual_file_at(
+                int dir_fd,
+                const char *filename,
+                size_t max_size,
+                char **ret_contents,
+                size_t *ret_size) {
+
         _cleanup_free_ char *buf = NULL;
         size_t n, size;
         int n_retries;
@@ -493,8 +510,19 @@ int read_virtual_file_fd(int fd, size_t max_size, char **ret_contents, size_t *r
          * contents* may be returned. (Though the read is still done using one syscall.) Returns 0 on
          * partial success, 1 if untruncated contents were read. */
 
-        assert(fd >= 0);
+        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
         assert(max_size <= READ_VIRTUAL_BYTES_MAX || max_size == SIZE_MAX);
+
+        _cleanup_close_ int fd = -EBADF;
+        if (isempty(filename)) {
+                if (dir_fd == AT_FDCWD)
+                        return -EBADF;
+
+                fd = fd_reopen(dir_fd, O_RDONLY | O_NOCTTY | O_CLOEXEC);
+        } else
+                fd = RET_NERRNO(openat(dir_fd, filename, O_RDONLY | O_NOCTTY | O_CLOEXEC));
+        if (fd < 0)
+                return fd;
 
         /* Limit the number of attempts to read the number of bytes returned by fstat(). */
         n_retries = 3;
@@ -617,31 +645,6 @@ int read_virtual_file_fd(int fd, size_t max_size, char **ret_contents, size_t *r
                 *ret_size = n;
 
         return !truncated;
-}
-
-int read_virtual_file_at(
-                int dir_fd,
-                const char *filename,
-                size_t max_size,
-                char **ret_contents,
-                size_t *ret_size) {
-
-        _cleanup_close_ int fd = -EBADF;
-
-        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
-
-        if (!filename) {
-                if (dir_fd == AT_FDCWD)
-                        return -EBADF;
-
-                return read_virtual_file_fd(dir_fd, max_size, ret_contents, ret_size);
-        }
-
-        fd = openat(dir_fd, filename, O_RDONLY | O_NOCTTY | O_CLOEXEC);
-        if (fd < 0)
-                return -errno;
-
-        return read_virtual_file_fd(fd, max_size, ret_contents, ret_size);
 }
 
 int read_full_stream_full(
