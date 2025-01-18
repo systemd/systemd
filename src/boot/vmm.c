@@ -85,7 +85,7 @@ EFI_STATUS vmm_open(EFI_HANDLE *ret_vmm_dev, EFI_FILE **ret_vmm_dir) {
                 dp_err = efivar_get_raw(MAKE_GUID_PTR(VMM_BOOT_ORDER), order_str, (void**) &dp, NULL);
 
                 for (size_t i = 0; i < n_handles; i++) {
-                        _cleanup_(file_closep) EFI_FILE *root_dir = NULL, *efi_dir = NULL;
+                        _cleanup_file_close_ EFI_FILE *root_dir = NULL, *efi_dir = NULL;
                         EFI_DEVICE_PATH *fs;
 
                         err = BS->HandleProtocol(

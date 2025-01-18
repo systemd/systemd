@@ -43,12 +43,6 @@ int keep_capability(cap_value_t cv);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(cap_t, cap_free, NULL);
 #define _cleanup_cap_free_ _cleanup_(cap_freep)
 
-static inline void cap_free_charpp(char **p) {
-        if (*p)
-                cap_free(*p);
-}
-#define _cleanup_cap_free_charp_ _cleanup_(cap_free_charpp)
-
 static inline uint64_t all_capabilities(void) {
         return UINT64_MAX >> (63 - cap_last_cap());
 }

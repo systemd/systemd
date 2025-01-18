@@ -1010,7 +1010,7 @@ static int bind_description(sd_bus *b, int fd, int family) {
 }
 
 static int connect_as(int fd, const struct sockaddr *sa, socklen_t salen, uid_t uid, gid_t gid) {
-        _cleanup_(close_pairp) int pfd[2] = EBADF_PAIR;
+        _cleanup_close_pair_ int pfd[2] = EBADF_PAIR;
         ssize_t n;
         int r;
 

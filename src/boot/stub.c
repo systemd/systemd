@@ -294,7 +294,7 @@ static EFI_STATUS load_addons_from_dir(
                 size_t *n_items,
                 size_t *n_allocated) {
 
-        _cleanup_(file_closep) EFI_FILE *extra_dir = NULL;
+        _cleanup_file_close_ EFI_FILE *extra_dir = NULL;
         _cleanup_free_ EFI_FILE_INFO *dirent = NULL;
         size_t dirent_size = 0;
         EFI_STATUS err;
@@ -547,8 +547,8 @@ static EFI_STATUS load_addons(
                 NamedAddon **ucode_addons,                  /* Ditto */
                 size_t *n_ucode_addons) {
 
-        _cleanup_(strv_freep) char16_t **items = NULL;
-        _cleanup_(file_closep) EFI_FILE *root = NULL;
+        _cleanup_strv_free_ char16_t **items = NULL;
+        _cleanup_file_close_ EFI_FILE *root = NULL;
         size_t n_items = 0, n_allocated = 0;
         EFI_STATUS err;
 
@@ -718,7 +718,7 @@ static void refresh_random_seed(EFI_LOADED_IMAGE_PROTOCOL *loaded_image) {
         if (FLAGS_SET(loader_features, EFI_LOADER_FEATURE_RANDOM_SEED))
                 return;
 
-        _cleanup_(file_closep) EFI_FILE *esp_dir = NULL;
+        _cleanup_file_close_ EFI_FILE *esp_dir = NULL;
         err = partition_open(MAKE_GUID_PTR(ESP), loaded_image->DeviceHandle, NULL, &esp_dir);
         if (err != EFI_SUCCESS) /* Non-fatal on failure, so that we still boot without it. */
                 return;

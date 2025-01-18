@@ -73,7 +73,7 @@ _public_ PAM_EXTERN int pam_sm_authenticate(
 
         /* Split the key by NUL. Set the last item as authtok. */
 
-        _cleanup_(strv_free_erasep) char **passwords = strv_parse_nulstr(p, n);
+        _cleanup_strv_free_erase_ char **passwords = strv_parse_nulstr(p, n);
         if (!passwords)
                 return pam_log_oom(handle);
 

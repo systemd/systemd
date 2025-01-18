@@ -56,7 +56,7 @@ static bool shim_validate(
                 if (err != EFI_SUCCESS)
                         return false;
 
-                _cleanup_(file_closep) EFI_FILE *root = NULL;
+                _cleanup_file_close_ EFI_FILE *root = NULL;
                 err = open_volume(device_handle, &root);
                 if (err != EFI_SUCCESS)
                         return false;

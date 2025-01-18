@@ -558,7 +558,7 @@ int userns_acquire(const char *uid_map, const char *gid_map) {
 }
 
 int userns_enter_and_pin(int userns_fd, pid_t *ret_pid) {
-        _cleanup_(close_pairp) int pfd[2] = EBADF_PAIR;
+        _cleanup_close_pair_ int pfd[2] = EBADF_PAIR;
         _cleanup_(sigkill_waitp) pid_t pid = 0;
         ssize_t n;
         char x;
