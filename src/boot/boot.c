@@ -1179,12 +1179,11 @@ static void config_add_entry(Config *config, BootEntry *entry) {
         /* This is just for paranoia. */
         assert(config->n_entries < IDX_MAX);
 
-        if ((config->n_entries & 15) == 0) {
+        if ((config->n_entries & 15) == 0)
                 config->entries = xrealloc(
                                 config->entries,
                                 sizeof(void *) * config->n_entries,
                                 sizeof(void *) * (config->n_entries + 16));
-        }
         config->entries[config->n_entries++] = entry;
 }
 

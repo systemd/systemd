@@ -117,10 +117,8 @@ EFI_STATUS console_key_read(uint64_t *key, uint64_t timeout_usec) {
 
         /* If the extra input device we found returns something, always use that instead
          * to work around broken firmware freezing on ConIn/ConInEx. */
-        if (extraInEx && BS->CheckEvent(extraInEx->WaitForKeyEx) == EFI_SUCCESS) {
-                conInEx = extraInEx;
-                extraInEx = NULL;
-        }
+        if (extraInEx && BS->CheckEvent(extraInEx->WaitForKeyEx) == EFI_SUCCESS)
+                conInEx = TAKE_PTR(extraInEx);
 
         /* Do not fall back to ConIn if we have a ConIn that supports TextInputEx.
          * The two may be out of sync on some firmware, giving us double input. */
