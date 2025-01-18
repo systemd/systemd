@@ -2290,9 +2290,8 @@ int read_errno(int errno_fd) {
 
         assert(errno_fd >= 0);
 
-        /* The issue here is that it's impossible to distinguish between
-         * an error code returned by child and IO error arrised when reading it.
-         * So, the function logs errors and return EIO for the later case. */
+        /* The issue here is that it's impossible to distinguish between an error code returned by child and
+         * IO error arose when reading it. So, the function logs errors and return EIO for the later case. */
 
         ssize_t n = loop_read(errno_fd, &r, sizeof(r), /* do_poll = */ false);
         if (n < 0) {
