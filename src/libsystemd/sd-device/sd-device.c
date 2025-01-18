@@ -1671,18 +1671,13 @@ _public_ int sd_device_get_device_id(sd_device *device, const char **ret) {
 
         if (!device->device_id) {
                 _cleanup_free_ char *id = NULL;
-                const char *subsystem;
                 dev_t devnum;
                 int ifindex, r;
-
-                r = sd_device_get_subsystem(device, &subsystem);
-                if (r < 0)
-                        return r;
 
                 if (sd_device_get_devnum(device, &devnum) >= 0) {
                         /* use dev_t — b259:131072, c254:0 */
                         if (asprintf(&id, "%c" DEVNUM_FORMAT_STR,
-                                     streq(subsystem, "block") ? 'b' : 'c',
+                                     device_in_subsystem(device, "block") ? 'b' : 'c',
                                      DEVNUM_FORMAT_VAL(devnum)) < 0)
                                 return -ENOMEM;
                 } else if (sd_device_get_ifindex(device, &ifindex) >= 0) {
@@ -1700,13 +1695,18 @@ _public_ int sd_device_get_device_id(sd_device *device, const char **ret) {
                         if (r == O_DIRECTORY)
                                 return -EINVAL;
 
-                        if (streq(subsystem, "drivers")) {
+                        if (device_in_subsystem(device, "drivers"))
                                 /* the 'drivers' pseudo-subsystem is special, and needs the real
                                  * subsystem encoded as well */
-                                assert(device->driver_subsystem);
-                                id = strjoin("+drivers:", device->driver_subsystem, ":", sysname);
-                        } else
+                                id = strjoin("+drivers:", ASSERT_PTR(device->driver_subsystem), ":", sysname);
+                        else {
+                                const char *subsystem;
+                                r = sd_device_get_subsystem(device, &subsystem);
+                                if (r < 0)
+                                        return r;
+
                                 id = strjoin("+", subsystem, ":", sysname);
+                        }
                         if (!id)
                                 return -ENOMEM;
                 }
