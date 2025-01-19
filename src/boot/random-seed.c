@@ -199,7 +199,7 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir) {
                         EFI_FILE_MODE_READ | EFI_FILE_MODE_WRITE,
                         0);
         if (err != EFI_SUCCESS) {
-                if (err != EFI_NOT_FOUND && err != EFI_WRITE_PROTECTED)
+                if (!IN_SET(err, EFI_NOT_FOUND, EFI_WRITE_PROTECTED))
                         log_error_status(err, "Failed to open random seed file: %m");
                 return err;
         }
