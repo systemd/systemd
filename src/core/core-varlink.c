@@ -325,8 +325,9 @@ static int vl_method_subscribe_managed_oom_cgroups(
         if (!streq(u->id, "systemd-oomd.service"))
                 return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, NULL);
 
-        if (sd_json_variant_elements(parameters) > 0)
-                return sd_varlink_error_invalid_parameter(link, parameters);
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table = */ NULL, /* userdata = */ NULL);
+        if (r != 0)
+                return r;
 
         /* We only take one subscriber for this method so return an error if there's already an existing one.
          * This shouldn't happen since systemd-oomd is the only client of this method. */

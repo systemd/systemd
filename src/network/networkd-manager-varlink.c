@@ -17,11 +17,13 @@
 
 static int vl_method_get_states(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
+        int r;
 
         assert(link);
 
-        if (sd_json_variant_elements(parameters) > 0)
-                return sd_varlink_error_invalid_parameter(link, parameters);
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table = */ NULL, /* userdata = */ NULL);
+        if (r != 0)
+                return r;
 
         return sd_varlink_replybo(
                         link,
@@ -40,8 +42,9 @@ static int vl_method_get_namespace_id(sd_varlink *link, sd_json_variant *paramet
 
         assert(link);
 
-        if (sd_json_variant_elements(parameters) > 0)
-                return sd_varlink_error_invalid_parameter(link, parameters);
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table = */ NULL, /* userdata = */ NULL);
+        if (r != 0)
+                return r;
 
         /* Network namespaces have two identifiers: the inode number (which all namespace types have), and
          * the "nsid" (aka the "cookie"), which only network namespaces know as a concept, and which is not

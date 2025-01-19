@@ -11,10 +11,13 @@
 #define UDEV_VARLINK_ADDRESS "/run/udev/io.systemd.Udev"
 
 static int vl_method_reload(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        int r;
+
         assert(link);
 
-        if (sd_json_variant_elements(parameters) > 0)
-                return sd_varlink_error_invalid_parameter(link, parameters);
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table = */ NULL, /* userdata = */ NULL);
+        if (r != 0)
+                return r;
 
         log_debug("Received io.systemd.service.Reload()");
         manager_reload(userdata, /* force = */ true);
@@ -87,8 +90,9 @@ static int vl_method_start_stop_exec_queue(sd_varlink *link, sd_json_variant *pa
 
         assert(link);
 
-        if (sd_json_variant_elements(parameters) > 0)
-                return sd_varlink_error_invalid_parameter(link, parameters);
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table = */ NULL, /* userdata = */ NULL);
+        if (r != 0)
+                return r;
 
         r = sd_varlink_get_current_method(link, &method);
         if (r < 0)
@@ -100,10 +104,13 @@ static int vl_method_start_stop_exec_queue(sd_varlink *link, sd_json_variant *pa
 }
 
 static int vl_method_exit(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        int r;
+
         assert(link);
 
-        if (sd_json_variant_elements(parameters) > 0)
-                return sd_varlink_error_invalid_parameter(link, parameters);
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table = */ NULL, /* userdata = */ NULL);
+        if (r != 0)
+                return r;
 
         /* Refuse further connections. */
         _unused_ _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *v = sd_varlink_ref(link);
