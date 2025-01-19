@@ -714,7 +714,8 @@
           <listitem>
             <para>A special target unit that is pulled in by
             <filename>suspend.target</filename>,
-            <filename>hibernate.target</filename> and
+            <filename>hibernate.target</filename>,
+            <filename>suspend-then-hibernate.target</filename>, and
             <filename>hybrid-sleep.target</filename> and may be used to
             hook units into the sleep state logic.</para>
           </listitem>
