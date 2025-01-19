@@ -21,6 +21,7 @@ typedef enum MountSettingsMask {
         MOUNT_PREFIX_ROOT        = 1 << 10,/* if set, prefix the source path with the container's root directory */
         MOUNT_FOLLOW_SYMLINKS    = 1 << 11,/* if set, we'll follow symlinks for the mount target */
         MOUNT_PRIVILEGED         = 1 << 12,/* if set, we'll only mount this in the outer child if we are running in privileged mode */
+        MOUNT_USRQUOTA_GRACEFUL  = 1 << 13,/* if set, append "usrquota" to mount options if kernel tmpfs supports that */
 } MountSettingsMask;
 
 typedef enum CustomMountType {
