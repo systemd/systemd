@@ -263,7 +263,7 @@ class Uname:
             filename,
         ]
 
-        print('+', shell_join(cmd))
+        print('+', shell_join(cmd), file=sys.stderr)
         try:
             notes = subprocess.check_output(cmd, stderr=subprocess.PIPE, text=True)
         except subprocess.CalledProcessError as e:
@@ -294,7 +294,7 @@ class Uname:
         for func in (cls.scrape_x86, cls.scrape_elf, cls.scrape_generic):
             try:
                 version = func(filename, opts=opts)
-                print(f'Found uname version: {version}')
+                print(f'Found uname version: {version}', file=sys.stderr)
                 return version
             except ValueError as e:
                 print(str(e))
@@ -424,7 +424,7 @@ def check_splash(filename):
         return
 
     img = Image.open(filename, formats=['BMP'])
-    print(f'Splash image {filename} is {img.width}×{img.height} pixels')
+    print(f'Splash image {filename} is {img.width}×{img.height} pixels', file=sys.stderr)
 
 
 def check_inputs(opts):
@@ -519,7 +519,7 @@ def call_systemd_measure(uki, linux, opts):
               for phase_path in itertools.chain.from_iterable(pp_groups)),
         ]
 
-        print('+', shell_join(cmd))
+        print('+', shell_join(cmd), file=sys.stderr)
         subprocess.check_call(cmd)
 
     # PCR signing
@@ -548,7 +548,7 @@ def call_systemd_measure(uki, linux, opts):
                 extra += [f'--public-key={pub_key}']
             extra += [f'--phase={phase_path}' for phase_path in group or ()]
 
-            print('+', shell_join(cmd + extra))
+            print('+', shell_join(cmd + extra), file=sys.stderr)
             pcrsig = subprocess.check_output(cmd + extra, text=True)
             pcrsig = json.loads(pcrsig)
             pcrsigs += [pcrsig]
@@ -821,7 +821,7 @@ def make_uki(opts):
             sign(sign_tool, opts.linux, linux, opts=opts)
 
     if opts.uname is None and opts.linux is not None:
-        print('Kernel version not specified, starting autodetection 😖.')
+        print('Kernel version not specified, starting autodetection 😖.', file=sys.stderr)
         opts.uname = Uname.scrape(opts.linux, opts=opts)
 
     uki = UKI(opts.stub)
@@ -922,7 +922,7 @@ uki-addon,1,UKI Addon,addon,1,https://www.freedesktop.org/software/systemd/man/l
         os.umask(umask := os.umask(0))
         os.chmod(opts.output, 0o777 & ~umask)
 
-    print(f"Wrote {'signed' if sign_args_present else 'unsigned'} {opts.output}")
+    print(f"Wrote {'signed' if sign_args_present else 'unsigned'} {opts.output}", file=sys.stderr)
 
 
 @contextlib.contextmanager
@@ -1522,14 +1522,14 @@ def apply_config(namespace, filename=None):
         if namespace.config:
             # Config set by the user, use that.
             filename = namespace.config
-            print(f'Using config file: {filename}')
+            print(f'Using config file: {filename}', file=sys.stderr)
         else:
             # Try to look for a config file then use the first one found.
             for config_dir in DEFAULT_CONFIG_DIRS:
                 filename = pathlib.Path(config_dir) / DEFAULT_CONFIG_FILE
                 if filename.is_file():
                     # Found a config file, use it.
-                    print(f'Using found config file: {filename}')
+                    print(f'Using found config file: {filename}', file=sys.stderr)
                     break
             else:
                 # No config file specified or found, nothing to do.
@@ -1644,7 +1644,7 @@ def finalize_options(opts):
     elif opts.linux or opts.initrd:
         raise ValueError('--linux/--initrd options cannot be used with positional arguments')
     else:
-        print("Assuming obsolete command line syntax with no verb. Please use 'build'.")
+        print("Assuming obsolete command line syntax with no verb. Please use 'build'.", file=sys.stderr)
         if opts.positional:
             opts.linux = pathlib.Path(opts.positional[0])
         # If we have initrds from parsing config files, append our positional args at the end
