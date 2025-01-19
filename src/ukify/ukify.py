@@ -215,7 +215,8 @@ def maybe_decompress(filename: Union[str, Path]) -> bytes:
         return cast(bytes, lz4.frame.decompress(f.read()))
 
     if start.startswith(b'\x04\x22\x4d\x18'):
-        print('Newer lz4 stream format detected! This may not boot!')
+        if opts.json == 'off':
+            print('Newer lz4 stream format detected! This may not boot!')
         lz4 = try_import('lz4.frame', 'lz4')
         return cast(bytes, lz4.frame.decompress(f.read()))
 
@@ -324,7 +325,8 @@ class Uname:
             filename,
         ]
 
-        print('+', shell_join(cmd))
+        if opts.json == 'off':
+            print('+', shell_join(cmd))
         try:
             notes = subprocess.check_output(cmd, stderr=subprocess.PIPE, text=True)
         except subprocess.CalledProcessError as e:
@@ -355,7 +357,8 @@ class Uname:
         for func in (cls.scrape_x86, cls.scrape_elf, cls.scrape_generic):
             try:
                 version = func(filename, opts=opts)
-                print(f'Found uname version: {version}')
+                if opts.json == 'off':
+                    print(f'Found uname version: {version}')
                 return version
             except ValueError as e:
                 print(str(e))
@@ -496,7 +499,8 @@ class PeSign(SignTool):
             '-o', output_f,
         ]  # fmt: skip
 
-        print('+', shell_join(cmd))
+        if opts.json == 'off':
+            print('+', shell_join(cmd))
         subprocess.check_call(cmd)
 
     @staticmethod
@@ -506,7 +510,8 @@ class PeSign(SignTool):
         tool = find_tool('pesign', opts=opts)
         cmd = [tool, '-i', opts.linux, '-S']
 
-        print('+', shell_join(cmd))
+        if opts.json == 'off':
+            print('+', shell_join(cmd))
         info = subprocess.check_output(cmd, text=True)
 
         return 'No signatures found.' in info
@@ -528,7 +533,8 @@ class SbSign(SignTool):
             '--output', output_f,
         ]  # fmt: skip
 
-        print('+', shell_join(cmd))
+        if opts.json == 'off':
+            print('+', shell_join(cmd))
         subprocess.check_call(cmd)
 
     @staticmethod
@@ -538,7 +544,8 @@ class SbSign(SignTool):
         tool = find_tool('sbverify', opts=opts)
         cmd = [tool, '--list', opts.linux]
 
-        print('+', shell_join(cmd))
+        if opts.json == 'off':
+            print('+', shell_join(cmd))
         info = subprocess.check_output(cmd, text=True)
 
         return 'No signature table present' in info
@@ -580,7 +587,8 @@ class SystemdSbSign(SignTool):
             '--output', output_f,
         ]  # fmt: skip
 
-        print('+', shell_join(cmd))
+        if opts.json == 'off':
+            print('+', shell_join(cmd))
         subprocess.check_call(cmd)
 
     @staticmethod
@@ -627,7 +635,8 @@ def check_splash(filename: Optional[Path]) -> None:
         return
 
     img = Image.open(filename, formats=['BMP'])
-    print(f'Splash image {filename} is {img.width}×{img.height} pixels')
+    if opts.json == 'off':
+        print(f'Splash image {filename} is {img.width}×{img.height} pixels')
 
 
 def check_inputs(opts: UkifyConfig) -> None:
@@ -770,7 +779,8 @@ def call_systemd_measure(uki: UKI, opts: UkifyConfig, profile_start: int = 0) ->
                 *(f'--phase={phase_path}' for phase_path in itertools.chain.from_iterable(pp_groups)),
             ]
 
-            print('+', shell_join(cmd))
+            if opts.json == 'off':
+                print('+', shell_join(cmd))
             subprocess.check_call(cmd)
 
     # PCR signing
@@ -808,7 +818,8 @@ def call_systemd_measure(uki: UKI, opts: UkifyConfig, profile_start: int = 0) ->
 
                 extra += [f'--phase={phase_path}' for phase_path in group or ()]
 
-                print('+', shell_join(cmd + extra))  # type: ignore
+                if opts.json == 'off':
+                    print('+', shell_join(cmd + extra))  # type: ignore
                 pcrsig = subprocess.check_output(cmd + extra, text=True)  # type: ignore
                 pcrsig = json.loads(pcrsig)
                 pcrsigs += [pcrsig]
@@ -1145,7 +1156,8 @@ def make_uki(opts: UkifyConfig) -> None:
             signtool.sign(os.fspath(opts.linux), os.fspath(linux), opts=opts)
 
     if opts.uname is None and opts.linux is not None:
-        print('Kernel version not specified, starting autodetection 😖.')
+        if opts.json == 'off':
+            print('Kernel version not specified, starting autodetection 😖.')
         opts.uname = Uname.scrape(opts.linux, opts=opts)
 
     uki = UKI(opts.stub)
@@ -1163,7 +1175,8 @@ def make_uki(opts: UkifyConfig) -> None:
                 if opts.certificate_provider:
                     cmd += ['--certificate-source', f'provider:{opts.certificate_provider}']
 
-                print('+', shell_join(cmd))
+                if opts.json == 'off':
+                    print('+', shell_join(cmd))
                 pcrpkey = subprocess.check_output(cmd)
             else:
                 pcrpkey = Path(opts.pcr_public_keys[0])
@@ -1175,7 +1188,8 @@ def make_uki(opts: UkifyConfig) -> None:
             if opts.signing_provider:
                 cmd += ['--private-key-source', f'provider:{opts.signing_provider}']
 
-            print('+', shell_join(cmd))
+            if opts.json == 'off':
+                print('+', shell_join(cmd))
             pcrpkey = subprocess.check_output(cmd)
 
     hwids = None
@@ -1282,7 +1296,8 @@ def make_uki(opts: UkifyConfig) -> None:
             if n not in to_import:
                 continue
 
-            print(f"Copying section '{n}' from '{profile}': {pesection.Misc_VirtualSize} bytes")
+            if opts.json == 'off':
+                print(f"Copying section '{n}' from '{profile}': {pesection.Misc_VirtualSize} bytes")
             uki.add_section(
                 Section.create(n, pesection.get_data(length=pesection.Misc_VirtualSize), measure=True)
             )
@@ -1311,7 +1326,8 @@ def make_uki(opts: UkifyConfig) -> None:
         os.umask(umask := os.umask(0))
         os.chmod(opts.output, 0o777 & ~umask)
 
-    print(f'Wrote {"signed" if sign_args_present else "unsigned"} {opts.output}')
+    if opts.json == 'off':
+        print(f'Wrote {"signed" if sign_args_present else "unsigned"} {opts.output}')
 
 
 @contextlib.contextmanager
@@ -1963,14 +1979,16 @@ def apply_config(namespace: argparse.Namespace, filename: Union[str, Path, None]
         if namespace.config:
             # Config set by the user, use that.
             filename = namespace.config
-            print(f'Using config file: {filename}')
+            if opts.json == 'off':
+                print(f'Using config file: {filename}')
         else:
             # Try to look for a config file then use the first one found.
             for config_dir in DEFAULT_CONFIG_DIRS:
                 filename = Path(config_dir) / DEFAULT_CONFIG_FILE
                 if filename.is_file():
                     # Found a config file, use it.
-                    print(f'Using found config file: {filename}')
+                    if opts.json == 'off':
+                        print(f'Using found config file: {filename}')
                     break
             else:
                 # No config file specified or found, nothing to do.
@@ -2094,7 +2112,8 @@ def finalize_options(opts: argparse.Namespace) -> None:
     elif opts.linux or opts.initrd:
         raise ValueError('--linux=/--initrd= options cannot be used with positional arguments')
     else:
-        print("Assuming obsolete command line syntax with no verb. Please use 'build'.")
+        if opts.json == 'off':
+            print("Assuming obsolete command line syntax with no verb. Please use 'build'.")
         if opts.positional:
             opts.linux = Path(opts.positional[0])
         # If we have initrds from parsing config files, append our positional args at the end
