@@ -254,6 +254,10 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
         if (dstfd < 0)
                 return log_error_errno(r, "Failed to open temporary file: %m");
 
+        /* Make sure output file has same mode as input file. */
+        if (fchmod(dstfd, st.st_mode & 07777) < 0)
+                log_debug_errno(errno, "Failed to change temporary file mode: %m");
+
         r = copy_bytes(srcfd, dstfd, UINT64_MAX, COPY_REFLINK);
         if (r < 0)
                 return log_error_errno(r, "Failed to copy %s to %s: %m", argv[1], tmp);
