@@ -763,6 +763,8 @@ def call_systemd_measure(uki: UKI, opts: UkifyConfig, profile_start: int = 0) ->
             cmd = [
                 measure_tool,
                 'calculate',
+                '--json',
+                opts.json,
                 *(f'--{s.name.removeprefix(".")}={s.content}' for s in to_measure.values()),
                 *(f'--bank={bank}' for bank in banks),
                 # For measurement, the keys are not relevant, so we can lump all the phase paths
