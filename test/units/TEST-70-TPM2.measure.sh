@@ -47,14 +47,31 @@ EOF
 
 rm /tmp/result /tmp/result.json
 
+# Generate key pair
+openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out "/tmp/pcrsign-private.pem"
+openssl rsa -pubout -in "/tmp/pcrsign-private.pem" -out "/tmp/pcrsign-public.pem"
+
+# Verify that the offline signature obtained via policy-digests is the same as an online signature created
+# with the same key by systemd-measure
+digest="$("$SD_MEASURE" policy-digest --json=short --linux=/tmp/tpmdata1 --initrd=/tmp/tpmdata2 --bank=sha256 --public-key="/tmp/pcrsign-public.pem" --phase=:)"
+signed_digest="$("$SD_MEASURE" sign --json=short --linux=/tmp/tpmdata1 --initrd=/tmp/tpmdata2 --bank=sha256 --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" --phase=:)"
+echo "$digest" | jq -r '.sha256 | to_entries[] | .value.pol' | while read -r pol; do
+    # Note: basenc before coreutils 9.5 refuses lowercase hex input strings
+    offline_sig="$(echo -n "$pol" | \
+        tr '[:lower:]' '[:upper:]' | \
+        basenc --base16 --decode | \
+        openssl dgst -sign /tmp/pcrsign-private.pem -sha256 | \
+        base64 -w0)"
+    online_sig="$(echo "$signed_digest" | jq -r --arg pol "$pol" '.sha256[] | select(.pol == $pol) | .sig')"
+    test -n "$offline_sig"
+    test -n "$online_sig"
+    test "$offline_sig" = "$online_sig"
+done
+
 if ! tpm_has_pcr sha1 11 || ! tpm_has_pcr sha256 11; then
     echo "PCR sysfs files not found, skipping signed PCR policy tests"
     exit 0
 fi
-
-# Generate key pair
-openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out "/tmp/pcrsign-private.pem"
-openssl rsa -pubout -in "/tmp/pcrsign-private.pem" -out "/tmp/pcrsign-public.pem"
 
 MEASURE_BANKS=("--bank=sha256")
 # Check if SHA1 signatures are supported
