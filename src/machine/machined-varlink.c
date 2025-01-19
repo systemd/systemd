@@ -17,6 +17,7 @@
 #include "varlink-io.systemd.Machine.h"
 #include "varlink-io.systemd.MachineImage.h"
 #include "varlink-io.systemd.UserDatabase.h"
+#include "varlink-io.systemd.service.h"
 #include "varlink-util.h"
 
 typedef struct LookupParameters {
@@ -776,7 +777,8 @@ static int manager_varlink_init_machine(Manager *m) {
         r = sd_varlink_server_add_interface_many(
                         s,
                         &vl_interface_io_systemd_Machine,
-                        &vl_interface_io_systemd_MachineImage);
+                        &vl_interface_io_systemd_MachineImage,
+                        &vl_interface_io_systemd_service);
         if (r < 0)
                 return log_error_errno(r, "Failed to add Machine and MachineImage interfaces to varlink server: %m");
 
@@ -798,7 +800,10 @@ static int manager_varlink_init_machine(Manager *m) {
                         "io.systemd.MachineImage.Update",       vl_method_update_image,
                         "io.systemd.MachineImage.Clone",        vl_method_clone_image,
                         "io.systemd.MachineImage.Remove",       vl_method_remove_image,
-                        "io.systemd.MachineImage.SetPoolLimit", vl_method_set_pool_limit);
+                        "io.systemd.MachineImage.SetPoolLimit", vl_method_set_pool_limit,
+                        "io.systemd.service.Ping",              varlink_method_ping,
+                        "io.systemd.service.SetLogLevel",       varlink_method_set_log_level,
+                        "io.systemd.service.GetEnvironment",    varlink_method_get_environment);
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink methods: %m");
 

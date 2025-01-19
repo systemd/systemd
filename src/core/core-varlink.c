@@ -10,6 +10,7 @@
 #include "varlink-internal.h"
 #include "varlink-io.systemd.UserDatabase.h"
 #include "varlink-io.systemd.ManagedOOM.h"
+#include "varlink-io.systemd.service.h"
 #include "varlink-util.h"
 
 typedef struct LookupParameters {
@@ -589,7 +590,8 @@ int manager_setup_varlink_server(Manager *m) {
         r = sd_varlink_server_add_interface_many(
                         s,
                         &vl_interface_io_systemd_UserDatabase,
-                        &vl_interface_io_systemd_ManagedOOM);
+                        &vl_interface_io_systemd_ManagedOOM,
+                        &vl_interface_io_systemd_service);
         if (r < 0)
                 return log_debug_errno(r, "Failed to add interfaces to varlink server: %m");
 
@@ -598,7 +600,9 @@ int manager_setup_varlink_server(Manager *m) {
                         "io.systemd.UserDatabase.GetUserRecord",  vl_method_get_user_record,
                         "io.systemd.UserDatabase.GetGroupRecord", vl_method_get_group_record,
                         "io.systemd.UserDatabase.GetMemberships", vl_method_get_memberships,
-                        "io.systemd.ManagedOOM.SubscribeManagedOOMCGroups", vl_method_subscribe_managed_oom_cgroups);
+                        "io.systemd.ManagedOOM.SubscribeManagedOOMCGroups", vl_method_subscribe_managed_oom_cgroups,
+                        "io.systemd.service.Ping", varlink_method_ping,
+                        "io.systemd.service.GetEnvironment", varlink_method_get_environment);
         if (r < 0)
                 return log_debug_errno(r, "Failed to register varlink methods: %m");
 
