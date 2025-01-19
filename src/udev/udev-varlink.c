@@ -156,14 +156,15 @@ int manager_start_varlink_server(Manager *manager) {
 
         r = sd_varlink_server_bind_method_many(
                         v,
-                        "io.systemd.service.Ping",          varlink_method_ping,
-                        "io.systemd.service.Reload",        vl_method_reload,
-                        "io.systemd.service.SetLogLevel",   vl_method_set_log_level,
-                        "io.systemd.Udev.SetChildrenMax",   vl_method_set_children_max,
-                        "io.systemd.Udev.SetEnvironment",   vl_method_set_environment,
-                        "io.systemd.Udev.StartExecQueue",   vl_method_start_stop_exec_queue,
-                        "io.systemd.Udev.StopExecQueue",    vl_method_start_stop_exec_queue,
-                        "io.systemd.Udev.Exit",             vl_method_exit);
+                        "io.systemd.service.Ping",           varlink_method_ping,
+                        "io.systemd.service.Reload",         vl_method_reload,
+                        "io.systemd.service.SetLogLevel",    vl_method_set_log_level,
+                        "io.systemd.service.GetEnvironment", varlink_method_get_environment,
+                        "io.systemd.Udev.SetChildrenMax",    vl_method_set_children_max,
+                        "io.systemd.Udev.SetEnvironment",    vl_method_set_environment,
+                        "io.systemd.Udev.StartExecQueue",    vl_method_start_stop_exec_queue,
+                        "io.systemd.Udev.StopExecQueue",     vl_method_start_stop_exec_queue,
+                        "io.systemd.Udev.Exit",              vl_method_exit);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind Varlink methods: %m");
 
