@@ -80,24 +80,45 @@ static int help(void) {
         return 0;
 }
 
-static pid_t manager_pid(void) {
-        const char *e;
-        pid_t pid;
+static int get_manager_pid(PidRef *ret) {
         int r;
+
+        assert(ret);
 
         /* If we run as a service managed by systemd --user the $MANAGERPID environment variable points to
          * the service manager's PID. */
-        e = getenv("MANAGERPID");
-        if (!e)
-                return 0;
-
-        r = parse_pid(e, &pid);
-        if (r < 0) {
-                log_warning_errno(r, "$MANAGERPID is set to an invalid PID, ignoring: %s", e);
+        const char *e = getenv("MANAGERPID");
+        if (!e) {
+                *ret = PIDREF_NULL;
                 return 0;
         }
 
-        return pid;
+        _cleanup_(pidref_done) PidRef manager = PIDREF_NULL;
+        r = pidref_set_pidstr(&manager, e);
+        if (r < 0)
+                return log_warning_errno(r, "$MANAGERPID is set to an invalid PID, ignoring: %s", e);
+
+        e = getenv("MANAGERPIDFDID");
+        if (e) {
+                uint64_t manager_pidfd_id;
+
+                r = safe_atou64(e, &manager_pidfd_id);
+                if (r < 0)
+                        return log_warning_errno(r, "$MANAGERPIDFDID is not set to a valid inode number, ignoring: %s", e);
+
+                r = pidref_acquire_pidfd_id(&manager);
+                if (r < 0)
+                        return log_warning_errno(r, "Unable to acquire pidfd ID for manager: %m");
+
+                if (manager_pidfd_id != manager.fd_id) {
+                        log_debug("$MANAGERPIDFDID doesn't match process currently referenced by $MANAGERPID, suppressing.");
+                        *ret = PIDREF_NULL;
+                        return 0;
+                }
+        }
+
+        *ret = TAKE_PIDREF(manager);
+        return 1;
 }
 
 static int pidref_parent_if_applicable(PidRef *ret) {
@@ -112,12 +133,19 @@ static int pidref_parent_if_applicable(PidRef *ret) {
 
         /* Don't send from PID 1 or the service manager's PID (which might be distinct from 1, if we are a
          * --user service). That'd just be confusing for the service manager. */
-        if (pidref.pid <= 1 ||
-            pidref.pid == manager_pid())
-                return pidref_set_self(ret);
+        if (pidref.pid == 1)
+                goto from_self;
+
+        _cleanup_(pidref_done) PidRef manager = PIDREF_NULL;
+        r = get_manager_pid(&manager);
+        if (r > 0 && pidref_equal(&pidref, &manager))
+                goto from_self;
 
         *ret = TAKE_PIDREF(pidref);
         return 0;
+
+from_self:
+        return pidref_set_self(ret);
 }
 
 static int parse_argv(int argc, char *argv[]) {
