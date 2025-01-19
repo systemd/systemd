@@ -62,8 +62,9 @@ int vl_method_set_reboot_to_firmware(sd_varlink *link, sd_json_variant *paramete
 int vl_method_get_reboot_to_firmware(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         int r;
 
-        if (sd_json_variant_elements(parameters) > 0)
-                return sd_varlink_error_invalid_parameter(link, parameters);
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table = */ NULL, /* userdata = */ NULL);
+        if (r != 0)
+                return r;
 
         r = efi_get_reboot_to_firmware();
         if (ERRNO_IS_NEG_NOT_SUPPORTED(r))

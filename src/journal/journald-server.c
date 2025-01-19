@@ -2223,8 +2223,9 @@ static int vl_method_synchronize(sd_varlink *link, sd_json_variant *parameters, 
 
         assert(link);
 
-        if (sd_json_variant_elements(parameters) > 0)
-                return sd_varlink_error_invalid_parameter(link, parameters);
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table = */ NULL, /* userdata = */ NULL);
+        if (r != 0)
+                return r;
 
         log_info("Received client request to sync journal.");
 
@@ -2259,11 +2260,13 @@ static int vl_method_synchronize(sd_varlink *link, sd_json_variant *parameters, 
 
 static int vl_method_rotate(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         Server *s = ASSERT_PTR(userdata);
+        int r;
 
         assert(link);
 
-        if (sd_json_variant_elements(parameters) > 0)
-                return sd_varlink_error_invalid_parameter(link, parameters);
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table = */ NULL, /* userdata = */ NULL);
+        if (r != 0)
+                return r;
 
         log_info("Received client request to rotate journal, rotating.");
         server_full_rotate(s);
@@ -2273,11 +2276,14 @@ static int vl_method_rotate(sd_varlink *link, sd_json_variant *parameters, sd_va
 
 static int vl_method_flush_to_var(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         Server *s = ASSERT_PTR(userdata);
+        int r;
 
         assert(link);
 
-        if (sd_json_variant_elements(parameters) > 0)
-                return sd_varlink_error_invalid_parameter(link, parameters);
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table = */ NULL, /* userdata = */ NULL);
+        if (r != 0)
+                return r;
+
         if (s->namespace)
                 return sd_varlink_error(link, "io.systemd.Journal.NotSupportedByNamespaces", NULL);
 
@@ -2289,11 +2295,14 @@ static int vl_method_flush_to_var(sd_varlink *link, sd_json_variant *parameters,
 
 static int vl_method_relinquish_var(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         Server *s = ASSERT_PTR(userdata);
+        int r;
 
         assert(link);
 
-        if (sd_json_variant_elements(parameters) > 0)
-                return sd_varlink_error_invalid_parameter(link, parameters);
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table = */ NULL, /* userdata = */ NULL);
+        if (r != 0)
+                return r;
+
         if (s->namespace)
                 return sd_varlink_error(link, "io.systemd.Journal.NotSupportedByNamespaces", NULL);
 

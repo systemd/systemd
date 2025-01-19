@@ -1197,8 +1197,9 @@ static int generic_method_get_info(
         assert(link);
         assert(link->server);
 
-        if (sd_json_variant_elements(parameters) != 0)
-                return sd_varlink_error_invalid_parameter(link, parameters);
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table = */ NULL, /* userdata = */ NULL);
+        if (r != 0)
+                return r;
 
         sd_varlink_interface *interface;
         HASHMAP_FOREACH(interface, link->server->interfaces) {

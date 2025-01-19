@@ -5269,8 +5269,9 @@ static int vl_method_read_event_log(sd_varlink *link, sd_json_variant *parameter
 
         assert(link);
 
-        if (sd_json_variant_elements(parameters) > 0)
-                return sd_varlink_error_invalid_parameter(link, parameters);
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table = */ NULL, /* userdata = */ NULL);
+        if (r != 0)
+                return r;
 
         el = event_log_new();
         if (!el)
@@ -5332,8 +5333,9 @@ static int vl_method_remove_policy(sd_varlink *link, sd_json_variant *parameters
 
         assert(link);
 
-        if (sd_json_variant_elements(parameters) > 0)
-                return sd_varlink_error_invalid_parameter(link, parameters);
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table = */ NULL, /* userdata = */ NULL);
+        if (r != 0)
+                return r;
 
         r = remove_policy();
         if (r < 0)
