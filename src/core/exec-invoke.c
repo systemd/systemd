@@ -1117,7 +1117,7 @@ static int ask_password_conv(
                                 .credential = credential_name,
                                 .tty_fd = -EBADF,
                                 .hup_fd = -EBADF,
-                                .until = now(CLOCK_MONOTONIC) + 15 * USEC_PER_SEC,
+                                .until = usec_add(now(CLOCK_MONOTONIC), 15 * USEC_PER_SEC),
                         };
 
                         _cleanup_(strv_free_erasep) char **acquired = NULL;
