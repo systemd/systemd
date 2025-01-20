@@ -861,6 +861,24 @@ int strv_compare(char * const *a, char * const *b) {
         return 0;
 }
 
+bool strv_equal_ignore_order(char **a, char **b) {
+
+        /* Just like strv_equal(), but doesn't care about the order of elements or about redundant entries. */
+
+        if (a == b)
+                return true;
+
+        STRV_FOREACH(i, a)
+                if (!strv_contains(b, *i))
+                        return false;
+
+        STRV_FOREACH(i, b)
+                if (!strv_contains(a, *i))
+                        return false;
+
+        return true;
+}
+
 void strv_print_full(char * const *l, const char *prefix) {
         STRV_FOREACH(s, l)
                 printf("%s%s\n", strempty(prefix), *s);

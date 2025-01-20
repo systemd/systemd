@@ -799,8 +799,11 @@ static int bus_home_object_find(
 
         if (parse_uid(e, &uid) >= 0)
                 h = hashmap_get(m->homes_by_uid, UID_TO_PTR(uid));
-        else
-                h = hashmap_get(m->homes_by_name, e);
+        else {
+                r = manager_get_home_by_name(m, e, &h);
+                if (r < 0)
+                        return r;
+        }
         if (!h)
                 return 0;
 
