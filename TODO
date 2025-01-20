@@ -91,6 +91,9 @@ Janitorial Clean-ups:
 * xopenat() should pin the parent dir of the inode it creates before doing its
   thing, so that it can create, open, label somewhat atomically.
 
+* use CHASE_MUST_BE_DIRECTORY and CHASE_MUST_BE_REGULAR at more places (the
+  majority of places that currently employ chase() probably should use this)
+
 Deprecations and removals:
 
 * Remove any support for booting without /usr pre-mounted in the initrd entirely.
