@@ -7,8 +7,6 @@
 #include "stdio-util.h"
 #include "tests.h"
 
-#define PIDREF_NULL_NONCONST (PidRef) { .fd = -EBADF }
-
 TEST(pidref_is_set) {
         assert_se(!pidref_is_set(NULL));
         assert_se(!pidref_is_set(&PIDREF_NULL));
@@ -17,14 +15,14 @@ TEST(pidref_is_set) {
 
 TEST(pidref_equal) {
         assert_se(pidref_equal(NULL, NULL));
-        assert_se(pidref_equal(NULL, &PIDREF_NULL_NONCONST));
-        assert_se(pidref_equal(&PIDREF_NULL_NONCONST, NULL));
-        assert_se(pidref_equal(&PIDREF_NULL_NONCONST, &PIDREF_NULL_NONCONST));
+        assert_se(pidref_equal(NULL, &PIDREF_NULL));
+        assert_se(pidref_equal(&PIDREF_NULL, NULL));
+        assert_se(pidref_equal(&PIDREF_NULL, &PIDREF_NULL));
 
         assert_se(!pidref_equal(NULL, &PIDREF_MAKE_FROM_PID(1)));
         assert_se(!pidref_equal(&PIDREF_MAKE_FROM_PID(1), NULL));
-        assert_se(!pidref_equal(&PIDREF_NULL_NONCONST, &PIDREF_MAKE_FROM_PID(1)));
-        assert_se(!pidref_equal(&PIDREF_MAKE_FROM_PID(1), &PIDREF_NULL_NONCONST));
+        assert_se(!pidref_equal(&PIDREF_NULL, &PIDREF_MAKE_FROM_PID(1)));
+        assert_se(!pidref_equal(&PIDREF_MAKE_FROM_PID(1), &PIDREF_NULL));
         assert_se(pidref_equal(&PIDREF_MAKE_FROM_PID(1), &PIDREF_MAKE_FROM_PID(1)));
         assert_se(!pidref_equal(&PIDREF_MAKE_FROM_PID(1), &PIDREF_MAKE_FROM_PID(2)));
 }
@@ -231,7 +229,7 @@ TEST(pidref_is_remote) {
         assert_se(!pidref_is_remote(&PIDREF_MAKE_FROM_PID(getpid_cached())));
         assert_se(!pidref_is_remote(&PIDREF_AUTOMATIC));
 
-        static const PidRef p = {
+        PidRef p = {
                 .pid = 1,
                 .fd = -EREMOTE,
                 .fd_id = 4711,
