@@ -104,6 +104,20 @@
 
         <xi:include href="version-info.xml" xpointer="v252"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><command>policy-digest</command></term>
+
+        <listitem><para>As with the <command>sign</command> command, pre-calculate the expected value
+        seen in TPM2 PCR register 11 after boot-up of a unified kernel image. Then, compute the resulting
+        TPM2 policy and print its digest. This will write a JSON object to standard output that contains
+        the policy digests for all specified PCR banks (see the <option>--bank=</option> option below),
+        so that it may be signed offline, for the cases where the private key is not directly accessible.
+        If <option>--public-key=</option> or <option>--certificate=</option> are specified, the JSON object
+        will also contain the key fingerprint.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
