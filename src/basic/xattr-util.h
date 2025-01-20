@@ -7,7 +7,7 @@
 
 #include "time-util.h"
 
-int getxattr_at_malloc(int fd, const char *path, const char *name, int flags, char **ret);
+int getxattr_at_malloc(int fd, const char *path, const char *name, int at_flags, char **ret);
 static inline int getxattr_malloc(const char *path, const char *name, char **ret) {
         return getxattr_at_malloc(AT_FDCWD, path, name, AT_SYMLINK_FOLLOW, ret);
 }
@@ -18,9 +18,9 @@ static inline int fgetxattr_malloc(int fd, const char *name, char **ret) {
         return getxattr_at_malloc(fd, NULL, name, AT_EMPTY_PATH, ret);
 }
 
-int getxattr_at_bool(int fd, const char *path, const char *name, int flags);
+int getxattr_at_bool(int fd, const char *path, const char *name, int at_flags);
 
-int listxattr_at_malloc(int fd, const char *path, int flags, char **ret);
+int listxattr_at_malloc(int fd, const char *path, int at_flags, char **ret);
 static inline int listxattr_malloc(const char *path, char **ret) {
         return listxattr_at_malloc(AT_FDCWD, path, AT_SYMLINK_FOLLOW, ret);
 }
@@ -31,7 +31,25 @@ static inline int flistxattr_malloc(int fd, char **ret) {
         return listxattr_at_malloc(fd, NULL, AT_EMPTY_PATH, ret);
 }
 
-int xsetxattr(int fd, const char *path, const char *name, const char *value, size_t size, int flags);
+int xsetxattr_full(
+                int fd,
+                const char *path,
+                int at_flags,
+                const char *name,
+                const char *value,
+                size_t size,
+                int attr_flags);
+static inline int xsetxattr(
+                int fd,
+                const char *path,
+                int at_flags,
+                const char *name,
+                const char *value,
+                size_t size) {
+        return xsetxattr_full(fd, path, at_flags, name, value, size, 0);
+}
+
+int xremovexattr(int fd, const char *path, int at_flags, const char *name);
 
 int fd_setcrtime(int fd, usec_t usec);
 int getcrtime_at(int fd, const char *path, int at_flags, usec_t *ret);
