@@ -3886,20 +3886,38 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
         <varlistentry>
           <term><varname>$MAINPID</varname></term>
 
-          <listitem><para>The PID of the unit's main process if it is
-          known. This is only set for control processes as invoked by
-          <varname>ExecReload=</varname> and similar.</para>
+          <listitem><para>The UNIX process ID (PID) of the unit's main process if it is known. This is only
+          set for control processes as invoked by <varname>ExecReload=</varname> and similar.</para>
 
           <xi:include href="version-info.xml" xpointer="v209"/></listitem>
         </varlistentry>
 
         <varlistentry>
+          <term><varname>$MAINPIDFDID</varname></term>
+
+          <listitem><para>The 64bit inode ID of the file descriptor returned by <citerefentry
+          project='man-pages'><refentrytitle>pidfd_open</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+          for the main process (if supported). This is only set for control processes as invoked by
+          <varname>ExecReload=</varname> and similar.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><varname>$MANAGERPID</varname></term>
 
-          <listitem><para>The PID of the user <command>systemd</command>
-          instance, set for processes spawned by it.</para>
-
+          <listitem><para>The PID of the per-user <command>systemd</command> service manager instance, set
+          for processes spawned by it.</para>
           <xi:include href="version-info.xml" xpointer="v208"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>$MANAGERPIDFDID</varname></term>
+
+          <listitem><para>The <function>pidfd_open()</function> inode ID (see above) of the per-user
+          <command>systemd</command> service manager instance, set for processes spawned by it.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/></listitem>
         </varlistentry>
 
         <varlistentry>
