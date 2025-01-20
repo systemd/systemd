@@ -242,6 +242,8 @@ def test_parse_args_many():
          '--output=OUTPUT',
          '--measure',
          '--no-measure',
+         '--policy-digest',
+         '--no-policy-digest',
          ])
     assert opts.linux == pathlib.Path('/ARG1')
     assert opts.initrd == [pathlib.Path('/ARG2'), pathlib.Path('/ARG3 WITH SPACE')]
@@ -262,6 +264,7 @@ def test_parse_args_many():
     assert opts.tools == [pathlib.Path('TOOLZ/')]
     assert opts.output == pathlib.Path('OUTPUT')
     assert opts.measure is False
+    assert opts.policy_digest is False
 
 def test_parse_sections():
     opts = ukify.parse_args(

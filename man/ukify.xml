@@ -210,6 +210,18 @@
         </varlistentry>
 
         <varlistentry>
+          <term><option>--policy-digest</option></term>
+          <term><option>--no-policy-digest</option></term>
+
+          <listitem><para>Enable or disable a call to
+          <citerefentry><refentrytitle>systemd-measure</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+          to print pre-calculated TPM2 policy digests. Useful for offline signing of PCR policies.
+          Defaults to false.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><option>--section=<replaceable>NAME</replaceable>:<replaceable>TEXT</replaceable>|<replaceable>@PATH</replaceable></option></term>
           <term><option>--section=<replaceable>NAME</replaceable>:text|binary<optional>@<replaceable>PATH</replaceable></optional></option></term>
 
