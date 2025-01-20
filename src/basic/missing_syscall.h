@@ -637,13 +637,47 @@ int __clone2(int (*fn)(void *), void *stack_base, size_t stack_size, int flags, 
 #if !HAVE_QUOTACTL_FD
 
 static inline int missing_quotactl_fd(int fd, int cmd, int id, void *addr) {
-#if defined __NR_quotactl_fd
+#  ifdef __NR_quotactl_fd
         return syscall(__NR_quotactl_fd, fd, cmd, id, addr);
-#else
+#  else
         errno = ENOSYS;
         return -1;
-#endif
+#  endif
 }
 
 #  define quotactl_fd missing_quotactl_fd
+#endif
+
+/* ======================================================================= */
+
+#if !HAVE_SETXATTRAT
+struct xattr_args {
+        _align_(8) uint64_t value;
+        uint32_t size;
+        uint32_t flags;
+};
+
+static inline int missing_setxattrat(int fd, const char *path, int at_flags, const char *name, const struct xattr_args *args, size_t size) {
+#  ifdef __NR_setxattrat
+        return syscall(__NR_setxattrat, fd, path, at_flags, name, args, size);
+#  else
+        errno = ENOSYS;
+        return -1;
+#  endif
+}
+
+#  define setxattrat missing_setxattrat
+#endif
+
+#if !HAVE_REMOVEXATTRAT
+static inline int missing_removexattrat(int fd, const char *path, int at_flags, const char *name) {
+#  ifdef __NR_removexattrat
+        return syscall(__NR_removexattrat, fd, path, at_flags, name);
+#  else
+        errno = ENOSYS;
+        return -1;
+#  endif
+}
+
+#  define removexattrat missing_removexattrat
 #endif
