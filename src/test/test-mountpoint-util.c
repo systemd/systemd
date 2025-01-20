@@ -279,9 +279,10 @@ TEST(fd_is_mount_point) {
         fd = open("/", O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOCTTY);
         assert_se(fd >= 0);
 
+        ASSERT_OK_POSITIVE(fd_is_mount_point(fd, ".", 0));
+
         /* Not allowed, since "/" is a path, not a plain filename */
         assert_se(fd_is_mount_point(fd, "/", 0) == -EINVAL);
-        assert_se(fd_is_mount_point(fd, ".", 0) == -EINVAL);
         assert_se(fd_is_mount_point(fd, "./", 0) == -EINVAL);
         assert_se(fd_is_mount_point(fd, "..", 0) == -EINVAL);
         assert_se(fd_is_mount_point(fd, "../", 0) == -EINVAL);
