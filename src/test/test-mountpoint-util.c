@@ -281,11 +281,9 @@ TEST(fd_is_mount_point) {
 
         /* Not allowed, since "/" is a path, not a plain filename */
         assert_se(fd_is_mount_point(fd, "/", 0) == -EINVAL);
-        assert_se(fd_is_mount_point(fd, ".", 0) == -EINVAL);
         assert_se(fd_is_mount_point(fd, "./", 0) == -EINVAL);
         assert_se(fd_is_mount_point(fd, "..", 0) == -EINVAL);
         assert_se(fd_is_mount_point(fd, "../", 0) == -EINVAL);
-        assert_se(fd_is_mount_point(fd, "", 0) == -EINVAL);
         assert_se(fd_is_mount_point(fd, "/proc", 0) == -EINVAL);
         assert_se(fd_is_mount_point(fd, "/proc/", 0) == -EINVAL);
         assert_se(fd_is_mount_point(fd, "proc/sys", 0) == -EINVAL);
@@ -307,9 +305,10 @@ TEST(fd_is_mount_point) {
         fd = open("/proc", O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOCTTY);
         assert_se(fd >= 0);
 
-        assert_se(fd_is_mount_point(fd, NULL, 0) > 0);
-        assert_se(fd_is_mount_point(fd, "", 0) == -EINVAL);
-        assert_se(fd_is_mount_point(fd, "version", 0) == 0);
+        ASSERT_OK_POSITIVE(fd_is_mount_point(fd, NULL, 0));
+        ASSERT_OK_POSITIVE(fd_is_mount_point(fd, "", 0));
+        ASSERT_OK_POSITIVE(fd_is_mount_point(fd, ".", 0));
+        ASSERT_OK_ZERO(fd_is_mount_point(fd, "version", 0));
 
         safe_close(fd);
         fd = open("/proc/version", O_RDONLY|O_CLOEXEC|O_NOCTTY);
@@ -317,7 +316,6 @@ TEST(fd_is_mount_point) {
 
         r = fd_is_mount_point(fd, NULL, 0);
         assert_se(IN_SET(r, 0, -ENOTDIR)); /* on old kernels we can't determine if regular files are mount points if we have no directory fd */
-        assert_se(fd_is_mount_point(fd, "", 0) == -EINVAL);
 
         if (!mount_new_api_supported())
                 return;

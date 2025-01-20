@@ -213,26 +213,25 @@ bool file_handle_equal(const struct file_handle *a, const struct file_handle *b)
 }
 
 int fd_is_mount_point(int fd, const char *filename, int flags) {
-        _cleanup_free_ struct file_handle *h = NULL, *h_parent = NULL;
-        int mount_id = -1, mount_id_parent = -1;
-        bool nosupp = false, check_st_dev = true;
-        STRUCT_STATX_DEFINE(sx);
-        struct stat a, b;
         int r;
 
-        assert(fd >= 0);
+        assert(fd >= 0 || fd == AT_FDCWD);
         assert((flags & ~AT_SYMLINK_FOLLOW) == 0);
 
-        if (!filename) {
-                /* If the file name is specified as NULL we'll see if the specified 'fd' is a mount
-                 * point. That's only supported if the kernel supports statx(), or if the inode specified via
-                 * 'fd' refers to a directory. Otherwise, we'll have to fail (ENOTDIR), because we have no
-                 * kernel API to query the information we need. */
-                flags |= AT_EMPTY_PATH;
-                filename = "";
-        } else if (!filename_possibly_with_slash_suffix(filename))
-                /* Insist that the specified filename is actually a filename, and not a path, i.e. some inode further
-                 * up or down the tree then immediately below the specified directory fd. */
+        if (isempty(filename)) {
+                if (fd == AT_FDCWD)
+                        filename = ".";
+                else {
+                        /* If the file name is empty we'll see if the specified 'fd' is a mount point.
+                         * That's only supported if the kernel supports statx(), or if the inode specified
+                         * via 'fd' refers to a directory. Otherwise, we'll have to fail (ENOTDIR), because
+                         * we have no kernel API to query the information we need. */
+                        flags |= AT_EMPTY_PATH;
+                        filename = "";
+                }
+        } else if (!streq(filename, ".") && !filename_possibly_with_slash_suffix(filename))
+                /* Insist that the specified filename is either ".", or actually a filename, but not a path,
+                 * i.e. some inode further up or down the tree then immediately below the specified directory fd. */
                 return -EINVAL;
 
         /* First we will try statx()' STATX_ATTR_MOUNT_ROOT attribute, which is our ideal API, available
@@ -246,18 +245,17 @@ int fd_is_mount_point(int fd, const char *filename, int flags) {
          * If that didn't work we will try to read the mount id from /proc/self/fdinfo/<fd>. This is almost
          * as good as name_to_handle_at(), however, does not return the opaque file handle. The opaque file
          * handle is pretty useful to detect the root directory, which we should always consider a mount
-         * point. Hence we use this only as fallback. Exporting the mnt_id in fdinfo is a pretty recent
-         * kernel addition.
+         * point. Hence we use this only as fallback.
          *
-         * As last fallback we do traditional fstat() based st_dev comparisons. This is how things were
-         * traditionally done, but unionfs breaks this since it exposes file systems with a variety of st_dev
-         * reported. Also, btrfs subvolumes have different st_dev, even though they aren't real mounts of
-         * their own. */
+         * Note that traditionally the check is done via fstat()-based st_dev comparisons. However, various
+         * file systems don't guarantee same st_dev across single fs anymore, e.g. unionfs exposes file systems
+         * with a variety of st_dev reported. Also, btrfs subvolumes have different st_dev, even though
+         * they aren't real mounts of their own. */
 
-        if (statx(fd,
-                  filename,
-                  (FLAGS_SET(flags, AT_SYMLINK_FOLLOW) ? 0 : AT_SYMLINK_NOFOLLOW) |
-                  (flags & AT_EMPTY_PATH) |
+        STRUCT_STATX_DEFINE(sx);
+
+        if (statx(fd, filename,
+                  at_flags_mangle_follow_nofollow(flags) |
                   AT_NO_AUTOMOUNT |            /* don't trigger automounts – mounts are a local concept, hence no need to trigger automounts to determine STATX_ATTR_MOUNT_ROOT */
                   AT_STATX_DONT_SYNC,          /* don't go to the network for this – for similar reasons */
                   STATX_TYPE,
@@ -270,6 +268,10 @@ int fd_is_mount_point(int fd, const char *filename, int flags) {
                 /* If statx() is not available or forbidden, fall back to name_to_handle_at() below */
         } else if (FLAGS_SET(sx.stx_attributes_mask, STATX_ATTR_MOUNT_ROOT)) /* yay! */
                 return FLAGS_SET(sx.stx_attributes, STATX_ATTR_MOUNT_ROOT);
+
+        _cleanup_free_ struct file_handle *h = NULL, *h_parent = NULL;
+        int mount_id = -1, mount_id_parent = -1;
+        bool nosupp = false;
 
         r = name_to_handle_at_try_fid(fd, filename, &h, &mount_id, flags);
         if (r < 0) {
@@ -284,7 +286,7 @@ int fd_is_mount_point(int fd, const char *filename, int flags) {
                 nosupp = true;
         }
 
-        if (isempty(filename))
+        if (STR_IN_SET(filename, "", "."))
                 r = name_to_handle_at_try_fid(fd, "..", &h_parent, &mount_id_parent, 0); /* can't work for non-directories 😢 */
         else
                 r = name_to_handle_at_try_fid(fd, "", &h_parent, &mount_id_parent, AT_EMPTY_PATH);
@@ -316,12 +318,10 @@ int fd_is_mount_point(int fd, const char *filename, int flags) {
 
 fallback_fdinfo:
         r = fd_fdinfo_mnt_id(fd, filename, flags, &mount_id);
-        if (ERRNO_IS_NEG_NOT_SUPPORTED(r) || ERRNO_IS_NEG_PRIVILEGE(r))
-                goto fallback_fstat;
         if (r < 0)
                 return r;
 
-        if (isempty(filename))
+        if (STR_IN_SET(filename, "", "."))
                 r = fd_fdinfo_mnt_id(fd, "..", 0, &mount_id_parent); /* can't work for non-directories 😢 */
         else
                 r = fd_fdinfo_mnt_id(fd, "", AT_EMPTY_PATH, &mount_id_parent);
@@ -333,20 +333,15 @@ fallback_fdinfo:
 
         /* Hmm, so, the mount ids are the same. This leaves one special case though for the root file
          * system. For that, let's see if the parent directory has the same inode as we are interested
-         * in. Hence, let's also do fstat() checks now, too, but avoid the st_dev comparisons, since they
-         * aren't that useful on unionfs mounts. */
-        check_st_dev = false;
+         * in. */
 
-fallback_fstat:
+        struct stat a, b;
+
         /* yay for fstatat() taking a different set of flags than the other _at() above */
-        if (flags & AT_SYMLINK_FOLLOW)
-                flags &= ~AT_SYMLINK_FOLLOW;
-        else
-                flags |= AT_SYMLINK_NOFOLLOW;
-        if (fstatat(fd, filename, &a, flags) < 0)
+        if (fstatat(fd, filename, &a, at_flags_mangle_follow_nofollow(flags)) < 0)
                 return -errno;
 
-        if (isempty(filename))
+        if (STR_IN_SET(filename, "", "."))
                 r = fstatat(fd, "..", &b, 0);
         else
                 r = fstatat(fd, "", &b, AT_EMPTY_PATH);
@@ -354,10 +349,7 @@ fallback_fstat:
                 return -errno;
 
         /* A directory with same device and inode as its parent? Must be the root directory */
-        if (stat_inode_same(&a, &b))
-                return 1;
-
-        return check_st_dev && (a.st_dev != b.st_dev);
+        return stat_inode_same(&a, &b);
 }
 
 /* flags can be AT_SYMLINK_FOLLOW or 0 */
