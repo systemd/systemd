@@ -97,7 +97,7 @@ int pcrextend_file_system_word(const char *path, char **ret_word, char **ret_nor
         if (dfd < 0)
                 return log_error_errno(dfd, "Failed to open path '%s': %m", path);
 
-        r = fd_is_mount_point(dfd, NULL, 0);
+        r = is_mount_point_at(dfd, NULL, 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine if path '%s' is mount point: %m", normalized_path);
         if (r == 0)
