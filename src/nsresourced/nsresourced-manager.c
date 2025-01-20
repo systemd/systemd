@@ -595,7 +595,7 @@ static int manager_setup_bpf(Manager *m) {
 #endif
 
 int manager_startup(Manager *m) {
-        _cleanup_(set_freep) Set *fdstore_inodes = NULL, *registry_inodes = NULL;
+        _cleanup_set_free_ Set *fdstore_inodes = NULL, *registry_inodes = NULL;
         void *p;
         int r;
 

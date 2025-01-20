@@ -121,7 +121,7 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir) {
         _cleanup_free_ struct linux_efi_random_seed *new_seed_table = NULL;
         struct linux_efi_random_seed *previous_seed_table = NULL;
         _cleanup_free_ void *seed = NULL, *system_token = NULL;
-        _cleanup_(file_closep) EFI_FILE *handle = NULL;
+        _cleanup_file_close_ EFI_FILE *handle = NULL;
         _cleanup_free_ EFI_FILE_INFO *info = NULL;
         struct sha256_ctx hash;
         uint64_t uefi_monotonic_counter = 0;

@@ -1371,7 +1371,7 @@ static int method_list_images(sd_bus_message *msg, void *userdata, sd_bus_error 
              class < 0 ? (c < _IMAGE_CLASS_MAX) : (c == class);
              c++) {
 
-                _cleanup_(hashmap_freep) Hashmap *h = NULL;
+                _cleanup_hashmap_free_ Hashmap *h = NULL;
 
                 h = hashmap_new(&image_hash_ops);
                 if (!h)

@@ -567,7 +567,7 @@ static int process_connection(sd_varlink_server *server, int _fd) {
 static int run(int argc, char *argv[]) {
         usec_t start_time, listen_idle_usec, last_busy_usec = USEC_INFINITY;
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *server = NULL;
-        _cleanup_(hashmap_freep) Hashmap *polkit_registry = NULL;
+        _cleanup_hashmap_free_ Hashmap *polkit_registry = NULL;
         _cleanup_(pidref_done) PidRef parent = PIDREF_NULL;
         unsigned n_iterations = 0;
         int m, listen_fd, r;

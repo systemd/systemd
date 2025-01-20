@@ -1120,7 +1120,7 @@ static int ask_password_conv(
                                 .until = usec_add(now(CLOCK_MONOTONIC), 15 * USEC_PER_SEC),
                         };
 
-                        _cleanup_(strv_free_erasep) char **acquired = NULL;
+                        _cleanup_strv_free_erase_ char **acquired = NULL;
                         r = ask_password_auto(
                                         &req,
                                         ASK_PASSWORD_ACCEPT_CACHED|

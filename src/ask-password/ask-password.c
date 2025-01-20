@@ -376,7 +376,7 @@ static int vl_method_ask(sd_varlink *link, sd_json_variant *parameters, sd_varli
 
 static int vl_server(void) {
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *varlink_server = NULL;
-        _cleanup_(hashmap_freep) Hashmap *polkit_registry = NULL;
+        _cleanup_hashmap_free_ Hashmap *polkit_registry = NULL;
         int r;
 
         r = varlink_server_new(&varlink_server, SD_VARLINK_SERVER_INHERIT_USERDATA, /* userdata= */ &polkit_registry);

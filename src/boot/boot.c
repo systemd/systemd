@@ -683,7 +683,7 @@ static bool menu_run(
         bool new_mode = true, clear = true;
         bool refresh = true, highlight = false;
         size_t x_start = 0, y_start = 0, y_status = 0, x_max, y_max;
-        _cleanup_(strv_freep) char16_t **lines = NULL;
+        _cleanup_strv_free_ char16_t **lines = NULL;
         _cleanup_free_ char16_t *clearline = NULL, *separator = NULL, *status = NULL;
         uint64_t timeout_efivar_saved = config->timeout_sec_efivar;
         uint32_t timeout_remain = config->timeout_sec == TIMEOUT_MENU_FORCE ? 0 : config->timeout_sec;
@@ -1373,7 +1373,7 @@ static void boot_entry_parse_tries(
 
 static EFI_STATUS boot_entry_bump_counters(BootEntry *entry) {
         _cleanup_free_ char16_t* old_path = NULL, *new_path = NULL;
-        _cleanup_(file_closep) EFI_FILE *handle = NULL;
+        _cleanup_file_close_ EFI_FILE *handle = NULL;
         _cleanup_free_ EFI_FILE_INFO *file_info = NULL;
         size_t file_info_size;
         EFI_STATUS err;
@@ -1386,7 +1386,7 @@ static EFI_STATUS boot_entry_bump_counters(BootEntry *entry) {
         if (!entry->path || !entry->current_name || !entry->next_name)
                 return EFI_SUCCESS;
 
-        _cleanup_(file_closep) EFI_FILE *root = NULL;
+        _cleanup_file_close_ EFI_FILE *root = NULL;
         err = open_volume(entry->device, &root);
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Error opening entry root path: %m");
@@ -1524,7 +1524,7 @@ static void boot_entry_add_type1(
                 return;
 
         /* check existence */
-        _cleanup_(file_closep) EFI_FILE *handle = NULL;
+        _cleanup_file_close_ EFI_FILE *handle = NULL;
         err = root_dir->Open(root_dir, &handle, entry->loader, EFI_FILE_MODE_READ, 0ULL);
         if (err != EFI_SUCCESS)
                 return;
@@ -1651,7 +1651,7 @@ static void config_load_type1_entries(
                 EFI_FILE *root_dir,
                 const char16_t *loaded_image_path) {
 
-        _cleanup_(file_closep) EFI_FILE *entries_dir = NULL;
+        _cleanup_file_close_ EFI_FILE *entries_dir = NULL;
         _cleanup_free_ EFI_FILE_INFO *f = NULL;
         size_t f_size = 0;
         EFI_STATUS err;
@@ -1906,7 +1906,7 @@ static bool is_sd_boot(EFI_FILE *root_dir, const char16_t *loader_path) {
         assert(root_dir);
         assert(loader_path);
 
-        _cleanup_(file_closep) EFI_FILE *handle = NULL;
+        _cleanup_file_close_ EFI_FILE *handle = NULL;
         err = root_dir->Open(root_dir, &handle, (char16_t *) loader_path, EFI_FILE_MODE_READ, 0ULL);
         if (err != EFI_SUCCESS)
                 return false;
@@ -1969,7 +1969,7 @@ static BootEntry* config_add_entry_loader_auto(
         }
 
         /* check existence */
-        _cleanup_(file_closep) EFI_FILE *handle = NULL;
+        _cleanup_file_close_ EFI_FILE *handle = NULL;
         EFI_STATUS err = root_dir->Open(root_dir, &handle, (char16_t *) loader, EFI_FILE_MODE_READ, 0ULL);
         if (err != EFI_SUCCESS)
                 return NULL;
@@ -2006,7 +2006,7 @@ static void config_add_entry_osx(Config *config) {
                 return;
 
         for (size_t i = 0; i < n_handles; i++) {
-                _cleanup_(file_closep) EFI_FILE *root = NULL;
+                _cleanup_file_close_ EFI_FILE *root = NULL;
 
                 if (open_volume(handles[i], &root) != EFI_SUCCESS)
                         continue;
@@ -2163,7 +2163,7 @@ static void boot_entry_add_type2(
         assert(path);
         assert(filename);
 
-        _cleanup_(file_closep) EFI_FILE *handle = NULL;
+        _cleanup_file_close_ EFI_FILE *handle = NULL;
         err = dir->Open(dir, &handle, (char16_t *) filename, EFI_FILE_MODE_READ, 0ULL);
         if (err != EFI_SUCCESS)
                 return;
@@ -2363,7 +2363,7 @@ static void config_load_type2_entries(
                 EFI_HANDLE *device,
                 EFI_FILE *root_dir) {
 
-        _cleanup_(file_closep) EFI_FILE *linux_dir = NULL;
+        _cleanup_file_close_ EFI_FILE *linux_dir = NULL;
         _cleanup_free_ EFI_FILE_INFO *f = NULL;
         size_t f_size = 0;
         EFI_STATUS err;
@@ -2402,7 +2402,7 @@ static void config_load_xbootldr(
                 Config *config,
                 EFI_HANDLE *device) {
 
-        _cleanup_(file_closep) EFI_FILE *root_dir = NULL;
+        _cleanup_file_close_ EFI_FILE *root_dir = NULL;
         EFI_HANDLE new_device = NULL;  /* avoid false maybe-uninitialized warning */
         EFI_STATUS err;
 
@@ -2454,7 +2454,7 @@ static EFI_STATUS initrd_prepare(
                 else
                         options = xasprintf("initrd=%ls", *i);
 
-                _cleanup_(file_closep) EFI_FILE *handle = NULL;
+                _cleanup_file_close_ EFI_FILE *handle = NULL;
                 err = root->Open(root, &handle, *i, EFI_FILE_MODE_READ, 0);
                 if (err != EFI_SUCCESS)
                         return err;
@@ -2475,7 +2475,7 @@ static EFI_STATUS initrd_prepare(
         uint8_t *p = PHYSICAL_ADDRESS_TO_POINTER(pages.addr);
 
         STRV_FOREACH(i, entry->initrd) {
-                _cleanup_(file_closep) EFI_FILE *handle = NULL;
+                _cleanup_file_close_ EFI_FILE *handle = NULL;
                 err = root->Open(root, &handle, *i, EFI_FILE_MODE_READ, 0);
                 if (err != EFI_SUCCESS)
                         return err;
@@ -2538,7 +2538,7 @@ static EFI_STATUS image_start(
         if (entry->call)
                 (void) entry->call();
 
-        _cleanup_(file_closep) EFI_FILE *image_root = NULL;
+        _cleanup_file_close_ EFI_FILE *image_root = NULL;
         err = open_volume(entry->device, &image_root);
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Error opening root path: %m");
@@ -2696,7 +2696,7 @@ static void save_selected_entry(const Config *config, const BootEntry *entry) {
 
 static EFI_STATUS secure_boot_discover_keys(Config *config, EFI_FILE *root_dir) {
         EFI_STATUS err;
-        _cleanup_(file_closep) EFI_FILE *keys_basedir = NULL;
+        _cleanup_file_close_ EFI_FILE *keys_basedir = NULL;
 
         if (!IN_SET(secure_boot_mode(), SECURE_BOOT_SETUP, SECURE_BOOT_AUDIT))
                 return EFI_SUCCESS;
@@ -2868,7 +2868,7 @@ static EFI_STATUS discover_root_dir(EFI_LOADED_IMAGE_PROTOCOL *loaded_image, EFI
 
 static EFI_STATUS run(EFI_HANDLE image) {
         EFI_LOADED_IMAGE_PROTOCOL *loaded_image;
-        _cleanup_(file_closep) EFI_FILE *root_dir = NULL;
+        _cleanup_file_close_ EFI_FILE *root_dir = NULL;
         _cleanup_(config_free) Config config = {};
         EFI_STATUS err;
         uint64_t init_usec;
