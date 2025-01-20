@@ -230,6 +230,19 @@ typedef enum AutoResizeMode {
 #define REBALANCE_WEIGHT_MAX UINT64_C(10000)
 #define REBALANCE_WEIGHT_UNSET UINT64_MAX
 
+typedef struct TmpfsLimit {
+        /* Absolute and relative tmpfs limits */
+        uint64_t limit;
+        uint32_t limit_scale;
+        bool is_set;
+} TmpfsLimit;
+
+#define TMPFS_LIMIT_NULL                        \
+        (TmpfsLimit) {                          \
+                .limit = UINT64_MAX,            \
+                .limit_scale = UINT32_MAX,      \
+        }                                       \
+
 typedef struct UserRecord {
         /* The following three fields are not part of the JSON record */
         unsigned n_ref;
@@ -388,6 +401,8 @@ typedef struct UserRecord {
         char **self_modifiable_blobs;
         char **self_modifiable_privileged;
 
+        TmpfsLimit tmp_limit, dev_shm_limit;
+
         sd_json_variant *json;
 } UserRecord;
 
@@ -435,6 +450,8 @@ uint64_t user_record_rebalance_weight(UserRecord *h);
 uint64_t user_record_capability_bounding_set(UserRecord *h);
 uint64_t user_record_capability_ambient_set(UserRecord *h);
 int user_record_languages(UserRecord *h, char ***ret);
+uint32_t user_record_tmp_limit_scale(UserRecord *h);
+uint32_t user_record_dev_shm_limit_scale(UserRecord *h);
 
 const char **user_record_self_modifiable_fields(UserRecord *h);
 const char **user_record_self_modifiable_blobs(UserRecord *h);
