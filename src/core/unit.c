@@ -6007,7 +6007,7 @@ bool unit_needs_console(Unit *u) {
         return exec_context_may_touch_console(ec);
 }
 
-int unit_pid_attachable(Unit *u, const PidRef *pid, sd_bus_error *error) {
+int unit_pid_attachable(Unit *u, PidRef *pid, sd_bus_error *error) {
         int r;
 
         assert(u);

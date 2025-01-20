@@ -4482,7 +4482,7 @@ Unit *manager_get_unit_by_pidref_watching(Manager *m, const PidRef *pid) {
         return NULL;
 }
 
-Unit *manager_get_unit_by_pidref(Manager *m, const PidRef *pid) {
+Unit* manager_get_unit_by_pidref(Manager *m, PidRef *pid) {
         Unit *u;
 
         assert(m);

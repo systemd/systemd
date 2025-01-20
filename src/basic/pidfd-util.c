@@ -9,6 +9,7 @@
 #include "macro.h"
 #include "memory-util.h"
 #include "missing_magic.h"
+#include "missing_threads.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "pidfd-util.h"
@@ -18,16 +19,14 @@
 
 static int have_pidfs = -1;
 
-static int pidfd_check_pidfs(void) {
+static int pidfd_check_pidfs(int pid_fd) {
+
+        /* NB: the passed fd *must* be acquired via pidfd_open(), i.e. must be a true pidfd! */
 
         if (have_pidfs >= 0)
                 return have_pidfs;
 
-        _cleanup_close_ int fd = pidfd_open(getpid_cached(), 0);
-        if (fd < 0)
-                return -errno;
-
-        return (have_pidfs = fd_is_fs_type(fd, PID_FS_MAGIC));
+        return (have_pidfs = fd_is_fs_type(pid_fd, PID_FS_MAGIC));
 }
 
 int pidfd_get_namespace(int fd, unsigned long ns_type_cmd) {
@@ -231,7 +230,7 @@ int pidfd_get_inode_id(int fd, uint64_t *ret) {
 
         assert(fd >= 0);
 
-        r = pidfd_check_pidfs();
+        r = pidfd_check_pidfs(fd);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -243,5 +242,34 @@ int pidfd_get_inode_id(int fd, uint64_t *ret) {
 
         if (ret)
                 *ret = (uint64_t) st.st_ino;
+        return 0;
+}
+
+int pidfd_get_inode_id_self_cached(uint64_t *ret) {
+        static thread_local uint64_t cached = 0;
+        static thread_local pid_t initialized = 0; /* < 0: cached error; == 0: invalid; > 0: valid and pid that was current */
+        int r;
+
+        assert(ret);
+
+        if (initialized == getpid_cached()) {
+                *ret = cached;
+                return 0;
+        }
+        if (initialized < 0)
+                return initialized;
+
+        _cleanup_close_ int fd = pidfd_open(getpid_cached(), 0);
+        if (fd < 0)
+                return -errno;
+
+        r = pidfd_get_inode_id(fd, &cached);
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                return (initialized = -EOPNOTSUPP);
+        if (r < 0)
+                return r;
+
+        *ret = cached;
+        initialized = getpid_cached();
         return 0;
 }
