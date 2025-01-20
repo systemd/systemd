@@ -271,7 +271,7 @@ TEST(path_is_mount_point) {
         assert_se(rm_rf(tmp_dir, REMOVE_ROOT|REMOVE_PHYSICAL) == 0);
 }
 
-TEST(fd_is_mount_point) {
+TEST(is_mount_point_at) {
         _cleanup_(rm_rf_physical_and_freep) char *tmpdir = NULL;
         _cleanup_close_ int fd = -EBADF;
         int r;
@@ -280,44 +280,42 @@ TEST(fd_is_mount_point) {
         assert_se(fd >= 0);
 
         /* Not allowed, since "/" is a path, not a plain filename */
-        assert_se(fd_is_mount_point(fd, "/", 0) == -EINVAL);
-        assert_se(fd_is_mount_point(fd, ".", 0) == -EINVAL);
-        assert_se(fd_is_mount_point(fd, "./", 0) == -EINVAL);
-        assert_se(fd_is_mount_point(fd, "..", 0) == -EINVAL);
-        assert_se(fd_is_mount_point(fd, "../", 0) == -EINVAL);
-        assert_se(fd_is_mount_point(fd, "", 0) == -EINVAL);
-        assert_se(fd_is_mount_point(fd, "/proc", 0) == -EINVAL);
-        assert_se(fd_is_mount_point(fd, "/proc/", 0) == -EINVAL);
-        assert_se(fd_is_mount_point(fd, "proc/sys", 0) == -EINVAL);
-        assert_se(fd_is_mount_point(fd, "proc/sys/", 0) == -EINVAL);
+        assert_se(is_mount_point_at(fd, "/", 0) == -EINVAL);
+        assert_se(is_mount_point_at(fd, "./", 0) == -EINVAL);
+        assert_se(is_mount_point_at(fd, "..", 0) == -EINVAL);
+        assert_se(is_mount_point_at(fd, "../", 0) == -EINVAL);
+        assert_se(is_mount_point_at(fd, "/proc", 0) == -EINVAL);
+        assert_se(is_mount_point_at(fd, "/proc/", 0) == -EINVAL);
+        assert_se(is_mount_point_at(fd, "proc/sys", 0) == -EINVAL);
+        assert_se(is_mount_point_at(fd, "proc/sys/", 0) == -EINVAL);
 
         /* This one definitely is a mount point */
-        assert_se(fd_is_mount_point(fd, "proc", 0) > 0);
-        assert_se(fd_is_mount_point(fd, "proc/", 0) > 0);
+        assert_se(is_mount_point_at(fd, "proc", 0) > 0);
+        assert_se(is_mount_point_at(fd, "proc/", 0) > 0);
 
         safe_close(fd);
         fd = open("/tmp", O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOCTTY);
         assert_se(fd >= 0);
 
         assert_se(mkdtemp_malloc("/tmp/not-mounted-XXXXXX", &tmpdir) >= 0);
-        assert_se(fd_is_mount_point(fd, basename(tmpdir), 0) == 0);
-        assert_se(fd_is_mount_point(fd, strjoina(basename(tmpdir), "/"), 0) == 0);
+        assert_se(is_mount_point_at(fd, basename(tmpdir), 0) == 0);
+        assert_se(is_mount_point_at(fd, strjoina(basename(tmpdir), "/"), 0) == 0);
 
         safe_close(fd);
         fd = open("/proc", O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOCTTY);
         assert_se(fd >= 0);
 
-        assert_se(fd_is_mount_point(fd, NULL, 0) > 0);
-        assert_se(fd_is_mount_point(fd, "", 0) == -EINVAL);
-        assert_se(fd_is_mount_point(fd, "version", 0) == 0);
+        ASSERT_OK_POSITIVE(is_mount_point_at(fd, NULL, 0));
+        ASSERT_OK_POSITIVE(is_mount_point_at(fd, "", 0));
+        ASSERT_OK_POSITIVE(is_mount_point_at(fd, ".", 0));
+        ASSERT_OK_ZERO(is_mount_point_at(fd, "version", 0));
 
         safe_close(fd);
         fd = open("/proc/version", O_RDONLY|O_CLOEXEC|O_NOCTTY);
         assert_se(fd >= 0);
 
-        r = fd_is_mount_point(fd, NULL, 0);
+        r = is_mount_point_at(fd, NULL, 0);
         assert_se(IN_SET(r, 0, -ENOTDIR)); /* on old kernels we can't determine if regular files are mount points if we have no directory fd */
-        assert_se(fd_is_mount_point(fd, "", 0) == -EINVAL);
 
         if (!mount_new_api_supported())
                 return;
@@ -346,7 +344,7 @@ TEST(fd_is_mount_point) {
         ASSERT_OK(readlinkat_malloc(fd, "regular", &t));
         ASSERT_STREQ(t, "/usr");
 
-        ASSERT_OK(fd_is_mount_point(fd, "regular", 0));
+        ASSERT_OK(is_mount_point_at(fd, "regular", 0));
 }
 
 TEST(ms_nosymfollow_supported) {
