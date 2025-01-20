@@ -137,9 +137,7 @@ int name_to_handle_at_try_fid(
          * (i.e. older than Linux 6.5). */
 
         r = name_to_handle_at_loop(fd, path, ret_handle, ret_mnt_id, flags | AT_HANDLE_FID);
-        if (r >= 0)
-                return r;
-        if (is_name_to_handle_at_fatal_error(r))
+        if (r >= 0 || is_name_to_handle_at_fatal_error(r))
                 return r;
 
         return name_to_handle_at_loop(fd, path, ret_handle, ret_mnt_id, flags & ~AT_HANDLE_FID);
@@ -400,7 +398,7 @@ int path_get_mnt_id_at_fallback(int dir_fd, const char *path, int *ret) {
         assert(ret);
 
         r = name_to_handle_at_loop(dir_fd, path, NULL, ret, isempty(path) ? AT_EMPTY_PATH : 0);
-        if (r == 0 || is_name_to_handle_at_fatal_error(r))
+        if (r >= 0 || is_name_to_handle_at_fatal_error(r))
                 return r;
 
         return fd_fdinfo_mnt_id(dir_fd, path, isempty(path) ? AT_EMPTY_PATH : 0, ret);
