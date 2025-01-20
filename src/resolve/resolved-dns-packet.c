@@ -1789,9 +1789,9 @@ static bool dns_svc_param_is_valid(DnsSvcParam *i) {
 
         /* RFC 9460, section 7.3: addrs must exactly fill SvcParamValue */
         case DNS_SVC_PARAM_KEY_IPV4HINT:
-                return i->length % (sizeof (struct in_addr)) == 0;
+                return i->length > 0 && i->length % (sizeof (struct in_addr)) == 0;
         case DNS_SVC_PARAM_KEY_IPV6HINT:
-                return i->length % (sizeof (struct in6_addr)) == 0;
+                return i->length > 0 && i->length % (sizeof (struct in6_addr)) == 0;
 
         /* Otherwise, permit any value */
         default:
