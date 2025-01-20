@@ -711,7 +711,7 @@ int mount_all(const char *dest,
                         if (r < 0)
                                 log_warning_errno(r, "Failed to determine if '%s' supports 'usrquota', assuming it doesn't: %m", m->type);
                         else if (r == 0)
-                                log_info("Kernel doesn't support 'usrquota' on '%s', not including in mount options for '%s'.", m->type, m->where);
+                                log_debug("Kernel doesn't support 'usrquota' on '%s', not including in mount options for '%s'.", m->type, m->where);
                         else {
                                 _cleanup_free_ char *joined = NULL;
 
