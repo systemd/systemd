@@ -1346,7 +1346,7 @@ int fd_make_mount_point(int fd) {
 
         assert(fd >= 0);
 
-        r = fd_is_mount_point(fd, NULL, 0);
+        r = is_mount_point_at(fd, NULL, 0);
         if (r < 0)
                 return log_debug_errno(r, "Failed to determine whether file descriptor is a mount point: %m");
         if (r > 0)
