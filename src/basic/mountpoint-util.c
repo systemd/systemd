@@ -212,7 +212,7 @@ bool file_handle_equal(const struct file_handle *a, const struct file_handle *b)
         return memcmp_nn(a->f_handle, a->handle_bytes, b->f_handle, b->handle_bytes) == 0;
 }
 
-int fd_is_mount_point(int fd, const char *filename, int flags) {
+int is_mount_point_at(int fd, const char *filename, int flags) {
         int r;
 
         assert(fd >= 0 || fd == AT_FDCWD);
@@ -364,7 +364,7 @@ int path_is_mount_point_full(const char *path, const char *root, int flags) {
         if (path_equal(path, "/"))
                 return 1;
 
-        /* we need to resolve symlinks manually, we can't just rely on fd_is_mount_point() to do that for us;
+        /* we need to resolve symlinks manually, we can't just rely on is_mount_point_at() to do that for us;
          * if we have a structure like /bin -> /usr/bin/ and /usr is a mount point, then the parent that we
          * look at needs to be /usr, not /. */
         if (FLAGS_SET(flags, AT_SYMLINK_FOLLOW)) {
@@ -379,7 +379,7 @@ int path_is_mount_point_full(const char *path, const char *root, int flags) {
         if (fd < 0)
                 return fd;
 
-        return fd_is_mount_point(fd, last_path_component(path), flags);
+        return is_mount_point_at(fd, last_path_component(path), flags);
 }
 
 int path_get_mnt_id_at_fallback(int dir_fd, const char *path, int *ret) {
