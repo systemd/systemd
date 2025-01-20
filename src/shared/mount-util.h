@@ -79,6 +79,11 @@ int umount_verbose(
                 const char *where,
                 int flags);
 
+int umountat_detach_verbose(
+                int error_log_level,
+                int fd,
+                const char *where);
+
 int mount_option_mangle(
                 const char *options,
                 unsigned long mount_flags,
