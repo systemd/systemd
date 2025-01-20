@@ -243,20 +243,21 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
 
         struct stat st;
         if (fstat(srcfd, &st) < 0)
-                return log_debug_errno(errno, "Failed to stat %s: %m", argv[1]);
+                return log_error_errno(errno, "Failed to stat %s: %m", argv[1]);
 
         r = stat_verify_regular(&st);
         if (r < 0)
-                return log_debug_errno(r, "%s is not a regular file: %m", argv[1]);
+                return log_error_errno(r, "%s is not a regular file: %m", argv[1]);
 
         _cleanup_(unlink_and_freep) char *tmp = NULL;
         _cleanup_close_ int dstfd = open_tmpfile_linkable(arg_output, O_RDWR|O_CLOEXEC, &tmp);
         if (dstfd < 0)
                 return log_error_errno(r, "Failed to open temporary file: %m");
 
+        r = fchmod_umask(dstfd, 0666);
         /* Make sure output file has same mode as input file. */
-        if (fchmod(dstfd, st.st_mode & 07777) < 0)
-                log_debug_errno(errno, "Failed to change temporary file mode: %m");
+        if (r < 0)
+                log_debug_errno(r, "Failed to change temporary file mode: %m");
 
         r = copy_bytes(srcfd, dstfd, UINT64_MAX, COPY_REFLINK);
         if (r < 0)
