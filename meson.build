@@ -682,6 +682,7 @@ foreach ident : [
         ['strerrorname_np',   '''#include <string.h>'''],
         ['getrandom',         '''#include <sys/random.h>'''],
         ['quotactl_fd',       '''#include <sys/quota.h>'''],
+        ['setxattrat',        '''#include <sys/xattr.h>'''],  # no known header declares {set,get,list,remove}xattrat
 ]
 
         have = cc.has_function(ident[0], prefix : ident[1], args : '-D_GNU_SOURCE')
