@@ -243,11 +243,11 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
 
         struct stat st;
         if (fstat(srcfd, &st) < 0)
-                return log_debug_errno(errno, "Failed to stat %s: %m", argv[1]);
+                return log_error_errno(errno, "Failed to stat %s: %m", argv[1]);
 
         r = stat_verify_regular(&st);
         if (r < 0)
-                return log_debug_errno(r, "%s is not a regular file: %m", argv[1]);
+                return log_error_errno(r, "%s is not a regular file: %m", argv[1]);
 
         _cleanup_(unlink_and_freep) char *tmp = NULL;
         _cleanup_close_ int dstfd = open_tmpfile_linkable(arg_output, O_RDWR|O_CLOEXEC, &tmp);
