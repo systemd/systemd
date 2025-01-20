@@ -37,10 +37,10 @@
 #define ORIGINAL_MAX_HANDLE_SZ 128
 
 bool is_name_to_handle_at_fatal_error(int err) {
-        /* name_to_handle_at() can return "acceptable" errors that are due to the context. For example the
-         * kernel does not support name_to_handle_at() at all (ENOSYS), or the syscall was blocked
-         * (EACCES/EPERM; maybe through seccomp, because we are running inside of a container), or the mount
-         * point is not triggered yet (EOVERFLOW, think autofs+nfs4), or some general name_to_handle_at()
+        /* name_to_handle_at() can return "acceptable" errors that are due to the context. For example
+         * the file system does not support name_to_handle_at() (EOPNOTSUPP), or the syscall was blocked
+         * (EACCES/EPERM; maybe through seccomp, because we are running inside of a container), or
+         * the mount point is not triggered yet (EOVERFLOW, think autofs+nfs4), or some general name_to_handle_at()
          * flakiness (EINVAL). However other errors are not supposed to happen and therefore are considered
          * fatal ones. */
 
