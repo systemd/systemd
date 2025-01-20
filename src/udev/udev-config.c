@@ -320,6 +320,8 @@ void manager_set_log_level(Manager *manager, int log_level) {
 static void manager_adjust_config(UdevConfig *config) {
         assert(config);
 
+        log_set_max_level(config->log_level);
+
         if (config->timeout_usec < MIN_WORKER_TIMEOUT_USEC) {
                 log_debug("Timeout (%s) for processing event is too small, using the default: %s",
                           FORMAT_TIMESPAN(config->timeout_usec, 1),
@@ -411,7 +413,6 @@ int manager_load(Manager *manager, int argc, char *argv[]) {
         if (arg_debug)
                 log_set_target(LOG_TARGET_CONSOLE);
 
-        log_set_max_level(manager->config.log_level);
         manager_adjust_config(&manager->config);
         return 1;
 }
@@ -424,7 +425,6 @@ UdevReloadFlags manager_reload_config(Manager *manager) {
         manager->config_by_udev_conf = UDEV_CONFIG_INIT;
         manager_parse_udev_config(&manager->config_by_udev_conf);
         manager_merge_config(manager);
-        log_set_max_level(manager->config.log_level);
         manager_adjust_config(&manager->config);
 
         if (manager->config.resolve_name_timing != old.resolve_name_timing)
