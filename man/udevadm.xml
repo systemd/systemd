@@ -744,6 +744,14 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><option>--trace=<replaceable>BOOL</replaceable></option></term>
+          <listitem>
+            <para>Enable/disable trace logging in <command>systemd-udevd</command>.</para>
+
+            <xi:include href="version-info.xml" xpointer="v258"/>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><option>-t</option></term>
           <term><option>--timeout=<replaceable>seconds</replaceable></option></term>
           <listitem>

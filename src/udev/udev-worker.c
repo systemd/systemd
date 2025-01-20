@@ -182,6 +182,7 @@ static int worker_process_device(UdevWorker *worker, sd_device *dev) {
         udev_event = udev_event_new(dev, worker, EVENT_UDEV_WORKER);
         if (!udev_event)
                 return -ENOMEM;
+        udev_event->trace = worker->config.trace;
 
         /* If this is a block device and the device is locked currently via the BSD advisory locks,
          * someone else is using it exclusively. We don't run our udev rules now to not interfere.
