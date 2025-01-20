@@ -54,6 +54,8 @@ static UdevEvent* udev_event_free(UdevEvent *event) {
         sd_netlink_unref(event->rtnl);
         ordered_hashmap_free_free_key(event->run_list);
         ordered_hashmap_free_free_free(event->seclabel_list);
+        hashmap_free(event->written_sysattrs);
+        hashmap_free(event->written_sysctls);
         free(event->program_result);
         free(event->name);
         strv_free(event->altnames);
