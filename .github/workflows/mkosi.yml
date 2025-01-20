@@ -188,10 +188,16 @@ jobs:
         run: mkosi summary
 
       - name: Build tools tree
-        run: mkosi -f sandbox true
+        run: sudo --preserve-env mkosi -f sandbox true
 
       - name: Configure meson
-        run: mkosi sandbox meson setup --buildtype=debugoptimized -Dintegration-tests=true build
+        run: |
+          sudo --preserve-env --preserve-env=PATH \
+            mkosi sandbox \
+            meson setup \
+            --buildtype=debugoptimized \
+            -Dintegration-tests=true \
+            build
 
       - name: Build image
         run: sudo --preserve-env mkosi sandbox meson compile -C build mkosi
