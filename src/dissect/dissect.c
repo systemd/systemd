@@ -1762,7 +1762,7 @@ static int action_umount(const char *path) {
         if (fd < 0)
                 return log_error_errno(fd, "Failed to resolve path '%s': %m", path);
 
-        r = fd_is_mount_point(fd, NULL, 0);
+        r = is_mount_point_at(fd, NULL, 0);
         if (r == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "'%s' is not a mount point", canonical);
         if (r < 0)

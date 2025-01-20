@@ -384,7 +384,7 @@ int recurse_dir(
                                 if (sx_valid && FLAGS_SET(sx.stx_attributes_mask, STATX_ATTR_MOUNT_ROOT))
                                         is_mount = FLAGS_SET(sx.stx_attributes, STATX_ATTR_MOUNT_ROOT);
                                 else {
-                                        r = fd_is_mount_point(dir_fd, de->entries[i]->d_name, 0);
+                                        r = is_mount_point_at(dir_fd, de->entries[i]->d_name, 0);
                                         if (r < 0)
                                                 log_debug_errno(r, "Failed to determine whether %s is a submount, assuming not: %m", p);
 
