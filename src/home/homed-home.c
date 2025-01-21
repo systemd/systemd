@@ -101,6 +101,7 @@ static int suitable_home_record(UserRecord *hr) {
 int home_new(Manager *m, UserRecord *hr, const char *sysfs, Home **ret) {
         _cleanup_(home_freep) Home *home = NULL;
         _cleanup_free_ char *nm = NULL, *ns = NULL, *blob = NULL;
+        _cleanup_strv_free_ char **aliases = NULL;
         int r;
 
         assert(m);
@@ -113,18 +114,28 @@ int home_new(Manager *m, UserRecord *hr, const char *sysfs, Home **ret) {
         if (hashmap_contains(m->homes_by_name, hr->user_name))
                 return -EBUSY;
 
+        STRV_FOREACH(a, hr->aliases)
+                if (hashmap_contains(m->homes_by_name, *a))
+                        return -EBUSY;
+
         if (hashmap_contains(m->homes_by_uid, UID_TO_PTR(hr->uid)))
                 return -EBUSY;
 
         if (sysfs && hashmap_contains(m->homes_by_sysfs, sysfs))
                 return -EBUSY;
 
-        if (hashmap_size(m->homes_by_name) >= HOME_USERS_MAX)
+        if (hashmap_size(m->homes_by_uid) >= HOME_USERS_MAX)
                 return -EUSERS;
 
         nm = strdup(hr->user_name);
         if (!nm)
                 return -ENOMEM;
+
+        if (!strv_isempty(hr->aliases)) {
+                aliases = strv_copy(hr->aliases);
+                if (!aliases)
+                        return -ENOMEM;
+        }
 
         if (sysfs) {
                 ns = strdup(sysfs);
@@ -139,6 +150,7 @@ int home_new(Manager *m, UserRecord *hr, const char *sysfs, Home **ret) {
         *home = (Home) {
                 .manager = m,
                 .user_name = TAKE_PTR(nm),
+                .aliases = TAKE_PTR(aliases),
                 .uid = hr->uid,
                 .state = _HOME_STATE_INVALID,
                 .worker_stdout_fd = -EBADF,
@@ -151,6 +163,12 @@ int home_new(Manager *m, UserRecord *hr, const char *sysfs, Home **ret) {
         r = hashmap_put(m->homes_by_name, home->user_name, home);
         if (r < 0)
                 return r;
+
+        STRV_FOREACH(a, home->aliases) {
+                r = hashmap_put(m->homes_by_name, *a, home);
+                if (r < 0)
+                        return r;
+        }
 
         r = hashmap_put(m->homes_by_uid, UID_TO_PTR(home->uid), home);
         if (r < 0)
@@ -197,6 +215,9 @@ Home *home_free(Home *h) {
                 if (h->user_name)
                         (void) hashmap_remove_value(h->manager->homes_by_name, h->user_name, h);
 
+                STRV_FOREACH(a, h->aliases)
+                        (void) hashmap_remove_value(h->manager->homes_by_name, *a, h);
+
                 if (uid_is_valid(h->uid))
                         (void) hashmap_remove_value(h->manager->homes_by_uid, UID_TO_PTR(h->uid), h);
 
@@ -218,6 +239,7 @@ Home *home_free(Home *h) {
         h->worker_event_source = sd_event_source_disable_unref(h->worker_event_source);
         safe_close(h->worker_stdout_fd);
         free(h->user_name);
+        strv_free(h->aliases);
         free(h->sysfs);
 
         h->ref_event_source_please_suspend = sd_event_source_disable_unref(h->ref_event_source_please_suspend);
@@ -255,6 +277,10 @@ int home_set_record(Home *h, UserRecord *hr) {
                 return r;
 
         if (!user_record_compatible(h->record, hr))
+                return -EREMCHG;
+
+        /* For now do not allow changing list of aliases */
+        if (!strv_equal_ignore_order(h->aliases, hr->aliases))
                 return -EREMCHG;
 
         if (!FLAGS_SET(hr->mask, USER_RECORD_REGULAR) ||
