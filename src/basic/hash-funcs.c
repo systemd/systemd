@@ -93,6 +93,12 @@ const struct hash_ops trivial_hash_ops_free = {
         .free_key = free,
 };
 
+const struct hash_ops trivial_hash_ops_value_free = {
+        .hash = trivial_hash_func,
+        .compare = trivial_compare_func,
+        .free_value = free,
+};
+
 const struct hash_ops trivial_hash_ops_free_free = {
         .hash = trivial_hash_func,
         .compare = trivial_compare_func,

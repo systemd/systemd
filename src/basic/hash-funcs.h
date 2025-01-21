@@ -92,6 +92,7 @@ void trivial_hash_func(const void *p, struct siphash *state);
 int trivial_compare_func(const void *a, const void *b) _const_;
 extern const struct hash_ops trivial_hash_ops;
 extern const struct hash_ops trivial_hash_ops_free;
+extern const struct hash_ops trivial_hash_ops_value_free;
 extern const struct hash_ops trivial_hash_ops_free_free;
 
 /* 32-bit values we can always just embed in the pointer itself, but in order to support 32-bit archs we need store 64-bit
