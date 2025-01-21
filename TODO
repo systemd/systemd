@@ -292,10 +292,6 @@ Features:
 
 * pcrlock: add support for multi-profile UKIs
 
-* logind: when logging in use new tmpfs quota support to configure quota on
-  /tmp/ + /dev/shm/. But do so only in case of tmpfs, because otherwise quota
-  is persistent and any persistent settings mean we don#t have to reapply them.
-
 * initrd: when transitioning from initrd to host, validate that
   /lib/modules/`uname -r` exists, refuse otherwise
 
@@ -1468,8 +1464,6 @@ Features:
 
 * rework recursive read-only remount to use new mount API
 
-* PAM: pick up authentication token from credentials
-
 * when mounting disk images: if IMAGE_ID/IMAGE_VERSION is set in os-release
   data in the image, make sure the image filename actually matches this, so
   that images cannot be misused.
@@ -1536,7 +1530,6 @@ Features:
   - pass creds via keyring?
   - pass creds via memfd?
   - acquire + decrypt creds from pkcs11?
-  - make PAMName= acquire pw via creds logic
   - make macsec code in networkd read key via creds logic (copy logic from
     wireguard)
   - make gatewayd/remote read key via creds logic
@@ -2402,7 +2395,6 @@ Features:
   - maybe make automatic, read-only, time-based reflink-copies of LUKS disk
     images (and btrfs snapshots of subvolumes) (think: time machine)
   - distinguish destroy / remove (i.e. currently we can unregister a user, unregister+remove their home directory, but not just remove their home directory)
-  - in systemd's PAMName= logic: query passwords with ssh-askpassword, so that we can make "loginctl set-linger" mode work
   - fingerprint authentication, pattern authentication, …
   - make sure "classic" user records can also be managed by homed
   - make size of $XDG_RUNTIME_DIR configurable in user record
