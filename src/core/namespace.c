@@ -1809,6 +1809,10 @@ static int apply_one_mount(
                         r = mkdir_p(mount_entry_source(m), m->source_dir_mode);
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to create source directory %s: %m", mount_entry_source(m));
+
+                        r = label_fix_full(AT_FDCWD, mount_entry_source(m), mount_entry_unprefixed_path(m), /* flags= */ 0);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to set label of the source directory %s: %m", mount_entry_source(m));
                 }
 
                 r = chase(mount_entry_source(m), NULL, CHASE_TRAIL_SLASH, &chased, NULL);
