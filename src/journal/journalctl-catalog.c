@@ -19,7 +19,7 @@ int action_update_catalog(void) {
         e = secure_getenv("SYSTEMD_CATALOG_SOURCES");
         r = catalog_update(database,
                            arg_root,
-                           e ? STRV_MAKE_CONST(e) : catalog_file_dirs);
+                           e ? STRV_MAKE_CONST(e) : NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to update catalog: %m");
 
@@ -41,9 +41,9 @@ int action_list_catalog(char **items) {
         pager_open(arg_pager_flags);
 
         if (items)
-                r = catalog_list_items(stdout, database, oneline, items);
+                r = catalog_list_items(/* f = */ NULL, database, oneline, items);
         else
-                r = catalog_list(stdout, database, oneline);
+                r = catalog_list(/* f = */ NULL, database, oneline);
         if (r < 0)
                 return log_error_errno(r, "Failed to list catalog: %m");
 
