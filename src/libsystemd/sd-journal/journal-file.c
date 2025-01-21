@@ -291,7 +291,7 @@ JournalFile* journal_file_close(JournalFile *f) {
                 safe_close(f->fd);
         free(f->path);
 
-        ordered_hashmap_free_free(f->chain_cache);
+        ordered_hashmap_free(f->chain_cache);
 
 #if HAVE_COMPRESSION
         free(f->compress_buffer);
@@ -2646,7 +2646,7 @@ typedef struct ChainCacheItem {
 } ChainCacheItem;
 
 static void chain_cache_put(
-                OrderedHashmap *h,
+                JournalFile *f,
                 ChainCacheItem *ci,
                 uint64_t first,
                 uint64_t array,
@@ -2654,7 +2654,7 @@ static void chain_cache_put(
                 uint64_t total,
                 uint64_t last_index) {
 
-        assert(h);
+        assert(f);
 
         if (!ci) {
                 /* If the chain item to cache for this chain is the
@@ -2662,8 +2662,8 @@ static void chain_cache_put(
                 if (array == first)
                         return;
 
-                if (ordered_hashmap_size(h) >= CHAIN_CACHE_MAX) {
-                        ci = ordered_hashmap_steal_first(h);
+                if (ordered_hashmap_size(f->chain_cache) >= CHAIN_CACHE_MAX) {
+                        ci = ordered_hashmap_steal_first(f->chain_cache);
                         assert(ci);
                 } else {
                         ci = new(ChainCacheItem, 1);
@@ -2673,7 +2673,7 @@ static void chain_cache_put(
 
                 ci->first = first;
 
-                if (ordered_hashmap_put(h, &ci->first, ci) < 0) {
+                if (ordered_hashmap_ensure_put(&f->chain_cache, &uint64_hash_ops_value_free, &ci->first, ci) < 0) {
                         free(ci);
                         return;
                 }
@@ -2847,7 +2847,7 @@ static int generic_array_get(
                         r = journal_file_move_to_object(f, OBJECT_ENTRY, p, ret_object);
                         if (r >= 0) {
                                 /* Let's cache this item for the next invocation */
-                                chain_cache_put(f->chain_cache, ci, first, a, journal_file_entry_array_item(f, o, 0), t, i);
+                                chain_cache_put(f, ci, first, a, journal_file_entry_array_item(f, o, 0), t, i);
 
                                 if (ret_offset)
                                         *ret_offset = p;
@@ -3187,7 +3187,7 @@ found:
                 return -EBADMSG;
 
         /* Let's cache this item for the next invocation */
-        chain_cache_put(f->chain_cache, ci, first, a, p, t, i);
+        chain_cache_put(f, ci, first, a, p, t, i);
 
         p = journal_file_entry_array_item(f, array, i);
         if (p == 0)
@@ -4113,12 +4113,6 @@ int journal_file_open(
                         r = -ENOMEM;
                         goto fail;
                 }
-        }
-
-        f->chain_cache = ordered_hashmap_new(&uint64_hash_ops);
-        if (!f->chain_cache) {
-                r = -ENOMEM;
-                goto fail;
         }
 
         if (f->fd < 0) {
