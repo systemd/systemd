@@ -96,6 +96,8 @@ static inline bool strv_equal(char * const *a, char * const *b) {
         return strv_compare(a, b) == 0;
 }
 
+bool strv_equal_ignore_order(char **a, char **b);
+
 char** strv_new_internal(const char *x, ...) _sentinel_;
 char** strv_new_ap(const char *x, va_list ap);
 #define strv_new(...) strv_new_internal(__VA_ARGS__, NULL)

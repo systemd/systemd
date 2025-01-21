@@ -1255,4 +1255,26 @@ TEST(strv_find_closest) {
         ASSERT_NULL(strv_find_closest(l, "sfajosajfosdjaofjdsaf"));
 }
 
+TEST(strv_equal_ignore_order) {
+
+        ASSERT_TRUE(strv_equal_ignore_order(NULL, NULL));
+        ASSERT_TRUE(strv_equal_ignore_order(NULL, STRV_MAKE(NULL)));
+        ASSERT_TRUE(strv_equal_ignore_order(STRV_MAKE(NULL), NULL));
+        ASSERT_TRUE(strv_equal_ignore_order(STRV_MAKE(NULL), STRV_MAKE(NULL)));
+
+        ASSERT_FALSE(strv_equal_ignore_order(STRV_MAKE("foo"), NULL));
+        ASSERT_FALSE(strv_equal_ignore_order(STRV_MAKE("foo"), STRV_MAKE(NULL)));
+        ASSERT_FALSE(strv_equal_ignore_order(NULL, STRV_MAKE("foo")));
+        ASSERT_FALSE(strv_equal_ignore_order(STRV_MAKE(NULL), STRV_MAKE("foo")));
+        ASSERT_TRUE(strv_equal_ignore_order(STRV_MAKE("foo"), STRV_MAKE("foo")));
+        ASSERT_FALSE(strv_equal_ignore_order(STRV_MAKE("foo"), STRV_MAKE("foo", "bar")));
+        ASSERT_FALSE(strv_equal_ignore_order(STRV_MAKE("foo", "bar"), STRV_MAKE("foo")));
+        ASSERT_TRUE(strv_equal_ignore_order(STRV_MAKE("foo", "bar"), STRV_MAKE("foo", "bar")));
+        ASSERT_TRUE(strv_equal_ignore_order(STRV_MAKE("bar", "foo"), STRV_MAKE("foo", "bar")));
+        ASSERT_FALSE(strv_equal_ignore_order(STRV_MAKE("bar", "foo"), STRV_MAKE("foo", "bar", "quux")));
+        ASSERT_FALSE(strv_equal_ignore_order(STRV_MAKE("bar", "foo", "quux"), STRV_MAKE("foo", "bar")));
+        ASSERT_TRUE(strv_equal_ignore_order(STRV_MAKE("bar", "foo", "quux"), STRV_MAKE("quux", "foo", "bar")));
+        ASSERT_TRUE(strv_equal_ignore_order(STRV_MAKE("bar", "foo"), STRV_MAKE("bar", "foo", "bar", "foo", "foo")));
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);

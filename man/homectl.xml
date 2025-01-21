@@ -227,6 +227,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--alias=<replaceable>NAME</replaceable><optional>,<replaceable>NAME…</replaceable></optional></option></term>
+
+        <listitem><para>Additional names for the user. Takes one or more valid UNIX user names, separated by
+        commas. May be used multiple times to define multiple aliases. An alias username may be specified
+        wherever the primary user name may be specified, and resolves to the same user record.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--email-address=<replaceable>EMAIL</replaceable></option></term>
 
         <listitem><para>Takes an electronic mail address to associate with the user. On log-in the

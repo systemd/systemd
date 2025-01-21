@@ -177,26 +177,25 @@ static int acquire_user_record(
                 pam_handle_t *handle,
                 UserRecord **ret_record) {
 
-        _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
-        const char *username = NULL, *json = NULL;
-        _cleanup_free_ char *field = NULL;
         int r;
 
         assert(handle);
 
+        const char *username = NULL;
         r = pam_get_user(handle, &username, NULL);
         if (r != PAM_SUCCESS)
                 return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get user name: @PAMERR@");
-
         if (isempty(username))
                 return pam_syslog_pam_error(handle, LOG_ERR, PAM_SERVICE_ERR, "User name not valid.");
 
         /* If pam_systemd_homed (or some other module) already acquired the user record we can reuse it
          * here. */
-        field = strjoin("systemd-user-record-", username);
+        _cleanup_free_ char *field = strjoin("systemd-user-record-", username);
         if (!field)
                 return pam_log_oom(handle);
 
+        _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
+        const char *json = NULL;
         r = pam_get_data(handle, field, (const void**) &json);
         if (!IN_SET(r, PAM_SUCCESS, PAM_NO_MODULE_DATA))
                 return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get PAM user record data: @PAMERR@");
@@ -217,14 +216,14 @@ static int acquire_user_record(
                         return pam_syslog_errno(handle, LOG_ERR, r, "Failed to load user record: %m");
 
                 /* Safety check if cached record actually matches what we are looking for */
-                if (!streq_ptr(username, ur->user_name))
+                if (!user_record_matches_user_name(ur, username))
                         return pam_syslog_pam_error(handle, LOG_ERR, PAM_SERVICE_ERR,
                                                     "Acquired user record does not match user name.");
         } else {
                 _cleanup_free_ char *formatted = NULL;
 
                 /* Request the record ourselves */
-                r = userdb_by_name(username, 0, &ur);
+                r = userdb_by_name(username, /* flags= */ 0, &ur);
                 if (r < 0) {
                         pam_syslog_errno(handle, LOG_ERR, r, "Failed to get user record: %m");
                         return PAM_USER_UNKNOWN;
@@ -1468,12 +1467,12 @@ _public_ PAM_EXTERN int pam_sm_close_session(
 
         if (parse_argv(handle,
                        argc, argv,
-                       NULL,
-                       NULL,
-                       NULL,
+                       /* class= */ NULL,
+                       /* type= */ NULL,
+                       /* deskop= */ NULL,
                        &debug,
-                       NULL,
-                       NULL) < 0)
+                       /* default_capability_bounding_set */ NULL,
+                       /* default_capability_ambient_set= */ NULL) < 0)
                 return PAM_SESSION_ERR;
 
         pam_debug_syslog(handle, debug, "pam-systemd shutting down");

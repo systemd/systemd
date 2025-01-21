@@ -239,6 +239,7 @@ typedef struct UserRecord {
         char *user_name;
         char *realm;
         char *user_name_and_realm_auto; /* the user_name field concatenated with '@' and the realm, if the latter is defined */
+        char **aliases;
         char *real_name;
         char *email_address;
         char *password_hint;
@@ -489,6 +490,8 @@ typedef struct UserDBMatch {
 
 bool user_name_fuzzy_match(const char *names[], size_t n_names, char **matches);
 int user_record_match(UserRecord *u, const UserDBMatch *match);
+
+bool user_record_matches_user_name(const UserRecord *u, const char *username);
 
 const char* user_storage_to_string(UserStorage t) _const_;
 UserStorage user_storage_from_string(const char *s) _pure_;

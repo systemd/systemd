@@ -102,11 +102,6 @@ static int acquire_user_record(
                 UserRecord **ret_record,
                 PamBusData **bus_data) {
 
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-        _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
-        _cleanup_free_ char *homed_field = NULL;
-        const char *json = NULL;
         int r;
 
         assert(handle);
@@ -115,7 +110,6 @@ static int acquire_user_record(
                 r = pam_get_user(handle, &username, NULL);
                 if (r != PAM_SUCCESS)
                         return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get user name: @PAMERR@");
-
                 if (isempty(username))
                         return pam_syslog_pam_error(handle, LOG_ERR, PAM_SERVICE_ERR, "User name not set.");
         }
@@ -125,13 +119,19 @@ static int acquire_user_record(
         if (STR_IN_SET(username, "root", NOBODY_USER_NAME) || !valid_user_group_name(username, 0))
                 return PAM_USER_UNKNOWN;
 
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
+        const char *json = NULL;
+        bool fresh_data;
+
         /* We cache the user record in the PAM context. We use a field name that includes the username, since
          * clients might change the user name associated with a PAM context underneath us. Notably, 'sudo'
          * creates a single PAM context and first authenticates it with the user set to the originating user,
          * then updates the user for the destination user and issues the session stack with the same PAM
          * context. We thus must be prepared that the user record changes between calls and we keep any
          * caching separate. */
-        homed_field = strjoin("systemd-home-user-record-", username);
+        _cleanup_free_ char *homed_field = strjoin("systemd-home-user-record-", username);
         if (!homed_field)
                 return pam_log_oom(handle);
 
@@ -144,9 +144,10 @@ static int acquire_user_record(
                  * negative cache indicator) */
                 if (json == POINTER_MAX)
                         return PAM_USER_UNKNOWN;
+
+                fresh_data = false;
         } else {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                _cleanup_free_ char *generic_field = NULL, *json_copy = NULL;
                 _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
 
                 r = pam_acquire_bus_connection(handle, "pam-systemd-home", debug, &bus, bus_data);
@@ -178,9 +179,42 @@ static int acquire_user_record(
                 if (r < 0)
                         return pam_bus_log_parse_error(handle, r);
 
+                fresh_data = true;
+        }
+
+        r = sd_json_parse(json, /* flags= */ 0, &v, NULL, NULL);
+        if (r < 0)
+                return pam_syslog_errno(handle, LOG_ERR, r, "Failed to parse JSON user record: %m");
+
+        ur = user_record_new();
+        if (!ur)
+                return pam_log_oom(handle);
+
+        r = user_record_load(ur, v, USER_RECORD_LOAD_REFUSE_SECRET|USER_RECORD_PERMISSIVE);
+        if (r < 0)
+                return pam_syslog_errno(handle, LOG_ERR, r, "Failed to load user record: %m");
+
+        /* Safety check if cached record actually matches what we are looking for */
+        if (!user_record_matches_user_name(ur, username))
+                return pam_syslog_pam_error(handle, LOG_ERR, PAM_SERVICE_ERR,
+                                            "Acquired user record does not match user name.");
+
+        /* Update the 'username' pointer to point to our own record now. The pam_set_item() call below is
+         * going to invalidate the old version after all */
+        username = ur->user_name;
+
+        /* We passed all checks. Let's now make sure the rest of the PAM stack continues with the primary,
+         * normalized name of the user record (i.e. not an alias or so). */
+        r = pam_set_item(handle, PAM_USER, ur->user_name);
+        if (r != PAM_SUCCESS)
+                return pam_syslog_pam_error(handle, LOG_ERR, r,
+                                            "Failed to update username PAM item to '%s': @PAMERR@", ur->user_name);
+
+        /* Everything seems to be good, let's cache this data now */
+        if (fresh_data) {
                 /* First copy: for the homed-specific data field, i.e. where we know the user record is from
                  * homed */
-                json_copy = strdup(json);
+                _cleanup_free_ char *json_copy = strdup(json);
                 if (!json_copy)
                         return pam_log_oom(handle);
 
@@ -196,34 +230,17 @@ static int acquire_user_record(
                 if (!json_copy)
                         return pam_log_oom(handle);
 
-                generic_field = strjoin("systemd-user-record-", username);
+                _cleanup_free_ char *generic_field = strjoin("systemd-user-record-", username);
                 if (!generic_field)
                         return pam_log_oom(handle);
 
                 r = pam_set_data(handle, generic_field, json_copy, pam_cleanup_free);
                 if (r != PAM_SUCCESS)
                         return pam_syslog_pam_error(handle, LOG_ERR, r,
-                                                    "Failed to set PAM user record data '%s': @PAMERR@", homed_field);
+                                                    "Failed to set PAM user record data '%s': @PAMERR@", generic_field);
 
                 TAKE_PTR(json_copy);
         }
-
-        r = sd_json_parse(json, SD_JSON_PARSE_SENSITIVE, &v, NULL, NULL);
-        if (r < 0)
-                return pam_syslog_errno(handle, LOG_ERR, r, "Failed to parse JSON user record: %m");
-
-        ur = user_record_new();
-        if (!ur)
-                return pam_log_oom(handle);
-
-        r = user_record_load(ur, v, USER_RECORD_LOAD_REFUSE_SECRET|USER_RECORD_PERMISSIVE);
-        if (r < 0)
-                return pam_syslog_errno(handle, LOG_ERR, r, "Failed to load user record: %m");
-
-        /* Safety check if cached record actually matches what we are looking for */
-        if (!streq_ptr(username, ur->user_name))
-                return pam_syslog_pam_error(handle, LOG_ERR, PAM_SERVICE_ERR,
-                                            "Acquired user record does not match user name.");
 
         if (ret_record)
                 *ret_record = TAKE_PTR(ur);
@@ -535,7 +552,6 @@ static int acquire_home(
         r = pam_get_user(handle, &username, NULL);
         if (r != PAM_SUCCESS)
                 return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get user name: @PAMERR@");
-
         if (isempty(username))
                 return pam_syslog_pam_error(handle, LOG_ERR, PAM_SERVICE_ERR, "User name not set.");
 
@@ -879,7 +895,6 @@ _public_ PAM_EXTERN int pam_sm_close_session(
         r = pam_get_user(handle, &username, NULL);
         if (r != PAM_SUCCESS)
                 return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get user name: @PAMERR@");
-
         if (isempty(username))
                 return pam_syslog_pam_error(handle, LOG_ERR, PAM_SERVICE_ERR, "User name not set.");
 
@@ -949,7 +964,7 @@ _public_ PAM_EXTERN int pam_sm_acct_mgmt(
         if (r != PAM_SUCCESS)
                 return r;
 
-        r = acquire_user_record(handle, NULL, debug, &ur, NULL);
+        r = acquire_user_record(handle, /* username= */ NULL, debug, &ur, /* bus_data= */ NULL);
         if (r != PAM_SUCCESS)
                 return r;
 
@@ -1057,7 +1072,7 @@ _public_ PAM_EXTERN int pam_sm_chauthtok(
 
         pam_debug_syslog(handle, debug, "pam-systemd-homed account management");
 
-        r = acquire_user_record(handle, NULL, debug, &ur, NULL);
+        r = acquire_user_record(handle, /* username= */ NULL, debug, &ur, /* bus_data= */ NULL);
         if (r != PAM_SUCCESS)
                 return r;
 
