@@ -220,7 +220,7 @@ static int get_child_nodes(
                 OrderedSet **ret,
                 sd_bus_error *error) {
 
-        _cleanup_ordered_set_free_free_ OrderedSet *s = NULL;
+        _cleanup_ordered_set_free_ OrderedSet *s = NULL;
         int r;
 
         assert(bus);
@@ -228,7 +228,7 @@ static int get_child_nodes(
         assert(n);
         assert(ret);
 
-        s = ordered_set_new(&string_hash_ops);
+        s = ordered_set_new(&string_hash_ops_free);
         if (!s)
                 return -ENOMEM;
 
@@ -926,7 +926,7 @@ int introspect_path(
                 char **ret,
                 sd_bus_error *error) {
 
-        _cleanup_ordered_set_free_free_ OrderedSet *s = NULL;
+        _cleanup_ordered_set_free_ OrderedSet *s = NULL;
         _cleanup_(introspect_done) struct introspect intro = {};
         bool empty;
         int r;
@@ -1229,7 +1229,7 @@ static int process_get_managed_objects(
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_ordered_set_free_free_ OrderedSet *s = NULL;
+        _cleanup_ordered_set_free_ OrderedSet *s = NULL;
         char *path;
         int r;
 
@@ -1314,7 +1314,7 @@ static int object_find_and_run(
         vtable_key.interface = m->interface;
         vtable_key.member = m->member;
 
-        v = hashmap_get(bus->vtable_methods, &vtable_key);
+        v = set_get(bus->vtable_methods, &vtable_key);
         if (v) {
                 r = method_callbacks_run(bus, m, v, require_fallback, found_object);
                 if (r != 0)
@@ -1341,7 +1341,7 @@ static int object_find_and_run(
                         if (r < 0)
                                 return sd_bus_reply_method_errorf(m, SD_BUS_ERROR_INVALID_ARGS, "Expected interface and member parameters");
 
-                        v = hashmap_get(bus->vtable_properties, &vtable_key);
+                        v = set_get(bus->vtable_properties, &vtable_key);
                         if (v) {
                                 r = property_get_set_callbacks_run(bus, m, v, require_fallback, get, found_object);
                                 if (r != 0)
@@ -1686,7 +1686,9 @@ static int vtable_member_compare_func(const struct vtable_member *x, const struc
         return strcmp(x->member, y->member);
 }
 
-DEFINE_PRIVATE_HASH_OPS(vtable_member_hash_ops, struct vtable_member, vtable_member_hash_func, vtable_member_compare_func);
+DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
+                vtable_member_hash_ops,
+                struct vtable_member, vtable_member_hash_func, vtable_member_compare_func, free);
 
 typedef enum {
         NAMES_FIRST_PART        = 1 << 0, /* first part of argument name list (input names). It is reset by names_are_valid() */
@@ -1812,14 +1814,6 @@ static int add_object_vtable_internal(
                       !streq(interface, "org.freedesktop.DBus.Peer") &&
                       !streq(interface, "org.freedesktop.DBus.ObjectManager"), -EINVAL);
 
-        r = hashmap_ensure_allocated(&bus->vtable_methods, &vtable_member_hash_ops);
-        if (r < 0)
-                return r;
-
-        r = hashmap_ensure_allocated(&bus->vtable_properties, &vtable_member_hash_ops);
-        if (r < 0)
-                return r;
-
         n = bus_node_allocate(bus, path);
         if (!n)
                 return -ENOMEM;
@@ -1892,7 +1886,9 @@ static int add_object_vtable_internal(
                         m->member = v->x.method.member;
                         m->vtable = v;
 
-                        r = hashmap_put(bus->vtable_methods, m, m);
+                        r = set_ensure_put(&bus->vtable_methods, &vtable_member_hash_ops, m);
+                        if (r == 0)
+                                r = -EEXIST;
                         if (r < 0) {
                                 free(m);
                                 goto fail;
@@ -1940,7 +1936,9 @@ static int add_object_vtable_internal(
                         m->member = v->x.property.member;
                         m->vtable = v;
 
-                        r = hashmap_put(bus->vtable_properties, m, m);
+                        r = set_ensure_put(&bus->vtable_properties, &vtable_member_hash_ops, m);
+                        if (r == 0)
+                                r = -EEXIST;
                         if (r < 0) {
                                 free(m);
                                 goto fail;
@@ -2128,7 +2126,7 @@ static int emit_properties_changed_on_interface(
                                 assert_return(member_name_is_valid(*property), -EINVAL);
 
                                 key.member = *property;
-                                v = hashmap_get(bus->vtable_properties, &key);
+                                v = set_get(bus->vtable_properties, &key);
                                 if (!v)
                                         return -ENOENT;
 
@@ -2222,7 +2220,7 @@ static int emit_properties_changed_on_interface(
                                         struct vtable_member *v;
 
                                         key.member = *property;
-                                        assert_se(v = hashmap_get(bus->vtable_properties, &key));
+                                        assert_se(v = set_get(bus->vtable_properties, &key));
                                         assert(c == v->parent);
 
                                         if (!(v->vtable->flags & SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION))
