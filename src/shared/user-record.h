@@ -493,6 +493,8 @@ int user_record_match(UserRecord *u, const UserDBMatch *match);
 
 bool user_record_matches_user_name(const UserRecord *u, const char *username);
 
+int json_dispatch_dispositions_mask(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
+
 const char* user_storage_to_string(UserStorage t) _const_;
 UserStorage user_storage_from_string(const char *s) _pure_;
 

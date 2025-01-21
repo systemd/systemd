@@ -2723,6 +2723,39 @@ int user_record_match(UserRecord *u, const UserDBMatch *match) {
         return true;
 }
 
+int json_dispatch_dispositions_mask(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        uint64_t *mask = ASSERT_PTR(userdata);
+
+        if (sd_json_variant_is_null(variant)) {
+                *mask = UINT64_MAX;
+                return 0;
+        }
+
+        if (!sd_json_variant_is_array(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array.", strna(name));
+
+        uint64_t m = 0;
+        for (size_t i = 0; i < sd_json_variant_elements(variant); i++) {
+                sd_json_variant *e;
+                const char *a;
+
+                e = sd_json_variant_by_index(variant, i);
+                if (!sd_json_variant_is_string(e))
+                        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array of strings.", strna(name));
+
+                assert_se(a = sd_json_variant_string(e));
+
+                UserDisposition d = user_disposition_from_string(a);
+                if (d < 0)
+                        return json_log(e, flags, d, "JSON field '%s' contains an invalid user disposition type.", strna(name));
+
+                m |= UINT64_C(1) << d;
+        }
+
+        *mask = m;
+        return 0;
+}
+
 static const char* const user_storage_table[_USER_STORAGE_MAX] = {
         [USER_CLASSIC]   = "classic",
         [USER_LUKS]      = "luks",
