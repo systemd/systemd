@@ -27,6 +27,7 @@ KERNEL=="mouse*|js*", ENV{ID_BUS}=="?*", ENV{.INPUT_CLASS}=="?*", ATTRS{bInterfa
 KERNEL=="mouse*|js*", ENV{ID_BUS}=="?*", ENV{.INPUT_CLASS}=="?*", ATTRS{bInterfaceNumber}=="?*", ATTRS{bInterfaceNumber}!="00", SYMLINK+="input/by-id/$env{ID_BUS}-$env{ID_SERIAL}-if$attr{bInterfaceNumber}-$env{.INPUT_CLASS}"
 KERNEL=="event*", ENV{ID_BUS}=="?*", ENV{.INPUT_CLASS}=="?*", ATTRS{bInterfaceNumber}=="|00", SYMLINK+="input/by-id/$env{ID_BUS}-$env{ID_SERIAL}-event-$env{.INPUT_CLASS}"
 KERNEL=="event*", ENV{ID_BUS}=="?*", ENV{.INPUT_CLASS}=="?*", ATTRS{bInterfaceNumber}=="?*", ATTRS{bInterfaceNumber}!="00", SYMLINK+="input/by-id/$env{ID_BUS}-$env{ID_SERIAL}-if$attr{bInterfaceNumber}-event-$env{.INPUT_CLASS}"
+ENV{.INPUT_CLASS}=="?*", ENV{ID_SERIAL}=="?*", ENV{ID_SERIAL}!="noserial", SYMLINK+="input/by-id/%E{ID_SERIAL}"
 # allow empty class for USB devices, by appending the interface number
 SUBSYSTEMS=="usb", ENV{ID_BUS}=="?*", KERNEL=="event*", ENV{.INPUT_CLASS}=="", ATTRS{bInterfaceNumber}=="?*", \
   SYMLINK+="input/by-id/$env{ID_BUS}-$env{ID_SERIAL}-event-if$attr{bInterfaceNumber}"
