@@ -77,6 +77,7 @@ void string_hash_func(const char *p, struct siphash *state);
 #define string_compare_func strcmp
 extern const struct hash_ops string_hash_ops;
 extern const struct hash_ops string_hash_ops_free;
+extern const struct hash_ops string_hash_ops_value_free;
 extern const struct hash_ops string_hash_ops_free_free;
 extern const struct hash_ops string_hash_ops_free_strv_free;
 
@@ -91,6 +92,7 @@ void trivial_hash_func(const void *p, struct siphash *state);
 int trivial_compare_func(const void *a, const void *b) _const_;
 extern const struct hash_ops trivial_hash_ops;
 extern const struct hash_ops trivial_hash_ops_free;
+extern const struct hash_ops trivial_hash_ops_value_free;
 extern const struct hash_ops trivial_hash_ops_free_free;
 
 /* 32-bit values we can always just embed in the pointer itself, but in order to support 32-bit archs we need store 64-bit
@@ -98,6 +100,7 @@ extern const struct hash_ops trivial_hash_ops_free_free;
 void uint64_hash_func(const uint64_t *p, struct siphash *state);
 int uint64_compare_func(const uint64_t *a, const uint64_t *b) _pure_;
 extern const struct hash_ops uint64_hash_ops;
+extern const struct hash_ops uint64_hash_ops_value_free;
 
 /* On some archs dev_t is 32-bit, and on others 64-bit. And sometimes it's 64-bit on 32-bit archs, and sometimes 32-bit on
  * 64-bit archs. Yuck! */
