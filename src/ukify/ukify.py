@@ -255,6 +255,7 @@ class UkifyConfig:
     pcr_public_keys: list[str]
     pcrpkey: Optional[Path]
     phase_path_groups: Optional[list[str]]
+    policy_digest: bool
     profile: Union[str, Path, None]
     sb_cert: Union[str, Path, None]
     sb_cert_name: Optional[str]
@@ -751,7 +752,7 @@ def call_systemd_measure(uki: UKI, opts: UkifyConfig, profile_start: int = 0) ->
 
             unique_to_measure[section.name] = section
 
-    if opts.measure:
+    if opts.measure or opts.policy_digest:
         to_measure = unique_to_measure.copy()
 
         for dtbauto in dtbauto_to_measure:
@@ -762,7 +763,7 @@ def call_systemd_measure(uki: UKI, opts: UkifyConfig, profile_start: int = 0) ->
 
             cmd = [
                 measure_tool,
-                'calculate',
+                'calculate' if opts.measure else 'policy-digest',
                 '--json',
                 opts.json,
                 *(f'--{s.name.removeprefix(".")}={s.content}' for s in to_measure.values()),
@@ -771,6 +772,11 @@ def call_systemd_measure(uki: UKI, opts: UkifyConfig, profile_start: int = 0) ->
                 # into one call to systemd-measure calculate.
                 *(f'--phase={phase_path}' for phase_path in itertools.chain.from_iterable(pp_groups)),
             ]
+
+            # The JSON object will be used for offline signing, include the public key
+            # so that the fingerprint is included too.
+            if opts.policy_digest and opts.pcr_public_keys:
+                cmd += [f'--public-key={opts.pcr_public_keys[0]}']
 
             print('+', shell_join(cmd), file=sys.stderr)
             subprocess.check_call(cmd)
@@ -1941,6 +1947,11 @@ CONFIG_ITEMS = [
         help='print systemd-measure output for the UKI',
     ),
     ConfigItem(
+        '--policy-digest',
+        action=argparse.BooleanOptionalAction,
+        help='print systemd-measure policy digests for the UKI',
+    ),
+    ConfigItem(
         '--json',
         choices=('pretty', 'short', 'off'),
         default='off',
@@ -2108,10 +2119,16 @@ def finalize_options(opts: argparse.Namespace) -> None:
 
     # Check that --pcr-public-key=, --pcr-private-key=, and --phases=
     # have either the same number of arguments or are not specified at all.
+    # But allow a single public key, for offline PCR signing, to pre-populate the JSON object
+    # with the certificate's fingerprint.
     n_pcr_pub = None if opts.pcr_public_keys is None else len(opts.pcr_public_keys)
     n_pcr_priv = None if opts.pcr_private_keys is None else len(opts.pcr_private_keys)
     n_phase_path_groups = None if opts.phase_path_groups is None else len(opts.phase_path_groups)
-    if n_pcr_pub is not None and n_pcr_pub != n_pcr_priv:
+    if opts.policy_digest and n_pcr_priv is not None:
+        raise ValueError('--pcr-private-key= cannot be specified with --policy-digest')
+    if opts.policy_digest and (n_pcr_pub is None or n_pcr_pub != 1):
+        raise ValueError('--policy-digest requires exactly one --pcr-public-key=')
+    if n_pcr_pub is not None and n_pcr_priv is not None and n_pcr_pub != n_pcr_priv:
         raise ValueError('--pcr-public-key= specifications must match --pcr-private-key=')
     if n_phase_path_groups is not None and n_phase_path_groups != n_pcr_priv:
         raise ValueError('--phases= specifications must match --pcr-private-key=')
