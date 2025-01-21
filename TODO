@@ -125,6 +125,8 @@ Deprecations and removals:
 
 Features:
 
+* sd-varlink should probably enforce a limit on queued outgoing replies
+
 * systemd-firstboot: optionally install an ssh key for root for offline use.
 
 * add a small tool that reads user records/group records from a credential, and
