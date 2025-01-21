@@ -77,6 +77,7 @@ void string_hash_func(const char *p, struct siphash *state);
 #define string_compare_func strcmp
 extern const struct hash_ops string_hash_ops;
 extern const struct hash_ops string_hash_ops_free;
+extern const struct hash_ops string_hash_ops_value_free;
 extern const struct hash_ops string_hash_ops_free_free;
 extern const struct hash_ops string_hash_ops_free_strv_free;
 

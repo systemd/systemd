@@ -10,15 +10,23 @@ void string_hash_func(const char *p, struct siphash *state) {
         siphash24_compress(p, strlen(p) + 1, state);
 }
 
-DEFINE_HASH_OPS(string_hash_ops, char, string_hash_func, string_compare_func);
-DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(string_hash_ops_free,
-                                    char, string_hash_func, string_compare_func, free);
-DEFINE_HASH_OPS_FULL(string_hash_ops_free_free,
-                     char, string_hash_func, string_compare_func, free,
-                     void, free);
-DEFINE_HASH_OPS_FULL(string_hash_ops_free_strv_free,
-                     char, string_hash_func, string_compare_func, free,
-                     char*, strv_free);
+DEFINE_HASH_OPS(string_hash_ops,
+                char, string_hash_func, string_compare_func);
+DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(
+                string_hash_ops_free,
+                char, string_hash_func, string_compare_func, free);
+DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+                string_hash_ops_value_free,
+                char, string_hash_func, string_compare_func,
+                void, free);
+DEFINE_HASH_OPS_FULL(
+                string_hash_ops_free_free,
+                char, string_hash_func, string_compare_func, free,
+                void, free);
+DEFINE_HASH_OPS_FULL(
+                string_hash_ops_free_strv_free,
+                char, string_hash_func, string_compare_func, free,
+                char*, strv_free);
 
 void path_hash_func(const char *q, struct siphash *state) {
         bool add_slash = false;
