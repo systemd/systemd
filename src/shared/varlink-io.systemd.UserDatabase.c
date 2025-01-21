@@ -32,7 +32,7 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
 static SD_VARLINK_DEFINE_ERROR(NoRecordFound);
 static SD_VARLINK_DEFINE_ERROR(BadService);
 static SD_VARLINK_DEFINE_ERROR(ServiceNotAvailable);
-static SD_VARLINK_DEFINE_ERROR(ConflictingRecordNotFound);
+static SD_VARLINK_DEFINE_ERROR(ConflictingRecordFound);
 static SD_VARLINK_DEFINE_ERROR(EnumerationNotSupported);
 
 /* As per https://systemd.io/USER_GROUP_API/ */
@@ -45,5 +45,5 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_error_NoRecordFound,
                 &vl_error_BadService,
                 &vl_error_ServiceNotAvailable,
-                &vl_error_ConflictingRecordNotFound,
+                &vl_error_ConflictingRecordFound,
                 &vl_error_EnumerationNotSupported);
