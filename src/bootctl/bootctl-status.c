@@ -568,24 +568,24 @@ int verb_status(int argc, char *argv[], void *userdata) {
         return r;
 }
 
-static int ref_file(Hashmap *known_files, const char *fn, int increment) {
+static int ref_file(Hashmap **known_files, const char *fn, int increment) {
         char *k = NULL;
         int n, r;
 
         assert(known_files);
 
-        /* just gracefully ignore this. This way the caller doesn't
-           have to verify whether the bootloader entry is relevant */
+        /* just gracefully ignore this. This way the caller doesn't have to verify whether the bootloader
+         * entry is relevant. */
         if (!fn)
                 return 0;
 
-        n = PTR_TO_INT(hashmap_get2(known_files, fn, (void**)&k));
+        n = PTR_TO_INT(hashmap_get2(*known_files, fn, (void**)&k));
         n += increment;
 
         assert(n >= 0);
 
         if (n == 0) {
-                (void) hashmap_remove(known_files, fn);
+                (void) hashmap_remove(*known_files, fn);
                 free(k);
         } else if (!k) {
                 _cleanup_free_ char *t = NULL;
@@ -593,12 +593,12 @@ static int ref_file(Hashmap *known_files, const char *fn, int increment) {
                 t = strdup(fn);
                 if (!t)
                         return -ENOMEM;
-                r = hashmap_put(known_files, t, INT_TO_PTR(n));
+                r = hashmap_ensure_put(known_files, &path_hash_ops_free, t, INT_TO_PTR(n));
                 if (r < 0)
                         return r;
                 TAKE_PTR(t);
         } else {
-                r = hashmap_update(known_files, fn, INT_TO_PTR(n));
+                r = hashmap_update(*known_files, fn, INT_TO_PTR(n));
                 if (r < 0)
                         return r;
         }
@@ -606,7 +606,7 @@ static int ref_file(Hashmap *known_files, const char *fn, int increment) {
         return n;
 }
 
-static void deref_unlink_file(Hashmap *known_files, const char *fn, const char *root) {
+static void deref_unlink_file(Hashmap **known_files, const char *fn, const char *root) {
         _cleanup_free_ char *path = NULL;
         int r;
 
@@ -647,15 +647,11 @@ static void deref_unlink_file(Hashmap *known_files, const char *fn, const char *
 }
 
 static int count_known_files(const BootConfig *config, const char* root, Hashmap **ret_known_files) {
-        _cleanup_(hashmap_free_free_keyp) Hashmap *known_files = NULL;
+        _cleanup_hashmap_free_ Hashmap *known_files = NULL;
         int r;
 
         assert(config);
         assert(ret_known_files);
-
-        known_files = hashmap_new(&path_hash_ops);
-        if (!known_files)
-                return -ENOMEM;
 
         for (size_t i = 0; i < config->n_entries; i++) {
                 const BootEntry *e = config->entries + i;
@@ -663,22 +659,22 @@ static int count_known_files(const BootConfig *config, const char* root, Hashmap
                 if (!path_equal(e->root, root))
                         continue;
 
-                r = ref_file(known_files, e->kernel, +1);
+                r = ref_file(&known_files, e->kernel, +1);
                 if (r < 0)
                         return r;
-                r = ref_file(known_files, e->efi, +1);
+                r = ref_file(&known_files, e->efi, +1);
                 if (r < 0)
                         return r;
                 STRV_FOREACH(s, e->initrd) {
-                        r = ref_file(known_files, *s, +1);
+                        r = ref_file(&known_files, *s, +1);
                         if (r < 0)
                                 return r;
                 }
-                r = ref_file(known_files, e->device_tree, +1);
+                r = ref_file(&known_files, e->device_tree, +1);
                 if (r < 0)
                         return r;
                 STRV_FOREACH(s, e->device_tree_overlay) {
-                        r = ref_file(known_files, *s, +1);
+                        r = ref_file(&known_files, *s, +1);
                         if (r < 0)
                                 return r;
                 }
@@ -704,7 +700,7 @@ static int boot_config_find_in(const BootConfig *config, const char *root, const
 }
 
 static int unlink_entry(const BootConfig *config, const char *root, const char *id) {
-        _cleanup_(hashmap_free_free_keyp) Hashmap *known_files = NULL;
+        _cleanup_hashmap_free_ Hashmap *known_files = NULL;
         const BootEntry *e = NULL;
         int r;
 
@@ -725,13 +721,13 @@ static int unlink_entry(const BootConfig *config, const char *root, const char *
 
         e = &config->entries[r];
 
-        deref_unlink_file(known_files, e->kernel, e->root);
-        deref_unlink_file(known_files, e->efi, e->root);
+        deref_unlink_file(&known_files, e->kernel, e->root);
+        deref_unlink_file(&known_files, e->efi, e->root);
         STRV_FOREACH(s, e->initrd)
-                deref_unlink_file(known_files, *s, e->root);
-        deref_unlink_file(known_files, e->device_tree, e->root);
+                deref_unlink_file(&known_files, *s, e->root);
+        deref_unlink_file(&known_files, e->device_tree, e->root);
         STRV_FOREACH(s, e->device_tree_overlay)
-                deref_unlink_file(known_files, *s, e->root);
+                deref_unlink_file(&known_files, *s, e->root);
 
         if (arg_dry_run)
                 log_info("Would remove \"%s\"", e->path);
@@ -758,7 +754,6 @@ static int list_remove_orphaned_file(
         Hashmap *known_files = userdata;
 
         assert(path);
-        assert(known_files);
 
         if (event != RECURSE_DIR_ENTRY)
                 return RECURSE_DIR_CONTINUE;
@@ -780,7 +775,7 @@ static int cleanup_orphaned_files(
                 const BootConfig *config,
                 const char *root) {
 
-        _cleanup_(hashmap_free_free_keyp) Hashmap *known_files = NULL;
+        _cleanup_hashmap_free_ Hashmap *known_files = NULL;
         _cleanup_free_ char *full = NULL, *p = NULL;
         _cleanup_close_ int dir_fd = -EBADF;
         int r;
