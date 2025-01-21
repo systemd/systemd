@@ -5,8 +5,8 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
-#include <sd-bus.h>
-#include <sd-event.h>
+#include "sd-bus.h"
+#include "sd-event.h"
 
 #include "bus-locator.h"
 #include "bus-wait-for-jobs.h"
