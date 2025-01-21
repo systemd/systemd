@@ -95,6 +95,7 @@ shared_sources = files(
         'install.c',
         'ip-protocol-list.c',
         'ipvlan-util.c',
+        'job-mode.c',
         'journal-file-util.c',
         'journal-importer.c',
         'journal-util.c',
