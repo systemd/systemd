@@ -3,7 +3,7 @@
 
 #include <syslog.h>
 
-#include <sd-event.h>
+#include "sd-event.h"
 
 /* All our long-running services should implement a SIGRTMIN+18 handler that can be used to trigger certain
  * actions that affect service runtime. The specific action is indicated via the "value integer" you can pass
