@@ -63,6 +63,13 @@ def setUpModule():
         else:
             stopped_units.append(u)
 
+    # Generate debugging logs.
+    os.makedirs('/run/systemd/system/systemd-networkd.service.d', exist_ok=True)
+    with open(f'/run/systemd/system/systemd-networkd.service.d/00-debug.conf', mode='w', encoding='utf-8') as f:
+        f.write('[Service]\nEnvironment=SYSTEMD_LOG_LEVEL=debug\n')
+
+    subprocess.call(['systemctl', 'daemon-reload'])
+
     # create static systemd-network user for networkd-test-router.service (it
     # needs to do some stuff as root and can't start as user; but networkd
     # still insists on the user)
@@ -945,6 +952,9 @@ EOF
 # For the networkd instance invoked below cannot support varlink connection.
 # Hence, 'networkctl persistent-storage yes' cannot be used.
 export SYSTEMD_NETWORK_PERSISTENT_STORAGE_READY=1
+
+# Generate debugging logs.
+export SYSTEMD_LOG_LEVEL=debug
 
 # run networkd as in systemd-networkd.service
 exec $(systemctl cat systemd-networkd.service | sed -n '/^ExecStart=/ {{ s/^.*=//; s/^[@+-]//; s/^!*//; p}}')
