@@ -11,4 +11,7 @@ SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ENV{ID_USB_INTERFACES}=="*:0b????:
 # Tag any CCID device (i.e. Smartcard Reader) as security token
 ENV{ID_SMARTCARD_READER}=="1", TAG+="security-device"
 
+# /dev/input/by-id/ symlink
+TAGS=="security-device", ENV{ID_SERIAL}=="?*", SYMLINK+="input/by-id/%E{ID_SERIAL}"
+
 LABEL="fido_id_end"
