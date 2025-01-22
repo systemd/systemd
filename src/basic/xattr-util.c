@@ -175,7 +175,7 @@ int fd_getcrtime_at(
          * most sense. */
 
         if (statx(fd, strempty(path),
-                  (flags & ~AT_SYMLINK_FOLLOW)|(FLAGS_SET(flags, AT_SYMLINK_FOLLOW) ? 0 : AT_SYMLINK_NOFOLLOW)|AT_STATX_DONT_SYNC,
+                  at_flags_normalize_nofollow(flags)|AT_STATX_DONT_SYNC,
                   STATX_BTIME,
                   &sx) >= 0 &&
             (sx.stx_mask & STATX_BTIME) &&
