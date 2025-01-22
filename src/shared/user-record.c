@@ -2694,7 +2694,9 @@ bool user_name_fuzzy_match(const char *names[], size_t n_names, char **matches) 
 
 int user_record_match(UserRecord *u, const UserDBMatch *match) {
         assert(u);
-        assert(match);
+
+        if (!match)
+                return true;
 
         if (u->uid < match->uid_min || u->uid > match->uid_max)
                 return false;
