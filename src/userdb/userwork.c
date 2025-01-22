@@ -35,7 +35,14 @@ typedef struct LookupParameters {
                 gid_t gid;
         };
         const char *service;
+        UserDBMatch match;
 } LookupParameters;
+
+static void lookup_parameters_done(LookupParameters *p) {
+        assert(p);
+
+        userdb_match_done(&p->match);
+}
 
 static int add_nss_service(sd_json_variant **v) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *status = NULL, *z = NULL;
@@ -134,16 +141,21 @@ static int userdb_flags_from_service(sd_varlink *link, const char *service, User
 static int vl_method_get_user_record(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "uid",      SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uid_gid,            offsetof(LookupParameters, uid),     0             },
-                { "userName", SD_JSON_VARIANT_STRING,   json_dispatch_const_user_group_name, offsetof(LookupParameters, name),    SD_JSON_RELAX },
-                { "service",  SD_JSON_VARIANT_STRING,   sd_json_dispatch_const_string,       offsetof(LookupParameters, service), 0             },
+                { "uid",             _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uid_gid,            offsetof(LookupParameters, uid),                    0             },
+                { "userName",        SD_JSON_VARIANT_STRING,        json_dispatch_const_user_group_name, offsetof(LookupParameters, name),                   SD_JSON_RELAX },
+                { "service",         SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,       offsetof(LookupParameters, service),                0             },
+                { "fuzzyNames",      SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_strv,               offsetof(LookupParameters, match.fuzzy_names),      0             },
+                { "dispositionMask", SD_JSON_VARIANT_ARRAY,         json_dispatch_dispositions_mask,     offsetof(LookupParameters, match.disposition_mask), 0             },
+                { "uidMin",          _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uid_gid,            offsetof(LookupParameters, match.uid_min),          0             },
+                { "uidMax",          _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uid_gid,            offsetof(LookupParameters, match.uid_max),          0             },
                 {}
         };
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
-        LookupParameters p = {
+        _cleanup_(lookup_parameters_done) LookupParameters p = {
                 .uid = UID_INVALID,
+                .match = USERDB_MATCH_NULL,
         };
         UserDBFlags userdb_flags;
         int r;
@@ -160,14 +172,14 @@ static int vl_method_get_user_record(sd_varlink *link, sd_json_variant *paramete
                 return r;
 
         if (uid_is_valid(p.uid))
-                r = userdb_by_uid(p.uid, /* match= */ NULL, userdb_flags, &hr);
+                r = userdb_by_uid(p.uid, &p.match, userdb_flags, &hr);
         else if (p.name)
-                r = userdb_by_name(p.name, /* match= */ NULL, userdb_flags, &hr);
+                r = userdb_by_name(p.name, &p.match, userdb_flags, &hr);
         else {
                 _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *last = NULL;
 
-                r = userdb_all(/* match= */ NULL, userdb_flags, &iterator);
+                r = userdb_all(&p.match, userdb_flags, &iterator);
                 if (IN_SET(r, -ESRCH, -ENOLINK))
                         /* We turn off Varlink lookups in various cases (e.g. in case we only enable DropIn
                          * backend) — this might make userdb_all return ENOLINK (which indicates that varlink
@@ -182,7 +194,7 @@ static int vl_method_get_user_record(sd_varlink *link, sd_json_variant *paramete
                 for (;;) {
                         _cleanup_(user_record_unrefp) UserRecord *z = NULL;
 
-                        r = userdb_iterator_get(iterator, /* match= */ NULL, &z);
+                        r = userdb_iterator_get(iterator, &p.match, &z);
                         if (r == -ESRCH)
                                 break;
                         if (r < 0)
@@ -208,6 +220,8 @@ static int vl_method_get_user_record(sd_varlink *link, sd_json_variant *paramete
         }
         if (r == -ESRCH)
                 return sd_varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
+        if (r == -ENOEXEC)
+                return sd_varlink_error(link, "io.systemd.UserDatabase.NonMatchingRecordFound", NULL);
         if (r < 0) {
                 log_debug_errno(r, "User lookup failed abnormally: %m");
                 return sd_varlink_error(link, "io.systemd.UserDatabase.ServiceNotAvailable", NULL);
@@ -271,16 +285,21 @@ static int build_group_json(sd_varlink *link, GroupRecord *gr, sd_json_variant *
 static int vl_method_get_group_record(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "gid",       SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uid_gid,            offsetof(LookupParameters, gid),     0             },
-                { "groupName", SD_JSON_VARIANT_STRING,   json_dispatch_const_user_group_name, offsetof(LookupParameters, name),    SD_JSON_RELAX },
-                { "service",   SD_JSON_VARIANT_STRING,   sd_json_dispatch_const_string,       offsetof(LookupParameters, service), 0             },
+                { "gid",             _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uid_gid,            offsetof(LookupParameters, gid),                    0             },
+                { "groupName",       SD_JSON_VARIANT_STRING,        json_dispatch_const_user_group_name, offsetof(LookupParameters, name),                   SD_JSON_RELAX },
+                { "service",         SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,       offsetof(LookupParameters, service),                0             },
+                { "fuzzyNames",      SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_strv,               offsetof(LookupParameters, match.fuzzy_names),      0             },
+                { "dispositionMask", SD_JSON_VARIANT_ARRAY,         json_dispatch_dispositions_mask,     offsetof(LookupParameters, match.disposition_mask), 0             },
+                { "gidMin",          _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uid_gid,            offsetof(LookupParameters, match.gid_min),          0             },
+                { "gidMax",          _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uid_gid,            offsetof(LookupParameters, match.gid_max),          0             },
                 {}
         };
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         _cleanup_(group_record_unrefp) GroupRecord *g = NULL;
-        LookupParameters p = {
+        _cleanup_(lookup_parameters_done) LookupParameters p = {
                 .gid = GID_INVALID,
+                .match = USERDB_MATCH_NULL,
         };
         UserDBFlags userdb_flags;
         int r;
@@ -296,14 +315,14 @@ static int vl_method_get_group_record(sd_varlink *link, sd_json_variant *paramet
                 return r;
 
         if (gid_is_valid(p.gid))
-                r = groupdb_by_gid(p.gid, /* match= */ NULL, userdb_flags, &g);
+                r = groupdb_by_gid(p.gid, &p.match, userdb_flags, &g);
         else if (p.name)
-                r = groupdb_by_name(p.name, /* match= */ NULL, userdb_flags, &g);
+                r = groupdb_by_name(p.name, &p.match, userdb_flags, &g);
         else {
                 _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *last = NULL;
 
-                r = groupdb_all(/* match= */ NULL, userdb_flags, &iterator);
+                r = groupdb_all(&p.match, userdb_flags, &iterator);
                 if (IN_SET(r, -ESRCH, -ENOLINK))
                         return sd_varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
                 if (r < 0)
@@ -312,7 +331,7 @@ static int vl_method_get_group_record(sd_varlink *link, sd_json_variant *paramet
                 for (;;) {
                         _cleanup_(group_record_unrefp) GroupRecord *z = NULL;
 
-                        r = groupdb_iterator_get(iterator, /* match= */ NULL, &z);
+                        r = groupdb_iterator_get(iterator, &p.match, &z);
                         if (r == -ESRCH)
                                 break;
                         if (r < 0)
@@ -338,6 +357,8 @@ static int vl_method_get_group_record(sd_varlink *link, sd_json_variant *paramet
         }
         if (r == -ESRCH)
                 return sd_varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
+        if (r == -ENOEXEC)
+                return sd_varlink_error(link, "io.systemd.UserDatabase.NonMatchingRecordFound", NULL);
         if (r < 0) {
                 log_debug_errno(r, "Group lookup failed abnormally: %m");
                 return sd_varlink_error(link, "io.systemd.UserDatabase.ServiceNotAvailable", NULL);
