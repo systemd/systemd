@@ -97,7 +97,7 @@ static NextHop* nexthop_free(NextHop *nexthop) {
         nexthop_detach_impl(nexthop);
 
         config_section_free(nexthop->section);
-        hashmap_free_free(nexthop->group);
+        hashmap_free(nexthop->group);
         set_free(nexthop->nexthops);
         set_free(nexthop->routes);
 
@@ -1018,7 +1018,7 @@ void link_forget_nexthops(Link *link) {
 }
 
 static int nexthop_update_group(NextHop *nexthop, sd_netlink_message *message) {
-        _cleanup_hashmap_free_free_ Hashmap *h = NULL;
+        _cleanup_hashmap_free_ Hashmap *h = NULL;
         _cleanup_free_ struct nexthop_grp *group = NULL;
         size_t size = 0, n_group;
         int r;
@@ -1058,7 +1058,7 @@ static int nexthop_update_group(NextHop *nexthop, sd_netlink_message *message) {
                 if (!nhg)
                         return log_oom();
 
-                r = hashmap_ensure_put(&h, NULL, UINT32_TO_PTR(nhg->id), nhg);
+                r = hashmap_ensure_put(&h, &trivial_hash_ops_value_free, UINT32_TO_PTR(nhg->id), nhg);
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
@@ -1069,7 +1069,7 @@ static int nexthop_update_group(NextHop *nexthop, sd_netlink_message *message) {
                         TAKE_PTR(nhg);
         }
 
-        hashmap_free_free(nexthop->group);
+        hashmap_free(nexthop->group);
         nexthop->group = TAKE_PTR(h);
 
         nexthop_attach_to_group_members(nexthop);
@@ -1377,7 +1377,7 @@ static int config_parse_nexthop_group(
         int r;
 
         if (isempty(rvalue)) {
-                *group = hashmap_free_free(*group);
+                *group = hashmap_free(*group);
                 return 1;
         }
 
@@ -1431,7 +1431,7 @@ static int config_parse_nexthop_group(
                         continue;
                 }
 
-                r = hashmap_ensure_put(group, NULL, UINT32_TO_PTR(nhg->id), nhg);
+                r = hashmap_ensure_put(group, &trivial_hash_ops_value_free, UINT32_TO_PTR(nhg->id), nhg);
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r == -EEXIST) {
