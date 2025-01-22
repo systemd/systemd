@@ -490,23 +490,18 @@ static int rule_resolve_user(UdevRuleLine *rule_line, const char *name, uid_t *r
         }
 
         r = get_user_creds(&name, &uid, NULL, NULL, NULL, USER_CREDS_ALLOW_MISSING);
-        if (r < 0) {
-                if (IN_SET(r, -ENOENT, -ESRCH))
-                        log_line_error_errno(rule_line, r, "Unknown user '%s', ignoring.", name);
-                else
-                        log_line_error_errno(rule_line, r, "Failed to resolve user '%s', ignoring: %m", name);
-
-                *ret = UID_INVALID;
-                return 0;
-        }
+        if (IN_SET(r, -ENOENT, -ESRCH))
+                return log_line_error_errno(rule_line, r, "Unknown user '%s', ignoring.", name);
+        if (r < 0)
+                return log_line_error_errno(rule_line, r, "Failed to resolve user '%s', ignoring: %m", name);
 
         n = strdup(name);
         if (!n)
-                return -ENOMEM;
+                return log_oom();
 
         r = hashmap_ensure_put(known_users, &string_hash_ops, n, UID_TO_PTR(uid));
         if (r < 0)
-                return r;
+                return log_oom();
 
         TAKE_PTR(n);
         *ret = uid;
@@ -530,23 +525,18 @@ static int rule_resolve_group(UdevRuleLine *rule_line, const char *name, gid_t *
         }
 
         r = get_group_creds(&name, &gid, USER_CREDS_ALLOW_MISSING);
-        if (r < 0) {
-                if (IN_SET(r, -ENOENT, -ESRCH))
-                        log_line_error_errno(rule_line, r, "Unknown group '%s', ignoring.", name);
-                else
-                        log_line_error_errno(rule_line, r, "Failed to resolve group '%s', ignoring: %m", name);
-
-                *ret = GID_INVALID;
-                return 0;
-        }
+        if (IN_SET(r, -ENOENT, -ESRCH))
+                return log_line_error_errno(rule_line, r, "Unknown group '%s', ignoring.", name);
+        if (r < 0)
+                return log_line_error_errno(rule_line, r, "Failed to resolve group '%s', ignoring: %m", name);
 
         n = strdup(name);
         if (!n)
-                return -ENOMEM;
+                return log_oom();
 
         r = hashmap_ensure_put(known_groups, &string_hash_ops, n, GID_TO_PTR(gid));
         if (r < 0)
-                return r;
+                return log_oom();
 
         TAKE_PTR(n);
         *ret = gid;
@@ -1046,9 +1036,10 @@ static int parse_token(
                         r = rule_line_add_token(rule_line, TK_A_OWNER_ID, op, NULL, UID_TO_PTR(uid), /* is_case_insensitive = */ false, token_str);
                 else if (resolve_name_timing == RESOLVE_NAME_EARLY &&
                            rule_get_substitution_type(value) == SUBST_TYPE_PLAIN) {
+
                         r = rule_resolve_user(rule_line, value, &uid);
                         if (r < 0)
-                                return log_line_error_errno(rule_line, r, "Failed to resolve user name '%s': %m", value);
+                                return r;
 
                         r = rule_line_add_token(rule_line, TK_A_OWNER_ID, op, NULL, UID_TO_PTR(uid), /* is_case_insensitive = */ false, token_str);
                 } else if (resolve_name_timing != RESOLVE_NAME_NEVER) {
@@ -1074,9 +1065,10 @@ static int parse_token(
                         r = rule_line_add_token(rule_line, TK_A_GROUP_ID, op, NULL, GID_TO_PTR(gid), /* is_case_insensitive = */ false, token_str);
                 else if (resolve_name_timing == RESOLVE_NAME_EARLY &&
                            rule_get_substitution_type(value) == SUBST_TYPE_PLAIN) {
+
                         r = rule_resolve_group(rule_line, value, &gid);
                         if (r < 0)
-                                return log_line_error_errno(rule_line, r, "Failed to resolve group name '%s': %m", value);
+                                return r;
 
                         r = rule_line_add_token(rule_line, TK_A_GROUP_ID, op, NULL, GID_TO_PTR(gid), /* is_case_insensitive = */ false, token_str);
                 } else if (resolve_name_timing != RESOLVE_NAME_NEVER) {
