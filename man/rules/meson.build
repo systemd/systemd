@@ -890,6 +890,7 @@ manpages = [
    'sd_uid_get_sessions',
    'sd_uid_is_on_seat'],
   'HAVE_PAM'],
+ ['sd_varlink_set_description', '3', ['sd_varlink_get_description'], ''],
  ['sd_watchdog_enabled', '3', [], ''],
  ['shutdown', '8', [], ''],
  ['smbios-type-11', '7', [], ''],
