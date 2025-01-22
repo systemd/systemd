@@ -2916,6 +2916,12 @@ _public_ int sd_varlink_set_description(sd_varlink *v, const char *description) 
         return free_and_strdup(&v->description, description);
 }
 
+_public_ const char *sd_varlink_get_description(sd_varlink *v) {
+        assert_return(v, NULL);
+
+        return v->description;
+}
+
 static int io_callback(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         sd_varlink *v = ASSERT_PTR(userdata);
 
