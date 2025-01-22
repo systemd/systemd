@@ -42,15 +42,15 @@ typedef enum UserDBFlags {
  *  -ETIMEDOUT: Time-out
  */
 
-int userdb_by_name(const char *name, UserDBFlags flags, UserRecord **ret);
-int userdb_by_uid(uid_t uid, UserDBFlags flags, UserRecord **ret);
-int userdb_all(UserDBFlags flags, UserDBIterator **ret);
-int userdb_iterator_get(UserDBIterator *iterator, UserRecord **ret);
+int userdb_by_name(const char *name, const UserDBMatch *match, UserDBFlags flags, UserRecord **ret);
+int userdb_by_uid(uid_t uid, const UserDBMatch *match, UserDBFlags flags, UserRecord **ret);
+int userdb_all(const UserDBMatch *match, UserDBFlags flags, UserDBIterator **ret);
+int userdb_iterator_get(UserDBIterator *iterator, const UserDBMatch *match, UserRecord **ret);
 
-int groupdb_by_name(const char *name, UserDBFlags flags, GroupRecord **ret);
-int groupdb_by_gid(gid_t gid, UserDBFlags flags, GroupRecord **ret);
-int groupdb_all(UserDBFlags flags, UserDBIterator **ret);
-int groupdb_iterator_get(UserDBIterator *iterator, GroupRecord **ret);
+int groupdb_by_name(const char *name, const UserDBMatch *match, UserDBFlags flags, GroupRecord **ret);
+int groupdb_by_gid(gid_t gid, const UserDBMatch *match, UserDBFlags flags, GroupRecord **ret);
+int groupdb_all(const UserDBMatch *match, UserDBFlags flags, UserDBIterator **ret);
+int groupdb_iterator_get(UserDBIterator *iterator, const UserDBMatch *match, GroupRecord **ret);
 
 int membershipdb_by_user(const char *name, UserDBFlags flags, UserDBIterator **ret);
 int membershipdb_by_group(const char *name, UserDBFlags flags, UserDBIterator **ret);
