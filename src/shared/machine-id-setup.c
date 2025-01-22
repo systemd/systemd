@@ -181,7 +181,7 @@ int machine_id_setup(const char *root, sd_id128_t machine_id, MachineIdSetupFlag
 
                         fd = xopenat_full(inode_fd, /* path= */ NULL, O_RDWR|O_CLOEXEC, XO_REGULAR, 0444);
                         if (fd < 0) {
-                                log_debug_errno(fd, "Failed to topen '%s' in writable mode, retrying in read-only mode: %m", etc_machine_id);
+                                log_debug_errno(fd, "Failed to open '%s' in writable mode, retrying in read-only mode: %m", etc_machine_id);
 
                                 /* If that didn't work, convert it into a readable file */
                                 fd = xopenat_full(inode_fd, /* path= */ NULL, O_RDONLY|O_CLOEXEC, XO_REGULAR, MODE_INVALID);
