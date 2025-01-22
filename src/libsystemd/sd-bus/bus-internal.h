@@ -240,8 +240,8 @@ struct sd_bus {
         LIST_HEAD(struct filter_callback, filter_callbacks);
 
         Hashmap *nodes;
-        Hashmap *vtable_methods;
-        Hashmap *vtable_properties;
+        Set *vtable_methods;
+        Set *vtable_properties;
 
         union sockaddr_union sockaddr;
         socklen_t sockaddr_size;

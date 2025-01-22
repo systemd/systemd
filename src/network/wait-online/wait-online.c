@@ -23,7 +23,7 @@ static LinkOperationalStateRange arg_required_operstate = LINK_OPERSTATE_RANGE_I
 static AddressFamily arg_required_family = ADDRESS_FAMILY_NO;
 static bool arg_any = false;
 
-STATIC_DESTRUCTOR_REGISTER(arg_interfaces, hashmap_free_free_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_interfaces, hashmap_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_ignore, strv_freep);
 
 static int help(void) {
@@ -85,7 +85,7 @@ static int parse_interface_with_operstate_range(const char *str) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Invalid interface name: %s", ifname);
 
-        r = hashmap_ensure_put(&arg_interfaces, &string_hash_ops, ifname, range);
+        r = hashmap_ensure_put(&arg_interfaces, &string_hash_ops_free_free, ifname, range);
         if (r == -ENOMEM)
                 return log_oom();
         if (r < 0)
