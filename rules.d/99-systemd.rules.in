@@ -20,6 +20,8 @@ SUBSYSTEM=="mtd", TAG+="systemd"
 
 SUBSYSTEM=="ubi", TAG+="systemd"
 
+SUBSYSTEM=="input", TAG+="systemd"
+
 SUBSYSTEM=="block", TAG+="systemd"
 
 # When a dm device is first created, it's just an empty container. Ignore it.
