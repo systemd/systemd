@@ -452,14 +452,14 @@ TEST(fd_make_mount_point) {
                 fd = open(s, O_PATH|O_CLOEXEC);
                 assert_se(fd >= 0);
 
-                assert_se(fd_is_mount_point(fd, NULL, AT_SYMLINK_FOLLOW) == 0);
+                assert_se(is_mount_point_at(fd, NULL, AT_SYMLINK_FOLLOW) == 0);
 
                 assert_se(fd_make_mount_point(fd) > 0);
 
                 /* Reopen the inode so that we end up on the new mount */
                 fd2 = open(s, O_PATH|O_CLOEXEC);
 
-                assert_se(fd_is_mount_point(fd2, NULL, AT_SYMLINK_FOLLOW) > 0);
+                assert_se(is_mount_point_at(fd2, NULL, AT_SYMLINK_FOLLOW) > 0);
 
                 assert_se(fd_make_mount_point(fd2) == 0);
 

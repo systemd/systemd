@@ -329,7 +329,7 @@ int machine_id_commit(const char *root) {
         if (!etc_machine_id)
                 return log_oom();
 
-        r = fd_is_mount_point(etc_fd, "machine-id", /* flags= */ 0);
+        r = is_mount_point_at(etc_fd, "machine-id", /* flags= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine whether %s is a mount point: %m", etc_machine_id);
         if (r == 0) {
