@@ -2405,14 +2405,14 @@ static int has_regular_user(void) {
         _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
         int r;
 
-        r = userdb_all(USERDB_SUPPRESS_SHADOW, &iterator);
+        r = userdb_all(/* match= */ NULL, USERDB_SUPPRESS_SHADOW, &iterator);
         if (r < 0)
                 return log_error_errno(r, "Failed to create user enumerator: %m");
 
         for (;;) {
                 _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
 
-                r = userdb_iterator_get(iterator, &ur);
+                r = userdb_iterator_get(iterator, /* match= */ NULL, &ur);
                 if (r == -ESRCH)
                         break;
                 if (r < 0)
@@ -2432,7 +2432,7 @@ static int acquire_group_list(char ***ret) {
 
         assert(ret);
 
-        r = groupdb_all(USERDB_SUPPRESS_SHADOW|USERDB_EXCLUDE_DYNAMIC_USER, &iterator);
+        r = groupdb_all(/* match= */ NULL, USERDB_SUPPRESS_SHADOW|USERDB_EXCLUDE_DYNAMIC_USER, &iterator);
         if (r == -ENOLINK)
                 log_debug_errno(r, "No groups found. (Didn't check via Varlink.)");
         else if (r == -ESRCH)
@@ -2443,7 +2443,7 @@ static int acquire_group_list(char ***ret) {
                 for (;;) {
                         _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
 
-                        r = groupdb_iterator_get(iterator, &gr);
+                        r = groupdb_iterator_get(iterator, /* match= */ NULL, &gr);
                         if (r == -ESRCH)
                                 break;
                         if (r < 0)
@@ -2457,7 +2457,7 @@ static int acquire_group_list(char ***ret) {
 
                                 /* Filter groups here that belong to a specific user, and are named like them */
 
-                                r = userdb_by_name(gr->group_name, USERDB_SUPPRESS_SHADOW|USERDB_EXCLUDE_DYNAMIC_USER, &ur);
+                                r = userdb_by_name(gr->group_name, /* match= */ NULL, USERDB_SUPPRESS_SHADOW|USERDB_EXCLUDE_DYNAMIC_USER, &ur);
                                 if (r < 0 && r != -ESRCH)
                                         return log_debug_errno(r, "Failed to check if matching user exists for group '%s': %m", gr->group_name);
 
@@ -2508,7 +2508,7 @@ static int create_interactively(void) {
                         continue;
                 }
 
-                r = userdb_by_name(username, USERDB_SUPPRESS_SHADOW, /* ret= */ NULL);
+                r = userdb_by_name(username, /* match= */ NULL, USERDB_SUPPRESS_SHADOW, /* ret= */ NULL);
                 if (r == -ESRCH)
                         break;
                 if (r < 0)
@@ -2578,7 +2578,7 @@ static int create_interactively(void) {
                         continue;
                 }
 
-                r = groupdb_by_name(s, USERDB_SUPPRESS_SHADOW|USERDB_EXCLUDE_DYNAMIC_USER, /*ret=*/ NULL);
+                r = groupdb_by_name(s, /* match= */ NULL, USERDB_SUPPRESS_SHADOW|USERDB_EXCLUDE_DYNAMIC_USER, /*ret=*/ NULL);
                 if (r == -ESRCH) {
                         log_notice("Specified auxiliary group does not exist, try again: %s", s);
                         continue;
