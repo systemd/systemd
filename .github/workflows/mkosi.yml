@@ -204,7 +204,7 @@ jobs:
 
       - name: Run integration tests
         run: |
-          if [[ "$(mkosi sandbox meson test --help)" == *"--max-lines"* ]]; then
+          if [[ "$(sudo mkosi sandbox meson test --help)" == *"--max-lines"* ]]; then
               MAX_LINES=(--max-lines 300)
           else
               MAX_LINES=()
