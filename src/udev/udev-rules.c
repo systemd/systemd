@@ -467,8 +467,8 @@ UdevRules* udev_rules_free(UdevRules *rules) {
         LIST_FOREACH(rule_files, i, rules->rule_files)
                 udev_rule_file_free(i);
 
-        hashmap_free_free_key(rules->known_users);
-        hashmap_free_free_key(rules->known_groups);
+        hashmap_free(rules->known_users);
+        hashmap_free(rules->known_groups);
         hashmap_free(rules->stats_by_path);
         return mfree(rules);
 }
@@ -504,7 +504,7 @@ static int rule_resolve_user(UdevRuleLine *rule_line, const char *name, uid_t *r
         if (!n)
                 return -ENOMEM;
 
-        r = hashmap_ensure_put(known_users, &string_hash_ops, n, UID_TO_PTR(uid));
+        r = hashmap_ensure_put(known_users, &string_hash_ops_free, n, UID_TO_PTR(uid));
         if (r < 0)
                 return r;
 
@@ -544,7 +544,7 @@ static int rule_resolve_group(UdevRuleLine *rule_line, const char *name, gid_t *
         if (!n)
                 return -ENOMEM;
 
-        r = hashmap_ensure_put(known_groups, &string_hash_ops, n, GID_TO_PTR(gid));
+        r = hashmap_ensure_put(known_groups, &string_hash_ops_free, n, GID_TO_PTR(gid));
         if (r < 0)
                 return r;
 
@@ -2746,9 +2746,9 @@ static int udev_rule_apply_token_to_event(
                         return log_oom();
 
                 if (token->op == OP_ASSIGN)
-                        ordered_hashmap_clear_free_free(event->seclabel_list);
+                        ordered_hashmap_clear(event->seclabel_list);
 
-                r = ordered_hashmap_ensure_put(&event->seclabel_list, NULL, name, label);
+                r = ordered_hashmap_ensure_put(&event->seclabel_list, &trivial_hash_ops_free_free, name, label);
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0)
@@ -2991,7 +2991,7 @@ static int udev_rule_apply_token_to_event(
                         event->run_final = true;
 
                 if (IN_SET(token->op, OP_ASSIGN, OP_ASSIGN_FINAL))
-                        ordered_hashmap_clear_free_key(event->run_list);
+                        ordered_hashmap_clear(event->run_list);
 
                 if (!apply_format_value(event, token, buf, sizeof(buf), "command"))
                         return true;
@@ -3000,7 +3000,7 @@ static int udev_rule_apply_token_to_event(
                 if (!cmd)
                         return log_oom();
 
-                r = ordered_hashmap_ensure_put(&event->run_list, NULL, cmd, token->data);
+                r = ordered_hashmap_ensure_put(&event->run_list, &trivial_hash_ops_free, cmd, token->data);
                 if (r < 0)
                         return log_event_error_errno(event, token, r, "Failed to store command \"%s\": %m", cmd);
 

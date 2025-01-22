@@ -55,15 +55,20 @@ typedef struct CatalogItem {
 } CatalogItem;
 
 static void catalog_hash_func(const CatalogItem *i, struct siphash *state) {
+        assert(i);
+        assert(state);
+
         siphash24_compress_typesafe(i->id, state);
         siphash24_compress_string(i->language, state);
 }
 
 static int catalog_compare_func(const CatalogItem *a, const CatalogItem *b) {
-        unsigned k;
         int r;
 
-        for (k = 0; k < ELEMENTSOF(b->id.bytes); k++) {
+        assert(a);
+        assert(b);
+
+        for (size_t k = 0; k < ELEMENTSOF(b->id.bytes); k++) {
                 r = CMP(a->id.bytes[k], b->id.bytes[k]);
                 if (r != 0)
                         return r;
@@ -72,10 +77,16 @@ static int catalog_compare_func(const CatalogItem *a, const CatalogItem *b) {
         return strcmp(a->language, b->language);
 }
 
-DEFINE_HASH_OPS(catalog_hash_ops, CatalogItem, catalog_hash_func, catalog_compare_func);
+DEFINE_PRIVATE_HASH_OPS_FULL(
+                catalog_hash_ops,
+                CatalogItem, catalog_hash_func, catalog_compare_func, free,
+                void, free);
 
 static bool next_header(const char **s) {
         const char *e;
+
+        assert(s);
+        assert(*s);
 
         e = strchr(*s, '\n');
 
@@ -91,16 +102,21 @@ static bool next_header(const char **s) {
         return true;
 }
 
-static const char *skip_header(const char *s) {
+static const char* skip_header(const char *s) {
+        assert(s);
+
         while (next_header(&s))
                 ;
         return s;
 }
 
-static char *combine_entries(const char *one, const char *two) {
+static char* combine_entries(const char *one, const char *two) {
         const char *b1, *b2;
         size_t l1, l2, n;
         char *dest, *p;
+
+        assert(one);
+        assert(two);
 
         /* Find split point of headers to body */
         b1 = skip_header(one);
@@ -140,10 +156,11 @@ static char *combine_entries(const char *one, const char *two) {
 }
 
 static int finish_item(
-                OrderedHashmap *h,
+                OrderedHashmap **h,
                 sd_id128_t id,
                 const char *language,
-                char *payload, size_t payload_size) {
+                const char *payload,
+                size_t payload_size) {
 
         _cleanup_free_ CatalogItem *i = NULL;
         _cleanup_free_ char *combined = NULL;
@@ -164,14 +181,14 @@ static int finish_item(
                 strcpy(i->language, language);
         }
 
-        prev = ordered_hashmap_get(h, i);
+        prev = ordered_hashmap_get(*h, i);
         if (prev) {
                 /* Already have such an item, combine them */
                 combined = combine_entries(payload, prev);
                 if (!combined)
                         return log_oom();
 
-                r = ordered_hashmap_update(h, i, combined);
+                r = ordered_hashmap_update(*h, i, combined);
                 if (r < 0)
                         return log_error_errno(r, "Failed to update catalog item: %m");
 
@@ -183,7 +200,7 @@ static int finish_item(
                 if (!combined)
                         return log_oom();
 
-                r = ordered_hashmap_put(h, i, combined);
+                r = ordered_hashmap_ensure_put(h, &catalog_hash_ops, i, combined);
                 if (r < 0)
                         return log_error_errno(r, "Failed to insert catalog item: %m");
 
@@ -194,8 +211,11 @@ static int finish_item(
         return 0;
 }
 
-int catalog_file_lang(const char* filename, char **lang) {
-        char *beg, *end, *_lang;
+int catalog_file_lang(const char *filename, char **ret) {
+        char *beg, *end, *lang;
+
+        assert(filename);
+        assert(ret);
 
         end = endswith(filename, ".catalog");
         if (!end)
@@ -208,20 +228,22 @@ int catalog_file_lang(const char* filename, char **lang) {
         if (*beg != '.' || end <= beg + 1)
                 return 0;
 
-        _lang = strndup(beg + 1, end - beg - 1);
-        if (!_lang)
+        lang = strndup(beg + 1, end - beg - 1);
+        if (!lang)
                 return -ENOMEM;
 
-        *lang = _lang;
+        *ret = lang;
         return 1;
 }
 
 static int catalog_entry_lang(
-                const char* filename,
+                const char *filename,
                 unsigned line,
-                const char* t,
-                const char* deflang,
+                const char *t,
+                const char *deflang,
                 char **ret) {
+
+        assert(t);
 
         size_t c = strlen(t);
         if (c < 2)
@@ -243,7 +265,7 @@ static int catalog_entry_lang(
         return strdup_to(ret, t);
 }
 
-int catalog_import_file(OrderedHashmap *h, const char *path) {
+int catalog_import_file(OrderedHashmap **h, const char *path) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *payload = NULL;
         size_t payload_size = 0;
@@ -371,13 +393,18 @@ int catalog_import_file(OrderedHashmap *h, const char *path) {
 
 static int64_t write_catalog(
                 const char *database,
-                struct strbuf *sb,
-                CatalogItem *items,
-                size_t n) {
+                const struct strbuf *sb,
+                const CatalogItem *items,
+                size_t n_items) {
 
         _cleanup_(unlink_and_freep) char *p = NULL;
         _cleanup_fclose_ FILE *w = NULL;
         int r;
+
+        assert(database);
+        assert(sb);
+        assert(items);
+        assert(n_items > 0);
 
         r = mkdir_parents(database, 0755);
         if (r < 0)
@@ -391,13 +418,13 @@ static int64_t write_catalog(
                 .signature = CATALOG_SIGNATURE,
                 .header_size = htole64(CONST_ALIGN_TO(sizeof(CatalogHeader), 8)),
                 .catalog_item_size = htole64(sizeof(CatalogItem)),
-                .n_items = htole64(n),
+                .n_items = htole64(n_items),
         };
 
         if (fwrite(&header, sizeof(header), 1, w) != 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "%s: failed to write header.", p);
 
-        if (fwrite(items, sizeof(CatalogItem), n, w) != n)
+        if (fwrite(items, sizeof(CatalogItem), n_items, w) != n_items)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "%s: failed to write database.", p);
 
         if (fwrite(sb->buf, sb->len, 1, w) != 1)
@@ -416,30 +443,23 @@ static int64_t write_catalog(
         return ftello(w);
 }
 
-int catalog_update(const char* database, const char* root, const char* const* dirs) {
-        _cleanup_strv_free_ char **files = NULL;
-        _cleanup_(strbuf_freep) struct strbuf *sb = NULL;
-        _cleanup_ordered_hashmap_free_free_free_ OrderedHashmap *h = NULL;
-        _cleanup_free_ CatalogItem *items = NULL;
-        ssize_t offset;
-        char *payload;
-        CatalogItem *i;
-        unsigned n;
+int catalog_update(const char *database, const char *root, const char* const *dirs) {
         int r;
-        int64_t sz;
 
-        h = ordered_hashmap_new(&catalog_hash_ops);
-        sb = strbuf_new();
-        if (!h || !sb)
-                return log_oom();
+        assert(database);
 
+        if (!dirs)
+                dirs = catalog_file_dirs;
+
+        _cleanup_strv_free_ char **files = NULL;
         r = conf_files_list_strv(&files, ".catalog", root, 0, dirs);
         if (r < 0)
                 return log_error_errno(r, "Failed to get catalog files: %m");
 
+        _cleanup_ordered_hashmap_free_ OrderedHashmap *h = NULL;
         STRV_FOREACH(f, files) {
                 log_debug("Reading file '%s'", *f);
-                r = catalog_import_file(h, *f);
+                r = catalog_import_file(&h, *f);
                 if (r < 0)
                         return log_error_errno(r, "Failed to import file '%s': %m", *f);
         }
@@ -451,17 +471,23 @@ int catalog_update(const char* database, const char* root, const char* const* di
 
         log_debug("Found %u items in catalog.", ordered_hashmap_size(h));
 
-        items = new(CatalogItem, ordered_hashmap_size(h));
+        _cleanup_free_ CatalogItem *items = new(CatalogItem, ordered_hashmap_size(h));
         if (!items)
                 return log_oom();
 
-        n = 0;
+        _cleanup_(strbuf_freep) struct strbuf *sb = strbuf_new();
+        if (!sb)
+                return log_oom();
+
+        unsigned n = 0;
+        char *payload;
+        CatalogItem *i;
         ORDERED_HASHMAP_FOREACH_KEY(payload, i, h) {
                 log_trace("Found " SD_ID128_FORMAT_STR ", language %s",
                           SD_ID128_FORMAT_VAL(i->id),
                           isempty(i->language) ? "C" : i->language);
 
-                offset = strbuf_add_string(sb, payload);
+                ssize_t offset = strbuf_add_string(sb, payload);
                 if (offset < 0)
                         return log_oom();
 
@@ -474,7 +500,7 @@ int catalog_update(const char* database, const char* root, const char* const* di
 
         strbuf_complete(sb);
 
-        sz = write_catalog(database, sb, items, n);
+        int64_t sz = write_catalog(database, sb, items, n);
         if (sz < 0)
                 return log_error_errno(sz, "Failed to write %s: %m", database);
 
@@ -483,31 +509,28 @@ int catalog_update(const char* database, const char* root, const char* const* di
         return 0;
 }
 
-static int open_mmap(const char *database, int *_fd, struct stat *_st, void **_p) {
-        _cleanup_close_ int fd = -EBADF;
-        const CatalogHeader *h;
-        struct stat st;
-        void *p;
+static int open_mmap(const char *database, int *ret_fd, struct stat *ret_st, void **ret_map) {
+        assert(database);
+        assert(ret_fd);
+        assert(ret_st);
+        assert(ret_map);
 
-        assert(_fd);
-        assert(_st);
-        assert(_p);
-
-        fd = open(database, O_RDONLY|O_CLOEXEC);
+        _cleanup_close_ int fd = open(database, O_RDONLY|O_CLOEXEC);
         if (fd < 0)
                 return -errno;
 
+        struct stat st;
         if (fstat(fd, &st) < 0)
                 return -errno;
 
         if (st.st_size < (off_t) sizeof(CatalogHeader) || file_offset_beyond_memory_size(st.st_size))
                 return -EINVAL;
 
-        p = mmap(NULL, st.st_size, PROT_READ, MAP_SHARED, fd, 0);
+        void *p = mmap(NULL, st.st_size, PROT_READ, MAP_SHARED, fd, 0);
         if (p == MAP_FAILED)
                 return -errno;
 
-        h = p;
+        const CatalogHeader *h = p;
         if (memcmp(h->signature, (const uint8_t[]) CATALOG_SIGNATURE, sizeof(h->signature)) != 0 ||
             le64toh(h->header_size) < sizeof(CatalogHeader) ||
             le64toh(h->catalog_item_size) < sizeof(CatalogItem) ||
@@ -518,16 +541,15 @@ static int open_mmap(const char *database, int *_fd, struct stat *_st, void **_p
                 return -EBADMSG;
         }
 
-        *_fd = TAKE_FD(fd);
-        *_st = st;
-        *_p = p;
-
+        *ret_fd = TAKE_FD(fd);
+        *ret_st = st;
+        *ret_map = p;
         return 0;
 }
 
-static const char *find_id(void *p, sd_id128_t id) {
+static const char* find_id(const void *p, sd_id128_t id) {
         CatalogItem *f = NULL, key = { .id = id };
-        const CatalogHeader *h = p;
+        const CatalogHeader *h = ASSERT_PTR(p);
         const char *loc;
 
         loc = setlocale(LC_MESSAGES, NULL);
@@ -580,33 +602,33 @@ static const char *find_id(void *p, sd_id128_t id) {
                 le64toh(f->offset);
 }
 
-int catalog_get(const char* database, sd_id128_t id, char **ret_text) {
-        _cleanup_close_ int fd = -EBADF;
-        void *p = NULL;
-        struct stat st;
+int catalog_get(const char *database, sd_id128_t id, char **ret_text) {
         int r;
-        const char *s;
 
+        assert(database);
         assert(ret_text);
 
+        _cleanup_close_ int fd = -EBADF;
+        struct stat st;
+        void *p;
         r = open_mmap(database, &fd, &st, &p);
         if (r < 0)
                 return r;
 
-        s = find_id(p, id);
-        if (!s) {
+        const char *s = find_id(p, id);
+        if (!s)
                 r = -ENOENT;
-                goto finish;
-        }
+        else
+                r = strdup_to(ret_text, s);
 
-        r = strdup_to(ret_text, s);
-finish:
         (void) munmap(p, st.st_size);
-
         return r;
 }
 
-static char *find_header(const char *s, const char *header) {
+static char* find_header(const char *s, const char *header) {
+
+        assert(s);
+        assert(header);
 
         for (;;) {
                 const char *v;
@@ -623,6 +645,11 @@ static char *find_header(const char *s, const char *header) {
 }
 
 static void dump_catalog_entry(FILE *f, sd_id128_t id, const char *s, bool oneline) {
+        assert(s);
+
+        if (!f)
+                f = stdout;
+
         if (oneline) {
                 _cleanup_free_ char *subject = NULL, *defined_by = NULL;
 
@@ -638,24 +665,23 @@ static void dump_catalog_entry(FILE *f, sd_id128_t id, const char *s, bool oneli
 }
 
 int catalog_list(FILE *f, const char *database, bool oneline) {
-        _cleanup_close_ int fd = -EBADF;
-        void *p = NULL;
-        struct stat st;
-        const CatalogHeader *h;
-        const CatalogItem *items;
         int r;
-        unsigned n;
-        sd_id128_t last_id;
-        bool last_id_set = false;
 
+        assert(database);
+
+        _cleanup_close_ int fd = -EBADF;
+        struct stat st;
+        void *p;
         r = open_mmap(database, &fd, &st, &p);
         if (r < 0)
                 return r;
 
-        h = p;
-        items = (const CatalogItem*) ((const uint8_t*) p + le64toh(h->header_size));
+        const CatalogHeader *h = p;
+        const CatalogItem *items = (const CatalogItem*) ((const uint8_t*) p + le64toh(h->header_size));
 
-        for (n = 0; n < le64toh(h->n_items); n++) {
+        sd_id128_t last_id;
+        bool last_id_set = false;
+        for (size_t n = 0; n < le64toh(h->n_items); n++) {
                 const char *s;
 
                 if (last_id_set && sd_id128_equal(last_id, items[n].id))
@@ -669,33 +695,28 @@ int catalog_list(FILE *f, const char *database, bool oneline) {
                 last_id = items[n].id;
         }
 
-        munmap(p, st.st_size);
-
+        (void) munmap(p, st.st_size);
         return 0;
 }
 
 int catalog_list_items(FILE *f, const char *database, bool oneline, char **items) {
-        int r = 0;
+        int r, ret = 0;
+
+        assert(database);
 
         STRV_FOREACH(item, items) {
                 sd_id128_t id;
-                int k;
-                _cleanup_free_ char *msg = NULL;
-
-                k = sd_id128_from_string(*item, &id);
-                if (k < 0) {
-                        log_error_errno(k, "Failed to parse id128 '%s': %m", *item);
-                        if (r == 0)
-                                r = k;
+                r = sd_id128_from_string(*item, &id);
+                if (r < 0) {
+                        RET_GATHER(ret, log_error_errno(r, "Failed to parse id128 '%s': %m", *item));
                         continue;
                 }
 
-                k = catalog_get(database, id, &msg);
-                if (k < 0) {
-                        log_full_errno(k == -ENOENT ? LOG_NOTICE : LOG_ERR, k,
-                                       "Failed to retrieve catalog entry for '%s': %m", *item);
-                        if (r == 0)
-                                r = k;
+                _cleanup_free_ char *msg = NULL;
+                r = catalog_get(database, id, &msg);
+                if (r < 0) {
+                        RET_GATHER(ret, log_full_errno(r == -ENOENT ? LOG_NOTICE : LOG_ERR, r,
+                                                       "Failed to retrieve catalog entry for '%s': %m", *item));
                         continue;
                 }
 

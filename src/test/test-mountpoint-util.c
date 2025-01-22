@@ -50,13 +50,13 @@ TEST(mount_propagation_flag) {
 
 TEST(mnt_id) {
         _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_hashmap_free_free_ Hashmap *h = NULL;
+        _cleanup_hashmap_free_ Hashmap *h = NULL;
         char *p;
         void *k;
         int r;
 
         assert_se(f = fopen("/proc/self/mountinfo", "re"));
-        assert_se(h = hashmap_new(&trivial_hash_ops));
+        assert_se(h = hashmap_new(&trivial_hash_ops_value_free));
 
         for (;;) {
                 _cleanup_free_ char *line = NULL, *path = NULL;
