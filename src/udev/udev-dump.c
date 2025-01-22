@@ -10,11 +10,45 @@
 #include "udev-event.h"
 #include "user-util.h"
 
+static void event_cache_written_value(Hashmap **values, const char *attr, const char *value) {
+        assert(values);
+
+        _unused_ _cleanup_free_ void *key = NULL;
+        free(hashmap_remove2(*values, attr, &key));
+
+        if (hashmap_put_strdup_full(values, &path_hash_ops_free_free, attr, value) < 0)
+                log_oom_debug();
+}
+
+void event_cache_written_sysattr(UdevEvent *event, const char *attr, const char *value) {
+        event_cache_written_value(&event->written_sysattrs, attr, value);
+}
+
+void event_cache_written_sysctl(UdevEvent *event, const char *attr, const char *value) {
+        event_cache_written_value(&event->written_sysctls, attr, value);
+}
+
 void dump_event(UdevEvent *event, FILE *f) {
         sd_device *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
 
         if (!f)
                 f = stdout;
+
+        if (!hashmap_isempty(event->written_sysattrs)) {
+                const char *key, *value;
+
+                fprintf(f, "%sWritten sysfs attributes:%s\n", ansi_highlight(), ansi_normal());
+                HASHMAP_FOREACH_KEY(value, key, event->written_sysattrs)
+                        fprintf(f, "  %s : %s\n", key, value);
+        }
+
+        if (!hashmap_isempty(event->written_sysctls)) {
+                const char *key, *value;
+
+                fprintf(f, "%sWritten sysctl entries:%s\n", ansi_highlight(), ansi_normal());
+                HASHMAP_FOREACH_KEY(value, key, event->written_sysctls)
+                        fprintf(f, "  %s : %s\n", key, value);
+        }
 
         fprintf(f, "%sProperties:%s\n", ansi_highlight(), ansi_normal());
         FOREACH_DEVICE_PROPERTY(dev, key, value)
@@ -29,8 +63,8 @@ void dump_event(UdevEvent *event, FILE *f) {
         if (sd_device_get_devnum(dev, NULL) >= 0) {
 
                 if (sd_device_get_devlink_first(dev)) {
-                        int prio;
-                        device_get_devlink_priority(dev, &prio);
+                        int prio = 0;
+                        (void) device_get_devlink_priority(dev, &prio);
                         fprintf(f, "%sDevice node symlinks:%s (priority=%i)\n", ansi_highlight(), ansi_normal(), prio);
                         FOREACH_DEVICE_DEVLINK(dev, devlink)
                                 fprintf(f, "  %s\n", devlink);
