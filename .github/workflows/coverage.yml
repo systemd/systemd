@@ -148,7 +148,7 @@ jobs:
           sudo --preserve-env mkosi sandbox lcov --ignore-errors inconsistent,inconsistent "${lcov_args[@]}" --output-file build/test/coverage/everything.coverage-info
 
       - name: List coverage report
-        run: mkosi sandbox lcov --ignore-errors inconsistent,inconsistent --list build/test/coverage/everything.coverage-info
+        run: sudo mkosi sandbox lcov --ignore-errors inconsistent,inconsistent --list build/test/coverage/everything.coverage-info
 
       - name: Coveralls
         uses: coverallsapp/github-action@cfd0633edbd2411b532b808ba7a8b5e04f76d2c8
