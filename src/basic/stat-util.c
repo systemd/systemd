@@ -298,7 +298,7 @@ int inode_same_at(int fda, const char *filea, int fdb, const char *fileb, int fl
                         flags |= AT_EMPTY_PATH;
                 }
 
-                int ntha_flags = (flags & AT_EMPTY_PATH) | (FLAGS_SET(flags, AT_SYMLINK_NOFOLLOW) ? 0 : AT_SYMLINK_FOLLOW);
+                int ntha_flags = at_flags_normalize_follow(flags) & (AT_EMPTY_PATH|AT_SYMLINK_FOLLOW);
                 _cleanup_free_ struct file_handle *ha = NULL, *hb = NULL;
                 int mntida = -1, mntidb = -1;
 
