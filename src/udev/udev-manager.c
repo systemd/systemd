@@ -139,7 +139,7 @@ Manager* manager_free(Manager *manager) {
 
         udev_builtin_exit();
 
-        hashmap_free_free_free(manager->properties);
+        hashmap_free(manager->properties);
         udev_rules_free(manager->rules);
 
         hashmap_free(manager->workers);

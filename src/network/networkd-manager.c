@@ -692,7 +692,7 @@ Manager* manager_free(Manager *m) {
         m->wiphy_by_name = hashmap_free(m->wiphy_by_name);
         m->wiphy_by_index = hashmap_free_with_destructor(m->wiphy_by_index, wiphy_free);
 
-        ordered_set_free_free(m->address_pools);
+        ordered_set_free(m->address_pools);
 
         hashmap_free(m->route_table_names_by_number);
         hashmap_free(m->route_table_numbers_by_name);

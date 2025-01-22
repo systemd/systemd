@@ -10,15 +10,23 @@ void string_hash_func(const char *p, struct siphash *state) {
         siphash24_compress(p, strlen(p) + 1, state);
 }
 
-DEFINE_HASH_OPS(string_hash_ops, char, string_hash_func, string_compare_func);
-DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(string_hash_ops_free,
-                                    char, string_hash_func, string_compare_func, free);
-DEFINE_HASH_OPS_FULL(string_hash_ops_free_free,
-                     char, string_hash_func, string_compare_func, free,
-                     void, free);
-DEFINE_HASH_OPS_FULL(string_hash_ops_free_strv_free,
-                     char, string_hash_func, string_compare_func, free,
-                     char*, strv_free);
+DEFINE_HASH_OPS(string_hash_ops,
+                char, string_hash_func, string_compare_func);
+DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(
+                string_hash_ops_free,
+                char, string_hash_func, string_compare_func, free);
+DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+                string_hash_ops_value_free,
+                char, string_hash_func, string_compare_func,
+                void, free);
+DEFINE_HASH_OPS_FULL(
+                string_hash_ops_free_free,
+                char, string_hash_func, string_compare_func, free,
+                void, free);
+DEFINE_HASH_OPS_FULL(
+                string_hash_ops_free_strv_free,
+                char, string_hash_func, string_compare_func, free,
+                char*, strv_free);
 
 void path_hash_func(const char *q, struct siphash *state) {
         bool add_slash = false;
@@ -85,6 +93,12 @@ const struct hash_ops trivial_hash_ops_free = {
         .free_key = free,
 };
 
+const struct hash_ops trivial_hash_ops_value_free = {
+        .hash = trivial_hash_func,
+        .compare = trivial_compare_func,
+        .free_value = free,
+};
+
 const struct hash_ops trivial_hash_ops_free_free = {
         .hash = trivial_hash_func,
         .compare = trivial_compare_func,
@@ -100,7 +114,12 @@ int uint64_compare_func(const uint64_t *a, const uint64_t *b) {
         return CMP(*a, *b);
 }
 
-DEFINE_HASH_OPS(uint64_hash_ops, uint64_t, uint64_hash_func, uint64_compare_func);
+DEFINE_HASH_OPS(uint64_hash_ops,
+                uint64_t, uint64_hash_func, uint64_compare_func);
+DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+                uint64_hash_ops_value_free,
+                uint64_t, uint64_hash_func, uint64_compare_func,
+                void, free);
 
 #if SIZEOF_DEV_T != 8
 void devt_hash_func(const dev_t *p, struct siphash *state) {
