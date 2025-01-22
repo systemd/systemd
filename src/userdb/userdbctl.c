@@ -1227,7 +1227,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "chain",        no_argument,       NULL, ARG_CHAIN        },
                 { "uid-min",      required_argument, NULL, ARG_UID_MIN      },
                 { "uid-max",      required_argument, NULL, ARG_UID_MAX      },
-                { "fuzzy",        required_argument, NULL, 'z'              },
+                { "fuzzy",        no_argument,       NULL, 'z'              },
                 { "disposition",  required_argument, NULL, ARG_DISPOSITION  },
                 { "boundaries",   required_argument, NULL, ARG_BOUNDARIES   },
                 {}
