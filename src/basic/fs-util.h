@@ -172,3 +172,12 @@ static inline int at_flags_normalize_nofollow(int flags) {
                 flags |= AT_SYMLINK_NOFOLLOW;
         return flags;
 }
+
+static inline int at_flags_normalize_follow(int flags) {
+        if (FLAGS_SET(flags, AT_SYMLINK_NOFOLLOW)) {
+                assert(!FLAGS_SET(flags, AT_SYMLINK_FOLLOW));
+                flags &= ~AT_SYMLINK_NOFOLLOW;
+        } else
+                flags |= AT_SYMLINK_FOLLOW;
+        return flags;
+}
