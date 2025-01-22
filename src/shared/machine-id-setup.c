@@ -260,8 +260,10 @@ int machine_id_setup(const char *root, sd_id128_t machine_id, MachineIdSetupFlag
 
                 WITH_UMASK(0022) {
                         r = id128_write_at(run_fd, "machine-id", ID128_FORMAT_PLAIN, machine_id);
-                        if (r < 0)
+                        if (r < 0) {
+                                (void) unlinkat(run_fd, "machine-id", /* flags = */ 0);
                                 return log_error_errno(r, "Cannot write '%s': %m", run_machine_id);
+                        }
                 }
 
                 unlink_run_machine_id = true;
@@ -273,20 +275,18 @@ int machine_id_setup(const char *root, sd_id128_t machine_id, MachineIdSetupFlag
 
         /* And now, let's mount it over */
         r = mount_follow_verbose(LOG_ERR, run_machine_id, FORMAT_PROC_FD_PATH(fd), /* fstype= */ NULL, MS_BIND, /* options= */ NULL);
-        if (r < 0)
+        if (r < 0) {
+                if (unlink_run_machine_id)
+                        (void) unlinkat(ASSERT_FD(run_fd), "machine-id", /* flags = */ 0);
                 return r;
+        }
 
         log_full(FLAGS_SET(flags, MACHINE_ID_SETUP_FORCE_TRANSIENT) ? LOG_DEBUG : LOG_INFO, "Installed transient '%s' file.", etc_machine_id);
-
-        unlink_run_machine_id = false;
 
         /* Mark the mount read-only (note: we are not going via FORMAT_PROC_FD_PATH() here because that fd is not updated to our new bind mount) */
         (void) mount_follow_verbose(LOG_WARNING, /* source= */ NULL, etc_machine_id, /* fstype= */ NULL, MS_BIND|MS_RDONLY|MS_REMOUNT, /* options= */ NULL);
 
 finish:
-        if (unlink_run_machine_id)
-                (void) unlinkat(ASSERT_FD(run_fd), "machine-id", /* flags= */ 0);
-
         if (!in_initrd())
                 (void) sd_notifyf(/* unset_environment= */ false, "X_SYSTEMD_MACHINE_ID=" SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(machine_id));
 
