@@ -8,8 +8,10 @@
 #include "fileio.h"
 #include "macro.h"
 #include "memory-util.h"
+#include "missing_fs.h"
 #include "missing_magic.h"
 #include "missing_threads.h"
+#include "mountpoint-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "pidfd-util.h"
@@ -226,6 +228,7 @@ int pidfd_get_cgroupid(int fd, uint64_t *ret) {
 }
 
 int pidfd_get_inode_id(int fd, uint64_t *ret) {
+        static bool file_handle_supported = true;
         int r;
 
         assert(fd >= 0);
@@ -235,6 +238,29 @@ int pidfd_get_inode_id(int fd, uint64_t *ret) {
                 return r;
         if (r == 0)
                 return -EOPNOTSUPP;
+
+        if (file_handle_supported) {
+                union {
+                        struct file_handle file_handle;
+                        uint8_t space[offsetof(struct file_handle, f_handle) + sizeof(uint64_t)];
+                } fh = {
+                        .file_handle.handle_bytes = sizeof(uint64_t),
+                        .file_handle.handle_type = FILEID_KERNFS,
+                };
+                int mnt_id;
+
+                r = RET_NERRNO(name_to_handle_at(fd, "", &fh.file_handle, &mnt_id, AT_EMPTY_PATH));
+                if (r >= 0) {
+                        if (ret)
+                                *ret = *(uint64_t*) fh.file_handle.f_handle;
+                        return 0;
+                }
+                assert(r != -EOVERFLOW);
+                if (is_name_to_handle_at_fatal_error(r))
+                        return r;
+
+                file_handle_supported = false;
+        }
 
         struct stat st;
         if (fstat(fd, &st) < 0)
