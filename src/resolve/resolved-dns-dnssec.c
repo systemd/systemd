@@ -1473,7 +1473,7 @@ int dnssec_verify_dnskey_by_ds_search(DnsResourceRecord *dnskey, DnsAnswer *vali
 
                 r = dnssec_verify_dnskey_by_ds(dnskey, ds, false);
                 if (IN_SET(r, -EKEYREJECTED, -EOPNOTSUPP))
-                        return 0; /* The DNSKEY is revoked or otherwise invalid, or we don't support the digest algorithm */
+                        continue; /* The DNSKEY is revoked or otherwise invalid, or we don't support the digest algorithm */
                 if (r < 0)
                         return r;
                 if (r > 0)
