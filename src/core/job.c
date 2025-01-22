@@ -448,9 +448,8 @@ bool job_type_is_redundant(JobType a, UnitActiveState b) {
                 return IN_SET(b, UNIT_ACTIVE, UNIT_RELOADING, UNIT_REFRESHING);
 
         case JOB_RELOAD:
-                return
-                        b == UNIT_RELOADING;
-
+                /* Reload jobs are never consider redundant/duplicate. Refer jobs_may_late_merge() for
+                 * a detailed justification. */
         case JOB_RESTART:
                 /* Restart jobs must always be kept.
                  *
