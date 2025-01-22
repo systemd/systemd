@@ -32,7 +32,7 @@ static int address_pool_new(
                 .in_addr = *u,
         };
 
-        r = ordered_set_ensure_put(&m->address_pools, NULL, p);
+        r = ordered_set_ensure_put(&m->address_pools, &trivial_hash_ops_free, p);
         if (r < 0)
                 return r;
 
