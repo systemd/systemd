@@ -29,8 +29,8 @@ void dump_event(UdevEvent *event, FILE *f) {
         if (sd_device_get_devnum(dev, NULL) >= 0) {
 
                 if (sd_device_get_devlink_first(dev)) {
-                        int prio;
-                        device_get_devlink_priority(dev, &prio);
+                        int prio = 0;
+                        (void) device_get_devlink_priority(dev, &prio);
                         fprintf(f, "%sDevice node symlinks:%s (priority=%i)\n", ansi_highlight(), ansi_normal(), prio);
                         FOREACH_DEVICE_DEVLINK(dev, devlink)
                                 fprintf(f, "  %s\n", devlink);
