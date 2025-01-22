@@ -326,6 +326,7 @@ def process_coverage(args: argparse.Namespace, summary: Summary, name: str, jour
                     '--quiet',
                 ],
                 check=True,
+                cwd=os.fspath(args.meson_source_dir),
             )  # fmt: skip
 
             subprocess.run(
@@ -338,6 +339,7 @@ def process_coverage(args: argparse.Namespace, summary: Summary, name: str, jour
                     '--quiet',
                 ],
                 check=True,
+                cwd=os.fspath(args.meson_source_dir),
             )  # fmt: skip
 
             Path(f'{output}.new').unlink()
