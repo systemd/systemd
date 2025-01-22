@@ -18,3 +18,4 @@ Version: {{PROJECT_VERSION}}
 Libs: -L${libdir} -ludev
 Libs.private: -lrt -pthread
 Cflags: -I${includedir}
+Requires.private: libcap
