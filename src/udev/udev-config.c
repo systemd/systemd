@@ -407,7 +407,7 @@ static int manager_set_environment_one(Manager *manager, const char *s) {
         _cleanup_free_ char *old_key = NULL, *old_value = NULL;
         old_value = hashmap_get2(manager->properties, key, (void**) &old_key);
 
-        r = hashmap_ensure_replace(&manager->properties, &string_hash_ops, key, value);
+        r = hashmap_ensure_replace(&manager->properties, &string_hash_ops_free_free, key, value);
         if (r < 0) {
                 assert(!old_key);
                 assert(!old_value);
