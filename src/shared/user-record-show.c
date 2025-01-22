@@ -200,7 +200,7 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
                 if (show_full_group_info) {
                         _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
 
-                        r = groupdb_by_gid(hr->gid, 0, &gr);
+                        r = groupdb_by_gid(hr->gid, /* match= */ NULL, /* flags= */ 0, &gr);
                         if (r < 0) {
                                 errno = -r;
                                 printf("         GID: " GID_FMT " (unresolvable: %m)\n", hr->gid);
