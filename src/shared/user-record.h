@@ -9,7 +9,9 @@
 
 #include "hashmap.h"
 #include "missing_resource.h"
+#include "strv.h"
 #include "time-util.h"
+#include "user-util.h"
 
 typedef enum UserDisposition {
         USER_INTRINSIC,   /* root and nobody */
@@ -487,6 +489,28 @@ typedef struct UserDBMatch {
 } UserDBMatch;
 
 #define USER_DISPOSITION_MASK_MAX ((UINT64_C(1) << _USER_DISPOSITION_MAX) - UINT64_C(1))
+
+#define USERDB_MATCH_NULL                                       \
+        (UserDBMatch) {                                         \
+                .disposition_mask = USER_DISPOSITION_MASK_MAX,  \
+                .uid_min = 0,                                   \
+                .uid_max = UID_INVALID-1,                       \
+       }
+
+static inline bool userdb_match_is_set(const UserDBMatch *match) {
+        if (!match)
+                return false;
+
+        return !strv_isempty(match->fuzzy_names) ||
+                !FLAGS_SET(match->disposition_mask, USER_DISPOSITION_MASK_MAX) ||
+                match->uid_min > 0 ||
+                match->uid_max < UID_INVALID-1;
+}
+
+static inline void userdb_match_done(UserDBMatch *match) {
+        assert(match);
+        strv_free(match->fuzzy_names);
+}
 
 bool user_name_fuzzy_match(const char *names[], size_t n_names, char **matches);
 int user_record_match(UserRecord *u, const UserDBMatch *match);
