@@ -41,7 +41,7 @@ _systemd_creds() {
     local verb comps mode i
     local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]} words cword
     local -A OPTS=(
-        [STANDALONE]='-h --help --version --no-pager --no-legend
+        [STANDALONE]='-h --help --version --no-pager --no-legend --no-ask-password
                       -H -T --system --user -p --pretty --allow-null'
         [ARG]='--tpm2-device
                --tpm2-device-key
@@ -77,6 +77,7 @@ _systemd_creds() {
                    --version
                    --no-pager
                    --no-legend
+                   --no-ask-password
                    --uid
                    --with-key
                    -H
@@ -94,6 +95,7 @@ _systemd_creds() {
                    --version
                    --no-pager
                    --no-legend
+                   --no-ask-password
                    --uid
                    --tpm2-device
                    --tpm2-pcrs
