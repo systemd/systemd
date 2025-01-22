@@ -1134,6 +1134,37 @@ int config_parse_route_prefix_lifetime(
         return 0;
 }
 
+int config_parse_route_prefix_preference(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_(route_prefix_free_or_set_invalidp) RoutePrefix *p = NULL;
+        Network *network = ASSERT_PTR(userdata);
+        int r;
+
+        assert(filename);
+
+        r = route_prefix_new_static(network, filename, section_line, &p);
+        if (r < 0)
+                return log_oom();
+
+        r = config_parse_router_preference(unit, filename, line, section, section_line,
+                                           lvalue, ltype, rvalue, &p->route.preference, NULL);
+        if (r <= 0)
+                return r;
+
+        TAKE_PTR(p);
+        return 0;
+}
+
 int config_parse_pref64_prefix(
                 const char *unit,
                 const char *filename,
@@ -1511,25 +1542,18 @@ int config_parse_router_preference(
                 void *data,
                 void *userdata) {
 
-        Network *network = userdata;
+        uint8_t *preference = ASSERT_PTR(data);
 
-        assert(filename);
-        assert(section);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        if (streq(rvalue, "high"))
-                network->router_preference = SD_NDISC_PREFERENCE_HIGH;
-        else if (STR_IN_SET(rvalue, "medium", "normal", "default"))
-                network->router_preference = SD_NDISC_PREFERENCE_MEDIUM;
+        if (isempty(rvalue) || STR_IN_SET(rvalue, "medium", "normal", "default"))
+                *preference = SD_NDISC_PREFERENCE_MEDIUM;
+        else if (streq(rvalue, "high"))
+                *preference = SD_NDISC_PREFERENCE_HIGH;
         else if (streq(rvalue, "low"))
-                network->router_preference = SD_NDISC_PREFERENCE_LOW;
+                *preference = SD_NDISC_PREFERENCE_LOW;
         else
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Invalid router preference, ignoring assignment: %s", rvalue);
+                return log_syntax_parse_error(unit, filename, line, 0, lvalue, rvalue);
 
-        return 0;
+        return 1;
 }
 
 int config_parse_router_home_agent_lifetime(
