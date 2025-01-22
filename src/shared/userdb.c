@@ -773,6 +773,7 @@ int userdb_iterator_get(UserDBIterator *iterator, UserRecord **ret) {
                 /* If NSS isn't covered elsewhere, let's iterate through it first, since it probably contains
                  * the more traditional sources, which are probably good to show first. */
 
+                errno = 0;
                 pw = getpwent();
                 if (pw) {
                         _cleanup_free_ char *buffer = NULL;
