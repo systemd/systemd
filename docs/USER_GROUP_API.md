@@ -110,7 +110,7 @@ For example, introspection is not available, and the resolver logic is not used.
 
 ## Other Services
 
-The `systemd` project provides three other services implementing this
+The `systemd` project provides several other services implementing this
 interface. Specifically:
 
 1. `io.systemd.DynamicUser` → This service is implemented by the service
@@ -124,6 +124,16 @@ interface. Specifically:
 3. `io.systemd.Machine` → This service is implemented by
    `systemd-machined.service` and provides records for the users and groups used
    by local containers that use user namespacing.
+
+4. `io.systemd.DropIn` → This service is implemented by
+   `systemd-userdbd.service` and allows storing JSON user records in drop-in
+   files in the `/etc/userdb/`, `/run/userdb/`, `/run/host/userdb/` or
+   `/usr/lib/userdb/` directories.
+
+5. `io.systemd.NamespaceResource` → This service is implemented by
+   `systemd-nsresourced.service` and defines a pair of user and group records
+   for every UID/GID assigned to user namespaces transiently allocated via the
+   service.
 
 Other projects are invited to implement these services too.
 For example, it would make sense for LDAP/ActiveDirectory projects to implement these
