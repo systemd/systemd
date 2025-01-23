@@ -1860,7 +1860,8 @@ static int path_get_mount_info_at(
                 int dir_fd,
                 const char *path,
                 char **ret_fstype,
-                char **ret_options) {
+                char **ret_options,
+                char **ret_target) {
 
         _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
         _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
@@ -1888,7 +1889,7 @@ static int path_get_mount_info_at(
                 if (mnt_fs_get_id(fs) != mnt_id)
                         continue;
 
-                _cleanup_free_ char *fstype = NULL, *options = NULL;
+                _cleanup_free_ char *fstype = NULL, *options = NULL, *target = NULL;
 
                 if (ret_fstype) {
                         fstype = strdup(strempty(mnt_fs_get_fstype(fs)));
@@ -1902,10 +1903,18 @@ static int path_get_mount_info_at(
                                 return log_oom_debug();
                 }
 
+                if (ret_target) {
+                        target = strdup(strempty(mnt_fs_get_target(fs)));
+                        if (!target)
+                                return log_oom_debug();
+                }
+
                 if (ret_fstype)
                         *ret_fstype = TAKE_PTR(fstype);
                 if (ret_options)
                         *ret_options = TAKE_PTR(options);
+                if (ret_target)
+                        *ret_target = TAKE_PTR(target);
 
                 return 0;
         }
@@ -1927,15 +1936,26 @@ int path_is_network_fs_harder_at(int dir_fd, const char *path) {
         if (r != 0)
                 return r;
 
-        _cleanup_free_ char *fstype = NULL, *options = NULL;
-        r = path_get_mount_info_at(fd, /* path = */ NULL, &fstype, &options);
+        _cleanup_free_ char *fstype = NULL, *mount_info_options = NULL, *target = NULL;
+        r = path_get_mount_info_at(fd, /* path = */ NULL, &fstype, &mount_info_options, &target);
         if (r < 0)
+                return r;
+
+        /* Checking /etc/fstab is essential because /proc/self/mountinfo relies on the show_options
+         * function hook of each filesystem to gather options. Certain filesystems, like ext4, may
+         * not display the _netdev option even if it is set. */
+        _cleanup_free_ char *fstab_options = NULL;
+        r = fstab_get_options(target, &fstab_options);
+        if (r < 0 && r != -ENODATA && r != -ENOENT)
                 return r;
 
         if (fstype_is_network(fstype))
                 return true;
 
-        if (fstab_test_option(options, "_netdev\0"))
+        if (fstab_test_option(mount_info_options, "_netdev\0"))
+                return true;
+
+        if (fstab_options && fstab_test_option(fstab_options, "_netdev\0"))
                 return true;
 
         return false;

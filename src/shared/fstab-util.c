@@ -380,3 +380,26 @@ bool fstab_is_bind(const char *options, const char *fstype) {
 
         return false;
 }
+
+int fstab_get_options(const char *path, char **ret_value) {
+        _cleanup_endmntent_ FILE *f = NULL;
+        struct mntent *me;
+        int ret = -ENODATA;
+
+        assert(ret_value);
+
+        if (!fstab_enabled())
+                return -ENODATA;
+
+        f = setmntent(fstab_path(), "re");
+        if (!f)
+                return -errno;
+
+        while ((me = getmntent(f))) {
+                if (path_equal(me->mnt_dir, path)) {
+                        ret = strdup_to(ret_value, me->mnt_opts);
+                        break;
+                }
+        }
+        return ret;
+}
