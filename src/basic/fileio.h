@@ -56,6 +56,9 @@ int write_string_file_full(int dir_fd, const char *fn, const char *line, WriteSt
 static inline int write_string_file_at(int dir_fd, const char *fn, const char *line, WriteStringFileFlags flags) {
         return write_string_file_full(dir_fd, fn, line, flags, NULL, NULL);
 }
+static inline int write_string_file_fd(int dir_fd, const char *line, WriteStringFileFlags flags) {
+        return write_string_file_at(dir_fd, NULL, line, flags);
+}
 static inline int write_string_file(const char *fn, const char *line, WriteStringFileFlags flags) {
         return write_string_file_at(AT_FDCWD, fn, line, flags);
 }
@@ -75,8 +78,10 @@ static inline int read_full_file(const char *filename, char **ret_contents, size
         return read_full_file_full(AT_FDCWD, filename, UINT64_MAX, SIZE_MAX, 0, NULL, ret_contents, ret_size);
 }
 
-int read_virtual_file_fd(int fd, size_t max_size, char **ret_contents, size_t *ret_size);
 int read_virtual_file_at(int dir_fd, const char *filename, size_t max_size, char **ret_contents, size_t *ret_size);
+static inline int read_virtual_file_fd(int fd, size_t max_size, char **ret_contents, size_t *ret_size) {
+        return read_virtual_file_at(fd, NULL, max_size, ret_contents, ret_size);
+}
 static inline int read_virtual_file(const char *filename, size_t max_size, char **ret_contents, size_t *ret_size) {
         return read_virtual_file_at(AT_FDCWD, filename, max_size, ret_contents, ret_size);
 }
@@ -90,9 +95,6 @@ static inline int read_full_stream(FILE *f, char **ret_contents, size_t *ret_siz
 }
 
 int verify_file_at(int dir_fd, const char *fn, const char *blob, bool accept_extra_nl);
-static inline int verify_file(const char *fn, const char *blob, bool accept_extra_nl) {
-        return verify_file_at(AT_FDCWD, fn, blob, accept_extra_nl);
-}
 
 int script_get_shebang_interpreter(const char *path, char **ret);
 
