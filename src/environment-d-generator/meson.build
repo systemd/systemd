@@ -13,6 +13,8 @@ executables += [
 ]
 
 install_emptydir(environmentdir)
-meson.add_install_script(sh, '-c',
-                         ln_s.format(sysconfdir / 'environment',
-                                     environmentdir / '99-environment.conf'))
+if install_sysconfdir
+        meson.add_install_script(sh, '-c',
+                                 ln_s.format(sysconfdir / 'environment',
+                                             environmentdir / '99-environment.conf'))
+endif
