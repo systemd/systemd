@@ -209,7 +209,10 @@ jobs:
               MAX_LINES=()
           fi
 
-          sudo mkosi sandbox \
+          # --preserve-env makes sure all the github actions environment variables are propagated which are
+          # used in integration-test-wrapper.py to construct the `gh` command line to download the journals
+          # of failed tests.
+          sudo --preserve-env mkosi sandbox \
             env \
             TEST_PREFER_QEMU=${{ matrix.vm }} \
             TEST_SKIP=${{ matrix.skip }} \
