@@ -5,6 +5,9 @@
 #include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-util.h"
+#include "chase.h"
+#include "conf-files.h"
+#include "constants.h"
 #include "device-private.h"
 #include "path-util.h"
 #include "udev-ctrl.h"
@@ -167,4 +170,110 @@ int udev_ping(usec_t timeout_usec, bool ignore_connection_failure) {
                 return r;
 
         return 1; /* received reply */
+}
+
+static int search_rules_file_in_conf_dirs(const char *s, const char *root, char ***files) {
+        _cleanup_free_ char *filename = NULL;
+        int r;
+
+        assert(s);
+
+        if (!endswith(s, ".rules"))
+                filename = strjoin(s, ".rules");
+        else
+                filename = strdup(s);
+        if (!filename)
+                return log_oom();
+
+        if (!filename_is_valid(filename))
+                return 0;
+
+        STRV_FOREACH(p, CONF_PATHS_STRV("udev/rules.d")) {
+                _cleanup_free_ char *path = NULL, *resolved = NULL;
+
+                path = path_join(*p, filename);
+                if (!path)
+                        return log_oom();
+
+                r = chase(path, root, CHASE_PREFIX_ROOT | CHASE_MUST_BE_REGULAR, &resolved, /* ret_fd = */ NULL);
+                if (r == -ENOENT)
+                        continue;
+                if (r < 0)
+                        return log_error_errno(r, "Failed to chase \"%s\": %m", path);
+
+                r = strv_consume(files, TAKE_PTR(resolved));
+                if (r < 0)
+                        return log_oom();
+
+                return 1; /* found */
+        }
+
+        return 0;
+}
+
+static int search_rules_file(const char *s, const char *root, char ***files) {
+        int r;
+
+        assert(s);
+        assert(files);
+
+        /* If the input is a file name (e.g. 99-systemd.rules), then try to find it in udev/rules.d directories. */
+        r = search_rules_file_in_conf_dirs(s, root, files);
+        if (r != 0)
+                return r;
+
+        /* If not found, or if it is a path, then chase it. */
+        struct stat st;
+        _cleanup_free_ char *resolved = NULL;
+        r = chase_and_stat(s, root, CHASE_PREFIX_ROOT, &resolved, &st);
+        if (r < 0)
+                return log_error_errno(r, "Failed to chase \"%s\": %m", s);
+
+        r = stat_verify_regular(&st);
+        if (r == -EISDIR) {
+                _cleanup_strv_free_ char **files_in_dir = NULL;
+
+                r = conf_files_list_strv(&files_in_dir, ".rules", root, 0, (const char* const*) STRV_MAKE_CONST(s));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to enumerate rules files in '%s': %m", resolved);
+
+                r = strv_extend_strv_consume(files, TAKE_PTR(files_in_dir), /* filter_duplicates = */ false);
+                if (r < 0)
+                        return log_oom();
+
+                return 0;
+        }
+        if (r < 0)
+                return log_error_errno(r, "'%s' is neither a regular file nor a directory: %m", resolved);
+
+        r = strv_consume(files, TAKE_PTR(resolved));
+        if (r < 0)
+                return log_oom();
+
+        return 0;
+}
+
+int search_rules_files(char * const *a, const char *root, char ***ret) {
+        _cleanup_strv_free_ char **files = NULL;
+        int r;
+
+        assert(ret);
+
+        if (strv_isempty(a)) {
+                r = conf_files_list_strv(&files, ".rules", root, 0, (const char* const*) CONF_PATHS_STRV("udev/rules.d"));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to enumerate rules files: %m");
+
+                if (root && strv_isempty(files))
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "No rules files found in %s.", root);
+
+        } else
+                STRV_FOREACH(s, a) {
+                        r = search_rules_file(*s, root, &files);
+                        if (r < 0)
+                                return r;
+                }
+
+        *ret = TAKE_PTR(files);
+        return 0;
 }

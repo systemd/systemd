@@ -5,6 +5,7 @@
 
 #include "macro.h"
 
+int cat_main(int argc, char *argv[], void *userdata);
 int info_main(int argc, char *argv[], void *userdata);
 int trigger_main(int argc, char *argv[], void *userdata);
 int settle_main(int argc, char *argv[], void *userdata);
