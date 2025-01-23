@@ -485,6 +485,23 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--job-mode=<replaceable>MODE</replaceable></option></term>
+
+        <listitem>
+          <para>When queuing a new job, this option controls how to deal with
+          already queued jobs.</para>
+
+          <para>The option takes the same mode values as
+          <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
+          <option>--job-mode=</option> option. The default job mode is <literal>fail</literal>.</para>
+
+          <para>Running <option>--job-mode=help</option> shows a list of available job modes.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--ignore-failure</option></term>
 
         <listitem><para>By default, if the specified command fails the invoked unit will be marked failed
