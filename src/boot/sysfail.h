@@ -5,6 +5,7 @@
 
 typedef enum SysFailType {
         SYSFAIL_NO_FAILURE,
+        SYSFAIL_FIRMWARE_UPDATE,
         _SYSFAIL_MAX,
 } SysFailType;
 
