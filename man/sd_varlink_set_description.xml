@@ -1,0 +1,101 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="sd_varlink_set_description" xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sd_varlink_set_description</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_varlink_set_description</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_varlink_set_description</refname>
+    <refname>sd_varlink_get_description</refname>
+
+    <refpurpose>Set or query description of a Varlink connection object</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-link.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int <function>sd_varlink_set_description</function></funcdef>
+        <paramdef>sd_varlink *<parameter>link</parameter></paramdef>
+        <paramdef>const char *<parameter>description</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>const char* <function>sd_varlink_get_description</function></funcdef>
+        <paramdef>sd_varlink *<parameter>link</parameter></paramdef>
+      </funcprototype>
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><function>sd_varlink_set_description()</function> sets the description string that is used in
+    logging to the specified string. The string is copied internally and freed when the Varlink connection
+    object is deallocated. The <parameter>description</parameter> argument may be <constant>NULL</constant>,
+    in which case the description is unset.</para>
+
+    <para><function>sd_varlink_get_description()</function> returns a description string for the specified
+    Varlink connection. This string may have been previously set with
+    <function>sd_varlink_set_description()</function>. If not set this way, a default string or
+    <constant>NULL</constant> may be returned, depending how the connection was allocated and set up.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>On success, <function>sd_varlink_set_description()</function> returns a non-negative integer. On
+    failure, it returns a negative errno-style error code. <function>sd_varlink_get_description()</function>
+    returns either <constant>NULL</constant> or a pointer to the description string.</para>
+
+    <refsect2>
+      <title>Errors</title>
+
+      <para>Returned errors may indicate the following problems:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
+
+          <listitem><para>An argument is invalid.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENOMEM</constant></term>
+
+          <listitem><para>Memory allocation failed.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>History</title>
+    <para><function>sd_varlink_set_description()</function> was added in version 257.</para>
+    <para><function>sd_varlink_get_description()</function> was added in version 258.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd-varlink</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>
