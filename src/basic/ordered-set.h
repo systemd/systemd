@@ -22,16 +22,8 @@ static inline void ordered_set_clear(OrderedSet *s) {
         return ordered_hashmap_clear((OrderedHashmap*) s);
 }
 
-static inline void ordered_set_clear_free(OrderedSet *s) {
-        return ordered_hashmap_clear_free((OrderedHashmap*) s);
-}
-
 static inline OrderedSet* ordered_set_free(OrderedSet *s) {
         return (OrderedSet*) ordered_hashmap_free((OrderedHashmap*) s);
-}
-
-static inline OrderedSet* ordered_set_free_free(OrderedSet *s) {
-        return (OrderedSet*) ordered_hashmap_free_free((OrderedHashmap*) s);
 }
 
 static inline int ordered_set_contains(OrderedSet *s, const void *p) {
@@ -103,7 +95,5 @@ void ordered_set_print(FILE *f, const char *field, OrderedSet *s);
         ordered_set_free(ordered_set_clear_with_destructor(s, f))
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(OrderedSet*, ordered_set_free);
-DEFINE_TRIVIAL_CLEANUP_FUNC(OrderedSet*, ordered_set_free_free);
 
 #define _cleanup_ordered_set_free_ _cleanup_(ordered_set_freep)
-#define _cleanup_ordered_set_free_free_ _cleanup_(ordered_set_free_freep)

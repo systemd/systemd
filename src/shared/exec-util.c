@@ -99,7 +99,7 @@ static int do_execute(
                 char *envp[],
                 ExecDirFlags flags) {
 
-        _cleanup_hashmap_free_free_ Hashmap *pids = NULL;
+        _cleanup_hashmap_free_ Hashmap *pids = NULL;
         bool parallel_execution;
         int r;
 
@@ -113,12 +113,6 @@ static int do_execute(
         assert(!strv_isempty(paths));
 
         parallel_execution = FLAGS_SET(flags, EXEC_DIR_PARALLEL) && !callbacks;
-
-        if (parallel_execution) {
-                pids = hashmap_new(NULL);
-                if (!pids)
-                        return log_oom();
-        }
 
         /* Abort execution of this process after the timeout. We simply rely on SIGALRM as
          * default action terminating the process, and turn on alarm(). */
@@ -176,7 +170,7 @@ static int do_execute(
                         continue;
 
                 if (parallel_execution) {
-                        r = hashmap_put(pids, PID_TO_PTR(pid), t);
+                        r = hashmap_ensure_put(&pids, &trivial_hash_ops_value_free, PID_TO_PTR(pid), t);
                         if (r < 0)
                                 return log_oom();
                         t = NULL;
