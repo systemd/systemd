@@ -384,10 +384,21 @@ static int userdb_connect(
         if (r < 0)
                 return log_debug_errno(r, "Failed to bind reply callback: %m");
 
+        _cleanup_free_ char *service = NULL;
+        r = path_extract_filename(path, &service);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to extract service name from socket path: %m");
+        assert(r != O_DIRECTORY);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *patched_query = sd_json_variant_ref(query);
+        r = sd_json_variant_set_field_string(&patched_query, "service", service);
+        if (r < 0)
+                return log_debug_errno(r, "Unable to set service JSON field: %m");
+
         if (more)
-                r = sd_varlink_observe(vl, method, query);
+                r = sd_varlink_observe(vl, method, patched_query);
         else
-                r = sd_varlink_invoke(vl, method, query);
+                r = sd_varlink_invoke(vl, method, patched_query);
         if (r < 0)
                 return log_debug_errno(r, "Failed to invoke varlink method: %m");
 
@@ -438,13 +449,7 @@ static int userdb_start_query(
         if ((flags & (USERDB_AVOID_MULTIPLEXER|USERDB_EXCLUDE_DYNAMIC_USER|USERDB_EXCLUDE_NSS|USERDB_EXCLUDE_DROPIN|USERDB_DONT_SYNTHESIZE_INTRINSIC|USERDB_DONT_SYNTHESIZE_FOREIGN)) == 0 &&
             !strv_contains(except, "io.systemd.Multiplexer") &&
             (!only || strv_contains(only, "io.systemd.Multiplexer"))) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *patched_query = sd_json_variant_ref(query);
-
-                r = sd_json_variant_set_field_string(&patched_query, "service", "io.systemd.Multiplexer");
-                if (r < 0)
-                        return log_debug_errno(r, "Unable to set service JSON field: %m");
-
-                r = userdb_connect(iterator, "/run/systemd/userdb/io.systemd.Multiplexer", method, more, patched_query);
+                r = userdb_connect(iterator, "/run/systemd/userdb/io.systemd.Multiplexer", method, more, query);
                 if (r >= 0) {
                         iterator->nss_covered = true; /* The multiplexer does NSS */
                         iterator->dropin_covered = true; /* It also handles drop-in stuff */
@@ -461,7 +466,6 @@ static int userdb_start_query(
         }
 
         FOREACH_DIRENT(de, d, return -errno) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *patched_query = NULL;
                 _cleanup_free_ char *p = NULL;
                 bool is_nss, is_dropin;
 
@@ -495,12 +499,7 @@ static int userdb_start_query(
                 if (!p)
                         return -ENOMEM;
 
-                patched_query = sd_json_variant_ref(query);
-                r = sd_json_variant_set_field_string(&patched_query, "service", de->d_name);
-                if (r < 0)
-                        return log_debug_errno(r, "Unable to set service JSON field: %m");
-
-                r = userdb_connect(iterator, p, method, more, patched_query);
+                r = userdb_connect(iterator, p, method, more, query);
                 if (is_nss && r >= 0) /* Turn off fallback NSS + dropin if we found the NSS/dropin service
                                        * and could connect to it */
                         iterator->nss_covered = true;
