@@ -346,7 +346,9 @@ bool group_record_matches_group_name(const GroupRecord *g, const char *group_nam
 
 int group_record_match(GroupRecord *h, const UserDBMatch *match) {
         assert(h);
-        assert(match);
+
+        if (!match)
+                return true;
 
         if (h->gid < match->gid_min || h->gid > match->gid_max)
                 return false;
