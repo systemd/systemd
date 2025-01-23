@@ -56,3 +56,5 @@ static inline const char* fstab_path(void) {
 }
 
 bool fstab_is_bind(const char *options, const char *fstype);
+
+int fstab_get_options(const char *path, char **ret_value);
