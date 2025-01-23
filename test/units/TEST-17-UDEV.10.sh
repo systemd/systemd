@@ -33,6 +33,15 @@ udevadm settle --timeout 30
 
 udevadm -h
 
+udevadm cat
+udevadm cat 99-systemd
+udevadm cat 99-systemd.rules
+udevadm cat /usr/lib/udev/rules.d/99-systemd.rules
+udevadm cat /usr/lib/udev/rules.d
+(! udevadm cat /dev/null)
+udevadm cat --config
+udevadm cat -h
+
 INVOCATION_ID=$(systemctl show --property InvocationID --value systemd-udevd.service)
 udevadm control -e
 # Wait for systemd-udevd.service being restarted.
