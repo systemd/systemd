@@ -99,6 +99,7 @@ typedef struct {
         bool auto_poweroff;
         bool auto_reboot;
         bool reboot_for_bitlocker;
+        bool sysfail_firmware_update;
         secure_boot_enroll secure_boot_enroll;
         bool force_menu;
         bool use_saved_entry;
@@ -500,48 +501,49 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
         secure = secure_boot_mode();
         (void) efivar_get_str16(MAKE_GUID_PTR(LOADER), u"LoaderDevicePartUUID", &device_part_uuid);
 
-        printf("  systemd-boot version: " GIT_VERSION "\n");
+        printf("   systemd-boot version: " GIT_VERSION "\n");
         if (loaded_image_path)
-                printf("          loaded image: %ls\n", loaded_image_path);
+                printf("           loaded image: %ls\n", loaded_image_path);
         if (device_part_uuid)
-                printf(" loader partition UUID: %ls\n", device_part_uuid);
-        printf("          architecture: " EFI_MACHINE_TYPE_NAME "\n");
-        printf("    UEFI specification: %u.%02u\n", ST->Hdr.Revision >> 16, ST->Hdr.Revision & 0xffff);
-        printf("       firmware vendor: %ls\n", ST->FirmwareVendor);
-        printf("      firmware version: %u.%02u\n", ST->FirmwareRevision >> 16, ST->FirmwareRevision & 0xffff);
-        printf("        OS indications: %#" PRIx64 "\n", get_os_indications_supported());
-        printf("           secure boot: %ls (%ls)\n",
+                printf("  loader partition UUID: %ls\n", device_part_uuid);
+        printf("           architecture: " EFI_MACHINE_TYPE_NAME "\n");
+        printf("     UEFI specification: %u.%02u\n", ST->Hdr.Revision >> 16, ST->Hdr.Revision & 0xffff);
+        printf("        firmware vendor: %ls\n", ST->FirmwareVendor);
+        printf("       firmware version: %u.%02u\n", ST->FirmwareRevision >> 16, ST->FirmwareRevision & 0xffff);
+        printf("         OS indications: %#" PRIx64 "\n", get_os_indications_supported());
+        printf("            secure boot: %ls (%ls)\n",
                         yes_no(IN_SET(secure, SECURE_BOOT_USER, SECURE_BOOT_DEPLOYED)),
                         secure_boot_mode_to_string(secure));
-        printf("                  shim: %ls\n", yes_no(shim_loaded()));
-        printf("                   TPM: %ls\n", yes_no(tpm_present()));
-        printf("          console mode: %i/%" PRIi64 " (%zux%zu @%ux%u)\n",
+        printf("                   shim: %ls\n", yes_no(shim_loaded()));
+        printf("                    TPM: %ls\n", yes_no(tpm_present()));
+        printf("           console mode: %i/%" PRIi64 " (%zux%zu @%ux%u)\n",
                         ST->ConOut->Mode->Mode, ST->ConOut->Mode->MaxMode - INT64_C(1),
                         x_max, y_max, screen_width, screen_height);
 
         if (!ps_continue())
                 return;
 
-        print_timeout_status("      timeout (config)", config->timeout_sec_config);
-        print_timeout_status("     timeout (EFI var)", config->timeout_sec_efivar);
+        print_timeout_status("       timeout (config)", config->timeout_sec_config);
+        print_timeout_status("      timeout (EFI var)", config->timeout_sec_efivar);
 
         if (config->entry_default_config)
-                printf("      default (config): %ls\n", config->entry_default_config);
+                printf("       default (config): %ls\n", config->entry_default_config);
         if (config->entry_default_efivar)
-                printf("     default (EFI var): %ls\n", config->entry_default_efivar);
+                printf("      default (EFI var): %ls\n", config->entry_default_efivar);
         if (config->entry_oneshot)
-                printf("    default (one-shot): %ls\n", config->entry_oneshot);
+                printf("     default (one-shot): %ls\n", config->entry_oneshot);
         if (config->entry_sysfail)
-                printf("     default (sysfail): %ls\n", config->entry_sysfail);
+                printf("      default (sysfail): %ls\n", config->entry_sysfail);
         if (config->entry_saved)
-                printf("           saved entry: %ls\n", config->entry_saved);
-        printf("                editor: %ls\n", yes_no(config->editor));
-        printf("          auto-entries: %ls\n", yes_no(config->auto_entries));
-        printf("         auto-firmware: %ls\n", yes_no(config->auto_firmware));
-        printf("         auto-poweroff: %ls\n", yes_no(config->auto_poweroff));
-        printf("           auto-reboot: %ls\n", yes_no(config->auto_reboot));
-        printf("                  beep: %ls\n", yes_no(config->beep));
-        printf("  reboot-for-bitlocker: %ls\n", yes_no(config->reboot_for_bitlocker));
+                printf("            saved entry: %ls\n", config->entry_saved);
+        printf("                 editor: %ls\n", yes_no(config->editor));
+        printf("           auto-entries: %ls\n", yes_no(config->auto_entries));
+        printf("          auto-firmware: %ls\n", yes_no(config->auto_firmware));
+        printf("          auto-poweroff: %ls\n", yes_no(config->auto_poweroff));
+        printf("            auto-reboot: %ls\n", yes_no(config->auto_reboot));
+        printf("                   beep: %ls\n", yes_no(config->beep));
+        printf("   reboot-for-bitlocker: %ls\n", yes_no(config->reboot_for_bitlocker));
+        printf("sysfail-firmware-update: %ls\n", yes_no(config->sysfail_firmware_update));
 
         switch (config->secure_boot_enroll) {
         case ENROLL_OFF:
@@ -1279,6 +1281,11 @@ static void config_defaults_load_from_file(Config *config, char *content) {
                                 log_error("Error parsing 'reboot-for-bitlocker' config option, ignoring: %s",
                                           value);
 
+                } else if (streq8(key, "sysfail-firmware-update")) {
+                        if (!parse_boolean(value, &config->sysfail_firmware_update))
+                                log_error("Error parsing 'sysfail-firmware-update' config option, ignoring: %s",
+                                          value);
+
                 } else if (streq8(key, "secure-boot-enroll")) {
                         if (streq8(value, "manual"))
                                 config->secure_boot_enroll = ENROLL_MANUAL;
@@ -1787,7 +1794,11 @@ static bool config_sysfail_occured(Config *config) {
 
         assert(config);
 
-        sysfail_type = sysfail_check();
+        SysFailConfig sysfail_config = {
+                .check_firmware_update = config->sysfail_firmware_update
+        };
+
+        sysfail_type = sysfail_check(&sysfail_config);
         if (sysfail_type == SYSFAIL_NO_FAILURE)
                 return false;
 
