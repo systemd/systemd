@@ -7,6 +7,20 @@
 #  the Free Software Foundation; either version 2.1 of the License, or
 #  (at your option) any later version.
 
+# This unit loads a specific kernel module explicitly and synchronizes on its
+# initialization to be complete. This unit should only be used as dependency
+# if automatic module loading cannot be used for a module, i.e. in exceptional
+# cases. These cases may include:
+#
+# 1. The primary API exposed by the module is a device node that is normally
+#    managed by systemd-tmpfiles-setup-dev-early.service (and thus auto-loading
+#    is generally supported), but some service already needs the functionality
+#    during even earlier boot.
+#
+# 2. The primary API exposed by the module is some directory in /sys/, /proc/
+#    or configfs, where simple access generally is not sufficient to load the
+#    module.
+
 [Unit]
 Description=Load Kernel Module %i
 DefaultDependencies=no
