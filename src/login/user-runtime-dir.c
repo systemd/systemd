@@ -92,27 +92,31 @@ static int user_mkdir_runtime_path(
                          uid, gid, runtime_dir_size, runtime_dir_inodes,
                          mac_smack_use() ? ",smackfsroot=*" : "");
 
+                _cleanup_free_ char *d = strdup(runtime_path);
+                if (!d)
+                        return log_oom();
+
                 r = mkdir_label(runtime_path, 0700);
                 if (r < 0 && r != -EEXIST)
                         return log_error_errno(r, "Failed to create %s: %m", runtime_path);
 
+                _cleanup_(rmdir_and_freep) char *destroy = TAKE_PTR(d); /* auto-destroy */
+
                 r = mount_nofollow_verbose(LOG_DEBUG, "tmpfs", runtime_path, "tmpfs", MS_NODEV|MS_NOSUID, options);
                 if (r < 0) {
-                        if (!ERRNO_IS_PRIVILEGE(r)) {
-                                log_error_errno(r, "Failed to mount per-user tmpfs directory %s: %m", runtime_path);
-                                goto fail;
-                        }
+                        if (!ERRNO_IS_PRIVILEGE(r))
+                                return log_error_errno(r, "Failed to mount per-user tmpfs directory %s: %m", runtime_path);
 
                         log_debug_errno(r,
                                         "Failed to mount per-user tmpfs directory %s.\n"
                                         "Assuming containerized execution, ignoring: %m", runtime_path);
 
                         r = chmod_and_chown(runtime_path, 0700, uid, gid);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to change ownership and mode of \"%s\": %m", runtime_path);
-                                goto fail;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to change ownership and mode of \"%s\": %m", runtime_path);
                 }
+
+                destroy = mfree(destroy); /* deactivate auto-destroy */
 
                 r = label_fix(runtime_path, 0);
                 if (r < 0)
@@ -120,11 +124,6 @@ static int user_mkdir_runtime_path(
         }
 
         return 0;
-
-fail:
-        /* Try to clean up, but ignore errors */
-        (void) rmdir(runtime_path);
-        return r;
 }
 
 static int user_remove_runtime_path(const char *runtime_path) {
@@ -139,9 +138,9 @@ static int user_remove_runtime_path(const char *runtime_path) {
 
         /* Ignore cases where the directory isn't mounted, as that's quite possible, if we lacked the permissions to
          * mount something */
-        r = umount2(runtime_path, MNT_DETACH);
-        if (r < 0 && !IN_SET(errno, EINVAL, ENOENT))
-                log_debug_errno(errno, "Failed to unmount user runtime directory %s, ignoring: %m", runtime_path);
+        r = RET_NERRNO(umount2(runtime_path, MNT_DETACH));
+        if (r < 0 && !IN_SET(r, -EINVAL, -ENOENT))
+                log_debug_errno(r, "Failed to unmount user runtime directory %s, ignoring: %m", runtime_path);
 
         r = rm_rf(runtime_path, REMOVE_ROOT);
         if (r < 0 && r != -ENOENT)
@@ -206,7 +205,10 @@ static int run(int argc, char *argv[]) {
         if (argc != 3)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "This program takes two arguments.");
-        if (!STR_IN_SET(argv[1], "start", "stop"))
+
+        const char *verb = argv[1], *user = argv[2];
+
+        if (!STR_IN_SET(verb, "start", "stop"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "First argument must be either \"start\" or \"stop\".");
 
@@ -216,10 +218,10 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        if (streq(argv[1], "start"))
-                return do_mount(argv[2]);
-        if (streq(argv[1], "stop"))
-                return do_umount(argv[2]);
+        if (streq(verb, "start"))
+                return do_mount(user);
+        if (streq(verb, "stop"))
+                return do_umount(user);
         assert_not_reached();
 }
 
