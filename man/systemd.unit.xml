@@ -783,8 +783,8 @@
         <term><varname>Conflicts=</varname></term>
 
         <listitem><para>A space-separated list of unit names. Configures negative requirement
-        dependencies. If a unit has a <varname>Conflicts=</varname> setting on another unit, starting the
-        former will stop the latter and vice versa.</para>
+        dependencies. If a unit has a <varname>Conflicts=</varname> requirement on a set of other units,
+        then starting it will stop all of them and starting any of them will stop it.</para>
 
         <para>Note that this setting does not imply an ordering dependency, similarly to the
         <varname>Wants=</varname> and <varname>Requires=</varname> dependencies described above. This means
