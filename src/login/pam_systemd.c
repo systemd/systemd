@@ -223,7 +223,7 @@ static int acquire_user_record(
                 _cleanup_free_ char *formatted = NULL;
 
                 /* Request the record ourselves */
-                r = userdb_by_name(username, /* flags= */ 0, &ur);
+                r = userdb_by_name(username, /* match= */ NULL, /* flags= */ 0, &ur);
                 if (r < 0) {
                         pam_syslog_errno(handle, LOG_ERR, r, "Failed to get user record: %m");
                         return PAM_USER_UNKNOWN;
