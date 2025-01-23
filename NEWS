@@ -33,6 +33,12 @@ CHANGES WITH 258 in spe:
           an incompatible change of sorts, since per-user services will
           typically not be available for such PAM sessions of system users.
 
+        * systemd-udevd ignores OWNER=/GROUP= settings with a non-system
+          user/group specified in udev rules files, to avoid device nodes being
+          owned by a non-system user/group. It is recommended to check udev
+          rules files with 'udevadm verify' and/or 'udevadm test' commands if
+          the specified user/group in OWNER=/GROUP= are valid.
+
         Announcements of Future Feature Removals:
 
         * The D-Bus method org.freedesktop.systemd1.StartAuxiliaryScope() is
