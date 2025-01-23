@@ -113,7 +113,10 @@ jobs:
 
       - name: Run integration tests
         run: |
-          sudo mkosi sandbox \
+          # --preserve-env makes sure all the github actions environment variables are propagated which are
+          # used in integration-test-wrapper.py to construct the `gh` command line to download the journals
+          # of failed tests.
+          sudo --preserve-env mkosi sandbox \
             meson test \
             -C build \
             --no-rebuild \
