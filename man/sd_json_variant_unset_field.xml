@@ -1,0 +1,95 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="sd_json_variant_unset_field" xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sd_json_variant_unset_field</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_json_variant_unset_field</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_json_variant_unset_field</refname>
+    <refpurpose>Remove a specific field from a JSON object</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-json.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int <function>sd_json_variant_unset_field</function></funcdef>
+        <paramdef>sd_json_variant **<parameter>object</parameter></paramdef>
+        <paramdef>const char *<parameter>field</parameter></paramdef>
+      </funcprototype>
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><function>sd_json_variant_unset_field()</function> takes a pointer to a pointer to a JSON object
+    and a field name. If the object contains a field under the specified name, a new JSON object is allocated
+    that is a copy of the original one, however the specified field is removed. The object parameter is
+    updated to point to the new object, which has an initial reference counter of one. The reference counter
+    of the original object is decremented by one. Or in other words: the specified object is replaced by one
+    with the field removed.</para>
+
+    <para>If the referenced object does not contain a field matching the specified name, no operation is
+    executed.</para>
+
+    <para>Similar, if a <constant>NULL</constant> pointer is referenced, no operation is executed.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>On success, and if a field was removed <function>sd_json_variant_unset_field()</function> returns a
+    positive non-zero integer. If no matching field was found it returns zero. On failure, it returns a
+    negative errno-style error code.</para>
+
+    <refsect2>
+      <title>Errors</title>
+
+      <para>Returned errors may indicate the following problems:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
+
+          <listitem><para>An argument is invalid.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENOMEM</constant></term>
+
+          <listitem><para>Memory allocation failed.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>History</title>
+    <para><function>sd_json_variant_unset_field()</function> was added in version 258.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd-json</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>
