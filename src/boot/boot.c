@@ -99,6 +99,7 @@ typedef struct {
         bool auto_poweroff;
         bool auto_reboot;
         bool reboot_for_bitlocker;
+        bool sysfail_firmware_upd;
         secure_boot_enroll secure_boot_enroll;
         bool force_menu;
         bool use_saved_entry;
@@ -542,6 +543,7 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
         printf("           auto-reboot: %ls\n", yes_no(config->auto_reboot));
         printf("                  beep: %ls\n", yes_no(config->beep));
         printf("  reboot-for-bitlocker: %ls\n", yes_no(config->reboot_for_bitlocker));
+        printf("  sysfail-firmware-upd: %ls\n", yes_no(config->sysfail_firmware_upd));
 
         switch (config->secure_boot_enroll) {
         case ENROLL_OFF:
@@ -1279,6 +1281,11 @@ static void config_defaults_load_from_file(Config *config, char *content) {
                                 log_error("Error parsing 'reboot-for-bitlocker' config option, ignoring: %s",
                                           value);
 
+                } else if (streq8(key, "sysfail-firmware-upd")) {
+                        if (!parse_boolean(value, &config->sysfail_firmware_upd))
+                                log_error("Error parsing 'sysfail-firmware-upd' config option, ignoring: %s",
+                                          value);
+
                 } else if (streq8(key, "secure-boot-enroll")) {
                         if (streq8(value, "manual"))
                                 config->secure_boot_enroll = ENROLL_MANUAL;
@@ -1787,7 +1794,11 @@ static bool config_sysfail_occured(Config *config) {
 
         assert(config);
 
-        sysfail_type = sysfail_check();
+        SysFailConfig sysfail_config = {
+                .check_firmware_update = config->sysfail_firmware_upd
+        };
+
+        sysfail_type = sysfail_check(&sysfail_config);
         if (sysfail_type == SYSFAIL_NO_FAILURE)
                 return false;
 
