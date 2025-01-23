@@ -191,7 +191,7 @@ int manager_add_user_by_name(
         assert(m);
         assert(name);
 
-        r = userdb_by_name(name, USERDB_SUPPRESS_SHADOW, &ur);
+        r = userdb_by_name(name, /* match= */ NULL, USERDB_SUPPRESS_SHADOW, &ur);
         if (r < 0)
                 return r;
 
@@ -209,7 +209,7 @@ int manager_add_user_by_uid(
         assert(m);
         assert(uid_is_valid(uid));
 
-        r = userdb_by_uid(uid, USERDB_SUPPRESS_SHADOW, &ur);
+        r = userdb_by_uid(uid, /* match= */ NULL, USERDB_SUPPRESS_SHADOW, &ur);
         if (r < 0)
                 return r;
 
