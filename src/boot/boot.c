@@ -328,7 +328,7 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
         if (config->entry_oneshot)
                 printf("    default (one-shot): %ls\n", config->entry_oneshot);
         if (config->entry_sysfail)
-                printf("               sysfail: %ls\n", config->entry_sysfail);
+                printf("              sysfail: %ls\n", config->entry_sysfail);
         if (config->entry_saved)
                 printf("           saved entry: %ls\n", config->entry_saved);
         printf("                editor: %ls\n", yes_no(config->editor));
@@ -1072,7 +1072,6 @@ static void config_defaults_load_from_file(Config *config, char *content) {
                                 else
                                         config->reboot_on_error = reboot_yes_no ? REBOOT_YES : REBOOT_NO;
                         }
-
                 } else if (streq8(key, "secure-boot-enroll")) {
                         if (streq8(value, "manual"))
                                 config->secure_boot_enroll = ENROLL_MANUAL;
