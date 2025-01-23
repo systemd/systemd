@@ -489,9 +489,15 @@ static int rule_resolve_user(UdevRuleLine *rule_line, const char *name, uid_t *r
                 return 0;
         }
 
-        r = get_user_creds(&name, &uid, NULL, NULL, NULL, USER_CREDS_ALLOW_MISSING);
+        r = get_user_creds(
+                        &name,
+                        &uid,
+                        /* ret_gid = */ NULL,
+                        /* ret_home = */ NULL,
+                        /* ret_shell = */ NULL,
+                        USER_CREDS_ALLOW_MISSING);
         if (r < 0) {
-                if (IN_SET(r, -ENOENT, -ESRCH))
+                if (r == -ESRCH)
                         log_line_error_errno(rule_line, r, "Unknown user '%s', ignoring.", name);
                 else
                         log_line_error_errno(rule_line, r, "Failed to resolve user '%s', ignoring: %m", name);
@@ -531,7 +537,7 @@ static int rule_resolve_group(UdevRuleLine *rule_line, const char *name, gid_t *
 
         r = get_group_creds(&name, &gid, USER_CREDS_ALLOW_MISSING);
         if (r < 0) {
-                if (IN_SET(r, -ENOENT, -ESRCH))
+                if (r == -ESRCH)
                         log_line_error_errno(rule_line, r, "Unknown group '%s', ignoring.", name);
                 else
                         log_line_error_errno(rule_line, r, "Failed to resolve group '%s', ignoring: %m", name);
@@ -2658,8 +2664,14 @@ static int udev_rule_apply_token_to_event(
                 if (!apply_format_value(event, token, owner, sizeof(owner), "user name"))
                         return true;
 
-                r = get_user_creds(&ow, &event->uid, NULL, NULL, NULL, USER_CREDS_ALLOW_MISSING);
-                if (IN_SET(r, -ENOENT, -ESRCH))
+                r = get_user_creds(
+                                &ow,
+                                &event->uid,
+                                /* ret_gid = */ NULL,
+                                /* ret_home = */ NULL,
+                                /* ret_shell = */ NULL,
+                                USER_CREDS_ALLOW_MISSING);
+                if (r == -ESRCH)
                         log_event_error_errno(event, token, r, "Unknown user \"%s\", ignoring.", owner);
                 else if (r < 0)
                         log_event_error_errno(event, token, r, "Failed to resolve user \"%s\", ignoring: %m", owner);
@@ -2681,7 +2693,7 @@ static int udev_rule_apply_token_to_event(
                         return true;
 
                 r = get_group_creds(&gr, &event->gid, USER_CREDS_ALLOW_MISSING);
-                if (IN_SET(r, -ENOENT, -ESRCH))
+                if (r == -ESRCH)
                         log_event_error_errno(event, token, r, "Unknown group \"%s\", ignoring.", group);
                 else if (r < 0)
                         log_event_error_errno(event, token, r, "Failed to resolve group \"%s\", ignoring: %m", group);
