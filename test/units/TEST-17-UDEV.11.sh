@@ -297,11 +297,15 @@ test_syntax_error 'OWNER-="b"' 'Invalid operator for OWNER.'
 test_syntax_error 'OWNER!="b"' 'Invalid operator for OWNER.'
 test_syntax_error 'OWNER+="0"' "OWNER key takes '=' or ':=' operator, assuming '='."
 test_syntax_error 'OWNER=":nosuchuser:"' "Unknown user ':nosuchuser:', ignoring."
+test_syntax_error 'OWNER="testuser"' "User 'testuser' is not a system user (UID=$(id -u testuser 2>/dev/null)), ignoring."
+test_syntax_error 'OWNER="12345"' "UID=12345 is not in the system user range, ignoring."
 test_syntax_error 'GROUP{a}="b"' 'Invalid attribute for GROUP.'
 test_syntax_error 'GROUP-="b"' 'Invalid operator for GROUP.'
 test_syntax_error 'GROUP!="b"' 'Invalid operator for GROUP.'
 test_syntax_error 'GROUP+="0"' "GROUP key takes '=' or ':=' operator, assuming '='."
 test_syntax_error 'GROUP=":nosuchgroup:"' "Unknown group ':nosuchgroup:', ignoring."
+test_syntax_error 'GROUP="testuser"' "Group 'testuser' is not a system group (GID=$(id -u testuser 2>/dev/null)), ignoring."
+test_syntax_error 'GROUP="12345"' "GID=12345 is not in the system group range, ignoring."
 test_syntax_error 'MODE{a}="b"' 'Invalid attribute for MODE.'
 test_syntax_error 'MODE-="b"' 'Invalid operator for MODE.'
 test_syntax_error 'MODE!="b"' 'Invalid operator for MODE.'
