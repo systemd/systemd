@@ -46,11 +46,10 @@ and allows building and booting an OS image with the latest systemd installed
 for testing purposes.
 
 First, install `mkosi` from the
-[GitHub repository](https://github.com/systemd/mkosi#running-mkosi-from-the-repository).
-Note that it's not possible to use your distribution's packaged version of mkosi
-as mkosi has to be installed outside of `/usr` for the following steps to work. When
-installing mkosi from the github repository, make sure to symlink it to `~/.local/bin`
-instead of `/usr/local/bin` if you want to add it to your `$PATH`.
+[GitHub repository](https://github.com/systemd/mkosi#running-mkosi-from-the-repository)
+or via your distribution's package manager. Note that systemd regularly adopts
+newer mkosi features that are not in an official release yet so there's a good
+chance that your distribution's packaged version of mkosi will be too old.
 
 Then, you can build and run systemd executables as follows:
 
