@@ -930,10 +930,11 @@ DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(timezone_mode, TimezoneMode, TIMEZONE_AU
 DEFINE_CONFIG_PARSE_ENUM(config_parse_userns_ownership, user_namespace_ownership, UserNamespaceOwnership);
 
 static const char *const user_namespace_ownership_table[_USER_NAMESPACE_OWNERSHIP_MAX] = {
-        [USER_NAMESPACE_OWNERSHIP_OFF]   = "off",
-        [USER_NAMESPACE_OWNERSHIP_CHOWN] = "chown",
-        [USER_NAMESPACE_OWNERSHIP_MAP]   = "map",
-        [USER_NAMESPACE_OWNERSHIP_AUTO]  = "auto",
+        [USER_NAMESPACE_OWNERSHIP_OFF]     = "off",
+        [USER_NAMESPACE_OWNERSHIP_CHOWN]   = "chown",
+        [USER_NAMESPACE_OWNERSHIP_MAP]     = "map",
+        [USER_NAMESPACE_OWNERSHIP_FOREIGN] = "foreign",
+        [USER_NAMESPACE_OWNERSHIP_AUTO]    = "auto",
 };
 
 /* Note: while "yes" maps to "auto" here, we don't really document that, in order to make things clearer and less confusing to users. */
