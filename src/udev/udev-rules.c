@@ -42,6 +42,7 @@
 #include "udev-trace.h"
 #include "udev-util.h"
 #include "udev-worker.h"
+#include "uid-classification.h"
 #include "user-util.h"
 #include "virt.h"
 
@@ -489,24 +490,28 @@ static int rule_resolve_user(UdevRuleLine *rule_line, const char *name, uid_t *r
                 return 0;
         }
 
-        r = get_user_creds(&name, &uid, NULL, NULL, NULL, USER_CREDS_ALLOW_MISSING);
-        if (r < 0) {
-                if (IN_SET(r, -ENOENT, -ESRCH))
-                        log_line_error_errno(rule_line, r, "Unknown user '%s', ignoring.", name);
-                else
-                        log_line_error_errno(rule_line, r, "Failed to resolve user '%s', ignoring: %m", name);
-
-                *ret = UID_INVALID;
-                return 0;
-        }
+        r = get_user_creds(
+                        &name,
+                        &uid,
+                        /* ret_gid = */ NULL,
+                        /* ret_home = */ NULL,
+                        /* ret_shell = */ NULL,
+                        USER_CREDS_ALLOW_MISSING);
+        if (r == -ESRCH)
+                return log_line_error_errno(rule_line, r, "Unknown user '%s', ignoring.", name);
+        if (r < 0)
+                return log_line_error_errno(rule_line, r, "Failed to resolve user '%s', ignoring: %m", name);
+        if (!uid_is_system(uid))
+                return log_line_error_errno(rule_line, SYNTHETIC_ERRNO(EINVAL),
+                                            "User '%s' is not a system user (UID="UID_FMT"), ignoring.", name, uid);
 
         n = strdup(name);
         if (!n)
-                return -ENOMEM;
+                return log_oom();
 
         r = hashmap_ensure_put(known_users, &string_hash_ops_free, n, UID_TO_PTR(uid));
         if (r < 0)
-                return r;
+                return log_oom();
 
         TAKE_PTR(n);
         *ret = uid;
@@ -530,23 +535,21 @@ static int rule_resolve_group(UdevRuleLine *rule_line, const char *name, gid_t *
         }
 
         r = get_group_creds(&name, &gid, USER_CREDS_ALLOW_MISSING);
-        if (r < 0) {
-                if (IN_SET(r, -ENOENT, -ESRCH))
-                        log_line_error_errno(rule_line, r, "Unknown group '%s', ignoring.", name);
-                else
-                        log_line_error_errno(rule_line, r, "Failed to resolve group '%s', ignoring: %m", name);
-
-                *ret = GID_INVALID;
-                return 0;
-        }
+        if (r == -ESRCH)
+                return log_line_error_errno(rule_line, r, "Unknown group '%s', ignoring.", name);
+        if (r < 0)
+                return log_line_error_errno(rule_line, r, "Failed to resolve group '%s', ignoring: %m", name);
+        if (!gid_is_system(gid))
+                return log_line_error_errno(rule_line, SYNTHETIC_ERRNO(EINVAL),
+                                            "Group '%s' is not a system group (GID="GID_FMT"), ignoring.", name, gid);
 
         n = strdup(name);
         if (!n)
-                return -ENOMEM;
+                return log_oom();
 
         r = hashmap_ensure_put(known_groups, &string_hash_ops_free, n, GID_TO_PTR(gid));
         if (r < 0)
-                return r;
+                return log_oom();
 
         TAKE_PTR(n);
         *ret = gid;
@@ -1042,13 +1045,18 @@ static int parse_token(
                         op = OP_ASSIGN;
                 }
 
-                if (parse_uid(value, &uid) >= 0)
+                if (parse_uid(value, &uid) >= 0) {
+                        if (!uid_is_system(uid))
+                                return log_line_error_errno(rule_line, SYNTHETIC_ERRNO(EINVAL),
+                                                            "UID="UID_FMT" is not in the system user range, ignoring.", uid);
+
                         r = rule_line_add_token(rule_line, TK_A_OWNER_ID, op, NULL, UID_TO_PTR(uid), /* is_case_insensitive = */ false, token_str);
-                else if (resolve_name_timing == RESOLVE_NAME_EARLY &&
+                } else if (resolve_name_timing == RESOLVE_NAME_EARLY &&
                            rule_get_substitution_type(value) == SUBST_TYPE_PLAIN) {
+
                         r = rule_resolve_user(rule_line, value, &uid);
                         if (r < 0)
-                                return log_line_error_errno(rule_line, r, "Failed to resolve user name '%s': %m", value);
+                                return r;
 
                         r = rule_line_add_token(rule_line, TK_A_OWNER_ID, op, NULL, UID_TO_PTR(uid), /* is_case_insensitive = */ false, token_str);
                 } else if (resolve_name_timing != RESOLVE_NAME_NEVER) {
@@ -1070,13 +1078,18 @@ static int parse_token(
                         op = OP_ASSIGN;
                 }
 
-                if (parse_gid(value, &gid) >= 0)
+                if (parse_gid(value, &gid) >= 0) {
+                        if (!gid_is_system(gid))
+                                return log_line_error_errno(rule_line, SYNTHETIC_ERRNO(EINVAL),
+                                                            "GID="GID_FMT" is not in the system group range, ignoring.", gid);
+
                         r = rule_line_add_token(rule_line, TK_A_GROUP_ID, op, NULL, GID_TO_PTR(gid), /* is_case_insensitive = */ false, token_str);
-                else if (resolve_name_timing == RESOLVE_NAME_EARLY &&
+                } else if (resolve_name_timing == RESOLVE_NAME_EARLY &&
                            rule_get_substitution_type(value) == SUBST_TYPE_PLAIN) {
+
                         r = rule_resolve_group(rule_line, value, &gid);
                         if (r < 0)
-                                return log_line_error_errno(rule_line, r, "Failed to resolve group name '%s': %m", value);
+                                return r;
 
                         r = rule_line_add_token(rule_line, TK_A_GROUP_ID, op, NULL, GID_TO_PTR(gid), /* is_case_insensitive = */ false, token_str);
                 } else if (resolve_name_timing != RESOLVE_NAME_NEVER) {
@@ -2658,13 +2671,24 @@ static int udev_rule_apply_token_to_event(
                 if (!apply_format_value(event, token, owner, sizeof(owner), "user name"))
                         return true;
 
-                r = get_user_creds(&ow, &event->uid, NULL, NULL, NULL, USER_CREDS_ALLOW_MISSING);
-                if (IN_SET(r, -ENOENT, -ESRCH))
+                uid_t uid;
+                r = get_user_creds(
+                                &ow,
+                                &uid,
+                                /* ret_gid = */ NULL,
+                                /* ret_home = */ NULL,
+                                /* ret_shell = */ NULL,
+                                USER_CREDS_ALLOW_MISSING);
+                if (r == -ESRCH)
                         log_event_error_errno(event, token, r, "Unknown user \"%s\", ignoring.", owner);
                 else if (r < 0)
                         log_event_error_errno(event, token, r, "Failed to resolve user \"%s\", ignoring: %m", owner);
-                else
+                else if (!uid_is_system(uid))
+                        log_event_error(event, token, "User \"%s\" is not a system user (UID="UID_FMT"), ignoring.", owner, uid);
+                else {
+                        event->uid = uid;
                         log_event_debug(event, token, "Set owner: %s(%u)", owner, event->uid);
+                }
                 return true;
         }
         case TK_A_GROUP: {
@@ -2680,13 +2704,18 @@ static int udev_rule_apply_token_to_event(
                 if (!apply_format_value(event, token, group, sizeof(group), "group name"))
                         return true;
 
-                r = get_group_creds(&gr, &event->gid, USER_CREDS_ALLOW_MISSING);
-                if (IN_SET(r, -ENOENT, -ESRCH))
+                gid_t gid;
+                r = get_group_creds(&gr, &gid, USER_CREDS_ALLOW_MISSING);
+                if (r == -ESRCH)
                         log_event_error_errno(event, token, r, "Unknown group \"%s\", ignoring.", group);
                 else if (r < 0)
                         log_event_error_errno(event, token, r, "Failed to resolve group \"%s\", ignoring: %m", group);
-                else
+                else if (!gid_is_system(gid))
+                        log_event_error(event, token, "Group \"%s\" is not a system group (GID="GID_FMT"), ignoring.", group, gid);
+                else {
+                        event->gid = gid;
                         log_event_debug(event, token, "Set group: %s(%u)", group, event->gid);
+                }
                 return true;
         }
         case TK_A_MODE: {
