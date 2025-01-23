@@ -129,7 +129,7 @@ void bus_slot_disconnect(sd_bus_slot *slot, bool unref) {
                                         key.interface = slot->node_vtable.interface;
                                         key.member = v->x.method.member;
 
-                                        x = hashmap_remove(slot->bus->vtable_methods, &key);
+                                        x = set_remove(slot->bus->vtable_methods, &key);
                                         break;
                                 }
 
@@ -141,7 +141,7 @@ void bus_slot_disconnect(sd_bus_slot *slot, bool unref) {
                                         key.interface = slot->node_vtable.interface;
                                         key.member = v->x.method.member;
 
-                                        x = hashmap_remove(slot->bus->vtable_properties, &key);
+                                        x = set_remove(slot->bus->vtable_properties, &key);
                                         break;
                                 }}
 
