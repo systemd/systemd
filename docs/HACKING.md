@@ -49,7 +49,7 @@ To build and boot an OS image with the latest systemd installed:
 ```sh
 $ mkosi -f genkey                               # Generate signing keys once.
 $ mkosi -f sandbox meson compile -C build mkosi # (re-)build the OS image
-$ run0 mkosi boot                               # Boot the image with systemd-nspawn.
+$ mkosi boot                                    # Boot the image with systemd-nspawn.
 $ mkosi vm                                      # Boot the image with qemu.
 ```
 
