@@ -486,6 +486,7 @@ static const struct NLAPolicy rtnl_bridge_port_policies[] = {
         [IFLA_BRPORT_MCAST_EHT_HOSTS_LIMIT] = BUILD_POLICY(U32),
         [IFLA_BRPORT_MCAST_EHT_HOSTS_CNT]   = BUILD_POLICY(U32),
         [IFLA_BRPORT_LOCKED]                = BUILD_POLICY(U8),
+        [IFLA_BRPORT_MAB]                   = BUILD_POLICY(U8),
 };
 
 static const NLAPolicySetUnionElement rtnl_link_info_slave_data_policy_set_union_elements[] = {
