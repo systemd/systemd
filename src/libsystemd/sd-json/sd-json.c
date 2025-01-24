@@ -2142,7 +2142,7 @@ _public_ int sd_json_variant_unset_field(sd_json_variant **v, const char *field)
 
         _cleanup_free_ sd_json_variant **array = NULL;
         size_t k = 0;
-        for (size_t i = 0; i < sd_json_variant_elements(*v); i += 2) {
+        for (size_t i = 0, n = sd_json_variant_elements(*v); i < n; i += 2) {
                 sd_json_variant *p;
 
                 p = sd_json_variant_by_index(*v, i);
@@ -2151,7 +2151,8 @@ _public_ int sd_json_variant_unset_field(sd_json_variant **v, const char *field)
 
                 if (streq(sd_json_variant_string(p), field)) {
                         if (!array) {
-                                array = new(sd_json_variant*, sd_json_variant_elements(*v) - 2);
+                                assert(n >= 2);
+                                array = new(sd_json_variant*, n - 2);
                                 if (!array)
                                         return -ENOMEM;
 
