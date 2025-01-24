@@ -628,6 +628,21 @@ static int manager_dispatch_reload_signal(sd_event_source *s, const struct signa
         if (r < 0)
                 log_warning_errno(r, "Failed to update network information: %m");
 
+        /* Now check all the links, and if mDNS/llmr are disabled everywhere, disable it globally too,
+         * so that toggling via a reload works */
+        bool disable_mdns = true, disable_llmnr = true;
+        Link *l;
+        HASHMAP_FOREACH(l, m->links) {
+                if (link_get_llmnr_support(l) != RESOLVE_SUPPORT_NO)
+                        disable_llmnr = false;
+                if (link_get_mdns_support(l) != RESOLVE_SUPPORT_NO)
+                        disable_mdns = false;
+        }
+        if (disable_llmnr)
+                manager_llmnr_stop(m);
+        if (disable_mdns)
+                manager_mdns_stop(m);
+
         /* We have new configuration, which means potentially new servers, so close all connections and drop
          * all caches, so that we can start fresh. */
         (void) dns_stream_disconnect_all(m);
