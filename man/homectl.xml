@@ -334,6 +334,28 @@
         <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
 
+
+      <varlistentry>
+        <term><option>--access-mode=<replaceable>MODE</replaceable></option></term>
+
+        <listitem><para>Takes a UNIX file access mode written in octal. Configures the access mode of the
+        home directory itself. Note that this is only used when the directory is first created, and the user
+        may change this any time afterwards. Example:
+        <option>--access-mode=0700</option></para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--umask=<replaceable>MASK</replaceable></option></term>
+
+        <listitem><para>Takes the access mode mask (in octal syntax) to apply to newly created files and
+        directories of the user ("umask"). If set this controls the initial umask set for all login sessions of
+        the user, possibly overriding the system's defaults.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
       <varlistentry>
         <term><option>--skel=<replaceable>PATH</replaceable></option></term>
 
@@ -685,27 +707,6 @@
         storage backends configures disk quota using the filesystem's native quota logic, if available. If
         not specified, defaults to 85% of the available disk space for the LUKS2 backend and to no quota for
         the others.</para>
-
-        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--access-mode=<replaceable>MODE</replaceable></option></term>
-
-        <listitem><para>Takes a UNIX file access mode written in octal. Configures the access mode of the
-        home directory itself. Note that this is only used when the directory is first created, and the user
-        may change this any time afterwards. Example:
-        <option>--access-mode=0700</option></para>
-
-        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--umask=<replaceable>MASK</replaceable></option></term>
-
-        <listitem><para>Takes the access mode mask (in octal syntax) to apply to newly created files and
-        directories of the user ("umask"). If set this controls the initial umask set for all login sessions of
-        the user, possibly overriding the system's defaults.</para>
 
         <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
