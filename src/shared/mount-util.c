@@ -1894,7 +1894,9 @@ static int path_get_mount_info_at(
         if (r < 0)
                 return log_debug_errno(r, "Failed to get mount ID: %m");
 
-        r = libmount_parse("/proc/self/mountinfo", NULL, &table, &iter);
+        /* When getting options is requested, do not pass filename, otherwise utab will not read, and
+         * userspace options like "_netdev" will be lost. */
+        r = libmount_parse(ret_options ? NULL : "/proc/self/mountinfo", /* source = */ NULL, &table, &iter);
         if (r < 0)
                 return log_debug_errno(r, "Failed to parse /proc/self/mountinfo: %m");
 
