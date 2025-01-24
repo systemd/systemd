@@ -2350,7 +2350,7 @@ int device_cache_sysattr_value(sd_device *device, char *key, char *value, int er
         return 0;
 }
 
-int device_get_cached_sysattr_value(sd_device *device, const char *key, const char **ret_value) {
+static int device_get_cached_sysattr_value(sd_device *device, const char *key, const char **ret_value) {
         SysAttrCacheEntry *entry;
 
         assert(device);
