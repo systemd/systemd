@@ -2315,15 +2315,19 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 char, path_hash_func, path_compare,
                 SysAttrCacheEntry, sysattr_cache_entry_free);
 
-int device_cache_sysattr_value(sd_device *device, char *key, char *value, int error) {
+static int device_cache_sysattr_value_full(sd_device *device, char *key, char *value, int error, bool ignore_uevent) {
         int r;
 
         assert(device);
         assert(key);
         assert(value || error > 0);
 
-        /* This takes the reference of the input arguments on success. The input value may be NULL.
-         * This replaces an already existing entry. */
+        /* This takes the reference of the input arguments when cached, hence the caller must not free them
+         * when a positive return value is returned. The input value may be NULL. This replaces an already
+         * existing entry. */
+
+        if (ignore_uevent && streq(last_path_component(key), "uevent"))
+                return 0; /* not cached */
 
         /* Remove the old cache entry. So, we do not need to clear cache on error. */
         sysattr_cache_entry_free(hashmap_remove(device->sysattr_values, key));
@@ -2347,7 +2351,11 @@ int device_cache_sysattr_value(sd_device *device, char *key, char *value, int er
                 return r;
 
         TAKE_PTR(entry);
-        return 0;
+        return 1; /* cached */
+}
+
+int device_cache_sysattr_value(sd_device *device, char *key, char *value, int error) {
+        return device_cache_sysattr_value_full(device, key, value, error, /* ignore_uevent = */ true);
 }
 
 static int device_get_cached_sysattr_value(sd_device *device, const char *key, const char **ret_value) {
@@ -2478,7 +2486,7 @@ cache_result:
                         return RET_GATHER(r, -ENOMEM);
         }
 
-        int k = device_cache_sysattr_value(device, resolved, value, -r);
+        int k = device_cache_sysattr_value_full(device, resolved, value, -r, /* ignore_uevent = */ false);
         if (k < 0) {
                 if (r < 0)
                         log_device_debug_errno(device, k,
@@ -2496,11 +2504,12 @@ cache_result:
 
                 return r;
         }
+        assert(k > 0);
 
         if (ret_value && r >= 0)
                 *ret_value = value;
 
-        /* device_cache_sysattr_value() takes 'resolved' and 'value' on success. */
+        /* device_cache_sysattr_value_full() takes 'resolved' and 'value' on success. */
         TAKE_PTR(resolved);
         TAKE_PTR(value);
         return r;
@@ -2628,16 +2637,12 @@ _public_ int sd_device_set_sysattr_value(sd_device *device, const char *sysattr,
                 return r;
         }
 
-        /* Do not cache action string written into uevent file. */
-        if (streq(last_path_component(resolved), "uevent"))
-                return 0;
-
         r = device_cache_sysattr_value(device, resolved, copied, 0);
         if (r < 0)
                 log_device_debug_errno(device, r,
                                        "sd-device: failed to cache written attribute '%s' with '%s', ignoring: %m",
                                        resolved, copied);
-        else {
+        else if (r > 0) {
                 TAKE_PTR(resolved);
                 TAKE_PTR(copied);
         }
