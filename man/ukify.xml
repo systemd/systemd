@@ -465,7 +465,7 @@
 
           <listitem><para>A path to a UKI profile to place in an <literal>.profile</literal> section. This
           option is useful for creating multi-profile UKIs, and is typically used in combination with
-          <option>--extend=</option>, to extend the specified UKI with an additional profile.</para>
+          <option>--join-profile=</option>, to extend the specified UKI with an additional profile.</para>
 
           <xi:include href="version-info.xml" xpointer="v257"/></listitem>
         </varlistentry>
