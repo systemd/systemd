@@ -12,8 +12,15 @@
 
 #define CLEAR_CACHE_FLUSH(x) (~MDNS_RR_CACHE_FLUSH_OR_QU & (x))
 
-void manager_mdns_stop(Manager *m) {
+void manager_mdns_stop(Manager *m, bool force) {
         assert(m);
+
+        if (!force) {
+                Link *l;
+                HASHMAP_FOREACH(l, m->links)
+                        if (link_get_mdns_support(l) != RESOLVE_SUPPORT_NO)
+                                return;
+        }
 
         m->mdns_ipv4_event_source = sd_event_source_disable_unref(m->mdns_ipv4_event_source);
         m->mdns_ipv4_fd = safe_close(m->mdns_ipv4_fd);
@@ -49,7 +56,7 @@ int manager_mdns_start(Manager *m) {
 eaddrinuse:
         log_warning("Another mDNS responder prohibits binding the socket to the same port. Turning off mDNS support.");
         m->mdns_support = RESOLVE_SUPPORT_NO;
-        manager_mdns_stop(m);
+        manager_mdns_stop(m, /* force = */ true);
 
         return 0;
 }

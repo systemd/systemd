@@ -9,8 +9,15 @@
 #include "resolved-llmnr.h"
 #include "resolved-manager.h"
 
-void manager_llmnr_stop(Manager *m) {
+void manager_llmnr_stop(Manager *m, bool force) {
         assert(m);
+
+        if (!force) {
+                Link *l;
+                HASHMAP_FOREACH(l, m->links)
+                        if (link_get_llmnr_support(l) != RESOLVE_SUPPORT_NO)
+                                return;
+        }
 
         m->llmnr_ipv4_udp_event_source = sd_event_source_disable_unref(m->llmnr_ipv4_udp_event_source);
         m->llmnr_ipv4_udp_fd = safe_close(m->llmnr_ipv4_udp_fd);
@@ -64,7 +71,7 @@ int manager_llmnr_start(Manager *m) {
 eaddrinuse:
         log_warning("Another LLMNR responder prohibits binding the socket to the same port. Turning off LLMNR support.");
         m->llmnr_support = RESOLVE_SUPPORT_NO;
-        manager_llmnr_stop(m);
+        manager_llmnr_stop(m, /* force = */ true);
 
         return 0;
 }
