@@ -1894,7 +1894,7 @@ static int path_get_mount_info_at(
         if (r < 0)
                 return log_debug_errno(r, "Failed to get mount ID: %m");
 
-        r = libmount_parse("/proc/self/mountinfo", NULL, &table, &iter);
+        r = libmount_parse(NULL, NULL, &table, &iter);
         if (r < 0)
                 return log_debug_errno(r, "Failed to parse /proc/self/mountinfo: %m");
 
