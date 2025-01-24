@@ -15,6 +15,7 @@
 #include "locale-util.h"
 #include "memory-util.h"
 #include "path-util.h"
+#include "percent-util.h"
 #include "pkcs11-util.h"
 #include "rlimit-util.h"
 #include "sha256.h"
@@ -95,6 +96,8 @@ UserRecord* user_record_new(void) {
                 .drop_caches = -1,
                 .auto_resize_mode = _AUTO_RESIZE_MODE_INVALID,
                 .rebalance_weight = REBALANCE_WEIGHT_UNSET,
+                .tmp_limit = TMPFS_LIMIT_NULL,
+                .dev_shm_limit = TMPFS_LIMIT_NULL,
         };
 
         return h;
@@ -982,6 +985,40 @@ static int dispatch_rebalance_weight(const char *name, sd_json_variant *variant,
         return 0;
 }
 
+static int dispatch_tmpfs_limit(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        TmpfsLimit *limit = ASSERT_PTR(userdata);
+        int r;
+
+        if (sd_json_variant_is_null(variant)) {
+                *limit = TMPFS_LIMIT_NULL;
+                return 0;
+        }
+
+        r = sd_json_dispatch_uint64(name, variant, flags, &limit->limit);
+        if (r < 0)
+                return r;
+
+        limit->is_set = true;
+        return 0;
+}
+
+static int dispatch_tmpfs_limit_scale(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        TmpfsLimit *limit = ASSERT_PTR(userdata);
+        int r;
+
+        if (sd_json_variant_is_null(variant)) {
+                *limit = TMPFS_LIMIT_NULL;
+                return 0;
+        }
+
+        r = sd_json_dispatch_uint32(name, variant, flags, &limit->limit_scale);
+        if (r < 0)
+                return r;
+
+        limit->is_set = true;
+        return 0;
+}
+
 static int dispatch_privileged(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
 
         static const sd_json_dispatch_field privileged_dispatch_table[] = {
@@ -1275,6 +1312,10 @@ static int dispatch_per_machine(const char *name, sd_json_variant *variant, sd_j
                 { "selfModifiableFields",       SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_strv,                offsetof(UserRecord, self_modifiable_fields),        SD_JSON_STRICT },
                 { "selfModifiableBlobs",        SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_strv,                offsetof(UserRecord, self_modifiable_blobs),         SD_JSON_STRICT },
                 { "selfModifiablePrivileged",   SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_strv,                offsetof(UserRecord, self_modifiable_privileged),    SD_JSON_STRICT },
+                { "tmpLimit",                   _SD_JSON_VARIANT_TYPE_INVALID, dispatch_tmpfs_limit,                 offsetof(UserRecord, tmp_limit),                     0,             },
+                { "tmpLimitScale",              _SD_JSON_VARIANT_TYPE_INVALID, dispatch_tmpfs_limit_scale,           offsetof(UserRecord, tmp_limit),                     0,             },
+                { "devShmLimit",                _SD_JSON_VARIANT_TYPE_INVALID, dispatch_tmpfs_limit,                 offsetof(UserRecord, dev_shm_limit),                 0,             },
+                { "devShmLimitScale",           _SD_JSON_VARIANT_TYPE_INVALID, dispatch_tmpfs_limit_scale,           offsetof(UserRecord, dev_shm_limit),                 0,             },
                 {},
         };
 
@@ -1625,6 +1666,10 @@ int user_record_load(UserRecord *h, sd_json_variant *v, UserRecordLoadFlags load
                 { "selfModifiableFields",       SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_strv,                offsetof(UserRecord, self_modifiable_fields),        SD_JSON_STRICT },
                 { "selfModifiableBlobs",        SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_strv,                offsetof(UserRecord, self_modifiable_blobs),         SD_JSON_STRICT },
                 { "selfModifiablePrivileged",   SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_strv,                offsetof(UserRecord, self_modifiable_privileged),    SD_JSON_STRICT },
+                { "tmpLimit",                   _SD_JSON_VARIANT_TYPE_INVALID, dispatch_tmpfs_limit,                 offsetof(UserRecord, tmp_limit),                     0,             },
+                { "tmpLimitScale",              _SD_JSON_VARIANT_TYPE_INVALID, dispatch_tmpfs_limit_scale,           offsetof(UserRecord, tmp_limit),                     0,             },
+                { "devShmLimit",                _SD_JSON_VARIANT_TYPE_INVALID, dispatch_tmpfs_limit,                 offsetof(UserRecord, dev_shm_limit),                 0,             },
+                { "devShmLimitScale",           _SD_JSON_VARIANT_TYPE_INVALID, dispatch_tmpfs_limit_scale,           offsetof(UserRecord, dev_shm_limit),                 0,             },
 
                 { "secret",                     SD_JSON_VARIANT_OBJECT,        dispatch_secret,                      0,                                                   0              },
                 { "privileged",                 SD_JSON_VARIANT_OBJECT,        dispatch_privileged,                  0,                                                   0              },
@@ -2136,6 +2181,32 @@ int user_record_languages(UserRecord *h, char ***ret) {
 
         *ret = TAKE_PTR(l);
         return 0;
+}
+
+uint32_t user_record_tmp_limit_scale(UserRecord *h) {
+        assert(h);
+
+        if (h->tmp_limit.is_set)
+                return h->tmp_limit.limit_scale;
+
+        /* By default grant regular users only 80% quota */
+        if (user_record_disposition(h) == USER_REGULAR)
+                return UINT32_SCALE_FROM_PERCENT(80);
+
+        return UINT32_MAX;
+}
+
+uint32_t user_record_dev_shm_limit_scale(UserRecord *h) {
+        assert(h);
+
+        if (h->dev_shm_limit.is_set)
+                return h->dev_shm_limit.limit_scale;
+
+        /* By default grant regular users only 80% quota */
+        if (user_record_disposition(h) == USER_REGULAR)
+                return UINT32_SCALE_FROM_PERCENT(80);
+
+        return UINT32_MAX;
 }
 
 const char** user_record_self_modifiable_fields(UserRecord *h) {

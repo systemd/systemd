@@ -42,12 +42,13 @@
     <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry> for a
     list of units that form the basis of the unit hierarchies of system and user units.</para>
 
-    <para><filename>user@<replaceable>UID</replaceable>.service</filename> is accompanied by the
-    system unit <filename>user-runtime-dir@<replaceable>UID</replaceable>.service</filename>, which
-    creates the user's runtime directory
-    <filename>/run/user/<replaceable>UID</replaceable></filename>, and then removes it when this
-    unit is stopped. <filename>user-runtime-dir@<replaceable>UID</replaceable>.service</filename>
-    executes the <filename>systemd-user-runtime-dir</filename> binary to do the actual work.</para>
+    <para><filename>user@<replaceable>UID</replaceable>.service</filename> is accompanied by the system unit
+    <filename>user-runtime-dir@<replaceable>UID</replaceable>.service</filename>, which creates the user's
+    runtime directory <filename>/run/user/<replaceable>UID</replaceable></filename> when started, and removes
+    it when it is stopped. It also might apply runtime quota settings on <filename>/tmp/</filename> and/or
+    <filename>/dev/shm/</filename> for the
+    user. <filename>user-runtime-dir@<replaceable>UID</replaceable>.service</filename> executes the
+    <filename>systemd-user-runtime-dir</filename> binary to do the actual work.</para>
 
     <para>User processes may be started by the <filename>user@.service</filename> instance, in which
     case they will be part of that unit in the system hierarchy. They may also be started elsewhere,

@@ -61,9 +61,11 @@ REQUIREMENTS:
                      ≥ 5.9 for close_range()
                      ≥ 5.12 for idmapped mount
                      ≥ 5.14 for cgroup.kill
+                     ≥ 5.14 for quotactl_fd()
                      ≥ 6.3 for MFD_EXEC/MFD_NOEXEC_SEAL and tmpfs noswap option
                      ≥ 6.5 for name_to_handle_at() AT_HANDLE_FID, SO_PEERPIDFD/SO_PASSPIDFD,
                                and MOVE_MOUNT_BENEATH
+                     ≥ 6.6 for quota support on tmpfs
                      ≥ 6.9 for pidfs
 
         ✅ systemd utilizes several new kernel APIs, but will fall back gracefully
