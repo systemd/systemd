@@ -416,6 +416,24 @@
 
         <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><option>--default-area=<replaceable>AREA</replaceable></option></term>
+
+        <listitem><para>Takes a string identifying a home directory "area" to use as default. Areas are
+        secondary home directories within the primary home directory of a user. When logging in a user can
+        specify the area they wish to log into, which ensures that the <varname>$HOME</varname> environment
+        variable is set to <filename>~/Areas/</filename> suffixed by the area name.</para>
+
+        <para>For details on the area concept see
+        <citerefentry><refentrytitle>pam_systemd_home</refentrytitle><manvolnum>8</manvolnum></citerefentry>. Note
+        that this option just defines the default, which can be overridden at login time.</para>
+
+        <para>When this option is specified with an empty string as value any previously declared default area
+        is removed from the user record.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 

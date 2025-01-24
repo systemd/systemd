@@ -100,6 +100,53 @@
   </refsect1>
 
   <refsect1>
+    <title>Home Area Support</title>
+
+    <para>Home directories managed by
+    <citerefentry><refentrytitle>systemd-homed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    support multiple home "areas", which are additional secondary home directories of the user within the
+    primary home directory. An example: at login time if a user <literal>lennart</literal> with a home
+    directory of <filename>/home/lennart</filename> specifies <literal>lennart%versuch1</literal> as account
+    name during login, then <command>pam_systemd_home</command> will execute a login into
+    <literal>lennart</literal> but ensure that the <varname>$HOME</varname> variable is set to
+    <filename>/home/lennart/Areas/versuch1</filename> instead of the usual
+    <filename>/home/lennart</filename>.</para>
+
+    <para>This is particularly useful when sharing the same home directory between multiple systems (for
+    example between a host and a VM), with the desire to share the home directory to a large degree, but
+    still have separate session configuration in place.</para>
+
+    <para>Note that the default area to log into can also be encoded in the user record, and it can be
+    specified among
+    <citerefentry><refentrytitle>pam_systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    configuration parameters. However, an explicit area specified at login time (via the <literal>%</literal>
+    described above) overrides any such default. Also note that simply suffixing an account with
+    <literal>%</literal> at login time (i.e. specifiying an empty area name) has the effect of ensuring a
+    login into the primary home directory, overriding any default area configuration via the user record or
+    PAM.</para>
+
+    <para>Note that not all login mechanisms are compatible with the <literal>%</literal> syntax at login
+    time. Most notably <citerefentry
+    project='man-pages'><refentrytitle>ssh</refentrytitle><manvolnum>8</manvolnum></citerefentry> is not.</para>
+
+    <para>Note that the area directory to log into must exist for the area specification to be respected. If
+    an area is specified during login via the <literal>%</literal> logic (or the other mentioned mechanisms)
+    and it does not actually exist the request will be ignored, and the user will log into the primary home
+    directory instead.</para>
+
+    <para>Typically, in order to make use of the mechanism set up an area first, like this:</para>
+
+    <programlisting>lennart@zeta$ mkdir -p ~/Areas
+lennart@zeta$ cp -av /etc/skel ~/Areas/versuch1</programlisting>
+
+    <para>This should be enough to log into the newly created area, either via a regular terminal (using
+    <literal>lennart%versuch1</literal> when prompted for a user name), or via
+    <citerefentry><refentrytitle>run0</refentrytitle><manvolnum>1</manvolnum></citerefentry>:</para>
+
+    <programlisting>lennart@zeta$ run0 -a versuch1</programlisting>
+  </refsect1>
+
+  <refsect1>
     <title>Module Types Provided</title>
 
     <para>The module implements all four PAM operations: <option>auth</option> (to allow authentication using
