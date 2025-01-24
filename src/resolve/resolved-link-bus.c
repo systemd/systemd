@@ -14,6 +14,8 @@
 #include "resolve-util.h"
 #include "resolved-bus.h"
 #include "resolved-link-bus.h"
+#include "resolved-llmnr.h"
+#include "resolved-mdns.h"
 #include "resolved-resolv-conf.h"
 #include "socket-netlink.h"
 #include "stdio-util.h"
@@ -517,6 +519,8 @@ int bus_link_method_set_llmnr(sd_bus_message *message, void *userdata, sd_bus_er
 
                 (void) link_save_user(l);
 
+                manager_llmnr_maybe_stop(l->manager);
+
                 log_link_info(l, "Bus client set LLMNR setting: %s", resolve_support_to_string(mode));
         }
 
@@ -566,6 +570,8 @@ int bus_link_method_set_mdns(sd_bus_message *message, void *userdata, sd_bus_err
                 link_add_rrs(l, false);
 
                 (void) link_save_user(l);
+
+                manager_mdns_maybe_stop(l->manager);
 
                 log_link_info(l, "Bus client set MulticastDNS setting: %s", resolve_support_to_string(mode));
         }
@@ -768,6 +774,9 @@ int bus_link_method_revert(sd_bus_message *message, void *userdata, sd_bus_error
         (void) link_save_user(l);
         (void) manager_write_resolv_conf(l->manager);
         (void) manager_send_changed(l->manager, "DNS");
+
+        manager_llmnr_maybe_stop(l->manager);
+        manager_mdns_maybe_stop(l->manager);
 
         return sd_bus_reply_method_return(message, NULL);
 }
