@@ -226,7 +226,6 @@ static int enumerate_dir_d(
 
         STRV_FOREACH(file, list) {
                 OrderedHashmap *h;
-                int k;
                 char *p;
                 char *d;
 
@@ -239,23 +238,23 @@ static int enumerate_dir_d(
                 d = p + strlen(toppath) + 1;
 
                 log_debug("Adding at top: %s %s %s", d, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), p);
-                k = ordered_hashmap_ensure_put(top, &string_hash_ops_value_free, d, p);
-                if (k >= 0) {
+                r = ordered_hashmap_ensure_put(top, &string_hash_ops_value_free, d, p);
+                if (r >= 0) {
                         p = strdup(p);
                         if (!p)
                                 return -ENOMEM;
                         d = p + strlen(toppath) + 1;
-                } else if (k != -EEXIST) {
+                } else if (r != -EEXIST) {
                         free(p);
-                        return k;
+                        return r;
                 }
 
                 log_debug("Adding at bottom: %s %s %s", d, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), p);
                 free(ordered_hashmap_remove(*bottom, d));
-                k = ordered_hashmap_ensure_put(bottom, &string_hash_ops_value_free, d, p);
-                if (k < 0) {
+                r = ordered_hashmap_ensure_put(bottom, &string_hash_ops_value_free, d, p);
+                if (r < 0) {
                         free(p);
-                        return k;
+                        return r;
                 }
 
                 h = ordered_hashmap_get(*drops, unit);
@@ -263,7 +262,11 @@ static int enumerate_dir_d(
                         h = ordered_hashmap_new(&string_hash_ops_value_free);
                         if (!h)
                                 return -ENOMEM;
-                        ordered_hashmap_ensure_put(drops, &drop_hash_ops, unit, h);
+                        r = ordered_hashmap_ensure_put(drops, &drop_hash_ops, unit, h);
+                        if (r < 0) {
+                                ordered_hashmap_free(h);
+                                return r;
+                        }
                         unit = strdup(unit);
                         if (!unit)
                                 return -ENOMEM;
@@ -275,11 +278,11 @@ static int enumerate_dir_d(
 
                 log_debug("Adding to drops: %s %s %s %s %s",
                           unit, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), basename(p), special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), p);
-                k = ordered_hashmap_put(h, basename(p), p);
-                if (k < 0) {
+                r = ordered_hashmap_put(h, basename(p), p);
+                if (r < 0) {
                         free(p);
-                        if (k != -EEXIST)
-                                return k;
+                        if (r != -EEXIST)
+                                return r;
                 }
         }
         return 0;
