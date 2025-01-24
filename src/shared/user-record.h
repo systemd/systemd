@@ -9,7 +9,9 @@
 
 #include "hashmap.h"
 #include "missing_resource.h"
+#include "strv.h"
 #include "time-util.h"
+#include "user-util.h"
 
 typedef enum UserDisposition {
         USER_INTRINSIC,   /* root and nobody */
@@ -503,12 +505,36 @@ typedef struct UserDBMatch {
         };
 } UserDBMatch;
 
-#define USER_DISPOSITION_MASK_MAX ((UINT64_C(1) << _USER_DISPOSITION_MAX) - UINT64_C(1))
+#define USER_DISPOSITION_MASK_ALL ((UINT64_C(1) << _USER_DISPOSITION_MAX) - UINT64_C(1))
+
+#define USERDB_MATCH_NULL                                       \
+        (UserDBMatch) {                                         \
+                .disposition_mask = USER_DISPOSITION_MASK_ALL,  \
+                .uid_min = 0,                                   \
+                .uid_max = UID_INVALID-1,                       \
+       }
+
+static inline bool userdb_match_is_set(const UserDBMatch *match) {
+        if (!match)
+                return false;
+
+        return !strv_isempty(match->fuzzy_names) ||
+                !FLAGS_SET(match->disposition_mask, USER_DISPOSITION_MASK_ALL) ||
+                match->uid_min > 0 ||
+                match->uid_max < UID_INVALID-1;
+}
+
+static inline void userdb_match_done(UserDBMatch *match) {
+        assert(match);
+        strv_free(match->fuzzy_names);
+}
 
 bool user_name_fuzzy_match(const char *names[], size_t n_names, char **matches);
 int user_record_match(UserRecord *u, const UserDBMatch *match);
 
 bool user_record_matches_user_name(const UserRecord *u, const char *username);
+
+int json_dispatch_dispositions_mask(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
 
 const char* user_storage_to_string(UserStorage t) _const_;
 UserStorage user_storage_from_string(const char *s) _pure_;
