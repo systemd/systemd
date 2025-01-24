@@ -30,6 +30,7 @@
 #include "cap-list.h"
 #include "capability-util.h"
 #include "cgroup-setup.h"
+#include "chase.h"
 #include "creds-util.h"
 #include "devnum-util.h"
 #include "errno-util.h"
@@ -120,6 +121,7 @@ static int parse_argv(
                 const char **class,
                 const char **type,
                 const char **desktop,
+                const char **area,
                 bool *debug,
                 uint64_t *default_capability_bounding_set,
                 uint64_t *default_capability_ambient_set) {
@@ -144,6 +146,13 @@ static int parse_argv(
                 } else if ((p = startswith(argv[i], "desktop="))) {
                         if (desktop)
                                 *desktop = p;
+
+                } else if ((p = startswith(argv[i], "area="))) {
+
+                        if (!isempty(p) && !filename_is_valid(p))
+                                pam_syslog(handle, LOG_WARNING, "Area name specified among PAM module parameters is not valid, ignoring: %m");
+                        else if (area)
+                                *area = p;
 
                 } else if (streq(argv[i], "debug")) {
                         if (debug)
@@ -855,6 +864,7 @@ typedef struct SessionContext {
         const char *cpu_weight;
         const char *io_weight;
         const char *runtime_max_sec;
+        const char *area;
         bool incomplete;
 } SessionContext;
 
@@ -1044,6 +1054,14 @@ static void session_context_mangle(
         }
 
         c->remote = !isempty(c->remote_host) && !is_localhost(c->remote_host);
+
+        if (!c->area)
+                c->area = ur->default_area;
+
+        if (c->area && !isempty(c->area) && !filename_is_valid(c->area)) {
+                pam_syslog_pam_error(handle, LOG_WARNING, 0, "Specified area '%s' is not a valid filename, ignoring area request.", c->area);
+                c->area = NULL;
+        }
 }
 
 static bool can_use_varlink(const SessionContext *c) {
@@ -1375,6 +1393,59 @@ static int import_shell_credentials(pam_handle_t *handle) {
         return PAM_SUCCESS;
 }
 
+static int update_home_env(
+                pam_handle_t *handle,
+                UserRecord *ur,
+                const char *area,
+                bool debug) {
+
+        int r;
+
+        assert(handle);
+        assert(ur);
+
+        const char *h = ASSERT_PTR(user_record_home_directory(ur));
+
+        _cleanup_free_ char *ha = NULL;
+        if (isempty(area))
+                /* If an empty area string is specified, this means an explicit: do not use the area logic, normalize this here */
+                area = NULL;
+        else {
+                _cleanup_free_ char *j = path_join(h, "area", area);
+                if (!j)
+                        return pam_log_oom(handle);
+
+                r = chase(j, /* root= */ NULL, CHASE_SAFE, &ha, /* ret_fd= */ NULL);
+                if (r < 0) {
+                        /* Log the precise error */
+                        pam_syslog_errno(handle, LOG_WARNING, r, "Path '%s' of requested user area '%s' is not accessible, reverting to regular home directory: %m", j, area);
+
+                        /* Also tell the user directly at login, but a bit more vague */
+                        pam_info(handle, "Path '%s' of requested user area '%s' is not accessible, reverting to regular home directory.", j, area);
+                        area = NULL;
+                } else {
+                        pam_debug_syslog(handle, debug, "Area '%s' selected, setting $HOME to '%s': %m", area, ha);
+                        h = ha;
+                }
+        }
+
+        if (area) {
+                r = update_environment(handle, "XDG_AREA", area);
+                if (r != PAM_SUCCESS)
+                        return r;
+        } else if (pam_getenv(handle, "XDG_AREA")) {
+                /* Unset the $XDG_AREA variable if set. Note that pam_putenv() would log nastily behind our
+                 * back if we call it without $XDG_AREA actually being set. Hence we check explicitly if it's
+                 * set before. */
+                r = pam_putenv(handle, "XDG_AREA");
+                if (!IN_SET(r, PAM_SUCCESS, PAM_BAD_ITEM))
+                        pam_syslog_pam_error(handle, LOG_WARNING, r,
+                                             "Failed to unset XDG_AREA environment variable, ignoring: @PAMERR@");
+        }
+
+        return update_environment(handle, "HOME", h);
+}
+
 _public_ PAM_EXTERN int pam_sm_open_session(
                 pam_handle_t *handle,
                 int flags,
@@ -1387,13 +1458,14 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         pam_log_setup();
 
         uint64_t default_capability_bounding_set = UINT64_MAX, default_capability_ambient_set = UINT64_MAX;
-        const char *class_pam = NULL, *type_pam = NULL, *desktop_pam = NULL;
+        const char *class_pam = NULL, *type_pam = NULL, *desktop_pam = NULL, *area_pam = NULL;
         bool debug = false;
         if (parse_argv(handle,
                        argc, argv,
                        &class_pam,
                        &type_pam,
                        &desktop_pam,
+                       &area_pam,
                        &debug,
                        &default_capability_bounding_set,
                        &default_capability_ambient_set) < 0)
@@ -1422,6 +1494,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         c.type = getenv_harder(handle, "XDG_SESSION_TYPE", type_pam);
         c.class = getenv_harder(handle, "XDG_SESSION_CLASS", class_pam);
         c.desktop = getenv_harder(handle, "XDG_SESSION_DESKTOP", desktop_pam);
+        c.area = getenv_harder(handle, "XDG_AREA", area_pam);
         c.incomplete = getenv_harder_bool(handle, "XDG_SESSION_INCOMPLETE", false);
 
         r = pam_get_data_many(
@@ -1442,6 +1515,10 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                 return r;
 
         r = import_shell_credentials(handle);
+        if (r != PAM_SUCCESS)
+                return r;
+
+        r = update_home_env(handle, ur, c.area, debug);
         if (r != PAM_SUCCESS)
                 return r;
 
@@ -1470,6 +1547,7 @@ _public_ PAM_EXTERN int pam_sm_close_session(
                        /* class= */ NULL,
                        /* type= */ NULL,
                        /* desktop= */ NULL,
+                       /* area= */ NULL,
                        &debug,
                        /* default_capability_bounding_set */ NULL,
                        /* default_capability_ambient_set= */ NULL) < 0)
