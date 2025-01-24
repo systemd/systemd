@@ -262,7 +262,11 @@ static int enumerate_dir_d(
                         h = ordered_hashmap_new(&string_hash_ops_value_free);
                         if (!h)
                                 return -ENOMEM;
-                        ordered_hashmap_ensure_put(drops, &drop_hash_ops, unit, h);
+                        r = ordered_hashmap_ensure_put(drops, &drop_hash_ops, unit, h);
+                        if (r < 0) {
+                                ordered_hashmap_free(h);
+                                return r;
+                        }
                         unit = strdup(unit);
                         if (!unit)
                                 return -ENOMEM;
