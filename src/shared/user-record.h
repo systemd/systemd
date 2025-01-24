@@ -503,7 +503,7 @@ typedef struct UserDBMatch {
         };
 } UserDBMatch;
 
-#define USER_DISPOSITION_MASK_MAX ((UINT64_C(1) << _USER_DISPOSITION_MAX) - UINT64_C(1))
+#define USER_DISPOSITION_MASK_ALL ((UINT64_C(1) << _USER_DISPOSITION_MAX) - UINT64_C(1))
 
 bool user_name_fuzzy_match(const char *names[], size_t n_names, char **matches);
 int user_record_match(UserRecord *u, const UserDBMatch *match);
