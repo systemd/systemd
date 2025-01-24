@@ -193,6 +193,39 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>area=</varname></term>
+
+        <listitem><para>Takes a filename as parameter. If specified and the user logs into their
+        account the <varname>$HOME</varname> environment variable will be set to <filename>~/area/</filename>
+        suffixed by the specified string, but only if that directory exists. Moreover, the
+        <varname>$XDG_AREA</varname> variable will be set to the (unprefixed) parameter.</para>
+
+        <para>This functionality may be used to maintain multiple separate secondary home directories within
+        the primary home directory of the user. Typically, the area to log into is specified while logging
+        in, if the account permits that (accounts provided by
+        <citerefentry><refentrytitle>pam_systemd_home</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        do), but this parameter may be used to define a default if that's not provided.</para>
+
+        <para>Note that this only adjusts <varname>$HOME</varname> during login, it does not affect the
+        otherwise reported home directory of the user. Specifically this means that <citerefentry
+        project='man-pages'><refentrytitle>sshd</refentrytitle><manvolnum>8</manvolnum></citerefentry> will
+        continue to look for SSH keys of the user only in the primary home directory of the user, not in any
+        of their areas.</para>
+
+        <para>Note that the default area to log into can also be configured as part of the user account. The
+        area specified via <varname>area=</varname> overrides the default area configured there. Also note
+        that if the area is specified explicitly by the user at login time, it overrides both. Also note that
+        setting this paramater to an empty string has the effect of undoing the effect of any default area
+        configured as part of the user record, i.e. ensuring the user logs into the primary home directory of
+        their account.</para>
+
+        <para>For details on the area concept see
+        <citerefentry><refentrytitle>pam_systemd_home</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>default-capability-bounding-set=</varname></term>
         <term><varname>default-capability-ambient-set=</varname></term>
 
@@ -347,6 +380,16 @@
         as <literal>seat0</literal>)</para>
 
         <xi:include href="version-info.xml" xpointer="v209"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>$XDG_AREA</varname></term>
+
+        <listitem><para>If an area (secondary home directories of the user, within the primary home
+        directory) to log into has been selected this variable is set to the area name (without any path
+        prefix). It is otherwise unset. For details about areas, see above.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
     </variablelist>
 
