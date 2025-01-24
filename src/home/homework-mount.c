@@ -220,6 +220,11 @@ static int make_home_userns(uid_t stored_uid, uid_t exposed_uid) {
         if (r < 0)
                 return log_oom();
 
+        /* Map the foreign range 1:1. After all  what is foreign should remain foreign. */
+        r = append_identity_range(&text, FOREIGN_UID_MIN, FOREIGN_UID_MAX+1, stored_uid);
+        if (r < 0)
+                return log_oom();
+
         /* Map nspawn's mapped root UID as identity mapping so that people can run nspawn uidmap mounted
          * containers off $HOME, if they want. */
         r = strextendf(&text, UID_FMT " " UID_FMT " " UID_FMT "\n", UID_MAPPED_ROOT, UID_MAPPED_ROOT, 1u);
