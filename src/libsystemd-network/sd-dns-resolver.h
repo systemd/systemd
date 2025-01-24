@@ -16,7 +16,7 @@ typedef struct sd_dns_resolver sd_dns_resolver;
 typedef enum sd_dns_alpn_flags {
         /* There isn't really an alpn reserved for Do53 service, but designated resolvers may or may not offer
          * Do53 service, so we should probably have a flag to represent this capability. Unfortunately DNR
-         * does not indicate the status to us.*/
+         * does not indicate the status to us. */
         SD_DNS_ALPN_DO53           = 1 << 0,
         /* SD_DNS_ALPN_HTTP_1_1,                "http/1.1" [RFC9112] */
         SD_DNS_ALPN_HTTP_2_TLS     = 1 << 1, /* "h2"  [RFC9113] [RFC9461] */

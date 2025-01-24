@@ -1200,7 +1200,7 @@ TEST(strspn_from_end) {
 }
 
 TEST(streq_skip_trailing_chars) {
-        /* NULL is WHITESPACE by default*/
+        /* NULL is WHITESPACE by default */
         assert_se(streq_skip_trailing_chars("foo bar", "foo bar", NULL));
         assert_se(streq_skip_trailing_chars("foo", "foo", NULL));
         assert_se(streq_skip_trailing_chars("foo bar      ", "foo bar", NULL));

@@ -124,7 +124,7 @@ int kmod_setup(void) {
                 { "virtio_rng",                 NULL,                        false, false, has_virtio_rng     },
 
                 /* we want early logging to hvc consoles if possible, and make sure systemd-getty-generator
-                 * can rely on all consoles being probed already.*/
+                 * can rely on all consoles being probed already. */
                 { "virtio_console",             NULL,                        false, false, has_virtio_console },
 
                 /* Make sure we can send sd-notify messages over vsock as early as possible. */

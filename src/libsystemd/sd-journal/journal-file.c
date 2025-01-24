@@ -2341,7 +2341,7 @@ static int journal_file_append_entry_internal(
                 if (sd_id128_is_null(*seqnum_id))
                         *seqnum_id = f->header->seqnum_id; /* Caller has none assigned, then copy the one from the file */
                 else if (!sd_id128_equal(*seqnum_id, f->header->seqnum_id)) {
-                        /* Different seqnum IDs? We can't allow entries from multiple IDs end up in the same journal.*/
+                        /* Different seqnum IDs? We can't allow entries from multiple IDs end up in the same journal. */
                         if (le64toh(f->header->n_entries) == 0)
                                 f->header->seqnum_id = *seqnum_id; /* Caller has one, and file so far has no entries, then copy the one from the caller */
                         else

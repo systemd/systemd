@@ -511,7 +511,7 @@ static int dns_cache_put_positive(
         /* If StaleRetentionSec is greater than zero, the 'until' property is set to a duration
          * of StaleRetentionSec from the time of TTL expiry.
          * If StaleRetentionSec is zero, both the 'until' and 'until_valid' are set to the TTL duration,
-         * leading to the eviction of the record once the TTL expires.*/
+         * leading to the eviction of the record once the TTL expires. */
         usec_t until_valid = calculate_until_valid(rr, min_ttl, UINT32_MAX, timestamp, false);
         *i = (DnsCacheItem) {
                 .type = DNS_CACHE_POSITIVE,

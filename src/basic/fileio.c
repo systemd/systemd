@@ -720,7 +720,7 @@ int read_full_stream_full(
                 size_t k;
 
                 /* If we shall fail when reading overly large data, then read exactly one byte more than the
-                 * specified size at max, since that'll tell us if there's anymore data beyond the limit*/
+                 * specified size at max, since that'll tell us if there's anymore data beyond the limit. */
                 if (FLAGS_SET(flags, READ_FULL_FILE_FAIL_WHEN_LARGER) && n_next > size)
                         n_next = size + 1;
 

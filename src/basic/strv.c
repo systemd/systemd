@@ -631,7 +631,7 @@ int strv_insert(char ***l, size_t position, char *value) {
         n = strv_length(*l);
         position = MIN(position, n);
 
-        /* check for overflow and increase*/
+        /* check for overflow and increase */
         if (n > SIZE_MAX - 2)
                 return -ENOMEM;
         m = n + 2;

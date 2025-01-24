@@ -95,7 +95,7 @@ int rtnl_resolve_ifname_full(
 
         /* This is similar to if_nametoindex(), but also resolves alternative names and decimal formatted
          * ifindex too. Returns ifindex, and optionally provides the main interface name and alternative
-         * names.*/
+         * names. */
 
         if (!rtnl)
                 rtnl = &our_rtnl;

@@ -51,7 +51,7 @@ typedef enum SessionClass {
 /* Which session classes can pin our user tracking? */
 #define SESSION_CLASS_PIN_USER(class) (!IN_SET((class), SESSION_MANAGER, SESSION_MANAGER_EARLY, SESSION_NONE))
 
-/* Which session classes decide whether system is idle? (should only cover sessions that have input, and are not idle screens themselves)*/
+/* Which session classes decide whether system is idle? (should only cover sessions that have input, and are not idle screens themselves) */
 #define SESSION_CLASS_CAN_IDLE(class) (IN_SET((class), SESSION_USER, SESSION_USER_EARLY, SESSION_USER_EARLY_LIGHT, SESSION_USER_LIGHT, SESSION_GREETER))
 
 /* Which session classes have a lock screen concept? */

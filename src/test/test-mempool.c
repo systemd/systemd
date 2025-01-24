@@ -61,7 +61,7 @@ TEST(mempool_trim) {
 
         mempool_trim(&test_mempool);
 
-        /* free everything from the original set*/
+        /* free everything from the original set */
 
         for (size_t i = 0; i < NN; i += 1) {
                 assert_se(!a[i] || a[i]->value == i);

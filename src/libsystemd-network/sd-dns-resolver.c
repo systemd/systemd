@@ -234,7 +234,7 @@ int dnr_parse_svc_params(const uint8_t *option, size_t len, sd_dns_resolver *res
                 /* Mandatory keys must be understood by the client, otherwise the record should be discarded.
                  * Automatic mandatory keys must not appear in the mandatory parameter, so these are all
                  * supplementary. We don't understand any supplementary keys, so if the mandatory parameter
-                 * is present, we cannot use this record.*/
+                 * is present, we cannot use this record. */
                 case DNS_SVC_PARAM_KEY_MANDATORY:
                         if (plen > 0)
                                 return -EBADMSG;

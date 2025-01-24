@@ -1831,7 +1831,7 @@ int dns_packet_read_rr(
                 return r;
 
         /* RFC 2181, Section 8, suggests to treat a TTL with the MSB set as a zero TTL. We avoid doing this
-         * for OPT records so that all 8 bits of the extended RCODE may be used .*/
+         * for OPT records so that all 8 bits of the extended RCODE may be used. */
         if (key->type != DNS_TYPE_OPT && rr->ttl & UINT32_C(0x80000000))
                 rr->ttl = 0;
 

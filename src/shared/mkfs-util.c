@@ -206,7 +206,7 @@ static int protofile_print_item(
          * delimiter. To work around this limitation, mkfs.xfs allows escaping whitespace by using the /
          * character (which isn't allowed in filenames and as such can be used to escape whitespace). See
          * https://lore.kernel.org/linux-xfs/20230222090303.h6tujm7y32gjhgal@andromeda/T/#m8066b3e7d62a080ee7434faac4861d944e64493b
-         * for more information.*/
+         * for more information. */
 
         if (strchr(de->d_name, ' ')) {
                 copy = strdup(de->d_name);

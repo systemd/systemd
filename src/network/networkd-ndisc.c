@@ -1375,7 +1375,7 @@ static int ndisc_router_process_hop_limit(Link *link, sd_ndisc_router *rt) {
          * the first Router Advertisement was received.
          *
          * If the received Cur Hop Limit value is non-zero, the host SHOULD set
-         * its CurHopLimit variable to the received value.*/
+         * its CurHopLimit variable to the received value. */
         if (hop_limit <= 0)
                 return 0;
 

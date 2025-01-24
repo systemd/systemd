@@ -92,7 +92,7 @@ int efi_loader_get_entries(char ***ret) {
                 return r;
 
         /* The variable contains a series of individually NUL terminated UTF-16 strings. We gracefully
-         * consider the final NUL byte optional (i.e. the last string may or may not end in a NUL byte).*/
+         * consider the final NUL byte optional (i.e. the last string may or may not end in a NUL byte). */
 
         for (size_t i = 0, start = 0;; i++) {
                 _cleanup_free_ char *decoded = NULL;

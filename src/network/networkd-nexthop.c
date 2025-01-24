@@ -894,7 +894,7 @@ static bool nexthop_can_update(const NextHop *assigned_nexthop, const NextHop *r
 
         /* There are several more conditions if we can replace a group nexthop, e.g. hash threshold and
          * resilience. But, currently we do not support to modify that. Let's add checks for them in the
-         * future when we support to configure them.*/
+         * future when we support to configure them. */
 
         /* When a nexthop is replaced with a blackhole nexthop, and a group nexthop has multiple nexthops
          * including this nexthop, then the kernel refuses to replace the existing nexthop.

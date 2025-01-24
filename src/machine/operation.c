@@ -50,7 +50,7 @@ static int operation_done(sd_event_source *s, const siginfo_t *si, void *userdat
                 /* If o->done set, call it. It sends a response, but can return
                  * an error in which case it expect this code to reply.
                  * If o->done is not set, the default action is to simply return
-                 * an error on failure or an empty success message on success.*/
+                 * an error on failure or an empty success message on success. */
 
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 if (o->done)
@@ -73,7 +73,7 @@ static int operation_done(sd_event_source *s, const siginfo_t *si, void *userdat
                 /* If o->done set, call it. Unlike o->message case above, this
                  * code expect o->done to reply in all cases.
                  * If o->done is not set, the default action is to simply return
-                 * an error on failure or an empty success message on success.*/
+                 * an error on failure or an empty success message on success. */
 
                 if (o->done)
                         (void) o->done(o, r, /* error = */ NULL);

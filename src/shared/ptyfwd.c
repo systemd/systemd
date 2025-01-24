@@ -426,7 +426,7 @@ static int insert_window_title_fix(PTYForward *f, size_t offset) {
         if (!f->osc_sequence)
                 return 0;
 
-        const char *t = startswith(f->osc_sequence, "0;"); /* Set window title OSC sequence*/
+        const char *t = startswith(f->osc_sequence, "0;"); /* Set window title OSC sequence */
         if (!t)
                 return 0;
 
