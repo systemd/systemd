@@ -84,7 +84,7 @@ static SD_VARLINK_DEFINE_ERROR(VerityFailure);
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_MountFileSystem,
                 "io.systemd.MountFileSystem",
-                SD_VARLINK_INTERFACE_COMMENT("APIs for unpriviliged mounting."),
+                SD_VARLINK_INTERFACE_COMMENT("APIs for unprivileged mounting."),
                 SD_VARLINK_SYMBOL_COMMENT("Encodes the designated purpose of a partition."),
                 &vl_type_PartitionDesignator,
                 SD_VARLINK_SYMBOL_COMMENT("Information about a specific partition."),
