@@ -59,6 +59,12 @@ static int machine_leader(const char *name, sd_json_variant *variant, sd_json_di
         if (temp.pid == 1) /* refuse PID 1 */
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a valid leader PID.", strna(name));
 
+        if (!streq_ptr(name, "leaderPid") && pidref_is_set(leader)) {
+                if (!pidref_equal(leader, &temp))
+                        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' conflicts with already dispatched leader PID.", strna(name));
+                return 0; /* honor PidRef obtained by leaderPid */
+        }
+
         pidref_done(leader);
         *leader = TAKE_PIDREF(temp);
 
@@ -129,7 +135,8 @@ int vl_method_register(sd_varlink *link, sd_json_variant *parameters, sd_varlink
                 { "id",                SD_JSON_VARIANT_STRING,        sd_json_dispatch_id128,   offsetof(Machine, id),                   0                 },
                 { "service",           SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,  offsetof(Machine, service),              0                 },
                 { "class",             SD_JSON_VARIANT_STRING,        dispatch_machine_class,   offsetof(Machine, class),                SD_JSON_MANDATORY },
-                { "leader",            _SD_JSON_VARIANT_TYPE_INVALID, machine_leader,           offsetof(Machine, leader),               SD_JSON_STRICT    },
+                { "leader",            SD_JSON_VARIANT_UNSIGNED,      machine_leader,           offsetof(Machine, leader),               SD_JSON_STRICT    },
+                { "leaderPid",         _SD_JSON_VARIANT_TYPE_INVALID, machine_leader,           offsetof(Machine, leader),               SD_JSON_STRICT    },
                 { "rootDirectory",     SD_JSON_VARIANT_STRING,        json_dispatch_path,       offsetof(Machine, root_directory),       0                 },
                 { "ifIndices",         SD_JSON_VARIANT_ARRAY,         machine_ifindices,        0,                                       0                 },
                 { "vSockCid",          _SD_JSON_VARIANT_TYPE_INVALID, machine_cid,              offsetof(Machine, vsock_cid),            0                 },
