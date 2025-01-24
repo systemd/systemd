@@ -2772,6 +2772,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --setenv=VARIABLE[=VALUE] Set an environment variable at log-in\n"
                "     --timezone=TIMEZONE       Set a time-zone\n"
                "     --language=LOCALE         Set preferred languages\n"
+               "\n%4$sAuthentication User Record Properties:%5$s\n"
                "     --ssh-authorized-keys=KEYS\n"
                "                               Specify SSH public keys\n"
                "     --pkcs11-token-uri=URI    URI to PKCS#11 security token containing\n"
