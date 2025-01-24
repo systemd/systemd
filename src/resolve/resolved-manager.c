@@ -105,6 +105,9 @@ static int manager_process_link(sd_netlink *rtnl, sd_netlink_message *mm, void *
                 break;
         }
 
+        /* Now check all the links, and if mDNS/llmr are disabled everywhere, stop them globally too. */
+        manager_llmnr_stop(m, /* force = */ false);
+        manager_mdns_stop(m, /* force = */ false);
         return 0;
 
 fail:
@@ -286,6 +289,10 @@ static int on_network_event(sd_event_source *s, int fd, uint32_t revents, void *
 
         (void) manager_write_resolv_conf(m);
         (void) manager_send_changed(m, "DNS");
+
+        /* Now check all the links, and if mDNS/llmr are disabled everywhere, stop them globally too. */
+        manager_llmnr_stop(m, /* force = */ false);
+        manager_mdns_stop(m, /* force = */ false);
 
         return 0;
 }
@@ -806,8 +813,8 @@ Manager *manager_free(Manager *m) {
         sd_event_source_unref(m->rtnl_event_source);
         sd_event_source_unref(m->clock_change_event_source);
 
-        manager_llmnr_stop(m);
-        manager_mdns_stop(m);
+        manager_llmnr_stop(m, /* force = */ true);
+        manager_mdns_stop(m, /* force = */ true);
         manager_dns_stub_stop(m);
         manager_varlink_done(m);
 
