@@ -5791,6 +5791,7 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
         print(output)
         self.check_bridge_port_attr('bridge99', 'test1', 'priority',               '0')
         self.assertIn('locked on', output)
+        self.assertIn('mab on', output)
 
     def test_bridge_property(self):
         copy_network_unit('11-dummy.netdev', '12-dummy.netdev', '26-bridge.netdev',
