@@ -22,6 +22,19 @@ void manager_mdns_stop(Manager *m) {
         m->mdns_ipv6_fd = safe_close(m->mdns_ipv6_fd);
 }
 
+void manager_mdns_maybe_stop(Manager *m) {
+        assert(m);
+
+        /* This stops mDNS only when no interface enables mDNS. */
+
+        Link *l;
+        HASHMAP_FOREACH(l, m->links)
+                if (link_get_mdns_support(l) != RESOLVE_SUPPORT_NO)
+                        return;
+
+        manager_mdns_stop(m);
+}
+
 int manager_mdns_start(Manager *m) {
         int r;
 
