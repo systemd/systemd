@@ -191,7 +191,7 @@
   </refsect1>
 
   <refsect1>
-    <title>User Record Properties</title>
+    <title>General User Record Properties</title>
 
     <para>The following options control various properties of the user records/home directories that
     <filename>systemd-homed.service</filename> manages. These switches may be used in conjunction with the
@@ -394,7 +394,12 @@
 
         <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
+    </variablelist>
+  </refsect1>
 
+  <refsect1>
+    <title>Authentication User Record Properties</title>
+    <variablelist>
       <varlistentry>
         <term><option>--ssh-authorized-keys=<replaceable>KEYS</replaceable></option></term>
         <listitem><para>Either takes a SSH authorized key line to associate with the user record or a
@@ -526,8 +531,13 @@
 
         <xi:include href="version-info.xml" xpointer="v247"/></listitem>
       </varlistentry>
+    </variablelist>
+  </refsect1>
 
-    <varlistentry>
+  <refsect1>
+    <title>Blob Directory User Record Properties</title>
+    <variablelist>
+      <varlistentry>
         <term><option>--blob=<replaceable>PATH</replaceable></option></term>
         <term><option>-b</option> <replaceable>PATH</replaceable></term>
         <term><option>--blob=<replaceable>FILENAME</replaceable>=<replaceable>PATH</replaceable></option></term>
@@ -560,7 +570,12 @@
 
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
+    </variablelist>
+  </refsect1>
 
+  <refsect1>
+    <title>Account Management User Record Properties</title>
+    <variablelist>
       <varlistentry>
         <term><option>--locked=<replaceable>BOOLEAN</replaceable></option></term>
 
@@ -651,7 +666,12 @@
 
         <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
+    </variablelist>
+  </refsect1>
 
+  <refsect1>
+    <title>Resource Management User Record Properties</title>
+    <variablelist>
       <varlistentry>
         <term><option>--disk-size=<replaceable>BYTES</replaceable></option></term>
         <listitem><para>Either takes a size in bytes as argument (possibly using the usual K, M, G, …
@@ -757,7 +777,12 @@
 
         <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
+    </variablelist>
+  </refsect1>
 
+  <refsect1>
+    <title>Storage User Record Properties</title>
+    <variablelist>
       <varlistentry>
         <term><option>--tmp-limit=<replaceable>BYTES</replaceable></option></term>
         <term><option>--tmp-limit=<replaceable>PERCENT</replaceable></option></term>
@@ -815,7 +840,12 @@
 
         <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
+    </variablelist>
+  </refsect1>
 
+  <refsect1>
+    <title>LUKS Storage User Record Properties</title>
+    <variablelist>
       <varlistentry>
         <term><option>--fs-type=<replaceable>TYPE</replaceable></option></term>
 
@@ -933,7 +963,12 @@
 
         <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
+    </variablelist>
+  </refsect1>
 
+  <refsect1>
+    <title>Mounting User Record Properties</title>
+    <variablelist>
       <varlistentry>
         <term><option>--nosuid=<replaceable>BOOL</replaceable></option></term>
         <term><option>--nodev=<replaceable>BOOL</replaceable></option></term>
@@ -947,7 +982,12 @@
 
         <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
+    </variablelist>
+  </refsect1>
 
+  <refsect1>
+    <title>CIFS User Record Properties</title>
+    <variablelist>
       <varlistentry>
         <term><option>--cifs-domain=<replaceable>DOMAIN</replaceable></option></term>
         <term><option>--cifs-user-name=<replaceable>USER</replaceable></option></term>
@@ -966,7 +1006,12 @@
 
         <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
+    </variablelist>
+  </refsect1>
 
+  <refsect1>
+    <title>Login Behaviour Record Properties</title>
+    <variablelist>
       <varlistentry>
         <term><option>--stop-delay=<replaceable>SECS</replaceable></option></term>
 
