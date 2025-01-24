@@ -404,6 +404,8 @@ typedef struct UserRecord {
 
         TmpfsLimit tmp_limit, dev_shm_limit;
 
+        char *default_area;
+
         sd_json_variant *json;
 } UserRecord;
 
