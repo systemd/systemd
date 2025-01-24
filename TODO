@@ -1627,9 +1627,6 @@ Features:
 * add growvol and makevol options for /etc/crypttab, similar to
   x-systemd.growfs and x-systemd-makefs.
 
-* userdb: allow username prefix searches in varlink API, allow realname and
-  realname substr searches in varlink API
-
 * userdb: allow uid/gid range checks
 
 * userdb: allow existence checks
