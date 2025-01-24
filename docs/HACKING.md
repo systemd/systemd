@@ -146,6 +146,21 @@ dnf downgrade "systemd*" # Fedora/CentOS
 # TODO: Other distributions
 ```
 
+## Installing packages built from the main branch
+
+Packages for main distributions are built on the SUSE Open Build Service and
+repositories are published, so that they can be installed and upgraded easily.
+
+Instructions on how to add the repository for each supported distribution can
+[be found on OBS.](https://software.opensuse.org//download.html?project=system%3Asystemd&package=systemd)
+The `systemd-boot` file is signed for Secure Boot, the self-signed certificate
+can be downloaded for enrollment. For example, when using MOK Manager:
+
+```sh
+$ wget https://build.opensuse.org/projects/system:systemd/signing_keys/download?kind=ssl -O- | openssl x509 -inform pem -outform der -out obs.der
+$ run0 mokutil --import obs.der
+```
+
 ## Templating engines in .in files
 
 Some source files are generated during build. We use two templating engines:
