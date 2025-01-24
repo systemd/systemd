@@ -668,6 +668,29 @@ if findmnt -n -o options /tmp | grep -q usrquota ; then
     homectl remove tmpfsquota
 fi
 
+NEWPASSWORD=quux homectl create subareatest --storage=subvolume -P
+
+run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest mkdir area
+run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest cp -av /etc/skel area/furb
+run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest cp -av /etc/skel area/molb
+
+test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest sh -c 'echo $HOME')" = "/home/subareatest"
+test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest sh -c 'echo x$XDG_AREA')" = "x"
+test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest -a furb sh -c 'echo $HOME')" = "/home/subareatest/area/furb"
+test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest -a furb sh -c 'echo $XDG_AREA')" = "furb"
+
+PASSWORD=quux homectl update subareatest --default-area=molb
+
+test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest sh -c 'echo $HOME')" = "/home/subareatest/area/molb"
+test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest sh -c 'echo $XDG_AREA')" = "molb"
+test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest -a furb sh -c 'echo $HOME')" = "/home/subareatest/area/furb"
+test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest -a furb sh -c 'echo $XDG_AREA')" = "furb"
+
+systemctl stop user@"$(id -u subareatest)".service
+
+wait_for_state subareatest inactive
+homectl remove subareatest
+
 systemd-analyze log-level info
 
 touch /testok
