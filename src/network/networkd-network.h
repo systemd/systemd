@@ -298,6 +298,7 @@ struct Network {
         uint16_t priority;
         MulticastRouter multicast_router;
         int locked;
+        int mab;
 
         /* Bridge VLAN */
         uint16_t bridge_vlan_pvid;
