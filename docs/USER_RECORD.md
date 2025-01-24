@@ -632,6 +632,16 @@ default limit.
 `devShmLimit`, `devShmLimitScale` → Similar to the previous two, but apply to
 `/dev/shm/` rather than `/tmp/`.
 
+`defaultArea` → The default home directory "area" to enter after logging
+in. Areas are named subdirectories below `~/area/` of the user, and can be used
+to maintain separate secondary home directories within the primary home
+directory of the user. Typically, a home directory "area" can be specified at
+login time, but if that's not done, and `defaultArea` is set, this area is
+selected. The value must be a string that qualifies as a valid filename. After
+login, the `$HOME` environment variable will point to `~/area/` of the user,
+suffixed by the selected area name, and `$XDG_AREA` will be set to the area
+string (unprefixed).
+
 `privileged` → An object, which contains the fields of the `privileged` section
 of the user record, see below.
 
