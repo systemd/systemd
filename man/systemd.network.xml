@@ -4624,6 +4624,24 @@ ServerAddress=192.168.0.1/24</programlisting>
           <xi:include href="version-info.xml" xpointer="v234"/>
         </listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>Locked=</varname></term>
+        <listitem>
+          <para>Takes a boolean. Configures whether the port is "locked" and does not allow traffic forwarded
+          until fully authenticated, e.g. via 802.1x. When unset, the kernel's default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+        <term><varname>MAB=</varname></term>
+        <listitem>
+          <para>Takes a boolean. Configures whether a locked port has "Mac Authentication Bypass" enabled and
+          creates newly learned fdb entries in a "locked" state. User space can authenticate these entries by
+          clearing the locked flag. Requires Learning to be enabled. When unset, the kernel's default will be
+          used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 

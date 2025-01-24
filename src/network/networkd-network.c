@@ -456,6 +456,8 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .bridge_proxy_arp_wifi = -1,
                 .priority = LINK_BRIDGE_PORT_PRIORITY_INVALID,
                 .multicast_router = _MULTICAST_ROUTER_INVALID,
+                .locked = -1,
+                .mab = -1,
 
                 .bridge_vlan_pvid = BRIDGE_VLAN_KEEP_PVID,
 

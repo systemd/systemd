@@ -21,6 +21,7 @@ typedef struct Bridge {
         uint8_t igmp_version;
         uint32_t fdb_max_learned;
         bool fdb_max_learned_set;
+        int no_ll_learn;
 
         usec_t forward_delay;
         usec_t hello_time;
