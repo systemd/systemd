@@ -2151,7 +2151,9 @@ _public_ int sd_json_variant_unset_field(sd_json_variant **v, const char *field)
 
                 if (streq(sd_json_variant_string(p), field)) {
                         if (!array) {
-                                array = new(sd_json_variant*, sd_json_variant_elements(*v) - 2);
+                                size_t n = sd_json_variant_elements(*v);
+                                assert(n >= 2);
+                                array = new(sd_json_variant*, n - 2);
                                 if (!array)
                                         return -ENOMEM;
 
