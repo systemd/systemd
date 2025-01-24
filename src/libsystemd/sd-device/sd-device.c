@@ -2452,7 +2452,7 @@ _public_ int sd_device_get_sysattr_value(sd_device *device, const char *sysattr,
         if (r < 0)
                 goto cache_result;
 
-        /* Look for cacheed result again with the resolved path. */
+        /* Look for cached result again with the resolved path. */
         r = device_get_cached_sysattr_value(device, resolved, ret_value);
         if (r != -ENOANO)
                 return r;
