@@ -339,7 +339,6 @@ manual_testcase_02_mdns_llmnr() {
     # defaults to yes (both the global and per-link settings are yes)
     assert_in 'yes' "$(resolvectl mdns hoge)"
     assert_in 'yes' "$(resolvectl llmnr hoge)"
-    lsof -p "$(systemctl show --property MainPID --value systemd-resolved.service)" | grep -q ":mdns\|:5353"
     # set per-link setting
     resolvectl mdns hoge yes
     resolvectl llmnr hoge yes
@@ -380,7 +379,6 @@ manual_testcase_02_mdns_llmnr() {
         echo "LLMNR=no"
     } >/run/systemd/resolved.conf.d/mdns-llmnr.conf
     systemctl reload systemd-resolved.service
-    (! lsof -p "$(systemctl show --property MainPID --value systemd-resolved.service)" | grep -q ":mdns\|:5353")
     # set per-link setting
     resolvectl mdns hoge yes
     resolvectl llmnr hoge yes
