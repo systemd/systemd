@@ -865,7 +865,7 @@ bool strv_equal_ignore_order(char **a, char **b) {
 
         /* Just like strv_equal(), but doesn't care about the order of elements or about redundant entries
          * (i.e. it's even ok if the number of entries in the array differ, as long as the difference just
-         * consists of repititions) */
+         * consists of repetitions). */
 
         if (a == b)
                 return true;
