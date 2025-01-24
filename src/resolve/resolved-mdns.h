@@ -9,5 +9,5 @@
 int manager_mdns_ipv4_fd(Manager *m);
 int manager_mdns_ipv6_fd(Manager *m);
 
-void manager_mdns_stop(Manager *m);
+void manager_mdns_stop(Manager *m, bool force);
 int manager_mdns_start(Manager *m);
