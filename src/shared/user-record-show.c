@@ -273,6 +273,9 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
                 printf("\n");
         }
 
+        if (hr->default_area)
+                printf("Default Area: %s\n", hr->default_area);
+
         if (hr->blob_directory) {
                 _cleanup_free_ char **filenames = NULL;
                 size_t n_filenames = 0;
