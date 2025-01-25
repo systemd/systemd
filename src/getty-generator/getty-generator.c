@@ -30,7 +30,8 @@ static int add_serial_getty(const char *tty) {
         int r;
 
         assert(tty);
-        assert(!path_startswith(tty, "/dev/"));
+
+        tty = skip_dev_prefix(tty);
 
         log_debug("Automatically adding serial getty for /dev/%s.", tty);
 
@@ -61,20 +62,16 @@ static int add_container_getty(const char *tty) {
                                           SYSTEM_DATA_UNIT_DIR "/container-getty@.service", instance);
 }
 
-static int verify_tty(const char *name) {
+static int verify_tty(const char *path) {
         _cleanup_close_ int fd = -EBADF;
-        const char *p;
 
-        /* Some TTYs are weird and have been enumerated but don't work
-         * when you try to use them, such as classic ttyS0 and
-         * friends. Let's check that and open the device and run
-         * isatty() on it. */
+        assert(path);
 
-        p = strjoina("/dev/", name);
+        /* Some TTYs are weird and have been enumerated but don't work when you try to use them, such as
+         * classic ttyS0 and friends. Let's check that and open the device and run isatty() on it. */
 
-        /* O_NONBLOCK is essential here, to make sure we don't wait
-         * for DCD */
-        fd = open(p, O_RDWR|O_NONBLOCK|O_NOCTTY|O_CLOEXEC|O_NOFOLLOW);
+        /* O_NONBLOCK is essential here, to make sure we don't wait for DCD */
+        fd = open(path, O_RDWR|O_NONBLOCK|O_NOCTTY|O_CLOEXEC|O_NOFOLLOW);
         if (fd < 0)
                 return -errno;
 
@@ -227,30 +224,24 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
                 return run_container();
 
         /* Automatically add in a serial getty on all active kernel consoles */
-        _cleanup_free_ char *active = NULL;
-        (void) read_one_line_file("/sys/class/tty/console/active", &active);
-        for (const char *p = active;;) {
-               _cleanup_free_ char *tty = NULL;
+        _cleanup_strv_free_ char **consoles = NULL;
+        r = get_kernel_consoles(&consoles);
+        if (r < 0)
+                log_warning_errno(r, "Failed to get active kernel consoles, ignoring: %m");
+        else if (r > 0)
+                STRV_FOREACH(i, consoles) {
+                        /* We assume that gettys on virtual terminals are started via manual configuration
+                         * and do this magic only for non-VC terminals. */
+                        if (tty_is_vc(tty))
+                                continue;
 
-                r = extract_first_word(&p, &tty, NULL, 0);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to parse /sys/class/tty/console/active: %m");
-                if (r == 0)
-                        break;
+                        if (verify_tty(tty) < 0)
+                                continue;
 
-                /* We assume that gettys on virtual terminals are started via manual configuration and do
-                 * this magic only for non-VC terminals. */
-
-                if (isempty(tty) || tty_is_vc(tty))
-                        continue;
-
-                if (verify_tty(tty) < 0)
-                        continue;
-
-                r = add_serial_getty(tty);
-                if (r < 0)
-                        return r;
-        }
+                        r = add_serial_getty(tty);
+                        if (r < 0)
+                                return r;
+                }
 
         /* Automatically add in a serial getty on the first virtualizer console */
         FOREACH_STRING(j,
