@@ -29,6 +29,7 @@
 #MulticastDNS={{DEFAULT_MDNS_MODE_STR}}
 #LLMNR={{DEFAULT_LLMNR_MODE_STR}}
 #Cache=yes
+#CacheSize=4096
 #CacheFromLocalhost=no
 #DNSStubListener=yes
 #DNSStubListenerExtra=
