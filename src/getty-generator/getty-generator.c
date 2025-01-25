@@ -25,72 +25,53 @@
 static const char *arg_dest = NULL;
 static bool arg_enabled = true;
 
-static int add_symlink(const char *fservice, const char *tservice) {
-        const char *from, *to;
-
-        assert(fservice);
-        assert(tservice);
-
-        from = strjoina(SYSTEM_DATA_UNIT_DIR "/", fservice);
-        to = strjoina(arg_dest, "/getty.target.wants/", tservice);
-
-        (void) mkdir_parents_label(to, 0755);
-
-        if (symlink(from, to) < 0) {
-                /* In case console=hvc0 is passed this will very likely result in EEXIST */
-                if (errno == EEXIST)
-                        return 0;
-
-                return log_error_errno(errno, "Failed to create symlink %s: %m", to);
-        }
-
-        return 0;
-}
-
 static int add_serial_getty(const char *tty) {
-        _cleanup_free_ char *n = NULL;
+        _cleanup_free_ char *instance = NULL;
         int r;
 
         assert(tty);
+
+        tty = skip_dev_prefix(tty);
 
         log_debug("Automatically adding serial getty for /dev/%s.", tty);
 
-        r = unit_name_from_path_instance("serial-getty", tty, ".service", &n);
+        r = unit_name_path_escape(tty, &instance);
         if (r < 0)
-                return log_error_errno(r, "Failed to generate service name: %m");
+                return log_error_errno(r, "Failed to escape tty path: %m");
 
-        return add_symlink("serial-getty@.service", n);
+        return generator_add_symlink_full(arg_dest,
+                                          "getty.target", "wants",
+                                          SYSTEM_DATA_UNIT_DIR "/serial-getty@.service", instance);
 }
 
 static int add_container_getty(const char *tty) {
-        _cleanup_free_ char *n = NULL;
+        _cleanup_free_ char *instance = NULL;
         int r;
 
         assert(tty);
+        assert(!path_startswith(tty, "/dev/"));
 
         log_debug("Automatically adding container getty for /dev/pts/%s.", tty);
 
-        r = unit_name_from_path_instance("container-getty", tty, ".service", &n);
+        r = unit_name_path_escape(tty, &instance);
         if (r < 0)
-                return log_error_errno(r, "Failed to generate service name: %m");
+                return log_error_errno(r, "Failed to escape tty path: %m");
 
-        return add_symlink("container-getty@.service", n);
+        return generator_add_symlink_full(arg_dest,
+                                          "getty.target", "wants",
+                                          SYSTEM_DATA_UNIT_DIR "/container-getty@.service", instance);
 }
 
-static int verify_tty(const char *name) {
+static int verify_tty(const char *path) {
         _cleanup_close_ int fd = -EBADF;
-        const char *p;
 
-        /* Some TTYs are weird and have been enumerated but don't work
-         * when you try to use them, such as classic ttyS0 and
-         * friends. Let's check that and open the device and run
-         * isatty() on it. */
+        assert(path);
 
-        p = strjoina("/dev/", name);
+        /* Some TTYs are weird and have been enumerated but don't work when you try to use them, such as
+         * classic ttyS0 and friends. Let's check that and open the device and run isatty() on it. */
 
-        /* O_NONBLOCK is essential here, to make sure we don't wait
-         * for DCD */
-        fd = open(p, O_RDWR|O_NONBLOCK|O_NOCTTY|O_CLOEXEC|O_NOFOLLOW);
+        /* O_NONBLOCK is essential here, to make sure we don't wait for DCD */
+        fd = open(path, O_RDWR|O_NONBLOCK|O_NOCTTY|O_CLOEXEC|O_NOFOLLOW);
         if (fd < 0)
                 return -errno;
 
@@ -124,10 +105,8 @@ static int run_container(void) {
                 if (r == 0)
                         return 0;
 
-                const char *tty = word;
-
                 /* First strip off /dev/ if it is specified */
-                tty = path_startswith(tty, "/dev/") ?: tty;
+                const char *tty = skip_dev_prefix(word);
 
                 /* Then, make sure it's actually a pty */
                 tty = path_startswith(tty, "pts/");
@@ -245,30 +224,24 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
                 return run_container();
 
         /* Automatically add in a serial getty on all active kernel consoles */
-        _cleanup_free_ char *active = NULL;
-        (void) read_one_line_file("/sys/class/tty/console/active", &active);
-        for (const char *p = active;;) {
-               _cleanup_free_ char *tty = NULL;
+        _cleanup_strv_free_ char **consoles = NULL;
+        r = get_kernel_consoles(&consoles);
+        if (r < 0)
+                log_warning_errno(r, "Failed to get active kernel consoles, ignoring: %m");
+        else if (r > 0)
+                STRV_FOREACH(i, consoles) {
+                        /* We assume that gettys on virtual terminals are started via manual configuration
+                         * and do this magic only for non-VC terminals. */
+                        if (tty_is_vc(tty))
+                                continue;
 
-                r = extract_first_word(&p, &tty, NULL, 0);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to parse /sys/class/tty/console/active: %m");
-                if (r == 0)
-                        break;
+                        if (verify_tty(tty) < 0)
+                                continue;
 
-                /* We assume that gettys on virtual terminals are started via manual configuration and do
-                 * this magic only for non-VC terminals. */
-
-                if (isempty(tty) || tty_is_vc(tty))
-                        continue;
-
-                if (verify_tty(tty) < 0)
-                        continue;
-
-                r = add_serial_getty(tty);
-                if (r < 0)
-                        return r;
-        }
+                        r = add_serial_getty(tty);
+                        if (r < 0)
+                                return r;
+                }
 
         /* Automatically add in a serial getty on the first virtualizer console */
         FOREACH_STRING(j,
