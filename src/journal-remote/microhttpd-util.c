@@ -41,7 +41,7 @@ int mhd_respond_internal(
                 return MHD_NO;
 
         log_debug("Queueing response %u: %s", code, buffer);
-        if (encoding != NULL)
+        if (encoding)
                 if (MHD_add_response_header(response, "Accept-Encoding", encoding) == MHD_NO)
                         return MHD_NO;
 

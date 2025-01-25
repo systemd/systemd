@@ -520,6 +520,8 @@ static int update_content_encoding(Uploader *u, char *acceptEncoding) {
         Compression algorithm;
         CURLcode code;
 
+        assert(u);
+
         while (acceptEncoding && !found) {
                 char *encodingValue, *algorithmStr;
 

@@ -64,7 +64,7 @@
         <listitem><para>Acceptable compression algorithms to be used by systemd-journal-upload. Compression algorithms are
         used for <literal>Accept-Encoding</literal> header contruction with priorities set according to an order in configuration</para>
 
-        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
 
       <varlistentry>

@@ -159,15 +159,16 @@ static int get_accept_encoding(char **encoding) {
         int r;
         float q = 1.0;
 
-        if (arg_compression.size > 0) {
-                float step = q / arg_compression.size;
+        if (arg_compression.size <= 0)
+                return 0;
 
-                for (size_t i = 0; i < arg_compression.size; i++, q-=step) {
-                        _cleanup_free_ const char *c = compression_lowercase_to_string(arg_compression.opts[i].algorithm);
-                        r = strextendf_with_separator(encoding, ",", "%s;q=%.1f", TAKE_PTR(c), q);
-                        if (r < 0)
-                                return log_oom();
-                }
+        float step = q / arg_compression.size;
+
+        for (size_t i = 0; i < arg_compression.size; i++, q-=step) {
+                _cleanup_free_ const char *c = compression_lowercase_to_string(arg_compression.opts[i].algorithm);
+                r = strextendf_with_separator(encoding, ",", "%s;q=%.1f", TAKE_PTR(c), q);
+                if (r < 0)
+                        return log_oom();
         }
         return 0;
 }

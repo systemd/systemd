@@ -73,7 +73,7 @@
         <literal>Accept-Encoding</literal> headers with list of compression algorithms, which are configured and supported by
         systemd-journal-upload.</para>
 
-        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -82,7 +82,7 @@
         <listitem><para>Boolean value, enforces using compression without content encoding negotiation.
         Defaults to <literal>false</literal>.</para>
 
-        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
 
       <varlistentry>
