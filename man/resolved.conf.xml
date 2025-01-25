@@ -302,6 +302,15 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>CacheSize=</varname></term>
+        <listitem><para>Takes an unsigned integer as argument. Specifies the maximum number of DNS resource records that
+        can be stored in the cache. Note that each scope maintains its own independent cache. The default value is 4096
+        entries per cache.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>DNSStubListener=</varname></term>
         <listitem><para>Takes a boolean argument or one of <literal>udp</literal> and
         <literal>tcp</literal>. If <literal>udp</literal>, a DNS stub resolver will listen for UDP requests
@@ -373,7 +382,7 @@ DNSStubListenerExtra=udp:[2001:db8:0:f102::13]:9953</programlisting>
         <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
       <varlistentry>
-        <term>StaleRetentionSec=<replaceable>SECONDS</replaceable></term>
+        <term><varname>StaleRetentionSec=</varname><replaceable>SECONDS</replaceable></term>
         <listitem><para>Takes a duration value, which determines the length of time DNS resource records can
         be retained in the cache beyond their Time To Live (TTL). This allows these records to be returned as
         stale records. By default, this value is set to zero, meaning that DNS resource records are not
