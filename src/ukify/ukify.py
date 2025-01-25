@@ -254,6 +254,8 @@ class UkifyConfig:
     pcr_private_keys: list[str]
     pcr_public_keys: list[str]
     pcrpkey: Optional[Path]
+    pcrsig: Union[str, Path, None]
+    join_pcrsig: Optional[Path]
     phase_path_groups: Optional[list[str]]
     policy_digest: bool
     profile: Union[str, Path, None]
@@ -1156,7 +1158,7 @@ def make_uki(opts: UkifyConfig) -> None:
         print('Kernel version not specified, starting autodetection 😖.', file=sys.stderr)
         opts.uname = Uname.scrape(opts.linux, opts=opts)
 
-    uki = UKI(opts.stub)
+    uki = UKI(opts.stub if not opts.join_pcrsig else opts.join_pcrsig)
     initrd = join_initrds(opts.initrd)
 
     pcrpkey: Union[bytes, Path, None] = opts.pcrpkey
@@ -1227,7 +1229,7 @@ def make_uki(opts: UkifyConfig) -> None:
         uki.add_section(Section.create('.linux', linux, measure=True, virtual_size=virtual_size))
 
     # Don't add a sbat section to profile PE binaries.
-    if opts.join_profiles or not opts.profile:
+    if (opts.join_profiles or not opts.profile) and not opts.pcrsig:
         if linux is not None:
             # Merge the .sbat sections from stub, kernel and parameter, so that revocation can be done on
             # either.
@@ -1249,7 +1251,10 @@ def make_uki(opts: UkifyConfig) -> None:
 
     # PCR measurement and signing
 
-    call_systemd_measure(uki, opts=opts)
+    if not opts.pcrsig:
+        call_systemd_measure(uki, opts=opts)
+    else:
+        uki.add_section(Section.create('.pcrsig', opts.pcrsig))
 
     # UKI profiles
 
@@ -1808,6 +1813,17 @@ CONFIG_ITEMS = [
         help='A PE binary containing an additional profile to add to the UKI',
     ),
     ConfigItem(
+        '--pcrsig',
+        metavar='TEST|@PATH',
+        help='Signed PCR policy JSON [.pcrsig section] to append to an existing UKI',
+        config_key='UKI/PCRSig',
+    ),
+    ConfigItem(
+        '--join-pcrsig',
+        metavar='PATH',
+        help='A PE binary containing a UKI without a .pcrsig to join with --pcrsig',
+    ),
+    ConfigItem(
         '--efi-arch',
         metavar='ARCH',
         choices=('ia32', 'x64', 'arm', 'aa64', 'riscv64'),
@@ -2205,6 +2221,30 @@ def finalize_options(opts: argparse.Namespace) -> None:
         # If any additional profiles are added, we need a base profile as well so add one if
         # one wasn't explicitly provided
         opts.profile = 'ID=main'
+
+    if opts.pcrsig and not opts.join_pcrsig:
+        raise ValueError('--pcrsig requires --join-pcrsig')
+    if opts.join_pcrsig and not opts.pcrsig:
+        raise ValueError('--join-pcrsig requires --pcrsig')
+    if opts.pcrsig and (
+            opts.linux or
+            opts.initrd or
+            opts.profile or
+            opts.join_profiles or
+            opts.microcode or
+            opts.sbat or
+            opts.uname or
+            opts.os_release or
+            opts.cmdline or
+            opts.hwids or
+            opts.splash or
+            opts.devicetree or
+            opts.devicetree_auto or
+            opts.pcr_private_keys or
+            opts.pcr_public_keys):
+        raise ValueError('--pcrsig and --join-pcrsig cannot be used with other sections')
+    if opts.pcrsig:
+        opts.pcrsig = resolve_at_path(opts.pcrsig)
 
     if opts.verb == 'build' and opts.output is None:
         if opts.linux is None:
