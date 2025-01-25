@@ -767,7 +767,7 @@ int make_console_stdio(void) {
 bool tty_is_vc(const char *tty) {
         assert(tty);
 
-        return vtnr_from_tty(tty) >= 0;
+        return streq(skip_dev_prefix(tty), "tty0") || vtnr_from_tty(tty) >= 0;
 }
 
 bool tty_is_console(const char *tty) {
