@@ -275,6 +275,8 @@ class UkifyConfig:
     pcr_private_keys: list[str]
     pcr_public_keys: list[str]
     pcrpkey: Optional[Path]
+    pcrsig: Union[str, Path, None]
+    join_pcrsig: Optional[Path]
     phase_path_groups: Optional[list[str]]
     policy_digest: bool
     profile: Union[str, Path, None]
@@ -744,12 +746,13 @@ def pe_section_size(section: pefile.SectionStructure) -> int:
     return cast(int, min(section.Misc_VirtualSize, section.SizeOfRawData))
 
 
-def call_systemd_measure(uki: UKI, opts: UkifyConfig, profile_start: int = 0) -> None:
+def call_systemd_measure(uki: UKI, opts: UkifyConfig, profile_start: int = 0) -> str:
     measure_tool = find_tool(
         'systemd-measure',
         '/usr/lib/systemd/systemd-measure',
         opts=opts,
     )
+    combined = ''
 
     banks = opts.pcr_banks or ()
 
@@ -785,6 +788,7 @@ def call_systemd_measure(uki: UKI, opts: UkifyConfig, profile_start: int = 0) ->
             unique_to_measure[section.name] = section
 
     if opts.measure or opts.policy_digest:
+        pcrsigs = []
         to_measure = unique_to_measure.copy()
 
         for dtbauto in dtbauto_to_measure:
@@ -811,7 +815,22 @@ def call_systemd_measure(uki: UKI, opts: UkifyConfig, profile_start: int = 0) ->
                 cmd += [f'--public-key={opts.pcr_public_keys[0]}']
 
             print('+', shell_join(cmd), file=sys.stderr)
-            subprocess.check_call(cmd)
+            output = subprocess.check_output(cmd, text=True)  # type: ignore
+
+            if opts.policy_digest:
+                pcrsig = json.loads(output)
+                pcrsigs += [pcrsig]
+            else:
+                print(output)
+
+        if opts.policy_digest:
+            combined = combine_signatures(pcrsigs)
+            # We need to ensure the section has space for signatures, that will be added separately later,
+            # so add some whitespace to pad the section. At most we'll need 4kb per digest (rsa4096).
+            # We might even check the key type given we have it to know the precise length, but don't
+            # bother for now.
+            combined += ' ' * 1024 * combined.count('"pol":')
+            uki.add_section(Section.create('.pcrsig', combined))
 
     # PCR signing
 
@@ -849,12 +868,14 @@ def call_systemd_measure(uki: UKI, opts: UkifyConfig, profile_start: int = 0) ->
                 extra += [f'--phase={phase_path}' for phase_path in group or ()]
 
                 print('+', shell_join(cmd + extra), file=sys.stderr)  # type: ignore
-                pcrsig = subprocess.check_output(cmd + extra, text=True)  # type: ignore
-                pcrsig = json.loads(pcrsig)
+                output = subprocess.check_output(cmd + extra, text=True)  # type: ignore
+                pcrsig = json.loads(output)
                 pcrsigs += [pcrsig]
 
         combined = combine_signatures(pcrsigs)
         uki.add_section(Section.create('.pcrsig', combined))
+
+    return combined
 
 
 def join_initrds(initrds: list[Path]) -> Union[Path, bytes, None]:
@@ -886,7 +907,7 @@ class PEError(Exception):
     pass
 
 
-def pe_add_sections(uki: UKI, output: str) -> None:
+def pe_add_sections(opts: UkifyConfig, uki: UKI, output: str) -> None:
     pe = pefile.PE(uki.executable, fast_load=True)
 
     # Old stubs do not have the symbol/string table stripped, even though image files should not have one.
@@ -937,10 +958,14 @@ def pe_add_sections(uki: UKI, output: str) -> None:
     if warnings:
         raise PEError(f'pefile warnings treated as errors: {warnings}')
 
-    security = pe.OPTIONAL_HEADER.DATA_DIRECTORY[pefile.DIRECTORY_ENTRY['IMAGE_DIRECTORY_ENTRY_SECURITY']]
-    if security.VirtualAddress != 0:
-        # We could strip the signatures, but why would anyone sign the stub?
-        raise PEError('Stub image is signed, refusing.')
+    # When attaching signatures we are operating on an existing UKI which might be signed
+    if not opts.pcrsig:
+        security = pe.OPTIONAL_HEADER.DATA_DIRECTORY[
+            pefile.DIRECTORY_ENTRY['IMAGE_DIRECTORY_ENTRY_SECURITY']
+        ]
+        if security.VirtualAddress != 0:
+            # We could strip the signatures, but why would anyone sign the stub?
+            raise PEError('Stub image is signed, refusing')
 
     # Remember how many sections originate from systemd-stub
     n_original_sections = len(pe.sections)
@@ -1008,6 +1033,47 @@ def pe_add_sections(uki: UKI, output: str) -> None:
             pe.OPTIONAL_HEADER.SizeOfInitializedData += new_section.Misc_VirtualSize
             pe.__structures__.append(new_section)
             pe.sections.append(new_section)
+
+    # If there is a pre-signed JSON blob, we need to update the existing JSON, by appending the signature to
+    # each corresponding digest object. We have built the unsigned UKI with enough space to fit the .sig
+    # objects, so we can just replace the new signed JSON in the existing sections.
+    if opts.pcrsig:
+        signatures = json.loads(str(opts.pcrsig))
+        for i, section in enumerate(pe.sections):
+            if pe_strip_section_name(section.Name) == '.pcrsig':
+                j = json.loads(
+                    bytes(
+                        pe.__data__[
+                            section.PointerToRawData : section.PointerToRawData + section.SizeOfRawData
+                        ]
+                    )
+                    .rstrip(b'\x00')
+                    .decode()
+                )
+                for (bank, sigs), (input_bank, input_sigs) in itertools.product(
+                    j.items(), signatures.items()
+                ):
+                    if input_bank != bank:
+                        continue
+                    for sig, input_sig in itertools.product(sigs, input_sigs):
+                        if sig['pol'] == input_sig['pol']:
+                            sig['sig'] = input_sig['sig']
+
+                encoded = json.dumps(j).encode()
+                if len(encoded) > section.SizeOfRawData:
+                    raise PEError(
+                        f'Not enough space in existing section .pcrsig of size {section.SizeOfRawData} to append new data of size {len(encoded)}.'  # noqa: E501
+                    )
+
+                section.Misc_VirtualSize = len(encoded)
+                # bytes(n) results in an array of n zeroes
+                padding = bytes(section.SizeOfRawData - len(encoded))
+                pe.__data__ = (
+                    pe.__data__[: section.PointerToRawData]
+                    + encoded
+                    + padding
+                    + pe.__data__[section.PointerToRawData + section.SizeOfRawData :]
+                )
 
     pe.OPTIONAL_HEADER.CheckSum = 0
     pe.OPTIONAL_HEADER.SizeOfImage = round_up(
@@ -1210,6 +1276,7 @@ def make_uki(opts: UkifyConfig) -> None:
     sign_args_present = opts.sb_key or opts.sb_cert_name
     sign_kernel = opts.sign_kernel
     linux = opts.linux
+    combined_sigs = '{}'
 
     if opts.linux and sign_args_present:
         assert opts.signtool is not None
@@ -1228,7 +1295,7 @@ def make_uki(opts: UkifyConfig) -> None:
         print('Kernel version not specified, starting autodetection 😖.', file=sys.stderr)
         opts.uname = Uname.scrape(opts.linux, opts=opts)
 
-    uki = UKI(opts.stub)
+    uki = UKI(opts.join_pcrsig if opts.join_pcrsig else opts.stub)
     initrd = join_initrds(opts.initrd)
 
     pcrpkey: Union[bytes, Path, None] = opts.pcrpkey
@@ -1300,7 +1367,7 @@ def make_uki(opts: UkifyConfig) -> None:
         uki.add_section(Section.create('.linux', linux, measure=True, virtual_size=virtual_size))
 
     # Don't add a sbat section to profile PE binaries.
-    if opts.join_profiles or not opts.profile:
+    if (opts.join_profiles or not opts.profile) and not opts.pcrsig:
         if linux is not None:
             # Merge the .sbat sections from stub, kernel and parameter, so that revocation can be done on
             # either.
@@ -1322,10 +1389,12 @@ def make_uki(opts: UkifyConfig) -> None:
 
     # PCR measurement and signing
 
-    if (opts.join_profiles or not opts.profile) and (
-        not opts.sign_profiles or opts.profile in opts.sign_profiles
+    if (
+        not opts.pcrsig
+        and (opts.join_profiles or not opts.profile)
+        and (not opts.sign_profiles or opts.profile in opts.sign_profiles)
     ):
-        call_systemd_measure(uki, opts=opts)
+        combined_sigs = call_systemd_measure(uki, opts=opts)
 
     # UKI profiles
 
@@ -1382,7 +1451,8 @@ def make_uki(opts: UkifyConfig) -> None:
                 print(f'Not signing expected PCR measurements for "{id}" profile')
                 continue
 
-        call_systemd_measure(uki, opts=opts, profile_start=prev_len)
+        s = call_systemd_measure(uki, opts=opts, profile_start=prev_len)
+        combined_sigs = combine_signatures([json.loads(combined_sigs), json.loads(s)])
 
     # UKI creation
 
@@ -1392,7 +1462,7 @@ def make_uki(opts: UkifyConfig) -> None:
     else:
         unsigned_output = opts.output
 
-    pe_add_sections(uki, unsigned_output)
+    pe_add_sections(opts, uki, unsigned_output)
 
     # UKI signing
 
@@ -1407,6 +1477,8 @@ def make_uki(opts: UkifyConfig) -> None:
         os.chmod(opts.output, 0o777 & ~umask)
 
     print(f'Wrote {"signed" if sign_args_present else "unsigned"} {opts.output}', file=sys.stderr)
+    if opts.policy_digest:
+        print(combined_sigs)
 
 
 @contextlib.contextmanager
@@ -1909,6 +1981,17 @@ CONFIG_ITEMS = [
         help='Which profiles to sign expected PCR measurements for',
     ),
     ConfigItem(
+        '--pcrsig',
+        metavar='TEST|@PATH',
+        help='Signed PCR policy JSON [.pcrsig section] to append to an existing UKI',
+        config_key='UKI/PCRSig',
+    ),
+    ConfigItem(
+        '--join-pcrsig',
+        metavar='PATH',
+        help='A PE binary containing a UKI without a .pcrsig to join with --pcrsig',
+    ),
+    ConfigItem(
         '--efi-arch',
         metavar='ARCH',
         choices=('ia32', 'x64', 'arm', 'aa64', 'riscv32', 'riscv64', 'loongarch32', 'loongarch64'),
@@ -2306,6 +2389,33 @@ def finalize_options(opts: argparse.Namespace) -> None:
         # If any additional profiles are added, we need a base profile as well so add one if
         # one wasn't explicitly provided
         opts.profile = 'ID=main'
+
+    if opts.pcrsig and not opts.join_pcrsig:
+        raise ValueError('--pcrsig requires --join-pcrsig')
+    if opts.join_pcrsig and not opts.pcrsig:
+        raise ValueError('--join-pcrsig requires --pcrsig')
+    if opts.pcrsig and (
+        opts.linux
+        or opts.initrd
+        or opts.profile
+        or opts.join_profiles
+        or opts.microcode
+        or opts.sbat
+        or opts.uname
+        or opts.os_release
+        or opts.cmdline
+        or opts.hwids
+        or opts.splash
+        or opts.devicetree
+        or opts.devicetree_auto
+        or opts.pcr_private_keys
+        or opts.pcr_public_keys
+    ):
+        raise ValueError('--pcrsig and --join-pcrsig cannot be used with other sections')
+    if opts.pcrsig:
+        opts.pcrsig = resolve_at_path(opts.pcrsig)
+        if isinstance(opts.pcrsig, Path):
+            opts.pcrsig = opts.pcrsig.read_text()
 
     if opts.verb == 'build' and opts.output is None:
         if opts.linux is None:
