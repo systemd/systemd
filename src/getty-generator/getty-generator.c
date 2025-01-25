@@ -25,56 +25,39 @@
 static const char *arg_dest = NULL;
 static bool arg_enabled = true;
 
-static int add_symlink(const char *fservice, const char *tservice) {
-        const char *from, *to;
-
-        assert(fservice);
-        assert(tservice);
-
-        from = strjoina(SYSTEM_DATA_UNIT_DIR "/", fservice);
-        to = strjoina(arg_dest, "/getty.target.wants/", tservice);
-
-        (void) mkdir_parents_label(to, 0755);
-
-        if (symlink(from, to) < 0) {
-                /* In case console=hvc0 is passed this will very likely result in EEXIST */
-                if (errno == EEXIST)
-                        return 0;
-
-                return log_error_errno(errno, "Failed to create symlink %s: %m", to);
-        }
-
-        return 0;
-}
-
 static int add_serial_getty(const char *tty) {
-        _cleanup_free_ char *n = NULL;
+        _cleanup_free_ char *instance = NULL;
         int r;
 
         assert(tty);
 
         log_debug("Automatically adding serial getty for /dev/%s.", tty);
 
-        r = unit_name_from_path_instance("serial-getty", tty, ".service", &n);
+        r = unit_name_path_escape(tty, &instance);
         if (r < 0)
-                return log_error_errno(r, "Failed to generate service name: %m");
+                return log_error_errno(r, "Failed to escape tty path: %m");
 
-        return add_symlink("serial-getty@.service", n);
+        return generator_add_symlink_full(arg_dest,
+                                          "getty.target", "wants",
+                                          SYSTEM_DATA_UNIT_DIR "/serial-getty@.service", instance);
 }
 
 static int add_container_getty(const char *tty) {
-        _cleanup_free_ char *n = NULL;
+        _cleanup_free_ char *instance = NULL;
         int r;
 
         assert(tty);
+        assert(!path_startswith(tty, "/dev/"));
 
         log_debug("Automatically adding container getty for /dev/pts/%s.", tty);
 
-        r = unit_name_from_path_instance("container-getty", tty, ".service", &n);
+        r = unit_name_path_escape(tty, &instance);
         if (r < 0)
-                return log_error_errno(r, "Failed to generate service name: %m");
+                return log_error_errno(r, "Failed to escape tty path: %m");
 
-        return add_symlink("container-getty@.service", n);
+        return generator_add_symlink_full(arg_dest,
+                                          "getty.target", "wants",
+                                          SYSTEM_DATA_UNIT_DIR "/container-getty@.service", instance);
 }
 
 static int verify_tty(const char *name) {
@@ -101,18 +84,17 @@ static int verify_tty(const char *name) {
 }
 
 static int run_container(void) {
-        _cleanup_free_ char *container_ttys = NULL;
         int r;
 
         log_debug("Automatically adding console shell.");
 
-        r = add_symlink("console-getty.service", "console-getty.service");
+        r = generator_add_symlink(arg_dest, "getty.target", "wants", SYSTEM_DATA_UNIT_DIR "/console-getty.service");
         if (r < 0)
                 return r;
 
         /* When $container_ttys is set for PID 1, spawn gettys on all ptys named therein.
          * Note that despite the variable name we only support ptys here. */
-
+        _cleanup_free_ char *container_ttys = NULL;
         (void) getenv_for_pid(1, "container_ttys", &container_ttys);
 
         for (const char *p = container_ttys;;) {
@@ -124,10 +106,8 @@ static int run_container(void) {
                 if (r == 0)
                         return 0;
 
-                const char *tty = word;
-
                 /* First strip off /dev/ if it is specified */
-                tty = path_startswith(tty, "/dev/") ?: tty;
+                const char *tty = skip_dev_prefix(word);
 
                 /* Then, make sure it's actually a pty */
                 tty = path_startswith(tty, "pts/");
