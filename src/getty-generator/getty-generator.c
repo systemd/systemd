@@ -259,7 +259,7 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
                 /* We assume that gettys on virtual terminals are started via manual configuration and do
                  * this magic only for non-VC terminals. */
 
-                if (isempty(tty) || tty_is_vc(tty))
+                if (isempty(tty) || streq(tty, "tty0") || tty_is_vc(tty))
                         continue;
 
                 if (verify_tty(tty) < 0)
