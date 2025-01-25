@@ -1395,7 +1395,7 @@ static EFI_STATUS boot_entry_bump_counters(BootEntry *entry) {
 
         err = root->Open(root, &handle, old_path, EFI_FILE_MODE_READ|EFI_FILE_MODE_WRITE, 0ULL);
         if (err != EFI_SUCCESS)
-                return log_error_status(err, "Error opening boot entry: %m");
+                return log_error_status(err, "Error opening boot entry '%ls': %m", old_path);
 
         err = get_file_info(handle, &file_info, &file_info_size);
         if (err != EFI_SUCCESS)
