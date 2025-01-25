@@ -1772,7 +1772,7 @@ CONFIG_ITEMS = [
     ConfigItem(
         '--efi-arch',
         metavar='ARCH',
-        choices=('ia32', 'x64', 'arm', 'aa64', 'riscv64', 'loongarch32', 'loongarch64'),
+        choices=('ia32', 'x64', 'arm', 'aa64', 'riscv32', 'riscv64', 'loongarch32', 'loongarch64'),
         help='target EFI architecture',
         config_key='UKI/EFIArch',
     ),
