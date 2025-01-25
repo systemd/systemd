@@ -45,7 +45,7 @@ case "${BASH_REMATCH[1]}" in
     ia32) arch="i386";;
     x64)  arch="i386:x86-64";;
     aa64) arch="aarch64";;
-    arm|riscv64) arch="${BASH_REMATCH[1]}";;
+    arm|riscv64|loongarch64) arch="${BASH_REMATCH[1]}";;
     *)
         echo "Unknown EFI arch '${BASH_REMATCH[1]}'."
         exit 1
