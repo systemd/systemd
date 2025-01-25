@@ -60,7 +60,7 @@ int umount_recursive_full(const char *prefix, int flags, char **keep) {
                 _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
                 bool again = false;
 
-                r = libmount_parse("/proc/self/mountinfo", f, &table, &iter);
+                r = libmount_parse_mountinfo(f, &table, &iter);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to parse /proc/self/mountinfo: %m");
 
@@ -217,7 +217,7 @@ int bind_remount_recursive_with_mountinfo(
 
                 rewind(proc_self_mountinfo);
 
-                r = libmount_parse("/proc/self/mountinfo", proc_self_mountinfo, &table, &iter);
+                r = libmount_parse_mountinfo(proc_self_mountinfo, &table, &iter);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to parse /proc/self/mountinfo: %m");
 
@@ -1571,7 +1571,7 @@ int get_sub_mounts(const char *prefix, SubMount **ret_mounts, size_t *ret_n_moun
         assert(ret_mounts);
         assert(ret_n_mounts);
 
-        r = libmount_parse("/proc/self/mountinfo", NULL, &table, &iter);
+        r = libmount_parse_mountinfo(/* source = */ NULL, &table, &iter);
         if (r < 0)
                 return log_debug_errno(r, "Failed to parse /proc/self/mountinfo: %m");
 
@@ -1894,9 +1894,12 @@ static int path_get_mount_info_at(
         if (r < 0)
                 return log_debug_errno(r, "Failed to get mount ID: %m");
 
-        /* When getting options is requested, do not pass filename, otherwise utab will not read, and
-         * userspace options like "_netdev" will be lost. */
-        r = libmount_parse(ret_options ? NULL : "/proc/self/mountinfo", /* source = */ NULL, &table, &iter);
+        /* When getting options is requested, we also need to parse utab, otherwise userspace options like
+         * "_netdev" will be lost. */
+        if (ret_options)
+                r = libmount_parse_with_utab(&table, &iter);
+        else
+                r = libmount_parse_mountinfo(/* source = */ NULL, &table, &iter);
         if (r < 0)
                 return log_debug_errno(r, "Failed to parse /proc/self/mountinfo: %m");
 

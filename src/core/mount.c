@@ -1927,7 +1927,7 @@ static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
 
         assert(m);
 
-        r = libmount_parse(NULL, NULL, &table, &iter);
+        r = libmount_parse_with_utab(&table, &iter);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse /proc/self/mountinfo: %m");
 

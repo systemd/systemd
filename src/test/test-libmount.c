@@ -24,7 +24,7 @@ static void test_libmount_unescaping_one(
         f = fmemopen((char*) string, strlen(string), "r");
         assert_se(f);
 
-        assert_se(libmount_parse(title, f, &table, &iter) >= 0);
+        assert_se(libmount_parse_mountinfo(f, &table, &iter) >= 0);
 
         struct libmnt_fs *fs;
         const char *source, *target;
