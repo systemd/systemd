@@ -764,21 +764,7 @@ int make_console_stdio(void) {
         return 0;
 }
 
-bool tty_is_vc(const char *tty) {
-        assert(tty);
-
-        return vtnr_from_tty(tty) >= 0;
-}
-
-bool tty_is_console(const char *tty) {
-        assert(tty);
-
-        return streq(skip_dev_prefix(tty), "console");
-}
-
-int vtnr_from_tty(const char *tty) {
-        int r;
-
+static int vtnr_from_tty_raw(const char *tty, unsigned *ret) {
         assert(tty);
 
         tty = skip_dev_prefix(tty);
@@ -787,14 +773,39 @@ int vtnr_from_tty(const char *tty) {
         if (!e)
                 return -EINVAL;
 
+        return safe_atou(e, ret);
+}
+
+int vtnr_from_tty(const char *tty) {
         unsigned u;
-        r = safe_atou(e, &u);
+        int r;
+
+        assert(tty);
+
+        r = vtnr_from_tty_raw(tty, &u);
         if (r < 0)
                 return r;
         if (!vtnr_is_valid(u))
                 return -ERANGE;
 
         return (int) u;
+}
+
+bool tty_is_vc(const char *tty) {
+        assert(tty);
+
+        /* NB: for >= 0 values no range check is conducted here, in the assumption that the caller will
+         * either extract vtnr through vtnr_from_tty() later where ERANGE would be reported, or doesn't care
+         * about whether it's strictly valid, but only asking "does this fall into the vt catogory?", for which
+         * "yes" seems to be a better answer. */
+
+        return vtnr_from_tty_raw(tty, /* ret = */ NULL) >= 0;
+}
+
+bool tty_is_console(const char *tty) {
+        assert(tty);
+
+        return streq(skip_dev_prefix(tty), "console");
 }
 
 int resolve_dev_console(char **ret) {
@@ -855,13 +866,12 @@ int resolve_dev_console(char **ret) {
 int get_kernel_consoles(char ***ret) {
         _cleanup_strv_free_ char **l = NULL;
         _cleanup_free_ char *line = NULL;
-        const char *p;
         int r;
 
         assert(ret);
 
-        /* If /sys is mounted read-only this means we are running in some kind of container environment. In that
-         * case /sys would reflect the host system, not us, hence ignore the data we can read from it. */
+        /* If /sys/ is mounted read-only this means we are running in some kind of container environment.
+         * In that case /sys/ would reflect the host system, not us, hence ignore the data we can read from it. */
         if (path_is_read_only_fs("/sys") > 0)
                 goto fallback;
 
@@ -869,8 +879,7 @@ int get_kernel_consoles(char ***ret) {
         if (r < 0)
                 return r;
 
-        p = line;
-        for (;;) {
+        for (const char *p = line;;) {
                 _cleanup_free_ char *tty = NULL, *path = NULL;
 
                 r = extract_first_word(&p, &tty, NULL, 0);
@@ -906,8 +915,7 @@ int get_kernel_consoles(char ***ret) {
         }
 
         *ret = TAKE_PTR(l);
-
-        return 0;
+        return strv_length(*ret);
 
 fallback:
         r = strv_extend(&l, "/dev/console");
@@ -915,7 +923,6 @@ fallback:
                 return r;
 
         *ret = TAKE_PTR(l);
-
         return 0;
 }
 

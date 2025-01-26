@@ -348,8 +348,7 @@ static int get_seat_from_display(const char *display, const char **seat, uint32_
         v = vtnr_from_tty(tty);
         if (v < 0)
                 return v;
-        else if (v == 0)
-                return -ENOENT;
+        assert(v > 0);
 
         if (seat)
                 *seat = "seat0";
