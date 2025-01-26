@@ -764,21 +764,7 @@ int make_console_stdio(void) {
         return 0;
 }
 
-bool tty_is_vc(const char *tty) {
-        assert(tty);
-
-        return vtnr_from_tty(tty) >= 0;
-}
-
-bool tty_is_console(const char *tty) {
-        assert(tty);
-
-        return streq(skip_dev_prefix(tty), "console");
-}
-
-int vtnr_from_tty(const char *tty) {
-        int r;
-
+static int vtnr_from_tty_raw(const char *tty, unsigned *ret) {
         assert(tty);
 
         tty = skip_dev_prefix(tty);
@@ -787,14 +773,39 @@ int vtnr_from_tty(const char *tty) {
         if (!e)
                 return -EINVAL;
 
+        return safe_atou(e, ret);
+}
+
+int vtnr_from_tty(const char *tty) {
         unsigned u;
-        r = safe_atou(e, &u);
+        int r;
+
+        assert(tty);
+
+        r = vtnr_from_tty_raw(tty, &u);
         if (r < 0)
                 return r;
         if (!vtnr_is_valid(u))
                 return -ERANGE;
 
         return (int) u;
+}
+
+bool tty_is_vc(const char *tty) {
+        assert(tty);
+
+        /* NB: for >= 0 values no range check is conducted here, in the assumption that the caller will
+         * either extract vtnr through vtnr_from_tty() later where ERANGE would be reported, or doesn't care
+         * about whether it's strictly valid, but only asking "does this fall into the vt catogory?", for which
+         * "yes" seems to be a better answer. */
+
+        return vtnr_from_tty_raw(tty, /* ret = */ NULL) >= 0;
+}
+
+bool tty_is_console(const char *tty) {
+        assert(tty);
+
+        return streq(skip_dev_prefix(tty), "console");
 }
 
 int resolve_dev_console(char **ret) {
