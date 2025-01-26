@@ -791,7 +791,7 @@ int vtnr_from_tty(const char *tty) {
         r = safe_atou(e, &u);
         if (r < 0)
                 return r;
-        if (!vtnr_is_valid(u))
+        if (u != 0 && !vtnr_is_valid(u))
                 return -ERANGE;
 
         return (int) u;
