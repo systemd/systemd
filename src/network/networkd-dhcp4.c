@@ -438,14 +438,19 @@ static int dhcp4_request_prefix_route(Link *link) {
         return dhcp4_request_route(route, link);
 }
 
-static int dhcp4_request_route_to_gateway(Link *link, const struct in_addr *gw) {
+static int dhcp4_request_route_to_gateway(Link *link, const Route *rt) {
         _cleanup_(route_unrefp) Route *route = NULL;
         struct in_addr address;
         int r;
 
         assert(link);
         assert(link->dhcp_lease);
-        assert(gw);
+        assert(rt);
+
+        if (in_addr_is_set(rt->nexthop.family, &rt->nexthop.gw) <= 0)
+                return 0;
+
+        assert(rt->nexthop.family == AF_INET);
 
         r = sd_dhcp_lease_get_address(link->dhcp_lease, &address);
         if (r < 0)
@@ -455,7 +460,7 @@ static int dhcp4_request_route_to_gateway(Link *link, const struct in_addr *gw) 
         if (r < 0)
                 return r;
 
-        route->dst.in = *gw;
+        route->dst.in = rt->nexthop.gw.in;
         route->dst_prefixlen = 32;
         route->prefsrc.in = address;
         route->scope = RT_SCOPE_LINK;
@@ -526,14 +531,14 @@ static int dhcp4_request_route_auto(
                 route->prefsrc.in = address;
 
         } else {
-                r = dhcp4_request_route_to_gateway(link, gw);
-                if (r < 0)
-                        return r;
-
                 route->scope = RT_SCOPE_UNIVERSE;
                 route->nexthop.family = AF_INET;
                 route->nexthop.gw.in = *gw;
                 route->prefsrc.in = address;
+
+                r = dhcp4_request_route_to_gateway(link, route);
+                if (r < 0)
+                        return r;
         }
 
         return dhcp4_request_route(route, link);
@@ -613,12 +618,6 @@ static int dhcp4_request_default_gateway(Link *link) {
         if (r < 0)
                 return r;
 
-        /* The dhcp netmask may mask out the gateway. First, add an explicit route for the gateway host
-         * so that we can route no matter the netmask or existing kernel route tables. */
-        r = dhcp4_request_route_to_gateway(link, &router);
-        if (r < 0)
-                return r;
-
         r = route_new(&route);
         if (r < 0)
                 return r;
@@ -627,6 +626,12 @@ static int dhcp4_request_default_gateway(Link *link) {
         route->nexthop.family = AF_INET;
         route->nexthop.gw.in = router;
         route->prefsrc.in = address;
+
+        /* The dhcp netmask may mask out the gateway. First, add an explicit route for the gateway host
+         * so that we can route no matter the netmask or existing kernel route tables. */
+        r = dhcp4_request_route_to_gateway(link, route);
+        if (r < 0)
+                return r;
 
         return dhcp4_request_route(route, link);
 }
@@ -664,15 +669,15 @@ static int dhcp4_request_semi_static_routes(Link *link) {
                         continue;
                 }
 
-                r = dhcp4_request_route_to_gateway(link, &gw);
-                if (r < 0)
-                        return r;
-
                 r = route_dup(rt, NULL, &route);
                 if (r < 0)
                         return r;
 
                 route->nexthop.gw.in = gw;
+
+                r = dhcp4_request_route_to_gateway(link, route);
+                if (r < 0)
+                        return r;
 
                 r = dhcp4_request_route(route, link);
                 if (r < 0)
