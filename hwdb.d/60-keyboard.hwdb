@@ -1578,6 +1578,11 @@ evdev:name:AT Translated Set 2 keyboard:dmi:*:svnMicro-StarInternationalCo.,Ltd.
  KEYBOARD_KEY_b9=f15                                   # Right Face Button
  KEYBOARD_KEY_ba=f16                                   # Left Face Button
 
+ # MSI Claw 8
+evdev:name:AT Translated Set 2 keyboard:dmi:*:svnMicro-StarInternationalCo.,Ltd.:pnClaw8AI+A2VM:*
+ KEYBOARD_KEY_b9=f15                                   # Right Face Button
+ KEYBOARD_KEY_ba=f16                                   # Left Face Button
+
 ##########################################
 # NEC
 ##########################################
