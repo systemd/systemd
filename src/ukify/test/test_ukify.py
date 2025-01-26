@@ -410,6 +410,8 @@ def test_help_error(capsys):
 def kernel_initrd():
     items = sorted(glob.glob('/lib/modules/*/vmlinuz'))
     if not items:
+        items = sorted(glob.glob('/boot/vmlinuz*'))
+    if not items:
         return None
 
     # This doesn't necessarily give us the latest version, since we're just
@@ -886,6 +888,56 @@ def test_key_cert_generation(tmp_path):
     ], text = True)
     assert 'Certificate' in out
     assert re.search(r'Issuer: CN\s?=\s?SecureBoot signing key on host', out)
+
+@pytest.mark.skipif(not slow_tests, reason='slow')
+def test_join_pcrsig(kernel_initrd, tmp_path):
+    if kernel_initrd is None:
+        pytest.skip('linux+initrd not found')
+    try:
+        systemd_measure()
+    except ValueError:
+        pytest.skip('systemd-measure not found')
+
+    ourdir = pathlib.Path(__file__).parent
+    pub = unbase64(ourdir / 'example.tpm2-pcr-public.pem.base64')
+
+    output = f'{tmp_path}/basic.efi'
+    opts = ukify.parse_args([
+        'build',
+        *kernel_initrd,
+        f'--output={output}',
+        f'--pcr-public-key={pub.name}',
+    ])
+    try:
+        ukify.check_inputs(opts)
+    except OSError as e:
+        pytest.skip(str(e))
+
+    ukify.make_uki(opts)
+
+    dump = subprocess.check_output(['objdump', '-h', output], text=True)
+    assert re.search(fr'^\s*\d+\s+\.pcrpkey\s+[0-9a-f]+', dump, re.MULTILINE)
+    assert not re.search(fr'^\s*\d+\s+\.pcrsig\s+[0-9a-f]+', dump, re.MULTILINE)
+
+    output_sig = f'{tmp_path}/pcrsig.efi'
+    opts = ukify.parse_args([
+        'build',
+        f'--output={output_sig}',
+        f'--join-pcrsig={output}',
+        '--pcrsig={"sha256": [{"pcrs": [11], "pkfp": "c13d6a614f1554fde1452fa3e1bbf4deab41724de493c0d2abba804e616ce2cc", "pol": "15654885f9da3a3dbfd857e7097ac45fbe4e06f62ca047e482425ec70d469fbd", "sig": "Y9/Bmurm0hNouuO/Ll0/VutM+XbGDkH7XqLXUIAl8pdQBrTpWB4r/NhJvwPI3UYNR7eichuyYB7eCC/DoWwOFGkLSOrmxXfrzSXLpleSsNAFQYe7RHv02YR3JTwqK7rfFgqukdNlufYwOQ3KmGMk7QADaz0LDpnb7ZqsKVTNwOTETTSes+3E0+7fAe/q+K4pcpbHhMETyIUuNlKHH12SWc6EItitOrTEc04Q6B9WVMbH6D7Viq2sloxq2MlgOdP8nqO0O2IC5a4lA1NLcGYAK5fO9b5otoB8UcFjxcfN4bCERdAJHz+9XknLi0iLpsOrEssjMH5dirqY1chRbC3kxg=="}]}',
+    ])
+    try:
+        ukify.check_inputs(opts)
+    except OSError as e:
+        pytest.skip(str(e))
+
+    ukify.make_uki(opts)
+
+    dump = subprocess.check_output(['objdump', '-h', output_sig], text=True)
+    assert re.search(fr'^\s*\d+\s+\.pcrpkey\s+[0-9a-f]+', dump, re.MULTILINE)
+    assert re.search(fr'^\s*\d+\s+\.pcrsig\s+[0-9a-f]+', dump, re.MULTILINE)
+
+    shutil.rmtree(tmp_path)
 
 if __name__ == '__main__':
     sys.exit(pytest.main(sys.argv))
