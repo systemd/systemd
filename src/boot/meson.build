@@ -9,8 +9,10 @@ libefitest = static_library(
                 'bcd.c',
                 'chid.c',
                 'devicetree.c',
+                'efi-firmware.c',
                 'efi-string.c',
                 'efi-userspace.c',
+                'pe.c',
         ),
         build_by_default : false,
         include_directories : [

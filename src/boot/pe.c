@@ -129,8 +129,12 @@ static bool verify_pe(
         assert(pe);
 
         return memcmp(pe->Magic, PE_FILE_MAGIC, STRLEN(PE_FILE_MAGIC)) == 0 &&
+        /* Only check the machine type in EFI. This check doesn't make much sense in userspace as
+         * tests could be run on a different machine than the one that the stub was built for. */
+#if SD_BOOT
                 (pe->FileHeader.Machine == TARGET_MACHINE_TYPE ||
                  (allow_compatibility && pe->FileHeader.Machine == TARGET_MACHINE_TYPE_COMPATIBILITY)) &&
+#endif
                 pe->FileHeader.NumberOfSections > 0 &&
                 IN_SET(pe->OptionalHeader.Magic, OPTHDR32_MAGIC, OPTHDR64_MAGIC) &&
                 pe->FileHeader.SizeOfOptionalHeader < SIZE_MAX - (dos->ExeHeader + offsetof(PeFileHeader, OptionalHeader));
