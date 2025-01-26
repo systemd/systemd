@@ -28,7 +28,7 @@
 
     <para>A unit configuration file whose name ends in
     <literal>.path</literal> encodes information about a path
-    monitored by systemd, for path-based activation.</para>
+    monitored by systemd, for path-based activation and deactivation.</para>
 
     <para>This man page lists the configuration options specific to
     this unit type. See
@@ -205,6 +205,21 @@
         that this limit is enforced before the service activation is enqueued.</para>
 
         <xi:include href="version-info.xml" xpointer="v250"/></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>DeactivationToggle=</varname></term>
+
+        <listitem><para>Takes a boolean argument. If true, the
+        triggered unit is stopped and the path unit goes back to
+        waiting state when the path it watches is removed for
+        <varname>PathExists=</varname>, when there are no matching
+        paths for <varname>PathExistsGlob=</varname>, or when the
+        directory is empty for <varname>DirectoryNotEmpty=</varname>.
+        This option is ignored for <varname>PathChanged=</varname> and
+        <varname>PathModified=</varname> settings. Defaults to
+        <option>false</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
       </varlistentry>
     </variablelist>
 

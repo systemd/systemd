@@ -22,7 +22,8 @@ typedef void (*test_function_t)(Manager *m);
 
 static int setup_test(Manager **m) {
         char **tests_path = STRV_MAKE("exists", "existsglobFOOBAR", "changed", "modified", "unit",
-                                      "directorynotempty", "makedirectory");
+                                      "directorynotempty", "makedirectory", "deactivationtoggle",
+                                      "deactivationtoggle_secondary");
         Manager *tmp = NULL;
         int r;
 
@@ -378,6 +379,371 @@ static void test_path_makedirectory_directorymode(Manager *m) {
         (void) rm_rf(test_path, REMOVE_ROOT|REMOVE_PHYSICAL);
 }
 
+static void test_path_deactivationtoggle_exists(Manager *m) {
+        const char *test_file, *test_file2;
+        const char *test_path = "/tmp/test-path_deactivationtoggle/";
+        const char *test_path2 = "/tmp/test-path_deactivationtoggle_secondary/";
+        const char *path_name = "path-deactivationtoggle-exists.path";
+        const char *service_name = "path-deactivationtoggle.service";
+        Unit *unit = NULL;
+        Path *path = NULL;
+        Service *service = NULL;
+
+        assert_se(m);
+
+        assert_se(manager_load_startable_unit_or_warn(m, path_name, NULL, &unit) >= 0);
+
+        path = PATH(unit);
+        service = service_for_path(m, path, service_name);
+
+        assert_se(unit_start(unit, NULL) >= 0);
+        if (check_states(m, path, service, PATH_WAITING, SERVICE_DEAD) < 0)
+                return;
+
+        test_file = strjoina(test_path, "test_file");
+        test_file2 = strjoina(test_path2, "test_file");
+
+        assert_se(mkdir_p(test_path, 0755) >= 0);
+        assert_se(mkdir_p(test_path2, 0755) >= 0);
+        assert_se(touch(test_file) >= 0);
+        if (check_states(m, path, service, PATH_RUNNING, SERVICE_RUNNING) < 0)
+                return;
+
+        assert_se(rm_rf(test_file, REMOVE_ROOT|REMOVE_PHYSICAL) == 0);
+        if (check_states(m, path, service, PATH_WAITING, SERVICE_DEAD) < 0)
+                return;
+
+        assert_se(touch(test_file2) >= 0);
+        assert_se(rename(test_file2, test_file) >= 0);
+        if (check_states(m, path, service, PATH_RUNNING, SERVICE_RUNNING) < 0)
+                return;
+
+        assert_se(rename(test_file, test_file2) >= 0);
+        if (check_states(m, path, service, PATH_WAITING, SERVICE_DEAD) < 0)
+                return;
+
+        assert_se(unit_stop(unit) >= 0);
+        assert_se(rm_rf(test_file2, REMOVE_ROOT|REMOVE_PHYSICAL) == 0);
+
+        assert_se(touch(test_file) >= 0);
+        assert_se(unit_start(unit, NULL) >= 0);
+        if (check_states(m, path, service, PATH_RUNNING, SERVICE_RUNNING) < 0)
+                return;
+
+        /* If file exists before path is started, service is stopped when file is removed */
+        assert_se(rm_rf(test_file, REMOVE_ROOT|REMOVE_PHYSICAL) == 0);
+        if (check_states(m, path, service, PATH_WAITING, SERVICE_DEAD) < 0)
+                return;
+
+        assert_se(touch(test_file) >= 0);
+        if (check_states(m, path, service, PATH_RUNNING, SERVICE_RUNNING) < 0)
+                return;
+
+        assert_se(rm_rf(test_file, REMOVE_ROOT|REMOVE_PHYSICAL) == 0);
+        if (check_states(m, path, service, PATH_WAITING, SERVICE_DEAD) < 0)
+                return;
+
+        assert_se(unit_stop(unit) >= 0);
+
+        assert_se(touch(test_file) >= 0);
+        assert_se(unit_start(unit, NULL) >= 0);
+        if (check_states(m, path, service, PATH_RUNNING, SERVICE_RUNNING) < 0)
+                return;
+
+        /* Service is stopped when file is renamed */
+        assert_se(rename(test_file, test_file2) >= 0);
+        if (check_states(m, path, service, PATH_WAITING, SERVICE_DEAD) < 0)
+                return;
+
+        assert_se(rename(test_file2, test_file) >= 0);
+        if (check_states(m, path, service, PATH_RUNNING, SERVICE_RUNNING) < 0)
+                return;
+
+        assert_se(rename(test_file, test_file2) >= 0);
+        if (check_states(m, path, service, PATH_WAITING, SERVICE_DEAD) < 0)
+                return;
+
+        assert_se(unit_stop(unit) >= 0);
+        assert_se(rm_rf(test_file2, REMOVE_ROOT|REMOVE_PHYSICAL) == 0);
+
+        assert_se(unit_start(UNIT(service), NULL) >= 0);
+        if (check_states(m, path, service, PATH_DEAD, SERVICE_RUNNING) < 0)
+                return;
+
+        /* If service is running and file does not exist, it is stopped */
+        assert_se(unit_start(unit, NULL) >= 0);
+        if (check_states(m, path, service, PATH_WAITING, SERVICE_DEAD) < 0)
+                return;
+
+        assert_se(unit_stop(unit) >= 0);
+
+        assert_se(unit_start(UNIT(service), NULL) >= 0);
+        if (check_states(m, path, service, PATH_DEAD, SERVICE_RUNNING) < 0)
+                return;
+
+        /* If service is running and file exists, path unit is running */
+        assert_se(touch(test_file) >= 0);
+        assert_se(unit_start(unit, NULL) >= 0);
+        if (check_states(m, path, service, PATH_RUNNING, SERVICE_RUNNING) < 0)
+                return;
+
+        /* If service is running first, service is stopped when file is removed */
+        assert_se(rm_rf(test_file, REMOVE_ROOT|REMOVE_PHYSICAL) == 0);
+        if (check_states(m, path, service, PATH_WAITING, SERVICE_DEAD) < 0)
+                return;
+
+        assert_se(unit_stop(unit) >= 0);
+}
+
+static void test_path_deactivationtoggle_existsglob(Manager *m) {
+        const char *test_file, *test_file2, *test_file3, *test_file4;
+        const char *test_path = "/tmp/test-path_deactivationtoggle/";
+        const char *test_path2 = "/tmp/test-path_deactivationtoggle_secondary/";
+        const char *path_name = "path-deactivationtoggle-existsglob.path";
+        const char *service_name = "path-deactivationtoggle.service";
+        Unit *unit = NULL;
+        Path *path = NULL;
+        Service *service = NULL;
+
+        assert_se(m);
+
+        assert_se(manager_load_startable_unit_or_warn(m, path_name, NULL, &unit) >= 0);
+
+        path = PATH(unit);
+        service = service_for_path(m, path, service_name);
+
+        assert_se(unit_start(unit, NULL) >= 0);
+        if (check_states(m, path, service, PATH_WAITING, SERVICE_DEAD) < 0)
+                return;
+
+        test_file = strjoina(test_path, "test_file_globFOO");
+        test_file2 = strjoina(test_path, "test_file_globBAR");
+        test_file3 = strjoina(test_path2, "test_file_globFOO");
+        test_file4 = strjoina(test_path2, "test_file_globBAR");
+
+        assert_se(mkdir_p(test_path, 0755) >= 0);
+        assert_se(mkdir_p(test_path2, 0755) >= 0);
+        assert_se(touch(test_file) >= 0);
+        assert_se(touch(test_file2) >= 0);
+        if (check_states(m, path, service, PATH_RUNNING, SERVICE_RUNNING) < 0)
+                return;
+
+        assert_se(rm_rf(test_file, REMOVE_ROOT|REMOVE_PHYSICAL) == 0);
+        assert_se(rm_rf(test_file2, REMOVE_ROOT|REMOVE_PHYSICAL) == 0);
+        if (check_states(m, path, service, PATH_WAITING, SERVICE_DEAD) < 0)
+                return;
+
+        assert_se(touch(test_file3) >= 0);
+        assert_se(touch(test_file4) >= 0);
+        assert_se(rename(test_file3, test_file) >= 0);
+        assert_se(rename(test_file4, test_file2) >= 0);
+        if (check_states(m, path, service, PATH_RUNNING, SERVICE_RUNNING) < 0)
+                return;
+
+        assert_se(rename(test_file, test_file3) >= 0);
+        assert_se(rename(test_file2, test_file4) >= 0);
+        if (check_states(m, path, service, PATH_WAITING, SERVICE_DEAD) < 0)
+                return;
+
+        assert_se(unit_stop(unit) >= 0);
+        assert_se(rm_rf(test_file3, REMOVE_ROOT|REMOVE_PHYSICAL) == 0);
+        assert_se(rm_rf(test_file4, REMOVE_ROOT|REMOVE_PHYSICAL) == 0);
+
+        assert_se(touch(test_file) >= 0);
+        assert_se(touch(test_file2) >= 0);
+        assert_se(unit_start(unit, NULL) >= 0);
+        if (check_states(m, path, service, PATH_RUNNING, SERVICE_RUNNING) < 0)
+                return;
+
+        /* If files exist before path is started, service is stopped when files are removed */
+        assert_se(rm_rf(test_file, REMOVE_ROOT|REMOVE_PHYSICAL) == 0);
+        assert_se(rm_rf(test_file2, REMOVE_ROOT|REMOVE_PHYSICAL) == 0);
+        if (check_states(m, path, service, PATH_WAITING, SERVICE_DEAD) < 0)
+                return;
+
+        assert_se(touch(test_file) >= 0);
+        if (check_states(m, path, service, PATH_RUNNING, SERVICE_RUNNING) < 0)
+                return;
+
+        assert_se(rm_rf(test_file, REMOVE_ROOT|REMOVE_PHYSICAL) == 0);
+        if (check_states(m, path, service, PATH_WAITING, SERVICE_DEAD) < 0)
+                return;
+
+        assert_se(unit_stop(unit) >= 0);
+
+        assert_se(touch(test_file) >= 0);
+        assert_se(touch(test_file2) >= 0);
+        assert_se(unit_start(unit, NULL) >= 0);
+        if (check_states(m, path, service, PATH_RUNNING, SERVICE_RUNNING) < 0)
+                return;
+
+        /* Service is stopped when files are renamed */
+        assert_se(rename(test_file, test_file3) >= 0);
+        assert_se(rename(test_file2, test_file4) >= 0);
+        if (check_states(m, path, service, PATH_WAITING, SERVICE_DEAD) < 0)
+                return;
+
+        assert_se(rename(test_file3, test_file) >= 0);
+        if (check_states(m, path, service, PATH_RUNNING, SERVICE_RUNNING) < 0)
+                return;
+
+        assert_se(rename(test_file, test_file3) >= 0);
+        if (check_states(m, path, service, PATH_WAITING, SERVICE_DEAD) < 0)
+                return;
+
+        assert_se(unit_stop(unit) >= 0);
+        assert_se(rm_rf(test_file3, REMOVE_ROOT|REMOVE_PHYSICAL) == 0);
+        assert_se(rm_rf(test_file4, REMOVE_ROOT|REMOVE_PHYSICAL) == 0);
+
+        assert_se(unit_start(UNIT(service), NULL) >= 0);
+        if (check_states(m, path, service, PATH_DEAD, SERVICE_RUNNING) < 0)
+                return;
+
+        /* If service is running and files do not exist, it is stopped */
+        assert_se(unit_start(unit, NULL) >= 0);
+        if (check_states(m, path, service, PATH_WAITING, SERVICE_DEAD) < 0)
+                return;
+
+        assert_se(unit_stop(unit) >= 0);
+
+        assert_se(unit_start(UNIT(service), NULL) >= 0);
+        if (check_states(m, path, service, PATH_DEAD, SERVICE_RUNNING) < 0)
+                return;
+
+        /* If service is running and files exist, path unit is running */
+        assert_se(touch(test_file) >= 0);
+        assert_se(touch(test_file2) >= 0);
+        assert_se(unit_start(unit, NULL) >= 0);
+        if (check_states(m, path, service, PATH_RUNNING, SERVICE_RUNNING) < 0)
+                return;
+
+        /* If service is running first, service is stopped when files are removed */
+        assert_se(rm_rf(test_file, REMOVE_ROOT|REMOVE_PHYSICAL) == 0);
+        assert_se(rm_rf(test_file2, REMOVE_ROOT|REMOVE_PHYSICAL) == 0);
+        if (check_states(m, path, service, PATH_WAITING, SERVICE_DEAD) < 0)
+                return;
+
+        assert_se(unit_stop(unit) >= 0);
+}
+
+static void test_path_deactivationtoggle_directorynotempty(Manager *m) {
+        const char *test_file, *test_file2;
+        const char *test_path = "/tmp/test-path_deactivationtoggle/";
+        const char *test_path2 = "/tmp/test-path_deactivationtoggle_secondary/";
+        const char *path_name = "path-deactivationtoggle-directorynotempty.path";
+        const char *service_name = "path-deactivationtoggle.service";
+        Unit *unit = NULL;
+        Path *path = NULL;
+        Service *service = NULL;
+
+        assert_se(m);
+
+        assert_se(manager_load_startable_unit_or_warn(m, path_name, NULL, &unit) >= 0);
+
+        path = PATH(unit);
+        service = service_for_path(m, path, service_name);
+
+        assert_se(unit_start(unit, NULL) >= 0);
+        if (check_states(m, path, service, PATH_WAITING, SERVICE_DEAD) < 0)
+                return;
+
+        test_file = strjoina(test_path, "test_file");
+        test_file2 = strjoina(test_path2, "test_file");
+
+        assert_se(mkdir_p(test_path, 0755) >= 0);
+        assert_se(mkdir_p(test_path2, 0755) >= 0);
+        assert_se(touch(test_file) >= 0);
+        if (check_states(m, path, service, PATH_RUNNING, SERVICE_RUNNING) < 0)
+                return;
+
+        assert_se(rm_rf(test_file, REMOVE_ROOT|REMOVE_PHYSICAL) == 0);
+        if (check_states(m, path, service, PATH_WAITING, SERVICE_DEAD) < 0)
+                return;
+
+        assert_se(touch(test_file2) >= 0);
+        assert_se(rename(test_file2, test_file) >= 0);
+        if (check_states(m, path, service, PATH_RUNNING, SERVICE_RUNNING) < 0)
+                return;
+
+        assert_se(rename(test_file, test_file2) >= 0);
+        if (check_states(m, path, service, PATH_WAITING, SERVICE_DEAD) < 0)
+                return;
+
+        assert_se(unit_stop(unit) >= 0);
+        assert_se(rm_rf(test_file2, REMOVE_ROOT|REMOVE_PHYSICAL) == 0);
+        assert_se(rm_rf(test_path, REMOVE_ROOT|REMOVE_PHYSICAL) == 0);
+
+        assert_se(mkdir_p(test_path, 0755) >= 0);
+        assert_se(touch(test_file) >= 0);
+        assert_se(unit_start(unit, NULL) >= 0);
+        if (check_states(m, path, service, PATH_RUNNING, SERVICE_RUNNING) < 0)
+                return;
+
+        /* If directory is not empty before path is started, service is stopped when file is removed */
+        assert_se(rm_rf(test_file, REMOVE_ROOT|REMOVE_PHYSICAL) == 0);
+        if (check_states(m, path, service, PATH_WAITING, SERVICE_DEAD) < 0)
+                return;
+
+        assert_se(touch(test_file) >= 0);
+        if (check_states(m, path, service, PATH_RUNNING, SERVICE_RUNNING) < 0)
+                return;
+
+        assert_se(rm_rf(test_file, REMOVE_ROOT|REMOVE_PHYSICAL) == 0);
+        if (check_states(m, path, service, PATH_WAITING, SERVICE_DEAD) < 0)
+                return;
+
+        assert_se(unit_stop(unit) >= 0);
+
+        assert_se(touch(test_file) >= 0);
+        assert_se(unit_start(unit, NULL) >= 0);
+        if (check_states(m, path, service, PATH_RUNNING, SERVICE_RUNNING) < 0)
+                return;
+
+        /* Service is stopped when directory is empty due to file rename */
+        assert_se(rename(test_file, test_file2) >= 0);
+        if (check_states(m, path, service, PATH_WAITING, SERVICE_DEAD) < 0)
+                return;
+
+        assert_se(rename(test_file2, test_file) >= 0);
+        if (check_states(m, path, service, PATH_RUNNING, SERVICE_RUNNING) < 0)
+                return;
+
+        assert_se(rename(test_file, test_file2) >= 0);
+        if (check_states(m, path, service, PATH_WAITING, SERVICE_DEAD) < 0)
+                return;
+
+        assert_se(unit_stop(unit) >= 0);
+        assert_se(rm_rf(test_file2, REMOVE_ROOT|REMOVE_PHYSICAL) == 0);
+
+        assert_se(unit_start(UNIT(service), NULL) >= 0);
+        if (check_states(m, path, service, PATH_DEAD, SERVICE_RUNNING) < 0)
+                return;
+
+        /* If service is running and directory is empty, it is stopped */
+        assert_se(unit_start(unit, NULL) >= 0);
+        if (check_states(m, path, service, PATH_WAITING, SERVICE_DEAD) < 0)
+                return;
+
+        assert_se(unit_stop(unit) >= 0);
+
+        assert_se(unit_start(UNIT(service), NULL) >= 0);
+        if (check_states(m, path, service, PATH_DEAD, SERVICE_RUNNING) < 0)
+                return;
+
+        /* If service is running and directory is not empty, path unit is running */
+        assert_se(touch(test_file) >= 0);
+        assert_se(unit_start(unit, NULL) >= 0);
+        if (check_states(m, path, service, PATH_RUNNING, SERVICE_RUNNING) < 0)
+                return;
+
+        /* If service is running first, service is stopped when directory is empty */
+        assert_se(rm_rf(test_file, REMOVE_ROOT|REMOVE_PHYSICAL) == 0);
+        if (check_states(m, path, service, PATH_WAITING, SERVICE_DEAD) < 0)
+                return;
+
+        assert_se(unit_stop(unit) >= 0);
+}
+
 int main(int argc, char *argv[]) {
         static const test_function_t tests[] = {
                 test_path_exists,
@@ -387,6 +753,9 @@ int main(int argc, char *argv[]) {
                 test_path_unit,
                 test_path_directorynotempty,
                 test_path_makedirectory_directorymode,
+                test_path_deactivationtoggle_exists,
+                test_path_deactivationtoggle_existsglob,
+                test_path_deactivationtoggle_directorynotempty,
                 NULL,
         };
 

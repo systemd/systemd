@@ -49,6 +49,7 @@ const sd_bus_vtable bus_path_vtable[] = {
         SD_BUS_PROPERTY("Result", "s", property_get_result, offsetof(Path, result), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("TriggerLimitIntervalUSec", "t", bus_property_get_usec, offsetof(Path, trigger_limit.interval), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("TriggerLimitBurst", "u", bus_property_get_unsigned, offsetof(Path, trigger_limit.burst), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("DeactivationToggle", "b", bus_property_get_bool, offsetof(Path, deactivation_toggle), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_VTABLE_END
 };
 
@@ -140,6 +141,9 @@ static int bus_path_set_transient_property(
 
         if (streq(name, "TriggerLimitIntervalUSec"))
                 return bus_set_transient_usec(u, name, &p->trigger_limit.interval, message, flags, error);
+
+        if (streq(name, "DeactivationToggle"))
+                return bus_set_transient_bool(u, name, &p->deactivation_toggle, message, flags, error);
 
         return 0;
 }

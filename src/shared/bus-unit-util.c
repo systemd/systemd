@@ -2342,7 +2342,7 @@ static int bus_append_mount_property(sd_bus_message *m, const char *field, const
 static int bus_append_path_property(sd_bus_message *m, const char *field, const char *eq) {
         int r;
 
-        if (streq(field, "MakeDirectory"))
+        if (STR_IN_SET(field, "MakeDirectory", "DeactivationToggle"))
                 return bus_append_parse_boolean(m, field, eq);
 
         if (streq(field, "DirectoryMode"))
