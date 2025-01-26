@@ -643,13 +643,11 @@ static int dhcp4_request_semi_static_routes(Link *link) {
                 _cleanup_(route_unrefp) Route *route = NULL;
                 struct in_addr gw;
 
-                if (!rt->gateway_from_dhcp_or_ra)
-                        continue;
-
-                if (rt->nexthop.family != AF_INET)
+                if (rt->source != NETWORK_CONFIG_SOURCE_DHCP4)
                         continue;
 
                 assert(rt->family == AF_INET);
+                assert(rt->nexthop.family == AF_INET);
 
                 r = dhcp4_find_gateway_for_destination(link, &rt->dst.in, rt->dst_prefixlen, &gw);
                 if (r == -EHOSTUNREACH) {

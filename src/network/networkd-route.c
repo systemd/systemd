@@ -1065,7 +1065,7 @@ int link_request_static_routes(Link *link, bool only_ipv4) {
         link->static_routes_configured = false;
 
         HASHMAP_FOREACH(route, link->network->routes_by_section) {
-                if (route->gateway_from_dhcp_or_ra)
+                if (route->source != NETWORK_CONFIG_SOURCE_STATIC)
                         continue;
 
                 if (only_ipv4 && route->family != AF_INET)
@@ -1519,6 +1519,9 @@ int link_drop_routes(Link *link, bool only_static) {
                         continue;
 
                 HASHMAP_FOREACH(route, other->network->routes_by_section) {
+                        if (route->source != NETWORK_CONFIG_SOURCE_STATIC)
+                                continue;
+
                         if (route->family == AF_INET || ordered_set_isempty(route->nexthops)) {
                                 r = link_unmark_route(other, route, NULL);
                                 if (r < 0)
