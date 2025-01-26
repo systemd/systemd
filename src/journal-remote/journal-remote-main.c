@@ -32,16 +32,16 @@
 #define CERT_FILE     CERTIFICATE_ROOT "/certs/journal-remote.pem"
 #define TRUST_FILE    CERTIFICATE_ROOT "/ca/trusted.pem"
 
-static const char* arg_url = NULL;
-static const char* arg_getter = NULL;
-static const char* arg_listen_raw = NULL;
-static const char* arg_listen_http = NULL;
-static const char* arg_listen_https = NULL;
-static char** arg_files = NULL; /* Do not free this. */
+static const char *arg_url = NULL;
+static const char *arg_getter = NULL;
+static const char *arg_listen_raw = NULL;
+static const char *arg_listen_http = NULL;
+static const char *arg_listen_https = NULL;
+static char **arg_files = NULL; /* Do not free this. */
 static bool arg_compress = true;
 static bool arg_seal = false;
 static int http_socket = -1, https_socket = -1;
-static char** arg_gnutls_log = NULL;
+static char **arg_gnutls_log = NULL;
 
 static JournalWriteSplitMode arg_split_mode = _JOURNAL_WRITE_SPLIT_INVALID;
 static char *arg_output = NULL;
@@ -78,7 +78,7 @@ static DEFINE_CONFIG_PARSE_ENUM(config_parse_write_split_mode, journal_write_spl
  **********************************************************************
  **********************************************************************/
 
-static int spawn_child(const char* child, char** argv) {
+static int spawn_child(const char *child, char **argv) {
         pid_t child_pid;
         int fd[2], r;
 
@@ -110,7 +110,7 @@ static int spawn_child(const char* child, char** argv) {
         return fd[0];
 }
 
-static int spawn_curl(const char* url) {
+static int spawn_curl(const char *url) {
         char **argv = STRV_MAKE("curl",
                                 "-HAccept: application/vnd.fdo.journal",
                                 "--silent",
@@ -544,9 +544,9 @@ static int setup_raw_socket(RemoteServer *s, const char *address) {
 
 static int create_remoteserver(
                 RemoteServer *s,
-                const char* key,
-                const char* cert,
-                const char* trust) {
+                const char *key,
+                const char *cert,
+                const char *trust) {
 
         int r, n, fd;
 
@@ -937,7 +937,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_GNUTLS_LOG:
 #if HAVE_GNUTLS
-                        for (const char* p = optarg;;) {
+                        for (const char *p = optarg;;) {
                                 _cleanup_free_ char *word = NULL;
 
                                 r = extract_first_word(&p, &word, ",", 0);
