@@ -3,6 +3,7 @@
 #include "alloc-util.h"
 #include "detach-swap.h"
 #include "errno-util.h"
+#include "fd-util.h"
 #include "log.h"
 #include "path-util.h"
 #include "string-util.h"
@@ -11,17 +12,18 @@
 
 static void test_mount_points_list_one(const char *fname) {
         _cleanup_(mount_points_list_free) LIST_HEAD(MountPoint, mp_list_head);
-        _cleanup_free_ char *testdata_fname = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
 
         log_info("/* %s(\"%s\") */", __func__, fname ?: "/proc/self/mountinfo");
 
         if (fname) {
+                _cleanup_free_ char *testdata_fname = NULL;
                 assert_se(get_testdata_dir(fname, &testdata_fname) >= 0);
-                fname = testdata_fname;
+                ASSERT_NOT_NULL(f = fopen(testdata_fname, "re"));
         }
 
         LIST_HEAD_INIT(mp_list_head);
-        assert_se(mount_points_list_get(fname, &mp_list_head) >= 0);
+        assert_se(mount_points_list_get(f, &mp_list_head) >= 0);
 
         LIST_FOREACH(mount_point, m, mp_list_head)
                 log_debug("path=%s o=%s f=0x%lx try-ro=%s",

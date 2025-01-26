@@ -393,7 +393,7 @@ TEST(umount_recursive) {
 
                         assert_se(umount_recursive_full(t->prefix, MNT_DETACH, (char**) t->keep) >= 0);
 
-                        r = libmount_parse("/proc/self/mountinfo", f, &table, &iter);
+                        r = libmount_parse_mountinfo(f, &table, &iter);
                         if (r < 0) {
                                 log_error_errno(r, "Failed to parse /proc/self/mountinfo: %m");
                                 _exit(EXIT_FAILURE);
