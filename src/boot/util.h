@@ -249,5 +249,6 @@ char16_t *get_extra_dir(const EFI_DEVICE_PATH *file_path);
 #include "alloc-util.h"
 
 #define xnew0(type, n) ASSERT_PTR(new0(type, n))
+#define find_configuration_table(...) NULL
 
 #endif
