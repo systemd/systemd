@@ -409,6 +409,8 @@ def test_help_error(capsys):
 def kernel_initrd():
     items = sorted(glob.glob('/lib/modules/*/vmlinuz'))
     if not items:
+        items = sorted(glob.glob('/boot/vmlinuz*'))
+    if not items:
         return None
 
     # This doesn't necessarily give us the latest version, since we're just
