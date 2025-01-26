@@ -133,94 +133,6 @@ int getxattr_at_bool(int fd, const char *path, const char *name, int flags) {
         return parse_boolean(v);
 }
 
-static int parse_crtime(le64_t le, usec_t *usec) {
-        uint64_t u;
-
-        assert(usec);
-
-        u = le64toh(le);
-        if (IN_SET(u, 0, UINT64_MAX))
-                return -EIO;
-
-        *usec = (usec_t) u;
-        return 0;
-}
-
-int fd_getcrtime_at(
-                int fd,
-                const char *path,
-                int flags,
-                usec_t *ret) {
-
-        _cleanup_free_ le64_t *le = NULL;
-        STRUCT_STATX_DEFINE(sx);
-        usec_t a, b;
-        int r;
-
-        assert(fd >= 0 || fd == AT_FDCWD);
-        assert((flags & ~(AT_SYMLINK_FOLLOW|AT_EMPTY_PATH)) == 0);
-        assert(ret);
-
-        if (!path)
-                flags |= AT_EMPTY_PATH;
-
-        /* So here's the deal: the creation/birth time (crtime/btime) of a file is a relatively newly supported concept
-         * on Linux (or more strictly speaking: a concept that only recently got supported in the API, it was
-         * implemented on various file systems on the lower level since a while, but never was accessible). However, we
-         * needed a concept like that for vacuuming algorithms and such, hence we emulated it via a user xattr for a
-         * long time. Starting with Linux 4.11 there's statx() which exposes the timestamp to userspace for the first
-         * time, where it is available. This function will read it, but it tries to keep some compatibility with older
-         * systems: we try to read both the crtime/btime and the xattr, and then use whatever is older. After all the
-         * concept is useful for determining how "old" a file really is, and hence using the older of the two makes
-         * most sense. */
-
-        if (statx(fd, strempty(path),
-                  at_flags_normalize_nofollow(flags)|AT_STATX_DONT_SYNC,
-                  STATX_BTIME,
-                  &sx) >= 0 &&
-            (sx.stx_mask & STATX_BTIME) &&
-            sx.stx_btime.tv_sec != 0)
-                a = (usec_t) sx.stx_btime.tv_sec * USEC_PER_SEC +
-                        (usec_t) sx.stx_btime.tv_nsec / NSEC_PER_USEC;
-        else
-                a = USEC_INFINITY;
-
-        r = getxattr_at_malloc(fd, path, "user.crtime_usec", flags, (char**) &le);
-        if (r >= 0) {
-                if (r != sizeof(*le))
-                        r = -EIO;
-                else
-                        r = parse_crtime(*le, &b);
-        }
-        if (r < 0) {
-                if (a != USEC_INFINITY) {
-                        *ret = a;
-                        return 0;
-                }
-
-                return r;
-        }
-
-        if (a != USEC_INFINITY)
-                *ret = MIN(a, b);
-        else
-                *ret = b;
-
-        return 0;
-}
-
-int fd_setcrtime(int fd, usec_t usec) {
-        le64_t le;
-
-        assert(fd >= 0);
-
-        if (!timestamp_is_set(usec))
-                usec = now(CLOCK_REALTIME);
-
-        le = htole64((uint64_t) usec);
-        return RET_NERRNO(fsetxattr(fd, "user.crtime_usec", &le, sizeof(le), 0));
-}
-
 int listxattr_at_malloc(
                 int fd,
                 const char *path,
@@ -376,4 +288,90 @@ int xsetxattr(int fd,
                 return -errno;
 
         return 0;
+}
+
+static int parse_crtime(le64_t le, usec_t *ret) {
+        usec_t u;
+
+        assert(ret);
+
+        assert_cc(sizeof(usec_t) == sizeof(uint64_t));
+        assert_cc((usec_t) UINT64_MAX == USEC_INFINITY);
+
+        u = (usec_t) le64toh(le);
+        if (!timestamp_is_set(u))
+                return -EINVAL;
+
+        *ret = u;
+        return 0;
+}
+
+int getcrtime_at(
+                int fd,
+                const char *path,
+                int at_flags,
+                usec_t *ret) {
+
+        _cleanup_free_ le64_t *le = NULL;
+        STRUCT_STATX_DEFINE(sx);
+        usec_t a, b;
+        int r;
+
+        assert(fd >= 0 || fd == AT_FDCWD);
+        assert((at_flags & ~(AT_SYMLINK_FOLLOW|AT_EMPTY_PATH)) == 0);
+
+        if (isempty(path))
+                at_flags |= AT_EMPTY_PATH;
+
+        /* So here's the deal: the creation/birth time (crtime/btime) of a file is a relatively newly supported concept
+         * on Linux (or more strictly speaking: a concept that only recently got supported in the API, it was
+         * implemented on various file systems on the lower level since a while, but never was accessible). However, we
+         * needed a concept like that for vacuuming algorithms and such, hence we emulated it via a user xattr for a
+         * long time. Starting with Linux 4.11 there's statx() which exposes the timestamp to userspace for the first
+         * time, where it is available. This function will read it, but it tries to keep some compatibility with older
+         * systems: we try to read both the crtime/btime and the xattr, and then use whatever is older. After all the
+         * concept is useful for determining how "old" a file really is, and hence using the older of the two makes
+         * most sense. */
+
+        if (statx(fd, strempty(path),
+                  at_flags_normalize_nofollow(at_flags)|AT_STATX_DONT_SYNC,
+                  STATX_BTIME,
+                  &sx) >= 0 &&
+            FLAGS_SET(sx.stx_mask, STATX_BTIME) && sx.stx_btime.tv_sec != 0)
+                a = statx_timestamp_load(&sx.stx_btime);
+        else
+                a = USEC_INFINITY;
+
+        r = getxattr_at_malloc(fd, path, "user.crtime_usec", at_flags, (char**) &le);
+        if (r >= 0) {
+                if (r != sizeof(*le))
+                        r = -EIO;
+                else
+                        r = parse_crtime(*le, &b);
+        }
+        if (r < 0) {
+                if (a != USEC_INFINITY) {
+                        if (ret)
+                                *ret = a;
+                        return 0;
+                }
+
+                return r;
+        }
+
+        if (ret)
+                *ret = MIN(a, b);
+        return 0;
+}
+
+int fd_setcrtime(int fd, usec_t usec) {
+        le64_t le;
+
+        assert(fd >= 0);
+
+        if (!timestamp_is_set(usec))
+                usec = now(CLOCK_REALTIME);
+
+        le = htole64((uint64_t) usec);
+        return xsetxattr(fd, /* path = */ NULL, "user.crtime_usec", (const char*) &le, sizeof(le), AT_EMPTY_PATH);
 }
