@@ -128,8 +128,10 @@ static bool verify_pe(
         assert(pe);
 
         return memcmp(pe->Magic, PE_FILE_MAGIC, STRLEN(PE_FILE_MAGIC)) == 0 &&
+#if SD_BOOT
                 (pe->FileHeader.Machine == TARGET_MACHINE_TYPE ||
                  (allow_compatibility && pe->FileHeader.Machine == TARGET_MACHINE_TYPE_COMPATIBILITY)) &&
+#endif
                 pe->FileHeader.NumberOfSections > 0 &&
                 IN_SET(pe->OptionalHeader.Magic, OPTHDR32_MAGIC, OPTHDR64_MAGIC) &&
                 pe->FileHeader.SizeOfOptionalHeader < SIZE_MAX - (dos->ExeHeader + offsetof(PeFileHeader, OptionalHeader));
@@ -247,7 +249,11 @@ static void pe_locate_sections_internal(
                                 if (!validate_base)
                                         break;
                                 if (!pe_use_this_dtb(
+#if SD_BOOT
                                                   (const uint8_t *) SIZE_TO_PTR(validate_base) + j->VirtualAddress,
+#else
+                                                  (const uint8_t *) SIZE_TO_PTR(validate_base) + j->PointerToRawData,
+#endif
                                                   j->VirtualSize,
                                                   device_table,
                                                   device,
@@ -319,8 +325,11 @@ static void pe_locate_sections(
                                 &hwids_section);
 
                 if (PE_SECTION_VECTOR_IS_SET(&hwids_section)) {
+#if SD_BOOT
                         hwids = (const uint8_t *) SIZE_TO_PTR(validate_base) + hwids_section.memory_offset;
-
+#else
+                        hwids = (const uint8_t *) SIZE_TO_PTR(validate_base) + hwids_section.file_offset;
+#endif
                         EFI_STATUS err = chid_match(hwids, hwids_section.memory_size, DEVICE_TYPE_DEVICETREE, &device);
                         if (err != EFI_SUCCESS) {
                                 log_error_status(err, "HWID matching failed, no DT blob will be selected: %m");
@@ -471,6 +480,7 @@ EFI_STATUS pe_memory_locate_sections(
         return EFI_SUCCESS;
 }
 
+#if SD_BOOT
 EFI_STATUS pe_section_table_from_file(
                 EFI_FILE *handle,
                 PeSectionHeader **ret_section_table,
@@ -530,6 +540,7 @@ EFI_STATUS pe_section_table_from_file(
         *ret_n_section_table = n_section_table;
         return EFI_SUCCESS;
 }
+#endif
 
 static const PeSectionHeader* pe_section_table_find_profile_start(
                 const PeSectionHeader *section_table,

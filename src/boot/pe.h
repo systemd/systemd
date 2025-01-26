@@ -35,10 +35,12 @@ EFI_STATUS pe_section_table_from_base(
                 const PeSectionHeader **ret_section_table,
                 size_t *ret_n_section_table);
 
+#if SD_BOOT
 EFI_STATUS pe_section_table_from_file(
                 EFI_FILE *handle,
                 PeSectionHeader **ret_section_table,
                 size_t *ret_n_section_table);
+#endif
 
 EFI_STATUS pe_locate_profile_sections(
                 const PeSectionHeader section_table[],
