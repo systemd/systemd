@@ -405,7 +405,7 @@ static int dhcp4_request_route(Route *route, Link *link) {
         return link_request_route(link, route, &link->dhcp4_messages, dhcp4_route_handler);
 }
 
-static bool link_prefixroute(Link *link) {
+static bool prefixroute_by_kernel(Link *link) {
         return !link->network->dhcp_route_table_set ||
                 link->network->dhcp_route_table == RT_TABLE_MAIN;
 }
@@ -417,8 +417,8 @@ static int dhcp4_request_prefix_route(Link *link) {
         assert(link);
         assert(link->dhcp_lease);
 
-        if (link_prefixroute(link))
-                /* When true, the route will be created by kernel. See dhcp4_update_address(). */
+        if (prefixroute_by_kernel(link))
+                /* The prefix route in the main table will be created by the kernel. See dhcp4_update_address(). */
                 return 0;
 
         r = route_new(&route);
@@ -968,7 +968,7 @@ static int dhcp4_request_address(Link *link, bool announce) {
         r = sd_dhcp_lease_get_broadcast(link->dhcp_lease, &addr->broadcast);
         if (r < 0 && r != -ENODATA)
                 return log_link_warning_errno(link, r, "DHCP: failed to get broadcast address: %m");
-        SET_FLAG(addr->flags, IFA_F_NOPREFIXROUTE, !link_prefixroute(link));
+        SET_FLAG(addr->flags, IFA_F_NOPREFIXROUTE, !prefixroute_by_kernel(link));
         addr->route_metric = link->network->dhcp_route_metric;
         addr->duplicate_address_detection = link->network->dhcp_send_decline ? ADDRESS_FAMILY_IPV4 : ADDRESS_FAMILY_NO;
 
