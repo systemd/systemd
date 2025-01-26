@@ -681,6 +681,12 @@ static int dhcp4_request_semi_static_routes(Link *link) {
 
                 route->nexthop.gw.in = gw;
 
+                if (!route->prefsrc_set) {
+                        r = sd_dhcp_lease_get_address(link->dhcp_lease, &route->prefsrc.in);
+                        if (r < 0)
+                                return r;
+                }
+
                 r = dhcp4_request_prefix_route(link, route);
                 if (r < 0)
                         return r;
