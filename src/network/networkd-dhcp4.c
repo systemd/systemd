@@ -410,14 +410,14 @@ static bool prefixroute_by_kernel(Link *link) {
                 link->network->dhcp_route_table == RT_TABLE_MAIN;
 }
 
-static int dhcp4_request_prefix_route(Link *link) {
+static int dhcp4_request_prefix_route(Link *link, Route *rt) {
         _cleanup_(route_unrefp) Route *route = NULL;
         int r;
 
         assert(link);
         assert(link->dhcp_lease);
 
-        if (prefixroute_by_kernel(link))
+        if (prefixroute_by_kernel(link) && (!rt || !rt->table_set || rt->table == RT_TABLE_MAIN))
                 /* The prefix route in the main table will be created by the kernel. See dhcp4_update_address(). */
                 return 0;
 
@@ -426,6 +426,10 @@ static int dhcp4_request_prefix_route(Link *link) {
                 return r;
 
         route->scope = RT_SCOPE_LINK;
+        if (rt) {
+                route->table_set = rt->table_set;
+                route->table = rt->table;
+        }
 
         r = sd_dhcp_lease_get_prefix(link->dhcp_lease, &route->dst.in, &route->dst_prefixlen);
         if (r < 0)
@@ -464,6 +468,8 @@ static int dhcp4_request_route_to_gateway(Link *link, const Route *rt) {
         route->dst_prefixlen = 32;
         route->prefsrc.in = address;
         route->scope = RT_SCOPE_LINK;
+        route->table = rt->table;
+        route->table_set = rt->table_set;
 
         return dhcp4_request_route(route, link);
 }
@@ -675,6 +681,10 @@ static int dhcp4_request_semi_static_routes(Link *link) {
 
                 route->nexthop.gw.in = gw;
 
+                r = dhcp4_request_prefix_route(link, route);
+                if (r < 0)
+                        return r;
+
                 r = dhcp4_request_route_to_gateway(link, route);
                 if (r < 0)
                         return r;
@@ -778,7 +788,7 @@ static int dhcp4_request_routes(Link *link) {
         assert(link);
         assert(link->dhcp_lease);
 
-        r = dhcp4_request_prefix_route(link);
+        r = dhcp4_request_prefix_route(link, /* rt = */ NULL);
         if (r < 0)
                 return log_link_error_errno(link, r, "DHCP error: Could not request prefix route: %m");
 
