@@ -20,13 +20,6 @@ static inline int fgetxattr_malloc(int fd, const char *name, char **ret) {
 
 int getxattr_at_bool(int fd, const char *path, const char *name, int flags);
 
-int fd_setcrtime(int fd, usec_t usec);
-
-int fd_getcrtime_at(int fd, const char *name, int flags, usec_t *ret);
-static inline int fd_getcrtime(int fd, usec_t *ret) {
-        return fd_getcrtime_at(fd, NULL, 0, ret);
-}
-
 int listxattr_at_malloc(int fd, const char *path, int flags, char **ret);
 static inline int listxattr_malloc(const char *path, char **ret) {
         return listxattr_at_malloc(AT_FDCWD, path, AT_SYMLINK_FOLLOW, ret);
@@ -39,3 +32,9 @@ static inline int flistxattr_malloc(int fd, char **ret) {
 }
 
 int xsetxattr(int fd, const char *path, const char *name, const char *value, size_t size, int flags);
+
+int fd_setcrtime(int fd, usec_t usec);
+int getcrtime_at(int fd, const char *path, int at_flags, usec_t *ret);
+static inline int fd_getcrtime(int fd, usec_t *ret) {
+        return getcrtime_at(fd, NULL, 0, ret);
+}
