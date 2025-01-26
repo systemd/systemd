@@ -24,6 +24,7 @@ ADDITIONAL_DEPS=(
     python3-pyparsing
     python3-pytest
     rpm
+    systemd-boot-efi
     zstd
 )
 
