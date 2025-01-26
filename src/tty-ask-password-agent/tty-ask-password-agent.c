@@ -40,6 +40,7 @@
 #include "set.h"
 #include "signal-util.h"
 #include "socket-util.h"
+#include "static-destruct.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
@@ -54,7 +55,9 @@ static enum {
 
 static bool arg_plymouth = false;
 static bool arg_console = false;
-static const char *arg_device = NULL;
+static char *arg_device = NULL;
+
+STATIC_DESTRUCTOR_REGISTER(arg_device, freep);
 
 static int send_passwords(const char *socket_name, char **passwords) {
         int r;
@@ -530,12 +533,13 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_CONSOLE:
                         arg_console = true;
                         if (optarg) {
-
                                 if (isempty(optarg))
                                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                                "Empty console device path is not allowed.");
 
-                                arg_device = optarg;
+                                arg_device = strdup(optarg);
+                                if (!arg_device)
+                                        return log_oom();
                         }
                         break;
 
@@ -667,6 +671,11 @@ static int ask_on_consoles(char *argv[]) {
         r = get_kernel_consoles(&consoles);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine devices of /dev/console: %m");
+        if (r <= 1) {
+                /* No need to spawn subprocesses, there's only one console or using /dev/console as fallback */
+                arg_device = ASSERT_PTR(TAKE_PTR(consoles[0]));
+                return 0;
+        }
 
         pids = set_new(NULL);
         if (!pids)
@@ -714,7 +723,7 @@ static int ask_on_consoles(char *argv[]) {
         }
 
         terminate_agents(pids);
-        return 0;
+        return 1;
 }
 
 static int run(int argc, char *argv[]) {
@@ -728,11 +737,14 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        if (arg_console && !arg_device)
-                /*
-                 * Spawn a separate process for each console device.
-                 */
-                return ask_on_consoles(argv);
+        /* Spawn a separate process for each console device if there're multiple. */
+        if (arg_console && !arg_device) {
+                r = ask_on_consoles(argv);
+                if (r != 0)
+                        return r;
+
+                assert(arg_device);
+        }
 
         if (arg_device)
                 /* Later on, a controlling terminal will be acquired, therefore the current process has to
