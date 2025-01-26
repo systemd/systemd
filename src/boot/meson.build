@@ -8,6 +8,7 @@ libefitest = static_library(
         files(
                 'bcd.c',
                 'chid.c',
+                'devicetree.c',
                 'efi-string.c',
                 'efi-userspace.c',
         ),
