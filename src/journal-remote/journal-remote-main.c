@@ -6,6 +6,7 @@
 #include "sd-daemon.h"
 
 #include "build.h"
+#include "compress.h"
 #include "conf-parser.h"
 #include "constants.h"
 #include "daemon-util.h"
@@ -37,6 +38,7 @@ static const char *arg_getter = NULL;
 static const char *arg_listen_raw = NULL;
 static const char *arg_listen_http = NULL;
 static const char *arg_listen_https = NULL;
+static CompressionArgs arg_compression = {};
 static char **arg_files = NULL; /* Do not free this. */
 static bool arg_compress = true;
 static bool arg_seal = false;
@@ -65,6 +67,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_key, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_cert, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_trust, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_output, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_compression.opts, freep);
 
 static const char* const journal_write_split_mode_table[_JOURNAL_WRITE_SPLIT_MAX] = {
         [JOURNAL_WRITE_SPLIT_NONE] = "none",
@@ -152,6 +155,27 @@ static int dispatch_http_event(sd_event_source *event,
                                uint32_t revents,
                                void *userdata);
 
+static int build_accept_encoding(char **ret) {
+        float q = 1.0;
+
+        assert(ret);
+
+        if (arg_compression.size <= 0)
+                return 0;
+
+        float step = q / arg_compression.size;
+        _cleanup_free_ char* buf = NULL;
+
+        for (size_t i = 0; i < arg_compression.size; i++, q-=step) {
+                const char *c = compression_lowercase_to_string(arg_compression.opts[i].algorithm);
+                if (strextendf_with_separator(&buf, ",", "%s;q=%.1f", c, q) < 0)
+                        return -ENOMEM;
+        }
+
+        *ret = TAKE_PTR(buf);
+        return 0;
+}
+
 static int request_meta(void **connection_cls, int fd, char *hostname) {
         RemoteSource *source;
         Writer *writer;
@@ -174,6 +198,11 @@ static int request_meta(void **connection_cls, int fd, char *hostname) {
 
         log_debug("Added RemoteSource as connection metadata %p", source);
 
+        r = build_accept_encoding(&source->encoding);
+        if (r < 0)
+                return log_oom();
+
+        source->compression = COMPRESSION_NONE;
         *connection_cls = source;
         return 0;
 }
@@ -210,10 +239,18 @@ static int process_http_upload(
                   __func__, connection, *upload_data_size);
 
         if (*upload_data_size) {
+                size_t buf_size;
+                _cleanup_free_ char* buf = NULL;
                 log_trace("Received %zu bytes", *upload_data_size);
 
+                if (source->compression != COMPRESSION_NONE) {
+                        r = decompress_blob(source->compression, upload_data, *upload_data_size, (void **) &buf, &buf_size, 0);
+                        if (r < 0)
+                                return mhd_respond_oom(connection);
+                }
+
                 r = journal_importer_push_data(&source->importer,
-                                               upload_data, *upload_data_size);
+                                               buf ?: upload_data, buf ? buf_size : *upload_data_size);
                 if (r < 0)
                         return mhd_respond_oom(connection);
 
@@ -253,7 +290,7 @@ static int process_http_upload(
                                     remaining);
         }
 
-        return mhd_respond(connection, MHD_HTTP_ACCEPTED, "OK.");
+        return mhd_respond_with_encoding(connection, MHD_HTTP_ACCEPTED, source->encoding, "OK.");
 };
 
 static mhd_result request_handler(
@@ -278,10 +315,20 @@ static mhd_result request_handler(
 
         log_trace("Handling a connection %s %s %s", method, url, version);
 
-        if (*connection_cls)
+        if (*connection_cls) {
+                RemoteSource *source = *connection_cls;
+                header = MHD_lookup_connection_value(connection, MHD_HEADER_KIND, "Content-Encoding");
+                if (header) {
+                        Compression c = compression_lowercase_from_string(header);
+                        if (c < 0 || !compression_supported(c))
+                                return mhd_respondf(connection, 0, MHD_HTTP_UNSUPPORTED_MEDIA_TYPE,
+                                                    "Unsupported Content-Encoding type: %s", header);
+                        source->compression = c;
+                }
                 return process_http_upload(connection,
                                            upload_data, upload_data_size,
-                                           *connection_cls);
+                                           source);
+        }
 
         if (!streq(method, "POST"))
                 return mhd_respond(connection, MHD_HTTP_NOT_ACCEPTABLE, "Unsupported method.");
@@ -722,6 +769,7 @@ static int parse_config(void) {
                 { "Remote",  "MaxFileSize",            config_parse_iec_uint64,       0, &arg_max_size    },
                 { "Remote",  "MaxFiles",               config_parse_uint64,           0, &arg_n_max_files },
                 { "Remote",  "KeepFree",               config_parse_iec_uint64,       0, &arg_keep_free   },
+                { "Remote",  "Compression",            config_parse_compression,      0, &arg_compression },
                 {}
         };
 
