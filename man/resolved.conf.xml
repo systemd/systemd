@@ -373,7 +373,7 @@ DNSStubListenerExtra=udp:[2001:db8:0:f102::13]:9953</programlisting>
         <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
       <varlistentry>
-        <term>StaleRetentionSec=<replaceable>SECONDS</replaceable></term>
+        <term><varname>StaleRetentionSec=</varname><replaceable>SECONDS</replaceable></term>
         <listitem><para>Takes a duration value, which determines the length of time DNS resource records can
         be retained in the cache beyond their Time To Live (TTL). This allows these records to be returned as
         stale records. By default, this value is set to zero, meaning that DNS resource records are not

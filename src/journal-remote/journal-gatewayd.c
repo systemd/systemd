@@ -816,7 +816,7 @@ static int request_handler_machine(
         _cleanup_(MHD_destroy_responsep) struct MHD_Response *response = NULL;
         RequestMeta *m = ASSERT_PTR(connection_cls);
         int r;
-        _cleanup_free_ char* hostname = NULL, *pretty_name = NULL, *os_name = NULL;
+        _cleanup_free_ char *hostname = NULL, *pretty_name = NULL, *os_name = NULL;
         uint64_t cutoff_from = 0, cutoff_to = 0, usage = 0;
         sd_id128_t mid, bid;
         _cleanup_free_ char *v = NULL, *json = NULL;
