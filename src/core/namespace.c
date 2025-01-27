@@ -99,6 +99,7 @@ typedef struct MountEntry {
         bool noexec:1;            /* Shall set MS_NOEXEC on the mount itself */
         bool exec:1;              /* Shall clear MS_NOEXEC on the mount itself */
         bool create_source_dir:1; /* Create the source directory if it doesn't exist - for implicit bind mounts */
+        bool bind_mount_relabel:1;/* Explicitly relabel the source directory of a bind mount based on the target label */
         mode_t source_dir_mode;   /* Mode for the source directory, if it is to be created */
         MountEntryState state;    /* Whether it was already processed or skipped */
         char *path_malloc;        /* Use this instead of 'path_const' if we had to allocate memory */
@@ -1878,6 +1879,12 @@ static int apply_one_mount(
 
         assert(what);
 
+        if (m->mode == MOUNT_BIND && m->bind_mount_relabel) {
+                r = label_fix_full(AT_FDCWD, what, mount_entry_unprefixed_path(m), 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to fix label of '%s' as '%s': %m", what, mount_entry_path(m));
+        }
+
         r = mount_nofollow_verbose(LOG_DEBUG, what, mount_entry_path(m), NULL, MS_BIND|(rbind ? MS_REC : 0), NULL);
         if (r < 0) {
                 bool try_again = false;
@@ -2516,6 +2523,7 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                         .mode = MOUNT_BIND,
                         .source_dir_mode = 01777,
                         .create_source_dir = true,
+                        .bind_mount_relabel = true,
                 };
 
                 var_tmp_entry = mount_list_extend(&ml);
@@ -2527,6 +2535,7 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                         .mode = MOUNT_BIND,
                         .source_dir_mode = 01777,
                         .create_source_dir = true,
+                        .bind_mount_relabel = true,
                 };
 
         } else if (p->tmp_dir || p->var_tmp_dir) {
