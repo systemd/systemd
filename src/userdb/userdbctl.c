@@ -396,7 +396,7 @@ static int display_user(int argc, char *argv[], void *userdata) {
                         (void) table_hide_column_from_display(table, (size_t) 0);
         }
 
-        UserDBMatch match = {
+        _cleanup_(userdb_match_done) UserDBMatch match = {
                 .disposition_mask = arg_disposition_mask,
                 .uid_min = arg_uid_min,
                 .uid_max = arg_uid_max,
@@ -406,19 +406,18 @@ static int display_user(int argc, char *argv[], void *userdata) {
                 STRV_FOREACH(i, argv + 1) {
                         _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
 
-                        r = userdb_by_name(*i, arg_userdb_flags|USERDB_PARSE_NUMERIC, &ur);
+                        r = userdb_by_name(*i, &match, arg_userdb_flags|USERDB_PARSE_NUMERIC, &ur);
                         if (r < 0) {
                                 if (r == -ESRCH)
                                         log_error_errno(r, "User %s does not exist.", *i);
                                 else if (r == -EHOSTDOWN)
                                         log_error_errno(r, "Selected user database service is not available for this request.");
+                                else if (r == -ENOEXEC)
+                                        log_error_errno(r, "User '%s' exists but does not match specified filter.", *i);
                                 else
                                         log_error_errno(r, "Failed to find user %s: %m", *i);
 
                                 RET_GATHER(ret, r);
-                        } else if (!user_record_match(ur, &match)) {
-                                log_error("User '%s' does not match filter.", *i);
-                                RET_GATHER(ret, -ENOEXEC);
                         } else {
                                 if (draw_separator && arg_output == OUTPUT_FRIENDLY)
                                         putchar('\n');
@@ -431,18 +430,15 @@ static int display_user(int argc, char *argv[], void *userdata) {
                         }
                 }
         else {
-                _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
-                _cleanup_strv_free_ char **names = NULL;
-
                 if (argc > 1) {
-                        names = strv_copy(argv + 1);
-                        if (!names)
+                        /* If there are further arguments, they are the fuzzy match strings. */
+                        match.fuzzy_names = strv_copy(strv_skip(argv, 1));
+                        if (!match.fuzzy_names)
                                 return log_oom();
-
-                        match.fuzzy_names = names;
                 }
 
-                r = userdb_all(arg_userdb_flags, &iterator);
+                _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
+                r = userdb_all(&match, arg_userdb_flags, &iterator);
                 if (r == -ENOLINK) /* ENOLINK → Didn't find answer without Varlink, and didn't try Varlink because was configured to off. */
                         log_debug_errno(r, "No entries found. (Didn't check via Varlink.)");
                 else if (r == -ESRCH) /* ESRCH → Couldn't find any suitable entry, but we checked all sources */
@@ -453,16 +449,13 @@ static int display_user(int argc, char *argv[], void *userdata) {
                         for (;;) {
                                 _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
 
-                                r = userdb_iterator_get(iterator, &ur);
+                                r = userdb_iterator_get(iterator, &match, &ur);
                                 if (r == -ESRCH)
                                         break;
                                 if (r == -EHOSTDOWN)
                                         return log_error_errno(r, "Selected user database service is not available for this request.");
                                 if (r < 0)
                                         return log_error_errno(r, "Failed acquire next user: %m");
-
-                                if (!user_record_match(ur, &match))
-                                        continue;
 
                                 if (draw_separator && arg_output == OUTPUT_FRIENDLY)
                                         putchar('\n');
@@ -728,7 +721,7 @@ static int display_group(int argc, char *argv[], void *userdata) {
                         (void) table_hide_column_from_display(table, (size_t) 0);
         }
 
-        UserDBMatch match = {
+        _cleanup_(userdb_match_done) UserDBMatch match = {
                 .disposition_mask = arg_disposition_mask,
                 .gid_min = arg_uid_min,
                 .gid_max = arg_uid_max,
@@ -738,19 +731,18 @@ static int display_group(int argc, char *argv[], void *userdata) {
                 STRV_FOREACH(i, argv + 1) {
                         _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
 
-                        r = groupdb_by_name(*i, arg_userdb_flags|USERDB_PARSE_NUMERIC, &gr);
+                        r = groupdb_by_name(*i, &match, arg_userdb_flags|USERDB_PARSE_NUMERIC, &gr);
                         if (r < 0) {
                                 if (r == -ESRCH)
                                         log_error_errno(r, "Group %s does not exist.", *i);
                                 else if (r == -EHOSTDOWN)
                                         log_error_errno(r, "Selected group database service is not available for this request.");
+                                else if (r == -ENOEXEC)
+                                        log_error_errno(r, "Group '%s' exists but does not match specified filter.", *i);
                                 else
                                         log_error_errno(r, "Failed to find group %s: %m", *i);
 
                                 RET_GATHER(ret, r);
-                        } else if (!group_record_match(gr, &match)) {
-                                log_error("Group '%s' does not match filter.", *i);
-                                RET_GATHER(ret, -ENOEXEC);
                         } else {
                                 if (draw_separator && arg_output == OUTPUT_FRIENDLY)
                                         putchar('\n');
@@ -763,18 +755,14 @@ static int display_group(int argc, char *argv[], void *userdata) {
                         }
                 }
         else {
-                _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
-                _cleanup_strv_free_ char **names = NULL;
-
                 if (argc > 1) {
-                        names = strv_copy(argv + 1);
-                        if (!names)
+                        match.fuzzy_names = strv_copy(strv_skip(argv, 1));
+                        if (!match.fuzzy_names)
                                 return log_oom();
-
-                        match.fuzzy_names = names;
                 }
 
-                r = groupdb_all(arg_userdb_flags, &iterator);
+                _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
+                r = groupdb_all(&match, arg_userdb_flags, &iterator);
                 if (r == -ENOLINK)
                         log_debug_errno(r, "No entries found. (Didn't check via Varlink.)");
                 else if (r == -ESRCH)
@@ -785,16 +773,13 @@ static int display_group(int argc, char *argv[], void *userdata) {
                         for (;;) {
                                 _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
 
-                                r = groupdb_iterator_get(iterator, &gr);
+                                r = groupdb_iterator_get(iterator, &match, &gr);
                                 if (r == -ESRCH)
                                         break;
                                 if (r == -EHOSTDOWN)
                                         return log_error_errno(r, "Selected group database service is not available for this request.");
                                 if (r < 0)
                                         return log_error_errno(r, "Failed acquire next group: %m");
-
-                                if (!group_record_match(gr, &match))
-                                        continue;
 
                                 if (draw_separator && arg_output == OUTPUT_FRIENDLY)
                                         putchar('\n');
@@ -1089,7 +1074,7 @@ static int ssh_authorized_keys(int argc, char *argv[], void *userdata) {
                 chain_invocation = NULL;
         }
 
-        r = userdb_by_name(argv[1], arg_userdb_flags, &ur);
+        r = userdb_by_name(argv[1], /* match= */ NULL, arg_userdb_flags, &ur);
         if (r == -ESRCH)
                 log_error_errno(r, "User %s does not exist.", argv[1]);
         else if (r == -EHOSTDOWN)
@@ -1448,7 +1433,7 @@ static int parse_argv(int argc, char *argv[]) {
 
         /* If not mask was specified, use the all bits on mask */
         if (arg_disposition_mask == UINT64_MAX)
-                arg_disposition_mask = USER_DISPOSITION_MASK_MAX;
+                arg_disposition_mask = USER_DISPOSITION_MASK_ALL;
 
         return 1;
 }
