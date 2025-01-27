@@ -698,7 +698,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           namespace. The first path argument is the source file or directory on the host, the second path
           argument is the destination file or directory in the unit's mount namespace. When the latter is
           omitted, the destination path in the unit's mount namespace is the same as the source path on the
-          host. When combined with the <option>--read-only</option> switch, a ready-only bind mount is
+          host. When combined with the <option>--read-only</option> switch, a read-only bind mount is
           created. When combined with the <option>--mkdir</option> switch, the destination path is first
           created before the mount is applied.</para>
 
