@@ -22,6 +22,7 @@
 #include "idn-util.h"
 #include "io-util.h"
 #include "iovec-util.h"
+#include "json-util.h"
 #include "memstream-util.h"
 #include "missing_network.h"
 #include "missing_socket.h"
@@ -108,6 +109,11 @@ static int manager_process_link(sd_netlink *rtnl, sd_netlink_message *mm, void *
         /* Now check all the links, and if mDNS/llmr are disabled everywhere, stop them globally too. */
         manager_llmnr_maybe_stop(m);
         manager_mdns_maybe_stop(m);
+
+        /* The accessible flag on link DNS servers will have been reset by
+         * link_update. Just reset the global DNS servers. */
+        (void) manager_send_dns_configuration_changed(m, NULL, /* reset= */ true);
+
         return 0;
 
 fail:
@@ -192,10 +198,43 @@ static int manager_process_address(sd_netlink *rtnl, sd_netlink_message *mm, voi
                 break;
         }
 
+        (void) manager_send_dns_configuration_changed(m, l, /* reset= */ true);
+
         return 0;
 
 fail:
         log_warning_errno(r, "Failed to process RTNL address message: %m");
+        return 0;
+}
+
+static int manager_process_route(sd_netlink *rtnl, sd_netlink_message *mm, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        uint16_t type;
+        uint32_t ifindex = 0;
+        int r;
+
+        assert(rtnl);
+        assert(mm);
+
+        r = sd_netlink_message_get_type(mm, &type);
+        if (r < 0) {
+                log_warning_errno(r, "Failed not get message type, ignoring: %m");
+                return 0;
+        }
+
+        if (!IN_SET(type, RTM_NEWROUTE, RTM_DELROUTE)) {
+                log_warning("Unexpected message type %u when processing route, ignoring.", type);
+                return 0;
+        }
+
+        r = sd_netlink_message_read_u32(mm, RTA_OIF, &ifindex);
+        if (r < 0) {
+                log_warning_errno(r, "Failed to get route ifindex, ignoring: %m");
+                return 0;
+        }
+
+        (void) manager_send_dns_configuration_changed(m, hashmap_get(m->links, INT_TO_PTR(ifindex)), /* reset= */ true);
+
         return 0;
 }
 
@@ -289,6 +328,7 @@ static int on_network_event(sd_event_source *s, int fd, uint32_t revents, void *
 
         (void) manager_write_resolv_conf(m);
         (void) manager_send_changed(m, "DNS");
+        (void) manager_send_dns_configuration_changed(m, NULL, /* reset= */ true);
 
         /* Now check all the links, and if mDNS/llmr are disabled everywhere, stop them globally too. */
         manager_llmnr_maybe_stop(m);
@@ -808,9 +848,13 @@ Manager *manager_free(Manager *m) {
         sd_event_source_unref(m->network_event_source);
         sd_network_monitor_unref(m->network_monitor);
 
+        sd_netlink_slot_unref(m->netlink_new_route_slot);
+        sd_netlink_slot_unref(m->netlink_del_route_slot);
         sd_netlink_unref(m->rtnl);
         sd_event_source_unref(m->rtnl_event_source);
         sd_event_source_unref(m->clock_change_event_source);
+
+        sd_json_variant_unref(m->dns_configuration_json);
 
         manager_llmnr_stop(m);
         manager_mdns_stop(m);
@@ -1190,7 +1234,7 @@ int manager_monitor_send(Manager *m, DnsQuery *q) {
 
         assert(m);
 
-        if (set_isempty(m->varlink_subscription))
+        if (set_isempty(m->varlink_query_results_subscription))
                 return 0;
 
         /* Merge all questions into one */
@@ -1240,7 +1284,7 @@ int manager_monitor_send(Manager *m, DnsQuery *q) {
         }
 
         r = varlink_many_notifybo(
-                        m->varlink_subscription,
+                        m->varlink_query_results_subscription,
                         SD_JSON_BUILD_PAIR("state", SD_JSON_BUILD_STRING(dns_transaction_state_to_string(q->state))),
                         SD_JSON_BUILD_PAIR_CONDITION(q->state == DNS_TRANSACTION_DNSSEC_FAILED,
                                                      "result", SD_JSON_BUILD_STRING(dnssec_result_to_string(q->answer_dnssec_result))),
@@ -1937,4 +1981,182 @@ void dns_manager_reset_statistics(Manager *m) {
         m->n_failure_responses_total = 0;
         m->n_failure_responses_served_stale_total = 0;
         zero(m->n_dnssec_verdict);
+}
+
+static int dns_configuration_json_append(
+                const char *ifname,
+                int ifindex,
+                int default_route,
+                DnsServer *current_dns_server,
+                DnsServer *dns_servers,
+                DnsSearchDomain *search_domains,
+                sd_json_variant **configuration) {
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *dns_servers_json = NULL,
+                                                          *search_domains_json = NULL,
+                                                          *current_dns_server_json = NULL;
+        int r;
+
+        assert(configuration);
+
+        if (dns_servers) {
+                r = sd_json_variant_new_array(&dns_servers_json, NULL, 0);
+                if (r < 0)
+                        return r;
+        }
+
+        if (search_domains) {
+                r = sd_json_variant_new_array(&search_domains_json, NULL, 0);
+                if (r < 0)
+                        return r;
+        }
+
+        if (current_dns_server) {
+                r = dns_server_dump_configuration_to_json(current_dns_server, &current_dns_server_json);
+                if (r < 0)
+                        return r;
+        }
+
+        LIST_FOREACH(servers, s, dns_servers) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+
+                assert(dns_servers_json);
+
+                r = dns_server_dump_configuration_to_json(s, &v);
+                if (r < 0)
+                        return r;
+
+                r = sd_json_variant_append_array(&dns_servers_json, v);
+                if (r < 0)
+                        return r;
+        }
+
+        LIST_FOREACH(domains, d, search_domains) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+
+                assert(search_domains_json);
+
+                r = dns_search_domain_dump_to_json(d, &v);
+                if (r < 0)
+                        return r;
+
+                r = sd_json_variant_append_array(&search_domains_json, v);
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_json_variant_append_arraybo(
+                        configuration,
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("ifname", ifname),
+                        SD_JSON_BUILD_PAIR_CONDITION(ifindex > 0, "ifindex", SD_JSON_BUILD_UNSIGNED(ifindex)),
+                        SD_JSON_BUILD_PAIR_CONDITION(ifindex > 0, "defaultRoute", SD_JSON_BUILD_BOOLEAN(default_route > 0)),
+                        JSON_BUILD_PAIR_VARIANT_NON_NULL("currentServer", current_dns_server_json),
+                        JSON_BUILD_PAIR_VARIANT_NON_NULL("servers", dns_servers_json),
+                        JSON_BUILD_PAIR_VARIANT_NON_NULL("searchDomains", search_domains_json));
+}
+
+int manager_dump_dns_configuration_json(Manager *m, sd_json_variant **ret) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *configuration = NULL;
+        Link *l;
+        int r;
+
+        assert(m);
+        assert(ret);
+
+        /* Global DNS configuration */
+        r = dns_configuration_json_append(
+                        /* ifname = */ NULL,
+                        /* ifindex = */ 0,
+                        /* default_route = */ 0,
+                        manager_get_dns_server(m),
+                        m->dns_servers,
+                        m->search_domains,
+                        &configuration);
+        if (r < 0)
+                return r;
+
+        /* Append configuration for each link */
+        HASHMAP_FOREACH(l, m->links) {
+                r = dns_configuration_json_append(
+                                l->ifname,
+                                l->ifindex,
+                                link_get_default_route(l),
+                                link_get_dns_server(l),
+                                l->dns_servers,
+                                l->search_domains,
+                                &configuration);
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_json_buildo(ret, SD_JSON_BUILD_PAIR_VARIANT("configuration", configuration));
+}
+
+int manager_send_dns_configuration_changed(Manager *m, Link *l, bool reset) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *configuration = NULL;
+        int r;
+
+        assert(m);
+
+        if (set_isempty(m->varlink_dns_configuration_subscription))
+                return 0;
+
+        if (reset) {
+                dns_server_reset_accessible_all(m->dns_servers);
+
+                if (l)
+                        dns_server_reset_accessible_all(l->dns_servers);
+        }
+
+        r = manager_dump_dns_configuration_json(m, &configuration);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to dump DNS configuration json: %m");
+
+        if (sd_json_variant_equal(configuration, m->dns_configuration_json))
+                return 0;
+
+        JSON_VARIANT_REPLACE(m->dns_configuration_json, TAKE_PTR(configuration));
+
+        r = varlink_many_notify(m->varlink_dns_configuration_subscription, m->dns_configuration_json);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to send DNS configuration event: %m");
+
+        return 0;
+}
+
+int manager_start_dns_configuration_monitor(Manager *m) {
+        Link *l;
+        int r;
+
+        assert(m);
+        assert(!m->dns_configuration_json);
+        assert(!m->netlink_new_route_slot);
+        assert(!m->netlink_del_route_slot);
+
+        dns_server_reset_accessible_all(m->dns_servers);
+
+        HASHMAP_FOREACH(l, m->links)
+                dns_server_reset_accessible_all(l->dns_servers);
+
+        r = manager_dump_dns_configuration_json(m, &m->dns_configuration_json);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_add_match(m->rtnl, &m->netlink_new_route_slot, RTM_NEWROUTE, manager_process_route, NULL, m, "resolve-NEWROUTE");
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_add_match(m->rtnl, &m->netlink_del_route_slot, RTM_DELROUTE, manager_process_route, NULL, m, "resolve-NEWROUTE");
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+void manager_stop_dns_configuration_monitor(Manager *m) {
+        assert(m);
+
+        m->dns_configuration_json = sd_json_variant_unref(m->dns_configuration_json);
+        m->netlink_new_route_slot = sd_netlink_slot_unref(m->netlink_new_route_slot);
+        m->netlink_del_route_slot = sd_netlink_slot_unref(m->netlink_del_route_slot);
 }
