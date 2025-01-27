@@ -41,7 +41,7 @@ typedef struct Uploader {
         int input;
 
         /* journal stuff */
-        sd_journal* journal;
+        sd_journal *journal;
 
         entry_state entry_state;
         const void *field_data;

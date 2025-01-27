@@ -81,7 +81,7 @@ static DEFINE_CONFIG_PARSE_ENUM(config_parse_write_split_mode, journal_write_spl
  **********************************************************************
  **********************************************************************/
 
-static int spawn_child(const char* child, char** argv) {
+static int spawn_child(const char *child, char **argv) {
         pid_t child_pid;
         int fd[2], r;
 
@@ -113,7 +113,7 @@ static int spawn_child(const char* child, char** argv) {
         return fd[0];
 }
 
-static int spawn_curl(const char* url) {
+static int spawn_curl(const char *url) {
         char **argv = STRV_MAKE("curl",
                                 "-HAccept: application/vnd.fdo.journal",
                                 "--silent",
@@ -589,9 +589,9 @@ static int setup_raw_socket(RemoteServer *s, const char *address) {
 
 static int create_remoteserver(
                 RemoteServer *s,
-                const char* key,
-                const char* cert,
-                const char* trust) {
+                const char *key,
+                const char *cert,
+                const char *trust) {
 
         int r, n, fd;
 
@@ -983,7 +983,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_GNUTLS_LOG:
 #if HAVE_GNUTLS
-                        for (const char* p = optarg;;) {
+                        for (const char *p = optarg;;) {
                                 _cleanup_free_ char *word = NULL;
 
                                 r = extract_first_word(&p, &word, ",", 0);
