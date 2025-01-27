@@ -47,16 +47,16 @@ void mount_points_list_free(MountPoint **head) {
                 mount_point_free(head, *head);
 }
 
-int mount_points_list_get(const char *mountinfo, MountPoint **head) {
+int mount_points_list_get(FILE *f, MountPoint **head) {
         _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
         _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
         int r;
 
         assert(head);
 
-        r = libmount_parse(mountinfo, NULL, &table, &iter);
+        r = libmount_parse_mountinfo(f, &table, &iter);
         if (r < 0)
-                return log_error_errno(r, "Failed to parse %s: %m", mountinfo ?: "/proc/self/mountinfo");
+                return log_error_errno(r, "Failed to parse /proc/self/mountinfo: %m");
 
         for (;;) {
                 _cleanup_free_ char *options = NULL, *remount_options = NULL;
@@ -70,7 +70,7 @@ int mount_points_list_get(const char *mountinfo, MountPoint **head) {
                 if (r == 1) /* EOF */
                         break;
                 if (r < 0)
-                        return log_error_errno(r, "Failed to get next entry from %s: %m", mountinfo ?: "/proc/self/mountinfo");
+                        return log_error_errno(r, "Failed to get next entry from /proc/self/mountinfo: %m");
 
                 path = mnt_fs_get_target(fs);
                 if (!path)
@@ -141,7 +141,7 @@ int mount_points_list_get(const char *mountinfo, MountPoint **head) {
 
                 r = libmount_is_leaf(table, fs);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to get children mounts for %s from %s: %m", path, mountinfo ?: "/proc/self/mountinfo");
+                        return log_error_errno(r, "Failed to get children mounts for %s from /proc/self/mountinfo: %m", path);
                 bool leaf = r;
 
                 *m = (MountPoint) {

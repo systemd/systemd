@@ -4,7 +4,7 @@
 
 #include "libmount-util.h"
 
-int libmount_parse(
+int libmount_parse_full(
                 const char *path,
                 FILE *source,
                 struct libmnt_table **ret_table,
