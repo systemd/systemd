@@ -6246,7 +6246,12 @@ int unit_load_fragment(Unit *u) {
                  * verify this here. */
                 f = fopen(fragment, "re");
                 if (!f)
-                        return log_unit_notice_errno(u, errno, "Failed to open %s: %m", fragment);
+                        /* We do not rebuild unit_name_map and friends on transient file being stopped.
+                         * Hence, unit_file_find_fragment() may provide non-existing transient fragment path.
+                         * Let's downgrade the log level in that case. See issue #35190. */
+                        return log_unit_full_errno(u,
+                                                   path_startswith(fragment, u->manager->lookup_paths.transient) ? LOG_DEBUG : LOG_NOTICE,
+                                                   errno, "Failed to open %s: %m", fragment);
 
                 if (fstat(fileno(f), &st) < 0)
                         return -errno;
