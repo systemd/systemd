@@ -202,12 +202,16 @@ static int find_gpt_root(UdevEvent *event, blkid_probe pr) {
                 }
         }
 
-        /* We found the ESP/XBOOTLDR on this disk, and also found a root partition, nice! Let's export its
-         * UUID */
-        if (found_esp_or_xbootldr && !sd_id128_is_null(root_id))
-                udev_builtin_add_property(event, "ID_PART_GPT_AUTO_ROOT_UUID", SD_ID128_TO_UUID_STRING(root_id));
-#endif
+        if (found_esp_or_xbootldr) {
+                /* We found the ESP/XBOOTLDR on this disk, indicate that this is the origin device. */
+                udev_builtin_add_property(event, "ID_PART_GPT_AUTO_ROOT_ORIGIN", "1");
 
+                /* We found the ESP/XBOOTLDR on this disk, and also found a root partition, nice! Let's
+                 * export its UUID */
+                if (!sd_id128_is_null(root_id))
+                        udev_builtin_add_property(event, "ID_PART_GPT_AUTO_ROOT_UUID", SD_ID128_TO_UUID_STRING(root_id));
+        }
+#endif
         return 0;
 }
 
