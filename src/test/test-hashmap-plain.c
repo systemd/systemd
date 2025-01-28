@@ -973,6 +973,22 @@ TEST(string_strv_hashmap) {
 
         s = hashmap_get(m, "xxx");
         assert_se(strv_equal(s, STRV_MAKE("bar", "BAR")));
+
+        string_strv_hashmap_remove(m, "foo", "bar");
+        ASSERT_NOT_NULL(s = hashmap_get(m, "foo"));
+        ASSERT_TRUE(strv_equal(s, STRV_MAKE("BAR")));
+
+        string_strv_hashmap_remove(m, "foo", "BAR");
+        ASSERT_NULL(hashmap_get(m, "foo"));
+
+        string_strv_hashmap_remove(m, "xxx", "BAR");
+        ASSERT_NOT_NULL(s = hashmap_get(m, "xxx"));
+        ASSERT_TRUE(strv_equal(s, STRV_MAKE("bar")));
+
+        string_strv_hashmap_remove(m, "xxx", "bar");
+        ASSERT_NULL(hashmap_get(m, "xxx"));
+
+        ASSERT_TRUE(hashmap_isempty(m));
 }
 
 TEST(hashmap_dump_sorted) {

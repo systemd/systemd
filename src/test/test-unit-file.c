@@ -1,7 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "capability-util.h"
+#include "fileio.h"
+#include "fs-util.h"
 #include "initrd-util.h"
+#include "mkdir.h"
+#include "mount-util.h"
 #include "path-lookup.h"
+#include "path-util.h"
+#include "random-util.h"
 #include "set.h"
 #include "special.h"
 #include "strv.h"
@@ -83,6 +90,105 @@ TEST(unit_file_build_name_map) {
                                              NULL);
                  assert_se(r == 0);
                  log_info("fragment: %s", fragment);
+        }
+}
+
+static bool test_unit_file_remove_from_name_map_trail(const LookupPaths *lp, size_t trial) {
+        int r;
+
+        log_debug("/* %s(trial=%zu) */", __func__, trial);
+
+        _cleanup_hashmap_free_ Hashmap *unit_ids = NULL, *unit_names = NULL;
+        _cleanup_set_free_ Set *path_cache = NULL;
+        ASSERT_OK_POSITIVE(unit_file_build_name_map(lp, NULL, &unit_ids, &unit_names, &path_cache));
+
+        _cleanup_free_ char *name = NULL;
+        for (size_t i = 0; i < 100; i++) {
+                ASSERT_OK(asprintf(&name, "test-unit-file-%"PRIx64".service", random_u64()));
+                if (hashmap_contains(unit_ids, name))
+                        name = mfree(name);
+        }
+        ASSERT_NOT_NULL(name);
+
+        _cleanup_free_ char *path = path_join(lp->transient, name);
+        ASSERT_NOT_NULL(path);
+        ASSERT_OK(write_string_file(path, "[Unit]\n", WRITE_STRING_FILE_CREATE));
+
+        uint64_t cache_timestamp_hash = 0;
+        ASSERT_OK_POSITIVE(unit_file_build_name_map(lp, &cache_timestamp_hash, &unit_ids, &unit_names, &path_cache));
+
+        ASSERT_STREQ(hashmap_get(unit_ids, name), path);
+        ASSERT_TRUE(strv_equal(hashmap_get(unit_names, name), STRV_MAKE(name)));
+        ASSERT_TRUE(set_contains(path_cache, path));
+
+        ASSERT_OK_ERRNO(unlink(path));
+
+        ASSERT_OK(r = unit_file_remove_from_name_map(lp, &cache_timestamp_hash, &unit_ids, &unit_names, &path_cache, path));
+        if (r > 0)
+                return false; /* someone touches unit files. Retrying. */
+
+        ASSERT_FALSE(hashmap_contains(unit_ids, name));
+        ASSERT_FALSE(hashmap_contains(unit_names, path));
+        ASSERT_FALSE(set_contains(path_cache, path));
+
+        _cleanup_hashmap_free_ Hashmap *unit_ids_2 = NULL, *unit_names_2 = NULL;
+        _cleanup_set_free_ Set *path_cache_2 = NULL;
+        ASSERT_OK_POSITIVE(unit_file_build_name_map(lp, NULL, &unit_ids_2, &unit_names_2, &path_cache_2));
+
+        if (hashmap_size(unit_ids) != hashmap_size(unit_ids_2) ||
+            hashmap_size(unit_names) != hashmap_size(unit_names_2) ||
+            !set_equal(path_cache, path_cache_2))
+                return false;
+
+        const char *k, *v;
+        HASHMAP_FOREACH_KEY(v, k, unit_ids)
+                if (!streq_ptr(hashmap_get(unit_ids_2, k), v))
+                        return false;
+
+        char **l;
+        HASHMAP_FOREACH_KEY(l, k, unit_names)
+                if (!strv_equal_ignore_order(hashmap_get(unit_names_2, k), l))
+                        return false;
+
+        return true;
+}
+
+
+static void test_unit_file_remove_from_name_map_child(void) {
+        _cleanup_(lookup_paths_done) LookupPaths lp = {};
+        ASSERT_OK(lookup_paths_init(&lp, RUNTIME_SCOPE_SYSTEM, 0, NULL));
+
+        ASSERT_OK(mkdir_p(lp.transient, 0755));
+        ASSERT_OK(mount_nofollow_verbose(LOG_INFO, "tmpfs", lp.transient, "tmpfs", 0, NULL));
+
+        for (size_t i = 0; i < 10; i++)
+                if (test_unit_file_remove_from_name_map_trail(&lp, i))
+                        return;
+
+        assert_not_reached();
+}
+
+TEST(unit_file_remove_from_name_map) {
+        int r;
+
+        if (geteuid() != 0 || have_effective_cap(CAP_SYS_ADMIN) <= 0)
+                return (void) log_tests_skipped("not running privileged");
+
+        r = safe_fork("(remove_from_name_map)",
+                      FORK_RESET_SIGNALS |
+                      FORK_CLOSE_ALL_FDS |
+                      FORK_DEATHSIG_SIGTERM |
+                      FORK_WAIT |
+                      FORK_REOPEN_LOG |
+                      FORK_LOG |
+                      FORK_NEW_MOUNTNS |
+                      FORK_MOUNTNS_SLAVE,
+                      NULL);
+        ASSERT_OK(r);
+
+        if (r == 0) {
+                test_unit_file_remove_from_name_map_child();
+                _exit(EXIT_SUCCESS);
         }
 }
 
