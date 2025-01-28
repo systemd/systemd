@@ -59,6 +59,8 @@ except ValueError:
     slow_tests = True
 
 arg_tools = ['--tools', build_root] if build_root else []
+if build_root and pathlib.Path(f"{build_root}/linux{ukify.guess_efi_arch()}.efi.stub").exists():
+    arg_tools += ['--stub', f"{build_root}/linux{ukify.guess_efi_arch()}.efi.stub"]
 
 def systemd_measure():
     opts = ukify.create_parser().parse_args(arg_tools)
@@ -410,6 +412,8 @@ def test_help_error(capsys):
 def kernel_initrd():
     items = sorted(glob.glob('/lib/modules/*/vmlinuz'))
     if not items:
+        items = sorted(glob.glob('/boot/vmlinuz*'))
+    if not items:
         return None
 
     # This doesn't necessarily give us the latest version, since we're just
@@ -657,7 +661,7 @@ def test_inspect(kernel_initrd, tmp_path, capsys):
         f'--os-release={osrel_arg}',
         f'--uname={uname_arg}',
         f'--output={output}',
-    ]
+    ] + arg_tools
     if slow_tests:
         args += [
             f'--secureboot-certificate={cert.name}',
