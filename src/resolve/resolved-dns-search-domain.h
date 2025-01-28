@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "sd-json.h"
+
 #include "list.h"
 #include "macro.h"
 
@@ -54,3 +56,5 @@ static inline const char* DNS_SEARCH_DOMAIN_NAME(DnsSearchDomain *d) {
 }
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsSearchDomain*, dns_search_domain_unref);
+
+int dns_search_domain_dump_to_json(DnsSearchDomain *domain, sd_json_variant **ret);
