@@ -1139,10 +1139,10 @@ static void append_test_entry_full(
 
                 ASSERT_OK(journal_file_rotate(
                                         f,
+                                        /* async = */ false,
                                         m,
                                         /* file_flags = */ JOURNAL_STRICT_ORDER,
-                                        /* compress_threshold_bytes = */ UINT64_MAX,
-                                        /* deferred_closes = */ NULL));
+                                        /* compress_threshold_bytes = */ UINT64_MAX));
         }
 
         ASSERT_OK(journal_file_append_entry(
