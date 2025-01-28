@@ -666,6 +666,7 @@ static int ask_on_consoles(char *argv[]) {
         _cleanup_set_free_ Set *pids = NULL;
         int r;
 
+        assert(!arg_device);
         assert(argv);
 
         r = get_kernel_consoles(&consoles);
