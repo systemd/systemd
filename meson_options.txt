@@ -358,7 +358,7 @@ option('default-dnssec', type : 'combo',
 option('default-dns-over-tls', type : 'combo',
        description : 'default DNS-over-TLS mode',
        choices : ['yes', 'opportunistic', 'no'],
-       value : 'no')
+       value : 'opportunistic')
 option('default-mdns', type : 'combo',
        choices : ['yes', 'resolve', 'no'],
        description : 'default MulticastDNS mode',
