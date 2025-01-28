@@ -18,3 +18,4 @@ VLANProtocol=802.1ad
 STP=true
 MulticastIGMPVersion=3
 FDBMaxLearned=4
+LinkLocalLearning=no
