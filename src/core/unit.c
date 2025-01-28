@@ -646,12 +646,10 @@ static void unit_clear_dependencies(Unit *u) {
 
 static void unit_remove_transient(Unit *u) {
         assert(u);
+        assert(u->manager);
 
         if (!u->transient)
                 return;
-
-        if (u->fragment_path)
-                (void) unlink(u->fragment_path);
 
         STRV_FOREACH(i, u->dropin_paths) {
                 _cleanup_free_ char *p = NULL, *pp = NULL;
@@ -668,6 +666,17 @@ static void unit_remove_transient(Unit *u) {
 
                 (void) unlink(*i);
                 (void) rmdir(p);
+        }
+
+        if (u->fragment_path) {
+                (void) unlink(u->fragment_path);
+                (void) unit_file_remove_from_name_map(
+                                &u->manager->lookup_paths,
+                                &u->manager->unit_cache_timestamp_hash,
+                                &u->manager->unit_id_map,
+                                &u->manager->unit_name_map,
+                                &u->manager->unit_path_cache,
+                                u->fragment_path);
         }
 }
 
