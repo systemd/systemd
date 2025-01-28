@@ -73,7 +73,7 @@
     <para>To activate the NSS modules, add <literal>myhostname</literal> to the line starting with
     <literal>hosts:</literal> in <filename>/etc/nsswitch.conf</filename>.</para>
 
-    <para>It is recommended to place <literal>myhostname</literal> after <literal>file</literal> and before <literal>dns</literal>.
+    <para>It is recommended to place <literal>myhostname</literal> after <literal>files</literal> and before <literal>dns</literal>.
     This resolves well-known hostnames like <literal>localhost</literal>
     and the machine hostnames locally. It is consistent with the behaviour
     of <command>nss-resolve</command>, and still allows overriding via
