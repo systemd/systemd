@@ -495,7 +495,7 @@ static int parse_argv(int argc, char *argv[]) {
                 {}
         };
 
-        int c;
+        int r, c;
 
         assert(argc >= 0);
         assert(argv);
@@ -537,9 +537,9 @@ static int parse_argv(int argc, char *argv[]) {
                                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                                "Empty console device path is not allowed.");
 
-                                arg_device = strdup(optarg);
-                                if (!arg_device)
-                                        return log_oom();
+                                r = free_and_strdup_warn(&arg_device, optarg);
+                                if (r < 0)
+                                        return r;
                         }
                         break;
 
