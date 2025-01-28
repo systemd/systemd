@@ -1037,20 +1037,20 @@ int read_nr_open(void) {
 }
 
 int fd_get_diskseq(int fd, uint64_t *ret) {
-        uint64_t diskseq;
+        uint64_t diskseq = 0;
 
         assert(fd >= 0);
         assert(ret);
 
-        if (ioctl(fd, BLKGETDISKSEQ, &diskseq) < 0) {
+        /* Given the fact that diskseq=0 doesn't exist, this function set the returned diskseq value to 0 to
+         * indicate that the device doesn't have support for diskseq. */
+
+        if (ioctl(fd, BLKGETDISKSEQ, &diskseq) < 0)
                 /* Note that the kernel is weird: non-existing ioctls currently return EINVAL
                  * rather than ENOTTY on loopback block devices. They should fix that in the kernel,
                  * but in the meantime we accept both here. */
                 if (!ERRNO_IS_NOT_SUPPORTED(errno) && errno != EINVAL)
                         return -errno;
-
-                return -EOPNOTSUPP;
-        }
 
         *ret = diskseq;
 
