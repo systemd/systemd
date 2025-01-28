@@ -141,6 +141,25 @@ def try_import(modname: str, name: Optional[str] = None) -> ModuleType:
         raise ValueError(f'Kernel is compressed with {name or modname}, but module unavailable') from e
 
 
+def read_env_file(text: str) -> dict[str, str]:
+    result = {}
+
+    for line in text.splitlines():
+        line = line.rstrip()
+        if not line or line.startswith('#'):
+            continue
+        if m := re.match(r'([A-Z][A-Z_0-9]+)=(.*)', line):
+            name, val = m.groups()
+            if val and val[0] in '"\'':
+                val = next(shlex.shlex(val, posix=True))
+
+            result[name] = val
+        else:
+            print(f'bad line {line!r}', file=sys.stderr)
+
+    return result
+
+
 def get_zboot_kernel(f: IO[bytes]) -> bytes:
     """Decompress zboot efistub kernel if compressed. Return contents."""
     # See linux/drivers/firmware/efi/libstub/Makefile.zboot
@@ -244,6 +263,7 @@ class UkifyConfig:
     hwids: Path
     initrd: list[Path]
     join_profiles: list[Path]
+    sign_profiles: list[str]
     json: Union[Literal['pretty'], Literal['short'], Literal['off']]
     linux: Optional[Path]
     measure: bool
@@ -1249,7 +1269,10 @@ def make_uki(opts: UkifyConfig) -> None:
 
     # PCR measurement and signing
 
-    call_systemd_measure(uki, opts=opts)
+    if (opts.join_profiles or not opts.profile) and (
+        not opts.sign_profiles or opts.profile in opts.sign_profiles
+    ):
+        call_systemd_measure(uki, opts=opts)
 
     # UKI profiles
 
@@ -1297,6 +1320,13 @@ def make_uki(opts: UkifyConfig) -> None:
             uki.add_section(
                 Section.create(n, pesection.get_data(length=pesection.Misc_VirtualSize), measure=True)
             )
+
+        if opts.sign_profiles:
+            pesection = next(s for s in pe.sections if pe_strip_section_name(s.Name) == '.profile')
+            id = read_env_file(pesection.get_data(length=pesection.Misc_VirtualSize).decode()).get('ID')
+            if not id or id not in opts.sign_profiles:
+                print(f'Not signing expected PCR measurements for "{id}" profile')
+                continue
 
         call_systemd_measure(uki, opts=opts, profile_start=prev_len)
 
@@ -1806,6 +1836,14 @@ CONFIG_ITEMS = [
         action='append',
         default=[],
         help='A PE binary containing an additional profile to add to the UKI',
+    ),
+    ConfigItem(
+        '--sign-profile',
+        dest='sign_profiles',
+        metavar='ID',
+        action='append',
+        default=[],
+        help='Which profiles to sign expected PCR measurements for',
     ),
     ConfigItem(
         '--efi-arch',
