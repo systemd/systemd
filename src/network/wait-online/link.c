@@ -3,6 +3,7 @@
 #include "sd-network.h"
 
 #include "alloc-util.h"
+#include "dns-configuration.h"
 #include "format-ifname.h"
 #include "hashmap.h"
 #include "link.h"
@@ -32,6 +33,7 @@ int link_new(Manager *m, Link **ret, int ifindex, const char *ifname) {
                 .ifname = TAKE_PTR(n),
                 .ifindex = ifindex,
                 .required_operstate = LINK_OPERSTATE_RANGE_DEFAULT,
+                .dns_configuration = hashmap_remove(m->dns_configuration_by_link_index, INT_TO_PTR(ifindex)),
         };
 
         r = hashmap_ensure_put(&m->links_by_index, NULL, INT_TO_PTR(ifindex), l);
@@ -61,6 +63,8 @@ Link *link_free(Link *l) {
                 STRV_FOREACH(n, l->altnames)
                         hashmap_remove(l->manager->links_by_name, *n);
         }
+
+        dns_configuration_free(l->dns_configuration);
 
         free(l->state);
         free(l->ifname);
