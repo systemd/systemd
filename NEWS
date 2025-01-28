@@ -39,6 +39,20 @@ CHANGES WITH 258 in spe:
           rules files with 'udevadm verify' and/or 'udevadm test' commands if
           the specified user/group in OWNER=/GROUP= are valid.
 
+        * systemd-cryptenroll, systemd-repart and systemd-creds no longer
+          default to locking TPM2 enrollments to the current, literal value of
+          PCR 7, i.e. the PCR the SecureBoot policy is measured into by the
+          firmware. This change reflects the fact that nowadays SecureBoot
+          policies are updated (at least) as frequently as firmware code
+          updates (simply because SecureBoot policy updates are typically
+          managed by fwupd these days). The new default PCR mask for new TPM2
+          enrollments is thus empty by default. It is recommended to use
+          managed systemd-pcrlock policies for binding to PCR 7 instead (as
+          well as combining such policies with signed policies for PCR 11). Or
+          in other words, it's recommended to make more use of the logic behind
+          the --tpm2-public-key=, --tpm2-public-key-pcrs= and --tpm2-pcrlock=
+          switches of the mentioned tools in place of --tpm2-pcrs=.
+
         Announcements of Future Feature Removals:
 
         * The D-Bus method org.freedesktop.systemd1.StartAuxiliaryScope() is

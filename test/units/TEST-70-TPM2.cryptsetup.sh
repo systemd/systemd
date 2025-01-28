@@ -51,8 +51,8 @@ cryptsetup luksFormat -q --pbkdf pbkdf2 --pbkdf-force-iterations 1000 --use-uran
 # Unlocking via keyfile
 systemd-cryptenroll --unlock-key-file=/tmp/passphrase --tpm2-device=auto "$IMAGE"
 
-# Enroll unlock with default PCR policy
-PASSWORD=passphrase systemd-cryptenroll --tpm2-device=auto "$IMAGE"
+# Enroll unlock with SecureBoot (PCR 7) PCR policy
+PASSWORD=passphrase systemd-cryptenroll --tpm2-device=auto --tpm2-pcrs=7 "$IMAGE"
 systemd-cryptsetup attach test-volume "$IMAGE" - tpm2-device=auto,headless=1
 systemd-cryptsetup detach test-volume
 
@@ -62,7 +62,7 @@ tpm2_pcrextend 7:sha256=00000000000000000000000000000000000000000000000000000000
 
 # Enroll unlock with PCR+PIN policy
 systemd-cryptenroll --wipe-slot=tpm2 "$IMAGE"
-PASSWORD=passphrase NEWPIN=123456 systemd-cryptenroll --tpm2-device=auto --tpm2-with-pin=true "$IMAGE"
+PASSWORD=passphrase NEWPIN=123456 systemd-cryptenroll --tpm2-device=auto --tpm2-with-pin=true --tpm2-pcrs=7 "$IMAGE"
 PIN=123456 systemd-cryptsetup attach test-volume "$IMAGE" - tpm2-device=auto,headless=1
 systemd-cryptsetup detach test-volume
 

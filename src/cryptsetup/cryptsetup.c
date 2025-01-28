@@ -1862,7 +1862,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                         r = acquire_tpm2_key(
                                         name,
                                         arg_tpm2_device,
-                                        arg_tpm2_pcr_mask == UINT32_MAX ? TPM2_PCR_MASK_DEFAULT : arg_tpm2_pcr_mask,
+                                        arg_tpm2_pcr_mask == UINT32_MAX ? TPM2_PCR_MASK_DEFAULT_LEGACY : arg_tpm2_pcr_mask,
                                         UINT16_MAX,
                                         /* pubkey= */ NULL,
                                         /* pubkey_pcr_mask= */ 0,
