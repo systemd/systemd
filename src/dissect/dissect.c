@@ -70,6 +70,8 @@ static enum {
         ACTION_VALIDATE,
         ACTION_MAKE_ARCHIVE,
         ACTION_SHIFT,
+        ACTION_UDEV_PROBE,
+        ACTION_UDEV_COPY,
 } arg_action = ACTION_DISSECT;
 static char *arg_image = NULL;
 static char *arg_root = NULL;
@@ -100,6 +102,7 @@ static bool arg_via_service = false;
 static RuntimeScope arg_runtime_scope = _RUNTIME_SCOPE_INVALID;
 static bool arg_all = false;
 static uid_t arg_uid_base = UID_INVALID;
+static int arg_lock_op = LOCK_SH;
 
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
@@ -864,6 +867,84 @@ static int parse_argv_as_mount_helper(int argc, char *argv[]) {
 
         arg_flags |= DISSECT_IMAGE_REQUIRE_ROOT;
         arg_action = ACTION_MOUNT;
+        return 1;
+}
+
+static int help_udev_probe(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("systemd-dissect", "1", &link);
+        if (r < 0)
+                return log_oom();
+
+        printf("%1$s [OPTIONS...] PATH\n"
+               "%1$s [OPTIONS...] --copy PATH\n"
+               "\n%5$sDissect block device contents%6$s\n\n"
+               "\n%3$sCommands:%4$s\n"
+               "  -h --help               Show this help\n"
+               "     --version            Show package version\n"
+               "     --copy               Copy fields from whole block device to partition\n"
+               "\nSee the %2$s for details.\n",
+               program_invocation_short_name,
+               link,
+               ansi_underline(),
+               ansi_normal(),
+               ansi_highlight(),
+               ansi_normal());
+
+        return 0;
+}
+
+static int parse_argv_as_udev_probe(int argc, char *argv[]) {
+        enum {
+                ARG_VERSION = 0x100,
+                ARG_COPY,
+        };
+
+        static const struct option options[] = {
+                { "help",    no_argument, NULL, 'h'         },
+                { "version", no_argument, NULL, ARG_VERSION },
+                { "copy",    no_argument, NULL, ARG_COPY    },
+                {}
+        };
+
+        int c, r;
+
+        arg_action = ACTION_UDEV_PROBE;
+        arg_flags = DISSECT_IMAGE_GPT_ONLY|DISSECT_IMAGE_USR_NO_ROOT|DISSECT_IMAGE_REQUIRE_ROOT|DISSECT_IMAGE_DEVICE_READ_ONLY;
+        arg_lock_op = LOCK_UN;
+
+        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0) {
+
+                switch (c) {
+
+                case 'h':
+                        return help_udev_probe();
+
+                case ARG_VERSION:
+                        return version();
+
+                case ARG_COPY:
+                        arg_action = ACTION_UDEV_COPY;
+                        break;
+
+                case '?':
+                        return -EINVAL;
+
+                default:
+                        assert_not_reached();
+                }
+        }
+
+        if (optind + 1 != argc)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Device argument expected.");
+
+        r = parse_path_argument(argv[optind], /* suppress_root= */ false, &arg_image);
+        if (r < 0)
+                return r;
+
         return 1;
 }
 
@@ -2086,6 +2167,94 @@ static int action_validate(void) {
         return 0;
 }
 
+static int action_udev_probe(DissectedImage *m) {
+        assert(m);
+
+        /* This is invoked on 'main' block devices to probe the partition table. We will generate some
+         * properties with general image information, and then a bunch of properties for each partition, with
+         * the partition index in the variable name. These fields will be copied into partition block devices
+         * when dissect_id is later called with the --copy flag, i.e. in action_udev_copy() below. */
+
+        /* Marker that we determined this to be a suitable image. */
+        printf("ID_DISSECT_IMAGE=1\n");
+
+        /* Output the primary architecture this image is intended for */
+        Architecture a = dissected_image_architecture(m);
+        if (a >= 0)
+                printf("ID_DISSECT_IMAGE_ARCHITECTURE=%s\n", architecture_to_string(a));
+
+        /* And now output the intended designator and architecture (if it applies) for all partitions we
+         * found and think belong to this system */
+        for (PartitionDesignator i = 0; i < _PARTITION_DESIGNATOR_MAX; i++) {
+                const DissectedPartition *p = m->partitions + i;
+
+                if (!p->found)
+                        continue;
+
+                assert(p->partno > 0);
+
+                printf("ID_DISSECT_PART%i_DESIGNATOR=%s\n", p->partno, partition_designator_to_string(i));
+                if (p->architecture >= 0)
+                        printf("ID_DISSECT_PART%i_ARCHITECTURE=%s\n", p->partno, architecture_to_string(p->architecture));
+        }
+
+        return 0;
+}
+
+static int action_udev_copy(const char *path) {
+        int r;
+
+        assert(path);
+
+        /* This is called for the partition block devices, and will copy the per-partition properties we
+         * probed on the main block device into the partition device */
+
+        _cleanup_(sd_device_unrefp) struct sd_device *device = NULL;
+        r = sd_device_new_from_path(&device, path);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get device '%s': %m", path);
+
+        if (!device_in_subsystem(device, "block"))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invoked on non-block device '%s', refusing: %m", path);
+        if (!device_is_devtype(device, "partition"))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invoked on non-partition block device '%s', refusing: %m", path);
+
+        sd_device *parent;
+        r = sd_device_get_parent(device, &parent);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get parent of device '%s': %m", path);
+
+        if (!device_in_subsystem(parent, "block"))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Parent of block device '%s' is not a block device, refusing: %m", path);
+        if (!device_is_devtype(parent, "disk"))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Parent of block device '%s' is not a whole block device, refusing: %m", path);
+
+        const char *sysnum;
+        r = sd_device_get_sysnum(device, &sysnum);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get partition number of partition block device '%s': %m", path);
+
+        FOREACH_STRING(f, "_DESIGNATOR", "_ARCHITECTURE") {
+                /* The property on the parent device contains the partition number */
+                _cleanup_free_ char *p = strjoin("ID_DISSECT_PART", sysnum, f);
+                if (!p)
+                        return log_oom();
+
+                const char *v;
+                r = sd_device_get_property_value(parent, p, &v);
+                if (r == -ENOENT)
+                        continue;
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get '%s' property of parent of '%s': %m", p, path);
+
+                /* When we copy this property to the partition we drop the partition number, so that we have
+                 * a constant field name */
+                printf("ID_DISSECT_PART%s=%s\n", f, v);
+        }
+
+        return 0;
+}
+
 static int run(int argc, char *argv[]) {
         _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
         _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
@@ -2096,6 +2265,8 @@ static int run(int argc, char *argv[]) {
 
         if (invoked_as(argv, "mount.ddi"))
                 r = parse_argv_as_mount_helper(argc, argv);
+        else if (invoked_as(argv, "dissect_id"))
+                r = parse_argv_as_udev_probe(argc, argv);
         else
                 r = parse_argv(argc, argv);
         if (r <= 0)
@@ -2131,6 +2302,9 @@ static int run(int argc, char *argv[]) {
         case ACTION_DISCOVER:
                 return action_discover();
 
+        case ACTION_UDEV_COPY:
+                return action_udev_copy(arg_image);
+
         default:
                 /* All other actions need the image dissected (except for ACTION_VALIDATE, see below) */
                 break;
@@ -2163,9 +2337,9 @@ static int run(int argc, char *argv[]) {
                         loop_flags = FLAGS_SET(arg_flags, DISSECT_IMAGE_NO_PARTITION_TABLE) ? 0 : LO_FLAGS_PARTSCAN;
 
                         if (arg_in_memory)
-                                r = loop_device_make_by_path_memory(arg_image, open_flags, /* sector_size= */ UINT32_MAX, loop_flags, LOCK_SH, &d);
+                                r = loop_device_make_by_path_memory(arg_image, open_flags, /* sector_size= */ UINT32_MAX, loop_flags, arg_lock_op, &d);
                         else
-                                r = loop_device_make_by_path(arg_image, open_flags, /* sector_size= */ UINT32_MAX, loop_flags, LOCK_SH, &d);
+                                r = loop_device_make_by_path(arg_image, open_flags, /* sector_size= */ UINT32_MAX, loop_flags, arg_lock_op, &d);
                         if (r < 0) {
                                 if (!ERRNO_IS_PRIVILEGE(r) || !IN_SET(arg_action, ACTION_DISSECT, ACTION_LIST, ACTION_MTREE, ACTION_COPY_FROM, ACTION_COPY_TO, ACTION_SHIFT))
                                         return log_error_errno(r, "Failed to set up loopback device for %s: %m", arg_image);
@@ -2199,7 +2373,7 @@ static int run(int argc, char *argv[]) {
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to load verity signature partition: %m");
 
-                                if (arg_action != ACTION_DISSECT) {
+                                if (!IN_SET(arg_action, ACTION_DISSECT, ACTION_UDEV_PROBE)) {
                                         r = dissected_image_decrypt_interactively(
                                                         m, NULL,
                                                         &arg_verity_settings,
@@ -2257,6 +2431,9 @@ static int run(int argc, char *argv[]) {
 
         case ACTION_WITH:
                 return action_with(m, d);
+
+        case ACTION_UDEV_PROBE:
+                return action_udev_probe(m);
 
         default:
                 assert_not_reached();

@@ -16,3 +16,8 @@ install_emptydir(sbindir)
 meson.add_install_script(sh, '-c',
                          ln_s.format(bindir / 'systemd-dissect',
                                      sbindir / 'mount.ddi'))
+
+install_emptydir(udevlibexecdir)
+meson.add_install_script(sh, '-c',
+                         ln_s.format(bindir / 'systemd-dissect',
+                                     udevlibexecdir / 'dissect_id'))

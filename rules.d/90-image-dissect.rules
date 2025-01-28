@@ -15,4 +15,11 @@ ENV{ID_PART_GPT_AUTO_ROOT}=="1", ENV{ID_FS_TYPE}!="crypto_LUKS", SYMLINK+="gpt-a
 ENV{ID_PART_GPT_AUTO_ROOT}=="1", ENV{ID_FS_TYPE}=="crypto_LUKS", SYMLINK+="gpt-auto-root-luks"
 ENV{DM_UUID}=="CRYPT-*", ENV{DM_NAME}=="root", SYMLINK+="gpt-auto-root"
 
+# If this is the whole disk that we booted from, then dissect it
+ENV{DEVTYPE}=="disk", ENV{ID_PART_GPT_AUTO_ROOT_ORIGIN}=="1", IMPORT{program}="dissect_id $devnode"
+# If this is a partition, and we found something on the parent, then copy the right properties from the parent, and rename them
+ENV{DEVTYPE}=="partition", ENV{ID_DISSECT_IMAGE}!="", IMPORT{program}="dissect_id --copy $devnode"
+
+ENV{DEVTYPE}=="partition", ENV{ID_DISSECT_PART_DESIGNATOR}!="", SYMLINK+="gpt-auto-$env{ID_DISSECT_PART_DESIGNATOR}"
+
 LABEL="image_dissect_end"
