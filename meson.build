@@ -2052,6 +2052,7 @@ basic_includes = include_directories(
         '.')
 
 libsystemd_includes = [basic_includes, include_directories(
+        'src/go',
         'src/libsystemd/sd-bus',
         'src/libsystemd/sd-device',
         'src/libsystemd/sd-event',
@@ -2072,8 +2073,10 @@ subdir('catalog')
 subdir('src/fundamental')
 subdir('src/basic')
 subdir('src/libsystemd')
+subdir('src/go')
 subdir('src/shared')
 subdir('src/libudev')
+
 
 libsystemd = shared_library(
         'systemd',
@@ -2368,6 +2371,7 @@ subdir('src/rpm')
 subdir('src/run')
 subdir('src/run-generator')
 subdir('src/sbsign')
+subdir('src/gobuildversion')
 subdir('src/shutdown')
 subdir('src/sleep')
 subdir('src/socket-activate')
