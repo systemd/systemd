@@ -125,6 +125,13 @@ Deprecations and removals:
 
 Features:
 
+* maybe introduce container-shell@.service or so, to match
+  container-getty.service but skips authentication, so you get a shell prompt
+  directly. Usecase: wsl-like stuff (they have something pretty much like
+  that). Question: how to pick user for this. Instance parameter? somehow from
+  credential (would probably require some binary that converts credential to
+  User= parameter?
+
 * sd-varlink should probably enforce a limit on queued outgoing replies
 
 * systemd-firstboot: optionally install an ssh key for root for offline use.
