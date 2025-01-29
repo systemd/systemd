@@ -999,5 +999,4 @@ void stdout_stream_send_notify(StdoutStream *s) {
 
         LIST_REMOVE(stdout_stream_notify_queue, s->server->stdout_streams_notify_queue, s);
         s->in_notify_queue = false;
-
 }

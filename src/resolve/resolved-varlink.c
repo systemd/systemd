@@ -1399,7 +1399,6 @@ fail:
         if (set_isempty(m->varlink_dns_configuration_subscription))
                 manager_stop_dns_configuration_monitor(m);
 
-
         return log_debug_errno(r, "Failed to subscribe client to DNS configuration monitor: %m");
 }
 

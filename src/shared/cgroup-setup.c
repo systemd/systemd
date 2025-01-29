@@ -113,7 +113,6 @@ bool cg_is_unified_wanted(void) {
                 return (wanted = false);
 
         return (wanted = true);
-
 }
 
 bool cg_is_legacy_wanted(void) {

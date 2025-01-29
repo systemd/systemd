@@ -42,5 +42,4 @@ static inline bool FILE_SIZE_VALID_OR_INFINITY(uint64_t l) {
                 return true;
 
         return FILE_SIZE_VALID(l);
-
 }

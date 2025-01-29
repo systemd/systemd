@@ -3100,7 +3100,6 @@ static int make_tmp_prefix(const char *prefix) {
         }
 
         return 0;
-
 }
 
 static int setup_one_tmp_dir(const char *id, const char *prefix, char **path, char **tmp_path) {

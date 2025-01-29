@@ -47,7 +47,6 @@ static int process_vsock_cid(unsigned cid, const char *port) {
 
         log_debug("Successfully sent AF_VSOCK socket via STDOUT.");
         return 0;
-
 }
 
 static int process_vsock_string(const char *host, const char *port) {

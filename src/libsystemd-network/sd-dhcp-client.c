@@ -1383,7 +1383,6 @@ static int client_initialize_time_events(sd_dhcp_client *client) {
                 client_stop(client, r);
 
         return 0;
-
 }
 
 static int client_initialize_events(sd_dhcp_client *client, sd_event_io_handler_t io_callback) {
