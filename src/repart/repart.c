@@ -4597,6 +4597,12 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                 int keyslot;
                 TPM2Flags flags = 0;
 
+                if (arg_tpm2_n_hash_pcr_values == 0 &&
+                    arg_tpm2_public_key_pcr_mask == 0 &&
+                    !arg_tpm2_pcrlock)
+                        log_notice("Notice: encrypting future partition %" PRIu64 ", locking against TPM2 with an empty policy, i.e. without any state or access restrictions.\n"
+                                   "Use --tpm2-public-key=, --tpm2-pcrlock=, or --tpm2-pcrs= to enable one or more restrictions.", p->partno);
+
                 if (arg_tpm2_public_key_pcr_mask != 0) {
                         r = tpm2_load_pcr_public_key(arg_tpm2_public_key, &pubkey.iov_base, &pubkey.iov_len);
                         if (r < 0) {

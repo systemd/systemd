@@ -697,6 +697,13 @@ static int parse_argv(int argc, char *argv[]) {
                         assert(arg_tpm2_public_key_pcr_mask == 0);
                         arg_tpm2_public_key_pcr_mask = INDEX_TO_MASK(uint32_t, TPM2_PCR_KERNEL_BOOT);
                 }
+
+                if (arg_tpm2_n_hash_pcr_values == 0 &&
+                    !arg_tpm2_pin &&
+                    arg_tpm2_public_key_pcr_mask == 0 &&
+                    !arg_tpm2_pcrlock)
+                        log_notice("Notice: enrolling TPM2 with an empty policy, i.e. without any state or access restrictions.\n"
+                                   "Use --tpm2-public-key=, --tpm2-pcrlock=, --tpm2-with-pin= or --tpm2-pcrs= to enable one or more restrictions.");
         }
 
         return 1;
