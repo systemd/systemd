@@ -96,7 +96,7 @@ EFI_STATUS linux_exec(
                 const struct iovec *kernel,
                 const struct iovec *initrd) {
 
-        size_t kernel_size_in_memory = 0;
+        size_t kernel_size_in_memory = 0, kernel_size_on_disk;
         uint32_t compat_address;
         EFI_STATUS err;
 
@@ -104,7 +104,7 @@ EFI_STATUS linux_exec(
         assert(iovec_is_set(kernel));
         assert(iovec_is_valid(initrd));
 
-        err = pe_kernel_info(kernel->iov_base, &compat_address, &kernel_size_in_memory);
+        err = pe_kernel_info(kernel->iov_base, &compat_address, &kernel_size_in_memory, &kernel_size_on_disk);
 #if defined(__i386__) || defined(__x86_64__)
         if (err == EFI_UNSUPPORTED)
                 /* Kernel is too old to support LINUX_INITRD_MEDIA_GUID, try the deprecated EFI handover
@@ -120,7 +120,7 @@ EFI_STATUS linux_exec(
                 return log_error_status(err, "Bad kernel image: %m");
 
         _cleanup_(unload_imagep) EFI_HANDLE kernel_image = NULL;
-        err = load_image(parent, kernel->iov_base, kernel->iov_len, &kernel_image);
+        err = load_image(parent, kernel->iov_base, kernel_size_on_disk, &kernel_image);
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Error loading kernel image: %m");
 
