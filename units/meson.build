@@ -281,6 +281,10 @@ units = [
           'symlinks' : ['sysinit.target.wants/'],
         },
         {
+          'file' : 'systemd-boot-clear-sysfail.service',
+          'conditions' : ['ENABLE_BOOTLOADER'],
+        },
+        {
           'file' : 'systemd-boot-update.service',
           'conditions' : ['ENABLE_BOOTLOADER'],
         },

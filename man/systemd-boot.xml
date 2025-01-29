@@ -451,6 +451,7 @@
 
       <varlistentry>
         <term><varname>LoaderEntryDefault</varname></term>
+        <term><varname>LoaderEntrySysFail</varname></term>
         <term><varname>LoaderEntryOneShot</varname></term>
 
         <listitem><para>The identifier of the default boot loader entry. Set primarily by the OS and read by the boot
