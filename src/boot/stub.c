@@ -1270,7 +1270,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
 
         struct iovec kernel = IOVEC_MAKE(
                         (const uint8_t*) loaded_image->ImageBase + sections[UNIFIED_SECTION_LINUX].memory_offset,
-                        sections[UNIFIED_SECTION_LINUX].memory_size);
+                        sections[UNIFIED_SECTION_LINUX].file_size);
 
         err = linux_exec(image, cmdline, &kernel, &final_initrd);
         graphics_mode(false);
