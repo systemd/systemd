@@ -374,9 +374,10 @@
         <term><option>--tpm2-pcrs=<replaceable>PCR<optional>+PCR...</optional></replaceable></option></term>
 
         <listitem><para>Configures the TPM2 PCRs (Platform Configuration Registers) to bind the encryption
-        key to. Takes a <literal>+</literal> separated list of numeric PCR indexes in the range 0…23. If not
-        used, defaults to PCR 7 only. If an empty string is specified, binds the encryption key to no PCRs at
-        all. For details about the PCRs available, see the documentation of the switch of the same name for
+        key to. Takes a <literal>+</literal> separated list of numeric PCR indexes in the range 0…23. If an
+        empty string is specified, binds the encryption key to no PCRs at all (this is also the default if
+        this option is not used). For details about the PCRs available, see the documentation of the switch
+        of the same name for
         <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
 
         <xi:include href="version-info.xml" xpointer="v250"/></listitem>
