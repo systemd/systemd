@@ -27,13 +27,13 @@ void clock_apply_epoch(bool allow_backwards) {
 
         r = RET_NERRNO(stat(TIMESYNCD_CLOCK_FILE, &st));
         if (r >= 0)
-                epoch_usec = timespec_load(&st.st_mtim);
+                timesyncd_usec = timespec_load(&st.st_mtim);
         else if (r != -ENOENT)
                 log_warning_errno(r, "Could not stat %s, ignoring: %m", TIMESYNCD_CLOCK_FILE);
 
         r = RET_NERRNO(stat(EPOCH_CLOCK_FILE, &st));
         if (r >= 0)
-                timesyncd_usec = timespec_load(&st.st_mtim);
+                epoch_usec = timespec_load(&st.st_mtim);
         else if (r != -ENOENT)
                 log_warning_errno(r, "Could not stat %s, ignoring: %m", EPOCH_CLOCK_FILE);
 
