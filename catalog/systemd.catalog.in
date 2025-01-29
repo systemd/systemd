@@ -189,7 +189,7 @@ Defined-By: systemd
 Support: %SUPPORT_URL%
 
 System shutdown has been initiated. The shutdown has now begun and
-all system services are terminated and all file systems unmounted.
+all system services will be terminated and all file systems will be unmounted.
 
 -- c14aaf76ec284a5fa1f105f88dfb061c
 Subject: System factory reset initiated
