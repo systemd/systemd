@@ -68,6 +68,11 @@ typedef struct CoffFileHeader {
 #define OPTHDR32_MAGIC 0x10B /* PE32  OptionalHeader */
 #define OPTHDR64_MAGIC 0x20B /* PE32+ OptionalHeader */
 
+typedef struct PeDataDirectory {
+        uint32_t VirtualAddress;
+        uint32_t Size;
+} _packed_ PeDataDirectory;
+
 typedef struct PeOptionalHeader {
         uint16_t Magic;
         uint8_t  LinkerMajor;
@@ -98,7 +103,28 @@ typedef struct PeOptionalHeader {
         uint32_t CheckSum;
         uint16_t Subsystem;
         uint16_t DllCharacteristics;
-        /* fields with different sizes for 32/64 omitted */
+
+        /* On PE32+ some fields are 64bit that are 32bit on PE32. */
+        union {
+                struct {
+                        uint32_t pe32_SizeOfStackReserve;
+                        uint32_t pe32_SizeOfStackCommit;
+                        uint32_t pe32_SizeOfHeapReserve;
+                        uint32_t pe32_SizeOfHeapCommit;
+                        uint32_t pe32_LoaderFlags;
+                        uint32_t pe32_NumberOfRvaAndSizes;
+                        PeDataDirectory pe32_DataDirectory[];
+                };
+                struct {
+                        uint64_t pe32plus_SizeOfStackReserve;
+                        uint64_t pe32plus_SizeOfStackCommit;
+                        uint64_t pe32plus_SizeOfHeapReserve;
+                        uint64_t pe32plus_SizeOfHeapCommit;
+                        uint32_t pe32plus_LoaderFlags;
+                        uint32_t pe32plus_NumberOfRvaAndSizes;
+                        PeDataDirectory pe32plus_DataDirectory[];
+                };
+        };
 } _packed_ PeOptionalHeader;
 
 typedef struct PeFileHeader {
@@ -108,6 +134,21 @@ typedef struct PeFileHeader {
 } _packed_ PeFileHeader;
 
 #define SECTION_TABLE_BYTES_MAX (16U * 1024U * 1024U)
+
+static bool pe_header_is_64bit(const PeFileHeader *h) {
+        assert(h);
+
+        if (h->OptionalHeader.Magic == UINT16_C(0x010B)) /* PE32 */
+                return false;
+
+        if (h->OptionalHeader.Magic == UINT16_C(0x020B)) /* PE32+ */
+                return true;
+
+        assert_not_reached();
+}
+
+#define PE_HEADER_OPTIONAL_FIELD(h, field)                           \
+        (pe_header_is_64bit(h) ? (h)->OptionalHeader.pe32plus_##field : (h)->OptionalHeader.pe32_##field)
 
 static bool verify_dos(const DosFileHeader *dos) {
         assert(dos);
@@ -386,7 +427,27 @@ static uint32_t get_compatibility_entry_address(const DosFileHeader *dos, const 
         return 0;
 }
 
-EFI_STATUS pe_kernel_info(const void *base, uint32_t *ret_compat_address, size_t *ret_size_in_memory) {
+static EFI_STATUS pe_size(const DosFileHeader *dos, const PeFileHeader *pe, size_t *ret) {
+        const PeSectionHeader *section_table;
+
+        assert(dos);
+        assert(pe);
+        assert(ret);
+
+        size_t size = section_table_offset(dos, pe);
+        section_table = (const PeSectionHeader*) ((const uint8_t*) dos + size);
+
+        FOREACH_ARRAY(i, section_table, pe->FileHeader.NumberOfSections)
+                size += i->SizeOfRawData;
+
+        FOREACH_ARRAY(i, PE_HEADER_OPTIONAL_FIELD(pe, DataDirectory), PE_HEADER_OPTIONAL_FIELD(pe, NumberOfRvaAndSizes))
+                size += i->Size;
+
+        *ret = size;
+        return EFI_SUCCESS;
+}
+
+EFI_STATUS pe_kernel_info(const void *base, uint32_t *ret_compat_address, size_t *ret_size_in_memory, size_t *ret_size_on_disk) {
         assert(base);
         assert(ret_compat_address);
 
@@ -402,6 +463,9 @@ EFI_STATUS pe_kernel_info(const void *base, uint32_t *ret_compat_address, size_t
          * of the SizeOfImage field in the PE header and return it */
         if (ret_size_in_memory)
                 *ret_size_in_memory = pe->OptionalHeader.SizeOfImage;
+
+        if (ret_size_on_disk)
+                *ret_size_on_disk = pe_size(dos, pe, ret_size_on_disk);
 
         /* Support for LINUX_INITRD_MEDIA_GUID was added in kernel stub 1.0. */
         if (pe->OptionalHeader.MajorImageVersion < 1)
