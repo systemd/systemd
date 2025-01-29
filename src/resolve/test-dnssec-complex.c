@@ -93,7 +93,6 @@ static void test_hostname_lookup(sd_bus *bus, const char *name, int family, cons
                 assert_se(!result);
                 log_info("[OK] %s/%s succeeded.", name, af);
         }
-
 }
 
 int main(int argc, char* argv[]) {

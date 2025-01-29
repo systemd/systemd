@@ -142,7 +142,6 @@ static void test_check_numbers_up(sd_journal *j, unsigned count) {
                 else
                         ASSERT_OK_POSITIVE(sd_journal_previous(j));
         }
-
 }
 
 static void setup_sequential(void) {

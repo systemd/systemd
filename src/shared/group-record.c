@@ -368,5 +368,4 @@ int group_record_match(GroupRecord *h, const UserDBMatch *match) {
         }
 
         return true;
-
 }

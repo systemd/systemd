@@ -412,5 +412,4 @@ int manager_parse_config_file(Manager *m) {
         }
 #endif
         return 0;
-
 }

@@ -111,7 +111,6 @@ static const char* const path_table[_SD_PATH_MAX] = {
         [SD_PATH_USER_SEARCH_CREDENTIAL_STORE]                = "user-search-credential-store",
         [SD_PATH_USER_CREDENTIAL_STORE_ENCRYPTED]             = "user-credential-store-encrypted",
         [SD_PATH_USER_SEARCH_CREDENTIAL_STORE_ENCRYPTED]      = "user-search-credential-store-encrypted",
-
 };
 
 static int order_cmp(const size_t *a, const size_t *b) {

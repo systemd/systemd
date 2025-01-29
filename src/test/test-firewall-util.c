@@ -43,7 +43,6 @@ static void test_v6(FirewallContext *ctx) {
 
         ASSERT_OK(fw_add_local_dnat(&ctx, true, AF_INET6, IPPROTO_TCP, 4711, &u2, 815, &u1));
         ASSERT_OK(fw_add_local_dnat(&ctx, false, AF_INET6, IPPROTO_TCP, 4711, &u2, 815, NULL));
-
 }
 
 static union in_addr_union *parse_addr(const char *str, union in_addr_union *u) {

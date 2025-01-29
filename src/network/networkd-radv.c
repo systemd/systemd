@@ -397,7 +397,6 @@ set_domains:
                         s,
                         link->network->router_dns_lifetime_usec,
                         /* valid_until = */ USEC_INFINITY);
-
 }
 
 static int radv_find_uplink(Link *link, Link **ret) {
