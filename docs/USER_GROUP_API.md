@@ -248,7 +248,7 @@ Or to say this differently: the *primary search keys* are
 either of the primary search keys are found `NoRecordFound()` is returned. If
 one is found that matches one but not the other primary search key
 `ConflictingRecordFound()` is returned. If an entry is found that matches the
-primary search key, but not the secondary match filters
+primary search keys, but not the secondary match filters
 `NonMatchingRecordFound()` is returned. Finally, if an entry is found that
 matches both the primary search keys and the secondary search filters, they are
 returned as successful response. Note that both the primary search keys and the
