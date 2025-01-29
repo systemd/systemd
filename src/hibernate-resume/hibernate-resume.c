@@ -120,7 +120,7 @@ static int action_clear(void) {
 
         r = clear_efi_hibernate_location_and_warn();
         if (r > 0)
-                log_notice("Successfully cleared HibernateLocation EFI variable.");
+                log_info("Successfully cleared HibernateLocation EFI variable.");
         return r;
 }
 
