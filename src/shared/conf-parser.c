@@ -11,6 +11,7 @@
 #include "alloc-util.h"
 #include "chase.h"
 #include "calendarspec.h"
+#include "compress.h"
 #include "conf-files.h"
 #include "conf-parser.h"
 #include "constants.h"
@@ -1386,6 +1387,36 @@ int config_parse_warn_compat(
                 break;
         }
 
+        return 0;
+}
+
+int config_parse_compression(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        char *compression = ASSERT_PTR(data);
+
+        if (isempty(rvalue)) {
+                *compression = COMPRESSION_NONE;
+                return 0;
+        }
+
+        Compression c = compression_from_string(rvalue);
+        if (c < 0)
+                return log_syntax_parse_error(unit, filename, line, c, lvalue, rvalue);
+        if (!compression_supported(c))
+                return log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                  "Compression=%s is not supported on a system", rvalue);
+
+        *compression = c;
         return 0;
 }
 
