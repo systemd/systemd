@@ -222,7 +222,6 @@ static void test_dhcp_hostname_shorten_overlong(void) {
                 assert_se(r == -EDOM);
                 assert_se(shortened == NULL);
         }
-
 }
 
 int main(void) {

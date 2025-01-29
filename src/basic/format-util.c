@@ -62,5 +62,4 @@ char* format_bytes_full(char *buf, size_t l, uint64_t t, FormatBytesFlag flag) {
 finish:
         buf[l-1] = 0;
         return buf;
-
 }

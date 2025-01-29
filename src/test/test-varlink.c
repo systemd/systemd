@@ -454,7 +454,6 @@ TEST(invalid_parameter) {
                                       SD_JSON_BUILD_PAIR_STRING("iexist", "foo"),
                                       SD_JSON_BUILD_PAIR_STRING("idontexist", "bar")) >= 0);
 
-
         assert_se(sd_event_loop(e) >= 0);
 }
 

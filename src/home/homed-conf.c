@@ -41,5 +41,4 @@ int config_parse_default_file_system_type(
         }
 
         return free_and_strdup_warn(s, empty_to_null(rvalue));
-
 }

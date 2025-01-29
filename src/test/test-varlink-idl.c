@@ -223,7 +223,6 @@ TEST(parse) {
                                     "type Foo (b: bool, c: foo, c: int)", NULL, NULL, NULL) == -ENETUNREACH); /* unresolved type */
         assert_se(varlink_idl_parse("interface org.freedesktop.Foo\n"
                                     "type Foo ()", NULL, NULL, NULL) == -EBADMSG); /* empty struct/enum */
-
 }
 
 TEST(interface_name_is_valid) {

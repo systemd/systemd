@@ -205,7 +205,6 @@ TEST(serialize_item_hexmem) {
         _cleanup_free_ char *line = NULL;
         assert_se(read_line(f, LONG_LINE_MAX, &line) > 0);
         ASSERT_STREQ(line, "a=ffffff");
-
 }
 
 TEST(serialize_item_base64mem) {

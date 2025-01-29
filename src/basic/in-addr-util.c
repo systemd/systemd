@@ -942,7 +942,6 @@ int in_addr_prefix_from_string_auto_full(
                 *ret_prefixlen = k;
 
         return 0;
-
 }
 
 void in_addr_hash_func(const union in_addr_union *u, int family, struct siphash *state) {

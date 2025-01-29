@@ -3841,7 +3841,6 @@ int dissect_loop_device_and_warn(
                         dissect_loop_device(loop, verity, mount_options, image_policy, flags, ret),
                         loop->backing_file ?: loop->node,
                         verity);
-
 }
 
 bool dissected_image_verity_candidate(const DissectedImage *image, PartitionDesignator partition_designator) {
@@ -4468,7 +4467,6 @@ int mountfsd_mount_directory(
                 return log_error_errno(r, "Failed to call MountDirectory() varlink call: %m");
         if (!isempty(error_id))
                 return log_error_errno(sd_varlink_error_to_errno(error_id, reply), "Failed to call MountDirectory() varlink call: %s", error_id);
-
 
         static const sd_json_dispatch_field dispatch_table[] = {
                 { "mountFileDescriptor", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint, 0, SD_JSON_MANDATORY },

@@ -4384,7 +4384,6 @@ static int bus_message_get_arg_skip(
                 if (r < 0)
                         return r;
         }
-
 }
 
 int bus_message_get_arg(sd_bus_message *m, unsigned i, const char **str) {

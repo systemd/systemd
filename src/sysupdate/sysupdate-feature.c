@@ -78,7 +78,6 @@ static int config_parse_url_specifiers(
         return free_and_replace(*s, resolved);
 }
 
-
 int feature_read_definition(Feature *f, const char *path, const char *const *dirs) {
         assert(f);
 
