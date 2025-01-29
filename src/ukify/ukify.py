@@ -1510,7 +1510,7 @@ def inspect_section(
     data = section.get_data(length=size)
     digest = sha256(data).hexdigest()
 
-    struct = {
+    struct: dict[str, Union[int, str]] = {
         'size': size,
         'sha256': digest,
     }
@@ -1529,7 +1529,7 @@ def inspect_section(
     if opts.json == 'off':
         print(f'{name}:\n  size: {size} bytes\n  sha256: {digest}')
         if ttype == 'text':
-            text = textwrap.indent(struct['text'].rstrip(), ' ' * 4)
+            text = textwrap.indent(cast(str, struct['text']).rstrip(), ' ' * 4)
             print(f'  text:\n{text}')
 
     return name, struct
