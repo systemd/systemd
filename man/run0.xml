@@ -138,7 +138,9 @@
         <term><option>--group=</option></term>
         <term><option>-g</option></term>
 
-        <listitem><para>Switches to the specified user/group instead of root.</para>
+        <listitem><para>Switches to the specified user/group. If not specified defaults to
+        <literal>root</literal>, unless <option>--area=</option> is used (see below), in which case this
+        defaults to the invoking user.</para>
 
         <xi:include href="version-info.xml" xpointer="v256"/>
         </listitem>
@@ -231,9 +233,34 @@
         default if the target user is <literal>root</literal> or a system user the per-user service manager
         is not activated as effect of the <command>run0</command> invocation, otherwise it is.</para>
 
-        <para>This ultimately controls the <varname>$XDG_SESSION_CLASS</varname> variable
+        <para>This ultimately controls the <varname>$XDG_SESSION_CLASS</varname> environment variable
         <citerefentry><refentrytitle>pam_systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         respects.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-a <replaceable>AREA</replaceable></option></term>
+        <term><option>--area=<replaceable>AREA</replaceable></option></term>
+
+        <listitem><para>Controls the "area" of the target account to log into. Areas are secondary home
+        directories within the primary home directory of the target user, i.e. logging into area
+        <literal>foobar</literal> of an account translates to <varname>$HOME</varname> being set to
+        <filename>~/Areas/foobar</filename> on login.</para>
+
+        <para>If this option is used, the default user to transition to changes from root to the calling
+        user's (but <option>--user=</option> takes precedence, see above). Or in other words, just specifying
+        an area without a user is a mechanism to create a new session of the calling user, just with a
+        different area.</para>
+
+        <para>This ultimately controls the <varname>$XDG_AREA</varname> environment variable
+        <citerefentry><refentrytitle>pam_systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        respects.</para>
+
+        <para>For details on the area concept see
+        <citerefentry><refentrytitle>pam_systemd_home</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
 
         <xi:include href="version-info.xml" xpointer="v258"/>
         </listitem>
