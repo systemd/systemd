@@ -942,8 +942,14 @@ def pe_add_sections(opts: UkifyConfig, uki: UKI, output: str) -> None:
     )
     pe = pefile.PE(data=pe.write(), fast_load=True)
 
+    # pefile has an hardcoded limit of 256MB, which is not enough when building an initrd with large firmware
+    # files and all kernel modules.
     warnings = pe.get_warnings()
-    if warnings:
+    for w in warnings:
+        if 'VirtualSize is extremely large' in w:
+            continue
+        if 'VirtualAddress is beyond' in w:
+            continue
         raise PEError(f'pefile warnings treated as errors: {warnings}')
 
     # When attaching signatures we are operating on an existing UKI which might be signed
