@@ -2005,7 +2005,10 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
                 if (!key)
                         return log_oom_debug();
 
-                if (asprintf(&value, "%04o", c->directories[dt].mode) < 0)
+                if (asprintf(&value, "%04o %" PRIu64 " %" PRIu32 " %d", c->directories[dt].mode,
+                                                                        c->directories[dt].exec_quota.quota_absolute,
+                                                                        c->directories[dt].exec_quota.quota_scale,
+                                                                        c->directories[dt].exec_quota.quota_set) < 0)
                         return log_oom_debug();
 
                 FOREACH_ARRAY(i, c->directories[dt].items, c->directories[dt].n_items) {
@@ -2905,10 +2908,10 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         if (c->runtime_directory_preserve_mode < 0)
                                 return -EINVAL;
                 } else if ((val = startswith(l, "exec-context-directories-"))) {
-                        _cleanup_free_ char *type = NULL, *mode = NULL;
+                        _cleanup_free_ char *type = NULL, *mode = NULL, *quota_absolute = NULL, *quota_scale = NULL, *quota_set = NULL;
                         ExecDirectoryType dt;
 
-                        r = extract_many_words(&val, "= ", 0, &type, &mode);
+                        r = extract_many_words(&val, "= ", 0, &type, &mode, &quota_absolute, &quota_scale, &quota_set);
                         if (r < 0)
                                 return r;
                         if (r == 0 || !mode)
@@ -2921,6 +2924,19 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         r = parse_mode(mode, &c->directories[dt].mode);
                         if (r < 0)
                                 return r;
+
+                        r = safe_atou64(quota_absolute, &c->directories[dt].exec_quota.quota_absolute);
+                        if (r < 0)
+                               return r;
+
+                        r = safe_atou32(quota_scale, &c->directories[dt].exec_quota.quota_scale);
+                        if (r < 0)
+                               return r;
+
+                        r = parse_boolean(quota_set);
+                        if (r < 0)
+                                return r;
+                        c->directories[dt].exec_quota.quota_set = r;
 
                         for (;;) {
                                 _cleanup_free_ char *tuple = NULL, *path = NULL, *only_create = NULL, *read_only = NULL;

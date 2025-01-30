@@ -5,6 +5,7 @@
 #include <sys/ioctl.h>
 #include <sys/mount.h>
 #include <sys/prctl.h>
+#include <sys/statvfs.h>
 
 #if HAVE_PAM
 #include <security/pam_appl.h>
@@ -52,9 +53,12 @@
 #include "missing_securebits.h"
 #include "missing_syscall.h"
 #include "mkdir-label.h"
+#include "percent-util.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
 #include "psi-util.h"
+#include "quota-util.h"
+#include "random-util.h"
 #include "rlimit-util.h"
 #include "seccomp-util.h"
 #include "selinux-util.h"
@@ -71,6 +75,11 @@
 #define IDLE_TIMEOUT2_USEC (1*USEC_PER_SEC)
 
 #define SNDBUF_SIZE (8*1024*1024)
+
+/* Project id range for disk quotas */
+#define PROJ_ID_MIN 2147483648
+#define PROJ_ID_MAX 4294967294
+#define PRJID_CLAMP_INTO_QUOTA_RANGE(rnd) (((uint32_t) (rnd) % (PROJ_ID_MAX - PROJ_ID_MIN + 1)) + PROJ_ID_MIN)
 
 static int flag_fds(
                 const int fds[],
@@ -2548,6 +2557,96 @@ static int create_many_symlinks(const char *root, const char *source, char **sym
         return 0;
 }
 
+static int apply_exec_quotas(const char *target_dir, const char *cgroup_path, ExecDirectoryType type, QuotaLimit ql) {
+        assert(target_dir);
+        assert(ql.quota_set);
+
+        _cleanup_close_ int fd = -EBADF;
+        int r = 0;
+
+        fd = xopenat(AT_FDCWD, target_dir, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
+        if (fd < 0)
+                return log_debug_errno(r, "Exec quotas: Failed to open '%s': %m", target_dir);
+
+        /* Generate candidate project id */
+        static const sd_id128_t k = SD_ID128_ARRAY(e1,4a,79,9b,64,40,41,4a,a8,46,c2,f3,f9,19,4f,01);
+        _cleanup_free_ char *proj_id_plain = NULL;
+        r = asprintf(&proj_id_plain, "%s%d", cgroup_path, type);
+        if (r < 0)
+                return log_debug_errno(r, "Exec quotas: Failed to generate project id for %s: %m", target_dir);
+
+        uint32_t proj_id = PRJID_CLAMP_INTO_QUOTA_RANGE(siphash24(proj_id_plain, strlen(proj_id_plain), k.bytes));
+
+        /* Check if project quotas are supported */
+#define MAX_PROJ_ID_RETRIES 10
+
+        int retries = 0;
+        while (true) {
+                if (retries >= MAX_PROJ_ID_RETRIES)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Exec quotas: Failed to generate unique project id for %s: %m", target_dir);
+
+                struct dqblk req;
+                r = quotactl_fd(fd, QCMD_FIXED(Q_GETQUOTA, PRJQUOTA), proj_id, &req);
+                if (r == -ESRCH || ERRNO_IS_NEG_NOT_SUPPORTED(r) || ERRNO_IS_NEG_PRIVILEGE(r)) {
+                        log_warning("Not applying storage quotas: project quotas are not supported for %s", target_dir);
+                        return 0;
+                } else if (r < 0)
+                        return log_debug_errno(r, "Exec quotas: Failed to query disk quota for prjid %u: %m", proj_id);
+
+                if (!FLAGS_SET(req.dqb_valid, QIF_BLIMITS) || req.dqb_bhardlimit <= 0)
+                        break;
+
+                random_bytes(&proj_id, sizeof(proj_id));
+                proj_id = PRJID_CLAMP_INTO_QUOTA_RANGE(proj_id);
+                retries++;
+        }
+
+        /* Set projid (equivalent to chattr +P -p) */
+        r = set_proj_id(fd, proj_id);
+        if (r < 0)
+                return log_debug_errno(r, "Exec quotas: Failed to set project id for %s: %m", target_dir);
+
+        /* Set Quotas */
+        struct statvfs disk_st;
+        r = fstatvfs(fd, &disk_st);
+        if (r < 0)
+                return log_debug_errno(r, "Exec quotas: Failed to get filesystem data for %s: %m", target_dir);
+
+        uint64_t block_limit = 0;
+        uint64_t inode_limit = 0;
+
+        if (ql.quota_absolute == 0 || ql.quota_scale == 0) {
+                block_limit = 1;
+                inode_limit = 1;
+        } else if (ql.quota_absolute == UINT64_MAX) {
+                int percent = UINT32_SCALE_TO_PERCENT(ql.quota_scale);
+                block_limit = (uint64_t)((disk_st.f_blocks / 100) * percent);
+                inode_limit = (uint64_t)((disk_st.f_files / 100) * percent);
+        } else {
+                if (disk_st.f_frsize <= 0)
+                       return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Exec quotas: Failed to get absolute block size for %s: %m", target_dir);
+
+                block_limit = (uint64_t)(ql.quota_absolute / disk_st.f_frsize);
+                if (block_limit > disk_st.f_blocks)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Exec quotas: Failed to set absolute block limit for %s: %m", target_dir);
+        }
+
+        struct dqblk req;
+        req.dqb_bhardlimit = block_limit;
+        req.dqb_bsoftlimit = 0;
+        req.dqb_ihardlimit = inode_limit;
+        req.dqb_isoftlimit = 0;
+        req.dqb_valid = QIF_LIMITS;
+
+        r = quotactl_fd(fd, QCMD_FIXED(Q_SETQUOTA, PRJQUOTA), proj_id, &req);
+        if (r < 0)
+                return log_debug_errno(r, "Exec quotas: Failed to set project quotas for %s: %m", target_dir);
+
+        log_debug("Storage quotas set for %s. Block limit = %lu, inode limit = %lu", target_dir, block_limit, inode_limit);
+
+        return r;
+}
+
 static int setup_exec_directory(
                 const ExecContext *context,
                 const ExecParameters *params,
@@ -2876,6 +2975,18 @@ static int setup_exec_directory(
                         r = path_chown_recursive(target_dir, chown_uid, chown_gid, context->dynamic_user ? 01777 : 07777, AT_SYMLINK_FOLLOW);
                         if (r < 0)
                                 goto fail;
+                }
+
+                /* Apply storage quotas if needed */
+                QuotaLimit ql;
+                ql = context->directories[type].exec_quota;
+
+                if (IN_SET(type, EXEC_DIRECTORY_STATE, EXEC_DIRECTORY_CACHE, EXEC_DIRECTORY_LOGS) && ql.quota_set) {
+                        r = apply_exec_quotas(target_dir, params->cgroup_path, type, ql);
+                        if (r < 0) {
+                                log_debug("Unable to set storage limits for %s", target_dir);
+                                goto fail;
+                        }
                 }
         }
 

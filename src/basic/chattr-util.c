@@ -172,3 +172,21 @@ int read_attr_at(int dir_fd, const char *path, unsigned *ret) {
 
         return read_attr_fd(fd, ret);
 }
+
+int set_proj_id(int dir_fd, uint32_t proj_id) {
+        int r = 0;
+        struct fsxattr attrs;
+
+        r = ioctl(dir_fd, FS_IOC_FSGETXATTR, &attrs);
+        if (r < 0)
+                return r;
+
+        attrs.fsx_xflags = FS_XFLAG_PROJINHERIT;
+        attrs.fsx_projid = proj_id;
+
+        r = ioctl(dir_fd, FS_IOC_FSSETXATTR, &attrs);
+        if (r < 0)
+                return r;
+
+        return r;
+}
