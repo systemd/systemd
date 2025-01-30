@@ -272,10 +272,11 @@ bool pe_is_addon(const PeHeader *pe_header, const IMAGE_SECTION_HEADER *sections
         if (le16toh(pe_header->optional.Subsystem) != IMAGE_SUBSYSTEM_EFI_APPLICATION)
                 return false;
 
-        /* Add-ons do not have a Linux kernel, but do have either .cmdline or .dtb (currently) */
+        /* Add-ons do not have a Linux kernel, but do have one of .cmdline, .dtb, .initrd or .ucode (currently) */
         return !pe_header_find_section(pe_header, sections, ".linux") &&
                 (pe_header_find_section(pe_header, sections, ".cmdline") ||
                  pe_header_find_section(pe_header, sections, ".dtb") ||
+                 pe_header_find_section(pe_header, sections, ".initrd") ||
                  pe_header_find_section(pe_header, sections, ".ucode"));
 }
 
