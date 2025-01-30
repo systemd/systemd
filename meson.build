@@ -233,6 +233,7 @@ if shellprofiledir == ''
         shellprofiledir = sysconfdir / 'profile.d'
 endif
 conf.set10('LINK_SHELL_EXTRA_DROPIN', shellprofiledir != 'no' and not shellprofiledir.startswith('/usr/'))
+conf.set10('LINK_OSC_CONTEXT_DROPIN', shellprofiledir != 'no' and not shellprofiledir.startswith('/usr/'))
 conf.set('SHELLPROFILEDIR', shellprofiledir, description : 'shell profile directory')
 
 memory_accounting_default = get_option('memory-accounting-default')
