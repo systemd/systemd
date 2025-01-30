@@ -67,6 +67,7 @@ REQUIREMENTS:
                                and MOVE_MOUNT_BENEATH
                      ≥ 6.6 for quota support on tmpfs
                      ≥ 6.9 for pidfs
+                     ≥ 6.13 for PIDFD_GET_INFO and {set,get,list,remove}xattrat()
 
         ✅ systemd utilizes several new kernel APIs, but will fall back gracefully
            when unavailable.
