@@ -634,7 +634,9 @@ static int prompt_hostname(int rfd) {
         if (r < 0)
                 return r;
 
-        hostname_cleanup(arg_hostname);
+        if (hostname)
+                hostname_cleanup(arg_hostname);
+
         return 0;
 }
 
