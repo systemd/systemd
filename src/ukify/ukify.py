@@ -622,8 +622,14 @@ def pe_add_sections(uki: UKI, output: str):
     pe.OPTIONAL_HEADER.SizeOfHeaders = round_up(pe.OPTIONAL_HEADER.SizeOfHeaders, pe.OPTIONAL_HEADER.FileAlignment)
     pe = pefile.PE(data=pe.write(), fast_load=True)
 
+    # pefile has an hardcoded limit of 256MB, which is not enough when building an initrd with large firmware
+    # files and all kernel modules. See: https://github.com/erocarrera/pefile/issues/396
     warnings = pe.get_warnings()
-    if warnings:
+    for w in warnings:
+        if 'VirtualSize is extremely large' in w:
+            continue
+        if 'VirtualAddress is beyond' in w:
+            continue
         raise PEError(f'pefile warnings treated as errors: {warnings}')
 
     security = pe.OPTIONAL_HEADER.DATA_DIRECTORY[pefile.DIRECTORY_ENTRY['IMAGE_DIRECTORY_ENTRY_SECURITY']]
