@@ -350,8 +350,6 @@ Features:
 * creds: add a new cred format that reused the JSON structures we use in the
   LUKS header, so that we get the various newer policies for free.
 
-* drop PCR 7 from default PCR mask in credentials and LUKS2 enrollments
-
 * systemd-analyze: port "pcrs" verb to talk directly to TPM device, instead of
   using sysfs interface (well, or maybe not, as that would require privileges?)
 
@@ -982,17 +980,6 @@ Features:
   - Should it run on firstboot or on every boot?
   - If run on every boot, should it use the sysupdate config from the host on
     subsequent boots?
-
-* revisit default PCR bindings in cryptenroll and systemd-creds. Currently they
-  use PCR 7 which should contain secureboot state db/dbx. Which sounded like a
-  safe bet, given that it should change only on policy changes, and not
-  software updates. But that's wrong. Recent fwupd (rightfully) contains code
-  for updating the dbx denylist. This means even without any active policy
-  change PCR 7 might change. Hence, better idea might be in systemd-creds to
-  default to PCR 15 at least if sd-stub is used (i.e. bind to system identity),
-  and in cryptsetup simply the empty list? Also, PCR 14 almost certainly should
-  be included as much as PCR 7 (as it contains shim's policy, which is
-  certainly as relevant as PCR 7 on many systems)
 
 * To mimic the new tpm2-measure-pcr= crypttab option add the same to veritytab
   (measuring the root hash) and integritytab (measuring the HMAC key if one is
