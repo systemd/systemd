@@ -913,7 +913,7 @@ int vl_method_copy_internal(sd_varlink *link, sd_json_variant *parameters, sd_va
                 return r;
 
         Operation *op;
-        r = machine_copy_from_to(manager, machine, host_path, container_path, copy_from, copy_flags, &op);
+        r = machine_copy_from_to_operation(manager, machine, host_path, container_path, copy_from, copy_flags, &op);
         if (r < 0)
                 return r;
 
