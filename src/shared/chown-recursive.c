@@ -26,14 +26,12 @@ static int chown_one(
         assert(fd >= 0);
         assert(st);
 
-        /* We change ACLs through the /proc/self/fd/%i path, so that we have a stable reference that works
-         * with O_PATH. */
-
         /* Drop any ACL if there is one */
-        FOREACH_STRING(n, "system.posix_acl_access", "system.posix_acl_default")
-                if (removexattr(FORMAT_PROC_FD_PATH(fd), n) < 0)
-                        if (!ERRNO_IS_XATTR_ABSENT(errno))
-                                return -errno;
+        FOREACH_STRING(n, "system.posix_acl_access", "system.posix_acl_default") {
+                r = xremovexattr(fd, /* path = */ NULL, AT_EMPTY_PATH, n);
+                if (r < 0 && !ERRNO_IS_NEG_XATTR_ABSENT(r))
+                        return r;
+        }
 
         r = fchmod_and_chown(fd, st->st_mode & mask, uid, gid);
         if (r < 0)
