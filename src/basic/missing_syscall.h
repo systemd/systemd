@@ -5,11 +5,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#if HAVE_LINUX_TIME_TYPES_H
-/* This header defines __kernel_timespec for us, but is only available since Linux 5.1, hence conditionally
- * include this. */
 #include <linux/time_types.h>
-#endif
 #include <signal.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
@@ -25,11 +21,6 @@
 #include "missing_sched.h"
 #include "missing_stat.h"
 #include "missing_syscall_def.h"
-
-/* linux/kcmp.h */
-#ifndef KCMP_FILE /* 3f4994cfc15f38a3159c6e3a4b3ab2e1481a6b02 (3.19) */
-#define KCMP_FILE 0
-#endif
 
 /* ======================================================================= */
 
