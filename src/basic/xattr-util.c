@@ -12,6 +12,7 @@
 #include "fd-util.h"
 #include "macro.h"
 #include "missing_syscall.h"
+#include "missing_threads.h"
 #include "parse-util.h"
 #include "sparse-endian.h"
 #include "stat-util.h"
@@ -84,18 +85,24 @@ static int getxattrat_with_fallback(
                 int at_flags,
                 bool by_procfs,
                 const char *name,
-                struct xattr_args *args) {
+                char *buf,
+                size_t size) {
 
         ssize_t n;
 
         assert(fd >= 0 || fd == AT_FDCWD);
         assert((at_flags & ~(AT_SYMLINK_NOFOLLOW|AT_EMPTY_PATH)) == 0);
         assert(name);
-        assert(args);
+        assert(buf || size == 0);
 
         if (have_xattrat) {
+                struct xattr_args args = {
+                        .value = PTR_TO_UINT64(buf),
+                        .size = size,
+                };
+
                 /* New *at calls permit path to be NULL, no need for strempty() shenanigans */
-                n = getxattrat(fd, path, at_flags, name, args, sizeof(*args));
+                n = getxattrat(fd, path, at_flags, name, &args, sizeof(args));
                 if (n >= 0)
                         goto finish;
                 if (errno != ENOSYS) /* No ERRNO_IS_NOT_SUPPORTED here, as EOPNOTSUPP denotes the fs doesn't
@@ -106,11 +113,11 @@ static int getxattrat_with_fallback(
         }
 
         if (path)
-                n = FLAGS_SET(at_flags, AT_SYMLINK_NOFOLLOW) ? lgetxattr(path, name, args.value, args.size)
-                                                             : getxattr(path, name, args.value, args.size);
+                n = FLAGS_SET(at_flags, AT_SYMLINK_NOFOLLOW) ? lgetxattr(path, name, buf, size)
+                                                             : getxattr(path, name, buf, size);
         else
-                n = by_procfs ? getxattr(FORMAT_PROC_FD_PATH(fd), name, args.value, args.size)
-                              : fgetxattr(fd, name, args.value, args.size);
+                n = by_procfs ? getxattr(FORMAT_PROC_FD_PATH(fd), name, buf, size)
+                              : fgetxattr(fd, name, buf, size);
         if (n < 0)
                 return -errno;
 
@@ -168,7 +175,11 @@ int getxattr_at_malloc(
                 l = MALLOC_ELEMENTSOF(v) - 1;
 
                 r = getxattrat_with_fallback(fd, path, at_flags, by_procfs,
-                                             name, &(struct xattr_args) { .value = v, .size = l });
+                                             name,
+                                             &(struct xattr_args) {
+                                                     .value = PTR_TO_UINT64(v),
+                                                     .size = l,
+                                             });
                 if (r >= 0) {
                         v[r] = 0; /* NUL terminate */
                         *ret = TAKE_PTR(v);
@@ -178,7 +189,8 @@ int getxattr_at_malloc(
                         return r;
 
                 r = getxattrat_with_fallback(fd, path, at_flags, by_procfs,
-                                             name, &(struct xattr_args) { .size = 0 });
+                                             name,
+                                             &(struct xattr_args) { .size = 0 });
                 if (r < 0)
                         return r;
 
@@ -248,7 +260,7 @@ int listxattr_at_malloc(int fd, const char *path, int at_flags, char **ret) {
         int r;
 
         assert(fd >= 0 || fd == AT_FDCWD);
-        assert((flags & ~(AT_SYMLINK_FOLLOW|AT_EMPTY_PATH)) == 0);
+        assert((at_flags & ~(AT_SYMLINK_FOLLOW|AT_EMPTY_PATH)) == 0);
         assert(ret);
 
         /* This is to listxattr()/llistattr()/flistattr() what getxattr_at_malloc() is to getxattr()/… */
