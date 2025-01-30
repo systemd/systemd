@@ -12,6 +12,7 @@
 #include "fd-util.h"
 #include "macro.h"
 #include "missing_syscall.h"
+#include "missing_threads.h"
 #include "parse-util.h"
 #include "sparse-endian.h"
 #include "stat-util.h"
@@ -106,11 +107,11 @@ static int getxattrat_with_fallback(
         }
 
         if (path)
-                n = FLAGS_SET(at_flags, AT_SYMLINK_NOFOLLOW) ? lgetxattr(path, name, args.value, args.size)
-                                                             : getxattr(path, name, args.value, args.size);
+                n = FLAGS_SET(at_flags, AT_SYMLINK_NOFOLLOW) ? lgetxattr(path, name, args->value, args->size)
+                                                             : getxattr(path, name, args->value, args->size);
         else
-                n = by_procfs ? getxattr(FORMAT_PROC_FD_PATH(fd), name, args.value, args.size)
-                              : fgetxattr(fd, name, args.value, args.size);
+                n = by_procfs ? getxattr(FORMAT_PROC_FD_PATH(fd), name, args->value, args->size)
+                              : fgetxattr(fd, name, args->value, args->size);
         if (n < 0)
                 return -errno;
 
@@ -168,7 +169,11 @@ int getxattr_at_malloc(
                 l = MALLOC_ELEMENTSOF(v) - 1;
 
                 r = getxattrat_with_fallback(fd, path, at_flags, by_procfs,
-                                             name, &(struct xattr_args) { .value = v, .size = l });
+                                             name,
+                                             &(struct xattr_args) {
+                                                     .value = PTR_TO_UINT64(v),
+                                                     .size = l,
+                                             });
                 if (r >= 0) {
                         v[r] = 0; /* NUL terminate */
                         *ret = TAKE_PTR(v);
@@ -178,7 +183,8 @@ int getxattr_at_malloc(
                         return r;
 
                 r = getxattrat_with_fallback(fd, path, at_flags, by_procfs,
-                                             name, &(struct xattr_args) { .size = 0 });
+                                             name,
+                                             &(struct xattr_args) { .size = 0 });
                 if (r < 0)
                         return r;
 
