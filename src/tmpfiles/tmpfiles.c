@@ -1189,6 +1189,8 @@ static int fd_set_xattrs(
                 const struct stat *st,
                 CreationMode creation) {
 
+        int r;
+
         assert(c);
         assert(i);
         assert(fd >= 0);
@@ -1198,10 +1200,12 @@ static int fd_set_xattrs(
                 log_action("Would set", "Setting",
                            "%s extended attribute '%s=%s' on %s", *name, *value, path);
 
-                if (!arg_dry_run &&
-                    setxattr(FORMAT_PROC_FD_PATH(fd), *name, *value, strlen(*value), 0) < 0)
-                        return log_error_errno(errno, "Setting extended attribute %s=%s on %s failed: %m",
-                                               *name, *value, path);
+                if (!arg_dry_run) {
+                        r = xsetxattr(fd, /* path = */ NULL, AT_EMPTY_PATH, *name, *value, SIZE_MAX);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to set extended attribute %s=%s on '%s': %m",
+                                                       *name, *value, path);
+                }
         }
         return 0;
 }

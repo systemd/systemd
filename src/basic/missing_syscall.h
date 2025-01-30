@@ -5,11 +5,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#if HAVE_LINUX_TIME_TYPES_H
-/* This header defines __kernel_timespec for us, but is only available since Linux 5.1, hence conditionally
- * include this. */
 #include <linux/time_types.h>
-#endif
 #include <signal.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
@@ -25,11 +21,6 @@
 #include "missing_sched.h"
 #include "missing_stat.h"
 #include "missing_syscall_def.h"
-
-/* linux/kcmp.h */
-#ifndef KCMP_FILE /* 3f4994cfc15f38a3159c6e3a4b3ab2e1481a6b02 (3.19) */
-#define KCMP_FILE 0
-#endif
 
 /* ======================================================================= */
 
@@ -646,13 +637,63 @@ int __clone2(int (*fn)(void *), void *stack_base, size_t stack_size, int flags, 
 #if !HAVE_QUOTACTL_FD
 
 static inline int missing_quotactl_fd(int fd, int cmd, int id, void *addr) {
-#if defined __NR_quotactl_fd
+#  ifdef __NR_quotactl_fd
         return syscall(__NR_quotactl_fd, fd, cmd, id, addr);
-#else
+#  else
         errno = ENOSYS;
         return -1;
-#endif
+#  endif
 }
 
 #  define quotactl_fd missing_quotactl_fd
+#endif
+
+/* ======================================================================= */
+
+#if !HAVE_SETXATTRAT
+struct xattr_args {
+        _align_(8) uint64_t value;
+        uint32_t size;
+        uint32_t flags;
+};
+
+static inline int missing_setxattrat(int fd, const char *path, int at_flags, const char *name, const struct xattr_args *args, size_t size) {
+#  ifdef __NR_setxattrat
+        return syscall(__NR_setxattrat, fd, path, at_flags, name, args, size);
+#  else
+        errno = ENOSYS;
+        return -1;
+#  endif
+}
+#  define setxattrat missing_setxattrat
+
+static inline ssize_t missing_getxattrat(int fd, const char *path, int at_flags, const char *name, struct xattr_args *args, size_t size) {
+#  ifdef __NR_getxattrat
+        return syscall(__NR_getxattrat, fd, path, at_flags, name, args, size);
+#  else
+        errno = ENOSYS;
+        return -1;
+#  endif
+}
+#  define getxattrat missing_getxattrat
+
+static inline ssize_t missing_listxattrat(int fd, const char *path, int at_flags, char *list, size_t size) {
+#  ifdef __NR_listxattrat
+        return syscall(__NR_listxattrat, fd, path, at_flags, list, size);
+#  else
+        errno = ENOSYS;
+        return -1;
+#  endif
+}
+#  define listxattrat missing_listxattrat
+
+static inline int missing_removexattrat(int fd, const char *path, int at_flags, const char *name) {
+#  ifdef __NR_removexattrat
+        return syscall(__NR_removexattrat, fd, path, at_flags, name);
+#  else
+        errno = ENOSYS;
+        return -1;
+#  endif
+}
+#  define removexattrat missing_removexattrat
 #endif
