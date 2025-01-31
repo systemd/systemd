@@ -19,6 +19,7 @@
 #include "fileio.h"
 #include "format-util.h"
 #include "hostname-util.h"
+#include "image.h"
 #include "image-dbus.h"
 #include "io-util.h"
 #include "machine-dbus.h"
@@ -600,47 +601,22 @@ static int method_get_image_os_release(sd_bus_message *message, void *userdata, 
         return redirect_method_to_image(message, userdata, error, bus_image_method_get_os_release);
 }
 
-static int clean_pool_done(Operation *operation, int ret, sd_bus_error *error) {
+static int clean_pool_done(Operation *operation, int child_error, sd_bus_error *error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
-        bool success;
-        size_t n;
+        _cleanup_fclose_ FILE *file = NULL;
         int r;
 
         assert(operation);
+        assert(operation->message);
         assert(operation->extra_fd >= 0);
 
-        if (lseek(operation->extra_fd, 0, SEEK_SET) < 0)
-                return -errno;
+        file = take_fdopen(&operation->extra_fd, "r");
+        if (!file)
+                return log_debug_errno(errno, "Failed to take opened tmp file's fd: %m");
 
-        f = take_fdopen(&operation->extra_fd, "r");
-        if (!f)
-                return -errno;
-
-        /* The resulting temporary file starts with a boolean value that indicates success or not. */
-        errno = 0;
-        n = fread(&success, 1, sizeof(success), f);
-        if (n != sizeof(success))
-                return ret < 0 ? ret : errno_or_else(EIO);
-
-        if (ret < 0) {
-                _cleanup_free_ char *name = NULL;
-
-                /* The clean-up operation failed. In this case the resulting temporary file should contain a boolean
-                 * set to false followed by the name of the failed image. Let's try to read this and use it for the
-                 * error message. If we can't read it, don't mind, and return the naked error. */
-
-                if (success) /* The resulting temporary file could not be updated, ignore it. */
-                        return ret;
-
-                r = read_nul_string(f, LONG_LINE_MAX, &name);
-                if (r <= 0) /* Same here... */
-                        return ret;
-
-                return sd_bus_error_set_errnof(error, ret, "Failed to remove image %s: %m", name);
-        }
-
-        assert(success);
+        r = clean_pool_read_first_entry(file, child_error, error);
+        if (r < 0)
+                return r;
 
         r = sd_bus_message_new_method_return(operation->message, &reply);
         if (r < 0)
@@ -654,20 +630,15 @@ static int clean_pool_done(Operation *operation, int ret, sd_bus_error *error) {
          * their size on disk. Let's read that and turn it into a bus message. */
         for (;;) {
                 _cleanup_free_ char *name = NULL;
-                uint64_t size;
+                uint64_t usage;
 
-                r = read_nul_string(f, LONG_LINE_MAX, &name);
+                r = clean_pool_read_next_entry(file, &name, &usage);
                 if (r < 0)
                         return r;
-                if (r == 0) /* reached the end */
+                if (r == 0)
                         break;
 
-                errno = 0;
-                n = fread(&size, 1, sizeof(size), f);
-                if (n != sizeof(size))
-                        return errno_or_else(EIO);
-
-                r = sd_bus_message_append(reply, "(st)", name, size);
+                r = sd_bus_message_append(reply, "(st)", name, usage);
                 if (r < 0)
                         return r;
         }
@@ -680,17 +651,10 @@ static int clean_pool_done(Operation *operation, int ret, sd_bus_error *error) {
 }
 
 static int method_clean_pool(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        enum {
-                REMOVE_ALL,
-                REMOVE_HIDDEN,
-        } mode;
-
-        _cleanup_close_pair_ int errno_pipe_fd[2] = EBADF_PAIR;
-        _cleanup_close_ int result_fd = -EBADF;
+        ImageCleanPoolMode mode;
         Manager *m = userdata;
         Operation *operation;
         const char *mm;
-        pid_t child;
         int r;
 
         assert(message);
@@ -703,9 +667,9 @@ static int method_clean_pool(sd_bus_message *message, void *userdata, sd_bus_err
                 return r;
 
         if (streq(mm, "all"))
-                mode = REMOVE_ALL;
+                mode = IMAGE_CLEAN_POOL_REMOVE_ALL;
         else if (streq(mm, "hidden"))
-                mode = REMOVE_HIDDEN;
+                mode = IMAGE_CLEAN_POOL_REMOVE_HIDDEN;
         else
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unknown mode '%s'.", mm);
 
@@ -726,106 +690,12 @@ static int method_clean_pool(sd_bus_message *message, void *userdata, sd_bus_err
         if (r == 0)
                 return 1; /* Will call us back */
 
-        if (pipe2(errno_pipe_fd, O_CLOEXEC|O_NONBLOCK) < 0)
-                return sd_bus_error_set_errnof(error, errno, "Failed to create pipe: %m");
-
-        /* Create a temporary file we can dump information about deleted images into. We use a temporary file for this
-         * instead of a pipe or so, since this might grow quit large in theory and we don't want to process this
-         * continuously */
-        result_fd = open_tmpfile_unlinkable(NULL, O_RDWR|O_CLOEXEC);
-        if (result_fd < 0)
-                return -errno;
-
-        /* This might be a slow operation, run it asynchronously in a background process */
-        r = safe_fork("(sd-clean)", FORK_RESET_SIGNALS, &child);
+        r = image_clean_pool_operation(m, mode, &operation);
         if (r < 0)
-                return sd_bus_error_set_errnof(error, r, "Failed to fork(): %m");
-        if (r == 0) {
-                _cleanup_hashmap_free_ Hashmap *images = NULL;
-                bool success = true;
-                Image *image;
-                ssize_t l;
+                return log_debug_errno(r, "Failed to clean pool of images: %m");
 
-                errno_pipe_fd[0] = safe_close(errno_pipe_fd[0]);
-
-                images = hashmap_new(&image_hash_ops);
-                if (!images) {
-                        r = -ENOMEM;
-                        goto child_fail;
-                }
-
-                r = image_discover(m->runtime_scope, IMAGE_MACHINE, NULL, images);
-                if (r < 0)
-                        goto child_fail;
-
-                l = write(result_fd, &success, sizeof(success));
-                if (l < 0) {
-                        r = -errno;
-                        goto child_fail;
-                }
-
-                HASHMAP_FOREACH(image, images) {
-
-                        /* We can't remove vendor images (i.e. those in /usr) */
-                        if (IMAGE_IS_VENDOR(image))
-                                continue;
-
-                        if (IMAGE_IS_HOST(image))
-                                continue;
-
-                        if (mode == REMOVE_HIDDEN && !IMAGE_IS_HIDDEN(image))
-                                continue;
-
-                        r = image_remove(image);
-                        if (r == -EBUSY) /* keep images that are currently being used. */
-                                continue;
-                        if (r < 0) {
-                                /* If the operation failed, let's override everything we wrote, and instead write there at which image we failed. */
-                                success = false;
-                                (void) ftruncate(result_fd, 0);
-                                (void) lseek(result_fd, 0, SEEK_SET);
-                                (void) write(result_fd, &success, sizeof(success));
-                                (void) write(result_fd, image->name, strlen(image->name)+1);
-                                goto child_fail;
-                        }
-
-                        l = write(result_fd, image->name, strlen(image->name)+1);
-                        if (l < 0) {
-                                r = -errno;
-                                goto child_fail;
-                        }
-
-                        l = write(result_fd, &image->usage_exclusive, sizeof(image->usage_exclusive));
-                        if (l < 0) {
-                                r = -errno;
-                                goto child_fail;
-                        }
-                }
-
-                result_fd = safe_close(result_fd);
-                _exit(EXIT_SUCCESS);
-
-        child_fail:
-                (void) write(errno_pipe_fd[1], &r, sizeof(r));
-                _exit(EXIT_FAILURE);
-        }
-
-        errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
-
-        /* The clean-up might take a while, hence install a watch on the child and return */
-
-        r = operation_new_with_bus_reply(m, /* machine= */ NULL, child, message, errno_pipe_fd[0], &operation);
-        if (r < 0) {
-                (void) sigkill_wait(child);
-                return r;
-        }
-
-        operation->extra_fd = result_fd;
+        operation_attach_bus_reply(operation, message);
         operation->done = clean_pool_done;
-
-        result_fd = -EBADF;
-        errno_pipe_fd[0] = -EBADF;
-
         return 1;
 }
 

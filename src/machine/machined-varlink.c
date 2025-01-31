@@ -801,6 +801,7 @@ static int manager_varlink_init_machine(Manager *m) {
                         "io.systemd.MachineImage.Clone",        vl_method_clone_image,
                         "io.systemd.MachineImage.Remove",       vl_method_remove_image,
                         "io.systemd.MachineImage.SetPoolLimit", vl_method_set_pool_limit,
+                        "io.systemd.MachineImage.CleanPool",    vl_method_clean_pool,
                         "io.systemd.service.Ping",              varlink_method_ping,
                         "io.systemd.service.SetLogLevel",       varlink_method_set_log_level,
                         "io.systemd.service.GetEnvironment",    varlink_method_get_environment);
