@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <security/pam_ext.h>
+#include <security/pam_misc.h>
 #include <security/pam_modules.h>
 
 #include "sd-bus.h"
@@ -15,6 +16,7 @@
 #include "memory-util.h"
 #include "pam-util.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "strv.h"
 #include "user-record-util.h"
 #include "user-record.h"
@@ -112,6 +114,20 @@ static int acquire_user_record(
                         return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get user name: @PAMERR@");
                 if (isempty(username))
                         return pam_syslog_pam_error(handle, LOG_ERR, PAM_SERVICE_ERR, "User name not set.");
+        }
+
+        /* Possibly split out the area name */
+        _cleanup_free_ char *username_without_area = NULL, *area = NULL;
+        const char *carea = strrchr(username, '%');
+        if (carea && filename_is_valid(carea + 1)) {
+                username_without_area = strndup(username, carea - username);
+                if (!username_without_area)
+                        return pam_log_oom(handle);
+
+                username = username_without_area;
+                area = strdup(carea + 1);
+                if (!area)
+                        return pam_log_oom(handle);
         }
 
         /* Let's bypass all IPC complexity for the two user names we know for sure we don't manage, and for
@@ -240,6 +256,14 @@ static int acquire_user_record(
                                                     "Failed to set PAM user record data '%s': @PAMERR@", generic_field);
 
                 TAKE_PTR(json_copy);
+        }
+
+        /* Let's store the area we parsed out of the name in an env var, so that pam_systemd later can honour it. */
+        if (area) {
+                r = pam_misc_setenv(handle, "XDG_AREA", area, /* readonly= */ 0);
+                if (r != PAM_SUCCESS)
+                        return pam_syslog_pam_error(handle, LOG_ERR, r,
+                                                    "Failed to set environment variable $XDG_AREA to '%s': @PAMERR@", area);
         }
 
         if (ret_record)

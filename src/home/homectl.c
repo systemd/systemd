@@ -2774,6 +2774,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --setenv=VARIABLE[=VALUE] Set an environment variable at log-in\n"
                "     --timezone=TIMEZONE       Set a time-zone\n"
                "     --language=LOCALE         Set preferred languages\n"
+               "     --default-area=AREA       Select default area\n"
                "\n%4$sAuthentication User Record Properties:%5$s\n"
                "     --ssh-authorized-keys=KEYS\n"
                "                               Specify SSH public keys\n"
@@ -2984,6 +2985,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_LOGIN_BACKGROUND,
                 ARG_TMP_LIMIT,
                 ARG_DEV_SHM_LIMIT,
+                ARG_DEFAULT_AREA,
         };
 
         static const struct option options[] = {
@@ -3086,6 +3088,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "login-background",             required_argument, NULL, ARG_LOGIN_BACKGROUND            },
                 { "tmp-limit",                    required_argument, NULL, ARG_TMP_LIMIT                   },
                 { "dev-shm-limit",                required_argument, NULL, ARG_DEV_SHM_LIMIT               },
+                { "default-area",                 required_argument, NULL, ARG_DEFAULT_AREA                },
                 {}
         };
 
@@ -4568,6 +4571,24 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
                 }
+
+                case ARG_DEFAULT_AREA:
+                        if (isempty(optarg)) {
+                                r = drop_from_identity("defaultArea");
+                                if (r < 0)
+                                        return r;
+
+                                break;
+                        }
+
+                        if (!filename_is_valid(optarg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Parameter for default area field not valid: %s", optarg);
+
+                        r = sd_json_variant_set_field_string(&arg_identity_extra, "defaultArea", optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to set default area field: %m");
+
+                        break;
 
                 case '?':
                         return -EINVAL;
