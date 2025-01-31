@@ -129,11 +129,12 @@ int exec_context_apply_tty_size(
                                 rows == UINT_MAX ? &rows : NULL,
                                 cols == UINT_MAX ? &cols : NULL);
 
-        /* If we got nothing so far and we are talking to a physical device, and the TTY reset logic is on,
-         * then let's query dimensions from the ANSI driver. */
+        /* If we got nothing so far and we are talking to a physical device, then let's query dimensions from
+         * the ANSI terminal driver. Note that we will not bother with this in case terminal reset via ansi
+         * sequences is not enabled, as the DSR logic relies on ANSI sequences after all, and if we shall not
+         * use those during initialization we need to skip it. */
         if (rows == UINT_MAX && cols == UINT_MAX &&
-            context->tty_reset &&
-            terminal_is_pty_fd(output_fd) == 0 &&
+            exec_context_shall_ansi_seq_reset(context) &&
             isatty_safe(input_fd)) {
                 r = terminal_get_size_by_dsr(input_fd, output_fd, &rows, &cols);
                 if (r < 0)
@@ -178,7 +179,10 @@ void exec_context_tty_reset(const ExecContext *context, const ExecParameters *p)
                 log_warning_errno(lock_fd, "Failed to lock /dev/console, proceeding without lock: %m");
 
         if (context->tty_reset)
-                (void) terminal_reset_defensive(fd, TERMINAL_RESET_SWITCH_TO_TEXT);
+                (void) terminal_reset_defensive(
+                                fd,
+                                TERMINAL_RESET_SWITCH_TO_TEXT |
+                                (exec_context_shall_ansi_seq_reset(context) ? TERMINAL_RESET_FORCE_ANSI_SEQ : TERMINAL_RESET_AVOID_ANSI_SEQ));
 
         r = exec_context_apply_tty_size(context, fd, fd, path);
         if (r < 0)
@@ -972,6 +976,22 @@ bool exec_context_may_touch_console(const ExecContext *ec) {
 
         return exec_context_may_touch_tty(ec) &&
                tty_may_match_dev_console(exec_context_tty_path(ec));
+}
+
+bool exec_context_shall_ansi_seq_reset(const ExecContext *c) {
+        assert(c);
+
+        /* Determines whether ANSI sequences shall be used during any terminal initialisation:
+         *
+         * 1. If the reset logic is enabled at all, this is an immediate no.
+         *
+         * 2. If $TERM is set to anything other than "dumb", it's a yes.
+         */
+
+        if (!c->tty_reset)
+                return false;
+
+        return !streq_ptr(strv_env_get(c->environment, "TERM"), "dumb");
 }
 
 static void strv_fprintf(FILE *f, char **l) {

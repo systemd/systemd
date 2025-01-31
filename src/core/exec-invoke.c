@@ -4367,6 +4367,10 @@ static void prepare_terminal(
               p->stdout_fd >= 0))
                 return;
 
+        /* Let's explicitly determine whether to reset via ANSI sequences or not, taking our ExecContext
+         * information into account */
+        bool use_ansi = exec_context_shall_ansi_seq_reset(context);
+
         if (context->tty_reset) {
                 /* When we are resetting the TTY, then let's create a lock first, to synchronize access. This
                  * in particular matters as concurrent resets and the TTY size ANSI DSR logic done by the
@@ -4375,7 +4379,10 @@ static void prepare_terminal(
                 if (lock_fd < 0)
                         log_exec_debug_errno(context, p, lock_fd, "Failed to lock /dev/console, ignoring: %m");
 
-                (void) terminal_reset_defensive(STDOUT_FILENO, /* flags= */ 0);
+                /* We explicitly control whether to send ansi sequences or not here, since we want to consult
+                 * the env vars explicitly configured in the ExecContext, rather than our own environment
+                 * block. */
+                (void) terminal_reset_defensive(STDOUT_FILENO, use_ansi ? TERMINAL_RESET_FORCE_ANSI_SEQ : TERMINAL_RESET_AVOID_ANSI_SEQ);
         }
 
         (void) exec_context_apply_tty_size(context, STDIN_FILENO, STDOUT_FILENO, /* tty_path= */ NULL);
