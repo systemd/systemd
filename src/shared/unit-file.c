@@ -616,6 +616,41 @@ int unit_file_build_name_map(
         return 1;
 }
 
+int unit_file_remove_from_name_map(
+                const LookupPaths *lp,
+                uint64_t *cache_timestamp_hash,
+                Hashmap **unit_ids_map,
+                Hashmap **unit_names_map,
+                Set **path_cache,
+                const char *path) {
+
+        int r;
+
+        assert(path);
+
+        /* This assumes the specified path is already removed, and drops the relevant entries from the maps. */
+
+        /* If one of the lookup paths we are monitoring is already changed, let's rebuild the map. Then, the
+         * new map should not contain entries relevant to the specified path. */
+        r = unit_file_build_name_map(lp, cache_timestamp_hash, unit_ids_map, unit_names_map, path_cache);
+        if (r != 0)
+                return r;
+
+        /* If not, drop the relevant entries. */
+
+        _cleanup_free_ char *name = NULL;
+        r = path_extract_filename(path, &name);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to extract file name from '%s': %m", path);
+
+        _unused_ _cleanup_free_ char *key = NULL;
+        free(hashmap_remove2(*unit_ids_map, name, (void**) &key));
+        string_strv_hashmap_remove(*unit_names_map, name, name);
+        free(set_remove(*path_cache, path));
+
+        return 0;
+}
+
 static int add_name(
                 const char *unit_name,
                 Set **names,

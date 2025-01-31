@@ -1,11 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "fileio.h"
 #include "initrd-util.h"
 #include "path-lookup.h"
+#include "path-util.h"
+#include "random-util.h"
+#include "rm-rf.h"
 #include "set.h"
 #include "special.h"
 #include "strv.h"
 #include "tests.h"
+#include "tmpfile-util.h"
 #include "unit-file.h"
 
 TEST(unit_validate_alias_symlink_and_warn) {
@@ -84,6 +89,82 @@ TEST(unit_file_build_name_map) {
                  assert_se(r == 0);
                  log_info("fragment: %s", fragment);
         }
+}
+
+static bool test_unit_file_remove_from_name_map_trail(const LookupPaths *lp, size_t trial) {
+        int r;
+
+        log_debug("/* %s(trial=%zu) */", __func__, trial);
+
+        _cleanup_hashmap_free_ Hashmap *unit_ids = NULL, *unit_names = NULL;
+        _cleanup_set_free_ Set *path_cache = NULL;
+        ASSERT_OK_POSITIVE(unit_file_build_name_map(lp, NULL, &unit_ids, &unit_names, &path_cache));
+
+        _cleanup_free_ char *name = NULL;
+        for (size_t i = 0; i < 100; i++) {
+                ASSERT_OK(asprintf(&name, "test-unit-file-%"PRIx64".service", random_u64()));
+                if (!hashmap_contains(unit_ids, name))
+                        break;
+                name = mfree(name);
+        }
+        ASSERT_NOT_NULL(name);
+
+        _cleanup_free_ char *path = path_join(lp->transient, name);
+        ASSERT_NOT_NULL(path);
+        ASSERT_OK(write_string_file(path, "[Unit]\n", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755));
+
+        uint64_t cache_timestamp_hash = 0;
+        ASSERT_OK_POSITIVE(unit_file_build_name_map(lp, &cache_timestamp_hash, &unit_ids, &unit_names, &path_cache));
+
+        ASSERT_STREQ(hashmap_get(unit_ids, name), path);
+        ASSERT_TRUE(strv_equal(hashmap_get(unit_names, name), STRV_MAKE(name)));
+        ASSERT_TRUE(set_contains(path_cache, path));
+
+        ASSERT_OK_ERRNO(unlink(path));
+
+        ASSERT_OK(r = unit_file_remove_from_name_map(lp, &cache_timestamp_hash, &unit_ids, &unit_names, &path_cache, path));
+        if (r > 0)
+                return false; /* someone touches unit files. Retrying. */
+
+        ASSERT_FALSE(hashmap_contains(unit_ids, name));
+        ASSERT_FALSE(hashmap_contains(unit_names, path));
+        ASSERT_FALSE(set_contains(path_cache, path));
+
+        _cleanup_hashmap_free_ Hashmap *unit_ids_2 = NULL, *unit_names_2 = NULL;
+        _cleanup_set_free_ Set *path_cache_2 = NULL;
+        ASSERT_OK_POSITIVE(unit_file_build_name_map(lp, NULL, &unit_ids_2, &unit_names_2, &path_cache_2));
+
+        if (hashmap_size(unit_ids) != hashmap_size(unit_ids_2) ||
+            hashmap_size(unit_names) != hashmap_size(unit_names_2) ||
+            !set_equal(path_cache, path_cache_2))
+                return false;
+
+        const char *k, *v;
+        HASHMAP_FOREACH_KEY(v, k, unit_ids)
+                if (!streq_ptr(hashmap_get(unit_ids_2, k), v))
+                        return false;
+
+        char **l;
+        HASHMAP_FOREACH_KEY(l, k, unit_names)
+                if (!strv_equal_ignore_order(hashmap_get(unit_names_2, k), l))
+                        return false;
+
+        return true;
+}
+
+
+TEST(unit_file_remove_from_name_map) {
+        _cleanup_(rm_rf_physical_and_freep) char *d = NULL;
+
+        _cleanup_(lookup_paths_done) LookupPaths lp = {};
+        ASSERT_OK(lookup_paths_init(&lp, RUNTIME_SCOPE_SYSTEM, LOOKUP_PATHS_TEMPORARY_GENERATED, NULL));
+        ASSERT_NOT_NULL(d = strdup(lp.temporary_dir));
+
+        for (size_t i = 0; i < 10; i++)
+                if (test_unit_file_remove_from_name_map_trail(&lp, i))
+                        return;
+
+        assert_not_reached();
 }
 
 TEST(runlevel_to_target) {

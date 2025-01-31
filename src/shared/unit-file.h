@@ -68,6 +68,14 @@ int unit_file_build_name_map(
                 Hashmap **unit_names_map,
                 Set **path_cache);
 
+int unit_file_remove_from_name_map(
+                const LookupPaths *lp,
+                uint64_t *cache_timestamp_hash,
+                Hashmap **unit_ids_map,
+                Hashmap **unit_names_map,
+                Set **path_cache,
+                const char *path);
+
 int unit_file_find_fragment(
                 Hashmap *unit_ids_map,
                 Hashmap *unit_name_map,
