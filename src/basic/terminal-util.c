@@ -1930,7 +1930,7 @@ int terminal_set_cursor_position(int fd, unsigned row, unsigned column) {
         return loop_write(fd, cursor_position, SIZE_MAX);
 }
 
-int terminal_reset_defensive(int fd, bool switch_to_text) {
+int terminal_reset_defensive(int fd, TerminalResetFlags flags) {
         int r = 0;
 
         assert(fd >= 0);
@@ -1946,7 +1946,7 @@ int terminal_reset_defensive(int fd, bool switch_to_text) {
         if (!isatty_safe(fd))
                 return -ENOTTY;
 
-        RET_GATHER(r, terminal_reset_ioctl(fd, switch_to_text));
+        RET_GATHER(r, terminal_reset_ioctl(fd, FLAGS_SET(flags, TERMINAL_RESET_SWITCH_TO_TEXT)));
 
         if (terminal_is_pty_fd(fd) == 0)
                 RET_GATHER(r, terminal_reset_ansi_seq(fd));
@@ -1954,14 +1954,14 @@ int terminal_reset_defensive(int fd, bool switch_to_text) {
         return r;
 }
 
-int terminal_reset_defensive_locked(int fd, bool switch_to_text) {
+int terminal_reset_defensive_locked(int fd, TerminalResetFlags flags) {
         assert(fd >= 0);
 
         _cleanup_close_ int lock_fd = lock_dev_console();
         if (lock_fd < 0)
                 log_debug_errno(lock_fd, "Failed to acquire lock for /dev/console, ignoring: %m");
 
-        return terminal_reset_defensive(fd, switch_to_text);
+        return terminal_reset_defensive(fd, flags);
 }
 
 void termios_disable_echo(struct termios *termios) {

@@ -674,7 +674,7 @@ static int setup_confirm_stdio(
         if (r < 0)
                 return r;
 
-        r = terminal_reset_defensive(fd, /* switch_to_text= */ true);
+        r = terminal_reset_defensive(fd, TERMINAL_RESET_SWITCH_TO_TEXT);
         if (r < 0)
                 return r;
 
@@ -4380,7 +4380,7 @@ static void prepare_terminal(
                 if (lock_fd < 0)
                         log_exec_debug_errno(context, p, lock_fd, "Failed to lock /dev/console, ignoring: %m");
 
-                (void) terminal_reset_defensive(STDOUT_FILENO, /* switch_to_text= */ false);
+                (void) terminal_reset_defensive(STDOUT_FILENO, /* flags= */ 0);
         }
 
         (void) exec_context_apply_tty_size(context, STDIN_FILENO, STDOUT_FILENO, /* tty_path= */ NULL);
