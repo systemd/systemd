@@ -178,7 +178,7 @@ void exec_context_tty_reset(const ExecContext *context, const ExecParameters *p)
                 log_warning_errno(lock_fd, "Failed to lock /dev/console, proceeding without lock: %m");
 
         if (context->tty_reset)
-                (void) terminal_reset_defensive(fd, /* switch_to_text= */ true);
+                (void) terminal_reset_defensive(fd, TERMINAL_RESET_SWITCH_TO_TEXT);
 
         r = exec_context_apply_tty_size(context, fd, fd, path);
         if (r < 0)
