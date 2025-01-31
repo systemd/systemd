@@ -23,6 +23,16 @@ typedef enum CapabilityMode {
         CAPABILITY_MASK,
 } CapabilityMode;
 
+typedef enum PlotHideMode {
+        HIDE_NONE,
+        HIDE_FIRMWARE,
+        HIDE_LOADER,
+        HIDE_KERNEL,
+        HIDE_INITRD,
+        HIDE_SOFT_REBOOT,
+        _HIDE_MAX,
+} PlotHideMode;
+
 extern DotMode arg_dot;
 extern CapabilityMode arg_capability;
 extern char **arg_dot_from_patterns, **arg_dot_to_patterns;
@@ -51,6 +61,7 @@ extern char *arg_profile;
 extern bool arg_legend;
 extern bool arg_table;
 extern ImagePolicy *arg_image_policy;
+extern PlotHideMode arg_plot_hide_mode;
 
 int acquire_bus(sd_bus **bus, bool *use_full_bus);
 
