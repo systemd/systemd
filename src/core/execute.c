@@ -39,6 +39,7 @@
 #include "format-util.h"
 #include "glob-util.h"
 #include "hexdecoct.h"
+#include "io-util.h"
 #include "ioprio-util.h"
 #include "lock-util.h"
 #include "log.h"
@@ -50,6 +51,7 @@
 #include "missing_prctl.h"
 #include "mkdir-label.h"
 #include "namespace.h"
+#include "osc-context.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
@@ -142,7 +144,7 @@ int exec_context_apply_tty_size(
         return terminal_set_size_fd(output_fd, tty_path, rows, cols);
 }
 
-void exec_context_tty_reset(const ExecContext *context, const ExecParameters *p) {
+void exec_context_tty_reset(const ExecContext *context, const ExecParameters *p, sd_id128_t invocation_id) {
         _cleanup_close_ int _fd = -EBADF, lock_fd = -EBADF;
         int fd, r;
 
@@ -185,6 +187,23 @@ void exec_context_tty_reset(const ExecContext *context, const ExecParameters *p)
         r = exec_context_apply_tty_size(context, fd, fd, path);
         if (r < 0)
                 log_debug_errno(r, "Failed to configure TTY dimensions, ignoring: %m");
+
+        if (!sd_id128_is_null(invocation_id)) {
+                sd_id128_t context_id;
+
+                r = osc_context_id_from_invocation_id(invocation_id, &context_id);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to derive context ID from invocation ID, ignoring: %m");
+                else {
+                        _cleanup_free_ char *seq = NULL;
+
+                        r = osc_context_close(context_id, &seq);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to acquire OSC close sequence, ignoring: %m");
+                        else
+                                (void) loop_write(fd, seq, SIZE_MAX);
+                }
+        }
 
         if (context->tty_vhangup)
                 (void) terminal_vhangup_fd(fd);
@@ -1628,7 +1647,7 @@ void exec_context_free_log_extra_fields(ExecContext *c) {
         c->n_log_extra_fields = 0;
 }
 
-void exec_context_revert_tty(ExecContext *c) {
+void exec_context_revert_tty(ExecContext *c, sd_id128_t invocation_id) {
         _cleanup_close_ int fd = -EBADF;
         const char *path;
         struct stat st;
@@ -1637,7 +1656,7 @@ void exec_context_revert_tty(ExecContext *c) {
         assert(c);
 
         /* First, reset the TTY (possibly kicking everybody else from the TTY) */
-        exec_context_tty_reset(c, /* parameters= */ NULL);
+        exec_context_tty_reset(c, /* parameters= */ NULL, invocation_id);
 
         /* And then undo what chown_terminal() did earlier. Note that we only do this if we have a path
          * configured. If the TTY was passed to us as file descriptor we assume the TTY is opened and managed
