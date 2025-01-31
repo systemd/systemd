@@ -408,6 +408,7 @@ Bridge=
 Broadcast=
 Cache=
 CacheFromLocalhost=
+CacheSize=
 ClientIdentifier=
 ConfigureWithoutCarrier=
 CopyDSCP=

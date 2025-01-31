@@ -42,6 +42,7 @@ struct Manager {
         DnsOverTlsMode dns_over_tls_mode;
         DnsCacheMode enable_cache;
         bool cache_from_localhost;
+        unsigned cache_size_per_scope;
         DnsStubListenerMode dns_stub_listener_mode;
         usec_t stale_retention_usec;
 

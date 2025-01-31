@@ -8,9 +8,14 @@
 #include "resolved-dns-dnssec.h"
 #include "time-util.h"
 
+/* RFC 1536, Section 5 suggests to leave DNS caches unbounded,
+ * but that's crazy. */
+#define DEFAULT_CACHE_SIZE 4096
+
 typedef struct DnsCache {
         Hashmap *by_key;
         Prioq *by_expiry;
+        unsigned max_size;
         unsigned n_hit;
         unsigned n_miss;
 } DnsCache;

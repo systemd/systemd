@@ -44,6 +44,10 @@ int dns_scope_new(Manager *m, DnsScope **ret, Link *l, DnsProtocol protocol, int
                 .family = family,
                 .resend_timeout = MULTICAST_RESEND_TIMEOUT_MIN_USEC,
 
+                .cache = {
+                        .max_size = m->cache_size_per_scope,
+                },
+
                 /* Enforce ratelimiting for the multicast protocols */
                 .ratelimit = { MULTICAST_RATELIMIT_INTERVAL_USEC, MULTICAST_RATELIMIT_BURST },
         };

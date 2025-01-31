@@ -18,7 +18,9 @@
 #include "tmpfile-util.h"
 
 static DnsCache new_cache(void) {
-        return (DnsCache) {};
+        return (DnsCache) {
+                .max_size = DEFAULT_CACHE_SIZE,
+        };
 }
 
 typedef struct PutArgs {
