@@ -1935,20 +1935,16 @@ int terminal_reset_defensive(int fd, TerminalResetFlags flags) {
 
         assert(fd >= 0);
 
-        /* Resets the terminal comprehensively, but defensively. i.e. both resets the tty via ioctl()s and
-         * via ANSI sequences, but avoids the latter in case we are talking to a pty. That's a safety measure
-         * because ptys might be connected to shell pipelines where we cannot expect such ansi sequences to
-         * work. Given that ptys are generally short-lived (and not recycled) this restriction shouldn't hurt
-         * much.
-         *
-         * The specified fd should be open for *writing*! */
+        /* Resets the terminal comprehensively, i.e. via both ioctl()s and via ANSI sequences, but do so only
+         * if $TERM is unset or set to "dumb" */
 
         if (!isatty_safe(fd))
                 return -ENOTTY;
 
         RET_GATHER(r, terminal_reset_ioctl(fd, FLAGS_SET(flags, TERMINAL_RESET_SWITCH_TO_TEXT)));
 
-        if (terminal_is_pty_fd(fd) == 0)
+        if (!FLAGS_SET(flags, TERMINAL_RESET_AVOID_ANSI_SEQ) &&
+            (FLAGS_SET(flags, TERMINAL_RESET_FORCE_ANSI_SEQ) || !getenv_terminal_is_dumb()))
                 RET_GATHER(r, terminal_reset_ansi_seq(fd));
 
         return r;
