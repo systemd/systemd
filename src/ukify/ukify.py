@@ -740,6 +740,10 @@ def pe_strip_section_name(name: bytes) -> str:
     return name.rstrip(b'\x00').decode()
 
 
+def pe_section_size(section: pefile.SectionStructure) -> int:
+    return cast(int, min(section.Misc_VirtualSize, section.SizeOfRawData))
+
+
 def call_systemd_measure(uki: UKI, opts: UkifyConfig, profile_start: int = 0) -> None:
     measure_tool = find_tool(
         'systemd-measure',
@@ -1364,16 +1368,16 @@ def make_uki(opts: UkifyConfig) -> None:
                 continue
 
             print(
-                f"Copying section '{n}' from '{profile}': {pesection.Misc_VirtualSize} bytes",
+                f"Copying section '{n}' from '{profile}': {pe_section_size(pesection)} bytes",
                 file=sys.stderr,
             )
             uki.add_section(
-                Section.create(n, pesection.get_data(length=pesection.Misc_VirtualSize), measure=True)
+                Section.create(n, pesection.get_data(length=pe_section_size(pesection)), measure=True)
             )
 
         if opts.sign_profiles:
             pesection = next(s for s in pe.sections if pe_strip_section_name(s.Name) == '.profile')
-            id = read_env_file(pesection.get_data(length=pesection.Misc_VirtualSize).decode()).get('ID')
+            id = read_env_file(pesection.get_data(length=pe_section_size(pesection)).decode()).get('ID')
             if not id or id not in opts.sign_profiles:
                 print(f'Not signing expected PCR measurements for "{id}" profile')
                 continue
@@ -1555,12 +1559,11 @@ def inspect_section(
 
     ttype = config.output_mode if config else DEFAULT_SECTIONS_TO_SHOW.get(name, 'binary')
 
-    size = section.Misc_VirtualSize
-    # TODO: Use ignore_padding once we can depend on a newer version of pefile
+    size = pe_section_size(section)
     data = section.get_data(length=size)
     digest = sha256(data).hexdigest()
 
-    struct = {
+    struct: dict[str, Union[int, str]] = {
         'size': size,
         'sha256': digest,
     }
@@ -1579,7 +1582,7 @@ def inspect_section(
     if opts.json == 'off':
         print(f'{name}:\n  size: {size} bytes\n  sha256: {digest}')
         if ttype == 'text':
-            text = textwrap.indent(struct['text'].rstrip(), ' ' * 4)
+            text = textwrap.indent(cast(str, struct['text']).rstrip(), ' ' * 4)
             print(f'  text:\n{text}')
 
     return name, struct
