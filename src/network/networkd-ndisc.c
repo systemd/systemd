@@ -1083,11 +1083,10 @@ static int ndisc_router_drop_default(Link *link, sd_ndisc_router *rt) {
         HASHMAP_FOREACH(route_gw, link->network->routes_by_section) {
                 _cleanup_(route_unrefp) Route *tmp = NULL;
 
-                if (!route_gw->gateway_from_dhcp_or_ra)
+                if (route_gw->source != NETWORK_CONFIG_SOURCE_NDISC)
                         continue;
 
-                if (route_gw->nexthop.family != AF_INET6)
-                        continue;
+                assert(route_gw->nexthop.family == AF_INET6);
 
                 r = route_dup(route_gw, NULL, &tmp);
                 if (r < 0)
@@ -1158,11 +1157,10 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
         HASHMAP_FOREACH(route_gw, link->network->routes_by_section) {
                 _cleanup_(route_unrefp) Route *route = NULL;
 
-                if (!route_gw->gateway_from_dhcp_or_ra)
+                if (route_gw->source != NETWORK_CONFIG_SOURCE_NDISC)
                         continue;
 
-                if (route_gw->nexthop.family != AF_INET6)
-                        continue;
+                assert(route_gw->nexthop.family == AF_INET6);
 
                 r = route_dup(route_gw, NULL, &route);
                 if (r < 0)

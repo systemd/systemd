@@ -2010,8 +2010,10 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
         <term><varname>Gateway=</varname></term>
         <listitem>
           <para>Takes the gateway address or the special values <literal>_dhcp4</literal> and
-          <literal>_ipv6ra</literal>. If <literal>_dhcp4</literal> or <literal>_ipv6ra</literal> is
-          set, then the gateway address provided by DHCPv4 or IPv6 RA is used.</para>
+          <literal>_ipv6ra</literal>. If <literal>_dhcp4</literal> or <literal>_ipv6ra</literal> is set, then
+          the gateway address provided by DHCPv4 or IPv6 RA is used. When<literal>_dhcp4</literal>, the
+          acquired DHCPv4 address will be used as the preferred source address of the route, unless it is
+          explicitly configured in <varname>PreferredSource=</varname>.</para>
 
         <xi:include href="version-info.xml" xpointer="v211"/>
         </listitem>
@@ -2117,10 +2119,12 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
       <varlistentry>
         <term><varname>PreferredSource=</varname></term>
         <listitem>
-          <para>The preferred source address of the route. The address must be in the format described
-          in
+          <para>The preferred source address of the route. Takes <literal>no</literal> or an address
+          in the format described in
           <citerefentry project='man-pages'><refentrytitle>inet_pton</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
-          </para>
+          If <varname>Gateway=_dhcp4</varname> is specified, defaults to the acquired DHCPv4 address.
+          Otherwise, defaults to unset. The value <literal>no</literal> may be useful to configure a route
+          with <varname>Gateway=_dhcp4</varname> without setting preferred source route address.</para>
 
           <xi:include href="version-info.xml" xpointer="v227"/>
         </listitem>

@@ -43,5 +43,9 @@ Destination=192.168.7.0/24
 
 [Route]
 Gateway=_dhcp4
-Destination=10.0.0.0/8
-Table=211
+Destination=192.0.2.0/24
+
+[Route]
+Gateway=_dhcp4
+Destination=198.51.100.0/24
+Table=212

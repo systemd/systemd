@@ -71,6 +71,7 @@ struct Route {
         bool expiration_managed_by_kernel:1; /* RTA_CACHEINFO has nonzero rta_expires */
 
         /* Only used by conf persers and route_section_verify(). */
+        bool prefsrc_set:1;
         bool scope_set:1;
         bool table_set:1;
         bool priority_set:1;
