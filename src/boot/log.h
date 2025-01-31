@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#if SD_BOOT
+
 #include "efi-string.h"
 #include "proto/simple-text-io.h"
 
@@ -38,3 +40,10 @@ _gnu_printf_(3, 4) EFI_STATUS log_internal(EFI_STATUS status, uint8_t text_color
                 _cleanup_free_ char16_t *hex = hexdump(data, size);     \
                 log_debug("%ls[%zu]: %ls", prefix, size, hex);          \
         })
+
+#else
+
+#include <log.h>
+#define log_error_status log_error_errno
+
+#endif

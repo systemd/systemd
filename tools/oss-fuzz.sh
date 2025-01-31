@@ -35,8 +35,8 @@ else
     meson_args+=("-Doss-fuzz=true" "--auto-features=disabled")
 
     apt-get update
-    apt-get install -y gperf m4 gettext python3-pip \
-        libcap-dev libmount-dev \
+    apt-get install -y device-tree-compiler gperf m4 gettext \
+        python3-pip libcap-dev libmount-dev \
         pkg-config wget python3-jinja2 zipmerge zstd
 
     if [[ "$ARCHITECTURE" == i386 ]]; then

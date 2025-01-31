@@ -6,6 +6,7 @@
 
 #define FDT_V1_SIZE (7*4)
 
+#if SD_BOOT
 static EFI_STATUS devicetree_allocate(struct devicetree_state *state, size_t size) {
         size_t pages = DIV_ROUND_UP(size, EFI_PAGE_SIZE);
         EFI_STATUS err;
@@ -105,6 +106,7 @@ EFI_STATUS devicetree_install(struct devicetree_state *state, EFI_FILE *root_dir
         return BS->InstallConfigurationTable(
                         MAKE_GUID_PTR(EFI_DTB_TABLE), PHYSICAL_ADDRESS_TO_POINTER(state->addr));
 }
+#endif
 
 static const char* devicetree_get_compatible(const void *dtb) {
         if ((uintptr_t) dtb % alignof(FdtHeader) != 0)
@@ -230,6 +232,7 @@ EFI_STATUS devicetree_match_by_compatible(const void *uki_dtb, size_t uki_dtb_le
         return streq8(dt_compat, compat) ? EFI_SUCCESS : EFI_NOT_FOUND;
 }
 
+#if SD_BOOT
 EFI_STATUS devicetree_install_from_memory(
                 struct devicetree_state *state, const void *dtb_buffer, size_t dtb_length) {
 
@@ -271,3 +274,4 @@ void devicetree_cleanup(struct devicetree_state *state) {
         BS->FreePages(state->addr, state->pages);
         state->pages = 0;
 }
+#endif
