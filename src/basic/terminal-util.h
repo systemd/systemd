@@ -43,6 +43,8 @@ bool isatty_safe(int fd);
 
 typedef enum TerminalResetFlags {
         TERMINAL_RESET_SWITCH_TO_TEXT = 1 << 0,
+        TERMINAL_RESET_AVOID_ANSI_SEQ = 1 << 1,
+        TERMINAL_RESET_FORCE_ANSI_SEQ = 1 << 2,
 } TerminalResetFlags;
 
 int terminal_reset_defensive(int fd, TerminalResetFlags flags);
