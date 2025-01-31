@@ -1875,7 +1875,7 @@ static int bus_manager_log_shutdown(
         const char *message = a->message ?: "System is shutting down";
         const char *log_verb = a->log_verb ? strjoina("SHUTDOWN=", a->log_verb) : NULL;
 
-        return log_struct(LOG_NOTICE,
+        return log_struct(LOG_INFO,
                           "MESSAGE_ID=%s", a->message_id ?: SD_MESSAGE_SHUTDOWN_STR,
                           LOG_MESSAGE("%s%s%s%s.",
                                       message,
