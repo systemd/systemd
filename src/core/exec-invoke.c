@@ -52,6 +52,7 @@
 #include "missing_securebits.h"
 #include "missing_syscall.h"
 #include "mkdir-label.h"
+#include "osc-context.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
 #include "psi-util.h"
@@ -4391,6 +4392,9 @@ static void prepare_terminal(
         }
 
         (void) exec_context_apply_tty_size(context, STDIN_FILENO, STDOUT_FILENO, /* tty_path= */ NULL);
+
+        if (use_ansi)
+                (void) osc_context_open_service(p->unit_id, p->invocation_id, /* ret_seq= */ NULL);
 }
 
 int exec_invoke(
@@ -4567,8 +4571,9 @@ int exec_invoke(
          * disallocate the VT), to get rid of any prior uses of the device. Note that we do not keep any fd
          * open here, hence some of the settings made here might vanish again, depending on the TTY driver
          * used. A 2nd ("constructive") initialization after we opened the input/output fds we actually want
-         * will fix this. */
-        exec_context_tty_reset(context, params);
+         * will fix this. (Note that we pass a NULL context ID here, this expects the context ID to close,
+         * not the one to open. That happens a bit further down.) */
+        exec_context_tty_reset(context, params, /* context_id= */ SD_ID128_NULL);
 
         if (params->shall_confirm_spawn && exec_context_shall_confirm_spawn(context)) {
                 _cleanup_free_ char *cmdline = NULL;
