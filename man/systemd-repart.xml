@@ -242,7 +242,7 @@
       <varlistentry>
         <term><option>--factory-reset=</option></term>
 
-        <listitem><para>Takes boolean. If this switch is not specified, <option>--factory=reset=no</option> is
+        <listitem><para>Takes boolean. If this switch is not specified, <option>--factory-reset=no</option> is
         the implied default. Controls whether to operate in "factory reset" mode, see above. If set to true
         this will remove all existing partitions marked with <varname>FactoryReset=</varname> set to yes
         early while executing the re-partitioning algorithm. Use with care, this is a great way to lose all
