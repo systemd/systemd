@@ -2,7 +2,7 @@
 
 #include "chid.h"
 #include "devicetree.h"
-#include "efifirmware.h"
+#include "efi-firmware.h"
 #include "pe.h"
 #include "util.h"
 
@@ -215,7 +215,7 @@ static bool pe_use_this_firmware(
         if (!fwid)
                 return false;
 
-        err = efifirmware_match_by_fwid(efifw, efifw_size, fwid);
+        err = efi_firmware_match_by_fwid(efifw, efifw_size, fwid);
         if (err == EFI_SUCCESS)
                 return true;
         if (err == EFI_INVALID_PARAMETER)

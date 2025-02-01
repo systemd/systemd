@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "efifirmware.h"
+#include "efi-firmware.h"
 #include "util.h"
-#include <endian.h>
 
 static bool efifw_validate_header(
                 const void *blob,
@@ -43,7 +42,7 @@ static bool efifw_validate_header(
         if (blob_len < total_computed_size)
                 return false;
 
-        const char *fwid    = (const char*)blob + header_len;
+        const char *fwid    = (const char*) blob + header_len;
         const char *payload = fwid + fwid_len;
 
         /* check that fwid points to a NUL terminated string */
@@ -58,27 +57,17 @@ static bool efifw_validate_header(
         return true;
 }
 
-static const char* efifw_get_fwid(
-                const void *efifwblob,
-                size_t efifwblob_len) {
-
-        const char* fwid;
-        if (!efifw_validate_header(efifwblob, efifwblob_len, &fwid, NULL))
-                return NULL;
-
-        return fwid;
-}
-
-EFI_STATUS efifirmware_match_by_fwid(
-                const void *uki_efifw,
-                size_t uki_efifw_len,
+EFI_STATUS efi_firmware_match_by_fwid(
+                const void *blob,
+                size_t blob_len,
                 const char *fwid) {
 
+        assert(blob);
         assert(fwid);
 
-        const char *fwblob_fwid = efifw_get_fwid(uki_efifw, uki_efifw_len);
-        if (!fwblob_fwid)
+        const char *blob_fwid;
+        if (!efifw_validate_header(blob, blob_len, &blob_fwid, NULL))
                 return EFI_INVALID_PARAMETER;
 
-        return streq8(fwblob_fwid, fwid) ? EFI_SUCCESS : EFI_NOT_FOUND;
+        return streq8(blob_fwid, fwid) ? EFI_SUCCESS : EFI_NOT_FOUND;
 }
