@@ -196,7 +196,7 @@ static int userdb_maybe_restart_query(
                 NULL
         };
 
-        /* Figure out if the reported error indicates any of the suppressable fields are at fault, and that
+        /* Figure out if the reported error indicates any of the suppressible fields are at fault, and that
          * our query actually included them */
         bool restart = false;
         STRV_FOREACH(f, fields) {
