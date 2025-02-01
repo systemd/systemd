@@ -629,6 +629,7 @@ static int bootctl_main(int argc, char *argv[]) {
                 { "set-oneshot",         2,        2,        0,            verb_set_efivar          },
                 { "set-timeout",         2,        2,        0,            verb_set_efivar          },
                 { "set-timeout-oneshot", 2,        2,        0,            verb_set_efivar          },
+                { "set-sysfail",         2,        2,        0,            verb_set_efivar          },
                 { "random-seed",         VERB_ANY, 1,        0,            verb_random_seed         },
                 { "systemd-efi-options", VERB_ANY, 2,        0,            verb_systemd_efi_options },
                 { "reboot-to-firmware",  VERB_ANY, 2,        0,            verb_reboot_to_firmware  },
