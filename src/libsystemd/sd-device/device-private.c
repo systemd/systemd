@@ -961,7 +961,3 @@ static const char* const device_action_table[_SD_DEVICE_ACTION_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(device_action, sd_device_action_t);
-
-void dump_device_action_table(void) {
-        DUMP_STRING_TABLE(device_action, sd_device_action_t, _SD_DEVICE_ACTION_MAX);
-}
