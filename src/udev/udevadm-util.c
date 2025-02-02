@@ -12,6 +12,7 @@
 #include "path-util.h"
 #include "string-table.h"
 #include "udev-ctrl.h"
+#include "udev-rules.h"
 #include "udev-varlink.h"
 #include "udevadm-util.h"
 #include "unit-name.h"
@@ -124,6 +125,21 @@ int parse_device_action(const char *str, sd_device_action_t *ret) {
 
         if (ret)
                 *ret = a;
+        return 1;
+}
+
+int parse_resolve_name_timing(const char *str, ResolveNameTiming *ret) {
+        assert(str);
+
+        if (streq(str, "help"))
+                return DUMP_STRING_TABLE(resolve_name_timing, ResolveNameTiming, _RESOLVE_NAME_TIMING_MAX);
+
+        ResolveNameTiming v = resolve_name_timing_from_string(optarg);
+        if (v < 0)
+                return log_error_errno(v, "--resolve-names= must be 'early', 'late', or 'never'.");
+
+        if (ret)
+                *ret = v;
         return 1;
 }
 
