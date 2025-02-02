@@ -36,7 +36,7 @@ static int help(void) {
                "\n%sVerify udev rules files.%s\n\n"
                "  -h --help                            Show this help\n"
                "  -V --version                         Show package version\n"
-               "  -N --resolve-names=early|never       When to resolve names\n"
+               "  -N --resolve-names=early|late|never  When to resolve names\n"
                "     --root=PATH                       Operate on an alternate filesystem root\n"
                "     --no-summary                      Do not show summary\n"
                "     --no-style                        Ignore style issues\n"
@@ -80,13 +80,6 @@ static int parse_argv(int argc, char *argv[]) {
                         r = parse_resolve_name_timing(optarg, &arg_resolve_name_timing);
                         if (r <= 0)
                                 return r;
-                        /*
-                         * In the verifier "late" has the effect of "never",
-                         * and "never" would generate irrelevant diagnostics,
-                         * so map "never" to "late".
-                         */
-                        if (arg_resolve_name_timing == RESOLVE_NAME_NEVER)
-                                arg_resolve_name_timing = RESOLVE_NAME_LATE;
                         break;
                 case ARG_ROOT:
                         r = parse_path_argument(optarg, /* suppress_root= */ true, &arg_root);
