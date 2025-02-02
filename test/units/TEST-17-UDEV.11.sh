@@ -103,6 +103,8 @@ assert_0 -h
 assert_0 --help
 assert_0 -V
 assert_0 --version
+assert_0 -N help
+assert_0 --resolve-names help
 
 # unrecognized option '--unknown'
 assert_1 --unknown
@@ -112,7 +114,7 @@ assert_1 -N
 assert_1 -N now
 # option '--resolve-names' requires an argument
 assert_1 --resolve-names
-# --resolve-names= takes "early" or "never"
+# --resolve-names= takes "early", "late", or "never"
 assert_1 --resolve-names=now
 # Failed to parse rules file ./nosuchfile: No such file or directory
 assert_1 ./nosuchfile
