@@ -258,7 +258,7 @@ _udevadm() {
                         comps=$( udevadm test --action help )
                         ;;
                     -N|--resolve-names)
-                        comps='early late never'
+                        comps=$( udevadm test --resolve-names help )
                         ;;
                     -D|--extra-rules-dir)
                         comps=''
@@ -304,7 +304,7 @@ _udevadm() {
             if __contains_word "$prev" ${OPTS[VERIFY_ARG]}; then
                 case $prev in
                     -N|--resolve-names)
-                        comps='early never'
+                        comps=$( udevadm test --resolve-names help )
                         ;;
                     --root)
                         comps=''
