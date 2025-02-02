@@ -45,10 +45,8 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
                 case 'a':
                         r = parse_device_action(optarg, &arg_action);
-                        if (r < 0)
-                                return log_error_errno(r, "Invalid action '%s'", optarg);
-                        if (r == 0)
-                                return 0;
+                        if (r <= 0)
+                                return r;
                         break;
                 case 'V':
                         return print_version();
