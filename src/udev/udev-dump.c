@@ -121,7 +121,7 @@ void dump_event(UdevEvent *event, FILE *f) {
                 ORDERED_HASHMAP_FOREACH_KEY(val, command, event->run_list) {
                         UdevBuiltinCommand builtin_cmd = PTR_TO_UDEV_BUILTIN_CMD(val);
 
-                        if (builtin_cmd != _UDEV_BUILTIN_INVALID)
+                        if (builtin_cmd >= 0)
                                 fprintf(f, "  RUN{builtin} : %s\n", command);
                         else
                                 fprintf(f, "  RUN{program} : %s\n", command);
