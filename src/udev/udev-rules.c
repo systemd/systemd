@@ -2586,25 +2586,19 @@ static int udev_rule_apply_token_to_event(
         case TK_A_OPTIONS_DUMP: {
                 log_event_info(event, token, "Dumping current state:");
 
-                if (event->event_mode == EVENT_UDEV_WORKER) {
-                        _cleanup_(memstream_done) MemStream m = {};
-                        FILE *f = memstream_init(&m);
-                        if (!f)
-                                return log_oom();
+                _cleanup_(memstream_done) MemStream m = {};
+                FILE *f = memstream_init(&m);
+                if (!f)
+                        return log_oom();
 
-                        dump_event(event, f);
+                dump_event(event, f);
 
-                        _cleanup_free_ char *buf = NULL;
-                        r = memstream_finalize(&m, &buf, NULL);
-                        if (r < 0)
-                                log_event_warning_errno(event, token, r, "Failed to finalize memory stream, ignoring: %m");
-                        else
-                                log_info("%s", buf);
-                } else {
-                        puts("============================");
-                        dump_event(event, NULL);
-                        puts("============================");
-                }
+                _cleanup_free_ char *buf = NULL;
+                r = memstream_finalize(&m, &buf, NULL);
+                if (r < 0)
+                        log_event_warning_errno(event, token, r, "Failed to finalize memory stream, ignoring: %m");
+                else
+                        log_info("%s", buf);
 
                 log_event_info(event, token, "DONE");
                 return true;
