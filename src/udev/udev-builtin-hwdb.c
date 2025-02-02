@@ -15,7 +15,7 @@
 #include "string-util.h"
 #include "udev-builtin.h"
 
-static sd_hwdb *hwdb;
+static sd_hwdb *hwdb = NULL;
 
 int udev_builtin_hwdb_lookup(
                 UdevEvent *event,
