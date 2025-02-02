@@ -25,6 +25,7 @@ static ResolveNameTiming arg_resolve_name_timing = RESOLVE_NAME_EARLY;
 static const char *arg_syspath = NULL;
 static char **arg_extra_rules_dir = NULL;
 static bool arg_verbose = false;
+static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 
 STATIC_DESTRUCTOR_REGISTER(arg_extra_rules_dir, strv_freep);
 
@@ -37,20 +38,26 @@ static int help(void) {
                "  -a --action=ACTION|help              Set action string\n"
                "  -N --resolve-names=early|late|never  When to resolve names\n"
                "  -D --extra-rules-dir=DIR             Also load rules from the directory\n"
-               "  -v --verbose                         Show verbose logs\n",
+               "  -v --verbose                         Show verbose logs\n"
+               "     --json=pretty|short|off           Generate JSON output\n",
                program_invocation_short_name);
 
         return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
+        enum {
+                ARG_JSON = 0x100,
+        };
+
         static const struct option options[] = {
-                { "action",          required_argument, NULL, 'a' },
-                { "resolve-names",   required_argument, NULL, 'N' },
-                { "extra-rules-dir", required_argument, NULL, 'D' },
-                { "verbose",         no_argument,       NULL, 'v' },
-                { "version",         no_argument,       NULL, 'V' },
-                { "help",            no_argument,       NULL, 'h' },
+                { "action",          required_argument, NULL, 'a'      },
+                { "resolve-names",   required_argument, NULL, 'N'      },
+                { "extra-rules-dir", required_argument, NULL, 'D'      },
+                { "verbose",         no_argument,       NULL, 'v'      },
+                { "json",            required_argument, NULL, ARG_JSON },
+                { "version",         no_argument,       NULL, 'V'      },
+                { "help",            no_argument,       NULL, 'h'      },
                 {}
         };
 
@@ -82,6 +89,11 @@ static int parse_argv(int argc, char *argv[]) {
                 }
                 case 'v':
                         arg_verbose = true;
+                        break;
+                case ARG_JSON:
+                        r = parse_json_argument(optarg, &arg_json_format_flags);
+                        if (r <= 0)
+                                return r;
                         break;
                 case 'V':
                         return print_version();
@@ -168,7 +180,9 @@ int test_main(int argc, char *argv[], void *userdata) {
         log_info("Processing udev rules done.");
 
         maybe_insert_empty_line();
-        dump_event(event, NULL);
+        r = dump_event(event, arg_json_format_flags, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to dump result: %m");
         maybe_insert_empty_line();
 
         return 0;

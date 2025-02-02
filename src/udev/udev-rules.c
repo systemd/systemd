@@ -2591,7 +2591,7 @@ static int udev_rule_apply_token_to_event(
                 if (!f)
                         return log_oom();
 
-                dump_event(event, f);
+                (void) dump_event(event, SD_JSON_FORMAT_OFF, f);
 
                 _cleanup_free_ char *buf = NULL;
                 r = memstream_finalize(&m, &buf, NULL);
