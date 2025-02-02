@@ -125,30 +125,25 @@ int test_main(int argc, char *argv[], void *userdata) {
 
         puts("\nLoading builtins...");
         udev_builtin_init();
+        UDEV_BUILTIN_DESTRUCTOR;
         puts("Loading builtins done.");
 
         puts("\nLoading udev rules files...");
         r = udev_rules_load(&rules, arg_resolve_name_timing, arg_extra_rules_dir);
-        if (r < 0) {
-                log_error_errno(r, "Failed to read udev rules: %m");
-                goto out;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to read udev rules: %m");
         puts("Loading udev rules files done.");
 
         r = find_device_with_action(arg_syspath, arg_action, &dev);
-        if (r < 0) {
-                log_error_errno(r, "Failed to open device '%s': %m", arg_syspath);
-                goto out;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to open device '%s': %m", arg_syspath);
 
         /* don't read info from the db */
         device_seal(dev);
 
         event = udev_event_new(dev, NULL, EVENT_UDEVADM_TEST);
-        if (!event) {
-                log_oom();
-                goto out;
-        }
+        if (!event)
+                return log_oom();
         event->trace = arg_verbose;
 
         assert_se(sigfillset(&mask) >= 0);
@@ -161,8 +156,5 @@ int test_main(int argc, char *argv[], void *userdata) {
         puts("");
         dump_event(event, NULL);
 
-        r = 0;
-out:
-        udev_builtin_exit();
-        return r;
+        return 0;
 }
