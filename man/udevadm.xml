@@ -930,6 +930,8 @@
             <xi:include href="version-info.xml" xpointer="v258"/>
           </listitem>
         </varlistentry>
+
+        <xi:include href="standard-options.xml" xpointer="json" />
       </variablelist>
     </refsect2>
 
