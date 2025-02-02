@@ -99,7 +99,7 @@ _udevadm() {
         [MONITOR_STANDALONE]='-k --kernel -u --udev -p --property'
         [MONITOR_ARG]='-s --subsystem-match -t --tag-match'
         [TEST_STANDALONE]='-v --verbose'
-        [TEST_ARG]='-a --action -N --resolve-names -D --extra-rules-dir'
+        [TEST_ARG]='-a --action -N --resolve-names -D --extra-rules-dir --json'
         [TEST_BUILTIN]='-a --action'
         [VERIFY_STANDALONE]='--no-summary --no-style'
         [VERIFY_ARG]='-N --resolve-names --root'
@@ -263,6 +263,10 @@ _udevadm() {
                     -D|--extra-rules-dir)
                         comps=''
                         compopt -o dirnames
+                        ;;
+                    --json)
+                        comps=$( udevadm test --json help )
+                        ;;
                 esac
             elif [[ $cur = -* ]]; then
                 comps="${OPTS[COMMON]} ${OPTS[TEST_ARG]} ${OPTS[TEST_STANDALONE]}"
