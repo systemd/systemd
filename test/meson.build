@@ -136,7 +136,7 @@ if want_tests != 'false'
         test('udev-rules-check',
              exe,
              suite : 'udev',
-             args : ['verify', '--resolve-names=never', all_rules])
+             args : ['verify', '--resolve-names=late', all_rules])
 endif
 
 ############################################################
