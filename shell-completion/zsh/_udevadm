@@ -92,6 +92,7 @@ _udevadm_test(){
        '--subsystem=[The subsystem string.]' \
         '(-D --extra-rules-dir=)'{-D,--extra-rules-dir=}'[Also load rules from the directory.]' \
         '(-v --verbose)'{-v,--verbose}'[Show verbose logs.]' \
+        '--json=[Generate JSON output]:MODE:(pretty short off)' \
         '*::devpath:_files -P /sys/ -W /sys'
 }
 
