@@ -10,6 +10,7 @@
 #include "constants.h"
 #include "device-private.h"
 #include "path-util.h"
+#include "string-table.h"
 #include "udev-ctrl.h"
 #include "udev-varlink.h"
 #include "udevadm-util.h"
@@ -110,22 +111,19 @@ int find_device_with_action(const char *id, sd_device_action_t action, sd_device
         return 0;
 }
 
-int parse_device_action(const char *str, sd_device_action_t *action) {
-        sd_device_action_t a;
 
+int parse_device_action(const char *str, sd_device_action_t *ret) {
         assert(str);
-        assert(action);
 
-        if (streq(str, "help")) {
-                dump_device_action_table();
-                return 0;
-        }
+        if (streq(str, "help"))
+                return DUMP_STRING_TABLE(device_action, sd_device_action_t, _SD_DEVICE_ACTION_MAX);
 
-        a = device_action_from_string(str);
+        sd_device_action_t a = device_action_from_string(str);
         if (a < 0)
-                return a;
+                return log_error_errno(a, "Invalid action '%s'.", str);
 
-        *action = a;
+        if (ret)
+                *ret = a;
         return 1;
 }
 
