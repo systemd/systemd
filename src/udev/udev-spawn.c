@@ -343,7 +343,7 @@ void udev_event_execute_run(UdevEvent *event) {
         ORDERED_HASHMAP_FOREACH_KEY(val, command, event->run_list) {
                 UdevBuiltinCommand builtin_cmd = PTR_TO_UDEV_BUILTIN_CMD(val);
 
-                if (builtin_cmd != _UDEV_BUILTIN_INVALID) {
+                if (builtin_cmd >= 0) {
                         log_device_debug(event->dev, "Running built-in command \"%s\"", command);
                         r = udev_builtin_run(event, builtin_cmd, command);
                         if (r < 0)
