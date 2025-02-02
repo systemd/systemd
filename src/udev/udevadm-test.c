@@ -64,10 +64,9 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         break;
                 case 'N':
-                        arg_resolve_name_timing = resolve_name_timing_from_string(optarg);
-                        if (arg_resolve_name_timing < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "--resolve-names= must be early, late or never");
+                        r = parse_resolve_name_timing(optarg, &arg_resolve_name_timing);
+                        if (r <= 0)
+                                return r;
                         break;
                 case 'D': {
                         _cleanup_free_ char *p = NULL;

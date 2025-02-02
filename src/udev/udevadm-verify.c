@@ -77,10 +77,9 @@ static int parse_argv(int argc, char *argv[]) {
                 case 'V':
                         return print_version();
                 case 'N':
-                        arg_resolve_name_timing = resolve_name_timing_from_string(optarg);
-                        if (arg_resolve_name_timing < 0)
-                                return log_error_errno(arg_resolve_name_timing,
-                                                       "--resolve-names= takes \"early\" or \"never\"");
+                        r = parse_resolve_name_timing(optarg, &arg_resolve_name_timing);
+                        if (r <= 0)
+                                return r;
                         /*
                          * In the verifier "late" has the effect of "never",
                          * and "never" would generate irrelevant diagnostics,
