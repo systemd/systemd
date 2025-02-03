@@ -2632,7 +2632,7 @@ static int create_interactively(void) {
                 log_notice("Specified shell '%s' is not installed, try another one.", shell);
         }
 
-        if (shell) {
+        if (!isempty(shell)) {
                 log_info("Selected %s as the shell for user %s", shell, username);
 
                 r = sd_json_variant_set_field_string(&arg_identity_extra, "shell", shell);
