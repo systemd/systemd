@@ -18,6 +18,7 @@ void source_free(RemoteSource *source) {
         sd_event_source_unref(source->event);
         sd_event_source_unref(source->buffer_event);
 
+        free(source->encoding);
         free(source);
 }
 
