@@ -211,6 +211,9 @@ TEST(proc, .sd_booted = true) {
                         continue;
 
                 ASSERT_OK_ZERO(cg_pidref_get_path(SYSTEMD_CGROUP_CONTROLLER, &pid, &path));
+                /* Skip if we run inside an LXC container with its monitoring */
+                if (path_equal(path, "/.lxc"))
+                        continue;
                 ASSERT_OK_ZERO(cg_pid_get_path_shifted(pid.pid, NULL, &path_shifted));
                 ASSERT_OK_ZERO(cg_pidref_get_unit(&pid, &unit));
                 ASSERT_OK_ZERO(cg_pid_get_slice(pid.pid, &slice));
