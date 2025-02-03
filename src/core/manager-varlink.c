@@ -100,7 +100,6 @@ static int manager_context_build_json(sd_json_variant **ret, const char *name, v
                         JSON_BUILD_PAIR_FINITE_USEC("DefaultRestartUSec", m->defaults.restart_usec),
                         JSON_BUILD_PAIR_RATELIMIT("DefaultStartLimit", &m->defaults.start_limit),
                         SD_JSON_BUILD_PAIR_BOOLEAN("DefaultCPUAccounting", m->defaults.cpu_accounting),
-                        SD_JSON_BUILD_PAIR_BOOLEAN("DefaultBlockIOAccounting", m->defaults.blockio_accounting),
                         SD_JSON_BUILD_PAIR_BOOLEAN("DefaultIOAccounting", m->defaults.io_accounting),
                         SD_JSON_BUILD_PAIR_BOOLEAN("DefaultIPAccounting", m->defaults.ip_accounting),
                         SD_JSON_BUILD_PAIR_BOOLEAN("DefaultMemoryAccounting", m->defaults.memory_accounting),
