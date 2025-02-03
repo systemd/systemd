@@ -219,6 +219,7 @@ TEST(proc, .sd_booted = true) {
 
                 ASSERT_OK_ZERO(cg_pidref_get_path(SYSTEMD_CGROUP_CONTROLLER, &pid, &path));
                 ASSERT_OK_ZERO(cg_pid_get_path_shifted(pid.pid, NULL, &path_shifted));
+                fprintf(stderr, "pid="PID_FMT" path=%s\n", pid.pid, path);
                 ASSERT_OK_ZERO(cg_pidref_get_unit(&pid, &unit));
                 ASSERT_OK_ZERO(cg_pid_get_slice(pid.pid, &slice));
 
