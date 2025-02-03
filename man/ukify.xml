@@ -270,6 +270,20 @@
         </varlistentry>
 
         <varlistentry>
+          <term><option>--join-pcrsig=<replaceable>PATH</replaceable></option></term>
+          <term><option>--pcrsig=<replaceable>TEXT</replaceable>|<replaceable>@PATH</replaceable></option></term>
+
+          <listitem><para><option>--join-pcrsig=</option> takes a path to an existing PE file containing a
+          previously built UKI. <option>--pcrsig=</option> takes a path to an existing pcrsig JSON blob, or
+          a verbatim inline blob. They must be used together, and without specifying any other UKI section
+          parameters. <command>ukify</command> will attach the pcrsig JSON blob to the UKI. This is useful
+          in combination with <option>--policy-digest</option> to create a UKI and then sign the TPM2 policy
+          digests offline.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><option>--tools=<replaceable>DIRS</replaceable></option></term>
 
           <listitem><para>Specify one or more directories with helper tools. <command>ukify</command> will
@@ -837,6 +851,56 @@ ID=factory-reset' \
 </programlisting>
 
       <para>The resulting UKI <filename>base-with-profile-0-1-2.efi</filename> will now contain three profiles.</para>
+    </example>
+
+    <example>
+      <title>Offline signing of pcrsig section</title>
+
+      <para>First, create a UKI and save the PCR JSON blob:</para>
+
+      <programlisting>$ ukify build \
+      --linux=/lib/modules/6.0.9-300.fc37.x86_64/vmlinuz \
+      --initrd=/some/path/initramfs-6.0.9-300.fc37.x86_64.img \
+      --cmdline='quiet rw' \
+      --pcr-public-key=tpm2-pcr-public-key-initrd.pem \
+      --policy-digest \
+      --json=short \
+      --output=base.efi >base.pcrs
+</programlisting>
+
+      <para>Then, sign the PCR digests offline and insert them in the JSON blob:</para>
+
+      <programlisting>#!/usr/bin/python3
+import base64, json, subprocess
+
+priv_key = '/home/zbyszek/src/systemd/tpm2-pcr-private.pem'
+base_file = 'base.pcrs'
+
+base = json.load(open(base_file))
+
+for bank,policies in base.items():
+    for policy in policies:
+        pol = base64.b16decode(policy['pol'].upper())
+        call = subprocess.run(['openssl', 'dgst', f'-{bank}', '-sign', priv_key],
+                              input=pol,
+                              check=True,
+                              capture_output=True)
+        sig = base64.b64encode(call.stdout).decode()
+        policy['sig'] = sig
+
+print(json.dumps(base))
+</programlisting>
+
+      <para>Finally, attach the updated JSON blob to the UKI:</para>
+
+      <programlisting>$ ukify build \
+      --join-pcrsig=base.efi \
+      --pcrsig=@base.pcrs \
+      --json=short \
+      --output=base-signed.efi
+</programlisting>
+
+      <para>The resulting UKI <filename>base-signed.efi</filename> will now contain the signed PCR digests.</para>
     </example>
 
   </refsect1>
