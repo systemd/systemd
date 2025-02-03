@@ -90,7 +90,7 @@ Value: a single JSON object encoded as a NUL-terminated UTF-8 string
      "version":"4711.0815.fc13",
      "architecture":"arm32",
      "osCpe": "cpe:2.3:o:fedoraproject:fedora:33",          # A CPE name for the operating system, `CPE_NAME` from os-release is a good default
-     "appCpe": "cpe:2.3:a:gnu:coreutils:5.0",               # A CPE name for the upstream application, check NVD
+     "appCpe": "cpe:2.3:a:gnu:coreutils:5.0",               # A CPE name for the upstream application, use NVD CPE search
      "debugInfoUrl": "https://debuginfod.fedoraproject.org/"
 }
 ```
@@ -136,8 +136,10 @@ A set of well-known keys is defined here, and hopefully shared among all vendors
 | version      | The source package version                                               | 4711.0815.fc13                        |
 | architecture | The binary package architecture                                          | arm32                                 |
 | osCpe        | A CPE name for the OS, typically corresponding to CPE_NAME in os-release | cpe:2.3:o:fedoraproject:fedora:33     |
-| appCpe       | A CPE name for the upstream Application, check NVD                       | cpe:2.3:a:gnu:coreutils:5.0           |
+| appCpe       | A CPE name for the upstream Application, as found in [NVD CPE search]    | cpe:2.3:a:gnu:coreutils:5.0           |
 | debugInfoUrl | The debuginfod server url, if available                                  | https://debuginfod.fedoraproject.org/ |
+
+[NVD CPE search]: https://nvd.nist.gov/products/cpe/search
 
 ### Displaying package notes
 
