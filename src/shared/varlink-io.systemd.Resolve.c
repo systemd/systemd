@@ -165,6 +165,7 @@ static SD_VARLINK_DEFINE_ERROR(QueryTimedOut);
 static SD_VARLINK_DEFINE_ERROR(MaxAttemptsReached);
 static SD_VARLINK_DEFINE_ERROR(InvalidReply);
 static SD_VARLINK_DEFINE_ERROR(QueryAborted);
+static SD_VARLINK_DEFINE_ERROR(Refused);
 static SD_VARLINK_DEFINE_ERROR(
                 DNSSECValidationFailed,
                 SD_VARLINK_DEFINE_FIELD(result, SD_VARLINK_STRING, 0),
@@ -218,6 +219,7 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_error_MaxAttemptsReached,
                 &vl_error_InvalidReply,
                 &vl_error_QueryAborted,
+                &vl_error_Refused,
                 &vl_error_DNSSECValidationFailed,
                 &vl_error_NoTrustAnchor,
                 &vl_error_ResourceRecordTypeUnsupported,
