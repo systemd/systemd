@@ -2487,11 +2487,11 @@ static int partition_read_definition(Partition *p, const char *path, const char 
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
                                   "Encrypting verity hash/data partitions is not supported.");
 
-        if (p->verity == VERITY_SIG && !arg_private_key)
+        if (p->verity == VERITY_SIG && !arg_private_key && !partition_type_defer(&p->type))
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
                                   "Verity signature partition requested but no private key provided (--private-key=).");
 
-        if (p->verity == VERITY_SIG && !arg_certificate)
+        if (p->verity == VERITY_SIG && !arg_certificate && !partition_type_defer(&p->type))
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
                                   "Verity signature partition requested but no PEM certificate provided (--certificate=).");
 
