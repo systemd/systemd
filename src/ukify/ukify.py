@@ -1290,15 +1290,6 @@ def make_uki(opts: UkifyConfig) -> None:
     for section in opts.sections:
         uki.add_section(section)
 
-    if linux is not None:
-        try:
-            virtual_size = pefile.PE(linux, fast_load=True).OPTIONAL_HEADER.SizeOfImage
-        except pefile.PEFormatError:
-            print(f'{linux} is not a valid PE file, not using SizeOfImage.')
-            virtual_size = None
-
-        uki.add_section(Section.create('.linux', linux, measure=True, virtual_size=virtual_size))
-
     # Don't add a sbat section to profile PE binaries.
     if opts.join_profiles or not opts.profile:
         if linux is not None:
@@ -1383,6 +1374,11 @@ def make_uki(opts: UkifyConfig) -> None:
                 continue
 
         call_systemd_measure(uki, opts=opts, profile_start=prev_len)
+
+    if linux is not None:
+        # Padding breaks signature for kernel https://github.com/systemd/systemd/issues/35851
+        virtual_size = None
+        uki.add_section(Section.create('.linux', linux, measure=True, virtual_size=virtual_size))
 
     # UKI creation
 
