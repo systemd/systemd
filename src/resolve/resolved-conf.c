@@ -428,31 +428,32 @@ int config_parse_refuse_record_types(
 
         Manager *m = ASSERT_PTR(userdata);
         int r;
-        Set *refused_records = NULL;
 
-        refused_records = set_free(refused_records);
+        if (isempty(rvalue)) {
+                m->refuse_record_types = set_free(m->refuse_record_types);
+                return 0;
+        }
 
         for (const char *p = rvalue;;) {
                _cleanup_free_ char *word = NULL;
-               r = extract_first_word(&p, &word, ",", EXTRACT_UNQUOTE);
+               r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE);
                if (r < 0)
-                       return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
-
+                     return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
                if (r == 0)
-                       break;
+                     break;
 
                r = dns_type_from_string(word);
+
                if (r < 0) {
                      log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid DNS record type, ignoring: %s", word);
                      continue;
                }
 
-               r = set_ensure_put(&refused_records, NULL, INT_TO_PTR(r));
+               r = set_ensure_put(&m->refuse_record_types, NULL, INT_TO_PTR(r));
+
                if (r < 0)
                       return log_oom();
         }
-
-        m->refuse_record_types = refused_records;
 
         return 1;
 }
