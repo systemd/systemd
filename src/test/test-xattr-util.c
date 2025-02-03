@@ -98,31 +98,38 @@ TEST(xsetxattr) {
         assert_se(touch(x) >= 0);
 
         /* by full path */
-        r = xsetxattr(AT_FDCWD, x, "user.foo", "fullpath", SIZE_MAX, 0);
+        r = xsetxattr(AT_FDCWD, x, 0, "user.foo", "fullpath");
         if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
                 return (void) log_tests_skipped_errno(r, "no xattrs supported on /var/tmp");
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         verify_xattr(dfd, "fullpath");
 
         /* by dirfd */
-        assert_se(xsetxattr(dfd, "test", "user.foo", "dirfd", SIZE_MAX, 0) >= 0);
+        ASSERT_ERROR(xsetxattr_full(dfd, "test", 0, "user.foo", "dirfd", SIZE_MAX, XATTR_CREATE), EEXIST);
+        verify_xattr(dfd, "fullpath");
+
+        ASSERT_OK(xsetxattr_full(dfd, "test", 0, "user.foo", "dirfd", SIZE_MAX, XATTR_REPLACE));
         verify_xattr(dfd, "dirfd");
 
         /* by fd (O_PATH) */
-        fd = openat(dfd, "test", O_PATH|O_CLOEXEC);
-        assert_se(fd >= 0);
-        assert_se(xsetxattr(fd, NULL, "user.foo", "fd_opath", SIZE_MAX, 0) >= 0);
+        ASSERT_OK_ERRNO(fd = openat(dfd, "test", O_PATH|O_CLOEXEC));
+
+        ASSERT_OK(xremovexattr(fd, "", 0, "user.foo"));
+
+        ASSERT_OK(xsetxattr_full(fd, NULL, AT_EMPTY_PATH, "user.foo", "fd_opath", SIZE_MAX, XATTR_CREATE));
         verify_xattr(dfd, "fd_opath");
-        assert_se(xsetxattr(fd, "", "user.foo", "fd_opath", SIZE_MAX, 0) == -EINVAL);
-        assert_se(xsetxattr(fd, "", "user.foo", "fd_opath_empty", SIZE_MAX, AT_EMPTY_PATH) >= 0);
+
+        ASSERT_OK(xsetxattr(fd, "", 0, "user.foo", "fd_opath_empty"));
         verify_xattr(dfd, "fd_opath_empty");
+
         fd = safe_close(fd);
 
         fd = openat(dfd, "test", O_RDONLY|O_CLOEXEC);
-        assert_se(xsetxattr(fd, NULL, "user.foo", "fd_regular", SIZE_MAX, 0) >= 0);
+
+        ASSERT_OK(xsetxattr_full(fd, NULL, 0, "user.foo", "fd_regular", SIZE_MAX, XATTR_REPLACE));
         verify_xattr(dfd, "fd_regular");
-        assert_se(xsetxattr(fd, "", "user.foo", "fd_regular_empty", SIZE_MAX, 0) == -EINVAL);
-        assert_se(xsetxattr(fd, "", "user.foo", "fd_regular_empty", SIZE_MAX, AT_EMPTY_PATH) >= 0);
+
+        ASSERT_OK(xsetxattr(fd, "", 0, "user.foo", "fd_regular_empty"));
         verify_xattr(dfd, "fd_regular_empty");
 }
 
