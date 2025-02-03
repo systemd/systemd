@@ -113,6 +113,9 @@ TEST(path_get_user_unit) {
         check_p_g_u_u("/user.slice/user-1000.slice/user@1000.service/server.service", 0, "server.service");
         check_p_g_u_u("/user.slice/user-1000.slice/user@1000.service/foobar.slice/foobar@pie.service", 0, "foobar@pie.service");
         check_p_g_u_u("/user.slice/user-1000.slice/user@.service/server.service", -ENXIO, NULL);
+        check_p_g_u_u("/capsule.slice/capsule@test.service/app.slice/run-p9-i1.service", 0, "run-p9-i1.service");
+        check_p_g_u_u("/capsule.slice/capsule@usr-joe.service/foo.slice/foo-bar.slice/run-p9-i1.service", 0, "run-p9-i1.service");
+        check_p_g_u_u("/capsule.slice/capsule@#.service/foo.slice/foo-bar.slice/run-p9-i1.service", -ENXIO, NULL);
 }
 
 static void check_p_g_s(const char *path, int code, const char *result) {
@@ -157,6 +160,7 @@ TEST(path_get_slice) {
         check_p_g_slice("foobar", 0, SPECIAL_ROOT_SLICE);
         check_p_g_slice("foobar.slice", 0, "foobar.slice");
         check_p_g_slice("foo.slice/foo-bar.slice/waldo.service", 0, "foo-bar.slice");
+        check_p_g_slice("/capsule.slice/capsule@test.service/app.slice/run-p9-i1.service", 0, "capsule.slice");
 }
 
 static void check_p_g_u_slice(const char *path, int code, const char *result) {
@@ -181,6 +185,10 @@ TEST(path_get_user_slice) {
         check_p_g_u_slice("foo.slice/foo-bar.slice/user@1000.service/waldo.service", 0, SPECIAL_ROOT_SLICE);
         check_p_g_u_slice("foo.slice/foo-bar.slice/user@1000.service/piep.slice/foo.service", 0, "piep.slice");
         check_p_g_u_slice("/foo.slice//foo-bar.slice/user@1000.service/piep.slice//piep-pap.slice//foo.service", 0, "piep-pap.slice");
+
+        check_p_g_u_slice("/capsule.slice/capsule@test.service/app.slice/run-p9-i1.service", 0, "app.slice");
+        check_p_g_u_slice("/capsule.slice/capsule@usr-joe.service/app.slice/run-p9-i1.service", 0, "app.slice");
+        check_p_g_u_slice("/capsule.slice/capsule@usr-joe.service/foo.slice/foo-bar.slice/run-p9-i1.service", 0, "foo-bar.slice");
 }
 
 TEST(get_paths, .sd_booted = true) {
