@@ -49,7 +49,7 @@ static int dns_query_new_for_varlink(
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r = dns_query_new(m, ret, question_utf8, question_idna, question_bypass, ifindex, flags);
         if (r == -ENOANO)
-                return sd_varlink_error((*ret)->varlink_request, "io.systemd.Resolve.Refused", NULL);
+                return sd_varlink_error((*ret)->varlink_request, "io.systemd.Resolve.DNSError", NULL);
         return r;
 }
 
