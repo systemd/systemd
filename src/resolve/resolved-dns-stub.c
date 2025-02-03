@@ -993,10 +993,9 @@ static void dns_stub_process_query(Manager *m, DnsStubListenerExtra *l, DnsStrea
                                   (DNS_PACKET_DO(p) ? SD_RESOLVED_REQUIRE_PRIMARY : 0)|
                                   SD_RESOLVED_CLAMP_TTL);
 
-        /* Refuse query if there is -ENOSYS */
-        if (r == -ENOANO) {
+        /* Refuse query if there is -ENOANO */
+        if (r == -ENOANO)
                 return (void) dns_stub_send_failure(m, l, s, p, DNS_RCODE_REFUSED, false);
-        }
 
         if (r < 0) {
                 log_error_errno(r, "Failed to generate query object: %m");
