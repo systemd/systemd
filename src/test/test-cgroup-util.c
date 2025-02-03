@@ -198,6 +198,13 @@ TEST(get_paths, .sd_booted = true) {
         log_info("Root = %s", a);
 }
 
+static inline bool hidden_cgroup(const char *p) {
+        assert(p);
+
+        /* Consider top-level cgroup hidden from us */
+        return p[0] == '/' && p[strspn(p, "/")] == '.';
+}
+
 TEST(proc, .sd_booted = true) {
         _cleanup_closedir_ DIR *d = NULL;
         int r;
@@ -219,6 +226,10 @@ TEST(proc, .sd_booted = true) {
                         continue;
 
                 ASSERT_OK_ZERO(cg_pidref_get_path(SYSTEMD_CGROUP_CONTROLLER, &pid, &path));
+                /* Test may run in a container with supervising/monitor processes that don't belong to our
+                 * cgroup tree (slices/leaves) */
+                if (hidden_cgroup(path))
+                        continue;
                 ASSERT_OK_ZERO(cg_pid_get_path_shifted(pid.pid, NULL, &path_shifted));
                 ASSERT_OK_ZERO(cg_pidref_get_unit(&pid, &unit));
                 ASSERT_OK_ZERO(cg_pid_get_slice(pid.pid, &slice));
