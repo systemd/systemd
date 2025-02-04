@@ -66,22 +66,6 @@ mkosi in the systemd reposistory, so any local modifications to the mkosi
 configuration (e.g. in `mkosi.local.conf`) are automatically picked up and used
 by the integration tests as well.
 
-## Running the integration tests without building systemd from source
-
-To make sure `mkosi` doesn't try to build systemd from source during the image build
-process, you can add the following to `mkosi.local.conf`:
-
-```
-[Build]
-Environment=NO_BUILD=1
-```
-
-You might also want to use the `PackageDirectories=` or `Repositories=` option to provide
-mkosi with a directory or repository containing the systemd packages that should be installed
-instead. If the repository containing the systemd packages is not a builtin repository known
-by mkosi, you can use the `SandboxTrees=` option to write an extra repository definition
-to /etc which is used when building the image instead.
-
 ## Iterating on an integration test
 
 To iterate on an integration test, let's first get a shell in the integration test environment by running
@@ -150,6 +134,22 @@ that make use of `run_testcases`.
 `TEST_JOURNAL_USE_TMP=1`: Write test journal to `/tmp` while the test is in
 progress and only move the journal to its final location in the build directory
 (`$BUILD_DIR/test/journal`) when the test is finished.
+
+## Running the integration tests without building systemd from source
+
+If you want to run the integration tests against prebuilt systemd packages,
+first add the following to `mkosi.local.conf` to stop mkosi from building
+systemd packages from source:
+
+```conf
+[Build]
+Environment=NO_BUILD=1
+```
+
+You'll then probably want to use the `PackageDirectories=` or `SandboxTrees=`
+options to provide mkosi with a directory containing the systemd packages or a
+repository file that points to a repository with the systemd packages that
+should be installed.
 
 ### SELinux AVCs
 
