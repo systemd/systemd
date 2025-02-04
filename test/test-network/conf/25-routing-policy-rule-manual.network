@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=test1
+Name=test2
+
+[Link]
+ActivationPolicy=manual
+
+[Network]
+IPv6AcceptRA=no
+
+[RoutingPolicyRule]
+Family=both
+Priority=10
+SuppressPrefixLength=0
+Table=51819
+
+[RoutingPolicyRule]
+Family=both
+FirewallMark=911
+InvertRule=true
+Priority=11
+Table=51820
