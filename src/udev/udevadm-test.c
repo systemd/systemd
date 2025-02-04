@@ -100,6 +100,20 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
+static void maybe_insert_empty_line(void) {
+        if (log_get_max_level() < LOG_INFO)
+                return;
+
+        LogTarget target = log_get_target();
+        if (!IN_SET(log_get_target(), LOG_TARGET_CONSOLE, LOG_TARGET_CONSOLE_PREFIXED, LOG_TARGET_AUTO))
+                return;
+
+        if (target == LOG_TARGET_AUTO && stderr_is_journal())
+                return;
+
+        fputs("\n", stderr);
+}
+
 int test_main(int argc, char *argv[], void *userdata) {
         _cleanup_(udev_rules_freep) UdevRules *rules = NULL;
         _cleanup_(udev_event_unrefp) UdevEvent *event = NULL;
@@ -114,22 +128,24 @@ int test_main(int argc, char *argv[], void *userdata) {
         if (r <= 0)
                 return r;
 
-        puts("This program is for debugging only, it does not run any program\n"
-             "specified by a RUN key. It may show incorrect results, because\n"
-             "some values may be different, or not available at a simulation run.");
+        log_info("This program is for debugging only, it does not run any program\n"
+                 "specified by a RUN key. It may show incorrect results, because\n"
+                 "some values may be different, or not available at a simulation run.");
 
         assert_se(sigprocmask(SIG_SETMASK, NULL, &sigmask_orig) >= 0);
 
-        puts("\nLoading builtins...");
+        maybe_insert_empty_line();
+        log_info("Loading builtins...");
         udev_builtin_init();
         UDEV_BUILTIN_DESTRUCTOR;
-        puts("Loading builtins done.");
+        log_info("Loading builtins done.");
 
-        puts("\nLoading udev rules files...");
+        maybe_insert_empty_line();
+        log_info("Loading udev rules files...");
         r = udev_rules_load(&rules, arg_resolve_name_timing, arg_extra_rules_dir);
         if (r < 0)
                 return log_error_errno(r, "Failed to read udev rules: %m");
-        puts("Loading udev rules files done.");
+        log_info("Loading udev rules files done.");
 
         r = find_device_with_action(arg_syspath, arg_action, &dev);
         if (r < 0)
@@ -146,12 +162,14 @@ int test_main(int argc, char *argv[], void *userdata) {
         assert_se(sigfillset(&mask) >= 0);
         assert_se(sigprocmask(SIG_SETMASK, &mask, &sigmask_orig) >= 0);
 
-        printf("\nProcessing udev rules%s...\n", arg_verbose ? "" : " (verbose logs can be shown by -v/--verbose)");
+        maybe_insert_empty_line();
+        log_info("Processing udev rules%s...", arg_verbose ? "" : " (verbose logs can be shown by -v/--verbose)");
         udev_event_execute_rules(event, rules);
-        puts("Processing udev rules done.");
+        log_info("Processing udev rules done.");
 
-        puts("");
+        maybe_insert_empty_line();
         dump_event(event, NULL);
+        maybe_insert_empty_line();
 
         return 0;
 }
