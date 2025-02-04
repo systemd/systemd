@@ -879,7 +879,10 @@
       <optional><replaceable>devpath</replaceable>|<replaceable>file</replaceable>|<replaceable>unit</replaceable></optional>
       </title>
 
-      <para>Simulate a udev event run for the given device, and print debug output.</para>
+      <para>
+        Simulate a udev event run for the given device, and print debug output. The option
+        <option>--json=</option> may be useful for parsing the final result. See also Example section.
+      </para>
 
       <variablelist>
         <varlistentry>
@@ -1293,6 +1296,36 @@
 
       <programlisting># udevadm lock -d /dev/sda1 dd if=fs.raw of=/dev/sda1</programlisting>
     </example>
+
+    <example>
+      <title>Predict Network Interface Renaming</title>
+
+      <para>To predict a network interface name, <command>udevadm test</command> can be used:</para>
+
+      <programlisting>$ udevadm test /sys/class/net/wlan0 --json=pretty 2>/dev/null | jq .networkInterface.name
+"wlp59s0"</programlisting>
+    </example>
+
+    <example>
+      <title>Predict Symbolic links of a Device Node</title>
+
+      <para>To predict symbolic links to a device node, <command>udevadm test</command> can be used:</para>
+
+      <programlisting>$ udevadm test /dev/nvme0n1p1 --json=pretty 2>/dev/null | jq .node.symlinks
+[
+  "/dev/disk/by-diskseq/1-part1",
+  "/dev/disk/by-id/nvme-WDC_PC_SN720_SDAQNTW-512G-1001_192290802247-part1",
+  "/dev/disk/by-id/nvme-WDC_PC_SN720_SDAQNTW-512G-1001_192290802247_1-part1",
+  "/dev/disk/by-id/nvme-eui.1922908022470001001b448b44ccb9d6-part1",
+  "/dev/disk/by-path/pci-0000:3c:00.0-nvme-1-part/by-partnum/1",
+  "/dev/disk/by-path/pci-0000:3c:00.0-nvme-1-part1"
+]
+$ udevadm test /dev/input/event3 --json=pretty 2>/dev/null | jq .node.symlinks
+[
+  "/dev/input/by-path/platform-i8042-serio-0-event-kbd"
+]</programlisting>
+    </example>
+
   </refsect1>
 
   <refsect1>
