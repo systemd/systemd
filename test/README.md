@@ -8,26 +8,6 @@ latest version of mkosi. See
 for more specific details. Make sure `mkosi` is available in `$PATH` when
 reconfiguring meson to make sure it is picked up properly.
 
-We also need to make sure the required meson options are enabled:
-
-```shell
-$ mkosi -f sandbox meson setup --reconfigure build -Dremote=enabled
-```
-
-To make sure `mkosi` doesn't try to build systemd from source during the image build
-process, you can add the following to `mkosi.local.conf`:
-
-```
-[Build]
-Environment=NO_BUILD=1
-```
-
-You might also want to use the `PackageDirectories=` or `Repositories=` option to provide
-mkosi with a directory or repository containing the systemd packages that should be installed
-instead. If the repository containing the systemd packages is not a builtin repository known
-by mkosi, you can use the `SandboxTrees=` option to write an extra repository definition
-to /etc which is used when building the image instead.
-
 Next, we can build the integration test image with meson:
 
 ```shell
@@ -154,6 +134,22 @@ that make use of `run_testcases`.
 `TEST_JOURNAL_USE_TMP=1`: Write test journal to `/tmp` while the test is in
 progress and only move the journal to its final location in the build directory
 (`$BUILD_DIR/test/journal`) when the test is finished.
+
+## Running the integration tests without building systemd from source
+
+If you want to run the integration tests against prebuilt systemd packages,
+first add the following to `mkosi.local.conf` to stop mkosi from building
+systemd packages from source:
+
+```conf
+[Build]
+Environment=NO_BUILD=1
+```
+
+You'll then probably want to use the `PackageDirectories=` or `SandboxTrees=`
+options to provide mkosi with a directory containing the systemd packages or a
+repository file that points to a repository with the systemd packages that
+should be installed.
 
 ### SELinux AVCs
 
