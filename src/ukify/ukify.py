@@ -411,7 +411,6 @@ class Section:
     tmpfile: Optional[IO[Any]] = None
     measure: bool = False
     output_mode: Optional[str] = None
-    virtual_size: Optional[int] = None
 
     @classmethod
     def create(cls, name: str, contents: Union[str, bytes, Path, None], **kwargs: Any) -> 'Section':
@@ -958,10 +957,7 @@ def pe_add_sections(uki: UKI, output: str) -> None:
 
         new_section.set_file_offset(offset)
         new_section.Name = section.name.encode()
-        if section.virtual_size is not None:
-            new_section.Misc_VirtualSize = section.virtual_size
-        else:
-            new_section.Misc_VirtualSize = len(data)
+        new_section.Misc_VirtualSize = len(data)
         # Non-stripped stubs might still have an unaligned symbol table at the end, making their size
         # unaligned, so we make sure to explicitly pad the pointer to new sections to an aligned offset.
         new_section.PointerToRawData = round_up(len(pe.__data__), pe.OPTIONAL_HEADER.FileAlignment)
@@ -1273,6 +1269,7 @@ def make_uki(opts: UkifyConfig) -> None:
         ('.uname',   opts.uname,      True),
         ('.splash',  opts.splash,     True),
         ('.pcrpkey', pcrpkey,         True),
+        ('.linux',   linux,           True),
         ('.initrd',  initrd,          True),
         *(('.efifw', parse_efifw_dir(fw), False) for fw in opts.efifw),
         ('.ucode',   opts.microcode,  True),
@@ -1289,15 +1286,6 @@ def make_uki(opts: UkifyConfig) -> None:
     # systemd-measure doesn't know about those extra sections
     for section in opts.sections:
         uki.add_section(section)
-
-    if linux is not None:
-        try:
-            virtual_size = pefile.PE(linux, fast_load=True).OPTIONAL_HEADER.SizeOfImage
-        except pefile.PEFormatError:
-            print(f'{linux} is not a valid PE file, not using SizeOfImage.')
-            virtual_size = None
-
-        uki.add_section(Section.create('.linux', linux, measure=True, virtual_size=virtual_size))
 
     # Don't add a sbat section to profile PE binaries.
     if opts.join_profiles or not opts.profile:

@@ -546,38 +546,6 @@ static int measure_kernel(PcrState *pcr_states, size_t n) {
                         m += sz;
                 }
 
-                if (c == UNIFIED_SECTION_LINUX) {
-                        _cleanup_free_ PeHeader *pe_header = NULL;
-
-                        r = pe_load_headers(fd, /*ret_dos_header=*/ NULL, &pe_header);
-                        if (r < 0)
-                                log_warning_errno(r, "Failed to parse kernel image file '%s', ignoring: %m", arg_sections[c]);
-                        else if (m < pe_header->optional.SizeOfImage) {
-                                memzero(buffer, BUFFER_SIZE);
-
-                                /* Our EFI stub measures VirtualSize bytes of the .linux section into PCR 11.
-                                 * Notably, VirtualSize can be larger than the section's size on disk. In
-                                 * that case the extra space is initialized with zeros, so the stub ends up
-                                 * measuring a bunch of zeros. To accommodate this, we have to measure the
-                                 * same number of zeros here. We opt to measure extra zeros here instead of
-                                 * modifying the stub to only measure the number of bytes on disk as we want
-                                 * newer ukify + systemd-measure to work with older versions of the stub and
-                                 * as of 6.12 the kernel image's VirtualSize won't be larger than its size on
-                                 * disk anymore (see https://github.com/systemd/systemd/issues/34578#issuecomment-2382459515).
-                                 */
-
-                                while (m < pe_header->optional.SizeOfImage) {
-                                        uint64_t sz = MIN(BUFFER_SIZE, pe_header->optional.SizeOfImage - m);
-
-                                        for (size_t i = 0; i < n; i++)
-                                                if (EVP_DigestUpdate(mdctx[i], buffer, sz) != 1)
-                                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to run digest.");
-
-                                        m += sz;
-                                }
-                        }
-                }
-
                 fd = safe_close(fd);
 
                 if (m == 0) /* We skip over empty files, the stub does so too */
