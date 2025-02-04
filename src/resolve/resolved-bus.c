@@ -41,7 +41,7 @@ static int dns_query_new_for_bus(
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r = dns_query_new(m, ret, question_utf8, question_idna, question_bypass, ifindex, flags);
         if (r == -ENOANO) {
-                sd_bus_error_setf(&error, BUS_ERROR_DNS_REFUSED, "Name '%s' is refused", dns_query_string(*ret));
+                sd_bus_error_set(&error, BUS_ERROR_DNS_REFUSED, "DNS Refused");
                 return r;
         }
         return r;
