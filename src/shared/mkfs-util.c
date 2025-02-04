@@ -640,16 +640,6 @@ int make_filesystem(
         if (extra_mkfs_args && strv_extend_strv(&argv, extra_mkfs_args, false) < 0)
                 return log_oom();
 
-        if (streq(fstype, "btrfs")) {
-                struct stat st;
-
-                if (stat(node, &st) < 0)
-                        return log_error_errno(r, "Failed to stat '%s': %m", node);
-
-                if (S_ISBLK(st.st_mode))
-                        flags |= FORK_NEW_MOUNTNS;
-        }
-
         if (DEBUG_LOGGING) {
                 _cleanup_free_ char *j = NULL;
 
@@ -674,13 +664,6 @@ int make_filesystem(
                                 log_error_errno(r, "Failed to set %s=%s environment variable: %m", *k, *v);
                                 _exit(EXIT_FAILURE);
                         }
-
-                /* mkfs.btrfs refuses to operate on block devices with mounted partitions, even if operating
-                 * on unformatted free space, so let's trick it and other mkfs tools into thinking no
-                 * partitions are mounted. See https://github.com/kdave/btrfs-progs/issues/640 for more
-                 ° information. */
-                 if (flags & FORK_NEW_MOUNTNS)
-                        (void) mount_nofollow_verbose(LOG_DEBUG, "/dev/null", "/proc/self/mounts", NULL, MS_BIND, NULL);
 
                 execvp(mkfs, argv);
 
