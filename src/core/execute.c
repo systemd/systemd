@@ -587,6 +587,7 @@ void exec_context_init(ExecContext *c) {
                 .timeout_clean_usec = USEC_INFINITY,
                 .capability_bounding_set = CAP_MASK_UNSET,
                 .restrict_namespaces = NAMESPACE_FLAGS_INITIAL,
+                .delegate_namespaces = NAMESPACE_FLAGS_INITIAL,
                 .log_level_max = -1,
 #if HAVE_SECCOMP
                 .syscall_errno = SECCOMP_ERROR_NUMBER_KILL,

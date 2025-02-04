@@ -4094,13 +4094,56 @@ static bool exec_context_need_unprivileged_private_users(
                !strv_isempty(context->read_only_paths) ||
                !strv_isempty(context->inaccessible_paths) ||
                !strv_isempty(context->exec_paths) ||
-               !strv_isempty(context->no_exec_paths);
+               !strv_isempty(context->no_exec_paths) ||
+               context->delegate_namespaces != NAMESPACE_FLAGS_INITIAL;
+}
+
+static PrivateUsers exec_context_get_effective_private_users(
+                const ExecContext *context,
+                const ExecParameters *params) {
+
+        assert(context);
+        assert(params);
+
+        if (context->private_users != PRIVATE_USERS_NO)
+                return context->private_users;
+
+        if (exec_context_need_unprivileged_private_users(context, params))
+                return PRIVATE_USERS_SELF;
+
+        /* If any namespace is delegated with DelegateNamespaces=, always set up a user namespace. */
+        if (context->delegate_namespaces != NAMESPACE_FLAGS_INITIAL)
+                return PRIVATE_USERS_SELF;
+
+        return PRIVATE_USERS_NO;
+}
+
+static bool exec_namespace_is_delegated(
+                const ExecContext *context,
+                const ExecParameters *params,
+                unsigned long namespace) {
+
+        assert(context);
+        assert(params);
+        assert(namespace != CLONE_NEWUSER);
+
+        /* If we need unprivileged private users, we've already unshared a user namespace by the time we call
+         * setup_delegated_namespaces() for the first time so let's make sure we do all other namespace
+         * unsharing in the first call to setup_delegated_namespaces() by returning false here. */
+        if (exec_context_need_unprivileged_private_users(context, params))
+                return false;
+
+        if (context->delegate_namespaces == NAMESPACE_FLAGS_INITIAL)
+                return false;
+
+        return FLAGS_SET(context->delegate_namespaces, namespace);
 }
 
 static int setup_delegated_namespaces(
                 const ExecContext *context,
                 ExecParameters *params,
                 ExecRuntime *runtime,
+                bool delegate,
                 const char *memory_pressure_path,
                 uid_t uid,
                 uid_t gid,
@@ -4111,16 +4154,25 @@ static int setup_delegated_namespaces(
 
         int r;
 
+        /* This function is called twice, once before unsharing the user namespace, and once after unsharing
+         * the user namespace. When called before unsharing the user namespace, "delegate" is set to "false".
+         * When called after unsharing the user namespace, "delegate" is set to "true". The net effect is
+         * that all namespaces that should not be delegated are unshared when this function is called the
+         * first time and all namespaces that should be delegated are unshared when this function is called
+         * the second time. */
+
         assert(context);
         assert(params);
         assert(reterr_exit_status);
 
         if (exec_needs_network_namespace(context) &&
+            exec_namespace_is_delegated(context, params, CLONE_NEWNET) == delegate &&
             runtime && runtime->shared && runtime->shared->netns_storage_socket[0] >= 0) {
 
                 /* Try to enable network namespacing if network namespacing is available and we have
-                 * CAP_NET_ADMIN. We need CAP_NET_ADMIN to be able to configure the loopback device in the
-                 * new network namespace. And if we don't have that, then we could only create a network
+                 * CAP_NET_ADMIN in the current user namespace (either the system manager one or the unit's
+                 * own user namespace). We need CAP_NET_ADMIN to be able to configure the loopback device in
+                 * the new network namespace. And if we don't have that, then we could only create a network
                  * namespace without the ability to set up "lo". Hence gracefully skip things then. */
                 if (ns_type_supported(NAMESPACE_NET) && have_effective_cap(CAP_NET_ADMIN) > 0) {
                         r = setup_shareable_ns(runtime->shared->netns_storage_socket, CLONE_NEWNET);
@@ -4130,7 +4182,8 @@ static int setup_delegated_namespaces(
                         else if (r < 0) {
                                 *reterr_exit_status = EXIT_NETWORK;
                                 return log_exec_error_errno(context, params, r, "Failed to set up network namespacing: %m");
-                        }
+                        } else
+                                log_exec_debug(context, params, "Set up %snetwork namespace", delegate ? "delegated " : "");
                 } else if (context->network_namespace_path) {
                         *reterr_exit_status = EXIT_NETWORK;
                         return log_exec_error_errno(context, params, SYNTHETIC_ERRNO(EOPNOTSUPP),
@@ -4139,8 +4192,9 @@ static int setup_delegated_namespaces(
                         log_exec_notice(context, params, "PrivateNetwork=yes is configured, but the kernel does not support or we lack privileges for network namespace, proceeding without.");
         }
 
-        if (exec_needs_ipc_namespace(context) && runtime &&
-            runtime->shared && runtime->shared->ipcns_storage_socket[0] >= 0) {
+        if (exec_needs_ipc_namespace(context) &&
+            exec_namespace_is_delegated(context, params, CLONE_NEWIPC) == delegate &&
+            runtime && runtime->shared && runtime->shared->ipcns_storage_socket[0] >= 0) {
 
                 if (ns_type_supported(NAMESPACE_IPC)) {
                         r = setup_shareable_ns(runtime->shared->ipcns_storage_socket, CLONE_NEWIPC);
@@ -4150,7 +4204,8 @@ static int setup_delegated_namespaces(
                         else if (r < 0) {
                                 *reterr_exit_status = EXIT_NAMESPACE;
                                 return log_exec_error_errno(context, params, r, "Failed to set up IPC namespacing: %m");
-                        }
+                        } else
+                                log_exec_debug(context, params, "Set up %sIPC namespace", delegate ? "delegated " : "");
                 } else if (context->ipc_namespace_path) {
                         *reterr_exit_status = EXIT_NAMESPACE;
                         return log_exec_error_errno(context, params, SYNTHETIC_ERRNO(EOPNOTSUPP),
@@ -4159,16 +4214,20 @@ static int setup_delegated_namespaces(
                         log_exec_warning(context, params, "PrivateIPC=yes is configured, but the kernel does not support IPC namespaces, ignoring.");
         }
 
-        if (needs_sandboxing && exec_needs_cgroup_namespace(context, params)) {
+        if (needs_sandboxing && exec_needs_cgroup_namespace(context, params) &&
+            exec_namespace_is_delegated(context, params, CLONE_NEWCGROUP) == delegate) {
                 if (unshare(CLONE_NEWCGROUP) < 0) {
                         *reterr_exit_status = EXIT_NAMESPACE;
                         return log_exec_error_errno(context, params, errno, "Failed to set up cgroup namespacing: %m");
                 }
+
+                log_exec_debug(context, params, "Set up %scgroup namespace", delegate ? "delegated " : "");
         }
 
         /* Unshare a new PID namespace before setting up mounts to ensure /proc/ is mounted with only processes in PID namespace visible.
          * Note PrivatePIDs=yes implies MountAPIVFS=yes so we'll always ensure procfs is remounted. */
-        if (needs_sandboxing && exec_needs_pid_namespace(context)) {
+        if (needs_sandboxing && exec_needs_pid_namespace(context) &&
+            exec_namespace_is_delegated(context, params, CLONE_NEWPID) == delegate) {
                 if (params->pidref_transport_fd < 0) {
                         *reterr_exit_status = EXIT_NAMESPACE;
                         return log_exec_error_errno(context, params, SYNTHETIC_ERRNO(ENOTCONN), "PidRef socket is not set up: %m");
@@ -4198,11 +4257,14 @@ static int setup_delegated_namespaces(
                         *reterr_exit_status = EXIT_NAMESPACE;
                         return log_exec_error_errno(context, params, r, "Failed to set up pid namespace: %m");
                 }
+
+                log_exec_debug(context, params, "Set up %spid namespace", delegate ? "delegated " : "");
         }
 
         /* If PrivatePIDs= yes is configured, we're now running as pid 1 in a pid namespace! */
 
-        if (exec_needs_mount_namespace(context, params, runtime)) {
+        if (exec_needs_mount_namespace(context, params, runtime) &&
+            exec_namespace_is_delegated(context, params, CLONE_NEWNS) == delegate) {
                 _cleanup_free_ char *error_path = NULL;
 
                 r = apply_mount_namespace(command->flags,
@@ -4219,12 +4281,16 @@ static int setup_delegated_namespaces(
                         return log_exec_error_errno(context, params, r, "Failed to set up mount namespacing%s%s: %m",
                                                     error_path ? ": " : "", strempty(error_path));
                 }
+
+                log_exec_debug(context, params, "Set up %smount namespace", delegate ? "delegated " : "");
         }
 
-        if (needs_sandboxing) {
+        if (needs_sandboxing && exec_namespace_is_delegated(context, params, CLONE_NEWUTS) == delegate) {
                 r = apply_protect_hostname(context, params, reterr_exit_status);
                 if (r < 0)
                         return r;
+
+                log_exec_debug(context, params, "Set up %sUTS namespace", delegate ? "delegated " : "");
         }
 
         return 0;
@@ -4416,7 +4482,6 @@ int exec_invoke(
         char **final_argv = NULL;
         dev_t journal_stream_dev = 0;
         ino_t journal_stream_ino = 0;
-        bool userns_set_up = false;
         bool needs_sandboxing,          /* Do we need to set up full sandboxing? (i.e. all namespacing, all MAC stuff, caps, yadda yadda */
                 needs_setuid,           /* Do we need to do the actual setresuid()/setresgid() calls? */
                 needs_mount_namespace,  /* Do we need to set up a mount namespace for this kernel? */
@@ -5162,9 +5227,7 @@ int exec_invoke(
                 /* If we're unprivileged, set up the user namespace first to enable use of the other namespaces.
                  * Users with CAP_SYS_ADMIN can set up user namespaces last because they will be able to
                  * set up all of the other namespaces (i.e. network, mount, UTS) without a user namespace. */
-                PrivateUsers pu = context->private_users;
-                if (pu == PRIVATE_USERS_NO)
-                        pu = PRIVATE_USERS_SELF;
+                PrivateUsers pu = exec_context_get_effective_private_users(context, params);
 
                 /* The kernel requires /proc/pid/setgroups be set to "deny" prior to writing /proc/pid/gid_map in
                  * unprivileged user namespaces. */
@@ -5179,14 +5242,16 @@ int exec_invoke(
                         log_exec_info_errno(context, params, r, "Failed to set up user namespacing for unprivileged user, ignoring: %m");
                 else {
                         assert(r > 0);
-                        userns_set_up = true;
+                        log_debug("Set up unprivileged user namespace");
                 }
         }
 
+        /* Call setup_delegated_namespaces() the first time to unshare all non-delegated namespaces. */
         r = setup_delegated_namespaces(
                         context,
                         params,
                         runtime,
+                        /* delegate= */ false,
                         memory_pressure_path,
                         uid,
                         gid,
@@ -5229,14 +5294,34 @@ int exec_invoke(
          * case of mount namespaces being less privileged when the mount point list is copied from a
          * different user namespace). */
 
-        if (needs_sandboxing && !userns_set_up) {
-                r = setup_private_users(context->private_users, saved_uid, saved_gid, uid, gid,
-                                        /* allow_setgroups= */ context->private_users == PRIVATE_USERS_FULL);
+        if (needs_sandboxing && !exec_context_need_unprivileged_private_users(context, params)) {
+                PrivateUsers pu = exec_context_get_effective_private_users(context, params);
+
+                r = setup_private_users(pu, saved_uid, saved_gid, uid, gid,
+                                        /* allow_setgroups= */ pu == PRIVATE_USERS_FULL);
                 if (r < 0) {
                         *exit_status = EXIT_USER;
                         return log_exec_error_errno(context, params, r, "Failed to set up user namespacing: %m");
                 }
+
+                log_debug("Set up privileged user namespace");
         }
+
+        /* Call setup_delegated_namespaces() the second time to unshare all delegated namespaces. */
+        r = setup_delegated_namespaces(
+                        context,
+                        params,
+                        runtime,
+                        /* delegate= */ true,
+                        memory_pressure_path,
+                        uid,
+                        gid,
+                        command,
+                        needs_sandboxing,
+                        has_cap_sys_admin,
+                        exit_status);
+        if (r < 0)
+                return r;
 
         /* Now that the mount namespace has been set up and privileges adjusted, let's look for the thing we
          * shall execute. */

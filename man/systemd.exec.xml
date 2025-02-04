@@ -2367,6 +2367,43 @@ RestrictNamespaces=~cgroup net</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>DelegateNamespaces=</varname></term>
+
+        <listitem><para>Delegates ownership of the given namespace types to the user namespace of the
+        processes of this unit. For details about Linux namespaces, see <citerefentry
+        project='man-pages'><refentrytitle>namespaces</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+        Either takes a boolean argument, or a space-separated list of namespace type identifiers. If false
+        (the default), the unit's processes' user namespace will not have ownership over any namespaces
+        created during setup of the unit's sandboxed environment. If true, ownership of all namespace types
+        (except for user namespaces, where the concept doesn't apply) created during setup of the unit's
+        sandboxed environment is delegated to the unit's processes' user namespace. Otherwise, a
+        space-separated list of namespace type identifiers must be specified, consisting of any combination
+        of: <constant>cgroup</constant>, <constant>ipc</constant>, <constant>net</constant>,
+        <constant>mnt</constant>, <constant>pid</constant>, and <constant>uts</constant>. All namespaces of
+        the listed types will be owned by the unit's processes' user namespace if they are created during
+        setup of the unit's sandboxed environment (allow-listing). By prepending the list with a single tilde
+        character (<literal>~</literal>) the effect may be inverted: all namespaces of types not listed and
+        created during setup of the unit's sandboxed environment will be owned by the unit's processes' user
+        namespace (deny-listing). If the empty string is assigned, the default namespace ownership is
+        applied, which is equivalent to false. This option may appear more than once, in which case the
+        namespace types are merged by <constant>OR</constant>, or by <constant>AND</constant> if the lines
+        are prefixed with <literal>~</literal> (see examples below). Internally, this setting controls the
+        order in which namespaces are unshared by systemd. Namespace types that should be owned by the unit's
+        processes' user namespace will be unshared after unsharing the user namespace. Internally, this
+        setting controls the order in which namespaces are unshared. Delegated namespaces will be unshared
+        after the user namespace is unshared. Other namespaces will be unshared before the user namespace is
+        unshared.</para>
+
+        <para>Delegating any namespace with <varname>DelegateNamespaces=</varname> implies
+        <varname>PrivateUsers=self</varname> unless <varname>PrivateUsers=</varname> is explicitly enabled
+        already by the unit. Delegating a namespace does not imply that the namespace is unshared, that is
+        done with the namespace specific unit setting such as <varname>PrivateNetwork=</varname> or
+        <varname>PrivateMounts=</varname>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>LockPersonality=</varname></term>
 
         <listitem><para>Takes a boolean argument. If set, locks down the <citerefentry

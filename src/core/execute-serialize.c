@@ -2470,6 +2470,12 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
                         return r;
         }
 
+        if (c->delegate_namespaces != NAMESPACE_FLAGS_INITIAL) {
+                r = serialize_item_format(f, "exec-context-delegate-namespaces", "%lu", c->delegate_namespaces);
+                if (r < 0)
+                        return r;
+        }
+
 #if HAVE_LIBBPF
         if (exec_context_restrict_filesystems_set(c)) {
                 char *fs;
@@ -3527,6 +3533,10 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
 #endif
                 } else if ((val = startswith(l, "exec-context-restrict-namespaces="))) {
                         r = safe_atolu(val, &c->restrict_namespaces);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-context-delegate-namespaces="))) {
+                        r = safe_atolu(val, &c->delegate_namespaces);
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-context-restrict-filesystems="))) {

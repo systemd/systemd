@@ -3556,7 +3556,7 @@ int config_parse_address_families(
         }
 }
 
-int config_parse_restrict_namespaces(
+int config_parse_namespace_flags(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -3568,24 +3568,25 @@ int config_parse_restrict_namespaces(
                 void *data,
                 void *userdata) {
 
-        ExecContext *c = data;
-        unsigned long flags;
+        unsigned long *flags = data;
+        unsigned long all = UPDATE_FLAG(NAMESPACE_FLAGS_ALL, CLONE_NEWUSER, !streq(lvalue, "DelegateNamespaces"));
+        unsigned long f;
         bool invert = false;
         int r;
 
         if (isempty(rvalue)) {
                 /* Reset to the default. */
-                c->restrict_namespaces = NAMESPACE_FLAGS_INITIAL;
+                *flags = NAMESPACE_FLAGS_INITIAL;
                 return 0;
         }
 
         /* Boolean parameter ignores the previous settings */
         r = parse_boolean(rvalue);
         if (r > 0) {
-                c->restrict_namespaces = 0;
+                *flags = 0;
                 return 0;
         } else if (r == 0) {
-                c->restrict_namespaces = NAMESPACE_FLAGS_ALL;
+                *flags = all;
                 return 0;
         }
 
@@ -3595,18 +3596,25 @@ int config_parse_restrict_namespaces(
         }
 
         /* Not a boolean argument, in this case it's a list of namespace types. */
-        r = namespace_flags_from_string(rvalue, &flags);
+        r = namespace_flags_from_string(rvalue, &f);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse namespace type string, ignoring: %s", rvalue);
                 return 0;
         }
 
-        if (c->restrict_namespaces == NAMESPACE_FLAGS_INITIAL)
+        if (*flags == NAMESPACE_FLAGS_INITIAL)
                 /* Initial assignment. Just set the value. */
-                c->restrict_namespaces = invert ? (~flags) & NAMESPACE_FLAGS_ALL : flags;
+                f = invert ? (~f) & all : f;
         else
                 /* Merge the value with the previous one. */
-                SET_FLAG(c->restrict_namespaces, flags, !invert);
+                f = UPDATE_FLAG(*flags, f, !invert);
+
+        if (FLAGS_SET(f, CLONE_NEWUSER) && streq(lvalue, "DelegateNamespaces")) {
+                log_syntax(unit, LOG_WARNING, filename, line, r, "The user namespace cannot be delegated with DelegateNamespaces=, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        *flags = f;
 
         return 0;
 }
@@ -6349,7 +6357,7 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_syscall_errno,         "ERRNO" },
                 { config_parse_syscall_log,           "SYSCALLS" },
                 { config_parse_address_families,      "FAMILIES" },
-                { config_parse_restrict_namespaces,   "NAMESPACES"  },
+                { config_parse_namespace_flags,       "NAMESPACES" },
 #endif
                 { config_parse_restrict_filesystems,  "FILESYSTEMS"  },
                 { config_parse_cpu_shares,            "SHARES" },
