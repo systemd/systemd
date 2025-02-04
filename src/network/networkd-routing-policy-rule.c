@@ -863,6 +863,31 @@ int link_drop_routing_policy_rules(Link *link, bool only_static) {
         return r;
 }
 
+static int routing_policy_rule_is_ready_to_configure(const RoutingPolicyRule *rule, Link *link) {
+        assert(rule);
+        assert(link);
+        assert(link->manager);
+
+        /* For routing policy rules, it is not necessary to check operstate and friends of the interface.
+         * Hence, here we refuse to configure rules only when the interface is already removed, or in the
+         * failed state. */
+        if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
+                return false;
+
+        /* Strictly speaking checking existence of IIF and OIF below is not necessary. But, configuring
+         * routing policy rule with non-existent IIF or OIF is mostly meaningless, and 'ip rule' command
+         * shows [detached] for such rules, that may confuse users. Let's postpone to configure if one of
+         * IIF/OIF does not exist. */
+
+        if (rule->iif && !link_is_ready_to_configure_by_name(link->manager, rule->iif, /* allow_unmanaged = */ true))
+                return false;
+
+        if (rule->oif && !link_is_ready_to_configure_by_name(link->manager, rule->oif, /* allow_unmanaged = */ true))
+                return false;
+
+        return true;
+}
+
 static int routing_policy_rule_process_request(Request *req, Link *link, RoutingPolicyRule *rule) {
         RoutingPolicyRule *existing;
         int r;
@@ -872,7 +897,7 @@ static int routing_policy_rule_process_request(Request *req, Link *link, Routing
         assert(link->manager);
         assert(rule);
 
-        if (!link_is_ready_to_configure(link, false))
+        if (!routing_policy_rule_is_ready_to_configure(rule, link))
                 return 0;
 
         r = routing_policy_rule_configure(rule, link, req);
