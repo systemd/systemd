@@ -385,6 +385,15 @@
     core kernel, the embedded initrd and kernel command line (see above for a full list), including all UKI
     profiles.</para>
 
+    <para>Also note that when <command>systemd-stub</command> measures a PE section, it will measure the
+    amount of bytes that the section takes up in memory (<varname>VirtualSize</varname>) and not the amount
+    of bytes that the section takes up on disk (<varname>SizeOfRawData</varname>). This means that if the
+    size in memory is larger than the size on disk, <command>systemd-stub</command> will end up measuring
+    extra zeroes. To avoid this from happening, it is recommended to make sure that the size in memory of
+    each section that is measured by <command>systemd-stub</command> is always smaller than or equal to the
+    size on disk. <command>ukify</command> automatically makes sure this is the case when building UKIs or
+    addons.</para>
+
     <para>Also note that the Linux kernel will measure all initrds it receives into TPM PCR 9. This means
     every type of initrd (of the selected UKI profile) will possibly be measured two or three times: the
     initrds embedded in the kernel image will be measured to PCR 4, PCR 9 and PCR 11; the initrd synthesized
