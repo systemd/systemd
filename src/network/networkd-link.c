@@ -200,6 +200,17 @@ bool link_is_ready_to_configure(Link *link, bool allow_unmanaged) {
         return check_ready_for_all_sr_iov_ports(link, allow_unmanaged, link_is_ready_to_configure_one);
 }
 
+bool link_is_ready_to_configure_by_name(Manager *manager, const char *name, bool allow_unmanaged) {
+        assert(manager);
+        assert(name);
+
+        Link *link;
+        if (link_get_by_name(manager, name, &link) < 0)
+                return false;
+
+        return link_is_ready_to_configure(link, allow_unmanaged);
+}
+
 void link_ntp_settings_clear(Link *link) {
         link->ntp = strv_free(link->ntp);
 }
