@@ -1084,6 +1084,29 @@ testcase_13_varlink_subscribe_dns_configuration() {
         <(jq -cr --seq  '.configuration[] | select(.ifname == "dns0" and .servers != null and .searchDomains != null) | {"dns0":{servers: [.servers[] | .address], domains: [.searchDomains[] | .name]}}' "$tmpfile")
 }
 
+# Test RefuseRecordTypes
+testcase_14_refuse_record_types() {
+    mkdir -p /run/systemd/resolved.conf.d
+    {
+        echo "[Resolve]"
+        echo "RefuseRecordTypes=AAAA SRV TXT"
+    } >/run/systemd/resolved.conf.d/test.conf
+    ln -svf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
+    systemctl reload systemd-resolved.service
+
+    run dig localhost -t AAAA
+    grep -qF "status: REFUSED" "$RUN_OUT"
+
+    run dig localhost -t SRV
+    grep -qF "status: REFUSED" "$RUN_OUT"
+
+    run dig localhost -t TXT
+    grep -qF "status: REFUSED" "$RUN_OUT"
+
+    run dig localhost -t A
+    grep -qF "status: NOERROR" "$RUN_OUT"
+}
+
 # PRE-SETUP
 systemctl unmask systemd-resolved.service
 systemctl enable --now systemd-resolved.service
