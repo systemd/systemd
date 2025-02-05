@@ -3,7 +3,6 @@
 systemd_localed_sources = files(
         'localed-util.c',
         'localed.c',
-        'xkbcommon-util.c',
 )
 
 localectl_sources = files('localectl.c')
@@ -37,7 +36,6 @@ executables += [
                 'sources' : files(
                         'test-localed-util.c',
                         'localed-util.c',
-                        'xkbcommon-util.c',
                 ),
                 'dependencies' : libxkbcommon_deps,
         },
