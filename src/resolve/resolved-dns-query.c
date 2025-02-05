@@ -1388,6 +1388,6 @@ bool dns_question_has_record_types(DnsQuestion *q, Set *types) {
         DnsResourceKey *key;
 
         DNS_QUESTION_FOREACH(key, q)
-                return (set_contains(types, INT_TO_PTR(key->type)));
+                return set_contains(types, INT_TO_PTR(key->type));
         return false;
 }
