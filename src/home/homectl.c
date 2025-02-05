@@ -2810,7 +2810,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --enforce-password-policy=BOOL\n"
                "                               Control whether to enforce system's password\n"
                "                               policy for this user\n"
-               "  -P                           Same as --enforce-password-password=no\n"
+               "  -P                           Same as --enforce-password-policy=no\n"
                "     --password-change-now=BOOL\n"
                "                               Require the password to be changed on next login\n"
                "     --password-change-min=TIME\n"
