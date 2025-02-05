@@ -413,3 +413,45 @@ int manager_parse_config_file(Manager *m) {
 #endif
         return 0;
 }
+
+int config_parse_record_types(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Set **types = ASSERT_PTR(data);
+        int r;
+
+        if (isempty(rvalue)) {
+                *types = set_free(*types);
+                return 0;
+        }
+
+        for (const char *p = rvalue;;) {
+                _cleanup_free_ char *word = NULL;
+                r = extract_first_word(&p, &word, NULL, 0);
+                if (r < 0)
+                        return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
+                if (r == 0)
+                        return 1;
+
+                r = dns_type_from_string(word);
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid DNS record type, ignoring: %s", word);
+                        continue;
+                }
+
+                r = set_ensure_put(types, NULL, INT_TO_PTR(r));
+                if (r < 0)
+                        return log_oom();
+        }
+
+        return 1;
+}
