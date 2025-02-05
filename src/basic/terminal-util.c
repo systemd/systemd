@@ -103,22 +103,25 @@ int chvt(int vt) {
         return RET_NERRNO(ioctl(fd, VT_ACTIVATE, vt));
 }
 
-int read_one_char(FILE *f, char *ret, usec_t t, bool *need_nl) {
+int read_one_char(FILE *f, char *ret, usec_t t, bool echo, bool *need_nl) {
         _cleanup_free_ char *line = NULL;
         struct termios old_termios;
         int r, fd;
 
-        assert(f);
         assert(ret);
+
+        if (!f)
+                f = stdin;
 
         /* If this is a terminal, then switch canonical mode off, so that we can read a single
          * character. (Note that fmemopen() streams do not have an fd associated with them, let's handle that
-         * nicely.) */
+         * nicely.) If 'echo' is false we'll also disable ECHO mode so that the pressed key is not made
+         * visible to the user. */
         fd = fileno(f);
         if (fd >= 0 && tcgetattr(fd, &old_termios) >= 0) {
                 struct termios new_termios = old_termios;
 
-                new_termios.c_lflag &= ~ICANON;
+                new_termios.c_lflag &= ~(ICANON|(echo ? 0 : ECHO));
                 new_termios.c_cc[VMIN] = 1;
                 new_termios.c_cc[VTIME] = 0;
 
@@ -201,7 +204,7 @@ int ask_char(char *ret, const char *replies, const char *fmt, ...) {
 
                 fflush(stdout);
 
-                r = read_one_char(stdin, &c, DEFAULT_ASK_REFRESH_USEC, &need_nl);
+                r = read_one_char(stdin, &c, DEFAULT_ASK_REFRESH_USEC, /* echo= */ true, &need_nl);
                 if (r < 0) {
 
                         if (r == -ETIMEDOUT)
@@ -257,20 +260,23 @@ int ask_string(char **ret, const char *text, ...) {
 }
 
 bool any_key_to_proceed(void) {
+
+        /* Insert a new line here as well as to when the user inputs, as this is also used during the boot up
+         * sequence when status messages may be interleaved with the current program output. This ensures
+         * that the status messages aren't appended on the same line as this message. */
+
+        fputc('\n', stdout);
+        fputs(ansi_highlight_magenta(), stdout);
+        fputs("-- Press any key to proceed --", stdout);
+        fputs(ansi_normal(), stdout);
+        fflush(stdout);
+
         char key = 0;
-        bool need_nl = true;
+        (void) read_one_char(stdin, &key, USEC_INFINITY, /* echo= */ false, /* need_nl= */ NULL);
 
-        /*
-         * Insert a new line here as well as to when the user inputs, as this is also used during the
-         * boot up sequence when status messages may be interleaved with the current program output.
-         * This ensures that the status messages aren't appended on the same line as this message.
-         */
-        puts("-- Press any key to proceed --");
-
-        (void) read_one_char(stdin, &key, USEC_INFINITY, &need_nl);
-
-        if (need_nl)
-                putchar('\n');
+        fputc('\n', stdout);
+        fputc('\n', stdout);
+        fflush(stdout);
 
         return key != 'q';
 }
@@ -312,10 +318,9 @@ int show_menu(char **x, unsigned n_columns, unsigned width, unsigned percentage)
                 putchar('\n');
 
                 /* on the first screen we reserve 2 extra lines for the title */
-                if (i % break_lines == break_modulo) {
+                if (i % break_lines == break_modulo)
                         if (!any_key_to_proceed())
                                 return 0;
-                }
         }
 
         return 0;
