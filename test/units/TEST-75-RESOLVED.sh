@@ -1094,16 +1094,16 @@ testcase_14_refuse_record_types() {
     ln -svf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
     systemctl reload systemd-resolved.service
 
-    run dig localhost5 -t AAAA
+    run dig localhost -t AAAA
     grep -qF "status: REFUSED" "$RUN_OUT"
 
-    run dig localhost5 -t SRV
+    run dig localhost -t SRV
     grep -qF "status: REFUSED" "$RUN_OUT"
 
-    run dig localhost5 -t TXT
+    run dig localhost -t TXT
     grep -qF "status: REFUSED" "$RUN_OUT"
 
-    run dig localhost5 -t A
+    run dig localhost -t A
     grep -qF "status: NOERROR" "$RUN_OUT"
 }
 
