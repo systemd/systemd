@@ -649,7 +649,7 @@
         <listitem><para>Takes a boolean argument. Configures whether to enforce the system's password policy
         for this user, regarding quality and strength of selected passwords. Defaults to
         on. <option>-P</option> is short for
-        <option>---enforce-password-policy=no</option>.</para>
+        <option>--enforce-password-policy=no</option>.</para>
 
         <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
