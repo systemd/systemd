@@ -51,6 +51,7 @@
 #include "tmpfile-util.h"
 #include "umask-util.h"
 #include "user-util.h"
+#include "vconsole-util.h"
 
 static char *arg_root = NULL;
 static char *arg_image = NULL;
@@ -461,7 +462,7 @@ static int prompt_keymap(int rfd) {
 static int process_keymap(int rfd) {
         _cleanup_close_ int pfd = -EBADF;
         _cleanup_free_ char *f = NULL;
-        char **keymap;
+        _cleanup_strv_free_ char **keymap = NULL;
         int r;
 
         assert(rfd >= 0);
@@ -502,7 +503,18 @@ static int process_keymap(int rfd) {
         if (isempty(arg_keymap))
                 return 0;
 
-        keymap = STRV_MAKE(strjoina("KEYMAP=", arg_keymap));
+        VCContext vc = {
+                .keymap = arg_keymap,
+        };
+        X11Context xc = {};
+
+        r = vconsole_convert_to_x11(&vc, /* verify= */ NULL, &xc);
+        if (r < 0)
+                return log_error_errno(r, "Failed to convert keymap data: %m");
+
+        r = vconsole_serialize(&vc, &xc, &keymap);
+        if (r < 0)
+                return log_error_errno(r, "Failed to serialize keymap data: %m");
 
         r = write_vconsole_conf(pfd, f, keymap);
         if (r < 0)
