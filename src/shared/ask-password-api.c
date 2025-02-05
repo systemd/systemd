@@ -744,6 +744,10 @@ int ask_password_tty(
 
                         if (ttyfd >= 0)
                                 (void) loop_write(ttyfd, NO_ECHO, SIZE_MAX);
+                } else if ((unsigned char) c < (unsigned char) ' ') {
+                        /* Don't accept control chars */
+                        if (ttyfd >= 0)
+                                (void) loop_write(ttyfd, "\a", 1);
 
                 } else if (p >= sizeof(passphrase)-1) {
 
