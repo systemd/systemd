@@ -318,6 +318,17 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>RefuseRecordTypes=</varname></term>
+        <listitem><para>Takes a string argument separated by spaces. This option is to refuse (deny) record types
+         set from from being queried</para>
+        <para>Examples:
+        <programlisting>RefuseRecordTypes=AAAA SRV TXT</programlisting>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>DNSStubListenerExtra=</varname></term>
         <listitem><para>Takes an IPv4 or IPv6 address to listen on. The address may be optionally
         prefixed with a protocol name (<literal>udp</literal> or <literal>tcp</literal>) separated with
