@@ -2640,13 +2640,13 @@ static int create_interactively(void) {
                 shell = mfree(shell);
 
                 r = ask_string(&shell,
-                               "%s Please enter the shell to use for user %s (empty to skip): ",
+                               "%s Please enter the shell to use for user %s (empty for default): ",
                                special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET), username);
                 if (r < 0)
                         return log_error_errno(r, "Failed to query user for username: %m");
 
                 if (isempty(shell)) {
-                        log_info("No data entered, skipping.");
+                        log_info("No data entered, leaving at default.");
                         break;
                 }
 
