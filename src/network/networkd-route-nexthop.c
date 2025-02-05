@@ -844,11 +844,24 @@ int route_section_verify_nexthops(Route *route) {
                                 return log_route_section(route, "Invalid route family.");
                         }
 
-                if (route->nexthop.family == AF_INET && !FLAGS_SET(route->network->dhcp, ADDRESS_FAMILY_IPV4))
-                        return log_route_section(route, "Gateway=\"_dhcp4\" is specified but DHCPv4 client is disabled.");
+                switch (route->nexthop.family) {
+                case AF_INET:
+                        if (!FLAGS_SET(route->network->dhcp, ADDRESS_FAMILY_IPV4))
+                                return log_route_section(route, "Gateway=\"_dhcp4\" is specified but DHCPv4 client is disabled.");
 
-                if (route->nexthop.family == AF_INET6 && route->network->ndisc == 0)
-                        return log_route_section(route, "Gateway=\"_ipv6ra\" is specified but IPv6AcceptRA= is disabled.");
+                        route->source = NETWORK_CONFIG_SOURCE_DHCP4;
+                        break;
+
+                case AF_INET6:
+                        if (route->network->ndisc == 0)
+                                return log_route_section(route, "Gateway=\"_ipv6ra\" is specified but IPv6AcceptRA= is disabled.");
+
+                        route->source = NETWORK_CONFIG_SOURCE_NDISC;
+                        break;
+
+                default:
+                        assert_not_reached();
+                }
         }
 
         /* When only Gateway= is specified, assume the route family based on the Gateway address. */

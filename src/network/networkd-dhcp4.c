@@ -405,20 +405,20 @@ static int dhcp4_request_route(Route *route, Link *link) {
         return link_request_route(link, route, &link->dhcp4_messages, dhcp4_route_handler);
 }
 
-static bool link_prefixroute(Link *link) {
+static bool prefixroute_by_kernel(Link *link) {
         return !link->network->dhcp_route_table_set ||
                 link->network->dhcp_route_table == RT_TABLE_MAIN;
 }
 
-static int dhcp4_request_prefix_route(Link *link) {
+static int dhcp4_request_prefix_route(Link *link, Route *rt) {
         _cleanup_(route_unrefp) Route *route = NULL;
         int r;
 
         assert(link);
         assert(link->dhcp_lease);
 
-        if (link_prefixroute(link))
-                /* When true, the route will be created by kernel. See dhcp4_update_address(). */
+        if (prefixroute_by_kernel(link) && (!rt || !rt->table_set || rt->table == RT_TABLE_MAIN))
+                /* The prefix route in the main table will be created by the kernel. See dhcp4_update_address(). */
                 return 0;
 
         r = route_new(&route);
@@ -426,6 +426,10 @@ static int dhcp4_request_prefix_route(Link *link) {
                 return r;
 
         route->scope = RT_SCOPE_LINK;
+        if (rt) {
+                route->table_set = rt->table_set;
+                route->table = rt->table;
+        }
 
         r = sd_dhcp_lease_get_prefix(link->dhcp_lease, &route->dst.in, &route->dst_prefixlen);
         if (r < 0)
@@ -438,14 +442,19 @@ static int dhcp4_request_prefix_route(Link *link) {
         return dhcp4_request_route(route, link);
 }
 
-static int dhcp4_request_route_to_gateway(Link *link, const struct in_addr *gw) {
+static int dhcp4_request_route_to_gateway(Link *link, const Route *rt) {
         _cleanup_(route_unrefp) Route *route = NULL;
         struct in_addr address;
         int r;
 
         assert(link);
         assert(link->dhcp_lease);
-        assert(gw);
+        assert(rt);
+
+        if (in_addr_is_set(rt->nexthop.family, &rt->nexthop.gw) <= 0)
+                return 0;
+
+        assert(rt->nexthop.family == AF_INET);
 
         r = sd_dhcp_lease_get_address(link->dhcp_lease, &address);
         if (r < 0)
@@ -455,10 +464,12 @@ static int dhcp4_request_route_to_gateway(Link *link, const struct in_addr *gw) 
         if (r < 0)
                 return r;
 
-        route->dst.in = *gw;
+        route->dst.in = rt->nexthop.gw.in;
         route->dst_prefixlen = 32;
         route->prefsrc.in = address;
         route->scope = RT_SCOPE_LINK;
+        route->table = rt->table;
+        route->table_set = rt->table_set;
 
         return dhcp4_request_route(route, link);
 }
@@ -526,14 +537,14 @@ static int dhcp4_request_route_auto(
                 route->prefsrc.in = address;
 
         } else {
-                r = dhcp4_request_route_to_gateway(link, gw);
-                if (r < 0)
-                        return r;
-
                 route->scope = RT_SCOPE_UNIVERSE;
                 route->nexthop.family = AF_INET;
                 route->nexthop.gw.in = *gw;
                 route->prefsrc.in = address;
+
+                r = dhcp4_request_route_to_gateway(link, route);
+                if (r < 0)
+                        return r;
         }
 
         return dhcp4_request_route(route, link);
@@ -613,12 +624,6 @@ static int dhcp4_request_default_gateway(Link *link) {
         if (r < 0)
                 return r;
 
-        /* The dhcp netmask may mask out the gateway. First, add an explicit route for the gateway host
-         * so that we can route no matter the netmask or existing kernel route tables. */
-        r = dhcp4_request_route_to_gateway(link, &router);
-        if (r < 0)
-                return r;
-
         r = route_new(&route);
         if (r < 0)
                 return r;
@@ -627,6 +632,12 @@ static int dhcp4_request_default_gateway(Link *link) {
         route->nexthop.family = AF_INET;
         route->nexthop.gw.in = router;
         route->prefsrc.in = address;
+
+        /* The dhcp netmask may mask out the gateway. First, add an explicit route for the gateway host
+         * so that we can route no matter the netmask or existing kernel route tables. */
+        r = dhcp4_request_route_to_gateway(link, route);
+        if (r < 0)
+                return r;
 
         return dhcp4_request_route(route, link);
 }
@@ -643,13 +654,11 @@ static int dhcp4_request_semi_static_routes(Link *link) {
                 _cleanup_(route_unrefp) Route *route = NULL;
                 struct in_addr gw;
 
-                if (!rt->gateway_from_dhcp_or_ra)
-                        continue;
-
-                if (rt->nexthop.family != AF_INET)
+                if (rt->source != NETWORK_CONFIG_SOURCE_DHCP4)
                         continue;
 
                 assert(rt->family == AF_INET);
+                assert(rt->nexthop.family == AF_INET);
 
                 r = dhcp4_find_gateway_for_destination(link, &rt->dst.in, rt->dst_prefixlen, &gw);
                 if (r == -EHOSTUNREACH) {
@@ -666,15 +675,25 @@ static int dhcp4_request_semi_static_routes(Link *link) {
                         continue;
                 }
 
-                r = dhcp4_request_route_to_gateway(link, &gw);
-                if (r < 0)
-                        return r;
-
                 r = route_dup(rt, NULL, &route);
                 if (r < 0)
                         return r;
 
                 route->nexthop.gw.in = gw;
+
+                if (!route->prefsrc_set) {
+                        r = sd_dhcp_lease_get_address(link->dhcp_lease, &route->prefsrc.in);
+                        if (r < 0)
+                                return r;
+                }
+
+                r = dhcp4_request_prefix_route(link, route);
+                if (r < 0)
+                        return r;
+
+                r = dhcp4_request_route_to_gateway(link, route);
+                if (r < 0)
+                        return r;
 
                 r = dhcp4_request_route(route, link);
                 if (r < 0)
@@ -775,7 +794,7 @@ static int dhcp4_request_routes(Link *link) {
         assert(link);
         assert(link->dhcp_lease);
 
-        r = dhcp4_request_prefix_route(link);
+        r = dhcp4_request_prefix_route(link, /* rt = */ NULL);
         if (r < 0)
                 return log_link_error_errno(link, r, "DHCP error: Could not request prefix route: %m");
 
@@ -965,7 +984,7 @@ static int dhcp4_request_address(Link *link, bool announce) {
         r = sd_dhcp_lease_get_broadcast(link->dhcp_lease, &addr->broadcast);
         if (r < 0 && r != -ENODATA)
                 return log_link_warning_errno(link, r, "DHCP: failed to get broadcast address: %m");
-        SET_FLAG(addr->flags, IFA_F_NOPREFIXROUTE, !link_prefixroute(link));
+        SET_FLAG(addr->flags, IFA_F_NOPREFIXROUTE, !prefixroute_by_kernel(link));
         addr->route_metric = link->network->dhcp_route_metric;
         addr->duplicate_address_detection = link->network->dhcp_send_decline ? ADDRESS_FAMILY_IPV4 : ADDRESS_FAMILY_NO;
 

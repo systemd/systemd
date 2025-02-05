@@ -7263,7 +7263,14 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertRegex(output, f'192.168.5.1 proto dhcp scope link src {address1} metric 24')
         self.assertRegex(output, f'192.168.5.6 proto dhcp scope link src {address1} metric 24')
         self.assertRegex(output, f'192.168.5.7 proto dhcp scope link src {address1} metric 24')
-        self.assertIn('10.0.0.0/8 via 192.168.5.1 proto dhcp', output)
+        self.assertRegex(output, f'192.0.2.0/24 via 192.168.5.1 proto dhcp src {address1}')
+
+        print('## ip route show table 212 dev veth99')
+        output = check_output('ip route show table 212 dev veth99')
+        print(output)
+        self.assertRegex(output, f'192.168.5.0/24 proto dhcp scope link src {address1} metric 24')
+        self.assertRegex(output, f'192.168.5.1 proto dhcp scope link src {address1} metric 24')
+        self.assertRegex(output, f'198.51.100.0/24 via 192.168.5.1 proto dhcp src {address1}')
 
         print('## link state file')
         output = read_link_state_file('veth99')
@@ -7363,7 +7370,14 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertNotIn('192.168.5.6', output)
         self.assertRegex(output, f'192.168.5.7 proto dhcp scope link src {address2} metric 24')
         self.assertRegex(output, f'192.168.5.8 proto dhcp scope link src {address2} metric 24')
-        self.assertIn('10.0.0.0/8 via 192.168.5.1 proto dhcp', output)
+        self.assertRegex(output, f'192.0.2.0/24 via 192.168.5.1 proto dhcp src {address2}')
+
+        print('## ip route show table 212 dev veth99')
+        output = check_output('ip route show table 212 dev veth99')
+        print(output)
+        self.assertRegex(output, f'192.168.5.0/24 proto dhcp scope link src {address2} metric 24')
+        self.assertRegex(output, f'192.168.5.1 proto dhcp scope link src {address2} metric 24')
+        self.assertRegex(output, f'198.51.100.0/24 via 192.168.5.1 proto dhcp src {address2}')
 
         print('## link state file')
         output = read_link_state_file('veth99')
@@ -7431,6 +7445,11 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
 
         print('## ip route show table 211 dev veth99')
         output = check_output('ip route show table 211 dev veth99')
+        print(output)
+        self.assertNotIn(f'{address2}', output)
+
+        print('## ip route show table 212 dev veth99')
+        output = check_output('ip route show table 212 dev veth99')
         print(output)
         self.assertNotIn(f'{address2}', output)
 

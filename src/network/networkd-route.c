@@ -1065,7 +1065,7 @@ int link_request_static_routes(Link *link, bool only_ipv4) {
         link->static_routes_configured = false;
 
         HASHMAP_FOREACH(route, link->network->routes_by_section) {
-                if (route->gateway_from_dhcp_or_ra)
+                if (route->source != NETWORK_CONFIG_SOURCE_STATIC)
                         continue;
 
                 if (only_ipv4 && route->family != AF_INET)
@@ -1519,6 +1519,9 @@ int link_drop_routes(Link *link, bool only_static) {
                         continue;
 
                 HASHMAP_FOREACH(route, other->network->routes_by_section) {
+                        if (route->source != NETWORK_CONFIG_SOURCE_STATIC)
+                                continue;
+
                         if (route->family == AF_INET || ordered_set_isempty(route->nexthops)) {
                                 r = link_unmark_route(other, route, NULL);
                                 if (r < 0)
@@ -1660,7 +1663,19 @@ static int config_parse_preferred_src(
         Route *route = ASSERT_PTR(userdata);
         int r;
 
-        assert(rvalue);
+        if (isempty(rvalue)) {
+                route->prefsrc_set = false;
+                route->prefsrc = IN_ADDR_NULL;
+                return 1;
+        }
+
+        r = parse_boolean(rvalue);
+        if (r == 0) {
+                /* Accepts only no. That prohibits prefsrc set by DHCP lease. */
+                route->prefsrc_set = true;
+                route->prefsrc = IN_ADDR_NULL;
+                return 1;
+        }
 
         if (route->family == AF_UNSPEC)
                 r = in_addr_from_string_auto(rvalue, &route->family, &route->prefsrc);
@@ -1669,6 +1684,7 @@ static int config_parse_preferred_src(
         if (r < 0)
                 return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
+        route->prefsrc_set = true;
         return 1;
 }
 
