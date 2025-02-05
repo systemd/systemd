@@ -17,7 +17,7 @@ int pull_make_verification_jobs(PullJob **ret_checksum_job, PullJob **ret_signat
 int pull_verify(ImportVerify verify, const char *checksum, PullJob *main_job, PullJob *checksum_job, PullJob *signature_job, PullJob *settings_job, PullJob *roothash_job, PullJob *roothash_signature_job, PullJob *verity_job);
 
 typedef enum VerificationStyle {
-        VERIFICATION_PER_FILE,      /* SuSE-style ".sha256" files with inline gpg signature */
+        VERIFICATION_PER_FILE,      /* SUSE-style ".sha256" files with detached gpg signature */
         VERIFICATION_PER_DIRECTORY, /* Ubuntu-style SHA256SUM files with detached SHA256SUM.gpg signatures */
         _VERIFICATION_STYLE_MAX,
         _VERIFICATION_STYLE_INVALID = -EINVAL,
@@ -25,7 +25,19 @@ typedef enum VerificationStyle {
 
 int verification_style_from_url(const char *url, VerificationStyle *style);
 
+typedef enum SignatureStyle {
+        SIGNATURE_GPG_PER_FILE,      /* ".sha256" files with detached .gpg signature */
+        SIGNATURE_ASC_PER_FILE,      /* SUSE-style ".sha256" files with detached .asc signature */
+        SIGNATURE_GPG_PER_DIRECTORY, /* Ubuntu-style SHA256SUM files with detached SHA256SUM.gpg signatures */
+        SIGNATURE_ASC_PER_DIRECTORY, /* SUSE-style SHA256SUM files with detached SHA256SUM.asc signatures */
+        _SIGNATURE_STYLE_MAX,
+        _SIGNATURE_STYLE_INVALID = -EINVAL,
+} SignatureStyle;
+
+int signature_style_from_url(const char *url, SignatureStyle *style);
+
 int pull_job_restart_with_sha256sum(PullJob *job, char **ret);
+int pull_job_restart_with_signature(PullJob *job, char **ret);
 
 bool pull_validate_local(const char *name, ImportFlags flags);
 
