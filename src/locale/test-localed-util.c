@@ -77,40 +77,40 @@ TEST(vconsole_convert_to_x11) {
         int r;
 
         log_info("/* test empty keymap */");
-        assert_se(vconsole_convert_to_x11(&vc, &xc) >= 0);
+        assert_se(vconsole_convert_to_x11(&vc, x11_context_verify, &xc) >= 0);
         assert_se(x11_context_isempty(&xc));
 
         log_info("/* test without variant, new mapping (es:) */");
         assert_se(free_and_strdup(&vc.keymap, "es") >= 0);
-        assert_se(vconsole_convert_to_x11(&vc, &xc) >= 0);
+        assert_se(vconsole_convert_to_x11(&vc, x11_context_verify, &xc) >= 0);
         assert_se(streq(xc.layout, "es"));
         assert_se(xc.variant == NULL);
         x11_context_clear(&xc);
 
         log_info("/* test with known variant, new mapping (es:dvorak) */");
         assert_se(free_and_strdup(&vc.keymap, "es-dvorak") >= 0);
-        assert_se(vconsole_convert_to_x11(&vc, &xc) >= 0);
+        assert_se(vconsole_convert_to_x11(&vc, x11_context_verify, &xc) >= 0);
         assert_se(streq(xc.layout, "es"));
         assert_se(streq(xc.variant, "dvorak"));
         x11_context_clear(&xc);
 
         log_info("/* test with old mapping (fr:latin9) */");
         assert_se(free_and_strdup(&vc.keymap, "fr-latin9") >= 0);
-        assert_se(vconsole_convert_to_x11(&vc, &xc) >= 0);
+        assert_se(vconsole_convert_to_x11(&vc, x11_context_verify, &xc) >= 0);
         assert_se(streq(xc.layout, "fr"));
         assert_se(streq(xc.variant, "latin9"));
         x11_context_clear(&xc);
 
         log_info("/* test with a compound mapping (ru,us) */");
         assert_se(free_and_strdup(&vc.keymap, "ru") >= 0);
-        assert_se(vconsole_convert_to_x11(&vc, &xc) >= 0);
+        assert_se(vconsole_convert_to_x11(&vc, x11_context_verify, &xc) >= 0);
         assert_se(streq(xc.layout, "ru,us"));
         assert_se(xc.variant == NULL);
         x11_context_clear(&xc);
 
         log_info("/* test with a simple mapping (us) */");
         assert_se(free_and_strdup(&vc.keymap, "us") >= 0);
-        assert_se(vconsole_convert_to_x11(&vc, &xc) >= 0);
+        assert_se(vconsole_convert_to_x11(&vc, x11_context_verify, &xc) >= 0);
         assert_se(streq(xc.layout, "us"));
         assert_se(xc.variant == NULL);
         x11_context_clear(&xc);
@@ -118,7 +118,7 @@ TEST(vconsole_convert_to_x11) {
         /* "gh" has no mapping in kbd-model-map and kbd provides a converted keymap for this layout. */
         log_info("/* test with a converted keymap (gh:) */");
         assert_se(free_and_strdup(&vc.keymap, "gh") >= 0);
-        r = vconsole_convert_to_x11(&vc, &xc);
+        r = vconsole_convert_to_x11(&vc, x11_context_verify, &xc);
         if (r == 0) {
                 log_info("Skipping rest of %s: keymaps are not installed", __func__);
                 return;
@@ -130,14 +130,14 @@ TEST(vconsole_convert_to_x11) {
 
         log_info("/* test with converted keymap and with a known variant (gh:ewe) */");
         assert_se(free_and_strdup(&vc.keymap, "gh-ewe") >= 0);
-        assert_se(vconsole_convert_to_x11(&vc, &xc) > 0);
+        assert_se(vconsole_convert_to_x11(&vc, x11_context_verify, &xc) > 0);
         assert_se(streq(xc.layout, "gh"));
         assert_se(streq(xc.variant, "ewe"));
         x11_context_clear(&xc);
 
         log_info("/* test with converted keymap and with an unknown variant (gh:ewe) */");
         assert_se(free_and_strdup(&vc.keymap, "gh-foobar") > 0);
-        assert_se(vconsole_convert_to_x11(&vc, &xc) > 0);
+        assert_se(vconsole_convert_to_x11(&vc, x11_context_verify, &xc) > 0);
         assert_se(streq(xc.layout, "gh"));
         assert_se(xc.variant == NULL);
         x11_context_clear(&xc);
