@@ -1490,3 +1490,19 @@ char* strrstr(const char *haystack, const char *needle) {
         }
         return NULL;
 }
+
+size_t str_common_prefix(const char *a, const char *b) {
+        assert(a);
+        assert(b);
+
+        /* Returns the length of the common prefix of the two specified strings, or SIZE_MAX in case the
+         * strings are fully identical. */
+
+        for (size_t n = 0;; n++) {
+                char c = a[n];
+                if (c != b[n])
+                        return n;
+                if (c == 0)
+                        return SIZE_MAX;
+        }
+}

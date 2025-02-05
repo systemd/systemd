@@ -1395,4 +1395,15 @@ TEST(strrstr) {
         assert_se(!strrstr(p, "xx"));
 }
 
+TEST(str_common_prefix) {
+        ASSERT_EQ(str_common_prefix("", ""), SIZE_MAX);
+        ASSERT_EQ(str_common_prefix("a", "a"), SIZE_MAX);
+        ASSERT_EQ(str_common_prefix("aa", "aa"), SIZE_MAX);
+        ASSERT_EQ(str_common_prefix("aa", "bb"), 0U);
+        ASSERT_EQ(str_common_prefix("bb", "aa"), 0U);
+        ASSERT_EQ(str_common_prefix("aa", "ab"), 1U);
+        ASSERT_EQ(str_common_prefix("ab", "aa"), 1U);
+        ASSERT_EQ(str_common_prefix("systemd-resolved", "systemd-networkd"), 8U);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
