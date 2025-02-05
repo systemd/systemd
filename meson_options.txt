@@ -555,3 +555,5 @@ option('vmlinux-h-path', type : 'string', value : '',
 
 option('default-mountfsd-trusted-directories', type : 'boolean', value: false,
        description : 'controls whether mountfsd should apply a relaxed policy on DDIs in system DDI directories')
+option('native-tools-only', type : 'boolean', value: false,
+       description : 'when set to true, bypasses certain configuration options (used in OpenEmbedded)')
