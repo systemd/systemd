@@ -297,27 +297,7 @@ int vconsole_write_data(Context *c) {
         if (r < 0 && r != -ENOENT)
                 return r;
 
-        r = strv_env_assign(&l, "KEYMAP", empty_to_null(c->vc.keymap));
-        if (r < 0)
-                return r;
-
-        r = strv_env_assign(&l, "KEYMAP_TOGGLE", empty_to_null(c->vc.toggle));
-        if (r < 0)
-                return r;
-
-        r = strv_env_assign(&l, "XKBLAYOUT", empty_to_null(xc->layout));
-        if (r < 0)
-                return r;
-
-        r = strv_env_assign(&l, "XKBMODEL", empty_to_null(xc->model));
-        if (r < 0)
-                return r;
-
-        r = strv_env_assign(&l, "XKBVARIANT", empty_to_null(xc->variant));
-        if (r < 0)
-                return r;
-
-        r = strv_env_assign(&l, "XKBOPTIONS", empty_to_null(xc->options));
+        r = vconsole_serialize(&c->vc, xc, &l);
         if (r < 0)
                 return r;
 
