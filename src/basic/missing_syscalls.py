@@ -11,6 +11,8 @@ SYSCALLS = [
     'copy_file_range',
     'fchmodat2',
     'getrandom',
+    'getxattrat',
+    'listxattrat',
     'memfd_create',
     'mount_setattr',
     'move_mount',
@@ -21,8 +23,10 @@ SYSCALLS = [
     'pidfd_send_signal',
     'pkey_mprotect',
     'quotactl_fd',
+    'removexattrat',
     'renameat2',
     'setns',
+    'setxattrat',
     'statx',
 ]
 
