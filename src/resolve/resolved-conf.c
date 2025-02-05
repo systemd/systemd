@@ -426,11 +426,11 @@ int config_parse_record_types(
                 void *data,
                 void *userdata) {
 
-        Manager *m = ASSERT_PTR(userdata);
+        Set **types = ASSERT_PTR(data);
         int r;
 
         if (isempty(rvalue)) {
-                m->refuse_record_types = set_free(m->refuse_record_types);
+                *types = set_free(*types);
                 return 0;
         }
 
@@ -448,7 +448,7 @@ int config_parse_record_types(
                      continue;
                }
 
-               r = set_ensure_put(&m->refuse_record_types, NULL, INT_TO_PTR(r));
+               r = set_ensure_put(types, NULL, INT_TO_PTR(r));
                if (r < 0)
                       return log_oom();
         }
