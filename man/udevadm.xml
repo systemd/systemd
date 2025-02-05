@@ -73,7 +73,9 @@
     the event queue, and provides simple debugging mechanisms.</para>
   </refsect1>
 
-  <refsect1><title>Options</title>
+  <refsect1>
+    <title>Common Options</title>
+
     <variablelist>
       <varlistentry>
         <term><option>-d</option></term>
@@ -82,6 +84,12 @@
           <para>Print debug messages to standard error. This option is implied in <command>udevadm test</command> and
           <command>udevadm test-builtin</command> commands.</para>
         </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-V</option></term>
+        <term><option>--version</option></term>
+        <xi:include href="standard-options.xml" xpointer="version-text" />
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="help" />
@@ -310,12 +318,11 @@
             <para>When used with <option>--export-db</option>, only show devices that are initialized or not
             initialized respectively.</para>
 
-          <xi:include href="version-info.xml" xpointer="v255"/>
+            <xi:include href="version-info.xml" xpointer="v255"/>
           </listitem>
         </varlistentry>
 
         <xi:include href="standard-options.xml" xpointer="json" />
-        <xi:include href="standard-options.xml" xpointer="help" />
         <xi:include href="standard-options.xml" xpointer="no-pager" />
       </variablelist>
 
@@ -627,8 +634,6 @@
             <xi:include href="version-info.xml" xpointer="v241"/>
           </listitem>
         </varlistentry>
-
-        <xi:include href="standard-options.xml" xpointer="help" />
       </variablelist>
 
       <para>In addition, optional positional arguments can be used
@@ -661,8 +666,6 @@
             <para>Stop waiting if file exists.</para>
           </listitem>
         </varlistentry>
-
-        <xi:include href="standard-options.xml" xpointer="help" />
       </variablelist>
 
       <para>See
@@ -856,8 +859,6 @@
             specified tags are monitored.</para>
           </listitem>
         </varlistentry>
-
-        <xi:include href="standard-options.xml" xpointer="help" />
       </variablelist>
     </refsect2>
 
@@ -944,9 +945,6 @@
           <xi:include href="version-info.xml" xpointer="v250"/>
           </listitem>
         </varlistentry>
-
-        <xi:include href="standard-options.xml" xpointer="help" />
-        <xi:include href="standard-options.xml" xpointer="version" />
       </variablelist>
     </refsect2>
 
@@ -1019,8 +1017,6 @@
             <xi:include href="version-info.xml" xpointer="v254"/>
           </listitem>
         </varlistentry>
-
-        <xi:include href="standard-options.xml" xpointer="help" />
       </variablelist>
     </refsect2>
 
@@ -1078,8 +1074,6 @@
             <xi:include href="version-info.xml" xpointer="v258"/>
           </listitem>
         </varlistentry>
-
-        <xi:include href="standard-options.xml" xpointer="help" />
       </variablelist>
     </refsect2>
 
@@ -1142,8 +1136,6 @@
             <xi:include href="version-info.xml" xpointer="v251"/>
           </listitem>
         </varlistentry>
-
-        <xi:include href="standard-options.xml" xpointer="help" />
       </variablelist>
     </refsect2>
 
@@ -1232,8 +1224,6 @@
 
           <xi:include href="version-info.xml" xpointer="v251"/></listitem>
         </varlistentry>
-
-        <xi:include href="standard-options.xml" xpointer="help" />
       </variablelist>
     </refsect2>
   </refsect1>
