@@ -227,13 +227,12 @@ static bool is_checksum_file(const char *fn) {
 }
 
 static bool is_signature_file(const char *fn) {
-        /* Returns true if the specified filename refers to a signature file we grok (reminder:
-         * suse-style .sha256 files are inline signed) */
+        /* Returns true if the specified filename refers to a signature file we grok */
 
         if (!fn)
                 return false;
 
-        return streq(fn, "SHA256SUMS.gpg") || endswith(fn, ".sha256");
+        return streq(fn, "SHA256SUMS.gpg") || streq(fn, "SHA256SUMS.asc") || endswith(fn, ".sha256.gpg") || endswith(fn, ".sha256.asc");
 }
 
 int pull_make_verification_jobs(
@@ -298,9 +297,15 @@ int pull_make_verification_jobs(
 
         if (verify == IMPORT_VERIFY_SIGNATURE && !is_signature_file(fn)) {
                 _cleanup_free_ char *signature_url = NULL;
+                const char *suffixed = NULL;
 
-                /* Queue job for the SHA256SUMS.gpg file for the image. */
-                r = import_url_change_last_component(url, "SHA256SUMS.gpg", &signature_url);
+                if (fn)
+                        suffixed = strjoina(fn, ".sha256.asc"); /* Start with the suse-style checksum (if there's a base filename) */
+                else
+                        suffixed = "SHA256SUMS.gpg";
+
+                /* Queue job for the signature file for the image. */
+                r = import_url_change_last_component(url, suffixed, &signature_url);
                 if (r < 0)
                         return r;
 
@@ -310,6 +315,7 @@ int pull_make_verification_jobs(
 
                 signature_job->on_finished = on_finished;
                 signature_job->uncompressed_max = signature_job->compressed_max = 1ULL * 1024ULL * 1024ULL;
+                signature_job->on_not_found = pull_job_restart_with_signature;
         }
 
         *ret_checksum_job = TAKE_PTR(checksum_job);
@@ -572,17 +578,14 @@ int pull_verify(ImportVerify verify,
         if (r < 0)
                 return log_error_errno(r, "Failed to determine verification style from URL '%s': %m", verify_job->url);
 
-        if (style == VERIFICATION_PER_DIRECTORY) {
-                assert(signature_job);
-                assert(signature_job->state == PULL_JOB_DONE);
+        assert(signature_job);
+        assert(signature_job->state == PULL_JOB_DONE);
 
-                if (!signature_job->payload || signature_job->payload_size <= 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                               "Signature is empty, cannot verify.");
+        if (!signature_job->payload || signature_job->payload_size <= 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "Signature is empty, cannot verify.");
 
-                return verify_gpg(verify_job->payload, verify_job->payload_size, signature_job->payload, signature_job->payload_size);
-        } else
-                return verify_gpg(verify_job->payload, verify_job->payload_size, NULL, 0);
+        return verify_gpg(verify_job->payload, verify_job->payload_size, signature_job->payload, signature_job->payload_size);
 }
 
 int verification_style_from_url(const char *url, VerificationStyle *ret) {
@@ -633,6 +636,89 @@ int pull_job_restart_with_sha256sum(PullJob *j, char **ret) {
         r = import_url_change_last_component(j->url, "SHA256SUMS", ret);
         if (r < 0)
                 return log_error_errno(r, "Failed to replace SHA256SUMS suffix: %m");
+
+        return 1;
+}
+
+int signature_style_from_url(const char *url, SignatureStyle *ret) {
+        _cleanup_free_ char *last = NULL;
+        int r;
+
+        assert(url);
+        assert(ret);
+
+        /* Determines which kind of signature style is appropriate for this url */
+
+        r = import_url_last_component(url, &last);
+        if (r < 0)
+                return r;
+
+        if (streq(last, "SHA256SUMS.gpg")) {
+                *ret = SIGNATURE_GPG_PER_DIRECTORY;
+                return 0;
+        }
+
+        if (streq(last, "SHA256SUMS.asc")) {
+                *ret = SIGNATURE_ASC_PER_DIRECTORY;
+                return 0;
+        }
+
+        if (endswith(last, ".sha256.gpg")) {
+                *ret = SIGNATURE_GPG_PER_FILE;
+                return 0;
+        }
+
+        if (endswith(last, ".sha256.asc")) {
+                *ret = SIGNATURE_ASC_PER_FILE;
+                return 0;
+        }
+
+        return -EINVAL;
+}
+
+int pull_job_restart_with_signature(PullJob *j, char **ret) {
+        SignatureStyle style;
+        int r;
+
+        assert(j);
+
+        /* Generic implementation of a PullJobNotFound handler, that restarts the job requesting a different signature file */
+
+        r = signature_style_from_url(j->url, &style);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine signature style of URL '%s': %m", j->url);
+
+        if (style == SIGNATURE_ASC_PER_DIRECTORY) /* Nothing to do anymore */
+                return 0;
+
+        if (style == SIGNATURE_ASC_PER_FILE) { /* Try .sha256.gpg next */
+                _cleanup_free_ char *last = NULL, *tmp = NULL;
+
+                log_debug("Got 404 for %s, now trying to get .sha256.gpg instead.", j->url);
+
+                r = import_url_last_component(j->url, &last);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get last URL part: %m");
+
+                tmp = strreplace(last, ".asc", ".gpg");
+                r = import_url_change_last_component(j->url, tmp, ret);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to replace SHA256SUMS suffix: %m");
+        }
+
+        if (style == SIGNATURE_GPG_PER_FILE) { /* Try SHA256SUMS.gpg next */
+                log_debug("Got 404 for %s, now trying to get SHA256SUMS.gpg instead.", j->url);
+                r = import_url_change_last_component(j->url, "SHA256SUMS.gpg", ret);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to replace SHA256SUMS suffix: %m");
+        }
+
+        if (style == SIGNATURE_GPG_PER_DIRECTORY) {
+                log_debug("Got 404 for %s, now trying to get SHA256SUMS.asc instead.", j->url);
+                r = import_url_change_last_component(j->url, "SHA256SUMS.asc", ret);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to replace SHA256SUMS suffix: %m");
+        }
 
         return 1;
 }
