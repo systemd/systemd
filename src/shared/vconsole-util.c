@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "kbd-util.h"
@@ -569,4 +570,40 @@ int find_language_fallback(const char *lang, char **ret) {
                         return 1;
                 }
         }
+}
+
+int vconsole_serialize(const VCContext *vc, const X11Context *xc, char ***env) {
+        int r;
+
+        /* This function modifies the passed strv in place. */
+
+        assert(vc);
+        assert(xc);
+        assert(env);
+
+        r = strv_env_assign(env, "KEYMAP", empty_to_null(vc->keymap));
+        if (r < 0)
+                return r;
+
+        r = strv_env_assign(env, "KEYMAP_TOGGLE", empty_to_null(vc->toggle));
+        if (r < 0)
+                return r;
+
+        r = strv_env_assign(env, "XKBLAYOUT", empty_to_null(xc->layout));
+        if (r < 0)
+                return r;
+
+        r = strv_env_assign(env, "XKBMODEL", empty_to_null(xc->model));
+        if (r < 0)
+                return r;
+
+        r = strv_env_assign(env, "XKBVARIANT", empty_to_null(xc->variant));
+        if (r < 0)
+                return r;
+
+        r = strv_env_assign(env, "XKBOPTIONS", empty_to_null(xc->options));
+        if (r < 0)
+                return r;
+
+        return 0;
 }
