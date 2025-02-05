@@ -110,7 +110,7 @@ int dnstls_stream_on_io(DnsStream *stream, uint32_t revents) {
         assert(stream->dnstls_data.session);
 
         if (stream->dnstls_data.shutdown) {
-                r = gnutls_bye(stream->dnstls_data.session, GNUTLS_SHUT_RDWR);
+                r = gnutls_bye(stream->dnstls_data.session, GNUTLS_SHUT_WR);
                 if (r == GNUTLS_E_AGAIN) {
                         stream->dnstls_events = gnutls_record_get_direction(stream->dnstls_data.session) == 1 ? EPOLLOUT : EPOLLIN;
                         return -EAGAIN;
@@ -150,7 +150,7 @@ int dnstls_stream_shutdown(DnsStream *stream, int error) {
                 gnutls_session_get_data2(stream->dnstls_data.session, &stream->server->dnstls_data.session_data);
 
         if (IN_SET(error, ETIMEDOUT, 0)) {
-                r = gnutls_bye(stream->dnstls_data.session, GNUTLS_SHUT_RDWR);
+                r = gnutls_bye(stream->dnstls_data.session, GNUTLS_SHUT_WR);
                 if (r == GNUTLS_E_AGAIN) {
                         if (!stream->dnstls_data.shutdown) {
                                 stream->dnstls_data.shutdown = true;
