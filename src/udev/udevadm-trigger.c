@@ -369,10 +369,8 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                         break;
                 case 'c':
                         r = parse_device_action(optarg, &action);
-                        if (r < 0)
-                                return log_error_errno(r, "Unknown action '%s'", optarg);
-                        if (r == 0)
-                                return 0;
+                        if (r <= 0)
+                                return r;
                         break;
                 case 's':
                         r = sd_device_enumerator_add_match_subsystem(e, optarg, true);

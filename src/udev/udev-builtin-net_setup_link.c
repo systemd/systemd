@@ -82,7 +82,7 @@ static int builtin_net_setup_link_init(void) {
         if (r < 0)
                 return r;
 
-        log_debug("Created link configuration context.");
+        log_debug("Loaded link configuration context.");
         return 0;
 }
 
