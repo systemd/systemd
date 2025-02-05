@@ -125,6 +125,9 @@ Deprecations and removals:
 
 Features:
 
+* nspawn/vmspawn: define hotkey that one can hit on the primary interface to
+  ask for a friendly, acpi style shutdown.
+
 * for better compat with major clouds: implement simple PTP device support in
   timesyncd
 
