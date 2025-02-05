@@ -515,8 +515,9 @@ sensor:modalias:acpi:KIOX000A*:dmi:*:svnEVE*:pnEveV:*
 #########################################
 # Exo Wings
 #########################################
+# EXO Wings 2en1 w1125 
 sensor:modalias:acpi:SMO8500*:dmi:*:svnEXO*:pnWings:*
-  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
+ ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
 
 #########################################
 # Geo Computers
