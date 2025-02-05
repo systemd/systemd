@@ -745,9 +745,8 @@ int ask_password_tty(
                         if (ttyfd >= 0)
                                 (void) loop_write(ttyfd, NO_ECHO, SIZE_MAX);
 
-                } else if (p >= sizeof(passphrase)-1) {
-
-                        /* Reached the size limit */
+                } else if (char_is_cc(c) || p >= sizeof(passphrase)-1) {
+                        /* Don't accept control chars or overly long passphrases */
                         if (ttyfd >= 0)
                                 (void) loop_write(ttyfd, "\a", 1);
 
