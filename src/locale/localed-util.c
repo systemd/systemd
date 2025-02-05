@@ -286,7 +286,7 @@ int x11_read_data(Context *c, sd_bus_message *m) {
 }
 
 int vconsole_write_data(Context *c) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_strv_free_ char **existing = NULL, **serialized = NULL, **l = NULL;
         const X11Context *xc;
         int r;
 
@@ -294,33 +294,17 @@ int vconsole_write_data(Context *c) {
 
         xc = context_get_x11_context(c);
 
-        r = load_env_file(NULL, "/etc/vconsole.conf", &l);
+        r = load_env_file(NULL, "/etc/vconsole.conf", &existing);
         if (r < 0 && r != -ENOENT)
                 return r;
 
-        r = strv_env_assign(&l, "KEYMAP", empty_to_null(c->vc.keymap));
+        r = vconsole_serialize(&c->vc, xc, &serialized);
         if (r < 0)
                 return r;
 
-        r = strv_env_assign(&l, "KEYMAP_TOGGLE", empty_to_null(c->vc.toggle));
-        if (r < 0)
-                return r;
-
-        r = strv_env_assign(&l, "XKBLAYOUT", empty_to_null(xc->layout));
-        if (r < 0)
-                return r;
-
-        r = strv_env_assign(&l, "XKBMODEL", empty_to_null(xc->model));
-        if (r < 0)
-                return r;
-
-        r = strv_env_assign(&l, "XKBVARIANT", empty_to_null(xc->variant));
-        if (r < 0)
-                return r;
-
-        r = strv_env_assign(&l, "XKBOPTIONS", empty_to_null(xc->options));
-        if (r < 0)
-                return r;
+        l = strv_env_merge(existing, serialized);
+        if (!l)
+                return -ENOMEM;
 
         if (strv_isempty(l)) {
                 if (unlink("/etc/vconsole.conf") < 0)
