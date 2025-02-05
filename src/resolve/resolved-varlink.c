@@ -47,10 +47,10 @@ static int dns_query_new_for_varlink(
                 int ifindex,
                 uint64_t flags) {
 
-        int r = dns_query_new(m, ret, question_utf8, question_idna, question_bypass, ifindex, flags);
-        if (r == -ENOANO)
+        int q = dns_query_new(m, ret, question_utf8, question_idna, question_bypass, ifindex, flags);
+        if (q == -ENOANO)
                 return sd_varlink_error(link, "io.systemd.Resolve.DNSError", NULL);
-        return r;
+        return q;
 }
 
 static int reply_query_state(DnsQuery *q) {
