@@ -82,7 +82,7 @@ TEST(getcrtime) {
 static void verify_xattr(int dfd, const char *expected) {
         _cleanup_free_ char *value = NULL;
 
-        assert_se(getxattr_at_malloc(dfd, "test", "user.foo", 0, &value) == (int) strlen(expected));
+        ASSERT_OK_EQ(getxattr_at_malloc(dfd, "test", "user.foo", 0, &value), (int) strlen(expected));
         ASSERT_STREQ(value, expected);
 }
 
