@@ -54,6 +54,15 @@ extern const UdevBuiltin udev_builtin_usb_id;
 
 void udev_builtin_init(void);
 void udev_builtin_exit(void);
+static inline void udev_builtin_exitp(bool *p) {
+        if (*ASSERT_PTR(p))
+                udev_builtin_exit();
+}
+#define _UDEV_BUILTIN_DESTRUCTOR(u)                                     \
+        _unused_ _cleanup_(udev_builtin_exitp) bool v = true;
+#define UDEV_BUILTIN_DESTRUCTOR                                         \
+        _UDEV_BUILTIN_DESTRUCTOR(UNIQ_T(builtin_destructor, UNIQ))
+
 UdevBuiltinCommand udev_builtin_lookup(const char *command);
 const char* udev_builtin_name(UdevBuiltinCommand cmd);
 bool udev_builtin_run_once(UdevBuiltinCommand cmd);
