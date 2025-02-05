@@ -888,7 +888,7 @@ conf.set('FOREIGN_UID_BASE', foreign_uid_base)
 nobody_user = get_option('nobody-user')
 nobody_group = get_option('nobody-group')
 
-if not meson.is_cross_build()
+if not meson.is_cross_build() and not get_option('native-tools-only')
         getent_result = run_command('getent', 'passwd', '65534', check : false)
         if getent_result.returncode() == 0
                 name = getent_result.stdout().split(':')[0]
