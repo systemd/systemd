@@ -4322,7 +4322,7 @@ static int prepare_temporary_file(Context *context, PartitionTarget *t, uint64_t
 
         r = read_attr_fd(fdisk_get_devfd(context->fdisk_context), &attrs);
         if (r < 0 && !ERRNO_IS_NEG_NOT_SUPPORTED(r))
-                return log_error_errno(r, "Failed to read file attributes of %s: %m", arg_node);
+                log_warning_errno(r, "Failed to read file attributes of %s, ignoring: %m", arg_node);
 
         if (FLAGS_SET(attrs, FS_NOCOW_FL)) {
                 r = chattr_fd(fd, FS_NOCOW_FL, FS_NOCOW_FL, NULL);
@@ -6587,7 +6587,7 @@ static int context_split(Context *context) {
 
                         r = read_attr_fd(fd, &attrs);
                         if (r < 0 && !ERRNO_IS_NEG_NOT_SUPPORTED(r))
-                                return log_error_errno(r, "Failed to read file attributes of %s: %m", arg_node);
+                                log_warning_errno(r, "Failed to read file attributes of %s, ignoring: %m", arg_node);
                 }
 
                 fdt = xopenat_full(
@@ -7457,7 +7457,7 @@ static int context_minimize(Context *context) {
 
         r = read_attr_fd(context->backing_fd, &attrs);
         if (r < 0 && !ERRNO_IS_NEG_NOT_SUPPORTED(r))
-                return log_error_errno(r, "Failed to read file attributes of %s: %m", arg_node);
+                log_warning_errno(r, "Failed to read file attributes of %s, ignoring: %m", arg_node);
 
         LIST_FOREACH(partitions, p, context->partitions) {
                 _cleanup_(rm_rf_physical_and_freep) char *root = NULL;
