@@ -485,6 +485,7 @@ udev.xml /refsect1[title="Rules Files"]/refsect2[title="Keys"]/variablelist[4]/v
 udev.xml /refsect1[title="Rules Files"]/refsect2[title="Keys"]/variablelist[4]/varlistentry[term="%%"]
 udev.xml /refsect1[title="Rules Files"]/refsect2[title="Keys"]/variablelist[4]/varlistentry[term="$$"]
 udevadm.xml /refsect1[title="Options"]/variablelist/varlistentry[term="-d"]
+udevadm.xml /refsect1[title="Options"]/variablelist/varlistentry[term="-V"]
 udevadm.xml /refsect1[title="Options"]/refsect2[title="udevadm info\n      options\n      devpath|file|unit\n    "]/variablelist/varlistentry[term="-q"]
 udevadm.xml /refsect1[title="Options"]/refsect2[title="udevadm info\n      options\n      devpath|file|unit\n    "]/variablelist/varlistentry[term="-p"]
 udevadm.xml /refsect1[title="Options"]/refsect2[title="udevadm info\n      options\n      devpath|file|unit\n    "]/variablelist/varlistentry[term="-n"]
