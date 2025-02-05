@@ -2485,7 +2485,12 @@ static int create_interactively(void) {
                 return 0;
         }
 
-        any_key_to_proceed();
+        printf("\nPlease create your user account!\n");
+
+        if (!any_key_to_proceed()) {
+                log_notice("Skipping.");
+                return 0;
+        }
 
         (void) terminal_reset_defensive_locked(STDOUT_FILENO, /* switch_to_text= */ false);
 
