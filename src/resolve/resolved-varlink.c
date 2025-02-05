@@ -48,10 +48,8 @@ static int dns_query_new_for_varlink(
                 uint64_t flags) {
 
         int r = dns_query_new(m, ret, question_utf8, question_idna, question_bypass, ifindex, flags);
-        if (r == -ENOANO) {
-                sd_varlink_error(link, "io.systemd.Resolve.DNSError", NULL);
-                return r;
-        }
+        if (r == -ENOANO)
+                return sd_varlink_error(link, "io.systemd.Resolve.DNSError", NULL);
         return r;
 }
 
