@@ -125,6 +125,21 @@ Deprecations and removals:
 
 Features:
 
+* for better compat with major clouds: implement simple PTP device support in
+  timesyncd
+
+* for better compat with major clouds: recognize clouds via hwdb on DMI device,
+  and add udev properties to it that help with handling IMDS, i.e. entrypoint
+  URL, which fields to find ip hostname, ssh key, …
+
+* for better compat with major clouds: introduce imds mini client service that
+  sets up primary netif in a private netns (ipvlan?) to query imds without
+  affecting rest of the host. pick up literal credentials from there plus the
+  fields the hwdb reports for the other fields and turn them into credentials.
+  then write generator that used detected virtualization info and plugs this
+  service into the early boot, waiting for the DMI and network device to show
+  up.
+
 * Add UKI profiles that are only available if secure boot is turned off
 
 * fix bug around run0 background color on ls in fresh terminal
@@ -143,7 +158,15 @@ Features:
   the ESP check if ESP is backed by ramdisk/http and then request it from same
   http base. Then: make mkosi build a 2nd esp maybe called the "netesp" that
   contains bls type #1 entries pointing to the UKIs which would then be
-  requested via http this way.
+  requested via http this way. also set an efi var indicating that this
+  happened, so that initrd can recognize this and take into consdiration when
+  looking for root fs
+
+* importd/importctl: optionally download root fs image into tmpfs, before we
+  transition into it
+
+* add systemd-loop@.service for turning such a downloaded rootfs image into a
+  block device, and boot into it
 
 * bootctl: add tool for registering BootXXX entry that boots from some http
   server of your choice
