@@ -435,22 +435,22 @@ int config_parse_record_types(
         }
 
         for (const char *p = rvalue;;) {
-               _cleanup_free_ char *word = NULL;
-               r = extract_first_word(&p, &word, NULL, 0);
-               if (r < 0)
-                     return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
-               if (r == 0)
-                     return 1;
+                _cleanup_free_ char *word = NULL;
+                r = extract_first_word(&p, &word, NULL, 0);
+                if (r < 0)
+                        return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
+                if (r == 0)
+                        return 1;
 
-               r = dns_type_from_string(word);
-               if (r < 0) {
-                     log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid DNS record type, ignoring: %s", word);
-                     continue;
-               }
+                r = dns_type_from_string(word);
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid DNS record type, ignoring: %s", word);
+                        continue;
+                }
 
-               r = set_ensure_put(types, NULL, INT_TO_PTR(r));
-               if (r < 0)
-                      return log_oom();
+                r = set_ensure_put(types, NULL, INT_TO_PTR(r));
+                if (r < 0)
+                        return log_oom();
         }
 
         return 1;
