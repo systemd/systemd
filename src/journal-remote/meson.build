@@ -1,11 +1,13 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 systemd_journal_upload_sources = files(
+        'journal-compression-util.c',
         'journal-upload-journal.c',
         'journal-upload.c',
 )
 
 libsystemd_journal_remote_sources = files(
+        'journal-compression-util.c',
         'journal-remote-parse.c',
         'journal-remote-write.c',
         'journal-remote.c',
