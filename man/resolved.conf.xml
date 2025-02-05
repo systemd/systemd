@@ -325,7 +325,7 @@
         <programlisting>RefuseRecordTypes=AAAA SRV TXT</programlisting>
         </para>
 
-        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
 
       <varlistentry>
