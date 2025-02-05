@@ -889,7 +889,10 @@ nobody_user = get_option('nobody-user')
 nobody_group = get_option('nobody-group')
 
 if not meson.is_cross_build()
-        getent_result = run_command('getent', 'passwd', '65534', check : false)
+        find_getent_result = find_program('getent', required : false)
+        getent_result = find_getent_result.found() ? \
+                run_command('getent', 'passwd', '65534', check : false) : \
+                run_command('false')
         if getent_result.returncode() == 0
                 name = getent_result.stdout().split(':')[0]
                 if name != nobody_user
@@ -908,7 +911,9 @@ if not meson.is_cross_build()
                 endif
         endif
 
-        getent_result = run_command('getent', 'group', '65534', check : false)
+        getent_result = find_getent_result.found() ? \
+                run_command('getent', 'group', '65534', check : false) : \
+                run_command('false')
         if getent_result.returncode() == 0
                 name = getent_result.stdout().split(':')[0]
                 if name != nobody_group
