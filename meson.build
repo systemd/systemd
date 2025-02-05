@@ -890,13 +890,16 @@ nobody_user = get_option('nobody-user')
 nobody_group = get_option('nobody-group')
 
 if not meson.is_cross_build()
-        getent_result = run_command('getent', 'passwd', '65534', check : false)
-        if getent_result.returncode() == 0
-                name = getent_result.stdout().split(':')[0]
-                if name != nobody_user
-                        warning('\n' +
-                                'The local user with the UID 65534 does not match the configured user name "@0@" of the nobody user (its name is @1@).\n'.format(nobody_user, name) +
-                                'Your build will result in an user table setup that is incompatible with the local system.')
+        find_getent_result = find_program('getent', required : false)
+        if find_getent_result.found()
+                getent_result = run_command('getent', 'passwd', '65534', check : false)
+                if getent_result.returncode() == 0
+                        name = getent_result.stdout().split(':')[0]
+                        if name != nobody_user
+                                warning('\n' +
+                                        'The local user with the UID 65534 does not match the configured user name "@0@" of the nobody user (its name is @1@).\n'.format(nobody_user, name) +
+                                        'Your build will result in an user table setup that is incompatible with the local system.')
+                        endif
                 endif
         endif
         id_result = run_command('id', '-u', nobody_user, check : false)
@@ -909,13 +912,15 @@ if not meson.is_cross_build()
                 endif
         endif
 
-        getent_result = run_command('getent', 'group', '65534', check : false)
-        if getent_result.returncode() == 0
-                name = getent_result.stdout().split(':')[0]
-                if name != nobody_group
-                        warning('\n' +
-                                'The local group with the GID 65534 does not match the configured group name "@0@" of the nobody group (its name is @1@).\n'.format(nobody_group, name) +
-                                'Your build will result in an group table setup that is incompatible with the local system.')
+        if find_getent_result.found()
+                getent_result = run_command('getent', 'group', '65534', check : false)
+                if getent_result.returncode() == 0
+                        name = getent_result.stdout().split(':')[0]
+                        if name != nobody_group
+                                warning('\n' +
+                                        'The local group with the GID 65534 does not match the configured group name "@0@" of the nobody group (its name is @1@).\n'.format(nobody_group, name) +
+                                        'Your build will result in an group table setup that is incompatible with the local system.')
+                        endif
                 endif
         endif
         id_result = run_command('id', '-g', nobody_group, check : false)
