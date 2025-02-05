@@ -45,3 +45,5 @@ static inline int vc_context_verify(const VCContext *vc) {
 
 int vconsole_convert_to_x11(const VCContext *vc, X11Context *ret);
 int x11_convert_to_vconsole(const X11Context *xc, VCContext *ret);
+
+int vconsole_serialize(const VCContext *vc, const X11Context *xc, char ***ret);
