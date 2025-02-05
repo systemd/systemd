@@ -1826,6 +1826,10 @@ static int apply_one_mount(
 
                 what = mount_entry_source(m);
                 make = true;
+
+                r = label_fix_full(AT_FDCWD, what, mount_entry_unprefixed_path(m), /* flags= */ 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to fix label of '%s' as '%s': %m", what, mount_entry_path(m));
                 break;
         }
 
