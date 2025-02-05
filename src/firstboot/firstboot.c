@@ -134,7 +134,37 @@ static void print_welcome(int rfd) {
         done = true;
 }
 
-static int prompt_loop(int rfd, const char *text, char **l, unsigned percentage, bool (*is_valid)(int rfd, const char *name), char **ret) {
+static int get_completions(
+                const char *key,
+                char ***ret_list,
+                void *userdata) {
+
+        int r;
+
+        if (!userdata) {
+                *ret_list = NULL;
+                return 0;
+        }
+
+        _cleanup_strv_free_ char **copy = strv_copy(userdata);
+        if (!copy)
+                return -ENOMEM;
+
+        r = strv_extend(&copy, "list");
+        if (r < 0)
+                return r;
+
+        *ret_list = TAKE_PTR(copy);
+        return 0;
+}
+
+static int prompt_loop(
+                int rfd,
+                const char *text,
+                char **l,
+                unsigned percentage,
+                bool (*is_valid)(int rfd, const char *name),
+                char **ret) {
         int r;
 
         assert(text);
@@ -145,9 +175,13 @@ static int prompt_loop(int rfd, const char *text, char **l, unsigned percentage,
                 _cleanup_free_ char *p = NULL;
                 unsigned u;
 
-                r = ask_string(&p, strv_isempty(l) ? "%s %s (empty to skip): "
-                                                   : "%s %s (empty to skip, \"list\" to list options): ",
-                               special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET), text);
+                r = ask_string_full(
+                                &p,
+                                get_completions,
+                                l,
+                                strv_isempty(l) ? "%s %s (empty to skip): "
+                                                : "%s %s (empty to skip, \"list\" to list options): ",
+                                special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET), text);
                 if (r < 0)
                         return log_error_errno(r, "Failed to query user: %m");
 

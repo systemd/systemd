@@ -2476,6 +2476,28 @@ static int acquire_group_list(char ***ret) {
         return !!*ret;
 }
 
+static int group_completion_callback(const char *key, char ***ret_list, void *userdata) {
+        char ***available = userdata;
+        int r;
+
+        if (!*available) {
+                r = acquire_group_list(available);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to enumerate available groups, ignoring: %m");
+        }
+
+        _cleanup_strv_free_ char **l = strv_copy(*available);
+        if (!l)
+                return -ENOMEM;
+
+        r = strv_extend(&l, "list");
+        if (r < 0)
+                return r;
+
+        *ret_list = TAKE_PTR(l);
+        return 0;
+}
+
 static int create_interactively(void) {
         _cleanup_free_ char *username = NULL;
         int r;
@@ -2532,7 +2554,8 @@ static int create_interactively(void) {
                 _cleanup_free_ char *s = NULL;
                 unsigned u;
 
-                r = ask_string(&s,
+                r = ask_string_full(&s,
+                               group_completion_callback, &available,
                                "%s Please enter an auxiliary group for user %s (empty to continue, \"list\" to list available groups): ",
                                special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET), username);
                 if (r < 0)
