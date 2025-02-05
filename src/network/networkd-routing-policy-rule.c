@@ -318,7 +318,7 @@ static int routing_policy_rule_compare_func_full(const RoutingPolicyRule *a, con
         if (r != 0)
                 return r;
 
-        if (all) {
+        if (a->family == b->family && a->family != AF_UNSPEC) {
                 r = memcmp(&a->from.address, &b->from.address, FAMILY_ADDRESS_SIZE(a->family));
                 if (r != 0)
                         return r;
