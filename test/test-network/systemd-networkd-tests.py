@@ -3847,6 +3847,22 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         print(output)
         self.assertIn('104:	from 10.1.0.0/16 iif test1 lookup 12 nop', output)
 
+        output = check_output('ip rule list to 192.0.2.0/26')
+        print(output)
+        self.assertIn('to 192.0.2.0/26 lookup 1001', output)
+
+        output = check_output('ip rule list to 192.0.2.64/26')
+        print(output)
+        self.assertIn('to 192.0.2.64/26 lookup 1001', output)
+
+        output = check_output('ip rule list to 192.0.2.128/26')
+        print(output)
+        self.assertIn('to 192.0.2.128/26 lookup 1001', output)
+
+        output = check_output('ip rule list to 192.0.2.192/26')
+        print(output)
+        self.assertIn('to 192.0.2.192/26 lookup 1001', output)
+
     def check_routing_policy_rule_dummy98(self):
         print('### Checking routing policy rules requested by dummy98')
 
