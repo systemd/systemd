@@ -414,7 +414,7 @@ int manager_parse_config_file(Manager *m) {
         return 0;
 }
 
-int config_parse_refuse_record_types(
+int config_parse_record_types(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -436,21 +436,19 @@ int config_parse_refuse_record_types(
 
         for (const char *p = rvalue;;) {
                _cleanup_free_ char *word = NULL;
-               r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE);
+               r = extract_first_word(&p, &word, NULL, 0);
                if (r < 0)
                      return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
                if (r == 0)
-                     break;
+                     return 1;
 
                r = dns_type_from_string(word);
-
                if (r < 0) {
                      log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid DNS record type, ignoring: %s", word);
                      continue;
                }
 
                r = set_ensure_put(&m->refuse_record_types, NULL, INT_TO_PTR(r));
-
                if (r < 0)
                       return log_oom();
         }
