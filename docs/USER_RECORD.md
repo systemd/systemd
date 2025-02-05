@@ -1181,3 +1181,9 @@ systems. It would hence look like this:
         "userName" : "grobie",
 }
 ```
+
+To query a user record from the userdb, you can use the following [varlinkctl](https://www.freedesktop.org/software/systemd/man/latest/varlinkctl.html) command:
+
+```sh
+varlinkctl call unix:///run/systemd/userdb/io.systemd.Multiplexer io.systemd.UserDatabase.GetUserRecord '{"userName": "alice", "service": "io.systemd.Multiplexer"}'
+```
