@@ -529,6 +529,10 @@ int dns_query_new(
                 if (set_contains(m->refuse_record_types, INT_TO_PTR(key->type)))
                         return log_debug_errno(SYNTHETIC_ERRNO(ENOANO), "Got request for %s record that is refused.", dns_type_to_string(key->type));
 
+        DNS_QUESTION_FOREACH(key, question_idna)
+                if (set_contains(m->refuse_record_types, INT_TO_PTR(key->type)))
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOANO), "Got request for %s record that is refused.", dns_type_to_string(key->type));
+
         if (question_bypass) {
                 /* It's either a "bypass" query, or a regular one, but can't be both. */
                 if (question_utf8 || question_idna)
