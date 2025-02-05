@@ -4326,7 +4326,7 @@ static int prepare_temporary_file(Context *context, PartitionTarget *t, uint64_t
                 return log_error_errno(fd, "Failed to create temporary file: %m");
 
         r = read_attr_fd(fdisk_get_devfd(context->fdisk_context), &attrs);
-        if (r < 0 && !ERRNO_IS_NEG_NOT_SUPPORTED(r))
+        if (r < 0 && !ERRNO_IS_NEG_NOT_SUPPORTED(r) && r != -EOVERFLOW)
                 return log_error_errno(r, "Failed to read file attributes of %s: %m", arg_node);
 
         if (FLAGS_SET(attrs, FS_NOCOW_FL)) {
@@ -6636,7 +6636,7 @@ static int context_split(Context *context) {
                         assert_se((fd = fdisk_get_devfd(context->fdisk_context)) >= 0);
 
                         r = read_attr_fd(fd, &attrs);
-                        if (r < 0 && !ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                        if (r < 0 && !ERRNO_IS_NEG_NOT_SUPPORTED(r) && r != -EOVERFLOW)
                                 return log_error_errno(r, "Failed to read file attributes of %s: %m", arg_node);
                 }
 
@@ -7506,7 +7506,7 @@ static int context_minimize(Context *context) {
         assert(context);
 
         r = read_attr_fd(context->backing_fd, &attrs);
-        if (r < 0 && !ERRNO_IS_NEG_NOT_SUPPORTED(r))
+        if (r < 0 && !ERRNO_IS_NEG_NOT_SUPPORTED(r) && r != -EOVERFLOW)
                 return log_error_errno(r, "Failed to read file attributes of %s: %m", arg_node);
 
         LIST_FOREACH(partitions, p, context->partitions) {
