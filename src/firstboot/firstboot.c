@@ -127,7 +127,7 @@ static void print_welcome(int rfd) {
         else
                 printf("\nWelcome to your new installation of %s!\n", pn);
 
-        printf("\nPlease configure your system!\n\n");
+        printf("\nPlease configure your system!\n");
 
         any_key_to_proceed();
 
