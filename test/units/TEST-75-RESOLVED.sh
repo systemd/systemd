@@ -1094,16 +1094,16 @@ testcase_14_refuse_record_types() {
     ln -svf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
     systemctl reload systemd-resolved.service
 
-    run dig stale1.unsigned.test -t AAAA
+    run dig localhost5 -t AAAA
     grep -qE "REFUSED" "$RUN_OUT"
 
-    run dig stale1.unsigned.test -t SRV
+    run dig localhost5 -t SRV
     grep -qE "REFUSED" "$RUN_OUT"
 
-    run dig stale1.unsigned.test -t TXT
+    run dig localhost5 -t TXT
     grep -qE "REFUSED" "$RUN_OUT"
 
-    run dig stale1.unsigned.test -t A
+    run dig localhost5 -t A
     grep -qE "NOERROR" "$RUN_OUT"
 }
 
