@@ -309,3 +309,5 @@ bool version_is_valid_versionspec(const char *s);
 ssize_t strlevenshtein(const char *x, const char *y);
 
 char* strrstr(const char *haystack, const char *needle);
+
+size_t str_common_prefix(const char *a, const char *b);
