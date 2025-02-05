@@ -1095,16 +1095,16 @@ testcase_14_refuse_record_types() {
     systemctl reload systemd-resolved.service
 
     run dig localhost5 -t AAAA
-    grep -qF "REFUSED" "$RUN_OUT"
+    grep -qF "status: REFUSED" "$RUN_OUT"
 
     run dig localhost5 -t SRV
-    grep -qF "REFUSED" "$RUN_OUT"
+    grep -qF "status: REFUSED" "$RUN_OUT"
 
     run dig localhost5 -t TXT
-    grep -qF "REFUSED" "$RUN_OUT"
+    grep -qF "status: REFUSED" "$RUN_OUT"
 
     run dig localhost5 -t A
-    grep -qF "NOERROR" "$RUN_OUT"
+    grep -qF "status: NOERROR" "$RUN_OUT"
 }
 
 # PRE-SETUP
