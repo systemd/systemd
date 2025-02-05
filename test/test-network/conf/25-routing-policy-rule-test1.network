@@ -47,3 +47,21 @@ IncomingInterface=test1
 From=10.1.0.0/16
 Priority=104
 Table=12
+
+# The four routing policy rules below intentionally have the same config
+# excepts for their To= addresses. See issue #35874.
+[RoutingPolicyRule]
+To=192.0.2.0/26
+Table=1001
+
+[RoutingPolicyRule]
+To=192.0.2.64/26
+Table=1001
+
+[RoutingPolicyRule]
+To=192.0.2.128/26
+Table=1001
+
+[RoutingPolicyRule]
+To=192.0.2.192/26
+Table=1001
