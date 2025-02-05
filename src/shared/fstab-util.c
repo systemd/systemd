@@ -8,8 +8,8 @@
 #include "device-nodes.h"
 #include "fstab-util.h"
 #include "initrd-util.h"
+#include "libmount-util.h"
 #include "macro.h"
-#include "mount-util.h"
 #include "nulstr-util.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -37,28 +37,33 @@ bool fstab_enabled_full(int enabled) {
 }
 
 int fstab_has_fstype(const char *fstype) {
-        _cleanup_endmntent_ FILE *f = NULL;
-        struct mntent *m;
+        _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
+        _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
+        int r;
 
         assert(fstype);
 
         if (!fstab_enabled())
                 return false;
 
-        f = setmntent(fstab_path(), "re");
-        if (!f)
-                return errno == ENOENT ? false : -errno;
+        r = libmount_parse_fstab(&table, &iter);
+        if (r == -ENOENT)
+                return false;
+        if (r < 0)
+                return r;
 
         for (;;) {
-                errno = 0;
-                m = getmntent(f);
-                if (!m)
-                        return errno != 0 ? -errno : false;
+                struct libmnt_fs *fs;
 
-                if (streq(m->mnt_type, fstype))
+                r = mnt_table_next_fs(table, iter, &fs);
+                if (r < 0)
+                        return r;
+                if (r > 0) /* EOF */
+                        return false;
+
+                if (streq_ptr(mnt_fs_get_fstype(fs), fstype))
                         return true;
         }
-        return false;
 }
 
 bool fstab_is_extrinsic(const char *mount, const char *opts) {
@@ -105,8 +110,10 @@ static int fstab_is_same_node(const char *what_fstab, const char *path) {
         return false;
 }
 
-int fstab_has_mount_point_prefix_strv(char **prefixes) {
-        _cleanup_endmntent_ FILE *f = NULL;
+int fstab_has_mount_point_prefix_strv(char * const *prefixes) {
+        _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
+        _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
+        int r;
 
         assert(prefixes);
 
@@ -116,25 +123,34 @@ int fstab_has_mount_point_prefix_strv(char **prefixes) {
         if (!fstab_enabled())
                 return false;
 
-        f = setmntent(fstab_path(), "re");
-        if (!f)
-                return errno == ENOENT ? false : -errno;
+        r = libmount_parse_fstab(&table, &iter);
+        if (r == -ENOENT)
+                return false;
+        if (r < 0)
+                return r;
 
         for (;;) {
-                struct mntent *me;
+                struct libmnt_fs *fs;
+                const char *path;
 
-                errno = 0;
-                me = getmntent(f);
-                if (!me)
-                        return errno != 0 ? -errno : false;
+                r = mnt_table_next_fs(table, iter, &fs);
+                if (r < 0)
+                        return r;
+                if (r > 0) /* EOF */
+                        return false;
 
-                if (path_startswith_strv(me->mnt_dir, prefixes))
+                path = mnt_fs_get_target(fs);
+                if (!path)
+                        continue;
+
+                if (path_startswith_strv(path, prefixes))
                         return true;
         }
 }
 
 int fstab_is_mount_point_full(const char *where, const char *path) {
-        _cleanup_endmntent_ FILE *f = NULL;
+        _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
+        _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
         int r;
 
         assert(where || path);
@@ -142,25 +158,28 @@ int fstab_is_mount_point_full(const char *where, const char *path) {
         if (!fstab_enabled())
                 return false;
 
-        f = setmntent(fstab_path(), "re");
-        if (!f)
-                return errno == ENOENT ? false : -errno;
+        r = libmount_parse_fstab(&table, &iter);
+        if (r == -ENOENT)
+                return false;
+        if (r < 0)
+                return r;
 
         for (;;) {
-                struct mntent *me;
+                struct libmnt_fs *fs;
 
-                errno = 0;
-                me = getmntent(f);
-                if (!me)
-                        return errno != 0 ? -errno : false;
+                r = mnt_table_next_fs(table, iter, &fs);
+                if (r < 0)
+                        return r;
+                if (r > 0) /* EOF */
+                        return false;
 
-                if (where && !path_equal(where, me->mnt_dir))
+                if (where && !path_equal(mnt_fs_get_target(fs), where))
                         continue;
 
                 if (!path)
                         return true;
 
-                r = fstab_is_same_node(me->mnt_fsname, path);
+                r = fstab_is_same_node(mnt_fs_get_source(fs), path);
                 if (r > 0 || (r < 0 && !ERRNO_IS_DEVICE_ABSENT(r)))
                         return r;
         }
