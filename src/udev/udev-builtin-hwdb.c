@@ -15,7 +15,7 @@
 #include "string-util.h"
 #include "udev-builtin.h"
 
-static sd_hwdb *hwdb;
+static sd_hwdb *hwdb = NULL;
 
 int udev_builtin_hwdb_lookup(
                 UdevEvent *event,
@@ -199,12 +199,14 @@ static int builtin_hwdb_init(void) {
         if (r < 0)
                 return r;
 
+        log_debug("Loaded hardware database.");
         return 0;
 }
 
 /* called on udev shutdown and reload request */
 static void builtin_hwdb_exit(void) {
         hwdb = sd_hwdb_unref(hwdb);
+        log_debug("Unloaded hardware database.");
 }
 
 /* called every couple of seconds during event activity; 'true' if config has changed */
