@@ -300,7 +300,7 @@ static bool test_pointers(
                                 if (test_bit(*key, bitmask_key))
                                         num_well_known_keys++;
 
-                if (num_well_known_keys >= 4 || num_joystick_buttons + num_joystick_axes < 2) {
+                if (num_well_known_keys > 4 || num_joystick_buttons + num_joystick_axes < 2) {
                         log_device_debug(dev, "Input device has %zu joystick buttons and %zu axes but also %zu keyboard key sets, "
                                          "assuming this is a keyboard, not a joystick.",
                                          num_joystick_buttons, num_joystick_axes, num_well_known_keys);
