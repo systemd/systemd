@@ -1384,7 +1384,6 @@ bool dns_query_fully_authoritative(DnsQuery *q) {
 }
 
 bool dns_question_has_record_types(DnsQuestion *q, Set *types) {
-        assert(q);
         DnsResourceKey *key;
 
         DNS_QUESTION_FOREACH(key, q)
