@@ -2697,12 +2697,20 @@ static int verb_firstboot(int argc, char *argv[], void *userdata) {
         if (r > 0) /* Already created users from credentials */
                 return 0;
 
-        r = has_regular_user();
-        if (r < 0)
-                return r;
-        if (r > 0) {
-                log_info("Regular user already present in user database, skipping user creation.");
+        r = getenv_bool("SYSTEMD_HOME_FIRSTBOOT_OVERRIDE");
+        if (r == 0)
                 return 0;
+        if (r < 0) {
+                if (r != -ENXIO)
+                        log_warning_errno(r, "Failed to parse $SYSTEMD_HOME_FIRSTBOOT_OVERRIDE, ignoring: %m");
+
+                r = has_regular_user();
+                if (r < 0)
+                        return r;
+                if (r > 0) {
+                        log_info("Regular user already present in user database, skipping user creation.");
+                        return 0;
+                }
         }
 
         return create_interactively();
