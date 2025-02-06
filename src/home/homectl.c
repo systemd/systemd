@@ -2530,7 +2530,6 @@ static int create_interactively(void) {
 
         for (;;) {
                 _cleanup_free_ char *s = NULL;
-                unsigned u;
 
                 r = ask_string(&s,
                                "%s Please enter an auxiliary group for user %s (empty to continue, \"list\" to list available groups): ",
@@ -2552,15 +2551,21 @@ static int create_interactively(void) {
                                         continue;
                         }
 
-                        r = show_menu(available, /*n_columns=*/ 3, /*width=*/ 20, /*percentage=*/ 60);
+                        r = show_menu(available,
+                                      /* n_columns= */ 3,
+                                      /* width= */ 20,
+                                      /* ellipsize_percentage= */ 60,
+                                      /* grey_prefix= */ NULL,
+                                      /* with_numbers= */ true);
                         if (r < 0)
-                                return r;
+                                return log_error_errno(r, "Failed to show menu: %m");
 
                         putchar('\n');
                         continue;
                 };
 
                 if (!strv_isempty(available)) {
+                        unsigned u;
                         r = safe_atou(s, &u);
                         if (r >= 0) {
                                 if (u <= 0 || u > strv_length(available)) {
