@@ -1086,6 +1086,7 @@ testcase_13_varlink_subscribe_dns_configuration() {
 
 # Test RefuseRecordTypes
 testcase_14_refuse_record_types() {
+    # shellcheck disable=SC2317
     cleanup() {
         rm -f /run/systemd/resolved.conf.d/refuserecords.conf
         if [[ -e /etc/resolv.conf.bak ]]; then
