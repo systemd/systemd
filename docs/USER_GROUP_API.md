@@ -323,3 +323,24 @@ result in more than one reply, because neither UID/GID nor name is specified) is
 Services which are asked for enumeration may return the `EnumerationNotSupported` error in this case.
 
 And that's really all there is to it.
+
+## Command Line Access
+
+For command line access you can use the
+[userdbctl](https://www.freedesktop.org/software/systemd/man/latest/userdbctl.html)
+or
+[varlinkctl](https://www.freedesktop.org/software/systemd/man/latest/varlinkctl.html)
+commands. The `userdbctl` command is more end user friendly and the `varlinkctl`
+command can help developers to understand the user database better.
+
+To figure out which methods in the user database are available you can use:
+
+```sh
+varlinkctl introspect /run/systemd/userdb/io.systemd.Multiplexer io.systemd.UserDatabase
+```
+
+To get a record for a specific user use:
+
+```sh
+varlinkctl call /run/systemd/userdb/io.systemd.Multiplexer io.systemd.UserDatabase.GetUserRecord '{"userName": "alice", "service": "io.systemd.Multiplexer"}'
+```
