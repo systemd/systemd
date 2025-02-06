@@ -897,13 +897,11 @@
           <term><option>-N</option></term>
           <term><option>--resolve-names=<constant>early</constant>|<constant>late</constant>|<constant>never</constant></option></term>
           <listitem>
-            <para>Specify when udevadm should resolve names of users
-            and groups.  When set to <constant>early</constant> (the
-            default), names will be resolved when the rules are
-            parsed. When set to <constant>late</constant>, names will
-            be resolved for every event. When set to
-            <constant>never</constant>, names will never be resolved
-            and all devices will be owned by root.</para>
+            <para>Specify when <command>udevadm</command> should resolve names of users and groups specified
+            in udev rules. When set to <constant>early</constant> (the default), names will be resolved when
+            the rules are parsed. When set to <constant>late</constant>, names will be resolved during the
+            event being processed. When set to <constant>never</constant>, names will never be resolved and
+            relevant udev rules will be ignored.</para>
 
             <xi:include href="version-info.xml" xpointer="v209"/>
           </listitem>
@@ -989,13 +987,14 @@
       <variablelist>
         <varlistentry>
           <term><option>-N</option></term>
-          <term><option>--resolve-names=<constant>early</constant>|<constant>never</constant></option></term>
+          <term><option>--resolve-names=<constant>early</constant>|<constant>late</constant>|<constant>never</constant></option></term>
           <listitem>
-            <para>Specify when udevadm should resolve names of users
-            and groups.  When set to <constant>early</constant> (the
-            default), names will be resolved when the rules are
-            parsed. When set to <constant>never</constant>, names will
-            never be resolved.</para>
+            <para>Specify when <command>udevadm</command> should resolve names of users and groups specified
+            in udev rules. When set to <constant>early</constant> (the default), names will be resolved when
+            the rules are parsed. When set to <constant>late</constant>, names will not be verified, as
+            <command>systemd-udevd</command> resolves names during each event being processed. When set to
+            <constant>never</constant>, names will never be resolved and relevant rules will be ignored.
+            </para>
 
             <xi:include href="version-info.xml" xpointer="v254"/>
           </listitem>
