@@ -25,6 +25,7 @@ static ResolveNameTiming arg_resolve_name_timing = RESOLVE_NAME_EARLY;
 static const char *arg_syspath = NULL;
 static char **arg_extra_rules_dir = NULL;
 static bool arg_verbose = false;
+static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 
 STATIC_DESTRUCTOR_REGISTER(arg_extra_rules_dir, strv_freep);
 
@@ -37,20 +38,26 @@ static int help(void) {
                "  -a --action=ACTION|help              Set action string\n"
                "  -N --resolve-names=early|late|never  When to resolve names\n"
                "  -D --extra-rules-dir=DIR             Also load rules from the directory\n"
-               "  -v --verbose                         Show verbose logs\n",
+               "  -v --verbose                         Show verbose logs\n"
+               "     --json=pretty|short|off           Generate JSON output\n",
                program_invocation_short_name);
 
         return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
+        enum {
+                ARG_JSON = 0x100,
+        };
+
         static const struct option options[] = {
-                { "action",          required_argument, NULL, 'a' },
-                { "resolve-names",   required_argument, NULL, 'N' },
-                { "extra-rules-dir", required_argument, NULL, 'D' },
-                { "verbose",         no_argument,       NULL, 'v' },
-                { "version",         no_argument,       NULL, 'V' },
-                { "help",            no_argument,       NULL, 'h' },
+                { "action",          required_argument, NULL, 'a'      },
+                { "resolve-names",   required_argument, NULL, 'N'      },
+                { "extra-rules-dir", required_argument, NULL, 'D'      },
+                { "verbose",         no_argument,       NULL, 'v'      },
+                { "json",            required_argument, NULL, ARG_JSON },
+                { "version",         no_argument,       NULL, 'V'      },
+                { "help",            no_argument,       NULL, 'h'      },
                 {}
         };
 
@@ -83,6 +90,11 @@ static int parse_argv(int argc, char *argv[]) {
                 case 'v':
                         arg_verbose = true;
                         break;
+                case ARG_JSON:
+                        r = parse_json_argument(optarg, &arg_json_format_flags);
+                        if (r <= 0)
+                                return r;
+                        break;
                 case 'V':
                         return print_version();
                 case 'h':
@@ -100,6 +112,20 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
+static void maybe_insert_empty_line(void) {
+        if (log_get_max_level() < LOG_INFO)
+                return;
+
+        LogTarget target = log_get_target();
+        if (!IN_SET(log_get_target(), LOG_TARGET_CONSOLE, LOG_TARGET_CONSOLE_PREFIXED, LOG_TARGET_AUTO))
+                return;
+
+        if (target == LOG_TARGET_AUTO && stderr_is_journal())
+                return;
+
+        fputs("\n", stderr);
+}
+
 int test_main(int argc, char *argv[], void *userdata) {
         _cleanup_(udev_rules_freep) UdevRules *rules = NULL;
         _cleanup_(udev_event_unrefp) UdevEvent *event = NULL;
@@ -114,22 +140,24 @@ int test_main(int argc, char *argv[], void *userdata) {
         if (r <= 0)
                 return r;
 
-        puts("This program is for debugging only, it does not run any program\n"
-             "specified by a RUN key. It may show incorrect results, because\n"
-             "some values may be different, or not available at a simulation run.");
+        log_info("This program is for debugging only, it does not run any program\n"
+                 "specified by a RUN key. It may show incorrect results, because\n"
+                 "some values may be different, or not available at a simulation run.");
 
         assert_se(sigprocmask(SIG_SETMASK, NULL, &sigmask_orig) >= 0);
 
-        puts("\nLoading builtins...");
+        maybe_insert_empty_line();
+        log_info("Loading builtins...");
         udev_builtin_init();
         UDEV_BUILTIN_DESTRUCTOR;
-        puts("Loading builtins done.");
+        log_info("Loading builtins done.");
 
-        puts("\nLoading udev rules files...");
+        maybe_insert_empty_line();
+        log_info("Loading udev rules files...");
         r = udev_rules_load(&rules, arg_resolve_name_timing, arg_extra_rules_dir);
         if (r < 0)
                 return log_error_errno(r, "Failed to read udev rules: %m");
-        puts("Loading udev rules files done.");
+        log_info("Loading udev rules files done.");
 
         r = find_device_with_action(arg_syspath, arg_action, &dev);
         if (r < 0)
@@ -146,12 +174,16 @@ int test_main(int argc, char *argv[], void *userdata) {
         assert_se(sigfillset(&mask) >= 0);
         assert_se(sigprocmask(SIG_SETMASK, &mask, &sigmask_orig) >= 0);
 
-        printf("\nProcessing udev rules%s...\n", arg_verbose ? "" : " (verbose logs can be shown by -v/--verbose)");
+        maybe_insert_empty_line();
+        log_info("Processing udev rules%s...", arg_verbose ? "" : " (verbose logs can be shown by -v/--verbose)");
         udev_event_execute_rules(event, rules);
-        puts("Processing udev rules done.");
+        log_info("Processing udev rules done.");
 
-        puts("");
-        dump_event(event, NULL);
+        maybe_insert_empty_line();
+        r = dump_event(event, arg_json_format_flags, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to dump result: %m");
+        maybe_insert_empty_line();
 
         return 0;
 }
