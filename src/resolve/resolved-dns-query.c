@@ -508,6 +508,14 @@ DnsQuery *dns_query_free(DnsQuery *q) {
         return mfree(q);
 }
 
+static bool dns_question_has_record_types(DnsQuestion *q, Set *types) {
+        DnsResourceKey *key;
+        DNS_QUESTION_FOREACH(key, q)
+                if (set_contains(types, INT_TO_PTR(key->type)))
+                        return true;
+        return false;
+}
+
 int dns_query_new(
                 Manager *m,
                 DnsQuery **ret,
@@ -1381,12 +1389,4 @@ bool dns_query_fully_authoritative(DnsQuery *q) {
          * zones. (Note: the SD_RESOLVED_FROM_xyz flags we merge on each redirect, hence no need to
          * explicitly check previous redirects here.) */
         return (q->answer_query_flags & SD_RESOLVED_FROM_MASK & ~(SD_RESOLVED_FROM_TRUST_ANCHOR | SD_RESOLVED_FROM_ZONE)) == 0;
-}
-
-bool dns_question_has_record_types(DnsQuestion *q, Set *types) {
-        DnsResourceKey *key;
-
-        DNS_QUESTION_FOREACH(key, q)
-                return set_contains(types, INT_TO_PTR(key->type));
-        return false;
 }
