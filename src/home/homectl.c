@@ -2549,9 +2549,18 @@ static int create_interactively(void) {
                 return log_error_errno(r, "Failed to set userName field: %m");
 
         _cleanup_strv_free_ char **available = NULL, **groups = NULL;
-
         for (;;) {
                 _cleanup_free_ char *s = NULL;
+
+                strv_sort_uniq(groups);
+
+                if (!strv_isempty(groups)) {
+                        _cleanup_free_ char *j = strv_join(groups, ", ");
+                        if (!j)
+                                return log_oom();
+
+                        log_info("Currently selected groups: %s", j);
+                }
 
                 r = ask_string_full(&s,
                                group_completion_callback, &available,
