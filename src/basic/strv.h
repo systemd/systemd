@@ -264,3 +264,5 @@ int _string_strv_ordered_hashmap_put(OrderedHashmap **h, const char *key, const 
 #define string_strv_ordered_hashmap_put(h, k, v) _string_strv_ordered_hashmap_put(h, k, v  HASHMAP_DEBUG_SRC_ARGS)
 
 int strv_rebreak_lines(char **l, size_t width, char ***ret);
+
+char **strv_filter_prefix(char **l, const char *prefix);

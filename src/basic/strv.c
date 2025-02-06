@@ -1221,3 +1221,22 @@ int strv_rebreak_lines(char **l, size_t width, char ***ret) {
         *ret = TAKE_PTR(broken);
         return 0;
 }
+
+char **strv_filter_prefix(char **l, const char *prefix) {
+        _cleanup_strv_free_ char **f = NULL;
+
+        /* Allocates a copy of 'l', but only copies over entries starting with 'prefix' */
+
+        if (isempty(prefix))
+                return strv_copy(l);
+
+        STRV_FOREACH(i, l) {
+                if (!startswith(*i, prefix))
+                        continue;
+
+                if (strv_extend(&f, *i) < 0)
+                        return NULL;
+        }
+
+        return TAKE_PTR(f);
+}
