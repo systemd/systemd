@@ -182,6 +182,7 @@ typedef struct Link {
         bool ndisc_configured;
 
         sd_radv *radv;
+        bool have_router_mtu:1;
 
         sd_dhcp6_client *dhcp6_client;
         sd_dhcp6_lease *dhcp6_lease;
