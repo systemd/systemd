@@ -3619,7 +3619,8 @@ static int apply_working_directory(
                 const ExecContext *context,
                 const ExecParameters *params,
                 ExecRuntime *runtime,
-                const char *home) {
+                const char *pwent_home,
+                const char *const *env) {
 
         const char *wd;
         int r;
@@ -3627,10 +3628,15 @@ static int apply_working_directory(
         assert(context);
 
         if (context->working_directory_home) {
-                if (!home)
-                        return -ENXIO;
+                /* Preferably use the data from $HOME, in case it was updated by a PAM module */
+                wd = strv_env_get((char**) env, "HOME");
+                if (!wd) {
+                        /* If that's not available, use the data from the struct passwd entry: */
+                        if (!pwent_home)
+                                return -ENXIO;
 
-                wd = home;
+                        wd = pwent_home;
+                }
         } else
                 wd = empty_to_root(context->working_directory);
 
@@ -4393,7 +4399,7 @@ int exec_invoke(
         _cleanup_free_ gid_t *supplementary_gids = NULL;
         const char *username = NULL, *groupname = NULL;
         _cleanup_free_ char *home_buffer = NULL, *memory_pressure_path = NULL, *own_user = NULL;
-        const char *home = NULL, *shell = NULL;
+        const char *pwent_home = NULL, *shell = NULL;
         char **final_argv = NULL;
         dev_t journal_stream_dev = 0;
         ino_t journal_stream_ino = 0;
@@ -4645,7 +4651,7 @@ int exec_invoke(
                         u = NULL;
 
                 if (u) {
-                        r = get_fixed_user(u, &username, &uid, &gid, &home, &shell);
+                        r = get_fixed_user(u, &username, &uid, &gid, &pwent_home, &shell);
                         if (r < 0) {
                                 *exit_status = EXIT_USER;
                                 return log_exec_error_errno(context, params, r, "Failed to determine user credentials: %m");
@@ -4677,7 +4683,7 @@ int exec_invoke(
 
         params->user_lookup_fd = safe_close(params->user_lookup_fd);
 
-        r = acquire_home(context, &home, &home_buffer);
+        r = acquire_home(context, &pwent_home, &home_buffer);
         if (r < 0) {
                 *exit_status = EXIT_CHDIR;
                 return log_exec_error_errno(context, params, r, "Failed to determine $HOME for the invoking user: %m");
@@ -4983,7 +4989,7 @@ int exec_invoke(
                         params,
                         cgroup_context,
                         n_fds,
-                        home,
+                        pwent_home,
                         username,
                         shell,
                         journal_stream_dev,
@@ -5505,7 +5511,7 @@ int exec_invoke(
          * running this service might have the correct privilege to change to the working directory. Also, it
          * is absolutely 💣 crucial 💣 we applied all mount namespacing rearrangements before this, so that
          * the cwd cannot be used to pin directories outside of the sandbox. */
-        r = apply_working_directory(context, params, runtime, home);
+        r = apply_working_directory(context, params, runtime, pwent_home, (const char* const*) accum_env);
         if (r < 0) {
                 *exit_status = EXIT_CHDIR;
                 return log_exec_error_errno(context, params, r, "Changing to the requested working directory failed: %m");
