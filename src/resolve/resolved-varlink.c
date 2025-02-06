@@ -43,14 +43,16 @@ static int dns_query_new_for_varlink(
                 DnsQuestion *question_utf8,
                 DnsQuestion *question_idna,
                 DnsPacket *question_bypass,
-                sd_varlink *link,
                 int ifindex,
-                uint64_t flags) {
+                uint64_t flags,
+                sd_varlink *link) {
 
-        int q = dns_query_new(m, ret, question_utf8, question_idna, question_bypass, ifindex, flags);
-        if (q == -ENOANO)
+        int r;
+
+        r = dns_query_new(m, ret, question_utf8, question_idna, question_bypass, ifindex, flags);
+        if (r == -ENOANO)
                 return sd_varlink_error(link, "io.systemd.Resolve.DNSError", NULL);
-        return q;
+        return r;
 }
 
 static int reply_query_state(DnsQuery *q) {
@@ -400,7 +402,7 @@ static int vl_method_resolve_hostname(sd_varlink *link, sd_json_variant *paramet
         if (r < 0 && r != -EALREADY)
                 return r;
 
-        r = dns_query_new_for_varlink(m, &q, question_utf8, question_idna ?: question_utf8, NULL, link, p.ifindex, p.flags);
+        r = dns_query_new_for_varlink(m, &q, question_utf8, question_idna ?: question_utf8, NULL, p.ifindex, p.flags, link);
         if (r < 0)
                 return r;
 
@@ -555,7 +557,7 @@ static int vl_method_resolve_address(sd_varlink *link, sd_json_variant *paramete
         if (r < 0)
                 return r;
 
-        r = dns_query_new_for_varlink(m, &q, question, question, NULL, link, p.ifindex, p.flags|SD_RESOLVED_NO_SEARCH);
+        r = dns_query_new_for_varlink(m, &q, question, question, NULL, p.ifindex, p.flags|SD_RESOLVED_NO_SEARCH, link);
         if (r < 0)
                 return r;
 
@@ -890,7 +892,7 @@ static int resolve_service_hostname(DnsQuery *q, DnsResourceRecord *rr, int ifin
         if (r < 0)
                 return r;
 
-        r = dns_query_new_for_varlink(q->manager, &aux, question, question, NULL, NULL, ifindex, q->flags|SD_RESOLVED_NO_SEARCH);
+        r = dns_query_new_for_varlink(q->manager, &aux, question, question, NULL, ifindex, q->flags|SD_RESOLVED_NO_SEARCH, NULL);
         if (r < 0)
                 return r;
 
@@ -1053,7 +1055,7 @@ static int vl_method_resolve_service(sd_varlink* link, sd_json_variant* paramete
         if (r < 0)
                 return r;
 
-        r = dns_query_new_for_varlink(m, &q, question_utf8, question_idna, NULL, link, p.ifindex, p.flags|SD_RESOLVED_NO_SEARCH);
+        r = dns_query_new_for_varlink(m, &q, question_utf8, question_idna, NULL, p.ifindex, p.flags|SD_RESOLVED_NO_SEARCH, link);
         if (r < 0)
                 return r;
 
@@ -1198,7 +1200,7 @@ static int vl_method_resolve_record(sd_varlink *link, sd_json_variant *parameter
         if (r < 0)
                 return r;
 
-        r = dns_query_new_for_varlink(m, &q, question, question, NULL, link, p.ifindex, p.flags|SD_RESOLVED_NO_SEARCH|SD_RESOLVED_CLAMP_TTL);
+        r = dns_query_new_for_varlink(m, &q, question, question, NULL, p.ifindex, p.flags|SD_RESOLVED_NO_SEARCH|SD_RESOLVED_CLAMP_TTL, link);
         if (r < 0)
                 return r;
 
