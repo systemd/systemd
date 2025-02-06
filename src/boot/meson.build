@@ -9,6 +9,7 @@ libefitest = static_library(
                 'bcd.c',
                 'chid.c',
                 'efi-string.c',
+                'efi-userspace.c',
         ),
         build_by_default : false,
         include_directories : [
