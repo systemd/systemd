@@ -524,6 +524,11 @@ int dns_query_new(
 
         assert(m);
 
+        /* Check for records that is refused and refuse query for the records if matched in configuration */
+        if (dns_question_has_record_types(question_utf8, m->refuse_record_types) ||
+                dns_question_has_record_types(question_idna, m->refuse_record_types))
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOANO), "Got request for a DNS record that is refused.");
+
         if (question_bypass) {
                 /* It's either a "bypass" query, or a regular one, but can't be both. */
                 if (question_utf8 || question_idna)
@@ -1376,4 +1381,13 @@ bool dns_query_fully_authoritative(DnsQuery *q) {
          * zones. (Note: the SD_RESOLVED_FROM_xyz flags we merge on each redirect, hence no need to
          * explicitly check previous redirects here.) */
         return (q->answer_query_flags & SD_RESOLVED_FROM_MASK & ~(SD_RESOLVED_FROM_TRUST_ANCHOR | SD_RESOLVED_FROM_ZONE)) == 0;
+}
+
+bool dns_question_has_record_types(DnsQuestion *q, Set *types) {
+        assert(q);
+        DnsResourceKey *key;
+
+        DNS_QUESTION_FOREACH(key, q)
+                return set_contains(types, INT_TO_PTR(key->type));
+        return false;
 }
