@@ -28,4 +28,4 @@ typedef struct EfiFwHeader {
         uint8_t payload[] _alignas_(uint64_t);
 } EfiFwHeader;
 
-EFI_STATUS efifirmware_match_by_fwid(const void *uki_efifw, size_t uki_efifw_length, const char *fwid);
+EFI_STATUS efi_firmware_match_by_fwid(const void *blob, size_t blob_len, const char *fwid);
