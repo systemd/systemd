@@ -84,7 +84,7 @@ int read_one_char(FILE *f, char *ret, usec_t timeout, bool echo, bool *need_nl);
 int ask_char(char *ret, const char *replies, const char *text, ...) _printf_(3, 4);
 int ask_string(char **ret, const char *text, ...) _printf_(2, 3);
 bool any_key_to_proceed(void);
-int show_menu(char **x, unsigned n_columns, unsigned width, unsigned percentage);
+int show_menu(char **x, size_t n_columns, size_t column_width, unsigned ellipsize_percentage, const char *grey_prefix, bool with_numbers);
 
 int vt_disallocate(const char *name);
 

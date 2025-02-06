@@ -281,38 +281,92 @@ bool any_key_to_proceed(void) {
         return key != 'q';
 }
 
-int show_menu(char **x, unsigned n_columns, unsigned width, unsigned percentage) {
-        unsigned break_lines, break_modulo;
-        size_t n, per_column, i, j;
+static size_t widest_list_element(char *const*l) {
+        size_t w = 0;
+
+        /* Returns the largest console width of all elements in 'l' */
+
+        STRV_FOREACH(i, l)
+                w = MAX(w, utf8_console_width(*i));
+
+        return w;
+}
+
+int show_menu(char **x,
+              size_t n_columns,
+              size_t column_width,
+              unsigned ellipsize_percentage,
+              const char *grey_prefix,
+              bool with_numbers) {
 
         assert(n_columns > 0);
 
-        n = strv_length(x);
-        per_column = DIV_ROUND_UP(n, n_columns);
+        if (n_columns == SIZE_MAX)
+                n_columns = 3;
 
-        break_lines = lines();
+        if (column_width == SIZE_MAX) {
+                size_t widest = widest_list_element(x);
+
+                /* If not specified, derive column width from screen width */
+                size_t column_max = (columns()-1) / n_columns;
+
+                /* Subtract room for numbers */
+                if (with_numbers && column_max > 6)
+                        column_max -= 6;
+
+                /* If columns would get too tight let's make this a linear list instead. */
+                if (column_max < 10 && widest > 10) {
+                        n_columns = 1;
+                        column_max = columns()-1;
+
+                        if (with_numbers && column_max > 6)
+                                column_max -= 6;
+                }
+
+                column_width = CLAMP(widest+1, 10U, column_max);
+        }
+
+        size_t n = strv_length(x);
+        size_t per_column = DIV_ROUND_UP(n, n_columns);
+
+        size_t break_lines = lines();
         if (break_lines > 2)
                 break_lines--;
 
         /* The first page gets two extra lines, since we want to show
          * a title */
-        break_modulo = break_lines;
+        size_t break_modulo = break_lines;
         if (break_modulo > 3)
                 break_modulo -= 3;
 
-        for (i = 0; i < per_column; i++) {
+        for (size_t i = 0; i < per_column; i++) {
 
-                for (j = 0; j < n_columns; j++) {
+                for (size_t j = 0; j < n_columns; j++) {
                         _cleanup_free_ char *e = NULL;
 
                         if (j * per_column + i >= n)
                                 break;
 
-                        e = ellipsize(x[j * per_column + i], width, percentage);
+                        e = ellipsize(x[j * per_column + i], column_width, ellipsize_percentage);
                         if (!e)
-                                return log_oom();
+                                return -ENOMEM;
 
-                        printf("%4zu) %-*s", j * per_column + i + 1, (int) width, e);
+                        if (with_numbers)
+                                printf("%s%4zu)%s ",
+                                       ansi_grey(),
+                                       j * per_column + i + 1,
+                                       ansi_normal());
+
+                        if (grey_prefix && startswith(e, grey_prefix)) {
+                                size_t k = MIN(strlen(grey_prefix), column_width);
+                                printf("%s%.*s%s",
+                                       ansi_grey(),
+                                       (int) k, e,
+                                       ansi_normal());
+                                printf("%-*s",
+                                       (int) (column_width - k), e+k);
+                        } else
+                                printf("%-*s", (int) column_width, e);
                 }
 
                 putchar('\n');

@@ -135,7 +135,13 @@ static void print_welcome(int rfd) {
         done = true;
 }
 
-static int prompt_loop(int rfd, const char *text, char **l, unsigned percentage, bool (*is_valid)(int rfd, const char *name), char **ret) {
+static int prompt_loop(
+                int rfd,
+                const char *text,
+                char **l,
+                unsigned ellipsize_percentage,
+                bool (*is_valid)(int rfd, const char *name),
+                char **ret) {
         int r;
 
         assert(text);
@@ -144,7 +150,6 @@ static int prompt_loop(int rfd, const char *text, char **l, unsigned percentage,
 
         for (;;) {
                 _cleanup_free_ char *p = NULL;
-                unsigned u;
 
                 r = ask_string(&p, strv_isempty(l) ? "%s %s (empty to skip): "
                                                    : "%s %s (empty to skip, \"list\" to list options): ",
@@ -159,14 +164,20 @@ static int prompt_loop(int rfd, const char *text, char **l, unsigned percentage,
 
                 if (!strv_isempty(l)) {
                         if (streq(p, "list")) {
-                                r = show_menu(l, 3, 20, percentage);
+                                r = show_menu(l,
+                                              /* n_columns= */ 3,
+                                              /* column_width= */ 20,
+                                              ellipsize_percentage,
+                                              /* grey_prefix= */ NULL,
+                                              /* with_numbers= */ true);
                                 if (r < 0)
-                                        return r;
+                                        return log_error_errno(r, "Failed to show menu: %m");
 
                                 putchar('\n');
                                 continue;
                         }
 
+                        unsigned u;
                         r = safe_atou(p, &u);
                         if (r >= 0) {
                                 if (u <= 0 || u > strv_length(l)) {
