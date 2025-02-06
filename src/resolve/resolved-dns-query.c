@@ -508,6 +508,14 @@ DnsQuery *dns_query_free(DnsQuery *q) {
         return mfree(q);
 }
 
+static bool dns_question_has_record_types(DnsQuestion *q, Set *types) {
+        DnsResourceKey *key;
+        DNS_QUESTION_FOREACH(key, q)
+                if (set_contains(types, INT_TO_PTR(key->type)))
+                        return true;
+        return false;
+}
+
 int dns_query_new(
                 Manager *m,
                 DnsQuery **ret,
@@ -523,6 +531,11 @@ int dns_query_new(
         int r;
 
         assert(m);
+
+        /* Check for records that is refused and refuse query for the records if matched in configuration */
+        if (dns_question_has_record_types(question_utf8, m->refuse_record_types) ||
+                dns_question_has_record_types(question_idna, m->refuse_record_types))
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOANO), "Got request for a DNS record that is refused.");
 
         if (question_bypass) {
                 /* It's either a "bypass" query, or a regular one, but can't be both. */
