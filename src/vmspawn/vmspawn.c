@@ -2050,7 +2050,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                                 "systemd.unit-dropin.sshd-vsock@.service:"
                                 "[Service]\n"
                                 "ExecStart=\n"
-                                "ExecStart=sshd -i -o 'AuthorizedKeysFile=%d/ssh.ephemeral-authorized_keys-all .ssh/authorized_keys'\n"
+                                "ExecStart=-sshd -i -o 'AuthorizedKeysFile=%d/ssh.ephemeral-authorized_keys-all .ssh/authorized_keys'\n"
                                 "ImportCredential=ssh.ephemeral-authorized_keys-all\n");
                 if (r < 0)
                         return log_error_errno(r, "Failed to set credential systemd.unit-dropin.sshd-vsock@.service: %m");
