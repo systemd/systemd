@@ -1090,7 +1090,7 @@ testcase_14_refuse_record_types() {
     {
         echo "[Resolve]"
         echo "RefuseRecordTypes=AAAA SRV TXT"
-    } >/run/systemd/resolved.conf.d/test.conf
+    } >/run/systemd/resolved.conf.d/refuserecords.conf
     ln -svf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
     systemctl reload systemd-resolved.service
 
