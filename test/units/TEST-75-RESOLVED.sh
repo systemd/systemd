@@ -1086,11 +1086,24 @@ testcase_13_varlink_subscribe_dns_configuration() {
 
 # Test RefuseRecordTypes
 testcase_14_refuse_record_types() {
+    cleanup() {
+        rm -f /run/systemd/resolved.conf.d/refuserecords.conf
+        if [[ -e /etc/resolv.conf.bak ]]; then
+            rm -f /etc/resolv.conf
+            mv /etc/resolv.conf.bak /etc/resolv.conf
+        fi
+        restart_resolved
+    }
+    trap cleanup RETURN ERR
+
     mkdir -p /run/systemd/resolved.conf.d
     {
         echo "[Resolve]"
         echo "RefuseRecordTypes=AAAA SRV TXT"
     } >/run/systemd/resolved.conf.d/refuserecords.conf
+    if [[ -e /etc/resolv.conf ]]; then
+        mv /etc/resolv.conf /etc/resolv.conf.bak
+    fi
     ln -svf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
     systemctl reload systemd-resolved.service
 

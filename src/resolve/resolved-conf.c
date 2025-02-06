@@ -431,7 +431,7 @@ int config_parse_record_types(
 
         if (isempty(rvalue)) {
                 *types = set_free(*types);
-                return 0;
+                return 1;
         }
 
         for (const char *p = rvalue;;) {
@@ -452,6 +452,4 @@ int config_parse_record_types(
                 if (r < 0)
                         return log_oom();
         }
-
-        return 1;
 }

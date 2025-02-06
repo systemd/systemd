@@ -319,8 +319,9 @@
 
       <varlistentry>
         <term><varname>RefuseRecordTypes=</varname></term>
-        <listitem><para>Takes a string argument separated by spaces. This option is to refuse (deny) record types
-         set from from being queried</para>
+	<listitem><para>Takes a list of DNS record types separated by space.
+	Specified record types in each query will be refused. This option can be specified multiple times.
+	If an empty string is specified, then all previous assignments are cleared.</para>
         <para>Examples:
         <programlisting>RefuseRecordTypes=AAAA SRV TXT</programlisting>
         </para>

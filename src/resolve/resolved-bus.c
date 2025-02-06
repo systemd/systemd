@@ -38,7 +38,10 @@ static int dns_query_new_for_bus(
                 int ifindex,
                 uint64_t flags,
                 sd_bus_error *error) {
-        int r = dns_query_new(m, ret, question_utf8, question_idna, question_bypass, ifindex, flags);
+
+        int r;
+
+        r = dns_query_new(m, ret, question_utf8, question_idna, question_bypass, ifindex, flags);
         if (r == -ENOANO)
                 return sd_bus_error_set(error, BUS_ERROR_DNS_REFUSED, "DNS query type refused.");
         return r;
