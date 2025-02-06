@@ -8,11 +8,13 @@
 #include "sd-messages.h"
 
 #include "alloc-util.h"
+#include "chase.h"
 #include "dbus-mount.h"
 #include "dbus-unit.h"
 #include "device.h"
 #include "exec-credential.h"
 #include "exit-status.h"
+#include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
 #include "fstab-util.h"
@@ -1183,22 +1185,32 @@ static int mount_set_mount_command(Mount *m, ExecCommand *c, const MountParamete
 }
 
 static void mount_enter_mounting(Mount *m) {
-        MountParameters *p;
-        bool source_is_dir = true;
+        _cleanup_close_ int fd = -EBADF;
+        _cleanup_free_ char *fn = NULL;
         int r;
 
         assert(m);
 
-        r = unit_fail_if_noncanonical(UNIT(m), m->where);
-        if (r < 0)
+        /* Validate that the path we are overmounting does not contain any symlinks, because if it does, we
+         * couldn't support that reasonably: the mounts in /proc/self/mountinfo would not be recognizable to
+         * us anymore. */
+        fd = chase_and_open_parent(m->where, /* root= */ NULL, CHASE_PROHIBIT_SYMLINKS|CHASE_MKDIR_0755, &fn);
+        if (fd == -EREMCHG) {
+                r = unit_log_noncanonical_mount_path(UNIT(m), m->where);
                 goto fail;
+        }
+        if (fd < 0) {
+                log_unit_error_errno(UNIT(m), fd, "Failed to resolve parent of mount point '%s': %m", m->where);
+                goto fail;
+        }
 
-        p = get_mount_parameters_fragment(m);
+        MountParameters *p = get_mount_parameters_fragment(m);
         if (!p) {
                 r = log_unit_warning_errno(UNIT(m), SYNTHETIC_ERRNO(ENOENT), "No mount parameters to operate on.");
                 goto fail;
         }
 
+        bool source_is_dir = true;
         if (mount_is_bind(p)) {
                 r = is_dir(p->what, /* follow = */ true);
                 if (r < 0 && r != -ENOENT)
@@ -1207,10 +1219,11 @@ static void mount_enter_mounting(Mount *m) {
                         source_is_dir = false;
         }
 
-        if (source_is_dir)
-                r = mkdir_p_label(m->where, m->directory_mode);
-        else
-                r = touch_file(m->where, /* parents = */ true, USEC_INFINITY, UID_INVALID, GID_INVALID, MODE_INVALID);
+        r = make_mount_point_inode_from_mode(
+                        fd,
+                        fn,
+                        source_is_dir ? S_IFDIR : S_IFREG,
+                        m->directory_mode);
         if (r < 0 && r != -EEXIST)
                 log_unit_warning_errno(UNIT(m), r, "Failed to create mount point '%s', ignoring: %m", m->where);
 
