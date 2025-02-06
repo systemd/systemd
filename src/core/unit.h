@@ -974,6 +974,7 @@ static inline PidRef* unit_main_pid(Unit *u) {
 }
 
 void unit_warn_if_dir_nonempty(Unit *u, const char* where);
+int unit_log_noncanonical(Unit *u, const char *where);
 int unit_fail_if_noncanonical(Unit *u, const char* where);
 
 int unit_test_start_limit(Unit *u);
