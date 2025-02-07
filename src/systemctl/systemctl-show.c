@@ -27,6 +27,7 @@
 #include "open-file.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "percent-util.h"
 #include "pretty-print.h"
 #include "process-util.h"
 #include "signal-util.h"
@@ -1297,6 +1298,39 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
 
                                 fputc('\n', stdout);
                         }
+                        return 1;
+                } else if (STR_IN_SET(name, "StateDirectoryQuota", "CacheDirectoryQuota", "LogsDirectoryQuota")) {
+                        uint64_t quota_absolute;
+                        uint32_t quota_scale;
+                        bool quota_enforce;
+
+                        r = sd_bus_message_enter_container(m, 'r', "tub");
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        r = sd_bus_message_read(m, "t", &quota_absolute);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        r = sd_bus_message_read(m, "u", &quota_scale);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        r = sd_bus_message_read(m, "b", &quota_enforce);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        r = sd_bus_message_exit_container(m);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        if (!quota_enforce)
+                                bus_print_property_value(name, expected_value, flags, "[not set]");
+                        else if (quota_absolute != UINT64_MAX)
+                                bus_print_property_valuef(name, expected_value, flags, "%lu", quota_absolute);
+                        else
+                                bus_print_property_valuef(name, expected_value, flags, "%d%%", UINT32_SCALE_TO_PERCENT(quota_scale));
+
                         return 1;
                 }
 
