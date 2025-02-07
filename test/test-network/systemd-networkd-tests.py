@@ -3999,6 +3999,45 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         print(output)
         self.assertIn('10113:	from all iif test1 lookup 1011', output)
 
+    def test_routing_policy_rule_manual(self):
+        # For issue #36244.
+        copy_network_unit(
+            '11-dummy.netdev',
+            '25-routing-policy-rule-manual.network')
+        start_networkd()
+        self.wait_operstate('test1', operstate='off', setup_state='configuring', setup_timeout=20)
+
+        check_output('ip link add test2 type dummy')
+        self.wait_operstate('test2', operstate='off', setup_state='configuring', setup_timeout=20)
+
+        networkctl('up', 'test2')
+        self.wait_online('test2:degraded')
+
+        # The request for the routing policy rules are bound to test1. Hence, we need to wait for the rules
+        # being configured explicitly.
+        for _ in range(20):
+            time.sleep(0.5)
+
+            output = check_output('ip -4 rule list table 51819')
+            if output != '10:	from all lookup 51819 suppress_prefixlength 0 proto static':
+                continue
+
+            output = check_output('ip -6 rule list table 51819')
+            if output != '10:	from all lookup 51819 suppress_prefixlength 0 proto static':
+                continue
+
+            output = check_output('ip -4 rule list table 51820')
+            if output != '11:	not from all fwmark 0x38f lookup 51820 proto static':
+                continue
+
+            output = check_output('ip -6 rule list table 51820')
+            if output != '11:	not from all fwmark 0x38f lookup 51820 proto static':
+                continue
+
+            break
+        else:
+            self.assertFalse(True)
+
     @expectedFailureIfRoutingPolicyPortRangeIsNotAvailable()
     def test_routing_policy_rule_port_range(self):
         copy_network_unit('25-fibrule-port-range.network', '11-dummy.netdev')
