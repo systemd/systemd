@@ -13,6 +13,9 @@
 Kind=bridge
 Name=vz-*
 
+[Link]
+RequiredForOnline=no
+
 [Network]
 # Default to using a /24 prefix, giving up to 253 addresses per virtual network.
 Address=0.0.0.0/24
@@ -23,3 +26,6 @@ LLDP=yes
 EmitLLDP=customer-bridge
 IPv6AcceptRA=no
 IPv6SendRA=yes
+
+[DHCPServer]
+PersistLeases=no
