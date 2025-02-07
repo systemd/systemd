@@ -75,6 +75,7 @@ static bool arg_fsck = true;
 static bool arg_aggressive_gc = false;
 static bool arg_tmpfs = false;
 static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
+static bool arg_canonicalize = true;
 
 STATIC_DESTRUCTOR_REGISTER(arg_mount_what, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_mount_where, freep);
@@ -90,14 +91,14 @@ static int parse_where(const char *input, char **ret_where) {
         assert(input);
         assert(ret_where);
 
-        if (arg_transport == BUS_TRANSPORT_LOCAL) {
-                r = chase(input, NULL, CHASE_NONEXISTENT, ret_where, NULL);
+        if (arg_transport == BUS_TRANSPORT_LOCAL && arg_canonicalize) {
+                r = chase(input, /* root= */ NULL, CHASE_NONEXISTENT, ret_where, /* ret_fd= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to make path %s absolute: %m", input);
         } else {
                 if (!path_is_absolute(input))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Path must be absolute when operating remotely: %s",
+                                               "Path must be absolute when operating remotely or when canonicalization is turned off: %s",
                                                input);
 
                 r = path_simplify_alloc(input, ret_where);
@@ -119,8 +120,9 @@ static int help(void) {
         printf("systemd-mount [OPTIONS...] WHAT [WHERE]\n"
                "systemd-mount [OPTIONS...] --tmpfs [NAME] WHERE\n"
                "systemd-mount [OPTIONS...] --list\n"
-               "%s [OPTIONS...] %sWHAT|WHERE...\n\n"
-               "%sEstablish a mount or auto-mount point transiently.%s\n\n"
+               "%1$s [OPTIONS...] %7$sWHAT|WHERE...\n"
+               "\n%5$sEstablish a mount or auto-mount point transiently.%6$s\n"
+               "\n%3$sOptions:%4$s\n"
                "  -h --help                       Show this help\n"
                "     --version                    Show package version\n"
                "     --no-block                   Do not wait until operation finished\n"
@@ -149,12 +151,16 @@ static int help(void) {
                "  -u --umount                     Unmount mount points\n"
                "  -G --collect                    Unload unit after it stopped, even when failed\n"
                "  -T --tmpfs                      Create a new tmpfs on the mount point\n"
-               "\nSee the %s for details.\n",
+               "     --canonicalize=BOOL          Controls whether to canonicalize path before\n"
+               "                                  operation\n"
+               "\nSee the %2$s for details.\n",
                program_invocation_short_name,
-               streq(program_invocation_short_name, "systemd-umount") ? "" : "--umount ",
+               link,
+               ansi_underline(),
+               ansi_normal(),
                ansi_highlight(),
                ansi_normal(),
-               link);
+               streq(program_invocation_short_name, "systemd-umount") ? "" : "--umount ");
 
         return 0;
 }
@@ -181,6 +187,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_BIND_DEVICE,
                 ARG_LIST,
                 ARG_JSON,
+                ARG_CANONICALIZE,
         };
 
         static const struct option options[] = {
@@ -213,6 +220,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "collect",            no_argument,       NULL, 'G'                    },
                 { "tmpfs",              no_argument,       NULL, 'T'                    },
                 { "json",               required_argument, NULL, ARG_JSON               },
+                { "canonicalize",       required_argument, NULL, ARG_CANONICALIZE       },
                 {},
         };
 
@@ -374,6 +382,13 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
+                case ARG_CANONICALIZE:
+                        r = parse_boolean_argument("--canonicalize=", optarg, &arg_canonicalize);
+                        if (r < 0)
+                                return r;
+
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -441,21 +456,21 @@ static int parse_argv(int argc, char *argv[]) {
                                 if (!arg_mount_what)
                                         return log_oom();
 
-                        } else if (arg_transport == BUS_TRANSPORT_LOCAL) {
+                        } else if (arg_transport == BUS_TRANSPORT_LOCAL && arg_canonicalize) {
                                 _cleanup_free_ char *u = NULL;
 
                                 u = fstab_node_to_udev_node(argv[optind]);
                                 if (!u)
                                         return log_oom();
 
-                                r = chase(u, NULL, 0, &arg_mount_what, NULL);
+                                r = chase(u, /* root= */ NULL, /* flags= */ 0, &arg_mount_what, /* ret_fd= */ NULL);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to make path %s absolute: %m", u);
 
                         } else {
                                 if (!path_is_absolute(argv[optind]))
                                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                               "Path must be absolute when operating remotely: %s",
+                                                               "Path must be absolute when operating remotely or when canonicalization is turned off: %s",
                                                                argv[optind]);
 
                                 r = path_simplify_alloc(argv[optind], &arg_mount_what);
@@ -1050,7 +1065,7 @@ static int action_umount(
         assert(argv);
         assert(argc > optind);
 
-        if (arg_transport != BUS_TRANSPORT_LOCAL) {
+        if (arg_transport != BUS_TRANSPORT_LOCAL || !arg_canonicalize) {
                 for (int i = optind; i < argc; i++) {
                         _cleanup_free_ char *p = NULL;
 
