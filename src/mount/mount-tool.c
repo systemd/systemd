@@ -1044,7 +1044,11 @@ static int action_umount(
                 int argc,
                 char **argv) {
 
-        int r, r2 = 0;
+        int r, ret = 0;
+
+        assert(bus);
+        assert(argv);
+        assert(argc > optind);
 
         if (arg_transport != BUS_TRANSPORT_LOCAL) {
                 for (int i = optind; i < argc; i++) {
@@ -1054,11 +1058,9 @@ static int action_umount(
                         if (r < 0)
                                 return r;
 
-                        r = stop_mounts(bus, p);
-                        if (r < 0)
-                                r2 = r;
+                        RET_GATHER(ret, stop_mounts(bus, p));
                 }
-                return r2;
+                return ret;
         }
 
         for (int i = optind; i < argc; i++) {
@@ -1069,31 +1071,39 @@ static int action_umount(
                 if (!u)
                         return log_oom();
 
-                r = chase(u, NULL, 0, &p, NULL);
+                _cleanup_close_ int fd = -EBADF;
+                r = chase(u, /* root= */ NULL, 0, &p, &fd);
                 if (r < 0) {
-                        r2 = log_error_errno(r, "Failed to make path %s absolute: %m", argv[i]);
+                        RET_GATHER(ret, log_error_errno(r, "Failed to make path %s absolute: %m", u));
                         continue;
                 }
 
-                if (stat(p, &st) < 0)
-                        return log_error_errno(errno, "Can't stat %s (from %s): %m", p, argv[i]);
-
-                if (S_ISBLK(st.st_mode))
-                        r = umount_by_device_node(bus, p);
-                else if (S_ISREG(st.st_mode))
-                        r = umount_loop(bus, p);
-                else if (S_ISDIR(st.st_mode))
-                        r = stop_mounts(bus, p);
+                r = is_mount_point_at(fd, /* filename= */ NULL, /* flags= */ 0);
+                fd = safe_close(fd); /* before continuing make sure the dir is not keeping anything busy */
+                if (r > 0)
+                        RET_GATHER(ret, stop_mounts(bus, p));
                 else {
-                        log_error("Invalid file type: %s (from %s)", p, argv[i]);
-                        r = -EINVAL;
-                }
+                        /* This can realistically fail on pre-5.8 kernels that do not tell us via statx() if
+                         * something is a mount point, hence handle this gracefully, and go by type as we did
+                         * in pre-v258 times. */
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to determine if '%s' is a mount point, ignoring: %m", u);
 
-                if (r < 0)
-                        r2 = r;
+                        if (fstat(fd, &st) < 0)
+                                return log_error_errno(errno, "Can't stat %s (from %s): %m", p, argv[i]);
+
+                        if (S_ISBLK(st.st_mode))
+                                RET_GATHER(ret, umount_by_device_node(bus, p));
+                        else if (S_ISREG(st.st_mode))
+                                RET_GATHER(ret, umount_loop(bus, p));
+                        else if (S_ISDIR(st.st_mode))
+                                RET_GATHER(ret, stop_mounts(bus, p));
+                        else
+                                RET_GATHER(ret, log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid file type: %s (from %s)", p, argv[i]));
+                }
         }
 
-        return r2;
+        return ret;
 }
 
 static int acquire_mount_type(sd_device *d) {
