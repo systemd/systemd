@@ -94,6 +94,7 @@ static bool arg_rmdir = false;
 static bool arg_in_memory = false;
 static char **arg_argv = NULL;
 static char *arg_loop_ref = NULL;
+static bool arg_loop_ref_auto = false;
 static ImagePolicy *arg_image_policy = NULL;
 static bool arg_mtree_hash = true;
 static bool arg_via_service = false;
@@ -156,6 +157,7 @@ static int help(void) {
                "     --json=pretty|short|off\n"
                "                          Generate JSON output\n"
                "     --loop-ref=NAME      Set reference string for loopback device\n"
+               "     --loop-ref-auto      Derive reference string from image file name\n"
                "     --mtree-hash=BOOL    Whether to include SHA256 hash in the mtree output\n"
                "     --user               Discover user images\n"
                "     --system             Discover system images\n"
@@ -280,6 +282,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_ATTACH,
                 ARG_DETACH,
                 ARG_LOOP_REF,
+                ARG_LOOP_REF_AUTO,
                 ARG_IMAGE_POLICY,
                 ARG_VALIDATE,
                 ARG_MTREE_HASH,
@@ -317,6 +320,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "json",          required_argument, NULL, ARG_JSON          },
                 { "discover",      no_argument,       NULL, ARG_DISCOVER      },
                 { "loop-ref",      required_argument, NULL, ARG_LOOP_REF      },
+                { "loop-ref-auto", no_argument,       NULL, ARG_LOOP_REF_AUTO },
                 { "image-policy",  required_argument, NULL, ARG_IMAGE_POLICY  },
                 { "validate",      no_argument,       NULL, ARG_VALIDATE      },
                 { "mtree-hash",    required_argument, NULL, ARG_MTREE_HASH    },
@@ -522,6 +526,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_LOOP_REF:
                         if (isempty(optarg)) {
                                 arg_loop_ref = mfree(arg_loop_ref);
+                                arg_loop_ref_auto = false;
                                 break;
                         }
 
@@ -531,6 +536,13 @@ static int parse_argv(int argc, char *argv[]) {
                         r = free_and_strdup_warn(&arg_loop_ref, optarg);
                         if (r < 0)
                                 return r;
+
+                        arg_loop_ref_auto = false;
+                        break;
+
+                case ARG_LOOP_REF_AUTO:
+                        arg_loop_ref = mfree(arg_loop_ref);
+                        arg_loop_ref_auto = true;
                         break;
 
                 case ARG_IMAGE_POLICY:
@@ -2149,6 +2161,12 @@ static int run(int argc, char *argv[]) {
                                                                         * support */
         }
 
+        if (!arg_loop_ref && arg_loop_ref_auto) { /* yes, the 2nd check is strictly speaking redundant, given the normalization we did above, but let's be explicit here */
+                r = path_extract_filename(arg_image, &arg_loop_ref);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to extract file name from image path '%s': %m", arg_image);
+        }
+
         if (arg_action == ACTION_VALIDATE)
                 return action_validate();
 
@@ -2214,8 +2232,8 @@ static int run(int argc, char *argv[]) {
                         if (arg_in_memory)
                                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--in-memory= not supported when operating via systemd-mountfsd.");
 
-                        if (arg_loop_ref)
-                                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--loop-ref= not supported when operating via systemd-mountfsd.");
+                        if (arg_loop_ref || arg_loop_ref_auto)
+                                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--loop-ref=/--loop-ref-auto not supported when operating via systemd-mountfsd.");
 
                         if (verity_settings_set(&arg_verity_settings))
                                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Externally configured verity settings not supported when operating via systemd-mountfsd.");

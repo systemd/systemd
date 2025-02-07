@@ -518,6 +518,15 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--loop-ref-auto</option></term>
+
+        <listitem><para>Similar to <option>--loop-ref=</option>, but automatically derive the reference
+        string from the specified backing filename, truncating it if necessary.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--mtree-hash=no</option></term>
 
         <listitem><para>If combined with <option>--mtree</option>, turns off inclusion of file hashes in the
