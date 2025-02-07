@@ -14,6 +14,9 @@
 Kind=veth
 Name=vb-*
 
+[Link]
+RequiredForOnline=no
+
 [Network]
 KeepMaster=yes
 LinkLocalAddressing=no
