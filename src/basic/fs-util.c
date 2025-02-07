@@ -374,6 +374,10 @@ int fd_warn_permissions(const char *path, int fd) {
 int touch_fd(int fd, usec_t stamp) {
         assert(fd >= 0);
 
+        /* Return early if there's no timestamp to update */
+        if (stamp == 0)
+                return 0;
+
         if (stamp == USEC_INFINITY)
                 return futimens_opath(fd, /* ts= */ NULL);
 
