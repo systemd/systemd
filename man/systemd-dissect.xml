@@ -206,9 +206,12 @@
 
         <listitem><para>Attach the specified disk image to an automatically allocated loopback block device,
         and print the path to the loopback block device to standard output. This is similar to an invocation
-        of <command>losetup --find --show</command>, but will validate the image as DDI before attaching, and
-        derive the correct sector size to use automatically. Moreover, it ensures the per-partition block
-        devices are created before returning. Takes a path to a disk image file.</para>
+        of <command>losetup --find --show --partscan</command>, but will validate the image as DDI before
+        attaching, and derive the correct sector size to use automatically. Moreover, it ensures the
+        per-partition block devices are created before returning and attempts to enable direct IO mode, if
+        possible. Takes a path to a disk image file.</para>
+
+        <para>If combined with <option>--quiet</option> output of the block device name is suppressed.</para>
 
         <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
@@ -552,6 +555,16 @@
 
         <listitem><para>If combined with <option>--discover</option>, also shows images that start with a
         dot, i.e. hidden images.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--quiet</option></term>
+        <term><option>-q</option></term>
+
+        <listitem><para>If combined with <option>--attach</option>, suppresses output of the used loopback
+        block device path.</para>
 
         <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
