@@ -176,7 +176,7 @@ static int parse_credentials(void) {
                 if (r == 0)
                         break;
                 if (r < 0) {
-                        log_error_errno(r, "Failed to parse credential 'ssh.listen': %m");
+                        log_error_errno(r, "Failed to parse credential 'import.pull': %m");
                         break;
                 }
 
