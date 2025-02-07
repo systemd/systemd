@@ -596,17 +596,7 @@ int resource_resolve_path(
                         return log_error_errno(SYNTHETIC_ERRNO(EPERM),
                                                "Block device is not allowed when using --root= mode.");
 
-                r = stat("/run/systemd/volatile-root", &orig_root_stats);
-                if (r < 0) {
-                        if (errno == ENOENT) /* volatile-root not found */
-                                r = get_block_device_harder("/usr/", &d);
-                        else
-                                return log_error_errno(r, "Failed to stat /run/systemd/volatile-root: %m");
-                } else if (!S_ISBLK(orig_root_stats.st_mode)) /* symlink was present but not block device */
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOTBLK), "/run/systemd/volatile-root is not linked to a block device.");
-                else /* symlink was present and a block device */
-                        d = orig_root_stats.st_rdev;
-
+                r = blockdev_get_root(LOG_ERR, &d)
         } else if (rr->type == RESOURCE_PARTITION) {
                 _cleanup_close_ int fd = -EBADF, real_fd = -EBADF;
                 _cleanup_free_ char *resolved = NULL;
