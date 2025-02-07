@@ -54,6 +54,10 @@ static inline int chattr_path(const char *path, unsigned value, unsigned mask, u
 int read_attr_fd(int fd, unsigned *ret);
 int read_attr_at(int dir_fd, const char *path, unsigned *ret);
 
+int get_proj_id(int fd, uint32_t *ret);
+int set_proj_id(const char *path, uint32_t proj_id);
+int set_proj_id_recursive(const char *path, uint32_t proj_id);
+
 /* Combination of chattr flags, that should be appropriate for secrets stored on disk: Secure Remove +
  * Exclusion from Dumping + Synchronous Writing (i.e. not caching in memory) + In-Place Updating (i.e. not
  * spurious copies). */
