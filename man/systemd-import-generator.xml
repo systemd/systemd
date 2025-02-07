@@ -117,6 +117,16 @@
 
             <xi:include href="version-info.xml" xpointer="v257"/></listitem>
           </varlistentry>
+
+          <varlistentry>
+            <term>blockdev</term>
+
+            <listitem><para>If this option is specified the downloaded image is attached to a loopback block
+            device (via <filename>systemd-loop@.service</filename>) after completion. This permits booting
+            from downloaded disk images. This is only supported for <literal>raw</literal> disk images.</para>
+
+            <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+          </varlistentry>
         </variablelist>
 
         <xi:include href="version-info.xml" xpointer="v257"/></listitem>
@@ -183,6 +193,16 @@
       validation. This is useful for development purposes in virtual machines and containers. Warning: do not
       deploy a system with validation disabled like this!</para>
     </example>
+
+    <example>
+      <title>Download root disk image (raw) into memory, for booting into it</title>
+
+      <programlisting>rd.systemd.pull=raw,machine,verify=no,blockdev:image:https://example.com/image.raw.xz root=/dev/disk/by-loop-ref/image.raw-part2</programlisting>
+
+      <para>This downloads the specified disk image, saving it locally under the name
+      <literal>image</literal>, and attaches it to a loopback block device on completion. It then boots from
+      the 2nd partition in the image.</para>
+    </example>
   </refsect1>
 
   <refsect1>
@@ -193,6 +213,7 @@
       <member><citerefentry><refentrytitle>kernel-command-line</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd.system-credentials</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>importctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-loop@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
     </simplelist></para>
   </refsect1>
 </refentry>
