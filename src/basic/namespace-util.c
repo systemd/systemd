@@ -415,6 +415,8 @@ int detach_mount_namespace(void) {
 }
 
 int detach_mount_namespace_harder(uid_t target_uid, gid_t target_gid) {
+        uid_t from_uid;
+        gid_t from_gid;
         int r;
 
         /* Tried detach_mount_namespace() first. If that doesn't work due to permissions, opens up an
@@ -442,11 +444,14 @@ int detach_mount_namespace_harder(uid_t target_uid, gid_t target_gid) {
         if (r != -EPERM)
                 return r;
 
+        from_uid = getuid();
+        from_gid = getgid();
+
         if (unshare(CLONE_NEWUSER) < 0)
                 return log_debug_errno(errno, "Failed to acquire user namespace: %m");
 
         r = write_string_filef("/proc/self/uid_map", 0,
-                               UID_FMT " " UID_FMT " 1\n", target_uid, getuid());
+                               UID_FMT " " UID_FMT " 1\n", target_uid, from_uid);
         if (r < 0)
                 return log_debug_errno(r, "Failed to write uid map: %m");
 
@@ -455,7 +460,7 @@ int detach_mount_namespace_harder(uid_t target_uid, gid_t target_gid) {
                 return log_debug_errno(r, "Failed to write setgroups file: %m");
 
         r = write_string_filef("/proc/self/gid_map", 0,
-                               GID_FMT " " GID_FMT " 1\n", target_gid, getgid());
+                               GID_FMT " " GID_FMT " 1\n", target_gid, from_gid);
         if (r < 0)
                 return log_debug_errno(r, "Failed to write gid map: %m");
 
