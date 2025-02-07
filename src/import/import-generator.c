@@ -8,20 +8,42 @@
 #include "fileio.h"
 #include "generator.h"
 #include "import-util.h"
+#include "initrd-util.h"
 #include "json-util.h"
 #include "proc-cmdline.h"
+#include "special.h"
 #include "specifier.h"
+#include "unit-name.h"
 #include "web-util.h"
+
+typedef struct Transfer {
+        ImageClass class;
+        ImportType type;
+        char *local;
+        char *remote;
+        bool blockdev;
+        sd_json_variant *json;
+} Transfer;
 
 static const char *arg_dest = NULL;
 static char *arg_success_action = NULL;
 static char *arg_failure_action = NULL;
-static sd_json_variant **arg_transfers = NULL;
+static Transfer *arg_transfers = NULL;
 static size_t arg_n_transfers = 0;
+
+static void transfer_destroy_many(Transfer *transfers, size_t n) {
+        FOREACH_ARRAY(t, transfers, n) {
+                free(t->local);
+                free(t->remote);
+                sd_json_variant_unref(t->json);
+        }
+
+        free(transfers);
+}
 
 STATIC_DESTRUCTOR_REGISTER(arg_success_action, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_failure_action, freep);
-STATIC_ARRAY_DESTRUCTOR_REGISTER(arg_transfers, arg_n_transfers, sd_json_variant_unref_many);
+STATIC_ARRAY_DESTRUCTOR_REGISTER(arg_transfers, arg_n_transfers, transfer_destroy_many);
 
 static int parse_pull_expression(const char *v) {
         const char *p = v;
@@ -57,7 +79,7 @@ static int parse_pull_expression(const char *v) {
         ImportType type = _IMPORT_TYPE_INVALID;
         ImageClass class = _IMAGE_CLASS_INVALID;
         ImportVerify verify = IMPORT_VERIFY_SIGNATURE;
-        bool ro = false;
+        bool ro = false, blockdev = false;
 
         const char *o = options;
         for (;;) {
@@ -75,6 +97,8 @@ static int parse_pull_expression(const char *v) {
                         ro = true;
                 else if (streq(opt, "rw"))
                         ro = false;
+                else if (streq(opt, "blockdev"))
+                        blockdev = true;
                 else if ((suffix = startswith(opt, "verify="))) {
 
                         ImportVerify w = import_verify_from_string(suffix);
@@ -105,6 +129,35 @@ static int parse_pull_expression(const char *v) {
         if (class < 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No image class (machine, portable, sysext, confext) specified in pull expression, refusing: %s", v);
 
+        if (!local) {
+                _cleanup_free_ char *c = NULL;
+                r = import_url_last_component(remote, &c);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to generate local name from URL '%s': %m", remote);
+
+                switch (type) {
+
+                case IMPORT_RAW:
+                        r = raw_strip_suffixes(c, &local);
+                        break;
+
+                case IMPORT_TAR:
+                        r = tar_strip_suffixes(c, &local);
+                        break;
+
+                default:
+                        assert_not_reached();
+                        break;
+                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to strip suffix from URL '%s': %m", remote);
+
+                log_info("Saving downloaded file under local name '%s'.", local);
+        }
+
+        if (blockdev && type != IMPORT_RAW)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Option 'blockdev' only available for raw images, refusing: %s", v);
+
         if (!GREEDY_REALLOC(arg_transfers, arg_n_transfers + 1))
                 return log_oom();
 
@@ -121,7 +174,15 @@ static int parse_pull_expression(const char *v) {
         if (r < 0)
                 return log_error_errno(r, "Failed to build import JSON object: %m");
 
-        arg_transfers[arg_n_transfers++] = TAKE_PTR(j);
+        arg_transfers[arg_n_transfers++] = (Transfer) {
+                .class = class,
+                .type = type,
+                .local = TAKE_PTR(local),
+                .remote = TAKE_PTR(remote),
+                .json = TAKE_PTR(j),
+                .blockdev = blockdev,
+        };
+
         return 0;
 }
 
@@ -191,10 +252,10 @@ static int parse_credentials(void) {
         return 0;
 }
 
-static int transfer_generate(sd_json_variant *v, size_t c) {
+static int transfer_generate(const Transfer *t, size_t c) {
         int r;
 
-        assert(v);
+        assert(t);
 
         _cleanup_free_ char *service = NULL;
         if (asprintf(&service, "import%zu.service", c) < 0)
@@ -205,19 +266,17 @@ static int transfer_generate(sd_json_variant *v, size_t c) {
         if (r < 0)
                 return r;
 
-        const char *remote = sd_json_variant_string(sd_json_variant_by_key(v, "remote"));
-
         fprintf(f,
                 "[Unit]\n"
                 "Description=Download of %s\n"
                 "Documentation=man:systemd-import-generator(8)\n"
                 "SourcePath=/proc/cmdline\n"
                 "Requires=systemd-importd.socket\n"
-                "After=systemd-importd.socket\n"
+                "After=imports-pre.target systemd-importd.socket\n"
                 "Conflicts=shutdown.target\n"
-                "Before=shutdown.target\n"
+                "Before=imports.target shutdown.target\n"
                 "DefaultDependencies=no\n",
-                remote);
+                t->remote);
 
         if (arg_success_action)
                 fprintf(f, "SuccessAction=%s\n",
@@ -227,16 +286,31 @@ static int transfer_generate(sd_json_variant *v, size_t c) {
                 fprintf(f, "FailureAction=%s\n",
                         arg_failure_action);
 
-        const char *class = sd_json_variant_string(sd_json_variant_by_key(v, "class"));
-        if (streq_ptr(class, "sysext"))
+        if (t->class == IMAGE_SYSEXT)
                 fputs("Before=systemd-sysext.service\n", f);
-        else if (streq_ptr(class, "confext"))
+        else if (t->class == IMAGE_CONFEXT)
                 fputs("Before=systemd-confext.service\n", f);
 
         /* Assume network resource unless URL is file:// */
-        if (!file_url_is_valid(remote))
+        if (!file_url_is_valid(t->remote))
                 fputs("Wants=network-online.target\n"
                       "After=network-online.target\n", f);
+
+        _cleanup_free_ char *local_path = NULL, *loop_service = NULL;
+        if (t->blockdev) {
+                assert(t->type == IMPORT_RAW);
+
+                local_path = strjoin(image_root_to_string(t->class), "/", t->local, ".raw");
+                if (!local_path)
+                        return log_oom();
+
+                r = unit_name_from_path_instance("systemd-loop", local_path, ".service", &loop_service);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to build systemd-loop@.service instance name from path '%s': %m", local_path);
+
+                /* Make sure download completes before the loopback service is activated */
+                fprintf(f, "Before=%s\n", loop_service);
+        }
 
         fputs("\n"
               "[Service]\n"
@@ -244,7 +318,7 @@ static int transfer_generate(sd_json_variant *v, size_t c) {
               "NotifyAccess=main\n", f);
 
         _cleanup_free_ char *formatted = NULL;
-        r = sd_json_variant_format(v, /* flags= */ 0, &formatted);
+        r = sd_json_variant_format(t->json, /* flags= */ 0, &formatted);
         if (r < 0)
                 return log_error_errno(r, "Failed to format import JSON data: %m");
 
@@ -259,7 +333,17 @@ static int transfer_generate(sd_json_variant *v, size_t c) {
         if (r < 0)
                 return log_error_errno(r, "Failed to write unit %s: %m", service);
 
-        return generator_add_symlink(arg_dest, "multi-user.target", "wants", service);
+        r = generator_add_symlink(arg_dest, "imports.target", "wants", service);
+        if (r < 0)
+                return r;
+
+        if (loop_service) {
+                r = generator_add_symlink(arg_dest, "imports.target", "wants", loop_service);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
 }
 
 static int generate(void) {
@@ -267,7 +351,7 @@ static int generate(void) {
         int r = 0;
 
         FOREACH_ARRAY(i, arg_transfers, arg_n_transfers)
-                RET_GATHER(r, transfer_generate(*i, c++));
+                RET_GATHER(r, transfer_generate(i, c++));
 
         return r;
 }

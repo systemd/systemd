@@ -117,6 +117,16 @@
 
             <xi:include href="version-info.xml" xpointer="v257"/></listitem>
           </varlistentry>
+
+          <varlistentry>
+            <term>blockdev</term>
+
+            <listitem><para>If this option is specified the downloaded image is attached to a loopback block
+            device (via <filename>systemd-looop@.service</filename>) after completion. This permits booting
+            from downloaded disk images. This is only supported for <literal>raw</literal> disk images.</para>
+
+            <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+          </varlistentry>
         </variablelist>
 
         <xi:include href="version-info.xml" xpointer="v257"/></listitem>
@@ -178,6 +188,16 @@
       automatically at boot from the specified URL, uncompressed and installed – without any cryptographic
       validation. This is useful for development purposes in virtual machines and containers. Warning: do not
       deploy a system with validation disabled like this!</para>
+    </example>
+
+    <example>
+      <title>Download root disk image into memory, for booting into it</title>
+
+      <programlisting>systemd.pull=raw,machine,verify=no,blockdev:root:https://example.com/image.raw.xz root=/dev/disk/by-loop-ref/root.raw-part2</programlisting>
+
+      <para>This downloads the specified disk image, saving it locally under the name
+      <literal>root</literal>, and attaches it to a loopback block device on completion. It then boots
+      from the 2nd partition in the image.</para>
     </example>
   </refsect1>
 
