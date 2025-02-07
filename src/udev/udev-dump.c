@@ -81,7 +81,7 @@ void dump_event(UdevEvent *event, FILE *f) {
                 }
 
                 gid_t gid = event->gid;
-                if (!gid_is_valid(uid))
+                if (!gid_is_valid(gid))
                         (void) device_get_devnode_gid(dev, &gid);
                 if (gid_is_valid(gid)) {
                         _cleanup_free_ char *group = gid_to_name(gid);
