@@ -257,8 +257,12 @@ static int transfer_generate(const Transfer *t, size_t c) {
 
         assert(t);
 
+        _cleanup_free_ char *e = unit_name_escape(t->remote);
+        if (!e)
+                return log_oom();
+
         _cleanup_free_ char *service = NULL;
-        if (asprintf(&service, "import%zu.service", c) < 0)
+        if (asprintf(&service, "systemd-import@%zu-%s.service", c, e) < 0)
                 return log_oom();
 
         _cleanup_fclose_ FILE *f = NULL;
