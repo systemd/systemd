@@ -383,6 +383,15 @@ units = [
           'symlinks' : ['sockets.target.wants/'],
         },
         {
+          'file' : 'imports-pre.target',
+          'conditions' : ['ENABLE_IMPORTD'],
+        },
+        {
+          'file' : 'imports.target',
+          'conditions' : ['ENABLE_IMPORTD'],
+          'symlinks' : ['sysinit.target.wants/'],
+        },
+        {
           'file' : 'systemd-initctl.service.in',
           'conditions' : ['HAVE_SYSV_COMPAT'],
         },
