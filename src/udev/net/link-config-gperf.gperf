@@ -39,9 +39,11 @@ Match.Credential,                          config_parse_net_condition,          
 Match.Architecture,                        config_parse_net_condition,            CONDITION_ARCHITECTURE,        offsetof(LinkConfig, conditions)
 Match.Firmware,                            config_parse_net_condition,            CONDITION_FIRMWARE,            offsetof(LinkConfig, conditions)
 Link.Description,                          config_parse_string,                   0,                             offsetof(LinkConfig, description)
+/* udev property */
 Link.Property,                             config_parse_udev_property,            0,                             offsetof(LinkConfig, properties)
 Link.ImportProperty,                       config_parse_udev_property_name,       0,                             offsetof(LinkConfig, import_properties)
 Link.UnsetProperty,                        config_parse_udev_property_name,       0,                             offsetof(LinkConfig, unset_properties)
+/* rtnl setlink */
 Link.MACAddressPolicy,                     config_parse_mac_address_policy,       0,                             offsetof(LinkConfig, mac_address_policy)
 Link.MACAddress,                           config_parse_hw_addr,                  0,                             offsetof(LinkConfig, hw_addr)
 Link.NamePolicy,                           config_parse_name_policy,              0,                             offsetof(LinkConfig, name_policy)
@@ -53,12 +55,19 @@ Link.TransmitQueues,                       config_parse_rx_tx_queues,           
 Link.ReceiveQueues,                        config_parse_rx_tx_queues,             0,                             offsetof(LinkConfig, rxqueues)
 Link.TransmitQueueLength,                  config_parse_txqueuelen,               0,                             offsetof(LinkConfig, txqueuelen)
 Link.MTUBytes,                             config_parse_mtu,                      AF_UNSPEC,                     offsetof(LinkConfig, mtu)
+Link.GenericSegmentOffloadMaxBytes,        config_parse_iec_size,                 0,                             offsetof(LinkConfig, gso_max_size)
+Link.GenericSegmentOffloadMaxSegments,     config_parse_uint32,                   0,                             offsetof(LinkConfig, gso_max_segments)
+/* ethtool link settings */
 Link.BitsPerSecond,                        config_parse_si_uint64,                0,                             offsetof(LinkConfig, speed)
 Link.Duplex,                               config_parse_duplex,                   0,                             offsetof(LinkConfig, duplex)
 Link.AutoNegotiation,                      config_parse_tristate,                 0,                             offsetof(LinkConfig, autonegotiation)
+Link.Advertise,                            config_parse_advertise,                0,                             offsetof(LinkConfig, advertise)
+Link.Port,                                 config_parse_port,                     0,                             offsetof(LinkConfig, port)
+Link.MDI,                                  config_parse_mdi,                      0,                             offsetof(LinkConfig, mdi)
+/* ethtool WoL settings */
 Link.WakeOnLan,                            config_parse_wol,                      0,                             offsetof(LinkConfig, wol)
 Link.WakeOnLanPassword,                    config_parse_wol_password,             0,                             0
-Link.Port,                                 config_parse_port,                     0,                             offsetof(LinkConfig, port)
+/* ethtool features */
 Link.ReceiveChecksumOffload,               config_parse_tristate,                 0,                             offsetof(LinkConfig, features[NET_DEV_FEAT_RXCSUM])
 Link.TransmitChecksumOffload,              config_parse_tristate,                 0,                             offsetof(LinkConfig, features[NET_DEV_FEAT_TXCSUM])
 Link.GenericSegmentationOffload,           config_parse_tristate,                 0,                             offsetof(LinkConfig, features[NET_DEV_FEAT_GSO])
@@ -76,20 +85,21 @@ Link.TransmitVLANSTAGHardwareAcceleration, config_parse_tristate,               
 Link.NTupleFilter,                         config_parse_tristate,                 0,                             offsetof(LinkConfig, features[NET_DEV_FEAT_NTUPLE])
 Link.ReceiveFCS,                           config_parse_tristate,                 0,                             offsetof(LinkConfig, features[NET_DEV_FEAT_RXFCS])
 Link.ReceiveAll,                           config_parse_tristate,                 0,                             offsetof(LinkConfig, features[NET_DEV_FEAT_RXALL])
+/* ethtool channels */
 Link.RxChannels,                           config_parse_ring_buffer_or_channel,   0,                             offsetof(LinkConfig, channels.rx)
 Link.TxChannels,                           config_parse_ring_buffer_or_channel,   0,                             offsetof(LinkConfig, channels.tx)
 Link.OtherChannels,                        config_parse_ring_buffer_or_channel,   0,                             offsetof(LinkConfig, channels.other)
 Link.CombinedChannels,                     config_parse_ring_buffer_or_channel,   0,                             offsetof(LinkConfig, channels.combined)
-Link.Advertise,                            config_parse_advertise,                0,                             offsetof(LinkConfig, advertise)
+/* ethtool ring parameters */
 Link.RxBufferSize,                         config_parse_ring_buffer_or_channel,   0,                             offsetof(LinkConfig, ring.rx)
 Link.RxMiniBufferSize,                     config_parse_ring_buffer_or_channel,   0,                             offsetof(LinkConfig, ring.rx_mini)
 Link.RxJumboBufferSize,                    config_parse_ring_buffer_or_channel,   0,                             offsetof(LinkConfig, ring.rx_jumbo)
 Link.TxBufferSize,                         config_parse_ring_buffer_or_channel,   0,                             offsetof(LinkConfig, ring.tx)
+/* ethtool pause parameters */
 Link.RxFlowControl,                        config_parse_tristate,                 0,                             offsetof(LinkConfig, rx_flow_control)
 Link.TxFlowControl,                        config_parse_tristate,                 0,                             offsetof(LinkConfig, tx_flow_control)
 Link.AutoNegotiationFlowControl,           config_parse_tristate,                 0,                             offsetof(LinkConfig, autoneg_flow_control)
-Link.GenericSegmentOffloadMaxBytes,        config_parse_iec_size,                 0,                             offsetof(LinkConfig, gso_max_size)
-Link.GenericSegmentOffloadMaxSegments,     config_parse_uint32,                   0,                             offsetof(LinkConfig, gso_max_segments)
+/* ethtool coalesce settings */
 Link.RxCoalesceSec,                        config_parse_coalesce_sec,             0,                             offsetof(LinkConfig, coalesce.rx_coalesce_usecs)
 Link.RxMaxCoalescedFrames,                 config_parse_coalesce_u32,             0,                             offsetof(LinkConfig, coalesce.rx_max_coalesced_frames)
 Link.RxCoalesceIrqSec,                     config_parse_coalesce_sec,             0,                             offsetof(LinkConfig, coalesce.rx_coalesce_usecs_irq)
@@ -112,8 +122,9 @@ Link.RxMaxCoalescedHighFrames,             config_parse_coalesce_u32,           
 Link.TxCoalesceHighSec,                    config_parse_coalesce_sec,             0,                             offsetof(LinkConfig, coalesce.tx_coalesce_usecs_high)
 Link.TxMaxCoalescedHighFrames,             config_parse_coalesce_u32,             0,                             offsetof(LinkConfig, coalesce.tx_max_coalesced_frames_high)
 Link.CoalescePacketRateSampleIntervalSec,  config_parse_coalesce_sec,             0,                             offsetof(LinkConfig, coalesce.rate_sample_interval)
+/* Rx RPS CPU mask */
 Link.ReceivePacketSteeringCPUMask,         config_parse_rps_cpu_mask,             0,                             offsetof(LinkConfig, rps_cpu_mask)
-Link.MDI,                                  config_parse_mdi,                      0,                             offsetof(LinkConfig, mdi)
+/* SR-IOV settings */
 Link.SR-IOVVirtualFunctions,               config_parse_sr_iov_num_vfs,           0,                             offsetof(LinkConfig, sr_iov_num_vfs)
 SR-IOV.VirtualFunction,                    config_parse_sr_iov_uint32,            0,                             offsetof(LinkConfig, sr_iov_by_section)
 SR-IOV.VLANId,                             config_parse_sr_iov_uint32,            0,                             offsetof(LinkConfig, sr_iov_by_section)
@@ -124,3 +135,8 @@ SR-IOV.QueryReceiveSideScaling,            config_parse_sr_iov_boolean,         
 SR-IOV.Trust,                              config_parse_sr_iov_boolean,           0,                             offsetof(LinkConfig, sr_iov_by_section)
 SR-IOV.LinkState,                          config_parse_sr_iov_link_state,        0,                             offsetof(LinkConfig, sr_iov_by_section)
 SR-IOV.MACAddress,                         config_parse_sr_iov_mac,               0,                             offsetof(LinkConfig, sr_iov_by_section)
+/* ethtool EEE settings */
+EnergyEfficientEthernet.Enable,            config_parse_tristate,                 0,                             offsetof(LinkConfig, eee_enabled)
+EnergyEfficientEthernet.TxLowPowerIdle,    config_parse_tristate,                 0,                             offsetof(LinkConfig, eee_tx_lpi_enabled)
+EnergyEfficientEthernet.TxLowPowerIdleSec, config_parse_sec,                      0,                             offsetof(LinkConfig, eee_tx_lpi_timer_usec)
+EnergyEfficientEthernet.LinkMode,          config_parse_advertise,                0,                             offsetof(LinkConfig, eee_advertise)
