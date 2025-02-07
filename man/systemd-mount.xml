@@ -340,6 +340,23 @@
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--canonicalize=</option></term>
+
+        <listitem>
+          <para>Controls whether the specified path shall be canonicalized on the client side before
+          requesting the operation or not. Takes a boolean parameter, defaults to true. Note that for
+          non-local operation (i.e. when <option>--machine=</option> or --<option>--host=</option> are used)
+          canonicalization is implicitly turned off.</para>
+
+          <para>Canonicalization of path entails resolving of symlinks and <literal>..</literal> path
+          elements. If canonicalization is disabled and the path contains a symlink element or
+          <literal>..</literal> the operation will fail.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
+
       <xi:include href="user-system-options.xml" xpointer="user" />
       <xi:include href="user-system-options.xml" xpointer="system" />
       <xi:include href="user-system-options.xml" xpointer="host" />
