@@ -3620,7 +3620,7 @@ static int apply_working_directory(
                 const ExecParameters *params,
                 ExecRuntime *runtime,
                 const char *pwent_home,
-                const char *const *env) {
+                char * const *env) {
 
         const char *wd;
         int r;
@@ -3629,7 +3629,7 @@ static int apply_working_directory(
 
         if (context->working_directory_home) {
                 /* Preferably use the data from $HOME, in case it was updated by a PAM module */
-                wd = strv_env_get((char**) env, "HOME");
+                wd = strv_env_get(env, "HOME");
                 if (!wd) {
                         /* If that's not available, use the data from the struct passwd entry: */
                         if (!pwent_home)
@@ -5511,7 +5511,7 @@ int exec_invoke(
          * running this service might have the correct privilege to change to the working directory. Also, it
          * is absolutely 💣 crucial 💣 we applied all mount namespacing rearrangements before this, so that
          * the cwd cannot be used to pin directories outside of the sandbox. */
-        r = apply_working_directory(context, params, runtime, pwent_home, (const char* const*) accum_env);
+        r = apply_working_directory(context, params, runtime, pwent_home, accum_env);
         if (r < 0) {
                 *exit_status = EXIT_CHDIR;
                 return log_exec_error_errno(context, params, r, "Changing to the requested working directory failed: %m");
