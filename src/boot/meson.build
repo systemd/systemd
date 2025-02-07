@@ -464,4 +464,68 @@ foreach efi_elf_binary : efi_elf_binaries
              suite : 'boot')
 endforeach
 
+dtc = find_program('dtc', required: false)
+
+if conf.get('ENABLE_UKIFY') == 1 and boot_stubs.length() > 0 and dtc.found()
+        ukify_py = find_program('../ukify/ukify.py')
+
+        dtb1 = custom_target(
+                'device1.dtb',
+                input : 'dts/device1.dts',
+                output : 'device1.dtb',
+                command : [dtc, '-I', 'dts', '-O', 'dtb', '-o', '@OUTPUT@', '@INPUT@'],
+                build_by_default : want_tests != 'false')
+
+        dtb2 = custom_target(
+                'device2.dtb',
+                input : 'dts/device2.dts',
+                output : 'device2.dtb',
+                command : [dtc, '-I', 'dts', '-O', 'dtb', '-o', '@OUTPUT@', '@INPUT@'],
+                build_by_default : want_tests != 'false')
+
+        dtb3 = custom_target(
+                'device3.dtb',
+                input : 'dts/device3.dts',
+                output : 'device3.dtb',
+                command : [dtc, '-I', 'dts', '-O', 'dtb', '-o', '@OUTPUT@', '@INPUT@'],
+                build_by_default : want_tests != 'false')
+
+        test_pe_file = custom_target(
+                'pe.efi',
+                input: [boot_stubs[0], dtb1, dtb2, dtb3],
+                output : 'pe.efi',
+                command : [
+                        ukify_py,
+                        'build',
+                        '--os-release', 'v7',
+                        '--hwids', meson.current_source_dir()/'hwids',
+                        '--stub' , '@INPUT0@',
+                        '--linux', '@INPUT0@',
+                        '--sbat', '42',
+                        '--cmdline', 'test',
+                        '--devicetree-auto', '@INPUT1@',
+                        '--devicetree-auto', '@INPUT2@',
+                        '--devicetree-auto', '@INPUT3@',
+                        '-o', '@OUTPUT@',
+                ],
+                build_by_default : want_tests != 'false')
+
+        ld = find_program('ld')
+
+        test_pe_file_o = custom_target(
+                'test-pe-file.o',
+                input : test_pe_file,
+                output : 'test-pe-file.o',
+                command : [ld, '-z', 'noexecstack', '--relocatable', '--format', 'binary', '--output', '@OUTPUT@', '@INPUT@'],
+                build_by_default : want_tests != 'false')
+
+        executables += [
+                efi_test_template + {
+                        'sources' : files('test-pe.c') +
+                                    test_pe_file_o,
+                        'conditions' : ['ENABLE_BOOTLOADER', 'ENABLE_UKIFY'],
+                },
+        ]
+endif
+
 alias_target('systemd-boot', boot_targets)
