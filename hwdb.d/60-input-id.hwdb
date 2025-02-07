@@ -55,6 +55,10 @@
 id-input:modalias:input:b0003v28bdp0078*
  ID_INPUT_TABLET=1
 
+# XBox Series Elite controller
+id-input:modalias:input:b0005v045Ep0B22e0517*
+ ID_INPUT_JOYSTICK=1
+
 # Lite-On Tech IBM USB Travel Keyboard with Ultra Nav Mouse
 id-input:modalias:input:b0003v04B3p301Ee0100-e0,1,2,4*
  ID_INPUT_POINTINGSTICK=1
