@@ -101,6 +101,7 @@ static bool arg_via_service = false;
 static RuntimeScope arg_runtime_scope = _RUNTIME_SCOPE_INVALID;
 static bool arg_all = false;
 static uid_t arg_uid_base = UID_INVALID;
+static bool arg_quiet = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
@@ -181,6 +182,7 @@ static int help(void) {
                "     --discover           Discover DDIs in well known directories\n"
                "     --validate           Validate image and image policy\n"
                "     --shift              Shift UID range to selected base\n"
+               "  -q --quiet              Suppress output of chosen loopback block device\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -329,6 +331,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "system",        no_argument,       NULL, ARG_SYSTEM        },
                 { "user",          no_argument,       NULL, ARG_USER          },
                 { "all",           no_argument,       NULL, ARG_ALL           },
+                { "quiet",         no_argument,       NULL, 'q'               },
                 {}
         };
 
@@ -343,7 +346,7 @@ static int parse_argv(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        while ((c = getopt_long(argc, argv, "hmurMUlxa", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "hmurMUlxaq", options, NULL)) >= 0) {
 
                 switch (c) {
 
@@ -583,6 +586,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_ALL:
                         arg_all = true;
+                        break;
+
+                case 'q':
+                        arg_quiet = true;
                         break;
 
                 case '?':
@@ -1991,7 +1998,9 @@ static int action_attach(DissectedImage *m, LoopDevice *d) {
         if (r < 0)
                 return log_error_errno(r, "Failed to relinquish DM and loopback block devices: %m");
 
-        puts(d->node);
+        if (!arg_quiet)
+                puts(d->node);
+
         return 0;
 }
 
