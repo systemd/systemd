@@ -107,6 +107,12 @@ struct LinkConfig {
         /* ethtool coalesce settings */
         netdev_coalesce_param coalesce;
 
+        /* ethtool energy efficient ethernet settings */
+        int eee_enabled;
+        int eee_tx_lpi_enabled;
+        usec_t eee_tx_lpi_timer_usec;
+        uint32_t eee_advertise[N_ADVERTISE];
+
         /* Rx RPS CPU mask */
         CPUSet *rps_cpu_mask;
 

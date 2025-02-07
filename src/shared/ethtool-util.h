@@ -7,6 +7,7 @@
 
 #include "conf-parser.h"
 #include "ether-addr-util.h"
+#include "time-util.h"
 
 #define N_ADVERTISE 4
 
@@ -180,6 +181,13 @@ int ethtool_set_glinksettings(
 int ethtool_set_channels(int *ethtool_fd, const char *ifname, const netdev_channels *channels);
 int ethtool_set_flow_control(int *fd, const char *ifname, int rx, int tx, int autoneg);
 int ethtool_set_nic_coalesce_settings(int *ethtool_fd, const char *ifname, const netdev_coalesce_param *coalesce);
+int ethtool_set_eee_settings(
+                int *ethtool_fd,
+                const char *ifname,
+                int enabled,
+                int tx_lpi_enabled,
+                usec_t tx_lpi_timer_usec,
+                uint32_t advertise);
 
 const char* duplex_to_string(Duplex d) _const_;
 Duplex duplex_from_string(const char *d) _pure_;

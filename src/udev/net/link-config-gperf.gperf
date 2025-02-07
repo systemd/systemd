@@ -135,3 +135,8 @@ SR-IOV.QueryReceiveSideScaling,            config_parse_sr_iov_boolean,         
 SR-IOV.Trust,                              config_parse_sr_iov_boolean,           0,                             offsetof(LinkConfig, sr_iov_by_section)
 SR-IOV.LinkState,                          config_parse_sr_iov_link_state,        0,                             offsetof(LinkConfig, sr_iov_by_section)
 SR-IOV.MACAddress,                         config_parse_sr_iov_mac,               0,                             offsetof(LinkConfig, sr_iov_by_section)
+/* ethtool EEE settings */
+EnergyEfficientEthernet.Enable,            config_parse_tristate,                 0,                             offsetof(LinkConfig, eee_enabled)
+EnergyEfficientEthernet.TxLowPowerIdle,    config_parse_tristate,                 0,                             offsetof(LinkConfig, eee_tx_lpi_enabled)
+EnergyEfficientEthernet.TxLowPowerIdleSec, config_parse_sec,                      0,                             offsetof(LinkConfig, eee_tx_lpi_timer_usec)
+EnergyEfficientEthernet.LinkMode,          config_parse_advertise,                0,                             offsetof(LinkConfig, eee_advertise)

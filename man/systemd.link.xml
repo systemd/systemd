@@ -1362,6 +1362,58 @@
   </refsect1>
 
   <refsect1>
+    <title>[EnergyEfficientEthernet] Section Options</title>
+    <para>The [EnergyEfficientEthernet] section controls the Energy Efficient Ethernet (EEE) feature of the
+    interface, and accepts the following keys.</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>Enabled=</varname></term>
+        <listitem>
+          <para>Takes a boolean argument. When true, the Energy Efficient Ethernet (EEE) feature will be
+          enabled on the interface. Defaults to unset, and the enablement of EEE will be unchanged.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>TxLowPowerIdle=</varname></term>
+        <listitem>
+          <para>Takes a boolean argument. When true, the transmit Low Power Idle (Tx-LPI) mode of the Energy
+          Efficient Ethernet feature will be enabled on the interface. Defaults to unset, and the enablement
+          of the mode will be unchanged.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>TxLowPowerIdleSec=</varname></term>
+        <listitem>
+          <para>Takes a timespan. This configures how long the interface should not enter the Low Power Idle
+          mode after transmission. If it is too short, may decrease performance. If it is too long, may not
+          gain energy saving. Defaults to unset, and the timespan will be unchanged.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>LinkMode=</varname></term>
+        <listitem>
+          <para>Takes a list of link modes, e.g. <literal>1000baset-full</literal>. See the table for
+          <varname>Advertise=</varname> setting in [Link] section in the above for possible values. This
+          configures the Energy Efficient Ethernet capable connection modes to be advertised. Defaults to
+          unset, and the advertised modes will be unchanged.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>Specifiers</title>
 
     <para>Some settings resolve specifiers which may be used to write generic unit files referring to runtime
