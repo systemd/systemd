@@ -190,6 +190,8 @@ _SD_BEGIN_DECLARATIONS;
 
 #define SD_MESSAGE_OVERMOUNTING                       SD_ID128_MAKE(1d,ee,03,69,c7,fc,47,36,b7,09,9b,38,ec,b4,6e,e7)
 #define SD_MESSAGE_OVERMOUNTING_STR                   SD_ID128_MAKE_STR(1d,ee,03,69,c7,fc,47,36,b7,09,9b,38,ec,b4,6e,e7)
+#define SD_MESSAGE_NON_CANONICAL_MOUNT                SD_ID128_MAKE(1e,da,bb,4e,da,2a,49,c1,9b,c0,20,6f,24,b4,38,89)
+#define SD_MESSAGE_NON_CANONICAL_MOUNT_STR            SD_ID128_MAKE_STR(1e,da,bb,4e,da,2a,49,c1,9b,c0,20,6f,24,b4,38,89)
 
 #define SD_MESSAGE_UNIT_OOMD_KILL                     SD_ID128_MAKE(d9,89,61,1b,15,e4,4c,9d,bf,31,e3,c8,12,56,e4,ed)
 #define SD_MESSAGE_UNIT_OOMD_KILL_STR                 SD_ID128_MAKE_STR(d9,89,61,1b,15,e4,4c,9d,bf,31,e3,c8,12,56,e4,ed)
