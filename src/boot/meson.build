@@ -451,7 +451,7 @@ foreach efi_elf_binary : efi_elf_binaries
         test('check-alignment-@0@'.format(name),
              check_efi_alignment_py,
              args : exe.full_path(),
-             suite : 'efi')
+             suite : 'boot')
 endforeach
 
 alias_target('systemd-boot', boot_targets)
