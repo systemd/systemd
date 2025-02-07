@@ -227,6 +227,29 @@ TEST(namespace_is_init) {
         }
 }
 
+TEST(detach_mount_namespace_harder) {
+        _cleanup_(pidref_done) PidRef pid = PIDREF_NULL;
+        _cleanup_close_pair_ int p[2] = EBADF_PAIR;
+        char x = 0;
+        int r;
+
+        ASSERT_OK_ERRNO(pipe2(p, O_CLOEXEC));
+
+        ASSERT_OK(r = pidref_safe_fork("(child)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL|FORK_LOG, &pid));
+        if (r == 0) {
+                p[0] = safe_close(p[0]);
+
+                ASSERT_OK(detach_mount_namespace_harder(0, 0));
+
+                ASSERT_OK_EQ_ERRNO(write(p[1], &(const char[]) { 'x' }, 1), 1);
+                freeze();
+        }
+
+        p[1] = safe_close(p[1]);
+        ASSERT_OK_EQ_ERRNO(read(p[0], &x, 1), 1);
+        ASSERT_EQ(x, 'x');
+}
+
 static int intro(void) {
         if (!have_namespaces())
                 return log_tests_skipped("Don't have namespace support or lacking privileges");
