@@ -136,7 +136,7 @@ static int dns_query_candidate_next_search_domain(DnsQueryCandidate *c) {
         dns_search_domain_unref(c->search_domain);
         c->search_domain = dns_search_domain_ref(next);
 
-        return 1;
+        return 0;
 }
 
 static int dns_query_candidate_add_transaction(
@@ -508,11 +508,58 @@ DnsQuery *dns_query_free(DnsQuery *q) {
         return mfree(q);
 }
 
-static bool dns_question_has_record_types(DnsQuestion *q, Set *types) {
+/* Almost all of this is not my code, it's help from @poettering */
+static int manager_validate_and_mangle_question(Set *types, DnsQuestion **question) {
+        int r;
         DnsResourceKey *key;
-        DNS_QUESTION_FOREACH(key, q)
-                if (set_contains(types, INT_TO_PTR(key->type)))
-                        return true;
+        enum {
+                VALID_DONT_KNOW,
+                VALID_ALL_GOOD,
+                VALID_ALL_BAD,
+                VALID_MIXED,
+        } good = VALID_DONT_KNOW;
+
+        assert(types);
+        assert(question);
+
+        /* Check if the query should be refused entirely, accepted entirely, or needs to be mangled to suppress RR types not allowed */
+        DNS_QUESTION_FOREACH(key, *question) {
+                 if (set_contains(types, INT_TO_PTR(key->type)))
+                         good = IN_SET(good, VALID_DONT_KNOW, VALID_ALL_BAD) ? VALID_ALL_BAD : VALID_MIXED;
+                 else
+                         good = IN_SET(good, VALID_DONT_KNOW, VALID_ALL_GOOD) ? VALID_ALL_GOOD : VALID_MIXED;
+        }
+
+        if (good == VALID_ALL_GOOD)
+                return 0; /* All good, no need to mangle */
+        if (good != VALID_MIXED)
+                return -ENOANO; /* This is fully bad or empty? Refuse */
+
+        /* Mangle the question suppressing bad entries, leaving good entries */
+        _cleanup_(dns_question_unrefp) DnsQuestion *new_question = dns_question_new(dns_question_size(*question));
+        if (!new_question)
+                return -ENOMEM;
+
+        DnsQuestionItem *item;
+        DNS_QUESTION_FOREACH_ITEM(item, *question) {
+                 if (set_contains(types, INT_TO_PTR(item->key->type)))
+                         continue;
+                 r = dns_question_add_raw(new_question, item->key, item->flags);
+                 if (r < 0)
+                         return r;
+        }
+
+        *question = TAKE_PTR(new_question);
+
+        return 0;
+}
+
+static bool dns_question_has_record_types(DnsQuestion *q, Set *types) {
+        assert(q);
+        assert(types);
+
+        if (manager_validate_and_mangle_question(types, &q))
+                return true;
         return false;
 }
 
