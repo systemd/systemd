@@ -519,7 +519,6 @@ static int manager_validate_and_mangle_question(Set *types, DnsQuestion **questi
                 VALID_MIXED,
         } good = VALID_DONT_KNOW;
 
-        assert(types);
         assert(question);
 
         /* Check if the query should be refused entirely, accepted entirely, or needs to be mangled to suppress RR types not allowed */
