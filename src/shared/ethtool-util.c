@@ -1123,6 +1123,62 @@ int ethtool_set_nic_coalesce_settings(int *ethtool_fd, const char *ifname, const
         return RET_NERRNO(ioctl(*ethtool_fd, SIOCETHTOOL, &ifr));
 }
 
+int ethtool_set_eee_settings(
+                int *ethtool_fd,
+                const char *ifname,
+                int enabled,
+                int tx_lpi_enabled,
+                usec_t tx_lpi_timer_usec,
+                uint32_t advertise) {
+
+        int r;
+
+        assert(ethtool_fd);
+        assert(ifname);
+
+        if (enabled < 0 &&
+            tx_lpi_enabled < 0 &&
+            tx_lpi_timer_usec == USEC_INFINITY &&
+            advertise == 0)
+                return 0; /* Nothing requested. */
+
+        r = ethtool_connect(ethtool_fd);
+        if (r < 0)
+                return r;
+
+        struct ethtool_eee ecmd = {
+                .cmd = ETHTOOL_GEEE,
+        };
+        struct ifreq ifr = {
+                .ifr_data = (void*) &ecmd,
+        };
+
+        strscpy(ifr.ifr_name, sizeof(ifr.ifr_name), ifname);
+
+        if (ioctl(*ethtool_fd, SIOCETHTOOL, &ifr) < 0)
+                return -errno;
+
+        if (ecmd.supported == 0)
+                return 0; /* Unsupported. */
+
+        bool need_update = false;
+
+        if (enabled >= 0)
+                UPDATE(ecmd.eee_enabled, (uint32_t) enabled, need_update);
+        if (tx_lpi_enabled >= 0)
+                UPDATE(ecmd.tx_lpi_enabled, (uint32_t) tx_lpi_enabled, need_update);
+        if (tx_lpi_timer_usec != USEC_INFINITY)
+                UPDATE(ecmd.tx_lpi_timer, (uint32_t) MIN(DIV_ROUND_UP(tx_lpi_timer_usec, USEC_PER_MSEC), (usec_t) UINT32_MAX), need_update);
+        if (advertise != 0)
+                UPDATE(ecmd.advertised, advertise & ecmd.supported, need_update);
+
+        if (!need_update)
+                return 0; /* Nothing changed. */
+
+        ecmd.cmd = ETHTOOL_SEEE;
+        return RET_NERRNO(ioctl(*ethtool_fd, SIOCETHTOOL, &ifr));
+}
+
 int config_parse_advertise(
                 const char *unit,
                 const char *filename,
