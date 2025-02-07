@@ -60,6 +60,11 @@ fi
 # TODO: Drop when the spec is fixed (either the patch is adapted or not applied when building for upstream).
 sed --in-place '/0009-pid1-handle-console-specificities-weirdness-for-s390.patch/d' "pkg/$PKG_SUBDIR${GIT_SUBDIR:+/$GIT_SUBDIR}/systemd.spec"
 
+# TODO: Drop when https://bugzilla.opensuse.org/show_bug.cgi?id=1236901 is resolved.
+sed '/%buildroot/d' /usr/lib/rpm/macros >macros
+mount --bind "$PWD/macros" /usr/lib/rpm/macros
+rm macros
+
 build() {
     IFS=
     # shellcheck disable=SC2046
