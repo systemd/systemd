@@ -5122,7 +5122,7 @@ int unit_log_noncanonical(Unit *u, const char *where) {
 
         /* No need to mention "." or "..", they would already have been rejected by unit_name_from_path() */
         log_unit_struct(u, LOG_ERR,
-                        "MESSAGE_ID=" SD_MESSAGE_OVERMOUNTING_STR,
+                        "MESSAGE_ID=" SD_MESSAGE_NON_CANONICAL_MOUNT_STR,
                         LOG_UNIT_INVOCATION_ID(u),
                         LOG_UNIT_MESSAGE(u, "Mount path %s is not canonical (contains a symlink).", where),
                         "WHERE=%s", where);
