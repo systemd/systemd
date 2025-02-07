@@ -14,6 +14,9 @@
 Kind=veth
 Name=ns-*
 
+[Link]
+RequiredForOnline=no
+
 [Network]
 # Default to using a /28 prefix, giving up to 13 addresses per namespace
 Address=0.0.0.0/28
@@ -24,3 +27,6 @@ LLDP=yes
 EmitLLDP=customer-bridge
 IPv6AcceptRA=no
 IPv6SendRA=yes
+
+[DHCPServer]
+PersistLeases=no
