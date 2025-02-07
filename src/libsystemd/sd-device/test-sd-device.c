@@ -182,6 +182,8 @@ static void test_sd_device_one(sd_device *d) {
                 assert_se(val < sysname + strlen(sysname));
                 assert_se(in_charset(val, DIGITS));
                 assert_se(!ascii_isdigit(val[-1]));
+                r = device_get_sysnum_unsigned(d, NULL);
+                ASSERT_TRUE(r >= 0 || r == -ERANGE); /* sysnum may be too large. */
         } else
                 assert_se(r == -ENOENT);
 
