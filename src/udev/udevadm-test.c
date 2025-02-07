@@ -166,7 +166,7 @@ int test_main(int argc, char *argv[], void *userdata) {
                 }
 
                 gid_t gid = event->gid;
-                if (!gid_is_valid(uid))
+                if (!gid_is_valid(gid))
                         (void) device_get_devnode_gid(dev, &gid);
                 if (gid_is_valid(gid)) {
                         _cleanup_free_ char *group = gid_to_name(gid);
