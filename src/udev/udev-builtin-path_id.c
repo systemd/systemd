@@ -234,7 +234,7 @@ static sd_device* handle_scsi_iscsi(sd_device *parent, char **path) {
         if (sd_device_get_sysattr_value(sessiondev, "targetname", &target) < 0)
                 return NULL;
 
-        if (sd_device_get_sysnum(transportdev, &sysnum) < 0 || !sysnum)
+        if (sd_device_get_sysnum(transportdev, &sysnum) < 0)
                 return NULL;
         connname = strjoina("connection", sysnum, ":0");
         if (sd_device_new_from_subsystem_sysname(&conndev, "iscsi_connection", connname) < 0)
@@ -716,7 +716,7 @@ static int builtin_path_id(UdevEvent *event, int argc, char *argv[]) {
                 } else if (device_in_subsystem(parent, "serio")) {
                         const char *sysnum;
 
-                        if (sd_device_get_sysnum(parent, &sysnum) >= 0 && sysnum) {
+                        if (sd_device_get_sysnum(parent, &sysnum) >= 0) {
                                 path_prepend(&path, "serio-%s", sysnum);
                                 parent = skip_subsystem(parent, "serio");
                         }
@@ -810,7 +810,7 @@ static int builtin_path_id(UdevEvent *event, int argc, char *argv[]) {
                 } else if (device_in_subsystem(parent, "spi")) {
                         const char *sysnum;
 
-                        if (sd_device_get_sysnum(parent, &sysnum) >= 0 && sysnum) {
+                        if (sd_device_get_sysnum(parent, &sysnum) >= 0) {
                                 path_prepend(&path, "cs-%s", sysnum);
                                 parent = skip_subsystem(parent, "spi");
                         }
