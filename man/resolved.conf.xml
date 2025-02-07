@@ -318,6 +318,18 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>RefuseRecordTypes=</varname></term>
+	<listitem><para>Takes a list of DNS record types separated by space.
+	Specified record types in each query will be refused. This option can be specified multiple times.
+	If an empty string is specified, then all previous assignments are cleared.</para>
+        <para>Examples:
+        <programlisting>RefuseRecordTypes=AAAA SRV TXT</programlisting>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>DNSStubListenerExtra=</varname></term>
         <listitem><para>Takes an IPv4 or IPv6 address to listen on. The address may be optionally
         prefixed with a protocol name (<literal>udp</literal> or <literal>tcp</literal>) separated with
