@@ -81,7 +81,7 @@ cat /proc/cmdline
 
 systemctl daemon-reload
 
-systemctl start import0.service
+systemctl start systemd-import@var-lib-confexts-importtest9.service
 cmp /var/tmp/importtest /var/lib/confexts/importtest9/importtest
 
 # Verify generic service calls, too
