@@ -5116,14 +5116,28 @@ void unit_warn_if_dir_nonempty(Unit *u, const char* where) {
                         "WHERE=%s", where);
 }
 
+int unit_log_noncanonical(Unit *u, const char *where) {
+        assert(u);
+        assert(where);
+
+        /* No need to mention "." or "..", they would already have been rejected by unit_name_from_path() */
+        log_unit_struct(u, LOG_ERR,
+                        "MESSAGE_ID=" SD_MESSAGE_NON_CANONICAL_MOUNT_STR,
+                        LOG_UNIT_INVOCATION_ID(u),
+                        LOG_UNIT_MESSAGE(u, "Mount path %s is not canonical (contains a symlink).", where),
+                        "WHERE=%s", where);
+
+        return -ELOOP;
+}
+
 int unit_fail_if_noncanonical(Unit *u, const char* where) {
-        _cleanup_free_ char *canonical_where = NULL;
         int r;
 
         assert(u);
         assert(where);
 
-        r = chase(where, NULL, CHASE_NONEXISTENT, &canonical_where, NULL);
+        _cleanup_free_ char *canonical_where = NULL;
+        r = chase(where, /* root= */ NULL, CHASE_NONEXISTENT, &canonical_where, /* ret_fd= */ NULL);
         if (r < 0) {
                 log_unit_debug_errno(u, r, "Failed to check %s for symlinks, ignoring: %m", where);
                 return 0;
@@ -5133,14 +5147,7 @@ int unit_fail_if_noncanonical(Unit *u, const char* where) {
         if (path_equal(where, canonical_where))
                 return 0;
 
-        /* No need to mention "." or "..", they would already have been rejected by unit_name_from_path() */
-        log_unit_struct(u, LOG_ERR,
-                        "MESSAGE_ID=" SD_MESSAGE_OVERMOUNTING_STR,
-                        LOG_UNIT_INVOCATION_ID(u),
-                        LOG_UNIT_MESSAGE(u, "Mount path %s is not canonical (contains a symlink).", where),
-                        "WHERE=%s", where);
-
-        return -ELOOP;
+        return unit_log_noncanonical(u, where);
 }
 
 bool unit_is_pristine(Unit *u) {
