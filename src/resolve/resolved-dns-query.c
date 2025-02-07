@@ -556,7 +556,6 @@ static int manager_validate_and_mangle_question(Set *types, DnsQuestion **questi
 
 static bool dns_question_has_record_types(DnsQuestion *q, Set *types) {
         assert(q);
-        assert(types);
 
         if (manager_validate_and_mangle_question(types, &q))
                 return true;
