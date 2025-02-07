@@ -287,14 +287,38 @@ static int parse_credentials(void) {
         return 0;
 }
 
-static int transfer_generate(const Transfer *t, size_t c) {
+static char *transfer_get_local_path(const Transfer *t) {
+        assert(t);
+        assert(t->image_root);
+        assert(t->local);
+
+        switch (t->type) {
+        case IMPORT_RAW:
+                return strjoin(t->image_root, "/", t->local, ".raw");
+
+        case IMPORT_TAR:
+                return path_join(t->image_root, t->local);
+
+        default:
+                assert_not_reached();
+        }
+}
+
+static int transfer_generate(const Transfer *t) {
         int r;
 
         assert(t);
 
-        _cleanup_free_ char *service = NULL;
-        if (asprintf(&service, "import%zu.service", c) < 0)
+        _cleanup_free_ char *local_path = transfer_get_local_path(t);
+        if (!local_path)
                 return log_oom();
+
+        /* Give this unit a clear name derived from the file system object we are installed into the OS, so
+         * that other components can nicely have dependencies on this. */
+        _cleanup_free_ char *service = NULL;
+        r = unit_name_from_path_instance("systemd-import", local_path, ".service", &service);
+        if (r < 0)
+                return log_error_errno(r, "Failed to build import unit name from '%s': %m", local_path);
 
         _cleanup_fclose_ FILE *f = NULL;
         r = generator_open_unit_file(arg_dest, /* source = */ NULL, service, &f);
@@ -334,10 +358,6 @@ static int transfer_generate(const Transfer *t, size_t c) {
         _cleanup_free_ char *loop_service = NULL;
         if (t->blockdev) {
                 assert(t->type == IMPORT_RAW);
-
-                _cleanup_free_ char *local_path = strjoin(t->image_root, "/", t->local, ".raw");
-                if (!local_path)
-                        return log_oom();
 
                 r = unit_name_from_path_instance("systemd-loop", local_path, ".service", &loop_service);
                 if (r < 0)
@@ -382,11 +402,10 @@ static int transfer_generate(const Transfer *t, size_t c) {
 }
 
 static int generate(void) {
-        size_t c = 0;
         int r = 0;
 
         FOREACH_ARRAY(i, arg_transfers, arg_n_transfers)
-                RET_GATHER(r, transfer_generate(i, c++));
+                RET_GATHER(r, transfer_generate(i));
 
         return r;
 }
