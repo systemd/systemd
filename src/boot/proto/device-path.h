@@ -30,6 +30,8 @@ enum {
         MEDIA_FILEPATH_DP                = 0x04,
         MEDIA_PIWG_FW_FILE_DP            = 0x06,
         MEDIA_PIWG_FW_VOL_DP             = 0x07,
+
+        MSG_URI_DP                       = 24,
 };
 
 struct _packed_ EFI_DEVICE_PATH_PROTOCOL {
@@ -66,6 +68,11 @@ typedef struct {
         EFI_DEVICE_PATH Header;
         char16_t PathName[];
 } _packed_ FILEPATH_DEVICE_PATH;
+
+typedef struct {
+        EFI_DEVICE_PATH Header;
+        char Uri[];
+} _packed_ URI_DEVICE_PATH;
 
 typedef struct {
         char16_t* (EFIAPI *ConvertDeviceNodeToText)(
