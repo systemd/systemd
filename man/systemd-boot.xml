@@ -441,6 +441,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>LoaderDeviceURL</varname></term>
+
+        <listitem><para>If the boot loader has been invoked via network booting this variable contains the
+        originating URL. This may be used to automatically acquire additional resources from the same
+        source.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>LoaderEntries</varname></term>
 
         <listitem><para>A list of the identifiers of all discovered boot loader entries. Set by the boot
