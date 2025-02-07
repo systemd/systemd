@@ -197,7 +197,7 @@ static int transfer_generate(sd_json_variant *v, size_t c) {
         assert(v);
 
         _cleanup_free_ char *service = NULL;
-        if (asprintf(&service, "import%zu.service", c) < 0)
+        if (asprintf(&service, "systemd-import@%zu.service", c) < 0)
                 return log_oom();
 
         _cleanup_fclose_ FILE *f = NULL;
