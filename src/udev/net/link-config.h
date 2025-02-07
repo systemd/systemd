@@ -56,9 +56,13 @@ struct LinkConfig {
         LIST_HEAD(Condition, conditions);
 
         char *description;
+
+        /* udev property */
         char **properties;
         char **import_properties;
         char **unset_properties;
+
+        /* rtnl setlink */
         struct hw_addr_data hw_addr;
         MACAddressPolicy mac_address_policy;
         NamePolicy *name_policy;
@@ -72,24 +76,41 @@ struct LinkConfig {
         uint32_t mtu;
         uint32_t gso_max_segments;
         size_t gso_max_size;
+
+        /* ethtool link settings */
         uint64_t speed;
         Duplex duplex;
         int autonegotiation;
         uint32_t advertise[N_ADVERTISE];
+        NetDevPort port;
+        uint8_t mdi;
+
+        /* ethtool WoL */
         uint32_t wol;
         char *wol_password_file;
         uint8_t *wol_password;
-        NetDevPort port;
+
+        /* ethtool features */
         int features[_NET_DEV_FEAT_MAX];
+
+        /* ethtool channels */
         netdev_channels channels;
+
+        /* ethtool ring parameters */
         netdev_ring_param ring;
+
+        /* ethtool pause parameters */
         int rx_flow_control;
         int tx_flow_control;
         int autoneg_flow_control;
+
+        /* ethtool coalesce settings */
         netdev_coalesce_param coalesce;
-        uint8_t mdi;
+
+        /* Rx RPS CPU mask */
         CPUSet *rps_cpu_mask;
 
+        /* SR-IOV */
         uint32_t sr_iov_num_vfs;
         OrderedHashmap *sr_iov_by_section;
 
