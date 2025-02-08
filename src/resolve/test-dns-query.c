@@ -28,7 +28,7 @@ TEST(dns_query_new_single_question) {
         ASSERT_NOT_NULL(question);
 
         ASSERT_ERROR(dns_query_new(&manager, &query, question, NULL, NULL, 1, 0), ENOANO);
-        ASSERT_NOT_NULL(query);
+        ASSERT_NULL(query);
 }
 
 TEST(dns_query_new_multi_question_same_domain) {
