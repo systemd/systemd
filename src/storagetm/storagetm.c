@@ -18,6 +18,7 @@
 #include "local-addresses.h"
 #include "loop-util.h"
 #include "main-func.h"
+#include "mountpoint-util.h"
 #include "os-util.h"
 #include "parse-argument.h"
 #include "path-util.h"
@@ -1127,6 +1128,14 @@ static int run(int argc, char* argv[]) {
         r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
+
+        /* If systemd-storagetm is invoked outside of it's unit /sys/kernel/config/ might not be mounted yet,
+         * so let's check explicitly whether it is mounted or not. */
+        r = path_is_mount_point("/sys/kernel/config");
+        if (r < 0)
+                return log_error_errno(r, "Failed to check if the configfs filesystem is mounted at /sys/kernel/config/: %m");
+        if (r == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "The configfs filesystem must be mounted at /sys/kernel/config/ to be able to use systemd-storagetm");
 
         r = sd_event_new(&event);
         if (r < 0)
