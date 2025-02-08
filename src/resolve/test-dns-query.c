@@ -23,9 +23,15 @@ TEST(dns_query_new_single_question) {
         Manager manager = {};
         _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
         _cleanup_(dns_query_freep) DnsQuery *query = NULL;
+        DnsResourceKey *key = NULL;
 
-        ASSERT_OK(dns_question_new_address(&question, AF_INET, "www.example.com", false));
+        question = dns_question_new(1);
         ASSERT_NOT_NULL(question);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        ASSERT_NOT_NULL(key);
+        ASSERT_OK(dns_question_add(question, key, 0));
+        dns_resource_key_unref(key);
 
         ASSERT_OK(dns_query_new(&manager, &query, question, NULL, NULL, 1, 0));
         ASSERT_NOT_NULL(query);
