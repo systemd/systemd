@@ -29,3 +29,6 @@ What=configfs
 Where=/sys/kernel/config
 Type=configfs
 Options=nosuid,nodev,noexec
+
+[Install]
+WantedBy=sysinit.target
