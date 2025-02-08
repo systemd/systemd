@@ -1237,7 +1237,7 @@ static int names_mac(UdevEvent *event, const char *prefix) {
 
 static int names_netdevsim(UdevEvent *event, const char *prefix) {
         sd_device *netdevsimdev, *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
-        const char *sysnum, *phys_port_name;
+        const char *phys_port_name;
         unsigned addr;
         int r;
 
@@ -1252,13 +1252,9 @@ static int names_netdevsim(UdevEvent *event, const char *prefix) {
         if (r < 0)
                 return r;
 
-        r = sd_device_get_sysnum(netdevsimdev, &sysnum);
+        r = device_get_sysnum_unsigned(netdevsimdev, &addr);
         if (r < 0)
                 return log_device_debug_errno(netdevsimdev, r, "Failed to get device sysnum: %m");
-
-        r = safe_atou(sysnum, &addr);
-        if (r < 0)
-                return log_device_debug_errno(netdevsimdev, r, "Failed to parse device sysnum: %m");
 
         r = device_get_sysattr_value_filtered(dev, "phys_port_name", &phys_port_name);
         if (r < 0)

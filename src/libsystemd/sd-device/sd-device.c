@@ -1445,6 +1445,26 @@ _public_ int sd_device_get_sysnum(sd_device *device, const char **ret) {
         return 0;
 }
 
+int device_get_sysnum_unsigned(sd_device *device, unsigned *ret) {
+        int r;
+
+        assert(device);
+
+        const char *s;
+        r = sd_device_get_sysnum(device, &s);
+        if (r < 0)
+                return r;
+
+        unsigned n;
+        r = safe_atou_full(s, SAFE_ATO_REFUSE_PLUS_MINUS | SAFE_ATO_REFUSE_LEADING_WHITESPACE | 10, &n);
+        if (r < 0)
+                return r;
+
+        if (ret)
+                *ret = n;
+        return 0;
+}
+
 _public_ int sd_device_get_action(sd_device *device, sd_device_action_t *ret) {
         assert_return(device, -EINVAL);
 
