@@ -1573,8 +1573,9 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMicro-Star*:pn*Modern*:*
  KEYBOARD_KEY_97=unknown                                # Lid close
  KEYBOARD_KEY_98=unknown                                # Lid open
 
-# MSI Claw, MSI Claw 8
+# MSI Claw A1M, MSI Claw 7 AI+ A2VM, MSI Claw 8 AI+ A2VM
 evdev:name:AT Translated Set 2 keyboard:dmi:*:svnMicro-StarInternationalCo.,Ltd.:pnClawA1M:*
+evdev:name:AT Translated Set 2 keyboard:dmi:*:svnMicro-StarInternationalCo.,Ltd.:pnClaw7AI+A2VM:*
 evdev:name:AT Translated Set 2 keyboard:dmi:*:svnMicro-StarInternationalCo.,Ltd.:pnClaw8AI+A2VM:*
  KEYBOARD_KEY_b9=f15                                   # Right Face Button
  KEYBOARD_KEY_ba=f16                                   # Left Face Button
