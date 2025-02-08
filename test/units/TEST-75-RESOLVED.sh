@@ -1100,7 +1100,7 @@ testcase_14_refuse_record_types() {
     mkdir -p /run/systemd/resolved.conf.d
     {
         echo "[Resolve]"
-        echo "RefuseRecordTypes=AAAA SRV TXT"
+        echo "RefuseRecordTypes=SRV TXT"
     } >/run/systemd/resolved.conf.d/refuserecords.conf
     if [[ -e /etc/resolv.conf ]]; then
         mv /etc/resolv.conf /etc/resolv.conf.bak
@@ -1109,7 +1109,7 @@ testcase_14_refuse_record_types() {
     systemctl reload systemd-resolved.service
 
     run dig localhost -t AAAA
-    grep -qF "status: REFUSED" "$RUN_OUT"
+    grep -qF "status: NOERROR" "$RUN_OUT"
 
     run dig localhost -t SRV
     grep -qF "status: REFUSED" "$RUN_OUT"
