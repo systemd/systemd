@@ -1120,8 +1120,8 @@ testcase_14_refuse_record_types() {
     run dig localhost -t A
     grep -qF "status: NOERROR" "$RUN_OUT"
 
-    run resolvectl query localhost
-    grep -qF "Information acquired via protocol DNS" "$RUN_OUT"
+    run resolvectl query localhost5
+    grep -qF "127.128.0.5" "$RUN_OUT"
 }
 
 # PRE-SETUP
