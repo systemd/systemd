@@ -33,3 +33,6 @@ StartLimitIntervalSec=0
 [Service]
 Type=oneshot
 ExecStart=-/sbin/modprobe -abq %i
+
+[Install]
+WantedBy=sysinit.target
