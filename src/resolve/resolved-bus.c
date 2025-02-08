@@ -29,6 +29,24 @@
 
 BUS_DEFINE_PROPERTY_GET_ENUM(bus_property_get_resolve_support, resolve_support, ResolveSupport);
 
+static int dns_query_new_for_bus(
+                Manager *m,
+                DnsQuery **ret,
+                DnsQuestion *question_utf8,
+                DnsQuestion *question_idna,
+                DnsPacket *question_bypass,
+                int ifindex,
+                uint64_t flags,
+                sd_bus_error *error) {
+
+        int r;
+
+        r = dns_query_new(m, ret, question_utf8, question_idna, question_bypass, ifindex, flags);
+        if (r == -ENOANO)
+                return sd_bus_error_set(error, BUS_ERROR_DNS_REFUSED, "DNS query type refused.");
+        return r;
+}
+
 static int query_on_bus_track(sd_bus_track *t, void *userdata) {
         DnsQuery *q = ASSERT_PTR(userdata);
 
@@ -525,7 +543,7 @@ static int bus_method_resolve_hostname(sd_bus_message *message, void *userdata, 
 
         bus_client_log(message, "hostname resolution");
 
-        r = dns_query_new(m, &q, question_utf8, question_idna ?: question_utf8, NULL, ifindex, flags);
+        r = dns_query_new_for_bus(m, &q, question_utf8, question_idna ?: question_utf8, NULL, ifindex, flags, error);
         if (r < 0)
                 return r;
 
@@ -666,7 +684,7 @@ static int bus_method_resolve_address(sd_bus_message *message, void *userdata, s
 
         bus_client_log(message, "address resolution");
 
-        r = dns_query_new(m, &q, question, question, NULL, ifindex, flags|SD_RESOLVED_NO_SEARCH);
+        r = dns_query_new_for_bus(m, &q, question, question, NULL, ifindex, flags|SD_RESOLVED_NO_SEARCH, error);
         if (r < 0)
                 return r;
 
@@ -845,7 +863,7 @@ static int bus_method_resolve_record(sd_bus_message *message, void *userdata, sd
 
         /* Setting SD_RESOLVED_CLAMP_TTL: let's request that the TTL is fixed up for locally cached entries,
          * after all we return it in the wire format blob. */
-        r = dns_query_new(m, &q, question, question, NULL, ifindex, flags|SD_RESOLVED_NO_SEARCH|SD_RESOLVED_CLAMP_TTL);
+        r = dns_query_new_for_bus(m, &q, question, question, NULL, ifindex, flags|SD_RESOLVED_NO_SEARCH|SD_RESOLVED_CLAMP_TTL, error);
         if (r < 0)
                 return r;
 
@@ -1208,7 +1226,7 @@ static int resolve_service_hostname(DnsQuery *q, DnsResourceRecord *rr, int ifin
         if (r < 0)
                 return r;
 
-        r = dns_query_new(q->manager, &aux, question, question, NULL, ifindex, q->flags|SD_RESOLVED_NO_SEARCH);
+        r = dns_query_new_for_bus(q->manager, &aux, question, question, NULL, ifindex, q->flags|SD_RESOLVED_NO_SEARCH, NULL);
         if (r < 0)
                 return r;
 
@@ -1372,7 +1390,7 @@ static int bus_method_resolve_service(sd_bus_message *message, void *userdata, s
 
         bus_client_log(message, "service resolution");
 
-        r = dns_query_new(m, &q, question_utf8, question_idna, NULL, ifindex, flags|SD_RESOLVED_NO_SEARCH);
+        r = dns_query_new_for_bus(m, &q, question_utf8, question_idna, NULL, ifindex, flags|SD_RESOLVED_NO_SEARCH, error);
         if (r < 0)
                 return r;
 
