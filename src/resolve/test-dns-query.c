@@ -27,7 +27,7 @@ TEST(dns_query_new_single_question) {
         ASSERT_OK(dns_question_new_address(&question, AF_INET, "www.example.com", false));
         ASSERT_NOT_NULL(question);
 
-        ASSERT_OK(dns_query_new(&manager, &query, question, NULL, NULL, 1, 0));
+        ASSERT_ERROR(dns_query_new(&manager, &query, question, NULL, NULL, 1, 0), ENOANO);
         ASSERT_NOT_NULL(query);
 }
 
