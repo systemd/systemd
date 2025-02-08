@@ -1100,16 +1100,17 @@ testcase_14_refuse_record_types() {
     mkdir -p /run/systemd/resolved.conf.d
     {
         echo "[Resolve]"
-        echo "RefuseRecordTypes=SRV TXT"
+        echo "RefuseRecordTypes=AAAA SRV TXT"
     } >/run/systemd/resolved.conf.d/refuserecords.conf
     if [[ -e /etc/resolv.conf ]]; then
         mv /etc/resolv.conf /etc/resolv.conf.bak
     fi
     ln -svf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
     systemctl reload systemd-resolved.service
-
+    # disable_ipv6 is necessary do refuse AAAA
+    disable_ipv6
     run dig localhost -t AAAA
-    grep -qF "status: NOERROR" "$RUN_OUT"
+    grep -qF "status: REFUSED" "$RUN_OUT"
 
     run dig localhost -t SRV
     grep -qF "status: REFUSED" "$RUN_OUT"

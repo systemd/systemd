@@ -527,10 +527,10 @@ static int manager_validate_and_mangle_question(Set *types, DnsQuestion **questi
                          good = IN_SET(good, VALID_DONT_KNOW, VALID_ALL_GOOD) ? VALID_ALL_GOOD : VALID_MIXED;
         }
 
-        if (good == VALID_ALL_GOOD)
-                return 0; /* All good, no need to mangle */
-        if (good != VALID_MIXED)
-                return -ENOANO; /* This is fully bad or empty? Refuse */
+        if (good == VALID_ALL_BAD)
+                return -ENOANO; /* All bad, refuse */
+        if (good == VALID_MIXED)
+                return 0; /* Mixed, should be ok */
 
         /* Mangle the question suppressing bad entries, leaving good entries */
         _cleanup_(dns_question_unrefp) DnsQuestion *new_question = dns_question_new(dns_question_size(*question));
@@ -539,11 +539,11 @@ static int manager_validate_and_mangle_question(Set *types, DnsQuestion **questi
 
         DnsQuestionItem *item;
         DNS_QUESTION_FOREACH_ITEM(item, *question) {
-                 if (set_contains(types, INT_TO_PTR(item->key->type)))
-                         continue;
-                 r = dns_question_add_raw(new_question, item->key, item->flags);
-                 if (r < 0)
-                         return r;
+                if (set_contains(types, INT_TO_PTR(item->key->type)))
+                        continue;
+                r = dns_question_add_raw(new_question, item->key, item->flags);
+                if (r < 0)
+                        return r;
         }
 
         *question = TAKE_PTR(new_question);

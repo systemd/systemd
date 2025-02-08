@@ -326,6 +326,9 @@
         <programlisting>RefuseRecordTypes=AAAA SRV TXT</programlisting>
         </para>
 
+	<para>Note to refuse AAAA record (unlike SRV, TXT, etc.) completely, please disable IPv6 stack in kernel with
+	"sysctl -w net.ipv6.conf.all.disable_ipv6=1".</para>
+
         <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
 
