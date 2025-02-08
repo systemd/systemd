@@ -81,6 +81,7 @@ TEST(dns_query_single_refused_records) {
         Manager manager = {};
         _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
         _cleanup_(dns_query_freep) DnsQuery *query = NULL;
+        DnsResourceKey *key = NULL;
 
         question = dns_question_new(1);
         ASSERT_NOT_NULL(question);
@@ -98,6 +99,7 @@ TEST(dns_query_multiple_refused_records) {
         Manager manager = {};
         _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
         _cleanup_(dns_query_freep) DnsQuery *query = NULL;
+        DnsResourceKey *key = NULL;
 
         question = dns_question_new(2);
         ASSERT_NOT_NULL(question);
