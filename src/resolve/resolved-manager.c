@@ -842,7 +842,7 @@ Manager *manager_free(Manager *m) {
 #if ENABLE_DNS_OVER_TLS
         dnstls_manager_free(m);
 #endif
-
+        set_free(m->refuse_record_types);
         hashmap_free(m->links);
         hashmap_free(m->dns_transactions);
 
