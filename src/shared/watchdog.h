@@ -13,6 +13,7 @@ int watchdog_setup(usec_t timeout);
 int watchdog_setup_pretimeout(usec_t usec);
 int watchdog_setup_pretimeout_governor(const char *governor);
 int watchdog_ping(void);
+void watchdog_report_missing(void);
 void watchdog_close(bool disarm);
 usec_t watchdog_runtime_wait(void);
 
