@@ -18,6 +18,7 @@
 #include "local-addresses.h"
 #include "loop-util.h"
 #include "main-func.h"
+#include "mountpoint-util.h"
 #include "os-util.h"
 #include "parse-argument.h"
 #include "path-util.h"
@@ -1135,6 +1136,12 @@ static int run(int argc, char* argv[]) {
         r = sd_event_set_signal_exit(event, true);
         if (r < 0)
                 return log_error_errno(r, "Failed to install exit signal handlers: %m");
+
+        r = path_is_mount_point("/sys/kernel/config");
+        if (r < 0)
+                return log_error_errno(r, "Failed to check if the configfs filesystem is mounted at /sys/kernel/config: %m");
+        if (r == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "The configfs filesystem must be mounted at /sys/kernel/config to be able to use systemd-storagetm");
 
         STRV_FOREACH(i, arg_devices) {
                 _cleanup_(nvme_subsystem_destroyp) NvmeSubsystem *subsys = NULL;
