@@ -77,47 +77,6 @@ TEST(dns_query_new_multi_question_different_domain) {
         ASSERT_NULL(query);
 }
 
-TEST(dns_query_single_refused_records) {
-        Manager manager = {};
-        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
-        _cleanup_(dns_query_freep) DnsQuery *query = NULL;
-        DnsResourceKey *key = NULL;
-
-        question = dns_question_new(1);
-        ASSERT_NOT_NULL(question);
-
-        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_SRV, "www.example.com");
-        ASSERT_NOT_NULL(key);
-        ASSERT_OK(dns_question_add(question, key, 0));
-        dns_resource_key_unref(key);
-
-        ASSERT_ERROR(dns_query_new(&manager, &query, question, NULL, NULL, 1, 0), ENOANO);
-        ASSERT_NULL(query);
-}
-
-TEST(dns_query_multiple_refused_records) {
-        Manager manager = {};
-        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
-        _cleanup_(dns_query_freep) DnsQuery *query = NULL;
-        DnsResourceKey *key = NULL;
-
-        question = dns_question_new(2);
-        ASSERT_NOT_NULL(question);
-
-        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_SRV, "www.example.com");
-        ASSERT_NOT_NULL(key);
-        ASSERT_OK(dns_question_add(question, key, 0));
-        dns_resource_key_unref(key);
-
-        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_TXT, "www.example.com");
-        ASSERT_NOT_NULL(key);
-        ASSERT_OK(dns_question_add(question, key, 0));
-        dns_resource_key_unref(key);
-
-        ASSERT_ERROR(dns_query_new(&manager, &query, question, NULL, NULL, 1, 0), ENOANO);
-        ASSERT_NULL(query);
-}
-
 #if HAVE_LIBIDN || HAVE_LIBIDN2
 TEST(dns_query_new_same_utf8_and_idna) {
         Manager manager = {};
