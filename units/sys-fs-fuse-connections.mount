@@ -30,3 +30,6 @@ What=fusectl
 Where=/sys/fs/fuse/connections
 Type=fusectl
 Options=nosuid,nodev,noexec
+
+[Install]
+WantedBy=sysinit.target

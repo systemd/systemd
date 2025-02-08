@@ -22,3 +22,6 @@ What=tracefs
 Where=/sys/kernel/tracing
 Type=tracefs
 Options=nosuid,nodev,noexec
+
+[Install]
+WantedBy=sysinit.target
