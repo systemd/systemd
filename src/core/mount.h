@@ -42,6 +42,12 @@ typedef enum MountProcFlags {
         MOUNT_PROC_JUST_CHANGED = 1 << 2,
 } MountProcFlags;
 
+typedef struct RemountContext {
+        sd_bus_message *request;
+        char *options;
+        RemountFlags flags;
+} RemountContext;
+
 typedef struct Mount {
         Unit meta;
 
@@ -66,6 +72,8 @@ typedef struct Mount {
         MountResult reload_result;
         MountResult clean_result;
 
+        unsigned n_retry_umount;
+
         mode_t directory_mode;
 
         usec_t timeout_usec;
@@ -87,7 +95,7 @@ typedef struct Mount {
 
         sd_event_source *timer_event_source;
 
-        unsigned n_retry_umount;
+        RemountContext *remount_context;
 } Mount;
 
 extern const UnitVTable mount_vtable;
@@ -98,6 +106,9 @@ char* mount_get_where_escaped(const Mount *m);
 char* mount_get_what_escaped(const Mount *m);
 char* mount_get_options_escaped(const Mount *m);
 const char* mount_get_fstype(const Mount *m);
+
+RemountContext* remount_context_free(RemountContext *ctx);
+DEFINE_TRIVIAL_CLEANUP_FUNC(RemountContext*, remount_context_free);
 
 const char* mount_exec_command_to_string(MountExecCommand i) _const_;
 MountExecCommand mount_exec_command_from_string(const char *s) _pure_;
