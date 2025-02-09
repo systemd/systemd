@@ -22,10 +22,10 @@ typedef enum Compression {
         _COMPRESSION_INVALID = -EINVAL,
 } Compression;
 
-const char* compression_to_string(Compression compression);
-Compression compression_from_string(const char *compression);
-const char* compression_lowercase_to_string(Compression compression);
-Compression compression_lowercase_from_string(const char *compression);
+const char* compression_to_string(Compression compression) _const_;
+Compression compression_from_string(const char *compression) _pure_;
+const char* compression_lowercase_to_string(Compression compression) _const_;
+Compression compression_lowercase_from_string(const char *compression) _pure_;
 
 bool compression_supported(Compression c);
 
