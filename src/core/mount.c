@@ -1446,6 +1446,7 @@ static int mount_start(Unit *u) {
 
 static int mount_stop(Unit *u) {
         Mount *m = ASSERT_PTR(MOUNT(u));
+        int r;
 
         switch (m->state) {
 
@@ -1457,21 +1458,24 @@ static int mount_stop(Unit *u) {
 
         case MOUNT_MOUNTING:
         case MOUNT_MOUNTING_DONE:
-        case MOUNT_REMOUNTING:
                 /* If we are still waiting for /bin/mount, we go directly into kill mode. */
                 mount_enter_signal(m, MOUNT_UNMOUNTING_SIGTERM, MOUNT_SUCCESS);
                 return 0;
 
+        case MOUNT_REMOUNTING:
         case MOUNT_REMOUNTING_SIGTERM:
-                /* If we are already waiting for a hung remount, convert this to the matching unmounting state */
-                mount_set_state(m, MOUNT_UNMOUNTING_SIGTERM);
-                return 0;
+                assert(pidref_is_set(&m->control_pid));
 
+                r = pidref_kill_and_sigcont(&m->control_pid, SIGKILL);
+                if (r < 0)
+                        log_unit_debug_errno(UNIT(m), r,
+                                             "Failed to kill remount process " PID_FMT ", ignoring: %m",
+                                             m->control_pid.pid);
+
+                _fallthrough_;
         case MOUNT_REMOUNTING_SIGKILL:
-                /* as above */
-                mount_set_state(m, MOUNT_UNMOUNTING_SIGKILL);
-                return 0;
-
+                mount_reload_finish(m, MOUNT_FAILURE_PROTOCOL, BUS_ERROR_UNIT_INACTIVE);
+                _fallthrough_;
         case MOUNT_MOUNTED:
                 mount_enter_unmounting(m);
                 return 1;
