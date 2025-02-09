@@ -4,6 +4,7 @@
 
 #include "creds-util.h"
 #include "discover-image.h"
+#include "efivars.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "generator.h"
@@ -65,8 +66,6 @@ static int parse_pull_expression(const char *v) {
         if (r == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No local string in pull expression '%s': %m", v);
 
-        if (!http_url_is_valid(p) && !file_url_is_valid(p))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not a valid URL, refusing: %s", p);
         _cleanup_free_ char *remote = strdup(p);
         if (!remote)
                 return log_oom();
@@ -79,7 +78,7 @@ static int parse_pull_expression(const char *v) {
         ImportType type = _IMPORT_TYPE_INVALID;
         ImageClass class = _IMAGE_CLASS_INVALID;
         ImportVerify verify = IMPORT_VERIFY_SIGNATURE;
-        bool ro = false, blockdev = false;
+        bool ro = false, blockdev = false, bootorigin = false;
 
         const char *o = options;
         for (;;) {
@@ -99,8 +98,9 @@ static int parse_pull_expression(const char *v) {
                         ro = false;
                 else if (streq(opt, "blockdev"))
                         blockdev = true;
+                else if (streq(opt, "bootorigin"))
+                        bootorigin = true;
                 else if ((suffix = startswith(opt, "verify="))) {
-
                         ImportVerify w = import_verify_from_string(suffix);
 
                         if (w < 0)
@@ -123,6 +123,32 @@ static int parse_pull_expression(const char *v) {
                                 class = c;
                 }
         }
+
+        if (bootorigin) {
+                _cleanup_free_ char *stub_url = NULL;
+
+                r = efi_get_variable_string(EFI_LOADER_VARIABLE_STR("StubDeviceURL"), &stub_url);
+                if (r == -ENOENT) {
+                        log_debug("Option 'bootorigin' specified, but StubDeviceURL EFI variable not set, not scheduling import job for '%s'.", remote);
+                        return 0;
+                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read 'StubDeviceURL' EFI variable: %m");
+
+                if (!http_url_is_valid(stub_url))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Value of 'StubDeviceURL' is not a valid URL, refusing: %s", stub_url);
+
+                _cleanup_free_ char *result = NULL;
+                r = import_url_change_last_component(stub_url, remote, &result);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to replace last component of URL '%s': %m", stub_url);
+
+                log_info("URL reported by StubDeviceURL is '%s', derived download URL '%s' from it.", stub_url, result);
+                free_and_replace(remote, result);
+        }
+
+        if (!http_url_is_valid(remote) && !file_url_is_valid(remote))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not a valid URL, refusing: %s", remote);
 
         if (type < 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No image type (raw, tar) specified in pull expression, refusing: %s", v);
