@@ -534,8 +534,11 @@ int verb_status(int argc, char *argv[], void *userdata) {
                         if (!p)
                                 return log_oom();
 
-                        have = access(p, F_OK) >= 0;
-                        printf("       Exists: %s\n", yes_no(have));
+                        r = access(p, F_OK);
+                        if (r < 0 && errno != ENOENT)
+                                printf("       Exists: Can't access %s (%m)\n", p);
+                        else
+                                printf("       Exists: %s\n", yes_no(r >= 0));
                 }
 
                 printf("\n");
