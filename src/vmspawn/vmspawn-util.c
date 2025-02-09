@@ -399,7 +399,7 @@ int find_qemu_binary(char **ret_qemu_binary) {
          * If the native architecture is not supported by qemu -EOPNOTSUPP will be returned;
          */
 
-        FOREACH_STRING(s, "qemu", "qemu-kvm") {
+        FOREACH_STRING(s, "qemu", "qemu-kvm", "/usr/libexec/qemu-kvm") {
                 r = find_executable(s, ret_qemu_binary);
                 if (r == 0)
                         return 0;
