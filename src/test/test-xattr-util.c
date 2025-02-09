@@ -13,6 +13,7 @@
 #include "macro.h"
 #include "rm-rf.h"
 #include "string-util.h"
+#include "strv.h"
 #include "tests.h"
 #include "tmpfile-util.h"
 #include "xattr-util.h"
@@ -89,13 +90,18 @@ static void verify_xattr(int dfd, const char *expected) {
 
 static void xattr_symlink_test_one(int fd, const char *path) {
         _cleanup_free_ char *value = NULL, *list = NULL;
+        _cleanup_strv_free_ char **list_split = NULL;
+        int r;
 
         ASSERT_OK(xsetxattr(fd, path, 0, "trusted.test", "schaffen"));
         ASSERT_OK_EQ(getxattr_at_malloc(fd, path, "trusted.test", 0, &value), (int) STRLEN("schaffen"));
         ASSERT_STREQ(value, "schaffen");
 
-        ASSERT_OK_EQ(listxattr_at_malloc(fd, path, 0, &list), (int) sizeof("trusted.test"));
-        ASSERT_STREQ(list, "trusted.test");
+        r = listxattr_at_malloc(fd, path, 0, &list);
+        ASSERT_OK(r);
+        ASSERT_GE(r, (int) sizeof("trusted.test"));
+        ASSERT_NON_NULL(list_split = strv_parse_nulstr(list, r));
+        ASSERT_TRUE(strv_contains(list_split, "trusted.test"));
 
         ASSERT_OK(xremovexattr(fd, path, 0, "trusted.test"));
         ASSERT_ERROR(getxattr_at_malloc(fd, path, "trusted.test", 0, &value), ENODATA);
