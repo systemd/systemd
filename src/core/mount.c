@@ -1149,7 +1149,7 @@ static int mount_set_mount_command(Mount *m, ExecCommand *c, const MountParamete
         }
 
         _cleanup_free_ char *opts = NULL;
-        r = fstab_filter_options(p->options, "nofail\0" "noauto\0" "auto\0", NULL, NULL, NULL, &opts);
+        r = fstab_filter_options(p->options, "nofail\0" "fail\0" "noauto\0" "auto\0", NULL, NULL, NULL, &opts);
         if (r < 0)
                 return r;
 
