@@ -1178,7 +1178,12 @@ static void mount_enter_mounting(Mount *m) {
                 goto fail;
 
         p = get_mount_parameters_fragment(m);
-        if (p && mount_is_bind(p)) {
+        if (!p) {
+                r = log_unit_warning_errno(UNIT(m), SYNTHETIC_ERRNO(ENOENT), "No mount parameters to operate on.");
+                goto fail;
+        }
+
+        if (mount_is_bind(p)) {
                 r = is_dir(p->what, /* follow = */ true);
                 if (r < 0 && r != -ENOENT)
                         log_unit_info_errno(UNIT(m), r, "Failed to determine type of bind mount source '%s', ignoring: %m", p->what);
@@ -1194,7 +1199,7 @@ static void mount_enter_mounting(Mount *m) {
                 log_unit_warning_errno(UNIT(m), r, "Failed to create mount point '%s', ignoring: %m", m->where);
 
         /* If we are asked to create an OverlayFS, create the upper/work directories if they are missing */
-        if (p && streq_ptr(p->fstype, "overlay")) {
+        if (streq_ptr(p->fstype, "overlay")) {
                 _cleanup_strv_free_ char **dirs = NULL;
 
                 r = fstab_filter_options(
@@ -1223,13 +1228,9 @@ static void mount_enter_mounting(Mount *m) {
 
         if (source_is_dir)
                 unit_warn_if_dir_nonempty(UNIT(m), m->where);
-        unit_warn_leftover_processes(UNIT(m), /* start = */ true);
-
-        m->control_command_id = MOUNT_EXEC_MOUNT;
-        m->control_command = m->exec_command + MOUNT_EXEC_MOUNT;
 
         /* Create the source directory for bind-mounts if needed */
-        if (p && mount_is_bind(p)) {
+        if (mount_is_bind(p)) {
                 r = mkdir_p_label(p->what, m->directory_mode);
                 /* mkdir_p_label() can return -EEXIST if the target path exists and is not a directory - which is
                  * totally OK, in case the user wants us to overmount a non-directory inode. Also -EROFS can be
@@ -1241,18 +1242,17 @@ static void mount_enter_mounting(Mount *m) {
                                             r, "Failed to make bind mount source '%s', ignoring: %m", p->what);
         }
 
-        if (p) {
-                r = mount_set_mount_command(m, m->control_command, p);
-                if (r < 0) {
-                        log_unit_warning_errno(UNIT(m), r, "Failed to prepare mount command line: %m");
-                        goto fail;
-                }
-        } else {
-                r = log_unit_warning_errno(UNIT(m), SYNTHETIC_ERRNO(ENOENT), "No mount parameters to operate on.");
+        mount_unwatch_control_pid(m);
+        unit_warn_leftover_processes(UNIT(m), /* start = */ true);
+
+        m->control_command_id = MOUNT_EXEC_MOUNT;
+        m->control_command = m->exec_command + MOUNT_EXEC_MOUNT;
+
+        r = mount_set_mount_command(m, m->control_command, p);
+        if (r < 0) {
+                log_unit_warning_errno(UNIT(m), r, "Failed to prepare mount command line: %m");
                 goto fail;
         }
-
-        mount_unwatch_control_pid(m);
 
         r = mount_spawn(m, m->control_command, mount_exec_flags(MOUNT_MOUNTING), &m->control_pid);
         if (r < 0) {
