@@ -625,7 +625,7 @@ foreach ident : [
                                  #include <unistd.h>'''],     # no known header declares pivot_root
         ['ioprio_get',        '''#include <sched.h>'''],      # no known header declares ioprio_get
         ['ioprio_set',        '''#include <sched.h>'''],      # no known header declares ioprio_set
-        ['sched_setattr',     '''#include <sched.h>'''],      # no known header declares sched_setattr
+        ['sched_setattr',     '''#include <sched.h>'''],
         ['name_to_handle_at', '''#include <sys/types.h>
                                  #include <sys/stat.h>
                                  #include <fcntl.h>'''],
