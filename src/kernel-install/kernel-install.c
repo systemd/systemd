@@ -618,7 +618,7 @@ static int context_ensure_boot_root(Context *c) {
         if (c->rfd >= 0) {
                 r = chaseat(c->rfd, "/boot", CHASE_AT_RESOLVE_IN_ROOT, &c->boot_root, /* ret_fd = */ NULL);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to chase '/boot': %m");
+                        return log_error_errno(r, "Failed to chase '/boot/': %m");
         } else {
                 c->boot_root = strdup("/boot");
                 if (!c->boot_root)
