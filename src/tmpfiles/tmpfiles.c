@@ -1479,14 +1479,8 @@ static int fd_set_acls(
                 log_debug_errno(r, "ACLs not supported by file system at %s", path);
                 return 0;
         }
-
         if (r > 0)
                 return -r; /* already warned in path_set_acl */
-
-        /* The above procfs paths don't work if /proc is not mounted. */
-        if (r == -ENOENT && proc_mounted() == 0)
-                r = -ENOSYS;
-
         if (r < 0)
                 return log_error_errno(r, "ACL operation on \"%s\" failed: %m", path);
 #endif
@@ -2408,14 +2402,14 @@ static int create_symlink(Context *c, Item *i) {
         assert(i);
 
         if (i->ignore_if_target_missing) {
-                r = chase(i->argument, arg_root, CHASE_SAFE|CHASE_PREFIX_ROOT|CHASE_NOFOLLOW, /*ret_path=*/ NULL, /*ret_fd=*/ NULL);
+                r = chase(i->argument, arg_root, CHASE_SAFE|CHASE_PREFIX_ROOT|CHASE_NOFOLLOW, /* ret_path = */ NULL, /* ret_fd = */ NULL);
                 if (r == -ENOENT) {
                         /* Silently skip over lines where the source file is missing. */
-                        log_info("Symlink source path '%s%s' does not exist, skipping line.", strempty(arg_root), i->argument);
+                        log_info("Symlink source path '%s' does not exist, skipping line.", prefix_roota(arg_root, i->argument));
                         return 0;
                 }
                 if (r < 0)
-                        return log_error_errno(r, "Failed to check if symlink source path '%s%s' exists: %m", strempty(arg_root), i->argument);
+                        return log_error_errno(r, "Failed to check if symlink source path '%s' exists: %m", prefix_roota(arg_root, i->argument));
         }
 
         r = path_extract_filename(i->path, &bn);
@@ -2423,7 +2417,7 @@ static int create_symlink(Context *c, Item *i) {
                 return log_error_errno(r, "Failed to extract filename from path '%s': %m", i->path);
         if (r == O_DIRECTORY)
                 return log_error_errno(SYNTHETIC_ERRNO(EISDIR),
-                                       "Cannot open path '%s' for creating FIFO, is a directory.", i->path);
+                                       "Cannot open path '%s' for creating symlink, is a directory.", i->path);
 
         if (arg_dry_run) {
                 log_info("Would create symlink %s -> %s", i->path, i->argument);
