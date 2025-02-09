@@ -11,15 +11,18 @@
 
 #include "alloc-util.h"
 #include "build.h"
+#include "compress.h"
 #include "conf-parser.h"
 #include "constants.h"
 #include "daemon-util.h"
 #include "env-file.h"
+#include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
 #include "fs-util.h"
 #include "glob-util.h"
+#include "header-util.h"
 #include "journal-upload.h"
 #include "journal-util.h"
 #include "log.h"
@@ -47,6 +50,7 @@ static const char *arg_key = NULL;
 static const char *arg_cert = NULL;
 static const char *arg_trust = NULL;
 static const char *arg_directory = NULL;
+static char **arg_headers = NULL;
 static char **arg_file = NULL;
 static const char *arg_cursor = NULL;
 static bool arg_after_cursor = false;
@@ -63,6 +67,7 @@ static bool arg_force_compression = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_file, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_compression, compression_args_clear);
+STATIC_DESTRUCTOR_REGISTER(arg_headers, strv_freep);
 
 static void close_fd_input(Uploader *u);
 
@@ -121,6 +126,48 @@ static int check_cursor_updating(Uploader *u) {
                                        u->state_file);
         (void) unlink(temp_path);
 
+        return 0;
+}
+
+int config_parse_header(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        char ***headers = ASSERT_PTR(data);
+        char *unescaped;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                /* Empty assignment resets the list */
+                *headers = strv_free(*headers);
+                return 0;
+        }
+
+        r = cunescape(rvalue, 0, &unescaped);
+        if (r < 0)
+                return log_syntax(unit, LOG_WARNING, filename, line, r,
+                                  "Failed to unescape headers: %s", rvalue);
+
+        if (!header_is_valid(rvalue))
+                return log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                  "Invalid header, ignoring: %s", rvalue);
+
+        r = strv_header_replace_consume(headers, TAKE_PTR(unescaped));
+        if (r < 0)
+                return log_syntax(unit, LOG_WARNING, filename, line, r,
+                                  "Failed to update headers: %s", rvalue);
         return 0;
 }
 
@@ -212,6 +259,13 @@ int start_upload(Uploader *u,
                                 return log_oom();
 
                         l = curl_slist_append(h, header);
+                        if (!l)
+                                return log_oom();
+                        h = l;
+                }
+
+                STRV_FOREACH(header, arg_headers) {
+                        l = curl_slist_append(h, *header);
                         if (!l)
                                 return log_oom();
                         h = l;
@@ -611,6 +665,7 @@ static int parse_config(void) {
                 { "Upload",  "ServerCertificateFile",  config_parse_path_or_ignore, 0,                        &arg_cert                 },
                 { "Upload",  "TrustedCertificateFile", config_parse_path_or_ignore, 0,                        &arg_trust                },
                 { "Upload",  "NetworkTimeoutSec",      config_parse_sec,            0,                        &arg_network_timeout_usec },
+                { "Upload",  "Header",                 config_parse_header,         0,                        &arg_headers              },
                 { "Upload",  "Compression",            config_parse_compression,    true,                     &arg_compression          },
                 { "Upload",  "ForceCompression",       config_parse_bool,           0,                        &arg_force_compression    },
                 {}
