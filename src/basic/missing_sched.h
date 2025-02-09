@@ -13,6 +13,13 @@
 assert_cc(CLONE_NEWCGROUP == 0x02000000);
 #endif
 
+/* b3e5838252665ee4cfa76b82bdf1198dca81e5be (5.2) */
+#ifndef CLONE_PIDFD
+#  define CLONE_PIDFD 0x00001000
+#else
+assert_cc(CLONE_PIDFD == 0x00001000);
+#endif
+
 /* 769071ac9f20b6a447410c7eaa55d1a5233ef40c (5.8) */
 #ifndef CLONE_NEWTIME
 #  define CLONE_NEWTIME 0x00000080
