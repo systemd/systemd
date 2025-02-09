@@ -204,6 +204,9 @@ jobs:
       - name: Build image
         run: sudo mkosi sandbox meson compile -C build mkosi
 
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
+
       - name: Run integration tests
         run: |
           if [[ "$(sudo mkosi sandbox meson test --help)" == *"--max-lines"* ]]; then
