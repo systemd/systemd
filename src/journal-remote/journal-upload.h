@@ -54,7 +54,7 @@ typedef struct Uploader {
         char *last_cursor, *current_cursor;
         usec_t watchdog_timestamp;
         usec_t watchdog_usec;
-        CompressionOpts compression;
+        const CompressionConfig *compression;
 } Uploader;
 
 #define JOURNAL_UPLOAD_POLL_TIMEOUT (10 * USEC_PER_SEC)
