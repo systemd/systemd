@@ -476,7 +476,7 @@ int verb_status(int argc, char *argv[], void *userdata) {
                         for (size_t i = 0; i < ELEMENTSOF(loader_flags); i++)
                                 print_yes_no_line(i == 0, FLAGS_SET(loader_features, loader_flags[i].flag), loader_flags[i].name);
 
-                        sd_id128_t loader_partition_uuid;
+                        sd_id128_t loader_partition_uuid = SD_ID128_NULL;
                         bool have_loader_partition_uuid = efi_loader_get_device_part_uuid(&loader_partition_uuid) >= 0;
 
                         print_yes_no_line(false, have_loader_partition_uuid, "Boot loader set ESP information");
@@ -507,7 +507,7 @@ int verb_status(int argc, char *argv[], void *userdata) {
                         for (size_t i = 0; i < ELEMENTSOF(stub_flags); i++)
                                 print_yes_no_line(i == 0, FLAGS_SET(stub_features, stub_flags[i].flag), stub_flags[i].name);
 
-                        sd_id128_t stub_partition_uuid;
+                        sd_id128_t stub_partition_uuid = SD_ID128_NULL;
                         bool have_stub_partition_uuid = efi_stub_get_device_part_uuid(&stub_partition_uuid) >= 0;
 
                         if (have_stub_partition_uuid && (!(!sd_id128_is_null(esp_uuid) && sd_id128_equal(esp_uuid, stub_partition_uuid)) &&
