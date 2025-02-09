@@ -38,7 +38,7 @@ static const char *arg_getter = NULL;
 static const char *arg_listen_raw = NULL;
 static const char *arg_listen_http = NULL;
 static const char *arg_listen_https = NULL;
-static CompressionArgs arg_compression = {};
+static OrderedHashmap *arg_compression = NULL;
 static char **arg_files = NULL; /* Do not free this. */
 static bool arg_compress = true;
 static bool arg_seal = false;
@@ -67,7 +67,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_key, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_cert, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_trust, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_output, freep);
-STATIC_DESTRUCTOR_REGISTER(arg_compression, compression_args_clear);
+STATIC_DESTRUCTOR_REGISTER(arg_compression, ordered_hashmap_freep);
 
 static const char* const journal_write_split_mode_table[_JOURNAL_WRITE_SPLIT_MAX] = {
         [JOURNAL_WRITE_SPLIT_NONE] = "none",
@@ -158,10 +158,17 @@ static int dispatch_http_event(sd_event_source *event,
 static int build_accept_encoding(char **ret) {
         assert(ret);
 
-        float q = 1.0, step = 1.0 / arg_compression.size;
+        if (ordered_hashmap_isempty(arg_compression)) {
+                *ret = NULL;
+                return 0;
+        }
+
         _cleanup_free_ char *buf = NULL;
-        FOREACH_ARRAY(opt, arg_compression.opts, arg_compression.size) {
-                const char *c = compression_lowercase_to_string(opt->algorithm);
+        float q = 1.0, step = 1.0 / ordered_hashmap_size(arg_compression);
+
+        const CompressionConfig *cc;
+        ORDERED_HASHMAP_FOREACH(cc, arg_compression) {
+                const char *c = compression_lowercase_to_string(cc->algorithm);
                 if (strextendf_with_separator(&buf, ",", "%s;q=%.1f", c, q) < 0)
                         return -ENOMEM;
                 q -= step;
@@ -316,11 +323,13 @@ static mhd_result request_handler(
                 header = MHD_lookup_connection_value(connection, MHD_HEADER_KIND, "Content-Encoding");
                 if (header) {
                         Compression c = compression_lowercase_from_string(header);
-                        if (c < 0 || !compression_supported(c))
+                        if (c <= 0 || !compression_supported(c))
                                 return mhd_respondf(connection, 0, MHD_HTTP_UNSUPPORTED_MEDIA_TYPE,
                                                     "Unsupported Content-Encoding type: %s", header);
                         source->compression = c;
-                }
+                } else
+                        source->compression = COMPRESSION_NONE;
+
                 return process_http_upload(connection,
                                            upload_data, upload_data_size,
                                            source);
@@ -1119,6 +1128,10 @@ static int run(int argc, char **argv) {
 
         r = parse_argv(argc, argv);
         if (r <= 0)
+                return r;
+
+        r = compression_configs_mangle(&arg_compression);
+        if (r < 0)
                 return r;
 
         journal_browse_prepare();
