@@ -127,6 +127,23 @@
 
             <xi:include href="version-info.xml" xpointer="v258"/></listitem>
           </varlistentry>
+
+          <varlistentry>
+            <term>bootorigin</term>
+
+            <listitem><para>If this option is specified, in place of the URL a simple filename may be
+            specified. If the system is booted via UEFI HTTP network booting the last component of the
+            network boot origin URL is replaced by this filename and used as download source. This hence
+            allows to automatically derive the URLs for disk images from the original boot URL used to invoke
+            the kernel or boot loader.</para>
+
+            <para>If this option is used and the system is not actually booted via UEFI HTTP network booting,
+            the download is gracefully skipped. Or in other words without other modifications it is possible
+            to put together an initrd image that will boot from a local disk if available, or from downloaded
+            disk image if used via network booting.</para>
+
+            <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+          </varlistentry>
         </variablelist>
 
         <xi:include href="version-info.xml" xpointer="v257"/></listitem>
@@ -198,6 +215,17 @@
       <para>This downloads the specified disk image, saving it locally under the name
       <literal>root</literal>, and attaches it to a loopback block device on completion. It then boots from
       the 2nd partition in the image.</para>
+    </example>
+
+    <example>
+      <title>Boot into disk image (raw), with URL derived from UEFI HTTP network booting</title>
+
+      <programlisting>systemd.pull=raw,machine,verify=no,blockdev,bootorigin:root:image.raw.xz root=/dev/disk/by-loop-ref/root.raw-part2</programlisting>
+
+      <para>This is similar to the previous example, but this time the source URL is automatically derived
+      from the UEFI HTTP network boot URL. For example, if an UKI is booted from an URL
+      <literal>http://example.com/image.efi</literal> this would result in a root disk being downloaded from
+      <literal>http://example.com/image.raw.xz</literal>.</para>
     </example>
   </refsect1>
 
