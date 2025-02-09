@@ -125,6 +125,18 @@ Deprecations and removals:
 
 Features:
 
+* maybe rework invocation of stub's inner PE payload: since we already parse PE
+  anyway, maybe jump directly into the image, after finding the linux UEFI
+  entrypoint. After all we invest quite some effort to disable
+  validation/measurement of the inner image, i.e. we want nothing from UEFI's
+  own image loading code paths. Given that everything's statically linked
+  anyway on UEFI it should be easy to just jump into the already loaded image.
+
+* introduce smbios type 11 variables for inserting additional entries into boot
+  loader spec type 1 menu list. Usecase is in particular with http boot: allow
+  VMMs to insert additional cheap payloads that are acquired on demand via
+  http. for example: always install diskomator or such.
+
 * storagetm: maybe also serve the specified disk via HTTP? we have glue for
   microhttpd anyway already. Idea would also be serve currently booted UKI as
   separate HTTP resource, so that EFI http boot on another system could
