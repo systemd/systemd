@@ -12,6 +12,9 @@
 #include "unit.h"
 #include "utf8.h"
 
+static BUS_DEFINE_PROPERTY_GET(property_get_type, "s", Mount, mount_get_fstype);
+static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_result, mount_result, MountResult);
+
 static int property_get_what(
                 sd_bus *bus,
                 const char *path,
@@ -56,8 +59,66 @@ static int property_get_options(
         return sd_bus_message_append_basic(reply, 's', escaped);
 }
 
-static BUS_DEFINE_PROPERTY_GET(property_get_type, "s", Mount, mount_get_fstype);
-static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_result, mount_result, MountResult);
+static int bus_mount_method_remount(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Mount *m = ASSERT_PTR(userdata);
+        Unit *u = UNIT(m);
+        int r;
+
+        assert(message);
+
+        if (u->load_state != UNIT_LOADED)
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_UNIT, "Unit '%s' not loaded", u->id);
+
+        if (m->remount_request || m->job)
+                return sd_bus_error_setf(error, BUS_ERROR_UNIT_BUSY,
+                                         "Mount '%s' has a job pending or is already being remounted, refusing remount request",
+                                         m->where);
+
+        if (m->state != MOUNT_MOUNTED)
+                return sd_bus_error_setf(error, BUS_ERROR_UNIT_INACTIVE,
+                                         "Cannot remount inactive mount '%s'", m->where);
+
+        r = mac_selinux_unit_access_check(u, message, "start", error);
+        if (r < 0)
+                return r;
+
+        _cleanup_free_ char *opts = NULL;
+        _cleanup_strv_free_ char **graceful_opts = NULL;
+        uint64_t flags;
+
+        r = sd_bus_message_read_basic(message, 's', &opts);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_read_strv(message, &graceful_opts);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_read_basic(message, 't', &flags);
+        if (r < 0)
+                return r;
+        if (flags != 0)
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid flags parameter");
+
+        r = bus_verify_manage_units_async_full(u, "remount",
+                                               N_("Authentication is required to remount '$(unit)'."),
+                                               message,
+                                               error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
+
+        r = manager_add_job(u->manager, JOB_RELOAD, u, JOB_REPLACE, error, /* ret = */ NULL);
+        if (r < 0)
+                return r;
+
+        /* The update of mount parameters is deferred to mount_reload_finish(), i.e. after the reload job
+         * finishes, in an atomic fashion. */
+
+        m->remount_request = sd_bus_message_ref(message);
+        return 1;
+}
 
 const sd_bus_vtable bus_mount_vtable[] = {
         SD_BUS_VTABLE_START(0),
@@ -76,9 +137,16 @@ const sd_bus_vtable bus_mount_vtable[] = {
         SD_BUS_PROPERTY("UID", "u", bus_property_get_uid, offsetof(Unit, ref_uid), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("GID", "u", bus_property_get_gid, offsetof(Unit, ref_gid), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("GracefulOptions", "as", NULL, offsetof(Mount, graceful_options), SD_BUS_VTABLE_PROPERTY_CONST),
+
         BUS_EXEC_COMMAND_VTABLE("ExecMount", offsetof(Mount, exec_command[MOUNT_EXEC_MOUNT]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
         BUS_EXEC_COMMAND_VTABLE("ExecUnmount", offsetof(Mount, exec_command[MOUNT_EXEC_UNMOUNT]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
         BUS_EXEC_COMMAND_VTABLE("ExecRemount", offsetof(Mount, exec_command[MOUNT_EXEC_REMOUNT]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
+
+        SD_BUS_METHOD_WITH_ARGS("Remount",
+                                SD_BUS_ARGS("s", options, "as", graceful_options, "t", flags),
+                                SD_BUS_NO_RESULT,
+                                bus_mount_method_remount,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_VTABLE_END
 };
 
@@ -161,7 +229,7 @@ static int bus_mount_set_transient_property(
 
                         if (strv_isempty(add)) {
                                 m->graceful_options = strv_free(m->graceful_options);
-                                unit_write_settingf(u, flags, name, "GracefulOptions=");
+                                unit_write_setting(u, flags, name, "GracefulOptions=");
                         } else {
                                 r = strv_extend_strv(&m->graceful_options, add, /* filter_duplicates= */ false);
                                 if (r < 0)
