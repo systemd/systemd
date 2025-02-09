@@ -274,6 +274,7 @@ class UkifyConfig:
     pcr_banks: list[str]
     pcr_private_keys: list[str]
     pcr_public_keys: list[str]
+    pcr_certificates: list[str]
     pcrpkey: Optional[Path]
     pcrsig: Union[str, Path, None]
     join_pcrsig: Optional[Path]
@@ -683,7 +684,7 @@ def check_cert_and_keys_nonexistent(opts: UkifyConfig) -> None:
     # Raise if any of the keys and certs are found on disk
     paths: Iterator[Union[str, Path, None]] = itertools.chain(
         (opts.sb_key, opts.sb_cert),
-        *((priv_key, pub_key) for priv_key, pub_key, _ in key_path_groups(opts)),
+        *((priv_key, pub_key, cert) for priv_key, pub_key, cert, _ in key_path_groups(opts)),
     )
     for path in paths:
         if path and Path(path).exists():
@@ -721,17 +722,19 @@ def combine_signatures(pcrsigs: list[dict[str, str]]) -> str:
     return json.dumps(combined)
 
 
-def key_path_groups(opts: UkifyConfig) -> Iterator[tuple[str, Optional[str], Optional[str]]]:
+def key_path_groups(opts: UkifyConfig) -> Iterator[tuple[str, Optional[str], Optional[str], Optional[str]]]:
     if not opts.pcr_private_keys:
         return
 
     n_priv = len(opts.pcr_private_keys)
     pub_keys = opts.pcr_public_keys or []
+    certs = opts.pcr_certificates or []
     pp_groups = opts.phase_path_groups or []
 
     yield from itertools.zip_longest(
         opts.pcr_private_keys,
         pub_keys[:n_priv],
+        certs[:n_priv],
         pp_groups[:n_priv],
         fillvalue=None,
     )
@@ -809,9 +812,15 @@ def call_systemd_measure(uki: UKI, opts: UkifyConfig, profile_start: int = 0) ->
             ]
 
             # The JSON object will be used for offline signing, include the public key
-            # so that the fingerprint is included too.
-            if opts.policy_digest and opts.pcr_public_keys:
-                cmd += [f'--public-key={opts.pcr_public_keys[0]}']
+            # so that the fingerprint is included too. In case a certificate is passed, use the
+            # right parameter so that systemd-measure can extract the public key from it.
+            if opts.policy_digest:
+                if opts.pcr_public_keys:
+                    cmd += ['--public-key', opts.pcr_public_keys[0]]
+                elif opts.pcr_certificates:
+                    cmd += ['--certificate', opts.pcr_certificates[0]]
+                    if opts.certificate_provider:
+                        cmd += ['--certificate-source', f'provider:{opts.certificate_provider}']
 
             print('+', shell_join(cmd), file=sys.stderr)
             output = subprocess.check_output(cmd, text=True)  # type: ignore
@@ -848,16 +857,26 @@ def call_systemd_measure(uki: UKI, opts: UkifyConfig, profile_start: int = 0) ->
                 *(f'--bank={bank}' for bank in banks),
             ]
 
-            for priv_key, pub_key, group in key_path_groups(opts):
+            for priv_key, pub_key, cert, group in key_path_groups(opts):
                 extra = [f'--private-key={priv_key}']
                 if opts.signing_engine is not None:
-                    assert pub_key
+                    assert pub_key or cert
                     extra += [f'--private-key-source=engine:{opts.signing_engine}']
-                    extra += [f'--certificate={pub_key}']
+                    if cert:
+                        extra += [f'--certificate={cert}']
+                    else:
+                        # Backward compatibility, we used to pass the public key as the certificate
+                        # as there was no --pcr-certificate= parameter
+                        extra += [f'--certificate={pub_key}']
                 elif opts.signing_provider is not None:
-                    assert pub_key
+                    assert pub_key or cert
                     extra += [f'--private-key-source=provider:{opts.signing_provider}']
-                    extra += [f'--certificate={pub_key}']
+                    if cert:
+                        extra += [f'--certificate={cert}']
+                    else:
+                        extra += [f'--certificate={pub_key}']
+                elif cert:
+                    extra += [f'--certificate={cert}']
                 elif pub_key:
                     extra += [f'--public-key={pub_key}']
 
@@ -1306,16 +1325,24 @@ def make_uki(opts: UkifyConfig) -> None:
         cmd = [keyutil_tool, 'public']
 
         if opts.pcr_public_keys and len(opts.pcr_public_keys) == 1:
-            # If we're using an engine or provider, the public key will be an X.509 certificate.
-            if opts.signing_engine or opts.signing_provider:
+            pcrpkey = Path(opts.pcr_public_keys[0])
+            # Backward compatibility, we used to pass the public key as the certificate
+            # as there was no --pcr-certificate= parameter
+            if pcrpkey.read_text().startswith('-----BEGIN CERTIFICATE-----'):
                 cmd += ['--certificate', opts.pcr_public_keys[0]]
-                if opts.certificate_provider:
+                if (opts.signing_engine or opts.signing_provider) and opts.certificate_provider:
                     cmd += ['--certificate-source', f'provider:{opts.certificate_provider}']
 
                 print('+', shell_join(cmd), file=sys.stderr)
                 pcrpkey = subprocess.check_output(cmd)
-            else:
-                pcrpkey = Path(opts.pcr_public_keys[0])
+        elif opts.pcr_certificates and len(opts.pcr_certificates) == 1:
+            # If we're using an engine or provider, the public key will be an X.509 certificate.
+            cmd += ['--certificate', opts.pcr_certificates[0]]
+            if (opts.signing_engine or opts.signing_provider) and opts.certificate_provider:
+                cmd += ['--certificate-source', f'provider:{opts.certificate_provider}']
+
+            print('+', shell_join(cmd), file=sys.stderr)
+            pcrpkey = subprocess.check_output(cmd)
         elif opts.pcr_private_keys and len(opts.pcr_private_keys) == 1:
             cmd += ['--private-key', Path(opts.pcr_private_keys[0])]
 
@@ -1594,7 +1621,7 @@ def generate_keys(opts: UkifyConfig) -> None:
 
         work = True
 
-    for priv_key, pub_key, _ in key_path_groups(opts):
+    for priv_key, pub_key, _, _ in key_path_groups(opts):
         priv_key_pem, pub_key_pem = generate_priv_pub_key_pair()
 
         print(f'Writing private key for PCR signing to {priv_key}')
@@ -2100,6 +2127,15 @@ CONFIG_ITEMS = [
         config_push=ConfigItem.config_set_group,
     ),
     ConfigItem(
+        '--pcr-certificate',
+        dest='pcr_certificates',
+        metavar='PATH',
+        action='append',
+        help='certificate part of the keypair or engine/provider designation for signing PCR signatures',
+        config_key='PCRSignature:/PCRCertificate',
+        config_push=ConfigItem.config_set_group,
+    ),
+    ConfigItem(
         '--phases',
         dest='phase_path_groups',
         metavar='PHASE-PATH…',
@@ -2298,17 +2334,27 @@ def finalize_options(opts: argparse.Namespace) -> None:
 
     # Check that --pcr-public-key=, --pcr-private-key=, and --phases=
     # have either the same number of arguments or are not specified at all.
+    # Also check that --pcr-public-key= and --pcr-certificate= are not set at the same time.
     # But allow a single public key, for offline PCR signing, to pre-populate the JSON object
     # with the certificate's fingerprint.
+    n_pcr_cert = None if opts.pcr_certificates is None else len(opts.pcr_certificates)
     n_pcr_pub = None if opts.pcr_public_keys is None else len(opts.pcr_public_keys)
     n_pcr_priv = None if opts.pcr_private_keys is None else len(opts.pcr_private_keys)
     n_phase_path_groups = None if opts.phase_path_groups is None else len(opts.phase_path_groups)
     if opts.policy_digest and n_pcr_priv is not None:
         raise ValueError('--pcr-private-key= cannot be specified with --policy-digest')
-    if opts.policy_digest and (n_pcr_pub is None or n_pcr_pub != 1):
-        raise ValueError('--policy-digest requires exactly one --pcr-public-key=')
+    if (
+        opts.policy_digest
+        and (n_pcr_pub is None or n_pcr_pub != 1)
+        and (n_pcr_cert is None or n_pcr_cert != 1)
+    ):
+        raise ValueError('--policy-digest requires exactly one --pcr-public-key= or --pcr-certificate=')
     if n_pcr_pub is not None and n_pcr_priv is not None and n_pcr_pub != n_pcr_priv:
         raise ValueError('--pcr-public-key= specifications must match --pcr-private-key=')
+    if n_pcr_cert is not None and n_pcr_priv is not None and n_pcr_cert != n_pcr_priv:
+        raise ValueError('--pcr-certificate= specifications must match --pcr-private-key=')
+    if n_pcr_pub is not None and n_pcr_cert is not None:
+        raise ValueError('--pcr-public-key= and --pcr-certificate= cannot be used at the same time')
     if n_phase_path_groups is not None and n_phase_path_groups != n_pcr_priv:
         raise ValueError('--phases= specifications must match --pcr-private-key=')
 
@@ -2405,6 +2451,7 @@ def finalize_options(opts: argparse.Namespace) -> None:
         or opts.devicetree_auto
         or opts.pcr_private_keys
         or opts.pcr_public_keys
+        or opts.pcr_certificates
     ):
         raise ValueError('--pcrsig and --join-pcrsig cannot be used with other sections')
     if opts.pcrsig:
