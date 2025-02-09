@@ -8,6 +8,7 @@
 #include "sd-messages.h"
 
 #include "alloc-util.h"
+#include "bus-common-errors.h"
 #include "dbus-mount.h"
 #include "dbus-unit.h"
 #include "device.h"
@@ -45,9 +46,9 @@ static const UnitActiveState state_translation_table[_MOUNT_STATE_MAX] = {
         [MOUNT_MOUNTING_DONE]      = UNIT_ACTIVATING,
         [MOUNT_MOUNTED]            = UNIT_ACTIVE,
         [MOUNT_REMOUNTING]         = UNIT_RELOADING,
-        [MOUNT_UNMOUNTING]         = UNIT_DEACTIVATING,
         [MOUNT_REMOUNTING_SIGTERM] = UNIT_RELOADING,
         [MOUNT_REMOUNTING_SIGKILL] = UNIT_RELOADING,
+        [MOUNT_UNMOUNTING]         = UNIT_DEACTIVATING,
         [MOUNT_UNMOUNTING_SIGTERM] = UNIT_DEACTIVATING,
         [MOUNT_UNMOUNTING_SIGKILL] = UNIT_DEACTIVATING,
         [MOUNT_FAILED]             = UNIT_FAILED,
@@ -223,6 +224,12 @@ static void mount_done(Unit *u) {
         mount_parameters_done(&m->parameters_proc_self_mountinfo);
         mount_parameters_done(&m->parameters_fragment);
 
+        m->graceful_options = strv_free(m->graceful_options);
+
+        m->remount_request = sd_bus_message_unref(m->remount_request);
+        m->remount_options = mfree(m->remount_options);
+        m->remount_graceful_options = strv_free(m->remount_graceful_options);
+
         m->exec_runtime = exec_runtime_free(m->exec_runtime);
 
         exec_command_done_array(m->exec_command, _MOUNT_EXEC_COMMAND_MAX);
@@ -231,8 +238,6 @@ static void mount_done(Unit *u) {
         mount_unwatch_control_pid(m);
 
         m->timer_event_source = sd_event_source_disable_unref(m->timer_event_source);
-
-        m->graceful_options = strv_free(m->graceful_options);
 }
 
 static int update_parameters_proc_self_mountinfo(
@@ -720,6 +725,9 @@ static void mount_set_state(Mount *m, MountState state) {
                 m->control_command_id = _MOUNT_EXEC_COMMAND_INVALID;
         }
 
+        if (state != MOUNT_REMOUNTING) /* Just in case */
+                m->remount_request = sd_bus_message_unref(m->remount_request);
+
         if (state != old_state)
                 log_unit_debug(UNIT(m), "Changed %s -> %s", mount_state_to_string(old_state), mount_state_to_string(state));
 
@@ -1081,14 +1089,19 @@ fail:
         mount_enter_dead_or_mounted(m, MOUNT_FAILURE_RESOURCES, /* flush_result = */ false);
 }
 
-static int mount_append_graceful_options(Mount *m, const MountParameters *p, char **opts) {
+static int mount_append_graceful_options(
+                Mount *m,
+                const MountParameters *p,
+                char * const *graceful_options,
+                char **opts) {
+
         int r;
 
         assert(m);
         assert(p);
         assert(opts);
 
-        if (strv_isempty(m->graceful_options))
+        if (strv_isempty(graceful_options))
                 return 0;
 
         if (!p->fstype) {
@@ -1096,7 +1109,7 @@ static int mount_append_graceful_options(Mount *m, const MountParameters *p, cha
                 return 0;
         }
 
-        STRV_FOREACH(o, m->graceful_options) {
+        STRV_FOREACH(o, graceful_options) {
                 _cleanup_free_ char *k = NULL, *v = NULL;
 
                 r = split_pair(*o, "=", &k, &v);
@@ -1119,7 +1132,13 @@ static int mount_append_graceful_options(Mount *m, const MountParameters *p, cha
         return 0;
 }
 
-static int mount_set_mount_command(Mount *m, ExecCommand *c, const MountParameters *p) {
+static int mount_set_mount_command(
+                Mount *m,
+                ExecCommand *c,
+                const MountParameters *p,
+                char * const *graceful_options,
+                bool remount) {
+
         int r;
 
         assert(m);
@@ -1149,11 +1168,19 @@ static int mount_set_mount_command(Mount *m, ExecCommand *c, const MountParamete
         }
 
         _cleanup_free_ char *opts = NULL;
-        r = fstab_filter_options(p->options, "nofail\0" "fail\0" "noauto\0" "auto\0", NULL, NULL, NULL, &opts);
+
+        r = fstab_filter_options(opts, "nofail\0" "fail\0" "noauto\0" "auto\0", NULL, NULL, NULL, &filtered);
         if (r < 0)
                 return r;
 
-        r = mount_append_graceful_options(m, p, &opts);
+        if (remount) {
+                char *s = strjoin("remount", opts ? "," : NULL, opts);
+                if (!s)
+                        return -ENOMEM;
+                free_and_replace(opts, s);
+        }
+
+        r = mount_append_graceful_options(m, p, graceful_options, &opts);
         if (r < 0)
                 return r;
 
@@ -1248,7 +1275,7 @@ static void mount_enter_mounting(Mount *m) {
         m->control_command_id = MOUNT_EXEC_MOUNT;
         m->control_command = m->exec_command + MOUNT_EXEC_MOUNT;
 
-        r = mount_set_mount_command(m, m->control_command, p);
+        r = mount_set_mount_command(m, m->control_command, p, m->graceful_options, /* remount = */ false);
         if (r < 0) {
                 log_unit_warning_errno(UNIT(m), r, "Failed to prepare mount command line: %m");
                 goto fail;
@@ -1267,57 +1294,80 @@ fail:
         mount_enter_dead_or_mounted(m, MOUNT_FAILURE_RESOURCES, /* flush_result = */ false);
 }
 
-static void mount_set_reload_result(Mount *m, MountResult result) {
+static void mount_reload_finish(Mount *m, MountResult result, const char *bus_error) {
         assert(m);
+        assert(bus_error);
 
         /* Only store the first error we encounter */
         if (m->reload_result != MOUNT_SUCCESS)
+                m->reload_result = result;
+
+        if (!m->remount_request)
                 return;
 
-        m->reload_result = result;
+        if (m->reload_result == MOUNT_SUCCESS) {
+                /* If the mount comes from fragment, i.e. fully managed, write out runtime drop-in file.
+                 * Otherwise don't, e.g. for API VFSs we might remount them during boot per request from remount-fs,
+                 * but never track them closely. */
+                MountParameters *p = get_mount_parameters_fragment(m);
+                if (p) {
+                        free_and_replace(p->options, m->remount_options);
+                        (void) unit_write_settingf(UNIT(m), UNIT_PRIVATE|UNIT_RUNTIME|UNIT_ESCAPE_SPECIFIERS,
+                                                   "Options", "Options=%s", p->options);
+
+                        strv_free_and_replace(m->graceful_options, m->remount_graceful_options);
+                        (void) unit_write_setting(UNIT(m), flags, "GracefulOptions", "GracefulOptions=");
+                        STRV_FOREACH(i, m->graceful_options)
+                                (void) unit_write_settingf(UNIT(m), UNIT_PRIVATE|UNIT_RUNTIME|UNIT_ESCAPE_SPECIFIERS,
+                                                           "GracefulOptions", "GracefulOptions=%s", *i);
+                }
+
+                (void) sd_bus_reply_method_return(s->mount_request, NULL);
+        } else
+                (void) sd_bus_reply_method_errorf(s->mount_request, bus_error, "Failed to remount '%s'", m->where);
+
+        m->remount_request = sd_bus_message_unref(m->remount_request);
 }
 
 static void mount_enter_remounting(Mount *m) {
-        MountParameters *p;
+        MountParameters *p, remount;
         int r;
 
         assert(m);
 
-        /* Reset reload result when we are about to start a new remount operation */
+        if (m->remount_request) {
+                assert(m->remount_options);
+
+                p = ASSERT_PTR(get_mount_parameters(m));
+
+                remount = (MountParameters) {
+                        .what = p.what,
+                        .fstype = p.fstype,
+                        .options = remount_options,
+                };
+
+                p = &remount;
+        } else {
+                p = get_mount_parameters_fragment(m);
+                if (!p) {
+                        r = log_unit_warning_errno(UNIT(m), SYNTHETIC_ERRNO(ENOENT), "No mount parameters to operate on.");
+                        goto fail;
+                }
+        }
+
+        mount_unwatch_control_pid(m);
         m->reload_result = MOUNT_SUCCESS;
 
         m->control_command_id = MOUNT_EXEC_REMOUNT;
         m->control_command = m->exec_command + MOUNT_EXEC_REMOUNT;
 
-        p = get_mount_parameters_fragment(m);
-        if (p) {
-                const char *o;
-
-                if (p->options)
-                        o = strjoina("remount,", p->options);
-                else
-                        o = "remount";
-
-                r = exec_command_set(m->control_command, MOUNT_PATH,
-                                     p->what, m->where,
-                                     "-o", o, NULL);
-                if (r >= 0 && m->sloppy_options)
-                        r = exec_command_append(m->control_command, "-s", NULL);
-                if (r >= 0 && m->read_write_only)
-                        r = exec_command_append(m->control_command, "-w", NULL);
-                if (r >= 0 && p->fstype)
-                        r = exec_command_append(m->control_command, "-t", p->fstype, NULL);
-                if (r < 0) {
-                        log_unit_warning_errno(UNIT(m), r, "Failed to prepare remount command line: %m");
-                        goto fail;
-                }
-
-        } else {
-                r = log_unit_warning_errno(UNIT(m), SYNTHETIC_ERRNO(ENOENT), "No mount parameters to operate on.");
+        r = mount_set_mount_command(m, m->control_commend, p,
+                                    remount_request ? m->remount_graceful_options : m->graceful_options,
+                                    /* remount = */ true);
+        if (r < 0) {
+                log_unit_warning_errno(UNIT(m), r, "Failed to prepare remount command line: %m");
                 goto fail;
         }
-
-        mount_unwatch_control_pid(m);
 
         r = mount_spawn(m, m->control_command, mount_exec_flags(MOUNT_REMOUNTING), &m->control_pid);
         if (r < 0) {
@@ -1329,7 +1379,7 @@ static void mount_enter_remounting(Mount *m) {
         return;
 
 fail:
-        mount_set_reload_result(m, MOUNT_FAILURE_RESOURCES);
+        mount_reload_finish(m, MOUNT_FAILURE_RESOURCES, SD_BUS_ERROR_FAILED);
         mount_enter_dead_or_mounted(m, MOUNT_SUCCESS, /* flush_result = */ false);
 }
 
@@ -1567,7 +1617,7 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 assert_not_reached();
 
         if (IN_SET(m->state, MOUNT_REMOUNTING, MOUNT_REMOUNTING_SIGKILL, MOUNT_REMOUNTING_SIGTERM))
-                mount_set_reload_result(m, f);
+                mount_reload_finish(m, f, SD_BUS_ERROR_FAILED);
         else if (m->result == MOUNT_SUCCESS && !IN_SET(m->state, MOUNT_MOUNTING, MOUNT_UNMOUNTING))
                 /* MOUNT_MOUNTING and MOUNT_UNMOUNTING states need to be patched, see below. */
                 m->result = f;
@@ -1677,12 +1727,12 @@ static int mount_dispatch_timer(sd_event_source *source, usec_t usec, void *user
 
         case MOUNT_REMOUNTING:
                 log_unit_warning(UNIT(m), "Remounting timed out. Terminating remount process.");
-                mount_set_reload_result(m, MOUNT_FAILURE_TIMEOUT);
+                mount_reload_finish(m, MOUNT_FAILURE_TIMEOUT, SD_BUS_ERROR_TIMEOUT);
                 mount_enter_signal(m, MOUNT_REMOUNTING_SIGTERM, MOUNT_SUCCESS);
                 break;
 
         case MOUNT_REMOUNTING_SIGTERM:
-                mount_set_reload_result(m, MOUNT_FAILURE_TIMEOUT);
+                mount_reload_finish(m, MOUNT_FAILURE_TIMEOUT, SD_BUS_ERROR_TIMEOUT);
 
                 if (m->kill_context.send_sigkill) {
                         log_unit_warning(UNIT(m), "Remounting timed out. Killing.");
@@ -1694,7 +1744,7 @@ static int mount_dispatch_timer(sd_event_source *source, usec_t usec, void *user
                 break;
 
         case MOUNT_REMOUNTING_SIGKILL:
-                mount_set_reload_result(m, MOUNT_FAILURE_TIMEOUT);
+                mount_reload_finish(m, MOUNT_FAILURE_TIMEOUT, SD_BUS_ERROR_TIMEOUT);
 
                 log_unit_warning(UNIT(m), "Mount process still around after SIGKILL. Ignoring.");
                 mount_enter_dead_or_mounted(m, MOUNT_SUCCESS, /* flush_result = */ false);
