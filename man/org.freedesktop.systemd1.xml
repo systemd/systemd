@@ -7023,6 +7023,9 @@ node /org/freedesktop/systemd1/unit/dev_2dttyS0_2edevice {
 node /org/freedesktop/systemd1/unit/home_2emount {
   interface org.freedesktop.systemd1.Mount {
     methods:
+      Remount(in  s options,
+              in  as graceful_options,
+              in  t flags);
       GetProcesses(out a(sus) processes);
       AttachProcesses(in  s subcgroup,
                       in  au pids);
@@ -7626,6 +7629,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
 };
 </programlisting>
 
+    <!--method Remount is not documented!-->
+
     <!--method GetProcesses is not documented!-->
 
     <!--method AttachProcesses is not documented!-->
@@ -8169,6 +8174,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <variablelist class="dbus-interface" generated="True" extra-ref="org.freedesktop.systemd1.Unit"/>
 
     <variablelist class="dbus-interface" generated="True" extra-ref="org.freedesktop.systemd1.Mount"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="Remount()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="GetProcesses()"/>
 
@@ -12462,8 +12469,9 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>ProtectControlGroupsEx</varname>, and
       <varname>PrivatePIDs</varname> were added in version 257.</para>
       <para><varname>ProtectHostnameEx</varname>,
-      <function>RemoveSubgroup()</function>, and
-      <varname>GracefulOptions</varname> were added in version 258.</para>
+      <function>RemoveSubgroup()</function>,
+      <varname>GracefulOptions</varname>, and
+      <function>Remount()</function> were added in version 258.</para>
     </refsect2>
     <refsect2>
       <title>Swap Unit Objects</title>
