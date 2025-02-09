@@ -508,29 +508,26 @@ DnsQuery *dns_query_free(DnsQuery *q) {
         return mfree(q);
 }
 
-/* Almost all of this is not my code, it's help from @poettering */
-static int manager_validate_and_mangle_question(Set *types, DnsQuestion **question) {
+static int validate_and_mangle_question(DnsQuestion **question, Set *types) {
         int r;
+
+        if (set_isempty(types))
+                return 0; /* No filtering configured. Let's shortcut. */
+
+        bool has_good = false, has_bad = false;
         DnsResourceKey *key;
-        enum {
-                VALID_DONT_KNOW,
-                VALID_ALL_GOOD,
-                VALID_ALL_BAD,
-                VALID_MIXED,
-        } good = VALID_DONT_KNOW;
+        DNS_QUESTION_FOREACH(key, *question)
+                if (set_contains(types, INT_TO_PTR(key->type)))
+                        has_bad = true;
+                else
+                        has_good = true;
 
-        /* Check if the query should be refused entirely, accepted entirely, or needs to be mangled to suppress RR types not allowed */
-        DNS_QUESTION_FOREACH(key, *question) {
-                 if (set_contains(types, INT_TO_PTR(key->type)))
-                         good = IN_SET(good, VALID_DONT_KNOW, VALID_ALL_BAD) ? VALID_ALL_BAD : VALID_MIXED;
-                 else
-                         good = IN_SET(good, VALID_DONT_KNOW, VALID_ALL_GOOD) ? VALID_ALL_GOOD : VALID_MIXED;
+        if (has_bad && !has_good)
+                return -ENOANO; /* All bad, refuse.*/
+        if (!has_bad) {
+                assert(has_good); /* The question should have at least one key. */
+                return 0; /* All good. Not necessary to filter. */
         }
-
-        if (good == VALID_ALL_BAD)
-                return -ENOANO; /* All bad, refuse */
-        if (good == VALID_MIXED)
-                return 0; /* Mixed, should be ok */
 
         /* Mangle the question suppressing bad entries, leaving good entries */
         _cleanup_(dns_question_unrefp) DnsQuestion *new_question = dns_question_new(dns_question_size(*question));
@@ -546,15 +543,7 @@ static int manager_validate_and_mangle_question(Set *types, DnsQuestion **questi
                         return r;
         }
 
-        *question = TAKE_PTR(new_question);
-
-        return 0;
-}
-
-static bool dns_question_has_record_types(DnsQuestion *q, Set *types) {
-        if (manager_validate_and_mangle_question(types, &q))
-                return true;
-        return false;
+        return free_and_replace_full(*question, new_question, dns_question_unref);
 }
 
 int dns_query_new(
@@ -574,9 +563,13 @@ int dns_query_new(
         assert(m);
 
         /* Check for records that is refused and refuse query for the records if matched in configuration */
-        if (dns_question_has_record_types(question_utf8, m->refuse_record_types) ||
-                dns_question_has_record_types(question_idna, m->refuse_record_types))
-                return log_debug_errno(SYNTHETIC_ERRNO(ENOANO), "Got request for a DNS record that is refused.");
+        r = validate_and_mangle_question(&question_utf8, m->refuse_record_types);
+        if (r < 0)
+                return r;
+
+        r = validate_and_mangle_question(&question_idna, m->refuse_record_types);
+        if (r < 0)
+                return r;
 
         if (question_bypass) {
                 /* It's either a "bypass" query, or a regular one, but can't be both. */
