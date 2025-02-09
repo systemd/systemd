@@ -90,14 +90,13 @@ static int getxattr_pinned_internal(
 
         assert(!path || !isempty(path));
         assert((fd >= 0) == !path);
-        assert((at_flags & ~(AT_SYMLINK_NOFOLLOW|AT_EMPTY_PATH)) == 0);
         assert(path || FLAGS_SET(at_flags, AT_EMPTY_PATH));
         assert(name);
         assert(buf || size == 0);
 
         if (path)
-                n = FLAGS_SET(at_flags, AT_SYMLINK_NOFOLLOW) ? lgetxattr(path, name, buf, size)
-                                                             : getxattr(path, name, buf, size);
+                n = FLAGS_SET(at_flags, AT_SYMLINK_FOLLOW) ? getxattr(path, name, buf, size)
+                                                           : lgetxattr(path, name, buf, size);
         else
                 n = by_procfs ? getxattr(FORMAT_PROC_FD_PATH(fd), name, buf, size)
                               : fgetxattr(fd, name, buf, size);
@@ -140,8 +139,6 @@ int getxattr_at_malloc(
         r = normalize_and_maybe_pin_inode(&fd, &path, &at_flags, &opened_fd, &by_procfs);
         if (r < 0)
                 return r;
-
-        at_flags = at_flags_normalize_nofollow(at_flags);
 
         size_t l = 100;
         for (unsigned n_attempts = 7;;) {
@@ -200,13 +197,12 @@ static int listxattr_pinned_internal(
 
         assert(!path || !isempty(path));
         assert((fd >= 0) == !path);
-        assert((at_flags & ~(AT_SYMLINK_NOFOLLOW|AT_EMPTY_PATH)) == 0);
         assert(path || FLAGS_SET(at_flags, AT_EMPTY_PATH));
         assert(buf || size == 0);
 
         if (path)
-                n = FLAGS_SET(at_flags, AT_SYMLINK_NOFOLLOW) ? llistxattr(path, buf, size)
-                                                             : listxattr(path, buf, size);
+                n = FLAGS_SET(at_flags, AT_SYMLINK_FOLLOW) ? listxattr(path, buf, size)
+                                                           : llistxattr(path, buf, size);
         else
                 n = by_procfs ? listxattr(FORMAT_PROC_FD_PATH(fd), buf, size)
                               : flistxattr(fd, buf, size);
@@ -235,8 +231,6 @@ int listxattr_at_malloc(int fd, const char *path, int at_flags, char **ret) {
         r = normalize_and_maybe_pin_inode(&fd, &path, &at_flags, &opened_fd, &by_procfs);
         if (r < 0)
                 return r;
-
-        at_flags = at_flags_normalize_nofollow(at_flags);
 
         size_t l = 100;
         for (unsigned n_attempts = 7;;) {
