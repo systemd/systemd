@@ -2423,7 +2423,7 @@ static int create_symlink(Context *c, Item *i) {
                 return log_error_errno(r, "Failed to extract filename from path '%s': %m", i->path);
         if (r == O_DIRECTORY)
                 return log_error_errno(SYNTHETIC_ERRNO(EISDIR),
-                                       "Cannot open path '%s' for creating FIFO, is a directory.", i->path);
+                                       "Cannot open path '%s' for creating symlink, is a directory.", i->path);
 
         if (arg_dry_run) {
                 log_info("Would create symlink %s -> %s", i->path, i->argument);
