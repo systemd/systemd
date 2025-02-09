@@ -125,6 +125,29 @@ Deprecations and removals:
 
 Features:
 
+* storagetm: maybe also serve the specified disk via HTTP? we have glue for
+  microhttpd anyway already. Idea would also be serve currently booted UKI as
+  separate HTTP resource, so that EFI http boot on another system could
+  directly boot from our system, with full access to the hdd.
+
+* support boot-into-tarball in systemd-import-generator: optionally bind mount
+  downloaded image to /sysroot/
+
+* support specifying download hash sum in systemd-import-generator expression
+  to pin image/tarball.
+
+* support boot into nvme-over-tcp: add generator that allows specifying nvme
+  devices on kernel cmdline + credentials. Also maybe add interactive mode
+  (where the user is prompted for nvme info), in order to boot from other
+  system's HDD.
+
+* ptyfwd: use osc context information in vmspawn/nspawn/… to optionally only
+  listen to ^]]] key when no further vmspawn/nspawn context is allocated
+
+* ptyfwd: usec osc context information to propagate status messages from
+  vmspawn/nspawn to service manager's "status" string, reporting what is
+  currently in the fg
+
 * nspawn/vmspawn: define hotkey that one can hit on the primary interface to
   ask for a friendly, acpi style shutdown.
 
@@ -143,7 +166,9 @@ Features:
   service into the early boot, waiting for the DMI and network device to show
   up.
 
-* Add UKI profiles that are only available if secure boot is turned off
+* Add UKI profile conditioning so that profles are only available if secure
+  boot is turned off, or only on. similar, add conditions on TPM availability,
+  network boot, and other conditions.
 
 * fix bug around run0 background color on ls in fresh terminal
 
@@ -164,12 +189,6 @@ Features:
   requested via http this way. also set an efi var indicating that this
   happened, so that initrd can recognize this and take into consdiration when
   looking for root fs
-
-* importd/importctl: optionally download root fs image into tmpfs, before we
-  transition into it
-
-* add systemd-loop@.service for turning such a downloaded rootfs image into a
-  block device, and boot into it
 
 * bootctl: add tool for registering BootXXX entry that boots from some http
   server of your choice
