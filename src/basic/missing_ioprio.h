@@ -7,8 +7,6 @@
 
 #include "macro.h"
 
-/* Match values uses by the kernel internally, as no public header seems to exist. */
-
 #ifndef IOPRIO_N_CLASSES
 #  define IOPRIO_N_CLASSES 8
 #else
