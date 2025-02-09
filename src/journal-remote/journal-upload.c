@@ -42,26 +42,35 @@
 #define TRUST_FILE    CERTIFICATE_ROOT "/ca/trusted.pem"
 #define DEFAULT_PORT  19532
 
-static const char *arg_url = NULL;
-static const char *arg_key = NULL;
-static const char *arg_cert = NULL;
-static const char *arg_trust = NULL;
-static const char *arg_directory = NULL;
+static char *arg_url = NULL;
+static char *arg_key = NULL;
+static char *arg_cert = NULL;
+static char *arg_trust = NULL;
+static char *arg_directory = NULL;
 static char **arg_file = NULL;
-static const char *arg_cursor = NULL;
+static char *arg_cursor = NULL;
 static bool arg_after_cursor = false;
 static int arg_journal_type = 0;
 static int arg_namespace_flags = 0;
-static const char *arg_machine = NULL;
-static const char *arg_namespace = NULL;
+static char *arg_machine = NULL;
+static char *arg_namespace = NULL;
 static bool arg_merge = false;
 static int arg_follow = -1;
-static const char *arg_save_state = NULL;
+static char *arg_save_state = NULL;
 static usec_t arg_network_timeout_usec = USEC_INFINITY;
 static OrderedHashmap *arg_compression = NULL;
 static bool arg_force_compression = false;
 
+STATIC_DESTRUCTOR_REGISTER(arg_url, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_key, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_cert, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_trust, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_directory, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_file, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_cursor, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_machine, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_namespace, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_save_state, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_compression, ordered_hashmap_freep);
 
 static void close_fd_input(Uploader *u);
@@ -714,35 +723,27 @@ static int parse_argv(int argc, char *argv[]) {
                         return version();
 
                 case 'u':
-                        if (arg_url)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Cannot use more than one --url=");
-
-                        arg_url = optarg;
+                        r = free_and_strdup_warn(&arg_url, optarg);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_KEY:
-                        if (arg_key)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Cannot use more than one --key=");
-
-                        arg_key = optarg;
+                        r = free_and_strdup_warn(&arg_key, optarg);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_CERT:
-                        if (arg_cert)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Cannot use more than one --cert=");
-
-                        arg_cert = optarg;
+                        r = free_and_strdup_warn(&arg_cert, optarg);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_TRUST:
-                        if (arg_trust)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Cannot use more than one --trust=");
-
-                        arg_trust = optarg;
+                        r = free_and_strdup_warn(&arg_trust, optarg);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_SYSTEM:
@@ -758,36 +759,35 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'M':
-                        if (arg_machine)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Cannot use more than one --machine=/-M");
-
-                        arg_machine = optarg;
+                        r = free_and_strdup_warn(&arg_machine, optarg);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_NAMESPACE:
                         if (streq(optarg, "*")) {
                                 arg_namespace_flags = SD_JOURNAL_ALL_NAMESPACES;
-                                arg_namespace = NULL;
+                                arg_namespace = mfree(arg_namespace);
+                                r = 0;
                         } else if (startswith(optarg, "+")) {
                                 arg_namespace_flags = SD_JOURNAL_INCLUDE_DEFAULT_NAMESPACE;
-                                arg_namespace = optarg + 1;
+                                r = free_and_strdup_warn(&arg_namespace, optarg + 1);
                         } else if (isempty(optarg)) {
                                 arg_namespace_flags = 0;
-                                arg_namespace = NULL;
+                                arg_namespace = mfree(arg_namespace);
+                                r = 0;
                         } else {
                                 arg_namespace_flags = 0;
-                                arg_namespace = optarg;
+                                r = free_and_strdup_warn(&arg_namespace, optarg);
                         }
-
+                        if (r < 0)
+                                return r;
                         break;
 
                 case 'D':
-                        if (arg_directory)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Cannot use more than one --directory=/-D");
-
-                        arg_directory = optarg;
+                        r = free_and_strdup_warn(&arg_directory, optarg);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_FILE:
@@ -797,20 +797,11 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_CURSOR:
-                        if (arg_cursor)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Cannot use more than one --cursor=/--after-cursor=");
-
-                        arg_cursor = optarg;
-                        break;
-
                 case ARG_AFTER_CURSOR:
-                        if (arg_cursor)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Cannot use more than one --cursor=/--after-cursor=");
-
-                        arg_cursor = optarg;
-                        arg_after_cursor = true;
+                        r = free_and_strdup_warn(&arg_cursor, optarg);
+                        if (r < 0)
+                                return r;
+                        arg_after_cursor = c == ARG_AFTER_CURSOR;
                         break;
 
                 case ARG_FOLLOW:
@@ -821,7 +812,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_SAVE_STATE:
-                        arg_save_state = optarg ?: STATE_FILE;
+                        r = free_and_strdup_warn(&arg_save_state, optarg ?: STATE_FILE);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case '?':
