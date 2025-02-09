@@ -90,7 +90,7 @@ static void patch_realtime(
          * FS might provide, but unfortunately there's currently no sane API to query it. Hence let's
          * implement this manually... */
 
-        if (fd_getcrtime_at(fd, fn, AT_SYMLINK_FOLLOW, &x) >= 0 && x < *realtime)
+        if (getcrtime_at(fd, fn, AT_SYMLINK_FOLLOW, &x) >= 0 && x < *realtime)
                 *realtime = x;
 }
 
