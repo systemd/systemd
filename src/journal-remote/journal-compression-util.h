@@ -4,16 +4,9 @@
 #include "compress.h"
 #include "conf-parser.h"
 
-typedef struct CompressionOpts {
+typedef struct CompressionConfig {
         Compression algorithm;
         int level;
-} CompressionOpts;
-
-typedef struct CompressionArgs {
-        CompressionOpts *opts;
-        size_t size;
-} CompressionArgs;
+} CompressionConfig;
 
 CONFIG_PARSER_PROTOTYPE(config_parse_compression);
-
-void compression_args_clear(CompressionArgs *args);

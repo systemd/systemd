@@ -42,27 +42,36 @@
 #define TRUST_FILE    CERTIFICATE_ROOT "/ca/trusted.pem"
 #define DEFAULT_PORT  19532
 
-static const char *arg_url = NULL;
-static const char *arg_key = NULL;
-static const char *arg_cert = NULL;
-static const char *arg_trust = NULL;
-static const char *arg_directory = NULL;
+static char *arg_url = NULL;
+static char *arg_key = NULL;
+static char *arg_cert = NULL;
+static char *arg_trust = NULL;
+static char *arg_directory = NULL;
 static char **arg_file = NULL;
-static const char *arg_cursor = NULL;
+static char *arg_cursor = NULL;
 static bool arg_after_cursor = false;
 static int arg_journal_type = 0;
 static int arg_namespace_flags = 0;
-static const char *arg_machine = NULL;
-static const char *arg_namespace = NULL;
+static char *arg_machine = NULL;
+static char *arg_namespace = NULL;
 static bool arg_merge = false;
 static int arg_follow = -1;
-static const char *arg_save_state = NULL;
+static char *arg_save_state = NULL;
 static usec_t arg_network_timeout_usec = USEC_INFINITY;
-static CompressionArgs arg_compression = {};
+static OrderedHashmap *arg_compression = NULL;
 static bool arg_force_compression = false;
 
+STATIC_DESTRUCTOR_REGISTER(arg_url, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_key, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_cert, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_trust, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_directory, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_file, strv_freep);
-STATIC_DESTRUCTOR_REGISTER(arg_compression, compression_args_clear);
+STATIC_DESTRUCTOR_REGISTER(arg_cursor, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_machine, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_namespace, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_save_state, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_compression, ordered_hashmap_freep);
 
 static void close_fd_input(Uploader *u);
 
@@ -206,8 +215,8 @@ int start_upload(Uploader *u,
                         return log_oom();
                 h = l;
 
-                if (u->compression.algorithm != COMPRESSION_NONE) {
-                        _cleanup_free_ char *header = strjoin("Content-Encoding: ", compression_lowercase_to_string(u->compression.algorithm));
+                if (u->compression) {
+                        _cleanup_free_ char *header = strjoin("Content-Encoding: ", compression_lowercase_to_string(u->compression->algorithm));
                         if (!header)
                                 return log_oom();
 
@@ -318,7 +327,7 @@ static size_t fd_input_callback(void *buf, size_t size, size_t nmemb, void *user
 
         assert(!size_multiply_overflow(size, nmemb));
 
-        if (u->compression.algorithm != COMPRESSION_NONE) {
+        if (u->compression) {
                 compression_buffer = malloc_multiply(nmemb, size);
                 if (!compression_buffer) {
                         log_oom();
@@ -329,14 +338,14 @@ static size_t fd_input_callback(void *buf, size_t size, size_t nmemb, void *user
         n = read(u->input, compression_buffer ?: buf, size * nmemb);
         if (n > 0) {
                 log_debug("%s: allowed %zu, read %zd", __func__, size * nmemb, n);
-                if (u->compression.algorithm == COMPRESSION_NONE)
+                if (!u->compression)
                         return n;
 
                 size_t compressed_size;
-                r = compress_blob(u->compression.algorithm, compression_buffer, n, buf, size * nmemb, &compressed_size, u->compression.level);
+                r = compress_blob(u->compression->algorithm, compression_buffer, n, buf, size * nmemb, &compressed_size, u->compression->level);
                 if (r < 0) {
-                        log_error_errno(r, "Failed to compress %zd bytes using (Compression=%s, Level=%d): %m",
-                                        n, compression_lowercase_to_string(u->compression.algorithm), u->compression.level);
+                        log_error_errno(r, "Failed to compress %zd bytes by %s with level %i: %m",
+                                        n, compression_lowercase_to_string(u->compression->algorithm), u->compression->level);
                         return CURL_READFUNC_ABORT;
                 }
                 assert(compressed_size <= size * nmemb);
@@ -423,12 +432,10 @@ static int setup_uploader(Uploader *u, const char *url, const char *state_file) 
 
         *u = (Uploader) {
                 .input = -1,
-                .compression.algorithm = COMPRESSION_NONE,
-                .compression.level = -1,
         };
 
-        if (arg_force_compression && arg_compression.size > 0)
-                u->compression = arg_compression.opts[0];
+        if (arg_force_compression)
+                u->compression = ordered_hashmap_first(arg_compression);
 
         host = STARTSWITH_SET(url, "http://", "https://");
         if (!host) {
@@ -494,55 +501,55 @@ static int update_content_encoding(Uploader *u, const char *accept_encoding) {
         assert(u);
 
         for (const char *p = accept_encoding;;) {
-                _cleanup_free_ char *encoding_value = NULL, *alg = NULL;
-                Compression algorithm;
-                CURLcode code;
-
-                r = extract_first_word(&p, &encoding_value, ",", 0);
+                _cleanup_free_ char *word = NULL;
+                r = extract_first_word(&p, &word, ",", 0);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to extract Accept-Encoding header value: %m");
+                        return log_error_errno(r, "Failed to parse Accept-Encoding header value: %m");
                 if (r == 0)
                         return 0;
 
-                const char *q = encoding_value;
-                r = extract_first_word(&q, &alg, ";", 0);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to extract compression algorithm from Accept-Encoding header: %m");
+                char *q = strchr(word, ';');
+                if (!q)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Failed to extract compression algorithm from Accept-Encoding header: %m");
+                *q = '\0';
 
-                algorithm = compression_lowercase_from_string(alg);
-                if (algorithm <= 0 || !compression_supported(algorithm)) {
+                Compression c = compression_lowercase_from_string(word);
+                if (c <= 0 || !compression_supported(c))
                         continue;
-                }
 
-                FOREACH_ARRAY(opt, arg_compression.opts, arg_compression.size) {
-                        if (opt->algorithm != algorithm)
-                                continue;
+                if (u->compression && u->compression->algorithm == c)
+                        return 0; /* Already picked the algorithm. Let's shortcut. */
 
-                        _cleanup_free_ char *header = strjoin("Content-Encoding: ", compression_lowercase_to_string(u->compression.algorithm));
-                        if (!header)
-                                return log_oom();
+                const CompressionConfig *cc = ordered_hashmap_get(arg_compression, INT_TO_PTR(c));
+                if (!cc)
+                        continue; /* The algorithm is not enabled. */
 
-                        /* First, update existing Content-Encoding header. */
-                        bool found = false;
-                        for (struct curl_slist *l = u->header; l; l = l->next)
-                                if (startswith(l->data, "Content-Encoding:")) {
-                                        free_and_replace(l->data, header);
-                                        found = true;
-                                        break;
-                                }
+                _cleanup_free_ char *header = strjoin("Content-Encoding: ", compression_lowercase_to_string(c));
+                if (!header)
+                        return log_oom();
 
-                        /* If Content-Encoding header is not found, append new one. */
-                        if (!found) {
-                                struct curl_slist *l = curl_slist_append(u->header, header);
-                                if (!l)
-                                        return log_oom();
-                                u->header = l;
+                /* First, try to update existing Content-Encoding header. */
+                bool found = false;
+                for (struct curl_slist *l = u->header; l; l = l->next)
+                        if (startswith(l->data, "Content-Encoding:")) {
+                                free_and_replace(l->data, header);
+                                found = true;
+                                break;
                         }
 
-                        easy_setopt(u->easy, CURLOPT_HTTPHEADER, u->header, LOG_ERR, return -EXFULL);
-                        u->compression = *opt;
-                        return 0;
+                /* If Content-Encoding header is not found, append new one. */
+                if (!found) {
+                        struct curl_slist *l = curl_slist_append(u->header, header);
+                        if (!l)
+                                return log_oom();
+                        u->header = l;
                 }
+
+                CURLcode code;
+                easy_setopt(u->easy, CURLOPT_HTTPHEADER, u->header, LOG_ERR, return -EXFULL);
+                u->compression = cc;
+                return 0;
         }
 }
 #endif
@@ -582,7 +589,7 @@ static int perform_upload(Uploader *u) {
         else {
 #if LIBCURL_VERSION_NUM >= 0x075300
                 int r;
-                if (u->compression.algorithm == COMPRESSION_NONE) {
+                if (u->compression) {
                         struct curl_header *encoding_header;
                         CURLHcode hcode;
 
@@ -611,7 +618,7 @@ static int parse_config(void) {
                 { "Upload",  "ServerCertificateFile",  config_parse_path_or_ignore, 0,                        &arg_cert                 },
                 { "Upload",  "TrustedCertificateFile", config_parse_path_or_ignore, 0,                        &arg_trust                },
                 { "Upload",  "NetworkTimeoutSec",      config_parse_sec,            0,                        &arg_network_timeout_usec },
-                { "Upload",  "Compression",            config_parse_compression,    true,                     &arg_compression          },
+                { "Upload",  "Compression",            config_parse_compression,    /* with_level */ true,    &arg_compression          },
                 { "Upload",  "ForceCompression",       config_parse_bool,           0,                        &arg_force_compression    },
                 {}
         };
@@ -716,35 +723,27 @@ static int parse_argv(int argc, char *argv[]) {
                         return version();
 
                 case 'u':
-                        if (arg_url)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Cannot use more than one --url=");
-
-                        arg_url = optarg;
+                        r = free_and_strdup_warn(&arg_url, optarg);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_KEY:
-                        if (arg_key)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Cannot use more than one --key=");
-
-                        arg_key = optarg;
+                        r = free_and_strdup_warn(&arg_key, optarg);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_CERT:
-                        if (arg_cert)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Cannot use more than one --cert=");
-
-                        arg_cert = optarg;
+                        r = free_and_strdup_warn(&arg_cert, optarg);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_TRUST:
-                        if (arg_trust)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Cannot use more than one --trust=");
-
-                        arg_trust = optarg;
+                        r = free_and_strdup_warn(&arg_trust, optarg);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_SYSTEM:
@@ -760,36 +759,35 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'M':
-                        if (arg_machine)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Cannot use more than one --machine=/-M");
-
-                        arg_machine = optarg;
+                        r = free_and_strdup_warn(&arg_machine, optarg);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_NAMESPACE:
                         if (streq(optarg, "*")) {
                                 arg_namespace_flags = SD_JOURNAL_ALL_NAMESPACES;
-                                arg_namespace = NULL;
+                                arg_namespace = mfree(arg_namespace);
+                                r = 0;
                         } else if (startswith(optarg, "+")) {
                                 arg_namespace_flags = SD_JOURNAL_INCLUDE_DEFAULT_NAMESPACE;
-                                arg_namespace = optarg + 1;
+                                r = free_and_strdup_warn(&arg_namespace, optarg + 1);
                         } else if (isempty(optarg)) {
                                 arg_namespace_flags = 0;
-                                arg_namespace = NULL;
+                                arg_namespace = mfree(arg_namespace);
+                                r = 0;
                         } else {
                                 arg_namespace_flags = 0;
-                                arg_namespace = optarg;
+                                r = free_and_strdup_warn(&arg_namespace, optarg);
                         }
-
+                        if (r < 0)
+                                return r;
                         break;
 
                 case 'D':
-                        if (arg_directory)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Cannot use more than one --directory=/-D");
-
-                        arg_directory = optarg;
+                        r = free_and_strdup_warn(&arg_directory, optarg);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_FILE:
@@ -799,20 +797,11 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_CURSOR:
-                        if (arg_cursor)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Cannot use more than one --cursor=/--after-cursor=");
-
-                        arg_cursor = optarg;
-                        break;
-
                 case ARG_AFTER_CURSOR:
-                        if (arg_cursor)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Cannot use more than one --cursor=/--after-cursor=");
-
-                        arg_cursor = optarg;
-                        arg_after_cursor = true;
+                        r = free_and_strdup_warn(&arg_cursor, optarg);
+                        if (r < 0)
+                                return r;
+                        arg_after_cursor = c == ARG_AFTER_CURSOR;
                         break;
 
                 case ARG_FOLLOW:
@@ -823,7 +812,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_SAVE_STATE:
-                        arg_save_state = optarg ?: STATE_FILE;
+                        r = free_and_strdup_warn(&arg_save_state, optarg ?: STATE_FILE);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case '?':
