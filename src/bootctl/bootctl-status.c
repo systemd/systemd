@@ -480,13 +480,6 @@ int verb_status(int argc, char *argv[], void *userdata) {
                         (void) efi_loader_get_device_part_uuid(&loader_partition_uuid);
                         print_yes_no_line(/* first= */ false, !sd_id128_is_null(loader_partition_uuid), "Boot loader set partition information");
 
-                        if (current_entry)
-                                printf("Current Entry: %s\n", current_entry);
-                        if (default_entry)
-                                printf("Default Entry: %s\n", default_entry);
-                        if (oneshot_entry && !streq_ptr(oneshot_entry, default_entry))
-                                printf("OneShot Entry: %s\n", oneshot_entry);
-
                         if (!sd_id128_is_null(loader_partition_uuid)) {
                                 if (!sd_id128_is_null(esp_uuid) && !sd_id128_equal(esp_uuid, loader_partition_uuid))
                                         printf("WARNING: The boot loader reports a different partition UUID than the detected ESP ("SD_ID128_UUID_FORMAT_STR" vs. "SD_ID128_UUID_FORMAT_STR")!\n",
@@ -499,6 +492,14 @@ int verb_status(int argc, char *argv[], void *userdata) {
 
                         if (loader_path)
                                 printf("       Loader: %s%s\n", special_glyph(SPECIAL_GLYPH_TREE_RIGHT), strna(loader_path));
+
+                        if (current_entry)
+                                printf("Current Entry: %s\n", current_entry);
+                        if (default_entry)
+                                printf("Default Entry: %s\n", default_entry);
+                        if (oneshot_entry && !streq_ptr(oneshot_entry, default_entry))
+                                printf("OneShot Entry: %s\n", oneshot_entry);
+
                         printf("\n");
                 }
 
