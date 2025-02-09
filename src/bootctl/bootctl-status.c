@@ -494,9 +494,11 @@ int verb_status(int argc, char *argv[], void *userdata) {
 
                                 printf("    Partition: /dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR "\n",
                                        SD_ID128_FORMAT_VAL(loader_partition_uuid));
-                        } else
+                        } else if (loader_path)
                                 printf("    Partition: n/a\n");
-                        printf("       Loader: %s%s\n", special_glyph(SPECIAL_GLYPH_TREE_RIGHT), strna(loader_path));
+
+                        if (loader_path)
+                                printf("       Loader: %s%s\n", special_glyph(SPECIAL_GLYPH_TREE_RIGHT), strna(loader_path));
                         printf("\n");
                 }
 
@@ -518,9 +520,11 @@ int verb_status(int argc, char *argv[], void *userdata) {
 
                                 printf("    Partition: /dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR "\n",
                                        SD_ID128_FORMAT_VAL(stub_partition_uuid));
-                        } else
+                        } else if (stub_path)
                                 printf("    Partition: n/a\n");
-                        printf("         Stub: %s%s\n", special_glyph(SPECIAL_GLYPH_TREE_RIGHT), strna(stub_path));
+
+                        if (stub_path)
+                                printf("         Stub: %s%s\n", special_glyph(SPECIAL_GLYPH_TREE_RIGHT), strna(stub_path));
                         printf("\n");
                 }
 
