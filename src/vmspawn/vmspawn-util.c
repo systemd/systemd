@@ -393,7 +393,7 @@ int find_qemu_binary(char **ret_qemu_binary) {
         int r;
 
         /*
-         * On success the path to the qemu binary will be stored in `req_qemu_binary`
+         * On success the path to the qemu binary will be stored in `ret_qemu_binary`
          *
          * If the qemu binary cannot be found -ENOENT will be returned.
          * If the native architecture is not supported by qemu -EOPNOTSUPP will be returned;
