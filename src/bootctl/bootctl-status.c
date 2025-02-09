@@ -476,10 +476,22 @@ int verb_status(int argc, char *argv[], void *userdata) {
                         for (size_t i = 0; i < ELEMENTSOF(loader_flags); i++)
                                 print_yes_no_line(i == 0, FLAGS_SET(loader_features, loader_flags[i].flag), loader_flags[i].name);
 
-                        sd_id128_t loader_partition_uuid;
-                        bool have_loader_partition_uuid = efi_loader_get_device_part_uuid(&loader_partition_uuid) >= 0;
+                        sd_id128_t loader_partition_uuid = SD_ID128_NULL;
+                        (void) efi_loader_get_device_part_uuid(&loader_partition_uuid);
+                        print_yes_no_line(/* first= */ false, !sd_id128_is_null(loader_partition_uuid), "Boot loader set partition information");
 
-                        print_yes_no_line(false, have_loader_partition_uuid, "Boot loader set ESP information");
+                        if (!sd_id128_is_null(loader_partition_uuid)) {
+                                if (!sd_id128_is_null(esp_uuid) && !sd_id128_equal(esp_uuid, loader_partition_uuid))
+                                        printf("WARNING: The boot loader reports a different partition UUID than the detected ESP ("SD_ID128_UUID_FORMAT_STR" vs. "SD_ID128_UUID_FORMAT_STR")!\n",
+                                               SD_ID128_FORMAT_VAL(loader_partition_uuid), SD_ID128_FORMAT_VAL(esp_uuid));
+
+                                printf("    Partition: /dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR "\n",
+                                       SD_ID128_FORMAT_VAL(loader_partition_uuid));
+                        } else if (loader_path)
+                                printf("    Partition: n/a\n");
+
+                        if (loader_path)
+                                printf("       Loader: %s%s\n", special_glyph(SPECIAL_GLYPH_TREE_RIGHT), strna(loader_path));
 
                         if (current_entry)
                                 printf("Current Entry: %s\n", current_entry);
@@ -488,16 +500,6 @@ int verb_status(int argc, char *argv[], void *userdata) {
                         if (oneshot_entry && !streq_ptr(oneshot_entry, default_entry))
                                 printf("OneShot Entry: %s\n", oneshot_entry);
 
-                        if (have_loader_partition_uuid && !sd_id128_is_null(esp_uuid) && !sd_id128_equal(esp_uuid, loader_partition_uuid))
-                                printf("WARNING: The boot loader reports a different partition UUID than the detected ESP ("SD_ID128_UUID_FORMAT_STR" vs. "SD_ID128_UUID_FORMAT_STR")!\n",
-                                       SD_ID128_FORMAT_VAL(loader_partition_uuid), SD_ID128_FORMAT_VAL(esp_uuid));
-
-                        if (!sd_id128_is_null(loader_partition_uuid))
-                                printf("    Partition: /dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR "\n",
-                                       SD_ID128_FORMAT_VAL(loader_partition_uuid));
-                        else
-                                printf("    Partition: n/a\n");
-                        printf("       Loader: %s%s\n", special_glyph(SPECIAL_GLYPH_TREE_RIGHT), strna(loader_path));
                         printf("\n");
                 }
 
@@ -507,19 +509,23 @@ int verb_status(int argc, char *argv[], void *userdata) {
                         for (size_t i = 0; i < ELEMENTSOF(stub_flags); i++)
                                 print_yes_no_line(i == 0, FLAGS_SET(stub_features, stub_flags[i].flag), stub_flags[i].name);
 
-                        sd_id128_t stub_partition_uuid;
-                        bool have_stub_partition_uuid = efi_stub_get_device_part_uuid(&stub_partition_uuid) >= 0;
+                        sd_id128_t stub_partition_uuid = SD_ID128_NULL;
+                        (void) efi_stub_get_device_part_uuid(&stub_partition_uuid);
+                        print_yes_no_line(/* first= */ false, !sd_id128_is_null(stub_partition_uuid), "Stub loader set partition information");
 
-                        if (have_stub_partition_uuid && (!(!sd_id128_is_null(esp_uuid) && sd_id128_equal(esp_uuid, stub_partition_uuid)) &&
-                                                         !(!sd_id128_is_null(xbootldr_uuid) && sd_id128_equal(xbootldr_uuid, stub_partition_uuid))))
-                                printf("WARNING: The stub loader reports a different UUID than the detected ESP or XBOOTDLR partition ("SD_ID128_UUID_FORMAT_STR" vs. "SD_ID128_UUID_FORMAT_STR"/"SD_ID128_UUID_FORMAT_STR")!\n",
-                                       SD_ID128_FORMAT_VAL(stub_partition_uuid), SD_ID128_FORMAT_VAL(esp_uuid), SD_ID128_FORMAT_VAL(xbootldr_uuid));
-                        if (!sd_id128_is_null(stub_partition_uuid))
+                        if (!sd_id128_is_null(stub_partition_uuid)) {
+                                if (!(!sd_id128_is_null(esp_uuid) && sd_id128_equal(esp_uuid, stub_partition_uuid)) &&
+                                    !(!sd_id128_is_null(xbootldr_uuid) && sd_id128_equal(xbootldr_uuid, stub_partition_uuid)))
+                                        printf("WARNING: The stub loader reports a different UUID than the detected ESP or XBOOTDLR partition ("SD_ID128_UUID_FORMAT_STR" vs. "SD_ID128_UUID_FORMAT_STR"/"SD_ID128_UUID_FORMAT_STR")!\n",
+                                               SD_ID128_FORMAT_VAL(stub_partition_uuid), SD_ID128_FORMAT_VAL(esp_uuid), SD_ID128_FORMAT_VAL(xbootldr_uuid));
+
                                 printf("    Partition: /dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR "\n",
                                        SD_ID128_FORMAT_VAL(stub_partition_uuid));
-                        else
+                        } else if (stub_path)
                                 printf("    Partition: n/a\n");
-                        printf("         Stub: %s%s\n", special_glyph(SPECIAL_GLYPH_TREE_RIGHT), strna(stub_path));
+
+                        if (stub_path)
+                                printf("         Stub: %s%s\n", special_glyph(SPECIAL_GLYPH_TREE_RIGHT), strna(stub_path));
                         printf("\n");
                 }
 
