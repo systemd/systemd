@@ -7,6 +7,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "capability-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "macro.h"
@@ -86,6 +87,20 @@ static void verify_xattr(int dfd, const char *expected) {
         ASSERT_STREQ(value, expected);
 }
 
+static void xattr_symlink_test_one(int fd, const char *path) {
+        _cleanup_free_ char *value = NULL, *list = NULL;
+
+        ASSERT_OK(xsetxattr(fd, path, 0, "trusted.test", "schaffen"));
+        ASSERT_OK_EQ(getxattr_at_malloc(fd, path, "trusted.test", 0, &value), (int) STRLEN("schaffen"));
+        ASSERT_STREQ(value, "schaffen");
+
+        ASSERT_OK_EQ(listxattr_at_malloc(fd, path, 0, &list), (int) sizeof("trusted.test"));
+        ASSERT_STREQ(list, "trusted.test");
+
+        ASSERT_OK(xremovexattr(fd, path, 0, "trusted.test"));
+        ASSERT_ERROR(getxattr_at_malloc(fd, path, "trusted.test", 0, &value), ENODATA);
+}
+
 TEST(xsetxattr) {
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
         _cleanup_close_ int dfd = -EBADF, fd = -EBADF;
@@ -131,6 +146,23 @@ TEST(xsetxattr) {
 
         ASSERT_OK(xsetxattr(fd, "", 0, "user.foo", "fd_regular_empty"));
         verify_xattr(dfd, "fd_regular_empty");
+
+        fd = safe_close(fd);
+
+        /* user.* xattrs are not supported on symlinks. Use trusted.* which requires privilege. */
+        if (have_effective_cap(CAP_SYS_ADMIN) > 0) {
+                ASSERT_OK_ERRNO(symlinkat("empty", dfd, "symlink"));
+                ASSERT_OK_ERRNO(fd = openat(dfd, "symlink", O_NOFOLLOW|O_PATH|O_CLOEXEC));
+
+                ASSERT_ERROR(xsetxattr(dfd, "symlink", AT_SYMLINK_FOLLOW, "trusted.test", "bogus"), ENOENT);
+
+                xattr_symlink_test_one(dfd, "symlink");
+                xattr_symlink_test_one(fd, NULL);
+                xattr_symlink_test_one(fd, "");
+
+                x = strjoina(t, "/symlink");
+                xattr_symlink_test_one(AT_FDCWD, x);
+        }
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
