@@ -625,7 +625,7 @@ foreach ident : [
                                  #include <unistd.h>'''],     # no known header declares pivot_root
         ['ioprio_get',        '''#include <sched.h>'''],      # no known header declares ioprio_get
         ['ioprio_set',        '''#include <sched.h>'''],      # no known header declares ioprio_set
-        ['sched_setattr',     '''#include <sched.h>'''],      # no known header declares sched_setattr
+        ['sched_setattr',     '''#include <sched.h>'''],
         ['name_to_handle_at', '''#include <sys/types.h>
                                  #include <sys/stat.h>
                                  #include <fcntl.h>'''],
@@ -682,6 +682,8 @@ foreach ident : [
         ['strerrorname_np',   '''#include <string.h>'''],
         ['getrandom',         '''#include <sys/random.h>'''],
         ['quotactl_fd',       '''#include <sys/quota.h>'''],
+        ['setxattrat',        '''#include <sys/xattr.h>'''],  # no known header declares setxattrat
+        ['removexattrat',     '''#include <sys/xattr.h>'''],  # no known header declares removexattrat
 ]
 
         have = cc.has_function(ident[0], prefix : ident[1], args : '-D_GNU_SOURCE')
@@ -770,7 +772,6 @@ if not cc.has_header('sys/capability.h')
 endif
 foreach header : ['crypt.h',
                   'linux/ioprio.h',
-                  'linux/time_types.h',
                   'sys/sdt.h',
                   'threads.h',
                   'valgrind/memcheck.h',
