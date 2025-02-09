@@ -109,7 +109,7 @@ int acquire_esp(
                                               "Couldn't find EFI system partition, skipping.");
 
                 return log_error_errno(r,
-                                       "Couldn't find EFI system partition. It is recommended to mount it to /boot or /efi.\n"
+                                       "Couldn't find EFI system partition. It is recommended to mount it to /boot/ or /efi/.\n"
                                        "Alternatively, use --esp-path= to specify path to mount point.");
         }
         if (r < 0)
