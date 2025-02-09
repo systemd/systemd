@@ -553,25 +553,38 @@ static int update_content_encoding_header(Uploader *u, const CompressionConfig *
                 log_debug("Disabled compression algorithm.");
         return 0;
 }
+#endif
 
-static int update_content_encoding(Uploader *u, const char *accept_encoding) {
+static int parse_accept_encoding_header(Uploader *u) {
+#if LIBCURL_VERSION_NUM >= 0x075300
         int r;
 
         assert(u);
 
-        for (const char *p = accept_encoding;;) {
+        if (ordered_hashmap_isempty(arg_compression))
+                return update_content_encoding_header(u, NULL);
+
+        struct curl_header *header;
+        CURLHcode hcode = curl_easy_header(u->easy, "Accept-Encoding", 0, CURLH_HEADER, -1, &header);
+        if (hcode != CURLHE_OK)
+                goto not_found;
+
+        for (const char *p = header->value;;) {
                 _cleanup_free_ char *word = NULL;
 
                 r = extract_first_word(&p, &word, ",", 0);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to parse Accept-Encoding header value: %m");
+                        return log_warning_errno(r, "Failed to parse Accept-Encoding header value, ignoring: %m");
                 if (r == 0)
-                        return 0;
+                        break;
 
                 /* Cut the quality value waiting. */
                 char *q = strchr(word, ';');
                 if (q)
                         *q = '\0';
+
+                if (streq(word, "*"))
+                        return update_content_encoding_header(u, ordered_hashmap_first(arg_compression));
 
                 Compression c = compression_lowercase_from_string(word);
                 if (c <= 0 || !compression_supported(c))
@@ -583,8 +596,16 @@ static int update_content_encoding(Uploader *u, const char *accept_encoding) {
 
                 return update_content_encoding_header(u, cc);
         }
-}
+
+not_found:
+        if (arg_force_compression)
+                return update_content_encoding_header(u, ordered_hashmap_first(arg_compression));
+
+        return update_content_encoding_header(u, NULL);
+#else
+        return 0;
 #endif
+}
 
 static int perform_upload(Uploader *u) {
         CURLcode code;
@@ -614,29 +635,15 @@ static int perform_upload(Uploader *u) {
                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
                                        "Upload to %s failed with code %ld: %s",
                                        u->url, status, strna(u->answer));
-        else if (status < 200)
+        if (status < 200)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
                                        "Upload to %s finished with unexpected code %ld: %s",
                                        u->url, status, strna(u->answer));
-        else {
-#if LIBCURL_VERSION_NUM >= 0x075300
-                int r;
-                if (!u->compression) {
-                        struct curl_header *encoding_header;
-                        CURLHcode hcode;
 
-                        hcode = curl_easy_header(u->easy, "Accept-Encoding", 0, CURLH_HEADER, -1, &encoding_header);
-                        if (hcode == CURLHE_OK && encoding_header && encoding_header->value) {
-                                r = update_content_encoding(u, encoding_header->value);
-                                if (r < 0)
-                                        return r;
-                        }
-                }
-#endif
+        (void) parse_accept_encoding_header(u);
 
-                log_debug("Upload finished successfully with code %ld: %s",
-                          status, strna(u->answer));
-        }
+        log_debug("Upload finished successfully with code %ld: %s",
+                  status, strna(u->answer));
 
         free_and_replace(u->last_cursor, u->current_cursor);
 
