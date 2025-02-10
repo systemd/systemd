@@ -60,37 +60,6 @@ char* strprepend(char **x, const char *s) {
         return *x;
 }
 
-char* strnappend(const char *s, const char *suffix, size_t b) {
-        size_t a;
-        char *r;
-
-        if (!s && !suffix)
-                return strdup("");
-
-        if (!s)
-                return strndup(suffix, b);
-
-        if (!suffix)
-                return strdup(s);
-
-        assert(s);
-        assert(suffix);
-
-        a = strlen(s);
-        if (b > SIZE_MAX - a)
-                return NULL;
-
-        r = new(char, a+b+1);
-        if (!r)
-                return NULL;
-
-        memcpy(r, s, a);
-        memcpy(r+a, suffix, b);
-        r[a+b] = 0;
-
-        return r;
-}
-
 char* strstrip(char *s) {
         if (!s)
                 return NULL;
