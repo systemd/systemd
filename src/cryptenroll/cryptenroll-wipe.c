@@ -355,20 +355,12 @@ int wipe_slots(struct crypt_device *cd,
         case WIPE_EXPLICIT:
                 break; /* Nothing to do here */
 
-        case WIPE_ALL:
-                
-                printf("%sYou are about to wipe ALL slots, ensure to enroll new keys before rebooting%s (press \"q\" to cancel)",
-                       ansi_highlight_red(),
-                       ansi_normal());
-
-                if (!any_key_to_proceed())
-                        return -ECANCELED;
-
-                
+        case WIPE_ALL:                
                 r = find_all_slots(cd, wipe_slots, keep_slots);
-                if (r < 0)
+                if (r < 0){
+                        log_warning("Token JSON data lacks keyslots field, ignoring.");
                         return r;
-
+                }
                 break;
 
         case WIPE_EMPTY_PASSPHRASE:
