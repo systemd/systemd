@@ -136,7 +136,7 @@ static int dns_query_candidate_next_search_domain(DnsQueryCandidate *c) {
         dns_search_domain_unref(c->search_domain);
         c->search_domain = dns_search_domain_ref(next);
 
-        return 1;
+        return 0;
 }
 
 static int dns_query_candidate_add_transaction(
@@ -508,6 +508,44 @@ DnsQuery *dns_query_free(DnsQuery *q) {
         return mfree(q);
 }
 
+static int validate_and_mangle_question(DnsQuestion **question, Set *types) {
+        int r;
+
+        if (set_isempty(types))
+                return 0; /* No filtering configured. Let's shortcut. */
+
+        bool has_good = false, has_bad = false;
+        DnsResourceKey *key;
+        DNS_QUESTION_FOREACH(key, *question)
+                if (set_contains(types, INT_TO_PTR(key->type)))
+                        has_bad = true;
+                else
+                        has_good = true;
+
+        if (has_bad && !has_good)
+                return -ENOANO; /* All bad, refuse.*/
+        if (!has_bad) {
+                assert(has_good); /* The question should have at least one key. */
+                return 0; /* All good. Not necessary to filter. */
+        }
+
+        /* Mangle the question suppressing bad entries, leaving good entries */
+        _cleanup_(dns_question_unrefp) DnsQuestion *new_question = dns_question_new(dns_question_size(*question));
+        if (!new_question)
+                return -ENOMEM;
+
+        DnsQuestionItem *item;
+        DNS_QUESTION_FOREACH_ITEM(item, *question) {
+                if (set_contains(types, INT_TO_PTR(item->key->type)))
+                        continue;
+                r = dns_question_add_raw(new_question, item->key, item->flags);
+                if (r < 0)
+                        return r;
+        }
+
+        return free_and_replace_full(*question, new_question, dns_question_unref);
+}
+
 int dns_query_new(
                 Manager *m,
                 DnsQuery **ret,
@@ -523,6 +561,15 @@ int dns_query_new(
         int r;
 
         assert(m);
+
+        /* Check for records that is refused and refuse query for the records if matched in configuration */
+        r = validate_and_mangle_question(&question_utf8, m->refuse_record_types);
+        if (r < 0)
+                return r;
+
+        r = validate_and_mangle_question(&question_idna, m->refuse_record_types);
+        if (r < 0)
+                return r;
 
         if (question_bypass) {
                 /* It's either a "bypass" query, or a regular one, but can't be both. */
