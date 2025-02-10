@@ -446,7 +446,7 @@ static int manager_varlink_init_machine(Manager *m) {
 
         (void) mkdir_p("/run/systemd/machine", 0755);
 
-        r = varlink_server_listen_address(s, "/run/systemd/machine/io.systemd.Machine", 0666);
+        r = varlink_server_listen_address(s, "/run/systemd/machine/io.systemd.Machine", 0600);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind to varlink socket: %m");
 
