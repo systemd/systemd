@@ -46,6 +46,20 @@ char* first_word(const char *s, const char *word) {
         return (char*) nw;
 }
 
+char* strprepend(char **x, const char *s) {
+        assert(x);
+
+        if (isempty(s))
+                return *x;
+
+        char *p = strjoin(s, *x);
+        if (!p)
+                return NULL;
+
+        free_and_replace(*x, p);
+        return *x;
+}
+
 char* strnappend(const char *s, const char *suffix, size_t b) {
         size_t a;
         char *r;
