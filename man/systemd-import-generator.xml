@@ -242,6 +242,16 @@
       <literal>http://example.com/image.efi</literal> this would result in a root disk being downloaded from
       <literal>http://example.com/image.raw.xz</literal>.</para>
     </example>
+
+    <example>
+      <title>Boot into disk image (tar), with URL derived from UEFI HTTP network booting</title>
+
+      <programlisting>systemd.pull=tar,machine,verify=no,bootorigin:root:image.tar.xz root=bind:/run/machines/root</programlisting>
+
+      <para>This is similar to the previous example, but instead of a raw (i.e. block device based) disk
+      image the system boots into a tarball that is downloaded from the originating UEFI network
+      server.</para>
+    </example>
   </refsect1>
 
   <refsect1>
