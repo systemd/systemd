@@ -357,14 +357,13 @@ int wipe_slots(struct crypt_device *cd,
 
         case WIPE_ALL:
                 
-                printf("With this command, ALL wipe slots will be deleted, including slot 0, where your main key is stored. If you proceed, you will no longer be able to unlock your disk with the passphrase at the next reboot. Are you sure you want to continue? (y/N): ");
-                char answer;
-                scanf(" %c", &answer);
-                
-                if (answer != 'y' && answer != 'Y') {
-                        printf("Operation aborted\n");
-                        break;
-                }
+                printf("%sYou are about to wipe ALL slots, ensure to enroll new keys before rebooting%s (press \"q\" to cancel)",
+                       ansi_highlight_red(),
+                       ansi_normal());
+
+                if (!any_key_to_proceed())
+                        return -ECANCELED;
+
                 
                 r = find_all_slots(cd, wipe_slots, keep_slots);
                 if (r < 0)
