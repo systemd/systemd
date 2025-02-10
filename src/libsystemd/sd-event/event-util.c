@@ -8,6 +8,9 @@
 #include "log.h"
 #include "string-util.h"
 
+#define SI_FLAG_FORWARD  (INT32_C(1) << 30)
+#define SI_FLAG_POSITIVE (INT32_C(1) << 29)
+
 int event_reset_time(
                 sd_event *e,
                 sd_event_source **s,
@@ -176,4 +179,90 @@ dual_timestamp* event_dual_timestamp_now(sd_event *e, dual_timestamp *ts) {
         assert_se(sd_event_now(e, CLOCK_REALTIME, &ts->realtime) >= 0);
         assert_se(sd_event_now(e, CLOCK_MONOTONIC, &ts->monotonic) >= 0);
         return ts;
+}
+
+void event_source_unref_many(sd_event_source **array, size_t n) {
+        FOREACH_ARRAY(v, array, n)
+                sd_event_source_unref(*v);
+
+        free(array);
+}
+
+static int event_forward_signal_callback(sd_event_source *s, const struct signalfd_siginfo *ssi, void *userdata) {
+        sd_event_source *child = ASSERT_PTR(userdata);
+
+        assert(ssi);
+
+        siginfo_t si = {
+                .si_signo = ssi->ssi_signo,
+                /* We include some extra information to indicate the signal was forwarded and originally a positive
+                 * value since we can only set negative values ourselves as positive values are prohibited by the
+                 * kernel. */
+                .si_code = (ssi->ssi_code & (SI_FLAG_FORWARD|SI_FLAG_POSITIVE)) ? INT_MIN :
+                           (ssi->ssi_code >= 0 ? (-ssi->ssi_code - 1) | SI_FLAG_POSITIVE | SI_FLAG_FORWARD : ssi->ssi_code | SI_FLAG_FORWARD),
+                .si_errno = ssi->ssi_errno,
+        };
+
+        /* The following fields are implemented as macros, hence we cannot use compound initialization for them. */
+        si.si_pid = ssi->ssi_pid;
+        si.si_uid = ssi->ssi_uid;
+        si.si_int = ssi->ssi_int;
+        si.si_ptr = UINT64_TO_PTR(ssi->ssi_ptr);
+
+        return sd_event_source_send_child_signal(child, ssi->ssi_signo, &si, /* flags = */ 0);
+}
+
+static void event_forward_signal_destroy(void *userdata) {
+        sd_event_source *child = ASSERT_PTR(userdata);
+        sd_event_source_unref(child);
+}
+
+int event_forward_signals(
+                sd_event *e,
+                sd_event_source *child,
+                const int *signals,
+                size_t n_signals,
+                sd_event_source ***ret_sources,
+                size_t *ret_n_sources) {
+
+        sd_event_source **sources = NULL;
+        size_t n_sources = 0;
+        int r;
+
+        CLEANUP_ARRAY(sources, n_sources, event_source_unref_many);
+
+        assert(e);
+        assert(child);
+        assert(child->type == SOURCE_CHILD);
+        assert(signals || n_signals == 0);
+        assert(ret_sources);
+        assert(ret_n_sources);
+
+        if (n_signals == 0) {
+                *ret_sources = NULL;
+                *ret_n_sources = 0;
+                return 0;
+        }
+
+        sources = new0(sd_event_source*, n_signals);
+        if (!sources)
+                return -ENOMEM;
+
+        FOREACH_ARRAY(sig, signals, n_signals) {
+                r = sd_event_add_signal(e, &sources[n_sources], *sig | SD_EVENT_SIGNAL_PROCMASK, event_forward_signal_callback, child);
+                if (r < 0)
+                        return r;
+
+                r = sd_event_source_set_destroy_callback(sources[n_sources], event_forward_signal_destroy);
+                if (r < 0)
+                        return r;
+
+                sd_event_source_ref(child);
+                n_sources++;
+        }
+
+        *ret_sources = TAKE_PTR(sources);
+        *ret_n_sources = n_sources;
+
+        return 0;
 }
