@@ -144,6 +144,17 @@
 
             <xi:include href="version-info.xml" xpointer="v258"/></listitem>
           </varlistentry>
+
+          <varlistentry>
+            <term>runtime=</term>
+
+            <listitem><para>Takes a boolean argument. If set to true, the image is downloaded below the
+            <filename>/run/</filename> hierarchy, if set to false below the <filename>/var/lib/</filename>
+            hierarchy. If not specified defaults to true in the initial RAM disk (initrd) and to false on the
+            host system.</para>
+
+            <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+          </varlistentry>
         </variablelist>
 
         <xi:include href="version-info.xml" xpointer="v257"/></listitem>
