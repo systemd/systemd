@@ -132,12 +132,28 @@ static int helper_on_exit(sd_event_source *s, const siginfo_t *si, void *userdat
         return sd_event_exit(sd_event_source_get_event(s), si->si_status + (si->si_code == CLD_EXITED ? 0 : 128));
 }
 
+static int forward_signal(sd_event_source *s, const struct signalfd_siginfo *ssi, void *userdata) {
+        sd_event_source *child = ASSERT_PTR(userdata);
+
+        assert(ssi);
+
+        /* This function is only used to forward SIGTERM, SIGQUIT AND SIGTSTP which don't use any of the
+         * extra fields in siginfo_t so we don't bother copying those over. */
+        siginfo_t si = {
+                .si_signo = ssi->ssi_signo,
+                .si_errno = ssi->ssi_errno,
+                .si_code  = ssi->ssi_code,
+        };
+
+        return sd_event_source_send_child_signal(child, ssi->ssi_signo, &si, /* flags = */ 0);
+}
+
 static int run(int argc, char *argv[]) {
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         _cleanup_close_ int pty_fd = -EBADF, peer_fd = -EBADF;
         _cleanup_(pty_forward_freep) PTYForward *forward = NULL;
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
-        _cleanup_(sd_event_source_unrefp) sd_event_source *exit_source = NULL;
+        _cleanup_(sd_event_source_unrefp) sd_event_source *child = NULL;
         int r;
 
         log_setup();
@@ -155,8 +171,6 @@ static int run(int argc, char *argv[]) {
         r = sd_event_default(&event);
         if (r < 0)
                 return log_error_errno(r, "Failed to get event loop: %m");
-
-        (void) sd_event_set_signal_exit(event, true);
 
         pty_fd = openpt_allocate(O_RDWR|O_NOCTTY|O_NONBLOCK|O_CLOEXEC, /*ret_peer=*/ NULL);
         if (pty_fd < 0)
@@ -197,10 +211,6 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to fork child: %m");
         if (r == 0) {
-                r = terminal_new_session();
-                if (r < 0)
-                        return log_error_errno(r, "Failed to create new session: %m");
-
                 (void) execvp(l[0], l);
                 log_error_errno(errno, "Failed to execute %s: %m", l[0]);
                 _exit(EXIT_FAILURE);
@@ -208,13 +218,25 @@ static int run(int argc, char *argv[]) {
 
         peer_fd = safe_close(peer_fd);
 
-        r = event_add_child_pidref(event, &exit_source, &pidref, WEXITED, helper_on_exit, NULL);
+        r = event_add_child_pidref(event, &child, &pidref, WEXITED, helper_on_exit, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to add child event source: %m");
 
-        r = sd_event_source_set_child_process_own(exit_source, true);
+        r = sd_event_source_set_child_process_own(child, true);
         if (r < 0)
                 return log_error_errno(r, "Failed to take ownership of child process: %m");
+
+        r = sd_event_source_set_priority(child, SD_EVENT_PRIORITY_IMPORTANT);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set child event source priority: %m");
+
+        static const int signals[] = { SIGTERM, SIGHUP, SIGINT, SIGQUIT, SIGTSTP };
+
+        FOREACH_ELEMENT(sig, signals) {
+                r = sd_event_add_signal(event, NULL, *sig | SD_EVENT_SIGNAL_PROCMASK, forward_signal, child);
+                if (r < 0)
+                        return r;
+        }
 
         return sd_event_loop(event);
 }
