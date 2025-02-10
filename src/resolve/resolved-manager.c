@@ -843,6 +843,7 @@ Manager *manager_free(Manager *m) {
         dnstls_manager_free(m);
 #endif
 
+        set_free(m->refuse_record_types);
         hashmap_free(m->links);
         hashmap_free(m->dns_transactions);
 
