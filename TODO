@@ -125,6 +125,12 @@ Deprecations and removals:
 
 Features:
 
+* import-generator: add option to download into /run/ rather than /var/, and
+  make it default in the initrd
+
+* also parse out primary GPT disk label uuid from gpt partition at boot and
+  pass it as efi var to OS.
+
 * maybe rework invocation of stub's inner PE payload: since we already parse PE
   anyway, maybe jump directly into the image, after finding the linux UEFI
   entrypoint. After all we invest quite some effort to disable
