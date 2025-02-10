@@ -980,6 +980,8 @@ int pty_forward_new(
                         raw_stdin_attr = f->saved_stdin_attr;
                         cfmakeraw(&raw_stdin_attr);
 
+                        SET_FLAG(raw_stdin_attr.c_lflag, ISIG, f->saved_stdin_attr.c_lflag & ISIG);
+
                         if (!same)
                                 raw_stdin_attr.c_oflag = f->saved_stdin_attr.c_oflag;
 
