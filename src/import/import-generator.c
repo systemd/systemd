@@ -11,6 +11,7 @@
 #include "import-util.h"
 #include "initrd-util.h"
 #include "json-util.h"
+#include "parse-util.h"
 #include "proc-cmdline.h"
 #include "special.h"
 #include "specifier.h"
@@ -22,6 +23,7 @@ typedef struct Transfer {
         ImportType type;
         char *local;
         char *remote;
+        const char *image_root;
         bool blockdev;
         sd_json_variant *json;
 } Transfer;
@@ -78,7 +80,7 @@ static int parse_pull_expression(const char *v) {
         ImportType type = _IMPORT_TYPE_INVALID;
         ImageClass class = _IMAGE_CLASS_INVALID;
         ImportVerify verify = IMPORT_VERIFY_SIGNATURE;
-        bool ro = false, blockdev = false, bootorigin = false;
+        bool ro = false, blockdev = false, bootorigin = false, runtime = in_initrd();
 
         const char *o = options;
         for (;;) {
@@ -100,7 +102,13 @@ static int parse_pull_expression(const char *v) {
                         blockdev = true;
                 else if (streq(opt, "bootorigin"))
                         bootorigin = true;
-                else if ((suffix = startswith(opt, "verify="))) {
+                else if ((suffix = startswith(opt, "runtime="))) {
+                        r = parse_boolean(suffix);
+                        if (r < 0)
+                                log_warning_errno(r, "Unknown runtime= parameter, ignoring: %s", suffix);
+                        else
+                                runtime = r;
+                } else if ((suffix = startswith(opt, "verify="))) {
                         ImportVerify w = import_verify_from_string(suffix);
 
                         if (w < 0)
@@ -187,8 +195,9 @@ static int parse_pull_expression(const char *v) {
         if (!GREEDY_REALLOC(arg_transfers, arg_n_transfers + 1))
                 return log_oom();
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
+        const char *image_root = runtime ? image_root_runtime_to_string(class) : image_root_to_string(class);
 
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
         r = sd_json_buildo(
                         &j,
                         SD_JSON_BUILD_PAIR("remote", SD_JSON_BUILD_STRING(remote)),
@@ -196,7 +205,8 @@ static int parse_pull_expression(const char *v) {
                         SD_JSON_BUILD_PAIR("class", JSON_BUILD_STRING_UNDERSCORIFY(image_class_to_string(class))),
                         SD_JSON_BUILD_PAIR("type", JSON_BUILD_STRING_UNDERSCORIFY(import_type_to_string(type))),
                         SD_JSON_BUILD_PAIR("readOnly", SD_JSON_BUILD_BOOLEAN(ro)),
-                        SD_JSON_BUILD_PAIR("verify", JSON_BUILD_STRING_UNDERSCORIFY(import_verify_to_string(verify))));
+                        SD_JSON_BUILD_PAIR("verify", JSON_BUILD_STRING_UNDERSCORIFY(import_verify_to_string(verify))),
+                        SD_JSON_BUILD_PAIR("imageRoot", SD_JSON_BUILD_STRING(image_root)));
         if (r < 0)
                 return log_error_errno(r, "Failed to build import JSON object: %m");
 
@@ -205,6 +215,7 @@ static int parse_pull_expression(const char *v) {
                 .type = type,
                 .local = TAKE_PTR(local),
                 .remote = TAKE_PTR(remote),
+                .image_root = image_root,
                 .json = TAKE_PTR(j),
                 .blockdev = blockdev,
         };
@@ -322,11 +333,11 @@ static int transfer_generate(const Transfer *t, size_t c) {
                 fputs("Wants=network-online.target\n"
                       "After=network-online.target\n", f);
 
-        _cleanup_free_ char *local_path = NULL, *loop_service = NULL;
+        _cleanup_free_ char *loop_service = NULL;
         if (t->blockdev) {
                 assert(t->type == IMPORT_RAW);
 
-                local_path = strjoin(image_root_to_string(t->class), "/", t->local, ".raw");
+                _cleanup_free_ char *local_path = strjoin(t->image_root, "/", t->local, ".raw");
                 if (!local_path)
                         return log_oom();
 
