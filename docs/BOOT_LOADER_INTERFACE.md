@@ -97,6 +97,9 @@ variables. All EFI variables use the vendor UUID
   generally only written once, by the OS installer, and is usually not touched
   after that.
 
+* The EFI variable `LoaderDeviceURL` contains the URL the boot loader was
+  downloaded from, in UTF-16 format. Only used in case of network boots.
+
 If `LoaderTimeInitUSec` and `LoaderTimeExecUSec` are set, `systemd-analyze`
 will include them in its boot-time analysis.  If `LoaderDevicePartUUID` is set,
 systemd will mount the ESP that was used for the boot to `/boot`, but only if

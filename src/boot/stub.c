@@ -21,6 +21,7 @@
 #include "splash.h"
 #include "tpm2-pcr.h"
 #include "uki.h"
+#include "url-discovery.h"
 #include "util.h"
 #include "version.h"
 #include "vmm.h"
@@ -151,6 +152,7 @@ static void export_stub_variables(EFI_LOADED_IMAGE_PROTOCOL *loaded_image, unsig
                 EFI_STUB_FEATURE_DEVICETREE_ADDONS |        /* We pick up .dtb addons */
                 EFI_STUB_FEATURE_MULTI_PROFILE_UKI |        /* We grok the "@1" profile command line argument */
                 EFI_STUB_FEATURE_REPORT_STUB_PARTITION |    /* We set StubDevicePartUUID + StubImageIdentifier */
+                EFI_STUB_FEATURE_REPORT_URL |               /* We set StubDeviceURL + LoaderDeviceURL */
                 0;
 
         assert(loaded_image);
@@ -167,6 +169,10 @@ static void export_stub_variables(EFI_LOADED_IMAGE_PROTOCOL *loaded_image, unsig
                 _cleanup_free_ char16_t *uuid = disk_get_part_uuid(loaded_image->DeviceHandle);
                 if (uuid)
                         efivar_set_str16(MAKE_GUID_PTR(LOADER), u"StubDevicePartUUID", uuid, 0);
+
+                _cleanup_free_ char16_t *url = disk_get_url(loaded_image->DeviceHandle);
+                if (url)
+                        efivar_set_str16(MAKE_GUID_PTR(LOADER), u"StubDeviceURL", url, 0);
         }
 
         if (loaded_image->FilePath) {

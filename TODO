@@ -125,9 +125,6 @@ Deprecations and removals:
 
 Features:
 
-* import-generator: add option to download into /run/ rather than /var/, and
-  make it default in the initrd
-
 * also parse out primary GPT disk label uuid from gpt partition at boot and
   pass it as efi var to OS.
 
@@ -147,9 +144,6 @@ Features:
   microhttpd anyway already. Idea would also be serve currently booted UKI as
   separate HTTP resource, so that EFI http boot on another system could
   directly boot from our system, with full access to the hdd.
-
-* support boot-into-tarball in systemd-import-generator: optionally bind mount
-  downloaded image to /sysroot/
 
 * support specifying download hash sum in systemd-import-generator expression
   to pin image/tarball.
