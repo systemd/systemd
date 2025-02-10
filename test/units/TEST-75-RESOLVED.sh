@@ -1124,13 +1124,13 @@ testcase_14_refuse_record_types() {
     run resolvectl query localhost5
     grep -qF "127.128.0.5" "$RUN_OUT"
 
-    run resolvectl query localhost5 --type=AAAA
+    (! run resolvectl query localhost5 --type=SRV)
     grep -qF "DNS query type refused."
 
-    run resolvectl query localhost5 --type=SRV
+    (! run resolvectl query localhost5 --type=TXT)
     grep -qF "DNS query type refused."
 
-    run resolvectl query localhost5 --type=TXT
+    (! run resolvectl query localhost5 --type=AAAA)
     grep -qF "DNS query type refused."
 
     run resolvectl query localhost5 --type=A
