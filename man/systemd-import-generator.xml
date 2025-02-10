@@ -125,6 +125,17 @@
             device (via <filename>systemd-loop@.service</filename>) after completion. This permits booting
             from downloaded disk images. This is only supported for <literal>raw</literal> disk images.</para>
 
+            <para>Note when this option is used with the purpose of mounting a disk image conforming to the
+            <ulink url="https://uapi-group.org/specifications/specs/discoverable_disk_image/">Discoverable
+            Disk Image Specification</ulink> as root file system, and the automatic GPT partition discovery
+            logic as implemented by
+            <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+            shall process it, it's essential to specify <literal>rootdisk</literal> as the local name for the
+            import. Moreover, <literal>root=gpt-auto</literal> must be specified on the kernel command line
+            explicitly. Also, prefix the <literal>systemd.pull=</literal> commmand line option with
+            <literal>rd.</literal> to ensure it is executed in the initial RAM disk (initrd) already, also
+            see below.</para>
+
             <xi:include href="version-info.xml" xpointer="v258"/></listitem>
           </varlistentry>
 
@@ -235,12 +246,14 @@
     <example>
       <title>Boot into disk image (raw), with URL derived from UEFI HTTP network booting</title>
 
-      <programlisting>rd.systemd.pull=raw,machine,verify=no,blockdev,bootorigin:rootdisk:image.raw.xz root=/dev/disk/by-loop-ref/rootdisk.raw-part2</programlisting>
+      <programlisting>rd.systemd.pull=raw,machine,verify=no,blockdev,bootorigin:rootdisk:image.raw.xz root=gpt-auto</programlisting>
 
       <para>This is similar to the previous example, but this time the source URL is automatically derived
       from the UEFI HTTP network boot URL. For example, if an UKI is booted from an URL
       <literal>http://example.com/image.efi</literal> this would result in a root disk being downloaded from
-      <literal>http://example.com/image.raw.xz</literal>.</para>
+      <literal>http://example.com/image.raw.xz</literal>. Moreover this uses the
+      <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      logic to mount the root file system from the disk image.</para>
     </example>
 
     <example>
@@ -263,6 +276,7 @@
       <member><citerefentry><refentrytitle>systemd.system-credentials</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>importctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd-loop@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
     </simplelist></para>
   </refsect1>
 </refentry>
