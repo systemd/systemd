@@ -494,7 +494,8 @@ static int add_mount(
                 const char *opts,
                 int passno,
                 MountPointFlags flags,
-                const char *target_unit) {
+                const char *target_unit,
+                const char *extra_after) {
 
         _cleanup_free_ char *name = NULL, *automount_name = NULL, *filtered = NULL, *where_escaped = NULL,
                 *opts_root_filtered = NULL;
@@ -595,6 +596,9 @@ static int add_mount(
          * target unit won't affect us. */
         if (target_unit && !FLAGS_SET(flags, MOUNT_NOFAIL))
                 fprintf(f, "Before=%s\n", target_unit);
+
+        if (extra_after)
+                fprintf(f, "After=%s\n", extra_after);
 
         if (passno != 0) {
                 r = generator_write_fsck_deps(f, dest, what, where, fstype);
@@ -814,15 +818,16 @@ static bool sysfs_check(void) {
 
 static int add_sysusr_sysroot_usr_bind_mount(const char *source) {
         return add_mount(source,
-                        arg_dest,
-                        "/sysusr/usr",
-                        "/sysroot/usr",
-                        NULL,
-                        NULL,
-                        "bind",
-                        0,
-                        0,
-                        SPECIAL_INITRD_FS_TARGET);
+                         arg_dest,
+                         "/sysusr/usr",
+                         "/sysroot/usr",
+                         /* original_where= */ NULL,
+                         /* fstype= */ NULL,
+                         "bind",
+                         /* passno= */ 0,
+                         /* flags= */ 0,
+                         SPECIAL_INITRD_FS_TARGET,
+                         /* extra_after= */ NULL);
 }
 
 static MountPointFlags fstab_options_to_flags(const char *options, bool is_swap) {
@@ -1000,7 +1005,8 @@ static int parse_fstab_one(
                       options,
                       passno,
                       flags,
-                      target_unit);
+                      target_unit,
+                      /* extra_after= */ NULL);
         if (r <= 0)
                 return r;
 
@@ -1105,8 +1111,8 @@ static int sysroot_is_nfsroot(void) {
 
 static int add_sysroot_mount(void) {
         _cleanup_free_ char *what = NULL;
-        const char *opts, *fstype;
-        bool default_rw, makefs;
+        const char *extra_opts = NULL, *fstype = NULL;
+        bool default_rw = true, makefs = false;
         MountPointFlags flags;
         int r;
 
@@ -1149,7 +1155,20 @@ static int add_sysroot_mount(void) {
                 return 0;
         }
 
-        if (streq(arg_root_what, "tmpfs")) {
+        const char *bind = startswith(arg_root_what, "bind:");
+        if (bind) {
+                if (!path_is_valid(bind) || !path_is_absolute(bind)) {
+                        log_debug("Invalid root=bind: source path, ignoring: %s", bind);
+                        return 0;
+                }
+
+                what = strdup(bind);
+                if (!what)
+                        return log_oom();
+
+                extra_opts = "bind";
+
+        } else if (streq(arg_root_what, "tmpfs")) {
                 /* If root=tmpfs is specified, then take this as shortcut for a writable tmpfs mount as root */
 
                 what = strdup("rootfs"); /* just a pretty name, to show up in /proc/self/mountinfo */
@@ -1157,8 +1176,6 @@ static int add_sysroot_mount(void) {
                         return log_oom();
 
                 fstype = arg_root_fstype ?: "tmpfs"; /* tmpfs, unless overridden */
-
-                default_rw = true; /* writable, unless overridden */;
         } else {
 
                 what = fstab_node_to_udev_node(arg_root_what);
@@ -1166,40 +1183,49 @@ static int add_sysroot_mount(void) {
                         return log_oom();
 
                 fstype = arg_root_fstype; /* if not specified explicitly, don't default to anything here */
-
                 default_rw = false; /* read-only, unless overridden */
         }
 
-        if (!arg_root_options)
-                opts = arg_root_rw > 0 || (arg_root_rw < 0 && default_rw) ? "rw" : "ro";
-        else if (arg_root_rw >= 0 ||
-                 !fstab_test_option(arg_root_options, "ro\0" "rw\0"))
-                opts = strjoina(arg_root_options, ",", arg_root_rw > 0 ? "rw" : "ro");
-        else
-                opts = arg_root_options;
+        _cleanup_free_ char *combined_options = NULL;
+        if (arg_root_options) {
+                combined_options = strdup(arg_root_options);
+                if (!combined_options)
+                        return log_oom();
+        }
 
-        log_debug("Found entry what=%s where=/sysroot type=%s opts=%s", what, strna(arg_root_fstype), strempty(opts));
+        if (arg_root_rw >= 0 || !combined_options || !fstab_test_option(combined_options, "ro\0" "rw\0")) {
+                if (!strextend_with_separator(&combined_options, ",", arg_root_rw > 0 || (arg_root_rw < 0 && default_rw) ? "rw" : "ro"))
+                        return log_oom();
+        }
 
-        makefs = fstab_test_option(opts, "x-systemd.makefs\0");
+        if (extra_opts) {
+                if (!strextend_with_separator(&combined_options, ",", extra_opts))
+                        return log_oom();
+        }
+
+        log_debug("Found entry what=%s where=/sysroot type=%s opts=%s", what, strna(arg_root_fstype), strempty(combined_options));
+
+        makefs = fstab_test_option(combined_options, "x-systemd.makefs\0");
         flags = makefs * MOUNT_MAKEFS;
 
         return add_mount("/proc/cmdline",
                          arg_dest,
                          what,
                          "/sysroot",
-                         NULL,
+                         /* original_where= */ NULL,
                          fstype,
-                         opts,
-                         is_device_path(what) ? 1 : 0, /* passno */
+                         combined_options,
+                         /* passno= */ is_device_path(what) ? 1 : 0,
                          flags,                        /* makefs off, pcrfs off, quota off, noauto off, nofail off, automount off */
-                         SPECIAL_INITRD_ROOT_FS_TARGET);
+                         SPECIAL_INITRD_ROOT_FS_TARGET,
+                         "imports.target");
 }
 
 static int add_sysroot_usr_mount(void) {
         _cleanup_free_ char *what = NULL;
-        const char *opts;
-        bool makefs;
+        const char *extra_opts;
         MountPointFlags flags;
+        bool makefs;
         int r;
 
         /* Returns 0 if we didn't do anything, > 0 if we either generated a unit for the /usr/ mount, or we
@@ -1250,16 +1276,38 @@ static int add_sysroot_usr_mount(void) {
                 return 1; /* As above, report that NFS code will create the unit */
         }
 
-        what = fstab_node_to_udev_node(arg_usr_what);
-        if (!what)
-                return log_oom();
+        const char *bind = startswith(arg_usr_what, "bind:");
+        if (bind) {
+                if (!path_is_valid(bind) || !path_is_absolute(bind)) {
+                        log_debug("Invalid mount.bind=bind: source path, ignoring: %s", bind);
+                        return 0;
+                }
 
-        if (!arg_usr_options)
-                opts = arg_root_rw > 0 ? "rw" : "ro";
-        else if (!fstab_test_option(arg_usr_options, "ro\0" "rw\0"))
-                opts = strjoina(arg_usr_options, ",", arg_root_rw > 0 ? "rw" : "ro");
-        else
-                opts = arg_usr_options;
+                what = strdup(bind);
+                if (!what)
+                        return log_oom();
+
+                extra_opts = "bind";
+        } else {
+                what = fstab_node_to_udev_node(arg_usr_what);
+                if (!what)
+                        return log_oom();
+        }
+
+        _cleanup_free_ char *combined_options = NULL;
+        if (arg_usr_options) {
+                combined_options = strdup(arg_usr_options);
+                if (!combined_options)
+                        return log_oom();
+        }
+
+        if (arg_root_rw >= 0 || !combined_options || !fstab_test_option(combined_options, "ro\0" "rw\0"))
+                if (!strextend_with_separator(&combined_options, ",", arg_root_rw > 0 ? "rw" : "ro"))
+                        return log_oom();
+
+        if (extra_opts)
+                if (!strextend_with_separator(&combined_options, ",", extra_opts))
+                        return log_oom();
 
         /* When mounting /usr from the initrd, we add an extra level of indirection: we first mount the /usr/
          * partition to /sysusr/usr/, and then afterwards bind mount that to /sysroot/usr/. We do this so
@@ -1268,21 +1316,22 @@ static int add_sysroot_usr_mount(void) {
          * this should order itself after initrd-usr-fs.target and before initrd-fs.target; and it should
          * look into both /sysusr/ and /sysroot/ for the configuration data to apply. */
 
-        log_debug("Found entry what=%s where=/sysusr/usr type=%s opts=%s", what, strna(arg_usr_fstype), strempty(opts));
+        log_debug("Found entry what=%s where=/sysusr/usr type=%s opts=%s", what, strna(arg_usr_fstype), strempty(combined_options));
 
-        makefs = fstab_test_option(opts, "x-systemd.makefs\0");
+        makefs = fstab_test_option(combined_options, "x-systemd.makefs\0");
         flags = makefs * MOUNT_MAKEFS;
 
         r = add_mount("/proc/cmdline",
                       arg_dest,
                       what,
                       "/sysusr/usr",
-                      NULL,
+                      /* original_where= */ NULL,
                       arg_usr_fstype,
-                      opts,
-                      is_device_path(what) ? 1 : 0, /* passno */
+                      combined_options,
+                      /* passno= */ is_device_path(what) ? 1 : 0,
                       flags,
-                      SPECIAL_INITRD_USR_FS_TARGET);
+                      SPECIAL_INITRD_USR_FS_TARGET,
+                      "imports.target");
         if (r < 0)
                 return r;
 
@@ -1336,12 +1385,13 @@ static int add_volatile_var(void) {
                          arg_dest_late,
                          "tmpfs",
                          "/var",
-                         NULL,
+                         /* original_where= */ NULL,
                          "tmpfs",
                          "mode=0755" TMPFS_LIMITS_VAR,
-                         0,
-                         0,
-                         SPECIAL_LOCAL_FS_TARGET);
+                         /* passno= */ 0,
+                         /* flags= */ 0,
+                         SPECIAL_LOCAL_FS_TARGET,
+                         /* extra_after= */ NULL);
 }
 
 static int add_mounts_from_cmdline(void) {
