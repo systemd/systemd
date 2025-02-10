@@ -1862,7 +1862,7 @@ static int vl_method_pull(sd_varlink *link, sd_json_variant *parameters, sd_varl
                 { "force",        SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,      offsetof(struct p, force),         0                 },
                 { "readOnly",     SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,      offsetof(struct p, read_only),     0                 },
                 { "keepDownload", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,      offsetof(struct p, keep_download), 0                 },
-                { "imageRoot",    SD_JSON_VARIANT_BOOLEAN, json_dispatch_const_path,      offsetof(struct p, image_root),    SD_JSON_STRICT    },
+                { "imageRoot",    SD_JSON_VARIANT_STRING,  json_dispatch_const_path,      offsetof(struct p, image_root),    SD_JSON_STRICT    },
                 VARLINK_DISPATCH_POLKIT_FIELD,
                 {},
         };
