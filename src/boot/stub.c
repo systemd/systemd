@@ -12,6 +12,7 @@
 #include "memory-util-fundamental.h"
 #include "part-discovery.h"
 #include "pe.h"
+#include "proto/pxe-base.h"
 #include "proto/shell-parameters.h"
 #include "random-seed.h"
 #include "sbat.h"
@@ -232,6 +233,20 @@ nothing:
         return false;
 }
 
+static char16_t * remove_image_name_from_cmdline(char16_t *cmdline) {
+        if (!cmdline)
+                return NULL;
+
+        while (*cmdline != 0)
+                if (*cmdline++ == ' ') {
+                        if (*cmdline != 0)
+                                return cmdline;
+                        break;
+                }
+
+        return NULL;
+}
+
 static void process_arguments(
                 EFI_HANDLE stub_image,
                 EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
@@ -253,11 +268,22 @@ static void process_arguments(
                 if (loaded_image->LoadOptionsSize < sizeof(char16_t) || ((const char16_t *) loaded_image->LoadOptions)[0] <= 0x1F)
                         goto nothing;
 
-                /* Not running from EFI shell, use entire LoadOptions. Note that LoadOptions is a void*, so
+                /* Not running from EFI shell. Note that LoadOptions is a void*, so
                  * it could actually be anything! */
                 char16_t *c = xstrndup16(loaded_image->LoadOptions, loaded_image->LoadOptionsSize / sizeof(char16_t));
                 parse_profile_from_cmdline(&c, ret_profile);
                 *ret_cmdline = mangle_stub_cmdline(c);
+
+                /* For iPXE LoadOptions starts with the stub binary path which we want to strip off. */
+                if (loaded_image->DeviceHandle && \
+                        BS->HandleProtocol(loaded_image->DeviceHandle, MAKE_GUID_PTR(EFI_PXE_BASE_CODE_PROTOCOL), (void **) &shell) == EFI_SUCCESS) {
+                        char16_t *p = remove_image_name_from_cmdline(*ret_cmdline);
+                        if (p == NULL)
+                                *ret_cmdline = mfree(*ret_cmdline);
+                        else
+                                *ret_cmdline = p;
+                }
+
                 return;
         }
 
