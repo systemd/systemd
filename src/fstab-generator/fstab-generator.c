@@ -1058,12 +1058,12 @@ static int parse_fstab(bool prefix_sysroot) {
         return ret;
 }
 
-static int sysroot_is_nfsroot(void) {
+static int mount_source_is_nfsroot(const char *what) {
         union in_addr_union u;
         const char *sep, *a;
         int r;
 
-        assert(arg_root_what);
+        assert(what);
 
         /* From dracut.cmdline(7).
          *
@@ -1076,18 +1076,18 @@ static int sysroot_is_nfsroot(void) {
          * If server-ip is an IPv6 address it has to be put in brackets, e.g. [2001:DB8::1]. NFS options
          * can be appended with the prefix ":" or "," and are separated by ",". */
 
-        if (path_equal(arg_root_what, "/dev/nfs") ||
-            STR_IN_SET(arg_root_what, "dhcp", "dhcp6") ||
-            STARTSWITH_SET(arg_root_what, "nfs:", "nfs4:"))
+        if (path_equal(what, "/dev/nfs") ||
+            STR_IN_SET(what, "dhcp", "dhcp6") ||
+            STARTSWITH_SET(what, "nfs:", "nfs4:"))
                 return true;
 
         /* IPv6 address */
-        if (arg_root_what[0] == '[') {
-                sep = strchr(arg_root_what + 1, ']');
+        if (what[0] == '[') {
+                sep = strchr(what + 1, ']');
                 if (!sep)
                         return -EINVAL;
 
-                a = strndupa_safe(arg_root_what + 1, sep - arg_root_what - 1);
+                a = strndupa_safe(what + 1, sep - what - 1);
 
                 r = in_addr_from_string(AF_INET6, a, &u);
                 if (r < 0)
@@ -1097,16 +1097,65 @@ static int sysroot_is_nfsroot(void) {
         }
 
         /* IPv4 address */
-        sep = strchr(arg_root_what, ':');
+        sep = strchr(what, ':');
         if (sep) {
-                a = strndupa_safe(arg_root_what, sep - arg_root_what);
+                a = strndupa_safe(what, sep - what);
 
                 if (in_addr_from_string(AF_INET, a, &u) >= 0)
                         return true;
         }
 
         /* root directory without address */
-        return path_is_absolute(arg_root_what) && !path_startswith(arg_root_what, "/dev");
+        return path_is_absolute(what) && !path_startswith(what, "/dev");
+}
+
+static bool validate_root_or_usr_mount_source(const char *what, const char *switch_name) {
+        int r;
+
+        assert(switch_name);
+
+        if (isempty(what)) {
+                log_debug("Could not find a %s entry on the kernel command line.", switch_name);
+                return 0;
+        }
+
+        if (streq(what, "gpt-auto")) {
+                /* This is handled by gpt-auto-generator */
+                log_debug("Skipping %s directory handling, as gpt-auto was requested.", switch_name);
+                return false;
+        }
+
+        if (streq(what, "fstab")) {
+                /* This is handled by parse_fstab() */
+                log_debug("Using initrd's fstab for %s configuration.", switch_name);
+                return false;
+        }
+
+        r = mount_source_is_nfsroot(what);
+        if (r < 0)
+                log_debug_errno(r, "Failed to determine if the %s directory is on NFS, assuming not: %m", switch_name);
+        else if (r > 0) {
+                /* This is handled by the kernel or the initrd */
+                log_debug("Skipping %s directory handling, as root on NFS was requested.", switch_name);
+                return false;
+        }
+
+        if (startswith(what, "cifs://")) {
+                log_debug("Skipping %s directory handling, as root on CIFS was requested.", switch_name);
+                return false;
+        }
+
+        if (startswith(what, "iscsi:")) {
+                log_debug("Skipping %s directory handling, as root on iSCSI was requested.", switch_name);
+                return false;
+        }
+
+        if (startswith(what, "live:")) {
+                log_debug("Skipping %s directory handling, as root on live image was requested.", switch_name);
+                return false;
+        }
+
+        return true;
 }
 
 static int add_sysroot_mount(void) {
@@ -1114,46 +1163,9 @@ static int add_sysroot_mount(void) {
         const char *extra_opts = NULL, *fstype = NULL;
         bool default_rw = true, makefs = false;
         MountPointFlags flags;
-        int r;
 
-        if (isempty(arg_root_what)) {
-                log_debug("Could not find a root= entry on the kernel command line.");
+        if (!validate_root_or_usr_mount_source(arg_root_what, "root="))
                 return 0;
-        }
-
-        if (streq(arg_root_what, "gpt-auto")) {
-                /* This is handled by gpt-auto-generator */
-                log_debug("Skipping root directory handling, as gpt-auto was requested.");
-                return 0;
-        } else if (streq(arg_root_what, "fstab")) {
-                /* This is handled by parse_fstab */
-                log_debug("Using initrd's fstab for /sysroot/ configuration.");
-                return 0;
-        }
-
-        r = sysroot_is_nfsroot();
-        if (r < 0)
-                log_debug_errno(r, "Failed to determine if the root directory is on NFS, assuming not: %m");
-        else if (r > 0) {
-                /* This is handled by the kernel or the initrd */
-                log_debug("Skipping root directory handling, as root on NFS was requested.");
-                return 0;
-        }
-
-        if (startswith(arg_root_what, "cifs://")) {
-                log_debug("Skipping root directory handling, as root on CIFS was requested.");
-                return 0;
-        }
-
-        if (startswith(arg_root_what, "iscsi:")) {
-                log_debug("Skipping root directory handling, as root on iSCSI was requested.");
-                return 0;
-        }
-
-        if (startswith(arg_root_what, "live:")) {
-                log_debug("Skipping root directory handling, as root on live image was requested.");
-                return 0;
-        }
 
         const char *bind = startswith(arg_root_what, "bind:");
         if (bind) {
@@ -1249,28 +1261,8 @@ static int add_sysroot_usr_mount(void) {
                         return log_oom();
         }
 
-        if (isempty(arg_usr_what)) {
-                log_debug("Could not find a mount.usr= entry on the kernel command line.");
+        if (!validate_root_or_usr_mount_source(arg_usr_what, "mount.usr="))
                 return 0;
-        }
-
-        if (streq(arg_usr_what, "gpt-auto")) {
-                /* This is handled by the gpt-auto generator */
-                log_debug("Skipping /usr/ directory handling, as gpt-auto was requested.");
-                return 1; /* systemd-gpt-auto-generator will generate a unit for this, hence report that a
-                           * unit file is being created for the host /usr/ mount. */
-        } else if (streq(arg_usr_what, "fstab")) {
-                /* This is handled by parse_fstab */
-                log_debug("Using initrd's fstab for /sysroot/usr/ configuration.");
-                return 1; /* parse_fstab will generate a unit for this, hence report that a
-                           * unit file is being created for the host /usr/ mount. */
-        }
-
-        if (path_equal(arg_usr_what, "/dev/nfs")) {
-                /* This is handled by the initrd (if at all supported, that is) */
-                log_debug("Skipping /usr/ directory handling, as /dev/nfs was requested.");
-                return 1; /* As above, report that NFS code will create the unit */
-        }
 
         const char *bind = startswith(arg_usr_what, "bind:");
         if (bind) {
