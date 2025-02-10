@@ -631,6 +631,7 @@ static void manager_set_defaults(Manager *m) {
         m->resolve_unicast_single_label = false;
         m->cache_from_localhost = false;
         m->stale_retention_usec = 0;
+        m->cache_size_per_scope = DEFAULT_CACHE_SIZE;
 }
 
 static int manager_dispatch_reload_signal(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
