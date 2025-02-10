@@ -51,7 +51,7 @@ static int dns_query_new_for_varlink(
 
         r = dns_query_new(m, ret, question_utf8, question_idna, question_bypass, ifindex, flags);
         if (r == -ENOANO)
-                return sd_varlink_error(link, "io.systemd.Resolve.DNSError", NULL);
+                return sd_varlink_error(link, "io.systemd.Resolve.QueryRefused", NULL);
         return r;
 }
 
@@ -892,7 +892,7 @@ static int resolve_service_hostname(DnsQuery *q, DnsResourceRecord *rr, int ifin
         if (r < 0)
                 return r;
 
-        r = dns_query_new_for_varlink(q->manager, &aux, question, question, NULL, ifindex, q->flags|SD_RESOLVED_NO_SEARCH, NULL);
+        r = dns_query_new_for_varlink(q->manager, &aux, question, question, NULL, ifindex, q->flags|SD_RESOLVED_NO_SEARCH, q->varlink_request);
         if (r < 0)
                 return r;
 

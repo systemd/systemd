@@ -1226,7 +1226,9 @@ static int resolve_service_hostname(DnsQuery *q, DnsResourceRecord *rr, int ifin
         if (r < 0)
                 return r;
 
-        r = dns_query_new_for_bus(q->manager, &aux, question, question, NULL, ifindex, q->flags|SD_RESOLVED_NO_SEARCH, NULL);
+        r = dns_query_new(q->manager, &aux, question, question, NULL, ifindex, q->flags|SD_RESOLVED_NO_SEARCH);
+        if (r == -ENOANO)
+                return reply_method_errorf(q, BUS_ERROR_DNS_REFUSED, "DNS query type refused.");
         if (r < 0)
                 return r;
 
