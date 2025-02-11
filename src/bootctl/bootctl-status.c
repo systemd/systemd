@@ -391,6 +391,7 @@ int verb_status(int argc, char *argv[], void *userdata) {
                         { EFI_LOADER_FEATURE_MENU_DISABLE,            "Menu can be disabled"                  },
                         { EFI_LOADER_FEATURE_MULTI_PROFILE_UKI,       "Multi-Profile UKIs are supported"      },
                         { EFI_LOADER_FEATURE_REPORT_URL,              "Loader reports network boot URL"       },
+                        { EFI_LOADER_FEATURE_TYPE1_UKI,               "Support Type #1 uki field"             },
                 };
                 static const struct {
                         uint64_t flag;
