@@ -1,13 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "device-path-util.h"
+#include "efi-string.h"
+#include "efivars.h"
 #include "memory-util-fundamental.h"
 #include "proto/device-path.h"
 #include "proto/simple-text-io.h"
 #include "ticks.h"
 #include "util.h"
 #include "version.h"
-#include "efivars.h"
 
 /* Never try to read more than 16G into memory (and on 32bit 1G) */
 #define FILE_READ_MAX MIN(SIZE_MAX/4, UINT64_C(16)*1024U*1024U*1024U)
@@ -510,4 +511,41 @@ bool free_and_xstrdup16(char16_t **p, const char16_t *s) {
         free(*p);
         *p = t;
         return true;
+}
+
+char16_t *url_replace_last_component(const char16_t *url, const char16_t *filename) {
+        assert(url);
+        assert(filename);
+
+        /* Find colon separating protocol and hostname */
+        const char16_t *d = strchr16(url, ':');
+        if (!d || url == d)
+                return NULL;
+        d++;
+
+        /* Skip slashes after colon */
+        d += strspn(d, u"/");
+
+        /* Skip everything till next slash or end (i.e. the hostname) */
+        size_t n = strcspn(d, u"/?#");
+        if (n == 0)
+                return NULL;
+
+        d += n;
+
+        const char16_t *e = d + strcspn(d, u"?#"); /* Cut off "Query" and "Fragment" */
+
+        while (e > d && e[-1] == '/') /* Eat trailing slashes */
+                e--;
+
+        const char16_t *p = e;
+        while (p > d && p[-1] != '/') /* Find component before that */
+                p--;
+
+        if (e <= p)
+                return NULL;
+
+        _cleanup_free_ char16_t *chopped = xstrndup16(url, p - url);
+
+        return xasprintf("%ls/%ls", chopped, filename);
 }
