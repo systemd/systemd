@@ -1104,6 +1104,12 @@ static int mount_apply_graceful_options(Mount *m, const MountParameters *p, char
                         return r;
 
                 r = mount_option_supported(p->fstype, k ?: *o, v);
+                if (r == -EAGAIN) {
+                        log_unit_warning_errno(UNIT(m), r,
+                                               "x-systemd.graceful-option= used but not supported by file system %s, suppressing all.",
+                                               p->fstype);
+                        break;
+                }
                 if (r < 0)
                         log_unit_warning_errno(UNIT(m), r,
                                                "x-systemd.graceful-option=%s specified, but cannot determine availability, suppressing: %m", *o);
