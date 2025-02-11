@@ -108,6 +108,9 @@ static inline char *xstr16_to_ascii(const char16_t *str16) {
 
 char* startswith8(const char *s, const char *prefix);
 
+size_t strspn16(const char16_t *p, const char16_t *good);
+size_t strcspn16(const char16_t *p, const char16_t *bad);
+
 bool efi_fnmatch(const char16_t *pattern, const char16_t *haystack);
 
 bool parse_number8(const char *s, uint64_t *ret_u, const char **ret_tail);
