@@ -38,7 +38,6 @@ static char *arg_getter = NULL;
 static char *arg_listen_raw = NULL;
 static char *arg_listen_http = NULL;
 static char *arg_listen_https = NULL;
-static CompressionArgs arg_compression = {};
 static char **arg_files = NULL;
 static bool arg_compress = true;
 static bool arg_seal = false;
@@ -62,6 +61,8 @@ static uint64_t arg_max_size = UINT64_MAX;
 static uint64_t arg_n_max_files = UINT64_MAX;
 static uint64_t arg_keep_free = UINT64_MAX;
 
+static OrderedHashmap *arg_compression = NULL;
+
 STATIC_DESTRUCTOR_REGISTER(arg_url, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_getter, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_listen_raw, freep);
@@ -73,7 +74,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_key, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_cert, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_trust, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_output, freep);
-STATIC_DESTRUCTOR_REGISTER(arg_compression, compression_args_clear);
+STATIC_DESTRUCTOR_REGISTER(arg_compression, ordered_hashmap_freep);
 
 static const char* const journal_write_split_mode_table[_JOURNAL_WRITE_SPLIT_MAX] = {
         [JOURNAL_WRITE_SPLIT_NONE] = "none",
@@ -164,10 +165,17 @@ static int dispatch_http_event(sd_event_source *event,
 static int build_accept_encoding(char **ret) {
         assert(ret);
 
-        float q = 1.0, step = 1.0 / arg_compression.size;
+        if (ordered_hashmap_isempty(arg_compression)) {
+                *ret = NULL;
+                return 0;
+        }
+
         _cleanup_free_ char *buf = NULL;
-        FOREACH_ARRAY(opt, arg_compression.opts, arg_compression.size) {
-                const char *c = compression_lowercase_to_string(opt->algorithm);
+        float q = 1.0, step = 1.0 / ordered_hashmap_size(arg_compression);
+
+        const CompressionConfig *cc;
+        ORDERED_HASHMAP_FOREACH(cc, arg_compression) {
+                const char *c = compression_lowercase_to_string(cc->algorithm);
                 if (strextendf_with_separator(&buf, ",", "%s;q=%.1f", c, q) < 0)
                         return -ENOMEM;
                 q -= step;
@@ -1105,6 +1113,10 @@ static int run(int argc, char **argv) {
 
         r = parse_argv(argc, argv);
         if (r <= 0)
+                return r;
+
+        r = compression_configs_mangle(&arg_compression);
+        if (r < 0)
                 return r;
 
         journal_browse_prepare();
