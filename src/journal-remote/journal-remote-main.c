@@ -33,13 +33,13 @@
 #define CERT_FILE     CERTIFICATE_ROOT "/certs/journal-remote.pem"
 #define TRUST_FILE    CERTIFICATE_ROOT "/ca/trusted.pem"
 
-static const char *arg_url = NULL;
-static const char *arg_getter = NULL;
-static const char *arg_listen_raw = NULL;
-static const char *arg_listen_http = NULL;
-static const char *arg_listen_https = NULL;
+static char *arg_url = NULL;
+static char *arg_getter = NULL;
+static char *arg_listen_raw = NULL;
+static char *arg_listen_http = NULL;
+static char *arg_listen_https = NULL;
 static CompressionArgs arg_compression = {};
-static char **arg_files = NULL; /* Do not free this. */
+static char **arg_files = NULL;
 static bool arg_compress = true;
 static bool arg_seal = false;
 static int http_socket = -1, https_socket = -1;
@@ -62,6 +62,12 @@ static uint64_t arg_max_size = UINT64_MAX;
 static uint64_t arg_n_max_files = UINT64_MAX;
 static uint64_t arg_keep_free = UINT64_MAX;
 
+STATIC_DESTRUCTOR_REGISTER(arg_url, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_getter, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_listen_raw, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_listen_http, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_listen_https, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_files, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_gnutls_log, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_key, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_cert, freep);
@@ -866,27 +872,21 @@ static int parse_argv(int argc, char *argv[]) {
                         return version();
 
                 case ARG_URL:
-                        if (arg_url)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Cannot currently set more than one --url=");
-
-                        arg_url = optarg;
+                        r = free_and_strdup_warn(&arg_url, optarg);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_GETTER:
-                        if (arg_getter)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Cannot currently use --getter= more than once");
-
-                        arg_getter = optarg;
+                        r = free_and_strdup_warn(&arg_getter, optarg);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_LISTEN_RAW:
-                        if (arg_listen_raw)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Cannot currently use --listen-raw= more than once");
-
-                        arg_listen_raw = optarg;
+                        r = free_and_strdup_warn(&arg_listen_raw, optarg);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_LISTEN_HTTP:
@@ -897,8 +897,11 @@ static int parse_argv(int argc, char *argv[]) {
                         r = negative_fd(optarg);
                         if (r >= 0)
                                 http_socket = r;
-                        else
-                                arg_listen_http = optarg;
+                        else {
+                                r = free_and_strdup_warn(&arg_listen_http, optarg);
+                                if (r < 0)
+                                        return r;
+                        }
                         break;
 
                 case ARG_LISTEN_HTTPS:
@@ -909,53 +912,36 @@ static int parse_argv(int argc, char *argv[]) {
                         r = negative_fd(optarg);
                         if (r >= 0)
                                 https_socket = r;
-                        else
-                                arg_listen_https = optarg;
-
+                        else {
+                                r = free_and_strdup_warn(&arg_listen_https, optarg);
+                                if (r < 0)
+                                        return r;
+                        }
                         break;
 
                 case ARG_KEY:
-                        if (arg_key)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Key file specified twice");
-
-                        arg_key = strdup(optarg);
-                        if (!arg_key)
-                                return log_oom();
-
+                        r = free_and_strdup_warn(&arg_key, optarg);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_CERT:
-                        if (arg_cert)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Certificate file specified twice");
-
-                        arg_cert = strdup(optarg);
-                        if (!arg_cert)
-                                return log_oom();
-
+                        r = free_and_strdup_warn(&arg_cert, optarg);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_TRUST:
 #if HAVE_GNUTLS
-                        if (arg_trust)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Cannot use --trust more= than once");
-
-                        arg_trust = strdup(optarg);
-                        if (!arg_trust)
-                                return log_oom();
+                        r = free_and_strdup_warn(&arg_trust, optarg);
+                        if (r < 0)
+                                return r;
 #else
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Option --trust= is not available.");
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Option --trust= is not available.");
 #endif
                         break;
 
                 case 'o':
-                        if (arg_output)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Cannot use --output=/-o more than once");
-
                         r = parse_path_argument(optarg, /* suppress_root = */ false, &arg_output);
                         if (r < 0)
                                 return r;
@@ -990,16 +976,13 @@ static int parse_argv(int argc, char *argv[]) {
                                 if (r == 0)
                                         break;
 
-                                if (strv_push(&arg_gnutls_log, word) < 0)
+                                if (strv_consume(&arg_gnutls_log, TAKE_PTR(word)) < 0)
                                         return log_oom();
-
-                                word = NULL;
                         }
-                        break;
 #else
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Option --gnutls-log= is not available.");
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Option --gnutls-log= is not available.");
 #endif
+                        break;
 
                 case '?':
                         return -EINVAL;
@@ -1008,8 +991,9 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached();
                 }
 
-        if (optind < argc)
-                arg_files = argv + optind;
+        arg_files = strv_copy(strv_skip(argv, optind));
+        if (!arg_files)
+                return log_oom();
 
         type_a = arg_getter || !strv_isempty(arg_files);
         type_b = arg_url
