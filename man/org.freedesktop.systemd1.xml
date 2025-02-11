@@ -7052,8 +7052,6 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       readonly s CleanResult = '...';
       readonly u UID = ...;
       readonly u GID = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
-      readonly as GracefulOptions = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("invalidates")
       readonly a(sasbttttuii) ExecMount = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("invalidates")
@@ -7662,8 +7660,6 @@ node /org/freedesktop/systemd1/unit/home_2emount {
 
     <!--property GID is not documented!-->
 
-    <!--property GracefulOptions is not documented!-->
-
     <!--property ExecUnmount is not documented!-->
 
     <!--property ExecRemount is not documented!-->
@@ -8213,8 +8209,6 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <variablelist class="dbus-property" generated="True" extra-ref="UID"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="GID"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="GracefulOptions"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ExecMount"/>
 
@@ -12473,7 +12467,6 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>PrivatePIDs</varname> were added in version 257.</para>
       <para><varname>ProtectHostnameEx</varname>,
       <function>RemoveSubgroup()</function>,
-      <varname>GracefulOptions</varname>,
       <varname>ReloadResult</varname>, and
       <varname>CleanResult</varname> were added in version 258.</para>
     </refsect2>

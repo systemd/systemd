@@ -549,7 +549,6 @@ Mount.SloppyOptions,                          config_parse_bool,                
 Mount.LazyUnmount,                            config_parse_bool,                                  0,                                  offsetof(Mount, lazy_unmount)
 Mount.ForceUnmount,                           config_parse_bool,                                  0,                                  offsetof(Mount, force_unmount)
 Mount.ReadWriteOnly,                          config_parse_bool,                                  0,                                  offsetof(Mount, read_write_only)
-Mount.GracefulOptions,                        config_parse_mount_graceful_options,                0,                                  offsetof(Mount, graceful_options)
 {{ EXEC_CONTEXT_CONFIG_ITEMS('Mount') }}
 {{ CGROUP_CONTEXT_CONFIG_ITEMS('Mount') }}
 {{ KILL_CONTEXT_CONFIG_ITEMS('Mount') }}
