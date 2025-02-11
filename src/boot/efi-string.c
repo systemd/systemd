@@ -1109,3 +1109,27 @@ void *memset(void *p, int c, size_t n) {
 
         return p;
 }
+
+size_t strspn16(const char16_t *p, const char16_t *good) {
+        assert(p);
+        assert(good);
+
+        const char16_t *i = p;
+        for (; *i != 0; i++)
+                if (!strchr16(good, *i))
+                        break;
+
+        return i - p;
+}
+
+size_t strcspn16(const char16_t *p, const char16_t *bad) {
+        assert(p);
+        assert(bad);
+
+        const char16_t *i = p;
+        for (; *i != 0; i++)
+                if (strchr16(bad, *i))
+                        break;
+
+        return i - p;
+}
