@@ -45,9 +45,9 @@ static const UnitActiveState state_translation_table[_MOUNT_STATE_MAX] = {
         [MOUNT_MOUNTING_DONE]      = UNIT_ACTIVATING,
         [MOUNT_MOUNTED]            = UNIT_ACTIVE,
         [MOUNT_REMOUNTING]         = UNIT_RELOADING,
-        [MOUNT_UNMOUNTING]         = UNIT_DEACTIVATING,
         [MOUNT_REMOUNTING_SIGTERM] = UNIT_RELOADING,
         [MOUNT_REMOUNTING_SIGKILL] = UNIT_RELOADING,
+        [MOUNT_UNMOUNTING]         = UNIT_DEACTIVATING,
         [MOUNT_UNMOUNTING_SIGTERM] = UNIT_DEACTIVATING,
         [MOUNT_UNMOUNTING_SIGKILL] = UNIT_DEACTIVATING,
         [MOUNT_FAILED]             = UNIT_FAILED,
@@ -231,8 +231,6 @@ static void mount_done(Unit *u) {
         mount_unwatch_control_pid(m);
 
         m->timer_event_source = sd_event_source_disable_unref(m->timer_event_source);
-
-        m->graceful_options = strv_free(m->graceful_options);
 }
 
 static int update_parameters_proc_self_mountinfo(
@@ -1081,22 +1079,25 @@ fail:
         mount_enter_dead_or_mounted(m, MOUNT_FAILURE_RESOURCES, /* flush_result = */ false);
 }
 
-static int mount_append_graceful_options(Mount *m, const MountParameters *p, char **opts) {
+static int mount_parse_graceful_options(Mount *m, const MountParameters *p, char **opts) {
+        _cleanup_strv_free_ char **graceful = NULL;
+        _cleanup_free_ char *filtered = NULL;
         int r;
 
         assert(m);
         assert(p);
         assert(opts);
 
-        if (strv_isempty(m->graceful_options))
-                return 0;
+        r = fstab_filter_options(p->options, "x-systemd.graceful_options\0", NULL, NULL, &graceful, &filtered);
+        if (r <= 0)
+                return r;
 
         if (!p->fstype) {
-                log_unit_warning(UNIT(m), "GracefulOptions= used but file system type not known, suppressing all graceful options.");
+                log_unit_warning(UNIT(m), "x-systemd.graceful_options= used but file system type not known, suppressing all graceful options.");
                 return 0;
         }
 
-        STRV_FOREACH(o, m->graceful_options) {
+        STRV_FOREACH(o, graceful) {
                 _cleanup_free_ char *k = NULL, *v = NULL;
 
                 r = split_pair(*o, "=", &k, &v);
@@ -1105,11 +1106,12 @@ static int mount_append_graceful_options(Mount *m, const MountParameters *p, cha
 
                 r = mount_option_supported(p->fstype, k ?: *o, v);
                 if (r < 0)
-                        log_unit_warning_errno(UNIT(m), r, "GracefulOptions=%s specified, but cannot determine availability, suppressing.", *o);
+                        log_unit_warning_errno(UNIT(m), r,
+                                               "x-systemd.graceful_options=%s specified, but cannot determine availability, suppressing.", *o);
                 else if (r == 0)
-                        log_unit_info(UNIT(m), "GracefulOptions=%s specified, but option is not available, suppressing.", *o);
+                        log_unit_info(UNIT(m), "x-systemd.graceful_options=%s specified, but option is not available, suppressing.", *o);
                 else {
-                        log_unit_debug(UNIT(m), "GracefulOptions=%s specified and supported, appending to mount option string.", *o);
+                        log_unit_debug(UNIT(m), "x-systemd.graceful_options=%s specified and supported, appending to mount option string.", *o);
 
                         if (!strextend_with_separator(opts, ",", *o))
                                 return -ENOMEM;
@@ -1149,13 +1151,23 @@ static int mount_set_mount_command(Mount *m, ExecCommand *c, const MountParamete
         }
 
         _cleanup_free_ char *opts = NULL;
+
         r = fstab_filter_options(p->options, "nofail\0" "fail\0" "noauto\0" "auto\0", NULL, NULL, NULL, &opts);
         if (r < 0)
                 return r;
 
-        r = mount_append_graceful_options(m, p, &opts);
+        r = mount_parse_graceful_options(m, p, &opts);
         if (r < 0)
                 return r;
+
+        if (remount) {
+                if (!opts) {
+                        opts = strdup("remount");
+                        if (!opts)
+                                return -ENOMEM;
+                } else if (!strprepend(&opts, "remount,"))
+                        return -ENOMEM;
+        }
 
         if (!isempty(opts)) {
                 r = exec_command_append(c, "-o", opts, NULL);
@@ -1248,9 +1260,9 @@ static void mount_enter_mounting(Mount *m) {
         m->control_command_id = MOUNT_EXEC_MOUNT;
         m->control_command = m->exec_command + MOUNT_EXEC_MOUNT;
 
-        r = mount_set_mount_command(m, m->control_command, p);
+        r = mount_set_mount_command(m, m->control_command, p, /* remount = */ false);
         if (r < 0) {
-                log_unit_warning_errno(UNIT(m), r, "Failed to prepare mount command line: %m");
+                log_unit_error_errno(UNIT(m), r, "Failed to prepare mount command line: %m");
                 goto fail;
         }
 
@@ -1283,41 +1295,23 @@ static void mount_enter_remounting(Mount *m) {
 
         assert(m);
 
-        /* Reset reload result when we are about to start a new remount operation */
-        m->reload_result = MOUNT_SUCCESS;
-
-        m->control_command_id = MOUNT_EXEC_REMOUNT;
-        m->control_command = m->exec_command + MOUNT_EXEC_REMOUNT;
-
         p = get_mount_parameters_fragment(m);
-        if (p) {
-                const char *o;
-
-                if (p->options)
-                        o = strjoina("remount,", p->options);
-                else
-                        o = "remount";
-
-                r = exec_command_set(m->control_command, MOUNT_PATH,
-                                     p->what, m->where,
-                                     "-o", o, NULL);
-                if (r >= 0 && m->sloppy_options)
-                        r = exec_command_append(m->control_command, "-s", NULL);
-                if (r >= 0 && m->read_write_only)
-                        r = exec_command_append(m->control_command, "-w", NULL);
-                if (r >= 0 && p->fstype)
-                        r = exec_command_append(m->control_command, "-t", p->fstype, NULL);
-                if (r < 0) {
-                        log_unit_warning_errno(UNIT(m), r, "Failed to prepare remount command line: %m");
-                        goto fail;
-                }
-
-        } else {
+        if (!p) {
                 r = log_unit_warning_errno(UNIT(m), SYNTHETIC_ERRNO(ENOENT), "No mount parameters to operate on.");
                 goto fail;
         }
 
         mount_unwatch_control_pid(m);
+        m->reload_result = MOUNT_SUCCESS;
+
+        m->control_command_id = MOUNT_EXEC_REMOUNT;
+        m->control_command = m->exec_command + MOUNT_EXEC_REMOUNT;
+
+        r = mount_set_mount_command(m, m->control_command, p, /* remount = */ true);
+        if (r < 0) {
+                log_unit_error_errno(UNIT(m), r, "Failed to prepare remount command line: %m");
+                goto fail;
+        }
 
         r = mount_spawn(m, m->control_command, mount_exec_flags(MOUNT_REMOUNTING), &m->control_pid);
         if (r < 0) {
