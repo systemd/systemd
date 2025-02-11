@@ -45,6 +45,7 @@ enum {
         ACTION_DEFAULT,
         ACTION_MOUNT,
         ACTION_AUTOMOUNT,
+        ACTION_REMOUNT,
         ACTION_UMOUNT,
         ACTION_LIST,
 } arg_action = ACTION_DEFAULT;
@@ -146,6 +147,7 @@ static int help(void) {
                "                                  Set automount unit property\n"
                "     --bind-device                Bind automount unit to device\n"
                "     --list                       List mountable block devices\n"
+               "     --remount[=MODE]             Remount a mount with updated options\n"
                "  -u --umount                     Unmount mount points\n"
                "  -G --collect                    Unload unit after it stopped, even when failed\n"
                "  -T --tmpfs                      Create a new tmpfs on the mount point\n"
@@ -181,6 +183,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_BIND_DEVICE,
                 ARG_LIST,
                 ARG_JSON,
+                ARG_REMOUNT,
         };
 
         static const struct option options[] = {
@@ -210,6 +213,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "list",               no_argument,       NULL, ARG_LIST               },
                 { "umount",             no_argument,       NULL, 'u'                    },
                 { "unmount",            no_argument,       NULL, 'u'                    }, /* Compat spelling */
+                { "remount",            optional_argument, NULL, ARG_REMOUNT            },
                 { "collect",            no_argument,       NULL, 'G'                    },
                 { "tmpfs",              no_argument,       NULL, 'T'                    },
                 { "json",               required_argument, NULL, ARG_JSON               },
@@ -357,6 +361,13 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'u':
                         arg_action = ACTION_UMOUNT;
+                        break;
+
+                case ARG_REMOUNT:
+                        arg_action = ACTION_REMOUNT;
+
+                        if (optarg) {
+                        }
                         break;
 
                 case 'G':
