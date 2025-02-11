@@ -148,8 +148,10 @@ static int bus_append_string(sd_bus_message *m, const char *field, const char *e
 }
 
 static int bus_append_strv(sd_bus_message *m, const char *field, const char *eq, const char *separator, ExtractFlags flags) {
-        const char *p;
         int r;
+
+        assert(m);
+        assert(field);
 
         r = sd_bus_message_open_container(m, 'r', "sv");
         if (r < 0)
@@ -167,16 +169,16 @@ static int bus_append_strv(sd_bus_message *m, const char *field, const char *eq,
         if (r < 0)
                 return bus_log_create_error(r);
 
-        for (p = eq;;) {
+        for (const char *p = eq;;) {
                 _cleanup_free_ char *word = NULL;
 
                 r = extract_first_word(&p, &word, separator, flags);
-                if (r == 0)
-                        break;
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0)
                         return log_error_errno(r, "Invalid syntax: %s", eq);
+                if (r == 0)
+                        break;
 
                 r = sd_bus_message_append_basic(m, 's', word);
                 if (r < 0)
@@ -2332,9 +2334,6 @@ static int bus_append_mount_property(sd_bus_message *m, const char *field, const
                               "ForceUnmount",
                               "ReadwriteOnly"))
                 return bus_append_parse_boolean(m, field, eq);
-
-        if (streq(field, "GracefulOptions"))
-                return bus_append_strv(m, field, eq, /* separator= */ ",", 0);
 
         return 0;
 }
