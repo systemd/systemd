@@ -3,17 +3,13 @@
 
 #include "compress.h"
 #include "conf-parser.h"
+#include "hashmap.h"
 
-typedef struct CompressionOpts {
+typedef struct CompressionConfig {
         Compression algorithm;
         int level;
-} CompressionOpts;
+} CompressionConfig;
 
-typedef struct CompressionArgs {
-        CompressionOpts *opts;
-        size_t size;
-} CompressionArgs;
+int compression_configs_mangle(OrderedHashmap **configs);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_compression);
-
-void compression_args_clear(CompressionArgs *args);
