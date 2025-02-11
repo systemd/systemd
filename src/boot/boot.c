@@ -47,8 +47,8 @@ DECLARE_SBAT(SBAT_BOOT_SECTION_TEXT);
 typedef enum LoaderType {
         LOADER_UNDEFINED,
         LOADER_AUTO,
-        LOADER_EFI,
-        LOADER_LINUX,         /* Boot loader spec type #1 entries */
+        LOADER_EFI,           /* Boot loader spec type #1 entries with "efi" line */
+        LOADER_LINUX,         /* Boot loader spec type #1 entries with "linux" line */
         LOADER_UNIFIED_LINUX, /* Boot loader spec type #2 entries */
         LOADER_SECURE_BOOT_KEYS,
         _LOADER_TYPE_MAX,
