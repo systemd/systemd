@@ -695,7 +695,7 @@ int replace_env_full(
         _cleanup_strv_free_ char **unset_variables = NULL, **bad_variables = NULL;
         const char *e, *word = format, *test_value = NULL; /* test_value is initialized to appease gcc */
         _cleanup_free_ char *s = NULL;
-        char ***pu, ***pb, *k;
+        char ***pu, ***pb;
         size_t i, len = 0; /* len is initialized to appease gcc */
         int nest = 0, r;
 
@@ -717,32 +717,23 @@ int replace_env_full(
 
                 case CURLY:
                         if (*e == '{') {
-                                k = strnappend(s, word, e-word-1);
-                                if (!k)
+                                if (!strextendn(&s, word, e-word-1))
                                         return -ENOMEM;
-
-                                free_and_replace(s, k);
 
                                 word = e-1;
                                 state = VARIABLE;
                                 nest++;
 
                         } else if (*e == '$') {
-                                k = strnappend(s, word, e-word);
-                                if (!k)
+                                if (!strextendn(&s, word, e-word))
                                         return -ENOMEM;
-
-                                free_and_replace(s, k);
 
                                 word = e+1;
                                 state = WORD;
 
                         } else if (FLAGS_SET(flags, REPLACE_ENV_ALLOW_BRACELESS) && strchr(VALID_BASH_ENV_NAME_CHARS, *e)) {
-                                k = strnappend(s, word, e-word-1);
-                                if (!k)
+                                if (!strextendn(&s, word, e-word-1))
                                         return -ENOMEM;
-
-                                free_and_replace(s, k);
 
                                 word = e-1;
                                 state = VARIABLE_RAW;
