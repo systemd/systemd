@@ -56,6 +56,15 @@ typedef enum LoaderType {
         _LOADER_TYPE_MAX,
 } LoaderType;
 
+/* Which loader types permit command line editing */
+#define LOADER_TYPE_ALLOW_EDITOR(t) IN_SET(t, LOADER_EFI, LOADER_LINUX, LOADER_UNIFIED_LINUX)
+
+/* Which loader types allow command line editing in SecureBoot mode */
+#define LOADER_TYPE_ALLOW_EDITOR_IN_SB(t) IN_SET(t, LOADER_EFI, LOADER_LINUX)
+
+/* Which loader types shall be considered for automatic selection */
+#define LOADER_TYPE_MAY_AUTO_SELECT(t) IN_SET(t, LOADER_EFI, LOADER_LINUX, LOADER_UNIFIED_LINUX)
+
 typedef struct {
         char16_t *id;         /* The unique identifier for this entry (typically the filename of the file defining the entry, possibly suffixed with a profile id) */
         char16_t *id_without_profile; /* same, but without any profile id suffixed */
@@ -996,7 +1005,7 @@ static bool menu_run(
                 case KEYPRESS(0, 0, 'E'):
                         /* only the options of configured entries can be edited */
                         if (!config->editor ||
-                            !IN_SET(config->entries[idx_highlight]->type, LOADER_EFI, LOADER_LINUX, LOADER_UNIFIED_LINUX)) {
+                            !LOADER_TYPE_ALLOW_EDITOR(config->entries[idx_highlight]->type)) {
                                 status = xstrdup16(u"Entry does not support editing the command line.");
                                 break;
                         }
@@ -1004,7 +1013,7 @@ static bool menu_run(
                         /* Unified kernels that are signed as a whole will not accept command line options
                          * when secure boot is enabled unless there is none embedded in the image. Do not try
                          * to pretend we can edit it to only have it be ignored. */
-                        if (config->entries[idx_highlight]->type == LOADER_UNIFIED_LINUX &&
+                        if (!LOADER_TYPE_ALLOW_EDITOR_IN_SB(config->entries[idx_highlight]->type) &&
                             secure_boot_enabled() &&
                             config->entries[idx_highlight]->options) {
                                 status = xstrdup16(u"Entry not editable in SecureBoot mode.");
@@ -1821,7 +1830,7 @@ static void config_select_default_entry(Config *config) {
 
         /* select the first suitable entry */
         for (i = 0; i < config->n_entries; i++)
-                if (config->entries[i]->type != LOADER_AUTO && !config->entries[i]->call) {
+                if (LOADER_TYPE_MAY_AUTO_SELECT(config->entries[i]->type)) {
                         config->idx_default = i;
                         return;
                 }
