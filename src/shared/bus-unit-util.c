@@ -2335,9 +2335,6 @@ static int bus_append_mount_property(sd_bus_message *m, const char *field, const
                               "ReadwriteOnly"))
                 return bus_append_parse_boolean(m, field, eq);
 
-        if (streq(field, "GracefulOptions"))
-                return bus_append_strv(m, field, eq, /* separator= */ ",", 0);
-
         return 0;
 }
 
