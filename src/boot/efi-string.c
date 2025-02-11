@@ -188,8 +188,10 @@ static unsigned utf8_to_unichar(const char *utf8, size_t n, char32_t *c) {
 
 /* Convert UTF-8 to UCS-2, skipping any invalid or short byte sequences. */
 char16_t *xstrn8_to_16(const char *str8, size_t n) {
-        if (!str8 || n == 0)
-                return NULL;
+        assert(str8 || n == 0);
+
+        if (n == SIZE_MAX)
+                n = strlen8(str8);
 
         size_t i = 0;
         char16_t *str16 = xnew(char16_t, n + 1);
@@ -209,8 +211,32 @@ char16_t *xstrn8_to_16(const char *str8, size_t n) {
                 }
         }
 
-        str16[i] = '\0';
+        str16[i] = u'\0';
         return str16;
+}
+
+char *xstrn16_to_ascii(const char16_t *str16, size_t n) {
+        assert(str16 || n == 0);
+
+        if (n == SIZE_MAX)
+                n = strlen16(str16);
+
+        _cleanup_free_ char *str8 = xnew(char, n + 1);
+
+        size_t i = 0;
+        while (n > 0 && *str16 != u'\0') {
+
+                if ((uint16_t) *str16 > 127U) /* Not ASCII? Fail! */
+                        return NULL;
+
+                str8[i++] = (char) (uint16_t) *str16;
+
+                str16++;
+                n--;
+        }
+
+        str8[i] = '\0';
+        return TAKE_PTR(str8);
 }
 
 char* startswith8(const char *s, const char *prefix) {
