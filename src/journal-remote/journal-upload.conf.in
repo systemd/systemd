@@ -21,3 +21,5 @@
 # ServerKeyFile={{CERTIFICATE_ROOT}}/private/journal-upload.pem
 # ServerCertificateFile={{CERTIFICATE_ROOT}}/certs/journal-upload.pem
 # TrustedCertificateFile={{CERTIFICATE_ROOT}}/ca/trusted.pem
+# Compression=zstd lz4 xz
+# ForceCompression=no
