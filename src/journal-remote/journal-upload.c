@@ -495,6 +495,65 @@ static void destroy_uploader(Uploader *u) {
 }
 
 #if LIBCURL_VERSION_NUM >= 0x075300
+static int update_content_encoding_header(Uploader *u, const CompressionConfig *cc) {
+        bool update_header = false;
+
+        assert(u);
+
+        if (cc == u->compression)
+                return 0; /* Already picked the algorithm. Let's shortcut. */
+
+        if (cc) {
+                _cleanup_free_ char *header = strjoin("Content-Encoding: ", compression_lowercase_to_string(cc->algorithm));
+                if (!header)
+                        return log_oom();
+
+                /* First, try to update existing Content-Encoding header. */
+                bool found = false;
+                for (struct curl_slist *l = u->header; l; l = l->next)
+                        if (startswith(l->data, "Content-Encoding:")) {
+                                free_and_replace(l->data, header);
+                                found = true;
+                                break;
+                        }
+
+                /* If Content-Encoding header is not found, append new one. */
+                if (!found) {
+                        struct curl_slist *l = curl_slist_append(u->header, header);
+                        if (!l)
+                                return log_oom();
+                        u->header = l;
+                }
+
+                update_header = true;
+        } else
+                /* Remove Content-Encoding header. */
+                for (struct curl_slist *l = u->header, *prev = NULL; l; prev = l, l = l->next)
+                        if (startswith(l->data, "Content-Encoding:")) {
+                                if (prev)
+                                        prev->next = TAKE_PTR(l->next);
+                                else
+                                        u->header = TAKE_PTR(l->next);
+
+                                curl_slist_free_all(l);
+                                update_header = true;
+                                break;
+                        }
+
+        if (update_header) {
+                CURLcode code;
+                easy_setopt(u->easy, CURLOPT_HTTPHEADER, u->header, LOG_WARNING, return -EXFULL);
+        }
+
+        u->compression = cc;
+
+        if (cc)
+                log_debug("Using compression algorithm %s with compression level %i.", compression_lowercase_to_string(cc->algorithm), cc->level);
+        else
+                log_debug("Disabled compression algorithm.");
+        return 0;
+}
+
 static int update_content_encoding(Uploader *u, const char *accept_encoding) {
         int r;
 
@@ -522,31 +581,7 @@ static int update_content_encoding(Uploader *u, const char *accept_encoding) {
                 if (!cc)
                         continue; /* The specified algorithm is not enabled. */
 
-                _cleanup_free_ char *header = strjoin("Content-Encoding: ", compression_lowercase_to_string(cc->algorithm));
-                if (!header)
-                        return log_oom();
-
-                /* First, update existing Content-Encoding header. */
-                bool found = false;
-                for (struct curl_slist *l = u->header; l; l = l->next)
-                        if (startswith(l->data, "Content-Encoding:")) {
-                                free_and_replace(l->data, header);
-                                found = true;
-                                break;
-                        }
-
-                /* If Content-Encoding header is not found, append new one. */
-                if (!found) {
-                        struct curl_slist *l = curl_slist_append(u->header, header);
-                        if (!l)
-                                return log_oom();
-                        u->header = l;
-                }
-
-                CURLcode code;
-                easy_setopt(u->easy, CURLOPT_HTTPHEADER, u->header, LOG_ERR, return -EXFULL);
-                u->compression = cc;
-                return 0;
+                return update_content_encoding_header(u, cc);
         }
 }
 #endif
