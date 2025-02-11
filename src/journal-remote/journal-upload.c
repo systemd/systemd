@@ -503,28 +503,25 @@ static int update_content_encoding(Uploader *u, const char *accept_encoding) {
         assert(u);
 
         for (const char *p = accept_encoding;;) {
-                _cleanup_free_ char *encoding_value = NULL, *alg = NULL;
-                Compression algorithm;
-                CURLcode code;
+                _cleanup_free_ char *word = NULL;
 
-                r = extract_first_word(&p, &encoding_value, ",", 0);
+                r = extract_first_word(&p, &word, ",", 0);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to extract Accept-Encoding header value: %m");
+                        return log_error_errno(r, "Failed to parse Accept-Encoding header value: %m");
                 if (r == 0)
                         return 0;
 
-                const char *q = encoding_value;
-                r = extract_first_word(&q, &alg, ";", 0);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to extract compression algorithm from Accept-Encoding header: %m");
+                /* Cut the quality value waiting. */
+                char *q = strchr(word, ';');
+                if (q)
+                        *q = '\0';
 
-                algorithm = compression_lowercase_from_string(alg);
-                if (algorithm <= 0 || !compression_supported(algorithm)) {
-                        continue;
-                }
+                Compression c = compression_lowercase_from_string(word);
+                if (c <= 0 || !compression_supported(c))
+                        continue; /* unsupported or invalid algorithm. */
 
                 FOREACH_ARRAY(opt, arg_compression.opts, arg_compression.size) {
-                        if (opt->algorithm != algorithm)
+                        if (opt->algorithm != c)
                                 continue;
 
                         _cleanup_free_ char *header = strjoin("Content-Encoding: ", compression_lowercase_to_string(u->compression.algorithm));
@@ -548,6 +545,7 @@ static int update_content_encoding(Uploader *u, const char *accept_encoding) {
                                 u->header = l;
                         }
 
+                        CURLcode code;
                         easy_setopt(u->easy, CURLOPT_HTTPHEADER, u->header, LOG_ERR, return -EXFULL);
                         u->compression = *opt;
                         return 0;
