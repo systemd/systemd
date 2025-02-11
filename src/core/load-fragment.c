@@ -1091,7 +1091,9 @@ int config_parse_socket_bindtodevice(
                 void *data,
                 void *userdata) {
 
+        _cleanup_free_ char *p = NULL;
         Socket *s = ASSERT_PTR(data);
+        int r;
 
         assert(filename);
         assert(lvalue);
@@ -1102,12 +1104,18 @@ int config_parse_socket_bindtodevice(
                 return 0;
         }
 
-        if (!ifname_valid(rvalue)) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid interface name, ignoring: %s", rvalue);
+        r = unit_name_printf(UNIT(s), rvalue, &p);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to resolve unit specifiers in %s, ignoring: %m", rvalue);
                 return 0;
         }
 
-        return free_and_strdup_warn(&s->bind_to_device, rvalue);
+        if (!ifname_valid(p)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid interface name, ignoring: %s", p);
+                return 0;
+        }
+
+        return free_and_replace(&s->bind_to_device, p);
 }
 
 int config_parse_exec_input(
