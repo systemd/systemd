@@ -25,6 +25,7 @@
 #define EFI_LOADER_FEATURE_MENU_DISABLE            (UINT64_C(1) << 13)
 #define EFI_LOADER_FEATURE_MULTI_PROFILE_UKI       (UINT64_C(1) << 14)
 #define EFI_LOADER_FEATURE_REPORT_URL              (UINT64_C(1) << 15)
+#define EFI_LOADER_FEATURE_TYPE1_UKI               (UINT64_C(1) << 16)
 
 /* Features of the stub, i.e. systemd-stub */
 #define EFI_STUB_FEATURE_REPORT_BOOT_PARTITION     (UINT64_C(1) << 0)
