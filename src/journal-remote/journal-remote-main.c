@@ -322,11 +322,13 @@ static mhd_result request_handler(
                 header = MHD_lookup_connection_value(connection, MHD_HEADER_KIND, "Content-Encoding");
                 if (header) {
                         Compression c = compression_lowercase_from_string(header);
-                        if (c < 0 || !compression_supported(c))
+                        if (c <= 0 || !compression_supported(c))
                                 return mhd_respondf(connection, 0, MHD_HTTP_UNSUPPORTED_MEDIA_TYPE,
                                                     "Unsupported Content-Encoding type: %s", header);
                         source->compression = c;
-                }
+                } else
+                        source->compression = COMPRESSION_NONE;
+
                 return process_http_upload(connection,
                                            upload_data, upload_data_size,
                                            source);
