@@ -34,6 +34,7 @@ static int add_syscall_filters(
                 { 0,                  "@file-system"                 },
                 { 0,                  "@io-event"                    },
                 { 0,                  "@ipc"                         },
+                { 0,                  "@keyring"                     },
                 { 0,                  "@mount"                       },
                 { 0,                  "@network-io"                  },
                 { 0,                  "@process"                     },
@@ -116,7 +117,6 @@ static int add_syscall_filters(
                  * The following syscalls and groups are knowingly excluded:
                  *
                  * @cpu-emulation
-                 * @keyring           (NB: keyring is not namespaced!)
                  * @obsolete
                  * @pkey
                  * @swap
