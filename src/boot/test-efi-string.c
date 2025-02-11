@@ -831,4 +831,27 @@ TEST(efi_memset) {
         assert_se(memcmp(buf, "aaaaaaaaaa", 10) == 0);
 }
 
+TEST(efi_strspn) {
+        ASSERT_EQ(strspn16(u"foobar", u"fo"), 3U);
+        ASSERT_EQ(strspn16(u"foobar", u"ob"), 0U);
+        ASSERT_EQ(strspn16(u"foobar", u"fxayzy"), 1U);
+        ASSERT_EQ(strspn16(u"", u"abcdefef"), 0U);
+        ASSERT_EQ(strspn16(u"", u""), 0U);
+        ASSERT_EQ(strspn16(u"foobar", u""), 0U);
+        ASSERT_EQ(strspn16(u"foffffffffffoobar", u"fofo"), 14U);
+}
+
+TEST(efi_strcspn) {
+        ASSERT_EQ(strcspn16(u"foobar", u"fo"), 0U);
+        ASSERT_EQ(strcspn16(u"foobar", u"bar"), 3U);
+        ASSERT_EQ(strcspn16(u"foobar", u"xhyfzy"), 0U);
+        ASSERT_EQ(strcspn16(u"foobar", u"xhyozy"), 1U);
+        ASSERT_EQ(strcspn16(u"foobar", u"xhyzy"), 6U);
+        ASSERT_EQ(strcspn16(u"", u"abcdefef"), 0U);
+        ASSERT_EQ(strcspn16(u"", u""), 0U);
+        ASSERT_EQ(strcspn16(u"foobar", u""), 6U);
+        ASSERT_EQ(strcspn16(u"foffffffffffoobar", u"fofo"), 0U);
+        ASSERT_EQ(strcspn16(u"foffffffffffoobar", u"a"), 15U);
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);
