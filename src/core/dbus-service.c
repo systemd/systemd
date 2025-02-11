@@ -393,10 +393,10 @@ const sd_bus_vtable bus_service_vtable[] = {
                                 SD_BUS_VTABLE_UNPRIVILEGED),
 
         SD_BUS_METHOD_WITH_ARGS("MountImage",
-                                 SD_BUS_ARGS("s", source, "s", destination, "b", read_only, "b", mkdir, "a(ss)", options),
-                                 SD_BUS_NO_RESULT,
-                                 bus_service_method_mount_image,
-                                 SD_BUS_VTABLE_UNPRIVILEGED),
+                                SD_BUS_ARGS("s", source, "s", destination, "b", read_only, "b", mkdir, "a(ss)", options),
+                                SD_BUS_NO_RESULT,
+                                bus_service_method_mount_image,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
 
         SD_BUS_METHOD_WITH_ARGS("DumpFileDescriptorStore",
                                 SD_BUS_NO_ARGS,

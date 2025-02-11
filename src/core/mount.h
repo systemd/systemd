@@ -50,6 +50,12 @@ struct Mount {
         MountParameters parameters_proc_self_mountinfo;
         MountParameters parameters_fragment;
 
+        char **graceful_options;
+
+        sd_bus_message *remount_request;
+        char *remount_options;
+        char **remount_graceful_options;
+
         bool from_proc_self_mountinfo:1;
         bool from_fragment:1;
 
@@ -81,15 +87,13 @@ struct Mount {
 
         MountState state, deserialized_state;
 
-        ExecCommand* control_command;
+        ExecCommand *control_command;
         MountExecCommand control_command_id;
         PidRef control_pid;
 
         sd_event_source *timer_event_source;
 
         unsigned n_retry_umount;
-
-        char **graceful_options;
 };
 
 extern const UnitVTable mount_vtable;

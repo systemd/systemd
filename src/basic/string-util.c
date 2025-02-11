@@ -46,35 +46,42 @@ char* first_word(const char *s, const char *word) {
         return (char*) nw;
 }
 
-char* strnappend(const char *s, const char *suffix, size_t b) {
-        size_t a;
-        char *r;
+char* strprepend(char **x, const char *s) {
+        assert(x);
 
-        if (!s && !suffix)
-                return strdup("");
+        if (isempty(s))
+                return *x;
 
-        if (!s)
-                return strndup(suffix, b);
-
-        if (!suffix)
-                return strdup(s);
-
-        assert(s);
-        assert(suffix);
-
-        a = strlen(s);
-        if (b > SIZE_MAX - a)
+        char *p = strjoin(s, *x);
+        if (!p)
                 return NULL;
 
-        r = new(char, a+b+1);
-        if (!r)
-                return NULL;
+        free_and_replace(*x, p);
+        return *x;
+}
 
-        memcpy(r, s, a);
-        memcpy(r+a, suffix, b);
-        r[a+b] = 0;
+char* strextendn(char **x, const char *s, size_t l) {
+        assert(x);
+        assert(s || l == 0);
 
-        return r;
+        if (l > 0)
+                l = strnlen(s, l); /* ignore trailing noise */
+
+        if (l > 0 || !*x) {
+                size_t q;
+                char *m;
+
+                q = strlen_ptr(*x);
+                m = realloc(*x, q + l + 1);
+                if (!m)
+                        return NULL;
+
+                *mempcpy_typesafe(m + q, s, l) = 0;
+
+                *x = m;
+        }
+
+        return *x;
 }
 
 char* strstrip(char *s) {
@@ -973,33 +980,6 @@ oom:
         /* truncate the bytes added after memcpy_safe() again */
         (*x)[m] = 0;
         return -ENOMEM;
-}
-
-char* strextendn(char **x, const char *s, size_t l) {
-        assert(x);
-        assert(s || l == 0);
-
-        if (l == SIZE_MAX)
-                l = strlen_ptr(s);
-        else if (l > 0)
-                l = strnlen(s, l); /* ignore trailing noise */
-
-        if (l > 0 || !*x) {
-                size_t q;
-                char *m;
-
-                q = strlen_ptr(*x);
-                m = realloc(*x, q + l + 1);
-                if (!m)
-                        return NULL;
-
-                memcpy_safe(m + q, s, l);
-                m[q + l] = 0;
-
-                *x = m;
-        }
-
-        return *x;
 }
 
 char* strrep(const char *s, unsigned n) {
