@@ -36,7 +36,7 @@ int config_parse_compression(
         }
 
         for (const char *p = rvalue;;) {
-                _cleanup_free_ char *algorithm = NULL, *word = NULL;
+                _cleanup_free_ char *word = NULL;
                 int level = -1;
 
                 r = extract_first_word(&p, &word, NULL, 0);
@@ -46,25 +46,23 @@ int config_parse_compression(
                         return 1;
 
                 if (parse_level) {
-                        const char *q = word;
-                        r = extract_first_word(&q, &algorithm, ":", 0);
-                        if (r < 0)
-                                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
-                        if (!isempty(q)) {
+                        char *q = strchr(word, ':');
+                        if (q) {
+                                *q++ = '\0';
+
                                 r = safe_atoi(q, &level);
                                 if (r < 0) {
                                         log_syntax(unit, LOG_WARNING, filename, line, r,
-                                                   "Compression level %s should be positive, ignoring.", q);
+                                                   "Compression level must be positive, ignoring: %s", q);
                                         continue;
                                 }
                         }
-                } else
-                        algorithm = TAKE_PTR(word);
+                }
 
-                Compression c = compression_lowercase_from_string(algorithm);
+                Compression c = compression_lowercase_from_string(word);
                 if (c < 0 || !compression_supported(c)) {
                         log_syntax(unit, LOG_WARNING, filename, line, c,
-                                   "Compression=%s is not supported on a system, ignoring.", algorithm);
+                                   "Compression algorithm '%s' is not supported on the system, ignoring.", word);
                         continue;
                 }
 
