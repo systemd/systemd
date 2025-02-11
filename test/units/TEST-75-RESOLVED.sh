@@ -16,11 +16,13 @@ set -o pipefail
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
-# We need at least Knot 3.0 which support (among others) the ds-push directive
-if ! knotc -c /usr/lib/systemd/tests/testdata/knot-data/knot.conf conf-check; then
-    echo "This test requires at least Knot 3.0. skipping..." | tee --append /skipped
+if ! command knotc >/dev/null; then
+    echo "command knotc not found, skipping..." | tee --append /skipped
     exit 77
 fi
+
+# We need at least Knot 3.0 which support (among others) the ds-push directive
+knotc -c /usr/lib/systemd/tests/testdata/knot-data/knot.conf conf-check
 
 RUN_OUT="$(mktemp)"
 
