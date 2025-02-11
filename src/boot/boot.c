@@ -18,6 +18,7 @@
 #include "pe.h"
 #include "proto/block-io.h"
 #include "proto/device-path.h"
+#include "proto/load-file.h"
 #include "proto/simple-text-io.h"
 #include "random-seed.h"
 #include "sbat.h"
@@ -27,6 +28,7 @@
 #include "ticks.h"
 #include "tpm2-pcr.h"
 #include "uki.h"
+#include "url-discovery.h"
 #include "util.h"
 #include "version.h"
 #include "vmm.h"
@@ -50,6 +52,7 @@ typedef enum LoaderType {
         LOADER_EFI,           /* Boot loader spec type #1 entries with "efi" line */
         LOADER_LINUX,         /* Boot loader spec type #1 entries with "linux" line */
         LOADER_UKI,           /* Boot loader spec type #1 entries with "uki" line */
+        LOADER_UKI_URL,       /* Boot loader spec type #1 entries with "uki-url" line */
         LOADER_UNIFIED_LINUX, /* Boot loader spec type #2 entries */
         LOADER_SECURE_BOOT_KEYS,
         LOADER_BAD,           /* Marker: this boot loader spec type #1 entry is invalid */
@@ -58,13 +61,13 @@ typedef enum LoaderType {
 } LoaderType;
 
 /* Which loader types permit command line editing */
-#define LOADER_TYPE_ALLOW_EDITOR(t) IN_SET(t, LOADER_EFI, LOADER_LINUX, LOADER_UKI, LOADER_UNIFIED_LINUX)
+#define LOADER_TYPE_ALLOW_EDITOR(t) IN_SET(t, LOADER_EFI, LOADER_LINUX, LOADER_UKI, LOADER_UKI_URL, LOADER_UNIFIED_LINUX)
 
 /* Which loader types allow command line editing in SecureBoot mode */
 #define LOADER_TYPE_ALLOW_EDITOR_IN_SB(t) IN_SET(t, LOADER_EFI, LOADER_LINUX)
 
 /* Which loader types shall be considered for automatic selection */
-#define LOADER_TYPE_MAY_AUTO_SELECT(t) IN_SET(t, LOADER_EFI, LOADER_LINUX, LOADER_UKI, LOADER_UNIFIED_LINUX)
+#define LOADER_TYPE_MAY_AUTO_SELECT(t) IN_SET(t, LOADER_EFI, LOADER_LINUX, LOADER_UKI, LOADER_UKI_URL, LOADER_UNIFIED_LINUX)
 
 typedef struct {
         char16_t *id;         /* The unique identifier for this entry (typically the filename of the file defining the entry, possibly suffixed with a profile id) */
@@ -77,6 +80,7 @@ typedef struct {
         EFI_HANDLE *device;
         LoaderType type;
         char16_t *loader;
+        char16_t *url;
         char16_t *devicetree;
         char16_t *options;
         bool options_implied; /* If true, these options are implied if we invoke the PE binary without any parameters (as in: UKI). If false we must specify these options explicitly. */
@@ -620,6 +624,8 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
                         printf("        device: %ls\n", dp_str);
                 if (entry->loader)
                         printf("        loader: %ls\n", entry->loader);
+                if (entry->url)
+                        printf("           url: %ls\n", entry->url);
                 STRV_FOREACH(initrd, entry->initrd)
                         printf("        initrd: %ls\n", *initrd);
                 if (entry->devicetree)
@@ -1211,6 +1217,7 @@ static BootEntry* boot_entry_free(BootEntry *entry) {
         free(entry->version);
         free(entry->machine_id);
         free(entry->loader);
+        free(entry->url);
         free(entry->devicetree);
         free(entry->options);
         strv_free(entry->initrd);
@@ -1508,6 +1515,32 @@ static void boot_entry_add_type1(
                         entry->loader = xstr8_to_path(value);
                         entry->key = 'l';
 
+                } else if (streq8(key, "uki-url")) {
+
+                        if (!IN_SET(entry->type, LOADER_UNDEFINED, LOADER_UKI_URL)) {
+                                entry->type = LOADER_BAD;
+                                break;
+                        }
+
+                        _cleanup_free_ char16_t *p = xstr8_to_16(value);
+
+                        const char16_t *e = startswith(p, u":");
+                        if (e) {
+                                _cleanup_free_ char16_t *origin = disk_get_url(device);
+
+                                if (!origin) {
+                                        /* Automatically hide entries that require an original URL but where none is available. */
+                                        entry->type = LOADER_IGNORE;
+                                        break;
+                                }
+
+                                entry->url = url_replace_last_component(origin, p);
+                        } else
+                                entry->url = TAKE_PTR(p);
+
+                        entry->type = LOADER_UKI_URL;
+                        entry->key = 'l';
+
                 } else if (streq8(key, "efi")) {
 
                         if (!IN_SET(entry->type, LOADER_UNDEFINED, LOADER_EFI)) {
@@ -1560,11 +1593,13 @@ static void boot_entry_add_type1(
         if (IN_SET(entry->type, LOADER_UNDEFINED, LOADER_BAD, LOADER_IGNORE))
                 return;
 
-        /* check existence */
-        _cleanup_file_close_ EFI_FILE *handle = NULL;
-        err = root_dir->Open(root_dir, &handle, entry->loader, EFI_FILE_MODE_READ, 0ULL);
-        if (err != EFI_SUCCESS)
-                return;
+        /* Check existence of loader file */
+        if (entry->loader) {
+                _cleanup_file_close_ EFI_FILE *handle = NULL;
+                err = root_dir->Open(root_dir, &handle, entry->loader, EFI_FILE_MODE_READ, 0ULL);
+                if (err != EFI_SUCCESS)
+                        return;
+        }
 
         entry->device = device;
         entry->id = xstrdup16(file);
@@ -2560,13 +2595,77 @@ static EFI_STATUS initrd_prepare(
         return EFI_SUCCESS;
 }
 
+static EFI_STATUS expand_path(
+                EFI_HANDLE parent_image,
+                EFI_DEVICE_PATH *path,
+                EFI_DEVICE_PATH **ret_expanded_path) {
+
+        EFI_STATUS err;
+
+        assert(parent_image);
+        assert(path);
+        assert(ret_expanded_path);
+
+        _cleanup_free_ EFI_HANDLE *handles = NULL;
+        size_t n_handles = 0;
+        err = BS->LocateHandleBuffer(
+                        ByProtocol,
+                        MAKE_GUID_PTR(EFI_LOAD_FILE_PROTOCOL),
+                        /* SearchKey= */ NULL,
+                        &n_handles,
+                        &handles);
+        if (!IN_SET(err, EFI_SUCCESS, EFI_NOT_FOUND))
+                return log_error_status(err, "Failed to get list of LoadFile protocol handles: %m");
+
+        FOREACH_ARRAY(h, handles, n_handles) {
+                EFI_LOAD_FILE_PROTOCOL *load_file = NULL;
+                err = BS->OpenProtocol(
+                                *h,
+                                MAKE_GUID_PTR(EFI_LOAD_FILE_PROTOCOL),
+                                (void**) &load_file,
+                                parent_image,
+                                /* ControllerHandler= */ NULL,
+                                EFI_OPEN_PROTOCOL_GET_PROTOCOL);
+                if (IN_SET(err, EFI_NOT_FOUND, EFI_INVALID_PARAMETER))
+                        continue; /* Skip over LoadFile() handles that are not suitable for this kind of device path */
+                if (err != EFI_SUCCESS) {
+                        log_warning_status(err, "Failed to get LoadFile() protocol, ignoring: %m");
+                        continue;
+                }
+
+                /* Issue a LoadFile() request without interest in the actual data (i.e. size is zero and
+                 * buffer pointer is NULL), but with BootPolicy set to true, this has the effect of
+                 * downloading the URL and establishing a handle for it. */
+                size_t size = 0;
+                err = load_file->LoadFile(load_file, path, /* BootPolicy= */ true, &size, /* Buffer= */ NULL);
+                if (IN_SET(err, EFI_NOT_FOUND, EFI_INVALID_PARAMETER))
+                        continue; /* Skip over LoadFile() handles that after all don't consider themselves
+                                   * appropriate for this kind of path */
+                if (err != EFI_BUFFER_TOO_SMALL) {
+                        log_warning_status(err, "Failed to get file via LoadFile() protocol, ignoring: %m");
+                        continue;
+                }
+
+                /* Now read the updated file path */
+                EFI_DEVICE_PATH *load_file_path = NULL;
+                err = BS->HandleProtocol(*h, MAKE_GUID_PTR(EFI_DEVICE_PATH_PROTOCOL), (void **) &load_file_path);
+                if (err != EFI_SUCCESS)
+                        return log_error_status(err, "Failed to get LoadFile() device path: %m");
+
+                /* And return a copy */
+                *ret_expanded_path = device_path_dup(load_file_path);
+                return EFI_SUCCESS;
+        }
+
+        return EFI_NOT_FOUND;
+}
+
 static EFI_STATUS image_start(
                 EFI_HANDLE parent_image,
                 const BootEntry *entry) {
 
         _cleanup_(devicetree_cleanup) struct devicetree_state dtstate = {};
         _cleanup_(unload_imagep) EFI_HANDLE image = NULL;
-        _cleanup_free_ EFI_DEVICE_PATH *path = NULL;
         EFI_STATUS err;
 
         assert(entry);
@@ -2576,38 +2675,83 @@ static EFI_STATUS image_start(
                 (void) entry->call();
 
         _cleanup_file_close_ EFI_FILE *image_root = NULL;
-        err = open_volume(entry->device, &image_root);
-        if (err != EFI_SUCCESS)
-                return log_error_status(err, "Error opening root path: %m");
+        _cleanup_free_ EFI_DEVICE_PATH *path = NULL;
+        bool boot_policy;
+        if (entry->url) {
+                /* Generate a device path that only contains the URL */
+                err = make_url_device_path(entry->url, &path);
+                if (err != EFI_SUCCESS)
+                        return log_error_status(err, "Error making URL device path: %m");
 
-        err = make_file_device_path(entry->device, entry->loader, &path);
-        if (err != EFI_SUCCESS)
-                return log_error_status(err, "Error making file device path: %m");
+                /* Try to expand this path on all available NICs and IP protocols */
+                _cleanup_free_ EFI_DEVICE_PATH *expanded_path = NULL;
+                for (unsigned n_attempt = 0;; n_attempt++) {
+                        err = expand_path(parent_image, path, &expanded_path);
+                        if (err == EFI_SUCCESS) {
+                                /* If this worked then let's try to boot with the expanded path. */
+                                free(path);
+                                path = TAKE_PTR(expanded_path);
+                                break;
+                        }
+                        if (err != EFI_NOT_FOUND || n_attempt > 5) {
+                                log_warning_status(err, "Failed to expand device path, ignoring: %m");
+                                break;
+                        }
 
-        size_t initrd_size = 0;
-        _cleanup_pages_ Pages initrd_pages = {};
-        _cleanup_free_ char16_t *options_initrd = NULL;
-        err = initrd_prepare(image_root, entry, &options_initrd, &initrd_pages, &initrd_size);
-        if (err != EFI_SUCCESS)
-                return log_error_status(err, "Error preparing initrd: %m");
+                        /* Maybe the network devices have been configured for this yet (because we are the
+                         * first piece of code trying to do networking)? Then let's connect them, and try
+                         * again. */
+                        reconnect_all_drivers();
+                }
 
-        err = shim_load_image(parent_image, path, &image);
+                /* Note: if the path expansion doesn't work, we'll continue with the unexpanded path. Which
+                 * will probably fail on many (most?) firmwares, but it's worth a try. */
+
+                boot_policy = true; /* Set BootPolicy parameter to LoadImage() to true, which ultimately
+                                     * controls whether the LoadFile (and thus HTTP boot) or LoadFile2 (which
+                                     * does not set up HTTP boot) protocol shall be used. */
+        } else {
+                assert(entry->device);
+                assert(entry->loader);
+
+                err = open_volume(entry->device, &image_root);
+                if (err != EFI_SUCCESS)
+                        return log_error_status(err, "Error opening root path: %m");
+
+                err = make_file_device_path(entry->device, entry->loader, &path);
+                if (err != EFI_SUCCESS)
+                        return log_error_status(err, "Error making file device path: %m");
+
+                boot_policy = false;
+        }
+
+        /* Authenticate the image before we continue with initrd or DT stuff */
+        err = shim_load_image(parent_image, path, boot_policy, &image);
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Error loading %ls: %m", entry->loader);
 
-        /* DTBs are loaded by the kernel before ExitBootServices, and they can be used to map and assign
-         * arbitrary memory ranges, so skip them when secure boot is enabled as the DTB here is unverified.
-         */
-        if (entry->devicetree && !secure_boot_enabled()) {
-                err = devicetree_install(&dtstate, image_root, entry->devicetree);
-                if (err != EFI_SUCCESS)
-                        return log_error_status(err, "Error loading %ls: %m", entry->devicetree);
-        }
-
         _cleanup_(cleanup_initrd) EFI_HANDLE initrd_handle = NULL;
-        err = initrd_register(PHYSICAL_ADDRESS_TO_POINTER(initrd_pages.addr), initrd_size, &initrd_handle);
-        if (err != EFI_SUCCESS)
-                return log_error_status(err, "Error registering initrd: %m");
+        _cleanup_free_ char16_t *options_initrd = NULL;
+        _cleanup_pages_ Pages initrd_pages = {};
+        size_t initrd_size = 0;
+        if (image_root) {
+                err = initrd_prepare(image_root, entry, &options_initrd, &initrd_pages, &initrd_size);
+                if (err != EFI_SUCCESS)
+                        return log_error_status(err, "Error preparing initrd: %m");
+
+                /* DTBs are loaded by the kernel before ExitBootServices(), and they can be used to map and
+                 * assign arbitrary memory ranges, so skip them when secure boot is enabled as the DTB here
+                 * is unverified. */
+                if (entry->devicetree && !secure_boot_enabled()) {
+                        err = devicetree_install(&dtstate, image_root, entry->devicetree);
+                        if (err != EFI_SUCCESS)
+                                return log_error_status(err, "Error loading %ls: %m", entry->devicetree);
+                }
+
+                err = initrd_register(PHYSICAL_ADDRESS_TO_POINTER(initrd_pages.addr), initrd_size, &initrd_handle);
+                if (err != EFI_SUCCESS)
+                        return log_error_status(err, "Error registering initrd: %m");
+        }
 
         EFI_LOADED_IMAGE_PROTOCOL *loaded_image;
         err = BS->HandleProtocol(image, MAKE_GUID_PTR(EFI_LOADED_IMAGE_PROTOCOL), (void **) &loaded_image);
@@ -2673,7 +2817,7 @@ static EFI_STATUS image_start(
                         err = EFI_UNSUPPORTED;
         }
 
-        return log_error_status(err, "Failed to execute %ls (%ls): %m", entry->title_show, entry->loader);
+        return log_error_status(err, "Failed to execute %ls (%ls): %m", entry->title_show, entry->loader ?: entry->url);
 }
 
 static void config_free(Config *config) {
@@ -2803,6 +2947,7 @@ static void export_loader_variables(
                 EFI_LOADER_FEATURE_MULTI_PROFILE_UKI |
                 EFI_LOADER_FEATURE_REPORT_URL |
                 EFI_LOADER_FEATURE_TYPE1_UKI |
+                EFI_LOADER_FEATURE_TYPE1_UKI_URL |
                 0;
 
         assert(loaded_image);

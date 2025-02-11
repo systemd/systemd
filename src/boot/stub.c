@@ -598,7 +598,7 @@ static EFI_STATUS load_addons(
 
                 /* By using shim_load_image, we cover both the case where the PE files are signed with MoK
                  * and with DB, and running with or without shim. */
-                err = shim_load_image(stub_image, addon_path, &addon);
+                err = shim_load_image(stub_image, addon_path, /* boot_policy= */ false, &addon);
                 if (err != EFI_SUCCESS) {
                         log_error_status(err,
                                          "Failed to read '%ls' from '%ls', ignoring: %m",
