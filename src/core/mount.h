@@ -81,15 +81,13 @@ struct Mount {
 
         MountState state, deserialized_state;
 
-        ExecCommand* control_command;
+        ExecCommand *control_command;
         MountExecCommand control_command_id;
         PidRef control_pid;
 
         sd_event_source *timer_event_source;
 
         unsigned n_retry_umount;
-
-        char **graceful_options;
 };
 
 extern const UnitVTable mount_vtable;
