@@ -39,7 +39,7 @@ static const char *arg_listen_raw = NULL;
 static const char *arg_listen_http = NULL;
 static const char *arg_listen_https = NULL;
 static OrderedHashmap *arg_compression = NULL;
-static char **arg_files = NULL; /* Do not free this. */
+static char **arg_files = NULL;
 static bool arg_compress = true;
 static bool arg_seal = false;
 static int http_socket = -1, https_socket = -1;
@@ -62,6 +62,7 @@ static uint64_t arg_max_size = UINT64_MAX;
 static uint64_t arg_n_max_files = UINT64_MAX;
 static uint64_t arg_keep_free = UINT64_MAX;
 
+STATIC_DESTRUCTOR_REGISTER(arg_files, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_gnutls_log, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_key, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_cert, freep);
@@ -1017,8 +1018,9 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached();
                 }
 
-        if (optind < argc)
-                arg_files = argv + optind;
+        arg_files = strv_copy(strv_skip(argv, optind));
+        if (!arg_files)
+                return log_oom();
 
         type_a = arg_getter || !strv_isempty(arg_files);
         type_b = arg_url
