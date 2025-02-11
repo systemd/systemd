@@ -51,6 +51,8 @@ typedef enum LoaderType {
         LOADER_LINUX,         /* Boot loader spec type #1 entries with "linux" line */
         LOADER_UNIFIED_LINUX, /* Boot loader spec type #2 entries */
         LOADER_SECURE_BOOT_KEYS,
+        LOADER_BAD,           /* Marker: this boot loader spec type #1 entry is invalid */
+        LOADER_IGNORE,        /* Marker: this boot loader spec type #1 entry does not match local host */
         _LOADER_TYPE_MAX,
 } LoaderType;
 
@@ -1473,26 +1475,38 @@ static void boot_entry_add_type1(
                         entry->machine_id = xstr8_to_16(value);
 
                 } else if (streq8(key, "linux")) {
+
+                        if (!IN_SET(entry->type, LOADER_UNDEFINED, LOADER_LINUX)) {
+                                entry->type = LOADER_BAD;
+                                break;
+                        }
+
                         free(entry->loader);
                         entry->type = LOADER_LINUX;
                         entry->loader = xstr8_to_path(value);
                         entry->key = 'l';
 
                 } else if (streq8(key, "efi")) {
+
+                        if (!IN_SET(entry->type, LOADER_UNDEFINED, LOADER_EFI)) {
+                                entry->type = LOADER_BAD;
+                                break;
+                        }
+
                         entry->type = LOADER_EFI;
                         free(entry->loader);
                         entry->loader = xstr8_to_path(value);
 
                         /* do not add an entry for ourselves */
                         if (strcaseeq16(entry->loader, loaded_image_path)) {
-                                entry->type = LOADER_UNDEFINED;
+                                entry->type = LOADER_IGNORE;
                                 break;
                         }
 
                 } else if (streq8(key, "architecture")) {
                         /* do not add an entry for an EFI image of architecture not matching with that of the image */
                         if (!strcaseeq8(value, EFI_MACHINE_TYPE_NAME)) {
-                                entry->type = LOADER_UNDEFINED;
+                                entry->type = LOADER_IGNORE;
                                 break;
                         }
 
@@ -1520,7 +1534,8 @@ static void boot_entry_add_type1(
                                 entry->options = TAKE_PTR(new);
                 }
 
-        if (entry->type == LOADER_UNDEFINED)
+        /* Filter all entries that are badly defined or don't apply to the local system. */
+        if (IN_SET(entry->type, LOADER_UNDEFINED, LOADER_BAD, LOADER_IGNORE))
                 return;
 
         /* check existence */
