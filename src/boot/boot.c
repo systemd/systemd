@@ -49,7 +49,8 @@ typedef enum LoaderType {
         LOADER_AUTO,
         LOADER_EFI,           /* Boot loader spec type #1 entries with "efi" line */
         LOADER_LINUX,         /* Boot loader spec type #1 entries with "linux" line */
-        LOADER_UNIFIED_LINUX, /* Boot loader spec type #2 entries */
+        LOADER_UKI,           /* Boot loader spec type #1 entries with "uki" line */
+        LOADER_TYPE2_UKI,     /* Boot loader spec type #2 entries */
         LOADER_SECURE_BOOT_KEYS,
         LOADER_BAD,           /* Marker: this boot loader spec type #1 entry is invalid */
         LOADER_IGNORE,        /* Marker: this boot loader spec type #1 entry does not match local host */
@@ -57,13 +58,13 @@ typedef enum LoaderType {
 } LoaderType;
 
 /* Which loader types permit command line editing */
-#define LOADER_TYPE_ALLOW_EDITOR(t) IN_SET(t, LOADER_EFI, LOADER_LINUX, LOADER_UNIFIED_LINUX)
+#define LOADER_TYPE_ALLOW_EDITOR(t) IN_SET(t, LOADER_EFI, LOADER_LINUX, LOADER_UKI, LOADER_TYPE2_UKI)
 
 /* Which loader types allow command line editing in SecureBoot mode */
 #define LOADER_TYPE_ALLOW_EDITOR_IN_SB(t) IN_SET(t, LOADER_EFI, LOADER_LINUX)
 
 /* Which loader types shall be considered for automatic selection */
-#define LOADER_TYPE_MAY_AUTO_SELECT(t) IN_SET(t, LOADER_EFI, LOADER_LINUX, LOADER_UNIFIED_LINUX)
+#define LOADER_TYPE_MAY_AUTO_SELECT(t) IN_SET(t, LOADER_EFI, LOADER_LINUX, LOADER_UKI, LOADER_TYPE2_UKI)
 
 typedef struct {
         char16_t *id;         /* The unique identifier for this entry (typically the filename of the file defining the entry, possibly suffixed with a profile id) */
@@ -1495,6 +1496,18 @@ static void boot_entry_add_type1(
                         entry->loader = xstr8_to_path(value);
                         entry->key = 'l';
 
+                } else if (streq8(key, "uki")) {
+
+                        if (!IN_SET(entry->type, LOADER_UNDEFINED, LOADER_UKI)) {
+                                entry->type = LOADER_BAD;
+                                break;
+                        }
+
+                        free(entry->loader);
+                        entry->type = LOADER_UKI;
+                        entry->loader = xstr8_to_path(value);
+                        entry->key = 'l';
+
                 } else if (streq8(key, "efi")) {
 
                         if (!IN_SET(entry->type, LOADER_UNDEFINED, LOADER_EFI)) {
@@ -2347,7 +2360,7 @@ static void boot_entry_add_type2(
                 *entry = (BootEntry) {
                         .id = strtolower16(TAKE_PTR(id)),
                         .id_without_profile = profile > 0 ? strtolower16(xstrdup16(filename)) : NULL,
-                        .type = LOADER_UNIFIED_LINUX,
+                        .type = LOADER_TYPE2_UKI,
                         .title = TAKE_PTR(title),
                         .version = xstrdup16(good_version),
                         .device = device,
@@ -2789,6 +2802,7 @@ static void export_loader_variables(
                 EFI_LOADER_FEATURE_MENU_DISABLE |
                 EFI_LOADER_FEATURE_MULTI_PROFILE_UKI |
                 EFI_LOADER_FEATURE_REPORT_URL |
+                EFI_LOADER_FEATURE_TYPE1_UKI |
                 0;
 
         assert(loaded_image);
