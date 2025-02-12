@@ -167,7 +167,7 @@ finalize:
         /* 5. remove symlink ID -> wd.
          * The file is always owned by the device. Hence, it is safe to remove it unconditionally. */
         if (unlinkat(dirfd, id, 0) < 0 && errno != ENOENT)
-                log_device_debug_errno(dev, errno, "Failed to remove '/run/udev/watch/%s': %m", id);
+                log_device_debug_errno(dev, errno, "Failed to remove '/run/udev/watch/%s', ignoring: %m", id);
 
         return r;
 }
