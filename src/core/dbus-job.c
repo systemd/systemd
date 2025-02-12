@@ -247,7 +247,10 @@ void bus_job_send_change_signal(Job *j) {
                 job_add_to_gc_queue(j);
         }
 
-        r = bus_foreach_bus(j->manager, j->bus_track, j->sent_dbus_new_signal ? send_changed_signal : send_new_signal, j);
+        if (j->sent_dbus_new_signal)
+                r = bus_foreach_bus_to_all(j->manager, send_changed_signal, j);
+        else
+                r = bus_foreach_bus(j->manager, j->bus_track, send_new_signal, j);
         if (r < 0)
                 log_debug_errno(r, "Failed to send job change signal for %u: %m", j->id);
 
