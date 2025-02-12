@@ -403,7 +403,7 @@ void unit_release_resources(Unit *u) {
                 return;
 
         state = unit_active_state(u);
-        if (!IN_SET(state, UNIT_INACTIVE, UNIT_FAILED))
+        if (!UNIT_IS_INACTIVE_OR_FAILED(state))
                 return;
 
         if (unit_will_restart(u))
