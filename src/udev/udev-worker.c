@@ -124,6 +124,7 @@ static int worker_lock_whole_disk(sd_device *dev, int *ret_fd) {
         if (flock(fd, LOCK_SH|LOCK_NB) < 0)
                 return log_device_debug_errno(dev, errno, "Failed to flock(%s): %m", val);
 
+        log_device_debug(dev, "Successfully took flock(LOCK_SH) for %s, it will be released after the event has been processed.", val);
         *ret_fd = TAKE_FD(fd);
         return 1;
 
