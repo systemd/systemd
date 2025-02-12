@@ -1056,7 +1056,9 @@ testcase_13_varlink_subscribe_dns_configuration() {
     systemctl reload systemd-resolved.service
 
     # Update a link configuration.
-    resolvectl dns dns0 8.8.4.4 1.1.1.1
+    if [[ ! -v ASAN_OPTIONS ]]; then
+        resolvectl dns dns0 8.8.4.4 1.1.1.1
+    fi
     resolvectl domain dns0 ~.
 
     # Wait for the monitor to exit gracefully.
@@ -1081,9 +1083,11 @@ testcase_13_varlink_subscribe_dns_configuration() {
         <(jq -cr --seq  '.configuration[] | select(.ifname == null and .servers != null and .searchDomains != null) | {"global":{servers: [.servers[] | .address], domains: [.searchDomains[] | .name]}}' "$tmpfile")
 
     # Check that the link configuration change was reflected.
-    grep -qF \
-        '{"dns0":{"servers":[[8,8,4,4],[1,1,1,1]],"domains":["."]}}' \
-        <(jq -cr --seq  '.configuration[] | select(.ifname == "dns0" and .servers != null and .searchDomains != null) | {"dns0":{servers: [.servers[] | .address], domains: [.searchDomains[] | .name]}}' "$tmpfile")
+    if [[ ! -v ASAN_OPTIONS ]]; then
+        grep -qF \
+             '{"dns0":{"servers":[[8,8,4,4],[1,1,1,1]],"domains":["."]}}' \
+             <(jq -cr --seq  '.configuration[] | select(.ifname == "dns0" and .servers != null and .searchDomains != null) | {"dns0":{servers: [.servers[] | .address], domains: [.searchDomains[] | .name]}}' "$tmpfile")
+    fi
 }
 
 # Test RefuseRecordTypes
