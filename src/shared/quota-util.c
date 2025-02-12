@@ -5,7 +5,10 @@
 
 #include "alloc-util.h"
 #include "blockdev-util.h"
+#include "chattr-util.h"
 #include "device-util.h"
+#include "errno-util.h"
+#include "missing_syscall.h"
 #include "quota-util.h"
 
 int quotactl_devnum(int cmd, dev_t devnum, int id, void *addr) {
@@ -39,4 +42,42 @@ int quotactl_path(int cmd, const char *path, int id, void *addr) {
                 return -ENODEV;
 
         return quotactl_devnum(cmd, devno, id, addr);
+}
+
+int is_proj_id_quota_supported(int fd, uint32_t proj_id, struct dqblk *req) {
+        int r;
+
+        r = RET_NERRNO(quotactl_fd(fd, QCMD_FIXED(Q_GETQUOTA, PRJQUOTA), proj_id, req));
+        if (r == -ESRCH || ERRNO_IS_NEG_NOT_SUPPORTED(r) || ERRNO_IS_NEG_PRIVILEGE(r))
+                return false;
+
+        if (r < 0)
+                return r;
+
+        return true;
+}
+
+int set_proj_id_verify_exclusive(int fd, uint32_t proj_id) {
+        int r = 0;
+
+        /* Set to top level first because of the case where directories already exist with multiple subdirectories,
+           in which case, number of inodes will be > 1 if applied recursively only */
+        r = set_proj_id(fd, proj_id);
+        if (r < 0)
+                return r;
+
+        /* Confirm only the current inode has the project id (in case of race conditions) */
+        struct dqblk req;
+        r = RET_NERRNO(quotactl_fd(fd, QCMD_FIXED(Q_GETQUOTA, PRJQUOTA), proj_id, &req));
+        if (r < 0)
+                return r;
+
+        if (req.dqb_curinodes != 1)
+                return false;
+
+        r = set_proj_id_recursive(fd, proj_id);
+        if (r < 0)
+                return r;
+
+        return true;
 }
