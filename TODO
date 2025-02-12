@@ -125,6 +125,15 @@ Deprecations and removals:
 
 Features:
 
+* make killing more debuggable: when we kill a service do so setting the
+  .si_code field with a little bit of info. Specifically, we can set a
+  recognizable value to first of all indicate that it's systemd that did the
+  killing. Secondly, we can give a reason for the killing, i.e. OOM or so, and
+  also the phase we are in, and which process we think we are killing (i.e.
+  main vs control porcess, useful in case of sd_notify() MAINPID= debugging).
+  Net result: people who try to debug why their process gets killed should have
+  some minimal, nice metadata directly on the signal event.
+
 * import-generator: add option to download into /run/ rather than /var/, and
   make it default in the initrd
 
