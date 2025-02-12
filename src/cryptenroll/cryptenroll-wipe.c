@@ -356,10 +356,10 @@ int wipe_slots(struct crypt_device *cd,
                 break; /* Nothing to do here */
 
         case WIPE_ALL:
+                log_info("ALL slots will be deleted, make sure to register new keys before rebooting");
                 r = find_all_slots(cd, wipe_slots, keep_slots);
                 if (r < 0)
                         return r;
-
                 break;
 
         case WIPE_EMPTY_PASSPHRASE:
