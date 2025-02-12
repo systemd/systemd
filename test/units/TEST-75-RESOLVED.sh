@@ -1135,6 +1135,30 @@ testcase_14_refuse_record_types() {
 
     run resolvectl query localhost5 --type=A
     grep -qF "127.128.0.5" "$RUN_OUT"
+
+    {
+        echo "[Resolve]"
+        echo "RefuseRecordTypes=AAAA"
+    } >/run/systemd/resolved.conf.d/refuserecords.conf
+    systemctl reload systemd-resolved.service
+
+    run dig localhost -t SRV
+    grep -qF "status: NOERROR" "$RUN_OUT"
+
+    run dig localhost -t TXT
+    grep -qF "status: NOERROR" "$RUN_OUT"
+
+    run dig localhost -t AAAA
+    grep -qF "status: REFUSED" "$RUN_OUT"
+
+    (! run resolvectl query localhost5 --type=SRV)
+    grep -qF "does not have any RR of the requested type" "$RUN_OUT"
+
+    (! run resolvectl query localhost5 --type=TXT)
+    grep -qF "does not have any RR of the requested type" "$RUN_OUT"
+
+    (! run resolvectl query localhost5 --type=AAAA)
+    grep -qF "DNS query type refused." "$RUN_OUT"
 }
 
 # PRE-SETUP
