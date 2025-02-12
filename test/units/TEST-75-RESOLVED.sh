@@ -1109,8 +1109,6 @@ testcase_14_refuse_record_types() {
     fi
     ln -svf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
     systemctl reload systemd-resolved.service
-    # disable_ipv6 is necessary do refuse AAAA
-    disable_ipv6
     run dig localhost -t AAAA
     grep -qF "status: REFUSED" "$RUN_OUT"
 
