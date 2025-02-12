@@ -25,6 +25,9 @@ typedef enum PTYForwardFlags {
 
 typedef int (*PTYForwardHandler)(PTYForward *f, int rcode, void *userdata);
 
+#define N_PTY_FORWARD_SIGNALS 7
+extern const int pty_forward_signals[N_PTY_FORWARD_SIGNALS];
+
 int pty_forward_new(sd_event *event, int master, PTYForwardFlags flags, PTYForward **ret);
 PTYForward* pty_forward_free(PTYForward *f);
 
