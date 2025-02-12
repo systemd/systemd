@@ -16,6 +16,12 @@ set -o pipefail
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
+if [[ -f /usr/lib/systemd/systemd-asan-env ]]; then
+    # shellcheck source=/dev/null
+    . /usr/lib/systemd/systemd-asan-env
+    export LD_PRELOAD
+fi
+
 if ! command knotc >/dev/null; then
     echo "command knotc not found, skipping..." | tee --append /skipped
     exit 77
