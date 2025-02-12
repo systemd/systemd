@@ -91,6 +91,9 @@ static int session_dispatch_leader_pidfd(sd_event_source *es, int fd, uint32_t r
         Session *s = ASSERT_PTR(userdata);
 
         assert(s->leader.fd == fd);
+
+        s->leader_pidfd_event_source = sd_event_source_unref(s->leader_pidfd_event_source);
+
         session_stop(s, /* force= */ false);
 
         return 1;
@@ -959,7 +962,6 @@ int session_stop(Session *s, bool force) {
                 return 0;
 
         s->timer_event_source = sd_event_source_unref(s->timer_event_source);
-        s->leader_pidfd_event_source = sd_event_source_unref(s->leader_pidfd_event_source);
 
         if (s->seat)
                 seat_evict_position(s->seat, s);
