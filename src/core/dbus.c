@@ -2,6 +2,7 @@
 
 #include <errno.h>
 #include <sys/epoll.h>
+#include <stdbool.h>
 #include <unistd.h>
 
 #include "sd-bus.h"
@@ -1144,12 +1145,12 @@ int bus_fdset_add_all(Manager *m, FDSet *fds) {
         return 0;
 }
 
-int bus_foreach_bus(
-                Manager *m,
-                sd_bus_track *subscribed2,
-                int (*send_message)(sd_bus *bus, void *userdata),
-                void *userdata) {
-
+static int bus_foreach_bus_internal(Manager *m,
+                                    sd_bus_track *subscribed,
+                                    bool only_with_subscribers,
+                                    int (*send_message)(sd_bus *bus, void *userdata),
+                                    void *userdata)
+{
         int r = 0;
 
         assert(m);
@@ -1166,13 +1167,31 @@ int bus_foreach_bus(
                 RET_GATHER(r, send_message(b, userdata));
         }
 
-        /* Send to API bus, but only if somebody is subscribed */
+        /* Send to API bus, if have subscribers and if we should honor them */
         if (m->api_bus &&
-            (sd_bus_track_count(m->subscribed) > 0 ||
-             sd_bus_track_count(subscribed2) > 0))
+                (!only_with_subscribers ||
+                 sd_bus_track_count(subscribed) > 0))
                 RET_GATHER(r, send_message(m->api_bus, userdata));
 
         return r;
+}
+
+int bus_foreach_bus_to_all(Manager *m,
+                           int (*send_message)(sd_bus *bus, void *userdata),
+                           void *userdata)
+{
+        return bus_foreach_bus_internal(m, NULL, false, send_message, userdata);
+}
+
+int bus_foreach_bus(
+                Manager *m,
+                sd_bus_track *subscribed2,
+                int (*send_message)(sd_bus *bus, void *userdata),
+                void *userdata) {
+        sd_bus_track *subscribed;
+
+        subscribed = subscribed2 ? subscribed2 : m->subscribed;
+        return bus_foreach_bus_internal(m, subscribed, true, send_message, userdata);
 }
 
 void bus_track_serialize(sd_bus_track *t, FILE *f, const char *prefix) {
