@@ -125,6 +125,13 @@ Deprecations and removals:
 
 Features:
 
+* write a document explaining how to write correct udev rules. Mention things
+  such as:
+  1. do not do lists of vid/pid matches, use hwdb for that
+  2. add|change action matches are typically wrong, should be != remove
+  3. use GOTO, make rules short
+  4. people shouldn't try to make rules file non-world-readable
+
 * make killing more debuggable: when we kill a service do so setting the
   .si_code field with a little bit of info. Specifically, we can set a
   recognizable value to first of all indicate that it's systemd that did the
