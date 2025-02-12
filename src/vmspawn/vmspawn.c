@@ -921,6 +921,46 @@ static int cmdline_add_vsock(char ***cmdline, int vsock_fd) {
         return 0;
 }
 
+static int cmdline_add_kernel_cmdline(char ***cmdline, const char *kernel) {
+        assert(cmdline);
+
+        if (strv_isempty(arg_kernel_cmdline_extra))
+                return 0;
+
+        _cleanup_free_ char *kcl = strv_join(arg_kernel_cmdline_extra, " ");
+        if (!kcl)
+                return log_oom();
+
+        if (kernel) {
+                if (strv_extend_many(cmdline, "-append", kcl) < 0)
+                        return log_oom();
+        } else {
+                if (!ARCHITECTURE_SUPPORTS_SMBIOS) {
+                        log_warning("Cannot append extra args to kernel cmdline, native architecture doesn't support SMBIOS, ignoring.");
+                        return 0;
+                }
+
+                _cleanup_free_ char *escaped_kcl = NULL;
+                escaped_kcl = escape_qemu_value(kcl);
+                if (!escaped_kcl)
+                        return log_oom();
+
+                if (strv_extend(cmdline, "-smbios") < 0)
+                        return log_oom();
+
+                if (strv_extendf(cmdline, "type=11,value=io.systemd.stub.kernel-cmdline-extra=%s", escaped_kcl) < 0)
+                        return log_oom();
+
+                if (strv_extend(cmdline, "-smbios") < 0)
+                        return log_oom();
+
+                if (strv_extendf(cmdline, "type=11,value=io.systemd.boot.kernel-cmdline-extra=%s", escaped_kcl) < 0)
+                        return log_oom();
+        }
+
+        return 0;
+}
+
 static int start_tpm(
                 sd_bus *bus,
                 const char *scope,
@@ -1864,41 +1904,9 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return log_oom();
         }
 
-        if (ARCHITECTURE_SUPPORTS_SMBIOS) {
-                _cleanup_free_ char *kcl = strv_join(arg_kernel_cmdline_extra, " "), *escaped_kcl = NULL;
-                if (!kcl)
-                        return log_oom();
-
-                if (kernel) {
-                        r = strv_extend_many(&cmdline, "-append", kcl);
-                        if (r < 0)
-                                return log_oom();
-                } else {
-                        if (ARCHITECTURE_SUPPORTS_SMBIOS) {
-                                escaped_kcl = escape_qemu_value(kcl);
-                                if (!escaped_kcl)
-                                        log_oom();
-
-                                r = strv_extend(&cmdline, "-smbios");
-                                if (r < 0)
-                                        return log_oom();
-
-                                r = strv_extendf(&cmdline, "type=11,value=io.systemd.stub.kernel-cmdline-extra=%s", escaped_kcl);
-                                if (r < 0)
-                                        return log_oom();
-
-                                r = strv_extend(&cmdline, "-smbios");
-                                if (r < 0)
-                                        return log_oom();
-
-                                r = strv_extendf(&cmdline, "type=11,value=io.systemd.boot.kernel-cmdline-extra=%s", escaped_kcl);
-                                if (r < 0)
-                                        return log_oom();
-                        } else
-                                log_warning("Cannot append extra args to kernel cmdline, native architecture doesn't support SMBIOS, ignoring");
-                }
-        } else
-                log_warning("Cannot append extra args to kernel cmdline, native architecture doesn't support SMBIOS");
+        r = cmdline_add_kernel_cmdline(&cmdline, kernel);
+        if (r < 0)
+                return r;
 
         /* disable TPM autodetection if the user's hardware doesn't support it */
         if (!ARCHITECTURE_SUPPORTS_TPM) {
