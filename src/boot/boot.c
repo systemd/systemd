@@ -1464,7 +1464,6 @@ static void boot_entry_add_type1(
         assert(config);
         assert(device);
         assert(root_dir);
-        assert(path);
         assert(file);
         assert(content);
 
@@ -1607,7 +1606,8 @@ static void boot_entry_add_type1(
 
         config_add_entry(config, entry);
 
-        boot_entry_parse_tries(entry, path, file, u".conf");
+        if (path)
+                boot_entry_parse_tries(entry, path, file, u".conf");
         TAKE_PTR(entry);
 }
 
@@ -1717,6 +1717,19 @@ static void config_load_defaults(Config *config, EFI_FILE *root_dir) {
                 (void) efivar_get_str16(MAKE_GUID_PTR(LOADER), u"LoaderEntryLastBooted", &config->entry_saved);
 }
 
+static bool valid_type1_filename(const char16_t *fname) {
+        assert(fname);
+
+        if (IN_SET(fname[0], u'.', u'\0'))
+                return false;
+        if (!endswith_no_case(fname, u".conf"))
+                return false;
+        if (startswith_no_case(fname, u"auto-"))
+                return false;
+
+        return true;
+}
+
 static void config_load_type1_entries(
                 Config *config,
                 EFI_HANDLE *device,
@@ -1747,13 +1760,9 @@ static void config_load_type1_entries(
                 if (err != EFI_SUCCESS || !f)
                         break;
 
-                if (f->FileName[0] == '.')
-                        continue;
                 if (FLAGS_SET(f->Attribute, EFI_FILE_DIRECTORY))
                         continue;
-                if (!endswith_no_case(f->FileName, u".conf"))
-                        continue;
-                if (startswith_no_case(f->FileName, u"auto-"))
+                if (!valid_type1_filename(f->FileName))
                         continue;
 
                 err = file_read(entries_dir,
@@ -1766,6 +1775,41 @@ static void config_load_type1_entries(
                         continue;
 
                 boot_entry_add_type1(config, device, root_dir, dropin_path, f->FileName, content, loaded_image_path);
+        }
+}
+
+static void config_load_smbios_entries(
+                Config *config,
+                EFI_HANDLE *device,
+                EFI_FILE *root_dir,
+                const char16_t *loaded_image_path) {
+
+        assert(config);
+        assert(device);
+        assert(root_dir);
+
+        /* Loads Boot Loader Type #1 entries from SMBIOS 11 */
+
+        if (is_confidential_vm())
+                return; /* Don't consume SMBIOS in CoCo contexts */
+
+        for (const char *after = NULL, *extra;; after = extra) {
+                extra = smbios_find_oem_string("io.systemd.boot.entries-extra:", after);
+                if (!extra)
+                        break;
+
+                const char *eq = strchr8(extra, '=');
+                if (!eq)
+                        continue;
+
+                _cleanup_free_ char16_t *fname = xstrn8_to_16(extra, eq - extra);
+                if (!valid_type1_filename(fname))
+                        continue;
+
+                /* Make a copy,  since boot_entry_add_type1() wants to modify it */
+                _cleanup_free_ char *contents = xstrdup8(eq + 1);
+
+                boot_entry_add_type1(config, device, root_dir, /* path= */ NULL, fname, contents, loaded_image_path);
         }
 }
 
@@ -2775,7 +2819,7 @@ static EFI_STATUS image_start(
         _cleanup_free_ char16_t *options = xstrdup16(options_initrd ?: entry->options_implied ? NULL : entry->options);
 
         if (entry->type == LOADER_LINUX && !is_confidential_vm()) {
-                const char *extra = smbios_find_oem_string("io.systemd.boot.kernel-cmdline-extra");
+                const char *extra = smbios_find_oem_string("io.systemd.boot.kernel-cmdline-extra=", /* after= */ NULL);
                 if (extra) {
                         _cleanup_free_ char16_t *tmp = TAKE_PTR(options), *extra16 = xstr8_to_16(extra);
                         if (isempty(tmp))
@@ -2988,6 +3032,9 @@ static void config_load_all_entries(
 
         /* Similar, but on any XBOOTLDR partition */
         config_load_xbootldr(config, loaded_image->DeviceHandle);
+
+        /* Pick up entries defined via SMBIOS Type #11 */
+        config_load_smbios_entries(config, loaded_image->DeviceHandle, root_dir, loaded_image_path);
 
         /* Sort entries after version number */
         sort_pointer_array((void **) config->entries, config->n_entries, (compare_pointer_func_t) boot_entry_compare);
