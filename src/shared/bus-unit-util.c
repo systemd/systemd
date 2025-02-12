@@ -1082,6 +1082,9 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                               "PrivateMounts",
                               "PrivateIPC",
                               "NoNewPrivileges",
+                              "StateDirectoryAccounting",
+                              "CacheDirectoryAccounting",
+                              "LogsDirectoryAccounting",
                               "SyslogLevelPrefix",
                               "MemoryDenyWriteExecute",
                               "RestrictRealtime",
@@ -2270,6 +2273,69 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                         if (r < 0)
                                 return bus_log_create_error(r);
                 }
+
+                return 1;
+        }
+
+        if (STR_IN_SET(field, "StateDirectoryQuota", "CacheDirectoryQuota", "LogsDirectoryQuota")) {
+                uint64_t quota_absolute = UINT64_MAX;
+                uint32_t quota_scale = UINT32_MAX;
+                int quota_enforce;
+
+                if (!isempty(eq) && !streq(eq, "off")) {
+                        r = parse_permyriad(eq);
+                        if (r < 0) {
+                                uint64_t bytes = CGROUP_LIMIT_MAX;
+                                r = parse_size(eq, 1024, &bytes);
+                                if (r < 0)
+                                        return bus_log_create_error(r);
+
+                                quota_absolute = bytes;
+                        } else
+                                quota_scale = UINT32_SCALE_FROM_PERMYRIAD(r);
+
+                        quota_enforce = true;
+                }
+
+                r = sd_bus_message_open_container(m, SD_BUS_TYPE_STRUCT, "sv");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_append_basic(m, SD_BUS_TYPE_STRING, field);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_open_container(m, 'v', "(tub)");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_open_container(m, 'r', "tub");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_append_basic(m, 't', &quota_absolute);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_append_basic(m, 'u', &quota_scale);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_append_basic(m, 'b', &quota_enforce);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_close_container(m);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_close_container(m);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_close_container(m);
+                if (r < 0)
+                        return bus_log_create_error(r);
 
                 return 1;
         }
