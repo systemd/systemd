@@ -163,6 +163,23 @@ testcase_hardware_serial() {
     assert_eq "$(hostnamectl --json=short | jq --raw-output .HardwareSerial)" "4321"
 }
 
+testcase_chassis_asset_tag() {
+    # No DMI on s390x or ppc
+    if [[ ! -d /sys/class/dmi/id ]]; then
+        echo "/sys/class/dmi/id not found, skipping firmware date tests."
+        return 0
+    fi
+
+    trap restore_sysfs_dmi RETURN
+
+    fake_sysfs_dmi
+
+    echo 'secret' >/sys/class/dmi/id/chassis_asset_tag
+    stop_hostnamed
+    assert_eq "$(hostnamectl --json=short | jq --raw-output .ChassisAssetTag)" "secret"
+}
+
+
 testcase_nss-myhostname() {
     local database host i
 

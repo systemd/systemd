@@ -379,6 +379,10 @@ static int get_firmware_vendor(Context *c, char **ret) {
         return get_dmi_sysattr(c, "bios_vendor", ret);
 }
 
+static int get_chassis_asset_tag(Context *c, char **ret) {
+        return get_dmi_properties(c, STRV_MAKE_CONST("ID_MODEL_FROM_DATABASE", "ID_CHASSIS_ASSET_TAG"), ret);
+}
+
 static int get_firmware_date(Context *c, usec_t *ret) {
         _cleanup_free_ char *bios_date = NULL, *month = NULL, *day = NULL, *year = NULL;
         int r;
@@ -881,6 +885,24 @@ static int property_get_firmware_date(
 
         return sd_bus_message_append(reply, "t", firmware_date);
 }
+
+static int property_get_chassis_asset_tag(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        _cleanup_free_ char *chassis_asset_tag = NULL;
+        Context *c = ASSERT_PTR(userdata);
+
+        (void) get_chassis_asset_tag(c, &chassis_asset_tag);
+
+        return sd_bus_message_append(reply, "s", chassis_asset_tag);
+}
+
 static int property_get_hostname(
                 sd_bus *bus,
                 const char *path,
@@ -1461,7 +1483,7 @@ static int method_get_hardware_serial(sd_bus_message *m, void *userdata, sd_bus_
 static int build_describe_response(Context *c, bool privileged, sd_json_variant **ret) {
         _cleanup_free_ char *hn = NULL, *dhn = NULL, *in = NULL,
                 *chassis = NULL, *vendor = NULL, *model = NULL, *serial = NULL, *firmware_version = NULL,
-                *firmware_vendor = NULL;
+                *firmware_vendor = NULL, *chassis_asset_tag = NULL;
         _cleanup_strv_free_ char **os_release_pairs = NULL, **machine_info_pairs = NULL;
         usec_t firmware_date = USEC_INFINITY, eol = USEC_INFINITY;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
@@ -1512,6 +1534,7 @@ static int build_describe_response(Context *c, bool privileged, sd_json_variant 
         (void) get_firmware_version(c, &firmware_version);
         (void) get_firmware_vendor(c, &firmware_vendor);
         (void) get_firmware_date(c, &firmware_date);
+        (void) get_chassis_asset_tag(c, &chassis_asset_tag);
 
         if (c->data[PROP_OS_SUPPORT_END])
                 (void) os_release_support_ended(c->data[PROP_OS_SUPPORT_END], /* quiet= */ false, &eol);
@@ -1560,7 +1583,8 @@ static int build_describe_response(Context *c, bool privileged, sd_json_variant 
                         SD_JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(product_uuid), "ProductUUID", SD_JSON_BUILD_ID128(product_uuid)),
                         SD_JSON_BUILD_PAIR_CONDITION(sd_id128_is_null(product_uuid), "ProductUUID", SD_JSON_BUILD_NULL),
                         SD_JSON_BUILD_PAIR_CONDITION(local_cid != VMADDR_CID_ANY, "VSockCID", SD_JSON_BUILD_UNSIGNED(local_cid)),
-                        SD_JSON_BUILD_PAIR_CONDITION(local_cid == VMADDR_CID_ANY, "VSockCID", SD_JSON_BUILD_NULL));
+                        SD_JSON_BUILD_PAIR_CONDITION(local_cid == VMADDR_CID_ANY, "VSockCID", SD_JSON_BUILD_NULL),
+                        SD_JSON_BUILD_PAIR("ChassisAssetTag", SD_JSON_BUILD_STRING(chassis_asset_tag)));
         if (r < 0)
                 return log_error_errno(r, "Failed to build JSON data: %m");
 
@@ -1627,6 +1651,7 @@ static const sd_bus_vtable hostname_vtable[] = {
         SD_BUS_PROPERTY("MachineID", "ay", property_get_machine_id, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("BootID", "ay", property_get_boot_id, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("VSockCID", "u", property_get_vsock_cid, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("ChassisAssetTag", "s", property_get_chassis_asset_tag, 0, SD_BUS_VTABLE_PROPERTY_CONST),
 
         SD_BUS_METHOD_WITH_ARGS("SetHostname",
                                 SD_BUS_ARGS("s", hostname, "b", interactive),
