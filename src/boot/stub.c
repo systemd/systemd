@@ -783,7 +783,7 @@ static void cmdline_append_and_measure_smbios(char16_t **cmdline, int *parameter
         if (is_confidential_vm())
                 return;
 
-        const char *extra = smbios_find_oem_string("io.systemd.stub.kernel-cmdline-extra");
+        const char *extra = smbios_find_oem_string("io.systemd.stub.kernel-cmdline-extra=", /* after= */ NULL);
         if (!extra)
                 return;
 
