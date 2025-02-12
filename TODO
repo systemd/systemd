@@ -125,6 +125,10 @@ Deprecations and removals:
 
 Features:
 
+* Make run0 forward various signals to the forked process so that sending
+  signals to a child process works rougly the same regardless of whether the
+  child process is spawned via run0 or not.
+
 * make killing more debuggable: when we kill a service do so setting the
   .si_code field with a little bit of info. Specifically, we can set a
   recognizable value to first of all indicate that it's systemd that did the
