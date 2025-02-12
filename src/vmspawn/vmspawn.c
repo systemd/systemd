@@ -117,6 +117,7 @@ static bool arg_pass_ssh_key = true;
 static char *arg_ssh_key_type = NULL;
 static bool arg_discard_disk = true;
 struct ether_addr arg_network_provided_mac = {};
+static char **arg_smbios11 = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_directory, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
@@ -133,6 +134,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_kernel_cmdline_extra, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_extra_drives, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_background, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_ssh_key_type, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_smbios11, strv_freep);
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
@@ -167,6 +169,7 @@ static int help(void) {
                "     --secure-boot=BOOL    Enable searching for firmware supporting SecureBoot\n"
                "     --firmware=PATH|list  Select firmware definition file (or list available)\n"
                "     --discard-disk=BOOL   Control processing of discard requests\n"
+               "     --smbios11=STRING     Pass an arbitrary SMBIOS Type #11 string to the VM\n"
                "\n%3$sSystem Identity:%4$s\n"
                "  -M --machine=NAME        Set the machine name for the VM\n"
                "     --uuid=UUID           Set a specific machine UUID for the VM\n"
@@ -295,6 +298,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "firmware",          required_argument, NULL, ARG_FIRMWARE          },
                 { "discard-disk",      required_argument, NULL, ARG_DISCARD_DISK      },
                 { "background",        required_argument, NULL, ARG_BACKGROUND        },
+                { "smbios11",          required_argument, NULL, 's'                   },
                 {}
         };
 
@@ -304,7 +308,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argv);
 
         optind = 0;
-        while ((c = getopt_long(argc, argv, "+hD:i:M:nq", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "+hD:i:M:nqs:", options, NULL)) >= 0)
                 switch (c) {
                 case 'h':
                         return help();
@@ -562,6 +566,20 @@ static int parse_argv(int argc, char *argv[]) {
                         r = free_and_strdup_warn(&arg_background, optarg);
                         if (r < 0)
                                 return r;
+                        break;
+
+                case 's':
+                        if (isempty(optarg)) {
+                                arg_smbios11 = strv_free(arg_smbios11);
+                                break;
+                        }
+
+                        if (!utf8_is_valid(optarg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "SMBIOS Type 11 string is not UTF-8 clean, refusing: %s", optarg);
+
+                        if (strv_extend(&arg_smbios11, optarg) < 0)
+                                return log_oom();
+
                         break;
 
                 case '?':
@@ -908,15 +926,82 @@ static int cmdline_add_vsock(char ***cmdline, int vsock_fd) {
 
         union sockaddr_union addr;
         socklen_t addr_len = sizeof addr.vm;
-        r = getsockname(vsock_fd, &addr.sa, &addr_len);
-        if (r < 0)
+        if (getsockname(vsock_fd, &addr.sa, &addr_len) < 0)
                 return -errno;
+
         assert(addr_len >= sizeof addr.vm);
         assert(addr.vm.svm_family == AF_VSOCK);
 
         r = strv_extendf(cmdline, "type=11,value=io.systemd.credential:vmm.notify_socket=vsock-stream:%u:%u", (unsigned) VMADDR_CID_HOST, addr.vm.svm_port);
         if (r < 0)
                 return r;
+
+        return 0;
+}
+
+static int cmdline_add_kernel_cmdline(char ***cmdline, const char *kernel) {
+        assert(cmdline);
+
+        if (strv_isempty(arg_kernel_cmdline_extra))
+                return 0;
+
+        _cleanup_free_ char *kcl = strv_join(arg_kernel_cmdline_extra, " ");
+        if (!kcl)
+                return log_oom();
+
+        if (kernel) {
+                if (strv_extend_many(cmdline, "-append", kcl) < 0)
+                        return log_oom();
+        } else {
+                if (!ARCHITECTURE_SUPPORTS_SMBIOS) {
+                        log_warning("Cannot append extra args to kernel cmdline, native architecture doesn't support SMBIOS, ignoring.");
+                        return 0;
+                }
+
+                _cleanup_free_ char *escaped_kcl = NULL;
+                escaped_kcl = escape_qemu_value(kcl);
+                if (!escaped_kcl)
+                        return log_oom();
+
+                if (strv_extend(cmdline, "-smbios") < 0)
+                        return log_oom();
+
+                if (strv_extendf(cmdline, "type=11,value=io.systemd.stub.kernel-cmdline-extra=%s", escaped_kcl) < 0)
+                        return log_oom();
+
+                if (strv_extend(cmdline, "-smbios") < 0)
+                        return log_oom();
+
+                if (strv_extendf(cmdline, "type=11,value=io.systemd.boot.kernel-cmdline-extra=%s", escaped_kcl) < 0)
+                        return log_oom();
+        }
+
+        return 0;
+}
+
+static int cmdline_add_smbios11(char ***cmdline) {
+        assert(cmdline);
+
+        if (strv_isempty(arg_smbios11))
+                return 0;
+
+        if (!ARCHITECTURE_SUPPORTS_SMBIOS) {
+                log_warning("Cannot issue SMBIOS Type #11 strings, native architecture doesn't support SMBIOS, ignoring.");
+                return 0;
+        }
+
+        STRV_FOREACH(i, arg_smbios11) {
+                _cleanup_free_ char *escaped = NULL;
+                escaped = escape_qemu_value(*i);
+                if (!escaped)
+                        return log_oom();
+
+                if (strv_extend(cmdline, "-smbios") < 0)
+                        return log_oom();
+
+                if (strv_extendf(cmdline, "type=11,value=%s", escaped) < 0)
+                        return log_oom();
+        }
 
         return 0;
 }
@@ -1864,41 +1949,13 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return log_oom();
         }
 
-        if (ARCHITECTURE_SUPPORTS_SMBIOS) {
-                _cleanup_free_ char *kcl = strv_join(arg_kernel_cmdline_extra, " "), *escaped_kcl = NULL;
-                if (!kcl)
-                        return log_oom();
+        r = cmdline_add_kernel_cmdline(&cmdline, kernel);
+        if (r < 0)
+                return r;
 
-                if (kernel) {
-                        r = strv_extend_many(&cmdline, "-append", kcl);
-                        if (r < 0)
-                                return log_oom();
-                } else {
-                        if (ARCHITECTURE_SUPPORTS_SMBIOS) {
-                                escaped_kcl = escape_qemu_value(kcl);
-                                if (!escaped_kcl)
-                                        log_oom();
-
-                                r = strv_extend(&cmdline, "-smbios");
-                                if (r < 0)
-                                        return log_oom();
-
-                                r = strv_extendf(&cmdline, "type=11,value=io.systemd.stub.kernel-cmdline-extra=%s", escaped_kcl);
-                                if (r < 0)
-                                        return log_oom();
-
-                                r = strv_extend(&cmdline, "-smbios");
-                                if (r < 0)
-                                        return log_oom();
-
-                                r = strv_extendf(&cmdline, "type=11,value=io.systemd.boot.kernel-cmdline-extra=%s", escaped_kcl);
-                                if (r < 0)
-                                        return log_oom();
-                        } else
-                                log_warning("Cannot append extra args to kernel cmdline, native architecture doesn't support SMBIOS, ignoring");
-                }
-        } else
-                log_warning("Cannot append extra args to kernel cmdline, native architecture doesn't support SMBIOS");
+        r = cmdline_add_smbios11(&cmdline);
+        if (r < 0)
+                return r;
 
         /* disable TPM autodetection if the user's hardware doesn't support it */
         if (!ARCHITECTURE_SUPPORTS_TPM) {
