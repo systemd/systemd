@@ -46,6 +46,11 @@ typedef enum AnsiColorState  {
 
 assert_cc(ANSI_SEQUENCE_LENGTH_MAX > ANSI_SEQUENCE_WINDOW_TITLE_MAX);
 
+/* We don't list SIGHUP here because that's what you get when your tty has a hangup, and if we do we'll close
+ * the pty too which already generates a hangup, and thus a SIGHUP, which means we'd generate SIGHUP twice,
+ * once by us, and once by the kernel. */
+const int pty_forward_signals[N_PTY_FORWARD_SIGNALS] = { SIGTERM, SIGINT, SIGQUIT, SIGTSTP, SIGCONT, SIGUSR1, SIGUSR2 };
+
 struct PTYForward {
         sd_event *event;
 
