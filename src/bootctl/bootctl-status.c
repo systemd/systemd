@@ -390,12 +390,17 @@ int verb_status(int argc, char *argv[], void *userdata) {
                         { EFI_LOADER_FEATURE_RETAIN_SHIM,             "Retain SHIM protocols"                 },
                         { EFI_LOADER_FEATURE_MENU_DISABLE,            "Menu can be disabled"                  },
                         { EFI_LOADER_FEATURE_MULTI_PROFILE_UKI,       "Multi-Profile UKIs are supported"      },
+                        { EFI_LOADER_FEATURE_REPORT_URL,              "Loader reports network boot URL"       },
+                        { EFI_LOADER_FEATURE_TYPE1_UKI,               "Support Type #1 uki field"             },
+                        { EFI_LOADER_FEATURE_TYPE1_UKI_URL,           "Support Type #1 uki-url field"         },
                 };
                 static const struct {
                         uint64_t flag;
                         const char *name;
                 } stub_flags[] = {
-                        { EFI_STUB_FEATURE_REPORT_BOOT_PARTITION,     "Stub sets loader partition information"                      },
+                        { EFI_STUB_FEATURE_REPORT_BOOT_PARTITION,     "Stub reports loader partition information"                   },
+                        { EFI_STUB_FEATURE_REPORT_STUB_PARTITION,     "Stub reports stub partition information"                     },
+                        { EFI_STUB_FEATURE_REPORT_URL,                "Stub reports network boot URL"                               },
                         { EFI_STUB_FEATURE_PICK_UP_CREDENTIALS,       "Picks up credentials from boot partition"                    },
                         { EFI_STUB_FEATURE_PICK_UP_SYSEXTS,           "Picks up system extension images from boot partition"        },
                         { EFI_STUB_FEATURE_PICK_UP_CONFEXTS,          "Picks up configuration extension images from boot partition" },
@@ -405,7 +410,6 @@ int verb_status(int argc, char *argv[], void *userdata) {
                         { EFI_STUB_FEATURE_CMDLINE_SMBIOS,            "Pick up .cmdline from SMBIOS Type 11"                        },
                         { EFI_STUB_FEATURE_DEVICETREE_ADDONS,         "Pick up .dtb from addons"                                    },
                         { EFI_STUB_FEATURE_MULTI_PROFILE_UKI,         "Stub understands profile selector"                           },
-                        { EFI_STUB_FEATURE_REPORT_STUB_PARTITION,     "Stub sets stub partition information"                        },
                 };
                 _cleanup_free_ char *fw_type = NULL, *fw_info = NULL, *loader = NULL, *loader_path = NULL, *stub = NULL, *stub_path = NULL,
                         *current_entry = NULL, *oneshot_entry = NULL, *default_entry = NULL;
@@ -480,6 +484,10 @@ int verb_status(int argc, char *argv[], void *userdata) {
                         (void) efi_loader_get_device_part_uuid(&loader_partition_uuid);
                         print_yes_no_line(/* first= */ false, !sd_id128_is_null(loader_partition_uuid), "Boot loader set partition information");
 
+                        _cleanup_free_ char *loader_url = NULL;
+                        (void) efi_get_variable_string_and_warn(EFI_LOADER_VARIABLE_STR("LoaderDeviceURL"), &loader_url);
+                        print_yes_no_line(/* first= */ false, !!loader_url, "Boot loader set network boot URL information");
+
                         if (!sd_id128_is_null(loader_partition_uuid)) {
                                 if (!sd_id128_is_null(esp_uuid) && !sd_id128_equal(esp_uuid, loader_partition_uuid))
                                         printf("WARNING: The boot loader reports a different partition UUID than the detected ESP ("SD_ID128_UUID_FORMAT_STR" vs. "SD_ID128_UUID_FORMAT_STR")!\n",
@@ -492,6 +500,9 @@ int verb_status(int argc, char *argv[], void *userdata) {
 
                         if (loader_path)
                                 printf("       Loader: %s%s\n", special_glyph(SPECIAL_GLYPH_TREE_RIGHT), strna(loader_path));
+
+                        if (loader_url)
+                                printf(" Net Boot URL: %s\n", loader_url);
 
                         if (current_entry)
                                 printf("Current Entry: %s\n", current_entry);
@@ -513,6 +524,10 @@ int verb_status(int argc, char *argv[], void *userdata) {
                         (void) efi_stub_get_device_part_uuid(&stub_partition_uuid);
                         print_yes_no_line(/* first= */ false, !sd_id128_is_null(stub_partition_uuid), "Stub loader set partition information");
 
+                        _cleanup_free_ char *stub_url = NULL;
+                        (void) efi_get_variable_string_and_warn(EFI_LOADER_VARIABLE_STR("StubDeviceURL"), &stub_url);
+                        print_yes_no_line(/* first= */ false, !!stub_url, "Stub set network boot URL information");
+
                         if (!sd_id128_is_null(stub_partition_uuid)) {
                                 if (!(!sd_id128_is_null(esp_uuid) && sd_id128_equal(esp_uuid, stub_partition_uuid)) &&
                                     !(!sd_id128_is_null(xbootldr_uuid) && sd_id128_equal(xbootldr_uuid, stub_partition_uuid)))
@@ -526,6 +541,10 @@ int verb_status(int argc, char *argv[], void *userdata) {
 
                         if (stub_path)
                                 printf("         Stub: %s%s\n", special_glyph(SPECIAL_GLYPH_TREE_RIGHT), strna(stub_path));
+
+                        if (stub_url)
+                                printf(" Net Boot URL: %s\n", stub_url);
+
                         printf("\n");
                 }
 
