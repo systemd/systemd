@@ -93,6 +93,8 @@ static int session_dispatch_leader_pidfd(sd_event_source *es, int fd, uint32_t r
         assert(s->leader.fd == fd);
         session_stop(s, /* force= */ false);
 
+        session_add_to_gc_queue(s);
+
         return 1;
 }
 
@@ -1269,6 +1271,8 @@ static int session_dispatch_fifo(sd_event_source *es, int fd, uint32_t revents, 
 
         session_remove_fifo(s);
         session_stop(s, /* force = */ false);
+
+        session_add_to_gc_queue(s);
 
         return 1;
 }
