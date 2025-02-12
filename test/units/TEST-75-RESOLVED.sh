@@ -16,6 +16,10 @@ set -o pipefail
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
+if [[ -n "$ASAN_OPTIONS" ]]; then
+    export ASAN_OPTIONS="verify_asan_link_order=0:$ASAN_OPTIONS"
+fi
+
 if ! command knotc >/dev/null; then
     echo "command knotc not found, skipping..." | tee --append /skipped
     exit 77
