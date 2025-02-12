@@ -359,7 +359,6 @@ int wipe_slots(struct crypt_device *cd,
                 r = find_all_slots(cd, wipe_slots, keep_slots);
                 if (r < 0)
                         return r;
-
                 break;
 
         case WIPE_EMPTY_PASSPHRASE:
