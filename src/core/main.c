@@ -2435,8 +2435,10 @@ static int initialize_runtime(
 
                         (void) loopback_setup();
 
-                        bump_unix_max_dgram_qlen();
-                        bump_file_max_and_nr_open();
+                        if (detect_container() <= 0) {
+                                bump_unix_max_dgram_qlen();
+                                bump_file_max_and_nr_open();
+                        }
 
                         write_container_id();
 
