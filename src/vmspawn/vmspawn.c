@@ -926,9 +926,9 @@ static int cmdline_add_vsock(char ***cmdline, int vsock_fd) {
 
         union sockaddr_union addr;
         socklen_t addr_len = sizeof addr.vm;
-        r = getsockname(vsock_fd, &addr.sa, &addr_len);
-        if (r < 0)
+        if (getsockname(vsock_fd, &addr.sa, &addr_len) < 0)
                 return -errno;
+
         assert(addr_len >= sizeof addr.vm);
         assert(addr.vm.svm_family == AF_VSOCK);
 
