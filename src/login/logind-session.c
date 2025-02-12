@@ -977,6 +977,10 @@ int session_stop(Session *s, bool force) {
         (void) session_save(s);
         (void) user_save(s->user);
 
+        /* We have no scope, so this is the only trigger */
+        if (!s->scope)
+                session_add_to_gc_queue(s);
+
         return r;
 }
 
