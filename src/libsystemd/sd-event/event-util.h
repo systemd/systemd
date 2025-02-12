@@ -38,3 +38,7 @@ int event_add_time_change(sd_event *e, sd_event_source **ret, sd_event_io_handle
 int event_add_child_pidref(sd_event *e, sd_event_source **s, const PidRef *pid, int options, sd_event_child_handler_t callback, void *userdata);
 
 dual_timestamp* event_dual_timestamp_now(sd_event *e, dual_timestamp *ts);
+
+void event_source_unref_many(sd_event_source **array, size_t n);
+
+int event_forward_signals(sd_event *e, sd_event_source *child, sd_event_source ***ret_sources, size_t *ret_n_sources);
