@@ -3689,7 +3689,7 @@ void bus_manager_send_change_signal(Manager *m) {
 
         assert(m);
 
-        r = bus_foreach_bus(m, NULL, send_changed_signal, NULL);
+        r = bus_foreach_bus_to_all(m, send_changed_signal, NULL);
         if (r < 0)
                 log_debug_errno(r, "Failed to send manager change signal: %m");
 }
