@@ -132,11 +132,11 @@ export TEST_SKIP="TEST-21-DFUZZER"
 mkdir -p /etc/pacman.d/gnupg
 
 mkosi summary
-mkosi -f sandbox true
-mkosi -f sandbox meson setup --buildtype=debugoptimized -Dintegration-tests=true build
+mkosi -f sandbox -- true
+mkosi -f sandbox -- meson setup --buildtype=debugoptimized -Dintegration-tests=true build
 mkosi genkey
-mkosi -f sandbox meson compile -C build mkosi
-mkosi -f sandbox \
+mkosi -f sandbox -- meson compile -C build mkosi
+mkosi -f sandbox -- \
     meson test \
     -C build \
     --no-rebuild \
