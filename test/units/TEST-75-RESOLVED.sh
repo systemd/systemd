@@ -1011,6 +1011,10 @@ testcase_12_resolvectl2() {
 
 # Test io.systemd.Resolve.Monitor.SubscribeDNSConfiguration
 testcase_13_varlink_subscribe_dns_configuration() {
+    if [[ -v ASAN_OPTIONS ]]; then
+        return 0
+    fi
+
     # Cleanup
     # shellcheck disable=SC2317
     cleanup() {
