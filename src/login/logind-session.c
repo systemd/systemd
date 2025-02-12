@@ -959,7 +959,6 @@ int session_stop(Session *s, bool force) {
                 return 0;
 
         s->timer_event_source = sd_event_source_unref(s->timer_event_source);
-        s->leader_pidfd_event_source = sd_event_source_unref(s->leader_pidfd_event_source);
 
         if (s->seat)
                 seat_evict_position(s->seat, s);
