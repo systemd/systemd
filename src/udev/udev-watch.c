@@ -161,7 +161,7 @@ static int udev_watch_clear(sd_device *dev, int dirfd, int *ret_wd) {
 
         if (ret_wd)
                 *ret_wd = wd;
-        r = 0;
+        r = 1;
 
 finalize:
         /* 5. remove symlink ID -> wd.
@@ -249,7 +249,7 @@ int udev_watch_end(int inotify_fd, sd_device *dev) {
 
         /* First, clear symlinks. */
         r = udev_watch_clear(dev, dirfd, &wd);
-        if (r < 0)
+        if (r <= 0)
                 return r;
 
         /* Then, remove inotify watch. */
