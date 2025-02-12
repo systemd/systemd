@@ -104,15 +104,7 @@ restore_sysfs_dmi() {
     stop_hostnamed
 }
 
-testcase_firmware_date() {
-    # No DMI on s390x or ppc
-    if [[ ! -d /sys/class/dmi/id ]]; then
-        echo "/sys/class/dmi/id not found, skipping firmware date tests."
-        return 0
-    fi
-
-    trap restore_sysfs_dmi RETURN
-
+fake_sysfs_dmi() {
     # Ignore /sys being mounted as tmpfs
     mkdir -p /run/systemd/system/systemd-hostnamed.service.d/
     cat >/run/systemd/system/systemd-hostnamed.service.d/override.conf <<EOF
@@ -124,6 +116,18 @@ EOF
 
     mount -t tmpfs none /sys/class/dmi/id
     echo '1' >/sys/class/dmi/id/uevent
+}
+
+testcase_firmware_date() {
+    # No DMI on s390x or ppc
+    if [[ ! -d /sys/class/dmi/id ]]; then
+        echo "/sys/class/dmi/id not found, skipping firmware date tests."
+        return 0
+    fi
+
+    trap restore_sysfs_dmi RETURN
+
+    fake_sysfs_dmi
 
     echo '09/08/2000' >/sys/class/dmi/id/bios_date
     stop_hostnamed
@@ -136,6 +140,27 @@ EOF
     echo 'garbage' >/sys/class/dmi/id/bios_date
     stop_hostnamed
     assert_not_in 'Firmware Date' "$(hostnamectl)"
+}
+
+testcase_hardware_serial() {
+    # No DMI on s390x or ppc
+    if [[ ! -d /sys/class/dmi/id ]]; then
+        echo "/sys/class/dmi/id not found, skipping firmware date tests."
+        return 0
+    fi
+
+    trap restore_sysfs_dmi RETURN
+
+    fake_sysfs_dmi
+
+    echo '1234' >/sys/class/dmi/id/board_serial
+    stop_hostnamed
+    assert_eq "$(hostnamectl --json=short | jq --raw-output .HardwareSerial)" "1234"
+
+    # product_serial is preferred over board_serial
+    echo '4321' >/sys/class/dmi/id/product_serial
+    stop_hostnamed
+    assert_eq "$(hostnamectl --json=short | jq --raw-output .HardwareSerial)" "4321"
 }
 
 testcase_nss-myhostname() {
