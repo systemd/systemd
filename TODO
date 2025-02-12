@@ -125,6 +125,10 @@ Deprecations and removals:
 
 Features:
 
+* Make run0 forward various signals to the forked process so that sending
+  signals to a child process works rougly the same regardless of whether the
+  child process is spawned via run0 or not.
+
 * import-generator: add option to download into /run/ rather than /var/, and
   make it default in the initrd
 
