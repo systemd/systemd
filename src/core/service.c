@@ -2182,7 +2182,7 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
                 (void) unlink(s->pid_file);
 
         /* Reset TTY ownership if necessary */
-        exec_context_revert_tty(&s->exec_context);
+        exec_context_revert_tty(&s->exec_context, UNIT(s)->invocation_id);
 }
 
 static void service_enter_stop_post(Service *s, ServiceResult f) {
