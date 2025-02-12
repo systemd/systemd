@@ -248,7 +248,7 @@ static int process_http_upload(
 
                         r = decompress_blob(source->compression, upload_data, *upload_data_size, (void **) &buf, &buf_size, 0);
                         if (r < 0)
-                                return mhd_respondf(connection, r, MHD_HTTP_BAD_REQUEST, "Decompression of received blob falied.");
+                                return mhd_respondf(connection, r, MHD_HTTP_BAD_REQUEST, "Decompression of received blob failed.");
 
                         r = journal_importer_push_data(&source->importer, buf, buf_size);
                 } else
