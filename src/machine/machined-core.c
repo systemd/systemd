@@ -230,11 +230,11 @@ int machine_get_addresses(Machine *machine, struct local_address **ret_addresses
                                    /* except_fds = */ NULL,
                                    /* n_except_fds = */ 0,
                                    FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL,
-                                   /* pidns_fd = */ -1,
-                                   /* mntns_fd = */ -1,
+                                   /* pidns_fd = */ -EBADF,
+                                   /* mntns_fd = */ -EBADF,
                                    netns_fd,
-                                   /* userns_fd = */ -1,
-                                   /* root_fd = */ -1,
+                                   /* userns_fd = */ -EBADF,
+                                   /* root_fd = */ -EBADF,
                                    &child);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to fork(): %m");
@@ -347,8 +347,8 @@ int machine_get_os_release(Machine *machine, char ***ret_os_release) {
                                    FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL,
                                    pidns_fd,
                                    mntns_fd,
-                                   /* netns_fd = */ -1,
-                                   /* userns_fd = */ -1,
+                                   /* netns_fd = */ -EBADF,
+                                   /* userns_fd = */ -EBADF,
                                    root_fd,
                                    &child);
                 if (r < 0)

@@ -297,22 +297,25 @@ static int move_submounts(const char *src, const char *dst) {
 
                 assert_se(suffix = path_startswith(m->path, src));
 
+                if (fstat(m->mount_fd, &st) < 0)
+                        return log_error_errno(errno, "Failed to stat %s: %m", m->path);
+
                 t = path_join(dst, suffix);
                 if (!t)
                         return log_oom();
 
-                if (fstat(m->mount_fd, &st) < 0)
-                        return log_error_errno(errno, "Failed to stat %s: %m", m->path);
+                _cleanup_free_ char *fn = NULL;
+                int fd = -EBADF;
 
-                r = mkdir_parents(t, 0755);
+                r = chase(t, /* root= */ NULL, CHASE_PARENT|CHASE_EXTRACT_FILENAME|CHASE_PROHIBIT_SYMLINKS|CHASE_MKDIR_0755, &fn, &fd);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to create parent directories of %s: %m", t);
+                        return log_error_errno(r, "Failed to create and pin parent directory of %s: %m", t);
 
-                r = make_mount_point_inode_from_stat(&st, t, 0755);
+                r = make_mount_point_inode_from_mode(fd, fn, st.st_mode, 0755);
                 if (r < 0 && r != -EEXIST)
                         return log_error_errno(r, "Failed to create mountpoint %s: %m", t);
 
-                r = mount_follow_verbose(LOG_ERR, m->path, t, NULL, MS_BIND|MS_REC, NULL);
+                r = mount_follow_verbose(LOG_ERR, m->path, FORMAT_PROC_FD_PATH(fd), /* fstype= */ NULL, MS_BIND|MS_REC, /* options= */ NULL);
                 if (r < 0)
                         return r;
 

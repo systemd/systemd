@@ -460,6 +460,18 @@ this directory become inaccessible. To see those over-mounted files,
 please manually mount the underlying file system to a secondary
 location.
 
+-- 1edabb4eda2a49c19bc0206f24b43889
+Subject: Mount point path contains symlinks
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+The path @WHERE@ is specified as a mount point path (second field in /etc/fstab
+or Where= field in systemd unit file) and is not canonical, i.e. contains one
+or more symlinks as path elements. This is generally not supported and such
+mount attempts are refused, because the mount table information exposed by the
+kernel and the requested path would deviate one established. Please
+canonicalize paths before requesting a mount to be established.
+
 -- 24d8d4452573402496068381a6312df2
 Subject: A virtual machine or container has been started
 Defined-By: systemd
