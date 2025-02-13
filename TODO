@@ -151,8 +151,28 @@ Features:
 * import-generator: add option to download into /run/ rather than /var/, and
   make it default in the initrd
 
-* also parse out primary GPT disk label uuid from gpt partition at boot and
-  pass it as efi var to OS.
+* sd-boot/sd-stub: install a uefi "handle" to a sidecar dir of bls type #1
+  entries with an "uki" or "uki-url" stanza, and make sd-stub look for
+  that. That way we can parameterize type #1 entries nicely.
+
+* add a system-wide seccomp filter list for syscalls, kill "acct()" "@obsolete"
+  and a few other legacy syscalls that way.
+
+* maybe introduce "@icky" as a seccomp filter group, which contains acct() and
+  certain other syscalls that aren't quite obsolete, but certainly icky.
+
+* revisit how we pass fs images and initrd to the kernel. take uefi http boot
+  ramdisks as inspiration: for any confext/sysext/initrd erofs/DDI image simply
+  generate a fake pmem region in the UEFI memory tables, that Linux then turns
+  into /dev/pmemX. Then turn of cpio-based initrd logic in linux kernel,
+  instead let kernel boot directly into /dev/pmem0. In order to allow our usual
+  cpio-based parameterization, teach PID 1 to just uncompress cpio ourselves
+  early on, from another pmem device. (Related to this, maybe introduce a new
+  PE section .ramdisk that just synthesizes pmem devices from arbitrary
+  blobs. Could be particularly useful in add-ons)
+
+* also parse out primary GPT disk label uuid from gpt partition device path at
+  boot and pass it as efi var to OS.
 
 * maybe rework invocation of stub's inner PE payload: since we already parse PE
   anyway, maybe jump directly into the image, after finding the linux UEFI
@@ -232,7 +252,7 @@ Features:
   looking for root fs
 
 * bootctl: add tool for registering BootXXX entry that boots from some http
-  server of your choice
+  server of your choice (i.e. like kernel-bootcfg --add-uri=)
 
 * maybe introduce container-shell@.service or so, to match
   container-getty.service but skips authentication, so you get a shell prompt
@@ -1423,9 +1443,6 @@ Features:
     place them next to EFI kernel, for sd-stub to pick them up.
   - systemd-fstab-generator should look for rootfs device to mount in creds
   - systemd-resume-generator should look for resume partition uuid in creds
-  - sd-stub: automatically pick up microcode from ESP (/loader/microcode/*)
-    and synthesize initrd from it, and measure it. Signing is not necessary, as
-    microcode does that on its own. Pass as first initrd to kernel.
 
 * Maybe extend the service protocol to support handling of some specific SIGRT
   signal for setting service log level, that carries the level via the
