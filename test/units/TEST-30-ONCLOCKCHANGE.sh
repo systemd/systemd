@@ -8,7 +8,14 @@ systemd-analyze log-level debug
 systemctl disable --now systemd-timesyncd.service
 
 timedatectl set-timezone Europe/Berlin
-timedatectl set-time 1980-10-15
+
+# A future timestamp needs to be used, otherwise 'timedatectl set-time' fails
+# if a timestamp older than the TIME_EPOCH is specified.
+current_time=$(date)
+
+future_time=$(date -d "$current_time + 1 year" +"%Y-%m-%d %H:%M:%S")
+
+timedatectl set-time "$future_time"
 
 systemd-run --on-timezone-change touch /tmp/timezone-changed
 systemd-run --on-clock-change touch /tmp/clock-changed
@@ -20,7 +27,9 @@ timedatectl set-timezone Europe/Kyiv
 
 while test ! -f /tmp/timezone-changed ; do sleep .5 ; done
 
-timedatectl set-time 2018-1-1
+future_time=$(date -d "$current_time + 1 year + 1 month" +"%Y-%m-%d %H:%M:%S")
+
+timedatectl set-time "$future_time"
 
 while test ! -f /tmp/clock-changed ; do sleep .5 ; done
 
