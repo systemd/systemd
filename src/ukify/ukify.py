@@ -176,8 +176,8 @@ def get_zboot_kernel(f: IO[bytes]) -> bytes:
     elif comp_type.startswith(b'xzkern'):
         raise NotImplementedError('xzkern decompression not implemented')
     elif comp_type.startswith(b'zstd22'):
-        zstd = try_import('zstd')
-        return cast(bytes, zstd.uncompress(f.read(size)))
+        zstd = try_import('zstandard')
+        return cast(bytes, zstd.ZstdDecompressor().stream_reader(f.read(size)).read())
 
     raise NotImplementedError(f'unknown compressed type: {comp_type!r}')
 
@@ -207,8 +207,8 @@ def maybe_decompress(filename: Union[str, Path]) -> bytes:
         return cast(bytes, gzip.open(f).read())
 
     if start.startswith(b'\x28\xb5\x2f\xfd'):
-        zstd = try_import('zstd')
-        return cast(bytes, zstd.uncompress(f.read()))
+        zstd = try_import('zstandard')
+        return cast(bytes, zstd.ZstdDecompressor().stream_reader(f.read()).read())
 
     if start.startswith(b'\x02\x21\x4c\x18'):
         lz4 = try_import('lz4.frame', 'lz4')
