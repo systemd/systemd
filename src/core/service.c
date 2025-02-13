@@ -2152,10 +2152,6 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
                 (void) unit_set_debug_invocation(UNIT(s), false);
         }
 
-        /* The new state is in effect, let's decrease the fd store ref counter again. Let's also re-add us to the GC
-         * queue, so that the fd store is possibly gc'ed again */
-        unit_add_to_gc_queue(UNIT(s));
-
         /* The next restart might not be a manual stop, hence reset the flag indicating manual stops */
         s->forbid_restart = false;
 
