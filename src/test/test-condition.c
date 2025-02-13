@@ -1095,6 +1095,24 @@ TEST(condition_test_os_release) {
         ASSERT_OK_POSITIVE(condition_test(condition, environ));
         condition_free(condition);
 
+        /* Test shell style globs */
+
+        ASSERT_NOT_NULL(condition = condition_new(CONDITION_OS_RELEASE, "ID_LIKE$=*THISHOPEFULLYWONTEXIST*", false, false));
+        ASSERT_OK_ZERO(condition_test(condition, environ));
+        condition_free(condition);
+
+        ASSERT_NOT_NULL(condition = condition_new(CONDITION_OS_RELEASE, "ID_THISHOPEFULLYWONTEXIST$=*rhel*", false, false));
+        ASSERT_OK_ZERO(condition_test(condition, environ));
+        condition_free(condition);
+
+        ASSERT_NOT_NULL(condition = condition_new(CONDITION_OS_RELEASE, "ID_LIKE!$=*THISHOPEFULLYWONTEXIST*", false, false));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        condition_free(condition);
+
+        ASSERT_NOT_NULL(condition = condition_new(CONDITION_OS_RELEASE, "ID_THISHOPEFULLYWONTEXIST!$=*rhel*", false, false));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        condition_free(condition);
+
         /* load_os_release_pairs() removes quotes, we have to add them back,
          * otherwise we get a string: "PRETTY_NAME=Debian GNU/Linux 10 (buster)"
          * which is wrong, as the value is not quoted anymore. */

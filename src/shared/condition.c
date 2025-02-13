@@ -273,7 +273,9 @@ static int condition_test_osrelease(Condition *c, char **env) {
                 if (r < 0)
                         return log_debug_errno(r, "Failed to parse os-release: %m");
 
-                r = version_or_fnmatch_compare(operator, actual_value, word);
+                /* If not found, use "". This means that missing and empty assignments
+                 * in the file have the same result. */
+                r = version_or_fnmatch_compare(operator, strempty(actual_value), word);
                 if (r < 0)
                         return r;
                 if (!r)

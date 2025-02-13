@@ -1960,6 +1960,8 @@
           wildcard comparisons (<literal>*</literal>, <literal>?</literal>, <literal>[]</literal>) are
           supported with the <literal>$=</literal> (match) and <literal>!$=</literal> (non-match).</para>
 
+          <para>If the given key is not found in the file, the match is done against an empty value.</para>
+
           <xi:include href="version-info.xml" xpointer="v249"/>
           </listitem>
         </varlistentry>
