@@ -1,0 +1,51 @@
+<?xml version="1.0"?>
+<!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+<refentry id="systemd-loop_.service">
+
+  <refentryinfo>
+    <title>systemd-loop@.service</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-loop@.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-loop@.service</refname>
+    <refpurpose>Attach a loopback block device</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>systemd-loop@<replaceable>path</replaceable>.service</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><filename>systemd-loop@.service</filename> is a template service that may be used to automatically
+    attach a loopback block device at boot (or later). Its instance string may reference an (escaped) file
+    system path pointing to a disk image to attach as loopback block device. Use
+    <citerefentry><refentrytitle>systemd-escape</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
+    <option>--path</option> to properly escape a file system path.</para>
+
+    <para>This unit invokes <command>systemd-dissect --attach --quiet --loop-ref-auto</command> on the
+    specified files, see
+    <citerefentry><refentrytitle>systemd-dissect</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
+    details.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-dissect</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-import-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

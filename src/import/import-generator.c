@@ -4,24 +4,49 @@
 
 #include "creds-util.h"
 #include "discover-image.h"
+#include "efivars.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "generator.h"
 #include "import-util.h"
+#include "initrd-util.h"
 #include "json-util.h"
+#include "parse-util.h"
 #include "proc-cmdline.h"
+#include "special.h"
 #include "specifier.h"
+#include "unit-name.h"
 #include "web-util.h"
+
+typedef struct Transfer {
+        ImageClass class;
+        ImportType type;
+        char *local;
+        char *remote;
+        const char *image_root;
+        bool blockdev;
+        sd_json_variant *json;
+} Transfer;
 
 static const char *arg_dest = NULL;
 static char *arg_success_action = NULL;
 static char *arg_failure_action = NULL;
-static sd_json_variant **arg_transfers = NULL;
+static Transfer *arg_transfers = NULL;
 static size_t arg_n_transfers = 0;
+
+static void transfer_destroy_many(Transfer *transfers, size_t n) {
+        FOREACH_ARRAY(t, transfers, n) {
+                free(t->local);
+                free(t->remote);
+                sd_json_variant_unref(t->json);
+        }
+
+        free(transfers);
+}
 
 STATIC_DESTRUCTOR_REGISTER(arg_success_action, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_failure_action, freep);
-STATIC_ARRAY_DESTRUCTOR_REGISTER(arg_transfers, arg_n_transfers, sd_json_variant_unref_many);
+STATIC_ARRAY_DESTRUCTOR_REGISTER(arg_transfers, arg_n_transfers, transfer_destroy_many);
 
 static int parse_pull_expression(const char *v) {
         const char *p = v;
@@ -43,8 +68,6 @@ static int parse_pull_expression(const char *v) {
         if (r == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No local string in pull expression '%s': %m", v);
 
-        if (!http_url_is_valid(p) && !file_url_is_valid(p))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not a valid URL, refusing: %s", p);
         _cleanup_free_ char *remote = strdup(p);
         if (!remote)
                 return log_oom();
@@ -57,7 +80,7 @@ static int parse_pull_expression(const char *v) {
         ImportType type = _IMPORT_TYPE_INVALID;
         ImageClass class = _IMAGE_CLASS_INVALID;
         ImportVerify verify = IMPORT_VERIFY_SIGNATURE;
-        bool ro = false;
+        bool ro = false, blockdev = false, bootorigin = false, runtime = in_initrd();
 
         const char *o = options;
         for (;;) {
@@ -75,8 +98,17 @@ static int parse_pull_expression(const char *v) {
                         ro = true;
                 else if (streq(opt, "rw"))
                         ro = false;
-                else if ((suffix = startswith(opt, "verify="))) {
-
+                else if (streq(opt, "blockdev"))
+                        blockdev = true;
+                else if (streq(opt, "bootorigin"))
+                        bootorigin = true;
+                else if ((suffix = startswith(opt, "runtime="))) {
+                        r = parse_boolean(suffix);
+                        if (r < 0)
+                                log_warning_errno(r, "Unknown runtime= parameter, ignoring: %s", suffix);
+                        else
+                                runtime = r;
+                } else if ((suffix = startswith(opt, "verify="))) {
                         ImportVerify w = import_verify_from_string(suffix);
 
                         if (w < 0)
@@ -100,28 +132,94 @@ static int parse_pull_expression(const char *v) {
                 }
         }
 
+        if (bootorigin) {
+                _cleanup_free_ char *stub_url = NULL;
+
+                r = efi_get_variable_string(EFI_LOADER_VARIABLE_STR("StubDeviceURL"), &stub_url);
+                if (r == -ENOENT) {
+                        log_notice("Option 'bootorigin' specified, but StubDeviceURL EFI variable not set, not scheduling import job for '%s'.", remote);
+                        return 0;
+                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read 'StubDeviceURL' EFI variable: %m");
+
+                if (!http_url_is_valid(stub_url))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Value of 'StubDeviceURL' is not a valid URL, refusing: %s", stub_url);
+
+                _cleanup_free_ char *result = NULL;
+                r = import_url_change_last_component(stub_url, remote, &result);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to replace last component of URL '%s': %m", stub_url);
+
+                log_info("URL reported by StubDeviceURL is '%s', derived download URL '%s' from it.", stub_url, result);
+                free_and_replace(remote, result);
+        }
+
+        if (!http_url_is_valid(remote) && !file_url_is_valid(remote))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not a valid URL, refusing: %s", remote);
+
         if (type < 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No image type (raw, tar) specified in pull expression, refusing: %s", v);
         if (class < 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No image class (machine, portable, sysext, confext) specified in pull expression, refusing: %s", v);
 
+        if (!local) {
+                _cleanup_free_ char *c = NULL;
+                r = import_url_last_component(remote, &c);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to generate local name from URL '%s': %m", remote);
+
+                switch (type) {
+
+                case IMPORT_RAW:
+                        r = raw_strip_suffixes(c, &local);
+                        break;
+
+                case IMPORT_TAR:
+                        r = tar_strip_suffixes(c, &local);
+                        break;
+
+                default:
+                        assert_not_reached();
+                        break;
+                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to strip suffix from URL '%s': %m", remote);
+
+                log_info("Saving downloaded file under local name '%s'.", local);
+        }
+
+        if (blockdev && type != IMPORT_RAW)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Option 'blockdev' only available for raw images, refusing: %s", v);
+
         if (!GREEDY_REALLOC(arg_transfers, arg_n_transfers + 1))
                 return log_oom();
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
+        const char *image_root = runtime ? image_root_runtime_to_string(class) : image_root_to_string(class);
 
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
         r = sd_json_buildo(
                         &j,
                         SD_JSON_BUILD_PAIR("remote", SD_JSON_BUILD_STRING(remote)),
-                        SD_JSON_BUILD_PAIR_CONDITION(!!local, "local", SD_JSON_BUILD_STRING(local)),
+                        SD_JSON_BUILD_PAIR("local", SD_JSON_BUILD_STRING(local)),
                         SD_JSON_BUILD_PAIR("class", JSON_BUILD_STRING_UNDERSCORIFY(image_class_to_string(class))),
                         SD_JSON_BUILD_PAIR("type", JSON_BUILD_STRING_UNDERSCORIFY(import_type_to_string(type))),
                         SD_JSON_BUILD_PAIR("readOnly", SD_JSON_BUILD_BOOLEAN(ro)),
-                        SD_JSON_BUILD_PAIR("verify", JSON_BUILD_STRING_UNDERSCORIFY(import_verify_to_string(verify))));
+                        SD_JSON_BUILD_PAIR("verify", JSON_BUILD_STRING_UNDERSCORIFY(import_verify_to_string(verify))),
+                        SD_JSON_BUILD_PAIR("imageRoot", SD_JSON_BUILD_STRING(image_root)));
         if (r < 0)
                 return log_error_errno(r, "Failed to build import JSON object: %m");
 
-        arg_transfers[arg_n_transfers++] = TAKE_PTR(j);
+        arg_transfers[arg_n_transfers++] = (Transfer) {
+                .class = class,
+                .type = type,
+                .local = TAKE_PTR(local),
+                .remote = TAKE_PTR(remote),
+                .image_root = image_root,
+                .json = TAKE_PTR(j),
+                .blockdev = blockdev,
+        };
+
         return 0;
 }
 
@@ -191,21 +289,43 @@ static int parse_credentials(void) {
         return 0;
 }
 
-static int transfer_generate(sd_json_variant *v, size_t c) {
+static char *transfer_get_local_path(const Transfer *t) {
+        assert(t);
+        assert(t->image_root);
+        assert(t->local);
+
+        switch (t->type) {
+        case IMPORT_RAW:
+                return strjoin(t->image_root, "/", t->local, ".raw");
+
+        case IMPORT_TAR:
+                return path_join(t->image_root, t->local);
+
+        default:
+                assert_not_reached();
+        }
+}
+
+static int transfer_generate(const Transfer *t) {
         int r;
 
-        assert(v);
+        assert(t);
 
-        _cleanup_free_ char *service = NULL;
-        if (asprintf(&service, "import%zu.service", c) < 0)
+        _cleanup_free_ char *local_path = transfer_get_local_path(t);
+        if (!local_path)
                 return log_oom();
+
+        /* Give this unit a clear name derived from the file system object we are installed into the OS, so
+         * that other components can nicely have dependencies on this. */
+        _cleanup_free_ char *service = NULL;
+        r = unit_name_from_path_instance("systemd-import", local_path, ".service", &service);
+        if (r < 0)
+                return log_error_errno(r, "Failed to build import unit name from '%s': %m", local_path);
 
         _cleanup_fclose_ FILE *f = NULL;
         r = generator_open_unit_file(arg_dest, /* source = */ NULL, service, &f);
         if (r < 0)
                 return r;
-
-        const char *remote = sd_json_variant_string(sd_json_variant_by_key(v, "remote"));
 
         fprintf(f,
                 "[Unit]\n"
@@ -213,11 +333,11 @@ static int transfer_generate(sd_json_variant *v, size_t c) {
                 "Documentation=man:systemd-import-generator(8)\n"
                 "SourcePath=/proc/cmdline\n"
                 "Requires=systemd-importd.socket\n"
-                "After=systemd-importd.socket\n"
+                "After=imports-pre.target systemd-importd.socket\n"
                 "Conflicts=shutdown.target\n"
-                "Before=shutdown.target\n"
+                "Before=imports.target shutdown.target\n"
                 "DefaultDependencies=no\n",
-                remote);
+                t->remote);
 
         if (arg_success_action)
                 fprintf(f, "SuccessAction=%s\n",
@@ -227,16 +347,27 @@ static int transfer_generate(sd_json_variant *v, size_t c) {
                 fprintf(f, "FailureAction=%s\n",
                         arg_failure_action);
 
-        const char *class = sd_json_variant_string(sd_json_variant_by_key(v, "class"));
-        if (streq_ptr(class, "sysext"))
+        if (t->class == IMAGE_SYSEXT)
                 fputs("Before=systemd-sysext.service\n", f);
-        else if (streq_ptr(class, "confext"))
+        else if (t->class == IMAGE_CONFEXT)
                 fputs("Before=systemd-confext.service\n", f);
 
         /* Assume network resource unless URL is file:// */
-        if (!file_url_is_valid(remote))
+        if (!file_url_is_valid(t->remote))
                 fputs("Wants=network-online.target\n"
                       "After=network-online.target\n", f);
+
+        _cleanup_free_ char *loop_service = NULL;
+        if (t->blockdev) {
+                assert(t->type == IMPORT_RAW);
+
+                r = unit_name_from_path_instance("systemd-loop", local_path, ".service", &loop_service);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to build systemd-loop@.service instance name from path '%s': %m", local_path);
+
+                /* Make sure download completes before the loopback service is activated */
+                fprintf(f, "Before=%s\n", loop_service);
+        }
 
         fputs("\n"
               "[Service]\n"
@@ -244,7 +375,7 @@ static int transfer_generate(sd_json_variant *v, size_t c) {
               "NotifyAccess=main\n", f);
 
         _cleanup_free_ char *formatted = NULL;
-        r = sd_json_variant_format(v, /* flags= */ 0, &formatted);
+        r = sd_json_variant_format(t->json, /* flags= */ 0, &formatted);
         if (r < 0)
                 return log_error_errno(r, "Failed to format import JSON data: %m");
 
@@ -259,15 +390,24 @@ static int transfer_generate(sd_json_variant *v, size_t c) {
         if (r < 0)
                 return log_error_errno(r, "Failed to write unit %s: %m", service);
 
-        return generator_add_symlink(arg_dest, "multi-user.target", "wants", service);
+        r = generator_add_symlink(arg_dest, "imports.target", "wants", service);
+        if (r < 0)
+                return r;
+
+        if (loop_service) {
+                r = generator_add_symlink(arg_dest, "imports.target", "wants", loop_service);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
 }
 
 static int generate(void) {
-        size_t c = 0;
         int r = 0;
 
         FOREACH_ARRAY(i, arg_transfers, arg_n_transfers)
-                RET_GATHER(r, transfer_generate(*i, c++));
+                RET_GATHER(r, transfer_generate(i));
 
         return r;
 }
