@@ -890,6 +890,11 @@ static int method_set_time(sd_bus_message *m, void *userdata, sd_bus_error *erro
         } else
                 timespec_store(&ts, (usec_t) utc);
 
+        /* when utc time is past systemd build date time*/
+        /* convert epoch time to microseconds to compare with utc*/
+        if (utc <= ((int64_t)TIME_EPOCH * USEC_PER_SEC))
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Request to set clock to time before build time, refusing");
+
         r = bus_verify_polkit_async_full(
                         m,
                         "org.freedesktop.timedate1.set-time",
