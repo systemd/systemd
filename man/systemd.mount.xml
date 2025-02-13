@@ -285,6 +285,19 @@
        </varlistentry>
 
       <varlistentry>
+        <term><option>x-systemd.graceful-option=</option></term>
+
+        <listitem><para>Additional mount option that shall be appended if supported by the kernel.
+        This may be used to configure mount options that are optional and only enabled on kernels that
+        support them. Note that this is supported only for native kernel mount options (i.e. explicitly not
+        for mount options implemented in userspace, such as those processed by
+        <command>/usr/bin/mount</command> itself, by FUSE or by mount helpers such as
+        <command>mount.nfs</command>). This option may be specified more than once.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>x-systemd.device-bound=</option></term>
 
         <listitem><para>Takes a boolean argument. If true or no argument, a <varname>BindsTo=</varname> dependency
@@ -649,22 +662,6 @@
         default value is set from <varname>DefaultTimeoutStartSec=</varname> option in
         <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
         </para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><varname>GracefulOptions=</varname></term>
-
-        <listitem><para>Additional mount options that shall be appended to <varname>Options=</varname> if
-        supported by the kernel. This may be used to configure mount options that are optional and only
-        enabled on kernels that support them. Note that this is supported only for native kernel mount
-        options (i.e. explicitly not for mount options implemented in userspace, such as those processed by
-        <command>/usr/bin/mount</command> itself, by FUSE or by mount helpers such as
-        <command>mount.nfs</command>).</para>
-
-        <para>May be specified multiple times. If specified multiple times, all listed, supported mount
-        options are combined. If an empty string is assigned, the list is reset.</para>
-
-        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
     </variablelist>
 

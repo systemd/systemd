@@ -181,9 +181,9 @@ touch "$WORK_DIR/mnt/hello"
 [[ "$(stat -c "%U:%G" "$WORK_DIR/mnt/hello")" == "testuser:testuser" ]]
 systemd-umount LABEL=owner-vfat
 
-# Mkae sure that graceful mount options work
+# Make sure that graceful mount options work
 GRACEFULTEST="/tmp/graceful/$RANDOM"
-systemd-mount --tmpfs -p GracefulOptions=idefinitelydontexist,nr_inodes=4711,idonexisteither "$GRACEFULTEST"
+systemd-mount --tmpfs --options="x-systemd.graceful-option=idefinitelydontexist,x-systemd.graceful-option=nr_inodes=4711,x-systemd.graceful-option=idonexisteither" "$GRACEFULTEST"
 findmnt -n -o options "$GRACEFULTEST"
 findmnt -n -o options "$GRACEFULTEST" | grep -q nr_inodes=4711
 umount "$GRACEFULTEST"

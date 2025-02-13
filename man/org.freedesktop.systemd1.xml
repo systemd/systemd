@@ -7048,10 +7048,10 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b ReadWriteOnly = ...;
       readonly s Result = '...';
+      readonly s ReloadResult = '...';
+      readonly s CleanResult = '...';
       readonly u UID = ...;
       readonly u GID = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
-      readonly as GracefulOptions = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("invalidates")
       readonly a(sasbttttuii) ExecMount = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("invalidates")
@@ -7652,11 +7652,13 @@ node /org/freedesktop/systemd1/unit/home_2emount {
 
     <!--property ReadWriteOnly is not documented!-->
 
+    <!--property ReloadResult is not documented!-->
+
+    <!--property CleanResult is not documented!-->
+
     <!--property UID is not documented!-->
 
     <!--property GID is not documented!-->
-
-    <!--property GracefulOptions is not documented!-->
 
     <!--property ExecUnmount is not documented!-->
 
@@ -8200,11 +8202,13 @@ node /org/freedesktop/systemd1/unit/home_2emount {
 
     <variablelist class="dbus-property" generated="True" extra-ref="Result"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="ReloadResult"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="CleanResult"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="UID"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="GID"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="GracefulOptions"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ExecMount"/>
 
@@ -12462,8 +12466,9 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>ProtectControlGroupsEx</varname>, and
       <varname>PrivatePIDs</varname> were added in version 257.</para>
       <para><varname>ProtectHostnameEx</varname>,
-      <function>RemoveSubgroup()</function>, and
-      <varname>GracefulOptions</varname> were added in version 258.</para>
+      <function>RemoveSubgroup()</function>,
+      <varname>ReloadResult</varname>, and
+      <varname>CleanResult</varname> were added in version 258.</para>
     </refsect2>
     <refsect2>
       <title>Swap Unit Objects</title>
