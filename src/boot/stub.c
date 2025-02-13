@@ -21,6 +21,7 @@
 #include "splash.h"
 #include "tpm2-pcr.h"
 #include "uki.h"
+#include "url-discovery.h"
 #include "util.h"
 #include "version.h"
 #include "vmm.h"
@@ -151,6 +152,7 @@ static void export_stub_variables(EFI_LOADED_IMAGE_PROTOCOL *loaded_image, unsig
                 EFI_STUB_FEATURE_DEVICETREE_ADDONS |        /* We pick up .dtb addons */
                 EFI_STUB_FEATURE_MULTI_PROFILE_UKI |        /* We grok the "@1" profile command line argument */
                 EFI_STUB_FEATURE_REPORT_STUB_PARTITION |    /* We set StubDevicePartUUID + StubImageIdentifier */
+                EFI_STUB_FEATURE_REPORT_URL |               /* We set StubDeviceURL + LoaderDeviceURL */
                 0;
 
         assert(loaded_image);
@@ -167,6 +169,10 @@ static void export_stub_variables(EFI_LOADED_IMAGE_PROTOCOL *loaded_image, unsig
                 _cleanup_free_ char16_t *uuid = disk_get_part_uuid(loaded_image->DeviceHandle);
                 if (uuid)
                         efivar_set_str16(MAKE_GUID_PTR(LOADER), u"StubDevicePartUUID", uuid, 0);
+
+                _cleanup_free_ char16_t *url = disk_get_url(loaded_image->DeviceHandle);
+                if (url)
+                        efivar_set_str16(MAKE_GUID_PTR(LOADER), u"StubDeviceURL", url, 0);
         }
 
         if (loaded_image->FilePath) {
@@ -592,7 +598,7 @@ static EFI_STATUS load_addons(
 
                 /* By using shim_load_image, we cover both the case where the PE files are signed with MoK
                  * and with DB, and running with or without shim. */
-                err = shim_load_image(stub_image, addon_path, &addon);
+                err = shim_load_image(stub_image, addon_path, /* boot_policy= */ false, &addon);
                 if (err != EFI_SUCCESS) {
                         log_error_status(err,
                                          "Failed to read '%ls' from '%ls', ignoring: %m",
@@ -777,7 +783,7 @@ static void cmdline_append_and_measure_smbios(char16_t **cmdline, int *parameter
         if (is_confidential_vm())
                 return;
 
-        const char *extra = smbios_find_oem_string("io.systemd.stub.kernel-cmdline-extra");
+        const char *extra = smbios_find_oem_string("io.systemd.stub.kernel-cmdline-extra=", /* after= */ NULL);
         if (!extra)
                 return;
 

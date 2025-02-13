@@ -265,6 +265,18 @@
 
           <xi:include href="version-info.xml" xpointer="v255"/></listitem>
         </varlistentry>
+
+        <varlistentry>
+          <term><option>--smbios11=<replaceable>STRING</replaceable></option></term>
+          <term><option>-s <replaceable>STRING</replaceable></option></term>
+
+          <listitem><para>Passes the specified string into the VM as an SMBIOS Type #11 vendor string. This
+          is useful to parameterize the invoked VM in various ways. See
+          <citerefentry><refentrytitle>smbios-type-11</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+          for details.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+        </varlistentry>
       </variablelist>
     </refsect2>
 

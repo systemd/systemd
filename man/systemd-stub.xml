@@ -551,6 +551,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>StubDeviceURL</varname></term>
+
+        <listitem><para>If the kernel image has been invoked via network booting this variable contains the
+        originating URL. This may be used to automatically acquire additional resources from the same
+        source.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>StubInfo</varname></term>
 
         <listitem><para>Brief stub information. Use

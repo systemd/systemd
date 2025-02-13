@@ -16,6 +16,8 @@
 #  define strncmp strncmp16
 #  define strcasecmp strcasecmp16
 #  define strncasecmp strncasecmp16
+#  define strspn strspn16
+#  define strcspn strcspn16
 #  define STR_C(str)       (L ## str)
 typedef char16_t sd_char;
 #else

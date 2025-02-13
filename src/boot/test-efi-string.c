@@ -332,28 +332,68 @@ TEST(xstrdup16) {
 TEST(xstrn8_to_16) {
         char16_t *s = NULL;
 
-        assert_se(xstrn8_to_16(NULL, 1) == NULL);
-        assert_se(xstrn8_to_16("a", 0) == NULL);
+        assert_se(s = xstrn8_to_16(NULL, 0));
+        ASSERT_TRUE(streq16(s, u""));
+        free(s);
+
+        assert_se(s = xstrn8_to_16("", 0));
+        ASSERT_TRUE(streq16(s, u""));
+        free(s);
+
+        assert_se(s = xstrn8_to_16("a", 0));
+        ASSERT_TRUE(streq16(s, u""));
+        free(s);
 
         assert_se(s = xstrn8_to_16("", 1));
-        assert_se(streq16(s, u""));
+        ASSERT_TRUE(streq16(s, u""));
         free(s);
 
         assert_se(s = xstrn8_to_16("1", 1));
-        assert_se(streq16(s, u"1"));
+        ASSERT_TRUE(streq16(s, u"1"));
         free(s);
 
         assert_se(s = xstr8_to_16("abcxyzABCXYZ09 .,-_#*!\"§$%&/()=?`~"));
-        assert_se(streq16(s, u"abcxyzABCXYZ09 .,-_#*!\"§$%&/()=?`~"));
+        ASSERT_TRUE(streq16(s, u"abcxyzABCXYZ09 .,-_#*!\"§$%&/()=?`~"));
         free(s);
 
         assert_se(s = xstr8_to_16("ÿⱿ𝇉 😺"));
-        assert_se(streq16(s, u"ÿⱿ "));
+        ASSERT_TRUE(streq16(s, u"ÿⱿ "));
         free(s);
 
         assert_se(s = xstrn8_to_16("¶¶", 3));
-        assert_se(streq16(s, u"¶"));
+        ASSERT_TRUE(streq16(s, u"¶"));
         free(s);
+}
+
+TEST(xstrn16_to_ascii) {
+        char *s;
+
+        assert_se(s = xstrn16_to_ascii(NULL, 0));
+        ASSERT_TRUE(streq8(s, ""));
+        free(s);
+
+        assert_se(s = xstrn16_to_ascii(u"", 0));
+        ASSERT_TRUE(streq8(s, ""));
+        free(s);
+
+        assert_se(s = xstrn16_to_ascii(u"a", 0));
+        ASSERT_TRUE(streq8(s, ""));
+        free(s);
+
+        assert_se(s = xstrn16_to_ascii(u"", 1));
+        ASSERT_TRUE(streq8(s, ""));
+        free(s);
+
+        assert_se(s = xstrn16_to_ascii(u"1", 1));
+        ASSERT_TRUE(streq8(s, "1"));
+        free(s);
+
+        assert_se(s = xstr16_to_ascii(u"abcxyzABCXYZ09 .,-_#*!\"$%&/()=?`~"));
+        ASSERT_TRUE(streq8(s, "abcxyzABCXYZ09 .,-_#*!\"$%&/()=?`~"));
+        free(s);
+
+        assert_se(!xstr16_to_ascii(u"ÿⱿ𝇉 😺"));
+        assert_se(!xstr16_to_ascii(u"¶¶"));
 }
 
 TEST(startswith8) {
@@ -789,6 +829,29 @@ TEST(efi_memset) {
         assert_se(memcmp(buf, "4444", 4) == 0);
         assert_se(efi_memset(buf, 'a', 10) == buf);
         assert_se(memcmp(buf, "aaaaaaaaaa", 10) == 0);
+}
+
+TEST(efi_strspn) {
+        ASSERT_EQ(strspn16(u"foobar", u"fo"), 3U);
+        ASSERT_EQ(strspn16(u"foobar", u"ob"), 0U);
+        ASSERT_EQ(strspn16(u"foobar", u"fxayzy"), 1U);
+        ASSERT_EQ(strspn16(u"", u"abcdefef"), 0U);
+        ASSERT_EQ(strspn16(u"", u""), 0U);
+        ASSERT_EQ(strspn16(u"foobar", u""), 0U);
+        ASSERT_EQ(strspn16(u"foffffffffffoobar", u"fofo"), 14U);
+}
+
+TEST(efi_strcspn) {
+        ASSERT_EQ(strcspn16(u"foobar", u"fo"), 0U);
+        ASSERT_EQ(strcspn16(u"foobar", u"bar"), 3U);
+        ASSERT_EQ(strcspn16(u"foobar", u"xhyfzy"), 0U);
+        ASSERT_EQ(strcspn16(u"foobar", u"xhyozy"), 1U);
+        ASSERT_EQ(strcspn16(u"foobar", u"xhyzy"), 6U);
+        ASSERT_EQ(strcspn16(u"", u"abcdefef"), 0U);
+        ASSERT_EQ(strcspn16(u"", u""), 0U);
+        ASSERT_EQ(strcspn16(u"foobar", u""), 6U);
+        ASSERT_EQ(strcspn16(u"foffffffffffoobar", u"fofo"), 0U);
+        ASSERT_EQ(strcspn16(u"foffffffffffoobar", u"a"), 15U);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);
