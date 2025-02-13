@@ -1287,6 +1287,9 @@ static const char *skip_session(const char *p) {
  * Skip user@*.service, but require it to be there.
  */
 static const char *skip_user_manager(const char *p) {
+        _cleanup_free_ char *i = NULL;
+        char *unit_name;
+        UnitNameFlags type;
         size_t n;
 
         if (isempty(p))
@@ -1295,23 +1298,28 @@ static const char *skip_user_manager(const char *p) {
         p += strspn(p, "/");
 
         n = strcspn(p, "/");
-        if (n < STRLEN("user@x.service"))
+        if (n < STRLEN("user@x.service")) /* || n < STRLEN("capsule@x.service"))*/
+                return NULL;
+        unit_name = strndupa(p, n);
+        type = unit_name_to_instance(unit_name, &i);
+        if (type != UNIT_NAME_INSTANCE)
                 return NULL;
 
-        if (memcmp(p, "user@", 5) == 0 && memcmp(p + n - 8, ".service", 8) == 0) {
-                char buf[n - 5 - 8 + 1];
-
-                memcpy(buf, p + 5, n - 5 - 8);
-                buf[n - 5 - 8] = 0;
-
-                /* Note that user manager services never need unescaping,
-                 * since they cannot conflict with the kernel's own
-                 * names, hence we don't need to call cg_unescape()
-                 * here. */
-
-                if (parse_uid(buf, NULL) < 0)
+        /* Note that user manager services never need unescaping,
+         * since they cannot conflict with the kernel's own
+         * names, hence we don't need to call cg_unescape()
+         * here. */
+        if (strncmp(unit_name, "user@", 5) == 0) {
+                if (parse_uid(i, NULL) < 0)
                         return NULL;
 
+                p += n;
+                p += strspn(p, "/");
+
+                return p;
+        } else if (strncmp(unit_name, "capsule@", 8) == 0) {
+                if (!valid_user_group_name(i, 0))
+                        return NULL;
                 p += n;
                 p += strspn(p, "/");
 
