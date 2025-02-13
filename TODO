@@ -125,6 +125,9 @@ Deprecations and removals:
 
 Features:
 
+* make "systemd-vmspawn -n" work unprivileged properly, i.e. acquire tap netif
+  from nsresourced.
+
 * Make run0 forward various signals to the forked process so that sending
   signals to a child process works rougly the same regardless of whether the
   child process is spawned via run0 or not.
