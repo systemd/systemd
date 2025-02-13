@@ -133,8 +133,8 @@ int session_send_create_reply_varlink(Session *s, const sd_bus_error *error) {
                         SD_JSON_BUILD_PAIR_UNSIGNED("UID", s->user->user_record->uid),
                         SD_JSON_BUILD_PAIR_CONDITION(!!s->seat, "Seat", SD_JSON_BUILD_STRING(s->seat ? s->seat->id : NULL)),
                         SD_JSON_BUILD_PAIR_CONDITION(s->vtnr > 0, "VTNr", SD_JSON_BUILD_UNSIGNED(s->vtnr)),
-                        SD_JSON_BUILD_PAIR_STRING("Class", session_class_to_string(s->class)),
-                        SD_JSON_BUILD_PAIR_STRING("Type", session_type_to_string(s->type)));
+                        SD_JSON_BUILD_PAIR("Class", JSON_BUILD_STRING_UNDERSCORIFY(session_class_to_string(s->class))),
+                        SD_JSON_BUILD_PAIR("Type", JSON_BUILD_STRING_UNDERSCORIFY(session_type_to_string(s->type))));
 }
 
 static JSON_DISPATCH_ENUM_DEFINE(json_dispatch_session_class, SessionClass, session_class_from_string);
