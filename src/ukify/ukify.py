@@ -194,9 +194,9 @@ def get_zboot_kernel(f: IO[bytes]) -> bytes:
         raise NotImplementedError('lzo decompression not implemented')
     elif comp_type.startswith(b'xzkern'):
         raise NotImplementedError('xzkern decompression not implemented')
-    elif comp_type.startswith(b'zstd22'):
-        zstd = try_import('zstd')
-        return cast(bytes, zstd.uncompress(f.read(size)))
+    elif comp_type.startswith(b'zstd'):
+        zstd = try_import('zstandard')
+        return cast(bytes, zstd.ZstdDecompressor().stream_reader(f.read(size)).read())
 
     raise NotImplementedError(f'unknown compressed type: {comp_type!r}')
 
@@ -226,8 +226,8 @@ def maybe_decompress(filename: Union[str, Path]) -> bytes:
         return cast(bytes, gzip.open(f).read())
 
     if start.startswith(b'\x28\xb5\x2f\xfd'):
-        zstd = try_import('zstd')
-        return cast(bytes, zstd.uncompress(f.read()))
+        zstd = try_import('zstandard')
+        return cast(bytes, zstd.ZstdDecompressor().stream_reader(f.read(size)).read())
 
     if start.startswith(b'\x02\x21\x4c\x18'):
         lz4 = try_import('lz4.frame', 'lz4')
@@ -1297,7 +1297,18 @@ def make_uki(opts: UkifyConfig) -> None:
     linux = opts.linux
     combined_sigs = '{}'
 
-    if opts.linux and sign_args_present:
+    # On some distros, on some architectures, the vmlinuz is a gzip file, so we need to decompress it
+    # if it's not a valid PE file, as it will fail to be booted by the firmware.
+    if linux:
+        try:
+            pefile.PE(linux, fast_load=True)
+        except pefile.PEFormatError:
+            decompressed = maybe_decompress(linux)
+            if decompressed:
+                linux = Path(tempfile.NamedTemporaryFile(prefix='linux-decompressed').name)
+                linux.write_bytes(decompressed)
+
+    if linux and sign_args_present:
         assert opts.signtool is not None
         signtool = SignTool.from_string(opts.signtool)
 
@@ -1307,12 +1318,12 @@ def make_uki(opts: UkifyConfig) -> None:
 
         if sign_kernel:
             linux_signed = tempfile.NamedTemporaryFile(prefix='linux-signed')
+            signtool.sign(os.fspath(linux), os.fspath(Path(linux_signed.name)), opts=opts)
             linux = Path(linux_signed.name)
-            signtool.sign(os.fspath(opts.linux), os.fspath(linux), opts=opts)
 
-    if opts.uname is None and opts.linux is not None:
+    if opts.uname is None and linux is not None:
         print('Kernel version not specified, starting autodetection 😖.', file=sys.stderr)
-        opts.uname = Uname.scrape(opts.linux, opts=opts)
+        opts.uname = Uname.scrape(linux, opts=opts)
 
     uki = UKI(opts.join_pcrsig if opts.join_pcrsig else opts.stub)
     initrd = join_initrds(opts.initrd)
