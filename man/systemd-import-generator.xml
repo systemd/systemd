@@ -136,6 +136,10 @@
         <xi:include href="version-info.xml" xpointer="v257"/></listitem>
       </varlistentry>
     </variablelist>
+
+    <para>These kernel command line options are interpreted by the host system only. If these options are
+    prefixed with <literal>rd.</literal> they are interpreted by the initial RAM disk (initrd)
+    instead.</para>
   </refsect1>
 
   <refsect1>
