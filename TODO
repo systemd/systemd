@@ -145,11 +145,28 @@ Features:
   Net result: people who try to debug why their process gets killed should have
   some minimal, nice metadata directly on the signal event.
 
-* import-generator: add option to download into /run/ rather than /var/, and
-  make it default in the initrd
+* sd-boot/sd-stub: install a uefi "handle" to a sidecar dir of bls type #1
+  entries with an "uki" or "uki-url" stanza, and make sd-stub look for
+  that. That way we can parameterize type #1 entries nicely.
 
-* also parse out primary GPT disk label uuid from gpt partition at boot and
-  pass it as efi var to OS.
+* add a system-wide seccomp filter list for syscalls, kill "acct()" "@obsolete"
+  and a few other legacy syscalls that way.
+
+* maybe introduce "@icky" as a seccomp filter group, which contains acct() and
+  certain other syscalls that aren't quite obsolete, but certainly icky.
+
+* revisit how we pass fs images and initrd to the kernel. take uefi http boot
+  ramdisks as inspiration: for any confext/sysext/initrd erofs/DDI image simply
+  generate a fake pmem region in the UEFI memory tables, that Linux then turns
+  into /dev/pmemX. Then turn of cpio-based initrd logic in linux kernel,
+  instead let kernel boot directly into /dev/pmem0. In order to allow our usual
+  cpio-based parameterization, teach PID 1 to just uncompress cpio ourselves
+  early on, from another pmem device. (Related to this, maybe introduce a new
+  PE section .ramdisk that just synthesizes pmem devices from arbitrary
+  blobs. Could be particularly useful in add-ons)
+
+* also parse out primary GPT disk label uuid from gpt partition device path at
+  boot and pass it as efi var to OS.
 
 * maybe rework invocation of stub's inner PE payload: since we already parse PE
   anyway, maybe jump directly into the image, after finding the linux UEFI
@@ -158,18 +175,10 @@ Features:
   own image loading code paths. Given that everything's statically linked
   anyway on UEFI it should be easy to just jump into the already loaded image.
 
-* introduce smbios type 11 variables for inserting additional entries into boot
-  loader spec type 1 menu list. Usecase is in particular with http boot: allow
-  VMMs to insert additional cheap payloads that are acquired on demand via
-  http. for example: always install diskomator or such.
-
 * storagetm: maybe also serve the specified disk via HTTP? we have glue for
   microhttpd anyway already. Idea would also be serve currently booted UKI as
   separate HTTP resource, so that EFI http boot on another system could
   directly boot from our system, with full access to the hdd.
-
-* support boot-into-tarball in systemd-import-generator: optionally bind mount
-  downloaded image to /sysroot/
 
 * support specifying download hash sum in systemd-import-generator expression
   to pin image/tarball.
@@ -220,16 +229,8 @@ Features:
 * systemd-cryptenroll: add --firstboot or so, that will interactively ask user
   whether recovery key shall be enrolled and do so
 
-* sd-boot: when looking for a BLS type #1 resource and it cannot be found in
-  the ESP check if ESP is backed by ramdisk/http and then request it from same
-  http base. Then: make mkosi build a 2nd esp maybe called the "netesp" that
-  contains bls type #1 entries pointing to the UKIs which would then be
-  requested via http this way. also set an efi var indicating that this
-  happened, so that initrd can recognize this and take into consdiration when
-  looking for root fs
-
 * bootctl: add tool for registering BootXXX entry that boots from some http
-  server of your choice
+  server of your choice (i.e. like kernel-bootcfg --add-uri=)
 
 * maybe introduce container-shell@.service or so, to match
   container-getty.service but skips authentication, so you get a shell prompt
@@ -990,29 +991,11 @@ Features:
   into two of the three PAM stacks gdm provides.
   See discussion at https://github.com/authselect/authselect/pull/311
 
-* sd-boot: make boot loader spec type #1 accept http urls in "linux"
-  lines. Then, do the uefi http dance to download kernels and boot them. This
-  is then useful for network boot, by embedding a cpio with type #1 snippets
-  in sd-boot, which reference remote kernels.
-
 * maybe prohibit setuid() to the nobody user, to lock things down, via seccomp.
   the nobody is not a user any code should run under, ever, as that user would
   possibly get a lot of access to resources it really shouldn't be getting
   access to due to the userns + nfs semantics of the user. Alternatively: use
   the seccomp log action, and allow it.
-
-* sd-boot: add a new PE section .bls or so that carries a cpio with additional
-  boot loader entries (both type1 and type2). Then when initializing, find this
-  section, iterate through it and populate menu with it. cpio is simple enough
-  to make a parser for this reasonably robust. use same path structures as in
-  the ESP. Similar add one for signature key drop-ins.
-
-* sd-boot: also allow passing in the cpio as in the previous item via SMBIOS
-
-* add a new EFI tool "sd-fetch" or so. It looks in a PE section ".url" for an
-  URL, then downloads the file from it using UEFI HTTP APIs, and executes it.
-  Use case: provide a minimal ESP with sd-boot and a couple of these sd-fetch
-  binaries in place of UKIs, and download them on-the-fly.
 
 * maybe: systemd-loop-generator that sets up loopback devices if requested via kernel
   cmdline. use case: include encrypted/verity root fs in UKI.
@@ -1253,9 +1236,6 @@ Features:
 * systemd-measure tool:
   - pre-calculate PCR 12 (command line) + PCR 13 (sysext) the same way we can precalculate PCR 11
 
-* in sd-boot: load EFI drivers from a new PE section. That way, one can have a
-  "supercharged" sd-boot binary, that could carry ext4 drivers built-in.
-
 * sd-device: add an API for acquiring list of child devices, given a device
   objects (i.e. all child dirents that dirs or symlinks to dirs)
 
@@ -1420,9 +1400,6 @@ Features:
     place them next to EFI kernel, for sd-stub to pick them up.
   - systemd-fstab-generator should look for rootfs device to mount in creds
   - systemd-resume-generator should look for resume partition uuid in creds
-  - sd-stub: automatically pick up microcode from ESP (/loader/microcode/*)
-    and synthesize initrd from it, and measure it. Signing is not necessary, as
-    microcode does that on its own. Pass as first initrd to kernel.
 
 * Maybe extend the service protocol to support handling of some specific SIGRT
   signal for setting service log level, that carries the level via the
@@ -1451,27 +1428,6 @@ Features:
 * sd-event: add 1st class event source for clock changes
 
 * sd-event: add 1st class event source for timezone changes
-
-* support uefi/http boots with sd-boot: instead of looking for dropin files in
-  /loader/entries/ dir, look for a file /loader/entries/SHA256SUMS and use that
-  as directory manifest. The file would be a standard directory listing as
-  generated by GNU sha256sums.
-
-* sd-boot: maybe add support for embedding the various auxiliary resources we
-  look for right in the sd-boot binary. i.e. take inspiration from sd-stub
-  logic: allow combining sd-boot via ukify with kernels to enumerate, .conf
-  files, drivers, keys to enroll and so on. Then, add whatever we find that way
-  to the menu. Use case: allow building a single PE image you can boot into via
-  UEFI HTTP boot.
-
-* maybe add a new UEFI stub binary "sd-http". It works similar to sd-stub, but
-  all it does is download a file from a http server, and execute it, after
-  optionally checking its hash sum. idea would be: combine this "sd-http" stub
-  binary with some minimal info about a URL + hash sum, plus .osrel data, and
-  drop it into the unified kernel dir in the ESP. And bam you have something
-  that is tiny, feels a lot like a unified kernel, but all it does is chainload
-  the real kernel. benefit: downloading these stubs would be tiny and quick,
-  hence cheap for enumeration.
 
 * sysext: measure all activated sysext into a TPM PCR
 

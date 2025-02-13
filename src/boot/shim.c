@@ -81,7 +81,12 @@ static bool shim_validate(
         return shim_lock->shim_verify(file_buffer, file_size) == EFI_SUCCESS;
 }
 
-EFI_STATUS shim_load_image(EFI_HANDLE parent, const EFI_DEVICE_PATH *device_path, EFI_HANDLE *ret_image) {
+EFI_STATUS shim_load_image(
+                EFI_HANDLE parent,
+                const EFI_DEVICE_PATH *device_path,
+                bool boot_policy,
+                EFI_HANDLE *ret_image) {
+
         assert(device_path);
         assert(ret_image);
 
@@ -91,8 +96,12 @@ EFI_STATUS shim_load_image(EFI_HANDLE parent, const EFI_DEVICE_PATH *device_path
                 install_security_override(shim_validate, NULL);
 
         EFI_STATUS ret = BS->LoadImage(
-                        /*BootPolicy=*/false, parent, (EFI_DEVICE_PATH *) device_path, NULL, 0, ret_image);
-
+                        /* BootPolicy= */ boot_policy,
+                        parent,
+                        (EFI_DEVICE_PATH *) device_path,
+                        /* SourceBuffer= */ NULL,
+                        /* SourceSize= */ 0,
+                        ret_image);
         if (have_shim)
                 uninstall_security_override();
 
