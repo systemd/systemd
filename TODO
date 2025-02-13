@@ -125,6 +125,10 @@ Deprecations and removals:
 
 Features:
 
+* Make run0 forward various signals to the forked process so that sending
+  signals to a child process works rougly the same regardless of whether the
+  child process is spawned via run0 or not.
+
 * write a document explaining how to write correct udev rules. Mention things
   such as:
   1. do not do lists of vid/pid matches, use hwdb for that
