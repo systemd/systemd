@@ -163,7 +163,7 @@ def get_zboot_kernel(f):
         raise NotImplementedError('lzo decompression not implemented')
     elif comp_type.startswith(b'xzkern'):
         raise NotImplementedError('xzkern decompression not implemented')
-    elif comp_type.startswith(b'zstd22'):
+    elif comp_type.startswith(b'zstd'):
         zstd = try_import('zstandard')
         return cast(bytes, zstd.ZstdDecompressor().stream_reader(f.read(size)).read())
     else:
