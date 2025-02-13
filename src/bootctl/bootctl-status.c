@@ -478,7 +478,7 @@ int verb_status(int argc, char *argv[], void *userdata) {
 
                         sd_id128_t loader_partition_uuid = SD_ID128_NULL;
                         (void) efi_loader_get_device_part_uuid(&loader_partition_uuid);
-                        print_yes_no_line(/* first= */ false, !sd_id128_is_null(loader_partition_uuid), "Boot loader set partition information");
+                        print_yes_no_line(/* first= */ false, !sd_id128_is_null(loader_partition_uuid), "Boot loader sets partition information");
 
                         if (!sd_id128_is_null(loader_partition_uuid)) {
                                 if (!sd_id128_is_null(esp_uuid) && !sd_id128_equal(esp_uuid, loader_partition_uuid))
