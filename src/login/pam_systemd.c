@@ -39,11 +39,13 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "hostname-util.h"
+#include "io-util.h"
 #include "json-util.h"
 #include "locale-util.h"
 #include "login-util.h"
 #include "macro.h"
 #include "missing_syscall.h"
+#include "osc-context.h"
 #include "pam-util.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -1078,7 +1080,8 @@ static int register_session(
                 SessionContext *c,
                 UserRecord *ur,
                 bool debug,
-                char **ret_seat) {
+                char **ret_seat,
+                char **ret_type) {
 
         int r;
 
@@ -1317,6 +1320,10 @@ static int register_session(
          * somewhere else (for example PAM module parameters). Let's now update the environment variables, so that this
          * data is inherited into the session processes, and programs can rely on them to be initialized. */
 
+        _cleanup_free_ char *real_type = strdup(c->type); /* make copy because this might point to env block, which we are going to update shortly */
+        if (!real_type)
+                return pam_log_oom(handle);
+
         r = update_environment(handle, "XDG_SESSION_TYPE", c->type);
         if (r != PAM_SUCCESS)
                 return r;
@@ -1367,6 +1374,7 @@ static int register_session(
         }
 
         c->seat = *ret_seat = rs;
+        c->type = *ret_type = TAKE_PTR(real_type);
         c->vtnr = real_vtnr;
         return PAM_SUCCESS;
 }
@@ -1459,6 +1467,125 @@ static int update_home_env(
         return update_environment(handle, "HOME", h);
 }
 
+static int open_osc_context(pam_handle_t *handle, const char *session_type, UserRecord *ur) {
+        int r;
+
+        assert(handle);
+        assert(ur);
+
+        /* If this is a TTY session, then output the session start OSC sequence */
+
+        if (!streq_ptr(session_type, "tty"))
+                return PAM_SUCCESS;
+
+        /* NB: we output directly to stdout, instead of going via pam_info() or so, because that's too
+         * high-level for us, as it suffixes the output with a newline, expecting a full blown text message
+         * as prompt string, not just an ANSI sequence. Note that PAM's conv_misc() actually goes to stdout
+         * anyway, hence let's do so here too, but only after careful validation. */
+        if (!isatty(STDOUT_FILENO))
+                return PAM_SUCCESS;
+
+        /* Keep a reference to the TTY we are operating on, so that we can issue the OSC close sequence also
+         * if the TTY is already closed. We use an O_PATH reference here, rather than a properly opened fd,
+         * so that we don't delay tty hang-up. */
+        _cleanup_close_ int tty_opath_fd = fd_reopen(STDOUT_FILENO, O_PATH|O_CLOEXEC);
+        if (tty_opath_fd < 0)
+                pam_syslog_pam_error(handle, LOG_DEBUG, tty_opath_fd, "Failed to pin TTY, ignoring: %m");
+        else
+                tty_opath_fd = fd_move_above_stdio(tty_opath_fd);
+
+        const char *e = pam_getenv(handle, "TERM");
+        if (!e)
+                e = getenv("TERM");
+        if (streq_ptr(e, "dumb"))
+                return PAM_SUCCESS;
+
+        _cleanup_free_ char *osc = NULL;
+        sd_id128_t osc_id;
+        r = osc_context_open_session(
+                        ur->user_name,
+                        pam_getenv(handle, "XDG_SESSION_ID"),
+                        &osc,
+                        &osc_id);
+        if (r < 0)
+                return pam_syslog_errno(handle, LOG_ERR, r, "Failed to prepare OSC sequence: %m");
+
+        r = loop_write(STDOUT_FILENO, osc, SIZE_MAX);
+        if (r < 0)
+                return pam_syslog_errno(handle, LOG_ERR, r, "Failed to write OSC sequence to TTY: %m");
+
+        /* Remember the OSC context id, so that we can close it cleanly later */
+        _cleanup_free_ sd_id128_t *osc_id_copy = newdup(sd_id128_t, &osc_id, 1);
+        if (!osc_id_copy)
+                return pam_log_oom(handle);
+
+        r = pam_set_data(handle, "systemd.osc-context-id", osc_id_copy, pam_cleanup_free);
+        if (r != PAM_SUCCESS)
+                return pam_syslog_pam_error(handle, LOG_ERR, r,
+                                            "Failed to set PAM OSC sequence ID data: @PAMERR@");
+
+        TAKE_PTR(osc_id_copy);
+
+        if (tty_opath_fd >= 0) {
+                r = pam_set_data(handle, "systemd.osc-context-fd", FD_TO_PTR(tty_opath_fd), pam_cleanup_close);
+                if (r != PAM_SUCCESS)
+                        return pam_syslog_pam_error(handle, LOG_ERR, r,
+                                                    "Failed to set PAM OSC sequence fd data: @PAMERR@");
+
+                TAKE_FD(tty_opath_fd);
+        }
+
+        return PAM_SUCCESS;
+}
+
+static int close_osc_context(pam_handle_t *handle) {
+        int r;
+
+        assert(handle);
+
+        const void *p;
+        int tty_opath_fd = -EBADF;
+        r = pam_get_data(handle, "systemd.osc-context-fd", &p);
+        if (r == PAM_SUCCESS)
+                tty_opath_fd = PTR_TO_FD(p);
+        else if (r != PAM_NO_MODULE_DATA)
+                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get PAM OSC context fd: @PAMERR@");
+        if (tty_opath_fd < 0)
+                return PAM_SUCCESS;
+
+        const sd_id128_t *osc_id = NULL;
+        r = pam_get_data(handle, "systemd.osc-context-id", (const void**) &osc_id);
+        if (!IN_SET(r, PAM_SUCCESS, PAM_NO_MODULE_DATA))
+                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get PAM OSC context id data: @PAMERR@");
+        if (!osc_id)
+                return PAM_SUCCESS;
+
+        /* Now open the original TTY again, so that we can write on it */
+        _cleanup_close_ int fd = fd_reopen(tty_opath_fd, O_WRONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        if (fd < 0) {
+                pam_syslog_pam_error(handle, LOG_DEBUG, fd, "Failed to reopen TTY, ignoring: %m");
+                return PAM_SUCCESS;
+        }
+
+        /* /bin/login calls us with fds 0, 1, 2 closed, which is just weird. Let's step outside of that, just in case pam_syslog() or so logs to stderr */
+        fd = fd_move_above_stdio(fd);
+
+        /* Safety check, let's verify this is a valid TTY we just opened */
+        if (!isatty(fd))
+                return PAM_SUCCESS;
+
+        _cleanup_free_ char *osc = NULL;
+        r = osc_context_close(*osc_id, &osc);
+        if (r < 0)
+                return pam_syslog_errno(handle, LOG_ERR, r, "Failed to prepare OSC sequence: %m");
+
+        r = loop_write(fd, osc, SIZE_MAX);
+        if (r < 0)
+                return pam_syslog_errno(handle, LOG_ERR, r, "Failed to write OSC sequence to TTY: %m");
+
+        return PAM_SUCCESS;
+}
+
 _public_ PAM_EXTERN int pam_sm_open_session(
                 pam_handle_t *handle,
                 int flags,
@@ -1522,8 +1649,8 @@ _public_ PAM_EXTERN int pam_sm_open_session(
 
         session_context_mangle(handle, &c, ur, debug);
 
-        _cleanup_free_ char *seat_buffer = NULL;
-        r = register_session(handle, &c, ur, debug, &seat_buffer);
+        _cleanup_free_ char *seat_buffer = NULL, *type_buffer = NULL;
+        r = register_session(handle, &c, ur, debug, &seat_buffer, &type_buffer);
         if (r != PAM_SUCCESS)
                 return r;
 
@@ -1538,7 +1665,11 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         if (default_capability_ambient_set == UINT64_MAX)
                 default_capability_ambient_set = pick_default_capability_ambient_set(ur, c.service, c.seat);
 
-        return apply_user_record_settings(handle, ur, debug, default_capability_bounding_set, default_capability_ambient_set);
+        r = apply_user_record_settings(handle, ur, debug, default_capability_bounding_set, default_capability_ambient_set);
+        if (r != PAM_SUCCESS)
+                return r;
+
+        return open_osc_context(handle, c.type, ur);
 }
 
 _public_ PAM_EXTERN int pam_sm_close_session(
@@ -1574,6 +1705,8 @@ _public_ PAM_EXTERN int pam_sm_close_session(
         if (!IN_SET(r, PAM_SUCCESS, PAM_NO_MODULE_DATA))
                 return pam_syslog_pam_error(handle, LOG_ERR, r,
                                             "Failed to get PAM systemd.existing data: @PAMERR@");
+
+        (void) close_osc_context(handle);
 
         id = pam_getenv(handle, "XDG_SESSION_ID");
         if (id && !existing) {
