@@ -20,6 +20,7 @@ ARGS=(
 )
 PACKAGES=(
     cryptsetup-bin
+    device-tree-compiler
     expect
     fdisk
     gettext
