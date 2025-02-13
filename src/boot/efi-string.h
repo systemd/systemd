@@ -98,10 +98,18 @@ static inline char16_t *xstrdup16(const char16_t *s) {
 
 char16_t *xstrn8_to_16(const char *str8, size_t n);
 static inline char16_t *xstr8_to_16(const char *str8) {
-        return xstrn8_to_16(str8, strlen8(str8));
+        return xstrn8_to_16(str8, SIZE_MAX);
+}
+
+char *xstrn16_to_ascii(const char16_t *str16, size_t n);
+static inline char *xstr16_to_ascii(const char16_t *str16) {
+        return xstrn16_to_ascii(str16, SIZE_MAX);
 }
 
 char* startswith8(const char *s, const char *prefix);
+
+size_t strspn16(const char16_t *p, const char16_t *good);
+size_t strcspn16(const char16_t *p, const char16_t *bad);
 
 bool efi_fnmatch(const char16_t *pattern, const char16_t *haystack);
 
