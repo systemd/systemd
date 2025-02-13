@@ -26,6 +26,7 @@
 #include "constants.h"
 #include "devnum-util.h"
 #include "env-util.h"
+#include "errno-list.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
@@ -103,13 +104,15 @@ int chvt(int vt) {
         return RET_NERRNO(ioctl(fd, VT_ACTIVATE, vt));
 }
 
-int read_one_char(FILE *f, char *ret, usec_t t, bool *need_nl) {
+int read_one_char(FILE *f, char *ret, usec_t t, bool echo, bool *need_nl) {
         _cleanup_free_ char *line = NULL;
         struct termios old_termios;
         int r, fd;
 
-        assert(f);
         assert(ret);
+
+        if (!f)
+                f = stdin;
 
         /* If this is a terminal, then switch canonical mode off, so that we can read a single
          * character. (Note that fmemopen() streams do not have an fd associated with them, let's handle that
@@ -118,7 +121,7 @@ int read_one_char(FILE *f, char *ret, usec_t t, bool *need_nl) {
         if (fd >= 0 && tcgetattr(fd, &old_termios) >= 0) {
                 struct termios new_termios = old_termios;
 
-                new_termios.c_lflag &= ~ICANON;
+                new_termios.c_lflag &= ~(ICANON|(echo ? 0 : ECHO));
                 new_termios.c_cc[VMIN] = 1;
                 new_termios.c_cc[VTIME] = 0;
 
@@ -201,7 +204,7 @@ int ask_char(char *ret, const char *replies, const char *fmt, ...) {
 
                 fflush(stdout);
 
-                r = read_one_char(stdin, &c, DEFAULT_ASK_REFRESH_USEC, &need_nl);
+                r = read_one_char(stdin, &c, DEFAULT_ASK_REFRESH_USEC, /* echo= */ true, &need_nl);
                 if (r < 0) {
 
                         if (r == -ETIMEDOUT)
@@ -228,94 +231,371 @@ int ask_char(char *ret, const char *replies, const char *fmt, ...) {
         }
 }
 
-int ask_string(char **ret, const char *text, ...) {
-        _cleanup_free_ char *line = NULL;
+typedef enum CompletionResult{
+        COMPLETION_ALREADY,       /* the input string is already complete */
+        COMPLETION_FULL,          /* completed the input string to be complete now */
+        COMPLETION_PARTIAL,       /* completed the input string so that is still incomplete */
+        COMPLETION_NONE,          /* found no matching completion */
+        _COMPLETION_RESULT_MAX,
+        _COMPLETION_RESULT_INVALID = -EINVAL,
+        _COMPLETION_RESULT_ERRNO_MAX = -ERRNO_MAX,
+} CompletionResult;
+
+static CompletionResult pick_completion(const char *string, char **completions, char **ret) {
+        _cleanup_free_ char *found = NULL;
+        bool partial = false;
+
+        string = strempty(string);
+
+        STRV_FOREACH(c, completions) {
+
+                /* Ignore entries that are not actually completions */
+                if (!startswith(*c, string))
+                        continue;
+
+                /* Store first completion that matches */
+                if (!found) {
+                        found = strdup(*c);
+                        if (!found)
+                                return -ENOMEM;
+
+                        continue;
+                }
+
+                /* If there's another completion that works truncate the one we already found by common
+                 * prefix */
+                size_t n = str_common_prefix(found, *c);
+                if (n == SIZE_MAX)
+                        continue;
+
+                found[n] = 0;
+                partial = true;
+        }
+
+        *ret = TAKE_PTR(found);
+
+        if (!*ret)
+                return COMPLETION_NONE;
+        if (partial)
+                return COMPLETION_PARTIAL;
+
+        return streq(string, *ret) ? COMPLETION_ALREADY : COMPLETION_FULL;
+}
+
+static void clear_by_backspace(size_t n) {
+        /* Erase the specified number of character cells backwards on the terminal */
+        for (size_t i = 0; i < n; i++)
+                fputs("\b \b", stdout);
+}
+
+int ask_string_full(
+                char **ret,
+                GetCompletionsCallback get_completions,
+                void *userdata,
+                const char *text, ...) {
+
         va_list ap;
         int r;
 
         assert(ret);
         assert(text);
 
+        /* Output the prompt */
         fputs(ansi_highlight(), stdout);
-
         va_start(ap, text);
         vprintf(text, ap);
         va_end(ap);
-
         fputs(ansi_normal(), stdout);
-
         fflush(stdout);
 
-        r = read_line(stdin, LONG_LINE_MAX, &line);
+        _cleanup_free_ char *string = NULL;
+        size_t n = 0;
+
+        /* Do interactive logic only if stdin + stdout are connected to the same place. And yes, we could use
+         * STDIN_FILENO and STDOUT_FILENO here, but let's be overly correct for once, after all libc allows
+         * swapping out stdin/stdout. */
+        int fd_input = fileno(stdin);
+        int fd_output = fileno(stdout);
+        if (fd_input < 0 || fd_output < 0 || same_fd(fd_input, fd_output) <= 0)
+                goto fallback;
+
+        /* Try to disable echo, which also tells us if this even is a terminal */
+        struct termios old_termios;
+        if (tcgetattr(fd_input, &old_termios) < 0)
+                goto fallback;
+
+        struct termios new_termios = old_termios;
+        termios_disable_echo(&new_termios);
+        if (tcsetattr(fd_input, TCSADRAIN, &new_termios) < 0)
+                return -errno;
+
+        for (;;) {
+                int c = fgetc(stdin);
+
+                /* On EOF or NUL, end the request, don't output anything anymore */
+                if (IN_SET(c, EOF, 0))
+                        break;
+
+                /* On Return also end the request, but make this visible */
+                if (IN_SET(c, '\n', '\r')) {
+                        fputc('\n', stdout);
+                        break;
+                }
+
+                if (c == '\t') {
+                        /* Tab */
+
+                        _cleanup_strv_free_ char **completions = NULL;
+                        if (get_completions) {
+                                r = get_completions(string, &completions, userdata);
+                                if (r < 0)
+                                        goto fail;
+                        }
+
+                        _cleanup_free_ char *new_string = NULL;
+                        CompletionResult cr = pick_completion(string, completions, &new_string);
+                        if (cr < 0) {
+                                r = cr;
+                                goto fail;
+                        }
+                        if (IN_SET(cr, COMPLETION_PARTIAL, COMPLETION_FULL)) {
+                                /* Output the new suffix we learned */
+                                fputs(ASSERT_PTR(startswith(new_string, strempty(string))), stdout);
+
+                                /* And update the whole string */
+                                free_and_replace(string, new_string);
+                                n = strlen(string);
+                        }
+                        if (cr == COMPLETION_NONE)
+                                fputc('\a', stdout); /* BEL */
+
+                        if (IN_SET(cr, COMPLETION_PARTIAL, COMPLETION_ALREADY)) {
+                                /* If this worked only partially, or if the user hit TAB even though we were
+                                 * complete already, then show the full list. */
+                                fputc('\n', stdout);
+
+                                _cleanup_free_ char **filtered = strv_filter_prefix(completions, string);
+                                if (!filtered) {
+                                        r = -ENOMEM;
+                                        goto fail;
+                                }
+
+                                r = show_menu(filtered,
+                                              /* n_columns= */ SIZE_MAX,
+                                              /* column_width= */ SIZE_MAX,
+                                              /* ellipsize_percentage= */ 0,
+                                              string,
+                                              /* with_numbers= */ false);
+                                if (r < 0)
+                                        goto fail;
+
+                                /* Show the prompt again */
+                                fputs(ansi_highlight(), stdout);
+                                va_start(ap, text);
+                                vprintf(text, ap);
+                                va_end(ap);
+                                fputs(ansi_normal(), stdout);
+                                fputs(string, stdout);
+                        }
+
+                } else if (IN_SET(c, '\b', 127)) {
+                        /* Backspace */
+
+                        if (n == 0)
+                                fputc('\a', stdout); /* BEL */
+                        else {
+                                size_t m = utf8_last_length(string, n);
+
+                                char *e = string + n - m;
+                                clear_by_backspace(utf8_console_width(e));
+
+                                *e = 0;
+                                n -= m;
+                        }
+
+                } else if (c == 21) {
+                        /* Ctrl-u → erase all input */
+
+                        clear_by_backspace(utf8_console_width(string));
+                        string[n = 0] = 0;
+
+                } else if (c == 4) {
+                        /* Ctrl-d → cancel this field input */
+
+                        r = -ECANCELED;
+                        goto fail;
+
+                } else if (c < (int) (unsigned char) ' ' || n >= LINE_MAX)
+                        /* refuse control characters and too long strings */
+                        fputc('\a', stdout); /* BEL */
+                else {
+                        /* Regular char */
+
+                        if (!GREEDY_REALLOC(string, n+2)) {
+                                r = -ENOMEM;
+                                goto fail;
+                        }
+
+                        string[n++] = (char) c;
+                        string[n] = 0;
+
+                        fputc(c, stdout);
+                }
+
+                fflush(stdout);
+        }
+
+        if (tcsetattr(fd_input, TCSADRAIN, &old_termios) < 0)
+                return -errno;
+
+        if (!string) {
+                string = strdup("");
+                if (!string)
+                        return -ENOMEM;
+        }
+
+        *ret = TAKE_PTR(string);
+        return 0;
+
+fail:
+        (void) tcsetattr(fd_input, TCSADRAIN, &old_termios);
+        return r;
+
+fallback:
+        /* A simple fallback without TTY magic */
+        r = read_line(stdin, LONG_LINE_MAX, &string);
         if (r < 0)
                 return r;
         if (r == 0)
                 return -EIO;
 
-        *ret = TAKE_PTR(line);
+        *ret = TAKE_PTR(string);
         return 0;
 }
 
 bool any_key_to_proceed(void) {
+
+        /* Insert a new line here as well as to when the user inputs, as this is also used during the boot up
+         * sequence when status messages may be interleaved with the current program output.  This ensures
+         * that the status messages aren't appended on the same line as this message. */
+
+        fputc('\n', stdout);
+        fputs(ansi_highlight_magenta(), stdout);
+        fputs("-- Press any key to proceed --", stdout);
+        fputs(ansi_normal(), stdout);
+        fflush(stdout);
+
         char key = 0;
-        bool need_nl = true;
+        (void) read_one_char(stdin, &key, USEC_INFINITY, /* echo= */ false, /* need_nl= */ NULL);
 
-        /*
-         * Insert a new line here as well as to when the user inputs, as this is also used during the
-         * boot up sequence when status messages may be interleaved with the current program output.
-         * This ensures that the status messages aren't appended on the same line as this message.
-         */
-        puts("-- Press any key to proceed --");
-
-        (void) read_one_char(stdin, &key, USEC_INFINITY, &need_nl);
-
-        if (need_nl)
-                putchar('\n');
+        fputc('\n', stdout);
+        fputc('\n', stdout);
+        fflush(stdout);
 
         return key != 'q';
 }
 
-int show_menu(char **x, unsigned n_columns, unsigned width, unsigned percentage) {
-        unsigned break_lines, break_modulo;
-        size_t n, per_column, i, j;
+static size_t widest_list_element(char **l) {
+        size_t w = 0;
+
+        /* Returns the largest console width of all elements in 'l' */
+
+        STRV_FOREACH(i, l) {
+                size_t m = utf8_console_width(*i);
+
+                if (m > w)
+                        w = m;
+        }
+
+        return w;
+}
+
+int show_menu(char **x,
+              size_t n_columns,
+              size_t column_width,
+              unsigned ellipsize_percentage,
+              const char *grey_prefix,
+              bool with_numbers) {
 
         assert(n_columns > 0);
 
-        n = strv_length(x);
-        per_column = DIV_ROUND_UP(n, n_columns);
+        if (n_columns == SIZE_MAX)
+                n_columns = 3;
 
-        break_lines = lines();
+        if (column_width == SIZE_MAX) {
+                size_t widest = widest_list_element(x);
+
+                /* If not specified, derive column width from screen width */
+                size_t column_max = (columns()-1) / n_columns;
+
+                /* Subtract room for numbers */
+                if (with_numbers && column_max > 6)
+                        column_max -= 6;
+
+                /* If columns would get too tight let's make this a linear list instead. */
+                if (column_max < 10 && widest > 10) {
+                        n_columns = 1;
+                        column_max = columns()-1;
+
+                        if (with_numbers && column_max > 6)
+                                column_max -= 6;
+                }
+
+                column_width = MIN(widest+1, column_max);
+
+                if (column_max < 10)
+                        column_max = 10;
+        }
+
+        size_t n = strv_length(x);
+        size_t per_column = DIV_ROUND_UP(n, n_columns);
+
+        size_t break_lines = lines();
         if (break_lines > 2)
                 break_lines--;
 
         /* The first page gets two extra lines, since we want to show
          * a title */
-        break_modulo = break_lines;
+        size_t break_modulo = break_lines;
         if (break_modulo > 3)
                 break_modulo -= 3;
 
-        for (i = 0; i < per_column; i++) {
+        for (size_t i = 0; i < per_column; i++) {
 
-                for (j = 0; j < n_columns; j++) {
+                for (size_t j = 0; j < n_columns; j++) {
                         _cleanup_free_ char *e = NULL;
 
                         if (j * per_column + i >= n)
                                 break;
 
-                        e = ellipsize(x[j * per_column + i], width, percentage);
+                        e = ellipsize(x[j * per_column + i], column_width, ellipsize_percentage);
                         if (!e)
-                                return log_oom();
+                                return -ENOMEM;
 
-                        printf("%4zu) %-*s", j * per_column + i + 1, (int) width, e);
+                        if (with_numbers)
+                                printf("%s%4zu)%s ",
+                                       ansi_grey(),
+                                       j * per_column + i + 1,
+                                       ansi_normal());
+
+                        if (grey_prefix && startswith(e, grey_prefix)) {
+                                size_t k = MIN(strlen(grey_prefix), column_width);
+                                printf("%s%.*s%s",
+                                       ansi_grey(),
+                                       (int) k, e,
+                                       ansi_normal());
+                                printf("%-*s",
+                                       (int) (column_width - k), e+k);
+                        } else
+                                printf("%-*s", (int) column_width, e);
                 }
 
                 putchar('\n');
 
                 /* on the first screen we reserve 2 extra lines for the title */
-                if (i % break_lines == break_modulo) {
+                if (i % break_lines == break_modulo)
                         if (!any_key_to_proceed())
                                 return 0;
-                }
         }
 
         return 0;
