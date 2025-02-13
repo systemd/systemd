@@ -18,11 +18,16 @@ test ! -f /tmp/clock-changed
 
 timedatectl set-timezone Europe/Kyiv
 
+# Get current time and add a future offset (e.g., 1 year and 1 month ahead)
+# Using date to calculate the future timestamp
+
+current_time=$(date)
+future_time=$(date -d "$current_time + 1 year + 1 month" +"%Y-%m-%d %H:%M:%S")
+
+# Set system time to the calculated future time
+timedatectl set-time "$future_time"
+
 while test ! -f /tmp/timezone-changed ; do sleep .5 ; done
-
-timedatectl set-time 2018-1-1
-
-while test ! -f /tmp/clock-changed ; do sleep .5 ; done
 
 systemd-analyze log-level info
 
