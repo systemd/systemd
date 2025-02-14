@@ -145,7 +145,7 @@ static int agent_ask_password_tty(
                 if (tty_fd < 0)
                         return log_error_errno(tty_fd, "Failed to acquire %s: %m", con);
 
-                (void) terminal_reset_defensive_locked(tty_fd, /* switch_to_text= */ true);
+                (void) terminal_reset_defensive_locked(tty_fd, TERMINAL_RESET_SWITCH_TO_TEXT);
 
                 log_info("Starting password query on %s.", con);
         }
