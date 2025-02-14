@@ -525,7 +525,7 @@ static int validate_and_mangle_question(DnsQuestion **question, Set *types) {
                 else
                         has_good = true;
 
-        if (has_ipv6)
+        if (has_ipv6 && !has_good)
                 return -ENOTCONN;
         if (has_bad && !has_good)
                 return -ENOANO; /* All bad, refuse.*/
