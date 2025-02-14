@@ -129,7 +129,7 @@ Features:
   from nsresourced.
 
 * Make run0 forward various signals to the forked process so that sending
-  signals to a child process works rougly the same regardless of whether the
+  signals to a child process works roughly the same regardless of whether the
   child process is spawned via run0 or not.
 
 * write a document explaining how to write correct udev rules. Mention things
@@ -144,7 +144,7 @@ Features:
   recognizable value to first of all indicate that it's systemd that did the
   killing. Secondly, we can give a reason for the killing, i.e. OOM or so, and
   also the phase we are in, and which process we think we are killing (i.e.
-  main vs control porcess, useful in case of sd_notify() MAINPID= debugging).
+  main vs control process, useful in case of sd_notify() MAINPID= debugging).
   Net result: people who try to debug why their process gets killed should have
   some minimal, nice metadata directly on the signal event.
 
