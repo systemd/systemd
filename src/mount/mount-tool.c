@@ -459,27 +459,31 @@ static int parse_argv(int argc, char *argv[]) {
                                 arg_mount_what = strdup(argv[optind]);
                                 if (!arg_mount_what)
                                         return log_oom();
-
-                        } else if (arg_transport == BUS_TRANSPORT_LOCAL && arg_canonicalize) {
-                                _cleanup_free_ char *u = NULL;
-
-                                u = fstab_node_to_udev_node(argv[optind]);
-                                if (!u)
-                                        return log_oom();
-
-                                r = chase(u, /* root= */ NULL, /* flags= */ 0, &arg_mount_what, /* ret_fd= */ NULL);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to make path %s absolute: %m", u);
-
                         } else {
-                                if (!path_is_absolute(argv[optind]))
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                               "Path must be absolute when operating remotely or when canonicalization is turned off: %s",
-                                                               argv[optind]);
+                                _cleanup_free_ char *u = NULL;
+                                const char *p = argv[optind];
 
-                                r = path_simplify_alloc(argv[optind], &arg_mount_what);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to simplify path: %m");
+                                if (arg_canonicalize) {
+                                        u = fstab_node_to_udev_node(p);
+                                        if (!u)
+                                                return log_oom();
+                                        p = u;
+                                }
+
+                                if (arg_transport == BUS_TRANSPORT_LOCAL && arg_canonicalize) {
+                                        r = chase(p, /* root= */ NULL, /* flags= */ 0, &arg_mount_what, /* ret_fd= */ NULL);
+                                        if (r < 0)
+                                                return log_error_errno(r, "Failed to make path '%s' absolute: %m", p);
+                                } else {
+                                        if (!path_is_absolute(p))
+                                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                                       "Path must be absolute when operating remotely or when canonicalization is turned off: %s",
+                                                                       p);
+
+                                        r = path_simplify_alloc(p, &arg_mount_what);
+                                        if (r < 0)
+                                                return log_oom();
+                                }
                         }
                 }
 
