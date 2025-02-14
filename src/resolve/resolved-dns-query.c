@@ -514,14 +514,19 @@ static int validate_and_mangle_question(DnsQuestion **question, Set *types) {
         if (set_isempty(types))
                 return 0; /* No filtering configured. Let's shortcut. */
 
-        bool has_good = false, has_bad = false;
+        bool has_good = false, has_bad = false, has_ipv6 = false;
         DnsResourceKey *key;
         DNS_QUESTION_FOREACH(key, *question)
-                if (set_contains(types, INT_TO_PTR(key->type)))
+                if (set_contains(types, INT_TO_PTR(key->type))) {
+                        if (dns_type_from_string("AAAA") == key->type)
+                                has_ipv6 = true;
                         has_bad = true;
+                }
                 else
                         has_good = true;
 
+        if (has_ipv6 && !has_good)
+                return -ENOTCONN;
         if (has_bad && !has_good)
                 return -ENOANO; /* All bad, refuse.*/
         if (!has_bad) {
