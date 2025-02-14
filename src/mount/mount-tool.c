@@ -44,6 +44,7 @@ enum {
         ACTION_DEFAULT,
         ACTION_MOUNT,
         ACTION_AUTOMOUNT,
+        ACTION_REMOUNT,
         ACTION_UMOUNT,
         ACTION_LIST,
 } arg_action = ACTION_DEFAULT;
@@ -73,6 +74,7 @@ static gid_t arg_gid = GID_INVALID;
 static bool arg_fsck = true;
 static bool arg_aggressive_gc = false;
 static bool arg_tmpfs = false;
+static bool arg_remount_append = false;
 static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 static bool arg_canonicalize = true;
 
@@ -147,6 +149,7 @@ static int help(void) {
                "                                  Set automount unit property\n"
                "     --bind-device                Bind automount unit to device\n"
                "     --list                       List mountable block devices\n"
+               "     --remount[=MODE]             Remount a mount with updated options\n"
                "  -u --umount                     Unmount mount points\n"
                "  -G --collect                    Unload unit after it stopped, even when failed\n"
                "  -T --tmpfs                      Create a new tmpfs on the mount point\n"
@@ -187,6 +190,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_LIST,
                 ARG_JSON,
                 ARG_CANONICALIZE,
+                ARG_REMOUNT,
         };
 
         static const struct option options[] = {
@@ -216,6 +220,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "list",               no_argument,       NULL, ARG_LIST               },
                 { "umount",             no_argument,       NULL, 'u'                    },
                 { "unmount",            no_argument,       NULL, 'u'                    }, /* Compat spelling */
+                { "remount",            optional_argument, NULL, ARG_REMOUNT            },
                 { "collect",            no_argument,       NULL, 'G'                    },
                 { "tmpfs",              no_argument,       NULL, 'T'                    },
                 { "json",               required_argument, NULL, ARG_JSON               },
@@ -367,6 +372,21 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_action = ACTION_UMOUNT;
                         break;
 
+                case ARG_REMOUNT:
+                        arg_action = ACTION_REMOUNT;
+
+                        if (optarg) {
+                                if (streq(optarg, "replace"))
+                                        arg_remount_append = false;
+                                else if (streq(optarg, "append"))
+                                        arg_remount_append = true;
+                                else
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                               "Invalid --remount= mode '%s'.", optarg);
+                        }
+
+                        break;
+
                 case 'G':
                         arg_aggressive_gc = true;
                         break;
@@ -412,7 +432,7 @@ static int parse_argv(int argc, char *argv[]) {
                 if (arg_transport != BUS_TRANSPORT_LOCAL)
                         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                                "Listing devices only supported locally.");
-        } else if (arg_action == ACTION_UMOUNT) {
+        } else if (IN_SET(arg_action, ACTION_REMOUNT, ACTION_UMOUNT)) {
                 if (optind >= argc)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "At least one argument required.");
@@ -1141,6 +1161,59 @@ static int action_umount(sd_bus *bus, int argc, char **argv) {
         return ret;
 }
 
+static int action_remount(sd_bus *bus, int argc, char *argv[]) {
+        int r, ret = 0;
+
+        assert(bus);
+        assert(argv);
+        assert(argc > optind);
+
+        for (int i = optind; i < argc; i++) {
+                _cleanup_free_ char *p = NULL;
+
+                if (arg_transport == BUS_TRANSPORT_LOCAL && arg_canonicalize) {
+                        r = chase(argv[i], /* root = */ NULL, /* flags = */ 0, &p, /* ret_fd = */ NULL);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to chase path '%s': %m", argv[i]);
+                } else {
+                        r = path_simplify_alloc(argv[i], &p);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to simplify path '%s': %m", argv[i]);
+
+                        if (!path_is_normalized(p))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Path contains non-normalized components: %s", p);
+                }
+
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_free_ char *mount_unit = NULL, *bus_path = NULL;
+
+                r = unit_name_from_path(p, ".mount", &mount_unit);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to make mount unit name: %m");
+
+                bus_path = unit_dbus_path_from_name(mount_unit);
+                if (!bus_path)
+                        return log_oom();
+
+                r = sd_bus_call_method(bus,
+                                       "org.freedesktop.systemd1",
+                                       bus_path,
+                                       "org.freedesktop.systemd1.Mount",
+                                       "Remount",
+                                       &error, &reply,
+                                       "st",
+                                       arg_mount_options,
+                                       (uint64_t) (arg_remount_append ? REMOUNT_OPTIONS_APPEND : 0));
+                if (r < 0)
+                        RET_GATHER(ret, log_error_errno(r, "Failed to remount '%s': %s",
+                                                        p, bus_error_message(&error, r)));
+        }
+
+        return ret;
+}
+
 static int acquire_mount_type(sd_device *d) {
         const char *v;
 
@@ -1568,6 +1641,9 @@ static int run(int argc, char* argv[]) {
                 return bus_log_connect_error(r, arg_transport, arg_runtime_scope);
 
         (void) sd_bus_set_allow_interactive_authorization(bus, arg_ask_password);
+
+        if (arg_action == ACTION_REMOUNT)
+                return action_remount(bus, argc, argv);
 
         if (arg_action == ACTION_UMOUNT)
                 return action_umount(bus, argc, argv);
