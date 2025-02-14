@@ -310,6 +310,17 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--remount=</option></term>
+
+        <listitem><para>Remount a mount with new mount options. If no argument or <literal>replace</literal>
+        is specified, <varname>Options=</varname> mount unit setting is overwritten by the new options as-is.
+        If set to <literal>append</literal>, the specified mount options are appended to the existing ones,
+        and the result is passed for remounting.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>-G</option></term>
         <term><option>--collect</option></term>
 
