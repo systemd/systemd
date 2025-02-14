@@ -387,6 +387,16 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><filename>imports.target</filename></term>
+          <listitem>
+            <para>A target unit that pulls in all disk image download jobs to execute on system boot. This is
+            used by
+            <citerefentry><refentrytitle>systemd-import-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+            <xi:include href="version-info.xml" xpointer="v258"/>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><filename>init.scope</filename></term>
           <listitem>
             <para>This scope unit is where the system and service manager (PID 1) itself resides. It
@@ -1073,6 +1083,16 @@
             </para>
 
             <xi:include href="version-info.xml" xpointer="v235"/>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>imports-pre.target</filename></term>
+          <listitem>
+            <para>A passive unit that is ordered before all disk image download jobs to execute on system
+            boot. This is used by
+            <citerefentry><refentrytitle>systemd-import-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+            <xi:include href="version-info.xml" xpointer="v258"/>
           </listitem>
         </varlistentry>
         <varlistentry>

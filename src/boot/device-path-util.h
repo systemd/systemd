@@ -2,8 +2,10 @@
 #pragma once
 
 #include "proto/device-path.h"
+#include "util.h"
 
 EFI_STATUS make_file_device_path(EFI_HANDLE device, const char16_t *file, EFI_DEVICE_PATH **ret_dp);
+EFI_STATUS make_url_device_path(const char16_t *url, EFI_DEVICE_PATH **ret);
 EFI_STATUS device_path_to_str(const EFI_DEVICE_PATH *dp, char16_t **ret);
 bool device_path_startswith(const EFI_DEVICE_PATH *dp, const EFI_DEVICE_PATH *start);
 EFI_DEVICE_PATH *device_path_replace_node(
@@ -25,3 +27,9 @@ static inline bool device_path_is_end(const EFI_DEVICE_PATH *dp) {
                 .SubType = END_ENTIRE_DEVICE_PATH_SUBTYPE, \
                 .Length = sizeof(EFI_DEVICE_PATH)          \
         }
+
+size_t device_path_size(const EFI_DEVICE_PATH *dp);
+
+static inline EFI_DEVICE_PATH *device_path_dup(const EFI_DEVICE_PATH *dp) {
+        return xmemdup(ASSERT_PTR(dp), device_path_size(dp));
+}

@@ -74,6 +74,16 @@
 
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>io.systemd.boot-entries.extra:</varname><replaceable>ID=DEFINITION</replaceable></term>
+
+        <listitem><para>This allows inserting additional entries into the <command>systemd-boot</command>
+        menu. For details see
+        <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry></para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
