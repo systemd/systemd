@@ -195,6 +195,7 @@ int sd_varlink_reset_fds(sd_varlink *v);
 int sd_varlink_peek_fd(sd_varlink *v, size_t i);
 int sd_varlink_peek_dup_fd(sd_varlink *v, size_t i);
 int sd_varlink_take_fd(sd_varlink *v, size_t i);
+int sd_varlink_get_n_fds(sd_varlink *v);
 
 int sd_varlink_set_allow_fd_passing_input(sd_varlink *v, int b);
 int sd_varlink_set_allow_fd_passing_output(sd_varlink *v, int b);
