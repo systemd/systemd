@@ -40,20 +40,6 @@ char* first_word(const char *s, const char *word) {
         return (char*) nw;
 }
 
-char* strprepend(char **x, const char *s) {
-        assert(x);
-
-        if (isempty(s) && *x)
-                return *x;
-
-        char *p = strjoin(strempty(s), *x);
-        if (!p)
-                return NULL;
-
-        free_and_replace(*x, p);
-        return *x;
-}
-
 char* strextendn(char **x, const char *s, size_t l) {
         assert(x);
         assert(s || l == 0);

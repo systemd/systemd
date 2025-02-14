@@ -86,7 +86,6 @@ static inline const char* empty_or_dash_to_null(const char *p) {
 
 char* first_word(const char *s, const char *word) _pure_;
 
-char* strprepend(char **x, const char *s);
 char* strextendn(char **x, const char *s, size_t l) _nonnull_if_nonzero_(2, 3);
 
 #define strjoin(a, ...) strextend_with_separator_internal(NULL, NULL, a, __VA_ARGS__, NULL)
@@ -176,6 +175,18 @@ char* strextend_with_separator_internal(char **x, const char *separator, ...) _s
 
 int strextendf_with_separator(char **x, const char *separator, const char *format, ...) _printf_(3,4);
 #define strextendf(x, ...) strextendf_with_separator(x, NULL, __VA_ARGS__)
+
+#define strprepend_with_separator(x, separator, ...)                            \
+        ({                                                                      \
+                char **_p_ = ASSERT_PTR(x), *_s_;                               \
+                _s_ = strextend_with_separator_internal(NULL, (separator), __VA_ARGS__, empty_to_null(*_p_), NULL); \
+                if (_s_) {                                                      \
+                        free(*_p_);                                             \
+                        *_p_ = _s_;                                             \
+                }                                                               \
+                _s_;                                                            \
+        })
+#define strprepend(x, ...) strprepend_with_separator(x, NULL, __VA_ARGS__)
 
 char* strrep(const char *s, unsigned n);
 

@@ -1169,14 +1169,9 @@ static int mount_set_mount_command(Mount *m, ExecCommand *c, const MountParamete
         if (r < 0)
                 return r;
 
-        if (remount) {
-                if (isempty(opts)) {
-                        opts = strdup("remount");
-                        if (!opts)
-                                return -ENOMEM;
-                } else if (!strprepend(&opts, "remount,"))
+        if (remount)
+                if (!strprepend_with_separator(&opts, ",", "remount"))
                         return -ENOMEM;
-        }
 
         if (!isempty(opts)) {
                 r = exec_command_append(c, "-o", opts, NULL);
