@@ -2485,6 +2485,12 @@ def finalize_options(opts: argparse.Namespace) -> None:
 
 def parse_args(args: Optional[list[str]] = None) -> argparse.Namespace:
     opts = create_parser().parse_args(args)
+
+    # argparse puts some unknown options in opts.positional. Make sure we don't
+    # try to interpret something that is an option as a positional argument.
+    if any((bad_opt := o).startswith('-') for o in opts.positional):
+        raise ValueError(f'Unknown option: {bad_opt.partition("=")[0]}')
+
     apply_config(opts)
     finalize_options(opts)
     return opts
