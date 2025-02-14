@@ -305,6 +305,8 @@ option('kvm-gid', type : 'integer', value : 0,
        description : 'soft-static allocation for the "kvm" group')
 option('lp-gid', type : 'integer', value : 0,
        description : 'soft-static allocation for the "lp" group')
+option('ntsync-gid', type : 'integer', value : 0,
+       description : 'soft-static allocation for the "ntsync" group')
 option('render-gid', type : 'integer', value : 0,
        description : 'soft-static allocation for the "render" group')
 option('sgx-gid', type : 'integer', value : 0,

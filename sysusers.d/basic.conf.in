@@ -32,6 +32,7 @@ g input   {{INPUT_GID  }}     -            -
 g kmem    {{KMEM_GID   }}     -            -
 g kvm     {{KVM_GID    }}     -            -
 g lp      {{LP_GID     }}     -            -
+g ntsync  {{NTSYNC_GID }}     -            -
 g render  {{RENDER_GID }}     -            -
 g sgx     {{SGX_GID    }}     -            -
 g tape    {{TAPE_GID   }}     -            -
