@@ -2389,7 +2389,7 @@ def finalize_options(opts: argparse.Namespace) -> None:
     if opts.efi_arch is None:
         opts.efi_arch = guess_efi_arch()
 
-    if opts.stub is None:
+    if opts.stub is None and not opts.join_pcrsig:
         if opts.linux is not None:
             opts.stub = Path(f'/usr/lib/systemd/boot/efi/linux{opts.efi_arch}.efi.stub')
         else:
