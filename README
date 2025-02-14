@@ -41,7 +41,7 @@ REQUIREMENTS:
                      ≥ 4.15 for cgroup-bpf device hook and cpu controller in cgroup v2
                      ≥ 4.17 for cgroup-bpf socket address hooks and /sys/power/resume_offset
                      ≥ 4.20 for PSI (used by systemd-oomd)
-                     ≥ 5.2 for cgroup freezer
+                     ≥ 5.2 for cgroup freezer, and fsopen()
                      ≥ 5.3 for bounded loops in BPF program and keyring namespacing
                      ≥ 5.4 for pidfd, new mount API, and signed Verity images
 
