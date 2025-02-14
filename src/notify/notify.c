@@ -25,12 +25,15 @@
 #include "time-util.h"
 #include "user-util.h"
 
+static enum {
+        ACTION_NOTIFY,
+        ACTION_BOOTED,
+} arg_action = ACTION_NOTIFY;
 static bool arg_ready = false;
 static bool arg_reloading = false;
 static bool arg_stopping = false;
 static PidRef arg_pid = PIDREF_NULL;
 static const char *arg_status = NULL;
-static bool arg_booted = false;
 static uid_t arg_uid = UID_INVALID;
 static gid_t arg_gid = GID_INVALID;
 static bool arg_no_block = false;
@@ -231,7 +234,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_BOOTED:
-                        arg_booted = true;
+                        arg_action = ACTION_BOOTED;
                         break;
 
                 case ARG_UID: {
@@ -338,7 +341,7 @@ static int parse_argv(int argc, char *argv[]) {
 
         have_env = have_env || n_arg_env > 0;
 
-        if (!have_env && !arg_booted) {
+        if (!have_env && arg_action != ACTION_BOOTED) {
                 if (do_exec)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No notify message specified while --exec, refusing.");
 
@@ -347,7 +350,7 @@ static int parse_argv(int argc, char *argv[]) {
                 return -EINVAL;
         }
 
-        if (have_env && arg_booted)
+        if (have_env && arg_action == ACTION_BOOTED)
                 log_warning("Notify message specified along with --booted, ignoring.");
 
         if (n_arg_env > 0) {
@@ -376,7 +379,7 @@ static int run(int argc, char* argv[]) {
         if (r <= 0)
                 return r;
 
-        if (arg_booted) {
+        if (arg_action == ACTION_BOOTED) {
                 r = sd_booted();
                 if (r < 0)
                         log_debug_errno(r, "Failed to determine whether we are booted with systemd, assuming we aren't: %m");
