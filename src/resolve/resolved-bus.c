@@ -44,6 +44,8 @@ static int dns_query_new_for_bus(
         r = dns_query_new(m, ret, question_utf8, question_idna, question_bypass, ifindex, flags);
         if (r == -ENOANO)
                 return sd_bus_error_set(error, BUS_ERROR_DNS_REFUSED, "DNS query type refused.");
+        if (r == -ENOTCONN)
+                return sd_bus_error_set(error, BUS_ERROR_DNS_REFUSED, "DNS query type refused.");
         return r;
 }
 
@@ -1228,6 +1230,8 @@ static int resolve_service_hostname(DnsQuery *q, DnsResourceRecord *rr, int ifin
 
         r = dns_query_new(q->manager, &aux, question, question, NULL, ifindex, q->flags|SD_RESOLVED_NO_SEARCH);
         if (r == -ENOANO)
+                return reply_method_errorf(q, BUS_ERROR_DNS_REFUSED, "DNS query type refused.");
+        if (r == -ENOTCONN)
                 return reply_method_errorf(q, BUS_ERROR_DNS_REFUSED, "DNS query type refused.");
         if (r < 0)
                 return r;
