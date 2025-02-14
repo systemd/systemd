@@ -106,7 +106,6 @@ static inline const char* empty_or_dash_to_null(const char *p) {
 
 char* first_word(const char *s, const char *word) _pure_;
 
-char* strprepend(char **x, const char *s);
 char* strextendn(char **x, const char *s, size_t l) _nonnull_if_nonzero_(2, 3);
 
 #define strjoin(a, ...) strextend_with_separator_internal(NULL, NULL, a, __VA_ARGS__, NULL)
@@ -196,6 +195,24 @@ char* strextend_with_separator_internal(char **x, const char *separator, ...) _s
 
 int strextendf_with_separator(char **x, const char *separator, const char *format, ...) _printf_(3,4);
 #define strextendf(x, ...) strextendf_with_separator(x, NULL, __VA_ARGS__)
+
+#define strprepend_with_separator(x, separator, ...)                                    \
+        ({                                                                              \
+                char *_p_;                                                              \
+                if (isempty(*ASSERT_PTR(x)))                                            \
+                        _p_ = strextend_with_separator_internal(x, separator, __VA_ARGS__, NULL); \
+                        if (_p_)                                                        \
+                                _p_ = *x;                                               \
+                else {                                                                  \
+                        _p_ = strextend_with_separator_internal(NULL, separator, __VA_ARGS__, *x, NULL); \
+                        if (_p_) {                                                      \
+                                free(*x);                                               \
+                                *x = _p_;                                               \
+                        }                                                               \
+                }                                                                       \
+                _p_;                                                                    \
+        })
+#define strprepend(x, ...) strprepend_with_separator(x, NULL, __VA_ARGS__)
 
 char* strrep(const char *s, unsigned n);
 
