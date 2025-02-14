@@ -26,3 +26,4 @@
 # KeepFree=
 # MaxFileSize=
 # MaxFiles=
+# Compression=zstd lz4 xz

@@ -263,7 +263,7 @@ static size_t journal_input_callback(void *buf, size_t size, size_t nmemb, void 
 
         j = u->journal;
 
-        if (u->compression.algorithm != COMPRESSION_NONE) {
+        if (u->compression) {
                 compression_buffer = malloc_multiply(nmemb, size);
                 if (!compression_buffer) {
                         log_oom();
@@ -309,12 +309,12 @@ static size_t journal_input_callback(void *buf, size_t size, size_t nmemb, void 
                           u->entries_sent, u->current_cursor);
         }
 
-        if (filled > 0 && u->compression.algorithm != COMPRESSION_NONE) {
+        if (filled > 0 && u->compression) {
                 size_t compressed_size;
-                r = compress_blob(u->compression.algorithm, compression_buffer, filled, buf, size * nmemb, &compressed_size, u->compression.level);
+                r = compress_blob(u->compression->algorithm, compression_buffer, filled, buf, size * nmemb, &compressed_size, u->compression->level);
                 if (r < 0) {
-                        log_error_errno(r, "Failed to compress %zu bytes (Compression=%s, Level=%d): %m",
-                                        filled, compression_lowercase_to_string(u->compression.algorithm), u->compression.level);
+                        log_error_errno(r, "Failed to compress %zu bytes by %s with level %i: %m",
+                                        filled, compression_lowercase_to_string(u->compression->algorithm), u->compression->level);
                         return CURL_READFUNC_ABORT;
                 }
 

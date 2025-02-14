@@ -31,7 +31,7 @@
 #define filename_escape(s) xescape((s), "/ ")
 
 #if HAVE_MICROHTTPD
-MHDDaemonWrapper *MHDDaemonWrapper_free(MHDDaemonWrapper *d) {
+MHDDaemonWrapper* MHDDaemonWrapper_free(MHDDaemonWrapper *d) {
         if (!d)
                 return NULL;
 
