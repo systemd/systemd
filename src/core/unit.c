@@ -3847,6 +3847,7 @@ bool unit_need_daemon_reload(Unit *u) {
 
                 (void) unit_find_dropin_paths(u, /* use_unit_path_cache = */ false, &dropins);
 
+                strv_sort(dropins);
                 if (!strv_equal(u->dropin_paths, dropins))
                         return true;
 
@@ -4669,7 +4670,7 @@ int unit_write_setting(Unit *u, UnitWriteFlags flags, const char *name, const ch
                 return r;
         q = NULL;
 
-        strv_uniq(u->dropin_paths);
+        strv_sort_uniq(u->dropin_paths);
 
         u->dropin_mtime = now(CLOCK_REALTIME);
 
