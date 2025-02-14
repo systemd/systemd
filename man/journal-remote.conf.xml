@@ -62,7 +62,7 @@
         <term><varname>Compression=</varname></term>
 
         <listitem><para>Acceptable compression algorithms to be used by <command>systemd-journal-upload</command>. Compression algorithms are
-        used for <literal>Accept-Encoding</literal> header contruction with priorities set according to an order in configuration.
+        used for <literal>Accept-Encoding</literal> header construction with priorities set according to an order in configuration.
         This parameter takes space separated list of compression algorithms. Example:
         <programlisting>Compression=zstd lz4</programlisting>
         This option can be specified multiple times. If an empty string is assigned, then all the previous assignments are cleared.
