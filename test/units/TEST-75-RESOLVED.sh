@@ -1185,6 +1185,15 @@ testcase_14_refuse_record_types() {
 
     (! run resolvectl query localhost5 --type=SRV)
     grep -qF "does not have any RR of the requested type" "$RUN_OUT"
+
+    run dig localhost -t SRV
+    grep -qF "status: NOERROR" "$RUN_OUT"
+
+    run dig localhost -t AAAA
+    grep -qF "status: REFUSED" "$RUN_OUT"
+
+    run dig localhost -t A
+    grep -qF "status: REFUSED" "$RUN_OUT"
 }
 
 # PRE-SETUP
