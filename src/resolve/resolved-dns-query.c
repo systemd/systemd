@@ -536,7 +536,7 @@ static int manager_validate_and_mangle_question(Manager *manager, DnsQuestion **
                 else
                         has_good = true;
 
-        if (has_ipv6)
+        if (has_ipv6 && !has_good)
                 return -ENOTCONN;
         if (has_bad && !has_good)
                 return -ENOANO; /* All bad, refuse.*/
