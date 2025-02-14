@@ -25,12 +25,15 @@
 #include "time-util.h"
 #include "user-util.h"
 
+static enum {
+        ACTION_NOTIFY,
+        ACTION_BOOTED,
+} arg_action = ACTION_NOTIFY;
 static bool arg_ready = false;
 static bool arg_reloading = false;
 static bool arg_stopping = false;
 static PidRef arg_pid = PIDREF_NULL;
 static const char *arg_status = NULL;
-static bool arg_booted = false;
 static uid_t arg_uid = UID_INVALID;
 static gid_t arg_gid = GID_INVALID;
 static bool arg_no_block = false;
@@ -231,7 +234,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_BOOTED:
-                        arg_booted = true;
+                        arg_action = ACTION_BOOTED;
                         break;
 
                 case ARG_UID: {
