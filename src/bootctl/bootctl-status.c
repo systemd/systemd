@@ -481,9 +481,12 @@ int verb_status(int argc, char *argv[], void *userdata) {
                         print_yes_no_line(/* first= */ false, !sd_id128_is_null(loader_partition_uuid), "Boot loader set partition information");
 
                         if (!sd_id128_is_null(loader_partition_uuid)) {
-                                if (!sd_id128_is_null(esp_uuid) && !sd_id128_equal(esp_uuid, loader_partition_uuid))
-                                        printf("WARNING: The boot loader reports a different partition UUID than the detected ESP ("SD_ID128_UUID_FORMAT_STR" vs. "SD_ID128_UUID_FORMAT_STR")!\n",
-                                               SD_ID128_FORMAT_VAL(loader_partition_uuid), SD_ID128_FORMAT_VAL(esp_uuid));
+                                /* If we know esp_uuid and loader_partition_uuid is not equal to it, print a warning. */
+                                if (!sd_id128_is_null(esp_uuid) && !sd_id128_equal(loader_partition_uuid, esp_uuid))
+                                        printf("WARNING: The boot loader reports a different partition UUID than the detected ESP "
+                                               "("SD_ID128_UUID_FORMAT_STR" vs. "SD_ID128_UUID_FORMAT_STR")!\n",
+                                               SD_ID128_FORMAT_VAL(loader_partition_uuid),
+                                               SD_ID128_FORMAT_VAL(esp_uuid));
 
                                 printf("    Partition: /dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR "\n",
                                        SD_ID128_FORMAT_VAL(loader_partition_uuid));
@@ -514,10 +517,15 @@ int verb_status(int argc, char *argv[], void *userdata) {
                         print_yes_no_line(/* first= */ false, !sd_id128_is_null(stub_partition_uuid), "Stub loader set partition information");
 
                         if (!sd_id128_is_null(stub_partition_uuid)) {
-                                if (!(!sd_id128_is_null(esp_uuid) && sd_id128_equal(esp_uuid, stub_partition_uuid)) &&
-                                    !(!sd_id128_is_null(xbootldr_uuid) && sd_id128_equal(xbootldr_uuid, stub_partition_uuid)))
-                                        printf("WARNING: The stub loader reports a different UUID than the detected ESP or XBOOTDLR partition ("SD_ID128_UUID_FORMAT_STR" vs. "SD_ID128_UUID_FORMAT_STR"/"SD_ID128_UUID_FORMAT_STR")!\n",
-                                               SD_ID128_FORMAT_VAL(stub_partition_uuid), SD_ID128_FORMAT_VAL(esp_uuid), SD_ID128_FORMAT_VAL(xbootldr_uuid));
+                                /* _If_ we know both esp_uuid and xbootldr_uuid and stub_partition_uuid is not equal
+                                 * to _either_ of them, print a warning. */
+                                if (!sd_id128_is_null(esp_uuid) && !sd_id128_equal(stub_partition_uuid, esp_uuid) &&
+                                    !sd_id128_is_null(xbootldr_uuid) && !sd_id128_equal(stub_partition_uuid, xbootldr_uuid))
+                                        printf("WARNING: The stub loader reports a different UUID than the detected ESP and XBOOTDLR partitions "
+                                               "("SD_ID128_UUID_FORMAT_STR" vs. "SD_ID128_UUID_FORMAT_STR"/"SD_ID128_UUID_FORMAT_STR")!\n",
+                                               SD_ID128_FORMAT_VAL(stub_partition_uuid),
+                                               SD_ID128_FORMAT_VAL(esp_uuid),
+                                               SD_ID128_FORMAT_VAL(xbootldr_uuid));
 
                                 printf("    Partition: /dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR "\n",
                                        SD_ID128_FORMAT_VAL(stub_partition_uuid));
