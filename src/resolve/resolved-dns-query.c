@@ -508,16 +508,27 @@ DnsQuery *dns_query_free(DnsQuery *q) {
         return mfree(q);
 }
 
-static int validate_and_mangle_question(DnsQuestion **question, Set *types) {
+static int manager_validate_and_mangle_question(Manager *manager, DnsQuestion **question, DnsQuestion **ret_allocated) {
         int r;
 
-        if (set_isempty(types))
+        assert(manager);
+        assert(question);
+        assert(ret_allocated);
+
+        if (!*question) {
+                *ret_allocated = NULL;
+                return 0;
+        }
+
+        if (set_isempty(manager->refuse_record_types)) {
+                *ret_allocated = NULL;
                 return 0; /* No filtering configured. Let's shortcut. */
+        }
 
         bool has_good = false, has_bad = false;
         DnsResourceKey *key;
         DNS_QUESTION_FOREACH(key, *question)
-                if (set_contains(types, INT_TO_PTR(key->type)))
+                if (set_contains(manager->refuse_record_types, INT_TO_PTR(key->type)))
                         has_bad = true;
                 else
                         has_good = true;
@@ -526,6 +537,7 @@ static int validate_and_mangle_question(DnsQuestion **question, Set *types) {
                 return -ENOANO; /* All bad, refuse.*/
         if (!has_bad) {
                 assert(has_good); /* The question should have at least one key. */
+                *ret_allocated = NULL;
                 return 0; /* All good. Not necessary to filter. */
         }
 
@@ -536,14 +548,16 @@ static int validate_and_mangle_question(DnsQuestion **question, Set *types) {
 
         DnsQuestionItem *item;
         DNS_QUESTION_FOREACH_ITEM(item, *question) {
-                if (set_contains(types, INT_TO_PTR(item->key->type)))
+                if (set_contains(manager->refuse_record_types, INT_TO_PTR(item->key->type)))
                         continue;
                 r = dns_question_add_raw(new_question, item->key, item->flags);
                 if (r < 0)
                         return r;
         }
 
-        return free_and_replace_full(*question, new_question, dns_question_unref);
+        *question = new_question;
+        *ret_allocated = TAKE_PTR(new_question);
+        return 0;
 }
 
 int dns_query_new(
@@ -563,11 +577,13 @@ int dns_query_new(
         assert(m);
 
         /* Check for records that is refused and refuse query for the records if matched in configuration */
-        r = validate_and_mangle_question(&question_utf8, m->refuse_record_types);
+        _unused_ _cleanup_(dns_question_unrefp) DnsQuestion *filtered_question_utf8 = NULL;
+        r = manager_validate_and_mangle_question(m, &question_utf8, &filtered_question_utf8);
         if (r < 0)
                 return r;
 
-        r = validate_and_mangle_question(&question_idna, m->refuse_record_types);
+        _unused_ _cleanup_(dns_question_unrefp) DnsQuestion *filtered_question_idna = NULL;
+        r = manager_validate_and_mangle_question(m, &question_idna, &filtered_question_idna);
         if (r < 0)
                 return r;
 
