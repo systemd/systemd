@@ -9,20 +9,19 @@ else
 fi
 
 MKOSI_CONFIG="$("${SPAWN[@]}" mkosi --json summary | jq -r .Images[-1])"
-DISTRIBUTION="$(jq -r .Distribution <<< "$MKOSI_CONFIG")"
-RELEASE="$(jq -r .Release <<< "$MKOSI_CONFIG")"
-ARCH="$(jq -r .Architecture <<< "$MKOSI_CONFIG")"
+BUILDDIR="$(jq -r .BuildDirectory <<< "$MKOSI_CONFIG")"
+BUILDSUBDIR="$(jq -r .BuildSubdirectory <<< "$MKOSI_CONFIG")"
 
 exec "${SPAWN[@]}" mkosi \
     --incremental=strict \
     --build-sources-ephemeral=no \
     --format=none \
     build \
+    -- \
     clangd \
     --compile-commands-dir=/work/build \
     --path-mappings="\
 $(pwd)=/work/src,\
-$(pwd)/build/mkosi.builddir/$DISTRIBUTION~$RELEASE~$ARCH/=/work/build,\
-$(pwd)/build/mkosi.cache/$DISTRIBUTION~$RELEASE~$ARCH~build.cache/usr/include/=/usr/include" \
+$BUILDDIR/$BUILDSUBDIR=/work/build"\
     "$@"
 
