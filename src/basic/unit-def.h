@@ -283,6 +283,10 @@ typedef enum NotifyAccess {
         _NOTIFY_ACCESS_INVALID = -EINVAL,
 } NotifyAccess;
 
+typedef enum RemountFlags {
+        REMOUNT_OPTIONS_APPEND = 1U << 0,
+} RemountFlags;
+
 typedef enum JobMode {
         JOB_FAIL,                /* Fail if a conflicting job is already queued */
         JOB_REPLACE,             /* Replace an existing conflicting job */
