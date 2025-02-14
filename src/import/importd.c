@@ -28,6 +28,7 @@
 #include "main-func.h"
 #include "missing_capability.h"
 #include "mkdir-label.h"
+#include "notify-recv.h"
 #include "os-util.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -637,55 +638,24 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_unref);
 
 static int manager_on_notify(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
-        char buf[NOTIFY_BUFFER_MAX+1];
-        struct iovec iovec = {
-                .iov_base = buf,
-                .iov_len = sizeof(buf)-1,
-        };
-        CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct ucred)) +
-                         CMSG_SPACE(sizeof(int) * NOTIFY_FD_MAX)) control;
-        struct msghdr msghdr = {
-                .msg_iov = &iovec,
-                .msg_iovlen = 1,
-                .msg_control = &control,
-                .msg_controllen = sizeof(control),
-        };
-        ssize_t n;
         int r;
 
-        n = recvmsg_safe(fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
-        if (ERRNO_IS_NEG_TRANSIENT(n))
+        _cleanup_free_ char *buf = NULL;
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        r = notify_recv(fd, &buf, /* ret_ucred= */ NULL, &pidref);
+        if (r == -EAGAIN)
                 return 0;
-        if (n == -ECHRNG) {
-                log_warning_errno(n, "Got message with truncated control data (unexpected fds sent?), ignoring.");
-                return 0;
-        }
-        if (n == -EXFULL) {
-                log_warning_errno(n, "Got message with truncated payload data, ignoring.");
-                return 0;
-        }
-        if (n < 0)
-                return (int) n;
-
-        cmsg_close_all(&msghdr);
-
-        struct ucred *ucred = CMSG_FIND_DATA(&msghdr, SOL_SOCKET, SCM_CREDENTIALS, struct ucred);
-        if (!ucred || ucred->pid <= 0) {
-                log_warning("Got notification datagram lacking credential information, ignoring.");
-                return 0;
-        }
+        if (r < 0)
+                return log_warning_errno(r, "Failed to receive notification message: %m");
 
         Transfer *t;
         HASHMAP_FOREACH(t, m->transfers)
-                if (ucred->pid == t->pidref.pid)
+                if (pidref_equal(&pidref, &t->pidref))
                         break;
-
         if (!t) {
                 log_warning("Got notification datagram from unexpected peer, ignoring.");
                 return 0;
         }
-
-        buf[n] = 0;
 
         char *p = find_line_startswith(buf, "X_IMPORT_PROGRESS=");
         if (!p)
@@ -760,6 +730,10 @@ static int manager_new(Manager **ret) {
         r = setsockopt_int(m->notify_fd, SOL_SOCKET, SO_PASSCRED, true);
         if (r < 0)
                 return r;
+
+        r = setsockopt_int(m->notify_fd, SOL_SOCKET, SO_PASSPIDFD, true);
+        if (r < 0)
+                log_debug_errno(r, "Failed to enable SO_PASSPIDFD on notification socket, ignoring. %m");
 
         r = sd_event_add_io(m->event, &m->notify_event_source,
                             m->notify_fd, EPOLLIN, manager_on_notify, m);
