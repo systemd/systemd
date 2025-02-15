@@ -42,7 +42,7 @@ typedef enum ShellEscapeFlags {
 } ShellEscapeFlags;
 
 int cescape_char(char c, char *buf);
-char* cescape_length(const char *s, size_t n);
+char* cescape_length(const char *s, size_t n) _nonnull_if_nonzero_(1, 2);
 static inline char* cescape(const char *s) {
         return cescape_length(s, SIZE_MAX);
 }
@@ -67,7 +67,7 @@ static inline char* xescape(const char *s, const char *bad) {
         return xescape_full(s, bad, SIZE_MAX, 0);
 }
 char* octescape(const char *s, size_t len);
-char* decescape(const char *s, size_t len, const char *bad);
+char* decescape(const char *s, size_t len, const char *bad) _nonnull_if_nonzero_(1, 2);
 char* escape_non_printable_full(const char *str, size_t console_width, XEscapeFlags flags);
 
 char* shell_escape(const char *s, const char *bad);
