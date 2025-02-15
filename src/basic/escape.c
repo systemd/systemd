@@ -449,7 +449,7 @@ char* escape_non_printable_full(const char *str, size_t console_width, XEscapeFl
 char* octescape(const char *s, size_t len) {
         char *buf, *t;
 
-        /* Escapes all chars in bad, in addition to \ and " chars, in \nnn style escaping. */
+        /* Escapes \ and " chars, in \nnn style escaping. */
 
         assert(s || len == 0);
 
