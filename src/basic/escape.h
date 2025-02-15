@@ -41,9 +41,11 @@ typedef enum ShellEscapeFlags {
         SHELL_ESCAPE_EMPTY = 1 << 2, /* Format empty arguments as "". */
 } ShellEscapeFlags;
 
-char* cescape(const char *s);
-char* cescape_length(const char *s, size_t n);
 int cescape_char(char c, char *buf);
+char* cescape_length(const char *s, size_t n);
+static inline char* cescape(const char *s) {
+        return cescape_length(s, SIZE_MAX);
+}
 
 int cunescape_one(const char *p, size_t length, char32_t *ret, bool *eight_bit, bool accept_nul);
 
