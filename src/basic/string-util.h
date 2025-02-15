@@ -107,7 +107,7 @@ static inline const char* empty_or_dash_to_null(const char *p) {
 char* first_word(const char *s, const char *word) _pure_;
 
 char* strprepend(char **x, const char *s);
-char* strextendn(char **x, const char *s, size_t l);
+char* strextendn(char **x, const char *s, size_t l) _nonnull_if_nonzero_(2, 3);
 
 #define strjoin(a, ...) strextend_with_separator_internal(NULL, NULL, a, __VA_ARGS__, NULL)
 
@@ -223,7 +223,7 @@ static inline int free_and_strdup_warn(char **p, const char *s) {
                 return log_oom();
         return r;
 }
-int free_and_strndup(char **p, const char *s, size_t l);
+int free_and_strndup(char **p, const char *s, size_t l) _nonnull_if_nonzero_(2, 3);
 
 int strdup_to_full(char **ret, const char *src);
 static inline int strdup_to(char **ret, const char *src) {
