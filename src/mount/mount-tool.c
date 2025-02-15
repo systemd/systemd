@@ -497,6 +497,23 @@ static int parse_argv(int argc, char *argv[]) {
                 if (arg_discover && arg_transport != BUS_TRANSPORT_LOCAL)
                         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                                "Automatic mount location discovery is only supported locally.");
+
+                _cleanup_free_ char *dev_bound = NULL;
+                r = fstab_filter_options(arg_mount_options, "x-systemd.device-bound\0", NULL, &dev_bound, NULL, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse mount options for x-systemd.device-bound=: %m");
+                if (r > 0 && !isempty(dev_bound)) {
+                        /* If x-systemd.device-bound=no is explicitly specified, never bind automount unit
+                         * to device either. */
+                        r = parse_boolean(dev_bound);
+                        if (r < 0)
+                                return log_error_errno(r, "Invalid x-systemd.device-bound= option: %s", dev_bound);
+                        if (r == 0) {
+                                log_full(arg_bind_device > 0 ? LOG_NOTICE : LOG_DEBUG,
+                                         "x-systemd.device-bound=no set, automatically disabling --bind-device.");
+                                arg_bind_device = false;
+                        }
+                }
         }
 
         return 1;
