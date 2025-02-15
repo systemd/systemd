@@ -235,9 +235,11 @@ int fstab_filter_options(
                                 return r;
                 }
 
-                filtered = strv_join_full(filtered_strv, ",", NULL, /* escape_separator = */ true);
-                if (!filtered)
-                        return -ENOMEM;
+                if (ret_filtered) {
+                        filtered = strv_join_full(filtered_strv, ",", NULL, /* escape_separator = */ true);
+                        if (!filtered)
+                                return -ENOMEM;
+                }
         } else
                 for (const char *word = opts;;) {
                         const char *end = word;
