@@ -12,9 +12,9 @@
 extern const struct iovec iovec_nul_byte; /* Points to a single NUL byte */
 extern const struct iovec iovec_empty;    /* Points to an empty, but valid (i.e. non-NULL) pointer */
 
-size_t iovec_total_size(const struct iovec *iovec, size_t n);
+size_t iovec_total_size(const struct iovec *iovec, size_t n) _nonnull_if_nonzero_(1, 2);
 
-bool iovec_increment(struct iovec *iovec, size_t n, size_t k);
+bool iovec_increment(struct iovec *iovec, size_t n, size_t k) _nonnull_if_nonzero_(1, 2);
 
 static inline struct iovec* iovec_make_string(struct iovec *iovec, const char *s) {
         assert(iovec);
@@ -42,7 +42,7 @@ static inline void iovec_done_erase(struct iovec *iovec) {
 char* set_iovec_string_field(struct iovec *iovec, size_t *n_iovec, const char *field, const char *value);
 char* set_iovec_string_field_free(struct iovec *iovec, size_t *n_iovec, const char *field, char *value);
 
-void iovec_array_free(struct iovec *iovec, size_t n_iovec);
+void iovec_array_free(struct iovec *iovec, size_t n_iovec) _nonnull_if_nonzero_(1, 2);
 
 static inline int iovec_memcmp(const struct iovec *a, const struct iovec *b) {
 
@@ -55,7 +55,7 @@ static inline int iovec_memcmp(const struct iovec *a, const struct iovec *b) {
                          b ? b->iov_len : 0);
 }
 
-static inline struct iovec *iovec_memdup(const struct iovec *source, struct iovec *ret) {
+static inline struct iovec* iovec_memdup(const struct iovec *source, struct iovec *ret) {
         assert(ret);
 
         if (!iovec_is_set(source))
