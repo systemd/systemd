@@ -126,7 +126,7 @@
         <listitem>
           <para>Configures IPv4 packet forwarding for the system. Takes a boolean value. This controls the
           <filename>net.ipv4.conf.default.forwarding</filename> and
-          <filename>net.ipv4.conf.all.forwarding</filename>sysctl options. See
+          <filename>net.ipv4.conf.all.forwarding</filename> sysctl options. See
           <ulink url="https://docs.kernel.org/networking/ip-sysctl.html">IP Sysctl</ulink>
           for more details about the sysctl options. Defaults to unset and the sysctl options will not be
           changed.</para>
