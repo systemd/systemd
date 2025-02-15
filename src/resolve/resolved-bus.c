@@ -1049,6 +1049,10 @@ static void resolve_service_all_complete(DnsQuery *query) {
 
         assert(q);
 
+        /* return early if q->auxiliary_queries is NULL since there is no point processing further */
+        if (q->auxiliary_queries == NULL)
+                return;
+
         if (q->block_all_complete > 0) {
                 TAKE_PTR(q);
                 return;
