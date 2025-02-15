@@ -112,6 +112,12 @@
 #  define _fallthrough_ __attribute__((__fallthrough__))
 #endif
 
+#if __GNUC__ >= 15
+#  define _nonnull_if_nonzero_(p, n) __attribute__((nonnull_if_nonzero(p, n)))
+#else
+#  define _nonnull_if_nonzero_(p, n)
+#endif
+
 #define XSTRINGIFY(x) #x
 #define STRINGIFY(x) XSTRINGIFY(x)
 
