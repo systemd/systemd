@@ -931,7 +931,7 @@ static char *format_svc_param_value(DnsSvcParam *i) {
                 return strv_join(values_strv, ",");
         }
         default: {
-                value = decescape((char *)&i->value, " ,", i->length);
+                value = decescape((char*) &i->value, i->length, " ,");
                 if (!value)
                         return NULL;
                 break;

@@ -40,7 +40,7 @@ bool memeqbyte(uint8_t byte, const void *data, size_t length) {
         return memcmp(data, p + 16, length) == 0;
 }
 
-void *memdup_reverse(const void *mem, size_t size) {
+void* memdup_reverse(const void *mem, size_t size) {
         assert(mem);
         assert(size != 0);
 
