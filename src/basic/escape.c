@@ -478,7 +478,7 @@ char* octescape(const char *s, size_t len) {
         return buf;
 }
 
-char* decescape(const char *s, const char *bad, size_t len) {
+char* decescape(const char *s, size_t len, const char *bad) {
         char *buf, *t;
 
         /* Escapes all chars in bad, in addition to \ and " chars, in \nnn decimal style escaping. */
