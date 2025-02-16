@@ -1001,6 +1001,10 @@ static int vl_method_resolve_service(sd_varlink* link, sd_json_variant* paramete
         if (validate_and_mangle_query_flags(m, &p.flags, p.name, SD_RESOLVED_NO_TXT|SD_RESOLVED_NO_ADDRESS) < 0)
                 return sd_varlink_error_invalid_parameter(link, JSON_VARIANT_STRING_CONST("flags"));
 
+        /* Refuse the method if SRV is filtered. */
+        if (set_contains(m->refuse_record_types, INT_TO_PTR(DNS_TYPE_SRV)))
+                return sd_varlink_error(link, "io.systemd.Resolve.QueryRefused", NULL);
+
         r = dns_question_new_service(&question_utf8, p.name, p.type, p.domain, !(p.flags & SD_RESOLVED_NO_TXT), false);
         if (r < 0)
                 return r;

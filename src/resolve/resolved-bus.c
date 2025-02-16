@@ -1333,6 +1333,10 @@ static int bus_method_resolve_service(sd_bus_message *message, void *userdata, s
         if (validate_and_mangle_query_flags(m, &flags, name, SD_RESOLVED_NO_TXT|SD_RESOLVED_NO_ADDRESS) < 0)
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid flags parameter");
 
+        /* Refuse the method if SRV is filtered. */
+        if (set_contains(m->refuse_record_types, INT_TO_PTR(DNS_TYPE_SRV)))
+                return sd_bus_error_set(error, BUS_ERROR_DNS_REFUSED, "DNS query type refused.");
+
         r = dns_question_new_service(&question_utf8, name, type, domain, !(flags & SD_RESOLVED_NO_TXT), false);
         if (r < 0)
                 return r;
