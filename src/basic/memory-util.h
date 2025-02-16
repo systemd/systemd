@@ -59,19 +59,19 @@ static inline int memcmp_nn(const void *s1, size_t n1, const void *s2, size_t n2
 
 #define zero(x) (memzero(&(x), sizeof(x)))
 
-bool memeqbyte(uint8_t byte, const void *data, size_t length);
+bool memeqbyte(uint8_t byte, const void *data, size_t length) _nonnull_if_nonzero_(2, 3);
 
 #define memeqzero(data, length) memeqbyte(0x00, data, length)
 
 #define eqzero(x) memeqzero(x, sizeof(x))
 
-static inline void *mempset(void *s, int c, size_t n) {
+static inline void* mempset(void *s, int c, size_t n) {
         memset(s, c, n);
-        return (uint8_t*)s + n;
+        return (uint8_t*) s + n;
 }
 
 /* Normal memmem() requires haystack to be nonnull, which is annoying for zero-length buffers */
-static inline void *memmem_safe(const void *haystack, size_t haystacklen, const void *needle, size_t needlelen) {
+static inline void* memmem_safe(const void *haystack, size_t haystacklen, const void *needle, size_t needlelen) {
 
         if (needlelen <= 0)
                 return (void*) haystack;
@@ -85,7 +85,7 @@ static inline void *memmem_safe(const void *haystack, size_t haystacklen, const 
         return memmem(haystack, haystacklen, needle, needlelen);
 }
 
-static inline void *mempmem_safe(const void *haystack, size_t haystacklen, const void *needle, size_t needlelen) {
+static inline void* mempmem_safe(const void *haystack, size_t haystacklen, const void *needle, size_t needlelen) {
         const uint8_t *p;
 
         p = memmem_safe(haystack, haystacklen, needle, needlelen);
@@ -116,4 +116,4 @@ static inline void erase_char(char *p) {
 }
 
 /* Makes a copy of the buffer with reversed order of bytes */
-void *memdup_reverse(const void *mem, size_t size);
+void* memdup_reverse(const void *mem, size_t size);
