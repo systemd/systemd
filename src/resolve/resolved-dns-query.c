@@ -1442,10 +1442,12 @@ bool dns_query_fully_authoritative(DnsQuery *q) {
 }
 
 int validate_and_mangle_query_flags(
+                Manager *manager,
                 uint64_t *flags,
                 const char *name,
                 uint64_t ok) {
 
+        assert(manager);
         assert(flags);
 
         /* Checks that the client supplied interface index and flags parameter actually are valid and make
@@ -1481,6 +1483,12 @@ int validate_and_mangle_query_flags(
         /* Imply SD_RESOLVED_NO_SEARCH if permitted and name is dot suffixed. */
         if (name && FLAGS_SET(ok, SD_RESOLVED_NO_SEARCH) && dns_name_dot_suffixed(name) > 0)
                 *flags |= SD_RESOLVED_NO_SEARCH;
+
+        /* If both A and AAAA are refused, and SD_RESOLVED_NO_ADDRESS is allowed, then set the flag. */
+        if (set_contains(manager->refuse_record_types, INT_TO_PTR(DNS_TYPE_A)) &&
+            set_contains(manager->refuse_record_types, INT_TO_PTR(DNS_TYPE_AAAA)) &&
+            FLAGS_SET(ok, SD_RESOLVED_NO_ADDRESS))
+                *flags |= SD_RESOLVED_NO_ADDRESS;
 
         return 0;
 }

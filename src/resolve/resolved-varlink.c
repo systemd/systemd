@@ -341,7 +341,7 @@ static int vl_method_resolve_hostname(sd_varlink *link, sd_json_variant *paramet
         if (!IN_SET(p.family, AF_UNSPEC, AF_INET, AF_INET6))
                 return sd_varlink_error_invalid_parameter(link, JSON_VARIANT_STRING_CONST("family"));
 
-        if (validate_and_mangle_query_flags(&p.flags, p.name, SD_RESOLVED_NO_SEARCH) < 0)
+        if (validate_and_mangle_query_flags(m, &p.flags, p.name, SD_RESOLVED_NO_SEARCH) < 0)
                 return sd_varlink_error_invalid_parameter(link, JSON_VARIANT_STRING_CONST("flags"));
 
         r = parse_as_address(link, &p);
@@ -504,7 +504,7 @@ static int vl_method_resolve_address(sd_varlink *link, sd_json_variant *paramete
         if (FAMILY_ADDRESS_SIZE(p.family) != p.address_size)
                 return sd_varlink_error(link, "io.systemd.Resolve.BadAddressSize", NULL);
 
-        if (validate_and_mangle_query_flags(&p.flags, /* name = */ NULL, /* ok = */ 0) < 0)
+        if (validate_and_mangle_query_flags(m, &p.flags, /* name = */ NULL, /* ok = */ 0) < 0)
                 return sd_varlink_error_invalid_parameter(link, JSON_VARIANT_STRING_CONST("flags"));
 
         r = dns_question_new_reverse(&question, p.family, &p.address);
@@ -998,7 +998,7 @@ static int vl_method_resolve_service(sd_varlink* link, sd_json_variant* paramete
         if (p.name && !p.type) /* Service name cannot be specified without service type. */
                 return sd_varlink_error_invalid_parameter(link, JSON_VARIANT_STRING_CONST("type"));
 
-        if (validate_and_mangle_query_flags(&p.flags, p.name, SD_RESOLVED_NO_TXT|SD_RESOLVED_NO_ADDRESS) < 0)
+        if (validate_and_mangle_query_flags(m, &p.flags, p.name, SD_RESOLVED_NO_TXT|SD_RESOLVED_NO_ADDRESS) < 0)
                 return sd_varlink_error_invalid_parameter(link, JSON_VARIANT_STRING_CONST("flags"));
 
         r = dns_question_new_service(&question_utf8, p.name, p.type, p.domain, !(p.flags & SD_RESOLVED_NO_TXT), false);
@@ -1138,7 +1138,7 @@ static int vl_method_resolve_record(sd_varlink *link, sd_json_variant *parameter
         if (dns_type_is_obsolete(p.type))
                 return sd_varlink_error(link, "io.systemd.Resolve.ResourceRecordTypeObsolete", NULL);
 
-        if (validate_and_mangle_query_flags(&p.flags, p.name, SD_RESOLVED_NO_SEARCH) < 0)
+        if (validate_and_mangle_query_flags(m, &p.flags, p.name, SD_RESOLVED_NO_SEARCH) < 0)
                 return sd_varlink_error_invalid_parameter(link, JSON_VARIANT_STRING_CONST("flags"));
 
         _cleanup_(dns_question_unrefp) DnsQuestion *question = dns_question_new(1);

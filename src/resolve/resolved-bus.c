@@ -474,7 +474,7 @@ static int bus_method_resolve_hostname(sd_bus_message *message, void *userdata, 
         if (!IN_SET(family, AF_INET, AF_INET6, AF_UNSPEC))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unknown address family %i", family);
 
-        if (validate_and_mangle_query_flags(&flags, hostname, SD_RESOLVED_NO_SEARCH) < 0)
+        if (validate_and_mangle_query_flags(m, &flags, hostname, SD_RESOLVED_NO_SEARCH) < 0)
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid flags parameter");
 
         r = parse_as_address(message, ifindex, hostname, family, flags);
@@ -628,7 +628,7 @@ static int bus_method_resolve_address(sd_bus_message *message, void *userdata, s
         if (ifindex < 0)
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid interface index");
 
-        if (validate_and_mangle_query_flags(&flags, /* name = */ NULL, /* ok = */ 0) < 0)
+        if (validate_and_mangle_query_flags(m, &flags, /* name = */ NULL, /* ok = */ 0) < 0)
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid flags parameter");
 
         r = dns_question_new_reverse(&question, family, &a);
@@ -796,7 +796,7 @@ static int bus_method_resolve_record(sd_bus_message *message, void *userdata, sd
         if (dns_type_is_obsolete(type))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Specified DNS resource record type %" PRIu16 " is obsolete.", type);
 
-        if (validate_and_mangle_query_flags(&flags, name, SD_RESOLVED_NO_SEARCH) < 0)
+        if (validate_and_mangle_query_flags(m, &flags, name, SD_RESOLVED_NO_SEARCH) < 0)
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid flags parameter");
 
         question = dns_question_new(1);
@@ -1330,7 +1330,7 @@ static int bus_method_resolve_service(sd_bus_message *message, void *userdata, s
         if (name && !type)
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Service name cannot be specified without service type.");
 
-        if (validate_and_mangle_query_flags(&flags, name, SD_RESOLVED_NO_TXT|SD_RESOLVED_NO_ADDRESS) < 0)
+        if (validate_and_mangle_query_flags(m, &flags, name, SD_RESOLVED_NO_TXT|SD_RESOLVED_NO_ADDRESS) < 0)
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid flags parameter");
 
         r = dns_question_new_service(&question_utf8, name, type, domain, !(flags & SD_RESOLVED_NO_TXT), false);
