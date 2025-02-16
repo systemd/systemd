@@ -33,7 +33,7 @@ char** strv_free_erase(char **l);
 DEFINE_TRIVIAL_CLEANUP_FUNC(char**, strv_free_erase);
 #define _cleanup_strv_free_erase_ _cleanup_(strv_free_erasep)
 
-void strv_free_many(char ***strvs, size_t n);
+void strv_free_many(char ***strvs, size_t n) _nonnull_if_nonzero_(1, 2);
 
 char** strv_copy_n(char * const *l, size_t n);
 static inline char** strv_copy(char * const *l) {
