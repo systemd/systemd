@@ -850,7 +850,6 @@ testcase_11_nft() {
         echo "[Resolve]"
         echo "StaleRetentionSec=1d"
     } >/run/systemd/resolved.conf.d/test.conf
-    ln -svf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
     systemctl reload systemd-resolved.service
 
     run dig stale1.unsigned.test -t A
@@ -1096,10 +1095,6 @@ testcase_14_refuse_record_types() {
     # shellcheck disable=SC2317
     cleanup() {
         rm -f /run/systemd/resolved.conf.d/refuserecords.conf
-        if [[ -e /etc/resolv.conf.bak ]]; then
-            rm -f /etc/resolv.conf
-            mv /etc/resolv.conf.bak /etc/resolv.conf
-        fi
         restart_resolved
     }
     trap cleanup RETURN ERR
@@ -1109,11 +1104,8 @@ testcase_14_refuse_record_types() {
         echo "[Resolve]"
         echo "RefuseRecordTypes=AAAA SRV TXT"
     } >/run/systemd/resolved.conf.d/refuserecords.conf
-    if [[ -e /etc/resolv.conf ]]; then
-        mv /etc/resolv.conf /etc/resolv.conf.bak
-    fi
-    ln -svf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
     systemctl reload systemd-resolved.service
+
     run dig localhost -t AAAA
     grep -qF "status: REFUSED" "$RUN_OUT"
 
