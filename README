@@ -39,7 +39,8 @@ REQUIREMENTS:
                      ≥ 4.11 for nsfs NS_GET_NSTYPE
                      ≥ 4.13 for TIOCGPTPEER
                      ≥ 4.15 for cgroup-bpf device hook and cpu controller in cgroup v2
-                     ≥ 4.17 for cgroup-bpf socket address hooks and /sys/power/resume_offset
+                     ≥ 4.17 for cgroup-bpf socket address hooks, /sys/power/resume_offset,
+                            and FRA_PROTOCOL attribute for fib rules
                      ≥ 4.20 for PSI (used by systemd-oomd)
                      ≥ 5.2 for cgroup freezer and new mount API
                      ≥ 5.3 for bounded loops in BPF program, keyring namespacing,
