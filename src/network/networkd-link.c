@@ -2321,7 +2321,7 @@ static int link_update_permanent_hardware_address(Link *link, sd_netlink_message
                 if (r != -ENODATA)
                         return log_link_debug_errno(link, r, "Failed to read IFLA_PERM_ADDRESS attribute: %m");
 
-                /* Fallback to ethtool for older kernels. */
+                /* Fallback to ethtool for kernels older than v5.6 (f74877a5457d34d604dba6dbbb13c4c05bac8b93). */
                 r = link_update_permanent_hardware_address_from_ethtool(link, message);
                 if (r < 0)
                         return r;
