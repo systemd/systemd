@@ -1484,5 +1484,16 @@ int validate_and_mangle_query_flags(
         if (name && FLAGS_SET(ok, SD_RESOLVED_NO_SEARCH) && dns_name_dot_suffixed(name) > 0)
                 *flags |= SD_RESOLVED_NO_SEARCH;
 
+        /* If both A and AAAA are refused, set SD_RESOLVED_NO_ADDRESS flag if it is allowed. */
+        if (set_contains(manager->refuse_record_types, INT_TO_PTR(DNS_TYPE_A)) &&
+            set_contains(manager->refuse_record_types, INT_TO_PTR(DNS_TYPE_AAAA)) &&
+            FLAGS_SET(ok, SD_RESOLVED_NO_ADDRESS))
+                *flags |= SD_RESOLVED_NO_ADDRESS;
+
+        /* Similarly, if TXT is refused, set SD_RESOLVED_NO_TXT flag if it is allowed. */
+        if (set_contains(manager->refuse_record_types, INT_TO_PTR(DNS_TYPE_TXT)) &&
+            FLAGS_SET(ok, SD_RESOLVED_NO_TXT))
+                *flags |= SD_RESOLVED_NO_TXT;
+
         return 0;
 }
