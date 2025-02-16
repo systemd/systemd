@@ -8,7 +8,9 @@ struct iovec {
         size_t iov_len;
 };
 
+DISABLE_WARNING_REDUNDANT_DECLS;
 static inline void free(void *p);
+REENABLE_WARNING;
 #endif
 
 /* This accepts both const and non-const pointers */

@@ -110,6 +110,15 @@ static const char *const image_root_table[_IMAGE_CLASS_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP_TO_STRING(image_root, ImageClass);
 
+static const char *const image_root_runtime_table[_IMAGE_CLASS_MAX] = {
+        [IMAGE_MACHINE]  = "/run/machines",
+        [IMAGE_PORTABLE] = "/run/portables",
+        [IMAGE_SYSEXT]   = "/run/extensions",
+        [IMAGE_CONFEXT]  = "/run/confexts",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(image_root_runtime, ImageClass);
+
 static Image *image_free(Image *i) {
         assert(i);
 

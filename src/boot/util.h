@@ -251,3 +251,5 @@ char16_t *get_extra_dir(const EFI_DEVICE_PATH *file_path);
 #define xnew0(type, n) ASSERT_PTR(new0(type, n))
 
 #endif
+
+char16_t *url_replace_last_component(const char16_t *url, const char16_t *filename);
