@@ -118,8 +118,6 @@ struct Manager {
         usec_t speed_meter_usec_new;
         usec_t speed_meter_usec_old;
 
-        bool bridge_mdb_on_master_not_supported;
-
         FirewallContext *fw_ctx;
 
         bool request_queued;
