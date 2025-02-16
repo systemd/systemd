@@ -942,6 +942,7 @@ testcase_12_resolvectl2() {
     cleanup() {
         rm -f /run/systemd/resolved.conf.d/reload.conf
         systemctl reload systemd-resolved.service
+        resolvectl revert dns0
     }
 
     trap cleanup RETURN
@@ -1023,6 +1024,7 @@ testcase_13_varlink_subscribe_dns_configuration() {
         echo "=========="
         rm -f /run/systemd/resolved.conf.d/global-dns.conf
         restart_resolved
+        resolvectl revert dns0
     }
 
     trap cleanup RETURN ERR
