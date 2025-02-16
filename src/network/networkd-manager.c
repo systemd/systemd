@@ -1069,12 +1069,8 @@ int manager_enumerate(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Could not enumerate neighbors: %m");
 
-        /* NextHop support is added in kernel v5.3 (65ee00a9409f751188a8cdc0988167858eb4a536),
-         * and older kernels return -EOPNOTSUPP, or -EINVAL if SELinux is enabled. */
         r = manager_enumerate_nexthop(m);
-        if (r == -EOPNOTSUPP || (r == -EINVAL && mac_selinux_enforcing()))
-                log_debug_errno(r, "Could not enumerate nexthops, ignoring: %m");
-        else if (r < 0)
+        if (r < 0)
                 return log_error_errno(r, "Could not enumerate nexthops: %m");
 
         r = manager_enumerate_routes(m);
