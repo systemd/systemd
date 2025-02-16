@@ -1164,6 +1164,41 @@ testcase_14_refuse_record_types() {
 
     (! run resolvectl query localhost5 --type=AAAA)
     grep -qF "DNS query type refused." "$RUN_OUT"
+
+    # Check SRV support
+    run resolvectl service _mysvc._tcp signed.test
+    grep -qF "myservice.signed.test:1234" "$RUN_OUT"
+    grep -qF "10.0.0.20" "$RUN_OUT"
+    (! grep -qF "fd00:dead:beef:cafe::17" "$RUN_OUT")
+    grep -qF "authenticated: yes" "$RUN_OUT"
+
+    # Test service resolve over Varlink
+    run varlinkctl call /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.ResolveService '{"name":"","type":"_mysvc._tcp","domain":"signed.test"}'
+    grep -qF '"services":[{"priority":10,"weight":5,"port":1234,"hostname":"myservice.signed.test","canonicalName":"myservice.signed.test","addresses":[{"ifindex":' "$RUN_OUT"
+    grep -qF '"family":10,"address":[253,0,222,173,190,239,202,254,0,0,0,0,0,0,0,23]' "$RUN_OUT"
+    (! grep -qF '"family":2,"address":[10,0,0,20]' "$RUN_OUT")
+    grep -qF '}]}],"txt":["This is TXT for myservice"],"canonical":{"name":null,"type":"_mysvc._tcp","domain":"signed.test"},"flags":' "$RUN_OUT"
+
+    # Filter both A and AAAA
+    {
+        echo "[Resolve]"
+        echo "RefuseRecordTypes=A AAAA"
+    } >/run/systemd/resolved.conf.d/refuserecords.conf
+    systemctl reload systemd-resolved.service
+
+    # Check SRV support
+    run resolvectl service _mysvc._tcp signed.test
+    grep -qF "myservice.signed.test:1234" "$RUN_OUT"
+    (! grep -qF "10.0.0.20" "$RUN_OUT")
+    (! grep -qF "fd00:dead:beef:cafe::17" "$RUN_OUT")
+    grep -qF "authenticated: yes" "$RUN_OUT"
+
+    # Test service resolve over Varlink
+    run varlinkctl call /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.ResolveService '{"name":"","type":"_mysvc._tcp","domain":"signed.test"}'
+    grep -qF '"services":[{"priority":10,"weight":5,"port":1234,"hostname":"myservice.signed.test","canonicalName":"myservice.signed.test","addresses":[{"ifindex":' "$RUN_OUT"
+    (! grep -qF '"family":10,"address":[253,0,222,173,190,239,202,254,0,0,0,0,0,0,0,23]' "$RUN_OUT")
+    (! grep -qF '"family":2,"address":[10,0,0,20]' "$RUN_OUT")
+    grep -qF '}]}],"txt":["This is TXT for myservice"],"canonical":{"name":null,"type":"_mysvc._tcp","domain":"signed.test"},"flags":' "$RUN_OUT"
 }
 
 # PRE-SETUP
