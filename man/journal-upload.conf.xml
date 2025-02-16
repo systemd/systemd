@@ -131,6 +131,25 @@
 
         <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>Header=</varname></term>
+
+        <listitem><para>HTTP header which should be added to each request to URL. Headers are expected to
+        be unquoted and it's expected to be no more than one header per each option.</para>
+
+        <para>Header name can contains alphanumeric values, "_" and "-" symbols additionally.</para>
+
+        <para>This option may be specified more than once, in which case all listed headers will be set. If
+        the same header name is listed twice, the later setting will override the earlier setting.
+        </para>
+
+        <para>Example:
+        <programlisting>Header=HeaderName: HeaderValue</programlisting>
+        adds <literal>HeaderName</literal> header with <literal>HeaderValue</literal> to each HTTP request.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
     </variablelist>
 
   </refsect1>
