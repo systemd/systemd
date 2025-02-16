@@ -61,57 +61,6 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>Compression=</varname></term>
-
-        <listitem><para>Takes a space separated list of compression algorithms to be applied to logs data before sending.
-        Supported algorithms are <literal>none</literal>, <literal>zstd</literal>, <literal>xz</literal>,
-        or <literal>lz4</literal>. Optionally, each algorithm (except for <literal>none</literal>)
-        followed by a colon (<literal>:</literal>) and its compression level, for example <literal>zstd:4</literal>.
-        The compression level is expected to be a positive integer. This option can be specified multiple times.
-        If an empty string is assigned, then all previous assignments are cleared.
-        Defaults to unset, and data will not be compressed.</para>
-
-        <para>Example:
-        <programlisting>Compression=zstd:4 lz4:2</programlisting></para>
-
-        <para>Even when compression is enabled, the initial requests are sent without compression.
-        It becomes effective either if <literal>ForceCompression=</literal> is enabled,
-        or the server response contains <literal>Accept-Encoding</literal> headers with a list of
-        compression algorithms that contains one of the algorithms specified in this option.</para>
-
-        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><varname>ForceCompression=</varname></term>
-
-        <listitem><para>Takes a boolean value, enforces using compression without content encoding negotiation.
-        Defaults to <literal>false</literal>.</para>
-
-        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><varname>Header=</varname></term>
-
-        <listitem><para>HTTP header which should be added to each request to URL. Headers are expected to
-        be unquoted and it's expected to be no more than one header per each option.</para>
-
-        <para>Header name can contains alphanumeric values, "_" and "-" symbols additionally.</para>
-
-        <para>This option may be specified more than once, in which case all listed headers will be set. If
-        the same header name is listed twice, the later setting will override the earlier setting.
-        </para>
-
-        <para>Example:
-        <programlisting>Header=HeaderName: HeaderValue</programlisting>
-        adds <literal>HeaderName</literal> header with <literal>HeaderValue</literal> to each HTTP request.
-        </para>
-
-        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
-      </varlistentry>
-
-      <varlistentry>
         <term><varname>ServerKeyFile=</varname></term>
 
         <listitem><para>SSL key in PEM format.</para>
@@ -148,6 +97,60 @@
         <xi:include href="version-info.xml" xpointer="v249"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>Compression=</varname></term>
+
+        <listitem>
+          <para>Configures compression algorithm to be applied to logs data before sending. Takes a space
+          separated list of compression algorithms, or <literal>no</literal>. Supported algorithms are
+          <literal>zstd</literal>, <literal>xz</literal>, or <literal>lz4</literal>. Optionally, each
+          algorithm followed by a colon (<literal>:</literal>) and its compression level, for example
+          <literal>zstd:4</literal>. The compression level is expected to be a positive integer. When
+          <literal>no</literal> is specified, no compression algorithm will be applied to data to be sent.
+          This option can be specified multiple times. If an empty string is assigned, then all previous
+          assignments are cleared. Defaults to unset, and all supported compression algorithms with their
+          default compression levels are listed.</para>
+
+          <para>Example:
+          <programlisting>Compression=zstd:4 lz4:2</programlisting></para>
+
+          <para>Even when compression is enabled, the initial requests are sent without compression.
+          It becomes effective either if <literal>ForceCompression=</literal> is enabled,
+          or the server response contains <literal>Accept-Encoding</literal> headers with a list of
+          compression algorithms that contains one of the algorithms specified in this option.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ForceCompression=</varname></term>
+
+        <listitem><para>Takes a boolean value, enforces using compression without content encoding negotiation.
+        Defaults to <literal>false</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+      
+      <varlistentry>
+        <term><varname>Header=</varname></term>
+
+        <listitem><para>HTTP header which should be added to each request to URL. Headers are expected to
+        be unquoted and it's expected to be no more than one header per each option.</para>
+
+        <para>Header name can contains alphanumeric values, "_" and "-" symbols additionally.</para>
+
+        <para>This option may be specified more than once, in which case all listed headers will be set. If
+        the same header name is listed twice, the later setting will override the earlier setting.
+        </para>
+
+        <para>Example:
+        <programlisting>Header=HeaderName: HeaderValue</programlisting>
+        adds <literal>HeaderName</literal> header with <literal>HeaderValue</literal> to each HTTP request.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
     </variablelist>
 
   </refsect1>

@@ -1091,7 +1091,9 @@ int config_parse_socket_bindtodevice(
                 void *data,
                 void *userdata) {
 
+        _cleanup_free_ char *p = NULL;
         Socket *s = ASSERT_PTR(data);
+        int r;
 
         assert(filename);
         assert(lvalue);
@@ -1102,12 +1104,18 @@ int config_parse_socket_bindtodevice(
                 return 0;
         }
 
-        if (!ifname_valid(rvalue)) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid interface name, ignoring: %s", rvalue);
+        r = unit_full_printf(UNIT(s), rvalue, &p);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to resolve unit specifiers in %s, ignoring: %m", rvalue);
                 return 0;
         }
 
-        return free_and_strdup_warn(&s->bind_to_device, rvalue);
+        if (!ifname_valid(p)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid interface name, ignoring: %s", p);
+                return 0;
+        }
+
+        return free_and_replace(s->bind_to_device, p);
 }
 
 int config_parse_exec_input(
@@ -6121,51 +6129,6 @@ int config_parse_mount_node(
         }
 
         return config_parse_string(unit, filename, line, section, section_line, lvalue, ltype, path, data, userdata);
-}
-
-int config_parse_mount_graceful_options(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        const Unit *u = ASSERT_PTR(userdata);
-        char ***sv = ASSERT_PTR(data);
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-
-        if (isempty(rvalue)) {
-                *sv = strv_free(*sv);
-                return 1;
-        }
-
-        _cleanup_free_ char *resolved = NULL;
-        r = unit_full_printf(u, rvalue, &resolved);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to resolve unit specifiers in '%s', ignoring: %m", rvalue);
-                return 0;
-        }
-
-        _cleanup_strv_free_ char **strv = NULL;
-
-        r = strv_split_full(&strv, resolved, ",", EXTRACT_RETAIN_ESCAPE|EXTRACT_UNESCAPE_SEPARATORS);
-        if (r < 0)
-                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
-
-        r = strv_extend_strv_consume(sv, TAKE_PTR(strv), /* filter_duplicates = */ false);
-        if (r < 0)
-                return log_oom();
-
-        return 1;
 }
 
 static int merge_by_names(Unit *u, Set *names, const char *id) {

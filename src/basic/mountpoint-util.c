@@ -797,14 +797,10 @@ int mount_option_supported(const char *fstype, const char *key, const char *valu
         assert(key);
 
         fd = fsopen(fstype, FSOPEN_CLOEXEC);
-        if (fd < 0) {
-                if (ERRNO_IS_NOT_SUPPORTED(errno))
-                        return -EAGAIN;  /* new mount API not available → don't know */
-
+        if (fd < 0)
                 return log_debug_errno(errno, "Failed to open superblock context for '%s': %m", fstype);
-        }
 
-        /* Various file systems have not been converted to the new mount API yet. For such file systems
+        /* Various file systems support fs context only in recent kernels (e.g. btrfs). For older kernels
          * fsconfig() with FSCONFIG_SET_STRING/FSCONFIG_SET_FLAG never fail. Which sucks, because we want to
          * use it for testing support, after all. Let's hence do a check if the file system got converted yet
          * first. */
@@ -813,9 +809,9 @@ int mount_option_supported(const char *fstype, const char *key, const char *valu
                  * the new mount API yet. If it returns EINVAL the mount option doesn't exist, but the fstype
                  * is converted. */
                 if (errno == EOPNOTSUPP)
-                        return -EAGAIN; /* FSCONFIG_SET_FD not supported on the fs, hence not converted to new mount API → don't know */
+                        return -EAGAIN; /* fs not converted to new mount API → don't know */
                 if (errno != EINVAL)
-                        return log_debug_errno(errno, "Failed to check if file system has been converted to new mount API: %m");
+                        return log_debug_errno(errno, "Failed to check if file system '%s' has been converted to new mount API: %m", fstype);
 
                 /* So FSCONFIG_SET_FD worked, but the option didn't exist (we got EINVAL), this means the fs
                  * is converted. Let's now ask the actual question we wonder about. */

@@ -242,6 +242,11 @@ sensor:modalias:acpi:KIOX010A:*:dmi:*:svnAMI:*:skuH2M6:*
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, -1, 0; 0, 0, -1
  ACCEL_LOCATION=display
 
+# BMAX MaxBook Y14
+sensor:modalias:acpi:KIOX010A:*:dmi:*:svnAMI:*:skuH8Y6:*
+ ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, -1, 0; 0, 0, 1
+ ACCEL_LOCATION=display
+
 #########################################
 # BUSH
 #########################################
@@ -1226,3 +1231,10 @@ sensor:modalias:acpi:KIOX000A*:dmi:*:svnWortmann_AG:pnTERRA_PAD_1061:*
 #########################################
 sensor:modalias:acpi:BMA250E*:dmi:*:svnYOURS:pnY8W81:*
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
+
+#########################################
+# Unknown manufacturer
+#########################################
+# ANP09 Intel N100 based 7-inch tablet
+sensor:modalias:acpi:BOSC0200*:dmi:bvnAmericanMegatrendsInternational,LLC.:bvrANP09_INTEL001:*
+ ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, -1

@@ -631,6 +631,7 @@ static void manager_set_defaults(Manager *m) {
         m->resolve_unicast_single_label = false;
         m->cache_from_localhost = false;
         m->stale_retention_usec = 0;
+        m->refuse_record_types = set_free(m->refuse_record_types);
 }
 
 static int manager_dispatch_reload_signal(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
@@ -843,6 +844,7 @@ Manager *manager_free(Manager *m) {
         dnstls_manager_free(m);
 #endif
 
+        set_free(m->refuse_record_types);
         hashmap_free(m->links);
         hashmap_free(m->dns_transactions);
 

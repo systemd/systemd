@@ -125,6 +125,90 @@ Deprecations and removals:
 
 Features:
 
+* make "systemd-vmspawn -n" work unprivileged properly, i.e. acquire tap netif
+  from nsresourced.
+
+* Make run0 forward various signals to the forked process so that sending
+  signals to a child process works roughly the same regardless of whether the
+  child process is spawned via run0 or not.
+
+* write a document explaining how to write correct udev rules. Mention things
+  such as:
+  1. do not do lists of vid/pid matches, use hwdb for that
+  2. add|change action matches are typically wrong, should be != remove
+  3. use GOTO, make rules short
+  4. people shouldn't try to make rules file non-world-readable
+
+* make killing more debuggable: when we kill a service do so setting the
+  .si_code field with a little bit of info. Specifically, we can set a
+  recognizable value to first of all indicate that it's systemd that did the
+  killing. Secondly, we can give a reason for the killing, i.e. OOM or so, and
+  also the phase we are in, and which process we think we are killing (i.e.
+  main vs control process, useful in case of sd_notify() MAINPID= debugging).
+  Net result: people who try to debug why their process gets killed should have
+  some minimal, nice metadata directly on the signal event.
+
+* import-generator: add option to download into /run/ rather than /var/, and
+  make it default in the initrd
+
+* sd-boot/sd-stub: install a uefi "handle" to a sidecar dir of bls type #1
+  entries with an "uki" or "uki-url" stanza, and make sd-stub look for
+  that. That way we can parameterize type #1 entries nicely.
+
+* add a system-wide seccomp filter list for syscalls, kill "acct()" "@obsolete"
+  and a few other legacy syscalls that way.
+
+* maybe introduce "@icky" as a seccomp filter group, which contains acct() and
+  certain other syscalls that aren't quite obsolete, but certainly icky.
+
+* revisit how we pass fs images and initrd to the kernel. take uefi http boot
+  ramdisks as inspiration: for any confext/sysext/initrd erofs/DDI image simply
+  generate a fake pmem region in the UEFI memory tables, that Linux then turns
+  into /dev/pmemX. Then turn of cpio-based initrd logic in linux kernel,
+  instead let kernel boot directly into /dev/pmem0. In order to allow our usual
+  cpio-based parameterization, teach PID 1 to just uncompress cpio ourselves
+  early on, from another pmem device. (Related to this, maybe introduce a new
+  PE section .ramdisk that just synthesizes pmem devices from arbitrary
+  blobs. Could be particularly useful in add-ons)
+
+* also parse out primary GPT disk label uuid from gpt partition device path at
+  boot and pass it as efi var to OS.
+
+* maybe rework invocation of stub's inner PE payload: since we already parse PE
+  anyway, maybe jump directly into the image, after finding the linux UEFI
+  entrypoint. After all we invest quite some effort to disable
+  validation/measurement of the inner image, i.e. we want nothing from UEFI's
+  own image loading code paths. Given that everything's statically linked
+  anyway on UEFI it should be easy to just jump into the already loaded image.
+
+* introduce smbios type 11 variables for inserting additional entries into boot
+  loader spec type 1 menu list. Usecase is in particular with http boot: allow
+  VMMs to insert additional cheap payloads that are acquired on demand via
+  http. for example: always install diskomator or such.
+
+* storagetm: maybe also serve the specified disk via HTTP? we have glue for
+  microhttpd anyway already. Idea would also be serve currently booted UKI as
+  separate HTTP resource, so that EFI http boot on another system could
+  directly boot from our system, with full access to the hdd.
+
+* support boot-into-tarball in systemd-import-generator: optionally bind mount
+  downloaded image to /sysroot/
+
+* support specifying download hash sum in systemd-import-generator expression
+  to pin image/tarball.
+
+* support boot into nvme-over-tcp: add generator that allows specifying nvme
+  devices on kernel cmdline + credentials. Also maybe add interactive mode
+  (where the user is prompted for nvme info), in order to boot from other
+  system's HDD.
+
+* ptyfwd: use osc context information in vmspawn/nspawn/… to optionally only
+  listen to ^]]] key when no further vmspawn/nspawn context is allocated
+
+* ptyfwd: usec osc context information to propagate status messages from
+  vmspawn/nspawn to service manager's "status" string, reporting what is
+  currently in the fg
+
 * nspawn/vmspawn: define hotkey that one can hit on the primary interface to
   ask for a friendly, acpi style shutdown.
 
@@ -143,7 +227,9 @@ Features:
   service into the early boot, waiting for the DMI and network device to show
   up.
 
-* Add UKI profiles that are only available if secure boot is turned off
+* Add UKI profile conditioning so that profles are only available if secure
+  boot is turned off, or only on. similar, add conditions on TPM availability,
+  network boot, and other conditions.
 
 * fix bug around run0 background color on ls in fresh terminal
 
@@ -165,14 +251,8 @@ Features:
   happened, so that initrd can recognize this and take into consdiration when
   looking for root fs
 
-* importd/importctl: optionally download root fs image into tmpfs, before we
-  transition into it
-
-* add systemd-loop@.service for turning such a downloaded rootfs image into a
-  block device, and boot into it
-
 * bootctl: add tool for registering BootXXX entry that boots from some http
-  server of your choice
+  server of your choice (i.e. like kernel-bootcfg --add-uri=)
 
 * maybe introduce container-shell@.service or so, to match
   container-getty.service but skips authentication, so you get a shell prompt
@@ -1363,9 +1443,6 @@ Features:
     place them next to EFI kernel, for sd-stub to pick them up.
   - systemd-fstab-generator should look for rootfs device to mount in creds
   - systemd-resume-generator should look for resume partition uuid in creds
-  - sd-stub: automatically pick up microcode from ESP (/loader/microcode/*)
-    and synthesize initrd from it, and measure it. Signing is not necessary, as
-    microcode does that on its own. Pass as first initrd to kernel.
 
 * Maybe extend the service protocol to support handling of some specific SIGRT
   signal for setting service log level, that carries the level via the

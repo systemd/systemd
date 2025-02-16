@@ -43,6 +43,7 @@ class Summary:
     release: str
     architecture: str
     builddir: Path
+    buildsubdir: Path
     environment: dict[str, str]
 
     @classmethod
@@ -65,6 +66,7 @@ class Summary:
             release=j['Images'][-1]['Release'],
             architecture=j['Images'][-1]['Architecture'],
             builddir=Path(j['Images'][-1]['BuildDirectory']),
+            buildsubdir=Path(j['Images'][-1]['BuildSubdirectory']),
             environment=j['Images'][-1]['Environment'],
         )
 
@@ -298,7 +300,7 @@ def process_coverage(args: argparse.Namespace, summary: Summary, name: str, jour
                     '--include=*/',
                     '--include=*.gcno',
                     '--exclude=*',
-                    f'{os.fspath(args.meson_build_dir / summary.builddir)}/',
+                    f'{os.fspath(summary.builddir / summary.buildsubdir)}/',
                     os.fspath(Path(tmp) / 'work/build'),
                 ],
                 check=True,
@@ -470,7 +472,7 @@ def main() -> None:
         '--output-dir', os.fspath(args.meson_build_dir / 'mkosi.output'),
         '--extra-search-path', os.fspath(args.meson_build_dir),
         '--machine', name,
-        '--ephemeral',
+        '--ephemeral=yes',
         *(['--forward-journal', journal_file] if journal_file else []),
         *(
             [

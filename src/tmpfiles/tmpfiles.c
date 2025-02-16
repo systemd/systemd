@@ -10,7 +10,6 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <sys/file.h>
-#include <sys/xattr.h>
 #include <sysexits.h>
 #include <time.h>
 #include <unistd.h>
@@ -73,6 +72,7 @@
 #include "umask-util.h"
 #include "user-util.h"
 #include "virt.h"
+#include "xattr-util.h"
 
 /* This reads all files listed in /etc/tmpfiles.d/?*.conf and creates
  * them in the file system. This is intended to be used to create
@@ -1189,6 +1189,8 @@ static int fd_set_xattrs(
                 const struct stat *st,
                 CreationMode creation) {
 
+        int r;
+
         assert(c);
         assert(i);
         assert(fd >= 0);
@@ -1198,10 +1200,12 @@ static int fd_set_xattrs(
                 log_action("Would set", "Setting",
                            "%s extended attribute '%s=%s' on %s", *name, *value, path);
 
-                if (!arg_dry_run &&
-                    setxattr(FORMAT_PROC_FD_PATH(fd), *name, *value, strlen(*value), 0) < 0)
-                        return log_error_errno(errno, "Setting extended attribute %s=%s on %s failed: %m",
-                                               *name, *value, path);
+                if (!arg_dry_run) {
+                        r = xsetxattr(fd, /* path = */ NULL, AT_EMPTY_PATH, *name, *value);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to set extended attribute %s=%s on '%s': %m",
+                                                       *name, *value, path);
+                }
         }
         return 0;
 }
@@ -1479,14 +1483,8 @@ static int fd_set_acls(
                 log_debug_errno(r, "ACLs not supported by file system at %s", path);
                 return 0;
         }
-
         if (r > 0)
                 return -r; /* already warned in path_set_acl */
-
-        /* The above procfs paths don't work if /proc is not mounted. */
-        if (r == -ENOENT && proc_mounted() == 0)
-                r = -ENOSYS;
-
         if (r < 0)
                 return log_error_errno(r, "ACL operation on \"%s\" failed: %m", path);
 #endif
@@ -2408,14 +2406,14 @@ static int create_symlink(Context *c, Item *i) {
         assert(i);
 
         if (i->ignore_if_target_missing) {
-                r = chase(i->argument, arg_root, CHASE_SAFE|CHASE_PREFIX_ROOT|CHASE_NOFOLLOW, /*ret_path=*/ NULL, /*ret_fd=*/ NULL);
+                r = chase(i->argument, arg_root, CHASE_SAFE|CHASE_PREFIX_ROOT|CHASE_NOFOLLOW, /* ret_path = */ NULL, /* ret_fd = */ NULL);
                 if (r == -ENOENT) {
                         /* Silently skip over lines where the source file is missing. */
-                        log_info("Symlink source path '%s%s' does not exist, skipping line.", strempty(arg_root), i->argument);
+                        log_info("Symlink source path '%s' does not exist, skipping line.", prefix_roota(arg_root, i->argument));
                         return 0;
                 }
                 if (r < 0)
-                        return log_error_errno(r, "Failed to check if symlink source path '%s%s' exists: %m", strempty(arg_root), i->argument);
+                        return log_error_errno(r, "Failed to check if symlink source path '%s' exists: %m", prefix_roota(arg_root, i->argument));
         }
 
         r = path_extract_filename(i->path, &bn);
@@ -2423,7 +2421,7 @@ static int create_symlink(Context *c, Item *i) {
                 return log_error_errno(r, "Failed to extract filename from path '%s': %m", i->path);
         if (r == O_DIRECTORY)
                 return log_error_errno(SYNTHETIC_ERRNO(EISDIR),
-                                       "Cannot open path '%s' for creating FIFO, is a directory.", i->path);
+                                       "Cannot open path '%s' for creating symlink, is a directory.", i->path);
 
         if (arg_dry_run) {
                 log_info("Would create symlink %s -> %s", i->path, i->argument);

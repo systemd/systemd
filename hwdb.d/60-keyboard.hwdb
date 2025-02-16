@@ -1471,6 +1471,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMAXDATA:pnPro*7000*:*
 evdev:atkbd:dmi:bvn*:bvr*:svnMEDION*:pnS3409*:*
 evdev:atkbd:dmi:bvn*:bvr*:svnMedion*:pnAkoya*:*
 evdev:atkbd:dmi:bvn*:bvr*:svnMedion*:pnP6669*:*
+evdev:atkbd:dmi:bvn*:bvr*:svnMEDION*:pnP15645MD61587*:*
  KEYBOARD_KEY_a0=!mute
  KEYBOARD_KEY_ae=!volumedown
  KEYBOARD_KEY_b0=!volumeup

@@ -1348,6 +1348,19 @@ TEST(strextendn) {
         x = mfree(x);
 }
 
+TEST(strprepend) {
+        _cleanup_free_ char *x = NULL;
+
+        ASSERT_STREQ(strprepend(&x, NULL), "");
+        x = mfree(x);
+
+        ASSERT_STREQ(strprepend(&x, ""), "");
+
+        ASSERT_STREQ(strprepend(&x, "xxx"), "xxx");
+        ASSERT_STREQ(strprepend(&x, "bar"), "barxxx");
+        ASSERT_STREQ(strprepend(&x, "foo"), "foobarxxx");
+}
+
 TEST(strlevenshtein) {
         assert_se(strlevenshtein(NULL, NULL) == 0);
         assert_se(strlevenshtein("", "") == 0);

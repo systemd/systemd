@@ -9,15 +9,16 @@ msgstr ""
 "Project-Id-Version: systemd main\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-02-03 13:41+0100\n"
-"PO-Revision-Date: 2025-02-05 11:40+0100\n"
+"PO-Revision-Date: 2025-02-11 01:17+0000\n"
 "Last-Translator: Alexander Shopov <ash@kambanaria.org>\n"
-"Language-Team: Bulgarian\n"
+"Language-Team: Bulgarian <https://translate.fedoraproject.org/projects/"
+"systemd/main/bg/>\n"
 "Language: bg\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.15.2\n"
+"X-Generator: Weblate 5.9.2\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -186,7 +187,7 @@ msgstr "Паролата/Ключът за възстановяване са н�
 
 #: src/home/pam_systemd_home.c:355
 msgid "Sorry, reenter recovery key: "
-msgstr "Въведето отново ключа за възстановяване: <"
+msgstr "Въведето отново ключа за възстановяване: "
 
 #: src/home/pam_systemd_home.c:375
 #, c-format
@@ -227,7 +228,9 @@ msgstr "Идентифицирайте се чрез жетона за сигу�
 msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
-msgstr "ПИНът на жетона за сигурност на потребител е заключен, отключете го! Понякога изваждането и повторното поставяне е достатъчно за това."
+msgstr ""
+"ПИНът на жетона за сигурност на потребител е заключен, отключете го! ("
+"Понякога изваждането и повторното поставяне е достатъчно за това.)"
 
 #: src/home/pam_systemd_home.c:454
 #, c-format

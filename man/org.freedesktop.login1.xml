@@ -1395,7 +1395,7 @@ node /org/freedesktop/login1/session/1 {
       controller crashes. The only argument <varname>type</varname> is the new session type.</para>
 
       <para><function>SetClass()</function> allows the caller to change the class of the session dynamically.
-      It may only be called by session's owening user. Currently, this call may be exclusively used to change
+      It may only be called by session's owning user. Currently, this call may be exclusively used to change
       the class from <literal>user-incomplete</literal> to <literal>user</literal>. The call is synchronous,
       and will return only once the user's service manager has successfully been started, if necessary. The
       only argument <varname>type</varname> is the new session type.</para>

@@ -15,7 +15,7 @@ static SD_VARLINK_DEFINE_ERROR(
                 SD_VARLINK_FIELD_COMMENT("The Linux error name, i.e. ENOENT, EHWPOISON or similar."),
                 SD_VARLINK_DEFINE_FIELD(errnoName, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The numeric Linux error number. Typically the name is preferable, if specified."),
-                SD_VARLINK_DEFINE_FIELD(errno, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
+                SD_VARLINK_DEFINE_FIELD(errno, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
 
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd,

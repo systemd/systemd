@@ -41,9 +41,9 @@ REQUIREMENTS:
                      ≥ 4.15 for cgroup-bpf device hook and cpu controller in cgroup v2
                      ≥ 4.17 for cgroup-bpf socket address hooks and /sys/power/resume_offset
                      ≥ 4.20 for PSI (used by systemd-oomd)
-                     ≥ 5.2 for cgroup freezer
-                     ≥ 5.3 for bounded loops in BPF program
-                     ≥ 5.4 for pidfd, new mount API, and signed Verity images
+                     ≥ 5.2 for cgroup freezer and new mount API
+                     ≥ 5.3 for bounded loops in BPF program and keyring namespacing
+                     ≥ 5.4 for pidfd and signed Verity images
 
         ⛔ Kernel versions below 5.4 ("minimum baseline") are not supported at all,
            and are missing required functionality as listed above.
@@ -67,6 +67,7 @@ REQUIREMENTS:
                                and MOVE_MOUNT_BENEATH
                      ≥ 6.6 for quota support on tmpfs
                      ≥ 6.9 for pidfs
+                     ≥ 6.13 for PIDFD_GET_INFO and {set,remove}xattrat()
 
         ✅ systemd utilizes several new kernel APIs, but will fall back gracefully
            when unavailable.
