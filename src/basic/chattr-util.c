@@ -12,6 +12,7 @@
 #include "fd-util.h"
 #include "fs-util.h"
 #include "macro.h"
+#include "recurse-dir.h"
 #include "string-util.h"
 
 int chattr_full(
@@ -171,4 +172,62 @@ int read_attr_at(int dir_fd, const char *path, unsigned *ret) {
         }
 
         return read_attr_fd(fd, ret);
+}
+
+int get_proj_id(int fd, uint32_t *ret) {
+        struct fsxattr attrs;
+
+        assert(ret);
+
+        if (ioctl(fd, FS_IOC_FSGETXATTR, &attrs) < 0)
+                return -errno;
+
+        *ret = attrs.fsx_projid;
+
+        return 0;
+}
+
+int set_proj_id(int inode_fd, uint32_t proj_id) {
+        struct fsxattr attrs;
+        _cleanup_close_ int fd = -EBADF;
+
+        fd = fd_reopen(inode_fd, O_RDONLY|O_CLOEXEC);
+        if (fd < 0)
+                return fd;
+
+        if (ioctl(fd, FS_IOC_FSGETXATTR, &attrs) < 0)
+                return -errno;
+
+        if (attrs.fsx_projid == proj_id)
+                return 0;
+
+        attrs.fsx_projid = proj_id;
+
+        return RET_NERRNO(ioctl(fd, FS_IOC_FSSETXATTR, &attrs));
+}
+
+static int set_proj_id_cb(
+                RecurseDirEvent event,
+                const char *path,
+                int dir_fd,
+                int inode_fd,
+                const struct dirent *de,
+                const struct statx *sx,
+                void *userdata) {
+
+        if (de != NULL && !IN_SET(de->d_type, DT_DIR, DT_REG))
+                return RECURSE_DIR_CONTINUE;
+
+        return set_proj_id(inode_fd, PTR_TO_UINT32(userdata));
+}
+
+int set_proj_id_recursive(int fd, uint32_t proj_id) {
+        return recurse_dir_at(
+                        fd,
+                        /* path = */ NULL,
+                        /* statx_mask = */ 0,
+                        /* n_depth_max = */ UINT_MAX,
+                        RECURSE_DIR_ENSURE_TYPE|RECURSE_DIR_TOPLEVEL|RECURSE_DIR_INODE_FD,
+                        set_proj_id_cb,
+                        UINT32_TO_PTR(proj_id));
 }

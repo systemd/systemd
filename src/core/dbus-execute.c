@@ -1000,6 +1000,22 @@ static int property_get_exec_dir_symlink(
         return sd_bus_message_close_container(reply);
 }
 
+static int property_get_exec_quota(sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        QuotaLimit *q = ASSERT_PTR(userdata);
+
+        assert(bus);
+        assert(reply);
+
+        return sd_bus_message_append(reply, "(tub)", q->quota_absolute, q->quota_scale, q->quota_enforce);
+}
+
 static int property_get_image_policy(
                 sd_bus *bus,
                 const char *path,
@@ -1249,12 +1265,18 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("RuntimeDirectory", "as", property_get_exec_dir, offsetof(ExecContext, directories[EXEC_DIRECTORY_RUNTIME]), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("StateDirectorySymlink", "a(sst)", property_get_exec_dir_symlink, offsetof(ExecContext, directories[EXEC_DIRECTORY_STATE]), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("StateDirectoryMode", "u", bus_property_get_mode, offsetof(ExecContext, directories[EXEC_DIRECTORY_STATE].mode), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("StateDirectoryAccounting", "b", bus_property_get_bool, offsetof(ExecContext, directories[EXEC_DIRECTORY_STATE].exec_quota.quota_accounting), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("StateDirectoryQuota", "(tub)", property_get_exec_quota, offsetof(ExecContext, directories[EXEC_DIRECTORY_STATE].exec_quota), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("StateDirectory", "as", property_get_exec_dir, offsetof(ExecContext, directories[EXEC_DIRECTORY_STATE]), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("CacheDirectorySymlink", "a(sst)", property_get_exec_dir_symlink, offsetof(ExecContext, directories[EXEC_DIRECTORY_CACHE]), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("CacheDirectoryMode", "u", bus_property_get_mode, offsetof(ExecContext, directories[EXEC_DIRECTORY_CACHE].mode), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("CacheDirectoryAccounting", "b", bus_property_get_bool, offsetof(ExecContext, directories[EXEC_DIRECTORY_CACHE].exec_quota.quota_accounting), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("CacheDirectoryQuota", "(tub)", property_get_exec_quota, offsetof(ExecContext, directories[EXEC_DIRECTORY_CACHE].exec_quota), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("CacheDirectory", "as", property_get_exec_dir, offsetof(ExecContext, directories[EXEC_DIRECTORY_CACHE]), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("LogsDirectorySymlink", "a(sst)", property_get_exec_dir_symlink, offsetof(ExecContext, directories[EXEC_DIRECTORY_LOGS]), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("LogsDirectoryMode", "u", bus_property_get_mode, offsetof(ExecContext, directories[EXEC_DIRECTORY_LOGS].mode), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("LogsDirectoryAccounting", "b", bus_property_get_bool, offsetof(ExecContext, directories[EXEC_DIRECTORY_LOGS].exec_quota.quota_accounting), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("LogsDirectoryQuota", "(tub)", property_get_exec_quota, offsetof(ExecContext, directories[EXEC_DIRECTORY_LOGS].exec_quota), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("LogsDirectory", "as", property_get_exec_dir, offsetof(ExecContext, directories[EXEC_DIRECTORY_LOGS]), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ConfigurationDirectoryMode", "u", bus_property_get_mode, offsetof(ExecContext, directories[EXEC_DIRECTORY_CONFIGURATION].mode), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ConfigurationDirectory", "as", property_get_exec_dir, offsetof(ExecContext, directories[EXEC_DIRECTORY_CONFIGURATION]), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -2166,6 +2188,15 @@ int bus_exec_context_set_transient_property(
 
         if (streq(name, "RuntimeDirectoryMode"))
                 return bus_set_transient_mode_t(u, name, &c->directories[EXEC_DIRECTORY_RUNTIME].mode, message, flags, error);
+
+        if (streq(name, "StateDirectoryAccounting"))
+                return bus_set_transient_bool(u, name, &c->directories[EXEC_DIRECTORY_STATE].exec_quota.quota_accounting, message, flags, error);
+
+        if (streq(name, "CacheDirectoryAccounting"))
+                return bus_set_transient_bool(u, name, &c->directories[EXEC_DIRECTORY_CACHE].exec_quota.quota_accounting, message, flags, error);
+
+        if (streq(name, "LogsDirectoryAccounting"))
+                return bus_set_transient_bool(u, name, &c->directories[EXEC_DIRECTORY_LOGS].exec_quota.quota_accounting, message, flags, error);
 
         if (streq(name, "StateDirectoryMode"))
                 return bus_set_transient_mode_t(u, name, &c->directories[EXEC_DIRECTORY_STATE].mode, message, flags, error);
@@ -3558,6 +3589,42 @@ int bus_exec_context_set_transient_property(
                                         return -ENOMEM;
 
                                 unit_write_settingf(u, flags, name, "%s=%s", name, joined);
+                        }
+                }
+
+                return 1;
+
+        } else if (STR_IN_SET(name, "StateDirectoryQuota", "CacheDirectoryQuota", "LogsDirectoryQuota")) {
+                uint64_t quota_absolute = UINT64_MAX;
+                uint32_t quota_scale = UINT32_MAX;
+                int quota_enforce;
+
+                r = sd_bus_message_read(message, "(tub)", &quota_absolute, &quota_scale, &quota_enforce);
+                if (r < 0)
+                        return r;
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        if (!quota_enforce)
+                                unit_write_settingf(u, flags, name, "%s=", name);
+                        else {
+                                ExecDirectoryType dt;
+                                if (streq(name, "StateDirectoryQuota"))
+                                        dt = EXEC_DIRECTORY_STATE;
+                                else if (streq(name, "CacheDirectoryQuota"))
+                                        dt = EXEC_DIRECTORY_CACHE;
+                                else if (streq(name, "LogsDirectoryQuota"))
+                                        dt = EXEC_DIRECTORY_LOGS;
+                                else
+                                        return -EINVAL;
+
+                                c->directories[dt].exec_quota.quota_absolute = quota_absolute;
+                                c->directories[dt].exec_quota.quota_scale = quota_scale;
+                                c->directories[dt].exec_quota.quota_enforce = quota_enforce;
+
+                                if (quota_absolute != UINT64_MAX)
+                                        unit_write_settingf(u, flags, name, "%s=%" PRIu64, name, quota_absolute);
+                                else
+                                        unit_write_settingf(u, flags, name, "%s=%" PRIu32, name, quota_scale);
                         }
                 }
 
