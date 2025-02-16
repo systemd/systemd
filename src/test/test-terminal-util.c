@@ -290,7 +290,7 @@ TEST(get_color_mode) {
 TEST(terminal_reset_defensive) {
         int r;
 
-        r = terminal_reset_defensive(STDOUT_FILENO, /* switch_to_text= */ false);
+        r = terminal_reset_defensive(STDOUT_FILENO, /* flags= */ 0);
         if (r < 0)
                 log_notice_errno(r, "Failed to reset terminal: %m");
 }
