@@ -21,7 +21,7 @@ struct MHDDaemonWrapper {
         sd_event_source *timer_event;
 };
 
-MHDDaemonWrapper *MHDDaemonWrapper_free(MHDDaemonWrapper *d);
+MHDDaemonWrapper* MHDDaemonWrapper_free(MHDDaemonWrapper *d);
 DEFINE_TRIVIAL_CLEANUP_FUNC(MHDDaemonWrapper*, MHDDaemonWrapper_free);
 #endif
 
