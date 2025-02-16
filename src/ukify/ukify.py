@@ -280,7 +280,7 @@ class UkifyConfig:
     join_pcrsig: Optional[Path]
     phase_path_groups: Optional[list[str]]
     policy_digest: bool
-    profile: Union[str, Path, None]
+    profile: Optional[str]
     sb_cert: Union[str, Path, None]
     sb_cert_name: Optional[str]
     sb_cert_validity: int
@@ -1425,7 +1425,10 @@ def make_uki(opts: UkifyConfig) -> None:
     if (
         not opts.pcrsig
         and (opts.join_profiles or not opts.profile)
-        and (not opts.sign_profiles or opts.profile in opts.sign_profiles)
+        and (
+            not opts.sign_profiles
+            or (opts.profile and read_env_file(opts.profile).get('ID') in opts.sign_profiles)
+        )
     ):
         combined_sigs = call_systemd_measure(uki, opts=opts)
 
@@ -2437,6 +2440,8 @@ def finalize_options(opts: argparse.Namespace) -> None:
         )
 
     opts.profile = resolve_at_path(opts.profile)
+    if opts.profile and isinstance(opts.profile, Path):
+        opts.profile = opts.profile.read_text()
 
     if opts.join_profiles and not opts.profile:
         # If any additional profiles are added, we need a base profile as well so add one if
