@@ -70,9 +70,8 @@ static int run(int argc, char *argv[]) {
                         return log_error_errno(r, "Failed to drop privileges: %m");
         }
 
-        /* Always create the directories people can create inotify watches in.
-         * It is necessary to create the following subdirectories after drop_privileges()
-         * to support old kernels not supporting AmbientCapabilities=. */
+        /* Always create the directories people can create inotify watches in. It is necessary to create the
+         * following subdirectories after drop_privileges() to make them owned by systemd-network. */
         FOREACH_STRING(p,
                        "/run/systemd/netif/links/",
                        "/run/systemd/netif/leases/") {

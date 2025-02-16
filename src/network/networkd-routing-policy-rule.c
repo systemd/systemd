@@ -1059,26 +1059,6 @@ int link_request_static_routing_policy_rules(Link *link) {
         return 0;
 }
 
-static const RoutingPolicyRule kernel_rules[] = {
-        { .family = AF_INET,  .priority_set = true, .priority = 0,     .table = RT_TABLE_LOCAL,   .action = FR_ACT_TO_TBL, .uid_range.start = UID_INVALID, .uid_range.end = UID_INVALID, .suppress_prefixlen = -1, .suppress_ifgroup = -1, },
-        { .family = AF_INET,  .priority_set = true, .priority = 1000,  .table = RT_TABLE_UNSPEC,  .action = FR_ACT_TO_TBL, .uid_range.start = UID_INVALID, .uid_range.end = UID_INVALID, .suppress_prefixlen = -1, .suppress_ifgroup = -1, .l3mdev = true },
-        { .family = AF_INET,  .priority_set = true, .priority = 32766, .table = RT_TABLE_MAIN,    .action = FR_ACT_TO_TBL, .uid_range.start = UID_INVALID, .uid_range.end = UID_INVALID, .suppress_prefixlen = -1, .suppress_ifgroup = -1, },
-        { .family = AF_INET,  .priority_set = true, .priority = 32767, .table = RT_TABLE_DEFAULT, .action = FR_ACT_TO_TBL, .uid_range.start = UID_INVALID, .uid_range.end = UID_INVALID, .suppress_prefixlen = -1, .suppress_ifgroup = -1, },
-        { .family = AF_INET6, .priority_set = true, .priority = 0,     .table = RT_TABLE_LOCAL,   .action = FR_ACT_TO_TBL, .uid_range.start = UID_INVALID, .uid_range.end = UID_INVALID, .suppress_prefixlen = -1, .suppress_ifgroup = -1, },
-        { .family = AF_INET6, .priority_set = true, .priority = 1000,  .table = RT_TABLE_UNSPEC,  .action = FR_ACT_TO_TBL, .uid_range.start = UID_INVALID, .uid_range.end = UID_INVALID, .suppress_prefixlen = -1, .suppress_ifgroup = -1, .l3mdev = true },
-        { .family = AF_INET6, .priority_set = true, .priority = 32766, .table = RT_TABLE_MAIN,    .action = FR_ACT_TO_TBL, .uid_range.start = UID_INVALID, .uid_range.end = UID_INVALID, .suppress_prefixlen = -1, .suppress_ifgroup = -1, },
-};
-
-static bool routing_policy_rule_is_created_by_kernel(const RoutingPolicyRule *rule) {
-        assert(rule);
-
-        FOREACH_ELEMENT(i, kernel_rules)
-                if (routing_policy_rule_equal(rule, i, i->family, i->priority))
-                        return true;
-
-        return false;
-}
-
 int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, Manager *m) {
         int r;
 
@@ -1258,16 +1238,10 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, Man
                 return 0;
         }
 
-        /* If FRA_PROTOCOL is supported by kernel, then the attribute is always appended. If the received
-         * message does not have FRA_PROTOCOL, then we need to adjust the protocol of the rule. That requires
-         * all properties compared in the routing_policy_rule_compare_func(), hence it must be done after
-         * reading them. */
+        /* The kernel always sets the FRA_PROTOCOL attribute, and it is necessary for comparing rules.
+         * Hence, -ENODATA here is critical. */
         r = sd_netlink_message_read_u8(message, FRA_PROTOCOL, &tmp->protocol);
-        if (r == -ENODATA)
-                /* As .network files does not have setting to specify protocol, we can assume the
-                 * protocol of the received rule is RTPROT_KERNEL or RTPROT_STATIC. */
-                tmp->protocol = routing_policy_rule_is_created_by_kernel(tmp) ? RTPROT_KERNEL : RTPROT_STATIC;
-        else if (r < 0) {
+        if (r < 0) {
                 log_warning_errno(r, "rtnl: could not get FRA_PROTOCOL attribute, ignoring: %m");
                 return 0;
         }
