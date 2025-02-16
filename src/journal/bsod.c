@@ -228,9 +228,9 @@ static int display_emergency_message_fullscreen(const char *message) {
                 goto cleanup;
         }
 
-        r = read_one_char(f, &read_character_buffer, USEC_INFINITY, NULL);
+        r = read_one_char(f, &read_character_buffer, USEC_INFINITY, /* echo= */ true, /* need_nl= */ NULL);
         if (r < 0 && r != -EINTR)
-                log_error_errno(r, "Failed to read character: %m");
+                log_warning_errno(r, "Failed to read character, ignoring: %m");
 
         r = 0;
 
