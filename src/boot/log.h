@@ -4,6 +4,8 @@
 #include "efi-string.h"
 #include "proto/simple-text-io.h"
 
+#if SD_BOOT
+
 #if defined __has_attribute
 #  if __has_attribute(no_stack_protector)
 #    define HAVE_NO_STACK_PROTECTOR_ATTRIBUTE
@@ -22,15 +24,25 @@ __attribute__((no_stack_protector, noinline)) void __stack_chk_guard_init(void);
 
 _noreturn_ void freeze(void);
 void log_wait(void);
-_gnu_printf_(3, 4) EFI_STATUS log_internal(EFI_STATUS status, uint8_t text_color, const char *format, ...);
-#define log_full(status, text_color, format, ...)                       \
-        log_internal(status, text_color, "%s:%i@%s: " format, __FILE__, __LINE__, __func__, ##__VA_ARGS__)
-#define log_debug(...) log_full(EFI_SUCCESS, EFI_LIGHTGRAY, __VA_ARGS__)
-#define log_info(...) log_full(EFI_SUCCESS, EFI_WHITE, __VA_ARGS__)
-#define log_warning_status(status, ...) log_full(status, EFI_YELLOW, __VA_ARGS__)
-#define log_error_status(status, ...) log_full(status, EFI_LIGHTRED, __VA_ARGS__)
-#define log_error(...) log_full(EFI_INVALID_PARAMETER, EFI_LIGHTRED, __VA_ARGS__)
-#define log_oom() log_full(EFI_OUT_OF_RESOURCES, EFI_LIGHTRED, "Out of memory.")
+_gnu_printf_(3, 4) EFI_STATUS log_status_internal(EFI_STATUS status, uint8_t text_color, const char *format, ...);
+
+#else
+
+_gnu_printf_(3, 4) static inline EFI_STATUS log_status_internal(EFI_STATUS status, _unused_ uint8_t text_color, _unused_ const char *format, ...) {
+        return status;
+}
+
+#endif
+
+#define log_status_full(status, text_color, format, ...)                       \
+        log_status_internal(status, text_color, "%s:%i@%s: " format, __FILE__, __LINE__, __func__, ##__VA_ARGS__)
+
+#if SD_BOOT
+
+#define log_debug(...) log_status_full(EFI_SUCCESS, EFI_LIGHTGRAY, __VA_ARGS__)
+#define log_info(...) log_status_full(EFI_SUCCESS, EFI_WHITE, __VA_ARGS__)
+#define log_error(...) log_status_full(EFI_INVALID_PARAMETER, EFI_LIGHTRED, __VA_ARGS__)
+#define log_oom() log_status_full(EFI_OUT_OF_RESOURCES, EFI_LIGHTRED, "Out of memory.")
 
 /* Debugging helper — please keep this around, even if not used */
 #define log_hexdump(prefix, data, size)                                 \
@@ -38,3 +50,8 @@ _gnu_printf_(3, 4) EFI_STATUS log_internal(EFI_STATUS status, uint8_t text_color
                 _cleanup_free_ char16_t *hex = hexdump(data, size);     \
                 log_debug("%ls[%zu]: %ls", prefix, size, hex);          \
         })
+
+#endif
+
+#define log_warning_status(status, ...) log_status_full(status, EFI_YELLOW, __VA_ARGS__)
+#define log_error_status(status, ...) log_status_full(status, EFI_LIGHTRED, __VA_ARGS__)

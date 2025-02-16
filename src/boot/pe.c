@@ -129,8 +129,12 @@ static bool verify_pe(
         assert(pe);
 
         return memcmp(pe->Magic, PE_FILE_MAGIC, STRLEN(PE_FILE_MAGIC)) == 0 &&
+        /* Only check the machine type in EFI. This check doesn't make much sense in userspace as
+         * tests could be run on a different machine than the one that the stub was built for. */
+#if SD_BOOT
                 (pe->FileHeader.Machine == TARGET_MACHINE_TYPE ||
                  (allow_compatibility && pe->FileHeader.Machine == TARGET_MACHINE_TYPE_COMPATIBILITY)) &&
+#endif
                 pe->FileHeader.NumberOfSections > 0 &&
                 IN_SET(pe->OptionalHeader.Magic, OPTHDR32_MAGIC, OPTHDR64_MAGIC) &&
                 pe->FileHeader.SizeOfOptionalHeader < SIZE_MAX - (dos->ExeHeader + offsetof(PeFileHeader, OptionalHeader));
@@ -275,7 +279,7 @@ static void pe_locate_sections_internal(
                                 if (!validate_base)
                                         break;
                                 if (!pe_use_this_dtb(
-                                                  (const uint8_t *) SIZE_TO_PTR(validate_base) + j->VirtualAddress,
+                                                  PE_SECTION_DATA_FROM_HEADER(validate_base, j),
                                                   j->VirtualSize,
                                                   device_table,
                                                   device,
@@ -289,7 +293,7 @@ static void pe_locate_sections_internal(
                                 if (!validate_base)
                                         break;
                                 if (!pe_use_this_firmware(
-                                                    (const uint8_t *) SIZE_TO_PTR(validate_base) + j->VirtualAddress,
+                                                    PE_SECTION_DATA_FROM_HEADER(validate_base, j),
                                                     j->VirtualSize,
                                                     device_table,
                                                     device,
@@ -361,8 +365,7 @@ static void pe_locate_sections(
                                 &hwids_section);
 
                 if (PE_SECTION_VECTOR_IS_SET(&hwids_section)) {
-                        hwids = (const uint8_t *) SIZE_TO_PTR(validate_base) + hwids_section.memory_offset;
-
+                        hwids = PE_SECTION_DATA_FROM_VECTOR(validate_base, &hwids_section);
                         EFI_STATUS err = chid_match(hwids, hwids_section.memory_size, DEVICE_TYPE_DEVICETREE, &device);
                         if (err != EFI_SUCCESS) {
                                 log_error_status(err, "HWID matching failed, no DT blob will be selected: %m");
