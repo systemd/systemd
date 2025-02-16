@@ -551,6 +551,7 @@ testcase_08_resolved() {
     # Check SRV support
     run resolvectl service _mysvc._tcp signed.test
     grep -qF "myservice.signed.test:1234" "$RUN_OUT"
+    grep -qF "This is TXT for myservice" "$RUN_OUT"
     grep -qF "10.0.0.20" "$RUN_OUT"
     grep -qF "fd00:dead:beef:cafe::17" "$RUN_OUT"
     grep -qF "authenticated: yes" "$RUN_OUT"
