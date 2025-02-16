@@ -237,6 +237,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "\n%3$sBoot Loader Interface Commands:%4$s\n"
                "  set-default ID       Set default boot loader entry\n"
                "  set-oneshot ID       Set default boot loader entry, for next boot only\n"
+               "  set-sysfail ID       Set boot loader entry to be used in case of a sys failure\n"
                "  set-timeout SECONDS  Set the menu timeout\n"
                "  set-timeout-oneshot SECONDS\n"
                "                       Set the menu timeout for the next boot only\n"
@@ -629,6 +630,7 @@ static int bootctl_main(int argc, char *argv[]) {
                 { "set-oneshot",         2,        2,        0,            verb_set_efivar          },
                 { "set-timeout",         2,        2,        0,            verb_set_efivar          },
                 { "set-timeout-oneshot", 2,        2,        0,            verb_set_efivar          },
+                { "set-sysfail",         2,        2,        0,            verb_set_efivar          },
                 { "random-seed",         VERB_ANY, 1,        0,            verb_random_seed         },
                 { "systemd-efi-options", VERB_ANY, 2,        0,            verb_systemd_efi_options },
                 { "reboot-to-firmware",  VERB_ANY, 2,        0,            verb_reboot_to_firmware  },
