@@ -1440,3 +1440,60 @@ bool dns_query_fully_authoritative(DnsQuery *q) {
          * explicitly check previous redirects here.) */
         return (q->answer_query_flags & SD_RESOLVED_FROM_MASK & ~(SD_RESOLVED_FROM_TRUST_ANCHOR | SD_RESOLVED_FROM_ZONE)) == 0;
 }
+
+int validate_and_mangle_query_flags(
+                Manager *manager,
+                uint64_t *flags,
+                const char *name,
+                uint64_t ok) {
+
+        assert(manager);
+        assert(flags);
+
+        /* Checks that the client supplied interface index and flags parameter actually are valid and make
+         * sense in our method call context. Specifically:
+         *
+         * 1. Checks that the interface index is either 0 (meaning *all* interfaces) or positive
+         *
+         * 2. Only the protocols flags and a bunch of NO_XYZ flags are set, at most. Plus additional flags
+         *    specific to our method, passed in the "ok" parameter.
+         *
+         * 3. If zero protocol flags are specified it is automatically turned into *all* protocols. This way
+         *    clients can simply pass 0 as flags and all will work as it should. They can also use this so
+         *    that clients don't have to know all the protocols resolved implements, but can just specify 0
+         *    to mean "all supported protocols".
+         */
+
+        if (*flags & ~(SD_RESOLVED_PROTOCOLS_ALL|
+                       SD_RESOLVED_NO_CNAME|
+                       SD_RESOLVED_NO_VALIDATE|
+                       SD_RESOLVED_NO_SYNTHESIZE|
+                       SD_RESOLVED_NO_CACHE|
+                       SD_RESOLVED_NO_ZONE|
+                       SD_RESOLVED_NO_TRUST_ANCHOR|
+                       SD_RESOLVED_NO_NETWORK|
+                       SD_RESOLVED_NO_STALE|
+                       SD_RESOLVED_RELAX_SINGLE_LABEL|
+                       ok))
+                return -EINVAL;
+
+        if ((*flags & SD_RESOLVED_PROTOCOLS_ALL) == 0) /* If no protocol is enabled, enable all */
+                *flags |= SD_RESOLVED_PROTOCOLS_ALL;
+
+        /* Imply SD_RESOLVED_NO_SEARCH if permitted and name is dot suffixed. */
+        if (name && FLAGS_SET(ok, SD_RESOLVED_NO_SEARCH) && dns_name_dot_suffixed(name) > 0)
+                *flags |= SD_RESOLVED_NO_SEARCH;
+
+        /* If both A and AAAA are refused, set SD_RESOLVED_NO_ADDRESS flag if it is allowed. */
+        if (set_contains(manager->refuse_record_types, INT_TO_PTR(DNS_TYPE_A)) &&
+            set_contains(manager->refuse_record_types, INT_TO_PTR(DNS_TYPE_AAAA)) &&
+            FLAGS_SET(ok, SD_RESOLVED_NO_ADDRESS))
+                *flags |= SD_RESOLVED_NO_ADDRESS;
+
+        /* Similarly, if TXT is refused, set SD_RESOLVED_NO_TXT flag if it is allowed. */
+        if (set_contains(manager->refuse_record_types, INT_TO_PTR(DNS_TYPE_TXT)) &&
+            FLAGS_SET(ok, SD_RESOLVED_NO_TXT))
+                *flags |= SD_RESOLVED_NO_TXT;
+
+        return 0;
+}
