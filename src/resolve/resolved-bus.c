@@ -361,51 +361,6 @@ finish:
         }
 }
 
-static int validate_and_mangle_flags(
-                const char *name,
-                uint64_t *flags,
-                uint64_t ok,
-                sd_bus_error *error) {
-
-        assert(flags);
-
-        /* Checks that the client supplied interface index and flags parameter actually are valid and make
-         * sense in our method call context. Specifically:
-         *
-         * 1. Checks that the interface index is either 0 (meaning *all* interfaces) or positive
-         *
-         * 2. Only the protocols flags and a bunch of NO_XYZ flags are set, at most. Plus additional flags
-         *    specific to our method, passed in the "ok" parameter.
-         *
-         * 3. If zero protocol flags are specified it is automatically turned into *all* protocols. This way
-         *    clients can simply pass 0 as flags and all will work as it should. They can also use this so
-         *    that clients don't have to know all the protocols resolved implements, but can just specify 0
-         *    to mean "all supported protocols".
-         */
-
-        if (*flags & ~(SD_RESOLVED_PROTOCOLS_ALL|
-                       SD_RESOLVED_NO_CNAME|
-                       SD_RESOLVED_NO_VALIDATE|
-                       SD_RESOLVED_NO_SYNTHESIZE|
-                       SD_RESOLVED_NO_CACHE|
-                       SD_RESOLVED_NO_ZONE|
-                       SD_RESOLVED_NO_TRUST_ANCHOR|
-                       SD_RESOLVED_NO_NETWORK|
-                       SD_RESOLVED_NO_STALE|
-                       SD_RESOLVED_RELAX_SINGLE_LABEL|
-                       ok))
-                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid flags parameter");
-
-        if ((*flags & SD_RESOLVED_PROTOCOLS_ALL) == 0) /* If no protocol is enabled, enable all */
-                *flags |= SD_RESOLVED_PROTOCOLS_ALL;
-
-        /* Imply SD_RESOLVED_NO_SEARCH if permitted and name is dot suffixed. */
-        if (name && FLAGS_SET(ok, SD_RESOLVED_NO_SEARCH) && dns_name_dot_suffixed(name) > 0)
-                *flags |= SD_RESOLVED_NO_SEARCH;
-
-        return 0;
-}
-
 static int parse_as_address(sd_bus_message *m, int ifindex, const char *hostname, int family, uint64_t flags) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ char *canonical = NULL;
@@ -519,9 +474,8 @@ static int bus_method_resolve_hostname(sd_bus_message *message, void *userdata, 
         if (!IN_SET(family, AF_INET, AF_INET6, AF_UNSPEC))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unknown address family %i", family);
 
-        r = validate_and_mangle_flags(hostname, &flags, SD_RESOLVED_NO_SEARCH, error);
-        if (r < 0)
-                return r;
+        if (validate_and_mangle_query_flags(&flags, hostname, SD_RESOLVED_NO_SEARCH) < 0)
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid flags parameter");
 
         r = parse_as_address(message, ifindex, hostname, family, flags);
         if (r != 0)
@@ -674,9 +628,8 @@ static int bus_method_resolve_address(sd_bus_message *message, void *userdata, s
         if (ifindex < 0)
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid interface index");
 
-        r = validate_and_mangle_flags(NULL, &flags, 0, error);
-        if (r < 0)
-                return r;
+        if (validate_and_mangle_query_flags(&flags, /* name = */ NULL, /* ok = */ 0) < 0)
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid flags parameter");
 
         r = dns_question_new_reverse(&question, family, &a);
         if (r < 0)
@@ -843,9 +796,8 @@ static int bus_method_resolve_record(sd_bus_message *message, void *userdata, sd
         if (dns_type_is_obsolete(type))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Specified DNS resource record type %" PRIu16 " is obsolete.", type);
 
-        r = validate_and_mangle_flags(name, &flags, 0, error);
-        if (r < 0)
-                return r;
+        if (validate_and_mangle_query_flags(&flags, name, /* ok = */ 0) < 0)
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid flags parameter");
 
         question = dns_question_new(1);
         if (!question)
@@ -1378,9 +1330,8 @@ static int bus_method_resolve_service(sd_bus_message *message, void *userdata, s
         if (name && !type)
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Service name cannot be specified without service type.");
 
-        r = validate_and_mangle_flags(name, &flags, SD_RESOLVED_NO_TXT|SD_RESOLVED_NO_ADDRESS, error);
-        if (r < 0)
-                return r;
+        if (validate_and_mangle_query_flags(&flags, name, SD_RESOLVED_NO_TXT|SD_RESOLVED_NO_ADDRESS) < 0)
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid flags parameter");
 
         r = dns_question_new_service(&question_utf8, name, type, domain, !(flags & SD_RESOLVED_NO_TXT), false);
         if (r < 0)
