@@ -796,7 +796,7 @@ static int bus_method_resolve_record(sd_bus_message *message, void *userdata, sd
         if (dns_type_is_obsolete(type))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Specified DNS resource record type %" PRIu16 " is obsolete.", type);
 
-        if (validate_and_mangle_query_flags(m, &flags, name, /* ok = */ 0) < 0)
+        if (validate_and_mangle_query_flags(m, &flags, name, SD_RESOLVED_NO_SEARCH) < 0)
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid flags parameter");
 
         question = dns_question_new(1);
