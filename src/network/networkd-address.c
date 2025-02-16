@@ -1338,8 +1338,8 @@ int link_drop_ipv6ll_addresses(Link *link) {
                 struct in6_addr address;
                 int ifindex;
 
-                /* NETLINK_GET_STRICT_CHK socket option is supported since kernel 4.20. To support
-                 * older kernels, we need to check ifindex here. */
+                /* We set ifindex in the request, and NETLINK_GET_STRICT_CHK socket option is set. Hence the
+                 * check below is redundant, but let's do that for safety. */
                 r = sd_rtnl_message_addr_get_ifindex(addr, &ifindex);
                 if (r < 0) {
                         log_link_debug_errno(link, r, "rtnl: received address message without valid ifindex, ignoring: %m");
