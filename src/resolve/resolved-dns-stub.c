@@ -998,6 +998,11 @@ static void dns_stub_process_query(Manager *m, DnsStubListenerExtra *l, DnsStrea
                                   SD_RESOLVED_CLAMP_TTL);
         if (r == -ENOANO) /* Refuse query if there is -ENOANO */
                 return (void) dns_stub_send_failure(m, l, s, p, DNS_RCODE_REFUSED, false);
+        if (r == -ENOTCONN) /* Refuse query politely (only for AAAA it gives NOERROR
+                             * with no IPs to DNS programs as most DNS programs query both at
+                             * time)
+                             */
+                return (void) dns_stub_send_failure(m, l, s, p, DNS_RCODE_SUCCESS, false);
         if (r < 0) {
                 log_error_errno(r, "Failed to generate query object: %m");
                 dns_stub_send_failure(m, l, s, p, DNS_RCODE_SERVFAIL, false);

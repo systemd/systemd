@@ -50,7 +50,7 @@ static int dns_query_new_for_varlink(
         int r;
 
         r = dns_query_new(m, ret, question_utf8, question_idna, question_bypass, ifindex, flags);
-        if (r == -ENOANO)
+        if (r == -ENOANO || r == -ENOTCONN)
                 return sd_varlink_error(link, "io.systemd.Resolve.QueryRefused", NULL);
         return r;
 }
