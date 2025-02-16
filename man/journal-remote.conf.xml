@@ -59,19 +59,6 @@
 
     <variablelist class='config-directives'>
       <varlistentry>
-        <term><varname>Compression=</varname></term>
-
-        <listitem><para>Acceptable compression algorithms to be used by <command>systemd-journal-upload</command>. Compression algorithms are
-        used for <literal>Accept-Encoding</literal> header construction with priorities set according to an order in configuration.
-        This parameter takes space separated list of compression algorithms. Example:
-        <programlisting>Compression=zstd lz4</programlisting>
-        This option can be specified multiple times. If an empty string is assigned, then all the previous assignments are cleared.
-        </para>
-
-        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
-      </varlistentry>
-
-      <varlistentry>
         <term><varname>Seal=</varname></term>
 
         <listitem><para>Periodically sign the data in the journal using Forward Secure Sealing.
@@ -142,6 +129,27 @@
         <xi:include href="version-info.xml" xpointer="v253"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>Compression=</varname></term>
+
+        <listitem>
+          <para>Configurs acceptable compression algorithms to be announced through
+          <literal>Accept-Encoding</literal> HTTP header. The header suggests
+          <command>systemd-journal-upload</command> to compress data to be sent. Takes a space separated
+          list of compression algorithms, or <literal>no</literal>. Supported algorithms are
+          <literal>zstd</literal>, <literal>xz</literal>, or <literal>lz4</literal>. When a list of
+          algorithms is specified, <literal>Accept-Encoding</literal> header will be constructed with
+          priorities based on the order of the algorithms in the list. When <literal>no</literal>,
+          <literal>Accept-Encoding</literal> header will not be sent. This option can be specified multiple
+          times. If an empty string is assigned, then all the previous assignments are cleared. Defaults to
+          unset and all supported compression algorithms will be listed in the header.</para>
+
+          <para>Example:
+          <programlisting>Compression=zstd lz4</programlisting></para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
     </variablelist>
 
   </refsect1>
