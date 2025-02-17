@@ -113,6 +113,8 @@ TEST(path_get_user_unit) {
         check_p_g_u_u("/user.slice/user-1000.slice/user@1000.service/server.service", 0, "server.service");
         check_p_g_u_u("/user.slice/user-1000.slice/user@1000.service/foobar.slice/foobar@pie.service", 0, "foobar@pie.service");
         check_p_g_u_u("/user.slice/user-1000.slice/user@.service/server.service", -ENXIO, NULL);
+        check_p_g_u_u("/capsule.slice/capsule@test.service/app.slice/run-p9-i1.service", 0, "run-p9-i1.service");
+        check_p_g_u_u("/capsule.slice/capsule@usr-joe.service/foo.slice/foo-bar.slice/run-p9-i1.service", 0, "run-p9-i1.service");
 }
 
 static void check_p_g_s(const char *path, int code, const char *result) {
@@ -157,6 +159,7 @@ TEST(path_get_slice) {
         check_p_g_slice("foobar", 0, SPECIAL_ROOT_SLICE);
         check_p_g_slice("foobar.slice", 0, "foobar.slice");
         check_p_g_slice("foo.slice/foo-bar.slice/waldo.service", 0, "foo-bar.slice");
+        check_p_g_slice("/capsule.slice/capsule@test.service/app.slice/run-p9-i1.service", 0, "capsule.slice");
 }
 
 static void check_p_g_u_slice(const char *path, int code, const char *result) {
@@ -181,6 +184,10 @@ TEST(path_get_user_slice) {
         check_p_g_u_slice("foo.slice/foo-bar.slice/user@1000.service/waldo.service", 0, SPECIAL_ROOT_SLICE);
         check_p_g_u_slice("foo.slice/foo-bar.slice/user@1000.service/piep.slice/foo.service", 0, "piep.slice");
         check_p_g_u_slice("/foo.slice//foo-bar.slice/user@1000.service/piep.slice//piep-pap.slice//foo.service", 0, "piep-pap.slice");
+
+        check_p_g_u_slice("/capsule.slice/capsule@test.service/app.slice/run-p9-i1.service", 0, "app.slice");
+        check_p_g_u_slice("/capsule.slice/capsule@usr-joe.service/app.slice/run-p9-i1.service", 0, "app.slice");
+        check_p_g_u_slice("/capsule.slice/capsule@usr-joe.service/foo.slice/foo-bar.slice/run-p9-i1.service", 0, "foo-bar.slice");
 }
 
 TEST(get_paths, .sd_booted = true) {
@@ -190,7 +197,7 @@ TEST(get_paths, .sd_booted = true) {
         log_info("Root = %s", a);
 }
 
-TEST(proc) {
+TEST(proc, .sd_booted = true) {
         _cleanup_closedir_ DIR *d = NULL;
         int r;
 
@@ -210,14 +217,23 @@ TEST(proc) {
                 if (pidref_is_kernel_thread(&pid) != 0)
                         continue;
 
-                cg_pidref_get_path(SYSTEMD_CGROUP_CONTROLLER, &pid, &path);
-                cg_pid_get_path_shifted(pid.pid, NULL, &path_shifted);
-                cg_pidref_get_owner_uid(&pid, &uid);
-                cg_pidref_get_session(&pid, &session);
-                cg_pidref_get_unit(&pid, &unit);
-                cg_pid_get_user_unit(pid.pid, &user_unit);
-                cg_pid_get_machine_name(pid.pid, &machine);
-                cg_pid_get_slice(pid.pid, &slice);
+                ASSERT_OK_ZERO(cg_pidref_get_path(SYSTEMD_CGROUP_CONTROLLER, &pid, &path));
+                /* Skip if we run inside an LXC container with its monitoring */
+                if (path_equal(path, "/.lxc"))
+                        continue;
+                ASSERT_OK_ZERO(cg_pid_get_path_shifted(pid.pid, NULL, &path_shifted));
+                ASSERT_OK_ZERO(cg_pidref_get_unit(&pid, &unit));
+                ASSERT_OK_ZERO(cg_pid_get_slice(pid.pid, &slice));
+
+                /* Not all processes belong to a specific user or a machine */
+                r = cg_pidref_get_owner_uid(&pid, &uid);
+                ASSERT_TRUE(r == 0 || r == -ENXIO);
+                r = cg_pidref_get_session(&pid, &session);
+                ASSERT_TRUE(r == 0 || r == -ENXIO);
+                r = cg_pid_get_user_unit(pid.pid, &user_unit);
+                ASSERT_TRUE(r == 0 || r == -ENXIO);
+                r = cg_pid_get_machine_name(pid.pid, &machine);
+                ASSERT_TRUE(r == 0 || r == -ENOENT);
 
                 printf(PID_FMT"\t%s\t%s\t"UID_FMT"\t%s\t%s\t%s\t%s\t%s\n",
                        pid.pid,
