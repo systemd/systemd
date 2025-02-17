@@ -2308,12 +2308,13 @@ static int copy_devnodes(const char *dest) {
                         return r;
         }
 
-        /* We unconditionally try to create /dev/net/tun, but let's ignore failure if --private-network is
-         * unspecified. The failure can be triggered when e.g. DevicePolicy= is set, but DeviceAllow= does
-         * not contains the device node, and --private-users=pick is specified. */
-        r = copy_devnode_one(dest, "net/tun", /* ignore_mknod_failure = */ !arg_private_network);
-        if (r < 0)
-                return r;
+        /* Similarly, create /dev/net/tun only when it is accessible. */
+        _cleanup_close_ int tun_fd = open("/dev/net/tun", O_CLOEXEC|O_RDWR);
+        if (tun_fd >= 0) {
+                r = copy_devnode_one(dest, "net/tun", /* ignore_mknod_failure = */ false);
+                if (r < 0)
+                        return r;
+        }
 
         return 0;
 }
