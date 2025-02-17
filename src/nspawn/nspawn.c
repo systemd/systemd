@@ -471,11 +471,7 @@ static int help(void) {
 }
 
 static int custom_mount_check_all(void) {
-        size_t i;
-
-        for (i = 0; i < arg_n_custom_mounts; i++) {
-                CustomMount *m = &arg_custom_mounts[i];
-
+        FOREACH_ARRAY(m, arg_custom_mounts, arg_n_custom_mounts)
                 if (path_equal(m->destination, "/") && arg_userns_mode != USER_NAMESPACE_NO) {
                         if (arg_userns_ownership != USER_NAMESPACE_OWNERSHIP_OFF)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -485,7 +481,6 @@ static int custom_mount_check_all(void) {
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "--private-users with automatic UID shift may not be combined with custom root mounts.");
                 }
-        }
 
         return 0;
 }
@@ -4069,12 +4064,12 @@ static int outer_child(
                 /* Send the user maps we determined to the parent, so that it installs it in our user
                  * namespace UID map table */
 
-                for (size_t i = 0; i < bind_user_context->n_data; i++)  {
+                FOREACH_ARRAY(d, bind_user_context->data, bind_user_context->n_data) {
                         uid_t map[] = {
-                                bind_user_context->data[i].payload_user->uid,
-                                bind_user_context->data[i].host_user->uid,
-                                (uid_t) bind_user_context->data[i].payload_group->gid,
-                                (uid_t) bind_user_context->data[i].host_group->gid,
+                                d->payload_user->uid,
+                                d->host_user->uid,
+                                (uid_t) d->payload_group->gid,
+                                (uid_t) d->host_group->gid,
                         };
 
                         l = send(fd_outer_socket, map, sizeof(map), MSG_NOSIGNAL);
