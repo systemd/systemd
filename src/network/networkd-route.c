@@ -1481,6 +1481,9 @@ int link_drop_routes(Link *link, bool only_static) {
                                 continue;
 
                         if (route->source == NETWORK_CONFIG_SOURCE_FOREIGN && link->network) {
+                                if (FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_YES))
+                                        continue;
+
                                 if (route->protocol == RTPROT_STATIC &&
                                     FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_STATIC))
                                         continue;
