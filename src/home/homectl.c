@@ -2549,6 +2549,18 @@ static int create_interactively(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to set userName field: %m");
 
+        /* Let's not insist on a strong password in the firstboot interactive interface. Insisting on this is
+         * really annoying, as the user cannot just invoke the tool again with "--enforce-password-policy=no"
+         * because after all the tool is called from the boot process, and not from an interactive
+         * shell. Moreover, when setting up an initial system we can assume the user owns it, and hence we
+         * don't need to hard enforce some policy on password strength some organization or OS vendor
+         * requires. Note that this just disables the *strict* enforcement of the password policy. Even with
+         * this disabled we'll still tell the user in the UI that the password is too weak and suggest better
+         * ones, even if we then accept the weak ones if the user insists, by repeating it. */
+        r = sd_json_variant_set_field_boolean(&arg_identity_extra, "enforcePasswordPolicy", false);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set enforcePasswordPolicy field: %m");
+
         _cleanup_strv_free_ char **available = NULL, **groups = NULL;
         for (;;) {
                 _cleanup_free_ char *s = NULL;
