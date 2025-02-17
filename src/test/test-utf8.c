@@ -227,6 +227,18 @@ TEST(utf8_to_utf16) {
         }
 }
 
+TEST(utf8_last_length) {
+        ASSERT_EQ(utf8_last_length("", 0), 0U);
+        ASSERT_EQ(utf8_last_length("", SIZE_MAX), 0U);
+        ASSERT_EQ(utf8_last_length("a", 1), 1U);
+        ASSERT_EQ(utf8_last_length("a", SIZE_MAX), 1U);
+        ASSERT_EQ(utf8_last_length("ä", SIZE_MAX), strlen("ä"));
+        ASSERT_EQ(utf8_last_length("👊", SIZE_MAX), strlen("👊"));
+        ASSERT_EQ(utf8_last_length("koffa", SIZE_MAX), 1U);
+        ASSERT_EQ(utf8_last_length("koffä", SIZE_MAX), strlen("ä"));
+        ASSERT_EQ(utf8_last_length("koff👊", SIZE_MAX), strlen("👊"));
+}
+
 static int intro(void) {
         log_show_color(true);
         return EXIT_SUCCESS;
