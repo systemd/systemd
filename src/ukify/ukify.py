@@ -215,7 +215,7 @@ def maybe_decompress(filename: Union[str, Path]) -> bytes:
         return cast(bytes, lz4.frame.decompress(f.read()))
 
     if start.startswith(b'\x04\x22\x4d\x18'):
-        print('Newer lz4 stream format detected! This may not boot!')
+        print('Newer lz4 stream format detected! This may not boot!', file=sys.stderr)
         lz4 = try_import('lz4.frame', 'lz4')
         return cast(bytes, lz4.frame.decompress(f.read()))
 
@@ -358,7 +358,7 @@ class Uname:
                 print(f'Found uname version: {version}', file=sys.stderr)
                 return version
             except ValueError as e:
-                print(str(e))
+                print(str(e), file=sys.stderr)
         return None
 
 
@@ -991,14 +991,14 @@ def merge_sbat(input_pe: list[Path], input_text: list[str]) -> str:
         try:
             pe = pefile.PE(f, fast_load=True)
         except pefile.PEFormatError:
-            print(f'{f} is not a valid PE file, not extracting SBAT section.')
+            print(f'{f} is not a valid PE file, not extracting SBAT section.', file=sys.stderr)
             continue
 
         for section in pe.sections:
             if pe_strip_section_name(section.Name) == '.sbat':
                 split = section.get_data().rstrip(b'\x00').decode().splitlines()
                 if not split[0].startswith('sbat,'):
-                    print(f'{f} does not contain a valid SBAT section, skipping.')
+                    print(f'{f} does not contain a valid SBAT section, skipping.', file=sys.stderr)
                     continue
                 # Filter out the sbat line, we'll add it back later, there needs to be only one and it
                 # needs to be first.
@@ -1009,7 +1009,7 @@ def merge_sbat(input_pe: list[Path], input_text: list[str]) -> str:
             t = Path(t[1:]).read_text()
         split = t.splitlines()
         if not split[0].startswith('sbat,'):
-            print(f'{t} does not contain a valid SBAT section, skipping.')
+            print(f'{t} does not contain a valid SBAT section, skipping.', file=sys.stderr)
             continue
         sbat += split[1:]
 
@@ -1413,10 +1413,10 @@ def generate_keys(opts: UkifyConfig) -> None:
             common_name=cn,
             valid_days=opts.sb_cert_validity,
         )
-        print(f'Writing SecureBoot private key to {opts.sb_key}')
+        print(f'Writing SecureBoot private key to {opts.sb_key}', file=sys.stderr)
         with temporary_umask(0o077):
             Path(opts.sb_key).write_bytes(key_pem)
-        print(f'Writing SecureBoot certificate to {opts.sb_cert}')
+        print(f'Writing SecureBoot certificate to {opts.sb_cert}', file=sys.stderr)
         Path(opts.sb_cert).write_bytes(cert_pem)
 
         work = True
@@ -1424,11 +1424,11 @@ def generate_keys(opts: UkifyConfig) -> None:
     for priv_key, pub_key, _ in key_path_groups(opts):
         priv_key_pem, pub_key_pem = generate_priv_pub_key_pair()
 
-        print(f'Writing private key for PCR signing to {priv_key}')
+        print(f'Writing private key for PCR signing to {priv_key}', file=sys.stderr)
         with temporary_umask(0o077):
             Path(priv_key).write_bytes(priv_key_pem)
         if pub_key:
-            print(f'Writing public key for PCR signing to {pub_key}')
+            print(f'Writing public key for PCR signing to {pub_key}', file=sys.stderr)
             Path(pub_key).write_bytes(pub_key_pem)
 
         work = True
@@ -1466,7 +1466,7 @@ def inspect_section(
         try:
             struct['text'] = data.decode()
         except UnicodeDecodeError as e:
-            print(f'Section {name!r} is not valid text: {e}')
+            print(f'Section {name!r} is not valid text: {e}', file=sys.stderr)
             struct['text'] = '(not valid UTF-8)'
 
     if config and config.content:
@@ -1999,7 +1999,7 @@ def apply_config(namespace: argparse.Namespace, filename: Union[str, Path, None]
             if item := CONFIGFILE_ITEMS.get(f'{section_name}/{key}'):
                 item.apply_config(namespace, section_name, group, key, value)
             else:
-                print(f'Unknown config setting [{section_name}] {key}=')
+                print(f'Unknown config setting [{section_name}] {key}=', file=sys.stderr)
 
 
 def config_example() -> Iterator[str]:
