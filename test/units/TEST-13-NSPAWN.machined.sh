@@ -388,9 +388,18 @@ varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Open 
 varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Open '{"name": ".host", "mode": "shell"}'
 
 rm -f /tmp/none-existent-file
-varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Open '{"name": ".host", "mode": "shell", "user": "root", "path": "/bin/sh", "args": ["/bin/sh", "-c", "echo $FOO > /tmp/none-existent-file"], "environment": ["FOO=BAR"]}'
+
+# We need to make sure the acquired pty fd stays open if we invoke a command
+# server side, to not generate early SIGHUP. Hence, let's just invoke "sleep
+# infinity" client side, once we acquired the fd (passing it to it), and kill
+# it once we verified everything worked.
+PID=$(systemd-notify --fork -- varlinkctl --exec call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Open '{"name": ".host", "mode": "shell", "user": "root", "path": "/bin/sh", "args": ["/bin/sh", "-c", "echo $FOO > /tmp/none-existent-file"], "environment": ["FOO=BAR"]}' -- sleep infinity)
 timeout 30 bash -c "until test -e /tmp/none-existent-file; do sleep .5; done"
 grep -q "BAR" /tmp/none-existent-file
+kill "$PID"
+
+# Test varlinkctl's --exec fd passing logic properly
+assert_eq "$(varlinkctl --exec call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Open '{"name": ".host", "mode": "shell", "user": "root", "path": "/bin/sh", "args": ["/bin/sh", "-c", "echo $((7 + 8))"]}' -- sh -c 'read -r -N 2 x <&3 ; echo "$x"')" 15
 
 # test io.systemd.Machine.MapFrom
 varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.MapFrom '{"name": "long-running", "uid":0, "gid": 0}'
