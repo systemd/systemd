@@ -21,7 +21,6 @@ static int append_machine_properties(
                 int kill_signal,
                 bool coredump_receive) {
 
-        unsigned j;
         int r;
 
         assert(m);
@@ -48,9 +47,7 @@ static int append_machine_properties(
                         return bus_log_create_error(r);
         }
 
-        for (j = 0; j < n_mounts; j++) {
-                CustomMount *cm = mounts + j;
-
+        FOREACH_ARRAY(cm, mounts, n_mounts) {
                 if (cm->type != CUSTOM_MOUNT_BIND)
                         continue;
 
