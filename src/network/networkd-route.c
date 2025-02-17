@@ -1476,27 +1476,8 @@ int link_drop_routes(Link *link, bool only_static) {
                 if (!route_exists(route))
                         continue;
 
-                if (only_static) {
-                        if (route->source != NETWORK_CONFIG_SOURCE_STATIC)
-                                continue;
-                } else {
-                        /* Ignore dynamically assigned routes. */
-                        if (!IN_SET(route->source, NETWORK_CONFIG_SOURCE_FOREIGN, NETWORK_CONFIG_SOURCE_STATIC))
-                                continue;
-
-                        if (route->source == NETWORK_CONFIG_SOURCE_FOREIGN && link->network) {
-                                if (FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_YES))
-                                        continue;
-
-                                if (route->protocol == RTPROT_STATIC &&
-                                    FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_STATIC))
-                                        continue;
-
-                                if (IN_SET(route->protocol, RTPROT_DHCP, RTPROT_RA, RTPROT_REDIRECT) &&
-                                    FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DYNAMIC))
-                                        continue;
-                        }
-                }
+                if (!link_should_mark_config(link, only_static, route->source, route->protocol))
+                        continue;
 
                 /* When we also mark foreign routes, do not mark routes assigned to other interfaces.
                  * Otherwise, routes assigned to unmanaged interfaces will be dropped.
