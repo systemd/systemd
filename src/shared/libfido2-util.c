@@ -866,7 +866,7 @@ int fido2_generate_hmac_hash(
                                 .hup_fd = -EBADF,
                         };
 
-                        r = ask_password_auto(&req, /* flags= */ 0, &pin);
+                        r = ask_password_auto(&req, ASK_PASSWORD_ACCEPT_CACHED, &pin);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to acquire user PIN: %m");
 
