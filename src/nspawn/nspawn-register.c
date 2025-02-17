@@ -15,7 +15,6 @@
 
 static int append_machine_properties(
                 sd_bus_message *m,
-                bool enable_fuse,
                 CustomMount *mounts,
                 unsigned n_mounts,
                 int kill_signal,
@@ -31,21 +30,17 @@ static int append_machine_properties(
 
         /* If you make changes here, also make sure to update systemd-nspawn@.service, to keep the device
          * policies in sync regardless if we are run with or without the --keep-unit switch. */
-        r = sd_bus_message_append(m, "(sv)", "DeviceAllow", "a(ss)", 2,
-                                  /* Allow the container to access and create the API device nodes, so that
-                                   * PrivateDevices= in the container can work fine */
+        r = sd_bus_message_append(m, "(sv)", "DeviceAllow", "a(ss)", 3,
+                                  /* Allow the container to access and create the API device node, so that
+                                   * PrivateDevices= in the container can work fine. */
                                   "/dev/net/tun", "rwm",
-                                  /* Allow the container access to ptys. However, do not permit the container
+                                  /* Allow the container to access ptys. However, do not permit the container
                                    * to ever create these device nodes. */
-                                  "char-pts", "rw");
+                                  "char-pts", "rw",
+                                  /* Allow the container to access and create the FUSE API device node. */
+                                  "/dev/fuse", "rwm");
         if (r < 0)
                 return bus_log_create_error(r);
-        if (enable_fuse) {
-                r = sd_bus_message_append(m, "(sv)", "DeviceAllow", "a(ss)", 1,
-                                          "/dev/fuse", "rwm");
-                if (r < 0)
-                        return bus_log_create_error(r);
-        }
 
         FOREACH_ARRAY(cm, mounts, n_mounts) {
                 if (cm->type != CUSTOM_MOUNT_BIND)
@@ -204,7 +199,6 @@ int register_machine(
 
                 r = append_machine_properties(
                                 m,
-                                FLAGS_SET(flags, REGISTER_MACHINE_ENABLE_FUSE),
                                 mounts,
                                 n_mounts,
                                 kill_signal,
@@ -325,7 +319,6 @@ int allocate_scope(
 
         r = append_machine_properties(
                         m,
-                        FLAGS_SET(flags, ALLOCATE_SCOPE_ENABLE_FUSE),
                         mounts,
                         n_mounts,
                         kill_signal,
