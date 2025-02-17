@@ -2189,7 +2189,7 @@ static int bind_mount_devnode(const char *from, const char *to) {
         return 0;
 }
 
-static int copy_devnode_one(const char *dest, const char *node, bool ignore_mknod_failure) {
+static int copy_devnode_one(const char *dest, const char *node) {
         int r;
 
         assert(dest);
@@ -2235,10 +2235,6 @@ static int copy_devnode_one(const char *dest, const char *node, bool ignore_mkno
                 /* If arg_uid_shift != 0, then we cannot fall back to use bind mount. */
                 if (!(arg_userns_mode == USER_NAMESPACE_NO ||
                       (arg_userns_mode == USER_NAMESPACE_FIXED && arg_uid_shift == 0))) {
-                        if (ignore_mknod_failure) {
-                                log_debug_errno(r, "Failed to mknod(%s), ignoring: %m", to);
-                                return 0;
-                        }
 
                         if (arg_userns_mode != USER_NAMESPACE_MANAGED || !ERRNO_IS_NEG_PRIVILEGE(r))
                                 return log_error_errno(r, "Failed to mknod(%s): %m", to);
@@ -2247,14 +2243,9 @@ static int copy_devnode_one(const char *dest, const char *node, bool ignore_mkno
                 }
 
                 /* Some systems abusively restrict mknod but allow bind mounts. */
-                if (bind_mount_devnode(from, to) < 0) {
+                if (bind_mount_devnode(from, to) < 0)
                         /* use the original error code. */
-                        if (ignore_mknod_failure) {
-                                log_debug_errno(r, "Both mknod() and bind mount %s failed, ignoring: %m", to);
-                                return 0;
-                        }
                         return log_error_errno(r, "Both mknod() and bind mount %s failed: %m", to);
-                }
         } else {
                 /* mknod() succeeds, chown() it if necessary. */
                 r = userns_lchown(to, 0, 0);
@@ -2294,7 +2285,7 @@ static int copy_devnodes(const char *dest) {
         assert(dest);
 
         FOREACH_STRING(node, "null", "zero", "full", "random", "urandom", "tty") {
-                r = copy_devnode_one(dest, node, /* ignore_mknod_failure = */ false);
+                r = copy_devnode_one(dest, node);
                 if (r < 0)
                         return r;
         }
@@ -2303,7 +2294,7 @@ static int copy_devnodes(const char *dest) {
          * units that invoke nspawn may enable DevicePolicy= without DeviceAllow= for the device node. */
         _cleanup_close_ int fuse_fd = open("/dev/fuse", O_CLOEXEC|O_RDWR);
         if (fuse_fd >= 0) {
-                r = copy_devnode_one(dest, "fuse", /* ignore_mknod_failure = */ false);
+                r = copy_devnode_one(dest, "fuse");
                 if (r < 0)
                         return r;
         }
@@ -2311,7 +2302,7 @@ static int copy_devnodes(const char *dest) {
         /* Similarly, create /dev/net/tun only when it is accessible. */
         _cleanup_close_ int tun_fd = open("/dev/net/tun", O_CLOEXEC|O_RDWR);
         if (tun_fd >= 0) {
-                r = copy_devnode_one(dest, "net/tun", /* ignore_mknod_failure = */ false);
+                r = copy_devnode_one(dest, "net/tun");
                 if (r < 0)
                         return r;
         }
