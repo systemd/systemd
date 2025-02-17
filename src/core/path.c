@@ -5,6 +5,7 @@
 #include <sys/inotify.h>
 #include <unistd.h>
 
+#include "async.h"
 #include "bus-error.h"
 #include "bus-util.h"
 #include "dbus-path.h"
@@ -169,7 +170,7 @@ void path_spec_unwatch(PathSpec *s) {
         assert(s);
 
         s->event_source = sd_event_source_disable_unref(s->event_source);
-        s->inotify_fd = safe_close(s->inotify_fd);
+        s->inotify_fd = asynchronous_close(s->inotify_fd);
 }
 
 int path_spec_fd_event(PathSpec *s, uint32_t revents) {
