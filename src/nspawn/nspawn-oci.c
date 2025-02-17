@@ -919,21 +919,17 @@ struct device_data {
 static int oci_cgroup_device_access(const char *name, sd_json_variant *v, sd_json_dispatch_flags_t flags, void *userdata) {
         struct device_data *d = ASSERT_PTR(userdata);
         bool r = false, w = false, m = false;
-        const char *s;
-        size_t i;
 
-        assert_se(s = sd_json_variant_string(v));
-
-        for (i = 0; s[i]; i++)
-                if (s[i] == 'r')
+        for (const char *s = ASSERT_PTR(sd_json_variant_string(v)); *s; s++)
+                if (*s == 'r')
                         r = true;
-                else if (s[i] == 'w')
+                else if (*s == 'w')
                         w = true;
-                else if (s[i] == 'm')
+                else if (*s == 'm')
                         m = true;
                 else
                         return json_log(v, flags, SYNTHETIC_ERRNO(EINVAL),
-                                        "Unknown device access character '%c'.", s[i]);
+                                        "Unknown device access character '%c'.", *s);
 
         d->r = r;
         d->w = w;
@@ -945,7 +941,7 @@ static int oci_cgroup_device_access(const char *name, sd_json_variant *v, sd_jso
 static int oci_cgroup_devices(const char *name, sd_json_variant *v, sd_json_dispatch_flags_t flags, void *userdata) {
         _cleanup_free_ struct device_data *list = NULL;
         Settings *s = ASSERT_PTR(userdata);
-        size_t n_list = 0, i;
+        size_t n_list = 0;
         bool noop = false;
         sd_json_variant *e;
         int r;
@@ -1036,43 +1032,43 @@ static int oci_cgroup_devices(const char *name, sd_json_variant *v, sd_json_disp
         if (r < 0)
                 return bus_log_create_error(r);
 
-        for (i = 0; i < n_list; i++) {
+        FOREACH_ARRAY(d, list, n_list) {
                 _cleanup_free_ char *pattern = NULL;
                 char access[4];
                 size_t n = 0;
 
-                if (list[i].minor == UINT_MAX) {
+                if (d->minor == UINT_MAX) {
                         const char *t;
 
-                        if (list[i].type == S_IFBLK)
+                        if (d->type == S_IFBLK)
                                 t = "block";
                         else {
-                                assert(list[i].type == S_IFCHR);
+                                assert(d->type == S_IFCHR);
                                 t = "char";
                         }
 
-                        if (list[i].major == UINT_MAX) {
+                        if (d->major == UINT_MAX) {
                                 pattern = strjoin(t, "-*");
                                 if (!pattern)
                                         return log_oom();
                         } else {
-                                if (asprintf(&pattern, "%s-%u", t, list[i].major) < 0)
+                                if (asprintf(&pattern, "%s-%u", t, d->major) < 0)
                                         return log_oom();
                         }
 
                 } else {
-                        assert(list[i].major != UINT_MAX); /* If a minor is specified, then a major also needs to be specified */
+                        assert(d->major != UINT_MAX); /* If a minor is specified, then a major also needs to be specified */
 
-                        r = device_path_make_major_minor(list[i].type, makedev(list[i].major, list[i].minor), &pattern);
+                        r = device_path_make_major_minor(d->type, makedev(d->major, d->minor), &pattern);
                         if (r < 0)
                                 return log_oom();
                 }
 
-                if (list[i].r)
+                if (d->r)
                         access[n++] = 'r';
-                if (list[i].w)
+                if (d->w)
                         access[n++] = 'w';
-                if (list[i].m)
+                if (d->m)
                         access[n++] = 'm';
                 access[n] = 0;
 
