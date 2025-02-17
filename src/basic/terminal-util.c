@@ -485,12 +485,12 @@ bool any_key_to_proceed(void) {
         fputs(ansi_highlight_magenta(), stdout);
         fputs("-- Press any key to proceed --", stdout);
         fputs(ansi_normal(), stdout);
+        fputc('\n', stdout);
         fflush(stdout);
 
         char key = 0;
         (void) read_one_char(stdin, &key, USEC_INFINITY, /* echo= */ false, /* need_nl= */ NULL);
 
-        fputc('\n', stdout);
         fputc('\n', stdout);
         fflush(stdout);
 
