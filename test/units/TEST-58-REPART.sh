@@ -897,6 +897,35 @@ EOF
     assert_eq "$drh" "$hrh"
     assert_eq "$hrh" "$srh"
 
+    # Check that offline signing works and the resulting image is valid
+
+    output=$(systemd-repart --offline="$OFFLINE" \
+                            --definitions="$defs" \
+                            --seed="$seed" \
+                            --dry-run=no \
+                            --empty=create \
+                            --size=auto \
+                            --json=pretty \
+                            --defer-partitions=root-${architecture}-verity-sig \
+                            "$imgs/offline")
+
+    offline_drh=$(jq -r ".[] | select(.type == \"root-${architecture}\") | .roothash" <<<"$output")
+
+    echo -n "$offline_drh" | \
+        openssl smime -sign -in /dev/stdin \
+                      -inkey "$defs/verity.key" \
+                      -signer "$defs/verity.crt" \
+                      -noattr -binary -outform der \
+                      -out "$imgs/offline.roothash.p7s"
+
+    systemd-repart --offline "$OFFLINE" \
+                   --definitions "$defs" \
+                   --dry-run no \
+                   --root-hash "$offline_drh" \
+                   --root-hash-sig "$imgs/offline.roothash.p7s" \
+                   --certificate "$defs/verity.crt" \
+                   "$imgs/offline"
+
     # Check that we can dissect, mount and unmount a repart verity image. (and that the image UUID is deterministic)
 
     if systemd-detect-virt --quiet --container; then
@@ -907,6 +936,11 @@ EOF
     systemd-dissect "$imgs/verity" --root-hash "$drh"
     systemd-dissect "$imgs/verity" --root-hash "$drh" --json=short | grep -q '"imageUuid":"1d2ce291-7cce-4f7d-bc83-fdb49ad74ebd"'
     systemd-dissect "$imgs/verity" --root-hash "$drh" -M "$imgs/mnt"
+    systemd-dissect -U "$imgs/mnt"
+
+    systemd-dissect "$imgs/offline" --root-hash "$offline_drh"
+    systemd-dissect "$imgs/offline" --root-hash "$offline_drh" --json=short | grep -q '"imageUuid":"1d2ce291-7cce-4f7d-bc83-fdb49ad74ebd"'
+    systemd-dissect "$imgs/offline" --root-hash "$offline_drh" -M "$imgs/mnt"
     systemd-dissect -U "$imgs/mnt"
 }
 

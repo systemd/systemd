@@ -389,6 +389,29 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--root-hash=</option></term>
+        <term><option>--root-hash-sig=</option></term>
+
+        <listitem><para><option>--root-hash=</option> specifies a hex-encoded top-level Verity hash of a
+        <varname>Verity=hash</varname> partition. <option>--root-hash-sig=</option> takes a PKCS7 signature
+        of the roothash as a path to a DER-encoded signature file, or as an ASCII base64 string encoding of
+        a DER-encoded signature prefixed by <literal>base64:</literal>. These two options must be used
+        together. To be used on a pre-existing image that was created with a parameter such as
+        <option>--defer-partitions=root-verity-sig</option>, in order to allow implementing offline signing
+        of the verity signature partition.</para>
+
+        <para>Can only be specified once per invocation, and there must be only one deferred
+        <varname>Verity=signature</varname> partition to act upon. In case there are multiple signatures to
+        reattach, they should be handled in separate invocations.</para>
+
+        <para>This is an alternative to online signing using parameters such as
+        <option>--private-key=</option>, for build systems where the private key for production signing is
+        not available in the same context where content is created.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--tpm2-device=</option></term>
         <term><option>--tpm2-pcrs=</option></term>
 
@@ -701,6 +724,68 @@ systemd-sysext refresh</programlisting>
 
       <para>The DDI generated that way may be applied to the system with
       <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+    </example>
+
+    <example>
+      <title>Generate a dm-verity signature offline and attach it to a pre-built image</title>
+
+      <para>The following creates an image with dm-verity metadata, signs it separately to simulate an
+      offline signing system, and then attaches to the signature to the image:</para>
+
+      <programlisting>mkdir -p repart.d/ /tmp/tree/usr/lib/
+
+cat >/tmp/tree/usr/lib/os-release &lt;&lt;EOF
+ID=debian
+VERSION_ID=13
+EOF
+
+cat >repart.d/10-root.conf &lt;&lt;EOF
+[Partition]
+Type=root
+Format=erofs
+SizeMinBytes=100M
+SizeMaxBytes=100M
+Verity=data
+VerityMatchKey=root
+EOF
+
+cat >repart.d/11-root-verity.conf &lt;&lt;EOF
+[Partition]
+Type=root-verity
+Label=%o_%w_verity
+Verity=hash
+VerityMatchKey=root
+SizeMinBytes=400M
+SizeMaxBytes=400M
+EOF
+
+cat >repart.d/12-root-verity-sig.conf &lt;&lt;EOF
+[Partition]
+Type=root-verity-sig
+Label=%o_%w_verity_sig
+Verity=signature
+VerityMatchKey=root
+EOF
+
+systemd-repart --definitions repart.d \
+  --defer-partitions=root-verity-sig \
+  --copy-source /tmp/tree/ \
+  --empty create --size 600M \
+  --json=short \
+  /tmp/img.raw | | jq --raw-output0 .[-1].roothash &gt; /tmp/img.roothash
+
+openssl smime -sign -in /tmp/img.roothash \
+  -inkey privkey.pem \
+  -signer cert.crt \
+  -noattr -binary -outform der \
+  -out /tmp/img.roothash.p7s
+
+systemd-repart --definitions repart.d \
+  --dry-run=no --root /tmp/tree/ \
+  --root-hash $(cat /tmp/img.roothash) \
+  --root-hash-sig /tmp/img.roothash.p7s \
+  --certificate cert.crt \
+  /tmp/img.raw</programlisting>
     </example>
 
   </refsect1>
