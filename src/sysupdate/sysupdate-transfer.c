@@ -15,6 +15,7 @@
 #include "hexdecoct.h"
 #include "install-file.h"
 #include "mkdir.h"
+#include "notify-util.h"
 #include "parse-helpers.h"
 #include "parse-util.h"
 #include "percent-util.h"
@@ -28,11 +29,11 @@
 #include "stdio-util.h"
 #include "strv.h"
 #include "sync-util.h"
+#include "sysupdate.h"
 #include "sysupdate-feature.h"
 #include "sysupdate-pattern.h"
 #include "sysupdate-resource.h"
 #include "sysupdate-transfer.h"
-#include "sysupdate.h"
 #include "tmpfile-util.h"
 #include "web-util.h"
 
@@ -977,56 +978,25 @@ static int helper_on_exit(sd_event_source *s, const siginfo_t *si, void *userdat
 }
 
 static int helper_on_notify(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        char buf[NOTIFY_BUFFER_MAX+1];
-        struct iovec iovec = {
-                .iov_base = buf,
-                .iov_len = sizeof(buf)-1,
-        };
-        CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct ucred))) control;
-        struct msghdr msghdr = {
-                .msg_iov = &iovec,
-                .msg_iovlen = 1,
-                .msg_control = &control,
-                .msg_controllen = sizeof(control),
-        };
-        struct ucred *ucred;
         CalloutContext *ctx = ASSERT_PTR(userdata);
-        char *progress_str, *errno_str;
-        int progress;
-        ssize_t n;
         int r;
 
-        n = recvmsg_safe(fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
-        if (ERRNO_IS_NEG_TRANSIENT(n))
-                return 0;
-        if (n == -ECHRNG) {
-                log_warning_errno(n, "Got message with truncated control data (unexpected fds sent?), ignoring.");
-                return 0;
-        }
-        if (n == -EXFULL) {
-                log_warning_errno(n, "Got message with truncated payload data, ignoring.");
-                return 0;
-        }
-        if (n < 0)
-                return (int) n;
+        assert(fd >= 0);
 
-        cmsg_close_all(&msghdr);
-
-        ucred = CMSG_FIND_DATA(&msghdr, SOL_SOCKET, SCM_CREDENTIALS, struct ucred);
-        if (!ucred || ucred->pid <= 0) {
-                log_warning("Got notification datagram lacking credential information, ignoring.");
+        _cleanup_free_ char *buf = NULL;
+        _cleanup_(pidref_done) PidRef sender_pid = PIDREF_NULL;
+        r = notify_recv(fd, &buf, /* ret_ucred= */ NULL, &sender_pid);
+        if (r == -EAGAIN)
                 return 0;
-        }
-        if (ucred->pid != ctx->pid.pid) {
+        if (r < 0)
+                return log_warning_errno(r, "Failed to receive notification message: %m");
+
+        if (!pidref_equal(&ctx->pid, &sender_pid)) {
                 log_warning("Got notification datagram from unexpected peer, ignoring.");
                 return 0;
         }
 
-        buf[n] = 0;
-
-        progress_str = find_line_startswith(buf, "X_IMPORT_PROGRESS=");
-        errno_str = find_line_startswith(buf, "ERRNO=");
-
+        char *errno_str = find_line_startswith(buf, "ERRNO=");
         if (errno_str) {
                 truncate_nl(errno_str);
                 r = parse_errno(errno_str);
@@ -1038,9 +1008,11 @@ static int helper_on_notify(sd_event_source *s, int fd, uint32_t revents, void *
                 }
         }
 
+        char *progress_str = find_line_startswith(buf, "X_IMPORT_PROGRESS=");
         if (progress_str) {
                 truncate_nl(progress_str);
-                progress = parse_percent(progress_str);
+
+                int progress = parse_percent(progress_str);
                 if (progress < 0)
                         log_warning("Got invalid percent value '%s', ignoring.", progress_str);
                 else {
@@ -1105,7 +1077,11 @@ static int run_callout(
 
         r = setsockopt_int(fd, SOL_SOCKET, SO_PASSCRED, true);
         if (r < 0)
-                return log_error_errno(r, "Failed to set socket options: %m");
+                return log_error_errno(r, "Failed to enable SO_PASSCRED: %m");
+
+        r = setsockopt_int(fd, SOL_SOCKET, SO_PASSPIDFD, true);
+        if (r < 0)
+                log_debug_errno(r, "Failed to enable SO_PASSPIDFD, ignoring: %m");
 
         r = pidref_safe_fork(ctx->name, FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_LOG, &ctx->pid);
         if (r < 0)
