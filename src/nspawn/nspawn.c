@@ -68,6 +68,7 @@
 #include "mount-util.h"
 #include "mountpoint-util.h"
 #include "namespace-util.h"
+#include "notify-util.h"
 #include "nspawn-bind-user.h"
 #include "nspawn-cgroup.h"
 #include "nspawn-expose-ports.h"
@@ -3838,6 +3839,10 @@ static int setup_notify_child(const void *directory) {
         if (r < 0)
                 return log_error_errno(r, "SO_PASSCRED failed: %m");
 
+        r = setsockopt_int(fd, SOL_SOCKET, SO_PASSPIDFD, true);
+        if (r < 0)
+                log_debug_errno(r, "SO_PASSPIDFD failed, ignoring: %m");
+
         return TAKE_FD(fd);
 }
 
@@ -4700,59 +4705,25 @@ static int setup_uid_map(
 }
 
 static int nspawn_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
-        char buf[NOTIFY_BUFFER_MAX+1];
-        char *p = NULL;
-        struct iovec iovec = {
-                .iov_base = buf,
-                .iov_len = sizeof(buf)-1,
-        };
-        CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct ucred)) +
-                         CMSG_SPACE(sizeof(int) * NOTIFY_FD_MAX)) control;
-        struct msghdr msghdr = {
-                .msg_iov = &iovec,
-                .msg_iovlen = 1,
-                .msg_control = &control,
-                .msg_controllen = sizeof(control),
-        };
-        struct ucred *ucred;
-        ssize_t n;
-        pid_t inner_child_pid;
-        _cleanup_strv_free_ char **tags = NULL;
+        pid_t inner_child_pid = PTR_TO_PID(userdata);
         int r;
 
         assert(userdata);
 
-        inner_child_pid = PTR_TO_PID(userdata);
-
-        if (revents != EPOLLIN) {
-                log_warning("Got unexpected poll event for notify fd.");
+        _cleanup_(pidref_done) PidRef sender_pid = PIDREF_NULL;
+        _cleanup_free_ char *buf = NULL;
+        r = notify_recv(fd, &buf, /* ret_ucred= */ NULL, &sender_pid);
+        if (r == -EAGAIN)
                 return 0;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to receive notification message: %m");
 
-        n = recvmsg_safe(fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
-        if (ERRNO_IS_NEG_TRANSIENT(n))
-                return 0;
-        if (n == -ECHRNG) {
-                log_warning_errno(n, "Got message with truncated control data (too many fds sent?), ignoring.");
-                return 0;
-        }
-        if (n == -EXFULL) {
-                log_warning_errno(n, "Got message with truncated payload data, ignoring.");
-                return 0;
-        }
-        if (n < 0)
-                return log_warning_errno(n, "Couldn't read notification socket: %m");
-
-        cmsg_close_all(&msghdr);
-
-        ucred = CMSG_FIND_DATA(&msghdr, SOL_SOCKET, SCM_CREDENTIALS, struct ucred);
-        if (!ucred || ucred->pid != inner_child_pid) {
+        if (sender_pid.pid != inner_child_pid) {
                 log_debug("Received notify message from process that is not the payload's PID 1. Ignoring.");
                 return 0;
         }
 
-        buf[n] = 0;
-        tags = strv_split(buf, "\n\r");
+        _cleanup_strv_free_ char **tags = strv_split(buf, "\n\r");
         if (!tags)
                 return log_oom();
 
@@ -4773,7 +4744,7 @@ static int nspawn_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t r
                         log_warning_errno(r, "Failed to send readiness notification, ignoring: %m");
         }
 
-        p = strv_find_startswith(tags, "STATUS=");
+        char *p = strv_find_startswith(tags, "STATUS=");
         if (p)
                 (void) sd_notifyf(false, "STATUS=Container running: %s", p);
 
