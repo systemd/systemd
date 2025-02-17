@@ -48,9 +48,7 @@ CustomMount* custom_mount_add(CustomMount **l, size_t *n, CustomMountType t) {
 }
 
 void custom_mount_free_all(CustomMount *l, size_t n) {
-        for (size_t i = 0; i < n; i++) {
-                CustomMount *m = l + i;
-
+        FOREACH_ARRAY(m, l, n) {
                 free(m->source);
                 free(m->destination);
                 free(m->options);
@@ -1024,9 +1022,7 @@ int mount_custom(
 
         assert(dest);
 
-        for (size_t i = 0; i < n; i++) {
-                CustomMount *m = mounts + i;
-
+        FOREACH_ARRAY(m, mounts, n) {
                 if (FLAGS_SET(mount_settings, MOUNT_IN_USERNS) != m->in_userns)
                         continue;
 
@@ -1070,8 +1066,8 @@ int mount_custom(
 }
 
 bool has_custom_root_mount(const CustomMount *mounts, size_t n) {
-        for (size_t i = 0; i < n; i++)
-                if (path_equal(mounts[i].destination, "/"))
+        FOREACH_ARRAY(m, mounts, n)
+                if (path_equal(m->destination, "/"))
                         return true;
 
         return false;
