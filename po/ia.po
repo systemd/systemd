@@ -7,13 +7,16 @@ msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2024-11-28 18:16+0900\n"
-"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
-"Last-Translator: Automatically generated\n"
-"Language-Team: none\n"
+"PO-Revision-Date: 2025-02-17 18:20+0000\n"
+"Last-Translator: Emilio Sepulveda <emism.translations@gmail.com>\n"
+"Language-Team: Interlingua <https://translate.fedoraproject.org/projects/"
+"systemd/main/ia/>\n"
 "Language: ia\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
+"X-Generator: Weblate 5.9.2\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -1077,7 +1080,7 @@ msgstr ""
 
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"
-msgstr ""
+msgstr "Definir hora del systema"
 
 #: src/timedate/org.freedesktop.timedate1.policy:23
 msgid "Authentication is required to set the system time."
