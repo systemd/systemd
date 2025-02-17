@@ -489,9 +489,7 @@ int link_drop_unmanaged_neighbors(Link *link) {
                 if (!neighbor_exists(neighbor))
                         continue;
 
-                /* Ignore foreign neighbors when KeepConfiguration=yes or static. */
-                if (neighbor->source == NETWORK_CONFIG_SOURCE_FOREIGN &&
-                    FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_STATIC))
+                if (!link_should_mark_config(link, /* only_static = */ false, neighbor->source, RTPROT_STATIC))
                         continue;
 
                 neighbor_mark(neighbor);
