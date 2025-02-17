@@ -2476,6 +2476,28 @@ static int acquire_group_list(char ***ret) {
         return !!*ret;
 }
 
+static int group_completion_callback(const char *key, char ***ret_list, void *userdata) {
+        char ***available = userdata;
+        int r;
+
+        if (!*available) {
+                r = acquire_group_list(available);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to enumerate available groups, ignoring: %m");
+        }
+
+        _cleanup_strv_free_ char **l = strv_copy(*available);
+        if (!l)
+                return -ENOMEM;
+
+        r = strv_extend(&l, "list");
+        if (r < 0)
+                return r;
+
+        *ret_list = TAKE_PTR(l);
+        return 0;
+}
+
 static int create_interactively(void) {
         _cleanup_free_ char *username = NULL;
         int r;
@@ -2485,7 +2507,12 @@ static int create_interactively(void) {
                 return 0;
         }
 
-        any_key_to_proceed();
+        printf("\nPlease create your user account!\n");
+
+        if (!any_key_to_proceed()) {
+                log_notice("Skipping.");
+                return 0;
+        }
 
         (void) terminal_reset_defensive_locked(STDOUT_FILENO, /* switch_to_text= */ false);
 
@@ -2522,12 +2549,21 @@ static int create_interactively(void) {
                 return log_error_errno(r, "Failed to set userName field: %m");
 
         _cleanup_strv_free_ char **available = NULL, **groups = NULL;
-
         for (;;) {
                 _cleanup_free_ char *s = NULL;
-                unsigned u;
 
-                r = ask_string(&s,
+                strv_sort_uniq(groups);
+
+                if (!strv_isempty(groups)) {
+                        _cleanup_free_ char *j = strv_join(groups, ", ");
+                        if (!j)
+                                return log_oom();
+
+                        log_info("Currently selected groups: %s", j);
+                }
+
+                r = ask_string_full(&s,
+                               group_completion_callback, &available,
                                "%s Please enter an auxiliary group for user %s (empty to continue, \"list\" to list available groups): ",
                                special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET), username);
                 if (r < 0)
@@ -2547,15 +2583,21 @@ static int create_interactively(void) {
                                         continue;
                         }
 
-                        r = show_menu(available, /*n_columns=*/ 3, /*width=*/ 20, /*percentage=*/ 60);
+                        r = show_menu(available,
+                                      /* n_columns= */ 3,
+                                      /* column_width= */ 20,
+                                      /* ellipsize_percentage= */ 60,
+                                      /* grey_prefix= */ NULL,
+                                      /* with_numbers= */ true);
                         if (r < 0)
-                                return r;
+                                return log_error_errno(r, "Failed to show menu: %m");
 
                         putchar('\n');
                         continue;
                 };
 
                 if (!strv_isempty(available)) {
+                        unsigned u;
                         r = safe_atou(s, &u);
                         if (r >= 0) {
                                 if (u <= 0 || u > strv_length(available)) {
@@ -2607,13 +2649,13 @@ static int create_interactively(void) {
                 shell = mfree(shell);
 
                 r = ask_string(&shell,
-                               "%s Please enter the shell to use for user %s (empty to skip): ",
+                               "%s Please enter the shell to use for user %s (empty for default): ",
                                special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET), username);
                 if (r < 0)
                         return log_error_errno(r, "Failed to query user for username: %m");
 
                 if (isempty(shell)) {
-                        log_info("No data entered, skipping.");
+                        log_info("No data entered, leaving at default.");
                         break;
                 }
 
@@ -2664,12 +2706,20 @@ static int verb_firstboot(int argc, char *argv[], void *userdata) {
         if (r > 0) /* Already created users from credentials */
                 return 0;
 
-        r = has_regular_user();
-        if (r < 0)
-                return r;
-        if (r > 0) {
-                log_info("Regular user already present in user database, skipping user creation.");
+        r = getenv_bool("SYSTEMD_HOME_FIRSTBOOT_OVERRIDE");
+        if (r == 0)
                 return 0;
+        if (r < 0) {
+                if (r != -ENXIO)
+                        log_warning_errno(r, "Failed to parse $SYSTEMD_HOME_FIRSTBOOT_OVERRIDE, ignoring: %m");
+
+                r = has_regular_user();
+                if (r < 0)
+                        return r;
+                if (r > 0) {
+                        log_info("Regular user already present in user database, skipping user creation.");
+                        return 0;
+                }
         }
 
         return create_interactively();

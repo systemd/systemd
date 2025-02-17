@@ -954,7 +954,7 @@ static int loop(const char *root) {
                 if (arg_batch)
                         (void) usleep_safe(usec_add(usec_sub_unsigned(last_refresh, t), arg_delay));
                 else {
-                        r = read_one_char(stdin, &key, usec_add(usec_sub_unsigned(last_refresh, t), arg_delay), NULL);
+                        r = read_one_char(stdin, &key, usec_add(usec_sub_unsigned(last_refresh, t), arg_delay), /* echo= */ false, /* need_nl= */ NULL);
                         if (r == -ETIMEDOUT)
                                 continue;
                         if (r < 0)

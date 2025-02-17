@@ -596,6 +596,13 @@ SYSTEMD_HOME_DEBUG_SUFFIX=foo \
   parts of the session continue running. Thus, we highly recommend that this variable
   isn't used unless necessary. Defaults to true.
 
+`homectl`:
+
+* `$SYSTEMD_HOME_FIRSTBOOT_OVERRIDE` – if set to "1" will make `homectl
+  firstboot --prompt-new-user` interactively ask for user creation, even if
+  there already exists at least one regular user on the system. If set to "0"
+  will make the tool skip any such query.
+
 `kernel-install`:
 
 * `$KERNEL_INSTALL_BYPASS` – If set to "1", execution of kernel-install is skipped
