@@ -7,30 +7,39 @@
 #include <unistd.h>
 
 #include "sd-daemon.h"
+#include "sd-event.h"
 
 #include "alloc-util.h"
 #include "build.h"
 #include "env-util.h"
+#include "escape.h"
+#include "event-util.h"
 #include "fd-util.h"
 #include "fdset.h"
 #include "format-util.h"
 #include "log.h"
 #include "main-func.h"
+#include "notify-util.h"
 #include "parse-util.h"
 #include "pretty-print.h"
 #include "process-util.h"
+#include "socket-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "time-util.h"
 #include "user-util.h"
 
+static enum {
+        ACTION_NOTIFY,
+        ACTION_BOOTED,
+        ACTION_FORK,
+} arg_action = ACTION_NOTIFY;
 static bool arg_ready = false;
 static bool arg_reloading = false;
 static bool arg_stopping = false;
 static PidRef arg_pid = PIDREF_NULL;
 static const char *arg_status = NULL;
-static bool arg_booted = false;
 static uid_t arg_uid = UID_INVALID;
 static gid_t arg_gid = GID_INVALID;
 static bool arg_no_block = false;
@@ -38,6 +47,7 @@ static char **arg_env = NULL;
 static char **arg_exec = NULL;
 static FDSet *arg_fds = NULL;
 static char *arg_fdname = NULL;
+static bool arg_quiet = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_pid, pidref_done);
 STATIC_DESTRUCTOR_REGISTER(arg_env, strv_freep);
@@ -54,7 +64,8 @@ static int help(void) {
                 return log_oom();
 
         printf("%s [OPTIONS...] [VARIABLE=VALUE...]\n"
-               "%s [OPTIONS...] --exec [VARIABLE=VALUE...] ; CMDLINE...\n"
+               "%s [OPTIONS...] --exec [VARIABLE=VALUE...] ; -- CMDLINE...\n"
+               "%s [OPTIONS...] --fork -- CMDLINE...\n"
                "\n%sNotify the init system about service status updates.%s\n\n"
                "  -h --help            Show this help\n"
                "     --version         Show package version\n"
@@ -70,7 +81,10 @@ static int help(void) {
                "     --exec            Execute command line separated by ';' once done\n"
                "     --fd=FD           Pass specified file descriptor with along with message\n"
                "     --fdname=NAME     Name to assign to passed file descriptor(s)\n"
+               "     --fork            Receive notifications from child rather then send them\n"
+               "  -q --quiet           Do not show PID of child when forking\n"
                "\nSee the %s for details.\n",
+               program_invocation_short_name,
                program_invocation_short_name,
                program_invocation_short_name,
                ansi_highlight(),
@@ -162,6 +176,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_EXEC,
                 ARG_FD,
                 ARG_FDNAME,
+                ARG_FORK,
         };
 
         static const struct option options[] = {
@@ -178,6 +193,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "exec",      no_argument,       NULL, ARG_EXEC      },
                 { "fd",        required_argument, NULL, ARG_FD        },
                 { "fdname",    required_argument, NULL, ARG_FDNAME    },
+                { "fork",      no_argument,       NULL, ARG_FORK      },
+                { "quiet",     no_argument,       NULL, 'q'           },
                 {}
         };
 
@@ -188,7 +205,9 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv,
+                                (arg_action == ACTION_FORK || do_exec) ? "+hq" : "hq",
+                                options, NULL)) >= 0) {
 
                 switch (c) {
 
@@ -231,7 +250,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_BOOTED:
-                        arg_booted = true;
+                        arg_action = ACTION_BOOTED;
                         break;
 
                 case ARG_UID: {
@@ -302,6 +321,14 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
+                case ARG_FORK:
+                        arg_action = ACTION_FORK;
+                        break;
+
+                case 'q':
+                        arg_quiet = true;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -310,56 +337,227 @@ static int parse_argv(int argc, char *argv[]) {
                 }
         }
 
-        if (arg_fdname && fdset_isempty(arg_fds))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No file descriptors passed, but --fdname= set, refusing.");
+        if (arg_action == ACTION_NOTIFY) {
+                if (arg_fdname && fdset_isempty(arg_fds))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No file descriptors passed, but --fdname= set, refusing.");
 
-        bool have_env = arg_ready || arg_stopping || arg_reloading || arg_status || pidref_is_set(&arg_pid) || !fdset_isempty(arg_fds);
-        size_t n_arg_env;
+                bool have_env = arg_ready || arg_stopping || arg_reloading || arg_status || pidref_is_set(&arg_pid) || !fdset_isempty(arg_fds);
+                size_t n_arg_env;
 
-        if (do_exec) {
-                int i;
+                if (do_exec) {
+                        int i;
 
-                for (i = optind; i < argc; i++)
-                        if (streq(argv[i], ";"))
-                                break;
+                        for (i = optind; i < argc; i++)
+                                if (streq(argv[i], ";"))
+                                        break;
 
-                if (i >= argc)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "If --exec is used argument list must contain ';' separator, refusing.");
-                if (i+1 == argc)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Empty command line specified after ';' separator, refusing.");
+                        if (i >= argc)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "If --exec is used argument list must contain ';' separator, refusing.");
+                        if (i+1 == argc)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Empty command line specified after ';' separator, refusing.");
 
-                arg_exec = strv_copy_n(argv + i + 1, argc - i - 1);
-                if (!arg_exec)
-                        return log_oom();
+                        arg_exec = strv_copy_n(argv + i + 1, argc - i - 1);
+                        if (!arg_exec)
+                                return log_oom();
 
-                n_arg_env = i - optind;
-        } else
-                n_arg_env = argc - optind;
+                        n_arg_env = i - optind;
+                } else
+                        n_arg_env = argc - optind;
 
-        have_env = have_env || n_arg_env > 0;
+                have_env = have_env || n_arg_env > 0;
+                if (!have_env) {
+                        if (do_exec)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No notify message specified while --exec, refusing.");
 
-        if (!have_env && !arg_booted) {
-                if (do_exec)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No notify message specified while --exec, refusing.");
+                        /* No argument at all? */
+                        help();
+                        return -EINVAL;
+                }
 
-                /* No argument at all? */
-                help();
-                return -EINVAL;
+                if (n_arg_env > 0) {
+                        arg_env = strv_copy_n(argv + optind, n_arg_env);
+                        if (!arg_env)
+                                return log_oom();
+                }
+                if (!fdset_isempty(passed))
+                        log_warning("Warning: %u more file descriptors passed than referenced with --fd=.", fdset_size(passed));
         }
 
-        if (have_env && arg_booted)
-                log_warning("Notify message specified along with --booted, ignoring.");
+        if (arg_action == ACTION_BOOTED && argc > optind)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--booted takes no parameters, refusing.");
 
-        if (n_arg_env > 0) {
-                arg_env = strv_copy_n(argv + optind, n_arg_env);
-                if (!arg_env)
-                        return log_oom();
-        }
-
-        if (!fdset_isempty(passed))
-                log_warning("Warning: %u more file descriptors passed than referenced with --fd=.", fdset_size(passed));
+        if (arg_action == ACTION_FORK && optind >= argc)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--fork requires a command to be specified, refusing.");
 
         return 1;
+}
+
+static int on_notify_socket(sd_event_source *s, int fd, unsigned event, void *userdata) {
+        PidRef *child = ASSERT_PTR(userdata);
+        int r;
+
+        assert(s);
+        assert(fd >= 0);
+
+        _cleanup_free_ char *text = NULL;
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        r = notify_recv(fd, &text, /* ret_ucred= */ NULL, &pidref);
+        if (r == -EAGAIN)
+                return 0;
+        if (r < 0)
+                return log_error_errno(r, "Failed to receive notification message: %m");
+
+        if (!pidref_equal(child, &pidref)) {
+                log_warning("Received notification message from unexpected process " PID_FMT " (expected " PID_FMT "), ignoring.",
+                            pidref.pid, child->pid);
+                return 0;
+        }
+
+        const char *p = find_line_startswith(text, "READY=1");
+        if (!p || !IN_SET(*p, '\n', 0)) {
+                if (DEBUG_LOGGING) {
+                        _cleanup_free_ char *escaped = cescape(text);
+                        log_debug("Received notification message without READY=1, ignoring. (%s)", strna(escaped));
+                }
+        } else {
+                log_debug("Recieved READY=1, exiting.");
+
+                r = sd_event_exit(sd_event_source_get_event(s), EXIT_SUCCESS);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to request event loop exit: %m");
+        }
+
+        return 0;
+}
+
+static int on_child(sd_event_source *s, const siginfo_t *si, void *userdata) {
+        int r;
+
+        assert(s);
+        assert(si);
+
+        int ret;
+        if (si->si_code == CLD_EXITED) {
+                if (si->si_status != EXIT_SUCCESS)
+                        log_debug("Child failed with exit status %i.", si->si_status);
+                else
+                        log_debug("Child exited successfully");
+
+                ret = si->si_code;
+
+        } else if (IN_SET(si->si_code, CLD_KILLED, CLD_DUMPED))
+                ret = log_debug_errno(SYNTHETIC_ERRNO(EPROTO),
+                                       "Child terminated by signal %s.", signal_to_string(si->si_status));
+        else
+                ret = log_debug_errno(SYNTHETIC_ERRNO(EPROTO),
+                                      "Child terminated due to unknown reason.");
+
+        r = sd_event_exit(sd_event_source_get_event(s), ret);
+        if (r < 0)
+                return log_error_errno(r, "Failed to request event loop exit: %m");
+
+        return 0;
+}
+
+static int action_fork(char **_command) {
+        int r;
+
+        assert(!strv_isempty(_command));
+
+        /* Make a copy, since pidref_safe_fork_full() will change argv[] further down. */
+        _cleanup_strv_free_ char **command = strv_copy(_command);
+        if (!command)
+                return log_oom();
+
+        _cleanup_close_ int socket_fd = RET_NERRNO(socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0));
+        if (socket_fd < 0)
+                return log_error_errno(socket_fd, "Failed to allocate AF_UNIX socket for notifications: %m");
+
+        r = setsockopt_int(socket_fd, SOL_SOCKET, SO_PASSCRED, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enable SO_PASSCRED: %m");
+
+        r = setsockopt_int(socket_fd, SOL_SOCKET, SO_PASSPIDFD, true);
+        if (r < 0)
+                log_debug_errno(r, "Failed to enable SO_PASSPIDFD, ignoring: %m");
+
+        /* Pick an address via auto-bind */
+        union sockaddr_union sa = {
+                .sa.sa_family = AF_UNIX,
+        };
+        if (bind(socket_fd, &sa.sa, offsetof(union sockaddr_union, un.sun_path)) < 0)
+                return log_error_errno(errno, "Failed to bind AF_UNIX socket: %m");
+
+        _cleanup_free_ char *addr_string = NULL;
+        r = getsockname_pretty(socket_fd, &addr_string);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get socket name: %m");
+
+        _cleanup_free_ char *c = strv_join(command, " ");
+        if (!c)
+                return log_oom();
+
+        _cleanup_(pidref_done) PidRef child = PIDREF_NULL;
+        r = pidref_safe_fork_full(
+                        "(notify)",
+                        /* stdio_fds= */ (const int[]) { -EBADF, -EBADF, STDERR_FILENO },
+                        /* execpt_fds= */ NULL,
+                        /* n_except_fds= */ 0,
+                        /* flags= */ FORK_REARRANGE_STDIO,
+                        &child);
+        if (r < 0)
+                return log_error_errno(r, "Failed to fork child: %m");
+        if (r == 0) {
+                socket_fd = safe_close(socket_fd);
+                pidref_done(&child);
+
+                if (setenv("NOTIFY_SOCKET", addr_string, /* overwrite= */ true) < 0) {
+                        log_error_errno(errno, "Failed to set $NOTIFY_SOCKET: %m");
+                        _exit(127);
+                }
+
+                log_debug("Executing: %s", c);
+                execvp(command[0], command);
+                log_error_errno(errno, "Failed to execute '%s': %m", c);
+                _exit(127);
+        }
+
+        if (!arg_quiet) {
+                printf(PID_FMT "\n", child.pid);
+                fflush(stdout);
+        }
+
+        BLOCK_SIGNALS(SIGCHLD);
+
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        r = sd_event_new(&event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate event loop: %m");
+
+        r = sd_event_add_io(event, /* ret_event_source= */ NULL, socket_fd, EPOLLIN, on_notify_socket, &child);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate IO source: %m");
+
+        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        r = event_add_child_pidref(event, &s, &child, WEXITED, on_child, /* userdata= */ NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate child source: %m");
+
+        /* If we receive both the sd_notify() message and a SIGCHLD always process sd_notify() first, it's the more interesting, "positive" information. */
+        r = sd_event_source_set_priority(s, SD_EVENT_PRIORITY_NORMAL + 10);
+        if (r < 0)
+                return log_error_errno(r, "Failed to change child event source priority: %m");
+
+        r = sd_event_loop(event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to run event loop: %m");
+
+        int ret;
+        r = sd_event_get_exit_code(event, &ret);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get event loop code: %m");
+
+        return ret;
 }
 
 static int run(int argc, char* argv[]) {
@@ -376,7 +574,10 @@ static int run(int argc, char* argv[]) {
         if (r <= 0)
                 return r;
 
-        if (arg_booted) {
+        if (arg_action == ACTION_FORK)
+                return action_fork(argv + optind);
+
+        if (arg_action == ACTION_BOOTED) {
                 r = sd_booted();
                 if (r < 0)
                         log_debug_errno(r, "Failed to determine whether we are booted with systemd, assuming we aren't: %m");

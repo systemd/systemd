@@ -26,7 +26,10 @@
       <command>systemd-notify</command> <arg choice="opt" rep="repeat">OPTIONS</arg> <arg choice="opt" rep="repeat">VARIABLE=VALUE</arg>
     </cmdsynopsis>
     <cmdsynopsis>
-      <command>systemd-notify</command> <arg>--exec</arg> <arg choice="opt" rep="repeat">OPTIONS</arg> <arg choice="opt" rep="repeat">VARIABLE=VALUE</arg> <arg>;</arg> <arg rep="repeat">CMDLINE</arg>
+      <command>systemd-notify</command> <arg choice="plain">--exec</arg> <arg choice="opt" rep="repeat">OPTIONS</arg> <arg choice="opt" rep="repeat">VARIABLE=VALUE</arg> <arg choice="plain">; --</arg> <arg choice="req" rep="repeat">CMDLINE</arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-notify</command> <arg choice="plain">--fork</arg> <arg choice="opt" rep="repeat">OPTIONS</arg> <arg choice="plain">--</arg> <arg choice="req" rep="repeat">CMDLINE</arg>
     </cmdsynopsis>
   </refsynopsisdiv>
 
@@ -235,6 +238,39 @@
         descriptors with different file descriptor names shall be submitted.</para>
 
         <xi:include href="version-info.xml" xpointer="v254"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--fork</option></term>
+
+        <listitem><para>Instead of sending a notification message, fork off a command line and wait until a
+        <literal>READY=1</literal> message is received from it. In other words: this makes
+        <command>systemd-notify</command> the receiver of notification messages instead of the sender,
+        swapping roles. This is useful to quickly fork off a process that implements the
+        <function>sd_notify()</function> protocol from a shell script. The invoked command line will have
+        standard input and standard output connected to <filename>/dev/null</filename>, but standard error
+        will be inherited from the invoking process. The numeric process ID is written to standard output by
+        <command>systemd-notify</command> (unless <option>--quiet</option> is specified), which may be used
+        to later terminate the forked off process.</para>
+
+        <para>Note that this option should not be used to invoke full services ad-hoc, use
+        <command>systemd-run</command> for that.</para>
+
+        <para>Example use:<programlisting># PID=$(systemd-notify --fork -- mycommand)
+…
+kill "$PID"
+unset PID</programlisting></para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--quiet</option></term>
+        <term><option>-q</option></term>
+
+        <listitem><para>Turn off output of the numeric process ID when <option>--fork</option> is used.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="help" />

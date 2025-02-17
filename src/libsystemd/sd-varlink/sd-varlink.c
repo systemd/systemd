@@ -3183,6 +3183,15 @@ _public_ int sd_varlink_take_fd(sd_varlink *v, size_t i) {
         return TAKE_FD(v->input_fds[i]);
 }
 
+_public_ int sd_varlink_get_n_fds(sd_varlink *v) {
+        assert_return(v, -EINVAL);
+
+        if (!v->allow_fd_passing_input)
+                return -EPERM;
+
+        return (int) v->n_input_fds;
+}
+
 static int verify_unix_socket(sd_varlink *v) {
         assert(v);
 
