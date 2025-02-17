@@ -1434,7 +1434,12 @@ node /org/freedesktop/systemd1 {
 
       <para><function>Subscribe()</function> enables most bus signals to be sent out. Clients which are
       interested in signals need to call this method. Signals are only sent out if at least one client
-      invoked this method. <function>Unsubscribe()</function> reverts the signal subscription that
+      invoked this method. Note that this behavior is applied to all the signals that the object
+      in <constant>/org/freedesktop/systemd1</constant> may emit, including the
+      D-Bus standard <constant>org.freedesktop.DBus.Properties.PropertiesChanged</constant>
+      signal and others that do not belong to the <constant>org.freedesktop.systemd1</constant> interface.</para>
+
+      <para><function>Unsubscribe()</function> reverts the signal subscription that
       <function>Subscribe()</function> implements. It is not necessary to invoke
       <function>Unsubscribe()</function> as clients are tracked. Signals are no longer sent out as soon as
       all clients which previously asked for <function>Subscribe()</function> either closed their connection
