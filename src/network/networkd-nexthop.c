@@ -924,17 +924,8 @@ int link_drop_nexthops(Link *link, bool only_static) {
                 if (!nexthop_exists(nexthop))
                         continue;
 
-                if (nexthop->source == NETWORK_CONFIG_SOURCE_FOREIGN) {
-                        if (only_static)
-                                continue;
-
-                        /* Do not mark foreign nexthop when KeepConfiguration= is enabled. */
-                        if (link->network &&
-                            FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_STATIC))
-                                continue;
-
-                } else if (nexthop->source != NETWORK_CONFIG_SOURCE_STATIC)
-                        continue; /* Ignore dynamically configurad nexthops. */
+                if (!link_should_mark_config(link, only_static, nexthop->source, nexthop->protocol))
+                        continue;
 
                 /* Ignore nexthops bound to other links. */
                 if (nexthop->ifindex > 0 && nexthop->ifindex != link->ifindex)
