@@ -15,13 +15,11 @@
 
 static int append_machine_properties(
                 sd_bus_message *m,
-                bool enable_fuse,
                 CustomMount *mounts,
                 unsigned n_mounts,
                 int kill_signal,
                 bool coredump_receive) {
 
-        unsigned j;
         int r;
 
         assert(m);
@@ -41,16 +39,8 @@ static int append_machine_properties(
                                   "char-pts", "rw");
         if (r < 0)
                 return bus_log_create_error(r);
-        if (enable_fuse) {
-                r = sd_bus_message_append(m, "(sv)", "DeviceAllow", "a(ss)", 1,
-                                          "/dev/fuse", "rwm");
-                if (r < 0)
-                        return bus_log_create_error(r);
-        }
 
-        for (j = 0; j < n_mounts; j++) {
-                CustomMount *cm = mounts + j;
-
+        FOREACH_ARRAY(cm, mounts, n_mounts) {
                 if (cm->type != CUSTOM_MOUNT_BIND)
                         continue;
 
@@ -207,7 +197,6 @@ int register_machine(
 
                 r = append_machine_properties(
                                 m,
-                                FLAGS_SET(flags, REGISTER_MACHINE_ENABLE_FUSE),
                                 mounts,
                                 n_mounts,
                                 kill_signal,
@@ -328,7 +317,6 @@ int allocate_scope(
 
         r = append_machine_properties(
                         m,
-                        FLAGS_SET(flags, ALLOCATE_SCOPE_ENABLE_FUSE),
                         mounts,
                         n_mounts,
                         kill_signal,
