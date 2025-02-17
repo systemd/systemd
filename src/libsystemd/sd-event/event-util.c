@@ -172,6 +172,33 @@ int event_add_child_pidref(
         return sd_event_add_child(e, s, pid->pid, options, callback, userdata);
 }
 
+int event_source_get_child_pidref(
+                sd_event_source *s,
+                PidRef *ret) {
+
+        int r;
+
+        assert(s);
+        assert(ret);
+
+        pid_t pid;
+        r = sd_event_source_get_child_pid(s, &pid);
+        if (r < 0)
+                return r;
+
+        int pidfd = sd_event_source_get_child_pidfd(s);
+        if (pidfd < 0 && pidfd != -EOPNOTSUPP)
+                return pidfd;
+
+        /* Note, we don't actually duplicate the fd here, i.e. we do not pass ownership of this PidRef to the caller */
+        *ret = (PidRef) {
+                .pid = pid,
+                .fd = pidfd,
+        };
+
+        return 0;
+}
+
 dual_timestamp* event_dual_timestamp_now(sd_event *e, dual_timestamp *ts) {
         assert(e);
         assert(ts);
