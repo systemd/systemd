@@ -6,6 +6,7 @@
 #include "escape.h"
 #include "logarithm.h"
 #include "networkd-link.h"
+#include "networkd-network.h"
 #include "networkd-util.h"
 #include "parse-util.h"
 #include "string-table.h"
@@ -112,6 +113,42 @@ DEFINE_CONFIG_PARSE_ENUM(config_parse_link_local_address_family, link_local_addr
 DEFINE_STRING_TABLE_LOOKUP_FROM_STRING(dhcp_deprecated_address_family, AddressFamily);
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(ip_masquerade_address_family, AddressFamily);
 DEFINE_STRING_TABLE_LOOKUP(dhcp_lease_server_type, sd_dhcp_lease_server_type_t);
+
+bool link_should_mark_config(Link *link, bool only_static, NetworkConfigSource source, uint8_t protocol) {
+        /* Always mark static configs. */
+        if (source == NETWORK_CONFIG_SOURCE_STATIC)
+                return true;
+
+        /* When 'only_static' is true, do not mark other configs. */
+        if (only_static)
+                return false;
+
+        /* Always ignore dynamically assigned configs. */
+        if (source != NETWORK_CONFIG_SOURCE_FOREIGN)
+                return false;
+
+        /* When only_static is false, the logic is conditionalized with KeepConfiguration=. Hence, the
+         * interface needs to have a matching .network file. */
+        assert(link);
+        assert(link->network);
+
+        /* When KeepConfiguration=yes, keep all foreign configs. */
+        if (FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_YES))
+                return false;
+
+        /* When static, keep all static configs. */
+        if (FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_STATIC) &&
+            protocol == RTPROT_STATIC)
+                return false;
+
+        /* When dynamic, keep all dynamic configs. */
+        if (FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DYNAMIC) &&
+            IN_SET(protocol, RTPROT_DHCP, RTPROT_RA, RTPROT_REDIRECT))
+                return false;
+
+        /* Otherwise, mark the config. */
+        return true;
+}
 
 int config_parse_ip_masquerade(
                 const char *unit,
