@@ -1533,7 +1533,7 @@ int manager_sign_user_record(Manager *m, UserRecord *u, UserRecord **ret, sd_bus
         return user_record_sign(u, m->private_key, ret);
 }
 
-DEFINE_PRIVATE_HASH_OPS_FULL(public_key_hash_ops, char, string_hash_func, string_compare_func, free, EVP_PKEY, EVP_PKEY_free);
+DEFINE_HASH_OPS_FULL(public_key_hash_ops, char, string_hash_func, string_compare_func, free, EVP_PKEY, EVP_PKEY_free);
 
 static int manager_load_public_key_one(Manager *m, const char *path) {
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
@@ -1569,15 +1569,11 @@ static int manager_load_public_key_one(Manager *m, const char *path) {
         if (st.st_uid != 0 || (st.st_mode & 0022) != 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Public key file %s is writable by more than the root user, refusing.", path);
 
-        r = hashmap_ensure_allocated(&m->public_keys, &public_key_hash_ops);
-        if (r < 0)
-                return log_oom();
-
         pkey = PEM_read_PUBKEY(f, &pkey, NULL, NULL);
         if (!pkey)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to parse public key file %s.", path);
 
-        r = hashmap_put(m->public_keys, fn, pkey);
+        r = hashmap_ensure_put(&m->public_keys, &public_key_hash_ops, fn, pkey);
         if (r < 0)
                 return log_error_errno(r, "Failed to add public key to set: %m");
 
