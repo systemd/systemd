@@ -995,5 +995,5 @@ bool generator_soft_rebooted(void) {
                 return (cached = false);
         }
 
-        return (cached = u > 0);
+        return (cached = (u > 0));
 }
