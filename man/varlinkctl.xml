@@ -64,6 +64,18 @@
     <cmdsynopsis>
       <command>varlinkctl</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">--exec call</arg>
+      <arg choice="plain">call</arg>
+      <arg choice="plain"><replaceable>ADDRESS</replaceable></arg>
+      <arg choice="plain"><replaceable>METHOD</replaceable></arg>
+      <arg choice="plain"><replaceable>ARGUMENTS</replaceable></arg>
+      <arg choice="plain">--</arg>
+      <arg choice="plain"><replaceable>CMDLINE</replaceable></arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis>
+      <command>varlinkctl</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
       <arg choice="plain">validate-idl</arg>
       <arg choice="opt"><replaceable>FILE</replaceable></arg>
     </cmdsynopsis>
@@ -307,6 +319,22 @@
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--exec</option></term>
+
+        <listitem>
+          <para>Once the method call issued via <command>call</command> completed successfully, chainload the
+          specified command line, with the method call output parameters serialized to JSON passed into
+          standard input (and standard output and standard error inherited from the invoking
+          process). Moreover any file descriptors passed back on the underlying communication socket are
+          passed to the invoked process via the usual <varname>$LISTEN_FDS</varname> protocol. This
+          functionality may be used to consume replies that come with associated file descriptors in a
+          reasonable way.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="no-pager" />
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
@@ -349,7 +377,9 @@ type ResolvedAddress(
     <example>
       <title>Invoking a Method</title>
 
-      <para>The following command resolves a hostname via <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>'s <function>ResolveHostname</function>  method call.</para>
+      <para>The following command resolves a hostname via
+      <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>'s
+      <function>ResolveHostname</function> method call.</para>
 
       <programlisting>$ varlinkctl call /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.ResolveHostname '{"name":"systemd.io","family":2}' -j
 {
