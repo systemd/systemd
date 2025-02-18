@@ -4757,6 +4757,19 @@ int exec_invoke(
                 }
         }
 
+        if (context->memory_ksm >= 0)
+                if (prctl(PR_SET_MEMORY_MERGE, context->memory_ksm, 0, 0, 0) < 0) {
+                        if (ERRNO_IS_NOT_SUPPORTED(errno))
+                                log_exec_debug_errno(context,
+                                                     params,
+                                                     errno,
+                                                     "KSM support not available, ignoring.");
+                        else {
+                                *exit_status = EXIT_KSM;
+                                return log_exec_error_errno(context, params, errno, "Failed to set KSM: %m");
+                        }
+                }
+
 #if ENABLE_UTMP
         if (context->utmp_id) {
                 _cleanup_free_ char *username_alloc = NULL;
@@ -5144,19 +5157,6 @@ int exec_invoke(
                 if (r < 0)
                         return r;
         }
-
-        if (context->memory_ksm >= 0)
-                if (prctl(PR_SET_MEMORY_MERGE, context->memory_ksm, 0, 0, 0) < 0) {
-                        if (ERRNO_IS_NOT_SUPPORTED(errno))
-                                log_exec_debug_errno(context,
-                                                     params,
-                                                     errno,
-                                                     "KSM support not available, ignoring.");
-                        else {
-                                *exit_status = EXIT_KSM;
-                                return log_exec_error_errno(context, params, errno, "Failed to set KSM: %m");
-                        }
-                }
 
         /* Drop groups as early as possible.
          * This needs to be done after PrivateDevices=yes setup as device nodes should be owned by the host's root.
