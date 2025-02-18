@@ -419,7 +419,10 @@ int ask_string_full(
                         /* Ctrl-u → erase all input */
 
                         clear_by_backspace(utf8_console_width(string));
-                        string[n = 0] = 0;
+                        if (string)
+                                string[n = 0] = 0;
+                        else
+                                assert(n == 0);
 
                 } else if (c == 4) {
                         /* Ctrl-d → cancel this field input */
