@@ -108,6 +108,9 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached();
                 }
 
+        if (optind >= argc)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expected command line, refusing.");
+
         return 1;
 }
 
@@ -155,6 +158,8 @@ static int run(int argc, char *argv[]) {
         _cleanup_strv_free_ char **l = strv_copy(argv + optind);
         if (!l)
                 return log_oom();
+
+        assert_se(!strv_isempty(l));
 
         r = sd_event_default(&event);
         if (r < 0)
