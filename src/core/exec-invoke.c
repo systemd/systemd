@@ -883,16 +883,16 @@ static int get_fixed_group(
         return 0;
 }
 
-static int get_supplementary_groups(const ExecContext *c, const char *user,
-                                    const char *group, gid_t gid,
-                                    gid_t **supplementary_gids, int *ngids) {
-        int r, k = 0;
-        int ngroups_max;
-        bool keep_groups = false;
-        gid_t *groups = NULL;
-        _cleanup_free_ gid_t *l_gids = NULL;
+static int get_supplementary_groups(
+                const ExecContext *c,
+                const char *user,
+                gid_t gid,
+                gid_t **ret_gids) {
+
+        int r;
 
         assert(c);
+        assert(ret_gids);
 
         /*
          * If user is given, then lookup GID and supplementary groups list.
@@ -900,6 +900,7 @@ static int get_supplementary_groups(const ExecContext *c, const char *user,
          * here and as early as possible so we keep the list of supplementary
          * groups of the caller.
          */
+        bool keep_groups = false;
         if (user && gid_is_valid(gid) && gid != 0) {
                 /* First step, initialize groups from /etc/groups */
                 if (initgroups(user, gid) < 0)
@@ -908,22 +909,25 @@ static int get_supplementary_groups(const ExecContext *c, const char *user,
                 keep_groups = true;
         }
 
-        if (strv_isempty(c->supplementary_groups))
+        if (strv_isempty(c->supplementary_groups)) {
+                *ret_gids = NULL;
                 return 0;
+        }
 
         /*
          * If SupplementaryGroups= was passed then NGROUPS_MAX has to
          * be positive, otherwise fail.
          */
         errno = 0;
-        ngroups_max = (int) sysconf(_SC_NGROUPS_MAX);
+        int ngroups_max = (int) sysconf(_SC_NGROUPS_MAX);
         if (ngroups_max <= 0)
                 return errno_or_else(EOPNOTSUPP);
 
-        l_gids = new(gid_t, ngroups_max);
+        _cleanup_free_ gid_t *l_gids = new(gid_t, ngroups_max);
         if (!l_gids)
                 return -ENOMEM;
 
+        int k = 0;
         if (keep_groups) {
                 /*
                  * Lookup the list of groups that the user belongs to, we
@@ -932,43 +936,32 @@ static int get_supplementary_groups(const ExecContext *c, const char *user,
                 k = ngroups_max;
                 if (getgrouplist(user, gid, l_gids, &k) < 0)
                         return -EINVAL;
-        } else
-                k = 0;
+        }
 
         STRV_FOREACH(i, c->supplementary_groups) {
-                const char *g;
-
                 if (k >= ngroups_max)
                         return -E2BIG;
 
-                g = *i;
-                r = get_group_creds(&g, l_gids+k, 0);
+                const char *g = *i;
+                r = get_group_creds(&g, l_gids + k, /* flags = */ 0);
                 if (r < 0)
                         return r;
 
                 k++;
         }
 
-        /*
-         * Sets ngids to zero to drop all supplementary groups, happens
-         * when we are under root and SupplementaryGroups= is empty.
-         */
         if (k == 0) {
-                *ngids = 0;
+                *ret_gids = NULL;
                 return 0;
         }
 
         /* Otherwise get the final list of supplementary groups */
-        groups = memdup(l_gids, sizeof(gid_t) * k);
+        gid_t *groups = newdup(gid_t, l_gids, k);
         if (!groups)
                 return -ENOMEM;
 
-        *supplementary_gids = groups;
-        *ngids = k;
-
-        groups = NULL;
-
-        return 0;
+        *ret_gids = groups;
+        return k;
 }
 
 static int enforce_groups(gid_t gid, const gid_t *supplementary_gids, int ngids) {
@@ -4600,8 +4593,7 @@ int exec_invoke(
                 int *exit_status) {
 
         _cleanup_strv_free_ char **our_env = NULL, **pass_env = NULL, **joined_exec_search_path = NULL, **accum_env = NULL, **replaced_argv = NULL;
-        int r, ngids = 0;
-        _cleanup_free_ gid_t *supplementary_gids = NULL;
+        int r;
         const char *username = NULL, *groupname = NULL;
         _cleanup_free_ char *home_buffer = NULL, *memory_pressure_path = NULL, *own_user = NULL;
         const char *pwent_home = NULL, *shell = NULL;
@@ -4633,9 +4625,8 @@ int exec_invoke(
         size_t n_fds, /* fds to pass to the child */
                n_keep_fds; /* total number of fds not to close */
         int secure_bits;
-        _cleanup_free_ gid_t *gids_after_pam = NULL;
-        int ngids_after_pam = 0;
-
+        _cleanup_free_ gid_t *gids = NULL, *gids_after_pam = NULL;
+        int ngids = 0, ngids_after_pam = 0;
         int socket_fd = -EBADF, named_iofds[3] = EBADF_TRIPLET;
         size_t n_storage_fds, n_socket_fds, n_extra_fds;
 
@@ -4874,11 +4865,10 @@ int exec_invoke(
         }
 
         /* Initialize user supplementary groups and get SupplementaryGroups= ones */
-        r = get_supplementary_groups(context, username, groupname, gid,
-                                     &supplementary_gids, &ngids);
-        if (r < 0) {
+        ngids = get_supplementary_groups(context, username, gid, &gids);
+        if (ngids < 0) {
                 *exit_status = EXIT_GROUP;
-                return log_exec_error_errno(context, params, r, "Failed to determine supplementary groups: %m");
+                return log_exec_error_errno(context, params, ngids, "Failed to determine supplementary groups: %m");
         }
 
         r = send_user_lookup(params->unit_id, params->user_lookup_fd, uid, gid);
@@ -5382,9 +5372,9 @@ int exec_invoke(
          * For non-root in a userns, devices will be owned by the user/group before the group change, and nobody. */
         if (needs_setuid) {
                 _cleanup_free_ gid_t *gids_to_enforce = NULL;
-                int ngids_to_enforce = 0;
+                int ngids_to_enforce;
 
-                ngids_to_enforce = merge_gid_lists(supplementary_gids,
+                ngids_to_enforce = merge_gid_lists(gids,
                                                    ngids,
                                                    gids_after_pam,
                                                    ngids_after_pam,
