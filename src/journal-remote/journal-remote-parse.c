@@ -6,20 +6,20 @@
 #include "parse-util.h"
 #include "string-util.h"
 
-void source_free(RemoteSource *source) {
+RemoteSource* source_free(RemoteSource *source) {
         if (!source)
-                return;
+                return NULL;
 
         journal_importer_cleanup(&source->importer);
 
-        log_debug("Writer ref count %u", source->writer->n_ref);
+        log_trace("Writer ref count %u", source->writer->n_ref);
         writer_unref(source->writer);
 
         sd_event_source_unref(source->event);
         sd_event_source_unref(source->buffer_event);
 
         free(source->encoding);
-        free(source);
+        return mfree(source);
 }
 
 /**
