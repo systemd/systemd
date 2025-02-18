@@ -556,7 +556,7 @@ static void automount_enter_waiting(Automount *a) {
 
         set_clear(a->tokens);
 
-        r = unit_fail_if_noncanonical(UNIT(a), a->where);
+        r = unit_fail_if_noncanonical_mount_path(UNIT(a), a->where);
         if (r < 0)
                 goto fail;
 
