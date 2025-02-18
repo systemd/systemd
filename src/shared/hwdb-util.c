@@ -467,7 +467,7 @@ static int import_file(struct trie *trie, const char *filename, uint16_t file_pr
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_strv_free_ char **match_list = NULL;
         uint32_t line_number = 0;
-        int r, err;
+        int r;
 
         f = fopen(filename, "re");
         if (!f)
@@ -507,24 +507,23 @@ static int import_file(struct trie *trie, const char *filename, uint16_t file_pr
                                 break;
 
                         if (line[0] == ' ') {
-                                r = log_syntax(NULL, LOG_WARNING, filename, line_number, SYNTHETIC_ERRNO(EINVAL),
-                                               "Match expected but got indented property \"%s\", ignoring line.", line);
+                                log_syntax(NULL, LOG_WARNING, filename, line_number, 0,
+                                           "Match expected but got indented property \"%s\", ignoring line.", line);
                                 break;
                         }
 
                         /* start of record, first match */
                         state = HW_MATCH;
 
-                        err = strv_extend(&match_list, line);
-                        if (err < 0)
-                                return err;
-
+                        r = strv_extend(&match_list, line);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case HW_MATCH:
                         if (len == 0) {
-                                r = log_syntax(NULL, LOG_WARNING, filename, line_number, SYNTHETIC_ERRNO(EINVAL),
-                                               "Property expected, ignoring record with no properties.");
+                                log_syntax(NULL, LOG_WARNING, filename, line_number, 0,
+                                           "Property expected, ignoring record with no properties.");
                                 state = HW_NONE;
                                 match_list = strv_free(match_list);
                                 break;
@@ -532,18 +531,15 @@ static int import_file(struct trie *trie, const char *filename, uint16_t file_pr
 
                         if (line[0] != ' ') {
                                 /* another match */
-                                err = strv_extend(&match_list, line);
-                                if (err < 0)
-                                        return err;
-
+                                r = strv_extend(&match_list, line);
+                                if (r < 0)
+                                        return r;
                                 break;
                         }
 
                         /* first data */
                         state = HW_DATA;
-                        err = insert_data(trie, match_list, line, filename, file_priority, line_number, compat);
-                        if (err < 0)
-                                r = err;
+                        (void) insert_data(trie, match_list, line, filename, file_priority, line_number, compat);
                         break;
 
                 case HW_DATA:
@@ -555,16 +551,14 @@ static int import_file(struct trie *trie, const char *filename, uint16_t file_pr
                         }
 
                         if (line[0] != ' ') {
-                                r = log_syntax(NULL, LOG_WARNING, filename, line_number, SYNTHETIC_ERRNO(EINVAL),
-                                               "Property or empty line expected, got \"%s\", ignoring record.", line);
+                                log_syntax(NULL, LOG_WARNING, filename, line_number, 0,
+                                           "Property or empty line expected, got \"%s\", ignoring record.", line);
                                 state = HW_NONE;
                                 match_list = strv_free(match_list);
                                 break;
                         }
 
-                        err = insert_data(trie, match_list, line, filename, file_priority, line_number, compat);
-                        if (err < 0)
-                                r = err;
+                        (void) insert_data(trie, match_list, line, filename, file_priority, line_number, compat);
                         break;
                 };
         }
