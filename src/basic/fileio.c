@@ -375,8 +375,10 @@ int write_string_file_full(
         return 0;
 
 fail:
-        if (call_label_ops_post)
-                (void) label_ops_post(fd >= 0 ? fd : dir_fd, fd >= 0 ? NULL : fn, made_file);
+        if (call_label_ops_post) {
+                assert(fd < 0);
+                (void) label_ops_post(dir_fd, fn, made_file);
+        }
 
         if (made_file)
                 (void) unlinkat(dir_fd, fn, 0);
