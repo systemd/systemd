@@ -884,7 +884,7 @@ DuplicateAddressDetection=none</programlisting></para>
         <term><varname>IPMasquerade=</varname></term>
         <listitem>
           <para>Configures IP masquerading for the network interface. If enabled, packets forwarded
-          from the network interface will be appear as coming from the local host. Typically, this should be
+          from the network interface will appear as coming from the local host. Typically, this should be
           enabled on the downstream interface of routers. Takes one of <literal>ipv4</literal>,
           <literal>ipv6</literal>, <literal>both</literal>, or <literal>no</literal>. Defaults to
           <literal>no</literal>. Note that any positive boolean values such as <literal>yes</literal> or
@@ -1359,7 +1359,7 @@ DuplicateAddressDetection=none</programlisting></para>
           <citerefentry project='man-pages'><refentrytitle>inet_pton</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
           If set to true, then the IPv4 broadcast address will be derived from the
           <varname>Address=</varname> setting. If set to false, then the broadcast address will not be
-          set. Defaults to true, except for wireguard interfaces, where it default to false.</para>
+          set. Defaults to true, except for wireguard interfaces, where it defaults to false.</para>
 
           <xi:include href="version-info.xml" xpointer="v211"/>
         </listitem>
@@ -4932,7 +4932,7 @@ ServerAddress=192.168.0.1/24</programlisting>
         </listitem>
       </varlistentry>
       <varlistentry>
-        <term><varname>PresumeAck=</varname></term>
+        <term><varname>PresumeACK=</varname></term>
         <listitem>
           <para>Takes a boolean. When <literal>yes</literal>, the interface will ignore missing CAN
           ACKs. When unset, the kernel's default will be used.</para>
