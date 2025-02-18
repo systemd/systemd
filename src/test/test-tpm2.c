@@ -810,7 +810,7 @@ static void get_tpm2b_public_from_pem(const void *pem, size_t pem_size, TPM2B_PU
         assert(pem);
         assert(ret);
 
-        assert_se(openssl_pkey_from_pem(pem, pem_size, &pkey) >= 0);
+        assert_se(openssl_pubkey_from_pem(pem, pem_size, &pkey) >= 0);
         assert_se(tpm2_tpm2b_public_from_openssl_pkey(pkey, &p1) >= 0);
         assert_se(tpm2_tpm2b_public_from_pem(pem, pem_size, &p2) >= 0);
         assert_se(memcmp_nn(&p1, sizeof(p1), &p2, sizeof(p2)) == 0);
