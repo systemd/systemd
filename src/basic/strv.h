@@ -269,4 +269,4 @@ int _string_strv_ordered_hashmap_put(OrderedHashmap **h, const char *key, const 
 
 int strv_rebreak_lines(char **l, size_t width, char ***ret);
 
-char** strv_filter_prefix(char *const*l, const char *prefix);
+char** strv_filter_prefix(char * const *l, const char *prefix);
