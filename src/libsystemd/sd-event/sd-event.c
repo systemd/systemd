@@ -3760,7 +3760,7 @@ static int process_child(sd_event *e, int64_t threshold, int64_t *ret_min_priori
                         return negative_errno();
 
                 if (s->child.siginfo.si_pid != 0) {
-                        bool zombie = IN_SET(s->child.siginfo.si_code, CLD_EXITED, CLD_KILLED, CLD_DUMPED);
+                        bool zombie = SIGINFO_CODE_IS_DEAD(s->child.siginfo.si_code);
 
                         if (zombie)
                                 s->child.exited = true;
@@ -3809,7 +3809,7 @@ static int process_pidfd(sd_event *e, sd_event_source *s, uint32_t revents) {
         if (s->child.siginfo.si_pid == 0)
                 return 0;
 
-        if (IN_SET(s->child.siginfo.si_code, CLD_EXITED, CLD_KILLED, CLD_DUMPED))
+        if (SIGINFO_CODE_IS_DEAD(s->child.siginfo.si_code))
                 s->child.exited = true;
 
         return source_set_pending(s, true);
@@ -4222,9 +4222,7 @@ static int source_dispatch(sd_event_source *s) {
                 break;
 
         case SOURCE_CHILD: {
-                bool zombie;
-
-                zombie = IN_SET(s->child.siginfo.si_code, CLD_EXITED, CLD_KILLED, CLD_DUMPED);
+                bool zombie = SIGINFO_CODE_IS_DEAD(s->child.siginfo.si_code);
 
                 r = s->child.callback(s, &s->child.siginfo, s->userdata);
 

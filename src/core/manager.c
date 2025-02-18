@@ -2990,7 +2990,7 @@ static int manager_dispatch_sigchld(sd_event_source *source, void *userdata) {
         if (si.si_pid <= 0)
                 goto turn_off;
 
-        if (IN_SET(si.si_code, CLD_EXITED, CLD_KILLED, CLD_DUMPED)) {
+        if (SIGINFO_CODE_IS_DEAD(si.si_code)) {
                 _cleanup_free_ char *name = NULL;
                 (void) pid_get_comm(si.si_pid, &name);
 
