@@ -151,6 +151,8 @@ AddressFamily dhcp_deprecated_address_family_from_string(const char *s) _pure_;
 const char* dhcp_lease_server_type_to_string(sd_dhcp_lease_server_type_t t) _const_;
 sd_dhcp_lease_server_type_t dhcp_lease_server_type_from_string(const char *s) _pure_;
 
+bool link_should_mark_config(Link *link, bool only_static, NetworkConfigSource source, uint8_t protocol);
+
 int log_link_message_full_errno(Link *link, sd_netlink_message *m, int level, int err, const char *msg);
 #define log_link_message_error_errno(link, m, err, msg)   log_link_message_full_errno(link, m, LOG_ERR, err, msg)
 #define log_link_message_warning_errno(link, m, err, msg) log_link_message_full_errno(link, m, LOG_WARNING, err, msg)
