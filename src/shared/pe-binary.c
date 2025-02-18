@@ -58,7 +58,7 @@ const IMAGE_SECTION_HEADER* pe_section_table_find(
 
         FOREACH_ARRAY(section, sections, n_sections)
                 if (memcmp(section->Name, name, n) == 0 &&
-                    memeqzero(section->Name + n, sizeof(section->Name) - n))
+                    (n == sizeof(sections[0].Name) || memeqzero(section->Name + n, sizeof(section->Name) - n)))
                         return section;
 
         return NULL;
