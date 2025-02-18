@@ -10,7 +10,6 @@
 
 typedef enum RegisterMachineFlags {
         REGISTER_MACHINE_KEEP_UNIT   = 1 << 0,
-        REGISTER_MACHINE_ENABLE_FUSE = 1 << 1,
 } RegisterMachineFlags;
 
 int register_machine(
@@ -32,7 +31,6 @@ int unregister_machine(sd_bus *bus, const char *machine_name);
 
 typedef enum AllocateScopeFlags {
         ALLOCATE_SCOPE_ALLOW_PIDFD = 1 << 0,
-        ALLOCATE_SCOPE_ENABLE_FUSE = 1 << 1,
 } AllocateScopeFlags;
 
 int allocate_scope(
