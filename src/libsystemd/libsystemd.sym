@@ -1069,6 +1069,7 @@ global:
         sd_varlink_get_current_method;
         sd_varlink_get_description;
         sd_varlink_get_input_fd;
+        sd_varlink_get_n_fds;
         sd_varlink_get_output_fd;
         sd_varlink_reset_fds;
         sd_varlink_server_listen_name;
