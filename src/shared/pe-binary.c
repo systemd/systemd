@@ -30,7 +30,7 @@ static size_t pe_header_size(const PeHeader *pe_header) {
         return offsetof(PeHeader, optional) + le16toh(pe_header->pe.SizeOfOptionalHeader);
 }
 
-const IMAGE_DATA_DIRECTORY *pe_header_get_data_directory(
+const IMAGE_DATA_DIRECTORY* pe_header_get_data_directory(
                 const PeHeader *h,
                 size_t i) {
 
@@ -42,7 +42,7 @@ const IMAGE_DATA_DIRECTORY *pe_header_get_data_directory(
         return PE_HEADER_OPTIONAL_FIELD(h, DataDirectory) + i;
 }
 
-const IMAGE_SECTION_HEADER *pe_section_table_find(
+const IMAGE_SECTION_HEADER* pe_section_table_find(
                 const IMAGE_SECTION_HEADER *sections,
                 size_t n_sections,
                 const char *name) {
