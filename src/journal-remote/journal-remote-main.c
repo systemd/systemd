@@ -186,24 +186,22 @@ static int build_accept_encoding(char **ret) {
 }
 
 static int request_meta(void **connection_cls, int fd, char *hostname) {
-        RemoteSource *source;
-        Writer *writer;
         int r;
 
         assert(connection_cls);
-        if (*connection_cls)
-                return 0;
 
+        if (*connection_cls)
+                return 0; /* already assigned. */
+
+        Writer *writer;
         r = journal_remote_get_writer(journal_remote_server_global, hostname, &writer);
         if (r < 0)
                 return log_warning_errno(r, "Failed to get writer for source %s: %m",
                                          hostname);
 
-        source = source_new(fd, true, hostname, writer);
-        if (!source) {
-                writer_unref(writer);
+        _cleanup_(source_freep) RemoteSource *source = source_new(fd, true, hostname, writer);
+        if (!source)
                 return log_oom();
-        }
 
         log_debug("Added RemoteSource as connection metadata %p", source);
 
@@ -212,7 +210,7 @@ static int request_meta(void **connection_cls, int fd, char *hostname) {
                 return log_oom();
 
         source->compression = COMPRESSION_NONE;
-        *connection_cls = source;
+        *connection_cls = TAKE_PTR(source);
         return 0;
 }
 
