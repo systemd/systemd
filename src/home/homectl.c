@@ -1407,7 +1407,7 @@ static int bus_message_append_blobs(sd_bus_message *m, Hashmap *blobs) {
         return sd_bus_message_close_container(m);
 }
 
-static int create_home_common(sd_json_variant *input) {
+static int create_home_common(sd_json_variant *input, bool show_enforce_password_policy_hint) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
         _cleanup_hashmap_free_ Hashmap *blobs = NULL;
@@ -1497,7 +1497,8 @@ static int create_home_common(sd_json_variant *input) {
                                 _cleanup_(erase_and_freep) char *new_password = NULL;
 
                                 log_error_errno(r, "%s", bus_error_message(&error, r));
-                                log_info("(Use --enforce-password-policy=no to turn off password quality checks for this account.)");
+                                if (show_enforce_password_policy_hint)
+                                        log_info("(Use --enforce-password-policy=no to turn off password quality checks for this account.)");
 
                                 r = acquire_new_password(hr->user_name, hr, /* suggest = */ false, &new_password);
                                 if (r < 0)
@@ -1550,7 +1551,7 @@ static int create_home(int argc, char *argv[], void *userdata) {
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "User name required.");
         }
 
-        return create_home_common(/* input= */ NULL);
+        return create_home_common(/* input= */ NULL, /* show_enforce_password_policy_hint= */ true);
 }
 
 static int remove_home(int argc, char *argv[], void *userdata) {
@@ -2392,7 +2393,7 @@ static int create_from_credentials(void) {
 
                 log_notice("Processing user '%s' from credentials.", e);
 
-                r = create_home_common(identity);
+                r = create_home_common(identity, /* show_enforce_password_policy_hint= */ false);
                 if (r >= 0)
                         n_created++;
 
@@ -2548,6 +2549,18 @@ static int create_interactively(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to set userName field: %m");
 
+        /* Let's not insist on a strong password in the firstboot interactive interface. Insisting on this is
+         * really annoying, as the user cannot just invoke the tool again with "--enforce-password-policy=no"
+         * because after all the tool is called from the boot process, and not from an interactive
+         * shell. Moreover, when setting up an initial system we can assume the user owns it, and hence we
+         * don't need to hard enforce some policy on password strength some organization or OS vendor
+         * requires. Note that this just disables the *strict* enforcement of the password policy. Even with
+         * this disabled we'll still tell the user in the UI that the password is too weak and suggest better
+         * ones, even if we then accept the weak ones if the user insists, by repeating it. */
+        r = sd_json_variant_set_field_boolean(&arg_identity_extra, "enforcePasswordPolicy", false);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set enforcePasswordPolicy field: %m");
+
         _cleanup_strv_free_ char **available = NULL, **groups = NULL;
         for (;;) {
                 _cleanup_free_ char *s = NULL;
@@ -2682,7 +2695,7 @@ static int create_interactively(void) {
                         return log_error_errno(r, "Failed to set shell field: %m");
         }
 
-        return create_home_common(/* input= */ NULL);
+        return create_home_common(/* input= */ NULL, /* show_enforce_password_policy_hint= */ false);
 }
 
 static int verb_firstboot(int argc, char *argv[], void *userdata) {
