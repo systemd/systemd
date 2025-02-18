@@ -2467,7 +2467,7 @@
           <para>Takes a boolean. Specifies that duplicate frames (received on inactive ports)
           should be dropped when false, or delivered when true. Normally, bonding will drop
           duplicate frames (received on inactive ports), which is desirable for
-          most users. But there are sometimes it is nice to allow duplicate
+          most users. But there are some cases where it is nice to allow duplicate
           frames to be delivered. The default value is false (drop duplicate frames
           received on inactive ports).
           </para>

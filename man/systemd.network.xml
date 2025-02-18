@@ -1359,7 +1359,7 @@ DuplicateAddressDetection=none</programlisting></para>
           <citerefentry project='man-pages'><refentrytitle>inet_pton</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
           If set to true, then the IPv4 broadcast address will be derived from the
           <varname>Address=</varname> setting. If set to false, then the broadcast address will not be
-          set. Defaults to true, except for wireguard interfaces, where it will default to false.</para>
+          set. Defaults to true, except for wireguard interfaces, where it defaults to false.</para>
 
           <xi:include href="version-info.xml" xpointer="v211"/>
         </listitem>

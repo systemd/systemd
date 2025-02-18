@@ -5613,7 +5613,7 @@ CHANGES WITH 250:
           IP addresses outside of the configured IP pool range for the server.
 
         * CAN support in systemd-networkd gained four new settings Loopback=,
-          OneShot=, PresumeAck=, ClassicDataLengthCode= for tweaking CAN
+          OneShot=, PresumeACK=, ClassicDataLengthCode= for tweaking CAN
           control modes. It gained a number of further settings for tweaking
           CAN timing quanta.
 
