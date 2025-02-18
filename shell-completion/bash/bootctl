@@ -71,6 +71,7 @@ _bootctl() {
         [STANDALONE]='help status install update remove is-installed random-seed systemd-efi-options list set-timeout set-timeout-oneshot cleanup'
         [BOOTENTRY]='set-default set-oneshot unlink'
         [BOOLEAN]='reboot-to-firmware'
+        [FILE]='kernel-identify kernel-inspect'
     )
 
     for ((i=0; i < COMP_CWORD; i++)); do
@@ -101,6 +102,9 @@ _bootctl() {
         fi
     elif __contains_word "$verb" ${VERBS[BOOLEAN]}; then
         comps="yes no"
+    elif __contains_word "$verb" ${VERBS[FILE]}; then
+        comps=$( compgen -A file -- "$cur" )
+        compopt -o filenames
     fi
 
     COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
