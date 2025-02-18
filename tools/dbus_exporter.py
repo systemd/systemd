@@ -1,14 +1,22 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: LGPL-2.1-or-later
+import os
 from argparse import ArgumentParser
 from pathlib import Path
 from subprocess import PIPE, run
 
 
 def extract_interfaces_xml(output_dir, executable):
+    # If proc is not mounted, set LD_ORIGIN_PATH so that shared/core libs can be found,
+    # as glibc looks at /proc/self/exe when resolving RPATH
+    env = os.environ.copy()
+    if not os.path.exists('/proc/self'):
+        env["LD_ORIGIN_PATH"] = executable.parent.as_posix()
+
     proc = run(
         args=[executable.absolute(), '--bus-introspect', 'list'],
         stdout=PIPE,
+        env=env,
         check=True,
         universal_newlines=True)
 
@@ -18,6 +26,7 @@ def extract_interfaces_xml(output_dir, executable):
         proc = run(
             args=[executable.absolute(), '--bus-introspect', interface_name],
             stdout=PIPE,
+            env=env,
             check=True,
             universal_newlines=True)
 
