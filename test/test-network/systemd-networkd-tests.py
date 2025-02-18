@@ -4945,6 +4945,24 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'DNS: 192.168.42.1')
         self.assertRegex(output, 'Search Domains: one')
 
+    def test_keep_configuration_yes(self):
+        check_output('ip link add dummy98 type dummy')
+        check_output('ip link set dev dummy98 up')
+        check_output('ip address add 198.51.100.1/24 brd 198.51.100.255 dev dummy98')
+        check_output('ip route add 203.0.113.0/24 via 198.51.100.10 dev dummy98 proto boot')
+
+        copy_network_unit('24-keep-configuration-yes.network')
+        start_networkd()
+        self.wait_online('dummy98:routable')
+
+        output = check_output('ip address show dummy98')
+        print(output)
+        self.assertIn('inet 198.51.100.1/24 brd 198.51.100.255 scope global dummy98', output)
+
+        output = check_output('ip -d -4 route show dev dummy98')
+        print(output)
+        self.assertIn('203.0.113.0/24 via 198.51.100.10 proto boot', output)
+
     def test_keep_configuration_static(self):
         check_output('ip link add name dummy98 type dummy')
         check_output('ip address add 10.1.2.3/16 dev dummy98')

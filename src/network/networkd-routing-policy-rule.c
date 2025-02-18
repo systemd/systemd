@@ -822,20 +822,11 @@ int link_drop_routing_policy_rules(Link *link, bool only_static) {
                 if (rule->protocol == RTPROT_KERNEL)
                         continue;
 
-                if (only_static) {
-                        /* When 'only_static' is true, mark only static rules. */
-                        if (rule->source != NETWORK_CONFIG_SOURCE_STATIC)
-                                continue;
-                } else {
-                        /* Do not mark foreign rules when KeepConfiguration= is enabled. */
-                        if (rule->source == NETWORK_CONFIG_SOURCE_FOREIGN &&
-                            link->network &&
-                            FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_STATIC))
-                                continue;
-                }
-
                 /* Ignore rules not assigned yet or already removing. */
                 if (!routing_policy_rule_exists(rule))
+                        continue;
+
+                if (!link_should_mark_config(link, only_static, rule->source, rule->protocol))
                         continue;
 
                 routing_policy_rule_mark(rule);
