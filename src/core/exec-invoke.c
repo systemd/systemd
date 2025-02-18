@@ -648,6 +648,7 @@ static int setup_confirm_stdio(
         _cleanup_close_ int fd = -EBADF, saved_stdin = -EBADF, saved_stdout = -EBADF;
         int r;
 
+        assert(context);
         assert(ret_saved_stdin);
         assert(ret_saved_stdout);
 
@@ -1017,8 +1018,10 @@ static int enforce_user(
                 const ExecContext *context,
                 uid_t uid,
                 uint64_t capability_ambient_set) {
-        assert(context);
+
         int r;
+
+        assert(context);
 
         if (!uid_is_valid(uid))
                 return 0;
@@ -1338,6 +1341,8 @@ static bool context_has_syscall_logs(const ExecContext *c) {
 }
 
 static bool context_has_seccomp(const ExecContext *c) {
+        assert(c);
+
         /* We need NNP if we have any form of seccomp and are unprivileged */
         return c->lock_personality ||
                 c->memory_deny_write_execute ||
@@ -1399,7 +1404,10 @@ static bool seccomp_allows_drop_privileges(const ExecContext *c) {
                 return !(has_capget || has_capset || has_prctl);
 }
 
-static bool skip_seccomp_unavailable(const ExecContext *c, const ExecParameters *p, const char* msg) {
+static bool skip_seccomp_unavailable(const ExecContext *c, const ExecParameters *p, const char *msg) {
+        assert(c);
+        assert(p);
+        assert(msg);
 
         if (is_seccomp_available())
                 return false;
@@ -1702,6 +1710,7 @@ static int apply_restrict_filesystems(const ExecContext *c, const ExecParameters
 static int apply_protect_hostname(const ExecContext *c, const ExecParameters *p, int *ret_exit_status) {
         assert(c);
         assert(p);
+        assert(ret_exit_status);
 
         if (!c->protect_hostname)
                 return 0;
@@ -1805,6 +1814,7 @@ static int build_environment(
 
         assert(c);
         assert(p);
+        assert(cgroup_context);
         assert(ret);
 
 #define N_ENV_VARS 19
@@ -2025,7 +2035,7 @@ static int build_environment(
 
                 our_env[n_env++] = x;
 
-                if (cgroup_context && !path_equal(memory_pressure_path, "/dev/null")) {
+                if (!path_equal(memory_pressure_path, "/dev/null")) {
                         _cleanup_free_ char *b = NULL, *e = NULL;
 
                         if (asprintf(&b, "%s " USEC_FMT " " USEC_FMT,
@@ -2058,6 +2068,9 @@ static int build_pass_environment(const ExecContext *c, char ***ret) {
         _cleanup_strv_free_ char **pass_env = NULL;
         size_t n_env = 0;
 
+        assert(c);
+        assert(ret);
+
         STRV_FOREACH(i, c->pass_environment) {
                 _cleanup_free_ char *x = NULL;
                 char *v;
@@ -2077,7 +2090,6 @@ static int build_pass_environment(const ExecContext *c, char ***ret) {
         }
 
         *ret = TAKE_PTR(pass_env);
-
         return 0;
 }
 
@@ -2282,7 +2294,7 @@ static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogi
         return 1;
 }
 
-static int can_mount_proc(const ExecContext *c, ExecParameters *p) {
+static int can_mount_proc(const ExecContext *c, const ExecParameters *p) {
         _cleanup_close_pair_ int errno_pipe[2] = EBADF_PAIR;
         _cleanup_(sigkill_waitp) pid_t pid = 0;
         ssize_t n;
@@ -2784,11 +2796,12 @@ fail:
 
 #if ENABLE_SMACK
 static int setup_smack(
-                const ExecParameters *params,
                 const ExecContext *context,
+                const ExecParameters *params,
                 int executable_fd) {
         int r;
 
+        assert(context);
         assert(params);
         assert(executable_fd >= 0);
 
@@ -3056,13 +3069,14 @@ static int setup_ephemeral(
         int r;
 
         assert(context);
+        assert(runtime);
         assert(root_image);
         assert(root_directory);
 
         if (!*root_image && !*root_directory)
                 return 0;
 
-        if (!runtime || !runtime->ephemeral_copy)
+        if (!runtime->ephemeral_copy)
                 return 0;
 
         assert(runtime->ephemeral_storage_socket[0] >= 0);
@@ -3274,6 +3288,8 @@ static int apply_mount_namespace(
         int r;
 
         assert(context);
+        assert(params);
+        assert(runtime);
 
         CLEANUP_ARRAY(bind_mounts, n_bind_mounts, bind_mount_free_many);
 
@@ -3321,7 +3337,7 @@ static int apply_mount_namespace(
                  * to world users. Inside of it there's a /tmp that is sticky, and that's the one we want to
                  * use here.  This does not apply when we are using /run/systemd/empty as fallback. */
 
-                if (context->private_tmp == PRIVATE_TMP_CONNECTED && runtime && runtime->shared) {
+                if (context->private_tmp == PRIVATE_TMP_CONNECTED && runtime->shared) {
                         if (streq_ptr(runtime->shared->tmp_dir, RUN_SYSTEMD_EMPTY))
                                 tmp_dir = runtime->shared->tmp_dir;
                         else if (runtime->shared->tmp_dir)
@@ -3511,6 +3527,8 @@ static int apply_working_directory(
         int r;
 
         assert(context);
+        assert(params);
+        assert(runtime);
 
         if (context->working_directory_home) {
                 if (!home)
@@ -3526,7 +3544,7 @@ static int apply_working_directory(
                 _cleanup_close_ int dfd = -EBADF;
 
                 r = chase(wd,
-                          (runtime ? runtime->ephemeral_copy : NULL) ?: context->root_directory,
+                          runtime->ephemeral_copy ?: context->root_directory,
                           CHASE_PREFIX_ROOT|CHASE_AT_RESOLVE_IN_ROOT,
                           /* ret_path= */ NULL,
                           &dfd);
@@ -3544,11 +3562,13 @@ static int apply_root_directory(
                 int *exit_status) {
 
         assert(context);
+        assert(params);
+        assert(runtime);
         assert(exit_status);
 
         if (params->flags & EXEC_APPLY_CHROOT)
                 if (!needs_mount_ns && context->root_directory)
-                        if (chroot((runtime ? runtime->ephemeral_copy : NULL) ?: context->root_directory) < 0) {
+                        if (chroot(runtime->ephemeral_copy ?: context->root_directory) < 0) {
                                 *exit_status = EXIT_CHROOT;
                                 return -errno;
                         }
@@ -3559,7 +3579,8 @@ static int apply_root_directory(
 static int setup_keyring(
                 const ExecContext *context,
                 const ExecParameters *p,
-                uid_t uid, gid_t gid) {
+                uid_t uid,
+                gid_t gid) {
 
         key_serial_t keyring;
         int r = 0;
@@ -3716,12 +3737,14 @@ static int close_remaining_fds(
                 const ExecParameters *params,
                 const ExecRuntime *runtime,
                 int socket_fd,
-                const int *fds, size_t n_fds) {
+                const int *fds,
+                size_t n_fds) {
 
         size_t n_dont_close = 0;
         int dont_close[n_fds + 17];
 
         assert(params);
+        assert(runtime);
 
         if (params->stdin_fd >= 0)
                 dont_close[n_dont_close++] = params->stdin_fd;
@@ -3737,15 +3760,14 @@ static int close_remaining_fds(
                 n_dont_close += n_fds;
         }
 
-        if (runtime)
-                append_socket_pair(dont_close, &n_dont_close, runtime->ephemeral_storage_socket);
+        append_socket_pair(dont_close, &n_dont_close, runtime->ephemeral_storage_socket);
 
-        if (runtime && runtime->shared) {
+        if (runtime->shared) {
                 append_socket_pair(dont_close, &n_dont_close, runtime->shared->netns_storage_socket);
                 append_socket_pair(dont_close, &n_dont_close, runtime->shared->ipcns_storage_socket);
         }
 
-        if (runtime && runtime->dynamic_creds) {
+        if (runtime->dynamic_creds) {
                 if (runtime->dynamic_creds->user)
                         append_socket_pair(dont_close, &n_dont_close, runtime->dynamic_creds->user->storage_socket);
                 if (runtime->dynamic_creds->group)
@@ -4163,11 +4185,12 @@ static int setup_delegated_namespaces(
 
         assert(context);
         assert(params);
+        assert(runtime);
         assert(reterr_exit_status);
 
         if (exec_needs_network_namespace(context) &&
             exec_namespace_is_delegated(context, params, CLONE_NEWNET) == delegate &&
-            runtime && runtime->shared && runtime->shared->netns_storage_socket[0] >= 0) {
+            runtime->shared && runtime->shared->netns_storage_socket[0] >= 0) {
 
                 /* Try to enable network namespacing if network namespacing is available and we have
                  * CAP_NET_ADMIN in the current user namespace (either the system manager one or the unit's
@@ -4194,7 +4217,7 @@ static int setup_delegated_namespaces(
 
         if (exec_needs_ipc_namespace(context) &&
             exec_namespace_is_delegated(context, params, CLONE_NEWIPC) == delegate &&
-            runtime && runtime->shared && runtime->shared->ipcns_storage_socket[0] >= 0) {
+            runtime->shared && runtime->shared->ipcns_storage_socket[0] >= 0) {
 
                 if (ns_type_supported(NAMESPACE_IPC)) {
                         r = setup_shareable_ns(runtime->shared->ipcns_storage_socket, CLONE_NEWIPC);
@@ -4517,6 +4540,8 @@ int exec_invoke(
         assert(command);
         assert(context);
         assert(params);
+        assert(runtime);
+        assert(cgroup_context);
         assert(exit_status);
 
         /* This should be mostly redundant, as the log level is also passed as an argument of the executor,
@@ -4675,7 +4700,7 @@ int exec_invoke(
                 return log_exec_error_errno(context, params, errno, "Failed to update environment: %m");
         }
 
-        if (context->dynamic_user && runtime && runtime->dynamic_creds) {
+        if (context->dynamic_user && runtime->dynamic_creds) {
                 _cleanup_strv_free_ char **suggested_paths = NULL;
 
                 /* On top of that, make sure we bypass our own NSS module nss-systemd comprehensively for any NSS
@@ -4804,7 +4829,7 @@ int exec_invoke(
                 }
         }
 
-        if (context->network_namespace_path && runtime && runtime->shared && runtime->shared->netns_storage_socket[0] >= 0) {
+        if (context->network_namespace_path && runtime->shared && runtime->shared->netns_storage_socket[0] >= 0) {
                 r = open_shareable_ns_path(runtime->shared->netns_storage_socket, context->network_namespace_path, CLONE_NEWNET);
                 if (r < 0) {
                         *exit_status = EXIT_NETWORK;
@@ -4812,7 +4837,7 @@ int exec_invoke(
                 }
         }
 
-        if (context->ipc_namespace_path && runtime && runtime->shared && runtime->shared->ipcns_storage_socket[0] >= 0) {
+        if (context->ipc_namespace_path && runtime->shared && runtime->shared->ipcns_storage_socket[0] >= 0) {
                 r = open_shareable_ns_path(runtime->shared->ipcns_storage_socket, context->ipc_namespace_path, CLONE_NEWIPC);
                 if (r < 0) {
                         *exit_status = EXIT_NAMESPACE;
@@ -5033,7 +5058,7 @@ int exec_invoke(
                         }
                 }
 
-                if (cgroup_context && cg_unified() > 0 && is_pressure_supported() > 0) {
+                if (cg_unified() > 0 && is_pressure_supported() > 0) {
                         if (cgroup_context_want_memory_pressure(cgroup_context)) {
                                 r = cg_get_path("memory", params->cgroup_path, "memory.pressure", &memory_pressure_path);
                                 if (r < 0) {
@@ -5421,7 +5446,7 @@ int exec_invoke(
                 /* LSM Smack needs the capability CAP_MAC_ADMIN to change the current execution security context of the
                  * process. This is the latest place before dropping capabilities. Other MAC context are set later. */
                 if (use_smack) {
-                        r = setup_smack(params, context, executable_fd);
+                        r = setup_smack(context, params, executable_fd);
                         if (r < 0 && !context->smack_process_label_ignore) {
                                 *exit_status = EXIT_SMACK_PROCESS_LABEL;
                                 return log_exec_error_errno(context, params, r, "Failed to set SMACK process label: %m");
