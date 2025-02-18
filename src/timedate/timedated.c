@@ -873,6 +873,11 @@ static int method_set_time(sd_bus_message *m, void *userdata, sd_bus_error *erro
         if (!relative && utc <= 0)
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid absolute time");
 
+        /* when utc time is past systemd build date time*/
+       	/* convert epoch time to microseconds to compare with utc*/
+        if(!relative && utc <= ((int64_t)TIME_EPOCH * 1000000))
+		return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid time - past build date time");
+
         if (relative && utc == 0)
                 return sd_bus_reply_method_return(m, NULL);
 
