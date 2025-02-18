@@ -1058,7 +1058,7 @@
       <varlistentry>
         <term><varname>TunnelId=</varname></term>
         <listitem>
-          <para>Specifies the tunnel identifier. Takes an number in the range 1…4294967295. The value used
+          <para>Specifies the tunnel identifier. Takes a number in the range 1…4294967295. The value used
           must match the <literal>PeerTunnelId=</literal> value being used at the peer. This setting is
           compulsory.</para>
 
@@ -1136,7 +1136,7 @@
         </listitem>
       </varlistentry>
       <varlistentry>
-        <term><varname>UDP6ZeroChecksumTx=</varname></term>
+        <term><varname>UDP6ChecksumTx=</varname></term>
         <listitem>
           <para>Takes a boolean. When true, skip UDP checksum calculation for transmitted packets over IPv6.</para>
 
@@ -1144,7 +1144,7 @@
         </listitem>
       </varlistentry>
       <varlistentry>
-        <term><varname>UDP6ZeroChecksumRx=</varname></term>
+        <term><varname>UDP6ChecksumRx=</varname></term>
         <listitem>
           <para>Takes a boolean. When true, allows incoming UDP packets over IPv6 with zero checksum field.</para>
 
@@ -1172,7 +1172,7 @@
       <varlistentry>
         <term><varname>SessionId=</varname></term>
         <listitem>
-          <para>Specifies the session identifier. Takes an number in the range 1…4294967295. The value used
+          <para>Specifies the session identifier. Takes a number in the range 1…4294967295. The value used
           must match the <literal>SessionId=</literal> value being used at the peer. This setting is
           compulsory.</para>
 
@@ -1182,7 +1182,7 @@
       <varlistentry>
         <term><varname>PeerSessionId=</varname></term>
         <listitem>
-          <para>Specifies the peer session identifier. Takes an number in the range 1…4294967295.
+          <para>Specifies the peer session identifier. Takes a number in the range 1…4294967295.
           The value used must match the <literal>PeerSessionId=</literal> value being used at the peer.
           This setting is compulsory.</para>
 
@@ -1717,7 +1717,7 @@
       <varlistentry>
         <term><varname>ERSPANHardwareId=</varname></term>
         <listitem>
-          <para>Specifies an unique identifier of the ERSPAN v2 engine. Takes an integer in the range 0…63.
+          <para>Specifies a unique identifier of the ERSPAN v2 engine. Takes an integer in the range 0…63.
           Only used when <varname>ERSPANVersion=2</varname>. Defaults to 0.</para>
 
           <xi:include href="version-info.xml" xpointer="v252"/>
@@ -2467,7 +2467,7 @@
           <para>Takes a boolean. Specifies that duplicate frames (received on inactive ports)
           should be dropped when false, or delivered when true. Normally, bonding will drop
           duplicate frames (received on inactive ports), which is desirable for
-          most users. But there are some times it is nice to allow duplicate
+          most users. But there are some cases where it is nice to allow duplicate
           frames to be delivered. The default value is false (drop duplicate frames
           received on inactive ports).
           </para>
@@ -2724,9 +2724,9 @@
       </varlistentry>
 
       <varlistentry id='ipoib_umcast'>
-        <term><varname>IgnoreUserspaceMulticastGroup=</varname></term>
+        <term><varname>IgnoreUserspaceMulticastGroups=</varname></term>
         <listitem>
-          <para>Takes an boolean value. When true, the kernel ignores multicast groups handled by
+          <para>Takes a boolean value. When true, the kernel ignores multicast groups handled by
           userspace. Defaults to unset, and the kernel's default is used.</para>
 
           <xi:include href="version-info.xml" xpointer="v250"/>
