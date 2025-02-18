@@ -179,6 +179,7 @@ static char *arg_copy_source = NULL;
 static char *arg_make_ddi = NULL;
 static char *arg_generate_fstab = NULL;
 static char *arg_generate_crypttab = NULL;
+static Hashmap *arg_verity_settings = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_node, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
@@ -202,6 +203,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_copy_source, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_make_ddi, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_generate_fstab, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_generate_crypttab, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_verity_settings, hashmap_freep);
 
 typedef struct FreeArea FreeArea;
 
@@ -335,6 +337,17 @@ static Subvolume* subvolume_free(Subvolume *s) {
 }
 
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(subvolume_hash_ops, char, path_hash_func, path_compare, Subvolume, subvolume_free);
+
+static VeritySettings* verity_settings_free(VeritySettings *v) {
+        if (!v)
+                return NULL;
+
+        verity_settings_done(v);
+        return mfree(v);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(VeritySettings*, verity_settings_free);
+DEFINE_HASH_OPS_FULL(verity_settings_hash_ops, char, string_hash_func, string_compare_func, free, VeritySettings, verity_settings_free);
 
 typedef struct Partition {
         char *definition_path;
@@ -5040,9 +5053,11 @@ static int sign_verity_roothash(
 
 static int partition_format_verity_sig(Context *context, Partition *p) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-        _cleanup_(iovec_done) struct iovec sig = {};
+        _cleanup_(iovec_done) struct iovec sig_free = {};
         _cleanup_free_ char *text = NULL, *hint = NULL;
-        Partition *hp;
+        VeritySettings *verity_settings = NULL;
+        struct iovec roothash = {}, sig = {};
+        Partition *hp, *rp;
         uint8_t fp[X509_FINGERPRINT_SIZE];
         int whole_fd, r;
 
@@ -5054,24 +5069,40 @@ static int partition_format_verity_sig(Context *context, Partition *p) {
         if (PARTITION_EXISTS(p))
                 return 0;
 
-        if (!context->private_key)
+        assert_se(hp = p->siblings[VERITY_HASH]);
+        assert(!hp->dropped);
+        assert_se(rp = p->siblings[VERITY_DATA]);
+        assert(!rp->dropped);
+
+        if (!sd_id128_is_null(hp->current_uuid) && !sd_id128_is_null(rp->current_uuid)) {
+                char *root_hash_hex = strjoina(SD_ID128_TO_STRING(rp->current_uuid), SD_ID128_TO_STRING(hp->current_uuid));
+                verity_settings = hashmap_get(arg_verity_settings, root_hash_hex);
+        }
+
+        if (!context->private_key && !verity_settings)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Verity signature partition signing requested but no private key provided (--private-key=).");
 
-        if (!context->certificate)
+        if (!context->certificate && !verity_settings)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Verity signature partition signing requested but no PEM certificate provided (--certificate=).");
 
         (void) partition_hint(p, context->node, &hint);
 
-        assert_se(hp = p->siblings[VERITY_HASH]);
-        assert(!hp->dropped);
-
         assert_se((whole_fd = fdisk_get_devfd(context->fdisk_context)) >= 0);
 
-        r = sign_verity_roothash(&hp->roothash, context->certificate, context->private_key, &sig);
-        if (r < 0)
-                return r;
+        if (!verity_settings) {
+                r = sign_verity_roothash(&hp->roothash, context->certificate, context->private_key, &sig_free);
+                if (r < 0)
+                        return r;
+                sig = sig_free;
+                roothash = hp->roothash;
+        } else {
+                sig.iov_base = verity_settings->root_hash_sig;
+                sig.iov_len = verity_settings->root_hash_sig_size;
+                roothash.iov_base = verity_settings->root_hash;
+                roothash.iov_len = verity_settings->root_hash_size;
+        }
 
         r = x509_fingerprint(context->certificate, fp);
         if (r < 0)
@@ -5079,7 +5110,7 @@ static int partition_format_verity_sig(Context *context, Partition *p) {
 
         r = sd_json_buildo(
                         &v,
-                        SD_JSON_BUILD_PAIR("rootHash", SD_JSON_BUILD_HEX(hp->roothash.iov_base, hp->roothash.iov_len)),
+                        SD_JSON_BUILD_PAIR("rootHash", SD_JSON_BUILD_HEX(roothash.iov_base, roothash.iov_len)),
                         SD_JSON_BUILD_PAIR("certificateFingerprint", SD_JSON_BUILD_HEX(fp, sizeof(fp))),
                         SD_JSON_BUILD_PAIR("signature", JSON_BUILD_IOVEC_BASE64(&sig)));
         if (r < 0)
@@ -5136,6 +5167,10 @@ static int context_copy_blocks(Context *context) {
 
         LIST_FOREACH(partitions, p, context->partitions) {
                 _cleanup_(partition_target_freep) PartitionTarget *t = NULL;
+
+                /* For offline signing case */
+                if (!hashmap_isempty(arg_verity_settings) && IN_SET(p->type.designator, PARTITION_ROOT_VERITY_SIG, PARTITION_USR_VERITY_SIG))
+                        return partition_format_verity_sig(context, p);
 
                 if (p->copy_blocks_fd < 0)
                         continue;
@@ -5994,6 +6029,10 @@ static int context_mkfs(Context *context) {
 
                 if (!p->format)
                         continue;
+
+                /* For offline signing case */
+                if (!hashmap_isempty(arg_verity_settings) && IN_SET(p->type.designator, PARTITION_ROOT_VERITY_SIG, PARTITION_USR_VERITY_SIG))
+                        return partition_format_verity_sig(context, p);
 
                 /* Minimized partitions will use the copy blocks logic so skip those here. */
                 if (p->copy_blocks_fd >= 0)
@@ -7878,6 +7917,11 @@ static int help(void) {
                "                          Specify how to interpret the certificate from\n"
                "                          --certificate=. Allows the certificate to be loaded\n"
                "                          from an OpenSSL provider\n"
+               "     --append-signature=HASH:SIG\n"
+               "                          Specify root hash and pkcs7 signature of root hash for\n"
+               "                          verity as a tuple of hex encoded hash and a DER\n"
+               "                          encoded PKCS7, either as a path to a file or as an\n"
+               "                          ASCII base64 encoded string prefixed by 'base64:'\n"
                "\n%3$sEncryption:%4$s\n"
                "     --key-file=PATH      Key to use when encrypting partitions\n"
                "     --tpm2-device=PATH   Path to TPM2 device node to use\n"
@@ -7967,6 +8011,7 @@ static int parse_argv(int argc, char *argv[], X509 **ret_certificate, EVP_PKEY *
                 ARG_GENERATE_FSTAB,
                 ARG_GENERATE_CRYPTTAB,
                 ARG_LIST_DEVICES,
+                ARG_APPEND_SIGNATURE,
         };
 
         static const struct option options[] = {
@@ -8012,6 +8057,7 @@ static int parse_argv(int argc, char *argv[], X509 **ret_certificate, EVP_PKEY *
                 { "generate-fstab",       required_argument, NULL, ARG_GENERATE_FSTAB       },
                 { "generate-crypttab",    required_argument, NULL, ARG_GENERATE_CRYPTTAB    },
                 { "list-devices",         no_argument,       NULL, ARG_LIST_DEVICES         },
+                { "append-signature",     required_argument, NULL, ARG_APPEND_SIGNATURE     },
                 {}
         };
 
@@ -8410,6 +8456,79 @@ static int parse_argv(int argc, char *argv[], X509 **ret_certificate, EVP_PKEY *
 
                         return 0;
 
+                case ARG_APPEND_SIGNATURE: {
+                        _cleanup_(verity_settings_freep) VeritySettings *verity_settings = NULL;
+                        _cleanup_free_ char *root_hash = NULL, *base = NULL, *signature = NULL;
+                        _cleanup_free_ void *content = NULL;
+                        const char *p = optarg;
+                        size_t len;
+
+                        r = extract_many_words(&p, ":", 0, &root_hash, &base, &signature);
+                        if (r < 0)
+                                return log_error_errno(r,
+                                                       "Failed to parse signature parameter '%s': %m",
+                                                       optarg);
+                        if (r < 2 || r > 3)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Expected hash:sig, got '%s'",
+                                                       optarg);
+                        if (r == 2) {
+                                r = read_full_file(base, (char**) &content, &len);
+                                if (r < 0)
+                                        return log_error_errno(r,
+                                                               "Failed to read root hash signature file '%s': %m",
+                                                               base);
+                        } else {
+                                if (!streq(base, "base64"))
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                               "Expected base64: prefix, got '%s'",
+                                                               base);
+
+                                r = unbase64mem(signature, &content, &len);
+                                if (r < 0)
+                                        return log_error_errno(r,
+                                                               "Failed to parse root hash signature '%s': %m",
+                                                               signature);
+                        }
+                        if (len == 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Empty verity signature specified.");
+                        if (len > VERITY_SIG_SIZE)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Verity signatures larger than %llu are not allowed.",
+                                                       VERITY_SIG_SIZE);
+
+                        verity_settings = new0(VeritySettings, 1);
+                        if (!verity_settings)
+                                return log_oom();
+
+                        free_and_replace(verity_settings->root_hash_sig, content);
+                        verity_settings->root_hash_sig_size = len;
+
+                        r = unhexmem(root_hash, &content, &len);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse root hash '%s': %m", root_hash);
+                        if (len < sizeof(sd_id128_t))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Root hash must be at least 128-bit long: %s",
+                                                       root_hash);
+
+                        free_and_replace(verity_settings->root_hash, content);
+                        verity_settings->root_hash_size = len;
+
+                        r = hashmap_ensure_put(&arg_verity_settings,
+                                               &verity_settings_hash_ops,
+                                               root_hash,
+                                               verity_settings);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to add entry to hashmap: %m");
+
+                        TAKE_PTR(root_hash);
+                        TAKE_PTR(verity_settings);
+
+                        break;
+                }
+
                 case '?':
                         return -EINVAL;
 
@@ -8452,6 +8571,9 @@ static int parse_argv(int argc, char *argv[], X509 **ret_certificate, EVP_PKEY *
 
         if (arg_empty == EMPTY_UNSET) /* default to refuse mode, if not otherwise specified */
                 arg_empty = EMPTY_REFUSE;
+
+        if (!hashmap_isempty(arg_verity_settings) && !arg_certificate)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Verity signature specified without --certificate=.");
 
         if (arg_factory_reset > 0 && IN_SET(arg_empty, EMPTY_FORCE, EMPTY_REQUIRE, EMPTY_CREATE))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
