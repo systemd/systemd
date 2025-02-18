@@ -2189,7 +2189,7 @@ static int bind_mount_devnode(const char *from, const char *to) {
         return 0;
 }
 
-static int copy_devnode_one(const char *dest, const char *node) {
+static int copy_devnode_one(const char *dest, const char *node, bool check) {
         int r;
 
         assert(dest);
@@ -2200,6 +2200,19 @@ static int copy_devnode_one(const char *dest, const char *node) {
         _cleanup_free_ char *from = path_join("/dev/", node);
         if (!from)
                 return log_oom();
+
+        if (check) {
+                /* If 'check' is true, create /dev/fuse only when it is accessible. The check is necessary,
+                 * as some custom service units that invoke systemd-nspawn may enable DevicePolicy= without
+                 * DeviceAllow= for the device node. */
+                _cleanup_close_ int fd = open(from, O_CLOEXEC|O_RDWR);
+                if (fd < 0) {
+                        log_debug_errno(errno,
+                                        "Failed to open %s, skipping creation of the device node in the container, ignoring: %m",
+                                        from);
+                        return 0;
+                }
+        }
 
         _cleanup_free_ char *to = path_join(dest, from);
         if (!to)
@@ -2284,25 +2297,16 @@ static int copy_devnodes(const char *dest) {
 
         assert(dest);
 
+        /* Required basic device nodes. */
         FOREACH_STRING(node, "null", "zero", "full", "random", "urandom", "tty") {
-                r = copy_devnode_one(dest, node);
+                r = copy_devnode_one(dest, node, /* check = */ false);
                 if (r < 0)
                         return r;
         }
 
-        /* Create /dev/fuse only when it is accessible. The check is necessary, as some custom service
-         * units that invoke nspawn may enable DevicePolicy= without DeviceAllow= for the device node. */
-        _cleanup_close_ int fuse_fd = open("/dev/fuse", O_CLOEXEC|O_RDWR);
-        if (fuse_fd >= 0) {
-                r = copy_devnode_one(dest, "fuse");
-                if (r < 0)
-                        return r;
-        }
-
-        /* Similarly, create /dev/net/tun only when it is accessible. */
-        _cleanup_close_ int tun_fd = open("/dev/net/tun", O_CLOEXEC|O_RDWR);
-        if (tun_fd >= 0) {
-                r = copy_devnode_one(dest, "net/tun");
+        /* Optional device nodes. */
+        FOREACH_STRING(node, "fuse", "net/tun") {
+                r = copy_devnode_one(dest, node, /* check = */ true);
                 if (r < 0)
                         return r;
         }
