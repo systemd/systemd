@@ -125,6 +125,20 @@ Deprecations and removals:
 
 Features:
 
+* repart: introduce concept of "ghost" partitions, that we setup in almost all
+  ways like other partitions, but do not actually register in the actual gpt
+  table, but only tell the kernel about via BLKPG ioctl. These partitions are
+  disk backed (hence can be large), but not persistent (as they are invisible
+  on next boot). Could be used by live media and similar, to boot up as usual
+  but automatically start at zero on each boot. There should also be a way to
+  make ghost partitions properly persistent on request.
+
+* repart: introduce MigrateFileSystem= or so which is a bit like
+  CopyFiles=/CopyBlocks= but operates via btrfs device logic: adds target as
+  new device then removes source from btrfs. Usecase: a live medium which uses
+  "ghost" partitions as suggested above, which can become persistent on request
+  on another device.
+
 * make nspawn containers, portable services and vmspawn VMs optionally survive
   soft reboot wholesale.
 
