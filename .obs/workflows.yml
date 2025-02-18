@@ -5,7 +5,7 @@ rebuild:
         package: systemd
     - trigger_services:
         project: system:systemd
-        package: systemd-fedora
+        package: systemd-suse
   filters:
     event: push
     branches:
