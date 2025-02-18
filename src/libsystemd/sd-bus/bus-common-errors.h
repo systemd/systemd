@@ -156,6 +156,7 @@
 #define BUS_ERROR_HOME_IN_USE                  "org.freedesktop.home1.HomeInUse"
 #define BUS_ERROR_REBALANCE_NOT_NEEDED         "org.freedesktop.home1.RebalanceNotNeeded"
 #define BUS_ERROR_HOME_NOT_REFERENCED          "org.freedesktop.home1.HomeNotReferenced"
+#define BUS_ERROR_NO_SUCH_KEY                  "org.freedesktop.home1.NoSuchKey"
 
 #define BUS_ERROR_NO_UPDATE_CANDIDATE          "org.freedesktop.sysupdate1.NoCandidate"
 
