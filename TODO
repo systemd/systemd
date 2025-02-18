@@ -125,6 +125,9 @@ Deprecations and removals:
 
 Features:
 
+* make nspawn containers, portable services and vmspawn VMs optionally survive
+  soft reboot wholesale.
+
 * Turn systemd-networkd-wait-online into a small varlink service that people
   can talk to and specify exactly what to wait for via a method call, and get a
   response back once that level of "online" is reached.
