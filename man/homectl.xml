@@ -179,6 +179,18 @@
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--key-name=</option></term>
+
+        <listitem><para>When used with the <command>add-signing-key</command> command, specify or override
+        the name under which to store the public key being added. The specified name can be chosen freely,
+        but must be suffixed with <literal>.public</literal>. If this option is not used the name is derived
+        from the specified filename. If a key is read from standard input this option is mandatory in order
+        to provide a suitable name for the key being added.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
       <xi:include href="user-system-options.xml" xpointer="host" />
       <xi:include href="user-system-options.xml" xpointer="machine" />
 
@@ -1311,6 +1323,55 @@
 
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><command>list-signing-keys</command></term>
+
+        <listitem><para>Show a list of public keys that home directories can be signed with to be allowed for
+        local login. One such key (<filename>local.public</filename>) will be generated automatically for
+        signing locally created home directories, but additional public keys may be registered to accept home
+        directories from other origins too (see <command>add-signing-key</command> below).</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>get-signing-key</command> [<replaceable>NAME…</replaceable>]</term>
+
+        <listitem><para>Write the public key identified by the specified name to standard output (in PEM
+        format). If no name is specified defaults to <filename>local.public</filename>, i.e. the
+        automatically generated key for locally created home directories.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>add-signing-key</command> [<replaceable>FILE…</replaceable>]</term>
+
+        <listitem><para>Add public key(s) from the specified PEM key file(s) to the list of keys that home
+        areas have to be signed by to be permitted for local login. If a path of <literal>-</literal> is
+        specified, or if no file is specified at all, the key will be read from standard input. The key file
+        name(s) must carry the <filename>.public</filename> suffix, and the file name(s) will be used to name
+        the key(s) once added, too. If a key is added from standard input the key name must be specified
+        explicitly via <option>--key-name=</option>, see above.</para>
+
+        <para>This command is useful for permitting local home directories to be used on a remote
+        system. Example:</para>
+
+        <programlisting>homectl get-signing-key | ssh myotherhost homectl add-signing-key --key-name="$HOSTNAME".public</programlisting>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>remove-signing-key</command> <replaceable>NAME…</replaceable></term>
+
+        <listitem><para>Remove the public key identified by the specified name from the list of keys that
+        control from which origins to permit home directories for login.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 
