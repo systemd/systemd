@@ -70,6 +70,7 @@ static const char *arg_identity = NULL;
 static sd_json_variant *arg_identity_extra = NULL;
 static sd_json_variant *arg_identity_extra_privileged = NULL;
 static sd_json_variant *arg_identity_extra_this_machine = NULL;
+static sd_json_variant *arg_identity_extra_other_machines = NULL;
 static sd_json_variant *arg_identity_extra_rlimits = NULL;
 static char **arg_identity_filter = NULL; /* this one is also applied to 'privileged' and 'thisMachine' subobjects */
 static char **arg_identity_filter_rlimits = NULL;
@@ -103,6 +104,7 @@ static bool arg_dry_run = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_identity_extra, sd_json_variant_unrefp);
 STATIC_DESTRUCTOR_REGISTER(arg_identity_extra_this_machine, sd_json_variant_unrefp);
+STATIC_DESTRUCTOR_REGISTER(arg_identity_extra_other_machines, sd_json_variant_unrefp);
 STATIC_DESTRUCTOR_REGISTER(arg_identity_extra_privileged, sd_json_variant_unrefp);
 STATIC_DESTRUCTOR_REGISTER(arg_identity_extra_rlimits, sd_json_variant_unrefp);
 STATIC_DESTRUCTOR_REGISTER(arg_identity_filter, strv_freep);
@@ -121,6 +123,7 @@ static bool identity_properties_specified(void) {
                 !sd_json_variant_is_blank_object(arg_identity_extra) ||
                 !sd_json_variant_is_blank_object(arg_identity_extra_privileged) ||
                 !sd_json_variant_is_blank_object(arg_identity_extra_this_machine) ||
+                !sd_json_variant_is_blank_object(arg_identity_extra_other_machines) ||
                 !sd_json_variant_is_blank_object(arg_identity_extra_rlimits) ||
                 !strv_isempty(arg_identity_filter) ||
                 !strv_isempty(arg_identity_filter_rlimits) ||
@@ -931,7 +934,7 @@ static int apply_identity_changes(sd_json_variant **_v) {
         if (r < 0)
                 return log_error_errno(r, "Failed to merge identities: %m");
 
-        if (arg_identity_extra_this_machine || !strv_isempty(arg_identity_filter)) {
+        if (arg_identity_extra_this_machine || arg_identity_extra_other_machines || !strv_isempty(arg_identity_filter)) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *per_machine = NULL, *mmid = NULL;
                 sd_id128_t mid;
 
@@ -945,7 +948,7 @@ static int apply_identity_changes(sd_json_variant **_v) {
 
                 per_machine = sd_json_variant_ref(sd_json_variant_by_key(v, "perMachine"));
                 if (per_machine) {
-                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *npm = NULL, *add = NULL;
+                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *npm = NULL, *positive = NULL, *negative = NULL;
                         _cleanup_free_ sd_json_variant **array = NULL;
                         sd_json_variant *z;
                         size_t i = 0;
@@ -953,7 +956,7 @@ static int apply_identity_changes(sd_json_variant **_v) {
                         if (!sd_json_variant_is_array(per_machine))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "perMachine field is not an array, refusing.");
 
-                        array = new(sd_json_variant*, sd_json_variant_elements(per_machine) + 1);
+                        array = new(sd_json_variant*, sd_json_variant_elements(per_machine) + 2);
                         if (!array)
                                 return log_oom();
 
@@ -966,31 +969,41 @@ static int apply_identity_changes(sd_json_variant **_v) {
                                 array[i++] = z;
 
                                 u = sd_json_variant_by_key(z, "matchMachineId");
-                                if (!u)
-                                        continue;
+                                if (u && sd_json_variant_equal(u, mmid))
+                                        r = sd_json_variant_merge_object(&positive, z);
+                                else {
+                                        u = sd_json_variant_by_key(z, "matchNotMachineId");
+                                        if (!u || !sd_json_variant_equal(u, mmid))
+                                                continue;
 
-                                if (!sd_json_variant_equal(u, mmid))
-                                        continue;
-
-                                r = sd_json_variant_merge_object(&add, z);
+                                        r = sd_json_variant_merge_object(&negative, z);
+                                }
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to merge perMachine entry: %m");
 
                                 i--;
                         }
 
-                        r = sd_json_variant_filter(&add, arg_identity_filter);
+                        r = sd_json_variant_filter(&positive, arg_identity_filter);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to filter perMachine: %m");
 
-                        r = sd_json_variant_merge_object(&add, arg_identity_extra_this_machine);
+                        r = sd_json_variant_filter(&negative, arg_identity_filter);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to filter perMachine: %m");
+
+                        r = sd_json_variant_merge_object(&positive, arg_identity_extra_this_machine);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to merge in perMachine fields: %m");
+
+                        r = sd_json_variant_merge_object(&negative, arg_identity_extra_other_machines);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to merge in perMachine fields: %m");
 
                         if (arg_identity_filter_rlimits || arg_identity_extra_rlimits) {
                                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *rlv = NULL;
 
-                                rlv = sd_json_variant_ref(sd_json_variant_by_key(add, "resourceLimits"));
+                                rlv = sd_json_variant_ref(sd_json_variant_by_key(positive, "resourceLimits"));
 
                                 r = sd_json_variant_filter(&rlv, arg_identity_filter_rlimits);
                                 if (r < 0)
@@ -1001,22 +1014,30 @@ static int apply_identity_changes(sd_json_variant **_v) {
                                         return log_error_errno(r, "Failed to set resource limits: %m");
 
                                 if (sd_json_variant_is_blank_object(rlv)) {
-                                        r = sd_json_variant_filter(&add, STRV_MAKE("resourceLimits"));
+                                        r = sd_json_variant_filter(&positive, STRV_MAKE("resourceLimits"));
                                         if (r < 0)
                                                 return log_error_errno(r, "Failed to drop resource limits field from identity: %m");
                                 } else {
-                                        r = sd_json_variant_set_field(&add, "resourceLimits", rlv);
+                                        r = sd_json_variant_set_field(&positive, "resourceLimits", rlv);
                                         if (r < 0)
                                                 return log_error_errno(r, "Failed to update resource limits of identity: %m");
                                 }
                         }
 
-                        if (!sd_json_variant_is_blank_object(add)) {
-                                r = sd_json_variant_set_field(&add, "matchMachineId", mmid);
+                        if (!sd_json_variant_is_blank_object(positive)) {
+                                r = sd_json_variant_set_field(&positive, "matchMachineId", mmid);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to set matchMachineId field: %m");
 
-                                array[i++] = add;
+                                array[i++] = positive;
+                        }
+
+                        if (!sd_json_variant_is_blank_object(negative)) {
+                                r = sd_json_variant_set_field(&negative, "matchNotMachineId", mmid);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to set matchNotMachineId field: %m");
+
+                                array[i++] = negative;
                         }
 
                         r = sd_json_variant_new_array(&npm, array, i);
@@ -1026,21 +1047,34 @@ static int apply_identity_changes(sd_json_variant **_v) {
                         sd_json_variant_unref(per_machine);
                         per_machine = TAKE_PTR(npm);
                 } else {
-                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *item = sd_json_variant_ref(arg_identity_extra_this_machine);
+                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *positive = sd_json_variant_ref(arg_identity_extra_this_machine),
+                                *negative = sd_json_variant_ref(arg_identity_extra_other_machines);
 
                         if (arg_identity_extra_rlimits) {
-                                r = sd_json_variant_set_field(&item, "resourceLimits", arg_identity_extra_rlimits);
+                                r = sd_json_variant_set_field(&positive, "resourceLimits", arg_identity_extra_rlimits);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to update resource limits of identity: %m");
                         }
 
-                        r = sd_json_variant_set_field(&item, "matchMachineId", mmid);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to set matchMachineId field: %m");
+                        if (positive) {
+                                r = sd_json_variant_set_field(&positive, "matchMachineId", mmid);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to set matchMachineId field: %m");
 
-                        r = sd_json_variant_append_array(&per_machine, item);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to append to perMachine array: %m");
+                                r = sd_json_variant_append_array(&per_machine, positive);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to append to perMachine array: %m");
+                        }
+
+                        if (negative) {
+                                r = sd_json_variant_set_field(&negative, "matchNotMachineId", mmid);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to set matchNotMachineId field: %m");
+
+                                r = sd_json_variant_append_array(&per_machine, negative);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to append to perMachine array: %m");
+                        }
                 }
 
                 r = sd_json_variant_set_field(&v, "perMachine", per_machine);
@@ -3178,10 +3212,11 @@ static int parse_argv(int argc, char *argv[]) {
                 { "dev-shm-limit",                required_argument, NULL, ARG_DEV_SHM_LIMIT               },
                 { "default-area",                 required_argument, NULL, ARG_DEFAULT_AREA                },
                 { "key-name",                     required_argument, NULL, ARG_KEY_NAME                    },
+                { "other-machines",               no_argument,       NULL, 'N'                             },
                 {}
         };
 
-        int r;
+        int r, other_machine = 0; /* tristate */
 
         assert(argc >= 0);
         assert(argv);
@@ -3196,9 +3231,16 @@ static int parse_argv(int argc, char *argv[]) {
         for (;;) {
                 int c;
 
-                c = getopt_long(argc, argv, "hH:M:I:c:d:u:G:k:s:e:b:jPE", options, NULL);
+                c = getopt_long(argc, argv, "hH:M:I:c:d:u:G:k:s:e:b:jPEN", options, NULL);
                 if (c < 0)
                         break;
+
+                if (other_machine != 0) {
+                        if (c != ARG_STORAGE)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--other-machine/-N is only supported for --storage= right now, refusing.");
+
+                        other_machine = -1; /* this means: on now, please turn off */
+                }
 
                 switch (c) {
 
@@ -4086,7 +4128,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                         r = sd_json_variant_set_field_string(
                                         IN_SET(c, ARG_STORAGE, ARG_FS_TYPE) ?
-                                        &arg_identity_extra_this_machine :
+                                        (other_machine != 0 ? &arg_identity_extra_other_machines : &arg_identity_extra_this_machine) :
                                         &arg_identity_extra, field, optarg);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set %s field: %m", field);
@@ -4701,12 +4743,20 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
+                case 'N':
+                        other_machine = 1;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
                 default:
                         assert_not_reached();
                 }
+
+                /* Unset --other-machine effect after each setting. */
+                if (other_machine < 0)
+                        other_machine = 0;
         }
 
         if (!strv_isempty(arg_pkcs11_token_uri) || !strv_isempty(arg_fido2_device))
