@@ -99,6 +99,7 @@ static char *arg_blob_dir = NULL;
 static bool arg_blob_clear = false;
 static Hashmap *arg_blob_files = NULL;
 static char *arg_key_name = NULL;
+static bool arg_dry_run = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_identity_extra, sd_json_variant_unrefp);
 STATIC_DESTRUCTOR_REGISTER(arg_identity_extra_this_machine, sd_json_variant_unrefp);
@@ -1760,6 +1761,11 @@ static int update_home(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
+        if (arg_dry_run) {
+                sd_json_variant_dump(hr->json, SD_JSON_FORMAT_COLOR_AUTO|SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_NEWLINE, stderr, /* prefix= */ NULL);
+                return 0;
+        }
+
         /* If we do multiple operations, let's output things more verbosely, since otherwise the repeated
          * authentication might be confusing. */
 
@@ -3179,6 +3185,13 @@ static int parse_argv(int argc, char *argv[]) {
 
         assert(argc >= 0);
         assert(argv);
+
+        /* Eventually we should probably turn this into a proper --dry-run option, but as long as it is not hooked up everywhere let's make it an environment variable only. */
+        r = getenv_bool("SYSTEMD_HOME_DRY_RUN");
+        if (r >= 0)
+                arg_dry_run = r;
+        else if (r != -ENXIO)
+                log_debug_errno(r, "Unable to parse $SYSTEMD_HOME_DRY_RUN, ignoring: %m");
 
         for (;;) {
                 int c;
