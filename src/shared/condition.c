@@ -40,6 +40,7 @@
 #include "glob-util.h"
 #include "hostname-util.h"
 #include "ima-util.h"
+#include "id128-util.h"
 #include "initrd-util.h"
 #include "limits-util.h"
 #include "list.h"
@@ -622,20 +623,36 @@ static int condition_test_firmware(Condition *c, char **env) {
 
 static int condition_test_host(Condition *c, char **env) {
         _cleanup_free_ char *h = NULL;
-        sd_id128_t x, y;
         int r;
 
         assert(c);
         assert(c->parameter);
         assert(c->type == CONDITION_HOST);
 
+        sd_id128_t x;
         if (sd_id128_from_string(c->parameter, &x) >= 0) {
+                static const struct {
+                        const char *name;
+                        int (*get_id)(sd_id128_t *ret);
+                } table[] = {
+                        { "machine ID",   sd_id128_get_machine },
+                        { "boot ID",      sd_id128_get_boot    },
+                        { "product UUID", id128_get_product    },
+                };
 
-                r = sd_id128_get_machine(&y);
-                if (r < 0)
-                        return r;
+                /* If this is a UUID, check if this matches the machine ID, boot ID or product UUID */
+                FOREACH_ELEMENT(i, table) {
+                        sd_id128_t y;
 
-                return sd_id128_equal(x, y);
+                        r = i->get_id(&y);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to get %s, ignoring: %m", i->name);
+                        else if (sd_id128_equal(x, y))
+                                return true;
+                }
+
+                /* Fall through, also allow setups where people set hostnames to UUIDs. Kinda weird, but no
+                 * reason not to allow that */
         }
 
         h = gethostname_malloc();
