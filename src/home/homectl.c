@@ -2702,6 +2702,8 @@ static int create_interactively(void) {
         return create_home_common(/* input= */ NULL, /* show_enforce_password_policy_hint= */ false);
 }
 
+static int add_signing_keys_from_credentials(void);
+
 static int verb_firstboot(int argc, char *argv[], void *userdata) {
         int r;
 
@@ -2717,11 +2719,13 @@ static int verb_firstboot(int argc, char *argv[], void *userdata) {
                 arg_prompt_new_user = false;
         }
 
+        int ret = 0;
+
+        RET_GATHER(ret, add_signing_keys_from_credentials());
+
         r = create_from_credentials();
-        if (r < 0)
-                return r;
-        if (r > 0) /* Already created users from credentials */
-                return 0;
+        RET_GATHER(ret, r);
+        bool existing_users = r > 0;
 
         r = getenv_bool("SYSTEMD_HOME_FIRSTBOOT_OVERRIDE");
         if (r == 0)
@@ -2730,16 +2734,21 @@ static int verb_firstboot(int argc, char *argv[], void *userdata) {
                 if (r != -ENXIO)
                         log_warning_errno(r, "Failed to parse $SYSTEMD_HOME_FIRSTBOOT_OVERRIDE, ignoring: %m");
 
-                r = has_regular_user();
-                if (r < 0)
-                        return r;
-                if (r > 0) {
-                        log_info("Regular user already present in user database, skipping user creation.");
+                if (!existing_users) {
+                        r = has_regular_user();
+                        if (r < 0)
+                                return r;
+
+                        existing_users = r > 0;
+                }
+                if (existing_users) {
+                        log_info("Regular user already present in user database, skipping interactive user creation.");
                         return 0;
                 }
         }
 
-        return create_interactively();
+        RET_GATHER(ret, create_interactively());
+        return ret;
 }
 
 static int drop_from_identity(const char *field) {
@@ -5125,6 +5134,53 @@ static int verb_add_signing_key(int argc, char *argv[], void *userdata) {
 
                         RET_GATHER(ret, add_signing_key_one(bus, fn ?: arg_key_name, f));
                 }
+        }
+
+        return ret;
+}
+
+static int add_signing_keys_from_credentials(void) {
+        int r;
+
+        _cleanup_close_ int fd = open_credentials_dir();
+        if (IN_SET(fd, -ENXIO, -ENOENT)) /* Credential env var not set, or dir doesn't exist. */
+                return 0;
+        if (fd < 0)
+                return log_error_errno(fd, "Failed to open credentials directory: %m");
+
+        _cleanup_free_ DirectoryEntries *des = NULL;
+        r = readdir_all(fd, RECURSE_DIR_SORT|RECURSE_DIR_IGNORE_DOT|RECURSE_DIR_ENSURE_TYPE, &des);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enumerate credentials: %m");
+
+        int ret = 0;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        FOREACH_ARRAY(i, des->entries, des->n_entries) {
+                struct dirent *de = *i;
+                if (de->d_type != DT_REG)
+                        continue;
+
+                const char *e = startswith(de->d_name, "home.add-signing-key.");
+                if (!e)
+                        continue;
+
+                if (!filename_is_valid(e))
+                        continue;
+
+                if (!bus) {
+                        r = acquire_bus(&bus);
+                        if (r < 0)
+                                return r;
+                }
+
+                _cleanup_fclose_ FILE *f = NULL;
+                r = xfopenat(fd, de->d_name, "re", O_NOFOLLOW, &f);
+                if (r < 0) {
+                        RET_GATHER(ret, log_error_errno(r, "Failed to open credential '%s': %m", de->d_name));
+                        continue;
+                }
+
+                RET_GATHER(ret, add_signing_key_one(bus, e, f));
         }
 
         return ret;
