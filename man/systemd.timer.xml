@@ -272,7 +272,7 @@
 
         <para>This setting is useful to stretch dispatching of similarly configured timer events over a
         certain time interval, to prevent them from firing all at the same time, possibly resulting in
-        resource congestion.</para>
+        resource congestion on the local system.</para>
 
         <para>Note the relation to <varname>AccuracySec=</varname> above: the latter allows the service
         manager to coalesce timer events within a specified time range in order to minimize wakeups, while
@@ -303,6 +303,36 @@
         <option>false</option>.</para>
 
         <xi:include href="version-info.xml" xpointer="v247"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>RandomizedOffsetSec=</varname></term>
+
+        <listitem><para>Offsets the timer by a stable, randomly-selected, and evenly distributed amount of
+        time between 0 and the specified time value. Defaults to 0, indicating that no such offset shall be
+        applied. The offset is chosen deterministically, and is derived the same way as
+        <varname>FixedRandomDelay=</varname>, see above. The offset is added on top of the next determined
+        elapsing time. This setting only has an effect on timers configured with <varname>OnCalendar=</varname>,
+        and it can be combined with <varname>RandomizedDelaySec=</varname>.</para>
+
+        <para>Much like <varname>RandomizedDelaySec=</varname>, this setting is for distributing timer events
+        to prevent them from firing all at once. However, this setting is most useful to prevent resource
+        congestion on a remote service, from a fleet of similarly-configured clients. Unlike
+        <varname>RandomizedDelaySec=</varname>, this setting applies its offset with no regard to manager
+        startup time. This maintains the periodicity of configured <varname>OnCalendar=</varname> events
+        across manager restarts.</para>
+
+        <para>For example, let's say you're running a backup service and have a fleet of laptops that wish
+        to make backups weekly. To distribute load on the backup service, each laptop should randomly pick
+        a weekday to upload its backups. This could be achieved by setting <varname>OnCalendar=</varname> to
+        <literal>weekly</literal>, and then configuring a <varname>RandomizedDelaySec=</varname> of
+        <literal>5 days</literal> with <varname>FixedRandomDelay=</varname> enabled. Let's say that some
+        laptop randomly chooses a delay of 4 days. If this laptop is restarted more often than that, then the
+        timer will never fire: on each fresh boot, the 4 day delay is restarted and will not be finished by
+        the time of the next shutdown. Instead, you should use <varname>RandomizedOffsetSec=</varname>, which
+        will maintain the configured weekly cadence of timer events, even across reboots.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
 
       <varlistentry>
