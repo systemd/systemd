@@ -2480,7 +2480,8 @@ static int setup_private_pids(const ExecContext *c, ExecParameters *p) {
         if (pipe2(errno_pipe, O_CLOEXEC) < 0)
                 return log_exec_debug_errno(c, p, errno, "Failed to create pipe for communicating with parent process: %m");
 
-        r = pidref_safe_fork("(sd-pidns-child)", FORK_NEW_PIDNS, &pidref);
+        /* Set FORK_DETACH to immediately re-parent the child process to the invoking manager process. */
+        r = pidref_safe_fork("(sd-pidns-child)", FORK_NEW_PIDNS|FORK_DETACH, &pidref);
         if (r < 0)
                 return log_exec_debug_errno(c, p, r, "Failed to fork child into new pid namespace: %m");
         if (r > 0) {
