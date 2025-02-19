@@ -4,11 +4,12 @@
 #include "notify-recv.h"
 #include "socket-util.h"
 
-int notify_recv(
+int notify_recv_with_fds(
                 int fd,
                 char **ret_text,
                 struct ucred *ret_ucred,
-                PidRef *ret_pidref) {
+                PidRef *ret_pidref,
+                FDSet *ret_fds) {
 
         char buf[NOTIFY_BUFFER_MAX+1];
         struct iovec iovec = {
@@ -38,7 +39,8 @@ int notify_recv(
         if (ERRNO_IS_NEG_TRANSIENT(n))
                 return -EAGAIN;
         if (n == -ECHRNG) {
-                log_warning_errno(n, "Got message with truncated control data (unexpected fds sent?), ignoring.");
+                log_warning_errno(n, "Got message with truncated control data (%s fds sent?), ignoring.",
+                                  ret_fds ? "too many" : "unexpected");
                 return -EAGAIN;
         }
         if (n == -EXFULL) {
@@ -50,6 +52,8 @@ int notify_recv(
 
         const struct ucred *ucred = NULL;
         _cleanup_close_ int pidfd = -EBADF;
+        int *fd_array = NULL;
+        size_t n_fds = 0;
 
         struct cmsghdr *cmsg;
         CMSG_FOREACH(cmsg, &msghdr) {
@@ -59,9 +63,10 @@ int notify_recv(
                 switch (cmsg->cmsg_type) {
 
                 case SCM_RIGHTS:
-                        /* For now, just close every fd */
-                        close_many(CMSG_TYPED_DATA(cmsg, int),
-                                   (cmsg->cmsg_len - CMSG_LEN(0)) / sizeof(int));
+                        assert(!fd_array && n_fds == 0);
+
+                        fd_array = CMSG_TYPED_DATA(cmsg, int);
+                        n_fds = (cmsg->cmsg_len - CMSG_LEN(0)) / sizeof(int);
                         break;
 
                 case SCM_PIDFD:
@@ -77,6 +82,24 @@ int notify_recv(
 
                         ucred = CMSG_TYPED_DATA(cmsg, struct ucred);
                         break;
+                }
+        }
+
+        _cleanup_(fdset_free_asyncp) FDSet *fds = NULL;
+
+        if (n_fds > 0) {
+                assert(fd_array);
+
+                if (!ret_fds) {
+                        log_debug("Received fds via notification while none is expected, closing all.");
+                        close_many(fd_array, n_fds);
+                } else {
+                        r = fdset_new_array(&fds, fd_array, n_fds);
+                        if (r < 0) {
+                                close_many(fd_array, n_fds);
+                                log_warning_errno(r, "Failed to collect fds from notification, ignoring message: %m");
+                                return -EAGAIN;
+                        }
                 }
         }
 
@@ -128,6 +151,9 @@ int notify_recv(
 
         if (ret_pidref)
                 *ret_pidref = TAKE_PIDREF(pidref);
+
+        if (ret_fds)
+                *ret_fds = TAKE_PTR(fds);
 
         return 0;
 }
