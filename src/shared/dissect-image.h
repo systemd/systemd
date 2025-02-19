@@ -211,6 +211,12 @@ static inline bool verity_settings_set(const VeritySettings *settings) {
 }
 
 void verity_settings_done(VeritySettings *verity);
+VeritySettings* verity_settings_free(VeritySettings *v);
+void verity_settings_hash_func(const VeritySettings *s, struct siphash *state);
+int verity_settings_compare_func(const VeritySettings *x, const VeritySettings *y);
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(VeritySettings*, verity_settings_free);
+extern const struct hash_ops verity_settings_hash_ops;
 
 static inline bool verity_settings_data_covers(const VeritySettings *verity, PartitionDesignator d) {
         /* Returns true if the verity settings contain sufficient information to cover the specified partition */
