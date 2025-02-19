@@ -50,6 +50,10 @@ struct Mount {
         MountParameters parameters_proc_self_mountinfo;
         MountParameters parameters_fragment;
 
+        sd_bus_message *remount_request;
+        char *remount_options;
+        RemountFlags remount_flags;
+
         bool from_proc_self_mountinfo:1;
         bool from_fragment:1;
 
