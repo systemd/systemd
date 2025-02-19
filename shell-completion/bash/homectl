@@ -112,7 +112,8 @@ _homectl() {
                         --avatar
                         --login-background
                         --session-launcher
-                        --session-type'
+                        --session-type
+                        --key-name'
     )
 
     if __contains_word "$prev" ${OPTS[ARG]}; then

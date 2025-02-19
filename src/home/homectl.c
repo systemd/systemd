@@ -24,6 +24,7 @@
 #include "fs-util.h"
 #include "glyph-util.h"
 #include "hashmap.h"
+#include "hexdecoct.h"
 #include "home-util.h"
 #include "homectl-fido2.h"
 #include "homectl-pkcs11.h"
@@ -33,6 +34,7 @@
 #include "locale-util.h"
 #include "main-func.h"
 #include "memory-util.h"
+#include "openssl-util.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
@@ -96,6 +98,7 @@ static bool arg_prompt_new_user = false;
 static char *arg_blob_dir = NULL;
 static bool arg_blob_clear = false;
 static Hashmap *arg_blob_files = NULL;
+static char *arg_key_name = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_identity_extra, sd_json_variant_unrefp);
 STATIC_DESTRUCTOR_REGISTER(arg_identity_extra_this_machine, sd_json_variant_unrefp);
@@ -107,6 +110,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_pkcs11_token_uri, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_fido2_device, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_blob_dir, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_blob_files, hashmap_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_key_name, freep);
 
 static const BusLocator *bus_mgr;
 
@@ -2795,6 +2799,11 @@ static int help(int argc, char *argv[], void *userdata) {
                "  rebalance                    Rebalance free space between home areas\n"
                "  with USER [COMMAND…]         Run shell or command with access to a home area\n"
                "  firstboot                    Run first-boot home area creation wizard\n"
+               "\n%4$sSigning Keys Commands:%5$s\n"
+               "  list-signing-keys            List home signing keys\n"
+               "  get-signing-key [NAME…]      Get a named home signing key\n"
+               "  add-signing-key FILE…        Add home signing key\n"
+               "  remove-signing-key NAME…     Remove home signing key\n"
                "\n%4$sOptions:%5$s\n"
                "  -h --help                    Show this help\n"
                "     --version                 Show package version\n"
@@ -2816,6 +2825,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "                               -j --export-format=minimal\n"
                "     --prompt-new-user         firstboot: Query user interactively for user\n"
                "                               to create\n"
+               "     --key-name=NAME           Key name when adding a signing key\n"
                "\n%4$sGeneral User Record Properties:%5$s\n"
                "  -c --real-name=REALNAME      Real name for user\n"
                "     --realm=REALM             Realm to create user in\n"
@@ -3049,6 +3059,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_TMP_LIMIT,
                 ARG_DEV_SHM_LIMIT,
                 ARG_DEFAULT_AREA,
+                ARG_KEY_NAME,
         };
 
         static const struct option options[] = {
@@ -3152,6 +3163,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "tmp-limit",                    required_argument, NULL, ARG_TMP_LIMIT                   },
                 { "dev-shm-limit",                required_argument, NULL, ARG_DEV_SHM_LIMIT               },
                 { "default-area",                 required_argument, NULL, ARG_DEFAULT_AREA                },
+                { "key-name",                     required_argument, NULL, ARG_KEY_NAME                    },
                 {}
         };
 
@@ -4653,6 +4665,21 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
+                case ARG_KEY_NAME:
+                        if (isempty(optarg)) {
+                                arg_key_name = mfree(arg_key_name);
+                                return 0;
+                        }
+
+                        if (!filename_is_valid(optarg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Specified key name not valid: %s", optarg);
+
+                        r = free_and_strdup_warn(&arg_key_name, optarg);
+                        if (r < 0)
+                                return r;
+
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -4915,26 +4942,247 @@ static int fallback_shell(int argc, char *argv[]) {
         return log_error_errno(errno, "Failed to execute shell '%s': %m", shell);
 }
 
+static int verb_list_signing_keys(int argc, char *argv[], void *userdata) {
+        int r;
+
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
+
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        r = bus_call_method(bus, bus_mgr, "ListSigningKeys", &error, &reply, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to list signing keys: %s", bus_error_message(&error, r));
+
+        _cleanup_(table_unrefp) Table *table = table_new("name", "key");
+        if (!table)
+                return log_oom();
+
+        r = sd_bus_message_enter_container(reply, 'a', "(sst)");
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        for (;;) {
+                const char *name, *pem;
+
+                r = sd_bus_message_read(reply, "(sst)", &name, &pem, NULL);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+                if (r == 0)
+                        break;
+
+                _cleanup_free_ char *h = NULL;
+                if (!sd_json_format_enabled(arg_json_format_flags)) {
+                        /* Let's decode the PEM key to DER (so that we lose prefix/suffix), then truncate it
+                         * for display reasons. */
+
+                        _cleanup_(EVP_PKEY_freep) EVP_PKEY *key = NULL;
+                        r = openssl_pubkey_from_pem(pem, SIZE_MAX, &key);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse PEM: %m");
+
+                        _cleanup_free_ void *der = NULL;
+                        int n = i2d_PUBKEY(key, (unsigned char**) &der);
+                        if (n < 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to encode key as DER: %m");
+
+                        ssize_t m = base64mem(der, MIN(n, 64), &h);
+                        if (m < 0)
+                                return log_oom();
+                        if (n > 64) /* check if we truncated the original version */
+                                if (!strextend(&h, special_glyph(SPECIAL_GLYPH_ELLIPSIS)))
+                                        return log_oom();
+                }
+
+                r = table_add_many(
+                                table,
+                                TABLE_STRING, name,
+                                TABLE_STRING, h ?: pem);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        r = sd_bus_message_exit_container(reply);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        if (!table_isempty(table) || sd_json_format_enabled(arg_json_format_flags)) {
+                r = table_set_sort(table, (size_t) 0);
+                if (r < 0)
+                        return table_log_sort_error(r);
+
+                r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
+                if (r < 0)
+                        return r;
+        }
+
+        if (arg_legend && !sd_json_format_enabled(arg_json_format_flags)) {
+                if (table_isempty(table))
+                        printf("No signing keys.\n");
+                else
+                        printf("\n%zu signing keys listed.\n", table_get_rows(table) - 1);
+        }
+
+        return 0;
+}
+
+static int verb_get_signing_key(int argc, char *argv[], void *userdata) {
+        int r;
+
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
+
+        char **keys = argc >= 2 ? strv_skip(argv, 1) : STRV_MAKE("local.public");
+        int ret = 0;
+        STRV_FOREACH(k, keys) {
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+                r = bus_call_method(bus, bus_mgr, "GetSigningKey", &error, &reply, "s", *k);
+                if (r < 0) {
+                        RET_GATHER(ret, log_error_errno(r, "Failed to get signing key '%s': %s", *k, bus_error_message(&error, r)));
+                        continue;
+                }
+
+                const char *pem;
+                r = sd_bus_message_read(reply, "st", &pem, NULL);
+                if (r < 0) {
+                        RET_GATHER(ret, bus_log_parse_error(r));
+                        continue;
+                }
+
+                fputs(pem, stdout);
+                if (!endswith(pem, "\n"))
+                        fputc('\n', stdout);
+
+                fflush(stdout);
+        }
+
+        return ret;
+}
+
+static int add_signing_key_one(sd_bus *bus, const char *fn, FILE *key) {
+        int r;
+
+        assert_se(bus);
+        assert_se(fn);
+        assert_se(key);
+
+        _cleanup_free_ char *pem = NULL;
+        r = read_full_stream(key, &pem, /* ret_size= */ NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to read key '%s': %m", fn);
+
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        r = bus_call_method(bus, bus_mgr, "AddSigningKey", &error, /* reply= */ NULL, "sst", fn, pem, UINT64_C(0));
+        if (r < 0)
+                return log_error_errno(r, "Failed to add signing key '%s': %s", fn, bus_error_message(&error, r));
+
+        return 0;
+}
+
+static int verb_add_signing_key(int argc, char *argv[], void *userdata) {
+        int r;
+
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
+
+        int ret = EXIT_SUCCESS;
+        if (argc < 2 || streq(argv[1], "-")) {
+                if (!arg_key_name)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Key name must be specified via --key-name= when reading key from standard input, refusing.");
+
+                RET_GATHER(ret, add_signing_key_one(bus, arg_key_name, stdin));
+        } else {
+                /* Refuse if more han one key is specified in combination with --key-name= */
+                if (argc >= 3 && arg_key_name)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--key-name= is not supported if multiple signing keys are specified, refusing.");
+
+                STRV_FOREACH(k, strv_skip(argv, 1)) {
+
+                        if (streq(*k, "-"))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Refusing to read from standard input if multiple keys are specified.");
+
+                        _cleanup_free_ char *fn = NULL;
+                        if (!arg_key_name) {
+                                r = path_extract_filename(*k, &fn);
+                                if (r < 0) {
+                                        RET_GATHER(ret, log_error_errno(r, "Failed to extract filename from path '%s': %m", *k));
+                                        continue;
+                                }
+                        }
+
+                        _cleanup_fclose_ FILE *f = fopen(*k, "re");
+                        if (!f) {
+                                RET_GATHER(ret, log_error_errno(errno, "Failed to open '%s': %m", *k));
+                                continue;
+                        }
+
+                        RET_GATHER(ret, add_signing_key_one(bus, fn ?: arg_key_name, f));
+                }
+        }
+
+        return ret;
+}
+
+static int remove_signing_key_one(sd_bus *bus, const char *fn) {
+        int r;
+
+        assert_se(bus);
+        assert_se(fn);
+
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        r = bus_call_method(bus, bus_mgr, "RemoveSigningKey", &error, /* reply= */ NULL, "st", fn, UINT64_C(0));
+        if (r < 0)
+                return log_error_errno(r, "Failed to remove signing key '%s': %s", fn, bus_error_message(&error, r));
+
+        return 0;
+}
+
+static int verb_remove_signing_key(int argc, char *argv[], void *userdata) {
+        int r;
+
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
+
+        r = EXIT_SUCCESS;
+        STRV_FOREACH(k, strv_skip(argv, 1))
+                RET_GATHER(r, remove_signing_key_one(bus, *k));
+
+        return r;
+}
+
 static int run(int argc, char *argv[]) {
         static const Verb verbs[] = {
-                { "help",           VERB_ANY, VERB_ANY, 0,            help                 },
-                { "list",           VERB_ANY, 1,        VERB_DEFAULT, list_homes           },
-                { "activate",       2,        VERB_ANY, 0,            activate_home        },
-                { "deactivate",     2,        VERB_ANY, 0,            deactivate_home      },
-                { "inspect",        VERB_ANY, VERB_ANY, 0,            inspect_home         },
-                { "authenticate",   VERB_ANY, VERB_ANY, 0,            authenticate_home    },
-                { "create",         VERB_ANY, 2,        0,            create_home          },
-                { "remove",         2,        VERB_ANY, 0,            remove_home          },
-                { "update",         VERB_ANY, 2,        0,            update_home          },
-                { "passwd",         VERB_ANY, 2,        0,            passwd_home          },
-                { "resize",         2,        3,        0,            resize_home          },
-                { "lock",           2,        VERB_ANY, 0,            lock_home            },
-                { "unlock",         2,        VERB_ANY, 0,            unlock_home          },
-                { "with",           2,        VERB_ANY, 0,            with_home            },
-                { "lock-all",       VERB_ANY, 1,        0,            lock_all_homes       },
-                { "deactivate-all", VERB_ANY, 1,        0,            deactivate_all_homes },
-                { "rebalance",      VERB_ANY, 1,        0,            rebalance            },
-                { "firstboot",      VERB_ANY, 1,        0,            verb_firstboot       },
+                { "help",               VERB_ANY, VERB_ANY, 0,            help                     },
+                { "list",               VERB_ANY, 1,        VERB_DEFAULT, list_homes               },
+                { "activate",           2,        VERB_ANY, 0,            activate_home            },
+                { "deactivate",         2,        VERB_ANY, 0,            deactivate_home          },
+                { "inspect",            VERB_ANY, VERB_ANY, 0,            inspect_home             },
+                { "authenticate",       VERB_ANY, VERB_ANY, 0,            authenticate_home        },
+                { "create",             VERB_ANY, 2,        0,            create_home              },
+                { "remove",             2,        VERB_ANY, 0,            remove_home              },
+                { "update",             VERB_ANY, 2,        0,            update_home              },
+                { "passwd",             VERB_ANY, 2,        0,            passwd_home              },
+                { "resize",             2,        3,        0,            resize_home              },
+                { "lock",               2,        VERB_ANY, 0,            lock_home                },
+                { "unlock",             2,        VERB_ANY, 0,            unlock_home              },
+                { "with",               2,        VERB_ANY, 0,            with_home                },
+                { "lock-all",           VERB_ANY, 1,        0,            lock_all_homes           },
+                { "deactivate-all",     VERB_ANY, 1,        0,            deactivate_all_homes     },
+                { "rebalance",          VERB_ANY, 1,        0,            rebalance                },
+                { "firstboot",          VERB_ANY, 1,        0,            verb_firstboot           },
+                { "list-signing-keys",  VERB_ANY, 1,        0,            verb_list_signing_keys   },
+                { "get-signing-key",    VERB_ANY, VERB_ANY, 0,            verb_get_signing_key     },
+                { "add-signing-key",    VERB_ANY, VERB_ANY, 0,            verb_add_signing_key     },
+                { "remove-signing-key", 2,        VERB_ANY, 0,            verb_remove_signing_key  },
                 {}
         };
 
