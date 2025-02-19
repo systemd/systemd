@@ -958,10 +958,7 @@ static int mount_in_namespace_legacy(
 
         /* Second, we mount the source file or directory to a directory inside of our MS_SLAVE playground. */
         mount_tmp = strjoina(mount_slave, "/mount");
-        if (flags & MOUNT_IN_NAMESPACE_IS_IMAGE)
-                r = mkdir_p(mount_tmp, 0700);
-        else
-                r = make_mount_point_inode_from_stat(chased_src_st, mount_tmp, 0700);
+        r = make_mount_point_inode_from_mode(AT_FDCWD, mount_tmp, (flags & MOUNT_IN_NAMESPACE_IS_IMAGE) ? S_IFDIR : chased_src_st->st_mode, 0700);
         if (r < 0) {
                 log_debug_errno(r, "Failed to create temporary mount point %s: %m", mount_tmp);
                 goto finish;
@@ -1038,8 +1035,18 @@ static int mount_in_namespace_legacy(
                 goto finish;
         }
 
-        r = namespace_fork("(sd-bindmnt)", "(sd-bindmnt-inner)", NULL, 0, FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM,
-                           pidns_fd, mntns_fd, -1, -1, root_fd, &child);
+        r = namespace_fork(
+                        "(sd-bindmnt)",
+                        "(sd-bindmnt-inner)",
+                        /* except_fds= */ NULL,
+                        /* n_except_fds= */ 0,
+                        FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM,
+                        pidns_fd,
+                        mntns_fd,
+                        /* netns_fd= */ -EBADF,
+                        /* userns_fd= */ -EBADF,
+                        root_fd,
+                        &child);
         if (r < 0)
                 goto finish;
         if (r == 0) {
@@ -1047,12 +1054,15 @@ static int mount_in_namespace_legacy(
 
                 errno_pipe_fd[0] = safe_close(errno_pipe_fd[0]);
 
-                if (flags & MOUNT_IN_NAMESPACE_MAKE_FILE_OR_DIRECTORY) {
-                        if (!(flags & MOUNT_IN_NAMESPACE_IS_IMAGE)) {
-                                (void) mkdir_parents(dest, 0755);
-                                (void) make_mount_point_inode_from_stat(chased_src_st, dest, 0700);
-                        } else
-                                (void) mkdir_p(dest, 0755);
+                _cleanup_close_ int dest_fd = -EBADF;
+                _cleanup_free_ char *dest_fn = NULL;
+                r = chase(dest, /* root= */ NULL, CHASE_PARENT|CHASE_EXTRACT_FILENAME|((flags & MOUNT_IN_NAMESPACE_MAKE_FILE_OR_DIRECTORY) ? CHASE_MKDIR_0755 : 0), &dest_fn, &dest_fd);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to pin parent directory of mount '%s', ignoring: %m", dest);
+                else if (flags & MOUNT_IN_NAMESPACE_MAKE_FILE_OR_DIRECTORY) {
+                        r = make_mount_point_inode_from_mode(dest_fd, dest_fn, (flags & MOUNT_IN_NAMESPACE_IS_IMAGE) ? S_IFDIR : chased_src_st->st_mode, 0700);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to make mount point inode of mount '%s', ignoring: %m", dest);
                 }
 
                 /* Fifth, move the mount to the right place inside */
@@ -1066,7 +1076,7 @@ static int mount_in_namespace_legacy(
                 if (!mount_inside)
                         report_errno_and_exit(errno_pipe_fd[1], log_oom_debug());
 
-                r = mount_nofollow_verbose(LOG_DEBUG, mount_inside, dest, NULL, MS_MOVE, NULL);
+                r = mount_nofollow_verbose(LOG_DEBUG, mount_inside, dest_fd >= 0 ? FORMAT_PROC_FD_PATH(dest_fd) : dest, /* fstype= */ NULL, MS_MOVE, /* options= */ NULL);
                 if (r < 0)
                         report_errno_and_exit(errno_pipe_fd[1], r);
 
@@ -1237,8 +1247,14 @@ static int mount_in_namespace(
         if (r == 0) {
                 errno_pipe_fd[0] = safe_close(errno_pipe_fd[0]);
 
+                _cleanup_close_ int dest_fd = -EBADF;
+                _cleanup_free_ char *dest_fn = NULL;
+                r = chase(dest, /* root= */ NULL, CHASE_PARENT|CHASE_EXTRACT_FILENAME|((flags & MOUNT_IN_NAMESPACE_MAKE_FILE_OR_DIRECTORY) ? CHASE_MKDIR_0755 : 0), &dest_fn, &dest_fd);
+                if (r < 0)
+                        report_errno_and_exit(errno_pipe_fd[1], r);
+
                 if (flags & MOUNT_IN_NAMESPACE_MAKE_FILE_OR_DIRECTORY)
-                        (void) mkdir_parents(dest, 0755);
+                        (void) make_mount_point_inode_from_mode(dest_fd, dest_fn, img ? S_IFDIR : st.st_mode, 0700);
 
                 if (img) {
                         DissectImageFlags f =
@@ -1258,12 +1274,8 @@ static int mount_in_namespace(
                                         /* uid_range= */ UID_INVALID,
                                         /* userns_fd= */ -EBADF,
                                         f);
-                } else {
-                        if (flags & MOUNT_IN_NAMESPACE_MAKE_FILE_OR_DIRECTORY)
-                                (void) make_mount_point_inode_from_stat(&st, dest, 0700);
-
+                } else
                         r = mount_exchange_graceful(new_mount_fd, dest, /* mount_beneath= */ true);
-                }
 
                 report_errno_and_exit(errno_pipe_fd[1], r);
         }
@@ -1688,17 +1700,17 @@ int bind_mount_submounts(
         return ret;
 }
 
-int make_mount_point_inode_from_stat(const struct stat *st, const char *dest, mode_t mode) {
-        assert(st);
+int make_mount_point_inode_from_mode(int dir_fd, const char *dest, mode_t source_mode, mode_t target_mode) {
+        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
         assert(dest);
 
-        if (S_ISDIR(st->st_mode))
-                return mkdir_label(dest, mode);
+        if (S_ISDIR(source_mode))
+                return mkdirat_label(dir_fd, dest, target_mode & 07777);
         else
-                return RET_NERRNO(mknod(dest, S_IFREG|(mode & ~0111), 0));
+                return RET_NERRNO(mknodat(dir_fd, dest, S_IFREG|(target_mode & 07666), 0)); /* Mask off X bit */
 }
 
-int make_mount_point_inode_from_path(const char *source, const char *dest, mode_t mode) {
+int make_mount_point_inode_from_path(const char *source, const char *dest, mode_t access_mode) {
         struct stat st;
 
         assert(source);
@@ -1707,7 +1719,7 @@ int make_mount_point_inode_from_path(const char *source, const char *dest, mode_
         if (stat(source, &st) < 0)
                 return -errno;
 
-        return make_mount_point_inode_from_stat(&st, dest, mode);
+        return make_mount_point_inode_from_mode(AT_FDCWD, dest, st.st_mode, access_mode);
 }
 
 int trigger_automount_at(int dir_fd, const char *path) {
