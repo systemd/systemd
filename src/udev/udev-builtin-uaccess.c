@@ -8,7 +8,9 @@
 #include "device-util.h"
 #include "devnode-acl.h"
 #include "errno-util.h"
+#include "lock-util.h"
 #include "login-util.h"
+#include "path-util.h"
 #include "udev-builtin.h"
 
 static int builtin_uaccess(UdevEvent *event, int argc, char *argv[]) {
@@ -34,6 +36,18 @@ static int builtin_uaccess(UdevEvent *event, int argc, char *argv[]) {
         const char *seat;
         if (sd_device_get_property_value(dev, "ID_SEAT", &seat) < 0)
                 seat = "seat0";
+
+        /* Take a lock for the seat before reading the seat state file and applying ACLs.
+         * See comments in seat_set_active() of logind. */
+
+        _cleanup_free_ char *path = path_join("/run/systemd/seat/", seat);
+        if (!path)
+                return log_oom();
+
+        _cleanup_(release_lock_file) LockFile lockfile = LOCK_FILE_INIT;
+        r = make_lock_file_for(path, LOCK_EX, &lockfile);
+        if (r < 0)
+                return log_device_error_errno(dev, r, "Failed to create lock file for '%s': %m", path);
 
         uid_t uid;
         r = sd_seat_get_active(seat, /* ret_session = */ NULL, &uid);
