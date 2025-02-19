@@ -1537,10 +1537,11 @@ int safe_fork_full(
         sigset_t saved_ss, ss;
         _unused_ _cleanup_(restore_sigsetp) sigset_t *saved_ssp = NULL;
         bool block_signals = false, block_all = false, intermediary = false;
+        _cleanup_close_pair_ int pid_transport_fds[2] = EBADF_PAIR;
         int prio, r;
 
         assert(!FLAGS_SET(flags, FORK_DETACH) ||
-               (!ret_pid && (flags & (FORK_WAIT|FORK_DEATHSIG_SIGTERM|FORK_DEATHSIG_SIGINT|FORK_DEATHSIG_SIGKILL)) == 0));
+               (flags & (FORK_WAIT|FORK_DEATHSIG_SIGTERM|FORK_DEATHSIG_SIGINT|FORK_DEATHSIG_SIGKILL)) == 0);
 
         /* A wrapper around fork(), that does a couple of important initializations in addition to mere forking. Always
          * returns the child's PID in *ret_pid. Returns == 0 in the child, and > 0 in the parent. */
@@ -1553,6 +1554,9 @@ int safe_fork_full(
                 fflush(stdout);
                 fflush(stderr); /* This one shouldn't be necessary, stderr should be unbuffered anyway, but let's better be safe than sorry */
         }
+
+        if (FLAGS_SET(flags, FORK_DETACH) && ret_pid && pipe2(pid_transport_fds, O_CLOEXEC) < 0)
+                return log_full_errno(prio, errno, "Failed to allocate pid transport pipe: %m");
 
         if (flags & (FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_DEATHSIG_SIGINT)) {
                 /* We temporarily block all signals, so that the new child has them blocked initially. This
@@ -1591,9 +1595,31 @@ int safe_fork_full(
                                 return log_full_errno(prio, errno, "Failed to fork off '%s': %m", strna(name));
                         if (pid > 0) {
                                 log_debug("Successfully forked off intermediary '%s' as PID " PID_FMT ".", strna(name), pid);
+
+                                pid_transport_fds[1] = safe_close(pid_transport_fds[1]);
+
+                                if (pid_transport_fds[0] >= 0) {
+                                        /* Wait for the intermediary child to exit so the caller can be certain the actual child
+                                         * process has been reparented by the time this function returns. */
+                                        r = wait_for_terminate_and_check(name, pid, (flags & FORK_LOG ? WAIT_LOG : 0));
+                                        if (r < 0)
+                                                return log_full_errno(prio, errno, "Failed to wait for intermediary process: %m");
+                                        if (r != EXIT_SUCCESS) /* exit status > 0 should be treated as failure, too */
+                                                return -EPROTO;
+
+                                        ssize_t l = read(pid_transport_fds[0], &pid, sizeof(pid));
+                                        if (l < 0)
+                                                return log_full_errno(prio, errno, "Failed to read inner child PID: %m");
+                                        if (l != sizeof(pid))
+                                                return log_full_errno(prio, SYNTHETIC_ERRNO(EIO), "Short read while reading inner child PID.");
+
+                                        *ret_pid = pid;
+                                }
+
                                 return 1; /* return in the parent */
                         }
 
+                        pid_transport_fds[0] = safe_close(pid_transport_fds[0]);
                         intermediary = true;
                 }
         }
@@ -1611,8 +1637,21 @@ int safe_fork_full(
         if (pid > 0) {
 
                 /* If we are in the intermediary process, exit now */
-                if (intermediary)
+                if (intermediary) {
+                        if (pid_transport_fds[1] >= 0) {
+                                ssize_t l = write(pid_transport_fds[1], &pid, sizeof(pid));
+                                if (l < 0) {
+                                        log_full_errno(prio, errno, "Failed to send PID: %m");
+                                        _exit(EXIT_FAILURE);
+                                }
+                                if (l != sizeof(pid)) {
+                                        log_full_errno(prio, SYNTHETIC_ERRNO(EIO), "Short write while sending PID.");
+                                        _exit(EXIT_FAILURE);
+                                }
+                        }
+
                         _exit(EXIT_SUCCESS);
+                }
 
                 /* We are in the parent process */
                 log_debug("Successfully forked off '%s' as PID " PID_FMT ".", strna(name), pid);
@@ -1639,6 +1678,8 @@ int safe_fork_full(
         }
 
         /* We are in the child process */
+
+        pid_transport_fds[1] = safe_close(pid_transport_fds[1]);
 
         /* Restore signal mask manually */
         saved_ssp = NULL;
