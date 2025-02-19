@@ -41,7 +41,7 @@ _homectl() {
     local -A OPTS=(
         [STANDALONE]='-h --help --version
                      --no-pager --no-legend --no-ask-password
-                     -j -E -P'
+                     -j -E -P -A -N -T'
         [ARG]='      -H --host
                      -M --machine
                         --identity
@@ -114,7 +114,8 @@ _homectl() {
                         --session-launcher
                         --session-type
                         --key-name
-                        --seize'
+                        --seize
+                        --match'
     )
 
     if __contains_word "$prev" ${OPTS[ARG]}; then

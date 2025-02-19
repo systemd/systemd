@@ -70,6 +70,7 @@ static const char *arg_identity = NULL;
 static sd_json_variant *arg_identity_extra = NULL;
 static sd_json_variant *arg_identity_extra_privileged = NULL;
 static sd_json_variant *arg_identity_extra_this_machine = NULL;
+static sd_json_variant *arg_identity_extra_other_machines = NULL;
 static sd_json_variant *arg_identity_extra_rlimits = NULL;
 static char **arg_identity_filter = NULL; /* this one is also applied to 'privileged' and 'thisMachine' subobjects */
 static char **arg_identity_filter_rlimits = NULL;
@@ -104,6 +105,7 @@ static bool arg_seize = true;
 
 STATIC_DESTRUCTOR_REGISTER(arg_identity_extra, sd_json_variant_unrefp);
 STATIC_DESTRUCTOR_REGISTER(arg_identity_extra_this_machine, sd_json_variant_unrefp);
+STATIC_DESTRUCTOR_REGISTER(arg_identity_extra_other_machines, sd_json_variant_unrefp);
 STATIC_DESTRUCTOR_REGISTER(arg_identity_extra_privileged, sd_json_variant_unrefp);
 STATIC_DESTRUCTOR_REGISTER(arg_identity_extra_rlimits, sd_json_variant_unrefp);
 STATIC_DESTRUCTOR_REGISTER(arg_identity_filter, strv_freep);
@@ -122,6 +124,7 @@ static bool identity_properties_specified(void) {
                 !sd_json_variant_is_blank_object(arg_identity_extra) ||
                 !sd_json_variant_is_blank_object(arg_identity_extra_privileged) ||
                 !sd_json_variant_is_blank_object(arg_identity_extra_this_machine) ||
+                !sd_json_variant_is_blank_object(arg_identity_extra_other_machines) ||
                 !sd_json_variant_is_blank_object(arg_identity_extra_rlimits) ||
                 !strv_isempty(arg_identity_filter) ||
                 !strv_isempty(arg_identity_filter_rlimits) ||
@@ -932,7 +935,7 @@ static int apply_identity_changes(sd_json_variant **_v) {
         if (r < 0)
                 return log_error_errno(r, "Failed to merge identities: %m");
 
-        if (arg_identity_extra_this_machine || !strv_isempty(arg_identity_filter)) {
+        if (arg_identity_extra_this_machine || arg_identity_extra_other_machines || !strv_isempty(arg_identity_filter)) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *per_machine = NULL, *mmid = NULL;
                 sd_id128_t mid;
 
@@ -946,7 +949,7 @@ static int apply_identity_changes(sd_json_variant **_v) {
 
                 per_machine = sd_json_variant_ref(sd_json_variant_by_key(v, "perMachine"));
                 if (per_machine) {
-                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *npm = NULL, *add = NULL;
+                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *npm = NULL, *positive = NULL, *negative = NULL;
                         _cleanup_free_ sd_json_variant **array = NULL;
                         sd_json_variant *z;
                         size_t i = 0;
@@ -954,7 +957,7 @@ static int apply_identity_changes(sd_json_variant **_v) {
                         if (!sd_json_variant_is_array(per_machine))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "perMachine field is not an array, refusing.");
 
-                        array = new(sd_json_variant*, sd_json_variant_elements(per_machine) + 1);
+                        array = new(sd_json_variant*, sd_json_variant_elements(per_machine) + 2);
                         if (!array)
                                 return log_oom();
 
@@ -967,31 +970,41 @@ static int apply_identity_changes(sd_json_variant **_v) {
                                 array[i++] = z;
 
                                 u = sd_json_variant_by_key(z, "matchMachineId");
-                                if (!u)
-                                        continue;
+                                if (u && sd_json_variant_equal(u, mmid))
+                                        r = sd_json_variant_merge_object(&positive, z);
+                                else {
+                                        u = sd_json_variant_by_key(z, "matchNotMachineId");
+                                        if (!u || !sd_json_variant_equal(u, mmid))
+                                                continue;
 
-                                if (!sd_json_variant_equal(u, mmid))
-                                        continue;
-
-                                r = sd_json_variant_merge_object(&add, z);
+                                        r = sd_json_variant_merge_object(&negative, z);
+                                }
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to merge perMachine entry: %m");
 
                                 i--;
                         }
 
-                        r = sd_json_variant_filter(&add, arg_identity_filter);
+                        r = sd_json_variant_filter(&positive, arg_identity_filter);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to filter perMachine: %m");
 
-                        r = sd_json_variant_merge_object(&add, arg_identity_extra_this_machine);
+                        r = sd_json_variant_filter(&negative, arg_identity_filter);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to filter perMachine: %m");
+
+                        r = sd_json_variant_merge_object(&positive, arg_identity_extra_this_machine);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to merge in perMachine fields: %m");
+
+                        r = sd_json_variant_merge_object(&negative, arg_identity_extra_other_machines);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to merge in perMachine fields: %m");
 
                         if (arg_identity_filter_rlimits || arg_identity_extra_rlimits) {
                                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *rlv = NULL;
 
-                                rlv = sd_json_variant_ref(sd_json_variant_by_key(add, "resourceLimits"));
+                                rlv = sd_json_variant_ref(sd_json_variant_by_key(positive, "resourceLimits"));
 
                                 r = sd_json_variant_filter(&rlv, arg_identity_filter_rlimits);
                                 if (r < 0)
@@ -1002,22 +1015,30 @@ static int apply_identity_changes(sd_json_variant **_v) {
                                         return log_error_errno(r, "Failed to set resource limits: %m");
 
                                 if (sd_json_variant_is_blank_object(rlv)) {
-                                        r = sd_json_variant_filter(&add, STRV_MAKE("resourceLimits"));
+                                        r = sd_json_variant_filter(&positive, STRV_MAKE("resourceLimits"));
                                         if (r < 0)
                                                 return log_error_errno(r, "Failed to drop resource limits field from identity: %m");
                                 } else {
-                                        r = sd_json_variant_set_field(&add, "resourceLimits", rlv);
+                                        r = sd_json_variant_set_field(&positive, "resourceLimits", rlv);
                                         if (r < 0)
                                                 return log_error_errno(r, "Failed to update resource limits of identity: %m");
                                 }
                         }
 
-                        if (!sd_json_variant_is_blank_object(add)) {
-                                r = sd_json_variant_set_field(&add, "matchMachineId", mmid);
+                        if (!sd_json_variant_is_blank_object(positive)) {
+                                r = sd_json_variant_set_field(&positive, "matchMachineId", mmid);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to set matchMachineId field: %m");
 
-                                array[i++] = add;
+                                array[i++] = positive;
+                        }
+
+                        if (!sd_json_variant_is_blank_object(negative)) {
+                                r = sd_json_variant_set_field(&negative, "matchNotMachineId", mmid);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to set matchNotMachineId field: %m");
+
+                                array[i++] = negative;
                         }
 
                         r = sd_json_variant_new_array(&npm, array, i);
@@ -1027,21 +1048,34 @@ static int apply_identity_changes(sd_json_variant **_v) {
                         sd_json_variant_unref(per_machine);
                         per_machine = TAKE_PTR(npm);
                 } else {
-                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *item = sd_json_variant_ref(arg_identity_extra_this_machine);
+                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *positive = sd_json_variant_ref(arg_identity_extra_this_machine),
+                                *negative = sd_json_variant_ref(arg_identity_extra_other_machines);
 
                         if (arg_identity_extra_rlimits) {
-                                r = sd_json_variant_set_field(&item, "resourceLimits", arg_identity_extra_rlimits);
+                                r = sd_json_variant_set_field(&positive, "resourceLimits", arg_identity_extra_rlimits);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to update resource limits of identity: %m");
                         }
 
-                        r = sd_json_variant_set_field(&item, "matchMachineId", mmid);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to set matchMachineId field: %m");
+                        if (positive) {
+                                r = sd_json_variant_set_field(&positive, "matchMachineId", mmid);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to set matchMachineId field: %m");
 
-                        r = sd_json_variant_append_array(&per_machine, item);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to append to perMachine array: %m");
+                                r = sd_json_variant_append_array(&per_machine, positive);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to append to perMachine array: %m");
+                        }
+
+                        if (negative) {
+                                r = sd_json_variant_set_field(&negative, "matchNotMachineId", mmid);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to set matchNotMachineId field: %m");
+
+                                r = sd_json_variant_append_array(&per_machine, negative);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to append to perMachine array: %m");
+                        }
                 }
 
                 r = sd_json_variant_set_field(&v, "perMachine", per_machine);
@@ -3239,6 +3273,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_DEFAULT_AREA,
                 ARG_KEY_NAME,
                 ARG_SEIZE,
+                ARG_MATCH,
         };
 
         static const struct option options[] = {
@@ -3344,10 +3379,16 @@ static int parse_argv(int argc, char *argv[]) {
                 { "default-area",                 required_argument, NULL, ARG_DEFAULT_AREA                },
                 { "key-name",                     required_argument, NULL, ARG_KEY_NAME                    },
                 { "seize",                        required_argument, NULL, ARG_SEIZE                       },
+                { "match",                        required_argument, NULL, ARG_MATCH                       },
                 {}
         };
 
         int r;
+
+        /* This points to one of arg_identity_extra, arg_identity_extra_this_machine,
+         * arg_identity_extra_other_machines, in order to redirect changes on the next property being set to
+         * this part of the identity, instead of the default. */
+        sd_json_variant **match_identity = NULL;
 
         assert(argc >= 0);
         assert(argv);
@@ -3362,7 +3403,7 @@ static int parse_argv(int argc, char *argv[]) {
         for (;;) {
                 int c;
 
-                c = getopt_long(argc, argv, "hH:M:I:c:d:u:G:k:s:e:b:jPE", options, NULL);
+                c = getopt_long(argc, argv, "hH:M:I:c:d:u:G:k:s:e:b:jPENAT", options, NULL);
                 if (c < 0)
                         break;
 
@@ -3416,7 +3457,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (!valid_gecos(optarg))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Real name '%s' not a valid GECOS field.", optarg);
 
-                        r = sd_json_variant_set_field_string(&arg_identity_extra, "realName", optarg);
+                        r = sd_json_variant_set_field_string(match_identity ?: &arg_identity_extra, "realName", optarg);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set realName field: %m");
 
@@ -3546,7 +3587,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 break;
                         }
 
-                        r = sd_json_variant_set_field_string(&arg_identity_extra, field, optarg);
+                        r = sd_json_variant_set_field_string(match_identity ?: &arg_identity_extra, field, optarg);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set %s field: %m", field);
 
@@ -3566,7 +3607,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to validate CIFS service name: %s", optarg);
 
-                        r = sd_json_variant_set_field_string(&arg_identity_extra, "cifsService", optarg);
+                        r = sd_json_variant_set_field_string(match_identity ?: &arg_identity_extra, "cifsService", optarg);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set cifsService field: %m");
 
@@ -3602,7 +3643,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse nice level: %s", optarg);
 
-                        r = sd_json_variant_set_field_integer(&arg_identity_extra, "niceLevel", nc);
+                        r = sd_json_variant_set_field_integer(match_identity ?: &arg_identity_extra, "niceLevel", nc);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set niceLevel field: %m");
 
@@ -3726,7 +3767,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
 
-                        r = sd_json_variant_set_field_string(&arg_identity_extra_this_machine, field, v);
+                        r = sd_json_variant_set_field_string(match_identity ?: &arg_identity_extra_this_machine, field, v);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set %s field: %m", v);
 
@@ -3745,7 +3786,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (!valid_shell(optarg))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Shell '%s' not valid.", optarg);
 
-                        r = sd_json_variant_set_field_string(&arg_identity_extra, "shell", optarg);
+                        r = sd_json_variant_set_field_string(match_identity ?: &arg_identity_extra, "shell", optarg);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set shell field: %m");
 
@@ -3764,7 +3805,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 break;
                         }
 
-                        e = sd_json_variant_by_key(arg_identity_extra, "environment");
+                        e = sd_json_variant_by_key(match_identity ? *match_identity: arg_identity_extra, "environment");
                         if (e) {
                                 r = sd_json_variant_strv(e, &l);
                                 if (r < 0)
@@ -3781,7 +3822,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to allocate environment list JSON: %m");
 
-                        r = sd_json_variant_set_field(&arg_identity_extra, "environment", ne);
+                        r = sd_json_variant_set_field(match_identity ?: &arg_identity_extra, "environment", ne);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set environment list: %m");
 
@@ -3789,7 +3830,6 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
                 case ARG_TIMEZONE:
-
                         if (isempty(optarg)) {
                                 r = drop_from_identity("timeZone");
                                 if (r < 0)
@@ -3801,7 +3841,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (!timezone_is_valid(optarg, LOG_DEBUG))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Timezone '%s' is not valid.", optarg);
 
-                        r = sd_json_variant_set_field_string(&arg_identity_extra, "timeZone", optarg);
+                        r = sd_json_variant_set_field_string(match_identity ?: &arg_identity_extra, "timeZone", optarg);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set timezone field: %m");
 
@@ -3881,7 +3921,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse %s boolean: %m", field);
 
-                        r = sd_json_variant_set_field_boolean(&arg_identity_extra, field, r > 0);
+                        r = sd_json_variant_set_field_boolean(match_identity ?: &arg_identity_extra, field, r > 0);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set %s field: %m", field);
 
@@ -3917,7 +3957,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 if (r < 0)
                                         return r;
 
-                                r = sd_json_variant_set_field_unsigned(&arg_identity_extra_this_machine, "diskSize", arg_disk_size);
+                                r = sd_json_variant_set_field_unsigned(match_identity ?: &arg_identity_extra_this_machine, "diskSize", arg_disk_size);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to set diskSize field: %m");
 
@@ -3930,7 +3970,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 if (r < 0)
                                         return r;
 
-                                r = sd_json_variant_set_field_unsigned(&arg_identity_extra_this_machine, "diskSizeRelative", arg_disk_size_relative);
+                                r = sd_json_variant_set_field_unsigned(match_identity ?: &arg_identity_extra_this_machine, "diskSizeRelative", arg_disk_size_relative);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to set diskSizeRelative field: %m");
 
@@ -3938,7 +3978,7 @@ static int parse_argv(int argc, char *argv[]) {
                         }
 
                         /* Automatically turn off the rebalance logic if user configured a size explicitly */
-                        r = sd_json_variant_set_field_unsigned(&arg_identity_extra_this_machine, "rebalanceWeight", REBALANCE_WEIGHT_OFF);
+                        r = sd_json_variant_set_field_unsigned(match_identity ?: &arg_identity_extra_this_machine, "rebalanceWeight", REBALANCE_WEIGHT_OFF);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set rebalanceWeight field: %m");
 
@@ -3979,7 +4019,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse --luks-discard= parameter: %s", optarg);
 
-                        r = sd_json_variant_set_field_boolean(&arg_identity_extra, "luksDiscard", r);
+                        r = sd_json_variant_set_field_boolean(match_identity ?: &arg_identity_extra, "luksDiscard", r);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set discard field: %m");
 
@@ -3998,7 +4038,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse --luks-offline-discard= parameter: %s", optarg);
 
-                        r = sd_json_variant_set_field_boolean(&arg_identity_extra, "luksOfflineDiscard", r);
+                        r = sd_json_variant_set_field_boolean(match_identity ?: &arg_identity_extra, "luksOfflineDiscard", r);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set offline discard field: %m");
 
@@ -4027,7 +4067,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse %s parameter: %s", field, optarg);
 
-                        r = sd_json_variant_set_field_unsigned(&arg_identity_extra, field, n);
+                        r = sd_json_variant_set_field_unsigned(match_identity ?: &arg_identity_extra, field, n);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set %s field: %m", field);
 
@@ -4049,7 +4089,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
 
-                        r = sd_json_variant_set_field_unsigned(&arg_identity_extra, "luksSectorSize", ss);
+                        r = sd_json_variant_set_field_unsigned(match_identity ?: &arg_identity_extra, "luksSectorSize", ss);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set sector size field: %m");
 
@@ -4071,7 +4111,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse umask: %m");
 
-                        r = sd_json_variant_set_field_integer(&arg_identity_extra, "umask", m);
+                        r = sd_json_variant_set_field_integer(match_identity ?: &arg_identity_extra, "umask", m);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set umask field: %m");
 
@@ -4183,7 +4223,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse %s parameter: %m", field);
 
-                        r = sd_json_variant_set_field_unsigned(&arg_identity_extra, field, n);
+                        r = sd_json_variant_set_field_unsigned(match_identity ?: &arg_identity_extra, field, n);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set %s field: %m", field);
                         break;
@@ -4216,7 +4256,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse %s parameter: %m", field);
 
-                        r = sd_json_variant_set_field_unsigned(&arg_identity_extra, field, n);
+                        r = sd_json_variant_set_field_unsigned(match_identity ?: &arg_identity_extra, field, n);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set %s field: %m", field);
                         break;
@@ -4251,9 +4291,9 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Parameter for %s field not valid: %s", field, optarg);
 
                         r = sd_json_variant_set_field_string(
-                                        IN_SET(c, ARG_STORAGE, ARG_FS_TYPE) ?
-                                        &arg_identity_extra_this_machine :
-                                        &arg_identity_extra, field, optarg);
+                                        match_identity ?: (IN_SET(c, ARG_STORAGE, ARG_FS_TYPE) ?
+                                                           &arg_identity_extra_this_machine :
+                                                           &arg_identity_extra), field, optarg);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set %s field: %m", field);
 
@@ -4284,7 +4324,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse %s field: %s", field, optarg);
 
-                        r = sd_json_variant_set_field_unsigned(&arg_identity_extra, field, t);
+                        r = sd_json_variant_set_field_unsigned(match_identity ?: &arg_identity_extra, field, t);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set %s field: %m", field);
 
@@ -4333,7 +4373,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to create group list JSON: %m");
 
-                                r = sd_json_variant_set_field(&arg_identity_extra, "memberOf", mo);
+                                r = sd_json_variant_set_field(match_identity ?: &arg_identity_extra, "memberOf", mo);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to update group list: %m");
                         }
@@ -4355,7 +4395,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse --tasks-max= parameter: %s", optarg);
 
-                        r = sd_json_variant_set_field_unsigned(&arg_identity_extra, "tasksMax", u);
+                        r = sd_json_variant_set_field_unsigned(match_identity ?: &arg_identity_extra, "tasksMax", u);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set tasksMax field: %m");
 
@@ -4385,7 +4425,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse %s parameter: %s", field, optarg);
 
-                        r = sd_json_variant_set_field_unsigned(&arg_identity_extra_this_machine, field, u);
+                        r = sd_json_variant_set_field_unsigned(match_identity ?: &arg_identity_extra_this_machine, field, u);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set %s field: %m", field);
 
@@ -4414,7 +4454,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (!CGROUP_WEIGHT_IS_OK(u))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Weight %" PRIu64 " is out of valid weight range.", u);
 
-                        r = sd_json_variant_set_field_unsigned(&arg_identity_extra, field, u);
+                        r = sd_json_variant_set_field_unsigned(match_identity ?: &arg_identity_extra, field, u);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set %s field: %m", field);
 
@@ -4545,7 +4585,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse --auto-resize-mode= argument: %s", optarg);
 
-                        r = sd_json_variant_set_field_string(&arg_identity_extra, "autoResizeMode", auto_resize_mode_to_string(r));
+                        r = sd_json_variant_set_field_string(match_identity ?: &arg_identity_extra, "autoResizeMode", auto_resize_mode_to_string(r));
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set autoResizeMode field: %m");
 
@@ -4579,7 +4619,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
 
                         /* Add to main identity */
-                        r = sd_json_variant_set_field_unsigned(&arg_identity_extra, "rebalanceWeight", u);
+                        r = sd_json_variant_set_field_unsigned(match_identity ?: &arg_identity_extra, "rebalanceWeight", u);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set rebalanceWeight field: %m");
 
@@ -4646,7 +4686,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
 
-                        r = sd_json_variant_set_field_boolean(&arg_identity_extra, "dropCaches", r);
+                        r = sd_json_variant_set_field_boolean(match_identity ?: &arg_identity_extra, "dropCaches", r);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set drop caches field: %m");
 
@@ -4700,7 +4740,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (capability_set_to_strv(updated, &l) < 0)
                                 return log_oom();
 
-                        r = sd_json_variant_set_field_strv(&arg_identity_extra, field, l);
+                        r = sd_json_variant_set_field_strv(match_identity ?: &arg_identity_extra, field, l);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set %s field: %m", field);
 
@@ -4814,7 +4854,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to parse %s/%s parameter: %s", field, field_scale, optarg);
 
-                                r = sd_json_variant_set_field_unsigned(&arg_identity_extra, field, u);
+                                r = sd_json_variant_set_field_unsigned(match_identity ?: &arg_identity_extra, field, u);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to set %s field: %m", field);
 
@@ -4822,7 +4862,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 if (r < 0)
                                         return r;
                         } else {
-                                r = sd_json_variant_set_field_unsigned(&arg_identity_extra, field_scale, UINT32_SCALE_FROM_PERMYRIAD(r));
+                                r = sd_json_variant_set_field_unsigned(match_identity ?: &arg_identity_extra, field_scale, UINT32_SCALE_FROM_PERMYRIAD(r));
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to set %s field: %m", field_scale);
 
@@ -4846,7 +4886,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (!filename_is_valid(optarg))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Parameter for default area field not valid: %s", optarg);
 
-                        r = sd_json_variant_set_field_string(&arg_identity_extra, "defaultArea", optarg);
+                        r = sd_json_variant_set_field_string(match_identity ?: &arg_identity_extra, "defaultArea", optarg);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set default area field: %m");
 
@@ -4871,6 +4911,29 @@ static int parse_argv(int argc, char *argv[]) {
                         r = parse_boolean_argument("--seize=", optarg, &arg_seize);
                         if (r < 0)
                                 return r;
+                        break;
+
+                case ARG_MATCH:
+                        if (streq(optarg, "any"))
+                                match_identity = &arg_identity_extra;
+                        else if (streq(optarg, "this"))
+                                match_identity = &arg_identity_extra_this_machine;
+                        else if (streq(optarg, "other"))
+                                match_identity = &arg_identity_extra_other_machines;
+                        else if (streq(optarg, "auto"))
+                                match_identity = NULL;
+                        else
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--machine= argument not understood. Refusing.");
+                        break;
+
+                case 'A':
+                        match_identity = &arg_identity_extra;
+                        break;
+                case 'T':
+                        match_identity = &arg_identity_extra_this_machine;
+                        break;
+                case 'N':
+                        match_identity = &arg_identity_extra_other_machines;
                         break;
 
                 case '?':
