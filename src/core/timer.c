@@ -348,18 +348,18 @@ static void timer_enter_elapsed(Timer *t, bool leave_around) {
                 timer_enter_dead(t, TIMER_SUCCESS);
 }
 
-static void add_random(Timer *t, usec_t *v) {
+static void add_random_delay(Timer *t, usec_t *v) {
         usec_t add;
 
         assert(t);
         assert(v);
 
-        if (t->random_usec == 0)
+        if (t->random_delay_usec == 0)
                 return;
         if (*v == USEC_INFINITY)
                 return;
 
-        add = (t->fixed_random_delay ? timer_get_fixed_delay_hash(t) : random_u64()) % t->random_usec;
+        add = (t->fixed_random_delay ? timer_get_fixed_delay_hash(t) : random_u64()) % t->random_delay_usec;
 
         if (*v + add < *v) /* overflow */
                 *v = (usec_t) -2; /* Highest possible value, that is not USEC_INFINITY */
@@ -392,12 +392,19 @@ static void timer_enter_waiting(Timer *t, bool time_change) {
                         continue;
 
                 if (v->base == TIMER_CALENDAR) {
-                        usec_t b, rebased;
+                        usec_t b, rebased, random_offset = 0;
+
+                        if (t->random_offset_usec != 0)
+                                random_offset = timer_get_fixed_delay_hash(t) % t->random_offset_usec;
 
                         /* If DeferReactivation= is enabled, schedule the job based on the last time
                          * the trigger unit entered inactivity. Otherwise, if we know the last time
                          * this was triggered, schedule the job based relative to that. If we don't,
-                         * just start from the activation time or realtime. */
+                         * just start from the activation time or realtime.
+                         *
+                         * Unless we have a real last-trigger time, we subtract the random_offset because
+                         * any event that elapsed within the last random_offset has actually been delayed
+                         * and thus hasn't truly elapsed yet. */
 
                         if (t->defer_reactivation &&
                             dual_timestamp_is_set(&trigger->inactive_enter_timestamp)) {
@@ -409,13 +416,15 @@ static void timer_enter_waiting(Timer *t, bool time_change) {
                         } else if (dual_timestamp_is_set(&t->last_trigger))
                                 b = t->last_trigger.realtime;
                         else if (dual_timestamp_is_set(&UNIT(t)->inactive_exit_timestamp))
-                                b = UNIT(t)->inactive_exit_timestamp.realtime;
+                                b = UNIT(t)->inactive_exit_timestamp.realtime - random_offset;
                         else
-                                b = ts.realtime;
+                                b = ts.realtime - random_offset;
 
                         r = calendar_spec_next_usec(v->calendar_spec, b, &v->next_elapse);
                         if (r < 0)
                                 continue;
+
+                        v->next_elapse += random_offset;
 
                         /* To make the delay due to RandomizedDelaySec= work even at boot, if the scheduled
                          * time has already passed, set the time when systemd first started as the scheduled
@@ -506,7 +515,7 @@ static void timer_enter_waiting(Timer *t, bool time_change) {
         if (found_monotonic) {
                 usec_t left;
 
-                add_random(t, &t->next_elapse_monotonic_or_boottime);
+                add_random_delay(t, &t->next_elapse_monotonic_or_boottime);
 
                 left = usec_sub_unsigned(t->next_elapse_monotonic_or_boottime, triple_timestamp_by_clock(&ts, TIMER_MONOTONIC_CLOCK(t)));
                 log_unit_debug(UNIT(t), "Monotonic timer elapses in %s.", FORMAT_TIMESPAN(left, 0));
@@ -547,7 +556,7 @@ static void timer_enter_waiting(Timer *t, bool time_change) {
         }
 
         if (found_realtime) {
-                add_random(t, &t->next_elapse_realtime);
+                add_random_delay(t, &t->next_elapse_realtime);
 
                 log_unit_debug(UNIT(t), "Realtime timer elapses at %s.", FORMAT_TIMESTAMP(t->next_elapse_realtime));
 

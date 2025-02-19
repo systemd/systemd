@@ -583,7 +583,8 @@ Timer.RemainAfterElapse,                      config_parse_bool,                
 Timer.FixedRandomDelay,                       config_parse_bool,                                  0,                                  offsetof(Timer, fixed_random_delay)
 Timer.DeferReactivation,                      config_parse_bool,                                  0,                                  offsetof(Timer, defer_reactivation)
 Timer.AccuracySec,                            config_parse_sec,                                   0,                                  offsetof(Timer, accuracy_usec)
-Timer.RandomizedDelaySec,                     config_parse_sec,                                   0,                                  offsetof(Timer, random_usec)
+Timer.RandomizedDelaySec,                     config_parse_sec,                                   0,                                  offsetof(Timer, random_delay_usec)
+Timer.RandomizedOffsetSec,                    config_parse_sec,                                   0,                                  offsetof(Timer, random_offset_usec)
 Timer.Unit,                                   config_parse_trigger_unit,                          0,                                  0
 Path.PathExists,                              config_parse_path_spec,                             0,                                  0
 Path.PathExistsGlob,                          config_parse_path_spec,                             0,                                  0
