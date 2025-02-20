@@ -393,7 +393,7 @@
 
         <listitem><para>Specifies a colon-separated tuple with a hex-encoded top-level Verity hash of a
         <varname>Verity=hash</varname> partition as first element, and a PKCS7 signature of the roothash
-        as a path to a DER-encoded signature file, or as an ASCII base64 string encoding of a DER-encoded
+        as a path to a PEM-encoded signature file, or as an ASCII base64 string encoding of a PEM-encoded
         signature prefixed by <literal>base64:</literal>. To be used on a pre-existing image that was
         created with a parameter such as <option>--defer-partitions=root-verity-sig</option>, in order to
         allow implementing offline signing of the verity signature partition.</para>
@@ -771,7 +771,7 @@ systemd-repart --definitions repart.d \
 openssl smime -sign -in /tmp/img.roothash \
   -inkey privkey.pem \
   -signer cert.crt \
-  -noattr -binary -outform der \
+  -noattr -binary -outform pem \
   -out /tmp/img.roothash.p7s
 
 systemd-repart --definitions repart.d \

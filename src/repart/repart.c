@@ -7873,6 +7873,7 @@ static int parse_partition_types(const char *p, GptPartitionType **partitions, s
 }
 
 static int parse_join_signature(const char *p, Set **verity_settings_map) {
+#if HAVE_OPENSSL
         _cleanup_(verity_settings_freep) VeritySettings *verity_settings = NULL;
         _cleanup_free_ char *root_hash = NULL;
         _cleanup_free_ void *content = NULL;
@@ -7899,19 +7900,40 @@ static int parse_join_signature(const char *p, Set **verity_settings_map) {
         }
         if (len == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Empty verity signature specified.");
-        if (len > VERITY_SIG_SIZE)
+
+        _cleanup_(BIO_freep) BIO *rb = NULL;
+        _cleanup_(PKCS7_freep) PKCS7 *p7 = NULL;
+        _cleanup_free_ uint8_t *sig = NULL;
+        int sigsz;
+
+        rb = BIO_new_mem_buf(content, len);
+        if (!rb)
+                return log_oom();
+
+        if (!PEM_read_bio_PKCS7(rb, &p7, /* cb= */ NULL, /* u= */ NULL))
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to parse PKCS7 signature from PEM: %s",
+                                        ERR_error_string(ERR_get_error(), NULL));
+
+        sigsz = i2d_PKCS7(p7, &sig);
+        if (sigsz < 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to convert PKCS7 signature to DER: %s",
+                                        ERR_error_string(ERR_get_error(), NULL));
+
+        if ((size_t) sigsz > VERITY_SIG_SIZE)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Verity signatures larger than %llu are not allowed.",
-                                       VERITY_SIG_SIZE);
+                                        "Verity signatures larger than %s are not allowed.",
+                                        FORMAT_BYTES(VERITY_SIG_SIZE));
 
         verity_settings = new(VeritySettings, 1);
         if (!verity_settings)
                 return log_oom();
 
         *verity_settings = (VeritySettings) {
-                .root_hash_sig = TAKE_PTR(content),
-                .root_hash_sig_size = len,
+                .root_hash_sig = TAKE_PTR(sig),
+                .root_hash_sig_size = sigsz,
         };
+
+        content = mfree(content);
 
         r = unhexmem(root_hash, &content, &len);
         if (r < 0)
@@ -7931,6 +7953,9 @@ static int parse_join_signature(const char *p, Set **verity_settings_map) {
         TAKE_PTR(verity_settings);
 
         return 0;
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "OpenSSL is not supported, cannot parse verity signature.");
+#endif
 }
 
 static int help(void) {
@@ -7992,7 +8017,7 @@ static int help(void) {
                "                          from an OpenSSL provider\n"
                "     --join-signature=HASH:SIG\n"
                "                          Specify root hash and pkcs7 signature of root hash for\n"
-               "                          verity as a tuple of hex encoded hash and a DER\n"
+               "                          verity as a tuple of hex encoded hash and a PEM\n"
                "                          encoded PKCS7, either as a path to a file or as an\n"
                "                          ASCII base64 encoded string prefixed by 'base64:'\n"
                "\n%3$sEncryption:%4$s\n"
