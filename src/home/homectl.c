@@ -1564,6 +1564,38 @@ static int create_home(int argc, char *argv[], void *userdata) {
         return create_home_common(/* input= */ NULL, /* show_enforce_password_policy_hint= */ true);
 }
 
+static int verb_adopt_home(int argc, char *argv[], void *userdata) {
+        int r, ret = 0;
+
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
+
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+
+        STRV_FOREACH(i, strv_skip(argv, 1)) {
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+                r = bus_message_new_method_call(bus, &m, bus_mgr, "AdoptHome");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_append(m, "st", *i, UINT64_C(0));
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, NULL);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to adopt home: %s", bus_error_message(&error, r));
+                        if (ret == 0)
+                                ret = r;
+                }
+        }
+
+        return ret;
+}
+
 static int remove_home(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r, ret = 0;
@@ -2808,6 +2840,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  inspect USER…                Inspect a home area\n"
                "  authenticate USER…           Authenticate a home area\n"
                "  create USER                  Create a home area\n"
+               "  adopt PATH…                  Add an existing home area on this system\n"
                "  remove USER…                 Remove a home area\n"
                "  update USER                  Update a home area\n"
                "  passwd USER                  Change password of a home area\n"
@@ -5242,6 +5275,7 @@ static int run(int argc, char *argv[]) {
                 { "inspect",            VERB_ANY, VERB_ANY, 0,            inspect_home             },
                 { "authenticate",       VERB_ANY, VERB_ANY, 0,            authenticate_home        },
                 { "create",             VERB_ANY, 2,        0,            create_home              },
+                { "adopt",              VERB_ANY, VERB_ANY, 0,            verb_adopt_home          },
                 { "remove",             2,        VERB_ANY, 0,            remove_home              },
                 { "update",             VERB_ANY, 2,        0,            update_home              },
                 { "passwd",             VERB_ANY, 2,        0,            passwd_home              },
