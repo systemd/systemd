@@ -1429,13 +1429,14 @@
         <varlistentry>
           <term><varname>ConditionHost=</varname></term>
 
-          <listitem><para><varname>ConditionHost=</varname> may be used to match against the hostname or
-          machine ID of the host. This either takes a hostname string (optionally with shell style globs)
-          which is tested against the locally set hostname as returned by
+          <listitem><para><varname>ConditionHost=</varname> may be used to match against the hostname,
+          machine ID, boot ID or product UUID of the host. This either takes a hostname string (optionally
+          with shell style globs) which is tested against the locally set hostname as returned by
           <citerefentry><refentrytitle>gethostname</refentrytitle><manvolnum>2</manvolnum></citerefentry>, or
-          a machine ID formatted as string (see
-          <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
-          The test may be negated by prepending an exclamation mark.</para>
+          a 128bit ID or UUID, formatted as string. The latter is compared against machine ID, boot ID and the
+          firmware product UUID if there is any. See
+          <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+          details about the machine ID. The test may be negated by prepending an exclamation mark.</para>
 
           <xi:include href="version-info.xml" xpointer="v244"/>
           </listitem>
