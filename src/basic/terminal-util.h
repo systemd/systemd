@@ -41,8 +41,14 @@
 
 bool isatty_safe(int fd);
 
-int terminal_reset_defensive(int fd, bool switch_to_text);
-int terminal_reset_defensive_locked(int fd, bool switch_to_text);
+typedef enum TerminalResetFlags {
+        TERMINAL_RESET_SWITCH_TO_TEXT = 1 << 0,
+        TERMINAL_RESET_AVOID_ANSI_SEQ = 1 << 1,
+        TERMINAL_RESET_FORCE_ANSI_SEQ = 1 << 2,
+} TerminalResetFlags;
+
+int terminal_reset_defensive(int fd, TerminalResetFlags flags);
+int terminal_reset_defensive_locked(int fd, TerminalResetFlags flags);
 
 int terminal_set_cursor_position(int fd, unsigned row, unsigned column);
 
