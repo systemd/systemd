@@ -353,7 +353,7 @@
 
         <para>If <varname>RuntimeWatchdogSec=</varname> is set to a non-zero value, the watchdog hardware
         (<filename>/dev/watchdog0</filename> or the path specified with <varname>WatchdogDevice=</varname> or
-        the kernel option <varname>systemd.watchdog-device=</varname>) will be programmed to automatically
+        the kernel option <varname>systemd.watchdog_device=</varname>) will be programmed to automatically
         reboot the system if it is not contacted within the specified timeout interval. The system manager
         will ensure to contact it at least once in half the specified timeout interval. This feature requires
         a hardware watchdog device to be present, as it is commonly the case in embedded and server
