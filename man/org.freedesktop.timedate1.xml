@@ -148,7 +148,7 @@ node /org/freedesktop/timedate1 {
       over D-Bus. Local clients can access the information directly.</para>
 
       <para>Whenever the <varname>Timezone</varname> and <varname>LocalRTC</varname> settings are changed via
-      the daemon, <function>PropertyChanged</function> signals are sent out to which clients can subscribe.
+      the daemon, <function>PropertyChanged</function> signals are sent out to clients which have subscribed.
       </para>
 
       <para>Note that this service will not inform you about system time changes. Use
