@@ -1596,6 +1596,102 @@ static int verb_adopt_home(int argc, char *argv[], void *userdata) {
         return ret;
 }
 
+static int register_home_one(sd_bus *bus, FILE *f, const char *path) {
+        int r;
+
+        assert(bus);
+        assert(path);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        unsigned line = 0, column = 0;
+        r = sd_json_parse_file(f, path, SD_JSON_PARSE_SENSITIVE, &v, &line, &column);
+        if (r < 0)
+                return log_error_errno(r, "[%s:%u:%u] Failed to parse user record: %m", path, line, column);
+
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        r = bus_message_new_method_call(bus, &m, bus_mgr, "RegisterHome");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        _cleanup_free_ char *formatted = NULL;
+        r = sd_json_variant_format(v, /* flags= */ 0, &formatted);
+        if (r < 0)
+                return log_error_errno(r, "Failed to format JSON record: %m");
+
+        r = sd_bus_message_append(m, "s", formatted);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to register home: %s", bus_error_message(&error, r));
+
+        return 0;
+}
+
+static int verb_register_home(int argc, char *argv[], void *userdata) {
+        int r;
+
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
+
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+
+        if (arg_identity) {
+                if (argc > 1)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not accepting an arguments if --identity= is specified, refusing.");
+
+                return register_home_one(bus, /* f= */ NULL, arg_identity);
+        }
+
+        if (argc ==1 || (argc == 2 && streq(argv[1], "-")))
+                return register_home_one(bus, /* f= */ stdin, "<stdio>");
+
+        int ret = 0;
+        STRV_FOREACH(i, strv_skip(argv, 1)) {
+
+                if (streq(*i, "-"))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Refusing reading from standard input if multiple user records are specified.");
+
+                RET_GATHER(ret, register_home_one(bus, /* f= */ NULL, *i));
+        }
+
+        return ret;
+}
+
+static int verb_unregister_home(int argc, char *argv[], void *userdata) {
+        int r;
+
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
+
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+
+        int ret = 0;
+        STRV_FOREACH(i, strv_skip(argv, 1)) {
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+                r = bus_message_new_method_call(bus, &m, bus_mgr, "UnregisterHome");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_append(m, "s", *i);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, /* ret_reply= */ NULL);
+                if (r < 0)
+                        RET_GATHER(ret, log_error_errno(r, "Failed to unregister home: %s", bus_error_message(&error, r)));
+        }
+
+        return ret;
+}
+
 static int remove_home(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r, ret = 0;
@@ -2841,6 +2937,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "  authenticate USER…           Authenticate a home area\n"
                "  create USER                  Create a home area\n"
                "  adopt PATH…                  Add an existing home area on this system\n"
+               "  register PATH…               Register a user record locally\n"
+               "  unregister USER…             Unregister a user record locally\n"
                "  remove USER…                 Remove a home area\n"
                "  update USER                  Update a home area\n"
                "  passwd USER                  Change password of a home area\n"
@@ -5276,6 +5374,8 @@ static int run(int argc, char *argv[]) {
                 { "authenticate",       VERB_ANY, VERB_ANY, 0,            authenticate_home        },
                 { "create",             VERB_ANY, 2,        0,            create_home              },
                 { "adopt",              VERB_ANY, VERB_ANY, 0,            verb_adopt_home          },
+                { "register",           VERB_ANY, VERB_ANY, 0,            verb_register_home       },
+                { "unregister",         2,        VERB_ANY, 0,            verb_unregister_home     },
                 { "remove",             2,        VERB_ANY, 0,            remove_home              },
                 { "update",             VERB_ANY, 2,        0,            update_home              },
                 { "passwd",             VERB_ANY, 2,        0,            passwd_home              },

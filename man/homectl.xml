@@ -1185,6 +1185,51 @@
       </varlistentry>
 
       <varlistentry>
+        <term><command>register</command> <replaceable>FILE</replaceable> [<replaceable>FILE</replaceable>…]</term>
+
+        <listitem><para>Registers one or more users, without creating their home directories. Takes one or
+        more paths to JSON user record files. If the path is specified as <literal>-</literal> reads the
+        JSON user record from standard input.</para>
+
+        <para>Registering a user makes it accessible on the local system without creating a new home
+        directory. This is particularly useful for making a user accessible on a system it was not originally
+        created on.</para>
+
+        <para>Here's an example how to make a local user account with its home directory accessible on a
+        remote system, using SMB/CIFS file sharing. With Samba installed in its default configuration:</para>
+
+        <programlisting># smbpasswd -a lennart
+homectl update lennart --ssh-authorized-keys=… -N --storage=cifs --cifs-service="//$HOSTNAME/lennart"
+homectl get-signing-key | ssh targetsystem homectl add-signing-key --key-name="$HOSTNAME".public
+homectl inspect -E lennart | ssh targetsystem homectl register -
+ssh lennart@targetsystem</programlisting>
+
+        <para>This first ensures the user account <literal>lennart</literal> is known to and accessible by
+        Samba. It then registers a local SSH access that shall be used for accessing this user, and
+        configures CIFS as default storage for non-local systems on the account. It then adds the local
+        system's account signing key to the target system. Then it registers the local user account with the
+        target system. Finally it logs into the account on the target system. The target system will then
+        connect back via SMB/CIFS to access the home directory.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>unregister</command> <replaceable>USER</replaceable>…</term>
+
+        <listitem><para>Unregisters one or more user accounts. This only removes the user record from the
+        local system, it does not delete the home directory. The home directory can be readded via the
+        <command>adopt</command> command later, on this or another system. Note that unregistering a user
+        whose home directory is placed in <filename>/home/</filename> will not make the user disappear from
+        the local user database, as all supported home directories placed there will show up in the user
+        database. However, the user record will become "unfixated", i.e. lose its binding to the local
+        system. When logged into it will automatically regain the binding, and acquire a local UID/GID
+        pair.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><command>remove</command> <replaceable>USER</replaceable></term>
 
         <listitem><para>Remove a home directory/user account. This will remove both the home directory's user
