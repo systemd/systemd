@@ -95,6 +95,7 @@ SandboxTrees=
         /etc/yum.repos.d/:/etc/yum.repos.d/
         /var/share/test-artifacts/:/var/share/test-artifacts/
 Environment=NO_BUILD=1
+WithTests=yes
 EOF
 
     cat /etc/dnf/dnf.conf
