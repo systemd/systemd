@@ -932,30 +932,23 @@ static int home_activate(UserRecord *h, UserRecord **ret_home) {
 
         case USER_LUKS:
                 r = home_activate_luks(h, flags, &setup, &cache, &new_home);
-                if (r < 0)
-                        return r;
-
                 break;
 
         case USER_SUBVOLUME:
         case USER_DIRECTORY:
         case USER_FSCRYPT:
                 r = home_activate_directory(h, flags, &setup, &cache, &new_home);
-                if (r < 0)
-                        return r;
-
                 break;
 
         case USER_CIFS:
                 r = home_activate_cifs(h, flags, &setup, &cache, &new_home);
-                if (r < 0)
-                        return r;
-
                 break;
 
         default:
                 assert_not_reached();
         }
+        if (r < 0)
+                return r;
 
         /* Note that the returned object might either be a reference to an updated version of the existing
          * home object, or a reference to a newly allocated home object. The caller has to be able to deal
