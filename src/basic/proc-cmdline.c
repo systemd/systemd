@@ -218,28 +218,6 @@ int proc_cmdline_parse(proc_cmdline_parse_t parse_item, void *data, ProcCmdlineF
          * for proc_cmdline_parse(), let's make this clear. */
         assert(!(flags & (PROC_CMDLINE_VALUE_OPTIONAL|PROC_CMDLINE_TRUE_WHEN_MISSING)));
 
-        /* We parse the EFI variable first, because later settings have higher priority. */
-
-        if (!FLAGS_SET(flags, PROC_CMDLINE_IGNORE_EFI_OPTIONS)) {
-                _cleanup_free_ char *line = NULL;
-
-                r = systemd_efi_options_variable(&line);
-                if (r < 0) {
-                        if (r != -ENODATA)
-                                log_debug_errno(r, "Failed to get SystemdOptions EFI variable, ignoring: %m");
-                } else {
-                        r = strv_split_full(&args, line, NULL, EXTRACT_UNQUOTE|EXTRACT_RELAX|EXTRACT_RETAIN_ESCAPE);
-                        if (r < 0)
-                                return r;
-
-                        r = proc_cmdline_parse_strv(args, parse_item, data, flags);
-                        if (r < 0)
-                                return r;
-
-                        args = strv_free(args);
-                }
-        }
-
         r = proc_cmdline_strv_internal(&args, /* filter_pid1_args = */ true);
         if (r < 0)
                 return r;
@@ -326,11 +304,9 @@ static int cmdline_get_key(char **args, const char *key, ProcCmdlineFlags flags,
 
 int proc_cmdline_get_key(const char *key, ProcCmdlineFlags flags, char **ret_value) {
         _cleanup_strv_free_ char **args = NULL;
-        _cleanup_free_ char *line = NULL, *v = NULL;
         int r;
 
-        /* Looks for a specific key on the kernel command line and (with lower priority) the EFI variable.
-         * Supports three modes:
+        /* Looks for a specific key on the kernel command line. Supports three modes:
          *
          * a) The "ret_value" parameter is used. In this case a parameter beginning with the "key" string followed by
          *    "=" is searched for, and the value following it is returned in "ret_value".
@@ -353,34 +329,6 @@ int proc_cmdline_get_key(const char *key, ProcCmdlineFlags flags, char **ret_val
                 return -EINVAL;
 
         r = proc_cmdline_strv_internal(&args, /* filter_pid1_args = */ true);
-        if (r < 0)
-                return r;
-
-        if (FLAGS_SET(flags, PROC_CMDLINE_IGNORE_EFI_OPTIONS)) /* Shortcut */
-                return cmdline_get_key(args, key, flags, ret_value);
-
-        r = cmdline_get_key(args, key, flags, ret_value ? &v : NULL);
-        if (r < 0)
-                return r;
-        if (r > 0) {
-                if (ret_value)
-                        *ret_value = TAKE_PTR(v);
-
-                return r;
-        }
-
-        r = systemd_efi_options_variable(&line);
-        if (r == -ENODATA) {
-                if (ret_value)
-                        *ret_value = NULL;
-
-                return false; /* Not found */
-        }
-        if (r < 0)
-                return r;
-
-        args = strv_free(args);
-        r = strv_split_full(&args, line, NULL, EXTRACT_UNQUOTE|EXTRACT_RELAX|EXTRACT_RETAIN_ESCAPE);
         if (r < 0)
                 return r;
 
@@ -448,7 +396,7 @@ static int cmdline_get_key_ap(ProcCmdlineFlags flags, char* const* args, va_list
 
 int proc_cmdline_get_key_many_internal(ProcCmdlineFlags flags, ...) {
         _cleanup_strv_free_ char **args = NULL;
-        int r, ret = 0;
+        int r;
         va_list ap;
 
         /* The PROC_CMDLINE_VALUE_OPTIONAL and PROC_CMDLINE_TRUE_WHEN_MISSING flags don't really make sense
@@ -457,28 +405,6 @@ int proc_cmdline_get_key_many_internal(ProcCmdlineFlags flags, ...) {
 
         /* This call may clobber arguments on failure! */
 
-        if (!FLAGS_SET(flags, PROC_CMDLINE_IGNORE_EFI_OPTIONS)) {
-                _cleanup_free_ char *line = NULL;
-
-                r = systemd_efi_options_variable(&line);
-                if (r < 0 && r != -ENODATA)
-                        log_debug_errno(r, "Failed to get SystemdOptions EFI variable, ignoring: %m");
-                if (r >= 0) {
-                        r = strv_split_full(&args, line, NULL, EXTRACT_UNQUOTE|EXTRACT_RELAX|EXTRACT_RETAIN_ESCAPE);
-                        if (r < 0)
-                                return r;
-
-                        va_start(ap, flags);
-                        r = cmdline_get_key_ap(flags, args, ap);
-                        va_end(ap);
-                        if (r < 0)
-                                return r;
-
-                        ret = r;
-                        args = strv_free(args);
-                }
-        }
-
         r = proc_cmdline_strv(&args);
         if (r < 0)
                 return r;
@@ -486,8 +412,6 @@ int proc_cmdline_get_key_many_internal(ProcCmdlineFlags flags, ...) {
         va_start(ap, flags);
         r = cmdline_get_key_ap(flags, args, ap);
         va_end(ap);
-        if (r < 0)
-                return r;
 
-        return ret + r;
+        return r;
 }
