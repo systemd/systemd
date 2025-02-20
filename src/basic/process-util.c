@@ -1541,6 +1541,7 @@ int safe_fork_full(
 
         assert(!FLAGS_SET(flags, FORK_DETACH) ||
                (!ret_pid && (flags & (FORK_WAIT|FORK_DEATHSIG_SIGTERM|FORK_DEATHSIG_SIGINT|FORK_DEATHSIG_SIGKILL)) == 0));
+        assert(!FLAGS_SET(flags, FORK_NEW_USERNS|FORK_NEW_PIDNS));
 
         /* A wrapper around fork(), that does a couple of important initializations in addition to mere forking. Always
          * returns the child's PID in *ret_pid. Returns == 0 in the child, and > 0 in the parent. */
@@ -1598,12 +1599,8 @@ int safe_fork_full(
                 }
         }
 
-        if ((flags & (FORK_NEW_MOUNTNS|FORK_NEW_USERNS|FORK_NEW_NETNS|FORK_NEW_PIDNS)) != 0)
-                pid = raw_clone(SIGCHLD|
-                                (FLAGS_SET(flags, FORK_NEW_MOUNTNS) ? CLONE_NEWNS : 0) |
-                                (FLAGS_SET(flags, FORK_NEW_USERNS) ? CLONE_NEWUSER : 0) |
-                                (FLAGS_SET(flags, FORK_NEW_NETNS) ? CLONE_NEWNET : 0) |
-                                (FLAGS_SET(flags, FORK_NEW_PIDNS) ? CLONE_NEWPID : 0));
+        if (FLAGS_SET(flags, FORK_NEW_PIDNS))
+                pid = raw_clone(SIGCHLD|(FLAGS_SET(flags, FORK_NEW_PIDNS) ? CLONE_NEWPID : 0));
         else
                 pid = fork();
         if (pid < 0)
@@ -1648,6 +1645,21 @@ int safe_fork_full(
                 log_close();
                 log_set_open_when_needed(true);
                 log_settle_target();
+        }
+
+        if (FLAGS_SET(flags, FORK_NEW_USERNS) && unshare(CLONE_NEWUSER) < 0) {
+                log_full_errno(prio, errno, "Failed to unshare user namespace: %m");
+                _exit(EXIT_FAILURE);
+        }
+
+        if (FLAGS_SET(flags, FORK_NEW_NETNS) && unshare(CLONE_NEWNET) < 0) {
+                log_full_errno(prio, errno, "Failed to unshare network namespace: %m");
+                _exit(EXIT_FAILURE);
+        }
+
+        if (FLAGS_SET(flags, FORK_NEW_MOUNTNS) && unshare(CLONE_NEWNS) < 0) {
+                log_full_errno(prio, errno, "Failed to unshare mount namespace: %m");
+                _exit(EXIT_FAILURE);
         }
 
         if (name) {
