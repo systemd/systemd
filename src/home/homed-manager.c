@@ -177,7 +177,7 @@ static int on_home_inotify(sd_event_source *s, const struct inotify_event *event
                 else if (FLAGS_SET(event->mask, IN_MOVED_TO))
                         log_debug("%s has been moved in, having a look.", j);
 
-                (void) manager_assess_image(m, -1, get_home_root(), event->name);
+                (void) manager_assess_image(m, /* dir_fd= */ -EBADF, get_home_root(), event->name);
                 (void) bus_manager_emit_auto_login_changed(m);
         }
 
@@ -841,6 +841,10 @@ static int manager_assess_image(
         assert(dir_path);
         assert(dentry_name);
 
+        /* Maybe registers the specified .home or .homedir as a home we manage. Returns:
+         *
+         * -EMEDIUMTYPE: Not a dir with .homedir suffix or a file with .home suffix */
+
         luks_suffix = endswith(dentry_name, ".home");
         if (luks_suffix)
                 directory_suffix = NULL;
@@ -849,7 +853,7 @@ static int manager_assess_image(
 
         /* Early filter out: by name */
         if (!luks_suffix && !directory_suffix)
-                return 0;
+                return -EMEDIUMTYPE;
 
         path = path_join(dir_path, dentry_name);
         if (!path)
@@ -868,7 +872,7 @@ static int manager_assess_image(
                 _cleanup_free_ char *n = NULL, *user_name = NULL, *realm = NULL;
 
                 if (!luks_suffix)
-                        return 0;
+                        return -EMEDIUMTYPE;
 
                 n = strndup(dentry_name, luks_suffix - dentry_name);
                 if (!n)
@@ -876,7 +880,7 @@ static int manager_assess_image(
 
                 r = split_user_name_realm(n, &user_name, &realm);
                 if (r == -EINVAL) /* Not the right format: ignore */
-                        return 0;
+                        return -EMEDIUMTYPE;
                 if (r < 0)
                         return log_error_errno(r, "Failed to split image name into user name/realm: %m");
 
@@ -889,7 +893,7 @@ static int manager_assess_image(
                 UserStorage storage;
 
                 if (!directory_suffix)
-                        return 0;
+                        return -EMEDIUMTYPE;
 
                 n = strndup(dentry_name, directory_suffix - dentry_name);
                 if (!n)
@@ -897,7 +901,7 @@ static int manager_assess_image(
 
                 r = split_user_name_realm(n, &user_name, &realm);
                 if (r == -EINVAL) /* Not the right format: ignore */
-                        return 0;
+                        return -EMEDIUMTYPE;
                 if (r < 0)
                         return log_error_errno(r, "Failed to split image name into user name/realm: %m");
 
@@ -939,7 +943,26 @@ static int manager_assess_image(
                 return manager_add_home_by_image(m, user_name, realm, path, NULL, storage, st.st_uid);
         }
 
-        return 0;
+        return -EMEDIUMTYPE;
+}
+
+int manager_adopt_home(Manager *m, const char *path) {
+        int r;
+
+        assert(m);
+        assert(path);
+
+        _cleanup_free_ char *fn = NULL;
+        r = path_extract_filename(path, &fn);
+        if (r < 0)
+                return r;
+
+        _cleanup_free_ char *dir = NULL;
+        r = path_extract_directory(path, &dir);
+        if (r < 0)
+                return r;
+
+        return manager_assess_image(m, /* dir_fd= */ -EBADF, dir, fn);
 }
 
 int manager_enumerate_images(Manager *m) {

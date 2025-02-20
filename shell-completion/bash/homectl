@@ -173,7 +173,7 @@ _homectl() {
     fi
 
     local -A VERBS=(
-        [STANDALONE]='list lock-all'
+        [STANDALONE]='list lock-all adopt'
         [CREATE]='create'
         [NAMES]='activate deactivate inspect authenticate remove lock unlock'
         [NAME]='update passwd'

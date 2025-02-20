@@ -1185,6 +1185,19 @@
       </varlistentry>
 
       <varlistentry>
+        <term><command>adopt</command> <replaceable>PATH</replaceable> [<replaceable>PATH</replaceable>…]</term>
+
+        <listitem><para>Adopts one or more existing home directories on the local system. Takes one or more paths to
+        <filename>*.home</filename> LUKS home directories or <filename>*.homedir/</filename> standalone home
+        directories or subvolumes previously created by <filename>systemd-homed</filename> and makes them
+        available locally for login. The referenced files are not moved. This is an alternative for moving
+        such home directories into <filename>/home/</filename> (where they would be picked up
+        automatically).</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><command>remove</command> <replaceable>USER</replaceable></term>
 
         <listitem><para>Remove a home directory/user account. This will remove both the home directory's user

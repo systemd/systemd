@@ -70,6 +70,8 @@ node /org/freedesktop/home1 {
       @org.freedesktop.systemd1.Privileged("true")
       DeactivateHome(in  s user_name);
       RegisterHome(in  s user_record);
+      AdoptHome(in  s image_path,
+                in  t flags);
       UnregisterHome(in  s user_name);
       CreateHome(in  s user_record);
       CreateHomeEx(in  s user_record,
@@ -159,6 +161,8 @@ node /org/freedesktop/home1 {
     <variablelist class="dbus-method" generated="True" extra-ref="DeactivateHome()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="RegisterHome()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="AdoptHome()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="UnregisterHome()"/>
 
@@ -273,6 +277,12 @@ node /org/freedesktop/home1 {
       create a home directory or such (which is expected to exist already, or created later). This operation
       is useful to register home directories locally that are not located where
       <filename>systemd-homed.service</filename> would find them automatically.</para>
+
+      <para><function>AdoptHome()</function> also registers a new home directory locally. It takes a path to
+      a home directory itself, and will register it locally. This only works for <filename>*.home</filename>
+      and <filename>*.homedir/</filename> home directories. This operation is done automatically for all such
+      home areas showing up in <filename>/home/</filename>, but may be requested explicitly with this call for
+      directories elsewhere. The <varname>flags</varname> must be set to zero, currently.</para>
 
       <para><function>UnregisterHome()</function> unregisters an existing home directory. It takes a user
       name as argument and undoes what <function>RegisterHome()</function> does. It does not attempt to
@@ -633,9 +643,9 @@ node /org/freedesktop/home1/home {
       <title>The Manager Object</title>
       <para><function>ActivateHomeIfReferenced()</function>, <function>RefHomeUnrestricted()</function>,
       <function>CreateHomeEx()</function>, and <function>UpdateHomeEx()</function> were added in version 256.</para>
-      <para><function>ListSigningKeys()</function>, <function>GetSigningKey()</function>,
-      <function>AddSigningKey()</function>, and <function>RemoveSigningKey()</function> were added in version
-      258.</para>
+      <para><function>AdoptHome()</function>, <function>ListSigningKeys()</function>,
+      <function>GetSigningKey()</function>, <function>AddSigningKey()</function>, and
+      <function>RemoveSigningKey()</function> were added in version 258.</para>
     </refsect2>
     <refsect2>
       <title>Home Objects</title>
