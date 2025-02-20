@@ -33,7 +33,6 @@ TEST(proc_cmdline_override) {
         _cleanup_strv_free_ char **args = NULL;
 
         assert_se(putenv((char*) "SYSTEMD_PROC_CMDLINE=foo_bar=quux wuff-piep=tuet zumm some_arg_with_space='foo bar' and_one_more=\"zzz aaa\"") == 0);
-        assert_se(putenv((char*) "SYSTEMD_EFI_OPTIONS=different") == 0);
 
         /* First test if the overrides for /proc/cmdline still work */
         assert_se(proc_cmdline(&line) >= 0);
@@ -54,7 +53,6 @@ TEST(proc_cmdline_override) {
         value = mfree(value);
 
         assert_se(putenv((char*) "SYSTEMD_PROC_CMDLINE=hoge") == 0);
-        assert_se(putenv((char*) "SYSTEMD_EFI_OPTIONS=foo_bar=quux wuff-piep=tuet zumm some_arg_with_space='foo bar' and_one_more=\"zzz aaa\"") == 0);
 
         assert_se(proc_cmdline(&line) >= 0);
         ASSERT_STREQ(line, "hoge");
@@ -62,17 +60,6 @@ TEST(proc_cmdline_override) {
         assert_se(proc_cmdline_strv(&args) >= 0);
         assert_se(strv_equal(args, STRV_MAKE("hoge")));
         args = strv_free(args);
-
-#if ENABLE_EFI
-        assert_se(proc_cmdline_get_key("foo_bar", 0, &value) > 0 && streq_ptr(value, "quux"));
-        value = mfree(value);
-
-        assert_se(proc_cmdline_get_key("some_arg_with_space", 0, &value) > 0 && streq_ptr(value, "foo bar"));
-        value = mfree(value);
-
-        assert_se(proc_cmdline_get_key("and_one_more", 0, &value) > 0 && streq_ptr(value, "zzz aaa"));
-        value = mfree(value);
-#endif
 }
 
 static int parse_item_given(const char *key, const char *value, void *data) {
@@ -116,7 +103,6 @@ static void test_proc_cmdline_given_one(bool flip_initrd) {
 
 TEST(proc_cmdline_given) {
         assert_se(putenv((char*) "SYSTEMD_PROC_CMDLINE=foo_bar=quux wuff-piep=\"tuet \" rd.zumm space='x y z' miepf=\"uuu\"") == 0);
-        assert_se(putenv((char*) "SYSTEMD_EFI_OPTIONS=miepf=\"uuu\"") == 0);
 
         test_proc_cmdline_given_one(false);
         /* Repeat the same thing, but now flip our ininitrdness */
@@ -176,7 +162,6 @@ TEST(proc_cmdline_get_bool) {
         bool value = false;
 
         assert_se(putenv((char*) "SYSTEMD_PROC_CMDLINE=foo_bar bar-waldo=1 x_y-z=0 quux=miep\nda=yes\nthe=1") == 0);
-        assert_se(putenv((char*) "SYSTEMD_EFI_OPTIONS=") == 0);
 
         assert_se(proc_cmdline_get_bool("", /* flags = */ 0, &value) == -EINVAL);
         assert_se(proc_cmdline_get_bool("abc", /* flags = */ 0, &value) == 0 && value == false);
@@ -193,29 +178,6 @@ TEST(proc_cmdline_get_bool) {
         assert_se(proc_cmdline_get_bool("da", /* flags = */ 0, &value) > 0 && value == true);
         assert_se(proc_cmdline_get_bool("the", /* flags = */ 0, &value) > 0 && value == true);
 }
-
-#if ENABLE_EFI
-TEST(proc_cmdline_get_bool_efi) {
-        bool value = false;
-
-        assert_se(putenv((char*) "SYSTEMD_PROC_CMDLINE=") == 0);
-        assert_se(putenv((char*) "SYSTEMD_EFI_OPTIONS=foo_bar bar-waldo=1 x_y-z=0 quux=miep\nda=yes\nthe=1") == 0);
-
-        assert_se(proc_cmdline_get_bool("", /* flags = */ 0, &value) == -EINVAL);
-        assert_se(proc_cmdline_get_bool("abc", /* flags = */ 0, &value) == 0 && value == false);
-        assert_se(proc_cmdline_get_bool("foo_bar", /* flags = */ 0, &value) > 0 && value == true);
-        assert_se(proc_cmdline_get_bool("foo-bar", /* flags = */ 0, &value) > 0 && value == true);
-        assert_se(proc_cmdline_get_bool("bar-waldo", /* flags = */ 0, &value) > 0 && value == true);
-        assert_se(proc_cmdline_get_bool("bar_waldo", /* flags = */ 0, &value) > 0 && value == true);
-        assert_se(proc_cmdline_get_bool("x_y-z", /* flags = */ 0, &value) > 0 && value == false);
-        assert_se(proc_cmdline_get_bool("x-y-z", /* flags = */ 0, &value) > 0 && value == false);
-        assert_se(proc_cmdline_get_bool("x-y_z", /* flags = */ 0, &value) > 0 && value == false);
-        assert_se(proc_cmdline_get_bool("x_y_z", /* flags = */ 0, &value) > 0 && value == false);
-        assert_se(proc_cmdline_get_bool("quux", /* flags = */ 0, &value) == -EINVAL && value == false);
-        assert_se(proc_cmdline_get_bool("da", /* flags = */ 0, &value) > 0 && value == true);
-        assert_se(proc_cmdline_get_bool("the", /* flags = */ 0, &value) > 0 && value == true);
-}
-#endif
 
 TEST(proc_cmdline_get_key_many) {
         _cleanup_free_ char *value1 = NULL, *value2 = NULL, *value3 = NULL, *value4 = NULL, *value5 = NULL, *value6 = NULL, *value7 = NULL;
