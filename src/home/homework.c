@@ -542,7 +542,6 @@ int home_sync_and_statfs(int root_fd, struct statfs *ret) {
 static int read_identity_file(int root_fd, sd_json_variant **ret) {
         _cleanup_fclose_ FILE *identity_file = NULL;
         _cleanup_close_ int identity_fd = -EBADF;
-        unsigned line, column;
         int r;
 
         assert(root_fd >= 0);
@@ -560,6 +559,7 @@ static int read_identity_file(int root_fd, sd_json_variant **ret) {
         if (!identity_file)
                 return log_oom();
 
+        unsigned line = 0, column = 0;
         r = sd_json_parse_file(identity_file, ".identity", SD_JSON_PARSE_SENSITIVE, ret, &line, &column);
         if (r < 0)
                 return log_error_errno(r, "[.identity:%u:%u] Failed to parse JSON data: %m", line, column);
@@ -1981,7 +1981,6 @@ static int run(int argc, char *argv[]) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         _cleanup_fclose_ FILE *opened_file = NULL;
         _cleanup_hashmap_free_ Hashmap *blobs = NULL;
-        unsigned line = 0, column = 0;
         const char *json_path = NULL, *blob_filename;
         FILE *json_file;
         usec_t start;
@@ -2012,6 +2011,7 @@ static int run(int argc, char *argv[]) {
                 json_file = stdin;
         }
 
+        unsigned line = 0, column = 0;
         r = sd_json_parse_file(json_file, json_path, SD_JSON_PARSE_SENSITIVE, &v, &line, &column);
         if (r < 0)
                 return log_error_errno(r, "[%s:%u:%u] Failed to parse JSON data: %m", json_path, line, column);
