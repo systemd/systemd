@@ -195,6 +195,19 @@ typedef enum ForkFlags {
         FORK_FREEZE             = 1 << 22, /* Don't return in child, just call freeze() instead */
 } ForkFlags;
 
+
+int pidref_safe_fork_full(
+        const char *name,
+        const int stdio_fds[3],
+        int except_fds[],
+        size_t n_except_fds,
+        ForkFlags flags,
+        PidRef *ret_pid);
+
+static inline int pidref_safe_fork(const char *name, ForkFlags flags, PidRef *ret_pid) {
+        return pidref_safe_fork_full(name, NULL, NULL, 0, flags, ret_pid);
+}
+
 int safe_fork_full(
                 const char *name,
                 const int stdio_fds[3],
@@ -205,18 +218,6 @@ int safe_fork_full(
 
 static inline int safe_fork(const char *name, ForkFlags flags, pid_t *ret_pid) {
         return safe_fork_full(name, NULL, NULL, 0, flags, ret_pid);
-}
-
-int pidref_safe_fork_full(
-                const char *name,
-                const int stdio_fds[3],
-                int except_fds[],
-                size_t n_except_fds,
-                ForkFlags flags,
-                PidRef *ret_pid);
-
-static inline int pidref_safe_fork(const char *name, ForkFlags flags, PidRef *ret_pid) {
-        return pidref_safe_fork_full(name, NULL, NULL, 0, flags, ret_pid);
 }
 
 int namespace_fork(
