@@ -2570,7 +2570,7 @@ Features:
   - permit multiple user record signing keys to be used locally, and pick
     the right one for signing records automatically depending on a pre-existing
     signature
-  - add a way to "adopt" a home directory, i.e. strip foreign signatures
+  - add a way to "take possession" of a home directory, i.e. strip foreign signatures
     and insert a local signature instead.
   - as an extension to the directory+subvolume backend: if located on
     especially marked fs, then sync down password into LUKS header of that fs,
