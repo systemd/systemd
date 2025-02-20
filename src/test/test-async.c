@@ -100,7 +100,7 @@ TEST(asynchronous_rm_rf) {
                 for (;;) {
                         siginfo_t si = {};
 
-                        ASSERT_OK(waitid(P_ALL, 0, &si, WEXITED));
+                        ASSERT_OK_ERRNO(waitid(P_ALL, 0, &si, WEXITED));
 
                         if (access(tt, F_OK) < 0) {
                                 assert_se(errno == ENOENT);
