@@ -723,7 +723,7 @@ node /org/freedesktop/login1 {
       <title>Signals</title>
 
       <para>Whenever the inhibition state or idle hint changes, <function>PropertyChanged</function>
-      signals are sent out to which clients can subscribe.</para>
+      signals are sent out to clients which have subscribed.</para>
 
       <para>The <function>SessionNew()</function>, <function>SessionRemoved()</function>,
       <function>UserNew()</function>, <function>UserRemoved()</function>, <function>SeatNew()</function>, and
@@ -958,8 +958,8 @@ node /org/freedesktop/login1/seat/seat0 {
 
       <para>Whenever <function>ActiveSession</function>, <function>Sessions</function>,
       <function>CanGraphical</function>, <function>CanTTY</function>,
-      or the idle state changes, <function>PropertyChanged</function> signals are sent out to which clients
-      can subscribe.</para>
+      or the idle state changes, <function>PropertyChanged</function> signals are sent out to clients which
+      have subscribed.</para>
     </refsect2>
 
     <refsect2>
@@ -1079,7 +1079,7 @@ node /org/freedesktop/login1/user/_1000 {
       <title>Signals</title>
 
       <para>Whenever <varname>Sessions</varname> or the idle state changes,
-      <function>PropertyChanged</function> signals are sent out to which clients can subscribe.</para>
+      <function>PropertyChanged</function> signals are sent out to clients which have subscribed.</para>
     </refsect2>
 
     <refsect2>
@@ -1427,7 +1427,7 @@ node /org/freedesktop/login1/session/1 {
       open file descriptor in the kernel (except for a limited set of device types).</para>
 
       <para>Whenever <function>Active</function> or the idle state changes,
-      <function>PropertyChanged</function> signals are sent out to which clients can subscribe.</para>
+      <function>PropertyChanged</function> signals are sent out to clients which have subscribed.</para>
 
       <para><function>Lock()</function>/<function>Unlock()</function> is sent when the session is asked to be
       screen-locked/unlocked. A session manager of the session should listen to this signal and act
