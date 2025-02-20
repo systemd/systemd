@@ -1525,13 +1525,13 @@ static int fork_flags_to_signal(ForkFlags flags) {
                                                  SIGKILL;
 }
 
-int safe_fork_full(
+int pidref_safe_fork_full(
                 const char *name,
                 const int stdio_fds[3],
                 int except_fds[],
                 size_t n_except_fds,
                 ForkFlags flags,
-                pid_t *ret_pid) {
+                PidRef *ret_pid) {
 
         pid_t original_pid, pid;
         sigset_t saved_ss, ss;
@@ -1542,8 +1542,8 @@ int safe_fork_full(
         assert(!FLAGS_SET(flags, FORK_DETACH) ||
                (!ret_pid && (flags & (FORK_WAIT|FORK_DEATHSIG_SIGTERM|FORK_DEATHSIG_SIGINT|FORK_DEATHSIG_SIGKILL)) == 0));
 
-        /* A wrapper around fork(), that does a couple of important initializations in addition to mere forking. Always
-         * returns the child's PID in *ret_pid. Returns == 0 in the child, and > 0 in the parent. */
+        /* A wrapper around fork(), that does a couple of important initializations in addition to mere forking.
+         * Returns == 0 in the child, and > 0 in the parent. */
 
         prio = flags & FORK_LOG ? LOG_ERR : LOG_DEBUG;
 
@@ -1632,8 +1632,11 @@ int safe_fork_full(
                                 return -EPROTO;
                 }
 
-                if (ret_pid)
-                        *ret_pid = pid;
+                if (ret_pid) {
+                        r = pidref_set_pid(ret_pid, pid);
+                        if (r < 0) /* Let's not fail for this, no matter what, the process exists after all, and that's key */
+                                *ret_pid = PIDREF_MAKE_FROM_PID(pid);
+                }
 
                 return 1;
         }
@@ -1801,36 +1804,39 @@ int safe_fork_full(
         if (FLAGS_SET(flags, FORK_FREEZE))
                 freeze();
 
-        if (ret_pid)
-                *ret_pid = getpid_cached();
+        if (ret_pid) {
+                r = pidref_set_self(ret_pid);
+                if (r < 0) {
+                        log_full_errno(prio, r, "Failed to acquire PID reference on ourselves: %m");
+                        _exit(EXIT_FAILURE);
+                }
+        }
 
         return 0;
 }
 
-int pidref_safe_fork_full(
+int safe_fork_full(
                 const char *name,
                 const int stdio_fds[3],
                 int except_fds[],
                 size_t n_except_fds,
                 ForkFlags flags,
-                PidRef *ret_pid) {
+                pid_t *ret_pid) {
 
-        pid_t pid;
-        int r, q;
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        int r;
 
-        r = safe_fork_full(name, stdio_fds, except_fds, n_except_fds, flags, &pid);
+        r = pidref_safe_fork_full(name, stdio_fds, except_fds, n_except_fds, flags, &pidref);
         if (r < 0 || !ret_pid)
                 return r;
 
         if (r > 0 && FLAGS_SET(flags, FORK_WAIT)) {
                 /* If we are in the parent and successfully waited, then the process doesn't exist anymore */
-                *ret_pid = PIDREF_NULL;
+                *ret_pid = 0;
                 return r;
         }
 
-        q = pidref_set_pid(ret_pid, pid);
-        if (q < 0) /* Let's not fail for this, no matter what, the process exists after all, and that's key */
-                *ret_pid = PIDREF_MAKE_FROM_PID(pid);
+        *ret_pid = pidref.pid;
 
         return r;
 }
