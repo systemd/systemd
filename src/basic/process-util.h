@@ -188,9 +188,9 @@ typedef enum ForkFlags {
         FORK_KEEP_NOTIFY_SOCKET = 1 << 15, /* Unless this specified, $NOTIFY_SOCKET will be unset. */
         FORK_DETACH             = 1 << 16, /* Double fork if needed to ensure PID1/subreaper is parent */
         FORK_PACK_FDS           = 1 << 17, /* Rearrange the passed FDs to be FD 3,4,5,etc. Updates the array in place (combine with FORK_CLOSE_ALL_FDS!) */
-        FORK_NEW_MOUNTNS        = 1 << 18, /* Run child in its own mount namespace                               💣 DO NOT USE IN THREADED PROGRAMS! 💣 */
-        FORK_NEW_USERNS         = 1 << 19, /* Run child in its own user namespace                                💣 DO NOT USE IN THREADED PROGRAMS! 💣 */
-        FORK_NEW_NETNS          = 1 << 20, /* Run child in its own network namespace                             💣 DO NOT USE IN THREADED PROGRAMS! 💣 */
+        FORK_NEW_MOUNTNS        = 1 << 18, /* Run child in its own mount namespace */
+        FORK_NEW_USERNS         = 1 << 19, /* Run child in its own user namespace */
+        FORK_NEW_NETNS          = 1 << 20, /* Run child in its own network namespace */
         FORK_NEW_PIDNS          = 1 << 21, /* Run child in its own PID namespace                                 💣 DO NOT USE IN THREADED PROGRAMS! 💣 */
         FORK_FREEZE             = 1 << 22, /* Don't return in child, just call freeze() instead */
 } ForkFlags;
