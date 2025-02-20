@@ -488,7 +488,7 @@ static int method_register_home(
 
         assert(message);
 
-        r = bus_message_read_home_record(message, USER_RECORD_LOAD_EMBEDDED|USER_RECORD_PERMISSIVE, &hr, error);
+        r = bus_message_read_home_record(message, USER_RECORD_EXTRACT_EMBEDDED|USER_RECORD_PERMISSIVE, &hr, error);
         if (r < 0)
                 return r;
 
