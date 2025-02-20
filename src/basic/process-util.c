@@ -1542,6 +1542,7 @@ int pidref_safe_fork_full(
         _cleanup_close_pair_ int pidref_transport_fds[2] = EBADF_PAIR;
         int prio, r;
 
+        assert(!FLAGS_SET(flags, FORK_WAIT|FORK_FREEZE));
         assert(!FLAGS_SET(flags, FORK_DETACH) ||
                (flags & (FORK_WAIT|FORK_DEATHSIG_SIGTERM|FORK_DEATHSIG_SIGINT|FORK_DEATHSIG_SIGKILL)) == 0);
 
