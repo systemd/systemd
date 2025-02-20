@@ -529,7 +529,6 @@ static int verb_call(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *jp = NULL;
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         const char *url, *method, *parameter, *source;
-        unsigned line = 0, column = 0;
         int r;
 
         assert(argc >= 3);
@@ -551,6 +550,7 @@ static int verb_call(int argc, char *argv[], void *userdata) {
         if (!varlink_idl_qualified_symbol_name_is_valid(method))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not a valid qualified method name: '%s' (Expected valid Varlink interface name, followed by a dot, followed by a valid Varlink symbol name.)", method);
 
+        unsigned line = 0, column = 0;
         if (parameter) {
                 source = "<argv[4]>";
 
