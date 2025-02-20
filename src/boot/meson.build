@@ -300,6 +300,7 @@ libefi_sources = files(
         'shim.c',
         'smbios.c',
         'ticks.c',
+        'url-discovery.c',
         'util.c',
         'vmm.c',
 )

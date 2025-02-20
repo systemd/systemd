@@ -18,6 +18,7 @@
 #include "pe.h"
 #include "proto/block-io.h"
 #include "proto/device-path.h"
+#include "proto/load-file.h"
 #include "proto/simple-text-io.h"
 #include "random-seed.h"
 #include "sbat.h"
@@ -27,6 +28,7 @@
 #include "ticks.h"
 #include "tpm2-pcr.h"
 #include "uki.h"
+#include "url-discovery.h"
 #include "util.h"
 #include "version.h"
 #include "vmm.h"
@@ -47,12 +49,25 @@ DECLARE_SBAT(SBAT_BOOT_SECTION_TEXT);
 typedef enum LoaderType {
         LOADER_UNDEFINED,
         LOADER_AUTO,
-        LOADER_EFI,
-        LOADER_LINUX,         /* Boot loader spec type #1 entries */
-        LOADER_UNIFIED_LINUX, /* Boot loader spec type #2 entries */
+        LOADER_EFI,           /* Boot loader spec type #1 entries with "efi" line */
+        LOADER_LINUX,         /* Boot loader spec type #1 entries with "linux" line */
+        LOADER_UKI,           /* Boot loader spec type #1 entries with "uki" line */
+        LOADER_UKI_URL,       /* Boot loader spec type #1 entries with "uki-url" line */
+        LOADER_TYPE2_UKI,     /* Boot loader spec type #2 entries */
         LOADER_SECURE_BOOT_KEYS,
+        LOADER_BAD,           /* Marker: this boot loader spec type #1 entry is invalid */
+        LOADER_IGNORE,        /* Marker: this boot loader spec type #1 entry does not match local host */
         _LOADER_TYPE_MAX,
 } LoaderType;
+
+/* Which loader types permit command line editing */
+#define LOADER_TYPE_ALLOW_EDITOR(t) IN_SET(t, LOADER_EFI, LOADER_LINUX, LOADER_UKI, LOADER_UKI_URL, LOADER_TYPE2_UKI)
+
+/* Which loader types allow command line editing in SecureBoot mode */
+#define LOADER_TYPE_ALLOW_EDITOR_IN_SB(t) IN_SET(t, LOADER_EFI, LOADER_LINUX)
+
+/* Which loader types shall be considered for automatic selection */
+#define LOADER_TYPE_MAY_AUTO_SELECT(t) IN_SET(t, LOADER_EFI, LOADER_LINUX, LOADER_UKI, LOADER_UKI_URL, LOADER_TYPE2_UKI)
 
 typedef struct {
         char16_t *id;         /* The unique identifier for this entry (typically the filename of the file defining the entry, possibly suffixed with a profile id) */
@@ -65,6 +80,7 @@ typedef struct {
         EFI_HANDLE *device;
         LoaderType type;
         char16_t *loader;
+        char16_t *url;
         char16_t *devicetree;
         char16_t *options;
         bool options_implied; /* If true, these options are implied if we invoke the PE binary without any parameters (as in: UKI). If false we must specify these options explicitly. */
@@ -608,6 +624,8 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
                         printf("        device: %ls\n", dp_str);
                 if (entry->loader)
                         printf("        loader: %ls\n", entry->loader);
+                if (entry->url)
+                        printf("           url: %ls\n", entry->url);
                 STRV_FOREACH(initrd, entry->initrd)
                         printf("        initrd: %ls\n", *initrd);
                 if (entry->devicetree)
@@ -994,7 +1012,7 @@ static bool menu_run(
                 case KEYPRESS(0, 0, 'E'):
                         /* only the options of configured entries can be edited */
                         if (!config->editor ||
-                            !IN_SET(config->entries[idx_highlight]->type, LOADER_EFI, LOADER_LINUX, LOADER_UNIFIED_LINUX)) {
+                            !LOADER_TYPE_ALLOW_EDITOR(config->entries[idx_highlight]->type)) {
                                 status = xstrdup16(u"Entry does not support editing the command line.");
                                 break;
                         }
@@ -1002,7 +1020,7 @@ static bool menu_run(
                         /* Unified kernels that are signed as a whole will not accept command line options
                          * when secure boot is enabled unless there is none embedded in the image. Do not try
                          * to pretend we can edit it to only have it be ignored. */
-                        if (config->entries[idx_highlight]->type == LOADER_UNIFIED_LINUX &&
+                        if (!LOADER_TYPE_ALLOW_EDITOR_IN_SB(config->entries[idx_highlight]->type) &&
                             secure_boot_enabled() &&
                             config->entries[idx_highlight]->options) {
                                 status = xstrdup16(u"Entry not editable in SecureBoot mode.");
@@ -1199,6 +1217,7 @@ static BootEntry* boot_entry_free(BootEntry *entry) {
         free(entry->version);
         free(entry->machine_id);
         free(entry->loader);
+        free(entry->url);
         free(entry->devicetree);
         free(entry->options);
         strv_free(entry->initrd);
@@ -1445,7 +1464,6 @@ static void boot_entry_add_type1(
         assert(config);
         assert(device);
         assert(root_dir);
-        assert(path);
         assert(file);
         assert(content);
 
@@ -1473,26 +1491,76 @@ static void boot_entry_add_type1(
                         entry->machine_id = xstr8_to_16(value);
 
                 } else if (streq8(key, "linux")) {
+
+                        if (!IN_SET(entry->type, LOADER_UNDEFINED, LOADER_LINUX)) {
+                                entry->type = LOADER_BAD;
+                                break;
+                        }
+
                         free(entry->loader);
                         entry->type = LOADER_LINUX;
                         entry->loader = xstr8_to_path(value);
                         entry->key = 'l';
 
+                } else if (streq8(key, "uki")) {
+
+                        if (!IN_SET(entry->type, LOADER_UNDEFINED, LOADER_UKI)) {
+                                entry->type = LOADER_BAD;
+                                break;
+                        }
+
+                        free(entry->loader);
+                        entry->type = LOADER_UKI;
+                        entry->loader = xstr8_to_path(value);
+                        entry->key = 'l';
+
+                } else if (streq8(key, "uki-url")) {
+
+                        if (!IN_SET(entry->type, LOADER_UNDEFINED, LOADER_UKI_URL)) {
+                                entry->type = LOADER_BAD;
+                                break;
+                        }
+
+                        _cleanup_free_ char16_t *p = xstr8_to_16(value);
+
+                        const char16_t *e = startswith(p, u":");
+                        if (e) {
+                                _cleanup_free_ char16_t *origin = disk_get_url(device);
+
+                                if (!origin) {
+                                        /* Automatically hide entries that require an original URL but where none is available. */
+                                        entry->type = LOADER_IGNORE;
+                                        break;
+                                }
+
+                                entry->url = url_replace_last_component(origin, p);
+                        } else
+                                entry->url = TAKE_PTR(p);
+
+                        entry->type = LOADER_UKI_URL;
+                        entry->key = 'l';
+
                 } else if (streq8(key, "efi")) {
+
+                        if (!IN_SET(entry->type, LOADER_UNDEFINED, LOADER_EFI)) {
+                                entry->type = LOADER_BAD;
+                                break;
+                        }
+
                         entry->type = LOADER_EFI;
                         free(entry->loader);
                         entry->loader = xstr8_to_path(value);
 
                         /* do not add an entry for ourselves */
                         if (strcaseeq16(entry->loader, loaded_image_path)) {
-                                entry->type = LOADER_UNDEFINED;
+                                entry->type = LOADER_IGNORE;
                                 break;
                         }
 
                 } else if (streq8(key, "architecture")) {
                         /* do not add an entry for an EFI image of architecture not matching with that of the image */
                         if (!strcaseeq8(value, EFI_MACHINE_TYPE_NAME)) {
-                                entry->type = LOADER_UNDEFINED;
+                                entry->type = LOADER_IGNORE;
                                 break;
                         }
 
@@ -1520,14 +1588,17 @@ static void boot_entry_add_type1(
                                 entry->options = TAKE_PTR(new);
                 }
 
-        if (entry->type == LOADER_UNDEFINED)
+        /* Filter all entries that are badly defined or don't apply to the local system. */
+        if (IN_SET(entry->type, LOADER_UNDEFINED, LOADER_BAD, LOADER_IGNORE))
                 return;
 
-        /* check existence */
-        _cleanup_file_close_ EFI_FILE *handle = NULL;
-        err = root_dir->Open(root_dir, &handle, entry->loader, EFI_FILE_MODE_READ, 0ULL);
-        if (err != EFI_SUCCESS)
-                return;
+        /* Check existence of loader file */
+        if (entry->loader) {
+                _cleanup_file_close_ EFI_FILE *handle = NULL;
+                err = root_dir->Open(root_dir, &handle, entry->loader, EFI_FILE_MODE_READ, 0ULL);
+                if (err != EFI_SUCCESS)
+                        return;
+        }
 
         entry->device = device;
         entry->id = xstrdup16(file);
@@ -1535,7 +1606,8 @@ static void boot_entry_add_type1(
 
         config_add_entry(config, entry);
 
-        boot_entry_parse_tries(entry, path, file, u".conf");
+        if (path)
+                boot_entry_parse_tries(entry, path, file, u".conf");
         TAKE_PTR(entry);
 }
 
@@ -1645,6 +1717,19 @@ static void config_load_defaults(Config *config, EFI_FILE *root_dir) {
                 (void) efivar_get_str16(MAKE_GUID_PTR(LOADER), u"LoaderEntryLastBooted", &config->entry_saved);
 }
 
+static bool valid_type1_filename(const char16_t *fname) {
+        assert(fname);
+
+        if (IN_SET(fname[0], u'.', u'\0'))
+                return false;
+        if (!endswith_no_case(fname, u".conf"))
+                return false;
+        if (startswith_no_case(fname, u"auto-"))
+                return false;
+
+        return true;
+}
+
 static void config_load_type1_entries(
                 Config *config,
                 EFI_HANDLE *device,
@@ -1675,13 +1760,9 @@ static void config_load_type1_entries(
                 if (err != EFI_SUCCESS || !f)
                         break;
 
-                if (f->FileName[0] == '.')
-                        continue;
                 if (FLAGS_SET(f->Attribute, EFI_FILE_DIRECTORY))
                         continue;
-                if (!endswith_no_case(f->FileName, u".conf"))
-                        continue;
-                if (startswith_no_case(f->FileName, u"auto-"))
+                if (!valid_type1_filename(f->FileName))
                         continue;
 
                 err = file_read(entries_dir,
@@ -1694,6 +1775,41 @@ static void config_load_type1_entries(
                         continue;
 
                 boot_entry_add_type1(config, device, root_dir, dropin_path, f->FileName, content, loaded_image_path);
+        }
+}
+
+static void config_load_smbios_entries(
+                Config *config,
+                EFI_HANDLE *device,
+                EFI_FILE *root_dir,
+                const char16_t *loaded_image_path) {
+
+        assert(config);
+        assert(device);
+        assert(root_dir);
+
+        /* Loads Boot Loader Type #1 entries from SMBIOS 11 */
+
+        if (is_confidential_vm())
+                return; /* Don't consume SMBIOS in CoCo contexts */
+
+        for (const char *after = NULL, *extra;; after = extra) {
+                extra = smbios_find_oem_string("io.systemd.boot.entries-extra:", after);
+                if (!extra)
+                        break;
+
+                const char *eq = strchr8(extra, '=');
+                if (!eq)
+                        continue;
+
+                _cleanup_free_ char16_t *fname = xstrn8_to_16(extra, eq - extra);
+                if (!valid_type1_filename(fname))
+                        continue;
+
+                /* Make a copy,  since boot_entry_add_type1() wants to modify it */
+                _cleanup_free_ char *contents = xstrdup8(eq + 1);
+
+                boot_entry_add_type1(config, device, root_dir, /* path= */ NULL, fname, contents, loaded_image_path);
         }
 }
 
@@ -1806,7 +1922,7 @@ static void config_select_default_entry(Config *config) {
 
         /* select the first suitable entry */
         for (i = 0; i < config->n_entries; i++)
-                if (config->entries[i]->type != LOADER_AUTO && !config->entries[i]->call) {
+                if (LOADER_TYPE_MAY_AUTO_SELECT(config->entries[i]->type)) {
                         config->idx_default = i;
                         return;
                 }
@@ -2323,7 +2439,7 @@ static void boot_entry_add_type2(
                 *entry = (BootEntry) {
                         .id = strtolower16(TAKE_PTR(id)),
                         .id_without_profile = profile > 0 ? strtolower16(xstrdup16(filename)) : NULL,
-                        .type = LOADER_UNIFIED_LINUX,
+                        .type = LOADER_TYPE2_UKI,
                         .title = TAKE_PTR(title),
                         .version = xstrdup16(good_version),
                         .device = device,
@@ -2523,13 +2639,77 @@ static EFI_STATUS initrd_prepare(
         return EFI_SUCCESS;
 }
 
+static EFI_STATUS expand_path(
+                EFI_HANDLE parent_image,
+                EFI_DEVICE_PATH *path,
+                EFI_DEVICE_PATH **ret_expanded_path) {
+
+        EFI_STATUS err;
+
+        assert(parent_image);
+        assert(path);
+        assert(ret_expanded_path);
+
+        _cleanup_free_ EFI_HANDLE *handles = NULL;
+        size_t n_handles = 0;
+        err = BS->LocateHandleBuffer(
+                        ByProtocol,
+                        MAKE_GUID_PTR(EFI_LOAD_FILE_PROTOCOL),
+                        /* SearchKey= */ NULL,
+                        &n_handles,
+                        &handles);
+        if (!IN_SET(err, EFI_SUCCESS, EFI_NOT_FOUND))
+                return log_error_status(err, "Failed to get list of LoadFile protocol handles: %m");
+
+        FOREACH_ARRAY(h, handles, n_handles) {
+                EFI_LOAD_FILE_PROTOCOL *load_file = NULL;
+                err = BS->OpenProtocol(
+                                *h,
+                                MAKE_GUID_PTR(EFI_LOAD_FILE_PROTOCOL),
+                                (void**) &load_file,
+                                parent_image,
+                                /* ControllerHandler= */ NULL,
+                                EFI_OPEN_PROTOCOL_GET_PROTOCOL);
+                if (IN_SET(err, EFI_NOT_FOUND, EFI_INVALID_PARAMETER))
+                        continue; /* Skip over LoadFile() handles that are not suitable for this kind of device path */
+                if (err != EFI_SUCCESS) {
+                        log_warning_status(err, "Failed to get LoadFile() protocol, ignoring: %m");
+                        continue;
+                }
+
+                /* Issue a LoadFile() request without interest in the actual data (i.e. size is zero and
+                 * buffer pointer is NULL), but with BootPolicy set to true, this has the effect of
+                 * downloading the URL and establishing a handle for it. */
+                size_t size = 0;
+                err = load_file->LoadFile(load_file, path, /* BootPolicy= */ true, &size, /* Buffer= */ NULL);
+                if (IN_SET(err, EFI_NOT_FOUND, EFI_INVALID_PARAMETER))
+                        continue; /* Skip over LoadFile() handles that after all don't consider themselves
+                                   * appropriate for this kind of path */
+                if (err != EFI_BUFFER_TOO_SMALL) {
+                        log_warning_status(err, "Failed to get file via LoadFile() protocol, ignoring: %m");
+                        continue;
+                }
+
+                /* Now read the updated file path */
+                EFI_DEVICE_PATH *load_file_path = NULL;
+                err = BS->HandleProtocol(*h, MAKE_GUID_PTR(EFI_DEVICE_PATH_PROTOCOL), (void **) &load_file_path);
+                if (err != EFI_SUCCESS)
+                        return log_error_status(err, "Failed to get LoadFile() device path: %m");
+
+                /* And return a copy */
+                *ret_expanded_path = device_path_dup(load_file_path);
+                return EFI_SUCCESS;
+        }
+
+        return EFI_NOT_FOUND;
+}
+
 static EFI_STATUS image_start(
                 EFI_HANDLE parent_image,
                 const BootEntry *entry) {
 
         _cleanup_(devicetree_cleanup) struct devicetree_state dtstate = {};
         _cleanup_(unload_imagep) EFI_HANDLE image = NULL;
-        _cleanup_free_ EFI_DEVICE_PATH *path = NULL;
         EFI_STATUS err;
 
         assert(entry);
@@ -2539,38 +2719,94 @@ static EFI_STATUS image_start(
                 (void) entry->call();
 
         _cleanup_file_close_ EFI_FILE *image_root = NULL;
-        err = open_volume(entry->device, &image_root);
-        if (err != EFI_SUCCESS)
-                return log_error_status(err, "Error opening root path: %m");
-
-        err = make_file_device_path(entry->device, entry->loader, &path);
-        if (err != EFI_SUCCESS)
-                return log_error_status(err, "Error making file device path: %m");
-
-        size_t initrd_size = 0;
-        _cleanup_pages_ Pages initrd_pages = {};
-        _cleanup_free_ char16_t *options_initrd = NULL;
-        err = initrd_prepare(image_root, entry, &options_initrd, &initrd_pages, &initrd_size);
-        if (err != EFI_SUCCESS)
-                return log_error_status(err, "Error preparing initrd: %m");
-
-        err = shim_load_image(parent_image, path, &image);
-        if (err != EFI_SUCCESS)
-                return log_error_status(err, "Error loading %ls: %m", entry->loader);
-
-        /* DTBs are loaded by the kernel before ExitBootServices, and they can be used to map and assign
-         * arbitrary memory ranges, so skip them when secure boot is enabled as the DTB here is unverified.
-         */
-        if (entry->devicetree && !secure_boot_enabled()) {
-                err = devicetree_install(&dtstate, image_root, entry->devicetree);
+        _cleanup_free_ EFI_DEVICE_PATH *path = NULL;
+        bool boot_policy;
+        if (entry->url) {
+                /* Generate a device path that only contains the URL */
+                err = make_url_device_path(entry->url, &path);
                 if (err != EFI_SUCCESS)
-                        return log_error_status(err, "Error loading %ls: %m", entry->devicetree);
+                        return log_error_status(err, "Error making URL device path: %m");
+
+                /* Try to expand this path on all available NICs and IP protocols */
+                _cleanup_free_ EFI_DEVICE_PATH *expanded_path = NULL;
+                for (unsigned n_attempt = 0;; n_attempt++) {
+                        err = expand_path(parent_image, path, &expanded_path);
+                        if (err == EFI_SUCCESS) {
+                                /* If this worked then let's try to boot with the expanded path. */
+                                free(path);
+                                path = TAKE_PTR(expanded_path);
+                                break;
+                        }
+                        if (err != EFI_NOT_FOUND || n_attempt > 5) {
+                                log_warning_status(err, "Failed to expand device path, ignoring: %m");
+                                break;
+                        }
+
+                        /* Maybe the network devices have been configured for this yet (because we are the
+                         * first piece of code trying to do networking)? Then let's connect them, and try
+                         * again. */
+                        reconnect_all_drivers();
+                }
+
+                /* Note: if the path expansion doesn't work, we'll continue with the unexpanded path. Which
+                 * will probably fail on many (most?) firmwares, but it's worth a try. */
+
+                boot_policy = true; /* Set BootPolicy parameter to LoadImage() to true, which ultimately
+                                     * controls whether the LoadFile (and thus HTTP boot) or LoadFile2 (which
+                                     * does not set up HTTP boot) protocol shall be used. */
+        } else {
+                assert(entry->device);
+                assert(entry->loader);
+
+                err = open_volume(entry->device, &image_root);
+                if (err != EFI_SUCCESS)
+                        return log_error_status(err, "Error opening root path: %m");
+
+                err = make_file_device_path(entry->device, entry->loader, &path);
+                if (err != EFI_SUCCESS)
+                        return log_error_status(err, "Error making file device path: %m");
+
+                boot_policy = false;
+        }
+
+        /* Authenticate the image before we continue with initrd or DT stuff */
+        err = shim_load_image(parent_image, path, boot_policy, &image);
+        if (err != EFI_SUCCESS) {
+                if (entry->url) {
+                        /* EFI_NOT_FOUND typically indicates that no network stack or NIC was available, let's give the user a hint. */
+                        if (err == EFI_NOT_FOUND) {
+                                log_info("Unable to boot remote UKI %ls, is networking available?", entry->url);
+                                return err;
+                        }
+
+                        return log_error_status(err, "Error loading loading remote UKI %ls: %m", entry->url);
+                }
+
+                return log_error_status(err, "Error loading EFI binary %ls: %m", entry->loader);
         }
 
         _cleanup_(cleanup_initrd) EFI_HANDLE initrd_handle = NULL;
-        err = initrd_register(PHYSICAL_ADDRESS_TO_POINTER(initrd_pages.addr), initrd_size, &initrd_handle);
-        if (err != EFI_SUCCESS)
-                return log_error_status(err, "Error registering initrd: %m");
+        _cleanup_free_ char16_t *options_initrd = NULL;
+        _cleanup_pages_ Pages initrd_pages = {};
+        size_t initrd_size = 0;
+        if (image_root) {
+                err = initrd_prepare(image_root, entry, &options_initrd, &initrd_pages, &initrd_size);
+                if (err != EFI_SUCCESS)
+                        return log_error_status(err, "Error preparing initrd: %m");
+
+                /* DTBs are loaded by the kernel before ExitBootServices(), and they can be used to map and
+                 * assign arbitrary memory ranges, so skip them when secure boot is enabled as the DTB here
+                 * is unverified. */
+                if (entry->devicetree && !secure_boot_enabled()) {
+                        err = devicetree_install(&dtstate, image_root, entry->devicetree);
+                        if (err != EFI_SUCCESS)
+                                return log_error_status(err, "Error loading %ls: %m", entry->devicetree);
+                }
+
+                err = initrd_register(PHYSICAL_ADDRESS_TO_POINTER(initrd_pages.addr), initrd_size, &initrd_handle);
+                if (err != EFI_SUCCESS)
+                        return log_error_status(err, "Error registering initrd: %m");
+        }
 
         EFI_LOADED_IMAGE_PROTOCOL *loaded_image;
         err = BS->HandleProtocol(image, MAKE_GUID_PTR(EFI_LOADED_IMAGE_PROTOCOL), (void **) &loaded_image);
@@ -2583,7 +2819,7 @@ static EFI_STATUS image_start(
         _cleanup_free_ char16_t *options = xstrdup16(options_initrd ?: entry->options_implied ? NULL : entry->options);
 
         if (entry->type == LOADER_LINUX && !is_confidential_vm()) {
-                const char *extra = smbios_find_oem_string("io.systemd.boot.kernel-cmdline-extra");
+                const char *extra = smbios_find_oem_string("io.systemd.boot.kernel-cmdline-extra=", /* after= */ NULL);
                 if (extra) {
                         _cleanup_free_ char16_t *tmp = TAKE_PTR(options), *extra16 = xstr8_to_16(extra);
                         if (isempty(tmp))
@@ -2636,7 +2872,7 @@ static EFI_STATUS image_start(
                         err = EFI_UNSUPPORTED;
         }
 
-        return log_error_status(err, "Failed to execute %ls (%ls): %m", entry->title_show, entry->loader);
+        return log_error_status(err, "Failed to execute %ls (%ls): %m", entry->title_show, entry->loader ?: entry->url);
 }
 
 static void config_free(Config *config) {
@@ -2764,6 +3000,9 @@ static void export_loader_variables(
                 EFI_LOADER_FEATURE_RETAIN_SHIM |
                 EFI_LOADER_FEATURE_MENU_DISABLE |
                 EFI_LOADER_FEATURE_MULTI_PROFILE_UKI |
+                EFI_LOADER_FEATURE_REPORT_URL |
+                EFI_LOADER_FEATURE_TYPE1_UKI |
+                EFI_LOADER_FEATURE_TYPE1_UKI_URL |
                 0;
 
         assert(loaded_image);
@@ -2793,6 +3032,9 @@ static void config_load_all_entries(
 
         /* Similar, but on any XBOOTLDR partition */
         config_load_xbootldr(config, loaded_image->DeviceHandle);
+
+        /* Pick up entries defined via SMBIOS Type #11 */
+        config_load_smbios_entries(config, loaded_image->DeviceHandle, root_dir, loaded_image_path);
 
         /* Sort entries after version number */
         sort_pointer_array((void **) config->entries, config->n_entries, (compare_pointer_func_t) boot_entry_compare);
@@ -2876,20 +3118,33 @@ static EFI_STATUS run(EFI_HANDLE image) {
 
         init_usec = time_usec();
 
-        /* Ask Shim to leave its protocol around, so that the stub can use it to validate PEs.
-         * By default, Shim uninstalls its protocol when calling StartImage(). */
-        shim_retain_protocol();
-
         err = BS->HandleProtocol(image, MAKE_GUID_PTR(EFI_LOADED_IMAGE_PROTOCOL), (void **) &loaded_image);
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Error getting a LoadedImageProtocol handle: %m");
 
+        err = discover_root_dir(loaded_image, &root_dir);
+        if (err != EFI_SUCCESS) {
+                log_error_status(err, "Unable to open root directory: %m");
+
+                /* If opening the root directory fails this typically means someone is trying to boot our
+                 * systemd-boot EFI PE binary as network boot NBP. That cannot work however, since we
+                 * wouldn't find any menu entries. Provide a helpful message what to try instead. */
+
+                if (err == EFI_UNSUPPORTED)
+                        log_info("| Note that invoking systemd-boot directly as UEFI network boot NBP is not\n"
+                                 "| supported. Instead of booting the systemd-boot PE binary (i.e. an .efi file)\n"
+                                 "| via the network, use an EFI GPT disk image (i.e. a file with .img suffix)\n"
+                                 "| containing systemd-boot instead.");
+
+                return err;
+        }
+
+        /* Ask Shim to leave its protocol around, so that the stub can use it to validate PEs.
+         * By default, Shim uninstalls its protocol when calling StartImage(). */
+        shim_retain_protocol();
+
         export_common_variables(loaded_image);
         export_loader_variables(loaded_image, init_usec);
-
-        err = discover_root_dir(loaded_image, &root_dir);
-        if (err != EFI_SUCCESS)
-                return log_error_status(err, "Unable to open root directory: %m");
 
         (void) load_drivers(image, loaded_image, root_dir);
 

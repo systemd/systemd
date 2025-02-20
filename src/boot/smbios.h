@@ -5,7 +5,7 @@
 
 bool smbios_in_hypervisor(void);
 
-const char* smbios_find_oem_string(const char *name);
+const char* smbios_find_oem_string(const char *name, const char *after);
 
 typedef struct RawSmbiosInfo {
         const char *manufacturer;
