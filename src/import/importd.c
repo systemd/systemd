@@ -73,6 +73,7 @@ struct Transfer {
 
         char *remote;
         char *local;
+        char *image_root;
         ImageClass class;
         ImportFlags flags;
         char *format;
@@ -146,6 +147,7 @@ static Transfer *transfer_unref(Transfer *t) {
         free(t->remote);
         free(t->local);
         free(t->format);
+        free(t->image_root);
         free(t->object_path);
 
         pidref_done_sigkill_wait(&t->pidref);
@@ -455,6 +457,8 @@ static int transfer_start(Transfer *t) {
                         NULL, /* if so: the actual URL */
                         NULL, /* maybe --format= */
                         NULL, /* if so: the actual format */
+                        NULL, /* maybe --image-root= */
+                        NULL, /* if so: the image root path */
                         NULL, /* remote */
                         NULL, /* local */
                         NULL
@@ -546,6 +550,11 @@ static int transfer_start(Transfer *t) {
                 if (t->format) {
                         cmd[k++] = "--format";
                         cmd[k++] = t->format;
+                }
+
+                if (t->image_root) {
+                        cmd[k++] = "--image-root";
+                        cmd[k++] = t->image_root;
                 }
 
                 if (!IN_SET(t->type, TRANSFER_EXPORT_TAR, TRANSFER_EXPORT_RAW)) {
@@ -1838,6 +1847,7 @@ static int vl_method_pull(sd_varlink *link, sd_json_variant *parameters, sd_varl
                 bool force;
                 bool read_only;
                 bool keep_download;
+                const char *image_root;
         } p = {
                 .class = _IMAGE_CLASS_INVALID,
                 .verify = IMPORT_VERIFY_SIGNATURE,
@@ -1852,6 +1862,7 @@ static int vl_method_pull(sd_varlink *link, sd_json_variant *parameters, sd_varl
                 { "force",        SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,      offsetof(struct p, force),         0                 },
                 { "readOnly",     SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,      offsetof(struct p, read_only),     0                 },
                 { "keepDownload", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,      offsetof(struct p, keep_download), 0                 },
+                { "imageRoot",    SD_JSON_VARIANT_STRING,  json_dispatch_const_path,      offsetof(struct p, image_root),    SD_JSON_STRICT    },
                 VARLINK_DISPATCH_POLKIT_FIELD,
                 {},
         };
@@ -1915,6 +1926,12 @@ static int vl_method_pull(sd_varlink *link, sd_json_variant *parameters, sd_varl
         if (p.local) {
                 t->local = strdup(p.local);
                 if (!t->local)
+                        return -ENOMEM;
+        }
+
+        if (p.image_root) {
+                t->image_root = strdup(p.image_root);
+                if (!t->image_root)
                         return -ENOMEM;
         }
 
