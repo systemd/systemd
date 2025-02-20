@@ -659,6 +659,20 @@ TEST(safe_fork) {
         ASSERT_OK(wait_for_terminate(pid, &status));
         ASSERT_EQ(status.si_code, CLD_EXITED);
         ASSERT_EQ(status.si_status, 88);
+
+        _cleanup_(pidref_done) PidRef child = PIDREF_NULL;
+        r = pidref_safe_fork("(test-child)", FORK_DETACH, &child);
+        if (r == 0)
+                _exit(EXIT_SUCCESS);
+
+        ASSERT_OK_POSITIVE(r);
+        ASSERT_GT(child.pid, 0);
+        ASSERT_OK(pidref_get_ppid(&child, &pid));
+
+        if (is_reaper_process())
+                ASSERT_EQ(pid, getpid_cached());
+        else
+                ASSERT_NE(pid, getpid_cached());
 }
 
 TEST(pid_to_ptr) {
