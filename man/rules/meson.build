@@ -1143,6 +1143,7 @@ manpages = [
    'systemd-tmpfiles-setup-dev.service',
    'systemd-tmpfiles-setup.service'],
   ''],
+ ['systemd-tpm2-clear.service', '8', [], 'ENABLE_BOOTLOADER'],
  ['systemd-tpm2-generator', '8', [], ''],
  ['systemd-tpm2-setup.service',
   '8',
