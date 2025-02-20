@@ -184,16 +184,13 @@ static int condition_test_credential(Condition *c, char **env) {
         return false;
 }
 
-static int condition_test_kernel_version(Condition *c, char **env) {
+static int condition_test_version(Condition *c, const char *ver) {
         CompareOperator operator;
-        struct utsname u;
         bool first = true;
 
         assert(c);
         assert(c->parameter);
-        assert(c->type == CONDITION_KERNEL_VERSION);
-
-        assert_se(uname(&u) >= 0);
+        assert(ver);
 
         for (const char *p = c->parameter;;) {
                 _cleanup_free_ char *word = NULL;
@@ -227,7 +224,7 @@ static int condition_test_kernel_version(Condition *c, char **env) {
                                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Unexpected end of expression: %s", p);
                 }
 
-                r = version_or_fnmatch_compare(operator, u.release, s);
+                r = version_or_fnmatch_compare(operator, ver, s);
                 if (r < 0)
                         return r;
                 if (!r)
@@ -237,6 +234,26 @@ static int condition_test_kernel_version(Condition *c, char **env) {
         }
 
         return true;
+}
+
+static int condition_test_kernel_version(Condition *c, char **env) {
+        struct utsname u;
+
+        assert(c->type == CONDITION_KERNEL_VERSION);
+
+        assert_se(uname(&u) >= 0);
+
+        return condition_test_version(c, u.release);
+}
+
+static int condition_test_systemd_version(Condition *c, char **env) {
+        char ver[8];
+
+        assert(c->type == CONDITION_SYSTEMD_VERSION);
+
+        xsprintf(ver, "%d", PROJECT_VERSION);
+
+        return condition_test_version(c, ver);
 }
 
 static int condition_test_osrelease(Condition *c, char **env) {
@@ -1222,6 +1239,7 @@ int condition_test(Condition *c, char **env) {
                 [CONDITION_FILE_IS_EXECUTABLE]       = condition_test_file_is_executable,
                 [CONDITION_KERNEL_COMMAND_LINE]      = condition_test_kernel_command_line,
                 [CONDITION_KERNEL_VERSION]           = condition_test_kernel_version,
+                [CONDITION_SYSTEMD_VERSION]          = condition_test_systemd_version,
                 [CONDITION_CREDENTIAL]               = condition_test_credential,
                 [CONDITION_VIRTUALIZATION]           = condition_test_virtualization,
                 [CONDITION_SECURITY]                 = condition_test_security,
@@ -1341,6 +1359,7 @@ static const char* const condition_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_HOST] = "ConditionHost",
         [CONDITION_KERNEL_COMMAND_LINE] = "ConditionKernelCommandLine",
         [CONDITION_KERNEL_VERSION] = "ConditionKernelVersion",
+        [CONDITION_SYSTEMD_VERSION] = "ConditionSystemdVersion",
         [CONDITION_CREDENTIAL] = "ConditionCredential",
         [CONDITION_SECURITY] = "ConditionSecurity",
         [CONDITION_CAPABILITY] = "ConditionCapability",
@@ -1380,6 +1399,7 @@ static const char* const assert_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_HOST] = "AssertHost",
         [CONDITION_KERNEL_COMMAND_LINE] = "AssertKernelCommandLine",
         [CONDITION_KERNEL_VERSION] = "AssertKernelVersion",
+        [CONDITION_SYSTEMD_VERSION] = "AssertSystemdVersion",
         [CONDITION_CREDENTIAL] = "AssertCredential",
         [CONDITION_SECURITY] = "AssertSecurity",
         [CONDITION_CAPABILITY] = "AssertCapability",
