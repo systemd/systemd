@@ -36,12 +36,13 @@ or via your distribution's package manager. Note that systemd regularly adopts
 newer mkosi features that are not in an official release yet so there's a good
 chance that your distribution's packaged version of mkosi will be too old.
 
-Then, you can build and run systemd executables as follows:
+Then, you can build, run and test systemd executables as follows:
 
 ```sh
 $ mkosi -f sandbox -- meson setup build
 $ mkosi -f sandbox -- meson compile -C build
 $ mkosi -f sandbox -- build/systemctl --version
+$ mkosi -f sandbox -- meson test -C build          # Run the unit tests
 ```
 
 To build and boot an OS image with the latest systemd installed:

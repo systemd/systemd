@@ -161,6 +161,7 @@ jobs:
           UseSubvolumes=yes
           ToolsTreeDistribution=${{ matrix.distro }}
           ToolsTreeRelease=${{ matrix.release }}
+          WithTests=yes
 
           WorkspaceDirectory=$TMPDIR
           PackageCacheDirectory=$TMPDIR/cache
