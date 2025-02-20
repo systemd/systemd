@@ -1199,7 +1199,7 @@
         remote system, using SMB/CIFS file sharing. With Samba installed in its default configuration:</para>
 
         <programlisting># smbpasswd -a lennart
-homectl update lennart --ssh-authorized-keys=… -N --storage=cifs --cifs-service="//$HOSTNAME/lennart"
+homectl update lennart --ssh-authorized-keys=… --cifs-service="//$HOSTNAME/lennart" -N --storage=cifs
 homectl get-signing-key | ssh targetsystem homectl add-signing-key --key-name="$HOSTNAME".public
 homectl inspect -E lennart | ssh targetsystem homectl register -
 ssh lennart@targetsystem</programlisting>
