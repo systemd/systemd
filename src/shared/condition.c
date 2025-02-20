@@ -185,18 +185,14 @@ static int condition_test_credential(Condition *c, char **env) {
         return false;
 }
 
-static int condition_test_kernel_version(Condition *c, char **env) {
+static int condition_test_version_cmp(const char *condition, const char *ver) {
         CompareOperator operator;
-        struct utsname u;
         bool first = true;
 
-        assert(c);
-        assert(c->parameter);
-        assert(c->type == CONDITION_KERNEL_VERSION);
+        assert(condition);
+        assert(ver);
 
-        assert_se(uname(&u) >= 0);
-
-        for (const char *p = c->parameter;;) {
+        for (const char *p = condition;;) {
                 _cleanup_free_ char *word = NULL;
                 const char *s;
                 int r;
@@ -228,7 +224,7 @@ static int condition_test_kernel_version(Condition *c, char **env) {
                                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Unexpected end of expression: %s", p);
                 }
 
-                r = version_or_fnmatch_compare(operator, u.release, s);
+                r = version_or_fnmatch_compare(operator, ver, s);
                 if (r < 0)
                         return r;
                 if (!r)
@@ -238,6 +234,37 @@ static int condition_test_kernel_version(Condition *c, char **env) {
         }
 
         return true;
+}
+
+static int condition_test_version(Condition *c, char **env) {
+        int r;
+
+        assert(c);
+        assert(c->type == CONDITION_VERSION);
+
+        /* An empty condition is considered true. */
+        if (isempty(c->parameter))
+                return true;
+
+        const char *p = c->parameter;
+        _cleanup_free_ char *word = NULL;
+        r = extract_first_word(&p, &word, COMPARE_OPERATOR_WITH_FNMATCH_CHARS WHITESPACE,
+                               EXTRACT_DONT_COALESCE_SEPARATORS|EXTRACT_RETAIN_SEPARATORS);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse compare predicate \"%s\": %m", p);
+        if (r == 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Missing right operand in condition: %s", c->parameter);
+
+        if (streq(word, "systemd"))
+                return condition_test_version_cmp(p, STRINGIFY(PROJECT_VERSION));
+
+        /* if no predicate has been set, default to "kernel" and use the whole parameter as condition */
+        if (!streq(word, "kernel"))
+                p = c->parameter;
+
+        struct utsname u;
+        assert_se(uname(&u) >= 0);
+        return condition_test_version_cmp(p, u.release);
 }
 
 static int condition_test_osrelease(Condition *c, char **env) {
@@ -1222,7 +1249,7 @@ int condition_test(Condition *c, char **env) {
                 [CONDITION_FILE_NOT_EMPTY]           = condition_test_file_not_empty,
                 [CONDITION_FILE_IS_EXECUTABLE]       = condition_test_file_is_executable,
                 [CONDITION_KERNEL_COMMAND_LINE]      = condition_test_kernel_command_line,
-                [CONDITION_KERNEL_VERSION]           = condition_test_kernel_version,
+                [CONDITION_VERSION]                  = condition_test_version,
                 [CONDITION_CREDENTIAL]               = condition_test_credential,
                 [CONDITION_VIRTUALIZATION]           = condition_test_virtualization,
                 [CONDITION_SECURITY]                 = condition_test_security,
@@ -1335,13 +1362,13 @@ void condition_dump_list(Condition *first, FILE *f, const char *prefix, conditio
                 condition_dump(c, f, prefix, to_string);
 }
 
-static const char* const condition_type_table[_CONDITION_TYPE_MAX] = {
+static const char* const _condition_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_ARCHITECTURE]             = "ConditionArchitecture",
         [CONDITION_FIRMWARE]                 = "ConditionFirmware",
         [CONDITION_VIRTUALIZATION]           = "ConditionVirtualization",
         [CONDITION_HOST]                     = "ConditionHost",
         [CONDITION_KERNEL_COMMAND_LINE]      = "ConditionKernelCommandLine",
-        [CONDITION_KERNEL_VERSION]           = "ConditionKernelVersion",
+        [CONDITION_VERSION]                  = "ConditionVersion",
         [CONDITION_CREDENTIAL]               = "ConditionCredential",
         [CONDITION_SECURITY]                 = "ConditionSecurity",
         [CONDITION_CAPABILITY]               = "ConditionCapability",
@@ -1372,15 +1399,27 @@ static const char* const condition_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_KERNEL_MODULE_LOADED]     = "ConditionKernelModuleLoaded",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(condition_type, ConditionType);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP(_condition_type, ConditionType);
 
-static const char* const assert_type_table[_CONDITION_TYPE_MAX] = {
+const char* condition_type_to_string(ConditionType t) {
+        return _condition_type_to_string(t);
+}
+
+ConditionType condition_type_from_string(const char *s) {
+        /* for backward compatibility */
+        if (streq_ptr(s, "ConditionKernelVersion"))
+                return CONDITION_VERSION;
+
+        return _condition_type_from_string(s);
+}
+
+static const char* const _assert_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_ARCHITECTURE]             = "AssertArchitecture",
         [CONDITION_FIRMWARE]                 = "AssertFirmware",
         [CONDITION_VIRTUALIZATION]           = "AssertVirtualization",
         [CONDITION_HOST]                     = "AssertHost",
         [CONDITION_KERNEL_COMMAND_LINE]      = "AssertKernelCommandLine",
-        [CONDITION_KERNEL_VERSION]           = "AssertKernelVersion",
+        [CONDITION_VERSION]                  = "AssertVersion",
         [CONDITION_CREDENTIAL]               = "AssertCredential",
         [CONDITION_SECURITY]                 = "AssertSecurity",
         [CONDITION_CAPABILITY]               = "AssertCapability",
@@ -1411,7 +1450,19 @@ static const char* const assert_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_KERNEL_MODULE_LOADED]     = "AssertKernelModuleLoaded",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(assert_type, ConditionType);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP(_assert_type, ConditionType);
+
+const char* assert_type_to_string(ConditionType t) {
+        return _assert_type_to_string(t);
+}
+
+ConditionType assert_type_from_string(const char *s) {
+        /* for backward compatibility */
+        if (streq_ptr(s, "AssertKernelVersion"))
+                return CONDITION_VERSION;
+
+        return _assert_type_from_string(s);
+}
 
 static const char* const condition_result_table[_CONDITION_RESULT_MAX] = {
         [CONDITION_UNTESTED]  = "untested",
