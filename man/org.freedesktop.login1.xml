@@ -1002,6 +1002,11 @@ node /org/freedesktop/login1/seat/seat0 {
       <function>CanGraphical</function>, <function>CanTTY</function>,
       or the idle state changes, <function>PropertyChanged</function> signals are sent out to clients which
       have subscribed.</para>
+
+      <para>Signals are only emitted on objects referencing a specific seat ID, not on the
+      <literal>/org/freedesktop/login1/seat/self</literal> or
+      <literal>/org/freedesktop/login1/seat/auto</literal> convenience objects, as they can only be
+      dereferenced relative to a method caller.</para>
     </refsect2>
 
     <refsect2>
@@ -1122,6 +1127,10 @@ node /org/freedesktop/login1/user/_1000 {
 
       <para>Whenever <varname>Sessions</varname> or the idle state changes,
       <function>PropertyChanged</function> signals are sent out to clients which have subscribed.</para>
+
+      <para>Signals are only emitted on objects referencing a specific UID, not on the
+      <literal>/org/freedesktop/login1/user/self</literal> convenience object, as <varname>self</varname>
+      can only be dereferenced relative to a method caller.</para>
     </refsect2>
 
     <refsect2>
@@ -1483,6 +1492,11 @@ node /org/freedesktop/login1/session/1 {
       screen-locked/unlocked. A session manager of the session should listen to this signal and act
       accordingly. This signal is sent out as a result of the <function>Lock()</function> and
       <function>Unlock()</function> methods, respectively.</para>
+
+      <para>Signals are only emitted on objects referencing a specific session ID, not on the
+      <literal>/org/freedesktop/login1/session/self</literal> or
+      <literal>/org/freedesktop/login1/session/auto</literal> convenience objects, as they can only be
+      dereferenced relative to a method caller.</para>
     </refsect2>
 
     <refsect2>
