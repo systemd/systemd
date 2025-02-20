@@ -359,7 +359,6 @@ static int manager_add_home_by_record(
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
-        unsigned line, column;
         int r, is_signed;
         struct stat st;
         Home *h;
@@ -379,6 +378,7 @@ static int manager_add_home_by_record(
         if (st.st_size == 0)
                 goto unlink_this_file;
 
+        unsigned line = 0, column = 0;
         r = sd_json_parse_file_at(NULL, dir_fd, fname, SD_JSON_PARSE_SENSITIVE, &v, &line, &column);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse identity record at %s:%u%u: %m", fname, line, column);

@@ -2900,7 +2900,6 @@ int verb_security(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *policy = NULL;
         int r;
-        unsigned line, column;
 
         if (!arg_offline) {
                 r = acquire_bus(&bus, NULL);
@@ -2910,6 +2909,7 @@ int verb_security(int argc, char *argv[], void *userdata) {
 
         pager_open(arg_pager_flags);
 
+        unsigned line = 0, column = 0;
         if (arg_security_policy) {
                 r = sd_json_parse_file(/*f=*/ NULL, arg_security_policy, /*flags=*/ 0, &policy, &line, &column);
                 if (r < 0)
