@@ -572,6 +572,111 @@ TEST(condition_test_kernel_version) {
         condition_free(condition);
 }
 
+TEST(condition_test_version) {
+        Condition *condition;
+        const char *v;
+        char ver[8];
+
+        ASSERT_NOT_NULL(condition = condition_new(CONDITION_VERSION, "systemd *thisreallyshouldntbeinthesystemdversion*", false, false));
+        ASSERT_OK_ZERO(condition_test(condition, environ));
+        condition_free(condition);
+
+        ASSERT_NOT_NULL(condition = condition_new(CONDITION_VERSION, "systemd *", false, false));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        condition_free(condition);
+
+        /* An artificially empty condition. It evaluates to true, but normally
+         * such condition cannot be created, because the condition list is reset instead. */
+        ASSERT_NOT_NULL(condition = condition_new(CONDITION_VERSION, "", false, false));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        condition_free(condition);
+
+        /* 42 would be a very very very old systemd release */
+        ASSERT_NOT_NULL(condition = condition_new(CONDITION_VERSION, "systemd > 42", false, false));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        condition_free(condition);
+
+        ASSERT_NOT_NULL(condition = condition_new(CONDITION_VERSION, "systemd>42", false, false));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        condition_free(condition);
+
+        ASSERT_NOT_NULL(condition = condition_new(CONDITION_VERSION, "'systemd>42' 'systemd<9000'", false, false));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        condition_free(condition);
+
+        ASSERT_NOT_NULL(condition = condition_new(CONDITION_VERSION, "systemd > 42 systemd < 9000", false, false));
+        ASSERT_ERROR(condition_test(condition, environ), EINVAL);
+        condition_free(condition);
+
+        ASSERT_NOT_NULL(condition = condition_new(CONDITION_VERSION, "systemd>", false, false));
+        ASSERT_ERROR(condition_test(condition, environ), EINVAL);
+        condition_free(condition);
+
+        ASSERT_NOT_NULL(condition = condition_new(CONDITION_VERSION, "systemd >= 42", false, false));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        condition_free(condition);
+
+        ASSERT_NOT_NULL(condition = condition_new(CONDITION_VERSION, "systemd < 42", false, false));
+        ASSERT_OK_ZERO(condition_test(condition, environ));
+        condition_free(condition);
+
+        ASSERT_NOT_NULL(condition = condition_new(CONDITION_VERSION, "systemd <= 42", false, false));
+        ASSERT_OK_ZERO(condition_test(condition, environ));
+        condition_free(condition);
+
+        ASSERT_NOT_NULL(condition = condition_new(CONDITION_VERSION, "systemd = 42", false, false));
+        ASSERT_OK_ZERO(condition_test(condition, environ));
+        condition_free(condition);
+
+        /* 9000 is a very very very future systemd release */
+        ASSERT_NOT_NULL(condition = condition_new(CONDITION_VERSION, "systemd < 9000", false, false));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        condition_free(condition);
+
+        ASSERT_NOT_NULL(condition = condition_new(CONDITION_VERSION, "systemd <= 9000", false, false));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        condition_free(condition);
+
+        ASSERT_NOT_NULL(condition = condition_new(CONDITION_VERSION, "systemd = 9000", false, false));
+        ASSERT_OK_ZERO(condition_test(condition, environ));
+        condition_free(condition);
+
+        ASSERT_NOT_NULL(condition = condition_new(CONDITION_VERSION, "systemd > 9000", false, false));
+        ASSERT_OK_ZERO(condition_test(condition, environ));
+        condition_free(condition);
+
+        ASSERT_NOT_NULL(condition = condition_new(CONDITION_VERSION, "systemd >= 9000", false, false));
+        ASSERT_OK_ZERO(condition_test(condition, environ));
+        condition_free(condition);
+
+        xsprintf(ver, "%d", PROJECT_VERSION);
+
+        v = strjoina(">=", ver);
+        ASSERT_NOT_NULL(condition = condition_new(CONDITION_VERSION, v, false, false));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        condition_free(condition);
+
+        v = strjoina("=  ", ver);
+        ASSERT_NOT_NULL(condition = condition_new(CONDITION_VERSION, v, false, false));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        condition_free(condition);
+
+        v = strjoina("<=", ver);
+        ASSERT_NOT_NULL(condition = condition_new(CONDITION_VERSION, v, false, false));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        condition_free(condition);
+
+        v = strjoina("> ", ver);
+        ASSERT_NOT_NULL(condition = condition_new(CONDITION_VERSION, v, false, false));
+        ASSERT_OK_ZERO(condition_test(condition, environ));
+        condition_free(condition);
+
+        v = strjoina("<   ", ver);
+        ASSERT_NOT_NULL(condition = condition_new(CONDITION_VERSION, v, false, false));
+        ASSERT_OK_ZERO(condition_test(condition, environ));
+        condition_free(condition);
+}
+
 TEST(condition_test_credential) {
         _cleanup_(rm_rf_physical_and_freep) char *n1 = NULL, *n2 = NULL;
         _cleanup_free_ char *d1 = NULL, *d2 = NULL, *j = NULL;
