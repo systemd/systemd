@@ -3,6 +3,7 @@
 #include <dlfcn.h>
 #include <stdlib.h>
 
+#include "apparmor-util.h"
 #include "bpf-dlopen.h"
 #include "compress.h"
 #include "cryptsetup-util.h"
@@ -96,6 +97,10 @@ static int run(int argc, char **argv) {
 
 #if HAVE_KMOD
         assert_se(dlopen_libkmod() >= 0);
+#endif
+
+#if HAVE_APPARMOR
+        assert_se(dlopen_libapparmor() >= 0);
 #endif
 
         return 0;
