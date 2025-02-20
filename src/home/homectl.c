@@ -1596,17 +1596,18 @@ static int verb_adopt_home(int argc, char *argv[], void *userdata) {
         return ret;
 }
 
-static int register_home_one(sd_bus *bus, FILE *f, const char *path) {
+static int register_home_common(sd_bus *bus, sd_json_variant *v) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *_bus = NULL;
         int r;
 
-        assert(bus);
-        assert(path);
+        assert(v);
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-        unsigned line = 0, column = 0;
-        r = sd_json_parse_file(f, path, SD_JSON_PARSE_SENSITIVE, &v, &line, &column);
-        if (r < 0)
-                return log_error_errno(r, "[%s:%u:%u] Failed to parse user record: %m", path, line, column);
+        if (!bus) {
+                r = acquire_bus(&_bus);
+                if (r < 0)
+                        return r;
+                bus = _bus;
+        }
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         r = bus_message_new_method_call(bus, &m, bus_mgr, "RegisterHome");
@@ -1628,6 +1629,21 @@ static int register_home_one(sd_bus *bus, FILE *f, const char *path) {
                 return log_error_errno(r, "Failed to register home: %s", bus_error_message(&error, r));
 
         return 0;
+}
+
+static int register_home_one(sd_bus *bus, FILE *f, const char *path) {
+        int r;
+
+        assert(bus);
+        assert(path);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        unsigned line = 0, column = 0;
+        r = sd_json_parse_file(f, path, SD_JSON_PARSE_SENSITIVE, &v, &line, &column);
+        if (r < 0)
+                return log_error_errno(r, "[%s:%u:%u] Failed to parse user record: %m", path, line, column);
+
+        return register_home_common(bus, v);
 }
 
 static int verb_register_home(int argc, char *argv[], void *userdata) {
@@ -2470,11 +2486,10 @@ static int rebalance(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int create_from_credentials(void) {
-        _cleanup_close_ int fd = -EBADF;
-        int ret = 0, n_created = 0, r;
+static int create_or_register_from_credentials(void) {
+        int r;
 
-        fd = open_credentials_dir();
+        _cleanup_close_ int fd = open_credentials_dir();
         if (IN_SET(fd, -ENXIO, -ENOENT)) /* Credential env var not set, or dir doesn't exist. */
                 return 0;
         if (fd < 0)
@@ -2485,16 +2500,22 @@ static int create_from_credentials(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate credentials: %m");
 
+        int ret = 0, n_processed = 0;
         FOREACH_ARRAY(i, des->entries, des->n_entries) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *identity = NULL;
                 struct dirent *de = *i;
-                const char *e;
-
                 if (de->d_type != DT_REG)
                         continue;
 
-                e = startswith(de->d_name, "home.create.");
-                if (!e)
+                enum {
+                        OPERATION_CREATE,
+                        OPERATION_REGISTER,
+                } op;
+                const char *e;
+                if ((e = startswith(de->d_name, "home.create.")))
+                        op = OPERATION_CREATE;
+                if ((e = startswith(de->d_name, "home.register.")))
+                        op = OPERATION_REGISTER;
+                else
                         continue;
 
                 if (!valid_user_group_name(e, 0)) {
@@ -2502,21 +2523,22 @@ static int create_from_credentials(void) {
                         continue;
                 }
 
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *identity = NULL;
+                unsigned line = 0, column = 0;
                 r = sd_json_parse_file_at(
                                 /* f= */ NULL,
                                 fd,
                                 de->d_name,
                                 /* flags= */ 0,
                                 &identity,
-                                /* ret_line= */ NULL,
-                                /* ret_column= */ NULL);
+                                &line,
+                                &column);
                 if (r < 0) {
-                        log_warning_errno(r, "Failed to parse user record in credential '%s', ignoring: %m", de->d_name);
+                        log_warning_errno(r, "[%s:%u:%u] Failed to parse user record in credential, ignoring: %m", de->d_name, line, column);
                         continue;
                 }
 
-                sd_json_variant *un;
-                un = sd_json_variant_by_key(identity, "userName");
+                sd_json_variant *un = sd_json_variant_by_key(identity, "userName");
                 if (un) {
                         if (!sd_json_variant_is_string(un)) {
                                 log_warning("User record from credential '%s' contains 'userName' field of invalid type, ignoring.", de->d_name);
@@ -2535,14 +2557,17 @@ static int create_from_credentials(void) {
 
                 log_notice("Processing user '%s' from credentials.", e);
 
-                r = create_home_common(identity, /* show_enforce_password_policy_hint= */ false);
+                if (op == OPERATION_CREATE)
+                        r = create_home_common(identity, /* show_enforce_password_policy_hint= */ false);
+                else
+                        r = register_home_common(/* bus= */ NULL, identity);
                 if (r >= 0)
-                        n_created++;
+                        n_processed++;
 
                 RET_GATHER(ret, r);
         }
 
-        return ret < 0 ? ret : n_created;
+        return ret < 0 ? ret : n_processed;
 }
 
 static int has_regular_user(void) {
@@ -2861,7 +2886,7 @@ static int verb_firstboot(int argc, char *argv[], void *userdata) {
 
         RET_GATHER(ret, add_signing_keys_from_credentials());
 
-        r = create_from_credentials();
+        r = create_or_register_from_credentials();
         RET_GATHER(ret, r);
         bool existing_users = r > 0;
 
