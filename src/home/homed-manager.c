@@ -1455,6 +1455,8 @@ static int manager_generate_key_pair(Manager *m) {
         if (PEM_write_PUBKEY(fpublic, m->private_key) <= 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to write public key.");
 
+        (void) fchmod(fileno(fpublic), 0444); /* Make public key world readable */
+
         r = fflush_sync_and_check(fpublic);
         if (r < 0)
                 return log_error_errno(r, "Failed to write private key: %m");
@@ -1468,6 +1470,8 @@ static int manager_generate_key_pair(Manager *m) {
 
         if (PEM_write_PrivateKey(fprivate, m->private_key, NULL, NULL, 0, NULL, NULL) <= 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to write private key pair.");
+
+        (void) fchmod(fileno(fprivate), 0400); /* Make provate key root readable */
 
         r = fflush_sync_and_check(fprivate);
         if (r < 0)
