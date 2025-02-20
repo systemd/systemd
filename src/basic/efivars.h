@@ -53,10 +53,6 @@ bool is_efi_boot(void);
 bool is_efi_secure_boot(void);
 SecureBootMode efi_get_secure_boot_mode(void);
 
-int cache_efi_options_variable(void);
-int systemd_efi_options_variable(char **ret);
-int systemd_efi_options_efivarfs_if_newer(char **ret);
-
 #else
 
 static inline int efi_get_variable(const char *variable, uint32_t *attribute, void **value, size_t *size) {
@@ -89,18 +85,6 @@ static inline bool is_efi_secure_boot(void) {
 
 static inline SecureBootMode efi_get_secure_boot_mode(void) {
         return SECURE_BOOT_UNKNOWN;
-}
-
-static inline int cache_efi_options_variable(void) {
-        return -EOPNOTSUPP;
-}
-
-static inline int systemd_efi_options_variable(char **line) {
-        return -ENODATA;
-}
-
-static inline int systemd_efi_options_efivarfs_if_newer(char **line) {
-        return -ENODATA;
 }
 #endif
 
