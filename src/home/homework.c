@@ -926,7 +926,7 @@ static int home_activate(UserRecord *h, UserRecord **ret_home) {
         if (r < 0)
                 return r;
         if (r == USER_TEST_ABSENT)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "Image path %s is missing, refusing.", user_record_image_path(h));
+                return log_error_errno(SYNTHETIC_ERRNO(ENETUNREACH), "Image path %s is missing, refusing.", user_record_image_path(h));
 
         switch (user_record_storage(h)) {
 
@@ -1596,7 +1596,7 @@ static int home_validate_update(UserRecord *h, HomeSetup *setup, HomeSetupFlags 
         if (r < 0)
                 return r;
         if (r == USER_TEST_ABSENT)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "Image path %s does not exist", user_record_image_path(h));
+                return log_error_errno(SYNTHETIC_ERRNO(ENETUNREACH), "Image path %s does not exist", user_record_image_path(h));
 
         switch (user_record_storage(h)) {
 
@@ -2092,6 +2092,7 @@ static int run(int argc, char *argv[]) {
          * ENOSPC          → not enough disk space for operation
          * EKEYREVOKED     → user record has not suitable hashed password or pkcs#11 entry, we cannot authenticate
          * EADDRINUSE      → home image is already used elsewhere (lock taken)
+         * ENETUNREACH     → backing storage is currently not (image is ENOENT, or AF_UNIX socket to connect to is ENOENT)
          */
 
         if (streq(argv[1], "activate"))
