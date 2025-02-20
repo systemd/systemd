@@ -125,6 +125,9 @@ Deprecations and removals:
 * Once baseline is 4.13, remove support for INTERFACE_OLD= checks in "udevadm
   trigger"'s waiting logic, since we can then rely on uuid-tagged uevents
 
+* In v260: remove support for deprecated FactoryReset EFI variable in
+  systemd-repart, replaced by FactoryResetRequest.
+
 Features:
 
 * sd-boot: do something useful if we find exactly zero entries (ignoring items
