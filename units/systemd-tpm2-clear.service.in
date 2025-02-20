@@ -1,0 +1,25 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Issue TPM Clear Request
+Documentation=man:systemd-tpm2-clear.service(8)
+DefaultDependencies=no
+Conflicts=shutdown.target
+After=tpm2.target
+Before=factory-reset.target shutdown.target
+ConditionSecurity=measured-uki
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart={{LIBEXECDIR}}/systemd-tpm2-clear --graceful
+
+[Install]
+WantedBy=factory-reset.target
