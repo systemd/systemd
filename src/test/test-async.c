@@ -81,7 +81,7 @@ TEST(asynchronous_rm_rf) {
         /* Do this once more, from a subreaper. Which is nice, because we can watch the async child even
          * though detached */
 
-        r = safe_fork("(subreaper)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT, NULL);
+        r = safe_fork("(subreaper)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REOPEN_LOG|FORK_LOG|FORK_WAIT, NULL);
         ASSERT_OK(r);
 
         if (r == 0) {
