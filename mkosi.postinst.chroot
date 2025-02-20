@@ -52,6 +52,12 @@ rm -f /etc/default/keyboard
 systemctl mask isc-dhcp-server.service
 systemctl mask mdmonitor.service
 
+# Fedora disables the userdb ssh dropin by default, but helpfully leaves it available in
+# the package so that we can just symlink it to a name that will be picked up by systemd-tmpfiles.
+if [[ -f /usr/lib/tmpfiles.d/20-systemd-userdb.conf.example ]]; then
+    ln --symbolic 20-systemd-userdb.conf.example /usr/lib/tmpfiles.d/20-systemd-userdb.conf
+fi
+
 # This is executed inside the chroot so no need to disable any features as the default features will match
 # the kernel's supported features.
 SYSTEMD_REPART_MKFS_OPTIONS_EXT4="" \
