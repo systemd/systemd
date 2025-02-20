@@ -519,6 +519,47 @@ static int method_register_home(
         return sd_bus_reply_method_return(message, NULL);
 }
 
+static int method_adopt_home(
+                sd_bus_message *message,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        assert(message);
+
+        const char *image_path = NULL;
+        uint64_t flags;
+        r = sd_bus_message_read(message, "st", &image_path, &flags);
+        if (r < 0)
+                return r;
+
+        if (!path_is_absolute(image_path) || !path_is_safe(image_path))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Specified path is not absolute or not valid: %s", image_path);
+        if (flags != 0)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Flags field must be zero.");
+
+        r = bus_verify_polkit_async(
+                        message,
+                        "org.freedesktop.home1.create-home",
+                        /* details= */ NULL,
+                        &m->polkit_registry,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Will call us back */
+
+        r = manager_adopt_home(m, image_path);
+        if (r == -EMEDIUMTYPE)
+                return sd_bus_error_setf(error, BUS_ERROR_UNRECOGNIZED_HOME_FORMAT, "Unrecognized format of home directory: %s", image_path);
+        if (r < 0)
+                return r;
+
+        return sd_bus_reply_method_return(message, NULL);
+}
+
 static int method_unregister_home(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         return generic_home_method(userdata, message, bus_home_method_unregister, error);
 }
@@ -1090,6 +1131,11 @@ static const sd_bus_vtable manager_vtable[] = {
                                 SD_BUS_ARGS("s", user_record),
                                 SD_BUS_NO_RESULT,
                                 method_register_home,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("AdoptHome",
+                                SD_BUS_ARGS("s", image_path, "t", flags),
+                                SD_BUS_NO_RESULT,
+                                method_adopt_home,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
 
         /* Remove the JSON record from homed, but don't remove actual $HOME  */

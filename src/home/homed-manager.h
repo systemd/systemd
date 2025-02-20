@@ -87,6 +87,8 @@ int manager_reschedule_rebalance(Manager *m);
 
 int manager_verify_user_record(Manager *m, UserRecord *hr);
 
+int manager_adopt_home(Manager *m, const char *path);
+
 int manager_acquire_key_pair(Manager *m);
 int manager_sign_user_record(Manager *m, UserRecord *u, UserRecord **ret, sd_bus_error *error);
 
