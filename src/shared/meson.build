@@ -126,6 +126,7 @@ shared_sources = files(
         'netif-naming-scheme.c',
         'netif-sriov.c',
         'netif-util.c',
+        'notify-recv.c',
         'nsflags.c',
         'nsresource.c',
         'numa-util.c',
