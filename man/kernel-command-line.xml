@@ -753,6 +753,15 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>systemd.tpm2_allow_clear=</varname></term>
+
+        <listitem><para>Controls whether to allow clearing of the TPM chip, implemented by
+        <citerefentry><refentrytitle>systemd-tpm2-clear</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>systemd.tpm2_wait=</varname></term>
 
         <listitem><para>Controls whether to wait for a TPM2 device at boot, implemented by
