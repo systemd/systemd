@@ -11,15 +11,9 @@
 #include <security/pam_misc.h>
 #endif
 
-#if HAVE_APPARMOR
-#include <sys/apparmor.h>
-#endif
-
 #include "sd-messages.h"
 
-#if HAVE_APPARMOR
 #include "apparmor-util.h"
-#endif
 #include "argv-util.h"
 #include "ask-password-api.h"
 #include "barrier.h"
@@ -3576,7 +3570,7 @@ static int apply_mount_namespace(
                 .bind_log_sockets = needs_sandboxing && exec_context_get_effective_bind_log_sockets(context),
 
                 /* If NNP is on, we can turn on MS_NOSUID, since it won't have any effect anymore. */
-                .mount_nosuid = needs_sandboxing && context->no_new_privileges && !mac_selinux_use(),
+                .mount_nosuid = needs_sandboxing && context->no_new_privileges && !use_selinux,
 
                 .protect_home = needs_sandboxing ? context->protect_home : PROTECT_HOME_NO,
                 .protect_hostname = needs_sandboxing ? context->protect_hostname : PROTECT_HOSTNAME_NO,
@@ -5068,7 +5062,12 @@ int exec_invoke(
                 use_smack = mac_smack_use();
 #endif
 #if HAVE_APPARMOR
-                use_apparmor = mac_apparmor_use();
+                if (mac_apparmor_use()) {
+                        r = dlopen_libapparmor();
+                        if (r < 0 && !ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                                log_warning_errno(r, "Failed to load libapparmor, ignoring: %m");
+                        use_apparmor = r >= 0;
+                }
 #endif
         }
 
@@ -5546,7 +5545,7 @@ int exec_invoke(
 
 #if HAVE_APPARMOR
                 if (use_apparmor && context->apparmor_profile) {
-                        r = aa_change_onexec(context->apparmor_profile);
+                        r = ASSERT_PTR(sym_aa_change_onexec)(context->apparmor_profile);
                         if (r < 0 && !context->apparmor_profile_ignore) {
                                 *exit_status = EXIT_APPARMOR_PROFILE;
                                 return log_exec_error_errno(context,
