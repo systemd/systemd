@@ -137,7 +137,7 @@ static int do_mount(UserRecord *ur) {
 
         assert(ur);
 
-        if (!uid_is_valid(ur->uid) || !gid_is_valid(ur->gid))
+        if (!uid_is_valid(ur->uid) || !gid_is_valid(user_record_gid(ur)))
                 return log_error_errno(SYNTHETIC_ERRNO(ENOMSG), "User '%s' lacks UID or GID, refusing.", ur->user_name);
 
         uint64_t runtime_dir_size, runtime_dir_inodes;
@@ -148,8 +148,8 @@ static int do_mount(UserRecord *ur) {
         char runtime_path[STRLEN("/run/user/") + DECIMAL_STR_MAX(uid_t)];
         xsprintf(runtime_path, "/run/user/" UID_FMT, ur->uid);
 
-        log_debug("Will mount %s owned by "UID_FMT":"GID_FMT, runtime_path, ur->uid, ur->gid);
-        return user_mkdir_runtime_path(runtime_path, ur->uid, ur->gid, runtime_dir_size, runtime_dir_inodes);
+        log_debug("Will mount %s owned by "UID_FMT":"GID_FMT, runtime_path, ur->uid, user_record_gid(ur));
+        return user_mkdir_runtime_path(runtime_path, ur->uid, user_record_gid(ur), runtime_dir_size, runtime_dir_inodes);
 }
 
 static int user_remove_runtime_path(const char *runtime_path) {
