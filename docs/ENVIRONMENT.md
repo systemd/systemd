@@ -72,9 +72,6 @@ All tools:
   `/etc/veritytab`. Only useful for debugging. Currently only supported by
   `systemd-veritysetup-generator`.
 
-* `$SYSTEMD_EFI_OPTIONS` — if set, used instead of the string in the
-  `SystemdOptions` EFI variable. Analogous to `$SYSTEMD_PROC_CMDLINE`.
-
 * `$SYSTEMD_DEFAULT_HOSTNAME` — override the compiled-in fallback hostname
   (relevant in particular for the system manager and `systemd-hostnamed`).
   Must be a valid hostname (either a single label or a FQDN).
