@@ -70,6 +70,7 @@ shared_sources = files(
         'exec-util.c',
         'exit-status.c',
         'extension-util.c',
+        'factory-reset.c',
         'fdset.c',
         'fido2-util.c',
         'find-esp.c',
