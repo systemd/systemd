@@ -80,6 +80,7 @@ typedef struct BootConfig {
         char *entry_oneshot;
         char *entry_default;
         char *entry_selected;
+        char *entry_sysfail;
 
         BootEntry *entries;
         size_t n_entries;

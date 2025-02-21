@@ -1433,6 +1433,12 @@ static int boot_load_efi_entry_pointers(BootConfig *config, bool skip_efivars) {
         if (r < 0 && !IN_SET(r, -ENOENT, -ENODATA))
                 log_warning_errno(r, "Failed to read EFI variable \"LoaderEntrySelected\", ignoring: %m");
 
+        r = efi_get_variable_string(EFI_LOADER_VARIABLE_STR("LoaderEntrySysFail"), &config->entry_sysfail);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0 && !IN_SET(r, -ENOENT, -ENODATA))
+                log_warning_errno(r, "Failed to read EFI variable \"LoaderEntrySysFail\", ignoring: %m");
+
         return 1;
 }
 
