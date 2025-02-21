@@ -1930,38 +1930,34 @@ int terminal_set_cursor_position(int fd, unsigned row, unsigned column) {
         return loop_write(fd, cursor_position, SIZE_MAX);
 }
 
-int terminal_reset_defensive(int fd, bool switch_to_text) {
+int terminal_reset_defensive(int fd, TerminalResetFlags flags) {
         int r = 0;
 
         assert(fd >= 0);
 
-        /* Resets the terminal comprehensively, but defensively. i.e. both resets the tty via ioctl()s and
-         * via ANSI sequences, but avoids the latter in case we are talking to a pty. That's a safety measure
-         * because ptys might be connected to shell pipelines where we cannot expect such ansi sequences to
-         * work. Given that ptys are generally short-lived (and not recycled) this restriction shouldn't hurt
-         * much.
-         *
-         * The specified fd should be open for *writing*! */
+        /* Resets the terminal comprehensively, i.e. via both ioctl()s and via ANSI sequences, but do so only
+         * if $TERM is unset or set to "dumb" */
 
         if (!isatty_safe(fd))
                 return -ENOTTY;
 
-        RET_GATHER(r, terminal_reset_ioctl(fd, switch_to_text));
+        RET_GATHER(r, terminal_reset_ioctl(fd, FLAGS_SET(flags, TERMINAL_RESET_SWITCH_TO_TEXT)));
 
-        if (terminal_is_pty_fd(fd) == 0)
+        if (!FLAGS_SET(flags, TERMINAL_RESET_AVOID_ANSI_SEQ) &&
+            (FLAGS_SET(flags, TERMINAL_RESET_FORCE_ANSI_SEQ) || !getenv_terminal_is_dumb()))
                 RET_GATHER(r, terminal_reset_ansi_seq(fd));
 
         return r;
 }
 
-int terminal_reset_defensive_locked(int fd, bool switch_to_text) {
+int terminal_reset_defensive_locked(int fd, TerminalResetFlags flags) {
         assert(fd >= 0);
 
         _cleanup_close_ int lock_fd = lock_dev_console();
         if (lock_fd < 0)
                 log_debug_errno(lock_fd, "Failed to acquire lock for /dev/console, ignoring: %m");
 
-        return terminal_reset_defensive(fd, switch_to_text);
+        return terminal_reset_defensive(fd, flags);
 }
 
 void termios_disable_echo(struct termios *termios) {
