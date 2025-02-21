@@ -5,6 +5,10 @@ ConditionKernelVersion=">=3.0"
 ConditionKernelVersion=">=2.0" "<=60" "!=1.4"
 ConditionKernelVersion=" >= 2.0" " <= 60 " "!= 1.4"
 ConditionKernelVersion=" >= 2.0" " * " "*.*"
+ConditionSystemdVersion=">=30"
+ConditionSystemdVersion=">=20" "<=9000" "!=14"
+ConditionSystemdVersion=" >= 20" " <= 9000 " "!= 14"
+ConditionSystemdVersion=" >= 20" " * "
 
 [Service]
 ExecStart=touch /tmp/a ; /bin/sh -c 'touch /tmp/b' ; touch /tmp/c

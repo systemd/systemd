@@ -46,6 +46,7 @@ Match.Host,                               config_parse_net_condition,           
 Match.Virtualization,                     config_parse_net_condition,                CONDITION_VIRTUALIZATION,      offsetof(NetDev, conditions)
 Match.KernelCommandLine,                  config_parse_net_condition,                CONDITION_KERNEL_COMMAND_LINE, offsetof(NetDev, conditions)
 Match.KernelVersion,                      config_parse_net_condition,                CONDITION_KERNEL_VERSION,      offsetof(NetDev, conditions)
+Match.SystemdVersion,                     config_parse_net_condition,                CONDITION_SYSTEMD_VERSION,     offsetof(NetDev, conditions)
 Match.Credential,                         config_parse_net_condition,                CONDITION_CREDENTIAL,          offsetof(NetDev, conditions)
 Match.Architecture,                       config_parse_net_condition,                CONDITION_ARCHITECTURE,        offsetof(NetDev, conditions)
 Match.Firmware,                           config_parse_net_condition,                CONDITION_FIRMWARE,            offsetof(NetDev, conditions)
