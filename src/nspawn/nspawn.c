@@ -4626,7 +4626,7 @@ static int nspawn_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t r
         if (r == -EAGAIN)
                 return 0;
         if (r < 0)
-                return log_error_errno(r, "Failed to receive notification message: %m");
+                return r;
 
         if (sender_pid.pid != inner_child_pid) {
                 log_debug("Received notify message from process that is not the payload's PID 1. Ignoring.");
