@@ -613,6 +613,8 @@ size_t utf8_console_width(const char *str) {
 size_t utf8_last_length(const char *s, size_t n) {
         int r;
 
+        assert(s);
+
         if (n == SIZE_MAX)
                 n = strlen(s);
 
