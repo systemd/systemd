@@ -9,6 +9,8 @@
 #include "efi-fundamental.h"
 #include "env-util.h"
 #include "fd-util.h"
+#include "fileio.h"
+#include "io-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "openssl-util.h"
@@ -26,12 +28,16 @@ static char *arg_certificate_source = NULL;
 static char *arg_private_key = NULL;
 static KeySourceType arg_private_key_source_type = OPENSSL_KEY_SOURCE_FILE;
 static char *arg_private_key_source = NULL;
+static STACK_OF(X509_ATTRIBUTE) *arg_signed_attributes = NULL;
+static struct iovec arg_signed_attributes_signature = {};
 
 STATIC_DESTRUCTOR_REGISTER(arg_output, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_certificate, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_certificate_source, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_private_key, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_private_key_source, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_signed_attributes, x509_attribute_free_manyp);
+STATIC_DESTRUCTOR_REGISTER(arg_signed_attributes_signature, iovec_done);
 
 static int help(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *link = NULL;
@@ -79,16 +85,20 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_CERTIFICATE_SOURCE,
                 ARG_PRIVATE_KEY,
                 ARG_PRIVATE_KEY_SOURCE,
+                ARG_SIGNED_ATTRIBUTES,
+                ARG_SIGNED_ATTRIBUTES_SIGNATURE,
         };
 
         static const struct option options[] = {
-                { "help",               no_argument,       NULL, 'h'                    },
-                { "version",            no_argument,       NULL, ARG_VERSION            },
-                { "output",             required_argument, NULL, ARG_OUTPUT             },
-                { "certificate",        required_argument, NULL, ARG_CERTIFICATE        },
-                { "certificate-source", required_argument, NULL, ARG_CERTIFICATE_SOURCE },
-                { "private-key",        required_argument, NULL, ARG_PRIVATE_KEY        },
-                { "private-key-source", required_argument, NULL, ARG_PRIVATE_KEY_SOURCE },
+                { "help",                        no_argument,       NULL, 'h'                             },
+                { "version",                     no_argument,       NULL, ARG_VERSION                     },
+                { "output",                      required_argument, NULL, ARG_OUTPUT                      },
+                { "certificate",                 required_argument, NULL, ARG_CERTIFICATE                 },
+                { "certificate-source",          required_argument, NULL, ARG_CERTIFICATE_SOURCE          },
+                { "private-key",                 required_argument, NULL, ARG_PRIVATE_KEY                 },
+                { "private-key-source",          required_argument, NULL, ARG_PRIVATE_KEY_SOURCE          },
+                { "signed-attributes",           required_argument, NULL, ARG_SIGNED_ATTRIBUTES           },
+                { "signed-attributes-signature", required_argument, NULL, ARG_SIGNED_ATTRIBUTES_SIGNATURE },
                 {}
         };
 
@@ -146,6 +156,34 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
+                case ARG_SIGNED_ATTRIBUTES: {
+                        _cleanup_free_ void *content = NULL;
+                        size_t contentsz;
+
+                        r = read_full_file(optarg, (char**) &content, &contentsz);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to read signed attributes file '%s': %m", optarg);
+
+                        const uint8_t *p = content;
+                        if (!ASN1_item_d2i((ASN1_VALUE **) &arg_signed_attributes, &p, contentsz, ASN1_ITEM_rptr(PKCS7_ATTR_SIGN)))
+                                return log_error_errno(r, "Failed to parse signed attributes: %s",
+                                                       ERR_error_string(ERR_get_error(), NULL));
+
+                        break;
+                }
+
+                case ARG_SIGNED_ATTRIBUTES_SIGNATURE: {
+                        _cleanup_free_ void *content = NULL;
+                        size_t contentsz;
+
+                        r = read_full_file(optarg, (char**) &content, &contentsz);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to read signed attributes signature file '%s': %m", optarg);
+
+                        arg_signed_attributes_signature = IOVEC_MAKE(TAKE_PTR(content), contentsz);
+                        break;
+                }
+
                 case '?':
                         return -EINVAL;
 
@@ -155,6 +193,9 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (arg_private_key_source && !arg_certificate)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "When using --private-key-source=, --certificate= must be specified.");
+
+        if (!!arg_signed_attributes != iovec_is_set(&arg_signed_attributes_signature))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--signed-attributes= and --signed-attributes-signature= must always be used together.");
 
         return 1;
 }
@@ -273,11 +314,15 @@ static int asn1_timestamp(ASN1_TIME **ret) {
         return 0;
 }
 
-static int pkcs7_configure(X509 *certificate, EVP_PKEY *private_key, PKCS7 **ret_p7, PKCS7_SIGNER_INFO **ret_si) {
+static int pkcs7_configure(
+                X509 *certificate,
+                EVP_PKEY *private_key,
+                STACK_OF(X509_ATTRIBUTE) *signed_attributes,
+                PKCS7 **ret_p7,
+                PKCS7_SIGNER_INFO **ret_si) {
         int r;
 
         assert(certificate);
-        assert(private_key);
         assert(ret_p7);
         assert(ret_si);
 
@@ -286,6 +331,14 @@ static int pkcs7_configure(X509 *certificate, EVP_PKEY *private_key, PKCS7 **ret
         r = pkcs7_new(certificate, private_key, &p7, &si);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate PKCS# context: %m");
+
+        if (signed_attributes) {
+                si->auth_attr = signed_attributes;
+
+                *ret_p7 = TAKE_PTR(p7);
+                *ret_si = TAKE_PTR(si);
+                return 0;
+        }
 
         _cleanup_(x509_algor_free_manyp) STACK_OF(X509_ALGOR) *smcap = sk_X509_ALGOR_new_null();
         if (!smcap)
@@ -364,9 +417,9 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "No certificate specified, use --certificate=");
 
-        if (!arg_private_key)
+        if (!arg_private_key && !iovec_is_set(&arg_signed_attributes_signature))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "No private key specified, use --private-key=.");
+                                       "No private key or signed attributes signature specified, use --private-key= or --signed-attributes-signature=.");
 
         if (!arg_output)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No output specified, use --output=");
@@ -385,28 +438,30 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to load X.509 certificate from %s: %m", arg_certificate);
 
-        if (arg_private_key_source_type == OPENSSL_KEY_SOURCE_FILE) {
-                r = parse_path_argument(arg_private_key, /* suppress_root= */ false, &arg_private_key);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to parse private key path %s: %m", arg_private_key);
-        }
+        if (arg_private_key) {
+                if (arg_private_key_source_type == OPENSSL_KEY_SOURCE_FILE) {
+                        r = parse_path_argument(arg_private_key, /* suppress_root= */ false, &arg_private_key);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse private key path %s: %m", arg_private_key);
+                }
 
-        r = openssl_load_private_key(
-                        arg_private_key_source_type,
-                        arg_private_key_source,
-                        arg_private_key,
-                        &(AskPasswordRequest) {
-                                .tty_fd = -EBADF,
-                                .id = "sbsign-private-key-pin",
-                                .keyring = arg_private_key,
-                                .credential = "sbsign.private-key-pin",
-                                .until = USEC_INFINITY,
-                                .hup_fd = -EBADF,
-                        },
-                        &private_key,
-                        &ui);
-        if (r < 0)
-                return log_error_errno(r, "Failed to load private key from %s: %m", arg_private_key);
+                r = openssl_load_private_key(
+                                arg_private_key_source_type,
+                                arg_private_key_source,
+                                arg_private_key,
+                                &(AskPasswordRequest) {
+                                        .tty_fd = -EBADF,
+                                        .id = "sbsign-private-key-pin",
+                                        .keyring = arg_private_key,
+                                        .credential = "sbsign.private-key-pin",
+                                        .until = USEC_INFINITY,
+                                        .hup_fd = -EBADF,
+                                },
+                                &private_key,
+                                &ui);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to load private key from %s: %m", arg_private_key);
+        }
 
         _cleanup_close_ int srcfd = open(argv[1], O_RDONLY|O_CLOEXEC);
         if (srcfd < 0)
@@ -447,18 +502,26 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
 
         _cleanup_(PKCS7_freep) PKCS7 *p7 = NULL;
         PKCS7_SIGNER_INFO *si;
-        r = pkcs7_configure(certificate, private_key, &p7, &si);
+        r = pkcs7_configure(certificate, private_key, arg_signed_attributes, &p7, &si);
         if (r < 0)
                 return r;
 
-        _cleanup_(BIO_free_allp) BIO *bio = NULL;
-        r = pkcs7_data_configure(p7, idcraw, idcrawsz, &bio);
-        if (r < 0)
-                return r;
+        TAKE_PTR(arg_signed_attributes);
 
-        if (PKCS7_dataFinal(p7, bio) == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to sign data: %s",
-                                       ERR_error_string(ERR_get_error(), NULL));
+        if (iovec_is_set(&arg_signed_attributes_signature)) {
+                if (ASN1_STRING_set(si->enc_digest, arg_signed_attributes_signature.iov_base, arg_signed_attributes_signature.iov_len) == 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to set signer info signed digest: %s",
+                                               ERR_error_string(ERR_get_error(), NULL));
+        } else {
+                _cleanup_(BIO_free_allp) BIO *bio = NULL;
+                r = pkcs7_data_configure(p7, idcraw, idcrawsz, &bio);
+                if (r < 0)
+                        return r;
+
+                if (PKCS7_dataFinal(p7, bio) == 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to sign data: %s",
+                                               ERR_error_string(ERR_get_error(), NULL));
+        }
 
         _cleanup_(PKCS7_freep) PKCS7 *p7c = PKCS7_new();
         if (!p7c)
@@ -587,10 +650,123 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
+static int pkcs7_digest_attribute_configure(PKCS7 *p7, BIO *data, PKCS7_SIGNER_INFO *si) {
+        assert(p7);
+        assert(data);
+        assert(si);
+
+        BIO *mdbio = BIO_find_type(data, BIO_TYPE_MD);
+        if (mdbio == NULL)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to find digest bio: %s",
+                                       ERR_error_string(ERR_get_error(), NULL));
+
+        EVP_MD_CTX *mdc;
+        BIO_get_md_ctx(mdbio, &mdc);
+        if (mdc == NULL)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to get digest context from bio: %s",
+                                       ERR_error_string(ERR_get_error(), NULL));
+
+        unsigned char digest[EVP_MAX_MD_SIZE];
+        unsigned digestsz;
+
+        if (EVP_DigestFinal_ex(mdc, digest, &digestsz) == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to get digest: %s",
+                                       ERR_error_string(ERR_get_error(), NULL));
+
+        if (PKCS7_add1_attrib_digest(si, digest, digestsz) == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to add PKCS9 message digest signed attribute to signer info: %s",
+                                       ERR_error_string(ERR_get_error(), NULL));
+
+        return 0;
+}
+
+static int verb_export_signed_attributes(int argc, char *argv[], void *userdata) {
+        _cleanup_(X509_freep) X509 *certificate = NULL;
+        int r;
+
+        if (argc < 2)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No input file specified");
+
+        if (!arg_certificate)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                "No certificate specified, use --certificate=");
+
+        if (!arg_output)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No output specified, use --output=");
+
+        if (arg_certificate_source_type == OPENSSL_CERTIFICATE_SOURCE_FILE) {
+                r = parse_path_argument(arg_certificate, /*suppress_root=*/ false, &arg_certificate);
+                if (r < 0)
+                        return r;
+        }
+
+        r = openssl_load_x509_certificate(
+                        arg_certificate_source_type,
+                        arg_certificate_source,
+                        arg_certificate,
+                        &certificate);
+        if (r < 0)
+                return log_error_errno(r, "Failed to load X.509 certificate from %s: %m", arg_certificate);
+
+        _cleanup_close_ int srcfd = open(argv[1], O_RDONLY|O_CLOEXEC);
+        if (srcfd < 0)
+                return log_error_errno(errno, "Failed to open %s: %m", argv[1]);
+
+        _cleanup_free_ void *pehash = NULL;
+        size_t pehashsz;
+        r = pe_hash(srcfd, EVP_sha256(), &pehash, &pehashsz);
+        if (r < 0)
+                return log_error_errno(r, "Failed to hash PE binary %s: %m", argv[0]);
+
+        _cleanup_free_ uint8_t *idcraw = NULL;
+        size_t idcrawsz;
+        r = spc_indirect_data_configure(pehash, pehashsz, &idcraw, &idcrawsz);
+        if (r < 0)
+                return r;
+
+        _cleanup_(PKCS7_freep) PKCS7 *p7 = NULL;
+        PKCS7_SIGNER_INFO *si = NULL;
+        r = pkcs7_configure(certificate, /* private_key= */ NULL, /* signed_attributes= */ NULL, &p7, &si);
+        if (r < 0)
+                return r;
+
+        _cleanup_(BIO_free_allp) BIO *bio = NULL;
+        r = pkcs7_data_configure(p7, idcraw, idcrawsz, &bio);
+        if (r < 0)
+                return r;
+
+        r = pkcs7_digest_attribute_configure(p7, bio, si);
+        if (r < 0)
+                return r;
+
+        _cleanup_free_ unsigned char *abuf = NULL;
+        int alen = ASN1_item_i2d((ASN1_VALUE *)si->auth_attr, &abuf, ASN1_ITEM_rptr(PKCS7_ATTR_SIGN));
+        if (alen < 0 || abuf == NULL)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to convert signed attributes ASN.1 to DER: %s",
+                                       ERR_error_string(ERR_get_error(), NULL));
+
+        _cleanup_(unlink_and_freep) char *tmp = NULL;
+        _cleanup_close_ int dstfd = open_tmpfile_linkable(arg_output, O_RDWR|O_CLOEXEC, &tmp);
+        if (dstfd < 0)
+                return log_error_errno(r, "Failed to open temporary file: %m");
+
+        r = loop_write(dstfd, abuf, alen);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write DER-encoded signed attributes blob to temporary file: %m");
+
+        r = link_tmpfile(dstfd, tmp, arg_output, LINK_TMPFILE_REPLACE|LINK_TMPFILE_SYNC);
+        if (r < 0)
+                return log_error_errno(r, "Failed to link temporary file to %s: %m", arg_output);
+
+        log_info("Wrote DER-encoded signed attributes blob to %s", arg_output);
+        return 0;
+}
+
 static int run(int argc, char *argv[]) {
         static const Verb verbs[] = {
-                { "help",         VERB_ANY, VERB_ANY, 0,    help              },
-                { "sign",         2,        2,        0,    verb_sign         },
+                { "help",                     VERB_ANY, VERB_ANY, 0,    help                          },
+                { "sign",                     2,        2,        0,    verb_sign                     },
+                { "export-signed-attributes", 2,        2,        0,    verb_export_signed_attributes },
                 {}
         };
         int r;
