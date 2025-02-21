@@ -1119,7 +1119,7 @@ static bool validate_root_or_usr_mount_source(const char *what, const char *swit
                 return false;
         }
 
-        if (streq(what, "gpt-auto")) {
+        if (STR_IN_SET(what, "gpt-auto", "gpt-auto-force")) {
                 /* This is handled by gpt-auto-generator */
                 log_debug("Skipping %s directory handling, as gpt-auto was requested.", switch_name);
                 return false;
