@@ -988,7 +988,7 @@ static void source_disconnect(sd_event_source *s) {
                                 s->event->n_online_child_sources--;
                         }
 
-                        (void) hashmap_remove(s->event->child_sources, PID_TO_PTR(s->child.pid));
+                        assert_se(hashmap_remove(s->event->child_sources, PID_TO_PTR(s->child.pid)));
                 }
 
                 if (EVENT_SOURCE_WATCH_PIDFD(s))
