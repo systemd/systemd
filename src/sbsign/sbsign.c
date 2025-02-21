@@ -295,9 +295,6 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
         if (!peid)
                 return log_oom();
 
-        if (ASN1_BIT_STRING_set_bit(peid->flags, 0, 1) == 0)
-                return log_oom();
-
         peid->file = TAKE_PTR(link);
 
         _cleanup_free_ uint8_t *peidraw = NULL;
