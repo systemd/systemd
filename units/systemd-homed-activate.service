@@ -20,4 +20,4 @@ Type=oneshot
 
 [Install]
 WantedBy=systemd-homed.service
-Also=systemd-homed.service
+Also=systemd-homed.service systemd-homed-firstboot.service
