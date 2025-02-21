@@ -6,7 +6,6 @@ bootctl_sources = files(
         'bootctl-reboot-to-firmware.c',
         'bootctl-set-efivar.c',
         'bootctl-status.c',
-        'bootctl-systemd-efi-options.c',
         'bootctl-uki.c',
         'bootctl-util.c',
         'bootctl.c',

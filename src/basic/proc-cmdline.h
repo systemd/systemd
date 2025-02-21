@@ -9,7 +9,6 @@ typedef enum ProcCmdlineFlags {
         PROC_CMDLINE_STRIP_RD_PREFIX    = 1 << 0, /* automatically strip "rd." prefix if it is set (and we are in the initrd, since otherwise we'd not consider it anyway) */
         PROC_CMDLINE_VALUE_OPTIONAL     = 1 << 1, /* the value is optional (for boolean switches that can omit the value) */
         PROC_CMDLINE_RD_STRICT          = 1 << 2, /* ignore this in the initrd */
-        PROC_CMDLINE_IGNORE_EFI_OPTIONS = 1 << 3, /* don't check systemd's private EFI variable */
         PROC_CMDLINE_TRUE_WHEN_MISSING  = 1 << 4, /* default to true when the key is missing for bool */
 } ProcCmdlineFlags;
 

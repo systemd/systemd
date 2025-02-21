@@ -3183,10 +3183,6 @@ int main(int argc, char *argv[]) {
 
                 /* The efivarfs is now mounted, let's lock down the system token. */
                 lock_down_efi_variables();
-
-                /* Cache command-line options passed from EFI variables */
-                if (!skip_setup)
-                        (void) cache_efi_options_variable();
         } else {
                 /* Running as user instance */
                 arg_runtime_scope = RUNTIME_SCOPE_USER;
