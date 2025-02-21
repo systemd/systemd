@@ -64,6 +64,16 @@
 
         <xi:include href="version-info.xml" xpointer="v257"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><command>pkcs7</command></term>
+
+        <listitem><para>This commands converts an input <option>--signature=</option> in PKCS#1 format (RSA)
+        to an <option>--output=</option> file in PKCS#7 format (p7s) using the certificate given with
+        <option>--certificate=</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
@@ -88,6 +98,22 @@
         <literal>type:name</literal> tuple, such as <literal>engine:pkcs11</literal>.</para>
 
         <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--signature=<replaceable>PATH</replaceable></option></term>
+
+        <listitem><para>Input pkcs1 signature for the <command>pkcs7</command> command.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--output=<replaceable>PATH</replaceable></option></term>
+
+        <listitem><para>Output pkcs7 signature for the <command>pkcs7</command> command.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="help"/>
