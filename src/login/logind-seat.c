@@ -14,6 +14,7 @@
 #include "fileio.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "lock-util.h"
 #include "logind-seat-dbus.h"
 #include "logind-seat.h"
 #include "logind-session-dbus.h"
@@ -220,6 +221,7 @@ int seat_apply_acls(Seat *s, Session *old_active) {
 
 int seat_set_active(Seat *s, Session *session) {
         Session *old_active;
+        int r;
 
         assert(s);
         assert(!session || session->seat == s);
@@ -238,6 +240,21 @@ int seat_set_active(Seat *s, Session *session) {
                 }
                 return 0;
         }
+
+        /* Take a lock for the seat before updating the seat state file and applying ACLs, to avoid the
+         * following race with the uaccess builtin of systemd-udevd:
+         * 1. udevd reads the old state file,
+         * 2. logind updates the state file, and apply new ACLs,
+         * 3. udevd applies ACLs based on the old state file. */
+
+        r = mkdir_safe_label("/run/systemd/seats", 0755, 0, 0, MKDIR_WARN_MODE);
+        if (r < 0)
+                return r;
+
+        _cleanup_(release_lock_file) LockFile lockfile = LOCK_FILE_INIT;
+        r = make_lock_file_for(s->state_file, LOCK_EX, &lockfile);
+        if (r < 0)
+                return log_debug_errno(r, "Failed create lock file for '%s': %m", s->state_file);
 
         old_active = s->active;
         s->active = session;
