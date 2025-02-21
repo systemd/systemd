@@ -129,10 +129,9 @@ static int find_gpt_root(UdevEvent *event, blkid_probe pr, const char *loop_back
 
 #if defined(SD_GPT_ROOT_NATIVE) && ENABLE_EFI
         sd_device *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
-        sd_id128_t esp_or_xbootldr = SD_ID128_NULL;
         _cleanup_free_ char *root_label = NULL;
         bool found_esp_or_xbootldr = false, need_esp_or_xbootldr;
-        sd_id128_t root_id = SD_ID128_NULL;
+        sd_id128_t root_id = SD_ID128_NULL, esp_or_xbootldr = SD_ID128_NULL;
         int r;
 
         assert(event);
@@ -154,7 +153,7 @@ static int find_gpt_root(UdevEvent *event, blkid_probe pr, const char *loop_back
                 if (r != -ENOENT && !ERRNO_IS_NOT_SUPPORTED(r))
                         return log_debug_errno(r, "Unable to determine loader partition UUID: %m");
 
-                log_device_debug(dev, "No loader partition UUID EFI variable set, not using partition data for search for default root block device.");
+                log_device_debug(dev, "No loader partition UUID EFI variable set, not using partition data to search for default root block device.");
 
                 /* NB: if an ESP/xbootldr field is set, we always use that. We do this in order to guarantee
                  * systematic behaviour. */
