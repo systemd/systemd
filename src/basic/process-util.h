@@ -61,6 +61,10 @@ int get_process_umask(pid_t pid, mode_t *ret);
 
 int container_get_leader(const char *machine, pid_t *pid);
 
+static inline bool SIGINFO_CODE_IS_DEAD(int code) {
+        return IN_SET(code, CLD_EXITED, CLD_KILLED, CLD_DUMPED);
+}
+
 int wait_for_terminate(pid_t pid, siginfo_t *status);
 
 typedef enum WaitFlags {
