@@ -244,16 +244,12 @@ static int write_string_file_atomic_at(
         }
 
         r = fopen_temporary_at(dir_fd, fn, &f, &p);
+        if (call_label_ops_post)
+                /* If fopen_temporary_at() failed in the above, propagate the error code, and ignore failures
+                 * in label_ops_post(). */
+                RET_GATHER(r, label_ops_post(f ? fileno(f) : dir_fd, f ? NULL : fn, /* created= */ !!f));
         if (r < 0)
                 goto fail;
-
-        if (call_label_ops_post) {
-                call_label_ops_post = false;
-
-                r = label_ops_post(fileno(f), /* path= */ NULL, /* created= */ true);
-                if (r < 0)
-                        goto fail;
-        }
 
         r = write_string_stream_full(f, line, flags, ts);
         if (r < 0)
@@ -277,9 +273,6 @@ static int write_string_file_atomic_at(
         return 0;
 
 fail:
-        if (call_label_ops_post)
-                (void) label_ops_post(f ? fileno(f) : dir_fd, f ? NULL : fn, /* created= */ !!f);
-
         if (f)
                 (void) unlinkat(dir_fd, p, 0);
         return r;
@@ -293,7 +286,7 @@ int write_string_file_full(
                 const struct timespec *ts,
                 const char *label_fn) {
 
-        bool call_label_ops_post = false, made_file = false;
+        bool made_file = false;
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_close_ int fd = -EBADF;
         int r;
@@ -325,11 +318,13 @@ int write_string_file_full(
 
         /* We manually build our own version of fopen(..., "we") that works without O_CREAT and with O_NOFOLLOW if needed. */
         if (isempty(fn))
-                fd = fd_reopen(ASSERT_FD(dir_fd), O_CLOEXEC | O_NOCTTY |
-                               (FLAGS_SET(flags, WRITE_STRING_FILE_TRUNCATE) ? O_TRUNC : 0) |
-                               (FLAGS_SET(flags, WRITE_STRING_FILE_SUPPRESS_REDUNDANT_VIRTUAL) ? O_RDWR : O_WRONLY));
+                r = fd = fd_reopen(
+                                ASSERT_FD(dir_fd), O_CLOEXEC | O_NOCTTY |
+                                (FLAGS_SET(flags, WRITE_STRING_FILE_TRUNCATE) ? O_TRUNC : 0) |
+                                (FLAGS_SET(flags, WRITE_STRING_FILE_SUPPRESS_REDUNDANT_VIRTUAL) ? O_RDWR : O_WRONLY));
         else {
                 mode_t mode = write_string_file_flags_to_mode(flags);
+                bool call_label_ops_post = false;
 
                 if (FLAGS_SET(flags, WRITE_STRING_FILE_LABEL|WRITE_STRING_FILE_CREATE)) {
                         r = label_ops_pre(dir_fd, label_fn ?: fn, mode);
@@ -339,7 +334,7 @@ int write_string_file_full(
                         call_label_ops_post = true;
                 }
 
-                fd = openat_report_new(
+                r = fd = openat_report_new(
                                 dir_fd, fn, O_CLOEXEC | O_NOCTTY |
                                 (FLAGS_SET(flags, WRITE_STRING_FILE_NOFOLLOW) ? O_NOFOLLOW : 0) |
                                 (FLAGS_SET(flags, WRITE_STRING_FILE_CREATE) ? O_CREAT : 0) |
@@ -347,19 +342,13 @@ int write_string_file_full(
                                 (FLAGS_SET(flags, WRITE_STRING_FILE_SUPPRESS_REDUNDANT_VIRTUAL) ? O_RDWR : O_WRONLY),
                                 mode,
                                 &made_file);
+                if (call_label_ops_post)
+                        /* If openat_report_new() failed in the above, propagate the error code, and ignore
+                         * failures in label_ops_post(). */
+                        RET_GATHER(r, label_ops_post(fd >= 0 ? fd : dir_fd, fd >= 0 ? NULL : fn, made_file));
         }
-        if (fd < 0) {
-                r = fd;
+        if (r < 0)
                 goto fail;
-        }
-
-        if (call_label_ops_post) {
-                call_label_ops_post = false;
-
-                r = label_ops_post(fd, /* path= */ NULL, made_file);
-                if (r < 0)
-                        goto fail;
-        }
 
         r = take_fdopen_unlocked(&fd, "w", &f);
         if (r < 0)
@@ -375,9 +364,6 @@ int write_string_file_full(
         return 0;
 
 fail:
-        if (call_label_ops_post)
-                (void) label_ops_post(fd >= 0 ? fd : dir_fd, fd >= 0 ? NULL : fn, made_file);
-
         if (made_file)
                 (void) unlinkat(dir_fd, fn, 0);
 
