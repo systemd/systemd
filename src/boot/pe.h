@@ -26,6 +26,16 @@ typedef struct PeSectionVector {
         uint64_t file_offset;   /* Offset on disk, relative to beginning of file */
 } PeSectionVector;
 
+/* These are helper macros to get pointers to section data using and offset from PeSectionHeader or PeSectionVector and the base.
+ * Different offsets are used in userspace because PE files is bundled as a binary data and not properly loaded into memory. */
+#if SD_BOOT
+#define PE_SECTION_DATA_FROM_HEADER(base, header) ((const void *) ((const uint8_t *) SIZE_TO_PTR(base) + (header)->VirtualAddress))
+#define PE_SECTION_DATA_FROM_VECTOR(base, entry) ((const void *) ((const uint8_t *) SIZE_TO_PTR(base) + (entry)->memory_offset))
+#else
+#define PE_SECTION_DATA_FROM_HEADER(base, header) ((const void *) ((const uint8_t *) SIZE_TO_PTR(base) + (header)->PointerToRawData))
+#define PE_SECTION_DATA_FROM_VECTOR(base, entry) ((const void *) ((const uint8_t *) SIZE_TO_PTR(base) + (entry)->file_offset))
+#endif
+
 static inline bool PE_SECTION_VECTOR_IS_SET(const PeSectionVector *v) {
         return v && v->memory_size != 0;
 }
