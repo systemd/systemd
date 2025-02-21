@@ -915,7 +915,7 @@ EOF
         openssl smime -sign -in /dev/stdin \
                       -inkey "$defs/verity.key" \
                       -signer "$defs/verity.crt" \
-                      -noattr -binary -outform der \
+                      -noattr -binary -outform pem \
                       -out "$imgs/offline.roothash.p7s"
 
     systemd-repart --offline "$OFFLINE" \
