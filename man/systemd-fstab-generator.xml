@@ -99,6 +99,10 @@
         separate, immutable <filename>/usr/</filename> file system. Also see
         <varname>systemd.volatile=</varname> below.</para>
 
+        <para>Use <literal>bind:…</literal> to bind mount another directory as operating system root
+        filesystems (added in v258). Expects an absolute path name referencing an existing directory within the initrd's file
+        hierarchy to boot into.</para>
+
         <xi:include href="version-info.xml" xpointer="v217"/></listitem>
       </varlistentry>
 

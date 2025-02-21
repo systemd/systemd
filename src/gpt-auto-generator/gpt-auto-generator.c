@@ -39,7 +39,7 @@
 
 static const char *arg_dest = NULL;
 static bool arg_enabled = true;
-static bool arg_root_enabled = true;
+static int arg_root_enabled = -1; /* tristate */
 static bool arg_swap_enabled = true;
 static char *arg_root_fstype = NULL;
 static char *arg_root_options = NULL;
@@ -673,21 +673,29 @@ static int add_root_mount(void) {
         _cleanup_free_ char *options = NULL;
         int r;
 
-        if (!is_efi_boot()) {
-                log_debug("Not an EFI boot, not creating root mount.");
+        /* Explicitly disabled? Then exit immediately */
+        if (arg_root_enabled == 0)
                 return 0;
+
+        /* Neither explicitly enabled nor disabled? Then decide based on the EFI partition variables to be set */
+        if (arg_root_enabled < 0) {
+                if (!is_efi_boot()) {
+                        log_debug("Not an EFI boot, not creating root mount.");
+                        return 0;
+                }
+
+                r = efi_loader_get_device_part_uuid(/* ret_uuid= */ NULL);
+                if (r == -ENOENT) {
+                        log_notice("EFI loader partition unknown, exiting.\n"
+                                   "(The boot loader did not set EFI variable LoaderDevicePartUUID.)");
+                        return 0;
+                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read loader partition UUID: %m");
         }
 
-        r = efi_loader_get_device_part_uuid(NULL);
-        if (r == -ENOENT) {
-                log_notice("EFI loader partition unknown, exiting.\n"
-                           "(The boot loader did not set EFI variable LoaderDevicePartUUID.)");
-                return 0;
-        } else if (r < 0)
-                return log_error_errno(r, "Failed to read loader partition UUID: %m");
-
-        /* OK, we have an ESP/XBOOTLDR partition, this is fantastic, so let's wait for a root device to show up.
-         * A udev rule will create the link for us under the right name. */
+        /* OK, we shall look for a root device, so let's wait for a root device to show up.  A udev rule will
+         * create the link for us under the right name. */
 
         if (in_initrd()) {
                 r = generator_write_initrd_root_device_deps(arg_dest, "/dev/gpt-auto-root");
@@ -904,9 +912,12 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 /* Disable root disk logic if there's a root= value
                  * specified (unless it happens to be "gpt-auto") */
 
-                if (!streq(value, "gpt-auto")) {
+                if (streq(value, "gpt-auto")) {
+                        arg_root_enabled = true;
+                        log_debug("Enabling root partition auto-detection, root= is explicitly set to 'gpt_auto'.");
+                } else {
                         arg_root_enabled = false;
-                        log_debug("Disabling root partition auto-detection, root= is defined.");
+                        log_debug("Disabling root partition auto-detection, root= is neither unset, nor set to 'gpt-auto'.");
                 }
 
         } else if (streq(key, "roothash")) {
@@ -917,6 +928,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 /* Disable root disk logic if there's roothash= defined (i.e. verity enabled) */
 
                 arg_root_enabled = false;
+                log_debug("Disabling root partition auto-detection, roothash= is set.");
 
         } else if (streq(key, "rootfstype")) {
 
@@ -975,10 +987,7 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
                 return 0;
         }
 
-        if (arg_root_enabled)
-                r = add_root_mount();
-        else
-                r = 0;
+        r = add_root_mount();
 
         if (!in_initrd())
                 RET_GATHER(r, add_mounts());

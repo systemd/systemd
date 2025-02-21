@@ -50,18 +50,48 @@
     <para>If the units this generator creates are overridden, for example by units in directories with higher
     precedence, drop-ins and additional dependencies created by this generator might still be used.</para>
 
-    <para>This generator will only look for the root partition on the same physical disk where the EFI System
-    Partition (ESP) is located. Note that support from the boot loader is required: the EFI variable
-    <varname>LoaderDevicePartUUID</varname> of the <constant>4a67b082-0a4c-41cf-b6c7-440b29bb8c4f</constant>
-    vendor UUID is used to determine from which partition, and hence the disk, from which the system was
-    booted. If the boot loader does not set this variable, this generator will not be able to detect the root
-    partition. See the <ulink url="https://systemd.io/BOOT_LOADER_INTERFACE">Boot Loader Interface</ulink>
-    for details.</para>
+    <para>When run in the initial RAM disk (initrd) this generator can automatically search for the root file
+    system. Specifically:
 
-    <para>Similarly, this generator will only look for the other partitions on the same physical disk as the
-    root partition. In this case, boot loader support is not required. These partitions will not be searched
-    for on systems where the root file system is distributed on multiple disks, for example via btrfs RAID.
+    <itemizedlist>
+      <listitem><para>It will look for the root partition on the same physical disk where the EFI System
+      Partition (ESP) is located. Note that support from the boot loader is required for this to work: the
+      EFI variable <varname>LoaderDevicePartUUID</varname> of the
+      <constant>4a67b082-0a4c-41cf-b6c7-440b29bb8c4f</constant> vendor UUID is used to determine from which
+      partition (and hence disk) the system was booted. If the boot loader does not set this variable, this
+      generator will not be able to detect the root partition. See the <ulink
+      url="https://systemd.io/BOOT_LOADER_INTERFACE">Boot Loader Interface</ulink> for
+      details.</para></listitem>
+
+      <listitem><para>Alternatively, it will look for the root file system on a loopback block device whose
+      <literal>.lo_name</literal> field is set to one of the literal strings <literal>rootdisk</literal> or
+      <literal>rootdisk.raw</literal>. This field can be set via <command>losetup</command>'s
+      <option>--loop-ref=</option> string. For images downloaded via
+      <citerefentry><refentrytitle>systemd-import-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      make sure to set the <literal>blockdev</literal> option and set the local name string to
+      <literal>rootdisk</literal> to achieve this effect. Note that discovery of the root file system on
+      loopback block devices like this is only done if <literal>root=gpt-auto</literal> is specified
+      explicitly on the kernel command line, unlike the discovery based on the boot loader reported ESP which
+      is also enabled if no <literal>root=</literal> parameter is specified at all. (The latter relies on
+      <command>systemd-udevd.service</command>'s <filename>/dev/gpt-auto-root</filename> block device symlink
+      generation).</para></listitem>
+    </itemizedlist>
     </para>
+
+    <para>When run on the host system (i.e. after successfully transitioning out of the initrd into the root
+    filesystem) this generator will look for all other partitions on the same physical disk as the root
+    partition. For this discovery, boot loader support is not required. Moreover, it is not required that the
+    root partition was automatically discovered by the initrd (as described above) for the discovery of the
+    non-root file partitions to take place. Or in other words: automatic discovery of the root file system
+    and of the non-root file systems are independent operations, that do not rely on each other, and are done
+    during two distinct phases of the boot process (one in the initrd, the other after). These partitions will
+    not be searched for on systems where the root file system is distributed on multiple disks, for example
+    via btrfs RAID.</para>
+
+    <para>The root partition can be configured explicitly by symlinking
+    <filename>/run/systemd/volatile-root</filename> to <filename>/dev/block/$major:$minor</filename>. This is
+    especially useful if the root mount has been replaced by some form of volatile file system
+    (overlayfs).</para>
 
     <para><filename>systemd-gpt-auto-generator</filename> is useful for centralizing file system
     configuration in the partition table and making configuration in <filename>/etc/fstab</filename> or on
@@ -225,11 +255,6 @@
     <citerefentry><refentrytitle>bootup</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
     </para>
 
-    <para>The root partition can be specified by symlinking <filename>/run/systemd/volatile-root</filename>
-    to <filename>/dev/block/$major:$minor</filename>. This is especially useful if the root mount has been
-    replaced by some form of volatile file system (overlayfs).
-    </para>
-
     <para>Mount and automount units for the EFI System Partition (ESP) and Extended Boot Loader Partition
     (XBOOTLDR) are generated on EFI systems. If the disk contains an XBOOTLDR partition, as defined in the
     <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader
@@ -297,9 +322,13 @@
         <term><varname>rootflags=</varname></term>
 
         <listitem><para>When <varname>root=</varname> is used with the special value
-        <literal>gpt-auto</literal> (or if the parameter is not used at all), automatic discovery of the root
+        <literal>gpt-auto</literal>, full automatic discovery of the root
         partition based on the GPT partition type is enabled. Any other value disables this
         logic.</para>
+
+        <para>If <varname>root=</varname> is not specified at all on the kernel command line automatic
+        discovery of the root partition via the boot loader reported ESP is also enabled, however in this
+        case discovery based on the loopback block device <literal>.lo_name</literal> field is not enabled.</para>
 
         <para>The <varname>rootfstype=</varname> and <varname>rootflags=</varname> are used to select the
         file system type and options when the root file system is automatically discovered.</para>
