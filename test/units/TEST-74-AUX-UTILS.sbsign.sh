@@ -39,7 +39,7 @@ openssl req -config /tmp/openssl.conf -subj="/CN=waldo" \
 testcase_sign_systemd_boot() {
     if ! command -v sbverify >/dev/null; then
         echo "sbverify not found, skipping."
-        exit 0
+        return 0
     fi
 
     SD_BOOT="$(find /usr/lib/systemd/boot/efi/ -name "systemd-boot*.efi" | head -n1)"
@@ -50,6 +50,27 @@ testcase_sign_systemd_boot() {
 
     # Make sure appending signatures to an existing certificate table works as well.
     /usr/lib/systemd/systemd-sbsign sign --certificate /tmp/sb.crt --private-key /tmp/sb.key --output /tmp/sdboot /tmp/sdboot
+    sbverify --cert /tmp/sb.crt /tmp/sdboot
+}
+
+testcase_sign_systemd_boot_offline() {
+    if ! command -v sbverify >/dev/null; then
+        echo "sbverify not found, skipping."
+        return 0
+    fi
+
+    SD_BOOT="$(find /usr/lib/systemd/boot/efi/ -name "systemd-boot*.efi" | head -n1)"
+
+    /usr/lib/systemd/systemd-sbsign export-signed-attributes --certificate /tmp/sb.crt --output /tmp/sattrs.bin "$SD_BOOT"
+    openssl dgst -sha256 -sign /tmp/sb.key -out /tmp/sattrs.sig /tmp/sattrs.bin
+    /usr/lib/systemd/systemd-sbsign \
+        sign \
+        --certificate /tmp/sb.crt \
+        --output /tmp/sdboot \
+        --signed-attributes /tmp/sattrs.bin \
+        --signed-attributes-signature /tmp/sattrs.sig \
+        "$SD_BOOT"
+
     sbverify --cert /tmp/sb.crt /tmp/sdboot
 }
 
