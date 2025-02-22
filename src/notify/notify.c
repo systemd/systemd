@@ -412,18 +412,18 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int on_notify_socket(sd_event_source *s, int fd, unsigned event, void *userdata) {
         PidRef *child = ASSERT_PTR(userdata);
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_free_ char *text = NULL;
         int r;
 
         assert(s);
         assert(fd >= 0);
 
-        _cleanup_free_ char *text = NULL;
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         r = notify_recv(fd, &text, /* ret_ucred= */ NULL, &pidref);
         if (r == -EAGAIN)
                 return 0;
         if (r < 0)
-                return log_error_errno(r, "Failed to receive notification message: %m");
+                return r;
 
         if (!pidref_equal(child, &pidref)) {
                 log_warning("Received notification message from unexpected process " PID_FMT " (expected " PID_FMT "), ignoring.",

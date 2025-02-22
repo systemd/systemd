@@ -647,15 +647,15 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_unref);
 
 static int manager_on_notify(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_free_ char *buf = NULL;
         int r;
 
-        _cleanup_free_ char *buf = NULL;
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         r = notify_recv(fd, &buf, /* ret_ucred= */ NULL, &pidref);
         if (r == -EAGAIN)
                 return 0;
         if (r < 0)
-                return log_warning_errno(r, "Failed to receive notification message: %m");
+                return r;
 
         Transfer *t;
         HASHMAP_FOREACH(t, m->transfers)
