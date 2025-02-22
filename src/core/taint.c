@@ -9,6 +9,7 @@
 #include "fileio.h"
 #include "fs-util.h"
 #include "log.h"
+#include "manager.h"
 #include "os-util.h"
 #include "path-util.h"
 #include "strv.h"
@@ -31,8 +32,8 @@ static int short_uid_gid_range(UIDRangeUsernsMode mode) {
         return !uid_range_covers(p, 0, 65535);
 }
 
-char** taint_strv(void) {
-        const char *stage[12] = {};
+char** taint_strv(const Manager *m) {
+        const char *stage[13] = {};
         size_t n = 0;
 
         /* Returns a "taint string", e.g. "local-hwclock:var-run-bad". Only things that are detected at
@@ -78,16 +79,18 @@ char** taint_strv(void) {
                 stage[n++] = "short-uid-range";
         if (short_uid_gid_range(GID_RANGE_USERNS_INSIDE) > 0)
                 stage[n++] = "short-gid-range";
+        if (manager_was_dependency_cycle(m))
+                stage[n++] = "dependency-cycle";
 
         assert(n < ELEMENTSOF(stage) - 1);  /* One extra for NULL terminator */
 
         return strv_copy((char *const *) stage);
 }
 
-char* taint_string(void) {
+char* taint_string(const Manager *m) {
         _cleanup_strv_free_ char **taints = NULL;
 
-        taints = taint_strv();
+        taints = taint_strv(m);
         if (!taints)
                 return NULL;
 
