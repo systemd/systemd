@@ -201,13 +201,11 @@
     </para>
 
     <para><function>sd_event_source_get_child_pidfd()</function> retrieves the file descriptor referencing
-    the watched process ("pidfd") if this functionality is available. On kernels that support the concept the
-    event loop will make use of pidfds to watch child processes, regardless of whether the individual event sources
-    are allocated via <function>sd_event_add_child()</function> or
-    <function>sd_event_add_child_pidfd()</function>. If the latter call was used to allocate the event
-    source, this function returns the file descriptor used for allocation. On kernels that do not support the
-    pidfd concept this function will fail with <constant>EOPNOTSUPP</constant>. This call takes the event
-    source object as the <parameter>source</parameter> parameter and returns the numeric file descriptor.
+    the watched process ("pidfd"). The event loop internally makes use of pidfds to watch child processes,
+    regardless of whether the individual event sources are allocated via <function>sd_event_add_child()</function>
+    or <function>sd_event_add_child_pidfd()</function>. If the latter call was used to allocate the event
+    source, this function returns the original file descriptor used for allocation. This call takes
+    the event source object as the <parameter>source</parameter> parameter and returns the numeric file descriptor.
     </para>
 
     <para><function>sd_event_source_get_child_pidfd_own()</function> may be used to query whether the pidfd
@@ -228,15 +226,10 @@
     exist. This behaviour might change eventually.</para>
 
     <para><function>sd_event_source_send_child_signal()</function> may be used to send a UNIX signal to the
-    watched process. If the pidfd concept is supported in the kernel, this is implemented via <citerefentry
-    project='man-pages'><refentrytitle>pidfd_send_signal</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-    and otherwise via <citerefentry
-    project='man-pages'><refentrytitle>rt_sigqueueinfo</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-    (or via <citerefentry
-    project='man-pages'><refentrytitle>kill</refentrytitle><manvolnum>2</manvolnum></citerefentry> in case
-    <parameter>info</parameter> is <constant>NULL</constant>). The specified parameters match those of these
-    underlying system calls, except that the <parameter>info</parameter> is never modified (and is thus
-    declared constant). Like for the underlying system calls, the <parameter>flags</parameter> parameter
+    watched process via <citerefentry
+    project='man-pages'><refentrytitle>pidfd_send_signal</refentrytitle><manvolnum>2</manvolnum></citerefentry>.
+    The specified parameters match those of the underlying system call, except that the <parameter>info</parameter>
+    is never modified (and is thus declared constant). Like for the underlying system call, the <parameter>flags</parameter> parameter
     currently must be zero.</para>
   </refsect1>
 
@@ -297,14 +290,6 @@
           <term><constant>-EDOM</constant></term>
 
           <listitem><para>The passed event source is not a child process event source.</para></listitem>
-        </varlistentry>
-
-        <varlistentry>
-          <term><constant>-EOPNOTSUPP</constant></term>
-
-          <listitem><para>A pidfd was requested but the kernel does not support this concept.</para>
-
-          <xi:include href="version-info.xml" xpointer="v245"/></listitem>
         </varlistentry>
 
       </variablelist>
