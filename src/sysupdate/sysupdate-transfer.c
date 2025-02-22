@@ -979,17 +979,17 @@ static int helper_on_exit(sd_event_source *s, const siginfo_t *si, void *userdat
 
 static int helper_on_notify(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         CalloutContext *ctx = ASSERT_PTR(userdata);
+        _cleanup_(pidref_done) PidRef sender_pid = PIDREF_NULL;
+        _cleanup_free_ char *buf = NULL;
         int r;
 
         assert(fd >= 0);
 
-        _cleanup_free_ char *buf = NULL;
-        _cleanup_(pidref_done) PidRef sender_pid = PIDREF_NULL;
         r = notify_recv(fd, &buf, /* ret_ucred= */ NULL, &sender_pid);
         if (r == -EAGAIN)
                 return 0;
         if (r < 0)
-                return log_warning_errno(r, "Failed to receive notification message: %m");
+                return r;
 
         if (!pidref_equal(&ctx->pid, &sender_pid)) {
                 log_warning("Got notification datagram from unexpected peer, ignoring.");

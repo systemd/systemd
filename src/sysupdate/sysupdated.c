@@ -1647,17 +1647,17 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Manager *, manager_free);
 
 static int manager_on_notify(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
+        _cleanup_(pidref_done) PidRef sender_pidref = PIDREF_NULL;
+        _cleanup_free_ char *buf = NULL;
         int r;
 
         assert(fd >= 0);
 
-        _cleanup_(pidref_done) PidRef sender_pidref = PIDREF_NULL;
-        _cleanup_free_ char *buf = NULL;
         r = notify_recv(fd, &buf, /* ret_ucred= */ NULL, &sender_pidref);
         if (r == -EAGAIN)
                 return 0;
         if (r < 0)
-                return log_warning_errno(r, "Failed to receive notification message: %m");
+                return r;
 
         Job *j;
         HASHMAP_FOREACH(j, m->jobs) {
