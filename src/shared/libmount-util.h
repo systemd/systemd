@@ -4,6 +4,7 @@
 /* This needs to be after sys/mount.h */
 #include <libmount.h>
 
+#include "fstab-util.h"
 #include "macro.h"
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct libmnt_table*, mnt_free_table, NULL);
@@ -28,6 +29,13 @@ static inline int libmount_parse_with_utab(
                 struct libmnt_iter **ret_iter) {
 
         return libmount_parse_full(NULL, NULL, ret_table, ret_iter);
+}
+
+static inline int libmount_parse_fstab(
+                struct libmnt_table **ret_table,
+                struct libmnt_iter **ret_iter) {
+
+        return libmount_parse_full(fstab_path(), NULL, ret_table, ret_iter);
 }
 
 int libmount_is_leaf(
