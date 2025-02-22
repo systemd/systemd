@@ -1,5 +1,6 @@
 /*/*                -whitespace
 /fuzz-bus-match/*   binary
+/fuzz-compress/*    binary
 /fuzz-dhcp*/*       binary
 /fuzz-dns-packet/*  binary
 /fuzz-fido-id-desc/ binary
