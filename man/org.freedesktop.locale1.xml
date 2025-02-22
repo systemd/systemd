@@ -131,7 +131,7 @@ node /org/freedesktop/locale1 {
       <title>Signals</title>
 
       <para>Whenever the system locale or keymap is changed via the daemon,
-      <function>PropertyChanged</function> signals are sent out to which clients can subscribe.</para>
+      <function>PropertyChanged</function> signals are sent out to clients which have subscribed.</para>
     </refsect2>
 
     <refsect2>

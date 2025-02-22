@@ -175,9 +175,9 @@ def get_zboot_kernel(f: IO[bytes]) -> bytes:
         raise NotImplementedError('lzo decompression not implemented')
     elif comp_type.startswith(b'xzkern'):
         raise NotImplementedError('xzkern decompression not implemented')
-    elif comp_type.startswith(b'zstd22'):
-        zstd = try_import('zstd')
-        return cast(bytes, zstd.uncompress(f.read(size)))
+    elif comp_type.startswith(b'zstd'):
+        zstd = try_import('zstandard')
+        return cast(bytes, zstd.ZstdDecompressor().stream_reader(f.read(size)).read())
 
     raise NotImplementedError(f'unknown compressed type: {comp_type!r}')
 
@@ -207,15 +207,15 @@ def maybe_decompress(filename: Union[str, Path]) -> bytes:
         return cast(bytes, gzip.open(f).read())
 
     if start.startswith(b'\x28\xb5\x2f\xfd'):
-        zstd = try_import('zstd')
-        return cast(bytes, zstd.uncompress(f.read()))
+        zstd = try_import('zstandard')
+        return cast(bytes, zstd.ZstdDecompressor().stream_reader(f.read()).read())
 
     if start.startswith(b'\x02\x21\x4c\x18'):
         lz4 = try_import('lz4.frame', 'lz4')
         return cast(bytes, lz4.frame.decompress(f.read()))
 
     if start.startswith(b'\x04\x22\x4d\x18'):
-        print('Newer lz4 stream format detected! This may not boot!')
+        print('Newer lz4 stream format detected! This may not boot!', file=sys.stderr)
         lz4 = try_import('lz4.frame', 'lz4')
         return cast(bytes, lz4.frame.decompress(f.read()))
 
@@ -358,7 +358,7 @@ class Uname:
                 print(f'Found uname version: {version}', file=sys.stderr)
                 return version
             except ValueError as e:
-                print(str(e))
+                print(str(e), file=sys.stderr)
         return None
 
 
@@ -991,14 +991,14 @@ def merge_sbat(input_pe: list[Path], input_text: list[str]) -> str:
         try:
             pe = pefile.PE(f, fast_load=True)
         except pefile.PEFormatError:
-            print(f'{f} is not a valid PE file, not extracting SBAT section.')
+            print(f'{f} is not a valid PE file, not extracting SBAT section.', file=sys.stderr)
             continue
 
         for section in pe.sections:
             if pe_strip_section_name(section.Name) == '.sbat':
                 split = section.get_data().rstrip(b'\x00').decode().splitlines()
                 if not split[0].startswith('sbat,'):
-                    print(f'{f} does not contain a valid SBAT section, skipping.')
+                    print(f'{f} does not contain a valid SBAT section, skipping.', file=sys.stderr)
                     continue
                 # Filter out the sbat line, we'll add it back later, there needs to be only one and it
                 # needs to be first.
@@ -1009,7 +1009,7 @@ def merge_sbat(input_pe: list[Path], input_text: list[str]) -> str:
             t = Path(t[1:]).read_text()
         split = t.splitlines()
         if not split[0].startswith('sbat,'):
-            print(f'{t} does not contain a valid SBAT section, skipping.')
+            print(f'{t} does not contain a valid SBAT section, skipping.', file=sys.stderr)
             continue
         sbat += split[1:]
 
@@ -1110,7 +1110,22 @@ def make_uki(opts: UkifyConfig) -> None:
     sign_kernel = opts.sign_kernel
     linux = opts.linux
 
-    if opts.linux and sign_args_present:
+    # On some distros, on some architectures, the vmlinuz is a gzip file, so we need to decompress it
+    # if it's not a valid PE file, as it will fail to be booted by the firmware.
+    if linux:
+        try:
+            pefile.PE(linux, fast_load=True)
+        except pefile.PEFormatError:
+            try:
+                decompressed = maybe_decompress(linux)
+            except NotImplementedError:
+                print(f'{linux} is not a valid PE file and cannot be decompressed either', file=sys.stderr)
+            else:
+                print(f'{linux} is compressed and cannot be loaded by UEFI, decompressing', file=sys.stderr)
+                linux = Path(tempfile.NamedTemporaryFile(prefix='linux-decompressed').name)
+                linux.write_bytes(decompressed)
+
+    if linux and sign_args_present:
         assert opts.signtool is not None
         signtool = SignTool.from_string(opts.signtool)
 
@@ -1120,12 +1135,12 @@ def make_uki(opts: UkifyConfig) -> None:
 
         if sign_kernel:
             linux_signed = tempfile.NamedTemporaryFile(prefix='linux-signed')
+            signtool.sign(os.fspath(linux), os.fspath(Path(linux_signed.name)), opts=opts)
             linux = Path(linux_signed.name)
-            signtool.sign(os.fspath(opts.linux), os.fspath(linux), opts=opts)
 
-    if opts.uname is None and opts.linux is not None:
+    if opts.uname is None and linux is not None:
         print('Kernel version not specified, starting autodetection 😖.', file=sys.stderr)
-        opts.uname = Uname.scrape(opts.linux, opts=opts)
+        opts.uname = Uname.scrape(linux, opts=opts)
 
     uki = UKI(opts.stub)
     initrd = join_initrds(opts.initrd)
@@ -1398,10 +1413,10 @@ def generate_keys(opts: UkifyConfig) -> None:
             common_name=cn,
             valid_days=opts.sb_cert_validity,
         )
-        print(f'Writing SecureBoot private key to {opts.sb_key}')
+        print(f'Writing SecureBoot private key to {opts.sb_key}', file=sys.stderr)
         with temporary_umask(0o077):
             Path(opts.sb_key).write_bytes(key_pem)
-        print(f'Writing SecureBoot certificate to {opts.sb_cert}')
+        print(f'Writing SecureBoot certificate to {opts.sb_cert}', file=sys.stderr)
         Path(opts.sb_cert).write_bytes(cert_pem)
 
         work = True
@@ -1409,11 +1424,11 @@ def generate_keys(opts: UkifyConfig) -> None:
     for priv_key, pub_key, _ in key_path_groups(opts):
         priv_key_pem, pub_key_pem = generate_priv_pub_key_pair()
 
-        print(f'Writing private key for PCR signing to {priv_key}')
+        print(f'Writing private key for PCR signing to {priv_key}', file=sys.stderr)
         with temporary_umask(0o077):
             Path(priv_key).write_bytes(priv_key_pem)
         if pub_key:
-            print(f'Writing public key for PCR signing to {pub_key}')
+            print(f'Writing public key for PCR signing to {pub_key}', file=sys.stderr)
             Path(pub_key).write_bytes(pub_key_pem)
 
         work = True
@@ -1451,7 +1466,7 @@ def inspect_section(
         try:
             struct['text'] = data.decode()
         except UnicodeDecodeError as e:
-            print(f'Section {name!r} is not valid text: {e}')
+            print(f'Section {name!r} is not valid text: {e}', file=sys.stderr)
             struct['text'] = '(not valid UTF-8)'
 
     if config and config.content:
@@ -1984,7 +1999,7 @@ def apply_config(namespace: argparse.Namespace, filename: Union[str, Path, None]
             if item := CONFIGFILE_ITEMS.get(f'{section_name}/{key}'):
                 item.apply_config(namespace, section_name, group, key, value)
             else:
-                print(f'Unknown config setting [{section_name}] {key}=')
+                print(f'Unknown config setting [{section_name}] {key}=', file=sys.stderr)
 
 
 def config_example() -> Iterator[str]:

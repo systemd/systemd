@@ -288,7 +288,7 @@ enum {
 #define DM_VERSION_MAJOR	4
 #define DM_VERSION_MINOR	27
 #define DM_VERSION_PATCHLEVEL	0
-#define DM_VERSION_EXTRA	"-ioctl (2023-03-01)"
+#define DM_VERSION_EXTRA	"-ioctl (2025-01-17)"
 
 /* Status bits */
 #define DM_READONLY_FLAG	(1 << 0) /* In/Out */
