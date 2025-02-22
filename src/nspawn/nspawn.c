@@ -4616,17 +4616,17 @@ static int setup_uid_map(
 
 static int nspawn_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
         pid_t inner_child_pid = PTR_TO_PID(userdata);
+        _cleanup_(pidref_done) PidRef sender_pid = PIDREF_NULL;
+        _cleanup_free_ char *buf = NULL;
         int r;
 
         assert(userdata);
 
-        _cleanup_(pidref_done) PidRef sender_pid = PIDREF_NULL;
-        _cleanup_free_ char *buf = NULL;
         r = notify_recv(fd, &buf, /* ret_ucred= */ NULL, &sender_pid);
         if (r == -EAGAIN)
                 return 0;
         if (r < 0)
-                return log_error_errno(r, "Failed to receive notification message: %m");
+                return r;
 
         if (sender_pid.pid != inner_child_pid) {
                 log_debug("Received notify message from process that is not the payload's PID 1. Ignoring.");
