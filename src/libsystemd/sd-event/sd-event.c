@@ -3201,42 +3201,19 @@ _public_ int sd_event_source_send_child_signal(sd_event_source *s, int sig, cons
         assert_return(s->type == SOURCE_CHILD, -EDOM);
         assert_return(!event_origin_changed(s->event), -ECHILD);
         assert_return(SIGNAL_VALID(sig), -EINVAL);
+        assert(s->child.pidfd >= 0);
 
-        /* If we already have seen indication the process exited refuse sending a signal early. This way we
-         * can be sure we don't accidentally kill the wrong process on PID reuse when pidfds are not
-         * available. */
+        /* If we already have seen indication the process exited refuse sending a signal early. */
         if (s->child.exited)
                 return -ESRCH;
+        assert(!s->child.waited);
 
-        if (s->child.pidfd >= 0) {
-                siginfo_t copy;
+        /* pidfd_send_signal() changes the siginfo_t argument. This is weird, let's hence copy the structure here. */
+        siginfo_t copy;
+        if (si)
+                copy = *si;
 
-                /* pidfd_send_signal() changes the siginfo_t argument. This is weird, let's hence copy the
-                 * structure here */
-                if (si)
-                        copy = *si;
-
-                if (pidfd_send_signal(s->child.pidfd, sig, si ? &copy : NULL, 0) < 0)
-                        return -errno;
-
-                return 0;
-        }
-
-        /* Flags are only supported for pidfd_send_signal(), not for rt_sigqueueinfo(), hence let's refuse
-         * this here. */
-        if (flags != 0)
-                return -EOPNOTSUPP;
-
-        if (si) {
-                /* We use rt_sigqueueinfo() only if siginfo_t is specified. */
-                siginfo_t copy = *si;
-
-                if (rt_sigqueueinfo(s->child.pid, sig, &copy) < 0)
-                        return -errno;
-        } else if (kill(s->child.pid, sig) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(pidfd_send_signal(s->child.pidfd, sig, si ? &copy : NULL, flags));
 }
 
 _public_ int sd_event_source_get_child_pidfd_own(sd_event_source *s) {
