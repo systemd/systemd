@@ -505,13 +505,16 @@ static int parse_argv(int argc, char *argv[]) {
 static int transient_unit_set_properties(sd_bus_message *m, UnitType t, char **properties) {
         int r;
 
+        assert(m);
+        assert(IN_SET(t, UNIT_MOUNT, UNIT_AUTOMOUNT));
+
         if (!isempty(arg_description)) {
                 r = sd_bus_message_append(m, "(sv)", "Description", "s", arg_description);
                 if (r < 0)
                         return r;
         }
 
-        if (arg_bind_device && is_device_path(arg_mount_what)) {
+        if (arg_bind_device > 0 && is_device_path(arg_mount_what)) {
                 _cleanup_free_ char *device_unit = NULL;
 
                 r = unit_name_from_path(arg_mount_what, ".device", &device_unit);
