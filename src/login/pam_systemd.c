@@ -54,6 +54,7 @@
 #include "stdio-util.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "tmpfile-util.h"
 #include "user-util.h"
 #include "userdb.h"
 
@@ -832,27 +833,6 @@ static int apply_user_record_settings(
         return PAM_SUCCESS;
 }
 
-static int configure_runtime_directory(
-                pam_handle_t *handle,
-                UserRecord *ur,
-                const char *rt) {
-
-        int r;
-
-        assert(handle);
-        assert(ur);
-        assert(rt);
-
-        if (!validate_runtime_directory(handle, rt, ur->uid))
-                return PAM_SUCCESS;
-
-        r = pam_misc_setenv(handle, "XDG_RUNTIME_DIR", rt, 0);
-        if (r != PAM_SUCCESS)
-                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to set runtime dir: @PAMERR@");
-
-        return export_legacy_dbus_address(handle, rt);
-}
-
 static uint64_t pick_default_capability_ambient_set(
                 UserRecord *ur,
                 const char *service,
@@ -1100,7 +1080,8 @@ static int register_session(
                 SessionContext *c,
                 UserRecord *ur,
                 bool debug,
-                char **ret_seat) {
+                char **ret_seat,
+                char **ret_runtime_dir) {
 
         int r;
 
@@ -1108,18 +1089,19 @@ static int register_session(
         assert(c);
         assert(ur);
         assert(ret_seat);
+        assert(ret_runtime_dir);
 
         /* We don't register session class none with logind */
         if (streq(c->class, "none")) {
                 pam_debug_syslog(handle, debug, "Skipping logind registration for session class none.");
-                *ret_seat = NULL;
+                *ret_seat = *ret_runtime_dir = NULL;
                 return PAM_SUCCESS;
         }
 
         /* Make most of this a NOP on non-logind systems */
         if (!logind_running()) {
                 pam_debug_syslog(handle, debug, "Skipping logind registration as logind is not running.");
-                *ret_seat = NULL;
+                *ret_seat = *ret_runtime_dir = NULL;
                 return PAM_SUCCESS;
         }
 
@@ -1192,7 +1174,7 @@ static int register_session(
                         if (streq_ptr(error_id, "io.systemd.Login.AlreadySessionMember")) {
                                 /* We are already in a session, don't do anything */
                                 pam_debug_syslog(handle, debug, "Not creating session: %s", error_id);
-                                *ret_seat = NULL;
+                                *ret_seat = *ret_runtime_dir = NULL;
                                 return PAM_SUCCESS;
                         }
                         if (error_id)
@@ -1289,7 +1271,7 @@ static int register_session(
                                 /* We are already in a session, don't do anything */
                                 pam_debug_syslog(handle, debug,
                                                  "Not creating session: %s", bus_error_message(&error, r));
-                                *ret_seat = NULL;
+                                *ret_seat = *ret_runtime_dir = NULL;
                                 return PAM_SUCCESS;
                         }
 
@@ -1324,16 +1306,6 @@ static int register_session(
         r = update_environment(handle, "XDG_SESSION_ID", id);
         if (r != PAM_SUCCESS)
                 return r;
-
-        if (original_uid == ur->uid) {
-                /* Don't set $XDG_RUNTIME_DIR if the user we now authenticated for does not match the
-                 * original user of the session. We do this in order not to result in privileged apps
-                 * clobbering the runtime directory unnecessarily. */
-
-                r = configure_runtime_directory(handle, ur, runtime_path);
-                if (r != PAM_SUCCESS)
-                        return r;
-        }
 
         /* Most likely we got the session/type/class from environment variables, but might have gotten the data
          * somewhere else (for example PAM module parameters). Let's now update the environment variables, so that this
@@ -1379,17 +1351,24 @@ static int register_session(
                 TAKE_FD(fd);
         }
 
+        /* Don't set $XDG_RUNTIME_DIR if the user we now authenticated for does not match the
+         * original user of the session. We do this in order not to result in privileged apps
+         * clobbering the runtime directory unnecessarily. */
+        _cleanup_free_ char *rt = NULL;
+        if (original_uid == ur->uid && validate_runtime_directory(handle, runtime_path, ur->uid))
+                if (strdup_to(&rt, runtime_path) < 0)
+                        return pam_log_oom(handle);
+
         /* Everything worked, hence let's patch in the data we learned. Since 'real_set' points into the
          * D-Bus message, let's copy it and return it as a buffer */
-        char *rs = NULL;
-        if (real_seat) {
-                rs = strdup(real_seat);
-                if (!rs)
-                        return pam_log_oom(handle);
-        }
+        _cleanup_free_ char *rs = NULL;
+        if (strdup_to(&rs, real_seat) < 0)
+                return pam_log_oom(handle);
 
-        c->seat = *ret_seat = rs;
         c->vtnr = real_vtnr;
+        c->seat = *ret_seat = TAKE_PTR(rs);
+        *ret_runtime_dir = TAKE_PTR(rt);
+
         return PAM_SUCCESS;
 }
 
@@ -1414,9 +1393,103 @@ static int import_shell_credentials(pam_handle_t *handle) {
         return PAM_SUCCESS;
 }
 
-static int update_home_env(
+static int mkdir_chown_open_directory(
+                int parent_fd,
+                const char *name,
+                uid_t uid,
+                gid_t gid,
+                mode_t mode) {
+
+        _cleanup_free_ char *t = NULL;
+        int r;
+
+        assert(parent_fd >= 0);
+        assert(name);
+        assert(uid_is_valid(uid));
+        assert(gid_is_valid(gid));
+        assert(mode != MODE_INVALID);
+
+        for (unsigned attempt = 0;; attempt++) {
+                _cleanup_close_ int fd = openat(parent_fd, name, O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
+                if (fd >= 0)
+                        return TAKE_FD(fd);
+                if (errno != ENOENT)
+                        return -errno;
+
+                /* Let's create the directory under a temporary name first, since we want to make sure that
+                 * once it appears under the right name it has the right ownership */
+                r = tempfn_random(name, /* extra= */ NULL, &t);
+                if (r < 0)
+                        return r;
+
+                fd = open_mkdir_at(parent_fd, t, O_CLOEXEC|O_EXCL, 0700); /* Use restrictive mode until ownership is in order */
+                if (fd < 0)
+                        return fd;
+
+                r = RET_NERRNO(fchown(fd, uid, gid));
+                if (r < 0)
+                        goto fail;
+
+                r = RET_NERRNO(fchmod(fd, mode));
+                if (r < 0)
+                        goto fail;
+
+                r = rename_noreplace(parent_fd, t, parent_fd, name);
+                if (r >= 0)
+                        return TAKE_FD(fd);
+                if (r != -EEXIST || attempt >= 5)
+                        goto fail;
+
+                /* Maybe some other login attempt created the directory at the same time? Let's retry */
+                (void) unlinkat(parent_fd, t, AT_REMOVEDIR);
+                t = mfree(t);
+        }
+
+fail:
+        (void) unlinkat(parent_fd, ASSERT_PTR(t), AT_REMOVEDIR);
+        return r;
+}
+
+static int make_area_runtime_directory(
                 pam_handle_t *handle,
                 UserRecord *ur,
+                const char *runtime_directory,
+                const char *area,
+                char **ret) {
+
+        assert(handle);
+        assert(ur);
+        assert(runtime_directory);
+        assert(area);
+        assert(ret);
+
+        /* Let's be careful with creating these directories, the runtime directory is owned by the user after all,
+         * and they might play symlink games with us. */
+
+        _cleanup_close_ int fd = open(runtime_directory, O_CLOEXEC|O_PATH|O_DIRECTORY);
+        if (fd < 0)
+                return pam_syslog_errno(handle, LOG_ERR, errno, "Unable to open runtime directory '%s': %m", runtime_directory);
+
+        _cleanup_close_ int fd_areas = mkdir_chown_open_directory(fd, "Areas", ur->uid, user_record_gid(ur), 0755);
+        if (fd_areas < 0)
+                return pam_syslog_errno(handle, LOG_ERR, fd_areas, "Unable to create 'Areas' directory below '%s': %m", runtime_directory);
+
+        _cleanup_close_ int fd_area = mkdir_chown_open_directory(fd_areas, area, ur->uid, user_record_gid(ur), 0755);
+        if (fd_area < 0)
+                return pam_syslog_errno(handle, LOG_ERR, fd_area, "Unable to create '%s' directory below '%s/Areas': %m", area, runtime_directory);
+
+        char *j = path_join(runtime_directory, "Areas", area);
+        if (!j)
+                return pam_log_oom(handle);
+
+        *ret = j;
+        return 0;
+}
+
+static int setup_environment(
+                pam_handle_t *handle,
+                UserRecord *ur,
+                const char *runtime_directory,
                 const char *area,
                 bool debug) {
 
@@ -1430,7 +1503,7 @@ static int update_home_env(
         /* If an empty area string is specified, this means an explicit: do not use the area logic, normalize this here */
         area = empty_to_null(area);
 
-        _cleanup_free_ char *ha = NULL;
+        _cleanup_free_ char *ha = NULL, *area_copy = NULL;
         if (area) {
                 _cleanup_free_ char *j = path_join(h, "Areas", area);
                 if (!j)
@@ -1458,27 +1531,47 @@ static int update_home_env(
                                 pam_info(handle, "Path '%s' of requested user area '%s' is not owned by user, reverting to regular home directory.", ha, area);
                                 area = NULL;
                         } else {
+                                /* All good, now make a copy of the area string, since we quite likely are
+                                 * going to invalidate it (if it points into the environment block), via the
+                                 * update_environment() call below */
+                                area_copy = strdup(area);
+                                if (!area_copy)
+                                        return pam_log_oom(handle);
+
                                 pam_debug_syslog(handle, debug, "Area '%s' selected, setting $HOME to '%s': %m", area, ha);
                                 h = ha;
+                                area = area_copy;
                         }
                 }
         }
 
-        if (area) {
-                r = update_environment(handle, "XDG_AREA", area);
+        r = update_environment(handle, "XDG_AREA", area);
+        if (r != PAM_SUCCESS)
+                return r;
+
+        r = update_environment(handle, "HOME", h);
+        if (r != PAM_SUCCESS)
+                return r;
+
+        _cleanup_free_ char *per_area_runtime_directory = NULL;
+        if (runtime_directory && area) {
+                /* Also create a per-area subdirectory for $XDG_RUNTIME_DIR, so that each area has their own
+                 * set of runtime services. We follow the same directory structure as for $HOME. Note that we
+                 * do not define any form of automatic clean-up for the per-aera subdirs beyond the regular
+                 * clean-up of the whole $XDG_RUNTIME_DIRECTORY hierarchy when the user finally logs out. */
+
+                r = make_area_runtime_directory(handle, ur, runtime_directory, area, &per_area_runtime_directory);
                 if (r != PAM_SUCCESS)
                         return r;
-        } else if (pam_getenv(handle, "XDG_AREA")) {
-                /* Unset the $XDG_AREA variable if set. Note that pam_putenv() would log nastily behind our
-                 * back if we call it without $XDG_AREA actually being set. Hence we check explicitly if it's
-                 * set before. */
-                r = pam_putenv(handle, "XDG_AREA");
-                if (!IN_SET(r, PAM_SUCCESS, PAM_BAD_ITEM))
-                        pam_syslog_pam_error(handle, LOG_WARNING, r,
-                                             "Failed to unset XDG_AREA environment variable, ignoring: @PAMERR@");
+
+                runtime_directory = per_area_runtime_directory;
         }
 
-        return update_environment(handle, "HOME", h);
+        r = update_environment(handle, "XDG_RUNTIME_DIR", runtime_directory);
+        if (r != PAM_SUCCESS)
+                return r;
+
+        return export_legacy_dbus_address(handle, runtime_directory);
 }
 
 _public_ PAM_EXTERN int pam_sm_open_session(
@@ -1544,8 +1637,8 @@ _public_ PAM_EXTERN int pam_sm_open_session(
 
         session_context_mangle(handle, &c, ur, debug);
 
-        _cleanup_free_ char *seat_buffer = NULL;
-        r = register_session(handle, &c, ur, debug, &seat_buffer);
+        _cleanup_free_ char *seat_buffer = NULL, *runtime_dir = NULL;
+        r = register_session(handle, &c, ur, debug, &seat_buffer, &runtime_dir);
         if (r != PAM_SUCCESS)
                 return r;
 
@@ -1553,7 +1646,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         if (r != PAM_SUCCESS)
                 return r;
 
-        r = update_home_env(handle, ur, c.area, debug);
+        r = setup_environment(handle, ur, runtime_dir, c.area, debug);
         if (r != PAM_SUCCESS)
                 return r;
 
