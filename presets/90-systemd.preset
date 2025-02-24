@@ -13,6 +13,7 @@
 
 enable remote-fs.target
 enable remote-cryptsetup.target
+enable remote-veritysetup.target
 enable machines.target
 
 enable getty@.service
