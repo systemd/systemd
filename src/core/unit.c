@@ -4162,15 +4162,21 @@ UnitFileState unit_get_unit_file_state(Unit *u) {
 
         assert(u);
 
-        if (u->unit_file_state < 0 && u->fragment_path) {
-                r = unit_file_get_state(
-                                u->manager->runtime_scope,
-                                NULL,
-                                u->id,
-                                &u->unit_file_state);
-                if (r < 0)
-                        u->unit_file_state = UNIT_FILE_BAD;
-        }
+        if (u->unit_file_state >= 0 || !u->fragment_path)
+                return u->unit_file_state;
+
+        /* If we know this is a transient unit no need to ask the unit file state for details. Let's bypass
+         * the more expensive on-disk check. */
+        if (u->transient)
+                return (u->unit_file_state = UNIT_FILE_TRANSIENT);
+
+        r = unit_file_get_state(
+                        u->manager->runtime_scope,
+                        /* root_dir= */ NULL,
+                        u->id,
+                        &u->unit_file_state);
+        if (r < 0)
+                u->unit_file_state = UNIT_FILE_BAD;
 
         return u->unit_file_state;
 }
@@ -4180,24 +4186,26 @@ PresetAction unit_get_unit_file_preset(Unit *u) {
 
         assert(u);
 
-        if (u->unit_file_preset < 0 && u->fragment_path) {
-                _cleanup_free_ char *bn = NULL;
+        if (u->unit_file_preset >= 0 || !u->fragment_path)
+                return u->unit_file_preset;
 
-                r = path_extract_filename(u->fragment_path, &bn);
-                if (r < 0)
-                        return (u->unit_file_preset = r);
+        /* If this is a transient or perpetual unit file it doesn't make much sense to ask the preset
+         * database about this, because enabling/disabling makes no sense for either. Hence don't. */
+        if (u->transient || u->perpetual)
+                return (u->unit_file_preset = -ENOEXEC);
 
-                if (r == O_DIRECTORY)
-                        return (u->unit_file_preset = -EISDIR);
+        _cleanup_free_ char *bn = NULL;
+        r = path_extract_filename(u->fragment_path, &bn);
+        if (r < 0)
+                return (u->unit_file_preset = r);
+        if (r == O_DIRECTORY)
+                return (u->unit_file_preset = -EISDIR);
 
-                u->unit_file_preset = unit_file_query_preset(
+        return (u->unit_file_preset = unit_file_query_preset(
                                 u->manager->runtime_scope,
-                                NULL,
+                                /* root_dir= */ NULL,
                                 bn,
-                                NULL);
-        }
-
-        return u->unit_file_preset;
+                                /* cache= */ NULL));
 }
 
 Unit* unit_ref_set(UnitRef *ref, Unit *source, Unit *target) {
