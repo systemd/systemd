@@ -77,6 +77,11 @@ int rmdir_parents(const char *path, const char *stop) {
 int rename_noreplace(int olddirfd, const char *oldpath, int newdirfd, const char *newpath) {
         int r;
 
+        assert(olddirfd >= 0 || olddirfd == AT_FDCWD);
+        assert(oldpath);
+        assert(newdirfd >= 0 || newdirfd == AT_FDCWD);
+        assert(newpath);
+
         /* Try the ideal approach first */
         if (renameat2(olddirfd, oldpath, newdirfd, newpath, RENAME_NOREPLACE) >= 0)
                 return 0;
