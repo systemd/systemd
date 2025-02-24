@@ -576,12 +576,11 @@ if command -v ssh &>/dev/null && command -v sshd &>/dev/null && ! [[ -v ASAN_OPT
         if [[ -f "$dir/pam.d/sshd" ]]; then
             mv "$dir/pam.d/sshd" "$dir/pam.d/sshd.bak"
             cat >"$dir/pam.d/sshd" <<EOF
+auth [success=done authtok_err=bad perm_denied=bad maxtries=bad default=ignore] pam_systemd_home.so
 auth    sufficient pam_unix.so nullok
-auth    sufficient pam_systemd_home.so debug
 auth    required   pam_deny.so
-account sufficient pam_systemd_home.so debug
-account sufficient pam_unix.so
-account required   pam_permit.so
+account [success=done authtok_expired=bad new_authtok_reqd=bad maxtries=bad acct_expired=bad default=ignore] pam_systemd_home.so
+account required   pam_unix.so
 session optional   pam_systemd_home.so debug
 session optional   pam_systemd.so
 session required   pam_unix.so
@@ -680,14 +679,18 @@ run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest ln -s
 
 test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest sh -c 'echo $HOME')" = "/home/subareatest"
 test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest sh -c 'echo x$XDG_AREA')" = "x"
+test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest sh -c 'echo $XDG_RUNTIME_DIR')" = "/run/user/$(id -u subareatest)"
 test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest -a furb sh -c 'echo $HOME')" = "/home/subareatest/Areas/furb"
 test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest -a furb sh -c 'echo $XDG_AREA')" = "furb"
+test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest -a furb sh -c 'echo $XDG_RUNTIME_DIR')" = "/run/user/$(id -u subareatest)/Areas/furb"
 
 PASSWORD=quux homectl update subareatest --default-area=molb
 test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest sh -c 'echo $HOME')" = "/home/subareatest/Areas/molb"
 test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest sh -c 'echo $XDG_AREA')" = "molb"
+test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest sh -c 'echo $XDG_RUNTIME_DIR')" = "/run/user/$(id -u subareatest)/Areas/molb"
 test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest -a furb sh -c 'echo $HOME')" = "/home/subareatest/Areas/furb"
 test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest -a furb sh -c 'echo $XDG_AREA')" = "furb"
+test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest -a furb sh -c 'echo $XDG_RUNTIME_DIR')" = "/run/user/$(id -u subareatest)/Areas/furb"
 
 # Install a PK rule that allows 'subareatest' user to invoke run0 without password, just for testing
 cat > /usr/share/polkit-1/rules.d/subareatest.rules <<'EOF'
@@ -702,17 +705,22 @@ EOF
 # Test "recursive" operation
 test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest -a furb run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest -a molb sh -c 'echo $HOME')" = "/home/subareatest/Areas/molb"
 test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest -a furb run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest -a molb sh -c 'echo $XDG_AREA')" = "molb"
+test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest -a furb run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest -a molb sh -c 'echo $XDG_RUNTIME_DIR')" = "/run/user/$(id -u subareatest)/Areas/molb"
 test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest -a furb run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest -a molb run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest -a furb sh -c 'echo $HOME')" = "/home/subareatest/Areas/furb"
 test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest -a furb run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest -a molb run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest -a furb sh -c 'echo $XDG_AREA')" = "furb"
+test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest -a furb run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest -a molb run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest -a furb sh -c 'echo $XDG_RUNTIME_DIR')" = "/run/user/$(id -u subareatest)/Areas/furb"
 
 # Test symlinked area
 mkdir -p /home/srub
 chown subareatest:subareatest /home/srub
 test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest -a srub sh -c 'echo $HOME')" = "/home/srub"
 test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest -a srub sh -c 'echo $XDG_AREA')" = "srub"
+test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest -a srub sh -c 'echo $XDG_RUNTIME_DIR')" = "/run/user/$(id -u subareatest)/Areas/srub"
 
 # Verify that login into an area not owned by target user will be redirected to main area
+test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest -a root sh -c 'echo $HOME')" = "/home/subareatest"
 test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest -a root sh -c 'echo x$XDG_AREA')" = "x"
+test "$(run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest -a root sh -c 'echo $XDG_RUNTIME_DIR')" = "/run/user/$(id -u subareatest)"
 
 systemctl stop user@"$(id -u subareatest)".service
 
