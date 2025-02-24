@@ -6,6 +6,7 @@
 import argparse
 import base64
 import dataclasses
+import datetime
 import json
 import os
 import re
@@ -363,6 +364,7 @@ def main() -> None:
     parser.add_argument('--exit-code', required=True, type=int)
     parser.add_argument('--coredump-exclude-regex', required=True)
     parser.add_argument('--sanitizer-exclude-regex', required=True)
+    parser.add_argument('--rtc', action=argparse.BooleanOptionalAction)
     parser.add_argument('mkosi_args', nargs='*')
     args = parser.parse_args()
 
@@ -466,6 +468,16 @@ def main() -> None:
             """
         )
 
+    if args.rtc:
+        if sys.version_info >= (3, 12):
+            now = datetime.datetime.now(datetime.UTC)
+        else:
+            now = datetime.datetime.utcnow()
+
+        rtc = datetime.datetime.strftime(now, r'%Y-%m-%dT%H:%M:%S')
+    else:
+        rtc = None
+
     cmd = [
         args.mkosi,
         '--directory', os.fspath(args.meson_source_dir),
@@ -485,6 +497,7 @@ def main() -> None:
         '--credential', f'systemd.unit-dropin.{args.unit}={shlex.quote(dropin)}',
         '--runtime-network=none',
         '--runtime-scratch=no',
+        *([f'--qemu-args=-rtc base={rtc}'] if rtc else []),
         *args.mkosi_args,
         '--firmware', args.firmware,
         *(['--kvm', 'no'] if int(os.getenv('TEST_NO_KVM', '0')) else []),
