@@ -299,6 +299,7 @@ integration_test_template = {
         'vm' : false,
         'coredump-exclude-regex' : '',
         'sanitizer-exclude-regex' : '',
+        'rtc' : false,
 }
 testdata_subdirs = [
         'auxv',
@@ -415,6 +416,10 @@ foreach integration_test : integration_tests
 
         if integration_test['vm']
                 integration_test_args += ['--vm']
+        endif
+
+        if integration_test['rtc']
+                integration_test_args += ['--rtc']
         endif
 
         if not mkosi.found()
