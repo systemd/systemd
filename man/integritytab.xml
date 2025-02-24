@@ -133,6 +133,53 @@
 
         <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><option>_netdev</option></term>
+
+        <listitem><para>Marks this veritysetup device as requiring network. It will be started after the
+        network is available, similarly to
+        <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        units marked with <option>_netdev</option>. The service unit to set up this device will be ordered
+        between <filename>remote-fs-pre.target</filename> and
+        <filename>remote-integritysetup.target</filename>, instead of
+        <filename>integritysetup-pre.target</filename> and <filename>integritysetup.target</filename>.</para>
+
+        <para>Hint: if this device is used for a mount point that is specified in <citerefentry
+        project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>, the
+        <option>_netdev</option> option should also be used for the mount point. Otherwise, a dependency loop
+        might be created where the mount point will be pulled in by <filename>local-fs.target</filename>,
+        while the service to configure the network is usually only started <emphasis>after</emphasis> the
+        local file system has been mounted.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>noauto</option></term>
+
+        <listitem><para>This device will not be added to <filename>integritysetup.target</filename>.  This
+        means that it will not be automatically enabled on boot, unless something else pulls it in. In
+        particular, if the device is used for a mount point, it'll be enabled automatically during boot,
+        unless the mount point itself is also disabled with <option>noauto</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>nofail</option></term>
+
+        <listitem><para>This device will not be a hard dependency of
+        <filename>integritysetup.target</filename>. It'll still be pulled in and started, but the system will
+        not wait for the device to show up and be enabled, and boot will not fail if this is
+        unsuccessful. Note that other units that depend on the enabled device may still fail. In particular,
+        if the device is used for a mount point, the mount point itself also needs to have the
+        <option>nofail</option> option, or the boot will fail if the device is not enabled
+        successfully.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
     </variablelist>
 
     <para>At early boot and when the system manager configuration is
