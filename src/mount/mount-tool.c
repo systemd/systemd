@@ -417,11 +417,11 @@ static int parse_argv(int argc, char *argv[]) {
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "At least one argument required.");
 
-                if (arg_transport != BUS_TRANSPORT_LOCAL)
+                if (arg_transport != BUS_TRANSPORT_LOCAL || !arg_canonicalize)
                         for (int i = optind; i < argc; i++)
                                 if (!path_is_absolute(argv[i]))
                                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                               "Path must be absolute when operating remotely: %s",
+                                                               "Path must be absolute when operating remotely or when canonicalization is turned off: %s",
                                                                argv[i]);
         } else {
                 if (optind >= argc)
