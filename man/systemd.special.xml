@@ -66,6 +66,7 @@
     <filename>printer.target</filename>,
     <filename>reboot.target</filename>,
     <filename>remote-cryptsetup.target</filename>,
+    <filename>remote-integritysetup.target</filename>,
     <filename>remote-veritysetup.target</filename>,
     <filename>remote-fs-pre.target</filename>,
     <filename>remote-fs.target</filename>,
@@ -642,10 +643,21 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><filename>remote-integritysetup.target</filename></term>
+          <listitem>
+            <para>Similar to <filename>integritysetup.target</filename>, but for integrity protected devices
+            which are accessed over the network. It is used for
+            <citerefentry><refentrytitle>integritytab</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+            entries marked with <option>_netdev</option>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><filename>remote-veritysetup.target</filename></term>
           <listitem>
             <para>Similar to <filename>veritysetup.target</filename>, but for verity
-            integrity protected devices which are accessed over the network. It is used for
+            protected devices which are accessed over the network. It is used for
             <citerefentry><refentrytitle>veritytab</refentrytitle><manvolnum>5</manvolnum></citerefentry>
             entries marked with <option>_netdev</option>.</para>
 
