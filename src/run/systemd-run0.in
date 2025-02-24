@@ -4,7 +4,7 @@
 # Used by run0 sessions
 
 {% if ENABLE_HOMED %}
--account sufficient pam_systemd_home.so
+-account [success=done authtok_expired=bad new_authtok_reqd=bad maxtries=bad acct_expired=bad default=ignore] pam_systemd_home.so
 {% endif %}
 account  required   pam_unix.so
 

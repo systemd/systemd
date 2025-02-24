@@ -576,12 +576,11 @@ if command -v ssh &>/dev/null && command -v sshd &>/dev/null && ! [[ -v ASAN_OPT
         if [[ -f "$dir/pam.d/sshd" ]]; then
             mv "$dir/pam.d/sshd" "$dir/pam.d/sshd.bak"
             cat >"$dir/pam.d/sshd" <<EOF
+auth [success=done authtok_err=bad perm_denied=bad maxtries=bad default=ignore] pam_systemd_home.so
 auth    sufficient pam_unix.so nullok
-auth    sufficient pam_systemd_home.so debug
 auth    required   pam_deny.so
-account sufficient pam_systemd_home.so debug
-account sufficient pam_unix.so
-account required   pam_permit.so
+account [success=done authtok_expired=bad new_authtok_reqd=bad maxtries=bad acct_expired=bad default=ignore] pam_systemd_home.so
+account required   pam_unix.so
 session optional   pam_systemd_home.so debug
 session optional   pam_systemd.so
 session required   pam_unix.so
