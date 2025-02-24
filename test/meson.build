@@ -295,6 +295,7 @@ integration_test_template = {
         'qemu-args' : [],
         'exit-code' : 123,
         'vm' : false,
+        'rtc' : false,
 }
 testdata_subdirs = [
         'auxv',
@@ -407,6 +408,10 @@ foreach integration_test : integration_tests
 
         if integration_test['vm']
                 integration_test_args += ['--vm']
+        endif
+
+        if integration_test['rtc']
+                integration_test_args += ['--rtc']
         endif
 
         if not mkosi.found()
