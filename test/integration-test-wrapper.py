@@ -481,8 +481,6 @@ def main() -> None:
     cmd = [
         args.mkosi,
         '--directory', os.fspath(args.meson_source_dir),
-        '--output-dir', os.fspath(args.meson_build_dir / 'mkosi.output'),
-        '--extra-search-path', os.fspath(args.meson_build_dir),
         '--machine', name,
         '--ephemeral=yes',
         *(['--forward-journal', journal_file] if journal_file else []),
