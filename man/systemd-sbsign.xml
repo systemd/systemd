@@ -49,6 +49,20 @@
         <xi:include href="version-info.xml" xpointer="v257"/>
         </listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><option>export-signed-attributes</option></term>
+
+        <listitem><para>Exports the PKCS#7 signed attributes (without a signature) to the path specified
+        with <option>--output=</option>. Takes a path to a PE binary as its argument.</para>
+
+        <para>This command can be used to implement offline EFI secure boot signing in combination with the
+        <option>--signed-attributes=</option> and <option>--signed-attributes-signature=</option> options for
+        the <option>sign</option> verb.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
@@ -85,9 +99,42 @@
         <xi:include href="version-info.xml" xpointer="v257"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--signed-attributes=<replaceable>PATH</replaceable></option></term>
+        <term><option>--signed-attributes-signature=<replaceable>PATH</replaceable></option></term>
+
+        <listitem><para>Configure the signed attributes blob (as provided by
+        <command>export-signed-attributes</command>) and corresponding signature for the
+        <command>sign</command> command.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help"/>
       <xi:include href="standard-options.xml" xpointer="version"/>
     </variablelist>
+  </refsect1>
+
+
+  <refsect1>
+    <title>Examples</title>
+
+    <example>
+      <title>Offline EFI secure boot signing of a PE binary</title>
+
+      <para>The following does offline secure boot signing of systemd-boot:</para>
+
+      <programlisting>SD_BOOT="$(find /usr/lib/systemd/boot/efi/ -name "systemd-boot*.efi" | head -n1)"
+/usr/lib/systemd/systemd-sbsign export-signed-attributes --certificate cert.crt --output sattrs.bin "$SD_BOOT"
+openssl dgst -sha256 -sign privkey.pem -out sattrs.sig sattrs.bin
+/usr/lib/systemd/systemd-sbsign \
+    sign \
+    --certificate cert.crt \
+    --output "$SD_BOOT.signed" \
+    --signed-attributes sattrs.bin \
+    --signed-attributes-signature sattrs.sig \
+    "$SD_BOOT"</programlisting>
+    </example>
   </refsect1>
 
   <refsect1>
