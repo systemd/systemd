@@ -5,6 +5,7 @@
 #include "alloc-util.h"
 #include "compress.h"
 #include "fuzz.h"
+#include "tests.h"
 
 typedef struct header {
         uint32_t alg:2; /* We have only three compression algorithms so far, but we might add more in the
@@ -59,8 +60,6 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         size_t sw_len = MIN(data_len - 1, h->sw_len);
 
-        r = decompress_startswith(alg, buf, csize, &buf2, h->data, sw_len, h->data[sw_len]);
-        assert_se(r > 0);
-
+        ASSERT_OK(decompress_startswith(alg, buf, csize, &buf2, h->data, sw_len, h->data[sw_len]));
         return 0;
 }
