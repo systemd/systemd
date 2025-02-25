@@ -1184,22 +1184,24 @@ int manager_setup_save_time_event(Manager *m) {
         int r;
 
         assert(m);
-        assert(!m->event_save_time);
 
         if (m->save_time_interval_usec == USEC_INFINITY)
                 return 0;
 
         /* NB: we'll accumulate scheduling latencies here, but this doesn't matter */
-        r = sd_event_add_time_relative(
-                        m->event, &m->event_save_time,
+        r = event_reset_time_relative(
+                        m->event,
+                        &m->event_save_time,
                         CLOCK_BOOTTIME,
                         m->save_time_interval_usec,
                         10 * USEC_PER_SEC,
-                        manager_save_time_handler, m);
+                        manager_save_time_handler,
+                        m,
+                        SD_EVENT_PRIORITY_NORMAL,
+                        "save-time",
+                        /* force_reset = */ false);
         if (r < 0)
-                return log_error_errno(r, "Failed to add save time event: %m");
-
-        (void) sd_event_source_set_description(m->event_save_time, "save-time");
+                return log_error_errno(r, "Failed to reset event source for saving time: %m");
 
         return 0;
 }
@@ -1219,17 +1221,7 @@ static int manager_save_time_and_rearm(Manager *m, usec_t t) {
 
         m->save_on_exit = true;
 
-        if (m->save_time_interval_usec != USEC_INFINITY) {
-                r = sd_event_source_set_time_relative(m->event_save_time, m->save_time_interval_usec);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to rearm save time event: %m");
-
-                r = sd_event_source_set_enabled(m->event_save_time, SD_EVENT_ONESHOT);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to enable save time event: %m");
-        }
-
-        return 0;
+        return manager_setup_save_time_event(m);
 }
 
 static const char* ntp_server_property_name[_SERVER_TYPE_MAX] = {
