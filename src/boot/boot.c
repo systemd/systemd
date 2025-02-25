@@ -2707,6 +2707,12 @@ static void save_selected_entry(const Config *config, const BootEntry *entry) {
                 (void) efivar_unset(MAKE_GUID_PTR(LOADER), u"LoaderEntryLastBooted", EFI_VARIABLE_NON_VOLATILE);
 }
 
+static EFI_STATUS call_secure_boot_enroll(const BootEntry *entry, EFI_FILE *root_dir, EFI_HANDLE parent_image) {
+        assert(entry);
+
+        return secure_boot_enroll_at(root_dir, entry->path, /* force= */ true);
+}
+
 static EFI_STATUS secure_boot_discover_keys(Config *config, EFI_FILE *root_dir) {
         EFI_STATUS err;
         _cleanup_file_close_ EFI_FILE *keys_basedir = NULL;
@@ -2747,6 +2753,7 @@ static EFI_STATUS secure_boot_discover_keys(Config *config, EFI_FILE *root_dir) 
                         .type = LOADER_SECURE_BOOT_KEYS,
                         .tries_done = -1,
                         .tries_left = -1,
+                        .call = call_secure_boot_enroll,
                 };
                 config_add_entry(config, entry);
 
@@ -2975,14 +2982,6 @@ static EFI_STATUS run(EFI_HANDLE image) {
                         efivar_set_time_usec(MAKE_GUID_PTR(LOADER), u"LoaderTimeMenuUSec", 0);
                         if (!menu_run(&config, &entry, loaded_image_path))
                                 return EFI_SUCCESS;
-                }
-
-                /* if auto enrollment is activated, we try to load keys for the given entry. */
-                if (entry->type == LOADER_SECURE_BOOT_KEYS) {
-                        err = secure_boot_enroll_at(root_dir, entry->path, /*force=*/ true);
-                        if (err != EFI_SUCCESS)
-                                return err;
-                        continue;
                 }
 
                 (void) boot_entry_bump_counters(entry);
