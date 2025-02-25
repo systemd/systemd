@@ -70,6 +70,9 @@ typedef enum LoaderType {
 /* Which loader types shall be considered for automatic selection */
 #define LOADER_TYPE_MAY_AUTO_SELECT(t) IN_SET(t, LOADER_EFI, LOADER_LINUX, LOADER_UKI, LOADER_UKI_URL, LOADER_TYPE2_UKI)
 
+/* Whether to do boot attempt counting logic (only works if userspace can actually find the selected option later) */
+#define LOADER_TYPE_BUMP_COUNTERS(t) IN_SET(t, LOADER_LINUX, LOADER_UKI, LOADER_TYPE2_UKI)
+
 typedef struct BootEntry {
         char16_t *id;         /* The unique identifier for this entry (typically the filename of the file defining the entry, possibly suffixed with a profile id) */
         char16_t *id_without_profile; /* same, but without any profile id suffixed */
@@ -1151,6 +1154,9 @@ static EFI_STATUS boot_entry_bump_counters(BootEntry *entry) {
         EFI_STATUS err;
 
         assert(entry);
+
+        if (!LOADER_TYPE_BUMP_COUNTERS(entry->type))
+                return EFI_SUCCESS;
 
         if (entry->tries_left < 0)
                 return EFI_SUCCESS;
