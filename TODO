@@ -127,6 +127,19 @@ Deprecations and removals:
 
 Features:
 
+* sd-boot: do something useful if we find exactly zero entries (ignoring items
+  such as reboot/poweroff/factory reset). Show a help text or so.
+
+* sd-boot: optionally ask for confirmation before executing certain operations
+  (e.g. factory resets, storagetm with world access, and so on)
+
+* add field to bls type 1 and type 2 profiles that ensures an item is never
+  considered for automatic selection
+
+* add "conditions" for bls type 1 and type 2 profiles that allow suppressing
+  them under various conditions: 1. if tpm2 is available or not available;
+  2. if sb is on or off; 3. if we are netbooted or not; …
+
 * repart: introduce concept of "ghost" partitions, that we setup in almost all
   ways like other partitions, but do not actually register in the actual gpt
   table, but only tell the kernel about via BLKPG ioctl. These partitions are
