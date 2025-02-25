@@ -4572,7 +4572,7 @@ int tpm2_tpm2b_public_from_pem(const void *pem, size_t pem_size, TPM2B_PUBLIC *r
         assert(ret);
 
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
-        r = openssl_pkey_from_pem(pem, pem_size, &pkey);
+        r = openssl_pubkey_from_pem(pem, pem_size, &pkey);
         if (r < 0)
                 return r;
 
