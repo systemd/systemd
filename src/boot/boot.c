@@ -76,6 +76,9 @@ typedef enum LoaderType {
 /* Whether to do random seed management (only we invoke Linux) */
 #define LOADER_TYPE_PROCESS_RANDOM_SEED(t) IN_SET(t, LOADER_LINUX, LOADER_UKI, LOADER_TYPE2_UKI)
 
+/* Whether to persistently save the selected entry in an EFI variable, if that's requested. */
+#define LOADER_TYPE_SAVE_ENTRY(t) IN_SET(t, LOADER_EFI, LOADER_LINUX, LOADER_UKI, LOADER_UKI_URL, LOADER_TYPE2_UKI)
+
 typedef struct BootEntry {
         char16_t *id;         /* The unique identifier for this entry (typically the filename of the file defining the entry, possibly suffixed with a profile id) */
         char16_t *id_without_profile; /* same, but without any profile id suffixed */
@@ -2675,7 +2678,9 @@ static void config_write_entries_to_variable(Config *config) {
 static void save_selected_entry(const Config *config, const BootEntry *entry) {
         assert(config);
         assert(entry);
-        assert(entry->loader || !entry->call);
+
+        if (!LOADER_TYPE_SAVE_ENTRY(entry->type))
+                return;
 
         /* Always export the selected boot entry to the system in a volatile var. */
         (void) efivar_set_str16(MAKE_GUID_PTR(LOADER), u"LoaderEntrySelected", entry->id, 0);
