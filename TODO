@@ -833,10 +833,6 @@ Features:
   AllowPeerGroup= that installs additional user/group ACL entries on AF_UNIX
   sockets.
 
-* systemd-tpm2-setup should probably have a factory reset logic, i.e. when some
-  kernel command line option is set we reset the TPM (equivalent of tpm2_clear
-  -c owner? or rather echo 5 >/sys/class/tpm/tpm0/ppi/request?).
-
 * systemd-tpm2-setup should support a mode where we refuse booting if the SRK
   changed. (Must be opt-in, to not break systems which are supposed to be
   migratable between PCs)
