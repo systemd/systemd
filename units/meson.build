@@ -191,6 +191,11 @@ units = [
         { 'file' : 'remote-fs-pre.target' },
         { 'file' : 'remote-fs.target' },
         {
+          'file' : 'remote-integritysetup.target',
+          'conditions' : ['HAVE_LIBCRYPTSETUP'],
+          'symlinks' : ['initrd-root-device.target.wants/'],
+        },
+        {
           'file' : 'remote-veritysetup.target',
           'conditions' : ['HAVE_LIBCRYPTSETUP'],
           'symlinks' : ['initrd-root-device.target.wants/'],
