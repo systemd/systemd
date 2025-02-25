@@ -1127,11 +1127,16 @@ finish:
                 if (fchmod(fdt, st->st_mode & 07777) < 0)
                         r = -errno;
 
+                /* Run hardlink context cleanup now because it potentially changes timestamps */
+                hardlink_context_destroy(&our_hardlink_context);
                 (void) copy_xattr(dirfd(d), NULL, fdt, NULL, copy_flags);
                 (void) futimens(fdt, (struct timespec[]) { st->st_atim, st->st_mtim });
-        } else if (FLAGS_SET(copy_flags, COPY_RESTORE_DIRECTORY_TIMESTAMPS))
+        } else if (FLAGS_SET(copy_flags, COPY_RESTORE_DIRECTORY_TIMESTAMPS)) {
+                /* Run hardlink context cleanup now because it potentially changes timestamps */
+                hardlink_context_destroy(&our_hardlink_context);
                 /* If the directory already exists, make sure the timestamps stay the same as before. */
                 (void) futimens(fdt, (struct timespec[]) { dt_st.st_atim, dt_st.st_mtim });
+        }
 
         if (copy_flags & COPY_FSYNC_FULL) {
                 if (fsync(fdt) < 0)
