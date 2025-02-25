@@ -683,7 +683,7 @@ static int install_secure_boot_auto_enroll(const char *esp, X509 *certificate, E
                                                ERR_error_string(ERR_get_error(), NULL));
 
                 _cleanup_free_ uint8_t *sig = NULL;
-                int sigsz = i2d_PKCS7_SIGNED(p7->d.sign, &sig);
+                int sigsz = i2d_PKCS7(p7, &sig);
                 if (sigsz < 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to convert PKCS7 signature to DER: %s",
                                                ERR_error_string(ERR_get_error(), NULL));
