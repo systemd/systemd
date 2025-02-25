@@ -2711,6 +2711,9 @@ static EFI_STATUS secure_boot_discover_keys(Config *config, EFI_FILE *root_dir) 
         EFI_STATUS err;
         _cleanup_file_close_ EFI_FILE *keys_basedir = NULL;
 
+        if (config->secure_boot_enroll == ENROLL_OFF)
+                return EFI_SUCCESS;
+
         if (!IN_SET(secure_boot_mode(), SECURE_BOOT_SETUP, SECURE_BOOT_AUDIT))
                 return EFI_SUCCESS;
 
@@ -2874,12 +2877,10 @@ static void config_load_all_entries(
                 config_add_entry(config, entry);
         }
 
-        /* Find secure boot signing keys and autoload them if configured.
-         * Otherwise, create menu entries so that the user can load them manually.
-         * If the secure-boot-enroll variable is set to no (the default), we do not
-         * even search for keys on the ESP */
-        if (config->secure_boot_enroll != ENROLL_OFF)
-                secure_boot_discover_keys(config, root_dir);
+        /* Find secure boot signing keys and autoload them if configured.  Otherwise, create menu entries so
+         * that the user can load them manually.  If the secure-boot-enroll variable is set to no (the
+         * default), we do not even search for keys on the ESP */
+        (void) secure_boot_discover_keys(config, root_dir);
 
         if (config->n_entries == 0)
                 return;
@@ -2977,7 +2978,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
                 }
 
                 /* if auto enrollment is activated, we try to load keys for the given entry. */
-                if (entry->type == LOADER_SECURE_BOOT_KEYS && config.secure_boot_enroll != ENROLL_OFF) {
+                if (entry->type == LOADER_SECURE_BOOT_KEYS) {
                         err = secure_boot_enroll_at(root_dir, entry->path, /*force=*/ true);
                         if (err != EFI_SUCCESS)
                                 return err;
