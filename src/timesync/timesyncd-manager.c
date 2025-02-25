@@ -1219,8 +1219,6 @@ static int manager_save_time_and_rearm(Manager *m, usec_t t) {
         if (r < 0)
                 log_debug_errno(r, "Failed to update "TIMESYNCD_CLOCK_FILE", ignoring: %m");
 
-        m->save_on_exit = true;
-
         return manager_setup_save_time_event(m);
 }
 
