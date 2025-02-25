@@ -338,71 +338,19 @@ static int verb_pkcs7(int argc, char *argv[], void *userdata) {
         if (pkcs1_len == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "PKCS#1 file %s is empty", arg_signature);
 
-        /* Create PKCS7_SIGNER_INFO using X509 pubkey/digest NIDs */
-
-        _cleanup_(PKCS7_SIGNER_INFO_freep) PKCS7_SIGNER_INFO *signer_info = PKCS7_SIGNER_INFO_new();
-        if (!signer_info)
-                return log_oom();
-
-        if (ASN1_INTEGER_set(signer_info->version, 1) == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to set ASN1 integer: %s",
-                                       ERR_error_string(ERR_get_error(), NULL));
-
-        if (X509_NAME_set(&signer_info->issuer_and_serial->issuer, X509_get_issuer_name(certificate)) == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to set issuer name: %s",
-                                       ERR_error_string(ERR_get_error(), NULL));
-
-        ASN1_INTEGER_free(signer_info->issuer_and_serial->serial);
-        signer_info->issuer_and_serial->serial = ASN1_INTEGER_dup(X509_get0_serialNumber(certificate));
-        if (!signer_info->issuer_and_serial->serial)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to set issuer serial: %s",
-                                       ERR_error_string(ERR_get_error(), NULL));
-
-        int x509_mdnid = 0, x509_pknid = 0;
-        if (X509_get_signature_info(certificate, &x509_mdnid, &x509_pknid, /* secbits= */ NULL, /* flags= */ NULL) == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to get X.509 digest NID/PK: %s",
-                                       ERR_error_string(ERR_get_error(), NULL));
-
-        if (X509_ALGOR_set0(signer_info->digest_alg, OBJ_nid2obj(x509_mdnid), V_ASN1_NULL, /* pval= */ NULL) == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to set digest alg: %s",
-                                       ERR_error_string(ERR_get_error(), NULL));
-
-        if (X509_ALGOR_set0(signer_info->digest_enc_alg, OBJ_nid2obj(x509_pknid), V_ASN1_NULL, /* pval= */ NULL) == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to set digest enc alg: %s",
-                                       ERR_error_string(ERR_get_error(), NULL));
-
-        /* Create new PKCS7 using X509 certificate */
-
-        _cleanup_(PKCS7_freep) PKCS7 *pkcs7 = PKCS7_new();
-        if (!pkcs7)
-                return log_oom();
-
-        if (PKCS7_set_type(pkcs7, NID_pkcs7_signed) == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to set PKCS#7 type: %s",
-                                       ERR_error_string(ERR_get_error(), NULL));
-
-        if (PKCS7_content_new(pkcs7, NID_pkcs7_data) == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to set PKCS#7 content: %s",
-                                       ERR_error_string(ERR_get_error(), NULL));
+        _cleanup_(PKCS7_freep) PKCS7 *pkcs7 = NULL;
+        PKCS7_SIGNER_INFO *signer_info;
+        r = pkcs7_new(certificate, /* private_key= */ NULL, &pkcs7, &signer_info);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate PKCS#7 context: %m");
 
         if (PKCS7_set_detached(pkcs7, true) == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to set PKCS#7 detached attribute: %s",
                                        ERR_error_string(ERR_get_error(), NULL));
 
-        if (PKCS7_add_certificate(pkcs7, certificate) == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to set PKCS#7 certificate: %s",
-                                       ERR_error_string(ERR_get_error(), NULL));
-
         /* Add PKCS1 signature to PKCS7_SIGNER_INFO */
 
         ASN1_STRING_set0(signer_info->enc_digest, TAKE_PTR(pkcs1), pkcs1_len);
-
-        /* Add PKCS7_SIGNER_INFO to PKCS7 */
-
-        if (PKCS7_add_signer(pkcs7, signer_info) == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to set PKCS#7 signer info: %s",
-                                       ERR_error_string(ERR_get_error(), NULL));
-        TAKE_PTR(signer_info);
 
         _cleanup_fclose_ FILE *output = fopen(arg_output, "we");
         if (!output)
