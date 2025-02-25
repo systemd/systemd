@@ -11,6 +11,7 @@
 #include "export-vars.h"
 #include "graphics.h"
 #include "initrd.h"
+#include "line-edit.h"
 #include "linux.h"
 #include "measure.h"
 #include "memory-util-fundamental.h"
@@ -69,7 +70,16 @@ typedef enum LoaderType {
 /* Which loader types shall be considered for automatic selection */
 #define LOADER_TYPE_MAY_AUTO_SELECT(t) IN_SET(t, LOADER_EFI, LOADER_LINUX, LOADER_UKI, LOADER_UKI_URL, LOADER_TYPE2_UKI)
 
-typedef struct {
+/* Whether to do boot attempt counting logic (only works if userspace can actually find the selected option later) */
+#define LOADER_TYPE_BUMP_COUNTERS(t) IN_SET(t, LOADER_LINUX, LOADER_UKI, LOADER_TYPE2_UKI)
+
+/* Whether to do random seed management (only we invoke Linux) */
+#define LOADER_TYPE_PROCESS_RANDOM_SEED(t) IN_SET(t, LOADER_LINUX, LOADER_UKI, LOADER_TYPE2_UKI)
+
+/* Whether to persistently save the selected entry in an EFI variable, if that's requested. */
+#define LOADER_TYPE_SAVE_ENTRY(t) IN_SET(t, LOADER_EFI, LOADER_LINUX, LOADER_UKI, LOADER_UKI_URL, LOADER_TYPE2_UKI)
+
+typedef struct BootEntry {
         char16_t *id;         /* The unique identifier for this entry (typically the filename of the file defining the entry, possibly suffixed with a profile id) */
         char16_t *id_without_profile; /* same, but without any profile id suffixed */
         char16_t *title_show; /* The string to actually display (this is made unique before showing) */
@@ -86,7 +96,7 @@ typedef struct {
         bool options_implied; /* If true, these options are implied if we invoke the PE binary without any parameters (as in: UKI). If false we must specify these options explicitly. */
         char16_t **initrd;
         char16_t key;
-        EFI_STATUS (*call)(void);
+        EFI_STATUS (*call)(const struct BootEntry *entry, EFI_FILE *root_dir, EFI_HANDLE parent_image);
         int tries_done;
         int tries_left;
         char16_t *path;
@@ -150,254 +160,6 @@ enum {
         IDX_INVALID,
 };
 
-static void cursor_left(size_t *cursor, size_t *first) {
-        assert(cursor);
-        assert(first);
-
-        if ((*cursor) > 0)
-                (*cursor)--;
-        else if ((*first) > 0)
-                (*first)--;
-}
-
-static void cursor_right(size_t *cursor, size_t *first, size_t x_max, size_t len) {
-        assert(cursor);
-        assert(first);
-
-        if ((*cursor)+1 < x_max)
-                (*cursor)++;
-        else if ((*first) + (*cursor) < len)
-                (*first)++;
-}
-
-static bool line_edit(char16_t **line_in, size_t x_max, size_t y_pos) {
-        _cleanup_free_ char16_t *line = NULL, *print = NULL;
-        size_t size, len, first = 0, cursor = 0, clear = 0;
-
-        /* Edit the line and return true if it should be executed, false if not. */
-
-        assert(line_in);
-
-        len = strlen16(*line_in);
-        size = len + 1024;
-        line = xnew(char16_t, size);
-        print = xnew(char16_t, x_max + 1);
-        strcpy16(line, strempty(*line_in));
-
-        for (;;) {
-                EFI_STATUS err;
-                uint64_t key;
-                size_t j, cursor_color = EFI_TEXT_ATTR_SWAP(COLOR_EDIT);
-
-                j = MIN(len - first, x_max);
-                memcpy(print, line + first, j * sizeof(char16_t));
-                while (clear > 0 && j < x_max) {
-                        clear--;
-                        print[j++] = ' ';
-                }
-                print[j] = '\0';
-
-                /* See comment at edit_line() call site for why we start at 1. */
-                print_at(1, y_pos, COLOR_EDIT, print);
-
-                if (!print[cursor])
-                        print[cursor] = ' ';
-                print[cursor+1] = '\0';
-                do {
-                        print_at(cursor + 1, y_pos, cursor_color, print + cursor);
-                        cursor_color = EFI_TEXT_ATTR_SWAP(cursor_color);
-
-                        err = console_key_read(&key, 750 * 1000);
-                        if (!IN_SET(err, EFI_SUCCESS, EFI_TIMEOUT, EFI_NOT_READY))
-                                return false;
-
-                        print_at(cursor + 1, y_pos, COLOR_EDIT, print + cursor);
-                } while (err != EFI_SUCCESS);
-
-                switch (key) {
-                case KEYPRESS(0, SCAN_ESC, 0):
-                case KEYPRESS(EFI_CONTROL_PRESSED, 0, 'c'):
-                case KEYPRESS(EFI_CONTROL_PRESSED, 0, 'g'):
-                case KEYPRESS(EFI_CONTROL_PRESSED, 0, CHAR_CTRL('c')):
-                case KEYPRESS(EFI_CONTROL_PRESSED, 0, CHAR_CTRL('g')):
-                        return false;
-
-                case KEYPRESS(0, SCAN_HOME, 0):
-                case KEYPRESS(EFI_CONTROL_PRESSED, 0, 'a'):
-                case KEYPRESS(EFI_CONTROL_PRESSED, 0, CHAR_CTRL('a')):
-                        /* beginning-of-line */
-                        cursor = 0;
-                        first = 0;
-                        continue;
-
-                case KEYPRESS(0, SCAN_END, 0):
-                case KEYPRESS(EFI_CONTROL_PRESSED, 0, 'e'):
-                case KEYPRESS(EFI_CONTROL_PRESSED, 0, CHAR_CTRL('e')):
-                        /* end-of-line */
-                        cursor = len - first;
-                        if (cursor+1 >= x_max) {
-                                cursor = x_max-1;
-                                first = len - (x_max-1);
-                        }
-                        continue;
-
-                case KEYPRESS(0, SCAN_DOWN, 0):
-                case KEYPRESS(EFI_ALT_PRESSED, 0, 'f'):
-                case KEYPRESS(EFI_CONTROL_PRESSED, SCAN_RIGHT, 0):
-                        /* forward-word */
-                        while (line[first + cursor] == ' ')
-                                cursor_right(&cursor, &first, x_max, len);
-                        while (line[first + cursor] && line[first + cursor] != ' ')
-                                cursor_right(&cursor, &first, x_max, len);
-                        continue;
-
-                case KEYPRESS(0, SCAN_UP, 0):
-                case KEYPRESS(EFI_ALT_PRESSED, 0, 'b'):
-                case KEYPRESS(EFI_CONTROL_PRESSED, SCAN_LEFT, 0):
-                        /* backward-word */
-                        if ((first + cursor) > 0 && line[first + cursor-1] == ' ') {
-                                cursor_left(&cursor, &first);
-                                while ((first + cursor) > 0 && line[first + cursor] == ' ')
-                                        cursor_left(&cursor, &first);
-                        }
-                        while ((first + cursor) > 0 && line[first + cursor-1] != ' ')
-                                cursor_left(&cursor, &first);
-                        continue;
-
-                case KEYPRESS(0, SCAN_RIGHT, 0):
-                case KEYPRESS(EFI_CONTROL_PRESSED, 0, 'f'):
-                case KEYPRESS(EFI_CONTROL_PRESSED, 0, CHAR_CTRL('f')):
-                        /* forward-char */
-                        if (first + cursor == len)
-                                continue;
-                        cursor_right(&cursor, &first, x_max, len);
-                        continue;
-
-                case KEYPRESS(0, SCAN_LEFT, 0):
-                case KEYPRESS(EFI_CONTROL_PRESSED, 0, 'b'):
-                case KEYPRESS(EFI_CONTROL_PRESSED, 0, CHAR_CTRL('b')):
-                        /* backward-char */
-                        cursor_left(&cursor, &first);
-                        continue;
-
-                case KEYPRESS(EFI_CONTROL_PRESSED, SCAN_DELETE, 0):
-                case KEYPRESS(EFI_ALT_PRESSED, 0, 'd'):
-                        /* kill-word */
-                        clear = 0;
-
-                        size_t k;
-                        for (k = first + cursor; k < len && line[k] == ' '; k++)
-                                clear++;
-                        for (; k < len && line[k] != ' '; k++)
-                                clear++;
-
-                        for (size_t i = first + cursor; i + clear < len; i++)
-                                line[i] = line[i + clear];
-                        len -= clear;
-                        line[len] = '\0';
-                        continue;
-
-                case KEYPRESS(EFI_CONTROL_PRESSED, 0, 'w'):
-                case KEYPRESS(EFI_CONTROL_PRESSED, 0, CHAR_CTRL('w')):
-                case KEYPRESS(EFI_ALT_PRESSED, 0, '\b'):
-                        /* backward-kill-word */
-                        clear = 0;
-                        if ((first + cursor) > 0 && line[first + cursor-1] == ' ') {
-                                cursor_left(&cursor, &first);
-                                clear++;
-                                while ((first + cursor) > 0 && line[first + cursor] == ' ') {
-                                        cursor_left(&cursor, &first);
-                                        clear++;
-                                }
-                        }
-                        while ((first + cursor) > 0 && line[first + cursor-1] != ' ') {
-                                cursor_left(&cursor, &first);
-                                clear++;
-                        }
-
-                        for (size_t i = first + cursor; i + clear < len; i++)
-                                line[i] = line[i + clear];
-                        len -= clear;
-                        line[len] = '\0';
-                        continue;
-
-                case KEYPRESS(0, SCAN_DELETE, 0):
-                case KEYPRESS(EFI_CONTROL_PRESSED, 0, 'd'):
-                case KEYPRESS(EFI_CONTROL_PRESSED, 0, CHAR_CTRL('d')):
-                        if (len == 0)
-                                continue;
-                        if (first + cursor == len)
-                                continue;
-                        for (size_t i = first + cursor; i < len; i++)
-                                line[i] = line[i+1];
-                        clear = 1;
-                        len--;
-                        continue;
-
-                case KEYPRESS(EFI_CONTROL_PRESSED, 0, 'k'):
-                case KEYPRESS(EFI_CONTROL_PRESSED, 0, CHAR_CTRL('k')):
-                        /* kill-line */
-                        line[first + cursor] = '\0';
-                        clear = len - (first + cursor);
-                        len = first + cursor;
-                        continue;
-
-                case KEYPRESS(0, 0, '\n'):
-                case KEYPRESS(0, 0, '\r'):
-                case KEYPRESS(0, SCAN_F3, 0): /* EZpad Mini 4s firmware sends malformed events */
-                case KEYPRESS(0, SCAN_F3, '\r'): /* Teclast X98+ II firmware sends malformed events */
-                        if (!streq16(line, *line_in)) {
-                                free(*line_in);
-                                *line_in = TAKE_PTR(line);
-                        }
-                        return true;
-
-                case KEYPRESS(0, 0, '\b'):
-                        if (len == 0)
-                                continue;
-                        if (first == 0 && cursor == 0)
-                                continue;
-                        for (size_t i = first + cursor-1; i < len; i++)
-                                line[i] = line[i+1];
-                        clear = 1;
-                        len--;
-                        if (cursor > 0)
-                                cursor--;
-                        if (cursor > 0 || first == 0)
-                                continue;
-                        /* show full line if it fits */
-                        if (len < x_max) {
-                                cursor = first;
-                                first = 0;
-                                continue;
-                        }
-                        /* jump left to see what we delete */
-                        if (first > 10) {
-                                first -= 10;
-                                cursor = 10;
-                        } else {
-                                cursor = first;
-                                first = 0;
-                        }
-                        continue;
-
-                case KEYPRESS(0, 0, ' ') ... KEYPRESS(0, 0, '~'):
-                case KEYPRESS(0, 0, 0x80) ... KEYPRESS(0, 0, 0xffff):
-                        if (len+1 == size)
-                                continue;
-                        for (size_t i = len; i > first + cursor; i--)
-                                line[i] = line[i-1];
-                        line[first + cursor] = KEYCHAR(key);
-                        len++;
-                        line[len] = '\0';
-                        if (cursor+1 < x_max)
-                                cursor++;
-                        else if (first + cursor < len)
-                                first++;
-                        continue;
-                }
-        }
-}
 
 static size_t entry_lookup_key(Config *config, size_t start, char16_t key) {
         assert(config);
@@ -666,24 +428,24 @@ static EFI_STATUS set_reboot_into_firmware(void) {
         return EFI_SUCCESS;
 }
 
-_noreturn_ static EFI_STATUS poweroff_system(void) {
+_noreturn_ static EFI_STATUS call_poweroff_system(const BootEntry *entry, EFI_FILE *root, EFI_HANDLE parent_image) {
         RT->ResetSystem(EfiResetShutdown, EFI_SUCCESS, 0, NULL);
         assert_not_reached();
 }
 
-_noreturn_ static EFI_STATUS reboot_system(void) {
+_noreturn_ static EFI_STATUS call_reboot_system(const BootEntry *entry, EFI_FILE *root, EFI_HANDLE parent_image) {
         RT->ResetSystem(EfiResetCold, EFI_SUCCESS, 0, NULL);
         assert_not_reached();
 }
 
-static EFI_STATUS reboot_into_firmware(void) {
+static EFI_STATUS call_reboot_into_firmware(const BootEntry *entry, EFI_FILE *root, EFI_HANDLE parent_image) {
         EFI_STATUS err;
 
         err = set_reboot_into_firmware();
         if (err != EFI_SUCCESS)
                 return err;
 
-        return reboot_system();
+        return call_reboot_system(entry, root, parent_image);
 }
 
 static bool menu_run(
@@ -1176,10 +938,10 @@ static bool menu_run(
         case ACTION_CONTINUE:
                 assert_not_reached();
         case ACTION_POWEROFF:
-                poweroff_system();
+                (void) call_poweroff_system(/* entry= */ NULL, /* root= */ NULL, /* parent_image= */ NULL);
         case ACTION_REBOOT:
         case ACTION_FIRMWARE_SETUP:
-                reboot_system();
+                (void) call_reboot_system(/* entry= */ NULL, /* root= */ NULL, /* parent_image= */ NULL);
         case ACTION_RUN:
         case ACTION_QUIT:
                 break;
@@ -1399,6 +1161,9 @@ static EFI_STATUS boot_entry_bump_counters(BootEntry *entry) {
 
         assert(entry);
 
+        if (!LOADER_TYPE_BUMP_COUNTERS(entry->type))
+                return EFI_SUCCESS;
+
         if (entry->tries_left < 0)
                 return EFI_SUCCESS;
 
@@ -1446,6 +1211,8 @@ static EFI_STATUS boot_entry_bump_counters(BootEntry *entry) {
         return EFI_SUCCESS;
 }
 
+static EFI_STATUS call_image_start(const BootEntry *entry, EFI_FILE *root, EFI_HANDLE parent_image);
+
 static void boot_entry_add_type1(
                 Config *config,
                 EFI_HANDLE *device,
@@ -1471,6 +1238,7 @@ static void boot_entry_add_type1(
         *entry = (BootEntry) {
                 .tries_done = -1,
                 .tries_left = -1,
+                .call = call_image_start,
         };
 
         while ((line = line_get_key_value(content, " \t", &pos, &key, &value)))
@@ -2100,6 +1868,7 @@ static BootEntry* config_add_entry_loader_auto(
                 .key = key,
                 .tries_done = -1,
                 .tries_left = -1,
+                .call = call_image_start,
         };
 
         config_add_entry(config, entry);
@@ -2131,7 +1900,7 @@ static void config_add_entry_osx(Config *config) {
                                 config,
                                 handles[i],
                                 root,
-                                NULL,
+                                /* loaded_image_path= */ NULL,
                                 u"auto-osx",
                                 'a',
                                 u"macOS",
@@ -2141,10 +1910,12 @@ static void config_add_entry_osx(Config *config) {
 }
 
 #if defined(__i386__) || defined(__x86_64__) || defined(__arm__) || defined(__aarch64__)
-static EFI_STATUS boot_windows_bitlocker(void) {
+static EFI_STATUS call_boot_windows_bitlocker(const BootEntry *entry, EFI_FILE *root, EFI_HANDLE parent_image) {
         _cleanup_free_ EFI_HANDLE *handles = NULL;
         size_t n_handles;
         EFI_STATUS err;
+
+        assert(entry);
 
         // FIXME: Experimental for now. Should be generalized, and become a per-entry option that can be
         // enabled independently of BitLocker, and without a BootXXXX entry pre-existing.
@@ -2242,12 +2013,18 @@ static void config_add_entry_windows(Config *config, EFI_HANDLE *device, EFI_FIL
         if (err == EFI_SUCCESS)
                 title = get_bcd_title((uint8_t *) bcd, len);
 
-        BootEntry *e = config_add_entry_loader_auto(config, device, root_dir, NULL,
-                                                    u"auto-windows", 'w', title ?: u"Windows Boot Manager",
-                                                    u"\\EFI\\Microsoft\\Boot\\bootmgfw.efi");
+        BootEntry *e = config_add_entry_loader_auto(
+                        config,
+                        device,
+                        root_dir,
+                        NULL,
+                        u"auto-windows",
+                        'w',
+                        title ?: u"Windows Boot Manager",
+                        u"\\EFI\\Microsoft\\Boot\\bootmgfw.efi");
 
         if (config->reboot_for_bitlocker)
-                e->call = boot_windows_bitlocker;
+                e->call = call_boot_windows_bitlocker;
 #endif
 }
 
@@ -2449,6 +2226,7 @@ static void boot_entry_add_type2(
                         .tries_done = -1,
                         .tries_left = -1,
                         .profile = profile,
+                        .call = call_image_start,
                 };
 
                 config_add_entry(config, entry);
@@ -2704,19 +2482,16 @@ static EFI_STATUS expand_path(
         return EFI_NOT_FOUND;
 }
 
-static EFI_STATUS image_start(
-                EFI_HANDLE parent_image,
-                const BootEntry *entry) {
+static EFI_STATUS call_image_start(
+                const BootEntry *entry,
+                EFI_FILE *root,
+                EFI_HANDLE parent_image) {
 
         _cleanup_(devicetree_cleanup) struct devicetree_state dtstate = {};
         _cleanup_(unload_imagep) EFI_HANDLE image = NULL;
         EFI_STATUS err;
 
         assert(entry);
-
-        /* If this loader entry has a special way to boot, try that first. */
-        if (entry->call)
-                (void) entry->call();
 
         _cleanup_file_close_ EFI_FILE *image_root = NULL;
         _cleanup_free_ EFI_DEVICE_PATH *path = NULL;
@@ -2910,7 +2685,9 @@ static void config_write_entries_to_variable(Config *config) {
 static void save_selected_entry(const Config *config, const BootEntry *entry) {
         assert(config);
         assert(entry);
-        assert(entry->loader || !entry->call);
+
+        if (!LOADER_TYPE_SAVE_ENTRY(entry->type))
+                return;
 
         /* Always export the selected boot entry to the system in a volatile var. */
         (void) efivar_set_str16(MAKE_GUID_PTR(LOADER), u"LoaderEntrySelected", entry->id, 0);
@@ -2930,9 +2707,18 @@ static void save_selected_entry(const Config *config, const BootEntry *entry) {
                 (void) efivar_unset(MAKE_GUID_PTR(LOADER), u"LoaderEntryLastBooted", EFI_VARIABLE_NON_VOLATILE);
 }
 
+static EFI_STATUS call_secure_boot_enroll(const BootEntry *entry, EFI_FILE *root_dir, EFI_HANDLE parent_image) {
+        assert(entry);
+
+        return secure_boot_enroll_at(root_dir, entry->path, /* force= */ true);
+}
+
 static EFI_STATUS secure_boot_discover_keys(Config *config, EFI_FILE *root_dir) {
         EFI_STATUS err;
         _cleanup_file_close_ EFI_FILE *keys_basedir = NULL;
+
+        if (config->secure_boot_enroll == ENROLL_OFF)
+                return EFI_SUCCESS;
 
         if (!IN_SET(secure_boot_mode(), SECURE_BOOT_SETUP, SECURE_BOOT_AUDIT))
                 return EFI_SUCCESS;
@@ -2967,6 +2753,7 @@ static EFI_STATUS secure_boot_discover_keys(Config *config, EFI_FILE *root_dir) 
                         .type = LOADER_SECURE_BOOT_KEYS,
                         .tries_done = -1,
                         .tries_left = -1,
+                        .call = call_secure_boot_enroll,
                 };
                 config_add_entry(config, entry);
 
@@ -3012,6 +2799,47 @@ static void export_loader_variables(
         (void) efivar_set_uint64_le(MAKE_GUID_PTR(LOADER), u"LoaderFeatures", loader_features, 0);
 }
 
+static void config_add_system_entries(Config *config) {
+        assert(config);
+
+        if (config->auto_firmware && FLAGS_SET(get_os_indications_supported(), EFI_OS_INDICATIONS_BOOT_TO_FW_UI)) {
+                BootEntry *entry = xnew(BootEntry, 1);
+                *entry = (BootEntry) {
+                        .id = xstrdup16(u"auto-reboot-to-firmware-setup"),
+                        .title = xstrdup16(u"Reboot Into Firmware Interface"),
+                        .call = call_reboot_into_firmware,
+                        .tries_done = -1,
+                        .tries_left = -1,
+                };
+                config_add_entry(config, entry);
+        }
+
+        if (config->auto_poweroff) {
+                BootEntry *entry = xnew(BootEntry, 1);
+                *entry = (BootEntry) {
+                        .id = xstrdup16(u"auto-poweroff"),
+                        .title = xstrdup16(u"Power Off The System"),
+                        .call = call_poweroff_system,
+                        .tries_done = -1,
+                        .tries_left = -1,
+                };
+                config_add_entry(config, entry);
+        }
+
+        if (config->auto_reboot) {
+                BootEntry *entry = xnew(BootEntry, 1);
+                *entry = (BootEntry) {
+                        .id = xstrdup16(u"auto-reboot"),
+                        .title = xstrdup16(u"Reboot The System"),
+                        .call = call_reboot_system,
+                        .tries_done = -1,
+                        .tries_left = -1,
+                };
+                config_add_entry(config, entry);
+        }
+
+}
+
 static void config_load_all_entries(
                 Config *config,
                 EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
@@ -3042,53 +2870,31 @@ static void config_load_all_entries(
         /* If we find some well-known loaders, add them to the end of the list */
         config_add_entry_osx(config);
         config_add_entry_windows(config, loaded_image->DeviceHandle, root_dir);
-        config_add_entry_loader_auto(config, loaded_image->DeviceHandle, root_dir, NULL,
-                                     u"auto-efi-shell", 's', u"EFI Shell", u"\\shell" EFI_MACHINE_TYPE_NAME ".efi");
-        config_add_entry_loader_auto(config, loaded_image->DeviceHandle, root_dir, loaded_image_path,
-                                     u"auto-efi-default", '\0', u"EFI Default Loader", NULL);
+        config_add_entry_loader_auto(
+                        config,
+                        loaded_image->DeviceHandle,
+                        root_dir,
+                        /* loaded_image_path= */ NULL,
+                        u"auto-efi-shell",
+                        's',
+                        u"EFI Shell",
+                        u"\\shell" EFI_MACHINE_TYPE_NAME ".efi");
+        config_add_entry_loader_auto(
+                        config,
+                        loaded_image->DeviceHandle,
+                        root_dir,
+                        loaded_image_path,
+                        u"auto-efi-default",
+                        '\0',
+                        u"EFI Default Loader",
+                        /* loader= */ NULL);
 
-        if (config->auto_firmware && FLAGS_SET(get_os_indications_supported(), EFI_OS_INDICATIONS_BOOT_TO_FW_UI)) {
-                BootEntry *entry = xnew(BootEntry, 1);
-                *entry = (BootEntry) {
-                        .id = xstrdup16(u"auto-reboot-to-firmware-setup"),
-                        .title = xstrdup16(u"Reboot Into Firmware Interface"),
-                        .call = reboot_into_firmware,
-                        .tries_done = -1,
-                        .tries_left = -1,
-                };
-                config_add_entry(config, entry);
-        }
+        config_add_system_entries(config);
 
-        if (config->auto_poweroff) {
-                BootEntry *entry = xnew(BootEntry, 1);
-                *entry = (BootEntry) {
-                        .id = xstrdup16(u"auto-poweroff"),
-                        .title = xstrdup16(u"Power Off The System"),
-                        .call = poweroff_system,
-                        .tries_done = -1,
-                        .tries_left = -1,
-                };
-                config_add_entry(config, entry);
-        }
-
-        if (config->auto_reboot) {
-                BootEntry *entry = xnew(BootEntry, 1);
-                *entry = (BootEntry) {
-                        .id = xstrdup16(u"auto-reboot"),
-                        .title = xstrdup16(u"Reboot The System"),
-                        .call = reboot_system,
-                        .tries_done = -1,
-                        .tries_left = -1,
-                };
-                config_add_entry(config, entry);
-        }
-
-        /* Find secure boot signing keys and autoload them if configured.
-         * Otherwise, create menu entries so that the user can load them manually.
-         * If the secure-boot-enroll variable is set to no (the default), we do not
-         * even search for keys on the ESP */
-        if (config->secure_boot_enroll != ENROLL_OFF)
-                secure_boot_discover_keys(config, root_dir);
+        /* Find secure boot signing keys and autoload them if configured.  Otherwise, create menu entries so
+         * that the user can load them manually.  If the secure-boot-enroll variable is set to no (the
+         * default), we do not even search for keys on the ESP */
+        (void) secure_boot_discover_keys(config, root_dir);
 
         if (config->n_entries == 0)
                 return;
@@ -3185,28 +2991,14 @@ static EFI_STATUS run(EFI_HANDLE image) {
                                 return EFI_SUCCESS;
                 }
 
-                /* if auto enrollment is activated, we try to load keys for the given entry. */
-                if (entry->type == LOADER_SECURE_BOOT_KEYS && config.secure_boot_enroll != ENROLL_OFF) {
-                        err = secure_boot_enroll_at(root_dir, entry->path, /*force=*/ true);
-                        if (err != EFI_SUCCESS)
-                                return err;
-                        continue;
-                }
-
-                /* Run special entry like "reboot" now. Those that have a loader
-                 * will be handled by image_start() instead. */
-                if (entry->call && !entry->loader) {
-                        entry->call();
-                        continue;
-                }
-
                 (void) boot_entry_bump_counters(entry);
                 save_selected_entry(&config, entry);
 
                 /* Optionally, read a random seed off the ESP and pass it to the OS */
-                (void) process_random_seed(root_dir);
+                if (LOADER_TYPE_PROCESS_RANDOM_SEED(entry->type))
+                        (void) process_random_seed(root_dir);
 
-                err = image_start(image, entry);
+                err = ASSERT_PTR(entry->call)(entry, root_dir, image);
                 if (err != EFI_SUCCESS)
                         return err;
 
