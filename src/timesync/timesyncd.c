@@ -221,12 +221,10 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to run event loop: %m");
 
-        /* if we got an authoritative time, store it in the file system */
-        if (m->save_on_exit) {
-                r = touch(TIMESYNCD_CLOCK_FILE);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to touch "TIMESYNCD_CLOCK_FILE", ignoring: %m");
-        }
+        /* Save the current time in the file system on exit. */
+        r = touch(TIMESYNCD_CLOCK_FILE);
+        if (r < 0)
+                log_debug_errno(r, "Failed to touch "TIMESYNCD_CLOCK_FILE", ignoring: %m");
 
         return 0;
 }
