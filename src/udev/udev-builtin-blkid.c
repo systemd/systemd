@@ -26,6 +26,7 @@
 #include "devnum-util.h"
 #include "efi-loader.h"
 #include "errno-util.h"
+#include "factory-reset.h"
 #include "fd-util.h"
 #include "gpt.h"
 #include "parse-util.h"
@@ -231,6 +232,15 @@ static int find_gpt_root(UdevEvent *event, blkid_probe pr, const char *loop_back
                 /* We found a root partition, nice! Let's export its UUID. */
                 if (!sd_id128_is_null(root_id))
                         udev_builtin_add_property(event, "ID_PART_GPT_AUTO_ROOT_UUID", SD_ID128_TO_UUID_STRING(root_id));
+
+                /* Also encode current factory reset state in udev property at the moment we are probing
+                 * this. This is relevant because in various contexts we'd rather not create gpt-auto
+                 * symlinks while a factory reset is ongoing. */
+                FactoryResetMode f = factory_reset_mode();
+                if (f < 0)
+                        log_device_debug_errno(dev, r, "Unable to detect factory reset mode: %m");
+                else
+                        udev_builtin_add_property(event, "ID_PART_GPT_AUTO_ROOT_FACTORY_RESET", factory_reset_mode_to_string(f));
         }
 #endif
 

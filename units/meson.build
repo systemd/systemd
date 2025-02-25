@@ -37,6 +37,7 @@ units = [
         { 'file' : 'emergency.target' },
         { 'file' : 'exit.target' },
         { 'file' : 'factory-reset.target' },
+        { 'file' : 'factory-reset-now.target' },
         { 'file' : 'final.target' },
         { 'file' : 'first-boot-complete.target' },
         { 'file' : 'getty-pre.target' },
@@ -317,6 +318,12 @@ units = [
         },
         { 'file' : 'systemd-creds@.service' },
         { 'file' : 'systemd-exit.service' },
+        { 'file' : 'systemd-factory-reset-complete.service.in' },
+        { 'file' : 'systemd-factory-reset-reboot.service' },
+        {
+          'file' : 'systemd-factory-reset-request.service.in',
+          'symlinks' : ['factory-reset.target.wants/'],
+        },
         {
           'file' : 'systemd-firstboot.service',
           'conditions' : ['ENABLE_FIRSTBOOT'],
@@ -541,6 +548,10 @@ units = [
           'file' : 'systemd-pcrphase.service.in',
           'conditions' : ['ENABLE_BOOTLOADER', 'HAVE_OPENSSL', 'HAVE_TPM2'],
           'symlinks' : ['sysinit.target.wants/'],
+        },
+        {
+          'file' : 'systemd-tpm2-clear.service.in',
+          'conditions' : ['ENABLE_BOOTLOADER', 'HAVE_OPENSSL', 'HAVE_TPM2'],
         },
         {
           'file' : 'systemd-tpm2-setup.service.in',

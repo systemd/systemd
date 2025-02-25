@@ -5,6 +5,9 @@ ACTION=="remove", GOTO="btrfs_end"
 ENV{ID_FS_TYPE}!="btrfs", GOTO="btrfs_end"
 ENV{SYSTEMD_READY}=="0", GOTO="btrfs_end"
 
+# Do not ask kernel btrfs stack to activate this device if this is the automatic root device and we are in factory reset mode
+ENV{ID_PART_GPT_AUTO_ROOT}=="1", ENV{ID_PART_GPT_AUTO_ROOT_FACTORY_RESET}=="on", GOTO="btrfs_end"
+
 # let the kernel know about this btrfs filesystem, and check if it is complete
 IMPORT{builtin}="btrfs ready $devnode"
 

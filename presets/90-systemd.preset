@@ -31,6 +31,7 @@ enable systemd-pstore.service
 enable systemd-resolved.service
 enable systemd-sysext.service
 enable systemd-timesyncd.service
+enable systemd-tpm2-clear.service
 enable systemd-userdbd.socket
 
 disable console-getty.service
