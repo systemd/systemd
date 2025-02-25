@@ -73,6 +73,9 @@ typedef enum LoaderType {
 /* Whether to do boot attempt counting logic (only works if userspace can actually find the selected option later) */
 #define LOADER_TYPE_BUMP_COUNTERS(t) IN_SET(t, LOADER_LINUX, LOADER_UKI, LOADER_TYPE2_UKI)
 
+/* Whether to do random seed management (only we invoke Linux) */
+#define LOADER_TYPE_PROCESS_RANDOM_SEED(t) IN_SET(t, LOADER_LINUX, LOADER_UKI, LOADER_TYPE2_UKI)
+
 typedef struct BootEntry {
         char16_t *id;         /* The unique identifier for this entry (typically the filename of the file defining the entry, possibly suffixed with a profile id) */
         char16_t *id_without_profile; /* same, but without any profile id suffixed */
@@ -2966,7 +2969,8 @@ static EFI_STATUS run(EFI_HANDLE image) {
                 save_selected_entry(&config, entry);
 
                 /* Optionally, read a random seed off the ESP and pass it to the OS */
-                (void) process_random_seed(root_dir);
+                if (LOADER_TYPE_PROCESS_RANDOM_SEED(entry->type))
+                        (void) process_random_seed(root_dir);
 
                 err = image_start(entry, root_dir, image);
                 if (err != EFI_SUCCESS)
