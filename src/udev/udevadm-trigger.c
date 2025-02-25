@@ -32,22 +32,17 @@ static bool arg_settle = false;
 static int exec_list(
                 sd_device_enumerator *e,
                 sd_device_action_t action,
-                Set **ret_settle_path_or_ids) {
+                Set *settle_ids) {
 
-        _cleanup_set_free_ Set *settle_path_or_ids = NULL;
-        int uuid_supported = -1;
-        const char *action_str;
-        sd_device *d;
+        const char *action_str = device_action_to_string(action);
         int r, ret = 0;
 
         assert(e);
 
-        action_str = device_action_to_string(action);
-
+        sd_device *d;
         FOREACH_DEVICE_AND_SUBSYSTEM(e, d) {
-                sd_id128_t id = SD_ID128_NULL;
-                const char *syspath;
 
+                const char *syspath;
                 r = sd_device_get_syspath(d, &syspath);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to get syspath of enumerated devices, ignoring: %m");
@@ -60,18 +55,8 @@ static int exec_list(
                 if (arg_dry_run)
                         continue;
 
-                /* Use the UUID mode if the user explicitly asked for it, or if --settle has been specified,
-                 * so that we can recognize our own uevent. */
-                r = sd_device_trigger_with_uuid(d, action, (arg_uuid || arg_settle) && uuid_supported != 0 ? &id : NULL);
-                if (r == -EINVAL && !arg_uuid && arg_settle && uuid_supported < 0) {
-                        /* If we specified a UUID because of the settling logic, and we got EINVAL this might
-                         * be caused by an old kernel which doesn't know the UUID logic (pre-4.13). Let's try
-                         * if it works without the UUID logic then. */
-                        r = sd_device_trigger(d, action);
-                        if (r != -EINVAL)
-                                uuid_supported = false; /* dropping the uuid stuff changed the return code,
-                                                         * hence don't bother next time */
-                }
+                sd_id128_t id;
+                r = sd_device_trigger_with_uuid(d, action, &id);
                 if (r < 0) {
                         /* ENOENT may be returned when a device does not have /uevent or is already
                          * removed. Hence, this is logged at debug level and ignored.
@@ -108,117 +93,63 @@ static int exec_list(
 
                         if (r == -EROFS)
                                 return r;
-                        if (ret == 0 && !ignore)
-                                ret = r;
+                        if (!ignore)
+                                RET_GATHER(ret, r);
                         continue;
                 } else
                         log_device_debug(d, "Triggered device with action '%s'.", action_str);
-
-                if (uuid_supported < 0)
-                        uuid_supported = true;
 
                 /* If the user asked for it, write event UUID to stdout */
                 if (arg_uuid)
                         printf(SD_ID128_UUID_FORMAT_STR "\n", SD_ID128_FORMAT_VAL(id));
 
-                if (arg_settle) {
-                        if (uuid_supported) {
-                                sd_id128_t *dup;
+                if (settle_ids) {
+                        sd_id128_t *dup = newdup(sd_id128_t, &id, 1);
+                        if (!dup)
+                                return log_oom();
 
-                                dup = newdup(sd_id128_t, &id, 1);
-                                if (!dup)
-                                        return log_oom();
-
-                                r = set_ensure_consume(&settle_path_or_ids, &id128_hash_ops_free, dup);
-                        } else {
-                                char *dup;
-
-                                dup = strdup(syspath);
-                                if (!dup)
-                                        return log_oom();
-
-                                r = set_ensure_consume(&settle_path_or_ids, &path_hash_ops_free, dup);
-                        }
+                        r = set_consume(settle_ids, dup);
                         if (r < 0)
                                 return log_oom();
                 }
         }
 
-        if (ret_settle_path_or_ids)
-                *ret_settle_path_or_ids = TAKE_PTR(settle_path_or_ids);
-
         return ret;
 }
 
 static int device_monitor_handler(sd_device_monitor *m, sd_device *dev, void *userdata) {
-        Set *settle_path_or_ids = * (Set**) ASSERT_PTR(userdata);
-        const char *syspath;
-        sd_id128_t id;
+        Set *settle_ids = ASSERT_PTR(userdata);
         int r;
 
         assert(dev);
 
-        r = sd_device_get_syspath(dev, &syspath);
+        sd_id128_t id;
+        r = sd_device_get_trigger_uuid(dev, &id);
         if (r < 0) {
-                log_device_debug_errno(dev, r, "Failed to get syspath of device event, ignoring: %m");
+                log_device_debug_errno(dev, r, "Got uevent without UUID, ignoring: %m");
                 return 0;
         }
 
-        if (sd_device_get_trigger_uuid(dev, &id) >= 0) {
-                _cleanup_free_ sd_id128_t *saved = NULL;
-
-                saved = set_remove(settle_path_or_ids, &id);
-                if (!saved) {
-                        log_device_debug(dev, "Got uevent not matching expected UUID, ignoring.");
-                        return 0;
-                }
-        } else {
-                _cleanup_free_ char *saved = NULL;
-
-                saved = set_remove(settle_path_or_ids, syspath);
-                if (!saved) {
-                        const char *old_sysname;
-
-                        /* When the device is renamed, the new name is broadcast, and the old name is saved
-                         * in INTERFACE_OLD.
-                         *
-                         * TODO: remove support for INTERFACE_OLD when kernel baseline is bumped to 4.13 or
-                         * higher. See 1193448cb68e5a90cab027e16a093bbd367e9494.
-                         */
-
-                        if (sd_device_get_property_value(dev, "INTERFACE_OLD", &old_sysname) >= 0) {
-                                _cleanup_free_ char *dir = NULL, *old_syspath = NULL;
-
-                                r = path_extract_directory(syspath, &dir);
-                                if (r < 0) {
-                                        log_device_debug_errno(dev, r,
-                                                               "Failed to extract directory from '%s', ignoring: %m",
-                                                               syspath);
-                                        return 0;
-                                }
-
-                                old_syspath = path_join(dir, old_sysname);
-                                if (!old_syspath) {
-                                        log_oom_debug();
-                                        return 0;
-                                }
-
-                                saved = set_remove(settle_path_or_ids, old_syspath);
-                        }
-                }
-                if (!saved) {
-                        log_device_debug(dev, "Got uevent for unexpected device, ignoring.");
-                        return 0;
-                }
+        _cleanup_free_ sd_id128_t *saved = set_remove(settle_ids, &id);
+        if (!saved) {
+                log_device_debug(dev, "Got uevent with unexpected UUID, ignoring.");
+                return 0;
         }
 
-        if (arg_verbose)
-                printf("settle %s\n", syspath);
+        if (arg_verbose) {
+                const char *syspath;
+
+                r = sd_device_get_syspath(dev, &syspath);
+                if (r < 0)
+                        log_device_debug_errno(dev, r, "Failed to get syspath of device event, ignoring: %m");
+                else
+                        printf("settle %s\n", syspath);
+        }
 
         if (arg_uuid)
                 printf("settle " SD_ID128_UUID_FORMAT_STR "\n", SD_ID128_FORMAT_VAL(id));
 
-        if (set_isempty(settle_path_or_ids))
+        if (set_isempty(settle_ids))
                 return sd_event_exit(sd_device_monitor_get_event(m), 0);
 
         return 0;
@@ -325,7 +256,7 @@ int trigger_main(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *m = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
-        _cleanup_set_free_ Set *settle_path_or_ids = NULL;
+        _cleanup_set_free_ Set *settle_ids = NULL;
         usec_t ping_timeout_usec = 5 * USEC_PER_SEC;
         bool ping = false;
         int c, r;
@@ -526,7 +457,11 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to attach event to device monitor: %m");
 
-                r = sd_device_monitor_start(m, device_monitor_handler, &settle_path_or_ids);
+                settle_ids = set_new(&id128_hash_ops_free);
+                if (!settle_ids)
+                        return log_oom();
+
+                r = sd_device_monitor_start(m, device_monitor_handler, settle_ids);
                 if (r < 0)
                         return log_error_errno(r, "Failed to start device monitor: %m");
         }
@@ -551,15 +486,16 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                 assert_not_reached();
         }
 
-        r = exec_list(e, action, arg_settle ? &settle_path_or_ids : NULL);
+        r = exec_list(e, action, settle_ids);
         if (r < 0)
                 return r;
 
-        if (!set_isempty(settle_path_or_ids)) {
-                r = sd_event_loop(event);
-                if (r < 0)
-                        return log_error_errno(r, "Event loop failed: %m");
-        }
+        if (set_isempty(settle_ids))
+                return 0;
+
+        r = sd_event_loop(event);
+        if (r < 0)
+                return log_error_errno(r, "Event loop failed: %m");
 
         return 0;
 }
