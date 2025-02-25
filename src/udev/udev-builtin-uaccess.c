@@ -3,26 +3,17 @@
  * manage device node user ACL
  */
 
-#include <errno.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/stat.h>
-
 #include "sd-login.h"
 
 #include "device-util.h"
 #include "devnode-acl.h"
 #include "errno-util.h"
 #include "login-util.h"
-#include "log.h"
 #include "udev-builtin.h"
 
 static int builtin_uaccess(UdevEvent *event, int argc, char *argv[]) {
         sd_device *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
-        const char *path = NULL, *seat;
-        bool changed_acl = false;
-        uid_t uid;
-        int r;
+        int r, k;
 
         if (event->event_mode != EVENT_UDEV_WORKER) {
                 log_device_debug(dev, "Running in test mode, skipping execution of 'uaccess' builtin command.");
@@ -35,16 +26,17 @@ static int builtin_uaccess(UdevEvent *event, int argc, char *argv[]) {
         if (!logind_running())
                 return 0;
 
-        r = sd_device_get_devname(dev, &path);
-        if (r < 0) {
-                log_device_error_errno(dev, r, "Failed to get device name: %m");
-                goto finish;
-        }
+        const char *node;
+        r = sd_device_get_devname(dev, &node);
+        if (r < 0)
+                return log_device_error_errno(dev, r, "Failed to get device node: %m");
 
+        const char *seat;
         if (sd_device_get_property_value(dev, "ID_SEAT", &seat) < 0)
                 seat = "seat0";
 
-        r = sd_seat_get_active(seat, NULL, &uid);
+        uid_t uid;
+        r = sd_seat_get_active(seat, /* ret_session = */ NULL, &uid);
         if (r < 0) {
                 if (IN_SET(r, -ENXIO, -ENODATA))
                         /* No active session on this seat */
@@ -52,28 +44,29 @@ static int builtin_uaccess(UdevEvent *event, int argc, char *argv[]) {
                 else
                         log_device_error_errno(dev, r, "Failed to determine active user on seat %s: %m", seat);
 
-                goto finish;
+                goto reset;
         }
 
-        r = devnode_acl(path, true, false, 0, true, uid);
+        r = devnode_acl(node,
+                        /* flush = */ true,
+                        /* del = */ false, /* old_uid = */ 0,
+                        /* add = */ true, /* new_uid = */ uid);
         if (r < 0) {
                 log_device_full_errno(dev, r == -ENOENT ? LOG_DEBUG : LOG_ERR, r, "Failed to apply ACL: %m");
-                goto finish;
+                goto reset;
         }
 
-        changed_acl = true;
-        r = 0;
+        return 0;
 
-finish:
-        if (path && !changed_acl) {
-                int k;
-
-                /* Better be safe than sorry and reset ACL */
-                k = devnode_acl(path, true, false, 0, false, 0);
-                if (k < 0) {
-                        log_device_full_errno(dev, k == -ENOENT ? LOG_DEBUG : LOG_ERR, k, "Failed to apply ACL: %m");
-                        RET_GATHER(r, k);
-                }
+reset:
+        /* Better be safe than sorry and reset ACL */
+        k = devnode_acl(node,
+                        /* flush = */ true,
+                        /* del = */ false, /* old_uid = */ 0,
+                        /* add = */ false, /* new_uid = */ 0);
+        if (k < 0) {
+                log_device_full_errno(dev, k == -ENOENT ? LOG_DEBUG : LOG_ERR, k, "Failed to flush ACLs: %m");
+                RET_GATHER(r, k);
         }
 
         return r;
