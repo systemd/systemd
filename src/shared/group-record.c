@@ -350,6 +350,9 @@ int group_record_match(GroupRecord *h, const UserDBMatch *match) {
         if (!match)
                 return true;
 
+        if (!gid_is_valid(h->gid))
+                return false;
+
         if (h->gid < match->gid_min || h->gid > match->gid_max)
                 return false;
 

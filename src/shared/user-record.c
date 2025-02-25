@@ -2775,6 +2775,9 @@ int user_record_match(UserRecord *u, const UserDBMatch *match) {
         if (!match)
                 return true;
 
+        if (!uid_is_valid(u->uid))
+                return false;
+
         if (u->uid < match->uid_min || u->uid > match->uid_max)
                 return false;
 
