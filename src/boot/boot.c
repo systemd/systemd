@@ -70,7 +70,7 @@ typedef enum LoaderType {
 /* Which loader types shall be considered for automatic selection */
 #define LOADER_TYPE_MAY_AUTO_SELECT(t) IN_SET(t, LOADER_EFI, LOADER_LINUX, LOADER_UKI, LOADER_UKI_URL, LOADER_TYPE2_UKI)
 
-typedef struct {
+typedef struct BootEntry {
         char16_t *id;         /* The unique identifier for this entry (typically the filename of the file defining the entry, possibly suffixed with a profile id) */
         char16_t *id_without_profile; /* same, but without any profile id suffixed */
         char16_t *title_show; /* The string to actually display (this is made unique before showing) */
@@ -87,7 +87,7 @@ typedef struct {
         bool options_implied; /* If true, these options are implied if we invoke the PE binary without any parameters (as in: UKI). If false we must specify these options explicitly. */
         char16_t **initrd;
         char16_t key;
-        EFI_STATUS (*call)(void);
+        EFI_STATUS (*call)(const struct BootEntry *entry, EFI_FILE *root_dir, EFI_HANDLE parent_image);
         int tries_done;
         int tries_left;
         char16_t *path;
@@ -419,24 +419,24 @@ static EFI_STATUS set_reboot_into_firmware(void) {
         return EFI_SUCCESS;
 }
 
-_noreturn_ static EFI_STATUS poweroff_system(void) {
+_noreturn_ static EFI_STATUS call_poweroff_system(const BootEntry *entry, EFI_FILE *root, EFI_HANDLE parent_image) {
         RT->ResetSystem(EfiResetShutdown, EFI_SUCCESS, 0, NULL);
         assert_not_reached();
 }
 
-_noreturn_ static EFI_STATUS reboot_system(void) {
+_noreturn_ static EFI_STATUS call_reboot_system(const BootEntry *entry, EFI_FILE *root, EFI_HANDLE parent_image) {
         RT->ResetSystem(EfiResetCold, EFI_SUCCESS, 0, NULL);
         assert_not_reached();
 }
 
-static EFI_STATUS reboot_into_firmware(void) {
+static EFI_STATUS call_reboot_into_firmware(const BootEntry *entry, EFI_FILE *root, EFI_HANDLE parent_image) {
         EFI_STATUS err;
 
         err = set_reboot_into_firmware();
         if (err != EFI_SUCCESS)
                 return err;
 
-        return reboot_system();
+        return call_reboot_system(entry, root, parent_image);
 }
 
 static bool menu_run(
@@ -929,10 +929,10 @@ static bool menu_run(
         case ACTION_CONTINUE:
                 assert_not_reached();
         case ACTION_POWEROFF:
-                poweroff_system();
+                (void) call_poweroff_system(/* entry= */ NULL, /* root= */ NULL, /* parent_image= */ NULL);
         case ACTION_REBOOT:
         case ACTION_FIRMWARE_SETUP:
-                reboot_system();
+                (void) call_reboot_system(/* entry= */ NULL, /* root= */ NULL, /* parent_image= */ NULL);
         case ACTION_RUN:
         case ACTION_QUIT:
                 break;
@@ -1894,10 +1894,12 @@ static void config_add_entry_osx(Config *config) {
 }
 
 #if defined(__i386__) || defined(__x86_64__) || defined(__arm__) || defined(__aarch64__)
-static EFI_STATUS boot_windows_bitlocker(void) {
+static EFI_STATUS call_boot_windows_bitlocker(const BootEntry *entry, EFI_FILE *root, EFI_HANDLE parent_image) {
         _cleanup_free_ EFI_HANDLE *handles = NULL;
         size_t n_handles;
         EFI_STATUS err;
+
+        assert(entry);
 
         // FIXME: Experimental for now. Should be generalized, and become a per-entry option that can be
         // enabled independently of BitLocker, and without a BootXXXX entry pre-existing.
@@ -2000,7 +2002,7 @@ static void config_add_entry_windows(Config *config, EFI_HANDLE *device, EFI_FIL
                                                     u"\\EFI\\Microsoft\\Boot\\bootmgfw.efi");
 
         if (config->reboot_for_bitlocker)
-                e->call = boot_windows_bitlocker;
+                e->call = call_boot_windows_bitlocker;
 #endif
 }
 
@@ -2458,8 +2460,9 @@ static EFI_STATUS expand_path(
 }
 
 static EFI_STATUS image_start(
-                EFI_HANDLE parent_image,
-                const BootEntry *entry) {
+                const BootEntry *entry,
+                EFI_FILE *root,
+                EFI_HANDLE parent_image) {
 
         _cleanup_(devicetree_cleanup) struct devicetree_state dtstate = {};
         _cleanup_(unload_imagep) EFI_HANDLE image = NULL;
@@ -2469,7 +2472,7 @@ static EFI_STATUS image_start(
 
         /* If this loader entry has a special way to boot, try that first. */
         if (entry->call)
-                (void) entry->call();
+                (void) entry->call(entry, root, parent_image);
 
         _cleanup_file_close_ EFI_FILE *image_root = NULL;
         _cleanup_free_ EFI_DEVICE_PATH *path = NULL;
@@ -2805,7 +2808,7 @@ static void config_load_all_entries(
                 *entry = (BootEntry) {
                         .id = xstrdup16(u"auto-reboot-to-firmware-setup"),
                         .title = xstrdup16(u"Reboot Into Firmware Interface"),
-                        .call = reboot_into_firmware,
+                        .call = call_reboot_into_firmware,
                         .tries_done = -1,
                         .tries_left = -1,
                 };
@@ -2817,7 +2820,7 @@ static void config_load_all_entries(
                 *entry = (BootEntry) {
                         .id = xstrdup16(u"auto-poweroff"),
                         .title = xstrdup16(u"Power Off The System"),
-                        .call = poweroff_system,
+                        .call = call_poweroff_system,
                         .tries_done = -1,
                         .tries_left = -1,
                 };
@@ -2829,7 +2832,7 @@ static void config_load_all_entries(
                 *entry = (BootEntry) {
                         .id = xstrdup16(u"auto-reboot"),
                         .title = xstrdup16(u"Reboot The System"),
-                        .call = reboot_system,
+                        .call = call_reboot_system,
                         .tries_done = -1,
                         .tries_left = -1,
                 };
@@ -2949,7 +2952,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
                 /* Run special entry like "reboot" now. Those that have a loader
                  * will be handled by image_start() instead. */
                 if (entry->call && !entry->loader) {
-                        entry->call();
+                        entry->call(entry, root_dir, image);
                         continue;
                 }
 
@@ -2959,7 +2962,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
                 /* Optionally, read a random seed off the ESP and pass it to the OS */
                 (void) process_random_seed(root_dir);
 
-                err = image_start(image, entry);
+                err = image_start(entry, root_dir, image);
                 if (err != EFI_SUCCESS)
                         return err;
 
