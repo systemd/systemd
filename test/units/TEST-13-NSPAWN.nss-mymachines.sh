@@ -114,8 +114,8 @@ for i in {100..120}; do
     run_and_grep "^10\.2\.0\.$i\s+STREAM" getent ahostsv4 -s mymachines nss-mymachines-manyips
 done
 run_and_grep "^fd00:dead:beef:cafe::2\s+STREAM" getent ahostsv6 -s mymachines nss-mymachines-manyips
-(! run_and_grep "^fd00:" getent ahostsv4 -s mymachines nss-mymachines-manyips)
-(! run_and_grep "^10\.2:" getent ahostsv6 -s mymachines nss-mymachines-manyips)
+run_and_grep -n "^fd00:" getent ahostsv4 -s mymachines nss-mymachines-manyips
+run_and_grep -n "^10\.2:" getent ahostsv6 -s mymachines nss-mymachines-manyips
 
 # Multiple machines at once
 run_and_grep "^10\.1\.0\.2\s+nss-mymachines-singleip$" getent hosts -s mymachines nss-mymachines-{singleip,manyips}
