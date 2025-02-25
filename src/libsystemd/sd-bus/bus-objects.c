@@ -127,6 +127,8 @@ static int add_enumerated_to_set(
                 if (sd_bus_error_is_set(error))
                         return -sd_bus_error_get_errno(error);
 
+                strv_sort(children);
+
                 STRV_FOREACH(k, children) {
                         if (r < 0) {
                                 free(*k);
