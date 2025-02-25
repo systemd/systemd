@@ -1211,6 +1211,8 @@ static EFI_STATUS boot_entry_bump_counters(BootEntry *entry) {
         return EFI_SUCCESS;
 }
 
+static EFI_STATUS call_image_start(const BootEntry *entry, EFI_FILE *root_dir, EFI_HANDLE parent_image);
+
 static void boot_entry_add_type1(
                 Config *config,
                 EFI_HANDLE *device,
@@ -1236,6 +1238,7 @@ static void boot_entry_add_type1(
         *entry = (BootEntry) {
                 .tries_done = -1,
                 .tries_left = -1,
+                .call = call_image_start,
         };
 
         while ((line = line_get_key_value(content, " \t", &pos, &key, &value)))
@@ -1865,6 +1868,7 @@ static BootEntry* config_add_entry_loader_auto(
                 .key = key,
                 .tries_done = -1,
                 .tries_left = -1,
+                .call = call_image_start,
         };
 
         config_add_entry(config, entry);
@@ -1896,7 +1900,7 @@ static void config_add_entry_osx(Config *config) {
                                 config,
                                 handles[i],
                                 root,
-                                NULL,
+                                /* loaded_image_path= */ NULL,
                                 u"auto-osx",
                                 'a',
                                 u"macOS",
@@ -1990,7 +1994,7 @@ static EFI_STATUS call_boot_windows_bitlocker(const BootEntry *entry, EFI_FILE *
 }
 #endif
 
-static void config_add_entry_windows(Config *config, EFI_HANDLE *device, EFI_FILE *root_dir) {
+static void config_add_entry_windows(Config *config, EFI_HANDLE *device, EFI_FILE *root) {
 #if defined(__i386__) || defined(__x86_64__) || defined(__arm__) || defined(__aarch64__)
         _cleanup_free_ char *bcd = NULL;
         char16_t *title = NULL;
@@ -1999,19 +2003,25 @@ static void config_add_entry_windows(Config *config, EFI_HANDLE *device, EFI_FIL
 
         assert(config);
         assert(device);
-        assert(root_dir);
+        assert(root);
 
         if (!config->auto_entries)
                 return;
 
         /* Try to find a better title. */
-        err = file_read(root_dir, u"\\EFI\\Microsoft\\Boot\\BCD", 0, 100*1024, &bcd, &len);
+        err = file_read(root, u"\\EFI\\Microsoft\\Boot\\BCD", 0, 100*1024, &bcd, &len);
         if (err == EFI_SUCCESS)
                 title = get_bcd_title((uint8_t *) bcd, len);
 
-        BootEntry *e = config_add_entry_loader_auto(config, device, root_dir, NULL,
-                                                    u"auto-windows", 'w', title ?: u"Windows Boot Manager",
-                                                    u"\\EFI\\Microsoft\\Boot\\bootmgfw.efi");
+        BootEntry *e = config_add_entry_loader_auto(
+                        config,
+                        device,
+                        root,
+                        NULL,
+                        u"auto-windows",
+                        'w',
+                        title ?: u"Windows Boot Manager",
+                        u"\\EFI\\Microsoft\\Boot\\bootmgfw.efi");
 
         if (config->reboot_for_bitlocker)
                 e->call = call_boot_windows_bitlocker;
@@ -2216,6 +2226,7 @@ static void boot_entry_add_type2(
                         .tries_done = -1,
                         .tries_left = -1,
                         .profile = profile,
+                        .call = call_image_start,
                 };
 
                 config_add_entry(config, entry);
@@ -2471,9 +2482,9 @@ static EFI_STATUS expand_path(
         return EFI_NOT_FOUND;
 }
 
-static EFI_STATUS image_start(
+static EFI_STATUS call_image_start(
                 const BootEntry *entry,
-                EFI_FILE *root,
+                EFI_FILE *root_dir,
                 EFI_HANDLE parent_image) {
 
         _cleanup_(devicetree_cleanup) struct devicetree_state dtstate = {};
@@ -2481,10 +2492,6 @@ static EFI_STATUS image_start(
         EFI_STATUS err;
 
         assert(entry);
-
-        /* If this loader entry has a special way to boot, try that first. */
-        if (entry->call)
-                (void) entry->call(entry, root, parent_image);
 
         _cleanup_file_close_ EFI_FILE *image_root = NULL;
         _cleanup_free_ EFI_DEVICE_PATH *path = NULL;
@@ -2812,10 +2819,24 @@ static void config_load_all_entries(
         /* If we find some well-known loaders, add them to the end of the list */
         config_add_entry_osx(config);
         config_add_entry_windows(config, loaded_image->DeviceHandle, root_dir);
-        config_add_entry_loader_auto(config, loaded_image->DeviceHandle, root_dir, NULL,
-                                     u"auto-efi-shell", 's', u"EFI Shell", u"\\shell" EFI_MACHINE_TYPE_NAME ".efi");
-        config_add_entry_loader_auto(config, loaded_image->DeviceHandle, root_dir, loaded_image_path,
-                                     u"auto-efi-default", '\0', u"EFI Default Loader", NULL);
+        config_add_entry_loader_auto(
+                        config,
+                        loaded_image->DeviceHandle,
+                        root_dir,
+                        /* loaded_image_path= */ NULL,
+                        u"auto-efi-shell",
+                        's',
+                        u"EFI Shell",
+                        u"\\shell" EFI_MACHINE_TYPE_NAME ".efi");
+        config_add_entry_loader_auto(
+                        config,
+                        loaded_image->DeviceHandle,
+                        root_dir,
+                        loaded_image_path,
+                        u"auto-efi-default",
+                        '\0',
+                        u"EFI Default Loader",
+                        /* loader= */ NULL);
 
         if (config->auto_firmware && FLAGS_SET(get_os_indications_supported(), EFI_OS_INDICATIONS_BOOT_TO_FW_UI)) {
                 BootEntry *entry = xnew(BootEntry, 1);
@@ -2963,13 +2984,6 @@ static EFI_STATUS run(EFI_HANDLE image) {
                         continue;
                 }
 
-                /* Run special entry like "reboot" now. Those that have a loader
-                 * will be handled by image_start() instead. */
-                if (entry->call && !entry->loader) {
-                        entry->call(entry, root_dir, image);
-                        continue;
-                }
-
                 (void) boot_entry_bump_counters(entry);
                 save_selected_entry(&config, entry);
 
@@ -2977,7 +2991,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
                 if (LOADER_TYPE_PROCESS_RANDOM_SEED(entry->type))
                         (void) process_random_seed(root_dir);
 
-                err = image_start(entry, root_dir, image);
+                err = ASSERT_PTR(entry->call)(entry, root_dir, image);
                 if (err != EFI_SUCCESS)
                         return err;
 
