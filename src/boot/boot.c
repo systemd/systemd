@@ -2799,6 +2799,47 @@ static void export_loader_variables(
         (void) efivar_set_uint64_le(MAKE_GUID_PTR(LOADER), u"LoaderFeatures", loader_features, 0);
 }
 
+static void config_add_system_entries(Config *config) {
+        assert(config);
+
+        if (config->auto_firmware && FLAGS_SET(get_os_indications_supported(), EFI_OS_INDICATIONS_BOOT_TO_FW_UI)) {
+                BootEntry *entry = xnew(BootEntry, 1);
+                *entry = (BootEntry) {
+                        .id = xstrdup16(u"auto-reboot-to-firmware-setup"),
+                        .title = xstrdup16(u"Reboot Into Firmware Interface"),
+                        .call = call_reboot_into_firmware,
+                        .tries_done = -1,
+                        .tries_left = -1,
+                };
+                config_add_entry(config, entry);
+        }
+
+        if (config->auto_poweroff) {
+                BootEntry *entry = xnew(BootEntry, 1);
+                *entry = (BootEntry) {
+                        .id = xstrdup16(u"auto-poweroff"),
+                        .title = xstrdup16(u"Power Off The System"),
+                        .call = call_poweroff_system,
+                        .tries_done = -1,
+                        .tries_left = -1,
+                };
+                config_add_entry(config, entry);
+        }
+
+        if (config->auto_reboot) {
+                BootEntry *entry = xnew(BootEntry, 1);
+                *entry = (BootEntry) {
+                        .id = xstrdup16(u"auto-reboot"),
+                        .title = xstrdup16(u"Reboot The System"),
+                        .call = call_reboot_system,
+                        .tries_done = -1,
+                        .tries_left = -1,
+                };
+                config_add_entry(config, entry);
+        }
+
+}
+
 static void config_load_all_entries(
                 Config *config,
                 EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
@@ -2848,41 +2889,7 @@ static void config_load_all_entries(
                         u"EFI Default Loader",
                         /* loader= */ NULL);
 
-        if (config->auto_firmware && FLAGS_SET(get_os_indications_supported(), EFI_OS_INDICATIONS_BOOT_TO_FW_UI)) {
-                BootEntry *entry = xnew(BootEntry, 1);
-                *entry = (BootEntry) {
-                        .id = xstrdup16(u"auto-reboot-to-firmware-setup"),
-                        .title = xstrdup16(u"Reboot Into Firmware Interface"),
-                        .call = call_reboot_into_firmware,
-                        .tries_done = -1,
-                        .tries_left = -1,
-                };
-                config_add_entry(config, entry);
-        }
-
-        if (config->auto_poweroff) {
-                BootEntry *entry = xnew(BootEntry, 1);
-                *entry = (BootEntry) {
-                        .id = xstrdup16(u"auto-poweroff"),
-                        .title = xstrdup16(u"Power Off The System"),
-                        .call = call_poweroff_system,
-                        .tries_done = -1,
-                        .tries_left = -1,
-                };
-                config_add_entry(config, entry);
-        }
-
-        if (config->auto_reboot) {
-                BootEntry *entry = xnew(BootEntry, 1);
-                *entry = (BootEntry) {
-                        .id = xstrdup16(u"auto-reboot"),
-                        .title = xstrdup16(u"Reboot The System"),
-                        .call = call_reboot_system,
-                        .tries_done = -1,
-                        .tries_left = -1,
-                };
-                config_add_entry(config, entry);
-        }
+        config_add_system_entries(config);
 
         /* Find secure boot signing keys and autoload them if configured.  Otherwise, create menu entries so
          * that the user can load them manually.  If the secure-boot-enroll variable is set to no (the
