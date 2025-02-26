@@ -423,7 +423,7 @@ static void tar_pull_job_on_finished(PullJob *j) {
                 r = install_file(
                                 AT_FDCWD, i->local,
                                 AT_FDCWD, NULL,
-                                (i->flags & IMPORT_READ_ONLY) ? INSTALL_READ_ONLY : 0 |
+                                (i->flags & IMPORT_READ_ONLY ? INSTALL_READ_ONLY : 0) |
                                 (i->flags & IMPORT_SYNC ? INSTALL_SYNCFS : 0));
                 if (r < 0) {
                         log_error_errno(r, "Failed to finalize '%s': %m", i->local);
