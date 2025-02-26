@@ -517,7 +517,7 @@ static int manager_validate_and_mangle_question(Manager *manager, DnsQuestion **
 
         if (!*question) {
                 *ret_allocated = NULL;
-                return 0;
+                return -ENOANO;
         }
 
         if (set_isempty(manager->refuse_record_types)) {
