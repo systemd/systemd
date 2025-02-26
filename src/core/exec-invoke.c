@@ -5182,10 +5182,9 @@ int exec_invoke(
         }
 
         if (needs_sandboxing && exec_needs_cgroup_namespace(context, params)) {
-                r = unshare(CLONE_NEWCGROUP);
-                if (r < 0) {
+                if (unshare(CLONE_NEWCGROUP) < 0) {
                         *exit_status = EXIT_NAMESPACE;
-                        return log_exec_error_errno(context, params, r, "Failed to set up cgroup namespacing: %m");
+                        return log_exec_error_errno(context, params, errno, "Failed to set up cgroup namespacing: %m");
                 }
         }
 
