@@ -592,7 +592,7 @@ int dns_query_new(
                 if (question_utf8 || question_idna)
                         return -EINVAL;
 
-                _unused_ _cleanup_(dns_question_unrefp) DnsQuestion *filtered_question_bypass = NULL;
+                DnsQuestion *filtered_question_bypass = NULL;
                 r = manager_validate_and_mangle_question(m, &question_bypass->question, &filtered_question_bypass);
                 if (r < 0)
                         return r;
