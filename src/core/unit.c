@@ -107,7 +107,7 @@ Unit* unit_new(Manager *m, size_t size) {
         u->type = _UNIT_TYPE_INVALID;
         u->default_dependencies = true;
         u->unit_file_state = _UNIT_FILE_STATE_INVALID;
-        u->unit_file_preset = -1;
+        u->unit_file_preset = _PRESET_ACTION_INVALID;
         u->on_failure_job_mode = JOB_REPLACE;
         u->on_success_job_mode = JOB_FAIL;
         u->job_timeout = USEC_INFINITY;
