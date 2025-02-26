@@ -258,13 +258,9 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 log_debug_errno(r, "Failed to change temporary file mode: %m");
 
-        r = copy_bytes(srcfd, dstfd, UINT64_MAX, COPY_REFLINK);
-        if (r < 0)
-                return log_error_errno(r, "Failed to copy %s to %s: %m", argv[1], tmp);
-
         _cleanup_free_ void *hash = NULL;
         size_t hashsz;
-        r = pe_hash(dstfd, EVP_sha256(), &hash, &hashsz);
+        r = pe_hash(srcfd, EVP_sha256(), &hash, &hashsz);
         if (r < 0)
                 return log_error_errno(r, "Failed to hash PE binary %s: %m", argv[0]);
 
@@ -410,6 +406,10 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
         certificate_table = pe_header_get_data_directory(pe_header, IMAGE_DATA_DIRECTORY_INDEX_CERTIFICATION_TABLE);
         if (!certificate_table)
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "File lacks certificate table.");
+
+        r = copy_bytes(srcfd, dstfd, UINT64_MAX, COPY_REFLINK);
+        if (r < 0)
+                return log_error_errno(r, "Failed to copy %s to %s: %m", argv[1], tmp);
 
         off_t end = st.st_size;
         ssize_t n;
