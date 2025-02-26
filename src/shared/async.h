@@ -21,7 +21,10 @@
 
 int asynchronous_sync(pid_t *ret_pid);
 int asynchronous_fsync(int fd, pid_t *ret_pid);
+
 int asynchronous_close(int fd);
-int asynchronous_rm_rf(const char *p, RemoveFlags flags);
+void asynchronous_close_many(const int fds[], size_t n_fds);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(int, asynchronous_close);
+
+int asynchronous_rm_rf(const char *p, RemoveFlags flags);
