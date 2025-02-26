@@ -4186,12 +4186,12 @@ PresetAction unit_get_unit_file_preset(Unit *u) {
 
         assert(u);
 
-        if (u->unit_file_preset >= 0 || !u->fragment_path)
+        if (u->unit_file_preset >= 0)
                 return u->unit_file_preset;
 
         /* If this is a transient or perpetual unit file it doesn't make much sense to ask the preset
          * database about this, because enabling/disabling makes no sense for either. Hence don't. */
-        if (u->transient || u->perpetual)
+        if (!u->fragment_path || u->transient || u->perpetual)
                 return (u->unit_file_preset = -ENOEXEC);
 
         _cleanup_free_ char *bn = NULL;
