@@ -977,7 +977,6 @@ static void dns_stub_process_query(Manager *m, DnsStubListenerExtra *l, DnsStrea
                 protocol_flags = SD_RESOLVED_DNS|SD_RESOLVED_NO_ZONE; /* Turn off mDNS/LLMNR for proxy stub. */
         } else if (DNS_PACKET_DO(p)) {
                 log_debug("Got request with DNSSEC enabled, enabling bypass logic.");
-                bypass = true;
         }
 
         if (bypass)
