@@ -2371,3 +2371,9 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPadX1Carbon3rd:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnFalco:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnPeppy:*
  XKB_FIXED_MODEL=chromebook
+
+# TUXEDO NB02 Notebooks have the exotic key combination
+# Control + Super + Keycode 93 triggered when pressing the touchpad toggle
+# shortcut. This layout redirects this to F21, aka touchpad toggle.
+evdev:atkbd:dmi:*:svnTUXEDO:*:rvnNB02:*
+ XKB_FIXED_MODEL=tuxedonb02
