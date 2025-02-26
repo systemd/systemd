@@ -252,7 +252,7 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
         _cleanup_(unlink_and_freep) char *tmp = NULL;
         _cleanup_close_ int dstfd = open_tmpfile_linkable(arg_output, O_RDWR|O_CLOEXEC, &tmp);
         if (dstfd < 0)
-                return log_error_errno(r, "Failed to open temporary file: %m");
+                return log_error_errno(dstfd, "Failed to open temporary file: %m");
 
         r = fchmod_umask(dstfd, 0666);
         if (r < 0)
