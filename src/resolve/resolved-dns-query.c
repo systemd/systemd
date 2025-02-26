@@ -517,7 +517,7 @@ static int manager_validate_and_mangle_question(Manager *manager, DnsQuestion **
 
         if (!*question) {
                 *ret_allocated = NULL;
-                return -ENOANO;
+                return 0;
         }
 
         if (set_isempty(manager->refuse_record_types)) {
@@ -591,6 +591,11 @@ int dns_query_new(
                 /* It's either a "bypass" query, or a regular one, but can't be both. */
                 if (question_utf8 || question_idna)
                         return -EINVAL;
+
+                _unused_ _cleanup_(dns_question_unrefp) DnsQuestion *filtered_question_bypass = NULL;
+                r = manager_validate_and_mangle_question(m, &question_bypass->question, &filtered_question_bypass);
+                if (r < 0)
+                        return r;
 
         } else {
                 bool good = false;
