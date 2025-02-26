@@ -4162,7 +4162,7 @@ UnitFileState unit_get_unit_file_state(Unit *u) {
 
         assert(u);
 
-        if (u->unit_file_state >= 0 || !u->fragment_path)
+        if (u->unit_file_state >= 0)
                 return u->unit_file_state;
 
         /* If we know this is a transient unit no need to ask the unit file state for details. Let's bypass
