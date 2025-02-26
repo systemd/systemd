@@ -585,12 +585,26 @@ static int update_environment(pam_handle_t *handle, const char *key, const char 
         assert(handle);
         assert(key);
 
-        /* Updates the environment, but only if there's actually a value set. Also, log about errors */
+        /* Updates the environment, and removes environment variables if value is NULL or empty. Also, log
+         * about errors. */
 
-        if (isempty(value))
+        if (isempty(value)) {
+                /* Unset the variable if set. Note that pam_putenv() would log nastily behind our back if we
+                 * call it without the variable actually being set. Hence we check explicitly if it's set
+                 * before. */
+
+                if (!pam_getenv(handle, key))
+                        return PAM_SUCCESS;
+
+                r = pam_putenv(handle, key);
+                if (!IN_SET(r, PAM_SUCCESS, PAM_BAD_ITEM))
+                        return pam_syslog_pam_error(handle, LOG_WARNING, r,
+                                                    "Failed to unset %s environment variable: @PAMERR@", key);
+
                 return PAM_SUCCESS;
+        }
 
-        r = pam_misc_setenv(handle, key, value, 0);
+        r = pam_misc_setenv(handle, key, value, /* readonly= */ false);
         if (r != PAM_SUCCESS)
                 return pam_syslog_pam_error(handle, LOG_ERR, r,
                                             "Failed to set environment variable %s: @PAMERR@", key);
