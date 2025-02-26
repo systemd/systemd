@@ -60,7 +60,8 @@
       <varlistentry>
         <term><option>--output=<replaceable>PATH</replaceable></option></term>
 
-        <listitem><para>Specifies the path where to write the signed PE binary.</para>
+        <listitem><para>Specifies the path where to write the signed PE binary or the data to be signed
+        offline when using the <option>--prepare-offline-signing</option> option.</para>
 
         <xi:include href="version-info.xml" xpointer="v257"/></listitem>
       </varlistentry>
@@ -85,9 +86,57 @@
         <xi:include href="version-info.xml" xpointer="v257"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--prepare-offline-signing</option></term>
+
+        <listitem><para>When this option is specified, the <command>sign</command> command writes the data
+        that should be signed to the path specified with <option>--output=</option> instead of writing the
+        signed PE binary. This data can then be signed out of band after which the signature can be attached
+        to the PE binary using the <option>--signed-data=</option> and
+        <option>--signed-data-signature=</option> options.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--signed-data=<replaceable>PATH</replaceable></option></term>
+        <term><option>--signed-data-signature=<replaceable>PATH</replaceable></option></term>
+
+        <listitem><para>Configure the signed data (as written to the path specified with
+        <option>--output=</option> when using the <option>--prepare-offline-signing</option> option) and
+        corresponding signature for the <command>sign</command> command.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help"/>
       <xi:include href="standard-options.xml" xpointer="version"/>
     </variablelist>
+  </refsect1>
+
+
+  <refsect1>
+    <title>Examples</title>
+
+    <example>
+      <title>Offline EFI secure boot signing of a PE binary</title>
+
+      <para>The following does offline secure boot signing of systemd-boot:</para>
+
+      <programlisting>SD_BOOT="$(find /usr/lib/systemd/boot/efi/ -name "systemd-boot*.efi" | head -n1)"
+# Extract the data that should be signed offline.
+/usr/lib/systemd/systemd-sbsign sign --certificate cert.crt --output signed-data.bin --prepare-offline-signing "$SD_BOOT"
+# Sign the data out-of-band. This step usually happens out-of-band on a separate system.
+openssl dgst -sha256 -sign privkey.pem -out signed-data.sig signed-data.bin
+# Attach the signed data and its signature to the systemd-boot PE binary.
+/usr/lib/systemd/systemd-sbsign \
+    sign \
+    --certificate cert.crt \
+    --output "$SD_BOOT.signed" \
+    --signed-data signed-data.bin \
+    --signed-data-signature signed-data.sig \
+    "$SD_BOOT"</programlisting>
+    </example>
   </refsect1>
 
   <refsect1>
