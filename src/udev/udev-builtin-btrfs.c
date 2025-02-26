@@ -36,7 +36,7 @@ static int builtin_btrfs(UdevEvent *event, int argc, char *argv[]) {
         if (strlen(argv[2]) >= sizeof(args.name))
                 return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL), "Device name too long for BTRFS_IOC_DEVICES_READY call: %s", argv[2]);
 
-        strncpy(args.name, argv[2], sizeof(args.name));
+        strncpy(args.name, argv[2], sizeof(args.name)-1);
         r = ioctl(fd, BTRFS_IOC_DEVICES_READY, &args);
         if (r < 0)
                 return log_device_debug_errno(dev, errno, "Failed to call BTRFS_IOC_DEVICES_READY: %m");
