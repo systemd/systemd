@@ -755,3 +755,10 @@ Tools using the Varlink protocol (such as `varlinkctl`) or sd-bus (such as
   `process`, `session`, `user`, `user-session`, or `group`. Controls the kernel
   keyring in which `systemd-ask-password` caches the queried password. Defaults
   to `user`.
+
+`systemd-tpm2-clear`:
+
+* `SYSTEMD_TPM2_ALLOW_CLEAR` – takes a boolean. Overrides the effect of the
+  `systemd.factory_reset=` kernel command line option: if set to false,
+  requesting a TPM clearing is skipped, and the command immediately exits
+  successfully.
