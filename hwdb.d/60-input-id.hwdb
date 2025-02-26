@@ -51,6 +51,11 @@
 
 # Sort by brand, model
 
+# GOLD WARRIOR SIM PhoenixRC 10411R
+id-input:modalias:input:b0003v1781p0898*
+ ID_INPUT_ACCELEROMETER=
+ ID_INPUT_JOYSTICK=1
+
 # XP-PEN STAR 06
 id-input:modalias:input:b0003v28bdp0078*
  ID_INPUT_TABLET=1
