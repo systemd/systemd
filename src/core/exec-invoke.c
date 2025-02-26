@@ -5193,7 +5193,7 @@ int exec_invoke(
         if (needs_sandboxing && exec_needs_pid_namespace(context)) {
                 if (params->pidref_transport_fd < 0) {
                         *exit_status = EXIT_NAMESPACE;
-                        return log_exec_error_errno(context, params, r, "PidRef socket is not set up: %m");
+                        return log_exec_error_errno(context, params, SYNTHETIC_ERRNO(ENOTCONN), "PidRef socket is not set up: %m");
                 }
 
                 /* If we had CAP_SYS_ADMIN prior to joining the user namespace, then we are privileged and don't need
