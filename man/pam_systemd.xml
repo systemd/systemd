@@ -476,14 +476,13 @@ pam_set_data(handle, "systemd.runtime_max_sec", (void *)"3600", cleanup);
     <filename>systemd-logind.service</filename>:</para>
 
     <programlisting>#%PAM-1.0
+-auth     [success=done authtok_err=bad perm_denied=bad maxtries=bad default=ignore] pam_systemd_home.so
 auth      sufficient pam_unix.so
--auth     sufficient pam_systemd_home.so
 auth      required   pam_deny.so
 
 account   required   pam_nologin.so
--account  sufficient pam_systemd_home.so
-account   sufficient pam_unix.so
-account   required   pam_permit.so
+-account  [success=done authtok_expired=bad new_authtok_reqd=bad maxtries=bad acct_expired=bad default=ignore] pam_systemd_home.so
+account   required   pam_unix.so
 
 -password sufficient pam_systemd_home.so
 password  sufficient pam_unix.so sha512 shadow try_first_pass
