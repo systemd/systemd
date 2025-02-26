@@ -423,7 +423,7 @@ static int on_notify_socket(sd_event_source *s, int fd, unsigned event, void *us
         if (r == -EAGAIN)
                 return 0;
         if (r < 0)
-                return log_error_errno(r, "Failed to receive notification message: %m");
+                return r;
 
         if (!pidref_equal(child, &pidref)) {
                 log_warning("Received notification message from unexpected process " PID_FMT " (expected " PID_FMT "), ignoring.",
