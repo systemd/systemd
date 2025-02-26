@@ -213,7 +213,7 @@ static const sd_bus_vtable vtable2[] = {
 static int enumerator_callback(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {
 
         if (object_path_startswith("/value", path))
-                assert_se(*nodes = strv_new("/value/a", "/value/b", "/value/c"));
+                assert_se(*nodes = strv_new("/value/c", "/value/b", "/value/a"));
 
         return 1;
 }
@@ -221,7 +221,7 @@ static int enumerator_callback(sd_bus *bus, const char *path, void *userdata, ch
 static int enumerator2_callback(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {
 
         if (object_path_startswith("/value/a", path))
-                assert_se(*nodes = strv_new("/value/a/x", "/value/a/y", "/value/a/z"));
+                assert_se(*nodes = strv_new("/value/a/z", "/value/a/x", "/value/a/y"));
 
         return 1;
 }
@@ -232,7 +232,9 @@ static int enumerator3_callback(sd_bus *bus, const char *path, void *userdata, c
         if (!object_path_startswith("/value/b", path))
                 return 1;
 
-        for (unsigned i = 0; i < 30; i++)
+        for (unsigned i = 10; i < 20; i++)
+                assert_se(strv_extendf(&v, "/value/b/%u", i) >= 0);
+        for (unsigned i = 29; i >= 20; i--)
                 assert_se(strv_extendf(&v, "/value/b/%u", i) >= 0);
 
         *nodes = TAKE_PTR(v);
@@ -438,7 +440,7 @@ static int client(struct context *c) {
         fputs(s, stdout);
 
         assert_se(lines = strv_split_newlines(s));
-        for (unsigned i = 0; i < 30; i++) {
+        for (unsigned i = 10; i < 30; i++) {
                 _cleanup_free_ char *n = NULL;
 
                 assert_se(asprintf(&n, " <node name=\"%u\"/>", i) >= 0);
@@ -473,33 +475,46 @@ static int client(struct context *c) {
         /* Check that /value/b does not have ObjectManager interface but /value/a does */
         assert_se(sd_bus_message_rewind(reply, 1) > 0);
         assert_se(sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "{oa{sa{sv}}}") > 0);
+        unsigned path_count = 0;
         while (ASSERT_SE_NONNEG(sd_bus_message_enter_container(reply, SD_BUS_TYPE_DICT_ENTRY, "oa{sa{sv}}")) > 0) {
                 const char *path = NULL;
                 assert_se(sd_bus_message_read_basic(reply, 'o', &path) > 0);
-                if (STR_IN_SET(path, "/value/b", "/value/a")) {
-                        /* Check that there is no object manager interface here */
-                        bool found_object_manager_interface = false;
-                        assert_se(sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "{sa{sv}}") > 0);
-                        while (ASSERT_SE_NONNEG(sd_bus_message_enter_container(reply, SD_BUS_TYPE_DICT_ENTRY, "sa{sv}")) > 0) {
-                                const char *interface_name = NULL;
-                                assert_se(sd_bus_message_read_basic(reply, 's', &interface_name) > 0);
 
-                                if (streq(interface_name, "org.freedesktop.DBus.ObjectManager")) {
-                                        assert_se(!streq(path, "/value/b"));
-                                        found_object_manager_interface = true;
-                                }
+                /* Check if the enumerated path is sorted. */
+                switch (path_count) {
+                case 0:
+                        ASSERT_STREQ(path, "/value/a");
+                        break;
+                case 1:
+                        ASSERT_STREQ(path, "/value/b");
+                        break;
+                case 2:
+                        ASSERT_STREQ(path, "/value/c");
+                        break;
+                default: {
+                        unsigned u = path_count - 3 + 10;
+                        _cleanup_free_ char *path_expected = NULL;
+                        ASSERT_OK(asprintf(&path_expected, "/value/b/%u", u));
+                        ASSERT_STREQ(path, path_expected);
+                }}
+                path_count++;
 
-                                assert_se(sd_bus_message_skip(reply, "a{sv}") >= 0);
-                                assert_se(sd_bus_message_exit_container(reply) >= 0);
-                        }
+                /* Check that there is no object manager interface here */
+                bool found_object_manager_interface = false;
+                assert_se(sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "{sa{sv}}") > 0);
+                while (ASSERT_SE_NONNEG(sd_bus_message_enter_container(reply, SD_BUS_TYPE_DICT_ENTRY, "sa{sv}")) > 0) {
+                        const char *interface_name = NULL;
+                        assert_se(sd_bus_message_read_basic(reply, 's', &interface_name) > 0);
+
+                        if (streq(interface_name, "org.freedesktop.DBus.ObjectManager"))
+                                found_object_manager_interface = true;
+
+                        assert_se(sd_bus_message_skip(reply, "a{sv}") >= 0);
                         assert_se(sd_bus_message_exit_container(reply) >= 0);
+                }
+                assert_se(sd_bus_message_exit_container(reply) >= 0);
 
-                        if (streq(path, "/value/a"))
-                                /* ObjectManager must be here */
-                                assert_se(found_object_manager_interface);
-
-                } else
-                        assert_se(sd_bus_message_skip(reply, "a{sa{sv}}") >= 0);
+                assert_se(found_object_manager_interface == streq(path, "/value/a"));
 
                 assert_se(sd_bus_message_exit_container(reply) >= 0);
         }
