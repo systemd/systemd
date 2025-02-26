@@ -100,7 +100,7 @@
   <refsect1>
     <title>Description</title>
 
-    <para><function>udev_device_has_tag()</function> returns a valuer larger than zero if the specified
+    <para><function>udev_device_has_tag()</function> returns a value larger than zero if the specified
     device object has the indicated tag assigned to it, and zero otherwise. See
     <citerefentry><refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum></citerefentry> for details on
     the tags concept. <function>udev_device_has_current_tag()</function> executes a similar check, however
