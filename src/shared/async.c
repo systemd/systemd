@@ -133,6 +133,13 @@ int asynchronous_close(int fd) {
         return -EBADF; /* return an invalidated fd */
 }
 
+void asynchronous_close_many(const int fds[], size_t n_fds) {
+        assert(fds || n_fds == 0);
+
+        FOREACH_ARRAY(i, fds, n_fds)
+                asynchronous_close(*i);
+}
+
 int asynchronous_rm_rf(const char *p, RemoveFlags flags) {
         int r;
 

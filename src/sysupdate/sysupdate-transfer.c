@@ -989,7 +989,7 @@ static int helper_on_notify(sd_event_source *s, int fd, uint32_t revents, void *
         if (r == -EAGAIN)
                 return 0;
         if (r < 0)
-                return log_warning_errno(r, "Failed to receive notification message: %m");
+                return r;
 
         if (!pidref_equal(&ctx->pid, &sender_pid)) {
                 log_warning("Got notification datagram from unexpected peer, ignoring.");
