@@ -348,10 +348,6 @@ static int run(int argc, char *argv[]) {
         if (fchmod(fileno(f), 0444) < 0)
                 return log_error_errno(errno, "Failed to adjust access mode of SRK public key file '%s' to 0444: %m", pem_path);
 
-        r = fflush_and_check(f);
-        if (r < 0)
-                return log_error_errno(r, "Failed to sync SRK key to disk: %m");
-
         r = flink_tmpfile(f, t, pem_path, LINK_TMPFILE_SYNC|LINK_TMPFILE_REPLACE);
         if (r < 0)
                 return log_error_errno(r, "Failed to move SRK public key file to '%s': %m", pem_path);
@@ -381,10 +377,6 @@ static int run(int argc, char *argv[]) {
 
         if (fchmod(fileno(f), 0444) < 0)
                 return log_error_errno(errno, "Failed to adjust access mode of SRK public key file '%s' to 0444: %m", tpm2b_public_path);
-
-        r = fflush_and_check(f);
-        if (r < 0)
-                return log_error_errno(r, "Failed to sync SRK key to disk: %m");
 
         r = flink_tmpfile(f, t, tpm2b_public_path, LINK_TMPFILE_SYNC|LINK_TMPFILE_REPLACE);
         if (r < 0)
