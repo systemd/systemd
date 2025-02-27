@@ -100,6 +100,7 @@ static bool arg_blob_clear = false;
 static Hashmap *arg_blob_files = NULL;
 static char *arg_key_name = NULL;
 static bool arg_dry_run = false;
+static bool arg_seize = true;
 
 STATIC_DESTRUCTOR_REGISTER(arg_identity_extra, sd_json_variant_unrefp);
 STATIC_DESTRUCTOR_REGISTER(arg_identity_extra_this_machine, sd_json_variant_unrefp);
@@ -1183,7 +1184,7 @@ static int acquire_new_home_record(sd_json_variant *input, UserRecord **ret) {
                         USER_RECORD_ALLOW_PER_MACHINE|
                         USER_RECORD_STRIP_BINDING|
                         USER_RECORD_STRIP_STATUS|
-                        USER_RECORD_STRIP_SIGNATURE|
+                        (arg_seize ? USER_RECORD_STRIP_SIGNATURE : USER_RECORD_ALLOW_SIGNATURE) |
                         USER_RECORD_LOG|
                         USER_RECORD_PERMISSIVE);
         if (r < 0)
@@ -3002,6 +3003,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --prompt-new-user         firstboot: Query user interactively for user\n"
                "                               to create\n"
                "     --key-name=NAME           Key name when adding a signing key\n"
+               "     --seize=no                Do not strip existing signatures of user record\n"
+               "                               when creating\n"
                "\n%4$sGeneral User Record Properties:%5$s\n"
                "  -c --real-name=REALNAME      Real name for user\n"
                "     --realm=REALM             Realm to create user in\n"
@@ -3236,6 +3239,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_DEV_SHM_LIMIT,
                 ARG_DEFAULT_AREA,
                 ARG_KEY_NAME,
+                ARG_SEIZE,
         };
 
         static const struct option options[] = {
@@ -3340,6 +3344,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "dev-shm-limit",                required_argument, NULL, ARG_DEV_SHM_LIMIT               },
                 { "default-area",                 required_argument, NULL, ARG_DEFAULT_AREA                },
                 { "key-name",                     required_argument, NULL, ARG_KEY_NAME                    },
+                { "seize",                        required_argument, NULL, ARG_SEIZE                       },
                 {}
         };
 
@@ -4861,6 +4866,12 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
 
+                        break;
+
+                case ARG_SEIZE:
+                        r = parse_boolean_argument("--seize=", optarg, &arg_seize);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case '?':
