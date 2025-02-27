@@ -726,11 +726,14 @@ static int open_partition(
         int r;
 
         assert(node);
-        assert(loop);
+        assert(loop || !is_partition);
 
         fd = open(node, O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY);
         if (fd < 0)
                 return -errno;
+
+        if (!loop)
+                return TAKE_FD(fd);
 
         /* Check if the block device is a child of (or equivalent to) the originally provided one. */
         r = block_device_new_from_fd(fd, is_partition ? BLOCK_DEVICE_LOOKUP_WHOLE_DISK : 0, &dev);
@@ -810,21 +813,22 @@ static int dissect_image(
                 generic_rw = false,  /* initialize to appease gcc */
                 generic_growfs = false;
         _cleanup_(blkid_free_probep) blkid_probe b = NULL;
-        _cleanup_free_ char *generic_node = NULL;
+        _cleanup_free_ char *generic_node = NULL, *root_fstype_string = NULL;
         sd_id128_t generic_uuid = SD_ID128_NULL;
-        const char *pttype = NULL;
+        const char *pttype = NULL, *root_fs_usage = NULL;
         blkid_partlist pl;
+        PartitionPolicyFlags root_fstype = 0;
         int r, generic_nr = -1, n_partitions;
 
         assert(m);
-        assert(fd >= 0);
+        assert(fd >= 0 || (flags & DISSECT_IMAGE_NO_PARTITION_TABLE));
         assert(devname);
         assert(!verity || verity->designator < 0 || IN_SET(verity->designator, PARTITION_ROOT, PARTITION_USR));
         assert(!verity || iovec_is_valid(&verity->root_hash));
         assert(!verity || iovec_is_valid(&verity->root_hash_sig));
         assert(!verity || iovec_is_set(&verity->root_hash) || !iovec_is_set(&verity->root_hash_sig));
         assert(!((flags & DISSECT_IMAGE_GPT_ONLY) && (flags & DISSECT_IMAGE_NO_PARTITION_TABLE)));
-        assert(m->sector_size > 0);
+        assert(m->sector_size > 0 || (flags & DISSECT_IMAGE_NO_PARTITION_TABLE));
 
         /* Probes a disk image, and returns information about what it found in *ret.
          *
@@ -841,84 +845,110 @@ static int dissect_image(
 
         uint64_t diskseq = m->loop ? m->loop->diskseq : 0;
 
-        if (verity && iovec_is_set(&verity->root_hash)) {
-                sd_id128_t fsuuid, vuuid;
+        /* If input is a single already open verity device and the filesystem type is pinned to a single
+         * fstype, and it's a single-image filesystem, then skip all the expensive probing and just shortcut
+         * to mount the dm device directly */
+        if ((flags & DISSECT_IMAGE_NO_PARTITION_TABLE)) {
+                PartitionPolicyFlags policy_flags = image_policy_get_exhaustively(policy, PARTITION_ROOT);
+                if (policy_flags < 0)
+                        return policy_flags;
 
-                /* If a root hash is supplied, then we use the root partition that has a UUID that match the
-                 * first 128-bit of the root hash. And we use the verity partition that has a UUID that match
-                 * the final 128-bit. */
-
-                if (verity->root_hash.iov_len < sizeof(sd_id128_t))
-                        return -EINVAL;
-
-                memcpy(&fsuuid, verity->root_hash.iov_base, sizeof(sd_id128_t));
-                memcpy(&vuuid, (const uint8_t*) verity->root_hash.iov_base + verity->root_hash.iov_len - sizeof(sd_id128_t), sizeof(sd_id128_t));
-
-                if (sd_id128_is_null(fsuuid))
-                        return -EINVAL;
-                if (sd_id128_is_null(vuuid))
-                        return -EINVAL;
-
-                /* If the verity data declares it's for the /usr partition, then search for that, in all
-                 * other cases assume it's for the root partition. */
-                if (verity->designator == PARTITION_USR) {
-                        usr_uuid = fsuuid;
-                        usr_verity_uuid = vuuid;
-                } else {
-                        root_uuid = fsuuid;
-                        root_verity_uuid = vuuid;
+                /* The policy fstype flags translate to the literal fstype name of each filesystem. */
+                r = partition_policy_flags_to_string(policy_flags & _PARTITION_POLICY_FSTYPE_MASK, /* simplify= */ true, &root_fstype_string);
+                if (r < 0)
+                        return r;
+                /* If no image FD was passed in, then the input device must be a dm-verity node
+                 * with the other artifacts and a single filesystem */
+                if (fd < 0 && !(verity && verity->data_path &&
+                                r == 1 && /* A single fstype was specified */
+                                path_startswith(devname, "/dev/mapper/")))
+                        return -ENOPKG;
+                /* If there are multiple filesystems in the policy then don't set these and go to blkid */
+                if (r == 1) {
+                        root_fs_usage = policy_flags & PARTITION_POLICY_ENCRYPTED ? "crypto" : "filesystem";
+                        root_fstype = policy_flags & _PARTITION_POLICY_FSTYPE_MASK;
                 }
         }
 
-        r = dlopen_libblkid();
-        if (r < 0)
-                return r;
+        if (!root_fstype) {
+                if (verity && iovec_is_set(&verity->root_hash)) {
+                        sd_id128_t fsuuid, vuuid;
 
-        b = sym_blkid_new_probe();
-        if (!b)
-                return -ENOMEM;
+                        /* If a root hash is supplied, then we use the root partition that has a UUID that match the
+                        * first 128-bit of the root hash. And we use the verity partition that has a UUID that match
+                        * the final 128-bit. */
 
-        r = probe_blkid_filter(b);
-        if (r < 0)
-                return r;
+                        if (verity->root_hash.iov_len < sizeof(sd_id128_t))
+                                return -EINVAL;
 
-        errno = 0;
-        r = sym_blkid_probe_set_device(b, fd, 0, 0);
-        if (r != 0)
-                return errno_or_else(ENOMEM);
+                        memcpy(&fsuuid, verity->root_hash.iov_base, sizeof(sd_id128_t));
+                        memcpy(&vuuid, (const uint8_t*) verity->root_hash.iov_base + verity->root_hash.iov_len - sizeof(sd_id128_t), sizeof(sd_id128_t));
 
-        errno = 0;
-        r = sym_blkid_probe_set_sectorsize(b, m->sector_size);
-        if (r != 0)
-                return errno_or_else(EIO);
+                        if (sd_id128_is_null(fsuuid))
+                                return -EINVAL;
+                        if (sd_id128_is_null(vuuid))
+                                return -EINVAL;
 
-        if ((flags & DISSECT_IMAGE_GPT_ONLY) == 0) {
-                /* Look for file system superblocks, unless we only shall look for GPT partition tables */
-                sym_blkid_probe_enable_superblocks(b, 1);
-                sym_blkid_probe_set_superblocks_flags(b, BLKID_SUBLKS_TYPE|BLKID_SUBLKS_USAGE|BLKID_SUBLKS_UUID);
+                        /* If the verity data declares it's for the /usr partition, then search for that, in all
+                        * other cases assume it's for the root partition. */
+                        if (verity->designator == PARTITION_USR) {
+                                usr_uuid = fsuuid;
+                                usr_verity_uuid = vuuid;
+                        } else {
+                                root_uuid = fsuuid;
+                                root_verity_uuid = vuuid;
+                        }
+                }
+
+                r = dlopen_libblkid();
+                if (r < 0)
+                        return r;
+
+                b = sym_blkid_new_probe();
+                if (!b)
+                        return -ENOMEM;
+
+                r = probe_blkid_filter(b);
+                if (r < 0)
+                        return r;
+
+                errno = 0;
+                r = sym_blkid_probe_set_device(b, fd, 0, 0);
+                if (r != 0)
+                        return errno_or_else(ENOMEM);
+
+                errno = 0;
+                r = sym_blkid_probe_set_sectorsize(b, m->sector_size);
+                if (r != 0)
+                        return errno_or_else(EIO);
+
+                if ((flags & DISSECT_IMAGE_GPT_ONLY) == 0) {
+                        /* Look for file system superblocks, unless we only shall look for GPT partition tables */
+                        sym_blkid_probe_enable_superblocks(b, 1);
+                        sym_blkid_probe_set_superblocks_flags(b, BLKID_SUBLKS_TYPE|BLKID_SUBLKS_USAGE|BLKID_SUBLKS_UUID);
+                }
+
+                sym_blkid_probe_enable_partitions(b, 1);
+                sym_blkid_probe_set_partitions_flags(b, BLKID_PARTS_ENTRY_DETAILS);
+
+                errno = 0;
+                r = sym_blkid_do_safeprobe(b);
+                if (r == _BLKID_SAFEPROBE_ERROR)
+                        return errno_or_else(EIO);
+                if (IN_SET(r, _BLKID_SAFEPROBE_AMBIGUOUS, _BLKID_SAFEPROBE_NOT_FOUND))
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOPKG), "Failed to identify any partition table.");
+
+                assert(r == _BLKID_SAFEPROBE_FOUND);
         }
-
-        sym_blkid_probe_enable_partitions(b, 1);
-        sym_blkid_probe_set_partitions_flags(b, BLKID_PARTS_ENTRY_DETAILS);
-
-        errno = 0;
-        r = sym_blkid_do_safeprobe(b);
-        if (r == _BLKID_SAFEPROBE_ERROR)
-                return errno_or_else(EIO);
-        if (IN_SET(r, _BLKID_SAFEPROBE_AMBIGUOUS, _BLKID_SAFEPROBE_NOT_FOUND))
-                return log_debug_errno(SYNTHETIC_ERRNO(ENOPKG), "Failed to identify any partition table.");
-
-        assert(r == _BLKID_SAFEPROBE_FOUND);
 
         if ((!(flags & DISSECT_IMAGE_GPT_ONLY) &&
             (flags & DISSECT_IMAGE_GENERIC_ROOT)) ||
             (flags & DISSECT_IMAGE_NO_PARTITION_TABLE)) {
-                const char *usage = NULL;
-
                 /* If flags permit this, also allow using non-partitioned single-filesystem images */
 
-                (void) sym_blkid_probe_lookup_value(b, "USAGE", &usage, NULL);
-                if (STRPTR_IN_SET(usage, "filesystem", "crypto")) {
+                if (!root_fs_usage)
+                        (void) sym_blkid_probe_lookup_value(b, "USAGE", &root_fs_usage, NULL);
+                if (STRPTR_IN_SET(root_fs_usage, "filesystem", "crypto")) {
                         _cleanup_free_ char *t = NULL, *n = NULL, *o = NULL;
                         const char *fstype = NULL, *options = NULL;
                         _cleanup_close_ int mount_node_fd = -EBADF;
@@ -937,12 +967,16 @@ static int dissect_image(
                         if (r == 0) /* policy says ignore this, so we ignore it */
                                 return -ENOPKG;
 
-                        (void) sym_blkid_probe_lookup_value(b, "TYPE", &fstype, NULL);
+                        if (!root_fstype) {
+                                (void) sym_blkid_probe_lookup_value(b, "TYPE", &fstype, NULL);
 
-                        /* blkid will return FAT's serial number as UUID, hence it is quite possible that
-                         * parsing this will fail. We'll ignore the ID, since it's just too short to be
-                         * useful as true identifier. */
-                        (void) blkid_probe_lookup_value_id128(b, "UUID", &uuid);
+                                /* blkid will return FAT's serial number as UUID, hence it is quite possible that
+                                * parsing this will fail. We'll ignore the ID, since it's just too short to be
+                                * useful as true identifier. */
+                                (void) blkid_probe_lookup_value_id128(b, "UUID", &uuid);
+                        } else
+                                /* The policy fstype flags translate to the literal fstype name of each filesystem. */
+                                fstype = root_fstype_string;
 
                         encrypted = streq_ptr(fstype, "crypto_LUKS");
 
@@ -959,7 +993,8 @@ static int dissect_image(
                         if (r < 0)
                                 return r;
 
-                        if (FLAGS_SET(flags, DISSECT_IMAGE_PIN_PARTITION_DEVICES)) {
+                        /* When a single dm-verity filesystem is specified, open it directly */
+                        if (FLAGS_SET(flags, DISSECT_IMAGE_PIN_PARTITION_DEVICES) || root_fstype) {
                                 mount_node_fd = open_partition(devname, /* is_partition= */ false, m->loop);
                                 if (mount_node_fd < 0)
                                         return mount_node_fd;
@@ -1772,6 +1807,61 @@ static int dissect_image(
         return 0;
 }
 #endif
+
+int dissected_image_new_from_verity(
+                const char *src,
+                const VeritySettings *verity,
+                const MountOptions *options,
+                const ImagePolicy *image_policy,
+                const ImageFilter *image_filter,
+                DissectImageFlags dissect_image_flags,
+                DissectedImage **ret) {
+
+        /* Look for an already set up dm-verity device with a single filesystem, according to our naming
+         * scheme and image policy. */
+
+#if HAVE_BLKID
+        _cleanup_(dissected_image_unrefp) DissectedImage *dissected_image = NULL;
+        _cleanup_free_ char *node = NULL, *root_hash_encoded = NULL;
+        int r;
+
+        assert(verity);
+        assert(ret);
+
+        if (!iovec_is_set(&verity->root_hash))
+                return -ENOENT;
+
+        root_hash_encoded = hexmem(verity->root_hash.iov_base, verity->root_hash.iov_len);
+        if (!root_hash_encoded)
+                return -ENOMEM;
+
+        node = strjoin("/dev/mapper/", root_hash_encoded, "-verity");
+        if (!node)
+                return -ENOMEM;
+
+        r = dissected_image_new(src, &dissected_image);
+        if (r < 0)
+                return r;
+
+        r = dissect_image(
+                        dissected_image,
+                        /* fd= */ -EBADF,
+                        node,
+                        verity,
+                        options,
+                        image_policy,
+                        image_filter,
+                        dissect_image_flags | DISSECT_IMAGE_NO_PARTITION_TABLE);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(dissected_image);
+
+        return 0;
+#else
+        return -EOPNOTSUPP;
+#endif
+}
 
 int dissect_image_file(
                 const char *path,
@@ -4513,70 +4603,86 @@ int verity_dissect_and_mount(
                 DISSECT_IMAGE_ALLOW_USERSPACE_VERITY |
                 DISSECT_IMAGE_VERITY_SHARE;
 
-        if (runtime_scope == RUNTIME_SCOPE_SYSTEM) {
-                /* Note that we don't use loop_device_make here, as the FD is most likely O_PATH which would not be
-                * accepted by LOOP_CONFIGURE, so just let loop_device_make_by_path reopen it as a regular FD. */
-                r = loop_device_make_by_path(
-                                src_fd >= 0 ? FORMAT_PROC_FD_PATH(src_fd) : src,
-                                /* open_flags= */ -1,
-                                /* sector_size= */ UINT32_MAX,
-                                verity->data_path ? 0 : LO_FLAGS_PARTSCAN,
-                                LOCK_SH,
-                                &loop_device);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to create loop device for image: %m");
+        /* First check if we have a verity device already open and with a fstype pinned by policy. If it
+         * cannot be found, then fallback to the slow path (full dissect). */
+        r = dissected_image_new_from_verity(
+                        src_fd >= 0 ? FORMAT_PROC_FD_PATH(src_fd) : src,
+                        verity,
+                        options,
+                        image_policy,
+                        image_filter,
+                        dissect_image_flags,
+                        &dissected_image);
+        if (r < 0 && !ERRNO_IS_NEG_DEVICE_ABSENT(r) && r != -ENOPKG)
+                return r;
+        if (r >= 0)
+                log_debug("Reusing pre-existing verity-protected image %s", src_fd >= 0 ? FORMAT_PROC_FD_PATH(src_fd) : src);
+        else {
+                if (runtime_scope == RUNTIME_SCOPE_SYSTEM) {
+                        /* Note that we don't use loop_device_make here, as the FD is most likely O_PATH which would not be
+                        * accepted by LOOP_CONFIGURE, so just let loop_device_make_by_path reopen it as a regular FD. */
+                        r = loop_device_make_by_path(
+                                        src_fd >= 0 ? FORMAT_PROC_FD_PATH(src_fd) : src,
+                                        /* open_flags= */ -1,
+                                        /* sector_size= */ UINT32_MAX,
+                                        verity->data_path ? 0 : LO_FLAGS_PARTSCAN,
+                                        LOCK_SH,
+                                        &loop_device);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to create loop device for image: %m");
 
-                r = dissect_loop_device(
-                                loop_device,
-                                verity,
-                                options,
-                                image_policy,
-                                image_filter,
-                                dissect_image_flags,
-                                &dissected_image);
-                /* No partition table? Might be a single-filesystem image, try again */
-                if (!verity->data_path && r == -ENOPKG)
                         r = dissect_loop_device(
                                         loop_device,
                                         verity,
                                         options,
                                         image_policy,
                                         image_filter,
-                                        dissect_image_flags | DISSECT_IMAGE_NO_PARTITION_TABLE,
+                                        dissect_image_flags,
                                         &dissected_image);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to dissect image: %m");
+                        /* No partition table? Might be a single-filesystem image, try again */
+                        if (!verity->data_path && r == -ENOPKG)
+                                r = dissect_loop_device(
+                                                loop_device,
+                                                verity,
+                                                options,
+                                                image_policy,
+                                                image_filter,
+                                                dissect_image_flags | DISSECT_IMAGE_NO_PARTITION_TABLE,
+                                                &dissected_image);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to dissect image: %m");
 
-                r = dissected_image_load_verity_sig_partition(dissected_image, loop_device->fd, verity);
-                if (r < 0)
-                        return r;
+                        r = dissected_image_load_verity_sig_partition(dissected_image, loop_device->fd, verity);
+                        if (r < 0)
+                                return r;
 
-                r = dissected_image_guess_verity_roothash(dissected_image, verity);
-                if (r < 0)
-                        return r;
+                        r = dissected_image_guess_verity_roothash(dissected_image, verity);
+                        if (r < 0)
+                                return r;
 
-                r = dissected_image_decrypt(
-                                dissected_image,
-                                NULL,
-                                verity,
-                                image_policy,
-                                dissect_image_flags);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to decrypt dissected image: %m");
-        } else {
-                userns_fd = namespace_open_by_type(NAMESPACE_USER);
-                if (userns_fd < 0)
-                        return log_debug_errno(userns_fd, "Failed to open our own user namespace: %m");
+                        r = dissected_image_decrypt(
+                                        dissected_image,
+                                        NULL,
+                                        verity,
+                                        image_policy,
+                                        dissect_image_flags);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to decrypt dissected image: %m");
+                } else {
+                        userns_fd = namespace_open_by_type(NAMESPACE_USER);
+                        if (userns_fd < 0)
+                                return log_debug_errno(userns_fd, "Failed to open our own user namespace: %m");
 
-                r = mountfsd_mount_image(
-                                src_fd >= 0 ? FORMAT_PROC_FD_PATH(src_fd) : src,
-                                userns_fd,
-                                image_policy,
-                                verity,
-                                dissect_image_flags,
-                                &dissected_image);
-                if (r < 0)
-                        return r;
+                        r = mountfsd_mount_image(
+                                        src_fd >= 0 ? FORMAT_PROC_FD_PATH(src_fd) : src,
+                                        userns_fd,
+                                        image_policy,
+                                        verity,
+                                        dissect_image_flags,
+                                        &dissected_image);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         if (dest) {
