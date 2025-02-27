@@ -163,21 +163,19 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_prepare_offline_signing = true;
                         break;
 
-                case ARG_SIGNED_DATA: {
+                case ARG_SIGNED_DATA:
                         r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_signed_data);
                         if (r < 0)
                                 return r;
 
                         break;
-                }
 
-                case ARG_SIGNED_DATA_SIGNATURE: {
+                case ARG_SIGNED_DATA_SIGNATURE:
                         r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_signed_data_signature);
                         if (r < 0)
                                 return r;
 
                         break;
-                }
 
                 case '?':
                         return -EINVAL;
@@ -591,7 +589,9 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
 
                 log_info("Wrote PKCS#7 DER-encoded signed attributes blob to %s", arg_output);
                 return 0;
-        } else if (iovec_is_set(&signed_attributes_signature))
+        }
+
+        if (iovec_is_set(&signed_attributes_signature))
                 ASN1_STRING_set0(si->enc_digest, TAKE_PTR(signed_attributes_signature.iov_base), signed_attributes_signature.iov_len);
         else {
                 _cleanup_(BIO_free_allp) BIO *bio = NULL;
