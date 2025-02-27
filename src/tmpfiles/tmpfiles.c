@@ -564,7 +564,7 @@ static int opendir_and_stat(
                 bool *ret_mountpoint) {
 
         _cleanup_closedir_ DIR *d = NULL;
-        STRUCT_NEW_STATX_DEFINE(st1);
+        struct statx sx1;
         int r;
 
         assert(path);
@@ -591,24 +591,23 @@ static int opendir_and_stat(
                 return 0;
         }
 
-        r = statx_fallback(dirfd(d), "", AT_EMPTY_PATH, STATX_MODE|STATX_INO|STATX_ATIME|STATX_MTIME, &st1.sx);
+        r = statx_fallback(dirfd(d), "", AT_EMPTY_PATH, STATX_MODE|STATX_INO|STATX_ATIME|STATX_MTIME, &sx1);
         if (r < 0)
                 return log_error_errno(r, "statx(%s) failed: %m", path);
 
-        if (FLAGS_SET(st1.sx.stx_attributes_mask, STATX_ATTR_MOUNT_ROOT))
-                *ret_mountpoint = FLAGS_SET(st1.sx.stx_attributes, STATX_ATTR_MOUNT_ROOT);
+        if (FLAGS_SET(sx1.stx_attributes_mask, STATX_ATTR_MOUNT_ROOT))
+                *ret_mountpoint = FLAGS_SET(sx1.stx_attributes, STATX_ATTR_MOUNT_ROOT);
         else {
-                STRUCT_NEW_STATX_DEFINE(st2);
-
-                r = statx_fallback(dirfd(d), "..", 0, STATX_INO, &st2.sx);
+                struct statx sx2;
+                r = statx_fallback(dirfd(d), "..", 0, STATX_INO, &sx2);
                 if (r < 0)
                         return log_error_errno(r, "statx(%s/..) failed: %m", path);
 
-                *ret_mountpoint = !statx_mount_same(&st1.nsx, &st2.nsx);
+                *ret_mountpoint = !statx_mount_same(&sx1, &sx2);
         }
 
         *ret = TAKE_PTR(d);
-        *ret_sx = st1.sx;
+        *ret_sx = sx1;
         return 1;
 }
 
@@ -707,8 +706,7 @@ static int dir_cleanup(
                  * systems such as overlayfs better where each file is originating from a different
                  * st_dev. */
 
-                STRUCT_STATX_DEFINE(sx);
-
+                struct statx sx;
                 r = statx_fallback(
                                 dirfd(d), de->d_name,
                                 AT_SYMLINK_NOFOLLOW|AT_NO_AUTOMOUNT,
@@ -2994,7 +2992,7 @@ static int remove_recursive(
                 bool remove_instance) {
 
         _cleanup_closedir_ DIR *d = NULL;
-        STRUCT_STATX_DEFINE(sx);
+        struct statx sx;
         bool mountpoint;
         int r;
 
@@ -3144,7 +3142,7 @@ static int clean_item_instance(
         usec_t cutoff = n - i->age;
 
         _cleanup_closedir_ DIR *d = NULL;
-        STRUCT_STATX_DEFINE(sx);
+        struct statx sx;
         bool mountpoint;
         int r;
 

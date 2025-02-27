@@ -16,7 +16,6 @@
 #include "missing_fcntl.h"
 #include "missing_fs.h"
 #include "missing_mount.h"
-#include "missing_stat.h"
 #include "missing_syscall.h"
 #include "mkdir.h"
 #include "mountpoint-util.h"
@@ -261,8 +260,7 @@ int is_mount_point_at(int fd, const char *filename, int flags) {
          * with a variety of st_dev reported. Also, btrfs subvolumes have different st_dev, even though
          * they aren't real mounts of their own. */
 
-        STRUCT_STATX_DEFINE(sx);
-
+        struct statx sx = {}; /* explicitly initialize the struct to make msan silent. */
         if (statx(fd, filename,
                   at_flags_normalize_nofollow(flags) |
                   AT_NO_AUTOMOUNT |            /* don't trigger automounts – mounts are a local concept, hence no need to trigger automounts to determine STATX_ATTR_MOUNT_ROOT */
@@ -401,7 +399,7 @@ int path_get_mnt_id_at_fallback(int dir_fd, const char *path, int *ret) {
 }
 
 int path_get_mnt_id_at(int dir_fd, const char *path, int *ret) {
-        STRUCT_NEW_STATX_DEFINE(buf);
+        struct statx sx;
 
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
         assert(ret);
@@ -412,7 +410,7 @@ int path_get_mnt_id_at(int dir_fd, const char *path, int *ret) {
                   AT_NO_AUTOMOUNT |    /* don't trigger automounts, mnt_id is a local concept */
                   AT_STATX_DONT_SYNC,  /* don't go to the network, mnt_id is a local concept */
                   STATX_MNT_ID,
-                  &buf.sx) < 0) {
+                  &sx) < 0) {
                 if (!ERRNO_IS_NOT_SUPPORTED(errno) && /* statx() is not supported by the kernel. */
                     !ERRNO_IS_PRIVILEGE(errno) &&     /* maybe filtered by seccomp. */
                     errno != EINVAL)                  /* glibc's fallback method returns EINVAL when AT_STATX_DONT_SYNC is set. */
@@ -421,8 +419,8 @@ int path_get_mnt_id_at(int dir_fd, const char *path, int *ret) {
                 /* Fall back to name_to_handle_at() and then fdinfo if statx is not supported or we lack
                  * privileges */
 
-        } else if (FLAGS_SET(buf.nsx.stx_mask, STATX_MNT_ID)) {
-                *ret = buf.nsx.stx_mnt_id;
+        } else if (FLAGS_SET(sx.stx_mask, STATX_MNT_ID)) {
+                *ret = sx.stx_mnt_id;
                 return 0;
         }
 
