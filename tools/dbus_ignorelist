@@ -771,6 +771,8 @@ org.freedesktop.systemd1.Mount.CPUUsageNSec
 org.freedesktop.systemd1.Mount.CPUWeight
 org.freedesktop.systemd1.Mount.CacheDirectory
 org.freedesktop.systemd1.Mount.CacheDirectoryMode
+org.freedesktop.systemd1.Mount.CacheDirectoryAccounting
+org.freedesktop.systemd1.Mount.CacheDirectoryQuota
 org.freedesktop.systemd1.Mount.CacheDirectorySymlink
 org.freedesktop.systemd1.Mount.CapabilityBoundingSet
 org.freedesktop.systemd1.Mount.ConfigurationDirectory
@@ -874,6 +876,8 @@ org.freedesktop.systemd1.Mount.LogRateLimitBurst
 org.freedesktop.systemd1.Mount.LogRateLimitIntervalUSec
 org.freedesktop.systemd1.Mount.LogsDirectory
 org.freedesktop.systemd1.Mount.LogsDirectoryMode
+org.freedesktop.systemd1.Mount.LogsDirectoryAccounting
+org.freedesktop.systemd1.Mount.LogsDirectoryQuota
 org.freedesktop.systemd1.Mount.LogsDirectorySymlink
 org.freedesktop.systemd1.Mount.ManagedOOMMemoryPressure
 org.freedesktop.systemd1.Mount.ManagedOOMMemoryPressureLimit
@@ -971,6 +975,8 @@ org.freedesktop.systemd1.Mount.StartupCPUWeight
 org.freedesktop.systemd1.Mount.StartupIOWeight
 org.freedesktop.systemd1.Mount.StateDirectory
 org.freedesktop.systemd1.Mount.StateDirectoryMode
+org.freedesktop.systemd1.Mount.StateDirectoryAccounting
+org.freedesktop.systemd1.Mount.StateDirectoryQuota
 org.freedesktop.systemd1.Mount.StateDirectorySymlink
 org.freedesktop.systemd1.Mount.SupplementaryGroups
 org.freedesktop.systemd1.Mount.SyslogFacility
@@ -1128,6 +1134,8 @@ org.freedesktop.systemd1.Service.CPUUsageNSec
 org.freedesktop.systemd1.Service.CPUWeight
 org.freedesktop.systemd1.Service.CacheDirectory
 org.freedesktop.systemd1.Service.CacheDirectoryMode
+org.freedesktop.systemd1.Service.CacheDirectoryAccounting
+org.freedesktop.systemd1.Service.CacheDirectoryQuota
 org.freedesktop.systemd1.Service.CacheDirectorySymlink
 org.freedesktop.systemd1.Service.CapabilityBoundingSet
 org.freedesktop.systemd1.Service.CleanResult
@@ -1250,6 +1258,8 @@ org.freedesktop.systemd1.Service.LogRateLimitBurst
 org.freedesktop.systemd1.Service.LogRateLimitIntervalUSec
 org.freedesktop.systemd1.Service.LogsDirectory
 org.freedesktop.systemd1.Service.LogsDirectoryMode
+org.freedesktop.systemd1.Service.LogsDirectoryAccounting
+org.freedesktop.systemd1.Service.LogsDirectoryQuota
 org.freedesktop.systemd1.Service.LogsDirectorySymlink
 org.freedesktop.systemd1.Service.MainPID
 org.freedesktop.systemd1.Service.ManagedOOMMemoryPressure
@@ -1360,6 +1370,8 @@ org.freedesktop.systemd1.Service.StartupCPUWeight
 org.freedesktop.systemd1.Service.StartupIOWeight
 org.freedesktop.systemd1.Service.StateDirectory
 org.freedesktop.systemd1.Service.StateDirectoryMode
+org.freedesktop.systemd1.Service.StateDirectoryAccounting
+org.freedesktop.systemd1.Service.StateDirectoryQuota
 org.freedesktop.systemd1.Service.StateDirectorySymlink
 org.freedesktop.systemd1.Service.StatusErrno
 org.freedesktop.systemd1.Service.StatusText
@@ -1509,6 +1521,8 @@ org.freedesktop.systemd1.Socket.CPUUsageNSec
 org.freedesktop.systemd1.Socket.CPUWeight
 org.freedesktop.systemd1.Socket.CacheDirectory
 org.freedesktop.systemd1.Socket.CacheDirectoryMode
+org.freedesktop.systemd1.Socket.CacheDirectoryAccounting
+org.freedesktop.systemd1.Socket.CacheDirectoryQuota
 org.freedesktop.systemd1.Socket.CacheDirectorySymlink
 org.freedesktop.systemd1.Socket.CapabilityBoundingSet
 org.freedesktop.systemd1.Socket.ConfigurationDirectory
@@ -1622,6 +1636,8 @@ org.freedesktop.systemd1.Socket.LogRateLimitBurst
 org.freedesktop.systemd1.Socket.LogRateLimitIntervalUSec
 org.freedesktop.systemd1.Socket.LogsDirectory
 org.freedesktop.systemd1.Socket.LogsDirectoryMode
+org.freedesktop.systemd1.Socket.LogsDirectoryAccounting
+org.freedesktop.systemd1.Socket.LogsDirectoryQuota
 org.freedesktop.systemd1.Socket.LogsDirectorySymlink
 org.freedesktop.systemd1.Socket.ManagedOOMMemoryPressure
 org.freedesktop.systemd1.Socket.ManagedOOMMemoryPressureLimit
@@ -1741,6 +1757,8 @@ org.freedesktop.systemd1.Socket.StartupCPUWeight
 org.freedesktop.systemd1.Socket.StartupIOWeight
 org.freedesktop.systemd1.Socket.StateDirectory
 org.freedesktop.systemd1.Socket.StateDirectoryMode
+org.freedesktop.systemd1.Socket.StateDirectoryAccounting
+org.freedesktop.systemd1.Socket.StateDirectoryQuota
 org.freedesktop.systemd1.Socket.StateDirectorySymlink
 org.freedesktop.systemd1.Socket.SupplementaryGroups
 org.freedesktop.systemd1.Socket.Symlinks
@@ -1806,6 +1824,8 @@ org.freedesktop.systemd1.Swap.CPUUsageNSec
 org.freedesktop.systemd1.Swap.CPUWeight
 org.freedesktop.systemd1.Swap.CacheDirectory
 org.freedesktop.systemd1.Swap.CacheDirectoryMode
+org.freedesktop.systemd1.Swap.CacheDirectoryAccounting
+org.freedesktop.systemd1.Swap.CacheDirectoryQuota
 org.freedesktop.systemd1.Swap.CacheDirectorySymlink
 org.freedesktop.systemd1.Swap.CapabilityBoundingSet
 org.freedesktop.systemd1.Swap.ConfigurationDirectory
@@ -1905,6 +1925,8 @@ org.freedesktop.systemd1.Swap.LogRateLimitBurst
 org.freedesktop.systemd1.Swap.LogRateLimitIntervalUSec
 org.freedesktop.systemd1.Swap.LogsDirectory
 org.freedesktop.systemd1.Swap.LogsDirectoryMode
+org.freedesktop.systemd1.Swap.LogsDirectoryAccounting
+org.freedesktop.systemd1.Swap.LogsDirectoryQuota
 org.freedesktop.systemd1.Swap.LogsDirectorySymlink
 org.freedesktop.systemd1.Swap.ManagedOOMMemoryPressure
 org.freedesktop.systemd1.Swap.ManagedOOMMemoryPressureLimit
@@ -2001,6 +2023,8 @@ org.freedesktop.systemd1.Swap.StartupCPUWeight
 org.freedesktop.systemd1.Swap.StartupIOWeight
 org.freedesktop.systemd1.Swap.StateDirectory
 org.freedesktop.systemd1.Swap.StateDirectoryMode
+org.freedesktop.systemd1.Swap.StateDirectoryAccounting
+org.freedesktop.systemd1.Swap.StateDirectoryQuota
 org.freedesktop.systemd1.Swap.StateDirectorySymlink
 org.freedesktop.systemd1.Swap.SupplementaryGroups
 org.freedesktop.systemd1.Swap.SyslogFacility
