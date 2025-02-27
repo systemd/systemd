@@ -37,9 +37,16 @@
 #include "unit-name.h"
 #include "virt.h"
 
+typedef enum GptAutoRoot {
+        GPT_AUTO_ROOT_UNSPECIFIED,  /* no root= specified */
+        GPT_AUTO_ROOT_OFF,          /* root= set to something else */
+        GPT_AUTO_ROOT_ON,           /* root= set explicitly to "gpt-auto" */
+        GPT_AUTO_ROOT_FORCE,        /* root= set explicitly to "gpt-auto-force" → ignores factory reset mode */
+} GptAutoRoot;
+
 static const char *arg_dest = NULL;
 static bool arg_enabled = true;
-static int arg_root_enabled = -1; /* tristate */
+static GptAutoRoot arg_auto_root = GPT_AUTO_ROOT_UNSPECIFIED;
 static bool arg_swap_enabled = true;
 static char *arg_root_fstype = NULL;
 static char *arg_root_options = NULL;
@@ -47,7 +54,6 @@ static int arg_root_rw = -1;
 static ImagePolicy *arg_image_policy = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
-
 STATIC_DESTRUCTOR_REGISTER(arg_root_fstype, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root_options, freep);
 
@@ -661,7 +667,10 @@ static int add_root_cryptsetup(void) {
         /* If a device /dev/gpt-auto-root-luks appears, then make it pull in systemd-cryptsetup-root.service, which
          * sets it up, and causes /dev/gpt-auto-root to appear which is all we are looking for. */
 
-        return add_cryptsetup("root", "/dev/gpt-auto-root-luks", arg_root_options, /* rw= */ true, /* require= */ false, /* measure= */ true, NULL);
+        const char *bdev = arg_auto_root == GPT_AUTO_ROOT_FORCE ?
+                "/dev/gpt-auto-root-luks-ignfr" : "/dev/gpt-auto-root-luks";
+
+        return add_cryptsetup("root", bdev, arg_root_options, /* rw= */ true, /* require= */ false, /* measure= */ true, NULL);
 #else
         return 0;
 #endif
@@ -674,11 +683,11 @@ static int add_root_mount(void) {
         int r;
 
         /* Explicitly disabled? Then exit immediately */
-        if (arg_root_enabled == 0)
+        if (arg_auto_root == GPT_AUTO_ROOT_OFF)
                 return 0;
 
         /* Neither explicitly enabled nor disabled? Then decide based on the EFI partition variables to be set */
-        if (arg_root_enabled < 0) {
+        if (arg_auto_root == GPT_AUTO_ROOT_UNSPECIFIED) {
                 if (!is_efi_boot()) {
                         log_debug("Not an EFI boot, not creating root mount.");
                         return 0;
@@ -695,10 +704,20 @@ static int add_root_mount(void) {
         }
 
         /* OK, we shall look for a root device, so let's wait for a root device to show up.  A udev rule will
-         * create the link for us under the right name. */
+         * create the link for us under the right name.
+         *
+         * There are two distinct names: the /dev/gpt-auto-root-ignfr symlink is always created for the root
+         * partition (regardless of the factory reset state), and the /dev/gpt-auto-root symlink is only
+         * created if factory reset mode is off or already complete (thus taking factry reset state into
+         * account). In scenarios where the root disk is partially reformatted during factory reset the
+         * latter is the link to use, otherwise the former (so that we don't accidentally mount a root
+         * partition too early that is about to be wiped and replaced by another one). */
+
+        const char *bdev = arg_auto_root == GPT_AUTO_ROOT_FORCE ?
+                "/dev/gpt-auto-root-ignfr" : "/dev/gpt-auto-root";
 
         if (in_initrd()) {
-                r = generator_write_initrd_root_device_deps(arg_dest, "/dev/gpt-auto-root");
+                r = generator_write_initrd_root_device_deps(arg_dest, bdev);
                 if (r < 0)
                         return 0;
 
@@ -727,7 +746,7 @@ static int add_root_mount(void) {
 
         return add_mount(
                         "root",
-                        "/dev/gpt-auto-root",
+                        bdev,
                         in_initrd() ? "/sysroot" : "/",
                         arg_root_fstype,
                         /* rw= */ arg_root_rw > 0,
@@ -913,10 +932,13 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                  * specified (unless it happens to be "gpt-auto") */
 
                 if (streq(value, "gpt-auto")) {
-                        arg_root_enabled = true;
-                        log_debug("Enabling root partition auto-detection, root= is explicitly set to 'gpt_auto'.");
+                        arg_auto_root = GPT_AUTO_ROOT_ON;
+                        log_debug("Enabling root partition auto-detection (respecting factory reset mode), root= is explicitly set to 'gpt-auto'.");
+                } else if (streq(value, "gpt-auto-force")) {
+                        arg_auto_root = GPT_AUTO_ROOT_FORCE;
+                        log_debug("Enabling root partition auto-detection (ignoring factory reset mode), root= is explicitly set to 'gpt-auto-force'.");
                 } else {
-                        arg_root_enabled = false;
+                        arg_auto_root = GPT_AUTO_ROOT_OFF;
                         log_debug("Disabling root partition auto-detection, root= is neither unset, nor set to 'gpt-auto'.");
                 }
 
@@ -927,7 +949,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
                 /* Disable root disk logic if there's roothash= defined (i.e. verity enabled) */
 
-                arg_root_enabled = false;
+                arg_auto_root = GPT_AUTO_ROOT_OFF;
                 log_debug("Disabling root partition auto-detection, roothash= is set.");
 
         } else if (streq(key, "rootfstype")) {

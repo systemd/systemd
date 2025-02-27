@@ -819,3 +819,18 @@ systemd-networkd, has been changed by another, unrelated process
 and will likely result in problems later on.
 
 Value changed to "@NEWVALUE@", which should be "@OURVALUE@".
+
+-- 438188861e0b427a9d638a90487a0ca6
+Subject: TPM clear requested
+Defined-By: systemd
+Support: %SUPPORT_URL%
+Documentation: man:systemd-tpm2-clear.service(8)
+
+A request to clear the TPM security chip has been issued to the firmware. This
+is typically done as part of a comprehensive factory reset operation, and
+ensures that on the next boot process the firmware will reset the TPM, after
+interactively requesting confirmation by the user.
+
+Clearing the TPM has the effect of invalidating all keys locked to the TPM,
+including full disk encryption keys. Because of that care should be taken that
+access to relevant resources is retained by other means.
