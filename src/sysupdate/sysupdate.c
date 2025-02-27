@@ -241,16 +241,6 @@ static int context_read_definitions(Context *c, const char* node) {
                         log_warning("As of v257, transfer definitions should have the '.transfer' extension.");
         }
 
-        if (c->n_transfers == 0) {
-                if (arg_component)
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
-                                               "No transfer definitions for component '%s' found.",
-                                               arg_component);
-
-                return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
-                                       "No transfer definitions found.");
-        }
-
         return 0;
 }
 
@@ -937,6 +927,16 @@ static int context_make_online(Context **ret, const char *node) {
         if (r < 0)
                 return r;
 
+        if (context->n_transfers == 0) {
+                if (arg_component)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
+                                               "No active transfer definitions for component '%s' found.",
+                                               arg_component);
+
+                return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
+                                       "No active transfer definitions found.");
+        }
+
         if (!arg_offline) {
                 r = context_load_available_instances(context);
                 if (r < 0)
@@ -1221,6 +1221,16 @@ static int verb_features(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return r;
 
+        if (context->n_transfers + context->n_disabled_transfers == 0) {
+                if (arg_component)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
+                                               "No transfer definitions for component '%s' found.",
+                                               arg_component);
+
+                return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
+                                       "No transfer definitions found.");
+        }
+
         if (feature_id) {
                 _cleanup_strv_free_ char **transfers = NULL;
 
@@ -1396,6 +1406,16 @@ static int verb_vacuum(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return r;
 
+        if (context->n_transfers + context->n_disabled_transfers == 0) {
+                if (arg_component)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
+                                               "No transfer definitions for component '%s' found.",
+                                               arg_component);
+
+                return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
+                                       "No transfer definitions found.");
+        }
+
         return context_vacuum(context, 0, NULL);
 }
 
@@ -1472,6 +1492,16 @@ static int verb_pending_or_reboot(int argc, char **argv, void *userdata) {
         r = context_make_offline(&context, NULL);
         if (r < 0)
                 return r;
+
+        if (context->n_transfers == 0) {
+                if (arg_component)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
+                                               "No active transfer definitions for component '%s' found.",
+                                               arg_component);
+
+                return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
+                                       "No active transfer definitions found.");
+        }
 
         log_info("Determining installed update sets%s", special_glyph(SPECIAL_GLYPH_ELLIPSIS));
 
