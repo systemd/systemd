@@ -1399,32 +1399,52 @@ bool route_can_update(const Route *existing, const Route *requesting) {
         assert(existing);
         assert(requesting);
 
-        if (route_compare_func(existing, requesting) != 0)
+        if (route_compare_func(existing, requesting) != 0) {
+                log_route_debug(existing, "Cannot update route, as the existing route is different", existing->manager);
                 return false;
+        }
 
         switch (existing->family) {
         case AF_INET:
-                if (existing->nexthop.weight != requesting->nexthop.weight)
+                if (existing->nexthop.weight != requesting->nexthop.weight) {
+                        log_route_debug(existing, "Cannot update route, as the weight is different", existing->manager);
                         return false;
+                }
                 return true;
 
         case AF_INET6:
-                if (existing->protocol != requesting->protocol)
+                if (existing->protocol != requesting->protocol) {
+                        log_route_debug(existing, "Cannot update route, as the protocol is different", existing->manager);
                         return false;
-                if (existing->type != requesting->type)
+                }
+                if (existing->type != requesting->type) {
+                        log_route_debug(existing, "Cannot update route, as the type is different", existing->manager);
                         return false;
-                if (existing->flags != requesting->flags)
+                }
+                if (existing->flags != requesting->flags) {
+                        log_route_debug(existing, "Cannot update route, as the flags are different", existing->manager);
                         return false;
-                if (!in6_addr_equal(&existing->prefsrc.in6, &requesting->prefsrc.in6))
+                }
+                if (!in6_addr_equal(&existing->prefsrc.in6, &requesting->prefsrc.in6)) {
+                        log_route_debug(existing, "Cannot update route, as the preferred source is different", existing->manager);
                         return false;
-                if (existing->pref != requesting->pref)
+                }
+                if (existing->pref != requesting->pref) {
+                        log_route_debug(existing, "Cannot update route, as the preference is different", existing->manager);
                         return false;
-                if (existing->expiration_managed_by_kernel && requesting->lifetime_usec == USEC_INFINITY)
+                }
+                if (existing->expiration_managed_by_kernel && requesting->lifetime_usec == USEC_INFINITY) {
+                        log_route_debug(existing, "Cannot update route, as the expiration is managed by the kernel and lifetime is infinite", existing->manager);
                         return false; /* We cannot disable expiration timer in the kernel. */
-                if (!route_metric_can_update(&existing->metric, &requesting->metric, existing->expiration_managed_by_kernel))
+                }
+                if (!route_metric_can_update(&existing->metric, &requesting->metric, existing->expiration_managed_by_kernel)) {
+                        log_route_debug(existing, "Cannot update route, as the metrics are different", existing->manager);
                         return false;
-                if (existing->nexthop.weight != requesting->nexthop.weight)
+                }
+                if (existing->nexthop.weight != requesting->nexthop.weight) {
+                        log_route_debug(existing, "Cannot update route, as the weight is different", existing->manager);
                         return false;
+                }
                 return true;
 
         default:
