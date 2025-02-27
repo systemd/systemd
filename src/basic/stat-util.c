@@ -470,8 +470,8 @@ bool statx_inode_same(const struct statx *a, const struct statx *b) {
                 a->stx_ino == b->stx_ino;
 }
 
-bool statx_mount_same(const struct new_statx *a, const struct new_statx *b) {
-        if (!new_statx_is_set(a) || !new_statx_is_set(b))
+bool statx_mount_same(const struct statx *a, const struct statx *b) {
+        if (!statx_is_set(a) || !statx_is_set(b))
                 return false;
 
         /* if we have the mount ID, that's all we need */

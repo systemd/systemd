@@ -19,7 +19,6 @@
 #include "macro.h"
 #include "missing_keyctl.h"
 #include "missing_sched.h"
-#include "missing_stat.h"
 #include "missing_syscall_def.h"
 
 /* ======================================================================= */
@@ -219,28 +218,6 @@ static inline int missing_bpf(int cmd, union bpf_attr *attr, size_t size) {
 }
 
 #  define bpf missing_bpf
-#endif
-
-/* ======================================================================= */
-
-#if !HAVE_STATX
-struct statx;
-
-static inline ssize_t missing_statx(int dfd, const char *filename, unsigned flags, unsigned int mask, struct statx *buffer) {
-#  ifdef __NR_statx
-        return syscall(__NR_statx, dfd, filename, flags, mask, buffer);
-#  else
-        errno = ENOSYS;
-        return -1;
-#  endif
-}
-#endif
-
-/* This typedef is supposed to be always defined. */
-typedef struct statx struct_statx;
-
-#if !HAVE_STATX
-#  define statx(dfd, filename, flags, mask, buffer) missing_statx(dfd, filename, flags, mask, buffer)
 #endif
 
 /* ======================================================================= */
