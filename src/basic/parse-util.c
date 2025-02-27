@@ -3,6 +3,7 @@
 #include <errno.h>
 #include <inttypes.h>
 #include <linux/ipv6.h>
+#include <linux/netfilter/nf_tables.h>
 #include <net/if.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -777,18 +778,14 @@ int parse_loadavg_fixed_point(const char *s, loadavg_t *ret) {
 /* Limitations are described in https://www.netfilter.org/projects/nftables/manpage.html and
  * https://bugzilla.netfilter.org/show_bug.cgi?id=1175 */
 bool nft_identifier_valid(const char *id) {
-        if (!id)
+        if (isempty(id))
                 return false;
 
-        size_t len = strlen(id);
-        if (len == 0 || len > 31)
+        if (strlen(id) >= NFT_NAME_MAXLEN)
                 return false;
 
         if (!ascii_isalpha(id[0]))
                 return false;
 
-        for (size_t i = 1; i < len; i++)
-                if (!ascii_isalpha(id[i]) && !ascii_isdigit(id[i]) && !IN_SET(id[i], '/', '\\', '_', '.'))
-                        return false;
-        return true;
+        return in_charset(id + 1, ALPHANUMERICAL "/\\_.");
 }
