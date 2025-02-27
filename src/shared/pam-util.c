@@ -7,6 +7,7 @@
 #include "alloc-util.h"
 #include "bus-internal.h"
 #include "errno-util.h"
+#include "fd-util.h"
 #include "format-util.h"
 #include "macro.h"
 #include "pam-util.h"
@@ -247,6 +248,20 @@ int pam_get_bus_data(
 void pam_cleanup_free(pam_handle_t *handle, void *data, int error_status) {
         /* A generic destructor for pam_set_data() that just frees the specified data */
         free(data);
+}
+
+void pam_cleanup_close(pam_handle_t *handle, void *data, int error_status) {
+
+        /* A generic destructor for pam_set_data() that just closes the specified fd.
+         *
+         * As per pam_set_data() docs: the PAM_DATA_SILENT indicates whether we are called in the forked off
+         * payload child of the new session. However, all file descriptors are most likely already closed
+         * there (that's what /bin/login does after all), hence let's simply turn this into a NOP in the
+         * child, and only close the fd in the parent. */
+        if (FLAGS_SET(error_status, PAM_DATA_SILENT))
+                return;
+
+        safe_close(PTR_TO_FD(data));
 }
 
 int pam_get_item_many_internal(pam_handle_t *handle, ...) {

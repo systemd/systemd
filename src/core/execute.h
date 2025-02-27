@@ -530,6 +530,7 @@ const char* exec_context_fdname(const ExecContext *c, int fd_index);
 
 bool exec_context_may_touch_console(const ExecContext *c);
 bool exec_context_maintains_privileges(const ExecContext *c);
+bool exec_context_shall_ansi_seq_reset(const ExecContext *c);
 
 int exec_context_get_effective_ioprio(const ExecContext *c);
 bool exec_context_get_effective_mount_apivfs(const ExecContext *c);
@@ -537,14 +538,14 @@ bool exec_context_get_effective_bind_log_sockets(const ExecContext *c);
 
 void exec_context_free_log_extra_fields(ExecContext *c);
 
-void exec_context_revert_tty(ExecContext *c);
+void exec_context_revert_tty(ExecContext *c, sd_id128_t invocation_id);
 
 int exec_context_get_clean_directories(ExecContext *c, char **prefix, ExecCleanMask mask, char ***ret);
 int exec_context_get_clean_mask(ExecContext *c, ExecCleanMask *ret);
 
 const char* exec_context_tty_path(const ExecContext *context);
 int exec_context_apply_tty_size(const ExecContext *context, int input_fd, int output_fd, const char *tty_path);
-void exec_context_tty_reset(const ExecContext *context, const ExecParameters *p);
+void exec_context_tty_reset(const ExecContext *context, const ExecParameters *p, sd_id128_t invocation_id);
 
 uint64_t exec_context_get_rlimit(const ExecContext *c, const char *name);
 int exec_context_get_oom_score_adjust(const ExecContext *c);

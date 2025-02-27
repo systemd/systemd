@@ -2515,7 +2515,7 @@ static int create_interactively(void) {
                 return 0;
         }
 
-        (void) terminal_reset_defensive_locked(STDOUT_FILENO, /* switch_to_text= */ false);
+        (void) terminal_reset_defensive_locked(STDOUT_FILENO, /* flags= */ 0);
 
         for (;;) {
                 username = mfree(username);
