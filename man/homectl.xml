@@ -1173,6 +1173,17 @@
       </varlistentry>
 
       <varlistentry>
+        <term><command>register</command> <replaceable>FILE</replaceable> [<replaceable>FILE</replaceable>…]</term>
+
+        <listitem><para>Registers an existing user locally, given its JSON user record. Takes a path to a JSON user record file. If </para>
+
+        <para>The specified user name should follow the strict syntax described on <ulink
+        url="https://systemd.io/USER_NAMES">User/Group Name Syntax</ulink>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><command>remove</command> <replaceable>USER</replaceable></term>
 
         <listitem><para>Remove a home directory/user account. This will remove both the home directory's user

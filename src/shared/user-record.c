@@ -1126,6 +1126,8 @@ int per_machine_id_match(sd_json_variant *ids, sd_json_dispatch_flags_t flags) {
         sd_id128_t mid;
         int r;
 
+        assert(ids);
+
         r = sd_id128_get_machine(&mid);
         if (r < 0)
                 return json_log(ids, flags, r, "Failed to acquire machine ID: %m");
@@ -1174,6 +1176,8 @@ int per_machine_hostname_match(sd_json_variant *hns, sd_json_dispatch_flags_t fl
         _cleanup_free_ char *hn = NULL;
         int r;
 
+        assert(hns);
+
         r = gethostname_strict(&hn);
         if (r == -ENXIO) {
                 json_log(hns, flags, r, "No hostname set, not matching perMachine hostname record: %m");
@@ -1221,12 +1225,30 @@ int per_machine_match(sd_json_variant *entry, sd_json_dispatch_flags_t flags) {
                         return true;
         }
 
+        m = sd_json_variant_by_key(entry, "matchNotMachineId");
+        if (m) {
+                r = per_machine_id_match(m, flags);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return true;
+        }
+
         m = sd_json_variant_by_key(entry, "matchHostname");
         if (m) {
                 r = per_machine_hostname_match(m, flags);
                 if (r < 0)
                         return r;
                 if (r > 0)
+                        return true;
+        }
+
+        m = sd_json_variant_by_key(entry, "matchNotHostname");
+        if (m) {
+                r = per_machine_hostname_match(m, flags);
+                if (r < 0)
+                        return r;
+                if (r == 0)
                         return true;
         }
 
@@ -1237,7 +1259,9 @@ static int dispatch_per_machine(const char *name, sd_json_variant *variant, sd_j
 
         static const sd_json_dispatch_field per_machine_dispatch_table[] = {
                 { "matchMachineId",             _SD_JSON_VARIANT_TYPE_INVALID, NULL,                                 0,                                                   0              },
+                { "matchNotMachineId",          _SD_JSON_VARIANT_TYPE_INVALID, NULL,                                 0,                                                   0              },
                 { "matchHostname",              _SD_JSON_VARIANT_TYPE_INVALID, NULL,                                 0,                                                   0              },
+                { "matchNotHostname",           _SD_JSON_VARIANT_TYPE_INVALID, NULL,                                 0,                                                   0              },
                 { "blobDirectory",              SD_JSON_VARIANT_STRING,        json_dispatch_path,                   offsetof(UserRecord, blob_directory),                SD_JSON_STRICT },
                 { "blobManifest",               SD_JSON_VARIANT_OBJECT,        dispatch_blob_manifest,               offsetof(UserRecord, blob_manifest),                 0              },
                 { "iconName",                   SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,              offsetof(UserRecord, icon_name),                     SD_JSON_STRICT },

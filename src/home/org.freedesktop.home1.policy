@@ -88,4 +88,14 @@
                         <allow_active>auth_admin_keep</allow_active>
                 </defaults>
         </action>
+
+        <action id="org.freedesktop.home1.manage-signing-keys">
+                <description gettext-domain="systemd">Manage Home Directory Signing Keys</description>
+                <message gettext-domain="systemd">Authentication is required to manage signing keys for home directories.</message>
+                <defaults>
+                        <allow_any>auth_admin_keep</allow_any>
+                        <allow_inactive>auth_admin_keep</allow_inactive>
+                        <allow_active>auth_admin_keep</allow_active>
+                </defaults>
+        </action>
 </policyconfig>

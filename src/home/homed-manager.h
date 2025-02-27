@@ -87,9 +87,13 @@ int manager_reschedule_rebalance(Manager *m);
 
 int manager_verify_user_record(Manager *m, UserRecord *hr);
 
+int manager_adopt_home(Manager *m, const char *path);
+
 int manager_acquire_key_pair(Manager *m);
 int manager_sign_user_record(Manager *m, UserRecord *u, UserRecord **ret, sd_bus_error *error);
 
 int bus_manager_emit_auto_login_changed(Manager *m);
 
 int manager_get_home_by_name(Manager *m, const char *user_name, Home **ret);
+
+extern const struct hash_ops public_key_hash_ops;
