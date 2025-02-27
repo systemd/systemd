@@ -2472,6 +2472,9 @@ static int link_update_mtu(Link *link, sd_netlink_message *message) {
         }
 
         if (link->radv) {
+                if (link->have_router_mtu)
+                        return 0;
+
                 r = sd_radv_set_mtu(link->radv, link->mtu);
                 if (r < 0)
                         return log_link_debug_errno(link, r, "Could not set MTU for Router Advertisement: %m");
