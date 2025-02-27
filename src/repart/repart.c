@@ -34,6 +34,7 @@
 #include "dirent-util.h"
 #include "efivars.h"
 #include "errno-util.h"
+#include "factory-reset.h"
 #include "fd-util.h"
 #include "fdisk-util.h"
 #include "fileio.h"
@@ -8712,22 +8713,19 @@ static int parse_argv(int argc, char *argv[], X509 **ret_certificate, EVP_PKEY *
 }
 
 static int parse_proc_cmdline_factory_reset(void) {
-        bool b;
-        int r;
-
         if (arg_factory_reset >= 0) /* Never override what is specified on the process command line */
                 return 0;
 
         if (!in_initrd()) /* Never honour kernel command line factory reset request outside of the initrd */
                 return 0;
 
-        r = proc_cmdline_get_bool("systemd.factory_reset", /* flags = */ 0, &b);
-        if (r < 0)
-                return log_error_errno(r, "Failed to parse systemd.factory_reset kernel command line argument: %m");
-        if (r > 0) {
-                arg_factory_reset = b;
+        FactoryResetMode f = factory_reset_mode();
+        if (f < 0)
+                return log_error_errno(f, "Failed to parse systemd.factory_reset kernel command line argument: %m");
+        if (f != FACTORY_RESET_UNSPECIFIED) {
+                arg_factory_reset = f == FACTORY_RESET_ON;
 
-                if (b)
+                if (arg_factory_reset)
                         log_notice("Honouring factory reset requested via kernel command line.");
         }
 
@@ -8737,6 +8735,10 @@ static int parse_proc_cmdline_factory_reset(void) {
 static int parse_efi_variable_factory_reset(void) {
         _cleanup_free_ char *value = NULL;
         int r;
+
+        /* NB: This is legacy, people should move to the newer FactoryResetRequest variable! */
+
+        // FIXME: Remove this in v260
 
         if (arg_factory_reset >= 0) /* Never override what is specified on the process command line */
                 return 0;
@@ -8751,6 +8753,8 @@ static int parse_efi_variable_factory_reset(void) {
                 return log_error_errno(r, "Failed to read EFI variable FactoryReset: %m");
         }
 
+        log_warning("Warning, EFI variable FactoryReset is in use, please migrate to use FactoryResetRequest instead, support will be removed in v260!");
+
         r = parse_boolean(value);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse EFI variable FactoryReset: %m");
@@ -8764,6 +8768,8 @@ static int parse_efi_variable_factory_reset(void) {
 
 static int remove_efi_variable_factory_reset(void) {
         int r;
+
+        // FIXME: Remove this in v260, see above
 
         r = efi_set_variable(EFI_SYSTEMD_VARIABLE_STR("FactoryReset"), NULL, 0);
         if (r < 0) {
