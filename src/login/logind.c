@@ -804,8 +804,11 @@ static int manager_dispatch_device_udev(sd_device_monitor *monitor, sd_device *d
 
         assert(device);
 
-        if (device_in_subsystems(device, STRV_MAKE("input", "graphics", "drm")) ||
-            sd_device_has_current_tag(device, "master-of-seat") > 0)
+        /* If the event is triggered by us, do not try to start the relevant seat again. Otherwise, starting
+         * the seat may trigger uevents again again again... */
+        if (manager_process_device_triggered_by_seat(m, device) <= 0 &&
+            (device_in_subsystems(device, STRV_MAKE("input", "graphics", "drm")) ||
+             sd_device_has_current_tag(device, "master-of-seat") > 0))
                 (void) manager_process_seat_device(m, device);
 
         if (!manager_all_buttons_ignored(m) &&
