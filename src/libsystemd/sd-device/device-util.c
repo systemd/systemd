@@ -132,22 +132,63 @@ char** device_make_log_fields(sd_device *device) {
         return TAKE_PTR(strv);
 }
 
-bool device_in_subsystem(sd_device *device, const char *subsystem) {
-        const char *s = NULL;
+int device_in_subsystem_strv(sd_device *device, char * const *subsystems) {
+        const char *s;
+        int r;
 
         assert(device);
 
-        (void) sd_device_get_subsystem(device, &s);
-        return streq_ptr(s, subsystem);
+        r = sd_device_get_subsystem(device, &s);
+        if (r == -ENOENT)
+                return strv_isempty(subsystems);
+        if (r < 0)
+                return r;
+        return strv_contains(subsystems, s);
 }
 
-bool device_is_devtype(sd_device *device, const char *devtype) {
-        const char *s = NULL;
+int device_is_devtype(sd_device *device, const char *devtype) {
+        const char *s;
+        int r;
 
         assert(device);
 
-        (void) sd_device_get_devtype(device, &s);
+        r = sd_device_get_devtype(device, &s);
+        if (r == -ENOENT)
+                return !devtype;
+        if (r < 0)
+                return r;
         return streq_ptr(s, devtype);
+}
+
+int device_is_subsystem_devtype(sd_device *device, const char *subsystem, const char *devtype) {
+        int r;
+
+        assert(device);
+
+        r = device_in_subsystem(device, subsystem);
+        if (r <= 0)
+                return r;
+
+        if (!devtype)
+                return true;
+
+        return device_is_devtype(device, devtype);
+}
+
+int device_sysname_startswith_strv(sd_device *device, char * const *prefixes, const char **ret_suffix) {
+        const char *sysname;
+        int r;
+
+        assert(device);
+
+        r = sd_device_get_sysname(device, &sysname);
+        if (r < 0)
+                return r;
+
+        const char *suffix = startswith_strv(sysname, prefixes);
+        if (ret_suffix)
+                *ret_suffix = suffix;
+        return !!suffix;
 }
 
 bool device_property_can_set(const char *property) {

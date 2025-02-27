@@ -2084,8 +2084,13 @@ static int action_detach(const char *path) {
                 FOREACH_DEVICE(e, d) {
                         _cleanup_(loop_device_unrefp) LoopDevice *entry_loop = NULL;
 
-                        if (!device_is_devtype(d, "disk")) /* Filter out partition block devices */
+                        r = device_is_devtype(d, "disk");
+                        if (r < 0) {
+                                log_device_warning_errno(d, r, "Failed to check if device is a whole disk, skipping: %m");
                                 continue;
+                        }
+                        if (r == 0)
+                                continue; /* Filter out partition block devices */
 
                         r = loop_device_open(d, O_RDONLY, LOCK_SH, &entry_loop);
                         if (r < 0) {
