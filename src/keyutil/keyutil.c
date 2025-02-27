@@ -13,6 +13,7 @@
 #include "openssl-util.h"
 #include "parse-argument.h"
 #include "pretty-print.h"
+#include "tmpfile-util.h"
 #include "verbs.h"
 
 static char *arg_private_key = NULL;
@@ -352,13 +353,19 @@ static int verb_pkcs7(int argc, char *argv[], void *userdata) {
 
         ASN1_STRING_set0(signer_info->enc_digest, TAKE_PTR(pkcs1), pkcs1_len);
 
-        _cleanup_fclose_ FILE *output = fopen(arg_output, "we");
-        if (!output)
-                return log_error_errno(errno, "Could not open PKCS#7 output file %s: %m", arg_output);
+        _cleanup_fclose_ FILE *output = NULL;
+        _cleanup_free_ char *tmp = NULL;
+        r = fopen_tmpfile_linkable(arg_output, O_WRONLY|O_CLOEXEC, &tmp, &output);
+        if (r < 0)
+                return log_error_errno(r, "Failed to open temporary file: %m");
 
         if (!i2d_PKCS7_fp(output, pkcs7))
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to write PKCS#7 file: %s",
                                        ERR_error_string(ERR_get_error(), NULL));
+
+        r = flink_tmpfile(output, tmp, arg_output, LINK_TMPFILE_REPLACE|LINK_TMPFILE_SYNC);
+        if (r < 0)
+                return log_error_errno(r, "Failed to link temporary file to %s: %m", arg_output);
 
         return 0;
 }
