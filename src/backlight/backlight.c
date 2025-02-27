@@ -103,15 +103,16 @@ static int find_pci_or_platform_parent(sd_device *device, sd_device **ret) {
                 if (r < 0)
                         return r;
 
-                if (device_in_subsystem(device, "drm")) {
+                r = device_in_subsystem(device, "drm");
+                if (r < 0)
+                        return r;
+                if (r > 0) {
                         const char *s;
 
-                        r = sd_device_get_sysname(device, &s);
+                        r = device_sysname_startswith_strv(device, STRV_MAKE("card"), &s);
                         if (r < 0)
                                 return r;
-
-                        s = startswith(s, "card");
-                        if (!s)
+                        if (r == 0)
                                 return -ENODATA;
 
                         s += strspn(s, DIGITS);
@@ -122,7 +123,10 @@ static int find_pci_or_platform_parent(sd_device *device, sd_device **ret) {
                         continue;
                 }
 
-                if (device_in_subsystem(device, "pci")) {
+                r = device_in_subsystem(device, "pci");
+                if (r < 0)
+                        return r;
+                if (r > 0) {
                         uint32_t class;
 
                         r = device_get_sysattr_u32(device, "class", &class);
@@ -140,7 +144,10 @@ static int find_pci_or_platform_parent(sd_device *device, sd_device **ret) {
                         continue;
                 }
 
-                if (device_in_subsystem(device, "platform")) {
+                r = device_in_subsystem(device, "platform");
+                if (r < 0)
+                        return r;
+                if (r > 0) {
                         *ret = device;
                         return 0;
                 }
@@ -197,7 +204,10 @@ static int validate_device(sd_device *device) {
         if (r < 0)
                 return log_device_debug_errno(device, r, "Failed to get sysname: %m");
 
-        if (!device_in_subsystem(device, "backlight"))
+        r = device_in_subsystem(device, "leds");
+        if (r < 0)
+                return log_device_debug_errno(device, r, "Failed to check if device is in backlight subsystem: %m");
+        if (r > 0)
                 return true; /* We assume LED device is always valid. */
 
         r = sd_device_get_sysattr_value(device, "type", &v);
@@ -242,7 +252,7 @@ static int validate_device(sd_device *device) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to add sysattr match: %m");
 
-        if (device_in_subsystem(parent, "pci")) {
+        if (device_in_subsystem(parent, "pci") > 0) {
                 r = has_multiple_graphics_cards();
                 if (r < 0)
                         return log_debug_errno(r, "Failed to check if the system has multiple graphics cards: %m");
@@ -284,7 +294,7 @@ static int validate_device(sd_device *device) {
                         return false;
                 }
 
-                if (device_in_subsystem(other_parent, "platform") && device_in_subsystem(parent, "pci")) {
+                if (device_in_subsystem(other_parent, "platform") > 0 && device_in_subsystem(parent, "pci") > 0) {
                         /* The other is connected to the platform bus and we are a PCI device, that also means we are out. */
                         if (DEBUG_LOGGING) {
                                 const char *other_sysname = NULL, *other_type = NULL;
@@ -335,6 +345,7 @@ static int clamp_brightness(
                 unsigned *brightness) {
 
         unsigned new_brightness, min_brightness;
+        int r;
 
         assert(device);
         assert(brightness);
@@ -345,7 +356,10 @@ static int clamp_brightness(
          * state restoration. */
 
         min_brightness = (unsigned) ((double) max_brightness * percent / 100);
-        if (device_in_subsystem(device, "backlight"))
+        r = device_in_subsystem(device, "backlight");
+        if (r < 0)
+                return r;
+        if (r > 0)
                 min_brightness = MAX(1U, min_brightness);
 
         new_brightness = CLAMP(*brightness, min_brightness, max_brightness);
@@ -361,7 +375,7 @@ static int clamp_brightness(
         return 0;
 }
 
-static bool shall_clamp(sd_device *device, unsigned *ret) {
+static int shall_clamp(sd_device *device, unsigned *ret) {
         const char *property, *s;
         unsigned default_percent;
         int r;
@@ -369,7 +383,10 @@ static bool shall_clamp(sd_device *device, unsigned *ret) {
         assert(device);
         assert(ret);
 
-        if (device_in_subsystem(device, "backlight")) {
+        r = device_in_subsystem(device, "backlight");
+        if (r < 0)
+                return r;
+        if (r > 0) {
                 property = "ID_BACKLIGHT_CLAMP";
                 default_percent = 5;
         } else {
@@ -561,7 +578,10 @@ static int verb_load(int argc, char *argv[], void *userdata) {
         if (validate_device(device) == 0)
                 return 0;
 
-        clamp = shall_clamp(device, &percent);
+        r = shall_clamp(device, &percent);
+        if (r < 0)
+                return r;
+        clamp = r;
 
         r = read_saved_brightness(device, &brightness);
         if (r < 0) {

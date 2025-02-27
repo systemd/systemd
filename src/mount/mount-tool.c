@@ -1302,6 +1302,7 @@ static int acquire_description(sd_device *d) {
 
 static int acquire_removable(sd_device *d) {
         const char *v;
+        int r;
 
         assert(d);
 
@@ -1313,10 +1314,16 @@ static int acquire_removable(sd_device *d) {
                 if (sd_device_get_sysattr_value(d, "removable", &v) >= 0)
                         break;
 
-                if (sd_device_get_parent(d, &d) < 0)
+                r = sd_device_get_parent(d, &d);
+                if (r == -ENODEV)
                         return 0;
+                if (r < 0)
+                        return r;
 
-                if (!device_in_subsystem(d, "block"))
+                r = device_in_subsystem(d, "block");
+                if (r < 0)
+                        return r;
+                if (r == 0)
                         return 0;
         }
 

@@ -539,6 +539,7 @@ TEST(sd_device_enumerator_add_match_parent) {
 
 TEST(sd_device_enumerator_add_all_parents) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        int r;
 
         /* STEP 1: enumerate all block devices without all_parents() */
         ASSERT_OK(sd_device_enumerator_new(&e));
@@ -552,8 +553,7 @@ TEST(sd_device_enumerator_add_all_parents) {
         unsigned devices_count_with_parents = 0;
         unsigned devices_count_without_parents = 0;
         FOREACH_DEVICE(e, dev) {
-                ASSERT_TRUE(device_in_subsystem(dev, "block"));
-                ASSERT_TRUE(device_is_devtype(dev, "partition"));
+                ASSERT_OK_POSITIVE(device_is_subsystem_devtype(dev, "block", "partition"));
                 devices_count_without_parents++;
         }
 
@@ -564,7 +564,8 @@ TEST(sd_device_enumerator_add_all_parents) {
 
         unsigned not_filtered_parent_count = 0;
         FOREACH_DEVICE(e, dev) {
-                if (!device_in_subsystem(dev, "block") || !device_is_devtype(dev, "partition"))
+                ASSERT_OK(r = device_is_subsystem_devtype(dev, "block", "partition"));
+                if (r == 0)
                         not_filtered_parent_count++;
                 devices_count_with_parents++;
         }

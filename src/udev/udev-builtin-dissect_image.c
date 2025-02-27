@@ -318,20 +318,22 @@ static int verb_copy(UdevEvent *event, sd_device *dev) {
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to get device node: %m");
 
-        if (!device_in_subsystem(dev, "block"))
-                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL), "Invoked on non-block device '%s', refusing: %m", devnode);
-        if (!device_is_devtype(dev, "partition"))
-                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL), "Invoked on non-partition block device '%s', refusing: %m", devnode);
+        r = device_is_subsystem_devtype(dev, "block", "partition");
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to check if the device '%s' is a partition, refusing: %m", devnode);
+        if (r == 0)
+                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL), "Invoked on non-partition device '%s', refusing.", devnode);
 
         sd_device *parent;
         r = sd_device_get_parent(dev, &parent);
         if (r < 0)
                 return log_error_errno(r, "Failed to get parent of device '%s': %m", devnode);
 
-        if (!device_in_subsystem(parent, "block"))
-                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL), "Parent of block device '%s' is not a block device, refusing: %m", devnode);
-        if (!device_is_devtype(parent, "disk"))
-                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL), "Parent of block device '%s' is not a whole block device, refusing: %m", devnode);
+        r = device_is_subsystem_devtype(parent, "block", "disk");
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to check if the parent of block device '%s' is a whole block device, refusing: %m", devnode);
+        if (r == 0)
+                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL), "Parent of block device '%s' is not a whole block device, refusing.", devnode);
 
         const char *partn;
         r = sd_device_get_property_value(dev, "PARTN", &partn);
