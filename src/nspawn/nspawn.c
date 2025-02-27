@@ -85,6 +85,7 @@
 #include "nsresource.h"
 #include "nulstr-util.h"
 #include "os-util.h"
+#include "osc-context.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
@@ -3581,9 +3582,9 @@ static int inner_child(
         /* LXC sets container=lxc, so follow the scheme here */
         envp[n_env++] = strjoina("container=", arg_container_service_name);
 
-        envp[n_env] = strv_find_prefix(environ, "TERM=");
-        if (envp[n_env])
-                n_env++;
+        /* Propagate $TERM unless we are invoked in pipe mode and stdin/stdout/stderr don't refer to a TTY */
+        const char *term = (arg_console_mode != CONSOLE_PIPE || on_tty()) ? strv_find_prefix(environ, "TERM=") : NULL;
+        envp[n_env++] = (char*) (term ?: "TERM=dumb");
 
         if (home || !uid_is_valid(arg_uid) || arg_uid == 0)
                 if (asprintf(envp + n_env++, "HOME=%s", home ?: "/root") < 0)
@@ -5643,6 +5644,13 @@ static int run_container(
 
                 (void) expose_port_execute(rtnl, &expose_args->fw_ctx, arg_expose_ports, AF_INET, &expose_args->address4);
                 (void) expose_port_execute(rtnl, &expose_args->fw_ctx, arg_expose_ports, AF_INET6, &expose_args->address6);
+        }
+
+        _cleanup_(osc_context_closep) sd_id128_t osc_context_id = SD_ID128_NULL;
+        if (IN_SET(arg_console_mode, CONSOLE_INTERACTIVE, CONSOLE_READ_ONLY) && !terminal_is_dumb()) {
+                r = osc_context_open_container(arg_machine, /* ret_seq= */ NULL, &osc_context_id);
+                if (r < 0)
+                        return r;
         }
 
         if (arg_console_mode != CONSOLE_PIPE) {
