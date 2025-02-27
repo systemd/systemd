@@ -628,16 +628,22 @@ static int manager_dispatch_device_udev(sd_device_monitor *monitor, sd_device *d
 
 static int manager_dispatch_vcsa_udev(sd_device_monitor *monitor, sd_device *device, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
-        const char *name;
+        int r;
 
         assert(device);
 
         /* Whenever a VCSA device is removed try to reallocate our
          * VTs, to make sure our auto VTs never go away. */
 
-        if (sd_device_get_sysname(device, &name) >= 0 &&
-            startswith(name, "vcsa") &&
-            device_for_action(device, SD_DEVICE_REMOVE))
+        r = device_sysname_startswith(device, "vcsa");
+        if (r < 0) {
+                log_device_debug_errno(device, r, "Failed to check device sysname, ignoring: %m");
+                return 0;
+        }
+        if (r == 0)
+                return 0;
+
+        if (device_for_action(device, SD_DEVICE_REMOVE))
                 seat_preallocate_vts(m->seat0);
 
         return 0;

@@ -151,7 +151,10 @@ static int run(int argc, char *argv[]) {
         if (sd_device_get_devname(dev, &devname) >= 0) {
                 mode_t mode = 0600;
 
-                if (device_in_subsystem(dev, "block"))
+                r = device_in_subsystem(dev, "block");
+                if (r < 0)
+                        return r;
+                if (r > 0)
                         mode |= S_IFBLK;
                 else
                         mode |= S_IFCHR;
