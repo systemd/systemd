@@ -174,7 +174,7 @@ In more complex setups it is possible to specify in more detail where to find
 each of these resources:
 
 1. Firmware typically provides a basic boot menu which may be used to choose
-   between various releavant boot loaders/entrypoints on multiple disks. This
+   between various relevant boot loaders/entrypoints on multiple disks. This
    is sometimes configurable from the firmware setup tool, as well as from
    userspace via tools such as
    [`bootctl`](https://www.freedesktop.org/software/systemd/man/latest/bootctl.html),
@@ -234,7 +234,7 @@ local disk. This can happen at each of these three components:
 
 Similar to the disk-based boot scheme described in the previous section
 discovery of the boot source can take place fully automatically, with each
-component taking the boot source choice of the preceeding component into
+component taking the boot source choice of the preceding component into
 account: the boot loader can automatically download UKIs from the same source
 it itself was downloaded from. Moreover the `initrd` of the UKI can
 automatically downloads the `rootfs` from the same source it itself was
@@ -244,7 +244,7 @@ Also, much like in the disk-based boot scheme it is also possible to
 specifically direct each of the components to a different place instead of the
 automatic derivation of URLs from the same source. On top of that it is of
 course possible to mix disk-based and network-based boot: for example place the
-boot loader on the local disk, but use UKIs and `rootfs` from networked souces;
+boot loader on the local disk, but use UKIs and `rootfs` from networked sources;
 or alternatively place both boot loader and UKIs on the local disk, and only
 the `rootfs` on a networked source.
 
@@ -317,9 +317,9 @@ way. However, do note that this mechanism is only suitable if the hardware is
 known to be compatible with this mechanism, because the Secure Boot certificate
 list is also used to authenticate firmware extensions provided by certain
 extension boards of PCs (for example graphics cards). Or in other words:
-replacing the certficate list with your own might result in unbootable and even
-bricked systems. Automatic enrolling of Secure Boot certficates is however a
-really good option if the targeted harwdare is well known to be compatible with
+replacing the certificate list with your own might result in unbootable and even
+bricked systems. Automatic enrolling of Secure Boot certificates is however a
+really good option if the targeted hardware is well known to be compatible with
 this, which is in particular the case in VMs.
 
 ### Measured Boot and TPMs
