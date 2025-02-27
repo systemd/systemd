@@ -40,6 +40,7 @@ typedef enum UdevBuiltinCommand {
         UDEV_BUILTIN_BLKID,
 #endif
         UDEV_BUILTIN_BTRFS,
+        UDEV_BUILTIN_FACTORY_RESET,
         UDEV_BUILTIN_HWDB,
         UDEV_BUILTIN_INPUT_ID,
         UDEV_BUILTIN_KEYBOARD,
