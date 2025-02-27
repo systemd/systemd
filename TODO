@@ -157,6 +157,10 @@ Features:
   also use this to detect unclean shutdowns, boot into special target if
   detected
 
+* fix homed/homectl confusion around terminology, i.e. "home directory"
+  vs. "home" vs. "home area". Stick to one term for the concept, and it
+  probably shouldn't contain "area".
+
 * sd-boot: do something useful if we find exactly zero entries (ignoring items
   such as reboot/poweroff/factory reset). Show a help text or so.
 
