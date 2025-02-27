@@ -131,13 +131,14 @@ char** device_make_log_fields(sd_device *device) {
         return TAKE_PTR(strv);
 }
 
-bool device_in_subsystem(sd_device *device, const char *subsystem) {
-        const char *s = NULL;
-
+bool device_in_subsystems(sd_device *device, char * const *subsystems) {
         assert(device);
 
-        (void) sd_device_get_subsystem(device, &s);
-        return streq_ptr(s, subsystem);
+        const char *s;
+        if (sd_device_get_subsystem(device, &s) < 0)
+                return false;
+
+        return strv_contains(subsystems, s);
 }
 
 bool device_is_devtype(sd_device *device, const char *devtype) {
