@@ -558,7 +558,7 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
                 return r;
 
         _cleanup_(PKCS7_freep) PKCS7 *p7 = NULL;
-        PKCS7_SIGNER_INFO *si;
+        PKCS7_SIGNER_INFO *si = NULL; /* avoid false maybe-uninitialized warning */
         r = pkcs7_new_with_attributes(certificate, private_key, signed_attributes, &p7, &si);
         if (r < 0)
                 return r;
