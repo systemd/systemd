@@ -5113,15 +5113,17 @@ int exec_invoke(
                  * We need to check prior to entering the user namespace because if we're running unprivileged or in a
                  * system without CAP_SYS_ADMIN, then we can have CAP_SYS_ADMIN in the current user namespace but not
                  * once we unshare a mount namespace. */
-                r = has_cap_sys_admin ? 1 : can_mount_proc(context, params);
-                if (r < 0) {
-                        *exit_status = EXIT_NAMESPACE;
-                        return log_exec_error_errno(context, params, r, "Failed to detect if /proc/ can be remounted: %m");
-                }
-                if (r == 0) {
-                        *exit_status = EXIT_NAMESPACE;
-                        return log_exec_error_errno(context, params, SYNTHETIC_ERRNO(EPERM),
-                                                    "PrivatePIDs=yes is configured, but /proc/ cannot be re-mounted due to lack of privileges, refusing.");
+                if (!has_cap_sys_admin) {
+                        r = can_mount_proc(context, params);
+                        if (r < 0) {
+                                *exit_status = EXIT_NAMESPACE;
+                                return log_exec_error_errno(context, params, r, "Failed to detect if /proc/ can be remounted: %m");
+                        }
+                        if (r == 0) {
+                                *exit_status = EXIT_NAMESPACE;
+                                return log_exec_error_errno(context, params, SYNTHETIC_ERRNO(EPERM),
+                                                            "PrivatePIDs=yes is configured, but /proc/ cannot be re-mounted due to lack of privileges, refusing.");
+                        }
                 }
 
                 r = setup_private_pids(context, params);
