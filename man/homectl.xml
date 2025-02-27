@@ -191,6 +191,20 @@
         <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--seize=</option></term>
+
+        <listitem><para>Takes a boolean argument. When used with <command>create</command> or
+        <command>register</command>, controls whether to strip cryptographic signatures from the provided
+        JSON user records, which has the effect of signing them with the local signing key
+        (<filename>local.public</filename>) instead. If this switch is set to true, added user records
+        hence become locally managed (and thus can be modified locally), while if it is set to false the user
+        records remain managed and owned by its origin (and thus cannot be modified locally). This switch
+        defaults to true for <command>create</command> and false for <command>register</command>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
       <xi:include href="user-system-options.xml" xpointer="host" />
       <xi:include href="user-system-options.xml" xpointer="machine" />
 
