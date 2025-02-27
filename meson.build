@@ -569,14 +569,12 @@ decl_headers = '''
 #include <dirent.h>
 #include <sched.h>
 #include <sys/mount.h>
-#include <sys/stat.h>
 #include <uchar.h>
 '''
 
 foreach decl : ['char16_t',
                 'char32_t',
                 'struct mount_attr',
-                'struct statx',
                 'struct dirent64',
                 'struct sched_attr',
                ]
@@ -595,21 +593,9 @@ foreach decl : ['char16_t',
                 endif
         endif
 
-        if decl == 'struct statx'
-                if have
-                        want_linux_stat_h = false
-                else
-                        have = cc.sizeof(decl,
-                                         prefix : decl_headers + '#include <linux/stat.h>',
-                                         args : '-D_GNU_SOURCE') > 0
-                        want_linux_stat_h = have
-                endif
-        endif
-
         conf.set10('HAVE_' + decl.underscorify().to_upper(), have)
 endforeach
 
-conf.set10('WANT_LINUX_STAT_H', want_linux_stat_h)
 conf.set10('WANT_LINUX_FS_H', want_linux_fs_h)
 
 foreach ident : ['secure_getenv', '__secure_getenv']
@@ -639,9 +625,6 @@ foreach ident : [
         ['copy_file_range',   '''#include <sys/syscall.h>
                                  #include <unistd.h>'''],
         ['bpf',               '''#include <sys/syscall.h>
-                                 #include <unistd.h>'''],
-        ['statx',             '''#include <sys/types.h>
-                                 #include <sys/stat.h>
                                  #include <unistd.h>'''],
         ['explicit_bzero' ,   '''#include <string.h>'''],
         ['reallocarray',      '''#include <stdlib.h>'''],
