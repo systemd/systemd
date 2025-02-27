@@ -127,6 +127,8 @@ Deprecations and removals:
 
 Features:
 
+* Maybe rename pkcs7 and public verbs of systemd-keyutil to be more verb like.
+
 * sd-boot: do something useful if we find exactly zero entries (ignoring items
   such as reboot/poweroff/factory reset). Show a help text or so.
 
