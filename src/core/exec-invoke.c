@@ -4097,6 +4097,139 @@ static bool exec_context_need_unprivileged_private_users(
                !strv_isempty(context->no_exec_paths);
 }
 
+static int setup_delegated_namespaces(
+                const ExecContext *context,
+                ExecParameters *params,
+                ExecRuntime *runtime,
+                const char *memory_pressure_path,
+                uid_t uid,
+                uid_t gid,
+                const ExecCommand *command,
+                bool needs_sandboxing,
+                bool has_cap_sys_admin,
+                int *reterr_exit_status) {
+
+        int r;
+
+        assert(context);
+        assert(params);
+        assert(reterr_exit_status);
+
+        if (exec_needs_network_namespace(context) &&
+            runtime && runtime->shared && runtime->shared->netns_storage_socket[0] >= 0) {
+
+                /* Try to enable network namespacing if network namespacing is available and we have
+                 * CAP_NET_ADMIN. We need CAP_NET_ADMIN to be able to configure the loopback device in the
+                 * new network namespace. And if we don't have that, then we could only create a network
+                 * namespace without the ability to set up "lo". Hence gracefully skip things then. */
+                if (ns_type_supported(NAMESPACE_NET) && have_effective_cap(CAP_NET_ADMIN) > 0) {
+                        r = setup_shareable_ns(runtime->shared->netns_storage_socket, CLONE_NEWNET);
+                        if (ERRNO_IS_NEG_PRIVILEGE(r))
+                                log_exec_notice_errno(context, params, r,
+                                                      "PrivateNetwork=yes is configured, but network namespace setup not permitted, proceeding without: %m");
+                        else if (r < 0) {
+                                *reterr_exit_status = EXIT_NETWORK;
+                                return log_exec_error_errno(context, params, r, "Failed to set up network namespacing: %m");
+                        }
+                } else if (context->network_namespace_path) {
+                        *reterr_exit_status = EXIT_NETWORK;
+                        return log_exec_error_errno(context, params, SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                                    "NetworkNamespacePath= is not supported, refusing.");
+                } else
+                        log_exec_notice(context, params, "PrivateNetwork=yes is configured, but the kernel does not support or we lack privileges for network namespace, proceeding without.");
+        }
+
+        if (exec_needs_ipc_namespace(context) && runtime &&
+            runtime->shared && runtime->shared->ipcns_storage_socket[0] >= 0) {
+
+                if (ns_type_supported(NAMESPACE_IPC)) {
+                        r = setup_shareable_ns(runtime->shared->ipcns_storage_socket, CLONE_NEWIPC);
+                        if (ERRNO_IS_NEG_PRIVILEGE(r))
+                                log_exec_warning_errno(context, params, r,
+                                                       "PrivateIPC=yes is configured, but IPC namespace setup failed, ignoring: %m");
+                        else if (r < 0) {
+                                *reterr_exit_status = EXIT_NAMESPACE;
+                                return log_exec_error_errno(context, params, r, "Failed to set up IPC namespacing: %m");
+                        }
+                } else if (context->ipc_namespace_path) {
+                        *reterr_exit_status = EXIT_NAMESPACE;
+                        return log_exec_error_errno(context, params, SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                                    "IPCNamespacePath= is not supported, refusing.");
+                } else
+                        log_exec_warning(context, params, "PrivateIPC=yes is configured, but the kernel does not support IPC namespaces, ignoring.");
+        }
+
+        if (needs_sandboxing && exec_needs_cgroup_namespace(context, params)) {
+                if (unshare(CLONE_NEWCGROUP) < 0) {
+                        *reterr_exit_status = EXIT_NAMESPACE;
+                        return log_exec_error_errno(context, params, errno, "Failed to set up cgroup namespacing: %m");
+                }
+        }
+
+        /* Unshare a new PID namespace before setting up mounts to ensure /proc/ is mounted with only processes in PID namespace visible.
+         * Note PrivatePIDs=yes implies MountAPIVFS=yes so we'll always ensure procfs is remounted. */
+        if (needs_sandboxing && exec_needs_pid_namespace(context)) {
+                if (params->pidref_transport_fd < 0) {
+                        *reterr_exit_status = EXIT_NAMESPACE;
+                        return log_exec_error_errno(context, params, SYNTHETIC_ERRNO(ENOTCONN), "PidRef socket is not set up: %m");
+                }
+
+                /* If we had CAP_SYS_ADMIN prior to joining the user namespace, then we are privileged and don't need
+                 * to check if we can mount /proc/.
+                 *
+                 * We need to check prior to entering the user namespace because if we're running unprivileged or in a
+                 * system without CAP_SYS_ADMIN, then we can have CAP_SYS_ADMIN in the current user namespace but not
+                 * once we unshare a mount namespace. */
+                if (!has_cap_sys_admin) {
+                        r = can_mount_proc(context, params);
+                        if (r < 0) {
+                                *reterr_exit_status = EXIT_NAMESPACE;
+                                return log_exec_error_errno(context, params, r, "Failed to detect if /proc/ can be remounted: %m");
+                        }
+                        if (r == 0) {
+                                *reterr_exit_status = EXIT_NAMESPACE;
+                                return log_exec_error_errno(context, params, SYNTHETIC_ERRNO(EPERM),
+                                                            "PrivatePIDs=yes is configured, but /proc/ cannot be re-mounted due to lack of privileges, refusing.");
+                        }
+                }
+
+                r = setup_private_pids(context, params);
+                if (r < 0) {
+                        *reterr_exit_status = EXIT_NAMESPACE;
+                        return log_exec_error_errno(context, params, r, "Failed to set up pid namespace: %m");
+                }
+        }
+
+        /* If PrivatePIDs= yes is configured, we're now running as pid 1 in a pid namespace! */
+
+        if (exec_needs_mount_namespace(context, params, runtime)) {
+                _cleanup_free_ char *error_path = NULL;
+
+                r = apply_mount_namespace(command->flags,
+                                          context,
+                                          params,
+                                          runtime,
+                                          memory_pressure_path,
+                                          needs_sandboxing,
+                                          &error_path,
+                                          uid,
+                                          gid);
+                if (r < 0) {
+                        *reterr_exit_status = EXIT_NAMESPACE;
+                        return log_exec_error_errno(context, params, r, "Failed to set up mount namespacing%s%s: %m",
+                                                    error_path ? ": " : "", strempty(error_path));
+                }
+        }
+
+        if (needs_sandboxing) {
+                r = apply_protect_hostname(context, params, reterr_exit_status);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 static bool exec_context_shall_confirm_spawn(const ExecContext *context) {
         assert(context);
 
@@ -5050,115 +5183,19 @@ int exec_invoke(
                 }
         }
 
-        if (exec_needs_network_namespace(context) && runtime && runtime->shared && runtime->shared->netns_storage_socket[0] >= 0) {
-
-                /* Try to enable network namespacing if network namespacing is available and we have
-                 * CAP_NET_ADMIN. We need CAP_NET_ADMIN to be able to configure the loopback device in the
-                 * new network namespace. And if we don't have that, then we could only create a network
-                 * namespace without the ability to set up "lo". Hence gracefully skip things then. */
-                if (ns_type_supported(NAMESPACE_NET) && have_effective_cap(CAP_NET_ADMIN) > 0) {
-                        r = setup_shareable_ns(runtime->shared->netns_storage_socket, CLONE_NEWNET);
-                        if (ERRNO_IS_NEG_PRIVILEGE(r))
-                                log_exec_notice_errno(context, params, r,
-                                                      "PrivateNetwork=yes is configured, but network namespace setup not permitted, proceeding without: %m");
-                        else if (r < 0) {
-                                *exit_status = EXIT_NETWORK;
-                                return log_exec_error_errno(context, params, r, "Failed to set up network namespacing: %m");
-                        }
-                } else if (context->network_namespace_path) {
-                        *exit_status = EXIT_NETWORK;
-                        return log_exec_error_errno(context, params, SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                                    "NetworkNamespacePath= is not supported, refusing.");
-                } else
-                        log_exec_notice(context, params, "PrivateNetwork=yes is configured, but the kernel does not support or we lack privileges for network namespace, proceeding without.");
-        }
-
-        if (exec_needs_ipc_namespace(context) && runtime && runtime->shared && runtime->shared->ipcns_storage_socket[0] >= 0) {
-
-                if (ns_type_supported(NAMESPACE_IPC)) {
-                        r = setup_shareable_ns(runtime->shared->ipcns_storage_socket, CLONE_NEWIPC);
-                        if (ERRNO_IS_NEG_PRIVILEGE(r))
-                                log_exec_warning_errno(context, params, r,
-                                                       "PrivateIPC=yes is configured, but IPC namespace setup failed, ignoring: %m");
-                        else if (r < 0) {
-                                *exit_status = EXIT_NAMESPACE;
-                                return log_exec_error_errno(context, params, r, "Failed to set up IPC namespacing: %m");
-                        }
-                } else if (context->ipc_namespace_path) {
-                        *exit_status = EXIT_NAMESPACE;
-                        return log_exec_error_errno(context, params, SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                                    "IPCNamespacePath= is not supported, refusing.");
-                } else
-                        log_exec_warning(context, params, "PrivateIPC=yes is configured, but the kernel does not support IPC namespaces, ignoring.");
-        }
-
-        if (needs_sandboxing && exec_needs_cgroup_namespace(context, params)) {
-                if (unshare(CLONE_NEWCGROUP) < 0) {
-                        *exit_status = EXIT_NAMESPACE;
-                        return log_exec_error_errno(context, params, errno, "Failed to set up cgroup namespacing: %m");
-                }
-        }
-
-        /* Unshare a new PID namespace before setting up mounts to ensure /proc/ is mounted with only processes in PID namespace visible.
-         * Note PrivatePIDs=yes implies MountAPIVFS=yes so we'll always ensure procfs is remounted. */
-        if (needs_sandboxing && exec_needs_pid_namespace(context)) {
-                if (params->pidref_transport_fd < 0) {
-                        *exit_status = EXIT_NAMESPACE;
-                        return log_exec_error_errno(context, params, SYNTHETIC_ERRNO(ENOTCONN), "PidRef socket is not set up: %m");
-                }
-
-                /* If we had CAP_SYS_ADMIN prior to joining the user namespace, then we are privileged and don't need
-                 * to check if we can mount /proc/.
-                 *
-                 * We need to check prior to entering the user namespace because if we're running unprivileged or in a
-                 * system without CAP_SYS_ADMIN, then we can have CAP_SYS_ADMIN in the current user namespace but not
-                 * once we unshare a mount namespace. */
-                if (!has_cap_sys_admin) {
-                        r = can_mount_proc(context, params);
-                        if (r < 0) {
-                                *exit_status = EXIT_NAMESPACE;
-                                return log_exec_error_errno(context, params, r, "Failed to detect if /proc/ can be remounted: %m");
-                        }
-                        if (r == 0) {
-                                *exit_status = EXIT_NAMESPACE;
-                                return log_exec_error_errno(context, params, SYNTHETIC_ERRNO(EPERM),
-                                                            "PrivatePIDs=yes is configured, but /proc/ cannot be re-mounted due to lack of privileges, refusing.");
-                        }
-                }
-
-                r = setup_private_pids(context, params);
-                if (r < 0) {
-                        *exit_status = EXIT_NAMESPACE;
-                        return log_exec_error_errno(context, params, r, "Failed to set up pid namespace: %m");
-                }
-        }
-
-        /* If PrivatePIDs= yes is configured, we're now running as pid 1 in a pid namespace! */
-
-        if (needs_mount_namespace) {
-                _cleanup_free_ char *error_path = NULL;
-
-                r = apply_mount_namespace(command->flags,
-                                          context,
-                                          params,
-                                          runtime,
-                                          memory_pressure_path,
-                                          needs_sandboxing,
-                                          &error_path,
-                                          uid,
-                                          gid);
-                if (r < 0) {
-                        *exit_status = EXIT_NAMESPACE;
-                        return log_exec_error_errno(context, params, r, "Failed to set up mount namespacing%s%s: %m",
-                                                    error_path ? ": " : "", strempty(error_path));
-                }
-        }
-
-        if (needs_sandboxing) {
-                r = apply_protect_hostname(context, params, exit_status);
-                if (r < 0)
-                        return r;
-        }
+        r = setup_delegated_namespaces(
+                        context,
+                        params,
+                        runtime,
+                        memory_pressure_path,
+                        uid,
+                        gid,
+                        command,
+                        needs_sandboxing,
+                        has_cap_sys_admin,
+                        exit_status);
+        if (r < 0)
+                return r;
 
         /* Drop groups as early as possible.
          * This needs to be done after PrivateDevices=yes setup as device nodes should be owned by the host's root.
