@@ -162,7 +162,7 @@ TEST(fd_move_above_stdio) {
         assert_se(close_nointr(new_fd) != EBADF);
 }
 
-TEST(rearrange_stdio) {
+TEST(rearrange_stdio, .proc_mounted = true) {
         pid_t pid;
         int r;
 
@@ -367,7 +367,7 @@ static int seccomp_prohibit_close_range(void) {
 #endif
 }
 
-TEST(close_all_fds) {
+TEST(close_all_fds, .proc_mounted = true) {
         int r;
 
         /* Runs the test four times. Once as is. Once with close_range() syscall blocked via seccomp, once
@@ -439,7 +439,7 @@ TEST(format_proc_fd_path) {
         ASSERT_STREQ(FORMAT_PROC_FD_PATH(2147483647), "/proc/self/fd/2147483647");
 }
 
-TEST(fd_reopen) {
+TEST(fd_reopen, .proc_mounted = true) {
         _cleanup_close_ int fd1 = -EBADF, fd2 = -EBADF;
         struct stat st1, st2;
         int fl;
@@ -703,7 +703,7 @@ TEST(fds_are_same_mount) {
         assert_se(fds_are_same_mount(fd2, fd3) > 0);
 }
 
-TEST(fd_get_path) {
+TEST(fd_get_path, .proc_mounted = true) {
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
         _cleanup_close_ int tfd = -EBADF, fd = -EBADF;
         _cleanup_free_ char *p = NULL, *q = NULL, *saved_cwd = NULL;

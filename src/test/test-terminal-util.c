@@ -71,7 +71,7 @@ TEST(read_one_char) {
         assert_se(read_one_char(file, &r, 1000000, /* echo= */ true, &need_nl) < 0);
 }
 
-TEST(getttyname_malloc) {
+TEST(getttyname_malloc, .proc_mounted = true) {
         _cleanup_free_ char *ttyname = NULL;
         _cleanup_close_ int master = -EBADF;
 
@@ -215,7 +215,7 @@ TEST(terminal_fix_size) {
                 log_notice("Fixed terminal size.");
 }
 
-TEST(terminal_is_pty_fd) {
+TEST(terminal_is_pty_fd, .proc_mounted = true) {
         _cleanup_close_ int fd1 = -EBADF, fd2 = -EBADF;
         int r;
 
@@ -295,7 +295,7 @@ TEST(terminal_reset_defensive) {
                 log_notice_errno(r, "Failed to reset terminal: %m");
 }
 
-TEST(pty_open_peer) {
+TEST(pty_open_peer, .proc_mounted = true) {
         _cleanup_close_ int pty_fd = -EBADF, peer_fd = -EBADF;
         _cleanup_free_ char *pty_path = NULL;
 
@@ -315,7 +315,7 @@ TEST(pty_open_peer) {
         assert(buf[1] == x[1]);
 }
 
-TEST(terminal_new_session) {
+TEST(terminal_new_session, .proc_mounted = true) {
         _cleanup_close_ int pty_fd = -EBADF, peer_fd = -EBADF;
         int r;
 

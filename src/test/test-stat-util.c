@@ -22,7 +22,7 @@
 #include "tests.h"
 #include "tmpfile-util.h"
 
-TEST(null_or_empty_path) {
+TEST(null_or_empty_path, .proc_mounted = true) {
         assert_se(null_or_empty_path("/dev/null") == 1);
         assert_se(null_or_empty_path("/dev/tty") == 1);  /* We assume that any character device is "empty", bleh. */
         assert_se(null_or_empty_path("../../../../../../../../../../../../../../../../../../../../dev/null") == 1);
@@ -30,7 +30,7 @@ TEST(null_or_empty_path) {
         assert_se(null_or_empty_path("/nosuchfileordir") == -ENOENT);
 }
 
-TEST(null_or_empty_path_with_root) {
+TEST(null_or_empty_path_with_root, .proc_mounted = true) {
         assert_se(null_or_empty_path_with_root("/dev/null", NULL) == 1);
         assert_se(null_or_empty_path_with_root("/dev/null", "/") == 1);
         assert_se(null_or_empty_path_with_root("/dev/null", "/.././../") == 1);
@@ -46,7 +46,7 @@ TEST(null_or_empty_path_with_root) {
         assert_se(null_or_empty_path_with_root("/foobar/barbar/dev/null", "/foobar/barbar/") == 1);
 }
 
-TEST(inode_same) {
+TEST(inode_same, .proc_mounted = true) {
         _cleanup_close_ int fd = -EBADF;
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-files_same.XXXXXX";
         _cleanup_(unlink_tempfilep) char name_alias[] = "/tmp/test-files_same.alias";
@@ -165,7 +165,7 @@ TEST(path_is_read_only_fs) {
         assert_se(path_is_read_only_fs("/i-dont-exist") == -ENOENT);
 }
 
-TEST(dir_is_empty) {
+TEST(dir_is_empty, .proc_mounted = true) {
         _cleanup_(rm_rf_physical_and_freep) char *empty_dir = NULL;
         _cleanup_free_ char *j = NULL, *jj = NULL, *jjj = NULL;
 

@@ -33,7 +33,7 @@ static void test_mount_points_list_one(const char *fname) {
                           yes_no(m->try_remount_ro));
 }
 
-TEST(mount_points_list) {
+TEST(mount_points_list, .proc_mounted = true) {
         test_mount_points_list_one(NULL);
         test_mount_points_list_one("/test-umount/empty.mountinfo");
         test_mount_points_list_one("/test-umount/garbled.mountinfo");
@@ -62,7 +62,7 @@ static void test_swap_list_one(const char *fname) {
                 log_debug("path=%s", m->path);
 }
 
-TEST(swap_list) {
+TEST(swap_list, .proc_mounted = true) {
         test_swap_list_one(NULL);
         test_swap_list_one("/test-umount/example.swaps");
 }

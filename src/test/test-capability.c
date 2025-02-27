@@ -330,6 +330,9 @@ int main(int argc, char *argv[]) {
         if (getuid() != 0)
                 return log_tests_skipped("not running as root");
 
+        if (proc_mounted() <= 0)
+                return log_tests_skipped("procfs not available");
+
         if (setup_tests(&run_ambient) < 0)
                 return log_tests_skipped("setup failed");
 

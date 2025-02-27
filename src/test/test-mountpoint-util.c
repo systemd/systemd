@@ -453,6 +453,9 @@ static int intro(void) {
         /* let's move into our own mount namespace with all propagation from the host turned off, so
          * that /proc/self/mountinfo is static and constant for the whole time our test runs. */
 
+        if (proc_mounted() <= 0)
+                return log_tests_skipped("procfs not available");
+
         if (unshare(CLONE_NEWNS) < 0) {
                 if (!ERRNO_IS_PRIVILEGE(errno))
                         return log_error_errno(errno, "Failed to detach mount namespace: %m");

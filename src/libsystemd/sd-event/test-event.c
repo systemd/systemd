@@ -533,7 +533,7 @@ static void test_inotify_one(unsigned n_create_events) {
         sd_event_unref(e);
 }
 
-TEST(inotify) {
+TEST(inotify, .proc_mounted = true) {
         test_inotify_one(100); /* should work without overflow */
         test_inotify_one(33000); /* should trigger a q overflow */
 }
@@ -557,7 +557,7 @@ static int pidfd_handler(sd_event_source *s, const siginfo_t *si, void *userdata
         return 0;
 }
 
-TEST(pidfd) {
+TEST(pidfd, .proc_mounted = true) {
         sd_event_source *s = NULL, *t = NULL;
         sd_event *e = NULL;
         int pidfd;
@@ -740,7 +740,7 @@ static int inotify_self_destroy_handler(sd_event_source *s, const struct inotify
         return 1;
 }
 
-TEST(inotify_self_destroy) {
+TEST(inotify_self_destroy, .proc_mounted = true) {
         _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         char path[] = "/tmp/inotifyXXXXXX";
@@ -776,7 +776,7 @@ static int inotify_process_buffered_data_handler(sd_event_source *s, const struc
         return 1;
 }
 
-TEST(inotify_process_buffered_data) {
+TEST(inotify_process_buffered_data, .proc_mounted = true) {
         _cleanup_(rm_rf_physical_and_freep) char *p = NULL, *q = NULL;
         _cleanup_(sd_event_source_unrefp) sd_event_source *a = NULL, *b = NULL;
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;

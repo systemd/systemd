@@ -143,7 +143,7 @@ static void* client(void *p) {
         return NULL;
 }
 
-TEST(description) {
+TEST(description, .proc_mounted = true) {
         _cleanup_free_ char *a = NULL;
         _cleanup_close_ int fd = -EBADF;
         union sockaddr_union sa = {

@@ -414,7 +414,7 @@ static void create_binary_file(const char *p, const void *data, size_t l) {
         assert_se(write(fd, data, l) == (ssize_t) l);
 }
 
-TEST(conservative_rename) {
+TEST(conservative_rename, .proc_mounted = true) {
         _cleanup_(unlink_and_freep) char *p = NULL;
         _cleanup_free_ char *q = NULL;
         size_t l = 16*1024 + random_u64() % (32 * 1024); /* some randomly sized buffer 16k…48k */
@@ -683,7 +683,7 @@ TEST(openat_report_new) {
         ASSERT_FALSE(b);
 }
 
-TEST(xopenat_full) {
+TEST(xopenat_full, .proc_mounted = true) {
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
         _cleanup_close_ int tfd = -EBADF, fd = -EBADF, fd2 = -EBADF;
 
@@ -713,7 +713,7 @@ TEST(xopenat_full) {
         assert_se((fd2 = xopenat_full(fd, "", O_RDWR|O_CLOEXEC, 0, 0644)) >= 0);
 }
 
-TEST(xopenat_regular) {
+TEST(xopenat_regular, .proc_mounted = true) {
 
         _cleanup_close_ int fd = -EBADF;
 

@@ -577,7 +577,7 @@ static void test_sequence_numbers_one(void) {
         }
 }
 
-TEST(sequence_numbers) {
+TEST(sequence_numbers, .proc_mounted = true) {
         ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_COMPACT", "0", 1));
         test_sequence_numbers_one();
 
@@ -868,7 +868,7 @@ static void test_generic_array_bisect_one(size_t n, size_t num_corrupted) {
         verify(f, seqnum, offset_candidates, offset, n);
 }
 
-TEST(generic_array_bisect) {
+TEST(generic_array_bisect, .proc_mounted = true) {
         for (size_t n = 1; n < 10; n++)
                 for (size_t m = 1; m <= n; m++)
                         test_generic_array_bisect_one(n, m);
