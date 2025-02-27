@@ -274,16 +274,17 @@ int event_forward_signals(
                 return -ENOMEM;
 
         FOREACH_ARRAY(sig, signals, n_signals) {
-                r = sd_event_add_signal(e, &sources[n_sources], *sig | SD_EVENT_SIGNAL_PROCMASK, event_forward_signal_callback, child);
+                sd_event_source *new_source;
+                r = sd_event_add_signal(e, &new_source, *sig | SD_EVENT_SIGNAL_PROCMASK, event_forward_signal_callback, child);
                 if (r < 0)
                         return r;
+                sources[n_sources++] = new_source;
 
-                r = sd_event_source_set_destroy_callback(sources[n_sources], event_forward_signal_destroy);
+                r = sd_event_source_set_destroy_callback(new_source, event_forward_signal_destroy);
                 if (r < 0)
                         return r;
 
                 sd_event_source_ref(child);
-                n_sources++;
         }
 
         *ret_sources = TAKE_PTR(sources);

@@ -1187,13 +1187,16 @@ int userdb_iterator_get(UserDBIterator *iterator, const UserDBMatch *match, User
                 if (r < 0)
                         return r;
 
-                if (ur && !user_record_match(ur, match))
+                r = user_record_match(ur, match);
+                if (r < 0)
+                        return r;
+                if (ur && !r)
                         continue;
 
                 if (ret)
                         *ret = TAKE_PTR(ur);
 
-                return r;
+                return 0;
         }
 }
 
@@ -1605,13 +1608,16 @@ int groupdb_iterator_get(UserDBIterator *iterator, const UserDBMatch *match, Gro
                 if (r < 0)
                         return r;
 
-                if (gr && !group_record_match(gr, match))
+                r = group_record_match(gr, match);
+                if (r < 0)
+                        return r;
+                if (gr && !r)
                         continue;
 
                 if (ret)
                         *ret = TAKE_PTR(gr);
 
-                return r;
+                return 0;
         }
 }
 

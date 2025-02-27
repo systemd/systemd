@@ -347,6 +347,9 @@ bool group_record_matches_group_name(const GroupRecord *g, const char *group_nam
 int group_record_match(GroupRecord *h, const UserDBMatch *match) {
         assert(h);
 
+        if (!gid_is_valid(h->gid))
+                return -EINVAL;
+
         if (!match)
                 return true;
 

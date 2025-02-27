@@ -2772,6 +2772,9 @@ bool user_name_fuzzy_match(const char *names[], size_t n_names, char **matches) 
 int user_record_match(UserRecord *u, const UserDBMatch *match) {
         assert(u);
 
+        if (!uid_is_valid(u->uid))
+                return -EINVAL;
+
         if (!match)
                 return true;
 
