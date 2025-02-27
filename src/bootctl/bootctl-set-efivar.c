@@ -88,6 +88,11 @@ static int parse_loader_entry_target_arg(const char *arg1, char16_t **ret_target
                 if (r < 0)
                         return log_error_errno(r, "Failed to get EFI variable 'LoaderEntryDefault': %m");
 
+        } else if (streq(arg1, "@sysfail")) {
+                r = efi_get_variable(EFI_LOADER_VARIABLE_STR("LoaderEntrySysFail"), NULL, (void *) ret_target, ret_target_size);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get EFI variable 'LoaderEntrySysFail': %m");
+
         } else if (arg1[0] == '@' && !streq(arg1, "@saved"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unsupported special entry identifier: %s", arg1);
         else {
@@ -138,6 +143,9 @@ int verb_set_efivar(int argc, char *argv[], void *userdata) {
 
         if (streq(argv[0], "set-default")) {
                 variable = EFI_LOADER_VARIABLE_STR("LoaderEntryDefault");
+                arg_parser = parse_loader_entry_target_arg;
+        } else if (streq(argv[0], "set-sysfail")) {
+                variable = EFI_LOADER_VARIABLE_STR("LoaderEntrySysFail");
                 arg_parser = parse_loader_entry_target_arg;
         } else if (streq(argv[0], "set-oneshot")) {
                 variable = EFI_LOADER_VARIABLE_STR("LoaderEntryOneShot");
