@@ -1064,6 +1064,7 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                               "KeyringMode",
                               "ProtectProc",
                               "ProcSubset",
+                              "PrivateBPF",
                               "NetworkNamespacePath",
                               "IPCNamespacePath",
                               "LogNamespace",
@@ -1667,7 +1668,8 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                 return 1;
         }
 
-        if (streq(field, "RestrictNamespaces")) {
+        if (STR_IN_SET(field, "RestrictNamespaces",
+                              "DelegateNamespaces")) {
                 bool invert = false;
                 unsigned long flags;
 
