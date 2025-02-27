@@ -37,6 +37,7 @@ typedef struct UdevBuiltin {
 extern const UdevBuiltin udev_builtin_blkid;
 #endif
 extern const UdevBuiltin udev_builtin_btrfs;
+extern const UdevBuiltin udev_builtin_factory_reset;
 extern const UdevBuiltin udev_builtin_hwdb;
 extern const UdevBuiltin udev_builtin_input_id;
 extern const UdevBuiltin udev_builtin_keyboard;

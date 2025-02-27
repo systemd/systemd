@@ -125,6 +125,9 @@ Deprecations and removals:
 * Once baseline is 4.13, remove support for INTERFACE_OLD= checks in "udevadm
   trigger"'s waiting logic, since we can then rely on uuid-tagged uevents
 
+* In v260: remove support for deprecated FactoryReset EFI variable in
+  systemd-repart, replaced by FactoryResetRequest.
+
 Features:
 
 * sd-boot: do something useful if we find exactly zero entries (ignoring items
@@ -814,10 +817,6 @@ Features:
 * Add ACL-based access management to .socket units. i.e. add AllowPeerUser= +
   AllowPeerGroup= that installs additional user/group ACL entries on AF_UNIX
   sockets.
-
-* systemd-tpm2-setup should probably have a factory reset logic, i.e. when some
-  kernel command line option is set we reset the TPM (equivalent of tpm2_clear
-  -c owner? or rather echo 5 >/sys/class/tpm/tpm0/ppi/request?).
 
 * systemd-tpm2-setup should support a mode where we refuse booting if the SRK
   changed. (Must be opt-in, to not break systems which are supposed to be
