@@ -84,7 +84,7 @@ coverage for a new feature. Once you've finished writing the logic and want to r
 the following on the host:
 
 ```shell
-$ mkosi -t none
+$ mkosi -R
 ```
 
 This will rebuild the distribution packages without rebuilding the entire integration test image. Next, run
@@ -98,7 +98,7 @@ $ systemctl start TEST-01-BASIC
 A soft-reboot is required to make sure all the leftover state from the previous run of the test is cleaned
 up by soft-rebooting into the btrfs snapshot we made before running the test. After the soft-reboot,
 re-running the test will first install the new packages we just built, make a new snapshot and finally run
-the test again. You can keep running the loop of `mkosi -t none`, `systemctl soft-reboot` and
+the test again. You can keep running the loop of `mkosi -R`, `systemctl soft-reboot` and
 `systemctl start ...` until the changes to the integration test are working.
 
 If you're debugging a failing integration test (running `meson test --interactive` without `TEST_SHELL`),

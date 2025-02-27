@@ -226,7 +226,8 @@ update_dbus_docs = custom_target(
         'update-dbus-docs-impl',
         output : 'update-dbus-docs',
         command : [update_dbus_docs_py, '--build-dir', project_build_root, '@INPUT@'],
-        input : dbus_docs)
+        input : dbus_docs,
+        depends : dbus_programs)
 
 if conf.get('BUILD_MODE_DEVELOPER') == 1
         test('dbus-docs-fresh',
