@@ -51,7 +51,7 @@ int compression_configs_mangle(OrderedHashmap **configs) {
                 return 0;
         }
 
-        /* When compression algorithms are exlicitly specifed, then honor the list. */
+        /* When compression algorithms are explicitly specified, then honor the list. */
         if (!ordered_hashmap_isempty(*configs))
                 return 0;
 
