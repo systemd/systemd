@@ -4091,16 +4091,10 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertIn('lookup 7 ', output)
         self.assertIn('uidrange 100-200 ', output)
 
-    def _test_route_static(self, manage_foreign_routes):
-        if not manage_foreign_routes:
-            copy_networkd_conf_dropin('networkd-manage-foreign-routes-no.conf')
-
-        copy_network_unit('25-route-static.network', '12-dummy.netdev',
-                          '25-route-static-test1.network', '11-dummy.netdev')
-        start_networkd()
-        self.wait_online('dummy98:routable')
-
+    def _check_route_static(self, test1_is_managed: bool):
         output = networkctl_status('dummy98')
+        print(output)
+        output = networkctl_status('test1')
         print(output)
 
         print('### ip -6 route show dev dummy98')
@@ -4198,116 +4192,91 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         print(output)
         # old ip command does not show 'nexthop' keyword and weight...
         self.assertIn('2001:1234:5:bfff:ff:ff:ff:ff', output)
-        self.assertIn('via 2001:1234:5:6fff:ff:ff:ff:ff dev test1', output)
-        self.assertIn('via 2001:1234:5:7fff:ff:ff:ff:ff dev test1', output)
+        if test1_is_managed:
+            self.assertIn('via 2001:1234:5:6fff:ff:ff:ff:ff dev test1', output)
+            self.assertIn('via 2001:1234:5:7fff:ff:ff:ff:ff dev test1', output)
         self.assertIn('via 2001:1234:5:8fff:ff:ff:ff:ff dev dummy98', output)
         self.assertIn('via 2001:1234:5:9fff:ff:ff:ff:ff dev dummy98', output)
 
         check_json(networkctl_json())
 
+    def _check_unreachable_routes_removed(self):
+        print('### ip -4 route show type blackhole')
+        output = check_output('ip -4 route show type blackhole')
+        print(output)
+        self.assertEqual(output, '')
+
+        print('### ip -4 route show type unreachable')
+        output = check_output('ip -4 route show type unreachable')
+        print(output)
+        self.assertEqual(output, '')
+
+        print('### ip -4 route show type prohibit')
+        output = check_output('ip -4 route show type prohibit')
+        print(output)
+        self.assertEqual(output, '')
+
+        print('### ip -6 route show type blackhole')
+        output = check_output('ip -6 route show type blackhole')
+        print(output)
+        self.assertEqual(output, '')
+
+        print('### ip -6 route show type unreachable')
+        output = check_output('ip -6 route show type unreachable')
+        print(output)
+        self.assertEqual(output, '')
+
+        print('### ip -6 route show type prohibit')
+        output = check_output('ip -6 route show type prohibit')
+        print(output)
+        self.assertEqual(output, '')
+
+        check_json(networkctl_json())
+
+    def _test_route_static(self, manage_foreign_routes):
+        if not manage_foreign_routes:
+            copy_networkd_conf_dropin('networkd-manage-foreign-routes-no.conf')
+
+        copy_network_unit('25-route-static.network', '12-dummy.netdev',
+                          '25-route-static-test1.network', '11-dummy.netdev')
+        start_networkd()
+        self.wait_online('dummy98:routable', 'test1:routable')
+        self._check_route_static(test1_is_managed=True)
+
+        # unmanaging test1
+        remove_network_unit('25-route-static-test1.network')
+        networkctl_reload()
+        self.wait_online('dummy98:routable')
+        self.wait_operstate('test1', setup_state='unmanaged')
+        self._check_route_static(test1_is_managed=False)
+
+        # managing test1 again
+        copy_network_unit('25-route-static-test1.network')
+        networkctl_reload()
+        self.wait_online('dummy98:routable', 'test1:routable')
+        self._check_route_static(test1_is_managed=True)
+
+        # adding an unmanaged interface
+        check_output('ip link add test2 type dummy')
+        self.wait_operstate('test2', operstate='off', setup_state='unmanaged')
+        self._check_route_static(test1_is_managed=True)
+
+        # reconfiguring with another config, and check all routes managed by Manager are removed
         copy_network_unit('25-address-static.network', copy_dropins=False)
         networkctl_reload()
         self.wait_online('dummy98:routable')
+        self._check_unreachable_routes_removed()
 
-        # check all routes managed by Manager are removed
-        print('### ip -4 route show type blackhole')
-        output = check_output('ip -4 route show type blackhole')
-        print(output)
-        self.assertEqual(output, '')
-
-        print('### ip -4 route show type unreachable')
-        output = check_output('ip -4 route show type unreachable')
-        print(output)
-        self.assertEqual(output, '')
-
-        print('### ip -4 route show type prohibit')
-        output = check_output('ip -4 route show type prohibit')
-        print(output)
-        self.assertEqual(output, '')
-
-        print('### ip -6 route show type blackhole')
-        output = check_output('ip -6 route show type blackhole')
-        print(output)
-        self.assertEqual(output, '')
-
-        print('### ip -6 route show type unreachable')
-        output = check_output('ip -6 route show type unreachable')
-        print(output)
-        self.assertEqual(output, '')
-
-        print('### ip -6 route show type prohibit')
-        output = check_output('ip -6 route show type prohibit')
-        print(output)
-        self.assertEqual(output, '')
-
+        # reconfiguring the original config again
         remove_network_unit('25-address-static.network')
         networkctl_reload()
         self.wait_online('dummy98:routable')
+        self._check_route_static(test1_is_managed=True)
 
-        # check all routes managed by Manager are reconfigured
-        print('### ip -4 route show type blackhole')
-        output = check_output('ip -4 route show type blackhole')
-        print(output)
-        self.assertIn('blackhole 202.54.1.2 proto static', output)
-
-        print('### ip -4 route show type unreachable')
-        output = check_output('ip -4 route show type unreachable')
-        print(output)
-        self.assertIn('unreachable 202.54.1.3 proto static', output)
-
-        print('### ip -4 route show type prohibit')
-        output = check_output('ip -4 route show type prohibit')
-        print(output)
-        self.assertIn('prohibit 202.54.1.4 proto static', output)
-
-        print('### ip -6 route show type blackhole')
-        output = check_output('ip -6 route show type blackhole')
-        print(output)
-        self.assertIn('blackhole 2001:1234:5678::2 dev lo proto static', output)
-
-        print('### ip -6 route show type unreachable')
-        output = check_output('ip -6 route show type unreachable')
-        print(output)
-        self.assertIn('unreachable 2001:1234:5678::3 dev lo proto static', output)
-
-        print('### ip -6 route show type prohibit')
-        output = check_output('ip -6 route show type prohibit')
-        print(output)
-        self.assertIn('prohibit 2001:1234:5678::4 dev lo proto static', output)
-
+        # removing interface, and check all routes managed by Manager are removed
         remove_link('dummy98')
         time.sleep(2)
-
-        # check all routes managed by Manager are removed
-        print('### ip -4 route show type blackhole')
-        output = check_output('ip -4 route show type blackhole')
-        print(output)
-        self.assertEqual(output, '')
-
-        print('### ip -4 route show type unreachable')
-        output = check_output('ip -4 route show type unreachable')
-        print(output)
-        self.assertEqual(output, '')
-
-        print('### ip -4 route show type prohibit')
-        output = check_output('ip -4 route show type prohibit')
-        print(output)
-        self.assertEqual(output, '')
-
-        print('### ip -6 route show type blackhole')
-        output = check_output('ip -6 route show type blackhole')
-        print(output)
-        self.assertEqual(output, '')
-
-        print('### ip -6 route show type unreachable')
-        output = check_output('ip -6 route show type unreachable')
-        print(output)
-        self.assertEqual(output, '')
-
-        print('### ip -6 route show type prohibit')
-        output = check_output('ip -6 route show type prohibit')
-        print(output)
-        self.assertEqual(output, '')
+        self._check_unreachable_routes_removed()
 
     def test_route_static(self):
         first = True
