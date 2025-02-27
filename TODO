@@ -140,6 +140,11 @@ Features:
   them under various conditions: 1. if tpm2 is available or not available;
   2. if sb is on or off; 3. if we are netbooted or not; …
 
+* logind: invoke a service manager for "area" logins too. i.e. instantiate
+  user@.service also for logins where XDG_AREA is set, in per-area fashion, and
+  ref count it properly. Benefit: graphical logins should start working with
+  the area logic.
+
 * repart: introduce concept of "ghost" partitions, that we setup in almost all
   ways like other partitions, but do not actually register in the actual gpt
   table, but only tell the kernel about via BLKPG ioctl. These partitions are
