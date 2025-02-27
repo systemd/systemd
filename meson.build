@@ -576,7 +576,6 @@ decl_headers = '''
 foreach decl : ['char16_t',
                 'char32_t',
                 'struct mount_attr',
-                'struct statx',
                 'struct dirent64',
                 'struct sched_attr',
                ]
@@ -595,21 +594,9 @@ foreach decl : ['char16_t',
                 endif
         endif
 
-        if decl == 'struct statx'
-                if have
-                        want_linux_stat_h = false
-                else
-                        have = cc.sizeof(decl,
-                                         prefix : decl_headers + '#include <linux/stat.h>',
-                                         args : '-D_GNU_SOURCE') > 0
-                        want_linux_stat_h = have
-                endif
-        endif
-
         conf.set10('HAVE_' + decl.underscorify().to_upper(), have)
 endforeach
 
-conf.set10('WANT_LINUX_STAT_H', want_linux_stat_h)
 conf.set10('WANT_LINUX_FS_H', want_linux_fs_h)
 
 foreach ident : ['secure_getenv', '__secure_getenv']

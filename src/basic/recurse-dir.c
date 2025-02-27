@@ -151,7 +151,7 @@ int recurse_dir(
                 void *userdata) {
 
         _cleanup_free_ DirectoryEntries *de = NULL;
-        STRUCT_STATX_DEFINE(root_sx);
+        struct statx root_sx;
         int r;
 
         assert(dir_fd >= 0);
@@ -193,7 +193,7 @@ int recurse_dir(
         for (size_t i = 0; i < de->n_entries; i++) {
                 _cleanup_close_ int inode_fd = -EBADF, subdir_fd = -EBADF;
                 _cleanup_free_ char *joined = NULL;
-                STRUCT_STATX_DEFINE(sx);
+                struct statx sx;
                 bool sx_valid = false;
                 const char *p;
 
