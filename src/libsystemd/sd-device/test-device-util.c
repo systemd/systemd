@@ -28,6 +28,15 @@ TEST(device_in_subsystem) {
                 ASSERT_FALSE(device_in_subsystem(dev, ""));
                 ASSERT_FALSE(device_in_subsystem(dev, NULL));
 
+                ASSERT_TRUE(device_in_subsystems(dev, STRV_MAKE("net")));
+                ASSERT_TRUE(device_in_subsystems(dev, STRV_MAKE("", "net")));
+                ASSERT_TRUE(device_in_subsystems(dev, STRV_MAKE("net", "disk")));
+                ASSERT_TRUE(!device_in_subsystems(dev, STRV_MAKE("disk", "subsystem")));
+                ASSERT_TRUE(!device_in_subsystems(dev, STRV_MAKE("disk", "")));
+                ASSERT_TRUE(!device_in_subsystems(dev, STRV_MAKE("")));
+                ASSERT_TRUE(!device_in_subsystems(dev, STRV_MAKE(NULL)));
+                ASSERT_TRUE(!device_in_subsystems(dev, NULL));
+
                 dev = sd_device_unref(dev);
         }
 
@@ -38,6 +47,15 @@ TEST(device_in_subsystem) {
         ASSERT_FALSE(device_in_subsystem(dev, ""));
         ASSERT_FALSE(device_in_subsystem(dev, NULL));
 
+        ASSERT_TRUE(!device_in_subsystems(dev, STRV_MAKE("net")));
+        ASSERT_TRUE(!device_in_subsystems(dev, STRV_MAKE("", "net")));
+        ASSERT_TRUE(!device_in_subsystems(dev, STRV_MAKE("net", "disk")));
+        ASSERT_TRUE(device_in_subsystems(dev, STRV_MAKE("disk", "subsystem")));
+        ASSERT_TRUE(!device_in_subsystems(dev, STRV_MAKE("disk", "")));
+        ASSERT_TRUE(!device_in_subsystems(dev, STRV_MAKE("")));
+        ASSERT_TRUE(!device_in_subsystems(dev, STRV_MAKE(NULL)));
+        ASSERT_TRUE(!device_in_subsystems(dev, NULL));
+
         dev = sd_device_unref(dev);
 
         ASSERT_OK(sd_device_new_from_syspath(&dev, "/sys/class"));
@@ -46,6 +64,15 @@ TEST(device_in_subsystem) {
         ASSERT_FALSE(device_in_subsystem(dev, "subsystem"));
         ASSERT_FALSE(device_in_subsystem(dev, ""));
         ASSERT_TRUE(device_in_subsystem(dev, NULL));
+
+        ASSERT_TRUE(!device_in_subsystems(dev, STRV_MAKE("net")));
+        ASSERT_TRUE(!device_in_subsystems(dev, STRV_MAKE("", "net")));
+        ASSERT_TRUE(!device_in_subsystems(dev, STRV_MAKE("net", "disk")));
+        ASSERT_TRUE(!device_in_subsystems(dev, STRV_MAKE("disk", "subsystem")));
+        ASSERT_TRUE(!device_in_subsystems(dev, STRV_MAKE("disk", "")));
+        ASSERT_TRUE(!device_in_subsystems(dev, STRV_MAKE("")));
+        ASSERT_TRUE(device_in_subsystems(dev, STRV_MAKE(NULL)));
+        ASSERT_TRUE(device_in_subsystems(dev, NULL));
 }
 
 TEST(device_is_devtype) {
