@@ -543,6 +543,11 @@ units = [
           'symlinks' : ['sysinit.target.wants/'],
         },
         {
+          'file' : 'systemd-pcrphase-storage-target-mode.service.in',
+          'conditions' : ['ENABLE_BOOTLOADER', 'HAVE_OPENSSL', 'HAVE_TPM2'],
+          'symlinks' : ['storage-target-mode.target.wants/'],
+        },
+        {
           'file' : 'systemd-pcrphase.service.in',
           'conditions' : ['ENABLE_BOOTLOADER', 'HAVE_OPENSSL', 'HAVE_TPM2'],
           'symlinks' : ['sysinit.target.wants/'],
