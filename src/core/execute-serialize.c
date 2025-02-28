@@ -1994,6 +1994,10 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
         if (r < 0)
                 return r;
 
+        r = serialize_item(f, "exec-context-private-bpf", private_bpf_to_string(c->private_bpf));
+        if (r < 0)
+                return r;
+
         r = serialize_item(f, "exec-context-runtime-directory-preserve-mode", exec_preserve_mode_to_string(c->runtime_directory_preserve_mode));
         if (r < 0)
                 return r;
@@ -2474,6 +2478,12 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
                         return r;
         }
 
+        if (c->delegate_namespaces != NAMESPACE_FLAGS_INITIAL) {
+                r = serialize_item_format(f, "exec-context-delegate-namespaces", "%lu", c->delegate_namespaces);
+                if (r < 0)
+                        return r;
+        }
+
 #if HAVE_LIBBPF
         if (exec_context_restrict_filesystems_set(c)) {
                 char *fs;
@@ -2899,6 +2909,10 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                 } else if ((val = startswith(l, "exec-context-proc-subset="))) {
                         c->proc_subset = proc_subset_from_string(val);
                         if (c->proc_subset < 0)
+                                return -EINVAL;
+                } else if ((val = startswith(l, "exec-context-private-bpf="))) {
+                        c->private_bpf = private_bpf_from_string(val);
+                        if (c->private_bpf < 0)
                                 return -EINVAL;
                 } else if ((val = startswith(l, "exec-context-runtime-directory-preserve-mode="))) {
                         c->runtime_directory_preserve_mode = exec_preserve_mode_from_string(val);
@@ -3534,6 +3548,10 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
 #endif
                 } else if ((val = startswith(l, "exec-context-restrict-namespaces="))) {
                         r = safe_atolu(val, &c->restrict_namespaces);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-context-delegate-namespaces="))) {
+                        r = safe_atolu(val, &c->delegate_namespaces);
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-context-restrict-filesystems="))) {

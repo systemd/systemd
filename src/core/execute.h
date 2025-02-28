@@ -319,6 +319,8 @@ struct ExecContext {
         ProtectProc protect_proc;  /* hidepid= */
         ProcSubset proc_subset;    /* subset= */
 
+        PrivateBPF private_bpf;
+
         int private_mounts;
         int mount_apivfs;
         int bind_log_sockets;
@@ -350,6 +352,7 @@ struct ExecContext {
         unsigned long personality;
 
         unsigned long restrict_namespaces; /* The CLONE_NEWxyz flags permitted to the unit's processes */
+        unsigned long delegate_namespaces; /* The CLONE_NEWxyz flags delegated to the unit's processes */
 
         Set *restrict_filesystems;
         bool restrict_filesystems_allow_list:1;
