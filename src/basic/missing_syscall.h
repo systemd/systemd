@@ -68,73 +68,6 @@ static inline int missing_ioprio_set(int which, int who, int ioprio) {
 
 /* ======================================================================= */
 
-#if !HAVE_MEMFD_CREATE
-static inline int missing_memfd_create(const char *name, unsigned int flags) {
-        return syscall(__NR_memfd_create, name, flags);
-}
-
-#  define memfd_create missing_memfd_create
-#endif
-
-/* ======================================================================= */
-
-#if !HAVE_GETRANDOM
-/* glibc says getrandom() returns ssize_t */
-static inline ssize_t missing_getrandom(void *buffer, size_t count, unsigned flags) {
-        return syscall(__NR_getrandom, buffer, count, flags);
-}
-
-#  define getrandom missing_getrandom
-#endif
-
-/* ======================================================================= */
-
-/* The syscall has been defined since forever, but the glibc wrapper was missing. */
-#if !HAVE_GETTID
-static inline pid_t missing_gettid(void) {
-#  if defined __NR_gettid && __NR_gettid >= 0
-        return (pid_t) syscall(__NR_gettid);
-#  else
-#    error "__NR_gettid not defined"
-#  endif
-}
-
-#  define gettid missing_gettid
-#endif
-
-/* ======================================================================= */
-
-#if !HAVE_NAME_TO_HANDLE_AT
-struct file_handle {
-        unsigned int handle_bytes;
-        int handle_type;
-        unsigned char f_handle[0];
-};
-
-static inline int missing_name_to_handle_at(int fd, const char *name, struct file_handle *handle, int *mnt_id, int flags) {
-#  ifdef __NR_name_to_handle_at
-        return syscall(__NR_name_to_handle_at, fd, name, handle, mnt_id, flags);
-#  else
-        errno = ENOSYS;
-        return -1;
-#  endif
-}
-
-#  define name_to_handle_at missing_name_to_handle_at
-#endif
-
-/* ======================================================================= */
-
-#if !HAVE_SETNS
-static inline int missing_setns(int fd, int nstype) {
-        return syscall(__NR_setns, fd, nstype);
-}
-
-#  define setns missing_setns
-#endif
-
-/* ======================================================================= */
-
 static inline pid_t raw_getpid(void) {
 #if defined(__alpha__)
         return (pid_t) syscall(__NR_getxpid);
@@ -142,16 +75,6 @@ static inline pid_t raw_getpid(void) {
         return (pid_t) syscall(__NR_getpid);
 #endif
 }
-
-/* ======================================================================= */
-
-#if !HAVE_RENAMEAT2
-static inline int missing_renameat2(int oldfd, const char *oldname, int newfd, const char *newname, unsigned flags) {
-        return syscall(__NR_renameat2, oldfd, oldname, newfd, newname, flags);
-}
-
-#  define renameat2 missing_renameat2
-#endif
 
 /* ======================================================================= */
 
@@ -183,24 +106,6 @@ static inline key_serial_t missing_request_key(const char *type, const char *des
 
 #  define request_key missing_request_key
 }
-#endif
-
-/* ======================================================================= */
-
-#if !HAVE_COPY_FILE_RANGE
-static inline ssize_t missing_copy_file_range(int fd_in, loff_t *off_in,
-                                              int fd_out, loff_t *off_out,
-                                              size_t len,
-                                              unsigned int flags) {
-#  ifdef __NR_copy_file_range
-        return syscall(__NR_copy_file_range, fd_in, off_in, fd_out, off_out, len, flags);
-#  else
-        errno = ENOSYS;
-        return -1;
-#  endif
-}
-
-#  define copy_file_range missing_copy_file_range
 #endif
 
 /* ======================================================================= */
@@ -566,22 +471,6 @@ static inline int missing_fsmount(int fd, unsigned flags, unsigned ms_flags) {
 }
 
 #  define fsmount missing_fsmount
-#endif
-
-/* ======================================================================= */
-
-#if !HAVE_GETDENTS64
-
-static inline ssize_t missing_getdents64(int fd, void *buffer, size_t length) {
-#  if defined __NR_getdents64 && __NR_getdents64 >= 0
-        return syscall(__NR_getdents64, fd, buffer, length);
-#  else
-        errno = ENOSYS;
-        return -1;
-#  endif
-}
-
-#  define getdents64 missing_getdents64
 #endif
 
 /* ======================================================================= */

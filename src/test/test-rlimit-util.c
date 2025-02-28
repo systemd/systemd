@@ -8,7 +8,6 @@
 #include "alloc-util.h"
 #include "capability-util.h"
 #include "macro.h"
-#include "missing_resource.h"
 #include "process-util.h"
 #include "rlimit-util.h"
 #include "string-util.h"

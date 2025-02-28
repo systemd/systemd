@@ -8,13 +8,13 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <linux/input.h>
+#include <linux/limits.h>
 #include <stdarg.h>
 #include <unistd.h>
-#include <linux/limits.h>
 
 #include "device-util.h"
 #include "fd-util.h"
-#include "missing_input.h"
 #include "parse-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
