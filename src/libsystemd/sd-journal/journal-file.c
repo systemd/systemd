@@ -9,6 +9,7 @@
 #include <sys/mman.h>
 #include <sys/statvfs.h>
 #include <sys/uio.h>
+#include <threads.h>
 #include <unistd.h>
 
 #include "sd-event.h"
@@ -28,7 +29,6 @@
 #include "journal-internal.h"
 #include "lookup3.h"
 #include "memory-util.h"
-#include "missing_threads.h"
 #include "path-util.h"
 #include "prioq.h"
 #include "random-util.h"
