@@ -4621,8 +4621,8 @@ static int nspawn_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t r
         assert(userdata);
 
         _cleanup_(pidref_done) PidRef sender_pid = PIDREF_NULL;
-        _cleanup_free_ char *buf = NULL;
-        r = notify_recv(fd, &buf, /* ret_ucred= */ NULL, &sender_pid);
+        _cleanup_strv_free_ char **tags = NULL;
+        r = notify_recv_strv(fd, &tags, /* ret_ucred= */ NULL, &sender_pid);
         if (r == -EAGAIN)
                 return 0;
         if (r < 0)
@@ -4632,10 +4632,6 @@ static int nspawn_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t r
                 log_debug("Received notify message from process that is not the payload's PID 1. Ignoring.");
                 return 0;
         }
-
-        _cleanup_strv_free_ char **tags = strv_split(buf, "\n\r");
-        if (!tags)
-                return log_oom();
 
         if (DEBUG_LOGGING) {
                 _cleanup_free_ char *joined = strv_join(tags, " ");
