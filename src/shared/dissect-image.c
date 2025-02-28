@@ -1002,6 +1002,8 @@ static int dissect_image(
                         type = gpt_partition_type_from_uuid(type_id);
 
                         label = blkid_partition_get_name(pp); /* libblkid returns NULL here if empty */
+                        if (streq_ptr(label, "_empty"))
+                                continue;
 
                         log_debug("Dissecting %s partition with label %s and UUID %s",
                                   strna(partition_designator_to_string(type.designator)), strna(label), SD_ID128_TO_UUID_STRING(id));
