@@ -622,6 +622,7 @@ def parse_banks(s: str) -> list[str]:
     # TODO: do some sanity checking here
     return banks
 
+
 def parse_phase_paths(s: str) -> list[str]:
     # Split on commas or whitespace here. Commas might be hard to parse visually.
     paths = re.split(r',|\s+', s)
@@ -2313,6 +2314,7 @@ def resolve_at_path(value: Optional[str]) -> Union[Path, str, None]:
 
     return value
 
+
 KNOWN_PHASES = (
     'enter-initrd',
     'leave-initrd',
@@ -2321,6 +2323,7 @@ KNOWN_PHASES = (
     'shutdown',
     'final',
 )
+
 
 def finalize_options(opts: argparse.Namespace) -> None:
     # Figure out which syntax is being used, one of:
