@@ -8,6 +8,7 @@ typedef struct Home Home;
 #include "homed-operation.h"
 #include "list.h"
 #include "ordered-set.h"
+#include "pidref.h"
 #include "stat-util.h"
 #include "user-record.h"
 
@@ -128,7 +129,7 @@ struct Home {
 
         UserRecord *record;
 
-        pid_t worker_pid;
+        PidRef worker_pid;
         int worker_stdout_fd;
         sd_event_source *worker_event_source;
         int worker_error_code;
