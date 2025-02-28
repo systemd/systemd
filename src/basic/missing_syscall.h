@@ -68,27 +68,6 @@ static inline int missing_ioprio_set(int which, int who, int ioprio) {
 
 /* ======================================================================= */
 
-#if !HAVE_NAME_TO_HANDLE_AT
-struct file_handle {
-        unsigned int handle_bytes;
-        int handle_type;
-        unsigned char f_handle[0];
-};
-
-static inline int missing_name_to_handle_at(int fd, const char *name, struct file_handle *handle, int *mnt_id, int flags) {
-#  ifdef __NR_name_to_handle_at
-        return syscall(__NR_name_to_handle_at, fd, name, handle, mnt_id, flags);
-#  else
-        errno = ENOSYS;
-        return -1;
-#  endif
-}
-
-#  define name_to_handle_at missing_name_to_handle_at
-#endif
-
-/* ======================================================================= */
-
 #if !HAVE_SETNS
 static inline int missing_setns(int fd, int nstype) {
         return syscall(__NR_setns, fd, nstype);
