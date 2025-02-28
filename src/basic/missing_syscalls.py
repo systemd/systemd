@@ -10,7 +10,6 @@ SYSCALLS = [
     'close_range',
     'copy_file_range',
     'fchmodat2',
-    'getrandom',
     'mount_setattr',
     'move_mount',
     'name_to_handle_at',
