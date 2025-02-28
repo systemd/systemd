@@ -77,7 +77,7 @@ static bool uid_is_home(uid_t uid) {
 #define UID_CLAMP_INTO_HOME_RANGE(rnd) (((uid_t) (rnd) % (HOME_UID_MAX - HOME_UID_MIN + 1)) + HOME_UID_MIN)
 
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(homes_by_uid_hash_ops, void, trivial_hash_func, trivial_compare_func, Home, home_free);
-DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(homes_by_worker_pid_hash_ops, void, trivial_hash_func, trivial_compare_func, Home, home_free);
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(homes_by_worker_pid_hash_ops, PidRef, pidref_hash_func, pidref_compare_func, Home, home_free);
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(homes_by_sysfs_hash_ops, char, path_hash_func, path_compare, Home, home_free);
 
 static int on_home_inotify(sd_event_source *s, const struct inotify_event *event, void *userdata);
@@ -1077,8 +1077,8 @@ static int on_notify_socket(sd_event_source *s, int fd, uint32_t revents, void *
 
         _cleanup_(fdset_free_asyncp) FDSet *passed_fds = NULL;
         _cleanup_strv_free_ char **l = NULL;
-        struct ucred sender = UCRED_INVALID;
-        r = notify_recv_with_fds_strv(fd, &l, &sender, /* ret_pidref= */ NULL, &passed_fds);
+        _cleanup_(pidref_done) PidRef sender = PIDREF_NULL;
+        r = notify_recv_with_fds_strv(fd, &l, /* ret_ucred= */ NULL, &sender, &passed_fds);
         if (r == -EAGAIN)
                 return 0;
         if (r < 0)
@@ -1089,7 +1089,7 @@ static int on_notify_socket(sd_event_source *s, int fd, uint32_t revents, void *
                 return 0;
         }
 
-        Home *h = hashmap_get(m->homes_by_worker_pid, PID_TO_PTR(sender.pid));
+        Home *h = hashmap_get(m->homes_by_worker_pid, &sender);
         if (!h) {
                 log_warning("Received notify datagram of unknown process, ignoring.");
                 return 0;
@@ -1135,7 +1135,11 @@ static int manager_listen_notify(Manager *m) {
 
         r = setsockopt_int(fd, SOL_SOCKET, SO_PASSCRED, true);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to enable SO_PASSCRED on notify socket: %m");
+
+        r = setsockopt_int(fd, SOL_SOCKET, SO_PASSPIDFD, true);
+        if (r < 0)
+                log_warning_errno(r, "Failed to enable SO_PASSPIDFD on notify socket, ignoring: %m");
 
         r = sd_event_add_io(m->event, &m->notify_socket_event_source, fd, EPOLLIN, on_notify_socket, m);
         if (r < 0)
