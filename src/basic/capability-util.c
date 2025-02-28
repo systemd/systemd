@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/prctl.h>
+#include <threads.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -17,7 +18,6 @@
 #include "log.h"
 #include "logarithm.h"
 #include "macro.h"
-#include "missing_threads.h"
 #include "parse-util.h"
 #include "pidref.h"
 #include "stat-util.h"
