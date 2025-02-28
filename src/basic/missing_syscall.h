@@ -475,22 +475,6 @@ static inline int missing_fsmount(int fd, unsigned flags, unsigned ms_flags) {
 
 /* ======================================================================= */
 
-#if !HAVE_GETDENTS64
-
-static inline ssize_t missing_getdents64(int fd, void *buffer, size_t length) {
-#  if defined __NR_getdents64 && __NR_getdents64 >= 0
-        return syscall(__NR_getdents64, fd, buffer, length);
-#  else
-        errno = ENOSYS;
-        return -1;
-#  endif
-}
-
-#  define getdents64 missing_getdents64
-#endif
-
-/* ======================================================================= */
-
 #if !HAVE_SCHED_SETATTR
 
 static inline ssize_t missing_sched_setattr(pid_t pid, struct sched_attr *attr, unsigned int flags) {
