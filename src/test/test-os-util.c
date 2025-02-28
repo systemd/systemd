@@ -19,7 +19,7 @@ TEST(path_is_os_tree) {
         assert_se(path_is_os_tree("/idontexist") == -ENOENT);
 }
 
-TEST(parse_os_release) {
+TEST(parse_os_release, .proc_mounted = true) {
         _cleanup_free_ char *id = NULL, *id2 = NULL, *name = NULL, *foobar = NULL;
 
         if (access("/etc/os-release", F_OK) >= 0 || access("/usr/lib/os-release", F_OK) >= 0) {
@@ -61,7 +61,7 @@ TEST(parse_os_release) {
         ASSERT_OK_ERRNO(unsetenv("SYSTEMD_OS_RELEASE"));
 }
 
-TEST(parse_extension_release) {
+TEST(parse_extension_release, .proc_mounted = true) {
         /* Let's assume that we have a valid extension image */
         _cleanup_free_ char *id = NULL, *version_id = NULL, *foobar = NULL, *a = NULL, *b = NULL;
         _cleanup_(rm_rf_physical_and_freep) char *tempdir = NULL;
@@ -104,7 +104,7 @@ TEST(parse_extension_release) {
         ASSERT_NULL(foobar);
 }
 
-TEST(load_os_release_pairs) {
+TEST(load_os_release_pairs, .proc_mounted = true) {
         _cleanup_(unlink_tempfilep) char tmpfile[] = "/tmp/test-os-util.XXXXXX";
         ASSERT_EQ(write_tmpfile(tmpfile,
                                 "ID=\"ignored\"  \n"

@@ -141,7 +141,7 @@ TEST(setrlimit) {
         assert_se(old.rlim_max == new.rlim_max);
 }
 
-TEST(pid_getrlimit) {
+TEST(pid_getrlimit, .proc_mounted = true) {
         int r;
 
         /* We fork off a child and read the parent's resource limit from there (i.e. our own), and compare

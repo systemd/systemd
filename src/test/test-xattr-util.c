@@ -18,7 +18,7 @@
 #include "tmpfile-util.h"
 #include "xattr-util.h"
 
-TEST(getxattr_at_malloc) {
+TEST(getxattr_at_malloc, .proc_mounted = true) {
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
         _cleanup_free_ char *value = NULL;
         _cleanup_close_ int fd = -EBADF;
@@ -110,7 +110,7 @@ static void xattr_symlink_test_one(int fd, const char *path) {
         ASSERT_ERROR(getxattr_at_malloc(fd, path, "trusted.test", 0, &value), ENODATA);
 }
 
-TEST(xsetxattr) {
+TEST(xsetxattr, .proc_mounted = true) {
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
         _cleanup_close_ int dfd = -EBADF, fd = -EBADF;
         const char *x;

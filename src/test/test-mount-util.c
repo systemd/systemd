@@ -130,7 +130,7 @@ TEST(mount_flags_to_string) {
                                        "MS_I_VERSION|MS_STRICTATIME|MS_LAZYTIME|fc000200");
 }
 
-TEST(bind_remount_recursive) {
+TEST(bind_remount_recursive, .proc_mounted = true) {
         _cleanup_(rm_rf_physical_and_freep) char *tmp = NULL;
         _cleanup_free_ char *subdir = NULL;
 
@@ -184,7 +184,7 @@ TEST(bind_remount_recursive) {
         }
 }
 
-TEST(bind_remount_one) {
+TEST(bind_remount_one, .proc_mounted = true) {
         pid_t pid;
 
         if (geteuid() != 0 || have_effective_cap(CAP_SYS_ADMIN) <= 0) {
@@ -279,7 +279,7 @@ TEST(make_mount_point_inode) {
         assert_se(!(S_IXOTH & st.st_mode));
 }
 
-TEST(make_mount_switch_root) {
+TEST(make_mount_switch_root, .proc_mounted = true) {
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
         _cleanup_free_ char *s = NULL;
         int r;
@@ -333,7 +333,7 @@ TEST(make_mount_switch_root) {
         }
 }
 
-TEST(umount_recursive) {
+TEST(umount_recursive, .proc_mounted = true) {
         static const struct {
                 const char *prefix;
                 const char * const keep[3];
@@ -418,7 +418,7 @@ TEST(umount_recursive) {
         }
 }
 
-TEST(fd_make_mount_point) {
+TEST(fd_make_mount_point, .proc_mounted = true) {
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
         _cleanup_free_ char *s = NULL;
         int r;
@@ -467,7 +467,7 @@ TEST(fd_make_mount_point) {
         }
 }
 
-TEST(bind_mount_submounts) {
+TEST(bind_mount_submounts, .proc_mounted = true) {
         _cleanup_(rmdir_and_freep) char *a = NULL, *b = NULL;
         _cleanup_free_ char *x = NULL;
         int r;
@@ -537,7 +537,7 @@ TEST(bind_mount_submounts) {
         assert_se(umount_recursive(b, 0) >= 0);
 }
 
-TEST(path_is_network_fs_harder) {
+TEST(path_is_network_fs_harder, .proc_mounted = true) {
         _cleanup_close_ int dir_fd = -EBADF;
         int r;
 
@@ -587,7 +587,7 @@ TEST(path_is_network_fs_harder) {
         }
 }
 
-TEST(umountat) {
+TEST(umountat, .proc_mounted = true) {
         int r;
 
         _cleanup_(rm_rf_physical_and_freep) char *p = NULL;

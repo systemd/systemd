@@ -58,7 +58,7 @@ TEST(pidref_set_pidstr) {
         assert_se(!pidref_equal(&pidref, &PIDREF_MAKE_FROM_PID(getpid_cached()+1)));
 }
 
-TEST(pidref_set_pidfd) {
+TEST(pidref_set_pidfd, .proc_mounted = true) {
         _cleanup_(pidref_done) PidRef a = PIDREF_NULL, b = PIDREF_NULL, c = PIDREF_NULL, d = PIDREF_NULL;
 
         assert_se(pidref_set_self(&a) >= 0);
@@ -193,7 +193,7 @@ TEST(pidref_done_sigkill_wait) {
         ASSERT_OK_POSITIVE(pidref_safe_fork("(test-pidref-done-sigkill-wait)", FORK_DEATHSIG_SIGKILL|FORK_FREEZE, &pidref));
 }
 
-TEST(pidref_verify) {
+TEST(pidref_verify, .proc_mounted = true) {
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
 
         assert_se(pidref_verify(NULL) == -ESRCH);

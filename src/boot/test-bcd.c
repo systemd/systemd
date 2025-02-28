@@ -39,7 +39,7 @@ static void test_get_bcd_title_one(
                 assert_se(!title);
 }
 
-TEST(get_bcd_title) {
+TEST(get_bcd_title, .proc_mounted = true) {
         test_get_bcd_title_one("test-bcd/win10.bcd.zst", u"Windows 10", sizeof(u"Windows 10"));
 
         test_get_bcd_title_one("test-bcd/description-bad-type.bcd.zst", NULL, 0);
@@ -52,7 +52,7 @@ TEST(get_bcd_title) {
         test_get_bcd_title_one("test-bcd/empty.bcd.zst", NULL, 0);
 }
 
-TEST(base_block) {
+TEST(base_block, .proc_mounted = true) {
         size_t len;
         BaseBlock backup;
         uint8_t *bcd_base;
@@ -89,7 +89,7 @@ TEST(base_block) {
         *bcd = backup;
 }
 
-TEST(bad_bcd) {
+TEST(bad_bcd, .proc_mounted = true) {
         size_t len;
         uint8_t *hbins;
         uint32_t offset;

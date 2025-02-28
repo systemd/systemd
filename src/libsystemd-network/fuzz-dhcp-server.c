@@ -9,6 +9,7 @@
 #include "fuzz.h"
 #include "path-util.h"
 #include "rm-rf.h"
+#include "stat-util.h"
 #include "tmpfile-util.h"
 
 /* stub out network so that the server doesn't send */
@@ -73,6 +74,9 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         if (size < sizeof(DHCPMessage))
                 return 0;
+
+        if (proc_mounted() <= 0)
+                return EXIT_TEST_SKIP;
 
         fuzz_setup_logging();
 

@@ -4,6 +4,11 @@
 set -eux
 set -o pipefail
 
+if ! mountpoint /proc; then
+   echo "procfs is not available, skipping"
+   exit 77
+fi
+
 export SYSTEMD_LOG_LEVEL=debug
 
 kernel_install="${1:?}"

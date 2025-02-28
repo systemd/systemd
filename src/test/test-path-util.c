@@ -421,7 +421,7 @@ TEST(find_executable_full) {
         assert_se(find_executable_full(test_file_name, NULL, STRV_MAKE("/doesnotexist", "/tmp", "/bin"), false, &p, NULL) == -ENOENT);
 }
 
-TEST(find_executable) {
+TEST(find_executable, .proc_mounted = true) {
         char *p;
 
         assert_se(find_executable("/bin/sh", &p) == 0);

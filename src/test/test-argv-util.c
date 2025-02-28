@@ -84,7 +84,7 @@ TEST(rename_process_invalid) {
         assert_se(rename_process("") == -EINVAL);
 }
 
-TEST(rename_process_multi) {
+TEST(rename_process_multi, .proc_mounted = true) {
         pid_t pid;
 
         pid = fork();
@@ -109,7 +109,7 @@ TEST(rename_process_multi) {
         _exit(EXIT_SUCCESS);
 }
 
-TEST(rename_process) {
+TEST(rename_process, .proc_mounted = true) {
         test_rename_process_one("foo", 1); /* should always fit */
         test_rename_process_one("this is a really really long process name, followed by some more words", 0); /* unlikely to fit */
         test_rename_process_one("1234567", 1); /* should always fit */

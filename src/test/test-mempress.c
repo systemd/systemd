@@ -63,7 +63,7 @@ static int fake_pressure_callback(sd_event_source *s, void *userdata) {
         return 0;
 }
 
-TEST(fake_pressure) {
+TEST(fake_pressure, .proc_mounted = true) {
         _cleanup_(sd_event_source_unrefp) sd_event_source *es = NULL, *ef = NULL;
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         _cleanup_free_ char *j = NULL, *k = NULL;

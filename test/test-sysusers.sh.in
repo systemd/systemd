@@ -2,6 +2,11 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 set -e
 
+if ! mountpoint /proc; then
+   echo "procfs is not available, skipping"
+   exit 77
+fi
+
 SYSUSERS="${1:-systemd-sysusers}"
 
 # shellcheck disable=SC1090

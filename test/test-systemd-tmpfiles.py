@@ -234,6 +234,11 @@ def test_conditionalized_execute_bit():
     assert "user:root:rwx" in c.stdout and "group:root:r-x" in c.stdout
 
 if __name__ == '__main__':
+    # If proc is not mounted, skip the test
+    if not os.path.exists('/proc/self'):
+        print("procfs is not available, skipping")
+        sys.exit(EXIT_TEST_SKIP)
+
     test_invalids(user=False)
     test_invalids(user=True)
     test_uninitialized_t()

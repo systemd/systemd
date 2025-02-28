@@ -4,6 +4,11 @@ set -eux
 shopt -s nullglob
 shopt -s globstar
 
+if ! mountpoint /proc; then
+   echo "procfs is not available, skipping"
+   exit 77
+fi
+
 if [[ -n "${1:-}" ]]; then
     generator=$1
 elif [[ -x /usr/lib/systemd/system-generators/systemd-fstab-generator ]]; then

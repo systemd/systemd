@@ -1265,7 +1265,7 @@ TEST(parse_continue) {
         assert_se(sd_json_parse_with_source_continue(&p, "piff", /* flags= */ 0, &x, &line, &column) == -EINVAL);
 }
 
-TEST(pidref) {
+TEST(pidref, .proc_mounted = true) {
         _cleanup_(pidref_done) PidRef myself = PIDREF_NULL, pid1 = PIDREF_NULL;
 
         assert_se(pidref_set_pid(&myself, 0) >= 0);
@@ -1349,7 +1349,7 @@ TEST(devnum) {
         ASSERT_FAIL(json_dispatch_devnum("devnum", v, /* flags= */ 0, &parsed));
 }
 
-TEST(fd_info) {
+TEST(fd_info, .proc_mounted = true) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         _cleanup_close_ int fd = -EBADF;

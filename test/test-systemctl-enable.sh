@@ -2,6 +2,11 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 set -ex
 
+if ! mountpoint /proc; then
+   echo "procfs is not available, skipping"
+   exit 77
+fi
+
 # Silence warning from running_in_chroot_or_offline()
 export SYSTEMD_IN_CHROOT=0
 

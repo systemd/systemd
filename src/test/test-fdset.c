@@ -10,7 +10,7 @@
 #include "tests.h"
 #include "tmpfile-util.h"
 
-TEST(fdset_new_fill) {
+TEST(fdset_new_fill, .proc_mounted = true) {
         _cleanup_fdset_free_ FDSet *fdset = NULL;
         int fd = -EBADF, flags;
 

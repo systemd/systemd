@@ -25,7 +25,7 @@
 #include "user-util.h"
 #include "xattr-util.h"
 
-TEST(copy_file) {
+TEST(copy_file, .proc_mounted = true) {
         _cleanup_free_ char *buf = NULL;
         _cleanup_(unlink_tempfilep) char fn[] = "/tmp/test-copy_file.XXXXXX";
         _cleanup_(unlink_tempfilep) char fn_copy[] = "/tmp/test-copy_file.XXXXXX";
@@ -56,7 +56,7 @@ static bool read_file_at_and_streq(int dir_fd, const char *path, const char *exp
         return streq(buf, expected);
 }
 
-TEST(copy_tree_replace_file) {
+TEST(copy_tree_replace_file, .proc_mounted = true) {
         _cleanup_free_ char *src = NULL, *dst = NULL;
 
         assert_se(tempfn_random("/tmp/test-copy_file.XXXXXX", NULL, &src) >= 0);
@@ -76,7 +76,7 @@ TEST(copy_tree_replace_file) {
         assert_se(read_file_at_and_streq(AT_FDCWD, dst, "bar bar\n"));
 }
 
-TEST(copy_tree_replace_dirs) {
+TEST(copy_tree_replace_dirs, .proc_mounted = true) {
         _cleanup_(rm_rf_physical_and_freep) char *srcp = NULL, *dstp = NULL;
         _cleanup_close_ int src = -EBADF, dst = -EBADF;
 
@@ -107,7 +107,7 @@ TEST(copy_tree_replace_dirs) {
         assert_se(read_file_at_and_streq(dst, "bar", "src file 2\n"));
 }
 
-TEST(copy_file_fd) {
+TEST(copy_file_fd, .proc_mounted = true) {
         _cleanup_(unlink_tempfilep) char in_fn[] = "/tmp/test-copy-file-fd-XXXXXX";
         _cleanup_(unlink_tempfilep) char out_fn[] = "/tmp/test-copy-file-fd-XXXXXX";
         _cleanup_close_ int in_fd = -EBADF, out_fd = -EBADF;
@@ -128,7 +128,7 @@ TEST(copy_file_fd) {
         ASSERT_STREQ(buf, text);
 }
 
-TEST(copy_tree) {
+TEST(copy_tree, .proc_mounted = true) {
         _cleanup_hashmap_free_ Hashmap *denylist = NULL;
         _cleanup_free_ char *cp = NULL;
         char original_dir[] = "/tmp/test-copy_tree/";
@@ -382,7 +382,7 @@ static void test_copy_bytes_regular_file_one(const char *src, bool try_reflink, 
                 assert_se((uint64_t) buf3.st_size == max_bytes);
 }
 
-TEST(copy_bytes_regular_file) {
+TEST(copy_bytes_regular_file, .proc_mounted = true) {
         test_copy_bytes_regular_file_one(saved_argv[0], false, UINT64_MAX);
         test_copy_bytes_regular_file_one(saved_argv[0], true, UINT64_MAX);
         test_copy_bytes_regular_file_one(saved_argv[0], false, 1000); /* smaller than copy buffer size */
@@ -391,7 +391,7 @@ TEST(copy_bytes_regular_file) {
         test_copy_bytes_regular_file_one(saved_argv[0], true, 32000);
 }
 
-TEST(copy_atomic) {
+TEST(copy_atomic, .proc_mounted = true) {
         _cleanup_(rm_rf_physical_and_freep) char *p = NULL;
         const char *q;
         int r;
@@ -409,7 +409,7 @@ TEST(copy_atomic) {
         assert_se(copy_file_atomic("/etc/fstab", q, 0644, COPY_REPLACE) >= 0);
 }
 
-TEST(copy_proc) {
+TEST(copy_proc, .proc_mounted = true) {
         _cleanup_(rm_rf_physical_and_freep) char *p = NULL;
         _cleanup_free_ char *f = NULL, *a = NULL, *b = NULL;
 
@@ -549,7 +549,7 @@ TEST_RET(copy_holes_with_gaps) {
         return 0;
 }
 
-TEST(copy_lock) {
+TEST(copy_lock, .proc_mounted = true) {
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
         _cleanup_close_ int tfd = -EBADF, fd = -EBADF;
 
@@ -569,7 +569,7 @@ TEST(copy_lock) {
         fd = safe_close(fd);
 }
 
-TEST(copy_verify_linked) {
+TEST(copy_verify_linked, .proc_mounted = true) {
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
         _cleanup_close_ int tfd = -EBADF, fd_1 = -EBADF, fd_2 = -EBADF;
 

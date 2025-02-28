@@ -106,7 +106,7 @@ static void test_pid_get_comm_one(pid_t pid) {
         log_info("PID"PID_FMT" $PATH: '%s'", pid, strna(i));
 }
 
-TEST(pid_get_comm) {
+TEST(pid_get_comm, .proc_mounted = true) {
         if (saved_argc > 1) {
                 pid_t pid = 0;
 
@@ -639,7 +639,7 @@ TEST(getpid_measure) {
         log_info("getpid_cached(): %lf μs each", (double) q / iterations);
 }
 
-TEST(safe_fork) {
+TEST(safe_fork, .proc_mounted = true) {
         siginfo_t status;
         pid_t pid;
         int r;
@@ -833,7 +833,7 @@ TEST(setpriority_closest) {
         }
 }
 
-TEST(pid_get_ppid) {
+TEST(pid_get_ppid, .proc_mounted = true) {
         uint64_t limit;
         int r;
 
@@ -893,7 +893,7 @@ TEST(pid_get_ppid) {
         }
 }
 
-TEST(set_oom_score_adjust) {
+TEST(set_oom_score_adjust, .proc_mounted = true) {
         int a, b, r;
 
         ASSERT_OK(get_oom_score_adjust(&a));
@@ -924,7 +924,7 @@ static void* dummy_thread(void *p) {
         return NULL;
 }
 
-TEST(get_process_threads) {
+TEST(get_process_threads, .proc_mounted = true) {
         int r;
 
         /* Run this test in a child, so that we can guarantee there's exactly one thread around in the child */
@@ -1016,7 +1016,7 @@ TEST(is_reaper_process) {
         }
 }
 
-TEST(pid_get_start_time) {
+TEST(pid_get_start_time, .proc_mounted = true) {
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
 
         ASSERT_OK(pidref_set_self(&pidref));
@@ -1037,7 +1037,7 @@ TEST(pid_get_start_time) {
         ASSERT_GE(start_time2, start_time);
 }
 
-TEST(pidref_from_same_root_fs) {
+TEST(pidref_from_same_root_fs, .proc_mounted = true) {
         int r;
 
         _cleanup_(pidref_done) PidRef pid1 = PIDREF_NULL, self = PIDREF_NULL;

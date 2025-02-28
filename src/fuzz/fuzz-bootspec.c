@@ -10,6 +10,7 @@
 #include "fd-util.h"
 #include "fuzz.h"
 #include "json-util.h"
+#include "stat-util.h"
 #include "strv.h"
 
 static int json_dispatch_config(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
@@ -89,6 +90,9 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         if (outside_size_range(size, 0, 65536))
                 return 0;
+
+        if (proc_mounted() <= 0)
+                return EXIT_TEST_SKIP;
 
         fuzz_setup_logging();
 

@@ -51,8 +51,16 @@ static void load_testdata_env(void) {
                 return;
         called = true;
 
-        assert_se(readlink_and_make_absolute("/proc/self/exe", &s) >= 0);
-        assert_se(path_extract_directory(s, &d) >= 0);
+        r = readlink_and_make_absolute("/proc/self/exe", &s);
+        if (r >= 0)
+                assert_se(path_extract_directory(s, &d) >= 0);
+        else {
+                _cleanup_free_ char *program = NULL;
+
+                log_debug_errno(r, "Failed to determine executable's directory, using current directory: %m");
+                assert_se(path_make_absolute_cwd(program_invocation_name, &program) >= 0);
+                assert_se(path_extract_directory(program, &d) >= 0);
+        }
         assert_se(envpath = path_join(d, "systemd-runtest.env"));
 
         r = load_env_file_pairs(NULL, envpath, &pairs);
