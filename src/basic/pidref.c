@@ -462,7 +462,31 @@ void pidref_hash_func(const PidRef *pidref, struct siphash *state) {
 }
 
 int pidref_compare_func(const PidRef *a, const PidRef *b) {
-        return CMP(a->pid, b->pid);
+        int r;
+
+        assert(a);
+        assert(b);
+
+        r = CMP(pidref_is_set(a), pidref_is_set(b));
+        if (r != 0)
+                return r;
+
+        r = CMP(pidref_is_remote(a), pidref_is_remote(b));
+        if (r != 0)
+                return r;
+
+        r = CMP(pidref_is_automatic(a), pidref_is_automatic(b));
+        if (r != 0)
+                return r;
+
+        r = CMP(a->pid, b->pid);
+        if (r != 0)
+                return r;
+
+        if (a->fd_id != 0 && b->fd_id != 0)
+                return CMP(a->fd_id, b->fd_id);
+
+        return 0;
 }
 
 DEFINE_HASH_OPS(pidref_hash_ops, PidRef, pidref_hash_func, pidref_compare_func);
