@@ -598,10 +598,6 @@ endforeach
 
 conf.set10('WANT_LINUX_FS_H', want_linux_fs_h)
 
-foreach ident : ['secure_getenv', '__secure_getenv']
-        conf.set10('HAVE_' + ident.to_upper(), cc.has_function(ident))
-endforeach
-
 foreach ident : [
         ['fchmodat2',         '''#include <stdlib.h>
                                  #include <fcntl.h>'''],      # no known header declares fchmodat2
