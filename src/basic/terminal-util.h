@@ -65,8 +65,14 @@ typedef enum AcquireTerminalFlags {
         /* If we can't become the controlling process of the TTY right-away, then wait until we can. */
         ACQUIRE_TERMINAL_WAIT       = 2,
 
+        /* The combined mask of the above */
+        _ACQUIRE_TERMINAL_MODE_MASK = ACQUIRE_TERMINAL_TRY | ACQUIRE_TERMINAL_FORCE | ACQUIRE_TERMINAL_WAIT,
+
         /* Pick one of the above, and then OR this flag in, in order to request permissive behaviour, if we can't become controlling process then don't mind */
         ACQUIRE_TERMINAL_PERMISSIVE = 1 << 2,
+
+        /* Check for pending SIGTERM while waiting for inotify (SIGTERM must be blocked by caller) */
+        ACQUIRE_TERMINAL_WATCH_SIGTERM = 1 << 3,
 } AcquireTerminalFlags;
 
 int acquire_terminal(const char *name, AcquireTerminalFlags flags, usec_t timeout);
