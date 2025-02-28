@@ -587,7 +587,7 @@ static int opendir_and_stat(
 
                 *ret = NULL;
                 *ret_sx = (struct statx) {};
-                *ret_mountpoint = NULL;
+                *ret_mountpoint = false;
                 return 0;
         }
 
