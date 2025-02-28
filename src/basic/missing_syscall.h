@@ -68,21 +68,6 @@ static inline int missing_ioprio_set(int which, int who, int ioprio) {
 
 /* ======================================================================= */
 
-/* The syscall has been defined since forever, but the glibc wrapper was missing. */
-#if !HAVE_GETTID
-static inline pid_t missing_gettid(void) {
-#  if defined __NR_gettid && __NR_gettid >= 0
-        return (pid_t) syscall(__NR_gettid);
-#  else
-#    error "__NR_gettid not defined"
-#  endif
-}
-
-#  define gettid missing_gettid
-#endif
-
-/* ======================================================================= */
-
 #if !HAVE_NAME_TO_HANDLE_AT
 struct file_handle {
         unsigned int handle_bytes;

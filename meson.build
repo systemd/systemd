@@ -603,8 +603,6 @@ foreach ident : ['secure_getenv', '__secure_getenv']
 endforeach
 
 foreach ident : [
-        ['gettid',            '''#include <sys/types.h>
-                                 #include <unistd.h>'''],
         ['fchmodat2',         '''#include <stdlib.h>
                                  #include <fcntl.h>'''],      # no known header declares fchmodat2
         ['pivot_root',        '''#include <stdlib.h>
