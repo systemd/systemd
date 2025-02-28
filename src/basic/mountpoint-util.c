@@ -223,9 +223,9 @@ int is_mount_point_at(int fd, const char *filename, int flags) {
                         filename = ".";
                 else {
                         /* If the file name is empty we'll see if the specified 'fd' is a mount point.
-                         * That's only supported if the kernel supports statx(), or if the inode specified
-                         * via 'fd' refers to a directory. Otherwise, we'll have to fail (ENOTDIR), because
-                         * we have no kernel API to query the information we need. */
+                         * That's only supported by statx(), or if the inode specified via 'fd' refers to a
+                         * directory. Otherwise, we'll have to fail (ENOTDIR), because we have no kernel API
+                         * to query the information we need. */
                         flags |= AT_EMPTY_PATH;
                         filename = "";
                 }
@@ -266,14 +266,10 @@ int is_mount_point_at(int fd, const char *filename, int flags) {
                   AT_NO_AUTOMOUNT |            /* don't trigger automounts – mounts are a local concept, hence no need to trigger automounts to determine STATX_ATTR_MOUNT_ROOT */
                   AT_STATX_DONT_SYNC,          /* don't go to the network for this – for similar reasons */
                   STATX_TYPE,
-                  &sx) < 0) {
-                if (!ERRNO_IS_NOT_SUPPORTED(errno) && /* statx() is not supported by the kernel. */
-                    !ERRNO_IS_PRIVILEGE(errno) &&     /* maybe filtered by seccomp. */
-                    errno != EINVAL)                  /* glibc's fallback method returns EINVAL when AT_STATX_DONT_SYNC is set. */
-                        return -errno;
+                  &sx) < 0)
+                return -errno;
 
-                /* If statx() is not available or forbidden, fall back to name_to_handle_at() below */
-        } else if (FLAGS_SET(sx.stx_attributes_mask, STATX_ATTR_MOUNT_ROOT)) /* yay! */
+        if (FLAGS_SET(sx.stx_attributes_mask, STATX_ATTR_MOUNT_ROOT)) /* yay! */
                 return FLAGS_SET(sx.stx_attributes, STATX_ATTR_MOUNT_ROOT);
 
         _cleanup_free_ struct file_handle *h = NULL, *h_parent = NULL;
@@ -410,16 +406,10 @@ int path_get_mnt_id_at(int dir_fd, const char *path, int *ret) {
                   AT_NO_AUTOMOUNT |    /* don't trigger automounts, mnt_id is a local concept */
                   AT_STATX_DONT_SYNC,  /* don't go to the network, mnt_id is a local concept */
                   STATX_MNT_ID,
-                  &sx) < 0) {
-                if (!ERRNO_IS_NOT_SUPPORTED(errno) && /* statx() is not supported by the kernel. */
-                    !ERRNO_IS_PRIVILEGE(errno) &&     /* maybe filtered by seccomp. */
-                    errno != EINVAL)                  /* glibc's fallback method returns EINVAL when AT_STATX_DONT_SYNC is set. */
-                        return -errno;
+                  &sx) < 0)
+                return -errno;
 
-                /* Fall back to name_to_handle_at() and then fdinfo if statx is not supported or we lack
-                 * privileges */
-
-        } else if (FLAGS_SET(sx.stx_mask, STATX_MNT_ID)) {
+        if (FLAGS_SET(sx.stx_mask, STATX_MNT_ID)) {
                 *ret = sx.stx_mnt_id;
                 return 0;
         }
