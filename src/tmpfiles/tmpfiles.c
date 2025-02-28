@@ -591,7 +591,7 @@ static int opendir_and_stat(
                 return 0;
         }
 
-        r = statx_fallback(dirfd(d), "", AT_EMPTY_PATH, STATX_MODE|STATX_INO|STATX_ATIME|STATX_MTIME, &sx1);
+        r = statx(dirfd(d), "", AT_EMPTY_PATH, STATX_MODE|STATX_INO|STATX_ATIME|STATX_MTIME, &sx1);
         if (r < 0)
                 return log_error_errno(r, "statx(%s) failed: %m", path);
 
@@ -599,7 +599,7 @@ static int opendir_and_stat(
                 *ret_mountpoint = FLAGS_SET(sx1.stx_attributes, STATX_ATTR_MOUNT_ROOT);
         else {
                 struct statx sx2;
-                r = statx_fallback(dirfd(d), "..", 0, STATX_INO, &sx2);
+                r = statx(dirfd(d), "..", 0, STATX_INO, &sx2);
                 if (r < 0)
                         return log_error_errno(r, "statx(%s/..) failed: %m", path);
 
@@ -707,11 +707,10 @@ static int dir_cleanup(
                  * st_dev. */
 
                 struct statx sx;
-                r = statx_fallback(
-                                dirfd(d), de->d_name,
-                                AT_SYMLINK_NOFOLLOW|AT_NO_AUTOMOUNT,
-                                STATX_TYPE|STATX_MODE|STATX_UID|STATX_ATIME|STATX_MTIME|STATX_CTIME|STATX_BTIME,
-                                &sx);
+                r = statx(dirfd(d), de->d_name,
+                          AT_SYMLINK_NOFOLLOW|AT_NO_AUTOMOUNT,
+                          STATX_TYPE|STATX_MODE|STATX_UID|STATX_ATIME|STATX_MTIME|STATX_CTIME|STATX_BTIME,
+                          &sx);
                 if (r == -ENOENT)
                         continue;
                 if (r < 0) {

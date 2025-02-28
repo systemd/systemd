@@ -1093,11 +1093,11 @@ int fds_are_same_mount(int fd1, int fd2) {
         assert(fd1 >= 0);
         assert(fd2 >= 0);
 
-        r = statx_fallback(fd1, "", AT_EMPTY_PATH, STATX_TYPE|STATX_INO|STATX_MNT_ID, &sx1);
+        r = statx(fd1, "", AT_EMPTY_PATH, STATX_TYPE|STATX_INO|STATX_MNT_ID, &sx1);
         if (r < 0)
                 return r;
 
-        r = statx_fallback(fd2, "", AT_EMPTY_PATH, STATX_TYPE|STATX_INO|STATX_MNT_ID, &sx2);
+        r = statx(fd2, "", AT_EMPTY_PATH, STATX_TYPE|STATX_INO|STATX_MNT_ID, &sx2);
         if (r < 0)
                 return r;
 

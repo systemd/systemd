@@ -290,7 +290,7 @@ static int verify_fsroot_dir(
         if (r < 0 && r != -EADDRNOTAVAIL)
                 return log_error_errno(r, "Failed to extract filename of %s: %m", path);
 
-        r = statx_fallback(dir_fd, strempty(f), AT_SYMLINK_NOFOLLOW|(isempty(f) ? AT_EMPTY_PATH : 0),
+        r = statx(dir_fd, strempty(f), AT_SYMLINK_NOFOLLOW|(isempty(f) ? AT_EMPTY_PATH : 0),
                            STATX_TYPE|STATX_INO|STATX_MNT_ID, &sxa);
         if (r < 0)
                 return log_full_errno((searching && r == -ENOENT) ||
@@ -314,7 +314,7 @@ static int verify_fsroot_dir(
         }
 
         /* Now let's look at the parent */
-        r = statx_fallback(dir_fd, "", AT_EMPTY_PATH, STATX_TYPE|STATX_INO|STATX_MNT_ID, &sxb);
+        r = statx(dir_fd, "", AT_EMPTY_PATH, STATX_TYPE|STATX_INO|STATX_MNT_ID, &sxb);
         if (r < 0)
                 return log_full_errno(unprivileged_mode && ERRNO_IS_PRIVILEGE(r) ? LOG_DEBUG : LOG_ERR, r,
                                       "Failed to determine block device node of parent of \"%s\": %m", path);
