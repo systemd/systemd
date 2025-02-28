@@ -457,11 +457,11 @@ bool pidref_is_automatic(const PidRef *pidref) {
         return pidref && pid_is_automatic(pidref->pid);
 }
 
-static void pidref_hash_func(const PidRef *pidref, struct siphash *state) {
+void pidref_hash_func(const PidRef *pidref, struct siphash *state) {
         siphash24_compress_typesafe(pidref->pid, state);
 }
 
-static int pidref_compare_func(const PidRef *a, const PidRef *b) {
+int pidref_compare_func(const PidRef *a, const PidRef *b) {
         return CMP(a->pid, b->pid);
 }
 
