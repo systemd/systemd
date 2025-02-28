@@ -21,6 +21,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "tmpfile-util.h"
+#include "verbs.h"
 
 static const char* const conf_file_dirs[] = {
         "/etc/udev/hwdb.d",
@@ -707,14 +708,5 @@ bool hwdb_should_reload(sd_hwdb *hwdb) {
 }
 
 int hwdb_bypass(void) {
-        int r;
-
-        r = getenv_bool("SYSTEMD_HWDB_UPDATE_BYPASS");
-        if (r < 0 && r != -ENXIO)
-                log_debug_errno(r, "Failed to parse $SYSTEMD_HWDB_UPDATE_BYPASS, assuming no.");
-        if (r <= 0)
-                return false;
-
-        log_debug("$SYSTEMD_HWDB_UPDATE_BYPASS is enabled, skipping execution.");
-        return true;
+        return should_bypass("SYSTEMD_HWDB_UPDATE");
 }

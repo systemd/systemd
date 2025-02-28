@@ -9,6 +9,7 @@
 #include "systemctl-sysv-compat.h"
 #include "systemctl-util.h"
 #include "systemctl.h"
+#include "verbs.h"
 
 static int normalize_link_paths(char **paths) {
         int r;
@@ -74,6 +75,9 @@ int verb_enable(int argc, char *argv[], void *userdata) {
         bool ignore_carries_install_info = arg_quiet || arg_no_warn;
         sd_bus *bus = NULL;
         int r;
+
+        if (streq(verb, "preset") && should_bypass("SYSTEMD_PRESET"))
+                return 0;
 
         const char *operation = strjoina("to ", verb);
         r = mangle_names(operation, ASSERT_PTR(strv_skip(argv, 1)), &names);

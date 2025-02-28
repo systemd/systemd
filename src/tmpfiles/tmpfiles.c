@@ -71,6 +71,7 @@
 #include "terminal-util.h"
 #include "umask-util.h"
 #include "user-util.h"
+#include "verbs.h"
 #include "virt.h"
 #include "xattr-util.h"
 
@@ -4617,6 +4618,9 @@ static int run(int argc, char *argv[]) {
 
         if (arg_cat_flags != CAT_CONFIG_OFF)
                 return cat_config(config_dirs, argv + optind);
+
+        if (should_bypass("SYSTEMD_TMPFILES"))
+                return 0;
 
         umask(0022);
 
