@@ -8,7 +8,6 @@ import functools
 SYSCALLS = [
     'bpf',
     'close_range',
-    'copy_file_range',
     'fchmodat2',
     'mount_setattr',
     'move_mount',
