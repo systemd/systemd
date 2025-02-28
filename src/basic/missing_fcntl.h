@@ -97,6 +97,7 @@
 #endif
 #endif
 
+/* This is defined since glibc-2.39. */
 #ifndef AT_HANDLE_FID
 #define AT_HANDLE_FID AT_REMOVEDIR
 #endif

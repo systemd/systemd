@@ -12,7 +12,6 @@ SYSCALLS = [
     'fchmodat2',
     'mount_setattr',
     'move_mount',
-    'name_to_handle_at',
     'open_tree',
     'openat2',
     'pidfd_open',
