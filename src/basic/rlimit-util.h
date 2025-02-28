@@ -4,7 +4,8 @@
 #include <sys/resource.h>
 
 #include "macro.h"
-#include "missing_resource.h"
+
+#define _RLIMIT_MAX RLIMIT_NLIMITS
 
 const char* rlimit_to_string(int i) _const_;
 int rlimit_from_string(const char *s) _pure_;
