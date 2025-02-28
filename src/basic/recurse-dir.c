@@ -167,9 +167,8 @@ int recurse_dir(
 
         if (FLAGS_SET(flags, RECURSE_DIR_TOPLEVEL)) {
                 if (statx_mask != 0) {
-                        r = statx_fallback(dir_fd, "", AT_EMPTY_PATH, statx_mask, &root_sx);
-                        if (r < 0)
-                                return r;
+                        if (statx(dir_fd, "", AT_EMPTY_PATH, statx_mask, &root_sx) < 0)
+                                return -errno;
                 }
 
                 r = func(RECURSE_DIR_ENTER,
@@ -247,9 +246,8 @@ int recurse_dir(
                                 de->entries[i]->d_type = DT_DIR;
 
                                 if (statx_mask != 0 || (flags & RECURSE_DIR_SAME_MOUNT)) {
-                                        r = statx_fallback(subdir_fd, "", AT_EMPTY_PATH, statx_mask, &sx);
-                                        if (r < 0)
-                                                return r;
+                                        if (statx(subdir_fd, "", AT_EMPTY_PATH, statx_mask, &sx) < 0)
+                                                return -errno;
 
                                         sx_valid = true;
                                 }
@@ -289,9 +287,8 @@ int recurse_dir(
                                  * assume. Let's guarantee that we never pass statx data of a directory where
                                  * caller expects a non-directory */
 
-                                r = statx_fallback(inode_fd, "", AT_EMPTY_PATH, statx_mask | STATX_TYPE, &sx);
-                                if (r < 0)
-                                        return r;
+                                if (statx(inode_fd, "", AT_EMPTY_PATH, statx_mask | STATX_TYPE, &sx) < 0)
+                                        return -errno;
 
                                 assert(sx.stx_mask & STATX_TYPE);
                                 sx_valid = true;
@@ -311,15 +308,15 @@ int recurse_dir(
 
                         } else if (statx_mask != 0 || (de->entries[i]->d_type == DT_UNKNOWN && (flags & RECURSE_DIR_ENSURE_TYPE))) {
 
-                                r = statx_fallback(dir_fd, de->entries[i]->d_name, AT_SYMLINK_NOFOLLOW, statx_mask | STATX_TYPE, &sx);
-                                if (r == -ENOENT) /* Vanished by now? Go for next file immediately */
-                                        continue;
-                                if (r < 0) {
-                                        log_debug_errno(r, "Failed to stat directory entry '%s': %m", p);
+                                if (statx(dir_fd, de->entries[i]->d_name, AT_SYMLINK_NOFOLLOW, statx_mask | STATX_TYPE, &sx) < 0) {
+                                        if (errno == ENOENT) /* Vanished by now? Go for next file immediately */
+                                                continue;
 
-                                        assert(-r <= RECURSE_DIR_SKIP_STAT_INODE_ERROR_MAX - RECURSE_DIR_SKIP_STAT_INODE_ERROR_BASE);
+                                        log_debug_errno(errno, "Failed to stat directory entry '%s': %m", p);
 
-                                        r = func(RECURSE_DIR_SKIP_STAT_INODE_ERROR_BASE + -r,
+                                        assert(errno <= RECURSE_DIR_SKIP_STAT_INODE_ERROR_MAX - RECURSE_DIR_SKIP_STAT_INODE_ERROR_BASE);
+
+                                        r = func(RECURSE_DIR_SKIP_STAT_INODE_ERROR_BASE + errno,
                                                  p,
                                                  dir_fd,
                                                  -1,
