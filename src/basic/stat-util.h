@@ -91,8 +91,6 @@ bool stat_inode_unmodified(const struct stat *a, const struct stat *b);
 bool statx_inode_same(const struct statx *a, const struct statx *b);
 bool statx_mount_same(const struct statx *a, const struct statx *b);
 
-int statx_fallback(int dfd, const char *path, int flags, unsigned mask, struct statx *sx);
-
 int xstatfsat(int dir_fd, const char *path, struct statfs *ret);
 
 static inline usec_t statx_timestamp_load(const struct statx_timestamp *ts) {
