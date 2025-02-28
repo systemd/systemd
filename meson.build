@@ -610,9 +610,6 @@ foreach ident : [
         ['ioprio_get',        '''#include <sched.h>'''],      # no known header declares ioprio_get
         ['ioprio_set',        '''#include <sched.h>'''],      # no known header declares ioprio_set
         ['sched_setattr',     '''#include <sched.h>'''],
-        ['name_to_handle_at', '''#include <sys/types.h>
-                                 #include <sys/stat.h>
-                                 #include <fcntl.h>'''],
         ['setns',             '''#include <sched.h>'''],
         ['renameat2',         '''#include <stdio.h>
                                  #include <fcntl.h>'''],
