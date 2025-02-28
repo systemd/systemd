@@ -37,6 +37,7 @@
 #include "homed-varlink.h"
 #include "io-util.h"
 #include "mkdir.h"
+#include "notify-recv.h"
 #include "openssl-util.h"
 #include "process-util.h"
 #include "quota-util.h"
@@ -1068,123 +1069,33 @@ static int manager_bind_varlink(Manager *m) {
         return 0;
 }
 
-static ssize_t read_datagram(
-                int fd,
-                struct ucred *ret_sender,
-                void **ret,
-                int *ret_passed_fd) {
-
-        CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct ucred)) + CMSG_SPACE(sizeof(int))) control;
-        _cleanup_free_ void *buffer = NULL;
-        _cleanup_close_ int passed_fd = -EBADF;
-        struct ucred *sender = NULL;
-        struct cmsghdr *cmsg;
-        struct msghdr mh;
-        struct iovec iov;
-        ssize_t n, m;
-
-        assert(fd >= 0);
-        assert(ret_sender);
-        assert(ret);
-        assert(ret_passed_fd);
-
-        n = next_datagram_size_fd(fd);
-        if (n < 0)
-                return n;
-
-        buffer = malloc(n + 2);
-        if (!buffer)
-                return -ENOMEM;
-
-        /* Pass one extra byte, as a size check */
-        iov = IOVEC_MAKE(buffer, n + 1);
-
-        mh = (struct msghdr) {
-                .msg_iov = &iov,
-                .msg_iovlen = 1,
-                .msg_control = &control,
-                .msg_controllen = sizeof(control),
-        };
-
-        m = recvmsg_safe(fd, &mh, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
-        if (m < 0)
-                return m;
-
-        /* Ensure the size matches what we determined before */
-        if (m != n) {
-                cmsg_close_all(&mh);
-                return -EMSGSIZE;
-        }
-
-        CMSG_FOREACH(cmsg, &mh) {
-                if (cmsg->cmsg_level == SOL_SOCKET &&
-                    cmsg->cmsg_type == SCM_CREDENTIALS &&
-                    cmsg->cmsg_len == CMSG_LEN(sizeof(struct ucred))) {
-                        assert(!sender);
-                        sender = CMSG_TYPED_DATA(cmsg, struct ucred);
-                }
-
-                if (cmsg->cmsg_level == SOL_SOCKET &&
-                    cmsg->cmsg_type == SCM_RIGHTS) {
-
-                        if (cmsg->cmsg_len != CMSG_LEN(sizeof(int))) {
-                                cmsg_close_all(&mh);
-                                return -EMSGSIZE;
-                        }
-
-                        assert(passed_fd < 0);
-                        passed_fd = *CMSG_TYPED_DATA(cmsg, int);
-                }
-        }
-
-        if (sender)
-                *ret_sender = *sender;
-        else
-                *ret_sender = (struct ucred) UCRED_INVALID;
-
-        *ret_passed_fd = TAKE_FD(passed_fd);
-
-        /* For safety reasons: let's always NUL terminate.  */
-        ((char*) buffer)[n] = 0;
-        *ret = TAKE_PTR(buffer);
-
-        return 0;
-}
-
 static int on_notify_socket(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        _cleanup_strv_free_ char **l = NULL;
-        _cleanup_free_ void *datagram = NULL;
-        _cleanup_close_ int passed_fd = -EBADF;
-        struct ucred sender = UCRED_INVALID;
         Manager *m = ASSERT_PTR(userdata);
-        ssize_t n;
-        Home *h;
+        int r;
 
         assert(s);
 
-        n = read_datagram(fd, &sender, &datagram, &passed_fd);
-        if (n < 0) {
-                if (ERRNO_IS_TRANSIENT(n))
-                        return 0;
-                return log_error_errno(n, "Failed to read notify datagram: %m");
-        }
+        _cleanup_(fdset_free_asyncp) FDSet *passed_fds = NULL;
+        _cleanup_strv_free_ char **l = NULL;
+        struct ucred sender = UCRED_INVALID;
+        r = notify_recv_with_fds_strv(fd, &l, &sender, /* ret_pidref= */ NULL, &passed_fds);
+        if (r == -EAGAIN)
+                return 0;
+        if (r < 0)
+                return r;
 
-        if (sender.pid <= 0) {
-                log_warning("Received notify datagram without valid sender PID, ignoring.");
+        if (fdset_size(passed_fds) > 1) {
+                log_warning("Recieved notify datagram with multiple fds, ignoring.");
                 return 0;
         }
 
-        h = hashmap_get(m->homes_by_worker_pid, PID_TO_PTR(sender.pid));
+        Home *h = hashmap_get(m->homes_by_worker_pid, PID_TO_PTR(sender.pid));
         if (!h) {
                 log_warning("Received notify datagram of unknown process, ignoring.");
                 return 0;
         }
 
-        l = strv_split(datagram, "\n");
-        if (!l)
-                return log_oom();
-
-        home_process_notify(h, l, TAKE_FD(passed_fd));
+        home_process_notify(h, l, fdset_steal_first(passed_fds));
         return 0;
 }
 
