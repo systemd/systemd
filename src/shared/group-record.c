@@ -344,7 +344,7 @@ bool group_record_matches_group_name(const GroupRecord *g, const char *group_nam
         return false;
 }
 
-int group_record_match(GroupRecord *h, const UserDBMatch *match) {
+bool group_record_match(GroupRecord *h, const UserDBMatch *match) {
         assert(h);
 
         if (!match)
