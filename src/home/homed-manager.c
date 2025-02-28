@@ -545,6 +545,8 @@ static int search_quota(uid_t uid, const char *exclude_quota_path) {
                 if (r < 0) {
                         if (ERRNO_IS_NOT_SUPPORTED(r))
                                 log_debug_errno(r, "No UID quota support on %s, ignoring.", where);
+                        else if (r == -ESRCH)
+                                log_debug_errno(r, "UID quota not enabled on %s (for user " UID_FMT "), ignoring.", where, uid);
                         else if (ERRNO_IS_PRIVILEGE(r))
                                 log_debug_errno(r, "UID quota support for %s prohibited, ignoring.", where);
                         else

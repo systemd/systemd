@@ -2499,7 +2499,6 @@ static int home_get_disk_status_directory(
                                 log_debug_errno(r, "No UID quota support on %s.", path);
                                 goto finish;
                         }
-
                         if (r != -ESRCH) {
                                 log_debug_errno(r, "Failed to query disk quota for UID " UID_FMT ": %m", h->uid);
                                 goto finish;
