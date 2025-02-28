@@ -44,6 +44,24 @@ bool running_in_chroot_or_offline(void) {
         return r > 0;
 }
 
+bool should_bypass(const char *env_prefix) {
+        char *env;
+        int r;
+
+        assert(env_prefix);
+
+        env = strjoina(env_prefix, "_BYPASS");
+
+        r = getenv_bool(env);
+        if (r < 0 && r != -ENXIO)
+                log_debug_errno(r, "Failed to parse $%s, assuming no.", env);
+        if (r <= 0)
+                return false;
+
+        log_debug("$%s is enabled, skipping execution.", env);
+        return true;
+}
+
 const Verb* verbs_find_verb(const char *name, const Verb verbs[]) {
         assert(verbs);
 
