@@ -50,10 +50,14 @@ __systemd_osc_context_precmdline() {
     read -r systemd_osc_context_cmd_id </proc/sys/kernel/random/uuid
 }
 
-if [[ -n "${BASH_VERSION:-}" ]]; then
-    # Whenever a new prompt is shown close the previous command, and prepare new command
-    PROMPT_COMMAND+=(__systemd_osc_context_precmdline)
+if [ -n "${BASH_VERSION:-}" ]; then
+    # Only newer bash versions (>= 5.1) support PROMPT_COMMAND as an array.
+    if [[ "$(declare -p PROMPT_COMMAND 2>&1)" =~ "declare -a" ]]; then
 
-    # PS0 is shown right after a prompt completed, but before the command is executed
-    PS0='\033]8003;start=$systemd_osc_context_cmd_id$(__systemd_osc_context_common);type=command;cwd=$(__systemd_osc_context_escape "$PWD")\033\\'"${PS0:-}"
+        # Whenever a new prompt is shown, close the previous command, and prepare new command
+        PROMPT_COMMAND+=(__systemd_osc_context_precmdline)
+
+        # PS0 is shown right after a prompt completed, but before the command is executed
+        PS0='\033]8003;start=$systemd_osc_context_cmd_id$(__systemd_osc_context_common);type=command;cwd=$(__systemd_osc_context_escape "$PWD")\033\\'"${PS0:-}"
+    fi
 fi
