@@ -6,6 +6,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <stdlib.h>
+#include <threads.h>
 #include <unistd.h>
 
 #include "confidential-virt-fundamental.h"
@@ -13,7 +14,6 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "missing_threads.h"
 #include "string-table.h"
 #include "utf8.h"
 
