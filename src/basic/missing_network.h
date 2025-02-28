@@ -3,17 +3,7 @@
 
 #include <netinet/in.h>
 
-/* linux/in6.h or netinet/in.h */
-#ifndef IPV6_UNICAST_IF
-#define IPV6_UNICAST_IF 76
-#endif
-
-/* linux/in6.h or netinet/in.h */
-#ifndef IPV6_TRANSPARENT
-#define IPV6_TRANSPARENT 75
-#endif
-
-/* linux/in.h or netinet/in.h */
+/* linux/in.h or netinet/in.h (since glibc-2.32) */
 #ifndef IPPROTO_MPTCP
 #define IPPROTO_MPTCP 262
 #endif
