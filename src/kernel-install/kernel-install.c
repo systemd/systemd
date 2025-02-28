@@ -1057,16 +1057,7 @@ static int context_execute(Context *c) {
 }
 
 static bool bypass(void) {
-        int r;
-
-        r = getenv_bool("KERNEL_INSTALL_BYPASS");
-        if (r < 0 && r != -ENXIO)
-                log_debug_errno(r, "Failed to parse $KERNEL_INSTALL_BYPASS, assuming no.");
-        if (r <= 0)
-                return false;
-
-        log_debug("$KERNEL_INSTALL_BYPASS is enabled, skipping execution.");
-        return true;
+        return should_bypass("KERNEL_INSTALL");
 }
 
 static int do_add(
