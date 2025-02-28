@@ -68,16 +68,6 @@ static inline int missing_ioprio_set(int which, int who, int ioprio) {
 
 /* ======================================================================= */
 
-#if !HAVE_MEMFD_CREATE
-static inline int missing_memfd_create(const char *name, unsigned int flags) {
-        return syscall(__NR_memfd_create, name, flags);
-}
-
-#  define memfd_create missing_memfd_create
-#endif
-
-/* ======================================================================= */
-
 #if !HAVE_GETRANDOM
 /* glibc says getrandom() returns ssize_t */
 static inline ssize_t missing_getrandom(void *buffer, size_t count, unsigned flags) {
