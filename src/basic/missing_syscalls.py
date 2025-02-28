@@ -19,7 +19,6 @@ SYSCALLS = [
     'pkey_mprotect',
     'quotactl_fd',
     'removexattrat',
-    'renameat2',
     'setxattrat',
 ]
 

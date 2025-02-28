@@ -6,10 +6,6 @@
 #include "macro.h"
 
 /* linux/fs.h */
-#ifndef RENAME_NOREPLACE /* 0a7c3937a1f23f8cb5fc77ae01661e9968a51d0c (3.15) */
-#define RENAME_NOREPLACE (1 << 0)
-#endif
-
 #ifndef BLKGETDISKSEQ /* 7957d93bf32bc211415827e44fdd9cdf1388df59 (5.15) */
 #define BLKGETDISKSEQ _IOR(0x12,128,__u64)
 #endif
