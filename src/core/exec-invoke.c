@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/prctl.h>
 #include <linux/sched.h>
 #include <sys/eventfd.h>
 #include <sys/ioctl.h>
@@ -41,7 +42,6 @@
 #include "iovec-util.h"
 #include "journal-send.h"
 #include "memfd-util.h"
-#include "missing_prctl.h"
 #include "missing_sched.h"
 #include "missing_securebits.h"
 #include "missing_syscall.h"

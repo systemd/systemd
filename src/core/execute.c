@@ -2,6 +2,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <linux/prctl.h>
 #include <poll.h>
 #include <sys/file.h>
 #include <sys/mman.h>
@@ -48,7 +49,6 @@
 #include "manager-dump.h"
 #include "memory-util.h"
 #include "missing_fs.h"
-#include "missing_prctl.h"
 #include "mkdir-label.h"
 #include "namespace.h"
 #include "osc-context.h"
