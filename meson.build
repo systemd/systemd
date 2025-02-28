@@ -613,8 +613,6 @@ foreach ident : [
         ['kcmp',              '''#include <linux/kcmp.h>'''],
         ['keyctl',            '''#include <sys/types.h>
                                  #include <keyutils.h>'''],
-        ['copy_file_range',   '''#include <sys/syscall.h>
-                                 #include <unistd.h>'''],
         ['bpf',               '''#include <sys/syscall.h>
                                  #include <unistd.h>'''],
         ['explicit_bzero' ,   '''#include <string.h>'''],

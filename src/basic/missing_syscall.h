@@ -110,24 +110,6 @@ static inline key_serial_t missing_request_key(const char *type, const char *des
 
 /* ======================================================================= */
 
-#if !HAVE_COPY_FILE_RANGE
-static inline ssize_t missing_copy_file_range(int fd_in, loff_t *off_in,
-                                              int fd_out, loff_t *off_out,
-                                              size_t len,
-                                              unsigned int flags) {
-#  ifdef __NR_copy_file_range
-        return syscall(__NR_copy_file_range, fd_in, off_in, fd_out, off_out, len, flags);
-#  else
-        errno = ENOSYS;
-        return -1;
-#  endif
-}
-
-#  define copy_file_range missing_copy_file_range
-#endif
-
-/* ======================================================================= */
-
 #if !HAVE_BPF
 union bpf_attr;
 
