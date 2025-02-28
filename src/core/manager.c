@@ -2798,7 +2798,6 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
         Manager *m = ASSERT_PTR(userdata);
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         struct ucred ucred;
-        _cleanup_free_ char *buf = NULL;
         _cleanup_(fdset_free_asyncp) FDSet *fds = NULL;
         int r;
 
@@ -2809,7 +2808,8 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
                 return 0;
         }
 
-        r = notify_recv_with_fds(m->notify_fd, &buf, &ucred, &pidref, &fds);
+        _cleanup_strv_free_ char **tags = NULL;
+        r = notify_recv_with_fds_strv(m->notify_fd, &tags, &ucred, &pidref, &fds);
         if (r == -EAGAIN)
                 return 0;
         if (r < 0)
@@ -2818,12 +2818,6 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
                  * being woken up over and over again, but being unable to actually read the message from the
                  * socket. */
                 return r;
-
-        _cleanup_strv_free_ char **tags = strv_split_newlines(buf);
-        if (!tags) {
-                log_oom_warning();
-                return 0;
-        }
 
         /* Possibly a barrier fd, let's see. */
         if (manager_process_barrier_fd(tags, fds)) {
