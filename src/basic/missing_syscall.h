@@ -68,17 +68,6 @@ static inline int missing_ioprio_set(int which, int who, int ioprio) {
 
 /* ======================================================================= */
 
-#if !HAVE_GETRANDOM
-/* glibc says getrandom() returns ssize_t */
-static inline ssize_t missing_getrandom(void *buffer, size_t count, unsigned flags) {
-        return syscall(__NR_getrandom, buffer, count, flags);
-}
-
-#  define getrandom missing_getrandom
-#endif
-
-/* ======================================================================= */
-
 /* The syscall has been defined since forever, but the glibc wrapper was missing. */
 #if !HAVE_GETTID
 static inline pid_t missing_gettid(void) {
