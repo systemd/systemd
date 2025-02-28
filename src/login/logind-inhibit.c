@@ -4,6 +4,7 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <threads.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -18,7 +19,6 @@
 #include "io-util.h"
 #include "logind-dbus.h"
 #include "logind-inhibit.h"
-#include "missing_threads.h"
 #include "mkdir-label.h"
 #include "parse-util.h"
 #include "path-util.h"
