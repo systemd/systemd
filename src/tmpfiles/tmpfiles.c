@@ -591,17 +591,15 @@ static int opendir_and_stat(
                 return 0;
         }
 
-        r = statx_fallback(dirfd(d), "", AT_EMPTY_PATH, STATX_MODE|STATX_INO|STATX_ATIME|STATX_MTIME, &sx1);
-        if (r < 0)
-                return log_error_errno(r, "statx(%s) failed: %m", path);
+        if (statx(dirfd(d), "", AT_EMPTY_PATH, STATX_MODE|STATX_INO|STATX_ATIME|STATX_MTIME, &sx1) < 0)
+                return log_error_errno(errno, "statx(%s) failed: %m", path);
 
         if (FLAGS_SET(sx1.stx_attributes_mask, STATX_ATTR_MOUNT_ROOT))
                 *ret_mountpoint = FLAGS_SET(sx1.stx_attributes, STATX_ATTR_MOUNT_ROOT);
         else {
                 struct statx sx2;
-                r = statx_fallback(dirfd(d), "..", 0, STATX_INO, &sx2);
-                if (r < 0)
-                        return log_error_errno(r, "statx(%s/..) failed: %m", path);
+                if (statx(dirfd(d), "..", 0, STATX_INO, &sx2) < 0)
+                        return log_error_errno(errno, "statx(%s/..) failed: %m", path);
 
                 *ret_mountpoint = !statx_mount_same(&sx1, &sx2);
         }
@@ -707,16 +705,15 @@ static int dir_cleanup(
                  * st_dev. */
 
                 struct statx sx;
-                r = statx_fallback(
-                                dirfd(d), de->d_name,
-                                AT_SYMLINK_NOFOLLOW|AT_NO_AUTOMOUNT,
-                                STATX_TYPE|STATX_MODE|STATX_UID|STATX_ATIME|STATX_MTIME|STATX_CTIME|STATX_BTIME,
-                                &sx);
-                if (r == -ENOENT)
-                        continue;
-                if (r < 0) {
+                if (statx(dirfd(d), de->d_name,
+                          AT_SYMLINK_NOFOLLOW|AT_NO_AUTOMOUNT,
+                          STATX_TYPE|STATX_MODE|STATX_UID|STATX_ATIME|STATX_MTIME|STATX_CTIME|STATX_BTIME,
+                          &sx) < 0) {
+                        if (errno == ENOENT)
+                                continue;
+
                         /* FUSE, NFS mounts, SELinux might return EACCES */
-                        log_full_errno(r == -EACCES ? LOG_DEBUG : LOG_ERR, r,
+                        log_full_errno(errno == EACCES ? LOG_DEBUG : LOG_ERR, errno,
                                        "statx(%s/%s) failed: %m", p, de->d_name);
                         continue;
                 }
