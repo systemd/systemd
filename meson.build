@@ -615,7 +615,6 @@ foreach ident : [
                                  #include <keyutils.h>'''],
         ['bpf',               '''#include <sys/syscall.h>
                                  #include <unistd.h>'''],
-        ['explicit_bzero' ,   '''#include <string.h>'''],
         ['reallocarray',      '''#include <stdlib.h>'''],
         ['set_mempolicy',     '''#include <stdlib.h>
                                  #include <unistd.h>'''],
