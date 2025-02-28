@@ -643,7 +643,8 @@ int acquire_terminal(
         int r, wd = -1;
 
         assert(name);
-        assert(IN_SET(flags & ~ACQUIRE_TERMINAL_PERMISSIVE, ACQUIRE_TERMINAL_TRY, ACQUIRE_TERMINAL_FORCE, ACQUIRE_TERMINAL_WAIT));
+        assert(IN_SET(flags & _ACQUIRE_TERMINAL_MODE_MASK,
+                      ACQUIRE_TERMINAL_TRY, ACQUIRE_TERMINAL_FORCE, ACQUIRE_TERMINAL_WAIT));
 
         /* We use inotify to be notified when the tty is closed. We create the watch before checking if we can actually
          * acquire it, so that we don't lose any event.
@@ -654,8 +655,8 @@ int acquire_terminal(
          * not configure any service on the same tty as an untrusted user this should not be a problem. (Which they
          * probably should not do anyway.) */
 
-        if ((flags & ~ACQUIRE_TERMINAL_PERMISSIVE) == ACQUIRE_TERMINAL_WAIT) {
-                notify = inotify_init1(IN_CLOEXEC | (timeout != USEC_INFINITY ? IN_NONBLOCK : 0));
+        if ((flags & _ACQUIRE_TERMINAL_MODE_MASK) == ACQUIRE_TERMINAL_WAIT) {
+                notify = inotify_init1(IN_CLOEXEC | IN_NONBLOCK);
                 if (notify < 0)
                         return -errno;
 
@@ -666,6 +667,12 @@ int acquire_terminal(
                 if (timeout != USEC_INFINITY)
                         ts = now(CLOCK_MONOTONIC);
         }
+
+        /* If we are called with ACQUIRE_TERMINAL_WATCH_SIGTERM we'll unblock SIGTERM during ppoll() temporarily */
+        sigset_t poll_ss;
+        assert_se(sigprocmask(SIG_SETMASK, /* newset= */ NULL, &poll_ss) >= 0);
+        if (flags & ACQUIRE_TERMINAL_WATCH_SIGTERM)
+                assert_se(sigdelset(&poll_ss, SIGTERM) >= 0);
 
         for (;;) {
                 if (notify >= 0) {
@@ -685,7 +692,7 @@ int acquire_terminal(
                 assert_se(sigaction(SIGHUP, &sigaction_ignore, &sa_old) >= 0);
 
                 /* First, try to get the tty */
-                r = RET_NERRNO(ioctl(fd, TIOCSCTTY, (flags & ~ACQUIRE_TERMINAL_PERMISSIVE) == ACQUIRE_TERMINAL_FORCE));
+                r = RET_NERRNO(ioctl(fd, TIOCSCTTY, (flags & _ACQUIRE_TERMINAL_MODE_MASK) == ACQUIRE_TERMINAL_FORCE));
 
                 /* Reset signal handler to old value */
                 assert_se(sigaction(SIGHUP, &sa_old, NULL) >= 0);
@@ -703,32 +710,38 @@ int acquire_terminal(
                                                           * already are the owner of the TTY. */
                         break;
 
-                if (flags != ACQUIRE_TERMINAL_WAIT) /* If we are in TRY or FORCE mode, then propagate EPERM as EPERM */
+                if ((flags & _ACQUIRE_TERMINAL_MODE_MASK) != ACQUIRE_TERMINAL_WAIT) /* If we are in TRY or FORCE mode, then propagate EPERM as EPERM */
                         return r;
 
                 assert(notify >= 0);
                 assert(wd >= 0);
 
                 for (;;) {
-                        union inotify_event_buffer buffer;
-                        ssize_t l;
-
-                        if (timeout != USEC_INFINITY) {
-                                usec_t n;
-
+                        usec_t left;
+                        if (timeout == USEC_INFINITY)
+                                left = USEC_INFINITY;
+                        else {
                                 assert(ts != USEC_INFINITY);
 
-                                n = usec_sub_unsigned(now(CLOCK_MONOTONIC), ts);
+                                usec_t n = usec_sub_unsigned(now(CLOCK_MONOTONIC), ts);
                                 if (n >= timeout)
                                         return -ETIMEDOUT;
 
-                                r = fd_wait_for_event(notify, POLLIN, usec_sub_unsigned(timeout, n));
-                                if (r < 0)
-                                        return r;
-                                if (r == 0)
-                                        return -ETIMEDOUT;
+                                left = timeout - n;
                         }
 
+                        struct pollfd pollfd = {
+                                .fd = notify,
+                                .events = POLLIN,
+                        };
+                        r = ppoll(&pollfd, 1, left == USEC_INFINITY ? NULL : TIMESPEC_STORE(left), &poll_ss);
+                        if (r < 0)
+                                return -errno;
+                        if (r == 0)
+                                return -ETIMEDOUT;
+
+                        union inotify_event_buffer buffer;
+                        ssize_t l;
                         l = read(notify, &buffer, sizeof(buffer));
                         if (l < 0) {
                                 if (ERRNO_IS_TRANSIENT(errno))
