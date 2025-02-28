@@ -650,7 +650,6 @@ foreach ident : [
         ['fsopen',            '''#include <sys/mount.h>'''],
         ['fsconfig',          '''#include <sys/mount.h>'''],
         ['fsmount',           '''#include <sys/mount.h>'''],
-        ['getdents64',        '''#include <dirent.h>'''],
         ['pidfd_spawn',       '''#include <spawn.h>'''],
         ['strerrorname_np',   '''#include <string.h>'''],
         ['quotactl_fd',       '''#include <sys/quota.h>'''],
