@@ -719,8 +719,8 @@
       --initrd=/some/path/initramfs-6.0.9-300.fc37.x86_64.img \
       --sbat='sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md
       uki.author.myimage,1,UKI for System,uki.author.myimage,1,https://uapi-group.org/specifications/specs/unified_kernel_image/' \
-      --pcr-private-key=tpm2-pcr-private-key-initrd.pem \
-      --pcr-public-key=tpm2-pcr-public-key-initrd.pem \
+      --pcr-private-key=tpm2-pcr-initrd-private-key.pem \
+      --pcr-public-key=tpm2-pcr-initrd-public-key.pem \
       --phases='enter-initrd' \
       --pcr-private-key=tpm2-pcr-private-key-system.pem \
       --pcr-public-key=tpm2-pcr-public-key-system.pem \
@@ -738,7 +738,7 @@
       and <filename index='false'>initramfs-6.0.9-300.fc37.x86_64.img</filename>.
       The policy embedded in the <literal>.pcrsig</literal> section will be signed for the initrd (the
       <constant>enter-initrd</constant> phase) with the key
-      <filename index='false'>tpm2-pcr-private-key-initrd.pem</filename>, and for the main system (phases
+      <filename index='false'>tpm2-pcr-initrd-private-key.pem</filename>, and for the main system (phases
       <constant>leave-initrd</constant>, <constant>sysinit</constant>, <constant>ready</constant>) with the
       key <filename index='false'>tpm2-pcr-private-key-system.pem</filename>. The Linux binary and the resulting
       combined image will be signed with the SecureBoot key <filename index='false'>secureboot-private-key.pem</filename>.</para>
@@ -761,8 +761,8 @@ SignKernel=yes
 PCRBanks=sha384,sha512
 
 [PCRSignature:initrd]
-PCRPrivateKey=tpm2-pcr-private-key-initrd.pem
-PCRPublicKey=tpm2-pcr-public-key-initrd.pem
+PCRPrivateKey=tpm2-pcr-initrd-private-key.pem
+PCRPublicKey=tpm2-pcr-initrd-public-key.pem
 Phases=enter-initrd
 
 [PCRSignature:system]
@@ -811,8 +811,8 @@ $ ukify -c ukify.conf build \
       <programlisting># ukify genkey --config=/etc/kernel/uki.conf
 Writing SecureBoot private key to /etc/kernel/secureboot-private-key.pem
 Writing SecureBoot certificate to /etc/kernel/secureboot-certificate.pem
-Writing private key for PCR signing to /etc/systemd/tpm2-pcr-private-key-initrd.pem
-Writing public key for PCR signing to /etc/systemd/tpm2-pcr-public-key-initrd.pem
+Writing private key for PCR signing to /etc/systemd/tpm2-pcr-initrd-private-key.pem
+Writing public key for PCR signing to /etc/systemd/tpm2-pcr-initrd-public-key.pem
 Writing private key for PCR signing to /etc/systemd/tpm2-pcr-private-key-system.pem
 Writing public key for PCR signing to /etc/systemd/tpm2-pcr-public-key-system.pem
 </programlisting>
@@ -881,7 +881,7 @@ ID=factory-reset' \
       --linux=/lib/modules/6.0.9-300.fc37.x86_64/vmlinuz \
       --initrd=/some/path/initramfs-6.0.9-300.fc37.x86_64.img \
       --cmdline='quiet rw' \
-      --pcr-public-key=tpm2-pcr-public-key-initrd.pem \
+      --pcr-public-key=tpm2-pcr-initrd-public-key.pem \
       --policy-digest \
       --json=short \
       --output=base.efi >base.pcrs

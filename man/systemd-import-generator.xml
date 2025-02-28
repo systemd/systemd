@@ -132,7 +132,7 @@
             <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
             shall process it, it's essential to specify <literal>rootdisk</literal> as the local name for the
             import. Moreover, <literal>root=gpt-auto</literal> must be specified on the kernel command line
-            explicitly. Also, prefix the <literal>systemd.pull=</literal> commmand line option with
+            explicitly. Also, prefix the <literal>systemd.pull=</literal> command line option with
             <literal>rd.</literal> to ensure it is executed in the initial RAM disk (initrd) already, also
             see below.</para>
 

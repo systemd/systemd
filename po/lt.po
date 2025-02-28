@@ -2,14 +2,15 @@
 #
 # Moo, 2018. #zanata
 # mooo <hazap@hotmail.com>, 2023, 2024.
+# Justinas Kairys <j.kairys@proton.me>, 2025.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2024-11-28 18:16+0900\n"
-"PO-Revision-Date: 2024-02-15 23:36+0000\n"
-"Last-Translator: mooo <hazap@hotmail.com>\n"
+"PO-Revision-Date: 2025-02-28 08:38+0000\n"
+"Last-Translator: Justinas Kairys <j.kairys@proton.me>\n"
 "Language-Team: Lithuanian <https://translate.fedoraproject.org/projects/"
-"systemd/master/lt/>\n"
+"systemd/main/lt/>\n"
 "Language: lt\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -17,7 +18,7 @@ msgstr ""
 "Plural-Forms: nplurals=3; plural=(n % 10 == 1 && (n % 100 < 11 || n % 100 > "
 "19)) ? 0 : ((n % 10 >= 2 && n % 10 <= 9 && (n % 100 < 11 || n % 100 > 19)) ? "
 "1 : 2);\n"
-"X-Generator: Weblate 5.4\n"
+"X-Generator: Weblate 5.10\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -73,93 +74,84 @@ msgstr "Norint iš naujo įkelti systemd būseną, reikia patvirtinti tapatybę.
 
 #: src/core/org.freedesktop.systemd1.policy.in:74
 msgid "Dump the systemd state without rate limits"
-msgstr ""
+msgstr "Įkelti systemd būseną be greičio apribojimų"
 
 #: src/core/org.freedesktop.systemd1.policy.in:75
-#, fuzzy
 msgid ""
 "Authentication is required to dump the systemd state without rate limits."
-msgstr "Norint iš naujo įkelti systemd būseną, reikia patvirtinti tapatybę."
+msgstr ""
+"Norint įkelti systemd būseną be greičio apribojimų, reikia patvirtinti "
+"tapatybę."
 
 #: src/home/org.freedesktop.home1.policy:13
 msgid "Create a home area"
-msgstr ""
+msgstr "Sukurti namų aplanką"
 
 #: src/home/org.freedesktop.home1.policy:14
-#, fuzzy
 msgid "Authentication is required to create a user's home area."
-msgstr "Norint iš naujo įkelti systemd būseną, reikia patvirtinti tapatybę."
+msgstr "Norint sukurti naudotojo namų aplanką, reikia nustatyti tapatybę."
 
 #: src/home/org.freedesktop.home1.policy:23
 msgid "Remove a home area"
-msgstr ""
+msgstr "Ištrinti namų aplanką"
 
 #: src/home/org.freedesktop.home1.policy:24
-#, fuzzy
 msgid "Authentication is required to remove a user's home area."
-msgstr "Norint iš naujo įkelti systemd būseną, reikia patvirtinti tapatybę."
+msgstr "Norint ištrinti namų aplanką, reikia patvirtinti tapatybę."
 
 #: src/home/org.freedesktop.home1.policy:33
 msgid "Check credentials of a home area"
-msgstr ""
+msgstr "Patikrinti namų aplanko prisijungimo duomenis"
 
 #: src/home/org.freedesktop.home1.policy:34
-#, fuzzy
 msgid ""
 "Authentication is required to check credentials against a user's home area."
 msgstr ""
-"Norint prijungti ar atskirti perkeliamos tarnybos atvaizdį, reikia nustatyti "
-"tapatybę."
+"Norint patikrinti prisijungimo duomenis pagal naudotojo namų aplanką, reikia "
+"patvirtinti tapatybę."
 
 #: src/home/org.freedesktop.home1.policy:43
 msgid "Update a home area"
-msgstr ""
+msgstr "Atnaujinti namų katalogą"
 
 #: src/home/org.freedesktop.home1.policy:44
-#, fuzzy
 msgid "Authentication is required to update a user's home area."
-msgstr ""
-"Norint prijungti įrenginį prie darbo vietos, reikia nustatyti tapatybę."
+msgstr "Norint atnaujinti naudotojo namų aplanką, reikia patvirtinti tapatybę."
 
 #: src/home/org.freedesktop.home1.policy:53
 msgid "Update your home area"
-msgstr ""
+msgstr "Atnaujinti jūsų namų aplanką"
 
 #: src/home/org.freedesktop.home1.policy:54
-#, fuzzy
 msgid "Authentication is required to update your home area."
-msgstr ""
-"Norint prijungti įrenginį prie darbo vietos, reikia nustatyti tapatybę."
+msgstr "Norint atnaujinti jūsų namų aplanką, reikia patvirtinti tapatybę."
 
 #: src/home/org.freedesktop.home1.policy:63
 msgid "Resize a home area"
-msgstr ""
+msgstr "Keisti namų aplanko dydį"
 
 #: src/home/org.freedesktop.home1.policy:64
-#, fuzzy
 msgid "Authentication is required to resize a user's home area."
-msgstr "Norint nustatyti sienos pranešimą, reikia nustatyti tapatybę"
+msgstr "Norint pakeisti naudotojo namų aplanką, reikia patvirtinti tapatybę."
 
 #: src/home/org.freedesktop.home1.policy:73
 msgid "Change password of a home area"
-msgstr ""
+msgstr "Pakeisti namų aplanko slaptažodį"
 
 #: src/home/org.freedesktop.home1.policy:74
-#, fuzzy
 msgid ""
 "Authentication is required to change the password of a user's home area."
 msgstr ""
-"Norint tvarkyti aktyvius seansus, naudotojus ir darbo vietas, reikia "
-"nustatyti tapatybę."
+"Norint pakeisti naudotojo namų aplanko slaptažodį, reikia patvirtinti "
+"tapatybę."
 
 #: src/home/org.freedesktop.home1.policy:83
 msgid "Activate a home area"
-msgstr ""
+msgstr "Suaktyvinti namų aplanką"
 
 #: src/home/org.freedesktop.home1.policy:84
-#, fuzzy
 msgid "Authentication is required to activate a user's home area."
-msgstr "Norint iš naujo įkelti systemd būseną, reikia patvirtinti tapatybę."
+msgstr "Norint suaktyvinti naudotojo namų aplanką, reikia patvirtinti tapatybę."
 
 #: src/home/pam_systemd_home.c:293
 #, c-format
@@ -167,28 +159,33 @@ msgid ""
 "Home of user %s is currently absent, please plug in the necessary storage "
 "device or backing file system."
 msgstr ""
+"Naudotojo %s namų aplanko šiuo metu nėra, prašome prijungti reikiamą "
+"atminties įrenginį arba palaikomą failų sistemą."
 
 #: src/home/pam_systemd_home.c:298
 #, c-format
 msgid "Too frequent login attempts for user %s, try again later."
 msgstr ""
+"Per daug prisijungimo bandymų naudotojui %s, pabandykite dar kartą vėliau."
 
 #: src/home/pam_systemd_home.c:310
 msgid "Password: "
-msgstr ""
+msgstr "Slaptažodis: "
 
 #: src/home/pam_systemd_home.c:312
 #, c-format
 msgid "Password incorrect or not sufficient for authentication of user %s."
 msgstr ""
+"Slaptažodis yra neteisingas arba nepakankamas naudotojo %s tapatybės "
+"patvirtinimui."
 
 #: src/home/pam_systemd_home.c:313
 msgid "Sorry, try again: "
-msgstr ""
+msgstr "Atleiskite, bandykite dar kartą: "
 
 #: src/home/pam_systemd_home.c:335
 msgid "Recovery key: "
-msgstr ""
+msgstr "Atkūrimo raktas: "
 
 #: src/home/pam_systemd_home.c:337
 #, c-format
@@ -196,19 +193,21 @@ msgid ""
 "Password/recovery key incorrect or not sufficient for authentication of user "
 "%s."
 msgstr ""
+"Slaptažodis/atkūrimo raktas yra neteisingas arba nepakankamas naudotojo %s "
+"tapatybės patvirtinimui."
 
 #: src/home/pam_systemd_home.c:338
 msgid "Sorry, reenter recovery key: "
-msgstr ""
+msgstr "Atleiskite, įveskite atkūrimo raktą iš naujo: "
 
 #: src/home/pam_systemd_home.c:358
 #, c-format
 msgid "Security token of user %s not inserted."
-msgstr ""
+msgstr "Naudotojo %s saugos atpažinimo ženklas yra neįdėtas."
 
 #: src/home/pam_systemd_home.c:359 src/home/pam_systemd_home.c:362
 msgid "Try again with password: "
-msgstr ""
+msgstr "Pabandykite dar kartą su slaptažodžiu: "
 
 #: src/home/pam_systemd_home.c:361
 #, c-format
@@ -216,15 +215,17 @@ msgid ""
 "Password incorrect or not sufficient, and configured security token of user "
 "%s not inserted."
 msgstr ""
+"Slaptažodis yra neteisingas arba jis yra nepakankamas, o naudotojo %s "
+"sukonfigūruotas saugos atpažinimo ženklas yra neįdėtas."
 
 #: src/home/pam_systemd_home.c:381
 msgid "Security token PIN: "
-msgstr ""
+msgstr "Saugos atpažinimo ženklo PIN kodas: "
 
 #: src/home/pam_systemd_home.c:398
 #, c-format
 msgid "Please authenticate physically on security token of user %s."
-msgstr ""
+msgstr "Prašome fiziškai patvirtinti tapatybę su naudotojo %s saugos žėtonu."
 
 #: src/home/pam_systemd_home.c:409
 #, c-format

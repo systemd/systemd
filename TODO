@@ -127,6 +127,8 @@ Deprecations and removals:
 
 Features:
 
+* Maybe rename pkcs7 and public verbs of systemd-keyutil to be more verb like.
+
 * sd-boot: do something useful if we find exactly zero entries (ignoring items
   such as reboot/poweroff/factory reset). Show a help text or so.
 
@@ -139,6 +141,11 @@ Features:
 * add "conditions" for bls type 1 and type 2 profiles that allow suppressing
   them under various conditions: 1. if tpm2 is available or not available;
   2. if sb is on or off; 3. if we are netbooted or not; …
+
+* logind: invoke a service manager for "area" logins too. i.e. instantiate
+  user@.service also for logins where XDG_AREA is set, in per-area fashion, and
+  ref count it properly. Benefit: graphical logins should start working with
+  the area logic.
 
 * repart: introduce concept of "ghost" partitions, that we setup in almost all
   ways like other partitions, but do not actually register in the actual gpt

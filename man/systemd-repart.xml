@@ -684,8 +684,8 @@ IMAGE_ID=my-motd
 IMAGE_VERSION=7
 EOF
 systemd-repart -C \
-  --private-key=privkey.pem \
-  --certificate=cert.crt \
+  --private-key=verity-private-key.pem \
+  --certificate=verity-certificate.pem \
   -s tree/ \
   /var/lib/confexts/my-motd.confext.raw
 systemd-confext refresh</programlisting>
@@ -711,7 +711,7 @@ EOF
 systemd-repart --make-ddi=sysext \
   --private-key-source=engine:pkcs11 \
   --private-key="pkcs11:model=PKCS%2315%20emulated;manufacturer=piv_II;serial=0123456789abcdef;token=Some%20Cert" \
-  --certificate=cert.crt \
+  --certificate=verity-certificate.pem \
   -s tree/ \
   /var/lib/extensions/my-foo.sysext.raw
 systemd-sysext refresh</programlisting>
@@ -763,21 +763,21 @@ EOF
 
 systemd-repart --definitions repart.d \
   --defer-partitions=root-verity-sig \
-  --copy-source /tmp/tree/ \
-  --empty create --size 600M \
+  --copy-source=/tmp/tree/ \
+  --empty=create --size=600M \
   --json=short \
   /tmp/img.raw | | jq --raw-output0 .[-1].roothash &gt; /tmp/img.roothash
 
 openssl smime -sign -in /tmp/img.roothash \
-  -inkey privkey.pem \
-  -signer cert.crt \
+  -inkey verity-private-key.pem \
+  -signer verity-certificate.pem \
   -noattr -binary -outform der \
   -out /tmp/img.roothash.p7s
 
 systemd-repart --definitions repart.d \
-  --dry-run=no --root /tmp/tree/ \
-  --join-signature "$(cat /tmp/img.roothash):/tmp/img.roothash.p7s" \
-  --certificate cert.crt \
+  --dry-run=no --root=/tmp/tree/ \
+  --join-signature="$(cat /tmp/img.roothash):/tmp/img.roothash.p7s" \
+  --certificate=verity-certificate.pem \
   /tmp/img.raw</programlisting>
     </example>
 

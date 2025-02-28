@@ -466,7 +466,7 @@ static int nvme_subsystem_add(const char *node, int consumed_fd, sd_device *devi
 }
 
 typedef struct NvmePort {
-        uint16_t portnr; /* used for both the IP and the NVME port numer */
+        uint16_t portnr; /* used for both the IP and the NVME port number */
 
         int nvme_port_fd;
         int nvme_ports_fd;

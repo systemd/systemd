@@ -277,7 +277,7 @@ static int manager_connect_genl(Manager *m) {
         if (r < 0)
                 return r;
 
-        /* If the kernel is built without CONFIG_WIRELESS, the belows will fail with -EOPNOTSUPP. */
+        /* If the kernel is built without CONFIG_WIRELESS, the below will fail with -EOPNOTSUPP. */
         r = genl_add_match(m->genl, NULL, NL80211_GENL_NAME, NL80211_MULTICAST_GROUP_CONFIG, 0,
                            &manager_genl_process_nl80211_config, NULL, m, "network-genl_process_nl80211_config");
         if (r < 0 && r != -EOPNOTSUPP)
@@ -1087,7 +1087,7 @@ int manager_enumerate(Manager *m) {
         else if (r < 0)
                 return log_error_errno(r, "Could not enumerate routing policy rules: %m");
 
-        /* If the kernel is built without CONFIG_WIRELESS, the belows will fail with -EOPNOTSUPP. */
+        /* If the kernel is built without CONFIG_WIRELESS, the below will fail with -EOPNOTSUPP. */
         r = manager_enumerate_nl80211_wiphy(m);
         if (r == -EOPNOTSUPP)
                 log_debug_errno(r, "Could not enumerate wireless LAN phy, ignoring: %m");

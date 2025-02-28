@@ -320,6 +320,10 @@ static int get_dmi_properties(Context *c, const char * const * keys, char **ret)
         return r;
 }
 
+static int get_chassis_asset_tag(Context *c, char **ret) {
+        return get_dmi_property(c, "ID_CHASSIS_ASSET_TAG", ret);
+}
+
 static int get_hardware_vendor(Context *c, char **ret) {
         return get_dmi_properties(c, STRV_MAKE_CONST("ID_VENDOR_FROM_DATABASE", "ID_VENDOR"), ret);
 }
@@ -881,6 +885,24 @@ static int property_get_firmware_date(
 
         return sd_bus_message_append(reply, "t", firmware_date);
 }
+
+static int property_get_chassis_asset_tag(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        _cleanup_free_ char *chassis_asset_tag = NULL;
+        Context *c = ASSERT_PTR(userdata);
+
+        (void) get_chassis_asset_tag(c, &chassis_asset_tag);
+
+        return sd_bus_message_append(reply, "s", chassis_asset_tag);
+}
+
 static int property_get_hostname(
                 sd_bus *bus,
                 const char *path,
@@ -1461,7 +1483,7 @@ static int method_get_hardware_serial(sd_bus_message *m, void *userdata, sd_bus_
 static int build_describe_response(Context *c, bool privileged, sd_json_variant **ret) {
         _cleanup_free_ char *hn = NULL, *dhn = NULL, *in = NULL,
                 *chassis = NULL, *vendor = NULL, *model = NULL, *serial = NULL, *firmware_version = NULL,
-                *firmware_vendor = NULL;
+                *firmware_vendor = NULL, *chassis_asset_tag = NULL;
         _cleanup_strv_free_ char **os_release_pairs = NULL, **machine_info_pairs = NULL;
         usec_t firmware_date = USEC_INFINITY, eol = USEC_INFINITY;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
@@ -1512,6 +1534,7 @@ static int build_describe_response(Context *c, bool privileged, sd_json_variant 
         (void) get_firmware_version(c, &firmware_version);
         (void) get_firmware_vendor(c, &firmware_vendor);
         (void) get_firmware_date(c, &firmware_date);
+        (void) get_chassis_asset_tag(c, &chassis_asset_tag);
 
         if (c->data[PROP_OS_SUPPORT_END])
                 (void) os_release_support_ended(c->data[PROP_OS_SUPPORT_END], /* quiet= */ false, &eol);
@@ -1531,29 +1554,30 @@ static int build_describe_response(Context *c, bool privileged, sd_json_variant 
 
         r = sd_json_buildo(
                         &v,
-                        SD_JSON_BUILD_PAIR("Hostname", SD_JSON_BUILD_STRING(hn)),
-                        SD_JSON_BUILD_PAIR("StaticHostname", SD_JSON_BUILD_STRING(c->data[PROP_STATIC_HOSTNAME])),
-                        SD_JSON_BUILD_PAIR("PrettyHostname", SD_JSON_BUILD_STRING(c->data[PROP_PRETTY_HOSTNAME])),
-                        SD_JSON_BUILD_PAIR("DefaultHostname", SD_JSON_BUILD_STRING(dhn)),
-                        SD_JSON_BUILD_PAIR("HostnameSource", SD_JSON_BUILD_STRING(hostname_source_to_string(c->hostname_source))),
-                        SD_JSON_BUILD_PAIR("IconName", SD_JSON_BUILD_STRING(in ?: c->data[PROP_ICON_NAME])),
-                        SD_JSON_BUILD_PAIR("Chassis", SD_JSON_BUILD_STRING(chassis)),
-                        SD_JSON_BUILD_PAIR("Deployment", SD_JSON_BUILD_STRING(c->data[PROP_DEPLOYMENT])),
-                        SD_JSON_BUILD_PAIR("Location", SD_JSON_BUILD_STRING(c->data[PROP_LOCATION])),
-                        SD_JSON_BUILD_PAIR("KernelName", SD_JSON_BUILD_STRING(u.sysname)),
-                        SD_JSON_BUILD_PAIR("KernelRelease", SD_JSON_BUILD_STRING(u.release)),
-                        SD_JSON_BUILD_PAIR("KernelVersion", SD_JSON_BUILD_STRING(u.version)),
-                        SD_JSON_BUILD_PAIR("OperatingSystemPrettyName", SD_JSON_BUILD_STRING(c->data[PROP_OS_PRETTY_NAME])),
-                        SD_JSON_BUILD_PAIR("OperatingSystemCPEName", SD_JSON_BUILD_STRING(c->data[PROP_OS_CPE_NAME])),
-                        SD_JSON_BUILD_PAIR("OperatingSystemHomeURL", SD_JSON_BUILD_STRING(c->data[PROP_OS_HOME_URL])),
+                        SD_JSON_BUILD_PAIR_STRING("Hostname", hn),
+                        SD_JSON_BUILD_PAIR_STRING("StaticHostname", c->data[PROP_STATIC_HOSTNAME]),
+                        SD_JSON_BUILD_PAIR_STRING("PrettyHostname", c->data[PROP_PRETTY_HOSTNAME]),
+                        SD_JSON_BUILD_PAIR_STRING("DefaultHostname", dhn),
+                        SD_JSON_BUILD_PAIR_STRING("HostnameSource", hostname_source_to_string(c->hostname_source)),
+                        SD_JSON_BUILD_PAIR_STRING("IconName", in ?: c->data[PROP_ICON_NAME]),
+                        SD_JSON_BUILD_PAIR_STRING("Chassis", chassis),
+                        SD_JSON_BUILD_PAIR_STRING("ChassisAssetTag", chassis_asset_tag),
+                        SD_JSON_BUILD_PAIR_STRING("Deployment", c->data[PROP_DEPLOYMENT]),
+                        SD_JSON_BUILD_PAIR_STRING("Location", c->data[PROP_LOCATION]),
+                        SD_JSON_BUILD_PAIR_STRING("KernelName", u.sysname),
+                        SD_JSON_BUILD_PAIR_STRING("KernelRelease", u.release),
+                        SD_JSON_BUILD_PAIR_STRING("KernelVersion", u.version),
+                        SD_JSON_BUILD_PAIR_STRING("OperatingSystemPrettyName", c->data[PROP_OS_PRETTY_NAME]),
+                        SD_JSON_BUILD_PAIR_STRING("OperatingSystemCPEName", c->data[PROP_OS_CPE_NAME]),
+                        SD_JSON_BUILD_PAIR_STRING("OperatingSystemHomeURL", c->data[PROP_OS_HOME_URL]),
                         JSON_BUILD_PAIR_FINITE_USEC("OperatingSystemSupportEnd", eol),
                         SD_JSON_BUILD_PAIR("OperatingSystemReleaseData", JSON_BUILD_STRV_ENV_PAIR(os_release_pairs)),
                         SD_JSON_BUILD_PAIR("MachineInformationData", JSON_BUILD_STRV_ENV_PAIR(machine_info_pairs)),
-                        SD_JSON_BUILD_PAIR("HardwareVendor", SD_JSON_BUILD_STRING(vendor ?: c->data[PROP_HARDWARE_VENDOR])),
-                        SD_JSON_BUILD_PAIR("HardwareModel", SD_JSON_BUILD_STRING(model ?: c->data[PROP_HARDWARE_MODEL])),
-                        SD_JSON_BUILD_PAIR("HardwareSerial", SD_JSON_BUILD_STRING(serial)),
-                        SD_JSON_BUILD_PAIR("FirmwareVersion", SD_JSON_BUILD_STRING(firmware_version)),
-                        SD_JSON_BUILD_PAIR("FirmwareVendor", SD_JSON_BUILD_STRING(firmware_vendor)),
+                        SD_JSON_BUILD_PAIR_STRING("HardwareVendor", vendor ?: c->data[PROP_HARDWARE_VENDOR]),
+                        SD_JSON_BUILD_PAIR_STRING("HardwareModel", model ?: c->data[PROP_HARDWARE_MODEL]),
+                        SD_JSON_BUILD_PAIR_STRING("HardwareSerial", serial),
+                        SD_JSON_BUILD_PAIR_STRING("FirmwareVersion", firmware_version),
+                        SD_JSON_BUILD_PAIR_STRING("FirmwareVendor", firmware_vendor),
                         JSON_BUILD_PAIR_FINITE_USEC("FirmwareDate", firmware_date),
                         SD_JSON_BUILD_PAIR_ID128("MachineID", machine_id),
                         SD_JSON_BUILD_PAIR_ID128("BootID", boot_id),
@@ -1627,6 +1651,7 @@ static const sd_bus_vtable hostname_vtable[] = {
         SD_BUS_PROPERTY("MachineID", "ay", property_get_machine_id, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("BootID", "ay", property_get_boot_id, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("VSockCID", "u", property_get_vsock_cid, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("ChassisAssetTag", "s", property_get_chassis_asset_tag, 0, SD_BUS_VTABLE_PROPERTY_CONST),
 
         SD_BUS_METHOD_WITH_ARGS("SetHostname",
                                 SD_BUS_ARGS("s", hostname, "b", interactive),

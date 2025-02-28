@@ -4,10 +4,9 @@
 # Used by systemd --user instances.
 
 {% if ENABLE_HOMED %}
--account sufficient pam_systemd_home.so
+-account [success=done authtok_expired=bad new_authtok_reqd=bad maxtries=bad acct_expired=bad default=ignore] pam_systemd_home.so
 {% endif %}
-account  sufficient pam_unix.so no_pass_expiry
-account  required   pam_permit.so
+account  required   pam_unix.so no_pass_expiry
 
 {% if HAVE_SELINUX %}
 session  required   pam_selinux.so close

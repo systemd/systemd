@@ -39,11 +39,13 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "hostname-util.h"
+#include "io-util.h"
 #include "json-util.h"
 #include "locale-util.h"
 #include "login-util.h"
 #include "macro.h"
 #include "missing_syscall.h"
+#include "osc-context.h"
 #include "pam-util.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -54,6 +56,7 @@
 #include "stdio-util.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "tmpfile-util.h"
 #include "user-util.h"
 #include "userdb.h"
 
@@ -370,14 +373,14 @@ static int export_legacy_dbus_address(
                 pam_handle_t *handle,
                 const char *runtime) {
 
-        const char *s;
-        _cleanup_free_ char *t = NULL;
-        int r = PAM_BUF_ERR;
+        int r;
+
+        assert(handle);
 
         /* We need to export $DBUS_SESSION_BUS_ADDRESS because various applications will not connect
-         * correctly to the bus without it. This setting matches what dbus.socket does for the user
-         * session using 'systemctl --user set-environment'. We want to have the same configuration
-         * in processes started from the PAM session.
+         * correctly to the bus without it. This setting matches what dbus.socket does for the user session
+         * using 'systemctl --user set-environment'. We want to have the same configuration in processes
+         * started from the PAM session.
          *
          * The setting of the address is guarded by the access() check because it is also possible to compile
          * dbus without --enable-user-session, in which case this socket is not used, and
@@ -386,14 +389,22 @@ static int export_legacy_dbus_address(
          * expect the socket to be present by the time we do this check, so we can just as well check once
          * here. */
 
-        s = strjoina(runtime, "/bus");
-        if (access(s, F_OK) < 0)
+        if (!runtime)
                 return PAM_SUCCESS;
 
+        const char *s = strjoina(runtime, "/bus");
+        if (access(s, F_OK) < 0)  {
+                if (errno != ENOENT)
+                        pam_syslog_errno(handle, LOG_WARNING, errno, "Failed to check if %s/bus exists, ignoring: %m", runtime);
+
+                return PAM_SUCCESS;
+        }
+
+        _cleanup_free_ char *t = NULL;
         if (asprintf(&t, DEFAULT_USER_BUS_ADDRESS_FMT, runtime) < 0)
                 return pam_log_oom(handle);
 
-        r = pam_misc_setenv(handle, "DBUS_SESSION_BUS_ADDRESS", t, 0);
+        r = pam_misc_setenv(handle, "DBUS_SESSION_BUS_ADDRESS", t, /* readonly= */ false);
         if (r != PAM_SUCCESS)
                 return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to set bus variable: @PAMERR@");
 
@@ -577,12 +588,26 @@ static int update_environment(pam_handle_t *handle, const char *key, const char 
         assert(handle);
         assert(key);
 
-        /* Updates the environment, but only if there's actually a value set. Also, log about errors */
+        /* Updates the environment, and removes environment variables if value is NULL or empty. Also, log
+         * about errors. */
 
-        if (isempty(value))
+        if (isempty(value)) {
+                /* Unset the variable if set. Note that pam_putenv() would log nastily behind our back if we
+                 * call it without the variable actually being set. Hence we check explicitly if it's set
+                 * before. */
+
+                if (!pam_getenv(handle, key))
+                        return PAM_SUCCESS;
+
+                r = pam_putenv(handle, key);
+                if (!IN_SET(r, PAM_SUCCESS, PAM_BAD_ITEM))
+                        return pam_syslog_pam_error(handle, LOG_WARNING, r,
+                                                    "Failed to unset %s environment variable: @PAMERR@", key);
+
                 return PAM_SUCCESS;
+        }
 
-        r = pam_misc_setenv(handle, key, value, 0);
+        r = pam_misc_setenv(handle, key, value, /* readonly= */ false);
         if (r != PAM_SUCCESS)
                 return pam_syslog_pam_error(handle, LOG_ERR, r,
                                             "Failed to set environment variable %s: @PAMERR@", key);
@@ -808,27 +833,6 @@ static int apply_user_record_settings(
         }
 
         return PAM_SUCCESS;
-}
-
-static int configure_runtime_directory(
-                pam_handle_t *handle,
-                UserRecord *ur,
-                const char *rt) {
-
-        int r;
-
-        assert(handle);
-        assert(ur);
-        assert(rt);
-
-        if (!validate_runtime_directory(handle, rt, ur->uid))
-                return PAM_SUCCESS;
-
-        r = pam_misc_setenv(handle, "XDG_RUNTIME_DIR", rt, 0);
-        if (r != PAM_SUCCESS)
-                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to set runtime dir: @PAMERR@");
-
-        return export_legacy_dbus_address(handle, rt);
 }
 
 static uint64_t pick_default_capability_ambient_set(
@@ -1078,7 +1082,9 @@ static int register_session(
                 SessionContext *c,
                 UserRecord *ur,
                 bool debug,
-                char **ret_seat) {
+                char **ret_seat,
+                char **ret_type,
+                char **ret_runtime_dir) {
 
         int r;
 
@@ -1086,18 +1092,20 @@ static int register_session(
         assert(c);
         assert(ur);
         assert(ret_seat);
+        assert(ret_type);
+        assert(ret_runtime_dir);
 
         /* We don't register session class none with logind */
         if (streq(c->class, "none")) {
                 pam_debug_syslog(handle, debug, "Skipping logind registration for session class none.");
-                *ret_seat = NULL;
+                *ret_seat = *ret_type = *ret_runtime_dir = NULL;
                 return PAM_SUCCESS;
         }
 
         /* Make most of this a NOP on non-logind systems */
         if (!logind_running()) {
                 pam_debug_syslog(handle, debug, "Skipping logind registration as logind is not running.");
-                *ret_seat = NULL;
+                *ret_seat = *ret_type = *ret_runtime_dir = NULL;
                 return PAM_SUCCESS;
         }
 
@@ -1170,7 +1178,7 @@ static int register_session(
                         if (streq_ptr(error_id, "io.systemd.Login.AlreadySessionMember")) {
                                 /* We are already in a session, don't do anything */
                                 pam_debug_syslog(handle, debug, "Not creating session: %s", error_id);
-                                *ret_seat = NULL;
+                                *ret_seat = *ret_type= *ret_runtime_dir = NULL;
                                 return PAM_SUCCESS;
                         }
                         if (error_id)
@@ -1267,7 +1275,7 @@ static int register_session(
                                 /* We are already in a session, don't do anything */
                                 pam_debug_syslog(handle, debug,
                                                  "Not creating session: %s", bus_error_message(&error, r));
-                                *ret_seat = NULL;
+                                *ret_seat = *ret_type = *ret_runtime_dir = NULL;
                                 return PAM_SUCCESS;
                         }
 
@@ -1303,19 +1311,13 @@ static int register_session(
         if (r != PAM_SUCCESS)
                 return r;
 
-        if (original_uid == ur->uid) {
-                /* Don't set $XDG_RUNTIME_DIR if the user we now authenticated for does not match the
-                 * original user of the session. We do this in order not to result in privileged apps
-                 * clobbering the runtime directory unnecessarily. */
-
-                r = configure_runtime_directory(handle, ur, runtime_path);
-                if (r != PAM_SUCCESS)
-                        return r;
-        }
-
         /* Most likely we got the session/type/class from environment variables, but might have gotten the data
          * somewhere else (for example PAM module parameters). Let's now update the environment variables, so that this
          * data is inherited into the session processes, and programs can rely on them to be initialized. */
+
+        _cleanup_free_ char *real_type = strdup(c->type); /* make copy because this might point to env block, which we are going to update shortly */
+        if (!real_type)
+                return pam_log_oom(handle);
 
         r = update_environment(handle, "XDG_SESSION_TYPE", c->type);
         if (r != PAM_SUCCESS)
@@ -1357,17 +1359,25 @@ static int register_session(
                 TAKE_FD(fd);
         }
 
+        /* Don't set $XDG_RUNTIME_DIR if the user we now authenticated for does not match the
+         * original user of the session. We do this in order not to result in privileged apps
+         * clobbering the runtime directory unnecessarily. */
+        _cleanup_free_ char *rt = NULL;
+        if (original_uid == ur->uid && validate_runtime_directory(handle, runtime_path, ur->uid))
+                if (strdup_to(&rt, runtime_path) < 0)
+                        return pam_log_oom(handle);
+
         /* Everything worked, hence let's patch in the data we learned. Since 'real_set' points into the
          * D-Bus message, let's copy it and return it as a buffer */
-        char *rs = NULL;
-        if (real_seat) {
-                rs = strdup(real_seat);
-                if (!rs)
-                        return pam_log_oom(handle);
-        }
+        _cleanup_free_ char *rs = NULL;
+        if (strdup_to(&rs, real_seat) < 0)
+                return pam_log_oom(handle);
 
-        c->seat = *ret_seat = rs;
         c->vtnr = real_vtnr;
+        c->seat = *ret_seat = TAKE_PTR(rs);
+        c->type = *ret_type = TAKE_PTR(real_type);
+        *ret_runtime_dir = TAKE_PTR(rt);
+
         return PAM_SUCCESS;
 }
 
@@ -1392,9 +1402,103 @@ static int import_shell_credentials(pam_handle_t *handle) {
         return PAM_SUCCESS;
 }
 
-static int update_home_env(
+static int mkdir_chown_open_directory(
+                int parent_fd,
+                const char *name,
+                uid_t uid,
+                gid_t gid,
+                mode_t mode) {
+
+        _cleanup_free_ char *t = NULL;
+        int r;
+
+        assert(parent_fd >= 0);
+        assert(name);
+        assert(uid_is_valid(uid));
+        assert(gid_is_valid(gid));
+        assert(mode != MODE_INVALID);
+
+        for (unsigned attempt = 0;; attempt++) {
+                _cleanup_close_ int fd = openat(parent_fd, name, O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
+                if (fd >= 0)
+                        return TAKE_FD(fd);
+                if (errno != ENOENT)
+                        return -errno;
+
+                /* Let's create the directory under a temporary name first, since we want to make sure that
+                 * once it appears under the right name it has the right ownership */
+                r = tempfn_random(name, /* extra= */ NULL, &t);
+                if (r < 0)
+                        return r;
+
+                fd = open_mkdir_at(parent_fd, t, O_CLOEXEC|O_EXCL, 0700); /* Use restrictive mode until ownership is in order */
+                if (fd < 0)
+                        return fd;
+
+                r = RET_NERRNO(fchown(fd, uid, gid));
+                if (r < 0)
+                        goto fail;
+
+                r = RET_NERRNO(fchmod(fd, mode));
+                if (r < 0)
+                        goto fail;
+
+                r = rename_noreplace(parent_fd, t, parent_fd, name);
+                if (r >= 0)
+                        return TAKE_FD(fd);
+                if (r != -EEXIST || attempt >= 5)
+                        goto fail;
+
+                /* Maybe some other login attempt created the directory at the same time? Let's retry */
+                (void) unlinkat(parent_fd, t, AT_REMOVEDIR);
+                t = mfree(t);
+        }
+
+fail:
+        (void) unlinkat(parent_fd, ASSERT_PTR(t), AT_REMOVEDIR);
+        return r;
+}
+
+static int make_area_runtime_directory(
                 pam_handle_t *handle,
                 UserRecord *ur,
+                const char *runtime_directory,
+                const char *area,
+                char **ret) {
+
+        assert(handle);
+        assert(ur);
+        assert(runtime_directory);
+        assert(area);
+        assert(ret);
+
+        /* Let's be careful with creating these directories, the runtime directory is owned by the user after all,
+         * and they might play symlink games with us. */
+
+        _cleanup_close_ int fd = open(runtime_directory, O_CLOEXEC|O_PATH|O_DIRECTORY);
+        if (fd < 0)
+                return pam_syslog_errno(handle, LOG_ERR, errno, "Unable to open runtime directory '%s': %m", runtime_directory);
+
+        _cleanup_close_ int fd_areas = mkdir_chown_open_directory(fd, "Areas", ur->uid, user_record_gid(ur), 0755);
+        if (fd_areas < 0)
+                return pam_syslog_errno(handle, LOG_ERR, fd_areas, "Unable to create 'Areas' directory below '%s': %m", runtime_directory);
+
+        _cleanup_close_ int fd_area = mkdir_chown_open_directory(fd_areas, area, ur->uid, user_record_gid(ur), 0755);
+        if (fd_area < 0)
+                return pam_syslog_errno(handle, LOG_ERR, fd_area, "Unable to create '%s' directory below '%s/Areas': %m", area, runtime_directory);
+
+        char *j = path_join(runtime_directory, "Areas", area);
+        if (!j)
+                return pam_log_oom(handle);
+
+        *ret = j;
+        return 0;
+}
+
+static int setup_environment(
+                pam_handle_t *handle,
+                UserRecord *ur,
+                const char *runtime_directory,
                 const char *area,
                 bool debug) {
 
@@ -1408,7 +1512,7 @@ static int update_home_env(
         /* If an empty area string is specified, this means an explicit: do not use the area logic, normalize this here */
         area = empty_to_null(area);
 
-        _cleanup_free_ char *ha = NULL;
+        _cleanup_free_ char *ha = NULL, *area_copy = NULL;
         if (area) {
                 _cleanup_free_ char *j = path_join(h, "Areas", area);
                 if (!j)
@@ -1436,27 +1540,167 @@ static int update_home_env(
                                 pam_info(handle, "Path '%s' of requested user area '%s' is not owned by user, reverting to regular home directory.", ha, area);
                                 area = NULL;
                         } else {
-                                pam_debug_syslog(handle, debug, "Area '%s' selected, setting $HOME to '%s': %m", area, ha);
+                                /* All good, now make a copy of the area string, since we quite likely are
+                                 * going to invalidate it (if it points into the environment block), via the
+                                 * update_environment() call below */
+                                area_copy = strdup(area);
+                                if (!area_copy)
+                                        return pam_log_oom(handle);
+
+                                pam_debug_syslog(handle, debug, "Area '%s' selected, setting $HOME to '%s'.", area, ha);
                                 h = ha;
+                                area = area_copy;
                         }
                 }
         }
 
-        if (area) {
-                r = update_environment(handle, "XDG_AREA", area);
+        r = update_environment(handle, "XDG_AREA", area);
+        if (r != PAM_SUCCESS)
+                return r;
+
+        r = update_environment(handle, "HOME", h);
+        if (r != PAM_SUCCESS)
+                return r;
+
+        _cleanup_free_ char *per_area_runtime_directory = NULL;
+        if (runtime_directory && area) {
+                /* Also create a per-area subdirectory for $XDG_RUNTIME_DIR, so that each area has their own
+                 * set of runtime services. We follow the same directory structure as for $HOME. Note that we
+                 * do not define any form of automatic clean-up for the per-aera subdirs beyond the regular
+                 * clean-up of the whole $XDG_RUNTIME_DIRECTORY hierarchy when the user finally logs out. */
+
+                r = make_area_runtime_directory(handle, ur, runtime_directory, area, &per_area_runtime_directory);
                 if (r != PAM_SUCCESS)
                         return r;
-        } else if (pam_getenv(handle, "XDG_AREA")) {
-                /* Unset the $XDG_AREA variable if set. Note that pam_putenv() would log nastily behind our
-                 * back if we call it without $XDG_AREA actually being set. Hence we check explicitly if it's
-                 * set before. */
-                r = pam_putenv(handle, "XDG_AREA");
-                if (!IN_SET(r, PAM_SUCCESS, PAM_BAD_ITEM))
-                        pam_syslog_pam_error(handle, LOG_WARNING, r,
-                                             "Failed to unset XDG_AREA environment variable, ignoring: @PAMERR@");
+
+                runtime_directory = per_area_runtime_directory;
         }
 
-        return update_environment(handle, "HOME", h);
+        r = update_environment(handle, "XDG_RUNTIME_DIR", runtime_directory);
+        if (r != PAM_SUCCESS)
+                return r;
+
+        return export_legacy_dbus_address(handle, runtime_directory);
+}
+
+static int open_osc_context(pam_handle_t *handle, const char *session_type, UserRecord *ur) {
+        int r;
+
+        assert(handle);
+        assert(ur);
+
+        /* If this is a TTY session, then output the session start OSC sequence */
+
+        if (!streq_ptr(session_type, "tty"))
+                return PAM_SUCCESS;
+
+        const char *e = pam_getenv(handle, "TERM");
+        if (!e)
+                e = getenv("TERM");
+        if (streq_ptr(e, "dumb"))
+                return PAM_SUCCESS;
+
+        /* NB: we output directly to stdout, instead of going via pam_info() or so, because that's too
+         * high-level for us, as it suffixes the output with a newline, expecting a full blown text message
+         * as prompt string, not just an ANSI sequence. Note that PAM's conv_misc() actually goes to stdout
+         * anyway, hence let's do so here too, but only after careful validation. */
+        if (!isatty(STDOUT_FILENO))
+                return PAM_SUCCESS;
+
+        /* Keep a reference to the TTY we are operating on, so that we can issue the OSC close sequence also
+         * if the TTY is already closed. We use an O_PATH reference here, rather than a properly opened fd,
+         * so that we don't delay tty hang-up. */
+        _cleanup_close_ int tty_opath_fd = fd_reopen(STDOUT_FILENO, O_PATH|O_CLOEXEC);
+        if (tty_opath_fd < 0)
+                pam_syslog_errno(handle, LOG_DEBUG, tty_opath_fd, "Failed to pin TTY, ignoring: %m");
+        else
+                tty_opath_fd = fd_move_above_stdio(tty_opath_fd);
+
+        _cleanup_free_ char *osc = NULL;
+        sd_id128_t osc_id;
+        r = osc_context_open_session(
+                        ur->user_name,
+                        pam_getenv(handle, "XDG_SESSION_ID"),
+                        &osc,
+                        &osc_id);
+        if (r < 0)
+                return pam_syslog_errno(handle, LOG_ERR, r, "Failed to prepare OSC sequence: %m");
+
+        r = loop_write(STDOUT_FILENO, osc, SIZE_MAX);
+        if (r < 0)
+                return pam_syslog_errno(handle, LOG_ERR, r, "Failed to write OSC sequence to TTY: %m");
+
+        /* Remember the OSC context id, so that we can close it cleanly later */
+        _cleanup_free_ sd_id128_t *osc_id_copy = newdup(sd_id128_t, &osc_id, 1);
+        if (!osc_id_copy)
+                return pam_log_oom(handle);
+
+        r = pam_set_data(handle, "systemd.osc-context-id", osc_id_copy, pam_cleanup_free);
+        if (r != PAM_SUCCESS)
+                return pam_syslog_pam_error(handle, LOG_ERR, r,
+                                            "Failed to set PAM OSC sequence ID data: @PAMERR@");
+
+        TAKE_PTR(osc_id_copy);
+
+        if (tty_opath_fd >= 0) {
+                r = pam_set_data(handle, "systemd.osc-context-fd", FD_TO_PTR(tty_opath_fd), pam_cleanup_close);
+                if (r != PAM_SUCCESS)
+                        return pam_syslog_pam_error(handle, LOG_ERR, r,
+                                                    "Failed to set PAM OSC sequence fd data: @PAMERR@");
+
+                TAKE_FD(tty_opath_fd);
+        }
+
+        return PAM_SUCCESS;
+}
+
+static int close_osc_context(pam_handle_t *handle) {
+        int r;
+
+        assert(handle);
+
+        const void *p;
+        int tty_opath_fd = -EBADF;
+        r = pam_get_data(handle, "systemd.osc-context-fd", &p);
+        if (r == PAM_SUCCESS)
+                tty_opath_fd = PTR_TO_FD(p);
+        else if (r != PAM_NO_MODULE_DATA)
+                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get PAM OSC context fd: @PAMERR@");
+        if (tty_opath_fd < 0)
+                return PAM_SUCCESS;
+
+        const sd_id128_t *osc_id = NULL;
+        r = pam_get_data(handle, "systemd.osc-context-id", (const void**) &osc_id);
+        if (!IN_SET(r, PAM_SUCCESS, PAM_NO_MODULE_DATA))
+                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get PAM OSC context id data: @PAMERR@");
+        if (!osc_id)
+                return PAM_SUCCESS;
+
+        /* Now open the original TTY again, so that we can write on it */
+        _cleanup_close_ int fd = fd_reopen(tty_opath_fd, O_WRONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        if (fd < 0) {
+                pam_syslog_errno(handle, LOG_DEBUG, fd, "Failed to reopen TTY, ignoring: %m");
+                return PAM_SUCCESS;
+        }
+
+        /* /bin/login calls us with fds 0, 1, 2 closed, which is just weird. Let's step outside of that
+         * range, just in case pam_syslog() or so logs to stderr */
+        fd = fd_move_above_stdio(fd);
+
+        /* Safety check, let's verify this is a valid TTY we just opened */
+        if (!isatty(fd))
+                return PAM_SUCCESS;
+
+        _cleanup_free_ char *osc = NULL;
+        r = osc_context_close(*osc_id, &osc);
+        if (r < 0)
+                return pam_syslog_errno(handle, LOG_ERR, r, "Failed to prepare OSC sequence: %m");
+
+        r = loop_write(fd, osc, SIZE_MAX);
+        if (r < 0)
+                return pam_syslog_errno(handle, LOG_ERR, r, "Failed to write OSC sequence to TTY: %m");
+
+        return PAM_SUCCESS;
 }
 
 _public_ PAM_EXTERN int pam_sm_open_session(
@@ -1522,8 +1766,8 @@ _public_ PAM_EXTERN int pam_sm_open_session(
 
         session_context_mangle(handle, &c, ur, debug);
 
-        _cleanup_free_ char *seat_buffer = NULL;
-        r = register_session(handle, &c, ur, debug, &seat_buffer);
+        _cleanup_free_ char *seat_buffer = NULL, *type_buffer = NULL, *runtime_dir = NULL;
+        r = register_session(handle, &c, ur, debug, &seat_buffer, &type_buffer, &runtime_dir);
         if (r != PAM_SUCCESS)
                 return r;
 
@@ -1531,14 +1775,18 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         if (r != PAM_SUCCESS)
                 return r;
 
-        r = update_home_env(handle, ur, c.area, debug);
+        r = setup_environment(handle, ur, runtime_dir, c.area, debug);
         if (r != PAM_SUCCESS)
                 return r;
 
         if (default_capability_ambient_set == UINT64_MAX)
                 default_capability_ambient_set = pick_default_capability_ambient_set(ur, c.service, c.seat);
 
-        return apply_user_record_settings(handle, ur, debug, default_capability_bounding_set, default_capability_ambient_set);
+        r = apply_user_record_settings(handle, ur, debug, default_capability_bounding_set, default_capability_ambient_set);
+        if (r != PAM_SUCCESS)
+                return r;
+
+        return open_osc_context(handle, c.type, ur);
 }
 
 _public_ PAM_EXTERN int pam_sm_close_session(
@@ -1574,6 +1822,8 @@ _public_ PAM_EXTERN int pam_sm_close_session(
         if (!IN_SET(r, PAM_SUCCESS, PAM_NO_MODULE_DATA))
                 return pam_syslog_pam_error(handle, LOG_ERR, r,
                                             "Failed to get PAM systemd.existing data: @PAMERR@");
+
+        (void) close_osc_context(handle);
 
         id = pam_getenv(handle, "XDG_SESSION_ID");
         if (id && !existing) {

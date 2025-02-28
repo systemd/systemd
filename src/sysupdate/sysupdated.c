@@ -1657,7 +1657,7 @@ static int manager_on_notify(sd_event_source *s, int fd, uint32_t revents, void 
         if (r == -EAGAIN)
                 return 0;
         if (r < 0)
-                return log_warning_errno(r, "Failed to receive notification message: %m");
+                return r;
 
         Job *j;
         HASHMAP_FOREACH(j, m->jobs) {
