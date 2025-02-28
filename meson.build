@@ -663,7 +663,6 @@ foreach ident : [
         ['getdents64',        '''#include <dirent.h>'''],
         ['pidfd_spawn',       '''#include <spawn.h>'''],
         ['strerrorname_np',   '''#include <string.h>'''],
-        ['getrandom',         '''#include <sys/random.h>'''],
         ['quotactl_fd',       '''#include <sys/quota.h>'''],
         ['setxattrat',        '''#include <sys/xattr.h>'''],  # no known header declares setxattrat
         ['removexattrat',     '''#include <sys/xattr.h>'''],  # no known header declares removexattrat
