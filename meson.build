@@ -565,109 +565,59 @@ long_max = cc.compute_int(
 assert(long_max > 100000)
 conf.set_quoted('LONG_MAX_STR', '@0@'.format(long_max))
 
-decl_headers = '''
-#include <dirent.h>
-#include <sched.h>
-#include <sys/mount.h>
-#include <uchar.h>
-'''
-
-foreach decl : ['char16_t',
-                'char32_t',
-                'struct mount_attr',
-                'struct dirent64',
-                'struct sched_attr',
-               ]
-
+foreach ident : [
+        ['struct dirent64',   '''##include <dirent.h>'''],      # for musl, but only for compile time check, see dirent-util.h
+        ['struct mount_attr', '''#include <sys/mount.h>'''],    # since glibc-2.36
+        ['struct sched_attr', '''#include <sched.h>'''],        # since glibc-2.41
+]
         # We get -1 if the size cannot be determined
-        have = cc.sizeof(decl, prefix : decl_headers, args : '-D_GNU_SOURCE') > 0
-
-        if decl == 'struct mount_attr'
-                if have
-                        want_linux_fs_h = false
-                else
-                        have = cc.sizeof(decl,
-                                         prefix : decl_headers + '#include <linux/fs.h>',
-                                         args : '-D_GNU_SOURCE') > 0
-                        want_linux_fs_h = have
-                endif
-        endif
-
-        conf.set10('HAVE_' + decl.underscorify().to_upper(), have)
+        have = cc.sizeof(ident[0], prefix : ident[1], args : '-D_GNU_SOURCE') > 0
+        conf.set10('HAVE_' + ident[0].underscorify().to_upper(), have)
 endforeach
 
-conf.set10('WANT_LINUX_FS_H', want_linux_fs_h)
-
-foreach ident : ['secure_getenv', '__secure_getenv']
-        conf.set10('HAVE_' + ident.to_upper(), cc.has_function(ident))
-endforeach
+have = conf.get('HAVE_STRUCT_MOUNT_ATTR') == 1
+if have
+        want = false
+else
+        have = cc.sizeof('struct mount_attr',
+                         prefix : '''#include <sys/mount.h>
+                                     #include <linux/fs.h>''',
+                         args : '-D_GNU_SOURCE') > 0
+        want = have
+endif
+conf.set10('HAVE_STRUCT_MOUNT_ATTR', have)
+conf.set10('WANT_LINUX_FS_H', want)
 
 foreach ident : [
-        ['memfd_create',      '''#include <sys/mman.h>'''],
-        ['gettid',            '''#include <sys/types.h>
-                                 #include <unistd.h>'''],
-        ['fchmodat2',         '''#include <stdlib.h>
-                                 #include <fcntl.h>'''],      # no known header declares fchmodat2
-        ['pivot_root',        '''#include <stdlib.h>
-                                 #include <unistd.h>'''],     # no known header declares pivot_root
-        ['ioprio_get',        '''#include <sched.h>'''],      # no known header declares ioprio_get
-        ['ioprio_set',        '''#include <sched.h>'''],      # no known header declares ioprio_set
-        ['sched_setattr',     '''#include <sched.h>'''],
-        ['name_to_handle_at', '''#include <sys/types.h>
-                                 #include <sys/stat.h>
-                                 #include <fcntl.h>'''],
-        ['setns',             '''#include <sched.h>'''],
-        ['renameat2',         '''#include <stdio.h>
-                                 #include <fcntl.h>'''],
-        ['kcmp',              '''#include <linux/kcmp.h>'''],
-        ['keyctl',            '''#include <sys/types.h>
-                                 #include <keyutils.h>'''],
-        ['copy_file_range',   '''#include <sys/syscall.h>
-                                 #include <unistd.h>'''],
-        ['bpf',               '''#include <sys/syscall.h>
-                                 #include <unistd.h>'''],
-        ['explicit_bzero' ,   '''#include <string.h>'''],
-        ['reallocarray',      '''#include <stdlib.h>'''],
-        ['set_mempolicy',     '''#include <stdlib.h>
-                                 #include <unistd.h>'''],
-        ['get_mempolicy',     '''#include <stdlib.h>
-                                 #include <unistd.h>'''],
-        ['pidfd_send_signal', '''#include <stdlib.h>
-                                 #include <unistd.h>
-                                 #include <signal.h>
-                                 #include <sys/wait.h>
-                                 #include <sys/pidfd.h>'''],
-        ['pidfd_open',        '''#include <stdlib.h>
-                                 #include <unistd.h>
-                                 #include <signal.h>
-                                 #include <sys/wait.h>
-                                 #include <sys/pidfd.h>'''],
-        ['rt_sigqueueinfo',   '''#include <stdlib.h>
-                                 #include <unistd.h>
-                                 #include <signal.h>
-                                 #include <sys/wait.h>'''],
-        ['rt_tgsigqueueinfo', '''#include <stdlib.h>
-                                 #include <unistd.h>
-                                 #include <signal.h>
-                                 #include <sys/wait.h>'''],
-        ['mallinfo',          '''#include <malloc.h>'''],
-        ['mallinfo2',         '''#include <malloc.h>'''],
-        ['execveat',          '''#include <unistd.h>'''],
-        ['close_range',       '''#include <unistd.h>'''],
-        ['epoll_pwait2',      '''#include <sys/epoll.h>'''],
-        ['mount_setattr',     '''#include <sys/mount.h>'''],
-        ['move_mount',        '''#include <sys/mount.h>'''],
-        ['open_tree',         '''#include <sys/mount.h>'''],
-        ['fsopen',            '''#include <sys/mount.h>'''],
-        ['fsconfig',          '''#include <sys/mount.h>'''],
-        ['fsmount',           '''#include <sys/mount.h>'''],
-        ['getdents64',        '''#include <dirent.h>'''],
-        ['pidfd_spawn',       '''#include <spawn.h>'''],
-        ['strerrorname_np',   '''#include <string.h>'''],
-        ['getrandom',         '''#include <sys/random.h>'''],
-        ['quotactl_fd',       '''#include <sys/quota.h>'''],
-        ['setxattrat',        '''#include <sys/xattr.h>'''],  # no known header declares setxattrat
-        ['removexattrat',     '''#include <sys/xattr.h>'''],  # no known header declares removexattrat
+        ['set_mempolicy',     '''#include <sys/syscall.h>'''],  # declared at numaif.h provided by libnuma, which we do not use
+        ['get_mempolicy',     '''#include <sys/syscall.h>'''],  # declared at numaif.h provided by libnuma, which we do not use
+        ['strerrorname_np',   '''#include <string.h>'''],       # since glibc-2.32
+        ['mallinfo2',         '''#include <malloc.h>'''],       # since glibc-2.33
+        ['execveat',          '''#include <unistd.h>'''],       # since glibc-2.34
+        ['close_range',       '''#include <unistd.h>'''],       # since glibc-2.34
+        ['epoll_pwait2',      '''#include <sys/epoll.h>'''],    # since glibc-2.35
+        ['fsconfig',          '''#include <sys/mount.h>'''],    # since glibc-2.36
+        ['fsopen',            '''#include <sys/mount.h>'''],    # since glibc-2.36
+        ['fsmount',           '''#include <sys/mount.h>'''],    # since glibc-2.36
+        ['mount_setattr',     '''#include <sys/mount.h>'''],    # since glibc-2.36
+        ['move_mount',        '''#include <sys/mount.h>'''],    # since glibc-2.36
+        ['open_tree',         '''#include <sys/mount.h>'''],    # since glibc-2.36
+        ['pidfd_open',        '''#include <sys/pidfd.h>'''],    # since glibc-2.36
+        ['pidfd_send_signal', '''#include <sys/pidfd.h>'''],    # since glibc-2.36
+        ['pidfd_spawn',       '''#include <spawn.h>'''],        # since glibc-2.39
+        ['sched_setattr',     '''#include <sched.h>'''],        # since glibc-2.41
+        ['ioprio_get',        '''#include <sched.h>'''],        # no known header declares ioprio_get
+        ['ioprio_set',        '''#include <sched.h>'''],        # no known header declares ioprio_set
+        ['rt_sigqueueinfo',   '''#include <signal.h>'''],       # no known header declares rt_sigqueueinfo
+        ['rt_tgsigqueueinfo', '''#include <signal.h>'''],       # no known header declares rt_tgsigqueueinfo
+        ['quotactl_fd',       '''#include <sys/quota.h>'''],    # no known header declares quotactl_fd
+        ['fchmodat2',         '''#include <sys/stat.h>'''],     # no known header declares fchmodat2
+        ['bpf',               '''#include <sys/syscall.h>'''],  # no known header declares bpf
+        ['kcmp',              '''#include <sys/syscall.h>'''],  # no known header declares kcmp
+        ['keyctl',            '''#include <sys/syscall.h>'''],  # no known header declares keyctl
+        ['pivot_root',        '''#include <sys/syscall.h>'''],  # no known header declares pivot_root
+        ['setxattrat',        '''#include <sys/xattr.h>'''],    # no known header declares setxattrat
+        ['removexattrat',     '''#include <sys/xattr.h>'''],    # no known header declares removexattrat
 ]
 
         have = cc.has_function(ident[0], prefix : ident[1], args : '-D_GNU_SOURCE')
@@ -755,7 +705,6 @@ if not cc.has_header('sys/capability.h')
         error('POSIX caps headers not found')
 endif
 foreach header : ['crypt.h',
-                  'linux/ioprio.h',
                   'sys/sdt.h',
                   'threads.h',
                   'valgrind/memcheck.h',

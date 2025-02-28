@@ -8,13 +8,9 @@ import functools
 SYSCALLS = [
     'bpf',
     'close_range',
-    'copy_file_range',
     'fchmodat2',
-    'getrandom',
-    'memfd_create',
     'mount_setattr',
     'move_mount',
-    'name_to_handle_at',
     'open_tree',
     'openat2',
     'pidfd_open',
@@ -22,8 +18,6 @@ SYSCALLS = [
     'pkey_mprotect',
     'quotactl_fd',
     'removexattrat',
-    'renameat2',
-    'setns',
     'setxattrat',
 ]
 
