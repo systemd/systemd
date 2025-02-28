@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2024-11-28 18:16+0900\n"
-"PO-Revision-Date: 2025-02-26 22:45+0000\n"
+"PO-Revision-Date: 2025-02-28 08:38+0000\n"
 "Last-Translator: Justinas Kairys <j.kairys@proton.me>\n"
 "Language-Team: Lithuanian <https://translate.fedoraproject.org/projects/"
 "systemd/main/lt/>\n"
@@ -225,7 +225,7 @@ msgstr "Saugos atpažinimo ženklo PIN kodas: "
 #: src/home/pam_systemd_home.c:398
 #, c-format
 msgid "Please authenticate physically on security token of user %s."
-msgstr ""
+msgstr "Prašome fiziškai patvirtinti tapatybę su naudotojo %s saugos žėtonu."
 
 #: src/home/pam_systemd_home.c:409
 #, c-format
