@@ -10,6 +10,8 @@
 #include "journal-compression-util.h"
 #include "time-util.h"
 
+CONFIG_PARSER_PROTOTYPE(config_parse_header);
+
 typedef enum {
         ENTRY_CURSOR = 0,           /* Nothing actually written yet. */
         ENTRY_REALTIME,
