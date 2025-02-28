@@ -25,7 +25,6 @@ SYSCALLS = [
     'renameat2',
     'setns',
     'setxattrat',
-    'statx',
 ]
 
 def dictify(f):

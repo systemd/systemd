@@ -9,7 +9,7 @@
 #include "string-util.h"
 
 int dirent_ensure_type(int dir_fd, struct dirent *de) {
-        STRUCT_STATX_DEFINE(sx);
+        struct statx sx;
         int r;
 
         assert(dir_fd >= 0);
@@ -24,7 +24,7 @@ int dirent_ensure_type(int dir_fd, struct dirent *de) {
         }
 
         /* Let's ask only for the type, nothing else. */
-        r = statx_fallback(dir_fd, de->d_name, AT_SYMLINK_NOFOLLOW|AT_NO_AUTOMOUNT, STATX_TYPE, &sx);
+        r = statx(dir_fd, de->d_name, AT_SYMLINK_NOFOLLOW|AT_NO_AUTOMOUNT, STATX_TYPE, &sx);
         if (r < 0)
                 return r;
 
