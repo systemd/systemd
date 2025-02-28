@@ -721,7 +721,7 @@ TEST(ioprio_class_from_to_string) {
         test_ioprio_class_from_to_string_one("0", IOPRIO_CLASS_NONE, IOPRIO_CLASS_BE);
         test_ioprio_class_from_to_string_one("1", 1, 1);
         test_ioprio_class_from_to_string_one("7", 7, 7);
-        test_ioprio_class_from_to_string_one("8", 8, 8);
+        test_ioprio_class_from_to_string_one("8", -EINVAL, -EINVAL);
         test_ioprio_class_from_to_string_one("9", -EINVAL, -EINVAL);
         test_ioprio_class_from_to_string_one("-1", -EINVAL, -EINVAL);
 }
