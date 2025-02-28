@@ -2,6 +2,7 @@
 
 #include <linux/prctl.h>
 #include <linux/sched.h>
+#include <linux/securebits.h>
 #include <sys/eventfd.h>
 #include <sys/ioctl.h>
 #include <sys/mount.h>
@@ -43,7 +44,6 @@
 #include "journal-send.h"
 #include "memfd-util.h"
 #include "missing_sched.h"
-#include "missing_securebits.h"
 #include "missing_syscall.h"
 #include "mkdir-label.h"
 #include "osc-context.h"
