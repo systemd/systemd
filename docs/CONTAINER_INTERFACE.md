@@ -26,14 +26,17 @@ manager, please consider supporting the following interfaces.
    to prevent the container from altering the host kernel's configuration
    settings. (As a special exception, if your container has network namespaces
    enabled, feel free to make `/proc/sys/net/` writable. If it also has user, ipc,
-   uts and pid namespaces enabled, the entire `/proc/sys` can be left writable).
-   systemd and various other subsystems (such as the SELinux userspace) have
-   been modified to behave accordingly when these file systems are read-only.
-   (It's OK to mount `/sys/` as `tmpfs` btw, and only mount a subset of its
-   sub-trees from the real `sysfs` to hide `/sys/firmware/`, `/sys/kernel/` and
-   so on. If you do that, make sure to mark `/sys/` read-only, as that
-   condition is what systemd looks for, and is what is considered to be the API
-   in this context.)
+   uts and pid namespaces enabled, the entire `/proc/sys` can be left writable.
+   However, in the latter case, an appropriate userns mapping should exist to
+   map a privileged user inside the container to an unprivileged user on the
+   host. Otherwise, the user inside the container could affect the host's
+   kernel settings.) systemd and various other subsystems (such as the SELinux
+   userspace) have been modified to behave accordingly when these file systems
+   are read-only. (It's OK to mount `/sys/` as `tmpfs` btw, and only mount a
+   subset of its sub-trees from the real `sysfs` to hide `/sys/firmware/`,
+   `/sys/kernel/` and so on. If you do that, make sure to mark `/sys/`
+   read-only, as that condition is what systemd looks for, and is what is
+   considered to be the API in this context.)
 
 3. Pre-mount `/dev/` as (container private) `tmpfs` for the container and bind
    mount some suitable TTY to `/dev/console`. If this is a pty, make sure to
