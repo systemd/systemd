@@ -5,18 +5,7 @@
 
 #include "macro.h"
 
-#ifndef MFD_ALLOW_SEALING
-#  define MFD_ALLOW_SEALING 0x0002U
-#else
-assert_cc(MFD_ALLOW_SEALING == 0x0002U);
-#endif
-
-#ifndef MFD_CLOEXEC
-#  define MFD_CLOEXEC 0x0001U
-#else
-assert_cc(MFD_CLOEXEC == 0x0001U);
-#endif
-
+/* The following two are defined since glibc-2.38. */
 #ifndef MFD_NOEXEC_SEAL
 #  define MFD_NOEXEC_SEAL 0x0008U
 #else

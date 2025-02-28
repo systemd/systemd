@@ -3,6 +3,7 @@
 #include <sys/epoll.h>
 #include <sys/timerfd.h>
 #include <sys/wait.h>
+#include <threads.h>
 
 #include "sd-daemon.h"
 #include "sd-event.h"
@@ -24,7 +25,6 @@
 #include "memory-util.h"
 #include "missing_magic.h"
 #include "missing_syscall.h"
-#include "missing_threads.h"
 #include "missing_wait.h"
 #include "origin-id.h"
 #include "path-util.h"
@@ -1867,9 +1867,7 @@ _public_ int sd_event_trim_memory(void) {
 
         log_debug("Memory pressure event, trimming malloc() memory.");
 
-#if HAVE_GENERIC_MALLINFO
         generic_mallinfo before_mallinfo = generic_mallinfo_get();
-#endif
 
         usec_t before_timestamp = now(CLOCK_MONOTONIC);
         hashmap_trim_pools();
@@ -1883,7 +1881,6 @@ _public_ int sd_event_trim_memory(void) {
 
         usec_t period = after_timestamp - before_timestamp;
 
-#if HAVE_GENERIC_MALLINFO
         generic_mallinfo after_mallinfo = generic_mallinfo_get();
         size_t l = LESS_BY((size_t) before_mallinfo.hblkhd, (size_t) after_mallinfo.hblkhd) +
                 LESS_BY((size_t) before_mallinfo.arena, (size_t) after_mallinfo.arena);
@@ -1894,13 +1891,6 @@ _public_ int sd_event_trim_memory(void) {
                    "MESSAGE_ID=" SD_MESSAGE_MEMORY_TRIM_STR,
                    "TRIMMED_BYTES=%zu", l,
                    "TRIMMED_USEC=" USEC_FMT, period);
-#else
-        log_struct(LOG_DEBUG,
-                   LOG_MESSAGE("Memory trimming took %s.",
-                               FORMAT_TIMESPAN(period, 0)),
-                   "MESSAGE_ID=" SD_MESSAGE_MEMORY_TRIM_STR,
-                   "TRIMMED_USEC=" USEC_FMT, period);
-#endif
 
         return 0;
 }
