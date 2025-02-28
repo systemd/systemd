@@ -569,11 +569,9 @@ decl_headers = '''
 #include <dirent.h>
 #include <sched.h>
 #include <sys/mount.h>
-#include <uchar.h>
 '''
 
-foreach decl : ['char16_t',
-                'char32_t',
+foreach decl : [
                 'struct mount_attr',
                 'struct dirent64',
                 'struct sched_attr',
