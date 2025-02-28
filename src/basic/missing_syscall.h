@@ -68,16 +68,6 @@ static inline int missing_ioprio_set(int which, int who, int ioprio) {
 
 /* ======================================================================= */
 
-#if !HAVE_SETNS
-static inline int missing_setns(int fd, int nstype) {
-        return syscall(__NR_setns, fd, nstype);
-}
-
-#  define setns missing_setns
-#endif
-
-/* ======================================================================= */
-
 static inline pid_t raw_getpid(void) {
 #if defined(__alpha__)
         return (pid_t) syscall(__NR_getxpid);
