@@ -78,16 +78,6 @@ static inline pid_t raw_getpid(void) {
 
 /* ======================================================================= */
 
-#if !HAVE_RENAMEAT2
-static inline int missing_renameat2(int oldfd, const char *oldname, int newfd, const char *newname, unsigned flags) {
-        return syscall(__NR_renameat2, oldfd, oldname, newfd, newname, flags);
-}
-
-#  define renameat2 missing_renameat2
-#endif
-
-/* ======================================================================= */
-
 #if !HAVE_KCMP
 static inline int missing_kcmp(pid_t pid1, pid_t pid2, int type, unsigned long idx1, unsigned long idx2) {
         return syscall(__NR_kcmp, pid1, pid2, type, idx1, idx2);
