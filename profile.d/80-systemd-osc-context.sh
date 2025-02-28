@@ -10,6 +10,9 @@
 #  the Free Software Foundation; either version 2.1 of the License, or
 #  (at your option) any later version.
 
+# Not bash?
+[ -n "${BASH_VERSION:-}" ] || return 0
+
 __systemd_osc_context_escape() {
     # Escape according to the OSC 8003 spec. Since this requires shelling out
     # to 'sed' we'll only do it where it's strictly necessary, and skip it when
