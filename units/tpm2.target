@@ -12,5 +12,5 @@ Description=Trusted Platform Module
 Documentation=man:systemd.special(7)
 
 # Make this a synchronization point on the first TPM device found
-After=dev-tpmrm0.device
-Wants=dev-tpmrm0.device
+After=dev-tpmrm0.device dev-tpm0.device
+Wants=dev-tpmrm0.device dev-tpm0.device
