@@ -610,7 +610,6 @@ foreach ident : [
         ['ioprio_get',        '''#include <sched.h>'''],      # no known header declares ioprio_get
         ['ioprio_set',        '''#include <sched.h>'''],      # no known header declares ioprio_set
         ['sched_setattr',     '''#include <sched.h>'''],
-        ['setns',             '''#include <sched.h>'''],
         ['renameat2',         '''#include <stdio.h>
                                  #include <fcntl.h>'''],
         ['kcmp',              '''#include <linux/kcmp.h>'''],

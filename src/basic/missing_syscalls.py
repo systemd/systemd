@@ -20,7 +20,6 @@ SYSCALLS = [
     'quotactl_fd',
     'removexattrat',
     'renameat2',
-    'setns',
     'setxattrat',
 ]
 
