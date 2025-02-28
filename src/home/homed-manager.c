@@ -201,6 +201,20 @@ static int on_home_inotify(sd_event_source *s, const struct inotify_event *event
         return 0;
 }
 
+static int sigusr1_handler(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        assert(s);
+
+        /* If clients send use SIGUSR1 we'll explicitly rescan for home directories. This is useful in some
+         * cases where inotify isn't good enough, for example if /home/ is overmunted. */
+        manager_watch_home(m);
+        (void) manager_gc_images(m);
+        (void) manager_enumerate_images(m);
+        (void) bus_manager_emit_auto_login_changed(m);
+
+        return 0;
+}
+
 int manager_new(Manager **ret) {
         _cleanup_(manager_freep) Manager *m = NULL;
         int r;
@@ -234,6 +248,10 @@ int manager_new(Manager **ret) {
                                "Failed to allocate memory pressure watch, ignoring: %m");
 
         r = sd_event_add_signal(m->event, /* ret_event_source= */ NULL, (SIGRTMIN+18)|SD_EVENT_SIGNAL_PROCMASK, sigrtmin18_handler, /* userdata = */ NULL);
+        if (r < 0)
+                return r;
+
+        r = sd_event_add_signal(m->event, /* ret_event_source= */ NULL, SIGUSR1|SD_EVENT_SIGNAL_PROCMASK, sigusr1_handler, m);
         if (r < 0)
                 return r;
 
