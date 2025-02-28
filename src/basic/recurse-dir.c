@@ -317,7 +317,7 @@ int recurse_dir(
                                 if (r < 0) {
                                         log_debug_errno(r, "Failed to stat directory entry '%s': %m", p);
 
-                                        assert(errno <= RECURSE_DIR_SKIP_STAT_INODE_ERROR_MAX - RECURSE_DIR_SKIP_STAT_INODE_ERROR_BASE);
+                                        assert(-r <= RECURSE_DIR_SKIP_STAT_INODE_ERROR_MAX - RECURSE_DIR_SKIP_STAT_INODE_ERROR_BASE);
 
                                         r = func(RECURSE_DIR_SKIP_STAT_INODE_ERROR_BASE + -r,
                                                  p,
@@ -347,7 +347,7 @@ int recurse_dir(
                                          * guarantee that RECURSE_DIR_ENTRY is strictly issued for
                                          * non-directory dirents. */
 
-                                        log_debug_errno(r, "Non-directory entry '%s' suddenly became a directory: %m", p);
+                                        log_debug("Non-directory entry '%s' suddenly became a directory.", p);
 
                                         r = func(RECURSE_DIR_SKIP_STAT_INODE_ERROR_BASE + EISDIR,
                                                  p,
