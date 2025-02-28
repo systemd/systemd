@@ -20,7 +20,6 @@
 #include "locale-util.h"
 #include "macro.h"
 #include "manager.h"
-#include "missing_capability.h"
 #include "missing_sched.h"
 #include "mkdir.h"
 #include "nulstr-util.h"
