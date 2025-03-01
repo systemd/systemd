@@ -60,8 +60,8 @@
       <varlistentry>
         <term><option>--output=<replaceable>PATH</replaceable></option></term>
 
-        <listitem><para>Specifies the path where to write the signed PE binary or the data to be signed
-        offline when using the <option>--prepare-offline-signing</option> option.</para>
+        <listitem><para>Specifies the path where to write the signed output or the data to be signed offline
+        when using the <option>--prepare-offline-signing</option> option.</para>
 
         <xi:include href="version-info.xml" xpointer="v257"/></listitem>
       </varlistentry>
@@ -72,16 +72,16 @@
         <term><option>--certificate=<replaceable>PATH</replaceable></option></term>
         <term><option>--certificate-source=<replaceable>TYPE</replaceable>[:<replaceable>NAME</replaceable>]</option></term>
 
-        <listitem><para>Set the Secure Boot private key and certificate for use with the
-        <command>sign</command>. The <option>--certificate=</option> option takes a path to a PEM encoded
-        X.509 certificate or a URI that's passed to the OpenSSL provider configured with
-        <option>--certificate-source</option>. The <option>--certificate-source</option> takes one of
-        <literal>file</literal> or <literal>provider</literal>, with the latter being followed by a specific
-        provider identifier, separated with a colon, e.g. <literal>provider:pkcs11</literal>. The
-        <option>--private-key=</option> option can take a path or a URI that will be passed to the OpenSSL
-        engine or provider, as specified by <option>--private-key-source=</option> as a
-        <literal>type:name</literal> tuple, such as <literal>engine:pkcs11</literal>. The specified OpenSSL
-        signing engine or provider will be used to sign the PE binary.</para>
+        <listitem><para>Set the Secure Boot private key and certificate to use. The
+        <option>--certificate=</option> option takes a path to a PEM encoded X.509 certificate or a URI
+        that's passed to the OpenSSL provider configured with <option>--certificate-source</option>. The
+        <option>--certificate-source</option> takes one of <literal>file</literal> or
+        <literal>provider</literal>, with the latter being followed by a specific provider identifier,
+        separated with a colon, e.g. <literal>provider:pkcs11</literal>. The <option>--private-key=</option>
+        option can take a path or a URI that will be passed to the OpenSSL engine or provider, as specified
+        by <option>--private-key-source=</option> as a <literal>type:name</literal> tuple, such as
+        <literal>engine:pkcs11</literal>. The specified OpenSSL signing engine or provider will be used to do
+        any signing operations.</para>
 
         <xi:include href="version-info.xml" xpointer="v257"/></listitem>
       </varlistentry>
@@ -91,9 +91,9 @@
 
         <listitem><para>When this option is specified, the <command>sign</command> command writes the data
         that should be signed to the path specified with <option>--output=</option> instead of writing the
-        signed PE binary. This data can then be signed out of band after which the signature can be attached
-        to the PE binary using the <option>--signed-data=</option> and
-        <option>--signed-data-signature=</option> options.</para>
+        signed output. This data can then be signed out of band after which the signature can be attached
+        using the <option>--signed-data=</option> and <option>--signed-data-signature=</option> options.
+        </para>
 
         <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
@@ -104,7 +104,7 @@
 
         <listitem><para>Configure the signed data (as written to the path specified with
         <option>--output=</option> when using the <option>--prepare-offline-signing</option> option) and
-        corresponding signature for the <command>sign</command> command.</para>
+        corresponding signature.</para>
 
         <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
