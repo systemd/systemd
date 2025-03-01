@@ -51,6 +51,11 @@
 
 # Sort by brand, model
 
+# Code Mercenaries Hard- und Software GmbH Virtual RC USB
+id-input:modalias:input:b0003v07C0p1125*
+ ID_INPUT_MOUSE=
+ ID_INPUT_JOYSTICK=1
+
 # GOLD WARRIOR SIM PhoenixRC 10411R
 id-input:modalias:input:b0003v1781p0898*
  ID_INPUT_ACCELEROMETER=
