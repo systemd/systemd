@@ -98,4 +98,46 @@ testcase_sign_systemd_boot_offline() {
     cmp /tmp/sdboot-signed-online /tmp/sdboot-signed-offline
 }
 
+testcase_sign_secure_boot_database() {
+    /usr/lib/systemd/systemd-sbsign \
+        sign-secure-boot-database \
+        --certificate /tmp/sb.crt \
+        --private-key /tmp/sb.key \
+        --output /tmp/PK.signed \
+        --secure-boot-database PK
+}
+
+testcase_sign_secure_boot_database_offline() {
+    export SOURCE_DATE_EPOCH="123"
+
+    /usr/lib/systemd/systemd-sbsign \
+        sign-secure-boot-database \
+        --certificate /tmp/sb.crt \
+        --private-key /tmp/sb.key \
+        --output /tmp/PK.signed-online \
+        --secure-boot-database PK
+
+    /usr/lib/systemd/systemd-sbsign \
+        sign-secure-boot-database \
+        --certificate /tmp/sb.crt \
+        --output /tmp/signed-data.bin \
+        --prepare-offline-signing \
+        --secure-boot-database PK
+    openssl dgst -sha256 -sign /tmp/sb.key -out /tmp/signed-data.sig /tmp/signed-data.bin
+
+    # Make sure systemd-sbsign can't pick up the timestamp from the environment when
+    # attaching the signature.
+    unset SOURCE_DATE_EPOCH
+
+    /usr/lib/systemd/systemd-sbsign \
+        sign-secure-boot-database \
+        --certificate /tmp/sb.crt \
+        --output /tmp/PK.signed-offline \
+        --signed-data /tmp/signed-data.bin \
+        --signed-data-signature /tmp/signed-data.sig \
+        --secure-boot-database PK
+
+    cmp /tmp/PK.signed-offline /tmp/PK.signed-online
+}
+
 run_testcases
