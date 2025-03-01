@@ -6,9 +6,13 @@
 #include "systemctl-preset-all.h"
 #include "systemctl-util.h"
 #include "systemctl.h"
+#include "verbs.h"
 
 int verb_preset_all(int argc, char *argv[], void *userdata) {
         int r;
+
+        if (should_bypass("SYSTEMD_PRESET"))
+                return 0;
 
         if (install_client_side()) {
                 InstallChange *changes = NULL;

@@ -38,6 +38,7 @@
 #include "uid-range.h"
 #include "user-util.h"
 #include "utf8.h"
+#include "verbs.h"
 
 typedef enum ItemType {
         ADD_USER =   'u',
@@ -2281,6 +2282,9 @@ static int run(int argc, char *argv[]) {
 
         if (arg_cat_flags != CAT_CONFIG_OFF)
                 return cat_config();
+
+        if (should_bypass("SYSTEMD_SYSUSERS"))
+                return 0;
 
         umask(0022);
 
