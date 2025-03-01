@@ -40,6 +40,117 @@ STATIC_DESTRUCTOR_REGISTER(arg_private_key_source, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_signed_data, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_signed_data_signature, freep);
 
+typedef struct Context {
+        OpenSSLAskPasswordUI *ui;
+        EVP_PKEY *private_key;
+        X509 *certificate;
+        int dstfd;
+        char *tmp;
+} Context;
+
+#define CONTEXT_NULL (Context) { .dstfd = -EBADF }
+
+static int context_populate(int argc, char *argv[], Context *ret) {
+        _cleanup_(openssl_ask_password_ui_freep) OpenSSLAskPasswordUI *ui = NULL;
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *private_key = NULL;
+        _cleanup_(X509_freep) X509 *certificate = NULL;
+        int r;
+
+        assert(argv);
+        assert(ret);
+
+        if (argc < 2)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No input file specified");
+
+        if (!arg_certificate)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                "No certificate specified, use --certificate=");
+
+        if (!arg_private_key && !arg_signed_data_signature && !arg_prepare_offline_signing)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                "No private key or signed data signature specified, use --private-key= or --signed-data-signature=.");
+
+        if (!arg_output)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No output specified, use --output=");
+
+        if (arg_certificate_source_type == OPENSSL_CERTIFICATE_SOURCE_FILE) {
+                r = parse_path_argument(arg_certificate, /*suppress_root=*/ false, &arg_certificate);
+                if (r < 0)
+                        return r;
+        }
+
+        r = openssl_load_x509_certificate(
+                        arg_certificate_source_type,
+                        arg_certificate_source,
+                        arg_certificate,
+                        &certificate);
+        if (r < 0)
+                return log_error_errno(r, "Failed to load X.509 certificate from %s: %m", arg_certificate);
+
+        if (arg_private_key) {
+                if (arg_private_key_source_type == OPENSSL_KEY_SOURCE_FILE) {
+                        r = parse_path_argument(arg_private_key, /* suppress_root= */ false, &arg_private_key);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse private key path %s: %m", arg_private_key);
+                }
+
+                r = openssl_load_private_key(
+                                arg_private_key_source_type,
+                                arg_private_key_source,
+                                arg_private_key,
+                                &(AskPasswordRequest) {
+                                        .tty_fd = -EBADF,
+                                        .id = "sbsign-private-key-pin",
+                                        .keyring = arg_private_key,
+                                        .credential = "sbsign.private-key-pin",
+                                        .until = USEC_INFINITY,
+                                        .hup_fd = -EBADF,
+                                },
+                                &private_key,
+                                &ui);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to load private key from %s: %m", arg_private_key);
+        }
+
+        _cleanup_(unlink_and_freep) char *tmp = NULL;
+        _cleanup_close_ int dstfd = open_tmpfile_linkable(arg_output, O_RDWR|O_CLOEXEC, &tmp);
+        if (dstfd < 0)
+                return log_error_errno(dstfd, "Failed to open temporary file: %m");
+
+        r = fchmod_umask(dstfd, 0666);
+        if (r < 0)
+                log_debug_errno(r, "Failed to change temporary file mode: %m");
+
+        *ret = (Context) {
+                .ui = TAKE_PTR(ui),
+                .private_key = TAKE_PTR(private_key),
+                .certificate = TAKE_PTR(certificate),
+                .tmp = TAKE_PTR(tmp),
+                .dstfd = TAKE_FD(dstfd),
+        };
+
+        return 0;
+}
+
+static void context_done(Context *context) {
+        assert(context);
+
+        context->ui = openssl_ask_password_ui_free(context->ui);
+
+        if (context->private_key) {
+                EVP_PKEY_free(context->private_key);
+                context->private_key = NULL;
+        }
+
+        if (context->certificate) {
+                X509_free(context->certificate);
+                context->certificate = NULL;
+        }
+
+        context->tmp = unlink_and_free(context->tmp);
+        context->dstfd = safe_close(context->dstfd);
+}
+
 static int help(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -442,90 +553,10 @@ static int pkcs7_add_digest_attribute(PKCS7 *p7, BIO *data, PKCS7_SIGNER_INFO *s
 }
 
 static int verb_sign(int argc, char *argv[], void *userdata) {
-        _cleanup_(openssl_ask_password_ui_freep) OpenSSLAskPasswordUI *ui = NULL;
-        _cleanup_(EVP_PKEY_freep) EVP_PKEY *private_key = NULL;
-        _cleanup_(X509_freep) X509 *certificate = NULL;
+        Context *ctx = ASSERT_PTR(userdata);
         _cleanup_(x509_attribute_free_manyp) STACK_OF(X509_ATTRIBUTE) *signed_attributes = NULL;
         _cleanup_(iovec_done) struct iovec signed_attributes_signature = {};
         int r;
-
-        if (argc < 2)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No input file specified");
-
-        if (!arg_certificate)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "No certificate specified, use --certificate=");
-
-        if (!arg_private_key && !arg_signed_data_signature && !arg_prepare_offline_signing)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "No private key or signed data signature specified, use --private-key= or --signed-data-signature=.");
-
-        if (!arg_output)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No output specified, use --output=");
-
-        if (arg_certificate_source_type == OPENSSL_CERTIFICATE_SOURCE_FILE) {
-                r = parse_path_argument(arg_certificate, /*suppress_root=*/ false, &arg_certificate);
-                if (r < 0)
-                        return r;
-        }
-
-        r = openssl_load_x509_certificate(
-                        arg_certificate_source_type,
-                        arg_certificate_source,
-                        arg_certificate,
-                        &certificate);
-        if (r < 0)
-                return log_error_errno(r, "Failed to load X.509 certificate from %s: %m", arg_certificate);
-
-        if (arg_private_key) {
-                if (arg_private_key_source_type == OPENSSL_KEY_SOURCE_FILE) {
-                        r = parse_path_argument(arg_private_key, /* suppress_root= */ false, &arg_private_key);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse private key path %s: %m", arg_private_key);
-                }
-
-                r = openssl_load_private_key(
-                                arg_private_key_source_type,
-                                arg_private_key_source,
-                                arg_private_key,
-                                &(AskPasswordRequest) {
-                                        .tty_fd = -EBADF,
-                                        .id = "sbsign-private-key-pin",
-                                        .keyring = arg_private_key,
-                                        .credential = "sbsign.private-key-pin",
-                                        .until = USEC_INFINITY,
-                                        .hup_fd = -EBADF,
-                                },
-                                &private_key,
-                                &ui);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to load private key from %s: %m", arg_private_key);
-        }
-
-        if (arg_signed_data) {
-                _cleanup_free_ void *content = NULL;
-                size_t contentsz;
-
-                r = read_full_file(arg_signed_data, (char**) &content, &contentsz);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to read signed attributes file '%s': %m", arg_signed_data);
-
-                const uint8_t *p = content;
-                if (!ASN1_item_d2i((ASN1_VALUE **) &signed_attributes, &p, contentsz, ASN1_ITEM_rptr(PKCS7_ATTR_SIGN)))
-                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to parse signed attributes: %s",
-                                               ERR_error_string(ERR_get_error(), NULL));
-        }
-
-        if (arg_signed_data_signature) {
-                _cleanup_free_ void *content = NULL;
-                size_t contentsz;
-
-                r = read_full_file(arg_signed_data_signature, (char**) &content, &contentsz);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to read signed attributes signature file '%s': %m", arg_signed_data_signature);
-
-                signed_attributes_signature = IOVEC_MAKE(TAKE_PTR(content), contentsz);
-        }
 
         _cleanup_close_ int srcfd = open(argv[1], O_RDONLY|O_CLOEXEC);
         if (srcfd < 0)
@@ -539,14 +570,30 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "%s is not a regular file: %m", argv[1]);
 
-        _cleanup_(unlink_and_freep) char *tmp = NULL;
-        _cleanup_close_ int dstfd = open_tmpfile_linkable(arg_output, O_RDWR|O_CLOEXEC, &tmp);
-        if (dstfd < 0)
-                return log_error_errno(dstfd, "Failed to open temporary file: %m");
+        if (arg_signed_data) {
+                _cleanup_free_ void *content = NULL;
+                size_t contentsz;
 
-        r = fchmod_umask(dstfd, 0666);
-        if (r < 0)
-                log_debug_errno(r, "Failed to change temporary file mode: %m");
+                r = read_full_file(arg_signed_data, (char**) &content, &contentsz);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read signed attributes file '%s': %m", arg_signed_data);
+
+                const uint8_t *p = content;
+                if (!ASN1_item_d2i((ASN1_VALUE **) &signed_attributes, &p, contentsz, ASN1_ITEM_rptr(PKCS7_ATTR_SIGN)))
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to parse signed attributes: %s",
+                                        ERR_error_string(ERR_get_error(), NULL));
+        }
+
+        if (arg_signed_data_signature) {
+                _cleanup_free_ void *content = NULL;
+                size_t contentsz;
+
+                r = read_full_file(arg_signed_data_signature, (char**) &content, &contentsz);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read signed attributes signature file '%s': %m", arg_signed_data_signature);
+
+                signed_attributes_signature = IOVEC_MAKE(TAKE_PTR(content), contentsz);
+        }
 
         _cleanup_free_ void *pehash = NULL;
         size_t pehashsz;
@@ -562,7 +609,7 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
 
         _cleanup_(PKCS7_freep) PKCS7 *p7 = NULL;
         PKCS7_SIGNER_INFO *si = NULL; /* avoid false maybe-uninitialized warning */
-        r = pkcs7_new_with_attributes(certificate, private_key, signed_attributes, &p7, &si);
+        r = pkcs7_new_with_attributes(ctx->certificate, ctx->private_key, signed_attributes, &p7, &si);
         if (r < 0)
                 return r;
 
@@ -584,11 +631,11 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
                         return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to convert signed attributes ASN.1 to DER: %s",
                                                ERR_error_string(ERR_get_error(), NULL));
 
-                r = loop_write(dstfd, abuf, alen);
+                r = loop_write(ctx->dstfd, abuf, alen);
                 if (r < 0)
                         return log_error_errno(r, "Failed to write PKCS#7 DER-encoded signed attributes blob to temporary file: %m");
 
-                r = link_tmpfile(dstfd, tmp, arg_output, LINK_TMPFILE_REPLACE|LINK_TMPFILE_SYNC);
+                r = link_tmpfile(ctx->dstfd, ctx->tmp, arg_output, LINK_TMPFILE_REPLACE|LINK_TMPFILE_SYNC);
                 if (r < 0)
                         return log_error_errno(r, "Failed to link temporary file to %s: %m", arg_output);
 
@@ -597,7 +644,9 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
         }
 
         if (iovec_is_set(&signed_attributes_signature))
-                ASN1_STRING_set0(si->enc_digest, TAKE_PTR(signed_attributes_signature.iov_base), signed_attributes_signature.iov_len);
+                ASN1_STRING_set0(si->enc_digest,
+                                 TAKE_PTR(signed_attributes_signature.iov_base),
+                                 signed_attributes_signature.iov_len);
         else {
                 _cleanup_(BIO_free_allp) BIO *bio = NULL;
                 r = pkcs7_populate_data_bio(p7, idcraw, idcrawsz, &bio);
@@ -654,9 +703,9 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
         if (!certificate_table)
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "File lacks certificate table.");
 
-        r = copy_bytes(srcfd, dstfd, UINT64_MAX, COPY_REFLINK);
+        r = copy_bytes(srcfd, ctx->dstfd, UINT64_MAX, COPY_REFLINK);
         if (r < 0)
-                return log_error_errno(r, "Failed to copy %s to %s: %m", argv[1], tmp);
+                return log_error_errno(r, "Failed to copy %s to %s: %m", argv[1], ctx->tmp);
 
         off_t end = st.st_size;
         ssize_t n;
@@ -665,7 +714,7 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
                 if (certificate_table->VirtualAddress != 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Certificate table is not aligned to 8 bytes");
 
-                n = pwrite(dstfd, (const uint8_t[8]) {}, 8 - (st.st_size % 8), st.st_size);
+                n = pwrite(ctx->dstfd, (const uint8_t[8]) {}, 8 - (st.st_size % 8), st.st_size);
                 if (n < 0)
                         return log_error_errno(errno, "Failed to write zero padding: %m");
                 if (n != 8 - (st.st_size % 8))
@@ -675,7 +724,7 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
         }
 
         uint32_t certsz = offsetof(WIN_CERTIFICATE, bCertificate) + sigsz;
-        n = pwrite(dstfd,
+        n = pwrite(ctx->dstfd,
                    &(WIN_CERTIFICATE) {
                            .wRevision = htole16(0x200),
                            .wCertificateType = htole16(0x0002), /* PKCS7 signedData */
@@ -690,7 +739,7 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
 
         end += n;
 
-        n = pwrite(dstfd, sig, sigsz, end);
+        n = pwrite(ctx->dstfd, sig, sigsz, end);
         if (n < 0)
                 return log_error_errno(errno, "Failed to write signature: %m");
         if (n != sigsz)
@@ -699,14 +748,14 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
         end += n;
 
         if (certsz % 8 != 0) {
-                n = pwrite(dstfd, (const uint8_t[8]) {}, 8 - (certsz % 8), end);
+                n = pwrite(ctx->dstfd, (const uint8_t[8]) {}, 8 - (certsz % 8), end);
                 if (n < 0)
                         return log_error_errno(errno, "Failed to write zero padding: %m");
                 if ((size_t) n != 8 - (certsz % 8))
                         return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short write while writing zero padding.");
         }
 
-        n = pwrite(dstfd,
+        n = pwrite(ctx->dstfd,
                    &(IMAGE_DATA_DIRECTORY) {
                            .VirtualAddress = certificate_table->VirtualAddress ?: htole32(ROUND_UP(st.st_size, 8)),
                            .Size = htole32(le32toh(certificate_table->Size) + ROUND_UP(certsz, 8)),
@@ -719,11 +768,11 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short write while updating PE certificate table.");
 
         uint32_t checksum;
-        r = pe_checksum(dstfd, &checksum);
+        r = pe_checksum(ctx->dstfd, &checksum);
         if (r < 0)
                 return log_error_errno(r, "Failed to calculate PE file checksum: %m");
 
-        n = pwrite(dstfd,
+        n = pwrite(ctx->dstfd,
                    &(le32_t) { htole32(checksum) },
                    sizeof(le32_t),
                    le32toh(dos_header->e_lfanew) + offsetof(PeHeader, optional.CheckSum));
@@ -732,7 +781,7 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
         if ((size_t) n != sizeof(le32_t))
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short write while updating PE checksum.");
 
-        r = link_tmpfile(dstfd, tmp, arg_output, LINK_TMPFILE_REPLACE|LINK_TMPFILE_SYNC);
+        r = link_tmpfile(ctx->dstfd, ctx->tmp, arg_output, LINK_TMPFILE_REPLACE|LINK_TMPFILE_SYNC);
         if (r < 0)
                 return log_error_errno(r, "Failed to link temporary file to %s: %m", arg_output);
 
@@ -754,7 +803,12 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        return dispatch_verb(argc, argv, verbs, NULL);
+        _cleanup_(context_done) Context ctx = CONTEXT_NULL;
+        r = context_populate(argc, argv, &ctx);
+        if (r < 0)
+                return r;
+
+        return dispatch_verb(argc, argv, verbs, &ctx);
 }
 
 DEFINE_MAIN_FUNCTION(run);
