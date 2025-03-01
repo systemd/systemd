@@ -243,6 +243,19 @@
         <xi:include href="version-info.xml" xpointer="v257"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--from-file=PATH</option></term>
+        <term><option>-f</option></term>
+
+        <listitem><para>When used with the <command>user</command> or <command>group</command> command, read
+        the user definition in JSON format from the specified file, instead of querying it from the
+        system. If the path is specified as <literal>-</literal>, reads the JSON data from standard
+        input. This is useful to validate and introspect JSON user or group records quickly, and check how
+        they would be interpreted on the local system.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="no-pager" />
       <xi:include href="standard-options.xml" xpointer="no-legend" />
       <xi:include href="standard-options.xml" xpointer="help" />
@@ -263,6 +276,9 @@
         <listitem><para>List all known users records or show details of one or more specified user
         records. Use <option>--output=</option> to tweak output mode.</para>
 
+        <para>If used in conjuntion with <option>--from-file=</option> the user record data is read in JSON
+        format from the specified file instead of querying it from the system. For details see above.</para>
+
         <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
 
@@ -271,6 +287,9 @@
 
         <listitem><para>List all known group records or show details of one or more specified group
         records. Use <option>--output=</option> to tweak the output mode.</para>
+
+        <para>If used in conjuntion with <option>--from-file=</option> the group record data is read in JSON
+        format from the specified file instead of querying it from the system. For details see above.</para>
 
         <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
