@@ -11,6 +11,7 @@
 #include "sd-json.h"
 
 #include "alloc-util.h"
+#include "ask-password-agent.h"
 #include "build.h"
 #include "bus-error.h"
 #include "bus-locator.h"
@@ -1547,6 +1548,7 @@ typedef struct RunContext {
         PTYForward *forward;
         char *service;
         char *bus_path;
+        int pty_fd;
 
         /* Bus objects */
         sd_bus *bus;
@@ -1987,10 +1989,38 @@ static int print_unit_invocation(const char *unit, sd_id128_t invocation_id) {
         return sd_json_variant_dump(v, arg_json_format_flags, stdout, NULL);
 }
 
+static int run_context_setup_ptyfwd(RunContext *c) {
+        int r;
+
+        assert(c);
+
+        if (c->pty_fd < 0 || c->forward)
+                return 0;
+
+        if (!arg_quiet)
+                log_info("Press ^] three times within 1s to disconnect TTY.");
+
+        r = pty_forward_new(c->event, c->pty_fd, PTY_FORWARD_IGNORE_INITIAL_VHANGUP, &c->forward);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create PTY forwarder: %m");
+
+        pty_forward_set_handler(c->forward, pty_forward_handler, c);
+
+        /* Make sure to process any TTY events before we process bus events */
+        (void) pty_forward_set_priority(c->forward, SD_EVENT_PRIORITY_IMPORTANT);
+
+        if (!isempty(arg_background))
+                (void) pty_forward_set_background_color(c->forward, arg_background);
+
+        set_window_title(c->forward);
+        return 0;
+}
+
 typedef struct JobDoneContext {
         char *unit;
         char *start_job;
         sd_bus_slot *match;
+        RunContext *run_context;
 } JobDoneContext;
 
 static void job_done_context_done(JobDoneContext *c) {
@@ -2023,6 +2053,16 @@ static int match_job_removed(sd_bus_message *m, void *userdata, sd_bus_error *er
                           "RUN_UNIT=%s",
                           c->unit);
 
+        /* Stop agents now that we are online, to avoid TTY conflicts */
+        polkit_agent_close();
+        ask_password_agent_close();
+
+        if (c->run_context) {
+                r = run_context_setup_ptyfwd(c->run_context);
+                if (r < 0)
+                        return sd_event_exit(c->run_context->event, r);
+        }
+
         job_done_context_done(c);
         return 0;
 }
@@ -2038,6 +2078,7 @@ static int start_transient_service(sd_bus *bus) {
         assert(bus);
 
         (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+        (void) ask_password_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         if (arg_stdio == ARG_STDIO_PTY) {
 
@@ -2180,6 +2221,7 @@ static int start_transient_service(sd_bus *bus) {
 
         if (arg_wait || arg_stdio != ARG_STDIO_NONE) {
                 _cleanup_(run_context_done) RunContext c = {
+                        .pty_fd = pty_fd,
                         .cpu_usage_nsec = NSEC_INFINITY,
                         .memory_peak = UINT64_MAX,
                         .memory_swap_peak = UINT64_MAX,
@@ -2190,6 +2232,8 @@ static int start_transient_service(sd_bus *bus) {
                         .inactive_exit_usec = USEC_INFINITY,
                         .inactive_enter_usec = USEC_INFINITY,
                 };
+
+                job_done_context.run_context = &c;
 
                 r = sd_event_default(&c.event);
                 if (r < 0)
@@ -2212,23 +2256,6 @@ static int start_transient_service(sd_bus *bus) {
                         }
 
                         (void) sd_event_set_signal_exit(c.event, true);
-
-                        if (!arg_quiet)
-                                log_info("Press ^] three times within 1s to disconnect TTY.");
-
-                        r = pty_forward_new(c.event, pty_fd, PTY_FORWARD_IGNORE_INITIAL_VHANGUP, &c.forward);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to create PTY forwarder: %m");
-
-                        pty_forward_set_handler(c.forward, pty_forward_handler, &c);
-
-                        /* Make sure to process any TTY events before we process bus events */
-                        (void) pty_forward_set_priority(c.forward, SD_EVENT_PRIORITY_IMPORTANT);
-
-                        if (!isempty(arg_background))
-                                (void) pty_forward_set_background_color(c.forward, arg_background);
-
-                        set_window_title(c.forward);
                 }
 
                 r = run_context_attach_bus(&c, bus);
@@ -2342,6 +2369,7 @@ static int start_transient_scope(sd_bus *bus) {
         }
 
         (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+        (void) ask_password_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         for (;;) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -2494,6 +2522,10 @@ static int start_transient_scope(sd_bus *bus) {
                         log_warning("Invalid environment variable name evaluates to an empty string: %s", strna(jb));
                 }
         }
+
+        /* Stop agents before we pass control away, to avoid TTY conflicts */
+        polkit_agent_close();
+        ask_password_agent_close();
 
         execvpe(arg_cmdline[0], arg_cmdline, env);
 
@@ -2650,6 +2682,7 @@ static int start_transient_trigger(sd_bus *bus, const char *suffix) {
                 return r;
 
         (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+        (void) ask_password_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         r = bus_call_with_hint(bus, m, suffix + 1, &reply);
         if (r < 0)
