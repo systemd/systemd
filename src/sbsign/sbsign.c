@@ -55,7 +55,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "\n%3$sOptions:%4$s\n"
                "  -h --help              Show this help\n"
                "     --version           Print version\n"
-               "     --output            Where to write the signed PE binary\n"
+               "     --output=PATH       Where to write the output\n"
                "     --certificate=PATH|URI\n"
                "                         PEM certificate to use for signing, or a provider\n"
                "                         specific designation if --certificate-source= is used\n"
@@ -67,6 +67,11 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --private-key-source=file|provider:PROVIDER|engine:ENGINE\n"
                "                         Specify how to use KEY for --private-key=. Allows\n"
                "                         an OpenSSL engine/provider to be used for signing\n"
+               "     --prepare-offline-signing\n"
+               "                         Write the data that should be signed instead of the signed data"
+               "     --signed-data=PATH  Path to the data that was signed offline\n"
+               "     --signed-data-signature=PATH\n"
+               "                         Path to the signature of the data that was signed offline\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
