@@ -149,7 +149,7 @@ def main() -> None:
         '--output-dir', os.fspath(args.meson_build_dir / 'mkosi.output'),
         '--extra-search-path', os.fspath(args.meson_build_dir),
         '--machine', name,
-        '--ephemeral',
+        '--ephemeral=yes',
         *(['--forward-journal', journal_file] if journal_file else []),
         *(
             [
