@@ -49,6 +49,17 @@
         <xi:include href="version-info.xml" xpointer="v257"/>
         </listitem>
       </varlistentry>
+      <varlistentry>
+        <term><option>sign-secure-boot-database</option></term>
+
+        <listitem><para>Generates and signs a secure boot signature database. The signed secure boot
+        signature database will be written to the path specified with <option>--output=</option>. The secure
+        boot database identifier should be specified with the <option>--secure-boot-database=</option>
+        option.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
@@ -105,6 +116,17 @@
         <listitem><para>Configure the signed data (as written to the path specified with
         <option>--output=</option> when using the <option>--prepare-offline-signing</option> option) and
         corresponding signature for the <command>sign</command> command.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--secure-boot-database=PK|KEK|db|dbx</option></term>
+
+        <listitem><para>Specify the secure boot signature database that should be generated and signed with
+        the <command>sign-secure-boot-database</command> command. Takes one of the strings
+        <varname>PK</varname>, <varname>KEK</varname>, <varname>db</varname> or <varname>dbx</varname>.
+        </para>
 
         <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
