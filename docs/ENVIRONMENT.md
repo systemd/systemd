@@ -143,6 +143,11 @@ All tools:
   instead of reboot when a new root file system has been loaded in
   `/run/nextroot/`.
 
+* `SYSTEMD_PRESET_BYPASS=1` — If set to "1", execution of `systemctl preset` and
+  `systemctl preset-all` is skipped. This can be useful if either of these is
+  invoked unconditionally as a child process by another tool, such as package
+  managers running it in a postinstall script.
+
 `systemd-nspawn`:
 
 * `$SYSTEMD_NSPAWN_UNIFIED_HIERARCHY=1` — if set, force `systemd-nspawn` into
@@ -269,11 +274,11 @@ All tools:
 
 `udevadm` and `systemd-hwdb`:
 
-* `SYSTEMD_HWDB_UPDATE_BYPASS=` — If set to "1", execution of hwdb updates is skipped
-  when `udevadm hwdb --update` or `systemd-hwdb update` are invoked. This can
-  be useful if either of these tools are invoked unconditionally as a child
-  process by another tool, such as package managers running either of these
-  tools in a postinstall script.
+* `SYSTEMD_HWDB_UPDATE_BYPASS=1` — If set to "1", execution of hwdb updates is
+  skipped when `udevadm hwdb --update` or `systemd-hwdb update` are invoked.
+  This can be useful if either of these tools are invoked unconditionally as a
+  child process by another tool, such as package managers running either of
+  these tools in a postinstall script.
 
 `nss-systemd`:
 
@@ -408,6 +413,11 @@ All tools:
   subvolumes if the backing filesystem supports them. If set to `0`, these
   lines will always create directories.
 
+* `SYSTEMD_TMPFILES_BYPASS=1` — If set to "1", execution of `systemd-tmpfiles`
+  is skipped. This can be useful if `systemd-tmpfiles` is invoked
+  unconditionally as a child process by another tool, such as package managers
+  running it in a postinstall script.
+
 `systemd-sysusers`:
 
 * `$SOURCE_DATE_EPOCH` — if unset, the field of the date of last password change
@@ -417,6 +427,11 @@ All tools:
   support creating bit-by-bit reproducible system images by choosing a
   reproducible value for the field of the date of last password change in
   `/etc/shadow`. See: https://reproducible-builds.org/specs/source-date-epoch/
+
+* `SYSTEMD_SYSUSERS_BYPASS=1` — If set to "1", execution of `systemd-sysusers`
+  is skipped. This can be useful if `systemd-sysusers` is invoked
+  unconditionally as a child process by another tool, such as package managers
+  running it in a postinstall script.
 
 `systemd-sysv-generator`:
 
