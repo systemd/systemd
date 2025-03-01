@@ -43,8 +43,8 @@ testcase_sign_systemd_boot() {
     fi
 
     SD_BOOT="$(find /usr/lib/systemd/boot/efi/ -name "systemd-boot*.efi" | head -n1)"
-
     (! sbverify --cert /tmp/sb.crt "$SD_BOOT")
+
     /usr/lib/systemd/systemd-sbsign sign --certificate /tmp/sb.crt --private-key /tmp/sb.key --output /tmp/sdboot "$SD_BOOT"
     sbverify --cert /tmp/sb.crt /tmp/sdboot
 
@@ -60,18 +60,42 @@ testcase_sign_systemd_boot_offline() {
     fi
 
     SD_BOOT="$(find /usr/lib/systemd/boot/efi/ -name "systemd-boot*.efi" | head -n1)"
+    (! sbverify --cert /tmp/sb.crt "$SD_BOOT")
 
-    /usr/lib/systemd/systemd-sbsign sign --certificate /tmp/sb.crt --output /tmp/signed-data.bin --prepare-offline-signing "$SD_BOOT"
-    openssl dgst -sha256 -sign /tmp/sb.key -out /tmp/signed-data.sig /tmp/signed-data.bin
+    export SOURCE_DATE_EPOCH="123"
+
     /usr/lib/systemd/systemd-sbsign \
         sign \
         --certificate /tmp/sb.crt \
-        --output /tmp/sdboot \
+        --private-key /tmp/sb.key \
+        --output /tmp/sdboot-signed-online \
+        "$SD_BOOT"
+
+    sbverify --cert /tmp/sb.crt /tmp/sdboot-signed-online
+
+    /usr/lib/systemd/systemd-sbsign \
+        sign \
+        --certificate /tmp/sb.crt \
+        --output /tmp/signed-data.bin \
+        --prepare-offline-signing \
+        "$SD_BOOT"
+    openssl dgst -sha256 -sign /tmp/sb.key -out /tmp/signed-data.sig /tmp/signed-data.bin
+
+    # Make sure systemd-sbsign can't pick up the timestamp from the environment when
+    # attaching the signature.
+    unset SOURCE_DATE_EPOCH
+
+    /usr/lib/systemd/systemd-sbsign \
+        sign \
+        --certificate /tmp/sb.crt \
+        --output /tmp/sdboot-signed-offline \
         --signed-data /tmp/signed-data.bin \
         --signed-data-signature /tmp/signed-data.sig \
         "$SD_BOOT"
 
-    sbverify --cert /tmp/sb.crt /tmp/sdboot
+    sbverify --cert /tmp/sb.crt /tmp/sdboot-signed-offline
+
+    cmp /tmp/sdboot-signed-online /tmp/sdboot-signed-offline
 }
 
 run_testcases
