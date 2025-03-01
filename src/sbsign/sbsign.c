@@ -7,6 +7,7 @@
 #include "build.h"
 #include "copy.h"
 #include "efi-fundamental.h"
+#include "efivars.h"
 #include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -18,6 +19,7 @@
 #include "pe-binary.h"
 #include "pretty-print.h"
 #include "stat-util.h"
+#include "strv.h"
 #include "tmpfile-util.h"
 #include "verbs.h"
 
@@ -31,6 +33,7 @@ static char *arg_private_key_source = NULL;
 static bool arg_prepare_offline_signing = false;
 static char *arg_signed_data = NULL;
 static char *arg_signed_data_signature = NULL;
+static char *arg_secure_boot_database = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_output, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_certificate, freep);
@@ -175,6 +178,9 @@ static int help(int argc, char *argv[], void *userdata) {
                "\n%5$sSign binaries for EFI Secure Boot%6$s\n"
                "\n%3$sCommands:%4$s\n"
                "  sign EXEFILE           Sign the given binary for EFI Secure Boot\n"
+               "  sign-secure-boot-database\n"
+               "                         Generate and sign a UEFI Secure Boot database\n"
+               "                         for Secure Boot auto-enrollment\n"
                "\n%3$sOptions:%4$s\n"
                "  -h --help              Show this help\n"
                "     --version           Print version\n"
@@ -195,6 +201,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --signed-data=PATH  Path to the data that was signed offline\n"
                "     --signed-data-signature=PATH\n"
                "                         Path to the raw signature of the data that was signed offline\n"
+               "     --secure-boot-database=PK|KEK|db|dbx\n"
+               "                         Which UEFI Secure Boot database to generate and sign\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -217,6 +225,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_PREPARE_OFFLINE_SIGNING,
                 ARG_SIGNED_DATA,
                 ARG_SIGNED_DATA_SIGNATURE,
+                ARG_SECURE_BOOT_DATABASE,
         };
 
         static const struct option options[] = {
@@ -230,6 +239,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "prepare-offline-signing", no_argument,       NULL, ARG_PREPARE_OFFLINE_SIGNING },
                 { "signed-data",             required_argument, NULL, ARG_SIGNED_DATA             },
                 { "signed-data-signature",   required_argument, NULL, ARG_SIGNED_DATA_SIGNATURE   },
+                { "secure-boot-database",    required_argument, NULL, ARG_SECURE_BOOT_DATABASE    },
                 {}
         };
 
@@ -305,6 +315,12 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
+                case ARG_SECURE_BOOT_DATABASE:
+                        r = free_and_strdup(&arg_secure_boot_database, optarg);
+                        if (r < 0)
+                                return log_oom();
+
+                        break;
                 case '?':
                         return -EINVAL;
 
@@ -801,10 +817,267 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
+static int efi_timestamp(EFI_TIME *ret) {
+        uint64_t epoch = UINT64_MAX;
+        struct tm tm = {};
+        int r;
+
+        assert(ret);
+
+        r = secure_getenv_uint64("SOURCE_DATE_EPOCH", &epoch);
+        if (r < 0 && r != -ENXIO)
+                log_debug_errno(r, "Failed to parse $SOURCE_DATE_EPOCH, ignoring: %m");
+
+        r = localtime_or_gmtime_usec(epoch != UINT64_MAX ? epoch : now(CLOCK_REALTIME), /*utc=*/ true, &tm);
+        if (r < 0)
+                return log_error_errno(r, "Failed to convert timestamp to calendar time: %m");
+
+        *ret = (EFI_TIME) {
+                .Year = 1900 + tm.tm_year,
+                /* tm_mon starts at 0, EFI_TIME months start at 1. */
+                .Month = tm.tm_mon + 1,
+                .Day = tm.tm_mday,
+                .Hour = tm.tm_hour,
+                .Minute = tm.tm_min,
+                .Second = tm.tm_sec,
+        };
+
+        return 0;
+}
+
+static int populate_secure_boot_database_bio(
+                const char16_t *db,
+                const EFI_GUID *guid,
+                uint32_t attrs,
+                const EFI_TIME *timestamp,
+                const EFI_SIGNATURE_LIST *siglist,
+                size_t siglistsz,
+                BIO **ret) {
+
+        assert(db);
+        assert(guid);
+        assert(timestamp);
+        assert(siglist);
+        assert(ret);
+
+        _cleanup_(BIO_freep) BIO *bio = NULL;
+        bio = BIO_new(BIO_s_mem());
+        if (!bio)
+                return log_oom();
+
+        /* Don't count the trailing NUL terminator. */
+        if (BIO_write(bio, db, char16_strsize(db) - sizeof(char16_t)) < 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to write variable name to bio");
+
+        if (BIO_write(bio, guid, sizeof(*guid)) < 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to write variable GUID to bio");
+
+        if (BIO_write(bio, &attrs, sizeof(attrs)) < 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to write variable attributes to bio");
+
+        if (BIO_write(bio, timestamp, sizeof(*timestamp)) < 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to write timestamp to bio");
+
+        if (BIO_write(bio, siglist, siglistsz) < 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to write signature list to bio");
+
+        *ret = TAKE_PTR(bio);
+
+        return 0;
+}
+
+static int verb_sign_secure_boot_database(int argc, char *argv[], void *userdata) {
+        static const uint32_t attrs =
+                EFI_VARIABLE_NON_VOLATILE|
+                EFI_VARIABLE_BOOTSERVICE_ACCESS|
+                EFI_VARIABLE_RUNTIME_ACCESS|
+                EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS;
+        _cleanup_(context_done) Context ctx = CONTEXT_NULL;
+        _cleanup_(iovec_done) struct iovec signed_data = {};
+        _cleanup_(iovec_done) struct iovec signed_data_signature = {};
+        int r;
+
+        if (!arg_private_key && !arg_signed_data_signature && !arg_prepare_offline_signing)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "No private key or signed data signature specified, use --private-key= or --signed-data-signature=.");
+
+        if (!arg_output)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No output specified, use --output=");
+
+
+        if (!arg_secure_boot_database)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "No secure boot database identifier specified, use --secure-boot-database=");
+
+        if (!STR_IN_SET(arg_secure_boot_database, "PK", "KEK", "db", "dbx"))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Secure Boot database identifier '%s' is not valid", arg_secure_boot_database);
+
+        r = context_populate(argc, argv, &ctx);
+        if (r < 0)
+                return r;
+
+        if (arg_signed_data) {
+                r = read_full_file(arg_signed_data, (char**) &signed_data.iov_base, &signed_data.iov_len);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read secure boot database signed data file '%s': %m", arg_signed_data);
+        }
+
+        if (arg_signed_data_signature) {
+                r = read_full_file(arg_signed_data_signature, (char**) &signed_data_signature.iov_base, &signed_data_signature.iov_len);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read secure boot database signature file '%s': %m", arg_signed_data_signature);
+        }
+
+        _cleanup_free_ uint8_t *dercert = NULL;
+        int dercertsz = i2d_X509(ctx.certificate, &dercert);
+        if (dercertsz < 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to convert X.509 certificate to DER: %s",
+                                        ERR_error_string(ERR_get_error(), NULL));
+
+        uint32_t siglistsz = offsetof(EFI_SIGNATURE_LIST, Signatures) + offsetof(EFI_SIGNATURE_DATA, SignatureData) + dercertsz;
+        /* We use malloc0() to zero-initialize the SignatureOwner field of Signatures[0]. */
+        _cleanup_free_ EFI_SIGNATURE_LIST *siglist = malloc0(siglistsz);
+        if (!siglist)
+                return log_oom();
+
+        *siglist = (EFI_SIGNATURE_LIST) {
+                .SignatureType = EFI_CERT_X509_GUID,
+                .SignatureListSize = siglistsz,
+                .SignatureSize = offsetof(EFI_SIGNATURE_DATA, SignatureData) + dercertsz,
+        };
+
+        memcpy(siglist->Signatures[0].SignatureData, dercert, dercertsz);
+
+        _cleanup_free_ char16_t *db16 = utf8_to_utf16(arg_secure_boot_database, SIZE_MAX);
+        if (!db16)
+                return log_oom();
+
+        EFI_TIME timestamp;
+        if (iovec_is_set(&signed_data)) {
+                /* Don't count the trailing NUL terminator. */
+                size_t db16sz = char16_strsize(db16) - sizeof(char16_t);
+                size_t expectedsz = db16sz + sizeof(EFI_GUID) + sizeof(attrs) + sizeof(timestamp) + siglistsz;
+
+                if (signed_data.iov_len != expectedsz)
+                        return log_error_errno(SYNTHETIC_ERRNO(ERANGE),
+                                               "The secure boot database signed data file size does not match the expected size (%s != %s)",
+                                               FORMAT_BYTES(signed_data.iov_len),
+                                               FORMAT_BYTES(expectedsz));
+
+                /* The signed data includes a timestamp which also has to go in the EFI variable descriptor
+                 * which includes the signature and they have to match, so we extract the timestamp from the
+                 * signed data so we can store it in the EFI variable descriptor later. */
+                size_t tsoffset = db16sz + sizeof(EFI_GUID) + sizeof(attrs);
+                memcpy_safe(&timestamp, (uint8_t*) signed_data.iov_base + tsoffset, sizeof(timestamp));
+        } else {
+                r = efi_timestamp(&timestamp);
+                if (r < 0)
+                        return r;
+        }
+
+        EFI_GUID *guid = STR_IN_SET(arg_secure_boot_database, "PK", "KEK") ? &(EFI_GUID) EFI_GLOBAL_VARIABLE
+                                                                           : &(EFI_GUID) EFI_IMAGE_SECURITY_DATABASE_GUID;
+
+        _cleanup_(BIO_freep) BIO *bio = NULL;
+        r = populate_secure_boot_database_bio(db16, guid, attrs, &timestamp, siglist, siglistsz, &bio);
+        if (r < 0)
+                return r;
+
+        if (arg_prepare_offline_signing) {
+                char *buf;
+                long bufsz = BIO_get_mem_data(bio, &buf);
+
+                r = loop_write(ctx.dstfd, buf, bufsz);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to write secure boot database unsigned data blob to temporary file: %m");
+
+                r = link_tmpfile(ctx.dstfd, ctx.tmp, arg_output, LINK_TMPFILE_REPLACE|LINK_TMPFILE_SYNC);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to link temporary file to %s: %m", arg_output);
+
+                log_info("Wrote secure boot database unsigned data blob to %s", arg_output);
+                return 0;
+        }
+
+        _cleanup_(PKCS7_freep) PKCS7 *p7 = NULL;
+        PKCS7_SIGNER_INFO *si = NULL; /* avoid false maybe-uninitialized warning */
+        r = pkcs7_new(ctx.certificate, ctx.private_key, &p7, &si);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate PKCS#7 context: %m");
+
+        if (PKCS7_set_detached(p7, true) == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to set PKCS#7 detached attribute: %s",
+                                       ERR_error_string(ERR_get_error(), NULL));
+
+        _cleanup_(BIO_free_allp) BIO *p7bio = PKCS7_dataInit(p7, NULL);
+        if (!p7bio)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to create PKCS#7 data bio: %s",
+                                ERR_error_string(ERR_get_error(), NULL));
+
+        if (SMIME_crlf_copy(bio, p7bio, PKCS7_BINARY) == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to copy unsigned data to PKCS#7 data bio: %s",
+                                       ERR_error_string(ERR_get_error(), NULL));
+
+        if (iovec_is_set(&signed_data_signature)) {
+                ASN1_STRING_set0(si->enc_digest,
+                                 TAKE_PTR(signed_data_signature.iov_base),
+                                 signed_data_signature.iov_len);
+
+                if (PKCS7_signatureVerify(p7bio, p7, si, ctx.certificate) == 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "PKCS#7 signature validation failed: %s",
+                                               ERR_error_string(ERR_get_error(), NULL));
+
+        } else if (PKCS7_dataFinal(p7, p7bio) == 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to sign PKCS#7 data: %s",
+                                               ERR_error_string(ERR_get_error(), NULL));
+
+        _cleanup_free_ uint8_t *sig = NULL;
+        int sigsz = i2d_PKCS7(p7, &sig);
+        if (sigsz < 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to convert PKCS#7 signature to DER: %s",
+                                        ERR_error_string(ERR_get_error(), NULL));
+
+        size_t authsz = offsetof(EFI_VARIABLE_AUTHENTICATION_2, AuthInfo.CertData) + sigsz;
+        _cleanup_free_ EFI_VARIABLE_AUTHENTICATION_2 *auth = malloc(authsz);
+        if (!auth)
+                return log_oom();
+
+        *auth = (EFI_VARIABLE_AUTHENTICATION_2) {
+                .TimeStamp = timestamp,
+                .AuthInfo = {
+                        .Hdr = {
+                                .dwLength = offsetof(WIN_CERTIFICATE_UEFI_GUID, CertData) + sigsz,
+                                .wRevision = 0x0200,
+                                .wCertificateType = 0x0EF1, /* WIN_CERT_TYPE_EFI_GUID */
+                        },
+                        .CertType = EFI_CERT_TYPE_PKCS7_GUID,
+                }
+        };
+
+        memcpy(auth->AuthInfo.CertData, sig, sigsz);
+
+        r = loop_write(ctx.dstfd, auth, authsz);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write authentication descriptor to secure boot database file: %m");
+
+        r = loop_write(ctx.dstfd, siglist, siglistsz);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write signature list to secure boot database file: %m");
+
+        r = link_tmpfile(ctx.dstfd, ctx.tmp, arg_output, LINK_TMPFILE_REPLACE|LINK_TMPFILE_SYNC);
+        if (r < 0)
+                return log_error_errno(r, "Failed to link temporary file to %s: %m", arg_output);
+
+        log_info("Wrote signed secure boot database to %s", arg_output);
+        return 0;
+}
+
 static int run(int argc, char *argv[]) {
         static const Verb verbs[] = {
-                { "help",         VERB_ANY, VERB_ANY, 0,    help              },
-                { "sign",         2,        2,        0,    verb_sign         },
+                { "help",                      VERB_ANY, VERB_ANY, 0,    help                           },
+                { "sign",                      2,        2,        0,    verb_sign                      },
+                { "sign-secure-boot-database", 1,        1,        0,    verb_sign_secure_boot_database },
                 {}
         };
         int r;
