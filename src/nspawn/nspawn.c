@@ -4692,6 +4692,37 @@ static void set_window_title(PTYForward *f) {
                 (void) pty_forward_set_title_prefix(f, dot);
 }
 
+static int ptyfwd_hotkey(PTYForward *f, char c, void *userdata) {
+        pid_t *pid = ASSERT_PTR(userdata);
+        const char *word;
+        int sig = 0;
+
+        assert(f);
+
+        switch (c) {
+        case 'p':
+                sig = SIGRTMIN+4;
+                word = "power off";
+                break;
+
+        case 'r':
+                sig = SIGRTMIN+5;
+                word = "reboot";
+                break;
+
+        default:
+                log_info("Unknown hotkey sequence ^]^]%c, ignoring.", c);
+                return 0;
+        }
+
+        if (kill(*pid, sig) < 0)
+                log_error_errno(errno, "Failed to send %s (%s request) to PID 1 of container: %m", signal_to_string(sig), word);
+        else
+                log_info("Sent %s (%s request) to PID 1 of container.", signal_to_string(sig), word);
+
+        return 0;
+}
+
 static int merge_settings(Settings *settings, const char *path) {
         int rl;
 
@@ -5687,6 +5718,8 @@ static int run_container(
                                 (void) pty_forward_set_background_color(forward, arg_background);
 
                         set_window_title(forward);
+
+                        pty_forward_set_hotkey_handler(forward, ptyfwd_hotkey, pid);
                         break;
 
                 default:
@@ -6364,7 +6397,9 @@ static int run(int argc, char *argv[]) {
                          special_glyph(SPECIAL_GLYPH_LIGHT_SHADE), ansi_grey(), arg_machine, u ?: t, ansi_normal());
 
                 if (arg_console_mode == CONSOLE_INTERACTIVE)
-                        log_info("%s %sPress %sCtrl-]%s three times within 1s to kill container.%s",
+                        log_info("%s %sPress %sCtrl-]%s three times within 1s to kill container; two times followed by %sr%s\n"
+                                 "%s %sto reboot container; two times followed by %sp%s to poweroff container.%s",
+                                 special_glyph(SPECIAL_GLYPH_LIGHT_SHADE), ansi_grey(), ansi_highlight(), ansi_grey(), ansi_highlight(), ansi_normal(),
                                  special_glyph(SPECIAL_GLYPH_LIGHT_SHADE), ansi_grey(), ansi_highlight(), ansi_grey(), ansi_normal());
         }
 
