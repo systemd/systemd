@@ -23,7 +23,7 @@ typedef enum PTYForwardFlags {
         PTY_FORWARD_DUMB_TERMINAL          = 1 << 3,
 } PTYForwardFlags;
 
-typedef int (*PTYForwardHandler)(PTYForward *f, int rcode, void *userdata);
+typedef int (*PTYForwardHangupHandler)(PTYForward *f, int rcode, void *userdata);
 
 #define N_PTY_FORWARD_SIGNALS 7
 extern const int pty_forward_signals[N_PTY_FORWARD_SIGNALS];
@@ -34,7 +34,7 @@ PTYForward* pty_forward_free(PTYForward *f);
 int pty_forward_set_ignore_vhangup(PTYForward *f, bool ignore_vhangup);
 bool pty_forward_get_ignore_vhangup(PTYForward *f);
 
-void pty_forward_set_handler(PTYForward *f, PTYForwardHandler handler, void *userdata);
+void pty_forward_set_hangup_handler(PTYForward *f, PTYForwardHangupHandler handler, void *userdata);
 
 bool pty_forward_drain(PTYForward *f);
 

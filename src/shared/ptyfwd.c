@@ -101,8 +101,8 @@ struct PTYForward {
         usec_t escape_timestamp;
         unsigned escape_counter;
 
-        PTYForwardHandler handler;
-        void *userdata;
+        PTYForwardHangupHandler hangup_handler;
+        void *hangup_userdata;
 
         char *background_color;
         AnsiColorState ansi_color_state;
@@ -192,10 +192,10 @@ static int pty_forward_done(PTYForward *f, int rcode) {
         f->done = true;
         pty_forward_disconnect(f);
 
-        if (f->handler)
-                return f->handler(f, rcode, f->userdata);
-        else
-                return sd_event_exit(e, rcode < 0 ? EXIT_FAILURE : rcode);
+        if (f->hangup_handler)
+                return f->hangup_handler(f, rcode, f->hangup_userdata);
+
+        return sd_event_exit(e, rcode < 0 ? EXIT_FAILURE : rcode);
 }
 
 static bool look_for_escape(PTYForward *f, const char *buffer, size_t n) {
@@ -1084,11 +1084,11 @@ bool pty_forward_get_ignore_vhangup(PTYForward *f) {
         return FLAGS_SET(f->flags, PTY_FORWARD_IGNORE_VHANGUP);
 }
 
-void pty_forward_set_handler(PTYForward *f, PTYForwardHandler cb, void *userdata) {
+void pty_forward_set_hangup_handler(PTYForward *f, PTYForwardHangupHandler cb, void *userdata) {
         assert(f);
 
-        f->handler = cb;
-        f->userdata = userdata;
+        f->hangup_handler = cb;
+        f->hangup_userdata = userdata;
 }
 
 bool pty_forward_drain(PTYForward *f) {
