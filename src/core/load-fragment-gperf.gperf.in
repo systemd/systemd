@@ -86,6 +86,7 @@
 {{type}}.SystemCallLog,                       config_parse_warn_compat,                           DISABLED_CONFIGURATION,             0
 {{type}}.MemoryDenyWriteExecute,              config_parse_warn_compat,                           DISABLED_CONFIGURATION,             0
 {{type}}.RestrictNamespaces,                  config_parse_warn_compat,                           DISABLED_CONFIGURATION,             0
+{{type}}.DelegateNamespaces,                  config_parse_warn_compat,                           DISABLED_CONFIGURATION,             0
 {{type}}.RestrictRealtime,                    config_parse_warn_compat,                           DISABLED_CONFIGURATION,             0
 {{type}}.RestrictSUIDSGID,                    config_parse_warn_compat,                           DISABLED_CONFIGURATION,             0
 {{type}}.RestrictAddressFamilies,             config_parse_warn_compat,                           DISABLED_CONFIGURATION,             0
