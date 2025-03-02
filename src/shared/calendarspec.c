@@ -923,7 +923,7 @@ static int parse_and_every(const char *s, usec_t *ts, usec_t *rep) {
 
         p_ts = strndup(s, p - s);
         i = strlen(p_ts);
-        while ( isspace(p_ts[--i]) && i >= 0 )
+        while ( i > 0 && isspace(p_ts[--i]) )
                 p_ts[i] = (char)0;
 
         r = parse_timestamp(p_ts, ts);
