@@ -19,7 +19,7 @@ qemu_args = ['-device', 'virtio-scsi-pci,id=scsi0']
 foreach i : range(4)
         id = f'drivebtrfsbasic@i@'
         size = i == 0 ? '350M' : '128M'
-        cmdline += [f'--drive=@id@:@size@::cache=unsafe']
+        cmdline += [f'--drive=@id@:@size@::']
         qemu_args += ['-device', f'scsi-hd,drive=@id@,vendor=systemd,product=foobar,serial=deadbeefbtrfs@i@']
 endforeach
 
@@ -35,7 +35,7 @@ qemu_args = ['-device', 'virtio-scsi-pci,id=scsi0']
 foreach i : range(4)
         id = f'driveiscsibasic@i@'
         size = i == 0 ? '150M' : '70M'
-        cmdline += [f'--drive=@id@:@size@::cache=unsafe']
+        cmdline += [f'--drive=@id@:@size@::']
         qemu_args += ['-device', f'scsi-hd,drive=@id@,vendor=systemd,product=foobar,serial=deadbeefiscsi@i@']
 endforeach
 
@@ -45,7 +45,7 @@ udev_storage_tests += {
         'qemu-args' : qemu_args,
 }
 
-cmdline = ['--drive=drive0:64M::cache=unsafe']
+cmdline = ['--drive=drive0:64M::']
 qemu_args = ['-device', 'pci-bridge,id=pci_bridge0,chassis_nr=64']
 
 # Create 25 additional PCI bridges, each one connected to the previous one
@@ -71,7 +71,7 @@ qemu_args = ['-device', 'virtio-scsi-pci,id=scsi0']
 
 foreach i : range(4)
         id = f'drivelvmbasic@i@'
-        cmdline += [f'--drive=@id@:32M::cache=unsafe']
+        cmdline += [f'--drive=@id@:32M::']
         qemu_args += ['-device', f'scsi-hd,drive=@id@,vendor=systemd,product=foobar,serial=deadbeeflvm@i@']
 endforeach
 
@@ -86,7 +86,7 @@ qemu_args = ['-device', 'virtio-scsi-pci,id=scsi0']
 
 foreach i : range(5)
         id = f'drivemdadmbasic@i@'
-        cmdline += [f'--drive=@id@:64M::cache=unsafe']
+        cmdline += [f'--drive=@id@:64M::']
         qemu_args += ['-device', f'scsi-hd,drive=@id@,vendor=systemd,product=foobar,serial=deadbeefmdadm@i@']
 endforeach
 
@@ -101,7 +101,7 @@ qemu_args = ['-device', 'virtio-scsi-pci,id=scsi0']
 
 foreach i : range(5)
         id = f'drivemdadmlvm@i@'
-        cmdline += [f'--drive=@id@:64M::cache=unsafe']
+        cmdline += [f'--drive=@id@:64M::']
         qemu_args += ['-device', f'scsi-hd,drive=@id@,vendor=systemd,product=foobar,serial=deadbeefmdadmlvm@i@']
 endforeach
 
@@ -122,7 +122,7 @@ foreach ndisk : range(16)
 
         foreach nback : range(4)
                 id = f'drive@ndisk@x@nback@'
-                cmdline += [f'--drive=@id@:@size@::cache=unsafe:@ndisk@']
+                cmdline += [f'--drive=@id@:@size@:::@ndisk@']
                 qemu_args += ['-device', f'scsi-hd,drive=@id@,serial=MPIO@ndisk@,wwn=@wwn@']
         endforeach
 endforeach
@@ -138,7 +138,7 @@ qemu_args = []
 
 foreach i : range(10)
         id = f'drivesimultaneousevents@i@'
-        cmdline += [f'--drive=@id@:128M::cache=unsafe']
+        cmdline += [f'--drive=@id@:128M::']
         qemu_args += ['-device', f'scsi-hd,drive=@id@,serial=deadbeeftest@i@']
 endforeach
 
@@ -157,7 +157,7 @@ endforeach
 
 foreach i : range(128)
         id = f'drive@i@'
-        cmdline += [f'--drive=@id@:1M::cache=unsafe']
+        cmdline += [f'--drive=@id@:1M::']
         div = i / 32
         mod = i % 32
         qemu_args += ['-device', f'scsi-hd,drive=@id@,bus=scsi@div@.0,channel=0,scsi-id=@mod@,lun=0']
@@ -177,7 +177,7 @@ if qemu.found()
                 qemu_args = []
 
                 foreach i : range(20)
-                        cmdline += [f'--drive=nvme@i@:1M::cache=unsafe']
+                        cmdline += [f'--drive=nvme@i@:1M::']
                 endforeach
 
                 foreach i : range(5)
@@ -205,7 +205,7 @@ if qemu.found()
                 cmdline = []
 
                 foreach id : ['nvme0', 'nvme1']
-                        cmdline += [f'--drive=@id@:1M::cache=unsafe']
+                        cmdline += [f'--drive=@id@:1M::']
                 endforeach
 
                 qemu_args = [
@@ -232,7 +232,7 @@ if qemu.found()
 
                 foreach i : range(16)
                         id = f'drive@i@'
-                        cmdline += [f'--drive=@id@:40M::cache=unsafe']
+                        cmdline += [f'--drive=@id@:40M::']
                         qemu_args += ['-device', f'scsi-hd,drive=@id@,bus=scsi0.0,channel=0,scsi-id=0,lun=@i@']
                 endforeach
 
