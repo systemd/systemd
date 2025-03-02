@@ -460,7 +460,7 @@ static int pkcs7_new_with_attributes(
         PKCS7_SIGNER_INFO *si = NULL; /* avoid false maybe-uninitialized warning */
         r = pkcs7_new(certificate, private_key, &p7, &si);
         if (r < 0)
-                return log_error_errno(r, "Failed to allocate PKCS# context: %m");
+                return log_error_errno(r, "Failed to allocate PKCS#7 context: %m");
 
         if (signed_attributes) {
                 si->auth_attr = signed_attributes;
@@ -500,7 +500,7 @@ static int pkcs7_new_with_attributes(
                                        ERR_error_string(ERR_get_error(), NULL));
 
         if (PKCS7_add_signed_attribute(si, NID_pkcs9_contentType, V_ASN1_OBJECT, idc) == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to add signed attribute to pkcs7 signer info: %s",
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to add signed attribute to PKCS#7 signer info: %s",
                                        ERR_error_string(ERR_get_error(), NULL));
 
         *ret_p7 = TAKE_PTR(p7);
@@ -513,7 +513,7 @@ static int pkcs7_populate_data_bio(PKCS7* p7, const void *data, size_t size, BIO
 
         _cleanup_(BIO_free_allp) BIO *bio = PKCS7_dataInit(p7, NULL);
         if (!bio)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to create PKCS7 data bio: %s",
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to create PKCS#7 data bio: %s",
                                        ERR_error_string(ERR_get_error(), NULL));
 
         int tag, class;
@@ -526,7 +526,7 @@ static int pkcs7_populate_data_bio(PKCS7* p7, const void *data, size_t size, BIO
                                        ERR_error_string(ERR_get_error(), NULL));
 
         if (BIO_write(bio, p, psz) < 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to write to PKCS7 data bio: %s",
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to write to PKCS#7 data bio: %s",
                                        ERR_error_string(ERR_get_error(), NULL));
 
         *ret = TAKE_PTR(bio);
@@ -694,7 +694,7 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
                                        ERR_error_string(ERR_get_error(), NULL));
 
         if (PKCS7_set_content(p7, p7c) == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to set PKCS7 data: %s",
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to set PKCS#7 data: %s",
                                        ERR_error_string(ERR_get_error(), NULL));
 
         TAKE_PTR(p7c);
@@ -702,7 +702,7 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
         _cleanup_free_ uint8_t *sig = NULL;
         int sigsz = i2d_PKCS7(p7, &sig);
         if (sigsz < 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to convert PKCS7 signature to DER: %s",
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to convert PKCS#7 signature to DER: %s",
                                        ERR_error_string(ERR_get_error(), NULL));
 
         _cleanup_free_ IMAGE_DOS_HEADER *dos_header = NULL;
@@ -740,7 +740,7 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
         n = pwrite(ctx.dstfd,
                    &(WIN_CERTIFICATE) {
                            .wRevision = htole16(0x200),
-                           .wCertificateType = htole16(0x0002), /* PKCS7 signedData */
+                           .wCertificateType = htole16(0x0002), /* PKCS#7 signedData */
                            .dwLength = htole32(ROUND_UP(certsz, 8)),
                    },
                    sizeof(WIN_CERTIFICATE),
