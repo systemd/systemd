@@ -3555,6 +3555,7 @@ int config_parse_address_families(
                         set_remove(c->address_families, INT_TO_PTR(af));
         }
 }
+#endif
 
 int config_parse_namespace_flags(
                 const char *unit,
@@ -3618,7 +3619,6 @@ int config_parse_namespace_flags(
 
         return 0;
 }
-#endif
 
 int config_parse_restrict_filesystems(
                 const char *unit,
@@ -6357,8 +6357,8 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_syscall_errno,         "ERRNO" },
                 { config_parse_syscall_log,           "SYSCALLS" },
                 { config_parse_address_families,      "FAMILIES" },
-                { config_parse_namespace_flags,       "NAMESPACES" },
 #endif
+                { config_parse_namespace_flags,       "NAMESPACES" },
                 { config_parse_restrict_filesystems,  "FILESYSTEMS"  },
                 { config_parse_cpu_shares,            "SHARES" },
                 { config_parse_cg_weight,             "WEIGHT" },
