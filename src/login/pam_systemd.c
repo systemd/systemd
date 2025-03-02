@@ -1604,7 +1604,7 @@ static int open_osc_context(pam_handle_t *handle, const char *session_type, User
          * high-level for us, as it suffixes the output with a newline, expecting a full blown text message
          * as prompt string, not just an ANSI sequence. Note that PAM's conv_misc() actually goes to stdout
          * anyway, hence let's do so here too, but only after careful validation. */
-        if (!isatty(STDOUT_FILENO))
+        if (!isatty_safe(STDOUT_FILENO))
                 return PAM_SUCCESS;
 
         /* Keep a reference to the TTY we are operating on, so that we can issue the OSC close sequence also
@@ -1688,7 +1688,7 @@ static int close_osc_context(pam_handle_t *handle) {
         fd = fd_move_above_stdio(fd);
 
         /* Safety check, let's verify this is a valid TTY we just opened */
-        if (!isatty(fd))
+        if (!isatty_safe(fd))
                 return PAM_SUCCESS;
 
         _cleanup_free_ char *osc = NULL;
