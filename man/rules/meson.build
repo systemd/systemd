@@ -806,7 +806,6 @@ manpages = [
    'sd_journal_seek_tail'],
   ''],
  ['sd_journal_stream_fd', '3', ['sd_journal_stream_fd_with_namespace'], ''],
- ['sd_json_variant_unset_field', '3', [], ''],
  ['sd_listen_fds',
   '3',
   ['SD_LISTEN_FDS_START', 'sd_listen_fds_with_names'],

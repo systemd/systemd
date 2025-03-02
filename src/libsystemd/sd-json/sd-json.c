@@ -2129,56 +2129,6 @@ _public_ int sd_json_variant_set_field_strv(sd_json_variant **v, const char *fie
         return sd_json_variant_set_field(v, field, m);
 }
 
-_public_ int sd_json_variant_unset_field(sd_json_variant **v, const char *field) {
-        int r;
-
-        assert_return(v, -EINVAL);
-        assert_return(field, -EINVAL);
-
-        if (sd_json_variant_is_blank_object(*v))
-                return 0;
-        if (!sd_json_variant_is_object(*v))
-                return -EINVAL;
-
-        _cleanup_free_ sd_json_variant **array = NULL;
-        size_t k = 0;
-        for (size_t i = 0, n = sd_json_variant_elements(*v); i < n; i += 2) {
-                sd_json_variant *p;
-
-                p = sd_json_variant_by_index(*v, i);
-                if (!sd_json_variant_is_string(p))
-                        return -EINVAL;
-
-                if (streq(sd_json_variant_string(p), field)) {
-                        if (!array) {
-                                assert(n >= 2);
-                                array = new(sd_json_variant*, n - 2);
-                                if (!array)
-                                        return -ENOMEM;
-
-                                for (k = 0; k < i; k++)
-                                        array[k] = sd_json_variant_by_index(*v, k);
-                        }
-                } else if (array) {
-                        array[k++] = p;
-                        array[k++] = sd_json_variant_by_index(*v, i + 1);
-                }
-        }
-
-        if (!array)
-                return 0;
-
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *w = NULL;
-        r = sd_json_variant_new_object(&w, array, k);
-        if (r < 0)
-                return r;
-
-        json_variant_propagate_sensitive(*v, w);
-        JSON_VARIANT_REPLACE(*v, TAKE_PTR(w));
-
-        return 1;
-}
-
 _public_ int sd_json_variant_merge_object(sd_json_variant **v, sd_json_variant *m) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *w = NULL;
         _cleanup_free_ sd_json_variant **array = NULL;
