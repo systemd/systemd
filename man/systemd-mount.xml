@@ -263,15 +263,22 @@
       <varlistentry>
         <term><option>--bind-device</option></term>
 
-        <listitem><para>This option only has an effect in automount mode,
-        and controls whether the automount unit shall be bound to the backing device's lifetime. If set, the
-        automount unit will be stopped automatically when the backing device vanishes. By default, the automount unit
-        stays around, and subsequent accesses will block until backing device is replugged. This option has no effect
-        in case of non-device mounts, such as network or virtual file system mounts.</para>
+        <listitem><para>Controls whether the generated mount/automount unit shall be bound to the backing device's
+        lifetime. This setting is especially useful in automount mode. If set, the units will be stopped automatically
+        when the backing device vanishes. By default, the automount unit stays around, and subsequent accesses
+        will block until backing device is replugged. This option has no effect in case of non-device mounts,
+        such as network or virtual file system mounts.</para>
 
-        <para>Note that if <option>--discover</option> is used (or only a single argument passed, which implies
-        <option>--discover</option>, see above), and the file system block device is detected to be removable, this
-        option is implied.</para>
+        <para>If <option>--discover</option> is used (or only a single argument passed, which implies
+        <option>--discover</option>, see above), and the file system block device is detected to be removable,
+        this option is implied.</para>
+
+        <para>Note that mount units by default gain a <varname>Requires=</varname> dependency on
+        the backing device. This behavior can be controlled via <option>x-systemd.device-bound=</option>
+        mount option, see <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for details. In particular, <option>x-systemd.device-bound=no</option> takes precedence over this option,
+        which suppresses device dependencies both in the generated mount units and what's implied by service manager.
+        </para>
 
         <xi:include href="version-info.xml" xpointer="v232"/></listitem>
       </varlistentry>
