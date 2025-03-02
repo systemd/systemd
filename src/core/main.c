@@ -1514,6 +1514,38 @@ static int write_container_id(void) {
         return 1;
 }
 
+static int write_boot_or_shutdown_osc(const char *type) {
+        int r;
+
+        assert(STRPTR_IN_SET(type, "boot", "shutdown"));
+
+        if (getenv_terminal_is_dumb())
+                return 0;
+
+        _cleanup_close_ int fd = open_terminal("/dev/console", O_WRONLY|O_NOCTTY|O_CLOEXEC);
+        if (fd < 0)
+                return log_debug_errno(fd, "Failed to open /dev/console to print %s OSC, ignoring: %m", type);
+
+        _cleanup_free_ char *seq = NULL;
+        if (streq(type, "boot"))
+                r = osc_context_open_boot(&seq);
+        else
+                r = osc_context_close(SD_ID128_ALLF, &seq);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to acquire %s OSC sequence, ignoring: %m", type);
+
+        r = loop_write(fd, seq, SIZE_MAX);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to write %s OSC sequence, ignoring: %m", type);
+
+        if (DEBUG_LOGGING) {
+                _cleanup_free_ char *h = cescape(seq);
+                log_debug("OSC sequence for %s successfully written: %s", type, strna(h));
+        }
+
+        return 0;
+}
+
 static int bump_unix_max_dgram_qlen(void) {
         _cleanup_free_ char *qlen = NULL;
         unsigned long v;
@@ -1706,6 +1738,8 @@ static int become_shutdown(int objective, int retval) {
          * point, we will not listen to the signals anyway */
         if (detect_container() <= 0)
                 (void) cg_uninstall_release_agent(SYSTEMD_CGROUP_CONTROLLER);
+
+        (void) write_boot_or_shutdown_osc("shutdown");
 
         execve(SYSTEMD_SHUTDOWN_BINARY_PATH, (char **) command_line, env_block);
         return -errno;
@@ -2383,38 +2417,6 @@ static void log_execution_mode(bool *ret_first_boot) {
         }
 
         *ret_first_boot = first_boot;
-}
-
-static int write_boot_or_shutdown_osc(const char *type) {
-        int r;
-
-        assert(STRPTR_IN_SET(type, "boot", "shutdown"));
-
-        if (getenv_terminal_is_dumb())
-                return 0;
-
-        _cleanup_close_ int fd = open_terminal("/dev/console", O_WRONLY|O_NOCTTY|O_CLOEXEC);
-        if (fd < 0)
-                return log_debug_errno(fd, "Failed to open /dev/console to print %s OSC, ignoring: %m", type);
-
-        _cleanup_free_ char *seq = NULL;
-        if (streq(type, "boot"))
-                r = osc_context_open_boot(&seq);
-        else
-                r = osc_context_close(SD_ID128_ALLF, &seq);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to acquire %s OSC sequence, ignoring: %m", type);
-
-        r = loop_write(fd, seq, SIZE_MAX);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to write %s OSC sequence, ignoring: %m", type);
-
-        if (DEBUG_LOGGING) {
-                _cleanup_free_ char *h = cescape(seq);
-                log_debug("OSC sequence for %s successfully written: %s", type, strna(h));
-        }
-
-        return 0;
 }
 
 static int initialize_runtime(
@@ -3458,8 +3460,6 @@ finish:
                 __lsan_do_leak_check();
         }
 #endif
-
-        (void) write_boot_or_shutdown_osc("shutdown");
 
         if (r < 0)
                 (void) sd_notifyf(/* unset_environment= */ false,

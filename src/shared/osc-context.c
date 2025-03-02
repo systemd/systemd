@@ -141,15 +141,13 @@ static int osc_context_intro(char **ret_seq, sd_id128_t *ret_context_id) {
         } else
                 osc_context_default_id(&id);
 
-        _cleanup_free_ char *seq = NULL;
-        r = osc_context_intro_raw(id, &seq);
+        r = osc_context_intro_raw(id, ret_seq);
         if (r < 0)
                 return r;
 
         if (ret_context_id)
                 *ret_context_id = id;
 
-        *ret_seq = TAKE_PTR(seq);
         return 0;
 }
 
