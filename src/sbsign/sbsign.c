@@ -629,12 +629,12 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
 
         TAKE_PTR(signed_attributes);
 
-        if (arg_prepare_offline_signing) {
-                _cleanup_(BIO_free_allp) BIO *bio = NULL;
-                r = pkcs7_populate_data_bio(p7, idcraw, idcrawsz, &bio);
-                if (r < 0)
-                        return r;
+        _cleanup_(BIO_free_allp) BIO *bio = NULL;
+        r = pkcs7_populate_data_bio(p7, idcraw, idcrawsz, &bio);
+        if (r < 0)
+                return r;
 
+        if (arg_prepare_offline_signing) {
                 r = pkcs7_add_digest_attribute(p7, bio, si);
                 if (r < 0)
                         return r;
@@ -657,20 +657,18 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
                 return 0;
         }
 
-        if (iovec_is_set(&signed_attributes_signature))
+        if (iovec_is_set(&signed_attributes_signature)) {
                 ASN1_STRING_set0(si->enc_digest,
                                  TAKE_PTR(signed_attributes_signature.iov_base),
                                  signed_attributes_signature.iov_len);
-        else {
-                _cleanup_(BIO_free_allp) BIO *bio = NULL;
-                r = pkcs7_populate_data_bio(p7, idcraw, idcrawsz, &bio);
-                if (r < 0)
-                        return r;
 
-                if (PKCS7_dataFinal(p7, bio) == 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to sign data: %s",
+                if (PKCS7_signatureVerify(bio, p7, si, ctx.certificate) == 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "PKCS#7 signature validation failed: %s",
                                                ERR_error_string(ERR_get_error(), NULL));
-        }
+
+        } else if (PKCS7_dataFinal(p7, bio) == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to sign data: %s",
+                                       ERR_error_string(ERR_get_error(), NULL));
 
         _cleanup_(PKCS7_freep) PKCS7 *p7c = PKCS7_new();
         if (!p7c)
