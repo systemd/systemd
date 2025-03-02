@@ -386,7 +386,7 @@ int calendar_spec_to_string(const CalendarSpec *c, char **ret) {
         if (c->period) {
                 char buf[FORMAT_TIMESPAN_MAX];
                 fputs(" and every ", f);
-                format_timespan(buf, sizeof(buf), c->period, 0);
+                (void) format_timespan(buf, sizeof(buf), c->period, 0);
                 fputs(buf, f);
         }
 
