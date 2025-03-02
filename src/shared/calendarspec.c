@@ -26,6 +26,7 @@
 #define BITS_WEEKDAYS 127
 #define MIN_YEAR 1970
 #define MAX_YEAR 2199
+#define MIN_PERIOD (60 * USEC_PER_SEC)
 
 /* An arbitrary limit on the length of the chains of components. We don't want to
  * build a very long linked list, which would be slow to iterate over and might cause
@@ -382,6 +383,13 @@ int calendar_spec_to_string(const CalendarSpec *c, char **ret) {
                 }
         }
 
+        if (c->period) {
+                char buf[FORMAT_TIMESPAN_MAX];
+                fputs(" and every ", f);
+                format_timespan(buf, sizeof(buf), c->period, 0);
+                fputs(buf, f);
+        }
+
         return memstream_finalize(&m, ret, NULL);
 }
 
@@ -617,6 +625,39 @@ static int calendarspec_from_time_t(CalendarSpec *c, time_t time) {
         c->hour = TAKE_PTR(hour);
         c->minute = TAKE_PTR(minute);
         c->microsecond = TAKE_PTR(us);
+        return 0;
+}
+
+static bool is_single_value_component(CalendarComponent *cc) {
+        assert(cc);
+        return cc->stop == -1 && cc->repeat == 0 && cc->next == NULL;
+}
+
+static int calendarspec_to_usec_t(const CalendarSpec *c, usec_t *t) {
+        struct tm tm;
+        int r;
+
+        assert(c);
+        assert(is_single_value_component(c->year));
+        assert(is_single_value_component(c->month));
+        assert(is_single_value_component(c->day));
+        assert(is_single_value_component(c->hour));
+        assert(is_single_value_component(c->minute));
+        assert(is_single_value_component(c->microsecond));
+
+        tm.tm_year = c->year->start - 1900;
+        tm.tm_mon  = c->month->start - 1;
+        tm.tm_mday = c->day->start;
+        tm.tm_hour = c->hour->start;
+        tm.tm_min  = c->minute->start;
+        tm.tm_sec  = c->microsecond->start / USEC_PER_SEC;
+        tm.tm_isdst = -1;
+
+        r = mktime_or_timegm_usec(&tm, c->utc, t);
+        if (r < 0)
+                return r;
+        if (t)
+                *t += c->microsecond->start % USEC_PER_SEC;
         return 0;
 }
 
@@ -872,6 +913,38 @@ finish:
         return 0;
 }
 
+static int parse_and_every(const char *s, usec_t *ts, usec_t *rep) {
+        _cleanup_free_ char *p_ts = NULL;
+        int i, r;
+
+        char const *p = strcasestr(s, " and ");
+        if ( !p )
+                return -EINVAL;
+
+        p_ts = strndup(s, p - s);
+        i = strlen(p_ts);
+        while ( isspace(p_ts[--i]) && i >= 0 )
+                p_ts[i] = (char)0;
+
+        r = parse_timestamp(p_ts, ts);
+        if (r < 0)
+                return r;
+
+        p += strspn(p, " ");
+        if ( !(p = startswith_no_case(p, "and ")) )
+                return -EINVAL;
+        p += strspn(p, " ");
+        if ( !(p = startswith_no_case(p, "every ")) )
+                return -EINVAL;
+        p += strspn(p, " ");
+
+        r = parse_time(p, rep, USEC_PER_SEC);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 int calendar_spec_from_string(const char *p, CalendarSpec **ret) {
         const char *utc;
         _cleanup_(calendar_spec_freep) CalendarSpec *c = NULL;
@@ -888,6 +961,21 @@ int calendar_spec_from_string(const char *p, CalendarSpec **ret) {
                 .dst = -1,
                 .timezone = NULL,
         };
+
+        if (strcasestr(p, " and ")) {
+                usec_t ts;
+                r = parse_and_every(p, &ts, &(c->period));
+                if (r < 0)
+                        return r;
+                if (c->period < MIN_PERIOD)
+                        return -ERANGE;
+                r = calendarspec_from_time_t(c, (time_t)(ts / USEC_PER_SEC));
+                if (r < 0)
+                        return r;
+                c->microsecond->start += ts % USEC_PER_SEC;
+                c->weekdays_bits = -1;
+                goto finish;
+        }
 
         utc = endswith_no_case(p, " UTC");
         if (utc) {
@@ -1089,6 +1177,7 @@ int calendar_spec_from_string(const char *p, CalendarSpec **ret) {
 
         calendar_spec_normalize(c);
 
+finish:
         if (!calendar_spec_valid(c))
                 return -EINVAL;
 
@@ -1368,6 +1457,18 @@ static int calendar_spec_next_usec_impl(const CalendarSpec *spec, usec_t usec, u
 
         if (usec > USEC_TIMESTAMP_FORMATTABLE_MAX)
                 return -EINVAL;
+
+        if ( spec->period ) {
+                usec_t ts;
+                r = calendarspec_to_usec_t(spec, &ts);
+                if (r < 0)
+                        return r;
+                if (usec < ts)
+                        *ret_next = ts;
+                else
+                        *ret_next = ts + (( (usec - ts) / spec->period ) +1) * spec->period;
+                return 0;
+        }
 
         usec++;
         r = localtime_or_gmtime_usec(usec, spec->utc, &tm);
