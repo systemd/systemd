@@ -1233,8 +1233,7 @@ static int transient_kill_set_properties(sd_bus_message *m) {
 }
 
 static int transient_service_set_properties(sd_bus_message *m, const char *pty_path, int pty_fd) {
-        int send_term = false; /* tri-state */
-        int r;
+        int r, send_term; /* tri-state */
 
         /* We disable environment expansion on the server side via ExecStartEx=:.
          * ExecStartEx was added relatively recently (v243), and some bugs were fixed only later.
@@ -1313,15 +1312,16 @@ static int transient_service_set_properties(sd_bus_message *m, const char *pty_p
                         return bus_log_create_error(r);
 
                 send_term = -1;
-        }
+        } else
+                send_term = false;
 
         if (send_term != 0) {
                 const char *e;
 
-                /* Propagate $TERM only if we are actually connected to a TTY  */
+                /* Propagate $TERM only if we are actually connected to a TTY */
                 if (isatty_safe(STDIN_FILENO) || isatty_safe(STDOUT_FILENO) || isatty_safe(STDERR_FILENO)) {
                         e = getenv("TERM");
-                        send_term = true;
+                        send_term = !!e;
                 } else
                         /* If we are not connected to any TTY ourselves, then send TERM=dumb, but only if we
                          * really need to (because we actually allocated a TTY for the service) */
