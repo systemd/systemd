@@ -168,8 +168,6 @@ int sd_json_variant_set_field_unsigned(sd_json_variant **v, const char *field, u
 int sd_json_variant_set_field_boolean(sd_json_variant **v, const char *field, int b);
 int sd_json_variant_set_field_strv(sd_json_variant **v, const char *field, char **l);
 
-int sd_json_variant_unset_field(sd_json_variant **v, const char *field);
-
 sd_json_variant* sd_json_variant_find(sd_json_variant *haystack, sd_json_variant *needle);
 
 int sd_json_variant_append_array(sd_json_variant **v, sd_json_variant *element);
