@@ -1730,7 +1730,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         STRV_FOREACH(drive, arg_extra_drives) {
                 _cleanup_free_ char *escaped_drive = NULL;
 
-                r = strv_extend(&cmdline, "-drive");
+                r = strv_extend(&cmdline, "-blockdev");
                 if (r < 0)
                         return log_oom();
 
@@ -1738,7 +1738,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (!escaped_drive)
                         return log_oom();
 
-                r = strv_extendf(&cmdline, "format=raw,cache=unsafe,file=%s", escaped_drive);
+                r = strv_extendf(&cmdline, "driver=raw,cache.direct=off,cache.no-flush=on,file.driver=file,file.filename=%s", escaped_drive);
                 if (r < 0)
                         return log_oom();
         }
