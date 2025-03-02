@@ -590,6 +590,10 @@ sensor:modalias:acpi:KIOX000A*:dmi:bvnAmericanMegatrendsInc.:bvr5.11:bd05/25/201
 sensor:modalias:acpi:MXC6655*:dmi:*:svnGPD:pnG1621-02:*
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
 
+# GPD Pocket 4
+sensor:modalias:acpi:MXC6655*:dmi:*:svnGPD:pnG1628-04:*
+ ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
+
 # GPD WinMax2
 sensor:modalias:acpi:BMI0160*:dmi:*:svnGPD:pnG1619*:*
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
