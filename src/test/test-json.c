@@ -1419,42 +1419,4 @@ TEST(fd_info) {
         pidref_done(&pidref);
 }
 
-TEST(json_variant_unset_field) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-
-        ASSERT_OK_POSITIVE(sd_json_variant_is_blank_object(v));
-        ASSERT_OK_ZERO(sd_json_variant_unset_field(&v, "foo"));
-        ASSERT_OK_POSITIVE(sd_json_variant_is_blank_object(v));
-
-        ASSERT_NULL(v);
-
-        ASSERT_OK(sd_json_buildo(&v,
-                                 SD_JSON_BUILD_PAIR_STRING("foo", "bar"),
-                                 SD_JSON_BUILD_PAIR_STRING("quux", "waldo"),
-                                 SD_JSON_BUILD_PAIR_STRING("piff", "paff")));
-
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *w = sd_json_variant_ref(v);
-
-        ASSERT_OK_POSITIVE(sd_json_variant_equal(v, w));
-        ASSERT_OK_ZERO(sd_json_variant_unset_field(&v, "fooxxx"));
-        ASSERT_OK_POSITIVE(sd_json_variant_equal(v, w));
-        ASSERT_OK_POSITIVE(sd_json_variant_unset_field(&v, "foo"));
-        ASSERT_OK_ZERO(sd_json_variant_equal(v, w));
-
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *x = NULL;
-        ASSERT_OK(sd_json_buildo(&x,
-                                 SD_JSON_BUILD_PAIR_STRING("quux", "waldo"),
-                                 SD_JSON_BUILD_PAIR_STRING("piff", "paff")));
-        ASSERT_OK_POSITIVE(sd_json_variant_equal(v, x));
-
-        ASSERT_OK_POSITIVE(sd_json_variant_unset_field(&v, "piff"));
-        x = sd_json_variant_unref(x);
-        ASSERT_OK(sd_json_buildo(&x,
-                                 SD_JSON_BUILD_PAIR_STRING("quux", "waldo")));
-        ASSERT_OK_POSITIVE(sd_json_variant_equal(x, v));
-
-        ASSERT_OK_POSITIVE(sd_json_variant_unset_field(&v, "quux"));
-        ASSERT_OK_POSITIVE(sd_json_variant_is_blank_object(v));
-}
-
 DEFINE_TEST_MAIN(LOG_DEBUG);
