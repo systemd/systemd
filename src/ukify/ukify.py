@@ -163,9 +163,9 @@ def get_zboot_kernel(f):
         raise NotImplementedError('lzo decompression not implemented')
     elif comp_type.startswith(b'xzkern'):
         raise NotImplementedError('xzkern decompression not implemented')
-    elif comp_type.startswith(b'zstd22'):
-        zstd = try_import('zstd')
-        return zstd.uncompress(f.read(size))
+    elif comp_type.startswith(b'zstd'):
+        zstd = try_import('zstandard')
+        return cast(bytes, zstd.ZstdDecompressor().stream_reader(f.read(size)).read())
     else:
         raise NotImplementedError(f'unknown compressed type: {comp_type}')
 
@@ -194,15 +194,15 @@ def maybe_decompress(filename):
         return gzip.open(f).read()
 
     if start.startswith(b'\x28\xb5\x2f\xfd'):
-        zstd = try_import('zstd')
-        return zstd.uncompress(f.read())
+        zstd = try_import('zstandard')
+        return cast(bytes, zstd.ZstdDecompressor().stream_reader(f.read()).read())
 
     if start.startswith(b'\x02\x21\x4c\x18'):
         lz4 = try_import('lz4.frame', 'lz4')
         return lz4.frame.decompress(f.read())
 
     if start.startswith(b'\x04\x22\x4d\x18'):
-        print('Newer lz4 stream format detected! This may not boot!')
+        print('Newer lz4 stream format detected! This may not boot!', file=sys.stderr)
         lz4 = try_import('lz4.frame', 'lz4')
         return lz4.frame.decompress(f.read())
 
@@ -263,7 +263,7 @@ class Uname:
             filename,
         ]
 
-        print('+', shell_join(cmd))
+        print('+', shell_join(cmd), file=sys.stderr)
         try:
             notes = subprocess.check_output(cmd, stderr=subprocess.PIPE, text=True)
         except subprocess.CalledProcessError as e:
@@ -294,10 +294,10 @@ class Uname:
         for func in (cls.scrape_x86, cls.scrape_elf, cls.scrape_generic):
             try:
                 version = func(filename, opts=opts)
-                print(f'Found uname version: {version}')
+                print(f'Found uname version: {version}', file=sys.stderr)
                 return version
             except ValueError as e:
-                print(str(e))
+                print(str(e), file=sys.stderr)
         return None
 
 DEFAULT_SECTIONS_TO_SHOW = {
@@ -424,7 +424,7 @@ def check_splash(filename):
         return
 
     img = Image.open(filename, formats=['BMP'])
-    print(f'Splash image {filename} is {img.width}×{img.height} pixels')
+    print(f'Splash image {filename} is {img.width}×{img.height} pixels', file=sys.stderr)
 
 
 def check_inputs(opts):
@@ -519,7 +519,7 @@ def call_systemd_measure(uki, linux, opts):
               for phase_path in itertools.chain.from_iterable(pp_groups)),
         ]
 
-        print('+', shell_join(cmd))
+        print('+', shell_join(cmd), file=sys.stderr)
         subprocess.check_call(cmd)
 
     # PCR signing
@@ -548,7 +548,7 @@ def call_systemd_measure(uki, linux, opts):
                 extra += [f'--public-key={pub_key}']
             extra += [f'--phase={phase_path}' for phase_path in group or ()]
 
-            print('+', shell_join(cmd + extra))
+            print('+', shell_join(cmd + extra), file=sys.stderr)
             pcrsig = subprocess.check_output(cmd + extra, text=True)
             pcrsig = json.loads(pcrsig)
             pcrsigs += [pcrsig]
@@ -622,8 +622,14 @@ def pe_add_sections(uki: UKI, output: str):
     pe.OPTIONAL_HEADER.SizeOfHeaders = round_up(pe.OPTIONAL_HEADER.SizeOfHeaders, pe.OPTIONAL_HEADER.FileAlignment)
     pe = pefile.PE(data=pe.write(), fast_load=True)
 
+    # pefile has an hardcoded limit of 256MB, which is not enough when building an initrd with large firmware
+    # files and all kernel modules. See: https://github.com/erocarrera/pefile/issues/396
     warnings = pe.get_warnings()
-    if warnings:
+    for w in warnings:
+        if 'VirtualSize is extremely large' in w:
+            continue
+        if 'VirtualAddress is beyond' in w:
+            continue
         raise PEError(f'pefile warnings treated as errors: {warnings}')
 
     security = pe.OPTIONAL_HEADER.DATA_DIRECTORY[pefile.DIRECTORY_ENTRY['IMAGE_DIRECTORY_ENTRY_SECURITY']]
@@ -697,14 +703,14 @@ def merge_sbat(input_pe: [pathlib.Path], input_text: [str]) -> str:
         try:
             pe = pefile.PE(f, fast_load=True)
         except pefile.PEFormatError:
-            print(f"{f} is not a valid PE file, not extracting SBAT section.")
+            print(f"{f} is not a valid PE file, not extracting SBAT section.", file=sys.stderr)
             continue
 
         for section in pe.sections:
             if section.Name.rstrip(b"\x00").decode() == ".sbat":
                 split = section.get_data().rstrip(b"\x00").decode().splitlines()
                 if not split[0].startswith('sbat,'):
-                    print(f"{f} does not contain a valid SBAT section, skipping.")
+                    print(f"{f} does not contain a valid SBAT section, skipping.", file=sys.stderr)
                     continue
                 # Filter out the sbat line, we'll add it back later, there needs to be only one and it
                 # needs to be first.
@@ -715,7 +721,7 @@ def merge_sbat(input_pe: [pathlib.Path], input_text: [str]) -> str:
             t = pathlib.Path(t[1:]).read_text()
         split = t.splitlines()
         if not split[0].startswith('sbat,'):
-            print(f"{t} does not contain a valid SBAT section, skipping.")
+            print(f"{t} does not contain a valid SBAT section, skipping.", file=sys.stderr)
             continue
         sbat += split[1:]
 
@@ -815,7 +821,7 @@ def make_uki(opts):
             sign(sign_tool, opts.linux, linux, opts=opts)
 
     if opts.uname is None and opts.linux is not None:
-        print('Kernel version not specified, starting autodetection 😖.')
+        print('Kernel version not specified, starting autodetection 😖.', file=sys.stderr)
         opts.uname = Uname.scrape(opts.linux, opts=opts)
 
     uki = UKI(opts.stub)
@@ -916,7 +922,7 @@ uki-addon,1,UKI Addon,addon,1,https://www.freedesktop.org/software/systemd/man/l
         os.umask(umask := os.umask(0))
         os.chmod(opts.output, 0o777 & ~umask)
 
-    print(f"Wrote {'signed' if sign_args_present else 'unsigned'} {opts.output}")
+    print(f"Wrote {'signed' if sign_args_present else 'unsigned'} {opts.output}", file=sys.stderr)
 
 
 @contextlib.contextmanager
@@ -1016,10 +1022,10 @@ def generate_keys(opts):
             common_name=cn,
             valid_days=opts.sb_cert_validity,
         )
-        print(f'Writing SecureBoot private key to {opts.sb_key}')
+        print(f'Writing SecureBoot private key to {opts.sb_key}', file=sys.stderr)
         with temporary_umask(0o077):
             opts.sb_key.write_bytes(key_pem)
-        print(f'Writing SecureBoot certificate to {opts.sb_cert}')
+        print(f'Writing SecureBoot certificate to {opts.sb_cert}', file=sys.stderr)
         opts.sb_cert.write_bytes(cert_pem)
 
         work = True
@@ -1027,11 +1033,11 @@ def generate_keys(opts):
     for priv_key, pub_key, _ in key_path_groups(opts):
         priv_key_pem, pub_key_pem = generate_priv_pub_key_pair()
 
-        print(f'Writing private key for PCR signing to {priv_key}')
+        print(f'Writing private key for PCR signing to {priv_key}', file=sys.stderr)
         with temporary_umask(0o077):
             pathlib.Path(priv_key).write_bytes(priv_key_pem)
         if pub_key:
-            print(f'Writing public key for PCR signing to {pub_key}')
+            print(f'Writing public key for PCR signing to {pub_key}', file=sys.stderr)
             pub_key.write_bytes(pub_key_pem)
 
         work = True
@@ -1067,7 +1073,7 @@ def inspect_section(opts, section):
         try:
             struct['text'] = data.decode()
         except UnicodeDecodeError as e:
-            print(f"Section {name!r} is not valid text: {e}")
+            print(f"Section {name!r} is not valid text: {e}", file=sys.stderr)
             struct['text'] = '(not valid UTF-8)'
 
     if config and config.content:
@@ -1341,7 +1347,7 @@ CONFIG_ITEMS = [
     ConfigItem(
         '--efi-arch',
         metavar = 'ARCH',
-        choices = ('ia32', 'x64', 'arm', 'aa64', 'riscv64'),
+        choices = ('ia32', 'x64', 'arm', 'aa64', 'riscv32', 'riscv64', 'loongarch32', 'loongarch64'),
         help = 'target EFI architecture',
         config_key = 'UKI/EFIArch',
     ),
@@ -1516,14 +1522,14 @@ def apply_config(namespace, filename=None):
         if namespace.config:
             # Config set by the user, use that.
             filename = namespace.config
-            print(f'Using config file: {filename}')
+            print(f'Using config file: {filename}', file=sys.stderr)
         else:
             # Try to look for a config file then use the first one found.
             for config_dir in DEFAULT_CONFIG_DIRS:
                 filename = pathlib.Path(config_dir) / DEFAULT_CONFIG_FILE
                 if filename.is_file():
                     # Found a config file, use it.
-                    print(f'Using found config file: {filename}')
+                    print(f'Using found config file: {filename}', file=sys.stderr)
                     break
             else:
                 # No config file specified or found, nothing to do.
@@ -1563,7 +1569,7 @@ def apply_config(namespace, filename=None):
             if item := CONFIGFILE_ITEMS.get(f'{section_name}/{key}'):
                 item.apply_config(namespace, section_name, group, key, value)
             else:
-                print(f'Unknown config setting [{section_name}] {key}=')
+                print(f'Unknown config setting [{section_name}] {key}=', file=sys.stderr)
 
 
 def config_example():
@@ -1638,7 +1644,7 @@ def finalize_options(opts):
     elif opts.linux or opts.initrd:
         raise ValueError('--linux/--initrd options cannot be used with positional arguments')
     else:
-        print("Assuming obsolete command line syntax with no verb. Please use 'build'.")
+        print("Assuming obsolete command line syntax with no verb. Please use 'build'.", file=sys.stderr)
         if opts.positional:
             opts.linux = pathlib.Path(opts.positional[0])
         # If we have initrds from parsing config files, append our positional args at the end

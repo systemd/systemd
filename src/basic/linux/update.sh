@@ -3,9 +3,35 @@
 set -eu
 set -o pipefail
 
-for i in *.h */*.h; do
-    curl --fail "https://raw.githubusercontent.com/torvalds/linux/master/include/uapi/linux/$i" -o "$i"
+# The directory must be userspace kernel header directory:
+# git clone git@github.com:torvalds/linux.git
+# make -C linux headers
+# ./update.sh linux
+SRCDIR=${1?}
 
-    sed -r -i -e 's/__user //g' -e '/^#include <linux\/compiler(_types)?.h>/ d' "$i"
-    sed -r -i 's/^(#include <linux\/fs\.h>)/#if WANT_LINUX_FS_H\n\1\n#endif/' "$i"
+for i in *.h */*.h; do
+    if [[ "$i" == bpf_insn.h ]]; then
+        cp "$SRCDIR/samples/bpf/$i" "$i"
+    else
+        cp "$SRCDIR/usr/include/linux/$i" "$i"
+    fi
+
+    case "$i" in
+        auto_dev-ioctl.h)
+            # set AUTOFS_DEV_IOCTL_VERSION_MINOR to 0
+            sed -r -i '/^#define[[:space:]]+AUTOFS_DEV_IOCTL_VERSION_MINOR/ s/[0-9]+/0/' "$i"
+            ;;
+        btrfs.h)
+            # guard linux/fs.h include to avoid conflict with glibc 2.36
+            sed -r -i 's/^(#include <linux\/fs\.h>)/#if WANT_LINUX_FS_H\n\1\n#endif/' "$i"
+            ;;
+        dm-ioctl.h)
+            # set DM_VERSION_MINOR to 27
+            sed -r -i '/^#define[[:space:]]+DM_VERSION_MINOR/ s/[0-9]+/27/' "$i"
+            ;;
+        ethtool.h)
+            # add casts in ethtool_cmd_speed()
+            sed -r -i '/return (ep->speed_hi << 16) | ep->speed;/ s/return .*;/return ((__u32) ep->speed_hi << 16) | (__u32) ep->speed;/' "$i"
+            ;;
+    esac
 done

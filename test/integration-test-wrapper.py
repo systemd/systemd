@@ -133,13 +133,23 @@ def main() -> None:
             """
         )
 
+    if sys.stderr.isatty():
+        dropin += textwrap.dedent(
+            """
+            [Service]
+            ExecStartPre=/usr/lib/systemd/tests/testdata/integration-test-setup.sh setup
+            ExecStopPost=/usr/lib/systemd/tests/testdata/integration-test-setup.sh finalize
+            StateDirectory=%N
+            """
+        )
+
     cmd = [
         args.mkosi,
         '--directory', os.fspath(args.meson_source_dir),
         '--output-dir', os.fspath(args.meson_build_dir / 'mkosi.output'),
         '--extra-search-path', os.fspath(args.meson_build_dir),
         '--machine', name,
-        '--ephemeral',
+        '--ephemeral=yes',
         *(['--forward-journal', journal_file] if journal_file else []),
         *(
             [

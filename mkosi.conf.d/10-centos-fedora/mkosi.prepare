@@ -12,8 +12,11 @@ for DEPS in --requires --recommends --suggests; do
     # We need --latest-limit=1 to only consider the newest version of the packages.
     # --latest-limit=1 is per <name>.<arch> so we have to pass --arch= explicitly to make sure i686 packages
     # are not considered on x86-64.
+    # Because mkosi does not download the filelists repository metadata, we have to exclude all path based
+    # dependencies, (even those within /usr and /bin because of
+    # https://bugzilla.redhat.com/show_bug.cgi?id=2263771).
     dnf repoquery --arch="$DISTRIBUTION_ARCHITECTURE,noarch" --latest-limit=1 --quiet "$DEPS" "${PACKAGES[@]}" |
-        grep --extended-regexp --invert-match --regexp "$(IFS=\| ; echo "${PACKAGES[*]}")" --regexp /bin/sh --regexp grubby --regexp sdubby --regexp libcurl-minimal |
+        grep --extended-regexp --invert-match --regexp "$(IFS=\| ; echo "${PACKAGES[*]}")" --regexp /bin --regexp /usr --regexp grubby --regexp sdubby --regexp libcurl-minimal |
         sort --unique |
         xargs --delimiter '\n' --no-run-if-empty mkosi-install
 done

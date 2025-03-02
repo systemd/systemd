@@ -89,13 +89,6 @@ jobs:
             cflags: "-Og"
             relabel: yes
             qemu: 0
-          - distro: opensuse
-            release: tumbleweed
-            sanitizers: ""
-            llvm: 0
-            cflags: "-Og"
-            relabel: no
-            qemu: 0
           - distro: centos
             release: "9"
             sanitizers: ""
@@ -152,6 +145,9 @@ jobs:
 
           [Build]
           UseSubvolumes=yes
+          ToolsTree=default
+          ToolsTreeDistribution=fedora
+          ToolsTreeRelease=rawhide
 
           WorkspaceDirectory=$TMPDIR
           PackageCacheDirectory=$TMPDIR/cache

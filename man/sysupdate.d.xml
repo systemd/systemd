@@ -81,7 +81,7 @@
       UUID of 2c7357ed-ebd2-46d9-aec1-23d437ec2bf5 (i.e. the partition type for Verity integrity information
       for x86-64 root file systems).</para></listitem>
 
-      <listitem><para>Finally, a file <literal>https://download.example.com/foobarOS_47.efi.xz</literal> (a
+      <listitem><para>Finally, a file <literal>https://download.example.com/foobarOS_47.efi</literal> (a
       unified kernel, as per <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader
       Specification</ulink> Type #2) should be downloaded, decompressed and written to the $BOOT file system,
       i.e. to <filename>EFI/Linux/foobarOS_47.efi</filename> in the ESP or XBOOTLDR partition.</para></listitem>
@@ -99,7 +99,7 @@
       → a local, previously empty GPT partition of type 2c7357ed-ebd2-46d9-aec1-23d437ec2bf5, with the label to be
       set to <literal>foobarOS_@v_verity</literal>.</para></listitem>
 
-      <listitem><para>A transfer of a file <literal>https://download.example.com/foobarOS_@v.efi.xz</literal>
+      <listitem><para>A transfer of a file <literal>https://download.example.com/foobarOS_@v.efi</literal>
       → a local file <filename>$BOOT/EFI/Linux/foobarOS_@v.efi</filename>.</para></listitem>
     </orderedlist>
 
@@ -882,7 +882,7 @@ ProtectVersion=%A
 [Source]
 Type=url-file
 Path=https://download.example.com/
-MatchPattern=foobarOS_@v.efi.xz
+MatchPattern=foobarOS_@v.efi
 
 [Target]
 Type=regular-file
@@ -891,7 +891,7 @@ PathRelativeTo=boot
 MatchPattern=foobarOS_@v+@l-@d.efi \
              foobarOS_@v+@l.efi \
              foobarOS_@v.efi
-Mode=0444
+Mode=0644
 TriesLeft=3
 TriesDone=0
 InstancesMax=2</programlisting></para>
@@ -911,7 +911,7 @@ InstancesMax=2</programlisting></para>
           <listitem><para><filename>SHA256SUMS.gpg</filename> – The detached cryptographic signature for the manifest file</para></listitem>
           <listitem><para><filename>foobarOS_7_8b8186b1-2b4e-4eb6-ad39-8d4d18d2a8fb.verity.xz</filename> – The Verity image for version 7</para></listitem>
           <listitem><para><filename>foobarOS_7_f4d1234f-3ebf-47c4-b31d-4052982f9a2f.root.xz</filename> – The root file system image for version 7</para></listitem>
-          <listitem><para><filename>foobarOS_7_efi.xz</filename> – The unified kernel image for version 7</para></listitem>
+          <listitem><para><filename>foobarOS_7.efi</filename> – The unified kernel image for version 7</para></listitem>
         </itemizedlist>
 
         <para>For each new OS release a new set of the latter three files would be added, each time with an

@@ -61,6 +61,7 @@ executables += [
                         libzstd_cflags,
                         threads,
                 ],
+                'install_tag' : 'systemctl',
         },
         fuzz_template + {
                 'sources' : [

@@ -723,7 +723,7 @@ node /org/freedesktop/login1 {
       <title>Signals</title>
 
       <para>Whenever the inhibition state or idle hint changes, <function>PropertyChanged</function>
-      signals are sent out to which clients can subscribe.</para>
+      signals are sent out to clients which have subscribed.</para>
 
       <para>The <function>SessionNew()</function>, <function>SessionRemoved()</function>,
       <function>UserNew()</function>, <function>UserRemoved()</function>, <function>SeatNew()</function>, and
@@ -958,8 +958,13 @@ node /org/freedesktop/login1/seat/seat0 {
 
       <para>Whenever <function>ActiveSession</function>, <function>Sessions</function>,
       <function>CanGraphical</function>, <function>CanTTY</function>,
-      or the idle state changes, <function>PropertyChanged</function> signals are sent out to which clients
-      can subscribe.</para>
+      or the idle state changes, <function>PropertyChanged</function> signals are sent out to clients which
+      have subscribed.</para>
+
+      <para>Signals are only emitted on objects referencing a specific seat ID, not on the
+      <literal>/org/freedesktop/login1/seat/self</literal> or
+      <literal>/org/freedesktop/login1/seat/auto</literal> convenience objects, as they can only be
+      dereferenced relative to a method caller.</para>
     </refsect2>
 
     <refsect2>
@@ -1079,7 +1084,11 @@ node /org/freedesktop/login1/user/_1000 {
       <title>Signals</title>
 
       <para>Whenever <varname>Sessions</varname> or the idle state changes,
-      <function>PropertyChanged</function> signals are sent out to which clients can subscribe.</para>
+      <function>PropertyChanged</function> signals are sent out to clients which have subscribed.</para>
+
+      <para>Signals are only emitted on objects referencing a specific UID, not on the
+      <literal>/org/freedesktop/login1/user/self</literal> convenience object, as <varname>self</varname>
+      can only be dereferenced relative to a method caller.</para>
     </refsect2>
 
     <refsect2>
@@ -1427,12 +1436,17 @@ node /org/freedesktop/login1/session/1 {
       open file descriptor in the kernel (except for a limited set of device types).</para>
 
       <para>Whenever <function>Active</function> or the idle state changes,
-      <function>PropertyChanged</function> signals are sent out to which clients can subscribe.</para>
+      <function>PropertyChanged</function> signals are sent out to clients which have subscribed.</para>
 
       <para><function>Lock()</function>/<function>Unlock()</function> is sent when the session is asked to be
       screen-locked/unlocked. A session manager of the session should listen to this signal and act
       accordingly. This signal is sent out as a result of the <function>Lock()</function> and
       <function>Unlock()</function> methods, respectively.</para>
+
+      <para>Signals are only emitted on objects referencing a specific session ID, not on the
+      <literal>/org/freedesktop/login1/session/self</literal> or
+      <literal>/org/freedesktop/login1/session/auto</literal> convenience objects, as they can only be
+      dereferenced relative to a method caller.</para>
     </refsect2>
 
     <refsect2>

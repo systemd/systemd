@@ -140,9 +140,12 @@
     <para><function>sd_pid_notify()</function> and <function>sd_pid_notifyf()</function> are similar to
     <function>sd_notify()</function> and <function>sd_notifyf()</function> but take a process ID (PID) to use
     as originating PID for the message as first argument. This is useful to send notification messages on
-    behalf of other processes, provided the appropriate privileges are available. If the PID argument is
-    specified as 0, the process ID of the calling process is used, in which case the calls are fully
-    equivalent to <function>sd_notify()</function> and <function>sd_notifyf()</function>.</para>
+    behalf of other processes, provided the appropriate privileges are available. Effectively, this means
+    that a privileged invocation of <command>sd_pid_notify()</command> may circumvent
+    <varname>NotifyAccess=main</varname> or <varname>NotifyAccess=exec</varname> restrictions enforced for a
+    service. If the PID argument is specified as 0, the process ID of the calling process is used, in which
+    case the calls are fully equivalent to <function>sd_notify()</function> and
+    <function>sd_notifyf()</function>.</para>
 
     <para><function>sd_pid_notify_with_fds()</function> is similar to <function>sd_pid_notify()</function>
     but takes an additional array of file descriptors. These file descriptors are sent along the notification
