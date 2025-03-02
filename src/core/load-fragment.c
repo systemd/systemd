@@ -6367,8 +6367,8 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_syscall_errno,         "ERRNO" },
                 { config_parse_syscall_log,           "SYSCALLS" },
                 { config_parse_address_families,      "FAMILIES" },
-                { config_parse_namespace_flags,       "NAMESPACES" },
 #endif
+                { config_parse_namespace_flags,       "NAMESPACES" },
                 { config_parse_restrict_filesystems,  "FILESYSTEMS"  },
                 { config_parse_cpu_shares,            "SHARES" },
                 { config_parse_cg_weight,             "WEIGHT" },
