@@ -1847,6 +1847,35 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
    </refsect2>
   </refsect1>
 
+  <refsect1>
+    <title>Hotkeys</title>
+
+    <para>When invoked in interactive mode (i.e. the default <option>--console=interactive</option>), a few
+    special keyboard shortcuts are understood that control the container runtime. These shortcuts need to be
+    typed within 1s to have effect, otherwise they will be forwarded to the container as regular
+    keypresses.</para>
+
+    <variablelist>
+      <varlistentry>
+        <term>Ctrl-] Ctrl-] Ctrl-]</term>
+        <listitem><para>Immediately terminate the container, killing all processes.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>Ctrl-] Ctrl-] r</term>
+        <listitem><para>Issue a reboot request to the container.</para>
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>Ctrl-] Ctrl-] p</term>
+        <listitem><para>Issue a shutdown request to the container.</para>
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+    </variablelist>
+  </refsect1>
+
   <xi:include href="common-variables.xml" />
 
   <refsect1>
