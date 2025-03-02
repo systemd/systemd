@@ -103,6 +103,8 @@ struct PTYForward {
 
         PTYForwardHangupHandler hangup_handler;
         void *hangup_userdata;
+        PTYForwardHotkeyHandler hotkey_handler;
+        void *hotkey_userdata;
 
         char *background_color;
         AnsiColorState ansi_color_state;
@@ -198,17 +200,26 @@ static int pty_forward_done(PTYForward *f, int rcode) {
         return sd_event_exit(e, rcode < 0 ? EXIT_FAILURE : rcode);
 }
 
-static bool look_for_escape(PTYForward *f, const char *buffer, size_t n) {
-        const char *p;
+typedef enum RequestOperation {
+        REQUEST_NOP,
+        REQUEST_EXIT,
+        REQUEST_HOTKEY_BASE,
+        REQUEST_HOTKEY_A = REQUEST_HOTKEY_BASE + 'a',
+        REQUEST_HOTKEY_Z = REQUEST_HOTKEY_BASE + 'z',
+        _REQUEST_OPERATION_MAX,
+        _REQUEST_OPERATION_INVALID = -EINVAL,
+} RequestOperation;
 
+static RequestOperation look_for_escape(PTYForward *f, const char *buffer, size_t n) {
         assert(f);
         assert(buffer);
         assert(n > 0);
 
-        for (p = buffer; p < buffer + n; p++) {
+        for (const char *p = buffer; p < buffer + n; p++) {
 
-                /* Check for ^] */
-                if (*p == 0x1D) {
+                switch (*p) {
+
+                case 0x1D: { /* Check for ^] */
                         usec_t nw = now(CLOCK_MONOTONIC);
 
                         if (f->escape_counter == 0 || nw > f->escape_timestamp + ESCAPE_USEC) {
@@ -218,15 +229,33 @@ static bool look_for_escape(PTYForward *f, const char *buffer, size_t n) {
                                 (f->escape_counter)++;
 
                                 if (f->escape_counter >= 3)
-                                        return true;
+                                        return REQUEST_EXIT;
                         }
-                } else {
+
+                        break;
+                }
+
+                case 'a'...'z':
+                        if (f->escape_counter == 2) {
+                                usec_t nw = now(CLOCK_MONOTONIC);
+
+                                if (nw <= f->escape_timestamp + ESCAPE_USEC) {
+                                        f->escape_timestamp = 0;
+                                        f->escape_counter = 0;
+                                        return REQUEST_HOTKEY_BASE + *p;
+                                }
+                        }
+
+                        _fallthrough_;
+
+                default:
                         f->escape_timestamp = 0;
                         f->escape_counter = 0;
+                        break;
                 }
         }
 
-        return false;
+        return REQUEST_NOP;
 }
 
 static bool ignore_vhangup(PTYForward *f) {
@@ -654,10 +683,17 @@ static int do_shovel(PTYForward *f) {
                         } else {
                                 /* Check if ^] has been pressed three times within one second. If we get this we quite
                                  * immediately. */
-                                if (look_for_escape(f, f->in_buffer + f->in_buffer_full, k))
-                                        return -ECANCELED;
-
+                                RequestOperation q = look_for_escape(f, f->in_buffer + f->in_buffer_full, k);
                                 f->in_buffer_full += (size_t) k;
+                                if (q < 0)
+                                        return q;
+                                if (q == REQUEST_EXIT)
+                                        return -ECANCELED;
+                                if (q >= REQUEST_HOTKEY_A && q <= REQUEST_HOTKEY_Z && f->hotkey_handler) {
+                                        r = f->hotkey_handler(f, q - REQUEST_HOTKEY_BASE, f->hotkey_userdata);
+                                        if (r < 0)
+                                                return r;
+                                }
                         }
 
                         did_something = true;
@@ -1089,6 +1125,13 @@ void pty_forward_set_hangup_handler(PTYForward *f, PTYForwardHangupHandler cb, v
 
         f->hangup_handler = cb;
         f->hangup_userdata = userdata;
+}
+
+void pty_forward_set_hotkey_handler(PTYForward *f, PTYForwardHotkeyHandler cb, void *userdata) {
+        assert(f);
+
+        f->hotkey_handler = cb;
+        f->hotkey_userdata = userdata;
 }
 
 bool pty_forward_drain(PTYForward *f) {
