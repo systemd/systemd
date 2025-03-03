@@ -199,16 +199,23 @@
 
       <varlistentry>
         <term><option>--pty</option></term>
+        <term><option>--pty-late</option></term>
         <term><option>--pipe</option></term>
 
         <listitem><para>Request allocation of a pseudo TTY for the <command>run0</command> session (in case
-        of <option>--pty</option>), or request passing the caller's STDIO file descriptors directly through
-        (in case of <option>--pipe</option>). If neither switch is specified, or if both switches are
-        specified, the mode will be picked automatically: if standard input, standard output and standard
-        error output are all connected to a TTY then a pseudo TTY is allocated, otherwise the relevant file
-        descriptors are passed through directly.</para>
+        of <option>--pty</option> or <option>--pty-late</option>), or request passing the caller's STDIO file
+        descriptors directly through (in case of <option>--pipe</option>). <option>--pty-late</option> is
+        very similar to <option>--pty</option> but begins the TTY processing only once unit startup is
+        complete, leaving input to any passwords/polkit agents until that time. If neither switch is
+        specified, or if both <option>--pipe</option> and one of
+        <option>--pty</option>/<option>--pty-late</option> are specified, the mode will be picked
+        automatically: if standard input, standard output and standard error output are all connected to a
+        TTY then a pseudo TTY is allocated (in <option>--pty-late</option> mode unless
+        <option>--no-ask-password</option> is specified in which case <option>--pty</option> is selected),
+        otherwise the relevant file descriptors are passed through directly.</para>
 
-        <xi:include href="version-info.xml" xpointer="v257"/>
+        <para id="v257"><option>--pty</option> and <option>--pipe</option> were added in v257.</para>
+        <para id="v258"><option>--pty-late</option> was added in v258.</para>
         </listitem>
       </varlistentry>
 
