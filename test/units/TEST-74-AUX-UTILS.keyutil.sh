@@ -50,8 +50,14 @@ testcase_public() {
 testcase_pkcs7() {
     echo -n "test" > /tmp/payload
     openssl dgst -sha256 -sign /tmp/test.key -out /tmp/payload.sig /tmp/payload
+
+    # signature is "detached"; content not included in p7s
     /usr/lib/systemd/systemd-keyutil --certificate /tmp/test.crt --output /tmp/payload.p7s --signature /tmp/payload.sig pkcs7
     openssl smime -verify -binary -inform der -in /tmp/payload.p7s -content /tmp/payload -noverify > /dev/null
+
+    # signature is not "detached"; content is included in p7s
+    /usr/lib/systemd/systemd-keyutil --certificate /tmp/test.crt --output /tmp/payload_not_detached.p7s --signature /tmp/payload.sig --content /tmp/payload pkcs7
+    openssl smime -verify -binary -inform der -in /tmp/payload_not_detached.p7s -noverify > /dev/null
 }
 
 run_testcases
