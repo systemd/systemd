@@ -915,10 +915,7 @@ int userdb_by_name(const char *name, const UserDBMatch *match, UserDBFlags flags
         /* NB: we always apply our own filtering here, explicitly, regardless if the server supported it or
          * not. It's more robust this way, we never know how carefully the server is written, and whether it
          * properly implements all details of the filtering logic. */
-        r = user_record_match(ur, match);
-        if (r < 0)
-                return r;
-        if (r == 0)
+        if (!user_record_match(ur, match))
                 return -ENOEXEC;
 
         if (ret)
@@ -1001,10 +998,7 @@ int userdb_by_uid(uid_t uid, const UserDBMatch *match, UserDBFlags flags, UserRe
                         return r;
         }
 
-        r = user_record_match(ur, match);
-        if (r < 0)
-                return r;
-        if (r == 0)
+        if (!user_record_match(ur, match))
                 return -ENOEXEC;
 
         if (ret)
@@ -1347,16 +1341,13 @@ int groupdb_by_name(const char *name, const UserDBMatch *match, UserDBFlags flag
         }
 
         /* As above, we apply our own client-side filtering even if server-side filtering worked, for robustness and simplicity reasons. */
-        r = group_record_match(gr, match);
-        if (r < 0)
-                return r;
-        if (r == 0)
+        if (!group_record_match(gr, match))
                 return -ENOEXEC;
 
         if (ret)
                 *ret = TAKE_PTR(gr);
 
-        return r;
+        return 1;
 }
 
 static int groupdb_by_gid_fallbacks(
@@ -1432,10 +1423,7 @@ int groupdb_by_gid(gid_t gid, const UserDBMatch *match, UserDBFlags flags, Group
                         return r;
         }
 
-        r = group_record_match(gr, match);
-        if (r < 0)
-                return r;
-        if (r == 0)
+        if (!group_record_match(gr, match))
                 return -ENOEXEC;
 
         if (ret)
