@@ -1487,7 +1487,7 @@ int copy_file_at_full(
         if (r < 0)
                 return r;
 
-        if (chattr_mask != 0)
+        if ((chattr_mask & CHATTR_EARLY_FL) != 0)
                 (void) chattr_fd(fdt, chattr_flags, chattr_mask & CHATTR_EARLY_FL);
 
         r = copy_bytes_full(fdf, fdt, UINT64_MAX, copy_flags & ~COPY_LOCK_BSD, NULL, NULL, progress_bytes, userdata);
@@ -1504,7 +1504,7 @@ int copy_file_at_full(
         }
 
         unsigned nocow = FLAGS_SET(copy_flags, COPY_NOCOW_AFTER) ? FS_NOCOW_FL : 0;
-        if ((chattr_mask | nocow) != 0)
+        if (((chattr_mask & ~CHATTR_EARLY_FL) | nocow) != 0)
                 (void) chattr_fd(fdt, chattr_flags | nocow, (chattr_mask & ~CHATTR_EARLY_FL) | nocow);
 
         if (copy_flags & (COPY_FSYNC|COPY_FSYNC_FULL)) {
@@ -1570,7 +1570,7 @@ int copy_file_atomic_at_full(
         if (r < 0)
                 return r;
 
-        if (chattr_mask != 0)
+        if ((chattr_mask & CHATTR_EARLY_FL) != 0)
                 (void) chattr_fd(fdt, chattr_flags, chattr_mask & CHATTR_EARLY_FL);
 
         r = copy_file_fd_at_full(dir_fdf, from, fdt, copy_flags, progress_bytes, userdata);
@@ -1593,7 +1593,7 @@ int copy_file_atomic_at_full(
         t = mfree(t);
 
         unsigned nocow = FLAGS_SET(copy_flags, COPY_NOCOW_AFTER) ? FS_NOCOW_FL : 0;
-        if ((chattr_mask | nocow) != 0)
+        if (((chattr_mask & ~CHATTR_EARLY_FL) | nocow) != 0)
                 (void) chattr_fd(fdt, chattr_flags | nocow, (chattr_mask & ~CHATTR_EARLY_FL) | nocow);
 
         r = close_nointr(TAKE_FD(fdt)); /* even if this fails, the fd is now invalidated */
