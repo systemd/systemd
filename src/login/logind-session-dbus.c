@@ -19,7 +19,6 @@
 #include "logind-session.h"
 #include "logind-user-dbus.h"
 #include "logind.h"
-#include "missing_capability.h"
 #include "path-util.h"
 #include "signal-util.h"
 #include "strv.h"
