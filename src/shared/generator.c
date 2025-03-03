@@ -1030,3 +1030,22 @@ bool generator_soft_rebooted(void) {
 
         return (cached = u > 0);
 }
+
+GptAutoRoot parse_gpt_auto_root(const char *value) {
+        assert(value);
+
+        /* Parses the 'gpt-auto'/'gpt-auto-root' parameters to root= */
+
+        if (streq(value, "gpt-auto")) {
+                log_debug("Enabling root partition auto-detection (respecting factory reset mode), root= is explicitly set to 'gpt-auto'.");
+                return GPT_AUTO_ROOT_ON;
+        }
+
+        if (streq(value, "gpt-auto-force")) {
+                log_debug("Enabling root partition auto-detection (ignoring factory reset mode), root= is explicitly set to 'gpt-auto-force'.");
+                return GPT_AUTO_ROOT_FORCE;
+        }
+
+        log_debug("Disabling root partition auto-detection, root= is neither unset, nor set to 'gpt-auto' or 'gpt-auto-force'.");
+        return GPT_AUTO_ROOT_OFF;
+}
