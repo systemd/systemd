@@ -208,7 +208,7 @@ int ppoll_usec_full(struct pollfd *fds, size_t nfds, usec_t timeout, const sigse
          *  to handle signals, such as signalfd() or signal handlers. ⚠️ ⚠️ ⚠️
          */
 
-        if (nfds == 0)
+        if (nfds == 0 && timeout == 0)
                 return 0;
 
         r = ppoll(fds, nfds, timeout == USEC_INFINITY ? NULL : TIMESPEC_STORE(timeout), ss);
