@@ -204,7 +204,7 @@ static void journal_file_set_offline_internal(JournalFile *f) {
                          * copy all data to a new file without the NOCOW flag set. */
 
                         if (f->archive) {
-                                r = chattr_fd(f->fd, 0, FS_NOCOW_FL, NULL);
+                                r = chattr_fd(f->fd, 0, FS_NOCOW_FL);
                                 if (r >= 0)
                                         continue;
 

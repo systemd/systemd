@@ -74,7 +74,7 @@ static void run_test(void) {
 
         assert_se(mkdtemp(t));
         assert_se(chdir(t) >= 0);
-        (void) chattr_path(t, FS_NOCOW_FL, FS_NOCOW_FL, NULL);
+        (void) chattr_path(t, FS_NOCOW_FL, FS_NOCOW_FL);
 
         assert_se(journal_file_open(-EBADF, "one.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS, 0666, UINT64_MAX, NULL, m, NULL, &one) == 0);
         assert_se(journal_file_open(-EBADF, "two.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS, 0666, UINT64_MAX, NULL, m, NULL, &two) == 0);
