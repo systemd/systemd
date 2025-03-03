@@ -216,7 +216,7 @@ REQUIREMENTS:
         PAM >= 1.1.2 (optional)
         libcryptsetup >= 2.0.1 (optional),
                       >= 2.3.0 is required for signed Verity images support
-        libaudit (optional)
+        libaudit >= 2.7.4 (optional)
         libacl (optional)
         libbpf >= 0.1.0 (optional),
                >= 1.4.0 is required for using GCC as a bpf compiler

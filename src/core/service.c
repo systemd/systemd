@@ -6,6 +6,10 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#if HAVE_AUDIT
+#  include <libaudit.h>
+#endif
+
 #include "sd-messages.h"
 
 #include "alloc-util.h"
@@ -31,7 +35,6 @@
 #include "load-fragment.h"
 #include "log.h"
 #include "manager.h"
-#include "missing_audit.h"
 #include "mount-util.h"
 #include "open-file.h"
 #include "parse-util.h"
@@ -5703,6 +5706,8 @@ const UnitVTable service_vtable = {
 
         .notify_plymouth = true,
 
+#if HAVE_AUDIT
         .audit_start_message_type = AUDIT_SERVICE_START,
         .audit_stop_message_type = AUDIT_SERVICE_STOP,
+#endif
 };

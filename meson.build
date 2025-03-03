@@ -1182,6 +1182,7 @@ libacl = dependency('libacl',
 conf.set10('HAVE_ACL', libacl.found())
 
 libaudit = dependency('audit',
+                      version : '>= 2.7.4',
                       required : get_option('audit'))
 conf.set10('HAVE_AUDIT', libaudit.found())
 

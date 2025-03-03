@@ -113,7 +113,6 @@ basic_sources = files(
         'xattr-util.c',
 )
 
-missing_audit_h = files('missing_audit.h')
 missing_socket_h = files('missing_socket.h')
 
 missing_syscall_def_h = files('missing_syscall_def.h')
