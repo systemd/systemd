@@ -11,6 +11,7 @@
 #include "sd-json.h"
 
 #include "alloc-util.h"
+#include "ask-password-agent.h"
 #include "build.h"
 #include "bus-error.h"
 #include "bus-locator.h"
@@ -72,10 +73,11 @@ static char **arg_environment = NULL;
 static char **arg_property = NULL;
 static enum {
         ARG_STDIO_NONE,      /* The default, as it is for normal services, stdin connected to /dev/null, and stdout+stderr to the journal */
-        ARG_STDIO_PTY,       /* Interactive behaviour, requested by --pty: we allocate a pty and connect it to the TTY we are invoked from */
+        ARG_STDIO_PTY,       /* Interactive behaviour, requested by --pty/--pty-late: we allocate a pty and connect it to the TTY we are invoked from */
         ARG_STDIO_DIRECT,    /* Directly pass our stdin/stdout/stderr to the activated service, useful for usage in shell pipelines, requested by --pipe */
-        ARG_STDIO_AUTO,      /* If --pipe and --pty are used together we use --pty when invoked on a TTY, and --pipe otherwise */
+        ARG_STDIO_AUTO,      /* If --pipe and --pty/--pty-late are used together we use --pty/--pty-late when invoked on a TTY, and --pipe otherwise */
 } arg_stdio = ARG_STDIO_NONE;
+static int arg_pty_late = -1; /* tristate */
 static char **arg_path_property = NULL;
 static char **arg_socket_property = NULL;
 static char **arg_timer_property = NULL;
@@ -143,6 +145,8 @@ static int help(void) {
                "  -E --setenv=NAME[=VALUE]        Set environment variable\n"
                "  -t --pty                        Run service on pseudo TTY as STDIN/STDOUT/\n"
                "                                  STDERR\n"
+               "  -T --pty-late                   Just like --pty, but leave TTY access to agents\n"
+               "                                  until unit is started up\n"
                "  -P --pipe                       Pass STDIN/STDOUT/STDERR directly to service\n"
                "  -q --quiet                      Suppress information messages during runtime\n"
                "     --json=pretty|short|off      Print unit name and invocation id as JSON\n"
@@ -205,6 +209,8 @@ static int help_sudo_mode(void) {
                "     --setenv=NAME[=VALUE]        Set environment variable\n"
                "     --background=COLOR           Set ANSI color for background\n"
                "     --pty                        Request allocation of a pseudo TTY for stdio\n"
+               "     --pty-late                   Just like --pty, but leave TTY access to agents\n"
+               "                                  until unit is started up\n"
                "     --pipe                       Request direct pipe for stdio\n"
                "     --shell-prompt-prefix=PREFIX Set $SHELL_PROMPT_PREFIX\n"
                "     --lightweight=BOOLEAN        Control whether to register a session with service manager\n"
@@ -317,6 +323,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "property",           required_argument, NULL, 'p'                    },
                 { "tty",                no_argument,       NULL, 't'                    }, /* deprecated alias */
                 { "pty",                no_argument,       NULL, 't'                    },
+                { "pty-late",           no_argument,       NULL, 'T'                    },
                 { "pipe",               no_argument,       NULL, 'P'                    },
                 { "quiet",              no_argument,       NULL, 'q'                    },
                 { "on-active",          required_argument, NULL, ARG_ON_ACTIVE          },
@@ -352,7 +359,7 @@ static int parse_argv(int argc, char *argv[]) {
         /* Resetting to 0 forces the invocation of an internal initialization routine of getopt_long()
          * that checks for GNU extensions in optstring ('-' or '+' at the beginning). */
         optind = 0;
-        while ((c = getopt_long(argc, argv, "+hrC:H:M:E:p:tPqGdSu:", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "+hrC:H:M:E:p:tTPqGdSu:", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -465,15 +472,18 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
+                case 'T': /* --pty-late */
                 case 't': /* --pty */
                         if (IN_SET(arg_stdio, ARG_STDIO_DIRECT, ARG_STDIO_AUTO)) /* if --pipe is already used, upgrade to auto mode */
                                 arg_stdio = ARG_STDIO_AUTO;
                         else
                                 arg_stdio = ARG_STDIO_PTY;
+
+                        arg_pty_late = c == 'T';
                         break;
 
                 case 'P': /* --pipe */
-                        if (IN_SET(arg_stdio, ARG_STDIO_PTY, ARG_STDIO_AUTO)) /* If --pty is already used, upgrade to auto mode */
+                        if (IN_SET(arg_stdio, ARG_STDIO_PTY, ARG_STDIO_AUTO)) /* If --pty/--pty-late is already used, upgrade to auto mode */
                                 arg_stdio = ARG_STDIO_AUTO;
                         else
                                 arg_stdio = ARG_STDIO_DIRECT;
@@ -700,12 +710,16 @@ static int parse_argv(int argc, char *argv[]) {
         }
 
         if (arg_stdio == ARG_STDIO_AUTO)
-                /* If we both --pty and --pipe are specified we'll automatically pick --pty if we are connected fully
-                 * to a TTY and pick direct fd passing otherwise. This way, we automatically adapt to usage in a shell
-                 * pipeline, but we are neatly interactive with tty-level isolation otherwise. */
+                /* If we both --pty/--pty-late and --pipe are specified we'll automatically pick --pty/--pty-late if we
+                 * are connected fully to a TTY and pick direct fd passing otherwise. This way, we
+                 * automatically adapt to usage in a shell pipeline, but we are neatly interactive with
+                 * tty-level isolation otherwise. */
                 arg_stdio = isatty_safe(STDIN_FILENO) && isatty_safe(STDOUT_FILENO) && isatty_safe(STDERR_FILENO) ?
                         ARG_STDIO_PTY :
                         ARG_STDIO_DIRECT;
+
+        if (arg_pty_late < 0)
+                arg_pty_late = false; /* For systemd-run this defaults to false, for compat reasons */
 
         if (argc > optind) {
                 char **l;
@@ -748,17 +762,19 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "--remain-after-exit and --service-type= are not supported in --scope mode.");
 
-        if (arg_stdio != ARG_STDIO_NONE && (with_trigger || arg_scope))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "--pty/--pipe is not compatible in timer or --scope mode.");
+        if (arg_stdio != ARG_STDIO_NONE) {
+                if (with_trigger || arg_scope)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "--pty/--pty-late/--pipe is not compatible in timer or --scope mode.");
 
-        if (arg_stdio != ARG_STDIO_NONE && arg_transport == BUS_TRANSPORT_REMOTE)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "--pty/--pipe is only supported when connecting to the local system or containers.");
+                if (arg_transport == BUS_TRANSPORT_REMOTE)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "--pty/--pty-late/--pipe is only supported when connecting to the local system or containers.");
 
-        if (arg_stdio != ARG_STDIO_NONE && arg_no_block)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "--pty/--pipe is not compatible with --no-block.");
+                if (arg_no_block)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "--pty/--pty-late/--pipe is not compatible with --no-block.");
+        }
 
         if (arg_scope && with_trigger)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -800,6 +816,7 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                 ARG_SETENV,
                 ARG_BACKGROUND,
                 ARG_PTY,
+                ARG_PTY_LATE,
                 ARG_PIPE,
                 ARG_SHELL_PROMPT_PREFIX,
                 ARG_LIGHTWEIGHT,
@@ -825,6 +842,7 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                 { "setenv",              required_argument, NULL, ARG_SETENV              },
                 { "background",          required_argument, NULL, ARG_BACKGROUND          },
                 { "pty",                 no_argument,       NULL, ARG_PTY                 },
+                { "pty-late",            no_argument,       NULL, ARG_PTY_LATE            },
                 { "pipe",                no_argument,       NULL, ARG_PIPE                },
                 { "shell-prompt-prefix", required_argument, NULL, ARG_SHELL_PROMPT_PREFIX },
                 { "lightweight",         required_argument, NULL, ARG_LIGHTWEIGHT         },
@@ -922,14 +940,17 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                         break;
 
                 case ARG_PTY:
+                case ARG_PTY_LATE:
                         if (IN_SET(arg_stdio, ARG_STDIO_DIRECT, ARG_STDIO_AUTO)) /* if --pipe is already used, upgrade to auto mode */
                                 arg_stdio = ARG_STDIO_AUTO;
                         else
                                 arg_stdio = ARG_STDIO_PTY;
+
+                        arg_pty_late = c == ARG_PTY_LATE;
                         break;
 
                 case ARG_PIPE:
-                        if (IN_SET(arg_stdio, ARG_STDIO_PTY, ARG_STDIO_AUTO)) /* If --pty is already used, upgrade to auto mode */
+                        if (IN_SET(arg_stdio, ARG_STDIO_PTY, ARG_STDIO_AUTO)) /* If --pty/--pty-late is already used, upgrade to auto mode */
                                 arg_stdio = ARG_STDIO_AUTO;
                         else
                                 arg_stdio = ARG_STDIO_DIRECT;
@@ -998,8 +1019,9 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
 
         if (IN_SET(arg_stdio, ARG_STDIO_NONE, ARG_STDIO_AUTO))
                 arg_stdio = isatty_safe(STDIN_FILENO) && isatty_safe(STDOUT_FILENO) && isatty_safe(STDERR_FILENO) ? ARG_STDIO_PTY : ARG_STDIO_DIRECT;
-
         log_debug("Using %s stdio mode.", arg_stdio == ARG_STDIO_PTY ? "pty" : "direct");
+        if (arg_pty_late < 0)
+                arg_pty_late = arg_ask_password; /* for run0 this defaults to on, except if --no-ask-pasword is used */
 
         arg_expand_environment = false;
         arg_send_sighup = true;
@@ -1545,13 +1567,16 @@ static int connect_bus(sd_bus **ret) {
 typedef struct RunContext {
         sd_event *event;
         PTYForward *forward;
-        char *service;
+        char *unit;
         char *bus_path;
+        char *start_job;
+        int pty_fd;
 
         /* Bus objects */
         sd_bus *bus;
         sd_bus_slot *match_properties_changed;
         sd_bus_slot *match_disconnected;
+        sd_bus_slot *match_job_removed;
         sd_event_source *retry_timer;
 
         /* Current state of the unit */
@@ -1589,8 +1614,9 @@ static void run_context_done(RunContext *c) {
 
         free(c->active_state);
         free(c->result);
+        free(c->unit);
         free(c->bus_path);
-        free(c->service);
+        free(c->start_job);
 }
 
 static int on_retry_timer(sd_event_source *s, uint64_t usec, void *userdata) {
@@ -1644,7 +1670,9 @@ static int run_context_reconnect(RunContext *c) {
 static void run_context_check_done(RunContext *c) {
         assert(c);
 
-        bool done = STRPTR_IN_SET(c->active_state, "inactive", "failed") && !c->has_job;
+        bool done = STRPTR_IN_SET(c->active_state, "inactive", "failed") &&
+                !c->start_job &&   /* our start job */
+                !c->has_job;       /* any other job */
 
         if (done && c->forward) /* If the service is gone, it's time to drain the output */
                 done = pty_forward_drain(c->forward);
@@ -1788,6 +1816,7 @@ static void run_context_detach_bus(RunContext *c) {
 
         c->match_properties_changed = sd_bus_slot_unref(c->match_properties_changed);
         c->match_disconnected = sd_bus_slot_unref(c->match_disconnected);
+        c->match_job_removed = sd_bus_slot_unref(c->match_job_removed);
 }
 
 static int pty_forward_handler(PTYForward *f, int rcode, void *userdata) {
@@ -1987,22 +2016,39 @@ static int print_unit_invocation(const char *unit, sd_id128_t invocation_id) {
         return sd_json_variant_dump(v, arg_json_format_flags, stdout, NULL);
 }
 
-typedef struct JobDoneContext {
-        char *unit;
-        char *start_job;
-        sd_bus_slot *match;
-} JobDoneContext;
+static int run_context_setup_ptyfwd(RunContext *c) {
+        int r;
 
-static void job_done_context_done(JobDoneContext *c) {
         assert(c);
 
-        c->unit = mfree(c->unit);
-        c->start_job = mfree(c->start_job);
-        c->match = sd_bus_slot_unref(c->match);
+        if (c->pty_fd < 0 || c->forward)
+                return 0;
+
+        /* Stop agents now that we are online, to avoid TTY conflicts */
+        polkit_agent_close();
+        ask_password_agent_close();
+
+        if (!arg_quiet)
+                log_info("Press ^] three times within 1s to disconnect TTY.");
+
+        r = pty_forward_new(c->event, c->pty_fd, PTY_FORWARD_IGNORE_INITIAL_VHANGUP, &c->forward);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create PTY forwarder: %m");
+
+        pty_forward_set_handler(c->forward, pty_forward_handler, c);
+
+        /* Make sure to process any TTY events before we process bus events */
+        (void) pty_forward_set_priority(c->forward, SD_EVENT_PRIORITY_IMPORTANT);
+
+        if (!isempty(arg_background))
+                (void) pty_forward_set_background_color(c->forward, arg_background);
+
+        set_window_title(c->forward);
+        return 0;
 }
 
 static int match_job_removed(sd_bus_message *m, void *userdata, sd_bus_error *error) {
-        JobDoneContext *c = ASSERT_PTR(userdata);
+        RunContext *c = ASSERT_PTR(userdata);
         const char *path;
         int r;
 
@@ -2023,7 +2069,14 @@ static int match_job_removed(sd_bus_message *m, void *userdata, sd_bus_error *er
                           "RUN_UNIT=%s",
                           c->unit);
 
-        job_done_context_done(c);
+        r = run_context_setup_ptyfwd(c);
+        if (r < 0)
+                return sd_event_exit(c->event, r);
+
+        c->start_job = mfree(c->start_job);
+        c->match_job_removed = sd_bus_slot_unref(c->match_job_removed);
+
+        run_context_check_done(c);
         return 0;
 }
 
@@ -2031,22 +2084,36 @@ static int start_transient_service(sd_bus *bus) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
-        _cleanup_free_ char *service = NULL, *pty_path = NULL;
-        _cleanup_close_ int pty_fd = -EBADF, peer_fd = -EBADF;
+        _cleanup_free_ char *pty_path = NULL;
+        _cleanup_close_ int peer_fd = -EBADF;
         int r;
 
         assert(bus);
 
         (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+        (void) ask_password_agent_open_if_enabled(arg_transport, arg_ask_password);
+
+        _cleanup_(run_context_done) RunContext c = {
+                .pty_fd = -EBADF,
+                .cpu_usage_nsec = NSEC_INFINITY,
+                .memory_peak = UINT64_MAX,
+                .memory_swap_peak = UINT64_MAX,
+                .ip_ingress_bytes = UINT64_MAX,
+                .ip_egress_bytes = UINT64_MAX,
+                .io_read_bytes = UINT64_MAX,
+                .io_write_bytes = UINT64_MAX,
+                .inactive_exit_usec = USEC_INFINITY,
+                .inactive_enter_usec = USEC_INFINITY,
+        };
 
         if (arg_stdio == ARG_STDIO_PTY) {
 
                 if (IN_SET(arg_transport, BUS_TRANSPORT_LOCAL, BUS_TRANSPORT_CAPSULE)) {
-                        pty_fd = openpt_allocate(O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK, &pty_path);
-                        if (pty_fd < 0)
-                                return log_error_errno(pty_fd, "Failed to acquire pseudo tty: %m");
+                        c.pty_fd = openpt_allocate(O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK, &pty_path);
+                        if (c.pty_fd < 0)
+                                return log_error_errno(c.pty_fd, "Failed to acquire pseudo tty: %m");
 
-                        peer_fd = pty_open_peer(pty_fd, O_RDWR|O_NOCTTY|O_CLOEXEC);
+                        peer_fd = pty_open_peer(c.pty_fd, O_RDWR|O_NOCTTY|O_CLOEXEC);
                         if (peer_fd < 0)
                                 return log_error_errno(peer_fd, "Failed to open pty peer: %m");
 
@@ -2078,19 +2145,19 @@ static int start_transient_service(sd_bus *bus) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to get machine PTY: %s", bus_error_message(&error, r));
 
-                        r = sd_bus_message_read(pty_reply, "hs", &pty_fd, &s);
+                        r = sd_bus_message_read(pty_reply, "hs", &c.pty_fd, &s);
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
-                        pty_fd = fcntl(pty_fd, F_DUPFD_CLOEXEC, 3);
-                        if (pty_fd < 0)
+                        c.pty_fd = fcntl(c.pty_fd, F_DUPFD_CLOEXEC, 3);
+                        if (c.pty_fd < 0)
                                 return log_error_errno(errno, "Failed to duplicate master fd: %m");
 
                         pty_path = strdup(s);
                         if (!pty_path)
                                 return log_oom();
 
-                        peer_fd = pty_open_peer(pty_fd, O_RDWR|O_NOCTTY|O_CLOEXEC);
+                        peer_fd = pty_open_peer(c.pty_fd, O_RDWR|O_NOCTTY|O_CLOEXEC);
                         if (peer_fd < 0)
                                 return log_error_errno(peer_fd, "Failed to open PTY peer: %m");
                 } else
@@ -2098,13 +2165,16 @@ static int start_transient_service(sd_bus *bus) {
         }
 
         if (arg_unit) {
-                r = unit_name_mangle_with_suffix(arg_unit, "as unit",
-                                                 arg_quiet ? 0 : UNIT_NAME_MANGLE_WARN,
-                                                 ".service", &service);
+                r = unit_name_mangle_with_suffix(
+                                arg_unit,
+                                "as unit",
+                                arg_quiet ? 0 : UNIT_NAME_MANGLE_WARN,
+                                ".service",
+                                &c.unit);
                 if (r < 0)
                         return log_error_errno(r, "Failed to mangle unit name: %m");
         } else {
-                r = make_unit_name(UNIT_SERVICE, &service);
+                r = make_unit_name(UNIT_SERVICE, &c.unit);
                 if (r < 0)
                         return r;
         }
@@ -2113,33 +2183,30 @@ static int start_transient_service(sd_bus *bus) {
          * lets skip this however, because we should start that already when the start job is running, and
          * there's little point in waiting for the start job to complete in that case anyway, as we'll wait
          * for EOF anyway, which is going to be much later. */
-        _cleanup_(job_done_context_done) JobDoneContext job_done_context = {};
         if (!arg_no_block) {
                 if (arg_stdio == ARG_STDIO_NONE) {
                         r = bus_wait_for_jobs_new(bus, &w);
                         if (r < 0)
                                 return log_error_errno(r, "Could not watch jobs: %m");
                 } else {
-                        job_done_context.unit = strdup(service);
-                        if (!job_done_context.unit)
-                                return log_oom();
-
                         /* When we are a bus client we match by sender. Direct connections OTOH have no
                          * initialized sender field, and hence we ignore the sender then */
                         r = sd_bus_match_signal_async(
                                         bus,
-                                        &job_done_context.match,
+                                        &c.match_job_removed,
                                         sd_bus_is_bus_client(bus) ? "org.freedesktop.systemd1" : NULL,
                                         "/org/freedesktop/systemd1",
                                         "org.freedesktop.systemd1.Manager",
                                         "JobRemoved",
-                                        match_job_removed, NULL, &job_done_context);
+                                        match_job_removed,
+                                        /* add_callback= */ NULL,
+                                        &c);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to install JobRemove match: %m");
                 }
         }
 
-        r = make_transient_service_unit(bus, &m, service, pty_path, peer_fd);
+        r = make_transient_service_unit(bus, &m, c.unit, pty_path, peer_fd);
         if (r < 0)
                 return r;
         peer_fd = safe_close(peer_fd);
@@ -2154,57 +2221,42 @@ static int start_transient_service(sd_bus *bus) {
                 return bus_log_parse_error(r);
 
         if (w) {
-                r = bus_wait_for_jobs_one(w,
-                                          object,
-                                          arg_quiet ? 0 : BUS_WAIT_JOBS_LOG_ERROR,
-                                          arg_runtime_scope == RUNTIME_SCOPE_USER ? STRV_MAKE_CONST("--user") : NULL);
+                r = bus_wait_for_jobs_one(
+                                w,
+                                object,
+                                arg_quiet ? 0 : BUS_WAIT_JOBS_LOG_ERROR,
+                                arg_runtime_scope == RUNTIME_SCOPE_USER ? STRV_MAKE_CONST("--user") : NULL);
                 if (r < 0)
                         return r;
-        } else if (job_done_context.match) {
-                job_done_context.start_job = strdup(object);
-                if (!job_done_context.start_job)
+        } else if (c.match_job_removed) {
+                c.start_job = strdup(object);
+                if (!c.start_job)
                         return log_oom();
         }
 
         if (!arg_quiet) {
                 sd_id128_t invocation_id;
 
-                r = acquire_invocation_id(bus, service, &invocation_id);
+                r = acquire_invocation_id(bus, c.unit, &invocation_id);
                 if (r < 0)
                         return r;
 
-                r = print_unit_invocation(service, invocation_id);
+                r = print_unit_invocation(c.unit, invocation_id);
                 if (r < 0)
                         return r;
         }
 
         if (arg_wait || arg_stdio != ARG_STDIO_NONE) {
-                _cleanup_(run_context_done) RunContext c = {
-                        .cpu_usage_nsec = NSEC_INFINITY,
-                        .memory_peak = UINT64_MAX,
-                        .memory_swap_peak = UINT64_MAX,
-                        .ip_ingress_bytes = UINT64_MAX,
-                        .ip_egress_bytes = UINT64_MAX,
-                        .io_read_bytes = UINT64_MAX,
-                        .io_write_bytes = UINT64_MAX,
-                        .inactive_exit_usec = USEC_INFINITY,
-                        .inactive_enter_usec = USEC_INFINITY,
-                };
+                c.bus_path = unit_dbus_path_from_name(c.unit);
+                if (!c.bus_path)
+                        return log_oom();
 
                 r = sd_event_default(&c.event);
                 if (r < 0)
                         return log_error_errno(r, "Failed to get event loop: %m");
 
-                c.service = strdup(service);
-                if (!c.service)
-                        return log_oom();
-
-                c.bus_path = unit_dbus_path_from_name(service);
-                if (!c.bus_path)
-                        return log_oom();
-
                 _cleanup_(osc_context_closep) sd_id128_t osc_context_id = SD_ID128_NULL;
-                if (pty_fd >= 0) {
+                if (c.pty_fd >= 0) {
                         if (arg_exec_user && !terminal_is_dumb()) {
                                 r = osc_context_open_chpriv(arg_exec_user, /* ret_seq= */ NULL, &osc_context_id);
                                 if (r < 0)
@@ -2213,22 +2265,12 @@ static int start_transient_service(sd_bus *bus) {
 
                         (void) sd_event_set_signal_exit(c.event, true);
 
-                        if (!arg_quiet)
-                                log_info("Press ^] three times within 1s to disconnect TTY.");
+                        if (arg_pty_late == 0) { /* If late PTY mode is off, start pty forwarder immediately */
 
-                        r = pty_forward_new(c.event, pty_fd, PTY_FORWARD_IGNORE_INITIAL_VHANGUP, &c.forward);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to create PTY forwarder: %m");
-
-                        pty_forward_set_handler(c.forward, pty_forward_handler, &c);
-
-                        /* Make sure to process any TTY events before we process bus events */
-                        (void) pty_forward_set_priority(c.forward, SD_EVENT_PRIORITY_IMPORTANT);
-
-                        if (!isempty(arg_background))
-                                (void) pty_forward_set_background_color(c.forward, arg_background);
-
-                        set_window_title(c.forward);
+                                r = run_context_setup_ptyfwd(&c);
+                                if (r < 0)
+                                        return r;
+                        }
                 }
 
                 r = run_context_attach_bus(&c, bus);
@@ -2342,6 +2384,7 @@ static int start_transient_scope(sd_bus *bus) {
         }
 
         (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+        (void) ask_password_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         for (;;) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -2494,6 +2537,10 @@ static int start_transient_scope(sd_bus *bus) {
                         log_warning("Invalid environment variable name evaluates to an empty string: %s", strna(jb));
                 }
         }
+
+        /* Stop agents before we pass control away, to avoid TTY conflicts */
+        polkit_agent_close();
+        ask_password_agent_close();
 
         execvpe(arg_cmdline[0], arg_cmdline, env);
 
@@ -2650,6 +2697,7 @@ static int start_transient_trigger(sd_bus *bus, const char *suffix) {
                 return r;
 
         (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+        (void) ask_password_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         r = bus_call_with_hint(bus, m, suffix + 1, &reply);
         if (r < 0)
