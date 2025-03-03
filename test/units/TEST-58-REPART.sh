@@ -992,7 +992,7 @@ EOF
 
     # Make sure the loopback device gets cleaned up
     # shellcheck disable=SC2064
-    trap "rm -rf '$defs' '$imgs' ; losetup -d '$loop'" RETURN ERR
+    trap "rm -rf '$defs' '$imgs' ; losetup -d '$loop'" EXIT
 
     udevadm wait --timeout 60 --settle "${loop:?}p1" "${loop:?}p2"
 
@@ -1052,7 +1052,7 @@ EOF
 
     # Make sure the loopback device gets cleaned up
     # shellcheck disable=SC2064
-    trap "rm -rf '$defs' '$imgs' ; losetup -d '$loop'" RETURN ERR
+    trap "rm -rf '$defs' '$imgs' ; losetup -d '$loop'" EXIT
 
     udevadm wait --timeout 60 --settle "${loop:?}p1" "${loop:?}p2"
 

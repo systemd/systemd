@@ -1135,7 +1135,7 @@ testcase_unpriv() {
     # but definitely longer than 16 chars, so that userns name mangling in the
     # nsresourced userns allocation logic is triggered and tested. */
     name="unprv-${tmpdir##*.}-somelongsuffix"
-    trap 'rm -fr ${tmpdir@Q} || true; rm -f /run/verity.d/test-13-nspawn-${name@Q} || true' RETURN ERR
+    trap 'rm -fr ${tmpdir@Q} || true; rm -f /run/verity.d/test-13-nspawn-${name@Q} || true' EXIT
     create_dummy_ddi "$tmpdir" "$name"
     chown --recursive testuser: "$tmpdir"
 
@@ -1215,7 +1215,7 @@ testcase_unpriv_fuse() {
     # <= 31, or nsresourced will reject the request for a namespace.
     # Therefore; len($name) <= 10 bytes.
     name="ufuse-${tmpdir##*.}"
-    trap 'rm -fr ${tmpdir@Q} || true; rm -f /run/verity.d/test-13-nspawn-${name@Q} || true' RETURN ERR
+    trap 'rm -fr ${tmpdir@Q} || true; rm -f /run/verity.d/test-13-nspawn-${name@Q} || true' EXIT
     create_dummy_ddi "$tmpdir" "$name"
     chown --recursive testuser: "$tmpdir"
 

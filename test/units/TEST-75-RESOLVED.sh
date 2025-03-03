@@ -1028,7 +1028,7 @@ testcase_13_varlink_subscribe_dns_configuration() {
         resolvectl revert dns0
     }
 
-    trap cleanup RETURN ERR
+    trap cleanup EXIT
 
     local unit
     local tmpfile
@@ -1100,7 +1100,7 @@ testcase_14_refuse_record_types() {
         rm -f /run/systemd/resolved.conf.d/refuserecords.conf
         restart_resolved
     }
-    trap cleanup RETURN ERR
+    trap cleanup EXIT
 
     mkdir -p /run/systemd/resolved.conf.d
     {
