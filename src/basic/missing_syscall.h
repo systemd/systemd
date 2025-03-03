@@ -188,20 +188,6 @@ static inline int missing_pidfd_open(pid_t pid, unsigned flags) {
 
 /* ======================================================================= */
 
-#if !HAVE_RT_SIGQUEUEINFO
-static inline int missing_rt_sigqueueinfo(pid_t tgid, int sig, siginfo_t *info) {
-#  if defined __NR_rt_sigqueueinfo && __NR_rt_sigqueueinfo >= 0
-        return syscall(__NR_rt_sigqueueinfo, tgid, sig, info);
-#  else
-#    error "__NR_rt_sigqueueinfo not defined"
-#  endif
-}
-
-#  define rt_sigqueueinfo missing_rt_sigqueueinfo
-#endif
-
-/* ======================================================================= */
-
 #if !HAVE_RT_TGSIGQUEUEINFO
 static inline int missing_rt_tgsigqueueinfo(pid_t tgid, pid_t tid, int sig, siginfo_t *info) {
 #  if defined __NR_rt_tgsigqueueinfo && __NR_rt_tgsigqueueinfo >= 0
