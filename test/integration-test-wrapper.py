@@ -75,7 +75,7 @@ def main() -> None:
     keep_journal = os.getenv('TEST_SAVE_JOURNAL', 'fail')
     shell = bool(int(os.getenv('TEST_SHELL', '0')))
 
-    if shell and not sys.stderr.isatty():
+    if shell and not sys.stdin.isatty():
         print(
             '--interactive must be passed to meson test to use TEST_SHELL=1',
             file=sys.stderr,
@@ -117,7 +117,7 @@ def main() -> None:
         )
 
     journal_file = None
-    if not sys.stderr.isatty():
+    if not sys.stdin.isatty():
         dropin += textwrap.dedent(
             """
             [Unit]
@@ -135,7 +135,7 @@ def main() -> None:
             """
         )
 
-    if sys.stderr.isatty():
+    if sys.stdin.isatty():
         dropin += textwrap.dedent(
             """
             [Service]
@@ -168,7 +168,7 @@ def main() -> None:
                 '--credential', f'systemd.extra-unit.emergency-exit.service={shlex.quote(EMERGENCY_EXIT_SERVICE)}',  # noqa: E501
                 '--credential', f'systemd.unit-dropin.emergency.target={shlex.quote(EMERGENCY_EXIT_DROPIN)}',
             ]
-            if not sys.stderr.isatty()
+            if not sys.stdin.isatty()
             else []
         ),
         '--credential', f'systemd.unit-dropin.{args.unit}={shlex.quote(dropin)}',
@@ -194,13 +194,13 @@ def main() -> None:
                         'systemd.crash_action=poweroff',
                         'loglevel=6',
                     ]
-                    if not sys.stderr.isatty()
+                    if not sys.stdin.isatty()
                     else []
                 ),
             ]
         ),
-        '--credential', f"journal.storage={'persistent' if sys.stderr.isatty() else args.storage}",
-        *(['--runtime-build-sources=no'] if not sys.stderr.isatty() else []),
+        '--credential', f"journal.storage={'persistent' if sys.stdin.isatty() else args.storage}",
+        *(['--runtime-build-sources=no'] if not sys.stdin.isatty() else []),
         'qemu' if args.vm or os.getuid() != 0 or os.getenv('TEST_PREFER_QEMU', '0') == '1' else 'boot',
     ]  # fmt: skip
 
