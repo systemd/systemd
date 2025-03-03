@@ -1024,6 +1024,14 @@ static void session_context_mangle(
                 pam_debug_syslog(handle, debug, "Automatically chose session type '%s'.", c->type);
         }
 
+        if (!c->area)
+                c->area = ur->default_area;
+
+        if (!isempty(c->area) && !filename_is_valid(c->area)) {
+                pam_syslog(handle, LOG_WARNING, "Specified area '%s' is not a valid filename, ignoring area request.", c->area);
+                c->area = NULL;
+        }
+
         if (isempty(c->class)) {
                 c->class = streq(c->type, "unspecified") ? "background" : "user";
 
@@ -1036,14 +1044,37 @@ static void session_context_mangle(
                  *
                  * (Note that this somewhat replicates the class mangling logic on systemd-logind.service's
                  * server side to some degree, in case clients allocate a session and don't specify a
-                 * class. This is somewhat redundant, but we need the class set up properly below.) */
+                 * class. This is somewhat redundant, but we need the class set up properly below.)
+                 *
+                 * For regular users also tweak the type a bit: if an area is specified at login time, switch
+                 * to light mode too. (Mostly because at the moment we do no support a per-area service
+                 * manager. Once we do, we should change this.).
+                 */
 
-                if (IN_SET(user_record_disposition(ur), USER_INTRINSIC, USER_SYSTEM, USER_DYNAMIC)) {
+                switch (user_record_disposition(ur)) {
+
+                case USER_INTRINSIC:
+                case USER_SYSTEM:
+                case USER_DYNAMIC:
                         if (streq(c->class, "user"))
                                 c->class = user_record_is_root(ur) ? "user-early" :
                                         (STR_IN_SET(c->type, "x11", "wayland", "mir") ? "user" : "user-light");
                         else if (streq(c->class, "background"))
                                 c->class = "background-light";
+                        break;
+
+                case USER_REGULAR:
+                        if (!isempty(c->area)) {
+                                if (streq(c->class, "user"))
+                                        c->class = "user-light";
+                                else if (streq(c->class, "background"))
+                                        c->class = "background-light";
+                        }
+
+                        break;
+
+                default:
+                        break;
                 }
 
                 pam_debug_syslog(handle, debug, "Automatically chose session class '%s'.", c->class);
@@ -1053,18 +1084,10 @@ static void session_context_mangle(
                 if (streq(c->class, "user"))
                         c->class = "user-incomplete";
                 else
-                        pam_syslog_pam_error(handle, LOG_WARNING, 0, "PAM session of class '%s' is incomplete, which is not supported, ignoring.", c->class);
+                        pam_syslog(handle, LOG_WARNING, "PAM session of class '%s' is incomplete, which is not supported, ignoring.", c->class);
         }
 
         c->remote = !isempty(c->remote_host) && !is_localhost(c->remote_host);
-
-        if (!c->area)
-                c->area = ur->default_area;
-
-        if (!isempty(c->area) && !filename_is_valid(c->area)) {
-                pam_syslog_pam_error(handle, LOG_WARNING, 0, "Specified area '%s' is not a valid filename, ignoring area request.", c->area);
-                c->area = NULL;
-        }
 }
 
 static bool can_use_varlink(const SessionContext *c) {
