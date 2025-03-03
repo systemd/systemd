@@ -5,13 +5,13 @@
 #if HAVE_VMLINUX_H
 
 #include <sched.h>
+#include <sys/mount.h>
 
 #include "bpf-dlopen.h"
 #include "bpf-link.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "lsm-util.h"
-#include "missing_mount.h"
 #include "mkdir.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"

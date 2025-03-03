@@ -567,27 +567,12 @@ conf.set_quoted('LONG_MAX_STR', '@0@'.format(long_max))
 
 foreach ident : [
         ['struct dirent64',   '''##include <dirent.h>'''],      # for musl, but only for compile time check, see dirent-util.h
-        ['struct mount_attr', '''#include <sys/mount.h>'''],    # since glibc-2.36
         ['struct sched_attr', '''#include <sched.h>'''],        # since glibc-2.41
 ]
         # We get -1 if the size cannot be determined
         have = cc.sizeof(ident[0], prefix : ident[1], args : '-D_GNU_SOURCE') > 0
-
-        if ident[0] == 'struct mount_attr'
-                if have
-                        want_linux_fs_h = false
-                else
-                        have = cc.sizeof(ident[0],
-                                         prefix : ident[1] + '\n#include <linux/fs.h>',
-                                         args : '-D_GNU_SOURCE') > 0
-                        want_linux_fs_h = have
-                endif
-        endif
-
         conf.set10('HAVE_' + ident[0].underscorify().to_upper(), have)
 endforeach
-
-conf.set10('WANT_LINUX_FS_H', want_linux_fs_h)
 
 foreach ident : [
         ['set_mempolicy',     '''#include <sys/syscall.h>'''],  # declared at numaif.h provided by libnuma, which we do not use
@@ -601,6 +586,7 @@ foreach ident : [
         ['fsconfig',          '''#include <sys/mount.h>'''],    # since glibc-2.36
         ['fsmount',           '''#include <sys/mount.h>'''],    # since glibc-2.36
         ['fsopen',            '''#include <sys/mount.h>'''],    # since glibc-2.36
+        ['fspick',            '''#include <sys/mount.h>'''],    # since glibc-2.36
         ['mount_setattr',     '''#include <sys/mount.h>'''],    # since glibc-2.36
         ['move_mount',        '''#include <sys/mount.h>'''],    # since glibc-2.36
         ['open_tree',         '''#include <sys/mount.h>'''],    # since glibc-2.36
