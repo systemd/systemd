@@ -26,7 +26,7 @@ void lock_down_efi_variables(void) {
         /* Paranoia: let's restrict access modes of these a bit, so that unprivileged users can't use them to
          * identify the system or gain too much insight into what we might have credited to the entropy
          * pool. */
-        r = chattr_fd(fd, 0, FS_IMMUTABLE_FL, NULL);
+        r = chattr_fd(fd, 0, FS_IMMUTABLE_FL);
         if (r < 0)
                 log_warning_errno(r, "Failed to drop FS_IMMUTABLE_FL from LoaderSystemToken EFI variable, ignoring: %m");
         if (fchmod(fd, 0600) < 0)

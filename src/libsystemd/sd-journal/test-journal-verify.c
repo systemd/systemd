@@ -88,7 +88,7 @@ static int run_test(const char *verification_key, ssize_t max_iterations) {
 
         assert_se(mkdtemp(t));
         assert_se(chdir(t) >= 0);
-        (void) chattr_path(t, FS_NOCOW_FL, FS_NOCOW_FL, NULL);
+        (void) chattr_path(t, FS_NOCOW_FL, FS_NOCOW_FL);
 
         log_info("Generating a test journal");
 

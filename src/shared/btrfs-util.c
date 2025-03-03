@@ -1550,7 +1550,7 @@ int btrfs_subvol_snapshot_at_full(
                                  * it: the IMMUTABLE bit. Let's use this here, if this is requested. */
 
                                 if (flags & BTRFS_SNAPSHOT_FALLBACK_IMMUTABLE)
-                                        (void) chattr_at(new_fd, subvolume, FS_IMMUTABLE_FL, FS_IMMUTABLE_FL, NULL);
+                                        (void) chattr_at(new_fd, subvolume, FS_IMMUTABLE_FL, FS_IMMUTABLE_FL);
                         } else {
                                 r = btrfs_subvol_set_read_only_at(new_fd, subvolume, true);
                                 if (r < 0)

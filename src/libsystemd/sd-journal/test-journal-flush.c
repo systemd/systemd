@@ -107,7 +107,7 @@ static void test_journal_flush_one(int argc, char *argv[]) {
 
         assert_se(m = mmap_cache_new());
         assert_se(mkdtemp_malloc("/var/tmp/test-journal-flush.XXXXXX", &dn) >= 0);
-        (void) chattr_path(dn, FS_NOCOW_FL, FS_NOCOW_FL, NULL);
+        (void) chattr_path(dn, FS_NOCOW_FL, FS_NOCOW_FL);
 
         assert_se(fn = path_join(dn, "test.journal"));
 

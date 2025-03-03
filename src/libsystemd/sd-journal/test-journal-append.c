@@ -57,7 +57,7 @@ static int journal_corrupt_and_append(uint64_t start_offset, uint64_t step) {
 
         assert_se(mkdtemp_malloc("/tmp/journal-append-XXXXXX", &tempdir) >= 0);
         assert_se(chdir(tempdir) >= 0);
-        (void) chattr_path(tempdir, FS_NOCOW_FL, FS_NOCOW_FL, NULL);
+        (void) chattr_path(tempdir, FS_NOCOW_FL, FS_NOCOW_FL);
 
         log_debug("Opening journal %s/system.journal", tempdir);
 
