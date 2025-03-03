@@ -2,7 +2,6 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <linux/fs.h>
 #include <linux/magic.h>
 #include <pthread.h>
 #include <stddef.h>
@@ -29,6 +28,7 @@
 #include "journal-internal.h"
 #include "lookup3.h"
 #include "memory-util.h"
+#include "missing_fs.h"
 #include "path-util.h"
 #include "prioq.h"
 #include "random-util.h"

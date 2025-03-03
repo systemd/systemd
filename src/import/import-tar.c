@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/fs.h>
-
 #include "sd-daemon.h"
 #include "sd-event.h"
 
@@ -18,6 +16,7 @@
 #include "install-file.h"
 #include "io-util.h"
 #include "machine-pool.h"
+#include "missing_fs.h"
 #include "mkdir-label.h"
 #include "path-util.h"
 #include "pretty-print.h"

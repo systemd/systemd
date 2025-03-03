@@ -14,8 +14,6 @@
 #include <unistd.h>
 #include <utmpx.h>
 
-#include <linux/fs.h> /* Must be included after <sys/mount.h> */
-
 #include "sd-messages.h"
 
 #include "af-list.h"

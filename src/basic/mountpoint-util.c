@@ -3,9 +3,6 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <sys/mount.h>
-#if WANT_LINUX_FS_H
-#include <linux/fs.h>
-#endif
 
 #include "alloc-util.h"
 #include "chase.h"
@@ -15,7 +12,6 @@
 #include "fs-util.h"
 #include "missing_fcntl.h"
 #include "missing_fs.h"
-#include "missing_mount.h"
 #include "missing_syscall.h"
 #include "mkdir.h"
 #include "mountpoint-util.h"

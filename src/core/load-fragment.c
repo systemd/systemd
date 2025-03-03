@@ -5,7 +5,6 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <linux/fs.h>
 #include <linux/oom.h>
 #include <sched.h>
 #include <sys/resource.h>
@@ -48,6 +47,7 @@
 #include "limits-util.h"
 #include "load-fragment.h"
 #include "log.h"
+#include "missing_fs.h"
 #include "mountpoint-util.h"
 #include "nulstr-util.h"
 #include "open-file.h"
