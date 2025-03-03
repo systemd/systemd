@@ -161,15 +161,7 @@ int dnstls_stream_on_io(DnsStream *stream, uint32_t revents) {
         if (stream->dnstls_data.shutdown) {
                 ERR_clear_error();
                 r = SSL_shutdown(stream->dnstls_data.ssl);
-                if (r == 0) {
-                        stream->dnstls_events = 0;
-
-                        r = dnstls_flush_write_buffer(stream);
-                        if (r < 0)
-                                return r;
-
-                        return -EAGAIN;
-                } else if (r < 0) {
+                if (r < 0) {
                         error = SSL_get_error(stream->dnstls_data.ssl, r);
                         if (IN_SET(error, SSL_ERROR_WANT_READ, SSL_ERROR_WANT_WRITE)) {
                                 stream->dnstls_events = error == SSL_ERROR_WANT_READ ? EPOLLIN : EPOLLOUT;
@@ -243,20 +235,7 @@ int dnstls_stream_shutdown(DnsStream *stream, int error) {
         if (error == ETIMEDOUT) {
                 ERR_clear_error();
                 r = SSL_shutdown(stream->dnstls_data.ssl);
-                if (r == 0) {
-                        if (!stream->dnstls_data.shutdown) {
-                                stream->dnstls_data.shutdown = true;
-                                dns_stream_ref(stream);
-                        }
-
-                        stream->dnstls_events = 0;
-
-                        r = dnstls_flush_write_buffer(stream);
-                        if (r < 0)
-                                return r;
-
-                        return -EAGAIN;
-                } else if (r < 0) {
+                if (r < 0) {
                         ssl_error = SSL_get_error(stream->dnstls_data.ssl, r);
                         if (IN_SET(ssl_error, SSL_ERROR_WANT_READ, SSL_ERROR_WANT_WRITE)) {
                                 stream->dnstls_events = ssl_error == SSL_ERROR_WANT_READ ? EPOLLIN : EPOLLOUT;
