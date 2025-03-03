@@ -790,7 +790,7 @@ static int prepare_nocow(int fdf, const char *from, int fdt, unsigned *chattr_ma
                 } else
                         /* If the NOCOW flag is set on the source, make the copy NOCOW as well. If the source
                          * is not NOCOW, don't do anything in particular with the copy. */
-                        (void) chattr_fd(fdt, FS_NOCOW_FL, FS_NOCOW_FL, /*previous=*/ NULL);
+                        (void) chattr_fd(fdt, FS_NOCOW_FL, FS_NOCOW_FL);
         }
 
         return 0;
@@ -1488,7 +1488,7 @@ int copy_file_at_full(
                 return r;
 
         if (chattr_mask != 0)
-                (void) chattr_fd(fdt, chattr_flags, chattr_mask & CHATTR_EARLY_FL, NULL);
+                (void) chattr_fd(fdt, chattr_flags, chattr_mask & CHATTR_EARLY_FL);
 
         r = copy_bytes_full(fdf, fdt, UINT64_MAX, copy_flags & ~COPY_LOCK_BSD, NULL, NULL, progress_bytes, userdata);
         if (r < 0)
@@ -1505,7 +1505,7 @@ int copy_file_at_full(
 
         unsigned nocow = FLAGS_SET(copy_flags, COPY_NOCOW_AFTER) ? FS_NOCOW_FL : 0;
         if ((chattr_mask | nocow) != 0)
-                (void) chattr_fd(fdt, chattr_flags | nocow, (chattr_mask & ~CHATTR_EARLY_FL) | nocow, NULL);
+                (void) chattr_fd(fdt, chattr_flags | nocow, (chattr_mask & ~CHATTR_EARLY_FL) | nocow);
 
         if (copy_flags & (COPY_FSYNC|COPY_FSYNC_FULL)) {
                 if (fsync(fdt) < 0) {
@@ -1571,7 +1571,7 @@ int copy_file_atomic_at_full(
                 return r;
 
         if (chattr_mask != 0)
-                (void) chattr_fd(fdt, chattr_flags, chattr_mask & CHATTR_EARLY_FL, NULL);
+                (void) chattr_fd(fdt, chattr_flags, chattr_mask & CHATTR_EARLY_FL);
 
         r = copy_file_fd_at_full(dir_fdf, from, fdt, copy_flags, progress_bytes, userdata);
         if (r < 0)
@@ -1594,7 +1594,7 @@ int copy_file_atomic_at_full(
 
         unsigned nocow = FLAGS_SET(copy_flags, COPY_NOCOW_AFTER) ? FS_NOCOW_FL : 0;
         if ((chattr_mask | nocow) != 0)
-                (void) chattr_fd(fdt, chattr_flags | nocow, (chattr_mask & ~CHATTR_EARLY_FL) | nocow, NULL);
+                (void) chattr_fd(fdt, chattr_flags | nocow, (chattr_mask & ~CHATTR_EARLY_FL) | nocow);
 
         r = close_nointr(TAKE_FD(fdt)); /* even if this fails, the fd is now invalidated */
         if (r < 0)
