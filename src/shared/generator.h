@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 
+#include "errno-list.h"
 #include "macro.h"
 #include "main-func.h"
 
@@ -114,3 +115,13 @@ bool generator_soft_rebooted(void);
                      argv[argc == 4 ? 3 : 1]),                          \
                 exit_failure_if_negative,                               \
                 exit_failure_if_negative)
+
+typedef enum GptAutoRoot {
+        GPT_AUTO_ROOT_OFF = 0,      /* root= set to something else */
+        GPT_AUTO_ROOT_ON,           /* root= set explicitly to "gpt-auto" */
+        GPT_AUTO_ROOT_FORCE,        /* root= set explicitly to "gpt-auto-force" → ignores factory reset mode */
+        _GPT_AUTO_ROOT_MAX,
+        _GPT_AUTO_ROOT_INVALID = -EINVAL,
+} GptAutoRoot;
+
+GptAutoRoot parse_gpt_auto_root(const char *argument);
