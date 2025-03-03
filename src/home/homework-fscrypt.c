@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/fs.h>
 #include <openssl/evp.h>
 #include <openssl/sha.h>
 #include <sys/ioctl.h>
@@ -14,6 +13,7 @@
 #include "homework-quota.h"
 #include "keyring-util.h"
 #include "memory-util.h"
+#include "missing_fs.h"
 #include "missing_keyctl.h"
 #include "missing_syscall.h"
 #include "mkdir.h"

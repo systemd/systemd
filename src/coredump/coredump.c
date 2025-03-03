@@ -8,9 +8,6 @@
 #include <sys/auxv.h>
 #include <sys/xattr.h>
 #include <unistd.h>
-#if WANT_LINUX_FS_H
-#  include <linux/fs.h>
-#endif
 
 #include "sd-daemon.h"
 #include "sd-journal.h"
@@ -43,7 +40,6 @@
 #include "main-func.h"
 #include "memory-util.h"
 #include "memstream-util.h"
-#include "missing_mount.h"
 #include "missing_syscall.h"
 #include "mkdir-label.h"
 #include "namespace-util.h"
