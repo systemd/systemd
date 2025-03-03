@@ -5,7 +5,6 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
-#include "missing_syscall.h"
 #include "mountpoint-util.h"
 #include "recurse-dir.h"
 #include "sort-util.h"
@@ -51,7 +50,7 @@ int readdir_all(int dir_fd, RecurseDirFlags flags, DirectoryEntries **ret) {
                 bs = MIN(MALLOC_SIZEOF_SAFE(de) - offsetof(DirectoryEntries, buffer), (size_t) SSIZE_MAX);
                 assert(bs > de->buffer_size);
 
-                n = getdents64(dir_fd, (uint8_t*) de->buffer + de->buffer_size, bs - de->buffer_size);
+                n = posix_getdents(dir_fd, (uint8_t*) de->buffer + de->buffer_size, bs - de->buffer_size, /* flags = */ 0);
                 if (n < 0)
                         return -errno;
                 if (n == 0)
