@@ -579,7 +579,6 @@ foreach ident : [
         ['get_mempolicy',     '''#include <sys/syscall.h>'''],  # declared at numaif.h provided by libnuma, which we do not use
         ['getdents64',        '''#include <dirent.h>'''],       # since glibc-2.30, but check it for musl
         ['strerrorname_np',   '''#include <string.h>'''],       # since glibc-2.32, but check it for musl
-        ['mallinfo',          '''#include <malloc.h>'''],       # deprecated since glibc-2.33, but check it for musl
         ['mallinfo2',         '''#include <malloc.h>'''],       # since glibc-2.33, but check it for musl
         ['execveat',          '''#include <unistd.h>'''],       # since glibc-2.34, but check it for musl
         ['close_range',       '''#include <unistd.h>'''],       # since glibc-2.34, but check it for musl
