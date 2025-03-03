@@ -34,6 +34,7 @@ void resource_destroy(Resource *rr) {
         assert(rr);
 
         free(rr->path);
+        free(rr->manifest);
         strv_free(rr->patterns);
 
         for (size_t i = 0; i < rr->n_instances; i++)
@@ -267,7 +268,7 @@ static int download_manifest(
                 char **ret_buffer,
                 size_t *ret_size) {
 
-        _cleanup_free_ char *buffer = NULL, *suffixed_url = NULL;
+        _cleanup_free_ char *buffer = NULL;
         _cleanup_close_pair_ int pfd[2] = EBADF_PAIR;
         _cleanup_fclose_ FILE *manifest = NULL;
         size_t size = 0;
@@ -278,17 +279,11 @@ static int download_manifest(
         assert(ret_buffer);
         assert(ret_size);
 
-        /* Download a SHA256SUMS file as manifest */
-
-        r = import_url_append_component(url, "SHA256SUMS", &suffixed_url);
-        if (r < 0)
-                return log_error_errno(r, "Failed to append SHA256SUMS to URL: %m");
-
         if (pipe2(pfd, O_CLOEXEC) < 0)
                 return log_error_errno(errno, "Failed to allocate pipe: %m");
 
         log_info("%s Acquiring manifest file %s%s", special_glyph(SPECIAL_GLYPH_DOWNLOAD),
-                 suffixed_url, special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+                 url, special_glyph(SPECIAL_GLYPH_ELLIPSIS));
 
         r = safe_fork_full("(sd-pull)",
                            (int[]) { -EBADF, pfd[1], STDERR_FILENO },
@@ -305,7 +300,7 @@ static int download_manifest(
                         "raw",
                         "--direct",                        /* just download the specified URL, don't download anything else */
                         "--verify", verify_signature ? "signature" : "no", /* verify the manifest file */
-                        suffixed_url,
+                        url,
                         "-",                               /* write to stdout */
                         NULL
                 };
@@ -352,6 +347,7 @@ static int resource_load_from_web(
                 Hashmap **web_cache) {
 
         size_t manifest_size = 0, left = 0;
+        _cleanup_free_ char *suffixed_url = NULL;
         _cleanup_free_ char *buf = NULL;
         const char *manifest, *p;
         size_t line_nr = 1;
@@ -369,7 +365,13 @@ static int resource_load_from_web(
         } else {
                 log_debug("Manifest web cache miss for %s.", rr->path);
 
-                r = download_manifest(rr->path, verify, &buf, &manifest_size);
+                /* Download a SHA256SUMS file as manifest */
+
+                r = import_url_append_component(rr->path, rr->manifest, &suffixed_url);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to append manifest name to URL: %m");
+
+                r = download_manifest(suffixed_url, verify, &buf, &manifest_size);
                 if (r < 0)
                         return r;
 
