@@ -141,7 +141,7 @@ static int agent_ask_password_tty(
         const char *con = arg_device ?: "/dev/console";
 
         if (arg_console) {
-                tty_fd = acquire_terminal(con, ACQUIRE_TERMINAL_WAIT, USEC_INFINITY);
+                tty_fd = acquire_terminal(con, ACQUIRE_TERMINAL_WAIT|ACQUIRE_TERMINAL_WATCH_SIGTERM, USEC_INFINITY);
                 if (tty_fd < 0)
                         return log_error_errno(tty_fd, "Failed to acquire %s: %m", con);
 
