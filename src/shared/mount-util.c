@@ -7,9 +7,6 @@
 #include <sys/statvfs.h>
 #include <unistd.h>
 #include <linux/loop.h>
-#if WANT_LINUX_FS_H
-#include <linux/fs.h>
-#endif
 
 #include "alloc-util.h"
 #include "chase.h"
@@ -25,7 +22,6 @@
 #include "initrd-util.h"
 #include "label-util.h"
 #include "libmount-util.h"
-#include "missing_mount.h"
 #include "missing_syscall.h"
 #include "mkdir-label.h"
 #include "mount-util.h"
