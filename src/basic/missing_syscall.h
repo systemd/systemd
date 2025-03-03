@@ -191,8 +191,6 @@ static inline int missing_execveat(int dirfd, const char *pathname,
         return syscall(__NR_execveat, dirfd, pathname, argv, envp, flags);
 }
 
-#  undef AT_EMPTY_PATH
-#  define AT_EMPTY_PATH 0x1000
 #  define execveat missing_execveat
 #endif
 
