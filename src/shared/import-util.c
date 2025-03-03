@@ -230,7 +230,7 @@ int import_assign_pool_quota_and_warn(const char *path) {
 int import_set_nocow_and_log(int fd, const char *path) {
         int r;
 
-        r = chattr_fd(fd, FS_NOCOW_FL, FS_NOCOW_FL, NULL);
+        r = chattr_fd(fd, FS_NOCOW_FL, FS_NOCOW_FL);
         if (r < 0)
                 return log_full_errno(
                                 ERRNO_IS_NOT_SUPPORTED(r) ? LOG_DEBUG : LOG_WARNING,
