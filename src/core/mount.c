@@ -8,6 +8,7 @@
 #include "sd-messages.h"
 
 #include "alloc-util.h"
+#include "bus-common-errors.h"
 #include "chase.h"
 #include "dbus-mount.h"
 #include "dbus-unit.h"
@@ -224,6 +225,9 @@ static void mount_done(Unit *u) {
 
         mount_parameters_done(&m->parameters_proc_self_mountinfo);
         mount_parameters_done(&m->parameters_fragment);
+
+        m->remount_request = sd_bus_message_unref(m->remount_request);
+        m->remount_options = mfree(m->remount_options);
 
         m->exec_runtime = exec_runtime_free(m->exec_runtime);
 
@@ -720,6 +724,11 @@ static void mount_set_state(Mount *m, MountState state) {
                 m->control_command_id = _MOUNT_EXEC_COMMAND_INVALID;
         }
 
+        if (!IN_SET(state, MOUNT_REMOUNTING, MOUNT_REMOUNTING_SIGTERM, MOUNT_REMOUNTING_SIGKILL)) {
+                m->remount_request = sd_bus_message_unref(m->remount_request);
+                m->remount_options = mfree(m->remount_options);
+        }
+
         if (state != old_state)
                 log_unit_debug(UNIT(m), "Changed %s -> %s", mount_state_to_string(old_state), mount_state_to_string(state));
 
@@ -1166,14 +1175,9 @@ static int mount_set_mount_command(Mount *m, ExecCommand *c, const MountParamete
         if (r < 0)
                 return r;
 
-        if (remount) {
-                if (isempty(opts)) {
-                        opts = strdup("remount");
-                        if (!opts)
-                                return -ENOMEM;
-                } else if (!strprepend(&opts, "remount,"))
+        if (remount)
+                if (!strprepend_with_separator(&opts, ",", "remount"))
                         return -ENOMEM;
-        }
 
         if (!isempty(opts)) {
                 r = exec_command_append(c, "-o", opts, NULL);
@@ -1296,26 +1300,67 @@ fail:
         mount_enter_dead_or_mounted(m, MOUNT_FAILURE_RESOURCES, /* flush_result = */ false);
 }
 
-static void mount_set_reload_result(Mount *m, MountResult result) {
+static void mount_reload_finish(Mount *m, MountResult result, const char *bus_error) {
         assert(m);
+        assert(bus_error);
 
         /* Only store the first error we encounter */
         if (m->reload_result != MOUNT_SUCCESS)
+                m->reload_result = result;
+
+        if (!m->remount_request)
                 return;
 
-        m->reload_result = result;
+        if (m->reload_result == MOUNT_SUCCESS) {
+                /* If the mount comes from fragment, i.e. fully managed, write out runtime drop-in file.
+                 * Otherwise don't, e.g. for API VFSs we might remount them during boot per request from remount-fs,
+                 * but never track them closely. */
+                MountParameters *p = get_mount_parameters_fragment(m);
+                if (p) {
+                        free_and_replace(p->options, m->remount_options);
+                        (void) unit_write_settingf(UNIT(m), UNIT_PRIVATE|UNIT_RUNTIME|UNIT_ESCAPE_SPECIFIERS,
+                                                   "Options", "Options=%s", p->options);
+                }
+
+                (void) sd_bus_reply_method_return(m->remount_request, NULL);
+        } else
+                (void) sd_bus_reply_method_errorf(m->remount_request, bus_error, "Failed to remount '%s'", m->where);
+
+        m->remount_request = sd_bus_message_unref(m->remount_request);
+        m->remount_options = mfree(m->remount_options);
+        m->remount_flags = 0;
 }
 
 static void mount_enter_remounting(Mount *m) {
-        MountParameters *p;
+        MountParameters *p, remount;
         int r;
 
         assert(m);
 
-        p = get_mount_parameters_fragment(m);
-        if (!p) {
-                r = log_unit_warning_errno(UNIT(m), SYNTHETIC_ERRNO(ENOENT), "No mount parameters to operate on.");
-                goto fail;
+        if (m->remount_request) {
+                assert(m->remount_options);
+
+                p = ASSERT_PTR(get_mount_parameters(m));
+
+                if (FLAGS_SET(m->remount_flags, REMOUNT_OPTIONS_APPEND))
+                        if (!strprepend_with_separator(&m->remount_options, ",", p->options)) {
+                                r = log_oom();
+                                goto fail;
+                        }
+
+                remount = (MountParameters) {
+                        .what = p->what,
+                        .fstype = p->fstype,
+                        .options = m->remount_options,
+                };
+
+                p = &remount;
+        } else {
+                p = get_mount_parameters_fragment(m);
+                if (!p) {
+                        r = log_unit_warning_errno(UNIT(m), SYNTHETIC_ERRNO(ENOENT), "No mount parameters to operate on.");
+                        goto fail;
+                }
         }
 
         mount_unwatch_control_pid(m);
@@ -1340,7 +1385,7 @@ static void mount_enter_remounting(Mount *m) {
         return;
 
 fail:
-        mount_set_reload_result(m, MOUNT_FAILURE_RESOURCES);
+        mount_reload_finish(m, MOUNT_FAILURE_RESOURCES, SD_BUS_ERROR_FAILED);
         mount_enter_dead_or_mounted(m, MOUNT_SUCCESS, /* flush_result = */ false);
 }
 
@@ -1388,6 +1433,7 @@ static int mount_start(Unit *u) {
 
 static int mount_stop(Unit *u) {
         Mount *m = ASSERT_PTR(MOUNT(u));
+        int r;
 
         switch (m->state) {
 
@@ -1399,21 +1445,24 @@ static int mount_stop(Unit *u) {
 
         case MOUNT_MOUNTING:
         case MOUNT_MOUNTING_DONE:
-        case MOUNT_REMOUNTING:
                 /* If we are still waiting for /bin/mount, we go directly into kill mode. */
                 mount_enter_signal(m, MOUNT_UNMOUNTING_SIGTERM, MOUNT_SUCCESS);
                 return 0;
 
+        case MOUNT_REMOUNTING:
         case MOUNT_REMOUNTING_SIGTERM:
-                /* If we are already waiting for a hung remount, convert this to the matching unmounting state */
-                mount_set_state(m, MOUNT_UNMOUNTING_SIGTERM);
-                return 0;
+                assert(pidref_is_set(&m->control_pid));
 
+                r = pidref_kill_and_sigcont(&m->control_pid, SIGKILL);
+                if (r < 0)
+                        log_unit_debug_errno(UNIT(m), r,
+                                             "Failed to kill remount process " PID_FMT ", ignoring: %m",
+                                             m->control_pid.pid);
+
+                _fallthrough_;
         case MOUNT_REMOUNTING_SIGKILL:
-                /* as above */
-                mount_set_state(m, MOUNT_UNMOUNTING_SIGKILL);
-                return 0;
-
+                mount_reload_finish(m, MOUNT_FAILURE_PROTOCOL, BUS_ERROR_UNIT_INACTIVE);
+                _fallthrough_;
         case MOUNT_MOUNTED:
                 mount_enter_unmounting(m);
                 return 1;
@@ -1441,7 +1490,7 @@ static int mount_reload(Unit *u) {
 static bool mount_can_reload(Unit *u) {
         Mount *m = ASSERT_PTR(MOUNT(u));
 
-        return get_mount_parameters_fragment(m);
+        return get_mount_parameters_fragment(m) || m->remount_request;
 }
 
 static int mount_serialize(Unit *u, FILE *f, FDSet *fds) {
@@ -1584,7 +1633,7 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 assert_not_reached();
 
         if (IN_SET(m->state, MOUNT_REMOUNTING, MOUNT_REMOUNTING_SIGKILL, MOUNT_REMOUNTING_SIGTERM))
-                mount_set_reload_result(m, f);
+                mount_reload_finish(m, f, SD_BUS_ERROR_FAILED);
         else if (m->result == MOUNT_SUCCESS && !IN_SET(m->state, MOUNT_MOUNTING, MOUNT_UNMOUNTING))
                 /* MOUNT_MOUNTING and MOUNT_UNMOUNTING states need to be patched, see below. */
                 m->result = f;
@@ -1694,12 +1743,12 @@ static int mount_dispatch_timer(sd_event_source *source, usec_t usec, void *user
 
         case MOUNT_REMOUNTING:
                 log_unit_warning(UNIT(m), "Remounting timed out. Terminating remount process.");
-                mount_set_reload_result(m, MOUNT_FAILURE_TIMEOUT);
+                mount_reload_finish(m, MOUNT_FAILURE_TIMEOUT, SD_BUS_ERROR_TIMEOUT);
                 mount_enter_signal(m, MOUNT_REMOUNTING_SIGTERM, MOUNT_SUCCESS);
                 break;
 
         case MOUNT_REMOUNTING_SIGTERM:
-                mount_set_reload_result(m, MOUNT_FAILURE_TIMEOUT);
+                mount_reload_finish(m, MOUNT_FAILURE_TIMEOUT, SD_BUS_ERROR_TIMEOUT);
 
                 if (m->kill_context.send_sigkill) {
                         log_unit_warning(UNIT(m), "Remounting timed out. Killing.");
@@ -1711,7 +1760,7 @@ static int mount_dispatch_timer(sd_event_source *source, usec_t usec, void *user
                 break;
 
         case MOUNT_REMOUNTING_SIGKILL:
-                mount_set_reload_result(m, MOUNT_FAILURE_TIMEOUT);
+                mount_reload_finish(m, MOUNT_FAILURE_TIMEOUT, SD_BUS_ERROR_TIMEOUT);
 
                 log_unit_warning(UNIT(m), "Mount process still around after SIGKILL. Ignoring.");
                 mount_enter_dead_or_mounted(m, MOUNT_SUCCESS, /* flush_result = */ false);
