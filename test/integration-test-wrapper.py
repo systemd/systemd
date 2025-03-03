@@ -456,6 +456,16 @@ def main() -> None:
             [Unit]
             Wants=multi-user.target getty-pre.target
             Before=getty-pre.target
+
+            [Service]
+            StandardInput=tty
+            StandardOutput=inherit
+            StandardError=inherit
+            TTYReset=yes
+            TTYVHangup=yes
+            IgnoreSIGPIPE=no
+            # bash ignores SIGTERM
+            KillSignal=SIGHUP
             """
         )
 
