@@ -3,7 +3,6 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
-#include <linux/fs.h>
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -18,6 +17,7 @@
 #include "io-util.h"
 #include "macro.h"
 #include "memory-util.h"
+#include "missing_fs.h"
 #include "stdio-util.h"
 #include "strv.h"
 #include "time-util.h"

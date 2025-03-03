@@ -6,6 +6,7 @@
 #include <errno.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <threads.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -15,7 +16,6 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "macro.h"
-#include "missing_threads.h"
 #include "namespace-util.h"
 #include "process-util.h"
 #include "stat-util.h"

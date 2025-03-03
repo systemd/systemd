@@ -25,7 +25,6 @@
 #include "machine-dbus.h"
 #include "machine-pool.h"
 #include "machined.h"
-#include "missing_capability.h"
 #include "os-util.h"
 #include "path-util.h"
 #include "process-util.h"

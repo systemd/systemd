@@ -2,13 +2,13 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <linux/fs.h>
 #include <linux/magic.h>
 #include <pthread.h>
 #include <stddef.h>
 #include <sys/mman.h>
 #include <sys/statvfs.h>
 #include <sys/uio.h>
+#include <threads.h>
 #include <unistd.h>
 
 #include "sd-event.h"
@@ -28,7 +28,7 @@
 #include "journal-internal.h"
 #include "lookup3.h"
 #include "memory-util.h"
-#include "missing_threads.h"
+#include "missing_fs.h"
 #include "path-util.h"
 #include "prioq.h"
 #include "random-util.h"

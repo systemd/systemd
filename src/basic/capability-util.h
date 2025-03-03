@@ -7,7 +7,6 @@
 #include <sys/types.h>
 
 #include "macro.h"
-#include "missing_capability.h"
 #include "pidref.h"
 
 /* Special marker used when storing a capabilities mask as "unset". This would need to be updated as soon as

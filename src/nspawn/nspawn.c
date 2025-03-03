@@ -4,9 +4,6 @@
 #include <getopt.h>
 #include <linux/fuse.h>
 #include <linux/loop.h>
-#if HAVE_SELINUX
-#include <selinux/selinux.h>
-#endif
 #include <stdlib.h>
 #include <sys/file.h>
 #include <sys/ioctl.h>

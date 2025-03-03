@@ -3,6 +3,7 @@
 #include <sys/epoll.h>
 #include <sys/timerfd.h>
 #include <sys/wait.h>
+#include <threads.h>
 
 #include "sd-daemon.h"
 #include "sd-event.h"
@@ -24,7 +25,6 @@
 #include "memory-util.h"
 #include "missing_magic.h"
 #include "missing_syscall.h"
-#include "missing_threads.h"
 #include "missing_wait.h"
 #include "origin-id.h"
 #include "path-util.h"

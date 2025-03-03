@@ -23,9 +23,9 @@ int ioprio_parse_priority(const char *s, int *ret) {
 
 static const char *const ioprio_class_table[] = {
         [IOPRIO_CLASS_NONE] = "none",
-        [IOPRIO_CLASS_RT] = "realtime",
-        [IOPRIO_CLASS_BE] = "best-effort",
+        [IOPRIO_CLASS_RT]   = "realtime",
+        [IOPRIO_CLASS_BE]   = "best-effort",
         [IOPRIO_CLASS_IDLE] = "idle",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(ioprio_class, int, IOPRIO_N_CLASSES);
+DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(ioprio_class, int, IOPRIO_NR_CLASSES-1);

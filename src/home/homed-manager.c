@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <grp.h>
-#include <linux/fs.h>
 #include <linux/magic.h>
 #include <math.h>
 #include <openssl/pem.h>
@@ -36,6 +35,7 @@
 #include "homed-manager.h"
 #include "homed-varlink.h"
 #include "io-util.h"
+#include "missing_fs.h"
 #include "mkdir.h"
 #include "notify-recv.h"
 #include "openssl-util.h"

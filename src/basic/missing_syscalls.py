@@ -6,24 +6,9 @@ import functools
 
 # We only generate numbers for a dozen or so syscalls
 SYSCALLS = [
-    'bpf',
-    'close_range',
-    'copy_file_range',
-    'fchmodat2',
-    'getrandom',
-    'memfd_create',
-    'mount_setattr',
-    'move_mount',
-    'name_to_handle_at',
-    'open_tree',
-    'openat2',
-    'pidfd_open',
-    'pidfd_send_signal',
-    'pkey_mprotect',
-    'quotactl_fd',
+    'fchmodat2',     # defined in glibc header since glibc-2.39
+    'quotactl_fd',   # defined in glibc header since glibc-2.35
     'removexattrat',
-    'renameat2',
-    'setns',
     'setxattrat',
 ]
 

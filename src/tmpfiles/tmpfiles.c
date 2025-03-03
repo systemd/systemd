@@ -5,7 +5,6 @@
 #include <fnmatch.h>
 #include <getopt.h>
 #include <limits.h>
-#include <linux/fs.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdlib.h>
@@ -45,6 +44,7 @@
 #include "log.h"
 #include "macro.h"
 #include "main-func.h"
+#include "missing_fs.h"
 #include "missing_syscall.h"
 #include "mkdir-label.h"
 #include "mount-util.h"

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/ioctl.h>
+#include <threads.h>
 #include <unistd.h>
 
 #include "errno-util.h"
@@ -10,7 +11,6 @@
 #include "memory-util.h"
 #include "missing_fs.h"
 #include "missing_magic.h"
-#include "missing_threads.h"
 #include "mountpoint-util.h"
 #include "parse-util.h"
 #include "path-util.h"

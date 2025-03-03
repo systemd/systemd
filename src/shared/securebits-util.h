@@ -3,7 +3,7 @@
 
 #include <stdbool.h>
 
-#include "missing_securebits.h"
+#include <linux/securebits.h>
 
 int secure_bits_to_string_alloc(int i, char **s);
 int secure_bits_from_string(const char *s);

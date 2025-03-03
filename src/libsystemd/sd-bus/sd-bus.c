@@ -8,6 +8,7 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
+#include <threads.h>
 #include <unistd.h>
 
 #include "sd-bus.h"
@@ -38,7 +39,6 @@
 #include "macro.h"
 #include "memory-util.h"
 #include "missing_syscall.h"
-#include "missing_threads.h"
 #include "origin-id.h"
 #include "parse-util.h"
 #include "path-util.h"

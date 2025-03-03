@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/prctl.h>
 #include <netinet/in.h>
 #include <pwd.h>
 #include <sys/prctl.h>
@@ -15,7 +16,6 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "macro.h"
-#include "missing_prctl.h"
 #include "parse-util.h"
 #include "process-util.h"
 #include "string-util.h"

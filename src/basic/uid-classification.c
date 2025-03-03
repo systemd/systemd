@@ -1,9 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <threads.h>
+
 #include "chase.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "missing_threads.h"
 #include "string-util.h"
 #include "uid-classification.h"
 #include "user-util.h"

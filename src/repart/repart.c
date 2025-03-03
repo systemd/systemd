@@ -6,7 +6,6 @@
 
 #include <fcntl.h>
 #include <getopt.h>
-#include <linux/fs.h>
 #include <linux/loop.h>
 #include <sys/file.h>
 #include <sys/ioctl.h>
@@ -52,6 +51,7 @@
 #include "logarithm.h"
 #include "loop-util.h"
 #include "main-func.h"
+#include "missing_fs.h"
 #include "mkdir.h"
 #include "mkfs-util.h"
 #include "mount-util.h"

@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/prctl.h>
 #include <stdio.h>
 #include <sys/mount.h>
 #include <sys/prctl.h>
@@ -18,7 +19,6 @@
 #include "fs-util.h"
 #include "macro.h"
 #include "manager.h"
-#include "missing_prctl.h"
 #include "mkdir.h"
 #include "mount-util.h"
 #include "path-util.h"

@@ -10,7 +10,6 @@
 #include "fs-util.h"
 #include "libmount-util.h"
 #include "missing_magic.h"
-#include "missing_mount.h"
 #include "mkdir.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"

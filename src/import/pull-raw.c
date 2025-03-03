@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <curl/curl.h>
-#include <linux/fs.h>
 #include <sys/xattr.h>
 
 #include "sd-daemon.h"
@@ -17,6 +16,7 @@
 #include "import-util.h"
 #include "install-file.h"
 #include "macro.h"
+#include "missing_fs.h"
 #include "mkdir-label.h"
 #include "path-util.h"
 #include "pull-common.h"

@@ -14,7 +14,6 @@
 #include "logind-seat.h"
 #include "logind-session-dbus.h"
 #include "logind.h"
-#include "missing_capability.h"
 #include "strv.h"
 #include "user-util.h"
 

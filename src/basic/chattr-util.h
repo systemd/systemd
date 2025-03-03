@@ -2,7 +2,6 @@
 #pragma once
 
 #include <fcntl.h>
-#include <linux/fs.h>
 #include <stdbool.h>
 #include <stddef.h>
 

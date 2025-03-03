@@ -2,7 +2,6 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <linux/btrfs.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>

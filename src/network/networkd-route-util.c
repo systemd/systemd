@@ -1,11 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/rtnetlink.h>
+#include <threads.h>
 
 #include "alloc-util.h"
 #include "bitfield.h"
 #include "logarithm.h"
-#include "missing_threads.h"
 #include "networkd-address.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"

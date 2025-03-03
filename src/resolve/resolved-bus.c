@@ -10,7 +10,6 @@
 #include "dns-domain.h"
 #include "format-util.h"
 #include "memory-util.h"
-#include "missing_capability.h"
 #include "path-util.h"
 #include "resolved-bus.h"
 #include "resolved-def.h"

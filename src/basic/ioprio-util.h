@@ -1,8 +1,21 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <linux/ioprio.h>
+
 #include "macro.h"
-#include "missing_ioprio.h"
+
+static inline int ioprio_prio_class(int value) {
+        return IOPRIO_PRIO_CLASS(value);
+}
+
+static inline int ioprio_prio_data(int value) {
+        return IOPRIO_PRIO_DATA(value);
+}
+
+static inline int ioprio_prio_value(int class, int data) {
+        return IOPRIO_PRIO_VALUE_HINT(class, IOPRIO_PRIO_LEVEL(data), IOPRIO_PRIO_HINT(data));
+}
 
 int ioprio_class_to_string_alloc(int i, char **s);
 int ioprio_class_from_string(const char *s);
@@ -12,7 +25,7 @@ static inline bool ioprio_class_is_valid(int i) {
 }
 
 static inline bool ioprio_priority_is_valid(int i) {
-        return i >= 0 && i < IOPRIO_BE_NR;
+        return i >= 0 && i < IOPRIO_NR_LEVELS;
 }
 
 int ioprio_parse_priority(const char *s, int *ret);

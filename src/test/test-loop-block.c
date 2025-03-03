@@ -15,7 +15,6 @@
 #include "fs-util.h"
 #include "gpt.h"
 #include "main-func.h"
-#include "missing_loop.h"
 #include "mkfs-util.h"
 #include "mount-util.h"
 #include "namespace-util.h"

@@ -22,7 +22,6 @@
 #include "local-addresses.h"
 #include "machine-dbus.h"
 #include "machine.h"
-#include "missing_capability.h"
 #include "mkdir.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"

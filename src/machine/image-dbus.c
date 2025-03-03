@@ -16,7 +16,6 @@
 #include "image-dbus.h"
 #include "io-util.h"
 #include "loop-util.h"
-#include "missing_capability.h"
 #include "mount-util.h"
 #include "os-util.h"
 #include "process-util.h"

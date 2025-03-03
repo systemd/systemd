@@ -12,7 +12,6 @@
 #include "fd-util.h"
 #include "fs-util.h"
 #include "macro.h"
-#include "missing_mount.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
 #include "namespace-util.h"

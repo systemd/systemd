@@ -1,10 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/eventfd.h>
+#include <sys/mount.h>
 
 #include "fd-util.h"
 #include "main-func.h"
-#include "missing_mount.h"
 #include "missing_syscall.h"
 #include "namespace-util.h"
 #include "process-util.h"
