@@ -6,7 +6,6 @@
 
 #include <fcntl.h>
 #include <getopt.h>
-#include <linux/fs.h>
 #include <linux/loop.h>
 #include <sys/file.h>
 #include <sys/ioctl.h>
@@ -52,6 +51,7 @@
 #include "logarithm.h"
 #include "loop-util.h"
 #include "main-func.h"
+#include "missing_fs.h"
 #include "mkdir.h"
 #include "mkfs-util.h"
 #include "mount-util.h"
@@ -4324,7 +4324,7 @@ static int prepare_temporary_file(Context *context, PartitionTarget *t, uint64_t
                 log_warning_errno(r, "Failed to read file attributes of %s, ignoring: %m", arg_node);
 
         if (FLAGS_SET(attrs, FS_NOCOW_FL)) {
-                r = chattr_fd(fd, FS_NOCOW_FL, FS_NOCOW_FL, NULL);
+                r = chattr_fd(fd, FS_NOCOW_FL, FS_NOCOW_FL);
                 if (r < 0 && !ERRNO_IS_NOT_SUPPORTED(r))
                         return log_error_errno(r, "Failed to disable copy-on-write on %s: %m", temp);
         }

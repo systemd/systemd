@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/btrfs.h>
 #include <linux/magic.h>
 #include <sys/ioctl.h>
 #include <sys/vfs.h>

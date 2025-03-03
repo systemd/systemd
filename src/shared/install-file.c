@@ -48,7 +48,7 @@ static int fs_make_very_read_only(int fd) {
                                 return r;
                 }
 
-                r = chattr_fd(fd, FS_IMMUTABLE_FL, FS_IMMUTABLE_FL, NULL);
+                r = chattr_fd(fd, FS_IMMUTABLE_FL, FS_IMMUTABLE_FL);
                 if (r < 0)
                         return r;
 

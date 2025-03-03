@@ -3,7 +3,6 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
-#include <linux/fs.h>
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -18,6 +17,7 @@
 #include "io-util.h"
 #include "macro.h"
 #include "memory-util.h"
+#include "missing_fs.h"
 #include "stdio-util.h"
 #include "strv.h"
 #include "time-util.h"
@@ -238,7 +238,12 @@ int efi_set_variable(const char *variable, const void *value, size_t size) {
          * to protect them for accidental removal and modification. We are not changing these variables
          * accidentally however, hence let's unset the bit first. */
 
-        r = chattr_path(p, 0, FS_IMMUTABLE_FL, &saved_flags);
+        r = chattr_full(AT_FDCWD, p,
+                        /* value = */ 0,
+                        /* mask = */ FS_IMMUTABLE_FL,
+                        /* ret_previous = */ &saved_flags,
+                        /* ret_final = */ NULL,
+                        /* flags = */ 0);
         if (r < 0 && r != -ENOENT)
                 log_debug_errno(r, "Failed to drop FS_IMMUTABLE_FL flag from '%s', ignoring: %m", p);
 
@@ -285,9 +290,9 @@ finish:
 
                 /* Restore the original flags field, just in case */
                 if (fd < 0)
-                        q = chattr_path(p, saved_flags, FS_IMMUTABLE_FL, NULL);
+                        q = chattr_path(p, saved_flags, FS_IMMUTABLE_FL);
                 else
-                        q = chattr_fd(fd, saved_flags, FS_IMMUTABLE_FL, NULL);
+                        q = chattr_fd(fd, saved_flags, FS_IMMUTABLE_FL);
                 if (q < 0)
                         log_debug_errno(q, "Failed to restore FS_IMMUTABLE_FL on '%s', ignoring: %m", p);
         }
