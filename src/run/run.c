@@ -2220,7 +2220,7 @@ static int start_transient_service(sd_bus *bus) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to create PTY forwarder: %m");
 
-                        pty_forward_set_handler(c.forward, pty_forward_handler, &c);
+                        pty_forward_set_hangup_handler(c.forward, pty_forward_handler, &c);
 
                         /* Make sure to process any TTY events before we process bus events */
                         (void) pty_forward_set_priority(c.forward, SD_EVENT_PRIORITY_IMPORTANT);
