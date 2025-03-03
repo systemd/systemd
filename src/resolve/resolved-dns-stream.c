@@ -360,7 +360,8 @@ static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *use
                 }
         }
 
-        while ((revents & (EPOLLIN|EPOLLHUP|EPOLLRDHUP)) &&
+        while (s->identified && /* Only read data once we identified the peer, because we cannot fill in the DNS packet meta info otherwise */
+               (revents & (EPOLLIN|EPOLLHUP|EPOLLRDHUP)) &&
                (!s->read_packet ||
                 s->n_read < sizeof(s->read_size) + s->read_packet->size)) {
 
