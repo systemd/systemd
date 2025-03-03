@@ -14,6 +14,16 @@
 #include "macro.h"
 #include "string-util.h"
 
+/* The chattr() flags to apply when creating a new file *before* writing to it. In particular, flags such as
+ * FS_NOCOW_FL don't work if applied a-posteriori. All other flags are fine (or even necessary, think
+ * FS_IMMUTABLE_FL!) to apply after writing to the files. */
+#define CHATTR_EARLY_FL                         \
+        (FS_NOATIME_FL |                        \
+         FS_COMPR_FL   |                        \
+         FS_NOCOW_FL   |                        \
+         FS_NOCOMP_FL  |                        \
+         FS_PROJINHERIT_FL)
+
 int chattr_full(
               int dir_fd,
               const char *path,
@@ -29,6 +39,15 @@ int chattr_full(
         struct stat st;
 
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
+        assert(!FLAGS_SET(flags, CHATTR_ONLY_EARLY_FLAGS | CHATTR_WITHOUT_EARLY_FLAGS));
+
+        if (FLAGS_SET(flags, CHATTR_ONLY_EARLY_FLAGS))
+                mask &= CHATTR_EARLY_FL;
+        else if (FLAGS_SET(flags, CHATTR_WITHOUT_EARLY_FLAGS))
+                mask &= ~CHATTR_EARLY_FL;
+
+        if (mask == 0 && !ret_previous && !ret_final)
+                return 0;
 
         fd = xopenat(dir_fd, path, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
         if (fd < 0)
@@ -44,9 +63,6 @@ int chattr_full(
 
         if (!S_ISDIR(st.st_mode) && !S_ISREG(st.st_mode))
                 return -ENOTTY;
-
-        if (mask == 0 && !ret_previous && !ret_final)
-                return 0;
 
         if (ioctl(fd, FS_IOC_GETFLAGS, &old_attr) < 0)
                 return -errno;

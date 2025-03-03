@@ -9,7 +9,6 @@
 #include "fileio.h"
 #include "format-util.h"
 #include "macro.h"
-#include "missing_resource.h"
 #include "process-util.h"
 #include "rlimit-util.h"
 #include "string-table.h"

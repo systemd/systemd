@@ -3,13 +3,13 @@
 #include <nss.h>
 #include <pthread.h>
 #include <string.h>
+#include <threads.h>
 
 #include "env-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "log.h"
 #include "macro.h"
-#include "missing_threads.h"
 #include "nss-systemd.h"
 #include "nss-util.h"
 #include "pthread-util.h"

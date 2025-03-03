@@ -8,16 +8,6 @@
 
 #include "missing_fs.h"
 
-/* The chattr() flags to apply when creating a new file *before* writing to it. In particular, flags such as
- * FS_NOCOW_FL don't work if applied a-posteriori. All other flags are fine (or even necessary, think
- * FS_IMMUTABLE_FL!) to apply after writing to the files. */
-#define CHATTR_EARLY_FL                         \
-        (FS_NOATIME_FL |                        \
-         FS_COMPR_FL   |                        \
-         FS_NOCOW_FL   |                        \
-         FS_NOCOMP_FL  |                        \
-         FS_PROJINHERIT_FL)
-
 #define CHATTR_ALL_FL                           \
         (FS_NOATIME_FL      |                   \
          FS_SYNC_FL         |                   \
@@ -38,17 +28,19 @@
 typedef enum ChattrApplyFlags {
         CHATTR_FALLBACK_BITWISE       = 1 << 0,
         CHATTR_WARN_UNSUPPORTED_FLAGS = 1 << 1,
+        CHATTR_ONLY_EARLY_FLAGS       = 1 << 2,
+        CHATTR_WITHOUT_EARLY_FLAGS    = 1 << 3,
 } ChattrApplyFlags;
 
 int chattr_full(int dir_fd, const char *path, unsigned value, unsigned mask, unsigned *ret_previous, unsigned *ret_final, ChattrApplyFlags flags);
-static inline int chattr_at(int dir_fd, const char *path, unsigned value, unsigned mask, unsigned *previous) {
-        return chattr_full(dir_fd, path, value, mask, previous, NULL, 0);
+static inline int chattr_at(int dir_fd, const char *path, unsigned value, unsigned mask) {
+        return chattr_full(dir_fd, path, value, mask, NULL, NULL, 0);
 }
-static inline int chattr_fd(int fd, unsigned value, unsigned mask, unsigned *previous) {
-        return chattr_full(fd, NULL, value, mask, previous, NULL, 0);
+static inline int chattr_fd(int fd, unsigned value, unsigned mask) {
+        return chattr_full(fd, NULL, value, mask, NULL, NULL, 0);
 }
-static inline int chattr_path(const char *path, unsigned value, unsigned mask, unsigned *previous) {
-        return chattr_full(AT_FDCWD, path, value, mask, previous, NULL, 0);
+static inline int chattr_path(const char *path, unsigned value, unsigned mask) {
+        return chattr_full(AT_FDCWD, path, value, mask, NULL, NULL, 0);
 }
 
 int read_attr_fd(int fd, unsigned *ret);

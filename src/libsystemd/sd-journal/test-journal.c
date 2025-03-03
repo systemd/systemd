@@ -20,7 +20,7 @@ static void mkdtemp_chdir_chattr(char *path) {
 
         /* Speed up things a bit on btrfs, ensuring that CoW is turned off for all files created in our
          * directory during the test run */
-        (void) chattr_path(path, FS_NOCOW_FL, FS_NOCOW_FL, NULL);
+        (void) chattr_path(path, FS_NOCOW_FL, FS_NOCOW_FL);
 }
 
 static void test_non_empty_one(void) {
