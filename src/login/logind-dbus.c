@@ -39,7 +39,6 @@
 #include "logind-session-dbus.h"
 #include "logind-user-dbus.h"
 #include "logind.h"
-#include "missing_capability.h"
 #include "mkdir-label.h"
 #include "parse-util.h"
 #include "path-util.h"

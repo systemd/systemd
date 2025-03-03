@@ -2,6 +2,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <threads.h>
 #include <unistd.h>
 
 #include "sd-id128.h"
@@ -16,7 +17,6 @@
 #include "keyring-util.h"
 #include "macro.h"
 #include "missing_syscall.h"
-#include "missing_threads.h"
 #include "path-util.h"
 #include "random-util.h"
 #include "stat-util.h"

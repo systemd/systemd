@@ -27,7 +27,6 @@
 #include "id128-util.h"
 #include "json-util.h"
 #include "main-func.h"
-#include "missing_capability.h"
 #include "nulstr-util.h"
 #include "os-util.h"
 #include "parse-util.h"

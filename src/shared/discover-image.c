@@ -2,7 +2,6 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <linux/fs.h>
 #include <linux/loop.h>
 #include <linux/magic.h>
 #include <stdio.h>
@@ -36,6 +35,7 @@
 #include "log.h"
 #include "loop-util.h"
 #include "macro.h"
+#include "missing_fs.h"
 #include "mkdir.h"
 #include "nulstr-util.h"
 #include "os-util.h"
