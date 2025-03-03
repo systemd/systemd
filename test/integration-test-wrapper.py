@@ -131,7 +131,8 @@ def main() -> None:
         dropin += textwrap.dedent(
             """
             [Unit]
-            Wants=multi-user.target
+            Wants=multi-user.target getty-pre.target
+            Before=getty-pre.target
             """
         )
 

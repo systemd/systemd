@@ -3,7 +3,6 @@
 Description=TEST-07-PID1
 Wants=basic.target multi-user.target
 After=basic.target
-Before=getty-pre.target
 
 [Service]
 Type=oneshot
