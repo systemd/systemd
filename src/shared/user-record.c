@@ -2769,11 +2769,14 @@ bool user_name_fuzzy_match(const char *names[], size_t n_names, char **matches) 
         return false;
 }
 
-int user_record_match(UserRecord *u, const UserDBMatch *match) {
+bool user_record_match(UserRecord *u, const UserDBMatch *match) {
         assert(u);
 
         if (!match)
                 return true;
+
+        if (!uid_is_valid(u->uid))
+                return false;
 
         if (u->uid < match->uid_min || u->uid > match->uid_max)
                 return false;
