@@ -53,7 +53,7 @@ testcase_pkcs7() {
     # Generate PKCS#1 signature
     openssl dgst -sha256 -sign /tmp/test.key -out /tmp/payload.sig /tmp/payload
 
-    # Generate PKCS#7 signature
+    # Generate PKCS#7 "detached" signature
     /usr/lib/systemd/systemd-keyutil --certificate /tmp/test.crt --output /tmp/payload.p7s --signature /tmp/payload.sig pkcs7
 
     # Verify using internal x509 certificate
@@ -61,6 +61,17 @@ testcase_pkcs7() {
 
     # Verify using external (original) x509 certificate
     openssl smime -verify -binary -inform der -in /tmp/payload.p7s -content /tmp/payload -certificate /tmp/test.crt -nointern -noverify > /dev/null
+
+    rm -f /tmp/payload.p7s
+
+    # Generate PKCS#7 non-"detached" signature
+    /usr/lib/systemd/systemd-keyutil --certificate /tmp/test.crt --output /tmp/payload.p7s --signature /tmp/payload.sig --content /tmp/payload pkcs7
+
+    # Verify using internal x509 certificate
+    openssl smime -verify -binary -inform der -in /tmp/payload.p7s -noverify > /dev/null
+
+    # Verify using external (original) x509 certificate
+    openssl smime -verify -binary -inform der -in /tmp/payload.p7s -certificate /tmp/test.crt -nointern -noverify > /dev/null
 }
 
 run_testcases
