@@ -186,7 +186,7 @@ static int load_public_key_disk(const char *path, struct public_key_data *ret) {
         } else {
                 log_debug("Loaded SRK public key from '%s'.", path);
 
-                r = openssl_pkey_from_pem(blob, blob_size, &data.pkey);
+                r = openssl_pubkey_from_pem(blob, blob_size, &data.pkey);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse SRK public key file '%s': %m", path);
 

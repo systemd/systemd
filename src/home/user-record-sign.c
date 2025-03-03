@@ -31,13 +31,11 @@ static int user_record_signable_json(UserRecord *ur, char **ret) {
 }
 
 int user_record_sign(UserRecord *ur, EVP_PKEY *private_key, UserRecord **ret) {
-        _cleanup_(memstream_done) MemStream m = {};
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         _cleanup_(user_record_unrefp) UserRecord *signed_ur = NULL;
         _cleanup_free_ char *text = NULL, *key = NULL;
         _cleanup_free_ void *signature = NULL;
         size_t signature_size = 0;
-        FILE *f;
         int r;
 
         assert(ur);
@@ -52,14 +50,7 @@ int user_record_sign(UserRecord *ur, EVP_PKEY *private_key, UserRecord **ret) {
         if (r < 0)
                 return r;
 
-        f = memstream_init(&m);
-        if (!f)
-                return -ENOMEM;
-
-        if (PEM_write_PUBKEY(f, private_key) <= 0)
-                return -EIO;
-
-        r = memstream_finalize(&m, &key, NULL);
+        r = openssl_pubkey_to_pem(private_key, &key);
         if (r < 0)
                 return r;
 

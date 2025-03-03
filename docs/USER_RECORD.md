@@ -774,14 +774,23 @@ If any of the specified IDs match the system's local machine ID
 (As a special case, if only a single machine ID is listed this field may be a single
 string rather than an array of strings.)
 
+`matchNotMachineId` → Similar to `matchMachineId` but implements the inverse
+match: this section only applies if the local machine ID does *not* match any
+of the listed IDs.
+
 `matchHostname` → An array of strings that are valid hostnames.
 If any of the specified hostnames match the system's local hostname, the fields in this object are honored.
-If both `matchHostname` and `matchMachineId` are used within the same array entry, the object is honored when either match succeeds,
-i.e. the two match types are combined in OR, not in AND.
 (As a special case, if only a single hostname is listed this field may be a single string rather than an array of strings.)
 
-These two are the only two fields specific to this section.
-All other fields that may be used in this section are identical to the equally named ones in the
+`matchNotHostname` → Similar to `matchHostname`, but implement the inverse
+match, as above.
+
+If any of these four fields are used within the same array entry, the object is
+honored when either match succeeds, i.e. the match types are combined in OR,
+not in AND.
+
+These four are the only fields specific to this section. All other fields that
+may be used in this section are identical to the equally named ones in the
 `regular` section (i.e. at the top-level object). Specifically, these are:
 
 `blobDirectory`, `blobManifest`, `iconName`, `location`, `shell`, `umask`,

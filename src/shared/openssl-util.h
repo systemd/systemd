@@ -114,7 +114,8 @@ static inline void sk_X509_free_allp(STACK_OF(X509) **sk) {
         sk_X509_pop_free(*sk, X509_free);
 }
 
-int openssl_pkey_from_pem(const void *pem, size_t pem_size, EVP_PKEY **ret);
+int openssl_pubkey_from_pem(const void *pem, size_t pem_size, EVP_PKEY **ret);
+int openssl_pubkey_to_pem(EVP_PKEY *pkey, char **ret);
 
 int openssl_digest_size(const char *digest_alg, size_t *ret_digest_size);
 

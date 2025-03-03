@@ -915,8 +915,7 @@ static void home_remove_finish(Home *h, int ret, UserRecord *hr) {
          * partitions like USB sticks, or so). Sometimes these storage locations are among those we normally
          * automatically discover in /home or in udev. When such a home is deleted let's hence issue a rescan
          * after completion, so that "unfixated" entries are rediscovered.  */
-        if (!IN_SET(user_record_test_image_path(h->record), USER_TEST_UNDEFINED, USER_TEST_ABSENT))
-                manager_enqueue_rescan(m);
+        (void) manager_enqueue_rescan(m);
 
         /* The image is now removed from disk. Now also remove our stored record */
         r = home_unlink_record(h);
@@ -2063,12 +2062,17 @@ int home_unregister(Home *h, sd_bus_error *error) {
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_BUSY, "Home %s is currently being used, or an operation on home %s is currently being executed.", h->user_name, h->user_name);
         }
 
+        Manager *m = ASSERT_PTR(h->manager);
+
         r = home_unlink_record(h);
         if (r < 0)
                 return r;
 
         /* And destroy the whole entry. The caller needs to be prepared for that. */
         h = home_free(h);
+
+        /* Let's rescan, who knows, maybe this revealed a directory in /home/ that we should pick up now */
+        manager_enqueue_rescan(m);
         return 1;
 }
 
@@ -2495,7 +2499,6 @@ static int home_get_disk_status_directory(
                                 log_debug_errno(r, "No UID quota support on %s.", path);
                                 goto finish;
                         }
-
                         if (r != -ESRCH) {
                                 log_debug_errno(r, "Failed to query disk quota for UID " UID_FMT ": %m", h->uid);
                                 goto finish;
