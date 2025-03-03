@@ -46,7 +46,6 @@
 #include "journald-syslog.h"
 #include "log.h"
 #include "memory-util.h"
-#include "missing_audit.h"
 #include "mkdir.h"
 #include "parse-util.h"
 #include "path-util.h"

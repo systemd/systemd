@@ -26,7 +26,6 @@
 #include "json-util.h"
 #include "machine-pool.h"
 #include "main-func.h"
-#include "missing_capability.h"
 #include "mkdir-label.h"
 #include "notify-recv.h"
 #include "os-util.h"
