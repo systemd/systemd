@@ -212,16 +212,6 @@ static inline int missing_close_range(unsigned first_fd, unsigned end_fd, unsign
 
 /* ======================================================================= */
 
-#if !HAVE_GETDENTS64
-static inline ssize_t missing_getdents64(int fd, void *buffer, size_t length) {
-        return syscall(__NR_getdents64, fd, buffer, length);
-}
-
-#  define getdents64 missing_getdents64
-#endif
-
-/* ======================================================================= */
-
 #if !HAVE_SCHED_SETATTR
 /* since kernel 3.14 (e6cfc0295c7d51b008999a8b13a44fb43f8685ea) */
 static inline ssize_t missing_sched_setattr(pid_t pid, struct sched_attr *attr, unsigned int flags) {

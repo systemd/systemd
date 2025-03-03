@@ -30,6 +30,14 @@ struct dirent *readdir_no_dot(DIR *dirp);
                      continue;                                          \
              else
 
+/* Musl provides posix_getdents(). But glibc does not, and provides their own implementation as getdents64().
+ * Let's introduce a simple wrapper. */
+#if !HAVE_POSIX_GETDENTS
+static inline ssize_t posix_getdents(int fd, void *buf, size_t nbyte, int flags) {
+        return getdents64(fd, buf, nbyte);
+}
+#endif
+
 /* Maximum space one dirent structure might require at most */
 #define DIRENT_SIZE_MAX CONST_MAX(sizeof(struct dirent), offsetof(struct dirent, d_name) + NAME_MAX + 1)
 
