@@ -1356,7 +1356,7 @@ int groupdb_by_name(const char *name, const UserDBMatch *match, UserDBFlags flag
         if (ret)
                 *ret = TAKE_PTR(gr);
 
-        return r;
+        return 0;
 }
 
 static int groupdb_by_gid_fallbacks(
