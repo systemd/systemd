@@ -30,6 +30,9 @@ int chattr_full(
 
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
 
+        if (mask == 0 && !ret_previous && !ret_final)
+                return 0;
+
         fd = xopenat(dir_fd, path, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
         if (fd < 0)
                 return fd;
@@ -44,9 +47,6 @@ int chattr_full(
 
         if (!S_ISDIR(st.st_mode) && !S_ISREG(st.st_mode))
                 return -ENOTTY;
-
-        if (mask == 0 && !ret_previous && !ret_final)
-                return 0;
 
         if (ioctl(fd, FS_IOC_GETFLAGS, &old_attr) < 0)
                 return -errno;
