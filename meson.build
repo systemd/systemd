@@ -631,10 +631,6 @@ foreach ident : [
                                  #include <signal.h>
                                  #include <sys/wait.h>
                                  #include <sys/pidfd.h>'''],
-        ['rt_sigqueueinfo',   '''#include <stdlib.h>
-                                 #include <unistd.h>
-                                 #include <signal.h>
-                                 #include <sys/wait.h>'''],
         ['rt_tgsigqueueinfo', '''#include <stdlib.h>
                                  #include <unistd.h>
                                  #include <signal.h>
