@@ -1,8 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <malloc.h>
 #include <sys/epoll.h>
 #include <sys/timerfd.h>
 #include <sys/wait.h>
+#include <threads.h>
 
 #include "sd-daemon.h"
 #include "sd-event.h"
@@ -20,11 +22,9 @@
 #include "list.h"
 #include "logarithm.h"
 #include "macro.h"
-#include "mallinfo-util.h"
 #include "memory-util.h"
 #include "missing_magic.h"
 #include "missing_syscall.h"
-#include "missing_threads.h"
 #include "missing_wait.h"
 #include "origin-id.h"
 #include "path-util.h"
@@ -1867,8 +1867,8 @@ _public_ int sd_event_trim_memory(void) {
 
         log_debug("Memory pressure event, trimming malloc() memory.");
 
-#if HAVE_GENERIC_MALLINFO
-        generic_mallinfo before_mallinfo = generic_mallinfo_get();
+#if HAVE_MALLINFO2
+        struct mallinfo2 before_mallinfo = mallinfo2();
 #endif
 
         usec_t before_timestamp = now(CLOCK_MONOTONIC);
@@ -1883,8 +1883,8 @@ _public_ int sd_event_trim_memory(void) {
 
         usec_t period = after_timestamp - before_timestamp;
 
-#if HAVE_GENERIC_MALLINFO
-        generic_mallinfo after_mallinfo = generic_mallinfo_get();
+#if HAVE_MALLINFO2
+        struct mallinfo2 after_mallinfo = mallinfo2();
         size_t l = LESS_BY((size_t) before_mallinfo.hblkhd, (size_t) after_mallinfo.hblkhd) +
                 LESS_BY((size_t) before_mallinfo.arena, (size_t) after_mallinfo.arena);
         log_struct(LOG_DEBUG,

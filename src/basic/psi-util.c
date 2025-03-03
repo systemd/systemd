@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <stdio.h>
+#include <threads.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -8,7 +9,6 @@
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "missing_threads.h"
 #include "parse-util.h"
 #include "psi-util.h"
 #include "string-util.h"

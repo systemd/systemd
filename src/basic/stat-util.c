@@ -19,7 +19,6 @@
 #include "macro.h"
 #include "missing_fs.h"
 #include "missing_magic.h"
-#include "missing_syscall.h"
 #include "mountpoint-util.h"
 #include "nulstr-util.h"
 #include "parse-util.h"
@@ -172,7 +171,7 @@ int dir_is_empty_at(int dir_fd, const char *path, bool ignore_hidden_or_backup) 
                 struct dirent *de;
                 ssize_t n;
 
-                n = getdents64(fd, buf, m);
+                n = posix_getdents(fd, buf, m, /* flags = */ 0);
                 if (n < 0)
                         return -errno;
                 if (n == 0)
