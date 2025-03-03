@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#if HAVE_AUDIT
+#  include <libaudit.h>
+#endif
 #include <stdio.h>
 
 #include "alloc-util.h"

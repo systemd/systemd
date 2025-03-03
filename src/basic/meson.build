@@ -113,8 +113,6 @@ basic_sources = files(
         'xattr-util.c',
 )
 
-missing_audit_h = files('missing_audit.h')
-missing_capability_h = files('missing_capability.h')
 missing_socket_h = files('missing_socket.h')
 
 missing_syscall_def_h = files('missing_syscall_def.h')
@@ -138,7 +136,7 @@ generate_cap_list = find_program('generate-cap-list.sh')
 cap_list_txt = custom_target(
         'cap-list.txt',
         output : 'cap-list.txt',
-        command : [generate_cap_list, cpp, config_h, missing_capability_h],
+        command : [generate_cap_list, cpp, files('linux/capability.h')],
         capture : true)
 
 generate_errno_list = find_program('generate-errno-list.sh')

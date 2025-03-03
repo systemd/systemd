@@ -8,6 +8,7 @@
 #include <sys/types.h>
 #include <sys/utsname.h>
 #include <sys/xattr.h>
+#include <threads.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -24,7 +25,6 @@
 #include "macro.h"
 #include "missing_fs.h"
 #include "missing_magic.h"
-#include "missing_threads.h"
 #include "mkdir.h"
 #include "parse-util.h"
 #include "path-util.h"

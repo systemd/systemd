@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/prctl.h>
+#include <threads.h>
 #include <unistd.h>
 
 #include "sd-resolve.h"
@@ -23,7 +24,6 @@
 #include "list.h"
 #include "memory-util.h"
 #include "missing_syscall.h"
-#include "missing_threads.h"
 #include "process-util.h"
 #include "resolve-private.h"
 #include "socket-util.h"
