@@ -17,7 +17,7 @@
                 _l_ > 0 ? memset((x), 0, _l_) : (x);            \
         })
 
-#if !SD_BOOT && HAVE_EXPLICIT_BZERO
+#if !SD_BOOT
 static inline void *explicit_bzero_safe(void *p, size_t l) {
         if (p && l > 0)
                 explicit_bzero(p, l);

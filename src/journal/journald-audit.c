@@ -10,7 +10,6 @@
 #include "iovec-util.h"
 #include "journal-internal.h"
 #include "journald-audit.h"
-#include "missing_audit.h"
 #include "string-util.h"
 
 typedef struct MapField {
