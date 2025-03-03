@@ -71,7 +71,8 @@
         <listitem><para>This command embeds the PKCS#1 signature (RSA) provided with
         <option>--signature=</option> in a PKCS#7 signature using the certificate given with
         <option>--certificate=</option> and writes it to the file specified with <option>--output=</option>
-        in PKCS#7 format (p7s).</para>
+        in PKCS#7 format (p7s). If <option>--content=</option> is provided it is included in the p7s,
+        otherwise a "detached" signature is created.</para>
 
         <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
@@ -105,6 +106,15 @@
         <term><option>--signature=<replaceable>PATH</replaceable></option></term>
 
         <listitem><para>Input PKCS#1 signature for the <command>pkcs7</command> command.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--content=<replaceable>PATH</replaceable></option></term>
+
+        <listitem><para>Input data that corresponds to the PKCS#1 signature for the <command>pkcs7</command>
+        command, used for generating inline (i.e. non-"detached") PKCS#7 signatures.</para>
 
         <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
