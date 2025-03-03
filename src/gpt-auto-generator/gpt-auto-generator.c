@@ -37,13 +37,6 @@
 #include "unit-name.h"
 #include "virt.h"
 
-typedef enum GptAutoRoot {
-        GPT_AUTO_ROOT_UNSPECIFIED,  /* no root= specified */
-        GPT_AUTO_ROOT_OFF,          /* root= set to something else */
-        GPT_AUTO_ROOT_ON,           /* root= set explicitly to "gpt-auto" */
-        GPT_AUTO_ROOT_FORCE,        /* root= set explicitly to "gpt-auto-force" → ignores factory reset mode */
-} GptAutoRoot;
-
 static const char *arg_dest = NULL;
 static bool arg_enabled = true;
 static GptAutoRoot arg_auto_root = GPT_AUTO_ROOT_UNSPECIFIED;
@@ -931,16 +924,8 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 /* Disable root disk logic if there's a root= value specified (unless it happens to be
                  * "gpt-auto" or "gpt-auto-force") */
 
-                if (streq(value, "gpt-auto")) {
-                        arg_auto_root = GPT_AUTO_ROOT_ON;
-                        log_debug("Enabling root partition auto-detection (respecting factory reset mode), root= is explicitly set to 'gpt-auto'.");
-                } else if (streq(value, "gpt-auto-force")) {
-                        arg_auto_root = GPT_AUTO_ROOT_FORCE;
-                        log_debug("Enabling root partition auto-detection (ignoring factory reset mode), root= is explicitly set to 'gpt-auto-force'.");
-                } else {
-                        arg_auto_root = GPT_AUTO_ROOT_OFF;
-                        log_debug("Disabling root partition auto-detection, root= is neither unset, nor set to 'gpt-auto' or 'gpt-auto-force'.");
-                }
+                arg_auto_root = parse_gpt_auto_root(value);
+                assert(arg_auto_root >= 0);
 
         } else if (streq(key, "roothash")) {
 
