@@ -6,79 +6,96 @@
 
 TEST(log_device_full) {
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
-        int r;
 
         (void) sd_device_new_from_subsystem_sysname(&dev, "net", "lo");
 
         for (int level = LOG_ERR; level <= LOG_DEBUG; level++) {
                 log_device_full(dev, level, "test level=%d: %m", level);
 
-                r = log_device_full_errno(dev, level, EUCLEAN, "test level=%d errno=EUCLEAN: %m", level);
-                assert_se(r == -EUCLEAN);
-
-                r = log_device_full_errno(dev, level, 0, "test level=%d errno=0: %m", level);
-                assert_se(r == 0);
-
-                r = log_device_full_errno(dev, level, SYNTHETIC_ERRNO(ENODATA), "test level=%d errno=S(ENODATA).", level);
-                assert_se(r == -ENODATA);
+                ASSERT_EQ(log_device_full_errno(dev, level, EUCLEAN, "test level=%d errno=EUCLEAN: %m", level), -EUCLEAN);
+                ASSERT_EQ(log_device_full_errno(dev, level, 0, "test level=%d errno=0: %m", level), 0);
+                ASSERT_EQ(log_device_full_errno(dev, level, SYNTHETIC_ERRNO(ENODATA), "test level=%d errno=S(ENODATA).", level), -ENODATA);
         }
 }
 
 TEST(device_in_subsystem) {
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
-        int r;
 
-        r = sd_device_new_from_subsystem_sysname(&dev, "net", "lo");
-        if (r == -ENODEV)
-                return (void) log_tests_skipped("net/lo does not exist");
-        assert_se(r >= 0);
+        if (sd_device_new_from_subsystem_sysname(&dev, "net", "lo") >= 0) {
+                ASSERT_TRUE(device_in_subsystem(dev, "net"));
+                ASSERT_FALSE(device_in_subsystem(dev, "disk"));
+                ASSERT_FALSE(device_in_subsystem(dev, "subsystem"));
+                ASSERT_FALSE(device_in_subsystem(dev, ""));
+                ASSERT_FALSE(device_in_subsystem(dev, NULL));
 
-        assert_se(device_in_subsystem(dev, "net"));
-        assert_se(!device_in_subsystem(dev, "disk"));
-        assert_se(!device_in_subsystem(dev, "subsystem"));
-        assert_se(!device_in_subsystem(dev, ""));
-        assert_se(!device_in_subsystem(dev, NULL));
+                ASSERT_TRUE(device_in_subsystems(dev, STRV_MAKE("net")));
+                ASSERT_TRUE(device_in_subsystems(dev, STRV_MAKE("", "net")));
+                ASSERT_TRUE(device_in_subsystems(dev, STRV_MAKE("net", "disk")));
+                ASSERT_TRUE(!device_in_subsystems(dev, STRV_MAKE("disk", "subsystem")));
+                ASSERT_TRUE(!device_in_subsystems(dev, STRV_MAKE("disk", "")));
+                ASSERT_TRUE(!device_in_subsystems(dev, STRV_MAKE("")));
+                ASSERT_TRUE(!device_in_subsystems(dev, STRV_MAKE(NULL)));
+                ASSERT_TRUE(!device_in_subsystems(dev, NULL));
+
+                dev = sd_device_unref(dev);
+        }
+
+        ASSERT_OK(sd_device_new_from_syspath(&dev, "/sys/class/net"));
+        ASSERT_FALSE(device_in_subsystem(dev, "net"));
+        ASSERT_FALSE(device_in_subsystem(dev, "disk"));
+        ASSERT_TRUE(device_in_subsystem(dev, "subsystem"));
+        ASSERT_FALSE(device_in_subsystem(dev, ""));
+        ASSERT_FALSE(device_in_subsystem(dev, NULL));
+
+        ASSERT_TRUE(!device_in_subsystems(dev, STRV_MAKE("net")));
+        ASSERT_TRUE(!device_in_subsystems(dev, STRV_MAKE("", "net")));
+        ASSERT_TRUE(!device_in_subsystems(dev, STRV_MAKE("net", "disk")));
+        ASSERT_TRUE(device_in_subsystems(dev, STRV_MAKE("disk", "subsystem")));
+        ASSERT_TRUE(!device_in_subsystems(dev, STRV_MAKE("disk", "")));
+        ASSERT_TRUE(!device_in_subsystems(dev, STRV_MAKE("")));
+        ASSERT_TRUE(!device_in_subsystems(dev, STRV_MAKE(NULL)));
+        ASSERT_TRUE(!device_in_subsystems(dev, NULL));
 
         dev = sd_device_unref(dev);
 
-        assert_se(sd_device_new_from_syspath(&dev, "/sys/class/net") >= 0);
-        assert_se(!device_in_subsystem(dev, "net"));
-        assert_se(!device_in_subsystem(dev, "disk"));
-        assert_se(device_in_subsystem(dev, "subsystem"));
-        assert_se(!device_in_subsystem(dev, ""));
-        assert_se(!device_in_subsystem(dev, NULL));
+        ASSERT_OK(sd_device_new_from_syspath(&dev, "/sys/class"));
+        ASSERT_FALSE(device_in_subsystem(dev, "net"));
+        ASSERT_FALSE(device_in_subsystem(dev, "disk"));
+        ASSERT_FALSE(device_in_subsystem(dev, "subsystem"));
+        ASSERT_FALSE(device_in_subsystem(dev, ""));
+        ASSERT_TRUE(device_in_subsystem(dev, NULL));
 
-        dev = sd_device_unref(dev);
-
-        assert_se(sd_device_new_from_syspath(&dev, "/sys/class") >= 0);
-        assert_se(!device_in_subsystem(dev, "net"));
-        assert_se(!device_in_subsystem(dev, "disk"));
-        assert_se(!device_in_subsystem(dev, "subsystem"));
-        assert_se(!device_in_subsystem(dev, ""));
-        assert_se(device_in_subsystem(dev, NULL));
+        ASSERT_TRUE(!device_in_subsystems(dev, STRV_MAKE("net")));
+        ASSERT_TRUE(!device_in_subsystems(dev, STRV_MAKE("", "net")));
+        ASSERT_TRUE(!device_in_subsystems(dev, STRV_MAKE("net", "disk")));
+        ASSERT_TRUE(!device_in_subsystems(dev, STRV_MAKE("disk", "subsystem")));
+        ASSERT_TRUE(!device_in_subsystems(dev, STRV_MAKE("disk", "")));
+        ASSERT_TRUE(!device_in_subsystems(dev, STRV_MAKE("")));
+        ASSERT_TRUE(device_in_subsystems(dev, STRV_MAKE(NULL)));
+        ASSERT_TRUE(device_in_subsystems(dev, NULL));
 }
 
 TEST(device_is_devtype) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
-        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
 
-        assert_se(sd_device_enumerator_new(&e) >= 0);
-        assert_se(sd_device_enumerator_add_match_subsystem(e, "disk", true) >= 0);
+        ASSERT_OK(sd_device_enumerator_new(&e));
+        ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, "disk", true));
 
         FOREACH_DEVICE(e, d) {
                 const char *t;
 
-                assert_se(sd_device_get_devtype(d, &t) >= 0);
-                assert_se(device_is_devtype(d, t));
-                assert_se(!device_is_devtype(d, "hoge"));
-                assert_se(!device_is_devtype(d, ""));
-                assert_se(!device_is_devtype(d, NULL));
+                ASSERT_OK(sd_device_get_devtype(d, &t));
+                ASSERT_TRUE(device_is_devtype(d, t));
+                ASSERT_FALSE(device_is_devtype(d, "hoge"));
+                ASSERT_FALSE(device_is_devtype(d, ""));
+                ASSERT_FALSE(device_is_devtype(d, NULL));
         }
 
-        assert_se(sd_device_new_from_syspath(&dev, "/sys/class/net") >= 0);
-        assert_se(!device_is_devtype(dev, "hoge"));
-        assert_se(!device_is_devtype(dev, ""));
-        assert_se(device_is_devtype(dev, NULL));
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        ASSERT_OK(sd_device_new_from_syspath(&dev, "/sys/class/net"));
+        ASSERT_FALSE(device_is_devtype(dev, "hoge"));
+        ASSERT_FALSE(device_is_devtype(dev, ""));
+        ASSERT_TRUE(device_is_devtype(dev, NULL));
 }
 
 static int intro(void) {

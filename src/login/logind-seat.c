@@ -8,12 +8,13 @@
 #include "sd-messages.h"
 
 #include "alloc-util.h"
-#include "devnode-acl.h"
+#include "device-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "id128-util.h"
 #include "logind-seat-dbus.h"
 #include "logind-seat.h"
 #include "logind-session-dbus.h"
@@ -73,6 +74,7 @@ Seat* seat_free(Seat *s) {
 
         hashmap_remove(s->manager->seats, s->id);
 
+        set_free(s->uevents);
         free(s->positions);
         free(s->state_file);
         free(s->id);
@@ -202,19 +204,107 @@ int seat_preallocate_vts(Seat *s) {
         return r;
 }
 
-int seat_apply_acls(Seat *s, Session *old_active) {
+static void seat_triggered_uevents_done(Seat *s) {
+        assert(s);
+
+        if (!set_isempty(s->uevents))
+                return;
+
+        Session *session = s->active;
+
+        if (session) {
+                session_save(session);
+                user_save(session->user);
+        }
+
+        if (session && session->started) {
+                session_send_changed(session, "Active", NULL);
+                session_device_resume_all(session);
+        }
+
+        if (!session || session->started)
+                seat_send_changed(s, "ActiveSession", NULL);
+}
+
+int manager_process_device_triggered_by_seat(Manager *m, sd_device *dev) {
+        assert(m);
+        assert(dev);
+
+        sd_id128_t uuid;
+        if (sd_device_get_trigger_uuid(dev, &uuid) < 0)
+                return 0;
+
+        Seat *s;
+        HASHMAP_FOREACH(s, m->seats)
+                if (set_contains(s->uevents, &uuid))
+                        break;
+        if (!s)
+                return 0;
+
+        free(ASSERT_PTR(set_remove(s->uevents, &uuid)));
+        seat_triggered_uevents_done(s);
+
+        const char *id;
+        if (sd_device_get_property_value(dev, "ID_SEAT", &id) < 0 || isempty(id))
+                id = "seat0";
+
+        if (!streq(id, s->id)) {
+                log_device_debug(dev, "ID_SEAT is changed in the triggered uevent: \"%s\" -> \"%s\"", s->id, id);
+                return 0;
+        }
+
+        return 1; /* The uevent is triggered by the relevant seat. */
+}
+
+static int seat_trigger_devices(Seat *s) {
         int r;
 
         assert(s);
 
-        r = devnode_acl_all(s->id,
-                            false,
-                            !!old_active, old_active ? old_active->user->user_record->uid : 0,
-                            !!s->active, s->active ? s->active->user->user_record->uid : 0);
+        set_clear(s->uevents);
 
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        r = sd_device_enumerator_new(&e);
         if (r < 0)
-                return log_error_errno(r, "Failed to apply ACLs: %m");
+                return r;
 
+        r = sd_device_enumerator_add_match_tag(e, "uaccess");
+        if (r < 0)
+                return r;
+
+        FOREACH_DEVICE(e, d) {
+                /* Verify that the tag is still in place. */
+                if (sd_device_has_current_tag(d, "uaccess") <= 0)
+                        continue;
+
+                /* In case people mistag devices with nodes, we need to ignore this. */
+                if (sd_device_get_devname(d, NULL) < 0)
+                        continue;
+
+                const char *id;
+                if (sd_device_get_property_value(d, "ID_SEAT", &id) < 0 || isempty(id))
+                        id = "seat0";
+
+                if (!streq(id, s->id))
+                        continue;
+
+                sd_id128_t uuid;
+                r = sd_device_trigger_with_uuid(d, SD_DEVICE_CHANGE, &uuid);
+                if (r < 0) {
+                        log_device_debug_errno(d, r, "Failed to trigger 'change' event, ignoring: %m");
+                        continue;
+                }
+
+                _cleanup_free_ sd_id128_t *copy = newdup(sd_id128_t, &uuid, 1);
+                if (!copy)
+                        return -ENOMEM;
+
+                r = set_ensure_consume(&s->uevents, &id128_hash_ops_free, TAKE_PTR(copy));
+                if (r < 0)
+                        return r;
+        }
+
+        seat_triggered_uevents_done(s);
         return 0;
 }
 
@@ -232,7 +322,7 @@ int seat_set_active(Seat *s, Session *session) {
          * Therefore, if the active session has executed session_leave_vt ,
          * A resume is required here. */
         if (session == s->active) {
-                if (session) {
+                if (session && set_isempty(s->uevents)) {
                         log_debug("Active session remains unchanged, resuming session devices.");
                         session_device_resume_all(session);
                 }
@@ -245,32 +335,13 @@ int seat_set_active(Seat *s, Session *session) {
         seat_save(s);
 
         if (old_active) {
+                user_save(old_active->user);
+                session_save(old_active);
                 session_device_pause_all(old_active);
                 session_send_changed(old_active, "Active", NULL);
         }
 
-        (void) seat_apply_acls(s, old_active);
-
-        if (session && session->started) {
-                session_send_changed(session, "Active", NULL);
-                session_device_resume_all(session);
-        }
-
-        if (!session || session->started)
-                seat_send_changed(s, "ActiveSession", NULL);
-
-        if (session) {
-                session_save(session);
-                user_save(session->user);
-        }
-
-        if (old_active) {
-                session_save(old_active);
-                if (!session || session->user != old_active->user)
-                        user_save(old_active->user);
-        }
-
-        return 0;
+        return seat_trigger_devices(s);
 }
 
 static Session* seat_get_position(Seat *s, unsigned pos) {
