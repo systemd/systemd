@@ -17,7 +17,6 @@
 #include "fileio.h"
 #include "hashmap.h"
 #include "locale-util.h"
-#include "missing_syscall.h"
 #include "path-util.h"
 #include "set.h"
 #include "string-table.h"
@@ -283,64 +282,45 @@ int locale_is_installed(const char *name) {
         return true;
 }
 
-bool is_locale_utf8(void) {
-        static int cached_answer = -1;
+static bool is_locale_utf8_impl(void) {
         const char *set;
         int r;
 
-        /* Note that we default to 'true' here, since today UTF8 is
-         * pretty much supported everywhere. */
-
-        if (cached_answer >= 0)
-                goto out;
+        /* Note that we default to 'true' here, since today UTF8 is pretty much supported everywhere. */
 
         r = secure_getenv_bool("SYSTEMD_UTF8");
-        if (r >= 0) {
-                cached_answer = r;
-                goto out;
-        } else if (r != -ENXIO)
+        if (r >= 0)
+                return r;
+        if (r != -ENXIO)
                 log_debug_errno(r, "Failed to parse $SYSTEMD_UTF8, ignoring: %m");
 
         /* This function may be called from libsystemd, and setlocale() is not thread safe. Assuming yes. */
-        if (gettid() != raw_getpid()) {
-                cached_answer = true;
-                goto out;
-        }
+        if (!is_main_thread())
+                return true;
 
-        if (!setlocale(LC_ALL, "")) {
-                cached_answer = true;
-                goto out;
-        }
+        if (!setlocale(LC_ALL, ""))
+                return true;
 
         set = nl_langinfo(CODESET);
-        if (!set) {
-                cached_answer = true;
-                goto out;
-        }
+        if (!set || streq(set, "UTF-8"))
+                return true;
 
-        if (streq(set, "UTF-8")) {
-                cached_answer = true;
-                goto out;
-        }
-
-        /* For LC_CTYPE=="C" return true, because CTYPE is effectively
-         * unset and everything can do to UTF-8 nowadays. */
         set = setlocale(LC_CTYPE, NULL);
-        if (!set) {
-                cached_answer = true;
-                goto out;
-        }
+        if (!set)
+                return true;
 
-        /* Check result, but ignore the result if C was set
-         * explicitly. */
-        cached_answer =
-                STR_IN_SET(set, "C", "POSIX") &&
-                !getenv("LC_ALL") &&
-                !getenv("LC_CTYPE") &&
-                !getenv("LANG");
+        /* Unless LC_CTYPE is explicitly overridden, return true. Because here CTYPE is effectively unset
+         * and everything can do to UTF-8 nowadays. */
+        return STR_IN_SET(set, "C", "POSIX") && !getenv("LC_ALL") && !getenv("LC_CTYPE") && !getenv("LANG");
+}
 
-out:
-        return (bool) cached_answer;
+bool is_locale_utf8(void) {
+        static int cached = -1;
+
+        if (cached < 0)
+                cached = is_locale_utf8_impl();
+
+        return cached;
 }
 
 void locale_variables_free(char *l[_VARIABLE_LC_MAX]) {

@@ -1441,7 +1441,7 @@ pid_t getpid_cached(void) {
         case CACHED_PID_UNSET: { /* Not initialized yet, then do so now */
                 pid_t new_pid;
 
-                new_pid = raw_getpid();
+                new_pid = getpid();
 
                 if (!installed) {
                         /* __register_atfork() either returns 0 or -ENOMEM, in its glibc implementation. Since it's
@@ -1462,7 +1462,7 @@ pid_t getpid_cached(void) {
         }
 
         case CACHED_PID_BUSY: /* Somebody else is currently initializing */
-                return raw_getpid();
+                return getpid();
 
         default: /* Properly initialized */
                 return current_value;
