@@ -1036,8 +1036,6 @@ static int manager_bind_varlink(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink methods: %m");
 
-        (void) mkdir_p("/run/systemd/userdb", 0755);
-
         /* To make things easier to debug, when working from a homed managed home directory, let's optionally
          * use a different varlink socket name */
         suffix = getenv("SYSTEMD_HOME_DEBUG_SUFFIX");
@@ -1049,7 +1047,7 @@ static int manager_bind_varlink(Manager *m) {
         } else
                 socket_path = "/run/systemd/userdb/io.systemd.Home";
 
-        r = sd_varlink_server_listen_address(m->varlink_server, socket_path, 0666);
+        r = sd_varlink_server_listen_address(m->varlink_server, socket_path, 0666 | SD_VARLINK_SERVER_MODE_MKDIR_0755);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind to varlink socket: %m");
 
