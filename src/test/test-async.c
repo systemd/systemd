@@ -15,7 +15,9 @@
 #include "tmpfile-util.h"
 
 TEST(asynchronous_sync) {
-        ASSERT_OK(asynchronous_sync(NULL));
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        ASSERT_OK(asynchronous_sync(&pidref));
+        ASSERT_OK(pidref_wait_for_terminate(&pidref, /* ret= */ NULL));
 }
 
 static void wait_fd_closed(int fd) {
