@@ -395,7 +395,7 @@ def main() -> None:
     shell = bool(int(os.getenv('TEST_SHELL', '0')))
     summary = Summary.get(args)
 
-    if shell and not sys.stderr.isatty():
+    if shell and not sys.stdin.isatty():
         print(
             '--interactive must be passed to meson test to use TEST_SHELL=1',
             file=sys.stderr,
@@ -443,7 +443,7 @@ def main() -> None:
 
     journal_file.unlink(missing_ok=True)
 
-    if not sys.stderr.isatty():
+    if not sys.stdin.isatty():
         dropin += textwrap.dedent(
             """
             [Unit]
@@ -454,11 +454,22 @@ def main() -> None:
         dropin += textwrap.dedent(
             """
             [Unit]
-            Wants=multi-user.target
+            Wants=multi-user.target getty-pre.target
+            Before=getty-pre.target
+
+            [Service]
+            StandardInput=tty
+            StandardOutput=inherit
+            StandardError=inherit
+            TTYReset=yes
+            TTYVHangup=yes
+            IgnoreSIGPIPE=no
+            # bash ignores SIGTERM
+            KillSignal=SIGHUP
             """
         )
 
-    if sys.stderr.isatty():
+    if sys.stdin.isatty():
         dropin += textwrap.dedent(
             """
             [Service]
@@ -489,7 +500,7 @@ def main() -> None:
                 '--credential', f'systemd.extra-unit.emergency-exit.service={shlex.quote(EMERGENCY_EXIT_SERVICE)}',  # noqa: E501
                 '--credential', f'systemd.unit-dropin.emergency.target={shlex.quote(EMERGENCY_EXIT_DROPIN)}',
             ]
-            if not sys.stderr.isatty()
+            if not sys.stdin.isatty()
             else []
         ),
         '--credential', f'systemd.unit-dropin.{args.unit}={shlex.quote(dropin)}',
@@ -514,13 +525,13 @@ def main() -> None:
                         'systemd.crash_action=poweroff',
                         'loglevel=6',
                     ]
-                    if not sys.stderr.isatty()
+                    if not sys.stdin.isatty()
                     else []
                 ),
             ]
         ),
-        '--credential', f"journal.storage={'persistent' if sys.stderr.isatty() else args.storage}",
-        *(['--runtime-build-sources=no', '--register=no'] if not sys.stderr.isatty() else []),
+        '--credential', f"journal.storage={'persistent' if sys.stdin.isatty() else args.storage}",
+        *(['--runtime-build-sources=no', '--register=no'] if not sys.stdin.isatty() else []),
         'vm' if args.vm or os.getuid() != 0 or os.getenv('TEST_PREFER_QEMU', '0') == '1' else 'boot',
     ]  # fmt: skip
 

@@ -5,6 +5,8 @@ set -o pipefail
 
 case "$1" in
     setup)
+        busctl call org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager SetShowStatus s no
+
         if [[ -f "$STATE_DIRECTORY/inprogress" ]]; then
             exit 0
         fi
@@ -46,6 +48,8 @@ case "$1" in
         touch "$STATE_DIRECTORY/inprogress"
         ;;
     finalize)
+        busctl call org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager SetShowStatus s auto
+
         # If we're rebooting, the test does a reboot as part of its execution and we shouldn't remove /inprogress.
         if ! [[ "$(systemctl list-jobs)" =~ reboot.target|kexec.target|soft-reboot.target ]]; then
             rm -f "$STATE_DIRECTORY/inprogress"
