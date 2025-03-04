@@ -743,9 +743,7 @@ static int manager_varlink_init_userdb(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink methods: %m");
 
-        (void) mkdir_p("/run/systemd/userdb", 0755);
-
-        r = sd_varlink_server_listen_address(s, "/run/systemd/userdb/io.systemd.Machine", 0666);
+        r = sd_varlink_server_listen_address(s, "/run/systemd/userdb/io.systemd.Machine", 0666 | SD_VARLINK_SERVER_MODE_MKDIR_0755);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind to varlink socket: %m");
 
@@ -808,9 +806,7 @@ static int manager_varlink_init_machine(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink methods: %m");
 
-        (void) mkdir_p("/run/systemd/machine", 0755);
-
-        r = sd_varlink_server_listen_address(s, "/run/systemd/machine/io.systemd.Machine", 0666);
+        r = sd_varlink_server_listen_address(s, "/run/systemd/machine/io.systemd.Machine", 0666 | SD_VARLINK_SERVER_MODE_MKDIR_0755);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind to io.systemd.Machine varlink socket: %m");
 
