@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
+#include <linux/hidraw.h>
+#include <linux/input.h>
 #include <string.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>
@@ -16,8 +18,6 @@
 #include "logind-session-dbus.h"
 #include "logind-session-device.h"
 #include "missing_drm.h"
-#include "missing_hidraw.h"
-#include "missing_input.h"
 #include "parse-util.h"
 
 enum SessionDeviceNotifications {

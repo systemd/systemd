@@ -8,7 +8,7 @@
 #include "sd-json.h"
 
 #include "hashmap.h"
-#include "missing_resource.h"
+#include "rlimit-util.h"
 #include "strv.h"
 #include "time-util.h"
 #include "user-util.h"

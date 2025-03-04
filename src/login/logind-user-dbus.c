@@ -12,7 +12,6 @@
 #include "logind-user-dbus.h"
 #include "logind-user.h"
 #include "logind.h"
-#include "missing_capability.h"
 #include "signal-util.h"
 #include "strv.h"
 #include "user-util.h"

@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/mount.h>
-#if WANT_LINUX_FS_H
-#include <linux/fs.h>
-#endif
+#include <linux/loop.h>
 
 #include "sd-daemon.h"
 #include "sd-varlink.h"
@@ -19,8 +17,6 @@
 #include "io-util.h"
 #include "json-util.h"
 #include "main-func.h"
-#include "missing_loop.h"
-#include "missing_mount.h"
 #include "missing_syscall.h"
 #include "namespace-util.h"
 #include "nsresource.h"
