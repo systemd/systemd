@@ -2,8 +2,8 @@
 #pragma once
 
 #include <features.h>
-#include <stdint.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <sys/ioctl.h>
 #include <sys/syscall.h>
 #include <unistd.h>
