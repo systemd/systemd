@@ -3,6 +3,7 @@
 
 #include <sys/types.h>
 
+#include "pidref.h"
 #include "macro.h"
 #include "rm-rf.h"
 
@@ -19,8 +20,8 @@
  * child, or never use clone()/clone3() and stick to fork() only. Because we need clone()/clone3() we opted
  * for avoiding threads. */
 
-int asynchronous_sync(pid_t *ret_pid);
-int asynchronous_fsync(int fd, pid_t *ret_pid);
+int asynchronous_sync(PidRef *ret_pid);
+int asynchronous_fsync(int fd, PidRef *ret_pid);
 
 int asynchronous_close(int fd);
 void asynchronous_close_many(const int fds[], size_t n_fds);
