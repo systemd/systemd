@@ -4,6 +4,7 @@
 """Test wrapper command for driving integration tests."""
 
 import argparse
+import datetime
 import json
 import os
 import shlex
@@ -44,6 +45,7 @@ def main() -> None:
     parser.add_argument('--slow', action=argparse.BooleanOptionalAction)
     parser.add_argument('--vm', action=argparse.BooleanOptionalAction)
     parser.add_argument('--exit-code', required=True, type=int)
+    parser.add_argument('--rtc', action=argparse.BooleanOptionalAction)
     parser.add_argument('mkosi_args', nargs='*')
     args = parser.parse_args()
 
@@ -73,7 +75,7 @@ def main() -> None:
     keep_journal = os.getenv('TEST_SAVE_JOURNAL', 'fail')
     shell = bool(int(os.getenv('TEST_SHELL', '0')))
 
-    if shell and not sys.stderr.isatty():
+    if shell and not sys.stdin.isatty():
         print(
             '--interactive must be passed to meson test to use TEST_SHELL=1',
             file=sys.stderr,
@@ -115,7 +117,7 @@ def main() -> None:
         )
 
     journal_file = None
-    if not sys.stderr.isatty():
+    if not sys.stdin.isatty():
         dropin += textwrap.dedent(
             """
             [Unit]
@@ -129,11 +131,22 @@ def main() -> None:
         dropin += textwrap.dedent(
             """
             [Unit]
-            Wants=multi-user.target
+            Wants=multi-user.target getty-pre.target
+            Before=getty-pre.target
+
+            [Service]
+            StandardInput=tty
+            StandardOutput=inherit
+            StandardError=inherit
+            TTYReset=yes
+            TTYVHangup=yes
+            IgnoreSIGPIPE=no
+            # bash ignores SIGTERM
+            KillSignal=SIGHUP
             """
         )
 
-    if sys.stderr.isatty():
+    if sys.stdin.isatty():
         dropin += textwrap.dedent(
             """
             [Service]
@@ -142,6 +155,16 @@ def main() -> None:
             StateDirectory=%N
             """
         )
+
+    if args.rtc:
+        if sys.version_info >= (3, 12):
+            now = datetime.datetime.now(datetime.UTC)
+        else:
+            now = datetime.datetime.utcnow()
+
+        rtc = datetime.datetime.strftime(now, r'%Y-%m-%dT%H:%M:%S')
+    else:
+        rtc = None
 
     cmd = [
         args.mkosi,
@@ -156,12 +179,13 @@ def main() -> None:
                 '--credential', f'systemd.extra-unit.emergency-exit.service={shlex.quote(EMERGENCY_EXIT_SERVICE)}',  # noqa: E501
                 '--credential', f'systemd.unit-dropin.emergency.target={shlex.quote(EMERGENCY_EXIT_DROPIN)}',
             ]
-            if not sys.stderr.isatty()
+            if not sys.stdin.isatty()
             else []
         ),
         '--credential', f'systemd.unit-dropin.{args.unit}={shlex.quote(dropin)}',
         '--runtime-network=none',
         '--runtime-scratch=no',
+        *([f'--qemu-args=-rtc base={rtc}'] if rtc else []),
         *args.mkosi_args,
         '--qemu-firmware',
         args.firmware,
@@ -181,13 +205,13 @@ def main() -> None:
                         'systemd.crash_action=poweroff',
                         'loglevel=6',
                     ]
-                    if not sys.stderr.isatty()
+                    if not sys.stdin.isatty()
                     else []
                 ),
             ]
         ),
-        '--credential', f"journal.storage={'persistent' if sys.stderr.isatty() else args.storage}",
-        *(['--runtime-build-sources=no'] if not sys.stderr.isatty() else []),
+        '--credential', f"journal.storage={'persistent' if sys.stdin.isatty() else args.storage}",
+        *(['--runtime-build-sources=no'] if not sys.stdin.isatty() else []),
         'qemu' if args.vm or os.getuid() != 0 or os.getenv('TEST_PREFER_QEMU', '0') == '1' else 'boot',
     ]  # fmt: skip
 

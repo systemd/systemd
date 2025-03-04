@@ -4409,7 +4409,28 @@ static void service_notify_message(
 
                 s->notify_state = NOTIFY_READY;
 
-                /* Type=notify services inform us about completed initialization with READY=1 */
+                /* Combined RELOADING=1 and READY=1? Then this is indication that the service started and
+                 * immediately finished reloading. */
+                if (strv_contains(tags, "RELOADING=1")) {
+                        if (s->state == SERVICE_RELOAD_SIGNAL &&
+                            monotonic_usec != USEC_INFINITY &&
+                            monotonic_usec >= s->reload_begin_usec)
+                                /* Valid Type=notify-reload protocol? Then we're all good. */
+                                service_enter_running(s, SERVICE_SUCCESS);
+
+                        else if (s->state == SERVICE_RUNNING) {
+                                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+
+                                /* Propagate a reload explicitly for plain RELOADING=1 (semantically equivalent to
+                                 * service_enter_reload_by_notify() call in below) */
+                                r = manager_propagate_reload(UNIT(s)->manager, UNIT(s), JOB_FAIL, &error);
+                                if (r < 0)
+                                        log_unit_warning(UNIT(s), "Failed to schedule propagation of reload, ignoring: %s",
+                                                         bus_error_message(&error, r));
+                        }
+                }
+
+                /* Type=notify(-reload) services inform us about completed initialization with READY=1 */
                 if (IN_SET(s->type, SERVICE_NOTIFY, SERVICE_NOTIFY_RELOAD) &&
                     s->state == SERVICE_START)
                         service_enter_start_post(s);
@@ -4417,22 +4438,6 @@ static void service_notify_message(
                 /* Sending READY=1 while we are reloading informs us that the reloading is complete. */
                 if (s->state == SERVICE_RELOAD_NOTIFY)
                         service_enter_running(s, SERVICE_SUCCESS);
-
-                /* Combined RELOADING=1 and READY=1? Then this is indication that the service started and
-                 * immediately finished reloading. */
-                if (s->state == SERVICE_RELOAD_SIGNAL &&
-                    strv_contains(tags, "RELOADING=1") &&
-                    monotonic_usec != USEC_INFINITY &&
-                    monotonic_usec >= s->reload_begin_usec) {
-                        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-
-                        /* Propagate a reload explicitly */
-                        r = manager_propagate_reload(UNIT(s)->manager, UNIT(s), JOB_FAIL, &error);
-                        if (r < 0)
-                                log_unit_warning(UNIT(s), "Failed to schedule propagation of reload, ignoring: %s", bus_error_message(&error, r));
-
-                        service_enter_running(s, SERVICE_SUCCESS);
-                }
 
                 notify_dbus = true;
 

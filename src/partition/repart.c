@@ -5281,7 +5281,8 @@ static int context_mkfs(Context *context) {
                                                p->format);
 
                 r = make_filesystem(partition_target_path(t), p->format, strempty(p->new_label), root,
-                                    p->fs_uuid, arg_discard, /* quiet = */ false,
+                                    p->fs_uuid, arg_discard,
+                                    /* quiet = */ streq(p->format, "erofs") && !DEBUG_LOGGING,
                                     context->fs_sector_size, extra_mkfs_options);
                 if (r < 0)
                         return r;
@@ -6875,7 +6876,8 @@ static int context_minimize(Context *context) {
                                     strempty(p->new_label),
                                     root,
                                     fs_uuid,
-                                    arg_discard, /* quiet = */ false,
+                                    arg_discard,
+                                    /* quiet = */ streq(p->format, "erofs") && !DEBUG_LOGGING,
                                     context->fs_sector_size,
                                     extra_mkfs_options);
                 if (r < 0)
@@ -6956,7 +6958,7 @@ static int context_minimize(Context *context) {
                                     root,
                                     p->fs_uuid,
                                     arg_discard,
-                                    /* quiet = */ false,
+                                    /* quiet = */ streq(p->format, "erofs") && !DEBUG_LOGGING,
                                     context->fs_sector_size,
                                     extra_mkfs_options);
                 if (r < 0)

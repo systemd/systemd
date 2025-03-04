@@ -214,8 +214,10 @@ static int get_invocation_from_keyring(sd_id128_t *ret) {
 
         key = request_key("user", "invocation_id", NULL, 0);
         if (key == -1) {
-                /* Keyring support not available? No invocation key stored? */
-                if (IN_SET(errno, ENOSYS, ENOKEY))
+                /* Keyring support not available? Keyring access locked down? No invocation key stored? */
+                if (ERRNO_IS_NOT_SUPPORTED(errno) ||
+                    ERRNO_IS_PRIVILEGE(errno) ||
+                    errno == ENOKEY)
                         return -ENXIO;
 
                 return -errno;
