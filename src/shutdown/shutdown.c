@@ -226,7 +226,7 @@ int sync_with_progress(int fd) {
         unsigned long long dirty = ULLONG_MAX;
         _cleanup_free_ char *path = NULL;
         const char *what;
-        pid_t pid;
+        _cleanup_(pidref_done) PidRef pidref;
         int r;
 
         BLOCK_SIGNALS(SIGCHLD);
@@ -235,13 +235,13 @@ int sync_with_progress(int fd) {
          * the progress. If the timeout lapses, the assumption is that the particular sync stalled. */
 
         if (fd >= 0) {
-                r = asynchronous_fsync(fd, &pid);
+                r = asynchronous_fsync(fd, &pidref);
                 if (r < 0)
                         return log_error_errno(r, "Failed to fork fsync(): %m");
 
                 (void) fd_get_path(fd, &path);
         } else {
-                r = asynchronous_sync(&pid);
+                r = asynchronous_sync(&pidref);
                 if (r < 0)
                         return log_error_errno(r, "Failed to fork sync(): %m");
         }
@@ -253,7 +253,7 @@ int sync_with_progress(int fd) {
          * SYNC_PROGRESS_ATTEMPTS lapse without progress being made,
          * we assume that the sync is stalled */
         for (unsigned checks = 0; checks < SYNC_PROGRESS_ATTEMPTS; checks++) {
-                r = wait_for_terminate_with_timeout(pid, SYNC_TIMEOUT_USEC);
+                r = wait_for_terminate_with_timeout(pidref.pid, SYNC_TIMEOUT_USEC);
                 if (r == 0)
                         /* Sync finished without error (sync() call itself does not return an error code) */
                         return 0;
@@ -267,8 +267,8 @@ int sync_with_progress(int fd) {
 
         /* Only reached in the event of a timeout. We should issue a kill to the stray process. */
         r = log_error_errno(SYNTHETIC_ERRNO(ETIMEDOUT),
-                            "Syncing %s - timed out, issuing SIGKILL to PID "PID_FMT".", what, pid);
-        (void) kill(pid, SIGKILL);
+                            "Syncing %s - timed out, issuing SIGKILL to PID "PID_FMT".", what, pidref.pid);
+        (void) pidref_kill(&pidref, SIGKILL);
         return r;
 }
 
