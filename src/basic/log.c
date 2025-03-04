@@ -50,7 +50,7 @@ static void *log_syntax_callback_userdata = NULL;
 
 static LogTarget log_target = LOG_TARGET_CONSOLE;
 static int log_max_level = LOG_INFO;
-static int log_target_max_level[] = {
+static int log_target_max_level[_LOG_TARGET_SINGLE_MAX] = {
         [LOG_TARGET_CONSOLE] = INT_MAX,
         [LOG_TARGET_KMSG]    = INT_MAX,
         [LOG_TARGET_SYSLOG]  = INT_MAX,
