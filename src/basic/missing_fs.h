@@ -50,14 +50,7 @@ assert_cc(RWF_DONTCACHE == __RWF_DONTCACHE_SAVED__);
 #define EXT4_IOC_RESIZE_FS _IOW('f', 16, __u64)
 #endif
 
-/* linux/fscrypt.h */
-#ifndef FS_KEY_DESCRIPTOR_SIZE
-#  define FS_KEY_DESCRIPTOR_SIZE 8
-#else
-assert_cc(FS_KEY_DESCRIPTOR_SIZE == 8);
-#endif
-
-/* linux/exportfs.h */
+/* linux/exportfs.h (33c5ac9175195c36a0b7005aaf503a2e81f117a1, 5.5) */
 #ifndef FILEID_KERNFS
 #define FILEID_KERNFS 0xfe
 #endif
