@@ -33,6 +33,6 @@ executables += [
 ]
 
 # symlink for backwards compatibility after rename
-meson.add_install_script(sh, '-c',
-                         ln_s.format(bindir / 'systemd-cryptsetup',
-                                     libexecdir / 'systemd-cryptsetup'))
+install_symlink('systemd-cryptsetup',
+                pointing_to : '../../bin/systemd-cryptsetup',
+                install_dir : libexecdir)

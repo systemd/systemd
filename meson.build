@@ -10,8 +10,8 @@ project('systemd', 'c',
                 'localstatedir=/var',
                 'warning_level=2',
         ],
-        meson_version : '>= 0.60.0',
-       )
+        meson_version : '>= 0.62.0',
+)
 
 project_major_version = meson.project_version().split('.')[0].split('~')[0]
 if meson.project_version().contains('.')
@@ -2634,9 +2634,10 @@ if want_ukify
         public_programs += ukify
 
         # symlink for backwards compatibility after rename
-        meson.add_install_script(sh, '-c',
-                                 ln_s.format(bindir / 'ukify',
-                                             libexecdir / 'ukify'))
+        assert(fs.parent(fs.parent(libexecdir)) / 'bin' == bindir)
+        install_symlink('ukify',
+                        pointing_to : '../../bin/ukify',
+                        install_dir : libexecdir)
 endif
 
 #####################################################################

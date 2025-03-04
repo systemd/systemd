@@ -13,6 +13,8 @@ executables += [
 ]
 
 install_emptydir(environmentdir)
+# install_symlink() does not support broken symlink, and /etc/environment is not managed by us, thus
+# may not exist. Hence, we need to create it by using the custom install script here.
 meson.add_install_script(sh, '-c',
                          ln_s.format(sysconfdir / 'environment',
                                      environmentdir / '99-environment.conf'))
