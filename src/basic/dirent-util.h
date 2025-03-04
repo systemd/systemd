@@ -34,6 +34,10 @@ struct dirent *readdir_no_dot(DIR *dirp);
  * Let's introduce a simple wrapper. */
 #if !HAVE_POSIX_GETDENTS
 static inline ssize_t posix_getdents(int fd, void *buf, size_t nbyte, int flags) {
+        assert(fd >= 0);
+        assert(buf);
+        assert(nbyte > 0);
+        assert(flags == 0); /* Currently flags must be zero. */
         return getdents64(fd, buf, nbyte);
 }
 #endif
