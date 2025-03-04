@@ -3681,7 +3681,7 @@ int unit_watch_bus_name(Unit *u, const char *name) {
                  * Otherwise, just put the name in the list. bus_setup_api() will take care later. */
                 r = unit_install_bus_match(u, u->manager->api_bus, name);
                 if (r < 0)
-                        return log_warning_errno(r, "Failed to subscribe to NameOwnerChanged signal for '%s': %m", name);
+                        log_warning_errno(r, "Failed to subscribe to NameOwnerChanged signal for '%s': %m", name);
         }
 
         r = hashmap_put(u->manager->watch_bus, name, u);
