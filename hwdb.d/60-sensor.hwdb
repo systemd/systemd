@@ -189,6 +189,10 @@ sensor:modalias:acpi:SMO8500*:dmi:*svn*ASUSTeK*:*pn*TP300LAB:*
 sensor:modalias:acpi:BOSC0200*:dmi:*svn*ASUSTeK*:*pn*TP412UA:*
  ACCEL_MOUNT_MATRIX=0, -1, 0; 1, 0, 0; 0, 0, 1
 
+# ASUS ROG Ally X (2024)
+sensor:modalias:acpi:BOSC0200*:dmi:*svn*ASUSTeK*:*pn*RC72LA:*
+ ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, -1
+
 sensor:modalias:acpi:BOSC0200*:dmi:*svn*ASUSTeK*:pn*BR1100FKA:*
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, -1
 
