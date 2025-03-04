@@ -479,21 +479,16 @@ if install_tests
                                 error('rsync is required to install the integration test data')
                         endif
 
-                        rsync_r = rsync.full_path() + ' -rlpt --exclude .gitattributes --exclude 25-default.link -- "@0@" "${DESTDIR:-}@1@"'
+                        rsync_r = rsync.full_path() + ' -rlpt --exclude .gitattributes -- "@0@" "${DESTDIR:-}@1@"'
                         meson.add_install_script(sh, '-c',
                                                  rsync_r.format(meson.current_source_dir() / subdir, testdata_dir))
                 else
                         install_subdir(subdir,
-                                       exclude_files : ['.gitattributes', '25-default.link'],
+                                       exclude_files : ['.gitattributes'],
                                        install_dir : testdata_dir,
                                        follow_symlinks : false)
                 endif
         endforeach
-
-        # test-network/conf/25-default.link is a local symlink that becomes dangling when installed, so we
-        # exclude it and create the correct symlink here.
-        meson.add_install_script(sh, '-c', ln_s.format(networkdir / '99-default.link',
-                                                       testdata_dir / 'test-network/conf/25-default.link'))
 
         install_data(kbd_model_map,
                      install_dir : testdata_dir + '/test-keymap-util')
