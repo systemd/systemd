@@ -322,16 +322,20 @@
         <term><varname>rootflags=</varname></term>
 
         <listitem><para>When <varname>root=</varname> is used with the special value
-        <literal>gpt-auto</literal>, full automatic discovery of the root
-        partition based on the GPT partition type is enabled. Any other value disables this
-        logic.</para>
+        <literal>gpt-auto</literal>, full automatic discovery of the root partition based on the GPT
+        partition type is enabled. Use of the root partition is delayed until factory reset mode is left, in
+        case it is enabled during the current boot. See <ulink url="https://systemd.io/FACTORY_RESET">Factory
+        Reset</ulink> for more information on that. If <literal>gpt-auto-force</literal> is specified
+        automatic discovery of the root partition is enabled, ignoring any factory reset mode. Any other
+        value disables this logic.</para>
 
         <para>If <varname>root=</varname> is not specified at all on the kernel command line automatic
-        discovery of the root partition via the boot loader reported ESP is also enabled, however in this
-        case discovery based on the loopback block device <literal>.lo_name</literal> field is not enabled.</para>
+        discovery of the root partition via the ESP reported by the boot loader is also enabled (taking
+        factory reset state into account), however in this case discovery based on the loopback block device
+        <literal>.lo_name</literal> field is not enabled.</para>
 
-        <para>The <varname>rootfstype=</varname> and <varname>rootflags=</varname> are used to select the
-        file system type and options when the root file system is automatically discovered.</para>
+        <para>The <varname>rootfstype=</varname> and <varname>rootflags=</varname> options are used to select
+        the file system type and options when the root file system is automatically discovered.</para>
 
         <xi:include href="version-info.xml" xpointer="v242"/></listitem>
       </varlistentry>

@@ -8,7 +8,11 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Factory Reset Initiation
-Documentation=man:systemd.special(7)
-Wants=systemd-factory-reset-reboot.service
-Before=systemd-factory-reset-reboot.service
+Description=Factory Reset Management (Varlink)
+Documentation=man:systemd-factory-reset@.service(8)
+DefaultDependencies=no
+Conflicts=shutdown.target
+Before=shutdown.target
+
+[Service]
+ExecStart=-{{LIBEXECDIR}}/systemd-factory-reset
