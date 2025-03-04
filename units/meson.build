@@ -924,16 +924,17 @@ foreach unit : units
         if install
                 foreach target : unit.get('symlinks', [])
                         if target.endswith('/')
-                                install_emptydir(systemunitdir / target, install_tag : unit.get('install_tag', ''))
-                                meson.add_install_script(sh, '-c',
-                                                         ln_s.format(systemunitdir / name,
-                                                                     systemunitdir / target / name),
-                                                         install_tag : unit.get('install_tag', ''))
+                                # '/' is only allowed at the end of the target
+                                assert(target.replace('/', '') + '/' == target)
+                                install_symlink(name,
+                                                pointing_to : '..' / name,
+                                                install_dir : systemunitdir / target,
+                                                install_tag : unit.get('install_tag', ''))
                         else
-                                meson.add_install_script(sh, '-c',
-                                                         ln_s.format(systemunitdir / name,
-                                                                     systemunitdir / target),
-                                                         install_tag : unit.get('install_tag', ''))
+                                install_symlink(target,
+                                                pointing_to : name,
+                                                install_dir : systemunitdir,
+                                                install_tag : unit.get('install_tag', ''))
                         endif
                 endforeach
         endif
@@ -949,10 +950,18 @@ install_data('user@0.service.d/10-login-barrier.conf',
 
 ############################################################
 
-install_emptydir(dbussessionservicedir)
-meson.add_install_script(sh, '-c',
-                         ln_s.format(dbussystemservicedir / 'org.freedesktop.systemd1.service',
-                                     dbussessionservicedir / 'org.freedesktop.systemd1.service'))
+if meson.version().version_compare('>=1.3.0')
+        install_symlink(
+                'org.freedesktop.systemd1.service',
+                pointing_to : fs.relative_to(dbussystemservicedir / 'org.freedesktop.systemd1.service',
+                                             dbussessionservicedir),
+                install_dir : dbussessionservicedir)
+else
+        install_emptydir(dbussessionservicedir)
+        meson.add_install_script(sh, '-c',
+                ln_s.format(dbussystemservicedir / 'org.freedesktop.systemd1.service',
+                            dbussessionservicedir / 'org.freedesktop.systemd1.service'))
+endif
 
 if conf.get('HAVE_SYSV_COMPAT') == 1
         foreach i : [1, 2, 3, 4, 5]
