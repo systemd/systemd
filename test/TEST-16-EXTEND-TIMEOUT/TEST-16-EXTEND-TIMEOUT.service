@@ -5,7 +5,6 @@ Description=TEST-16-EXTEND-TIMEOUT
 
 Wants=basic.target multi-user.target
 After=basic.target
-Before=getty-pre.target
 
 Wants=success-all.service
 Wants=success-start.service
