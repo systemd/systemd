@@ -489,11 +489,11 @@ class UKI:
 class SignTool:
     @staticmethod
     def sign(input_f: str, output_f: str, opts: UkifyConfig) -> None:
-        raise NotImplementedError()
+        raise NotImplementedError
 
     @staticmethod
     def verify(opts: UkifyConfig) -> bool:
-        raise NotImplementedError()
+        raise NotImplementedError
 
     @staticmethod
     def from_string(name: str) -> type['SignTool']:
@@ -1028,7 +1028,7 @@ def pe_add_sections(opts: UkifyConfig, uki: UKI, output: str) -> None:
         for i, s in enumerate(pe.sections[:n_original_sections]):
             if pe_strip_section_name(s.Name) == section.name and section.name != '.dtbauto':
                 if new_section.Misc_VirtualSize > s.SizeOfRawData:
-                    raise PEError(f'Not enough space in existing section {section.name} to append new data.')
+                    raise PEError(f'Not enough space in existing section {section.name} to append new data')
 
                 padding = bytes(new_section.SizeOfRawData - new_section.Misc_VirtualSize)
                 pe.__data__ = (
@@ -1081,9 +1081,8 @@ def pe_add_sections(opts: UkifyConfig, uki: UKI, output: str) -> None:
                 encoded = json.dumps(j).encode()
                 if len(encoded) > section.SizeOfRawData:
                     raise PEError(
-                        f'Not enough space in existing section .pcrsig of size {section.SizeOfRawData} to append new data of size {len(encoded)}.'  # noqa: E501
+                        f'Not enough space in existing section .pcrsig of size {section.SizeOfRawData} to append new data of size {len(encoded)}'  # noqa: E501
                     )
-
                 section.Misc_VirtualSize = len(encoded)
                 # bytes(n) results in an array of n zeroes
                 padding = bytes(section.SizeOfRawData - len(encoded))
@@ -1242,12 +1241,12 @@ def parse_hwid_dir(path: Path) -> bytes:
 
 def parse_efifw_dir(path: Path) -> bytes:
     if not path.is_dir():
-        raise ValueError(f'{path} is not a directory or it does not exist.')
+        raise ValueError(f'{path} is not a directory or it does not exist')
 
     # only one firmware image must be present in the directory
     # to uniquely identify that firmware with its ID.
     if len(list(path.glob('*'))) != 1:
-        raise ValueError(f'{path} must contain exactly one firmware image file.')
+        raise ValueError(f'{path} must contain exactly one firmware image file')
 
     payload_blob = b''
     for fw in path.iterdir():
@@ -2491,6 +2490,12 @@ def finalize_options(opts: argparse.Namespace) -> None:
 
 def parse_args(args: Optional[list[str]] = None) -> argparse.Namespace:
     opts = create_parser().parse_args(args)
+
+    # argparse puts some unknown options in opts.positional. Make sure we don't
+    # try to interpret something that is an option as a positional argument.
+    if any((bad_opt := o).startswith('-') for o in opts.positional):
+        raise ValueError(f"Unknown option: {bad_opt.partition('=')[0]}")
+
     apply_config(opts)
     finalize_options(opts)
     return opts
