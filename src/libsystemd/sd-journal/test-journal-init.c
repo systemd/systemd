@@ -28,7 +28,7 @@ int main(int argc, char *argv[]) {
         log_info("Running %d loops", I);
 
         assert_se(mkdtemp(t));
-        (void) chattr_path(t, FS_NOCOW_FL, FS_NOCOW_FL, NULL);
+        (void) chattr_path(t, FS_NOCOW_FL, FS_NOCOW_FL);
 
         for (i = 0; i < I; i++) {
                 r = sd_journal_open(&j, SD_JOURNAL_LOCAL_ONLY | SD_JOURNAL_ASSUME_IMMUTABLE);
