@@ -10,8 +10,8 @@ project('systemd', 'c',
                 'localstatedir=/var',
                 'warning_level=2',
         ],
-        meson_version : '>= 0.60.0',
-       )
+        meson_version : '>= 0.62.0',
+)
 
 project_major_version = meson.project_version().split('.')[0].split('~')[0]
 if meson.project_version().contains('.')
