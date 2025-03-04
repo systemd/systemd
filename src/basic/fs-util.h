@@ -163,3 +163,21 @@ static inline int xopenat_lock(int dir_fd, const char *path, int open_flags, Loc
 int link_fd(int fd, int newdirfd, const char *newpath);
 
 int linkat_replace(int olddirfd, const char *oldpath, int newdirfd, const char *newpath);
+
+static inline int at_flags_normalize_nofollow(int flags) {
+        if (FLAGS_SET(flags, AT_SYMLINK_FOLLOW)) {
+                assert(!FLAGS_SET(flags, AT_SYMLINK_NOFOLLOW));
+                flags &= ~AT_SYMLINK_FOLLOW;
+        } else
+                flags |= AT_SYMLINK_NOFOLLOW;
+        return flags;
+}
+
+static inline int at_flags_normalize_follow(int flags) {
+        if (FLAGS_SET(flags, AT_SYMLINK_NOFOLLOW)) {
+                assert(!FLAGS_SET(flags, AT_SYMLINK_FOLLOW));
+                flags &= ~AT_SYMLINK_NOFOLLOW;
+        } else
+                flags |= AT_SYMLINK_FOLLOW;
+        return flags;
+}

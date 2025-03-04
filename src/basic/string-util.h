@@ -106,10 +106,10 @@ static inline const char* empty_or_dash_to_null(const char *p) {
 
 char* first_word(const char *s, const char *word) _pure_;
 
-char* strnappend(const char *s, const char *suffix, size_t length);
+char* strprepend(char **x, const char *s);
+char* strextendn(char **x, const char *s, size_t l) _nonnull_if_nonzero_(2, 3);
 
-char* strjoin_real(const char *x, ...) _sentinel_;
-#define strjoin(a, ...) strjoin_real((a), __VA_ARGS__, NULL)
+#define strjoin(a, ...) strextend_with_separator_internal(NULL, NULL, a, __VA_ARGS__, NULL)
 
 #define strjoina(a, ...)                                                \
         ({                                                              \
@@ -194,8 +194,6 @@ char* strextend_with_separator_internal(char **x, const char *separator, ...) _s
 #define strextend_with_separator(x, separator, ...) strextend_with_separator_internal(x, separator, __VA_ARGS__, NULL)
 #define strextend(x, ...) strextend_with_separator_internal(x, NULL, __VA_ARGS__, NULL)
 
-char* strextendn(char **x, const char *s, size_t l);
-
 int strextendf_with_separator(char **x, const char *separator, const char *format, ...) _printf_(3,4);
 #define strextendf(x, ...) strextendf_with_separator(x, NULL, __VA_ARGS__)
 
@@ -225,7 +223,7 @@ static inline int free_and_strdup_warn(char **p, const char *s) {
                 return log_oom();
         return r;
 }
-int free_and_strndup(char **p, const char *s, size_t l);
+int free_and_strndup(char **p, const char *s, size_t l) _nonnull_if_nonzero_(2, 3);
 
 int strdup_to_full(char **ret, const char *src);
 static inline int strdup_to(char **ret, const char *src) {
@@ -310,3 +308,5 @@ bool version_is_valid_versionspec(const char *s);
 ssize_t strlevenshtein(const char *x, const char *y);
 
 char* strrstr(const char *haystack, const char *needle);
+
+size_t str_common_prefix(const char *a, const char *b);

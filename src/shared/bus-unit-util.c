@@ -147,9 +147,11 @@ static int bus_append_string(sd_bus_message *m, const char *field, const char *e
         return 1;
 }
 
-static int bus_append_strv(sd_bus_message *m, const char *field, const char *eq, ExtractFlags flags) {
-        const char *p;
+static int bus_append_strv(sd_bus_message *m, const char *field, const char *eq, const char *separator, ExtractFlags flags) {
         int r;
+
+        assert(m);
+        assert(field);
 
         r = sd_bus_message_open_container(m, 'r', "sv");
         if (r < 0)
@@ -167,16 +169,16 @@ static int bus_append_strv(sd_bus_message *m, const char *field, const char *eq,
         if (r < 0)
                 return bus_log_create_error(r);
 
-        for (p = eq;;) {
+        for (const char *p = eq;;) {
                 _cleanup_free_ char *word = NULL;
 
-                r = extract_first_word(&p, &word, NULL, flags);
-                if (r == 0)
-                        break;
+                r = extract_first_word(&p, &word, separator, flags);
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0)
                         return log_error_errno(r, "Invalid syntax: %s", eq);
+                if (r == 0)
+                        break;
 
                 r = sd_bus_message_append_basic(m, 's', word);
                 if (r < 0)
@@ -613,12 +615,12 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                 return bus_append_cg_blkio_weight_parse(m, field, eq);
 
         if (streq(field, "DisableControllers"))
-                return bus_append_strv(m, "DisableControllers", eq, EXTRACT_UNQUOTE);
+                return bus_append_strv(m, "DisableControllers", eq, /* separator= */ NULL, EXTRACT_UNQUOTE);
 
         if (streq(field, "Delegate")) {
                 r = parse_boolean(eq);
                 if (r < 0)
-                        return bus_append_strv(m, "DelegateControllers", eq, EXTRACT_UNQUOTE);
+                        return bus_append_strv(m, "DelegateControllers", eq, /* separator= */ NULL, EXTRACT_UNQUOTE);
 
                 r = sd_bus_message_append(m, "(sv)", "Delegate", "b", r);
                 if (r < 0)
@@ -1116,7 +1118,7 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                               "ConfigurationDirectory",
                               "SupplementaryGroups",
                               "SystemCallArchitectures"))
-                return bus_append_strv(m, field, eq, EXTRACT_UNQUOTE);
+                return bus_append_strv(m, field, eq, /* separator= */ NULL, EXTRACT_UNQUOTE);
 
         if (STR_IN_SET(field, "SyslogLevel",
                               "LogLevelMax"))
@@ -1175,7 +1177,7 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
         if (STR_IN_SET(field, "Environment",
                               "UnsetEnvironment",
                               "PassEnvironment"))
-                return bus_append_strv(m, field, eq, EXTRACT_UNQUOTE|EXTRACT_CUNESCAPE);
+                return bus_append_strv(m, field, eq, /* separator= */ NULL, EXTRACT_UNQUOTE|EXTRACT_CUNESCAPE);
 
         if (streq(field, "EnvironmentFile")) {
                 if (isempty(eq))
@@ -1665,7 +1667,8 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                 return 1;
         }
 
-        if (streq(field, "RestrictNamespaces")) {
+        if (STR_IN_SET(field, "RestrictNamespaces",
+                              "DelegateNamespaces")) {
                 bool invert = false;
                 unsigned long flags;
 
@@ -2615,7 +2618,7 @@ static int bus_append_socket_property(sd_bus_message *m, const char *field, cons
                 return bus_append_string(m, field, eq);
 
         if (streq(field, "Symlinks"))
-                return bus_append_strv(m, field, eq, EXTRACT_UNQUOTE);
+                return bus_append_strv(m, field, eq, /* separator= */ NULL, EXTRACT_UNQUOTE);
 
         if (streq(field, "SocketProtocol"))
                 return bus_append_parse_ip_protocol(m, field, eq);
@@ -2749,7 +2752,7 @@ static int bus_append_unit_property(sd_bus_message *m, const char *field, const 
                               "RequiresMountsFor",
                               "WantsMountsFor",
                               "Markers"))
-                return bus_append_strv(m, field, eq, EXTRACT_UNQUOTE);
+                return bus_append_strv(m, field, eq, /* separator= */ NULL, EXTRACT_UNQUOTE);
 
         t = condition_type_from_string(field);
         if (t >= 0)

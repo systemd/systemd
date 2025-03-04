@@ -197,7 +197,7 @@ TEST(dns_name_from_wire_format) {
         test_dns_name_from_wire_format_one("", in0, sizeof(in0), strlen(""));
 
         test_dns_name_from_wire_format_one("foo", in1, sizeof(in1), strlen("foo"));
-        test_dns_name_from_wire_format_one(NULL, in1, sizeof(in1) - 1, -EBADMSG);
+        test_dns_name_from_wire_format_one("foo", in1, sizeof(in1) - 1, strlen("foo"));
 
         test_dns_name_from_wire_format_one("hallo.foo.bar", in2, sizeof(in2), strlen("hallo.foo.bar"));
         test_dns_name_from_wire_format_one("hallo.foo", in2_1, sizeof(in2_1), strlen("hallo.foo"));

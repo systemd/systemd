@@ -11,7 +11,6 @@
 #include "bootctl-reboot-to-firmware.h"
 #include "bootctl-set-efivar.h"
 #include "bootctl-status.h"
-#include "bootctl-systemd-efi-options.h"
 #include "bootctl-uki.h"
 #include "build.h"
 #include "devnum-util.h"
@@ -109,7 +108,7 @@ int acquire_esp(
                                               "Couldn't find EFI system partition, skipping.");
 
                 return log_error_errno(r,
-                                       "Couldn't find EFI system partition. It is recommended to mount it to /boot or /efi.\n"
+                                       "Couldn't find EFI system partition. It is recommended to mount it to /boot/ or /efi/.\n"
                                        "Alternatively, use --esp-path= to specify path to mount point.");
         }
         if (r < 0)
@@ -250,6 +249,17 @@ static int help(int argc, char *argv[], void *userdata) {
                "\n%3$sKernel Image Commands:%4$s\n"
                "  kernel-identify      Identify kernel image type\n"
                "  kernel-inspect       Prints details about the kernel image\n"
+               "\n%3$sBlock Device Discovery Commands:%4$s\n"
+               "  -p --print-esp-path  Print path to the EFI System Partition mount point\n"
+               "  -x --print-boot-path Print path to the $BOOT partition mount point\n"
+               "     --print-loader-path\n"
+               "                       Print path to currently booted boot loader binary\n"
+               "     --print-stub-path Print path to currently booted unified kernel binary\n"
+               "  -R --print-root-device\n"
+               "                       Print path to the block device node backing the\n"
+               "                       root file system (returns e.g. /dev/nvme0n1p5)\n"
+               "  -RR                  Print path to the whole disk block device node\n"
+               "                       backing the root FS (returns e.g. /dev/nvme0n1)\n"
                "\n%3$sOptions:%4$s\n"
                "  -h --help            Show this help\n"
                "     --version         Print version\n"
@@ -261,16 +271,6 @@ static int help(int argc, char *argv[], void *userdata) {
                "                       Specify disk image dissection policy\n"
                "     --install-source=auto|image|host\n"
                "                       Where to pick files when using --root=/--image=\n"
-               "  -p --print-esp-path  Print path to the EFI System Partition mount point\n"
-               "  -x --print-boot-path Print path to the $BOOT partition mount point\n"
-               "     --print-loader-path\n"
-               "                       Print path to currently booted boot loader binary\n"
-               "     --print-stub-path Print path to currently booted unified kernel binary\n"
-               "  -R --print-root-device\n"
-               "                       Print path to the block device node backing the\n"
-               "                       root file system (returns e.g. /dev/nvme0n1p5)\n"
-               "  -RR                  Print path to the whole disk block device node\n"
-               "                       backing the root FS (returns e.g. /dev/nvme0n1)\n"
                "     --no-variables    Don't touch EFI variables\n"
                "     --random-seed=yes|no\n"
                "                       Whether to create random-seed file during install\n"
@@ -629,7 +629,6 @@ static int bootctl_main(int argc, char *argv[]) {
                 { "set-timeout",         2,        2,        0,            verb_set_efivar          },
                 { "set-timeout-oneshot", 2,        2,        0,            verb_set_efivar          },
                 { "random-seed",         VERB_ANY, 1,        0,            verb_random_seed         },
-                { "systemd-efi-options", VERB_ANY, 2,        0,            verb_systemd_efi_options },
                 { "reboot-to-firmware",  VERB_ANY, 2,        0,            verb_reboot_to_firmware  },
                 {}
         };

@@ -32,8 +32,8 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...] [NAME...]\n\n"
-               "Escape strings for usage in systemd unit names.\n\n"
+        printf("%1$s [OPTIONS...] [NAME...]\n\n"
+               "%3$sEscape strings for usage in systemd unit names.%4$s\n\n"
                "  -h --help               Show this help\n"
                "     --version            Show package version\n"
                "     --suffix=SUFFIX      Unit suffix to append to escaped strings\n"
@@ -42,9 +42,11 @@ static int help(void) {
                "  -u --unescape           Unescape strings\n"
                "  -m --mangle             Mangle strings\n"
                "  -p --path               When escaping/unescaping assume the string is a path\n"
-               "\nSee the %s for details.\n",
+               "\nSee the %2$s for details.\n",
                program_invocation_short_name,
-               link);
+               link,
+               ansi_highlight(),
+               ansi_normal());
 
         return 0;
 }

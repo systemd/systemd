@@ -854,6 +854,8 @@ int fido2_generate_hmac_hash(
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Token asks for PIN but doesn't advertise 'clientPin' feature.");
 
+                AskPasswordFlags askpw_flags = ASK_PASSWORD_ACCEPT_CACHED;
+
                 for (;;) {
                         _cleanup_strv_free_erase_ char **pin = NULL;
                         AskPasswordRequest req = {
@@ -866,9 +868,11 @@ int fido2_generate_hmac_hash(
                                 .hup_fd = -EBADF,
                         };
 
-                        r = ask_password_auto(&req, /* flags= */ 0, &pin);
+                        r = ask_password_auto(&req, askpw_flags, &pin);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to acquire user PIN: %m");
+
+                        askpw_flags &= ~ASK_PASSWORD_ACCEPT_CACHED;
 
                         r = FIDO_ERR_PIN_INVALID;
                         STRV_FOREACH(i, pin) {

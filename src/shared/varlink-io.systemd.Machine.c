@@ -30,18 +30,21 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
 
 static SD_VARLINK_DEFINE_METHOD(
                 Register,
-                SD_VARLINK_DEFINE_INPUT(name,              SD_VARLINK_STRING, 0),
-                SD_VARLINK_DEFINE_INPUT(id,                SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
-                SD_VARLINK_DEFINE_INPUT(service,           SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
-                SD_VARLINK_DEFINE_INPUT(class,             SD_VARLINK_STRING, 0),
-                SD_VARLINK_DEFINE_INPUT_BY_TYPE(leader,    ProcessId,         SD_VARLINK_NULLABLE),
-                SD_VARLINK_DEFINE_INPUT(rootDirectory,     SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
-                SD_VARLINK_DEFINE_INPUT(ifIndices,         SD_VARLINK_INT,    SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
-                SD_VARLINK_DEFINE_INPUT(vSockCid,          SD_VARLINK_INT,    SD_VARLINK_NULLABLE),
-                SD_VARLINK_DEFINE_INPUT(sshAddress,        SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
-                SD_VARLINK_DEFINE_INPUT(sshPrivateKeyPath, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_INPUT(name,                    SD_VARLINK_STRING, 0),
+                SD_VARLINK_DEFINE_INPUT(id,                      SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_INPUT(service,                 SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_INPUT(class,                   SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("The leader PID as simple positive integer."),
+                SD_VARLINK_DEFINE_INPUT(leader,                  SD_VARLINK_INT,    SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The leader PID as ProcessId structure. If both the leader and leaderProcessId parameters are specified they must reference the same process. Typically one would only specify one or the other however. It's generally recommended to specify leaderProcessId as it references a process in a robust way without risk of identifier recycling."),
+                SD_VARLINK_DEFINE_INPUT_BY_TYPE(leaderProcessId, ProcessId,         SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_INPUT(rootDirectory,           SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_INPUT(ifIndices,               SD_VARLINK_INT,    SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_INPUT(vSockCid,                SD_VARLINK_INT,    SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_INPUT(sshAddress,              SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_INPUT(sshPrivateKeyPath,       SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Controls whether to allocate a scope unit for the machine to register. If false, the client already took care of that and registered a service/scope specific to the machine."),
-                SD_VARLINK_DEFINE_INPUT(allocateUnit,      SD_VARLINK_BOOL,   SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_INPUT(allocateUnit,            SD_VARLINK_BOOL,   SD_VARLINK_NULLABLE),
                 VARLINK_DEFINE_POLKIT_INPUT);
 
 static SD_VARLINK_DEFINE_METHOD(

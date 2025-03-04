@@ -11,10 +11,13 @@
 #define UDEV_VARLINK_ADDRESS "/run/udev/io.systemd.Udev"
 
 static int vl_method_reload(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        int r;
+
         assert(link);
 
-        if (sd_json_variant_elements(parameters) > 0)
-                return sd_varlink_error_invalid_parameter(link, parameters);
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table = */ NULL, /* userdata = */ NULL);
+        if (r != 0)
+                return r;
 
         log_debug("Received io.systemd.service.Reload()");
         manager_reload(userdata, /* force = */ true);
@@ -37,6 +40,26 @@ static int vl_method_set_log_level(sd_varlink *link, sd_json_variant *parameters
 
         log_debug("Received io.systemd.service.SetLogLevel(%i)", level);
         manager_set_log_level(userdata, level);
+        return sd_varlink_reply(link, NULL);
+}
+
+static int vl_method_set_trace(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        bool enable;
+        int r;
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "enable", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, 0, SD_JSON_MANDATORY },
+                {}
+        };
+
+        assert(link);
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &enable);
+        if (r != 0)
+                return r;
+
+        log_debug("Received io.systemd.service.SetTrace(%s)", yes_no(enable));
+        manager_set_trace(userdata, enable);
         return sd_varlink_reply(link, NULL);
 }
 
@@ -87,8 +110,9 @@ static int vl_method_start_stop_exec_queue(sd_varlink *link, sd_json_variant *pa
 
         assert(link);
 
-        if (sd_json_variant_elements(parameters) > 0)
-                return sd_varlink_error_invalid_parameter(link, parameters);
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table = */ NULL, /* userdata = */ NULL);
+        if (r != 0)
+                return r;
 
         r = sd_varlink_get_current_method(link, &method);
         if (r < 0)
@@ -100,10 +124,13 @@ static int vl_method_start_stop_exec_queue(sd_varlink *link, sd_json_variant *pa
 }
 
 static int vl_method_exit(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        int r;
+
         assert(link);
 
-        if (sd_json_variant_elements(parameters) > 0)
-                return sd_varlink_error_invalid_parameter(link, parameters);
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table = */ NULL, /* userdata = */ NULL);
+        if (r != 0)
+                return r;
 
         /* Refuse further connections. */
         _unused_ _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *v = sd_varlink_ref(link);
@@ -149,14 +176,16 @@ int manager_start_varlink_server(Manager *manager) {
 
         r = sd_varlink_server_bind_method_many(
                         v,
-                        "io.systemd.service.Ping",          varlink_method_ping,
-                        "io.systemd.service.Reload",        vl_method_reload,
-                        "io.systemd.service.SetLogLevel",   vl_method_set_log_level,
-                        "io.systemd.Udev.SetChildrenMax",   vl_method_set_children_max,
-                        "io.systemd.Udev.SetEnvironment",   vl_method_set_environment,
-                        "io.systemd.Udev.StartExecQueue",   vl_method_start_stop_exec_queue,
-                        "io.systemd.Udev.StopExecQueue",    vl_method_start_stop_exec_queue,
-                        "io.systemd.Udev.Exit",             vl_method_exit);
+                        "io.systemd.service.Ping",           varlink_method_ping,
+                        "io.systemd.service.Reload",         vl_method_reload,
+                        "io.systemd.service.SetLogLevel",    vl_method_set_log_level,
+                        "io.systemd.service.GetEnvironment", varlink_method_get_environment,
+                        "io.systemd.Udev.SetTrace",          vl_method_set_trace,
+                        "io.systemd.Udev.SetChildrenMax",    vl_method_set_children_max,
+                        "io.systemd.Udev.SetEnvironment",    vl_method_set_environment,
+                        "io.systemd.Udev.StartExecQueue",    vl_method_start_stop_exec_queue,
+                        "io.systemd.Udev.StopExecQueue",     vl_method_start_stop_exec_queue,
+                        "io.systemd.Udev.Exit",              vl_method_exit);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind Varlink methods: %m");
 

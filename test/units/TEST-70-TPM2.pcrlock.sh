@@ -205,3 +205,8 @@ varlinkctl call /run/systemd/io.systemd.PCRLock io.systemd.PCRLock.MakePolicy '{
 varlinkctl call --collect --json=pretty /run/systemd/io.systemd.PCRLock io.systemd.PCRLock.ReadEventLog '{}'
 
 rm "$img" /tmp/pcrlockpwd
+
+# For issue #35746
+for _ in {0..10}; do
+    run0 /usr/lib/systemd/systemd-pcrlock
+done

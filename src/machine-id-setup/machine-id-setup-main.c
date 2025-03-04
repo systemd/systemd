@@ -36,18 +36,21 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...]\n"
-               "\n%sInitialize /etc/machine-id from a random source.%s\n\n"
+        printf("%1$s [OPTIONS...]\n"
+               "\n%2$sInitialize /etc/machine-id from a random source.%4$s\n"
+               "\n%3$sCommands:%4$s\n"
+               "     --commit               Commit transient ID\n"
                "  -h --help                 Show this help\n"
                "     --version              Show package version\n"
+               "\n%3$sOptions:%4$s\n"
                "     --root=PATH            Operate on an alternate filesystem root\n"
                "     --image=PATH           Operate on disk image as filesystem root\n"
                "     --image-policy=POLICY  Specify disk image dissection policy\n"
-               "     --commit               Commit transient ID\n"
                "     --print                Print used machine ID\n"
-               "\nSee the %s for details.\n",
+               "\nSee the %5$s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
+               ansi_underline(),
                ansi_normal(),
                link);
 

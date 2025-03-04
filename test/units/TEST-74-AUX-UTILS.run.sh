@@ -200,6 +200,16 @@ grep -q "^SocketMode=0644$" "/run/systemd/transient/$UNIT.socket"
 grep -qE "^ExecStart=.*/bin/true.*$" "/run/systemd/transient/$UNIT.service"
 systemctl stop "$UNIT.socket" "$UNIT.service" || :
 
+: "Job mode"
+systemd-run --job-mode=help
+(! systemd-run --job-mode=foo --scope true)
+systemd-run --no-block --unit=slowly-activating.service --collect \
+    --service-type=oneshot --remain-after-exit \
+    sleep 30
+(! systemd-run --scope --property=Conflicts=slowly-activating.service true)
+(! systemd-run --scope --property=Conflicts=slowly-activating.service --job-mode=fail true)
+systemd-run --scope --property=Conflicts=slowly-activating.service --job-mode=replace true
+
 : "Interactive options"
 SHELL=/bin/true systemd-run --shell
 SHELL=/bin/true systemd-run --scope --shell
@@ -271,11 +281,6 @@ if [[ -e /usr/lib/pam.d/systemd-run0 ]] || [[ -e /etc/pam.d/systemd-run0 ]]; the
     # Validate when we invoke run0 without a tty, that depending on --pty it either allocates a tty or not
     assert_neq "$(run0 --pty tty < /dev/null)" "not a tty"
     assert_eq "$(run0 --pipe tty < /dev/null)" "not a tty"
-
-    # For issue #35746
-    for _ in {0..10}; do
-        run0 /usr/lib/systemd/systemd-pcrlock
-    done
 fi
 
 # Tests whether intermediate disconnects corrupt us (modified testcase from https://github.com/systemd/systemd/issues/27204)

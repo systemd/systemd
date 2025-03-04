@@ -924,9 +924,12 @@ int dns_name_from_wire_format(const uint8_t **data, size_t *len, char **ret) {
                 const char *label;
                 uint8_t c;
 
-                /* Unterminated name */
+                /* RFC 4704 § 4: fully qualified domain names include the terminating
+                 * zero-length label, partial names don't. According to the RFC, DHCPv6
+                 * servers should always send the fully qualified name, but that's not
+                 * true in practice. Also accept partial names. */
                 if (optlen == 0)
-                        return -EBADMSG;
+                        break;
 
                 /* RFC 1035 § 3.1 total length of encoded name is limited to 255 octets */
                 if (*len - optlen > 255)

@@ -609,3 +609,28 @@ size_t utf8_console_width(const char *str) {
 
         return n;
 }
+
+size_t utf8_last_length(const char *s, size_t n) {
+        int r;
+
+        assert(s);
+
+        if (n == SIZE_MAX)
+                n = strlen(s);
+
+        /* Determines length in bytes of last UTF-8 codepoint in string. If the string is empty, returns
+         * zero. Treats invalid UTF-8 codepoints as 1 sized ones. */
+
+        for (size_t last = 0;;) {
+                if (n == 0)
+                        return last;
+
+                r = utf8_encoded_valid_unichar(s, n);
+                if (r <= 0)
+                        r = 1; /* treat invalid UTF-8 as byte-wide */
+
+                s += r;
+                n -= r;
+                last = r;
+        }
+}

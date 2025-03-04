@@ -104,6 +104,20 @@
 
         <xi:include href="version-info.xml" xpointer="v252"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><command>policy-digest</command></term>
+
+        <listitem><para>As with the <command>sign</command> command, pre-calculate the expected value
+        seen in TPM2 PCR register 11 after boot-up of a unified kernel image. Then, compute the resulting
+        TPM2 policy and print its digest. This will write a JSON object to standard output that contains
+        the policy digests for all specified PCR banks (see the <option>--bank=</option> option below),
+        so that it may be signed offline, for the cases where the private key is not directly accessible.
+        If <option>--public-key=</option> or <option>--certificate=</option> are specified, the JSON object
+        will also contain the key fingerprint.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
@@ -355,9 +369,9 @@ $ ukify build \
       <programlisting>$ openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out tpm2-pcr-private-key.pem
 .+........+.+........+.......+...+...+........+....+......+..+..........
 $ openssl rsa -pubout -in tpm2-pcr-private-key.pem -out tpm2-pcr-public-key.pem
-$ openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out tpm2-pcr-private-key-initrd.pem
+$ openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out tpm2-pcr-initrd-private-key.pem
 ..+.......++........+........+......+........+....+.....+.+..+..........
-$ openssl rsa -pubout -in tpm2-pcr-private-key-initrd.pem -out tpm2-pcr-public-key-initrd.pem
+$ openssl rsa -pubout -in tpm2-pcr-initrd-private-key.pem -out tpm2-pcr-initrd-public-key.pem
 $ ukify build \
      --linux=vmlinux-1.2.3 \
      --initrd=initrd.cpio \
@@ -369,8 +383,8 @@ $ ukify build \
      --pcr-public-key=tpm2-pcr-public-key.pem \
      --phases=enter-initrd,enter-initrd:leave-initrd,enter-initrd:leave-initrd:sysinit,enter-initrd:leave-initrd:sysinit:ready \
      --pcr-banks=sha1,sha256 \
-     --pcr-private-key=tpm2-pcr-private-key-initrd.pem \
-     --pcr-public-key=tpm2-pcr-public-key-initrd.pem \
+     --pcr-private-key=tpm2-pcr-initrd-private-key.pem \
+     --pcr-public-key=tpm2-pcr-initrd-public-key.pem \
      --phases=enter-initrd \
      --uname=1.2.3 \
      --output=vmlinux-1.2.3.efi
@@ -384,8 +398,8 @@ $ ukify build \
 + /usr/lib/systemd/systemd-measure sign --linux=vmlinux-1.2.3 \
 --osrel=os-release.txt --cmdline=cmdline.txt --dtb=devicetree.dtb \
 --splash=splash.bmp --initrd=initrd.cpio --bank=sha1 --bank=sha256 \
---private-key=tpm2-pcr-private-key-initrd.pem \
---public-key=tpm2-pcr-public-key-initrd.pem \
+--private-key=tpm2-pcr-initrd-private-key.pem \
+--public-key=tpm2-pcr-initrd-public-key.pem \
 --phase=enter-initrd
 Wrote unsigned vmlinux-1.2.3.efi
 </programlisting>
@@ -400,7 +414,7 @@ Wrote unsigned vmlinux-1.2.3.efi
       by the first <option>--pcr-private-key=</option> option, covering all boot phases. The
       <literal>.pcrpkey</literal> section is used in the default policies of
       <command>systemd-cryptenroll</command> and <command>systemd-creds</command>. To use the stricter policy
-      bound to <filename>tpm2-pcr-public-key-initrd.pem</filename>, specify
+      bound to <filename>tpm2-pcr-initrd-public-key.pem</filename>, specify
       <option>--tpm2-public-key=</option> on the command line of those tools.</para>
     </example>
   </refsect1>

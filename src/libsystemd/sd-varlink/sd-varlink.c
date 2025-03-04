@@ -1197,8 +1197,9 @@ static int generic_method_get_info(
         assert(link);
         assert(link->server);
 
-        if (sd_json_variant_elements(parameters) != 0)
-                return sd_varlink_error_invalid_parameter(link, parameters);
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table = */ NULL, /* userdata = */ NULL);
+        if (r != 0)
+                return r;
 
         sd_varlink_interface *interface;
         HASHMAP_FOREACH(interface, link->server->interfaces) {
@@ -2678,10 +2679,21 @@ _public_ int sd_varlink_error_invalid_parameter_name(sd_varlink *v, const char *
 }
 
 _public_ int sd_varlink_error_errno(sd_varlink *v, int error) {
+
+        /* This generates a system error return that includes the Linux error number, and error name. The
+         * error number is kinda Linux specific (and to some degree the error name too), hence let's indicate
+         * the origin of the system error. This way interpretation of the error should not leave questions
+         * open, even to foreign systems. */
+
+        error = abs(error);
+        const char *name = errno_to_name(error);
+
         return sd_varlink_errorbo(
                         v,
                         SD_VARLINK_ERROR_SYSTEM,
-                        SD_JSON_BUILD_PAIR("errno", SD_JSON_BUILD_INTEGER(abs(error))));
+                        SD_JSON_BUILD_PAIR_STRING("origin", "linux"),
+                        SD_JSON_BUILD_PAIR_INTEGER("errno", error),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("errnoName", name));
 }
 
 _public_ int sd_varlink_notify(sd_varlink *v, sd_json_variant *parameters) {
@@ -2755,7 +2767,6 @@ _public_ int sd_varlink_dispatch(sd_varlink *v, sd_json_variant *parameters, con
         int r;
 
         assert_return(v, -EINVAL);
-        assert_return(table, -EINVAL);
 
         /* A wrapper around json_dispatch_full() that returns a nice InvalidParameter error if we hit a problem with some field. */
 
@@ -2903,6 +2914,12 @@ _public_ int sd_varlink_set_description(sd_varlink *v, const char *description) 
         assert_return(v, -EINVAL);
 
         return free_and_strdup(&v->description, description);
+}
+
+_public_ const char* sd_varlink_get_description(sd_varlink *v) {
+        assert_return(v, NULL);
+
+        return v->description;
 }
 
 static int io_callback(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
@@ -3164,6 +3181,15 @@ _public_ int sd_varlink_take_fd(sd_varlink *v, size_t i) {
                 return -ENXIO;
 
         return TAKE_FD(v->input_fds[i]);
+}
+
+_public_ int sd_varlink_get_n_fds(sd_varlink *v) {
+        assert_return(v, -EINVAL);
+
+        if (!v->allow_fd_passing_input)
+                return -EPERM;
+
+        return (int) v->n_input_fds;
 }
 
 static int verify_unix_socket(sd_varlink *v) {
@@ -4194,6 +4220,8 @@ _public_ int sd_varlink_error_to_errno(const char *error, sd_json_variant *param
                 { SD_VARLINK_ERROR_EXPECTED_MORE,          -EBADE         },
         };
 
+        int r;
+
         if (!error)
                 return 0;
 
@@ -4201,20 +4229,46 @@ _public_ int sd_varlink_error_to_errno(const char *error, sd_json_variant *param
                 if (streq(error, t->error))
                         return t->value;
 
-        if (streq(error, SD_VARLINK_ERROR_SYSTEM) && parameters) {
-                sd_json_variant *e;
+        /* This following tries to reverse the operation sd_varlink_error_errno() applies to turn errnos into
+         * varlink errors */
+        if (!streq(error, SD_VARLINK_ERROR_SYSTEM))
+                return -EBADR;
 
-                e = sd_json_variant_by_key(parameters, "errno");
-                if (sd_json_variant_is_integer(e)) {
-                        int64_t i;
+        if (!parameters)
+                return -EBADR;
 
-                        i = sd_json_variant_integer(e);
-                        if (i > 0 && i < ERRNO_MAX)
-                                return -i;
-                }
+        /* If an origin is set, check if it's Linux, otherwise don't translate */
+        sd_json_variant *e = sd_json_variant_by_key(parameters, "origin");
+        if (e && (!sd_json_variant_is_string(e) ||
+                  !streq(sd_json_variant_string(e), "linux")))
+                return -EBADR;
+
+        /* If a name is specified, go by name */
+        e = sd_json_variant_by_key(parameters, "errnoName");
+        if (e) {
+                if (!sd_json_variant_is_string(e))
+                        return -EBADR;
+
+                r = errno_from_name(sd_json_variant_string(e));
+                if (r < 0)
+                        return -EBADR;
+
+                assert(r > 0);
+                return -r;
         }
 
-        return -EBADR; /* Catch-all */
+        /* Finally, use the provided error number, if there is one */
+        e = sd_json_variant_by_key(parameters, "errno");
+        if (!e)
+                return -EBADR;
+        if (!sd_json_variant_is_integer(e))
+                return -EBADR;
+
+        int64_t i = sd_json_variant_integer(e);
+        if (i <= 0 || i > ERRNO_MAX)
+                return -EBADR;
+
+        return (int) -i;
 }
 
 _public_ int sd_varlink_error_is_invalid_parameter(const char *error, sd_json_variant *parameter, const char *name) {

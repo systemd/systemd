@@ -78,6 +78,7 @@ int image_path_lock(const char *path, int operation, LockFile *global, LockFile 
 int image_name_lock(const char *name, int operation, LockFile *ret);
 
 int image_set_limit(Image *i, uint64_t referenced_max);
+int image_set_pool_limit(ImageClass class, uint64_t referenced_max);
 
 int image_read_metadata(Image *i, const ImagePolicy *image_policy);
 
@@ -121,6 +122,7 @@ static inline bool IMAGE_IS_HOST(const struct Image *i) {
 int image_to_json(const struct Image *i, sd_json_variant **ret);
 
 const char* image_root_to_string(ImageClass c) _const_;
+const char* image_root_runtime_to_string(ImageClass c) _const_;
 
 extern const struct hash_ops image_hash_ops;
 

@@ -116,6 +116,10 @@ int device_get_devnode_mode(sd_device *device, mode_t *ret) {
 
         assert(device);
 
+        r = device_read_uevent_file(device);
+        if (r < 0)
+                return r;
+
         r = device_read_db(device);
         if (r < 0)
                 return r;
@@ -134,6 +138,10 @@ int device_get_devnode_uid(sd_device *device, uid_t *ret) {
 
         assert(device);
 
+        r = device_read_uevent_file(device);
+        if (r < 0)
+                return r;
+
         r = device_read_db(device);
         if (r < 0)
                 return r;
@@ -147,7 +155,7 @@ int device_get_devnode_uid(sd_device *device, uid_t *ret) {
         return 0;
 }
 
-static int device_set_devuid(sd_device *device, const char *uid) {
+int device_set_devuid(sd_device *device, const char *uid) {
         uid_t u;
         int r;
 
@@ -172,6 +180,10 @@ int device_get_devnode_gid(sd_device *device, gid_t *ret) {
 
         assert(device);
 
+        r = device_read_uevent_file(device);
+        if (r < 0)
+                return r;
+
         r = device_read_db(device);
         if (r < 0)
                 return r;
@@ -185,7 +197,7 @@ int device_get_devnode_gid(sd_device *device, gid_t *ret) {
         return 0;
 }
 
-static int device_set_devgid(sd_device *device, const char *gid) {
+int device_set_devgid(sd_device *device, const char *gid) {
         gid_t g;
         int r;
 
@@ -429,10 +441,11 @@ static int device_verify(sd_device *device) {
                 return log_device_debug_errno(device, SYNTHETIC_ERRNO(EINVAL),
                                               "sd-device: Device created from strv or nulstr lacks devpath, subsystem, action or seqnum.");
 
-        if (streq(device->subsystem, "drivers")) {
+        if (device_in_subsystem(device, "drivers")) {
                 r = device_set_drivers_subsystem(device);
                 if (r < 0)
-                        return r;
+                        return log_device_debug_errno(device, r,
+                                                      "sd-device: Failed to set driver subsystem: %m");
         }
 
         device->sealed = true;
@@ -948,7 +961,3 @@ static const char* const device_action_table[_SD_DEVICE_ACTION_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(device_action, sd_device_action_t);
-
-void dump_device_action_table(void) {
-        DUMP_STRING_TABLE(device_action, sd_device_action_t, _SD_DEVICE_ACTION_MAX);
-}

@@ -318,7 +318,7 @@ static int routing_policy_rule_compare_func_full(const RoutingPolicyRule *a, con
         if (r != 0)
                 return r;
 
-        if (all) {
+        if (a->family == b->family && a->family != AF_UNSPEC) {
                 r = memcmp(&a->from.address, &b->from.address, FAMILY_ADDRESS_SIZE(a->family));
                 if (r != 0)
                         return r;
@@ -822,20 +822,11 @@ int link_drop_routing_policy_rules(Link *link, bool only_static) {
                 if (rule->protocol == RTPROT_KERNEL)
                         continue;
 
-                if (only_static) {
-                        /* When 'only_static' is true, mark only static rules. */
-                        if (rule->source != NETWORK_CONFIG_SOURCE_STATIC)
-                                continue;
-                } else {
-                        /* Do not mark foreign rules when KeepConfiguration= is enabled. */
-                        if (rule->source == NETWORK_CONFIG_SOURCE_FOREIGN &&
-                            link->network &&
-                            FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_STATIC))
-                                continue;
-                }
-
                 /* Ignore rules not assigned yet or already removing. */
                 if (!routing_policy_rule_exists(rule))
+                        continue;
+
+                if (!link_should_mark_config(link, only_static, rule->source, rule->protocol))
                         continue;
 
                 routing_policy_rule_mark(rule);
@@ -872,6 +863,31 @@ int link_drop_routing_policy_rules(Link *link, bool only_static) {
         return r;
 }
 
+static int routing_policy_rule_is_ready_to_configure(const RoutingPolicyRule *rule, Link *link) {
+        assert(rule);
+        assert(link);
+        assert(link->manager);
+
+        /* For routing policy rules, it is not necessary to check operstate and friends of the interface.
+         * Hence, here we refuse to configure rules only when the interface is already removed, or in the
+         * failed state. */
+        if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
+                return false;
+
+        /* Strictly speaking checking existence of IIF and OIF below is not necessary. But, configuring
+         * routing policy rule with non-existent IIF or OIF is mostly meaningless, and 'ip rule' command
+         * shows [detached] for such rules, that may confuse users. Let's postpone to configure if one of
+         * IIF/OIF does not exist. */
+
+        if (rule->iif && !link_is_ready_to_configure_by_name(link->manager, rule->iif, /* allow_unmanaged = */ true))
+                return false;
+
+        if (rule->oif && !link_is_ready_to_configure_by_name(link->manager, rule->oif, /* allow_unmanaged = */ true))
+                return false;
+
+        return true;
+}
+
 static int routing_policy_rule_process_request(Request *req, Link *link, RoutingPolicyRule *rule) {
         RoutingPolicyRule *existing;
         int r;
@@ -881,7 +897,7 @@ static int routing_policy_rule_process_request(Request *req, Link *link, Routing
         assert(link->manager);
         assert(rule);
 
-        if (!link_is_ready_to_configure(link, false))
+        if (!routing_policy_rule_is_ready_to_configure(rule, link))
                 return 0;
 
         r = routing_policy_rule_configure(rule, link, req);
@@ -1032,26 +1048,6 @@ int link_request_static_routing_policy_rules(Link *link) {
         }
 
         return 0;
-}
-
-static const RoutingPolicyRule kernel_rules[] = {
-        { .family = AF_INET,  .priority_set = true, .priority = 0,     .table = RT_TABLE_LOCAL,   .action = FR_ACT_TO_TBL, .uid_range.start = UID_INVALID, .uid_range.end = UID_INVALID, .suppress_prefixlen = -1, .suppress_ifgroup = -1, },
-        { .family = AF_INET,  .priority_set = true, .priority = 1000,  .table = RT_TABLE_UNSPEC,  .action = FR_ACT_TO_TBL, .uid_range.start = UID_INVALID, .uid_range.end = UID_INVALID, .suppress_prefixlen = -1, .suppress_ifgroup = -1, .l3mdev = true },
-        { .family = AF_INET,  .priority_set = true, .priority = 32766, .table = RT_TABLE_MAIN,    .action = FR_ACT_TO_TBL, .uid_range.start = UID_INVALID, .uid_range.end = UID_INVALID, .suppress_prefixlen = -1, .suppress_ifgroup = -1, },
-        { .family = AF_INET,  .priority_set = true, .priority = 32767, .table = RT_TABLE_DEFAULT, .action = FR_ACT_TO_TBL, .uid_range.start = UID_INVALID, .uid_range.end = UID_INVALID, .suppress_prefixlen = -1, .suppress_ifgroup = -1, },
-        { .family = AF_INET6, .priority_set = true, .priority = 0,     .table = RT_TABLE_LOCAL,   .action = FR_ACT_TO_TBL, .uid_range.start = UID_INVALID, .uid_range.end = UID_INVALID, .suppress_prefixlen = -1, .suppress_ifgroup = -1, },
-        { .family = AF_INET6, .priority_set = true, .priority = 1000,  .table = RT_TABLE_UNSPEC,  .action = FR_ACT_TO_TBL, .uid_range.start = UID_INVALID, .uid_range.end = UID_INVALID, .suppress_prefixlen = -1, .suppress_ifgroup = -1, .l3mdev = true },
-        { .family = AF_INET6, .priority_set = true, .priority = 32766, .table = RT_TABLE_MAIN,    .action = FR_ACT_TO_TBL, .uid_range.start = UID_INVALID, .uid_range.end = UID_INVALID, .suppress_prefixlen = -1, .suppress_ifgroup = -1, },
-};
-
-static bool routing_policy_rule_is_created_by_kernel(const RoutingPolicyRule *rule) {
-        assert(rule);
-
-        FOREACH_ELEMENT(i, kernel_rules)
-                if (routing_policy_rule_equal(rule, i, i->family, i->priority))
-                        return true;
-
-        return false;
 }
 
 int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, Manager *m) {
@@ -1233,16 +1229,10 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, Man
                 return 0;
         }
 
-        /* If FRA_PROTOCOL is supported by kernel, then the attribute is always appended. If the received
-         * message does not have FRA_PROTOCOL, then we need to adjust the protocol of the rule. That requires
-         * all properties compared in the routing_policy_rule_compare_func(), hence it must be done after
-         * reading them. */
+        /* The kernel always sets the FRA_PROTOCOL attribute, and it is necessary for comparing rules.
+         * Hence, -ENODATA here is critical. */
         r = sd_netlink_message_read_u8(message, FRA_PROTOCOL, &tmp->protocol);
-        if (r == -ENODATA)
-                /* As .network files does not have setting to specify protocol, we can assume the
-                 * protocol of the received rule is RTPROT_KERNEL or RTPROT_STATIC. */
-                tmp->protocol = routing_policy_rule_is_created_by_kernel(tmp) ? RTPROT_KERNEL : RTPROT_STATIC;
-        else if (r < 0) {
+        if (r < 0) {
                 log_warning_errno(r, "rtnl: could not get FRA_PROTOCOL attribute, ignoring: %m");
                 return 0;
         }

@@ -5,6 +5,7 @@
 #include <linux/veth.h>
 #include <net/if.h>
 #include <sys/eventfd.h>
+#include <sys/mount.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <utmpx.h>
@@ -23,7 +24,6 @@
 #include "lock-util.h"
 #include "main-func.h"
 #include "missing_magic.h"
-#include "missing_mount.h"
 #include "missing_syscall.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
@@ -362,13 +362,13 @@ static int uid_is_available(
         if (r > 0)
                 return false;
 
-        r = userdb_by_uid(candidate, USERDB_AVOID_MULTIPLEXER, NULL);
+        r = userdb_by_uid(candidate, /* match= */ NULL, USERDB_AVOID_MULTIPLEXER, /* ret_record= */ NULL);
         if (r >= 0)
                 return false;
         if (r != -ESRCH)
                 return r;
 
-        r = groupdb_by_gid(candidate, USERDB_AVOID_MULTIPLEXER, NULL);
+        r = groupdb_by_gid(candidate, /* match= */ NULL, USERDB_AVOID_MULTIPLEXER, /* ret_record= */ NULL);
         if (r >= 0)
                 return false;
         if (r != -ESRCH)
@@ -399,13 +399,13 @@ static int name_is_available(
         if (!user_name)
                 return -ENOMEM;
 
-        r = userdb_by_name(user_name, USERDB_AVOID_MULTIPLEXER, NULL);
+        r = userdb_by_name(user_name, /* match= */ NULL, USERDB_AVOID_MULTIPLEXER, /* ret_record= */ NULL);
         if (r >= 0)
                 return false;
         if (r != -ESRCH)
                 return r;
 
-        r = groupdb_by_name(user_name, USERDB_AVOID_MULTIPLEXER, NULL);
+        r = groupdb_by_name(user_name, /* match= */ NULL, USERDB_AVOID_MULTIPLEXER, /* ret_record= */ NULL);
         if (r >= 0)
                 return false;
         if (r != -ESRCH)
@@ -1422,7 +1422,7 @@ static void hash_ether_addr(UserNamespaceInfo *userns_info, const char *ifname, 
         siphash24_compress_string(strempty(ifname), &state);
         siphash24_compress_byte(0, &state); /* separator */
         n = htole64(n); /* add the 'index' to the mix in an endianess-independent fashion */
-        siphash24_compress(&n, sizeof(n), &state);
+        siphash24_compress_typesafe(n, &state);
 
         h = htole64(siphash24_finalize(&state));
 

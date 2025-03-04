@@ -448,9 +448,8 @@ bool job_type_is_redundant(JobType a, UnitActiveState b) {
                 return IN_SET(b, UNIT_ACTIVE, UNIT_RELOADING, UNIT_REFRESHING);
 
         case JOB_RELOAD:
-                return
-                        b == UNIT_RELOADING;
-
+                /* Reload jobs are never considered redundant/duplicate. Refer to jobs_may_late_merge() for
+                 * a detailed justification. */
         case JOB_RESTART:
                 /* Restart jobs must always be kept.
                  *
@@ -1650,20 +1649,6 @@ static const char* const job_type_table[_JOB_TYPE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(job_type, JobType);
-
-static const char* const job_mode_table[_JOB_MODE_MAX] = {
-        [JOB_FAIL]                 = "fail",
-        [JOB_REPLACE]              = "replace",
-        [JOB_REPLACE_IRREVERSIBLY] = "replace-irreversibly",
-        [JOB_ISOLATE]              = "isolate",
-        [JOB_FLUSH]                = "flush",
-        [JOB_IGNORE_DEPENDENCIES]  = "ignore-dependencies",
-        [JOB_IGNORE_REQUIREMENTS]  = "ignore-requirements",
-        [JOB_TRIGGERING]           = "triggering",
-        [JOB_RESTART_DEPENDENCIES] = "restart-dependencies",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(job_mode, JobMode);
 
 static const char* const job_result_table[_JOB_RESULT_MAX] = {
         [JOB_DONE]        = "done",

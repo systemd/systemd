@@ -52,6 +52,8 @@ assert_cc(sizeof(mode_t) == sizeof(uint32_t));
 
 int bus_property_get_rlimit(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error);
 
+int bus_property_get_string_set(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error);
+
 #define BUS_DEFINE_PROPERTY_GET_GLOBAL(function, bus_type, val)         \
         int function(sd_bus *bus,                                       \
                      const char *path,                                  \

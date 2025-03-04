@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <grp.h>
-#include <linux/fs.h>
 #include <linux/magic.h>
 #include <math.h>
 #include <openssl/pem.h>
@@ -36,7 +35,9 @@
 #include "homed-manager.h"
 #include "homed-varlink.h"
 #include "io-util.h"
+#include "missing_fs.h"
 #include "mkdir.h"
+#include "notify-recv.h"
 #include "openssl-util.h"
 #include "process-util.h"
 #include "quota-util.h"
@@ -54,6 +55,7 @@
 #include "user-record-util.h"
 #include "user-record.h"
 #include "user-util.h"
+#include "varlink-io.systemd.service.h"
 #include "varlink-io.systemd.UserDatabase.h"
 #include "varlink-util.h"
 
@@ -75,8 +77,7 @@ static bool uid_is_home(uid_t uid) {
 #define UID_CLAMP_INTO_HOME_RANGE(rnd) (((uid_t) (rnd) % (HOME_UID_MAX - HOME_UID_MIN + 1)) + HOME_UID_MIN)
 
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(homes_by_uid_hash_ops, void, trivial_hash_func, trivial_compare_func, Home, home_free);
-DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(homes_by_name_hash_ops, char, string_hash_func, string_compare_func, Home, home_free);
-DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(homes_by_worker_pid_hash_ops, void, trivial_hash_func, trivial_compare_func, Home, home_free);
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(homes_by_worker_pid_hash_ops, PidRef, pidref_hash_func, pidref_compare_func, Home, home_free);
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(homes_by_sysfs_hash_ops, char, path_hash_func, path_compare, Home, home_free);
 
 static int on_home_inotify(sd_event_source *s, const struct inotify_event *event, void *userdata);
@@ -191,7 +192,7 @@ static int on_home_inotify(sd_event_source *s, const struct inotify_event *event
                         log_debug("%s has been moved away, revalidating.", j);
 
                 h = hashmap_get(m->homes_by_name, n);
-                if (h) {
+                if (h && streq(h->user_name, n)) {
                         manager_revalidate_image(m, h);
                         (void) bus_manager_emit_auto_login_changed(m);
                 }
@@ -242,7 +243,7 @@ int manager_new(Manager **ret) {
         if (!m->homes_by_uid)
                 return -ENOMEM;
 
-        m->homes_by_name = hashmap_new(&homes_by_name_hash_ops);
+        m->homes_by_name = hashmap_new(&string_hash_ops);
         if (!m->homes_by_name)
                 return -ENOMEM;
 
@@ -359,7 +360,6 @@ static int manager_add_home_by_record(
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
-        unsigned line, column;
         int r, is_signed;
         struct stat st;
         Home *h;
@@ -379,6 +379,7 @@ static int manager_add_home_by_record(
         if (st.st_size == 0)
                 goto unlink_this_file;
 
+        unsigned line = 0, column = 0;
         r = sd_json_parse_file_at(NULL, dir_fd, fname, SD_JSON_PARSE_SENSITIVE, &v, &line, &column);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse identity record at %s:%u%u: %m", fname, line, column);
@@ -697,6 +698,11 @@ static int manager_add_home_by_image(
         if (h) {
                 bool same;
 
+                if (!streq(h->user_name, user_name)) {
+                        log_debug("Found an image for user %s which already is an alias for another user, skipping.", user_name);
+                        return 0; /* Ignore images that would synthesize a user that conflicts with an alias of another user */
+                }
+
                 if (h->state != HOME_UNFIXATED) {
                         log_debug("Found an image for user %s which already has a record, skipping.", user_name);
                         return 0; /* ignore images that synthesize a user we already have a record for */
@@ -1012,7 +1018,10 @@ static int manager_bind_varlink(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate varlink server: %m");
 
-        r = sd_varlink_server_add_interface(m->varlink_server, &vl_interface_io_systemd_UserDatabase);
+        r = sd_varlink_server_add_interface_many(
+                        m->varlink_server,
+                        &vl_interface_io_systemd_UserDatabase,
+                        &vl_interface_io_systemd_service);
         if (r < 0)
                 return log_error_errno(r, "Failed to add UserDatabase interface to varlink server: %m");
 
@@ -1020,7 +1029,10 @@ static int manager_bind_varlink(Manager *m) {
                         m->varlink_server,
                         "io.systemd.UserDatabase.GetUserRecord",  vl_method_get_user_record,
                         "io.systemd.UserDatabase.GetGroupRecord", vl_method_get_group_record,
-                        "io.systemd.UserDatabase.GetMemberships", vl_method_get_memberships);
+                        "io.systemd.UserDatabase.GetMemberships", vl_method_get_memberships,
+                        "io.systemd.service.Ping",                varlink_method_ping,
+                        "io.systemd.service.SetLogLevel",         varlink_method_set_log_level,
+                        "io.systemd.service.GetEnvironment",      varlink_method_get_environment);
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink methods: %m");
 
@@ -1057,123 +1069,33 @@ static int manager_bind_varlink(Manager *m) {
         return 0;
 }
 
-static ssize_t read_datagram(
-                int fd,
-                struct ucred *ret_sender,
-                void **ret,
-                int *ret_passed_fd) {
-
-        CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct ucred)) + CMSG_SPACE(sizeof(int))) control;
-        _cleanup_free_ void *buffer = NULL;
-        _cleanup_close_ int passed_fd = -EBADF;
-        struct ucred *sender = NULL;
-        struct cmsghdr *cmsg;
-        struct msghdr mh;
-        struct iovec iov;
-        ssize_t n, m;
-
-        assert(fd >= 0);
-        assert(ret_sender);
-        assert(ret);
-        assert(ret_passed_fd);
-
-        n = next_datagram_size_fd(fd);
-        if (n < 0)
-                return n;
-
-        buffer = malloc(n + 2);
-        if (!buffer)
-                return -ENOMEM;
-
-        /* Pass one extra byte, as a size check */
-        iov = IOVEC_MAKE(buffer, n + 1);
-
-        mh = (struct msghdr) {
-                .msg_iov = &iov,
-                .msg_iovlen = 1,
-                .msg_control = &control,
-                .msg_controllen = sizeof(control),
-        };
-
-        m = recvmsg_safe(fd, &mh, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
-        if (m < 0)
-                return m;
-
-        /* Ensure the size matches what we determined before */
-        if (m != n) {
-                cmsg_close_all(&mh);
-                return -EMSGSIZE;
-        }
-
-        CMSG_FOREACH(cmsg, &mh) {
-                if (cmsg->cmsg_level == SOL_SOCKET &&
-                    cmsg->cmsg_type == SCM_CREDENTIALS &&
-                    cmsg->cmsg_len == CMSG_LEN(sizeof(struct ucred))) {
-                        assert(!sender);
-                        sender = CMSG_TYPED_DATA(cmsg, struct ucred);
-                }
-
-                if (cmsg->cmsg_level == SOL_SOCKET &&
-                    cmsg->cmsg_type == SCM_RIGHTS) {
-
-                        if (cmsg->cmsg_len != CMSG_LEN(sizeof(int))) {
-                                cmsg_close_all(&mh);
-                                return -EMSGSIZE;
-                        }
-
-                        assert(passed_fd < 0);
-                        passed_fd = *CMSG_TYPED_DATA(cmsg, int);
-                }
-        }
-
-        if (sender)
-                *ret_sender = *sender;
-        else
-                *ret_sender = (struct ucred) UCRED_INVALID;
-
-        *ret_passed_fd = TAKE_FD(passed_fd);
-
-        /* For safety reasons: let's always NUL terminate.  */
-        ((char*) buffer)[n] = 0;
-        *ret = TAKE_PTR(buffer);
-
-        return 0;
-}
-
 static int on_notify_socket(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        _cleanup_strv_free_ char **l = NULL;
-        _cleanup_free_ void *datagram = NULL;
-        _cleanup_close_ int passed_fd = -EBADF;
-        struct ucred sender = UCRED_INVALID;
         Manager *m = ASSERT_PTR(userdata);
-        ssize_t n;
-        Home *h;
+        int r;
 
         assert(s);
 
-        n = read_datagram(fd, &sender, &datagram, &passed_fd);
-        if (n < 0) {
-                if (ERRNO_IS_TRANSIENT(n))
-                        return 0;
-                return log_error_errno(n, "Failed to read notify datagram: %m");
-        }
+        _cleanup_(fdset_free_asyncp) FDSet *passed_fds = NULL;
+        _cleanup_(pidref_done) PidRef sender = PIDREF_NULL;
+        _cleanup_strv_free_ char **l = NULL;
+        r = notify_recv_with_fds_strv(fd, &l, /* ret_ucred= */ NULL, &sender, &passed_fds);
+        if (r == -EAGAIN)
+                return 0;
+        if (r < 0)
+                return r;
 
-        if (sender.pid <= 0) {
-                log_warning("Received notify datagram without valid sender PID, ignoring.");
+        if (fdset_size(passed_fds) > 1) {
+                log_warning("Received notify datagram with multiple fds, ignoring.");
                 return 0;
         }
 
-        h = hashmap_get(m->homes_by_worker_pid, PID_TO_PTR(sender.pid));
+        Home *h = hashmap_get(m->homes_by_worker_pid, &sender);
         if (!h) {
                 log_warning("Received notify datagram of unknown process, ignoring.");
                 return 0;
         }
 
-        l = strv_split(datagram, "\n");
-        if (!l)
-                return log_oom();
-
-        home_process_notify(h, l, TAKE_FD(passed_fd));
+        home_process_notify(h, l, fdset_steal_first(passed_fds));
         return 0;
 }
 
@@ -1213,7 +1135,11 @@ static int manager_listen_notify(Manager *m) {
 
         r = setsockopt_int(fd, SOL_SOCKET, SO_PASSCRED, true);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to enable SO_PASSCRED on notify socket: %m");
+
+        r = setsockopt_int(fd, SOL_SOCKET, SO_PASSPIDFD, true);
+        if (r < 0)
+                log_warning_errno(r, "Failed to enable SO_PASSPIDFD on notify socket, ignoring: %m");
 
         r = sd_event_add_io(m->event, &m->notify_socket_event_source, fd, EPOLLIN, on_notify_socket, m);
         if (r < 0)
@@ -1444,6 +1370,8 @@ static int manager_generate_key_pair(Manager *m) {
         if (PEM_write_PUBKEY(fpublic, m->private_key) <= 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to write public key.");
 
+        (void) fchmod(fileno(fpublic), 0444); /* Make public key world readable */
+
         r = fflush_sync_and_check(fpublic);
         if (r < 0)
                 return log_error_errno(r, "Failed to write private key: %m");
@@ -1455,8 +1383,10 @@ static int manager_generate_key_pair(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to open key file for writing: %m");
 
-        if (PEM_write_PrivateKey(fprivate, m->private_key, NULL, NULL, 0, NULL, 0) <= 0)
+        if (PEM_write_PrivateKey(fprivate, m->private_key, NULL, NULL, 0, NULL, NULL) <= 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to write private key pair.");
+
+        (void) fchmod(fileno(fprivate), 0400); /* Make private key root readable */
 
         r = fflush_sync_and_check(fprivate);
         if (r < 0)
@@ -1714,7 +1644,7 @@ int manager_gc_images(Manager *m) {
         } else {
                 /* Gc all */
 
-                HASHMAP_FOREACH(h, m->homes_by_name)
+                HASHMAP_FOREACH(h, m->homes_by_uid)
                         manager_revalidate_image(m, h);
         }
 
@@ -1734,12 +1664,14 @@ static int manager_gc_blob(Manager *m) {
                 return log_error_errno(errno, "Failed to open %s: %m", home_system_blob_dir());
         }
 
-        FOREACH_DIRENT(de, d, return log_error_errno(errno, "Failed to read system blob directory: %m"))
-                if (!hashmap_contains(m->homes_by_name, de->d_name)) {
+        FOREACH_DIRENT(de, d, return log_error_errno(errno, "Failed to read system blob directory: %m")) {
+                Home *found = hashmap_get(m->homes_by_name, de->d_name);
+                if (!found || !streq(found->user_name, de->d_name)) {
                         r = rm_rf_at(dirfd(d), de->d_name, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to delete blob dir for missing user '%s', ignoring: %m", de->d_name);
                 }
+        }
 
         return 0;
 }
@@ -1834,7 +1766,7 @@ static bool manager_shall_rebalance(Manager *m) {
         if (IN_SET(m->rebalance_state, REBALANCE_PENDING, REBALANCE_SHRINKING, REBALANCE_GROWING))
                 return true;
 
-        HASHMAP_FOREACH(h, m->homes_by_name)
+        HASHMAP_FOREACH(h, m->homes_by_uid)
                 if (home_shall_rebalance(h))
                         return true;
 
@@ -1880,7 +1812,7 @@ static int manager_rebalance_calculate(Manager *m) {
                                                 * (home dirs get 100 by default, i.e. 5x more). This weight
                                                 * is not configurable, the per-home weights are. */
 
-        HASHMAP_FOREACH(h, m->homes_by_name) {
+        HASHMAP_FOREACH(h, m->homes_by_uid) {
                 statfs_f_type_t fstype;
                 h->rebalance_pending = false; /* First, reset the flag, we only want it to be true for the
                                                * homes that qualify for rebalancing */
@@ -2017,7 +1949,7 @@ static int manager_rebalance_apply(Manager *m) {
 
         assert(m);
 
-        HASHMAP_FOREACH(h, m->homes_by_name) {
+        HASHMAP_FOREACH(h, m->homes_by_uid) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
                 if (!h->rebalance_pending)
@@ -2257,4 +2189,30 @@ int manager_reschedule_rebalance(Manager *m) {
                 return r;
 
         return 1;
+}
+
+int manager_get_home_by_name(Manager *m, const char *user_name, Home **ret) {
+        assert(m);
+        assert(user_name);
+
+        Home *h = hashmap_get(m->homes_by_name, user_name);
+        if (!h) {
+                /* Also search by username and realm. For that simply chop off realm, then look for the home, and verify it afterwards. */
+                const char *realm = strrchr(user_name, '@');
+                if (realm) {
+                        _cleanup_free_ char *prefix = strndup(user_name, realm - user_name);
+                        if (!prefix)
+                                return -ENOMEM;
+
+                        Home *j;
+                        j = hashmap_get(m->homes_by_name, prefix);
+                        if (j && user_record_matches_user_name(j->record, user_name))
+                                h = j;
+                }
+        }
+
+        if (ret)
+                *ret = h;
+
+        return !!h;
 }

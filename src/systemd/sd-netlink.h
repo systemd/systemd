@@ -206,7 +206,7 @@ int sd_rtnl_message_new_routing_policy_rule(sd_netlink *rtnl, sd_netlink_message
 int sd_rtnl_message_routing_policy_rule_get_family(sd_netlink_message *m, int *ret); /* family */
 int sd_rtnl_message_routing_policy_rule_set_dst_prefixlen(sd_netlink_message *m, uint8_t prefixlen); /* dst_len */
 int sd_rtnl_message_routing_policy_rule_get_dst_prefixlen(sd_netlink_message *m, uint8_t *ret);
-int sd_rtnl_message_routing_policy_rule_set_src_prefixlen(sd_netlink_message *m, uint8_t prefixlen); /* src_len*/
+int sd_rtnl_message_routing_policy_rule_set_src_prefixlen(sd_netlink_message *m, uint8_t prefixlen); /* src_len */
 int sd_rtnl_message_routing_policy_rule_get_src_prefixlen(sd_netlink_message *m, uint8_t *ret);
 int sd_rtnl_message_routing_policy_rule_set_tos(sd_netlink_message *m, uint8_t tos); /* tos */
 int sd_rtnl_message_routing_policy_rule_get_tos(sd_netlink_message *m, uint8_t *ret);

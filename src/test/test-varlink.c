@@ -153,6 +153,16 @@ static int method_passfd(sd_varlink *link, sd_json_variant *parameters, sd_varli
         return sd_varlink_reply(link, ret);
 }
 
+static int method_fail_with_errno(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        int r;
+
+        r = sd_varlink_dispatch(link, parameters, NULL, NULL);
+        if (r != 0)
+                return r;
+
+        return sd_varlink_error_errno(link, EHWPOISON);
+}
+
 static int method_done(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
 
         if (++n_done == 2)
@@ -315,6 +325,8 @@ static void *thread(void *arg) {
         ASSERT_STREQ(sd_json_variant_string(sd_json_variant_by_key(o, "method")), "io.test.IDontExist");
         ASSERT_STREQ(e, SD_VARLINK_ERROR_METHOD_NOT_FOUND);
 
+        ASSERT_OK(sd_varlink_call(c, "io.test.FailWithErrno", NULL, &o, &e));
+        ASSERT_ERROR(sd_varlink_error_to_errno(e, o), EHWPOISON);
         flood_test(arg);
 
         assert_se(sd_varlink_send(c, "io.test.Done", NULL) >= 0);
@@ -368,6 +380,7 @@ TEST(chat) {
         assert_se(sd_varlink_server_bind_method(s, "io.test.PassFD", method_passfd) >= 0);
         assert_se(sd_varlink_server_bind_method(s, "io.test.DoSomething", method_something) >= 0);
         assert_se(sd_varlink_server_bind_method(s, "io.test.DoSomethingMore", method_something_more) >= 0);
+        assert_se(sd_varlink_server_bind_method(s, "io.test.FailWithErrno", method_fail_with_errno) >= 0);
         assert_se(sd_varlink_server_bind_method(s, "io.test.Done", method_done) >= 0);
         assert_se(sd_varlink_server_bind_connect(s, on_connect) >= 0);
         assert_se(sd_varlink_server_listen_address(s, sp, 0600) >= 0);
@@ -440,7 +453,6 @@ TEST(invalid_parameter) {
         assert_se(sd_varlink_invokebo(c, "foo.mytest.Invalid",
                                       SD_JSON_BUILD_PAIR_STRING("iexist", "foo"),
                                       SD_JSON_BUILD_PAIR_STRING("idontexist", "bar")) >= 0);
-
 
         assert_se(sd_event_loop(e) >= 0);
 }

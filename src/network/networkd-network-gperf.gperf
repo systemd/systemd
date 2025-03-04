@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 %{
-#if __GNUC__ >= 7
 _Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
+#if __GNUC__ >= 15
+_Pragma("GCC diagnostic ignored \"-Wzero-as-null-pointer-constant\"")
 #endif
 #include <netinet/icmp6.h>
 #include <stddef.h>
@@ -382,6 +383,8 @@ Bridge.ProxyARP,                             config_parse_tristate,             
 Bridge.ProxyARPWiFi,                         config_parse_tristate,                                    0,                             offsetof(Network, bridge_proxy_arp_wifi)
 Bridge.Priority,                             config_parse_bridge_port_priority,                        0,                             offsetof(Network, priority)
 Bridge.MulticastRouter,                      config_parse_multicast_router,                            0,                             offsetof(Network, multicast_router)
+Bridge.Locked,                               config_parse_tristate,                                    0,                             offsetof(Network, bridge_locked)
+Bridge.MACAuthenticationBypass,              config_parse_tristate,                                    0,                             offsetof(Network, bridge_mac_authentication_bypass)
 BridgeFDB.MACAddress,                        config_parse_fdb_hwaddr,                                  0,                             0
 BridgeFDB.VLANId,                            config_parse_fdb_vlan_id,                                 0,                             0
 BridgeFDB.Destination,                       config_parse_fdb_destination,                             0,                             0
@@ -407,7 +410,7 @@ IPv6SendRA.ReachableTimeSec,                 config_parse_router_uint32_msec_use
 IPv6SendRA.RetransmitSec,                    config_parse_router_uint32_msec_usec,                     0,                             offsetof(Network, router_retransmit_usec)
 IPv6SendRA.Managed,                          config_parse_bool,                                        0,                             offsetof(Network, router_managed)
 IPv6SendRA.OtherInformation,                 config_parse_bool,                                        0,                             offsetof(Network, router_other_information)
-IPv6SendRA.RouterPreference,                 config_parse_router_preference,                           0,                             0
+IPv6SendRA.RouterPreference,                 config_parse_router_preference,                           0,                             offsetof(Network, router_preference)
 IPv6SendRA.HopLimit,                         config_parse_uint8,                                       0,                             offsetof(Network, router_hop_limit)
 IPv6SendRA.EmitDNS,                          config_parse_bool,                                        0,                             offsetof(Network, router_emit_dns)
 IPv6SendRA.DNS,                              config_parse_radv_dns,                                    0,                             0
@@ -428,6 +431,7 @@ IPv6Prefix.RouteMetric,                      config_parse_prefix_metric,        
 IPv6Prefix.Token,                            config_parse_prefix_token,                                0,                             0
 IPv6RoutePrefix.Route,                       config_parse_route_prefix,                                0,                             0
 IPv6RoutePrefix.LifetimeSec,                 config_parse_route_prefix_lifetime,                       0,                             0
+IPv6RoutePrefix.Preference,                  config_parse_route_prefix_preference,                     0,                             0
 IPv6PREF64Prefix.Prefix,                     config_parse_pref64_prefix,                               0,                             0
 IPv6PREF64Prefix.LifetimeSec,                config_parse_pref64_prefix_lifetime,                      0,                             0
 LLDP.MUDURL,                                 config_parse_mud_url,                                     0,                             offsetof(Network, lldp_mudurl)
@@ -597,7 +601,7 @@ Network.DHCPv6PrefixDelegation,              config_parse_tristate,             
 IPv6PrefixDelegation.RouterLifetimeSec,      config_parse_sec,                                         0,                             offsetof(Network, router_lifetime_usec)
 IPv6PrefixDelegation.Managed,                config_parse_bool,                                        0,                             offsetof(Network, router_managed)
 IPv6PrefixDelegation.OtherInformation,       config_parse_bool,                                        0,                             offsetof(Network, router_other_information)
-IPv6PrefixDelegation.RouterPreference,       config_parse_router_preference,                           0,                             0
+IPv6PrefixDelegation.RouterPreference,       config_parse_router_preference,                           0,                             offsetof(Network, router_preference)
 IPv6PrefixDelegation.EmitDNS,                config_parse_bool,                                        0,                             offsetof(Network, router_emit_dns)
 IPv6PrefixDelegation.DNS,                    config_parse_radv_dns,                                    0,                             0
 IPv6PrefixDelegation.EmitDomains,            config_parse_bool,                                        0,                             offsetof(Network, router_emit_domains)

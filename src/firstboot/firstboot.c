@@ -51,6 +51,7 @@
 #include "tmpfile-util.h"
 #include "umask-util.h"
 #include "user-util.h"
+#include "vconsole-util.h"
 
 static char *arg_root = NULL;
 static char *arg_image = NULL;
@@ -120,21 +121,52 @@ static void print_welcome(int rfd) {
         pn = os_release_pretty_name(pretty_name, os_name);
         ac = isempty(ansi_color) ? "0" : ansi_color;
 
-        (void) terminal_reset_defensive_locked(STDOUT_FILENO, /* switch_to_text= */ false);
+        (void) terminal_reset_defensive_locked(STDOUT_FILENO, /* flags= */ 0);
 
         if (colors_enabled())
                 printf("\nWelcome to your new installation of \x1B[%sm%s\x1B[0m!\n", ac, pn);
         else
                 printf("\nWelcome to your new installation of %s!\n", pn);
 
-        printf("\nPlease configure your system!\n\n");
+        printf("\nPlease configure your system!\n");
 
         any_key_to_proceed();
 
         done = true;
 }
 
-static int prompt_loop(int rfd, const char *text, char **l, unsigned percentage, bool (*is_valid)(int rfd, const char *name), char **ret) {
+static int get_completions(
+                const char *key,
+                char ***ret_list,
+                void *userdata) {
+
+        int r;
+
+        if (!userdata) {
+                *ret_list = NULL;
+                return 0;
+        }
+
+        _cleanup_strv_free_ char **copy = strv_copy(userdata);
+        if (!copy)
+                return -ENOMEM;
+
+        r = strv_extend(&copy, "list");
+        if (r < 0)
+                return r;
+
+        *ret_list = TAKE_PTR(copy);
+        return 0;
+}
+
+static int prompt_loop(
+                int rfd,
+                const char *text,
+                char **l,
+                unsigned ellipsize_percentage,
+                bool (*is_valid)(int rfd, const char *name),
+                char **ret) {
+
         int r;
 
         assert(text);
@@ -143,11 +175,14 @@ static int prompt_loop(int rfd, const char *text, char **l, unsigned percentage,
 
         for (;;) {
                 _cleanup_free_ char *p = NULL;
-                unsigned u;
 
-                r = ask_string(&p, strv_isempty(l) ? "%s %s (empty to skip): "
-                                                   : "%s %s (empty to skip, \"list\" to list options): ",
-                               special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET), text);
+                r = ask_string_full(
+                                &p,
+                                get_completions,
+                                l,
+                                strv_isempty(l) ? "%s %s (empty to skip): "
+                                                : "%s %s (empty to skip, \"list\" to list options): ",
+                                special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET), text);
                 if (r < 0)
                         return log_error_errno(r, "Failed to query user: %m");
 
@@ -158,14 +193,20 @@ static int prompt_loop(int rfd, const char *text, char **l, unsigned percentage,
 
                 if (!strv_isempty(l)) {
                         if (streq(p, "list")) {
-                                r = show_menu(l, 3, 20, percentage);
+                                r = show_menu(l,
+                                              /* n_columns= */ 3,
+                                              /* column_width= */ 20,
+                                              ellipsize_percentage,
+                                              /* grey_prefix= */ NULL,
+                                              /* with_numbers= */ true);
                                 if (r < 0)
-                                        return r;
+                                        return log_error_errno(r, "Failed to show menu: %m");
 
                                 putchar('\n');
                                 continue;
                         }
 
+                        unsigned u;
                         r = safe_atou(p, &u);
                         if (r >= 0) {
                                 if (u <= 0 || u > strv_length(l)) {
@@ -461,7 +502,7 @@ static int prompt_keymap(int rfd) {
 static int process_keymap(int rfd) {
         _cleanup_close_ int pfd = -EBADF;
         _cleanup_free_ char *f = NULL;
-        char **keymap;
+        _cleanup_strv_free_ char **keymap = NULL;
         int r;
 
         assert(rfd >= 0);
@@ -502,7 +543,18 @@ static int process_keymap(int rfd) {
         if (isempty(arg_keymap))
                 return 0;
 
-        keymap = STRV_MAKE(strjoina("KEYMAP=", arg_keymap));
+        VCContext vc = {
+                .keymap = arg_keymap,
+        };
+        _cleanup_(x11_context_clear) X11Context xc = {};
+
+        r = vconsole_convert_to_x11(&vc, /* verify= */ NULL, &xc);
+        if (r < 0)
+                return log_error_errno(r, "Failed to convert keymap data: %m");
+
+        r = vconsole_serialize(&vc, &xc, &keymap);
+        if (r < 0)
+                return log_error_errno(r, "Failed to serialize keymap data: %m");
 
         r = write_vconsole_conf(pfd, f, keymap);
         if (r < 0)
@@ -634,7 +686,9 @@ static int prompt_hostname(int rfd) {
         if (r < 0)
                 return r;
 
-        hostname_cleanup(arg_hostname);
+        if (arg_hostname)
+                hostname_cleanup(arg_hostname);
+
         return 0;
 }
 

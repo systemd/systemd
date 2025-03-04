@@ -831,7 +831,7 @@ static int update_render_progress(sd_event_source *source, void *userdata) {
 
         if (!terminal_is_dumb()) {
                 for (size_t i = 0; i <= n; i++)
-                        fputs("\n", stderr); /* Possibly scroll the terminal to make room (including total)*/
+                        fputs("\n", stderr); /* Possibly scroll the terminal to make room (including total) */
 
                 fprintf(stderr, "\e[%zuF", n+1); /* Go back */
 

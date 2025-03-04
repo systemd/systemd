@@ -63,6 +63,13 @@ def setUpModule():
         else:
             stopped_units.append(u)
 
+    # Generate debugging logs.
+    os.makedirs('/run/systemd/system/systemd-networkd.service.d', exist_ok=True)
+    with open(f'/run/systemd/system/systemd-networkd.service.d/00-debug.conf', mode='w', encoding='utf-8') as f:
+        f.write('[Service]\nEnvironment=SYSTEMD_LOG_LEVEL=debug\n')
+
+    subprocess.call(['systemctl', 'daemon-reload'])
+
     # create static systemd-network user for networkd-test-router.service (it
     # needs to do some stuff as root and can't start as user; but networkd
     # still insists on the user)
@@ -254,7 +261,7 @@ Address=192.168.250.33/24
 Gateway=192.168.250.1
 ''')
         subprocess.call(['systemctl', 'reset-failed', 'systemd-networkd', 'systemd-resolved'])
-        subprocess.check_call(['systemctl', 'start', 'systemd-networkd'])
+        subprocess.check_call(['systemctl', 'restart', 'systemd-networkd'])
         self.wait_online()
 
     def tearDown(self):
@@ -398,7 +405,8 @@ class ClientTestBase(NetworkdTestingUtilities):
 
     def start_unit(self, unit):
         try:
-            subprocess.check_call(['systemctl', 'start', unit])
+            # The service may be already started. Hence, restart it.
+            subprocess.check_call(['systemctl', 'restart', unit])
         except subprocess.CalledProcessError:
             self.show_journal(unit)
             raise
@@ -552,7 +560,7 @@ Domains= ~company
                          extra_opts='IPv6AcceptRA=no')
         except subprocess.CalledProcessError as e:
             # networkd often fails to start in LXC: https://github.com/systemd/systemd/issues/11848
-            if IS_CONTAINER and e.cmd == ['systemctl', 'start', 'systemd-networkd']:
+            if IS_CONTAINER and e.cmd == ['systemctl', 'restart', 'systemd-networkd']:
                 raise unittest.SkipTest('https://github.com/systemd/systemd/issues/11848')
             else:
                 raise
@@ -586,7 +594,7 @@ Domains= ~company ~.
                          extra_opts='IPv6AcceptRA=no')
         except subprocess.CalledProcessError as e:
             # networkd often fails to start in LXC: https://github.com/systemd/systemd/issues/11848
-            if IS_CONTAINER and e.cmd == ['systemctl', 'start', 'systemd-networkd']:
+            if IS_CONTAINER and e.cmd == ['systemctl', 'restart', 'systemd-networkd']:
                 raise unittest.SkipTest('https://github.com/systemd/systemd/issues/11848')
             else:
                 raise
@@ -946,6 +954,9 @@ EOF
 # Hence, 'networkctl persistent-storage yes' cannot be used.
 export SYSTEMD_NETWORK_PERSISTENT_STORAGE_READY=1
 
+# Generate debugging logs.
+export SYSTEMD_LOG_LEVEL=debug
+
 # run networkd as in systemd-networkd.service
 exec $(systemctl cat systemd-networkd.service | sed -n '/^ExecStart=/ {{ s/^.*=//; s/^[@+-]//; s/^!*//; p}}')
 '''.format(ifr=self.if_router,
@@ -1119,7 +1130,7 @@ Name=test_*
 [Network]
 IPv6AcceptRA=no
 ''')
-        subprocess.check_call(['systemctl', 'start', 'systemd-networkd'])
+        subprocess.check_call(['systemctl', 'restart', 'systemd-networkd'])
         self.assert_link_states(test_if1='managed', fake_if2='unmanaged')
 
     def test_inverted_matching(self):
@@ -1136,7 +1147,7 @@ Name=!nonexistent *peer*
 [Network]
 IPv6AcceptRA=no
 '''.format(mac))
-        subprocess.check_call(['systemctl', 'start', 'systemd-networkd'])
+        subprocess.check_call(['systemctl', 'restart', 'systemd-networkd'])
         self.assert_link_states(test_veth='managed', test_peer='unmanaged')
 
 
@@ -1175,7 +1186,7 @@ class UnmanagedClientTest(unittest.TestCase, NetworkdTestingUtilities):
 
     def test_unmanaged_setting(self):
         """Verify link states with Unmanaged= settings, hot-plug."""
-        subprocess.check_call(['systemctl', 'start', 'systemd-networkd'])
+        subprocess.check_call(['systemctl', 'restart', 'systemd-networkd'])
         self.create_iface()
         self.assert_link_states(m1def='managed',
                                 m1man='managed',
@@ -1185,7 +1196,7 @@ class UnmanagedClientTest(unittest.TestCase, NetworkdTestingUtilities):
     def test_unmanaged_setting_coldplug(self):
         """Verify link states with Unmanaged= settings, cold-plug."""
         self.create_iface()
-        subprocess.check_call(['systemctl', 'start', 'systemd-networkd'])
+        subprocess.check_call(['systemctl', 'restart', 'systemd-networkd'])
         self.assert_link_states(m1def='managed',
                                 m1man='managed',
                                 m1unm='unmanaged',
@@ -1195,7 +1206,7 @@ class UnmanagedClientTest(unittest.TestCase, NetworkdTestingUtilities):
         """Verify link states with a catch-all config, hot-plug."""
         # Don't actually catch ALL interfaces.  It messes up the host.
         self.write_network('50-all.network', "[Match]\nName=m[01]???\n")
-        subprocess.check_call(['systemctl', 'start', 'systemd-networkd'])
+        subprocess.check_call(['systemctl', 'restart', 'systemd-networkd'])
         self.create_iface()
         self.assert_link_states(m1def='managed',
                                 m1man='managed',
@@ -1207,7 +1218,7 @@ class UnmanagedClientTest(unittest.TestCase, NetworkdTestingUtilities):
         # Don't actually catch ALL interfaces.  It messes up the host.
         self.write_network('50-all.network', "[Match]\nName=m[01]???\n")
         self.create_iface()
-        subprocess.check_call(['systemctl', 'start', 'systemd-networkd'])
+        subprocess.check_call(['systemctl', 'restart', 'systemd-networkd'])
         self.assert_link_states(m1def='managed',
                                 m1man='managed',
                                 m1unm='unmanaged',

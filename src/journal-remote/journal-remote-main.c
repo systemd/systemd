@@ -11,6 +11,7 @@
 #include "daemon-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "journal-compression-util.h"
 #include "journal-remote-write.h"
 #include "journal-remote.h"
 #include "logs-show.h"
@@ -32,16 +33,16 @@
 #define CERT_FILE     CERTIFICATE_ROOT "/certs/journal-remote.pem"
 #define TRUST_FILE    CERTIFICATE_ROOT "/ca/trusted.pem"
 
-static const char* arg_url = NULL;
-static const char* arg_getter = NULL;
-static const char* arg_listen_raw = NULL;
-static const char* arg_listen_http = NULL;
-static const char* arg_listen_https = NULL;
-static char** arg_files = NULL; /* Do not free this. */
+static char *arg_url = NULL;
+static char *arg_getter = NULL;
+static char *arg_listen_raw = NULL;
+static char *arg_listen_http = NULL;
+static char *arg_listen_https = NULL;
+static char **arg_files = NULL;
 static bool arg_compress = true;
 static bool arg_seal = false;
 static int http_socket = -1, https_socket = -1;
-static char** arg_gnutls_log = NULL;
+static char **arg_gnutls_log = NULL;
 
 static JournalWriteSplitMode arg_split_mode = _JOURNAL_WRITE_SPLIT_INVALID;
 static char *arg_output = NULL;
@@ -60,11 +61,20 @@ static uint64_t arg_max_size = UINT64_MAX;
 static uint64_t arg_n_max_files = UINT64_MAX;
 static uint64_t arg_keep_free = UINT64_MAX;
 
+static OrderedHashmap *arg_compression = NULL;
+
+STATIC_DESTRUCTOR_REGISTER(arg_url, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_getter, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_listen_raw, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_listen_http, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_listen_https, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_files, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_gnutls_log, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_key, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_cert, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_trust, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_output, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_compression, ordered_hashmap_freep);
 
 static const char* const journal_write_split_mode_table[_JOURNAL_WRITE_SPLIT_MAX] = {
         [JOURNAL_WRITE_SPLIT_NONE] = "none",
@@ -78,7 +88,7 @@ static DEFINE_CONFIG_PARSE_ENUM(config_parse_write_split_mode, journal_write_spl
  **********************************************************************
  **********************************************************************/
 
-static int spawn_child(const char* child, char** argv) {
+static int spawn_child(const char *child, char **argv) {
         pid_t child_pid;
         int fd[2], r;
 
@@ -110,7 +120,7 @@ static int spawn_child(const char* child, char** argv) {
         return fd[0];
 }
 
-static int spawn_curl(const char* url) {
+static int spawn_curl(const char *url) {
         char **argv = STRV_MAKE("curl",
                                 "-HAccept: application/vnd.fdo.journal",
                                 "--silent",
@@ -152,29 +162,55 @@ static int dispatch_http_event(sd_event_source *event,
                                uint32_t revents,
                                void *userdata);
 
+static int build_accept_encoding(char **ret) {
+        assert(ret);
+
+        if (ordered_hashmap_isempty(arg_compression)) {
+                *ret = NULL;
+                return 0;
+        }
+
+        _cleanup_free_ char *buf = NULL;
+        float q = 1.0, step = 1.0 / ordered_hashmap_size(arg_compression);
+
+        const CompressionConfig *cc;
+        ORDERED_HASHMAP_FOREACH(cc, arg_compression) {
+                const char *c = compression_lowercase_to_string(cc->algorithm);
+                if (strextendf_with_separator(&buf, ",", "%s;q=%.1f", c, q) < 0)
+                        return -ENOMEM;
+                q -= step;
+        }
+
+        *ret = TAKE_PTR(buf);
+        return 0;
+}
+
 static int request_meta(void **connection_cls, int fd, char *hostname) {
-        RemoteSource *source;
-        Writer *writer;
         int r;
 
         assert(connection_cls);
-        if (*connection_cls)
-                return 0;
 
+        if (*connection_cls)
+                return 0; /* already assigned. */
+
+        Writer *writer;
         r = journal_remote_get_writer(journal_remote_server_global, hostname, &writer);
         if (r < 0)
                 return log_warning_errno(r, "Failed to get writer for source %s: %m",
                                          hostname);
 
-        source = source_new(fd, true, hostname, writer);
-        if (!source) {
-                writer_unref(writer);
+        _cleanup_(source_freep) RemoteSource *source = source_new(fd, true, hostname, writer);
+        if (!source)
                 return log_oom();
-        }
 
         log_debug("Added RemoteSource as connection metadata %p", source);
 
-        *connection_cls = source;
+        r = build_accept_encoding(&source->encoding);
+        if (r < 0)
+                return log_oom();
+
+        source->compression = COMPRESSION_NONE;
+        *connection_cls = TAKE_PTR(source);
         return 0;
 }
 
@@ -212,8 +248,17 @@ static int process_http_upload(
         if (*upload_data_size) {
                 log_trace("Received %zu bytes", *upload_data_size);
 
-                r = journal_importer_push_data(&source->importer,
-                                               upload_data, *upload_data_size);
+                if (source->compression != COMPRESSION_NONE) {
+                        _cleanup_free_ char *buf = NULL;
+                        size_t buf_size;
+
+                        r = decompress_blob(source->compression, upload_data, *upload_data_size, (void **) &buf, &buf_size, 0);
+                        if (r < 0)
+                                return mhd_respondf(connection, r, MHD_HTTP_BAD_REQUEST, "Decompression of received blob failed.");
+
+                        r = journal_importer_push_data(&source->importer, buf, buf_size);
+                } else
+                        r = journal_importer_push_data(&source->importer, upload_data, *upload_data_size);
                 if (r < 0)
                         return mhd_respond_oom(connection);
 
@@ -253,7 +298,7 @@ static int process_http_upload(
                                     remaining);
         }
 
-        return mhd_respond(connection, MHD_HTTP_ACCEPTED, "OK.");
+        return mhd_respond_with_encoding(connection, MHD_HTTP_ACCEPTED, source->encoding, "OK.");
 };
 
 static mhd_result request_handler(
@@ -278,10 +323,22 @@ static mhd_result request_handler(
 
         log_trace("Handling a connection %s %s %s", method, url, version);
 
-        if (*connection_cls)
+        if (*connection_cls) {
+                RemoteSource *source = *connection_cls;
+                header = MHD_lookup_connection_value(connection, MHD_HEADER_KIND, "Content-Encoding");
+                if (header) {
+                        Compression c = compression_lowercase_from_string(header);
+                        if (c <= 0 || !compression_supported(c))
+                                return mhd_respondf(connection, 0, MHD_HTTP_UNSUPPORTED_MEDIA_TYPE,
+                                                    "Unsupported Content-Encoding type: %s", header);
+                        source->compression = c;
+                } else
+                        source->compression = COMPRESSION_NONE;
+
                 return process_http_upload(connection,
                                            upload_data, upload_data_size,
-                                           *connection_cls);
+                                           source);
+        }
 
         if (!streq(method, "POST"))
                 return mhd_respond(connection, MHD_HTTP_NOT_ACCEPTABLE, "Unsupported method.");
@@ -544,9 +601,9 @@ static int setup_raw_socket(RemoteServer *s, const char *address) {
 
 static int create_remoteserver(
                 RemoteServer *s,
-                const char* key,
-                const char* cert,
-                const char* trust) {
+                const char *key,
+                const char *cert,
+                const char *trust) {
 
         int r, n, fd;
 
@@ -722,6 +779,7 @@ static int parse_config(void) {
                 { "Remote",  "MaxFileSize",            config_parse_iec_uint64,       0, &arg_max_size    },
                 { "Remote",  "MaxFiles",               config_parse_uint64,           0, &arg_n_max_files },
                 { "Remote",  "KeepFree",               config_parse_iec_uint64,       0, &arg_keep_free   },
+                { "Remote",  "Compression",            config_parse_compression,      0, &arg_compression },
                 {}
         };
 
@@ -822,27 +880,21 @@ static int parse_argv(int argc, char *argv[]) {
                         return version();
 
                 case ARG_URL:
-                        if (arg_url)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Cannot currently set more than one --url=");
-
-                        arg_url = optarg;
+                        r = free_and_strdup_warn(&arg_url, optarg);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_GETTER:
-                        if (arg_getter)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Cannot currently use --getter= more than once");
-
-                        arg_getter = optarg;
+                        r = free_and_strdup_warn(&arg_getter, optarg);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_LISTEN_RAW:
-                        if (arg_listen_raw)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Cannot currently use --listen-raw= more than once");
-
-                        arg_listen_raw = optarg;
+                        r = free_and_strdup_warn(&arg_listen_raw, optarg);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_LISTEN_HTTP:
@@ -853,8 +905,11 @@ static int parse_argv(int argc, char *argv[]) {
                         r = negative_fd(optarg);
                         if (r >= 0)
                                 http_socket = r;
-                        else
-                                arg_listen_http = optarg;
+                        else {
+                                r = free_and_strdup_warn(&arg_listen_http, optarg);
+                                if (r < 0)
+                                        return r;
+                        }
                         break;
 
                 case ARG_LISTEN_HTTPS:
@@ -865,53 +920,36 @@ static int parse_argv(int argc, char *argv[]) {
                         r = negative_fd(optarg);
                         if (r >= 0)
                                 https_socket = r;
-                        else
-                                arg_listen_https = optarg;
-
+                        else {
+                                r = free_and_strdup_warn(&arg_listen_https, optarg);
+                                if (r < 0)
+                                        return r;
+                        }
                         break;
 
                 case ARG_KEY:
-                        if (arg_key)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Key file specified twice");
-
-                        arg_key = strdup(optarg);
-                        if (!arg_key)
-                                return log_oom();
-
+                        r = free_and_strdup_warn(&arg_key, optarg);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_CERT:
-                        if (arg_cert)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Certificate file specified twice");
-
-                        arg_cert = strdup(optarg);
-                        if (!arg_cert)
-                                return log_oom();
-
+                        r = free_and_strdup_warn(&arg_cert, optarg);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_TRUST:
 #if HAVE_GNUTLS
-                        if (arg_trust)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Cannot use --trust more= than once");
-
-                        arg_trust = strdup(optarg);
-                        if (!arg_trust)
-                                return log_oom();
+                        r = free_and_strdup_warn(&arg_trust, optarg);
+                        if (r < 0)
+                                return r;
 #else
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Option --trust= is not available.");
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Option --trust= is not available.");
 #endif
                         break;
 
                 case 'o':
-                        if (arg_output)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Cannot use --output=/-o more than once");
-
                         r = parse_path_argument(optarg, /* suppress_root = */ false, &arg_output);
                         if (r < 0)
                                 return r;
@@ -937,7 +975,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_GNUTLS_LOG:
 #if HAVE_GNUTLS
-                        for (const char* p = optarg;;) {
+                        for (const char *p = optarg;;) {
                                 _cleanup_free_ char *word = NULL;
 
                                 r = extract_first_word(&p, &word, ",", 0);
@@ -946,16 +984,13 @@ static int parse_argv(int argc, char *argv[]) {
                                 if (r == 0)
                                         break;
 
-                                if (strv_push(&arg_gnutls_log, word) < 0)
+                                if (strv_consume(&arg_gnutls_log, TAKE_PTR(word)) < 0)
                                         return log_oom();
-
-                                word = NULL;
                         }
-                        break;
 #else
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Option --gnutls-log= is not available.");
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Option --gnutls-log= is not available.");
 #endif
+                        break;
 
                 case '?':
                         return -EINVAL;
@@ -964,8 +999,9 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached();
                 }
 
-        if (optind < argc)
-                arg_files = argv + optind;
+        arg_files = strv_copy(strv_skip(argv, optind));
+        if (!arg_files)
+                return log_oom();
 
         type_a = arg_getter || !strv_isempty(arg_files);
         type_b = arg_url
@@ -1075,6 +1111,10 @@ static int run(int argc, char **argv) {
 
         r = parse_argv(argc, argv);
         if (r <= 0)
+                return r;
+
+        r = compression_configs_mangle(&arg_compression);
+        if (r < 0)
                 return r;
 
         journal_browse_prepare();

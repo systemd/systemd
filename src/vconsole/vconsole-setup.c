@@ -575,7 +575,7 @@ static int verify_source_vc(char **ret_path, const char *src_vc) {
 
         /* setfont(8) silently ignores when the font can't be applied due to the vc being in
          * KD_GRAPHICS. Hence we continue to accept this case however we now let the user know that the vc
-         * will be initialized only partially.*/
+         * will be initialized only partially. */
         r = verify_vc_display_mode(fd);
         if (r < 0)
                 log_notice_errno(r, "Virtual console %s is not in KD_TEXT, font settings likely won't be applied.", src_vc);

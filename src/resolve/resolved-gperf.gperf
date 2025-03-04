@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 %{
-#if __GNUC__ >= 7
 _Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
+#if __GNUC__ >= 15
+_Pragma("GCC diagnostic ignored \"-Wzero-as-null-pointer-constant\"")
 #endif
 #include <stddef.h>
 #include "conf-parser.h"
@@ -33,3 +34,4 @@ Resolve.ResolveUnicastSingleLabel, config_parse_bool,                    0,     
 Resolve.DNSStubListenerExtra,      config_parse_dns_stub_listener_extra, 0,                   offsetof(Manager, dns_extra_stub_listeners)
 Resolve.CacheFromLocalhost,        config_parse_bool,                    0,                   offsetof(Manager, cache_from_localhost)
 Resolve.StaleRetentionSec,         config_parse_sec,                     0,                   offsetof(Manager, stale_retention_usec)
+Resolve.RefuseRecordTypes,         config_parse_record_types,            0,                   offsetof(Manager, refuse_record_types)

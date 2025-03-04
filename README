@@ -37,12 +37,15 @@ REQUIREMENTS:
                      ≥ 4.9 for RENAME_NOREPLACE support in vfat
                      ≥ 4.10 for cgroup-bpf egress and ingress hooks
                      ≥ 4.11 for nsfs NS_GET_NSTYPE
+                     ≥ 4.13 for TIOCGPTPEER and SYNTH_UUID= property support in uevent
                      ≥ 4.15 for cgroup-bpf device hook and cpu controller in cgroup v2
-                     ≥ 4.17 for cgroup-bpf socket address hooks and /sys/power/resume_offset
+                     ≥ 4.17 for cgroup-bpf socket address hooks, /sys/power/resume_offset,
+                            and FRA_PROTOCOL attribute for fib rules
                      ≥ 4.20 for PSI (used by systemd-oomd)
-                     ≥ 5.2 for cgroup freezer
-                     ≥ 5.3 for bounded loops in BPF program
-                     ≥ 5.4 for pidfd, new mount API, and signed Verity images
+                     ≥ 5.2 for cgroup freezer and new mount API
+                     ≥ 5.3 for bounded loops in BPF program, keyring namespacing,
+                           and nexthop support
+                     ≥ 5.4 for pidfd and signed Verity images
 
         ⛔ Kernel versions below 5.4 ("minimum baseline") are not supported at all,
            and are missing required functionality as listed above.
@@ -58,11 +61,15 @@ REQUIREMENTS:
 
         Linux kernel ≥ 5.8 for LOOP_CONFIGURE and STATX_ATTR_MOUNT_ROOT
                      ≥ 5.9 for close_range()
+                     ≥ 5.12 for idmapped mount
                      ≥ 5.14 for cgroup.kill
+                     ≥ 5.14 for quotactl_fd()
                      ≥ 6.3 for MFD_EXEC/MFD_NOEXEC_SEAL and tmpfs noswap option
                      ≥ 6.5 for name_to_handle_at() AT_HANDLE_FID, SO_PEERPIDFD/SO_PASSPIDFD,
                                and MOVE_MOUNT_BENEATH
+                     ≥ 6.6 for quota support on tmpfs
                      ≥ 6.9 for pidfs
+                     ≥ 6.13 for PIDFD_GET_INFO and {set,remove}xattrat()
 
         ✅ systemd utilizes several new kernel APIs, but will fall back gracefully
            when unavailable.
@@ -199,7 +206,7 @@ REQUIREMENTS:
         with audit being enabled. This works correctly only on kernels 3.14 and
         newer though. TL;DR: turn audit off, still.
 
-        glibc >= 2.16
+        glibc >= 2.31
         libcap
         libmount >= 2.30 (from util-linux)
                 (util-linux *must* be built without --enable-libmount-support-mtab)
@@ -207,21 +214,35 @@ REQUIREMENTS:
         libblkid >= 2.24 (from util-linux) (optional)
         libkmod >= 15 (optional)
         PAM >= 1.1.2 (optional)
-        libcryptsetup (optional), >= 2.3.0 required for signed Verity images support
+        libcryptsetup >= 2.0.1 (optional),
+                      >= 2.3.0 is required for signed Verity images support
         libaudit (optional)
         libacl (optional)
-        libbpf >= 0.1.0 (optional)
+        libbpf >= 0.1.0 (optional),
+               >= 1.4.0 is required for using GCC as a bpf compiler
         libfdisk >= 2.32 (from util-linux) (optional)
-        libselinux (optional)
+        libselinux >= 2.1.9 (optional)
+        libapparmor >= 2.13 (optional)
+        libxenctrl >= 4.9 (optional)
+        zlib (optional)
+        bzip2 (optional)
         liblzma (optional)
         liblz4 >= 1.3.0 / 130 (optional)
         libzstd >= 1.4.0 (optional)
+        libarchive >= 3.0 (optional)
+        libxkbcommon >= 0.3.0 (optional)
+        libpcre2 (optional)
         libgcrypt (optional)
-        libqrencode (optional)
-        libmicrohttpd (optional)
+        libqrencode >= 3 (optional)
+        libmicrohttpd >= 0.9.33 (optional)
+        libcurl >= 7.32.0 (optional)
         libidn2 or libidn (optional)
-        gnutls >= 3.1.4 (optional, >= 3.6.0 is required to support DNS-over-TLS with gnutls)
+        gnutls >= 3.1.4 (optional)
+               >= 3.6.0 is required to support DNS-over-TLS with gnutls
         openssl >= 1.1.0 (optional, required to support DNS-over-TLS with openssl)
+        p11-kit >= 0.23.3 (optional)
+        libfido2 (optional)
+        tpm2-tss (optional)
         elfutils >= 158 (optional)
         polkit (optional)
         tzdata >= 2014f (optional)
@@ -237,6 +258,7 @@ REQUIREMENTS:
         meson >= 0.60.0
         ninja
         gcc >= 8.4
+            >= 13.1.0 is required to build BPF program by using GCC
         awk, sed, grep, and similar tools
         clang >= 10.0, llvm >= 10.0 (optional, required to build BPF programs
                 from source code in C)
@@ -366,7 +388,8 @@ USERS AND GROUPS:
         need to be resolvable by getgrnam() at any time, even in the very early
         boot stages, where no other databases and network are available:
 
-        audio, cdrom, dialout, disk, input, kmem, kvm, lp, render, tape, tty, video
+          audio, cdrom, clock, dialout, disk, input, kmem, kvm, lp, render,
+          sgx, tape, tty, video
 
         During runtime, the journal daemon requires the "systemd-journal" system
         group to exist. New journal files will be readable by this group (but

@@ -263,15 +263,22 @@
       <varlistentry>
         <term><option>--bind-device</option></term>
 
-        <listitem><para>This option only has an effect in automount mode,
-        and controls whether the automount unit shall be bound to the backing device's lifetime. If set, the
-        automount unit will be stopped automatically when the backing device vanishes. By default, the automount unit
-        stays around, and subsequent accesses will block until backing device is replugged. This option has no effect
-        in case of non-device mounts, such as network or virtual file system mounts.</para>
+        <listitem><para>Controls whether the generated mount/automount unit shall be bound to the backing device's
+        lifetime. This setting is especially useful in automount mode. If set, the units will be stopped automatically
+        when the backing device vanishes. By default, the automount unit stays around, and subsequent accesses
+        will block until backing device is replugged. This option has no effect in case of non-device mounts,
+        such as network or virtual file system mounts.</para>
 
-        <para>Note that if <option>--discover</option> is used (or only a single argument passed, which implies
-        <option>--discover</option>, see above), and the file system block device is detected to be removable, this
-        option is implied.</para>
+        <para>If <option>--discover</option> is used (or only a single argument passed, which implies
+        <option>--discover</option>, see above), and the file system block device is detected to be removable,
+        this option is implied.</para>
+
+        <para>Note that mount units by default gain a <varname>Requires=</varname> dependency on
+        the backing device. This behavior can be controlled via <option>x-systemd.device-bound=</option>
+        mount option, see <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for details. In particular, <option>x-systemd.device-bound=no</option> takes precedence over this option,
+        which suppresses device dependencies both in the generated mount units and what's implied by service manager.
+        </para>
 
         <xi:include href="version-info.xml" xpointer="v232"/></listitem>
       </varlistentry>
@@ -337,6 +344,24 @@
           world-writable directory with the sticky bit set.</para>
 
         <xi:include href="version-info.xml" xpointer="v255"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--canonicalize=</option></term>
+
+        <listitem>
+          <para>Controls whether the specified path shall be canonicalized on the client side before
+          requesting the operation or not. Takes a boolean parameter, defaults to true. Note that for
+          non-local operation (i.e. when <option>--machine=</option> or --<option>--host=</option> are used)
+          canonicalization is implicitly turned off.</para>
+
+          <para>Canonicalization of path entails resolving of symlinks, <literal>..</literal> path elements
+          and <varname>LABEL=</varname>/<varname>UUID=</varname> style device node expansion. If
+          canonicalization is disabled and the path contains a symlink element, <literal>..</literal>, or a
+          <varname>LABEL=</varname>/<varname>UUID=</varname>/… expansion the operation will fail.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/>
         </listitem>
       </varlistentry>
 

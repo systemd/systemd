@@ -15,14 +15,18 @@ int flush_fd(int fd);
 ssize_t loop_read(int fd, void *buf, size_t nbytes, bool do_poll);
 int loop_read_exact(int fd, void *buf, size_t nbytes, bool do_poll);
 
-int loop_write_full(int fd, const void *buf, size_t nbytes, usec_t timeout);
+int loop_write_full(int fd, const void *buf, size_t nbytes, usec_t timeout) _nonnull_if_nonzero_(2, 3);
 static inline int loop_write(int fd, const void *buf, size_t nbytes) {
         return loop_write_full(fd, buf, nbytes, 0);
 }
 
 int pipe_eof(int fd);
 
-int ppoll_usec(struct pollfd *fds, size_t nfds, usec_t timeout);
+int ppoll_usec_full(struct pollfd *fds, size_t nfds, usec_t timeout, const sigset_t *ss) _nonnull_if_nonzero_(1, 2);
+_nonnull_if_nonzero_(1, 2) static inline int ppoll_usec(struct pollfd *fds, size_t nfds, usec_t timeout) {
+        return ppoll_usec_full(fds, nfds, timeout, NULL);
+}
+
 int fd_wait_for_event(int fd, int event, usec_t timeout);
 
 ssize_t sparse_write(int fd, const void *p, size_t sz, size_t run_length);
@@ -42,5 +46,4 @@ static inline bool FILE_SIZE_VALID_OR_INFINITY(uint64_t l) {
                 return true;
 
         return FILE_SIZE_VALID(l);
-
 }

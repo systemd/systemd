@@ -2,9 +2,6 @@
 
 #include <sched.h>
 #include <sys/mount.h>
-#if WANT_LINUX_FS_H
-#include <linux/fs.h>
-#endif
 
 #include "alloc-util.h"
 #include "fd-util.h"
@@ -13,7 +10,6 @@
 #include "home-util.h"
 #include "homework-mount.h"
 #include "homework.h"
-#include "missing_mount.h"
 #include "missing_syscall.h"
 #include "mkdir.h"
 #include "mount-util.h"
@@ -217,6 +213,11 @@ static int make_home_userns(uid_t stored_uid, uid_t exposed_uid) {
          * home directories if they really want. We won't manage this UID range for them but pass it through
          * 1:1, and it will lose its meaning once migrated between hosts. */
         r = append_identity_range(&text, CONTAINER_UID_MIN, CONTAINER_UID_MAX+1, stored_uid);
+        if (r < 0)
+                return log_oom();
+
+        /* Map the foreign range 1:1. After all  what is foreign should remain foreign. */
+        r = append_identity_range(&text, FOREIGN_UID_MIN, FOREIGN_UID_MAX+1, stored_uid);
         if (r < 0)
                 return log_oom();
 

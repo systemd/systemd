@@ -7,7 +7,6 @@
 #include <sys/types.h>
 
 #include "macro.h"
-#include "missing_capability.h"
 #include "pidref.h"
 
 /* Special marker used when storing a capabilities mask as "unset". This would need to be updated as soon as
@@ -28,7 +27,7 @@ static inline bool capability_is_set(uint64_t v) {
 
 unsigned cap_last_cap(void);
 int have_effective_cap(int value);
-int capability_gain_cap_setpcap(cap_t *return_caps);
+int capability_gain_cap_setpcap(cap_t *ret_before_caps);
 int capability_bounding_set_drop(uint64_t keep, bool right_now);
 int capability_bounding_set_drop_usermode(uint64_t keep);
 
@@ -42,12 +41,6 @@ int keep_capability(cap_value_t cv);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(cap_t, cap_free, NULL);
 #define _cleanup_cap_free_ _cleanup_(cap_freep)
-
-static inline void cap_free_charpp(char **p) {
-        if (*p)
-                cap_free(*p);
-}
-#define _cleanup_cap_free_charp_ _cleanup_(cap_free_charpp)
 
 static inline uint64_t all_capabilities(void) {
         return UINT64_MAX >> (63 - cap_last_cap());

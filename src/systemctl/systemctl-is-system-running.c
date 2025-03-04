@@ -66,6 +66,10 @@ int verb_is_system_running(int argc, char *argv[], void *userdata) {
         }
 
         if (arg_wait && STR_IN_SET(state, "initializing", "starting")) {
+                /* The signal handler will allocate memory and assign to 'state', hence need to free previous
+                 * one before entering the event loop. */
+                state = mfree(state);
+
                 r = sd_event_loop(event);
                 if (r < 0) {
                         log_warning_errno(r, "Failed to get property from event loop: %m");
@@ -73,6 +77,8 @@ int verb_is_system_running(int argc, char *argv[], void *userdata) {
                                 puts("unknown");
                         return EXIT_FAILURE;
                 }
+
+                assert(state);
         }
 
         if (!arg_quiet)

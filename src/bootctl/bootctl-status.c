@@ -390,12 +390,17 @@ int verb_status(int argc, char *argv[], void *userdata) {
                         { EFI_LOADER_FEATURE_RETAIN_SHIM,             "Retain SHIM protocols"                 },
                         { EFI_LOADER_FEATURE_MENU_DISABLE,            "Menu can be disabled"                  },
                         { EFI_LOADER_FEATURE_MULTI_PROFILE_UKI,       "Multi-Profile UKIs are supported"      },
+                        { EFI_LOADER_FEATURE_REPORT_URL,              "Loader reports network boot URL"       },
+                        { EFI_LOADER_FEATURE_TYPE1_UKI,               "Support Type #1 uki field"             },
+                        { EFI_LOADER_FEATURE_TYPE1_UKI_URL,           "Support Type #1 uki-url field"         },
                 };
                 static const struct {
                         uint64_t flag;
                         const char *name;
                 } stub_flags[] = {
-                        { EFI_STUB_FEATURE_REPORT_BOOT_PARTITION,     "Stub sets loader partition information"                      },
+                        { EFI_STUB_FEATURE_REPORT_BOOT_PARTITION,     "Stub reports loader partition information"                   },
+                        { EFI_STUB_FEATURE_REPORT_STUB_PARTITION,     "Stub reports stub partition information"                     },
+                        { EFI_STUB_FEATURE_REPORT_URL,                "Stub reports network boot URL"                               },
                         { EFI_STUB_FEATURE_PICK_UP_CREDENTIALS,       "Picks up credentials from boot partition"                    },
                         { EFI_STUB_FEATURE_PICK_UP_SYSEXTS,           "Picks up system extension images from boot partition"        },
                         { EFI_STUB_FEATURE_PICK_UP_CONFEXTS,          "Picks up configuration extension images from boot partition" },
@@ -405,7 +410,6 @@ int verb_status(int argc, char *argv[], void *userdata) {
                         { EFI_STUB_FEATURE_CMDLINE_SMBIOS,            "Pick up .cmdline from SMBIOS Type 11"                        },
                         { EFI_STUB_FEATURE_DEVICETREE_ADDONS,         "Pick up .dtb from addons"                                    },
                         { EFI_STUB_FEATURE_MULTI_PROFILE_UKI,         "Stub understands profile selector"                           },
-                        { EFI_STUB_FEATURE_REPORT_STUB_PARTITION,     "Stub sets stub partition information"                        },
                 };
                 _cleanup_free_ char *fw_type = NULL, *fw_info = NULL, *loader = NULL, *loader_path = NULL, *stub = NULL, *stub_path = NULL,
                         *current_entry = NULL, *oneshot_entry = NULL, *default_entry = NULL;
@@ -476,10 +480,29 @@ int verb_status(int argc, char *argv[], void *userdata) {
                         for (size_t i = 0; i < ELEMENTSOF(loader_flags); i++)
                                 print_yes_no_line(i == 0, FLAGS_SET(loader_features, loader_flags[i].flag), loader_flags[i].name);
 
-                        sd_id128_t loader_partition_uuid;
-                        bool have_loader_partition_uuid = efi_loader_get_device_part_uuid(&loader_partition_uuid) >= 0;
+                        sd_id128_t loader_partition_uuid = SD_ID128_NULL;
+                        (void) efi_loader_get_device_part_uuid(&loader_partition_uuid);
+                        print_yes_no_line(/* first= */ false, !sd_id128_is_null(loader_partition_uuid), "Boot loader set partition information");
 
-                        print_yes_no_line(false, have_loader_partition_uuid, "Boot loader set ESP information");
+                        _cleanup_free_ char *loader_url = NULL;
+                        (void) efi_get_variable_string_and_warn(EFI_LOADER_VARIABLE_STR("LoaderDeviceURL"), &loader_url);
+                        print_yes_no_line(/* first= */ false, !!loader_url, "Boot loader set network boot URL information");
+
+                        if (!sd_id128_is_null(loader_partition_uuid)) {
+                                if (!sd_id128_is_null(esp_uuid) && !sd_id128_equal(esp_uuid, loader_partition_uuid))
+                                        printf("WARNING: The boot loader reports a different partition UUID than the detected ESP ("SD_ID128_UUID_FORMAT_STR" vs. "SD_ID128_UUID_FORMAT_STR")!\n",
+                                               SD_ID128_FORMAT_VAL(loader_partition_uuid), SD_ID128_FORMAT_VAL(esp_uuid));
+
+                                printf("    Partition: /dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR "\n",
+                                       SD_ID128_FORMAT_VAL(loader_partition_uuid));
+                        } else if (loader_path)
+                                printf("    Partition: n/a\n");
+
+                        if (loader_path)
+                                printf("       Loader: %s%s\n", special_glyph(SPECIAL_GLYPH_TREE_RIGHT), strna(loader_path));
+
+                        if (loader_url)
+                                printf(" Net Boot URL: %s\n", loader_url);
 
                         if (current_entry)
                                 printf("Current Entry: %s\n", current_entry);
@@ -488,16 +511,6 @@ int verb_status(int argc, char *argv[], void *userdata) {
                         if (oneshot_entry && !streq_ptr(oneshot_entry, default_entry))
                                 printf("OneShot Entry: %s\n", oneshot_entry);
 
-                        if (have_loader_partition_uuid && !sd_id128_is_null(esp_uuid) && !sd_id128_equal(esp_uuid, loader_partition_uuid))
-                                printf("WARNING: The boot loader reports a different partition UUID than the detected ESP ("SD_ID128_UUID_FORMAT_STR" vs. "SD_ID128_UUID_FORMAT_STR")!\n",
-                                       SD_ID128_FORMAT_VAL(loader_partition_uuid), SD_ID128_FORMAT_VAL(esp_uuid));
-
-                        if (!sd_id128_is_null(loader_partition_uuid))
-                                printf("    Partition: /dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR "\n",
-                                       SD_ID128_FORMAT_VAL(loader_partition_uuid));
-                        else
-                                printf("    Partition: n/a\n");
-                        printf("       Loader: %s%s\n", special_glyph(SPECIAL_GLYPH_TREE_RIGHT), strna(loader_path));
                         printf("\n");
                 }
 
@@ -507,19 +520,31 @@ int verb_status(int argc, char *argv[], void *userdata) {
                         for (size_t i = 0; i < ELEMENTSOF(stub_flags); i++)
                                 print_yes_no_line(i == 0, FLAGS_SET(stub_features, stub_flags[i].flag), stub_flags[i].name);
 
-                        sd_id128_t stub_partition_uuid;
-                        bool have_stub_partition_uuid = efi_stub_get_device_part_uuid(&stub_partition_uuid) >= 0;
+                        sd_id128_t stub_partition_uuid = SD_ID128_NULL;
+                        (void) efi_stub_get_device_part_uuid(&stub_partition_uuid);
+                        print_yes_no_line(/* first= */ false, !sd_id128_is_null(stub_partition_uuid), "Stub loader set partition information");
 
-                        if (have_stub_partition_uuid && (!(!sd_id128_is_null(esp_uuid) && sd_id128_equal(esp_uuid, stub_partition_uuid)) &&
-                                                         !(!sd_id128_is_null(xbootldr_uuid) && sd_id128_equal(xbootldr_uuid, stub_partition_uuid))))
-                                printf("WARNING: The stub loader reports a different UUID than the detected ESP or XBOOTDLR partition ("SD_ID128_UUID_FORMAT_STR" vs. "SD_ID128_UUID_FORMAT_STR"/"SD_ID128_UUID_FORMAT_STR")!\n",
-                                       SD_ID128_FORMAT_VAL(stub_partition_uuid), SD_ID128_FORMAT_VAL(esp_uuid), SD_ID128_FORMAT_VAL(xbootldr_uuid));
-                        if (!sd_id128_is_null(stub_partition_uuid))
+                        _cleanup_free_ char *stub_url = NULL;
+                        (void) efi_get_variable_string_and_warn(EFI_LOADER_VARIABLE_STR("StubDeviceURL"), &stub_url);
+                        print_yes_no_line(/* first= */ false, !!stub_url, "Stub set network boot URL information");
+
+                        if (!sd_id128_is_null(stub_partition_uuid)) {
+                                if (!(!sd_id128_is_null(esp_uuid) && sd_id128_equal(esp_uuid, stub_partition_uuid)) &&
+                                    !(!sd_id128_is_null(xbootldr_uuid) && sd_id128_equal(xbootldr_uuid, stub_partition_uuid)))
+                                        printf("WARNING: The stub loader reports a different UUID than the detected ESP or XBOOTDLR partition ("SD_ID128_UUID_FORMAT_STR" vs. "SD_ID128_UUID_FORMAT_STR"/"SD_ID128_UUID_FORMAT_STR")!\n",
+                                               SD_ID128_FORMAT_VAL(stub_partition_uuid), SD_ID128_FORMAT_VAL(esp_uuid), SD_ID128_FORMAT_VAL(xbootldr_uuid));
+
                                 printf("    Partition: /dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR "\n",
                                        SD_ID128_FORMAT_VAL(stub_partition_uuid));
-                        else
+                        } else if (stub_path)
                                 printf("    Partition: n/a\n");
-                        printf("         Stub: %s%s\n", special_glyph(SPECIAL_GLYPH_TREE_RIGHT), strna(stub_path));
+
+                        if (stub_path)
+                                printf("         Stub: %s%s\n", special_glyph(SPECIAL_GLYPH_TREE_RIGHT), strna(stub_path));
+
+                        if (stub_url)
+                                printf(" Net Boot URL: %s\n", stub_url);
+
                         printf("\n");
                 }
 
@@ -534,8 +559,11 @@ int verb_status(int argc, char *argv[], void *userdata) {
                         if (!p)
                                 return log_oom();
 
-                        have = access(p, F_OK) >= 0;
-                        printf("       Exists: %s\n", yes_no(have));
+                        r = access(p, F_OK);
+                        if (r < 0 && errno != ENOENT)
+                                printf("       Exists: Can't access %s (%m)\n", p);
+                        else
+                                printf("       Exists: %s\n", yes_no(r >= 0));
                 }
 
                 printf("\n");
@@ -568,24 +596,24 @@ int verb_status(int argc, char *argv[], void *userdata) {
         return r;
 }
 
-static int ref_file(Hashmap *known_files, const char *fn, int increment) {
+static int ref_file(Hashmap **known_files, const char *fn, int increment) {
         char *k = NULL;
         int n, r;
 
         assert(known_files);
 
-        /* just gracefully ignore this. This way the caller doesn't
-           have to verify whether the bootloader entry is relevant */
+        /* just gracefully ignore this. This way the caller doesn't have to verify whether the bootloader
+         * entry is relevant. */
         if (!fn)
                 return 0;
 
-        n = PTR_TO_INT(hashmap_get2(known_files, fn, (void**)&k));
+        n = PTR_TO_INT(hashmap_get2(*known_files, fn, (void**)&k));
         n += increment;
 
         assert(n >= 0);
 
         if (n == 0) {
-                (void) hashmap_remove(known_files, fn);
+                (void) hashmap_remove(*known_files, fn);
                 free(k);
         } else if (!k) {
                 _cleanup_free_ char *t = NULL;
@@ -593,12 +621,12 @@ static int ref_file(Hashmap *known_files, const char *fn, int increment) {
                 t = strdup(fn);
                 if (!t)
                         return -ENOMEM;
-                r = hashmap_put(known_files, t, INT_TO_PTR(n));
+                r = hashmap_ensure_put(known_files, &path_hash_ops_free, t, INT_TO_PTR(n));
                 if (r < 0)
                         return r;
                 TAKE_PTR(t);
         } else {
-                r = hashmap_update(known_files, fn, INT_TO_PTR(n));
+                r = hashmap_update(*known_files, fn, INT_TO_PTR(n));
                 if (r < 0)
                         return r;
         }
@@ -606,7 +634,7 @@ static int ref_file(Hashmap *known_files, const char *fn, int increment) {
         return n;
 }
 
-static void deref_unlink_file(Hashmap *known_files, const char *fn, const char *root) {
+static void deref_unlink_file(Hashmap **known_files, const char *fn, const char *root) {
         _cleanup_free_ char *path = NULL;
         int r;
 
@@ -647,15 +675,11 @@ static void deref_unlink_file(Hashmap *known_files, const char *fn, const char *
 }
 
 static int count_known_files(const BootConfig *config, const char* root, Hashmap **ret_known_files) {
-        _cleanup_(hashmap_free_free_keyp) Hashmap *known_files = NULL;
+        _cleanup_hashmap_free_ Hashmap *known_files = NULL;
         int r;
 
         assert(config);
         assert(ret_known_files);
-
-        known_files = hashmap_new(&path_hash_ops);
-        if (!known_files)
-                return -ENOMEM;
 
         for (size_t i = 0; i < config->n_entries; i++) {
                 const BootEntry *e = config->entries + i;
@@ -663,22 +687,22 @@ static int count_known_files(const BootConfig *config, const char* root, Hashmap
                 if (!path_equal(e->root, root))
                         continue;
 
-                r = ref_file(known_files, e->kernel, +1);
+                r = ref_file(&known_files, e->kernel, +1);
                 if (r < 0)
                         return r;
-                r = ref_file(known_files, e->efi, +1);
+                r = ref_file(&known_files, e->efi, +1);
                 if (r < 0)
                         return r;
                 STRV_FOREACH(s, e->initrd) {
-                        r = ref_file(known_files, *s, +1);
+                        r = ref_file(&known_files, *s, +1);
                         if (r < 0)
                                 return r;
                 }
-                r = ref_file(known_files, e->device_tree, +1);
+                r = ref_file(&known_files, e->device_tree, +1);
                 if (r < 0)
                         return r;
                 STRV_FOREACH(s, e->device_tree_overlay) {
-                        r = ref_file(known_files, *s, +1);
+                        r = ref_file(&known_files, *s, +1);
                         if (r < 0)
                                 return r;
                 }
@@ -704,7 +728,7 @@ static int boot_config_find_in(const BootConfig *config, const char *root, const
 }
 
 static int unlink_entry(const BootConfig *config, const char *root, const char *id) {
-        _cleanup_(hashmap_free_free_keyp) Hashmap *known_files = NULL;
+        _cleanup_hashmap_free_ Hashmap *known_files = NULL;
         const BootEntry *e = NULL;
         int r;
 
@@ -725,13 +749,13 @@ static int unlink_entry(const BootConfig *config, const char *root, const char *
 
         e = &config->entries[r];
 
-        deref_unlink_file(known_files, e->kernel, e->root);
-        deref_unlink_file(known_files, e->efi, e->root);
+        deref_unlink_file(&known_files, e->kernel, e->root);
+        deref_unlink_file(&known_files, e->efi, e->root);
         STRV_FOREACH(s, e->initrd)
-                deref_unlink_file(known_files, *s, e->root);
-        deref_unlink_file(known_files, e->device_tree, e->root);
+                deref_unlink_file(&known_files, *s, e->root);
+        deref_unlink_file(&known_files, e->device_tree, e->root);
         STRV_FOREACH(s, e->device_tree_overlay)
-                deref_unlink_file(known_files, *s, e->root);
+                deref_unlink_file(&known_files, *s, e->root);
 
         if (arg_dry_run)
                 log_info("Would remove \"%s\"", e->path);
@@ -758,7 +782,6 @@ static int list_remove_orphaned_file(
         Hashmap *known_files = userdata;
 
         assert(path);
-        assert(known_files);
 
         if (event != RECURSE_DIR_ENTRY)
                 return RECURSE_DIR_CONTINUE;
@@ -780,7 +803,7 @@ static int cleanup_orphaned_files(
                 const BootConfig *config,
                 const char *root) {
 
-        _cleanup_(hashmap_free_free_keyp) Hashmap *known_files = NULL;
+        _cleanup_hashmap_free_ Hashmap *known_files = NULL;
         _cleanup_free_ char *full = NULL, *p = NULL;
         _cleanup_close_ int dir_fd = -EBADF;
         int r;
@@ -876,8 +899,9 @@ int vl_method_list_boot_entries(sd_varlink *link, sd_json_variant *parameters, s
 
         assert(link);
 
-        if (sd_json_variant_elements(parameters) > 0)
-                return sd_varlink_error_invalid_parameter(link, parameters);
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table = */ NULL, /* userdata = */ NULL);
+        if (r != 0)
+                return r;
 
         if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
                 return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);

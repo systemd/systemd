@@ -18,6 +18,7 @@
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-map-properties.h"
+#include "bus-message-util.h"
 #include "format-table.h"
 #include "hostname-setup.h"
 #include "hostname-util.h"
@@ -43,6 +44,7 @@ typedef struct StatusInfo {
         const char *pretty_hostname;
         const char *icon_name;
         const char *chassis;
+        const char *chassis_asset_tag;
         const char *deployment;
         const char *location;
         const char *kernel_name;
@@ -159,6 +161,14 @@ static int print_status_info(StatusInfo *i) {
                 r = table_add_many(table,
                                    TABLE_FIELD, "Chassis",
                                    TABLE_STRING, v ?: i->chassis);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        if (!isempty(i->chassis_asset_tag)) {
+                r = table_add_many(table,
+                                   TABLE_FIELD, "Chassis Asset Tag",
+                                   TABLE_STRING, i->chassis_asset_tag);
                 if (r < 0)
                         return table_log_add_error(r);
         }
@@ -372,6 +382,7 @@ static int show_all_names(sd_bus *bus) {
                 { "PrettyHostname",            "s",  NULL,          offsetof(StatusInfo, pretty_hostname)  },
                 { "IconName",                  "s",  NULL,          offsetof(StatusInfo, icon_name)        },
                 { "Chassis",                   "s",  NULL,          offsetof(StatusInfo, chassis)          },
+                { "ChassisAssetTag",           "s",  NULL,          offsetof(StatusInfo, chassis_asset_tag)},
                 { "Deployment",                "s",  NULL,          offsetof(StatusInfo, deployment)       },
                 { "Location",                  "s",  NULL,          offsetof(StatusInfo, location)         },
                 { "KernelName",                "s",  NULL,          offsetof(StatusInfo, kernel_name)      },

@@ -25,6 +25,19 @@ void manager_llmnr_stop(Manager *m) {
         m->llmnr_ipv6_tcp_fd = safe_close(m->llmnr_ipv6_tcp_fd);
 }
 
+void manager_llmnr_maybe_stop(Manager *m) {
+        assert(m);
+
+        /* This stops LLMNR only when no interface enables LLMNR. */
+
+        Link *l;
+        HASHMAP_FOREACH(l, m->links)
+                if (link_get_llmnr_support(l) != RESOLVE_SUPPORT_NO)
+                        return;
+
+        manager_llmnr_stop(m);
+}
+
 int manager_llmnr_start(Manager *m) {
         int r;
 

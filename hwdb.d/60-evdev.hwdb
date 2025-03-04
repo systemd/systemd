@@ -772,6 +772,13 @@ evdev:name:ETPS/2 Elantech Touchpad:dmi:*svnLENOVO:*pvrLenovoG580**
  EVDEV_ABS_35=-170:2950:24
  EVDEV_ABS_36=-591:700:25
 
+# Lenovo Yoga Slim 7 14ARE05
+evdev:name:ELAN0634:00 04F3:3124 Touchpad:dmi:*svnLENOVO:*pvrYogaSlim714ARE05**
+ EVDEV_ABS_00=::31
+ EVDEV_ABS_01=::30
+ EVDEV_ABS_35=::31
+ EVDEV_ABS_36=::30
+
 #########################################
 # Microsoft
 #########################################

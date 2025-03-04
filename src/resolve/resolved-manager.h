@@ -137,6 +137,9 @@ struct Manager {
         struct stat etc_hosts_stat;
         bool read_etc_hosts;
 
+        /* List of refused DNS Record Types*/
+        Set *refuse_record_types;
+
         OrderedSet *dns_extra_stub_listeners;
 
         /* Local DNS stub on 127.0.0.53:53 */
@@ -152,7 +155,13 @@ struct Manager {
         sd_varlink_server *varlink_server;
         sd_varlink_server *varlink_monitor_server;
 
-        Set *varlink_subscription;
+        Set *varlink_query_results_subscription;
+        Set *varlink_dns_configuration_subscription;
+
+        sd_json_variant *dns_configuration_json;
+
+        sd_netlink_slot *netlink_new_route_slot;
+        sd_netlink_slot *netlink_del_route_slot;
 
         sd_event_source *clock_change_event_source;
 
@@ -225,3 +234,9 @@ int socket_disable_pmtud(int fd, int af);
 int dns_manager_dump_statistics_json(Manager *m, sd_json_variant **ret);
 
 void dns_manager_reset_statistics(Manager *m);
+
+int manager_dump_dns_configuration_json(Manager *m, sd_json_variant **ret);
+int manager_send_dns_configuration_changed(Manager *m, Link *l, bool reset);
+
+int manager_start_dns_configuration_monitor(Manager *m);
+void manager_stop_dns_configuration_monitor(Manager *m);

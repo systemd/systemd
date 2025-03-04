@@ -226,6 +226,14 @@ This field is optional, when unset the user should not be considered part of any
 A user record with a realm set is never compatible (for the purpose of updates,
 see above) with a user record without one set, even if the `userName` field matches.
 
+`aliases` → An array of strings, each being a valid UNIX user name. If
+specified, a list of additional UNIX user names this record shall be known
+under. These are *alias* names only, the name in `userName` is always the
+primary name. Typically, a user record that carries this field shall be
+retrievable and resolvable under every name listed here, pretty much everywhere
+the primary user name is. If logging in is attempted via an alias name it
+should be normalized to the primary name.
+
 `blobDirectory` → The absolute path to a world-readable copy of the user's blob
 directory. See [Blob Directories](/USER_RECORD_BLOB_DIRS) for more details.
 
@@ -259,14 +267,17 @@ It's probably wise to use a location string processable by geo-location subsyste
 Example: `Berlin, Germany` or `Basement, Room 3a`.
 
 `disposition` → A string, one of `intrinsic`, `system`, `dynamic`, `regular`,
-`container`, `reserved`. If specified clarifies the disposition of the user,
+`container`, `foreign`, `reserved`. If specified clarifies the disposition of the user,
 i.e. the context it is defined in.
 For regular, "human" users this should be `regular`, for system users (i.e. users that system services run under, and similar) this should be `system`.
 The `intrinsic` disposition should be used only for the two users that have special meaning to the OS kernel itself,
 i.e. the `root` and `nobody` users.
 The `container` string should be used for users that are used by an OS container, and hence will show up in `ps` listings
 and such, but are only defined in container context.
-Finally `reserved` should be used for any users outside of these use-cases.
+The `foreign` string should be used for users from UID ranges which are used
+for OS images from foreign systems, i.e. where local resolution would not make
+sense.
+Finally, `reserved` should be used for any users outside of these use-cases.
 Note that this property is entirely optional and applications are assumed to be able to derive the
 disposition of a user automatically from a record even in absence of this
 field, based on other fields, for example the numeric UID. By setting this
@@ -608,6 +619,29 @@ is allowed to edit.
 `selfModifiablePrivileged` →  Similar to `selfModifiableFields`, but it lists fields in
 the `privileged` section that the user is allowed to edit.
 
+`tmpLimit` → A numeric value encoding a disk quota limit in bytes enforced on
+`/tmp/` on login, in case it is backed by volatile file system (such as
+`tmpfs`).
+
+`tmpLimitScale` → Similar, but encodes a relative value, normalized to
+`UINT32_MAX` as 100%. This value is applied relative to the file system
+size. If both `tmpLimit` and `tmpLimitScale` are set, the lower of the two
+should be enforced. If neither field is set the implementation might apply a
+default limit.
+
+`devShmLimit`, `devShmLimitScale` → Similar to the previous two, but apply to
+`/dev/shm/` rather than `/tmp/`.
+
+`defaultArea` → The default home directory "area" to enter after logging
+in. Areas are named subdirectories below `~/Areas/` of the user, and can be used
+to maintain separate secondary home directories within the primary home
+directory of the user. Typically, a home directory "area" can be specified at
+login time, but if that's not done, and `defaultArea` is set, this area is
+selected. The value must be a string that qualifies as a valid filename. After
+login, the `$HOME` environment variable will point to `~/Areas/` of the user,
+suffixed by the selected area name, and `$XDG_AREA` will be set to the area
+string (unprefixed).
+
 `privileged` → An object, which contains the fields of the `privileged` section
 of the user record, see below.
 
@@ -750,22 +784,26 @@ These two are the only two fields specific to this section.
 All other fields that may be used in this section are identical to the equally named ones in the
 `regular` section (i.e. at the top-level object). Specifically, these are:
 
-`blobDirectory`, `blobManifest`, `iconName`, `location`, `shell`, `umask`, `environment`, `timeZone`,
-`preferredLanguage`, `additionalLanguages`, `niceLevel`, `resourceLimits`, `locked`, `notBeforeUSec`,
-`notAfterUSec`, `storage`, `diskSize`, `diskSizeRelative`, `skeletonDirectory`,
-`accessMode`, `tasksMax`, `memoryHigh`, `memoryMax`, `cpuWeight`, `ioWeight`,
+`blobDirectory`, `blobManifest`, `iconName`, `location`, `shell`, `umask`,
+`environment`, `timeZone`, `preferredLanguage`, `additionalLanguages`,
+`niceLevel`, `resourceLimits`, `locked`, `notBeforeUSec`, `notAfterUSec`,
+`storage`, `diskSize`, `diskSizeRelative`, `skeletonDirectory`, `accessMode`,
+`tasksMax`, `memoryHigh`, `memoryMax`, `cpuWeight`, `ioWeight`,
 `mountNoDevices`, `mountNoSuid`, `mountNoExecute`, `cifsDomain`,
 `cifsUserName`, `cifsService`, `cifsExtraMountOptions`, `imagePath`, `uid`,
 `gid`, `memberOf`, `fileSystemType`, `partitionUuid`, `luksUuid`,
 `fileSystemUuid`, `luksDiscard`, `luksOfflineDiscard`, `luksCipher`,
 `luksCipherMode`, `luksVolumeKeySize`, `luksPbkdfHashAlgorithm`,
-`luksPbkdfType`, `luksPbkdfForceIterations`, `luksPbkdfTimeCostUSec`, `luksPbkdfMemoryCost`,
-`luksPbkdfParallelThreads`, `luksSectorSize`, `autoResizeMode`, `rebalanceWeight`,
-`rateLimitIntervalUSec`, `rateLimitBurst`, `enforcePasswordPolicy`,
-`autoLogin`, `preferredSessionType`, `preferredSessionLauncher`, `stopDelayUSec`, `killProcesses`,
+`luksPbkdfType`, `luksPbkdfForceIterations`, `luksPbkdfTimeCostUSec`,
+`luksPbkdfMemoryCost`, `luksPbkdfParallelThreads`, `luksSectorSize`,
+`autoResizeMode`, `rebalanceWeight`, `rateLimitIntervalUSec`, `rateLimitBurst`,
+`enforcePasswordPolicy`, `autoLogin`, `preferredSessionType`,
+`preferredSessionLauncher`, `stopDelayUSec`, `killProcesses`,
 `passwordChangeMinUSec`, `passwordChangeMaxUSec`, `passwordChangeWarnUSec`,
 `passwordChangeInactiveUSec`, `passwordChangeNow`, `pkcs11TokenUri`,
-`fido2HmacCredential`, `selfModifiableFields`, `selfModifiableBlobs`, `selfModifiablePrivileged`.
+`fido2HmacCredential`, `selfModifiableFields`, `selfModifiableBlobs`,
+`selfModifiablePrivileged`, `tmpLimit`, `tmpLimitScale`, `devShmLimit`,
+`devShmLimitScale`.
 
 ## Fields in the `binding` section
 

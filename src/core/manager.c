@@ -68,6 +68,7 @@
 #include "memory-util.h"
 #include "mkdir-label.h"
 #include "mount-util.h"
+#include "notify-recv.h"
 #include "os-util.h"
 #include "parse-util.h"
 #include "path-lookup.h"
@@ -1817,15 +1818,16 @@ Manager* manager_free(Manager *m) {
         hashmap_free(m->uid_refs);
         hashmap_free(m->gid_refs);
 
-        for (ExecDirectoryType dt = 0; dt < _EXEC_DIRECTORY_TYPE_MAX; dt++)
-                m->prefix[dt] = mfree(m->prefix[dt]);
+        FOREACH_ARRAY(i, m->prefix, _EXEC_DIRECTORY_TYPE_MAX)
+                free(*i);
+
         free(m->received_credentials_directory);
         free(m->received_encrypted_credentials_directory);
 
         free(m->watchdog_pretimeout_governor);
         free(m->watchdog_pretimeout_governor_overridden);
 
-        m->fw_ctx = fw_ctx_free(m->fw_ctx);
+        fw_ctx_free(m->fw_ctx);
 
 #if BPF_FRAMEWORK
         bpf_restrict_fs_destroy(m->restrict_fs);
@@ -2001,7 +2003,7 @@ static void manager_preset_all(Manager *m) {
         UnitFilePresetMode mode =
                 ENABLE_FIRST_BOOT_FULL_PRESET ? UNIT_FILE_PRESET_FULL : UNIT_FILE_PRESET_ENABLE_ONLY;
 
-        r = unit_file_preset_all(RUNTIME_SCOPE_SYSTEM, 0, NULL, mode, NULL, 0);
+        r = unit_file_preset_all(RUNTIME_SCOPE_SYSTEM, 0, NULL, mode, NULL, NULL);
         if (r < 0)
                 log_full_errno(r == -EEXIST ? LOG_NOTICE : LOG_WARNING, r,
                                "Failed to populate /etc with preset unit settings, ignoring: %m");
@@ -2141,12 +2143,6 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds, const char *roo
 
                 /* Connect to the bus if we are good for it */
                 manager_setup_bus(m);
-
-                /* Now that we are connected to all possible buses, let's deserialize who is tracking us. */
-                r = bus_track_coldplug(m->api_bus, &m->subscribed, false, m->subscribed_as_strv);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to deserialized tracked clients, ignoring: %m");
-                m->subscribed_as_strv = strv_free(m->subscribed_as_strv);
 
                 r = manager_varlink_init(m);
                 if (r < 0)
@@ -2800,20 +2796,9 @@ static int manager_get_units_for_pidref(Manager *m, const PidRef *pidref, Unit *
 
 static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
-        char buf[NOTIFY_BUFFER_MAX+1];
-        struct iovec iovec = {
-                .iov_base = buf,
-                .iov_len = sizeof(buf)-1,
-        };
-        CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct ucred)) + CMSG_SPACE(sizeof(int)) /* SCM_PIDFD */ +
-                         CMSG_SPACE(sizeof(int) * NOTIFY_FD_MAX)) control;
-        struct msghdr msghdr = {
-                .msg_iov = &iovec,
-                .msg_iovlen = 1,
-                .msg_control = &control,
-                .msg_controllen = sizeof(control),
-        };
-        ssize_t n;
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        struct ucred ucred;
+        _cleanup_(fdset_free_asyncp) FDSet *fds = NULL;
         int r;
 
         assert(m->notify_fd == fd);
@@ -2823,108 +2808,20 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
                 return 0;
         }
 
-        n = recvmsg_safe(m->notify_fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
-        if (ERRNO_IS_NEG_TRANSIENT(n))
-                return 0; /* Spurious wakeup, try again */
-        if (n == -ECHRNG) {
-                log_warning_errno(n, "Got message with truncated control data (too many fds sent?), ignoring.");
+        _cleanup_strv_free_ char **tags = NULL;
+        r = notify_recv_with_fds_strv(m->notify_fd, &tags, &ucred, &pidref, &fds);
+        if (r == -EAGAIN)
                 return 0;
-        }
-        if (n == -EXFULL) {
-                log_warning_errno(n, "Got message with truncated payload data, ignoring.");
-                return 0;
-        }
-        if (n < 0)
+        if (r < 0)
                 /* If this is any other, real error, then stop processing this socket. This of course means
                  * we won't take notification messages anymore, but that's still better than busy looping:
                  * being woken up over and over again, but being unable to actually read the message from the
                  * socket. */
-                return log_error_errno(n, "Failed to receive notification message: %m");
-
-        _cleanup_close_ int pidfd = -EBADF;
-        struct ucred *ucred = NULL;
-        int *fd_array = NULL;
-        size_t n_fds = 0;
-
-        struct cmsghdr *cmsg;
-        CMSG_FOREACH(cmsg, &msghdr) {
-                if (cmsg->cmsg_level != SOL_SOCKET)
-                        continue;
-
-                if (cmsg->cmsg_type == SCM_RIGHTS) {
-                        assert(!fd_array);
-                        fd_array = CMSG_TYPED_DATA(cmsg, int);
-                        n_fds = (cmsg->cmsg_len - CMSG_LEN(0)) / sizeof(int);
-                } else if (cmsg->cmsg_type == SCM_CREDENTIALS &&
-                           cmsg->cmsg_len == CMSG_LEN(sizeof(struct ucred))) {
-
-                        assert(!ucred);
-                        ucred = CMSG_TYPED_DATA(cmsg, struct ucred);
-                } else if (cmsg->cmsg_type == SCM_PIDFD) {
-                        assert(pidfd < 0);
-                        pidfd = *CMSG_TYPED_DATA(cmsg, int);
-                }
-        }
-
-        _cleanup_(fdset_free_asyncp) FDSet *fds = NULL;
-
-        if (n_fds > 0) {
-                assert(fd_array);
-
-                r = fdset_new_array(&fds, fd_array, n_fds);
-                if (r < 0) {
-                        close_many(fd_array, n_fds);
-                        log_oom_warning();
-                        return 0;
-                }
-        }
-
-        if (!ucred || !pid_is_valid(ucred->pid)) {
-                log_warning("Received notify message without valid credentials. Ignoring.");
-                return 0;
-        }
-
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
-
-        if (pidfd >= 0)
-                r = pidref_set_pidfd_consume(&pidref, TAKE_FD(pidfd));
-        else
-                r = pidref_set_pid(&pidref, ucred->pid);
-        if (r < 0) {
-                if (r == -ESRCH)
-                        log_debug_errno(r, "Notify sender died before message is processed. Ignoring.");
-                else
-                        log_warning_errno(r, "Failed to pin notify sender, ignoring message: %m");
-                return 0;
-        }
-
-        if (pidref.pid != ucred->pid) {
-                assert(pidref.fd >= 0);
-
-                log_warning("Got SCM_PIDFD for process " PID_FMT " but SCM_CREDENTIALS for process " PID_FMT ". Ignoring.",
-                            pidref.pid, ucred->pid);
-                return 0;
-        }
-
-        /* As extra safety check, let's make sure the string we get doesn't contain embedded NUL bytes.
-         * We permit one trailing NUL byte in the message, but don't expect it. */
-        if (n > 1 && memchr(buf, 0, n-1)) {
-                log_warning("Received notify message with embedded NUL bytes. Ignoring.");
-                return 0;
-        }
-
-        /* Make sure it's NUL-terminated, then parse it to obtain the tags list. */
-        buf[n] = 0;
-
-        _cleanup_strv_free_ char **tags = strv_split_newlines(buf);
-        if (!tags) {
-                log_oom_warning();
-                return 0;
-        }
+                return r;
 
         /* Possibly a barrier fd, let's see. */
         if (manager_process_barrier_fd(tags, fds)) {
-                log_debug("Received barrier notification message from PID " PID_FMT ".", ucred->pid);
+                log_debug("Received barrier notification message from PID " PID_FMT ".", pidref.pid);
                 return 0;
         }
 
@@ -2936,16 +2833,16 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
 
         int n_array = manager_get_units_for_pidref(m, &pidref, &array);
         if (n_array < 0) {
-                log_warning_errno(n_array, "Failed to determine units for PID " PID_FMT ", ignoring: %m", ucred->pid);
+                log_warning_errno(n_array, "Failed to determine units for PID " PID_FMT ", ignoring: %m", pidref.pid);
                 return 0;
         }
         if (n_array == 0)
-                log_debug("Cannot find unit for notify message of PID "PID_FMT", ignoring.", ucred->pid);
+                log_debug("Cannot find unit for notify message of PID "PID_FMT", ignoring.", pidref.pid);
         else
                 /* And now invoke the per-unit callbacks. Note that manager_invoke_notify_message() will handle
                  * duplicate units – making sure we only invoke each unit's handler once. */
                 FOREACH_ARRAY(u, array, n_array)
-                        manager_invoke_notify_message(m, *u, &pidref, ucred, tags, fds);
+                        manager_invoke_notify_message(m, *u, &pidref, &ucred, tags, fds);
 
         if (!fdset_isempty(fds))
                 log_warning("Got extra auxiliary fds with notification message, closing them.");
@@ -2995,7 +2892,7 @@ static int manager_dispatch_sigchld(sd_event_source *source, void *userdata) {
         if (si.si_pid <= 0)
                 goto turn_off;
 
-        if (IN_SET(si.si_code, CLD_EXITED, CLD_KILLED, CLD_DUMPED)) {
+        if (SIGINFO_CODE_IS_DEAD(si.si_code)) {
                 _cleanup_free_ char *name = NULL;
                 (void) pid_get_comm(si.si_pid, &name);
 
@@ -3565,7 +3462,7 @@ void manager_send_unit_audit(Manager *m, Unit *u, int type, bool success) {
         if (MANAGER_IS_RELOADING(m))
                 return;
 
-        audit_fd = get_audit_fd();
+        audit_fd = get_core_audit_fd();
         if (audit_fd < 0)
                 return;
 
@@ -3580,7 +3477,7 @@ void manager_send_unit_audit(Manager *m, Unit *u, int type, bool success) {
                 if (ERRNO_IS_PRIVILEGE(errno)) {
                         /* We aren't allowed to send audit messages?  Then let's not retry again. */
                         log_debug_errno(errno, "Failed to send audit message, closing audit socket: %m");
-                        close_audit_fd();
+                        close_core_audit_fd();
                 } else
                         log_warning_errno(errno, "Failed to send audit message, ignoring: %m");
         }
@@ -3805,6 +3702,11 @@ int manager_reload(Manager *m) {
         (void) manager_setup_user_lookup_fd(m);
         (void) manager_setup_handoff_timestamp_fd(m);
         (void) manager_setup_pidref_transport_fd(m);
+
+        /* Clean up deserialized bus track information. They're never consumed during reload (as opposed to
+         * reexec) since we do not disconnect from the bus. */
+        m->subscribed_as_strv = strv_free(m->subscribed_as_strv);
+        m->deserialized_bus_id = SD_ID128_NULL;
 
         /* Third, fire things up! */
         manager_coldplug(m);

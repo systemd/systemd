@@ -46,67 +46,42 @@ char* first_word(const char *s, const char *word) {
         return (char*) nw;
 }
 
-char* strnappend(const char *s, const char *suffix, size_t b) {
-        size_t a;
-        char *r;
+char* strprepend(char **x, const char *s) {
+        assert(x);
 
-        if (!s && !suffix)
-                return strdup("");
+        if (isempty(s) && *x)
+                return *x;
 
-        if (!s)
-                return strndup(suffix, b);
-
-        if (!suffix)
-                return strdup(s);
-
-        assert(s);
-        assert(suffix);
-
-        a = strlen(s);
-        if (b > SIZE_MAX - a)
+        char *p = strjoin(strempty(s), *x);
+        if (!p)
                 return NULL;
 
-        r = new(char, a+b+1);
-        if (!r)
-                return NULL;
-
-        memcpy(r, s, a);
-        memcpy(r+a, suffix, b);
-        r[a+b] = 0;
-
-        return r;
+        free_and_replace(*x, p);
+        return *x;
 }
 
-char* strjoin_real(const char *x, ...) {
-        va_list ap;
-        size_t l = 1;
-        char *r, *p;
+char* strextendn(char **x, const char *s, size_t l) {
+        assert(x);
+        assert(s || l == 0);
 
-        va_start(ap, x);
-        for (const char *t = x; t; t = va_arg(ap, const char *)) {
-                size_t n;
+        if (l > 0)
+                l = strnlen(s, l); /* ignore trailing noise */
 
-                n = strlen(t);
-                if (n > SIZE_MAX - l) {
-                        va_end(ap);
+        if (l > 0 || !*x) {
+                size_t q;
+                char *m;
+
+                q = strlen_ptr(*x);
+                m = realloc(*x, q + l + 1);
+                if (!m)
                         return NULL;
-                }
-                l += n;
+
+                *mempcpy_typesafe(m + q, s, l) = 0;
+
+                *x = m;
         }
-        va_end(ap);
 
-        p = r = new(char, l);
-        if (!r)
-                return NULL;
-
-        va_start(ap, x);
-        for (const char *t = x; t; t = va_arg(ap, const char *))
-                p = stpcpy(p, t);
-        va_end(ap);
-
-        *p = 0;
-
-        return r;
+        return *x;
 }
 
 char* strstrip(char *s) {
@@ -843,12 +818,14 @@ char* strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
 }
 
 char* strextend_with_separator_internal(char **x, const char *separator, ...) {
+        _cleanup_free_ char *buffer = NULL;
         size_t f, l, l_separator;
         bool need_separator;
         char *nr, *p;
         va_list ap;
 
-        assert(x);
+        if (!x)
+                x = &buffer;
 
         l = f = strlen_ptr(*x);
 
@@ -856,13 +833,14 @@ char* strextend_with_separator_internal(char **x, const char *separator, ...) {
         l_separator = strlen_ptr(separator);
 
         va_start(ap, separator);
-        for (;;) {
-                const char *t;
+        for (const char *t;;) {
                 size_t n;
 
                 t = va_arg(ap, const char *);
                 if (!t)
                         break;
+                if (t == POINTER_MAX)
+                        continue;
 
                 n = strlen(t);
 
@@ -895,6 +873,8 @@ char* strextend_with_separator_internal(char **x, const char *separator, ...) {
                 t = va_arg(ap, const char *);
                 if (!t)
                         break;
+                if (t == POINTER_MAX)
+                        continue;
 
                 if (need_separator && separator)
                         p = stpcpy(p, separator);
@@ -906,9 +886,13 @@ char* strextend_with_separator_internal(char **x, const char *separator, ...) {
         va_end(ap);
 
         assert(p == nr + l);
-
         *p = 0;
 
+        /* If no buffer to extend was passed in return the start of the buffer */
+        if (buffer)
+                return TAKE_PTR(buffer);
+
+        /* Otherwise we extended the buffer: return the end */
         return p;
 }
 
@@ -996,33 +980,6 @@ oom:
         /* truncate the bytes added after memcpy_safe() again */
         (*x)[m] = 0;
         return -ENOMEM;
-}
-
-char* strextendn(char **x, const char *s, size_t l) {
-        assert(x);
-        assert(s || l == 0);
-
-        if (l == SIZE_MAX)
-                l = strlen_ptr(s);
-        else if (l > 0)
-                l = strnlen(s, l); /* ignore trailing noise */
-
-        if (l > 0 || !*x) {
-                size_t q;
-                char *m;
-
-                q = strlen_ptr(*x);
-                m = realloc(*x, q + l + 1);
-                if (!m)
-                        return NULL;
-
-                memcpy_safe(m + q, s, l);
-                m[q + l] = 0;
-
-                *x = m;
-        }
-
-        return *x;
 }
 
 char* strrep(const char *s, unsigned n) {
@@ -1512,4 +1469,20 @@ char* strrstr(const char *haystack, const char *needle) {
                         return (char *) p;
         }
         return NULL;
+}
+
+size_t str_common_prefix(const char *a, const char *b) {
+        assert(a);
+        assert(b);
+
+        /* Returns the length of the common prefix of the two specified strings, or SIZE_MAX in case the
+         * strings are fully identical. */
+
+        for (size_t n = 0;; n++) {
+                char c = a[n];
+                if (c != b[n])
+                        return n;
+                if (c == 0)
+                        return SIZE_MAX;
+        }
 }

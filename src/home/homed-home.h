@@ -8,6 +8,7 @@ typedef struct Home Home;
 #include "homed-operation.h"
 #include "list.h"
 #include "ordered-set.h"
+#include "pidref.h"
 #include "stat-util.h"
 #include "user-record.h"
 
@@ -109,7 +110,12 @@ static inline bool HOME_STATE_MAY_RETRY_DEACTIVATE(HomeState state) {
 
 struct Home {
         Manager *manager;
+
+        /* The fields this record can be looked up by. This is kinda redundant, as the same information is
+         * available in the .record field, but we keep separate copies of these keys to make memory
+         * management for the hashmaps easier. */
         char *user_name;
+        char **aliases;
         uid_t uid;
 
         char *sysfs; /* When found via plugged in device, the sysfs path to it */
@@ -123,7 +129,7 @@ struct Home {
 
         UserRecord *record;
 
-        pid_t worker_pid;
+        PidRef worker_pid;
         int worker_stdout_fd;
         sd_event_source *worker_event_source;
         int worker_error_code;

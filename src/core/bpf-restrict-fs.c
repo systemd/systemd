@@ -106,6 +106,10 @@ bool bpf_restrict_fs_supported(bool initialize) {
                 return (supported = false);
 
         r = lsm_supported("bpf");
+        if (r == -ENOPKG) {
+                log_info_errno(r, "bpf-restrict-fs: securityfs not mounted, BPF LSM support not available.");
+                return (supported = false);
+        }
         if (r < 0) {
                 log_warning_errno(r, "bpf-restrict-fs: Can't determine whether the BPF LSM module is used: %m");
                 return (supported = false);

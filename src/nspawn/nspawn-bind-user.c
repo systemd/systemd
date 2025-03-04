@@ -181,13 +181,11 @@ BindUserContext* bind_user_context_free(BindUserContext *c) {
         if (!c)
                 return NULL;
 
-        assert(c->n_data == 0 || c->data);
-
-        for (size_t i = 0; i < c->n_data; i++) {
-                user_record_unref(c->data[i].host_user);
-                group_record_unref(c->data[i].host_group);
-                user_record_unref(c->data[i].payload_user);
-                group_record_unref(c->data[i].payload_group);
+        FOREACH_ARRAY(d, c->data, c->n_data) {
+                user_record_unref(d->host_user);
+                group_record_unref(d->host_group);
+                user_record_unref(d->payload_user);
+                group_record_unref(d->payload_group);
         }
 
         return mfree(c);
@@ -231,7 +229,7 @@ int bind_user_prepare(
                 _cleanup_(group_record_unrefp) GroupRecord *g = NULL, *cg = NULL;
                 _cleanup_free_ char *sm = NULL, *sd = NULL;
 
-                r = userdb_by_name(*n, USERDB_DONT_SYNTHESIZE, &u);
+                r = userdb_by_name(*n, /* match= */ NULL, USERDB_DONT_SYNTHESIZE_INTRINSIC|USERDB_DONT_SYNTHESIZE_FOREIGN, &u);
                 if (r < 0)
                         return log_error_errno(r, "Failed to resolve user '%s': %m", *n);
 
@@ -252,7 +250,7 @@ int bind_user_prepare(
                 if (u->uid >= uid_shift && u->uid < uid_shift + uid_range)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "UID of user '%s' to map is already in container UID range, refusing.", u->user_name);
 
-                r = groupdb_by_gid(u->gid, USERDB_DONT_SYNTHESIZE, &g);
+                r = groupdb_by_gid(u->gid, /* match= */ NULL, USERDB_DONT_SYNTHESIZE_INTRINSIC|USERDB_DONT_SYNTHESIZE_FOREIGN, &g);
                 if (r < 0)
                         return log_error_errno(r, "Failed to resolve group of user '%s': %m", u->user_name);
 
@@ -400,10 +398,9 @@ int bind_user_setup(
         if (r < 0)
                 return log_error_errno(r, "Failed to create /run/host/userdb: %m");
 
-        for (size_t i = 0; i < c->n_data; i++) {
+        FOREACH_ARRAY(d, c->data, c->n_data) {
                 _cleanup_(group_record_unrefp) GroupRecord *stripped_group = NULL, *shadow_group = NULL;
                 _cleanup_(user_record_unrefp) UserRecord *stripped_user = NULL, *shadow_user = NULL;
-                const BindUserData *d = c->data + i;
 
                 /* First, write shadow (i.e. privileged) data for group record */
                 r = group_record_clone(d->payload_group, shadow_flags, &shadow_group);

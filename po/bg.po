@@ -1,24 +1,24 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 #
 # Bulgarian translation of systemd po-file.
-# Copyright © 2016, 2022 Alexander Shopov <ash@kambanaria.org>
-# Alexander Shopov <ash@kambanaria.org>, 2016, 2022.
+# Copyright © 2016, 2022, 2025 Alexander Shopov <ash@kambanaria.org>
+# Alexander Shopov <ash@kambanaria.org>, 2016, 2022, 2025.
 # Velislav Ivanov <velislav.bg@gmail.com>, 2023.
 msgid ""
 msgstr ""
-"Project-Id-Version: systemd master\n"
+"Project-Id-Version: systemd main\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-11-28 18:16+0900\n"
-"PO-Revision-Date: 2023-03-17 15:20+0000\n"
-"Last-Translator: Velislav Ivanov <velislav.bg@gmail.com>\n"
+"POT-Creation-Date: 2025-02-03 13:41+0100\n"
+"PO-Revision-Date: 2025-02-11 01:17+0000\n"
+"Last-Translator: Alexander Shopov <ash@kambanaria.org>\n"
 "Language-Team: Bulgarian <https://translate.fedoraproject.org/projects/"
-"systemd/master/bg/>\n"
+"systemd/main/bg/>\n"
 "Language: bg\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.15.2\n"
+"X-Generator: Weblate 5.9.2\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -73,57 +73,56 @@ msgstr "За презареждане на състоянието на systemd �
 #: src/core/org.freedesktop.systemd1.policy.in:74
 msgid "Dump the systemd state without rate limits"
 msgstr ""
+"Извеждане на състоянието на systemd без зачитане на ограниченията за честота "
+"на това"
 
 #: src/core/org.freedesktop.systemd1.policy.in:75
-#, fuzzy
 msgid ""
 "Authentication is required to dump the systemd state without rate limits."
-msgstr "За презареждане на състоянието на systemd е необходима идентификация."
+msgstr ""
+"За извеждане на състоянието на systemd без зачитане на ограниченията за "
+"честота на това е необходима идентификация."
 
 #: src/home/org.freedesktop.home1.policy:13
 msgid "Create a home area"
-msgstr "Създаване на място за потребител"
+msgstr "Създаване на домашно място за потребител"
 
 #: src/home/org.freedesktop.home1.policy:14
 msgid "Authentication is required to create a user's home area."
-msgstr "За създаване на място за потребител е необходима идентификация."
+msgstr "За създаване на домашно място за потребител е необходима идентификация."
 
 #: src/home/org.freedesktop.home1.policy:23
 msgid "Remove a home area"
-msgstr "Изтриване на място за потребител"
+msgstr "Изтриване на домашно място за потребител"
 
 #: src/home/org.freedesktop.home1.policy:24
 msgid "Authentication is required to remove a user's home area."
-msgstr "За изтриване на място за потребител е необходима идентификация."
+msgstr "За изтриване на домашно място за потребител е необходима идентификация."
 
 #: src/home/org.freedesktop.home1.policy:33
 msgid "Check credentials of a home area"
-msgstr "Проверка на идентификация на място за потребител"
+msgstr "Проверка на идентификация на домашно място за потребител"
 
 #: src/home/org.freedesktop.home1.policy:34
 msgid ""
 "Authentication is required to check credentials against a user's home area."
-msgstr ""
-"За проверка на идентификация на място за потребител е необходима "
-"идентификация."
+msgstr "За проверка на идентификация на домашно място за потребител е необходима идентификация."
 
 #: src/home/org.freedesktop.home1.policy:43
 msgid "Update a home area"
-msgstr "Обновяване на място за потребител"
+msgstr "Обновяване на домашно място за потребител"
 
 #: src/home/org.freedesktop.home1.policy:44
 msgid "Authentication is required to update a user's home area."
 msgstr "За обновяване на място за потребител е необходима идентификация."
 
 #: src/home/org.freedesktop.home1.policy:53
-#, fuzzy
 msgid "Update your home area"
-msgstr "Обновяване на място за потребител"
+msgstr "Обновяване на домашно място за потребител"
 
 #: src/home/org.freedesktop.home1.policy:54
-#, fuzzy
 msgid "Authentication is required to update your home area."
-msgstr "За обновяване на място за потребител е необходима идентификация."
+msgstr "За обновяване на домашно място за потребител е необходима идентификация."
 
 #: src/home/org.freedesktop.home1.policy:63
 msgid "Resize a home area"
@@ -131,180 +130,179 @@ msgstr "Преоразмеряване на място за потребител
 
 #: src/home/org.freedesktop.home1.policy:64
 msgid "Authentication is required to resize a user's home area."
-msgstr "За преоразмеряване на място за потребител е необходима идентификация."
+msgstr "За преоразмеряване на домашно място за потребител е необходима идентификация."
 
 #: src/home/org.freedesktop.home1.policy:73
 msgid "Change password of a home area"
-msgstr "Промяна на парола на място за потребител"
+msgstr "Промяна на парола на домашно място за потребител"
 
 #: src/home/org.freedesktop.home1.policy:74
 msgid ""
 "Authentication is required to change the password of a user's home area."
-msgstr ""
-"За промяна на парола на място за потребител е необходима идентификация."
+msgstr "За промяна на парола на домашно място за потребител е необходима идентификация."
 
 #: src/home/org.freedesktop.home1.policy:83
-#, fuzzy
 msgid "Activate a home area"
-msgstr "Създаване на място за потребител"
+msgstr "Създаване на домашно място за потребител"
 
 #: src/home/org.freedesktop.home1.policy:84
-#, fuzzy
 msgid "Authentication is required to activate a user's home area."
-msgstr "За създаване на място за потребител е необходима идентификация."
+msgstr "За създаване на домашно място за потребител е необходима идентификация."
 
-#: src/home/pam_systemd_home.c:293
+#: src/home/pam_systemd_home.c:310
 #, c-format
 msgid ""
 "Home of user %s is currently absent, please plug in the necessary storage "
 "device or backing file system."
-msgstr ""
+msgstr "Домашното място на потребителя „%s“ в момента липсва, включете необходимото устройство за съхранение на данни и/или монтирайте съответната файлова система."
 
-#: src/home/pam_systemd_home.c:298
+#: src/home/pam_systemd_home.c:315
 #, c-format
 msgid "Too frequent login attempts for user %s, try again later."
-msgstr ""
+msgstr "Прекалено много опити за вписване за потребителя „%s“, пробвайте по-късно."
 
-#: src/home/pam_systemd_home.c:310
+#: src/home/pam_systemd_home.c:327
 msgid "Password: "
-msgstr ""
+msgstr "Парола: "
 
-#: src/home/pam_systemd_home.c:312
+#: src/home/pam_systemd_home.c:329
 #, c-format
 msgid "Password incorrect or not sufficient for authentication of user %s."
-msgstr ""
+msgstr "Паролата е неправилна или недостатъчна за идентификация на потребител „%s“."
 
-#: src/home/pam_systemd_home.c:313
+#: src/home/pam_systemd_home.c:330
 msgid "Sorry, try again: "
-msgstr ""
+msgstr "Пробвайте отново: "
 
-#: src/home/pam_systemd_home.c:335
+#: src/home/pam_systemd_home.c:352
 msgid "Recovery key: "
-msgstr ""
+msgstr "Ключ за възстановяване: "
 
-#: src/home/pam_systemd_home.c:337
+#: src/home/pam_systemd_home.c:354
 #, c-format
 msgid ""
 "Password/recovery key incorrect or not sufficient for authentication of user "
 "%s."
-msgstr ""
+msgstr "Паролата/Ключът за възстановяване са неправилни или недостатъчни за идентификация на потребител „%s“."
 
-#: src/home/pam_systemd_home.c:338
+#: src/home/pam_systemd_home.c:355
 msgid "Sorry, reenter recovery key: "
-msgstr ""
+msgstr "Въведето отново ключа за възстановяване: "
 
-#: src/home/pam_systemd_home.c:358
+#: src/home/pam_systemd_home.c:375
 #, c-format
 msgid "Security token of user %s not inserted."
-msgstr ""
+msgstr "Жетонът за сигурност на потребител „%s“ не е поставен."
 
-#: src/home/pam_systemd_home.c:359 src/home/pam_systemd_home.c:362
+#: src/home/pam_systemd_home.c:376 src/home/pam_systemd_home.c:379
 msgid "Try again with password: "
-msgstr ""
+msgstr "Пробвайте отново с парола: "
 
-#: src/home/pam_systemd_home.c:361
+#: src/home/pam_systemd_home.c:378
 #, c-format
 msgid ""
 "Password incorrect or not sufficient, and configured security token of user "
 "%s not inserted."
-msgstr ""
-
-#: src/home/pam_systemd_home.c:381
-msgid "Security token PIN: "
-msgstr ""
+msgstr "Паролата е неправилна или недостатъчна, а настроеният жетон за сигурност на потребител „%s“ не е поставен."
 
 #: src/home/pam_systemd_home.c:398
+msgid "Security token PIN: "
+msgstr "ПИН за жетон за сигурност: "
+
+#: src/home/pam_systemd_home.c:415
 #, c-format
 msgid "Please authenticate physically on security token of user %s."
-msgstr ""
+msgstr "Идентифицирайте се физически чрез жетона за сигурност на потребител „%s“."
 
-#: src/home/pam_systemd_home.c:409
+#: src/home/pam_systemd_home.c:426
 #, c-format
 msgid "Please confirm presence on security token of user %s."
-msgstr ""
+msgstr "Потвърдете физическо присъствие чрез жетона за сигурност на потребител „%s“."
 
-#: src/home/pam_systemd_home.c:420
+#: src/home/pam_systemd_home.c:437
 #, c-format
 msgid "Please verify user on security token of user %s."
-msgstr ""
+msgstr "Идентифицирайте се чрез жетона за сигурност на потребител „%s“."
 
-#: src/home/pam_systemd_home.c:429
+#: src/home/pam_systemd_home.c:446
 msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
 msgstr ""
+"ПИНът на жетона за сигурност на потребител е заключен, отключете го! ("
+"Понякога изваждането и повторното поставяне е достатъчно за това.)"
 
-#: src/home/pam_systemd_home.c:437
+#: src/home/pam_systemd_home.c:454
 #, c-format
 msgid "Security token PIN incorrect for user %s."
-msgstr ""
+msgstr "ПИН-ът за жетона за сигурност на потребител „%s“ е неправилен."
 
-#: src/home/pam_systemd_home.c:438 src/home/pam_systemd_home.c:457
-#: src/home/pam_systemd_home.c:476
+#: src/home/pam_systemd_home.c:455 src/home/pam_systemd_home.c:474
+#: src/home/pam_systemd_home.c:493
 msgid "Sorry, retry security token PIN: "
-msgstr ""
+msgstr "Въведете отново ПИН за жетона за сигурност: "
 
-#: src/home/pam_systemd_home.c:456
+#: src/home/pam_systemd_home.c:473
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
-msgstr ""
+msgstr "ПИН-ът за жетона за сигурност на потребител „%s“ е неправилен (остават малко пъти!)"
 
-#: src/home/pam_systemd_home.c:475
+#: src/home/pam_systemd_home.c:492
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
-msgstr ""
+msgstr "ПИН-ът за жетона за сигурност на потребител „%s“ е неправилен (остава един път!)"
 
-#: src/home/pam_systemd_home.c:643
+#: src/home/pam_systemd_home.c:659
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
-msgstr ""
+msgstr "Домашното масто на потребител „%s“ в момента не е активно, впишете се локално."
 
-#: src/home/pam_systemd_home.c:645
+#: src/home/pam_systemd_home.c:661
 #, c-format
 msgid "Home of user %s is currently locked, please unlock locally first."
-msgstr ""
+msgstr "Домашното масто на потребител „%s“ в момента е заключено, отключете го локално."
 
-#: src/home/pam_systemd_home.c:677
+#: src/home/pam_systemd_home.c:693
 #, c-format
 msgid "Too many unsuccessful login attempts for user %s, refusing."
-msgstr ""
+msgstr "Прекалено много неуспешни опити за вписване за потребител „%s“, достъпът е отказан."
 
-#: src/home/pam_systemd_home.c:964
+#: src/home/pam_systemd_home.c:979
 msgid "User record is blocked, prohibiting access."
-msgstr ""
+msgstr "Записът на потребителя е блокиран, достъпът е забранен."
 
-#: src/home/pam_systemd_home.c:968
+#: src/home/pam_systemd_home.c:983
 msgid "User record is not valid yet, prohibiting access."
-msgstr ""
+msgstr "Записът за потребител все още не е валиден, достъпът е забранен."
 
-#: src/home/pam_systemd_home.c:972
+#: src/home/pam_systemd_home.c:987
 msgid "User record is not valid anymore, prohibiting access."
-msgstr ""
+msgstr "Записът за потребител вече е невалиден, достъпът е забранен."
 
-#: src/home/pam_systemd_home.c:977 src/home/pam_systemd_home.c:1028
+#: src/home/pam_systemd_home.c:992 src/home/pam_systemd_home.c:1043
 msgid "User record not valid, prohibiting access."
-msgstr ""
-
-#: src/home/pam_systemd_home.c:989
-#, c-format
-msgid "Too many logins, try again in %s."
-msgstr ""
-
-#: src/home/pam_systemd_home.c:1000
-msgid "Password change required."
-msgstr ""
+msgstr "Записът за потребител е невалиден, достъпът е забранен."
 
 #: src/home/pam_systemd_home.c:1004
+#, c-format
+msgid "Too many logins, try again in %s."
+msgstr "Прекалено много опити за вписване, пробвайте отново след %s."
+
+#: src/home/pam_systemd_home.c:1015
+msgid "Password change required."
+msgstr "Необходима е смяна на паролата."
+
+#: src/home/pam_systemd_home.c:1019
 msgid "Password expired, change required."
-msgstr ""
+msgstr "Паролата е изтекла, трябва да се смени."
 
-#: src/home/pam_systemd_home.c:1010
+#: src/home/pam_systemd_home.c:1025
 msgid "Password is expired, but can't change, refusing login."
-msgstr ""
+msgstr "Паролата е изтекла, но не може да се променя, вписването е отказано."
 
-#: src/home/pam_systemd_home.c:1014
+#: src/home/pam_systemd_home.c:1029
 msgid "Password will expire soon, please change."
-msgstr ""
+msgstr "Паролата ще изтече скоро, сменете я."
 
 #: src/hostname/org.freedesktop.hostname1.policy:20
 msgid "Set hostname"
@@ -336,74 +334,61 @@ msgstr ""
 
 #: src/hostname/org.freedesktop.hostname1.policy:51
 msgid "Get product UUID"
-msgstr "UUID на продукт"
+msgstr "Извеждане на UUID на продукт"
 
 #: src/hostname/org.freedesktop.hostname1.policy:52
 msgid "Authentication is required to get product UUID."
-msgstr "За получаването на UUID на продукт е необходима идентификация."
+msgstr "За извеждането на UUID на продукт е необходима идентификация."
 
 #: src/hostname/org.freedesktop.hostname1.policy:61
 msgid "Get hardware serial number"
-msgstr "Вземи серийния номер на хардуера"
+msgstr "Извеждане на серийния номер на хардуера"
 
 #: src/hostname/org.freedesktop.hostname1.policy:62
 msgid "Authentication is required to get hardware serial number."
-msgstr "За вземане на серийния номер на хардуер е необходима идентификация."
+msgstr "За извеждане на серийния номер на хардуера е необходима идентификация."
 
 #: src/hostname/org.freedesktop.hostname1.policy:71
 msgid "Get system description"
-msgstr "Вземане на описание на системата"
+msgstr "Извеждане на описание на системата"
 
 #: src/hostname/org.freedesktop.hostname1.policy:72
 msgid "Authentication is required to get system description."
-msgstr "За вземане на описание на системата е необходима идентификация."
+msgstr "За извеждане на описание на системата е необходима идентификация."
 
 #: src/import/org.freedesktop.import1.policy:22
-#, fuzzy
 msgid "Import a disk image"
-msgstr "Внасяне на изображение на виртуална машина или контейнер"
+msgstr "Внасяне на дисково изображение"
 
 #: src/import/org.freedesktop.import1.policy:23
-#, fuzzy
 msgid "Authentication is required to import an image."
-msgstr ""
-"За внасяне на изображение на виртуална машина или контейнер е необходима "
-"идентификация."
+msgstr "За внасяне на дисково изображение е необходима идентификация."
 
 #: src/import/org.freedesktop.import1.policy:32
-#, fuzzy
 msgid "Export a disk image"
-msgstr "Изнасяне на изображение на виртуална машина или контейнер"
+msgstr "Изнасяне на дисково изображение"
 
 #: src/import/org.freedesktop.import1.policy:33
-#, fuzzy
 msgid "Authentication is required to export disk image."
-msgstr ""
-"За изнасяне на изображение на виртуална машина или контейнер е необходима "
-"идентификация."
+msgstr "За изнасяне на дисково изображение е необходима идентификация."
 
 #: src/import/org.freedesktop.import1.policy:42
-#, fuzzy
 msgid "Download a disk image"
-msgstr "Изтегляне на изображение на виртуална машина или контейнер"
+msgstr "Изтегляне на дисково изображение"
 
 #: src/import/org.freedesktop.import1.policy:43
-#, fuzzy
 msgid "Authentication is required to download a disk image."
-msgstr ""
-"За изтегляне на изображение на виртуална машина или контейнер е необходима "
-"идентификация."
+msgstr "За изтегляне на дисково изображение е необходима идентификация."
 
 #: src/import/org.freedesktop.import1.policy:52
 msgid "Cancel transfer of a disk image"
-msgstr ""
+msgstr "Отмяна на пренасянето на изображение на диска"
 
 #: src/import/org.freedesktop.import1.policy:53
-#, fuzzy
 msgid ""
 "Authentication is required to cancel the ongoing transfer of a disk image."
 msgstr ""
-"За промяна на парола на място за потребител е необходима идентификация."
+"За отмяна на пренасянето на изображение на диска е необходима идентификация."
 
 #: src/locale/org.freedesktop.locale1.policy:22
 msgid "Set system locale"
@@ -823,7 +808,6 @@ msgid "Set a wall message"
 msgstr "Задаване на системно съобщение „wall“"
 
 #: src/login/org.freedesktop.login1.policy:397
-#, fuzzy
 msgid "Authentication is required to set a wall message."
 msgstr "За задаване на системно съобщение „wall“ е необходима идентификация."
 
@@ -900,16 +884,14 @@ msgstr ""
 "идентификация."
 
 #: src/machine/org.freedesktop.machine1.policy:95
-#, fuzzy
 msgid "Create a local virtual machine or container"
-msgstr "Управление на локални виртуални машини и контейнери"
+msgstr "Създаване на локални виртуални машини и контейнери"
 
 #: src/machine/org.freedesktop.machine1.policy:96
-#, fuzzy
 msgid ""
 "Authentication is required to create a local virtual machine or container."
 msgstr ""
-"За управление на локални виртуални машини и контейнери е необходима "
+"За създаване на локални виртуални машини и контейнери е необходима "
 "идентификация."
 
 #: src/machine/org.freedesktop.machine1.policy:106
@@ -1067,12 +1049,16 @@ msgstr "За настройване на мрежови интерфейси е 
 #: src/network/org.freedesktop.network1.policy:187
 msgid "Specify whether persistent storage for systemd-networkd is available"
 msgstr ""
+"Указване дали настройките на systemd-networkd се съхраняват между "
+"стартиранията"
 
 #: src/network/org.freedesktop.network1.policy:188
 msgid ""
 "Authentication is required to specify whether persistent storage for systemd-"
 "networkd is available."
 msgstr ""
+"За указване дали настройките на systemd-networkd се съхраняват между "
+"стартиранията на системата е необходима идентификация."
 
 #: src/portable/org.freedesktop.portable1.policy:13
 msgid "Inspect a portable service image"
@@ -1096,7 +1082,7 @@ msgstr ""
 
 #: src/portable/org.freedesktop.portable1.policy:34
 msgid "Delete or modify portable service image"
-msgstr "Изтриване/промяна на преносимо изображение на система"
+msgstr "Изтриване/Промяна на преносимо изображение на система"
 
 #: src/portable/org.freedesktop.portable1.policy:35
 msgid ""
@@ -1110,7 +1096,6 @@ msgid "Register a DNS-SD service"
 msgstr "Регистриране на услуга по DNS-SD"
 
 #: src/resolve/org.freedesktop.resolve1.policy:23
-#, fuzzy
 msgid "Authentication is required to register a DNS-SD service."
 msgstr "За регистриране на услуга по DNS-SD е необходима идентификация."
 
@@ -1119,7 +1104,6 @@ msgid "Unregister a DNS-SD service"
 msgstr "Дерегистриране на услуга по DNS-SD"
 
 #: src/resolve/org.freedesktop.resolve1.policy:34
-#, fuzzy
 msgid "Authentication is required to unregister a DNS-SD service."
 msgstr "За дерегистриране на услуга по DNS-SD е необходима идентификация."
 
@@ -1135,98 +1119,98 @@ msgstr ""
 
 #: src/resolve/org.freedesktop.resolve1.policy:143
 msgid "Subscribe query results"
-msgstr ""
+msgstr "Абониране към резултати от заявки"
 
 #: src/resolve/org.freedesktop.resolve1.policy:144
-#, fuzzy
 msgid "Authentication is required to subscribe query results."
-msgstr "За приспиване на системата е необходима идентификация."
+msgstr "За абониране към резултати от заявки е необходима идентификация."
 
 #: src/resolve/org.freedesktop.resolve1.policy:154
-msgid "Dump cache"
-msgstr ""
+msgid "Subscribe to DNS configuration"
+msgstr "Абониране към настройки на DNS"
 
 #: src/resolve/org.freedesktop.resolve1.policy:155
-#, fuzzy
-msgid "Authentication is required to dump cache."
-msgstr "За задаване на домейни е необходима идентификация."
+msgid "Authentication is required to subscribe to DNS configuration."
+msgstr "За абониране към настройки на DNS е необходима идентификация."
 
 #: src/resolve/org.freedesktop.resolve1.policy:165
-msgid "Dump server state"
-msgstr ""
+msgid "Dump cache"
+msgstr "Извеждане на кеша"
 
 #: src/resolve/org.freedesktop.resolve1.policy:166
-#, fuzzy
-msgid "Authentication is required to dump server state."
-msgstr ""
-"За задаване на сървъри за точно време (NTP) е необходима идентификация."
+msgid "Authentication is required to dump cache."
+msgstr "За извеждане на кеша е необходима идентификация."
 
 #: src/resolve/org.freedesktop.resolve1.policy:176
-msgid "Dump statistics"
-msgstr ""
+msgid "Dump server state"
+msgstr "Извеждане на състоянието на сървъра"
 
 #: src/resolve/org.freedesktop.resolve1.policy:177
-#, fuzzy
-msgid "Authentication is required to dump statistics."
-msgstr "За задаване на домейни е необходима идентификация."
+msgid "Authentication is required to dump server state."
+msgstr "За извеждане на състоянието на сървъра е необходима идентификация."
 
 #: src/resolve/org.freedesktop.resolve1.policy:187
-msgid "Reset statistics"
-msgstr ""
+msgid "Dump statistics"
+msgstr "Извеждане на статистиките"
 
 #: src/resolve/org.freedesktop.resolve1.policy:188
-#, fuzzy
+msgid "Authentication is required to dump statistics."
+msgstr "За извеждане на статистиките е необходима идентификация."
+
+#: src/resolve/org.freedesktop.resolve1.policy:198
+msgid "Reset statistics"
+msgstr "Зануляване на статистиките"
+
+#: src/resolve/org.freedesktop.resolve1.policy:199
 msgid "Authentication is required to reset statistics."
-msgstr "За възстановяване на настройките за NTP е необходима идентификация."
+msgstr "За зануляване на статистиките е необходима идентификация."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:35
 msgid "Check for system updates"
-msgstr ""
+msgstr "Проверка за обновяване на системата"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:36
-#, fuzzy
 msgid "Authentication is required to check for system updates."
-msgstr "За задаване на времето на системата е необходима идентификация."
+msgstr "За проверка за обновяване на системата е необходима идентификация."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:45
 msgid "Install system updates"
-msgstr ""
+msgstr "Инсталиране на обновяване на системата"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:46
-#, fuzzy
 msgid "Authentication is required to install system updates."
-msgstr "За задаване на времето на системата е необходима идентификация."
+msgstr "За инсталиране на обновяване на системата е необходима идентификация."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:55
 msgid "Install specific system version"
-msgstr ""
+msgstr "Инсталиране на вариант зависещ от версията на системата"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:56
-#, fuzzy
 msgid ""
 "Authentication is required to update the system to a specific (possibly old) "
 "version."
-msgstr "За задаване на часовия пояс на системата е необходима идентификация."
+msgstr ""
+"За инсталиране на вариант зависещ от версията на системата е необходима "
+"идентификация."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:65
 msgid "Cleanup old system updates"
-msgstr ""
+msgstr "Изтриване на остарелите обновявания на системата"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:66
-#, fuzzy
 msgid "Authentication is required to cleanup old system updates."
-msgstr "За задаване на времето на системата е необходима идентификация."
+msgstr ""
+"За изтриване на остарелите обновявания на системата е необходима "
+"идентификация."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:75
 msgid "Manage optional features"
-msgstr ""
+msgstr "Управление на незадължителните възможности"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:76
-#, fuzzy
 msgid "Authentication is required to manage optional features."
 msgstr ""
-"За управление на работещите сесии, потребители и работни места е необходима "
-"идентификация."
+"За управление на незадължителните възможности е необходима идентификация."
 
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"
@@ -1268,51 +1252,43 @@ msgstr ""
 "За превключване на синхронизацията на времето по мрежата е необходима "
 "идентификация."
 
-#: src/core/dbus-unit.c:370
+#: src/core/dbus-unit.c:367
 msgid "Authentication is required to start '$(unit)'."
 msgstr "За стартиране на „$(unit)“ е необходима идентификация."
 
-#: src/core/dbus-unit.c:371
+#: src/core/dbus-unit.c:368
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "За спиране на „$(unit)“ е необходима идентификация."
 
-#: src/core/dbus-unit.c:372
+#: src/core/dbus-unit.c:369
 msgid "Authentication is required to reload '$(unit)'."
 msgstr "За презареждане на „$(unit)“ е необходима идентификация."
 
-#: src/core/dbus-unit.c:373 src/core/dbus-unit.c:374
+#: src/core/dbus-unit.c:370 src/core/dbus-unit.c:371
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "За рестартиране на „$(unit)“ е необходима идентификация."
 
-#: src/core/dbus-unit.c:566
+#: src/core/dbus-unit.c:563
 msgid ""
-"Authentication is required to send a UNIX signal to the processes of "
-"'$(unit)'."
-msgstr ""
-"За изпращането на сигнал на UNIX на процесите на „$(unit)“ е необходима "
-"идентификация."
+"Authentication is required to send a UNIX signal to the processes of '$"
+"(unit)'."
+msgstr "За изпращане на сигнал на UNIX към процесите на „$(unit)“ е необходима идентификация."
 
-#: src/core/dbus-unit.c:594
+#: src/core/dbus-unit.c:591
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
-msgstr ""
-"За премахване на състоянието за неуспех на „$(unit)“ е необходима "
-"идентификация."
+msgstr "За изчистване на състоянието за неуспех (failed) на „$(unit)“ е необходима идентификация."
 
-#: src/core/dbus-unit.c:624
+#: src/core/dbus-unit.c:621
 msgid "Authentication is required to set properties on '$(unit)'."
-msgstr "За задаване на свойствата на „$(unit)“ е необходима идентификация."
+msgstr "За задаване на свойства на „$(unit)“ е необходима идентификация."
 
-#: src/core/dbus-unit.c:721
+#: src/core/dbus-unit.c:718
 msgid ""
-"Authentication is required to delete files and directories associated with "
-"'$(unit)'."
-msgstr ""
-"За изтриването на файловете и директориите на „$(unit)“ е необходима "
-"идентификация."
+"Authentication is required to delete files and directories associated with '$"
+"(unit)'."
+msgstr "За изтриване на файловете и директориите свързани с „$(unit)“ е необходима идентификация."
 
-#: src/core/dbus-unit.c:758
+#: src/core/dbus-unit.c:755
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
-msgstr ""
-"За замразяване/размразяване на процесите на „$(unit)“ е необходима "
-"идентификация."
+msgstr "За замразяване/размразяване на процесите на „$(unit)“ е необходима идентификация."

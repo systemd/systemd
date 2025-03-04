@@ -7,7 +7,6 @@
 #include <uchar.h>
 
 #include "macro.h"
-#include "missing_type.h"
 
 #define UTF8_REPLACEMENT_CHARACTER "\xef\xbf\xbd"
 #define UTF8_BYTE_ORDER_MARK "\xef\xbb\xbf"
@@ -62,3 +61,5 @@ static inline char32_t utf16_surrogate_pair_to_unichar(char16_t lead, char16_t t
 size_t utf8_n_codepoints(const char *str);
 int utf8_char_console_width(const char *str);
 size_t utf8_console_width(const char *str);
+
+size_t utf8_last_length(const char *s, size_t n);

@@ -13,6 +13,7 @@
 #include "path-util.h"
 #include "process-util.h"
 #include "string-util.h"
+#include "syslog-util.h"
 #include "user-util.h"
 
 int json_dispatch_unbase64_iovec(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
@@ -160,6 +161,28 @@ int json_dispatch_path(const char *name, sd_json_variant *variant, sd_json_dispa
                 return r;
 
         if (free_and_strdup(p, path) < 0)
+                return json_log_oom(variant, flags);
+
+        return 0;
+}
+
+int json_dispatch_filename(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        char **s = ASSERT_PTR(userdata);
+        const char *n;
+
+        if (sd_json_variant_is_null(variant)) {
+                *s = mfree(*s);
+                return 0;
+        }
+
+        if (!sd_json_variant_is_string(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
+
+        n = sd_json_variant_string(variant);
+        if (!filename_is_valid(n))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a valid file name.", strna(name));
+
+        if (free_and_strdup(s, n) < 0)
                 return json_log_oom(variant, flags);
 
         return 0;
@@ -344,8 +367,15 @@ int json_dispatch_ifindex(const char *name, sd_json_variant *variant, sd_json_di
 int json_dispatch_log_level(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         int *log_level = ASSERT_PTR(userdata), r, t;
 
+        /* If SD_JSON_STRICT is set, we'll refuse attempts to set the log level to null. If SD_JSON_RELAX is
+         * set we'll turn null (and any negative log level) into LOG_NULL (which when used as max log level
+         * means: no logging). Otherwise we turn null into LOG_INFO (which is typically our default). */
+
         if (sd_json_variant_is_null(variant)) {
-                *log_level = -1;
+                if (FLAGS_SET(flags, SD_JSON_STRICT))
+                        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' may not be null.", strna(name));
+
+                *log_level = FLAGS_SET(flags, SD_JSON_RELAX) ? LOG_NULL : LOG_INFO;
                 return 0;
         }
 
@@ -353,8 +383,9 @@ int json_dispatch_log_level(const char *name, sd_json_variant *variant, sd_json_
         if (r < 0)
                 return r;
 
-        /* If SD_JSON_RELAX is set allow a zero interface index, otherwise refuse. */
-        if (LOG_PRI(t) != t)
+        if (FLAGS_SET(flags, SD_JSON_RELAX) && t < 0)
+                t = LOG_NULL;
+        else if (!log_level_is_valid(t))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a valid log level.", strna(name));
 
         *log_level = t;

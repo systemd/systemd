@@ -30,7 +30,7 @@ typedef int (*udev_ctrl_handler_t)(UdevCtrl *udev_ctrl, UdevCtrlMessageType type
 
 int udev_ctrl_new_from_fd(UdevCtrl **ret, int fd);
 static inline int udev_ctrl_new(UdevCtrl **ret) {
-        return udev_ctrl_new_from_fd(ret, -1);
+        return udev_ctrl_new_from_fd(ret, -EBADF);
 }
 
 int udev_ctrl_enable_receiving(UdevCtrl *uctrl);

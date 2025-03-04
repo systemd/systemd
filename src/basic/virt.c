@@ -6,6 +6,7 @@
 #include <errno.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <threads.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -15,7 +16,6 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "macro.h"
-#include "missing_threads.h"
 #include "namespace-util.h"
 #include "process-util.h"
 #include "stat-util.h"
@@ -799,19 +799,16 @@ int running_in_chroot(void) {
         if (getenv_bool("SYSTEMD_IGNORE_CHROOT") > 0)
                 return 0;
 
-        r = inode_same("/proc/1/root", "/", 0);
-        if (r == -ENOENT) {
-                r = proc_mounted();
-                if (r == 0) {
-                        if (getpid_cached() == 1)
-                                return false; /* We will mount /proc, assuming we're not in a chroot. */
+        r = pidref_from_same_root_fs(&PIDREF_MAKE_FROM_PID(1), NULL);
+        if (r == -ENOSYS) {
+                if (getpid_cached() == 1)
+                        return false; /* We will mount /proc, assuming we're not in a chroot. */
 
-                        log_debug("/proc is not mounted, assuming we're in a chroot.");
-                        return true;
-                }
-                if (r > 0)  /* If we have fake /proc/, we can't do the check properly. */
-                        return -ENOSYS;
+                log_debug("/proc/ is not mounted, assuming we're in a chroot.");
+                return true;
         }
+        if (r == -ESRCH) /* We must have a fake /proc/, we can't do the check properly. */
+                return -ENOSYS;
         if (r < 0)
                 return r;
 

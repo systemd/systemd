@@ -89,6 +89,8 @@ typedef enum DissectImageFlags {
         DISSECT_IMAGE_TRY_ATOMIC_MOUNT_EXCHANGE = 1 << 25, /* Try to mount the image beneath the specified mountpoint, rather than on top of it, and then umount the top */
         DISSECT_IMAGE_ALLOW_USERSPACE_VERITY    = 1 << 26, /* Allow userspace verity keyring in /etc/verity.d/ and related dirs */
         DISSECT_IMAGE_ALLOW_INTERACTIVE_AUTH    = 1 << 27, /* Allow interactive authorization when going through mountfsd */
+        DISSECT_IMAGE_FOREIGN_UID               = 1 << 28, /* Request a foreign UID range mapping */
+        DISSECT_IMAGE_IDENTITY_UID              = 1 << 29, /* Explicitly request an identity UID range mapping */
 } DissectImageFlags;
 
 struct DissectedImage {
@@ -209,6 +211,12 @@ static inline bool verity_settings_set(const VeritySettings *settings) {
 }
 
 void verity_settings_done(VeritySettings *verity);
+VeritySettings* verity_settings_free(VeritySettings *v);
+void verity_settings_hash_func(const VeritySettings *s, struct siphash *state);
+int verity_settings_compare_func(const VeritySettings *x, const VeritySettings *y);
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(VeritySettings*, verity_settings_free);
+extern const struct hash_ops verity_settings_hash_ops;
 
 static inline bool verity_settings_data_covers(const VeritySettings *verity, PartitionDesignator d) {
         /* Returns true if the verity settings contain sufficient information to cover the specified partition */
@@ -244,3 +252,4 @@ static inline const char* dissected_partition_fstype(const DissectedPartition *m
 int get_common_dissect_directory(char **ret);
 
 int mountfsd_mount_image(const char *path, int userns_fd, const ImagePolicy *image_policy, DissectImageFlags flags, DissectedImage **ret);
+int mountfsd_mount_directory(const char *path, int userns_fd, DissectImageFlags flags, int *ret_mount_fd);

@@ -3,13 +3,13 @@
 #include <nss.h>
 #include <pthread.h>
 #include <string.h>
+#include <threads.h>
 
 #include "env-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "log.h"
 #include "macro.h"
-#include "missing_threads.h"
 #include "nss-systemd.h"
 #include "nss-util.h"
 #include "pthread-util.h"
@@ -101,6 +101,9 @@ typedef struct GetentData {
         bool by_membership;
 } GetentData;
 
+/* On current glibc PTHREAD_MUTEX_INITIALIZER is defined in a way incompatible with
+ * -Wzero-as-null-pointer-constant, work around this for now. */
+DISABLE_WARNING_ZERO_AS_NULL_POINTER_CONSTANT;
 static GetentData getpwent_data = {
         .mutex = PTHREAD_MUTEX_INITIALIZER,
 };
@@ -116,6 +119,7 @@ static GetentData getspent_data = {
 static GetentData getsgent_data = {
         .mutex = PTHREAD_MUTEX_INITIALIZER,
 };
+REENABLE_WARNING;
 
 static void setup_logging_once(void) {
         static pthread_once_t once = PTHREAD_ONCE_INIT;
@@ -615,7 +619,7 @@ enum nss_status _nss_systemd_setpwent(int stayopen) {
          * (think: LDAP/NIS type situations), and our synthesizing of root/nobody is a robustness fallback
          * only, which matters for getpwnam()/getpwuid() primarily, which are the main NSS entrypoints to the
          * user database. */
-        r = userdb_all(nss_glue_userdb_flags() | USERDB_DONT_SYNTHESIZE, &getpwent_data.iterator);
+        r = userdb_all(/* match= */ NULL, nss_glue_userdb_flags() | USERDB_DONT_SYNTHESIZE_INTRINSIC | USERDB_DONT_SYNTHESIZE_FOREIGN, &getpwent_data.iterator);
         return r < 0 ? NSS_STATUS_UNAVAIL : NSS_STATUS_SUCCESS;
 }
 
@@ -634,8 +638,8 @@ enum nss_status _nss_systemd_setgrent(int stayopen) {
         getgrent_data.iterator = userdb_iterator_free(getgrent_data.iterator);
         getgrent_data.by_membership = false;
 
-        /* See _nss_systemd_setpwent() for an explanation why we use USERDB_DONT_SYNTHESIZE here */
-        r = groupdb_all(nss_glue_userdb_flags() | USERDB_DONT_SYNTHESIZE, &getgrent_data.iterator);
+        /* See _nss_systemd_setpwent() for an explanation why we use USERDB_DONT_SYNTHESIZE_INTRINSIC here */
+        r = groupdb_all(/* match= */ NULL, nss_glue_userdb_flags() | USERDB_DONT_SYNTHESIZE_INTRINSIC | USERDB_DONT_SYNTHESIZE_FOREIGN, &getgrent_data.iterator);
         return r < 0 ? NSS_STATUS_UNAVAIL : NSS_STATUS_SUCCESS;
 }
 
@@ -654,8 +658,8 @@ enum nss_status _nss_systemd_setspent(int stayopen) {
         getspent_data.iterator = userdb_iterator_free(getspent_data.iterator);
         getspent_data.by_membership = false;
 
-        /* See _nss_systemd_setpwent() for an explanation why we use USERDB_DONT_SYNTHESIZE here */
-        r = userdb_all(nss_glue_userdb_flags() | USERDB_DONT_SYNTHESIZE, &getspent_data.iterator);
+        /* See _nss_systemd_setpwent() for an explanation why we use USERDB_DONT_SYNTHESIZE_INTRINSIC here */
+        r = userdb_all(/* match= */ NULL, nss_glue_userdb_flags() | USERDB_DONT_SYNTHESIZE_INTRINSIC | USERDB_DONT_SYNTHESIZE_FOREIGN, &getspent_data.iterator);
         return r < 0 ? NSS_STATUS_UNAVAIL : NSS_STATUS_SUCCESS;
 }
 
@@ -675,7 +679,7 @@ enum nss_status _nss_systemd_setsgent(int stayopen) {
         getsgent_data.by_membership = false;
 
         /* See _nss_systemd_setpwent() for an explanation why we use USERDB_DONT_SYNTHESIZE here */
-        r = groupdb_all(nss_glue_userdb_flags() | USERDB_DONT_SYNTHESIZE, &getsgent_data.iterator);
+        r = groupdb_all(/* match= */ NULL, nss_glue_userdb_flags() | USERDB_DONT_SYNTHESIZE_INTRINSIC | USERDB_DONT_SYNTHESIZE_FOREIGN, &getsgent_data.iterator);
         return r < 0 ? NSS_STATUS_UNAVAIL : NSS_STATUS_SUCCESS;
 }
 
@@ -705,7 +709,7 @@ enum nss_status _nss_systemd_getpwent_r(
                 return NSS_STATUS_UNAVAIL;
         }
 
-        r = userdb_iterator_get(getpwent_data.iterator, &ur);
+        r = userdb_iterator_get(getpwent_data.iterator, /* match= */ NULL, &ur);
         if (r == -ESRCH)
                 return NSS_STATUS_NOTFOUND;
         if (r < 0) {
@@ -752,7 +756,7 @@ enum nss_status _nss_systemd_getgrent_r(
         }
 
         if (!getgrent_data.by_membership) {
-                r = groupdb_iterator_get(getgrent_data.iterator, &gr);
+                r = groupdb_iterator_get(getgrent_data.iterator, /* match= */ NULL, &gr);
                 if (r == -ESRCH) {
                         /* So we finished iterating native groups now. Let's now continue with iterating
                          * native memberships, and generate additional group entries for any groups
@@ -878,7 +882,7 @@ enum nss_status _nss_systemd_getspent_r(
         }
 
         for (;;) {
-                r = userdb_iterator_get(getspent_data.iterator, &ur);
+                r = userdb_iterator_get(getspent_data.iterator, /* match= */ NULL, &ur);
                 if (r == -ESRCH)
                         return NSS_STATUS_NOTFOUND;
                 if (r < 0) {
@@ -930,7 +934,7 @@ enum nss_status _nss_systemd_getsgent_r(
         }
 
         for (;;) {
-                r = groupdb_iterator_get(getsgent_data.iterator, &gr);
+                r = groupdb_iterator_get(getsgent_data.iterator, /* match= */ NULL, &gr);
                 if (r == -ESRCH)
                         return NSS_STATUS_NOTFOUND;
                 if (r < 0) {
@@ -1010,7 +1014,7 @@ enum nss_status _nss_systemd_initgroups_dyn(
                 /* The group might be defined via traditional NSS only, hence let's do a full look-up without
                  * disabling NSS. This means we are operating recursively here. */
 
-                r = groupdb_by_name(group_name, (nss_glue_userdb_flags() & ~USERDB_EXCLUDE_NSS) | USERDB_SUPPRESS_SHADOW, &g);
+                r = groupdb_by_name(group_name, /* match= */ NULL, (nss_glue_userdb_flags() & ~USERDB_EXCLUDE_NSS) | USERDB_SUPPRESS_SHADOW, &g);
                 if (r == -ESRCH)
                         continue;
                 if (r < 0) {

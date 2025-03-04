@@ -10,7 +10,6 @@
 #include "fs-util.h"
 #include "libmount-util.h"
 #include "missing_magic.h"
-#include "missing_mount.h"
 #include "mkdir.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
@@ -266,9 +265,9 @@ TEST(make_mount_point_inode) {
         assert_se(rmdir(dst_dir) == 0);
 
         assert_se(stat(src_file, &st) == 0);
-        assert_se(make_mount_point_inode_from_stat(&st, dst_file, 0755) >= 0);
+        assert_se(make_mount_point_inode_from_mode(AT_FDCWD, dst_file, st.st_mode, 0755) >= 0);
         assert_se(stat(src_dir, &st) == 0);
-        assert_se(make_mount_point_inode_from_stat(&st, dst_dir, 0755) >= 0);
+        assert_se(make_mount_point_inode_from_mode(AT_FDCWD, dst_dir, st.st_mode, 0755) >= 0);
 
         assert_se(stat(dst_dir, &st) == 0);
         assert_se(S_ISDIR(st.st_mode));
@@ -393,7 +392,7 @@ TEST(umount_recursive) {
 
                         assert_se(umount_recursive_full(t->prefix, MNT_DETACH, (char**) t->keep) >= 0);
 
-                        r = libmount_parse("/proc/self/mountinfo", f, &table, &iter);
+                        r = libmount_parse_mountinfo(f, &table, &iter);
                         if (r < 0) {
                                 log_error_errno(r, "Failed to parse /proc/self/mountinfo: %m");
                                 _exit(EXIT_FAILURE);
@@ -452,14 +451,14 @@ TEST(fd_make_mount_point) {
                 fd = open(s, O_PATH|O_CLOEXEC);
                 assert_se(fd >= 0);
 
-                assert_se(fd_is_mount_point(fd, NULL, AT_SYMLINK_FOLLOW) == 0);
+                assert_se(is_mount_point_at(fd, NULL, AT_SYMLINK_FOLLOW) == 0);
 
                 assert_se(fd_make_mount_point(fd) > 0);
 
                 /* Reopen the inode so that we end up on the new mount */
                 fd2 = open(s, O_PATH|O_CLOEXEC);
 
-                assert_se(fd_is_mount_point(fd2, NULL, AT_SYMLINK_FOLLOW) > 0);
+                assert_se(is_mount_point_at(fd2, NULL, AT_SYMLINK_FOLLOW) > 0);
 
                 assert_se(fd_make_mount_point(fd2) == 0);
 
@@ -585,6 +584,26 @@ TEST(path_is_network_fs_harder) {
 
                 _exit(EXIT_SUCCESS);
         }
+}
+
+TEST(umountat) {
+        int r;
+
+        _cleanup_(rm_rf_physical_and_freep) char *p = NULL;
+        _cleanup_close_ int dfd = mkdtemp_open(NULL, O_CLOEXEC, &p);
+        ASSERT_OK(dfd);
+
+        ASSERT_OK(mkdirat(dfd, "foo", 0777));
+
+        _cleanup_free_ char *q = ASSERT_PTR(path_join(p, "foo"));
+
+        r = mount_nofollow_verbose(LOG_ERR, "tmpfs", q, "tmpfs", 0, NULL);
+        if (ERRNO_IS_NEG_PRIVILEGE(r))
+                return (void) log_tests_skipped("not running privileged");
+
+        ASSERT_OK(r);
+        ASSERT_OK(umountat_detach_verbose(LOG_ERR, dfd, "foo"));
+        ASSERT_ERROR(umountat_detach_verbose(LOG_ERR, dfd, "foo"), EINVAL);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

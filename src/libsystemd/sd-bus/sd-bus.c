@@ -8,6 +8,7 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
+#include <threads.h>
 #include <unistd.h>
 
 #include "sd-bus.h"
@@ -38,7 +39,6 @@
 #include "macro.h"
 #include "memory-util.h"
 #include "missing_syscall.h"
-#include "missing_threads.h"
 #include "origin-id.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -220,14 +220,14 @@ static sd_bus* bus_free(sd_bus *b) {
 
         bus_reset_queues(b);
 
-        ordered_hashmap_free_free(b->reply_callbacks);
+        ordered_hashmap_free(b->reply_callbacks);
         prioq_free(b->reply_callbacks_prioq);
 
         assert(b->match_callbacks.type == BUS_MATCH_ROOT);
         bus_match_free(&b->match_callbacks);
 
-        hashmap_free_free(b->vtable_methods);
-        hashmap_free_free(b->vtable_properties);
+        set_free(b->vtable_methods);
+        set_free(b->vtable_properties);
 
         assert(hashmap_isempty(b->nodes));
         hashmap_free(b->nodes);
@@ -2332,10 +2332,6 @@ _public_ int sd_bus_call_async(
         if (!callback && !slot && !m->sealed)
                 m->header->flags |= BUS_MESSAGE_NO_REPLY_EXPECTED;
 
-        r = ordered_hashmap_ensure_allocated(&bus->reply_callbacks, &uint64_hash_ops);
-        if (r < 0)
-                return r;
-
         r = prioq_ensure_allocated(&bus->reply_callbacks_prioq, timeout_compare);
         if (r < 0)
                 return r;
@@ -2356,7 +2352,7 @@ _public_ int sd_bus_call_async(
                 s->reply_callback.callback = callback;
 
                 s->reply_callback.cookie = BUS_MESSAGE_COOKIE(m);
-                r = ordered_hashmap_put(bus->reply_callbacks, &s->reply_callback.cookie, &s->reply_callback);
+                r = ordered_hashmap_ensure_put(&bus->reply_callbacks, &uint64_hash_ops_value_free, &s->reply_callback.cookie, &s->reply_callback);
                 if (r < 0) {
                         s->reply_callback.cookie = 0;
                         return r;

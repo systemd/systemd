@@ -49,7 +49,7 @@ int asynchronous_fsync(int fd, pid_t *ret_pid) {
                 return r;
         if (r == 0) {
                 /* Child process */
-                fsync(fd);
+                (void) fsync(fd);
                 _exit(EXIT_SUCCESS);
         }
 
@@ -131,6 +131,13 @@ int asynchronous_close(int fd) {
         }
 
         return -EBADF; /* return an invalidated fd */
+}
+
+void asynchronous_close_many(const int fds[], size_t n_fds) {
+        assert(fds || n_fds == 0);
+
+        FOREACH_ARRAY(i, fds, n_fds)
+                asynchronous_close(*i);
 }
 
 int asynchronous_rm_rf(const char *p, RemoveFlags flags) {

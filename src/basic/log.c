@@ -11,6 +11,7 @@
 #include <sys/time.h>
 #include <sys/uio.h>
 #include <sys/un.h>
+#include <threads.h>
 #include <unistd.h>
 
 #include "sd-messages.h"
@@ -26,7 +27,6 @@
 #include "log.h"
 #include "macro.h"
 #include "missing_syscall.h"
-#include "missing_threads.h"
 #include "parse-util.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
@@ -397,7 +397,7 @@ void log_forget_fds(void) {
 }
 
 int log_set_max_level(int level) {
-        assert(level == LOG_NULL || LOG_PRI(level) == level);
+        assert(level == LOG_NULL || log_level_is_valid(level));
 
         int old = log_max_level;
         log_max_level = level;
@@ -681,10 +681,10 @@ static int log_do_header(
                      error ? "ERRNO=" : "",
                      error ? 1 : 0, error,
                      error ? "\n" : "",
-                     isempty(object) ? "" : object_field,
+                     isempty(object) ? "" : ASSERT_PTR(object_field),
                      isempty(object) ? "" : object,
                      isempty(object) ? "" : "\n",
-                     isempty(extra) ? "" : extra_field,
+                     isempty(extra) ? "" : ASSERT_PTR(extra_field),
                      isempty(extra) ? "" : extra,
                      isempty(extra) ? "" : "\n",
                      program_invocation_short_name);

@@ -15,6 +15,7 @@ rules = [
                '60-infiniband.rules',
                '60-input-id.rules',
                '60-persistent-alsa.rules',
+               '60-persistent-hidraw.rules',
                '60-persistent-input.rules',
                '60-persistent-storage-mtd.rules',
                '60-persistent-storage-tape.rules',
@@ -45,6 +46,8 @@ rules = [
 ]
 
 all_rules = []
+# For the udev alias
+buildable_rules = []
 
 foreach tuple : rules
         if tuple.length() == 1 or tuple[1]
@@ -82,5 +85,6 @@ foreach tuple : rules_in
 
         if want
                 all_rules += rule
+                buildable_rules += rule
         endif
 endforeach

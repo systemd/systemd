@@ -835,7 +835,6 @@ static int luks_validate_home_record(
                 const char *text, *type;
                 crypt_token_info state;
                 sd_json_variant *jr, *jiv;
-                unsigned line, column;
                 const EVP_CIPHER *cc;
 
                 state = sym_crypt_token_status(cd, token, &type);
@@ -853,6 +852,7 @@ static int luks_validate_home_record(
                 if (r < 0)
                         return log_error_errno(r, "Failed to read LUKS token %i: %m", token);
 
+                unsigned line = 0, column = 0;
                 r = sd_json_parse(text, SD_JSON_PARSE_SENSITIVE, &v, &line, &column);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse LUKS token JSON data %u:%u: %m", line, column);

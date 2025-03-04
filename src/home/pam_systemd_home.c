@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <security/pam_ext.h>
+#include <security/pam_misc.h>
 #include <security/pam_modules.h>
 
 #include "sd-bus.h"
@@ -15,6 +16,7 @@
 #include "memory-util.h"
 #include "pam-util.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "strv.h"
 #include "user-record-util.h"
 #include "user-record.h"
@@ -102,11 +104,6 @@ static int acquire_user_record(
                 UserRecord **ret_record,
                 PamBusData **bus_data) {
 
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-        _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
-        _cleanup_free_ char *homed_field = NULL;
-        const char *json = NULL;
         int r;
 
         assert(handle);
@@ -115,9 +112,22 @@ static int acquire_user_record(
                 r = pam_get_user(handle, &username, NULL);
                 if (r != PAM_SUCCESS)
                         return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get user name: @PAMERR@");
-
                 if (isempty(username))
                         return pam_syslog_pam_error(handle, LOG_ERR, PAM_SERVICE_ERR, "User name not set.");
+        }
+
+        /* Possibly split out the area name */
+        _cleanup_free_ char *username_without_area = NULL, *area = NULL;
+        const char *carea = strrchr(username, '%');
+        if (carea && (filename_is_valid(carea + 1) || isempty(carea + 1))) {
+                username_without_area = strndup(username, carea - username);
+                if (!username_without_area)
+                        return pam_log_oom(handle);
+
+                username = username_without_area;
+                area = strdup(carea + 1);
+                if (!area)
+                        return pam_log_oom(handle);
         }
 
         /* Let's bypass all IPC complexity for the two user names we know for sure we don't manage, and for
@@ -125,13 +135,19 @@ static int acquire_user_record(
         if (STR_IN_SET(username, "root", NOBODY_USER_NAME) || !valid_user_group_name(username, 0))
                 return PAM_USER_UNKNOWN;
 
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
+        const char *json = NULL;
+        bool fresh_data;
+
         /* We cache the user record in the PAM context. We use a field name that includes the username, since
          * clients might change the user name associated with a PAM context underneath us. Notably, 'sudo'
          * creates a single PAM context and first authenticates it with the user set to the originating user,
          * then updates the user for the destination user and issues the session stack with the same PAM
          * context. We thus must be prepared that the user record changes between calls and we keep any
          * caching separate. */
-        homed_field = strjoin("systemd-home-user-record-", username);
+        _cleanup_free_ char *homed_field = strjoin("systemd-home-user-record-", username);
         if (!homed_field)
                 return pam_log_oom(handle);
 
@@ -144,9 +160,10 @@ static int acquire_user_record(
                  * negative cache indicator) */
                 if (json == POINTER_MAX)
                         return PAM_USER_UNKNOWN;
+
+                fresh_data = false;
         } else {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                _cleanup_free_ char *generic_field = NULL, *json_copy = NULL;
                 _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
 
                 r = pam_acquire_bus_connection(handle, "pam-systemd-home", debug, &bus, bus_data);
@@ -178,9 +195,42 @@ static int acquire_user_record(
                 if (r < 0)
                         return pam_bus_log_parse_error(handle, r);
 
+                fresh_data = true;
+        }
+
+        r = sd_json_parse(json, /* flags= */ 0, &v, NULL, NULL);
+        if (r < 0)
+                return pam_syslog_errno(handle, LOG_ERR, r, "Failed to parse JSON user record: %m");
+
+        ur = user_record_new();
+        if (!ur)
+                return pam_log_oom(handle);
+
+        r = user_record_load(ur, v, USER_RECORD_LOAD_REFUSE_SECRET|USER_RECORD_PERMISSIVE);
+        if (r < 0)
+                return pam_syslog_errno(handle, LOG_ERR, r, "Failed to load user record: %m");
+
+        /* Safety check if cached record actually matches what we are looking for */
+        if (!user_record_matches_user_name(ur, username))
+                return pam_syslog_pam_error(handle, LOG_ERR, PAM_SERVICE_ERR,
+                                            "Acquired user record does not match user name.");
+
+        /* Update the 'username' pointer to point to our own record now. The pam_set_item() call below is
+         * going to invalidate the old version after all */
+        username = ur->user_name;
+
+        /* We passed all checks. Let's now make sure the rest of the PAM stack continues with the primary,
+         * normalized name of the user record (i.e. not an alias or so). */
+        r = pam_set_item(handle, PAM_USER, ur->user_name);
+        if (r != PAM_SUCCESS)
+                return pam_syslog_pam_error(handle, LOG_ERR, r,
+                                            "Failed to update username PAM item to '%s': @PAMERR@", ur->user_name);
+
+        /* Everything seems to be good, let's cache this data now */
+        if (fresh_data) {
                 /* First copy: for the homed-specific data field, i.e. where we know the user record is from
                  * homed */
-                json_copy = strdup(json);
+                _cleanup_free_ char *json_copy = strdup(json);
                 if (!json_copy)
                         return pam_log_oom(handle);
 
@@ -196,34 +246,25 @@ static int acquire_user_record(
                 if (!json_copy)
                         return pam_log_oom(handle);
 
-                generic_field = strjoin("systemd-user-record-", username);
+                _cleanup_free_ char *generic_field = strjoin("systemd-user-record-", username);
                 if (!generic_field)
                         return pam_log_oom(handle);
 
                 r = pam_set_data(handle, generic_field, json_copy, pam_cleanup_free);
                 if (r != PAM_SUCCESS)
                         return pam_syslog_pam_error(handle, LOG_ERR, r,
-                                                    "Failed to set PAM user record data '%s': @PAMERR@", homed_field);
+                                                    "Failed to set PAM user record data '%s': @PAMERR@", generic_field);
 
                 TAKE_PTR(json_copy);
         }
 
-        r = sd_json_parse(json, SD_JSON_PARSE_SENSITIVE, &v, NULL, NULL);
-        if (r < 0)
-                return pam_syslog_errno(handle, LOG_ERR, r, "Failed to parse JSON user record: %m");
-
-        ur = user_record_new();
-        if (!ur)
-                return pam_log_oom(handle);
-
-        r = user_record_load(ur, v, USER_RECORD_LOAD_REFUSE_SECRET|USER_RECORD_PERMISSIVE);
-        if (r < 0)
-                return pam_syslog_errno(handle, LOG_ERR, r, "Failed to load user record: %m");
-
-        /* Safety check if cached record actually matches what we are looking for */
-        if (!streq_ptr(username, ur->user_name))
-                return pam_syslog_pam_error(handle, LOG_ERR, PAM_SERVICE_ERR,
-                                            "Acquired user record does not match user name.");
+        /* Let's store the area we parsed out of the name in an env var, so that pam_systemd later can honour it. */
+        if (area) {
+                r = pam_misc_setenv(handle, "XDG_AREA", area, /* readonly= */ 0);
+                if (r != PAM_SUCCESS)
+                        return pam_syslog_pam_error(handle, LOG_ERR, r,
+                                                    "Failed to set environment variable $XDG_AREA to '%s': @PAMERR@", area);
+        }
 
         if (ret_record)
                 *ret_record = TAKE_PTR(ur);
@@ -512,30 +553,29 @@ static int acquire_home(
 
         /* This acquires a reference to a home directory in the following ways:
          *
-         * 1. If please_authenticate is false, it tries to call RefHome() first — which
-         *    will get us a reference to the home without authentication (which will work for homes that are
-         *    not encrypted, or that already are activated). If this works, we are done. Yay!
+         * 1. If ACQUIRE_MUST_AUTHENTICATE is not set, it tries to call RefHome() first — which will get us a
+         *    reference to the home without authentication (which will work for homes that are not encrypted,
+         *    or that already are activated). If this works, we are done. Yay!
          *
          * 2. Otherwise, we'll call AcquireHome() — which will try to activate the home getting us a
          *    reference. If this works, we are done. Yay!
          *
-         * 3. if ref_anyway, we'll call RefHomeUnrestricted() — which will give us a reference in any case
-         *    (even if the activation failed!).
+         * 3. if ACQUIRE_REF_ANYWAY is set, we'll call RefHomeUnrestricted() — which will give us a reference
+         *    in any case (even if the activation failed!).
          *
-         * The idea is that please_authenticate is set to false for the PAM session hooks (since for those
-         * authentication doesn't matter), and true for the PAM authentication hooks (since for those
-         * authentication is essential). And ref_anyway should be set if we are pretty sure that we can later
-         * activate the home directory via our fallback shell logic, and hence are OK if we can't activate
-         * things here. Usecase for that are SSH logins where SSH does the authentication and thus only the
-         * session hooks are called. But from the session hooks SSH doesn't allow asking questions, hence we
-         * simply allow the login attempt to continue but then invoke our fallback shell that will prompt the
-         * user for the missing unlock credentials, and then chainload the real shell.
+         * The idea is that ACQUIRE_MUST_AUTHENTICATE is off for the PAM session hooks (since for those
+         * authentication doesn't matter), and on for the PAM authentication hooks (since for those
+         * authentication is essential). And ACQUIRE_REF_ANYWAY should be set if we are pretty sure that we
+         * can later activate the home directory via our fallback shell logic, and hence are OK if we can't
+         * activate things here. Usecase for that are SSH logins where SSH does the authentication and thus
+         * only the session hooks are called. But from the session hooks SSH doesn't allow asking questions,
+         * hence we simply allow the login attempt to continue but then invoke our fallback shell that will
+         * prompt the user for the missing unlock credentials, and then chainload the real shell.
          */
 
         r = pam_get_user(handle, &username, NULL);
         if (r != PAM_SUCCESS)
                 return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get user name: @PAMERR@");
-
         if (isempty(username))
                 return pam_syslog_pam_error(handle, LOG_ERR, PAM_SERVICE_ERR, "User name not set.");
 
@@ -879,7 +919,6 @@ _public_ PAM_EXTERN int pam_sm_close_session(
         r = pam_get_user(handle, &username, NULL);
         if (r != PAM_SUCCESS)
                 return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get user name: @PAMERR@");
-
         if (isempty(username))
                 return pam_syslog_pam_error(handle, LOG_ERR, PAM_SERVICE_ERR, "User name not set.");
 
@@ -949,7 +988,7 @@ _public_ PAM_EXTERN int pam_sm_acct_mgmt(
         if (r != PAM_SUCCESS)
                 return r;
 
-        r = acquire_user_record(handle, NULL, debug, &ur, NULL);
+        r = acquire_user_record(handle, /* username= */ NULL, debug, &ur, /* bus_data= */ NULL);
         if (r != PAM_SUCCESS)
                 return r;
 
@@ -1057,7 +1096,7 @@ _public_ PAM_EXTERN int pam_sm_chauthtok(
 
         pam_debug_syslog(handle, debug, "pam-systemd-homed account management");
 
-        r = acquire_user_record(handle, NULL, debug, &ur, NULL);
+        r = acquire_user_record(handle, /* username= */ NULL, debug, &ur, /* bus_data= */ NULL);
         if (r != PAM_SUCCESS)
                 return r;
 

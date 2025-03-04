@@ -8,30 +8,10 @@ latest version of mkosi. See
 for more specific details. Make sure `mkosi` is available in `$PATH` when
 reconfiguring meson to make sure it is picked up properly.
 
-We also need to make sure the required meson options are enabled:
-
-```shell
-$ mkosi -f sandbox meson setup --reconfigure build -Dremote=enabled
-```
-
-To make sure `mkosi` doesn't try to build systemd from source during the image build
-process, you can add the following to `mkosi.local.conf`:
-
-```
-[Build]
-Environment=NO_BUILD=1
-```
-
-You might also want to use the `PackageDirectories=` or `Repositories=` option to provide
-mkosi with a directory or repository containing the systemd packages that should be installed
-instead. If the repository containing the systemd packages is not a builtin repository known
-by mkosi, you can use the `SandboxTrees=` option to write an extra repository definition
-to /etc which is used when building the image instead.
-
 Next, we can build the integration test image with meson:
 
 ```shell
-$ mkosi -f sandbox meson compile -C build mkosi
+$ mkosi -f sandbox -- meson compile -C build mkosi
 ```
 
 By default, the `mkosi` meson target which builds the integration test image depends on
@@ -52,24 +32,24 @@ directory (`OutputDirectory=`) to point to the other directory using `mkosi.loca
 After the image has been built, the integration tests can be run with:
 
 ```shell
-$ env SYSTEMD_INTEGRATION_TESTS=1 mkosi -f sandbox meson test -C build --no-rebuild --suite integration-tests --num-processes "$(($(nproc) / 4))"
+$ env SYSTEMD_INTEGRATION_TESTS=1 mkosi -f sandbox -- meson test -C build --no-rebuild --suite integration-tests --num-processes "$(($(nproc) / 4))"
 ```
 
 As usual, specific tests can be run in meson by appending the name of the test
 which is usually the name of the directory e.g.
 
 ```shell
-$ env SYSTEMD_INTEGRATION_TESTS=1 mkosi -f sandbox meson test -C build --no-rebuild -v TEST-01-BASIC
+$ env SYSTEMD_INTEGRATION_TESTS=1 mkosi -f sandbox -- meson test -C build --no-rebuild -v TEST-01-BASIC
 ```
 
-See `mkosi -f sandbox meson introspect build --tests` for a list of tests.
+See `mkosi -f sandbox -- meson introspect build --tests` for a list of tests.
 
 To interactively debug a failing integration test, the `--interactive` option
 (`-i`) for `meson test` can be used. Note that this requires meson v1.5.0 or
 newer:
 
 ```shell
-$ env SYSTEMD_INTEGRATION_TESTS=1 mkosi -f sandbox meson test -C build --no-rebuild -i TEST-01-BASIC
+$ env SYSTEMD_INTEGRATION_TESTS=1 mkosi -f sandbox -- meson test -C build --no-rebuild -i TEST-01-BASIC
 ```
 
 Due to limitations in meson, the integration tests do not yet depend on the
@@ -78,7 +58,7 @@ running the integration tests. To rebuild the image and rerun a test, the
 following command can be used:
 
 ```shell
-$ mkosi -f sandbox meson compile -C build mkosi && env SYSTEMD_INTEGRATION_TESTS=1 mkosi -f sandbox meson test -C build --no-rebuild -v TEST-01-BASIC
+$ mkosi -f sandbox -- meson compile -C build mkosi && env SYSTEMD_INTEGRATION_TESTS=1 mkosi -f sandbox -- meson test -C build --no-rebuild -v TEST-01-BASIC
 ```
 
 The integration tests use the same mkosi configuration that's used when you run
@@ -92,7 +72,7 @@ To iterate on an integration test, let's first get a shell in the integration te
 the following:
 
 ```shell
-$ mkosi -f sandbox meson compile -C build mkosi && env SYSTEMD_INTEGRATION_TESTS=1 TEST_SHELL=1 mkosi -f sandbox meson test -C build --no-rebuild -i TEST-01-BASIC
+$ mkosi -f sandbox -- meson compile -C build mkosi && env SYSTEMD_INTEGRATION_TESTS=1 TEST_SHELL=1 mkosi -f sandbox -- meson test -C build --no-rebuild -i TEST-01-BASIC
 ```
 
 This will get us a shell in the integration test environment after booting the machine without running the
@@ -104,7 +84,7 @@ coverage for a new feature. Once you've finished writing the logic and want to r
 the following on the host:
 
 ```shell
-$ mkosi -t none
+$ mkosi -R
 ```
 
 This will rebuild the distribution packages without rebuilding the entire integration test image. Next, run
@@ -118,7 +98,7 @@ $ systemctl start TEST-01-BASIC
 A soft-reboot is required to make sure all the leftover state from the previous run of the test is cleaned
 up by soft-rebooting into the btrfs snapshot we made before running the test. After the soft-reboot,
 re-running the test will first install the new packages we just built, make a new snapshot and finally run
-the test again. You can keep running the loop of `mkosi -t none`, `systemctl soft-reboot` and
+the test again. You can keep running the loop of `mkosi -R`, `systemctl soft-reboot` and
 `systemctl start ...` until the changes to the integration test are working.
 
 If you're debugging a failing integration test (running `meson test --interactive` without `TEST_SHELL`),
@@ -151,6 +131,26 @@ that make use of `run_testcases`.
 
 `TEST_SKIP_TESTCASE=testcase`: takes a space separated list of testcases to skip.
 
+`TEST_JOURNAL_USE_TMP=1`: Write test journal to `/tmp` while the test is in
+progress and only move the journal to its final location in the build directory
+(`$BUILD_DIR/test/journal`) when the test is finished.
+
+## Running the integration tests without building systemd from source
+
+If you want to run the integration tests against prebuilt systemd packages,
+first add the following to `mkosi.local.conf` to stop mkosi from building
+systemd packages from source:
+
+```conf
+[Build]
+Environment=NO_BUILD=1
+```
+
+You'll then probably want to use the `PackageDirectories=` or `SandboxTrees=`
+options to provide mkosi with a directory containing the systemd packages or a
+repository file that points to a repository with the systemd packages that
+should be installed.
+
 ### SELinux AVCs
 
 To have `TEST-06-SELINUX` check for SELinux denials, write the following to
@@ -166,6 +166,10 @@ KernelCommandLineExtra=systemd.setenv=TEST_SELINUX_CHECK_AVCS=1
 New PRs submitted to the project are run through regression tests, and one set
 of those is the 'autopkgtest' runs for several different architectures, called
 'Ubuntu CI'.  Part of that testing is to run all these tests.
+
+Known issues affecting the infrastructure/testbed can be seen on this Ubuntu page:
+
+https://discourse.ubuntu.com/t/autopkgtest-service/34490
 
 In case a test fails, the full set of artifacts, including the journal of the
 failed run, can be downloaded from the artifacts.tar.gz archive which will be

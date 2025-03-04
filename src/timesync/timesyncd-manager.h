@@ -112,7 +112,6 @@ struct Manager {
         /* save time event */
         sd_event_source *event_save_time;
         usec_t save_time_interval_usec;
-        bool save_on_exit;
 
         /* Used to coalesce bus PropertiesChanged events */
         sd_event_source *deferred_ntp_server_event_source;

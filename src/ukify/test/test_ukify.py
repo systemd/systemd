@@ -59,6 +59,8 @@ except ValueError:
     slow_tests = True
 
 arg_tools = ['--tools', build_root] if build_root else []
+if build_root and pathlib.Path(f"{build_root}/linux{ukify.guess_efi_arch()}.efi.stub").exists():
+    arg_tools += ['--stub', f"{build_root}/linux{ukify.guess_efi_arch()}.efi.stub"]
 
 def systemd_measure():
     opts = ukify.create_parser().parse_args(arg_tools)
@@ -242,6 +244,8 @@ def test_parse_args_many():
          '--output=OUTPUT',
          '--measure',
          '--no-measure',
+         '--policy-digest',
+         '--no-policy-digest',
          ])
     assert opts.linux == pathlib.Path('/ARG1')
     assert opts.initrd == [pathlib.Path('/ARG2'), pathlib.Path('/ARG3 WITH SPACE')]
@@ -262,6 +266,7 @@ def test_parse_args_many():
     assert opts.tools == [pathlib.Path('TOOLZ/')]
     assert opts.output == pathlib.Path('OUTPUT')
     assert opts.measure is False
+    assert opts.policy_digest is False
 
 def test_parse_sections():
     opts = ukify.parse_args(
@@ -406,6 +411,8 @@ def test_help_error(capsys):
 @pytest.fixture(scope='session')
 def kernel_initrd():
     items = sorted(glob.glob('/lib/modules/*/vmlinuz'))
+    if not items:
+        items = sorted(glob.glob('/boot/vmlinuz*'))
     if not items:
         return None
 
@@ -654,7 +661,7 @@ def test_inspect(kernel_initrd, tmp_path, capsys):
         f'--os-release={osrel_arg}',
         f'--uname={uname_arg}',
         f'--output={output}',
-    ]
+    ] + arg_tools
     if slow_tests:
         args += [
             f'--secureboot-certificate={cert.name}',
@@ -883,6 +890,71 @@ def test_key_cert_generation(tmp_path):
     ], text = True)
     assert 'Certificate' in out
     assert re.search(r'Issuer: CN\s?=\s?SecureBoot signing key on host', out)
+
+@pytest.mark.skipif(not slow_tests, reason='slow')
+def test_join_pcrsig(capsys, kernel_initrd, tmp_path):
+    if kernel_initrd is None:
+        pytest.skip('linux+initrd not found')
+    try:
+        systemd_measure()
+    except ValueError:
+        pytest.skip('systemd-measure not found')
+
+    ourdir = pathlib.Path(__file__).parent
+    pub = unbase64(ourdir / 'example.tpm2-pcr-public.pem.base64')
+
+    output = tmp_path / 'basic.efi'
+    args = [
+        'build',
+        *kernel_initrd,
+        f'--output={output}',
+        f'--pcr-public-key={pub.name}',
+        '--json=short',
+        '--policy-digest',
+    ] + arg_tools
+    opts = ukify.parse_args(args)
+    try:
+        ukify.check_inputs(opts)
+    except OSError as e:
+        pytest.skip(str(e))
+
+    ukify.make_uki(opts)
+    pcrs = json.loads(capsys.readouterr().out)
+    for bank, sigs in pcrs.items():
+        for sig in sigs:
+            sig['sig'] = 'a' * int(bank[3:])
+
+    opts = ukify.parse_args(['inspect', str(output)])
+    ukify.inspect_sections(opts)
+    text = capsys.readouterr().out
+    assert re.search(r'\.pcrpkey', text, re.MULTILINE)
+    assert re.search(r'\.pcrsig', text, re.MULTILINE)
+    assert not re.search(r'"sig":', text, re.MULTILINE)
+
+    output_sig = tmp_path / 'pcrsig.efi'
+    args = [
+        'build',
+        f'--output={output_sig}',
+        f'--join-pcrsig={output}',
+        f'--pcrsig={json.dumps(pcrs)}',
+        '--json=short',
+    ] + arg_tools
+    opts = ukify.parse_args(args)
+    try:
+        ukify.check_inputs(opts)
+    except OSError as e:
+        pytest.skip(str(e))
+
+    ukify.make_uki(opts)
+
+    opts = ukify.parse_args(['inspect', str(output_sig)])
+    ukify.inspect_sections(opts)
+    text = capsys.readouterr().out
+    assert re.search(r'\.pcrpkey', text, re.MULTILINE)
+    assert re.search(r'\.pcrsig', text, re.MULTILINE)
+    assert re.search(r'"sig":', text, re.MULTILINE)
+
+    shutil.rmtree(tmp_path)
 
 if __name__ == '__main__':
     sys.exit(pytest.main(sys.argv))

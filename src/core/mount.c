@@ -8,11 +8,13 @@
 #include "sd-messages.h"
 
 #include "alloc-util.h"
+#include "chase.h"
 #include "dbus-mount.h"
 #include "dbus-unit.h"
 #include "device.h"
 #include "exec-credential.h"
 #include "exit-status.h"
+#include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
 #include "fstab-util.h"
@@ -45,9 +47,9 @@ static const UnitActiveState state_translation_table[_MOUNT_STATE_MAX] = {
         [MOUNT_MOUNTING_DONE]      = UNIT_ACTIVATING,
         [MOUNT_MOUNTED]            = UNIT_ACTIVE,
         [MOUNT_REMOUNTING]         = UNIT_RELOADING,
-        [MOUNT_UNMOUNTING]         = UNIT_DEACTIVATING,
         [MOUNT_REMOUNTING_SIGTERM] = UNIT_RELOADING,
         [MOUNT_REMOUNTING_SIGKILL] = UNIT_RELOADING,
+        [MOUNT_UNMOUNTING]         = UNIT_DEACTIVATING,
         [MOUNT_UNMOUNTING_SIGTERM] = UNIT_DEACTIVATING,
         [MOUNT_UNMOUNTING_SIGKILL] = UNIT_DEACTIVATING,
         [MOUNT_FAILED]             = UNIT_FAILED,
@@ -1054,6 +1056,8 @@ static void mount_enter_unmounting(Mount *m) {
                     MOUNT_UNMOUNTING_SIGKILL))
                 m->n_retry_umount = 0;
 
+        mount_unwatch_control_pid(m);
+
         m->control_command_id = MOUNT_EXEC_UNMOUNT;
         m->control_command = m->exec_command + MOUNT_EXEC_UNMOUNT;
 
@@ -1063,8 +1067,6 @@ static void mount_enter_unmounting(Mount *m) {
                 goto fail;
         }
 
-        mount_unwatch_control_pid(m);
-
         r = mount_spawn(m, m->control_command, mount_exec_flags(MOUNT_UNMOUNTING), &m->control_pid);
         if (r < 0) {
                 log_unit_warning_errno(UNIT(m), r, "Failed to spawn 'umount' task: %m");
@@ -1072,14 +1074,61 @@ static void mount_enter_unmounting(Mount *m) {
         }
 
         mount_set_state(m, MOUNT_UNMOUNTING);
-
         return;
 
 fail:
         mount_enter_dead_or_mounted(m, MOUNT_FAILURE_RESOURCES, /* flush_result = */ false);
 }
 
-static int mount_set_mount_command(Mount *m, ExecCommand *c, const MountParameters *p) {
+static int mount_apply_graceful_options(Mount *m, const MountParameters *p, char **opts) {
+        _cleanup_strv_free_ char **graceful = NULL;
+        _cleanup_free_ char *filtered = NULL;
+        int r;
+
+        assert(m);
+        assert(p);
+        assert(opts);
+
+        r = fstab_filter_options(*opts, "x-systemd.graceful-option\0", NULL, NULL, &graceful, &filtered);
+        if (r <= 0)
+                return r;
+
+        if (!p->fstype) {
+                log_unit_warning(UNIT(m), "x-systemd.graceful-option= used but file system type not known, suppressing all graceful options.");
+                return 0;
+        }
+
+        STRV_FOREACH(o, graceful) {
+                _cleanup_free_ char *k = NULL, *v = NULL;
+
+                r = split_pair(*o, "=", &k, &v);
+                if (r < 0 && r != -EINVAL) /* EINVAL → not a key/value pair */
+                        return r;
+
+                r = mount_option_supported(p->fstype, k ?: *o, v);
+                if (r == -EAGAIN) {
+                        log_unit_warning_errno(UNIT(m), r,
+                                               "x-systemd.graceful-option= used but not supported by file system %s, suppressing all.",
+                                               p->fstype);
+                        break;
+                }
+                if (r < 0)
+                        log_unit_warning_errno(UNIT(m), r,
+                                               "x-systemd.graceful-option=%s specified, but cannot determine availability, suppressing: %m", *o);
+                else if (r == 0)
+                        log_unit_info(UNIT(m), "x-systemd.graceful-option=%s specified, but option is not available, suppressing.", *o);
+                else {
+                        log_unit_debug(UNIT(m), "x-systemd.graceful-option=%s specified and supported, appending to mount option string.", *o);
+
+                        if (!strextend_with_separator(&filtered, ",", *o))
+                                return -ENOMEM;
+                }
+        }
+
+        return free_and_replace(*opts, filtered);
+}
+
+static int mount_set_mount_command(Mount *m, ExecCommand *c, const MountParameters *p, bool remount) {
         int r;
 
         assert(m);
@@ -1109,9 +1158,22 @@ static int mount_set_mount_command(Mount *m, ExecCommand *c, const MountParamete
         }
 
         _cleanup_free_ char *opts = NULL;
-        r = fstab_filter_options(p->options, "nofail\0" "noauto\0" "auto\0", NULL, NULL, NULL, &opts);
+        r = fstab_filter_options(p->options, "nofail\0" "fail\0" "noauto\0" "auto\0", NULL, NULL, NULL, &opts);
         if (r < 0)
                 return r;
+
+        r = mount_apply_graceful_options(m, p, &opts);
+        if (r < 0)
+                return r;
+
+        if (remount) {
+                if (isempty(opts)) {
+                        opts = strdup("remount");
+                        if (!opts)
+                                return -ENOMEM;
+                } else if (!strprepend(&opts, "remount,"))
+                        return -ENOMEM;
+        }
 
         if (!isempty(opts)) {
                 r = exec_command_append(c, "-o", opts, NULL);
@@ -1123,18 +1185,33 @@ static int mount_set_mount_command(Mount *m, ExecCommand *c, const MountParamete
 }
 
 static void mount_enter_mounting(Mount *m) {
-        MountParameters *p;
-        bool source_is_dir = true;
+        _cleanup_close_ int fd = -EBADF;
+        _cleanup_free_ char *fn = NULL;
         int r;
 
         assert(m);
 
-        r = unit_fail_if_noncanonical(UNIT(m), m->where);
-        if (r < 0)
+        /* Validate that the path we are overmounting does not contain any symlinks, because if it does, we
+         * couldn't support that reasonably: the mounts in /proc/self/mountinfo would not be recognizable to
+         * us anymore. */
+        fd = chase_and_open_parent(m->where, /* root= */ NULL, CHASE_PROHIBIT_SYMLINKS|CHASE_MKDIR_0755, &fn);
+        if (fd == -EREMCHG) {
+                r = unit_log_noncanonical_mount_path(UNIT(m), m->where);
                 goto fail;
+        }
+        if (fd < 0) {
+                log_unit_error_errno(UNIT(m), fd, "Failed to resolve parent of mount point '%s': %m", m->where);
+                goto fail;
+        }
 
-        p = get_mount_parameters_fragment(m);
-        if (p && mount_is_bind(p)) {
+        MountParameters *p = get_mount_parameters_fragment(m);
+        if (!p) {
+                r = log_unit_warning_errno(UNIT(m), SYNTHETIC_ERRNO(ENOENT), "No mount parameters to operate on.");
+                goto fail;
+        }
+
+        bool source_is_dir = true;
+        if (mount_is_bind(p)) {
                 r = is_dir(p->what, /* follow = */ true);
                 if (r < 0 && r != -ENOENT)
                         log_unit_info_errno(UNIT(m), r, "Failed to determine type of bind mount source '%s', ignoring: %m", p->what);
@@ -1142,15 +1219,16 @@ static void mount_enter_mounting(Mount *m) {
                         source_is_dir = false;
         }
 
-        if (source_is_dir)
-                r = mkdir_p_label(m->where, m->directory_mode);
-        else
-                r = touch_file(m->where, /* parents = */ true, USEC_INFINITY, UID_INVALID, GID_INVALID, MODE_INVALID);
+        r = make_mount_point_inode_from_mode(
+                        fd,
+                        fn,
+                        source_is_dir ? S_IFDIR : S_IFREG,
+                        m->directory_mode);
         if (r < 0 && r != -EEXIST)
                 log_unit_warning_errno(UNIT(m), r, "Failed to create mount point '%s', ignoring: %m", m->where);
 
         /* If we are asked to create an OverlayFS, create the upper/work directories if they are missing */
-        if (p && streq_ptr(p->fstype, "overlay")) {
+        if (streq_ptr(p->fstype, "overlay")) {
                 _cleanup_strv_free_ char **dirs = NULL;
 
                 r = fstab_filter_options(
@@ -1179,13 +1257,9 @@ static void mount_enter_mounting(Mount *m) {
 
         if (source_is_dir)
                 unit_warn_if_dir_nonempty(UNIT(m), m->where);
-        unit_warn_leftover_processes(UNIT(m), /* start = */ true);
-
-        m->control_command_id = MOUNT_EXEC_MOUNT;
-        m->control_command = m->exec_command + MOUNT_EXEC_MOUNT;
 
         /* Create the source directory for bind-mounts if needed */
-        if (p && mount_is_bind(p)) {
+        if (mount_is_bind(p)) {
                 r = mkdir_p_label(p->what, m->directory_mode);
                 /* mkdir_p_label() can return -EEXIST if the target path exists and is not a directory - which is
                  * totally OK, in case the user wants us to overmount a non-directory inode. Also -EROFS can be
@@ -1197,18 +1271,17 @@ static void mount_enter_mounting(Mount *m) {
                                             r, "Failed to make bind mount source '%s', ignoring: %m", p->what);
         }
 
-        if (p) {
-                r = mount_set_mount_command(m, m->control_command, p);
-                if (r < 0) {
-                        log_unit_warning_errno(UNIT(m), r, "Failed to prepare mount command line: %m");
-                        goto fail;
-                }
-        } else {
-                r = log_unit_warning_errno(UNIT(m), SYNTHETIC_ERRNO(ENOENT), "No mount parameters to operate on.");
+        mount_unwatch_control_pid(m);
+        unit_warn_leftover_processes(UNIT(m), /* start = */ true);
+
+        m->control_command_id = MOUNT_EXEC_MOUNT;
+        m->control_command = m->exec_command + MOUNT_EXEC_MOUNT;
+
+        r = mount_set_mount_command(m, m->control_command, p, /* remount = */ false);
+        if (r < 0) {
+                log_unit_error_errno(UNIT(m), r, "Failed to prepare mount command line: %m");
                 goto fail;
         }
-
-        mount_unwatch_control_pid(m);
 
         r = mount_spawn(m, m->control_command, mount_exec_flags(MOUNT_MOUNTING), &m->control_pid);
         if (r < 0) {
@@ -1239,41 +1312,23 @@ static void mount_enter_remounting(Mount *m) {
 
         assert(m);
 
-        /* Reset reload result when we are about to start a new remount operation */
-        m->reload_result = MOUNT_SUCCESS;
-
-        m->control_command_id = MOUNT_EXEC_REMOUNT;
-        m->control_command = m->exec_command + MOUNT_EXEC_REMOUNT;
-
         p = get_mount_parameters_fragment(m);
-        if (p) {
-                const char *o;
-
-                if (p->options)
-                        o = strjoina("remount,", p->options);
-                else
-                        o = "remount";
-
-                r = exec_command_set(m->control_command, MOUNT_PATH,
-                                     p->what, m->where,
-                                     "-o", o, NULL);
-                if (r >= 0 && m->sloppy_options)
-                        r = exec_command_append(m->control_command, "-s", NULL);
-                if (r >= 0 && m->read_write_only)
-                        r = exec_command_append(m->control_command, "-w", NULL);
-                if (r >= 0 && p->fstype)
-                        r = exec_command_append(m->control_command, "-t", p->fstype, NULL);
-                if (r < 0) {
-                        log_unit_warning_errno(UNIT(m), r, "Failed to prepare remount command line: %m");
-                        goto fail;
-                }
-
-        } else {
+        if (!p) {
                 r = log_unit_warning_errno(UNIT(m), SYNTHETIC_ERRNO(ENOENT), "No mount parameters to operate on.");
                 goto fail;
         }
 
         mount_unwatch_control_pid(m);
+        m->reload_result = MOUNT_SUCCESS;
+
+        m->control_command_id = MOUNT_EXEC_REMOUNT;
+        m->control_command = m->exec_command + MOUNT_EXEC_REMOUNT;
+
+        r = mount_set_mount_command(m, m->control_command, p, /* remount = */ true);
+        if (r < 0) {
+                log_unit_error_errno(UNIT(m), r, "Failed to prepare remount command line: %m");
+                goto fail;
+        }
 
         r = mount_spawn(m, m->control_command, mount_exec_flags(MOUNT_REMOUNTING), &m->control_pid);
         if (r < 0) {
@@ -1381,6 +1436,12 @@ static int mount_reload(Unit *u) {
         mount_enter_remounting(m);
 
         return 1;
+}
+
+static bool mount_can_reload(Unit *u) {
+        Mount *m = ASSERT_PTR(MOUNT(u));
+
+        return get_mount_parameters_fragment(m);
 }
 
 static int mount_serialize(Unit *u, FILE *f, FDSet *fds) {
@@ -1883,7 +1944,7 @@ static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
 
         assert(m);
 
-        r = libmount_parse(NULL, NULL, &table, &iter);
+        r = libmount_parse_with_utab(&table, &iter);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse /proc/self/mountinfo: %m");
 
@@ -2320,6 +2381,9 @@ static int mount_can_start(Unit *u) {
                 return r;
         }
 
+        if (!get_mount_parameters_fragment(m))
+                return -ENOENT;
+
         return 1;
 }
 
@@ -2434,7 +2498,9 @@ const UnitVTable mount_vtable = {
 
         .start = mount_start,
         .stop = mount_stop,
+
         .reload = mount_reload,
+        .can_reload = mount_can_reload,
 
         .clean = mount_clean,
         .can_clean = mount_can_clean,

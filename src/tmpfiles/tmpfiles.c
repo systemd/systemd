@@ -5,12 +5,10 @@
 #include <fnmatch.h>
 #include <getopt.h>
 #include <limits.h>
-#include <linux/fs.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdlib.h>
 #include <sys/file.h>
-#include <sys/xattr.h>
 #include <sysexits.h>
 #include <time.h>
 #include <unistd.h>
@@ -46,6 +44,7 @@
 #include "log.h"
 #include "macro.h"
 #include "main-func.h"
+#include "missing_fs.h"
 #include "missing_syscall.h"
 #include "mkdir-label.h"
 #include "mount-util.h"
@@ -72,7 +71,9 @@
 #include "terminal-util.h"
 #include "umask-util.h"
 #include "user-util.h"
+#include "verbs.h"
 #include "virt.h"
+#include "xattr-util.h"
 
 /* This reads all files listed in /etc/tmpfiles.d/?*.conf and creates
  * them in the file system. This is intended to be used to create
@@ -564,7 +565,7 @@ static int opendir_and_stat(
                 bool *ret_mountpoint) {
 
         _cleanup_closedir_ DIR *d = NULL;
-        STRUCT_NEW_STATX_DEFINE(st1);
+        struct statx sx1;
         int r;
 
         assert(path);
@@ -587,28 +588,25 @@ static int opendir_and_stat(
 
                 *ret = NULL;
                 *ret_sx = (struct statx) {};
-                *ret_mountpoint = NULL;
+                *ret_mountpoint = false;
                 return 0;
         }
 
-        r = statx_fallback(dirfd(d), "", AT_EMPTY_PATH, STATX_MODE|STATX_INO|STATX_ATIME|STATX_MTIME, &st1.sx);
-        if (r < 0)
-                return log_error_errno(r, "statx(%s) failed: %m", path);
+        if (statx(dirfd(d), "", AT_EMPTY_PATH, STATX_MODE|STATX_INO|STATX_ATIME|STATX_MTIME, &sx1) < 0)
+                return log_error_errno(errno, "statx(%s) failed: %m", path);
 
-        if (FLAGS_SET(st1.sx.stx_attributes_mask, STATX_ATTR_MOUNT_ROOT))
-                *ret_mountpoint = FLAGS_SET(st1.sx.stx_attributes, STATX_ATTR_MOUNT_ROOT);
+        if (FLAGS_SET(sx1.stx_attributes_mask, STATX_ATTR_MOUNT_ROOT))
+                *ret_mountpoint = FLAGS_SET(sx1.stx_attributes, STATX_ATTR_MOUNT_ROOT);
         else {
-                STRUCT_NEW_STATX_DEFINE(st2);
+                struct statx sx2;
+                if (statx(dirfd(d), "..", 0, STATX_INO, &sx2) < 0)
+                        return log_error_errno(errno, "statx(%s/..) failed: %m", path);
 
-                r = statx_fallback(dirfd(d), "..", 0, STATX_INO, &st2.sx);
-                if (r < 0)
-                        return log_error_errno(r, "statx(%s/..) failed: %m", path);
-
-                *ret_mountpoint = !statx_mount_same(&st1.nsx, &st2.nsx);
+                *ret_mountpoint = !statx_mount_same(&sx1, &sx2);
         }
 
         *ret = TAKE_PTR(d);
-        *ret_sx = st1.sx;
+        *ret_sx = sx1;
         return 1;
 }
 
@@ -707,18 +705,16 @@ static int dir_cleanup(
                  * systems such as overlayfs better where each file is originating from a different
                  * st_dev. */
 
-                STRUCT_STATX_DEFINE(sx);
+                struct statx sx;
+                if (statx(dirfd(d), de->d_name,
+                          AT_SYMLINK_NOFOLLOW|AT_NO_AUTOMOUNT,
+                          STATX_TYPE|STATX_MODE|STATX_UID|STATX_ATIME|STATX_MTIME|STATX_CTIME|STATX_BTIME,
+                          &sx) < 0) {
+                        if (errno == ENOENT)
+                                continue;
 
-                r = statx_fallback(
-                                dirfd(d), de->d_name,
-                                AT_SYMLINK_NOFOLLOW|AT_NO_AUTOMOUNT,
-                                STATX_TYPE|STATX_MODE|STATX_UID|STATX_ATIME|STATX_MTIME|STATX_CTIME|STATX_BTIME,
-                                &sx);
-                if (r == -ENOENT)
-                        continue;
-                if (r < 0) {
                         /* FUSE, NFS mounts, SELinux might return EACCES */
-                        log_full_errno(r == -EACCES ? LOG_DEBUG : LOG_ERR, r,
+                        log_full_errno(errno == EACCES ? LOG_DEBUG : LOG_ERR, errno,
                                        "statx(%s/%s) failed: %m", p, de->d_name);
                         continue;
                 }
@@ -744,7 +740,7 @@ static int dir_cleanup(
                         if (S_ISDIR(sx.stx_mode)) {
                                 int q;
 
-                                q = fd_is_mount_point(dirfd(d), de->d_name, 0);
+                                q = is_mount_point_at(dirfd(d), de->d_name, 0);
                                 if (q < 0)
                                         log_debug_errno(q, "Failed to determine whether \"%s/%s\" is a mount point, ignoring: %m", p, de->d_name);
                                 else if (q > 0) {
@@ -1189,6 +1185,8 @@ static int fd_set_xattrs(
                 const struct stat *st,
                 CreationMode creation) {
 
+        int r;
+
         assert(c);
         assert(i);
         assert(fd >= 0);
@@ -1198,10 +1196,12 @@ static int fd_set_xattrs(
                 log_action("Would set", "Setting",
                            "%s extended attribute '%s=%s' on %s", *name, *value, path);
 
-                if (!arg_dry_run &&
-                    setxattr(FORMAT_PROC_FD_PATH(fd), *name, *value, strlen(*value), 0) < 0)
-                        return log_error_errno(errno, "Setting extended attribute %s=%s on %s failed: %m",
-                                               *name, *value, path);
+                if (!arg_dry_run) {
+                        r = xsetxattr(fd, /* path = */ NULL, AT_EMPTY_PATH, *name, *value);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to set extended attribute %s=%s on '%s': %m",
+                                                       *name, *value, path);
+                }
         }
         return 0;
 }
@@ -1479,14 +1479,8 @@ static int fd_set_acls(
                 log_debug_errno(r, "ACLs not supported by file system at %s", path);
                 return 0;
         }
-
         if (r > 0)
                 return -r; /* already warned in path_set_acl */
-
-        /* The above procfs paths don't work if /proc is not mounted. */
-        if (r == -ENOENT && proc_mounted() == 0)
-                r = -ENOSYS;
-
         if (r < 0)
                 return log_error_errno(r, "ACL operation on \"%s\" failed: %m", path);
 #endif
@@ -2408,14 +2402,14 @@ static int create_symlink(Context *c, Item *i) {
         assert(i);
 
         if (i->ignore_if_target_missing) {
-                r = chase(i->argument, arg_root, CHASE_SAFE|CHASE_PREFIX_ROOT|CHASE_NOFOLLOW, /*ret_path=*/ NULL, /*ret_fd=*/ NULL);
+                r = chase(i->argument, arg_root, CHASE_SAFE|CHASE_PREFIX_ROOT|CHASE_NOFOLLOW, /* ret_path = */ NULL, /* ret_fd = */ NULL);
                 if (r == -ENOENT) {
                         /* Silently skip over lines where the source file is missing. */
-                        log_info("Symlink source path '%s%s' does not exist, skipping line.", strempty(arg_root), i->argument);
+                        log_info("Symlink source path '%s' does not exist, skipping line.", prefix_roota(arg_root, i->argument));
                         return 0;
                 }
                 if (r < 0)
-                        return log_error_errno(r, "Failed to check if symlink source path '%s%s' exists: %m", strempty(arg_root), i->argument);
+                        return log_error_errno(r, "Failed to check if symlink source path '%s' exists: %m", prefix_roota(arg_root, i->argument));
         }
 
         r = path_extract_filename(i->path, &bn);
@@ -2423,7 +2417,7 @@ static int create_symlink(Context *c, Item *i) {
                 return log_error_errno(r, "Failed to extract filename from path '%s': %m", i->path);
         if (r == O_DIRECTORY)
                 return log_error_errno(SYNTHETIC_ERRNO(EISDIR),
-                                       "Cannot open path '%s' for creating FIFO, is a directory.", i->path);
+                                       "Cannot open path '%s' for creating symlink, is a directory.", i->path);
 
         if (arg_dry_run) {
                 log_info("Would create symlink %s -> %s", i->path, i->argument);
@@ -2687,7 +2681,7 @@ static int rm_if_wrong_type_safe(
         }
 
         /* Do not remove mount points. */
-        r = fd_is_mount_point(parent_fd, name, follow_links ? AT_SYMLINK_FOLLOW : 0);
+        r = is_mount_point_at(parent_fd, name, follow_links ? AT_SYMLINK_FOLLOW : 0);
         if (r < 0)
                 (void) log_warning_errno(r, "Failed to check if  \"%s/%s\" is a mount point: %m; continuing.",
                                          parent_name ?: "...", name);
@@ -2996,7 +2990,7 @@ static int remove_recursive(
                 bool remove_instance) {
 
         _cleanup_closedir_ DIR *d = NULL;
-        STRUCT_STATX_DEFINE(sx);
+        struct statx sx;
         bool mountpoint;
         int r;
 
@@ -3146,7 +3140,7 @@ static int clean_item_instance(
         usec_t cutoff = n - i->age;
 
         _cleanup_closedir_ DIR *d = NULL;
-        STRUCT_STATX_DEFINE(sx);
+        struct statx sx;
         bool mountpoint;
         int r;
 
@@ -4168,12 +4162,12 @@ static int help(void) {
                "     --remove               Remove files and directories marked for removal\n"
                "     --purge                Delete files and directories marked for creation in\n"
                "                            specified configuration files (careful!)\n"
+               "     --cat-config           Show configuration files\n"
+               "     --tldr                 Show non-comment parts of configuration files\n"
                "  -h --help                 Show this help\n"
                "     --version              Show package version\n"
                "\n%3$sOptions:%4$s\n"
                "     --user                 Execute user configuration\n"
-               "     --cat-config           Show configuration files\n"
-               "     --tldr                 Show non-comment parts of configuration files\n"
                "     --boot                 Execute actions only safe at boot\n"
                "     --graceful             Quietly ignore unknown users or groups\n"
                "     --prefix=PATH          Only apply rules with the specified prefix\n"
@@ -4624,6 +4618,9 @@ static int run(int argc, char *argv[]) {
 
         if (arg_cat_flags != CAT_CONFIG_OFF)
                 return cat_config(config_dirs, argv + optind);
+
+        if (should_bypass("SYSTEMD_TMPFILES"))
+                return 0;
 
         umask(0022);
 

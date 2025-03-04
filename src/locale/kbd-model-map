@@ -70,3 +70,4 @@ khmer			kh,us	pc105		-		terminate:ctrl_alt_bksp
 es-dvorak		es	microsoftpro	dvorak		terminate:ctrl_alt_bksp
 lv			lv	pc105		apostrophe	terminate:ctrl_alt_bksp
 lv-tilde		lv	pc105		tilde		terminate:ctrl_alt_bksp
+ge			ge,us	pc105		-		terminate:ctrl_alt_bksp

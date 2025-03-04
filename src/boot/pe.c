@@ -2,12 +2,12 @@
 
 #include "chid.h"
 #include "devicetree.h"
+#include "efi-firmware.h"
 #include "pe.h"
 #include "util.h"
 
 #define DOS_FILE_MAGIC "MZ"
 #define PE_FILE_MAGIC  "PE\0\0"
-#define MAX_SECTIONS 96
 
 #if defined(__i386__)
 #  define TARGET_MACHINE_TYPE 0x014CU
@@ -132,7 +132,6 @@ static bool verify_pe(
                 (pe->FileHeader.Machine == TARGET_MACHINE_TYPE ||
                  (allow_compatibility && pe->FileHeader.Machine == TARGET_MACHINE_TYPE_COMPATIBILITY)) &&
                 pe->FileHeader.NumberOfSections > 0 &&
-                pe->FileHeader.NumberOfSections <= MAX_SECTIONS &&
                 IN_SET(pe->OptionalHeader.Magic, OPTHDR32_MAGIC, OPTHDR64_MAGIC) &&
                 pe->FileHeader.SizeOfOptionalHeader < SIZE_MAX - (dos->ExeHeader + offsetof(PeFileHeader, OptionalHeader));
 }
@@ -197,6 +196,33 @@ static bool pe_use_this_dtb(
         return false;
 }
 
+static bool pe_use_this_firmware(
+                const void *efifw,
+                size_t efifw_size,
+                const void *base,
+                const Device *device,
+                size_t section_nb) {
+
+        assert(efifw);
+
+        EFI_STATUS err;
+
+        /* if there is no hwids section, there is nothing much we can do */
+        if (!device || !base)
+                return false;
+
+        const char *fwid = device_get_fwid(base, device);
+        if (!fwid)
+                return false;
+
+        err = efi_firmware_match_by_fwid(efifw, efifw_size, fwid);
+        if (err == EFI_SUCCESS)
+                return true;
+        if (err == EFI_INVALID_PARAMETER)
+                log_error_status(err, "Found bad efifw blob in PE section %zu", section_nb);
+        return false;
+}
+
 static void pe_locate_sections_internal(
                 const PeSectionHeader section_table[],
                 size_t n_section_table,
@@ -254,6 +280,20 @@ static void pe_locate_sections_internal(
                                                   device_table,
                                                   device,
                                                   (PTR_TO_SIZE(j) - PTR_TO_SIZE(section_table)) / sizeof(*j)))
+                                        continue;
+                        }
+
+                        /* handle efifw section which works very much like .dtbauto */
+                        if (pe_section_name_equal(section_names[i], ".efifw")) {
+                                /* can't match without validate_base */
+                                if (!validate_base)
+                                        break;
+                                if (!pe_use_this_firmware(
+                                                    (const uint8_t *) SIZE_TO_PTR(validate_base) + j->VirtualAddress,
+                                                    j->VirtualSize,
+                                                    device_table,
+                                                    device,
+                                                    (PTR_TO_SIZE(j) - PTR_TO_SIZE(section_table)) / sizeof(*j)))
                                         continue;
                         }
 

@@ -783,8 +783,8 @@
         <term><varname>Conflicts=</varname></term>
 
         <listitem><para>A space-separated list of unit names. Configures negative requirement
-        dependencies. If a unit has a <varname>Conflicts=</varname> setting on another unit, starting the
-        former will stop the latter and vice versa.</para>
+        dependencies. If a unit has a <varname>Conflicts=</varname> requirement on a set of other units,
+        then starting it will stop all of them and starting any of them will stop it.</para>
 
         <para>Note that this setting does not imply an ordering dependency, similarly to the
         <varname>Wants=</varname> and <varname>Requires=</varname> dependencies described above. This means
@@ -1429,13 +1429,14 @@
         <varlistentry>
           <term><varname>ConditionHost=</varname></term>
 
-          <listitem><para><varname>ConditionHost=</varname> may be used to match against the hostname or
-          machine ID of the host. This either takes a hostname string (optionally with shell style globs)
-          which is tested against the locally set hostname as returned by
+          <listitem><para><varname>ConditionHost=</varname> may be used to match against the hostname,
+          machine ID, boot ID or product UUID of the host. This either takes a hostname string (optionally
+          with shell style globs) which is tested against the locally set hostname as returned by
           <citerefentry><refentrytitle>gethostname</refentrytitle><manvolnum>2</manvolnum></citerefentry>, or
-          a machine ID formatted as string (see
-          <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
-          The test may be negated by prepending an exclamation mark.</para>
+          a 128bit ID or UUID, formatted as string. The latter is compared against machine ID, boot ID and the
+          firmware product UUID if there is any. See
+          <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+          details about the machine ID. The test may be negated by prepending an exclamation mark.</para>
 
           <xi:include href="version-info.xml" xpointer="v244"/>
           </listitem>
@@ -1959,6 +1960,8 @@
           <literal>&lt;&gt;</literal>, <literal>&gt;=</literal>, <literal>&gt;</literal>), and shell-style
           wildcard comparisons (<literal>*</literal>, <literal>?</literal>, <literal>[]</literal>) are
           supported with the <literal>$=</literal> (match) and <literal>!$=</literal> (non-match).</para>
+
+          <para>If the given key is not found in the file, the match is done against an empty value.</para>
 
           <xi:include href="version-info.xml" xpointer="v249"/>
           </listitem>

@@ -55,15 +55,23 @@ EFI_STATUS reconnect_all_drivers(void) {
 
         /* Reconnects all handles, so that any loaded drivers can take effect. */
 
-        err = BS->LocateHandleBuffer(AllHandles, NULL, NULL, &n_handles, &handles);
-        if (err != EFI_SUCCESS)
+        err = BS->LocateHandleBuffer(
+                        AllHandles,
+                        /* Protocol= */ NULL,
+                        /* SearchKey= */ NULL,
+                        &n_handles, &handles);
+        if (!IN_SET(err, EFI_SUCCESS, EFI_NOT_FOUND))
                 return log_error_status(err, "Failed to get list of handles: %m");
 
-        for (size_t i = 0; i < n_handles; i++)
+        FOREACH_ARRAY(h, handles, n_handles)
                 /* Some firmware gives us some bogus handles (or they might become bad due to
                  * reconnecting everything). Security policy may also prevent us from doing so too.
                  * There is nothing we can realistically do on errors anyways, so just ignore them. */
-                (void) BS->ConnectController(handles[i], NULL, NULL, true);
+                (void) BS->ConnectController(
+                                *h,
+                                /* DriverImageHandle= */ NULL,
+                                /* RemainingDevicePath= */ NULL,
+                                /* Recursive= */ true);
 
         return EFI_SUCCESS;
 }
@@ -73,7 +81,7 @@ EFI_STATUS load_drivers(
                 EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
                 EFI_FILE *root_dir) {
 
-        _cleanup_(file_closep) EFI_FILE *drivers_dir = NULL;
+        _cleanup_file_close_ EFI_FILE *drivers_dir = NULL;
         _cleanup_free_ EFI_FILE_INFO *dirent = NULL;
         size_t dirent_size = 0, n_succeeded = 0;
         EFI_STATUS err;

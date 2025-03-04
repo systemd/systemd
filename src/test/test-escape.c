@@ -15,7 +15,7 @@ TEST(cescape) {
 TEST(xescape) {
         _cleanup_free_ char *t = NULL;
 
-        assert_se(t = xescape("abc\\\"\b\f\n\r\t\v\a\003\177\234\313", ""));
+        assert_se(t = xescape("abc\\\"\b\f\n\r\t\v\a\003\177\234\313", /* bad= */ NULL));
         ASSERT_STREQ(t, "abc\\x5c\"\\x08\\x0c\\x0a\\x0d\\x09\\x0b\\x07\\x03\\x7f\\x9c\\xcb");
 }
 
@@ -242,7 +242,7 @@ TEST(octescape) {
 static void test_decescape_one(const char *s, const char *bad, const char *expected) {
         _cleanup_free_ char *ret = NULL;
 
-        assert_se(ret = decescape(s, bad, strlen_ptr(s)));
+        assert_se(ret = decescape(s, s ? SIZE_MAX : 0, bad));
         log_debug("decescape(\"%s\") → \"%s\" (expected: \"%s\")", strnull(s), ret, expected);
         ASSERT_STREQ(ret, expected);
 }

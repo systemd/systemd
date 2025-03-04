@@ -6,14 +6,8 @@
 
 #include "macro.h"
 
-/* 5e2bec7c2248ae27c5b16cd97215ae05c1d39179 (4.6) */
-#ifndef CLONE_NEWCGROUP
-#  define CLONE_NEWCGROUP 0x02000000
-#else
-assert_cc(CLONE_NEWCGROUP == 0x02000000);
-#endif
-
-/* 769071ac9f20b6a447410c7eaa55d1a5233ef40c (5.8) */
+/* 769071ac9f20b6a447410c7eaa55d1a5233ef40c (5.8),
+ * defined in sched.h since glibc-2.36. */
 #ifndef CLONE_NEWTIME
 #  define CLONE_NEWTIME 0x00000080
 #else

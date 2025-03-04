@@ -9,6 +9,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "namespace.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "string-util.h"
 #include "tests.h"
@@ -363,6 +364,54 @@ TEST(process_is_owned_by_uid) {
 
         ASSERT_OK(pidref_kill(&pid, SIGKILL));
         ASSERT_OK(pidref_wait_for_terminate(&pid, /* ret= */ NULL));
+}
+
+TEST(namespace_get_leader) {
+        int r;
+
+        _cleanup_(pidref_done) PidRef original = PIDREF_NULL;
+        ASSERT_OK(pidref_set_self(&original));
+
+        _cleanup_(pidref_done) PidRef pid = PIDREF_NULL;
+        r = pidref_safe_fork("(child)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL|FORK_NEW_MOUNTNS|FORK_WAIT|FORK_LOG, &pid);
+        ASSERT_OK(r);
+        if (r == 0) {
+
+                _cleanup_(pidref_done) PidRef pid2 = PIDREF_NULL;
+                r = pidref_safe_fork("(child)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL|FORK_WAIT|FORK_LOG, &pid2);
+                ASSERT_OK(r);
+
+                if (r == 0) {
+                        log_info("PID hierarchy: " PID_FMT " ← " PID_FMT " ← " PID_FMT, original.pid, pid.pid, pid2.pid);
+
+                        _cleanup_(pidref_done) PidRef self = PIDREF_NULL;
+                        ASSERT_OK(pidref_set_self(&self));
+                        ASSERT_TRUE(pidref_equal(&self, &pid2));
+
+                        _cleanup_(pidref_done) PidRef parent = PIDREF_NULL;
+                        ASSERT_OK(pidref_set_parent(&parent));
+                        ASSERT_TRUE(pidref_equal(&parent, &pid));
+                        ASSERT_TRUE(!pidref_equal(&self, &pid));
+                        ASSERT_TRUE(!pidref_equal(&self, &parent));
+
+                        _cleanup_(pidref_done) PidRef grandparent = PIDREF_NULL;
+                        ASSERT_OK(pidref_get_ppid_as_pidref(&parent, &grandparent));
+                        ASSERT_TRUE(pidref_equal(&grandparent, &original));
+                        ASSERT_TRUE(!pidref_equal(&grandparent, &self));
+                        ASSERT_TRUE(!pidref_equal(&grandparent, &pid));
+                        ASSERT_TRUE(!pidref_equal(&grandparent, &pid2));
+                        ASSERT_TRUE(!pidref_equal(&grandparent, &parent));
+
+                        _cleanup_(pidref_done) PidRef leader = PIDREF_NULL;
+                        ASSERT_OK(namespace_get_leader(&self, NAMESPACE_MOUNT, &leader));
+                        ASSERT_TRUE(pidref_equal(&parent, &leader));
+                        ASSERT_TRUE(pidref_equal(&pid, &leader));
+                        ASSERT_TRUE(!pidref_equal(&self, &leader));
+                        ASSERT_TRUE(!pidref_equal(&pid2, &leader));
+                        ASSERT_TRUE(!pidref_equal(&original, &leader));
+                        ASSERT_TRUE(!pidref_equal(&grandparent, &leader));
+                }
+        }
 }
 
 static int intro(void) {

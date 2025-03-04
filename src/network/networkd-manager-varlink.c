@@ -12,15 +12,18 @@
 #include "networkd-manager-varlink.h"
 #include "stat-util.h"
 #include "varlink-io.systemd.Network.h"
+#include "varlink-io.systemd.service.h"
 #include "varlink-util.h"
 
 static int vl_method_get_states(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
+        int r;
 
         assert(link);
 
-        if (sd_json_variant_elements(parameters) > 0)
-                return sd_varlink_error_invalid_parameter(link, parameters);
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table = */ NULL, /* userdata = */ NULL);
+        if (r != 0)
+                return r;
 
         return sd_varlink_replybo(
                         link,
@@ -39,8 +42,9 @@ static int vl_method_get_namespace_id(sd_varlink *link, sd_json_variant *paramet
 
         assert(link);
 
-        if (sd_json_variant_elements(parameters) > 0)
-                return sd_varlink_error_invalid_parameter(link, parameters);
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table = */ NULL, /* userdata = */ NULL);
+        if (r != 0)
+                return r;
 
         /* Network namespaces have two identifiers: the inode number (which all namespace types have), and
          * the "nsid" (aka the "cookie"), which only network namespaces know as a concept, and which is not
@@ -269,16 +273,22 @@ int manager_connect_varlink(Manager *m) {
 
         (void) sd_varlink_server_set_description(s, "varlink-api-network");
 
-        r = sd_varlink_server_add_interface(s, &vl_interface_io_systemd_Network);
+        r = sd_varlink_server_add_interface_many(
+                        s,
+                        &vl_interface_io_systemd_Network,
+                        &vl_interface_io_systemd_service);
         if (r < 0)
                 return log_error_errno(r, "Failed to add Network interface to varlink server: %m");
 
         r = sd_varlink_server_bind_method_many(
                         s,
-                        "io.systemd.Network.GetStates", vl_method_get_states,
-                        "io.systemd.Network.GetNamespaceId", vl_method_get_namespace_id,
-                        "io.systemd.Network.GetLLDPNeighbors", vl_method_get_lldp_neighbors,
-                        "io.systemd.Network.SetPersistentStorage", vl_method_set_persistent_storage);
+                        "io.systemd.Network.GetStates",            vl_method_get_states,
+                        "io.systemd.Network.GetNamespaceId",       vl_method_get_namespace_id,
+                        "io.systemd.Network.GetLLDPNeighbors",     vl_method_get_lldp_neighbors,
+                        "io.systemd.Network.SetPersistentStorage", vl_method_set_persistent_storage,
+                        "io.systemd.service.Ping",                 varlink_method_ping,
+                        "io.systemd.service.SetLogLevel",          varlink_method_set_log_level,
+                        "io.systemd.service.GetEnvironment",       varlink_method_get_environment);
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink methods: %m");
 

@@ -64,6 +64,17 @@
 
         <xi:include href="version-info.xml" xpointer="v257"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><command>pkcs7</command></term>
+
+        <listitem><para>This command embeds the PKCS#1 signature (RSA) provided with
+        <option>--signature=</option> in a PKCS#7 signature using the certificate given with
+        <option>--certificate=</option> and writes it to the file specified with <option>--output=</option>
+        in PKCS#7 format (p7s).</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
@@ -88,6 +99,22 @@
         <literal>type:name</literal> tuple, such as <literal>engine:pkcs11</literal>.</para>
 
         <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--signature=<replaceable>PATH</replaceable></option></term>
+
+        <listitem><para>Input PKCS#1 signature for the <command>pkcs7</command> command.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--output=<replaceable>PATH</replaceable></option></term>
+
+        <listitem><para>Output PKCS#7 signature for the <command>pkcs7</command> command.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="help"/>

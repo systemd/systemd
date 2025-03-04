@@ -1,11 +1,11 @@
 rebuild:
   steps:
     - trigger_services:
-        project: home:bluca:systemd
+        project: system:systemd
         package: systemd
     - trigger_services:
-        project: home:bluca:systemd
-        package: systemd-fedora
+        project: system:systemd
+        package: systemd-suse
   filters:
     event: push
     branches:

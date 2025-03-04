@@ -15,6 +15,7 @@
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-map-properties.h"
+#include "bus-message-util.h"
 #include "bus-unit-util.h"
 #include "bus-wait-for-jobs.h"
 #include "calendarspec.h"
@@ -30,6 +31,7 @@
 #include "fs-util.h"
 #include "hostname-util.h"
 #include "main-func.h"
+#include "osc-context.h"
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -39,6 +41,7 @@
 #include "ptyfwd.h"
 #include "signal-util.h"
 #include "special.h"
+#include "string-table.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "uid-classification.h"
@@ -81,12 +84,15 @@ static bool arg_quiet = false;
 static bool arg_aggressive_gc = false;
 static char *arg_working_directory = NULL;
 static bool arg_shell = false;
+static JobMode arg_job_mode = JOB_FAIL;
 static char **arg_cmdline = NULL;
 static char *arg_exec_path = NULL;
 static bool arg_ignore_failure = false;
 static char *arg_background = NULL;
 static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 static char *arg_shell_prompt_prefix = NULL;
+static int arg_lightweight = -1;
+static char *arg_area = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_description, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_environment, strv_freep);
@@ -99,6 +105,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_cmdline, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_exec_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_background, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_shell_prompt_prefix, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_area, freep);
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
@@ -141,6 +148,8 @@ static int help(void) {
                "     --json=pretty|short|off      Print unit name and invocation id as JSON\n"
                "  -G --collect                    Unload unit after it ran, even when failed\n"
                "  -S --shell                      Invoke a $SHELL interactively\n"
+               "     --job-mode=MODE              Specify how to deal with already queued jobs,\n"
+               "                                  when queueing a new job\n"
                "     --ignore-failure             Ignore the exit status of the invoked process\n"
                "     --background=COLOR           Set ANSI color for background\n"
                "\n%3$sPath options:%4$s\n"
@@ -198,6 +207,9 @@ static int help_sudo_mode(void) {
                "     --pty                        Request allocation of a pseudo TTY for stdio\n"
                "     --pipe                       Request direct pipe for stdio\n"
                "     --shell-prompt-prefix=PREFIX Set $SHELL_PROMPT_PREFIX\n"
+               "     --lightweight=BOOLEAN        Control whether to register a session with service manager\n"
+               "                                  or without\n"
+               "  -a --area=AREA                  Home area to log into\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -274,6 +286,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_WAIT,
                 ARG_WORKING_DIRECTORY,
                 ARG_SHELL,
+                ARG_JOB_MODE,
                 ARG_IGNORE_FAILURE,
                 ARG_BACKGROUND,
                 ARG_JSON,
@@ -323,6 +336,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "working-directory",  required_argument, NULL, ARG_WORKING_DIRECTORY  },
                 { "same-dir",           no_argument,       NULL, 'd'                    },
                 { "shell",              no_argument,       NULL, 'S'                    },
+                { "job-mode",           required_argument, NULL, ARG_JOB_MODE           },
                 { "ignore-failure",     no_argument,       NULL, ARG_IGNORE_FAILURE     },
                 { "background",         required_argument, NULL, ARG_BACKGROUND         },
                 { "json",               required_argument, NULL, ARG_JSON               },
@@ -617,6 +631,17 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_shell = true;
                         break;
 
+                case ARG_JOB_MODE:
+                        if (streq(optarg, "help"))
+                                return DUMP_STRING_TABLE(job_mode, JobMode, _JOB_MODE_MAX);
+
+                        r = job_mode_from_string(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Invalid job mode: %s", optarg);
+
+                        arg_job_mode = r;
+                        break;
+
                 case ARG_IGNORE_FAILURE:
                         arg_ignore_failure = true;
                         break;
@@ -777,6 +802,7 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                 ARG_PTY,
                 ARG_PIPE,
                 ARG_SHELL_PROMPT_PREFIX,
+                ARG_LIGHTWEIGHT,
         };
 
         /* If invoked as "run0" binary, let's expose a more sudo-like interface. We add various extensions
@@ -801,6 +827,8 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                 { "pty",                 no_argument,       NULL, ARG_PTY                 },
                 { "pipe",                no_argument,       NULL, ARG_PIPE                },
                 { "shell-prompt-prefix", required_argument, NULL, ARG_SHELL_PROMPT_PREFIX },
+                { "lightweight",         required_argument, NULL, ARG_LIGHTWEIGHT         },
+                { "area",                required_argument, NULL, 'a'                     },
                 {},
         };
 
@@ -812,7 +840,7 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
         /* Resetting to 0 forces the invocation of an internal initialization routine of getopt_long()
          * that checks for GNU extensions in optstring ('-' or '+' at the beginning). */
         optind = 0;
-        while ((c = getopt_long(argc, argv, "+hVu:g:D:", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "+hVu:g:D:a:", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -913,12 +941,37 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                                 return r;
                         break;
 
+                case ARG_LIGHTWEIGHT:
+                        r = parse_tristate_argument("--lightweight=", optarg, &arg_lightweight);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case 'a':
+                        /* We allow an empty --area= specification to allow logging into the primary home directory */
+                        if (!isempty(optarg) && !filename_is_valid(optarg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid area name, refusing: %s", optarg);
+
+                        r = free_and_strdup_warn(&arg_area, optarg);
+                        if (r < 0)
+                                return r;
+
+                        break;
+
                 case '?':
                         return -EINVAL;
 
                 default:
                         assert_not_reached();
                 }
+
+        if (!arg_exec_user && arg_area) {
+                /* If the user specifies --area= but not --user= then consider this an area switch request,
+                 * and default to logging into our own account */
+                arg_exec_user = getusername_malloc();
+                if (!arg_exec_user)
+                        return log_oom();
+        }
 
         if (!arg_working_directory) {
                 if (arg_exec_user) {
@@ -945,6 +998,8 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
 
         if (IN_SET(arg_stdio, ARG_STDIO_NONE, ARG_STDIO_AUTO))
                 arg_stdio = isatty_safe(STDIN_FILENO) && isatty_safe(STDOUT_FILENO) && isatty_safe(STDERR_FILENO) ? ARG_STDIO_PTY : ARG_STDIO_DIRECT;
+
+        log_debug("Using %s stdio mode.", arg_stdio == ARG_STDIO_PTY ? "pty" : "direct");
 
         arg_expand_environment = false;
         arg_send_sighup = true;
@@ -1042,6 +1097,41 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                 r = strv_env_assign(&arg_environment, "SHELL_PROMPT_PREFIX", arg_shell_prompt_prefix);
                 if (r < 0)
                         return log_error_errno(r, "Failed to set $SHELL_PROMPT_PREFIX environment variable: %m");
+        }
+
+        if (!strv_env_get(arg_environment, "XDG_SESSION_CLASS")) {
+
+                /* If logging into an area, imply lightweight mode */
+                if (arg_lightweight < 0 && !isempty(arg_area))
+                        arg_lightweight = true;
+
+                /* When using run0 to acquire privileges temporarily, let's not pull in session manager by
+                 * default. Note that pam_logind/systemd-logind doesn't distinguish between run0-style privilege
+                 * escalation on a TTY and first class (getty-style) TTY logins (and thus gives root a per-session
+                 * manager for interactive TTY sessions), hence let's override the logic explicitly here. We only do
+                 * this for root though, under the assumption that if a regular user temporarily transitions into
+                 * another regular user it's a better default that the full user environment is uniformly
+                 * available. */
+                if (arg_lightweight < 0 && privileged_execution())
+                        arg_lightweight = true;
+
+                if (arg_lightweight >= 0) {
+                        const char *class =
+                                arg_lightweight ? (arg_stdio == ARG_STDIO_PTY ? (privileged_execution() ? "user-early-light" : "user-light") : "background-light") :
+                                                  (arg_stdio == ARG_STDIO_PTY ? (privileged_execution() ? "user-early" : "user") : "background");
+
+                        log_debug("Setting XDG_SESSION_CLASS to '%s'.", class);
+
+                        r = strv_env_assign(&arg_environment, "XDG_SESSION_CLASS", class);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to set $XDG_SESSION_CLASS environment variable: %m");
+                }
+        }
+
+        if (arg_area) {
+                r = strv_env_assign(&arg_environment, "XDG_AREA", arg_area);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set $XDG_AREA environment variable: %m");
         }
 
         return 1;
@@ -1143,8 +1233,7 @@ static int transient_kill_set_properties(sd_bus_message *m) {
 }
 
 static int transient_service_set_properties(sd_bus_message *m, const char *pty_path, int pty_fd) {
-        bool send_term = false;
-        int r;
+        int r, send_term; /* tri-state */
 
         /* We disable environment expansion on the server side via ExecStartEx=:.
          * ExecStartEx was added relatively recently (v243), and some bugs were fixed only later.
@@ -1152,7 +1241,7 @@ static int transient_service_set_properties(sd_bus_message *m, const char *pty_p
         bool use_ex_prop = !arg_expand_environment;
 
         assert(m);
-        assert(pty_path || pty_fd < 0);
+        assert((!!pty_path) == (pty_fd >= 0));
 
         r = transient_unit_set_properties(m, UNIT_SERVICE, arg_property);
         if (r < 0)
@@ -1203,22 +1292,11 @@ static int transient_service_set_properties(sd_bus_message *m, const char *pty_p
         }
 
         if (pty_path) {
-                r = sd_bus_message_append(m, "(sv)", "TTYPath", "s", pty_path);
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                if (pty_fd >= 0)
-                        r = sd_bus_message_append(m,
-                                                  "(sv)(sv)(sv)",
-                                                  "StandardInputFileDescriptor", "h", pty_fd,
-                                                  "StandardOutputFileDescriptor", "h", pty_fd,
-                                                  "StandardErrorFileDescriptor", "h", pty_fd);
-                else
-                        r = sd_bus_message_append(m,
-                                                  "(sv)(sv)(sv)",
-                                                  "StandardInput", "s", "tty",
-                                                  "StandardOutput", "s", "tty",
-                                                  "StandardError", "s", "tty");
+                r = sd_bus_message_append(m, "(sv)(sv)(sv)(sv)",
+                                          "TTYPath", "s", pty_path,
+                                          "StandardInputFileDescriptor", "h", pty_fd,
+                                          "StandardOutputFileDescriptor", "h", pty_fd,
+                                          "StandardErrorFileDescriptor", "h", pty_fd);
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -1233,14 +1311,23 @@ static int transient_service_set_properties(sd_bus_message *m, const char *pty_p
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                send_term = isatty_safe(STDIN_FILENO) || isatty_safe(STDOUT_FILENO) || isatty_safe(STDERR_FILENO);
-        }
+                send_term = -1;
+        } else
+                send_term = false;
 
-        if (send_term) {
+        if (send_term != 0) {
                 const char *e;
 
-                e = getenv("TERM");
-                if (e) {
+                /* Propagate $TERM only if we are actually connected to a TTY */
+                if (isatty_safe(STDIN_FILENO) || isatty_safe(STDOUT_FILENO) || isatty_safe(STDERR_FILENO)) {
+                        e = getenv("TERM");
+                        send_term = !!e;
+                } else
+                        /* If we are not connected to any TTY ourselves, then send TERM=dumb, but only if we
+                         * really need to (because we actually allocated a TTY for the service) */
+                        e = "dumb";
+
+                if (send_term > 0) {
                         _cleanup_free_ char *n = NULL;
 
                         n = strjoin("TERM=", e);
@@ -1743,7 +1830,7 @@ static int make_transient_service_unit(
                 return bus_log_create_error(r);
 
         /* Name and mode */
-        r = sd_bus_message_append(m, "ss", service, "fail");
+        r = sd_bus_message_append(m, "ss", service, job_mode_to_string(arg_job_mode));
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -1900,6 +1987,46 @@ static int print_unit_invocation(const char *unit, sd_id128_t invocation_id) {
         return sd_json_variant_dump(v, arg_json_format_flags, stdout, NULL);
 }
 
+typedef struct JobDoneContext {
+        char *unit;
+        char *start_job;
+        sd_bus_slot *match;
+} JobDoneContext;
+
+static void job_done_context_done(JobDoneContext *c) {
+        assert(c);
+
+        c->unit = mfree(c->unit);
+        c->start_job = mfree(c->start_job);
+        c->match = sd_bus_slot_unref(c->match);
+}
+
+static int match_job_removed(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        JobDoneContext *c = ASSERT_PTR(userdata);
+        const char *path;
+        int r;
+
+        assert(m);
+
+        r = sd_bus_message_read(m, "uoss", /* id = */ NULL, &path, /* unit= */ NULL, /* result= */ NULL);
+        if (r < 0) {
+                bus_log_parse_error(r);
+                return 0;
+        }
+
+        if (!streq_ptr(path, c->start_job))
+                return 0;
+
+        /* Notify our caller that the service is now running, just in case. */
+        (void) sd_notifyf(/* unset_environment= */ false,
+                          "READY=1\n"
+                          "RUN_UNIT=%s",
+                          c->unit);
+
+        job_done_context_done(c);
+        return 0;
+}
+
 static int start_transient_service(sd_bus *bus) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -1963,27 +2090,11 @@ static int start_transient_service(sd_bus *bus) {
                         if (!pty_path)
                                 return log_oom();
 
-                        peer_fd = pty_open_peer_racefree(pty_fd, O_RDWR|O_NOCTTY|O_CLOEXEC);
-                        if (ERRNO_IS_NEG_NOT_SUPPORTED(peer_fd))
-                                log_debug_errno(r, "TIOCGPTPEER ioctl not available, falling back to race-ful PTY peer opening: %m");
-                                /* We do not open the peer_fd in this case, we let systemd on the remote side open it instead */
-                        else if (peer_fd < 0)
-                                return log_debug_errno(peer_fd, "Failed to open PTY peer: %m");
-
-                        // FIXME: Introduce OpenMachinePTYEx() that accepts ownership/permission as param
-                        // and additionally returns the pty fd, for #33216 and #32999
+                        peer_fd = pty_open_peer(pty_fd, O_RDWR|O_NOCTTY|O_CLOEXEC);
+                        if (peer_fd < 0)
+                                return log_error_errno(peer_fd, "Failed to open PTY peer: %m");
                 } else
                         assert_not_reached();
-        }
-
-        /* Optionally, wait for the start job to complete. If we are supposed to read the service's stdin
-         * lets skip this however, because we should start that already when the start job is running, and
-         * there's little point in waiting for the start job to complete in that case anyway, as we'll wait
-         * for EOF anyway, which is going to be much later. */
-        if (!arg_no_block && arg_stdio == ARG_STDIO_NONE) {
-                r = bus_wait_for_jobs_new(bus, &w);
-                if (r < 0)
-                        return log_error_errno(r, "Could not watch jobs: %m");
         }
 
         if (arg_unit) {
@@ -1998,6 +2109,36 @@ static int start_transient_service(sd_bus *bus) {
                         return r;
         }
 
+        /* Optionally, wait for the start job to complete. If we are supposed to read the service's stdin
+         * lets skip this however, because we should start that already when the start job is running, and
+         * there's little point in waiting for the start job to complete in that case anyway, as we'll wait
+         * for EOF anyway, which is going to be much later. */
+        _cleanup_(job_done_context_done) JobDoneContext job_done_context = {};
+        if (!arg_no_block) {
+                if (arg_stdio == ARG_STDIO_NONE) {
+                        r = bus_wait_for_jobs_new(bus, &w);
+                        if (r < 0)
+                                return log_error_errno(r, "Could not watch jobs: %m");
+                } else {
+                        job_done_context.unit = strdup(service);
+                        if (!job_done_context.unit)
+                                return log_oom();
+
+                        /* When we are a bus client we match by sender. Direct connections OTOH have no
+                         * initialized sender field, and hence we ignore the sender then */
+                        r = sd_bus_match_signal_async(
+                                        bus,
+                                        &job_done_context.match,
+                                        sd_bus_is_bus_client(bus) ? "org.freedesktop.systemd1" : NULL,
+                                        "/org/freedesktop/systemd1",
+                                        "org.freedesktop.systemd1.Manager",
+                                        "JobRemoved",
+                                        match_job_removed, NULL, &job_done_context);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to install JobRemove match: %m");
+                }
+        }
+
         r = make_transient_service_unit(bus, &m, service, pty_path, peer_fd);
         if (r < 0)
                 return r;
@@ -2007,19 +2148,22 @@ static int start_transient_service(sd_bus *bus) {
         if (r < 0)
                 return r;
 
+        const char *object;
+        r = sd_bus_message_read(reply, "o", &object);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
         if (w) {
-                const char *object;
-
-                r = sd_bus_message_read(reply, "o", &object);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-
                 r = bus_wait_for_jobs_one(w,
                                           object,
                                           arg_quiet ? 0 : BUS_WAIT_JOBS_LOG_ERROR,
                                           arg_runtime_scope == RUNTIME_SCOPE_USER ? STRV_MAKE_CONST("--user") : NULL);
                 if (r < 0)
                         return r;
+        } else if (job_done_context.match) {
+                job_done_context.start_job = strdup(object);
+                if (!job_done_context.start_job)
+                        return log_oom();
         }
 
         if (!arg_quiet) {
@@ -2059,7 +2203,14 @@ static int start_transient_service(sd_bus *bus) {
                 if (!c.bus_path)
                         return log_oom();
 
+                _cleanup_(osc_context_closep) sd_id128_t osc_context_id = SD_ID128_NULL;
                 if (pty_fd >= 0) {
+                        if (arg_exec_user && !terminal_is_dumb()) {
+                                r = osc_context_open_chpriv(arg_exec_user, /* ret_seq= */ NULL, &osc_context_id);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to set OSC context: %m");
+                        }
+
                         (void) sd_event_set_signal_exit(c.event, true);
 
                         if (!arg_quiet)
@@ -2201,7 +2352,7 @@ static int start_transient_scope(sd_bus *bus) {
                         return bus_log_create_error(r);
 
                 /* Name and Mode */
-                r = sd_bus_message_append(m, "ss", scope, "fail");
+                r = sd_bus_message_append(m, "ss", scope, job_mode_to_string(arg_job_mode));
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -2370,7 +2521,7 @@ static int make_transient_trigger_unit(
                 return bus_log_create_error(r);
 
         /* Name and Mode */
-        r = sd_bus_message_append(m, "ss", trigger, "fail");
+        r = sd_bus_message_append(m, "ss", trigger, job_mode_to_string(arg_job_mode));
         if (r < 0)
                 return bus_log_create_error(r);
 

@@ -83,7 +83,7 @@ static int journal_put_error(sd_journal *j, int r, const char *path) {
                         return -ENOMEM;
         }
 
-        r = hashmap_ensure_put(&j->errors, NULL, INT_TO_PTR(r), copy);
+        r = hashmap_ensure_put(&j->errors, &trivial_hash_ops_value_free, INT_TO_PTR(r), copy);
         if (r == -EEXIST)
                 return 0;
         if (r < 0)
@@ -2560,7 +2560,7 @@ _public_ void sd_journal_close(sd_journal *j) {
         if (j->mmap)
                 mmap_cache_unref(j->mmap);
 
-        hashmap_free_free(j->errors);
+        hashmap_free(j->errors);
 
         set_free(j->exclude_syslog_identifiers);
 

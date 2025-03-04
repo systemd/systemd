@@ -7,12 +7,53 @@ CHANGES WITH 258 in spe:
         * The default access mode of tty/pts device nodes has been changed to
           0600, which was 0620 in the older releases, due to general security
           concerns about terminals being written to by other users. To restore
-          the old default access mode, use '-Dtty-mode=0620' meson build option.
+          the old default access mode, use '-Dtty-mode=0620' meson build
+          option. (This effectively means "mesg n" is now the default, rather
+          than "mesg y", see mesg(1) man page for help.)
 
         * systemd-run's --expand-environment= switch, which was disabled
           by default when combined with --scope, has been changed to to be
           enabled by default. This brings cmdline expansion of transient
           scopes on par with services.
+
+        * systemd-logind PAM sessions that previously were automatically
+          determined to be of class "background", and which are owned by root
+          or system accounts, will now automatically be set to class
+          "background-light" instead. PAM sessions that previously were
+          automatically determined to be of class "user", and which are owned
+          by non-root system users, will now automatically be set to class
+          "user-light" instead. This effectively means that cron jobs or FTP
+          sessions (i.e. all PAM sessions that have no TTY assigned and neither
+          are graphical) for system users no longer pull in a service manager
+          by default. This behaviour can be changed by explicitly setting the
+          session class (for example via the class= parameter to
+          pam_systemd.so, or by setting the XDG_SESSION_CLASS environment
+          variable as input for the service's PAM stack). This change does not
+          affect graphical sessions, nor does it affect regular users. This is
+          an incompatible change of sorts, since per-user services will
+          typically not be available for such PAM sessions of system users.
+
+        * systemd-udevd ignores OWNER=/GROUP= settings with a non-system
+          user/group specified in udev rules files, to avoid device nodes being
+          owned by a non-system user/group. It is recommended to check udev
+          rules files with 'udevadm verify' and/or 'udevadm test' commands if
+          the specified user/group in OWNER=/GROUP= are valid.
+
+        * systemd-cryptenroll, systemd-repart and systemd-creds no longer
+          default to locking TPM2 enrollments to the current, literal value of
+          PCR 7, i.e. the PCR the SecureBoot policy is measured into by the
+          firmware. This change reflects the fact that nowadays SecureBoot
+          policies are updated (at least) as frequently as firmware code
+          updates (simply because SecureBoot policy updates are typically
+          managed by fwupd these days). The new default PCR mask for new TPM2
+          enrollments is thus empty by default. It is recommended to use
+          managed systemd-pcrlock policies for binding to PCR 7 instead (as
+          well as combining such policies with signed policies for PCR 11). Or
+          in other words, it's recommended to make more use of the logic behind
+          the --tpm2-public-key=, --tpm2-public-key-pcrs= and --tpm2-pcrlock=
+          switches of the mentioned tools in place of --tpm2-pcrs=.
+
+        * Support for the SystemdOptions EFI variable has been removed.
 
         Announcements of Future Feature Removals:
 
@@ -45,13 +86,6 @@ CHANGES WITH 258 in spe:
           relevant X11 keyboard driver modules. In order to ensure these keys
           continue to work, update to xf86-input-evdev >= 2.11.0 and
           xf86-input-libinput >= 1.5.0 before updating to systemd >= 258.
-
-        * Support for the SystemdOptions EFI variable is deprecated.
-          'bootctl systemd-efi-options' will emit a warning when used. It seems
-          that this feature is little-used and it is better to use alternative
-          approaches like credentials and confexts. The plan is to drop support
-          altogether at a later point, but this might be revisited based on
-          user feedback.
 
         — <place>, <date>
 
@@ -5574,7 +5608,7 @@ CHANGES WITH 250:
           IP addresses outside of the configured IP pool range for the server.
 
         * CAN support in systemd-networkd gained four new settings Loopback=,
-          OneShot=, PresumeAck=, ClassicDataLengthCode= for tweaking CAN
+          OneShot=, PresumeACK=, ClassicDataLengthCode= for tweaking CAN
           control modes. It gained a number of further settings for tweaking
           CAN timing quanta.
 

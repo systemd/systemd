@@ -99,27 +99,6 @@ static inline OrderedHashmap* ordered_hashmap_free(OrderedHashmap *h) {
         return (void*) _hashmap_free(HASHMAP_BASE(h), NULL, NULL);
 }
 
-static inline Hashmap* hashmap_free_free(Hashmap *h) {
-        return (void*) _hashmap_free(HASHMAP_BASE(h), NULL, free);
-}
-static inline OrderedHashmap* ordered_hashmap_free_free(OrderedHashmap *h) {
-        return (void*) _hashmap_free(HASHMAP_BASE(h), NULL, free);
-}
-
-static inline Hashmap* hashmap_free_free_key(Hashmap *h) {
-        return (void*) _hashmap_free(HASHMAP_BASE(h), free, NULL);
-}
-static inline OrderedHashmap* ordered_hashmap_free_free_key(OrderedHashmap *h) {
-        return (void*) _hashmap_free(HASHMAP_BASE(h), free, NULL);
-}
-
-static inline Hashmap* hashmap_free_free_free(Hashmap *h) {
-        return (void*) _hashmap_free(HASHMAP_BASE(h), free, free);
-}
-static inline OrderedHashmap* ordered_hashmap_free_free_free(OrderedHashmap *h) {
-        return (void*) _hashmap_free(HASHMAP_BASE(h), free, free);
-}
-
 IteratedCache* iterated_cache_free(IteratedCache *cache);
 int iterated_cache_get(IteratedCache *cache, const void ***res_keys, const void ***res_values, unsigned *res_n_entries);
 
@@ -293,27 +272,6 @@ static inline void ordered_hashmap_clear(OrderedHashmap *h) {
         _hashmap_clear(HASHMAP_BASE(h), NULL, NULL);
 }
 
-static inline void hashmap_clear_free(Hashmap *h) {
-        _hashmap_clear(HASHMAP_BASE(h), NULL, free);
-}
-static inline void ordered_hashmap_clear_free(OrderedHashmap *h) {
-        _hashmap_clear(HASHMAP_BASE(h), NULL, free);
-}
-
-static inline void hashmap_clear_free_key(Hashmap *h) {
-        _hashmap_clear(HASHMAP_BASE(h), free, NULL);
-}
-static inline void ordered_hashmap_clear_free_key(OrderedHashmap *h) {
-        _hashmap_clear(HASHMAP_BASE(h), free, NULL);
-}
-
-static inline void hashmap_clear_free_free(Hashmap *h) {
-        _hashmap_clear(HASHMAP_BASE(h), free, free);
-}
-static inline void ordered_hashmap_clear_free_free(OrderedHashmap *h) {
-        _hashmap_clear(HASHMAP_BASE(h), free, free);
-}
-
 /*
  * Note about all *_first*() functions
  *
@@ -459,20 +417,10 @@ static inline int ordered_hashmap_dump_keys_sorted(OrderedHashmap *h, void ***re
         _ORDERED_HASHMAP_FOREACH_KEY(e, k, h, UNIQ_T(i, UNIQ))
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Hashmap*, hashmap_free);
-DEFINE_TRIVIAL_CLEANUP_FUNC(Hashmap*, hashmap_free_free);
-DEFINE_TRIVIAL_CLEANUP_FUNC(Hashmap*, hashmap_free_free_key);
-DEFINE_TRIVIAL_CLEANUP_FUNC(Hashmap*, hashmap_free_free_free);
 DEFINE_TRIVIAL_CLEANUP_FUNC(OrderedHashmap*, ordered_hashmap_free);
-DEFINE_TRIVIAL_CLEANUP_FUNC(OrderedHashmap*, ordered_hashmap_free_free);
-DEFINE_TRIVIAL_CLEANUP_FUNC(OrderedHashmap*, ordered_hashmap_free_free_key);
-DEFINE_TRIVIAL_CLEANUP_FUNC(OrderedHashmap*, ordered_hashmap_free_free_free);
 
 #define _cleanup_hashmap_free_ _cleanup_(hashmap_freep)
-#define _cleanup_hashmap_free_free_ _cleanup_(hashmap_free_freep)
-#define _cleanup_hashmap_free_free_free_ _cleanup_(hashmap_free_free_freep)
 #define _cleanup_ordered_hashmap_free_ _cleanup_(ordered_hashmap_freep)
-#define _cleanup_ordered_hashmap_free_free_ _cleanup_(ordered_hashmap_free_freep)
-#define _cleanup_ordered_hashmap_free_free_free_ _cleanup_(ordered_hashmap_free_free_freep)
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(IteratedCache*, iterated_cache_free);
 

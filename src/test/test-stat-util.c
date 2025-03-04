@@ -12,7 +12,6 @@
 #include "fd-util.h"
 #include "fs-util.h"
 #include "macro.h"
-#include "missing_mount.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
 #include "namespace-util.h"
@@ -21,6 +20,40 @@
 #include "stat-util.h"
 #include "tests.h"
 #include "tmpfile-util.h"
+
+TEST(statx_definitions) {
+        /* Check if linux/stat.h is included from sys/stat.h. */
+        ASSERT_EQ(STATX_TYPE,           0x00000001U);
+        ASSERT_EQ(STATX_MODE,           0x00000002U);
+        ASSERT_EQ(STATX_NLINK,          0x00000004U);
+        ASSERT_EQ(STATX_UID,            0x00000008U);
+        ASSERT_EQ(STATX_GID,            0x00000010U);
+        ASSERT_EQ(STATX_ATIME,          0x00000020U);
+        ASSERT_EQ(STATX_MTIME,          0x00000040U);
+        ASSERT_EQ(STATX_CTIME,          0x00000080U);
+        ASSERT_EQ(STATX_INO,            0x00000100U);
+        ASSERT_EQ(STATX_SIZE,           0x00000200U);
+        ASSERT_EQ(STATX_BLOCKS,         0x00000400U);
+        ASSERT_EQ(STATX_BASIC_STATS,    0x000007ffU);
+        ASSERT_EQ(STATX_BTIME,          0x00000800U);
+        ASSERT_EQ(STATX_MNT_ID,         0x00001000U);
+        ASSERT_EQ(STATX_DIOALIGN,       0x00002000U);
+        ASSERT_EQ(STATX_MNT_ID_UNIQUE,  0x00004000U);
+        ASSERT_EQ(STATX_SUBVOL,         0x00008000U);
+        ASSERT_EQ(STATX_WRITE_ATOMIC,   0x00010000U);
+        ASSERT_EQ(STATX_DIO_READ_ALIGN, 0x00020000U);
+
+        ASSERT_EQ(STATX_ATTR_COMPRESSED,   0x00000004);
+        ASSERT_EQ(STATX_ATTR_IMMUTABLE,    0x00000010);
+        ASSERT_EQ(STATX_ATTR_APPEND,       0x00000020);
+        ASSERT_EQ(STATX_ATTR_NODUMP,       0x00000040);
+        ASSERT_EQ(STATX_ATTR_ENCRYPTED,    0x00000800);
+        ASSERT_EQ(STATX_ATTR_AUTOMOUNT,    0x00001000);
+        ASSERT_EQ(STATX_ATTR_MOUNT_ROOT,   0x00002000);
+        ASSERT_EQ(STATX_ATTR_VERITY,       0x00100000);
+        ASSERT_EQ(STATX_ATTR_DAX,          0x00200000);
+        ASSERT_EQ(STATX_ATTR_WRITE_ATOMIC, 0x00400000);
+}
 
 TEST(null_or_empty_path) {
         assert_se(null_or_empty_path("/dev/null") == 1);

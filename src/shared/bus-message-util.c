@@ -7,6 +7,35 @@
 #include "copy.h"
 #include "resolve-util.h"
 
+int bus_message_read_id128(sd_bus_message *m, sd_id128_t *ret) {
+        const void *a;
+        size_t sz;
+        int r;
+
+        assert(m);
+
+        r = sd_bus_message_read_array(m, 'y', &a, &sz);
+        if (r < 0)
+                return r;
+
+        switch (sz) {
+
+        case 0:
+                if (ret)
+                        *ret = SD_ID128_NULL;
+                return 0;
+
+        case sizeof(sd_id128_t):
+                if (ret)
+                        memcpy(ret, a, sz);
+                return !memeqzero(a, sz); /* This mimics sd_id128_is_null(), but ret may be NULL,
+                                           * and a may be misaligned, so use memeqzero() here. */
+
+        default:
+                return -EINVAL;
+        }
+}
+
 int bus_message_read_ifindex(sd_bus_message *message, sd_bus_error *error, int *ret) {
         int ifindex, r;
 
@@ -187,6 +216,25 @@ clear:
         return r;
 }
 
+int bus_message_append_string_set(sd_bus_message *m, const Set *set) {
+        int r;
+
+        assert(m);
+
+        r = sd_bus_message_open_container(m, 'a', "s");
+        if (r < 0)
+                return r;
+
+        const char *s;
+        SET_FOREACH(s, set) {
+                r = sd_bus_message_append(m, "s", s);
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_bus_message_close_container(m);
+}
+
 int bus_message_dump_string(sd_bus_message *message) {
         const char *s;
         int r;
@@ -217,3 +265,7 @@ int bus_message_dump_fd(sd_bus_message *message) {
 
         return 0;
 }
+
+DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(bus_message_hash_ops,
+                                      void, trivial_hash_func, trivial_compare_func,
+                                      sd_bus_message, sd_bus_message_unref);

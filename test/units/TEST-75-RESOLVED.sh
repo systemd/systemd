@@ -16,11 +16,13 @@ set -o pipefail
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
-# We need at least Knot 3.0 which support (among others) the ds-push directive
-if ! knotc -c /usr/lib/systemd/tests/testdata/knot-data/knot.conf conf-check; then
-    echo "This test requires at least Knot 3.0. skipping..." | tee --append /skipped
+if ! command knotc >/dev/null; then
+    echo "command knotc not found, skipping..." | tee --append /skipped
     exit 77
 fi
+
+# We need at least Knot 3.0 which support (among others) the ds-push directive
+knotc -c /usr/lib/systemd/tests/testdata/knot-data/knot.conf conf-check
 
 RUN_OUT="$(mktemp)"
 
@@ -549,6 +551,7 @@ testcase_08_resolved() {
     # Check SRV support
     run resolvectl service _mysvc._tcp signed.test
     grep -qF "myservice.signed.test:1234" "$RUN_OUT"
+    grep -qF "This is TXT for myservice" "$RUN_OUT"
     grep -qF "10.0.0.20" "$RUN_OUT"
     grep -qF "fd00:dead:beef:cafe::17" "$RUN_OUT"
     grep -qF "authenticated: yes" "$RUN_OUT"
@@ -848,7 +851,6 @@ testcase_11_nft() {
         echo "[Resolve]"
         echo "StaleRetentionSec=1d"
     } >/run/systemd/resolved.conf.d/test.conf
-    ln -svf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
     systemctl reload systemd-resolved.service
 
     run dig stale1.unsigned.test -t A
@@ -936,6 +938,16 @@ testcase_11_nft() {
 
 # Test resolvectl show-server-state
 testcase_12_resolvectl2() {
+    # Cleanup
+    # shellcheck disable=SC2317
+    cleanup() {
+        rm -f /run/systemd/resolved.conf.d/reload.conf
+        systemctl reload systemd-resolved.service
+        resolvectl revert dns0
+    }
+
+    trap cleanup RETURN
+
     run resolvectl show-server-state
     grep -qF "10.0.0.1" "$RUN_OUT"
     grep -qF "Interface" "$RUN_OUT"
@@ -996,6 +1008,229 @@ testcase_12_resolvectl2() {
 
     # Check if resolved exits cleanly.
     restart_resolved
+}
+
+# Test io.systemd.Resolve.Monitor.SubscribeDNSConfiguration
+testcase_13_varlink_subscribe_dns_configuration() {
+    # FIXME: for some reasons, the test case unexpectedly fail when running on sanitizers.
+    if [[ -v ASAN_OPTIONS ]]; then
+        return 0
+    fi
+
+    # Cleanup
+    # shellcheck disable=SC2317
+    cleanup() {
+        echo "===== io.systemd.Resolve.Monitor.SubscribeDNSConfiguration output: ====="
+        cat "$tmpfile"
+        echo "=========="
+        rm -f /run/systemd/resolved.conf.d/global-dns.conf
+        restart_resolved
+        resolvectl revert dns0
+    }
+
+    trap cleanup RETURN ERR
+
+    local unit
+    local tmpfile
+
+    unit="subscribe-dns-configuration-$(systemd-id128 new -u).service"
+    tmpfile=$(mktemp)
+
+    # Clear global and per-interface DNS before monitoring the configuration change.
+    mkdir -p /run/systemd/resolved.conf.d/
+    {
+        echo "[Resolve]"
+        echo "DNS="
+    } > /run/systemd/resolved.conf.d/global-dns.conf
+    systemctl reload systemd-resolved.service
+    resolvectl dns dns0 ""
+    resolvectl domain dns0 ""
+
+    # Start the call to io.systemd.Resolve.Monitor.SubscribeDNSConfiguration
+    systemd-run -u "$unit" -p "Type=exec" -p "StandardOutput=truncate:$tmpfile" \
+        varlinkctl call --more --timeout=5 --graceful=io.systemd.TimedOut /run/systemd/resolve/io.systemd.Resolve.Monitor io.systemd.Resolve.Monitor.SubscribeDNSConfiguration '{}'
+
+    # Wait until the initial configuration has been received.
+    timeout 5 bash -c "until [[ -s $tmpfile ]]; do sleep 0.1; done"
+
+    # Update the global configuration.
+    mkdir -p /run/systemd/resolved.conf.d/
+    {
+        echo "[Resolve]"
+        echo "DNS=8.8.8.8"
+        echo "Domains=lan"
+    } > /run/systemd/resolved.conf.d/global-dns.conf
+    systemctl reload systemd-resolved.service
+
+    # Update a link configuration.
+    resolvectl dns dns0 8.8.4.4 1.1.1.1
+    resolvectl domain dns0 ~.
+
+    # Wait for the monitor to exit gracefully.
+    while systemctl --quiet is-active "$unit"; do
+        sleep 0.5
+    done
+
+    # Hack to remove the "Method call returned expected error" line from the output.
+    sed -i '/^Method call.*returned expected error/d' "$tmpfile"
+
+    # Check that an initial reply was given with the settings applied BEFORE the monitor started.
+    grep -qF \
+        '{"global":{"servers":null,"domains":null}}' \
+        <(jq -cr --seq  '.configuration[] | select(.ifname == null) | {"global": {servers: .servers, domains: .searchDomains}}' "$tmpfile")
+    grep -qF \
+        '{"dns0":{"servers":null,"domains":null}}' \
+        <(jq -cr --seq  '.configuration[] | select(.ifname == "dns0") | {"dns0": {servers: .servers, domains: .searchDomains}}' "$tmpfile")
+
+    # Check that the global configuration change was reflected.
+    grep -qF \
+        '{"global":{"servers":[[8,8,8,8]],"domains":["lan"]}}' \
+        <(jq -cr --seq  '.configuration[] | select(.ifname == null and .servers != null and .searchDomains != null) | {"global":{servers: [.servers[] | .address], domains: [.searchDomains[] | .name]}}' "$tmpfile")
+
+    # Check that the link configuration change was reflected.
+    grep -qF \
+        '{"dns0":{"servers":[[8,8,4,4],[1,1,1,1]],"domains":["."]}}' \
+        <(jq -cr --seq  '.configuration[] | select(.ifname == "dns0" and .servers != null and .searchDomains != null) | {"dns0":{servers: [.servers[] | .address], domains: [.searchDomains[] | .name]}}' "$tmpfile")
+}
+
+# Test RefuseRecordTypes
+testcase_14_refuse_record_types() {
+    # shellcheck disable=SC2317
+    cleanup() {
+        rm -f /run/systemd/resolved.conf.d/refuserecords.conf
+        restart_resolved
+    }
+    trap cleanup RETURN ERR
+
+    mkdir -p /run/systemd/resolved.conf.d
+    {
+        echo "[Resolve]"
+        echo "RefuseRecordTypes=AAAA SRV TXT"
+    } >/run/systemd/resolved.conf.d/refuserecords.conf
+    systemctl reload systemd-resolved.service
+
+    run dig localhost -t AAAA
+    grep -qF "status: REFUSED" "$RUN_OUT"
+
+    run dig localhost -t SRV
+    grep -qF "status: REFUSED" "$RUN_OUT"
+
+    run dig localhost -t TXT
+    grep -qF "status: REFUSED" "$RUN_OUT"
+
+    run dig localhost -t A
+    grep -qF "status: NOERROR" "$RUN_OUT"
+
+    run resolvectl query localhost5
+    grep -qF "127.128.0.5" "$RUN_OUT"
+
+    (! run resolvectl query localhost5 --type=SRV)
+    grep -qF "DNS query type refused." "$RUN_OUT"
+
+    (! run resolvectl query localhost5 --type=TXT)
+    grep -qF "DNS query type refused." "$RUN_OUT"
+
+    (! run resolvectl query localhost5 --type=AAAA)
+    grep -qF "DNS query type refused." "$RUN_OUT"
+
+    run resolvectl query localhost5 --type=A
+    grep -qF "127.128.0.5" "$RUN_OUT"
+
+    (! run resolvectl service _mysvc._tcp signed.test)
+    (! run varlinkctl call /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.ResolveService '{"name":"","type":"_mysvc._tcp","domain":"signed.test"}')
+
+    # Filter only AAAA
+    {
+        echo "[Resolve]"
+        echo "RefuseRecordTypes=AAAA"
+    } >/run/systemd/resolved.conf.d/refuserecords.conf
+    systemctl reload systemd-resolved.service
+
+    run dig localhost -t SRV
+    grep -qF "status: NOERROR" "$RUN_OUT"
+
+    run dig localhost -t TXT
+    grep -qF "status: NOERROR" "$RUN_OUT"
+
+    run dig localhost -t AAAA
+    grep -qF "status: REFUSED" "$RUN_OUT"
+
+    (! run resolvectl query localhost5 --type=SRV)
+    grep -qF "does not have any RR of the requested type" "$RUN_OUT"
+
+    (! run resolvectl query localhost5 --type=TXT)
+    grep -qF "does not have any RR of the requested type" "$RUN_OUT"
+
+    (! run resolvectl query localhost5 --type=AAAA)
+    grep -qF "DNS query type refused." "$RUN_OUT"
+
+    run resolvectl service _mysvc._tcp signed.test
+    grep -qF "myservice.signed.test:1234" "$RUN_OUT"
+    grep -qF "This is TXT for myservice" "$RUN_OUT"
+    grep -qF "10.0.0.20" "$RUN_OUT"
+    (! grep -qF "fd00:dead:beef:cafe::17" "$RUN_OUT")
+    grep -qF "authenticated: yes" "$RUN_OUT"
+
+    run varlinkctl call /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.ResolveService '{"name":"","type":"_mysvc._tcp","domain":"signed.test"}'
+    grep -qF '"services":[{"priority":10,"weight":5,"port":1234,"hostname":"myservice.signed.test","canonicalName":"myservice.signed.test"' "$RUN_OUT"
+    grep -qF '"addresses":[{"ifindex":' "$RUN_OUT"
+    grep -qF '"family":2,"address":[10,0,0,20]' "$RUN_OUT"
+    (! grep -qF '"family":10,"address":[253,0,222,173,190,239,202,254,0,0,0,0,0,0,0,23]' "$RUN_OUT")
+    grep -qF '"txt":["This is TXT for myservice"]' "$RUN_OUT"
+    grep -qF '"canonical":{"name":null,"type":"_mysvc._tcp","domain":"signed.test"}' "$RUN_OUT"
+
+    # Filter both A and AAAA
+    {
+        echo "[Resolve]"
+        echo "RefuseRecordTypes=A AAAA"
+    } >/run/systemd/resolved.conf.d/refuserecords.conf
+    systemctl reload systemd-resolved.service
+
+    run resolvectl service _mysvc._tcp signed.test
+    grep -qF "myservice.signed.test:1234" "$RUN_OUT"
+    grep -qF "This is TXT for myservice" "$RUN_OUT"
+    (! grep -qF "10.0.0.20" "$RUN_OUT")
+    (! grep -qF "fd00:dead:beef:cafe::17" "$RUN_OUT")
+    grep -qF "authenticated: yes" "$RUN_OUT"
+
+    run varlinkctl call /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.ResolveService '{"name":"","type":"_mysvc._tcp","domain":"signed.test"}'
+    grep -qF '"services":[{"priority":10,"weight":5,"port":1234,"hostname":"myservice.signed.test"}]' "$RUN_OUT"
+    (! grep -qF '"addresses":[{"ifindex":' "$RUN_OUT")
+    (! grep -qF '"family":2,"address":[10,0,0,20]' "$RUN_OUT")
+    (! grep -qF '"family":10,"address":[253,0,222,173,190,239,202,254,0,0,0,0,0,0,0,23]' "$RUN_OUT")
+    grep -qF '"txt":["This is TXT for myservice"]' "$RUN_OUT"
+    grep -qF '"canonical":{"name":null,"type":"_mysvc._tcp","domain":"signed.test"}' "$RUN_OUT"
+
+    # Filter AAAA and TXT
+    {
+        echo "[Resolve]"
+        echo "RefuseRecordTypes=AAAA TXT"
+    } >/run/systemd/resolved.conf.d/refuserecords.conf
+    systemctl reload systemd-resolved.service
+
+    run resolvectl service _mysvc._tcp signed.test
+    grep -qF "myservice.signed.test:1234" "$RUN_OUT"
+    grep -qF "10.0.0.20" "$RUN_OUT"
+    (! grep -qF "fd00:dead:beef:cafe::17" "$RUN_OUT")
+    grep -qF "authenticated: yes" "$RUN_OUT"
+
+    run varlinkctl call /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.ResolveService '{"name":"","type":"_mysvc._tcp","domain":"signed.test"}'
+    grep -qF '"services":[{"priority":10,"weight":5,"port":1234,"hostname":"myservice.signed.test","canonicalName":"myservice.signed.test"' "$RUN_OUT"
+    grep -qF '"addresses":[{"ifindex":' "$RUN_OUT"
+    grep -qF '"family":2,"address":[10,0,0,20]' "$RUN_OUT"
+    (! grep -qF '"family":10,"address":[253,0,222,173,190,239,202,254,0,0,0,0,0,0,0,23]' "$RUN_OUT")
+    (! grep -qF '"txt":["This is TXT for myservice"]' "$RUN_OUT")
+    grep -qF '"canonical":{"name":null,"type":"_mysvc._tcp","domain":"signed.test"}' "$RUN_OUT"
+
+    # Filter SRV
+    {
+        echo "[Resolve]"
+        echo "RefuseRecordTypes=SRV"
+    } >/run/systemd/resolved.conf.d/refuserecords.conf
+    systemctl reload systemd-resolved.service
+
+    (! run resolvectl service _mysvc._tcp signed.test)
+    (! run varlinkctl call /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.ResolveService '{"name":"","type":"_mysvc._tcp","domain":"signed.test"}')
 }
 
 # PRE-SETUP

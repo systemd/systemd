@@ -97,7 +97,7 @@ static NextHop* nexthop_free(NextHop *nexthop) {
         nexthop_detach_impl(nexthop);
 
         config_section_free(nexthop->section);
-        hashmap_free_free(nexthop->group);
+        hashmap_free(nexthop->group);
         set_free(nexthop->nexthops);
         set_free(nexthop->routes);
 
@@ -271,7 +271,7 @@ static int nexthop_dup(const NextHop *src, NextHop **ret) {
                 if (!g)
                         return -ENOMEM;
 
-                r = hashmap_ensure_put(&dest->group, NULL, UINT32_TO_PTR(g->id), g);
+                r = hashmap_ensure_put(&dest->group, &trivial_hash_ops_value_free, UINT32_TO_PTR(g->id), g);
                 if (r < 0)
                         return r;
                 if (r > 0)
@@ -894,7 +894,7 @@ static bool nexthop_can_update(const NextHop *assigned_nexthop, const NextHop *r
 
         /* There are several more conditions if we can replace a group nexthop, e.g. hash threshold and
          * resilience. But, currently we do not support to modify that. Let's add checks for them in the
-         * future when we support to configure them.*/
+         * future when we support to configure them. */
 
         /* When a nexthop is replaced with a blackhole nexthop, and a group nexthop has multiple nexthops
          * including this nexthop, then the kernel refuses to replace the existing nexthop.
@@ -924,17 +924,8 @@ int link_drop_nexthops(Link *link, bool only_static) {
                 if (!nexthop_exists(nexthop))
                         continue;
 
-                if (nexthop->source == NETWORK_CONFIG_SOURCE_FOREIGN) {
-                        if (only_static)
-                                continue;
-
-                        /* Do not mark foreign nexthop when KeepConfiguration= is enabled. */
-                        if (link->network &&
-                            FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_STATIC))
-                                continue;
-
-                } else if (nexthop->source != NETWORK_CONFIG_SOURCE_STATIC)
-                        continue; /* Ignore dynamically configurad nexthops. */
+                if (!link_should_mark_config(link, only_static, nexthop->source, nexthop->protocol))
+                        continue;
 
                 /* Ignore nexthops bound to other links. */
                 if (nexthop->ifindex > 0 && nexthop->ifindex != link->ifindex)
@@ -1018,7 +1009,7 @@ void link_forget_nexthops(Link *link) {
 }
 
 static int nexthop_update_group(NextHop *nexthop, sd_netlink_message *message) {
-        _cleanup_hashmap_free_free_ Hashmap *h = NULL;
+        _cleanup_hashmap_free_ Hashmap *h = NULL;
         _cleanup_free_ struct nexthop_grp *group = NULL;
         size_t size = 0, n_group;
         int r;
@@ -1058,7 +1049,7 @@ static int nexthop_update_group(NextHop *nexthop, sd_netlink_message *message) {
                 if (!nhg)
                         return log_oom();
 
-                r = hashmap_ensure_put(&h, NULL, UINT32_TO_PTR(nhg->id), nhg);
+                r = hashmap_ensure_put(&h, &trivial_hash_ops_value_free, UINT32_TO_PTR(nhg->id), nhg);
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
@@ -1069,9 +1060,7 @@ static int nexthop_update_group(NextHop *nexthop, sd_netlink_message *message) {
                         TAKE_PTR(nhg);
         }
 
-        hashmap_free_free(nexthop->group);
-        nexthop->group = TAKE_PTR(h);
-
+        hashmap_free_and_replace(nexthop->group, h);
         nexthop_attach_to_group_members(nexthop);
         return 0;
 }
@@ -1377,7 +1366,7 @@ static int config_parse_nexthop_group(
         int r;
 
         if (isempty(rvalue)) {
-                *group = hashmap_free_free(*group);
+                *group = hashmap_free(*group);
                 return 1;
         }
 
@@ -1431,7 +1420,7 @@ static int config_parse_nexthop_group(
                         continue;
                 }
 
-                r = hashmap_ensure_put(group, NULL, UINT32_TO_PTR(nhg->id), nhg);
+                r = hashmap_ensure_put(group, &trivial_hash_ops_value_free, UINT32_TO_PTR(nhg->id), nhg);
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r == -EEXIST) {

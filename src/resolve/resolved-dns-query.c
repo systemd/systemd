@@ -136,7 +136,7 @@ static int dns_query_candidate_next_search_domain(DnsQueryCandidate *c) {
         dns_search_domain_unref(c->search_domain);
         c->search_domain = dns_search_domain_ref(next);
 
-        return 1;
+        return 0;
 }
 
 static int dns_query_candidate_add_transaction(
@@ -508,6 +508,58 @@ DnsQuery *dns_query_free(DnsQuery *q) {
         return mfree(q);
 }
 
+static int manager_validate_and_mangle_question(Manager *manager, DnsQuestion **question, DnsQuestion **ret_allocated) {
+        int r;
+
+        assert(manager);
+        assert(question);
+        assert(ret_allocated);
+
+        if (!*question) {
+                *ret_allocated = NULL;
+                return 0;
+        }
+
+        if (set_isempty(manager->refuse_record_types)) {
+                *ret_allocated = NULL;
+                return 0; /* No filtering configured. Let's shortcut. */
+        }
+
+        bool has_good = false, has_bad = false;
+        DnsResourceKey *key;
+        DNS_QUESTION_FOREACH(key, *question)
+                if (set_contains(manager->refuse_record_types, INT_TO_PTR(key->type)))
+                        has_bad = true;
+                else
+                        has_good = true;
+
+        if (has_bad && !has_good)
+                return -ENOANO; /* All bad, refuse.*/
+        if (!has_bad) {
+                assert(has_good); /* The question should have at least one key. */
+                *ret_allocated = NULL;
+                return 0; /* All good. Not necessary to filter. */
+        }
+
+        /* Mangle the question suppressing bad entries, leaving good entries */
+        _cleanup_(dns_question_unrefp) DnsQuestion *new_question = dns_question_new(dns_question_size(*question));
+        if (!new_question)
+                return -ENOMEM;
+
+        DnsQuestionItem *item;
+        DNS_QUESTION_FOREACH_ITEM(item, *question) {
+                if (set_contains(manager->refuse_record_types, INT_TO_PTR(item->key->type)))
+                        continue;
+                r = dns_question_add_raw(new_question, item->key, item->flags);
+                if (r < 0)
+                        return r;
+        }
+
+        *question = new_question;
+        *ret_allocated = TAKE_PTR(new_question);
+        return 0;
+}
+
 int dns_query_new(
                 Manager *m,
                 DnsQuery **ret,
@@ -523,6 +575,17 @@ int dns_query_new(
         int r;
 
         assert(m);
+
+        /* Check for records that is refused and refuse query for the records if matched in configuration */
+        _unused_ _cleanup_(dns_question_unrefp) DnsQuestion *filtered_question_utf8 = NULL;
+        r = manager_validate_and_mangle_question(m, &question_utf8, &filtered_question_utf8);
+        if (r < 0)
+                return r;
+
+        _unused_ _cleanup_(dns_question_unrefp) DnsQuestion *filtered_question_idna = NULL;
+        r = manager_validate_and_mangle_question(m, &question_idna, &filtered_question_idna);
+        if (r < 0)
+                return r;
 
         if (question_bypass) {
                 /* It's either a "bypass" query, or a regular one, but can't be both. */
@@ -1376,4 +1439,61 @@ bool dns_query_fully_authoritative(DnsQuery *q) {
          * zones. (Note: the SD_RESOLVED_FROM_xyz flags we merge on each redirect, hence no need to
          * explicitly check previous redirects here.) */
         return (q->answer_query_flags & SD_RESOLVED_FROM_MASK & ~(SD_RESOLVED_FROM_TRUST_ANCHOR | SD_RESOLVED_FROM_ZONE)) == 0;
+}
+
+int validate_and_mangle_query_flags(
+                Manager *manager,
+                uint64_t *flags,
+                const char *name,
+                uint64_t ok) {
+
+        assert(manager);
+        assert(flags);
+
+        /* Checks that the client supplied interface index and flags parameter actually are valid and make
+         * sense in our method call context. Specifically:
+         *
+         * 1. Checks that the interface index is either 0 (meaning *all* interfaces) or positive
+         *
+         * 2. Only the protocols flags and a bunch of NO_XYZ flags are set, at most. Plus additional flags
+         *    specific to our method, passed in the "ok" parameter.
+         *
+         * 3. If zero protocol flags are specified it is automatically turned into *all* protocols. This way
+         *    clients can simply pass 0 as flags and all will work as it should. They can also use this so
+         *    that clients don't have to know all the protocols resolved implements, but can just specify 0
+         *    to mean "all supported protocols".
+         */
+
+        if (*flags & ~(SD_RESOLVED_PROTOCOLS_ALL|
+                       SD_RESOLVED_NO_CNAME|
+                       SD_RESOLVED_NO_VALIDATE|
+                       SD_RESOLVED_NO_SYNTHESIZE|
+                       SD_RESOLVED_NO_CACHE|
+                       SD_RESOLVED_NO_ZONE|
+                       SD_RESOLVED_NO_TRUST_ANCHOR|
+                       SD_RESOLVED_NO_NETWORK|
+                       SD_RESOLVED_NO_STALE|
+                       SD_RESOLVED_RELAX_SINGLE_LABEL|
+                       ok))
+                return -EINVAL;
+
+        if ((*flags & SD_RESOLVED_PROTOCOLS_ALL) == 0) /* If no protocol is enabled, enable all */
+                *flags |= SD_RESOLVED_PROTOCOLS_ALL;
+
+        /* Imply SD_RESOLVED_NO_SEARCH if permitted and name is dot suffixed. */
+        if (name && FLAGS_SET(ok, SD_RESOLVED_NO_SEARCH) && dns_name_dot_suffixed(name) > 0)
+                *flags |= SD_RESOLVED_NO_SEARCH;
+
+        /* If both A and AAAA are refused, set SD_RESOLVED_NO_ADDRESS flag if it is allowed. */
+        if (set_contains(manager->refuse_record_types, INT_TO_PTR(DNS_TYPE_A)) &&
+            set_contains(manager->refuse_record_types, INT_TO_PTR(DNS_TYPE_AAAA)) &&
+            FLAGS_SET(ok, SD_RESOLVED_NO_ADDRESS))
+                *flags |= SD_RESOLVED_NO_ADDRESS;
+
+        /* Similarly, if TXT is refused, set SD_RESOLVED_NO_TXT flag if it is allowed. */
+        if (set_contains(manager->refuse_record_types, INT_TO_PTR(DNS_TYPE_TXT)) &&
+            FLAGS_SET(ok, SD_RESOLVED_NO_TXT))
+                *flags |= SD_RESOLVED_NO_TXT;
+
+        return 0;
 }

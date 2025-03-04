@@ -51,9 +51,23 @@
 
 # Sort by brand, model
 
+# Code Mercenaries Hard- und Software GmbH Virtual RC USB
+id-input:modalias:input:b0003v07C0p1125*
+ ID_INPUT_MOUSE=
+ ID_INPUT_JOYSTICK=1
+
+# GOLD WARRIOR SIM PhoenixRC 10411R
+id-input:modalias:input:b0003v1781p0898*
+ ID_INPUT_ACCELEROMETER=
+ ID_INPUT_JOYSTICK=1
+
 # XP-PEN STAR 06
 id-input:modalias:input:b0003v28bdp0078*
  ID_INPUT_TABLET=1
+
+# XBox Series Elite controller
+id-input:modalias:input:b0005v045Ep0B22e0517*
+ ID_INPUT_JOYSTICK=1
 
 # Lite-On Tech IBM USB Travel Keyboard with Ultra Nav Mouse
 id-input:modalias:input:b0003v04B3p301Ee0100-e0,1,2,4*

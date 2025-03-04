@@ -388,9 +388,18 @@ varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Open 
 varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Open '{"name": ".host", "mode": "shell"}'
 
 rm -f /tmp/none-existent-file
-varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Open '{"name": ".host", "mode": "shell", "user": "root", "path": "/bin/sh", "args": ["/bin/sh", "-c", "echo $FOO > /tmp/none-existent-file"], "environment": ["FOO=BAR"]}'
+
+# We need to make sure the acquired pty fd stays open if we invoke a command
+# server side, to not generate early SIGHUP. Hence, let's just invoke "sleep
+# infinity" client side, once we acquired the fd (passing it to it), and kill
+# it once we verified everything worked.
+PID=$(systemd-notify --fork -- varlinkctl --exec call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Open '{"name": ".host", "mode": "shell", "user": "root", "path": "/bin/bash", "args": ["/bin/bash", "-c", "echo $FOO > /tmp/none-existent-file"], "environment": ["FOO=BAR"]}' -- sleep infinity)
 timeout 30 bash -c "until test -e /tmp/none-existent-file; do sleep .5; done"
 grep -q "BAR" /tmp/none-existent-file
+kill "$PID"
+
+# Test varlinkctl's --exec fd passing logic properly
+assert_eq "$(varlinkctl --exec call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Open '{"name": ".host", "mode": "shell", "user": "root", "path": "/bin/bash", "args": ["/bin/bash", "-c", "echo $((7 + 8))"], "environment": ["TERM=dumb"]}' -- bash -c 'read -r -N 2 x <&3 ; echo "$x"')" 15
 
 # test io.systemd.Machine.MapFrom
 varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.MapFrom '{"name": "long-running", "uid":0, "gid": 0}'
@@ -451,7 +460,20 @@ varlinkctl call /run/systemd/machine/io.systemd.MachineImage io.systemd.MachineI
 varlinkctl call /run/systemd/machine/io.systemd.MachineImage io.systemd.MachineImage.Clone '{"name":"long-running", "newName": "long-running-cloned", "readOnly": true}'
 varlinkctl call /run/systemd/machine/io.systemd.MachineImage io.systemd.MachineImage.List '{"name":"long-running-cloned"}'
 varlinkctl call /run/systemd/machine/io.systemd.MachineImage io.systemd.MachineImage.List '{"name":"long-running-cloned"}' | jq '.readOnly' | grep 'true'
+# this is for io.systemd.MachineImage.CleanPool test
+varlinkctl call /run/systemd/machine/io.systemd.MachineImage io.systemd.MachineImage.Clone '{"name":"long-running", "newName": "long-running-to-cleanup", "readOnly": true}'
 
 # test io.systemd.MachineImage.Remove
 varlinkctl call /run/systemd/machine/io.systemd.MachineImage io.systemd.MachineImage.Remove '{"name":"long-running-cloned"}'
 (! varlinkctl call /run/systemd/machine/io.systemd.MachineImage io.systemd.MachineImage.List '{"name":"long-running-cloned"}')
+
+# test io.systemd.MachineImage.SetPoolLimit
+FSTYPE="$(stat --file-system --format "%T" /var/lib/machines)"
+if [[ "$FSTYPE" == "btrfs" ]]; then
+     varlinkctl call /run/systemd/machine/io.systemd.MachineImage io.systemd.MachineImage.SetPoolLimit '{"limit": 18446744073709551615}' # UINT64_MAX
+fi
+
+# test io.systemd.MachineImage.CleanPool
+varlinkctl call /run/systemd/machine/io.systemd.MachineImage io.systemd.MachineImage.List '{"name":"long-running-to-cleanup"}'
+varlinkctl --more call /run/systemd/machine/io.systemd.MachineImage io.systemd.MachineImage.CleanPool '{"mode":"all"}' | grep "long-running-to-cleanup"
+(! varlinkctl call /run/systemd/machine/io.systemd.MachineImage io.systemd.MachineImage.List '{"name":"long-running-to-cleanup"}')

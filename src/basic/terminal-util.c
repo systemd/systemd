@@ -26,6 +26,7 @@
 #include "constants.h"
 #include "devnum-util.h"
 #include "env-util.h"
+#include "errno-list.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
@@ -103,22 +104,25 @@ int chvt(int vt) {
         return RET_NERRNO(ioctl(fd, VT_ACTIVATE, vt));
 }
 
-int read_one_char(FILE *f, char *ret, usec_t t, bool *need_nl) {
+int read_one_char(FILE *f, char *ret, usec_t t, bool echo, bool *need_nl) {
         _cleanup_free_ char *line = NULL;
         struct termios old_termios;
         int r, fd;
 
-        assert(f);
         assert(ret);
+
+        if (!f)
+                f = stdin;
 
         /* If this is a terminal, then switch canonical mode off, so that we can read a single
          * character. (Note that fmemopen() streams do not have an fd associated with them, let's handle that
-         * nicely.) */
+         * nicely.) If 'echo' is false we'll also disable ECHO mode so that the pressed key is not made
+         * visible to the user. */
         fd = fileno(f);
         if (fd >= 0 && tcgetattr(fd, &old_termios) >= 0) {
                 struct termios new_termios = old_termios;
 
-                new_termios.c_lflag &= ~ICANON;
+                new_termios.c_lflag &= ~(ICANON|(echo ? 0 : ECHO));
                 new_termios.c_cc[VMIN] = 1;
                 new_termios.c_cc[VTIME] = 0;
 
@@ -201,7 +205,7 @@ int ask_char(char *ret, const char *replies, const char *fmt, ...) {
 
                 fflush(stdout);
 
-                r = read_one_char(stdin, &c, DEFAULT_ASK_REFRESH_USEC, &need_nl);
+                r = read_one_char(stdin, &c, DEFAULT_ASK_REFRESH_USEC, /* echo= */ true, &need_nl);
                 if (r < 0) {
 
                         if (r == -ETIMEDOUT)
@@ -228,94 +232,368 @@ int ask_char(char *ret, const char *replies, const char *fmt, ...) {
         }
 }
 
-int ask_string(char **ret, const char *text, ...) {
-        _cleanup_free_ char *line = NULL;
+typedef enum CompletionResult{
+        COMPLETION_ALREADY,       /* the input string is already complete */
+        COMPLETION_FULL,          /* completed the input string to be complete now */
+        COMPLETION_PARTIAL,       /* completed the input string so that is still incomplete */
+        COMPLETION_NONE,          /* found no matching completion */
+        _COMPLETION_RESULT_MAX,
+        _COMPLETION_RESULT_INVALID = -EINVAL,
+        _COMPLETION_RESULT_ERRNO_MAX = -ERRNO_MAX,
+} CompletionResult;
+
+static CompletionResult pick_completion(const char *string, char *const*completions, char **ret) {
+        _cleanup_free_ char *found = NULL;
+        bool partial = false;
+
+        string = strempty(string);
+
+        STRV_FOREACH(c, completions) {
+
+                /* Ignore entries that are not actually completions */
+                if (!startswith(*c, string))
+                        continue;
+
+                /* Store first completion that matches */
+                if (!found) {
+                        found = strdup(*c);
+                        if (!found)
+                                return -ENOMEM;
+
+                        continue;
+                }
+
+                /* If there's another completion that works truncate the one we already found by common
+                 * prefix */
+                size_t n = str_common_prefix(found, *c);
+                if (n == SIZE_MAX)
+                        continue;
+
+                found[n] = 0;
+                partial = true;
+        }
+
+        *ret = TAKE_PTR(found);
+
+        if (!*ret)
+                return COMPLETION_NONE;
+        if (partial)
+                return COMPLETION_PARTIAL;
+
+        return streq(string, *ret) ? COMPLETION_ALREADY : COMPLETION_FULL;
+}
+
+static void clear_by_backspace(size_t n) {
+        /* Erase the specified number of character cells backwards on the terminal */
+        for (size_t i = 0; i < n; i++)
+                fputs("\b \b", stdout);
+}
+
+int ask_string_full(
+                char **ret,
+                GetCompletionsCallback get_completions,
+                void *userdata,
+                const char *text, ...) {
+
         va_list ap;
         int r;
 
         assert(ret);
         assert(text);
 
+        /* Output the prompt */
         fputs(ansi_highlight(), stdout);
-
         va_start(ap, text);
         vprintf(text, ap);
         va_end(ap);
-
         fputs(ansi_normal(), stdout);
-
         fflush(stdout);
 
-        r = read_line(stdin, LONG_LINE_MAX, &line);
+        _cleanup_free_ char *string = NULL;
+        size_t n = 0;
+
+        /* Do interactive logic only if stdin + stdout are connected to the same place. And yes, we could use
+         * STDIN_FILENO and STDOUT_FILENO here, but let's be overly correct for once, after all libc allows
+         * swapping out stdin/stdout. */
+        int fd_input = fileno(stdin);
+        int fd_output = fileno(stdout);
+        if (fd_input < 0 || fd_output < 0 || same_fd(fd_input, fd_output) <= 0)
+                goto fallback;
+
+        /* Try to disable echo, which also tells us if this even is a terminal */
+        struct termios old_termios;
+        if (tcgetattr(fd_input, &old_termios) < 0)
+                goto fallback;
+
+        struct termios new_termios = old_termios;
+        termios_disable_echo(&new_termios);
+        if (tcsetattr(fd_input, TCSADRAIN, &new_termios) < 0)
+                return -errno;
+
+        for (;;) {
+                int c = fgetc(stdin);
+
+                /* On EOF or NUL, end the request, don't output anything anymore */
+                if (IN_SET(c, EOF, 0))
+                        break;
+
+                /* On Return also end the request, but make this visible */
+                if (IN_SET(c, '\n', '\r')) {
+                        fputc('\n', stdout);
+                        break;
+                }
+
+                if (c == '\t') {
+                        /* Tab */
+
+                        _cleanup_strv_free_ char **completions = NULL;
+                        if (get_completions) {
+                                r = get_completions(string, &completions, userdata);
+                                if (r < 0)
+                                        goto fail;
+                        }
+
+                        _cleanup_free_ char *new_string = NULL;
+                        CompletionResult cr = pick_completion(string, completions, &new_string);
+                        if (cr < 0) {
+                                r = cr;
+                                goto fail;
+                        }
+                        if (IN_SET(cr, COMPLETION_PARTIAL, COMPLETION_FULL)) {
+                                /* Output the new suffix we learned */
+                                fputs(ASSERT_PTR(startswith(new_string, strempty(string))), stdout);
+
+                                /* And update the whole string */
+                                free_and_replace(string, new_string);
+                                n = strlen(string);
+                        }
+                        if (cr == COMPLETION_NONE)
+                                fputc('\a', stdout); /* BEL */
+
+                        if (IN_SET(cr, COMPLETION_PARTIAL, COMPLETION_ALREADY)) {
+                                /* If this worked only partially, or if the user hit TAB even though we were
+                                 * complete already, then show the remaining options (in the latter case just
+                                 * the one). */
+                                fputc('\n', stdout);
+
+                                _cleanup_strv_free_ char **filtered = strv_filter_prefix(completions, string);
+                                if (!filtered) {
+                                        r = -ENOMEM;
+                                        goto fail;
+                                }
+
+                                r = show_menu(filtered,
+                                              /* n_columns= */ SIZE_MAX,
+                                              /* column_width= */ SIZE_MAX,
+                                              /* ellipsize_percentage= */ 0,
+                                              /* grey_prefix=*/ string,
+                                              /* with_numbers= */ false);
+                                if (r < 0)
+                                        goto fail;
+
+                                /* Show the prompt again */
+                                fputs(ansi_highlight(), stdout);
+                                va_start(ap, text);
+                                vprintf(text, ap);
+                                va_end(ap);
+                                fputs(ansi_normal(), stdout);
+                                fputs(string, stdout);
+                        }
+
+                } else if (IN_SET(c, '\b', 127)) {
+                        /* Backspace */
+
+                        if (n == 0)
+                                fputc('\a', stdout); /* BEL */
+                        else {
+                                size_t m = utf8_last_length(string, n);
+
+                                char *e = string + n - m;
+                                clear_by_backspace(utf8_console_width(e));
+
+                                *e = 0;
+                                n -= m;
+                        }
+
+                } else if (c == 21) {
+                        /* Ctrl-u → erase all input */
+
+                        clear_by_backspace(utf8_console_width(string));
+                        if (string)
+                                string[n = 0] = 0;
+                        else
+                                assert(n == 0);
+
+                } else if (c == 4) {
+                        /* Ctrl-d → cancel this field input */
+
+                        r = -ECANCELED;
+                        goto fail;
+
+                } else if (char_is_cc(c) || n >= LINE_MAX)
+                        /* refuse control characters and too long strings */
+                        fputc('\a', stdout); /* BEL */
+                else {
+                        /* Regular char */
+
+                        if (!GREEDY_REALLOC(string, n+2)) {
+                                r = -ENOMEM;
+                                goto fail;
+                        }
+
+                        string[n++] = (char) c;
+                        string[n] = 0;
+
+                        fputc(c, stdout);
+                }
+
+                fflush(stdout);
+        }
+
+        if (tcsetattr(fd_input, TCSADRAIN, &old_termios) < 0)
+                return -errno;
+
+        if (!string) {
+                string = strdup("");
+                if (!string)
+                        return -ENOMEM;
+        }
+
+        *ret = TAKE_PTR(string);
+        return 0;
+
+fail:
+        (void) tcsetattr(fd_input, TCSADRAIN, &old_termios);
+        return r;
+
+fallback:
+        /* A simple fallback without TTY magic */
+        r = read_line(stdin, LONG_LINE_MAX, &string);
         if (r < 0)
                 return r;
         if (r == 0)
                 return -EIO;
 
-        *ret = TAKE_PTR(line);
+        *ret = TAKE_PTR(string);
         return 0;
 }
 
 bool any_key_to_proceed(void) {
+
+        /* Insert a new line here as well as to when the user inputs, as this is also used during the boot up
+         * sequence when status messages may be interleaved with the current program output. This ensures
+         * that the status messages aren't appended on the same line as this message. */
+
+        fputc('\n', stdout);
+        fputs(ansi_highlight_magenta(), stdout);
+        fputs("-- Press any key to proceed --", stdout);
+        fputs(ansi_normal(), stdout);
+        fputc('\n', stdout);
+        fflush(stdout);
+
         char key = 0;
-        bool need_nl = true;
+        (void) read_one_char(stdin, &key, USEC_INFINITY, /* echo= */ false, /* need_nl= */ NULL);
 
-        /*
-         * Insert a new line here as well as to when the user inputs, as this is also used during the
-         * boot up sequence when status messages may be interleaved with the current program output.
-         * This ensures that the status messages aren't appended on the same line as this message.
-         */
-        puts("-- Press any key to proceed --");
-
-        (void) read_one_char(stdin, &key, USEC_INFINITY, &need_nl);
-
-        if (need_nl)
-                putchar('\n');
+        fputc('\n', stdout);
+        fflush(stdout);
 
         return key != 'q';
 }
 
-int show_menu(char **x, unsigned n_columns, unsigned width, unsigned percentage) {
-        unsigned break_lines, break_modulo;
-        size_t n, per_column, i, j;
+static size_t widest_list_element(char *const*l) {
+        size_t w = 0;
+
+        /* Returns the largest console width of all elements in 'l' */
+
+        STRV_FOREACH(i, l)
+                w = MAX(w, utf8_console_width(*i));
+
+        return w;
+}
+
+int show_menu(char **x,
+              size_t n_columns,
+              size_t column_width,
+              unsigned ellipsize_percentage,
+              const char *grey_prefix,
+              bool with_numbers) {
 
         assert(n_columns > 0);
 
-        n = strv_length(x);
-        per_column = DIV_ROUND_UP(n, n_columns);
+        if (n_columns == SIZE_MAX)
+                n_columns = 3;
 
-        break_lines = lines();
+        if (column_width == SIZE_MAX) {
+                size_t widest = widest_list_element(x);
+
+                /* If not specified, derive column width from screen width */
+                size_t column_max = (columns()-1) / n_columns;
+
+                /* Subtract room for numbers */
+                if (with_numbers && column_max > 6)
+                        column_max -= 6;
+
+                /* If columns would get too tight let's make this a linear list instead. */
+                if (column_max < 10 && widest > 10) {
+                        n_columns = 1;
+                        column_max = columns()-1;
+
+                        if (with_numbers && column_max > 6)
+                                column_max -= 6;
+                }
+
+                column_width = CLAMP(widest+1, 10U, column_max);
+        }
+
+        size_t n = strv_length(x);
+        size_t per_column = DIV_ROUND_UP(n, n_columns);
+
+        size_t break_lines = lines();
         if (break_lines > 2)
                 break_lines--;
 
         /* The first page gets two extra lines, since we want to show
          * a title */
-        break_modulo = break_lines;
+        size_t break_modulo = break_lines;
         if (break_modulo > 3)
                 break_modulo -= 3;
 
-        for (i = 0; i < per_column; i++) {
+        for (size_t i = 0; i < per_column; i++) {
 
-                for (j = 0; j < n_columns; j++) {
+                for (size_t j = 0; j < n_columns; j++) {
                         _cleanup_free_ char *e = NULL;
 
                         if (j * per_column + i >= n)
                                 break;
 
-                        e = ellipsize(x[j * per_column + i], width, percentage);
+                        e = ellipsize(x[j * per_column + i], column_width, ellipsize_percentage);
                         if (!e)
-                                return log_oom();
+                                return -ENOMEM;
 
-                        printf("%4zu) %-*s", j * per_column + i + 1, (int) width, e);
+                        if (with_numbers)
+                                printf("%s%4zu)%s ",
+                                       ansi_grey(),
+                                       j * per_column + i + 1,
+                                       ansi_normal());
+
+                        if (grey_prefix && startswith(e, grey_prefix)) {
+                                size_t k = MIN(strlen(grey_prefix), column_width);
+                                printf("%s%.*s%s",
+                                       ansi_grey(),
+                                       (int) k, e,
+                                       ansi_normal());
+                                printf("%-*s",
+                                       (int) (column_width - k), e+k);
+                        } else
+                                printf("%-*s", (int) column_width, e);
                 }
 
                 putchar('\n');
 
                 /* on the first screen we reserve 2 extra lines for the title */
-                if (i % break_lines == break_modulo) {
+                if (i % break_lines == break_modulo)
                         if (!any_key_to_proceed())
                                 return 0;
-                }
         }
 
         return 0;
@@ -365,7 +643,10 @@ int acquire_terminal(
         int r, wd = -1;
 
         assert(name);
-        assert(IN_SET(flags & ~ACQUIRE_TERMINAL_PERMISSIVE, ACQUIRE_TERMINAL_TRY, ACQUIRE_TERMINAL_FORCE, ACQUIRE_TERMINAL_WAIT));
+
+        AcquireTerminalFlags mode = flags & _ACQUIRE_TERMINAL_MODE_MASK;
+        assert(IN_SET(mode, ACQUIRE_TERMINAL_TRY, ACQUIRE_TERMINAL_FORCE, ACQUIRE_TERMINAL_WAIT));
+        assert(mode == ACQUIRE_TERMINAL_WAIT || !FLAGS_SET(flags, ACQUIRE_TERMINAL_WATCH_SIGTERM));
 
         /* We use inotify to be notified when the tty is closed. We create the watch before checking if we can actually
          * acquire it, so that we don't lose any event.
@@ -376,8 +657,8 @@ int acquire_terminal(
          * not configure any service on the same tty as an untrusted user this should not be a problem. (Which they
          * probably should not do anyway.) */
 
-        if ((flags & ~ACQUIRE_TERMINAL_PERMISSIVE) == ACQUIRE_TERMINAL_WAIT) {
-                notify = inotify_init1(IN_CLOEXEC | (timeout != USEC_INFINITY ? IN_NONBLOCK : 0));
+        if (mode == ACQUIRE_TERMINAL_WAIT) {
+                notify = inotify_init1(IN_CLOEXEC | IN_NONBLOCK);
                 if (notify < 0)
                         return -errno;
 
@@ -387,6 +668,14 @@ int acquire_terminal(
 
                 if (timeout != USEC_INFINITY)
                         ts = now(CLOCK_MONOTONIC);
+        }
+
+        /* If we are called with ACQUIRE_TERMINAL_WATCH_SIGTERM we'll unblock SIGTERM during ppoll() temporarily */
+        sigset_t poll_ss;
+        assert_se(sigprocmask(SIG_SETMASK, /* newset= */ NULL, &poll_ss) >= 0);
+        if (flags & ACQUIRE_TERMINAL_WATCH_SIGTERM) {
+                assert_se(sigismember(&poll_ss, SIGTERM) > 0);
+                assert_se(sigdelset(&poll_ss, SIGTERM) >= 0);
         }
 
         for (;;) {
@@ -407,7 +696,7 @@ int acquire_terminal(
                 assert_se(sigaction(SIGHUP, &sigaction_ignore, &sa_old) >= 0);
 
                 /* First, try to get the tty */
-                r = RET_NERRNO(ioctl(fd, TIOCSCTTY, (flags & ~ACQUIRE_TERMINAL_PERMISSIVE) == ACQUIRE_TERMINAL_FORCE));
+                r = RET_NERRNO(ioctl(fd, TIOCSCTTY, mode == ACQUIRE_TERMINAL_FORCE));
 
                 /* Reset signal handler to old value */
                 assert_se(sigaction(SIGHUP, &sa_old, NULL) >= 0);
@@ -425,32 +714,41 @@ int acquire_terminal(
                                                           * already are the owner of the TTY. */
                         break;
 
-                if (flags != ACQUIRE_TERMINAL_WAIT) /* If we are in TRY or FORCE mode, then propagate EPERM as EPERM */
+                if (mode != ACQUIRE_TERMINAL_WAIT) /* If we are in TRY or FORCE mode, then propagate EPERM as EPERM */
                         return r;
 
                 assert(notify >= 0);
                 assert(wd >= 0);
 
                 for (;;) {
-                        union inotify_event_buffer buffer;
-                        ssize_t l;
-
-                        if (timeout != USEC_INFINITY) {
-                                usec_t n;
-
+                        usec_t left;
+                        if (timeout == USEC_INFINITY)
+                                left = USEC_INFINITY;
+                        else {
                                 assert(ts != USEC_INFINITY);
 
-                                n = usec_sub_unsigned(now(CLOCK_MONOTONIC), ts);
+                                usec_t n = usec_sub_unsigned(now(CLOCK_MONOTONIC), ts);
                                 if (n >= timeout)
                                         return -ETIMEDOUT;
 
-                                r = fd_wait_for_event(notify, POLLIN, usec_sub_unsigned(timeout, n));
-                                if (r < 0)
-                                        return r;
-                                if (r == 0)
-                                        return -ETIMEDOUT;
+                                left = timeout - n;
                         }
 
+                        r = ppoll_usec_full(
+                                        &(struct pollfd) {
+                                                .fd = notify,
+                                                .events = POLLIN,
+                                        },
+                                        /* n_pollfds = */ 1,
+                                        left,
+                                        &poll_ss);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                return -ETIMEDOUT;
+
+                        union inotify_event_buffer buffer;
+                        ssize_t l;
                         l = read(notify, &buffer, sizeof(buffer));
                         if (l < 0) {
                                 if (ERRNO_IS_TRANSIENT(errno))
@@ -764,21 +1062,7 @@ int make_console_stdio(void) {
         return 0;
 }
 
-bool tty_is_vc(const char *tty) {
-        assert(tty);
-
-        return vtnr_from_tty(tty) >= 0;
-}
-
-bool tty_is_console(const char *tty) {
-        assert(tty);
-
-        return streq(skip_dev_prefix(tty), "console");
-}
-
-int vtnr_from_tty(const char *tty) {
-        int r;
-
+static int vtnr_from_tty_raw(const char *tty, unsigned *ret) {
         assert(tty);
 
         tty = skip_dev_prefix(tty);
@@ -787,14 +1071,39 @@ int vtnr_from_tty(const char *tty) {
         if (!e)
                 return -EINVAL;
 
+        return safe_atou(e, ret);
+}
+
+int vtnr_from_tty(const char *tty) {
         unsigned u;
-        r = safe_atou(e, &u);
+        int r;
+
+        assert(tty);
+
+        r = vtnr_from_tty_raw(tty, &u);
         if (r < 0)
                 return r;
         if (!vtnr_is_valid(u))
                 return -ERANGE;
 
         return (int) u;
+}
+
+bool tty_is_vc(const char *tty) {
+        assert(tty);
+
+        /* NB: for >= 0 values no range check is conducted here, on the assumption that the caller will
+         * either extract vtnr through vtnr_from_tty() later where ERANGE would be reported, or doesn't care
+         * about whether it's strictly valid, but only asking "does this fall into the vt catogory?", for which
+         * "yes" seems to be a better answer. */
+
+        return vtnr_from_tty_raw(tty, /* ret = */ NULL) >= 0;
+}
+
+bool tty_is_console(const char *tty) {
+        assert(tty);
+
+        return streq(skip_dev_prefix(tty), "console");
 }
 
 int resolve_dev_console(char **ret) {
@@ -855,13 +1164,12 @@ int resolve_dev_console(char **ret) {
 int get_kernel_consoles(char ***ret) {
         _cleanup_strv_free_ char **l = NULL;
         _cleanup_free_ char *line = NULL;
-        const char *p;
         int r;
 
         assert(ret);
 
-        /* If /sys is mounted read-only this means we are running in some kind of container environment. In that
-         * case /sys would reflect the host system, not us, hence ignore the data we can read from it. */
+        /* If /sys/ is mounted read-only this means we are running in some kind of container environment.
+         * In that case /sys/ would reflect the host system, not us, hence ignore the data we can read from it. */
         if (path_is_read_only_fs("/sys") > 0)
                 goto fallback;
 
@@ -869,8 +1177,7 @@ int get_kernel_consoles(char ***ret) {
         if (r < 0)
                 return r;
 
-        p = line;
-        for (;;) {
+        for (const char *p = line;;) {
                 _cleanup_free_ char *tty = NULL, *path = NULL;
 
                 r = extract_first_word(&p, &tty, NULL, 0);
@@ -906,8 +1213,7 @@ int get_kernel_consoles(char ***ret) {
         }
 
         *ret = TAKE_PTR(l);
-
-        return 0;
+        return strv_length(*ret);
 
 fallback:
         r = strv_extend(&l, "/dev/console");
@@ -915,7 +1221,6 @@ fallback:
                 return r;
 
         *ret = TAKE_PTR(l);
-
         return 0;
 }
 
@@ -1355,14 +1660,16 @@ static int ptsname_namespace(int pty, char **ret) {
         return 0;
 }
 
-int openpt_allocate_in_namespace(pid_t pid, int flags, char **ret_peer_path) {
+int openpt_allocate_in_namespace(
+                const PidRef *pidref,
+                int flags,
+                char **ret_peer_path) {
+
         _cleanup_close_ int pidnsfd = -EBADF, mntnsfd = -EBADF, usernsfd = -EBADF, rootfd = -EBADF, fd = -EBADF;
         _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
         int r;
 
-        assert(pid > 0);
-
-        r = namespace_open(pid, &pidnsfd, &mntnsfd, /* ret_netns_fd = */ NULL, &usernsfd, &rootfd);
+        r = pidref_namespace_open(pidref, &pidnsfd, &mntnsfd, /* ret_netns_fd = */ NULL, &usernsfd, &rootfd);
         if (r < 0)
                 return r;
 
@@ -1409,53 +1716,6 @@ int openpt_allocate_in_namespace(pid_t pid, int flags, char **ret_peer_path) {
         }
 
         return TAKE_FD(fd);
-}
-
-int open_terminal_in_namespace(pid_t pid, const char *name, int mode) {
-        _cleanup_close_ int pidnsfd = -EBADF, mntnsfd = -EBADF, usernsfd = -EBADF, rootfd = -EBADF;
-        _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
-        int r;
-
-        assert(pid > 0);
-        assert(name);
-
-        r = namespace_open(pid, &pidnsfd, &mntnsfd, /* ret_netns_fd= */ NULL, &usernsfd, &rootfd);
-        if (r < 0)
-                return r;
-
-        if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, pair) < 0)
-                return -errno;
-
-        r = namespace_fork(
-                        "(sd-terminalns)",
-                        "(sd-terminal)",
-                        /* except_fds= */ NULL,
-                        /* n_except_fds= */ 0,
-                        FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL|FORK_WAIT,
-                        pidnsfd,
-                        mntnsfd,
-                        /* netnsd_fd= */ -EBADF,
-                        usernsfd,
-                        rootfd,
-                        /* ret_pid= */ NULL);
-        if (r < 0)
-                return r;
-        if (r == 0) {
-                pair[0] = safe_close(pair[0]);
-
-                int pty_fd = open_terminal(name, mode|O_NOCTTY|O_CLOEXEC);
-                if (pty_fd < 0)
-                        _exit(EXIT_FAILURE);
-
-                if (send_one_fd(pair[1], pty_fd, 0) < 0)
-                        _exit(EXIT_FAILURE);
-
-                _exit(EXIT_SUCCESS);
-        }
-
-        pair[1] = safe_close(pair[1]);
-
-        return receive_one_fd(pair[0], 0);
 }
 
 static bool on_dev_null(void) {
@@ -1690,38 +1950,35 @@ int terminal_set_cursor_position(int fd, unsigned row, unsigned column) {
         return loop_write(fd, cursor_position, SIZE_MAX);
 }
 
-int terminal_reset_defensive(int fd, bool switch_to_text) {
+int terminal_reset_defensive(int fd, TerminalResetFlags flags) {
         int r = 0;
 
         assert(fd >= 0);
+        assert(!FLAGS_SET(flags, TERMINAL_RESET_AVOID_ANSI_SEQ|TERMINAL_RESET_FORCE_ANSI_SEQ));
 
-        /* Resets the terminal comprehensively, but defensively. i.e. both resets the tty via ioctl()s and
-         * via ANSI sequences, but avoids the latter in case we are talking to a pty. That's a safety measure
-         * because ptys might be connected to shell pipelines where we cannot expect such ansi sequences to
-         * work. Given that ptys are generally short-lived (and not recycled) this restriction shouldn't hurt
-         * much.
-         *
-         * The specified fd should be open for *writing*! */
+        /* Resets the terminal comprehensively, i.e. via both ioctl()s and via ANSI sequences, but do so only
+         * if $TERM is unset or set to "dumb" */
 
         if (!isatty_safe(fd))
                 return -ENOTTY;
 
-        RET_GATHER(r, terminal_reset_ioctl(fd, switch_to_text));
+        RET_GATHER(r, terminal_reset_ioctl(fd, FLAGS_SET(flags, TERMINAL_RESET_SWITCH_TO_TEXT)));
 
-        if (terminal_is_pty_fd(fd) == 0)
+        if (!FLAGS_SET(flags, TERMINAL_RESET_AVOID_ANSI_SEQ) &&
+            (FLAGS_SET(flags, TERMINAL_RESET_FORCE_ANSI_SEQ) || !getenv_terminal_is_dumb()))
                 RET_GATHER(r, terminal_reset_ansi_seq(fd));
 
         return r;
 }
 
-int terminal_reset_defensive_locked(int fd, bool switch_to_text) {
+int terminal_reset_defensive_locked(int fd, TerminalResetFlags flags) {
         assert(fd >= 0);
 
         _cleanup_close_ int lock_fd = lock_dev_console();
         if (lock_fd < 0)
                 log_debug_errno(lock_fd, "Failed to acquire lock for /dev/console, ignoring: %m");
 
-        return terminal_reset_defensive(fd, switch_to_text);
+        return terminal_reset_defensive(fd, flags);
 }
 
 void termios_disable_echo(struct termios *termios) {
@@ -2319,7 +2576,7 @@ int terminal_is_pty_fd(int fd) {
         return true;
 }
 
-int pty_open_peer_racefree(int fd, int mode) {
+int pty_open_peer(int fd, int mode) {
         assert(fd >= 0);
 
         /* Opens the peer PTY using the new race-free TIOCGPTPEER ioctl() (kernel 4.13).
@@ -2334,9 +2591,6 @@ int pty_open_peer_racefree(int fd, int mode) {
                 if (peer_fd >= 0)
                         return peer_fd;
 
-                if (ERRNO_IS_IOCTL_NOT_SUPPORTED(errno)) /* new ioctl() is not supported, return a clear error */
-                        return -EOPNOTSUPP;
-
                 if (errno != EIO)
                         return -errno;
 
@@ -2346,32 +2600,4 @@ int pty_open_peer_racefree(int fd, int mode) {
 
                 (void) usleep_safe(50 * USEC_PER_MSEC);
         }
-}
-
-int pty_open_peer(int fd, int mode) {
-        int r;
-
-        assert(fd >= 0);
-
-        /* Opens the peer PTY using the new race-free TIOCGPTPEER ioctl() (kernel 4.13) if it is
-         * available. Otherwise falls back to the POSIX ptsname() + open() logic.
-         *
-         * Because of the fallback path this is not safe to be called on PTYs from other namespaces. (Because
-         * we open the peer PTY name there via a path in the file system.) */
-
-        // TODO: Remove fallback path once baseline is updated to >= 4.13, i.e. systemd v258
-
-        int peer_fd = pty_open_peer_racefree(fd, mode);
-        if (peer_fd >= 0)
-                return peer_fd;
-        if (!ERRNO_IS_NEG_NOT_SUPPORTED(peer_fd))
-                return peer_fd;
-
-        /* The racy fallback path */
-        _cleanup_free_ char *peer_path = NULL;
-        r = ptsname_malloc(fd, &peer_path);
-        if (r < 0)
-                return r;
-
-        return open_terminal(peer_path, mode);
 }

@@ -90,13 +90,7 @@ static int bridge_mdb_configure_handler(sd_netlink *rtnl, sd_netlink_message *m,
         assert(link);
 
         r = sd_netlink_message_get_errno(m);
-        if (r == -EINVAL && streq_ptr(link->kind, "bridge") && link->master_ifindex <= 0) {
-                /* To configure bridge MDB entries on bridge master, 1bc844ee0faa1b92e3ede00bdd948021c78d7088 (v5.4) is required. */
-                if (!link->manager->bridge_mdb_on_master_not_supported) {
-                        log_link_warning_errno(link, r, "Kernel seems not to support bridge MDB entries on bridge master, ignoring: %m");
-                        link->manager->bridge_mdb_on_master_not_supported = true;
-                }
-        } else if (r < 0 && r != -EEXIST) {
+        if (r < 0 && r != -EEXIST) {
                 log_link_message_warning_errno(link, m, r, "Could not add MDB entry");
                 link_enter_failed(link);
                 return 1;

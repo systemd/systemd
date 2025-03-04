@@ -476,14 +476,9 @@ static int netns_child_begin(int netns_fd, int *ret_original_netns_fd) {
         assert(netns_fd >= 0);
 
         if (ret_original_netns_fd) {
-                r = namespace_open(0,
-                                   /* ret_pidns_fd = */ NULL,
-                                   /* ret_mntns_fd = */ NULL,
-                                   &original_netns_fd,
-                                   /* ret_userns_fd = */ NULL,
-                                   /* ret_root_fd = */ NULL);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to open original network namespace: %m");
+                original_netns_fd = namespace_open_by_type(NAMESPACE_NET);
+                if (original_netns_fd < 0)
+                        return log_error_errno(original_netns_fd, "Failed to open original network namespace: %m");
         }
 
         r = namespace_enter(/* pidns_fd = */ -EBADF,

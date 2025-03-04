@@ -318,6 +318,21 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>RefuseRecordTypes=</varname></term>
+        <listitem><para>Takes a list of DNS record types separated by space.
+        Specified record types in each query will be refused. This option can be specified multiple times.
+        If an empty string is specified, then all previous assignments are cleared.</para>
+        <para>Examples:
+        <programlisting>RefuseRecordTypes=AAAA SRV TXT</programlisting>
+        </para>
+
+        <para>Note that to refuse AAAA record (unlike SRV, TXT, etc.) completely, please also disable IPv6 stack in kernel
+        with "sysctl -w net.ipv6.conf.all.disable_ipv6=1".</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>DNSStubListenerExtra=</varname></term>
         <listitem><para>Takes an IPv4 or IPv6 address to listen on. The address may be optionally
         prefixed with a protocol name (<literal>udp</literal> or <literal>tcp</literal>) separated with
@@ -373,7 +388,7 @@ DNSStubListenerExtra=udp:[2001:db8:0:f102::13]:9953</programlisting>
         <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
       <varlistentry>
-        <term>StaleRetentionSec=<replaceable>SECONDS</replaceable></term>
+        <term><varname>StaleRetentionSec=</varname><replaceable>SECONDS</replaceable></term>
         <listitem><para>Takes a duration value, which determines the length of time DNS resource records can
         be retained in the cache beyond their Time To Live (TTL). This allows these records to be returned as
         stale records. By default, this value is set to zero, meaning that DNS resource records are not

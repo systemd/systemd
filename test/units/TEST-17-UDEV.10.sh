@@ -33,6 +33,15 @@ udevadm settle --timeout 30
 
 udevadm -h
 
+udevadm cat
+udevadm cat 99-systemd
+udevadm cat 99-systemd.rules
+udevadm cat /usr/lib/udev/rules.d/99-systemd.rules
+udevadm cat /usr/lib/udev/rules.d
+(! udevadm cat /dev/null)
+udevadm cat --config
+udevadm cat -h
+
 INVOCATION_ID=$(systemctl show --property InvocationID --value systemd-udevd.service)
 udevadm control -e
 # Wait for systemd-udevd.service being restarted.
@@ -52,6 +61,8 @@ udevadm control -R
 udevadm control -p HELLO=world
 udevadm control -m 42
 udevadm control --ping -t 5
+udevadm control --trace yes
+udevadm control --trace no
 udevadm control --load-credentials
 udevadm control -h
 
@@ -141,6 +152,11 @@ udevadm test -N early /sys/class/net/$netdev
 udevadm test -N late /sys/class/net/$netdev
 udevadm test --resolve-names never /sys/class/net/$netdev
 (! udevadm test -N hello /sys/class/net/$netdev)
+udevadm test -v /sys/class/net/$netdev
+udevadm test --json=off /sys/class/net/$netdev
+udevadm test --json=pretty /sys/class/net/$netdev | jq . >/dev/null
+udevadm test --json=short /sys/class/net/$netdev | jq . >/dev/null
+udevadm test --json=help
 udevadm test -h
 
 # udevadm test-builtin path_id "$loopdev"

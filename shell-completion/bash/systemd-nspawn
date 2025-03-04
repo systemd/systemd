@@ -157,7 +157,7 @@ _systemd_nspawn() {
                 comps='yes no'
                 ;;
             --private-users)
-                comps='yes no pick'
+                comps='yes no pick identity managed'
                 ;;
             --network-namespace-path)
                 comps=$( compgen -A file -- "$cur" )

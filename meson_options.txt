@@ -273,6 +273,8 @@ option('container-uid-base-min', type : 'integer', value : 0x00080000,
        description : 'minimum container UID base')
 option('container-uid-base-max', type : 'integer', value : 0x6FFF0000,
        description : 'maximum container UID base')
+option('foreign-uid-base', type : 'integer', value : 0x7FFE0000,
+       description : 'foreign OS image UID base')
 option('adm-group', type : 'boolean',
        description : 'the ACL for adm group should be added')
 option('wheel-group', type : 'boolean',
@@ -289,6 +291,8 @@ option('audio-gid', type : 'integer', value : 0,
        description : 'soft-static allocation for the "audio" group')
 option('cdrom-gid', type : 'integer', value : 0,
        description : 'soft-static allocation for the "cdrom" group')
+option('clock-gid', type : 'integer', value : 0,
+       description : 'soft-static allocation for the "clock" group')
 option('dialout-gid', type : 'integer', value : 0,
        description : 'soft-static allocation for the "dialout" group')
 option('disk-gid', type : 'integer', value : 0,
@@ -494,7 +498,7 @@ option('efi-color-highlight', type : 'string', value : 'black,lightgray',
        description : 'boot loader color for selected entries')
 option('efi-color-edit', type : 'string', value : 'black,lightgray',
        description : 'boot loader color for option line edit')
-option('efi-stub-extra-sections', type : 'integer', value : 30,
+option('efi-stub-extra-sections', type : 'integer', value : 120,
        description : 'minimum number of sections to keep free in stub PE header')
 option('efi-addon-extra-sections', type : 'integer', value : 15,
        description : 'minimum number of sections to keep free in addon PE header')

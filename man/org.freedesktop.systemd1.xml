@@ -1434,7 +1434,12 @@ node /org/freedesktop/systemd1 {
 
       <para><function>Subscribe()</function> enables most bus signals to be sent out. Clients which are
       interested in signals need to call this method. Signals are only sent out if at least one client
-      invoked this method. <function>Unsubscribe()</function> reverts the signal subscription that
+      invoked this method. Note that this behavior is applied to all the signals that the object
+      in <constant>/org/freedesktop/systemd1</constant> may emit, including the
+      D-Bus standard <constant>org.freedesktop.DBus.Properties.PropertiesChanged</constant>
+      signal and others that do not belong to the <constant>org.freedesktop.systemd1</constant> interface.</para>
+
+      <para><function>Unsubscribe()</function> reverts the signal subscription that
       <function>Subscribe()</function> implements. It is not necessary to invoke
       <function>Unsubscribe()</function> as clients are tracked. Signals are no longer sent out as soon as
       all clients which previously asked for <function>Subscribe()</function> either closed their connection
@@ -3353,6 +3358,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t RestrictNamespaces = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly t DelegateNamespaces = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly (bas) RestrictFileSystems = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly a(ssbt) BindPaths = [...];
@@ -3957,6 +3964,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <!--property RestrictSUIDSGID is not documented!-->
 
     <!--property RestrictNamespaces is not documented!-->
+
+    <!--property DelegateNamespaces is not documented!-->
 
     <!--property RestrictFileSystems is not documented!-->
 
@@ -4680,6 +4689,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <variablelist class="dbus-property" generated="True" extra-ref="RestrictNamespaces"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="DelegateNamespaces"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="RestrictFileSystems"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="BindPaths"/>
@@ -4838,9 +4849,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       code. <literal>signal</literal> indicates that a service process exited with an uncaught
       signal. <literal>core-dump</literal> indicates that a service process exited uncleanly and dumped
       core. <literal>watchdog</literal> indicates that a service did not send out watchdog ping messages
-      often enough. <literal>start-limit</literal> indicates that a service has been started too frequently
-      in a specific time frame (as configured in <varname>StartLimitInterval</varname>,
-      <varname>StartLimitBurst</varname>).</para>
+      often enough. <literal>start-limit-hit</literal> indicates that a service has been started too
+      frequently in a specific time frame (as configured in <varname>StartLimitInterval</varname>,
+      <varname>StartLimitBurst</varname>). <literal>oom-kill</literal> indicates that a service was
+      terminated due to an out-of-memory (OOM) situation.</para>
 
       <para><varname>ControlGroup</varname> indicates the control group path the processes of this service
       unit are placed in.</para>
@@ -5553,6 +5565,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t RestrictNamespaces = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly t DelegateNamespaces = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly (bas) RestrictFileSystems = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly a(ssbt) BindPaths = [...];
@@ -6169,6 +6183,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <!--property RestrictSUIDSGID is not documented!-->
 
     <!--property RestrictNamespaces is not documented!-->
+
+    <!--property DelegateNamespaces is not documented!-->
 
     <!--property RestrictFileSystems is not documented!-->
 
@@ -6864,6 +6880,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
 
     <variablelist class="dbus-property" generated="True" extra-ref="RestrictNamespaces"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="DelegateNamespaces"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="RestrictFileSystems"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="BindPaths"/>
@@ -7047,6 +7065,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b ReadWriteOnly = ...;
       readonly s Result = '...';
+      readonly s ReloadResult = '...';
+      readonly s CleanResult = '...';
       readonly u UID = ...;
       readonly u GID = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("invalidates")
@@ -7568,6 +7588,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t RestrictNamespaces = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly t DelegateNamespaces = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly (bas) RestrictFileSystems = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly a(ssbt) BindPaths = [...];
@@ -7648,6 +7670,10 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <!--property ForceUnmount is not documented!-->
 
     <!--property ReadWriteOnly is not documented!-->
+
+    <!--property ReloadResult is not documented!-->
+
+    <!--property CleanResult is not documented!-->
 
     <!--property UID is not documented!-->
 
@@ -8111,6 +8137,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
 
     <!--property RestrictNamespaces is not documented!-->
 
+    <!--property DelegateNamespaces is not documented!-->
+
     <!--property RestrictFileSystems is not documented!-->
 
     <!--property BindPaths is not documented!-->
@@ -8194,6 +8222,10 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <variablelist class="dbus-property" generated="True" extra-ref="ReadWriteOnly"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Result"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ReloadResult"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="CleanResult"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="UID"/>
 
@@ -8716,6 +8748,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <variablelist class="dbus-property" generated="True" extra-ref="RestrictSUIDSGID"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="RestrictNamespaces"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="DelegateNamespaces"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="RestrictFileSystems"/>
 
@@ -9550,6 +9584,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t RestrictNamespaces = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly t DelegateNamespaces = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly (bas) RestrictFileSystems = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly a(ssbt) BindPaths = [...];
@@ -10078,6 +10114,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <!--property RestrictSUIDSGID is not documented!-->
 
     <!--property RestrictNamespaces is not documented!-->
+
+    <!--property DelegateNamespaces is not documented!-->
 
     <!--property RestrictFileSystems is not documented!-->
 
@@ -10670,6 +10708,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <variablelist class="dbus-property" generated="True" extra-ref="RestrictSUIDSGID"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="RestrictNamespaces"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="DelegateNamespaces"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="RestrictFileSystems"/>
 
@@ -12369,7 +12409,9 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>ProtectControlGroupsEx</varname>,
       <varname>PrivateUsersEx</varname>, and
       <varname>PrivatePIDs</varname> were added in version 257.</para>
-      <para><varname>ProtectHostnameEx</varname> and <function>RemoveSubGroup()</function> were added in version 258.</para>
+      <para><varname>ProtectHostnameEx</varname>,
+      <varname>DelegateNamespaces</varname>, and
+      <function>RemoveSubGroup()</function> were added in version 258.</para>
     </refsect2>
     <refsect2>
       <title>Socket Unit Objects</title>
@@ -12413,7 +12455,9 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>ManagedOOMMemoryPressureDurationUSec</varname>,
       <varname>ProtectControlGroupsEx</varname>, and
       <varname>PrivatePIDs</varname> were added in version 257.</para>
-      <para><varname>ProtectHostnameEx</varname> and <function>RemoveSubgroup()</function> were added in version 258.</para>
+      <para><varname>ProtectHostnameEx</varname>,
+      <varname>DelegateNamespaces</varname>, and
+      <function>RemoveSubgroup()</function> were added in version 258.</para>
     </refsect2>
     <refsect2>
       <title>Mount Unit Objects</title>
@@ -12454,7 +12498,11 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>ManagedOOMMemoryPressureDurationUSec</varname>,
       <varname>ProtectControlGroupsEx</varname>, and
       <varname>PrivatePIDs</varname> were added in version 257.</para>
-      <para><varname>ProtectHostnameEx</varname> and <function>RemoveSubgroup()</function> was added in version 258.</para>
+      <para><varname>ProtectHostnameEx</varname>,
+      <varname>DelegateNamespaces</varname>,
+      <function>RemoveSubgroup()</function>,
+      <varname>ReloadResult</varname>, and
+      <varname>CleanResult</varname> were added in version 258.</para>
     </refsect2>
     <refsect2>
       <title>Swap Unit Objects</title>
@@ -12495,7 +12543,9 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>ManagedOOMMemoryPressureDurationUSec</varname>,
       <varname>ProtectControlGroupsEx</varname>, and
       <varname>PrivatePIDs</varname> were added in version 257.</para>
-      <para><varname>ProtectHostnameEx</varname> and <function>RemoveSubgroup()</function> were added in version 258.</para>
+      <para><varname>ProtectHostnameEx</varname>,
+      <varname>DelegateNamespaces</varname>, and
+      <function>RemoveSubgroup()</function> were added in version 258.</para>
     </refsect2>
     <refsect2>
       <title>Slice Unit Objects</title>

@@ -59,6 +59,10 @@ static int machine_leader(const char *name, sd_json_variant *variant, sd_json_di
         if (temp.pid == 1) /* refuse PID 1 */
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a valid leader PID.", strna(name));
 
+        /* When both leader and leaderProcessId are specified, they must be consistent with each other. */
+        if (pidref_is_set(leader) && !pidref_equal(leader, &temp))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' conflicts with already dispatched leader PID.", strna(name));
+
         pidref_done(leader);
         *leader = TAKE_PIDREF(temp);
 
@@ -130,6 +134,7 @@ int vl_method_register(sd_varlink *link, sd_json_variant *parameters, sd_varlink
                 { "service",           SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,  offsetof(Machine, service),              0                 },
                 { "class",             SD_JSON_VARIANT_STRING,        dispatch_machine_class,   offsetof(Machine, class),                SD_JSON_MANDATORY },
                 { "leader",            _SD_JSON_VARIANT_TYPE_INVALID, machine_leader,           offsetof(Machine, leader),               SD_JSON_STRICT    },
+                { "leaderProcessId",   SD_JSON_VARIANT_OBJECT,        machine_leader,           offsetof(Machine, leader),               SD_JSON_STRICT    },
                 { "rootDirectory",     SD_JSON_VARIANT_STRING,        json_dispatch_path,       offsetof(Machine, root_directory),       0                 },
                 { "ifIndices",         SD_JSON_VARIANT_ARRAY,         machine_ifindices,        0,                                       0                 },
                 { "vSockCid",          _SD_JSON_VARIANT_TYPE_INVALID, machine_cid,              offsetof(Machine, vsock_cid),            0                 },
@@ -166,7 +171,7 @@ int vl_method_register(sd_varlink *link, sd_json_variant *parameters, sd_varlink
 
         r = machine_link(manager, machine);
         if (r == -EEXIST)
-                return sd_varlink_error(link, "io.systemd.Machine.MachineExists", NULL);
+                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_EXISTS, NULL);
         if (r < 0)
                 return r;
 
@@ -352,7 +357,7 @@ int vl_method_kill(sd_varlink *link, sd_json_variant *parameters, sd_varlink_met
         Machine *machine;
         r = lookup_machine_by_name_or_pidref(link, manager, p.name, &p.pidref, &machine);
         if (r == -ESRCH)
-                return sd_varlink_error(link, "io.systemd.Machine.NoSuchMachine", NULL);
+                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NO_SUCH_MACHINE, NULL);
         if (r < 0)
                 return r;
 
@@ -501,7 +506,7 @@ int vl_method_open(sd_varlink *link, sd_json_variant *parameters, sd_varlink_met
 
         r = lookup_machine_by_name_or_pidref(link, manager, p.name, &p.pidref, &machine);
         if (r == -ESRCH)
-                return sd_varlink_error(link, "io.systemd.Machine.NoSuchMachine", NULL);
+                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NO_SUCH_MACHINE, NULL);
         if (r < 0)
                 return r;
 
@@ -517,7 +522,7 @@ int vl_method_open(sd_varlink *link, sd_json_variant *parameters, sd_varlink_met
 
         ptmx_fd = machine_openpt(machine, O_RDWR|O_NOCTTY|O_CLOEXEC, &ptmx_name);
         if (ERRNO_IS_NEG_NOT_SUPPORTED(ptmx_fd))
-                return sd_varlink_error(link, "io.systemd.Machine.NotSupported", NULL);
+                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NOT_SUPPORTED, NULL);
         if (ptmx_fd < 0)
                 return log_debug_errno(ptmx_fd, "Failed to open pseudo terminal: %m");
 
@@ -529,9 +534,9 @@ int vl_method_open(sd_varlink *link, sd_json_variant *parameters, sd_varlink_met
                 case MACHINE_OPEN_MODE_LOGIN:
                         r = machine_start_getty(machine, ptmx_name, /* error = */ NULL);
                         if (r == -ENOENT)
-                                return sd_varlink_error(link, "io.systemd.Machine.NoIPC", NULL);
+                                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NO_IPC, NULL);
                         if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
-                                return sd_varlink_error(link, "io.systemd.Machine.NotSupported", NULL);
+                                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NOT_SUPPORTED, NULL);
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to start getty for machine '%s': %m", machine->name);
 
@@ -541,9 +546,9 @@ int vl_method_open(sd_varlink *link, sd_json_variant *parameters, sd_varlink_met
                         assert(user && path && args); /* to avoid gcc complaining about possible uninitialized variables */
                         r = machine_start_shell(machine, ptmx_fd, ptmx_name, user, path, args, p.env, /* error = */ NULL);
                         if (r == -ENOENT)
-                                return sd_varlink_error(link, "io.systemd.Machine.NoIPC", NULL);
+                                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NO_IPC, NULL);
                         if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
-                                return sd_varlink_error(link, "io.systemd.Machine.NotSupported", NULL);
+                                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NOT_SUPPORTED, NULL);
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to start shell for machine '%s': %m", machine->name);
 
@@ -619,17 +624,17 @@ int vl_method_map_from(sd_varlink *link, sd_json_variant *parameters, sd_varlink
 
         r = lookup_machine_by_name_or_pidref(link, manager, p.name, &p.pidref, &machine);
         if (r == -ESRCH)
-                return sd_varlink_error(link, "io.systemd.Machine.NoSuchMachine", NULL);
+                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NO_SUCH_MACHINE, NULL);
         if (r < 0)
                 return r;
 
         if (machine->class != MACHINE_CONTAINER)
-                return sd_varlink_error(link, "io.systemd.Machine.NotSupported", NULL);
+                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NOT_SUPPORTED, NULL);
 
         if (p.uid != UID_INVALID) {
                 r = machine_translate_uid(machine, p.uid, &converted_uid);
                 if (r == -ESRCH)
-                        return sd_varlink_error(link, "io.systemd.Machine.NoSuchUser", NULL);
+                        return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NO_SUCH_USER, NULL);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to map uid=%u for machine '%s': %m", p.uid, machine->name);
         }
@@ -637,7 +642,7 @@ int vl_method_map_from(sd_varlink *link, sd_json_variant *parameters, sd_varlink
         if (p.gid != UID_INVALID) {
                 r = machine_translate_gid(machine, p.gid, &converted_gid);
                 if (r == -ESRCH)
-                        return sd_varlink_error(link, "io.systemd.Machine.NoSuchGroup", NULL);
+                        return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NO_SUCH_GROUP, NULL);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to map gid=%u for machine '%s': %m", p.gid, machine->name);
         }
@@ -682,14 +687,14 @@ int vl_method_map_to(sd_varlink *link, sd_json_variant *parameters, sd_varlink_m
                 if (!uid_is_valid(p.uid))
                         return sd_varlink_error_invalid_parameter_name(link, "uid");
                 if (p.uid < 0x10000)
-                        return sd_varlink_error(link, "io.systemd.Machine.UserInHostRange", NULL);
+                        return sd_varlink_error(link, VARLINK_ERROR_MACHINE_USER_IN_HOST_RANGE, NULL);
         }
 
         if (p.gid != GID_INVALID) {
                 if (!gid_is_valid(p.gid))
                         return sd_varlink_error_invalid_parameter_name(link, "gid");
                 if (p.gid < 0x10000)
-                        return sd_varlink_error(link, "io.systemd.Machine.GroupInHostRange", NULL);
+                        return sd_varlink_error(link, VARLINK_ERROR_MACHINE_GROUP_IN_HOST_RANGE, NULL);
         }
 
         if (p.uid != UID_INVALID) {
@@ -697,7 +702,7 @@ int vl_method_map_to(sd_varlink *link, sd_json_variant *parameters, sd_varlink_m
                 if (r < 0)
                         return log_debug_errno(r, "Failed to find machine for uid=%u: %m", p.uid);
                 if (!r)
-                        return sd_varlink_error(link, "io.systemd.Machine.NoSuchUser", NULL);
+                        return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NO_SUCH_USER, NULL);
         }
 
         if (p.gid != GID_INVALID) {
@@ -705,12 +710,12 @@ int vl_method_map_to(sd_varlink *link, sd_json_variant *parameters, sd_varlink_m
                 if (r < 0)
                         return log_debug_errno(r, "Failed to find machine for gid=%u: %m", p.gid);
                 if (!r)
-                        return sd_varlink_error(link, "io.systemd.Machine.NoSuchGroup", NULL);
+                        return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NO_SUCH_GROUP, NULL);
         }
 
         if (machine_by_uid && machine_by_gid && machine_by_uid != machine_by_gid) {
                 log_debug_errno(SYNTHETIC_ERRNO(ESRCH), "Mapping of UID %u and GID %u resulted in two different machines", p.uid, p.gid);
-                return sd_varlink_error(link, "io.systemd.Machine.NoSuchMachine", NULL);
+                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NO_SUCH_MACHINE, NULL);
         }
 
         if (machine_by_uid)
@@ -718,7 +723,7 @@ int vl_method_map_to(sd_varlink *link, sd_json_variant *parameters, sd_varlink_m
         else if (machine_by_gid)
                 machine_name = machine_by_gid->name;
         else
-                return sd_varlink_error(link, "io.systemd.Machine.NoSuchMachine", NULL);
+                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NO_SUCH_MACHINE, NULL);
 
         r = sd_json_buildo(&v,
                            JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("uid", converted_uid, UID_INVALID),
@@ -777,12 +782,12 @@ int vl_method_bind_mount(sd_varlink *link, sd_json_variant *parameters, sd_varli
         Machine *machine;
         r = lookup_machine_by_name_or_pidref(link, manager, p.name, &p.pidref, &machine);
         if (r == -ESRCH)
-                return sd_varlink_error(link, "io.systemd.Machine.NoSuchMachine", NULL);
+                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NO_SUCH_MACHINE, NULL);
         if (r != 0)
                 return r;
 
         if (machine->class != MACHINE_CONTAINER)
-                return sd_varlink_error(link, "io.systemd.Machine.NotSupported", NULL);
+                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NOT_SUPPORTED, NULL);
 
         r = varlink_verify_polkit_async(
                         link,
@@ -801,7 +806,7 @@ int vl_method_bind_mount(sd_varlink *link, sd_json_variant *parameters, sd_varli
                 return log_debug_errno(r, "Failed to get machine UID shift: %m");
         if (uid_shift != 0) {
                 log_debug("Can't bind mount on container '%s' with user namespacing applied", machine->name);
-                return sd_varlink_error(link, "io.systemd.Machine.NotSupported", NULL);
+                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NOT_SUPPORTED, NULL);
         }
 
         if (p.read_only)
@@ -845,7 +850,7 @@ static int copy_done(Operation *operation, int ret, sd_bus_error *error) {
         if (ERRNO_IS_PRIVILEGE(ret))
                 return sd_varlink_error(operation->link, SD_VARLINK_ERROR_PERMISSION_DENIED, NULL);
         if (ERRNO_IS_NEG_NOT_SUPPORTED(ret))
-                return sd_varlink_error(operation->link, "io.systemd.Machine.NotSupported", NULL);
+                return sd_varlink_error(operation->link, VARLINK_ERROR_MACHINE_NOT_SUPPORTED, NULL);
         if (ret < 0)
                 return sd_varlink_error_errno(operation->link, ret);
 
@@ -872,7 +877,7 @@ int vl_method_copy_internal(sd_varlink *link, sd_json_variant *parameters, sd_va
         assert(parameters);
 
         if (manager->n_operations >= OPERATIONS_MAX)
-                return sd_varlink_error(link, "io.systemd.MachineImage.TooManyOperations", NULL);
+                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_TOO_MANY_OPERATIONS, NULL);
 
         r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
         if (r != 0)
@@ -888,12 +893,12 @@ int vl_method_copy_internal(sd_varlink *link, sd_json_variant *parameters, sd_va
         Machine *machine;
         r = lookup_machine_by_name_or_pidref(link, manager, p.name, &p.pidref, &machine);
         if (r == -ESRCH)
-                return sd_varlink_error(link, "io.systemd.Machine.NoSuchMachine", NULL);
+                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NO_SUCH_MACHINE, NULL);
         if (r != 0)
                 return r;
 
         if (machine->class != MACHINE_CONTAINER)
-                return sd_varlink_error(link, "io.systemd.Machine.NotSupported", NULL);
+                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NOT_SUPPORTED, NULL);
 
         r = varlink_verify_polkit_async(
                         link,
@@ -908,7 +913,7 @@ int vl_method_copy_internal(sd_varlink *link, sd_json_variant *parameters, sd_va
                 return r;
 
         Operation *op;
-        r = machine_copy_from_to(manager, machine, host_path, container_path, copy_from, copy_flags, &op);
+        r = machine_copy_from_to_operation(manager, machine, host_path, container_path, copy_from, copy_flags, &op);
         if (r < 0)
                 return r;
 
@@ -936,7 +941,7 @@ int vl_method_open_root_directory_internal(sd_varlink *link, sd_json_variant *pa
 
         fd = machine_open_root_directory(machine);
         if (ERRNO_IS_NEG_NOT_SUPPORTED(fd))
-                return sd_varlink_error(link, "io.systemd.Machine.NotSupported", NULL);
+                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NOT_SUPPORTED, NULL);
         if (fd < 0)
                 return log_debug_errno(fd, "Failed to open root directory of machine '%s': %m", machine->name);
 

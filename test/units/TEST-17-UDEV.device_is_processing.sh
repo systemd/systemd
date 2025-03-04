@@ -61,7 +61,7 @@ done
 # Check if the reexec and reload have finished during processing the event.
 grep -q -F 'ID_PROCESSING=1' "/run/udev/data/n${IFINDEX}"
 
-# Forcibly kill sleep command ivoked by the udev rule to finish processing the add event.
+# Forcibly kill sleep command invoked by the udev rule to finish processing the add event.
 killall sleep
 udevadm settle --timeout=20
 

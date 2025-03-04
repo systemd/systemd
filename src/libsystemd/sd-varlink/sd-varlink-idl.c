@@ -1607,7 +1607,7 @@ static int varlink_idl_symbol_consistent(
                 const sd_varlink_symbol *symbol,
                 int level) {
 
-        _cleanup_(set_freep) Set *input_set = NULL, *output_set = NULL;
+        _cleanup_set_free_ Set *input_set = NULL, *output_set = NULL;
         const char *symbol_name;
         int r;
 
@@ -1654,7 +1654,7 @@ static int varlink_idl_symbol_consistent(
 }
 
 int varlink_idl_consistent(const sd_varlink_interface *interface, int level) {
-        _cleanup_(set_freep) Set *name_set = NULL;
+        _cleanup_set_free_ Set *name_set = NULL;
         int r;
 
         assert(interface);

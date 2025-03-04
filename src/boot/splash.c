@@ -86,7 +86,7 @@ static EFI_STATUS bmp_parse_header(
 
         case 16:
         case 32:
-                if (dib->compression != 0 && dib->compression != 3)
+                if (!IN_SET(dib->compression, 0, 3))
                         return EFI_UNSUPPORTED;
 
                 break;

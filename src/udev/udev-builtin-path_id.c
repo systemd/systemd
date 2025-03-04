@@ -59,25 +59,18 @@ static void path_prepend(char **path, const char *fmt, ...) {
 ** See drivers/scsi/scsi_scan.c::scsilun_to_int() for more details.
 */
 static int format_lun_number(sd_device *dev, char **path) {
-        const char *sysnum;
-        unsigned long lun;
+        unsigned lun;
         int r;
 
-        r = sd_device_get_sysnum(dev, &sysnum);
-        if (r < 0)
-                return r;
-        if (!sysnum)
-                return -ENOENT;
-
-        r = safe_atolu_full(sysnum, 10, &lun);
+        r = device_get_sysnum_unsigned(dev, &lun);
         if (r < 0)
                 return r;
         if (lun < 256)
                 /* address method 0, peripheral device addressing with bus id of zero */
-                path_prepend(path, "lun-%lu", lun);
+                path_prepend(path, "lun-%u", lun);
         else
                 /* handle all other lun addressing methods by using a variant of the original lun format */
-                path_prepend(path, "lun-0x%04lx%04lx00000000", lun & 0xffff, (lun >> 16) & 0xffff);
+                path_prepend(path, "lun-0x%04x%04x00000000", lun & 0xffff, (lun >> 16) & 0xffff);
 
         return 0;
 }
@@ -241,7 +234,7 @@ static sd_device* handle_scsi_iscsi(sd_device *parent, char **path) {
         if (sd_device_get_sysattr_value(sessiondev, "targetname", &target) < 0)
                 return NULL;
 
-        if (sd_device_get_sysnum(transportdev, &sysnum) < 0 || !sysnum)
+        if (sd_device_get_sysnum(transportdev, &sysnum) < 0)
                 return NULL;
         connname = strjoina("connection", sysnum, ":0");
         if (sd_device_new_from_subsystem_sysname(&conndev, "iscsi_connection", connname) < 0)
@@ -723,7 +716,7 @@ static int builtin_path_id(UdevEvent *event, int argc, char *argv[]) {
                 } else if (device_in_subsystem(parent, "serio")) {
                         const char *sysnum;
 
-                        if (sd_device_get_sysnum(parent, &sysnum) >= 0 && sysnum) {
+                        if (sd_device_get_sysnum(parent, &sysnum) >= 0) {
                                 path_prepend(&path, "serio-%s", sysnum);
                                 parent = skip_subsystem(parent, "serio");
                         }
@@ -817,7 +810,7 @@ static int builtin_path_id(UdevEvent *event, int argc, char *argv[]) {
                 } else if (device_in_subsystem(parent, "spi")) {
                         const char *sysnum;
 
-                        if (sd_device_get_sysnum(parent, &sysnum) >= 0 && sysnum) {
+                        if (sd_device_get_sysnum(parent, &sysnum) >= 0) {
                                 path_prepend(&path, "cs-%s", sysnum);
                                 parent = skip_subsystem(parent, "spi");
                         }

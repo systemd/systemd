@@ -21,10 +21,11 @@ permissions:
 jobs:
   coverage:
     runs-on: ubuntu-24.04
+    if: github.repository == 'systemd/systemd' || github.repository == 'systemd/systemd-stable'
 
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      - uses: systemd/mkosi@7051715d8541d4d077a218f7445976225ec74d78
+      - uses: systemd/mkosi@6e64559161c1a5ed88ad1eacdd77f9a45cbbf6a6
 
       # Freeing up disk space with rm -rf can take multiple minutes. Since we don't need the extra free space
       # immediately, we remove the files in the background. However, we first move them to a different location
@@ -82,21 +83,23 @@ jobs:
         run: mkosi summary
 
       - name: Build tools tree
-        run: mkosi -f sandbox true
-
-      - name: PATH
-        run: echo "$PATH"
+        run: sudo mkosi -f sandbox -- true
 
       - name: Configure meson
-        run: mkosi sandbox meson setup --buildtype=debugoptimized -Dintegration-tests=true build
+        run: |
+          sudo mkosi sandbox -- \
+            meson setup \
+            --buildtype=debugoptimized \
+            -Dintegration-tests=true \
+            build
 
       - name: Build image
-        run: sudo --preserve-env mkosi sandbox meson compile -C build mkosi
+        run: sudo mkosi sandbox -- meson compile -C build mkosi
 
       - name: Initial coverage report
         run: |
-          mkdir -p build/test/coverage
-          mkosi sandbox \
+          sudo mkdir -p build/test/coverage
+          sudo mkosi sandbox -- \
             lcov \
             --directory build/mkosi.builddir/arch~rolling~x86-64 \
             --capture \
@@ -110,8 +113,10 @@ jobs:
 
       - name: Run integration tests
         run: |
-          sudo --preserve-env \
-            mkosi sandbox \
+          # --preserve-env makes sure all the github actions environment variables are propagated which are
+          # used in integration-test-wrapper.py to construct the `gh` command line to download the journals
+          # of failed tests.
+          sudo --preserve-env mkosi sandbox -- \
             meson test \
             -C build \
             --no-rebuild \
@@ -140,13 +145,13 @@ jobs:
               lcov_args+=(--add-tracefile "${file}")
           done < <(find build/test/coverage -name "TEST-*.coverage-info")
 
-          mkosi sandbox lcov --ignore-errors inconsistent,inconsistent "${lcov_args[@]}" --output-file build/test/coverage/everything.coverage-info
+          sudo mkosi sandbox -- lcov --ignore-errors inconsistent,inconsistent "${lcov_args[@]}" --output-file build/test/coverage/everything.coverage-info
 
       - name: List coverage report
-        run: mkosi sandbox lcov --ignore-errors inconsistent,inconsistent --list build/test/coverage/everything.coverage-info
+        run: sudo mkosi sandbox -- lcov --ignore-errors inconsistent,inconsistent --list build/test/coverage/everything.coverage-info
 
       - name: Coveralls
-        uses: coverallsapp/github-action@cfd0633edbd2411b532b808ba7a8b5e04f76d2c8
+        uses: coverallsapp/github-action@648a8eb78e6d50909eff900e4ec85cab4524a45b
         if: github.repository == 'systemd/systemd' || github.repository == 'systemd/systemd-stable'
         with:
           file: build/test/coverage/everything.coverage-info

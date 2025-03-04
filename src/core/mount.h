@@ -81,7 +81,7 @@ struct Mount {
 
         MountState state, deserialized_state;
 
-        ExecCommand* control_command;
+        ExecCommand *control_command;
         MountExecCommand control_command_id;
         PidRef control_pid;
 

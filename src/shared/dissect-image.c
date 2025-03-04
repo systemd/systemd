@@ -54,7 +54,6 @@
 #include "import-util.h"
 #include "io-util.h"
 #include "json-util.h"
-#include "missing_mount.h"
 #include "missing_syscall.h"
 #include "mkdir-label.h"
 #include "mount-util.h"
@@ -1002,6 +1001,8 @@ static int dissect_image(
                         type = gpt_partition_type_from_uuid(type_id);
 
                         label = blkid_partition_get_name(pp); /* libblkid returns NULL here if empty */
+                        if (streq_ptr(label, "_empty"))
+                                continue;
 
                         log_debug("Dissecting %s partition with label %s and UUID %s",
                                   strna(partition_designator_to_string(type.designator)), strna(label), SD_ID128_TO_UUID_STRING(id));
@@ -2170,6 +2171,9 @@ int dissected_image_mount(
 
         assert(m);
 
+        if (FLAGS_SET(flags, DISSECT_IMAGE_FOREIGN_UID)) /* For image based mounts we currently require an identity mapping */
+                return -EOPNOTSUPP;
+
         /* If 'where' is NULL then we'll use the new mount API to create fsmount() fds for the mounts and
          * store them in DissectedPartition.fsmount_fd.
          *
@@ -3169,6 +3173,33 @@ void verity_settings_done(VeritySettings *v) {
         v->data_path = mfree(v->data_path);
 }
 
+VeritySettings* verity_settings_free(VeritySettings *v) {
+        if (!v)
+                return NULL;
+
+        verity_settings_done(v);
+        return mfree(v);
+}
+
+void verity_settings_hash_func(const VeritySettings *s, struct siphash *state) {
+        assert(s);
+
+        siphash24_compress_typesafe(s->root_hash_size, state);
+        siphash24_compress(s->root_hash, s->root_hash_size, state);
+}
+
+int verity_settings_compare_func(const VeritySettings *x, const VeritySettings *y) {
+        int r;
+
+        r = CMP(x->root_hash_size, y->root_hash_size);
+        if (r != 0)
+                return r;
+
+        return memcmp(x->root_hash, y->root_hash, x->root_hash_size);
+}
+
+DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(verity_settings_hash_ops, VeritySettings, verity_settings_hash_func, verity_settings_compare_func, VeritySettings, verity_settings_free);
+
 int verity_settings_load(
                 VeritySettings *verity,
                 const char *image,
@@ -3430,7 +3461,7 @@ int dissected_image_load_verity_sig_partition(
                 a = hexmem(root_hash, root_hash_size);
                 b = hexmem(verity->root_hash, verity->root_hash_size);
 
-                return log_debug_errno(r, "Root hash in signature JSON data (%s) doesn't match configured hash (%s).", strna(a), strna(b));
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Root hash in signature JSON data (%s) doesn't match configured hash (%s).", strna(a), strna(b));
         }
 
         sig = sd_json_variant_by_key(v, "signature");
@@ -3838,7 +3869,6 @@ int dissect_loop_device_and_warn(
                         dissect_loop_device(loop, verity, mount_options, image_policy, flags, ret),
                         loop->backing_file ?: loop->node,
                         verity);
-
 }
 
 bool dissected_image_verity_candidate(const DissectedImage *image, PartitionDesignator partition_designator) {
@@ -4408,4 +4438,78 @@ int mountfsd_mount_image(
 #else
         return -EOPNOTSUPP;
 #endif
+}
+
+int mountfsd_mount_directory(
+                const char *path,
+                int userns_fd,
+                DissectImageFlags flags,
+                int *ret_mount_fd) {
+
+        int r;
+
+        /* Pick one identity, not both, that makes no sense. */
+        assert(!FLAGS_SET(flags, DISSECT_IMAGE_FOREIGN_UID|DISSECT_IMAGE_IDENTITY_UID));
+
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        r = sd_varlink_connect_address(&vl, "/run/systemd/io.systemd.MountFileSystem");
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to mountfsd: %m");
+
+        r = sd_varlink_set_allow_fd_passing_input(vl, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enable varlink fd passing for read: %m");
+
+        r = sd_varlink_set_allow_fd_passing_output(vl, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enable varlink fd passing for write: %m");
+
+        _cleanup_close_ int directory_fd = open(path, O_DIRECTORY|O_RDONLY|O_CLOEXEC);
+        if (directory_fd < 0)
+                return log_error_errno(errno, "Failed to open '%s': %m", path);
+
+        r = sd_varlink_push_dup_fd(vl, directory_fd);
+        if (r < 0)
+                return log_error_errno(r, "Failed to push image fd into varlink connection: %m");
+
+        if (userns_fd >= 0) {
+                r = sd_varlink_push_dup_fd(vl, userns_fd);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to push image fd into varlink connection: %m");
+        }
+
+        sd_json_variant *reply = NULL;
+        const char *error_id = NULL;
+        r = sd_varlink_callbo(
+                        vl,
+                        "io.systemd.MountFileSystem.MountDirectory",
+                        &reply,
+                        &error_id,
+                        SD_JSON_BUILD_PAIR_UNSIGNED("directoryFileDescriptor", 0),
+                        SD_JSON_BUILD_PAIR_CONDITION(userns_fd >= 0, "userNamespaceFileDescriptor", SD_JSON_BUILD_UNSIGNED(1)),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("readOnly", FLAGS_SET(flags, DISSECT_IMAGE_MOUNT_READ_ONLY)),
+                        SD_JSON_BUILD_PAIR_STRING("mode", FLAGS_SET(flags, DISSECT_IMAGE_FOREIGN_UID) ? "foreign" :
+                                                          FLAGS_SET(flags, DISSECT_IMAGE_IDENTITY_UID) ? "identity" : "auto"),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("allowInteractiveAuthentication", FLAGS_SET(flags, DISSECT_IMAGE_ALLOW_INTERACTIVE_AUTH)));
+        if (r < 0)
+                return log_error_errno(r, "Failed to call MountDirectory() varlink call: %m");
+        if (!isempty(error_id))
+                return log_error_errno(sd_varlink_error_to_errno(error_id, reply), "Failed to call MountDirectory() varlink call: %s", error_id);
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "mountFileDescriptor", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint, 0, SD_JSON_MANDATORY },
+                {}
+        };
+
+        unsigned fsmount_fd_idx = UINT_MAX;
+        r = sd_json_dispatch(reply, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &fsmount_fd_idx);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse MountImage() reply: %m");
+
+        _cleanup_close_ int fsmount_fd = sd_varlink_take_fd(vl, fsmount_fd_idx);
+        if (fsmount_fd < 0)
+                return log_error_errno(fsmount_fd, "Failed to take mount fd from Varlink connection: %m");
+
+        *ret_mount_fd = TAKE_FD(fsmount_fd);
+        return 0;
 }

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/ioctl.h>
+#include <threads.h>
 #include <unistd.h>
 
 #include "errno-util.h"
@@ -8,7 +9,9 @@
 #include "fileio.h"
 #include "macro.h"
 #include "memory-util.h"
+#include "missing_fs.h"
 #include "missing_magic.h"
+#include "mountpoint-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "pidfd-util.h"
@@ -18,20 +21,14 @@
 
 static int have_pidfs = -1;
 
-static int pidfd_check_pidfs(void) {
+static int pidfd_check_pidfs(int pid_fd) {
+
+        /* NB: the passed fd *must* be acquired via pidfd_open(), i.e. must be a true pidfd! */
 
         if (have_pidfs >= 0)
                 return have_pidfs;
 
-        _cleanup_close_ int fd = pidfd_open(getpid_cached(), 0);
-        if (fd < 0) {
-                if (ERRNO_IS_NOT_SUPPORTED(errno))
-                        return (have_pidfs = false);
-
-                return -errno;
-        }
-
-        return (have_pidfs = fd_is_fs_type(fd, PID_FS_MAGIC));
+        return (have_pidfs = fd_is_fs_type(pid_fd, PID_FS_MAGIC));
 }
 
 int pidfd_get_namespace(int fd, unsigned long ns_type_cmd) {
@@ -231,21 +228,85 @@ int pidfd_get_cgroupid(int fd, uint64_t *ret) {
 }
 
 int pidfd_get_inode_id(int fd, uint64_t *ret) {
+        static bool file_handle_supported = true;
         int r;
 
         assert(fd >= 0);
 
-        r = pidfd_check_pidfs();
+        r = pidfd_check_pidfs(fd);
         if (r < 0)
                 return r;
         if (r == 0)
                 return -EOPNOTSUPP;
 
+        if (file_handle_supported) {
+                union {
+                        struct file_handle file_handle;
+                        uint8_t space[offsetof(struct file_handle, f_handle) + sizeof(uint64_t)];
+                } fh = {
+                        .file_handle.handle_bytes = sizeof(uint64_t),
+                        .file_handle.handle_type = FILEID_KERNFS,
+                };
+                int mnt_id;
+
+                r = RET_NERRNO(name_to_handle_at(fd, "", &fh.file_handle, &mnt_id, AT_EMPTY_PATH));
+                if (r >= 0) {
+                        if (ret)
+                                *ret = *(uint64_t*) fh.file_handle.f_handle;
+                        return 0;
+                }
+                assert(r != -EOVERFLOW);
+                if (is_name_to_handle_at_fatal_error(r))
+                        return r;
+
+                file_handle_supported = false;
+        }
+
+#if SIZEOF_INO_T == 8
         struct stat st;
         if (fstat(fd, &st) < 0)
                 return -errno;
 
         if (ret)
                 *ret = (uint64_t) st.st_ino;
+        return 0;
+
+#elif SIZEOF_INO_T == 4
+        /* On 32-bit systems (where sizeof(ino_t) == 4), the inode id returned by fstat() cannot be used to
+         * reliably identify the process, nor can we communicate the origin of the id with the clients.
+         * Hence let's just refuse to acquire pidfdid through fstat() here. All clients shall also insist on
+         * the 64-bit id from name_to_handle_at(). */
+        return -EOPNOTSUPP;
+#else
+#  error Unsupported ino_t size
+#endif
+}
+
+int pidfd_get_inode_id_self_cached(uint64_t *ret) {
+        static thread_local uint64_t cached = 0;
+        static thread_local pid_t initialized = 0; /* < 0: cached error; == 0: invalid; > 0: valid and pid that was current */
+        int r;
+
+        assert(ret);
+
+        if (initialized == getpid_cached()) {
+                *ret = cached;
+                return 0;
+        }
+        if (initialized < 0)
+                return initialized;
+
+        _cleanup_close_ int fd = pidfd_open(getpid_cached(), 0);
+        if (fd < 0)
+                return -errno;
+
+        r = pidfd_get_inode_id(fd, &cached);
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                return (initialized = -EOPNOTSUPP);
+        if (r < 0)
+                return r;
+
+        *ret = cached;
+        initialized = getpid_cached();
         return 0;
 }

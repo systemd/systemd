@@ -15,6 +15,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <syslog.h>
+#include <threads.h>
 #include <unistd.h>
 #if HAVE_VALGRIND_VALGRIND_H
 #include <valgrind/valgrind.h>
@@ -36,13 +37,13 @@
 #include "fs-util.h"
 #include "hostname-util.h"
 #include "io-util.h"
+#include "iovec-util.h"
 #include "locale-util.h"
 #include "log.h"
 #include "macro.h"
 #include "memory-util.h"
 #include "missing_sched.h"
 #include "missing_syscall.h"
-#include "missing_threads.h"
 #include "mountpoint-util.h"
 #include "namespace-util.h"
 #include "nulstr-util.h"
@@ -53,6 +54,7 @@
 #include "raw-clone.h"
 #include "rlimit-util.h"
 #include "signal-util.h"
+#include "socket-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "string-table.h"
@@ -742,6 +744,44 @@ int pidref_get_ppid(const PidRef *pidref, pid_t *ret) {
         return 0;
 }
 
+int pidref_get_ppid_as_pidref(const PidRef *pidref, PidRef *ret) {
+        pid_t ppid;
+        int r;
+
+        assert(ret);
+
+        r = pidref_get_ppid(pidref, &ppid);
+        if (r < 0)
+                return r;
+
+        for (unsigned attempt = 0; attempt < 16; attempt++) {
+                _cleanup_(pidref_done) PidRef parent = PIDREF_NULL;
+
+                r = pidref_set_pid(&parent, ppid);
+                if (r < 0)
+                        return r;
+
+                /* If we have a pidfd of the original PID, let's verify that the process we acquired really
+                 * is the parent still */
+                if (pidref->fd >= 0) {
+                        r = pidref_get_ppid(pidref, &ppid);
+                        if (r < 0)
+                                return r;
+
+                        /* Did the PPID change since we queried it? if so we might have pinned the wrong
+                         * process, if its PID got reused by now. Let's try again */
+                        if (parent.pid != ppid)
+                                continue;
+                }
+
+                *ret = TAKE_PIDREF(parent);
+                return 0;
+        }
+
+        /* Give up after 16 tries */
+        return -ENOTRECOVERABLE;
+}
+
 int pid_get_start_time(pid_t pid, usec_t *ret) {
         _cleanup_free_ char *line = NULL;
         const char *p;
@@ -1082,7 +1122,7 @@ int getenv_for_pid(pid_t pid, const char *field, char **ret) {
         return 0;
 }
 
-int pidref_is_my_child(const PidRef *pid) {
+int pidref_is_my_child(PidRef *pid) {
         int r;
 
         if (!pidref_is_set(pid))
@@ -1112,7 +1152,7 @@ int pid_is_my_child(pid_t pid) {
         return pidref_is_my_child(&PIDREF_MAKE_FROM_PID(pid));
 }
 
-int pidref_is_unwaited(const PidRef *pid) {
+int pidref_is_unwaited(PidRef *pid) {
         int r;
 
         /* Checks whether a PID is still valid at all, including a zombie */
@@ -1190,18 +1230,53 @@ int pidref_is_alive(const PidRef *pidref) {
         return result;
 }
 
-int pid_from_same_root_fs(pid_t pid) {
-        const char *root;
+int pidref_from_same_root_fs(PidRef *a, PidRef *b) {
+        _cleanup_(pidref_done) PidRef self = PIDREF_NULL;
+        int r;
 
-        if (pid < 0)
+        /* Checks if the two specified processes have the same root fs. Either can be specified as NULL in
+         * which case we'll check against ourselves. */
+
+        if (!a || !b) {
+                r = pidref_set_self(&self);
+                if (r < 0)
+                        return r;
+                if (!a)
+                        a = &self;
+                if (!b)
+                        b = &self;
+        }
+
+        if (!pidref_is_set(a) || !pidref_is_set(b))
+                return -ESRCH;
+
+        /* If one of the two processes have the same root they cannot have the same root fs, but if both of
+         * them do we don't know */
+        if (pidref_is_remote(a) && pidref_is_remote(b))
+                return -EREMOTE;
+        if (pidref_is_remote(a) || pidref_is_remote(b))
                 return false;
 
-        if (pid == 0 || pid == getpid_cached())
+        if (pidref_equal(a, b))
                 return true;
 
-        root = procfs_file_alloca(pid, "root");
+        const char *roota = procfs_file_alloca(a->pid, "root");
+        const char *rootb = procfs_file_alloca(b->pid, "root");
 
-        return inode_same(root, "/proc/1/root", 0);
+        int result = inode_same(roota, rootb, 0);
+        if (result == -ENOENT)
+                return proc_mounted() == 0 ? -ENOSYS : -ESRCH;
+        if (result < 0)
+                return result;
+
+        r = pidref_verify(a);
+        if (r < 0)
+                return r;
+        r = pidref_verify(b);
+        if (r < 0)
+                return r;
+
+        return result;
 }
 
 bool is_main_thread(void) {
@@ -1452,25 +1527,28 @@ static int fork_flags_to_signal(ForkFlags flags) {
                                                  SIGKILL;
 }
 
-int safe_fork_full(
+int pidref_safe_fork_full(
                 const char *name,
                 const int stdio_fds[3],
                 int except_fds[],
                 size_t n_except_fds,
                 ForkFlags flags,
-                pid_t *ret_pid) {
+                PidRef *ret_pid) {
 
         pid_t original_pid, pid;
         sigset_t saved_ss, ss;
         _unused_ _cleanup_(restore_sigsetp) sigset_t *saved_ssp = NULL;
         bool block_signals = false, block_all = false, intermediary = false;
+        _cleanup_close_pair_ int pidref_transport_fds[2] = EBADF_PAIR;
         int prio, r;
 
+        assert(!FLAGS_SET(flags, FORK_WAIT|FORK_FREEZE));
         assert(!FLAGS_SET(flags, FORK_DETACH) ||
-               (!ret_pid && (flags & (FORK_WAIT|FORK_DEATHSIG_SIGTERM|FORK_DEATHSIG_SIGINT|FORK_DEATHSIG_SIGKILL)) == 0));
+               (flags & (FORK_WAIT|FORK_DEATHSIG_SIGTERM|FORK_DEATHSIG_SIGINT|FORK_DEATHSIG_SIGKILL)) == 0);
 
-        /* A wrapper around fork(), that does a couple of important initializations in addition to mere forking. Always
-         * returns the child's PID in *ret_pid. Returns == 0 in the child, and > 0 in the parent. */
+        /* A wrapper around fork(), that does a couple of important initializations in addition to mere
+         * forking. If provided, ret_pid is initialized in both the parent and the child process, both times
+         * referencing the child process. Returns == 0 in the child and > 0 in the parent. */
 
         prio = flags & FORK_LOG ? LOG_ERR : LOG_DEBUG;
 
@@ -1504,9 +1582,6 @@ int safe_fork_full(
         }
 
         if (FLAGS_SET(flags, FORK_DETACH)) {
-                assert(!FLAGS_SET(flags, FORK_WAIT));
-                assert(!ret_pid);
-
                 /* Fork off intermediary child if needed */
 
                 r = is_reaper_process();
@@ -1516,14 +1591,43 @@ int safe_fork_full(
                 if (!r) {
                         /* Not a reaper process, hence do a double fork() so we are reparented to one */
 
+                        if (ret_pid && socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, pidref_transport_fds) < 0)
+                                return log_full_errno(prio, errno, "Failed to allocate pidref socket: %m");
+
                         pid = fork();
                         if (pid < 0)
                                 return log_full_errno(prio, errno, "Failed to fork off '%s': %m", strna(name));
                         if (pid > 0) {
                                 log_debug("Successfully forked off intermediary '%s' as PID " PID_FMT ".", strna(name), pid);
+
+                                pidref_transport_fds[1] = safe_close(pidref_transport_fds[1]);
+
+                                if (pidref_transport_fds[0] >= 0) {
+                                        /* Wait for the intermediary child to exit so the caller can be certain the actual child
+                                         * process has been reparented by the time this function returns. */
+                                        r = wait_for_terminate_and_check(name, pid, FLAGS_SET(flags, FORK_LOG) ? WAIT_LOG : 0);
+                                        if (r < 0)
+                                                return log_full_errno(prio, r, "Failed to wait for intermediary process: %m");
+                                        if (r != EXIT_SUCCESS) /* exit status > 0 should be treated as failure, too */
+                                                return -EPROTO;
+
+                                        int pidfd;
+                                        ssize_t n = receive_one_fd_iov(
+                                                        pidref_transport_fds[0],
+                                                        &IOVEC_MAKE(&pid, sizeof(pid)),
+                                                        /* iovlen= */ 1,
+                                                        /* flags= */ 0,
+                                                        &pidfd);
+                                        if (n < 0)
+                                                return log_full_errno(prio, n, "Failed to receive child pidref: %m");
+
+                                        *ret_pid = (PidRef) { .pid = pid, .fd = pidfd };
+                                }
+
                                 return 1; /* return in the parent */
                         }
 
+                        pidref_transport_fds[0] = safe_close(pidref_transport_fds[0]);
                         intermediary = true;
                 }
         }
@@ -1541,8 +1645,30 @@ int safe_fork_full(
         if (pid > 0) {
 
                 /* If we are in the intermediary process, exit now */
-                if (intermediary)
+                if (intermediary) {
+                        if (pidref_transport_fds[1] >= 0) {
+                                _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+
+                                r = pidref_set_pid(&pidref, pid);
+                                if (r < 0) {
+                                        log_full_errno(prio, r, "Failed to open reference to PID "PID_FMT": %m", pid);
+                                        _exit(EXIT_FAILURE);
+                                }
+
+                                r = send_one_fd_iov(
+                                                pidref_transport_fds[1],
+                                                pidref.fd,
+                                                &IOVEC_MAKE(&pidref.pid, sizeof(pidref.pid)),
+                                                /* iovlen= */ 1,
+                                                /* flags= */ 0);
+                                if (r < 0) {
+                                        log_full_errno(prio, r, "Failed to send child pidref: %m");
+                                        _exit(EXIT_FAILURE);
+                                }
+                        }
+
                         _exit(EXIT_SUCCESS);
+                }
 
                 /* We are in the parent process */
                 log_debug("Successfully forked off '%s' as PID " PID_FMT ".", strna(name), pid);
@@ -1560,15 +1686,30 @@ int safe_fork_full(
                                 return r;
                         if (r != EXIT_SUCCESS) /* exit status > 0 should be treated as failure, too */
                                 return -EPROTO;
+
+                        /* If we are in the parent and successfully waited, then the process doesn't exist anymore. */
+                        if (ret_pid)
+                                *ret_pid = PIDREF_NULL;
+
+                        return 1;
                 }
 
-                if (ret_pid)
-                        *ret_pid = pid;
+                if (ret_pid) {
+                        if (FLAGS_SET(flags, FORK_PID_ONLY))
+                                *ret_pid = PIDREF_MAKE_FROM_PID(pid);
+                        else {
+                                r = pidref_set_pid(ret_pid, pid);
+                                if (r < 0) /* Let's not fail for this, no matter what, the process exists after all, and that's key */
+                                        *ret_pid = PIDREF_MAKE_FROM_PID(pid);
+                        }
+                }
 
                 return 1;
         }
 
         /* We are in the child process */
+
+        pidref_transport_fds[1] = safe_close(pidref_transport_fds[1]);
 
         /* Restore signal mask manually */
         saved_ssp = NULL;
@@ -1728,32 +1869,44 @@ int safe_fork_full(
                 }
         }
 
-        if (ret_pid)
-                *ret_pid = getpid_cached();
+        if (FLAGS_SET(flags, FORK_FREEZE))
+                freeze();
+
+        if (ret_pid) {
+                if (FLAGS_SET(flags, FORK_PID_ONLY))
+                        *ret_pid = PIDREF_MAKE_FROM_PID(getpid_cached());
+                else {
+                        r = pidref_set_self(ret_pid);
+                        if (r < 0) {
+                                log_full_errno(prio, r, "Failed to acquire PID reference on ourselves: %m");
+                                _exit(EXIT_FAILURE);
+                        }
+                }
+        }
 
         return 0;
 }
 
-int pidref_safe_fork_full(
+int safe_fork_full(
                 const char *name,
                 const int stdio_fds[3],
                 int except_fds[],
                 size_t n_except_fds,
                 ForkFlags flags,
-                PidRef *ret_pid) {
+                pid_t *ret_pid) {
 
-        pid_t pid;
-        int r, q;
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        int r;
 
-        assert(!FLAGS_SET(flags, FORK_WAIT));
+        /* Getting the detached child process pid without pidfd is racy, so don't allow it if not returning
+         * a pidref to the caller. */
+        assert(!FLAGS_SET(flags, FORK_DETACH) || !ret_pid);
 
-        r = safe_fork_full(name, stdio_fds, except_fds, n_except_fds, flags, &pid);
-        if (r < 0)
+        r = pidref_safe_fork_full(name, stdio_fds, except_fds, n_except_fds, flags|FORK_PID_ONLY, ret_pid ? &pidref : NULL);
+        if (r < 0 || !ret_pid)
                 return r;
 
-        q = pidref_set_pid(ret_pid, pid);
-        if (q < 0) /* Let's not fail for this, no matter what, the process exists after all, and that's key */
-                *ret_pid = PIDREF_MAKE_FROM_PID(pid);
+        *ret_pid = pidref.pid;
 
         return r;
 }
@@ -1920,7 +2073,8 @@ _noreturn_ void freeze(void) {
                         break;
         }
 
-        /* waitid() failed with an unexpected error, things are really borked. Freeze now! */
+        /* waitid() failed with an ECHLD error (because there are no left-over child processes) or any other
+         * (unexpected) error. Freeze for good now! */
         for (;;)
                 pause();
 }
@@ -2003,7 +2157,7 @@ int posix_spawn_wrapper(
          * issues.
          *
          * Also, move the newly-created process into 'cgroup' through POSIX_SPAWN_SETCGROUP (clone3())
-         * if available. Note that CLONE_INTO_CGROUP is only supported on cgroup v2.
+         * if available.
          * returns 1: We're already in the right cgroup
          *         0: 'cgroup' not specified or POSIX_SPAWN_SETCGROUP is not supported. The caller
          *            needs to call 'cg_attach' on their own */
@@ -2022,14 +2176,10 @@ int posix_spawn_wrapper(
         _unused_ _cleanup_(posix_spawnattr_destroyp) posix_spawnattr_t *attr_destructor = &attr;
 
 #if HAVE_PIDFD_SPAWN
-        static enum {
-                CLONE_ONLY_PID,
-                CLONE_CAN_PIDFD,  /* 5.2 */
-                CLONE_CAN_CGROUP, /* 5.7 */
-        } clone_support = CLONE_CAN_CGROUP;
+        static bool have_clone_into_cgroup = true; /* kernel 5.7+ */
         _cleanup_close_ int cgroup_fd = -EBADF;
 
-        if (cgroup && clone_support >= CLONE_CAN_CGROUP) {
+        if (cgroup && have_clone_into_cgroup) {
                 _cleanup_free_ char *resolved_cgroup = NULL;
 
                 r = cg_get_path_and_check(
@@ -2060,47 +2210,41 @@ int posix_spawn_wrapper(
                 return -r;
 
 #if HAVE_PIDFD_SPAWN
-        if (clone_support >= CLONE_CAN_PIDFD) {
-                _cleanup_close_ int pidfd = -EBADF;
+        _cleanup_close_ int pidfd = -EBADF;
 
-                r = pidfd_spawn(&pidfd, path, NULL, &attr, argv, envp);
-                if (ERRNO_IS_NOT_SUPPORTED(r) && FLAGS_SET(flags, POSIX_SPAWN_SETCGROUP) &&
-                    cg_is_threaded(cgroup) > 0) /* clone3() could also return EOPNOTSUPP if the target cgroup is in threaded mode. */
-                        return -EUCLEAN;
-                if ((ERRNO_IS_NOT_SUPPORTED(r) || ERRNO_IS_PRIVILEGE(r) || r == E2BIG) &&
-                    FLAGS_SET(flags, POSIX_SPAWN_SETCGROUP)) {
-                        /* Compiled on a newer host, or seccomp&friends blocking clone3()? Fallback, but
-                         * need to disable POSIX_SPAWN_SETCGROUP, which is what redirects to clone3().
-                         * Note that we might get E2BIG here since some kernels (e.g. 5.4) support clone3()
-                         * but not CLONE_INTO_CGROUP. */
+        r = pidfd_spawn(&pidfd, path, NULL, &attr, argv, envp);
+        if (ERRNO_IS_NOT_SUPPORTED(r) && FLAGS_SET(flags, POSIX_SPAWN_SETCGROUP) && cg_is_threaded(cgroup) > 0)
+                return -EUCLEAN; /* clone3() could also return EOPNOTSUPP if the target cgroup is in threaded mode,
+                                    turn that into something recognizable */
+        if ((ERRNO_IS_NOT_SUPPORTED(r) || ERRNO_IS_PRIVILEGE(r) || r == E2BIG) &&
+            FLAGS_SET(flags, POSIX_SPAWN_SETCGROUP)) {
+                /* Compiled on a newer host, or seccomp&friends blocking clone3()? Fallback, but
+                 * need to disable POSIX_SPAWN_SETCGROUP, which is what redirects to clone3().
+                 * Note that we might get E2BIG here since some kernels (e.g. 5.4) support clone3()
+                 * but not CLONE_INTO_CGROUP. */
 
-                        /* CLONE_INTO_CGROUP definitely won't work, hence remember the fact so that we don't
-                         * retry every time. */
-                        assert(clone_support >= CLONE_CAN_CGROUP);
-                        clone_support = CLONE_CAN_PIDFD;
+                /* CLONE_INTO_CGROUP definitely won't work, hence remember the fact so that we don't
+                 * retry every time. */
+                have_clone_into_cgroup = false;
 
-                        flags &= ~POSIX_SPAWN_SETCGROUP;
-                        r = posix_spawnattr_setflags(&attr, flags);
-                        if (r != 0)
-                                return -r;
-
-                        r = pidfd_spawn(&pidfd, path, NULL, &attr, argv, envp);
-                }
-                if (r == 0) {
-                        r = pidref_set_pidfd_consume(ret_pidref, TAKE_FD(pidfd));
-                        if (r < 0)
-                                return r;
-
-                        return FLAGS_SET(flags, POSIX_SPAWN_SETCGROUP);
-                }
-                if (!ERRNO_IS_NOT_SUPPORTED(r) && !ERRNO_IS_PRIVILEGE(r))
+                flags &= ~POSIX_SPAWN_SETCGROUP;
+                r = posix_spawnattr_setflags(&attr, flags);
+                if (r != 0)
                         return -r;
 
-                clone_support = CLONE_ONLY_PID; /* No CLONE_PIDFD either? */
+                r = pidfd_spawn(&pidfd, path, NULL, &attr, argv, envp);
         }
-#endif
+        if (r != 0)
+                return -r;
 
+        r = pidref_set_pidfd_consume(ret_pidref, TAKE_FD(pidfd));
+        if (r < 0)
+                return r;
+
+        return FLAGS_SET(flags, POSIX_SPAWN_SETCGROUP);
+#else
         pid_t pid;
+
         r = posix_spawn(&pid, path, NULL, &attr, argv, envp);
         if (r != 0)
                 return -r;
@@ -2110,6 +2254,7 @@ int posix_spawn_wrapper(
                 return r;
 
         return 0; /* We did not use CLONE_INTO_CGROUP so return 0, the caller will have to move the child */
+#endif
 }
 
 int proc_dir_open(DIR **ret) {
@@ -2221,20 +2366,24 @@ int read_errno(int errno_fd) {
 
         assert(errno_fd >= 0);
 
-        ssize_t n = loop_read(errno_fd, &r, sizeof(r), /* do_pool = */ 0);
+        /* The issue here is that it's impossible to distinguish between an error code returned by child and
+         * IO error arose when reading it. So, the function logs errors and return EIO for the later case. */
+
+        ssize_t n = loop_read(errno_fd, &r, sizeof(r), /* do_poll = */ false);
         if (n < 0) {
                 log_debug_errno(n, "Failed to read errno: %m");
                 return -EIO;
         }
         if (n == sizeof(r)) {
-                /* child processes reported a error, return it */
-                if (r < 0)
+                if (r == 0)
+                        return 0;
+                if (r < 0) /* child process reported an error, return it */
                         return log_debug_errno(r, "Child process failed with errno: %m");
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Received a errno, but it's a positive value");
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Received an errno, but it's a positive value.");
         }
         if (n != 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Received unexpected amount of bytes while reading errno");
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Received unexpected amount of bytes while reading errno.");
 
-        /* the process exited without reporting a error, assuming success */
+        /* the process exited without reporting an error, assuming success */
         return 0;
 }

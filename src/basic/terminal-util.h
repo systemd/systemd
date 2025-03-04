@@ -10,6 +10,7 @@
 #include <unistd.h>
 
 #include "macro.h"
+#include "pidref.h"
 #include "time-util.h"
 
 /* Erase characters until the end of the line */
@@ -40,8 +41,14 @@
 
 bool isatty_safe(int fd);
 
-int terminal_reset_defensive(int fd, bool switch_to_text);
-int terminal_reset_defensive_locked(int fd, bool switch_to_text);
+typedef enum TerminalResetFlags {
+        TERMINAL_RESET_SWITCH_TO_TEXT = 1 << 0,
+        TERMINAL_RESET_AVOID_ANSI_SEQ = 1 << 1,
+        TERMINAL_RESET_FORCE_ANSI_SEQ = 1 << 2,
+} TerminalResetFlags;
+
+int terminal_reset_defensive(int fd, TerminalResetFlags flags);
+int terminal_reset_defensive_locked(int fd, TerminalResetFlags flags);
 
 int terminal_set_cursor_position(int fd, unsigned row, unsigned column);
 
@@ -58,8 +65,14 @@ typedef enum AcquireTerminalFlags {
         /* If we can't become the controlling process of the TTY right-away, then wait until we can. */
         ACQUIRE_TERMINAL_WAIT       = 2,
 
+        /* The combined mask of the above */
+        _ACQUIRE_TERMINAL_MODE_MASK = ACQUIRE_TERMINAL_TRY | ACQUIRE_TERMINAL_FORCE | ACQUIRE_TERMINAL_WAIT,
+
         /* Pick one of the above, and then OR this flag in, in order to request permissive behaviour, if we can't become controlling process then don't mind */
         ACQUIRE_TERMINAL_PERMISSIVE = 1 << 2,
+
+        /* Check for pending SIGTERM while waiting for inotify (SIGTERM must be blocked by caller) */
+        ACQUIRE_TERMINAL_WATCH_SIGTERM = 1 << 3,
 } AcquireTerminalFlags;
 
 int acquire_terminal(const char *name, AcquireTerminalFlags flags, usec_t timeout);
@@ -79,11 +92,15 @@ int proc_cmdline_tty_size(const char *tty, unsigned *ret_rows, unsigned *ret_col
 
 int chvt(int vt);
 
-int read_one_char(FILE *f, char *ret, usec_t timeout, bool *need_nl);
+int read_one_char(FILE *f, char *ret, usec_t timeout, bool echo, bool *need_nl);
 int ask_char(char *ret, const char *replies, const char *text, ...) _printf_(3, 4);
-int ask_string(char **ret, const char *text, ...) _printf_(2, 3);
+
+typedef int (*GetCompletionsCallback)(const char *key, char ***ret_list, void *userdata);
+int ask_string_full(char **ret, GetCompletionsCallback cb, void *userdata, const char *text, ...) _printf_(4, 5);
+#define ask_string(ret, text, ...) ask_string_full(ret, NULL, NULL, text, ##__VA_ARGS__)
+
 bool any_key_to_proceed(void);
-int show_menu(char **x, unsigned n_columns, unsigned width, unsigned percentage);
+int show_menu(char **x, size_t n_columns, size_t column_width, unsigned ellipsize_percentage, const char *grey_prefix, bool with_numbers);
 
 int vt_disallocate(const char *name);
 
@@ -143,8 +160,7 @@ int getttyname_harder(int fd, char **ret);
 int ptsname_malloc(int fd, char **ret);
 
 int openpt_allocate(int flags, char **ret_peer);
-int openpt_allocate_in_namespace(pid_t pid, int flags, char **ret_peer);
-int open_terminal_in_namespace(pid_t pid, const char *name, int mode);
+int openpt_allocate_in_namespace(const PidRef *pidref, int flags, char **ret_peer);
 
 int vt_restore(int fd);
 int vt_release(int fd, bool restore_vt);
@@ -164,7 +180,6 @@ int terminal_fix_size(int input_fd, int output_fd);
 
 int terminal_is_pty_fd(int fd);
 
-int pty_open_peer_racefree(int fd, int mode);
 int pty_open_peer(int fd, int mode);
 
 static inline bool osc_char_is_valid(char c) {

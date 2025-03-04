@@ -81,18 +81,27 @@
       <listitem><para>An optional <literal>.dtb</literal> section with a compiled binary DeviceTree.
       </para></listitem>
 
-      <listitem><para>Zero or more <literal>.dtbauto</literal> sections. <filename>systemd-stub</filename>
+      <listitem><para>Zero or more <literal>.dtbauto</literal> sections. <command>systemd-stub</command>
       will always use the first matching one. The match is performed by taking the first DeviceTree's
-      <varname>compatible</varname> string supplied by the firmware in configuration tables and comparing it
-      with the first <varname>compatible</varname> string from each of the <literal>.dtbauto</literal>
+      <literal>compatible</literal> string supplied by the firmware in configuration tables and comparing it
+      with the first <literal>compatible</literal> string from each of the <literal>.dtbauto</literal>
       sections. If the firmware does not provide a DeviceTree, the match is done using the
-      <varname>.hwids</varname> section instead. After selecting a <literal>.hwids</literal> section (see the
-      description below), the <varname>compatible</varname> string from that section will be used to perform
+      <literal>.hwids</literal> section instead. After selecting a <literal>.hwids</literal> section (see the
+      description below), the <literal>compatible</literal> string from that section will be used to perform
       the same matching procedure. If a match is found, that <literal>.dtbauto</literal> section will be
-      loaded and will override <varname>.dtb</varname> if present.</para></listitem>
+      loaded and will override <literal>.dtb</literal> if present.</para></listitem>
+
+      <listitem><para>Zero or more <literal>.efifw</literal> sections for the firmware image. It works
+      in many ways similar to <literal>.dtbauto</literal> sections. <command>systemd-stub</command>
+      will always use the first matching one. The match is performed by first selecting the most appropriate
+      entry in the <literal>.hwids</literal> section based on the hardware IDs supplied by SMBIOS (see below).
+      If a suitable entry is found, the <literal>fwid</literal> string from that entry will be used to
+      perform the matching procedure for firmware blobs in <literal>.efifw</literal> section. The first
+      matching firmware will be loaded.
+      </para></listitem>
 
       <listitem><para>Zero or more <literal>.hwids</literal> sections with hardware IDs of the machines to
-      match DeviceTrees. <filename>systemd-stub</filename> will use the SMBIOS data to calculate hardware IDs
+      match DeviceTrees. <command>systemd-stub</command> will use the SMBIOS data to calculate hardware IDs
       of the machine (as per <ulink
       url="https://learn.microsoft.com/en-us/windows-hardware/drivers/install/specifying-hardware-ids-for-a-computer">specification</ulink>),
       and then it will try to find any of them in each of the <literal>.hwids</literal> sections. The first
@@ -180,7 +189,7 @@
       archive is generated from all files found that way, placing them in the
       <filename>/.extra/credentials/</filename> directory of the initrd file hierarchy. The main initrd may
       then access them in this directory. This is supposed to be used to store auxiliary, encrypted,
-      authenticated credentials for use with <varname>LoadCredentialEncrypted=</varname> in the UEFI System
+      authenticated credentials for use with <varname>LoadCredentialEncrypted</varname> in the UEFI System
       Partition. See
       <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
       and
@@ -376,6 +385,15 @@
     core kernel, the embedded initrd and kernel command line (see above for a full list), including all UKI
     profiles.</para>
 
+    <para>Also note that when <command>systemd-stub</command> measures a PE section, it will measure the
+    amount of bytes that the section takes up in memory (<varname>VirtualSize</varname>) and not the amount
+    of bytes that the section takes up on disk (<varname>SizeOfRawData</varname>). This means that if the
+    size in memory is larger than the size on disk, <command>systemd-stub</command> will end up measuring
+    extra zeroes. To avoid this from happening, it is recommended to make sure that the size in memory of
+    each section that is measured by <command>systemd-stub</command> is always smaller than or equal to the
+    size on disk. <command>ukify</command> automatically makes sure this is the case when building UKIs or
+    addons.</para>
+
     <para>Also note that the Linux kernel will measure all initrds it receives into TPM PCR 9. This means
     every type of initrd (of the selected UKI profile) will possibly be measured two or three times: the
     initrds embedded in the kernel image will be measured to PCR 4, PCR 9 and PCR 11; the initrd synthesized
@@ -530,6 +548,16 @@
         or not.</para>
 
         <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>StubDeviceURL</varname></term>
+
+        <listitem><para>If the kernel image has been invoked via network booting this variable contains the
+        originating URL. This may be used to automatically acquire additional resources from the same
+        source.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
 
       <varlistentry>

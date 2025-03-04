@@ -263,6 +263,9 @@ int link_load_one(LinkConfigContext *ctx, const char *filename) {
                 .coalesce.use_adaptive_tx_coalesce = -1,
                 .mdi = ETH_TP_MDI_INVALID,
                 .sr_iov_num_vfs = UINT32_MAX,
+                .eee_enabled = -1,
+                .eee_tx_lpi_enabled = -1,
+                .eee_tx_lpi_timer_usec = USEC_INFINITY,
         };
 
         FOREACH_ELEMENT(feature, config->features)
@@ -547,6 +550,10 @@ static int link_apply_ethtool_settings(Link *link, int *ethtool_fd) {
         r = ethtool_set_nic_coalesce_settings(ethtool_fd, name, &config->coalesce);
         if (r < 0)
                 log_link_warning_errno(link, r, "Could not set coalesce settings, ignoring: %m");
+
+        r = ethtool_set_eee_settings(ethtool_fd, name, config->eee_enabled, config->eee_tx_lpi_enabled, config->eee_tx_lpi_timer_usec, config->eee_advertise[0]);
+        if (r < 0)
+                log_link_warning_errno(link, r, "Could not set energy efficient ethernet settings, ignoring: %m");
 
         return 0;
 }

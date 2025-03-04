@@ -219,7 +219,7 @@ static int rm_rf_inner_child(
                         return 0;
 
                 /* Stop at mount points */
-                r = fd_is_mount_point(fd, fname, 0);
+                r = is_mount_point_at(fd, fname, 0);
                 if (r < 0)
                         return r;
                 if (r > 0)

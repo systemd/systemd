@@ -43,12 +43,13 @@ static char *arg_cert_pem = NULL;
 static char *arg_trust_pem = NULL;
 static bool arg_merge = false;
 static int arg_journal_type = 0;
-static const char *arg_directory = NULL;
+static char *arg_directory = NULL;
 static char **arg_file = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_key_pem, erase_and_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_cert_pem, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_trust_pem, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_directory, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_file, strv_freep);
 
 typedef struct RequestMeta {
@@ -816,7 +817,7 @@ static int request_handler_machine(
         _cleanup_(MHD_destroy_responsep) struct MHD_Response *response = NULL;
         RequestMeta *m = ASSERT_PTR(connection_cls);
         int r;
-        _cleanup_free_ char* hostname = NULL, *pretty_name = NULL, *os_name = NULL;
+        _cleanup_free_ char *hostname = NULL, *pretty_name = NULL, *os_name = NULL;
         uint64_t cutoff_from = 0, cutoff_to = 0, usage = 0;
         sd_id128_t mid, bid;
         _cleanup_free_ char *v = NULL, *json = NULL;
@@ -1061,7 +1062,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'D':
-                        arg_directory = optarg;
+                        r = free_and_strdup_warn(&arg_directory, optarg);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_FILE:

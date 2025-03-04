@@ -7,8 +7,6 @@
 #include "stdio-util.h"
 #include "tests.h"
 
-#define PIDREF_NULL_NONCONST (PidRef) { .fd = -EBADF }
-
 TEST(pidref_is_set) {
         assert_se(!pidref_is_set(NULL));
         assert_se(!pidref_is_set(&PIDREF_NULL));
@@ -17,14 +15,14 @@ TEST(pidref_is_set) {
 
 TEST(pidref_equal) {
         assert_se(pidref_equal(NULL, NULL));
-        assert_se(pidref_equal(NULL, &PIDREF_NULL_NONCONST));
-        assert_se(pidref_equal(&PIDREF_NULL_NONCONST, NULL));
-        assert_se(pidref_equal(&PIDREF_NULL_NONCONST, &PIDREF_NULL_NONCONST));
+        assert_se(pidref_equal(NULL, &PIDREF_NULL));
+        assert_se(pidref_equal(&PIDREF_NULL, NULL));
+        assert_se(pidref_equal(&PIDREF_NULL, &PIDREF_NULL));
 
         assert_se(!pidref_equal(NULL, &PIDREF_MAKE_FROM_PID(1)));
         assert_se(!pidref_equal(&PIDREF_MAKE_FROM_PID(1), NULL));
-        assert_se(!pidref_equal(&PIDREF_NULL_NONCONST, &PIDREF_MAKE_FROM_PID(1)));
-        assert_se(!pidref_equal(&PIDREF_MAKE_FROM_PID(1), &PIDREF_NULL_NONCONST));
+        assert_se(!pidref_equal(&PIDREF_NULL, &PIDREF_MAKE_FROM_PID(1)));
+        assert_se(!pidref_equal(&PIDREF_MAKE_FROM_PID(1), &PIDREF_NULL));
         assert_se(pidref_equal(&PIDREF_MAKE_FROM_PID(1), &PIDREF_MAKE_FROM_PID(1)));
         assert_se(!pidref_equal(&PIDREF_MAKE_FROM_PID(1), &PIDREF_MAKE_FROM_PID(2)));
 }
@@ -159,12 +157,8 @@ TEST(pidref_new_from_pid) {
 TEST(pidref_kill) {
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         siginfo_t si;
-        int r;
 
-        r = pidref_safe_fork("(test-pidref-kill)", FORK_DEATHSIG_SIGKILL, &pidref);
-        assert_se(r >= 0);
-        if (r == 0)
-                freeze();
+        ASSERT_OK_POSITIVE(pidref_safe_fork("(test-pidref-kill)", FORK_DEATHSIG_SIGKILL|FORK_FREEZE, &pidref));
 
         assert_se(pidref_kill(&pidref, SIGKILL) >= 0);
         assert_se(pidref_wait_for_terminate(&pidref, &si) >= 0);
@@ -174,12 +168,8 @@ TEST(pidref_kill) {
 TEST(pidref_kill_and_sigcont) {
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         siginfo_t si;
-        int r;
 
-        r = pidref_safe_fork("(test-pidref-kill-and-sigcont)", FORK_DEATHSIG_SIGTERM, &pidref);
-        assert_se(r >= 0);
-        if (r == 0)
-                freeze();
+        ASSERT_OK_POSITIVE(pidref_safe_fork("(test-pidref-kill-and-sigcont)", FORK_DEATHSIG_SIGTERM|FORK_FREEZE, &pidref));
 
         assert_se(pidref_kill_and_sigcont(&pidref, SIGTERM) >= 0);
         assert_se(pidref_wait_for_terminate(&pidref, &si) >= 0);
@@ -189,12 +179,8 @@ TEST(pidref_kill_and_sigcont) {
 TEST(pidref_sigqueue) {
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         siginfo_t si;
-        int r;
 
-        r = pidref_safe_fork("(test-pidref-sigqueue)", FORK_DEATHSIG_SIGTERM, &pidref);
-        assert_se(r >= 0);
-        if (r == 0)
-                freeze();
+        ASSERT_OK_POSITIVE(pidref_safe_fork("(test-pidref-sigqueue)", FORK_DEATHSIG_SIGTERM|FORK_FREEZE, &pidref));
 
         assert_se(pidref_sigqueue(&pidref, SIGTERM, 42) >= 0);
         assert_se(pidref_wait_for_terminate(&pidref, &si) >= 0);
@@ -203,12 +189,8 @@ TEST(pidref_sigqueue) {
 
 TEST(pidref_done_sigkill_wait) {
         _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
-        int r;
 
-        r = pidref_safe_fork("(test-pidref-done-sigkill-wait)", FORK_DEATHSIG_SIGKILL, &pidref);
-        assert_se(r >= 0);
-        if (r == 0)
-                freeze();
+        ASSERT_OK_POSITIVE(pidref_safe_fork("(test-pidref-done-sigkill-wait)", FORK_DEATHSIG_SIGKILL|FORK_FREEZE, &pidref));
 }
 
 TEST(pidref_verify) {
@@ -247,7 +229,7 @@ TEST(pidref_is_remote) {
         assert_se(!pidref_is_remote(&PIDREF_MAKE_FROM_PID(getpid_cached())));
         assert_se(!pidref_is_remote(&PIDREF_AUTOMATIC));
 
-        static const PidRef p = {
+        PidRef p = {
                 .pid = 1,
                 .fd = -EREMOTE,
                 .fd_id = 4711,

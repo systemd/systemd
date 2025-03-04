@@ -1125,6 +1125,86 @@ int digest_and_sign(
         return 0;
 }
 
+int pkcs7_new(X509 *certificate, EVP_PKEY *private_key, PKCS7 **ret_p7, PKCS7_SIGNER_INFO **ret_si) {
+        assert(certificate);
+        assert(ret_p7);
+
+        /* This function sets up a new PKCS7 signing context. If a private key is provided, the context is
+         * set up for "in-band" signing with PKCS7_dataFinal(). If a private key is not provided, the context
+         * is set up for "out-of-band" signing, meaning the signature has to be provided by the user and
+         * copied into the signer info's "enc_digest" field. */
+
+        _cleanup_(PKCS7_freep) PKCS7 *p7 = PKCS7_new();
+        if (!p7)
+                return log_oom();
+
+        if (PKCS7_set_type(p7, NID_pkcs7_signed) == 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to set PKCS7 type: %s",
+                                       ERR_error_string(ERR_get_error(), NULL));
+
+        if (PKCS7_content_new(p7, NID_pkcs7_data) == 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to set PKCS7 content: %s",
+                                       ERR_error_string(ERR_get_error(), NULL));
+
+        if (PKCS7_add_certificate(p7, certificate) == 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to set PKCS7 certificate: %s",
+                                       ERR_error_string(ERR_get_error(), NULL));
+
+        int x509_mdnid = 0, x509_pknid = 0;
+        if (X509_get_signature_info(certificate, &x509_mdnid, &x509_pknid, NULL, NULL) == 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to get X509 digest NID: %s",
+                                       ERR_error_string(ERR_get_error(), NULL));
+
+        const EVP_MD *md = EVP_get_digestbynid(x509_mdnid);
+        if (!md)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to get digest algorithm via digest NID");
+
+        _cleanup_(PKCS7_SIGNER_INFO_freep) PKCS7_SIGNER_INFO *si = PKCS7_SIGNER_INFO_new();
+        if (!si)
+                return log_oom();
+
+        if (private_key) {
+                if (PKCS7_SIGNER_INFO_set(si, certificate, private_key, EVP_get_digestbynid(x509_mdnid)) <= 0)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to configure signer info: %s",
+                                               ERR_error_string(ERR_get_error(), NULL));
+        } else {
+                if (ASN1_INTEGER_set(si->version, 1) == 0)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to set signer info version: %s",
+                                               ERR_error_string(ERR_get_error(), NULL));
+
+                if (X509_NAME_set(&si->issuer_and_serial->issuer, X509_get_issuer_name(certificate)) == 0)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to set signer info issuer: %s",
+                                               ERR_error_string(ERR_get_error(), NULL));
+
+                ASN1_INTEGER_free(si->issuer_and_serial->serial);
+                si->issuer_and_serial->serial = ASN1_INTEGER_dup(X509_get0_serialNumber(certificate));
+                if (!si->issuer_and_serial->serial)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to set signer info serial: %s",
+                                               ERR_error_string(ERR_get_error(), NULL));
+
+                if (X509_ALGOR_set0(si->digest_alg, OBJ_nid2obj(x509_mdnid), V_ASN1_NULL, NULL) == 0)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to set signer info digest algorithm: %s",
+                                               ERR_error_string(ERR_get_error(), NULL));
+
+                if (X509_ALGOR_set0(si->digest_enc_alg, OBJ_nid2obj(x509_pknid), V_ASN1_NULL, NULL) == 0)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to set signer info signing algorithm: %s",
+                                               ERR_error_string(ERR_get_error(), NULL));
+        }
+
+        if (PKCS7_add_signer(p7, si) == 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to set PKCS7 signer info: %s",
+                                       ERR_error_string(ERR_get_error(), NULL));
+
+        *ret_p7 = TAKE_PTR(p7);
+        if (ret_si)
+                /* We do not pass ownership here, 'si' object remains owned by 'p7' object. */
+                *ret_si = si;
+
+        TAKE_PTR(si);
+
+        return 0;
+}
+
 #  if PREFER_OPENSSL
 int string_hashsum(
                 const char *s,
@@ -1398,7 +1478,7 @@ static int openssl_ask_password_ui_read(UI *ui, UI_STRING *uis) {
 
                 req->message = UI_get0_output_string(uis);
 
-                _cleanup_(strv_freep) char **l = NULL;
+                _cleanup_strv_free_ char **l = NULL;
                 r = ask_password_auto(req, ASK_PASSWORD_ACCEPT_CACHED|ASK_PASSWORD_PUSH_CACHE, &l);
                 if (r < 0) {
                         log_error_errno(r, "Failed to query for PIN: %m");

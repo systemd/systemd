@@ -24,6 +24,7 @@
 #include "main-func.h"
 #include "memfd-util.h"
 #include "mkdir-label.h"
+#include "notify-recv.h"
 #include "os-util.h"
 #include "process-util.h"
 #include "service-util.h"
@@ -1645,65 +1646,39 @@ static Manager *manager_free(Manager *m) {
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager *, manager_free);
 
 static int manager_on_notify(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        char buf[NOTIFY_BUFFER_MAX+1];
-        struct iovec iovec = {
-                .iov_base = buf,
-                .iov_len = sizeof(buf)-1,
-        };
-        CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct ucred))) control;
-        struct msghdr msghdr = {
-                .msg_iov = &iovec,
-                .msg_iovlen = 1,
-                .msg_control = &control,
-                .msg_controllen = sizeof(control),
-        };
-        struct ucred *ucred;
         Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        assert(fd >= 0);
+
+        _cleanup_(pidref_done) PidRef sender_pidref = PIDREF_NULL;
+        _cleanup_free_ char *buf = NULL;
+        r = notify_recv(fd, &buf, /* ret_ucred= */ NULL, &sender_pidref);
+        if (r == -EAGAIN)
+                return 0;
+        if (r < 0)
+                return r;
+
         Job *j;
-        ssize_t n;
-        char *version, *progress, *errno_str, *ready;
-
-        n = recvmsg_safe(fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
-        if (ERRNO_IS_NEG_TRANSIENT(n))
-                return 0;
-        if (n == -ECHRNG) {
-                log_warning_errno(n, "Got message with truncated control data (unexpected fds sent?), ignoring.");
-                return 0;
-        }
-        if (n == -EXFULL) {
-                log_warning_errno(n, "Got message with truncated payload data, ignoring.");
-                return 0;
-        }
-        if (n < 0)
-                return (int) n;
-
-        cmsg_close_all(&msghdr);
-
-        ucred = CMSG_FIND_DATA(&msghdr, SOL_SOCKET, SCM_CREDENTIALS, struct ucred);
-        if (!ucred || ucred->pid <= 0) {
-                log_warning("Got notification datagram lacking credential information, ignoring.");
-                return 0;
-        }
-
         HASHMAP_FOREACH(j, m->jobs) {
-                pid_t pid;
-                assert_se(sd_event_source_get_child_pid(j->child, &pid) >= 0);
+                PidRef child_pidref = PIDREF_NULL;
 
-                if (ucred->pid == pid)
+                r = event_source_get_child_pidref(j->child, &child_pidref);
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to get child pidref: %m");
+
+                if (pidref_equal(&sender_pidref, &child_pidref))
                         break;
         }
-
         if (!j) {
                 log_warning("Got notification datagram from unexpected peer, ignoring.");
                 return 0;
         }
 
-        buf[n] = 0;
-
-        version = find_line_startswith(buf, "X_SYSUPDATE_VERSION=");
-        progress = find_line_startswith(buf, "X_SYSUPDATE_PROGRESS=");
-        errno_str = find_line_startswith(buf, "ERRNO=");
-        ready = find_line_startswith(buf, "READY=1");
+        char *version = find_line_startswith(buf, "X_SYSUPDATE_VERSION=");
+        char *progress = find_line_startswith(buf, "X_SYSUPDATE_PROGRESS=");
+        char *errno_str = find_line_startswith(buf, "ERRNO=");
+        const char *ready = find_line_startswith(buf, "READY=1");
 
         if (version)
                 job_on_version(j, truncate_nl(version));
@@ -1776,6 +1751,10 @@ static int manager_new(Manager **ret) {
         r = setsockopt_int(notify_fd, SOL_SOCKET, SO_PASSCRED, true);
         if (r < 0)
                 return r;
+
+        r = setsockopt_int(notify_fd, SOL_SOCKET, SO_PASSPIDFD, true);
+        if (r < 0)
+                log_debug_errno(r, "Failed to enable SO_PASSPIDFD, ignoring: %m");
 
         r = sd_event_add_io(m->event, &m->notify_event, notify_fd, EPOLLIN, manager_on_notify, m);
         if (r < 0)

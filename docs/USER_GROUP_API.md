@@ -110,7 +110,7 @@ For example, introspection is not available, and the resolver logic is not used.
 
 ## Other Services
 
-The `systemd` project provides three other services implementing this
+The `systemd` project provides several other services implementing this
 interface. Specifically:
 
 1. `io.systemd.DynamicUser` → This service is implemented by the service
@@ -124,6 +124,16 @@ interface. Specifically:
 3. `io.systemd.Machine` → This service is implemented by
    `systemd-machined.service` and provides records for the users and groups used
    by local containers that use user namespacing.
+
+4. `io.systemd.DropIn` → This service is implemented by
+   `systemd-userdbd.service` and allows storing JSON user records in drop-in
+   files in the `/etc/userdb/`, `/run/userdb/`, `/run/host/userdb/` or
+   `/usr/lib/userdb/` directories.
+
+5. `io.systemd.NamespaceResource` → This service is implemented by
+   `systemd-nsresourced.service` and defines a pair of user and group records
+   for every UID/GID assigned to user namespaces transiently allocated via the
+   service.
 
 Other projects are invited to implement these services too.
 For example, it would make sense for LDAP/ActiveDirectory projects to implement these
@@ -161,6 +171,10 @@ interface io.systemd.UserDatabase
 method GetUserRecord(
         uid : ?int,
         userName : ?string,
+        fuzzyNames: ?[]string,
+        dispositionMask: ?[]string,
+        uidMin: ?int,
+        uidMax: ?int,
         service : string
 ) -> (
         record : object,
@@ -170,6 +184,10 @@ method GetUserRecord(
 method GetGroupRecord(
         gid : ?int,
         groupName : ?string,
+        fuzzyNames: ?[]string,
+        dispositionMask: ?[]string,
+        gidMin: ?int,
+        gidMax: ?int,
         service : string
 ) -> (
         record : object,
@@ -189,6 +207,7 @@ error NoRecordFound()
 error BadService()
 error ServiceNotAvailable()
 error ConflictingRecordFound()
+error NonMatchingRecordFound()
 error EnumerationNotSupported()
 ```
 
@@ -202,6 +221,40 @@ one exists that matches one of the two parameters but not the other an error of 
 If neither of the two parameters are set the whole user database is enumerated.
 In this case the method call needs to be made with `more` set, so that multiple method call replies may be generated as
 effect, each carrying one user record.
+
+The `fuzzyNames`, `dispositionMask`, `uidMin`, `uidMax` fields permit
+*additional* filtering of the returned set of user records. The `fuzzyNames`
+parameter shall be one or more strings that shall be searched for in "fuzzy"
+way. What specifically this means is left for the backend to decide, but
+typically this should result in substring or string proximity matching of the
+primary user name, the real name of the record and possibly other fields that
+carry identifying information for the user. The `dispositionMask` field shall
+be one of more user record `disposition` strings. If specified only user
+records matching one of the specified dispositions should be enumerated. The
+`uidMin` and `uidMax` fields specify a minimum and maximum value for the UID of
+returned records. Inline searching for `uid` and `userName` support for
+filtering with these four additional parameters is optional, and clients are
+expected to be able to do client-side filtering in case the parameters are not
+supported by a service. The service should return the usual `InvalidParameter`
+error for the relevant parameter if one is passed and it does not support
+it. If a request is made specifying `uid` or `userName` and a suitable record
+is found, but the specified filter via `fuzzyNames`, `dispositionMask`,
+`uidMin`, or `uidMax` does not match, a `NonMatchingRecordFound` error should
+be returned.
+
+Or to say this differently: the *primary search keys* are
+`userName`/`groupName` and `uid`/`gid` and the *secondary search filters* are
+`fuzzyNames`, `dispositionMask`, `uidMin`, `uidMax`. If no entry matching
+either of the primary search keys are found `NoRecordFound()` is returned. If
+one is found that matches one but not the other primary search key
+`ConflictingRecordFound()` is returned. If an entry is found that matches the
+primary search keys, but not the secondary match filters
+`NonMatchingRecordFound()` is returned. Finally, if an entry is found that
+matches both the primary search keys and the secondary search filters, they are
+returned as successful response. Note that both the primary search keys and the
+secondary search filters are optional, it is possible to use both, use one of
+the two, or the other of the two, or neither (the latter for a complete dump of
+the database).
 
 The `service` parameter is mandatory and should be set to the service name
 being talked to (i.e. to the same name as the `AF_UNIX` socket path, with the
@@ -270,3 +323,24 @@ result in more than one reply, because neither UID/GID nor name is specified) is
 Services which are asked for enumeration may return the `EnumerationNotSupported` error in this case.
 
 And that's really all there is to it.
+
+## Command Line Access
+
+For command line access you can use the
+[userdbctl](https://www.freedesktop.org/software/systemd/man/latest/userdbctl.html)
+or
+[varlinkctl](https://www.freedesktop.org/software/systemd/man/latest/varlinkctl.html)
+commands. The `userdbctl` command is more end user friendly and the `varlinkctl`
+command can help developers to understand the user database better.
+
+To figure out which methods in the user database are available you can use:
+
+```sh
+varlinkctl introspect /run/systemd/userdb/io.systemd.Multiplexer io.systemd.UserDatabase
+```
+
+To get a record for a specific user use:
+
+```sh
+varlinkctl call /run/systemd/userdb/io.systemd.Multiplexer io.systemd.UserDatabase.GetUserRecord '{"userName": "alice", "service": "io.systemd.Multiplexer"}'
+```

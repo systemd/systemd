@@ -45,6 +45,7 @@
 #include "efivars.h"
 #include "emergency-action.h"
 #include "env-util.h"
+#include "escape.h"
 #include "exit-status.h"
 #include "fd-util.h"
 #include "fdset.h"
@@ -57,6 +58,7 @@
 #include "ima-setup.h"
 #include "import-creds.h"
 #include "initrd-util.h"
+#include "io-util.h"
 #include "ipe-setup.h"
 #include "killall.h"
 #include "kmod-setup.h"
@@ -73,6 +75,7 @@
 #include "mount-setup.h"
 #include "mount-util.h"
 #include "os-util.h"
+#include "osc-context.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
@@ -1511,6 +1514,38 @@ static int write_container_id(void) {
         return 1;
 }
 
+static int write_boot_or_shutdown_osc(const char *type) {
+        int r;
+
+        assert(STRPTR_IN_SET(type, "boot", "shutdown"));
+
+        if (getenv_terminal_is_dumb())
+                return 0;
+
+        _cleanup_close_ int fd = open_terminal("/dev/console", O_WRONLY|O_NOCTTY|O_CLOEXEC);
+        if (fd < 0)
+                return log_debug_errno(fd, "Failed to open /dev/console to print %s OSC, ignoring: %m", type);
+
+        _cleanup_free_ char *seq = NULL;
+        if (streq(type, "boot"))
+                r = osc_context_open_boot(&seq);
+        else
+                r = osc_context_close(SD_ID128_ALLF, &seq);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to acquire %s OSC sequence, ignoring: %m", type);
+
+        r = loop_write(fd, seq, SIZE_MAX);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to write %s OSC sequence, ignoring: %m", type);
+
+        if (DEBUG_LOGGING) {
+                _cleanup_free_ char *h = cescape(seq);
+                log_debug("OSC sequence for %s successfully written: %s", type, strna(h));
+        }
+
+        return 0;
+}
+
 static int bump_unix_max_dgram_qlen(void) {
         _cleanup_free_ char *qlen = NULL;
         unsigned long v;
@@ -1703,6 +1738,8 @@ static int become_shutdown(int objective, int retval) {
          * point, we will not listen to the signals anyway */
         if (detect_container() <= 0)
                 (void) cg_uninstall_release_agent(SYSTEMD_CGROUP_CONTROLLER);
+
+        (void) write_boot_or_shutdown_osc("shutdown");
 
         execve(SYSTEMD_SHUTDOWN_BINARY_PATH, (char **) command_line, env_block);
         return -errno;
@@ -2439,6 +2476,8 @@ static int initialize_runtime(
                         bump_file_max_and_nr_open();
 
                         write_container_id();
+
+                        (void) write_boot_or_shutdown_osc("boot");
 
                         /* Copy os-release to the propagate directory, so that we update it for services running
                          * under RootDirectory=/RootImage= when we do a soft reboot. */
@@ -3183,10 +3222,6 @@ int main(int argc, char *argv[]) {
 
                 /* The efivarfs is now mounted, let's lock down the system token. */
                 lock_down_efi_variables();
-
-                /* Cache command-line options passed from EFI variables */
-                if (!skip_setup)
-                        (void) cache_efi_options_variable();
         } else {
                 /* Running as user instance */
                 arg_runtime_scope = RUNTIME_SCOPE_USER;

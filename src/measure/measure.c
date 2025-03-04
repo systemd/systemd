@@ -77,6 +77,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  status                 Show current PCR values\n"
                "  calculate              Calculate expected PCR values\n"
                "  sign                   Calculate and sign expected PCR values\n"
+               "  policy-digest          Calculate expected TPM2 policy digests\n"
                "\n%3$sOptions:%4$s\n"
                "  -h --help              Show this help\n"
                "     --version           Print version\n"
@@ -159,8 +160,9 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_PCRPKEY,
                 ARG_PROFILE,
                 ARG_DTBAUTO,
+                ARG_HWIDS,
                 _ARG_SECTION_LAST,
-                ARG_HWIDS = _ARG_SECTION_LAST,
+                ARG_EFIFW = _ARG_SECTION_LAST,
                 ARG_BANK,
                 ARG_PRIVATE_KEY,
                 ARG_PRIVATE_KEY_SOURCE,
@@ -544,38 +546,6 @@ static int measure_kernel(PcrState *pcr_states, size_t n) {
                         m += sz;
                 }
 
-                if (c == UNIFIED_SECTION_LINUX) {
-                        _cleanup_free_ PeHeader *pe_header = NULL;
-
-                        r = pe_load_headers(fd, /*ret_dos_header=*/ NULL, &pe_header);
-                        if (r < 0)
-                                log_warning_errno(r, "Failed to parse kernel image file '%s', ignoring: %m", arg_sections[c]);
-                        else if (m < pe_header->optional.SizeOfImage) {
-                                memzero(buffer, BUFFER_SIZE);
-
-                                /* Our EFI stub measures VirtualSize bytes of the .linux section into PCR 11.
-                                 * Notably, VirtualSize can be larger than the section's size on disk. In
-                                 * that case the extra space is initialized with zeros, so the stub ends up
-                                 * measuring a bunch of zeros. To accommodate this, we have to measure the
-                                 * same number of zeros here. We opt to measure extra zeros here instead of
-                                 * modifying the stub to only measure the number of bytes on disk as we want
-                                 * newer ukify + systemd-measure to work with older versions of the stub and
-                                 * as of 6.12 the kernel image's VirtualSize won't be larger than its size on
-                                 * disk anymore (see https://github.com/systemd/systemd/issues/34578#issuecomment-2382459515).
-                                 */
-
-                                while (m < pe_header->optional.SizeOfImage) {
-                                        uint64_t sz = MIN(BUFFER_SIZE, pe_header->optional.SizeOfImage - m);
-
-                                        for (size_t i = 0; i < n; i++)
-                                                if (EVP_DigestUpdate(mdctx[i], buffer, sz) != 1)
-                                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to run digest.");
-
-                                        m += sz;
-                                }
-                        }
-                }
-
                 fd = safe_close(fd);
 
                 if (m == 0) /* We skip over empty files, the stub does so too */
@@ -826,7 +796,7 @@ static int verb_calculate(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int verb_sign(int argc, char *argv[], void *userdata) {
+static int build_policy_digest(bool sign) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         _cleanup_(pcr_state_free_all) PcrState *pcr_states = NULL;
         _cleanup_(openssl_ask_password_ui_freep) OpenSSLAskPasswordUI *ui = NULL;
@@ -839,7 +809,7 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Either --linux= or --current must be specified, refusing.");
 
-        if (!arg_private_key)
+        if (sign && !arg_private_key)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "No private key specified, use --private-key=.");
 
@@ -856,7 +826,7 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
                                                "File '%s' is not a valid JSON object, refusing.", arg_append);
         }
 
-        /* When signing we only support JSON output */
+        /* When signing/building digest we only support JSON output */
         arg_json_format_flags &= ~SD_JSON_FORMAT_OFF;
 
         /* This must be done before openssl_load_private_key() otherwise it will get stuck */
@@ -918,11 +888,11 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
                                         SYNTHETIC_ERRNO(EIO),
                                         "Failed to extract public key from certificate %s.",
                                         arg_certificate);
-        } else {
+        } else if (sign) {
                 _cleanup_(memstream_done) MemStream m = {};
                 FILE *tf;
 
-                /* No public key was specified, let's derive it automatically, if we can */
+                /* No public key was specified, let's derive it automatically, if we can, when signing */
 
                 tf = memstream_init(&m);
                 if (!tf)
@@ -978,17 +948,20 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
                                 return log_error_errno(r, "Could not calculate PolicyPCR digest: %m");
 
                         _cleanup_free_ void *sig = NULL;
-                        size_t ss;
-
-                        r = digest_and_sign(p->md, privkey, pcr_policy_digest.buffer, pcr_policy_digest.size, &sig, &ss);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to sign PCR policy: %m");
+                        size_t ss = 0;
+                        if (privkey) {
+                                r = digest_and_sign(p->md, privkey, pcr_policy_digest.buffer, pcr_policy_digest.size, &sig, &ss);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to sign PCR policy: %m");
+                        }
 
                         _cleanup_free_ void *pubkey_fp = NULL;
                         size_t pubkey_fp_size = 0;
-                        r = pubkey_fingerprint(pubkey, EVP_sha256(), &pubkey_fp, &pubkey_fp_size);
-                        if (r < 0)
-                                return r;
+                        if (pubkey) {
+                                r = pubkey_fingerprint(pubkey, EVP_sha256(), &pubkey_fp, &pubkey_fp_size);
+                                if (r < 0)
+                                        return r;
+                        }
 
                         _cleanup_(sd_json_variant_unrefp) sd_json_variant *a = NULL;
                         r = tpm2_make_pcr_json_array(UINT64_C(1) << TPM2_PCR_KERNEL_BOOT, &a);
@@ -997,10 +970,10 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
 
                         _cleanup_(sd_json_variant_unrefp) sd_json_variant *bv = NULL;
                         r = sd_json_buildo(&bv,
-                                           SD_JSON_BUILD_PAIR("pcrs", SD_JSON_BUILD_VARIANT(a)),                                             /* PCR mask */
-                                           SD_JSON_BUILD_PAIR("pkfp", SD_JSON_BUILD_HEX(pubkey_fp, pubkey_fp_size)),                         /* SHA256 fingerprint of public key (DER) used for the signature */
-                                           SD_JSON_BUILD_PAIR("pol", SD_JSON_BUILD_HEX(pcr_policy_digest.buffer, pcr_policy_digest.size)),   /* TPM2 policy hash that is signed */
-                                           SD_JSON_BUILD_PAIR("sig", SD_JSON_BUILD_BASE64(sig, ss)));                                        /* signature data */
+                                           SD_JSON_BUILD_PAIR("pcrs", SD_JSON_BUILD_VARIANT(a)),                                                   /* PCR mask */
+                                           SD_JSON_BUILD_PAIR_CONDITION(pubkey_fp_size > 0, "pkfp", SD_JSON_BUILD_HEX(pubkey_fp, pubkey_fp_size)), /* SHA256 fingerprint of public key (DER) used for the signature */
+                                           SD_JSON_BUILD_PAIR("pol", SD_JSON_BUILD_HEX(pcr_policy_digest.buffer, pcr_policy_digest.size)),         /* TPM2 policy hash that is signed */
+                                           SD_JSON_BUILD_PAIR_CONDITION(ss > 0, "sig", SD_JSON_BUILD_BASE64(sig, ss)));                            /* signature data */
                         if (r < 0)
                                 return log_error_errno(r, "Failed to build JSON object: %m");
 
@@ -1026,6 +999,14 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
         sd_json_variant_dump(v, arg_json_format_flags, stdout, NULL);
 
         return 0;
+}
+
+static int verb_sign(int argc, char *argv[], void *userdata) {
+        return build_policy_digest(/* sign= */ true);
+}
+
+static int verb_policy_digest(int argc, char *argv[], void *userdata) {
+        return build_policy_digest(/* sign= */ false);
 }
 
 static int compare_reported_pcr_nr(uint32_t pcr, const char *varname, const char *description) {
@@ -1179,10 +1160,11 @@ static int verb_status(int argc, char *argv[], void *userdata) {
 
 static int measure_main(int argc, char *argv[]) {
         static const Verb verbs[] = {
-                { "help",      VERB_ANY, VERB_ANY, 0,            help           },
-                { "status",    VERB_ANY, 1,        VERB_DEFAULT, verb_status    },
-                { "calculate", VERB_ANY, 1,        0,            verb_calculate },
-                { "sign",      VERB_ANY, 1,        0,            verb_sign      },
+                { "help",          VERB_ANY, VERB_ANY, 0,            help               },
+                { "status",        VERB_ANY, 1,        VERB_DEFAULT, verb_status        },
+                { "calculate",     VERB_ANY, 1,        0,            verb_calculate     },
+                { "policy-digest", VERB_ANY, 1,        0,            verb_policy_digest },
+                { "sign",          VERB_ANY, 1,        0,            verb_sign          },
                 {}
         };
 

@@ -10,3 +10,5 @@ Bridge=bridge99
 
 [Bridge]
 Priority=0
+Locked=true
+MACAuthenticationBypass=true

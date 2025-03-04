@@ -10,8 +10,9 @@
 [Unit]
 Description=DDI File System Mounter
 Documentation=man:systemd-mountfsd.service(8)
+Wants=modprobe@loop.service modprobe@dm_mod.service
 Requires=systemd-mountfsd.socket
-After=systemd-mountfsd.socket
+After=systemd-mountfsd.socket modprobe@loop.service modprobe@dm_mod.service
 Conflicts=shutdown.target
 Before=sysinit.target shutdown.target
 DefaultDependencies=no
@@ -24,13 +25,7 @@ LimitNOFILE={{HIGH_RLIMIT_NOFILE}}
 LockPersonality=yes
 MemoryDenyWriteExecute=yes
 NoNewPrivileges=yes
-ProtectProc=invisible
-ProtectControlGroups=yes
-ProtectHome=yes
 ProtectHostname=yes
-ProtectKernelLogs=yes
-ProtectKernelModules=yes
-ProtectSystem=strict
 RestrictAddressFamilies=AF_UNIX AF_NETLINK AF_INET AF_INET6
 RestrictRealtime=yes
 RestrictSUIDSGID=yes

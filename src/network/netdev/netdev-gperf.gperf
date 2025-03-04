@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 %{
-#if __GNUC__ >= 7
 _Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
+#if __GNUC__ >= 15
+_Pragma("GCC diagnostic ignored \"-Wzero-as-null-pointer-constant\"")
 #endif
 #include <stddef.h>
 #include "bareudp.h"
@@ -112,9 +113,12 @@ L2TP.UDPDestinationPort,                  config_parse_ip_port,                 
 L2TP.Local,                               config_parse_l2tp_tunnel_local_address,    0,                             0
 L2TP.Remote,                              config_parse_l2tp_tunnel_remote_address,   0,                             0
 L2TP.EncapsulationType,                   config_parse_l2tp_encap_type,              0,                             offsetof(L2tpTunnel, l2tp_encap_type)
-L2TP.UDPCheckSum,                         config_parse_bool,                         0,                             offsetof(L2tpTunnel, udp_csum)
-L2TP.UDP6CheckSumRx,                      config_parse_bool,                         0,                             offsetof(L2tpTunnel, udp6_csum_rx)
-L2TP.UDP6CheckSumTx,                      config_parse_bool,                         0,                             offsetof(L2tpTunnel, udp6_csum_tx)
+L2TP.UDPChecksum,                         config_parse_bool,                         0,                             offsetof(L2tpTunnel, udp_csum)
+L2TP.UDPCheckSum,                         config_parse_bool,                         0,                             offsetof(L2tpTunnel, udp_csum) /* deprecated */
+L2TP.UDP6ChecksumRx,                      config_parse_bool,                         0,                             offsetof(L2tpTunnel, udp6_csum_rx)
+L2TP.UDP6CheckSumRx,                      config_parse_bool,                         0,                             offsetof(L2tpTunnel, udp6_csum_rx) /* deprecated */
+L2TP.UDP6ChecksumTx,                      config_parse_bool,                         0,                             offsetof(L2tpTunnel, udp6_csum_tx)
+L2TP.UDP6CheckSumTx,                      config_parse_bool,                         0,                             offsetof(L2tpTunnel, udp6_csum_tx) /* deprecated */
 L2TPSession.SessionId,                    config_parse_l2tp_session_id,              0,                             0
 L2TPSession.PeerSessionId,                config_parse_l2tp_session_id,              0,                             0
 L2TPSession.Layer2SpecificHeader,         config_parse_l2tp_session_l2spec,          0,                             0
@@ -235,6 +239,7 @@ Bridge.VLANProtocol,                      config_parse_vlanprotocol,            
 Bridge.STP,                               config_parse_tristate,                     0,                             offsetof(Bridge, stp)
 Bridge.MulticastIGMPVersion,              config_parse_uint8,                        0,                             offsetof(Bridge, igmp_version)
 Bridge.FDBMaxLearned,                     config_parse_bridge_fdb_max_learned,       0,                             offsetof(Bridge, fdb_max_learned)
+Bridge.LinkLocalLearning,                 config_parse_tristate,                     0,                             offsetof(Bridge, linklocal_learn)
 VRF.TableId,                              config_parse_uint32,                       0,                             offsetof(Vrf, table) /* deprecated */
 VRF.Table,                                config_parse_uint32,                       0,                             offsetof(Vrf, table)
 BareUDP.DestinationPort,                  config_parse_ip_port,                      0,                             offsetof(BareUDP, dest_port)

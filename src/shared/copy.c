@@ -2,7 +2,6 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <linux/btrfs.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -790,7 +789,7 @@ static int prepare_nocow(int fdf, const char *from, int fdt, unsigned *chattr_ma
                 } else
                         /* If the NOCOW flag is set on the source, make the copy NOCOW as well. If the source
                          * is not NOCOW, don't do anything in particular with the copy. */
-                        (void) chattr_fd(fdt, FS_NOCOW_FL, FS_NOCOW_FL, /*previous=*/ NULL);
+                        (void) chattr_fd(fdt, FS_NOCOW_FL, FS_NOCOW_FL);
         }
 
         return 0;
@@ -1147,7 +1146,7 @@ static int fd_copy_directory(
                                 if (buf.st_dev != original_device)
                                         continue;
 
-                                r = fd_is_mount_point(dirfd(d), de->d_name, 0);
+                                r = is_mount_point_at(dirfd(d), de->d_name, 0);
                                 if (r < 0)
                                         return r;
                                 if (r > 0)
@@ -1178,11 +1177,16 @@ finish:
                 if (fchmod(fdt, st->st_mode & 07777) < 0)
                         r = -errno;
 
+                /* Run hardlink context cleanup now because it potentially changes timestamps */
+                hardlink_context_destroy(&our_hardlink_context);
                 (void) copy_xattr(dirfd(d), NULL, fdt, NULL, copy_flags);
                 (void) futimens(fdt, (struct timespec[]) { st->st_atim, st->st_mtim });
-        } else if (FLAGS_SET(copy_flags, COPY_RESTORE_DIRECTORY_TIMESTAMPS))
+        } else if (FLAGS_SET(copy_flags, COPY_RESTORE_DIRECTORY_TIMESTAMPS)) {
+                /* Run hardlink context cleanup now because it potentially changes timestamps */
+                hardlink_context_destroy(&our_hardlink_context);
                 /* If the directory already exists, make sure the timestamps stay the same as before. */
                 (void) futimens(fdt, (struct timespec[]) { dt_st.st_atim, dt_st.st_mtim });
+        }
 
         if (copy_flags & COPY_FSYNC_FULL) {
                 if (fsync(fdt) < 0)
@@ -1482,8 +1486,8 @@ int copy_file_at_full(
         if (r < 0)
                 return r;
 
-        if (chattr_mask != 0)
-                (void) chattr_fd(fdt, chattr_flags, chattr_mask & CHATTR_EARLY_FL, NULL);
+        if ((chattr_mask & CHATTR_EARLY_FL) != 0)
+                (void) chattr_fd(fdt, chattr_flags, chattr_mask & CHATTR_EARLY_FL);
 
         r = copy_bytes_full(fdf, fdt, UINT64_MAX, copy_flags & ~COPY_LOCK_BSD, NULL, NULL, progress_bytes, userdata);
         if (r < 0)
@@ -1499,8 +1503,8 @@ int copy_file_at_full(
         }
 
         unsigned nocow = FLAGS_SET(copy_flags, COPY_NOCOW_AFTER) ? FS_NOCOW_FL : 0;
-        if ((chattr_mask | nocow) != 0)
-                (void) chattr_fd(fdt, chattr_flags | nocow, (chattr_mask & ~CHATTR_EARLY_FL) | nocow, NULL);
+        if (((chattr_mask & ~CHATTR_EARLY_FL) | nocow) != 0)
+                (void) chattr_fd(fdt, chattr_flags | nocow, (chattr_mask & ~CHATTR_EARLY_FL) | nocow);
 
         if (copy_flags & (COPY_FSYNC|COPY_FSYNC_FULL)) {
                 if (fsync(fdt) < 0) {
@@ -1565,8 +1569,8 @@ int copy_file_atomic_at_full(
         if (r < 0)
                 return r;
 
-        if (chattr_mask != 0)
-                (void) chattr_fd(fdt, chattr_flags, chattr_mask & CHATTR_EARLY_FL, NULL);
+        if ((chattr_mask & CHATTR_EARLY_FL) != 0)
+                (void) chattr_fd(fdt, chattr_flags, chattr_mask & CHATTR_EARLY_FL);
 
         r = copy_file_fd_at_full(dir_fdf, from, fdt, copy_flags, progress_bytes, userdata);
         if (r < 0)
@@ -1588,8 +1592,8 @@ int copy_file_atomic_at_full(
         t = mfree(t);
 
         unsigned nocow = FLAGS_SET(copy_flags, COPY_NOCOW_AFTER) ? FS_NOCOW_FL : 0;
-        if ((chattr_mask | nocow) != 0)
-                (void) chattr_fd(fdt, chattr_flags | nocow, (chattr_mask & ~CHATTR_EARLY_FL) | nocow, NULL);
+        if (((chattr_mask & ~CHATTR_EARLY_FL) | nocow) != 0)
+                (void) chattr_fd(fdt, chattr_flags | nocow, (chattr_mask & ~CHATTR_EARLY_FL) | nocow);
 
         r = close_nointr(TAKE_FD(fdt)); /* even if this fails, the fd is now invalidated */
         if (r < 0)
@@ -1679,8 +1683,7 @@ int copy_xattr(int df, const char *from, int dt, const char *to, CopyFlags copy_
                 if (r < 0)
                         return r;
 
-                if (xsetxattr(dt, to, p, value, r, 0) < 0)
-                        ret = -errno;
+                RET_GATHER(ret, xsetxattr_full(dt, to, /* at_flags = */ 0, p, value, r, /* xattr_flags = */ 0));
         }
 
         return ret;

@@ -22,7 +22,6 @@
 #include "local-addresses.h"
 #include "machine-dbus.h"
 #include "machine.h"
-#include "missing_capability.h"
 #include "mkdir.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
@@ -563,7 +562,7 @@ int bus_machine_method_copy(sd_bus_message *message, void *userdata, sd_bus_erro
         }
 
         Operation *op;
-        r = machine_copy_from_to(manager, m, host_path, container_path, copy_from, copy_flags, &op);
+        r = machine_copy_from_to_operation(manager, m, host_path, container_path, copy_from, copy_flags, &op);
         if (r < 0)
                 return sd_bus_error_set_errnof(error, r, "Failed to copy from/to machine '%s': %m", m->name);
 

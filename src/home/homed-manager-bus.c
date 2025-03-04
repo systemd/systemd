@@ -4,6 +4,7 @@
 
 #include "alloc-util.h"
 #include "bus-common-errors.h"
+#include "bus-message-util.h"
 #include "bus-polkit.h"
 #include "format-util.h"
 #include "home-util.h"
@@ -36,7 +37,7 @@ static int property_get_auto_login(
         if (r < 0)
                 return r;
 
-        HASHMAP_FOREACH(h, m->homes_by_name) {
+        HASHMAP_FOREACH(h, m->homes_by_uid) {
                 _cleanup_strv_free_ char **seats = NULL;
                 _cleanup_free_ char *home_path = NULL;
 
@@ -96,11 +97,9 @@ static int lookup_user_name(
                         return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_HOME, "Client's UID " UID_FMT " not managed.", uid);
 
         } else {
-
-                if (!valid_user_group_name(user_name, 0))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "User name %s is not valid", user_name);
-
-                h = hashmap_get(m->homes_by_name, user_name);
+                r = manager_get_home_by_name(m, user_name, &h);
+                if (r < 0)
+                        return r;
                 if (!h)
                         return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_HOME, "No home for user %s known", user_name);
         }
@@ -341,6 +340,31 @@ static int method_deactivate_home(sd_bus_message *message, void *userdata, sd_bu
         return generic_home_method(userdata, message, bus_home_method_deactivate, error);
 }
 
+static int check_for_conflicts(Manager *m, const char *name, sd_bus_error *error) {
+        int r;
+
+        assert(m);
+        assert(name);
+
+        Home *other = hashmap_get(m->homes_by_name, name);
+        if (other)
+                return sd_bus_error_setf(error, BUS_ERROR_USER_NAME_EXISTS, "Specified user name %s exists already, refusing.", name);
+
+        r = getpwnam_malloc(name, /* ret= */ NULL);
+        if (r >= 0)
+                return sd_bus_error_setf(error, BUS_ERROR_USER_NAME_EXISTS, "Specified user name %s exists in the NSS user database, refusing.", name);
+        if (r != -ESRCH)
+                return r;
+
+        r = getgrnam_malloc(name, /* ret= */ NULL);
+        if (r >= 0)
+                return sd_bus_error_setf(error, BUS_ERROR_USER_NAME_EXISTS, "Specified user name %s conflicts with an NSS group by the same name, refusing.", name);
+        if (r != -ESRCH)
+                return r;
+
+        return 0;
+}
+
 static int validate_and_allocate_home(Manager *m, UserRecord *hr, Hashmap *blobs, Home **ret, sd_bus_error *error) {
         _cleanup_(user_record_unrefp) UserRecord *signed_hr = NULL;
         bool signed_locally;
@@ -355,21 +379,32 @@ static int validate_and_allocate_home(Manager *m, UserRecord *hr, Hashmap *blobs
         if (r < 0)
                 return r;
 
-        other = hashmap_get(m->homes_by_name, hr->user_name);
-        if (other)
-                return sd_bus_error_setf(error, BUS_ERROR_USER_NAME_EXISTS, "Specified user name %s exists already, refusing.", hr->user_name);
-
-        r = getpwnam_malloc(hr->user_name, /* ret= */ NULL);
-        if (r >= 0)
-                return sd_bus_error_setf(error, BUS_ERROR_USER_NAME_EXISTS, "Specified user name %s exists in the NSS user database, refusing.", hr->user_name);
-        if (r != -ESRCH)
+        r = check_for_conflicts(m, hr->user_name, error);
+        if (r < 0)
                 return r;
 
-        r = getgrnam_malloc(hr->user_name, /* ret= */ NULL);
-        if (r >= 0)
-                return sd_bus_error_setf(error, BUS_ERROR_USER_NAME_EXISTS, "Specified user name %s conflicts with an NSS group by the same name, refusing.", hr->user_name);
-        if (r != -ESRCH)
-                return r;
+        if (hr->realm) {
+                r = check_for_conflicts(m, user_record_user_name_and_realm(hr), error);
+                if (r < 0)
+                        return r;
+        }
+
+        STRV_FOREACH(a, hr->aliases) {
+                r = check_for_conflicts(m, *a, error);
+                if (r < 0)
+                        return r;
+
+                if (hr->realm) {
+                        _cleanup_free_ char *alias_with_realm = NULL;
+                        alias_with_realm = strjoin(*a, "@", hr->realm);
+                        if (!alias_with_realm)
+                                return -ENOMEM;
+
+                        r = check_for_conflicts(m, alias_with_realm, error);
+                        if (r < 0)
+                                return r;
+                }
+        }
 
         if (blobs) {
                 const char *failed = NULL;
@@ -453,7 +488,7 @@ static int method_register_home(
 
         assert(message);
 
-        r = bus_message_read_home_record(message, USER_RECORD_LOAD_EMBEDDED|USER_RECORD_PERMISSIVE, &hr, error);
+        r = bus_message_read_home_record(message, USER_RECORD_EXTRACT_EMBEDDED|USER_RECORD_PERMISSIVE, &hr, error);
         if (r < 0)
                 return r;
 
@@ -636,7 +671,7 @@ static int method_lock_all_homes(sd_bus_message *message, void *userdata, sd_bus
          * for every suitable home we have and only when all of them completed we send a reply indicating
          * completion. */
 
-        HASHMAP_FOREACH(h, m->homes_by_name) {
+        HASHMAP_FOREACH(h, m->homes_by_uid) {
 
                 if (!home_shall_suspend(h))
                         continue;
@@ -675,7 +710,7 @@ static int method_deactivate_all_homes(sd_bus_message *message, void *userdata, 
          * systemd-homed.service itself since we want to allow restarting of it without tearing down all home
          * directories. */
 
-        HASHMAP_FOREACH(h, m->homes_by_name) {
+        HASHMAP_FOREACH(h, m->homes_by_uid) {
 
                 if (!o) {
                         o = operation_new(OPERATION_DEACTIVATE_ALL, message);
@@ -704,17 +739,17 @@ static int method_rebalance(sd_bus_message *message, void *userdata, sd_bus_erro
         int r;
 
         r = manager_schedule_rebalance(m, /* immediately= */ true);
-        if (r == 0)
-                return sd_bus_reply_method_errorf(message, BUS_ERROR_REBALANCE_NOT_NEEDED, "No home directories need rebalancing.");
         if (r < 0)
                 return r;
+        if (r == 0)
+                return sd_bus_reply_method_errorf(message, BUS_ERROR_REBALANCE_NOT_NEEDED, "No home directories need rebalancing.");
 
         /* Keep a reference to this message, so that we can reply to it once we are done */
-        r = set_ensure_put(&m->rebalance_queued_method_calls, &bus_message_hash_ops, message);
+        r = set_ensure_consume(&m->rebalance_queued_method_calls, &bus_message_hash_ops, sd_bus_message_ref(message));
         if (r < 0)
                 return log_error_errno(r, "Failed to track rebalance bus message: %m");
+        assert(r > 0);
 
-        sd_bus_message_ref(message);
         return 1;
 }
 

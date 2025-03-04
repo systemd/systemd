@@ -191,7 +191,7 @@
   </refsect1>
 
   <refsect1>
-    <title>User Record Properties</title>
+    <title>General User Record Properties</title>
 
     <para>The following options control various properties of the user records/home directories that
     <filename>systemd-homed.service</filename> manages. These switches may be used in conjunction with the
@@ -224,6 +224,16 @@
         optional.</para>
 
         <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--alias=<replaceable>NAME</replaceable><optional>,<replaceable>NAME…</replaceable></optional></option></term>
+
+        <listitem><para>Additional names for the user. Takes one or more valid UNIX user names, separated by
+        commas. May be used multiple times to define multiple aliases. An alias username may be specified
+        wherever the primary user name may be specified, and resolves to the same user record.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -324,6 +334,28 @@
         <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
 
+
+      <varlistentry>
+        <term><option>--access-mode=<replaceable>MODE</replaceable></option></term>
+
+        <listitem><para>Takes a UNIX file access mode written in octal. Configures the access mode of the
+        home directory itself. Note that this is only used when the directory is first created, and the user
+        may change this any time afterwards. Example:
+        <option>--access-mode=0700</option></para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--umask=<replaceable>MASK</replaceable></option></term>
+
+        <listitem><para>Takes the access mode mask (in octal syntax) to apply to newly created files and
+        directories of the user ("umask"). If set this controls the initial umask set for all login sessions of
+        the user, possibly overriding the system's defaults.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
       <varlistentry>
         <term><option>--skel=<replaceable>PATH</replaceable></option></term>
 
@@ -385,6 +417,29 @@
         <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--default-area=<replaceable>AREA</replaceable></option></term>
+
+        <listitem><para>Takes a string identifying a home directory "area" to use as default. Areas are
+        secondary home directories within the primary home directory of a user. When logging in a user can
+        specify the area they wish to log into, which ensures that the <varname>$HOME</varname> environment
+        variable is set to <filename>~/Areas/</filename> suffixed by the area name.</para>
+
+        <para>For details on the area concept see
+        <citerefentry><refentrytitle>pam_systemd_home</refentrytitle><manvolnum>8</manvolnum></citerefentry>. Note
+        that this option just defines the default, which can be overridden at login time.</para>
+
+        <para>When this option is specified with an empty string as value any previously declared default area
+        is removed from the user record.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Authentication User Record Properties</title>
+    <variablelist>
       <varlistentry>
         <term><option>--ssh-authorized-keys=<replaceable>KEYS</replaceable></option></term>
         <listitem><para>Either takes a SSH authorized key line to associate with the user record or a
@@ -516,8 +571,13 @@
 
         <xi:include href="version-info.xml" xpointer="v247"/></listitem>
       </varlistentry>
+    </variablelist>
+  </refsect1>
 
-    <varlistentry>
+  <refsect1>
+    <title>Blob Directory User Record Properties</title>
+    <variablelist>
+      <varlistentry>
         <term><option>--blob=<replaceable>PATH</replaceable></option></term>
         <term><option>-b</option> <replaceable>PATH</replaceable></term>
         <term><option>--blob=<replaceable>FILENAME</replaceable>=<replaceable>PATH</replaceable></option></term>
@@ -550,7 +610,12 @@
 
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
+    </variablelist>
+  </refsect1>
 
+  <refsect1>
+    <title>Account Management User Record Properties</title>
+    <variablelist>
       <varlistentry>
         <term><option>--locked=<replaceable>BOOLEAN</replaceable></option></term>
 
@@ -602,7 +667,7 @@
         <listitem><para>Takes a boolean argument. Configures whether to enforce the system's password policy
         for this user, regarding quality and strength of selected passwords. Defaults to
         on. <option>-P</option> is short for
-        <option>---enforce-password-policy=no</option>.</para>
+        <option>--enforce-password-policy=no</option>.</para>
 
         <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
@@ -641,7 +706,12 @@
 
         <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
+    </variablelist>
+  </refsect1>
 
+  <refsect1>
+    <title>Resource Management User Record Properties</title>
+    <variablelist>
       <varlistentry>
         <term><option>--disk-size=<replaceable>BYTES</replaceable></option></term>
         <listitem><para>Either takes a size in bytes as argument (possibly using the usual K, M, G, …
@@ -655,27 +725,6 @@
         storage backends configures disk quota using the filesystem's native quota logic, if available. If
         not specified, defaults to 85% of the available disk space for the LUKS2 backend and to no quota for
         the others.</para>
-
-        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--access-mode=<replaceable>MODE</replaceable></option></term>
-
-        <listitem><para>Takes a UNIX file access mode written in octal. Configures the access mode of the
-        home directory itself. Note that this is only used when the directory is first created, and the user
-        may change this any time afterwards. Example:
-        <option>--access-mode=0700</option></para>
-
-        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--umask=<replaceable>MASK</replaceable></option></term>
-
-        <listitem><para>Takes the access mode mask (in octal syntax) to apply to newly created files and
-        directories of the user ("umask"). If set this controls the initial umask set for all login sessions of
-        the user, possibly overriding the system's defaults.</para>
 
         <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
@@ -747,6 +796,27 @@
 
         <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Storage User Record Properties</title>
+    <variablelist>
+      <varlistentry>
+        <term><option>--tmp-limit=<replaceable>BYTES</replaceable></option></term>
+        <term><option>--tmp-limit=<replaceable>PERCENT</replaceable></option></term>
+        <term><option>--dev-shm-limit=<replaceable>BYTES</replaceable></option></term>
+        <term><option>--dev-shm-limit=<replaceable>PERCENT</replaceable></option></term>
+
+        <listitem><para>Controls the per-user quota on <filename>/tmp/</filename> and
+        <filename>/dev/shm/</filename> that is applied when the user logs in. Takes either an absolute value
+        in bytes (with the usual K, M, G, T suffixes to the base of 1024), or a percentage. In the latter
+        case the limit is applied relative to the size of the respective file system. This limit is only
+        applied if the relevant file system is <literal>tmpfs</literal> and has no effect otherwise. Note
+        that if these options are not used, a default quota might still be enforced (typically 80%.)</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
 
       <varlistentry>
         <term><option>--storage=<replaceable>STORAGE</replaceable></option></term>
@@ -789,7 +859,12 @@
 
         <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
+    </variablelist>
+  </refsect1>
 
+  <refsect1>
+    <title>LUKS Storage User Record Properties</title>
+    <variablelist>
       <varlistentry>
         <term><option>--fs-type=<replaceable>TYPE</replaceable></option></term>
 
@@ -907,7 +982,12 @@
 
         <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
+    </variablelist>
+  </refsect1>
 
+  <refsect1>
+    <title>Mounting User Record Properties</title>
+    <variablelist>
       <varlistentry>
         <term><option>--nosuid=<replaceable>BOOL</replaceable></option></term>
         <term><option>--nodev=<replaceable>BOOL</replaceable></option></term>
@@ -921,7 +1001,12 @@
 
         <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
+    </variablelist>
+  </refsect1>
 
+  <refsect1>
+    <title>CIFS User Record Properties</title>
+    <variablelist>
       <varlistentry>
         <term><option>--cifs-domain=<replaceable>DOMAIN</replaceable></option></term>
         <term><option>--cifs-user-name=<replaceable>USER</replaceable></option></term>
@@ -940,7 +1025,12 @@
 
         <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
+    </variablelist>
+  </refsect1>
 
+  <refsect1>
+    <title>Login Behaviour Record Properties</title>
+    <variablelist>
       <varlistentry>
         <term><option>--stop-delay=<replaceable>SECS</replaceable></option></term>
 

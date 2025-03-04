@@ -22,12 +22,11 @@
 #include "fileio.h"
 #include "hexdecoct.h"
 #include "hostname-util.h"
-#include "iovec-util.h"
 #include "ioprio-util.h"
+#include "iovec-util.h"
 #include "journal-file.h"
 #include "load-fragment.h"
 #include "memstream-util.h"
-#include "missing_ioprio.h"
 #include "mountpoint-util.h"
 #include "namespace.h"
 #include "parse-util.h"
@@ -1263,6 +1262,7 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("RestrictRealtime", "b", bus_property_get_bool, offsetof(ExecContext, restrict_realtime), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RestrictSUIDSGID", "b", bus_property_get_bool, offsetof(ExecContext, restrict_suid_sgid), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RestrictNamespaces", "t", bus_property_get_ulong, offsetof(ExecContext, restrict_namespaces), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("DelegateNamespaces", "t", bus_property_get_ulong, offsetof(ExecContext, delegate_namespaces), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RestrictFileSystems", "(bas)", property_get_restrict_filesystems, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("BindPaths", "a(ssbt)", property_get_bind_paths, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("BindReadOnlyPaths", "a(ssbt)", property_get_bind_paths, 0, SD_BUS_VTABLE_PROPERTY_CONST),
@@ -2193,6 +2193,9 @@ int bus_exec_context_set_transient_property(
 
         if (streq(name, "RestrictNamespaces"))
                 return bus_set_transient_namespace_flag(u, name, &c->restrict_namespaces, message, flags, error);
+
+        if (streq(name, "DelegateNamespaces"))
+                return bus_set_transient_namespace_flag(u, name, &c->delegate_namespaces, message, flags, error);
 
         if (streq(name, "RestrictFileSystems")) {
                 int allow_list;

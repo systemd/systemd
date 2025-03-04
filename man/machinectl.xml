@@ -321,7 +321,7 @@
         <listitem><para>Bind mounts a file or directory from the host into the specified container. The first path
         argument is the source file or directory on the host, the second path argument is the destination file or
         directory in the container. When the latter is omitted, the destination path in the container is the same as
-        the source path on the host. When combined with the <option>--read-only</option> switch, a ready-only bind
+        the source path on the host. When combined with the <option>--read-only</option> switch, a read-only bind
         mount is created. When combined with the <option>--mkdir</option> switch, the destination path is first created
         before the mount is applied. Note that this option is currently only supported for
         <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry> containers,

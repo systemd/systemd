@@ -6,13 +6,14 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <stdlib.h>
+#include <threads.h>
 #include <unistd.h>
 
 #include "confidential-virt-fundamental.h"
 #include "confidential-virt.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "missing_threads.h"
 #include "string-table.h"
 #include "utf8.h"
 
@@ -226,7 +227,18 @@ static ConfidentialVirtualization detect_confidential_virtualization_impl(void) 
 
         return CONFIDENTIAL_VIRTUALIZATION_NONE;
 }
+#elif defined(__aarch64__)
+static ConfidentialVirtualization detect_confidential_virtualization_impl(void) {
+        int r;
 
+        r = RET_NERRNO(access("/sys/devices/platform/arm-cca-dev", F_OK));
+        if (r < 0) {
+                log_debug_errno(r, "Unable to check /sys/devices/platform/arm-cca-dev: %m");
+                return CONFIDENTIAL_VIRTUALIZATION_NONE;
+        }
+
+        return CONFIDENTIAL_VIRTUALIZATION_CCA;
+}
 #else /* ! x86_64 */
 static ConfidentialVirtualization detect_confidential_virtualization_impl(void) {
         log_debug("No confidential virtualization detection on this architecture");
@@ -250,6 +262,7 @@ static const char *const confidential_virtualization_table[_CONFIDENTIAL_VIRTUAL
         [CONFIDENTIAL_VIRTUALIZATION_SEV_SNP]  = "sev-snp",
         [CONFIDENTIAL_VIRTUALIZATION_TDX]      = "tdx",
         [CONFIDENTIAL_VIRTUALIZATION_PROTVIRT] = "protvirt",
+        [CONFIDENTIAL_VIRTUALIZATION_CCA]      = "cca",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(confidential_virtualization, ConfidentialVirtualization);

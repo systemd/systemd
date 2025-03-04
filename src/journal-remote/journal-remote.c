@@ -31,7 +31,7 @@
 #define filename_escape(s) xescape((s), "/ ")
 
 #if HAVE_MICROHTTPD
-MHDDaemonWrapper *MHDDaemonWrapper_free(MHDDaemonWrapper *d) {
+MHDDaemonWrapper* MHDDaemonWrapper_free(MHDDaemonWrapper *d) {
         if (!d)
                 return NULL;
 
@@ -44,7 +44,7 @@ MHDDaemonWrapper *MHDDaemonWrapper_free(MHDDaemonWrapper *d) {
 }
 #endif
 
-static int open_output(RemoteServer *s, Writer *w, const char* host) {
+static int open_output(RemoteServer *s, Writer *w, const char *host) {
         _cleanup_free_ char *_filename = NULL;
         const char *filename;
         int r;
@@ -233,7 +233,7 @@ static int remove_source(RemoteServer *s, int fd) {
         return 0;
 }
 
-int journal_remote_add_source(RemoteServer *s, int fd, char* name, bool own_name) {
+int journal_remote_add_source(RemoteServer *s, int fd, char *name, bool own_name) {
         RemoteSource *source = NULL;
         int r;
 
@@ -492,7 +492,7 @@ static int dispatch_blocking_source_event(sd_event_source *event,
 }
 
 static int accept_connection(
-                const char* type,
+                const char *type,
                 int fd,
                 SocketAddress *addr,
                 char **hostname) {

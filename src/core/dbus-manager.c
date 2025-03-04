@@ -12,6 +12,7 @@
 #include "bus-common-errors.h"
 #include "bus-get-properties.h"
 #include "bus-log-control-api.h"
+#include "bus-message-util.h"
 #include "bus-util.h"
 #include "chase.h"
 #include "confidential-virt.h"
@@ -970,7 +971,7 @@ static int transient_unit_from_message(
                 Manager *m,
                 sd_bus_message *message,
                 const char *name,
-                Unit **unit,
+                Unit **ret_unit,
                 sd_bus_error *error) {
 
         UnitType t;
@@ -1021,7 +1022,8 @@ static int transient_unit_from_message(
         unit_add_to_load_queue(u);
         manager_dispatch_load_queue(m);
 
-        *unit = u;
+        if (ret_unit)
+                *ret_unit = u;
 
         return 0;
 }
@@ -1041,14 +1043,13 @@ static int transient_aux_units_from_message(
                 return r;
 
         while ((r = sd_bus_message_enter_container(message, 'r', "sa(sv)")) > 0) {
-                const char *name = NULL;
-                Unit *u;
+                const char *name;
 
                 r = sd_bus_message_read(message, "s", &name);
                 if (r < 0)
                         return r;
 
-                r = transient_unit_from_message(m, message, name, &u, error);
+                r = transient_unit_from_message(m, message, name, /* unit = */ NULL, error);
                 if (r < 0)
                         return r;
 

@@ -22,7 +22,7 @@ static int check_path(int dir_fd, const char *path) {
         if (isempty(path))
                 return -EINVAL;
 
-        /* assume length of pathname is not greater than 40*/
+        /* assume length of pathname is not greater than 40 */
         if (strlen(path) > 40)
                 return -ENAMETOOLONG;
 
@@ -60,7 +60,7 @@ static int post_labelling_func(int dir_fd, const char *path, bool created) {
 }
 
 static int get_dir_fd(const char *dir_path, mode_t mode) {
-        /* create a new directory and return its descriptor*/
+        /* create a new directory and return its descriptor */
         int dir_fd = -EBADF;
 
         assert(dir_path);
@@ -83,12 +83,12 @@ static int labelling_op(int dir_fd, const char *text, const char *path, mode_t m
         if (r < 0)
                 return log_error_errno(r, "Error in pathname =>: %m");
 
-        /* Open the file within the directory for writing*/
+        /* Open the file within the directory for writing */
         write_fd = RET_NERRNO(openat(dir_fd, path, O_CLOEXEC|O_WRONLY|O_TRUNC|O_CREAT, 0644));
         if (write_fd < 0)
                 return log_error_errno(write_fd, "Error in opening directory for writing =>: %m");
 
-        /* Write data to the file*/
+        /* Write data to the file */
         count = RET_NERRNO(write(write_fd, text, strlen(text)));
         if (count < 0)
                 return log_error_errno(count, "Error occurred while opening file for writing =>: %m");

@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <threads.h>
 #include <unistd.h>
 
 #include "cgroup-setup.h"
@@ -8,7 +9,6 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
-#include "missing_threads.h"
 #include "mkdir.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -113,7 +113,6 @@ bool cg_is_unified_wanted(void) {
                 return (wanted = false);
 
         return (wanted = true);
-
 }
 
 bool cg_is_legacy_wanted(void) {

@@ -21,6 +21,7 @@
 #include "splash.h"
 #include "tpm2-pcr.h"
 #include "uki.h"
+#include "url-discovery.h"
 #include "util.h"
 #include "version.h"
 #include "vmm.h"
@@ -151,6 +152,7 @@ static void export_stub_variables(EFI_LOADED_IMAGE_PROTOCOL *loaded_image, unsig
                 EFI_STUB_FEATURE_DEVICETREE_ADDONS |        /* We pick up .dtb addons */
                 EFI_STUB_FEATURE_MULTI_PROFILE_UKI |        /* We grok the "@1" profile command line argument */
                 EFI_STUB_FEATURE_REPORT_STUB_PARTITION |    /* We set StubDevicePartUUID + StubImageIdentifier */
+                EFI_STUB_FEATURE_REPORT_URL |               /* We set StubDeviceURL + LoaderDeviceURL */
                 0;
 
         assert(loaded_image);
@@ -167,6 +169,10 @@ static void export_stub_variables(EFI_LOADED_IMAGE_PROTOCOL *loaded_image, unsig
                 _cleanup_free_ char16_t *uuid = disk_get_part_uuid(loaded_image->DeviceHandle);
                 if (uuid)
                         efivar_set_str16(MAKE_GUID_PTR(LOADER), u"StubDevicePartUUID", uuid, 0);
+
+                _cleanup_free_ char16_t *url = disk_get_url(loaded_image->DeviceHandle);
+                if (url)
+                        efivar_set_str16(MAKE_GUID_PTR(LOADER), u"StubDeviceURL", url, 0);
         }
 
         if (loaded_image->FilePath) {
@@ -294,7 +300,7 @@ static EFI_STATUS load_addons_from_dir(
                 size_t *n_items,
                 size_t *n_allocated) {
 
-        _cleanup_(file_closep) EFI_FILE *extra_dir = NULL;
+        _cleanup_file_close_ EFI_FILE *extra_dir = NULL;
         _cleanup_free_ EFI_FILE_INFO *dirent = NULL;
         size_t dirent_size = 0;
         EFI_STATUS err;
@@ -547,8 +553,8 @@ static EFI_STATUS load_addons(
                 NamedAddon **ucode_addons,                  /* Ditto */
                 size_t *n_ucode_addons) {
 
-        _cleanup_(strv_freep) char16_t **items = NULL;
-        _cleanup_(file_closep) EFI_FILE *root = NULL;
+        _cleanup_strv_free_ char16_t **items = NULL;
+        _cleanup_file_close_ EFI_FILE *root = NULL;
         size_t n_items = 0, n_allocated = 0;
         EFI_STATUS err;
 
@@ -592,7 +598,7 @@ static EFI_STATUS load_addons(
 
                 /* By using shim_load_image, we cover both the case where the PE files are signed with MoK
                  * and with DB, and running with or without shim. */
-                err = shim_load_image(stub_image, addon_path, &addon);
+                err = shim_load_image(stub_image, addon_path, /* boot_policy= */ false, &addon);
                 if (err != EFI_SUCCESS) {
                         log_error_status(err,
                                          "Failed to read '%ls' from '%ls', ignoring: %m",
@@ -718,7 +724,7 @@ static void refresh_random_seed(EFI_LOADED_IMAGE_PROTOCOL *loaded_image) {
         if (FLAGS_SET(loader_features, EFI_LOADER_FEATURE_RANDOM_SEED))
                 return;
 
-        _cleanup_(file_closep) EFI_FILE *esp_dir = NULL;
+        _cleanup_file_close_ EFI_FILE *esp_dir = NULL;
         err = partition_open(MAKE_GUID_PTR(ESP), loaded_image->DeviceHandle, NULL, &esp_dir);
         if (err != EFI_SUCCESS) /* Non-fatal on failure, so that we still boot without it. */
                 return;
@@ -777,7 +783,7 @@ static void cmdline_append_and_measure_smbios(char16_t **cmdline, int *parameter
         if (is_confidential_vm())
                 return;
 
-        const char *extra = smbios_find_oem_string("io.systemd.stub.kernel-cmdline-extra");
+        const char *extra = smbios_find_oem_string("io.systemd.stub.kernel-cmdline-extra=", /* after= */ NULL);
         if (!extra)
                 return;
 

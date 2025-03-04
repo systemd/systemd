@@ -303,6 +303,9 @@ UserDisposition group_record_disposition(GroupRecord *h) {
         if (gid_is_container(h->gid))
                 return USER_CONTAINER;
 
+        if (gid_is_foreign(h->gid))
+                return USER_FOREIGN;
+
         if (h->gid > INT32_MAX)
                 return USER_RESERVED;
 
@@ -328,9 +331,27 @@ int group_record_clone(GroupRecord *h, UserRecordLoadFlags flags, GroupRecord **
         return 0;
 }
 
-int group_record_match(GroupRecord *h, const UserDBMatch *match) {
+bool group_record_matches_group_name(const GroupRecord *g, const char *group_name) {
+        assert(g);
+        assert(group_name);
+
+        if (streq_ptr(g->group_name, group_name))
+                return true;
+
+        if (streq_ptr(g->group_name_and_realm_auto, group_name))
+                return true;
+
+        return false;
+}
+
+bool group_record_match(GroupRecord *h, const UserDBMatch *match) {
         assert(h);
-        assert(match);
+
+        if (!match)
+                return true;
+
+        if (!gid_is_valid(h->gid))
+                return false;
 
         if (h->gid < match->gid_min || h->gid > match->gid_max)
                 return false;
@@ -350,5 +371,4 @@ int group_record_match(GroupRecord *h, const UserDBMatch *match) {
         }
 
         return true;
-
 }

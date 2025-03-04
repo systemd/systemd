@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/prctl.h>
 #include <linux/sched.h>
+#include <linux/securebits.h>
 #include <sys/eventfd.h>
 #include <sys/ioctl.h>
 #include <sys/mount.h>
@@ -11,16 +13,11 @@
 #include <security/pam_misc.h>
 #endif
 
-#if HAVE_APPARMOR
-#include <sys/apparmor.h>
-#endif
-
 #include "sd-messages.h"
 
-#if HAVE_APPARMOR
 #include "apparmor-util.h"
-#endif
 #include "argv-util.h"
+#include "ask-password-api.h"
 #include "barrier.h"
 #include "bitfield.h"
 #include "bpf-dlopen.h"
@@ -42,15 +39,14 @@
 #include "hexdecoct.h"
 #include "hostname-setup.h"
 #include "io-util.h"
+#include "ioprio-util.h"
 #include "iovec-util.h"
 #include "journal-send.h"
 #include "memfd-util.h"
-#include "missing_ioprio.h"
-#include "missing_prctl.h"
 #include "missing_sched.h"
-#include "missing_securebits.h"
 #include "missing_syscall.h"
 #include "mkdir-label.h"
+#include "osc-context.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
 #include "psi-util.h"
@@ -650,6 +646,7 @@ static int setup_confirm_stdio(
         _cleanup_close_ int fd = -EBADF, saved_stdin = -EBADF, saved_stdout = -EBADF;
         int r;
 
+        assert(context);
         assert(ret_saved_stdin);
         assert(ret_saved_stdout);
 
@@ -673,7 +670,7 @@ static int setup_confirm_stdio(
         if (r < 0)
                 return r;
 
-        r = terminal_reset_defensive(fd, /* switch_to_text= */ true);
+        r = terminal_reset_defensive(fd, TERMINAL_RESET_SWITCH_TO_TEXT);
         if (r < 0)
                 return r;
 
@@ -887,16 +884,16 @@ static int get_fixed_group(
         return 0;
 }
 
-static int get_supplementary_groups(const ExecContext *c, const char *user,
-                                    const char *group, gid_t gid,
-                                    gid_t **supplementary_gids, int *ngids) {
-        int r, k = 0;
-        int ngroups_max;
-        bool keep_groups = false;
-        gid_t *groups = NULL;
-        _cleanup_free_ gid_t *l_gids = NULL;
+static int get_supplementary_groups(
+                const ExecContext *c,
+                const char *user,
+                gid_t gid,
+                gid_t **ret_gids) {
+
+        int r;
 
         assert(c);
+        assert(ret_gids);
 
         /*
          * If user is given, then lookup GID and supplementary groups list.
@@ -904,6 +901,7 @@ static int get_supplementary_groups(const ExecContext *c, const char *user,
          * here and as early as possible so we keep the list of supplementary
          * groups of the caller.
          */
+        bool keep_groups = false;
         if (user && gid_is_valid(gid) && gid != 0) {
                 /* First step, initialize groups from /etc/groups */
                 if (initgroups(user, gid) < 0)
@@ -912,22 +910,25 @@ static int get_supplementary_groups(const ExecContext *c, const char *user,
                 keep_groups = true;
         }
 
-        if (strv_isempty(c->supplementary_groups))
+        if (strv_isempty(c->supplementary_groups)) {
+                *ret_gids = NULL;
                 return 0;
+        }
 
         /*
          * If SupplementaryGroups= was passed then NGROUPS_MAX has to
          * be positive, otherwise fail.
          */
         errno = 0;
-        ngroups_max = (int) sysconf(_SC_NGROUPS_MAX);
+        int ngroups_max = (int) sysconf(_SC_NGROUPS_MAX);
         if (ngroups_max <= 0)
                 return errno_or_else(EOPNOTSUPP);
 
-        l_gids = new(gid_t, ngroups_max);
+        _cleanup_free_ gid_t *l_gids = new(gid_t, ngroups_max);
         if (!l_gids)
                 return -ENOMEM;
 
+        int k = 0;
         if (keep_groups) {
                 /*
                  * Lookup the list of groups that the user belongs to, we
@@ -936,43 +937,32 @@ static int get_supplementary_groups(const ExecContext *c, const char *user,
                 k = ngroups_max;
                 if (getgrouplist(user, gid, l_gids, &k) < 0)
                         return -EINVAL;
-        } else
-                k = 0;
+        }
 
         STRV_FOREACH(i, c->supplementary_groups) {
-                const char *g;
-
                 if (k >= ngroups_max)
                         return -E2BIG;
 
-                g = *i;
-                r = get_group_creds(&g, l_gids+k, 0);
+                const char *g = *i;
+                r = get_group_creds(&g, l_gids + k, /* flags = */ 0);
                 if (r < 0)
                         return r;
 
                 k++;
         }
 
-        /*
-         * Sets ngids to zero to drop all supplementary groups, happens
-         * when we are under root and SupplementaryGroups= is empty.
-         */
         if (k == 0) {
-                *ngids = 0;
+                *ret_gids = NULL;
                 return 0;
         }
 
         /* Otherwise get the final list of supplementary groups */
-        groups = memdup(l_gids, sizeof(gid_t) * k);
+        gid_t *groups = newdup(gid_t, l_gids, k);
         if (!groups)
                 return -ENOMEM;
 
-        *supplementary_gids = groups;
-        *ngids = k;
-
-        groups = NULL;
-
-        return 0;
+        *ret_gids = groups;
+        return k;
 }
 
 static int enforce_groups(gid_t gid, const gid_t *supplementary_gids, int ngids) {
@@ -1017,8 +1007,10 @@ static int enforce_user(
                 const ExecContext *context,
                 uid_t uid,
                 uint64_t capability_ambient_set) {
-        assert(context);
+
         int r;
+
+        assert(context);
 
         if (!uid_is_valid(uid))
                 return 0;
@@ -1048,15 +1040,114 @@ static int enforce_user(
 
 #if HAVE_PAM
 
-static int null_conv(
+static void pam_response_free_array(struct pam_response *responses, size_t n_responses) {
+        assert(responses || n_responses == 0);
+
+        FOREACH_ARRAY(resp, responses, n_responses)
+                erase_and_free(resp->resp);
+
+        free(responses);
+}
+
+typedef struct AskPasswordConvData {
+        const ExecContext *context;
+        const ExecParameters *params;
+} AskPasswordConvData;
+
+static int ask_password_conv(
                 int num_msg,
-                const struct pam_message **msg,
-                struct pam_response **resp,
-                void *appdata_ptr) {
+                const struct pam_message *msg[],
+                struct pam_response **ret,
+                void *userdata) {
 
-        /* We don't support conversations */
+        AskPasswordConvData *data = ASSERT_PTR(userdata);
+        bool set_credential_env_var = false;
+        int r;
 
-        return PAM_CONV_ERR;
+        assert(num_msg >= 0);
+        assert(msg);
+        assert(data->context);
+        assert(data->params);
+
+        size_t n = num_msg;
+        struct pam_response *responses = new0(struct pam_response, n);
+        if (!responses)
+                return PAM_BUF_ERR;
+        CLEANUP_ARRAY(responses, n, pam_response_free_array);
+
+        for (size_t i = 0; i < n; i++) {
+                const struct pam_message *mi = *msg + i;
+
+                switch (mi->msg_style) {
+
+                case PAM_PROMPT_ECHO_ON:
+                case PAM_PROMPT_ECHO_OFF: {
+
+                        /* Locally set the $CREDENTIALS_DIRECTORY to the credentials directory we just populated */
+                        if (!set_credential_env_var) {
+                                _cleanup_free_ char *creds_dir = NULL;
+                                r = exec_context_get_credential_directory(data->context, data->params, data->params->unit_id, &creds_dir);
+                                if (r < 0)
+                                        return log_exec_error_errno(data->context, data->params, r, "Failed to determine credentials directory: %m");
+
+                                if (creds_dir) {
+                                        if (setenv("CREDENTIALS_DIRECTORY", creds_dir, /* overwrite= */ true) < 0)
+                                                return log_exec_error_errno(data->context, data->params, r, "Failed to set $CREDENTIALS_DIRECTORY: %m");
+                                } else
+                                        (void) unsetenv("CREDENTIALS_DIRECTORY");
+
+                                set_credential_env_var = true;
+                        }
+
+                        _cleanup_free_ char *credential_name = strjoin("pam.authtok.", data->context->pam_name);
+                        if (!credential_name)
+                                return log_oom();
+
+                        AskPasswordRequest req = {
+                                .message = mi->msg,
+                                .credential = credential_name,
+                                .tty_fd = -EBADF,
+                                .hup_fd = -EBADF,
+                                .until = usec_add(now(CLOCK_MONOTONIC), 15 * USEC_PER_SEC),
+                        };
+
+                        _cleanup_strv_free_erase_ char **acquired = NULL;
+                        r = ask_password_auto(
+                                        &req,
+                                        ASK_PASSWORD_ACCEPT_CACHED|
+                                        ASK_PASSWORD_NO_TTY|
+                                        (mi->msg_style == PAM_PROMPT_ECHO_ON ? ASK_PASSWORD_ECHO : 0),
+                                        &acquired);
+                        if (r < 0) {
+                                log_exec_error_errno(data->context, data->params, r, "Failed to query for password: %m");
+                                return PAM_CONV_ERR;
+                        }
+
+                        responses[i].resp = strdup(ASSERT_PTR(acquired[0]));
+                        if (!responses[i].resp) {
+                                log_oom();
+                                return PAM_BUF_ERR;
+                        }
+                        break;
+                }
+
+                case PAM_ERROR_MSG:
+                        log_exec_error(data->context, data->params, "PAM: %s", mi->msg);
+                        break;
+
+                case PAM_TEXT_INFO:
+                        log_exec_info(data->context, data->params, "PAM: %s", mi->msg);
+                        break;
+
+                default:
+                        return PAM_CONV_ERR;
+                }
+        }
+
+        *ret = TAKE_PTR(responses);
+        n = 0;
+
+        return PAM_SUCCESS;
 }
 
 static int pam_close_session_and_delete_credentials(pam_handle_t *handle, int flags) {
@@ -1074,24 +1165,27 @@ static int pam_close_session_and_delete_credentials(pam_handle_t *handle, int fl
 
         return r != PAM_SUCCESS ? r : s;
 }
-
 #endif
 
 static int setup_pam(
-                const char *name,
+                const ExecContext *context,
+                ExecParameters *params,
                 const char *user,
                 uid_t uid,
                 gid_t gid,
-                const char *tty,
                 char ***env, /* updated on success */
                 const int fds[], size_t n_fds,
                 int exec_fd) {
 
 #if HAVE_PAM
+        AskPasswordConvData conv_data = {
+                .context = context,
+                .params = params,
+        };
 
-        static const struct pam_conv conv = {
-                .conv = null_conv,
-                .appdata_ptr = NULL
+        const struct pam_conv conv = {
+                .conv = ask_password_conv,
+                .appdata_ptr = &conv_data,
         };
 
         _cleanup_(barrier_destroy) Barrier barrier = BARRIER_NULL;
@@ -1103,8 +1197,12 @@ static int setup_pam(
         pid_t parent_pid;
         int flags = 0;
 
-        assert(name);
+        assert(context);
+        assert(params);
         assert(user);
+        assert(uid_is_valid(uid));
+        assert(gid_is_valid(gid));
+        assert(fds || n_fds == 0);
         assert(env);
 
         /* We set up PAM in the parent process, then fork. The child
@@ -1121,12 +1219,13 @@ static int setup_pam(
         if (log_get_max_level() < LOG_DEBUG)
                 flags |= PAM_SILENT;
 
-        pam_code = pam_start(name, user, &conv, &handle);
+        pam_code = pam_start(context->pam_name, user, &conv, &handle);
         if (pam_code != PAM_SUCCESS) {
                 handle = NULL;
                 goto fail;
         }
 
+        const char *tty = context->tty_path;
         if (!tty) {
                 _cleanup_free_ char *q = NULL;
 
@@ -1338,6 +1437,8 @@ static bool context_has_syscall_logs(const ExecContext *c) {
 }
 
 static bool context_has_seccomp(const ExecContext *c) {
+        assert(c);
+
         /* We need NNP if we have any form of seccomp and are unprivileged */
         return c->lock_personality ||
                 c->memory_deny_write_execute ||
@@ -1399,7 +1500,10 @@ static bool seccomp_allows_drop_privileges(const ExecContext *c) {
                 return !(has_capget || has_capset || has_prctl);
 }
 
-static bool skip_seccomp_unavailable(const ExecContext *c, const ExecParameters *p, const char* msg) {
+static bool skip_seccomp_unavailable(const ExecContext *c, const ExecParameters *p, const char *msg) {
+        assert(c);
+        assert(p);
+        assert(msg);
 
         if (is_seccomp_available())
                 return false;
@@ -1698,6 +1802,7 @@ static int apply_protect_hostname(const ExecContext *c, const ExecParameters *p,
 
         assert(c);
         assert(p);
+        assert(ret_exit_status);
 
         if (c->protect_hostname == PROTECT_HOSTNAME_NO)
                 return 0;
@@ -1804,6 +1909,7 @@ static int build_environment(
 
         assert(c);
         assert(p);
+        assert(cgroup_context);
         assert(ret);
 
 #define N_ENV_VARS 20
@@ -2022,7 +2128,7 @@ static int build_environment(
 
                 our_env[n_env++] = x;
 
-                if (cgroup_context && !path_equal(memory_pressure_path, "/dev/null")) {
+                if (!path_equal(memory_pressure_path, "/dev/null")) {
                         _cleanup_free_ char *b = NULL, *e = NULL;
 
                         if (asprintf(&b, "%s " USEC_FMT " " USEC_FMT,
@@ -2063,6 +2169,9 @@ static int build_pass_environment(const ExecContext *c, char ***ret) {
         _cleanup_strv_free_ char **pass_env = NULL;
         size_t n_env = 0;
 
+        assert(c);
+        assert(ret);
+
         STRV_FOREACH(i, c->pass_environment) {
                 _cleanup_free_ char *x = NULL;
                 char *v;
@@ -2082,7 +2191,6 @@ static int build_pass_environment(const ExecContext *c, char ***ret) {
         }
 
         *ret = TAKE_PTR(pass_env);
-
         return 0;
 }
 
@@ -2287,7 +2395,7 @@ static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogi
         return 1;
 }
 
-static int can_mount_proc(const ExecContext *c, ExecParameters *p) {
+static int can_mount_proc(const ExecContext *c, const ExecParameters *p) {
         _cleanup_close_pair_ int errno_pipe[2] = EBADF_PAIR;
         _cleanup_(sigkill_waitp) pid_t pid = 0;
         ssize_t n;
@@ -2372,7 +2480,8 @@ static int setup_private_pids(const ExecContext *c, ExecParameters *p) {
         if (pipe2(errno_pipe, O_CLOEXEC) < 0)
                 return log_exec_debug_errno(c, p, errno, "Failed to create pipe for communicating with parent process: %m");
 
-        r = pidref_safe_fork("(sd-pidns-child)", FORK_NEW_PIDNS, &pidref);
+        /* Set FORK_DETACH to immediately re-parent the child process to the invoking manager process. */
+        r = pidref_safe_fork("(sd-pidns-child)", FORK_NEW_PIDNS|FORK_DETACH, &pidref);
         if (r < 0)
                 return log_exec_debug_errno(c, p, r, "Failed to fork child into new pid namespace: %m");
         if (r > 0) {
@@ -2789,11 +2898,12 @@ fail:
 
 #if ENABLE_SMACK
 static int setup_smack(
-                const ExecParameters *params,
                 const ExecContext *context,
+                const ExecParameters *params,
                 int executable_fd) {
         int r;
 
+        assert(context);
         assert(params);
         assert(executable_fd >= 0);
 
@@ -3061,13 +3171,14 @@ static int setup_ephemeral(
         int r;
 
         assert(context);
+        assert(runtime);
         assert(root_image);
         assert(root_directory);
 
         if (!*root_image && !*root_directory)
                 return 0;
 
-        if (!runtime || !runtime->ephemeral_copy)
+        if (!runtime->ephemeral_copy)
                 return 0;
 
         assert(runtime->ephemeral_storage_socket[0] >= 0);
@@ -3279,6 +3390,8 @@ static int apply_mount_namespace(
         int r;
 
         assert(context);
+        assert(params);
+        assert(runtime);
 
         CLEANUP_ARRAY(bind_mounts, n_bind_mounts, bind_mount_free_many);
 
@@ -3326,7 +3439,7 @@ static int apply_mount_namespace(
                  * to world users. Inside of it there's a /tmp that is sticky, and that's the one we want to
                  * use here.  This does not apply when we are using /run/systemd/empty as fallback. */
 
-                if (context->private_tmp == PRIVATE_TMP_CONNECTED && runtime && runtime->shared) {
+                if (context->private_tmp == PRIVATE_TMP_CONNECTED && runtime->shared) {
                         if (streq_ptr(runtime->shared->tmp_dir, RUN_SYSTEMD_EMPTY))
                                 tmp_dir = runtime->shared->tmp_dir;
                         else if (runtime->shared->tmp_dir)
@@ -3511,18 +3624,26 @@ static int apply_working_directory(
                 const ExecContext *context,
                 const ExecParameters *params,
                 ExecRuntime *runtime,
-                const char *home) {
+                const char *pwent_home,
+                char * const *env) {
 
         const char *wd;
         int r;
 
         assert(context);
+        assert(params);
+        assert(runtime);
 
         if (context->working_directory_home) {
-                if (!home)
-                        return -ENXIO;
+                /* Preferably use the data from $HOME, in case it was updated by a PAM module */
+                wd = strv_env_get(env, "HOME");
+                if (!wd) {
+                        /* If that's not available, use the data from the struct passwd entry: */
+                        if (!pwent_home)
+                                return -ENXIO;
 
-                wd = home;
+                        wd = pwent_home;
+                }
         } else
                 wd = empty_to_root(context->working_directory);
 
@@ -3532,7 +3653,7 @@ static int apply_working_directory(
                 _cleanup_close_ int dfd = -EBADF;
 
                 r = chase(wd,
-                          (runtime ? runtime->ephemeral_copy : NULL) ?: context->root_directory,
+                          runtime->ephemeral_copy ?: context->root_directory,
                           CHASE_PREFIX_ROOT|CHASE_AT_RESOLVE_IN_ROOT,
                           /* ret_path= */ NULL,
                           &dfd);
@@ -3550,11 +3671,13 @@ static int apply_root_directory(
                 int *exit_status) {
 
         assert(context);
+        assert(params);
+        assert(runtime);
         assert(exit_status);
 
         if (params->flags & EXEC_APPLY_CHROOT)
                 if (!needs_mount_ns && context->root_directory)
-                        if (chroot((runtime ? runtime->ephemeral_copy : NULL) ?: context->root_directory) < 0) {
+                        if (chroot(runtime->ephemeral_copy ?: context->root_directory) < 0) {
                                 *exit_status = EXIT_CHROOT;
                                 return -errno;
                         }
@@ -3565,7 +3688,8 @@ static int apply_root_directory(
 static int setup_keyring(
                 const ExecContext *context,
                 const ExecParameters *p,
-                uid_t uid, gid_t gid) {
+                uid_t uid,
+                gid_t gid) {
 
         key_serial_t keyring;
         int r = 0;
@@ -3722,12 +3846,14 @@ static int close_remaining_fds(
                 const ExecParameters *params,
                 const ExecRuntime *runtime,
                 int socket_fd,
-                const int *fds, size_t n_fds) {
+                const int *fds,
+                size_t n_fds) {
 
         size_t n_dont_close = 0;
         int dont_close[n_fds + 17];
 
         assert(params);
+        assert(runtime);
 
         if (params->stdin_fd >= 0)
                 dont_close[n_dont_close++] = params->stdin_fd;
@@ -3743,15 +3869,14 @@ static int close_remaining_fds(
                 n_dont_close += n_fds;
         }
 
-        if (runtime)
-                append_socket_pair(dont_close, &n_dont_close, runtime->ephemeral_storage_socket);
+        append_socket_pair(dont_close, &n_dont_close, runtime->ephemeral_storage_socket);
 
-        if (runtime && runtime->shared) {
+        if (runtime->shared) {
                 append_socket_pair(dont_close, &n_dont_close, runtime->shared->netns_storage_socket);
                 append_socket_pair(dont_close, &n_dont_close, runtime->shared->ipcns_storage_socket);
         }
 
-        if (runtime && runtime->dynamic_creds) {
+        if (runtime->dynamic_creds) {
                 if (runtime->dynamic_creds->user)
                         append_socket_pair(dont_close, &n_dont_close, runtime->dynamic_creds->user->storage_socket);
                 if (runtime->dynamic_creds->group)
@@ -4100,7 +4225,207 @@ static bool exec_context_need_unprivileged_private_users(
                !strv_isempty(context->read_only_paths) ||
                !strv_isempty(context->inaccessible_paths) ||
                !strv_isempty(context->exec_paths) ||
-               !strv_isempty(context->no_exec_paths);
+               !strv_isempty(context->no_exec_paths) ||
+               context->delegate_namespaces != NAMESPACE_FLAGS_INITIAL;
+}
+
+static PrivateUsers exec_context_get_effective_private_users(
+                const ExecContext *context,
+                const ExecParameters *params) {
+
+        assert(context);
+        assert(params);
+
+        if (context->private_users != PRIVATE_USERS_NO)
+                return context->private_users;
+
+        if (exec_context_need_unprivileged_private_users(context, params))
+                return PRIVATE_USERS_SELF;
+
+        /* If any namespace is delegated with DelegateNamespaces=, always set up a user namespace. */
+        if (context->delegate_namespaces != NAMESPACE_FLAGS_INITIAL)
+                return PRIVATE_USERS_SELF;
+
+        return PRIVATE_USERS_NO;
+}
+
+static bool exec_namespace_is_delegated(
+                const ExecContext *context,
+                const ExecParameters *params,
+                unsigned long namespace) {
+
+        assert(context);
+        assert(params);
+        assert(namespace != CLONE_NEWUSER);
+
+        /* If we need unprivileged private users, we've already unshared a user namespace by the time we call
+         * setup_delegated_namespaces() for the first time so let's make sure we do all other namespace
+         * unsharing in the first call to setup_delegated_namespaces() by returning false here. */
+        if (exec_context_need_unprivileged_private_users(context, params))
+                return false;
+
+        if (context->delegate_namespaces == NAMESPACE_FLAGS_INITIAL)
+                return false;
+
+        return FLAGS_SET(context->delegate_namespaces, namespace);
+}
+
+static int setup_delegated_namespaces(
+                const ExecContext *context,
+                ExecParameters *params,
+                ExecRuntime *runtime,
+                bool delegate,
+                const char *memory_pressure_path,
+                uid_t uid,
+                uid_t gid,
+                const ExecCommand *command,
+                bool needs_sandboxing,
+                bool has_cap_sys_admin,
+                int *reterr_exit_status) {
+
+        int r;
+
+        /* This function is called twice, once before unsharing the user namespace, and once after unsharing
+         * the user namespace. When called before unsharing the user namespace, "delegate" is set to "false".
+         * When called after unsharing the user namespace, "delegate" is set to "true". The net effect is
+         * that all namespaces that should not be delegated are unshared when this function is called the
+         * first time and all namespaces that should be delegated are unshared when this function is called
+         * the second time. */
+
+        assert(context);
+        assert(params);
+        assert(runtime);
+        assert(reterr_exit_status);
+
+        if (exec_needs_network_namespace(context) &&
+            exec_namespace_is_delegated(context, params, CLONE_NEWNET) == delegate &&
+            runtime->shared && runtime->shared->netns_storage_socket[0] >= 0) {
+
+                /* Try to enable network namespacing if network namespacing is available and we have
+                 * CAP_NET_ADMIN in the current user namespace (either the system manager one or the unit's
+                 * own user namespace). We need CAP_NET_ADMIN to be able to configure the loopback device in
+                 * the new network namespace. And if we don't have that, then we could only create a network
+                 * namespace without the ability to set up "lo". Hence gracefully skip things then. */
+                if (ns_type_supported(NAMESPACE_NET) && have_effective_cap(CAP_NET_ADMIN) > 0) {
+                        r = setup_shareable_ns(runtime->shared->netns_storage_socket, CLONE_NEWNET);
+                        if (ERRNO_IS_NEG_PRIVILEGE(r))
+                                log_exec_notice_errno(context, params, r,
+                                                      "PrivateNetwork=yes is configured, but network namespace setup not permitted, proceeding without: %m");
+                        else if (r < 0) {
+                                *reterr_exit_status = EXIT_NETWORK;
+                                return log_exec_error_errno(context, params, r, "Failed to set up network namespacing: %m");
+                        } else
+                                log_exec_debug(context, params, "Set up %snetwork namespace", delegate ? "delegated " : "");
+                } else if (context->network_namespace_path) {
+                        *reterr_exit_status = EXIT_NETWORK;
+                        return log_exec_error_errno(context, params, SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                                    "NetworkNamespacePath= is not supported, refusing.");
+                } else
+                        log_exec_notice(context, params, "PrivateNetwork=yes is configured, but the kernel does not support or we lack privileges for network namespace, proceeding without.");
+        }
+
+        if (exec_needs_ipc_namespace(context) &&
+            exec_namespace_is_delegated(context, params, CLONE_NEWIPC) == delegate &&
+            runtime->shared && runtime->shared->ipcns_storage_socket[0] >= 0) {
+
+                if (ns_type_supported(NAMESPACE_IPC)) {
+                        r = setup_shareable_ns(runtime->shared->ipcns_storage_socket, CLONE_NEWIPC);
+                        if (ERRNO_IS_NEG_PRIVILEGE(r))
+                                log_exec_warning_errno(context, params, r,
+                                                       "PrivateIPC=yes is configured, but IPC namespace setup failed, ignoring: %m");
+                        else if (r < 0) {
+                                *reterr_exit_status = EXIT_NAMESPACE;
+                                return log_exec_error_errno(context, params, r, "Failed to set up IPC namespacing: %m");
+                        } else
+                                log_exec_debug(context, params, "Set up %sIPC namespace", delegate ? "delegated " : "");
+                } else if (context->ipc_namespace_path) {
+                        *reterr_exit_status = EXIT_NAMESPACE;
+                        return log_exec_error_errno(context, params, SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                                    "IPCNamespacePath= is not supported, refusing.");
+                } else
+                        log_exec_warning(context, params, "PrivateIPC=yes is configured, but the kernel does not support IPC namespaces, ignoring.");
+        }
+
+        if (needs_sandboxing && exec_needs_cgroup_namespace(context, params) &&
+            exec_namespace_is_delegated(context, params, CLONE_NEWCGROUP) == delegate) {
+                if (unshare(CLONE_NEWCGROUP) < 0) {
+                        *reterr_exit_status = EXIT_NAMESPACE;
+                        return log_exec_error_errno(context, params, errno, "Failed to set up cgroup namespacing: %m");
+                }
+
+                log_exec_debug(context, params, "Set up %scgroup namespace", delegate ? "delegated " : "");
+        }
+
+        /* Unshare a new PID namespace before setting up mounts to ensure /proc/ is mounted with only processes in PID namespace visible.
+         * Note PrivatePIDs=yes implies MountAPIVFS=yes so we'll always ensure procfs is remounted. */
+        if (needs_sandboxing && exec_needs_pid_namespace(context) &&
+            exec_namespace_is_delegated(context, params, CLONE_NEWPID) == delegate) {
+                if (params->pidref_transport_fd < 0) {
+                        *reterr_exit_status = EXIT_NAMESPACE;
+                        return log_exec_error_errno(context, params, SYNTHETIC_ERRNO(ENOTCONN), "PidRef socket is not set up: %m");
+                }
+
+                /* If we had CAP_SYS_ADMIN prior to joining the user namespace, then we are privileged and don't need
+                 * to check if we can mount /proc/.
+                 *
+                 * We need to check prior to entering the user namespace because if we're running unprivileged or in a
+                 * system without CAP_SYS_ADMIN, then we can have CAP_SYS_ADMIN in the current user namespace but not
+                 * once we unshare a mount namespace. */
+                if (!has_cap_sys_admin) {
+                        r = can_mount_proc(context, params);
+                        if (r < 0) {
+                                *reterr_exit_status = EXIT_NAMESPACE;
+                                return log_exec_error_errno(context, params, r, "Failed to detect if /proc/ can be remounted: %m");
+                        }
+                        if (r == 0) {
+                                *reterr_exit_status = EXIT_NAMESPACE;
+                                return log_exec_error_errno(context, params, SYNTHETIC_ERRNO(EPERM),
+                                                            "PrivatePIDs=yes is configured, but /proc/ cannot be re-mounted due to lack of privileges, refusing.");
+                        }
+                }
+
+                r = setup_private_pids(context, params);
+                if (r < 0) {
+                        *reterr_exit_status = EXIT_NAMESPACE;
+                        return log_exec_error_errno(context, params, r, "Failed to set up pid namespace: %m");
+                }
+
+                log_exec_debug(context, params, "Set up %spid namespace", delegate ? "delegated " : "");
+        }
+
+        /* If PrivatePIDs= yes is configured, we're now running as pid 1 in a pid namespace! */
+
+        if (exec_needs_mount_namespace(context, params, runtime) &&
+            exec_namespace_is_delegated(context, params, CLONE_NEWNS) == delegate) {
+                _cleanup_free_ char *error_path = NULL;
+
+                r = apply_mount_namespace(command->flags,
+                                          context,
+                                          params,
+                                          runtime,
+                                          memory_pressure_path,
+                                          needs_sandboxing,
+                                          &error_path,
+                                          uid,
+                                          gid);
+                if (r < 0) {
+                        *reterr_exit_status = EXIT_NAMESPACE;
+                        return log_exec_error_errno(context, params, r, "Failed to set up mount namespacing%s%s: %m",
+                                                    error_path ? ": " : "", strempty(error_path));
+                }
+
+                log_exec_debug(context, params, "Set up %smount namespace", delegate ? "delegated " : "");
+        }
+
+        if (needs_sandboxing && exec_namespace_is_delegated(context, params, CLONE_NEWUTS) == delegate) {
+                r = apply_protect_hostname(context, params, reterr_exit_status);
+                if (r < 0)
+                        return r;
+
+                log_exec_debug(context, params, "Set up %sUTS namespace", delegate ? "delegated " : "");
+        }
+
+        return 0;
 }
 
 static bool exec_context_shall_confirm_spawn(const ExecContext *context) {
@@ -4258,6 +4583,10 @@ static void prepare_terminal(
               p->stdout_fd >= 0))
                 return;
 
+        /* Let's explicitly determine whether to reset via ANSI sequences or not, taking our ExecContext
+         * information into account */
+        bool use_ansi = exec_context_shall_ansi_seq_reset(context);
+
         if (context->tty_reset) {
                 /* When we are resetting the TTY, then let's create a lock first, to synchronize access. This
                  * in particular matters as concurrent resets and the TTY size ANSI DSR logic done by the
@@ -4266,10 +4595,16 @@ static void prepare_terminal(
                 if (lock_fd < 0)
                         log_exec_debug_errno(context, p, lock_fd, "Failed to lock /dev/console, ignoring: %m");
 
-                (void) terminal_reset_defensive(STDOUT_FILENO, /* switch_to_text= */ false);
+                /* We explicitly control whether to send ansi sequences or not here, since we want to consult
+                 * the env vars explicitly configured in the ExecContext, rather than our own environment
+                 * block. */
+                (void) terminal_reset_defensive(STDOUT_FILENO, use_ansi ? TERMINAL_RESET_FORCE_ANSI_SEQ : TERMINAL_RESET_AVOID_ANSI_SEQ);
         }
 
         (void) exec_context_apply_tty_size(context, STDIN_FILENO, STDOUT_FILENO, /* tty_path= */ NULL);
+
+        if (use_ansi)
+                (void) osc_context_open_service(p->unit_id, p->invocation_id, /* ret_seq= */ NULL);
 }
 
 int exec_invoke(
@@ -4281,15 +4616,13 @@ int exec_invoke(
                 int *exit_status) {
 
         _cleanup_strv_free_ char **our_env = NULL, **pass_env = NULL, **joined_exec_search_path = NULL, **accum_env = NULL, **replaced_argv = NULL;
-        int r, ngids = 0;
-        _cleanup_free_ gid_t *supplementary_gids = NULL;
+        int r;
         const char *username = NULL, *groupname = NULL;
         _cleanup_free_ char *home_buffer = NULL, *memory_pressure_path = NULL, *own_user = NULL;
-        const char *home = NULL, *shell = NULL;
+        const char *pwent_home = NULL, *shell = NULL;
         char **final_argv = NULL;
         dev_t journal_stream_dev = 0;
         ino_t journal_stream_ino = 0;
-        bool userns_set_up = false;
         bool needs_sandboxing,          /* Do we need to set up full sandboxing? (i.e. all namespacing, all MAC stuff, caps, yadda yadda */
                 needs_setuid,           /* Do we need to do the actual setresuid()/setresgid() calls? */
                 needs_mount_namespace;  /* Do we need to set up a mount namespace for this kernel? */
@@ -4315,15 +4648,16 @@ int exec_invoke(
         size_t n_fds, /* fds to pass to the child */
                n_keep_fds; /* total number of fds not to close */
         int secure_bits;
-        _cleanup_free_ gid_t *gids_after_pam = NULL;
-        int ngids_after_pam = 0;
-
+        _cleanup_free_ gid_t *gids = NULL, *gids_after_pam = NULL;
+        int ngids = 0, ngids_after_pam = 0;
         int socket_fd = -EBADF, named_iofds[3] = EBADF_TRIPLET;
         size_t n_storage_fds, n_socket_fds, n_extra_fds;
 
         assert(command);
         assert(context);
         assert(params);
+        assert(runtime);
+        assert(cgroup_context);
         assert(exit_status);
 
         /* This should be mostly redundant, as the log level is also passed as an argument of the executor,
@@ -4446,8 +4780,10 @@ int exec_invoke(
          * disallocate the VT), to get rid of any prior uses of the device. Note that we do not keep any fd
          * open here, hence some of the settings made here might vanish again, depending on the TTY driver
          * used. A 2nd ("constructive") initialization after we opened the input/output fds we actually want
-         * will fix this. */
-        exec_context_tty_reset(context, params);
+         * will fix this. Note that we pass a NULL invocation ID here – as exec_context_tty_reset() expects
+         * the invocation ID associated with the OSC 3008 context ID to close. But we don't want to close any
+         * OSC 3008 context here, and opening a fresh OSC 3008 context happens a bit further down. */
+        exec_context_tty_reset(context, params, /* invocation_id= */ SD_ID128_NULL);
 
         if (params->shall_confirm_spawn && exec_context_shall_confirm_spawn(context)) {
                 _cleanup_free_ char *cmdline = NULL;
@@ -4482,7 +4818,7 @@ int exec_invoke(
                 return log_exec_error_errno(context, params, errno, "Failed to update environment: %m");
         }
 
-        if (context->dynamic_user && runtime && runtime->dynamic_creds) {
+        if (context->dynamic_user && runtime->dynamic_creds) {
                 _cleanup_strv_free_ char **suggested_paths = NULL;
 
                 /* On top of that, make sure we bypass our own NSS module nss-systemd comprehensively for any NSS
@@ -4537,7 +4873,7 @@ int exec_invoke(
                         u = NULL;
 
                 if (u) {
-                        r = get_fixed_user(u, &username, &uid, &gid, &home, &shell);
+                        r = get_fixed_user(u, &username, &uid, &gid, &pwent_home, &shell);
                         if (r < 0) {
                                 *exit_status = EXIT_USER;
                                 return log_exec_error_errno(context, params, r, "Failed to determine user credentials: %m");
@@ -4554,11 +4890,10 @@ int exec_invoke(
         }
 
         /* Initialize user supplementary groups and get SupplementaryGroups= ones */
-        r = get_supplementary_groups(context, username, groupname, gid,
-                                     &supplementary_gids, &ngids);
-        if (r < 0) {
+        ngids = get_supplementary_groups(context, username, gid, &gids);
+        if (ngids < 0) {
                 *exit_status = EXIT_GROUP;
-                return log_exec_error_errno(context, params, r, "Failed to determine supplementary groups: %m");
+                return log_exec_error_errno(context, params, ngids, "Failed to determine supplementary groups: %m");
         }
 
         r = send_user_lookup(params->unit_id, params->user_lookup_fd, uid, gid);
@@ -4569,7 +4904,7 @@ int exec_invoke(
 
         params->user_lookup_fd = safe_close(params->user_lookup_fd);
 
-        r = acquire_home(context, &home, &home_buffer);
+        r = acquire_home(context, &pwent_home, &home_buffer);
         if (r < 0) {
                 *exit_status = EXIT_CHDIR;
                 return log_exec_error_errno(context, params, r, "Failed to determine $HOME for the invoking user: %m");
@@ -4604,7 +4939,7 @@ int exec_invoke(
                 }
         }
 
-        if (context->network_namespace_path && runtime && runtime->shared && runtime->shared->netns_storage_socket[0] >= 0) {
+        if (context->network_namespace_path && runtime->shared && runtime->shared->netns_storage_socket[0] >= 0) {
                 r = open_shareable_ns_path(runtime->shared->netns_storage_socket, context->network_namespace_path, CLONE_NEWNET);
                 if (r < 0) {
                         *exit_status = EXIT_NETWORK;
@@ -4612,7 +4947,7 @@ int exec_invoke(
                 }
         }
 
-        if (context->ipc_namespace_path && runtime && runtime->shared && runtime->shared->ipcns_storage_socket[0] >= 0) {
+        if (context->ipc_namespace_path && runtime->shared && runtime->shared->ipcns_storage_socket[0] >= 0) {
                 r = open_shareable_ns_path(runtime->shared->ipcns_storage_socket, context->ipc_namespace_path, CLONE_NEWIPC);
                 if (r < 0) {
                         *exit_status = EXIT_NAMESPACE;
@@ -4755,6 +5090,19 @@ int exec_invoke(
                 }
         }
 
+        if (context->memory_ksm >= 0)
+                if (prctl(PR_SET_MEMORY_MERGE, context->memory_ksm, 0, 0, 0) < 0) {
+                        if (ERRNO_IS_NOT_SUPPORTED(errno))
+                                log_exec_debug_errno(context,
+                                                     params,
+                                                     errno,
+                                                     "KSM support not available, ignoring.");
+                        else {
+                                *exit_status = EXIT_KSM;
+                                return log_exec_error_errno(context, params, errno, "Failed to set KSM: %m");
+                        }
+                }
+
 #if ENABLE_UTMP
         if (context->utmp_id) {
                 _cleanup_free_ char *username_alloc = NULL;
@@ -4820,7 +5168,7 @@ int exec_invoke(
                         }
                 }
 
-                if (cgroup_context && cg_unified() > 0 && is_pressure_supported() > 0) {
+                if (cg_unified() > 0 && is_pressure_supported() > 0) {
                         if (cgroup_context_want_memory_pressure(cgroup_context)) {
                                 r = cg_get_path("memory", params->cgroup_path, "memory.pressure", &memory_pressure_path);
                                 if (r < 0) {
@@ -4875,7 +5223,7 @@ int exec_invoke(
                         params,
                         cgroup_context,
                         n_fds,
-                        home,
+                        pwent_home,
                         username,
                         shell,
                         journal_stream_dev,
@@ -4954,7 +5302,12 @@ int exec_invoke(
                 use_smack = mac_smack_use();
 #endif
 #if HAVE_APPARMOR
-                use_apparmor = mac_apparmor_use();
+                if (mac_apparmor_use()) {
+                        r = dlopen_libapparmor();
+                        if (r < 0 && !ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                                log_warning_errno(r, "Failed to load libapparmor, ignoring: %m");
+                        use_apparmor = r >= 0;
+                }
 #endif
         }
 
@@ -4976,7 +5329,7 @@ int exec_invoke(
                  * wins here. (See above.) */
 
                 /* All fds passed in the fds array will be closed in the pam child process. */
-                r = setup_pam(context->pam_name, username, uid, gid, context->tty_path, &accum_env, params->fds, n_fds, params->exec_fd);
+                r = setup_pam(context, params, username, uid, gid, &accum_env, params->fds, n_fds, params->exec_fd);
                 if (r < 0) {
                         *exit_status = EXIT_PAM;
                         return log_exec_error_errno(context, params, r, "Failed to set up PAM session: %m");
@@ -5004,9 +5357,7 @@ int exec_invoke(
                 /* If we're unprivileged, set up the user namespace first to enable use of the other namespaces.
                  * Users with CAP_SYS_ADMIN can set up user namespaces last because they will be able to
                  * set up all of the other namespaces (i.e. network, mount, UTS) without a user namespace. */
-                PrivateUsers pu = context->private_users;
-                if (pu == PRIVATE_USERS_NO)
-                        pu = PRIVATE_USERS_SELF;
+                PrivateUsers pu = exec_context_get_effective_private_users(context, params);
 
                 /* The kernel requires /proc/pid/setgroups be set to "deny" prior to writing /proc/pid/gid_map in
                  * unprivileged user namespaces. */
@@ -5021,140 +5372,34 @@ int exec_invoke(
                         log_exec_info_errno(context, params, r, "Failed to set up user namespacing for unprivileged user, ignoring: %m");
                 else {
                         assert(r > 0);
-                        userns_set_up = true;
+                        log_debug("Set up unprivileged user namespace");
                 }
         }
 
-        if (exec_needs_network_namespace(context) && runtime && runtime->shared && runtime->shared->netns_storage_socket[0] >= 0) {
-
-                /* Try to enable network namespacing if network namespacing is available and we have
-                 * CAP_NET_ADMIN. We need CAP_NET_ADMIN to be able to configure the loopback device in the
-                 * new network namespace. And if we don't have that, then we could only create a network
-                 * namespace without the ability to set up "lo". Hence gracefully skip things then. */
-                if (ns_type_supported(NAMESPACE_NET) && have_effective_cap(CAP_NET_ADMIN) > 0) {
-                        r = setup_shareable_ns(runtime->shared->netns_storage_socket, CLONE_NEWNET);
-                        if (ERRNO_IS_NEG_PRIVILEGE(r))
-                                log_exec_notice_errno(context, params, r,
-                                                      "PrivateNetwork=yes is configured, but network namespace setup not permitted, proceeding without: %m");
-                        else if (r < 0) {
-                                *exit_status = EXIT_NETWORK;
-                                return log_exec_error_errno(context, params, r, "Failed to set up network namespacing: %m");
-                        }
-                } else if (context->network_namespace_path) {
-                        *exit_status = EXIT_NETWORK;
-                        return log_exec_error_errno(context, params, SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                                    "NetworkNamespacePath= is not supported, refusing.");
-                } else
-                        log_exec_notice(context, params, "PrivateNetwork=yes is configured, but the kernel does not support or we lack privileges for network namespace, proceeding without.");
-        }
-
-        if (exec_needs_ipc_namespace(context) && runtime && runtime->shared && runtime->shared->ipcns_storage_socket[0] >= 0) {
-
-                if (ns_type_supported(NAMESPACE_IPC)) {
-                        r = setup_shareable_ns(runtime->shared->ipcns_storage_socket, CLONE_NEWIPC);
-                        if (ERRNO_IS_NEG_PRIVILEGE(r))
-                                log_exec_warning_errno(context, params, r,
-                                                       "PrivateIPC=yes is configured, but IPC namespace setup failed, ignoring: %m");
-                        else if (r < 0) {
-                                *exit_status = EXIT_NAMESPACE;
-                                return log_exec_error_errno(context, params, r, "Failed to set up IPC namespacing: %m");
-                        }
-                } else if (context->ipc_namespace_path) {
-                        *exit_status = EXIT_NAMESPACE;
-                        return log_exec_error_errno(context, params, SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                                    "IPCNamespacePath= is not supported, refusing.");
-                } else
-                        log_exec_warning(context, params, "PrivateIPC=yes is configured, but the kernel does not support IPC namespaces, ignoring.");
-        }
-
-        if (needs_sandboxing && exec_needs_cgroup_namespace(context, params)) {
-                r = unshare(CLONE_NEWCGROUP);
-                if (r < 0) {
-                        *exit_status = EXIT_NAMESPACE;
-                        return log_exec_error_errno(context, params, r, "Failed to set up cgroup namespacing: %m");
-                }
-        }
-
-        /* Unshare a new PID namespace before setting up mounts to ensure /proc/ is mounted with only processes in PID namespace visible.
-         * Note PrivatePIDs=yes implies MountAPIVFS=yes so we'll always ensure procfs is remounted. */
-        if (needs_sandboxing && exec_needs_pid_namespace(context)) {
-                if (params->pidref_transport_fd < 0) {
-                        *exit_status = EXIT_NAMESPACE;
-                        return log_exec_error_errno(context, params, r, "PidRef socket is not set up: %m");
-                }
-
-                /* If we had CAP_SYS_ADMIN prior to joining the user namespace, then we are privileged and don't need
-                 * to check if we can mount /proc/.
-                 *
-                 * We need to check prior to entering the user namespace because if we're running unprivileged or in a
-                 * system without CAP_SYS_ADMIN, then we can have CAP_SYS_ADMIN in the current user namespace but not
-                 * once we unshare a mount namespace. */
-                r = has_cap_sys_admin ? 1 : can_mount_proc(context, params);
-                if (r < 0) {
-                        *exit_status = EXIT_NAMESPACE;
-                        return log_exec_error_errno(context, params, r, "Failed to detect if /proc/ can be remounted: %m");
-                }
-                if (r == 0) {
-                        *exit_status = EXIT_NAMESPACE;
-                        return log_exec_error_errno(context, params, SYNTHETIC_ERRNO(EPERM),
-                                                    "PrivatePIDs=yes is configured, but /proc/ cannot be re-mounted due to lack of privileges, refusing.");
-                }
-
-                r = setup_private_pids(context, params);
-                if (r < 0) {
-                        *exit_status = EXIT_NAMESPACE;
-                        return log_exec_error_errno(context, params, r, "Failed to set up pid namespace: %m");
-                }
-        }
-
-        /* If PrivatePIDs= yes is configured, we're now running as pid 1 in a pid namespace! */
-
-        if (needs_mount_namespace) {
-                _cleanup_free_ char *error_path = NULL;
-
-                r = apply_mount_namespace(command->flags,
-                                          context,
-                                          params,
-                                          runtime,
-                                          memory_pressure_path,
-                                          needs_sandboxing,
-                                          &error_path,
-                                          uid,
-                                          gid);
-                if (r < 0) {
-                        *exit_status = EXIT_NAMESPACE;
-                        return log_exec_error_errno(context, params, r, "Failed to set up mount namespacing%s%s: %m",
-                                                    error_path ? ": " : "", strempty(error_path));
-                }
-        }
-
-        if (needs_sandboxing) {
-                r = apply_protect_hostname(context, params, exit_status);
-                if (r < 0)
-                        return r;
-        }
-
-        if (context->memory_ksm >= 0)
-                if (prctl(PR_SET_MEMORY_MERGE, context->memory_ksm, 0, 0, 0) < 0) {
-                        if (ERRNO_IS_NOT_SUPPORTED(errno))
-                                log_exec_debug_errno(context,
-                                                     params,
-                                                     errno,
-                                                     "KSM support not available, ignoring.");
-                        else {
-                                *exit_status = EXIT_KSM;
-                                return log_exec_error_errno(context, params, errno, "Failed to set KSM: %m");
-                        }
-                }
+        /* Call setup_delegated_namespaces() the first time to unshare all non-delegated namespaces. */
+        r = setup_delegated_namespaces(
+                        context,
+                        params,
+                        runtime,
+                        /* delegate= */ false,
+                        memory_pressure_path,
+                        uid,
+                        gid,
+                        command,
+                        needs_sandboxing,
+                        has_cap_sys_admin,
+                        exit_status);
+        if (r < 0)
+                return r;
 
         /* Drop groups as early as possible.
          * This needs to be done after PrivateDevices=yes setup as device nodes should be owned by the host's root.
          * For non-root in a userns, devices will be owned by the user/group before the group change, and nobody. */
         if (needs_setuid) {
                 _cleanup_free_ gid_t *gids_to_enforce = NULL;
-                int ngids_to_enforce = 0;
+                int ngids_to_enforce;
 
-                ngids_to_enforce = merge_gid_lists(supplementary_gids,
+                ngids_to_enforce = merge_gid_lists(gids,
                                                    ngids,
                                                    gids_after_pam,
                                                    ngids_after_pam,
@@ -5179,14 +5424,34 @@ int exec_invoke(
          * case of mount namespaces being less privileged when the mount point list is copied from a
          * different user namespace). */
 
-        if (needs_sandboxing && !userns_set_up) {
-                r = setup_private_users(context->private_users, saved_uid, saved_gid, uid, gid,
-                                        /* allow_setgroups= */ context->private_users == PRIVATE_USERS_FULL);
+        if (needs_sandboxing && !exec_context_need_unprivileged_private_users(context, params)) {
+                PrivateUsers pu = exec_context_get_effective_private_users(context, params);
+
+                r = setup_private_users(pu, saved_uid, saved_gid, uid, gid,
+                                        /* allow_setgroups= */ pu == PRIVATE_USERS_FULL);
                 if (r < 0) {
                         *exit_status = EXIT_USER;
                         return log_exec_error_errno(context, params, r, "Failed to set up user namespacing: %m");
                 }
+
+                log_debug("Set up privileged user namespace");
         }
+
+        /* Call setup_delegated_namespaces() the second time to unshare all delegated namespaces. */
+        r = setup_delegated_namespaces(
+                        context,
+                        params,
+                        runtime,
+                        /* delegate= */ true,
+                        memory_pressure_path,
+                        uid,
+                        gid,
+                        command,
+                        needs_sandboxing,
+                        has_cap_sys_admin,
+                        exit_status);
+        if (r < 0)
+                return r;
 
         /* Now that the mount namespace has been set up and privileges adjusted, let's look for the thing we
          * shall execute. */
@@ -5286,7 +5551,7 @@ int exec_invoke(
                 /* LSM Smack needs the capability CAP_MAC_ADMIN to change the current execution security context of the
                  * process. This is the latest place before dropping capabilities. Other MAC context are set later. */
                 if (use_smack) {
-                        r = setup_smack(params, context, executable_fd);
+                        r = setup_smack(context, params, executable_fd);
                         if (r < 0 && !context->smack_process_label_ignore) {
                                 *exit_status = EXIT_SMACK_PROCESS_LABEL;
                                 return log_exec_error_errno(context, params, r, "Failed to set SMACK process label: %m");
@@ -5397,7 +5662,7 @@ int exec_invoke(
          * running this service might have the correct privilege to change to the working directory. Also, it
          * is absolutely 💣 crucial 💣 we applied all mount namespacing rearrangements before this, so that
          * the cwd cannot be used to pin directories outside of the sandbox. */
-        r = apply_working_directory(context, params, runtime, home);
+        r = apply_working_directory(context, params, runtime, pwent_home, accum_env);
         if (r < 0) {
                 *exit_status = EXIT_CHDIR;
                 return log_exec_error_errno(context, params, r, "Changing to the requested working directory failed: %m");
@@ -5432,7 +5697,7 @@ int exec_invoke(
 
 #if HAVE_APPARMOR
                 if (use_apparmor && context->apparmor_profile) {
-                        r = aa_change_onexec(context->apparmor_profile);
+                        r = ASSERT_PTR(sym_aa_change_onexec)(context->apparmor_profile);
                         if (r < 0 && !context->apparmor_profile_ignore) {
                                 *exit_status = EXIT_APPARMOR_PROFILE;
                                 return log_exec_error_errno(context,
@@ -5459,7 +5724,7 @@ int exec_invoke(
                          *
                          * Hence there is no security impact to raise it in the effective set before execve
                          */
-                        r = capability_gain_cap_setpcap(/* return_caps= */ NULL);
+                        r = capability_gain_cap_setpcap(/* ret_before_caps = */ NULL);
                         if (r < 0) {
                                 *exit_status = EXIT_CAPABILITIES;
                                 return log_exec_error_errno(context, params, r, "Failed to gain CAP_SETPCAP for setting secure bits");

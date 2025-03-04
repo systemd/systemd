@@ -242,6 +242,8 @@ int seat_set_active(Seat *s, Session *session) {
         old_active = s->active;
         s->active = session;
 
+        seat_save(s);
+
         if (old_active) {
                 session_device_pause_all(old_active);
                 session_send_changed(old_active, "Active", NULL);
@@ -256,8 +258,6 @@ int seat_set_active(Seat *s, Session *session) {
 
         if (!session || session->started)
                 seat_send_changed(s, "ActiveSession", NULL);
-
-        seat_save(s);
 
         if (session) {
                 session_save(session);

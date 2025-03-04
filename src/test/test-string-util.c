@@ -262,6 +262,12 @@ TEST(strextend) {
         ASSERT_STREQ(str, "0123");
         assert_se(strextend(&str, "456", "78", "9"));
         ASSERT_STREQ(str, "0123456789");
+
+        assert_se(strextend(&str, "more", NULL, "huch"));
+        ASSERT_STREQ(str, "0123456789more");
+
+        assert_se(strextend(&str, "MORE", POINTER_MAX, "HUCH"));
+        ASSERT_STREQ(str, "0123456789moreMOREHUCH");
 }
 
 TEST(strextend_with_separator) {
@@ -285,6 +291,9 @@ TEST(strextend_with_separator) {
         ASSERT_STREQ(str, "start,,1,234");
         assert_se(strextend_with_separator(&str, ";", "more", "5", "678"));
         ASSERT_STREQ(str, "start,,1,234;more;5;678");
+
+        assert_se(strextend_with_separator(&str, ";", "xxxx", POINTER_MAX, "yyy"));
+        ASSERT_STREQ(str, "start,,1,234;more;5;678;xxxx;yyy");
 }
 
 TEST(strrep) {
@@ -399,6 +408,10 @@ TEST(strjoin) {
 
         actual = strjoin("foo", NULL, "bar");
         ASSERT_STREQ(actual, "foo");
+        free(actual);
+
+        actual = strjoin("foo", POINTER_MAX, "bar");
+        ASSERT_STREQ(actual, "foobar");
         free(actual);
 }
 
@@ -1187,7 +1200,7 @@ TEST(strspn_from_end) {
 }
 
 TEST(streq_skip_trailing_chars) {
-        /* NULL is WHITESPACE by default*/
+        /* NULL is WHITESPACE by default */
         assert_se(streq_skip_trailing_chars("foo bar", "foo bar", NULL));
         assert_se(streq_skip_trailing_chars("foo", "foo", NULL));
         assert_se(streq_skip_trailing_chars("foo bar      ", "foo bar", NULL));
@@ -1335,6 +1348,19 @@ TEST(strextendn) {
         x = mfree(x);
 }
 
+TEST(strprepend) {
+        _cleanup_free_ char *x = NULL;
+
+        ASSERT_STREQ(strprepend(&x, NULL), "");
+        x = mfree(x);
+
+        ASSERT_STREQ(strprepend(&x, ""), "");
+
+        ASSERT_STREQ(strprepend(&x, "xxx"), "xxx");
+        ASSERT_STREQ(strprepend(&x, "bar"), "barxxx");
+        ASSERT_STREQ(strprepend(&x, "foo"), "foobarxxx");
+}
+
 TEST(strlevenshtein) {
         assert_se(strlevenshtein(NULL, NULL) == 0);
         assert_se(strlevenshtein("", "") == 0);
@@ -1380,6 +1406,25 @@ TEST(strrstr) {
         assert_se(strrstr(p, "xo") == p + 4);
         assert_se(strrstr(p, "xox") == p + 4);
         assert_se(!strrstr(p, "xx"));
+}
+
+TEST(str_common_prefix) {
+        ASSERT_EQ(str_common_prefix("", ""), SIZE_MAX);
+        ASSERT_EQ(str_common_prefix("a", "a"), SIZE_MAX);
+        ASSERT_EQ(str_common_prefix("aa", "aa"), SIZE_MAX);
+        ASSERT_EQ(str_common_prefix("aa", "bb"), 0U);
+        ASSERT_EQ(str_common_prefix("bb", "aa"), 0U);
+        ASSERT_EQ(str_common_prefix("aa", "ab"), 1U);
+        ASSERT_EQ(str_common_prefix("ab", "aa"), 1U);
+        ASSERT_EQ(str_common_prefix("systemd-resolved", "systemd-networkd"), 8U);
+        ASSERT_EQ(str_common_prefix("systemd-", "systemd-networkd"), 8U);
+        ASSERT_EQ(str_common_prefix("systemd-networkd", "systemd-"), 8U);
+        ASSERT_EQ(str_common_prefix("syst", "systemd-networkd"), 4U);
+        ASSERT_EQ(str_common_prefix("systemd-networkd", "syst"), 4U);
+        ASSERT_EQ(str_common_prefix("s", "systemd-networkd"), 1U);
+        ASSERT_EQ(str_common_prefix("systemd-networkd", "s"), 1U);
+        ASSERT_EQ(str_common_prefix("", "systemd-networkd"), 0U);
+        ASSERT_EQ(str_common_prefix("systemd-networkd", ""), 0U);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

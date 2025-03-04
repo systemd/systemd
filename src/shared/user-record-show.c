@@ -7,6 +7,7 @@
 #include "hashmap.h"
 #include "hexdecoct.h"
 #include "path-util.h"
+#include "percent-util.h"
 #include "pretty-print.h"
 #include "process-util.h"
 #include "rlimit-util.h"
@@ -28,7 +29,7 @@ const char* user_record_state_color(const char *state) {
         return NULL;
 }
 
-static void dump_self_modifiable(
+static void show_self_modifiable(
                 const char *heading,
                 char **field,
                 const char **value) {
@@ -54,6 +55,26 @@ static void dump_self_modifiable(
                         printf("%13s %s\n", i == value ? heading : "", *i);
 }
 
+static void show_tmpfs_limit(const char *tmpfs, const TmpfsLimit *limit, uint32_t scale) {
+        assert(tmpfs);
+        assert(limit);
+
+        if (!limit->is_set)
+                return;
+
+        printf("   %s Limit:", tmpfs);
+
+        if (limit->limit != UINT64_MAX)
+                printf(" %s", FORMAT_BYTES(limit->limit));
+        if (limit->limit == UINT64_MAX || limit->limit_scale != UINT32_MAX) {
+                if (limit->limit != UINT64_MAX)
+                        printf(" or");
+
+                printf(" %i%%", UINT32_SCALE_TO_PERCENT(scale));
+        }
+        printf("\n");
+}
+
 void user_record_show(UserRecord *hr, bool show_full_group_info) {
         _cleanup_strv_free_ char **langs = NULL;
         const char *hd, *ip, *shell;
@@ -64,6 +85,13 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
 
         printf("   User name: %s\n",
                user_record_user_name_and_realm(hr));
+
+        if (!strv_isempty(hr->aliases)) {
+                STRV_FOREACH(i, hr->aliases)
+                        printf(i == hr->aliases ?
+                               "       Alias: %s" : ", %s", *i);
+                putchar('\n');
+        }
 
         if (hr->state) {
                 const char *color;
@@ -193,7 +221,7 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
                 if (show_full_group_info) {
                         _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
 
-                        r = groupdb_by_gid(hr->gid, 0, &gr);
+                        r = groupdb_by_gid(hr->gid, /* match= */ NULL, /* flags= */ 0, &gr);
                         if (r < 0) {
                                 errno = -r;
                                 printf("         GID: " GID_FMT " (unresolvable: %m)\n", hr->gid);
@@ -244,6 +272,9 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
 
                 printf("\n");
         }
+
+        if (hr->default_area)
+                printf("Default Area: %s\n", hr->default_area);
 
         if (hr->blob_directory) {
                 _cleanup_free_ char **filenames = NULL;
@@ -360,6 +391,9 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
 
         if (hr->io_weight != UINT64_MAX)
                 printf("   IO Weight: %" PRIu64 "\n", hr->io_weight);
+
+        show_tmpfs_limit("TMP", &hr->tmp_limit, user_record_tmp_limit_scale(hr));
+        show_tmpfs_limit("SHM", &hr->dev_shm_limit, user_record_dev_shm_limit_scale(hr));
 
         if (hr->access_mode != MODE_INVALID)
                 printf(" Access Mode: 0%03o\n", user_record_access_mode(hr));
@@ -612,13 +646,13 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
         if (hr->service)
                 printf("     Service: %s\n", hr->service);
 
-        dump_self_modifiable("Self Modify:",
+        show_self_modifiable("Self Modify:",
                              hr->self_modifiable_fields,
                              user_record_self_modifiable_fields(hr));
-        dump_self_modifiable("(Blobs)",
+        show_self_modifiable("(Blobs)",
                              hr->self_modifiable_blobs,
                              user_record_self_modifiable_blobs(hr));
-        dump_self_modifiable("(Privileged)",
+        show_self_modifiable("(Privileged)",
                              hr->self_modifiable_privileged,
                              user_record_self_modifiable_privileged(hr));
 }

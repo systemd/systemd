@@ -108,6 +108,9 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached();
                 }
 
+        if (optind >= argc)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expected command line, refusing.");
+
         return 1;
 }
 
@@ -137,8 +140,12 @@ static int run(int argc, char *argv[]) {
         _cleanup_close_ int pty_fd = -EBADF, peer_fd = -EBADF;
         _cleanup_(pty_forward_freep) PTYForward *forward = NULL;
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
-        _cleanup_(sd_event_source_unrefp) sd_event_source *exit_source = NULL;
+        _cleanup_(sd_event_source_unrefp) sd_event_source *child = NULL;
+        sd_event_source **forward_signal_sources = NULL;
+        size_t n_forward_signal_sources = 0;
         int r;
+
+        CLEANUP_ARRAY(forward_signal_sources, n_forward_signal_sources, event_source_unref_many);
 
         log_setup();
 
@@ -152,11 +159,11 @@ static int run(int argc, char *argv[]) {
         if (!l)
                 return log_oom();
 
+        assert_se(!strv_isempty(l));
+
         r = sd_event_default(&event);
         if (r < 0)
                 return log_error_errno(r, "Failed to get event loop: %m");
-
-        (void) sd_event_set_signal_exit(event, true);
 
         pty_fd = openpt_allocate(O_RDWR|O_NOCTTY|O_NONBLOCK|O_CLOEXEC, /*ret_peer=*/ NULL);
         if (pty_fd < 0)
@@ -185,7 +192,7 @@ static int run(int argc, char *argv[]) {
                         return log_error_errno(r, "Failed to set title: %m");
         }
 
-        pty_forward_set_handler(forward, pty_forward_handler, &event);
+        pty_forward_set_handler(forward, pty_forward_handler, event);
 
         r = pidref_safe_fork_full(
                         "(sd-ptyfwd)",
@@ -208,13 +215,27 @@ static int run(int argc, char *argv[]) {
 
         peer_fd = safe_close(peer_fd);
 
-        r = event_add_child_pidref(event, &exit_source, &pidref, WEXITED, helper_on_exit, NULL);
+        r = event_add_child_pidref(event, &child, &pidref, WEXITED, helper_on_exit, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to add child event source: %m");
 
-        r = sd_event_source_set_child_process_own(exit_source, true);
+        r = sd_event_source_set_child_process_own(child, true);
         if (r < 0)
                 return log_error_errno(r, "Failed to take ownership of child process: %m");
+
+        /* Make sure we don't forward signals to a dead child process by increasing the priority of the child
+         * process event source. */
+        r = sd_event_source_set_priority(child, SD_EVENT_PRIORITY_IMPORTANT);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set child event source priority: %m");
+
+        r = event_forward_signals(
+                        event,
+                        child,
+                        pty_forward_signals, ELEMENTSOF(pty_forward_signals),
+                        &forward_signal_sources, &n_forward_signal_sources);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set up signal forwarding: %m");
 
         return sd_event_loop(event);
 }

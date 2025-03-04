@@ -8,8 +8,10 @@
 #include "sd-json.h"
 
 #include "hashmap.h"
-#include "missing_resource.h"
+#include "rlimit-util.h"
+#include "strv.h"
 #include "time-util.h"
+#include "user-util.h"
 
 typedef enum UserDisposition {
         USER_INTRINSIC,   /* root and nobody */
@@ -17,6 +19,7 @@ typedef enum UserDisposition {
         USER_DYNAMIC,     /* dynamically allocated users for system services */
         USER_REGULAR,     /* regular (typically human users) */
         USER_CONTAINER,   /* UID ranges allocated for container uses */
+        USER_FOREIGN,     /* UID range allocated for foreign OS images */
         USER_RESERVED,    /* Range above 2^31 */
         _USER_DISPOSITION_MAX,
         _USER_DISPOSITION_INVALID = -EINVAL,
@@ -229,6 +232,19 @@ typedef enum AutoResizeMode {
 #define REBALANCE_WEIGHT_MAX UINT64_C(10000)
 #define REBALANCE_WEIGHT_UNSET UINT64_MAX
 
+typedef struct TmpfsLimit {
+        /* Absolute and relative tmpfs limits */
+        uint64_t limit;
+        uint32_t limit_scale;
+        bool is_set;
+} TmpfsLimit;
+
+#define TMPFS_LIMIT_NULL                        \
+        (TmpfsLimit) {                          \
+                .limit = UINT64_MAX,            \
+                .limit_scale = UINT32_MAX,      \
+        }                                       \
+
 typedef struct UserRecord {
         /* The following three fields are not part of the JSON record */
         unsigned n_ref;
@@ -238,6 +254,7 @@ typedef struct UserRecord {
         char *user_name;
         char *realm;
         char *user_name_and_realm_auto; /* the user_name field concatenated with '@' and the realm, if the latter is defined */
+        char **aliases;
         char *real_name;
         char *email_address;
         char *password_hint;
@@ -387,6 +404,10 @@ typedef struct UserRecord {
         char **self_modifiable_blobs;
         char **self_modifiable_privileged;
 
+        TmpfsLimit tmp_limit, dev_shm_limit;
+
+        char *default_area;
+
         sd_json_variant *json;
 } UserRecord;
 
@@ -434,6 +455,8 @@ uint64_t user_record_rebalance_weight(UserRecord *h);
 uint64_t user_record_capability_bounding_set(UserRecord *h);
 uint64_t user_record_capability_ambient_set(UserRecord *h);
 int user_record_languages(UserRecord *h, char ***ret);
+uint32_t user_record_tmp_limit_scale(UserRecord *h);
+uint32_t user_record_dev_shm_limit_scale(UserRecord *h);
 
 const char **user_record_self_modifiable_fields(UserRecord *h);
 const char **user_record_self_modifiable_blobs(UserRecord *h);
@@ -484,10 +507,36 @@ typedef struct UserDBMatch {
         };
 } UserDBMatch;
 
-#define USER_DISPOSITION_MASK_MAX ((UINT64_C(1) << _USER_DISPOSITION_MAX) - UINT64_C(1))
+#define USER_DISPOSITION_MASK_ALL ((UINT64_C(1) << _USER_DISPOSITION_MAX) - UINT64_C(1))
+
+#define USERDB_MATCH_NULL                                       \
+        (UserDBMatch) {                                         \
+                .disposition_mask = USER_DISPOSITION_MASK_ALL,  \
+                .uid_min = 0,                                   \
+                .uid_max = UID_INVALID-1,                       \
+       }
+
+static inline bool userdb_match_is_set(const UserDBMatch *match) {
+        if (!match)
+                return false;
+
+        return !strv_isempty(match->fuzzy_names) ||
+                !FLAGS_SET(match->disposition_mask, USER_DISPOSITION_MASK_ALL) ||
+                match->uid_min > 0 ||
+                match->uid_max < UID_INVALID-1;
+}
+
+static inline void userdb_match_done(UserDBMatch *match) {
+        assert(match);
+        strv_free(match->fuzzy_names);
+}
 
 bool user_name_fuzzy_match(const char *names[], size_t n_names, char **matches);
-int user_record_match(UserRecord *u, const UserDBMatch *match);
+bool user_record_match(UserRecord *u, const UserDBMatch *match);
+
+bool user_record_matches_user_name(const UserRecord *u, const char *username);
+
+int json_dispatch_dispositions_mask(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
 
 const char* user_storage_to_string(UserStorage t) _const_;
 UserStorage user_storage_from_string(const char *s) _pure_;

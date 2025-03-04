@@ -11,6 +11,7 @@
 #include "export-vars.h"
 #include "graphics.h"
 #include "initrd.h"
+#include "line-edit.h"
 #include "linux.h"
 #include "measure.h"
 #include "memory-util-fundamental.h"
@@ -18,6 +19,7 @@
 #include "pe.h"
 #include "proto/block-io.h"
 #include "proto/device-path.h"
+#include "proto/load-file.h"
 #include "proto/simple-text-io.h"
 #include "random-seed.h"
 #include "sbat.h"
@@ -27,6 +29,7 @@
 #include "ticks.h"
 #include "tpm2-pcr.h"
 #include "uki.h"
+#include "url-discovery.h"
 #include "util.h"
 #include "version.h"
 #include "vmm.h"
@@ -47,14 +50,36 @@ DECLARE_SBAT(SBAT_BOOT_SECTION_TEXT);
 typedef enum LoaderType {
         LOADER_UNDEFINED,
         LOADER_AUTO,
-        LOADER_EFI,
-        LOADER_LINUX,         /* Boot loader spec type #1 entries */
-        LOADER_UNIFIED_LINUX, /* Boot loader spec type #2 entries */
+        LOADER_EFI,           /* Boot loader spec type #1 entries with "efi" line */
+        LOADER_LINUX,         /* Boot loader spec type #1 entries with "linux" line */
+        LOADER_UKI,           /* Boot loader spec type #1 entries with "uki" line */
+        LOADER_UKI_URL,       /* Boot loader spec type #1 entries with "uki-url" line */
+        LOADER_TYPE2_UKI,     /* Boot loader spec type #2 entries */
         LOADER_SECURE_BOOT_KEYS,
+        LOADER_BAD,           /* Marker: this boot loader spec type #1 entry is invalid */
+        LOADER_IGNORE,        /* Marker: this boot loader spec type #1 entry does not match local host */
         _LOADER_TYPE_MAX,
 } LoaderType;
 
-typedef struct {
+/* Which loader types permit command line editing */
+#define LOADER_TYPE_ALLOW_EDITOR(t) IN_SET(t, LOADER_EFI, LOADER_LINUX, LOADER_UKI, LOADER_UKI_URL, LOADER_TYPE2_UKI)
+
+/* Which loader types allow command line editing in SecureBoot mode */
+#define LOADER_TYPE_ALLOW_EDITOR_IN_SB(t) IN_SET(t, LOADER_EFI, LOADER_LINUX)
+
+/* Which loader types shall be considered for automatic selection */
+#define LOADER_TYPE_MAY_AUTO_SELECT(t) IN_SET(t, LOADER_EFI, LOADER_LINUX, LOADER_UKI, LOADER_UKI_URL, LOADER_TYPE2_UKI)
+
+/* Whether to do boot attempt counting logic (only works if userspace can actually find the selected option later) */
+#define LOADER_TYPE_BUMP_COUNTERS(t) IN_SET(t, LOADER_LINUX, LOADER_UKI, LOADER_TYPE2_UKI)
+
+/* Whether to do random seed management (only we invoke Linux) */
+#define LOADER_TYPE_PROCESS_RANDOM_SEED(t) IN_SET(t, LOADER_LINUX, LOADER_UKI, LOADER_TYPE2_UKI)
+
+/* Whether to persistently save the selected entry in an EFI variable, if that's requested. */
+#define LOADER_TYPE_SAVE_ENTRY(t) IN_SET(t, LOADER_EFI, LOADER_LINUX, LOADER_UKI, LOADER_UKI_URL, LOADER_TYPE2_UKI)
+
+typedef struct BootEntry {
         char16_t *id;         /* The unique identifier for this entry (typically the filename of the file defining the entry, possibly suffixed with a profile id) */
         char16_t *id_without_profile; /* same, but without any profile id suffixed */
         char16_t *title_show; /* The string to actually display (this is made unique before showing) */
@@ -65,12 +90,13 @@ typedef struct {
         EFI_HANDLE *device;
         LoaderType type;
         char16_t *loader;
+        char16_t *url;
         char16_t *devicetree;
         char16_t *options;
         bool options_implied; /* If true, these options are implied if we invoke the PE binary without any parameters (as in: UKI). If false we must specify these options explicitly. */
         char16_t **initrd;
         char16_t key;
-        EFI_STATUS (*call)(void);
+        EFI_STATUS (*call)(const struct BootEntry *entry, EFI_FILE *root_dir, EFI_HANDLE parent_image);
         int tries_done;
         int tries_left;
         char16_t *path;
@@ -134,254 +160,6 @@ enum {
         IDX_INVALID,
 };
 
-static void cursor_left(size_t *cursor, size_t *first) {
-        assert(cursor);
-        assert(first);
-
-        if ((*cursor) > 0)
-                (*cursor)--;
-        else if ((*first) > 0)
-                (*first)--;
-}
-
-static void cursor_right(size_t *cursor, size_t *first, size_t x_max, size_t len) {
-        assert(cursor);
-        assert(first);
-
-        if ((*cursor)+1 < x_max)
-                (*cursor)++;
-        else if ((*first) + (*cursor) < len)
-                (*first)++;
-}
-
-static bool line_edit(char16_t **line_in, size_t x_max, size_t y_pos) {
-        _cleanup_free_ char16_t *line = NULL, *print = NULL;
-        size_t size, len, first = 0, cursor = 0, clear = 0;
-
-        /* Edit the line and return true if it should be executed, false if not. */
-
-        assert(line_in);
-
-        len = strlen16(*line_in);
-        size = len + 1024;
-        line = xnew(char16_t, size);
-        print = xnew(char16_t, x_max + 1);
-        strcpy16(line, strempty(*line_in));
-
-        for (;;) {
-                EFI_STATUS err;
-                uint64_t key;
-                size_t j, cursor_color = EFI_TEXT_ATTR_SWAP(COLOR_EDIT);
-
-                j = MIN(len - first, x_max);
-                memcpy(print, line + first, j * sizeof(char16_t));
-                while (clear > 0 && j < x_max) {
-                        clear--;
-                        print[j++] = ' ';
-                }
-                print[j] = '\0';
-
-                /* See comment at edit_line() call site for why we start at 1. */
-                print_at(1, y_pos, COLOR_EDIT, print);
-
-                if (!print[cursor])
-                        print[cursor] = ' ';
-                print[cursor+1] = '\0';
-                do {
-                        print_at(cursor + 1, y_pos, cursor_color, print + cursor);
-                        cursor_color = EFI_TEXT_ATTR_SWAP(cursor_color);
-
-                        err = console_key_read(&key, 750 * 1000);
-                        if (!IN_SET(err, EFI_SUCCESS, EFI_TIMEOUT, EFI_NOT_READY))
-                                return false;
-
-                        print_at(cursor + 1, y_pos, COLOR_EDIT, print + cursor);
-                } while (err != EFI_SUCCESS);
-
-                switch (key) {
-                case KEYPRESS(0, SCAN_ESC, 0):
-                case KEYPRESS(EFI_CONTROL_PRESSED, 0, 'c'):
-                case KEYPRESS(EFI_CONTROL_PRESSED, 0, 'g'):
-                case KEYPRESS(EFI_CONTROL_PRESSED, 0, CHAR_CTRL('c')):
-                case KEYPRESS(EFI_CONTROL_PRESSED, 0, CHAR_CTRL('g')):
-                        return false;
-
-                case KEYPRESS(0, SCAN_HOME, 0):
-                case KEYPRESS(EFI_CONTROL_PRESSED, 0, 'a'):
-                case KEYPRESS(EFI_CONTROL_PRESSED, 0, CHAR_CTRL('a')):
-                        /* beginning-of-line */
-                        cursor = 0;
-                        first = 0;
-                        continue;
-
-                case KEYPRESS(0, SCAN_END, 0):
-                case KEYPRESS(EFI_CONTROL_PRESSED, 0, 'e'):
-                case KEYPRESS(EFI_CONTROL_PRESSED, 0, CHAR_CTRL('e')):
-                        /* end-of-line */
-                        cursor = len - first;
-                        if (cursor+1 >= x_max) {
-                                cursor = x_max-1;
-                                first = len - (x_max-1);
-                        }
-                        continue;
-
-                case KEYPRESS(0, SCAN_DOWN, 0):
-                case KEYPRESS(EFI_ALT_PRESSED, 0, 'f'):
-                case KEYPRESS(EFI_CONTROL_PRESSED, SCAN_RIGHT, 0):
-                        /* forward-word */
-                        while (line[first + cursor] == ' ')
-                                cursor_right(&cursor, &first, x_max, len);
-                        while (line[first + cursor] && line[first + cursor] != ' ')
-                                cursor_right(&cursor, &first, x_max, len);
-                        continue;
-
-                case KEYPRESS(0, SCAN_UP, 0):
-                case KEYPRESS(EFI_ALT_PRESSED, 0, 'b'):
-                case KEYPRESS(EFI_CONTROL_PRESSED, SCAN_LEFT, 0):
-                        /* backward-word */
-                        if ((first + cursor) > 0 && line[first + cursor-1] == ' ') {
-                                cursor_left(&cursor, &first);
-                                while ((first + cursor) > 0 && line[first + cursor] == ' ')
-                                        cursor_left(&cursor, &first);
-                        }
-                        while ((first + cursor) > 0 && line[first + cursor-1] != ' ')
-                                cursor_left(&cursor, &first);
-                        continue;
-
-                case KEYPRESS(0, SCAN_RIGHT, 0):
-                case KEYPRESS(EFI_CONTROL_PRESSED, 0, 'f'):
-                case KEYPRESS(EFI_CONTROL_PRESSED, 0, CHAR_CTRL('f')):
-                        /* forward-char */
-                        if (first + cursor == len)
-                                continue;
-                        cursor_right(&cursor, &first, x_max, len);
-                        continue;
-
-                case KEYPRESS(0, SCAN_LEFT, 0):
-                case KEYPRESS(EFI_CONTROL_PRESSED, 0, 'b'):
-                case KEYPRESS(EFI_CONTROL_PRESSED, 0, CHAR_CTRL('b')):
-                        /* backward-char */
-                        cursor_left(&cursor, &first);
-                        continue;
-
-                case KEYPRESS(EFI_CONTROL_PRESSED, SCAN_DELETE, 0):
-                case KEYPRESS(EFI_ALT_PRESSED, 0, 'd'):
-                        /* kill-word */
-                        clear = 0;
-
-                        size_t k;
-                        for (k = first + cursor; k < len && line[k] == ' '; k++)
-                                clear++;
-                        for (; k < len && line[k] != ' '; k++)
-                                clear++;
-
-                        for (size_t i = first + cursor; i + clear < len; i++)
-                                line[i] = line[i + clear];
-                        len -= clear;
-                        line[len] = '\0';
-                        continue;
-
-                case KEYPRESS(EFI_CONTROL_PRESSED, 0, 'w'):
-                case KEYPRESS(EFI_CONTROL_PRESSED, 0, CHAR_CTRL('w')):
-                case KEYPRESS(EFI_ALT_PRESSED, 0, '\b'):
-                        /* backward-kill-word */
-                        clear = 0;
-                        if ((first + cursor) > 0 && line[first + cursor-1] == ' ') {
-                                cursor_left(&cursor, &first);
-                                clear++;
-                                while ((first + cursor) > 0 && line[first + cursor] == ' ') {
-                                        cursor_left(&cursor, &first);
-                                        clear++;
-                                }
-                        }
-                        while ((first + cursor) > 0 && line[first + cursor-1] != ' ') {
-                                cursor_left(&cursor, &first);
-                                clear++;
-                        }
-
-                        for (size_t i = first + cursor; i + clear < len; i++)
-                                line[i] = line[i + clear];
-                        len -= clear;
-                        line[len] = '\0';
-                        continue;
-
-                case KEYPRESS(0, SCAN_DELETE, 0):
-                case KEYPRESS(EFI_CONTROL_PRESSED, 0, 'd'):
-                case KEYPRESS(EFI_CONTROL_PRESSED, 0, CHAR_CTRL('d')):
-                        if (len == 0)
-                                continue;
-                        if (first + cursor == len)
-                                continue;
-                        for (size_t i = first + cursor; i < len; i++)
-                                line[i] = line[i+1];
-                        clear = 1;
-                        len--;
-                        continue;
-
-                case KEYPRESS(EFI_CONTROL_PRESSED, 0, 'k'):
-                case KEYPRESS(EFI_CONTROL_PRESSED, 0, CHAR_CTRL('k')):
-                        /* kill-line */
-                        line[first + cursor] = '\0';
-                        clear = len - (first + cursor);
-                        len = first + cursor;
-                        continue;
-
-                case KEYPRESS(0, 0, '\n'):
-                case KEYPRESS(0, 0, '\r'):
-                case KEYPRESS(0, SCAN_F3, 0): /* EZpad Mini 4s firmware sends malformed events */
-                case KEYPRESS(0, SCAN_F3, '\r'): /* Teclast X98+ II firmware sends malformed events */
-                        if (!streq16(line, *line_in)) {
-                                free(*line_in);
-                                *line_in = TAKE_PTR(line);
-                        }
-                        return true;
-
-                case KEYPRESS(0, 0, '\b'):
-                        if (len == 0)
-                                continue;
-                        if (first == 0 && cursor == 0)
-                                continue;
-                        for (size_t i = first + cursor-1; i < len; i++)
-                                line[i] = line[i+1];
-                        clear = 1;
-                        len--;
-                        if (cursor > 0)
-                                cursor--;
-                        if (cursor > 0 || first == 0)
-                                continue;
-                        /* show full line if it fits */
-                        if (len < x_max) {
-                                cursor = first;
-                                first = 0;
-                                continue;
-                        }
-                        /* jump left to see what we delete */
-                        if (first > 10) {
-                                first -= 10;
-                                cursor = 10;
-                        } else {
-                                cursor = first;
-                                first = 0;
-                        }
-                        continue;
-
-                case KEYPRESS(0, 0, ' ') ... KEYPRESS(0, 0, '~'):
-                case KEYPRESS(0, 0, 0x80) ... KEYPRESS(0, 0, 0xffff):
-                        if (len+1 == size)
-                                continue;
-                        for (size_t i = len; i > first + cursor; i--)
-                                line[i] = line[i-1];
-                        line[first + cursor] = KEYCHAR(key);
-                        len++;
-                        line[len] = '\0';
-                        if (cursor+1 < x_max)
-                                cursor++;
-                        else if (first + cursor < len)
-                                first++;
-                        continue;
-                }
-        }
-}
 
 static size_t entry_lookup_key(Config *config, size_t start, char16_t key) {
         assert(config);
@@ -608,6 +386,8 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
                         printf("        device: %ls\n", dp_str);
                 if (entry->loader)
                         printf("        loader: %ls\n", entry->loader);
+                if (entry->url)
+                        printf("           url: %ls\n", entry->url);
                 STRV_FOREACH(initrd, entry->initrd)
                         printf("        initrd: %ls\n", *initrd);
                 if (entry->devicetree)
@@ -648,24 +428,24 @@ static EFI_STATUS set_reboot_into_firmware(void) {
         return EFI_SUCCESS;
 }
 
-_noreturn_ static EFI_STATUS poweroff_system(void) {
+_noreturn_ static EFI_STATUS call_poweroff_system(const BootEntry *entry, EFI_FILE *root_dir, EFI_HANDLE parent_image) {
         RT->ResetSystem(EfiResetShutdown, EFI_SUCCESS, 0, NULL);
         assert_not_reached();
 }
 
-_noreturn_ static EFI_STATUS reboot_system(void) {
+_noreturn_ static EFI_STATUS call_reboot_system(const BootEntry *entry, EFI_FILE *root_dir, EFI_HANDLE parent_image) {
         RT->ResetSystem(EfiResetCold, EFI_SUCCESS, 0, NULL);
         assert_not_reached();
 }
 
-static EFI_STATUS reboot_into_firmware(void) {
+static EFI_STATUS call_reboot_into_firmware(const BootEntry *entry, EFI_FILE *root_dir, EFI_HANDLE parent_image) {
         EFI_STATUS err;
 
         err = set_reboot_into_firmware();
         if (err != EFI_SUCCESS)
                 return err;
 
-        return reboot_system();
+        return call_reboot_system(entry, root_dir, parent_image);
 }
 
 static bool menu_run(
@@ -683,7 +463,7 @@ static bool menu_run(
         bool new_mode = true, clear = true;
         bool refresh = true, highlight = false;
         size_t x_start = 0, y_start = 0, y_status = 0, x_max, y_max;
-        _cleanup_(strv_freep) char16_t **lines = NULL;
+        _cleanup_strv_free_ char16_t **lines = NULL;
         _cleanup_free_ char16_t *clearline = NULL, *separator = NULL, *status = NULL;
         uint64_t timeout_efivar_saved = config->timeout_sec_efivar;
         uint32_t timeout_remain = config->timeout_sec == TIMEOUT_MENU_FORCE ? 0 : config->timeout_sec;
@@ -994,7 +774,7 @@ static bool menu_run(
                 case KEYPRESS(0, 0, 'E'):
                         /* only the options of configured entries can be edited */
                         if (!config->editor ||
-                            !IN_SET(config->entries[idx_highlight]->type, LOADER_EFI, LOADER_LINUX, LOADER_UNIFIED_LINUX)) {
+                            !LOADER_TYPE_ALLOW_EDITOR(config->entries[idx_highlight]->type)) {
                                 status = xstrdup16(u"Entry does not support editing the command line.");
                                 break;
                         }
@@ -1002,7 +782,7 @@ static bool menu_run(
                         /* Unified kernels that are signed as a whole will not accept command line options
                          * when secure boot is enabled unless there is none embedded in the image. Do not try
                          * to pretend we can edit it to only have it be ignored. */
-                        if (config->entries[idx_highlight]->type == LOADER_UNIFIED_LINUX &&
+                        if (!LOADER_TYPE_ALLOW_EDITOR_IN_SB(config->entries[idx_highlight]->type) &&
                             secure_boot_enabled() &&
                             config->entries[idx_highlight]->options) {
                                 status = xstrdup16(u"Entry not editable in SecureBoot mode.");
@@ -1158,10 +938,10 @@ static bool menu_run(
         case ACTION_CONTINUE:
                 assert_not_reached();
         case ACTION_POWEROFF:
-                poweroff_system();
+                (void) call_poweroff_system(/* entry= */ NULL, /* root_dir= */ NULL, /* parent_image= */ NULL);
         case ACTION_REBOOT:
         case ACTION_FIRMWARE_SETUP:
-                reboot_system();
+                (void) call_reboot_system(/* entry= */ NULL, /* root_dir= */ NULL, /* parent_image= */ NULL);
         case ACTION_RUN:
         case ACTION_QUIT:
                 break;
@@ -1179,12 +959,11 @@ static void config_add_entry(Config *config, BootEntry *entry) {
         /* This is just for paranoia. */
         assert(config->n_entries < IDX_MAX);
 
-        if ((config->n_entries & 15) == 0) {
+        if ((config->n_entries & 15) == 0)
                 config->entries = xrealloc(
                                 config->entries,
                                 sizeof(void *) * config->n_entries,
                                 sizeof(void *) * (config->n_entries + 16));
-        }
         config->entries[config->n_entries++] = entry;
 }
 
@@ -1200,6 +979,7 @@ static BootEntry* boot_entry_free(BootEntry *entry) {
         free(entry->version);
         free(entry->machine_id);
         free(entry->loader);
+        free(entry->url);
         free(entry->devicetree);
         free(entry->options);
         strv_free(entry->initrd);
@@ -1374,12 +1154,15 @@ static void boot_entry_parse_tries(
 
 static EFI_STATUS boot_entry_bump_counters(BootEntry *entry) {
         _cleanup_free_ char16_t* old_path = NULL, *new_path = NULL;
-        _cleanup_(file_closep) EFI_FILE *handle = NULL;
+        _cleanup_file_close_ EFI_FILE *handle = NULL;
         _cleanup_free_ EFI_FILE_INFO *file_info = NULL;
         size_t file_info_size;
         EFI_STATUS err;
 
         assert(entry);
+
+        if (!LOADER_TYPE_BUMP_COUNTERS(entry->type))
+                return EFI_SUCCESS;
 
         if (entry->tries_left < 0)
                 return EFI_SUCCESS;
@@ -1387,7 +1170,7 @@ static EFI_STATUS boot_entry_bump_counters(BootEntry *entry) {
         if (!entry->path || !entry->current_name || !entry->next_name)
                 return EFI_SUCCESS;
 
-        _cleanup_(file_closep) EFI_FILE *root = NULL;
+        _cleanup_file_close_ EFI_FILE *root = NULL;
         err = open_volume(entry->device, &root);
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Error opening entry root path: %m");
@@ -1396,7 +1179,7 @@ static EFI_STATUS boot_entry_bump_counters(BootEntry *entry) {
 
         err = root->Open(root, &handle, old_path, EFI_FILE_MODE_READ|EFI_FILE_MODE_WRITE, 0ULL);
         if (err != EFI_SUCCESS)
-                return log_error_status(err, "Error opening boot entry: %m");
+                return log_error_status(err, "Error opening boot entry '%ls': %m", old_path);
 
         err = get_file_info(handle, &file_info, &file_info_size);
         if (err != EFI_SUCCESS)
@@ -1428,6 +1211,8 @@ static EFI_STATUS boot_entry_bump_counters(BootEntry *entry) {
         return EFI_SUCCESS;
 }
 
+static EFI_STATUS call_image_start(const BootEntry *entry, EFI_FILE *root_dir, EFI_HANDLE parent_image);
+
 static void boot_entry_add_type1(
                 Config *config,
                 EFI_HANDLE *device,
@@ -1446,7 +1231,6 @@ static void boot_entry_add_type1(
         assert(config);
         assert(device);
         assert(root_dir);
-        assert(path);
         assert(file);
         assert(content);
 
@@ -1454,6 +1238,7 @@ static void boot_entry_add_type1(
         *entry = (BootEntry) {
                 .tries_done = -1,
                 .tries_left = -1,
+                .call = call_image_start,
         };
 
         while ((line = line_get_key_value(content, " \t", &pos, &key, &value)))
@@ -1474,26 +1259,76 @@ static void boot_entry_add_type1(
                         entry->machine_id = xstr8_to_16(value);
 
                 } else if (streq8(key, "linux")) {
+
+                        if (!IN_SET(entry->type, LOADER_UNDEFINED, LOADER_LINUX)) {
+                                entry->type = LOADER_BAD;
+                                break;
+                        }
+
                         free(entry->loader);
                         entry->type = LOADER_LINUX;
                         entry->loader = xstr8_to_path(value);
                         entry->key = 'l';
 
+                } else if (streq8(key, "uki")) {
+
+                        if (!IN_SET(entry->type, LOADER_UNDEFINED, LOADER_UKI)) {
+                                entry->type = LOADER_BAD;
+                                break;
+                        }
+
+                        free(entry->loader);
+                        entry->type = LOADER_UKI;
+                        entry->loader = xstr8_to_path(value);
+                        entry->key = 'l';
+
+                } else if (streq8(key, "uki-url")) {
+
+                        if (!IN_SET(entry->type, LOADER_UNDEFINED, LOADER_UKI_URL)) {
+                                entry->type = LOADER_BAD;
+                                break;
+                        }
+
+                        _cleanup_free_ char16_t *p = xstr8_to_16(value);
+
+                        const char16_t *e = startswith(p, u":");
+                        if (e) {
+                                _cleanup_free_ char16_t *origin = disk_get_url(device);
+
+                                if (!origin) {
+                                        /* Automatically hide entries that require an original URL but where none is available. */
+                                        entry->type = LOADER_IGNORE;
+                                        break;
+                                }
+
+                                entry->url = url_replace_last_component(origin, p);
+                        } else
+                                entry->url = TAKE_PTR(p);
+
+                        entry->type = LOADER_UKI_URL;
+                        entry->key = 'l';
+
                 } else if (streq8(key, "efi")) {
+
+                        if (!IN_SET(entry->type, LOADER_UNDEFINED, LOADER_EFI)) {
+                                entry->type = LOADER_BAD;
+                                break;
+                        }
+
                         entry->type = LOADER_EFI;
                         free(entry->loader);
                         entry->loader = xstr8_to_path(value);
 
                         /* do not add an entry for ourselves */
                         if (strcaseeq16(entry->loader, loaded_image_path)) {
-                                entry->type = LOADER_UNDEFINED;
+                                entry->type = LOADER_IGNORE;
                                 break;
                         }
 
                 } else if (streq8(key, "architecture")) {
                         /* do not add an entry for an EFI image of architecture not matching with that of the image */
                         if (!strcaseeq8(value, EFI_MACHINE_TYPE_NAME)) {
-                                entry->type = LOADER_UNDEFINED;
+                                entry->type = LOADER_IGNORE;
                                 break;
                         }
 
@@ -1521,14 +1356,17 @@ static void boot_entry_add_type1(
                                 entry->options = TAKE_PTR(new);
                 }
 
-        if (entry->type == LOADER_UNDEFINED)
+        /* Filter all entries that are badly defined or don't apply to the local system. */
+        if (IN_SET(entry->type, LOADER_UNDEFINED, LOADER_BAD, LOADER_IGNORE))
                 return;
 
-        /* check existence */
-        _cleanup_(file_closep) EFI_FILE *handle = NULL;
-        err = root_dir->Open(root_dir, &handle, entry->loader, EFI_FILE_MODE_READ, 0ULL);
-        if (err != EFI_SUCCESS)
-                return;
+        /* Check existence of loader file */
+        if (entry->loader) {
+                _cleanup_file_close_ EFI_FILE *handle = NULL;
+                err = root_dir->Open(root_dir, &handle, entry->loader, EFI_FILE_MODE_READ, 0ULL);
+                if (err != EFI_SUCCESS)
+                        return;
+        }
 
         entry->device = device;
         entry->id = xstrdup16(file);
@@ -1536,7 +1374,8 @@ static void boot_entry_add_type1(
 
         config_add_entry(config, entry);
 
-        boot_entry_parse_tries(entry, path, file, u".conf");
+        if (path)
+                boot_entry_parse_tries(entry, path, file, u".conf");
         TAKE_PTR(entry);
 }
 
@@ -1646,13 +1485,26 @@ static void config_load_defaults(Config *config, EFI_FILE *root_dir) {
                 (void) efivar_get_str16(MAKE_GUID_PTR(LOADER), u"LoaderEntryLastBooted", &config->entry_saved);
 }
 
+static bool valid_type1_filename(const char16_t *fname) {
+        assert(fname);
+
+        if (IN_SET(fname[0], u'.', u'\0'))
+                return false;
+        if (!endswith_no_case(fname, u".conf"))
+                return false;
+        if (startswith_no_case(fname, u"auto-"))
+                return false;
+
+        return true;
+}
+
 static void config_load_type1_entries(
                 Config *config,
                 EFI_HANDLE *device,
                 EFI_FILE *root_dir,
                 const char16_t *loaded_image_path) {
 
-        _cleanup_(file_closep) EFI_FILE *entries_dir = NULL;
+        _cleanup_file_close_ EFI_FILE *entries_dir = NULL;
         _cleanup_free_ EFI_FILE_INFO *f = NULL;
         size_t f_size = 0;
         EFI_STATUS err;
@@ -1676,13 +1528,9 @@ static void config_load_type1_entries(
                 if (err != EFI_SUCCESS || !f)
                         break;
 
-                if (f->FileName[0] == '.')
-                        continue;
                 if (FLAGS_SET(f->Attribute, EFI_FILE_DIRECTORY))
                         continue;
-                if (!endswith_no_case(f->FileName, u".conf"))
-                        continue;
-                if (startswith_no_case(f->FileName, u"auto-"))
+                if (!valid_type1_filename(f->FileName))
                         continue;
 
                 err = file_read(entries_dir,
@@ -1695,6 +1543,41 @@ static void config_load_type1_entries(
                         continue;
 
                 boot_entry_add_type1(config, device, root_dir, dropin_path, f->FileName, content, loaded_image_path);
+        }
+}
+
+static void config_load_smbios_entries(
+                Config *config,
+                EFI_HANDLE *device,
+                EFI_FILE *root_dir,
+                const char16_t *loaded_image_path) {
+
+        assert(config);
+        assert(device);
+        assert(root_dir);
+
+        /* Loads Boot Loader Type #1 entries from SMBIOS 11 */
+
+        if (is_confidential_vm())
+                return; /* Don't consume SMBIOS in CoCo contexts */
+
+        for (const char *after = NULL, *extra;; after = extra) {
+                extra = smbios_find_oem_string("io.systemd.boot.entries-extra:", after);
+                if (!extra)
+                        break;
+
+                const char *eq = strchr8(extra, '=');
+                if (!eq)
+                        continue;
+
+                _cleanup_free_ char16_t *fname = xstrn8_to_16(extra, eq - extra);
+                if (!valid_type1_filename(fname))
+                        continue;
+
+                /* Make a copy,  since boot_entry_add_type1() wants to modify it */
+                _cleanup_free_ char *contents = xstrdup8(eq + 1);
+
+                boot_entry_add_type1(config, device, root_dir, /* path= */ NULL, fname, contents, loaded_image_path);
         }
 }
 
@@ -1807,7 +1690,7 @@ static void config_select_default_entry(Config *config) {
 
         /* select the first suitable entry */
         for (i = 0; i < config->n_entries; i++)
-                if (config->entries[i]->type != LOADER_AUTO && !config->entries[i]->call) {
+                if (LOADER_TYPE_MAY_AUTO_SELECT(config->entries[i]->type)) {
                         config->idx_default = i;
                         return;
                 }
@@ -1907,7 +1790,7 @@ static bool is_sd_boot(EFI_FILE *root_dir, const char16_t *loader_path) {
         assert(root_dir);
         assert(loader_path);
 
-        _cleanup_(file_closep) EFI_FILE *handle = NULL;
+        _cleanup_file_close_ EFI_FILE *handle = NULL;
         err = root_dir->Open(root_dir, &handle, (char16_t *) loader_path, EFI_FILE_MODE_READ, 0ULL);
         if (err != EFI_SUCCESS)
                 return false;
@@ -1970,7 +1853,7 @@ static BootEntry* config_add_entry_loader_auto(
         }
 
         /* check existence */
-        _cleanup_(file_closep) EFI_FILE *handle = NULL;
+        _cleanup_file_close_ EFI_FILE *handle = NULL;
         EFI_STATUS err = root_dir->Open(root_dir, &handle, (char16_t *) loader, EFI_FILE_MODE_READ, 0ULL);
         if (err != EFI_SUCCESS)
                 return NULL;
@@ -1985,6 +1868,7 @@ static BootEntry* config_add_entry_loader_auto(
                 .key = key,
                 .tries_done = -1,
                 .tries_left = -1,
+                .call = call_image_start,
         };
 
         config_add_entry(config, entry);
@@ -2007,7 +1891,7 @@ static void config_add_entry_osx(Config *config) {
                 return;
 
         for (size_t i = 0; i < n_handles; i++) {
-                _cleanup_(file_closep) EFI_FILE *root = NULL;
+                _cleanup_file_close_ EFI_FILE *root = NULL;
 
                 if (open_volume(handles[i], &root) != EFI_SUCCESS)
                         continue;
@@ -2016,7 +1900,7 @@ static void config_add_entry_osx(Config *config) {
                                 config,
                                 handles[i],
                                 root,
-                                NULL,
+                                /* loaded_image_path= */ NULL,
                                 u"auto-osx",
                                 'a',
                                 u"macOS",
@@ -2026,10 +1910,12 @@ static void config_add_entry_osx(Config *config) {
 }
 
 #if defined(__i386__) || defined(__x86_64__) || defined(__arm__) || defined(__aarch64__)
-static EFI_STATUS boot_windows_bitlocker(void) {
+static EFI_STATUS call_boot_windows_bitlocker(const BootEntry *entry, EFI_FILE *root_dir, EFI_HANDLE parent_image) {
         _cleanup_free_ EFI_HANDLE *handles = NULL;
         size_t n_handles;
         EFI_STATUS err;
+
+        assert(entry);
 
         // FIXME: Experimental for now. Should be generalized, and become a per-entry option that can be
         // enabled independently of BitLocker, and without a BootXXXX entry pre-existing.
@@ -2108,7 +1994,7 @@ static EFI_STATUS boot_windows_bitlocker(void) {
 }
 #endif
 
-static void config_add_entry_windows(Config *config, EFI_HANDLE *device, EFI_FILE *root_dir) {
+static void config_add_entry_windows(Config *config, EFI_HANDLE *device, EFI_FILE *root) {
 #if defined(__i386__) || defined(__x86_64__) || defined(__arm__) || defined(__aarch64__)
         _cleanup_free_ char *bcd = NULL;
         char16_t *title = NULL;
@@ -2117,22 +2003,28 @@ static void config_add_entry_windows(Config *config, EFI_HANDLE *device, EFI_FIL
 
         assert(config);
         assert(device);
-        assert(root_dir);
+        assert(root);
 
         if (!config->auto_entries)
                 return;
 
         /* Try to find a better title. */
-        err = file_read(root_dir, u"\\EFI\\Microsoft\\Boot\\BCD", 0, 100*1024, &bcd, &len);
+        err = file_read(root, u"\\EFI\\Microsoft\\Boot\\BCD", 0, 100*1024, &bcd, &len);
         if (err == EFI_SUCCESS)
                 title = get_bcd_title((uint8_t *) bcd, len);
 
-        BootEntry *e = config_add_entry_loader_auto(config, device, root_dir, NULL,
-                                                    u"auto-windows", 'w', title ?: u"Windows Boot Manager",
-                                                    u"\\EFI\\Microsoft\\Boot\\bootmgfw.efi");
+        BootEntry *e = config_add_entry_loader_auto(
+                        config,
+                        device,
+                        root,
+                        NULL,
+                        u"auto-windows",
+                        'w',
+                        title ?: u"Windows Boot Manager",
+                        u"\\EFI\\Microsoft\\Boot\\bootmgfw.efi");
 
         if (config->reboot_for_bitlocker)
-                e->call = boot_windows_bitlocker;
+                e->call = call_boot_windows_bitlocker;
 #endif
 }
 
@@ -2164,7 +2056,7 @@ static void boot_entry_add_type2(
         assert(path);
         assert(filename);
 
-        _cleanup_(file_closep) EFI_FILE *handle = NULL;
+        _cleanup_file_close_ EFI_FILE *handle = NULL;
         err = dir->Open(dir, &handle, (char16_t *) filename, EFI_FILE_MODE_READ, 0ULL);
         if (err != EFI_SUCCESS)
                 return;
@@ -2324,7 +2216,7 @@ static void boot_entry_add_type2(
                 *entry = (BootEntry) {
                         .id = strtolower16(TAKE_PTR(id)),
                         .id_without_profile = profile > 0 ? strtolower16(xstrdup16(filename)) : NULL,
-                        .type = LOADER_UNIFIED_LINUX,
+                        .type = LOADER_TYPE2_UKI,
                         .title = TAKE_PTR(title),
                         .version = xstrdup16(good_version),
                         .device = device,
@@ -2334,6 +2226,7 @@ static void boot_entry_add_type2(
                         .tries_done = -1,
                         .tries_left = -1,
                         .profile = profile,
+                        .call = call_image_start,
                 };
 
                 config_add_entry(config, entry);
@@ -2364,7 +2257,7 @@ static void config_load_type2_entries(
                 EFI_HANDLE *device,
                 EFI_FILE *root_dir) {
 
-        _cleanup_(file_closep) EFI_FILE *linux_dir = NULL;
+        _cleanup_file_close_ EFI_FILE *linux_dir = NULL;
         _cleanup_free_ EFI_FILE_INFO *f = NULL;
         size_t f_size = 0;
         EFI_STATUS err;
@@ -2403,7 +2296,7 @@ static void config_load_xbootldr(
                 Config *config,
                 EFI_HANDLE *device) {
 
-        _cleanup_(file_closep) EFI_FILE *root_dir = NULL;
+        _cleanup_file_close_ EFI_FILE *root_dir = NULL;
         EFI_HANDLE new_device = NULL;  /* avoid false maybe-uninitialized warning */
         EFI_STATUS err;
 
@@ -2455,7 +2348,7 @@ static EFI_STATUS initrd_prepare(
                 else
                         options = xasprintf("initrd=%ls", *i);
 
-                _cleanup_(file_closep) EFI_FILE *handle = NULL;
+                _cleanup_file_close_ EFI_FILE *handle = NULL;
                 err = root->Open(root, &handle, *i, EFI_FILE_MODE_READ, 0);
                 if (err != EFI_SUCCESS)
                         return err;
@@ -2476,7 +2369,7 @@ static EFI_STATUS initrd_prepare(
         uint8_t *p = PHYSICAL_ADDRESS_TO_POINTER(pages.addr);
 
         STRV_FOREACH(i, entry->initrd) {
-                _cleanup_(file_closep) EFI_FILE *handle = NULL;
+                _cleanup_file_close_ EFI_FILE *handle = NULL;
                 err = root->Open(root, &handle, *i, EFI_FILE_MODE_READ, 0);
                 if (err != EFI_SUCCESS)
                         return err;
@@ -2524,54 +2417,171 @@ static EFI_STATUS initrd_prepare(
         return EFI_SUCCESS;
 }
 
-static EFI_STATUS image_start(
+static EFI_STATUS expand_path(
                 EFI_HANDLE parent_image,
-                const BootEntry *entry) {
+                EFI_DEVICE_PATH *path,
+                EFI_DEVICE_PATH **ret_expanded_path) {
+
+        EFI_STATUS err;
+
+        assert(parent_image);
+        assert(path);
+        assert(ret_expanded_path);
+
+        _cleanup_free_ EFI_HANDLE *handles = NULL;
+        size_t n_handles = 0;
+        err = BS->LocateHandleBuffer(
+                        ByProtocol,
+                        MAKE_GUID_PTR(EFI_LOAD_FILE_PROTOCOL),
+                        /* SearchKey= */ NULL,
+                        &n_handles,
+                        &handles);
+        if (!IN_SET(err, EFI_SUCCESS, EFI_NOT_FOUND))
+                return log_error_status(err, "Failed to get list of LoadFile protocol handles: %m");
+
+        FOREACH_ARRAY(h, handles, n_handles) {
+                EFI_LOAD_FILE_PROTOCOL *load_file = NULL;
+                err = BS->OpenProtocol(
+                                *h,
+                                MAKE_GUID_PTR(EFI_LOAD_FILE_PROTOCOL),
+                                (void**) &load_file,
+                                parent_image,
+                                /* ControllerHandler= */ NULL,
+                                EFI_OPEN_PROTOCOL_GET_PROTOCOL);
+                if (IN_SET(err, EFI_NOT_FOUND, EFI_INVALID_PARAMETER))
+                        continue; /* Skip over LoadFile() handles that are not suitable for this kind of device path */
+                if (err != EFI_SUCCESS) {
+                        log_warning_status(err, "Failed to get LoadFile() protocol, ignoring: %m");
+                        continue;
+                }
+
+                /* Issue a LoadFile() request without interest in the actual data (i.e. size is zero and
+                 * buffer pointer is NULL), but with BootPolicy set to true, this has the effect of
+                 * downloading the URL and establishing a handle for it. */
+                size_t size = 0;
+                err = load_file->LoadFile(load_file, path, /* BootPolicy= */ true, &size, /* Buffer= */ NULL);
+                if (IN_SET(err, EFI_NOT_FOUND, EFI_INVALID_PARAMETER))
+                        continue; /* Skip over LoadFile() handles that after all don't consider themselves
+                                   * appropriate for this kind of path */
+                if (err != EFI_BUFFER_TOO_SMALL) {
+                        log_warning_status(err, "Failed to get file via LoadFile() protocol, ignoring: %m");
+                        continue;
+                }
+
+                /* Now read the updated file path */
+                EFI_DEVICE_PATH *load_file_path = NULL;
+                err = BS->HandleProtocol(*h, MAKE_GUID_PTR(EFI_DEVICE_PATH_PROTOCOL), (void **) &load_file_path);
+                if (err != EFI_SUCCESS)
+                        return log_error_status(err, "Failed to get LoadFile() device path: %m");
+
+                /* And return a copy */
+                *ret_expanded_path = device_path_dup(load_file_path);
+                return EFI_SUCCESS;
+        }
+
+        return EFI_NOT_FOUND;
+}
+
+static EFI_STATUS call_image_start(
+                const BootEntry *entry,
+                EFI_FILE *root_dir,
+                EFI_HANDLE parent_image) {
 
         _cleanup_(devicetree_cleanup) struct devicetree_state dtstate = {};
         _cleanup_(unload_imagep) EFI_HANDLE image = NULL;
-        _cleanup_free_ EFI_DEVICE_PATH *path = NULL;
         EFI_STATUS err;
 
         assert(entry);
 
-        /* If this loader entry has a special way to boot, try that first. */
-        if (entry->call)
-                (void) entry->call();
-
-        _cleanup_(file_closep) EFI_FILE *image_root = NULL;
-        err = open_volume(entry->device, &image_root);
-        if (err != EFI_SUCCESS)
-                return log_error_status(err, "Error opening root path: %m");
-
-        err = make_file_device_path(entry->device, entry->loader, &path);
-        if (err != EFI_SUCCESS)
-                return log_error_status(err, "Error making file device path: %m");
-
-        size_t initrd_size = 0;
-        _cleanup_pages_ Pages initrd_pages = {};
-        _cleanup_free_ char16_t *options_initrd = NULL;
-        err = initrd_prepare(image_root, entry, &options_initrd, &initrd_pages, &initrd_size);
-        if (err != EFI_SUCCESS)
-                return log_error_status(err, "Error preparing initrd: %m");
-
-        err = shim_load_image(parent_image, path, &image);
-        if (err != EFI_SUCCESS)
-                return log_error_status(err, "Error loading %ls: %m", entry->loader);
-
-        /* DTBs are loaded by the kernel before ExitBootServices, and they can be used to map and assign
-         * arbitrary memory ranges, so skip them when secure boot is enabled as the DTB here is unverified.
-         */
-        if (entry->devicetree && !secure_boot_enabled()) {
-                err = devicetree_install(&dtstate, image_root, entry->devicetree);
+        _cleanup_file_close_ EFI_FILE *image_root = NULL;
+        _cleanup_free_ EFI_DEVICE_PATH *path = NULL;
+        bool boot_policy;
+        if (entry->url) {
+                /* Generate a device path that only contains the URL */
+                err = make_url_device_path(entry->url, &path);
                 if (err != EFI_SUCCESS)
-                        return log_error_status(err, "Error loading %ls: %m", entry->devicetree);
+                        return log_error_status(err, "Error making URL device path: %m");
+
+                /* Try to expand this path on all available NICs and IP protocols */
+                _cleanup_free_ EFI_DEVICE_PATH *expanded_path = NULL;
+                for (unsigned n_attempt = 0;; n_attempt++) {
+                        err = expand_path(parent_image, path, &expanded_path);
+                        if (err == EFI_SUCCESS) {
+                                /* If this worked then let's try to boot with the expanded path. */
+                                free(path);
+                                path = TAKE_PTR(expanded_path);
+                                break;
+                        }
+                        if (err != EFI_NOT_FOUND || n_attempt > 5) {
+                                log_warning_status(err, "Failed to expand device path, ignoring: %m");
+                                break;
+                        }
+
+                        /* Maybe the network devices have been configured for this yet (because we are the
+                         * first piece of code trying to do networking)? Then let's connect them, and try
+                         * again. */
+                        reconnect_all_drivers();
+                }
+
+                /* Note: if the path expansion doesn't work, we'll continue with the unexpanded path. Which
+                 * will probably fail on many (most?) firmwares, but it's worth a try. */
+
+                boot_policy = true; /* Set BootPolicy parameter to LoadImage() to true, which ultimately
+                                     * controls whether the LoadFile (and thus HTTP boot) or LoadFile2 (which
+                                     * does not set up HTTP boot) protocol shall be used. */
+        } else {
+                assert(entry->device);
+                assert(entry->loader);
+
+                err = open_volume(entry->device, &image_root);
+                if (err != EFI_SUCCESS)
+                        return log_error_status(err, "Error opening root path: %m");
+
+                err = make_file_device_path(entry->device, entry->loader, &path);
+                if (err != EFI_SUCCESS)
+                        return log_error_status(err, "Error making file device path: %m");
+
+                boot_policy = false;
+        }
+
+        /* Authenticate the image before we continue with initrd or DT stuff */
+        err = shim_load_image(parent_image, path, boot_policy, &image);
+        if (err != EFI_SUCCESS) {
+                if (entry->url) {
+                        /* EFI_NOT_FOUND typically indicates that no network stack or NIC was available, let's give the user a hint. */
+                        if (err == EFI_NOT_FOUND) {
+                                log_info("Unable to boot remote UKI %ls, is networking available?", entry->url);
+                                return err;
+                        }
+
+                        return log_error_status(err, "Error loading loading remote UKI %ls: %m", entry->url);
+                }
+
+                return log_error_status(err, "Error loading EFI binary %ls: %m", entry->loader);
         }
 
         _cleanup_(cleanup_initrd) EFI_HANDLE initrd_handle = NULL;
-        err = initrd_register(PHYSICAL_ADDRESS_TO_POINTER(initrd_pages.addr), initrd_size, &initrd_handle);
-        if (err != EFI_SUCCESS)
-                return log_error_status(err, "Error registering initrd: %m");
+        _cleanup_free_ char16_t *options_initrd = NULL;
+        _cleanup_pages_ Pages initrd_pages = {};
+        size_t initrd_size = 0;
+        if (image_root) {
+                err = initrd_prepare(image_root, entry, &options_initrd, &initrd_pages, &initrd_size);
+                if (err != EFI_SUCCESS)
+                        return log_error_status(err, "Error preparing initrd: %m");
+
+                /* DTBs are loaded by the kernel before ExitBootServices(), and they can be used to map and
+                 * assign arbitrary memory ranges, so skip them when secure boot is enabled as the DTB here
+                 * is unverified. */
+                if (entry->devicetree && !secure_boot_enabled()) {
+                        err = devicetree_install(&dtstate, image_root, entry->devicetree);
+                        if (err != EFI_SUCCESS)
+                                return log_error_status(err, "Error loading %ls: %m", entry->devicetree);
+                }
+
+                err = initrd_register(PHYSICAL_ADDRESS_TO_POINTER(initrd_pages.addr), initrd_size, &initrd_handle);
+                if (err != EFI_SUCCESS)
+                        return log_error_status(err, "Error registering initrd: %m");
+        }
 
         EFI_LOADED_IMAGE_PROTOCOL *loaded_image;
         err = BS->HandleProtocol(image, MAKE_GUID_PTR(EFI_LOADED_IMAGE_PROTOCOL), (void **) &loaded_image);
@@ -2584,7 +2594,7 @@ static EFI_STATUS image_start(
         _cleanup_free_ char16_t *options = xstrdup16(options_initrd ?: entry->options_implied ? NULL : entry->options);
 
         if (entry->type == LOADER_LINUX && !is_confidential_vm()) {
-                const char *extra = smbios_find_oem_string("io.systemd.boot.kernel-cmdline-extra");
+                const char *extra = smbios_find_oem_string("io.systemd.boot.kernel-cmdline-extra=", /* after= */ NULL);
                 if (extra) {
                         _cleanup_free_ char16_t *tmp = TAKE_PTR(options), *extra16 = xstr8_to_16(extra);
                         if (isempty(tmp))
@@ -2637,7 +2647,7 @@ static EFI_STATUS image_start(
                         err = EFI_UNSUPPORTED;
         }
 
-        return log_error_status(err, "Failed to execute %ls (%ls): %m", entry->title_show, entry->loader);
+        return log_error_status(err, "Failed to execute %ls (%ls): %m", entry->title_show, entry->loader ?: entry->url);
 }
 
 static void config_free(Config *config) {
@@ -2675,7 +2685,9 @@ static void config_write_entries_to_variable(Config *config) {
 static void save_selected_entry(const Config *config, const BootEntry *entry) {
         assert(config);
         assert(entry);
-        assert(entry->loader || !entry->call);
+
+        if (!LOADER_TYPE_SAVE_ENTRY(entry->type))
+                return;
 
         /* Always export the selected boot entry to the system in a volatile var. */
         (void) efivar_set_str16(MAKE_GUID_PTR(LOADER), u"LoaderEntrySelected", entry->id, 0);
@@ -2695,9 +2707,18 @@ static void save_selected_entry(const Config *config, const BootEntry *entry) {
                 (void) efivar_unset(MAKE_GUID_PTR(LOADER), u"LoaderEntryLastBooted", EFI_VARIABLE_NON_VOLATILE);
 }
 
+static EFI_STATUS call_secure_boot_enroll(const BootEntry *entry, EFI_FILE *root_dir, EFI_HANDLE parent_image) {
+        assert(entry);
+
+        return secure_boot_enroll_at(root_dir, entry->path, /* force= */ true);
+}
+
 static EFI_STATUS secure_boot_discover_keys(Config *config, EFI_FILE *root_dir) {
         EFI_STATUS err;
-        _cleanup_(file_closep) EFI_FILE *keys_basedir = NULL;
+        _cleanup_file_close_ EFI_FILE *keys_basedir = NULL;
+
+        if (config->secure_boot_enroll == ENROLL_OFF)
+                return EFI_SUCCESS;
 
         if (!IN_SET(secure_boot_mode(), SECURE_BOOT_SETUP, SECURE_BOOT_AUDIT))
                 return EFI_SUCCESS;
@@ -2732,6 +2753,7 @@ static EFI_STATUS secure_boot_discover_keys(Config *config, EFI_FILE *root_dir) 
                         .type = LOADER_SECURE_BOOT_KEYS,
                         .tries_done = -1,
                         .tries_left = -1,
+                        .call = call_secure_boot_enroll,
                 };
                 config_add_entry(config, entry);
 
@@ -2765,6 +2787,9 @@ static void export_loader_variables(
                 EFI_LOADER_FEATURE_RETAIN_SHIM |
                 EFI_LOADER_FEATURE_MENU_DISABLE |
                 EFI_LOADER_FEATURE_MULTI_PROFILE_UKI |
+                EFI_LOADER_FEATURE_REPORT_URL |
+                EFI_LOADER_FEATURE_TYPE1_UKI |
+                EFI_LOADER_FEATURE_TYPE1_UKI_URL |
                 0;
 
         assert(loaded_image);
@@ -2772,6 +2797,47 @@ static void export_loader_variables(
         (void) efivar_set_time_usec(MAKE_GUID_PTR(LOADER), u"LoaderTimeInitUSec", init_usec);
         (void) efivar_set_str16(MAKE_GUID_PTR(LOADER), u"LoaderInfo", u"systemd-boot " GIT_VERSION, 0);
         (void) efivar_set_uint64_le(MAKE_GUID_PTR(LOADER), u"LoaderFeatures", loader_features, 0);
+}
+
+static void config_add_system_entries(Config *config) {
+        assert(config);
+
+        if (config->auto_firmware && FLAGS_SET(get_os_indications_supported(), EFI_OS_INDICATIONS_BOOT_TO_FW_UI)) {
+                BootEntry *entry = xnew(BootEntry, 1);
+                *entry = (BootEntry) {
+                        .id = xstrdup16(u"auto-reboot-to-firmware-setup"),
+                        .title = xstrdup16(u"Reboot Into Firmware Interface"),
+                        .call = call_reboot_into_firmware,
+                        .tries_done = -1,
+                        .tries_left = -1,
+                };
+                config_add_entry(config, entry);
+        }
+
+        if (config->auto_poweroff) {
+                BootEntry *entry = xnew(BootEntry, 1);
+                *entry = (BootEntry) {
+                        .id = xstrdup16(u"auto-poweroff"),
+                        .title = xstrdup16(u"Power Off The System"),
+                        .call = call_poweroff_system,
+                        .tries_done = -1,
+                        .tries_left = -1,
+                };
+                config_add_entry(config, entry);
+        }
+
+        if (config->auto_reboot) {
+                BootEntry *entry = xnew(BootEntry, 1);
+                *entry = (BootEntry) {
+                        .id = xstrdup16(u"auto-reboot"),
+                        .title = xstrdup16(u"Reboot The System"),
+                        .call = call_reboot_system,
+                        .tries_done = -1,
+                        .tries_left = -1,
+                };
+                config_add_entry(config, entry);
+        }
+
 }
 
 static void config_load_all_entries(
@@ -2795,59 +2861,40 @@ static void config_load_all_entries(
         /* Similar, but on any XBOOTLDR partition */
         config_load_xbootldr(config, loaded_image->DeviceHandle);
 
+        /* Pick up entries defined via SMBIOS Type #11 */
+        config_load_smbios_entries(config, loaded_image->DeviceHandle, root_dir, loaded_image_path);
+
         /* Sort entries after version number */
         sort_pointer_array((void **) config->entries, config->n_entries, (compare_pointer_func_t) boot_entry_compare);
 
         /* If we find some well-known loaders, add them to the end of the list */
         config_add_entry_osx(config);
         config_add_entry_windows(config, loaded_image->DeviceHandle, root_dir);
-        config_add_entry_loader_auto(config, loaded_image->DeviceHandle, root_dir, NULL,
-                                     u"auto-efi-shell", 's', u"EFI Shell", u"\\shell" EFI_MACHINE_TYPE_NAME ".efi");
-        config_add_entry_loader_auto(config, loaded_image->DeviceHandle, root_dir, loaded_image_path,
-                                     u"auto-efi-default", '\0', u"EFI Default Loader", NULL);
+        config_add_entry_loader_auto(
+                        config,
+                        loaded_image->DeviceHandle,
+                        root_dir,
+                        /* loaded_image_path= */ NULL,
+                        u"auto-efi-shell",
+                        's',
+                        u"EFI Shell",
+                        u"\\shell" EFI_MACHINE_TYPE_NAME ".efi");
+        config_add_entry_loader_auto(
+                        config,
+                        loaded_image->DeviceHandle,
+                        root_dir,
+                        loaded_image_path,
+                        u"auto-efi-default",
+                        '\0',
+                        u"EFI Default Loader",
+                        /* loader= */ NULL);
 
-        if (config->auto_firmware && FLAGS_SET(get_os_indications_supported(), EFI_OS_INDICATIONS_BOOT_TO_FW_UI)) {
-                BootEntry *entry = xnew(BootEntry, 1);
-                *entry = (BootEntry) {
-                        .id = xstrdup16(u"auto-reboot-to-firmware-setup"),
-                        .title = xstrdup16(u"Reboot Into Firmware Interface"),
-                        .call = reboot_into_firmware,
-                        .tries_done = -1,
-                        .tries_left = -1,
-                };
-                config_add_entry(config, entry);
-        }
+        config_add_system_entries(config);
 
-        if (config->auto_poweroff) {
-                BootEntry *entry = xnew(BootEntry, 1);
-                *entry = (BootEntry) {
-                        .id = xstrdup16(u"auto-poweroff"),
-                        .title = xstrdup16(u"Power Off The System"),
-                        .call = poweroff_system,
-                        .tries_done = -1,
-                        .tries_left = -1,
-                };
-                config_add_entry(config, entry);
-        }
-
-        if (config->auto_reboot) {
-                BootEntry *entry = xnew(BootEntry, 1);
-                *entry = (BootEntry) {
-                        .id = xstrdup16(u"auto-reboot"),
-                        .title = xstrdup16(u"Reboot The System"),
-                        .call = reboot_system,
-                        .tries_done = -1,
-                        .tries_left = -1,
-                };
-                config_add_entry(config, entry);
-        }
-
-        /* Find secure boot signing keys and autoload them if configured.
-         * Otherwise, create menu entries so that the user can load them manually.
-         * If the secure-boot-enroll variable is set to no (the default), we do not
-         * even search for keys on the ESP */
-        if (config->secure_boot_enroll != ENROLL_OFF)
-                secure_boot_discover_keys(config, root_dir);
+        /* Find secure boot signing keys and autoload them if configured.  Otherwise, create menu entries so
+         * that the user can load them manually.  If the secure-boot-enroll variable is set to no (the
+         * default), we do not even search for keys on the ESP */
+        (void) secure_boot_discover_keys(config, root_dir);
 
         if (config->n_entries == 0)
                 return;
@@ -2869,7 +2916,7 @@ static EFI_STATUS discover_root_dir(EFI_LOADED_IMAGE_PROTOCOL *loaded_image, EFI
 
 static EFI_STATUS run(EFI_HANDLE image) {
         EFI_LOADED_IMAGE_PROTOCOL *loaded_image;
-        _cleanup_(file_closep) EFI_FILE *root_dir = NULL;
+        _cleanup_file_close_ EFI_FILE *root_dir = NULL;
         _cleanup_(config_free) Config config = {};
         EFI_STATUS err;
         uint64_t init_usec;
@@ -2877,20 +2924,33 @@ static EFI_STATUS run(EFI_HANDLE image) {
 
         init_usec = time_usec();
 
-        /* Ask Shim to leave its protocol around, so that the stub can use it to validate PEs.
-         * By default, Shim uninstalls its protocol when calling StartImage(). */
-        shim_retain_protocol();
-
         err = BS->HandleProtocol(image, MAKE_GUID_PTR(EFI_LOADED_IMAGE_PROTOCOL), (void **) &loaded_image);
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Error getting a LoadedImageProtocol handle: %m");
 
+        err = discover_root_dir(loaded_image, &root_dir);
+        if (err != EFI_SUCCESS) {
+                log_error_status(err, "Unable to open root directory: %m");
+
+                /* If opening the root directory fails this typically means someone is trying to boot our
+                 * systemd-boot EFI PE binary as network boot NBP. That cannot work however, since we
+                 * wouldn't find any menu entries. Provide a helpful message what to try instead. */
+
+                if (err == EFI_UNSUPPORTED)
+                        log_info("| Note that invoking systemd-boot directly as UEFI network boot NBP is not\n"
+                                 "| supported. Instead of booting the systemd-boot PE binary (i.e. an .efi file)\n"
+                                 "| via the network, use an EFI GPT disk image (i.e. a file with .img suffix)\n"
+                                 "| containing systemd-boot instead.");
+
+                return err;
+        }
+
+        /* Ask Shim to leave its protocol around, so that the stub can use it to validate PEs.
+         * By default, Shim uninstalls its protocol when calling StartImage(). */
+        shim_retain_protocol();
+
         export_common_variables(loaded_image);
         export_loader_variables(loaded_image, init_usec);
-
-        err = discover_root_dir(loaded_image, &root_dir);
-        if (err != EFI_SUCCESS)
-                return log_error_status(err, "Unable to open root directory: %m");
 
         (void) load_drivers(image, loaded_image, root_dir);
 
@@ -2931,28 +2991,14 @@ static EFI_STATUS run(EFI_HANDLE image) {
                                 return EFI_SUCCESS;
                 }
 
-                /* if auto enrollment is activated, we try to load keys for the given entry. */
-                if (entry->type == LOADER_SECURE_BOOT_KEYS && config.secure_boot_enroll != ENROLL_OFF) {
-                        err = secure_boot_enroll_at(root_dir, entry->path, /*force=*/ true);
-                        if (err != EFI_SUCCESS)
-                                return err;
-                        continue;
-                }
-
-                /* Run special entry like "reboot" now. Those that have a loader
-                 * will be handled by image_start() instead. */
-                if (entry->call && !entry->loader) {
-                        entry->call();
-                        continue;
-                }
-
                 (void) boot_entry_bump_counters(entry);
                 save_selected_entry(&config, entry);
 
                 /* Optionally, read a random seed off the ESP and pass it to the OS */
-                (void) process_random_seed(root_dir);
+                if (LOADER_TYPE_PROCESS_RANDOM_SEED(entry->type))
+                        (void) process_random_seed(root_dir);
 
-                err = image_start(image, entry);
+                err = ASSERT_PTR(entry->call)(entry, root_dir, image);
                 if (err != EFI_SUCCESS)
                         return err;
 

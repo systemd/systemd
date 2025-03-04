@@ -15,6 +15,7 @@
 #include "varlink-io.systemd.Credentials.h"
 #include "varlink-io.systemd.Import.h"
 #include "varlink-io.systemd.Journal.h"
+#include "varlink-io.systemd.Login.h"
 #include "varlink-io.systemd.Machine.h"
 #include "varlink-io.systemd.MachineImage.h"
 #include "varlink-io.systemd.ManagedOOM.h"
@@ -200,6 +201,8 @@ TEST(parse_format) {
         print_separator();
         test_parse_format_one(&vl_interface_io_systemd_Udev);
         print_separator();
+        test_parse_format_one(&vl_interface_io_systemd_Login);
+        print_separator();
         test_parse_format_one(&vl_interface_xyz_test);
 }
 
@@ -220,7 +223,6 @@ TEST(parse) {
                                     "type Foo (b: bool, c: foo, c: int)", NULL, NULL, NULL) == -ENETUNREACH); /* unresolved type */
         assert_se(varlink_idl_parse("interface org.freedesktop.Foo\n"
                                     "type Foo ()", NULL, NULL, NULL) == -EBADMSG); /* empty struct/enum */
-
 }
 
 TEST(interface_name_is_valid) {

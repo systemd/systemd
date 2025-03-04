@@ -54,11 +54,16 @@ int get_process_root(pid_t pid, char **ret);
 int get_process_environ(pid_t pid, char **ret);
 int pid_get_ppid(pid_t pid, pid_t *ret);
 int pidref_get_ppid(const PidRef *pidref, pid_t *ret);
+int pidref_get_ppid_as_pidref(const PidRef *pidref, PidRef *ret);
 int pid_get_start_time(pid_t pid, usec_t *ret);
 int pidref_get_start_time(const PidRef *pid, usec_t *ret);
 int get_process_umask(pid_t pid, mode_t *ret);
 
 int container_get_leader(const char *machine, pid_t *pid);
+
+static inline bool SIGINFO_CODE_IS_DEAD(int code) {
+        return IN_SET(code, CLD_EXITED, CLD_KILLED, CLD_DUMPED);
+}
 
 int wait_for_terminate(pid_t pid, siginfo_t *status);
 
@@ -89,10 +94,10 @@ int getenv_for_pid(pid_t pid, const char *field, char **_value);
 int pid_is_alive(pid_t pid);
 int pidref_is_alive(const PidRef *pidref);
 int pid_is_unwaited(pid_t pid);
-int pidref_is_unwaited(const PidRef *pidref);
+int pidref_is_unwaited(PidRef *pidref);
 int pid_is_my_child(pid_t pid);
-int pidref_is_my_child(const PidRef *pidref);
-int pid_from_same_root_fs(pid_t pid);
+int pidref_is_my_child(PidRef *pidref);
+int pidref_from_same_root_fs(PidRef *a, PidRef *b);
 
 bool is_main_thread(void);
 
@@ -191,19 +196,9 @@ typedef enum ForkFlags {
         FORK_NEW_USERNS         = 1 << 19, /* Run child in its own user namespace                                💣 DO NOT USE IN THREADED PROGRAMS! 💣 */
         FORK_NEW_NETNS          = 1 << 20, /* Run child in its own network namespace                             💣 DO NOT USE IN THREADED PROGRAMS! 💣 */
         FORK_NEW_PIDNS          = 1 << 21, /* Run child in its own PID namespace                                 💣 DO NOT USE IN THREADED PROGRAMS! 💣 */
+        FORK_FREEZE             = 1 << 22, /* Don't return in child, just call freeze() instead */
+        FORK_PID_ONLY           = 1 << 23, /* Don't open a pidfd referencing the child process */
 } ForkFlags;
-
-int safe_fork_full(
-                const char *name,
-                const int stdio_fds[3],
-                int except_fds[],
-                size_t n_except_fds,
-                ForkFlags flags,
-                pid_t *ret_pid);
-
-static inline int safe_fork(const char *name, ForkFlags flags, pid_t *ret_pid) {
-        return safe_fork_full(name, NULL, NULL, 0, flags, ret_pid);
-}
 
 int pidref_safe_fork_full(
                 const char *name,
@@ -215,6 +210,18 @@ int pidref_safe_fork_full(
 
 static inline int pidref_safe_fork(const char *name, ForkFlags flags, PidRef *ret_pid) {
         return pidref_safe_fork_full(name, NULL, NULL, 0, flags, ret_pid);
+}
+
+int safe_fork_full(
+                const char *name,
+                const int stdio_fds[3],
+                int except_fds[],
+                size_t n_except_fds,
+                ForkFlags flags,
+                pid_t *ret_pid);
+
+static inline int safe_fork(const char *name, ForkFlags flags, pid_t *ret_pid) {
+        return safe_fork_full(name, NULL, NULL, 0, flags, ret_pid);
 }
 
 int namespace_fork(

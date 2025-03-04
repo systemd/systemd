@@ -10,6 +10,7 @@
 #include "varlink-internal.h"
 #include "varlink-io.systemd.UserDatabase.h"
 #include "varlink-io.systemd.ManagedOOM.h"
+#include "varlink-io.systemd.service.h"
 #include "varlink-util.h"
 
 typedef struct LookupParameters {
@@ -324,8 +325,9 @@ static int vl_method_subscribe_managed_oom_cgroups(
         if (!streq(u->id, "systemd-oomd.service"))
                 return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, NULL);
 
-        if (sd_json_variant_elements(parameters) > 0)
-                return sd_varlink_error_invalid_parameter(link, parameters);
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table = */ NULL, /* userdata = */ NULL);
+        if (r != 0)
+                return r;
 
         /* We only take one subscriber for this method so return an error if there's already an existing one.
          * This shouldn't happen since systemd-oomd is the only client of this method. */
@@ -589,7 +591,8 @@ int manager_setup_varlink_server(Manager *m) {
         r = sd_varlink_server_add_interface_many(
                         s,
                         &vl_interface_io_systemd_UserDatabase,
-                        &vl_interface_io_systemd_ManagedOOM);
+                        &vl_interface_io_systemd_ManagedOOM,
+                        &vl_interface_io_systemd_service);
         if (r < 0)
                 return log_debug_errno(r, "Failed to add interfaces to varlink server: %m");
 
@@ -598,7 +601,9 @@ int manager_setup_varlink_server(Manager *m) {
                         "io.systemd.UserDatabase.GetUserRecord",  vl_method_get_user_record,
                         "io.systemd.UserDatabase.GetGroupRecord", vl_method_get_group_record,
                         "io.systemd.UserDatabase.GetMemberships", vl_method_get_memberships,
-                        "io.systemd.ManagedOOM.SubscribeManagedOOMCGroups", vl_method_subscribe_managed_oom_cgroups);
+                        "io.systemd.ManagedOOM.SubscribeManagedOOMCGroups", vl_method_subscribe_managed_oom_cgroups,
+                        "io.systemd.service.Ping", varlink_method_ping,
+                        "io.systemd.service.GetEnvironment", varlink_method_get_environment);
         if (r < 0)
                 return log_debug_errno(r, "Failed to register varlink methods: %m");
 

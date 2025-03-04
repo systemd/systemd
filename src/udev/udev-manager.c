@@ -27,6 +27,7 @@
 #include "udev-ctrl.h"
 #include "udev-event.h"
 #include "udev-manager.h"
+#include "udev-manager-ctrl.h"
 #include "udev-node.h"
 #include "udev-rules.h"
 #include "udev-spawn.h"
@@ -138,7 +139,7 @@ Manager* manager_free(Manager *manager) {
 
         udev_builtin_exit();
 
-        hashmap_free_free_free(manager->properties);
+        hashmap_free(manager->properties);
         udev_rules_free(manager->rules);
 
         hashmap_free(manager->workers);
@@ -283,7 +284,7 @@ void manager_reload(Manager *manager, bool force) {
         udev_builtin_reload(flags);
 
         if (FLAGS_SET(flags, UDEV_RELOAD_RULES)) {
-                r = udev_rules_load(&rules, manager->config.resolve_name_timing);
+                r = udev_rules_load(&rules, manager->config.resolve_name_timing, /* extra = */ NULL);
                 if (r < 0)
                         log_warning_errno(r, "Failed to read udev rules, using the previously loaded rules, ignoring: %m");
                 else
@@ -843,69 +844,6 @@ static int on_worker(sd_event_source *s, int fd, uint32_t revents, void *userdat
         return 1;
 }
 
-/* receive the udevd message from userspace */
-static int on_ctrl_msg(UdevCtrl *uctrl, UdevCtrlMessageType type, const UdevCtrlMessageValue *value, void *userdata) {
-        Manager *manager = ASSERT_PTR(userdata);
-
-        assert(value);
-
-        switch (type) {
-        case UDEV_CTRL_SET_LOG_LEVEL:
-                if (LOG_PRI(value->intval) != value->intval) {
-                        log_debug("Received invalid udev control message (SET_LOG_LEVEL, %i), ignoring.", value->intval);
-                        break;
-                }
-
-                log_debug("Received udev control message (SET_LOG_LEVEL), setting log_level=%i", value->intval);
-
-                manager_set_log_level(manager, value->intval);
-                break;
-        case UDEV_CTRL_STOP_EXEC_QUEUE:
-                log_debug("Received udev control message (STOP_EXEC_QUEUE)");
-                manager->stop_exec_queue = true;
-                break;
-        case UDEV_CTRL_START_EXEC_QUEUE:
-                log_debug("Received udev control message (START_EXEC_QUEUE)");
-                manager->stop_exec_queue = false;
-                /* It is not necessary to call event_queue_start() here, as it will be called in on_post() if necessary. */
-                break;
-        case UDEV_CTRL_RELOAD:
-                log_debug("Received udev control message (RELOAD)");
-                manager_reload(manager, /* force = */ true);
-                break;
-        case UDEV_CTRL_SET_ENV:
-                if (!udev_property_assignment_is_valid(value->buf)) {
-                        log_debug("Received invalid udev control message(SET_ENV, %s), ignoring.", value->buf);
-                        break;
-                }
-
-                log_debug("Received udev control message(SET_ENV, %s)", value->buf);
-                manager_set_environment(manager, STRV_MAKE(value->buf));
-                break;
-        case UDEV_CTRL_SET_CHILDREN_MAX:
-                if (value->intval < 0) {
-                        log_debug("Received invalid udev control message (SET_MAX_CHILDREN, %i), ignoring.", value->intval);
-                        return 0;
-                }
-
-                log_debug("Received udev control message (SET_MAX_CHILDREN), setting children_max=%i", value->intval);
-
-                manager_set_children_max(manager, value->intval);
-                break;
-        case UDEV_CTRL_PING:
-                log_debug("Received udev control message (PING)");
-                break;
-        case UDEV_CTRL_EXIT:
-                log_debug("Received udev control message (EXIT)");
-                manager_exit(manager);
-                break;
-        default:
-                log_debug("Received unknown udev control message, ignoring");
-        }
-
-        return 1;
-}
-
 static int synthesize_change_one(sd_device *dev, sd_device *target) {
         int r;
 
@@ -1135,118 +1073,73 @@ Manager* manager_new(void) {
         return manager;
 }
 
-static int listen_fds(int *ret_ctrl, int *ret_netlink) {
-        _cleanup_strv_free_ char **names = NULL;
-        _cleanup_close_ int ctrl_fd = -EBADF, netlink_fd = -EBADF;
+static int manager_init_device_monitor(Manager *manager, int fd) {
+        int r;
 
-        assert(ret_ctrl);
-        assert(ret_netlink);
+        assert(manager);
+
+        /* This takes passed file descriptor on success. */
+
+        if (fd >= 0) {
+                if (manager->monitor)
+                        return log_warning_errno(SYNTHETIC_ERRNO(EALREADY), "Received multiple netlink socket (%i), ignoring.", fd);
+
+                r = sd_is_socket(fd, AF_NETLINK, SOCK_RAW, /* listening = */ -1);
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to verify socket type of %i, ignoring: %m", fd);
+                if (r == 0)
+                        return log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "Received invalid netlink socket (%i), ignoring.", fd);
+        } else {
+                if (manager->monitor)
+                        return 0;
+        }
+
+        r = device_monitor_new_full(&manager->monitor, MONITOR_GROUP_KERNEL, fd);
+        if (r < 0)
+                return log_error_errno(r, "Failed to initialize device monitor: %m");
+
+        return 0;
+}
+
+static int manager_listen_fds(Manager *manager) {
+        _cleanup_strv_free_ char **names = NULL;
+        int r;
+
+        assert(manager);
 
         int n = sd_listen_fds_with_names(/* unset_environment = */ true, &names);
         if (n < 0)
                 return n;
 
-        if (strv_length(names) != (size_t) n)
-                return -EIO;
-
         for (int i = 0; i < n; i++) {
                 int fd = SD_LISTEN_FDS_START + i;
 
                 if (streq(names[i], "varlink"))
-                        continue; /* The fd will be handled by sd_varlink_server_listen_auto(). */
-
-                if (sd_is_socket(fd, AF_UNIX, SOCK_SEQPACKET, -1) > 0) {
-                        if (ctrl_fd >= 0) {
-                                log_debug("Received multiple seqpacket socket (%s), ignoring.", names[i]);
-                                goto unused;
-                        }
-
-                        ctrl_fd = fd;
-                        continue;
-                }
-
-                if (sd_is_socket(fd, AF_NETLINK, SOCK_RAW, -1) > 0) {
-                        if (netlink_fd >= 0) {
-                                log_debug("Received multiple netlink socket (%s), ignoring.", names[i]);
-                                goto unused;
-                        }
-
-                        netlink_fd = fd;
-                        continue;
-                }
-
-                log_debug("Received unexpected fd (%s), ignoring.", names[i]);
-
-        unused:
-                close_and_notify_warn(fd, names[i]);
+                        r = 0; /* The fd will be handled by sd_varlink_server_listen_auto(). */
+                else if (streq(names[i], "systemd-udevd-control.socket"))
+                        r = manager_init_ctrl(manager, fd);
+                else if (streq(names[i], "systemd-udevd-kernel.socket"))
+                        r = manager_init_device_monitor(manager, fd);
+                else
+                        r = log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                            "Received unexpected fd (%s), ignoring.", names[i]);
+                if (r < 0)
+                        close_and_notify_warn(fd, names[i]);
         }
 
-        *ret_ctrl = TAKE_FD(ctrl_fd);
-        *ret_netlink = TAKE_FD(netlink_fd);
-        return 0;
-}
-
-static int manager_init_ctrl(Manager *manager, int fd_ctrl) {
-        _cleanup_(udev_ctrl_unrefp) UdevCtrl *ctrl = NULL;
-        _cleanup_close_ int fd = fd_ctrl;
-        int r;
-
-        assert(manager);
-
-        /* This consumes passed file descriptor. */
-
-        r = udev_ctrl_new_from_fd(&ctrl, fd);
-        if (r < 0)
-                return log_error_errno(r, "Failed to initialize udev control socket: %m");
-        TAKE_FD(fd);
-
-        r = udev_ctrl_enable_receiving(ctrl);
-        if (r < 0)
-                return log_error_errno(r, "Failed to bind udev control socket: %m");
-
-        manager->ctrl = TAKE_PTR(ctrl);
-        return 0;
-}
-
-static int manager_init_device_monitor(Manager *manager, int fd_uevent) {
-        _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor = NULL;
-        _cleanup_close_ int fd = fd_uevent;
-        int r;
-
-        assert(manager);
-
-        /* This consumes passed file descriptor. */
-
-        r = device_monitor_new_full(&monitor, MONITOR_GROUP_KERNEL, fd);
-        if (r < 0)
-                return log_error_errno(r, "Failed to initialize device monitor: %m");
-        TAKE_FD(fd);
-
-        (void) sd_device_monitor_set_description(monitor, "manager");
-
-        manager->monitor = TAKE_PTR(monitor);
         return 0;
 }
 
 int manager_init(Manager *manager) {
-        _cleanup_close_ int fd_ctrl = -EBADF, fd_uevent = -EBADF;
-        _cleanup_free_ char *cgroup = NULL;
         int r;
 
         assert(manager);
 
-        r = listen_fds(&fd_ctrl, &fd_uevent);
+        r = manager_listen_fds(manager);
         if (r < 0)
                 return log_error_errno(r, "Failed to listen on fds: %m");
 
-        r = manager_init_ctrl(manager, TAKE_FD(fd_ctrl));
-        if (r < 0)
-                return r;
-
-        r = manager_init_device_monitor(manager, TAKE_FD(fd_uevent));
-        if (r < 0)
-                return r;
-
+        _cleanup_free_ char *cgroup = NULL;
         r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, 0, &cgroup);
         if (r < 0)
                 log_debug_errno(r, "Failed to get cgroup, ignoring: %m");
@@ -1258,35 +1151,16 @@ int manager_init(Manager *manager) {
         return 0;
 }
 
-static int manager_start_ctrl(Manager *manager) {
-        int r;
-
-        assert(manager);
-        assert(manager->ctrl);
-
-        r = udev_ctrl_attach_event(manager->ctrl, manager->event);
-        if (r < 0)
-                return log_error_errno(r, "Failed to attach event to udev control: %m");
-
-        r = udev_ctrl_start(manager->ctrl, on_ctrl_msg, manager);
-        if (r < 0)
-                return log_error_errno(r, "Failed to start udev control: %m");
-
-        /* This needs to be after the inotify and uevent handling, to make sure that the ping is send back
-         * after fully processing the pending uevents (including the synthetic ones we may create due to
-         * inotify events). */
-        r = sd_event_source_set_priority(udev_ctrl_get_event_source(manager->ctrl), SD_EVENT_PRIORITY_IDLE);
-        if (r < 0)
-                return log_error_errno(r, "Failed to set IDLE event priority for udev control event source: %m");
-
-        return 0;
-}
-
 static int manager_start_device_monitor(Manager *manager) {
         int r;
 
         assert(manager);
-        assert(manager->monitor);
+
+        r = manager_init_device_monitor(manager, -EBADF);
+        if (r < 0)
+                return r;
+
+        (void) sd_device_monitor_set_description(manager->monitor, "manager");
 
         r = sd_device_monitor_attach_event(manager->monitor, manager->event);
         if (r < 0)
@@ -1442,7 +1316,7 @@ int manager_main(Manager *manager) {
 
         udev_builtin_init();
 
-        r = udev_rules_load(&manager->rules, manager->config.resolve_name_timing);
+        r = udev_rules_load(&manager->rules, manager->config.resolve_name_timing, /* extra = */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to read udev rules: %m");
 

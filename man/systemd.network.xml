@@ -884,7 +884,7 @@ DuplicateAddressDetection=none</programlisting></para>
         <term><varname>IPMasquerade=</varname></term>
         <listitem>
           <para>Configures IP masquerading for the network interface. If enabled, packets forwarded
-          from the network interface will be appear as coming from the local host. Typically, this should be
+          from the network interface will appear as coming from the local host. Typically, this should be
           enabled on the downstream interface of routers. Takes one of <literal>ipv4</literal>,
           <literal>ipv6</literal>, <literal>both</literal>, or <literal>no</literal>. Defaults to
           <literal>no</literal>. Note that any positive boolean values such as <literal>yes</literal> or
@@ -1359,7 +1359,7 @@ DuplicateAddressDetection=none</programlisting></para>
           <citerefentry project='man-pages'><refentrytitle>inet_pton</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
           If set to true, then the IPv4 broadcast address will be derived from the
           <varname>Address=</varname> setting. If set to false, then the broadcast address will not be
-          set. Defaults to true, except for wireguard interfaces, where it default to false.</para>
+          set. Defaults to true, except for wireguard interfaces, where it defaults to false.</para>
 
           <xi:include href="version-info.xml" xpointer="v211"/>
         </listitem>
@@ -2010,8 +2010,10 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
         <term><varname>Gateway=</varname></term>
         <listitem>
           <para>Takes the gateway address or the special values <literal>_dhcp4</literal> and
-          <literal>_ipv6ra</literal>. If <literal>_dhcp4</literal> or <literal>_ipv6ra</literal> is
-          set, then the gateway address provided by DHCPv4 or IPv6 RA is used.</para>
+          <literal>_ipv6ra</literal>. If <literal>_dhcp4</literal> or <literal>_ipv6ra</literal> is set, then
+          the gateway address provided by DHCPv4 or IPv6 RA is used. When<literal>_dhcp4</literal>, the
+          acquired DHCPv4 address will be used as the preferred source address of the route, unless it is
+          explicitly configured in <varname>PreferredSource=</varname>.</para>
 
         <xi:include href="version-info.xml" xpointer="v211"/>
         </listitem>
@@ -2117,10 +2119,12 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
       <varlistentry>
         <term><varname>PreferredSource=</varname></term>
         <listitem>
-          <para>The preferred source address of the route. The address must be in the format described
-          in
+          <para>The preferred source address of the route. Takes <literal>no</literal> or an address
+          in the format described in
           <citerefentry project='man-pages'><refentrytitle>inet_pton</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
-          </para>
+          If <varname>Gateway=_dhcp4</varname> is specified, defaults to the acquired DHCPv4 address.
+          Otherwise, defaults to unset. The value <literal>no</literal> may be useful to configure a route
+          with <varname>Gateway=_dhcp4</varname> without setting preferred source route address.</para>
 
           <xi:include href="version-info.xml" xpointer="v227"/>
         </listitem>
@@ -4420,6 +4424,15 @@ ServerAddress=192.168.0.1/24</programlisting>
         <xi:include href="version-info.xml" xpointer="v244"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>Preference=</varname></term>
+
+        <listitem><para>Specifies the preference of the route option. Takes one of <literal>high</literal>,
+        <literal>medium</literal>, or <literal>low</literal>. Defaults to <literal>medium</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 
@@ -4613,6 +4626,24 @@ ServerAddress=192.168.0.1/24</programlisting>
           default, meaning the kernel default value of 32 is used.</para>
 
           <xi:include href="version-info.xml" xpointer="v234"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>Locked=</varname></term>
+        <listitem>
+          <para>Takes a boolean. Configures whether the port is "locked" and does not allow traffic forwarded
+          until fully authenticated, e.g. via 802.1x. When unset, the kernel's default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+        <term><varname>MACAuthenticationBypass=</varname></term>
+        <listitem>
+          <para>Takes a boolean. Configures whether a locked port has "MAC Authentication Bypass" enabled and
+          creates newly learned fdb entries in a "locked" state. User space can authenticate these entries by
+          clearing the locked flag. Requires Learning to be enabled. When unset, the kernel's default will be
+          used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -4901,7 +4932,7 @@ ServerAddress=192.168.0.1/24</programlisting>
         </listitem>
       </varlistentry>
       <varlistentry>
-        <term><varname>PresumeAck=</varname></term>
+        <term><varname>PresumeACK=</varname></term>
         <listitem>
           <para>Takes a boolean. When <literal>yes</literal>, the interface will ignore missing CAN
           ACKs. When unset, the kernel's default will be used.</para>

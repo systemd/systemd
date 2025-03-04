@@ -29,6 +29,7 @@
 #include "logind-session-dbus.h"
 #include "logind-session.h"
 #include "logind-user-dbus.h"
+#include "logind-varlink.h"
 #include "mkdir-label.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -90,7 +91,12 @@ static int session_dispatch_leader_pidfd(sd_event_source *es, int fd, uint32_t r
         Session *s = ASSERT_PTR(userdata);
 
         assert(s->leader.fd == fd);
+
+        s->leader_pidfd_event_source = sd_event_source_unref(s->leader_pidfd_event_source);
+
         session_stop(s, /* force= */ false);
+
+        session_add_to_gc_queue(s);
 
         return 1;
 }
@@ -191,6 +197,8 @@ Session* session_free(Session *s) {
 
         sd_bus_message_unref(s->create_message);
         sd_bus_message_unref(s->upgrade_message);
+
+        sd_varlink_unref(s->create_link);
 
         free(s->tty);
         free(s->display);
@@ -856,7 +864,13 @@ int session_start(Session *s, sd_bus_message *properties, sd_bus_error *error) {
                    "SESSION_ID=%s", s->id,
                    "USER_ID=%s", s->user->user_record->user_name,
                    "LEADER="PID_FMT, s->leader.pid,
-                   LOG_MESSAGE("New session %s of user %s.", s->id, s->user->user_record->user_name));
+                   "CLASS=%s", session_class_to_string(s->class),
+                   "TYPE=%s", session_type_to_string(s->type),
+                   LOG_MESSAGE("New session '%s' of user '%s' with class '%s' and type '%s'.",
+                               s->id,
+                               s->user->user_record->user_name,
+                               session_class_to_string(s->class),
+                               session_type_to_string(s->type)));
 
         if (!dual_timestamp_is_set(&s->timestamp))
                 dual_timestamp_now(&s->timestamp);
@@ -950,7 +964,6 @@ int session_stop(Session *s, bool force) {
                 return 0;
 
         s->timer_event_source = sd_event_source_unref(s->timer_event_source);
-        s->leader_pidfd_event_source = sd_event_source_unref(s->leader_pidfd_event_source);
 
         if (s->seat)
                 seat_evict_position(s->seat, s);
@@ -1260,6 +1273,8 @@ static int session_dispatch_fifo(sd_event_source *es, int fd, uint32_t revents, 
 
         session_remove_fifo(s);
         session_stop(s, /* force = */ false);
+
+        session_add_to_gc_queue(s);
 
         return 1;
 }
@@ -1648,6 +1663,35 @@ void session_drop_controller(Session *s) {
         session_restore_vt(s);
 }
 
+bool session_job_pending(Session *s) {
+        assert(s);
+        assert(s->user);
+
+        /* Check if we have some jobs enqueued and not finished yet. Each time we get JobRemoved signal about
+         * relevant units, session_send_create_reply and hence us is called (see match_job_removed).
+         * Note that we don't care about job result here. */
+
+        return s->scope_job ||
+               s->user->runtime_dir_job ||
+               (SESSION_CLASS_WANTS_SERVICE_MANAGER(s->class) && s->user->service_manager_job);
+}
+
+int session_send_create_reply(Session *s, const sd_bus_error *error) {
+        int r;
+
+        assert(s);
+
+        /* If error occurred, return it immediately. Otherwise let's wait for all jobs to finish before
+         * continuing. */
+        if (!sd_bus_error_is_set(error) && session_job_pending(s))
+                return 0;
+
+        r = 0;
+        RET_GATHER(r, session_send_create_reply_bus(s, error));
+        RET_GATHER(r, session_send_create_reply_varlink(s, error));
+        return r;
+}
+
 static const char* const session_state_table[_SESSION_STATE_MAX] = {
         [SESSION_OPENING] = "opening",
         [SESSION_ONLINE]  = "online",
@@ -1672,6 +1716,8 @@ static const char* const session_class_table[_SESSION_CLASS_MAX] = {
         [SESSION_USER]              = "user",
         [SESSION_USER_EARLY]        = "user-early",
         [SESSION_USER_INCOMPLETE]   = "user-incomplete",
+        [SESSION_USER_LIGHT]        = "user-light",
+        [SESSION_USER_EARLY_LIGHT]  = "user-early-light",
         [SESSION_GREETER]           = "greeter",
         [SESSION_LOCK_SCREEN]       = "lock-screen",
         [SESSION_BACKGROUND]        = "background",

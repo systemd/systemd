@@ -681,26 +681,7 @@ int machine_openpt(Machine *m, int flags, char **ret_peer) {
                 if (!pidref_is_set(&m->leader))
                         return -EINVAL;
 
-                return openpt_allocate_in_namespace(m->leader.pid, flags, ret_peer);
-
-        default:
-                return -EOPNOTSUPP;
-        }
-}
-
-int machine_open_terminal(Machine *m, const char *path, int mode) {
-        assert(m);
-
-        switch (m->class) {
-
-        case MACHINE_HOST:
-                return open_terminal(path, mode);
-
-        case MACHINE_CONTAINER:
-                if (!pidref_is_set(&m->leader))
-                        return -EINVAL;
-
-                return open_terminal_in_namespace(m->leader.pid, path, mode);
+                return openpt_allocate_in_namespace(&m->leader, flags, ret_peer);
 
         default:
                 return -EOPNOTSUPP;
@@ -805,13 +786,7 @@ int machine_start_shell(
         if (!p || !utmp_id)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Path of pseudo TTY has unexpected prefix");
 
-        /* First try to get an fd for the PTY peer via the new racefree ioctl(), directly. Otherwise go via
-         * joining the namespace, because it goes by path */
-        pty_fd = pty_open_peer_racefree(ptmx_fd, O_RDWR|O_NOCTTY|O_CLOEXEC);
-        if (ERRNO_IS_NEG_NOT_SUPPORTED(pty_fd)) {
-                log_debug_errno(pty_fd, "Failed to get PTY peer via racefree ioctl() (ptmx_fd=%d). Trying via joining the namespace (ptmx_name=%s): %m", ptmx_fd, ptmx_name);
-                pty_fd = machine_open_terminal(m, ptmx_name, O_RDWR|O_NOCTTY|O_CLOEXEC);
-        }
+        pty_fd = pty_open_peer(ptmx_fd, O_RDWR|O_NOCTTY|O_CLOEXEC);
         if (pty_fd < 0)
                 return log_debug_errno(pty_fd, "Failed to open terminal: %m");
 
@@ -979,7 +954,7 @@ char** machine_default_shell_args(const char *user) {
         return TAKE_PTR(args);
 }
 
-int machine_copy_from_to(
+int machine_copy_from_to_operation(
                 Manager *manager,
                 Machine *machine,
                 const char *host_path,
@@ -1403,8 +1378,8 @@ int machine_open_root_directory(Machine *machine) {
 
                         dfd = open("/", O_RDONLY|O_CLOEXEC|O_DIRECTORY);
                         if (dfd < 0) {
-                                log_debug_errno(dfd, "Failed to open root directory of machine '%s': %m", machine->name);
-                                report_errno_and_exit(errno_pipe_fd[1], dfd);
+                                log_debug_errno(errno, "Failed to open root directory of machine '%s': %m", machine->name);
+                                report_errno_and_exit(errno_pipe_fd[1], -errno);
                         }
 
                         r = send_one_fd(fd_pass_socket[1], dfd, /* flags = */ 0);

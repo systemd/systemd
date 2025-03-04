@@ -56,11 +56,15 @@ wrap=(
     id
     integritysetup
     iscsid
+    keymgr
+    knotc
+    knotd
     kpartx
     logger
     login
     ls
     lsblk
+    lsof
     lvm
     mdadm
     mkfs.btrfs

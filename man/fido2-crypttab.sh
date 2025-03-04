@@ -5,7 +5,7 @@
 sudo systemd-cryptenroll --fido2-device=auto /dev/sdXn
 
 # Test: Let's run systemd-cryptsetup to test if this worked.
-sudo systemd-cryptsetup attach mytest /dev/sdXn - fido2-device=auto
+sudo systemd-cryptsetup attach mytest /dev/sdXn none fido2-device=auto
 
 # If that worked, let's now add the same line persistently to /etc/crypttab,
 # for the future. We do not want to use the (unstable) /dev/sdX name, so let's
@@ -13,7 +13,7 @@ sudo systemd-cryptsetup attach mytest /dev/sdXn - fido2-device=auto
 udevadm info -q symlink -r /dev/sdXn
 
 # Now add the line using the by-uuid symlink to /etc/crypttab:
-sudo bash -c 'echo "mytest /dev/disk/by-uuid/... - fido2-device=auto" >>/etc/crypttab'
+sudo bash -c 'echo "mytest /dev/disk/by-uuid/... none fido2-device=auto" >>/etc/crypttab'
 
 # Depending on your distribution and encryption setup, you may need to manually
 # regenerate your initramfs to be able to use a FIDO2 device to unlock the

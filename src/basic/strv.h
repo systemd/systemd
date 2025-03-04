@@ -33,7 +33,7 @@ char** strv_free_erase(char **l);
 DEFINE_TRIVIAL_CLEANUP_FUNC(char**, strv_free_erase);
 #define _cleanup_strv_free_erase_ _cleanup_(strv_free_erasep)
 
-void strv_free_many(char ***strvs, size_t n);
+void strv_free_many(char ***strvs, size_t n) _nonnull_if_nonzero_(1, 2);
 
 char** strv_copy_n(char * const *l, size_t n);
 static inline char** strv_copy(char * const *l) {
@@ -95,6 +95,8 @@ int strv_compare(char * const *a, char * const *b);
 static inline bool strv_equal(char * const *a, char * const *b) {
         return strv_compare(a, b) == 0;
 }
+
+bool strv_equal_ignore_order(char **a, char **b);
 
 char** strv_new_internal(const char *x, ...) _sentinel_;
 char** strv_new_ap(const char *x, va_list ap);
@@ -256,9 +258,15 @@ int fputstrv(FILE *f, char * const *l, const char *separator, bool *space);
 #define strv_free_and_replace(a, b)             \
         free_and_replace_full(a, b, strv_free)
 
+void string_strv_hashmap_remove(Hashmap *h, const char *key, const char *value);
+static inline void string_strv_ordered_hashmap_remove(OrderedHashmap *h, const char *key, const char *value) {
+        string_strv_hashmap_remove(PLAIN_HASHMAP(h), key, value);
+}
 int _string_strv_hashmap_put(Hashmap **h, const char *key, const char *value  HASHMAP_DEBUG_PARAMS);
 int _string_strv_ordered_hashmap_put(OrderedHashmap **h, const char *key, const char *value  HASHMAP_DEBUG_PARAMS);
 #define string_strv_hashmap_put(h, k, v) _string_strv_hashmap_put(h, k, v  HASHMAP_DEBUG_SRC_ARGS)
 #define string_strv_ordered_hashmap_put(h, k, v) _string_strv_ordered_hashmap_put(h, k, v  HASHMAP_DEBUG_SRC_ARGS)
 
 int strv_rebreak_lines(char **l, size_t width, char ***ret);
+
+char** strv_filter_prefix(char * const *l, const char *prefix);

@@ -23,6 +23,8 @@ typedef enum SessionClass {
         SESSION_USER,               /* A regular user session */
         SESSION_USER_EARLY,         /* A user session, that is not ordered after systemd-user-sessions.service (i.e. for root) */
         SESSION_USER_INCOMPLETE,    /* A user session that is only half-way set up and doesn't pull in the service manager, and can be upgraded to a full user session later */
+        SESSION_USER_LIGHT,         /* Just like SESSION_USER, but doesn't pull in service manager */
+        SESSION_USER_EARLY_LIGHT,   /* Just like SESSION_USER_EARLY, but doesn't pull in service manager */
         SESSION_GREETER,            /* A login greeter pseudo-session */
         SESSION_LOCK_SCREEN,        /* A lock screen */
         SESSION_BACKGROUND,         /* Things like cron jobs, which are non-interactive */
@@ -36,10 +38,12 @@ typedef enum SessionClass {
 
 /* Whether we shall allow sessions of this class to run before 'systemd-user-sessions.service'. It's
  * generally set for root sessions, but no one else. */
-#define SESSION_CLASS_IS_EARLY(class) IN_SET((class), SESSION_USER_EARLY, SESSION_MANAGER_EARLY)
+#define SESSION_CLASS_IS_EARLY(class) IN_SET((class), SESSION_USER_EARLY, SESSION_USER_EARLY_LIGHT, SESSION_MANAGER_EARLY)
 
 /* Which session classes want their own scope units? (all of them, except the manager, which comes in its own service unit already */
-#define SESSION_CLASS_WANTS_SCOPE(class) IN_SET((class), SESSION_USER, SESSION_USER_EARLY, SESSION_USER_INCOMPLETE, SESSION_GREETER, SESSION_LOCK_SCREEN, SESSION_BACKGROUND, SESSION_BACKGROUND_LIGHT)
+#define SESSION_CLASS_WANTS_SCOPE(class) IN_SET((class),                \
+                                                SESSION_USER, SESSION_USER_EARLY, SESSION_USER_INCOMPLETE, SESSION_USER_LIGHT, SESSION_USER_EARLY_LIGHT, \
+                                                SESSION_GREETER, SESSION_LOCK_SCREEN, SESSION_BACKGROUND, SESSION_BACKGROUND_LIGHT)
 
 /* Which session classes want their own per-user service manager? */
 #define SESSION_CLASS_WANTS_SERVICE_MANAGER(class) IN_SET((class), SESSION_USER, SESSION_USER_EARLY, SESSION_GREETER, SESSION_LOCK_SCREEN, SESSION_BACKGROUND)
@@ -47,23 +51,26 @@ typedef enum SessionClass {
 /* Which session classes can pin our user tracking? */
 #define SESSION_CLASS_PIN_USER(class) (!IN_SET((class), SESSION_MANAGER, SESSION_MANAGER_EARLY, SESSION_NONE))
 
-/* Which session classes decide whether system is idle? (should only cover sessions that have input, and are not idle screens themselves)*/
-#define SESSION_CLASS_CAN_IDLE(class) (IN_SET((class), SESSION_USER, SESSION_USER_EARLY, SESSION_GREETER))
+/* Which session classes decide whether system is idle? (should only cover sessions that have input, and are not idle screens themselves) */
+#define SESSION_CLASS_CAN_IDLE(class) (IN_SET((class), SESSION_USER, SESSION_USER_EARLY, SESSION_USER_EARLY_LIGHT, SESSION_USER_LIGHT, SESSION_GREETER))
 
 /* Which session classes have a lock screen concept? */
-#define SESSION_CLASS_CAN_LOCK(class) (IN_SET((class), SESSION_USER, SESSION_USER_EARLY))
+#define SESSION_CLASS_CAN_LOCK(class) (IN_SET((class), SESSION_USER, SESSION_USER_EARLY, SESSION_USER_EARLY_LIGHT, SESSION_USER_LIGHT))
 
 /* Which sessions are candidates to become "display" sessions */
-#define SESSION_CLASS_CAN_DISPLAY(class) (IN_SET((class), SESSION_USER, SESSION_USER_EARLY, SESSION_GREETER))
+#define SESSION_CLASS_CAN_DISPLAY(class) (IN_SET((class), SESSION_USER, SESSION_USER_EARLY, SESSION_USER_EARLY_LIGHT, SESSION_USER_LIGHT, SESSION_GREETER))
 
 /* Which sessions classes should be subject to stop-in-idle */
-#define SESSION_CLASS_CAN_STOP_ON_IDLE(class) (IN_SET((class), SESSION_USER, SESSION_USER_EARLY))
+#define SESSION_CLASS_CAN_STOP_ON_IDLE(class) (IN_SET((class), SESSION_USER, SESSION_USER_EARLY, SESSION_USER_LIGHT, SESSION_USER_EARLY_LIGHT))
 
 /* Which session classes can take control of devices */
-#define SESSION_CLASS_CAN_TAKE_DEVICE(class) (IN_SET((class), SESSION_USER, SESSION_USER_EARLY, SESSION_GREETER, SESSION_LOCK_SCREEN))
+#define SESSION_CLASS_CAN_TAKE_DEVICE(class) (IN_SET((class), SESSION_USER, SESSION_USER_EARLY, SESSION_USER_LIGHT, SESSION_USER_EARLY_LIGHT, SESSION_GREETER, SESSION_LOCK_SCREEN))
 
 /* Which session classes allow changing session types */
-#define SESSION_CLASS_CAN_CHANGE_TYPE(class) (IN_SET((class), SESSION_USER, SESSION_USER_EARLY, SESSION_GREETER, SESSION_LOCK_SCREEN))
+#define SESSION_CLASS_CAN_CHANGE_TYPE(class) (IN_SET((class), SESSION_USER, SESSION_USER_EARLY, SESSION_USER_LIGHT, SESSION_USER_EARLY_LIGHT, SESSION_GREETER, SESSION_LOCK_SCREEN))
+
+/* Which session classes are taken into account when deciding whether shutdown shall be allowed if other users are logged in */
+#define SESSION_CLASS_IS_INHIBITOR_LIKE(class) IN_SET((class), SESSION_USER, SESSION_USER_EARLY, SESSION_USER_LIGHT, SESSION_USER_EARLY_LIGHT)
 
 typedef enum SessionType {
         SESSION_UNSPECIFIED,
@@ -151,6 +158,8 @@ struct Session {
         sd_bus_message *create_message;   /* The D-Bus message used to create the session, which we haven't responded to yet */
         sd_bus_message *upgrade_message;  /* The D-Bus message used to upgrade the session class user-incomplete → user, which we haven't responded to yet */
 
+        sd_varlink *create_link; /* The Varlink connection used to create session, which we haven't responded to yet */
+
         /* Set up when a client requested to release the session via the bus */
         sd_event_source *timer_event_source;
 
@@ -216,6 +225,10 @@ void session_leave_vt(Session *s);
 bool session_is_controller(Session *s, const char *sender);
 int session_set_controller(Session *s, const char *sender, bool force, bool prepare);
 void session_drop_controller(Session *s);
+
+bool session_job_pending(Session *s);
+
+int session_send_create_reply(Session *s, const sd_bus_error *error);
 
 static inline bool SESSION_IS_SELF(const char *name) {
         return isempty(name) || streq(name, "self");

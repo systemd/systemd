@@ -770,6 +770,15 @@
         changes in the original unit through notification messages. These messages will be considered belonging to the
         session scope unit and not the original unit. It is hence not recommended to use <varname>PAMName=</varname> in
         combination with <varname>NotifyAccess=</varname><option>all</option>.</para>
+
+        <para>If a PAM module interactively requests input (a password or suchlike) it will be attempted to
+        be read from a service credential (as configured via <varname>SetCredential=</varname>,
+        <varname>ImportCredential=</varname> and related calls) under the name
+        <varname>pam.authtok.<replaceable>pamservice</replaceable></varname>, where
+        <replaceable>pamservice</replaceable> is replaced by the PAM service name as configured with
+        <varname>PAMName=</varname>. (Note that the credential remains accessible for the runtime of the
+        service!) If no matching credential is set, the user is prompted for it interactively via the <ulink
+        url="https://systemd.io/PASSWORD_AGENTS">Password Agent</ulink> logic.</para>
         </listitem>
       </varlistentry>
 
@@ -2367,6 +2376,43 @@ RestrictNamespaces=~cgroup net</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>DelegateNamespaces=</varname></term>
+
+        <listitem><para>Delegates ownership of the given namespace types to the user namespace of the
+        processes of this unit. For details about Linux namespaces, see <citerefentry
+        project='man-pages'><refentrytitle>namespaces</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+        Either takes a boolean argument, or a space-separated list of namespace type identifiers. If false
+        (the default), the unit's processes' user namespace will not have ownership over any namespaces
+        created during setup of the unit's sandboxed environment. If true, ownership of all namespace types
+        (except for user namespaces, where the concept doesn't apply) created during setup of the unit's
+        sandboxed environment is delegated to the unit's processes' user namespace. Otherwise, a
+        space-separated list of namespace type identifiers must be specified, consisting of any combination
+        of: <constant>cgroup</constant>, <constant>ipc</constant>, <constant>net</constant>,
+        <constant>mnt</constant>, <constant>pid</constant>, and <constant>uts</constant>. All namespaces of
+        the listed types will be owned by the unit's processes' user namespace if they are created during
+        setup of the unit's sandboxed environment (allow-listing). By prepending the list with a single tilde
+        character (<literal>~</literal>) the effect may be inverted: all namespaces of types not listed and
+        created during setup of the unit's sandboxed environment will be owned by the unit's processes' user
+        namespace (deny-listing). If the empty string is assigned, the default namespace ownership is
+        applied, which is equivalent to false. This option may appear more than once, in which case the
+        namespace types are merged by <constant>OR</constant>, or by <constant>AND</constant> if the lines
+        are prefixed with <literal>~</literal> (see examples below). Internally, this setting controls the
+        order in which namespaces are unshared by systemd. Namespace types that should be owned by the unit's
+        processes' user namespace will be unshared after unsharing the user namespace. Internally, this
+        setting controls the order in which namespaces are unshared. Delegated namespaces will be unshared
+        after the user namespace is unshared. Other namespaces will be unshared before the user namespace is
+        unshared.</para>
+
+        <para>Delegating any namespace with <varname>DelegateNamespaces=</varname> implies
+        <varname>PrivateUsers=self</varname> unless <varname>PrivateUsers=</varname> is explicitly enabled
+        already by the unit. Delegating a namespace does not imply that the namespace is unshared, that is
+        done with the namespace specific unit setting such as <varname>PrivateNetwork=</varname> or
+        <varname>PrivateMounts=</varname>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>LockPersonality=</varname></term>
 
         <listitem><para>Takes a boolean argument. If set, locks down the <citerefentry
@@ -3877,20 +3923,38 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
         <varlistentry>
           <term><varname>$MAINPID</varname></term>
 
-          <listitem><para>The PID of the unit's main process if it is
-          known. This is only set for control processes as invoked by
-          <varname>ExecReload=</varname> and similar.</para>
+          <listitem><para>The UNIX process ID (PID) of the unit's main process if it is known. This is only
+          set for control processes as invoked by <varname>ExecReload=</varname> and similar.</para>
 
           <xi:include href="version-info.xml" xpointer="v209"/></listitem>
         </varlistentry>
 
         <varlistentry>
+          <term><varname>$MAINPIDFDID</varname></term>
+
+          <listitem><para>The 64bit inode ID of the file descriptor returned by <citerefentry
+          project='man-pages'><refentrytitle>pidfd_open</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+          for the main process (if supported). This is only set for control processes as invoked by
+          <varname>ExecReload=</varname> and similar.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><varname>$MANAGERPID</varname></term>
 
-          <listitem><para>The PID of the user <command>systemd</command>
-          instance, set for processes spawned by it.</para>
-
+          <listitem><para>The PID of the per-user <command>systemd</command> service manager instance, set
+          for processes spawned by it.</para>
           <xi:include href="version-info.xml" xpointer="v208"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>$MANAGERPIDFDID</varname></term>
+
+          <listitem><para>The <function>pidfd_open()</function> inode ID (see above) of the per-user
+          <command>systemd</command> service manager instance, set for processes spawned by it.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/></listitem>
         </varlistentry>
 
         <varlistentry>

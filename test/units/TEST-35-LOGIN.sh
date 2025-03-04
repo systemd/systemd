@@ -711,6 +711,12 @@ testcase_background() {
     TRANSIENTUNIT0="none$RANDOM.service"
     TRANSIENTUNIT1="bg$RANDOM.service"
     TRANSIENTUNIT2="bgg$RANDOM.service"
+    TRANSIENTUNIT3="bggg$RANDOM.service"
+    TRANSIENTUNIT4="bgggg$RANDOM.service"
+    RUN0UNIT0="run0$RANDOM.service"
+    RUN0UNIT1="runn0$RANDOM.service"
+    RUN0UNIT2="runnn0$RANDOM.service"
+    RUN0UNIT3="runnnn0$RANDOM.service"
 
     trap background_at_return RETURN
 
@@ -745,6 +751,38 @@ EOF
     systemctl stop "$TRANSIENTUNIT2"
 
     systemctl stop user@"$uid".service
+
+    # Now check that system users automatically get the light session class assigned
+    systemd-sysusers --inline "u lightuser"
+
+    systemd-run -u "$TRANSIENTUNIT3" -p PAMName="$PAMSERVICE" -p "Environment=XDG_SESSION_TYPE=unspecified" -p Type=exec -p User=lightuser sleep infinity
+    loginctl | grep lightuser | grep -q background-light
+    systemctl stop "$TRANSIENTUNIT3"
+
+    systemd-run -u "$TRANSIENTUNIT4" -p PAMName="$PAMSERVICE" -p "Environment=XDG_SESSION_TYPE=tty" -p Type=exec -p User=lightuser sleep infinity
+    loginctl | grep lightuser | grep -q user-light
+    systemctl stop "$TRANSIENTUNIT4"
+
+    # Now check that run0's session class control works
+    systemd-run --service-type=notify run0 -u lightuser --unit="$RUN0UNIT0" sleep infinity
+    loginctl | grep lightuser | grep -q "background-light "
+    systemctl stop "$RUN0UNIT0"
+
+    systemd-run --service-type=notify run0 -u lightuser --unit="$RUN0UNIT1" --lightweight=yes sleep infinity
+    loginctl | grep lightuser | grep -q "background-light "
+    systemctl stop "$RUN0UNIT1"
+
+    systemd-run --service-type=notify run0 -u lightuser --unit="$RUN0UNIT2" --lightweight=no sleep infinity
+    loginctl | grep lightuser | grep -q "background "
+    systemctl stop "$RUN0UNIT2"
+
+    systemd-run --service-type=notify run0 -u root --unit="$RUN0UNIT3" sleep infinity
+    loginctl | grep root | grep -q "background-light "
+    systemctl stop "$RUN0UNIT3"
+}
+
+testcase_varlink() {
+    varlinkctl introspect /run/systemd/io.systemd.Login
 }
 
 setup_test_user

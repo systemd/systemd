@@ -6,6 +6,7 @@
 ***/
 
 #include <stdbool.h>
+#include <stdio.h>
 
 #include "list.h"
 
@@ -22,5 +23,5 @@ typedef struct MountPoint {
         LIST_FIELDS(struct MountPoint, mount_point);
 } MountPoint;
 
-int mount_points_list_get(const char *mountinfo, MountPoint **head);
+int mount_points_list_get(FILE *f, MountPoint **head);
 void mount_points_list_free(MountPoint **head);

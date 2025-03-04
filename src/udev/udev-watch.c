@@ -161,13 +161,13 @@ static int udev_watch_clear(sd_device *dev, int dirfd, int *ret_wd) {
 
         if (ret_wd)
                 *ret_wd = wd;
-        r = 0;
+        r = 1;
 
 finalize:
         /* 5. remove symlink ID -> wd.
          * The file is always owned by the device. Hence, it is safe to remove it unconditionally. */
         if (unlinkat(dirfd, id, 0) < 0 && errno != ENOENT)
-                log_device_debug_errno(dev, errno, "Failed to remove '/run/udev/watch/%s': %m", id);
+                log_device_debug_errno(dev, errno, "Failed to remove '/run/udev/watch/%s', ignoring: %m", id);
 
         return r;
 }
@@ -249,7 +249,7 @@ int udev_watch_end(int inotify_fd, sd_device *dev) {
 
         /* First, clear symlinks. */
         r = udev_watch_clear(dev, dirfd, &wd);
-        if (r < 0)
+        if (r <= 0)
                 return r;
 
         /* Then, remove inotify watch. */

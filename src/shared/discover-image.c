@@ -2,7 +2,6 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <linux/fs.h>
 #include <linux/loop.h>
 #include <linux/magic.h>
 #include <stdio.h>
@@ -36,6 +35,7 @@
 #include "log.h"
 #include "loop-util.h"
 #include "macro.h"
+#include "missing_fs.h"
 #include "mkdir.h"
 #include "nulstr-util.h"
 #include "os-util.h"
@@ -109,6 +109,15 @@ static const char *const image_root_table[_IMAGE_CLASS_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP_TO_STRING(image_root, ImageClass);
+
+static const char *const image_root_runtime_table[_IMAGE_CLASS_MAX] = {
+        [IMAGE_MACHINE]  = "/run/machines",
+        [IMAGE_PORTABLE] = "/run/portables",
+        [IMAGE_SYSEXT]   = "/run/extensions",
+        [IMAGE_CONFEXT]  = "/run/confexts",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(image_root_runtime, ImageClass);
 
 static Image *image_free(Image *i) {
         assert(i);
@@ -1117,7 +1126,7 @@ int image_remove(Image *i) {
 
         case IMAGE_DIRECTORY:
                 /* Allow deletion of read-only directories */
-                (void) chattr_path(i->path, 0, FS_IMMUTABLE_FL, NULL);
+                (void) chattr_path(i->path, 0, FS_IMMUTABLE_FL);
                 r = rm_rf(i->path, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME);
                 if (r < 0)
                         return r;
@@ -1216,7 +1225,7 @@ int image_rename(Image *i, const char *new_name, RuntimeScope scope) {
                 (void) read_attr_at(AT_FDCWD, i->path, &file_attr);
 
                 if (file_attr & FS_IMMUTABLE_FL)
-                        (void) chattr_path(i->path, 0, FS_IMMUTABLE_FL, NULL);
+                        (void) chattr_path(i->path, 0, FS_IMMUTABLE_FL);
 
                 _fallthrough_;
         case IMAGE_SUBVOLUME:
@@ -1257,7 +1266,7 @@ int image_rename(Image *i, const char *new_name, RuntimeScope scope) {
 
         /* Restore the immutable bit, if it was set before */
         if (file_attr & FS_IMMUTABLE_FL)
-                (void) chattr_path(new_path, FS_IMMUTABLE_FL, FS_IMMUTABLE_FL, NULL);
+                (void) chattr_path(new_path, FS_IMMUTABLE_FL, FS_IMMUTABLE_FL);
 
         free_and_replace(i->path, new_path);
         free_and_replace(i->name, nn);
@@ -1409,7 +1418,7 @@ int image_read_only(Image *i, bool b) {
                    a read-only subvolume, but at least something, and
                    we can read the value back. */
 
-                r = chattr_path(i->path, b ? FS_IMMUTABLE_FL : 0, FS_IMMUTABLE_FL, NULL);
+                r = chattr_path(i->path, b ? FS_IMMUTABLE_FL : 0, FS_IMMUTABLE_FL);
                 if (r < 0)
                         return r;
 
@@ -1587,6 +1596,29 @@ int image_set_limit(Image *i, uint64_t referenced_max) {
                 return r;
 
         (void) image_update_quota(i, -EBADF);
+        return 0;
+}
+
+int image_set_pool_limit(ImageClass class, uint64_t referenced_max) {
+        const char *dir;
+        int r;
+
+        assert(class >= 0 && class < _IMAGE_CLASS_MAX);
+
+        dir = image_root_to_string(class);
+
+        r = btrfs_qgroup_set_limit(dir, /* qgroupid = */ 0, referenced_max);
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                return r;
+        if (r < 0)
+                log_debug_errno(r, "Failed to set limit on btrfs quota group for '%s', ignoring: %m", dir);
+
+        r = btrfs_subvol_set_subtree_quota_limit(dir, /* subvol_id = */ 0, referenced_max);
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                return r;
+        if (r < 0)
+                return log_debug_errno(r, "Failed to set subtree quota limit for '%s': %m", dir);
+
         return 0;
 }
 

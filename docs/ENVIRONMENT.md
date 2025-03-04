@@ -72,9 +72,6 @@ All tools:
   `/etc/veritytab`. Only useful for debugging. Currently only supported by
   `systemd-veritysetup-generator`.
 
-* `$SYSTEMD_EFI_OPTIONS` — if set, used instead of the string in the
-  `SystemdOptions` EFI variable. Analogous to `$SYSTEMD_PROC_CMDLINE`.
-
 * `$SYSTEMD_DEFAULT_HOSTNAME` — override the compiled-in fallback hostname
   (relevant in particular for the system manager and `systemd-hostnamed`).
   Must be a valid hostname (either a single label or a FQDN).
@@ -145,6 +142,11 @@ All tools:
 * `$SYSTEMCTL_SKIP_AUTO_SOFT_REBOOT=1` — if set, do not automatically soft-reboot
   instead of reboot when a new root file system has been loaded in
   `/run/nextroot/`.
+
+* `SYSTEMD_PRESET_BYPASS=1` — If set, execution of `systemctl preset` and
+  `systemctl preset-all` is skipped. This can be useful if either of these is
+  invoked unconditionally as a child process by another tool, such as package
+  managers running it in a postinstall script.
 
 `systemd-nspawn`:
 
@@ -411,6 +413,11 @@ All tools:
   subvolumes if the backing filesystem supports them. If set to `0`, these
   lines will always create directories.
 
+* `SYSTEMD_TMPFILES_BYPASS=1` — If set, execution of `systemd-tmpfiles` is
+  skipped. This can be useful if `systemd-tmpfiles` is invoked unconditionally
+  as a child process by another tool, such as package managers running it in a
+  postinstall script.
+
 `systemd-sysusers`:
 
 * `$SOURCE_DATE_EPOCH` — if unset, the field of the date of last password change
@@ -420,6 +427,11 @@ All tools:
   support creating bit-by-bit reproducible system images by choosing a
   reproducible value for the field of the date of last password change in
   `/etc/shadow`. See: https://reproducible-builds.org/specs/source-date-epoch/
+
+* `SYSTEMD_SYSUSERS_BYPASS=1` — If set, execution of `systemd-sysusers` is
+  skipped. This can be useful if `systemd-sysusers` is invoked unconditionally
+  as a child process by another tool, such as package managers running it in a
+  postinstall script.
 
 `systemd-sysv-generator`:
 
@@ -595,6 +607,13 @@ SYSTEMD_HOME_DEBUG_SUFFIX=foo \
   caused by parts of the session becoming unresponsive due to disk I/O while other
   parts of the session continue running. Thus, we highly recommend that this variable
   isn't used unless necessary. Defaults to true.
+
+`homectl`:
+
+* `$SYSTEMD_HOME_FIRSTBOOT_OVERRIDE` – if set to "1" will make `homectl
+  firstboot --prompt-new-user` interactively ask for user creation, even if
+  there already exists at least one regular user on the system. If set to "0"
+  will make the tool skip any such query.
 
 `kernel-install`:
 

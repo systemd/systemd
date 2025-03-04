@@ -74,6 +74,12 @@ if conf.get('ENABLE_BOOTLOADER') != 1
 endif
 
 efi_conf = configuration_data()
+
+# import several configs from userspace
+foreach name : ['HAVE_WARNING_ZERO_LENGTH_BOUNDS', 'HAVE_WARNING_ZERO_AS_NULL_POINTER_CONSTANT']
+        efi_conf.set10(name, conf.get(name) == 1)
+endforeach
+
 efi_conf.set10('ENABLE_TPM', get_option('tpm'))
 
 foreach ctype : ['color-normal', 'color-entry', 'color-highlight', 'color-edit']
@@ -279,6 +285,7 @@ libefi_sources = files(
         'device-path-util.c',
         'devicetree.c',
         'drivers.c',
+        'efi-firmware.c',
         'efi-string.c',
         'efivars.c',
         'export-vars.c',
@@ -293,12 +300,14 @@ libefi_sources = files(
         'shim.c',
         'smbios.c',
         'ticks.c',
+        'url-discovery.c',
         'util.c',
         'vmm.c',
 )
 
 systemd_boot_sources = files(
         'boot.c',
+        'line-edit.c',
 )
 
 stub_sources = files(
@@ -444,7 +453,7 @@ foreach efi_elf_binary : efi_elf_binaries
         test('check-alignment-@0@'.format(name),
              check_efi_alignment_py,
              args : exe.full_path(),
-             suite : 'efi')
+             suite : 'boot')
 endforeach
 
 alias_target('systemd-boot', boot_targets)

@@ -363,7 +363,7 @@ read_only:
         if (!is_toplevel) {
                 _cleanup_free_ char *name = NULL;
 
-                /* When we hit a ready-only subtree we simply skip it, but log about it. */
+                /* When we hit a read-only subtree we simply skip it, but log about it. */
                 (void) fd_get_path(fd, &name);
                 log_debug("Skipping read-only file or directory %s.", strna(name));
                 r = changed;

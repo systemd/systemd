@@ -55,20 +55,20 @@ TEST(read_one_char) {
 
         assert_se(fputs("c\n", file) >= 0);
         rewind(file);
-        assert_se(read_one_char(file, &r, 1000000, &need_nl) >= 0);
+        assert_se(read_one_char(file, &r, 1000000, /* echo= */ true, &need_nl) >= 0);
         assert_se(!need_nl);
         assert_se(r == 'c');
-        assert_se(read_one_char(file, &r, 1000000, &need_nl) < 0);
+        assert_se(read_one_char(file, &r, 1000000, /* echo= */ true, &need_nl) < 0);
 
         rewind(file);
         assert_se(fputs("foobar\n", file) >= 0);
         rewind(file);
-        assert_se(read_one_char(file, &r, 1000000, &need_nl) < 0);
+        assert_se(read_one_char(file, &r, 1000000, /* echo= */ true, &need_nl) < 0);
 
         rewind(file);
         assert_se(fputs("\n", file) >= 0);
         rewind(file);
-        assert_se(read_one_char(file, &r, 1000000, &need_nl) < 0);
+        assert_se(read_one_char(file, &r, 1000000, /* echo= */ true, &need_nl) < 0);
 }
 
 TEST(getttyname_malloc) {
@@ -290,7 +290,7 @@ TEST(get_color_mode) {
 TEST(terminal_reset_defensive) {
         int r;
 
-        r = terminal_reset_defensive(STDOUT_FILENO, /* switch_to_text= */ false);
+        r = terminal_reset_defensive(STDOUT_FILENO, /* flags= */ 0);
         if (r < 0)
                 log_notice_errno(r, "Failed to reset terminal: %m");
 }

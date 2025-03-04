@@ -66,6 +66,7 @@ _udevadm_control(){
         '(-R --reload)'{-R,--reload}'[Signal systemd-udevd to reload the rules files and other databases like the kernel module index.]' \
         '(-p --property)'{-p,--property=}'[Set a global property for all events.]:KEY=VALUE' \
         '(-m --children-max=)'{-m,--children-max=}'[Set the maximum number of events.]:N' \
+        '--trace=[Enable/disable trace logging.]:BOOL' \
         '(-t --timeout=)'{-t,--timeout=}'[The maximum number of seconds to wait for a reply from systemd-udevd.]:SECONDS'
 }
 
@@ -87,7 +88,11 @@ _udevadm_test(){
         '(-)'{-h,--help}'[Show help]' \
         '(-)'{-V,--version}'[Show package version]' \
         '--action=[The action string.]:actions:(add change remove move online offline bind unbind)' \
-        '--subsystem=[The subsystem string.]' \
+        '(-N --resolve-names)'{-N,--resolve-names=}'[When to resolve names.]:resolve:(early late never)' \
+       '--subsystem=[The subsystem string.]' \
+        '(-D --extra-rules-dir=)'{-D,--extra-rules-dir=}'[Also load rules from the directory.]' \
+        '(-v --verbose)'{-v,--verbose}'[Show verbose logs.]' \
+        '--json=[Generate JSON output]:MODE:(pretty short off)' \
         '*::devpath:_files -P /sys/ -W /sys'
 }
 
@@ -98,7 +103,7 @@ _udevadm_test-builtin(){
         '(- *)'{-h,--help}'[Print help]' \
         '(- *)'{-V,--version}'[Print version of the program]' \
         '--action=[The action string.]:actions:(add change remove move online offline bind unbind)' \
-        '*::builtins:(blkid btrfs hwdb input_id net_id net_setup_link kmod path_id usb_id uaccess)'
+        '*::builtins:(blkid btrfs hwdb input_id net_driver net_id net_setup_link kmod path_id uaccess usb_id)'
     elif  (( CURRENT == 3 )); then
         _arguments \
             '--action=[The action string.]:actions:(add change remove move online offline bind unbind)' \
@@ -116,10 +121,21 @@ _udevadm_verify(){
     _arguments \
         '(- *)'{-h,--help}'[Show help]' \
         '(- *)'{-V,--version}'[Show package version]' \
-        '(-N --resolve-names)'{-N+,--resolve-names=}'[When to resolve names.]:resolve:(early never)' \
+        '(-N --resolve-names)'{-N,--resolve-names=}'[When to resolve names.]:resolve:(early late never)' \
         '--root=[Operate on catalog hierarchy under specified directory]:directories:_directories' \
         --no-summary'[Do not show summary.]' \
         --no-style'[Ignore style issues.]' \
+        '*::files:_files'
+}
+
+(( $+functions[_udevadm_cat] )) ||
+_udevadm_cat(){
+    _arguments \
+        '(- *)'{-h,--help}'[Show help]' \
+        '(- *)'{-V,--version}'[Show package version]' \
+        '--root=[Operate on catalog hierarchy under specified directory]:directories:_directories' \
+        --tldr'[Skip comments and empty lines.]' \
+        --config'[Show udev.conf.]' \
         '*::files:_files'
 }
 

@@ -4,8 +4,8 @@ SecureBootCertificate=/etc/kernel/secureboot-certificate.pem
 
 [PCRSignature:initrd]
 Phases=enter-initrd
-PCRPrivateKey=/etc/systemd/tpm2-pcr-private-key-initrd.pem
-PCRPublicKey=/etc/systemd/tpm2-pcr-public-key-initrd.pem
+PCRPrivateKey=/etc/systemd/tpm2-pcr-initrd-private-key.pem
+PCRPublicKey=/etc/systemd/tpm2-pcr-initrd-public-key.pem
 
 [PCRSignature:system]
 Phases=enter-initrd:leave-initrd enter-initrd:leave-initrd:sysinit

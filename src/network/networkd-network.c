@@ -170,7 +170,7 @@ int network_verify(Network *network) {
         network->bond_name = mfree(network->bond_name);
         network->bridge_name = mfree(network->bridge_name);
         network->vrf_name = mfree(network->vrf_name);
-        network->stacked_netdev_names = hashmap_free_free_key(network->stacked_netdev_names);
+        network->stacked_netdev_names = hashmap_free(network->stacked_netdev_names);
 
         if (network->bond) {
                 /* Bonding slave does not support addressing. */
@@ -456,6 +456,8 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .bridge_proxy_arp_wifi = -1,
                 .priority = LINK_BRIDGE_PORT_PRIORITY_INVALID,
                 .multicast_router = _MULTICAST_ROUTER_INVALID,
+                .bridge_locked = -1,
+                .bridge_mac_authentication_bypass = -1,
 
                 .bridge_vlan_pvid = BRIDGE_VLAN_KEEP_PVID,
 
@@ -818,7 +820,7 @@ static Network *network_free(Network *network) {
         free(network->bridge_name);
         free(network->bond_name);
         free(network->vrf_name);
-        hashmap_free_free_key(network->stacked_netdev_names);
+        hashmap_free(network->stacked_netdev_names);
         netdev_unref(network->bridge);
         netdev_unref(network->bond);
         netdev_unref(network->vrf);
@@ -949,7 +951,7 @@ int config_parse_stacked_netdev(
         if (!name)
                 return log_oom();
 
-        r = hashmap_ensure_put(h, &string_hash_ops, name, INT_TO_PTR(kind));
+        r = hashmap_ensure_put(h, &string_hash_ops_free, name, INT_TO_PTR(kind));
         if (r == -ENOMEM)
                 return log_oom();
         if (r < 0)

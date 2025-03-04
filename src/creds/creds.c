@@ -65,6 +65,7 @@ static bool arg_quiet = false;
 static bool arg_varlink = false;
 static uid_t arg_uid = UID_INVALID;
 static bool arg_allow_null = false;
+static bool arg_ask_password = true;
 
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_public_key, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_signature, freep);
@@ -586,16 +587,18 @@ static int verb_encrypt(int argc, char **argv, void *userdata) {
         if (arg_not_after != USEC_INFINITY && arg_not_after < timestamp)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Credential is invalidated before it is valid.");
 
-        if (geteuid() != 0)
+        if (geteuid() != 0) {
+                (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
+
                 r = ipc_encrypt_credential(
                                 name,
                                 timestamp,
                                 arg_not_after,
                                 arg_uid,
                                 &plaintext,
-                                /* flags= */ 0,
+                                arg_ask_password ? CREDENTIAL_IPC_ALLOW_INTERACTIVE : 0,
                                 &output);
-        else
+        } else
                 r = encrypt_credential_and_warn(
                                 arg_with_key,
                                 name,
@@ -690,15 +693,17 @@ static int verb_decrypt(int argc, char **argv, void *userdata) {
 
         timestamp = arg_timestamp != USEC_INFINITY ? arg_timestamp : now(CLOCK_REALTIME);
 
-        if (geteuid() != 0)
+        if (geteuid() != 0) {
+                (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
+
                 r = ipc_decrypt_credential(
                                 name,
                                 timestamp,
                                 arg_uid,
                                 &input,
-                                /* flags= */ 0,
+                                arg_ask_password ? CREDENTIAL_IPC_ALLOW_INTERACTIVE : 0,
                                 &plaintext);
-        else
+        } else
                 r = decrypt_credential_and_warn(
                                 name,
                                 timestamp,
@@ -832,6 +837,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_USER,
                 ARG_UID,
                 ARG_ALLOW_NULL,
+                ARG_NO_ASK_PASSWORD,
         };
 
         static const struct option options[] = {
@@ -857,6 +863,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "user",                 no_argument,       NULL, ARG_USER                 },
                 { "uid",                  required_argument, NULL, ARG_UID                  },
                 { "allow-null",           no_argument,       NULL, ARG_ALLOW_NULL           },
+                { "no-ask-password",      no_argument,       NULL, ARG_NO_ASK_PASSWORD      },
                 {}
         };
 
@@ -1052,6 +1059,10 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_allow_null = true;
                         break;
 
+                case ARG_NO_ASK_PASSWORD:
+                        arg_ask_password = false;
+                        break;
+
                 case 'q':
                         arg_quiet = true;
                         break;
@@ -1080,7 +1091,7 @@ static int parse_argv(int argc, char *argv[]) {
         }
 
         if (arg_tpm2_pcr_mask == UINT32_MAX)
-                arg_tpm2_pcr_mask = TPM2_PCR_MASK_DEFAULT;
+                arg_tpm2_pcr_mask = 0;
         if (arg_tpm2_public_key_pcr_mask == UINT32_MAX)
                 arg_tpm2_public_key_pcr_mask = UINT32_C(1) << TPM2_PCR_KERNEL_BOOT;
 
@@ -1425,7 +1436,7 @@ static int run(int argc, char *argv[]) {
 
         if (arg_varlink) {
                 _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *varlink_server = NULL;
-                _cleanup_(hashmap_freep) Hashmap *polkit_registry = NULL;
+                _cleanup_hashmap_free_ Hashmap *polkit_registry = NULL;
 
                 /* Invocation as Varlink service */
 

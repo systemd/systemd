@@ -1,9 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <threads.h>
+
 #include "chase.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "missing_threads.h"
 #include "string-util.h"
 #include "uid-classification.h"
 #include "user-util.h"
@@ -127,5 +128,5 @@ bool uid_for_system_journal(uid_t uid) {
 
         /* Returns true if the specified UID shall get its data stored in the system journal. */
 
-        return uid_is_system(uid) || uid_is_dynamic(uid) || uid == UID_NOBODY || uid_is_container(uid);
+        return uid_is_system(uid) || uid_is_dynamic(uid) || uid == UID_NOBODY || uid_is_container(uid) || uid_is_foreign(uid);
 }

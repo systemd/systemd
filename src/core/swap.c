@@ -617,7 +617,6 @@ static void swap_dump(Unit *u, FILE *f, const char *prefix) {
 
                 exec_command_dump(s->exec_command + c, f, prefix2);
         }
-
 }
 
 static int swap_spawn(Swap *s, ExecCommand *c, PidRef *ret_pid) {

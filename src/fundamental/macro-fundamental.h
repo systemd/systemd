@@ -48,6 +48,32 @@
         _Pragma("GCC diagnostic push");                                 \
         _Pragma("GCC diagnostic ignored \"-Waddress\"")
 
+#define DISABLE_WARNING_STRINGOP_TRUNCATION                             \
+        _Pragma("GCC diagnostic push");                                 \
+        _Pragma("GCC diagnostic ignored \"-Wstringop-truncation\"")
+
+#define DISABLE_WARNING_REDUNDANT_DECLS                                 \
+        _Pragma("GCC diagnostic push");                                 \
+        _Pragma("GCC diagnostic ignored \"-Wredundant-decls\"")
+
+#if HAVE_WARNING_ZERO_LENGTH_BOUNDS
+#  define DISABLE_WARNING_ZERO_LENGTH_BOUNDS                            \
+        _Pragma("GCC diagnostic push");                                 \
+        _Pragma("GCC diagnostic ignored \"-Wzero-length-bounds\"")
+#else
+#  define DISABLE_WARNING_ZERO_LENGTH_BOUNDS                            \
+        _Pragma("GCC diagnostic push")
+#endif
+
+#if HAVE_WARNING_ZERO_AS_NULL_POINTER_CONSTANT
+#  define DISABLE_WARNING_ZERO_AS_NULL_POINTER_CONSTANT                 \
+        _Pragma("GCC diagnostic push");                                 \
+        _Pragma("GCC diagnostic ignored \"-Wzero-as-null-pointer-constant\"")
+#else
+#  define DISABLE_WARNING_ZERO_AS_NULL_POINTER_CONSTANT                 \
+        _Pragma("GCC diagnostic push")
+#endif
+
 #define REENABLE_WARNING                                                \
         _Pragma("GCC diagnostic pop")
 
@@ -84,10 +110,16 @@
 #  define _alloc_(...) __attribute__((__alloc_size__(__VA_ARGS__)))
 #endif
 
-#if __GNUC__ >= 7 || (defined(__clang__) && __clang_major__ >= 10)
-#  define _fallthrough_ __attribute__((__fallthrough__))
-#else
+#if defined(__clang__) && __clang_major__ < 10
 #  define _fallthrough_
+#else
+#  define _fallthrough_ __attribute__((__fallthrough__))
+#endif
+
+#if __GNUC__ >= 15
+#  define _nonnull_if_nonzero_(p, n) __attribute__((nonnull_if_nonzero(p, n)))
+#else
+#  define _nonnull_if_nonzero_(p, n)
 #endif
 
 #define XSTRINGIFY(x) #x

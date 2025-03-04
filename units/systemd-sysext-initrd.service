@@ -23,8 +23,8 @@ Before=local-fs-pre.target cryptsetup-pre.target systemd-tmpfiles-setup.service
 Wants=local-fs-pre.target cryptsetup-pre.target
 Conflicts=initrd-switch-root.target
 Before=initrd-switch-root.target
-Wants=modprobe@loop.service modprobe@dm_mod.service modprobe@squashfs.service modprobe@erofs.service
-After=modprobe@loop.service modprobe@dm_mod.service modprobe@squashfs.service modprobe@erofs.service
+Wants=modprobe@loop.service modprobe@dm_mod.service
+After=modprobe@loop.service modprobe@dm_mod.service
 
 [Service]
 Type=oneshot

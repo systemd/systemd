@@ -9,6 +9,7 @@
 #include "socket-netlink.h"
 #include "varlink-io.systemd.Resolve.h"
 #include "varlink-io.systemd.Resolve.Monitor.h"
+#include "varlink-io.systemd.service.h"
 #include "varlink-util.h"
 
 typedef struct LookupParameters {
@@ -34,6 +35,24 @@ typedef struct LookupParametersResolveService {
 static void lookup_parameters_destroy(LookupParameters *p) {
         assert(p);
         free(p->name);
+}
+
+static int dns_query_new_for_varlink(
+                Manager *m,
+                DnsQuery **ret,
+                DnsQuestion *question_utf8,
+                DnsQuestion *question_idna,
+                DnsPacket *question_bypass,
+                int ifindex,
+                uint64_t flags,
+                sd_varlink *link) {
+
+        int r;
+
+        r = dns_query_new(m, ret, question_utf8, question_idna, question_bypass, ifindex, flags);
+        if (r == -ENOANO)
+                return sd_varlink_error(link, "io.systemd.Resolve.QueryRefused", NULL);
+        return r;
 }
 
 static int reply_query_state(DnsQuery *q) {
@@ -126,61 +145,25 @@ static void vl_on_disconnect(sd_varlink_server *s, sd_varlink *link, void *userd
 
 static void vl_on_notification_disconnect(sd_varlink_server *s, sd_varlink *link, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
+        sd_varlink *removed_link = NULL;
 
         assert(s);
         assert(link);
 
-        sd_varlink *removed_link = set_remove(m->varlink_subscription, link);
+        removed_link = set_remove(m->varlink_query_results_subscription, link);
         if (removed_link) {
                 sd_varlink_unref(removed_link);
-                log_debug("%u monitor clients remain active", set_size(m->varlink_subscription));
+                log_debug("%u query result monitor clients remain active", set_size(m->varlink_query_results_subscription));
         }
-}
 
-static bool validate_and_mangle_flags(
-                const char *name,
-                uint64_t *flags,
-                uint64_t ok) {
+        removed_link = set_remove(m->varlink_dns_configuration_subscription, link);
+        if (removed_link) {
+                sd_varlink_unref(removed_link);
+                log_debug("%u DNS monitor clients remain active", set_size(m->varlink_dns_configuration_subscription));
 
-        assert(flags);
-
-        /* This checks that the specified client-provided flags parameter actually makes sense, and mangles
-         * it slightly. Specifically:
-         *
-         * 1. We check that only the protocol flags and a bunch of NO_XYZ flags are on at most, plus the
-         *    method-specific flags specified in 'ok'.
-         *
-         * 2. If no protocols are enabled we automatically convert that to "all protocols are enabled".
-         *
-         * The second rule means that clients can just pass 0 as flags for the common case, and all supported
-         * protocols are enabled. Moreover it's useful so that client's do not have to be aware of all
-         * protocols implemented in resolved, but can use 0 as protocols flags set as indicator for
-         * "everything".
-         */
-
-        if (*flags & ~(SD_RESOLVED_PROTOCOLS_ALL|
-                       SD_RESOLVED_NO_CNAME|
-                       SD_RESOLVED_NO_VALIDATE|
-                       SD_RESOLVED_NO_SYNTHESIZE|
-                       SD_RESOLVED_NO_CACHE|
-                       SD_RESOLVED_NO_ZONE|
-                       SD_RESOLVED_NO_TRUST_ANCHOR|
-                       SD_RESOLVED_NO_NETWORK|
-                       SD_RESOLVED_NO_STALE|
-                       SD_RESOLVED_RELAX_SINGLE_LABEL|
-                       ok))
-                return false;
-
-        if ((*flags & SD_RESOLVED_PROTOCOLS_ALL) == 0) /* If no protocol is enabled, enable all */
-                *flags |= SD_RESOLVED_PROTOCOLS_ALL;
-
-        /* If the SD_RESOLVED_NO_SEARCH flag is acceptable, and the query name is dot-suffixed, turn off
-         * search domains. Note that DNS name normalization drops the dot suffix, hence we propagate this
-         * into the flags field as early as we can. */
-        if (name && FLAGS_SET(ok, SD_RESOLVED_NO_SEARCH) && dns_name_dot_suffixed(name) > 0)
-                *flags |= SD_RESOLVED_NO_SEARCH;
-
-        return true;
+                if (set_isempty(m->varlink_dns_configuration_subscription))
+                        manager_stop_dns_configuration_monitor(m);
+        }
 }
 
 static int find_addr_records(
@@ -358,7 +341,7 @@ static int vl_method_resolve_hostname(sd_varlink *link, sd_json_variant *paramet
         if (!IN_SET(p.family, AF_UNSPEC, AF_INET, AF_INET6))
                 return sd_varlink_error_invalid_parameter(link, JSON_VARIANT_STRING_CONST("family"));
 
-        if (!validate_and_mangle_flags(p.name, &p.flags, SD_RESOLVED_NO_SEARCH))
+        if (validate_and_mangle_query_flags(m, &p.flags, p.name, SD_RESOLVED_NO_SEARCH) < 0)
                 return sd_varlink_error_invalid_parameter(link, JSON_VARIANT_STRING_CONST("flags"));
 
         r = parse_as_address(link, &p);
@@ -373,7 +356,7 @@ static int vl_method_resolve_hostname(sd_varlink *link, sd_json_variant *paramet
         if (r < 0 && r != -EALREADY)
                 return r;
 
-        r = dns_query_new(m, &q, question_utf8, question_idna ?: question_utf8, NULL, p.ifindex, p.flags);
+        r = dns_query_new_for_varlink(m, &q, question_utf8, question_idna ?: question_utf8, NULL, p.ifindex, p.flags, link);
         if (r < 0)
                 return r;
 
@@ -521,14 +504,14 @@ static int vl_method_resolve_address(sd_varlink *link, sd_json_variant *paramete
         if (FAMILY_ADDRESS_SIZE(p.family) != p.address_size)
                 return sd_varlink_error(link, "io.systemd.Resolve.BadAddressSize", NULL);
 
-        if (!validate_and_mangle_flags(NULL, &p.flags, 0))
+        if (validate_and_mangle_query_flags(m, &p.flags, /* name = */ NULL, /* ok = */ 0) < 0)
                 return sd_varlink_error_invalid_parameter(link, JSON_VARIANT_STRING_CONST("flags"));
 
         r = dns_question_new_reverse(&question, p.family, &p.address);
         if (r < 0)
                 return r;
 
-        r = dns_query_new(m, &q, question, question, NULL, p.ifindex, p.flags|SD_RESOLVED_NO_SEARCH);
+        r = dns_query_new_for_varlink(m, &q, question, question, NULL, p.ifindex, p.flags|SD_RESOLVED_NO_SEARCH, link);
         if (r < 0)
                 return r;
 
@@ -863,7 +846,7 @@ static int resolve_service_hostname(DnsQuery *q, DnsResourceRecord *rr, int ifin
         if (r < 0)
                 return r;
 
-        r = dns_query_new(q->manager, &aux, question, question, NULL, ifindex, q->flags|SD_RESOLVED_NO_SEARCH);
+        r = dns_query_new_for_varlink(q->manager, &aux, question, question, NULL, ifindex, q->flags|SD_RESOLVED_NO_SEARCH, q->varlink_request);
         if (r < 0)
                 return r;
 
@@ -1015,8 +998,12 @@ static int vl_method_resolve_service(sd_varlink* link, sd_json_variant* paramete
         if (p.name && !p.type) /* Service name cannot be specified without service type. */
                 return sd_varlink_error_invalid_parameter(link, JSON_VARIANT_STRING_CONST("type"));
 
-        if (!validate_and_mangle_flags(p.name, &p.flags, SD_RESOLVED_NO_TXT|SD_RESOLVED_NO_ADDRESS))
+        if (validate_and_mangle_query_flags(m, &p.flags, p.name, SD_RESOLVED_NO_TXT|SD_RESOLVED_NO_ADDRESS) < 0)
                 return sd_varlink_error_invalid_parameter(link, JSON_VARIANT_STRING_CONST("flags"));
+
+        /* Refuse the method if SRV is filtered. */
+        if (set_contains(m->refuse_record_types, INT_TO_PTR(DNS_TYPE_SRV)))
+                return sd_varlink_error(link, "io.systemd.Resolve.QueryRefused", NULL);
 
         r = dns_question_new_service(&question_utf8, p.name, p.type, p.domain, !(p.flags & SD_RESOLVED_NO_TXT), false);
         if (r < 0)
@@ -1026,7 +1013,7 @@ static int vl_method_resolve_service(sd_varlink* link, sd_json_variant* paramete
         if (r < 0)
                 return r;
 
-        r = dns_query_new(m, &q, question_utf8, question_idna, NULL, p.ifindex, p.flags|SD_RESOLVED_NO_SEARCH);
+        r = dns_query_new_for_varlink(m, &q, question_utf8, question_idna, NULL, p.ifindex, p.flags|SD_RESOLVED_NO_SEARCH, link);
         if (r < 0)
                 return r;
 
@@ -1155,7 +1142,7 @@ static int vl_method_resolve_record(sd_varlink *link, sd_json_variant *parameter
         if (dns_type_is_obsolete(p.type))
                 return sd_varlink_error(link, "io.systemd.Resolve.ResourceRecordTypeObsolete", NULL);
 
-        if (!validate_and_mangle_flags(p.name, &p.flags, SD_RESOLVED_NO_SEARCH))
+        if (validate_and_mangle_query_flags(m, &p.flags, p.name, SD_RESOLVED_NO_SEARCH) < 0)
                 return sd_varlink_error_invalid_parameter(link, JSON_VARIANT_STRING_CONST("flags"));
 
         _cleanup_(dns_question_unrefp) DnsQuestion *question = dns_question_new(1);
@@ -1171,7 +1158,7 @@ static int vl_method_resolve_record(sd_varlink *link, sd_json_variant *parameter
         if (r < 0)
                 return r;
 
-        r = dns_query_new(m, &q, question, question, NULL, p.ifindex, p.flags|SD_RESOLVED_NO_SEARCH|SD_RESOLVED_CLAMP_TTL);
+        r = dns_query_new_for_varlink(m, &q, question, question, NULL, p.ifindex, p.flags|SD_RESOLVED_NO_SEARCH|SD_RESOLVED_CLAMP_TTL, link);
         if (r < 0)
                 return r;
 
@@ -1228,12 +1215,12 @@ static int vl_method_subscribe_query_results(sd_varlink *link, sd_json_variant *
         if (r < 0)
                 return log_error_errno(r, "Failed to report monitor to be established: %m");
 
-        r = set_ensure_put(&m->varlink_subscription, NULL, link);
+        r = set_ensure_put(&m->varlink_query_results_subscription, NULL, link);
         if (r < 0)
                 return log_error_errno(r, "Failed to add subscription to set: %m");
         sd_varlink_ref(link);
 
-        log_debug("%u clients now attached for varlink notifications", set_size(m->varlink_subscription));
+        log_debug("%u clients now attached for query result varlink notifications", set_size(m->varlink_query_results_subscription));
 
         return 1;
 }
@@ -1353,6 +1340,44 @@ static int vl_method_reset_statistics(sd_varlink *link, sd_json_variant *paramet
         return sd_varlink_replyb(link, SD_JSON_BUILD_EMPTY_OBJECT);
 }
 
+static int vl_method_subscribe_dns_configuration(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *m = ASSERT_PTR(sd_varlink_get_userdata(ASSERT_PTR(link)));
+        int r;
+
+        /* if the client didn't set the more flag, it is using us incorrectly */
+        if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
+                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
+
+        r = verify_polkit(link, parameters, "org.freedesktop.resolve1.subscribe-dns-configuration");
+        if (r <= 0)
+                return r;
+
+        if (set_isempty(m->varlink_dns_configuration_subscription)) {
+                r = manager_start_dns_configuration_monitor(m);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to start DNS configuration monitor: %m");
+        }
+
+        r = sd_varlink_notify(link, m->dns_configuration_json);
+        if (r < 0)
+                goto fail;
+
+        r = set_ensure_put(&m->varlink_dns_configuration_subscription, NULL, link);
+        if (r < 0)
+                goto fail;
+        sd_varlink_ref(link);
+
+        log_debug("%u clients now attached for link configuration varlink notifications",
+                  set_size(m->varlink_dns_configuration_subscription));
+
+        return 1;
+fail:
+        if (set_isempty(m->varlink_dns_configuration_subscription))
+                manager_stop_dns_configuration_monitor(m);
+
+        return log_debug_errno(r, "Failed to subscribe client to DNS configuration monitor: %m");
+}
+
 static int varlink_monitor_server_init(Manager *m) {
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *server = NULL;
         int r;
@@ -1376,7 +1401,8 @@ static int varlink_monitor_server_init(Manager *m) {
                         "io.systemd.Resolve.Monitor.DumpCache", vl_method_dump_cache,
                         "io.systemd.Resolve.Monitor.DumpServerState", vl_method_dump_server_state,
                         "io.systemd.Resolve.Monitor.DumpStatistics", vl_method_dump_statistics,
-                        "io.systemd.Resolve.Monitor.ResetStatistics", vl_method_reset_statistics);
+                        "io.systemd.Resolve.Monitor.ResetStatistics", vl_method_reset_statistics,
+                        "io.systemd.Resolve.Monitor.SubscribeDNSConfiguration", vl_method_subscribe_dns_configuration);
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink methods: %m");
 
@@ -1410,7 +1436,10 @@ static int varlink_main_server_init(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate varlink server object: %m");
 
-        r = sd_varlink_server_add_interface(s, &vl_interface_io_systemd_Resolve);
+        r = sd_varlink_server_add_interface_many(
+                        s,
+                        &vl_interface_io_systemd_Resolve,
+                        &vl_interface_io_systemd_service);
         if (r < 0)
                 return log_error_errno(r, "Failed to add Resolve interface to varlink server: %m");
 
@@ -1419,7 +1448,10 @@ static int varlink_main_server_init(Manager *m) {
                         "io.systemd.Resolve.ResolveHostname", vl_method_resolve_hostname,
                         "io.systemd.Resolve.ResolveAddress",  vl_method_resolve_address,
                         "io.systemd.Resolve.ResolveService",  vl_method_resolve_service,
-                        "io.systemd.Resolve.ResolveRecord",   vl_method_resolve_record);
+                        "io.systemd.Resolve.ResolveRecord",   vl_method_resolve_record,
+                        "io.systemd.service.Ping",            varlink_method_ping,
+                        "io.systemd.service.SetLogLevel",     varlink_method_set_log_level,
+                        "io.systemd.service.GetEnvironment",  varlink_method_get_environment);
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink methods: %m");
 

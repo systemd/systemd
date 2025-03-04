@@ -3,6 +3,7 @@
 #include <sys/epoll.h>
 #include <sys/timerfd.h>
 #include <sys/wait.h>
+#include <threads.h>
 
 #include "sd-daemon.h"
 #include "sd-event.h"
@@ -24,7 +25,7 @@
 #include "memory-util.h"
 #include "missing_magic.h"
 #include "missing_syscall.h"
-#include "missing_threads.h"
+#include "missing_wait.h"
 #include "origin-id.h"
 #include "path-util.h"
 #include "prioq.h"
@@ -42,11 +43,10 @@
 
 #define DEFAULT_ACCURACY_USEC (250 * USEC_PER_MSEC)
 
-static bool EVENT_SOURCE_WATCH_PIDFD(sd_event_source *s) {
+static bool EVENT_SOURCE_WATCH_PIDFD(const sd_event_source *s) {
         /* Returns true if this is a PID event source and can be implemented by watching EPOLLIN */
         return s &&
                 s->type == SOURCE_CHILD &&
-                s->child.pidfd >= 0 &&
                 s->child.options == WEXITED;
 }
 
@@ -987,7 +987,7 @@ static void source_disconnect(sd_event_source *s) {
                                 s->event->n_online_child_sources--;
                         }
 
-                        (void) hashmap_remove(s->event->child_sources, PID_TO_PTR(s->child.pid));
+                        assert_se(hashmap_remove(s->event->child_sources, PID_TO_PTR(s->child.pid)));
                 }
 
                 if (EVENT_SOURCE_WATCH_PIDFD(s))
@@ -1074,6 +1074,8 @@ static void source_disconnect(sd_event_source *s) {
 }
 
 static sd_event_source* source_free(sd_event_source *s) {
+        int r;
+
         assert(s);
 
         source_disconnect(s);
@@ -1085,33 +1087,21 @@ static sd_event_source* source_free(sd_event_source *s) {
                 /* Eventually the kernel will do this automatically for us, but for now let's emulate this (unreliably) in userspace. */
 
                 if (s->child.process_owned) {
+                        assert(s->child.pid > 0);
+                        assert(s->child.pidfd >= 0);
 
                         if (!s->child.exited) {
-                                bool sent = false;
-
-                                if (s->child.pidfd >= 0) {
-                                        if (pidfd_send_signal(s->child.pidfd, SIGKILL, NULL, 0) < 0) {
-                                                if (errno == ESRCH) /* Already dead */
-                                                        sent = true;
-                                                else if (!ERRNO_IS_NOT_SUPPORTED(errno))
-                                                        log_debug_errno(errno, "Failed to kill process " PID_FMT " via pidfd_send_signal(), re-trying via kill(): %m",
-                                                                        s->child.pid);
-                                        } else
-                                                sent = true;
-                                }
-
-                                if (!sent)
-                                        if (kill(s->child.pid, SIGKILL) < 0)
-                                                if (errno != ESRCH) /* Already dead */
-                                                        log_debug_errno(errno, "Failed to kill process " PID_FMT " via kill(), ignoring: %m",
-                                                                        s->child.pid);
+                                r = RET_NERRNO(pidfd_send_signal(s->child.pidfd, SIGKILL, NULL, 0));
+                                if (r < 0 && r != -ESRCH)
+                                        log_debug_errno(r, "Failed to kill process " PID_FMT ", ignoring: %m",
+                                                        s->child.pid);
                         }
 
                         if (!s->child.waited) {
                                 siginfo_t si = {};
 
                                 /* Reap the child if we can */
-                                (void) waitid(P_PID, s->child.pid, &si, WEXITED);
+                                (void) waitid(P_PIDFD, s->child.pidfd, &si, WEXITED);
                         }
                 }
 
@@ -1578,11 +1568,6 @@ static int child_exit_callback(sd_event_source *s, const siginfo_t *si, void *us
         return sd_event_exit(sd_event_source_get_event(s), PTR_TO_INT(userdata));
 }
 
-static bool shall_use_pidfd(void) {
-        /* Mostly relevant for debugging, i.e. this is used in test-event.c to test the event loop once with and once without pidfd */
-        return secure_getenv_bool("SYSTEMD_PIDFD") != 0;
-}
-
 _public_ int sd_event_add_child(
                 sd_event *e,
                 sd_event_source **ret,
@@ -1630,34 +1615,29 @@ _public_ int sd_event_add_child(
         if (!s)
                 return -ENOMEM;
 
+        /* We always take a pidfd here if we can, even if we wait for anything else than WEXITED, so that we
+         * pin the PID, and make regular waitid() handling race-free. */
+
+        s->child.pidfd = pidfd_open(pid, 0);
+        if (s->child.pidfd < 0)
+                return -errno;
+
+        s->child.pidfd_owned = true; /* If we allocate the pidfd we own it by default */
+
         s->wakeup = WAKEUP_EVENT_SOURCE;
         s->child.options = options;
         s->child.callback = callback;
         s->userdata = userdata;
         s->enabled = SD_EVENT_ONESHOT;
 
-        /* We always take a pidfd here if we can, even if we wait for anything else than WEXITED, so that we
-         * pin the PID, and make regular waitid() handling race-free. */
-
-        if (shall_use_pidfd()) {
-                s->child.pidfd = pidfd_open(pid, 0);
-                if (s->child.pidfd < 0) {
-                        /* Propagate errors unless the syscall is not supported or blocked */
-                        if (!ERRNO_IS_NOT_SUPPORTED(errno) && !ERRNO_IS_PRIVILEGE(errno))
-                                return -errno;
-                } else
-                        s->child.pidfd_owned = true; /* If we allocate the pidfd we own it by default */
-        } else
-                s->child.pidfd = -EBADF;
-
         if (EVENT_SOURCE_WATCH_PIDFD(s)) {
-                /* We have a pidfd and we only want to watch for exit */
+                /* We only want to watch for exit */
                 r = source_child_pidfd_register(s, s->enabled);
                 if (r < 0)
                         return r;
 
         } else {
-                /* We have no pidfd or we shall wait for some other event than WEXITED */
+                /* We shall wait for some other event than WEXITED */
                 r = event_make_signal_data(e, SIGCHLD, NULL);
                 if (r < 0)
                         return r;
@@ -1727,16 +1707,11 @@ _public_ int sd_event_add_child_pidfd(
 
         s->wakeup = WAKEUP_EVENT_SOURCE;
         s->child.pidfd = pidfd;
-        s->child.pid = pid;
         s->child.options = options;
         s->child.callback = callback;
         s->child.pidfd_owned = false; /* If we got the pidfd passed in we don't own it by default (similar to the IO fd case) */
         s->userdata = userdata;
         s->enabled = SD_EVENT_ONESHOT;
-
-        r = hashmap_put(e->child_sources, PID_TO_PTR(pid), s);
-        if (r < 0)
-                return r;
 
         if (EVENT_SOURCE_WATCH_PIDFD(s)) {
                 /* We only want to watch for WEXITED */
@@ -1752,6 +1727,11 @@ _public_ int sd_event_add_child_pidfd(
                 e->need_process_child = true;
         }
 
+        r = hashmap_put(e->child_sources, PID_TO_PTR(pid), s);
+        if (r < 0)
+                return r;
+
+        s->child.pid = pid;
         e->n_online_child_sources++;
 
         if (ret)
@@ -3014,13 +2994,13 @@ static int event_source_online(
 
         case SOURCE_CHILD:
                 if (EVENT_SOURCE_WATCH_PIDFD(s)) {
-                        /* yes, we have pidfd */
+                        /* yes, we can rely on pidfd */
 
                         r = source_child_pidfd_register(s, enabled);
                         if (r < 0)
                                 return r;
                 } else {
-                        /* no pidfd, or something other to watch for than WEXITED */
+                        /* something other to watch for than WEXITED */
 
                         r = event_make_signal_data(s->event, SIGCHLD, NULL);
                         if (r < 0) {
@@ -3213,9 +3193,6 @@ _public_ int sd_event_source_get_child_pidfd(sd_event_source *s) {
         assert_return(s->type == SOURCE_CHILD, -EDOM);
         assert_return(!event_origin_changed(s->event), -ECHILD);
 
-        if (s->child.pidfd < 0)
-                return -EOPNOTSUPP;
-
         return s->child.pidfd;
 }
 
@@ -3224,53 +3201,26 @@ _public_ int sd_event_source_send_child_signal(sd_event_source *s, int sig, cons
         assert_return(s->type == SOURCE_CHILD, -EDOM);
         assert_return(!event_origin_changed(s->event), -ECHILD);
         assert_return(SIGNAL_VALID(sig), -EINVAL);
+        assert(s->child.pidfd >= 0);
 
-        /* If we already have seen indication the process exited refuse sending a signal early. This way we
-         * can be sure we don't accidentally kill the wrong process on PID reuse when pidfds are not
-         * available. */
+        /* If we already have seen indication the process exited refuse sending a signal early. */
         if (s->child.exited)
                 return -ESRCH;
+        assert(!s->child.waited);
 
-        if (s->child.pidfd >= 0) {
-                siginfo_t copy;
+        /* pidfd_send_signal() changes the siginfo_t argument. This is weird, let's hence copy the structure here. */
+        siginfo_t copy;
+        if (si)
+                copy = *si;
 
-                /* pidfd_send_signal() changes the siginfo_t argument. This is weird, let's hence copy the
-                 * structure here */
-                if (si)
-                        copy = *si;
-
-                if (pidfd_send_signal(s->child.pidfd, sig, si ? &copy : NULL, 0) < 0) {
-                        /* Let's propagate the error only if the system call is not implemented or prohibited */
-                        if (!ERRNO_IS_NOT_SUPPORTED(errno) && !ERRNO_IS_PRIVILEGE(errno))
-                                return -errno;
-                } else
-                        return 0;
-        }
-
-        /* Flags are only supported for pidfd_send_signal(), not for rt_sigqueueinfo(), hence let's refuse
-         * this here. */
-        if (flags != 0)
-                return -EOPNOTSUPP;
-
-        if (si) {
-                /* We use rt_sigqueueinfo() only if siginfo_t is specified. */
-                siginfo_t copy = *si;
-
-                if (rt_sigqueueinfo(s->child.pid, sig, &copy) < 0)
-                        return -errno;
-        } else if (kill(s->child.pid, sig) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(pidfd_send_signal(s->child.pidfd, sig, si ? &copy : NULL, flags));
 }
 
 _public_ int sd_event_source_get_child_pidfd_own(sd_event_source *s) {
         assert_return(s, -EINVAL);
         assert_return(s->type == SOURCE_CHILD, -EDOM);
         assert_return(!event_origin_changed(s->event), -ECHILD);
-
-        if (s->child.pidfd < 0)
-                return -EOPNOTSUPP;
+        assert(s->child.pidfd >= 0);
 
         return s->child.pidfd_owned;
 }
@@ -3279,9 +3229,7 @@ _public_ int sd_event_source_set_child_pidfd_own(sd_event_source *s, int own) {
         assert_return(s, -EINVAL);
         assert_return(s->type == SOURCE_CHILD, -EDOM);
         assert_return(!event_origin_changed(s->event), -ECHILD);
-
-        if (s->child.pidfd < 0)
-                return -EOPNOTSUPP;
+        assert(s->child.pidfd >= 0);
 
         s->child.pidfd_owned = own;
         return 0;
@@ -3740,9 +3688,9 @@ static int process_child(sd_event *e, int64_t threshold, int64_t *ret_min_priori
 
         e->need_process_child = false;
 
-        /* So, this is ugly. We iteratively invoke waitid() with P_PID + WNOHANG for each PID we wait
-         * for, instead of using P_ALL. This is because we only want to get child information of very
-         * specific child processes, and not all of them. We might not have processed the SIGCHLD event
+        /* So, this is ugly. We iteratively invoke waitid() + WNOHANG with each child process we shall wait for,
+         * instead of using P_ALL. This is because we only want to get child information of very specific
+         * child processes, and not all of them. We might not have processed the SIGCHLD event
          * of a previous invocation and we don't want to maintain a unbounded *per-child* event queue,
          * hence we really don't want anything flushed out of the kernel's queue that we don't care
          * about. Since this is O(n) this means that if you have a lot of processes you probably want
@@ -3753,6 +3701,7 @@ static int process_child(sd_event *e, int64_t threshold, int64_t *ret_min_priori
 
         HASHMAP_FOREACH(s, e->child_sources) {
                 assert(s->type == SOURCE_CHILD);
+                assert(s->child.pidfd >= 0);
 
                 if (s->priority > threshold)
                         continue;
@@ -3772,23 +3721,21 @@ static int process_child(sd_event *e, int64_t threshold, int64_t *ret_min_priori
                         continue;
 
                 zero(s->child.siginfo);
-                if (waitid(P_PID, s->child.pid, &s->child.siginfo,
+                if (waitid(P_PIDFD, s->child.pidfd, &s->child.siginfo,
                            WNOHANG | (s->child.options & WEXITED ? WNOWAIT : 0) | s->child.options) < 0)
                         return negative_errno();
 
                 if (s->child.siginfo.si_pid != 0) {
-                        bool zombie = IN_SET(s->child.siginfo.si_code, CLD_EXITED, CLD_KILLED, CLD_DUMPED);
+                        bool zombie = SIGINFO_CODE_IS_DEAD(s->child.siginfo.si_code);
 
                         if (zombie)
                                 s->child.exited = true;
-
-                        if (!zombie && (s->child.options & WEXITED)) {
-                                /* If the child isn't dead then let's immediately remove the state
-                                 * change from the queue, since there's no benefit in leaving it
-                                 * queued. */
+                        else if (s->child.options & WEXITED) {
+                                /* If the child isn't dead then let's immediately remove the state change
+                                 * from the queue, since there's no benefit in leaving it queued. */
 
                                 assert(s->child.options & (WSTOPPED|WCONTINUED));
-                                (void) waitid(P_PID, s->child.pid, &s->child.siginfo, WNOHANG|(s->child.options & (WSTOPPED|WCONTINUED)));
+                                (void) waitid(P_PIDFD, s->child.pidfd, &s->child.siginfo, WNOHANG|(s->child.options & (WSTOPPED|WCONTINUED)));
                         }
 
                         r = source_set_pending(s, true);
@@ -3809,6 +3756,7 @@ static int process_pidfd(sd_event *e, sd_event_source *s, uint32_t revents) {
         assert(e);
         assert(s);
         assert(s->type == SOURCE_CHILD);
+        assert(s->child.pidfd >= 0);
 
         if (s->pending)
                 return 0;
@@ -3819,14 +3767,19 @@ static int process_pidfd(sd_event *e, sd_event_source *s, uint32_t revents) {
         if (!EVENT_SOURCE_WATCH_PIDFD(s))
                 return 0;
 
+        /* Note that pidfd would also generate EPOLLHUP when the process gets reaped. But at this point we
+         * only permit EPOLLIN, under the assumption that upon EPOLLHUP the child source should already
+         * be set to pending, and we would have returned early above. */
+        assert(!s->child.exited);
+
         zero(s->child.siginfo);
-        if (waitid(P_PID, s->child.pid, &s->child.siginfo, WNOHANG | WNOWAIT | s->child.options) < 0)
+        if (waitid(P_PIDFD, s->child.pidfd, &s->child.siginfo, WNOHANG | WNOWAIT | s->child.options) < 0)
                 return -errno;
 
         if (s->child.siginfo.si_pid == 0)
                 return 0;
 
-        if (IN_SET(s->child.siginfo.si_code, CLD_EXITED, CLD_KILLED, CLD_DUMPED))
+        if (SIGINFO_CODE_IS_DEAD(s->child.siginfo.si_code))
                 s->child.exited = true;
 
         return source_set_pending(s, true);
@@ -4239,15 +4192,13 @@ static int source_dispatch(sd_event_source *s) {
                 break;
 
         case SOURCE_CHILD: {
-                bool zombie;
-
-                zombie = IN_SET(s->child.siginfo.si_code, CLD_EXITED, CLD_KILLED, CLD_DUMPED);
+                bool zombie = SIGINFO_CODE_IS_DEAD(s->child.siginfo.si_code);
 
                 r = s->child.callback(s, &s->child.siginfo, s->userdata);
 
                 /* Now, reap the PID for good. */
                 if (zombie) {
-                        (void) waitid(P_PID, s->child.pid, &s->child.siginfo, WNOHANG|WEXITED);
+                        (void) waitid(P_PIDFD, s->child.pidfd, &s->child.siginfo, WNOHANG|WEXITED);
                         s->child.waited = true;
                 }
 

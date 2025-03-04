@@ -5,8 +5,8 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
-#include <sd-bus.h>
-#include <sd-event.h>
+#include "sd-bus.h"
+#include "sd-event.h"
 
 #include "bus-locator.h"
 #include "bus-wait-for-jobs.h"
@@ -43,7 +43,7 @@ static void *fake_pressure_thread(void *p) {
         ASSERT_STREQ(buf, "hello");
         assert_se(write(cfd, &(const char) { 'z' }, 1) == 1);
 
-        return 0;
+        return NULL;
 }
 
 static int fake_pressure_callback(sd_event_source *s, void *userdata) {
