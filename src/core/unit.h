@@ -425,6 +425,9 @@ typedef struct Unit {
         /* When true logs about this unit will be at debug level regardless of other log level settings */
         bool debug_invocation;
 
+        /* Unit type that invoked this unit.  Useful for persisting (not deleting) cgroups */
+        UnitType invoked_by;
+
         /* Booleans indicating membership of this unit in the various queues */
         bool in_load_queue:1;
         bool in_dbus_queue:1;

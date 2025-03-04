@@ -185,6 +185,7 @@ typedef struct UnitDefaults {
         char *smack_process_label;
 
         struct rlimit *rlimit[_RLIMIT_MAX];
+        int persist_timer_cgroups;
 } UnitDefaults;
 
 struct Manager {
