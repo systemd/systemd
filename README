@@ -255,7 +255,7 @@ REQUIREMENTS:
         python-pefile (optional, required for ukify)
         python-lxml (optional, required to build the indices)
         pyelftools (optional, required for systemd-boot)
-        meson >= 0.60.0
+        meson >= 0.62.0
         ninja
         gcc >= 8.4
             >= 13.1.0 is required to build BPF program by using GCC

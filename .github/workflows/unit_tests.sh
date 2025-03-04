@@ -33,8 +33,6 @@ function info() {
 }
 
 function run_meson() {
-    # TODO: drop once minimum meson version is bumped to 0.62 or newer
-    find . -type f -name meson.build -exec sed -i 's/install_emptydir(\(.*\), install_tag : .*)/install_emptydir(\1)/g' '{}' '+'
     if ! meson "$@"; then
         find . -type f -name meson-log.txt -exec cat '{}' +
         return 1
