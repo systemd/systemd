@@ -2634,9 +2634,10 @@ if want_ukify
         public_programs += ukify
 
         # symlink for backwards compatibility after rename
-        meson.add_install_script(sh, '-c',
-                                 ln_s.format(bindir / 'ukify',
-                                             libexecdir / 'ukify'))
+        assert(fs.parent(fs.parent(libexecdir)) / 'bin' == bindir)
+        install_symlink('ukify',
+                        pointing_to : '../../bin/ukify',
+                        install_dir : libexecdir)
 endif
 
 #####################################################################
