@@ -127,6 +127,7 @@ datadir = prefixdir / get_option('datadir')
 localstatedir = '/' / get_option('localstatedir')
 
 libexecdir = prefixdir / 'lib/systemd'
+libexecdir_to_bin = '../../bin/'
 pkglibdir = libdir / 'systemd'
 
 install_sysconfdir = get_option('install-sysconfdir') != 'false'
@@ -2635,9 +2636,10 @@ if want_ukify
         public_programs += ukify
 
         # symlink for backwards compatibility after rename
-        meson.add_install_script(sh, '-c',
-                                 ln_s.format(bindir / 'ukify',
-                                             libexecdir / 'ukify'))
+        assert(fs.parent(fs.parent(libexecdir)) / 'bin' == bindir)
+        install_symlink('ukify',
+                        pointing_to : libexecdir_to_bin / 'ukify',
+                        install_dir : libexecdir)
 endif
 
 #####################################################################
