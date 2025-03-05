@@ -16,6 +16,10 @@ static int builtin_net_driver_set_driver(UdevEvent *event, int argc, char **argv
         const char *sysname;
         int r;
 
+        r = sd_device_get_ifindex(dev, NULL);
+        if (r < 0)
+                return log_device_warning_errno(dev, r, "Failed to get network interface index: %m");
+
         r = sd_device_get_sysname(dev, &sysname);
         if (r < 0)
                 return log_device_warning_errno(dev, r, "Failed to get sysname: %m");
