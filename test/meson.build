@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: LGPL-2.1-or-later
+1# SPDX-License-Identifier: LGPL-2.1-or-later
 
 if conf.get('ENABLE_SYSUSERS') == 1
         test_sysusers_sh = configure_file(
@@ -474,26 +474,21 @@ if install_tests
         foreach subdir : testdata_subdirs
                 # install_subdir() before meson 1.3.0 does not handle symlinks correctly (it follows them
                 # instead of copying the symlink) so we use rsync instead.
-                if meson.version().version_compare('<1.3.0')
+                if meson.version().version_compare('>=1.3.0')
+                        install_subdir(subdir,
+                                       exclude_files : ['.gitattributes'],
+                                       install_dir : testdata_dir,
+                                       follow_symlinks : false)
+                else
                         if not rsync.found()
                                 error('rsync is required to install the integration test data')
                         endif
 
-                        rsync_r = rsync.full_path() + ' -rlpt --exclude .gitattributes --exclude 25-default.link -- "@0@" "${DESTDIR:-}@1@"'
+                        rsync_r = rsync.full_path() + ' -rlpt --exclude .gitattributes -- "@0@" "${DESTDIR:-}@1@"'
                         meson.add_install_script(sh, '-c',
                                                  rsync_r.format(meson.current_source_dir() / subdir, testdata_dir))
-                else
-                        install_subdir(subdir,
-                                       exclude_files : ['.gitattributes', '25-default.link'],
-                                       install_dir : testdata_dir,
-                                       follow_symlinks : false)
                 endif
         endforeach
-
-        # test-network/conf/25-default.link is a local symlink that becomes dangling when installed, so we
-        # exclude it and create the correct symlink here.
-        meson.add_install_script(sh, '-c', ln_s.format(networkdir / '99-default.link',
-                                                       testdata_dir / 'test-network/conf/25-default.link'))
 
         install_data(kbd_model_map,
                      install_dir : testdata_dir + '/test-keymap-util')
@@ -511,6 +506,8 @@ if install_tests
 
         # The unit tests implemented as shell scripts expect to find testdata/
         # in the directory where they are stored.
-        meson.add_install_script(sh, '-c', ln_s.format(testdata_dir,
-                                                       unittestsdir / 'testdata'))
+        assert(fs.parent(unittestsdir) / 'testdata' == testdata_dir)
+        install_symlink('testdata',
+                        pointing_to : '../testdata',
+                        install_dir : unittestsdir)
 endif
