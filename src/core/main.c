@@ -2235,7 +2235,7 @@ static int invoke_main_loop(
 
                         log_notice("Reexecuting.");
 
-                        *ret_retval = EXIT_SUCCESS;
+                        *ret_retval = EXIT_FAILURE;
                         *ret_switch_root_dir = *ret_switch_root_init = NULL;
 
                         return objective;
@@ -2258,7 +2258,7 @@ static int invoke_main_loop(
 
                         log_notice("Switching root.");
 
-                        *ret_retval = EXIT_SUCCESS;
+                        *ret_retval = EXIT_FAILURE;
 
                         /* Steal the switch root parameters */
                         *ret_switch_root_dir = TAKE_PTR(m->switch_root);
@@ -2278,7 +2278,7 @@ static int invoke_main_loop(
 
                         log_notice("Soft-rebooting.");
 
-                        *ret_retval = EXIT_SUCCESS;
+                        *ret_retval = EXIT_FAILURE;
                         *ret_switch_root_dir = TAKE_PTR(m->switch_root);
                         *ret_switch_root_init = NULL;
 
