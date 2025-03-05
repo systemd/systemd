@@ -254,7 +254,7 @@ _public_ void cryptsetup_token_dump(
                 if (r < 0)
                         return (void) crypt_log_debug_errno(cd, r, "Cannot dump " TOKEN_NAME " content: %m");
 
-                crypt_log(cd, "\ttpm2-blob:        %s\n", blob_str);
+                crypt_log(cd, "\ttpm2-blob:  %s\n", blob_str);
         }
 }
 
