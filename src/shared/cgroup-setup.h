@@ -7,12 +7,6 @@
 
 #include "cgroup-util.h"
 
-bool cg_is_unified_wanted(void);
-bool cg_is_legacy_wanted(void);
-bool cg_is_hybrid_wanted(void);
-bool cg_is_legacy_enabled(void);
-bool cg_is_legacy_force_enabled(void);
-
 int cg_weight_parse(const char *s, uint64_t *ret);
 int cg_cpu_weight_parse(const char *s, uint64_t *ret);
 int cg_cpu_shares_parse(const char *s, uint64_t *ret);
@@ -46,3 +40,5 @@ int cg_trim_v1_controllers(CGroupMask supported, CGroupMask mask, const char *pa
 
 int cg_install_release_agent(const char *controller, const char *agent);
 int cg_uninstall_release_agent(const char *controller);
+
+int cg_has_legacy(void);

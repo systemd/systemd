@@ -2247,7 +2247,7 @@ static int invoke_main_loop(
 
                         log_notice("Reexecuting.");
 
-                        *ret_retval = EXIT_SUCCESS;
+                        *ret_retval = EXIT_FAILURE;
                         *ret_switch_root_dir = *ret_switch_root_init = NULL;
 
                         return objective;
@@ -2270,7 +2270,7 @@ static int invoke_main_loop(
 
                         log_notice("Switching root.");
 
-                        *ret_retval = EXIT_SUCCESS;
+                        *ret_retval = EXIT_FAILURE;
 
                         /* Steal the switch root parameters */
                         *ret_switch_root_dir = TAKE_PTR(m->switch_root);
@@ -2290,7 +2290,7 @@ static int invoke_main_loop(
 
                         log_notice("Soft-rebooting.");
 
-                        *ret_retval = EXIT_SUCCESS;
+                        *ret_retval = EXIT_FAILURE;
                         *ret_switch_root_dir = TAKE_PTR(m->switch_root);
                         *ret_switch_root_init = NULL;
 
@@ -3155,7 +3155,8 @@ int main(int argc, char *argv[]) {
                                         goto finish;
                         }
 
-                        if (mac_init() < 0) {
+                        r = mac_init();
+                        if (r < 0) {
                                 error_message = "Failed to initialize MAC support";
                                 goto finish;
                         }
@@ -3212,14 +3213,6 @@ int main(int argc, char *argv[]) {
                         goto finish;
                 }
 
-                if (!skip_setup) {
-                        r = mount_cgroup_legacy_controllers(loaded_policy);
-                        if (r < 0) {
-                                error_message = "Failed to mount cgroup v1 hierarchy";
-                                goto finish;
-                        }
-                }
-
                 /* The efivarfs is now mounted, let's lock down the system token. */
                 lock_down_efi_variables();
         } else {
@@ -3231,7 +3224,8 @@ int main(int argc, char *argv[]) {
                 /* clear the kernel timestamp, because we are not PID 1 */
                 kernel_timestamp = DUAL_TIMESTAMP_NULL;
 
-                if (mac_init() < 0) {
+                r = mac_init();
+                if (r < 0) {
                         error_message = "Failed to initialize MAC support";
                         goto finish;
                 }
@@ -3319,6 +3313,16 @@ int main(int argc, char *argv[]) {
         }
 
         log_execution_mode(&first_boot);
+
+        r = cg_has_legacy();
+        if (r < 0) {
+                error_message = "Failed to check cgroup hierarchy";
+                goto finish;
+        }
+        if (r > 0) {
+                error_message = "Detected unsupported legacy cgroup hierarchy, refusing execution";
+                goto finish;
+        }
 
         r = initialize_runtime(skip_setup,
                                first_boot,
@@ -3488,7 +3492,8 @@ finish:
                                               ANSI_HIGHLIGHT_RED "!!!!!!" ANSI_NORMAL,
                                               "%s.", error_message);
                 freeze_or_exit_or_reboot();
-        }
+        } else if (error_message)
+                log_error("%s", error_message);
 
         reset_arguments();
         return retval;
