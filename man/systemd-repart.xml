@@ -130,9 +130,9 @@
     <command>systemd-repart</command> may be used to erase existing partitions to reset an installation back
     to vendor defaults. This mode of operation is used when either the <option>--factory-reset=yes</option>
     switch is passed on the tool's command line, or the <option>systemd.factory_reset=yes</option> option is
-    specified on the kernel command line, or the <varname>FactoryReset</varname> EFI variable (vendor UUID
-    <constant>8cf2644b-4b0b-428f-9387-6d876050dc67</constant>) is set to "yes". It alters the algorithm above
-    slightly: between the 3rd and the 4th step above any partition marked explicitly via the
+    specified on the kernel command line, or the <varname>FactoryResetRequest</varname> EFI variable (vendor
+    UUID <constant>8cf2644b-4b0b-428f-9387-6d876050dc67</constant>) is set to "yes". It alters the algorithm
+    above slightly: between the 3rd and the 4th step above any partition marked explicitly via the
     <varname>FactoryReset=</varname> boolean is deleted, and the algorithm restarted, thus immediately
     re-creating these partitions anew empty.</para>
 
