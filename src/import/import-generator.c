@@ -181,7 +181,6 @@ static int parse_pull_expression(const char *v) {
 
                 default:
                         assert_not_reached();
-                        break;
                 }
                 if (r < 0)
                         return log_error_errno(r, "Failed to strip suffix from URL '%s': %m", remote);

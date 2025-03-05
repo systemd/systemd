@@ -524,7 +524,6 @@ static int transfer_start(Transfer *t) {
                         break;
 
                 default:
-                        break;
                 }
 
                 if (t->verify != _IMPORT_VERIFY_INVALID) {

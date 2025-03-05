@@ -1633,7 +1633,6 @@ static int forward_coredump_to_container(Context *context) {
                                 break;
 
                         default:
-                                break;
                         }
 
                         r = iovw_put_string_field(iovw, meta_field_names[i], t);

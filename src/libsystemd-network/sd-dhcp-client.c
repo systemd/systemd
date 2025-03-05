@@ -203,7 +203,6 @@ int sd_dhcp_client_set_request_option(sd_dhcp_client *client, uint8_t option) {
                 return -EINVAL;
 
         default:
-                break;
         }
 
         return set_ensure_put(&client->req_opts, NULL, UINT8_TO_PTR(option));
@@ -1188,7 +1187,6 @@ static int client_send_request(sd_dhcp_client *client) {
 
         default:
                 log_dhcp_client(client, "REQUEST (invalid)");
-                break;
         }
 
         return 0;

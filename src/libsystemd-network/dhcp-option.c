@@ -345,8 +345,6 @@ static int parse_options(const uint8_t options[], size_t buflen, uint8_t *overlo
                 default:
                         if (cb)
                                 cb(code, len, option, userdata);
-
-                        break;
                 }
 
                 offset += len;

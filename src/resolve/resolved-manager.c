@@ -1555,7 +1555,6 @@ DnsScope* manager_find_scope(Manager *m, DnsPacket *p) {
                 break;
 
         default:
-                break;
         }
 
         return NULL;

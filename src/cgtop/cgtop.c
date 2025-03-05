@@ -1066,7 +1066,6 @@ static int loop(const char *root) {
                                 fprintf(stdout, "\nUnknown key '%c'. Ignoring.", key);
                         fflush(stdout);
                         sleep(1);
-                        break;
                 }
         }
 }

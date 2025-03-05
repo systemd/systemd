@@ -644,7 +644,6 @@ static int link_is_ready_to_set_link(Link *link, Request *req) {
                 return true;
         }
         default:
-                break;
         }
 
         return true;

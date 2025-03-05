@@ -287,7 +287,6 @@ int dns_packet_validate_reply(DnsPacket *p) {
                 break;
 
         default:
-                break;
         }
 
         return 1;
@@ -356,7 +355,6 @@ int dns_packet_validate_query(DnsPacket *p) {
                 break;
 
         default:
-                break;
         }
 
         return 1;
@@ -1267,9 +1265,7 @@ int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, const DnsAns
         case DNS_TYPE_OPENPGPKEY:
         case _DNS_TYPE_INVALID: /* unparsable */
         default:
-
                 r = dns_packet_append_blob(p, rr->generic.data, rr->generic.data_size, NULL);
-                break;
         }
         if (r < 0)
                 goto fail;
@@ -2326,8 +2322,6 @@ int dns_packet_read_rr(
         default:
         unparsable:
                 r = dns_packet_read_memdup(p, rdlength, &rr->generic.data, &rr->generic.data_size, NULL);
-
-                break;
         }
         if (r < 0)
                 return r;

@@ -1284,7 +1284,6 @@ static int dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
                                 log_link_warning_errno(link, event, "DHCP error: Client failed: %m");
                         else
                                 log_link_warning(link, "DHCP unknown event: %i", event);
-                        break;
         }
 
         return 0;

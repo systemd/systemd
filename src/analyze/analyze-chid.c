@@ -212,7 +212,6 @@ static int smbios_fields_acquire(char16_t *fields[static _CHID_SMBIOS_FIELDS_MAX
                 }
 
                 default:
-                        break;
                 }
 
                 fields[f] = utf8_to_utf16(buf, size);

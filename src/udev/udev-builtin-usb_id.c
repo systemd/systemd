@@ -67,7 +67,6 @@ static void set_usb_iftype(char *to, int if_class_num, size_t len) {
         case 0xff: /* Vendor-specific */
                 break;
         default:
-                break;
         }
         strncpy(to, type, len);
         to[len-1] = '\0';
@@ -95,7 +94,6 @@ static int set_usb_mass_storage_ifsubtype(char *to, const char *from, size_t len
                         type = "scsi";
                         break;
                 default:
-                        break;
                 }
         }
         strscpy(to, len, type);
@@ -124,7 +122,6 @@ static void set_scsi_type(char *to, const char *from, size_t len) {
                         type = "cd";
                         break;
                 default:
-                        break;
                 }
         }
         strscpy(to, len, type);

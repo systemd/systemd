@@ -1790,7 +1790,6 @@ static int home_passwd(UserRecord *h, UserRecord **ret_home) {
                 break;
 
         default:
-                break;
         }
 
         r = home_store_header_identity_luks(new_home, &setup, header_home);

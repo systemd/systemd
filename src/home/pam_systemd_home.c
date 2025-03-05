@@ -1016,8 +1016,6 @@ _public_ PAM_EXTERN int pam_sm_acct_mgmt(
                         (void) pam_prompt_graceful(handle, PAM_ERROR_MSG, NULL, _("User record not valid, prohibiting access."));
                         return PAM_ACCT_EXPIRED;
                 }
-
-                break;
         }
 
         t = user_record_ratelimit_next_try(ur);
@@ -1067,8 +1065,6 @@ _public_ PAM_EXTERN int pam_sm_acct_mgmt(
                         (void) pam_prompt_graceful(handle, PAM_ERROR_MSG, NULL, _("User record not valid, prohibiting access."));
                         return PAM_AUTHTOK_EXPIRED;
                 }
-
-                break;
         }
 
         return PAM_SUCCESS;

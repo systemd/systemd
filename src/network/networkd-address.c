@@ -473,7 +473,6 @@ void address_hash_func(const Address *a, struct siphash *state) {
 
         default:
                 /* treat any other address family as AF_UNSPEC */
-                break;
         }
 }
 

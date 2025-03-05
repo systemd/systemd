@@ -541,7 +541,6 @@ static int fido2_use_hmac_hash_specific_token(
                         break;
 
                 default:
-                        break;
                 }
 
                 if (!retry_with_up && !retry_with_pin)
@@ -1027,7 +1026,6 @@ int fido2_generate_hmac_hash(
                         break;
 
                 default:
-                        break;
                 }
 
                 if (!retry_with_up && !retry_with_pin)
