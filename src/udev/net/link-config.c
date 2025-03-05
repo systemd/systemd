@@ -400,7 +400,7 @@ int link_new(LinkConfigContext *ctx, UdevEvent *event, Link **ret) {
                 .event = udev_event_ref(event),
         };
 
-        r = sd_device_get_sysname(dev, &link->ifname);
+        r = device_get_ifname(dev, &link->ifname);
         if (r < 0)
                 return r;
 
@@ -804,8 +804,12 @@ static int link_generate_new_name(Link *link) {
 
         log_link_debug(link, "Policies didn't yield a name and Name= is not given, not renaming.");
 no_rename:
-        link->new_name = link->ifname;
-        return 0;
+        if (!naming_scheme_has(NAMING_USE_INTERFACE_PROPERTY)) {
+                link->new_name = link->ifname;
+                return 0;
+        }
+
+        return sd_device_get_sysname(device, &link->ifname);
 }
 
 static int link_generate_alternative_names(Link *link) {
