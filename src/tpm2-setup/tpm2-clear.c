@@ -109,7 +109,7 @@ static int request_tpm2_clear(void) {
         /* Now issue PPI request */
         r = write_string_file("/sys/class/tpm/tpm0/ppi/request", "5", /* flags= */ 0);
         if (r < 0)
-                return log_error_errno(r, "Failed to request TPM2 cleaing via PPI, unable to write to /sys/class/tpm/tpm0/ppi/request: %m");
+                return log_error_errno(r, "Failed to request TPM2 clearing via PPI, unable to write to /sys/class/tpm/tpm0/ppi/request: %m");
 
         log_struct(LOG_NOTICE,
                    "MESSAGE_ID=" SD_MESSAGE_TPM2_CLEAR_REQUESTED_STR,
