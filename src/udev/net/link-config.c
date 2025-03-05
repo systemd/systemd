@@ -325,22 +325,6 @@ int link_load_one(LinkConfigContext *ctx, const char *filename) {
         return 0;
 }
 
-static int device_unsigned_attribute(sd_device *device, const char *attr, unsigned *type) {
-        const char *s;
-        int r;
-
-        r = sd_device_get_sysattr_value(device, attr, &s);
-        if (r < 0)
-                return log_device_debug_errno(device, r, "Failed to query %s: %m", attr);
-
-        r = safe_atou(s, type);
-        if (r < 0)
-                return log_device_warning_errno(device, r, "Failed to parse %s \"%s\": %m", attr, s);
-
-        log_device_debug(device, "Device has %s=%u", attr, *type);
-        return 0;
-}
-
 int link_config_load(LinkConfigContext *ctx) {
         _cleanup_strv_free_ char **files = NULL;
         int r;
@@ -412,13 +396,17 @@ int link_new(LinkConfigContext *ctx, UdevEvent *event, Link **ret) {
         if (r < 0)
                 return r;
 
-        r = device_unsigned_attribute(dev, "name_assign_type", &link->name_assign_type);
+        r = device_get_sysattr_unsigned(dev, "name_assign_type", &link->name_assign_type);
         if (r < 0)
                 log_link_debug_errno(link, r, "Failed to get \"name_assign_type\" attribute, ignoring: %m");
+        else
+                log_link_debug(link, "Device has name_assign_type attribute: %u", link->name_assign_type);
 
-        r = device_unsigned_attribute(dev, "addr_assign_type", &link->addr_assign_type);
+        r = device_get_sysattr_unsigned(dev, "addr_assign_type", &link->addr_assign_type);
         if (r < 0)
                 log_link_debug_errno(link, r, "Failed to get \"addr_assign_type\" attribute, ignoring: %m");
+        else
+                log_link_debug(link, "Device has addr_assign_type attribute: %u", link->addr_assign_type);
 
         r = rtnl_get_link_info(&event->rtnl, link->ifindex, &link->iftype, &link->flags,
                                &link->kind, &link->hw_addr, &link->permanent_hw_addr);
