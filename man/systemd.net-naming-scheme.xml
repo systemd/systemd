@@ -540,6 +540,16 @@
           <xi:include href="version-info.xml" xpointer="v257"/>
           </listitem>
         </varlistentry>
+
+        <varlistentry>
+          <term><constant>v258</constant></term>
+
+          <listitem><para>When no renaming is requested, <varname>ID_NET_NAME</varname> property is now
+          equivalent to <varname>INTERFACE</varname> property.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/>
+          </listitem>
+        </varlistentry>
       </variablelist>
 
     <para>Note that <constant>latest</constant> may be used to denote the latest scheme known (to this
