@@ -3314,6 +3314,16 @@ int main(int argc, char *argv[]) {
 
         log_execution_mode(&first_boot);
 
+        r = cg_has_legacy();
+        if (r < 0) {
+                error_message = "Failed to check cgroup hierarchy";
+                goto finish;
+        }
+        if (r > 0) {
+                error_message = "Detected unsupported legacy cgroup hierarchy, refusing execution";
+                goto finish;
+        }
+
         r = initialize_runtime(skip_setup,
                                first_boot,
                                &saved_rlimit_nofile,
