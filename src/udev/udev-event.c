@@ -135,9 +135,9 @@ static int rename_netif(UdevEvent *event) {
                 return 0;
         }
 
-        r = sd_device_get_sysname(dev, &s);
+        r = device_get_ifname(dev, &s);
         if (r < 0)
-                return log_device_warning_errno(dev, r, "Failed to get sysname: %m");
+                return log_device_warning_errno(dev, r, "Failed to get ifname: %m");
 
         if (streq(event->name, s))
                 return 0; /* The interface name is already requested name. */
@@ -242,9 +242,9 @@ static int assign_altnames(UdevEvent *event) {
         if (r < 0)
                 return log_device_warning_errno(dev, r, "Failed to get ifindex: %m");
 
-        r = sd_device_get_sysname(dev, &s);
+        r = device_get_ifname(dev, &s);
         if (r < 0)
-                return log_device_warning_errno(dev, r, "Failed to get sysname: %m");
+                return log_device_warning_errno(dev, r, "Failed to get ifname: %m");
 
         /* Filter out the current interface name. */
         strv_remove(event->altnames, s);
