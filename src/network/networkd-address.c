@@ -472,8 +472,7 @@ void address_hash_func(const Address *a, struct siphash *state) {
                 break;
 
         default:
-                /* treat any other address family as AF_UNSPEC */
-                break;
+                assert_not_reached();
         }
 }
 
@@ -515,8 +514,7 @@ int address_compare_func(const Address *a1, const Address *a2) {
                 return r;
 
         default:
-                /* treat any other address family as AF_UNSPEC */
-                return 0;
+                assert_not_reached();
         }
 }
 

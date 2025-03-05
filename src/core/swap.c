@@ -1190,7 +1190,6 @@ static int swap_process_proc_swaps(Manager *m) {
                         default:
                                 /* Fire again */
                                 swap_set_state(swap, swap->state);
-                                break;
                         }
 
                         if (swap->what)
@@ -1214,12 +1213,9 @@ static int swap_process_proc_swaps(Manager *m) {
                                 break;
 
                         default:
-                                /* Nothing really changed, but let's
-                                 * issue an notification call
-                                 * nonetheless, in case somebody is
-                                 * waiting for this. */
+                                /* Nothing really changed, but let's issue an notification call nonetheless,
+                                 * in case somebody is waiting for this. */
                                 swap_set_state(swap, swap->state);
-                                break;
                         }
                 }
 

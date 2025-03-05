@@ -482,7 +482,6 @@ static int cd_profiles(Context *c) {
                         break;
                 default:
                         log_debug("GET CONFIGURATION: feature 0x%04x <ignored>, with 0x%02x bytes", feature, features[i + 3]);
-                        break;
                 }
         }
 

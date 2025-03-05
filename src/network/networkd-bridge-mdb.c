@@ -293,7 +293,6 @@ static int bridge_mdb_verify(BridgeMDB *mdb) {
                                                          "%s: MulticastGroupAddress= is the multicast all nodes address. "
                                                          "Ignoring [BridgeMDB] section from line %u.",
                                                          mdb->section->filename, mdb->section->line);
-                        break;
                 }
                 break;
         default:

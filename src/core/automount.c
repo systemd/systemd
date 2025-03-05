@@ -1006,7 +1006,6 @@ static int automount_dispatch_io(sd_event_source *s, int fd, uint32_t events, vo
 
         default:
                 log_unit_error(UNIT(a), "Received unknown automount request %i", packet.hdr.type);
-                break;
         }
 
         return 0;

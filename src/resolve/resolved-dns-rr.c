@@ -930,12 +930,10 @@ static char *format_svc_param_value(DnsSvcParam *i) {
                 }
                 return strv_join(values_strv, ",");
         }
-        default: {
+        default:
                 value = decescape((char*) &i->value, i->length, " ,");
                 if (!value)
                         return NULL;
-                break;
-        }
         }
 
         char *qvalue;
@@ -1346,7 +1344,6 @@ const char* dns_resource_record_to_string(DnsResourceRecord *rr) {
                 }
                 if (r < 0)
                         return NULL;
-                break;
         }
 
         rr->to_string = s;
@@ -1671,7 +1668,6 @@ void dns_resource_record_hash_func(const DnsResourceRecord *rr, struct siphash *
         case DNS_TYPE_OPENPGPKEY:
         default:
                 siphash24_compress_safe(rr->generic.data, rr->generic.data_size, state);
-                break;
         }
 }
 
@@ -1909,7 +1905,6 @@ DnsResourceRecord *dns_resource_record_copy(DnsResourceRecord *rr) {
                 if (!copy->generic.data)
                         return NULL;
                 copy->generic.data_size = rr->generic.data_size;
-                break;
         }
 
         t = TAKE_PTR(copy);

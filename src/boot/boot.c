@@ -346,7 +346,6 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
                 break;
         default:
                 printf(" console-mode (config): %" PRIi64 "\n", config->console_mode);
-                break;
         }
 
         /* EFI var console mode is always a concrete value or unset. */

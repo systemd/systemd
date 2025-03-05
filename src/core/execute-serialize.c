@@ -2178,7 +2178,7 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
                 break;
 
         default:
-                break;
+                ;
         }
 
         r = serialize_std_out_err(c, f, STDOUT_FILENO);

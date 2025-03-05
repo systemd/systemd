@@ -338,7 +338,6 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
 
                 default:
                         b->button_modifier_mask |= button_get_keycode_modifier_mask(ev.code);
-                        break;
                 }
 
         } else if (ev.type == EV_KEY && ev.value == 0) {
@@ -402,7 +401,6 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
 
                 default:
                         b->button_modifier_mask &= ~button_get_keycode_modifier_mask(ev.code);
-                        break;
                 }
 
         } else if (ev.type == EV_SW && ev.value > 0) {

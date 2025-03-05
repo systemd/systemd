@@ -368,7 +368,6 @@ static int run(int argc, char *argv[]) {
 
                 default:
                         log_debug("Unknown event %u from /dev/rfkill for index %u and type %s, ignoring.", event.op, event.idx, type);
-                        break;
                 }
         }
 
