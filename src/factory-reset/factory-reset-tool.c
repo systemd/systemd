@@ -209,12 +209,9 @@ static int verb_cancel(int argc, char *argv[], void *userdata) {
                 return 0;
         }
 
-        if (!is_efi_boot()) {
-                if (!arg_quiet)
-                        log_info("Not an EFI boot, cannot remove FactoryResetMode EFI variable, not cancelling.");
-
-                return 0;
-        }
+        if (!is_efi_boot())
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Not an EFI boot, cannot remove FactoryResetMode EFI variable, not cancelling.");
 
         r = efi_set_variable(EFI_SYSTEMD_VARIABLE_STR("FactoryResetRequest"), /* value= */ NULL, /* size= */ 0);
         if (r < 0)

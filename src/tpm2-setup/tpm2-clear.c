@@ -88,22 +88,23 @@ static int request_tpm2_clear(void) {
 
         r = secure_getenv_bool("SYSTEMD_TPM2_ALLOW_CLEAR");
         if (r < 0 && r != -ENXIO)
-                log_warning_errno(r, "Failed to parse $SYSTEMD_TPM2_ALLOW_CLEAR, ignoring: %m");
+                return log_error_errno(r, "Failed to parse $SYSTEMD_TPM2_ALLOW_CLEAR: %m");
         if (r >= 0)
                 clear = r;
 
         if (clear < 0) {
                 bool b;
-                r = proc_cmdline_get_bool("systemd.tpm2_allow_clear", /* flags= */ 0, &b);
+                r = proc_cmdline_get_bool("systemd.tpm2_allow_clear", PROC_CMDLINE_TRUE_WHEN_MISSING, &b);
                 if (r < 0)
-                        return log_debug_errno(r, "Failed to parse systemd.tpm2_allow_clear kernel command line argument: %m");
-                if (r > 0)
-                        clear = b;
+                        return log_error_errno(r, "Failed to parse systemd.tpm2_allow_clear kernel command line argument: %m");
+                clear = b;
         }
 
-        if (clear == 0) {
+        assert(clear >= 0);
+
+        if (!clear) {
                 log_info("Clearing TPM2 disabled, exiting early.");
-                return EXIT_SUCCESS;
+                return 0;
         }
 
         /* Now issue PPI request */
@@ -131,10 +132,10 @@ static int run(int argc, char *argv[]) {
          * to rebuild it. */
         if (arg_graceful && !tpm2_is_fully_supported()) {
                 log_notice("No complete TPM2 support detected, exiting gracefully.");
-                return EXIT_SUCCESS;
+                return 0;
         }
 
         return request_tpm2_clear();
 }
 
-DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);
+DEFINE_MAIN_FUNCTION(run);
