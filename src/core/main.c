@@ -3482,7 +3482,8 @@ finish:
                                               ANSI_HIGHLIGHT_RED "!!!!!!" ANSI_NORMAL,
                                               "%s.", error_message);
                 freeze_or_exit_or_reboot();
-        }
+        } else if (error_message)
+                log_error("%s", error_message);
 
         reset_arguments();
         return retval;
