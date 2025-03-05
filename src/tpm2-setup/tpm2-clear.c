@@ -94,14 +94,15 @@ static int request_tpm2_clear(void) {
 
         if (clear < 0) {
                 bool b;
-                r = proc_cmdline_get_bool("systemd.tpm2_allow_clear", /* flags= */ 0, &b);
+                r = proc_cmdline_get_bool("systemd.tpm2_allow_clear", PROC_CMDLINE_TRUE_WHEN_MISSING, &b);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse systemd.tpm2_allow_clear kernel command line argument: %m");
-                if (r > 0)
-                        clear = b;
+                clear = b;
         }
 
-        if (clear == 0) {
+        assert(clear >= 0);
+
+        if (!clear) {
                 log_info("Clearing TPM2 disabled, exiting early.");
                 return 0;
         }
