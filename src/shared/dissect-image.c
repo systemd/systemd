@@ -3384,6 +3384,47 @@ int verity_settings_load(
         return 1;
 }
 
+int verity_settings_copy(VeritySettings *dest, const VeritySettings *source) {
+        assert(dest);
+
+        if (!source) {
+                *dest = VERITY_SETTINGS_DEFAULT;
+                return 0;
+        }
+
+        _cleanup_free_ void *rh = NULL;
+        if (source->root_hash_size > 0) {
+                rh = memdup(source->root_hash, source->root_hash_size);
+                if (!rh)
+                        return log_oom_debug();
+        }
+
+        _cleanup_free_ void *sig = NULL;
+        if (source->root_hash_sig_size > 0) {
+                sig = memdup(source->root_hash_sig, source->root_hash_sig_size);
+                if (!sig)
+                        return log_oom_debug();
+        }
+
+        _cleanup_free_ char *p = NULL;
+        if (source->data_path) {
+                p = strdup(source->data_path);
+                if (!p)
+                        return log_oom_debug();
+        }
+
+        *dest = (VeritySettings) {
+                .root_hash = TAKE_PTR(rh),
+                .root_hash_size = source->root_hash_size,
+                .root_hash_sig = TAKE_PTR(sig),
+                .root_hash_sig_size = source->root_hash_sig_size,
+                .data_path = TAKE_PTR(p),
+                .designator = source->designator,
+        };
+
+        return 1;
+}
+
 int dissected_image_load_verity_sig_partition(
                 DissectedImage *m,
                 int fd,
