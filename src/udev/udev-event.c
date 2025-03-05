@@ -96,11 +96,8 @@ static int device_rename(sd_device *device, const char *name) {
         if (r < 0)
                 return r;
 
-        r = sd_device_get_property_value(device, "INTERFACE", &s);
-        if (r == -ENOENT)
+        if (device_get_ifname(device, &s) < 0)
                 return 0;
-        if (r < 0)
-                return r;
 
         /* like DEVPATH_OLD, INTERFACE_OLD is not saved to the db, but only stays around for the current event */
         r = device_add_property_internal(device, "INTERFACE_OLD", s);
