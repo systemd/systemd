@@ -1,0 +1,33 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Issue TPM Clear Request
+Documentation=man:systemd-tpm2-clear.service(8)
+DefaultDependencies=no
+Conflicts=shutdown.target
+After=tpm2.target systemd-pcrphase-factory-reset.service
+Before=factory-reset.target shutdown.target
+
+# Note all systems that have a TPM implement the "Physical Presence Interface" (PPI)
+ConditionPathExists=/sys/class/tpm/tpm0/ppi/request
+
+# Only do this if we can be reasonably sure people accept our TPM use, which we
+# derive here from the fact that UKIs are used. Because if they do they are OK
+# with our SRK initialization and our PCR measurements, and hence should also
+# be OK with our TPM resets.
+ConditionSecurity=measured-uki
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart={{LIBEXECDIR}}/systemd-tpm2-clear --graceful
+
+[Install]
+WantedBy=factory-reset.target
