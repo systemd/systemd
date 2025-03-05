@@ -673,12 +673,13 @@ TEST(rtnl_set_link_name) {
         ASSERT_OK(rtnl_delete_link_alternative_names(&rtnl, ifindex, STRV_MAKE("testlongalternativename")));
 
         ASSERT_NULL((alternative_names = strv_free(alternative_names)));
-        ASSERT_OK(rtnl_get_link_alternative_names(&rtnl, ifindex, &alternative_names));
+        ASSERT_OK_EQ(rtnl_get_link_alternative_names(&rtnl, ifindex, &alternative_names), ifindex);
         ASSERT_FALSE(strv_contains(alternative_names, "testlongalternativename"));
         ASSERT_TRUE(strv_contains(alternative_names, "test-additional-name"));
         ASSERT_FALSE(strv_contains(alternative_names, "test-shortname"));
 
         _cleanup_free_ char *resolved = NULL;
+        ASSERT_OK_EQ(rtnl_resolve_link_alternative_name(&rtnl, "test-additional-name", NULL), ifindex);
         ASSERT_OK_EQ(rtnl_resolve_link_alternative_name(&rtnl, "test-additional-name", &resolved), ifindex);
         ASSERT_STREQ(resolved, "test-shortname");
         ASSERT_NULL((resolved = mfree(resolved)));
@@ -687,10 +688,12 @@ TEST(rtnl_set_link_name) {
         ASSERT_OK(rtnl_rename_link(&rtnl, "test-shortname", "test-shortname2"));
         ASSERT_OK(rtnl_rename_link(NULL, "test-shortname2", "test-shortname3"));
 
+        ASSERT_OK_EQ(rtnl_resolve_link_alternative_name(&rtnl, "test-additional-name", NULL), ifindex);
         ASSERT_OK_EQ(rtnl_resolve_link_alternative_name(&rtnl, "test-additional-name", &resolved), ifindex);
         ASSERT_STREQ(resolved, "test-shortname3");
         ASSERT_NULL((resolved = mfree(resolved)));
 
+        ASSERT_OK_EQ(rtnl_resolve_link_alternative_name(&rtnl, "test-shortname3", NULL), ifindex);
         ASSERT_OK_EQ(rtnl_resolve_link_alternative_name(&rtnl, "test-shortname3", &resolved), ifindex);
         ASSERT_STREQ(resolved, "test-shortname3");
         ASSERT_NULL((resolved = mfree(resolved)));
