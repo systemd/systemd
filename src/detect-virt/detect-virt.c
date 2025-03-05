@@ -190,7 +190,6 @@ static int run(int argc, char *argv[]) {
                 v = detect_virtualization();
                 if (v < 0)
                         return log_error_errno(v, "Failed to check for virtualization: %m");
-                break;
         }
 
         if (!arg_quiet)

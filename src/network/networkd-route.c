@@ -122,7 +122,6 @@ static void route_hash_func(const Route *route, struct siphash *state) {
 
         default:
                 /* treat any other address family as AF_UNSPEC */
-                break;
         }
 }
 

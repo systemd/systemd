@@ -1687,7 +1687,6 @@ static int become_shutdown(int objective, int retval) {
         case LOG_TARGET_CONSOLE:
         default:
                 command_line[pos++] = "--log-target=console";
-                break;
         };
 
         if (log_get_show_color())

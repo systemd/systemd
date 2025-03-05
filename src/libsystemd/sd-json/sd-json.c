@@ -990,7 +990,6 @@ _public_ int64_t sd_json_variant_integer(sd_json_variant *v) {
         }
 
         default:
-                break;
         }
 
 mismatch:
@@ -1035,7 +1034,6 @@ _public_ uint64_t sd_json_variant_unsigned(sd_json_variant *v) {
         }
 
         default:
-                break;
         }
 
 mismatch:
@@ -1081,7 +1079,6 @@ _public_ double sd_json_variant_real(sd_json_variant *v) {
         }
 
         default:
-                break;
         }
 
 mismatch:
@@ -1117,7 +1114,6 @@ _public_ int sd_json_variant_is_negative(sd_json_variant *v) {
                 return false;
 
         default:
-                break;
         }
 
 mismatch:
@@ -1649,7 +1645,6 @@ static void json_format_string(FILE *f, const char *q, sd_json_format_flags_t fl
                                 fprintf(f, "\\u%04x", (unsigned) *q);
                         else
                                 fputc(*q, f);
-                        break;
                 }
 
         if (flags & SD_JSON_FORMAT_COLOR)

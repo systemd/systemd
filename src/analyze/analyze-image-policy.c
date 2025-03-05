@@ -49,7 +49,6 @@ static int table_add_designator_line(Table *table, PartitionDesignator d, Partit
 
         default:
                 r = table_add_many(table, TABLE_EMPTY);
-                break;
         }
         if (r < 0)
                 return table_log_add_error(r);
@@ -66,9 +65,7 @@ static int table_add_designator_line(Table *table, PartitionDesignator d, Partit
 
         default:
                 r = table_add_many(table, TABLE_EMPTY);
-                break;
         }
-
         if (r < 0)
                 return table_log_add_error(r);
 

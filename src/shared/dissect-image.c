@@ -1902,7 +1902,6 @@ int partition_pick_mount_options(
                 break;
 
         default:
-                break;
         }
 
         /* So, when you request MS_RDONLY from ext4, then this means nothing. It happily still writes to the

@@ -335,10 +335,6 @@ static char *ascii_ellipsize_mem(const char *s, size_t old_length, size_t new_le
         case 2:
                 if (!is_locale_utf8())
                         return strdup("..");
-
-                break;
-
-        default:
                 break;
         }
 
