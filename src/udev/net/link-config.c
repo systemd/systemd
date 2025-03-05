@@ -408,8 +408,16 @@ int link_new(LinkConfigContext *ctx, UdevEvent *event, Link **ret) {
         else
                 log_link_debug(link, "Device has addr_assign_type attribute: %u", link->addr_assign_type);
 
-        r = rtnl_get_link_info(&event->rtnl, link->ifindex, &link->iftype, &link->flags,
-                               &link->kind, &link->hw_addr, &link->permanent_hw_addr);
+        r = rtnl_get_link_info(
+                        &event->rtnl,
+                        link->ifindex,
+                        /* ret_name = */ NULL,
+                        /* ret_altnames = */ NULL,
+                        &link->iftype,
+                        &link->flags,
+                        &link->kind,
+                        &link->hw_addr,
+                        &link->permanent_hw_addr);
         if (r < 0)
                 return r;
 
