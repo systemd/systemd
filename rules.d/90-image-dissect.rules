@@ -30,4 +30,15 @@ LABEL="gpt_auto_root_end"
 ENV{DM_UUID}=="CRYPT-*", ENV{DM_NAME}=="root", SYMLINK+="gpt-auto-root", IMPORT{builtin}="factory_reset status"
 ENV{DM_UUID}=="CRYPT-*", ENV{DM_NAME}=="root", ENV{ID_FACTORY_RESET}=="on|complete", SYMLINK+="gpt-auto-root-ignore-factory-reset"
 
+# If this is the whole disk that we booted from, then dissect it
+ENV{DEVTYPE}=="disk", ENV{ID_PART_GPT_AUTO_ROOT_DISK}=="1", ENV{ID_FACTORY_RESET}=="", IMPORT{builtin}="factory_reset status"
+ENV{DEVTYPE}=="disk", ENV{ID_PART_GPT_AUTO_ROOT_DISK}=="1", ENV{ID_FACTORY_RESET}!="on", IMPORT{builtin}="dissect_image probe"
+
+# If this is a partition, and we found something on the parent, then copy the right properties from the parent, and rename them
+ENV{DEVTYPE}=="partition", ENV{ID_DISSECT_IMAGE}!="", IMPORT{builtin}="dissect_image copy"
+
+# Create symlinks based on the designator
+ENV{DEVTYPE}=="partition", ENV{ID_DISSECT_PART_DESIGNATOR}!="|root", ENV{ID_FS_TYPE}!="crypto_LUKS", SYMLINK+="gpt-auto-$env{ID_DISSECT_PART_DESIGNATOR}"
+ENV{DEVTYPE}=="partition", ENV{ID_DISSECT_PART_DESIGNATOR}!="|root", ENV{ID_FS_TYPE}=="crypto_LUKS", SYMLINK+="gpt-auto-$env{ID_DISSECT_PART_DESIGNATOR}-luks"
+
 LABEL="image_dissect_end"
