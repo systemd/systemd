@@ -474,7 +474,12 @@ if install_tests
         foreach subdir : testdata_subdirs
                 # install_subdir() before meson 1.3.0 does not handle symlinks correctly (it follows them
                 # instead of copying the symlink) so we use rsync instead.
-                if meson.version().version_compare('<1.3.0')
+                if meson.version().version_compare('>=1.3.0')
+                        install_subdir(subdir,
+                                       exclude_files : ['.gitattributes'],
+                                       install_dir : testdata_dir,
+                                       follow_symlinks : false)
+                else
                         if not rsync.found()
                                 error('rsync is required to install the integration test data')
                         endif
@@ -482,11 +487,6 @@ if install_tests
                         rsync_r = rsync.full_path() + ' -rlpt --exclude .gitattributes -- "@0@" "${DESTDIR:-}@1@"'
                         meson.add_install_script(sh, '-c',
                                                  rsync_r.format(meson.current_source_dir() / subdir, testdata_dir))
-                else
-                        install_subdir(subdir,
-                                       exclude_files : ['.gitattributes'],
-                                       install_dir : testdata_dir,
-                                       follow_symlinks : false)
                 endif
         endforeach
 
