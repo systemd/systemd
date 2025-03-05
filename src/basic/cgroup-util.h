@@ -329,9 +329,6 @@ static inline int cg_unified(void) {
 const char* cgroup_controller_to_string(CGroupController c) _const_;
 CGroupController cgroup_controller_from_string(const char *s) _pure_;
 
-bool is_cgroup_fs(const struct statfs *s);
-bool fd_is_cgroup_fs(int fd);
-
 typedef enum ManagedOOMMode {
         MANAGED_OOM_AUTO,
         MANAGED_OOM_KILL,
