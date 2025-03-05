@@ -11,6 +11,7 @@
 #include "sd-bus.h"
 #include "sd-varlink.h"
 
+#include "blockdev-util.h"
 #include "build.h"
 #include "bus-error.h"
 #include "bus-locator.h"
@@ -1045,7 +1046,7 @@ static int determine_used_extensions(const char *hierarchy, char **paths, char *
                         continue;
                 }
 
-                r = strv_consume_with_size (&used_paths, &n, TAKE_PTR(resolved));
+                r = strv_consume_with_size(&used_paths, &n, TAKE_PTR(resolved));
                 if (r < 0)
                         return log_oom();
         }
@@ -1143,14 +1144,10 @@ static int determine_top_lower_dirs(OverlayFSPaths *op, const char *meta_path) {
 }
 
 static int determine_middle_lower_dirs(OverlayFSPaths *op, char **paths) {
-        int r;
-
         assert(op);
-        assert(paths);
 
         /* The paths were already determined in determine_used_extensions, so we just take them as is. */
-        r = strv_extend_strv(&op->lower_dirs, paths, false);
-        if (r < 0)
+        if (strv_extend_strv(&op->lower_dirs, paths, /* filter_duplicates= */ false) < 0)
                 return log_oom ();
 
         return 0;
@@ -1202,19 +1199,24 @@ static int hierarchy_as_lower_dir(OverlayFSPaths *op) {
         return 0;
 }
 
-static int determine_bottom_lower_dirs(OverlayFSPaths *op) {
+static int determine_bottom_lower_dirs(OverlayFSPaths *op, dev_t *ret_backing_devnum) {
         int r;
 
         assert(op);
+        assert(ret_backing_devnum);
 
         r = hierarchy_as_lower_dir(op);
         if (r < 0)
                 return r;
         if (!r) {
-                r = strv_extend(&op->lower_dirs, op->resolved_hierarchy);
-                if (r < 0)
+                if (strv_extend(&op->lower_dirs, op->resolved_hierarchy) < 0)
                         return log_oom();
-        }
+
+                r = get_block_device(op->resolved_hierarchy, ret_backing_devnum);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get block device of '%s': %m", op->resolved_hierarchy);
+        } else
+                *ret_backing_devnum = 0;
 
         return 0;
 }
@@ -1222,13 +1224,14 @@ static int determine_bottom_lower_dirs(OverlayFSPaths *op) {
 static int determine_lower_dirs(
                 OverlayFSPaths *op,
                 char **paths,
-                const char *meta_path) {
+                const char *meta_path,
+                dev_t *ret_backing_devnum) {
 
         int r;
 
         assert(op);
-        assert(paths);
         assert(meta_path);
+        assert(ret_backing_devnum);
 
         r = determine_top_lower_dirs(op, meta_path);
         if (r < 0)
@@ -1238,7 +1241,7 @@ static int determine_lower_dirs(
         if (r < 0)
                 return r;
 
-        r = determine_bottom_lower_dirs(op);
+        r = determine_bottom_lower_dirs(op, ret_backing_devnum);
         if (r < 0)
                 return r;
 
@@ -1363,7 +1366,6 @@ static int write_extensions_file(ImageClass image_class, char **extensions, cons
         _cleanup_free_ char *f = NULL, *buf = NULL;
         int r;
 
-        assert(extensions);
         assert(meta_path);
 
         /* Let's generate a metadata file that lists all extensions we took into account for this
@@ -1373,15 +1375,20 @@ static int write_extensions_file(ImageClass image_class, char **extensions, cons
         if (!f)
                 return log_oom();
 
-        buf = strv_join(extensions, "\n");
-        if (!buf)
-                return log_oom();
+        if (!strv_isempty(extensions)) {
+                buf = strv_join(extensions, "\n");
+                if (!buf)
+                        return log_oom();
+
+                if (!strextend(&buf, "\n")) /* manually append newline since we want to suppress newline if zero extensions are applied */
+                        return log_oom();
+        }
 
         _cleanup_free_ char *hierarchy_path = path_join(hierarchy, image_class_info[image_class].dot_directory_name, image_class_info[image_class].short_identifier_plural);
         if (!hierarchy_path)
                 return log_oom();
 
-        r = write_string_file_full(AT_FDCWD,f, buf, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755|WRITE_STRING_FILE_LABEL, /* ts= */ NULL, hierarchy_path);
+        r = write_string_file_full(AT_FDCWD, f, strempty(buf), WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755|WRITE_STRING_FILE_LABEL|WRITE_STRING_FILE_AVOID_NEWLINE, /* ts= */ NULL, hierarchy_path);
         if (r < 0)
                 return log_error_errno(r, "Failed to write extension meta file '%s': %m", f);
 
@@ -1415,6 +1422,35 @@ static int write_dev_file(ImageClass image_class, const char *meta_path, const c
                 return log_oom();
 
         r = write_string_file_full(AT_FDCWD, f, FORMAT_DEVNUM(st.st_dev), WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_LABEL, /* ts= */ NULL, hierarchy_path);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write '%s': %m", f);
+
+        return 0;
+}
+
+static int write_backing_file(ImageClass image_class, const char *meta_path, const char *overlay_path, const char *hierarchy, dev_t backing) {
+        int r;
+
+        assert(meta_path);
+        assert(overlay_path);
+        assert(hierarchy);
+
+        if (backing == 0)
+                return 0;
+
+        /* Let's also store away the backing file system dev_t, so that applications can trace back what they are looking at here */
+        _cleanup_free_ char *f = path_join(meta_path, image_class_info[image_class].dot_directory_name, "backing");
+        if (!f)
+                return log_oom();
+
+        /* Modifying the underlying layers while the overlayfs is mounted is technically undefined, but at
+         * least it won't crash or deadlock, as per the kernel docs about overlayfs:
+         * https://www.kernel.org/doc/html/latest/filesystems/overlayfs.html#changes-to-underlying-filesystems */
+        _cleanup_free_ char *hierarchy_path = path_join(hierarchy, image_class_info[image_class].dot_directory_name, image_class_info[image_class].short_identifier_plural);
+        if (!hierarchy_path)
+                return log_oom();
+
+        r = write_string_file_full(AT_FDCWD, f, FORMAT_DEVNUM(backing), WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_LABEL, /* ts= */ NULL, hierarchy_path);
         if (r < 0)
                 return log_error_errno(r, "Failed to write '%s': %m", f);
 
@@ -1466,11 +1502,11 @@ static int store_info_in_meta(
                 const char *meta_path,
                 const char *overlay_path,
                 const char *work_dir,
-                const char *hierarchy) {
+                const char *hierarchy,
+                dev_t backing) {
 
         int r;
 
-        assert(extensions);
         assert(meta_path);
         assert(overlay_path);
         /* work_dir may be NULL */
@@ -1500,6 +1536,10 @@ static int store_info_in_meta(
                 return r;
 
         r = write_work_dir_file(image_class, meta_path, work_dir, hierarchy);
+        if (r < 0)
+                return r;
+
+        r = write_backing_file(image_class, meta_path, overlay_path, hierarchy, backing);
         if (r < 0)
                 return r;
 
@@ -1559,7 +1599,6 @@ static int merge_hierarchy(
         int r;
 
         assert(hierarchy);
-        assert(extensions);
         assert(paths);
         assert(meta_path);
         assert(overlay_path);
@@ -1571,14 +1610,15 @@ static int merge_hierarchy(
         if (r < 0)
                 return r;
 
-        if (extensions_used == 0) /* No extension with files in this hierarchy? Then don't do anything. */
+        if (extensions_used == 0 && arg_mutable == MUTABLE_NO) /* No extension with files in this hierarchy? Then don't do anything. */
                 return 0;
 
         r = overlayfs_paths_new(hierarchy, workspace_path, &op);
         if (r < 0)
                 return r;
 
-        r = determine_lower_dirs(op, used_paths, meta_path);
+        dev_t backing;
+        r = determine_lower_dirs(op, used_paths, meta_path, &backing);
         if (r < 0)
                 return r;
 
@@ -1594,7 +1634,7 @@ static int merge_hierarchy(
         if (r < 0)
                 return r;
 
-        r = store_info_in_meta(image_class, extensions, meta_path, overlay_path, op->work_dir, op->hierarchy);
+        r = store_info_in_meta(image_class, extensions, meta_path, overlay_path, op->work_dir, op->hierarchy, backing);
         if (r < 0)
                 return r;
 
@@ -1644,7 +1684,7 @@ static int merge_subprocess(
                 Hashmap *images,
                 const char *workspace) {
 
-        _cleanup_free_ char *host_os_release_id = NULL, *host_os_release_version_id = NULL, *host_os_release_api_level = NULL, *buf = NULL, *filename = NULL;
+        _cleanup_free_ char *host_os_release_id = NULL, *host_os_release_version_id = NULL, *host_os_release_api_level = NULL, *filename = NULL;
         _cleanup_strv_free_ char **extensions = NULL, **extensions_v = NULL, **paths = NULL;
         size_t n_extensions = 0;
         unsigned n_ignored = 0;
@@ -1843,7 +1883,7 @@ static int merge_subprocess(
         }
 
         /* Nothing left? Then shortcut things */
-        if (n_extensions == 0) {
+        if (n_extensions == 0 && arg_mutable == MUTABLE_NO) {
                 if (n_ignored > 0)
                         log_info("No suitable extensions found (%u ignored due to incompatible image(s)).", n_ignored);
                 else
@@ -1855,11 +1895,16 @@ static int merge_subprocess(
         typesafe_qsort(extensions, n_extensions, strverscmp_improvedp);
         typesafe_qsort(extensions_v, n_extensions, strverscmp_improvedp);
 
-        buf = strv_join(extensions_v, "', '");
-        if (!buf)
-                return log_oom();
+        if (n_extensions == 0) {
+                assert(arg_mutable != MUTABLE_NO);
+                log_info("No extensions found, proceeding in mutable mode.");
+        } else {
+                _cleanup_free_ char *buf = strv_join(extensions_v, "', '");
+                if (!buf)
+                        return log_oom();
 
-        log_info("Using extensions '%s'.", buf);
+                log_info("Using extensions '%s'.", buf);
+        }
 
         /* Build table of extension paths (in reverse order) */
         paths = new0(char*, n_extensions + 1);
