@@ -103,7 +103,7 @@ static int request_tpm2_clear(void) {
 
         if (clear == 0) {
                 log_info("Clearing TPM2 disabled, exiting early.");
-                return EXIT_SUCCESS;
+                return 0;
         }
 
         /* Now issue PPI request */
@@ -131,10 +131,10 @@ static int run(int argc, char *argv[]) {
          * to rebuild it. */
         if (arg_graceful && !tpm2_is_fully_supported()) {
                 log_notice("No complete TPM2 support detected, exiting gracefully.");
-                return EXIT_SUCCESS;
+                return 0;
         }
 
         return request_tpm2_clear();
 }
 
-DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);
+DEFINE_MAIN_FUNCTION(run);
