@@ -1074,7 +1074,7 @@ static void session_context_mangle(
                         break;
 
                 default:
-                        break;
+                        ;
                 }
 
                 pam_debug_syslog(handle, debug, "Automatically chose session class '%s'.", c->class);

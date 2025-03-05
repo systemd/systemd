@@ -121,8 +121,7 @@ static void route_hash_func(const Route *route, struct siphash *state) {
                 break;
 
         default:
-                /* treat any other address family as AF_UNSPEC */
-                break;
+                assert_not_reached();
         }
 }
 
@@ -209,8 +208,7 @@ static int route_compare_func(const Route *a, const Route *b) {
                 return route_nexthops_compare_func(a, b);
 
         default:
-                /* treat any other address family as AF_UNSPEC */
-                return 0;
+                assert_not_reached();
         }
 }
 

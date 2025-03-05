@@ -66,8 +66,6 @@ static void set_usb_iftype(char *to, int if_class_num, size_t len) {
                 break;
         case 0xff: /* Vendor-specific */
                 break;
-        default:
-                break;
         }
         strncpy(to, type, len);
         to[len-1] = '\0';
@@ -77,7 +75,7 @@ static int set_usb_mass_storage_ifsubtype(char *to, const char *from, size_t len
         int type_num = 0;
         const char *type = "generic";
 
-        if (safe_atoi(from, &type_num) >= 0) {
+        if (safe_atoi(from, &type_num) >= 0)
                 switch (type_num) {
                 case 1: /* RBC devices */
                         type = "rbc";
@@ -94,10 +92,8 @@ static int set_usb_mass_storage_ifsubtype(char *to, const char *from, size_t len
                 case 6: /* Transparent SPC-2 devices */
                         type = "scsi";
                         break;
-                default:
-                        break;
                 }
-        }
+
         strscpy(to, len, type);
         return type_num;
 }
@@ -106,7 +102,7 @@ static void set_scsi_type(char *to, const char *from, size_t len) {
         unsigned type_num;
         const char *type = "generic";
 
-        if (safe_atou(from, &type_num) >= 0) {
+        if (safe_atou(from, &type_num) >= 0)
                 switch (type_num) {
                 case 0:
                 case 0xe:
@@ -123,10 +119,8 @@ static void set_scsi_type(char *to, const char *from, size_t len) {
                 case 5:
                         type = "cd";
                         break;
-                default:
-                        break;
                 }
-        }
+
         strscpy(to, len, type);
 }
 

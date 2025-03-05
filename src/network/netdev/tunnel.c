@@ -574,7 +574,6 @@ static int netdev_ip6tnl_fill_message_create(NetDev *netdev, Link *link, sd_netl
         case NETDEV_IP6_TNL_MODE_ANYIP6:
         default:
                 proto = 0;
-                break;
         }
 
         r = sd_netlink_message_append_u8(m, IFLA_IPTUN_PROTO, proto);
