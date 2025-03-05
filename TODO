@@ -137,7 +137,7 @@ Features:
   the very last moment of shutdown. idea would be to store reference to block
   device (major + minor + partition id + diskeq?) in /run somewhere, than use
   that from systemd-shutdown, just write a raw JSON blob into the partition.
-  Include timestamp, boot id and such, plus kmsg. on next boot immeidately
+  Include timestamp, boot id and such, plus kmsg. on next boot immediately
   import into journal. maybe use timestamp for making clock more monotonic.
   also use this to detect unclean shutdowns, boot into special target if
   detected
