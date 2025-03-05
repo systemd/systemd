@@ -71,7 +71,6 @@ int probe_smart_media(int mtd_fd, mtd_info_t* info) {
                 break;
         default:
                 spare_count = 24;
-                break;
         }
 
         for (offset = 0; offset < block_size * spare_count; offset += sector_size) {

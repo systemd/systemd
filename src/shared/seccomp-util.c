@@ -1598,7 +1598,6 @@ int seccomp_restrict_address_families(Set *address_families, bool allow_list) {
                         /* These we either know we don't support (i.e. are the ones that do use socketcall()), or we
                          * don't know */
                         supported = false;
-                        break;
                 }
 
                 if (!supported)

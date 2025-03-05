@@ -125,7 +125,6 @@ static int netdev_l2tp_create_message_tunnel(NetDev *netdev, union in_addr_union
         case NETDEV_L2TP_ENCAPTYPE_UDP:
         default:
                 encap_type = L2TP_ENCAPTYPE_UDP;
-                break;
         }
 
         r = sd_netlink_message_append_u16(m, L2TP_ATTR_ENCAP_TYPE, encap_type);
@@ -227,7 +226,6 @@ static int netdev_l2tp_create_message_session(NetDev *netdev, L2tpSession *sessi
         default:
                 l2_spec_type = L2TP_L2SPECTYPE_DEFAULT;
                 l2_spec_len = 4;
-                break;
         }
 
         r = sd_netlink_message_append_u8(m, L2TP_ATTR_L2SPEC_TYPE, l2_spec_type);

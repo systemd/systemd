@@ -742,8 +742,6 @@ static int event_log_record_extract_firmware_description(EventLogRecord *rec) {
                                 r = strextendf_with_separator(&rec->description, ", ", "Tag 0x%" PRIx32 ": %s", tag->taggedEventID, s);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to format EV_EVENT_TAG description string: %m");
-
-                                break;
                         }}
 
                         tag = (TCG_PCClientTaggedEvent*) ((uint8_t*) tag + m);
@@ -1437,7 +1435,6 @@ static int event_log_record_validate_hash_firmware(
                 hdata = record->firmware_payload;
                 hsz = record->firmware_payload_size;
                 strict = false;
-                break;
         }
 
         int mdsz = EVP_MD_size(md);

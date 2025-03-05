@@ -401,7 +401,7 @@
                         _found = true;                                  \
                         break;                                          \
                 default:                                                \
-                        break;                                          \
+                        ;                                               \
                 }                                                       \
                 _found;                                                 \
         })

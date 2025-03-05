@@ -2153,7 +2153,7 @@ static int run(int argc, char *argv[]) {
 
         default:
                 /* All other actions need the image dissected (except for ACTION_VALIDATE, see below) */
-                break;
+                ;
         }
 
         if (arg_image) {

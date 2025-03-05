@@ -171,7 +171,7 @@ static int session_device_open(SessionDevice *sd, bool active) {
         case DEVICE_TYPE_UNKNOWN:
         default:
                 /* fallback for devices without synchronizations */
-                break;
+                ;
         }
 
         return TAKE_FD(fd);
@@ -215,7 +215,7 @@ static int session_device_start(SessionDevice *sd) {
         case DEVICE_TYPE_UNKNOWN:
         default:
                 /* fallback for devices without synchronizations */
-                break;
+                ;
         }
 
         sd->active = true;
@@ -262,7 +262,7 @@ static void session_device_stop(SessionDevice *sd) {
         case DEVICE_TYPE_UNKNOWN:
         default:
                 /* fallback for devices without synchronization */
-                break;
+                ;
         }
 
         sd->active = false;

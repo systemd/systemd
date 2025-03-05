@@ -850,7 +850,6 @@ int transfer_vacuum(
 
                 default:
                         assert_not_reached();
-                        break;
                 }
 
                 instance_free(oldest);
