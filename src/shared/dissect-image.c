@@ -1001,6 +1001,8 @@ static int dissect_image(
                         type = gpt_partition_type_from_uuid(type_id);
 
                         label = blkid_partition_get_name(pp); /* libblkid returns NULL here if empty */
+
+                        /* systemd-sysupdate expects empty partitions to be marked with an "_empty" label, hence ignore them here. */
                         if (streq_ptr(label, "_empty"))
                                 continue;
 
