@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: LGPL-2.1-or-later
-# shellcheck disable=SC2016
+# shellcheck disable=SC2016,SC2209
 
 set -eux
 set -o pipefail
@@ -28,6 +28,13 @@ inspect() {
     homectl inspect --json=pretty "$USERNAME"
 }
 
+wait_for_exist() {
+    for i in {1..10}; do
+        (( i > 1 )) && sleep 0.5
+        homectl inspect "$1" && break
+    done
+}
+
 wait_for_state() {
     for i in {1..10}; do
         (( i > 1 )) && sleep 0.5
@@ -45,6 +52,9 @@ systemctl service-log-level systemd-homed debug
 # Create a tmpfs to use as backing store for the home dir. That way we can enforce a size limit nicely.
 mkdir -p /home
 mount -t tmpfs tmpfs /home -o size=290M
+
+# Make sure systemd-homed takes notice of the overmounted /home/
+systemctl kill -sUSR1 systemd-homed
 
 TMP_SKEL=$(mktemp -d)
 echo hogehoge >"$TMP_SKEL"/hoge
@@ -726,6 +736,108 @@ systemctl stop user@"$(id -u subareatest)".service
 
 wait_for_state subareatest inactive
 homectl remove subareatest
+
+# Test signing key logic
+homectl list-signing-keys | grep -q local.public
+(! (homectl list-signing-keys | grep -q signtest.public))
+
+IDENTITY='{"userName":"signtest","storage":"directory","disposition":"regular","privileged":{"hashedPassword":["$y$j9T$I5Wxfm.fyg.RRWlgWw.rI1$gnQqGtbpPexqxZJkWMq8FxQi5Swc.CWeKtM8LwvEUB6"]},"enforcePasswordPolicy":false,"lastChangeUSec":1740677608017608,"lastPasswordChangeUSec":1740677608017608,"signature":[{"data":"Gl4wtc0sMjVnsH6FQwG/0M+x0nLI5cvvdtSSCttUu1gNtXqYn0UI4wZi/7zX35ERht6XHWDlP4d6V8HiAst4Dg==","key":"-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEA6uvVaP1vh7O6nIbiOcvyIHRl4ihYSs0R7ctxtz2Zu7E=\n-----END PUBLIC KEY-----\n"}],"secret":{"password":["test"]}}'
+
+# Try with stripping the foreign signature first, this should just work
+echo "$IDENTITY" | homectl create -P --identity=- --seize=yes
+homectl remove signtest
+
+# No try again, and don't strip the signature. It will be refused.
+(! (echo "$IDENTITY" | homectl create -P --identity=- --seize=no))
+
+print_public_key() {
+    cat <<EOF
+-----BEGIN PUBLIC KEY-----
+MCowBQYDK2VwAyEA6uvVaP1vh7O6nIbiOcvyIHRl4ihYSs0R7ctxtz2Zu7E=
+-----END PUBLIC KEY-----
+EOF
+}
+
+# Let's now add the signing key
+print_public_key | homectl add-signing-key --key-name=signtest.public
+homectl get-signing-key signtest.public | cmp - <(print_public_key)
+homectl list-signing-keys | grep -q local.public
+homectl list-signing-keys | grep -q signtest.public
+
+# Now create the account with this, it should work now
+echo "$IDENTITY" | homectl create -P --identity=- --seize=no
+
+# Verify we can log in
+PASSWORD="test" homectl with signtest true
+
+# Remove the key, and check again ,should fail now
+homectl remove-signing-key signtest.public
+wait_for_state signtest inactive
+(! PASSWORD="test" homectl with signtest true)
+
+# Verify key is really gone
+homectl list-signing-keys | grep -q local.public
+(! (homectl list-signing-keys | grep -q signtest.public))
+
+# Test unregister + adopt
+mkdir /home/elsewhere
+mv /home/signtest.homedir /home/elsewhere/
+homectl unregister signtest
+print_public_key | homectl add-signing-key --key-name=signtest.public
+homectl adopt /home/elsewhere/signtest.homedir
+PASSWORD="test" homectl with signtest true
+wait_for_state signtest inactive
+
+# Test register
+homectl unregister signtest
+homectl register /home/elsewhere/signtest.homedir/.identity
+homectl unregister signtest
+
+# Test automatic fixation for anything in /home/
+mv /home/elsewhere/signtest.homedir /home
+rmdir /home/elsewhere
+wait_for_exist signtest
+PASSWORD="test" homectl with signtest true
+wait_for_state signtest inactive
+
+# add signing key via credential
+homectl remove-signing-key signtest.public
+(! (homectl list-signing-keys | grep -q signtest.public))
+systemd-run --wait -p "SetCredential=home.add-signing-key.signtest.public:$(print_public_key)" homectl firstboot
+homectl list-signing-keys | grep -q signtest.public
+
+# register user via credential
+mkdir /home/elsewhere2
+mv /home/signtest.homedir /home/elsewhere2/
+homectl unregister signtest
+systemd-run --wait -p "LoadCredential=home.register.signtest:/home/elsewhere2/signtest.homedir/.identity" homectl firstboot
+homectl inspect signtest
+homectl unregister signtest
+mv /home/elsewhere2/signtest.homedir /home/
+rmdir /home/elsewhere2
+wait_for_exist signtest
+
+# Remove it all again
+homectl remove-signing-key signtest.public
+homectl remove signtest
+
+# Test positive and negative matching
+NEWPASSWORD=test homectl create --storage=directory --nice=5 -P matchtest
+homectl inspect matchtest
+homectl inspect matchtest | grep "Nice: 5"
+PASSWORD=test homectl update -N --nice=7 -T --nice=3 matchtest
+homectl inspect matchtest
+homectl inspect matchtest | grep "Nice: 3"
+PASSWORD=test homectl update -A --default-area=quux1 matchtest
+homectl inspect matchtest
+homectl inspect matchtest | grep "Area: quux1"
+PASSWORD=test homectl update -N --default-area=quux2 matchtest
+homectl inspect matchtest
+homectl inspect matchtest | grep "Area: quux1"
+PASSWORD=test homectl update -T --default-area=quux3 matchtest
+homectl inspect matchtest
+homectl inspect matchtest | grep "Area: quux3"
+homectl remove matchtest
 
 systemd-analyze log-level info
 
