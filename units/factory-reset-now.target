@@ -11,3 +11,4 @@
 Description=Factory Reset Execution
 Documentation=man:systemd.special(7)
 Wants=systemd-factory-reset-complete.service
+RefuseManualStart=yes
