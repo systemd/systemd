@@ -366,7 +366,7 @@ _public_ int sd_device_new_from_ifindex(sd_device **ret, int ifindex) {
         assert_return(ret, -EINVAL);
         assert_return(ifindex > 0, -EINVAL);
 
-        r = rtnl_get_ifname_full(NULL, ifindex, &ifname, NULL);
+        r = rtnl_get_ifname(NULL, ifindex, &ifname);
         if (r < 0)
                 return r;
 
