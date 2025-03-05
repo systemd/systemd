@@ -52,6 +52,14 @@ static void test_sd_device_one(sd_device *d) {
         else {
                 ASSERT_GT(ifindex, 0);
 
+                const char *ifname;
+                ASSERT_OK(device_get_ifname(d, &ifname));
+                ASSERT_NOT_NULL(endswith(syspath, ifname));
+                if (strchr(sysname, '/'))
+                        ASSERT_FALSE(streq(ifname, sysname));
+                else
+                        ASSERT_STREQ(ifname, sysname);
+
                 r = sd_device_new_from_ifindex(&dev, ifindex);
                 if (r < 0) {
                         ASSERT_ERROR(r, ENODEV);
