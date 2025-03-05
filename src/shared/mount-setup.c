@@ -55,9 +55,6 @@ typedef struct MountPoint {
 bool cgroupfs_recursiveprot_supported(void) {
         int r;
 
-        if (!cg_is_unified_wanted())
-                return false;
-
         /* Added in kernel 5.7 */
 
         r = mount_option_supported("cgroup2", "memory_recursiveprot", /* value = */ NULL);
@@ -95,11 +92,9 @@ static const MountPoint mount_table[] = {
         { "tmpfs",       "/run",                      "tmpfs",      "mode=0755" TMPFS_LIMITS_RUN,               MS_NOSUID|MS_NODEV|MS_STRICTATIME,
           NULL,          MNT_FATAL|MNT_IN_CONTAINER },
         { "cgroup2",     "/sys/fs/cgroup",            "cgroup2",    "nsdelegate,memory_recursiveprot",          MS_NOSUID|MS_NOEXEC|MS_NODEV,
-          cgroupfs_recursiveprot_supported, MNT_IN_CONTAINER|MNT_CHECK_WRITABLE },
+          cgroupfs_recursiveprot_supported, MNT_FATAL|MNT_IN_CONTAINER|MNT_CHECK_WRITABLE },
         { "cgroup2",     "/sys/fs/cgroup",            "cgroup2",    "nsdelegate",                               MS_NOSUID|MS_NOEXEC|MS_NODEV,
-          cg_is_unified_wanted, MNT_IN_CONTAINER|MNT_CHECK_WRITABLE },
-        { "cgroup2",     "/sys/fs/cgroup",            "cgroup2",    NULL,                                       MS_NOSUID|MS_NOEXEC|MS_NODEV,
-          cg_is_unified_wanted, MNT_IN_CONTAINER|MNT_CHECK_WRITABLE },
+          NULL, MNT_FATAL|MNT_IN_CONTAINER|MNT_CHECK_WRITABLE },
 #if ENABLE_PSTORE
         { "pstore",      "/sys/fs/pstore",            "pstore",     NULL,                                       MS_NOSUID|MS_NOEXEC|MS_NODEV,
           NULL,          MNT_NONE                   },
