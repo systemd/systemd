@@ -8,6 +8,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "missing_magic.h"
 #include "mkdir.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -950,4 +951,30 @@ int cg_uninstall_release_agent(const char *controller) {
                 return r;
 
         return 0;
+}
+
+int cg_has_legacy(void) {
+        struct statfs fs;
+
+        /* Checks if any legacy controller/hierarchy is mounted. */
+
+        if (statfs("/sys/fs/cgroup/", &fs) < 0) {
+                if (errno == ENOENT) /* sysfs not mounted? */
+                        return false;
+
+                return log_debug_errno(errno, "Failed to statfs /sys/fs/cgroup/: %m");
+        }
+
+        if (is_fs_type(&fs, CGROUP2_SUPER_MAGIC) ||
+            is_fs_type(&fs, SYSFS_MAGIC)) /* not mounted yet */
+                return false;
+
+        if (is_fs_type(&fs, TMPFS_MAGIC)) {
+                log_debug("Found tmpfs on /sys/fs/cgroup/, assuming legacy hierarchy.");
+                return true;
+        }
+
+        return log_debug_errno(SYNTHETIC_ERRNO(ENOMEDIUM),
+                               "Unknown filesystem type %llx mounted on /sys/fs/cgroup/.",
+                               (unsigned long long) fs.f_type);
 }
