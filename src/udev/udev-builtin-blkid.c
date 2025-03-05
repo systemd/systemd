@@ -212,6 +212,9 @@ static int find_gpt_root(UdevEvent *event, blkid_probe pr, const char *loop_back
                         if (flags & SD_GPT_FLAG_NO_AUTO)
                                 continue;
 
+                        if (streq_ptr(label, "_empty"))
+                                continue;
+
                         /* We found a suitable root partition, let's remember the first one, or the one with
                          * the newest version, as determined by comparing the partition labels. */
 
