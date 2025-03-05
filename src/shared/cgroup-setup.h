@@ -40,3 +40,5 @@ int cg_trim_v1_controllers(CGroupMask supported, CGroupMask mask, const char *pa
 
 int cg_install_release_agent(const char *controller, const char *agent);
 int cg_uninstall_release_agent(const char *controller);
+
+int cg_has_legacy(void);
