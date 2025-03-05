@@ -1245,18 +1245,30 @@ foreach ident : ['crypt_set_metadata_size',
 endforeach
 conf.set10('HAVE_LIBCRYPTSETUP', have)
 
-# TODO: Use has_function(required : libcryptsetup_plugins) with meson >= 1.3.0
-if libcryptsetup_plugins.allowed()
+if meson.version().version_compare('>=1.3.0')
         have = (cc.has_function(
                         'crypt_activate_by_token_pin',
                         prefix : '#include <libcryptsetup.h>',
-                        dependencies : libcryptsetup) and
+                        dependencies : libcryptsetup,
+                        required : libcryptsetup_plugins) and
                 cc.has_function(
                         'crypt_token_external_path',
                         prefix : '#include <libcryptsetup.h>',
-                        dependencies : libcryptsetup))
+                        dependencies : libcryptsetup,
+                        required : libcryptsetup_plugins))
 else
-        have = false
+        if libcryptsetup_plugins.allowed()
+                have = (cc.has_function(
+                                'crypt_activate_by_token_pin',
+                                prefix : '#include <libcryptsetup.h>',
+                                dependencies : libcryptsetup) and
+                        cc.has_function(
+                                'crypt_token_external_path',
+                                prefix : '#include <libcryptsetup.h>',
+                                dependencies : libcryptsetup))
+        else
+                have = false
+        endif
 endif
 conf.set10('HAVE_LIBCRYPTSETUP_PLUGINS', have)
 
