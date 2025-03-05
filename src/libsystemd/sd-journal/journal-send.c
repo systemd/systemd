@@ -88,7 +88,7 @@ void close_journal_fd(void) {
         if (!RUNNING_ON_VALGRIND)
                 return;
 
-        if (getpid_cached() != gettid())
+        if (!is_main_thread())
                 return;
 
         if (fd_plus_one <= 0)
