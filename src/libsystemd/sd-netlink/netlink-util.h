@@ -92,26 +92,6 @@ int rtnl_resolve_ifname_full(
                   const char *name,
                   char **ret_name,
                   char ***ret_altnames);
-
-int rtnl_rename_link(sd_netlink **rtnl, const char *orig_name, const char *new_name);
-int rtnl_set_link_name(sd_netlink **rtnl, int ifindex, const char *name, char* const* alternative_names);
-static inline int rtnl_append_link_alternative_names(sd_netlink **rtnl, int ifindex, char* const *alternative_names) {
-        return rtnl_set_link_name(rtnl, ifindex, NULL, alternative_names);
-}
-int rtnl_set_link_properties(
-                sd_netlink **rtnl,
-                int ifindex,
-                const char *alias,
-                const struct hw_addr_data *hw_addr,
-                uint32_t txqueues,
-                uint32_t rxqueues,
-                uint32_t txqueuelen,
-                uint32_t mtu,
-                uint32_t gso_max_size,
-                size_t gso_max_segments);
-int rtnl_set_link_alternative_names(sd_netlink **rtnl, int ifindex, char* const *alternative_names);
-int rtnl_set_link_alternative_names_by_ifname(sd_netlink **rtnl, const char *ifname, char* const *alternative_names);
-int rtnl_delete_link_alternative_names(sd_netlink **rtnl, int ifindex, char* const *alternative_names);
 static inline int rtnl_resolve_link_alternative_name(sd_netlink **rtnl, const char *name, char **ret) {
         return rtnl_resolve_ifname_full(rtnl, RESOLVE_IFNAME_ALTERNATIVE, name, ret, NULL);
 }
@@ -131,6 +111,27 @@ static inline int rtnl_resolve_interface_or_warn(sd_netlink **rtnl, const char *
                 return log_error_errno(r, "Failed to resolve interface \"%s\": %m", name);
         return r;
 }
+
+int rtnl_set_link_alternative_names(sd_netlink **rtnl, int ifindex, char* const *alternative_names);
+int rtnl_set_link_alternative_names_by_ifname(sd_netlink **rtnl, const char *ifname, char* const *alternative_names);
+int rtnl_delete_link_alternative_names(sd_netlink **rtnl, int ifindex, char* const *alternative_names);
+int rtnl_rename_link(sd_netlink **rtnl, const char *orig_name, const char *new_name);
+int rtnl_set_link_name(sd_netlink **rtnl, int ifindex, const char *name, char* const* alternative_names);
+static inline int rtnl_append_link_alternative_names(sd_netlink **rtnl, int ifindex, char* const *alternative_names) {
+        return rtnl_set_link_name(rtnl, ifindex, NULL, alternative_names);
+}
+
+int rtnl_set_link_properties(
+                sd_netlink **rtnl,
+                int ifindex,
+                const char *alias,
+                const struct hw_addr_data *hw_addr,
+                uint32_t txqueues,
+                uint32_t rxqueues,
+                uint32_t txqueuelen,
+                uint32_t mtu,
+                uint32_t gso_max_size,
+                size_t gso_max_segments);
 
 int rtnl_log_parse_error(int r);
 int rtnl_log_create_error(int r);
