@@ -165,7 +165,7 @@ static int verb_request(int argc, char *argv[], void *userdata) {
                 return log_error_errno(r, "Failed to get boot ID: %m");
 
         /* NB: we don't really use the version fields for anything on the parsing side, because we want to
-         * allow some flexbility between OS/image versions that request the factory reset and that execute
+         * allow some flexibility between OS/image versions that request the factory reset and that execute
          * it. However, we include it nonetheless to make things more clearly debuggable. */
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         r = sd_json_buildo(
@@ -275,7 +275,7 @@ static int verb_complete(int argc, char *argv[], void *userdata) {
 
         FactoryResetMode f = factory_reset_mode();
         if (f < 0)
-                return log_error_errno(f, "Failed to dermine factory reset mode: %m");
+                return log_error_errno(f, "Failed to determine factory reset mode: %m");
         log_debug("Current factory reset mode is: %s", factory_reset_mode_to_string(f));
         if (f != FACTORY_RESET_ON) {
                 if (!arg_quiet)
