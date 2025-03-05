@@ -19,7 +19,65 @@ typedef struct RouteVia {
         union in_addr_union address;
 } _packed_ RouteVia;
 
-int rtnl_get_ifname_full(sd_netlink **rtnl, int ifindex, char **ret_name, char ***ret_altnames);
+int rtnl_get_link_info_full(
+                sd_netlink **rtnl,
+                int ifindex,
+                char **ret_name,
+                char ***ret_altnames,
+                unsigned short *ret_iftype,
+                unsigned *ret_flags,
+                char **ret_kind,
+                struct hw_addr_data *ret_hw_addr,
+                struct hw_addr_data *ret_permanent_hw_addr);
+
+static inline int rtnl_get_ifname_full(sd_netlink **rtnl, int ifindex, char **ret_name, char ***ret_altnames) {
+        return rtnl_get_link_info_full(
+                        rtnl,
+                        ifindex,
+                        ret_name,
+                        ret_altnames,
+                        /* ret_iftype = */ NULL,
+                        /* ret_flags = */ NULL,
+                        /* ret_kind = */ NULL,
+                        /* ret_hw_addr = */ NULL,
+                        /* ret_permanent_hw_addr = */ NULL);
+}
+static inline int rtnl_get_ifname(sd_netlink **rtnl, int ifindex, char **ret) {
+        return rtnl_get_ifname_full(rtnl, ifindex, ret, NULL);
+}
+static inline int rtnl_get_link_alternative_names(sd_netlink **rtnl, int ifindex, char ***ret) {
+        return rtnl_get_ifname_full(rtnl, ifindex, NULL, ret);
+}
+static inline int rtnl_get_link_info(
+                sd_netlink **rtnl,
+                int ifindex,
+                unsigned short *ret_iftype,
+                unsigned *ret_flags,
+                char **ret_kind,
+                struct hw_addr_data *ret_hw_addr,
+                struct hw_addr_data *ret_permanent_hw_addr) {
+
+        return rtnl_get_link_info_full(
+                        rtnl,
+                        ifindex,
+                        /* ret_name = */ NULL,
+                        /* ret_altnames = */ NULL,
+                        ret_iftype,
+                        ret_flags,
+                        ret_kind,
+                        ret_hw_addr,
+                        ret_permanent_hw_addr);
+}
+static inline int rtnl_get_link_hw_addr(sd_netlink **rtnl, int ifindex, struct hw_addr_data *ret) {
+        return rtnl_get_link_info(
+                        rtnl,
+                        ifindex,
+                        /* ret_iftype = */ NULL,
+                        /* ret_flags = */ NULL,
+                        /* ret_kind = */ NULL,
+                        ret,
+                        /* ret_permanent_hw_addr = */ NULL);
+}
 
 typedef enum ResolveInterfaceNameFlag {
         RESOLVE_IFNAME_MAIN        = 1 << 0, /* resolve main interface name */
@@ -51,9 +109,6 @@ int rtnl_set_link_properties(
                 uint32_t mtu,
                 uint32_t gso_max_size,
                 size_t gso_max_segments);
-static inline int rtnl_get_link_alternative_names(sd_netlink **rtnl, int ifindex, char ***ret) {
-        return rtnl_get_ifname_full(rtnl, ifindex, NULL, ret);
-}
 int rtnl_set_link_alternative_names(sd_netlink **rtnl, int ifindex, char* const *alternative_names);
 int rtnl_set_link_alternative_names_by_ifname(sd_netlink **rtnl, const char *ifname, char* const *alternative_names);
 int rtnl_delete_link_alternative_names(sd_netlink **rtnl, int ifindex, char* const *alternative_names);
@@ -76,15 +131,6 @@ static inline int rtnl_resolve_interface_or_warn(sd_netlink **rtnl, const char *
                 return log_error_errno(r, "Failed to resolve interface \"%s\": %m", name);
         return r;
 }
-
-int rtnl_get_link_info(
-                sd_netlink **rtnl,
-                int ifindex,
-                unsigned short *ret_iftype,
-                unsigned *ret_flags,
-                char **ret_kind,
-                struct hw_addr_data *ret_hw_addr,
-                struct hw_addr_data *ret_permanent_hw_addr);
 
 int rtnl_log_parse_error(int r);
 int rtnl_log_create_error(int r);
