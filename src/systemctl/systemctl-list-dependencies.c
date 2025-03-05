@@ -34,7 +34,6 @@ static int list_dependencies_print(const char *name, UnitActiveState state, int 
 
                 default:
                         on = ansi_highlight_red();
-                        break;
                 }
 
                 printf("%s%s%s ", on, special_glyph(unit_active_state_to_glyph(state)), ansi_normal());

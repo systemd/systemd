@@ -335,7 +335,6 @@ static int bus_append_exec_command(sd_bus_message *m, const char *field, const c
 
                 default:
                         done = true;
-                        break;
                 }
         } while (!done);
 

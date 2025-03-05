@@ -3919,7 +3919,7 @@ static int parse_line(
                 break;
 
         default:
-                break;
+                ;
         }
 
         if (from_cred) {

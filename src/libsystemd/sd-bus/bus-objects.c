@@ -481,7 +481,6 @@ static int invoke_property_get(
 
         default:
                 p = userdata;
-                break;
         }
 
         return sd_bus_message_append_basic(reply, v->x.property.signature[0], p);
@@ -554,8 +553,6 @@ static int invoke_property_set(
                 r = sd_bus_message_read_basic(value, v->x.property.signature[0], userdata);
                 if (r < 0)
                         return r;
-
-                break;
         }
 
         return 1;

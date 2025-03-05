@@ -163,8 +163,7 @@ static void test_dhcp_identifier_set_iaid(void) {
 
 static int check_options(uint8_t code, uint8_t len, const void *option, void *userdata) {
         switch (code) {
-        case SD_DHCP_OPTION_CLIENT_IDENTIFIER:
-        {
+        case SD_DHCP_OPTION_CLIENT_IDENTIFIER: {
                 sd_dhcp_duid duid;
                 uint32_t iaid;
 
@@ -181,7 +180,7 @@ static int check_options(uint8_t code, uint8_t len, const void *option, void *us
         }
 
         default:
-                break;
+                ;
         }
 
         return 0;

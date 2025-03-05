@@ -489,7 +489,6 @@ static int run(int argc, char *argv[]) {
                                 break;
                         default:
                                 printf("ID_TYPE=generic\n");
-                                break;
                         }
                 } else
                         printf("ID_TYPE=disk\n");

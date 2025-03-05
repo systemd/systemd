@@ -254,8 +254,6 @@ static DnsTransactionState dns_query_candidate_state(DnsQueryCandidate *c) {
                 default:
                         if (state != DNS_TRANSACTION_SUCCESS)
                                 state = t->state;
-
-                        break;
                 }
 
         return state;
@@ -1047,7 +1045,6 @@ static void dns_query_accept(DnsQuery *q, DnsQueryCandidate *c) {
                         DNS_PACKET_REPLACE(q->answer_full_packet, dns_packet_ref(t->received));
 
                         state = t->state;
-                        break;
                 }
         }
 
@@ -1113,7 +1110,6 @@ void dns_query_ready(DnsQuery *q) {
                 default:
                         /* Any kind of failure */
                         bad = c;
-                        break;
                 }
         }
 

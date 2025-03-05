@@ -349,7 +349,6 @@ int mac_smack_setup(bool *loaded_policy) {
                 break;
         default:
                 log_warning_errno(r, "Failed to load Smack/CIPSO access rules, ignoring: %m");
-                break;
         }
 
         r = write_netlabel_rules("/etc/smack/netlabel.d/");
@@ -365,7 +364,6 @@ int mac_smack_setup(bool *loaded_policy) {
                 break;
         default:
                 log_warning_errno(r, "Failed to load Smack network host rules: %m, ignoring.");
-                break;
         }
 
         r = write_onlycap_list();
