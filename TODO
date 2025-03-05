@@ -129,6 +129,19 @@ Features:
 
 * Maybe rename pkcs7 and public verbs of systemd-keyutil to be more verb like.
 
+* add "homctl export" and "homectl import" that gets you an "atomic" snapshot
+  of your homedir, i.e. either a tarball or a snapshot of the underlying disk
+  (use FREEZE/THAW to make it consistent, btrfs snapshots)
+
+* maybe introduce a new partition that we can store debug logs and similar at
+  the very last moment of shutdown. idea would be to store reference to block
+  device (major + minor + partition id + diskeq?) in /run somewhere, than use
+  that from systemd-shutdown, just write a raw JSON blob into the partition.
+  Include timestamp, boot id and such, plus kmsg. on next boot immeidately
+  import into journal. maybe use timestamp for making clock more monotonic.
+  also use this to detect unclean shutdowns, boot into special target if
+  detected
+
 * sd-boot: do something useful if we find exactly zero entries (ignoring items
   such as reboot/poweroff/factory reset). Show a help text or so.
 
