@@ -86,6 +86,10 @@ node /org/freedesktop/hostname1 {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s HomeURL = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s OperatingSystemImageID = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s OperatingSystemImageVersion = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s HardwareVendor = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s HardwareModel = '...';
@@ -167,6 +171,10 @@ node /org/freedesktop/hostname1 {
     <variablelist class="dbus-property" generated="True" extra-ref="OperatingSystemSupportEnd"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="HomeURL"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="OperatingSystemImageID"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="OperatingSystemImageVersion"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="HardwareVendor"/>
 
@@ -292,6 +300,11 @@ node /org/freedesktop/hostname1 {
     <para><varname>OperatingSystemSupportEnd</varname> exposes when the OS' vendor support ends, if this
     information is known. It's an unsigned 64bit value, in µs since the UNIX epoch, UTC. If this information
     is not known carries the value 2^64-1, i.e. <constant>UINT64_MAX</constant>.</para>
+
+    <para><varname>OperatingSystemImageID</varname> and <varname>OperatingSystemImageVersion</varname> expose
+    the OS image name and version if available, or contain empty strings otherwise. This mostly corresponds
+    to the <varname>IMAGE_ID=</varname> and <varname>IMAGE_VERSION=</varname> fields of the
+    <filename>os-release</filename> file.</para>
 
     <para><varname>HardwareVendor</varname> and <varname>HardwareModel</varname> expose information about the
     vendor of the hardware of the system. If no such information can be determined these properties are set
@@ -460,7 +473,8 @@ node /org/freedesktop/hostname1 {
       <varname>FirmwareDate</varname> were added in version 253.</para>
       <para><varname>MachineID</varname>, <varname>BootID</varname> and
       <varname>VSockCID</varname> were added in version 256.</para>
-      <para><varname>ChassisAssetTag</varname> was added in version 258.</para>
+      <para><varname>ChassisAssetTag</varname>, <varname>OperatingSystemImageID</varname> and
+      <varname>OperatingSystemImageVersion</varname> were added in version 258.</para>
     </refsect2>
   </refsect1>
 
