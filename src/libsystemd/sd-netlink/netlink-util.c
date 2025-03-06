@@ -52,34 +52,6 @@ static int parse_newlink_message(
         return ifindex;
 }
 
-int rtnl_get_ifname_full(sd_netlink **rtnl, int ifindex, char **ret_name, char ***ret_altnames) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL, *reply = NULL;
-        _cleanup_(sd_netlink_unrefp) sd_netlink *our_rtnl = NULL;
-        int r;
-
-        assert(ifindex > 0);
-
-        /* This is similar to if_indextoname(), but also optionally provides alternative names. */
-
-        if (!rtnl)
-                rtnl = &our_rtnl;
-        if (!*rtnl) {
-                r = sd_netlink_open(rtnl);
-                if (r < 0)
-                        return r;
-        }
-
-        r = sd_rtnl_message_new_link(*rtnl, &message, RTM_GETLINK, ifindex);
-        if (r < 0)
-                return r;
-
-        r = sd_netlink_call(*rtnl, message, 0, &reply);
-        if (r < 0)
-                return r;
-
-        return parse_newlink_message(reply, ret_name, ret_altnames);
-}
-
 int rtnl_resolve_ifname_full(
                   sd_netlink **rtnl,
                   ResolveInterfaceNameFlag flags,
@@ -493,6 +465,8 @@ int rtnl_set_link_alternative_names_by_ifname(
 int rtnl_get_link_info(
                 sd_netlink **rtnl,
                 int ifindex,
+                char **ret_name,
+                char ***ret_altnames,
                 unsigned short *ret_iftype,
                 unsigned *ret_flags,
                 char **ret_kind,
@@ -509,9 +483,6 @@ int rtnl_get_link_info(
         assert(rtnl);
         assert(ifindex > 0);
 
-        if (!ret_iftype && !ret_flags && !ret_kind && !ret_hw_addr && !ret_permanent_hw_addr)
-                return 0;
-
         if (!*rtnl) {
                 r = sd_netlink_open(rtnl);
                 if (r < 0)
@@ -527,6 +498,12 @@ int rtnl_get_link_info(
                 return -ENODEV; /* The device does not exist */
         if (r < 0)
                 return r;
+
+        r = parse_newlink_message(reply, ret_name, ret_altnames);
+        if (r < 0)
+                return r;
+        if (r != ifindex)
+                return -EIO;
 
         if (ret_iftype) {
                 r = sd_rtnl_message_link_get_type(reply, &iftype);
@@ -575,7 +552,7 @@ int rtnl_get_link_info(
                 *ret_hw_addr = addr;
         if (ret_permanent_hw_addr)
                 *ret_permanent_hw_addr = perm_addr;
-        return 0;
+        return ifindex;
 }
 
 int rtnl_log_parse_error(int r) {
