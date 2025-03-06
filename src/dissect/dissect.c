@@ -274,6 +274,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_GROWFS,
                 ARG_ROOT_HASH,
                 ARG_ROOT_HASH_SIG,
+                ARG_USR_HASH,
+                ARG_USR_HASH_SIG,
                 ARG_VERITY_DATA,
                 ARG_MKDIR,
                 ARG_RMDIR,
@@ -311,6 +313,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "growfs",        required_argument, NULL, ARG_GROWFS        },
                 { "root-hash",     required_argument, NULL, ARG_ROOT_HASH     },
                 { "root-hash-sig", required_argument, NULL, ARG_ROOT_HASH_SIG },
+                { "usr-hash",      required_argument, NULL, ARG_USR_HASH      },
+                { "usr-hash-sig",  required_argument, NULL, ARG_USR_HASH_SIG  },
                 { "verity-data",   required_argument, NULL, ARG_VERITY_DATA   },
                 { "mkdir",         no_argument,       NULL, ARG_MKDIR         },
                 { "rmdir",         no_argument,       NULL, ARG_RMDIR         },
@@ -457,9 +461,15 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_in_memory = true;
                         break;
 
-                case ARG_ROOT_HASH: {
+                case ARG_ROOT_HASH:
+                case ARG_USR_HASH: {
                         _cleanup_free_ void *p = NULL;
                         size_t l;
+
+                        PartitionDesignator d = c == ARG_USR_HASH ? PARTITION_USR : PARTITION_ROOT;
+                        if (arg_verity_settings.designator >= 0 &&
+                            arg_verity_settings.designator != d)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot mix root hash and usr hash settings.");
 
                         r = unhexmem(optarg, &p, &l);
                         if (r < 0)
@@ -470,13 +480,20 @@ static int parse_argv(int argc, char *argv[]) {
 
                         free_and_replace(arg_verity_settings.root_hash, p);
                         arg_verity_settings.root_hash_size = l;
+                        arg_verity_settings.designator = d;
                         break;
                 }
 
-                case ARG_ROOT_HASH_SIG: {
+                case ARG_ROOT_HASH_SIG:
+                case ARG_USR_HASH_SIG: {
                         char *value;
                         size_t l;
                         void *p;
+
+                        PartitionDesignator d = c == ARG_USR_HASH_SIG ? PARTITION_USR : PARTITION_ROOT;
+                        if (arg_verity_settings.designator >= 0 &&
+                            arg_verity_settings.designator != d)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot mix root hash and usr hash settings.");
 
                         if ((value = startswith(optarg, "base64:"))) {
                                 r = unbase64mem(value, &p, &l);
@@ -490,6 +507,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                         free_and_replace(arg_verity_settings.root_hash_sig, p);
                         arg_verity_settings.root_hash_sig_size = l;
+                        arg_verity_settings.designator = d;
                         break;
                 }
 
