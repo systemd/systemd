@@ -90,7 +90,7 @@ static const MountPoint mount_table[] = {
         { "smackfs",     "/sys/fs/smackfs",           "smackfs",    "smackfsdef=*",                             MS_NOSUID|MS_NOEXEC|MS_NODEV,
           mac_smack_use, MNT_FATAL                  },
         { "tmpfs",       "/dev/shm",                  "tmpfs",      "mode=01777,smackfsroot=*",                 MS_NOSUID|MS_NODEV|MS_STRICTATIME,
-          mac_smack_use, MNT_FATAL                  },
+          mac_smack_use, MNT_FATAL|MNT_USRQUOTA_GRACEFUL },
 #endif
         { "tmpfs",       "/dev/shm",                  "tmpfs",      "mode=01777",                               MS_NOSUID|MS_NODEV|MS_STRICTATIME,
           NULL,          MNT_FATAL|MNT_IN_CONTAINER|MNT_USRQUOTA_GRACEFUL },
@@ -194,9 +194,9 @@ static int mount_one(const MountPoint *p, bool relabel) {
         if (FLAGS_SET(p->mode, MNT_USRQUOTA_GRACEFUL)) {
                 r = mount_option_supported(p->type, "usrquota", /* value= */ NULL);
                 if (r < 0)
-                        log_warning_errno(r, "Unable to determine whether %s supports 'usrquota' mount option, assuming not: %m", p->type);
+                        log_full_errno(priority, r, "Unable to determine whether %s supports 'usrquota' mount option, assuming not: %m", p->type);
                 else if (r == 0)
-                        log_info("Not enabling 'usrquota' on '%s' as kernel lacks support for it.", p->where);
+                        log_debug("Not enabling 'usrquota' on '%s' as kernel lacks support for it.", p->where);
                 else {
                         if (!strextend_with_separator(&extend_options, ",", p->options ?: POINTER_MAX, "usrquota"))
                                 return log_oom();
