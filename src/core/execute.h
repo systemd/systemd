@@ -349,7 +349,7 @@ struct ExecContext {
         bool lock_personality;
         unsigned long personality;
 
-        unsigned long restrict_namespaces; /* The CLONE_NEWxyz flags permitted to the unit's processes */
+        unsigned long retain_namespaces; /* The CLONE_NEWxyz flags permitted to the unit's processes */
         unsigned long delegate_namespaces; /* The CLONE_NEWxyz flags delegated to the unit's processes */
 
         Set *restrict_filesystems;
@@ -380,10 +380,10 @@ struct ExecContext {
         ImagePolicy *root_image_policy, *mount_image_policy, *extension_image_policy;
 };
 
-static inline bool exec_context_restrict_namespaces_set(const ExecContext *c) {
+static inline bool exec_context_retain_namespaces_set(const ExecContext *c) {
         assert(c);
 
-        return (c->restrict_namespaces & NAMESPACE_FLAGS_ALL) != NAMESPACE_FLAGS_ALL;
+        return (c->retain_namespaces & NAMESPACE_FLAGS_ALL) != NAMESPACE_FLAGS_ALL;
 }
 
 static inline bool exec_context_restrict_filesystems_set(const ExecContext *c) {

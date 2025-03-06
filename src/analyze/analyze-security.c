@@ -2553,7 +2553,7 @@ static int get_security_info(Unit *u, ExecContext *c, CGroupContext *g, Security
                                 info->restrict_address_family_other = !c->address_families_allow_list;
                 }
 
-                info->restrict_namespaces = c->restrict_namespaces;
+                info->restrict_namespaces = c->retain_namespaces;
                 info->restrict_realtime = c->restrict_realtime;
                 info->restrict_suid_sgid = c->restrict_suid_sgid;
                 if (c->root_directory) {
