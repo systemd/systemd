@@ -131,14 +131,14 @@ if ! systemd-detect-virt -cq ; then
         inspect test-user
 
         # These commands shouldn't use the keyring
-        (! timeout 5s homectl authenticate test-user )
-        (! NEWPASSWORD="foobar" timeout 5s homectl passwd test-user )
+        (! timeout --foreground 5s homectl authenticate test-user )
+        (! NEWPASSWORD="foobar" timeout --foreground 5s homectl passwd test-user )
 
         homectl lock test-user
         inspect test-user
 
         # Key should be gone from keyring
-        (! timeout 5s homectl update test-user --real-name "Keyring Test 2" )
+        (! timeout --foreground 5s homectl update test-user --real-name "Keyring Test 2" )
 
         PASSWORD=xEhErW0ndafV4s homectl unlock test-user
         inspect test-user

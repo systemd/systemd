@@ -384,7 +384,7 @@ touch /opt/readonly/foo && exit 1
 
 exit 0
 EOF
-timeout 30 systemd-nspawn --oci-bundle="$OCI"
+timeout --foreground 30 systemd-nspawn --oci-bundle="$OCI"
 
 # Test a couple of invalid configs
 INVALID_SNIPPETS=(

@@ -17,32 +17,32 @@ done < <(find /usr/lib/systemd/tests/testdata/test-journals/corrupted/ -name "*.
 # >124 (like signals)
 if [[ "$(systemd-detect-virt -v)" != "qemu" ]]; then
     while read -r file; do
-        timeout 10 journalctl --file="$file" --boot >/dev/null || [[ $? -lt 124 ]]
-        timeout 10 journalctl --file="$file" --verify >/dev/null || [[ $? -lt 124 ]]
-        timeout 10 journalctl --file="$file" --output=export >/dev/null || [[ $? -lt 124 ]]
-        timeout 10 journalctl --file="$file" --fields >/dev/null || [[ $? -lt 124 ]]
-        timeout 10 journalctl --file="$file" --list-boots >/dev/null || [[ $? -lt 124 ]]
+        timeout --foreground 10 journalctl --file="$file" --boot >/dev/null || [[ $? -lt 124 ]]
+        timeout --foreground 10 journalctl --file="$file" --verify >/dev/null || [[ $? -lt 124 ]]
+        timeout --foreground 10 journalctl --file="$file" --output=export >/dev/null || [[ $? -lt 124 ]]
+        timeout --foreground 10 journalctl --file="$file" --fields >/dev/null || [[ $? -lt 124 ]]
+        timeout --foreground 10 journalctl --file="$file" --list-boots >/dev/null || [[ $? -lt 124 ]]
         if [[ -x /usr/lib/systemd/systemd-journal-remote ]]; then
-            timeout 10 /usr/lib/systemd/systemd-journal-remote \
-                            --getter="journalctl --file=$file --output=export" \
-                            --split-mode=none \
-                            --output="$REMOTE_OUT/system.journal" || [[ $? -lt 124 ]]
-            timeout 10 journalctl --directory="$REMOTE_OUT" >/dev/null || [[ $? -lt 124 ]]
+            timeout --foreground 10 /usr/lib/systemd/systemd-journal-remote \
+                                        --getter="journalctl --file=$file --output=export" \
+                                        --split-mode=none \
+                                        --output="$REMOTE_OUT/system.journal" || [[ $? -lt 124 ]]
+            timeout --foreground 10 journalctl --directory="$REMOTE_OUT" >/dev/null || [[ $? -lt 124 ]]
             rm -f "$REMOTE_OUT"/*
         fi
     done < <(find "$JOURNAL_DIR" -type f)
 fi
 # And now all at once
-timeout 30 journalctl --directory="$JOURNAL_DIR" --boot >/dev/null || [[ $? -lt 124 ]]
-timeout 30 journalctl --directory="$JOURNAL_DIR" --verify >/dev/null || [[ $? -lt 124 ]]
-timeout 30 journalctl --directory="$JOURNAL_DIR" --output=export >/dev/null || [[ $? -lt 124 ]]
-timeout 30 journalctl --directory="$JOURNAL_DIR" --fields >/dev/null || [[ $? -lt 124 ]]
-timeout 30 journalctl --directory="$JOURNAL_DIR" --list-boots >/dev/null || [[ $? -lt 124 ]]
+timeout --foreground 30 journalctl --directory="$JOURNAL_DIR" --boot >/dev/null || [[ $? -lt 124 ]]
+timeout --foreground 30 journalctl --directory="$JOURNAL_DIR" --verify >/dev/null || [[ $? -lt 124 ]]
+timeout --foreground 30 journalctl --directory="$JOURNAL_DIR" --output=export >/dev/null || [[ $? -lt 124 ]]
+timeout --foreground 30 journalctl --directory="$JOURNAL_DIR" --fields >/dev/null || [[ $? -lt 124 ]]
+timeout --foreground 30 journalctl --directory="$JOURNAL_DIR" --list-boots >/dev/null || [[ $? -lt 124 ]]
 if [[ -x /usr/lib/systemd/systemd-journal-remote ]]; then
-    timeout 30 /usr/lib/systemd/systemd-journal-remote \
-                    --getter="journalctl --directory=$JOURNAL_DIR --output=export" \
-                    --split-mode=none \
-                    --output="$REMOTE_OUT/system.journal" || [[ $? -lt 124 ]]
-    timeout 30 journalctl --directory="$REMOTE_OUT" >/dev/null || [[ $? -lt 124 ]]
+    timeout --foreground 30 /usr/lib/systemd/systemd-journal-remote \
+                                --getter="journalctl --directory=$JOURNAL_DIR --output=export" \
+                                --split-mode=none \
+                                --output="$REMOTE_OUT/system.journal" || [[ $? -lt 124 ]]
+    timeout --foreground 30 journalctl --directory="$REMOTE_OUT" >/dev/null || [[ $? -lt 124 ]]
     rm -f "$REMOTE_OUT"/*
 fi

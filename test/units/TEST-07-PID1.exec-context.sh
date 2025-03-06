@@ -197,25 +197,25 @@ if ! systemd-detect-virt -cq; then
         # We should fail with EPERM when trying to bind to a socket not on the allow list
         # (ncat exits with 2 in that case)
         systemd-run --wait -p SuccessExitStatus="1 2" --pipe "${ARGUMENTS[@]}" \
-            bash -xec 'timeout 1s ncat -l 127.0.0.1 9999; exit 42'
+            bash -xec 'timeout --foreground 1s ncat -l 127.0.0.1 9999; exit 42'
         systemd-run --wait -p SuccessExitStatus="1 2" --pipe "${ARGUMENTS[@]}" \
-            bash -xec 'timeout 1s ncat -l ::1 9999; exit 42'
+            bash -xec 'timeout --foreground 1s ncat -l ::1 9999; exit 42'
         systemd-run --wait -p SuccessExitStatus="1 2" --pipe "${ARGUMENTS[@]}" \
-            bash -xec 'timeout 1s ncat -6 -u -l ::1 9999; exit 42'
+            bash -xec 'timeout --foreground 1s ncat -6 -u -l ::1 9999; exit 42'
         systemd-run --wait -p SuccessExitStatus="1 2" --pipe "${ARGUMENTS[@]}" \
-            bash -xec 'timeout 1s ncat -4 -l 127.0.0.1 6666; exit 42'
+            bash -xec 'timeout --foreground 1s ncat -4 -l 127.0.0.1 6666; exit 42'
         systemd-run --wait -p SuccessExitStatus="1 2" --pipe -p SocketBindDeny=any \
-            bash -xec 'timeout 1s ncat -l 127.0.0.1 9999; exit 42'
+            bash -xec 'timeout --foreground 1s ncat -l 127.0.0.1 9999; exit 42'
         # Consequently, we should succeed when binding to a socket on the allow list
         # and keep listening on it until we're killed by `timeout` (EC 124)
         systemd-run --wait --pipe -p SuccessExitStatus=124 "${ARGUMENTS[@]}" \
-            bash -xec 'timeout 1s ncat -4 -l 127.0.0.1 1234; exit 1'
+            bash -xec 'timeout --foreground 1s ncat -4 -l 127.0.0.1 1234; exit 1'
         systemd-run --wait --pipe -p SuccessExitStatus=124 "${ARGUMENTS[@]}" \
-            bash -xec 'timeout 1s ncat -4 -u -l 127.0.0.1 5678; exit 1'
+            bash -xec 'timeout --foreground 1s ncat -4 -u -l 127.0.0.1 5678; exit 1'
         systemd-run --wait --pipe -p SuccessExitStatus=124 "${ARGUMENTS[@]}" \
-            bash -xec 'timeout 1s ncat -6 -l ::1 1234; exit 1'
+            bash -xec 'timeout --foreground 1s ncat -6 -l ::1 1234; exit 1'
         systemd-run --wait --pipe -p SuccessExitStatus=124 "${ARGUMENTS[@]}" \
-            bash -xec 'timeout 1s ncat -6 -l ::1 6666; exit 1'
+            bash -xec 'timeout --foreground 1s ncat -6 -l ::1 6666; exit 1'
     fi
 
     losetup -d "$LODEV"
