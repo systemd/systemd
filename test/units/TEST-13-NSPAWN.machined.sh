@@ -113,8 +113,8 @@ machinectl disable long-running
 test ! -L /etc/systemd/system/machines.target.wants/systemd-nspawn@long-running.service
 machinectl disable long-running long-running long-running container1
 
-[[ "$(machinectl shell testuser@ /usr/bin/bash -c 'echo -ne $FOO')" == "" ]]
-[[ "$(machinectl shell --setenv=FOO=bar testuser@ /usr/bin/bash -c 'echo -ne $FOO')" == "bar" ]]
+[[ "$(TERM=dumb machinectl shell testuser@ /usr/bin/bash -c 'echo -ne $FOO')" == "" ]]
+[[ "$(TERM=dumb machinectl shell --setenv=FOO=bar testuser@ /usr/bin/bash -c 'echo -ne $FOO')" == "bar" ]]
 
 [[ "$(machinectl show --property=State --value long-running)" == "running" ]]
 # Equivalent to machinectl kill --signal=SIGRTMIN+4 --kill-whom=leader
