@@ -3593,10 +3593,12 @@ int config_parse_namespace_flags(
         /* Boolean parameter ignores the previous settings */
         r = parse_boolean(rvalue);
         if (r > 0) {
-                *flags = 0;
+                /* RestrictNamespaces= value gets stored into a reverse field retain_namespaces, so
+                 * RestrictNamespaces=true means we retain no access to any namespaces and vice-versa. */
+                *flags = streq(lvalue, "RestrictNamespaces") ? 0 : all;
                 return 0;
         } else if (r == 0) {
-                *flags = all;
+                *flags = streq(lvalue, "RestrictNamespaces") ? all : 0;
                 return 0;
         }
 
