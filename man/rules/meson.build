@@ -1000,6 +1000,7 @@ manpages = [
   'ENABLE_ENVIRONMENT_D'],
  ['systemd-escape', '1', [], ''],
  ['systemd-factory-reset-generator', '8', [], ''],
+ ['systemd-factory-reset-uki.service', '8', [], ''],
  ['systemd-factory-reset',
   '8',
   ['systemd-factory-reset-complete.service',
