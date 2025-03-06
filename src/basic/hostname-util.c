@@ -37,41 +37,6 @@ char* get_default_hostname(void) {
         return strdup(FALLBACK_HOSTNAME);
 }
 
-int gethostname_full(GetHostnameFlags flags, char **ret) {
-        _cleanup_free_ char *buf = NULL, *fallback = NULL;
-        struct utsname u;
-        const char *s;
-
-        assert(ret);
-
-        assert_se(uname(&u) >= 0);
-
-        s = u.nodename;
-        if (isempty(s) || streq(s, "(none)") ||
-            (!FLAGS_SET(flags, GET_HOSTNAME_ALLOW_LOCALHOST) && is_localhost(s)) ||
-            (FLAGS_SET(flags, GET_HOSTNAME_SHORT) && s[0] == '.')) {
-                if (!FLAGS_SET(flags, GET_HOSTNAME_FALLBACK_DEFAULT))
-                        return -ENXIO;
-
-                s = fallback = get_default_hostname();
-                if (!s)
-                        return -ENOMEM;
-
-                if (FLAGS_SET(flags, GET_HOSTNAME_SHORT) && s[0] == '.')
-                        return -ENXIO;
-        }
-
-        if (FLAGS_SET(flags, GET_HOSTNAME_SHORT))
-                buf = strdupcspn(s, ".");
-        else
-                buf = strdup(s);
-        if (!buf)
-                return -ENOMEM;
-
-        *ret = TAKE_PTR(buf);
-        return 0;
-}
-
 bool valid_ldh_char(char c) {
         /* "LDH" → "Letters, digits, hyphens", as per RFC 5890, Section 2.3.1 */
 

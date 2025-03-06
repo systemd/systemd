@@ -11,6 +11,7 @@
 #include "alloc-util.h"
 #include "ether-addr-util.h"
 #include "fd-util.h"
+#include "hostname-setup.h"
 #include "hostname-util.h"
 #include "network-common.h"
 #include "random-util.h"
