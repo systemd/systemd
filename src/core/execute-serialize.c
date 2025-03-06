@@ -2468,8 +2468,9 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
                 return r;
 #endif
 
-        if (c->restrict_namespaces != NAMESPACE_FLAGS_INITIAL) {
-                r = serialize_item_format(f, "exec-context-restrict-namespaces", "%lu", c->restrict_namespaces);
+        if (c->retain_namespaces != NAMESPACE_FLAGS_INITIAL) {
+                /* We keep the legacy item name for backwards compat. */
+                r = serialize_item_format(f, "exec-context-restrict-namespaces", "%lu", c->retain_namespaces);
                 if (r < 0)
                         return r;
         }
@@ -3538,8 +3539,9 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                                 return r;
                         c->syscall_log_allow_list = r;
 #endif
+                /* We keep the legacy item name for backwards compat. */
                 } else if ((val = startswith(l, "exec-context-restrict-namespaces="))) {
-                        r = safe_atolu(val, &c->restrict_namespaces);
+                        r = safe_atolu(val, &c->retain_namespaces);
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-context-delegate-namespaces="))) {
