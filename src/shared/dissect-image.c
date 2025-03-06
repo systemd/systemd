@@ -1001,6 +1001,8 @@ static int dissect_image(
                         type = gpt_partition_type_from_uuid(type_id);
 
                         label = blkid_partition_get_name(pp); /* libblkid returns NULL here if empty */
+
+                        /* systemd-sysupdate expects empty partitions to be marked with an "_empty" label, hence ignore them here. */
                         if (streq_ptr(label, "_empty"))
                                 continue;
 
@@ -1902,7 +1904,7 @@ int partition_pick_mount_options(
                 break;
 
         default:
-                break;
+                ;
         }
 
         /* So, when you request MS_RDONLY from ext4, then this means nothing. It happily still writes to the

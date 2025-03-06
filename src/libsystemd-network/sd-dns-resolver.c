@@ -293,7 +293,7 @@ int dnr_parse_svc_params(const uint8_t *option, size_t len, sd_dns_resolver *res
                         break;
 
                 default:
-                        break;
+                        ;
                 }
                 offset += plen;
         }

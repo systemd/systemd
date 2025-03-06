@@ -125,9 +125,27 @@ Deprecations and removals:
 * Once baseline is 4.13, remove support for INTERFACE_OLD= checks in "udevadm
   trigger"'s waiting logic, since we can then rely on uuid-tagged uevents
 
+* In v260: remove support for deprecated FactoryReset EFI variable in
+  systemd-repart, replaced by FactoryResetRequest.
+
 Features:
 
+* unify how blockdev_get_root() and sysupdate find the default root block device
+
 * Maybe rename pkcs7 and public verbs of systemd-keyutil to be more verb like.
+
+* add "homctl export" and "homectl import" that gets you an "atomic" snapshot
+  of your homedir, i.e. either a tarball or a snapshot of the underlying disk
+  (use FREEZE/THAW to make it consistent, btrfs snapshots)
+
+* maybe introduce a new partition that we can store debug logs and similar at
+  the very last moment of shutdown. idea would be to store reference to block
+  device (major + minor + partition id + diskeq?) in /run somewhere, than use
+  that from systemd-shutdown, just write a raw JSON blob into the partition.
+  Include timestamp, boot id and such, plus kmsg. on next boot immediately
+  import into journal. maybe use timestamp for making clock more monotonic.
+  also use this to detect unclean shutdowns, boot into special target if
+  detected
 
 * sd-boot: do something useful if we find exactly zero entries (ignoring items
   such as reboot/poweroff/factory reset). Show a help text or so.
@@ -816,10 +834,6 @@ Features:
 * Add ACL-based access management to .socket units. i.e. add AllowPeerUser= +
   AllowPeerGroup= that installs additional user/group ACL entries on AF_UNIX
   sockets.
-
-* systemd-tpm2-setup should probably have a factory reset logic, i.e. when some
-  kernel command line option is set we reset the TPM (equivalent of tpm2_clear
-  -c owner? or rather echo 5 >/sys/class/tpm/tpm0/ppi/request?).
 
 * systemd-tpm2-setup should support a mode where we refuse booting if the SRK
   changed. (Must be opt-in, to not break systems which are supposed to be

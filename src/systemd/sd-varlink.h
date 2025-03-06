@@ -233,6 +233,10 @@ int sd_varlink_server_set_info(
                 const char *version,
                 const char *url);
 
+/* OR this into sd_varlink_server_listen_address()'s mode parameter to get the leading directories created
+ * automatically with mode 0755. */
+#define SD_VARLINK_SERVER_MODE_MKDIR_0755 ((mode_t) 1 << 30)
+
 /* Add addresses or fds to listen on */
 int sd_varlink_server_listen_address(sd_varlink_server *s, const char *address, mode_t mode);
 int sd_varlink_server_listen_fd(sd_varlink_server *s, int fd);

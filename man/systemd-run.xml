@@ -328,6 +328,20 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--pty-late</option></term>
+        <term><option>-T</option></term>
+
+        <listitem><para>Much like <option>--pty</option>, but the PTY communication only begins once the unit
+        start is complete. This effectively means PTY input during <varname>ExecStartPre=</varname> of a
+        service is not available while using <option>--pty-late</option>, while it is available using
+        <option>--pty</option>, for most service types. However, if this option is used, access to the
+        invoking TTY is available for password queries (see <option>--no-ask-password</option> below) during
+        unit start-up.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--pipe</option></term>
         <term><option>-P</option></term>
 

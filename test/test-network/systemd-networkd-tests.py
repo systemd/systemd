@@ -448,7 +448,7 @@ def create_service_dropin(service, command, additional_settings=None):
     if command:
         drop_in += [
             'ExecStart=',
-            f'ExecStart=!!{valgrind_cmd}{command}',
+            f'ExecStart={valgrind_cmd}{command}',
         ]
     if enable_debug:
         drop_in += ['Environment=SYSTEMD_LOG_LEVEL=debug']
@@ -514,7 +514,7 @@ def setup_system_units():
         [
             '[Service]',
             'ExecStart=',
-            f'ExecStart=!!@{udevadm_bin} systemd-udevd',
+            f'ExecStart=@{udevadm_bin} systemd-udevd',
         ]
     )
     create_unit_dropin(

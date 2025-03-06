@@ -137,7 +137,6 @@ int journal_access_check_and_warn(sd_journal *j, bool quiet, bool want_other_use
 
                 default:
                         log_warning_errno(err, "An error was encountered while opening journal file or directory %s, ignoring file: %m", path);
-                        break;
                 }
         }
 

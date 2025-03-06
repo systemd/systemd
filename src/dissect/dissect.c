@@ -974,6 +974,13 @@ static int action_dissect(
                 printf("     Arch.: %s\n",
                        strna(architecture_to_string(dissected_image_architecture(m))));
 
+                if (!sd_id128_is_null(m->image_uuid))
+                        printf("Image UUID: %s\n",
+                               SD_ID128_TO_UUID_STRING(m->image_uuid));
+
+                if (m->image_name && !streq(m->image_name, bn))
+                        printf("Image Name: %s\n", m->image_name);
+
                 putc('\n', stdout);
                 fflush(stdout);
         }
@@ -992,12 +999,6 @@ static int action_dissect(
         else if (r < 0)
                 return log_error_errno(r, "Failed to acquire image metadata: %m");
         else if (!sd_json_format_enabled(arg_json_format_flags)) {
-
-                if (m->image_name && !streq(m->image_name, bn))
-                        printf("Image Name: %s\n", m->image_name);
-
-                if (!sd_id128_is_null(m->image_uuid))
-                        printf("Image UUID: %s\n", SD_ID128_TO_UUID_STRING(m->image_uuid));
 
                 if (m->hostname)
                         printf("  Hostname: %s\n", m->hostname);
@@ -2153,7 +2154,7 @@ static int run(int argc, char *argv[]) {
 
         default:
                 /* All other actions need the image dissected (except for ACTION_VALIDATE, see below) */
-                break;
+                ;
         }
 
         if (arg_image) {

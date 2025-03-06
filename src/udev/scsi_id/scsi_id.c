@@ -93,7 +93,6 @@ static void set_type(unsigned type_num, char *to, size_t len) {
                 break;
         default:
                 type = "generic";
-                break;
         }
         strscpy(to, len, type);
 }
@@ -368,7 +367,6 @@ static int per_dev_options(struct scsi_id_device *dev_scsi, int *good_bad, int *
                 default:
                         log_error("Unknown or bad option '%c' (0x%x)", option, (unsigned) option);
                         retval = -1;
-                        break;
                 }
         }
 

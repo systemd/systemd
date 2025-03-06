@@ -641,10 +641,10 @@ static int link_is_ready_to_set_link(Link *link, Request *req) {
                         return -EALREADY; /* Not necessary to set the same value. */
 
                 req->userdata = UINT32_TO_PTR(mtu);
-                return true;
+                break;
         }
         default:
-                break;
+                ;
         }
 
         return true;

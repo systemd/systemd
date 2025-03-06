@@ -34,6 +34,7 @@
     <filename>emergency.target</filename>,
     <filename>exit.target</filename>,
     <filename>factory-reset.target</filename>,
+    <filename>factory-reset-now.target</filename>,
     <filename>final.target</filename>,
     <filename>first-boot-complete.target</filename>,
     <filename>getty.target</filename>,
@@ -304,9 +305,28 @@
         <varlistentry>
           <term><filename>factory-reset.target</filename></term>
           <listitem>
-            <para>A special target to trigger a factory reset.</para>
+            <para>A special target to request a factory reset operation. This will typically persistently
+            store a request flag for the next boot and then reboot in order to reset the system to factory
+            state.</para>
+
+            <para>See <ulink url="https://systemd.io/FACTORY_RESET">Factory Reset</ulink> for more
+            information.</para>
 
           <xi:include href="version-info.xml" xpointer="v250"/>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>factory-reset-now.target</filename></term>
+          <listitem>
+            <para>A special target that is started on boots that shall execute a factory reset. It may be
+            used to pull in additional services that shall be invoked during a factory reset operation. It
+            also acts as ordering barrier: once the target is reached the factory reset state is marked as
+            "completed".</para>
+
+            <para>See <ulink url="https://systemd.io/FACTORY_RESET">Factory Reset</ulink> for more
+            information.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/>
           </listitem>
         </varlistentry>
         <varlistentry>

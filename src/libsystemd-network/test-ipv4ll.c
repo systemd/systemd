@@ -37,7 +37,6 @@ static void basic_request_handler(sd_ipv4ll *ll, int event, void *userdata) {
                         break;
                 default:
                         assert_se(0);
-                        break;
         }
 }
 

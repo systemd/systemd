@@ -162,4 +162,31 @@ TEST(image_policy_intersect) {
         test_policy_intersect_one("root=open", "=verity+ignore", "root=verity+ignore:=ignore");
 }
 
+static void test_policy_ignore_designators_one(const char *a, const PartitionDesignator array[], size_t n, const char *b) {
+        _cleanup_(image_policy_freep) ImagePolicy *x = NULL, *y = NULL, *t = NULL;
+
+        ASSERT_OK(image_policy_from_string(a, &x));
+        ASSERT_OK(image_policy_from_string(b, &y));
+
+        _cleanup_free_ char *s1 = NULL, *s2 = NULL, *s3 = NULL;
+        ASSERT_OK(image_policy_to_string(x, true, &s1));
+        ASSERT_OK(image_policy_to_string(y, true, &s2));
+
+        ASSERT_OK(image_policy_ignore_designators(x, array, n, &t));
+
+        ASSERT_OK(image_policy_to_string(t, true, &s3));
+
+        log_info("%s → %s vs. %s", s1, s2, s3);
+
+        ASSERT_TRUE(image_policy_equivalent(t, y));
+}
+
+TEST(image_policy_ignore_designators) {
+        test_policy_ignore_designators_one("-", NULL, 0, "-");
+        test_policy_ignore_designators_one("-", ((const PartitionDesignator[]) { PARTITION_ROOT }), 1, "-");
+        test_policy_ignore_designators_one("*", ((const PartitionDesignator[]) { PARTITION_ROOT }), 1, "root=ignore:=open");
+        test_policy_ignore_designators_one("*", ((const PartitionDesignator[]) { PARTITION_ROOT, PARTITION_USR }), 2, "root=ignore:usr=ignore:=open");
+        test_policy_ignore_designators_one("~", ((const PartitionDesignator[]) { PARTITION_VAR, PARTITION_ESP, PARTITION_VAR }), 2, "var=ignore:esp=ignore:=absent");
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);
