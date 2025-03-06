@@ -106,3 +106,5 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(ImagePolicy*, image_policy_free);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_image_policy);
 int parse_image_policy_argument(const char *s, ImagePolicy **policy);
+
+int image_policy_ignore_designators(const ImagePolicy *p, const PartitionDesignator table[], size_t n_table, ImagePolicy **ret);
