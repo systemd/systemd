@@ -61,7 +61,7 @@ check_dependencies() {
 
     # mount LOOP_0
     mount -t ext4 "${LOOP_0}p1" /tmp/deptest
-    timeout 10 bash -c 'until systemctl -q is-active tmp-deptest.mount; do sleep .1; done'
+    timeout --foreground 10 bash -c 'until systemctl -q is-active tmp-deptest.mount; do sleep .1; done'
     after=$(systemctl show --property=After --value tmp-deptest.mount)
     assert_in "local-fs-pre.target" "$after"
     assert_not_in "remote-fs-pre.target" "$after"
@@ -81,7 +81,7 @@ check_dependencies() {
 
     # mount LOOP_1 (using fake _netdev option)
     mount -t ext4 -o _netdev "${LOOP_1}p1" /tmp/deptest
-    timeout 10 bash -c 'until systemctl -q is-active tmp-deptest.mount; do sleep .1; done'
+    timeout --foreground 10 bash -c 'until systemctl -q is-active tmp-deptest.mount; do sleep .1; done'
     after=$(systemctl show --property=After --value tmp-deptest.mount)
     assert_not_in "local-fs-pre.target" "$after"
     assert_in "remote-fs-pre.target" "$after"
@@ -101,7 +101,7 @@ check_dependencies() {
 
     # mount tmpfs
     mount -t tmpfs tmpfs /tmp/deptest
-    timeout 10 bash -c 'until systemctl -q is-active tmp-deptest.mount; do sleep .1; done'
+    timeout --foreground 10 bash -c 'until systemctl -q is-active tmp-deptest.mount; do sleep .1; done'
     after=$(systemctl show --property=After --value tmp-deptest.mount)
     assert_in "local-fs-pre.target" "$after"
     assert_not_in "remote-fs-pre.target" "$after"
@@ -307,15 +307,15 @@ testcase_mount_ratelimit() {
     # If the infra is slow we might not enter the rate limit state; in that case skip the exit check.
     set +o pipefail
     journalctl --sync
-    if timeout 2m journalctl -u init.scope --since="$ts" -n all --follow | grep -m 1 -q -F '(mount-monitor-dispatch) entered rate limit'; then
+    if timeout --foreground 2m journalctl -u init.scope --since="$ts" -n all --follow | grep -m 1 -q -F '(mount-monitor-dispatch) entered rate limit'; then
         journalctl --sync
-        timeout 2m journalctl -u init.scope --since="$ts" -n all --follow | grep -m 1 -q -F '(mount-monitor-dispatch) left rate limit'
+        timeout --foreground 2m journalctl -u init.scope --since="$ts" -n all --follow | grep -m 1 -q -F '(mount-monitor-dispatch) left rate limit'
     fi
     set -o pipefail
 
     # Verify that the mount units are always cleaned up at the end.
     # Give some time for units to settle so we don't race between exiting the rate limit state and cleaning up the units.
-    timeout 2m bash -c 'while systemctl list-units -t mount tmp-meow* | grep -q tmp-meow; do systemctl daemon-reload; sleep 10; done'
+    timeout --foreground 2m bash -c 'while systemctl list-units -t mount tmp-meow* | grep -q tmp-meow; do systemctl daemon-reload; sleep 10; done'
 }
 
 systemd-analyze log-level debug

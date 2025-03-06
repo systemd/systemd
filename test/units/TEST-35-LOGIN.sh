@@ -83,7 +83,7 @@ testcase_started() {
 }
 
 wait_suspend() {
-    timeout "${1?}" bash -c "while [[ ! -e /run/suspend.flag ]]; do sleep 1; done"
+    timeout --foreground "${1?}" bash -c "while [[ ! -e /run/suspend.flag ]]; do sleep 1; done"
     rm /run/suspend.flag
 }
 
@@ -181,7 +181,7 @@ EOF
 
     evemu-device /run/lidswitch.evemu &
 
-    timeout 20 bash -c 'until grep "^Fake Lid Switch" /sys/class/input/*/device/name; do sleep .5; done'
+    timeout --foreground 20 bash -c 'until grep "^Fake Lid Switch" /sys/class/input/*/device/name; do sleep .5; done'
     input_name=$(grep -l '^Fake Lid Switch' /sys/class/input/*/device/name || :)
     if [[ -z "$input_name" ]]; then
         echo "cannot find fake lid switch." >&2
@@ -248,7 +248,7 @@ cleanup_session() (
 
     loginctl terminate-user testuser
 
-    if ! timeout 30 bash -c "while loginctl --no-legend | grep -q testuser; do sleep 1; done"; then
+    if ! timeout --foreground 30 bash -c "while loginctl --no-legend | grep -q testuser; do sleep 1; done"; then
         echo "WARNING: session for testuser still active, ignoring."
     fi
 
@@ -256,15 +256,15 @@ cleanup_session() (
     sleep 1
     pkill -KILL -u "$uid"
 
-    if ! timeout 30 bash -c "while systemctl is-active --quiet user@${uid}.service; do sleep 1; done"; then
+    if ! timeout --foreground 30 bash -c "while systemctl is-active --quiet user@${uid}.service; do sleep 1; done"; then
         echo "WARNING: user@${uid}.service is still active, ignoring."
     fi
 
-    if ! timeout 30 bash -c "while systemctl is-active --quiet user-runtime-dir@${uid}.service; do sleep 1; done"; then
+    if ! timeout --foreground 30 bash -c "while systemctl is-active --quiet user-runtime-dir@${uid}.service; do sleep 1; done"; then
         echo "WARNING: user-runtime-dir@${uid}.service is still active, ignoring."
     fi
 
-    if ! timeout 30 bash -c "while systemctl is-active --quiet user-${uid}.slice; do sleep 1; done"; then
+    if ! timeout --foreground 30 bash -c "while systemctl is-active --quiet user-${uid}.slice; do sleep 1; done"; then
         echo "WARNING: user-${uid}.slice is still active, ignoring."
     fi
 
@@ -435,7 +435,7 @@ EOF
     # coldplug: logind started with existing device
     systemctl stop systemd-logind.service
     modprobe scsi_debug
-    timeout 30 bash -c 'until ls /sys/bus/pseudo/drivers/scsi_debug/adapter*/host*/target*/*:*/block 2>/dev/null; do sleep 1; done'
+    timeout --foreground 30 bash -c 'until ls /sys/bus/pseudo/drivers/scsi_debug/adapter*/host*/target*/*:*/block 2>/dev/null; do sleep 1; done'
     dev=/dev/$(ls /sys/bus/pseudo/drivers/scsi_debug/adapter*/host*/target*/*:*/block 2>/dev/null)
     if [[ ! -b "$dev" ]]; then
         echo "cannot find suitable scsi block device" >&2
@@ -454,7 +454,7 @@ EOF
     # hotplug: new device appears while logind is running
     rmmod scsi_debug
     modprobe scsi_debug
-    timeout 30 bash -c 'until ls /sys/bus/pseudo/drivers/scsi_debug/adapter*/host*/target*/*:*/block 2>/dev/null; do sleep 1; done'
+    timeout --foreground 30 bash -c 'until ls /sys/bus/pseudo/drivers/scsi_debug/adapter*/host*/target*/*:*/block 2>/dev/null; do sleep 1; done'
     dev=/dev/$(ls /sys/bus/pseudo/drivers/scsi_debug/adapter*/host*/target*/*:*/block 2>/dev/null)
     if [[ ! -b "$dev" ]]; then
         echo "cannot find suitable scsi block device" >&2
@@ -513,7 +513,7 @@ EOF
     # least one session, so minimum of 2 "Lock" signals must have been sent.
     journalctl --sync
     set +o pipefail
-    timeout -v 35 journalctl -b -u systemd-logind.service --since="$ts" -n all --follow | grep -m 1 -q 'Sent message type=signal .* member=Lock'
+    timeout -v --foreground 35 journalctl -b -u systemd-logind.service --since="$ts" -n all --follow | grep -m 1 -q 'Sent message type=signal .* member=Lock'
     set -o pipefail
 
     # We need to know that a new message was sent after waking up,
@@ -526,8 +526,8 @@ EOF
     # Wait again
     journalctl --sync
     set +o pipefail
-    timeout -v 35 journalctl -b -u systemd-logind.service --since="$ts" -n all --follow | grep -m "$((locks + 1))" -q 'Sent message type=signal .* member=Lock'
-    timeout -v 35 journalctl -b -u systemd-logind.service --since="$ts" -n all --follow | grep -m 2 -q -F 'System idle. Will be locked now.'
+    timeout -v --foreground 35 journalctl -b -u systemd-logind.service --since="$ts" -n all --follow | grep -m "$((locks + 1))" -q 'Sent message type=signal .* member=Lock'
+    timeout -v --foreground 35 journalctl -b -u systemd-logind.service --since="$ts" -n all --follow | grep -m 2 -q -F 'System idle. Will be locked now.'
     set -o pipefail
 }
 
@@ -584,12 +584,12 @@ testcase_list_users_sessions_seats() {
     for s in $(loginctl list-sessions --no-legend | grep tty | awk '$3 == "testuser" { print $1 }'); do
         loginctl terminate-session "$s"
     done
-    if ! timeout 30 bash -c "while loginctl --no-legend | grep tty | grep -q testuser; do sleep 1; done"; then
+    if ! timeout --foreground 30 bash -c "while loginctl --no-legend | grep tty | grep -q testuser; do sleep 1; done"; then
         echo "WARNING: session for testuser still active, ignoring."
         return
     fi
 
-    timeout 30 bash -c "until [[ \"\$(loginctl list-users --no-legend | awk '\$2 == \"testuser\" { print \$4 }')\" == lingering ]]; do sleep 1; done"
+    timeout --foreground 30 bash -c "until [[ \"\$(loginctl list-users --no-legend | awk '\$2 == \"testuser\" { print \$4 }')\" == lingering ]]; do sleep 1; done"
 }
 
 teardown_stop_idle_session() (

@@ -164,7 +164,7 @@ testcase_systemctl() {
     check_freezer_state "${unit}" "frozen"
     check_cgroup_state "$unit" 1
     # Freezing already frozen unit should be NOP and return quickly
-    timeout 3s systemctl freeze "$unit"
+    timeout --foreground 3s systemctl freeze "$unit"
     echo "[ OK ]"
 
     echo -n "  - thaw: "
@@ -172,7 +172,7 @@ testcase_systemctl() {
     check_freezer_state "${unit}" "running"
     check_cgroup_state "$unit" 0
     # Likewise thawing already running unit shouldn't block
-    timeout 3s systemctl thaw "$unit"
+    timeout --foreground 3s systemctl thaw "$unit"
     echo "[ OK ]"
 
     systemctl stop "$unit"

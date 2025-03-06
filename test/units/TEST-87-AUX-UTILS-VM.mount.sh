@@ -49,14 +49,14 @@ LOOP="$(losetup --show --find "$WORK_DIR/simple.img")"
 udevadm wait --timeout=60 --settle "$LOOP"
 # Also wait for the .device unit for the loop device is active. Otherwise, the .device unit activation
 # that is triggered by the .mount unit introduced by systemd-mount below may time out.
-timeout 60 bash -c "until systemctl is-active $LOOP; do sleep 1; done"
+timeout --foreground 60 bash -c "until systemctl is-active $LOOP; do sleep 1; done"
 mount "$LOOP" "$WORK_DIR/mnt"
 touch "$WORK_DIR/mnt/foo.bar"
 umount "$LOOP"
 (! mountpoint "$WORK_DIR/mnt")
 # Wait for the mount unit to be unloaded. Otherwise, creation of the transient unit below may fail.
 MOUNT_UNIT=$(systemd-escape --path --suffix=mount "$WORK_DIR/mnt")
-timeout 60 bash -c "while [[ -n \$(systemctl list-units --all --no-legend $MOUNT_UNIT) ]]; do sleep 1; done"
+timeout --foreground 60 bash -c "while [[ -n \$(systemctl list-units --all --no-legend $MOUNT_UNIT) ]]; do sleep 1; done"
 
 # Mount with both source and destination set
 systemd-mount "$LOOP" "$WORK_DIR/mnt"
@@ -126,13 +126,13 @@ test -e "$WORK_DIR/mnt/foo.bar"
 # Wait until it's idle again
 sleep 1.5
 # Safety net for slower/overloaded systems
-timeout 10s bash -c "while systemctl is-active -q $WORK_DIR/mnt; do sleep .2; done"
+timeout --foreground 10s bash -c "while systemctl is-active -q $WORK_DIR/mnt; do sleep .2; done"
 systemctl status "$(systemd-escape --path "$WORK_DIR/mnt").automount"
 # Disassemble the underlying block device
 losetup -d "$LOOP"
 unset LOOP
 # The automount unit should disappear once the underlying blockdev is gone
-timeout 10s bash -c "while systemctl status '$(systemd-escape --path "$WORK_DIR/mnt".automount)'; do sleep .2; done"
+timeout --foreground 10s bash -c "while systemctl status '$(systemd-escape --path "$WORK_DIR/mnt".automount)'; do sleep .2; done"
 
 # Mount a disk image
 systemd-mount --discover "$WORK_DIR/simple.img"
@@ -146,7 +146,7 @@ LOOP_AUTO_DEVPATH=$(udevadm info --query property --property DEVPATH --value "$L
 systemd-umount "$WORK_DIR/simple.img"
 # Wait for 'change' uevent for the device with DISK_MEDIA_CHANGE=1.
 # After the event, the backing_file attribute should be removed.
-timeout 60 bash -c "while [[ -e /sys/$LOOP_AUTO_DEVPATH/loop/backing_file ]]; do sleep 1; done"
+timeout --foreground 60 bash -c "while [[ -e /sys/$LOOP_AUTO_DEVPATH/loop/backing_file ]]; do sleep 1; done"
 
 # --owner + vfat
 #
@@ -159,11 +159,11 @@ LOOP="$(losetup --show --find "$WORK_DIR/owner-vfat.img")"
 # attach the backing file, then SYSTEMD_READY=0 is set for the device. As a workaround, monitor sysattr
 # and re-trigger uevent after that.
 LOOP_DEVPATH=$(udevadm info --query property --property DEVPATH --value "$LOOP")
-timeout 60 bash -c "until [[ -e /sys/$LOOP_DEVPATH/loop/backing_file ]]; do sleep 1; done"
+timeout --foreground 60 bash -c "until [[ -e /sys/$LOOP_DEVPATH/loop/backing_file ]]; do sleep 1; done"
 udevadm trigger --settle "$LOOP"
 # Also wait for the .device unit for the loop device is active. Otherwise, the .device unit activation
 # that is triggered by the .mount unit introduced by systemd-mount below may time out.
-if ! timeout 60 bash -c "until systemctl is-active $LOOP; do sleep 1; done"; then
+if ! timeout --foreground 60 bash -c "until systemctl is-active $LOOP; do sleep 1; done"; then
     # For debugging issue like
     # https://github.com/systemd/systemd/issues/32680#issuecomment-2120959238
     # https://github.com/systemd/systemd/issues/32680#issuecomment-2122074805

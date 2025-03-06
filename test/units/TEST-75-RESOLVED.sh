@@ -61,7 +61,7 @@ monitor_check_rr() (
     # displayed. We turn off pipefail for this, since we don't care about the
     # lhs of this pipe expression, we only care about the rhs' result to be
     # clean
-    timeout -v 30s journalctl -u resolvectl-monitor.service --since "$since" -f --full | grep -m1 "$match"
+    timeout --foreground -v 30s journalctl -u resolvectl-monitor.service --since "$since" -f --full | grep -m1 "$match"
 )
 
 restart_resolved() {
@@ -1059,7 +1059,7 @@ testcase_13_varlink_subscribe_dns_configuration() {
         varlinkctl call --more --timeout=5 --graceful=io.systemd.TimedOut /run/systemd/resolve/io.systemd.Resolve.Monitor io.systemd.Resolve.Monitor.SubscribeDNSConfiguration '{}'
 
     # Wait until the initial configuration has been received.
-    timeout 5 bash -c "until [[ -s $tmpfile ]]; do sleep 0.1; done"
+    timeout --foreground 5 bash -c "until [[ -s $tmpfile ]]; do sleep 0.1; done"
 
     # Update the global configuration.
     mkdir -p /run/systemd/resolved.conf.d/
