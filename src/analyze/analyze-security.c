@@ -90,7 +90,7 @@ typedef struct SecurityInfo {
         bool restrict_address_family_packet;
         bool restrict_address_family_other;
 
-        unsigned long long restrict_namespaces;
+        unsigned long long retain_namespaces;
         bool restrict_realtime;
         bool restrict_suid_sgid;
 
@@ -137,7 +137,7 @@ static SecurityInfo *security_info_new(void) {
         *info = (SecurityInfo) {
                 .default_dependencies = true,
                 .capability_bounding_set = UINT64_MAX,
-                .restrict_namespaces = UINT64_MAX,
+                .retain_namespaces = UINT64_MAX,
                 ._umask = 0002,
         };
 
@@ -514,7 +514,7 @@ static int assess_restrict_namespaces(
         assert(ret_badness);
         assert(ret_description);
 
-        *ret_badness = !!(info->restrict_namespaces & a->parameter);
+        *ret_badness = !!(info->retain_namespaces & a->parameter);
         *ret_description = NULL;
 
         return 0;
@@ -1969,7 +1969,7 @@ static int property_read_restrict_namespaces(
         if (r < 0)
                 return r;
 
-        info->restrict_namespaces = (unsigned long long) namespaces;
+        info->retain_namespaces = (unsigned long long) namespaces;
 
         return 0;
 }
@@ -2553,7 +2553,7 @@ static int get_security_info(Unit *u, ExecContext *c, CGroupContext *g, Security
                                 info->restrict_address_family_other = !c->address_families_allow_list;
                 }
 
-                info->restrict_namespaces = c->restrict_namespaces;
+                info->retain_namespaces = c->retain_namespaces;
                 info->restrict_realtime = c->restrict_realtime;
                 info->restrict_suid_sgid = c->restrict_suid_sgid;
                 if (c->root_directory) {

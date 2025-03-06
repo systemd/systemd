@@ -631,7 +631,7 @@ void exec_context_init(ExecContext *c) {
                 .personality = PERSONALITY_INVALID,
                 .timeout_clean_usec = USEC_INFINITY,
                 .capability_bounding_set = CAP_MASK_UNSET,
-                .restrict_namespaces = NAMESPACE_FLAGS_INITIAL,
+                .retain_namespaces = NAMESPACE_FLAGS_INITIAL,
                 .delegate_namespaces = NAMESPACE_FLAGS_INITIAL,
                 .log_level_max = -1,
 #if HAVE_SECCOMP
@@ -1512,10 +1512,10 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 fputc('\n', f);
         }
 
-        if (exec_context_restrict_namespaces_set(c)) {
+        if (exec_context_retain_namespaces_set(c)) {
                 _cleanup_free_ char *s = NULL;
 
-                r = namespace_flags_to_string(c->restrict_namespaces, &s);
+                r = namespace_flags_to_string(c->retain_namespaces, &s);
                 if (r >= 0)
                         fprintf(f, "%sRestrictNamespaces: %s\n",
                                 prefix, strna(s));
