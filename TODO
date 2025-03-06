@@ -743,6 +743,7 @@ Features:
     suspend key presses.
   - support for "real" networking via "-n" and --network-bridge=
   - translate SIGTERM to clean ACPI shutdown event
+  - implement hotkeys ^]^]r and ^]^]p like nspawn
 
 * systemd-pcrmachine should probably also measure the SMBIOS system UUID.
 
