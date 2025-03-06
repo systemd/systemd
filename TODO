@@ -1424,8 +1424,6 @@ Features:
   comes from, but we can still derive that from the stdin socket its output
   came from. We apparently don't do that right now.
 
-* add ability to set hostname with suffix derived from machine id at boot
-
 * add PR_SET_DUMPABLE service setting
 
 * homed/userdb: maybe define a "companion" dir for home directories where apps
