@@ -91,16 +91,6 @@ TEST(hostname_cleanup) {
         ASSERT_STREQ(hostname_cleanup(s), "xxxx.xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
 }
 
-TEST(hostname_malloc) {
-        _cleanup_free_ char *h = NULL, *l = NULL;
-
-        assert_se(h = gethostname_malloc());
-        log_info("hostname_malloc: \"%s\"", h);
-
-        assert_se(l = gethostname_short_malloc());
-        log_info("hostname_short_malloc: \"%s\"", l);
-}
-
 TEST(default_hostname) {
         if (!hostname_is_valid(FALLBACK_HOSTNAME, 0)) {
                 log_error("Configured fallback hostname \"%s\" is not valid.", FALLBACK_HOSTNAME);
