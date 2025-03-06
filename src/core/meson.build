@@ -63,6 +63,7 @@ libcore_sources = files(
         'unit-serialize.c',
         'unit.c',
         'varlink.c',
+        'varlink-common.c',
 )
 
 subdir('bpf/socket_bind')
