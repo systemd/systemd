@@ -130,6 +130,8 @@ Deprecations and removals:
 
 Features:
 
+* unify how blockdev_get_root() and sysupdate find the default root block device
+
 * Maybe rename pkcs7 and public verbs of systemd-keyutil to be more verb like.
 
 * add "homctl export" and "homectl import" that gets you an "atomic" snapshot
