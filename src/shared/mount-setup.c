@@ -52,27 +52,19 @@ typedef struct MountPoint {
         MountMode mode;
 } MountPoint;
 
-/* The first three entries we might need before SELinux is up. The
- * fourth (securityfs) is needed by IMA to load a custom policy. The
- * other ones we can delay until SELinux and IMA are loaded. When
- * SMACK is enabled we need smackfs, too, so it's a fifth one. */
-#if ENABLE_SMACK
-#define N_EARLY_MOUNT 5
-#else
-#define N_EARLY_MOUNT 4
-#endif
-
-static bool check_recursiveprot_supported(void) {
+bool cgroupfs_recursiveprot_supported(void) {
         int r;
 
         if (!cg_is_unified_wanted())
                 return false;
 
-        r = mount_option_supported("cgroup2", "memory_recursiveprot", NULL);
+        /* Added in kernel 5.7 */
+
+        r = mount_option_supported("cgroup2", "memory_recursiveprot", /* value = */ NULL);
         if (r < 0)
-                log_debug_errno(r, "Failed to determine whether the 'memory_recursiveprot' mount option is supported, assuming not: %m");
+                log_debug_errno(r, "Failed to determine whether cgroupfs supports 'memory_recursiveprot' mount option, assuming not: %m");
         else if (r == 0)
-                log_debug("This kernel version does not support 'memory_recursiveprot', not using mount option.");
+                log_debug("'memory_recursiveprot' not supported by cgroupfs, not using mount option.");
 
         return r > 0;
 }
@@ -103,7 +95,7 @@ static const MountPoint mount_table[] = {
         { "tmpfs",       "/run",                      "tmpfs",      "mode=0755" TMPFS_LIMITS_RUN,               MS_NOSUID|MS_NODEV|MS_STRICTATIME,
           NULL,          MNT_FATAL|MNT_IN_CONTAINER },
         { "cgroup2",     "/sys/fs/cgroup",            "cgroup2",    "nsdelegate,memory_recursiveprot",          MS_NOSUID|MS_NOEXEC|MS_NODEV,
-          check_recursiveprot_supported, MNT_IN_CONTAINER|MNT_CHECK_WRITABLE },
+          cgroupfs_recursiveprot_supported, MNT_IN_CONTAINER|MNT_CHECK_WRITABLE },
         { "cgroup2",     "/sys/fs/cgroup",            "cgroup2",    "nsdelegate",                               MS_NOSUID|MS_NOEXEC|MS_NODEV,
           cg_is_unified_wanted, MNT_IN_CONTAINER|MNT_CHECK_WRITABLE },
         { "cgroup2",     "/sys/fs/cgroup",            "cgroup2",    NULL,                                       MS_NOSUID|MS_NOEXEC|MS_NODEV,
@@ -119,6 +111,16 @@ static const MountPoint mount_table[] = {
         { "bpf",         "/sys/fs/bpf",               "bpf",        "mode=0700",                                MS_NOSUID|MS_NOEXEC|MS_NODEV,
           NULL,          MNT_NONE,                  },
 };
+
+/* The first three entries we might need before SELinux is up. The
+ * fourth (securityfs) is needed by IMA to load a custom policy. The
+ * other ones we can delay until SELinux and IMA are loaded. When
+ * SMACK is enabled we need smackfs, too, so it's a fifth one. */
+#if ENABLE_SMACK
+#define N_EARLY_MOUNT 5
+#else
+#define N_EARLY_MOUNT 4
+#endif
 
 assert_cc(N_EARLY_MOUNT <= ELEMENTSOF(mount_table));
 
