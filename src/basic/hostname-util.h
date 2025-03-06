@@ -7,13 +7,14 @@
 #include "macro.h"
 #include "strv.h"
 
-char* get_default_hostname(void);
+char* get_default_hostname_raw(void);
 
 bool valid_ldh_char(char c) _const_;
 
 typedef enum ValidHostnameFlags {
-        VALID_HOSTNAME_TRAILING_DOT = 1 << 0,   /* Accept trailing dot on multi-label names */
-        VALID_HOSTNAME_DOT_HOST     = 1 << 1,   /* Accept ".host" as valid hostname */
+        VALID_HOSTNAME_TRAILING_DOT  = 1 << 0,   /* Accept trailing dot on multi-label names */
+        VALID_HOSTNAME_DOT_HOST      = 1 << 1,   /* Accept ".host" as valid hostname */
+        VALID_HOSTNAME_QUESTION_MARK = 1 << 2,   /* Accept "?" as place holder for hashed machine ID value */
 } ValidHostnameFlags;
 
 bool hostname_is_valid(const char *s, ValidHostnameFlags flags) _pure_;
