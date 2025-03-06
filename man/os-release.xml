@@ -538,6 +538,8 @@
           that forms a valid DNS FQDN. The hostname must be at most 64 characters, which is a Linux
           limitation (DNS allows longer names).</para>
 
+          <xi:include href="hostname.xml" xpointer="question-mark-hostname-pattern"/>
+
           <para>See <citerefentry><refentrytitle>org.freedesktop.hostname1</refentrytitle><manvolnum>5</manvolnum></citerefentry>
           for a description of how
           <citerefentry><refentrytitle>systemd-hostnamed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
