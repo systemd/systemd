@@ -85,6 +85,14 @@ The UEFI support works as follows:
   a new seed key.
 
 * The
+  [`systemd-factory-reset-esp.service`](https://www.freedesktop.org/software/systemd/man/latest/systemd-factory-reset-esp.service.html)
+  unit is invoked via `factory-reset.target`, and deletes non-vendor system
+  extension images, UKI addons, and credentials from the EFI System and Extended
+  Bootloader Partitions. See the
+  [`systemd-stub(7)`](https://www.freedesktop.org/software/systemd/man/latest/systemd-stub.html)
+  man page.
+
+* The
   [`systemd-repart`](https://www.freedesktop.org/software/systemd/man/latest/systemd-repart.html)
   tool is one of the early-boot services that do the work of factory resetting
   the system. In normal operation, it starts on every boot. When invoked during
@@ -120,8 +128,9 @@ pressed for a long time.
 ## Support for Resetting other Resources than Partitions + TPM
 
 By default a factory reset implemented with systemd's tools can reset/erase
-partitions (via `systemd-repart`, see above) and reset the TPM (via
-`systemd-tpm2-clear.service`, see above).
+partitions (via `systemd-repart`, see above), reset the TPM (via
+`systemd-tpm2-clear.service`, see above), and delete non-vendor resources from
+the ESP (via `systemd-factory-reset-esp.service`, see above).
 
 In some cases other resources shall be reset/erased too. To support that,
 define your own service and plug it into `factory-reset-now.target` or the
