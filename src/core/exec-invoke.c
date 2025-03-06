@@ -351,9 +351,9 @@ static int setup_input(
                 if (dup2(params->stdin_fd, STDIN_FILENO) < 0)
                         return -errno;
 
-                /* Try to make this the controlling tty, if it is a tty */
-                if (isatty_safe(STDIN_FILENO))
-                        (void) ioctl(STDIN_FILENO, TIOCSCTTY, context->std_input == EXEC_INPUT_TTY_FORCE);
+                /* Try to make this our controlling tty, if it is a tty */
+                if (isatty_safe(STDIN_FILENO) && ioctl(STDIN_FILENO, TIOCSCTTY, context->std_input == EXEC_INPUT_TTY_FORCE) < 0)
+                        log_debug_errno(errno, "Failed to make standard input TTY our controlling terminal: %m");
 
                 return STDIN_FILENO;
         }
