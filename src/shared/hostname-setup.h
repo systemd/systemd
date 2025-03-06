@@ -18,11 +18,15 @@ int sethostname_idempotent(const char *s);
 
 int shorten_overlong(const char *s, char **ret);
 
-int read_etc_hostname_stream(FILE *f, char **ret);
-int read_etc_hostname(const char *path, char **ret);
+int read_etc_hostname_stream(FILE *f, bool substitute_wildcards, char **ret);
+int read_etc_hostname(const char *path, bool substitue_wildcards, char **ret);
 
 void hostname_update_source_hint(const char *hostname, HostnameSource source);
 int hostname_setup(bool really);
+
+int hostname_substitute_wildcards(char *name);
+
+char *get_default_hostname(void);
 
 typedef enum GetHostnameFlags {
         GET_HOSTNAME_ALLOW_LOCALHOST  = 1 << 0, /* accepts "localhost" or friends. */

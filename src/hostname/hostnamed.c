@@ -52,6 +52,7 @@
 typedef enum {
         /* Read from /etc/hostname */
         PROP_STATIC_HOSTNAME,
+        PROP_STATIC_HOSTNAME_SUBSTITUTED_WILDCARDS,
 
         /* Read from /etc/machine-info */
         PROP_PRETTY_HOSTNAME,
@@ -123,11 +124,25 @@ static void context_read_etc_hostname(Context *c) {
             stat_inode_unmodified(&c->etc_hostname_stat, &current_stat))
                 return;
 
-        context_reset(c, UINT64_C(1) << PROP_STATIC_HOSTNAME);
+        context_reset(c,
+                      (UINT64_C(1) << PROP_STATIC_HOSTNAME) |
+                      (UINT64_C(1) << PROP_STATIC_HOSTNAME_SUBSTITUTED_WILDCARDS));
 
-        r = read_etc_hostname(NULL, &c->data[PROP_STATIC_HOSTNAME]);
-        if (r < 0 && r != -ENOENT)
-                log_warning_errno(r, "Failed to read /etc/hostname, ignoring: %m");
+        r = read_etc_hostname(/* path= */ NULL, /* substitute_wildcards= */ false, &c->data[PROP_STATIC_HOSTNAME]);
+        if (r < 0) {
+                if (r != -ENOENT)
+                        log_warning_errno(r, "Failed to read /etc/hostname, ignoring: %m");
+        } else {
+                _cleanup_free_ char *substituted = strdup(c->data[PROP_STATIC_HOSTNAME]);
+                if (!substituted)
+                        return (void) log_oom();
+
+                r = hostname_substitute_wildcards(substituted);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to substitute wildcards in /etc/hostname, ignoring: %m");
+                else
+                        c->data[PROP_STATIC_HOSTNAME] = TAKE_PTR(substituted);
+        }
 
         c->etc_hostname_stat = current_stat;
 }
@@ -672,8 +687,8 @@ static int context_update_kernel_hostname(
         assert(c);
 
         /* /etc/hostname has the highest preference ... */
-        if (c->data[PROP_STATIC_HOSTNAME]) {
-                hn = c->data[PROP_STATIC_HOSTNAME];
+        if (c->data[PROP_STATIC_HOSTNAME_SUBSTITUTED_WILDCARDS]) {
+                hn = c->data[PROP_STATIC_HOSTNAME_SUBSTITUTED_WILDCARDS];
                 hns = HOSTNAME_STATIC;
 
         /* ... the transient hostname, (ie: DHCP) comes next ... */
@@ -940,7 +955,7 @@ static int property_get_static_hostname(
 
         context_read_etc_hostname(c);
 
-        return sd_bus_message_append(reply, "s", c->data[PROP_STATIC_HOSTNAME]);
+        return sd_bus_message_append(reply, "s", c->data[PROP_STATIC_HOSTNAME_SUBSTITUTED_WILDCARDS]);
 }
 
 static int property_get_default_hostname(
@@ -972,7 +987,7 @@ static void context_determine_hostname_source(Context *c) {
 
         (void) gethostname_full(GET_HOSTNAME_ALLOW_LOCALHOST, &hostname);
 
-        if (streq_ptr(hostname, c->data[PROP_STATIC_HOSTNAME]))
+        if (streq_ptr(hostname, c->data[PROP_STATIC_HOSTNAME_SUBSTITUTED_WILDCARDS]))
                 c->hostname_source = HOSTNAME_STATIC;
         else {
                 _cleanup_free_ char *fallback = NULL;
@@ -1243,8 +1258,7 @@ static int method_set_hostname(sd_bus_message *m, void *userdata, sd_bus_error *
 static int method_set_static_hostname(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         Context *c = ASSERT_PTR(userdata);
         const char *name;
-        int interactive;
-        int r;
+        int interactive, r;
 
         assert(m);
 
@@ -1259,7 +1273,7 @@ static int method_set_static_hostname(sd_bus_message *m, void *userdata, sd_bus_
         if (streq_ptr(name, c->data[PROP_STATIC_HOSTNAME]))
                 return sd_bus_reply_method_return(m, NULL);
 
-        if (name && !hostname_is_valid(name, 0))
+        if (name && !hostname_is_valid(name, VALID_HOSTNAME_QUESTION_MARK))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid static hostname '%s'", name);
 
         r = bus_verify_polkit_async_full(
@@ -1275,9 +1289,19 @@ static int method_set_static_hostname(sd_bus_message *m, void *userdata, sd_bus_
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
+        _cleanup_free_ char *substituted = strdup(name);
+        if (!substituted)
+                return log_oom();
+
+        r = hostname_substitute_wildcards(substituted);
+        if (r < 0)
+                return log_error_errno(r, "Failed to substitute wildcards: %m");
+
         r = free_and_strdup_warn(&c->data[PROP_STATIC_HOSTNAME], name);
         if (r < 0)
                 return r;
+
+        free_and_replace(c->data[PROP_STATIC_HOSTNAME_SUBSTITUTED_WILDCARDS], substituted);
 
         r = context_write_data_static_hostname(c);
         if (r < 0) {
@@ -1499,19 +1523,13 @@ static int build_describe_response(Context *c, bool privileged, sd_json_variant 
         context_read_os_release(c);
         context_determine_hostname_source(c);
 
-        r = gethostname_strict(&hn);
-        if (r < 0) {
-                if (r != -ENXIO)
-                        return log_error_errno(r, "Failed to read local host name: %m");
-
-                hn = get_default_hostname();
-                if (!hn)
-                        return log_oom();
-        }
-
         dhn = get_default_hostname();
         if (!dhn)
                 return log_oom();
+
+        r = gethostname_strict(&hn);
+        if (r < 0 && r != -ENXIO)
+                return log_error_errno(r, "Failed to read local host name: %m");
 
         if (isempty(c->data[PROP_ICON_NAME]))
                 in = context_fallback_icon_name(c);
@@ -1553,8 +1571,8 @@ static int build_describe_response(Context *c, bool privileged, sd_json_variant 
 
         r = sd_json_buildo(
                         &v,
-                        SD_JSON_BUILD_PAIR_STRING("Hostname", hn),
-                        SD_JSON_BUILD_PAIR_STRING("StaticHostname", c->data[PROP_STATIC_HOSTNAME]),
+                        SD_JSON_BUILD_PAIR_STRING("Hostname", hn ?: dhn),
+                        SD_JSON_BUILD_PAIR_STRING("StaticHostname", c->data[PROP_STATIC_HOSTNAME_SUBSTITUTED_WILDCARDS]),
                         SD_JSON_BUILD_PAIR_STRING("PrettyHostname", c->data[PROP_PRETTY_HOSTNAME]),
                         SD_JSON_BUILD_PAIR_STRING("DefaultHostname", dhn),
                         SD_JSON_BUILD_PAIR_STRING("HostnameSource", hostname_source_to_string(c->hostname_source)),
