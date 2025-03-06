@@ -15,6 +15,8 @@ Requires=factory-reset-now.target
 After=factory-reset-now.target
 Conflicts=shutdown.target
 Before=shutdown.target
+RefuseManualStart=yes
+RefuseManualStop=yes
 
 [Service]
 Type=oneshot

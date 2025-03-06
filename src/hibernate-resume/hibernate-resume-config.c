@@ -143,11 +143,11 @@ static bool validate_efi_hibernate_location(EFIHibernateLocation *e) {
 int get_efi_hibernate_location(EFIHibernateLocation **ret) {
 #if ENABLE_EFI
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "uuid",                  SD_JSON_VARIANT_STRING,        sd_json_dispatch_id128,  offsetof(EFIHibernateLocation, uuid),           SD_JSON_MANDATORY             },
-                { "offset",                _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64, offsetof(EFIHibernateLocation, offset),         SD_JSON_MANDATORY             },
-                { "kernelVersion",         SD_JSON_VARIANT_STRING,        sd_json_dispatch_string, offsetof(EFIHibernateLocation, kernel_version), SD_JSON_PERMISSIVE|SD_JSON_DEBUG },
-                { "osReleaseId",           SD_JSON_VARIANT_STRING,        sd_json_dispatch_string, offsetof(EFIHibernateLocation, id),             SD_JSON_PERMISSIVE|SD_JSON_DEBUG },
-                { "osReleaseImageId",      SD_JSON_VARIANT_STRING,        sd_json_dispatch_string, offsetof(EFIHibernateLocation, image_id),       SD_JSON_PERMISSIVE|SD_JSON_DEBUG },
+                { "uuid",                  SD_JSON_VARIANT_STRING,        sd_json_dispatch_id128,  offsetof(EFIHibernateLocation, uuid),           SD_JSON_MANDATORY                },
+                { "offset",                _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64, offsetof(EFIHibernateLocation, offset),         SD_JSON_MANDATORY                },
+                { "kernelVersion",         SD_JSON_VARIANT_STRING,        sd_json_dispatch_string, offsetof(EFIHibernateLocation, kernel_version), SD_JSON_PERMISSIVE               },
+                { "osReleaseId",           SD_JSON_VARIANT_STRING,        sd_json_dispatch_string, offsetof(EFIHibernateLocation, id),             SD_JSON_PERMISSIVE               },
+                { "osReleaseImageId",      SD_JSON_VARIANT_STRING,        sd_json_dispatch_string, offsetof(EFIHibernateLocation, image_id),       SD_JSON_PERMISSIVE               },
                 { "osReleaseVersionId",    SD_JSON_VARIANT_STRING,        sd_json_dispatch_string, offsetof(EFIHibernateLocation, version_id),     SD_JSON_PERMISSIVE|SD_JSON_DEBUG },
                 { "osReleaseImageVersion", SD_JSON_VARIANT_STRING,        sd_json_dispatch_string, offsetof(EFIHibernateLocation, image_version),  SD_JSON_PERMISSIVE|SD_JSON_DEBUG },
                 {},

@@ -323,9 +323,7 @@ units = [
         },
         { 'file' : 'systemd-creds@.service' },
         { 'file' : 'systemd-exit.service' },
-        {
-          'file' : 'systemd-factory-reset@.service.in',
-        },
+        { 'file' : 'systemd-factory-reset@.service.in' },
         {
           'file' : 'systemd-factory-reset.socket',
           'symlinks' : ['sockets.target.wants/'],
