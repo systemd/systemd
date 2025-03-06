@@ -43,6 +43,13 @@
     attempt to make the name valid, but obviously it is recommended to use a valid name and not rely on this
     filtering.</para>
 
+    <para id="question-mark-hostname-pattern">If the question mark character <literal>?</literal> appears in
+    the hostname, it is automatically substituted by a hexadecimal character derived from the
+    <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry> when
+    applied, securely and deterministically by cryptographic hashing. Example:
+    <literal>foobar-????-????</literal> will automatically expand to <literal>foobar-92a9-061c</literal> or
+    similar, depending on the local machine ID.</para>
+
     <para>You may use
     <citerefentry><refentrytitle>hostnamectl</refentrytitle><manvolnum>1</manvolnum></citerefentry> to change
     the value of this file during runtime from the command line. Use

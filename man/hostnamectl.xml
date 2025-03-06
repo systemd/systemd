@@ -88,6 +88,8 @@
         name labels), or a sequence of such labels separated by single dots that forms a valid DNS FQDN. The
         hostname must be at most 64 characters, which is a Linux limitation (DNS allows longer names).</para>
 
+        <xi:include href="hostname.xml" xpointer="question-mark-hostname-pattern"/>
+
         <xi:include href="version-info.xml" xpointer="v249"/></listitem>
       </varlistentry>
 

@@ -14,13 +14,16 @@
 #include "string-util.h"
 #include "strv.h"
 
-char* get_default_hostname(void) {
+char* get_default_hostname_raw(void) {
         int r;
+
+        /* Returns the default hostname, and leaves any ??? in place. */
 
         const char *e = secure_getenv("SYSTEMD_DEFAULT_HOSTNAME");
         if (e) {
-                if (hostname_is_valid(e, 0))
+                if (hostname_is_valid(e, VALID_HOSTNAME_QUESTION_MARK))
                         return strdup(e);
+
                 log_debug("Invalid hostname in $SYSTEMD_DEFAULT_HOSTNAME, ignoring: %s", e);
         }
 
@@ -29,8 +32,9 @@ char* get_default_hostname(void) {
         if (r < 0)
                 log_debug_errno(r, "Failed to parse os-release, ignoring: %m");
         else if (f) {
-                if (hostname_is_valid(f, 0))
+                if (hostname_is_valid(f, VALID_HOSTNAME_QUESTION_MARK))
                         return TAKE_PTR(f);
+
                 log_debug("Invalid hostname in os-release, ignoring: %s", f);
         }
 
@@ -81,7 +85,7 @@ bool hostname_is_valid(const char *s, ValidHostnameFlags flags) {
                         hyphen = true;
 
                 } else {
-                        if (!valid_ldh_char(*p))
+                        if (!valid_ldh_char(*p) && (*p != '?' || !FLAGS_SET(flags, VALID_HOSTNAME_QUESTION_MARK)))
                                 return false;
 
                         dot = false;
@@ -123,7 +127,7 @@ char* hostname_cleanup(char *s) {
                         dot = false;
                         hyphen = true;
 
-                } else if (valid_ldh_char(*p)) {
+                } else if (valid_ldh_char(*p) || *p == '?') {
                         *(d++) = *p;
                         dot = false;
                         hyphen = false;
