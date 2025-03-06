@@ -352,8 +352,8 @@ static int setup_input(
                         return -errno;
 
                 /* Try to make this the controlling tty, if it is a tty */
-                if (isatty_safe(STDIN_FILENO))
-                        (void) ioctl(STDIN_FILENO, TIOCSCTTY, context->std_input == EXEC_INPUT_TTY_FORCE);
+                if (isatty_safe(STDIN_FILENO) && ioctl(STDIN_FILENO, TIOCSCTTY, context->std_input == EXEC_INPUT_TTY_FORCE) < 0)
+                        log_debug_errno(errno, "Failed to change controlling terminal: %m");
 
                 return STDIN_FILENO;
         }
