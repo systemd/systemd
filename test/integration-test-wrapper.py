@@ -508,7 +508,11 @@ def main() -> None:
         '--runtime-scratch=no',
         *([f'--qemu-args=-rtc base={rtc}'] if rtc else []),
         *args.mkosi_args,
-        '--firmware', args.firmware,
+        # mkosi will use the UEFI secure boot firmware by default on UEFI platforms. However, this breaks on
+        # Github Actions in combination with KVM because of a HyperV bug so make sure we use the non secure
+        # boot firmware on Github Actions.
+        # TODO: Drop after the HyperV bug that breaks secure boot KVM guests is solved
+        '--firmware', 'uefi' if args.firmware == 'auto' and os.getenv("GITHUB_ACTIONS") else args.firmware,
         *(['--kvm', 'no'] if int(os.getenv('TEST_NO_KVM', '0')) else []),
         '--kernel-command-line-extra',
         ' '.join(

@@ -14,7 +14,6 @@ BUILDSUBDIR="$(jq -r .BuildSubdirectory <<< "$MKOSI_CONFIG")"
 
 exec "${SPAWN[@]}" mkosi \
     --incremental=strict \
-    --build-sources-ephemeral=no \
     --format=none \
     build \
     -- \
