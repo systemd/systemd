@@ -130,6 +130,10 @@ Deprecations and removals:
 
 Features:
 
+* maybe define a /etc/machine-info field for the ANSI color to associate with a
+  hostname. Then use it for the shell prompt to highlight the hostname. Maybe
+  even hash it from the hostname as a fallback, in a reasonable way.
+
 * unify how blockdev_get_root() and sysupdate find the default root block device
 
 * Maybe rename pkcs7 and public verbs of systemd-keyutil to be more verb like.
