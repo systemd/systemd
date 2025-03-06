@@ -254,9 +254,7 @@ static int journal_file_set_online(JournalFile *f) {
                                 return r;
 
                         wait = false;
-                        break;
-                }
-                }
+                }}
         }
 
         if (mmap_cache_fd_got_sigbus(f->cache_fd))
@@ -3822,8 +3820,6 @@ void journal_file_dump(JournalFile *f) {
                                 log_info("Type: %s \n", s);
                         else
                                 log_info("Type: unknown (%i)", o->object.type);
-
-                        break;
                 }
 
                 c = COMPRESSION_FROM_OBJECT(o);

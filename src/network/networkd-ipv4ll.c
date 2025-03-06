@@ -156,7 +156,6 @@ static void ipv4ll_handler(sd_ipv4ll *ll, int event, void *userdata) {
                         break;
                 default:
                         log_link_warning(link, "IPv4 link-local unknown event: %d", event);
-                        break;
         }
 }
 

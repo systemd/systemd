@@ -724,7 +724,6 @@ static void resolve_service_all_complete(DnsQuery *query) {
 
                         default:
                                 bad = aux;
-                                break;
                         }
                 }
                 if (!have_success) {

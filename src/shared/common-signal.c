@@ -78,7 +78,6 @@ int sigrtmin18_handler(sd_event_source *s, const struct signalfd_siginfo *si, vo
         default:
                 log_notice("Received control signal %s with unknown command 0x%08x, ignoring.",
                            signal_to_string(si->ssi_signo), (unsigned) si->ssi_int);
-                break;
         }
 
         return 0;

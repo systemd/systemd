@@ -1223,7 +1223,6 @@ int user_record_good_authentication(UserRecord *h) {
                 break;
         default:
                 counter = h->good_authentication_counter + 1;
-                break;
         }
 
         usec = now(CLOCK_REALTIME);
@@ -1279,7 +1278,6 @@ int user_record_bad_authentication(UserRecord *h) {
                 break;
         default:
                 counter = h->bad_authentication_counter + 1;
-                break;
         }
 
         usec = now(CLOCK_REALTIME);

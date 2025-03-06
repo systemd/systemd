@@ -773,7 +773,7 @@ static void mount_catchup(Unit *u) {
                         mount_set_state(m, MOUNT_MOUNTING_DONE);
                         break;
                 default:
-                        break;
+                        ;
                 }
         else
                 switch (m->state) {
@@ -786,7 +786,7 @@ static void mount_catchup(Unit *u) {
                         mount_enter_dead(m, MOUNT_SUCCESS, /* flush_result = */ false);
                         break;
                 default:
-                        break;
+                        ;
                 }
 }
 
@@ -2242,7 +2242,7 @@ static int mount_process_proc_self_mountinfo(Manager *m) {
                                 break;
 
                         default:
-                                break;
+                                ;
                         }
 
                 } else if (mount->proc_flags & (MOUNT_PROC_JUST_MOUNTED|MOUNT_PROC_JUST_CHANGED)) {
@@ -2270,7 +2270,6 @@ static int mount_process_proc_self_mountinfo(Manager *m) {
                                  * in case somebody is waiting for this. (e.g. file system ro/rw
                                  * remounts.) */
                                 mount_set_state(mount, mount->state);
-                                break;
                         }
                 }
 

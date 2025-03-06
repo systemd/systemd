@@ -153,7 +153,6 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
                 }
 
                 printf("    Login OK: %syes%s\n", ansi_highlight_green(), ansi_normal());
-                break;
         }}
 
         r = user_record_test_password_change_required(hr);

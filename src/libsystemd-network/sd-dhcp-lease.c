@@ -1076,7 +1076,6 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
 
         default:
                 log_debug("Ignoring DHCP option %"PRIu8" while parsing.", code);
-                break;
         }
 
         return 0;
