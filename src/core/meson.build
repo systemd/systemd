@@ -64,6 +64,7 @@ libcore_sources = files(
         'unit-printf.c',
         'unit-serialize.c',
         'unit.c',
+        'varlink-common.c',
 )
 
 if conf.get('BPF_FRAMEWORK') == 1
