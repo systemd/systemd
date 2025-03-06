@@ -8,6 +8,7 @@
 #include "fd-util.h"
 #include "fs-util.h"
 #include "fsprg.h"
+#include "hostname-setup.h"
 #include "hostname-util.h"
 #include "io-util.h"
 #include "journal-authenticate.h"

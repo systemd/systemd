@@ -12,6 +12,7 @@
 #include "format-ifname.h"
 #include "hexdecoct.h"
 #include "hostname-util.h"
+#include "hostname-setup.h"
 #include "in-addr-util.h"
 #include "local-addresses.h"
 #include "log.h"
