@@ -52,6 +52,8 @@ typedef struct StatusInfo {
         const char *os_pretty_name;
         const char *os_cpe_name;
         usec_t os_support_end;
+        const char *os_image_id;
+        const char *os_image_version;
         const char *virtualization;
         const char *architecture;
         const char *home_url;
@@ -259,6 +261,22 @@ static int print_status_info(StatusInfo *i) {
                         return table_log_add_error(r);
         }
 
+        if (!isempty(i->os_image_id)) {
+                r = table_add_many(table,
+                                   TABLE_FIELD, "OS Image",
+                                   TABLE_STRING, i->os_image_id);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        if (!isempty(i->os_image_version)) {
+                r = table_add_many(table,
+                                   TABLE_FIELD, "OS Image Version",
+                                   TABLE_STRING, i->os_image_version);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
         if (!isempty(i->kernel_name) && !isempty(i->kernel_release)) {
                 const char *v;
 
@@ -377,31 +395,33 @@ static int show_all_names(sd_bus *bus) {
         };
 
         static const struct bus_properties_map hostname_map[]  = {
-                { "Hostname",                  "s",  NULL,          offsetof(StatusInfo, hostname)         },
-                { "StaticHostname",            "s",  NULL,          offsetof(StatusInfo, static_hostname)  },
-                { "PrettyHostname",            "s",  NULL,          offsetof(StatusInfo, pretty_hostname)  },
-                { "IconName",                  "s",  NULL,          offsetof(StatusInfo, icon_name)        },
-                { "Chassis",                   "s",  NULL,          offsetof(StatusInfo, chassis)          },
-                { "ChassisAssetTag",           "s",  NULL,          offsetof(StatusInfo, chassis_asset_tag)},
-                { "Deployment",                "s",  NULL,          offsetof(StatusInfo, deployment)       },
-                { "Location",                  "s",  NULL,          offsetof(StatusInfo, location)         },
-                { "KernelName",                "s",  NULL,          offsetof(StatusInfo, kernel_name)      },
-                { "KernelRelease",             "s",  NULL,          offsetof(StatusInfo, kernel_release)   },
-                { "OperatingSystemPrettyName", "s",  NULL,          offsetof(StatusInfo, os_pretty_name)   },
-                { "OperatingSystemCPEName",    "s",  NULL,          offsetof(StatusInfo, os_cpe_name)      },
-                { "OperatingSystemSupportEnd", "t",  NULL,          offsetof(StatusInfo, os_support_end)   },
-                { "HomeURL",                   "s",  NULL,          offsetof(StatusInfo, home_url)         },
-                { "HardwareVendor",            "s",  NULL,          offsetof(StatusInfo, hardware_vendor)  },
-                { "HardwareModel",             "s",  NULL,          offsetof(StatusInfo, hardware_model)   },
-                { "FirmwareVersion",           "s",  NULL,          offsetof(StatusInfo, firmware_version) },
-                { "FirmwareDate",              "t",  NULL,          offsetof(StatusInfo, firmware_date)    },
-                { "MachineID",                 "ay", bus_map_id128, offsetof(StatusInfo, machine_id)       },
-                { "BootID",                    "ay", bus_map_id128, offsetof(StatusInfo, boot_id)          },
-                { "VSockCID",                  "u",  NULL,          offsetof(StatusInfo, vsock_cid)        },
+                { "Hostname",                    "s",  NULL,          offsetof(StatusInfo, hostname)         },
+                { "StaticHostname",              "s",  NULL,          offsetof(StatusInfo, static_hostname)  },
+                { "PrettyHostname",              "s",  NULL,          offsetof(StatusInfo, pretty_hostname)  },
+                { "IconName",                    "s",  NULL,          offsetof(StatusInfo, icon_name)        },
+                { "Chassis",                     "s",  NULL,          offsetof(StatusInfo, chassis)          },
+                { "ChassisAssetTag",             "s",  NULL,          offsetof(StatusInfo, chassis_asset_tag)},
+                { "Deployment",                  "s",  NULL,          offsetof(StatusInfo, deployment)       },
+                { "Location",                    "s",  NULL,          offsetof(StatusInfo, location)         },
+                { "KernelName",                  "s",  NULL,          offsetof(StatusInfo, kernel_name)      },
+                { "KernelRelease",               "s",  NULL,          offsetof(StatusInfo, kernel_release)   },
+                { "OperatingSystemPrettyName",   "s",  NULL,          offsetof(StatusInfo, os_pretty_name)   },
+                { "OperatingSystemCPEName",      "s",  NULL,          offsetof(StatusInfo, os_cpe_name)      },
+                { "OperatingSystemSupportEnd",   "t",  NULL,          offsetof(StatusInfo, os_support_end)   },
+                { "OperatingSystemImageID",      "s",  NULL,          offsetof(StatusInfo, os_image_id)      },
+                { "OperatingSystemImageVersion", "s",  NULL,          offsetof(StatusInfo, os_image_version) },
+                { "HomeURL",                     "s",  NULL,          offsetof(StatusInfo, home_url)         },
+                { "HardwareVendor",              "s",  NULL,          offsetof(StatusInfo, hardware_vendor)  },
+                { "HardwareModel",               "s",  NULL,          offsetof(StatusInfo, hardware_model)   },
+                { "FirmwareVersion",             "s",  NULL,          offsetof(StatusInfo, firmware_version) },
+                { "FirmwareDate",                "t",  NULL,          offsetof(StatusInfo, firmware_date)    },
+                { "MachineID",                   "ay", bus_map_id128, offsetof(StatusInfo, machine_id)       },
+                { "BootID",                      "ay", bus_map_id128, offsetof(StatusInfo, boot_id)          },
+                { "VSockCID",                    "u",  NULL,          offsetof(StatusInfo, vsock_cid)        },
                 {}
         }, manager_map[] = {
-                { "Virtualization",            "s",  NULL,          offsetof(StatusInfo, virtualization)   },
-                { "Architecture",              "s",  NULL,          offsetof(StatusInfo, architecture)     },
+                { "Virtualization",              "s",  NULL,          offsetof(StatusInfo, virtualization)   },
+                { "Architecture",                "s",  NULL,          offsetof(StatusInfo, architecture)     },
                 {}
         };
 
@@ -669,16 +689,16 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...] COMMAND ...\n\n"
-               "%sQuery or change system hostname.%s\n"
-               "\nCommands:\n"
+        printf("%1$s [OPTIONS...] COMMAND ...\n\n"
+               "%2$sQuery or change system hostname.%3$s\n"
+               "\n%4$sCommands:%5$s\n"
                "  status                 Show current hostname settings\n"
                "  hostname [NAME]        Get/set system hostname\n"
                "  icon-name [NAME]       Get/set icon name for host\n"
                "  chassis [NAME]         Get/set chassis type for host\n"
                "  deployment [NAME]      Get/set deployment environment for host\n"
                "  location [NAME]        Get/set location for host\n"
-               "\nOptions:\n"
+               "\n%4$sOptions:%5$s\n"
                "  -h --help              Show this help\n"
                "     --version           Show package version\n"
                "     --no-ask-password   Do not prompt for password\n"
@@ -690,9 +710,11 @@ static int help(void) {
                "     --json=pretty|short|off\n"
                "                         Generate JSON output\n"
                "  -j                     Same as --json=pretty on tty, --json=short otherwise\n"
-               "\nSee the %s for details.\n",
+               "\nSee the %6$s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
+               ansi_normal(),
+               ansi_underline(),
                ansi_normal(),
                link);
 
