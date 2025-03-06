@@ -689,16 +689,16 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...] COMMAND ...\n\n"
-               "%sQuery or change system hostname.%s\n"
-               "\nCommands:\n"
+        printf("%1$s [OPTIONS...] COMMAND ...\n\n"
+               "%2$sQuery or change system hostname.%3$s\n"
+               "\n%4$sCommands:%5$s\n"
                "  status                 Show current hostname settings\n"
                "  hostname [NAME]        Get/set system hostname\n"
                "  icon-name [NAME]       Get/set icon name for host\n"
                "  chassis [NAME]         Get/set chassis type for host\n"
                "  deployment [NAME]      Get/set deployment environment for host\n"
                "  location [NAME]        Get/set location for host\n"
-               "\nOptions:\n"
+               "\n%4$sOptions:%5$s\n"
                "  -h --help              Show this help\n"
                "     --version           Show package version\n"
                "     --no-ask-password   Do not prompt for password\n"
@@ -710,9 +710,11 @@ static int help(void) {
                "     --json=pretty|short|off\n"
                "                         Generate JSON output\n"
                "  -j                     Same as --json=pretty on tty, --json=short otherwise\n"
-               "\nSee the %s for details.\n",
+               "\nSee the %6$s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
+               ansi_normal(),
+               ansi_underline(),
                ansi_normal(),
                link);
 
