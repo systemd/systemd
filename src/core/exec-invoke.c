@@ -1449,7 +1449,7 @@ static bool context_has_seccomp(const ExecContext *c) {
                 c->protect_kernel_modules ||
                 c->protect_kernel_logs ||
                 context_has_address_families(c) ||
-                exec_context_restrict_namespaces_set(c) ||
+                exec_context_retain_namespaces_set(c) ||
                 c->restrict_realtime ||
                 c->restrict_suid_sgid ||
                 !set_isempty(c->syscall_archs) ||
@@ -1735,13 +1735,13 @@ static int apply_restrict_namespaces(const ExecContext *c, const ExecParameters 
         assert(c);
         assert(p);
 
-        if (!exec_context_restrict_namespaces_set(c))
+        if (!exec_context_retain_namespaces_set(c))
                 return 0;
 
         if (skip_seccomp_unavailable(c, p, "RestrictNamespaces="))
                 return 0;
 
-        return seccomp_restrict_namespaces(c->restrict_namespaces);
+        return seccomp_restrict_namespaces(c->retain_namespaces);
 }
 
 static int apply_lock_personality(const ExecContext *c, const ExecParameters *p) {
