@@ -67,6 +67,8 @@ typedef enum {
         PROP_OS_CPE_NAME,
         PROP_OS_HOME_URL,
         PROP_OS_SUPPORT_END,
+        PROP_OS_IMAGE_ID,
+        PROP_OS_IMAGE_VERSION,
         _PROP_MAX,
         _PROP_INVALID = -EINVAL,
 } HostProperty;
@@ -181,14 +183,18 @@ static void context_read_os_release(Context *c) {
                       (UINT64_C(1) << PROP_OS_PRETTY_NAME) |
                       (UINT64_C(1) << PROP_OS_CPE_NAME) |
                       (UINT64_C(1) << PROP_OS_HOME_URL) |
-                      (UINT64_C(1) << PROP_OS_SUPPORT_END));
+                      (UINT64_C(1) << PROP_OS_SUPPORT_END) |
+                      (UINT64_C(1) << PROP_OS_IMAGE_ID) |
+                      (UINT64_C(1) << PROP_OS_IMAGE_VERSION));
 
         r = parse_os_release(NULL,
-                             "PRETTY_NAME", &os_pretty_name,
-                             "NAME",        &os_name,
-                             "CPE_NAME",    &c->data[PROP_OS_CPE_NAME],
-                             "HOME_URL",    &c->data[PROP_OS_HOME_URL],
-                             "SUPPORT_END", &c->data[PROP_OS_SUPPORT_END]);
+                             "PRETTY_NAME",   &os_pretty_name,
+                             "NAME",          &os_name,
+                             "CPE_NAME",      &c->data[PROP_OS_CPE_NAME],
+                             "HOME_URL",      &c->data[PROP_OS_HOME_URL],
+                             "SUPPORT_END",   &c->data[PROP_OS_SUPPORT_END],
+                             "IMAGE_ID",      &c->data[PROP_OS_IMAGE_ID],
+                             "IMAGE_VERSION", &c->data[PROP_OS_IMAGE_VERSION]);
         if (r < 0 && r != -ENOENT)
                 log_warning_errno(r, "Failed to read os-release file, ignoring: %m");
 
@@ -1571,6 +1577,8 @@ static int build_describe_response(Context *c, bool privileged, sd_json_variant 
                         SD_JSON_BUILD_PAIR_STRING("OperatingSystemHomeURL", c->data[PROP_OS_HOME_URL]),
                         JSON_BUILD_PAIR_FINITE_USEC("OperatingSystemSupportEnd", eol),
                         SD_JSON_BUILD_PAIR("OperatingSystemReleaseData", JSON_BUILD_STRV_ENV_PAIR(os_release_pairs)),
+                        SD_JSON_BUILD_PAIR_STRING("OperatingSystemImageID", c->data[PROP_OS_IMAGE_ID]),
+                        SD_JSON_BUILD_PAIR_STRING("OperatingSystemImageVersion", c->data[PROP_OS_IMAGE_VERSION]),
                         SD_JSON_BUILD_PAIR("MachineInformationData", JSON_BUILD_STRV_ENV_PAIR(machine_info_pairs)),
                         SD_JSON_BUILD_PAIR_STRING("HardwareVendor", vendor ?: c->data[PROP_HARDWARE_VENDOR]),
                         SD_JSON_BUILD_PAIR_STRING("HardwareModel", model ?: c->data[PROP_HARDWARE_MODEL]),
@@ -1628,20 +1636,22 @@ static const sd_bus_vtable hostname_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Hostname", "s", property_get_hostname, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("StaticHostname", "s", property_get_static_hostname, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
-        SD_BUS_PROPERTY("PrettyHostname", "s", property_get_machine_info_field, offsetof(Context, data) + sizeof(char*) * PROP_PRETTY_HOSTNAME, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("PrettyHostname", "s", property_get_machine_info_field, offsetof(Context, data[PROP_PRETTY_HOSTNAME]), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("DefaultHostname", "s", property_get_default_hostname, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("HostnameSource", "s", property_get_hostname_source, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("IconName", "s", property_get_icon_name, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("Chassis", "s", property_get_chassis, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
-        SD_BUS_PROPERTY("Deployment", "s", property_get_machine_info_field, offsetof(Context, data) + sizeof(char*) * PROP_DEPLOYMENT, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
-        SD_BUS_PROPERTY("Location", "s", property_get_machine_info_field, offsetof(Context, data) + sizeof(char*) * PROP_LOCATION, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("Deployment", "s", property_get_machine_info_field, offsetof(Context, data[PROP_DEPLOYMENT]), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("Location", "s", property_get_machine_info_field, offsetof(Context, data[PROP_LOCATION]), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("KernelName", "s", property_get_uname_field, offsetof(struct utsname, sysname), SD_BUS_VTABLE_ABSOLUTE_OFFSET|SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("KernelRelease", "s", property_get_uname_field, offsetof(struct utsname, release), SD_BUS_VTABLE_ABSOLUTE_OFFSET|SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("KernelVersion", "s", property_get_uname_field, offsetof(struct utsname, version), SD_BUS_VTABLE_ABSOLUTE_OFFSET|SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("OperatingSystemPrettyName", "s", property_get_os_release_field, offsetof(Context, data) + sizeof(char*) * PROP_OS_PRETTY_NAME, SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("OperatingSystemCPEName", "s", property_get_os_release_field, offsetof(Context, data) + sizeof(char*) * PROP_OS_CPE_NAME, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("OperatingSystemPrettyName", "s", property_get_os_release_field, offsetof(Context, data[PROP_OS_PRETTY_NAME]), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("OperatingSystemCPEName", "s", property_get_os_release_field, offsetof(Context, data[PROP_OS_CPE_NAME]), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("OperatingSystemSupportEnd", "t", property_get_os_support_end, 0, SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("HomeURL", "s", property_get_os_release_field, offsetof(Context, data) + sizeof(char*) * PROP_OS_HOME_URL, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("HomeURL", "s", property_get_os_release_field, offsetof(Context, data[PROP_OS_HOME_URL]), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("OperatingSystemImageID", "s", property_get_os_release_field, offsetof(Context, data[PROP_OS_IMAGE_ID]), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("OperatingSystemImageVersion", "s", property_get_os_release_field, offsetof(Context, data[PROP_OS_IMAGE_VERSION]), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("HardwareVendor", "s", property_get_hardware_vendor, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("HardwareModel", "s", property_get_hardware_model, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("FirmwareVersion", "s", property_get_firmware_version, 0, SD_BUS_VTABLE_PROPERTY_CONST),
