@@ -485,11 +485,7 @@ static int add_partition_xbootldr(DissectedPartition *p) {
         int r;
 
         assert(p);
-
-        if (in_initrd()) {
-                log_debug("In initrd, ignoring the XBOOTLDR partition.");
-                return 0;
-        }
+        assert(!in_initrd());
 
         r = path_is_busy("/boot");
         if (r < 0)
@@ -526,11 +522,7 @@ static int add_partition_esp(DissectedPartition *p, bool has_xbootldr) {
         int r;
 
         assert(p);
-
-        if (in_initrd()) {
-                log_debug("In initrd, ignoring the ESP.");
-                return 0;
-        }
+        assert(!in_initrd());
 
         /* Check if there's an existing fstab entry for ESP. If so, we just skip the gpt-auto logic. */
         r = fstab_has_node(p->node);
@@ -908,6 +900,9 @@ static int add_mounts(void) {
         dev_t devno;
         int r;
 
+        if (in_initrd())
+                return 0;
+
         r = blockdev_get_root(LOG_ERR, &devno);
         if (r < 0)
                 return r;
@@ -1011,10 +1006,9 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
                 return 0;
         }
 
-        r = add_root_mount();
-
-        if (!in_initrd())
-                RET_GATHER(r, add_mounts());
+        r = 0;
+        RET_GATHER(r, add_root_mount());
+        RET_GATHER(r, add_mounts());
 
         return r;
 }
