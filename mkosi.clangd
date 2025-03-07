@@ -13,8 +13,7 @@ BUILDDIR="$(jq -r .BuildDirectory <<< "$MKOSI_CONFIG")"
 BUILDSUBDIR="$(jq -r .BuildSubdirectory <<< "$MKOSI_CONFIG")"
 
 exec "${SPAWN[@]}" mkosi \
-    --incremental=strict \
-    --format=none \
+    --rerun-build-scripts \
     build \
     -- \
     clangd \
