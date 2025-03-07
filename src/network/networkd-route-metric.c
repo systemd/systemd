@@ -75,12 +75,8 @@ bool route_metric_can_update(const RouteMetric *a, const RouteMetric *b, bool ex
         if (a->n_metrics != b->n_metrics)
                 return false;
 
-        for (size_t i = 1; i < a->n_metrics; i++) {
-                if (i != RTAX_MTU)
-                        continue;
-                if (a->metrics[i] != b->metrics[i])
-                        return false;
-        }
+        if (a->n_metrics > RTAX_MTU && a->metrics[RTAX_MTU] != b->metrics[RTAX_MTU])
+                return false;
 
         return streq_ptr(a->tcp_congestion_control_algo, b->tcp_congestion_control_algo);
 }
