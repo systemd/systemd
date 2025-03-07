@@ -8,6 +8,7 @@
 
 #include "alloc-util.h"
 #include "errno-util.h"
+#include "hostname-setup.h"
 #include "hostname-util.h"
 #include "local-addresses.h"
 #include "macro.h"
