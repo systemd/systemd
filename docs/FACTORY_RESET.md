@@ -133,11 +133,24 @@ runtime whether or not your service needs to perform the factory reset.
 
 ## Factory Reset via Boot Menu
 
-Factory reset can also be requested via the boot menu. A simple factory reset
-(that does not touch the TPM) at boot can be requested via a boot menu item
-containing the `systemd.factory_reset=1` kernel command line option. A more
-comprehensive factory reset operation (that also erases the TPM) can be
-requested by booting with `rd.systemd.unit=factory-reset.target`. Note that the
-latter will require one reboot (required since that's how TPM resets work),
-while the former will reset state and continue running without an additional
-reboot.
+Factory reset can also be requested via the boot menu, by booting with certain
+kernel command line arguments. The specifics vary by distribution, but here
+are some pointers:
+
+The most potable solution would be to boot with
+`rd.systemd.unit=factory-reset.target` set. This will execute the entire factory
+reset process from within the initrd, including a reboot. To preserve the state
+of the TPM, you can pass `systemd.tpm2_allow_clear=false`.
+
+Depending on the way your distribution uses the factory reset integration points,
+a simpler case may be possible. Booting with `systemd.factory_reset=1` will
+bypass `factory-reset.target` entirely, and skip a reboot. However, bear in mind
+that this may have unintended consequences: some firmware or hardware may not be
+completely reset this way, including the TPM.
+
+Note that the portable solution requires that distributions include their entire
+factory reset integration in the initrd. If that is undesirable, alternatives
+do exist. For instance, image-based distributions that separate `/usr` from the
+rootfs can use something like `root=tmpfs systemd.unit=factory-reset.target` to
+trigger the factory reset from the real `/usr`.
+
