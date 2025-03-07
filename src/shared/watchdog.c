@@ -194,6 +194,15 @@ usec_t watchdog_get_last_ping(clockid_t clock) {
         return map_clock_usec(watchdog_last_ping, CLOCK_BOOTTIME, clock);
 }
 
+dual_timestamp* watchdog_get_last_ping_as_dual_timestamp(dual_timestamp* ts) {
+        assert(ts);
+
+        ts->monotonic = watchdog_get_last_ping(CLOCK_MONOTONIC);
+        ts->realtime = watchdog_get_last_ping(CLOCK_REALTIME);
+
+        return ts;
+}
+
 static int watchdog_ping_now(void) {
         assert(watchdog_fd >= 0);
 
