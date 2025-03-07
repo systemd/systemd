@@ -121,6 +121,15 @@ static int print_status_info(StatusInfo *i) {
 
         table_set_ersatz_string(table, TABLE_ERSATZ_UNSET);
 
+        if (!isempty(i->hostname) &&
+            !streq_ptr(i->hostname, i->static_hostname)) {
+                r = table_add_many(table,
+                                   TABLE_FIELD, "Transient hostname",
+                                   TABLE_STRING, i->hostname);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
         r = table_add_many(table,
                            TABLE_FIELD, "Static hostname",
                            TABLE_STRING, i->static_hostname);
@@ -132,15 +141,6 @@ static int print_status_info(StatusInfo *i) {
                 r = table_add_many(table,
                                    TABLE_FIELD, "Pretty hostname",
                                    TABLE_STRING, i->pretty_hostname);
-                if (r < 0)
-                        return table_log_add_error(r);
-        }
-
-        if (!isempty(i->hostname) &&
-            !streq_ptr(i->hostname, i->static_hostname)) {
-                r = table_add_many(table,
-                                   TABLE_FIELD, "Transient hostname",
-                                   TABLE_STRING, i->hostname);
                 if (r < 0)
                         return table_log_add_error(r);
         }
