@@ -3,11 +3,13 @@
   <mime-type type="application/x.systemd-sysext">
     <sub-class-of type="application/vnd.efi.img"/>
     <comment>System Extension DDI</comment>
+    <generic-icon name="application-x-addon"/>
     <glob pattern="*.sysext.raw"/>
   </mime-type>
   <mime-type type="application/x.systemd-confext">
     <sub-class-of type="application/vnd.efi.img"/>
     <comment>Configuration Extension DDI</comment>
+    <generic-icon name="application-x-addon"/>
     <glob pattern="*.confext.raw"/>
   </mime-type>
   <mime-type type="application/x.systemd-journal">
