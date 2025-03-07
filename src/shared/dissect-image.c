@@ -3692,7 +3692,7 @@ int dissected_image_acquire_metadata(
                 switch (k) {
 
                 case META_HOSTNAME:
-                        r = read_etc_hostname_stream(f, &hostname);
+                        r = read_etc_hostname_stream(f, /* substitute_wildcards= */ false, &hostname);
                         if (r < 0)
                                 log_debug_errno(r, "Failed to read /etc/hostname of image: %m");
 
