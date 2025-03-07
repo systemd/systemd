@@ -262,6 +262,22 @@ test_varlink() {
     cmp "$A" "$B"
 }
 
+test_wildcard() {
+    SAVED="$(cat /etc/hostname)"
+
+    P='foo-??-??.????bar'
+    hostnamectl set-hostname "$P"
+    H="$(hostname)"
+    # Validate that the hostname is not the literal pattern, but matches the pattern shell style
+    assert_neq "$H" "$P"
+    [[ "$P" == "$H" ]]
+    assert_eq "$(cat /etc/hostname)" "$P"
+
+    assert_in "Static hostname: foo-" "$(hostnamectl)"
+
+    hostnamectl set-hostname "$SAVED"
+}
+
 run_testcases
 
 touch /testok
