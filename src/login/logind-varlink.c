@@ -200,7 +200,7 @@ static int vl_method_create_session(sd_varlink *link, sd_json_variant *parameter
                         return sd_varlink_error(link, "io.systemd.Login.NoSuchSeat", /* parameters= */ NULL);
         }
 
-        if (p.tty) {
+        if (p.tty && tty_is_vc_resolve(p.tty)) {
                 if (tty_is_vc(p.tty)) {
                         if (!seat)
                                 seat = m->seat0;
@@ -216,7 +216,9 @@ static int vl_method_create_session(sd_varlink *link, sd_json_variant *parameter
                         else if (p.vtnr != (unsigned) v)
                                 return sd_varlink_error_invalid_parameter_name(link, "VTNr");
 
-                } else if (tty_is_console(p.tty)) {
+                } else {
+                        /* p.tty == /dev/console and /dev/console is a vc */
+
                         if (!seat)
                                 seat = m->seat0;
                         else if (seat != m->seat0)
