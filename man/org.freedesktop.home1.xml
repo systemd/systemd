@@ -70,6 +70,8 @@ node /org/freedesktop/home1 {
       @org.freedesktop.systemd1.Privileged("true")
       DeactivateHome(in  s user_name);
       RegisterHome(in  s user_record);
+      AdoptHome(in  s image_path,
+                in  t flags);
       UnregisterHome(in  s user_name);
       CreateHome(in  s user_record);
       CreateHomeEx(in  s user_record,
@@ -112,6 +114,15 @@ node /org/freedesktop/home1 {
                           out h send_fd);
       @org.freedesktop.systemd1.Privileged("true")
       ReleaseHome(in  s user_name);
+      ListSigningKeys(out a(sst) keys);
+      GetSigningKey(in  s name,
+                    out s der,
+                    out t flags);
+      AddSigningKey(in  s name,
+                    in  s pem,
+                    in  t flags);
+      RemoveSigningKey(in  s name,
+                       in  t flags);
       @org.freedesktop.systemd1.Privileged("true")
       LockAllHomes();
       @org.freedesktop.systemd1.Privileged("true")
@@ -151,6 +162,8 @@ node /org/freedesktop/home1 {
 
     <variablelist class="dbus-method" generated="True" extra-ref="RegisterHome()"/>
 
+    <variablelist class="dbus-method" generated="True" extra-ref="AdoptHome()"/>
+
     <variablelist class="dbus-method" generated="True" extra-ref="UnregisterHome()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="CreateHome()"/>
@@ -184,6 +197,14 @@ node /org/freedesktop/home1 {
     <variablelist class="dbus-method" generated="True" extra-ref="RefHomeUnrestricted()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="ReleaseHome()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="ListSigningKeys()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="GetSigningKey()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="AddSigningKey()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="RemoveSigningKey()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="LockAllHomes()"/>
 
@@ -256,6 +277,12 @@ node /org/freedesktop/home1 {
       create a home directory or such (which is expected to exist already, or created later). This operation
       is useful to register home directories locally that are not located where
       <filename>systemd-homed.service</filename> would find them automatically.</para>
+
+      <para><function>AdoptHome()</function> also registers a new home directory locally. It takes a path to
+      a home directory itself, and will register it locally. This only works for <filename>*.home</filename>
+      and <filename>*.homedir/</filename> home directories. This operation is done automatically for all such
+      home areas showing up in <filename>/home/</filename>, but may be requested explicitly with this call for
+      directories elsewhere. The <varname>flags</varname> must be set to zero, currently.</para>
 
       <para><function>UnregisterHome()</function> unregisters an existing home directory. It takes a user
       name as argument and undoes what <function>RegisterHome()</function> does. It does not attempt to
@@ -426,6 +453,23 @@ node /org/freedesktop/home1 {
       <para><function>Rebalance()</function> synchronously rebalances free disk space between home
       areas. This only executes an operation if at least one home area using the LUKS2 backend is active and
       has rebalancing enabled, and is otherwise a NOP.</para>
+
+      <para><function>ListSigningKeys()</function> acquires a list of installed home area signing
+      keys. Returns an array of key names with their PEM encoded public key data. Each entry also comes with
+      a flags value which is currently unused and should be ignored by clients.</para>
+
+      <para><function>GetSigningKey()</function> acquires the PEM encoded public part of the specified home
+      area signing key of the specified name. Also returns a currently unused flags value that should be
+      ignored. The <varname>flags</varname> parameter must be set to zero, currently.</para>
+
+      <para><function>AddSigningKey()</function> adds a new key to the list of home area signing keys. Takes
+      a name string (free-form, suitable as filename, with suffix <literal>.public</literal>), the PEM
+      encoded public key data and a currently unused flags value that must be zero. The
+      <varname>flags</varname> parameter must be set to zero, currently.</para>
+
+      <para><function>RemoveSigningKey()</function> removes a key from the list of home area signing
+      keys. Takes the name of the key to remove and a currently unused flags value that must be zero. The
+      <varname>flags</varname> parameter must be set to zero, currently.</para>
     </refsect2>
 
     <refsect2>
@@ -599,6 +643,9 @@ node /org/freedesktop/home1/home {
       <title>The Manager Object</title>
       <para><function>ActivateHomeIfReferenced()</function>, <function>RefHomeUnrestricted()</function>,
       <function>CreateHomeEx()</function>, and <function>UpdateHomeEx()</function> were added in version 256.</para>
+      <para><function>AdoptHome()</function>, <function>ListSigningKeys()</function>,
+      <function>GetSigningKey()</function>, <function>AddSigningKey()</function>, and
+      <function>RemoveSigningKey()</function> were added in version 258.</para>
     </refsect2>
     <refsect2>
       <title>Home Objects</title>
