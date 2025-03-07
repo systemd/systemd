@@ -438,6 +438,10 @@ static int async_polkit_query_check_action(
         if (q->absent_action)
                 return FLAGS_SET(flags, POLKIT_DEFAULT_ALLOW) ? 1 /* Allow! */ : -EACCES /* Deny! */;
 
+        /* Also deny if we've got an auth. failure for a previous action */
+        if (q->denied_action || q->error_action)
+                return -EALREADY;
+
         return 0; /* no reply yet */
 }
 #endif
