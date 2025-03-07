@@ -103,35 +103,40 @@ static Virtualization detect_vm_device_tree(void) {
 
         r = read_one_line_file("/proc/device-tree/hypervisor/compatible", &hvtype);
         if (r == -ENOENT) {
-                _cleanup_closedir_ DIR *dir = NULL;
-                _cleanup_free_ char *compat = NULL;
-
                 if (access("/proc/device-tree/ibm,partition-name", F_OK) == 0 &&
                     access("/proc/device-tree/hmc-managed?", F_OK) == 0 &&
                     access("/proc/device-tree/chosen/qemu,graphic-width", F_OK) != 0)
                         return VIRTUALIZATION_POWERVM;
 
-                dir = opendir("/proc/device-tree");
+                _cleanup_closedir_ DIR *dir = opendir("/proc/device-tree");
                 if (!dir) {
                         if (errno == ENOENT) {
-                                log_debug_errno(errno, "/proc/device-tree: %m");
+                                log_debug_errno(errno, "/proc/device-tree/ does not exist");
                                 return VIRTUALIZATION_NONE;
                         }
-                        return -errno;
+                        return log_debug_errno(errno, "Opening /proc/device-tree/ failed: %m");
                 }
 
-                FOREACH_DIRENT(de, dir, return -errno)
+                FOREACH_DIRENT(de, dir, return log_debug_errno(errno, "Failed to enumerate /proc/device-tree/ contents: %m"))
                         if (strstr(de->d_name, "fw-cfg")) {
                                 log_debug("Virtualization QEMU: \"fw-cfg\" present in /proc/device-tree/%s", de->d_name);
                                 return VIRTUALIZATION_QEMU;
                         }
 
+                _cleanup_free_ char *compat = NULL;
                 r = read_one_line_file("/proc/device-tree/compatible", &compat);
                 if (r < 0 && r != -ENOENT)
-                        return r;
-                if (r >= 0 && streq(compat, "qemu,pseries")) {
-                        log_debug("Virtualization %s found in /proc/device-tree/compatible", compat);
-                        return VIRTUALIZATION_QEMU;
+                        return log_debug_errno(r, "Failed to read /proc/device-tree/compatible: %m");
+                if (r >= 0) {
+                        if (streq(compat, "qemu,pseries")) {
+                                log_debug("Virtualization %s found in /proc/device-tree/compatible", compat);
+                                return VIRTUALIZATION_QEMU;
+                        }
+                        if (streq(compat, "linux,dummy-virt")) {
+                                /* https://www.kernel.org/doc/Documentation/devicetree/bindings/arm/linux%2Cdummy-virt.yaml */
+                                log_debug("Generic virtualization %s found in /proc/device-tree/compatible", compat);
+                                return VIRTUALIZATION_VM_OTHER;
+                        }
                 }
 
                 log_debug("No virtualization found in /proc/device-tree/*");
