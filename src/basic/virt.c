@@ -127,9 +127,16 @@ static Virtualization detect_vm_device_tree(void) {
                 r = read_one_line_file("/proc/device-tree/compatible", &compat);
                 if (r < 0 && r != -ENOENT)
                         return log_debug_errno(r, "Failed to read /proc/device-tree/compatible: %m");
-                if (r >= 0 && streq(compat, "qemu,pseries")) {
-                        log_debug("Virtualization %s found in /proc/device-tree/compatible", compat);
-                        return VIRTUALIZATION_QEMU;
+                if (r >= 0) {
+                        if (streq(compat, "qemu,pseries")) {
+                                log_debug("Virtualization %s found in /proc/device-tree/compatible", compat);
+                                return VIRTUALIZATION_QEMU;
+                        }
+                        if (streq(compat, "linux,dummy-virt")) {
+                                /* https://www.kernel.org/doc/Documentation/devicetree/bindings/arm/linux%2Cdummy-virt.yaml */
+                                log_debug("Generic virtualization %s found in /proc/device-tree/compatible", compat);
+                                return VIRTUALIZATION_VM_OTHER;
+                        }
                 }
 
                 log_debug("No virtualization found in /proc/device-tree/*");
