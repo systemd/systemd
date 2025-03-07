@@ -137,6 +137,7 @@ jobs:
           mkfs.btrfs btrfs.raw
           sudo mkdir /mnt/mkosi
           LOOP="$(sudo losetup --find --show --direct-io=on btrfs.raw)"
+          rm btrfs.raw
           sudo mount "$LOOP" /mnt/mkosi --options compress=zstd:1,user_subvol_rm_allowed,noatime,discard=async,space_cache=v2
           sudo chown "$(id -u):$(id -g)" /mnt/mkosi
           mkdir /mnt/mkosi/tmp
@@ -145,9 +146,6 @@ jobs:
 
       - name: Configure
         run: |
-          # XXX: drop after the HyperV bug that breaks secure boot KVM guests is solved
-          sed -i "s/'firmware'\s*:\s*'auto'/'firmware' : 'uefi'/g" test/*/meson.build
-
           tee mkosi.local.conf <<EOF
           [Distribution]
           Distribution=${{ matrix.distro }}
@@ -201,6 +199,17 @@ jobs:
 
       - name: Build image
         run: sudo mkosi sandbox -- meson compile -C build mkosi
+
+      - name: Make sure sources weren't polluted by package build scripts
+        run: |
+          git status
+          git diff
+          test -z "$(git status --porcelain)"
+          # There will only be one subdirectory, so we don't have to know exactly which one. Also, the
+          # subdirectory will be owned by root since we used sudo to build the image, so use sudo here as well.
+          sudo git -C pkg/* status
+          sudo git -C pkg/* diff
+          test -z "$(sudo git -C pkg/* status --porcelain)"
 
       - name: Run integration tests
         run: |
