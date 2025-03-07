@@ -880,11 +880,17 @@ UnitActiveState unit_active_state(Unit *u) {
          * loaded but still has a process around. That's why we won't
          * shortcut failed loading to UNIT_INACTIVE_FAILED. */
 
+        if (!UNIT_VTABLE(u)->active_state)
+                return UNIT_INACTIVE;
+
         return UNIT_VTABLE(u)->active_state(u);
 }
 
 const char* unit_sub_state_to_string(Unit *u) {
         assert(u);
+
+        if (!UNIT_VTABLE(u)->sub_state_to_string)
+                return NULL;
 
         return UNIT_VTABLE(u)->sub_state_to_string(u);
 }
