@@ -11,72 +11,33 @@ In various scenarios it is important to be able to reset operating systems back
 into a "factory state", i.e. where all state, user data and configuration is
 reset so that it resembles the system state when it was originally shipped.
 
-systemd natively supports a concept of factory reset, that can both act as a
-specific implementation for UEFI based systems, as well as a series of hook
-points and a template for implementations on other systems.
-
+systemd natively supports a concept of factory reset, through a series of
+generic hook points that can be integrated with a factory reset mechanism.
 Factory reset always takes place during early boot, i.e. from a well-defined
-"clean" state. Factory reset operations may be requested from one boot to be
+"clean" state. Factory reset operations are requested from one boot to be
 executed on the next.
 
-Specifically, the following concepts are available:
+The mechanism works as follows:
 
-* The `factory-reset.target` unit may be used to request a factory reset
-  operation and trigger a reboot in order to execute it. It by default executes
-  three services: `systemd-factory-reset-request.service`,
-  `systemd-tpm2-clear.service` and `systemd-factory-reset-reboot.service`.
-
-* The
-  [`systemd-factory-reset-request.service`](https://www.freedesktop.org/software/systemd/man/latest/systemd-factory-reset-request.service.html)
-  unit is typically invoked via `factory-reset.target`. It requests a factory
-  reset operation for the next boot by setting the `FactoryResetRequest` EFI
-  variable. The EFI variable contains information about the requesting OS, so
-  that multi-boot scenarios are somewhat covered.
-
-* The
-  [`systemd-tpm2-clear.service`](https://www.freedesktop.org/software/systemd/man/latest/systemd-tpm2-clear.service.html)
-  unit can request a TPM2 clear operation from the firmware on the next
-  boot. It is also invoked via `factory-reset.target`. UEFI firmwares that
-  support TPMs will ask the user for confirmation and then reset the TPM,
-  invalidating all prior keys associated with the security chip and generating
-  a new seed key.
-
-* The
+* The `factory-reset.target` unit is used to request a factory reset operation
+  and trigger a reboot in order to execute it. Services invoked via this target
+  prepare the system such that a factory reset will be requested on the next
+  boot. Once these services are done,
   [`systemd-factory-reset-reboot.service`](https://www.freedesktop.org/software/systemd/man/latest/systemd-factory-reset-reboot.service.html)
-  unit automatically reboots the system as part of `factory-reset.target`. It
-  is ordered after `systemd-tpm2-clear.service` and
-  `systemd-factory-reset-request.service` in order to initiate the reboot that
-  is supposed to execute the factory reset operations.
+  is started, which triggers the reboot.
 
-* The `factory-reset-now.target` unit is started at boot whenever a factory
-  reset is requested for the boot. A factory reset may be requested via a
-  kernel command line option (`systemd.factory_reset=1`) or via the UEFI
-  variable `FactoryResetRequest` (see above). The
-  `systemd-factory-reset-generator` unit generator checks both these conditions
-  and adds `factory-reset-now.target` to the boot transaction, already in the
-  initial RAM disk (initrd).
+* On the next boot, `systemd-factory-reset-generator` checks whether or not a
+  factory reset was requested. A factory reset may be requested via a kernel
+  command line option (`systemd.factory_reset=1`) or via the UEFI variable
+  `FactoryResetRequest` (see below). If either condition is met,
+  `factory-reset-now.target` is added to the boot transaction.
 
-* The
+* `factory-reset-now.target` will be started at boot whenever a factory reset is
+  requested. Services ordered before this target do the work of factory resetting
+  the system. Once these services are done,
   [`systemd-factory-reset-complete.service`](https://www.freedesktop.org/software/systemd/man/latest/systemd-factory-reset-complete.service.html)
-  unit is invoked after `factory-reset-now.target` and marks the factory reset
-  operation as complete. The boot process then may continue.
-
-* The
-  [`systemd-repart`](https://www.freedesktop.org/software/systemd/man/latest/systemd-repart.html)
-  tool can take the factory reset logic into account. Either on explicit
-  request via the `--factory-reset=` logic, or automatically derived from the
-  aforementioned kernel command line switch and EFI variable. When invoked for
-  factory reset it will securely erase all partitions marked for that via the
-  `FactoryReset=` setting in its partition definition files. Once that is
-  complete it will execute the usual setup operation, i.e. format new
-  partitions again.
-
-* The
-  [`systemd-logind.service(8)`](https://www.freedesktop.org/software/systemd/man/latest/systemd-logind.service.html)
-  unit supports automatically binding factory reset to special keypresses
-  (typically long presses), see the
-  [`logind.conf(5)`](https://www.freedesktop.org/software/systemd/man/latest/logind.conf.html)
-  man page.
+  marks the factory reset operation as completed. The boot process may then
+  continue.
 
 * The
   [`systemd-factory-reset`](https://www.freedesktop.org/software/systemd/man/latest/systemd-factory-reset.html)
@@ -93,27 +54,63 @@ Specifically, the following concepts are available:
   mentioned above. This may be used by various early boot services that
   potentially intent to reset system state during a factory reset operation.
 
-## Exposure in the UI
+* The
+  [`systemd-logind.service(8)`](https://www.freedesktop.org/software/systemd/man/latest/systemd-logind.service.html)
+  unit supports automatically binding factory reset to special keypresses
+  (typically long presses). See the
+  [`logind.conf(5)`](https://www.freedesktop.org/software/systemd/man/latest/logind.conf.html)
+  man page.
 
-If a graphical UI shall expose a factory reset operation it should first check
-if requesting a factory reset is supported at all via the Varlink service
-mentioned above. Once a factory reset shall be executed it shall ask for
-activation of the `factory-reset.target` unit.
+## Implementation for UEFI systems
 
-Alternatively, `systemd-logind.service`'s hotkey support may be used, for
-example to request factory reset if the reboot button is pressed for a long
-time.
+systemd also provides an implementation of this mechanism for UEFI-based systems.
+This implementation can act completely standalone for distributions that rely on
+tools like `systemd-repart`, but it can also be extended to meet other needs.
+
+The UEFI support works as follows:
+
+* The
+  [`systemd-factory-reset-request.service`](https://www.freedesktop.org/software/systemd/man/latest/systemd-factory-reset-request.service.html)
+  unit is invoked via `factory-reset.target`. It requests a factory reset
+  operation for the next boot by setting the `FactoryResetRequest` EFI
+  variable. The EFI variable contains information about the requesting OS, so
+  that multi-boot scenarios are somewhat covered.
+
+* The
+  [`systemd-tpm2-clear.service`](https://www.freedesktop.org/software/systemd/man/latest/systemd-tpm2-clear.service.html)
+  unit can request a TPM2 clear operation from the firmware on the next
+  boot. It is also invoked via `factory-reset.target`. UEFI firmwares that
+  support TPMs will ask the user for confirmation and then reset the TPM,
+  invalidating all prior keys associated with the security chip and generating
+  a new seed key.
+
+* The
+  [`systemd-repart`](https://www.freedesktop.org/software/systemd/man/latest/systemd-repart.html)
+  tool is one of the early-boot services that do the work of factory resetting
+  the system. In normal operation, it starts on every boot. When invoked during
+  a factory reset, it will erase all partitions marked for that via the
+  `FactoryReset=` setting in its partition definition files. Once that is
+  complete, it will resume its usual setup operation, i.e. reformatting the
+  empty partition with a file system.
 
 ## Support for non-UEFI Systems
 
-The above is a relatively bespoke solution for EFI systems. It uses EFI
-variables as stateful memory to request the factory reset on the next boot.
+On non-EFI systems, the `FactoryResetRequest` EFI variable cannot be used to
+communicate the factory reset request to the next boot. Instead, a service that
+somehow stores the request should be plugged into `factory-reset.target`. At
+boot, the request should then be fed back into the booted kernel via the
+`systemd.factory_reset=1` kernel command line option.
 
-On non-EFI systems, a different mechanism should be devised. A service
-requesting the factory request can then be plugged into
-`factory-reset.target`. At boot the request should then be fed back to the
-booted kernel via the `systemd.factory_reset=1` kernel command line option, in
-order to execute the reset operation.
+## Exposure in the UI
+
+If a graphical UI shall expose a factory reset operation, it should first check
+if requesting a factory reset is supported at all via the Varlink service
+mentioned above. Once the end-user triggers a factory reset, the UI can start
+the process by asking systemd to activate the `factory-reset.target` unit.
+
+Alternatively, `systemd-logind.service`'s hotkey support may be used. For
+example, it can be configured to request factory reset if the reboot button is
+pressed for a long time.
 
 ## Support for Resetting other Resources than Partitions + TPM
 
@@ -122,8 +119,8 @@ partitions (via `systemd-repart`, see above) and reset the TPM (via
 `systemd-tpm2-clear.service`, see above).
 
 In some cases other resources shall be reset/erased too. To support that,
-define your own service and plug it into `factory-reset-now.target`, ensuring
-it is ordered before that.
+define your own service and plug it into `factory-reset-now.target` or the
+Varlink service. Ensure that your service is ordered before the target.
 
 ## Factory Reset via Boot Menu
 
