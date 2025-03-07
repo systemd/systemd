@@ -37,7 +37,9 @@ enum {
         INITRD_CREDENTIAL = _INITRD_DYNAMIC_FIRST,
         INITRD_GLOBAL_CREDENTIAL,
         INITRD_SYSEXT,
+        INITRD_VENDOR_SYSEXT,
         INITRD_CONFEXT,
+        INITRD_VENDOR_CONFEXT,
         INITRD_PCRSIG,
         INITRD_PCRPKEY,
         INITRD_OSREL,
@@ -821,6 +823,7 @@ static void generate_sidecar_initrds(
                 int *sysext_measured,
                 int *confext_measured) {
 
+        _cleanup_free_ char16_t *dropin_dir = NULL, *vendor_dropin_dir = NULL;
         bool m;
 
         assert(loaded_image);
@@ -829,8 +832,13 @@ static void generate_sidecar_initrds(
         assert(sysext_measured);
         assert(confext_measured);
 
+
+        dropin_dir = get_extra_dir(".extra.d", loaded_image->FilePath);
+        vendor_dropin_dir = get_extra_dir(".extra.vendor.d", loaded_image->FilePath);
+        /* Note: Either of these may be NULL, but that's handled by pack_cpio */
+
         if (pack_cpio(loaded_image,
-                      /* dropin_dir= */ NULL,
+                      dropin_dir,
                       u".cred",
                       /* exclude_suffix= */ NULL,
                       ".extra/credentials",
@@ -856,7 +864,7 @@ static void generate_sidecar_initrds(
                 combine_measured_flag(parameters_measured, m);
 
         if (pack_cpio(loaded_image,
-                      /* dropin_dir= */ NULL,
+                      dropin_dir,
                       u".raw",         /* ideally we'd pick up only *.sysext.raw here, but for compat we pick up *.raw instead … */
                       u".confext.raw", /* … but then exclude *.confext.raw again */
                       ".extra/sysext",
@@ -869,7 +877,20 @@ static void generate_sidecar_initrds(
                 combine_measured_flag(sysext_measured, m);
 
         if (pack_cpio(loaded_image,
-                      /* dropin_dir= */ NULL,
+                      vendor_dropin_dir,
+                      u".sysext.raw", /* No compatibility to worry about in the new .vendor.d dirs */
+                      /* exclude_suffix= */ NULL,
+                      ".extra/sysext",
+                      /* dir_mode= */ 0555,
+                      /* access_mode= */ 0444,
+                      /* tpm_pcr= */ TPM2_PCR_SYSEXTS,
+                      u"Vendor system extension initrd",
+                      initrds + INITRD_VENDOR_SYSEXT,
+                      &m) == EFI_SUCCESS)
+                combine_measured_flag(sysext_measured, m);
+
+        if (pack_cpio(loaded_image,
+                      dropin_dir,
                       u".confext.raw",
                       /* exclude_suffix= */ NULL,
                       ".extra/confext",
@@ -878,6 +899,19 @@ static void generate_sidecar_initrds(
                       /* tpm_pcr= */ TPM2_PCR_KERNEL_CONFIG,
                       u"Configuration extension initrd",
                       initrds + INITRD_CONFEXT,
+                      &m) == EFI_SUCCESS)
+                combine_measured_flag(confext_measured, m);
+
+        if (pack_cpio(loaded_image,
+                      vendor_dropin_dir,
+                      u".confext.raw",
+                      /* exclude_suffix= */ NULL,
+                      ".extra/confext",
+                      /* dir_mode= */ 0555,
+                      /* access_mode= */ 0444,
+                      /* tpm_pcr= */ TPM2_PCR_KERNEL_CONFIG,
+                      u"Vendor configuration extension initrd",
+                      initrds + INITRD_VENDOR_CONFEXT,
                       &m) == EFI_SUCCESS)
                 combine_measured_flag(confext_measured, m);
 }
@@ -1042,8 +1076,23 @@ static void load_all_addons(
         if (err != EFI_SUCCESS)
                 log_error_status(err, "Error loading global addons, ignoring: %m");
 
+        err = load_addons(
+                        image,
+                        loaded_image,
+                        u"\\loader\\vendor-addons",
+                        uname,
+                        cmdline_addons,
+                        dt_addons,
+                        n_dt_addons,
+                        initrd_addons,
+                        n_initrd_addons,
+                        ucode_addons,
+                        n_ucode_addons);
+        if (err != EFI_SUCCESS)
+                log_error_status(err, "Error loading global vendor addons, ignoring: %m");
+
         /* Some bootloaders always pass NULL in FilePath, so we need to check for it here. */
-        _cleanup_free_ char16_t *dropin_dir = get_extra_dir(loaded_image->FilePath);
+        _cleanup_free_ char16_t *dropin_dir = get_extra_dir(".extra.d", loaded_image->FilePath);
         if (!dropin_dir)
                 return;
 
@@ -1061,6 +1110,26 @@ static void load_all_addons(
                         n_ucode_addons);
         if (err != EFI_SUCCESS)
                 log_error_status(err, "Error loading UKI-specific addons, ignoring: %m");
+
+        _cleanup_free_ char16_t *vendor_dropin_dir =
+                get_extra_dir(".extra.vendor.d", loaded_image->FilePath);
+        if (!vendor_dropin_dir)
+                return;
+
+        err = load_addons(
+                        image,
+                        loaded_image,
+                        vendor_dropin_dir,
+                        uname,
+                        cmdline_addons,
+                        dt_addons,
+                        n_dt_addons,
+                        initrd_addons,
+                        n_initrd_addons,
+                        ucode_addons,
+                        n_ucode_addons);
+        if (err != EFI_SUCCESS)
+                log_error_status(err, "Error loading UKI-specific vendor addons, ignoring: %m");
 }
 
 static void display_splash(
