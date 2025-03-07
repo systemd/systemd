@@ -34,9 +34,6 @@ set -o pipefail
 . "$(dirname "$0")"/util.sh
 
 
-export SYSTEMD_LOG_LEVEL=debug
-export SYSTEMD_LOG_TARGET=journal
-
 at_exit() {
     set +e
 

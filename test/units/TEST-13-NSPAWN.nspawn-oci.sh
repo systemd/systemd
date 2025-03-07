@@ -7,9 +7,6 @@ set -o pipefail
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
-export SYSTEMD_LOG_LEVEL=debug
-export SYSTEMD_LOG_TARGET=journal
-
 # shellcheck disable=SC2317
 at_exit() {
     set +e
