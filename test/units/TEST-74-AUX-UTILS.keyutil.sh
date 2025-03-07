@@ -51,7 +51,7 @@ testcase_pkcs7() {
     echo -n "test" > /tmp/payload
     openssl dgst -sha256 -sign /tmp/test.key -out /tmp/payload.sig /tmp/payload
     /usr/lib/systemd/systemd-keyutil --certificate /tmp/test.crt --output /tmp/payload.p7s --signature /tmp/payload.sig pkcs7
-    openssl smime -verify -binary -inform der -in /tmp/payload.p7s -content /tmp/payload -certfile /tmp/test.crt -nointern -noverify > /dev/null
+    openssl smime -verify -binary -inform der -in /tmp/payload.p7s -content /tmp/payload -noverify > /dev/null
 }
 
 run_testcases
