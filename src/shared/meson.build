@@ -145,7 +145,6 @@ shared_sources = files(
         'polkit-agent.c',
         'portable-util.c',
         'pretty-print.c',
-        'capsule-util.c',
         'ptyfwd.c',
         'qrcode-util.c',
         'quota-util.c',
