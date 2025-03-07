@@ -43,16 +43,17 @@ The mechanism works as follows:
   [`systemd-factory-reset`](https://www.freedesktop.org/software/systemd/man/latest/systemd-factory-reset.html)
   tool can be used to query the current state of the factory request mechanism,
   i.e. whether a factory reset is currently being executed, or if one has been
-  requested for the next boot.
+  requested for the next boot. It also provides the
+  `/run/systemd/io.systemd.FactoryReset` Varlink service for the same purpose.
+  Early boot services that wish to participate in factory reset should use this
+  service to determine whether the system is currently being reset.
 
-* The `/run/systemd/io.systemd.FactoryReset` Varlink service provides two IPC
-  APIs for working with factory reset: it permits querying whether the local
-  system supports requesting a factory reset by starting
-  `factory-reset.target`. This may be used by UIs to hide or show in the UI an
-  interface to request a factory reset. The Varlink IPC service also reports
-  the current factory reset state, much like the `systemd-factory-reset` tool
-  mentioned above. This may be used by various early boot services that
-  potentially intent to reset system state during a factory reset operation.
+* Not all systems will support factory reset. It's possible that there's nothing
+  listening for the factory reset request, and nothing happens before
+  `factory-reset-now.target` is reached. To avoid this situation, factory reset
+  should only be requested if the `/run/systemd/factory-reset-supported` stamp
+  file exists. Early boot services that participate in factory reset can create
+  this file if they determine that they have a meaningful amount of work to do.
 
 * The
   [`systemd-logind.service(8)`](https://www.freedesktop.org/software/systemd/man/latest/systemd-logind.service.html)
@@ -91,7 +92,9 @@ The UEFI support works as follows:
   a factory reset, it will erase all partitions marked for that via the
   `FactoryReset=` setting in its partition definition files. Once that is
   complete, it will resume its usual setup operation, i.e. reformatting the
-  empty partition with a file system.
+  empty partition with a file system. If any partition definitions have
+  `FactoryReset=` enabled, `systemd-repart` will create the
+  `/run/systemd/factory-reset-supported` stamp file.
 
 ## Support for non-UEFI Systems
 
@@ -104,9 +107,10 @@ boot, the request should then be fed back into the booted kernel via the
 ## Exposure in the UI
 
 If a graphical UI shall expose a factory reset operation, it should first check
-if requesting a factory reset is supported at all via the Varlink service
-mentioned above. Once the end-user triggers a factory reset, the UI can start
-the process by asking systemd to activate the `factory-reset.target` unit.
+if requesting a factory reset is supported at all. This can be achieved by
+checking whether `/run/systemd/factory-reset-supported` exists. Once the end-user
+triggers a factory reset, the UI can start the process by asking systemd to
+activate the `factory-reset.target` unit.
 
 Alternatively, `systemd-logind.service`'s hotkey support may be used. For
 example, it can be configured to request factory reset if the reboot button is
@@ -119,8 +123,13 @@ partitions (via `systemd-repart`, see above) and reset the TPM (via
 `systemd-tpm2-clear.service`, see above).
 
 In some cases other resources shall be reset/erased too. To support that,
-define your own service and plug it into `factory-reset-now.target` or the
-Varlink service. Ensure that your service is ordered before the target.
+define your own service and plug it into `factory-reset-now.target`. Ensure that
+your service is ordered before the target!
+
+If your service should be enough to enable factory reset support, it should be
+create `/run/systemd/factory-reset-supported` on every boot. Order the service
+before `factory-reset.target`. You can use the Varlink API to determine at
+runtime whether or not your service needs to perform the factory reset.
 
 ## Factory Reset via Boot Menu
 
