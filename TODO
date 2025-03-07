@@ -130,6 +130,12 @@ Deprecations and removals:
 
 Features:
 
+* dissect: instead of searching for root and /usr partitions first, look for
+  verity signature partitions first instead, then match up what we find with
+  locally available keys, and then use first that works.
+
+* gpt-auto-root doesn't take image policy into account.
+
 * maybe define a /etc/machine-info field for the ANSI color to associate with a
   hostname. Then use it for the shell prompt to highlight the hostname. Maybe
   even hash it from the hostname as a fallback, in a reasonable way.
