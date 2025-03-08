@@ -654,10 +654,8 @@ static int config_parse_oom_score_adjust(
         }
 
         r = parse_oom_score_adjust(rvalue, &oa);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse the OOM score adjust value '%s', ignoring: %m", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         arg_defaults.oom_score_adjust = oa;
         arg_defaults.oom_score_adjust_set = true;
@@ -693,10 +691,8 @@ static int config_parse_protect_system_pid1(
         }
 
         r = parse_boolean(rvalue);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse ProtectSystem= argument '%s', ignoring: %m", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         *v = r;
         return 0;
@@ -723,10 +719,8 @@ static int config_parse_crash_reboot(
         }
 
         r = parse_boolean(rvalue);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse CrashReboot= argument '%s', ignoring: %m", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         *v = r > 0 ? CRASH_REBOOT : CRASH_FREEZE;
         return 0;
