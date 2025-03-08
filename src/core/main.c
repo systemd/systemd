@@ -93,7 +93,6 @@
 #include "special.h"
 #include "stat-util.h"
 #include "stdio-util.h"
-#include "string-table.h"
 #include "strv.h"
 #include "switch-root.h"
 #include "sysctl-util.h"
@@ -167,14 +166,6 @@ static char **saved_env = NULL;
 
 static int parse_configuration(const struct rlimit *saved_rlimit_nofile,
                                const struct rlimit *saved_rlimit_memlock);
-
-static const char* const crash_action_table[_CRASH_ACTION_MAX] = {
-        [CRASH_FREEZE]   = "freeze",
-        [CRASH_REBOOT]   = "reboot",
-        [CRASH_POWEROFF] = "poweroff",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(crash_action, CrashAction);
 
 static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_crash_action, crash_action, CrashAction, CRASH_FREEZE);
 
