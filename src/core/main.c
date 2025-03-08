@@ -20,9 +20,6 @@
 #include "apparmor-setup.h"
 #include "architecture.h"
 #include "argv-util.h"
-#if HAVE_LIBBPF
-#include "bpf-restrict-fs.h"
-#endif
 #include "build.h"
 #include "bus-error.h"
 #include "bus-util.h"
