@@ -32,7 +32,6 @@ libcore_sources = files(
         'dbus.c',
         'device.c',
         'dynamic-user.c',
-        'efi-random.c',
         'emergency-action.c',
         'exec-credential.c',
         'execute.c',
@@ -149,6 +148,7 @@ systemd_sources = files(
         'ipe-setup.c',
         'selinux-setup.c',
         'smack-setup.c',
+        'efi-random.c',
 )
 
 systemd_executor_sources = files(
