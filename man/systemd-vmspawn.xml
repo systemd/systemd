@@ -267,6 +267,18 @@
         </varlistentry>
 
         <varlistentry>
+          <term><option>--grow-image=<replaceable>BYTES</replaceable></option></term>
+          <term><option>-G <replaceable>BYTES</replaceable></option></term>
+
+          <listitem><para>Grows the image file specified by <option>--image=</option> to the specified size
+          in bytes if it is smaller. Executes no operation if no image file is used or the image file is
+          already as large or larger than requested. The specified size accepts the usual K, M, G suffixes
+          (to the base of 1024). Specified values are rounded up to multiples of 4096.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><option>--smbios11=<replaceable>STRING</replaceable></option></term>
           <term><option>-s <replaceable>STRING</replaceable></option></term>
 
