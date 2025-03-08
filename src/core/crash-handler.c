@@ -13,6 +13,7 @@
 #include "raw-clone.h"
 #include "rlimit-util.h"
 #include "signal-util.h"
+#include "string-table.h"
 #include "terminal-util.h"
 #include "virt.h"
 
@@ -188,3 +189,11 @@ void install_crash_handler(void) {
         if (r < 0)
                 log_debug_errno(r, "I had trouble setting up the crash handler, ignoring: %m");
 }
+
+static const char* const crash_action_table[_CRASH_ACTION_MAX] = {
+        [CRASH_FREEZE]   = "freeze",
+        [CRASH_REBOOT]   = "reboot",
+        [CRASH_POWEROFF] = "poweroff",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(crash_action, CrashAction);
