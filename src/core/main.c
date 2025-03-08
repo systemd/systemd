@@ -1977,36 +1977,9 @@ static int do_reexecute(
         assert(saved_rlimit_memlock);
         assert(ret_error_message);
 
-        if (switch_root_init) {
-                r = chase(switch_root_init, switch_root_dir, CHASE_PREFIX_ROOT, NULL, NULL);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to chase configured init %s/%s: %m",
-                                          strempty(switch_root_dir), switch_root_init);
-        } else {
-                r = chase(SYSTEMD_BINARY_PATH, switch_root_dir, CHASE_PREFIX_ROOT, NULL, NULL);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to chase our own binary %s/%s: %m",
-                                        strempty(switch_root_dir), SYSTEMD_BINARY_PATH);
-        }
-
-        if (r < 0) {
-                r = chase("/sbin/init", switch_root_dir, CHASE_PREFIX_ROOT, NULL, NULL);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to chase %s/sbin/init", strempty(switch_root_dir));
-        }
-
         /* Close and disarm the watchdog, so that the new instance can reinitialize it, but doesn't get
          * rebooted while we do that */
         watchdog_close(true);
-
-        /* Reset RLIMIT_NOFILE + RLIMIT_MEMLOCK back to the kernel defaults, so that the new systemd can pass
-         * the kernel default to its child processes */
-        if (saved_rlimit_nofile->rlim_cur != 0)
-                (void) setrlimit(RLIMIT_NOFILE, saved_rlimit_nofile);
-        if (saved_rlimit_memlock->rlim_cur != RLIM_INFINITY)
-                (void) setrlimit(RLIMIT_MEMLOCK, saved_rlimit_memlock);
-
-        finish_remaining_processes(objective);
 
         if (!switch_root_dir && objective == MANAGER_SOFT_REBOOT) {
                 /* If no switch root dir is specified, then check if /run/nextroot/ qualifies and use that */
@@ -2016,6 +1989,39 @@ static int do_reexecute(
                 else if (r > 0)
                         switch_root_dir = "/run/nextroot";
         }
+
+        if (switch_root_dir) {
+                /* If we're supposed to switch root, preemptively check the existence of a usable init.
+                 * Otherwise the system might end up in a completely undebuggable state afterwards. */
+                if (switch_root_init) {
+                        r = chase_and_access(switch_root_init, switch_root_dir, CHASE_PREFIX_ROOT, X_OK, /* ret_path = */ NULL);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to chase configured init %s/%s: %m",
+                                                  switch_root_dir, switch_root_init);
+                } else {
+                        r = chase_and_access(SYSTEMD_BINARY_PATH, switch_root_dir, CHASE_PREFIX_ROOT, X_OK, /* ret_path = */ NULL);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to chase our own binary %s/%s: %m",
+                                                switch_root_dir, SYSTEMD_BINARY_PATH);
+                }
+
+                if (r < 0) {
+                        r = chase_and_access("/sbin/init", switch_root_dir, CHASE_PREFIX_ROOT, X_OK, /* ret_path = */ NULL);
+                        if (r < 0) {
+                                *error_message = "Switch root target contains no usable init";
+                                return log_error_errno(r, "Failed to chase %s/sbin/init", switch_root_dir);
+                        }
+                }
+        }
+
+        /* Reset RLIMIT_NOFILE + RLIMIT_MEMLOCK back to the kernel defaults, so that the new systemd can pass
+         * the kernel default to its child processes */
+        if (saved_rlimit_nofile->rlim_cur != 0)
+                (void) setrlimit(RLIMIT_NOFILE, saved_rlimit_nofile);
+        if (saved_rlimit_memlock->rlim_cur != RLIM_INFINITY)
+                (void) setrlimit(RLIMIT_MEMLOCK, saved_rlimit_memlock);
+
+        finish_remaining_processes(objective);
 
         if (switch_root_dir) {
                 r = switch_root(/* new_root= */ switch_root_dir,
@@ -2123,16 +2129,17 @@ static int do_reexecute(
                               ANSI_HIGHLIGHT_RED "  !!  " ANSI_NORMAL,
                               "Failed to execute /sbin/init");
 
-        *ret_error_message = "Failed to execute fallback shell";
         if (r == -ENOENT) {
-                log_warning("No /sbin/init, trying fallback");
+                log_warning_errno(r, "No /sbin/init, trying fallback shell");
 
                 args[0] = "/bin/sh";
                 args[1] = NULL;
                 (void) execve(args[0], (char* const*) args, saved_env);
-                return log_error_errno(errno, "Failed to execute /bin/sh, giving up: %m");
-        } else
-                return log_error_errno(r, "Failed to execute /sbin/init, giving up: %m");
+                r = -errno;
+        }
+
+        *ret_error_message = "Failed to execute fallback shell";
+        return log_error_errno(r, "Failed to execute /bin/sh, giving up: %m");
 }
 
 static int invoke_main_loop(
