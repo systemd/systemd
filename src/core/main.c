@@ -3016,7 +3016,7 @@ static int save_env(void) {
 
         l = strv_copy(environ);
         if (!l)
-                return -ENOMEM;
+                return log_oom();
 
         strv_free_and_replace(saved_env, l);
         return 0;
