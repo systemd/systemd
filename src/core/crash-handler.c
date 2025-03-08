@@ -100,7 +100,7 @@ _noreturn_ static void crash(int sig, siginfo_t *siginfo, void *context) {
                 } else {
                         siginfo_t status;
 
-                        if (siginfo) {
+                        if (siginfo && IN_SET(siginfo->si_code, SI_USER, SI_QUEUE)) {
                                 if (siginfo->si_pid == 0)
                                         log_struct(LOG_EMERG,
                                                    LOG_MESSAGE("Caught <%s>, from unknown sender process.", signal_to_string(sig)),
@@ -113,7 +113,10 @@ _noreturn_ static void crash(int sig, siginfo_t *siginfo, void *context) {
                                         log_struct(LOG_EMERG,
                                                    LOG_MESSAGE("Caught <%s> from PID "PID_FMT".", signal_to_string(sig), siginfo->si_pid),
                                                    "MESSAGE_ID=" SD_MESSAGE_CRASH_PROCESS_SIGNAL_STR);
-                        }
+                        } else
+                                log_struct(LOG_EMERG,
+                                        LOG_MESSAGE("Caught <%s>, from signal code %d.", signal_to_string(sig), siginfo->si_code),
+                                        "MESSAGE_ID=" SD_MESSAGE_CRASH_PROCESS_SIGNAL_STR);
 
                         /* Order things nicely. */
                         r = wait_for_terminate(pid, &status);
