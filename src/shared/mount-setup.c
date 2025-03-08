@@ -179,7 +179,6 @@ static int mount_one(const MountPoint *p, bool relabel) {
         if (r > 0)
                 return 0;
 
-        /* Skip securityfs in a container */
         if (!FLAGS_SET(p->mode, MNT_IN_CONTAINER) && detect_container() > 0)
                 return 0;
 
