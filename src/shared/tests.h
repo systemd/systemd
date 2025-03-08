@@ -418,6 +418,16 @@ static inline int run_test_table(void) {
                 }                                                                                               \
         })
 
+#define ASSERT_PTR_EQ(expr1, expr2)                                                                             \
+        ({                                                                                                      \
+                const void *_expr1 = (expr1), *_expr2 = (expr2);                                                \
+                if (_expr1 != _expr2) {                                                                         \
+                        log_error("%s:%i: Assertion failed: expected \"%s == %s\", got \"0x%p != 0x%p\"",       \
+                                  PROJECT_FILE, __LINE__, #expr1, #expr2, _expr1, _expr2);                      \
+                        abort();                                                                                \
+                }                                                                                               \
+        })
+
 /* DECIMAL_STR_FMT() uses _Generic which cannot be used in string concatenation so we have to format the
  * input into strings first and then format those into the final assertion message. */
 
