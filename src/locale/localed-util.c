@@ -148,7 +148,7 @@ int vconsole_read_data(Context *c, sd_bus_message *m) {
                 c->vc_cache = sd_bus_message_ref(m);
         }
 
-        fd = RET_NERRNO(open("/etc/vconsole.conf", O_CLOEXEC | O_PATH));
+        fd = RET_NERRNO(open(etc_vconsole_conf(), O_CLOEXEC | O_PATH));
         if (fd == -ENOENT) {
                 c->vc_stat = (struct stat) {};
                 vc_context_clear(&c->vc);
@@ -170,7 +170,7 @@ int vconsole_read_data(Context *c, sd_bus_message *m) {
         x11_context_clear(&c->x11_from_vc);
 
         r = parse_env_file_fd(
-                        fd, "/etc/vconsole.conf",
+                        fd, etc_vconsole_conf(),
                         "KEYMAP",        &c->vc.keymap,
                         "KEYMAP_TOGGLE", &c->vc.toggle,
                         "XKBLAYOUT",     &c->x11_from_vc.layout,
@@ -286,6 +286,7 @@ int x11_read_data(Context *c, sd_bus_message *m) {
 }
 
 int vconsole_write_data(Context *c) {
+        const char* vconsole_conf_path;
         _cleanup_strv_free_ char **l = NULL;
         const X11Context *xc;
         int r;
@@ -294,7 +295,9 @@ int vconsole_write_data(Context *c) {
 
         xc = context_get_x11_context(c);
 
-        r = load_env_file(NULL, "/etc/vconsole.conf", &l);
+        vconsole_conf_path = etc_vconsole_conf();
+
+        r = load_env_file(NULL, vconsole_conf_path, &l);
         if (r < 0 && r != -ENOENT)
                 return r;
 
@@ -303,18 +306,18 @@ int vconsole_write_data(Context *c) {
                 return r;
 
         if (strv_isempty(l)) {
-                if (unlink("/etc/vconsole.conf") < 0)
+                if (unlink(vconsole_conf_path) < 0)
                         return errno == ENOENT ? 0 : -errno;
 
                 c->vc_stat = (struct stat) {};
                 return 0;
         }
 
-        r = write_vconsole_conf_label(l);
+        r = write_vconsole_conf_label(vconsole_conf_path, l);
         if (r < 0)
                 return r;
 
-        if (stat("/etc/vconsole.conf", &c->vc_stat) < 0)
+        if (stat(vconsole_conf_path, &c->vc_stat) < 0)
                 return -errno;
 
         return 0;
