@@ -12,8 +12,8 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 Starting with version 205 systemd provides a number of interfaces that may be used to create and manage labelled groups of processes for the purpose of monitoring and controlling them and their resource usage.
 This is built on top of the Linux kernel Control Groups ("cgroups") facility.
 
-Previously, the kernel's cgroups API was exposed directly as shared application API, following the rules of the [Pax Control Groups](/PAX_CONTROL_GROUPS) document.
-However, the kernel cgroup interface has been reworked into an API that requires that each individual cgroup is managed by a single writer only.
+Previously, the kernel's cgroups API (cgroup v1) was exposed directly as shared application API. That, however, turned out to be undesirable and semantically broken to manage.
+The superseding cgroup v2 interface therefore requires that each individual cgroup is managed by a single writer only.
 
 With this change the main cgroup tree becomes private property of that userspace component and is no longer a shared resource.
 
@@ -53,12 +53,6 @@ Nothing. This page is about systemd's cgroups APIs. If you don't use systemd the
 ### I want to write cgroup code that should work on both systemd systems and others (such as Ubuntu), what should I do?
 
 On systemd systems use the systemd APIs as described below. At this time we are not aware of any component that would take the cgroup managing role on Upstart/sysvinit systems, so we cannot help you with this. Sorry.
-
-### What's the timeframe of this? Do I need to care now?
-
-In the short-term future writing directly to the control group tree from applications should still be OK, as long as the [Pax Control Groups](/PAX_CONTROL_GROUPS) document is followed. In the medium-term future it will still be supported to alter/read individual attributes of cgroups directly, but no longer to create/delete cgroups without using the systemd API. In the longer-term future altering/reading attributes will also be unavailable to userspace applications, unless done via systemd's APIs (either D-Bus based IPC APIs or shared library APIs for _passive_ operations).
-
-It is recommended to use the new systemd APIs described below in any case. Note that the kernel cgroup interface is currently being reworked (available when the "sane_behaviour" kernel option is used). This will change the cgroupfs interface. By using systemd's APIs this change is abstracted away and invisible to applications.
 
 ## systemd's Resource Control Concepts
 
