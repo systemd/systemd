@@ -131,7 +131,7 @@ int rtnl_resolve_ifname_full(
         return -ENODEV;
 }
 
-static int set_link_name(sd_netlink **rtnl, int ifindex, const char *name) {
+static int set_link_name(sd_netlink *rtnl, int ifindex, const char *name) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL;
         int r;
 
@@ -141,13 +141,7 @@ static int set_link_name(sd_netlink **rtnl, int ifindex, const char *name) {
 
         /* Assign the requested name. */
 
-        if (!*rtnl) {
-                r = sd_netlink_open(rtnl);
-                if (r < 0)
-                        return r;
-        }
-
-        r = sd_rtnl_message_new_link(*rtnl, &message, RTM_SETLINK, ifindex);
+        r = sd_rtnl_message_new_link(rtnl, &message, RTM_SETLINK, ifindex);
         if (r < 0)
                 return r;
 
@@ -155,7 +149,7 @@ static int set_link_name(sd_netlink **rtnl, int ifindex, const char *name) {
         if (r < 0)
                 return r;
 
-        return sd_netlink_call(*rtnl, message, 0, NULL);
+        return sd_netlink_call(rtnl, message, 0, NULL);
 }
 
 int rtnl_rename_link(sd_netlink **rtnl, const char *orig_name, const char *new_name) {
@@ -186,7 +180,7 @@ int rtnl_rename_link(sd_netlink **rtnl, const char *orig_name, const char *new_n
         if (ifindex < 0)
                 return ifindex;
 
-        return set_link_name(rtnl, ifindex, new_name);
+        return set_link_name(*rtnl, ifindex, new_name);
 }
 
 int rtnl_set_link_name(sd_netlink **rtnl, int ifindex, const char *name, char* const *alternative_names) {
@@ -194,7 +188,6 @@ int rtnl_set_link_name(sd_netlink **rtnl, int ifindex, const char *name, char* c
         bool altname_deleted = false;
         int r;
 
-        assert(rtnl);
         assert(ifindex > 0);
 
         if (isempty(name) && strv_isempty(alternative_names))
@@ -202,6 +195,10 @@ int rtnl_set_link_name(sd_netlink **rtnl, int ifindex, const char *name, char* c
 
         if (name && !ifname_valid(name))
                 return -EINVAL;
+
+        _cleanup_(sd_netlink_unrefp) sd_netlink *our_rtnl = NULL;
+        if (!rtnl)
+                rtnl = &our_rtnl;
 
         /* If the requested name is already assigned as an alternative name, then first drop it. */
         r = rtnl_get_link_alternative_names(rtnl, ifindex, &original_altnames);
@@ -219,7 +216,7 @@ int rtnl_set_link_name(sd_netlink **rtnl, int ifindex, const char *name, char* c
                         altname_deleted = true;
                 }
 
-                r = set_link_name(rtnl, ifindex, name);
+                r = set_link_name(*rtnl, ifindex, name);
                 if (r < 0)
                         goto fail;
         }
@@ -281,10 +278,9 @@ int rtnl_set_link_properties(
                 uint32_t mtu,
                 uint32_t gso_max_size,
                 size_t gso_max_segments) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL;
+
         int r;
 
-        assert(rtnl);
         assert(ifindex > 0);
 
         if (!alias &&
@@ -297,12 +293,16 @@ int rtnl_set_link_properties(
             gso_max_segments == 0)
                 return 0;
 
+        _cleanup_(sd_netlink_unrefp) sd_netlink *our_rtnl = NULL;
+        if (!rtnl)
+                rtnl = &our_rtnl;
         if (!*rtnl) {
                 r = sd_netlink_open(rtnl);
                 if (r < 0)
                         return r;
         }
 
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL;
         r = sd_rtnl_message_new_link(*rtnl, &message, RTM_SETLINK, ifindex);
         if (r < 0)
                 return r;
@@ -368,22 +368,24 @@ static int rtnl_update_link_alternative_names(
                 int ifindex,
                 char* const *alternative_names) {
 
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL;
         int r;
 
-        assert(rtnl);
         assert(ifindex > 0);
         assert(IN_SET(nlmsg_type, RTM_NEWLINKPROP, RTM_DELLINKPROP));
 
         if (strv_isempty(alternative_names))
                 return 0;
 
+        _cleanup_(sd_netlink_unrefp) sd_netlink *our_rtnl = NULL;
+        if (!rtnl)
+                rtnl = &our_rtnl;
         if (!*rtnl) {
                 r = sd_netlink_open(rtnl);
                 if (r < 0)
                         return r;
         }
 
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL;
         r = sd_rtnl_message_new_link(*rtnl, &message, nlmsg_type, ifindex);
         if (r < 0)
                 return r;
@@ -420,7 +422,6 @@ int rtnl_set_link_alternative_names_by_ifname(
                 const char *ifname,
                 char* const *alternative_names) {
 
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL;
         int r;
 
         assert(rtnl);
@@ -429,12 +430,16 @@ int rtnl_set_link_alternative_names_by_ifname(
         if (strv_isempty(alternative_names))
                 return 0;
 
+        _cleanup_(sd_netlink_unrefp) sd_netlink *our_rtnl = NULL;
+        if (!rtnl)
+                rtnl = &our_rtnl;
         if (!*rtnl) {
                 r = sd_netlink_open(rtnl);
                 if (r < 0)
                         return r;
         }
 
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL;
         r = sd_rtnl_message_new_link(*rtnl, &message, RTM_NEWLINKPROP, 0);
         if (r < 0)
                 return r;
