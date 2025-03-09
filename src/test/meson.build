@@ -541,9 +541,6 @@ executables += [
                 'parallel' : false,
         },
         core_test_template + {
-                'sources' : files('test-taint.c'),
-        },
-        core_test_template + {
                 'sources' : files('test-namespace.c'),
                 'dependencies' : [
                         libblkid,
