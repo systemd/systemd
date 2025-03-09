@@ -1605,6 +1605,7 @@ static int vl_method_add_netif_to_user_namespace(sd_varlink *link, sd_json_varia
         _cleanup_close_ int userns_fd = -EBADF, netns_fd = -EBADF, registry_dir_fd = -EBADF;
         AddNetworkParameters p = {
                 .userns_fd_idx = UINT_MAX,
+                .netns_fd_idx = UINT_MAX,
         };
         _cleanup_(userns_info_freep) UserNamespaceInfo *userns_info = NULL;
         struct stat userns_st;
