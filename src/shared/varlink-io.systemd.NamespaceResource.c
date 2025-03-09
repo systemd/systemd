@@ -41,11 +41,12 @@ static SD_VARLINK_DEFINE_METHOD(
 static SD_VARLINK_DEFINE_METHOD(
                 AddNetworkToUserNamespace,
                 SD_VARLINK_DEFINE_INPUT(userNamespaceFileDescriptor, SD_VARLINK_INT, 0),
-                SD_VARLINK_DEFINE_INPUT(networkNamespaceFileDescriptor, SD_VARLINK_INT, 0),
+                SD_VARLINK_DEFINE_INPUT(networkNamespaceFileDescriptor, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_INPUT(namespaceInterfaceName, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_INPUT(mode, SD_VARLINK_STRING, 0),
                 SD_VARLINK_DEFINE_OUTPUT(hostInterfaceName, SD_VARLINK_STRING, 0),
-                SD_VARLINK_DEFINE_OUTPUT(namespaceInterfaceName, SD_VARLINK_STRING, 0));
+                SD_VARLINK_DEFINE_OUTPUT(namespaceInterfaceName, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_OUTPUT(interfaceFileDescriptor, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_ERROR(UserNamespaceInterfaceNotSupported);
 static SD_VARLINK_DEFINE_ERROR(NameExists);
