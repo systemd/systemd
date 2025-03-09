@@ -55,6 +55,9 @@ CHANGES WITH 258 in spe:
 
         * Support for the SystemdOptions EFI variable has been removed.
 
+        * The 'split-usr', 'rootlibdir', and 'rootprefix' meson options, which
+          were deprecated in v255, have been removed.
+
         Announcements of Future Feature Removals:
 
         * The D-Bus method org.freedesktop.systemd1.StartAuxiliaryScope() is
