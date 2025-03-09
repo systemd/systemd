@@ -269,9 +269,10 @@ executables += [
         },
 ]
 
-meson.add_install_script(sh, '-c', ln_s.format(bindir / 'udevadm',
-                                               libexecdir / 'systemd-udevd'),
-                         install_tag : 'udev')
+install_symlink('systemd-udevd',
+                pointing_to : libexecdir_to_bin + 'udevadm',
+                install_dir : libexecdir,
+                install_tag : 'udev')
 
 if install_sysconfdir_samples
         install_data('udev.conf',
