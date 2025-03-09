@@ -2124,10 +2124,11 @@ static int do_reexecute(
         args[0] = "/sbin/init";
         (void) execv(args[0], (char* const*) args);
         r = -errno;
+        *ret_error_message = "Failed to execute /sbin/init";
 
         manager_status_printf(NULL, STATUS_TYPE_EMERGENCY,
                               ANSI_HIGHLIGHT_RED "  !!  " ANSI_NORMAL,
-                              "Failed to execute /sbin/init");
+                              "%s", *ret_error_message);
 
         if (r == -ENOENT) {
                 log_warning_errno(r, "No /sbin/init, trying fallback shell");
@@ -2136,10 +2137,10 @@ static int do_reexecute(
                 args[1] = NULL;
                 (void) execve(args[0], (char* const*) args, saved_env);
                 r = -errno;
+                *ret_error_message = "Failed to execute fallback shell";
         }
 
-        *ret_error_message = "Failed to execute fallback shell";
-        return log_error_errno(r, "Failed to execute /bin/sh, giving up: %m");
+        return log_error_errno(r, "%s, giving up: %m", *ret_error_message);
 }
 
 static int invoke_main_loop(
@@ -3201,14 +3202,6 @@ int main(int argc, char *argv[]) {
                         goto finish;
                 }
 
-                if (!skip_setup) {
-                        r = mount_cgroup_legacy_controllers(loaded_policy);
-                        if (r < 0) {
-                                error_message = "Failed to mount cgroup v1 hierarchy";
-                                goto finish;
-                        }
-                }
-
                 /* The efivarfs is now mounted, let's lock down the system token. */
                 lock_down_efi_variables();
         } else {
@@ -3309,6 +3302,23 @@ int main(int argc, char *argv[]) {
         }
 
         log_execution_mode(&first_boot);
+
+        r = cg_has_legacy();
+        if (r < 0) {
+                error_message = "Failed to check cgroup hierarchy";
+                goto finish;
+        }
+        if (r > 0) {
+                r = log_full_errno(LOG_EMERG, SYNTHETIC_ERRNO(EPROTO),
+                                   "Detected cgroup v1 hierarchy at /sys/fs/cgroup/, which is no longer supported by current version of systemd.\n"
+                                   "Please instruct your initrd to mount cgroup v2 (unified) hierarchy,\n"
+                                   "possibly by removing any stale kernel command line options, such as:\n"
+                                   "  systemd.legacy_systemd_cgroup_controller=1\n"
+                                   "  systemd.unified_cgroup_hierarchy=0");
+
+                error_message = "Detected unsupported legacy cgroup hierarchy, refusing execution";
+                goto finish;
+        }
 
         r = initialize_runtime(skip_setup,
                                first_boot,
