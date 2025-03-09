@@ -140,6 +140,6 @@ if install_sysconfdir_samples
                      install_dir : pkgconfigfiledir)
 endif
 
-meson.add_install_script(sh, '-c',
-                         ln_s.format(bindir / 'homectl',
-                                     bindir / 'systemd-home-fallback-shell'))
+install_symlink('systemd-home-fallback-shell',
+                pointing_to : 'homectl',
+                install_dir : bindir)
