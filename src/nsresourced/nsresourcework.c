@@ -1,9 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+/* Make sure the net/if.h header is included before any linux/ one */
+#include <net/if.h>
+
 #include <fcntl.h>
+#include <linux/if_tun.h>
 #include <linux/nsfs.h>
 #include <linux/veth.h>
-#include <net/if.h>
 #include <sys/eventfd.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
@@ -1530,6 +1533,59 @@ static int create_veth(
         return 0;
 }
 
+static int create_tap(
+                int userns_fd,
+                const char *ifname_host,
+                const char *altifname_host,
+                struct ether_addr *mac_host) {
+
+        int r;
+
+        assert(ifname_host);
+        assert(mac_host);
+
+        log_debug("Creating tap link on host %s (%s) with address %s",
+                  ifname_host, strna(altifname_host), ETHER_ADDR_TO_STR(mac_host));
+
+        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
+        if (altifname_host) {
+                r = sd_netlink_open(&rtnl);
+                if (r < 0)
+                        return r;
+        }
+
+        uid_t uid;
+        r = userns_get_base_uid(userns_fd, &uid, /* ret_gid= */ NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get namespace base UID/GID: %m");
+
+        struct ifreq ifr = {
+                .ifr_flags = IFF_TAP | IFF_NO_PI | IFF_VNET_HDR,
+        };
+
+        if (strlen(ifname_host) >= sizeof(ifr.ifr_name))
+                return -EINVAL;
+        strcpy(ifr.ifr_name, ifname_host);
+
+        _cleanup_close_ int fd = open("/dev/net/tun", O_RDWR|O_CLOEXEC);
+        if (fd < 0)
+                return log_error_errno(errno, "Failed to open /dev/net/tun: %m");
+
+        if (ioctl(fd, TUNSETIFF, &ifr) < 0)
+                return log_error_errno(errno, "TUNSETIFF failed: %m");
+
+        if (ioctl(fd, TUNSETOWNER, uid) < 0)
+                return log_error_errno(errno, "TUNSETOWNER failed: %m");
+
+        if (ifname_host) {
+                r = rtnl_set_link_alternative_names_by_ifname(&rtnl, ifname_host, STRV_MAKE(altifname_host));
+                if (r < 0)
+                        log_warning_errno(r, "Failed to set alternative interface name to '%s', ignoring: %m", altifname_host);
+        }
+
+        return TAKE_FD(fd);
+}
+
 static int validate_netns(sd_varlink *link, int userns_fd, int netns_fd) {
         int r;
 
@@ -1596,7 +1652,7 @@ typedef struct AddNetworkParameters {
 static int vl_method_add_netif_to_user_namespace(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field parameter_dispatch_table[] = {
                 { "userNamespaceFileDescriptor",    _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,         offsetof(AddNetworkParameters, userns_fd_idx), SD_JSON_MANDATORY },
-                { "networkNamespaceFileDescriptor", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,         offsetof(AddNetworkParameters, netns_fd_idx),  SD_JSON_MANDATORY },
+                { "networkNamespaceFileDescriptor", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,         offsetof(AddNetworkParameters, netns_fd_idx),  0                 },
                 { "namespaceInterfaceName",         SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(AddNetworkParameters, ifname),        0                 },
                 { "mode",                           SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(AddNetworkParameters, mode),          SD_JSON_MANDATORY },
                 {}
@@ -1607,9 +1663,6 @@ static int vl_method_add_netif_to_user_namespace(sd_varlink *link, sd_json_varia
                 .userns_fd_idx = UINT_MAX,
                 .netns_fd_idx = UINT_MAX,
         };
-        _cleanup_(userns_info_freep) UserNamespaceInfo *userns_info = NULL;
-        struct stat userns_st;
-        uid_t peer_uid;
         int r;
 
         assert(link);
@@ -1631,32 +1684,49 @@ static int vl_method_add_netif_to_user_namespace(sd_varlink *link, sd_json_varia
         if (r != 0)
                 return r;
 
+        struct stat userns_st;
         if (fstat(userns_fd, &userns_st) < 0)
                 return -errno;
 
-        netns_fd = sd_varlink_take_fd(link, p.netns_fd_idx);
-        if (netns_fd < 0)
-                return netns_fd;
+        if (p.netns_fd_idx != UINT_MAX) {
+                netns_fd = sd_varlink_take_fd(link, p.netns_fd_idx);
+                if (netns_fd < 0)
+                        return netns_fd;
 
-        r = validate_netns(link, userns_fd, netns_fd);
-        if (r != 0)
-                return r;
-
-        if (!streq_ptr(p.mode, "veth"))
-                return sd_varlink_error_invalid_parameter_name(link, "mode");
+                r = validate_netns(link, userns_fd, netns_fd);
+                if (r != 0)
+                        return r;
+        }
 
         if (p.ifname && !ifname_valid(p.ifname))
                 return sd_varlink_error_invalid_parameter_name(link, "interfaceName");
+
+        if (streq_ptr(p.mode, "veth")) {
+                /* In veth mode we need a netns */
+
+                if (netns_fd < 0)
+                        return sd_varlink_error_invalid_parameter_name(link, "networkNamespaceFileDescriptor");
+
+        } else if (streq_ptr(p.mode, "tap")) {
+                /* In tap mode we do want a netns, nor an interface name for it */
+
+                if (p.ifname)
+                        return sd_varlink_error_invalid_parameter_name(link, "namespaceInterfaceName");
+
+                if (netns_fd >= 0)
+                        return sd_varlink_error_invalid_parameter_name(link, "networkNamespaceFileDescriptor");
+        } else
+                return sd_varlink_error_invalid_parameter_name(link, "mode");
 
         registry_dir_fd = userns_registry_open_fd();
         if (registry_dir_fd < 0)
                 return registry_dir_fd;
 
-        _cleanup_close_ int lock_fd = -EBADF;
-        lock_fd = userns_registry_lock(registry_dir_fd);
+        _cleanup_close_ int lock_fd = userns_registry_lock(registry_dir_fd);
         if (lock_fd < 0)
                 return log_debug_errno(lock_fd, "Failed to open nsresource registry lock file: %m");
 
+        _cleanup_(userns_info_freep) UserNamespaceInfo *userns_info = NULL;
         r = userns_registry_load_by_userns_inode(
                         registry_dir_fd,
                         userns_st.st_ino,
@@ -1667,6 +1737,7 @@ static int vl_method_add_netif_to_user_namespace(sd_varlink *link, sd_json_varia
                 return r;
 
         /* Registering a network interface for this client is only allowed for the root or the owner of a userns */
+        uid_t peer_uid;
         r = sd_varlink_get_peer_uid(link, &peer_uid);
         if (r < 0)
                 return r;
@@ -1690,24 +1761,52 @@ static int vl_method_add_netif_to_user_namespace(sd_varlink *link, sd_json_varia
         if (r < 0)
                 return -ENOMEM;
 
-        struct ether_addr ether_addr_host, ether_addr_namespace;
-
+        struct ether_addr ether_addr_host;
         hash_ether_addr(userns_info, p.ifname, 0, &ether_addr_host);
-        hash_ether_addr(userns_info, p.ifname, 1, &ether_addr_namespace);
 
-        r = create_veth(netns_fd,
-                        ifname_host, altifname_host, &ether_addr_host,
-                        ifname_namespace, &ether_addr_namespace);
-        if (r < 0)
-                return r;
+        if (streq_ptr(p.mode, "veth")) {
+                struct ether_addr ether_addr_namespace;
+                hash_ether_addr(userns_info, p.ifname, 1, &ether_addr_namespace);
 
-        log_debug("Adding veth tunnel %s from host to userns " INO_FMT " ('%s' @ UID " UID_FMT ", interface %s).",
-                  ifname_host, userns_st.st_ino, userns_info->name, userns_info->start_uid, ifname_namespace);
+                r = create_veth(netns_fd,
+                                ifname_host, altifname_host, &ether_addr_host,
+                                ifname_namespace, &ether_addr_namespace);
+                if (r < 0)
+                        return r;
 
-        return sd_varlink_replybo(
-                        link,
-                        SD_JSON_BUILD_PAIR("hostInterfaceName", SD_JSON_BUILD_STRING(ifname_host)),
-                        SD_JSON_BUILD_PAIR("namespaceInterfaceName", SD_JSON_BUILD_STRING(ifname_namespace)));
+                log_debug("Adding veth tunnel %s from host to userns " INO_FMT " ('%s' @ UID " UID_FMT ", interface %s).",
+                          ifname_host, userns_st.st_ino, userns_info->name, userns_info->start_uid, ifname_namespace);
+
+                return sd_varlink_replybo(
+                                link,
+                                SD_JSON_BUILD_PAIR("hostInterfaceName", SD_JSON_BUILD_STRING(ifname_host)),
+                                SD_JSON_BUILD_PAIR("namespaceInterfaceName", SD_JSON_BUILD_STRING(ifname_namespace)));
+        } else {
+                assert(streq_ptr(p.mode, "tap"));
+
+                /* NB: when we do the "tap" stuff we do not actually do any namespace operation here, neither
+                 * netns nor userns. We use the userns only as conduit for user identity information and
+                 * indication that the calling user has some control over the UID they want to assign the tap
+                 * device to. */
+
+                _cleanup_close_ int tap_fd = create_tap(userns_fd, ifname_host, altifname_host, &ether_addr_host);
+                if (tap_fd < 0)
+                        return tap_fd;
+
+                log_debug("Adding tap device %s from host to userns " INO_FMT " ('%s' @ UID " UID_FMT ").",
+                          ifname_host, userns_st.st_ino, userns_info->name, userns_info->start_uid);
+
+                int fd_index = sd_varlink_push_fd(link, tap_fd);
+                if (fd_index < 0)
+                        return log_error_errno(fd_index, "Failed to push tap fd into varlink socket: %m");
+
+                TAKE_FD(tap_fd);
+
+                return sd_varlink_replybo(
+                                link,
+                                SD_JSON_BUILD_PAIR_STRING("hostInterfaceName", ifname_host),
+                                SD_JSON_BUILD_PAIR_INTEGER("interfaceFileDescriptor", fd_index));
+        }
 }
 
 static int process_connection(sd_varlink_server *server, int _fd) {
