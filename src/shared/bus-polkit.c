@@ -556,6 +556,12 @@ int bus_verify_polkit_async_full(
                         log_debug("Found matching previous polkit authentication for '%s'.", action);
                         return r;
                 }
+
+                /* Processing of a PolicyKit checks is canceled on the first auth. error. */
+                assert(!q->denied_action);
+                assert(!q->absent_action);
+                assert(!q->error_action);
+                assert(!sd_bus_error_is_set(&q->error));
         }
 #endif
 
@@ -797,6 +803,12 @@ int varlink_verify_polkit_async_full(
                 }
                 if (r > 0)
                         return r;
+
+                /* Processing of a PolicyKit checks is canceled on the first auth. error. */
+                assert(!q->denied_action);
+                assert(!q->absent_action);
+                assert(!q->error_action);
+                assert(!sd_bus_error_is_set(&q->error));
         }
 
         _cleanup_(sd_bus_unrefp) sd_bus *mybus = NULL;
