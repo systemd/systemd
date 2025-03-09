@@ -350,10 +350,12 @@ static void manager_release_userns_by_inode(Manager *m, uint64_t inode) {
                 log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
                                "Failed to find userns for inode %" PRIu64 ", ignoring: %m", inode);
 
-        if (userns_info && uid_is_valid(userns_info->start))
-                log_debug("Removing user namespace mapping %" PRIu64 " for UID " UID_FMT ".", inode, userns_info->start);
-        else
-                log_debug("Removing user namespace mapping %" PRIu64 ".", inode);
+        if (DEBUG_LOGGING) {
+                if (userns_info && uid_is_valid(userns_info->start_uid))
+                        log_debug("Removing user namespace mapping %" PRIu64 " for UID " UID_FMT ".", inode, userns_info->start_uid);
+                else
+                        log_debug("Removing user namespace mapping %" PRIu64 ".", inode);
+        }
 
         /* Remove the BPF rules */
         manager_release_userns_bpf(m, inode);

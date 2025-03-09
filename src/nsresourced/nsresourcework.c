@@ -88,7 +88,7 @@ static int build_user_json(UserNamespaceInfo *userns_info, uid_t offset, sd_json
         return sd_json_buildo(
                         ret,
                         SD_JSON_BUILD_PAIR("userName", SD_JSON_BUILD_STRING(name)),
-                        SD_JSON_BUILD_PAIR("uid", SD_JSON_BUILD_UNSIGNED(userns_info->start + offset)),
+                        SD_JSON_BUILD_PAIR("uid", SD_JSON_BUILD_UNSIGNED(userns_info->start_uid + offset)),
                         SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(GID_NOBODY)),
                         SD_JSON_BUILD_PAIR("realName", SD_JSON_BUILD_STRING(realname)),
                         SD_JSON_BUILD_PAIR("homeDirectory", JSON_BUILD_CONST_STRING("/")),
@@ -155,7 +155,7 @@ static int vl_method_get_user_record(sd_varlink *link, sd_json_variant *paramete
                 if (offset >= userns_info->size) /* Outside of range? */
                         goto not_found;
 
-                if (uid_is_valid(p.uid) && p.uid != userns_info->start + offset)
+                if (uid_is_valid(p.uid) && p.uid != userns_info->start_uid + offset)
                         return sd_varlink_error(link, "io.systemd.UserDatabase.ConflictingRecordFound", NULL);
 
         } else if (uid_is_valid(p.uid)) {
@@ -219,7 +219,7 @@ static int build_group_json(UserNamespaceInfo *userns_info, gid_t offset, sd_jso
         return sd_json_buildo(
                         ret,
                         SD_JSON_BUILD_PAIR("groupName", SD_JSON_BUILD_STRING(name)),
-                        SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(userns_info->start + offset)),
+                        SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(userns_info->start_gid + offset)),
                         SD_JSON_BUILD_PAIR("description", SD_JSON_BUILD_STRING(description)),
                         SD_JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.NamespaceResource")),
                         SD_JSON_BUILD_PAIR("disposition", SD_JSON_BUILD_STRING(user_disposition_to_string(disposition))));
@@ -282,7 +282,7 @@ static int vl_method_get_group_record(sd_varlink *link, sd_json_variant *paramet
                 if (offset >= userns_info->size) /* Outside of range? */
                         goto not_found;
 
-                if (gid_is_valid(p.gid) && p.uid != userns_info->start + offset)
+                if (gid_is_valid(p.gid) && p.uid != userns_info->start_gid + offset)
                         return sd_varlink_error(link, "io.systemd.UserDatabase.ConflictingRecordFound", NULL);
 
         } else if (gid_is_valid(p.gid)) {
@@ -298,9 +298,9 @@ static int vl_method_get_group_record(sd_varlink *link, sd_json_variant *paramet
                 start = p.gid & gidmask;
                 offset = p.gid - start;
 
-                r = userns_registry_load_by_start_uid(
+                r = userns_registry_load_by_start_gid(
                                 /* registry_fd= */ -EBADF,
-                                (uid_t) start,
+                                start,
                                 &userns_info);
                 if (r == -ENOENT)
                         goto not_found;
@@ -357,6 +357,12 @@ static int uid_is_available(
         log_debug("Checking if UID " UID_FMT " is available.", candidate);
 
         r = userns_registry_uid_exists(registry_dir_fd, candidate);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                return false;
+
+        r = userns_registry_gid_exists(registry_dir_fd, (gid_t) candidate);
         if (r < 0)
                 return r;
         if (r > 0)
@@ -508,7 +514,8 @@ static int allocate_now(
                 if (r < 0)
                         return log_debug_errno(r, "Can't determine if UID range " UID_FMT " is available: %m", candidate);
                 if (r > 0) {
-                        info->start = candidate;
+                        info->start_uid = candidate;
+                        info->start_gid = (gid_t) candidate;
 
                         log_debug("Allocating UID range " UID_FMT "…" UID_FMT, candidate, candidate + info->size - 1);
 
@@ -530,10 +537,13 @@ static int write_userns(int usernsfd, const UserNamespaceInfo *userns_info) {
 
         assert(usernsfd >= 0);
         assert(userns_info);
-        assert(uid_is_valid(userns_info->target));
-        assert(uid_is_valid(userns_info->start));
+        assert(uid_is_valid(userns_info->target_uid));
+        assert(uid_is_valid(userns_info->start_uid));
+        assert(gid_is_valid(userns_info->target_gid));
+        assert(gid_is_valid(userns_info->start_gid));
         assert(userns_info->size > 0);
-        assert(userns_info->size <= UINT32_MAX - userns_info->start);
+        assert(userns_info->size <= UINT32_MAX - userns_info->start_uid);
+        assert(userns_info->size <= UINT32_MAX - userns_info->start_gid);
 
         efd = eventfd(0, EFD_CLOEXEC);
         if (efd < 0)
@@ -572,7 +582,7 @@ static int write_userns(int usernsfd, const UserNamespaceInfo *userns_info) {
         if (asprintf(&pmap, "/proc/" PID_FMT "/uid_map", pid) < 0)
                 return log_oom();
 
-        r = write_string_filef(pmap, 0, UID_FMT " " UID_FMT " " UID_FMT "\n", userns_info->target, userns_info->start, userns_info->size);
+        r = write_string_filef(pmap, 0, UID_FMT " " UID_FMT " %" PRIu32 "\n", userns_info->target_uid, userns_info->start_uid, userns_info->size);
         if (r < 0)
                 return log_error_errno(r, "Failed to write 'uid_map' file of user namespace: %m");
 
@@ -580,7 +590,7 @@ static int write_userns(int usernsfd, const UserNamespaceInfo *userns_info) {
         if (asprintf(&pmap, "/proc/" PID_FMT "/gid_map", pid) < 0)
                 return log_oom();
 
-        r = write_string_filef(pmap, 0, GID_FMT " " GID_FMT " " GID_FMT "\n", (gid_t) userns_info->target, (gid_t) userns_info->start, (gid_t) userns_info->size);
+        r = write_string_filef(pmap, 0, GID_FMT " " GID_FMT " %" PRIu32 "\n", userns_info->target_gid, userns_info->start_gid, userns_info->size);
         if (r < 0)
                 return log_error_errno(r, "Failed to write 'gid_map' file of user namespace: %m");
 
@@ -881,7 +891,8 @@ static int vl_method_allocate_user_range(sd_varlink *link, sd_json_variant *para
         userns_info->owner = peer_uid;
         userns_info->userns_inode = userns_st.st_ino;
         userns_info->size = p.size;
-        userns_info->target = p.target;
+        userns_info->target_uid = p.target;
+        userns_info->target_gid = (gid_t) p.target;
 
         r = allocate_now(registry_dir_fd, userns_info, &lock_fd);
         if (r == -EHOSTDOWN) /* The needed UID range is not delegated to us */
@@ -1238,12 +1249,14 @@ static int vl_method_add_mount_to_user_namespace(sd_varlink *link, sd_json_varia
         if (r < 0)
                 return r;
 
-        if (userns_info->size > 0)
-                log_debug("Granting access to mount %i to user namespace " INO_FMT " ('%s' @ UID " UID_FMT ")",
-                          mnt_id, userns_st.st_ino, userns_info->name, userns_info->start);
-        else
-                log_debug("Granting access to mount %i to user namespace " INO_FMT " ('%s')",
-                          mnt_id, userns_st.st_ino, userns_info->name);
+        if (DEBUG_LOGGING) {
+                if (userns_info->size > 0)
+                        log_debug("Granting access to mount %i to user namespace " INO_FMT " ('%s' @ UID " UID_FMT ")",
+                                  mnt_id, userns_st.st_ino, userns_info->name, userns_info->start_uid);
+                else
+                        log_debug("Granting access to mount %i to user namespace " INO_FMT " ('%s')",
+                                  mnt_id, userns_st.st_ino, userns_info->name);
+        }
 
         return sd_varlink_replyb(link, SD_JSON_BUILD_EMPTY_OBJECT);
 }
@@ -1379,7 +1392,7 @@ static int vl_method_add_cgroup_to_user_namespace(sd_varlink *link, sd_json_vari
         if (r < 0)
                 return r;
 
-        if (fchown(cgroup_fd, userns_info->start, userns_info->start) < 0)
+        if (fchown(cgroup_fd, userns_info->start_uid, userns_info->start_gid) < 0)
                 return log_debug_errno(errno, "Failed to change ownership of cgroup: %m");
 
         if (fchmod(cgroup_fd, 0755) < 0)
@@ -1387,11 +1400,11 @@ static int vl_method_add_cgroup_to_user_namespace(sd_varlink *link, sd_json_vari
 
         FOREACH_STRING(attr, "cgroup.procs", "cgroup.subtree_control", "cgroup.threads") {
                 (void) fchmodat(cgroup_fd, attr, 0644, AT_SYMLINK_NOFOLLOW);
-                (void) fchownat(cgroup_fd, attr, userns_info->start, userns_info->start, AT_SYMLINK_NOFOLLOW);
+                (void) fchownat(cgroup_fd, attr, userns_info->start_uid, userns_info->start_gid, AT_SYMLINK_NOFOLLOW);
         }
 
         log_debug("Granting ownership to cgroup %" PRIu64 " to userns " INO_FMT " ('%s' @ UID " UID_FMT ")",
-                  cgroup_id, userns_st.st_ino, userns_info->name, userns_info->start);
+                  cgroup_id, userns_st.st_ino, userns_info->name, userns_info->start_uid);
 
         return sd_varlink_replyb(link, SD_JSON_BUILD_EMPTY_OBJECT);
 }
@@ -1688,7 +1701,7 @@ static int vl_method_add_netif_to_user_namespace(sd_varlink *link, sd_json_varia
                 return r;
 
         log_debug("Adding veth tunnel %s from host to userns " INO_FMT " ('%s' @ UID " UID_FMT ", interface %s).",
-                  ifname_host, userns_st.st_ino, userns_info->name, userns_info->start, ifname_namespace);
+                  ifname_host, userns_st.st_ino, userns_info->name, userns_info->start_uid, ifname_namespace);
 
         return sd_varlink_replybo(
                         link,
