@@ -18,6 +18,7 @@
 #include "event-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "hostname-setup.h"
 #include "hostname-util.h"
 #include "idn-util.h"
 #include "io-util.h"
