@@ -50,14 +50,15 @@ foreach unit : units
 
                 foreach target : unit.get('symlinks', [])
                         if target.endswith('/')
-                                install_emptydir(userunitdir / target)
-                                meson.add_install_script(sh, '-c',
-                                                         ln_s.format(userunitdir / file,
-                                                                     userunitdir / target / file))
+                                # '/' is only allowed at the end of the target
+                                assert(target.replace('/', '') + '/' == target)
+                                install_symlink(file,
+                                                pointing_to : '..' / file,
+                                                install_dir : userunitdir / target)
                         else
-                                meson.add_install_script(sh, '-c',
-                                                         ln_s.format(userunitdir / file,
-                                                                     userunitdir / target))
+                                install_symlink(target,
+                                                pointing_to : file,
+                                                install_dir : userunitdir)
                         endif
                 endforeach
         endif

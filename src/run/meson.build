@@ -8,11 +8,9 @@ executables += [
         },
 ]
 
-install_emptydir(bindir)
-
-meson.add_install_script(sh, '-c',
-                             ln_s.format(bindir / 'systemd-run',
-                                         bindir / 'run0'))
+install_symlink('run0',
+                pointing_to : 'systemd-run',
+                install_dir : bindir)
 
 custom_target(
         'systemd-run0',

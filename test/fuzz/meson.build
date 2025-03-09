@@ -36,13 +36,16 @@ fuzz_regression_tests += { 'fuzz-unit-file' : dict }
 
 ############################################################
 
-# TODO: Use native string formatting with meson >= 1.3.0
-if get_option('auto_features').enabled()
-        sanitize_auto_features = 'enabled'
-elif get_option('auto_features').disabled()
-        sanitize_auto_features = 'disabled'
+if meson.version().version_compare('>=1.3.0')
+        sanitize_auto_features = '@0@'.format(get_option('auto_features'))
 else
-        sanitize_auto_features = 'auto'
+        if get_option('auto_features').enabled()
+                sanitize_auto_features = 'enabled'
+        elif get_option('auto_features').disabled()
+                sanitize_auto_features = 'disabled'
+        else
+                sanitize_auto_features = 'auto'
+        endif
 endif
 
 fuzz_c_args = get_option('c_args')
