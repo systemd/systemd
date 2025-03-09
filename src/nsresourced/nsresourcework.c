@@ -713,7 +713,7 @@ static int validate_name(sd_varlink *link, const char *name, bool mangle, char *
         return 0;
 }
 
-static int validate_target_and_size(sd_varlink *link, unsigned target, unsigned size) {
+static int validate_target_and_size(sd_varlink *link, uid_t target, uint32_t size) {
         assert(link);
 
         if (!IN_SET(size, 1U, 0x10000))
@@ -794,8 +794,8 @@ static int validate_userns_is_empty(sd_varlink *link, int userns_fd) {
 
 typedef struct AllocateParameters {
         const char *name;
-        unsigned size;
-        unsigned target;
+        uint32_t size;
+        uid_t target;
         unsigned userns_fd_idx;
         bool mangle_name;
 } AllocateParameters;
@@ -804,8 +804,8 @@ static int vl_method_allocate_user_range(sd_varlink *link, sd_json_variant *para
 
         static const sd_json_dispatch_field dispatch_table[] = {
                 { "name",                        SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(AllocateParameters, name),          SD_JSON_MANDATORY },
-                { "size",                        _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,         offsetof(AllocateParameters, size),          SD_JSON_MANDATORY },
-                { "target",                      _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,         offsetof(AllocateParameters, target),        0                 },
+                { "size",                        _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint32,       offsetof(AllocateParameters, size),          SD_JSON_MANDATORY },
+                { "target",                      _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uid_gid,      offsetof(AllocateParameters, target),        0                 },
                 { "userNamespaceFileDescriptor", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,         offsetof(AllocateParameters, userns_fd_idx), SD_JSON_MANDATORY },
                 { "mangleName",                  SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,      offsetof(AllocateParameters, mangle_name),   0                 },
                 {}
@@ -817,7 +817,7 @@ static int vl_method_allocate_user_range(sd_varlink *link, sd_json_variant *para
         uid_t peer_uid;
         struct stat userns_st;
         AllocateParameters p = {
-                .size = UINT_MAX,
+                .size = UINT32_MAX,
                 .userns_fd_idx = UINT_MAX,
         };
         int r;
