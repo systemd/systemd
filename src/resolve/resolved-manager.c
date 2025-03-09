@@ -816,7 +816,7 @@ int manager_start(Manager *m) {
 
 Manager *manager_free(Manager *m) {
         Link *l;
-        DnssdService *s;
+        DnssdRegisteredService *s;
 
         if (!m)
                 return NULL;
@@ -1398,7 +1398,7 @@ int manager_find_ifindex(Manager *m, int family, const union in_addr_union *in_a
 
 void manager_refresh_rrs(Manager *m) {
         Link *l;
-        DnssdService *s;
+        DnssdRegisteredService *s;
 
         assert(m);
 
@@ -1822,7 +1822,7 @@ void manager_cleanup_saved_user(Manager *m) {
 }
 
 bool manager_next_dnssd_names(Manager *m) {
-        DnssdService *s;
+        DnssdRegisteredService *s;
         bool tried = false;
         int r;
 
