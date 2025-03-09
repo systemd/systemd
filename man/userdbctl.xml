@@ -276,7 +276,7 @@
         <listitem><para>List all known users records or show details of one or more specified user
         records. Use <option>--output=</option> to tweak output mode.</para>
 
-        <para>If used in conjuntion with <option>--from-file=</option> the user record data is read in JSON
+        <para>If used in conjunction with <option>--from-file=</option> the user record data is read in JSON
         format from the specified file instead of querying it from the system. For details see above.</para>
 
         <xi:include href="version-info.xml" xpointer="v245"/></listitem>
@@ -288,7 +288,7 @@
         <listitem><para>List all known group records or show details of one or more specified group
         records. Use <option>--output=</option> to tweak the output mode.</para>
 
-        <para>If used in conjuntion with <option>--from-file=</option> the group record data is read in JSON
+        <para>If used in conjunction with <option>--from-file=</option> the group record data is read in JSON
         format from the specified file instead of querying it from the system. For details see above.</para>
 
         <xi:include href="version-info.xml" xpointer="v245"/></listitem>
