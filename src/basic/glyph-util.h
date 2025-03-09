@@ -7,6 +7,7 @@
 #include "macro.h"
 
 typedef enum Glyph {
+        GLYPH_SPACE,
         GLYPH_TREE_VERTICAL,
         GLYPH_TREE_BRANCH,
         GLYPH_TREE_RIGHT,
@@ -68,6 +69,10 @@ const char* glyph_full(Glyph code, bool force_utf) _const_;
 
 static inline const char* glyph(Glyph code) {
         return glyph_full(code, false);
+}
+
+static inline const char* optional_glyph(Glyph code) {
+        return emoji_enabled() ? glyph(code) : "";
 }
 
 static inline const char* glyph_check_mark(bool b) {

@@ -35,6 +35,7 @@ const char* glyph_full(Glyph code, bool force_utf) {
         static const char* const draw_table[2][_GLYPH_MAX] = {
                 /* ASCII fallback */
                 [false] = {
+                        [GLYPH_SPACE]                   = " ",
                         [GLYPH_TREE_VERTICAL]           = "| ",
                         [GLYPH_TREE_BRANCH]             = "|-",
                         [GLYPH_TREE_RIGHT]              = "`-",
@@ -87,6 +88,9 @@ const char* glyph_full(Glyph code, bool force_utf) {
 
                 /* UTF-8 */
                 [true] = {
+                        /* This exists to allow more consistent handling of optional whitespace */
+                        [GLYPH_SPACE]                   = " ",
+
                         /* The following are multiple glyphs in both ASCII and in UNICODE */
                         [GLYPH_TREE_VERTICAL]           = u8"│ ",
                         [GLYPH_TREE_BRANCH]             = u8"├─",
