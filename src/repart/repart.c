@@ -140,6 +140,7 @@ static char *arg_image = NULL;
 static char **arg_definitions = NULL;
 static bool arg_discard = true;
 static bool arg_can_factory_reset = false;
+static bool arg_stamp_factory_reset = false;
 static int arg_factory_reset = -1;
 static sd_id128_t arg_seed = SD_ID128_NULL;
 static bool arg_randomize = false;
@@ -8054,6 +8055,7 @@ static int parse_argv(int argc, char *argv[], X509 **ret_certificate, EVP_PKEY *
                 ARG_DISCARD,
                 ARG_FACTORY_RESET,
                 ARG_CAN_FACTORY_RESET,
+                ARG_STAMP_FACTORY_RESET,
                 ARG_ROOT,
                 ARG_IMAGE,
                 ARG_IMAGE_POLICY,
@@ -8100,6 +8102,7 @@ static int parse_argv(int argc, char *argv[], X509 **ret_certificate, EVP_PKEY *
                 { "discard",              required_argument, NULL, ARG_DISCARD              },
                 { "factory-reset",        required_argument, NULL, ARG_FACTORY_RESET        },
                 { "can-factory-reset",    no_argument,       NULL, ARG_CAN_FACTORY_RESET    },
+                { "stamp-factory-reset",  no_argument,       NULL, ARG_STAMP_FACTORY_RESET  },
                 { "root",                 required_argument, NULL, ARG_ROOT                 },
                 { "image",                required_argument, NULL, ARG_IMAGE                },
                 { "image-policy",         required_argument, NULL, ARG_IMAGE_POLICY         },
@@ -8200,6 +8203,10 @@ static int parse_argv(int argc, char *argv[], X509 **ret_certificate, EVP_PKEY *
 
                 case ARG_CAN_FACTORY_RESET:
                         arg_can_factory_reset = true;
+                        break;
+
+                case ARG_STAMP_FACTORY_RESET:
+                        arg_stamp_factory_reset = true;
                         break;
 
                 case ARG_ROOT:
@@ -9262,14 +9269,15 @@ static int run(int argc, char *argv[]) {
                 return r;
         context->from_scratch = r > 0; /* Starting from scratch */
 
-        if (arg_can_factory_reset) {
-                r = context_can_factory_reset(context);
+        r = context_can_factory_reset(context);
+        if (r < 0)
+                return r;
+        if (arg_can_factory_reset)
+                return r == 0 ? EXIT_FAILURE : 0;
+        if (arg_stamp_factory_reset && r > 0) {
+                r = touch("/run/systemd/factory-reset-supported");
                 if (r < 0)
-                        return r;
-                if (r == 0)
-                        return EXIT_FAILURE;
-
-                return 0;
+                        return log_error_errno(r, "Failed to create /run/systemd/factory-reset-supported file: %m");
         }
 
         r = context_factory_reset(context);
