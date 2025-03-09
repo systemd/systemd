@@ -335,8 +335,8 @@ static inline int run_test_table(void) {
         ({                                                                                                      \
                 typeof(expr) _result = (expr);                                                                  \
                 if (_result >= 0) {                                                                             \
-                        log_error_errno(_result, "%s:%i: Assertion failed: expected \"%s\" to fail, but it succeeded", \
-                                        PROJECT_FILE, __LINE__, #expr);                                         \
+                        log_error("%s:%i: Assertion failed: expected \"%s\" to fail, but it succeeded.",        \
+                                  PROJECT_FILE, __LINE__, #expr);                                               \
                         abort();                                                                                \
                 }                                                                                               \
         })
