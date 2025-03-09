@@ -1821,7 +1821,8 @@ static bool is_sd_boot(EFI_FILE *root_dir, const char16_t *loader_path) {
                         section_names,
                         /* profile= */ UINT_MAX,
                         /* validate_base= */ 0,
-                        vector);
+                        vector,
+                        PE_LOCATE_BY_OFFSET_BASE);
         if (vector[0].memory_size != STRLEN(SD_MAGIC))
                 return false;
 
@@ -2089,7 +2090,8 @@ static void boot_entry_add_type2(
                         section_names,
                         /* profile= */ UINT_MAX,
                         /* validate_base= */ 0,
-                        base_sections);
+                        base_sections,
+                        PE_LOCATE_BY_OFFSET_BASE);
 
         /* and now iterate through possible profiles, and create a menu item for each profile we find */
         for (unsigned profile = 0; profile < UNIFIED_PROFILES_MAX; profile ++) {
@@ -2104,7 +2106,8 @@ static void boot_entry_add_type2(
                                 section_names,
                                 profile,
                                 /* validate_base= */ 0,
-                                sections);
+                                sections,
+                                PE_LOCATE_BY_OFFSET_BASE);
                 if (err != EFI_SUCCESS && profile > 0) /* It's fine if there's no .profile for the first
                                                           profile */
                         break;

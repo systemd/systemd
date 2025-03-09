@@ -230,7 +230,8 @@ static void pe_locate_sections_internal(
                 size_t validate_base,
                 const void *device_table,
                 const Device *device,
-                PeSectionVector sections[]) {
+                PeSectionVector sections[],
+                PeLocateByOffset location) {
 
         assert(section_table || n_section_table == 0);
         assert(section_names);
@@ -274,9 +275,11 @@ static void pe_locate_sections_internal(
                                 /* .dtbauto sections require validate_base for matching */
                                 if (!validate_base)
                                         break;
+                                size_t dtb_size = 0;
+                                const void *dtb = pe_section_header_data(SIZE_TO_PTR(validate_base), j, location, &dtb_size);
                                 if (!pe_use_this_dtb(
-                                                  (const uint8_t *) SIZE_TO_PTR(validate_base) + j->VirtualAddress,
-                                                  j->VirtualSize,
+                                                  dtb,
+                                                  dtb_size,
                                                   device_table,
                                                   device,
                                                   (PTR_TO_SIZE(j) - PTR_TO_SIZE(section_table)) / sizeof(*j)))
@@ -288,9 +291,11 @@ static void pe_locate_sections_internal(
                                 /* can't match without validate_base */
                                 if (!validate_base)
                                         break;
+                                size_t fw_size = 0;
+                                const void *fw = pe_section_header_data(SIZE_TO_PTR(validate_base), j, location, &fw_size);
                                 if (!pe_use_this_firmware(
-                                                    (const uint8_t *) SIZE_TO_PTR(validate_base) + j->VirtualAddress,
-                                                    j->VirtualSize,
+                                                    fw,
+                                                    fw_size,
                                                     device_table,
                                                     device,
                                                     (PTR_TO_SIZE(j) - PTR_TO_SIZE(section_table)) / sizeof(*j)))
@@ -329,7 +334,8 @@ static void pe_locate_sections(
                 size_t n_section_table,
                 const char *const section_names[],
                 size_t validate_base,
-                PeSectionVector sections[]) {
+                PeSectionVector sections[],
+                PeLocateByOffset location) {
 
         if (!looking_for_dtbauto(section_names))
                 return pe_locate_sections_internal(
@@ -339,7 +345,8 @@ static void pe_locate_sections(
                                   validate_base,
                                   /* device_base */ NULL,
                                   /* device */ NULL,
-                                  sections);
+                                  sections,
+                                  location);
 
         /* It doesn't make sense not to provide validate_base here */
         assert(validate_base != 0);
@@ -359,12 +366,14 @@ static void pe_locate_sections(
                                 validate_base,
                                 /* device_table */ NULL,
                                 /* device */ NULL,
-                                hwids_section);
+                                hwids_section,
+                                location);
 
                 if (PE_SECTION_VECTOR_IS_SET(hwids_section)) {
-                        hwids = (const uint8_t *) SIZE_TO_PTR(validate_base) + hwids_section[0].memory_offset;
+                        size_t hwids_size = 0;
+                        hwids = pe_section_vector_data(SIZE_TO_PTR(validate_base), hwids_section, location, &hwids_size);
 
-                        EFI_STATUS err = chid_match(hwids, hwids_section[0].memory_size, DEVICE_TYPE_DEVICETREE, &device);
+                        EFI_STATUS err = chid_match(hwids, hwids_size, DEVICE_TYPE_DEVICETREE, &device);
                         if (err != EFI_SUCCESS) {
                                 log_error_status(err, "HWID matching failed, no DT blob will be selected: %m");
                                 hwids = NULL;
@@ -379,7 +388,8 @@ static void pe_locate_sections(
                             validate_base,
                             hwids,
                             device,
-                            sections);
+                            sections,
+                            location);
 }
 
 static uint32_t get_compatibility_entry_address(const DosFileHeader *dos, const PeFileHeader *pe) {
@@ -397,7 +407,8 @@ static uint32_t get_compatibility_entry_address(const DosFileHeader *dos, const 
                         pe->FileHeader.NumberOfSections,
                         section_names,
                         PTR_TO_SIZE(dos),
-                        vector);
+                        vector,
+                        PE_LOCATE_BY_OFFSET_FILE);
 
         if (!PE_SECTION_VECTOR_IS_SET(vector)) /* not found */
                 return 0;
@@ -490,7 +501,8 @@ EFI_STATUS pe_section_table_from_base(
 EFI_STATUS pe_memory_locate_sections(
                 const void *base,
                 const char *const section_names[],
-                PeSectionVector sections[]) {
+                PeSectionVector sections[],
+                PeLocateByOffset location) {
 
         EFI_STATUS err;
 
@@ -509,7 +521,8 @@ EFI_STATUS pe_memory_locate_sections(
                         n_section_table,
                         section_names,
                         PTR_TO_SIZE(base),
-                        sections);
+                        sections,
+                        location);
 
         return EFI_SUCCESS;
 }
@@ -638,7 +651,8 @@ EFI_STATUS pe_locate_profile_sections(
                 const char* const section_names[],
                 unsigned profile,
                 size_t validate_base,
-                PeSectionVector sections[]) {
+                PeSectionVector sections[],
+                PeLocateByOffset location) {
 
         assert(section_table || n_section_table == 0);
         assert(section_names);
@@ -659,7 +673,8 @@ EFI_STATUS pe_locate_profile_sections(
                         n,
                         section_names,
                         validate_base,
-                        sections);
+                        sections,
+                        location);
 
         return EFI_SUCCESS;
 }
