@@ -55,8 +55,10 @@ UserNamespaceInfo* userns_info_new(void) {
 
         *info = (UserNamespaceInfo) {
                 .owner = UID_INVALID,
-                .start = UID_INVALID,
-                .target = UID_INVALID,
+                .start_uid = UID_INVALID,
+                .target_uid = UID_INVALID,
+                .start_gid = GID_INVALID,
+                .target_gid = GID_INVALID,
         };
 
         return info;
@@ -119,13 +121,15 @@ static int dispatch_cgroups_array(const char *name, sd_json_variant *variant, sd
 static int userns_registry_load(int dir_fd, const char *fn, UserNamespaceInfo **ret) {
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "owner",   SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uid_gid,  offsetof(UserNamespaceInfo, owner),        SD_JSON_MANDATORY },
-                { "name",    SD_JSON_VARIANT_STRING,   sd_json_dispatch_string,   offsetof(UserNamespaceInfo, name),         SD_JSON_MANDATORY },
-                { "userns",  SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint64,   offsetof(UserNamespaceInfo, userns_inode), SD_JSON_MANDATORY },
-                { "start",   SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uid_gid,  offsetof(UserNamespaceInfo, start),        0                 },
-                { "size",    SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint32,   offsetof(UserNamespaceInfo, size),         0                 },
-                { "target",  SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uid_gid,  offsetof(UserNamespaceInfo, target),       0                 },
-                { "cgroups", SD_JSON_VARIANT_ARRAY,    dispatch_cgroups_array,    0,                                         0                 },
+                { "owner",     SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uid_gid,  offsetof(UserNamespaceInfo, owner),        SD_JSON_MANDATORY },
+                { "name",      SD_JSON_VARIANT_STRING,   sd_json_dispatch_string,   offsetof(UserNamespaceInfo, name),         SD_JSON_MANDATORY },
+                { "userns",    SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint64,   offsetof(UserNamespaceInfo, userns_inode), SD_JSON_MANDATORY },
+                { "size",      SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint32,   offsetof(UserNamespaceInfo, size),         0                 },
+                { "start",     SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uid_gid,  offsetof(UserNamespaceInfo, start_uid),    0                 },
+                { "target",    SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uid_gid,  offsetof(UserNamespaceInfo, target_uid),   0                 },
+                { "startGid",  SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uid_gid,  offsetof(UserNamespaceInfo, start_gid),    0                 },
+                { "targetGid", SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uid_gid,  offsetof(UserNamespaceInfo, target_gid),   0                 },
+                { "cgroups",   SD_JSON_VARIANT_ARRAY,    dispatch_cgroups_array,    0,                                         0                 },
                 {}
         };
 
@@ -156,17 +160,32 @@ static int userns_registry_load(int dir_fd, const char *fn, UserNamespaceInfo **
 
         if (userns_info->userns_inode == 0)
                 return -EBADMSG;
-        if (userns_info->start == 0)
+        if (userns_info->start_uid == 0 || userns_info->start_gid == 0)
                 return -EBADMSG;
+
         if (userns_info->size == 0) {
-                if (uid_is_valid(userns_info->start) || uid_is_valid(userns_info->target))
-                        return -EBADMSG;
-        } else {
-                if (!uid_is_valid(userns_info->start) || !uid_is_valid(userns_info->target))
+                if (uid_is_valid(userns_info->start_uid) || uid_is_valid(userns_info->target_uid))
                         return -EBADMSG;
 
-                if (userns_info->size > UINT32_MAX - userns_info->start ||
-                    userns_info->size > UINT32_MAX - userns_info->target)
+                if (gid_is_valid(userns_info->start_gid) || gid_is_valid(userns_info->target_gid))
+                        return -EBADMSG;
+        } else {
+                if (!uid_is_valid(userns_info->start_uid) || !uid_is_valid(userns_info->target_uid))
+                        return -EBADMSG;
+
+                if (userns_info->size > UINT32_MAX - userns_info->start_uid ||
+                    userns_info->size > UINT32_MAX - userns_info->target_uid)
+                        return -EBADMSG;
+
+                /* Older versions of the registry didn't maintain UID/GID separately, hence copy over if not
+                 * set */
+                if (!gid_is_valid(userns_info->start_gid))
+                        userns_info->start_gid = userns_info->start_uid;
+                if (!gid_is_valid(userns_info->target_gid))
+                        userns_info->target_gid = userns_info->target_gid;
+
+                if (userns_info->size > UINT32_MAX - userns_info->start_gid ||
+                    userns_info->size > UINT32_MAX - userns_info->target_gid)
                         return -EBADMSG;
         }
 
@@ -187,6 +206,26 @@ int userns_registry_uid_exists(int dir_fd, uid_t start) {
                 return true;
 
         if (asprintf(&fn, "u" UID_FMT ".userns", start) < 0)
+                return -ENOMEM;
+
+        if (faccessat(dir_fd, fn, F_OK, AT_SYMLINK_NOFOLLOW) < 0)
+                return errno == ENOENT ? false : -errno;
+
+        return true;
+}
+
+int userns_registry_gid_exists(int dir_fd, gid_t start) {
+        _cleanup_free_ char *fn = NULL;
+
+        assert(dir_fd >= 0);
+
+        if (!gid_is_valid(start))
+                return -ENOENT;
+
+        if (start == 0)
+                return true;
+
+        if (asprintf(&fn, "g" GID_FMT ".userns", start) < 0)
                 return -ENOMEM;
 
         if (faccessat(dir_fd, fn, F_OK, AT_SYMLINK_NOFOLLOW) < 0)
@@ -254,7 +293,40 @@ int userns_registry_load_by_start_uid(int dir_fd, uid_t start, UserNamespaceInfo
         if (r < 0)
                 return r;
 
-        if (userns_info->start != start)
+        if (userns_info->start_uid != start)
+                return -EBADMSG;
+
+        if (ret)
+                *ret = TAKE_PTR(userns_info);
+
+        return 0;
+}
+
+int userns_registry_load_by_start_gid(int dir_fd, gid_t start, UserNamespaceInfo **ret) {
+        _cleanup_(userns_info_freep) UserNamespaceInfo *userns_info = NULL;
+        _cleanup_close_ int registry_fd = -EBADF;
+        _cleanup_free_ char *fn = NULL;
+        int r;
+
+        if (!gid_is_valid(start))
+                return -ENOENT;
+
+        if (dir_fd < 0) {
+                registry_fd = userns_registry_open_fd();
+                if (registry_fd < 0)
+                        return registry_fd;
+
+                dir_fd = registry_fd;
+        }
+
+        if (asprintf(&fn, "g" GID_FMT ".userns", start) < 0)
+                return -ENOMEM;
+
+        r = userns_registry_load(dir_fd, fn, &userns_info);
+        if (r < 0)
+                return r;
+
+        if (userns_info->start_gid != start)
                 return -EBADMSG;
 
         if (ret)
@@ -366,9 +438,11 @@ int userns_registry_store(int dir_fd, UserNamespaceInfo *info) {
                         SD_JSON_BUILD_PAIR("owner", SD_JSON_BUILD_UNSIGNED(info->owner)),
                         SD_JSON_BUILD_PAIR("name", SD_JSON_BUILD_STRING(info->name)),
                         SD_JSON_BUILD_PAIR("userns", SD_JSON_BUILD_UNSIGNED(info->userns_inode)),
-                        SD_JSON_BUILD_PAIR_CONDITION(uid_is_valid(info->start), "start", SD_JSON_BUILD_UNSIGNED(info->start)),
-                        SD_JSON_BUILD_PAIR_CONDITION(uid_is_valid(info->start), "size", SD_JSON_BUILD_UNSIGNED(info->size)),
-                        SD_JSON_BUILD_PAIR_CONDITION(uid_is_valid(info->start), "target", SD_JSON_BUILD_UNSIGNED(info->target)),
+                        SD_JSON_BUILD_PAIR_CONDITION(info->size > 0, "size", SD_JSON_BUILD_UNSIGNED(info->size)),
+                        SD_JSON_BUILD_PAIR_CONDITION(uid_is_valid(info->start_uid), "start", SD_JSON_BUILD_UNSIGNED(info->start_uid)),
+                        SD_JSON_BUILD_PAIR_CONDITION(uid_is_valid(info->target_uid), "target", SD_JSON_BUILD_UNSIGNED(info->target_uid)),
+                        SD_JSON_BUILD_PAIR_CONDITION(gid_is_valid(info->start_gid), "startGid", SD_JSON_BUILD_UNSIGNED(info->start_gid)),
+                        SD_JSON_BUILD_PAIR_CONDITION(gid_is_valid(info->target_gid), "targetGid", SD_JSON_BUILD_UNSIGNED(info->target_gid)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!cgroup_array, "cgroups", SD_JSON_BUILD_VARIANT(cgroup_array)));
         if (r < 0)
                 return r;
@@ -378,7 +452,7 @@ int userns_registry_store(int dir_fd, UserNamespaceInfo *info) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to format userns JSON object: %m");
 
-        _cleanup_free_ char *reg_fn = NULL, *link1_fn = NULL, *link2_fn = NULL, *owner_fn = NULL, *uid_fn = NULL;
+        _cleanup_free_ char *reg_fn = NULL, *link1_fn = NULL, *link2_fn = NULL, *link3_fn = NULL, *owner_fn = NULL, *uid_fn = NULL;
         if (asprintf(&reg_fn, "i%" PRIu64 ".userns", info->userns_inode) < 0)
                 return log_oom_debug();
 
@@ -398,13 +472,26 @@ int userns_registry_store(int dir_fd, UserNamespaceInfo *info) {
                 goto fail;
         }
 
-        if (uid_is_valid(info->start)) {
-                if (asprintf(&link2_fn, "u" UID_FMT ".userns", info->start) < 0) {
+        if (uid_is_valid(info->start_uid)) {
+                if (asprintf(&link2_fn, "u" UID_FMT ".userns", info->start_uid) < 0) {
                         r = log_oom_debug();
                         goto fail;
                 }
 
                 r = linkat_replace(dir_fd, reg_fn, dir_fd, link2_fn);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to link userns data to '%s' in registry: %m", link2_fn);
+                        goto fail;
+                }
+        }
+
+        if (gid_is_valid(info->start_gid)) {
+                if (asprintf(&link3_fn, "g" GID_FMT ".userns", info->start_gid) < 0) {
+                        r = log_oom_debug();
+                        goto fail;
+                }
+
+                r = linkat_replace(dir_fd, reg_fn, dir_fd, link3_fn);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to link userns data to '%s' in registry: %m", link2_fn);
                         goto fail;
@@ -441,6 +528,8 @@ fail:
                 (void) unlinkat(dir_fd, link1_fn, /* flags= */ 0);
         if (link2_fn)
                 (void) unlinkat(dir_fd, link2_fn, /* flags= */ 0);
+        if (link3_fn)
+                (void) unlinkat(dir_fd, link3_fn, /* flags= */ 0);
         if (owner_fn)
                 (void) unlinkat(dir_fd, owner_fn, /* flags= */ 0);
         if (uid_fn)
@@ -476,13 +565,22 @@ int userns_registry_remove(int dir_fd, UserNamespaceInfo *info) {
 
         RET_GATHER(ret, RET_NERRNO(unlinkat(dir_fd, link1_fn, 0)));
 
-        if (uid_is_valid(info->start)) {
+        if (uid_is_valid(info->start_uid)) {
                 _cleanup_free_ char *link2_fn = NULL;
 
-                if (asprintf(&link2_fn, "u" UID_FMT ".userns", info->start) < 0)
+                if (asprintf(&link2_fn, "u" UID_FMT ".userns", info->start_uid) < 0)
                         return log_oom_debug();
 
                 RET_GATHER(ret, RET_NERRNO(unlinkat(dir_fd, link2_fn, 0)));
+        }
+
+        if (uid_is_valid(info->start_gid)) {
+                _cleanup_free_ char *link3_fn = NULL;
+
+                if (asprintf(&link3_fn, "g" GID_FMT ".userns", info->start_gid) < 0)
+                        return log_oom_debug();
+
+                RET_GATHER(ret, RET_NERRNO(unlinkat(dir_fd, link3_fn, 0)));
         }
 
         _cleanup_free_ char *uid_fn = NULL;
