@@ -515,7 +515,7 @@ static int ndisc_request_route(Route *route, Link *link) {
                         ndisc_set_route_priority(link, route);
 
                         existing = ASSERT_PTR(req->userdata);
-                        if (!route_can_update(existing, route)) {
+                        if (!route_can_update(link->manager, existing, route)) {
                                 if (existing->source == NETWORK_CONFIG_SOURCE_STATIC) {
                                         log_link_debug(link, "Found a pending route request that conflicts with new request based on a received RA, ignoring request.");
                                         return 0;
@@ -536,7 +536,7 @@ static int ndisc_request_route(Route *route, Link *link) {
                         route->pref = pref_original;
                         ndisc_set_route_priority(link, route);
 
-                        if (!route_can_update(existing, route)) {
+                        if (!route_can_update(link->manager, existing, route)) {
                                 if (existing->source == NETWORK_CONFIG_SOURCE_STATIC) {
                                         log_link_debug(link, "Found an existing route that conflicts with new route based on a received RA, ignoring request.");
                                         return 0;
