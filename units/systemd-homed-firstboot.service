@@ -25,4 +25,4 @@ ImportCredential=home.*
 
 [Install]
 WantedBy=systemd-homed.service
-Also=systemd-homed.service
+Also=systemd-homed.service systemd-homed-activate.service
