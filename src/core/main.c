@@ -2124,10 +2124,11 @@ static int do_reexecute(
         args[0] = "/sbin/init";
         (void) execv(args[0], (char* const*) args);
         r = -errno;
+        *ret_error_message = "Failed to execute /sbin/init";
 
         manager_status_printf(NULL, STATUS_TYPE_EMERGENCY,
                               ANSI_HIGHLIGHT_RED "  !!  " ANSI_NORMAL,
-                              "Failed to execute /sbin/init");
+                              "%s", *ret_error_message);
 
         if (r == -ENOENT) {
                 log_warning_errno(r, "No /sbin/init, trying fallback shell");
@@ -2136,10 +2137,10 @@ static int do_reexecute(
                 args[1] = NULL;
                 (void) execve(args[0], (char* const*) args, saved_env);
                 r = -errno;
+                *ret_error_message = "Failed to execute fallback shell";
         }
 
-        *ret_error_message = "Failed to execute fallback shell";
-        return log_error_errno(r, "Failed to execute /bin/sh, giving up: %m");
+        return log_error_errno(r, "%s, giving up: %m", *ret_error_message);
 }
 
 static int invoke_main_loop(
