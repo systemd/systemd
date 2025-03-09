@@ -30,50 +30,59 @@ static void test_sd_device_one(sd_device *d) {
         usec_t usec;
         int ifindex, r;
 
-        assert_se(sd_device_get_syspath(d, &syspath) >= 0);
-        assert_se(path_startswith(syspath, "/sys"));
-        assert_se(sd_device_get_sysname(d, &sysname) >= 0);
+        ASSERT_OK(sd_device_get_syspath(d, &syspath));
+        ASSERT_NOT_NULL(path_startswith(syspath, "/sys"));
+        ASSERT_OK(sd_device_get_sysname(d, &sysname));
 
         log_info("%s(%s)", __func__, syspath);
 
-        assert_se(sd_device_new_from_syspath(&dev, syspath) >= 0);
-        assert_se(sd_device_get_syspath(dev, &val) >= 0);
-        assert_se(streq(syspath, val));
-        dev = sd_device_unref(dev);
+        ASSERT_OK(sd_device_new_from_syspath(&dev, syspath));
+        ASSERT_OK(sd_device_get_syspath(dev, &val));
+        ASSERT_STREQ(syspath, val);
+        ASSERT_NULL((dev = sd_device_unref(dev)));
 
-        assert_se(sd_device_new_from_path(&dev, syspath) >= 0);
-        assert_se(sd_device_get_syspath(dev, &val) >= 0);
-        assert_se(streq(syspath, val));
-        dev = sd_device_unref(dev);
+        ASSERT_OK(sd_device_new_from_path(&dev, syspath));
+        ASSERT_OK(sd_device_get_syspath(dev, &val));
+        ASSERT_STREQ(syspath, val);
+        ASSERT_NULL((dev = sd_device_unref(dev)));
 
         r = sd_device_get_ifindex(d, &ifindex);
-        if (r >= 0) {
-                assert_se(ifindex > 0);
+        if (r < 0)
+                ASSERT_ERROR(r, ENOENT);
+        else {
+                ASSERT_GT(ifindex, 0);
+
+                const char *ifname;
+                ASSERT_OK(device_get_ifname(d, &ifname));
+                ASSERT_NOT_NULL(endswith(syspath, ifname));
+                if (strchr(sysname, '/'))
+                        ASSERT_FALSE(streq(ifname, sysname));
+                else
+                        ASSERT_STREQ(ifname, sysname);
 
                 r = sd_device_new_from_ifindex(&dev, ifindex);
-                if (r == -ENODEV)
+                if (r < 0) {
+                        ASSERT_ERROR(r, ENODEV);
                         log_device_warning_errno(d, r,
                                                  "Failed to create sd-device object from ifindex %i. "
                                                  "Maybe running on a non-host network namespace.", ifindex);
-                else {
-                        assert_se(r >= 0);
-                        assert_se(sd_device_get_syspath(dev, &val) >= 0);
-                        assert_se(streq(syspath, val));
-                        dev = sd_device_unref(dev);
+                } else {
+                        ASSERT_OK(sd_device_get_syspath(dev, &val));
+                        ASSERT_STREQ(syspath, val);
+                        ASSERT_NULL((dev = sd_device_unref(dev)));
                 }
 
                 /* This does not require the interface really exists on the network namespace.
                  * Hence, this should always succeed. */
-                assert_se(sd_device_new_from_ifname(&dev, sysname) >= 0);
-                assert_se(sd_device_get_syspath(dev, &val) >= 0);
-                assert_se(streq(syspath, val));
-                dev = sd_device_unref(dev);
-        } else
-                assert_se(r == -ENOENT);
+                ASSERT_OK(sd_device_new_from_ifname(&dev, sysname));
+                ASSERT_OK(sd_device_get_syspath(dev, &val));
+                ASSERT_STREQ(syspath, val);
+                ASSERT_NULL((dev = sd_device_unref(dev)));
+        }
 
         r = sd_device_get_subsystem(d, &subsystem);
         if (r < 0)
-                assert_se(r == -ENOENT);
+                ASSERT_ERROR(r, ENOENT);
         else {
                 const char *name, *id;
 
@@ -85,132 +94,145 @@ static void test_sd_device_one(sd_device *d) {
                         name = sysname;
 
                 r = sd_device_new_from_subsystem_sysname(&dev, subsystem, name);
-                if (r >= 0) {
-                        assert_se(sd_device_get_syspath(dev, &val) >= 0);
-                        assert_se(streq(syspath, val));
-                        dev = sd_device_unref(dev);
-                } else
+                if (r < 0)
                         ASSERT_ERROR(r, ETOOMANYREFS);
+                else {
+                        ASSERT_OK(sd_device_get_syspath(dev, &val));
+                        ASSERT_STREQ(syspath, val);
+                        ASSERT_NULL((dev = sd_device_unref(dev)));
+                }
 
                 /* The device ID depends on subsystem. */
-                assert_se(sd_device_get_device_id(d, &id) >= 0);
+                ASSERT_OK(sd_device_get_device_id(d, &id));
                 r = sd_device_new_from_device_id(&dev, id);
-                if (r == -ENODEV && ifindex > 0)
-                        log_device_warning_errno(d, r,
-                                                 "Failed to create sd-device object from device ID \"%s\". "
-                                                 "Maybe running on a non-host network namespace.", id);
-                else if (r >= 0) {
-                        assert_se(sd_device_get_syspath(dev, &val) >= 0);
-                        assert_se(streq(syspath, val));
-                        dev = sd_device_unref(dev);
-                } else
-                        ASSERT_ERROR(r, ETOOMANYREFS);
+                if (r < 0) {
+                        if (r == -ENODEV && ifindex > 0)
+                                log_device_warning_errno(d, r,
+                                                         "Failed to create sd-device object from device ID \"%s\". "
+                                                         "Maybe running on a non-host network namespace.", id);
+                        else
+                                ASSERT_ERROR(r, ETOOMANYREFS);
+                } else {
+                        ASSERT_OK(sd_device_get_syspath(dev, &val));
+                        ASSERT_STREQ(syspath, val);
+                        ASSERT_NULL((dev = sd_device_unref(dev)));
+                }
 
                 /* These require udev database, and reading database requires device ID. */
-                r = sd_device_get_is_initialized(d);
+                ASSERT_OK((r = sd_device_get_is_initialized(d)));
                 if (r > 0) {
                         r = sd_device_get_usec_since_initialized(d, &usec);
-                        assert_se((r >= 0 && usec > 0) || r == -ENODATA);
-                } else
-                        assert(r == 0);
+                        if (r < 0)
+                                ASSERT_ERROR(r, ENODATA);
+                        else
+                                ASSERT_GT(usec, 0U);
+                }
 
                 r = sd_device_get_property_value(d, "ID_NET_DRIVER", &val);
-                assert_se(r >= 0 || r == -ENOENT);
+                if (r < 0)
+                        ASSERT_ERROR(r, ENOENT);
         }
 
         is_block = streq_ptr(subsystem, "block");
 
         r = sd_device_get_devname(d, &devname);
-        if (r >= 0) {
+        if (r < 0)
+                ASSERT_ERROR(r, ENOENT);
+        else {
                 r = sd_device_new_from_devname(&dev, devname);
-                if (r >= 0) {
-                        assert_se(sd_device_get_syspath(dev, &val) >= 0);
-                        assert_se(streq(syspath, val));
-                        dev = sd_device_unref(dev);
-                } else
-                        assert_se(r == -ENODEV || ERRNO_IS_PRIVILEGE(r));
+                if (r < 0)
+                        ASSERT_TRUE(r == -ENODEV || ERRNO_IS_NEG_PRIVILEGE(r));
+                else {
+                        ASSERT_OK(sd_device_get_syspath(dev, &val));
+                        ASSERT_STREQ(syspath, val);
+                        ASSERT_NULL((dev = sd_device_unref(dev)));
+                }
 
                 r = sd_device_new_from_path(&dev, devname);
-                if (r >= 0) {
-                        assert_se(sd_device_get_syspath(dev, &val) >= 0);
-                        assert_se(streq(syspath, val));
-                        dev = sd_device_unref(dev);
+                if (r < 0)
+                        ASSERT_TRUE(r == -ENODEV || ERRNO_IS_NEG_PRIVILEGE(r));
+                else {
+                        ASSERT_OK(sd_device_get_syspath(dev, &val));
+                        ASSERT_STREQ(syspath, val);
+                        ASSERT_NULL((dev = sd_device_unref(dev)));
 
                         _cleanup_close_ int fd = -EBADF;
                         fd = sd_device_open(d, O_CLOEXEC| O_NONBLOCK | (is_block ? O_RDONLY : O_NOCTTY | O_PATH));
-                        assert_se(fd >= 0 || ERRNO_IS_PRIVILEGE(fd));
-                } else
-                        assert_se(r == -ENODEV || ERRNO_IS_PRIVILEGE(r));
-        } else
-                assert_se(r == -ENOENT);
+                        ASSERT_TRUE(fd >= 0 || ERRNO_IS_NEG_PRIVILEGE(fd));
+                }
+        }
 
         r = sd_device_get_devnum(d, &devnum);
-        if (r >= 0) {
+        if (r < 0)
+                ASSERT_ERROR(r, ENOENT);
+        else {
                 _cleanup_free_ char *p = NULL;
 
-                assert_se(major(devnum) > 0);
+                ASSERT_GT(major(devnum), 0U);
 
-                assert_se(sd_device_new_from_devnum(&dev, is_block ? 'b' : 'c', devnum) >= 0);
-                assert_se(sd_device_get_syspath(dev, &val) >= 0);
-                assert_se(streq(syspath, val));
-                dev = sd_device_unref(dev);
+                ASSERT_OK(sd_device_new_from_devnum(&dev, is_block ? 'b' : 'c', devnum));
+                ASSERT_OK(sd_device_get_syspath(dev, &val));
+                ASSERT_STREQ(syspath, val);
+                ASSERT_NULL((dev = sd_device_unref(dev)));
 
-                assert_se(asprintf(&p, "/dev/%s/%u:%u", is_block ? "block" : "char", major(devnum), minor(devnum)) >= 0);
-                assert_se(sd_device_new_from_devname(&dev, p) >= 0);
-                assert_se(sd_device_get_syspath(dev, &val) >= 0);
-                assert_se(streq(syspath, val));
-                dev = sd_device_unref(dev);
+                ASSERT_OK(asprintf(&p, "/dev/%s/%u:%u", is_block ? "block" : "char", major(devnum), minor(devnum)));
+                ASSERT_OK(sd_device_new_from_devname(&dev, p));
+                ASSERT_OK(sd_device_get_syspath(dev, &val));
+                ASSERT_STREQ(syspath, val);
+                ASSERT_NULL((dev = sd_device_unref(dev)));
 
-                assert_se(sd_device_new_from_path(&dev, p) >= 0);
-                assert_se(sd_device_get_syspath(dev, &val) >= 0);
-                assert_se(streq(syspath, val));
-                dev = sd_device_unref(dev);
-        } else
-                assert_se(r == -ENOENT);
+                ASSERT_OK(sd_device_new_from_path(&dev, p));
+                ASSERT_OK(sd_device_get_syspath(dev, &val));
+                ASSERT_STREQ(syspath, val);
+                ASSERT_NULL((dev = sd_device_unref(dev)));
+        }
 
-        assert_se(sd_device_get_devpath(d, &val) >= 0);
+        ASSERT_OK(sd_device_get_devpath(d, &val));
 
-        r = sd_device_get_devtype(d, &val);
-        assert_se(r >= 0 || r == -ENOENT);
+        r = sd_device_get_devtype(d, NULL);
+        if (r < 0)
+                ASSERT_ERROR(r, ENOENT);
 
-        r = sd_device_get_driver(d, &val);
-        assert_se(r >= 0 || r == -ENOENT);
+        r = sd_device_get_driver(d, NULL);
+        if (r < 0)
+                ASSERT_ERROR(r, ENOENT);
 
         r = sd_device_get_sysnum(d, &val);
-        if (r >= 0) {
-                assert_se(val > sysname);
-                assert_se(val < sysname + strlen(sysname));
-                assert_se(in_charset(val, DIGITS));
-                assert_se(!ascii_isdigit(val[-1]));
+        if (r < 0)
+                ASSERT_ERROR(r, ENOENT);
+        else {
+                ASSERT_TRUE(val > sysname);
+                ASSERT_TRUE(val < sysname + strlen(sysname));
+                ASSERT_TRUE(in_charset(val, DIGITS));
+                ASSERT_FALSE(ascii_isdigit(val[-1]));
+
                 r = device_get_sysnum_unsigned(d, NULL);
-                ASSERT_TRUE(r >= 0 || r == -ERANGE); /* sysnum may be too large. */
-        } else
-                assert_se(r == -ENOENT);
+                if (r < 0)
+                        ASSERT_ERROR(r, ERANGE); /* sysnum may be too large. */
+        }
 
         r = sd_device_get_sysattr_value(d, "nsid", NULL);
-        if (r >= 0) {
+        if (r < 0)
+                ASSERT_TRUE(ERRNO_IS_NEG_PRIVILEGE(r) || IN_SET(r, -ENOENT, -EINVAL));
+        else {
                 unsigned x;
-
-                assert_se(device_get_sysattr_unsigned(d, "nsid", NULL) >= 0);
-                r = device_get_sysattr_unsigned(d, "nsid", &x);
-                assert_se(r >= 0);
-                assert_se((x > 0) == (r > 0));
-        } else
-                assert_se(ERRNO_IS_PRIVILEGE(r) || IN_SET(r, -ENOENT, -EINVAL));
+                ASSERT_OK((r = device_get_sysattr_unsigned(d, "nsid", &x)));
+                ASSERT_EQ((x > 0), (r > 0));
+        }
 }
 
 TEST(sd_device_enumerator_devices) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
 
-        assert_se(sd_device_enumerator_new(&e) >= 0);
-        assert_se(sd_device_enumerator_allow_uninitialized(e) >= 0);
+        ASSERT_OK(sd_device_enumerator_new(&e));
+        ASSERT_OK(sd_device_enumerator_allow_uninitialized(e));
         /* On some CI environments, it seems some loop block devices and corresponding bdi devices sometimes
          * disappear during running this test. Let's exclude them here for stability. */
-        assert_se(sd_device_enumerator_add_match_subsystem(e, "bdi", false) >= 0);
-        assert_se(sd_device_enumerator_add_nomatch_sysname(e, "loop*") >= 0);
+        ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, "bdi", false));
+        ASSERT_OK(sd_device_enumerator_add_nomatch_sysname(e, "loop*"));
         /* On CentOS CI, systemd-networkd-tests.py may be running when this test is invoked. The networkd
          * test creates and removes many network interfaces, and may interfere with this test. */
-        assert_se(sd_device_enumerator_add_match_subsystem(e, "net", false) >= 0);
+        ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, "net", false));
         FOREACH_DEVICE(e, d)
                 test_sd_device_one(d);
 }
@@ -218,8 +240,8 @@ TEST(sd_device_enumerator_devices) {
 TEST(sd_device_enumerator_subsystems) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
 
-        assert_se(sd_device_enumerator_new(&e) >= 0);
-        assert_se(sd_device_enumerator_allow_uninitialized(e) >= 0);
+        ASSERT_OK(sd_device_enumerator_new(&e));
+        ASSERT_OK(sd_device_enumerator_allow_uninitialized(e));
         FOREACH_SUBSYSTEM(e, d)
                 test_sd_device_one(d);
 }
@@ -234,15 +256,15 @@ static void test_sd_device_enumerator_filter_subsystem_one(
         unsigned n_new_dev = 0, n_removed_dev = 0;
         sd_device *dev;
 
-        assert_se(sd_device_enumerator_new(&e) >= 0);
-        assert_se(sd_device_enumerator_add_match_subsystem(e, subsystem, true) >= 0);
-        assert_se(sd_device_enumerator_add_nomatch_sysname(e, "loop*") >= 0);
+        ASSERT_OK(sd_device_enumerator_new(&e));
+        ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, subsystem, true));
+        ASSERT_OK(sd_device_enumerator_add_nomatch_sysname(e, "loop*"));
 
         FOREACH_DEVICE(e, d) {
                 const char *syspath;
                 sd_device *t;
 
-                assert_se(sd_device_get_syspath(d, &syspath) >= 0);
+                ASSERT_OK(sd_device_get_syspath(d, &syspath));
                 t = hashmap_remove(h, syspath);
 
                 if (!t) {
@@ -250,17 +272,17 @@ static void test_sd_device_enumerator_filter_subsystem_one(
                         n_new_dev++;
                 }
 
-                assert_se(!sd_device_unref(t));
+                ASSERT_NULL(sd_device_unref(t));
         }
 
         HASHMAP_FOREACH(dev, h) {
                 const char *syspath;
 
-                assert_se(sd_device_get_syspath(dev, &syspath) >= 0);
+                ASSERT_OK(sd_device_get_syspath(dev, &syspath));
                 log_warning("Device removed: subsystem:%s syspath:%s", subsystem, syspath);
                 n_removed_dev++;
 
-                assert_se(!sd_device_unref(dev));
+                ASSERT_NULL(sd_device_unref(dev));
         }
 
         hashmap_free(h);
@@ -276,34 +298,35 @@ static bool test_sd_device_enumerator_filter_subsystem_trial(void) {
         Hashmap *h;
         char *s;
 
-        assert_se(subsystems = hashmap_new(&string_hash_ops));
-        assert_se(sd_device_enumerator_new(&e) >= 0);
+        ASSERT_NOT_NULL((subsystems = hashmap_new(&string_hash_ops)));
+        ASSERT_OK(sd_device_enumerator_new(&e));
         /* See comments in TEST(sd_device_enumerator_devices). */
-        assert_se(sd_device_enumerator_add_match_subsystem(e, "bdi", false) >= 0);
-        assert_se(sd_device_enumerator_add_nomatch_sysname(e, "loop*") >= 0);
-        assert_se(sd_device_enumerator_add_match_subsystem(e, "net", false) >= 0);
+        ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, "bdi", false));
+        ASSERT_OK(sd_device_enumerator_add_nomatch_sysname(e, "loop*"));
+        ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, "net", false));
 
         FOREACH_DEVICE(e, d) {
                 const char *syspath, *subsystem;
                 int r;
 
-                assert_se(sd_device_get_syspath(d, &syspath) >= 0);
+                ASSERT_OK(sd_device_get_syspath(d, &syspath));
 
                 r = sd_device_get_subsystem(d, &subsystem);
-                assert_se(r >= 0 || r == -ENOENT);
-                if (r < 0)
+                if (r < 0) {
+                        ASSERT_ERROR(r, ENOENT);
                         continue;
+                }
 
                 h = hashmap_get(subsystems, subsystem);
                 if (!h) {
                         char *str;
-                        assert_se(str = strdup(subsystem));
-                        assert_se(h = hashmap_new(&string_hash_ops));
-                        assert_se(hashmap_put(subsystems, str, h) >= 0);
+                        ASSERT_NOT_NULL((str = strdup(subsystem)));
+                        ASSERT_NOT_NULL((h = hashmap_new(&string_hash_ops)));
+                        ASSERT_OK(hashmap_put(subsystems, str, h));
                 }
 
-                assert_se(hashmap_put(h, syspath, d) >= 0);
-                assert_se(sd_device_ref(d));
+                ASSERT_OK(hashmap_put(h, syspath, d));
+                ASSERT_NOT_NULL(sd_device_ref(d));
 
                 log_debug("Added subsystem:%s syspath:%s", subsystem, syspath);
         }
@@ -348,19 +371,19 @@ TEST(sd_device_enumerator_filter_subsystem) {
          * several times after the udev queue becomes empty. */
 
         if (!udev_available() || (access("/run/udev", F_OK) < 0 && errno == ENOENT)) {
-                assert_se(test_sd_device_enumerator_filter_subsystem_trial_many());
+                ASSERT_TRUE(test_sd_device_enumerator_filter_subsystem_trial_many());
                 return;
         }
 
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
-        assert_se(sd_event_default(&event) >= 0);
-        assert_se(sd_event_add_inotify(event, NULL, "/run/udev" , IN_DELETE, on_inotify, NULL) >= 0);
+        ASSERT_OK(sd_event_default(&event));
+        ASSERT_OK(sd_event_add_inotify(event, NULL, "/run/udev" , IN_DELETE, on_inotify, NULL));
 
         if (udev_queue_is_empty() == 0) {
                 log_debug("udev queue is not empty, waiting for all queued events to be processed.");
-                assert_se(sd_event_loop(event) >= 0);
+                ASSERT_OK(sd_event_loop(event));
         } else
-                assert_se(test_sd_device_enumerator_filter_subsystem_trial_many());
+                ASSERT_TRUE(test_sd_device_enumerator_filter_subsystem_trial_many());
 }
 
 TEST(sd_device_enumerator_add_match_sysattr) {
@@ -368,21 +391,20 @@ TEST(sd_device_enumerator_add_match_sysattr) {
         sd_device *dev;
         int ifindex;
 
-        assert_se(sd_device_enumerator_new(&e) >= 0);
-        assert_se(sd_device_enumerator_allow_uninitialized(e) >= 0);
-        assert_se(sd_device_enumerator_add_match_subsystem(e, "net", true) >= 0);
-        assert_se(sd_device_enumerator_add_match_sysattr(e, "ifindex", "1", true) >= 0);
-        assert_se(sd_device_enumerator_add_match_sysattr(e, "ifindex", "hoge", true) >= 0);
-        assert_se(sd_device_enumerator_add_match_sysattr(e, "ifindex", "foo", true) >= 0);
-        assert_se(sd_device_enumerator_add_match_sysattr(e, "ifindex", "bar", false) >= 0);
-        assert_se(sd_device_enumerator_add_match_sysattr(e, "ifindex", "baz", false) >= 0);
+        ASSERT_OK(sd_device_enumerator_new(&e));
+        ASSERT_OK(sd_device_enumerator_allow_uninitialized(e));
+        ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, "net", true));
+        ASSERT_OK(sd_device_enumerator_add_match_sysattr(e, "ifindex", "1", true));
+        ASSERT_OK(sd_device_enumerator_add_match_sysattr(e, "ifindex", "hoge", true));
+        ASSERT_OK(sd_device_enumerator_add_match_sysattr(e, "ifindex", "foo", true));
+        ASSERT_OK(sd_device_enumerator_add_match_sysattr(e, "ifindex", "bar", false));
+        ASSERT_OK(sd_device_enumerator_add_match_sysattr(e, "ifindex", "baz", false));
 
-        dev = sd_device_enumerator_get_device_first(e);
-        assert_se(dev);
-        assert_se(sd_device_get_ifindex(dev, &ifindex) >= 0);
-        assert_se(ifindex == 1);
+        ASSERT_NOT_NULL((dev = sd_device_enumerator_get_device_first(e)));
+        ASSERT_OK(sd_device_get_ifindex(dev, &ifindex));
+        ASSERT_EQ(ifindex, 1);
 
-        assert_se(!sd_device_enumerator_get_device_next(e));
+        ASSERT_NULL(sd_device_enumerator_get_device_next(e));
 }
 
 TEST(sd_device_enumerator_add_match_property) {
@@ -390,20 +412,19 @@ TEST(sd_device_enumerator_add_match_property) {
         sd_device *dev;
         int ifindex;
 
-        assert_se(sd_device_enumerator_new(&e) >= 0);
-        assert_se(sd_device_enumerator_allow_uninitialized(e) >= 0);
-        assert_se(sd_device_enumerator_add_match_subsystem(e, "net", true) >= 0);
-        assert_se(sd_device_enumerator_add_match_sysattr(e, "ifindex", "1", true) >= 0);
-        assert_se(sd_device_enumerator_add_match_property(e, "IFINDE*", "1*") >= 0);
-        assert_se(sd_device_enumerator_add_match_property(e, "IFINDE*", "hoge") >= 0);
-        assert_se(sd_device_enumerator_add_match_property(e, "IFINDE*", NULL) >= 0);
-        assert_se(sd_device_enumerator_add_match_property(e, "AAAAA", "BBBB") >= 0);
-        assert_se(sd_device_enumerator_add_match_property(e, "FOOOO", NULL) >= 0);
+        ASSERT_OK(sd_device_enumerator_new(&e));
+        ASSERT_OK(sd_device_enumerator_allow_uninitialized(e));
+        ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, "net", true));
+        ASSERT_OK(sd_device_enumerator_add_match_sysattr(e, "ifindex", "1", true));
+        ASSERT_OK(sd_device_enumerator_add_match_property(e, "IFINDE*", "1*"));
+        ASSERT_OK(sd_device_enumerator_add_match_property(e, "IFINDE*", "hoge"));
+        ASSERT_OK(sd_device_enumerator_add_match_property(e, "IFINDE*", NULL));
+        ASSERT_OK(sd_device_enumerator_add_match_property(e, "AAAAA", "BBBB"));
+        ASSERT_OK(sd_device_enumerator_add_match_property(e, "FOOOO", NULL));
 
-        dev = sd_device_enumerator_get_device_first(e);
-        assert_se(dev);
-        assert_se(sd_device_get_ifindex(dev, &ifindex) >= 0);
-        assert_se(ifindex == 1);
+        ASSERT_NOT_NULL((dev = sd_device_enumerator_get_device_first(e)));
+        ASSERT_OK(sd_device_get_ifindex(dev, &ifindex));
+        ASSERT_EQ(ifindex, 1);
 }
 
 TEST(sd_device_enumerator_add_match_property_required) {
@@ -411,37 +432,36 @@ TEST(sd_device_enumerator_add_match_property_required) {
         sd_device *dev;
         int ifindex;
 
-        assert_se(sd_device_enumerator_new(&e) >= 0);
-        assert_se(sd_device_enumerator_allow_uninitialized(e) >= 0);
-        assert_se(sd_device_enumerator_add_match_subsystem(e, "net", true) >= 0);
-        assert_se(sd_device_enumerator_add_match_sysattr(e, "ifindex", "1", true) >= 0);
-        assert_se(sd_device_enumerator_add_match_property_required(e, "IFINDE*", "1*") >= 0);
+        ASSERT_OK(sd_device_enumerator_new(&e));
+        ASSERT_OK(sd_device_enumerator_allow_uninitialized(e));
+        ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, "net", true));
+        ASSERT_OK(sd_device_enumerator_add_match_sysattr(e, "ifindex", "1", true));
+        ASSERT_OK(sd_device_enumerator_add_match_property_required(e, "IFINDE*", "1*"));
 
         /* Only one required match which should be satisfied. */
-        dev = sd_device_enumerator_get_device_first(e);
-        assert_se(dev);
-        assert_se(sd_device_get_ifindex(dev, &ifindex) >= 0);
-        assert_se(ifindex == 1);
+        ASSERT_NOT_NULL((dev = sd_device_enumerator_get_device_first(e)));
+        ASSERT_OK(sd_device_get_ifindex(dev, &ifindex));
+        ASSERT_EQ(ifindex, 1);
 
         /* Now let's add a bunch of garbage properties which should not be satisfied. */
-        assert_se(sd_device_enumerator_add_match_property_required(e, "IFINDE*", "hoge") >= 0);
-        assert_se(sd_device_enumerator_add_match_property_required(e, "IFINDE*", NULL) >= 0);
-        assert_se(sd_device_enumerator_add_match_property_required(e, "AAAAA", "BBBB") >= 0);
-        assert_se(sd_device_enumerator_add_match_property_required(e, "FOOOO", NULL) >= 0);
+        ASSERT_OK(sd_device_enumerator_add_match_property_required(e, "IFINDE*", "hoge"));
+        ASSERT_OK(sd_device_enumerator_add_match_property_required(e, "IFINDE*", NULL));
+        ASSERT_OK(sd_device_enumerator_add_match_property_required(e, "AAAAA", "BBBB"));
+        ASSERT_OK(sd_device_enumerator_add_match_property_required(e, "FOOOO", NULL));
 
-        assert_se(!sd_device_enumerator_get_device_first(e));
+        ASSERT_NULL(sd_device_enumerator_get_device_first(e));
 }
 
 static void check_parent_match(sd_device_enumerator *e, sd_device *dev) {
         const char *syspath;
         bool found = false;
 
-        assert_se(sd_device_get_syspath(dev, &syspath) >= 0);
+        ASSERT_OK(sd_device_get_syspath(dev, &syspath));
 
         FOREACH_DEVICE(e, d) {
                 const char *s;
 
-                assert_se(sd_device_get_syspath(d, &s) >= 0);
+                ASSERT_OK(sd_device_get_syspath(d, &s));
                 if (streq(s, syspath)) {
                         found = true;
                         break;
@@ -451,8 +471,8 @@ static void check_parent_match(sd_device_enumerator *e, sd_device *dev) {
         if (!found) {
                 log_device_debug(dev, "not enumerated, already removed??");
                 /* If the original device not found, then the device should be already removed. */
-                assert_se(access(syspath, F_OK) < 0);
-                assert_se(errno == ENOENT);
+                ASSERT_FAIL(access(syspath, F_OK));
+                ASSERT_EQ(errno, ENOENT);
         }
 }
 
@@ -460,41 +480,41 @@ TEST(sd_device_enumerator_add_match_parent) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         int r;
 
-        assert_se(sd_device_enumerator_new(&e) >= 0);
-        assert_se(sd_device_enumerator_allow_uninitialized(e) >= 0);
+        ASSERT_OK(sd_device_enumerator_new(&e));
+        ASSERT_OK(sd_device_enumerator_allow_uninitialized(e));
         /* See comments in TEST(sd_device_enumerator_devices). */
-        assert_se(sd_device_enumerator_add_match_subsystem(e, "bdi", false) >= 0);
-        assert_se(sd_device_enumerator_add_nomatch_sysname(e, "loop*") >= 0);
-        assert_se(sd_device_enumerator_add_match_subsystem(e, "net", false) >= 0);
+        ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, "bdi", false));
+        ASSERT_OK(sd_device_enumerator_add_nomatch_sysname(e, "loop*"));
+        ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, "net", false));
 
         if (!slow_tests_enabled())
-                assert_se(sd_device_enumerator_add_match_subsystem(e, "block", true) >= 0);
+                ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, "block", true));
 
         FOREACH_DEVICE(e, dev) {
                 _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *p = NULL;
                 const char *syspath;
                 sd_device *parent;
 
-                assert_se(sd_device_get_syspath(dev, &syspath) >= 0);
+                ASSERT_OK(sd_device_get_syspath(dev, &syspath));
 
                 r = sd_device_get_parent(dev, &parent);
                 if (r < 0) {
-                        assert_se(ERRNO_IS_DEVICE_ABSENT(r));
+                        ASSERT_TRUE(ERRNO_IS_NEG_DEVICE_ABSENT(r));
                         continue;
                 }
 
                 log_debug("> %s", syspath);
 
-                assert_se(sd_device_enumerator_new(&p) >= 0);
-                assert_se(sd_device_enumerator_allow_uninitialized(p) >= 0);
-                assert_se(sd_device_enumerator_add_match_parent(p, parent) >= 0);
+                ASSERT_OK(sd_device_enumerator_new(&p));
+                ASSERT_OK(sd_device_enumerator_allow_uninitialized(p));
+                ASSERT_OK(sd_device_enumerator_add_match_parent(p, parent));
 
                 check_parent_match(p, dev);
 
                 /* If the device does not have subsystem, then it is not enumerated. */
                 r = sd_device_get_subsystem(parent, NULL);
                 if (r < 0) {
-                        assert_se(r == -ENOENT);
+                        ASSERT_ERROR(r, ENOENT);
                         continue;
                 }
                 check_parent_match(p, parent);
@@ -542,49 +562,49 @@ TEST(sd_device_get_child) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         int r;
 
-        assert_se(sd_device_enumerator_new(&e) >= 0);
-        assert_se(sd_device_enumerator_allow_uninitialized(e) >= 0);
+        ASSERT_OK(sd_device_enumerator_new(&e));
+        ASSERT_OK(sd_device_enumerator_allow_uninitialized(e));
         /* See comments in TEST(sd_device_enumerator_devices). */
-        assert_se(sd_device_enumerator_add_match_subsystem(e, "bdi", false) >= 0);
-        assert_se(sd_device_enumerator_add_nomatch_sysname(e, "loop*") >= 0);
-        assert_se(sd_device_enumerator_add_match_subsystem(e, "net", false) >= 0);
+        ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, "bdi", false));
+        ASSERT_OK(sd_device_enumerator_add_nomatch_sysname(e, "loop*"));
+        ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, "net", false));
 
         if (!slow_tests_enabled())
-                assert_se(sd_device_enumerator_add_match_subsystem(e, "block", true) >= 0);
+                ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, "block", true));
 
         FOREACH_DEVICE(e, dev) {
                 const char *syspath, *parent_syspath, *expected_suffix, *suffix;
                 sd_device *parent;
                 bool found = false;
 
-                assert_se(sd_device_get_syspath(dev, &syspath) >= 0);
+                ASSERT_OK(sd_device_get_syspath(dev, &syspath));
 
                 r = sd_device_get_parent(dev, &parent);
                 if (r < 0) {
-                        assert_se(ERRNO_IS_DEVICE_ABSENT(r));
+                        ASSERT_TRUE(ERRNO_IS_NEG_DEVICE_ABSENT(r));
                         continue;
                 }
 
-                assert_se(sd_device_get_syspath(parent, &parent_syspath) >= 0);
-                assert_se(expected_suffix = path_startswith(syspath, parent_syspath));
+                ASSERT_OK(sd_device_get_syspath(parent, &parent_syspath));
+                ASSERT_NOT_NULL((expected_suffix = path_startswith(syspath, parent_syspath)));
 
                 log_debug("> %s", syspath);
 
                 FOREACH_DEVICE_CHILD_WITH_SUFFIX(parent, child, suffix) {
                         const char *s;
 
-                        assert_se(child);
-                        assert_se(suffix);
+                        ASSERT_NOT_NULL(child);
+                        ASSERT_NOT_NULL(suffix);
 
                         if (!streq(suffix, expected_suffix))
                                 continue;
 
-                        assert_se(sd_device_get_syspath(child, &s) >= 0);
-                        assert_se(streq(s, syspath));
+                        ASSERT_OK(sd_device_get_syspath(child, &s));
+                        ASSERT_STREQ(s, syspath);
                         found = true;
                         break;
                 }
-                assert_se(found);
+                ASSERT_TRUE(found);
         }
 }
 
@@ -602,42 +622,42 @@ TEST(sd_device_new_from_nulstr) {
         const char *nulstr;
         size_t len;
 
-        assert_se(sd_device_new_from_syspath(&device, "/sys/class/net/lo") >= 0);
+        ASSERT_OK(sd_device_new_from_syspath(&device, "/sys/class/net/lo"));
 
         /* Yeah, of course, setting devlink to the loopback interface is nonsense. But this is just a
          * test for generating and parsing nulstr. For issue #17772. */
         NULSTR_FOREACH(devlink, devlinks) {
                 log_device_info(device, "setting devlink: %s", devlink);
-                assert_se(device_add_devlink(device, devlink) >= 0);
-                assert_se(set_contains(device->devlinks, devlink));
+                ASSERT_OK(device_add_devlink(device, devlink));
+                ASSERT_TRUE(set_contains(device->devlinks, devlink));
         }
 
         /* For issue #23799 */
-        assert_se(device_add_tag(device, "tag1", false) >= 0);
-        assert_se(device_add_tag(device, "tag2", false) >= 0);
-        assert_se(device_add_tag(device, "current-tag1", true) >= 0);
-        assert_se(device_add_tag(device, "current-tag2", true) >= 0);
+        ASSERT_OK(device_add_tag(device, "tag1", false));
+        ASSERT_OK(device_add_tag(device, "tag2", false));
+        ASSERT_OK(device_add_tag(device, "current-tag1", true));
+        ASSERT_OK(device_add_tag(device, "current-tag2", true));
 
         /* These properties are necessary for device_new_from_nulstr(). See device_verify(). */
-        assert_se(device_add_property_internal(device, "SEQNUM", "1") >= 0);
-        assert_se(device_add_property_internal(device, "ACTION", "change") >= 0);
+        ASSERT_OK(device_add_property_internal(device, "SEQNUM", "1"));
+        ASSERT_OK(device_add_property_internal(device, "ACTION", "change"));
 
-        assert_se(device_get_properties_nulstr(device, &nulstr, &len) >= 0);
-        assert_se(nulstr_copy = newdup(char, nulstr, len));
-        assert_se(device_new_from_nulstr(&from_nulstr, nulstr_copy, len) >= 0);
+        ASSERT_OK(device_get_properties_nulstr(device, &nulstr, &len));
+        ASSERT_NOT_NULL((nulstr_copy = newdup(char, nulstr, len)));
+        ASSERT_OK(device_new_from_nulstr(&from_nulstr, nulstr_copy, len));
 
-        assert_se(sd_device_has_tag(from_nulstr, "tag1") == 1);
-        assert_se(sd_device_has_tag(from_nulstr, "tag2") == 1);
-        assert_se(sd_device_has_tag(from_nulstr, "current-tag1") == 1);
-        assert_se(sd_device_has_tag(from_nulstr, "current-tag2") == 1);
-        assert_se(sd_device_has_current_tag(from_nulstr, "tag1") == 0);
-        assert_se(sd_device_has_current_tag(from_nulstr, "tag2") == 0);
-        assert_se(sd_device_has_current_tag(from_nulstr, "current-tag1") == 1);
-        assert_se(sd_device_has_current_tag(from_nulstr, "current-tag2") == 1);
+        ASSERT_OK_POSITIVE(sd_device_has_tag(from_nulstr, "tag1"));
+        ASSERT_OK_POSITIVE(sd_device_has_tag(from_nulstr, "tag2"));
+        ASSERT_OK_POSITIVE(sd_device_has_tag(from_nulstr, "current-tag1"));
+        ASSERT_OK_POSITIVE(sd_device_has_tag(from_nulstr, "current-tag2"));
+        ASSERT_OK_ZERO(sd_device_has_current_tag(from_nulstr, "tag1"));
+        ASSERT_OK_ZERO(sd_device_has_current_tag(from_nulstr, "tag2"));
+        ASSERT_OK_POSITIVE(sd_device_has_current_tag(from_nulstr, "current-tag1"));
+        ASSERT_OK_POSITIVE(sd_device_has_current_tag(from_nulstr, "current-tag2"));
 
         NULSTR_FOREACH(devlink, devlinks) {
                 log_device_info(from_nulstr, "checking devlink: %s", devlink);
-                assert_se(set_contains(from_nulstr->devlinks, devlink));
+                ASSERT_TRUE(set_contains(from_nulstr->devlinks, devlink));
         }
 }
 
@@ -646,43 +666,44 @@ TEST(sd_device_new_from_path) {
         _cleanup_(rm_rf_physical_and_freep) char *tmpdir = NULL;
         int r;
 
-        assert_se(mkdtemp_malloc("/tmp/test-sd-device.XXXXXXX", &tmpdir) >= 0);
+        ASSERT_OK(mkdtemp_malloc("/tmp/test-sd-device.XXXXXXX", &tmpdir));
 
-        assert_se(sd_device_enumerator_new(&e) >= 0);
-        assert_se(sd_device_enumerator_allow_uninitialized(e) >= 0);
-        assert_se(sd_device_enumerator_add_match_subsystem(e, "block", true) >= 0);
-        assert_se(sd_device_enumerator_add_nomatch_sysname(e, "loop*") >= 0);
-        assert_se(sd_device_enumerator_add_match_property(e, "DEVNAME", "*") >= 0);
+        ASSERT_OK(sd_device_enumerator_new(&e));
+        ASSERT_OK(sd_device_enumerator_allow_uninitialized(e));
+        ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, "block", true));
+        ASSERT_OK(sd_device_enumerator_add_nomatch_sysname(e, "loop*"));
+        ASSERT_OK(sd_device_enumerator_add_match_property(e, "DEVNAME", "*"));
 
         FOREACH_DEVICE(e, dev) {
                 _cleanup_(sd_device_unrefp) sd_device *d = NULL;
                 const char *syspath, *devpath, *sysname, *s;
                 _cleanup_free_ char *path = NULL;
 
-                assert_se(sd_device_get_sysname(dev, &sysname) >= 0);
+                ASSERT_OK(sd_device_get_sysname(dev, &sysname));
 
                 log_debug("%s(%s)", __func__, sysname);
 
-                assert_se(sd_device_get_syspath(dev, &syspath) >= 0);
-                assert_se(sd_device_new_from_path(&d, syspath) >= 0);
-                assert_se(sd_device_get_syspath(d, &s) >= 0);
-                assert_se(streq(s, syspath));
-                d = sd_device_unref(d);
+                ASSERT_OK(sd_device_get_syspath(dev, &syspath));
+                ASSERT_OK(sd_device_new_from_path(&d, syspath));
+                ASSERT_OK(sd_device_get_syspath(d, &s));
+                ASSERT_STREQ(s, syspath);
+                ASSERT_NULL((d = sd_device_unref(d)));
 
-                assert_se(sd_device_get_devname(dev, &devpath) >= 0);
+                ASSERT_OK(sd_device_get_devname(dev, &devpath));
                 r = sd_device_new_from_path(&d, devpath);
-                if (r >= 0) {
-                        assert_se(sd_device_get_syspath(d, &s) >= 0);
-                        assert_se(streq(s, syspath));
-                        d = sd_device_unref(d);
-                } else
-                        assert_se(r == -ENODEV || ERRNO_IS_PRIVILEGE(r));
+                if (r < 0)
+                        ASSERT_TRUE(r == -ENODEV || ERRNO_IS_NEG_PRIVILEGE(r));
+                else {
+                        ASSERT_OK(sd_device_get_syspath(d, &s));
+                        ASSERT_STREQ(s, syspath);
+                        ASSERT_NULL((d = sd_device_unref(d)));
+                }
 
-                assert_se(path = path_join(tmpdir, sysname));
-                assert_se(symlink(syspath, path) >= 0);
-                assert_se(sd_device_new_from_path(&d, path) >= 0);
-                assert_se(sd_device_get_syspath(d, &s) >= 0);
-                assert_se(streq(s, syspath));
+                ASSERT_NOT_NULL((path = path_join(tmpdir, sysname)));
+                ASSERT_OK_ERRNO(symlink(syspath, path));
+                ASSERT_OK(sd_device_new_from_path(&d, path));
+                ASSERT_OK(sd_device_get_syspath(d, &s));
+                ASSERT_STREQ(s, syspath);
         }
 }
 
@@ -693,16 +714,15 @@ static void test_devname_from_devnum_one(const char *path) {
         log_debug("> %s", path);
 
         if (stat(path, &st) < 0) {
-                assert_se(errno == ENOENT);
                 log_notice("Path %s not found, skipping test", path);
                 return;
         }
 
-        assert_se(devname_from_devnum(st.st_mode, st.st_rdev, &resolved) >= 0);
-        assert_se(path_equal(path, resolved));
-        resolved = mfree(resolved);
-        assert_se(devname_from_stat_rdev(&st, &resolved) >= 0);
-        assert_se(path_equal(path, resolved));
+        ASSERT_OK(devname_from_devnum(st.st_mode, st.st_rdev, &resolved));
+        ASSERT_TRUE(path_equal(path, resolved));
+        ASSERT_NULL((resolved = mfree(resolved)));
+        ASSERT_OK(devname_from_stat_rdev(&st, &resolved));
+        ASSERT_TRUE(path_equal(path, resolved));
 }
 
 TEST(devname_from_devnum) {

@@ -297,12 +297,7 @@ static int parse_argv(int argc, char *argv[]) {
         if (arg_set_source_mac) {
                 struct hw_addr_data hw_addr;
 
-                r = rtnl_get_link_info(&rtnl, arg_ifindex,
-                                       /* ret_iftype = */ NULL,
-                                       /* ret_flags = */ NULL,
-                                       /* ret_kind = */ NULL,
-                                       &hw_addr,
-                                       /* ret_permanent_hw_addr = */ NULL);
+                r = rtnl_get_link_hw_addr(&rtnl, arg_ifindex, &hw_addr);
                 if (r < 0)
                         return log_error_errno(r, "Failed to get the source link-layer address: %m");
 
