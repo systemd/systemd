@@ -78,7 +78,7 @@ static int run(int argc, char *argv[]) {
         host_tmpfs = make_tmpfs_fsmount();
         assert_se(host_tmpfs >= 0);
 
-        userns_fd = userns_acquire("0 0 1", "0 0 1");
+        userns_fd = userns_acquire("0 0 1", "0 0 1", /* setgroups_deny= */ true);
         if (userns_fd < 0)
                 return log_error_errno(userns_fd, "Failed to make user namespace: %m");
 
