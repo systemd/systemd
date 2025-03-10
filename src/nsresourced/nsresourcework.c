@@ -1736,6 +1736,9 @@ static int vl_method_add_netif_to_user_namespace(sd_varlink *link, sd_json_varia
         if (r < 0)
                 return r;
 
+        if (strv_length(userns_info->netifs) > USER_NAMESPACE_NETIFS_DELEGATE_MAX)
+                return sd_varlink_error(link, "io.systemd.NamespaceResource.TooManyNetworkInterfaces", NULL);
+
         /* Registering a network interface for this client is only allowed for the root or the owner of a userns */
         uid_t peer_uid;
         r = sd_varlink_get_peer_uid(link, &peer_uid);
