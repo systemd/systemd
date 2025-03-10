@@ -52,9 +52,6 @@ char** taint_strv(void) {
         if (readlink_malloc("/var/run", &var_run) < 0 || !PATH_IN_SET(var_run, "../run", "/run"))
                 stage[n++] = "var-run-bad";
 
-        if (cg_all_unified() == 0)
-                stage[n++] = "cgroupsv1";
-
         if (clock_is_localtime(NULL) > 0)
                 stage[n++] = "local-hwclock";
 
