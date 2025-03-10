@@ -595,7 +595,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                         r = parse_size(optarg, 1024, &arg_grow_image);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --grow-image= paramater: %s", optarg);
+                                return log_error_errno(r, "Failed to parse --grow-image= parameter: %s", optarg);
 
                         break;
 
