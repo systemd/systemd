@@ -148,9 +148,11 @@ static int find_gpt_root(UdevEvent *event, blkid_probe pr, const char *loop_back
                 return 0;
         }
 
+        log_device_debug(dev, "loop_backing_fname=%s", strna(loop_backing_fname));
+
         r = efi_loader_get_device_part_uuid(&esp_or_xbootldr);
         if (r < 0) {
-                if (r != -ENOENT && !ERRNO_IS_NOT_SUPPORTED(r))
+                if (r != -ENOENT && !ERRNO_IS_NEG_NOT_SUPPORTED(r))
                         return log_debug_errno(r, "Unable to determine loader partition UUID: %m");
 
                 log_device_debug(dev, "No loader partition UUID EFI variable set, not using partition data to search for default root block device.");
@@ -170,12 +172,17 @@ static int find_gpt_root(UdevEvent *event, blkid_probe pr, const char *loop_back
                  * device, hence look for it among partitions now */
                 need_esp_or_xbootldr = true;
 
+        log_device_debug(dev, "need_esp_or_xbootldr=%s, esp_or_xbootldr="SD_ID128_FORMAT_STR, yes_no(need_esp_or_xbootldr), SD_ID128_FORMAT_VAL(esp_or_xbootldr));
+
         errno = 0;
         blkid_partlist pl = blkid_probe_get_partitions(pr);
         if (!pl)
                 return log_device_debug_errno(dev, errno_or_else(ENOMEM), "Failed to probe partitions: %m");
 
+        log_device_debug(dev, "blkid_probe_get_partitions: done");
+
         int nvals = blkid_partlist_numof_partitions(pl);
+        log_device_debug(dev, "blkid_partlist_numof_partitions: %i", nvals);
         for (int i = 0; i < nvals; i++) {
                 blkid_partition pp;
                 const char *label;
