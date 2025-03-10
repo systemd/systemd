@@ -18,6 +18,10 @@ at_exit() {
         rm -fr "$ROOT"
     fi
 
+    if [[ -d /etc/otherpath ]]; then
+        rm -rf /etc/otherpath
+    fi
+
     restore_locale
 }
 
@@ -282,3 +286,36 @@ rm -fv "$ROOT/etc/passwd" "$ROOT/etc/shadow"
 (! systemd-firstboot --root="$ROOT" --root-shell=/bin/nonexistentshell)
 (! systemd-firstboot --root="$ROOT" --machine-id=invalidmachineid)
 (! systemd-firstboot --root="$ROOT" --timezone=Foo/Bar)
+
+mkdir -p "${ROOT}/etc/otherpath"
+mkdir -p /etc/otherpath
+echo "KEYMAP=us" >/etc/otherpath/vconsole.conf
+echo "LANG=en_US.UTF-8" >/etc/otherpath/locale.conf
+ln -s "../$(readlink /etc/localtime)" /etc/otherpath/localtime
+
+SYSTEMD_ETC_LOCALE_CONF=/etc/otherpath/locale.conf \
+SYSTEMD_ETC_VCONSOLE_CONF=/etc/otherpath/vconsole.conf \
+SYSTEMD_ETC_LOCALTIME=/etc/otherpath/localtime \
+SYSTEMD_ETC_HOSTNAME=/etc/otherpath/hostname \
+systemd-firstboot --root="$ROOT" --copy-locale --copy-keymap --copy-timezone --hostname="weirdpaths"
+
+diff "${ROOT}/etc/otherpath/locale.conf" "/etc/otherpath/locale.conf"
+diff "${ROOT}/etc/otherpath/vconsole.conf" "/etc/otherpath/vconsole.conf"
+grep -q "weirdpaths" "${ROOT}/etc/otherpath/hostname"
+
+[[ "$(readlink /etc/otherpath/localtime)" = "$(readlink "${ROOT}/etc/otherpath/localtime")" ]]
+
+SYSTEMD_ETC_LOCALE_CONF=/etc/otherpath/locale.conf \
+SYSTEMD_ETC_VCONSOLE_CONF=/etc/otherpath/vconsole.conf \
+SYSTEMD_ETC_LOCALTIME=/etc/otherpath/localtime \
+SYSTEMD_ETC_HOSTNAME=/etc/otherpath/hostname \
+systemd-firstboot --root="$ROOT" --force \
+                  --hostname="weirdpaths2" \
+                  --locale=no_NO.UTF-8 \
+                  --keymap=no \
+                  --timezone=Europe/Oslo
+
+grep -q "LANG=no_NO.UTF-8" "${ROOT}/etc/otherpath/locale.conf"
+grep -q "KEYMAP=no" "${ROOT}/etc/otherpath/vconsole.conf"
+grep -q "weirdpaths2" "${ROOT}/etc/otherpath/hostname"
+[[ "$(readlink "${ROOT}/etc/otherpath/localtime")" = "../../usr/share/zoneinfo/Europe/Oslo" ]]
