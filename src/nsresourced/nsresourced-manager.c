@@ -364,6 +364,11 @@ static void manager_release_userns_by_inode(Manager *m, uint64_t inode) {
                 if (r < 0)
                         log_warning_errno(r, "Failed to remove cgroups of user namespace: %m");
 
+                /* Remove the netifs of this userns */
+                r = userns_info_remove_netifs(userns_info);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to remove netifs of user namespace: %m");
+
                 r = userns_registry_remove(m->registry_fd, userns_info);
                 if (r < 0)
                         log_warning_errno(r, "Failed to remove user namespace '%s', ignoring.", userns_info->name);

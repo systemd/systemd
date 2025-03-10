@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "sd-json.h"
+#include "sd-netlink.h"
 
 #include "chase.h"
 #include "fd-util.h"
@@ -71,6 +72,8 @@ UserNamespaceInfo *userns_info_free(UserNamespaceInfo *userns) {
         free(userns->cgroups);
         free(userns->name);
 
+        strv_free(userns->netifs);
+
         return mfree(userns);
 }
 
@@ -130,6 +133,7 @@ static int userns_registry_load(int dir_fd, const char *fn, UserNamespaceInfo **
                 { "startGid",  SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uid_gid,  offsetof(UserNamespaceInfo, start_gid),    0                 },
                 { "targetGid", SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uid_gid,  offsetof(UserNamespaceInfo, target_gid),   0                 },
                 { "cgroups",   SD_JSON_VARIANT_ARRAY,    dispatch_cgroups_array,    0,                                         0                 },
+                { "netifs",    SD_JSON_VARIANT_ARRAY,    sd_json_dispatch_strv,     offsetof(UserNamespaceInfo, netifs),       0                 },
                 {}
         };
 
@@ -443,7 +447,8 @@ int userns_registry_store(int dir_fd, UserNamespaceInfo *info) {
                         SD_JSON_BUILD_PAIR_CONDITION(uid_is_valid(info->target_uid), "target", SD_JSON_BUILD_UNSIGNED(info->target_uid)),
                         SD_JSON_BUILD_PAIR_CONDITION(gid_is_valid(info->start_gid), "startGid", SD_JSON_BUILD_UNSIGNED(info->start_gid)),
                         SD_JSON_BUILD_PAIR_CONDITION(gid_is_valid(info->target_gid), "targetGid", SD_JSON_BUILD_UNSIGNED(info->target_gid)),
-                        SD_JSON_BUILD_PAIR_CONDITION(!!cgroup_array, "cgroups", SD_JSON_BUILD_VARIANT(cgroup_array)));
+                        SD_JSON_BUILD_PAIR_CONDITION(!!cgroup_array, "cgroups", SD_JSON_BUILD_VARIANT(cgroup_array)),
+                        JSON_BUILD_PAIR_STRV_NON_EMPTY("netifs", info->netifs));
         if (r < 0)
                 return r;
 
@@ -611,6 +616,7 @@ bool userns_info_has_cgroup(UserNamespaceInfo *userns, uint64_t cgroup_id) {
 }
 
 int userns_info_add_cgroup(UserNamespaceInfo *userns, uint64_t cgroup_id) {
+        assert(userns);
 
         if (userns_info_has_cgroup(userns, cgroup_id))
                 return 0;
@@ -683,6 +689,67 @@ int userns_info_remove_cgroups(UserNamespaceInfo *userns) {
         userns->cgroups = mfree(userns->cgroups);
         userns->n_cgroups = 0;
 
+        return ret;
+}
+
+int userns_info_add_netif(UserNamespaceInfo *userns, const char *netif) {
+        int r;
+
+        assert(userns);
+        assert(netif);
+
+        if (strv_contains(userns->netifs, netif))
+                return 0;
+
+        r = strv_extend(&userns->netifs, netif);
+        if (r < 0)
+                return r;
+
+        return 1;
+}
+
+static int userns_destroy_netif(sd_netlink **rtnl, const char *name) {
+        int r;
+
+        assert(rtnl);
+        assert(name);
+
+        log_debug("Removing delegated network interface '%s'", name);
+
+        if (!*rtnl) {
+                r = sd_netlink_open(rtnl);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to connect to netlink: %m");
+        }
+
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        r = sd_rtnl_message_new_link(*rtnl, &m, RTM_DELLINK, /* ifindex= */ 0);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_append_string(m, IFLA_IFNAME, name);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_call(*rtnl, m, /* timeout_usec= */ 0, /* ret_reply= */ NULL);
+        if (ERRNO_IS_NEG_DEVICE_ABSENT(r)) /* Already gone? */
+                return 0;
+        if (r < 0)
+                return log_debug_errno(r, "Failed to remove interface %s: %m", name);
+
+        return 1;
+}
+
+int userns_info_remove_netifs(UserNamespaceInfo *userns) {
+        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
+        int ret = 0;
+
+        assert(userns);
+
+        STRV_FOREACH(c, userns->netifs)
+                RET_GATHER(ret, userns_destroy_netif(&rtnl, *c));
+
+        userns->netifs = strv_free(userns->netifs);
         return ret;
 }
 
