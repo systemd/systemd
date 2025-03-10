@@ -333,7 +333,7 @@
         <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         for information how to enable this functionality and
         <citerefentry><refentrytitle>sd_watchdog_enabled</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-        for the details of how the service can check whether the watchdog is enabled. </para></listitem>
+        for the details of how the service can check whether the watchdog is enabled.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -345,7 +345,7 @@
         in time. Note that <varname>WatchdogSec=</varname> does not need to be enabled for
         <literal>WATCHDOG=trigger</literal> to trigger the watchdog action. See
         <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        for information about the watchdog behavior. </para>
+        for information about the watchdog behavior.</para>
 
         <xi:include href="version-info.xml" xpointer="v243"/></listitem>
       </varlistentry>
@@ -374,6 +374,18 @@
         for effects on the service timeouts.</para>
 
         <xi:include href="version-info.xml" xpointer="v236"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>RESTART_RESET=1</term>
+
+        <listitem><para>Reset the restart counter of the service, which has the effect of restoring
+        the restart duration to <varname>RestartSec=</varname> if <varname>RestartSteps=</varname> and
+        <varname>RestartMaxDelaySec=</varname> are in use. For more information, refer to
+        <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
 
       <varlistentry>
