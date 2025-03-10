@@ -55,7 +55,6 @@ simple_tests += files(
         'test-build-path.c',
         'test-bus-util.c',
         'test-calendarspec.c',
-        'test-cgroup-setup.c',
         'test-cgroup-util.c',
         'test-cgroup.c',
         'test-chase.c',
@@ -540,9 +539,6 @@ executables += [
                 'sources' : files('test-loop-block.c'),
                 'dependencies' : [threads, libblkid],
                 'parallel' : false,
-        },
-        core_test_template + {
-                'sources' : files('test-taint.c'),
         },
         core_test_template + {
                 'sources' : files('test-namespace.c'),

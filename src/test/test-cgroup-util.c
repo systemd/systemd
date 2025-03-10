@@ -337,28 +337,6 @@ TEST(mask_supported, .sd_booted = true) {
                        yes_no(m & CGROUP_CONTROLLER_TO_MASK(c)));
 }
 
-TEST(is_cgroup_fs, .sd_booted = true) {
-        struct statfs sfs;
-        assert_se(statfs("/sys/fs/cgroup", &sfs) == 0);
-        if (is_temporary_fs(&sfs))
-                assert_se(statfs("/sys/fs/cgroup/systemd", &sfs) == 0);
-        assert_se(is_cgroup_fs(&sfs));
-}
-
-TEST(fd_is_cgroup_fs, .sd_booted = true) {
-        int fd;
-
-        fd = open("/sys/fs/cgroup", O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
-        assert_se(fd >= 0);
-        if (fd_is_temporary_fs(fd)) {
-                fd = safe_close(fd);
-                fd = open("/sys/fs/cgroup/systemd", O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
-                assert_se(fd >= 0);
-        }
-        assert_se(fd_is_cgroup_fs(fd));
-        fd = safe_close(fd);
-}
-
 TEST(cg_tests) {
         int all, hybrid, systemd, r;
 
