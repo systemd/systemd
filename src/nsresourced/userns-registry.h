@@ -16,6 +16,7 @@ typedef struct UserNamespaceInfo {
         gid_t target_gid;
         uint64_t *cgroups;
         size_t n_cgroups;
+        char **netifs;
 } UserNamespaceInfo;
 
 UserNamespaceInfo* userns_info_new(void);
@@ -26,6 +27,9 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(UserNamespaceInfo*, userns_info_free);
 bool userns_info_has_cgroup(UserNamespaceInfo *userns, uint64_t cgroup_id);
 int userns_info_add_cgroup(UserNamespaceInfo *userns, uint64_t cgroup_id);
 int userns_info_remove_cgroups(UserNamespaceInfo *userns);
+
+int userns_info_add_netif(UserNamespaceInfo *userns, const char *netif);
+int userns_info_remove_netifs(UserNamespaceInfo *userns);
 
 bool userns_name_is_valid(const char *name);
 
