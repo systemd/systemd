@@ -1754,6 +1754,14 @@ static int vl_method_add_netif_to_user_namespace(sd_varlink *link, sd_json_varia
                 return -ENOMEM;
         strshorten(ifname_host, IFNAMSIZ-1);
 
+        r = userns_info_add_netif(userns_info, ifname_host);
+        if (r < 0)
+                return r;
+
+        r = userns_registry_store(registry_dir_fd, userns_info);
+        if (r < 0)
+                return r;
+
         if (p.ifname)
                 r = asprintf(&altifname_host, "ns-" UID_FMT "-%s-%s", userns_info->owner, userns_info->name, p.ifname);
         else
