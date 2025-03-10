@@ -14,6 +14,7 @@ basic_sources = files(
         'bus-label.c',
         'cap-list.c',
         'capability-util.c',
+        'capsule-util.c',
         'cgroup-util.c',
         'chase.c',
         'chattr-util.c',
