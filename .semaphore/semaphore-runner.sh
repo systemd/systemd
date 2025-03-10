@@ -4,7 +4,6 @@
 set -eux
 set -o pipefail
 
-# default to Debian testing
 DISTRO="${DISTRO:-debian}"
 RELEASE="${RELEASE:-bookworm}"
 SALSA_URL="${SALSA_URL:-https://salsa.debian.org/systemd-team/systemd.git}"
@@ -24,7 +23,14 @@ create_container() {
     sudo lxc-create -n "$CONTAINER" -t download -- -d "$DISTRO" -r "$RELEASE" -a "$ARCH"
 
     # unconfine the container, otherwise some tests fail
-    echo 'lxc.apparmor.profile = unconfined' | sudo tee -a "/var/lib/lxc/$CONTAINER/config"
+    #
+    # disable automatic cgroup setup, instead let pid1 figure it out in mount_setup().
+    # This is especially important to ensure we get unified cgroup hierarchy
+    sudo tee -a "/var/lib/lxc/$CONTAINER/config" <<EOF
+lxc.apparmor.profile = unconfined
+lxc.mount.auto =
+lxc.mount.auto = proc:mixed sys:mixed
+EOF
 
     sudo lxc-start -n "$CONTAINER"
 
