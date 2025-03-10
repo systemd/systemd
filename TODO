@@ -135,7 +135,6 @@ Features:
   - io.systemd.Hostname
   - io.systemd.Journal
   - io.systemd.ManagedOOM
-  - io.systemd.MountFileSystem
   - io.systemd.Network
   - io.systemd.PCRExtend
   - io.systemd.PCRLock
@@ -221,9 +220,6 @@ Features:
   "offline" operation, optionally invoke the two tools directly as child
   processes with varlink communication over socketpair(). This all should be
   useful as blueprint for graphical installers which should do the same.
-
-* make "systemd-vmspawn -n" work unprivileged properly, i.e. acquire tap netif
-  from nsresourced.
 
 * Make run0 forward various signals to the forked process so that sending
   signals to a child process works roughly the same regardless of whether the
