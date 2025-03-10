@@ -278,6 +278,45 @@ test_wildcard() {
     hostnamectl set-hostname "$SAVED"
 }
 
+teardown_hostnamed_alternate_paths() {
+    set +eu
+
+    rm -rf /run/systemd/system/systemd-hostnamed.service.d
+    systemctl daemon-reload
+    systemctl restart systemd-hostnamed
+    if [[ -f /etc/hostname ]]; then
+        orig=$(cat /etc/hostname)
+        if [[ -n "${orig}" ]]; then
+            hostnamectl hostname "${orig}"
+        fi
+    fi
+}
+
+testcase_hostnamed_alternate_paths() {
+    trap teardown_hostnamed_alternate_paths RETURN
+
+    mkdir -p /run/alternate-path
+
+    mkdir -p /run/systemd/system/systemd-hostnamed.service.d
+    cat >/run/systemd/system/systemd-hostnamed.service.d/override.conf <<EOF
+[Service]
+Environment=SYSTEMD_ETC_HOSTNAME=/run/alternate-path/myhostname
+Environment=SYSTEMD_ETC_MACHINE_INFO=/run/alternate-path/mymachine-info
+EOF
+    systemctl daemon-reload
+    systemctl restart systemd-hostnamed
+
+    assert_rc 0 hostnamectl set-hostname heisenberg
+    assert_rc 0 hostnamectl chassis watch
+
+    output=$(hostnamectl)
+    assert_in "Static hostname: heisenberg" "$output"
+    assert_in "Chassis: watch" "$output"
+    assert_in "heisenberg" "$(cat /run/alternate-path/myhostname)"
+    assert_in "CHASSIS=watch" "$(cat /run/alternate-path/mymachine-info)"
+}
+
+
 run_testcases
 
 touch /testok
