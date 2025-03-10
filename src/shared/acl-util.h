@@ -14,7 +14,6 @@ int fd_acl_make_writable_fallback(int fd);
 
 #include "macro.h"
 
-int acl_find_uid(acl_t acl, uid_t uid, acl_entry_t *entry);
 int calc_acl_mask_if_needed(acl_t *acl_p);
 int add_base_acls_if_needed(acl_t *acl_p, const char *path);
 int acl_search_groups(const char* path, char ***ret_groups);

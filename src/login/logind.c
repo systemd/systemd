@@ -145,10 +145,7 @@ static Manager* manager_free(Manager *m) {
 
         safe_close(m->console_active_fd);
 
-        sd_device_monitor_unref(m->device_seat_monitor);
         sd_device_monitor_unref(m->device_monitor);
-        sd_device_monitor_unref(m->device_vcsa_monitor);
-        sd_device_monitor_unref(m->device_button_monitor);
 
         if (m->unlink_nologin)
                 (void) unlink_or_warn("/run/nologin");
@@ -602,50 +599,6 @@ static int manager_enumerate_inhibitors(Manager *m) {
         return r;
 }
 
-static int manager_dispatch_seat_udev(sd_device_monitor *monitor, sd_device *device, void *userdata) {
-        Manager *m = ASSERT_PTR(userdata);
-
-        assert(device);
-
-        manager_process_seat_device(m, device);
-        return 0;
-}
-
-static int manager_dispatch_device_udev(sd_device_monitor *monitor, sd_device *device, void *userdata) {
-        Manager *m = ASSERT_PTR(userdata);
-
-        assert(device);
-
-        manager_process_seat_device(m, device);
-        return 0;
-}
-
-static int manager_dispatch_vcsa_udev(sd_device_monitor *monitor, sd_device *device, void *userdata) {
-        Manager *m = ASSERT_PTR(userdata);
-        const char *name;
-
-        assert(device);
-
-        /* Whenever a VCSA device is removed try to reallocate our
-         * VTs, to make sure our auto VTs never go away. */
-
-        if (sd_device_get_sysname(device, &name) >= 0 &&
-            startswith(name, "vcsa") &&
-            device_for_action(device, SD_DEVICE_REMOVE))
-                seat_preallocate_vts(m->seat0);
-
-        return 0;
-}
-
-static int manager_dispatch_button_udev(sd_device_monitor *monitor, sd_device *device, void *userdata) {
-        Manager *m = ASSERT_PTR(userdata);
-
-        assert(device);
-
-        manager_process_button_device(m, device);
-        return 0;
-}
-
 static int manager_dispatch_console(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
 
@@ -846,32 +799,38 @@ static int manager_connect_console(Manager *m) {
         return 0;
 }
 
+static int manager_dispatch_device_udev(sd_device_monitor *monitor, sd_device *device, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+
+        assert(device);
+
+        /* If the event is triggered by us, do not try to start the relevant seat again. Otherwise, starting
+         * the seat may trigger uevents again again again... */
+        if (manager_process_device_triggered_by_seat(m, device) <= 0 &&
+            (device_in_subsystems(device, STRV_MAKE("input", "graphics", "drm")) ||
+             sd_device_has_current_tag(device, "master-of-seat") > 0))
+                (void) manager_process_seat_device(m, device);
+
+        if (!manager_all_buttons_ignored(m) &&
+            device_in_subsystem(device, "input") &&
+            sd_device_has_current_tag(device, "power-switch") > 0)
+                (void) manager_process_button_device(m, device);
+
+        /* Whenever a VCSA device is removed try to reallocate our VTs, to make sure our auto VTs never go away. */
+        const char *name;
+        if (device_in_subsystem(device, "vc") &&
+            sd_device_get_sysname(device, &name) >= 0 && startswith(name, "vcsa") &&
+            device_for_action(device, SD_DEVICE_REMOVE))
+                seat_preallocate_vts(m->seat0);
+
+        return 0;
+}
+
 static int manager_connect_udev(Manager *m) {
         int r;
 
         assert(m);
-        assert(!m->device_seat_monitor);
         assert(!m->device_monitor);
-        assert(!m->device_vcsa_monitor);
-        assert(!m->device_button_monitor);
-
-        r = sd_device_monitor_new(&m->device_seat_monitor);
-        if (r < 0)
-                return r;
-
-        r = sd_device_monitor_filter_add_match_tag(m->device_seat_monitor, "master-of-seat");
-        if (r < 0)
-                return r;
-
-        r = sd_device_monitor_attach_event(m->device_seat_monitor, m->event);
-        if (r < 0)
-                return r;
-
-        r = sd_device_monitor_start(m->device_seat_monitor, manager_dispatch_seat_udev, m);
-        if (r < 0)
-                return r;
-
-        (void) sd_device_monitor_set_description(m->device_seat_monitor, "seat");
 
         r = sd_device_monitor_new(&m->device_monitor);
         if (r < 0)
@@ -889,6 +848,17 @@ static int manager_connect_udev(Manager *m) {
         if (r < 0)
                 return r;
 
+        r = sd_device_monitor_filter_add_match_subsystem_devtype(m->device_monitor, "pci", NULL);
+        if (r < 0)
+                return r;
+
+        /* Don't bother watching VCSA devices, if nobody cares */
+        if (m->n_autovts > 0 && m->console_active_fd >= 0) {
+                r = sd_device_monitor_filter_add_match_subsystem_devtype(m->device_monitor, "vc", NULL);
+                if (r < 0)
+                        return r;
+        }
+
         r = sd_device_monitor_attach_event(m->device_monitor, m->event);
         if (r < 0)
                 return r;
@@ -896,55 +866,6 @@ static int manager_connect_udev(Manager *m) {
         r = sd_device_monitor_start(m->device_monitor, manager_dispatch_device_udev, m);
         if (r < 0)
                 return r;
-
-        (void) sd_device_monitor_set_description(m->device_monitor, "input,graphics,drm");
-
-        /* Don't watch keys if nobody cares */
-        if (!manager_all_buttons_ignored(m)) {
-                r = sd_device_monitor_new(&m->device_button_monitor);
-                if (r < 0)
-                        return r;
-
-                r = sd_device_monitor_filter_add_match_tag(m->device_button_monitor, "power-switch");
-                if (r < 0)
-                        return r;
-
-                r = sd_device_monitor_filter_add_match_subsystem_devtype(m->device_button_monitor, "input", NULL);
-                if (r < 0)
-                        return r;
-
-                r = sd_device_monitor_attach_event(m->device_button_monitor, m->event);
-                if (r < 0)
-                        return r;
-
-                r = sd_device_monitor_start(m->device_button_monitor, manager_dispatch_button_udev, m);
-                if (r < 0)
-                        return r;
-
-                (void) sd_device_monitor_set_description(m->device_button_monitor, "button");
-        }
-
-        /* Don't bother watching VCSA devices, if nobody cares */
-        if (m->n_autovts > 0 && m->console_active_fd >= 0) {
-
-                r = sd_device_monitor_new(&m->device_vcsa_monitor);
-                if (r < 0)
-                        return r;
-
-                r = sd_device_monitor_filter_add_match_subsystem_devtype(m->device_vcsa_monitor, "vc", NULL);
-                if (r < 0)
-                        return r;
-
-                r = sd_device_monitor_attach_event(m->device_vcsa_monitor, m->event);
-                if (r < 0)
-                        return r;
-
-                r = sd_device_monitor_start(m->device_vcsa_monitor, manager_dispatch_vcsa_udev, m);
-                if (r < 0)
-                        return r;
-
-                (void) sd_device_monitor_set_description(m->device_vcsa_monitor, "vcsa");
-        }
 
         return 0;
 }
