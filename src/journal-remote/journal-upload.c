@@ -15,11 +15,13 @@
 #include "constants.h"
 #include "daemon-util.h"
 #include "env-file.h"
+#include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
 #include "fs-util.h"
 #include "glob-util.h"
+#include "journal-header-util.h"
 #include "journal-upload.h"
 #include "journal-util.h"
 #include "log.h"
@@ -59,6 +61,7 @@ static int arg_follow = -1;
 static char *arg_save_state = NULL;
 static usec_t arg_network_timeout_usec = USEC_INFINITY;
 static OrderedHashmap *arg_compression = NULL;
+static OrderedHashmap *arg_headers = NULL;
 static bool arg_force_compression = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_url, freep);
@@ -72,6 +75,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_machine, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_namespace, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_save_state, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_compression, ordered_hashmap_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_headers, ordered_hashmap_freep);
 
 static void close_fd_input(Uploader *u);
 
@@ -220,6 +224,18 @@ int start_upload(Uploader *u,
                         if (!header)
                                 return log_oom();
 
+                        l = curl_slist_append(h, header);
+                        if (!l)
+                                return log_oom();
+                        h = l;
+                }
+
+                char **values;
+                const char *name;
+                ORDERED_HASHMAP_FOREACH_KEY(values, name, arg_headers) {
+                        _cleanup_free_ char *header = strjoin(name, ": ", strv_join(values, ", "));
+                        if (!header)
+                                return log_oom();
                         l = curl_slist_append(h, header);
                         if (!l)
                                 return log_oom();
@@ -657,6 +673,7 @@ static int parse_config(void) {
                 { "Upload",  "ServerCertificateFile",  config_parse_path_or_ignore, 0,                        &arg_cert                 },
                 { "Upload",  "TrustedCertificateFile", config_parse_path_or_ignore, 0,                        &arg_trust                },
                 { "Upload",  "NetworkTimeoutSec",      config_parse_sec,            0,                        &arg_network_timeout_usec },
+                { "Upload",  "Header",                 config_parse_header,         0,                        &arg_headers              },
                 { "Upload",  "Compression",            config_parse_compression,    /* with_level */ true,    &arg_compression          },
                 { "Upload",  "ForceCompression",       config_parse_bool,           0,                        &arg_force_compression    },
                 {}
