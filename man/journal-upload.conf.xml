@@ -131,6 +131,29 @@
 
         <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>Header=</varname></term>
+
+        <listitem><para>HTTP header which should be added to each request to URL.</para>
+
+        <para>Header name can contains alphanumeric values, "_" and "-" symbols additionally.</para>
+
+        <para>This option may be specified more than once, in which case all listed headers will be set. If
+        the same header name is listed more than once, all its unique values will be concatenated with comma.
+        </para>
+
+        <para>Example:
+        <programlisting>
+          Header=HeaderName: HeaderValue
+          Header=HeaderName: NewValue
+          Header=HeaderName: HeaderValue
+        </programlisting>
+
+        adds <literal>HeaderName</literal> header with <literal>HeaderValue, NewValue</literal> to each HTTP request.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
     </variablelist>
 
   </refsect1>
