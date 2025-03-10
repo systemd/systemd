@@ -20,14 +20,14 @@ int write_env_file_label(int dir_fd, const char *fname, char **headers, char **l
         return r;
 }
 
-int write_vconsole_conf_label(char **l) {
+int write_vconsole_conf_label(const char* vconsole_conf_path, char **l) {
         int r;
 
-        r = mac_selinux_create_file_prepare("/etc/vconsole.conf", S_IFREG);
+        r = mac_selinux_create_file_prepare(vconsole_conf_path, S_IFREG);
         if (r < 0)
                 return r;
 
-        r = write_vconsole_conf(AT_FDCWD, "/etc/vconsole.conf", l);
+        r = write_vconsole_conf(AT_FDCWD, vconsole_conf_path, l);
 
         mac_selinux_create_file_clear();
 
