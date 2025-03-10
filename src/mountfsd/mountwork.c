@@ -851,7 +851,7 @@ static int vl_method_mount_directory(
                 if (r < 0)
                         return r;
 
-                _cleanup_close_ int idmap_userns_fd = userns_acquire(new_uid_map, new_uid_map);
+                _cleanup_close_ int idmap_userns_fd = userns_acquire(new_uid_map, new_uid_map, /* setgroups_deny= */ true);
                 if (idmap_userns_fd < 0)
                         return log_debug_errno(idmap_userns_fd, "Failed to acquire user namespace for id mapping: %m");
 
