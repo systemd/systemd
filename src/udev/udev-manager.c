@@ -847,6 +847,9 @@ static int on_worker(sd_event_source *s, int fd, uint32_t revents, void *userdat
 static int synthesize_change_one(sd_device *dev, sd_device *target) {
         int r;
 
+        assert(dev);
+        assert(target);
+
         if (DEBUG_LOGGING) {
                 const char *syspath = NULL;
                 (void) sd_device_get_syspath(target, &syspath);
@@ -862,28 +865,21 @@ static int synthesize_change_one(sd_device *dev, sd_device *target) {
         return 0;
 }
 
-static int synthesize_change(sd_device *dev) {
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
-        bool part_table_read;
-        const char *sysname;
-        int r, k;
+static int synthesize_change_all(sd_device *dev) {
+        int r;
 
-        r = sd_device_get_sysname(dev, &sysname);
-        if (r < 0)
-                return r;
-
-        if (startswith(sysname, "dm-") || block_device_is_whole_disk(dev) <= 0)
-                return synthesize_change_one(dev, dev);
+        assert(dev);
 
         r = blockdev_reread_partition_table(dev);
         if (r < 0)
                 log_device_debug_errno(dev, r, "Failed to re-read partition table, ignoring: %m");
-        part_table_read = r >= 0;
+        bool part_table_read = r >= 0;
 
         /* search for partitions */
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         r = partition_enumerator_new(dev, &e);
         if (r < 0)
-                return r;
+                return log_device_debug_errno(dev, r, "Failed to initialize partition enumerator, ignoring: %m");
 
         /* We have partitions and re-read the table, the kernel already sent out a "change"
          * event for the disk, and "remove/add" for all partitions. */
@@ -893,13 +889,26 @@ static int synthesize_change(sd_device *dev) {
         /* We have partitions but re-reading the partition table did not work, synthesize
          * "change" for the disk and all partitions. */
         r = synthesize_change_one(dev, dev);
-        FOREACH_DEVICE(e, d) {
-                k = synthesize_change_one(dev, d);
-                if (k < 0 && r >= 0)
-                        r = k;
-        }
+        FOREACH_DEVICE(e, d)
+                RET_GATHER(r, synthesize_change_one(dev, d));
 
         return r;
+}
+
+static int synthesize_change(sd_device *dev) {
+        int r;
+
+        assert(dev);
+
+        const char *sysname;
+        r = sd_device_get_sysname(dev, &sysname);
+        if (r < 0)
+                return r;
+
+        if (startswith(sysname, "dm-") || block_device_is_whole_disk(dev) <= 0)
+                return synthesize_change_one(dev, dev);
+
+        return synthesize_change_all(dev);
 }
 
 static int on_inotify(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
