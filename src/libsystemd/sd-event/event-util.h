@@ -5,7 +5,10 @@
 
 #include "sd-event.h"
 
+#include "hash-funcs.h"
 #include "pidref.h"
+
+extern const struct hash_ops event_source_hash_ops;
 
 int event_reset_time(
                 sd_event *e,
