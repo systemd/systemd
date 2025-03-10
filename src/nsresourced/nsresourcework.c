@@ -1008,7 +1008,7 @@ static int vl_method_register_user_namespace(sd_varlink *link, sd_json_variant *
         static const sd_json_dispatch_field dispatch_table[] = {
                 { "name",                        SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(RegisterParameters, name),          SD_JSON_MANDATORY },
                 { "userNamespaceFileDescriptor", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,         offsetof(RegisterParameters, userns_fd_idx), SD_JSON_MANDATORY },
-                { "mangleName",                  SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,      offsetof(AllocateParameters, mangle_name),   0                 },
+                { "mangleName",                  SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,      offsetof(RegisterParameters, mangle_name),   0                 },
                 {}
         };
 
