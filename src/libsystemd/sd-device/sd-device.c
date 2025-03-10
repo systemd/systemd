@@ -366,7 +366,7 @@ _public_ int sd_device_new_from_ifindex(sd_device **ret, int ifindex) {
         assert_return(ret, -EINVAL);
         assert_return(ifindex > 0, -EINVAL);
 
-        r = rtnl_get_ifname_full(NULL, ifindex, &ifname, NULL);
+        r = rtnl_get_ifname(NULL, ifindex, &ifname);
         if (r < 0)
                 return r;
 
@@ -869,6 +869,21 @@ _public_ int sd_device_get_ifindex(sd_device *device, int *ifindex) {
                 *ifindex = device->ifindex;
 
         return 0;
+}
+
+int device_get_ifname(sd_device *device, const char **ret) {
+        int r;
+
+        assert_return(device, -EINVAL);
+
+        /* First, check if the device is a network interface. */
+        r = sd_device_get_ifindex(device, NULL);
+        if (r < 0)
+                return r;
+
+        /* The sysname and ifname may be different, as '!' in sysname are replaced with '/'.
+         * For network interfaces, we can use INTERFACE property. */
+        return sd_device_get_property_value(device, "INTERFACE", ret);
 }
 
 _public_ int sd_device_new_from_device_id(sd_device **ret, const char *id) {
