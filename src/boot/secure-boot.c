@@ -68,7 +68,7 @@ static EFI_STATUS set_custom_mode(bool enable) {
                                attr, sizeof(mode), &mode);
 }
 
-EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path, bool force) {
+EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path, bool force, bool poweroff) {
         assert(root_dir);
         assert(path);
 
@@ -185,11 +185,21 @@ EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path, bool 
                 }
         }
 
-        printf("Custom Secure Boot keys successfully enrolled, rebooting the system now!\n");
         /* The system should be in secure boot mode now and we could continue a regular boot. But at least
-         * TPM PCR7 measurements should change on next boot. Reboot now so that any OS we load does not end
-         * up relying on the old PCR state. */
-        RT->ResetSystem(EfiResetCold, EFI_SUCCESS, 0, NULL);
+         * TPM PCR7 measurements should change on next boot. Reboot/poweroff now so that any OS we load
+         * does not end up relying on the old PCR state.
+         */
+
+        uint64_t dummy_key;
+        if (poweroff) {
+                printf("Custom Secure Boot keys successfully enrolled, powering of the system now!\n");
+                console_key_read(&dummy_key , 2 * 1000 * 1000); /* wait a bit so user can see the message */
+                RT->ResetSystem(EfiResetShutdown, EFI_SUCCESS, 0, NULL);
+        } else {
+                printf("Custom Secure Boot keys successfully enrolled, rebooting the system now!\n");
+                console_key_read(&dummy_key, 2 * 1000 * 1000); /* wait a bit so user can see the message */
+                RT->ResetSystem(EfiResetCold, EFI_SUCCESS, 0, NULL);
+        }
         assert_not_reached();
 
 out_deallocate:
