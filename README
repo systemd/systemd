@@ -52,7 +52,8 @@ REQUIREMENTS:
            # FIXME: actually drop compat glue before v258
 
         Linux kernel ≥ 5.6 for getrandom() GRND_INSECURE
-                     ≥ 5.7 for CLONE_INTO_CGROUP, BPF links and the BPF LSM hook
+                     ≥ 5.7 for CLONE_INTO_CGROUP, cgroup2fs memory_recursiveprot option,
+                               BPF links and the BPF LSM hook
 
         ⚠️ Kernel versions below 5.7 ("recommended baseline") have significant gaps
            in functionality and are not recommended for use with this version
