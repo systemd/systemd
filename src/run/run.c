@@ -72,10 +72,15 @@ static bool arg_nice_set = false;
 static char **arg_environment = NULL;
 static char **arg_property = NULL;
 static enum {
-        ARG_STDIO_NONE,      /* The default, as it is for normal services, stdin connected to /dev/null, and stdout+stderr to the journal */
-        ARG_STDIO_PTY,       /* Interactive behaviour, requested by --pty/--pty-late: we allocate a pty and connect it to the TTY we are invoked from */
-        ARG_STDIO_DIRECT,    /* Directly pass our stdin/stdout/stderr to the activated service, useful for usage in shell pipelines, requested by --pipe */
-        ARG_STDIO_AUTO,      /* If --pipe and --pty/--pty-late are used together we use --pty/--pty-late when invoked on a TTY, and --pipe otherwise */
+        ARG_STDIO_NONE   = 0,      /* The default, as it is for normal services, stdin connected to
+                                    * /dev/null, and stdout+stderr to the journal */
+        ARG_STDIO_PTY    = 1 << 0, /* Interactive behaviour, requested by --pty/--pty-late: we allocate a pty
+                                    * and connect it to the TTY we are invoked from */
+        ARG_STDIO_DIRECT = 1 << 1, /* Directly pass our stdin/stdout/stderr to the activated service, useful
+                                    * for usage in shell pipelines, requested by --pipe */
+        ARG_STDIO_AUTO   = ARG_STDIO_PTY | ARG_STDIO_DIRECT,
+                                   /* If --pipe and --pty/--pty-late are used together we use --pty/--pty-late
+                                    * when invoked on a TTY, and --pipe otherwise */
 } arg_stdio = ARG_STDIO_NONE;
 static int arg_pty_late = -1; /* tristate */
 static char **arg_path_property = NULL;
@@ -474,19 +479,12 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'T': /* --pty-late */
                 case 't': /* --pty */
-                        if (IN_SET(arg_stdio, ARG_STDIO_DIRECT, ARG_STDIO_AUTO)) /* if --pipe is already used, upgrade to auto mode */
-                                arg_stdio = ARG_STDIO_AUTO;
-                        else
-                                arg_stdio = ARG_STDIO_PTY;
-
+                        arg_stdio |= ARG_STDIO_PTY;
                         arg_pty_late = c == 'T';
                         break;
 
                 case 'P': /* --pipe */
-                        if (IN_SET(arg_stdio, ARG_STDIO_PTY, ARG_STDIO_AUTO)) /* If --pty/--pty-late is already used, upgrade to auto mode */
-                                arg_stdio = ARG_STDIO_AUTO;
-                        else
-                                arg_stdio = ARG_STDIO_DIRECT;
+                        arg_stdio |= ARG_STDIO_DIRECT;
                         break;
 
                 case 'q':
@@ -941,19 +939,12 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
 
                 case ARG_PTY:
                 case ARG_PTY_LATE:
-                        if (IN_SET(arg_stdio, ARG_STDIO_DIRECT, ARG_STDIO_AUTO)) /* if --pipe is already used, upgrade to auto mode */
-                                arg_stdio = ARG_STDIO_AUTO;
-                        else
-                                arg_stdio = ARG_STDIO_PTY;
-
+                        arg_stdio |= ARG_STDIO_PTY;
                         arg_pty_late = c == ARG_PTY_LATE;
                         break;
 
                 case ARG_PIPE:
-                        if (IN_SET(arg_stdio, ARG_STDIO_PTY, ARG_STDIO_AUTO)) /* If --pty/--pty-late is already used, upgrade to auto mode */
-                                arg_stdio = ARG_STDIO_AUTO;
-                        else
-                                arg_stdio = ARG_STDIO_DIRECT;
+                        arg_stdio |= ARG_STDIO_DIRECT;
                         break;
 
                 case ARG_SHELL_PROMPT_PREFIX:
