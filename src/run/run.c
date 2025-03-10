@@ -1567,12 +1567,11 @@ typedef struct RunContext {
         sd_bus *bus;
         sd_bus_slot *match_properties_changed;
         sd_bus_slot *match_disconnected;
-        sd_bus_slot *match_job_removed;
         sd_event_source *retry_timer;
 
         /* Current state of the unit */
         char *active_state;
-        bool has_job;
+        char *job;
 
         /* The exit data of the unit */
         uint64_t inactive_exit_usec;
@@ -1593,6 +1592,7 @@ static int run_context_update(RunContext *c);
 static int run_context_attach_bus(RunContext *c, sd_bus *bus);
 static void run_context_detach_bus(RunContext *c);
 static int run_context_reconnect(RunContext *c);
+static int run_context_setup_ptyfwd(RunContext *c);
 
 static void run_context_done(RunContext *c) {
         assert(c);
@@ -1604,6 +1604,7 @@ static void run_context_done(RunContext *c) {
         c->event = sd_event_unref(c->event);
 
         free(c->active_state);
+        free(c->job);
         free(c->result);
         free(c->unit);
         free(c->bus_path);
@@ -1660,12 +1661,44 @@ static int run_context_reconnect(RunContext *c) {
         return run_context_update(c);
 }
 
+static int run_context_check_started(RunContext *c) {
+        int r;
+
+        assert(c);
+
+        if (!c->start_job)
+                return 0; /* Already started? */
+
+        if (streq_ptr(c->start_job, c->job))
+                return 0; /* The start job is still active. */
+
+        /* The start job is finished. */
+        c->start_job = mfree(c->start_job);
+
+        /* Setup ptyfwd now if --pty-late is specified. */
+        r = run_context_setup_ptyfwd(c);
+        if (r < 0) {
+                sd_event_exit(c->event, EXIT_FAILURE);
+                return r;
+        }
+
+        if (STRPTR_IN_SET(c->active_state, "inactive", "failed"))
+                return 0; /* Already finished or failed? */
+
+        /* Notify our caller that the service is now running, just in case. */
+        (void) sd_notifyf(/* unset_environment= */ false,
+                          "READY=1\n"
+                          "RUN_UNIT=%s",
+                          c->unit);
+        return 0;
+}
+
 static void run_context_check_done(RunContext *c) {
         assert(c);
 
         bool done = STRPTR_IN_SET(c->active_state, "inactive", "failed") &&
                 !c->start_job &&   /* our start job */
-                !c->has_job;       /* any other job */
+                !c->job;           /* any other job */
 
         if (done && c->forward) /* If the service is gone, it's time to drain the output */
                 done = pty_forward_drain(c->forward);
@@ -1675,17 +1708,18 @@ static void run_context_check_done(RunContext *c) {
 }
 
 static int map_job(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
-        bool *b = userdata;
+        char **p = ASSERT_PTR(userdata);
         const char *job;
         uint32_t id;
         int r;
+
+        assert(m);
 
         r = sd_bus_message_read(m, "(uo)", &id, &job);
         if (r < 0)
                 return r;
 
-        *b = id != 0 || !streq(job, "/");
-        return 0;
+        return free_and_strdup(p, id == 0 ? NULL : job);
 }
 
 static int run_context_update(RunContext *c) {
@@ -1704,7 +1738,7 @@ static int run_context_update(RunContext *c) {
                 { "IPEgressBytes",                   "t",    NULL,    offsetof(RunContext, ip_egress_bytes)     },
                 { "IOReadBytes",                     "t",    NULL,    offsetof(RunContext, io_read_bytes)       },
                 { "IOWriteBytes",                    "t",    NULL,    offsetof(RunContext, io_write_bytes)      },
-                { "Job",                             "(uo)", map_job, offsetof(RunContext, has_job)             },
+                { "Job",                             "(uo)", map_job, offsetof(RunContext, job)                 },
                 {}
         };
 
@@ -1742,6 +1776,10 @@ static int run_context_update(RunContext *c) {
                 (void) sd_event_exit(c->event, EXIT_FAILURE);
                 return log_error_errno(r, "Failed to query unit state: %s", bus_error_message(&error, r));
         }
+
+        r = run_context_check_started(c);
+        if (r < 0)
+                return r;
 
         run_context_check_done(c);
         return 0;
@@ -1809,7 +1847,6 @@ static void run_context_detach_bus(RunContext *c) {
 
         c->match_properties_changed = sd_bus_slot_unref(c->match_properties_changed);
         c->match_disconnected = sd_bus_slot_unref(c->match_disconnected);
-        c->match_job_removed = sd_bus_slot_unref(c->match_job_removed);
 }
 
 static int pty_forward_handler(PTYForward *f, int rcode, void *userdata) {
@@ -2040,39 +2077,6 @@ static int run_context_setup_ptyfwd(RunContext *c) {
         return 0;
 }
 
-static int match_job_removed(sd_bus_message *m, void *userdata, sd_bus_error *error) {
-        RunContext *c = ASSERT_PTR(userdata);
-        const char *path;
-        int r;
-
-        assert(m);
-
-        r = sd_bus_message_read(m, "uoss", /* id = */ NULL, &path, /* unit= */ NULL, /* result= */ NULL);
-        if (r < 0) {
-                bus_log_parse_error(r);
-                return 0;
-        }
-
-        if (!streq_ptr(path, c->start_job))
-                return 0;
-
-        /* Notify our caller that the service is now running, just in case. */
-        (void) sd_notifyf(/* unset_environment= */ false,
-                          "READY=1\n"
-                          "RUN_UNIT=%s",
-                          c->unit);
-
-        r = run_context_setup_ptyfwd(c);
-        if (r < 0)
-                return sd_event_exit(c->event, r);
-
-        c->start_job = mfree(c->start_job);
-        c->match_job_removed = sd_bus_slot_unref(c->match_job_removed);
-
-        run_context_check_done(c);
-        return 0;
-}
-
 static int start_transient_service(sd_bus *bus) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -2176,27 +2180,10 @@ static int start_transient_service(sd_bus *bus) {
          * lets skip this however, because we should start that already when the start job is running, and
          * there's little point in waiting for the start job to complete in that case anyway, as we'll wait
          * for EOF anyway, which is going to be much later. */
-        if (!arg_no_block) {
-                if (arg_stdio == ARG_STDIO_NONE) {
-                        r = bus_wait_for_jobs_new(bus, &w);
-                        if (r < 0)
-                                return log_error_errno(r, "Could not watch jobs: %m");
-                } else {
-                        /* When we are a bus client we match by sender. Direct connections OTOH have no
-                         * initialized sender field, and hence we ignore the sender then */
-                        r = sd_bus_match_signal_async(
-                                        bus,
-                                        &c.match_job_removed,
-                                        sd_bus_is_bus_client(bus) ? "org.freedesktop.systemd1" : NULL,
-                                        "/org/freedesktop/systemd1",
-                                        "org.freedesktop.systemd1.Manager",
-                                        "JobRemoved",
-                                        match_job_removed,
-                                        /* add_callback= */ NULL,
-                                        &c);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to install JobRemove match: %m");
-                }
+        if (!arg_no_block && arg_stdio == ARG_STDIO_NONE) {
+                r = bus_wait_for_jobs_new(bus, &w);
+                if (r < 0)
+                        return log_error_errno(r, "Could not watch jobs: %m");
         }
 
         r = make_transient_service_unit(bus, &m, c.unit, pty_path, peer_fd);
@@ -2221,7 +2208,7 @@ static int start_transient_service(sd_bus *bus) {
                                 arg_runtime_scope == RUNTIME_SCOPE_USER ? STRV_MAKE_CONST("--user") : NULL);
                 if (r < 0)
                         return r;
-        } else if (c.match_job_removed) {
+        } else if (!arg_no_block) {
                 c.start_job = strdup(object);
                 if (!c.start_job)
                         return log_oom();
