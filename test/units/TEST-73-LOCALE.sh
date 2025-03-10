@@ -651,6 +651,53 @@ testcase_locale_gen_leading_space() {
     localectl set-locale en_US.UTF-8
 }
 
+teardown_localed_alternate_paths() {
+    set +eu
+
+    rm -rf /run/systemd/system/systemd-localed.service.d
+    systemctl daemon-reload
+    systemctl restart systemd-localed
+}
+
+testcase_localed_alternate_paths() {
+    trap teardown_localed_alternate_paths RETURN
+
+    mkdir -p /run/alternate-path
+
+    mkdir -p /run/systemd/system/systemd-localed.service.d
+    cat >/run/systemd/system/systemd-localed.service.d/override.conf <<EOF
+[Service]
+Environment=SYSTEMD_ETC_LOCALE_CONF=/run/alternate-path/mylocale.conf
+Environment=SYSTEMD_ETC_VCONSOLE_CONF=/run/alternate-path/myvconsole.conf
+EOF
+    systemctl daemon-reload
+    systemctl restart systemd-localed
+
+    if localectl list-locales | grep "^de_DE.UTF-8$"; then
+        assert_rc 0 localectl set-locale "LANG=de_DE.UTF-8" "LC_CTYPE=C"
+    else
+        skip_locale=1
+    fi
+
+    if localectl list-keymaps | grep -F "^no$"; then
+        assert_rc 0 localectl set-keymap "no"
+    else
+        skip_keymap=1
+    fi
+
+    output=$(localectl)
+
+    if [[ -z "${skip_locale-}" ]]; then
+        assert_in "System Locale: LANG=de_DE.UTF-8" "$output"
+        assert_in "LANG=de_DE.UTF-8" "$(cat /run/alternate-path/mylocale.conf)"
+    fi
+
+    if [[ -z "${skip_keymap-}" ]]; then
+        assert_in "VC Keymap: no" "$output"
+        assert_in "KEYMAP=no" "$(cat /run/alternate-path/myvconsole.conf)"
+    fi
+}
+
 # Make sure the content of kbd-model-map is the one that the tests expect
 # regardless of the version installed on the distro where the testsuite is
 # running on.

@@ -168,6 +168,7 @@ bool clock_supported(clockid_t clock);
 usec_t usec_shift_clock(usec_t, clockid_t from, clockid_t to);
 
 int get_timezone(char **ret);
+const char* etc_localtime(void);
 
 int mktime_or_timegm_usec(struct tm *tm, bool utc, usec_t *ret);
 int localtime_or_gmtime_usec(usec_t t, bool utc, struct tm *ret);

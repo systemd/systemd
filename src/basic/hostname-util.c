@@ -157,13 +157,31 @@ bool is_localhost(const char *hostname) {
                 endswith_no_case(hostname, ".localhost.localdomain.");
 }
 
+const char* etc_hostname(void) {
+        static const char *cached = NULL;
+
+        if (!cached)
+                cached = secure_getenv("SYSTEMD_ETC_HOSTNAME") ?: "/etc/hostname";
+
+        return cached;
+}
+
+const char* etc_machine_info(void) {
+        static const char *cached = NULL;
+
+        if (!cached)
+                cached = secure_getenv("SYSTEMD_ETC_MACHINE_INFO") ?: "/etc/machine-info";
+
+        return cached;
+}
+
 int get_pretty_hostname(char **ret) {
         _cleanup_free_ char *n = NULL;
         int r;
 
         assert(ret);
 
-        r = parse_env_file(NULL, "/etc/machine-info", "PRETTY_HOSTNAME", &n);
+        r = parse_env_file(NULL, etc_machine_info(), "PRETTY_HOSTNAME", &n);
         if (r < 0)
                 return r;
 
