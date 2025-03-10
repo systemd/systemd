@@ -57,6 +57,7 @@ static SD_VARLINK_DEFINE_ERROR(UserNamespaceNotRegistered);
 static SD_VARLINK_DEFINE_ERROR(UserNamespaceWithoutUserRange);
 static SD_VARLINK_DEFINE_ERROR(TooManyControlGroups);
 static SD_VARLINK_DEFINE_ERROR(ControlGroupAlreadyAdded);
+static SD_VARLINK_DEFINE_ERROR(TooManyNetworkInterfaces);
 
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_NamespaceResource,
@@ -74,4 +75,5 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_error_UserNamespaceNotRegistered,
                 &vl_error_UserNamespaceWithoutUserRange,
                 &vl_error_TooManyControlGroups,
-                &vl_error_ControlGroupAlreadyAdded);
+                &vl_error_ControlGroupAlreadyAdded,
+                &vl_error_TooManyNetworkInterfaces);
