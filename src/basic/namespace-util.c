@@ -561,6 +561,22 @@ int userns_acquire(const char *uid_map, const char *gid_map, bool setgroups_deny
         return pidref_namespace_open_by_type(&pid, NAMESPACE_USER);
 }
 
+int userns_acquire_self_root(void) {
+
+        /* Returns a user namespace with only our own uid/gid mapped to rootf, and everything else
+         * unmapped.
+         *
+         * Note: this can be acquired unprivileged! */
+
+        _cleanup_free_ char *uid_map = NULL, *gid_map = NULL;
+        if (asprintf(&uid_map, "0 " UID_FMT " 1", getuid()) < 0)
+                return -ENOMEM;
+        if (asprintf(&gid_map, "0 " GID_FMT " 1", getgid()) < 0)
+                return -ENOMEM;
+
+        return userns_acquire(uid_map, gid_map, /* setgroups_deny= */ true);
+}
+
 int userns_enter_and_pin(int userns_fd, pid_t *ret_pid) {
         _cleanup_close_pair_ int pfd[2] = EBADF_PAIR;
         _cleanup_(sigkill_waitp) pid_t pid = 0;
@@ -704,7 +720,6 @@ int process_is_owned_by_uid(const PidRef *pidref, uid_t uid) {
 
 int is_idmapping_supported(const char *path) {
         _cleanup_close_ int mount_fd = -EBADF, userns_fd = -EBADF, dir_fd = -EBADF;
-        _cleanup_free_ char *uid_map = NULL, *gid_map = NULL;
         int r;
 
         assert(path);
@@ -712,15 +727,7 @@ int is_idmapping_supported(const char *path) {
         if (!mount_new_api_supported())
                 return false;
 
-        r = strextendf(&uid_map, UID_FMT " " UID_FMT " " UID_FMT "\n", UID_NOBODY, UID_NOBODY, 1u);
-        if (r < 0)
-                return r;
-
-        r = strextendf(&gid_map, GID_FMT " " GID_FMT " " GID_FMT "\n", GID_NOBODY, GID_NOBODY, 1u);
-        if (r < 0)
-                return r;
-
-        userns_fd = r = userns_acquire(uid_map, gid_map, /* setgroups_deny= */ true);
+        userns_fd = r = userns_acquire_self_root();
         if (ERRNO_IS_NEG_NOT_SUPPORTED(r) || ERRNO_IS_NEG_PRIVILEGE(r) || r == -EINVAL)
                 return false;
         if (r == -ENOSPC) {
