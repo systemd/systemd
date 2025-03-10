@@ -1322,9 +1322,6 @@ int server_flush_to_var(Server *s, bool require_flag_file) {
         if (!IN_SET(s->storage, STORAGE_AUTO, STORAGE_PERSISTENT))
                 return 0;
 
-        if (s->namespace) /* Flushing concept does not exist for namespace instances */
-                return 0;
-
         if (!s->runtime_journal) /* Nothing to flush? */
                 return 0;
 
