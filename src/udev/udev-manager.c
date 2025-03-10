@@ -153,6 +153,7 @@ Manager* manager_free(Manager *manager) {
         sd_varlink_server_unref(manager->varlink_server);
 
         sd_event_source_unref(manager->inotify_event);
+        set_free(manager->synthesize_change_child_event_sources);
         sd_event_source_unref(manager->kill_workers_event);
         sd_event_unref(manager->event);
 
@@ -847,6 +848,9 @@ static int on_worker(sd_event_source *s, int fd, uint32_t revents, void *userdat
 static int synthesize_change_one(sd_device *dev, sd_device *target) {
         int r;
 
+        assert(dev);
+        assert(target);
+
         if (DEBUG_LOGGING) {
                 const char *syspath = NULL;
                 (void) sd_device_get_syspath(target, &syspath);
@@ -862,28 +866,21 @@ static int synthesize_change_one(sd_device *dev, sd_device *target) {
         return 0;
 }
 
-static int synthesize_change(sd_device *dev) {
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
-        bool part_table_read;
-        const char *sysname;
-        int r, k;
+static int synthesize_change_all(sd_device *dev) {
+        int r;
 
-        r = sd_device_get_sysname(dev, &sysname);
-        if (r < 0)
-                return r;
-
-        if (startswith(sysname, "dm-") || block_device_is_whole_disk(dev) <= 0)
-                return synthesize_change_one(dev, dev);
+        assert(dev);
 
         r = blockdev_reread_partition_table(dev);
         if (r < 0)
                 log_device_debug_errno(dev, r, "Failed to re-read partition table, ignoring: %m");
-        part_table_read = r >= 0;
+        bool part_table_read = r >= 0;
 
         /* search for partitions */
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         r = partition_enumerator_new(dev, &e);
         if (r < 0)
-                return r;
+                return log_device_debug_errno(dev, r, "Failed to initialize partition enumerator, ignoring: %m");
 
         /* We have partitions and re-read the table, the kernel already sent out a "change"
          * event for the disk, and "remove/add" for all partitions. */
@@ -893,13 +890,65 @@ static int synthesize_change(sd_device *dev) {
         /* We have partitions but re-reading the partition table did not work, synthesize
          * "change" for the disk and all partitions. */
         r = synthesize_change_one(dev, dev);
-        FOREACH_DEVICE(e, d) {
-                k = synthesize_change_one(dev, d);
-                if (k < 0 && r >= 0)
-                        r = k;
-        }
+        FOREACH_DEVICE(e, d)
+                RET_GATHER(r, synthesize_change_one(dev, d));
 
         return r;
+}
+
+static int synthesize_change_child_handler(sd_event_source *s, const siginfo_t *si, void *userdata) {
+        Manager *manager = ASSERT_PTR(userdata);
+        assert(s);
+
+        sd_event_source_unref(set_remove(manager->synthesize_change_child_event_sources, s));
+        return 0;
+}
+
+static int synthesize_change(Manager *manager, sd_device *dev) {
+        int r;
+
+        assert(manager);
+        assert(dev);
+
+        const char *sysname;
+        r = sd_device_get_sysname(dev, &sysname);
+        if (r < 0)
+                return r;
+
+        if (startswith(sysname, "dm-") || block_device_is_whole_disk(dev) <= 0)
+                return synthesize_change_one(dev, dev);
+
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        r = pidref_safe_fork(
+                        "(udev-synth)",
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE,
+                        &pidref);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                /* child */
+                (void) synthesize_change_all(dev);
+                _exit(EXIT_SUCCESS);
+        }
+
+        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        r = event_add_child_pidref(manager->event, &s, &pidref, WEXITED, synthesize_change_child_handler, manager);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to add child event source for "PID_FMT", ignoring: %m", pidref.pid);
+                return 0;
+        }
+
+        r = sd_event_source_set_child_pidfd_own(s, true);
+        if (r < 0)
+                return r;
+        TAKE_PIDREF(pidref);
+
+        r = set_ensure_put(&manager->synthesize_change_child_event_sources, &event_source_hash_ops, s);
+        if (r < 0)
+                return r;
+        TAKE_PTR(s);
+
+        return 0;
 }
 
 static int on_inotify(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
@@ -946,7 +995,7 @@ static int on_inotify(sd_event_source *s, int fd, uint32_t revents, void *userda
                 log_device_debug(dev, "Received inotify event for %s.", devnode);
 
                 (void) event_queue_assume_block_device_unlocked(manager, dev);
-                (void) synthesize_change(dev);
+                (void) synthesize_change(manager, dev);
         }
 
         return 0;
@@ -1046,7 +1095,7 @@ static int on_post(sd_event_source *s, void *userdata) {
         if (manager->exit)
                 return sd_event_exit(manager->event, 0);
 
-        if (manager->cgroup)
+        if (manager->cgroup && set_isempty(manager->synthesize_change_child_event_sources))
                 /* cleanup possible left-over processes in our cgroup */
                 (void) cg_kill(manager->cgroup, SIGKILL, CGROUP_IGNORE_SELF, /* set=*/ NULL, /* kill_log= */ NULL, /* userdata= */ NULL);
 
