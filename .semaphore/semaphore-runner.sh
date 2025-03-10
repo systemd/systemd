@@ -23,7 +23,12 @@ create_container() {
     sudo lxc-create -n "$CONTAINER" -t download -- -d "$DISTRO" -r "$RELEASE" -a "$ARCH"
 
     # unconfine the container, otherwise some tests fail
-    echo 'lxc.apparmor.profile = unconfined' | sudo tee -a "/var/lib/lxc/$CONTAINER/config"
+    #
+    # disable any mount setup. pid1 will do them properly in mount_setup().
+    sudo tee -a "/var/lib/lxc/$CONTAINER/config" <<EOF
+lxc.apparmor.profile = unconfined
+lxc.mount.auto =
+EOF
 
     sudo lxc-start -n "$CONTAINER"
 
