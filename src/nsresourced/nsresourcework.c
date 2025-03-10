@@ -1761,7 +1761,7 @@ static int run(int argc, char *argv[]) {
                         &server,
                         SD_VARLINK_SERVER_INHERIT_USERDATA|
                         SD_VARLINK_SERVER_ALLOW_FD_PASSING_INPUT|SD_VARLINK_SERVER_ALLOW_FD_PASSING_OUTPUT,
-                        NULL);
+                        &bpf);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate varlink server: %m");
 
@@ -1784,8 +1784,6 @@ static int run(int argc, char *argv[]) {
                         "io.systemd.UserDatabase.GetMemberships",                      vl_method_get_memberships);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind methods: %m");
-
-        sd_varlink_server_set_userdata(server, &bpf);
 
         r = getenv_bool("NSRESOURCE_FIXED_WORKER");
         if (r < 0)
