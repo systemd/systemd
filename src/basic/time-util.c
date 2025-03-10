@@ -1605,25 +1605,39 @@ bool clock_supported(clockid_t clock) {
 }
 
 int get_timezone(char **ret) {
-        _cleanup_free_ char *t = NULL;
+        _cleanup_free_ char *t = NULL, *link_dir = NULL, *abspath = NULL;
         int r;
 
         assert(ret);
 
-        r = readlink_malloc("/etc/localtime", &t);
+        const char *link_path = etc_localtime();
+
+        r = readlink_malloc(link_path, &t);
         if (r == -ENOENT)
                 /* If the symlink does not exist, assume "UTC", like glibc does */
                 return strdup_to(ret, "UTC");
         if (r < 0)
                 return r; /* Return EINVAL if not a symlink */
 
-        const char *e = PATH_STARTSWITH_SET(t, "/usr/share/zoneinfo/", "../usr/share/zoneinfo/");
+        r = path_extract_directory(link_path, &link_dir);
+        if (r < 0)
+                return r;
+
+        abspath = path_make_absolute(t, link_dir);
+        if (!abspath)
+                return -ENOMEM;
+
+        const char *e = path_startswith(abspath, "/usr/share/zoneinfo/");
         if (!e)
                 return -EINVAL;
         if (!timezone_is_valid(e, LOG_DEBUG))
                 return -EINVAL;
 
         return strdup_to(ret, e);
+}
+
+const char *etc_localtime(void) {
+        return secure_getenv("SYSTEMD_ETC_LOCALTIME") ?: "/etc/localtime";
 }
 
 int mktime_or_timegm_usec(
