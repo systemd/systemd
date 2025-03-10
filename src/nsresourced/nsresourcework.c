@@ -17,6 +17,7 @@
 #include "sd-netlink.h"
 #include "sd-varlink.h"
 
+#include "bus-polkit.h"
 #include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -53,9 +54,13 @@
 #define ITERATIONS_MAX 64U
 #define RUNTIME_MAX_USEC (5 * USEC_PER_MINUTE)
 #define PRESSURE_SLEEP_TIME_USEC (50 * USEC_PER_MSEC)
-#define CONNECTION_IDLE_USEC (15 * USEC_PER_SEC)
 #define LISTEN_IDLE_USEC (90 * USEC_PER_SEC)
 #define USERNS_PER_UID 256
+
+typedef struct Context {
+        Hashmap *polkit_registry;
+        struct userns_restrict_bpf *bpf;
+} Context;
 
 typedef struct LookupParameters {
         const char *user_name;
@@ -824,9 +829,9 @@ static int vl_method_allocate_user_range(sd_varlink *link, sd_json_variant *para
                 {}
         };
 
-        struct userns_restrict_bpf **bpf = ASSERT_PTR(userdata);
         _cleanup_close_ int userns_fd = -EBADF, registry_dir_fd = -EBADF, lock_fd = -EBADF;
         _cleanup_free_ char *userns_name = NULL;
+        Context *c = ASSERT_PTR(userdata);
         uid_t peer_uid;
         struct stat userns_st;
         AllocateParameters p = {
@@ -854,7 +859,7 @@ static int vl_method_allocate_user_range(sd_varlink *link, sd_json_variant *para
         if (r != 0)
                 return r;
 
-        userns_fd = sd_varlink_take_fd(link, p.userns_fd_idx);
+        userns_fd = sd_varlink_peek_dup_fd(link, p.userns_fd_idx);
         if (userns_fd < 0)
                 return log_debug_errno(userns_fd, "Failed to take user namespace fd from Varlink connection: %m");
 
@@ -873,8 +878,24 @@ static int vl_method_allocate_user_range(sd_varlink *link, sd_json_variant *para
         if (r < 0)
                 return r;
 
-        if (!*bpf) {
-                r = userns_restrict_install(/* pin= */ true, bpf);
+        const char *polkit_details[] = {
+                "name", userns_name,
+                NULL,
+        };
+
+        r = varlink_verify_polkit_async_full(
+                        link,
+                        /* bus= */ NULL,
+                        "io.systemd.namespace-resource.allocate-user-namespace",
+                        polkit_details,
+                        /* good_user= */ UID_INVALID,
+                        POLKIT_DEFAULT_ALLOW, /* If no polkit is installed, allow unpriv userns namespace allocation */
+                        &c->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        if (!c->bpf) {
+                r = userns_restrict_install(/* pin= */ true, &c->bpf);
                 if (r < 0)
                         return r;
         }
@@ -915,7 +936,7 @@ static int vl_method_allocate_user_range(sd_varlink *link, sd_json_variant *para
 
         /* Register the userns in the BPF map with an empty allowlist */
         r = userns_restrict_put_by_fd(
-                        *bpf,
+                        c->bpf,
                         userns_fd,
                         /* replace= */ true,
                         /* mount_fds= */ NULL,
@@ -1026,9 +1047,9 @@ static int vl_method_register_user_namespace(sd_varlink *link, sd_json_variant *
                 {}
         };
 
-        struct userns_restrict_bpf **bpf = ASSERT_PTR(userdata);
         _cleanup_close_ int userns_fd = -EBADF, registry_dir_fd = -EBADF;
         _cleanup_free_ char *userns_name = NULL;
+        Context *c = ASSERT_PTR(userdata);
         uid_t peer_uid;
         struct stat userns_st;
         RegisterParameters p = {
@@ -1051,7 +1072,7 @@ static int vl_method_register_user_namespace(sd_varlink *link, sd_json_variant *
         if (r != 0)
                 return r;
 
-        userns_fd = sd_varlink_take_fd(link, p.userns_fd_idx);
+        userns_fd = sd_varlink_peek_dup_fd(link, p.userns_fd_idx);
         if (userns_fd < 0)
                 return userns_fd;
 
@@ -1070,8 +1091,24 @@ static int vl_method_register_user_namespace(sd_varlink *link, sd_json_variant *
         if (r < 0)
                 return r;
 
-        if (!*bpf) {
-                r = userns_restrict_install(/* pin= */ true, bpf);
+        const char *polkit_details[] = {
+                "name", userns_name,
+                NULL,
+        };
+
+        r = varlink_verify_polkit_async_full(
+                        link,
+                        /* bus= */ NULL,
+                        "io.systemd.namespace-resource.register-user-namespace",
+                        polkit_details,
+                        /* good_user= */ UID_INVALID,
+                        POLKIT_DEFAULT_ALLOW, /* If no polkit is installed, allow unpriv userns namespace registration */
+                        &c->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        if (!c->bpf) {
+                r = userns_restrict_install(/* pin= */ true, &c->bpf);
                 if (r < 0)
                         return r;
         }
@@ -1114,7 +1151,7 @@ static int vl_method_register_user_namespace(sd_varlink *link, sd_json_variant *
 
         /* Register the userns in the BPF map with an empty allowlist */
         r = userns_restrict_put_by_fd(
-                        *bpf,
+                        c->bpf,
                         userns_fd,
                         /* replace= */ true,
                         /* mount_fds= */ NULL,
@@ -1153,7 +1190,7 @@ static int vl_method_add_mount_to_user_namespace(sd_varlink *link, sd_json_varia
         };
 
         _cleanup_close_ int userns_fd = -EBADF, mount_fd = -EBADF, registry_dir_fd = -EBADF;
-        struct userns_restrict_bpf **bpf = ASSERT_PTR(userdata);
+        Context *c = ASSERT_PTR(userdata);
         AddMountParameters p = {
                 .userns_fd_idx = UINT_MAX,
                 .mount_fd_idx = UINT_MAX,
@@ -1180,7 +1217,7 @@ static int vl_method_add_mount_to_user_namespace(sd_varlink *link, sd_json_varia
         if (r != 0)
                 return r;
 
-        userns_fd = sd_varlink_take_fd(link, p.userns_fd_idx);
+        userns_fd = sd_varlink_peek_dup_fd(link, p.userns_fd_idx);
         if (userns_fd < 0)
                 return userns_fd;
 
@@ -1191,7 +1228,7 @@ static int vl_method_add_mount_to_user_namespace(sd_varlink *link, sd_json_varia
         if (fstat(userns_fd, &userns_st) < 0)
                 return -errno;
 
-        mount_fd = sd_varlink_take_fd(link, p.mount_fd_idx);
+        mount_fd = sd_varlink_peek_dup_fd(link, p.mount_fd_idx);
         if (mount_fd < 0)
                 return mount_fd;
 
@@ -1205,6 +1242,17 @@ static int vl_method_add_mount_to_user_namespace(sd_varlink *link, sd_json_varia
 
         r = path_get_mnt_id_at(mount_fd, NULL, &mnt_id);
         if (r < 0)
+                return r;
+
+        r = varlink_verify_polkit_async_full(
+                        link,
+                        /* bus= */ NULL,
+                        "io.systemd.namespace-resource.delegate-mount",
+                        /* polkit_details= */ NULL,
+                        /* good_user= */ UID_INVALID,
+                        POLKIT_DEFAULT_ALLOW, /* If no polkit is installed, allow delegation of mounts to registered userns */
+                        &c->polkit_registry);
+        if (r <= 0)
                 return r;
 
         registry_dir_fd = userns_registry_open_fd();
@@ -1226,8 +1274,8 @@ static int vl_method_add_mount_to_user_namespace(sd_varlink *link, sd_json_varia
         if (r < 0)
                 return r;
 
-        if (!*bpf) {
-                r = userns_restrict_install(/* pin= */ true, bpf);
+        if (!c->bpf) {
+                r = userns_restrict_install(/* pin= */ true, &c->bpf);
                 if (r < 0)
                         return r;
         }
@@ -1244,7 +1292,7 @@ static int vl_method_add_mount_to_user_namespace(sd_varlink *link, sd_json_varia
 
         /* Add this mount to the user namespace's BPF map allowlist entry. */
         r = userns_restrict_put_by_fd(
-                        *bpf,
+                        c->bpf,
                         userns_fd,
                         /* replace= */ false,
                         &mount_fd,
@@ -1310,6 +1358,7 @@ static int vl_method_add_cgroup_to_user_namespace(sd_varlink *link, sd_json_vari
                 .cgroup_fd_idx = UINT_MAX,
         };
         _cleanup_(userns_info_freep) UserNamespaceInfo *userns_info = NULL;
+        Context *c = ASSERT_PTR(userdata);
         struct stat userns_st, cgroup_st;
         uid_t peer_uid;
         int r;
@@ -1325,7 +1374,7 @@ static int vl_method_add_cgroup_to_user_namespace(sd_varlink *link, sd_json_vari
         if (r != 0)
                 return r;
 
-        userns_fd = sd_varlink_take_fd(link, p.userns_fd_idx);
+        userns_fd = sd_varlink_peek_dup_fd(link, p.userns_fd_idx);
         if (userns_fd < 0)
                 return log_debug_errno(userns_fd, "Failed to take user namespace fd from Varlink connection: %m");
 
@@ -1336,7 +1385,7 @@ static int vl_method_add_cgroup_to_user_namespace(sd_varlink *link, sd_json_vari
         if (fstat(userns_fd, &userns_st) < 0)
                 return log_debug_errno(errno, "Failed to fstat() user namespace fd: %m");
 
-        cgroup_fd = sd_varlink_take_fd(link, p.cgroup_fd_idx);
+        cgroup_fd = sd_varlink_peek_dup_fd(link, p.cgroup_fd_idx);
         if (cgroup_fd < 0)
                 return log_debug_errno(cgroup_fd, "Failed to take cgroup fd from Varlink connection: %m");
 
@@ -1347,6 +1396,17 @@ static int vl_method_add_cgroup_to_user_namespace(sd_varlink *link, sd_json_vari
 
         if (fstat(cgroup_fd, &cgroup_st) < 0)
                 return log_debug_errno(errno, "Failed to fstat() cgroup fd: %m");
+
+        r = varlink_verify_polkit_async_full(
+                        link,
+                        /* bus= */ NULL,
+                        "io.systemd.namespace-resource.delegate-cgroup",
+                        /* polkit_details= */ NULL,
+                        /* good_user= */ UID_INVALID,
+                        POLKIT_DEFAULT_ALLOW, /* If no polkit is installed, allow delegation of cgroups to registered userns */
+                        &c->polkit_registry);
+        if (r <= 0)
+                return r;
 
         registry_dir_fd = userns_registry_open_fd();
         if (registry_dir_fd < 0)
@@ -1659,6 +1719,7 @@ static int vl_method_add_netif_to_user_namespace(sd_varlink *link, sd_json_varia
         };
 
         _cleanup_close_ int userns_fd = -EBADF, netns_fd = -EBADF, registry_dir_fd = -EBADF;
+        Context *c = ASSERT_PTR(userdata);
         AddNetworkParameters p = {
                 .userns_fd_idx = UINT_MAX,
                 .netns_fd_idx = UINT_MAX,
@@ -1676,7 +1737,7 @@ static int vl_method_add_netif_to_user_namespace(sd_varlink *link, sd_json_varia
         if (r != 0)
                 return r;
 
-        userns_fd = sd_varlink_take_fd(link, p.userns_fd_idx);
+        userns_fd = sd_varlink_peek_dup_fd(link, p.userns_fd_idx);
         if (userns_fd < 0)
                 return userns_fd;
 
@@ -1689,7 +1750,7 @@ static int vl_method_add_netif_to_user_namespace(sd_varlink *link, sd_json_varia
                 return -errno;
 
         if (p.netns_fd_idx != UINT_MAX) {
-                netns_fd = sd_varlink_take_fd(link, p.netns_fd_idx);
+                netns_fd = sd_varlink_peek_dup_fd(link, p.netns_fd_idx);
                 if (netns_fd < 0)
                         return netns_fd;
 
@@ -1717,6 +1778,22 @@ static int vl_method_add_netif_to_user_namespace(sd_varlink *link, sd_json_varia
                         return sd_varlink_error_invalid_parameter_name(link, "networkNamespaceFileDescriptor");
         } else
                 return sd_varlink_error_invalid_parameter_name(link, "mode");
+
+        const char *polkit_details[] = {
+                "type", p.mode,
+                NULL,
+        };
+
+        r = varlink_verify_polkit_async_full(
+                        link,
+                        /* bus= */ NULL,
+                        "io.systemd.namespace-resource.delegate-network-interface",
+                        polkit_details,
+                        /* good_user= */ UID_INVALID,
+                        POLKIT_DEFAULT_ALLOW, /* If no polkit is installed, allow delegation of network interfaces to registered userns */
+                        &c->polkit_registry);
+        if (r <= 0)
+                return r;
 
         registry_dir_fd = userns_registry_open_fd();
         if (registry_dir_fd < 0)
@@ -1823,10 +1900,19 @@ static int vl_method_add_netif_to_user_namespace(sd_varlink *link, sd_json_varia
 static int process_connection(sd_varlink_server *server, int _fd) {
         _cleanup_close_ int fd = TAKE_FD(_fd); /* always take possession */
         _cleanup_(sd_varlink_close_unrefp) sd_varlink *vl = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         int r;
 
         assert(server);
         assert(fd >= 0);
+
+        r = sd_event_new(&event);
+        if (r < 0)
+                return r;
+
+        r = sd_varlink_server_attach_event(server, event, /* priority= */ 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to attach Varlink server to event loop: %m");
 
         r = sd_varlink_server_add_connection(server, fd, &vl);
         if (r < 0)
@@ -1835,31 +1921,28 @@ static int process_connection(sd_varlink_server *server, int _fd) {
         TAKE_FD(fd);
         vl = sd_varlink_ref(vl);
 
-        for (;;) {
-                r = sd_varlink_process(vl);
-                if (r == -ENOTCONN) {
-                        log_debug("Connection terminated.");
-                        break;
-                }
-                if (r < 0)
-                        return log_error_errno(r, "Failed to process connection: %m");
-                if (r > 0)
-                        continue;
+        r = sd_event_loop(event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to run event loop: %m");
 
-                r = sd_varlink_wait(vl, CONNECTION_IDLE_USEC);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to wait for connection events: %m");
-                if (r == 0)
-                        break;
-        }
+        r = sd_varlink_server_detach_event(server);
+        if (r < 0)
+                return log_error_errno(r, "Failed to detach Varlink server from event loop: %m");
 
         return 0;
 }
 
+static void context_free(Context *c) {
+        assert(c);
+
+        c->polkit_registry = hashmap_free(c->polkit_registry);
+        c->bpf = userns_restrict_bpf_free(c->bpf);
+}
+
 static int run(int argc, char *argv[]) {
-        _cleanup_(userns_restrict_bpf_freep) struct userns_restrict_bpf *bpf = NULL;
         usec_t start_time, listen_idle_usec, last_busy_usec = USEC_INFINITY;
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *server = NULL;
+        _cleanup_(context_free) Context c = {};
         _cleanup_(pidref_done) PidRef parent = PIDREF_NULL;
         unsigned n_iterations = 0;
         int m, listen_fd, r;
@@ -1884,7 +1967,7 @@ static int run(int argc, char *argv[]) {
                         &server,
                         SD_VARLINK_SERVER_INHERIT_USERDATA|
                         SD_VARLINK_SERVER_ALLOW_FD_PASSING_INPUT|SD_VARLINK_SERVER_ALLOW_FD_PASSING_OUTPUT,
-                        NULL);
+                        &c);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate varlink server: %m");
 
@@ -1908,7 +1991,9 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to bind methods: %m");
 
-        sd_varlink_server_set_userdata(server, &bpf);
+        r = sd_varlink_server_set_exit_on_idle(server, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enable exit-on-idle mode: %m");
 
         r = getenv_bool("NSRESOURCE_FIXED_WORKER");
         if (r < 0)
