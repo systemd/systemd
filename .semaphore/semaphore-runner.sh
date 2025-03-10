@@ -23,7 +23,14 @@ create_container() {
     sudo lxc-create -n "$CONTAINER" -t download -- -d "$DISTRO" -r "$RELEASE" -a "$ARCH"
 
     # unconfine the container, otherwise some tests fail
-    echo 'lxc.apparmor.profile = unconfined' | sudo tee -a "/var/lib/lxc/$CONTAINER/config"
+    #
+    # disable automatic cgroup setup, instead let pid1 figure it out in mount_setup().
+    # This is especially important to ensure we get unified cgroup hierarchy
+    sudo tee -a "/var/lib/lxc/$CONTAINER/config" <<EOF
+lxc.apparmor.profile = unconfined
+lxc.mount.auto =
+lxc.mount.auto = proc:mixed sys:mixed
+EOF
 
     sudo lxc-start -n "$CONTAINER"
 
@@ -110,7 +117,7 @@ EOF
                                                        --env TEST_UPSTREAM=1 \
                                                        ../systemd_*.dsc \
                                                        -o "$ARTIFACTS_DIR" \
-                                                       -- lxc -s "$CONTAINER" \
+                                                       -- lxc -s "$CONTAINER" --rcfile="/var/lib/lxc/$CONTAINER/config" \
                 || [ $? -eq 2 ]
         ;;
         *)
