@@ -4,7 +4,6 @@
 set -eux
 set -o pipefail
 
-# default to Debian testing
 DISTRO="${DISTRO:-debian}"
 RELEASE="${RELEASE:-bookworm}"
 SALSA_URL="${SALSA_URL:-https://salsa.debian.org/systemd-team/systemd.git}"
