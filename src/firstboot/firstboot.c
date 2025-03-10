@@ -28,6 +28,7 @@
 #include "hostname-util.h"
 #include "kbd-util.h"
 #include "libcrypt-util.h"
+#include "locale-setup.h"
 #include "locale-util.h"
 #include "lock-util.h"
 #include "main-func.h"
@@ -400,7 +401,7 @@ static int process_locale(int rfd) {
 
         assert(rfd >= 0);
 
-        pfd = chase_and_open_parent_at(rfd, "/etc/locale.conf",
+        pfd = chase_and_open_parent_at(rfd, etc_locale_conf(),
                                        CHASE_AT_RESOLVE_IN_ROOT|CHASE_MKDIR_0755|CHASE_WARN|CHASE_NOFOLLOW,
                                        &f);
         if (pfd < 0)
@@ -417,7 +418,7 @@ static int process_locale(int rfd) {
                 return log_error_errno(r, "Failed to check if directory file descriptor is root: %m");
 
         if (arg_copy_locale && r == 0) {
-                r = copy_file_atomic_at(AT_FDCWD, "/etc/locale.conf", pfd, f, 0644, COPY_REFLINK);
+                r = copy_file_atomic_at(AT_FDCWD, etc_locale_conf(), pfd, f, 0644, COPY_REFLINK);
                 if (r != -ENOENT) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to copy host's /etc/locale.conf: %m");
@@ -507,7 +508,7 @@ static int process_keymap(int rfd) {
 
         assert(rfd >= 0);
 
-        pfd = chase_and_open_parent_at(rfd, "/etc/vconsole.conf",
+        pfd = chase_and_open_parent_at(rfd, etc_vconsole_conf(),
                                        CHASE_AT_RESOLVE_IN_ROOT|CHASE_MKDIR_0755|CHASE_WARN|CHASE_NOFOLLOW,
                                        &f);
         if (pfd < 0)
@@ -524,7 +525,7 @@ static int process_keymap(int rfd) {
                 return log_error_errno(r, "Failed to check if directory file descriptor is root: %m");
 
         if (arg_copy_keymap && r == 0) {
-                r = copy_file_atomic_at(AT_FDCWD, "/etc/vconsole.conf", pfd, f, 0644, COPY_REFLINK);
+                r = copy_file_atomic_at(AT_FDCWD, etc_vconsole_conf(), pfd, f, 0644, COPY_REFLINK);
                 if (r != -ENOENT) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to copy host's /etc/vconsole.conf: %m");
@@ -604,13 +605,13 @@ static int prompt_timezone(int rfd) {
 
 static int process_timezone(int rfd) {
         _cleanup_close_ int pfd = -EBADF;
-        _cleanup_free_ char *f = NULL;
+        _cleanup_free_ char *f = NULL, *relpath = NULL, *link_dir = NULL;
         const char *e;
         int r;
 
         assert(rfd >= 0);
 
-        pfd = chase_and_open_parent_at(rfd, "/etc/localtime",
+        pfd = chase_and_open_parent_at(rfd, etc_localtime(),
                                        CHASE_AT_RESOLVE_IN_ROOT|CHASE_MKDIR_0755|CHASE_WARN|CHASE_NOFOLLOW,
                                        &f);
         if (pfd < 0)
@@ -629,7 +630,7 @@ static int process_timezone(int rfd) {
         if (arg_copy_timezone && r == 0) {
                 _cleanup_free_ char *s = NULL;
 
-                r = readlink_malloc("/etc/localtime", &s);
+                r = readlink_malloc(etc_localtime(), &s);
                 if (r != -ENOENT) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to read host's /etc/localtime: %m");
@@ -650,9 +651,15 @@ static int process_timezone(int rfd) {
         if (isempty(arg_timezone))
                 return 0;
 
-        e = strjoina("../usr/share/zoneinfo/", arg_timezone);
+        r = path_extract_directory(etc_localtime(), &link_dir);
+        if (r < 0)
+                return r;
+        e = strjoina("/usr/share/zoneinfo/", arg_timezone);
+        r = path_make_relative(link_dir, e, &relpath);
+        if (r < 0)
+                return r;
 
-        r = symlinkat_atomic_full(e, pfd, f, /* make_relative= */ false);
+        r = symlinkat_atomic_full(relpath, pfd, f, /* make_relative= */ false);
         if (r < 0)
                 return log_error_errno(r, "Failed to create /etc/localtime symlink: %m");
 
@@ -699,7 +706,7 @@ static int process_hostname(int rfd) {
 
         assert(rfd >= 0);
 
-        pfd = chase_and_open_parent_at(rfd, "/etc/hostname",
+        pfd = chase_and_open_parent_at(rfd, etc_hostname(),
                                        CHASE_AT_RESOLVE_IN_ROOT|CHASE_MKDIR_0755|CHASE_WARN,
                                        &f);
         if (pfd < 0)
@@ -1215,12 +1222,12 @@ static int process_reset(int rfd) {
                 return 0;
 
         FOREACH_STRING(p,
-                       "/etc/locale.conf",
-                       "/etc/vconsole.conf",
-                       "/etc/hostname",
+                       etc_locale_conf(),
+                       etc_vconsole_conf(),
+                       etc_hostname(),
                        "/etc/machine-id",
                        "/etc/kernel/cmdline",
-                       "/etc/localtime") {
+                       etc_localtime()) {
                 r = reset_one(rfd, p);
                 if (r < 0)
                         return r;
