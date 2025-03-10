@@ -851,7 +851,7 @@ static int vl_method_mount_directory(
                 if (r < 0)
                         return r;
 
-                _cleanup_close_ int idmap_userns_fd = userns_acquire(new_uid_map, new_uid_map);
+                _cleanup_close_ int idmap_userns_fd = userns_acquire(new_uid_map, new_uid_map, /* setgroups_deny= */ true);
                 if (idmap_userns_fd < 0)
                         return log_debug_errno(idmap_userns_fd, "Failed to acquire user namespace for id mapping: %m");
 
@@ -940,7 +940,7 @@ static int run(int argc, char *argv[]) {
         r = varlink_server_new(&server,
                                SD_VARLINK_SERVER_INHERIT_USERDATA|
                                SD_VARLINK_SERVER_ALLOW_FD_PASSING_INPUT|SD_VARLINK_SERVER_ALLOW_FD_PASSING_OUTPUT,
-                               NULL);
+                               &polkit_registry);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate server: %m");
 
@@ -954,8 +954,6 @@ static int run(int argc, char *argv[]) {
                         "io.systemd.MountFileSystem.MountDirectory", vl_method_mount_directory);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind methods: %m");
-
-        sd_varlink_server_set_userdata(server, &polkit_registry);
 
         r = sd_varlink_server_set_exit_on_idle(server, true);
         if (r < 0)

@@ -1916,25 +1916,23 @@ static int apply_one_mount(
                 log_debug("Setting an id-mapped mount on %s", mount_entry_path(m));
 
                 /* Do mapping from nobody (in setup_exec_directory()) -> this uid */
-                if (strextendf(&uid_map, UID_FMT " " UID_FMT " " UID_FMT "\n", UID_NOBODY, (uid_t)m->idmap_uid, (uid_t)1u) < 0)
+                if (strextendf(&uid_map, UID_FMT " " UID_FMT " 1\n", UID_NOBODY, m->idmap_uid) < 0)
                         return log_oom();
 
                 /* Consider StateDirectory=xxx aaa xxx:aaa/222
                  * To allow for later symlink creation (by root) in create_symlinks_from_tuples(), map root as well. */
-                if (m->idmap_uid != (uid_t)0) {
-                        if (strextendf(&uid_map, UID_FMT " " UID_FMT " " UID_FMT "\n", (uid_t)0, (uid_t)0, (uid_t)1u) < 0)
+                if (m->idmap_uid != 0)
+                        if (!strextend(&uid_map, "0 0 1\n"))
                                 return log_oom();
-                }
 
-                if (strextendf(&gid_map, GID_FMT " " GID_FMT " " GID_FMT "\n", GID_NOBODY, (gid_t)m->idmap_gid, (gid_t)1u) < 0)
+                if (strextendf(&gid_map, GID_FMT " " GID_FMT " 1\n", GID_NOBODY, m->idmap_gid) < 0)
                         return log_oom();
 
-                if (m->idmap_gid != (gid_t)0) {
-                        if (strextendf(&gid_map, GID_FMT " " GID_FMT " " GID_FMT "\n", (gid_t)0, (gid_t)0, (gid_t)1u) < 0)
+                if (m->idmap_gid != 0)
+                        if (!strextend(&gid_map, "0 0 1\n"))
                                 return log_oom();
-                }
 
-                userns_fd = userns_acquire(uid_map, gid_map);
+                userns_fd = userns_acquire(uid_map, gid_map, /* setgroups_deny= */ true);
                 if (userns_fd < 0)
                         return log_error_errno(userns_fd, "Failed to allocate user namespace: %m");
 
