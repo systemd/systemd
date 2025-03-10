@@ -142,6 +142,9 @@ static int verb_request(int argc, char *argv[], void *userdata) {
                 return 0;
         }
 
+        if (f == FACTORY_RESET_UNSUPPORTED || access("/run/systemd/factory-reset-supported", F_OK) < 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Factory reset is unsupported, refusing to request it.");
         if (!is_efi_boot())
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                        "Not an EFI boot, requesting factory reset via EFI variable not supported.");
@@ -316,18 +319,6 @@ static int vl_method_get_factory_reset_mode(sd_varlink *link, sd_json_variant *p
         return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_STRING("mode", factory_reset_mode_to_string(f)));
 }
 
-static int vl_method_can_request_factory_reset(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
-        int r;
-
-        assert(parameters);
-
-        r = sd_varlink_dispatch(link, parameters, /* table= */ NULL, /* userdata= */ NULL);
-        if (r != 0)
-                return r;
-
-        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_BOOLEAN("supported", is_efi_boot()));
-}
-
 static int varlink_service(void) {
         int r;
 
@@ -344,8 +335,7 @@ static int varlink_service(void) {
 
         r = sd_varlink_server_bind_method_many(
                         varlink_server,
-                        "io.systemd.FactoryReset.GetFactoryResetMode",    vl_method_get_factory_reset_mode,
-                        "io.systemd.FactoryReset.CanRequestFactoryReset", vl_method_can_request_factory_reset);
+                        "io.systemd.FactoryReset.GetFactoryResetMode",    vl_method_get_factory_reset_mode);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind Varlink methods: %m");
 
