@@ -28,3 +28,6 @@ void locale_context_take(LocaleContext *c, char *l[_VARIABLE_LC_MAX]);
 bool locale_context_equal(const LocaleContext *c, char *l[_VARIABLE_LC_MAX]);
 
 int locale_setup(char ***environment);
+
+const char* etc_locale_conf(void);
+const char* etc_vconsole_conf(void);
