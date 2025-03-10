@@ -524,8 +524,8 @@ int userns_acquire_empty(void) {
         return pidref_namespace_open_by_type(&pid, NAMESPACE_USER);
 }
 
-int userns_acquire(const char *uid_map, const char *gid_map) {
-        char path[STRLEN("/proc//uid_map") + DECIMAL_STR_MAX(pid_t) + 1];
+int userns_acquire(const char *uid_map, const char *gid_map, bool setgroups_deny) {
+        char path[STRLEN("/proc//setgroups") + DECIMAL_STR_MAX(pid_t) + 1];
         _cleanup_(pidref_done_sigkill_wait) PidRef pid = PIDREF_NULL;
         int r;
 
@@ -545,6 +545,13 @@ int userns_acquire(const char *uid_map, const char *gid_map) {
         r = write_string_file(path, uid_map, WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0)
                 return log_debug_errno(r, "Failed to write UID map: %m");
+
+        if (setgroups_deny) {
+                xsprintf(path, "/proc/" PID_FMT "/setgroups", pid.pid);
+                r = write_string_file(path, "deny", WRITE_STRING_FILE_DISABLE_BUFFER);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to write setgroups file: %m");
+        }
 
         xsprintf(path, "/proc/" PID_FMT "/gid_map", pid.pid);
         r = write_string_file(path, gid_map, WRITE_STRING_FILE_DISABLE_BUFFER);
@@ -713,7 +720,7 @@ int is_idmapping_supported(const char *path) {
         if (r < 0)
                 return r;
 
-        userns_fd = r = userns_acquire(uid_map, gid_map);
+        userns_fd = r = userns_acquire(uid_map, gid_map, /* setgroups_deny= */ true);
         if (ERRNO_IS_NEG_NOT_SUPPORTED(r) || ERRNO_IS_NEG_PRIVILEGE(r) || r == -EINVAL)
                 return false;
         if (r == -ENOSPC) {

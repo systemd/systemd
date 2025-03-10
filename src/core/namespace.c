@@ -1917,7 +1917,7 @@ static int apply_one_mount(
                                 return log_oom();
                 }
 
-                userns_fd = userns_acquire(uid_map, gid_map);
+                userns_fd = userns_acquire(uid_map, gid_map, /* setgroups_deny= */ true);
                 if (userns_fd < 0)
                         return log_error_errno(userns_fd, "Failed to allocate user namespace: %m");
 
