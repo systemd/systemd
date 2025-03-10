@@ -1654,7 +1654,7 @@ int image_read_metadata(Image *i, const ImagePolicy *image_policy) {
                 if (r < 0 && r != -ENOENT)
                         log_debug_errno(r, "Failed to chase /etc/hostname in image %s: %m", i->name);
                 else if (r >= 0) {
-                        r = read_etc_hostname(path, &hostname);
+                        r = read_etc_hostname(path, /* substitute_wildcards= */ false, &hostname);
                         if (r < 0)
                                 log_debug_errno(r, "Failed to read /etc/hostname of image %s: %m", i->name);
                 }

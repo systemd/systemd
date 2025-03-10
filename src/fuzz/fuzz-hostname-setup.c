@@ -14,7 +14,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         fuzz_setup_logging();
 
-        (void) read_etc_hostname_stream(f, &ret);
+        (void) read_etc_hostname_stream(f, /* substitute_wildcards= */ true, &ret);
 
         return 0;
 }

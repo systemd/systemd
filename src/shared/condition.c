@@ -38,6 +38,7 @@
 #include "fileio.h"
 #include "fs-util.h"
 #include "glob-util.h"
+#include "hostname-setup.h"
 #include "hostname-util.h"
 #include "ima-util.h"
 #include "id128-util.h"

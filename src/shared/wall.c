@@ -8,7 +8,7 @@
 
 #include "errno-util.h"
 #include "fd-util.h"
-#include "hostname-util.h"
+#include "hostname-setup.h"
 #include "io-util.h"
 #include "path-util.h"
 #include "string-util.h"

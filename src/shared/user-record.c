@@ -10,6 +10,7 @@
 #include "fs-util.h"
 #include "glyph-util.h"
 #include "hexdecoct.h"
+#include "hostname-setup.h"
 #include "hostname-util.h"
 #include "json-util.h"
 #include "locale-util.h"
