@@ -3,7 +3,8 @@
 
 #include "macro.h"
 
-#define USER_NAMESPACE_CGROUPS_DELEGATE_MAX 16
+#define USER_NAMESPACE_CGROUPS_DELEGATE_MAX 16U
+#define USER_NAMESPACE_NETIFS_DELEGATE_MAX 16U
 
 typedef struct UserNamespaceInfo {
         uid_t owner;
