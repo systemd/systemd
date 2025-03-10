@@ -2265,14 +2265,19 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 return r;
         if (r == 0) {
                 /* set TERM and LANG if they are missing */
-                if (setenv("TERM", "vt220", 0) < 0)
-                        return log_oom();
+                if (setenv("TERM", "vt220", 0) < 0) {
+                        log_oom();
+                        goto fail;
+                }
 
-                if (setenv("LANG", "C.UTF-8", 0) < 0)
-                        return log_oom();
+                if (setenv("LANG", "C.UTF-8", 0) < 0) {
+                        log_oom();
+                        goto fail;
+                }
 
                 execv(qemu_binary, cmdline);
                 log_error_errno(errno, "Failed to execve %s: %m", qemu_binary);
+        fail:
                 _exit(EXIT_FAILURE);
         }
 
