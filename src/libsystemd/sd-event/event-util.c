@@ -12,6 +12,13 @@
 #define SI_FLAG_FORWARD  (INT32_C(1) << 30)
 #define SI_FLAG_POSITIVE (INT32_C(1) << 29)
 
+DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(
+                event_source_hash_ops,
+                sd_event_source,
+                (void (*)(const sd_event_source*, struct siphash*)) trivial_hash_func,
+                (int (*)(const sd_event_source*, const sd_event_source*)) trivial_compare_func,
+                sd_event_source_disable_unref);
+
 int event_reset_time(
                 sd_event *e,
                 sd_event_source **s,
