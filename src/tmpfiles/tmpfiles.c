@@ -1117,7 +1117,9 @@ static int path_open_safe(const char *path) {
         if (r == -ENOLINK)
                 return r; /* Unsafe symlink: already covered by CHASE_WARN */
         if (r < 0)
-                return log_error_errno(r, "Failed to open path %s: %m", path);
+                return log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_ERR, r,
+                                      "Failed to open path %s%s: %m", path,
+                                      r == -ENOENT ? ", ignoring" : "");
 
         return fd;
 }
@@ -1135,6 +1137,8 @@ static int path_set_perms(
         assert(path);
 
         fd = path_open_safe(path);
+        if (fd == -ENOENT)
+                return 0;
         if (fd < 0)
                 return fd;
 
@@ -1219,6 +1223,8 @@ static int path_set_xattrs(
         assert(path);
 
         fd = path_open_safe(path);
+        if (fd == -ENOENT)
+                return 0;
         if (fd < 0)
                 return fd;
 
@@ -1502,6 +1508,8 @@ static int path_set_acls(
         assert(path);
 
         fd = path_open_safe(path);
+        if (fd == -ENOENT)
+                return 0;
         if (fd < 0)
                 return fd;
 
@@ -1673,6 +1681,8 @@ static int path_set_attribute(
                 return 0;
 
         fd = path_open_safe(path);
+        if (fd == -ENOENT)
+                return 0;
         if (fd < 0)
                 return fd;
 
