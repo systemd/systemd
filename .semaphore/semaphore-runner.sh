@@ -119,8 +119,6 @@ EOF
                                                        -o "$ARTIFACTS_DIR" \
                                                        -- lxc -s "$CONTAINER" \
                                                            --define "lxc.apparmor.profile=unconfined" \
-                                                           --define "lxc.mount.auto=" \
-                                                           --define "lxc.mount.auto=proc:mixed sys:mixed" \
                 || [ $? -eq 2 ]
         ;;
         *)
