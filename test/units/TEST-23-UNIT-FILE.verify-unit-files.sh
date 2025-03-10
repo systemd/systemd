@@ -41,5 +41,12 @@ for unit_file in "${UNIT_FILES[@]}"; do
         continue
     fi
 
+    # Skip masked unit files
+    resolved=$(readlink -f "$unit_file")
+    if [[ "$resolved" == "/dev/null" || "$(systemctl is-enabled "${resolved##*/}" 2>/dev/null || :)" == "masked" ]]; then
+        echo "$unit_file is masked, skipping"
+        continue
+    fi
+
     systemd-analyze --recursive-errors=no --man=no verify "$unit_file"
 done
