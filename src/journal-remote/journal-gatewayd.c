@@ -21,6 +21,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "glob-util.h"
+#include "hostname-setup.h"
 #include "hostname-util.h"
 #include "journal-internal.h"
 #include "journal-remote.h"

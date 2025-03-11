@@ -1460,7 +1460,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_HOSTNAME:
-                        if (!hostname_is_valid(optarg, VALID_HOSTNAME_TRAILING_DOT))
+                        if (!hostname_is_valid(optarg, VALID_HOSTNAME_TRAILING_DOT|VALID_HOSTNAME_QUESTION_MARK))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Host name %s is not valid.", optarg);
 

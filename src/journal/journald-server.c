@@ -27,6 +27,7 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "hashmap.h"
+#include "hostname-setup.h"
 #include "hostname-util.h"
 #include "id128-util.h"
 #include "initrd-util.h"

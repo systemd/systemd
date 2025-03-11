@@ -17,6 +17,7 @@
 #include "format-util.h"
 #include "hexdecoct.h"
 #include "hostname-util.h"
+#include "hostname-setup.h"
 #include "in-addr-util.h"
 #include "ip-protocol-list.h"
 #include "journal-file.h"

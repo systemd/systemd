@@ -2,6 +2,7 @@
 
 #include "dns-def.h"
 #include "dns-domain.h"
+#include "hostname-setup.h"
 #include "hostname-util.h"
 #include "idn-util.h"
 #include "resolved-util.h"
