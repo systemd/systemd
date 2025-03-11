@@ -15,6 +15,7 @@ Conflicts=shutdown.target
 After=tpm2.target
 Before=shutdown.target factory-reset.target
 ConditionSecurity=measured-uki
+FailureAction=reboot-force
 
 [Service]
 Type=oneshot
