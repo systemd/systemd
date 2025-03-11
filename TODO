@@ -130,6 +130,21 @@ Deprecations and removals:
 
 Features:
 
+* pcrextend: when we fail to measure, reboot the system (at least optionally).
+  important because certain measurements are supposed to "destroy" tpm object
+  access.
+
+* pcrextend: after measuring get an immediate quote from the TPM, and validate
+  it. if it doesn't check out, i.e. the measurement we made doesn't appear in
+  the PCR then also reboot.
+
+* cryptsetup: add boolean for disabling use of any password/recovery key slots.
+
+* dissect: when mounting a file system, look into certain xattrs on / in them, and
+  if that exists, check if gpt partition flags + type uuid + uuid match the
+  data encoded therein, so that attackers cannot make us misuse our file
+  systems
+
 * complete varlink introspection comments:
   - io.systemd.BootControl
   - io.systemd.Hostname
