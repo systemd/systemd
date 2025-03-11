@@ -130,6 +130,8 @@ Deprecations and removals:
 
 Features:
 
+* tpm2-setup: reboot if we detect SRK changed
+
 * pcrextend: when we fail to measure, reboot the system (at least optionally).
   important because certain measurements are supposed to "destroy" tpm object
   access.
