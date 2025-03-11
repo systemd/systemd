@@ -2850,3 +2850,6 @@ Features:
 * shared/wall: Once more programs are taught to prefer sd-login over utmp,
   switch the default wall implementation to wall_logind
   (https://github.com/systemd/systemd/pull/29051#issuecomment-1704917074)
+
+* Hook up systemd-journal-upload with RESTART_RESET=1 logic (should probably
+  be conditioned on the num of successfully uploaded entries?)

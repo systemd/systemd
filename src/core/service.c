@@ -4861,6 +4861,17 @@ static void service_notify_message(
                         service_override_watchdog_timeout(s, watchdog_override_usec);
         }
 
+        /* Interpret RESTART_RESET=1 */
+        if (strv_contains(tags, "RESTART_RESET=1") && IN_SET(s->state, SERVICE_RUNNING, SERVICE_STOP)) {
+                log_unit_struct(u, LOG_NOTICE,
+                                LOG_UNIT_MESSAGE(u, "Got RESTART_RESET=1, resetting restart counter from %u.", s->n_restarts),
+                                "N_RESTARTS=0",
+                                LOG_UNIT_INVOCATION_ID(u));
+
+                s->n_restarts = 0;
+                notify_dbus = true;
+        }
+
         /* Process FD store messages. Either FDSTOREREMOVE=1 for removal, or FDSTORE=1 for addition. In both cases,
          * process FDNAME= for picking the file descriptor name to use. Note that FDNAME= is required when removing
          * fds, but optional when pushing in new fds, for compatibility reasons. */
@@ -5131,8 +5142,6 @@ static void service_reset_failed(Unit *u) {
         s->live_mount_result = SERVICE_SUCCESS;
         s->clean_result = SERVICE_SUCCESS;
         s->n_restarts = 0;
-
-        (void) unit_set_debug_invocation(u, /* enable= */ false);
 }
 
 static PidRef* service_main_pid(Unit *u, bool *ret_is_alien) {
