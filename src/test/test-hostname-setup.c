@@ -76,6 +76,32 @@ TEST(read_etc_hostname) {
         assert(hostname == (char*) 0x1234);  /* does not touch argument on error */
 }
 
+TEST(hostname_substitute_wildcards) {
+        int r;
+
+        r = sd_id128_get_machine(NULL);
+        if (ERRNO_IS_NEG_MACHINE_ID_UNSET(r))
+                return (void) log_tests_skipped_errno(r, "skipping wildcard hostname tests, no machine ID defined");
+
+        _cleanup_free_ char *buf = NULL;
+        ASSERT_NOT_NULL((buf = strdup("")));
+        ASSERT_OK(hostname_substitute_wildcards(buf));
+        ASSERT_STREQ(buf, "");
+        ASSERT_NULL((buf = mfree(buf)));
+
+        ASSERT_NOT_NULL((buf = strdup("hogehoge")));
+        ASSERT_OK(hostname_substitute_wildcards(buf));
+        ASSERT_STREQ(buf, "hogehoge");
+        ASSERT_NULL((buf = mfree(buf)));
+
+        ASSERT_NOT_NULL((buf = strdup("hoge??hoge??foo?")));
+        ASSERT_OK(hostname_substitute_wildcards(buf));
+        log_debug("hostname_substitute_wildcards(\"hoge??hoge??foo?\"): → \"%s\"", buf);
+        ASSERT_EQ(fnmatch("hoge??hoge??foo?", buf, /* flags= */ 0), 0);
+        ASSERT_TRUE(hostname_is_valid(buf, /* flags= */ 0));
+        ASSERT_NULL((buf = mfree(buf)));
+}
+
 TEST(hostname_setup) {
         hostname_setup(false);
 }
