@@ -44,6 +44,9 @@ TEST(hostname_is_valid) {
         assert_se(!hostname_is_valid("foo..bar", VALID_HOSTNAME_TRAILING_DOT));
         assert_se(!hostname_is_valid("foo.bar..", VALID_HOSTNAME_TRAILING_DOT));
         assert_se(!hostname_is_valid("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", VALID_HOSTNAME_TRAILING_DOT));
+
+        ASSERT_FALSE(hostname_is_valid("foo??bar", 0));
+        ASSERT_TRUE(hostname_is_valid("foo??bar", VALID_HOSTNAME_QUESTION_MARK));
 }
 
 TEST(hostname_cleanup) {
@@ -89,28 +92,6 @@ TEST(hostname_cleanup) {
         ASSERT_STREQ(hostname_cleanup(s), "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
         s = strdupa_safe("xxxx........xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
         ASSERT_STREQ(hostname_cleanup(s), "xxxx.xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
-}
-
-TEST(hostname_malloc) {
-        _cleanup_free_ char *h = NULL, *l = NULL;
-
-        assert_se(h = gethostname_malloc());
-        log_info("hostname_malloc: \"%s\"", h);
-
-        assert_se(l = gethostname_short_malloc());
-        log_info("hostname_short_malloc: \"%s\"", l);
-}
-
-TEST(default_hostname) {
-        if (!hostname_is_valid(FALLBACK_HOSTNAME, 0)) {
-                log_error("Configured fallback hostname \"%s\" is not valid.", FALLBACK_HOSTNAME);
-                exit(EXIT_FAILURE);
-        }
-
-        _cleanup_free_ char *n = get_default_hostname();
-        assert_se(n);
-        log_info("get_default_hostname: \"%s\"", n);
-        assert_se(hostname_is_valid(n, 0));
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

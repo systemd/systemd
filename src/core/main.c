@@ -2452,12 +2452,11 @@ static int initialize_runtime(
                         (void) import_credentials();
 
                         (void) os_release_status();
-                        (void) hostname_setup(/* really = */ true);
                         (void) machine_id_setup(/* root = */ NULL, arg_machine_id,
                                                 (first_boot ? MACHINE_ID_SETUP_FORCE_TRANSIENT : 0) |
                                                 (arg_machine_id_from_firmware ? MACHINE_ID_SETUP_FORCE_FIRMWARE : 0),
                                                 /* ret_machine_id = */ NULL);
-
+                        (void) hostname_setup(/* really = */ true);
                         (void) loopback_setup();
 
                         bump_unix_max_dgram_qlen();
