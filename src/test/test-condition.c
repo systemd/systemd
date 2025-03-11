@@ -21,6 +21,7 @@
 #include "errno-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "hostname-setup.h"
 #include "hostname-util.h"
 #include "id128-util.h"
 #include "ima-util.h"

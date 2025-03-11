@@ -30,6 +30,7 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "hostname-setup.h"
 #include "hostname-util.h"
 #include "main-func.h"
 #include "osc-context.h"

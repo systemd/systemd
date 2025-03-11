@@ -6,6 +6,7 @@
 
 #include "ansi-color.h"
 #include "bus-map-properties.h"
+#include "hostname-setup.h"
 #include "hostname-util.h"
 #include "locale-util.h"
 #include "memory-util.h"
