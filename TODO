@@ -135,7 +135,6 @@ Features:
   - io.systemd.Hostname
   - io.systemd.Journal
   - io.systemd.ManagedOOM
-  - io.systemd.MountFileSystem
   - io.systemd.Network
   - io.systemd.PCRExtend
   - io.systemd.PCRLock
