@@ -268,9 +268,10 @@ int hostname_substitute_wildcards(char *name) {
          * Note that this does not directly use the machine ID, because that's not necessarily supposed to be
          * public information to be broadcast on the network, while the hostname certainly is. */
 
-        for (char *n = name; *n; n++) {
-                if (*n != '?')
-                        continue;
+        for (char *n = name; ; n++) {
+                n = strchr(n, '?');
+                if (!n)
+                        return 0;
 
                 if (left_bits <= 0) {
                         if (sd_id128_is_null(mid)) {
@@ -293,8 +294,6 @@ int hostname_substitute_wildcards(char *name) {
                 h >>= 4;
                 left_bits -= 4;
         }
-
-        return 0;
 }
 
 char* get_default_hostname(void) {
