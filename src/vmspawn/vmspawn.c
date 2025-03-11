@@ -21,6 +21,7 @@
 #include "bus-internal.h"
 #include "bus-locator.h"
 #include "bus-wait-for-jobs.h"
+#include "capability-util.h"
 #include "chase.h"
 #include "common-signal.h"
 #include "copy.h"
@@ -48,6 +49,7 @@
 #include "mkdir.h"
 #include "namespace-util.h"
 #include "netif-util.h"
+#include "nsresource.h"
 #include "osc-context.h"
 #include "pager.h"
 #include "parse-argument.h"
@@ -1644,30 +1646,62 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 }
         }
 
+        _cleanup_close_ int delegate_userns_fd = -EBADF, tap_fd = -EBADF;
         if (arg_network_stack == NETWORK_STACK_TAP) {
-                _cleanup_free_ char *tap_name = NULL;
-                struct ether_addr mac_vm = {};
+                if (have_effective_cap(CAP_NET_ADMIN) <= 0) {
+                        delegate_userns_fd = userns_acquire_self_root();
+                        if (delegate_userns_fd < 0)
+                                return log_error_errno(delegate_userns_fd, "Failed to acquire userns: %m");
 
-                tap_name = strjoin("vt-", arg_machine);
-                if (!tap_name)
-                        return log_oom();
+                        _cleanup_free_ char *userns_name = NULL;
+                        if (asprintf(&userns_name, "vmspawn-" PID_FMT "-%s", getpid_cached(), arg_machine) < 0)
+                                return log_oom();
 
-                (void) net_shorten_ifname(tap_name, /* check_naming_scheme= */ false);
-
-                if (ether_addr_is_null(&arg_network_provided_mac)){
-                        r = net_generate_mac(arg_machine, &mac_vm, VM_TAP_HASH_KEY, 0);
+                        r = nsresource_register_userns(userns_name, delegate_userns_fd);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to generate predictable MAC address for VM side: %m");
-                } else
-                        mac_vm = arg_network_provided_mac;
+                                return log_error_errno(r, "Failed to register user namespace with systemd-nsresourced: %m");
 
-                r = strv_extend(&cmdline, "-nic");
-                if (r < 0)
-                        return log_oom();
+                        tap_fd = nsresource_add_netif_tap(delegate_userns_fd, /* ret_host_ifname= */ NULL);
+                        if (tap_fd < 0)
+                                return log_error_errno(tap_fd, "Failed to allocate network tap device: %m");
 
-                r = strv_extendf(&cmdline, "tap,ifname=%s,script=no,downscript=no,model=virtio-net-pci,mac=%s", tap_name, ETHER_ADDR_TO_STR(&mac_vm));
-                if (r < 0)
-                        return log_oom();
+                        r = strv_extend(&cmdline, "-nic");
+                        if (r < 0)
+                                return log_oom();
+
+                        r = strv_extendf(&cmdline, "tap,fd=%i,model=virtio-net-pci", tap_fd);
+                        if (r < 0)
+                                return log_oom();
+
+                        if (!GREEDY_REALLOC(pass_fds, n_pass_fds + 1))
+                                return log_oom();
+
+                        pass_fds[n_pass_fds++] = tap_fd;
+                } else {
+                        _cleanup_free_ char *tap_name = NULL;
+                        struct ether_addr mac_vm = {};
+
+                        tap_name = strjoin("vt-", arg_machine);
+                        if (!tap_name)
+                                return log_oom();
+
+                        (void) net_shorten_ifname(tap_name, /* check_naming_scheme= */ false);
+
+                        if (ether_addr_is_null(&arg_network_provided_mac)){
+                                r = net_generate_mac(arg_machine, &mac_vm, VM_TAP_HASH_KEY, 0);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to generate predictable MAC address for VM side: %m");
+                        } else
+                                mac_vm = arg_network_provided_mac;
+
+                        r = strv_extend(&cmdline, "-nic");
+                        if (r < 0)
+                                return log_oom();
+
+                        r = strv_extendf(&cmdline, "tap,ifname=%s,script=no,downscript=no,model=virtio-net-pci,mac=%s", tap_name, ETHER_ADDR_TO_STR(&mac_vm));
+                        if (r < 0)
+                                return log_oom();
+                }
         } else if (arg_network_stack == NETWORK_STACK_USER)
                 r = strv_extend_many(&cmdline, "-nic", "user,model=virtio-net-pci");
         else
@@ -2281,8 +2315,9 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 _exit(EXIT_FAILURE);
         }
 
-        /* Close the vsock fd we passed to qemu in the parent. We don't need it anymore. */
+        /* Close relevant fds we passed to qemu in the parent. We don't need them anymore. */
         child_vsock_fd = safe_close(child_vsock_fd);
+        tap_fd = safe_close(tap_fd);
 
         int exit_status = INT_MAX;
         if (use_vsock) {
@@ -2423,9 +2458,6 @@ static int determine_names(void) {
 }
 
 static int verify_arguments(void) {
-        if (arg_network_stack == NETWORK_STACK_TAP && !arg_privileged)
-                return log_error_errno(SYNTHETIC_ERRNO(EPERM), "--network-tap requires root privileges, refusing.");
-
         if (!strv_isempty(arg_initrds) && !arg_linux)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Option --initrd= cannot be used without --linux=.");
 

@@ -48,3 +48,6 @@ executables += [
                 'include_directories' : [ includes, userns_restrict_include ],
         },
 ]
+
+install_data('io.systemd.namespace-resource.policy',
+             install_dir : polkitpolicydir)
