@@ -17,6 +17,7 @@ After=%i.mount tpm2.target systemd-pcrfs-root.service
 Before=shutdown.target
 ConditionPathExists=!/etc/initrd-release
 ConditionSecurity=measured-uki
+FailureAction=reboot-force
 
 [Service]
 Type=oneshot
