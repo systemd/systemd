@@ -130,6 +130,20 @@ Deprecations and removals:
 
 Features:
 
+* complete varlink introspection comments:
+  - io.systemd.BootControl
+  - io.systemd.Hostname
+  - io.systemd.Journal
+  - io.systemd.ManagedOOM
+  - io.systemd.MountFileSystem
+  - io.systemd.Network
+  - io.systemd.PCRExtend
+  - io.systemd.PCRLock
+  - io.systemd.Resolve.Monitor
+  - io.systemd.Resolve
+  - io.systemd.oom
+  - io.systemd.sysext
+
 * dissect: instead of searching for root and /usr partitions first, look for
   verity signature partitions first instead, then match up what we find with
   locally available keys, and then use first that works.
