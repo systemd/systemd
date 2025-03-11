@@ -5440,7 +5440,7 @@ static int run_container(
                         } else {
                                 _cleanup_free_ char *host_ifname = NULL;
 
-                                r = nsresource_add_netif(userns_fd, child_netns_fd, /* namespace_ifname= */ NULL, &host_ifname, /* ret_namespace_ifname= */ NULL);
+                                r = nsresource_add_netif_veth(userns_fd, child_netns_fd, /* namespace_ifname= */ NULL, &host_ifname, /* ret_namespace_ifname= */ NULL);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to add network interface to container: %m");
 
