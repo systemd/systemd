@@ -578,3 +578,6 @@ file-hierarchy.xml /refsect1[title="Home Directory"]/variablelist/varlistentry[t
 systemd-measure.xml /refsect1[title="Options"]/variablelist/varlistentry[term="--linux=PATH"]
 systemd-nspawn.xml /refsect1[title="Hotkeys"]/variablelist/varlistentry[term="Ctrl-] Ctrl-] Ctrl-]"]
 run0.xml /refsect1[title="Options"]/variablelist/varlistentry[term="--pty"]
+loader.conf.xml /refsect1[title="Options"]/variablelist/varlistentry[term="reboot-on-error"]/listitem/para/variablelist/varlistentry[term="yes"]
+loader.conf.xml /refsect1[title="Options"]/variablelist/varlistentry[term="reboot-on-error"]/listitem/para/variablelist/varlistentry[term="no"]
+loader.conf.xml /refsect1[title="Options"]/variablelist/varlistentry[term="reboot-on-error"]/listitem/para/variablelist/varlistentry[term="auto"]
