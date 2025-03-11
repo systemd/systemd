@@ -1232,7 +1232,7 @@ static int validate_and_substitute_hostname(const char *name, char **ret_substit
 
         r = hostname_substitute_wildcards(substituted);
         if (r < 0)
-                return log_error_errno(r, "Failed to substitute wildcards in hotname: %m");
+                return log_error_errno(r, "Failed to substitute wildcards in hostname: %m");
 
         if (!hostname_is_valid(substituted, 0))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid hostname '%s'", name);
