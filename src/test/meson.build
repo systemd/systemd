@@ -132,6 +132,7 @@ simple_tests += files(
         'test-modhex.c',
         'test-mountpoint-util.c',
         'test-net-naming-scheme.c',
+        'test-nsresource.c',
         'test-nulstr-util.c',
         'test-open-file.c',
         'test-ordered-set.c',
