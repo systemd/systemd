@@ -41,6 +41,8 @@ PartitionDesignator partition_verity_sig_to_data(PartitionDesignator d);
 const char* partition_designator_to_string(PartitionDesignator d) _const_;
 PartitionDesignator partition_designator_from_string(const char *name) _pure_;
 
+const char* partition_mountpoint_to_string(PartitionDesignator d) _const_;
+
 const char* gpt_partition_type_uuid_to_string(sd_id128_t id);
 const char* gpt_partition_type_uuid_to_string_harder(
                 sd_id128_t id,
