@@ -1096,12 +1096,12 @@ static int fd_copy_directory(
                 if (dot_or_dot_dot(de->d_name))
                         continue;
 
-                r = look_for_signals(copy_flags);
-                if (r < 0)
-                        return r;
+                q = look_for_signals(copy_flags);
+                if (q < 0)
+                        return q;
 
                 if (fstatat(dirfd(d), de->d_name, &buf, AT_SYMLINK_NOFOLLOW) < 0) {
-                        r = -errno;
+                        RET_GATHER(r, -errno);
                         continue;
                 }
 
@@ -1111,9 +1111,9 @@ static int fd_copy_directory(
                         else
                                 child_display_path = de->d_name;
 
-                        r = progress_path(child_display_path, &buf, userdata);
-                        if (r < 0)
-                                return r;
+                        q = progress_path(child_display_path, &buf, userdata);
+                        if (q < 0)
+                                return q;
                 }
 
                 if (PTR_TO_INT(hashmap_get(denylist, &buf)) == DENY_INODE) {
@@ -1146,10 +1146,10 @@ static int fd_copy_directory(
                                 if (buf.st_dev != original_device)
                                         continue;
 
-                                r = is_mount_point_at(dirfd(d), de->d_name, 0);
-                                if (r < 0)
-                                        return r;
-                                if (r > 0)
+                                q = is_mount_point_at(dirfd(d), de->d_name, 0);
+                                if (q < 0)
+                                        return q;
+                                if (q > 0)
                                         continue;
                         }
                 }
@@ -1163,8 +1163,7 @@ static int fd_copy_directory(
                         return q;
                 if (q == -EEXIST && (copy_flags & COPY_MERGE))
                         q = 0;
-                if (q < 0)
-                        r = q;
+                RET_GATHER(r, q);
         }
 
 finish:
@@ -1172,10 +1171,10 @@ finish:
                 if (fchown(fdt,
                            uid_is_valid(override_uid) ? override_uid : st->st_uid,
                            gid_is_valid(override_gid) ? override_gid : st->st_gid) < 0)
-                        r = -errno;
+                        RET_GATHER(r, -errno);
 
                 if (fchmod(fdt, st->st_mode & 07777) < 0)
-                        r = -errno;
+                        RET_GATHER(r, -errno);
 
                 /* Run hardlink context cleanup now because it potentially changes timestamps */
                 hardlink_context_destroy(&our_hardlink_context);
