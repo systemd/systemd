@@ -145,7 +145,7 @@ TEST(mkdir_p_root_full) {
 
         ASSERT_OK(mkdtemp_malloc("/tmp/test-mkdir-XXXXXX", &tmp));
 
-        ASSERT_NOT_NULL(p = path_join(tmp, "foo"));
+        ASSERT_NOT_NULL((p = path_join(tmp, "foo")));
         ASSERT_OK(mkdir_p_root_full(tmp, "/foo", UID_INVALID, GID_INVALID, 0755, 2 * USEC_PER_SEC, NULL));
         ASSERT_GT(is_dir(p, false), 0);
         ASSERT_GT(is_dir(p, true), 0);
@@ -154,12 +154,12 @@ TEST(mkdir_p_root_full) {
         ASSERT_EQ(st.st_atim.tv_sec, 2);
 
         p = mfree(p);
-        ASSERT_NOT_NULL(p = path_join(tmp, "dir-not-exists/foo"));
+        ASSERT_NOT_NULL((p = path_join(tmp, "dir-not-exists/foo")));
         ASSERT_OK(mkdir_p_root_full(NULL, p, UID_INVALID, GID_INVALID, 0755, 90 * USEC_PER_HOUR, NULL));
         ASSERT_GT(is_dir(p, false), 0);
         ASSERT_GT(is_dir(p, true), 0);
         p = mfree(p);
-        ASSERT_NOT_NULL(p = path_join(tmp, "dir-not-exists"));
+        ASSERT_NOT_NULL((p = path_join(tmp, "dir-not-exists")));
         ASSERT_OK_ERRNO(stat(p, &st));
         ASSERT_EQ(st.st_mtim.tv_sec, 90 * 60 * 60);
         ASSERT_EQ(st.st_atim.tv_sec, 90 * 60 * 60);

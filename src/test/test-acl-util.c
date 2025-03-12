@@ -29,7 +29,7 @@ TEST_RET(add_acls_for_user) {
                         return log_tests_skipped_errno(r, "Could not find %s binary: %m", s);
         }
 
-        ASSERT_OK(fd = mkostemp_safe(fn));
+        ASSERT_OK((fd = mkostemp_safe(fn)));
 
         /* Use the mode that user journal files use */
         ASSERT_OK_ZERO_ERRNO(fchmod(fd, 0640));
@@ -86,7 +86,7 @@ TEST_RET(fd_acl_make_read_only) {
                         return log_tests_skipped_errno(r, "Could not find %s binary: %m", s);
         }
 
-        ASSERT_OK(fd = mkostemp_safe(fn));
+        ASSERT_OK((fd = mkostemp_safe(fn)));
 
         /* make it more exciting */
         (void) fd_add_uid_acl_permission(fd, 1, ACL_READ|ACL_WRITE|ACL_EXECUTE);

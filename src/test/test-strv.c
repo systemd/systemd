@@ -551,41 +551,41 @@ TEST(strv_sort_uniq) {
 
         ASSERT_NULL(strv_sort_uniq(a));
 
-        ASSERT_NOT_NULL(a = strv_new(NULL));
+        ASSERT_NOT_NULL((a = strv_new(NULL)));
         assert_se(strv_sort_uniq(a) == a);
         ASSERT_NULL(a[0]);
         a = strv_free(a);
 
-        ASSERT_NOT_NULL(a = strv_new("a", "a", "a", "a", "a"));
+        ASSERT_NOT_NULL((a = strv_new("a", "a", "a", "a", "a")));
         assert_se(strv_sort_uniq(a) == a);
         ASSERT_STREQ(a[0], "a");
         ASSERT_NULL(a[1]);
         a = strv_free(a);
 
-        ASSERT_NOT_NULL(a = strv_new("a", "a", "a", "a", "b"));
+        ASSERT_NOT_NULL((a = strv_new("a", "a", "a", "a", "b")));
         assert_se(strv_sort_uniq(a) == a);
         ASSERT_STREQ(a[0], "a");
         ASSERT_STREQ(a[1], "b");
         ASSERT_NULL(a[2]);
         a = strv_free(a);
 
-        ASSERT_NOT_NULL(a = strv_new("b", "a", "a", "a", "a"));
+        ASSERT_NOT_NULL((a = strv_new("b", "a", "a", "a", "a")));
         assert_se(strv_sort_uniq(a) == a);
         ASSERT_STREQ(a[0], "a");
         ASSERT_STREQ(a[1], "b");
         ASSERT_NULL(a[2]);
         a = strv_free(a);
 
-        ASSERT_NOT_NULL(a = strv_new("a", "a", "b", "a", "b"));
+        ASSERT_NOT_NULL((a = strv_new("a", "a", "b", "a", "b")));
         assert_se(strv_sort_uniq(a) == a);
         ASSERT_STREQ(a[0], "a");
         ASSERT_STREQ(a[1], "b");
         ASSERT_NULL(a[2]);
         a = strv_free(a);
 
-        ASSERT_NOT_NULL(a = strv_copy((char**) input_table));
-        ASSERT_NOT_NULL(b = strv_copy((char**) input_table));
-        ASSERT_NOT_NULL(c = strv_copy((char**) input_table));
+        ASSERT_NOT_NULL((a = strv_copy((char**) input_table)));
+        ASSERT_NOT_NULL((b = strv_copy((char**) input_table)));
+        ASSERT_NOT_NULL((c = strv_copy((char**) input_table)));
 
         assert_se(strv_sort_uniq(a) == a);
         assert_se(strv_sort(strv_uniq(b)) == b);
@@ -664,8 +664,8 @@ TEST(strv_extend_strv_consume) {
         _cleanup_strv_free_ char **a = NULL, **b = NULL, **c = NULL, **n = NULL;
         const char *s1, *s2, *s3;
 
-        ASSERT_NOT_NULL(a = strv_new("abc", "def", "ghi"));
-        ASSERT_NOT_NULL(b = strv_new("jkl", "mno", "abc", "pqr"));
+        ASSERT_NOT_NULL((a = strv_new("abc", "def", "ghi")));
+        ASSERT_NOT_NULL((b = strv_new("jkl", "mno", "abc", "pqr")));
 
         s1 = b[0];
         s2 = b[1];
@@ -685,7 +685,7 @@ TEST(strv_extend_strv_consume) {
         ASSERT_STREQ(a[5], "pqr");
         ASSERT_EQ(strv_length(a), (size_t) 6);
 
-        ASSERT_NOT_NULL(c = strv_new("jkl", "mno"));
+        ASSERT_NOT_NULL((c = strv_new("jkl", "mno")));
 
         s1 = c[0];
         s2 = c[1];

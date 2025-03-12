@@ -1366,7 +1366,7 @@ TEST(fd_info) {
         fd = safe_close(fd);
 
         /* regular file */
-        ASSERT_OK(fd = open_tmpfile_unlinkable(NULL, O_RDWR));
+        ASSERT_OK((fd = open_tmpfile_unlinkable(NULL, O_RDWR)));
         ASSERT_OK(json_variant_new_fd_info(&v, fd));
         ASSERT_OK(sd_json_variant_dump(v, SD_JSON_FORMAT_PRETTY_AUTO | SD_JSON_FORMAT_COLOR_AUTO, NULL, NULL));
         v = sd_json_variant_unref(v);
