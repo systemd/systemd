@@ -15,7 +15,7 @@ static void destroy_callback(void *userdata) {
 }
 
 TEST(destroy_callback) {
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        sd_bus *bus = NULL;
         sd_bus_slot *slot = NULL;
         sd_bus_destroy_t t;
 
