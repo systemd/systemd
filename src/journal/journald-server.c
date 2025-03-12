@@ -19,6 +19,7 @@
 #include "cgroup-util.h"
 #include "conf-parser.h"
 #include "creds-util.h"
+#include "daemon-util.h"
 #include "dirent-util.h"
 #include "event-util.h"
 #include "extract-word.h"
@@ -96,6 +97,7 @@
 
 static int server_schedule_sync(Server *s, int priority);
 static int server_refresh_idle_timer(Server *s);
+static int server_dispatch_reload_signal(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata);
 
 static int server_determine_path_usage(
                 Server *s,
@@ -719,7 +721,7 @@ void server_rotate(Server *s) {
 
         log_debug("Rotating...");
 
-        /* First, rotate the system journal (either in its runtime flavour or in its runtime flavour) */
+        /* First, rotate the system journal (either in its runtime flavour or in its system flavour) */
         (void) server_do_rotate(s, &s->runtime_journal, "runtime", /* seal= */ false, /* uid= */ 0);
         (void) server_do_rotate(s, &s->system_journal, "system", s->seal, /* uid= */ 0);
 
@@ -1789,6 +1791,10 @@ static int server_setup_signals(Server *s) {
 
         assert(s);
 
+        r = sd_event_add_signal(s->event, NULL, SIGHUP|SD_EVENT_SIGNAL_PROCMASK, server_dispatch_reload_signal, s);
+        if (r < 0)
+                return r;
+
         r = sd_event_add_signal(s->event, &s->sigusr1_event_source, SIGUSR1|SD_EVENT_SIGNAL_PROCMASK, dispatch_sigusr1, s);
         if (r < 0)
                 return r;
@@ -2591,8 +2597,160 @@ static void server_load_credentials(Server *s) {
         }
 }
 
-int server_new(Server **ret) {
+static void server_set_defaults(Server *s) {
+        assert(s);
+        s->storage = s->namespace ? STORAGE_PERSISTENT : STORAGE_AUTO;
+
+        s->compress.enabled = true;
+        s->compress.threshold_bytes = UINT64_MAX;
+
+        s->seal = true;
+
+        s->read_kmsg = !s->namespace;
+
+        s->set_audit = true;
+        s->sync_interval_usec = DEFAULT_SYNC_INTERVAL_USEC;
+
+        s->ratelimit_interval = DEFAULT_RATE_LIMIT_INTERVAL;
+        s->ratelimit_burst = DEFAULT_RATE_LIMIT_BURST;
+
+        s->system_storage.name = "System Journal";
+        journal_reset_metrics(&s->system_storage.metrics);
+
+        s->runtime_storage.name = "Runtime Journal";
+        journal_reset_metrics(&s->runtime_storage.metrics);
+
+        s->max_retention_usec = 0;
+        s->max_file_usec = DEFAULT_MAX_FILE_USEC;
+
+        s->forward_to_syslog = false;
+        s->forward_to_kmsg = false;
+        s->forward_to_console = false;
+        s->forward_to_wall = true;
+        s->forward_to_socket = (SocketAddress) { .sockaddr.sa.sa_family = AF_UNSPEC };
+
+        s->tty_path = NULL;
+
+        s->max_level_store = LOG_DEBUG;
+        s->max_level_syslog = LOG_DEBUG;
+        s->max_level_kmsg = LOG_NOTICE;
+        s->max_level_console = LOG_INFO;
+        s->max_level_wall = LOG_EMERG;
+        s->max_level_socket = LOG_DEBUG;
+
+        s->split_mode = SPLIT_UID;
+        s->line_max = DEFAULT_LINE_MAX;
+}
+
+static void server_set_config(Server *s) {
+        int r;
+
+        assert(s);
+
+        server_set_defaults(s);
+        server_load_credentials(s);
+        server_parse_config_file(s);
+
+        if (!s->namespace) {
+                /* Parse kernel command line, but only if we are not a namespace instance */
+                r = proc_cmdline_parse(parse_proc_cmdline_item, s, PROC_CMDLINE_STRIP_RD_PREFIX);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
+        }
+
+        if (!!s->ratelimit_interval != !!s->ratelimit_burst) { /* One set to 0 and the other not? */
+                log_debug("Setting both rate limit interval and burst from "USEC_FMT",%u to 0,0",
+                          s->ratelimit_interval, s->ratelimit_burst);
+                s->ratelimit_interval = s->ratelimit_burst = 0;
+        }
+}
+
+/*
+ * The default for the journals based on server_system_journal_open() called in server_init() is
+ * that system_journal will be NULL and runtime_journal will be set as long as s->storage != STORAGE_NONE.
+ * This function will attempt to achieve the same state: system_journal == NULL and runtime_journal will be set with the new conf values.
+ */
+static int server_reload_journals(Server *s) {
+        int r;
+
+        assert(s);
+
+        if (s->runtime_journal) {
+                if (s->storage == STORAGE_PERSISTENT || s->storage == STORAGE_AUTO) {
+                        /*
+                        * server_flush_to_var will flush whatever is in the current runtime_journal to system_journal.
+                        *      - runtime_journal will be set to NULL
+                        *      - If current system_journal is NULL, it will be created with the new configuration.
+                        *      - Rotate and vacuum are called.
+                        *              - Rotate creates an archive of the existing content and creates a new system_journal.
+                        *              - This new system_journal should be created with some of new configuration values (metrics not included).
+                        */
+                        r = server_flush_to_var(s, false);
+                        if (r < 0)
+                                // TODO: If this fails, we would lose the data in runtime journal, right? Just resume?
+                                log_warning("Failed to flush runtime journal and will lose the data.");
+                }
+
+                if (s->storage == STORAGE_VOLATILE || s->storage == STORAGE_AUTO) {
+                        server_rotate_journal(s, s->runtime_journal, /* uid = */ 0);
+                        server_vacuum(s, /* verbose = */ false);
+                        s->runtime_journal = journal_file_offline_close(s->runtime_journal);
+                }
+        }
+
+        if (s->system_journal) {
+                /*
+                * system_journal will be set to NULL
+                * Because runtime_journal is set to NULL above, it will be created with the new configuration.
+                */
+                r = server_relinquish_var(s);
+                if (r < 0)
+                        log_warning("Failed to relinquish to runtime journal on reload.");
+        } else {
+                /*
+                 * Because runtime_journal is NULL, below will create a new runtime journal.
+                 */
+                r = server_system_journal_open(s, /* flush_requested= */ false, /* relinquish_requested= */ false);
+                if (r < 0)
+                        return r;
+        }
+
+        /* If runtime journal-related configuration changed, this will help it take effect. */
+        server_vacuum(s, /* verbose = */ false);
+
+        return 0;
+}
+
+static int server_dispatch_reload_signal(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
+        Server *server = ASSERT_PTR(userdata);
+        int r;
+
+        (void) notify_reloading();
+
+        /* Necessary cleanup before setting defaults */
+        free(server->tty_path);
+
+        server_set_config(server);
+
+        r = server_reload_dev_kmsg(server);
+        if (r < 0) {
+                return r;
+        }
+
+        // TODO: Confirm that updating kernel_seqnum and seqnum is not needed.
+
+        r = server_reload_journals(server);
+        if (r < 0) {
+                return r;
+        }
+
+        (void) sd_notify(/* unset= */ false, NOTIFY_READY);
+        return 0;
+}
+
+int server_new(Server **ret, const char *namespace) {
         _cleanup_(server_freep) Server *s = NULL;
+        int r;
 
         assert(ret);
 
@@ -2610,36 +2768,9 @@ int server_new(Server **ret) {
                 .notify_fd = -EBADF,
                 .forward_socket_fd = -EBADF,
 
-                .compress.enabled = true,
-                .compress.threshold_bytes = UINT64_MAX,
-                .seal = true,
-
-                .set_audit = true,
-
                 .watchdog_usec = USEC_INFINITY,
 
-                .sync_interval_usec = DEFAULT_SYNC_INTERVAL_USEC,
                 .sync_scheduled = false,
-
-                .ratelimit_interval = DEFAULT_RATE_LIMIT_INTERVAL,
-                .ratelimit_burst = DEFAULT_RATE_LIMIT_BURST,
-
-                .forward_to_wall = true,
-                .forward_to_socket = { .sockaddr.sa.sa_family = AF_UNSPEC },
-
-                .max_file_usec = DEFAULT_MAX_FILE_USEC,
-
-                .max_level_store = LOG_DEBUG,
-                .max_level_syslog = LOG_DEBUG,
-                .max_level_kmsg = LOG_NOTICE,
-                .max_level_console = LOG_INFO,
-                .max_level_wall = LOG_EMERG,
-                .max_level_socket = LOG_DEBUG,
-
-                .line_max = DEFAULT_LINE_MAX,
-
-                .runtime_storage.name = "Runtime Journal",
-                .system_storage.name = "System Journal",
 
                 .kmsg_own_ratelimit = {
                         .interval = DEFAULT_KMSG_OWN_INTERVAL,
@@ -2650,44 +2781,23 @@ int server_new(Server **ret) {
                 .sigrtmin18_info.memory_pressure_userdata = s,
         };
 
+        r = server_set_namespace(s, namespace);
+        if (r < 0)
+                return r;
+
+        server_set_config(s);
+
         *ret = TAKE_PTR(s);
         return 0;
 }
 
-int server_init(Server *s, const char *namespace) {
+int server_init(Server *s) {
         const char *native_socket, *syslog_socket, *stdout_socket, *varlink_socket, *e;
         _cleanup_fdset_free_ FDSet *fds = NULL;
         int n, r, varlink_fd = -EBADF;
         bool no_sockets;
 
         assert(s);
-
-        r = server_set_namespace(s, namespace);
-        if (r < 0)
-                return r;
-
-        /* By default, only read from /dev/kmsg if are the main namespace */
-        s->read_kmsg = !s->namespace;
-        s->storage = s->namespace ? STORAGE_PERSISTENT : STORAGE_AUTO;
-
-        journal_reset_metrics(&s->system_storage.metrics);
-        journal_reset_metrics(&s->runtime_storage.metrics);
-
-        server_load_credentials(s);
-        server_parse_config_file(s);
-
-        if (!s->namespace) {
-                /* Parse kernel command line, but only if we are not a namespace instance */
-                r = proc_cmdline_parse(parse_proc_cmdline_item, s, PROC_CMDLINE_STRIP_RD_PREFIX);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
-        }
-
-        if (!!s->ratelimit_interval != !!s->ratelimit_burst) { /* One set to 0 and the other not? */
-                log_debug("Setting both rate limit interval and burst from "USEC_FMT",%u to 0,0",
-                          s->ratelimit_interval, s->ratelimit_burst);
-                s->ratelimit_interval = s->ratelimit_burst = 0;
-        }
 
         e = getenv("RUNTIME_DIRECTORY");
         if (e)

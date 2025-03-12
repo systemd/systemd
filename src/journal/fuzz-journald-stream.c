@@ -21,7 +21,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         fuzz_setup_logging();
 
         assert_se(socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0, stream_fds) >= 0);
-        assert_se(server_new(&s) >= 0);
+        assert_se(server_new(&s, NULL) >= 0);
         dummy_server_init(s, NULL, 0);
 
         assert_se(stdout_stream_install(s, stream_fds[0], &stream) >= 0);
