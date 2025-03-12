@@ -241,6 +241,8 @@ static Address* address_detach_impl(Address *address) {
         if (address->link) {
                 set_remove(address->link->addresses, address);
 
+                address->label = NULL;
+
                 address->link = NULL;
                 return address;
         }
