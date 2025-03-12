@@ -966,7 +966,7 @@ static void test_parse_timestamp_impl(const char *tz) {
         if (tz) {
                 _cleanup_free_ char *s = NULL;
 
-                ASSERT_NOT_NULL(s = strjoin("Fri 2012-11-23 23:02:15 ", tz));
+                ASSERT_NOT_NULL((s = strjoin("Fri 2012-11-23 23:02:15 ", tz)));
                 ASSERT_OK(parse_timestamp(s, NULL));
         }
 

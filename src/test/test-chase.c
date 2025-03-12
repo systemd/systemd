@@ -520,7 +520,7 @@ TEST(chaseat) {
         /* Test that absolute path or not are the same when resolving relative to a directory file
          * descriptor and that we always get a relative path back. */
 
-        ASSERT_OK(fd = openat(tfd, "def", O_CREAT|O_CLOEXEC, 0700));
+        ASSERT_OK((fd = openat(tfd, "def", O_CREAT|O_CLOEXEC, 0700)));
         fd = safe_close(fd);
         ASSERT_OK(symlinkat("/def", tfd, "qed"));
         ASSERT_OK(chaseat(tfd, "qed", CHASE_AT_RESOLVE_IN_ROOT, &result, NULL));

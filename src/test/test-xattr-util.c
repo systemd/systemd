@@ -102,7 +102,7 @@ static void xattr_symlink_test_one(int fd, const char *path) {
         r = listxattr_at_malloc(fd, path, 0, &list);
         ASSERT_OK(r);
         ASSERT_GE(r, (int) sizeof("trusted.test\0trusted.bar"));
-        ASSERT_NOT_NULL(list_split = strv_parse_nulstr(list, r));
+        ASSERT_NOT_NULL((list_split = strv_parse_nulstr(list, r)));
         ASSERT_TRUE(strv_contains(list_split, "trusted.bar"));
         ASSERT_TRUE(strv_contains(list_split, "trusted.test"));
 

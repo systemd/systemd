@@ -66,7 +66,7 @@ static void test_config_parse_ether_addrs_one(const char *rvalue, const struct e
         for (size_t m = 0; m < n; m++) {
                 _cleanup_free_ struct ether_addr *q = NULL;
 
-                ASSERT_NOT_NULL(q = set_remove(s, &list[m]));
+                ASSERT_NOT_NULL((q = set_remove(s, &list[m])));
         }
 
         ASSERT_TRUE(set_isempty(s));

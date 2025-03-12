@@ -143,14 +143,14 @@ static void test_pid_get_cmdline_one(pid_t pid) {
 
         r = pid_get_cmdline_strv(pid, 0, &strv_a);
         if (r >= 0)
-                ASSERT_NOT_NULL(joined = strv_join(strv_a, "\", \""));
+                ASSERT_NOT_NULL((joined = strv_join(strv_a, "\", \"")));
         log_info("      \"%s\"", r >= 0 ? joined : errno_to_name(r));
 
         joined = mfree(joined);
 
         r = pid_get_cmdline_strv(pid, PROCESS_CMDLINE_COMM_FALLBACK, &strv_b);
         if (r >= 0)
-                ASSERT_NOT_NULL(joined = strv_join(strv_b, "\", \""));
+                ASSERT_NOT_NULL((joined = strv_join(strv_b, "\", \"")));
         log_info("      \"%s\"", r >= 0 ? joined : errno_to_name(r));
 }
 

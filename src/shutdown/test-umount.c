@@ -19,7 +19,7 @@ static void test_mount_points_list_one(const char *fname) {
         if (fname) {
                 _cleanup_free_ char *testdata_fname = NULL;
                 assert_se(get_testdata_dir(fname, &testdata_fname) >= 0);
-                ASSERT_NOT_NULL(f = fopen(testdata_fname, "re"));
+                ASSERT_NOT_NULL((f = fopen(testdata_fname, "re")));
         }
 
         LIST_HEAD_INIT(mp_list_head);

@@ -20,7 +20,7 @@ TEST(read_credential_strings) {
 
         const char *e = getenv("CREDENTIALS_DIRECTORY");
         if (e)
-                ASSERT_NOT_NULL(saved = strdup(e));
+                ASSERT_NOT_NULL((saved = strdup(e)));
 
         ASSERT_OK_ZERO(read_credential_strings_many("foo", &x, "bar", &y));
         ASSERT_NULL(x);
@@ -34,7 +34,7 @@ TEST(read_credential_strings) {
         ASSERT_NULL(x);
         ASSERT_NULL(y);
 
-        ASSERT_NOT_NULL(p = path_join(tmp, "bar"));
+        ASSERT_NOT_NULL((p = path_join(tmp, "bar")));
         ASSERT_OK(write_string_file(p, "piff", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_AVOID_NEWLINE));
 
         ASSERT_OK_ZERO(read_credential_strings_many("foo", &x, "bar", &y));
@@ -48,7 +48,7 @@ TEST(read_credential_strings) {
         ASSERT_STREQ(y, "paff");
 
         p = mfree(p);
-        ASSERT_NOT_NULL(p = path_join(tmp, "foo"));
+        ASSERT_NOT_NULL((p = path_join(tmp, "foo")));
         ASSERT_OK(write_string_file(p, "knurz", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_AVOID_NEWLINE));
 
         ASSERT_OK(read_credential_strings_many("foo", &x, "bar", &y));
@@ -56,8 +56,8 @@ TEST(read_credential_strings) {
         ASSERT_STREQ(y, "paff");
 
         p = mfree(p);
-        ASSERT_NOT_NULL(p = path_join(tmp, "bazz"));
-        ASSERT_NOT_NULL(f = fopen(p, "w"));
+        ASSERT_NOT_NULL((p = path_join(tmp, "bazz")));
+        ASSERT_NOT_NULL((f = fopen(p, "w")));
         ASSERT_EQ(fwrite("x\0y", 1, 3, f), 3UL); /* embedded NUL byte should result in EBADMSG when reading back with read_credential_strings_many() */
         f = safe_fclose(f);
 
@@ -211,7 +211,7 @@ TEST(credential_encrypt_decrypt) {
         _cleanup_free_ char *ec = NULL;
 
         if (e)
-                ASSERT_NOT_NULL(ec = strdup(e));
+                ASSERT_NOT_NULL((ec = strdup(e)));
 
         ASSERT_OK_ERRNO(setenv("SYSTEMD_CREDENTIAL_SECRET", j, true));
 
