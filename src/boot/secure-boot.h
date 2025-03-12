@@ -9,6 +9,7 @@ typedef enum {
         ENROLL_MANUAL,      /* Secure Boot key enrollment is strictly manual: manual entries are generated and need to be selected by the user */
         ENROLL_IF_SAFE,     /* Automatically enroll if it is safe (if we are running inside a VM, for example). */
         ENROLL_FORCE,       /* Secure Boot key enrollment may be automatic if it is available but might not be safe */
+        _SECURE_BOOT_ENROLL_MAX,
 } secure_boot_enroll;
 
 bool secure_boot_enabled(void);
@@ -24,3 +25,5 @@ typedef bool (*security_validator_t)(
 
 void install_security_override(security_validator_t validator, const void *validator_ctx);
 void uninstall_security_override(void);
+
+const char* secure_boot_enroll_to_string(secure_boot_enroll e) _const_;

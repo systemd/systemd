@@ -6,6 +6,7 @@
 #include "device-path-util.h"
 #include "devicetree.h"
 #include "drivers.h"
+#include "efi-string-table.h"
 #include "efivars-fundamental.h"
 #include "efivars.h"
 #include "export-vars.h"
@@ -83,7 +84,16 @@ typedef enum {
         REBOOT_NO,
         REBOOT_YES,
         REBOOT_AUTO,
+        _REBOOT_ON_ERROR_MAX,
 } RebootOnError;
+
+static const char *reboot_on_error_table[_REBOOT_ON_ERROR_MAX] = {
+        [REBOOT_NO]   = "no",
+        [REBOOT_YES]  = "yes",
+        [REBOOT_AUTO] = "auto",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(reboot_on_error, RebootOnError);
 
 typedef struct BootEntry {
         char16_t *id;         /* The unique identifier for this entry (typically the filename of the file defining the entry, possibly suffixed with a profile id) */
@@ -323,37 +333,8 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
         printf("           auto-reboot: %ls\n", yes_no(config->auto_reboot));
         printf("                  beep: %ls\n", yes_no(config->beep));
         printf("  reboot-for-bitlocker: %ls\n", yes_no(config->reboot_for_bitlocker));
-
-        switch (config->reboot_on_error) {
-        case REBOOT_NO:
-                printf("       reboot-on-error: no\n");
-                break;
-        case REBOOT_YES:
-                printf("       reboot-on-error: yes\n");
-                break;
-        case REBOOT_AUTO:
-                printf("       reboot-on-error: auto\n");
-                break;
-        default:
-                assert_not_reached();
-        }
-
-        switch (config->secure_boot_enroll) {
-        case ENROLL_OFF:
-                printf("    secure-boot-enroll: off\n");
-                break;
-        case ENROLL_MANUAL:
-                printf("    secure-boot-enroll: manual\n");
-                break;
-        case ENROLL_IF_SAFE:
-                printf("    secure-boot-enroll: if-safe\n");
-                break;
-        case ENROLL_FORCE:
-                printf("    secure-boot-enroll: force\n");
-                break;
-        default:
-                assert_not_reached();
-        }
+        printf("       reboot-on-error: %s\n",  reboot_on_error_to_string(config->reboot_on_error));
+        printf("    secure-boot-enroll: %s\n",  secure_boot_enroll_to_string(config->secure_boot_enroll));
 
         switch (config->console_mode) {
         case CONSOLE_MODE_AUTO:
@@ -1083,8 +1064,8 @@ static void config_defaults_load_from_file(Config *config, char *content) {
                                 bool reboot_yes_no;
                                 if (!parse_boolean(value, &reboot_yes_no))
                                         log_error("Error parsing 'reboot-on-error' config option, ignoring: %s", value);
-
-                                config->reboot_on_error = reboot_yes_no ? REBOOT_YES : REBOOT_NO;
+                                else
+                                        config->reboot_on_error = reboot_yes_no ? REBOOT_YES : REBOOT_NO;
                         }
 
                 } else if (streq8(key, "secure-boot-enroll")) {
