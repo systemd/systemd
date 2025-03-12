@@ -66,6 +66,11 @@
     for. <citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     will do this for all mounts with the <option>x-systemd.validatefs</option> mount option in
     <filename>/etc/fstab</filename>.</para>
+
+    <para>The
+    <citerefentry><refentrytitle>systemd-repart</refentrytitle><manvolnum>8</manvolnum></citerefentry> tool
+    generates these extended attributes automatically for the file systems it puts together, which may be
+    controlled with the <varname>AddValidateFS=</varname> configuration option.</para>
   </refsect1>
 
   <refsect1>
@@ -99,6 +104,7 @@
       <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-repart</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
     </simplelist></para>
   </refsect1>
 
