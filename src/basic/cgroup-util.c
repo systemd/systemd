@@ -723,7 +723,7 @@ int cg_get_xattr(const char *path, const char *name, void *value, size_t size) {
         return (int) n;
 }
 
-int cg_get_xattr_malloc(const char *path, const char *name, char **ret) {
+int cg_get_xattr_malloc(const char *path, const char *name, char **ret, size_t *ret_size) {
         _cleanup_free_ char *fs = NULL;
         int r;
 
@@ -734,7 +734,7 @@ int cg_get_xattr_malloc(const char *path, const char *name, char **ret) {
         if (r < 0)
                 return r;
 
-        return lgetxattr_malloc(fs, name, ret);
+        return lgetxattr_malloc(fs, name, ret, ret_size);
 }
 
 int cg_get_xattr_bool(const char *path, const char *name) {
