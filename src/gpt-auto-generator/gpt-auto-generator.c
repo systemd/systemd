@@ -179,6 +179,7 @@ static int add_mount(
                 const char *where,
                 const char *fstype,
                 bool rw,
+                bool validatefs,
                 bool growfs,
                 bool measure,
                 const char *options,
@@ -270,6 +271,12 @@ static int add_mount(
         if (r < 0)
                 return log_error_errno(r, "Failed to write unit %s: %m", unit);
 
+        if (validatefs) {
+                r = generator_hook_up_validatefs(arg_dest, where, post);
+                if (r < 0)
+                        return r;
+        }
+
         if (growfs) {
                 r = generator_hook_up_growfs(arg_dest, where, post);
                 if (r < 0)
@@ -354,6 +361,7 @@ static int add_partition_mount(
                         where,
                         p->fstype,
                         p->rw,
+                        /* validatefs= */ true,
                         p->growfs,
                         /* measure= */ STR_IN_SET(id, "root", "var"), /* by default measure rootfs and /var, since they contain the "identity" of the system */
                         options,
@@ -446,6 +454,7 @@ static int add_automount(
                       where,
                       fstype,
                       rw,
+                      /* validatefs= */ true,
                       growfs,
                       /* measure= */ false,
                       options,
@@ -752,6 +761,7 @@ static int add_root_mount(void) {
                         in_initrd() ? "/sysroot" : "/",
                         arg_root_fstype,
                         /* rw= */ arg_root_rw > 0,
+                        /* validatefs= */ in_initrd(),
                         /* growfs= */ false,
                         /* measure= */ true,
                         options,
