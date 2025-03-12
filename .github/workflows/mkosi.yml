@@ -244,3 +244,15 @@ jobs:
             build/test/journal/*.journal
             build/meson-logs/*
           retention-days: 7
+
+      - name: Archive packages
+        uses: actions/upload-artifact@v4
+        if: (success() || failure()) && (github.repository == 'systemd/systemd' || github.repository == 'systemd/systemd-stable')
+        with:
+          name: ci-mkosi-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.distro }}-${{ matrix.release }}-packages
+          path: |
+            build/mkosi.output/*.rpm
+            build/mkosi.output/*.deb
+            build/mkosi.output/*.ddeb
+            build/mkosi.output/*.pkg.tar
+          retention-days: 4
