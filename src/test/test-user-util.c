@@ -444,7 +444,7 @@ TEST(gid_lists_ops) {
         assert_se(nresult >= 0);
         assert_se(memcmp_nn(result2, ELEMENTSOF(result2), res4, nresult) == 0);
 
-        ASSERT_OK(nresult = getgroups_alloc(&gids));
+        ASSERT_OK((nresult = getgroups_alloc(&gids)));
         assert_se(gids || nresult == 0);
 }
 

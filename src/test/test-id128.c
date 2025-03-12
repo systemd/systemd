@@ -307,28 +307,28 @@ TEST(id128_at) {
         ASSERT_EQ_ID128(id, i);
 
         /* id128_read() */
-        ASSERT_NOT_NULL(p = path_join(t, "/etc/machine-id"));
+        ASSERT_NOT_NULL((p = path_join(t, "/etc/machine-id")));
 
         i = SD_ID128_NULL;
         ASSERT_OK(id128_read(p, ID128_FORMAT_PLAIN, &i));
         ASSERT_EQ_ID128(id, i);
 
         free(p);
-        ASSERT_NOT_NULL(p = path_join(t, "/etc2/machine-id"));
+        ASSERT_NOT_NULL((p = path_join(t, "/etc2/machine-id")));
 
         i = SD_ID128_NULL;
         ASSERT_OK(id128_read(p, ID128_FORMAT_PLAIN, &i));
         ASSERT_EQ_ID128(id, i);
 
         free(p);
-        ASSERT_NOT_NULL(p = path_join(t, "/etc/hoge-id"));
+        ASSERT_NOT_NULL((p = path_join(t, "/etc/hoge-id")));
 
         i = SD_ID128_NULL;
         ASSERT_OK(id128_read(p, ID128_FORMAT_PLAIN, &i));
         ASSERT_EQ_ID128(id, i);
 
         free(p);
-        ASSERT_NOT_NULL(p = path_join(t, "/etc2/hoge-id"));
+        ASSERT_NOT_NULL((p = path_join(t, "/etc2/hoge-id")));
 
         i = SD_ID128_NULL;
         ASSERT_OK(id128_read(p, ID128_FORMAT_PLAIN, &i));

@@ -572,7 +572,7 @@ TEST(pidfd) {
 
         assert_se(pid > 1);
 
-        ASSERT_OK(pidfd = pidfd_open(pid, 0));
+        ASSERT_OK((pidfd = pidfd_open(pid, 0)));
 
         pid2 = fork();
         if (pid2 == 0)

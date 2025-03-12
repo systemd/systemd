@@ -788,13 +788,13 @@ static void test_exec_mount_apivfs(Manager *m) {
         ASSERT_OK(strv_extend_strv(&libraries, libraries_test, true));
 
         ASSERT_NOT_NULL(strextend(&data, "[Service]\n"));
-        ASSERT_NOT_NULL(strextend(&data, "ExecStart=", fullpath_touch, " /aaa\n"));
-        ASSERT_NOT_NULL(strextend(&data, "ExecStart=", fullpath_test, " -f /aaa\n"));
-        ASSERT_NOT_NULL(strextend(&data, "BindReadOnlyPaths=", fullpath_touch, "\n"));
-        ASSERT_NOT_NULL(strextend(&data, "BindReadOnlyPaths=", fullpath_test, "\n"));
+        ASSERT_NOT_NULL((strextend(&data, "ExecStart=", fullpath_touch, " /aaa\n")));
+        ASSERT_NOT_NULL((strextend(&data, "ExecStart=", fullpath_test, " -f /aaa\n")));
+        ASSERT_NOT_NULL((strextend(&data, "BindReadOnlyPaths=", fullpath_touch, "\n")));
+        ASSERT_NOT_NULL((strextend(&data, "BindReadOnlyPaths=", fullpath_test, "\n")));
 
         STRV_FOREACH(p, libraries)
-                ASSERT_NOT_NULL(strextend(&data, "BindReadOnlyPaths=", *p, "\n"));
+                ASSERT_NOT_NULL((strextend(&data, "BindReadOnlyPaths=", *p, "\n")));
 
         ASSERT_OK(write_drop_in(user_runtime_unit_dir, "exec-mount-apivfs-no.service", 10, "bind-mount", data));
 
@@ -981,7 +981,7 @@ static char* private_directory_bad(Manager *m) {
                 _cleanup_free_ char *p = NULL;
                 struct stat st;
 
-                ASSERT_NOT_NULL(p = path_join(m->prefix[dt], "private"));
+                ASSERT_NOT_NULL((p = path_join(m->prefix[dt], "private")));
 
                 if (stat(p, &st) >= 0 &&
                     (st.st_mode & (S_IRWXG|S_IRWXO)))
@@ -1393,9 +1393,9 @@ static void run_tests(RuntimeScope scope, char **patterns) {
         ASSERT_OK_ERRNO(unsetenv("VAR4"));
         ASSERT_OK_ERRNO(unsetenv("VAR5"));
 
-        ASSERT_NOT_NULL(runtime_dir = setup_fake_runtime_dir());
-        ASSERT_NOT_NULL(user_runtime_unit_dir = path_join(runtime_dir, "systemd/user"));
-        ASSERT_NOT_NULL(unit_paths = strjoin(PRIVATE_UNIT_DIR, ":", user_runtime_unit_dir));
+        ASSERT_NOT_NULL((runtime_dir = setup_fake_runtime_dir()));
+        ASSERT_NOT_NULL((user_runtime_unit_dir = path_join(runtime_dir, "systemd/user")));
+        ASSERT_NOT_NULL((unit_paths = strjoin(PRIVATE_UNIT_DIR, ":", user_runtime_unit_dir)));
         ASSERT_OK(setenv_unit_path(unit_paths));
 
         /* Write credential for test-execute-load-credential to the fake runtime dir, too */
@@ -1481,7 +1481,7 @@ static int prepare_ns(const char *process_name) {
                          * overmount it with an empty tmpfs, manager_new() will pin the wrong systemd-executor binary,
                          * which can then lead to unexpected (and painful to debug) test fails. */
                         ASSERT_OK_ERRNO(access(build_dir, F_OK));
-                        ASSERT_NOT_NULL(build_dir_mount = path_join(PRIVATE_UNIT_DIR, "build_dir"));
+                        ASSERT_NOT_NULL((build_dir_mount = path_join(PRIVATE_UNIT_DIR, "build_dir")));
                         ASSERT_OK(mkdir_p(build_dir_mount, 0755));
                         ASSERT_OK(mount_nofollow_verbose(LOG_DEBUG, build_dir, build_dir_mount, NULL, MS_BIND, NULL));
                 }
@@ -1521,7 +1521,7 @@ TEST(run_tests_root) {
                 return (void) log_tests_skipped("unshare() is disabled");
 
         /* safe_fork() clears saved_argv in the child process. Let's copy it. */
-        ASSERT_NOT_NULL(filters = strv_copy(strv_skip(saved_argv, 1)));
+        ASSERT_NOT_NULL((filters = strv_copy(strv_skip(saved_argv, 1))));
 
         if (prepare_ns("(test-execute-root)") == 0) {
                 can_unshare = true;
@@ -1547,7 +1547,7 @@ TEST(run_tests_without_unshare) {
                 return (void) log_tests_skipped("Seccomp not available, cannot run unshare() filtered tests");
 
         /* safe_fork() clears saved_argv in the child process. Let's copy it. */
-        ASSERT_NOT_NULL(filters = strv_copy(strv_skip(saved_argv, 1)));
+        ASSERT_NOT_NULL((filters = strv_copy(strv_skip(saved_argv, 1))));
 
         if (prepare_ns("(test-execute-without-unshare)") == 0) {
                 _cleanup_hashmap_free_ Hashmap *s = NULL;
@@ -1576,7 +1576,7 @@ TEST(run_tests_unprivileged) {
                 return (void) log_tests_skipped("unshare() is disabled");
 
         /* safe_fork() clears saved_argv in the child process. Let's copy it. */
-        ASSERT_NOT_NULL(filters = strv_copy(strv_skip(saved_argv, 1)));
+        ASSERT_NOT_NULL((filters = strv_copy(strv_skip(saved_argv, 1))));
 
         if (prepare_ns("(test-execute-unprivileged)") == 0) {
                 ASSERT_OK(capability_bounding_set_drop(0, /* right_now = */ true));

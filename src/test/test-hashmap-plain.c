@@ -76,14 +76,14 @@ TEST(hashmap_ensure_replace) {
 TEST(hashmap_copy) {
         _cleanup_hashmap_free_ Hashmap *m = NULL, *copy = NULL;
 
-        ASSERT_NOT_NULL(m = hashmap_new(&string_hash_ops));
+        ASSERT_NOT_NULL((m = hashmap_new(&string_hash_ops)));
 
         ASSERT_OK_POSITIVE(hashmap_put(m, "key 1", (void*) "val1"));
         ASSERT_OK_POSITIVE(hashmap_put(m, "key 2", (void*) "val2"));
         ASSERT_OK_POSITIVE(hashmap_put(m, "key 3", (void*) "val3"));
         ASSERT_OK_POSITIVE(hashmap_put(m, "key 4", (void*) "val4"));
 
-        ASSERT_NOT_NULL(copy = hashmap_copy(m));
+        ASSERT_NOT_NULL((copy = hashmap_copy(m)));
 
         ASSERT_STREQ(hashmap_get(copy, "key 1"), "val1");
         ASSERT_STREQ(hashmap_get(copy, "key 2"), "val2");
@@ -975,14 +975,14 @@ TEST(string_strv_hashmap) {
         assert_se(strv_equal(s, STRV_MAKE("bar", "BAR")));
 
         string_strv_hashmap_remove(m, "foo", "bar");
-        ASSERT_NOT_NULL(s = hashmap_get(m, "foo"));
+        ASSERT_NOT_NULL((s = hashmap_get(m, "foo")));
         ASSERT_TRUE(strv_equal(s, STRV_MAKE("BAR")));
 
         string_strv_hashmap_remove(m, "foo", "BAR");
         ASSERT_NULL(hashmap_get(m, "foo"));
 
         string_strv_hashmap_remove(m, "xxx", "BAR");
-        ASSERT_NOT_NULL(s = hashmap_get(m, "xxx"));
+        ASSERT_NOT_NULL((s = hashmap_get(m, "xxx")));
         ASSERT_TRUE(strv_equal(s, STRV_MAKE("bar")));
 
         string_strv_hashmap_remove(m, "xxx", "bar");
