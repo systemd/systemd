@@ -1080,18 +1080,17 @@ static int fd_copy_directory(
         if (exists && FLAGS_SET(copy_flags, COPY_RESTORE_DIRECTORY_TIMESTAMPS) && fstat(fdt, &dt_st) < 0)
                 return -errno;
 
-        r = 0;
-
         if (PTR_TO_INT(hashmap_get(denylist, st)) == DENY_CONTENTS) {
                 log_debug("%s is in the denylist, not recursing", from ?: "file to copy");
                 goto finish;
         }
 
+        int ret = 0;
+
         FOREACH_DIRENT_ALL(de, d, return -errno) {
                 const char *child_display_path = NULL;
                 _cleanup_free_ char *dp = NULL;
                 struct stat buf;
-                int q;
 
                 if (dot_or_dot_dot(de->d_name))
                         continue;
@@ -1101,7 +1100,7 @@ static int fd_copy_directory(
                         return r;
 
                 if (fstatat(dirfd(d), de->d_name, &buf, AT_SYMLINK_NOFOLLOW) < 0) {
-                        r = -errno;
+                        RET_GATHER(ret, -errno);
                         continue;
                 }
 
@@ -1154,17 +1153,16 @@ static int fd_copy_directory(
                         }
                 }
 
-                q = fd_copy_tree_generic(dirfd(d), de->d_name, &buf, fdt, de->d_name, original_device,
+                r = fd_copy_tree_generic(dirfd(d), de->d_name, &buf, fdt, de->d_name, original_device,
                                          depth_left-1, override_uid, override_gid, copy_flags & ~COPY_LOCK_BSD,
                                          denylist, subvolumes, hardlink_context, child_display_path, progress_path,
                                          progress_bytes, userdata);
 
-                if (IN_SET(q, -EINTR, -ENOSPC)) /* Propagate SIGINT/SIGTERM and ENOSPC up instantly */
-                        return q;
-                if (q == -EEXIST && (copy_flags & COPY_MERGE))
-                        q = 0;
-                if (q < 0)
-                        r = q;
+                if (IN_SET(r, -EINTR, -ENOSPC)) /* Propagate SIGINT/SIGTERM and ENOSPC up instantly */
+                        return r;
+                if (r == -EEXIST && (copy_flags & COPY_MERGE))
+                        r = 0;
+                RET_GATHER(ret, r);
         }
 
 finish:
@@ -1172,10 +1170,10 @@ finish:
                 if (fchown(fdt,
                            uid_is_valid(override_uid) ? override_uid : st->st_uid,
                            gid_is_valid(override_gid) ? override_gid : st->st_gid) < 0)
-                        r = -errno;
+                        RET_GATHER(ret, -errno);
 
                 if (fchmod(fdt, st->st_mode & 07777) < 0)
-                        r = -errno;
+                        RET_GATHER(ret, -errno);
 
                 /* Run hardlink context cleanup now because it potentially changes timestamps */
                 hardlink_context_destroy(&our_hardlink_context);
@@ -1193,8 +1191,8 @@ finish:
                         return -errno;
         }
 
-        if (r < 0)
-                return r;
+        if (ret < 0)
+                return ret;
 
         return copy_flags & COPY_LOCK_BSD ? TAKE_FD(fdt) : 0;
 }
