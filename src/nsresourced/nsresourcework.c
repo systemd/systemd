@@ -281,7 +281,7 @@ static int vl_method_get_group_record(sd_varlink *link, sd_json_variant *paramet
                 if (offset >= userns_info->size) /* Outside of range? */
                         goto not_found;
 
-                if (gid_is_valid(p.gid) && p.uid != userns_info->start + offset)
+                if (gid_is_valid(p.gid) && p.gid != userns_info->start + offset)
                         return sd_varlink_error(link, "io.systemd.UserDatabase.ConflictingRecordFound", NULL);
 
         } else if (gid_is_valid(p.gid)) {
