@@ -176,7 +176,11 @@ Features:
 
 * Maybe rename pkcs7 and public verbs of systemd-keyutil to be more verb like.
 
-* add "homctl export" and "homectl import" that gets you an "atomic" snapshot
+* maybe extend the capsule concept to the per-user instance too: invokes a
+  systemd --user instance with a subdir of $HOME as $HOME, and a subdir of
+  $XDG_RUNTIME_DIR as $XDG_RUNTIME_DIR.
+
+* add "homectl export" and "homectl import" that gets you an "atomic" snapshot
   of your homedir, i.e. either a tarball or a snapshot of the underlying disk
   (use FREEZE/THAW to make it consistent, btrfs snapshots)
 
