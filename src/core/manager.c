@@ -1968,6 +1968,9 @@ static bool manager_dbus_is_running(Manager *m, bool deserialized) {
 static void manager_setup_bus(Manager *m) {
         assert(m);
 
+        if (MANAGER_IS_TEST_RUN(m))
+                return;
+
         /* Let's set up our private bus connection now, unconditionally */
         (void) bus_init_private(m);
 
