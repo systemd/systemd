@@ -94,11 +94,11 @@ TEST(message_address) {
         const char *label;
         int r;
 
-        ASSERT_OK(sd_netlink_open(&rtnl) >= 0);
+        ASSERT_OK(sd_netlink_open(&rtnl));
         ifindex = (int) if_nametoindex("lo");
 
-        ASSERT_OK(sd_rtnl_message_new_addr(rtnl, &message, RTM_GETADDR, ifindex, AF_INET) >= 0);
-        ASSERT_OK(sd_netlink_message_set_request_dump(message, true) >= 0);
+        ASSERT_OK(sd_rtnl_message_new_addr(rtnl, &message, RTM_GETADDR, ifindex, AF_INET));
+        ASSERT_OK(sd_netlink_message_set_request_dump(message, true));
 
         ASSERT_OK((r = sd_netlink_call(rtnl, message, 0, &reply)));
 
@@ -117,21 +117,21 @@ TEST(message_route) {
         struct in_addr addr, addr_data;
         uint32_t index = 2, u32_data;
 
-        ASSERT_OK(sd_netlink_open(&rtnl) >= 0);
+        ASSERT_OK(sd_netlink_open(&rtnl));
 
-        ASSERT_OK(sd_rtnl_message_new_route(rtnl, &req, RTM_NEWROUTE, AF_INET, RTPROT_STATIC) >= 0);
+        ASSERT_OK(sd_rtnl_message_new_route(rtnl, &req, RTM_NEWROUTE, AF_INET, RTPROT_STATIC));
 
         addr.s_addr = htobe32(INADDR_LOOPBACK);
 
-        ASSERT_OK(sd_netlink_message_append_in_addr(req, RTA_GATEWAY, &addr) >= 0);
-        ASSERT_OK(sd_netlink_message_append_u32(req, RTA_OIF, index) >= 0);
+        ASSERT_OK(sd_netlink_message_append_in_addr(req, RTA_GATEWAY, &addr));
+        ASSERT_OK(sd_netlink_message_append_u32(req, RTA_OIF, index));
 
-        ASSERT_OK(sd_netlink_message_rewind(req, rtnl) >= 0);
+        ASSERT_OK(sd_netlink_message_rewind(req, rtnl));
 
-        ASSERT_OK(sd_netlink_message_read_in_addr(req, RTA_GATEWAY, &addr_data) >= 0);
+        ASSERT_OK(sd_netlink_message_read_in_addr(req, RTA_GATEWAY, &addr_data));
         ASSERT_EQ(addr_data.s_addr, addr.s_addr);
 
-        ASSERT_OK(sd_netlink_message_read_u32(req, RTA_OIF, &u32_data) >= 0);
+        ASSERT_OK(sd_netlink_message_read_u32(req, RTA_OIF, &u32_data));
         ASSERT_EQ(u32_data, index);
 
         ASSERT_NULL((req = sd_netlink_message_unref(req)));
