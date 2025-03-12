@@ -1368,7 +1368,7 @@
 
     <variablelist class='network-directives'>
       <varlistentry>
-        <term><varname>Enabled=</varname></term>
+        <term><varname>Enable=</varname></term>
         <listitem>
           <para>Takes a boolean argument. When true, the Energy Efficient Ethernet (EEE) feature will be
           enabled on the interface. Defaults to unset, and the enablement of EEE will be unchanged.</para>
