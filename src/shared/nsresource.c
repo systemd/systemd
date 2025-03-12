@@ -116,7 +116,7 @@ int nsresource_register_userns(const char *name, int userns_fd) {
         if (userns_fd < 0) {
                 _userns_fd = namespace_open_by_type(NAMESPACE_USER);
                 if (_userns_fd < 0)
-                        return -errno;
+                        return _userns_fd;
 
                 userns_fd = _userns_fd;
         }
@@ -213,7 +213,7 @@ int nsresource_add_cgroup(int userns_fd, int cgroup_fd) {
         if (userns_fd < 0) {
                 _userns_fd = namespace_open_by_type(NAMESPACE_USER);
                 if (_userns_fd < 0)
-                        return -errno;
+                        return _userns_fd;
 
                 userns_fd = _userns_fd;
         }
@@ -281,7 +281,7 @@ int nsresource_add_netif(
         if (userns_fd < 0) {
                 _userns_fd = namespace_open_by_type(NAMESPACE_USER);
                 if (_userns_fd < 0)
-                        return -errno;
+                        return _userns_fd;
 
                 userns_fd = _userns_fd;
         }
@@ -289,7 +289,7 @@ int nsresource_add_netif(
         if (netns_fd < 0) {
                 _netns_fd = namespace_open_by_type(NAMESPACE_NET);
                 if (_netns_fd < 0)
-                        return -errno;
+                        return _netns_fd;
 
                 netns_fd = _netns_fd;
         }
