@@ -279,7 +279,8 @@ int link_load_one(LinkConfigContext *ctx, const char *filename) {
                         /* root = */ NULL,
                         "Match\0"
                         "Link\0"
-                        "SR-IOV\0",
+                        "SR-IOV\0"
+                        "EnergyEfficientEthernet\0",
                         config_item_perf_lookup, link_config_gperf_lookup,
                         CONFIG_PARSE_WARN, config, &stats_by_path,
                         &config->dropins);
