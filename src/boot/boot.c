@@ -1083,8 +1083,8 @@ static void config_defaults_load_from_file(Config *config, char *content) {
                                 bool reboot_yes_no;
                                 if (!parse_boolean(value, &reboot_yes_no))
                                         log_error("Error parsing 'reboot-on-error' config option, ignoring: %s", value);
-
-                                config->reboot_on_error = reboot_yes_no ? REBOOT_YES : REBOOT_NO;
+                                else
+                                        config->reboot_on_error = reboot_yes_no ? REBOOT_YES : REBOOT_NO;
                         }
 
                 } else if (streq8(key, "secure-boot-enroll")) {
