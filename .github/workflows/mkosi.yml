@@ -80,19 +80,19 @@ jobs:
             skip: TEST-21-DFUZZER
           - distro: fedora
             release: "41"
+            sanitizers: address,undefined
+            llvm: 1
+            cflags: "-Og"
+            relabel: yes
+            vm: 0
+          - distro: fedora
+            release: rawhide
             sanitizers: ""
             llvm: 0
             cflags: "-Og"
             relabel: yes
             vm: 0
             skip: TEST-21-DFUZZER
-          - distro: fedora
-            release: rawhide
-            sanitizers: address,undefined
-            llvm: 1
-            cflags: "-Og"
-            relabel: yes
-            vm: 0
           - distro: opensuse
             release: tumbleweed
             sanitizers: ""
