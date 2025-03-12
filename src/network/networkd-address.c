@@ -261,7 +261,6 @@ static Address* address_free(Address *address) {
         address_detach_impl(address);
 
         config_section_free(address->section);
-        free(address->label);
         free(address->netlabel);
         ipv6_token_unref(address->token);
         nft_set_context_clear(&address->nft_set_context);

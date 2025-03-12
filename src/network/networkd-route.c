@@ -58,7 +58,6 @@ static Route* route_free(Route *route) {
 
         route_detach_impl(route);
 
-        config_section_free(route->section);
         route_nexthops_done(route);
         route_metric_done(&route->metric);
         sd_event_source_disable_unref(route->expire);
