@@ -59,7 +59,6 @@ static int normalize_and_maybe_pin_inode(
                 if (r < 0)
                         return r;
                 *ret_opath = r;
-
                 *ret_tfd = -EBADF;
                 return 0;
         }
@@ -156,6 +155,10 @@ int getxattr_at_malloc(
 
                 r = getxattr_pinned_internal(fd, path, at_flags, by_procfs, name, v, l);
                 if (r >= 0) {
+                        /* Refuse extended attributes with embedded NUL bytes, they are definitely not regular strings */
+                        if (r > 1 && memchr(v, 0, r - 1))
+                                return -EBADMSG;
+
                         v[r] = 0; /* NUL terminate */
                         *ret = TAKE_PTR(v);
                         return r;
