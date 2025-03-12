@@ -258,7 +258,7 @@ TEST(namespace_is_init) {
 TEST(userns_get_base_uid) {
         _cleanup_close_ int fd = -EBADF;
 
-        fd = userns_acquire("0 1 1", "0 2 1");
+        fd = userns_acquire("0 1 1", "0 2 1", /* setgroups_deny= */ true);
         if (ERRNO_IS_NEG_NOT_SUPPORTED(fd))
                 return (void) log_tests_skipped("userns is not supported");
         if (ERRNO_IS_NEG_PRIVILEGE(fd))
