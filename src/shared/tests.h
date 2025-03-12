@@ -335,8 +335,8 @@ static inline int run_test_table(void) {
         ({                                                                                                      \
                 typeof(expr) _result = (expr);                                                                  \
                 if (_result >= 0) {                                                                             \
-                        log_error_errno(_result, "%s:%i: Assertion failed: expected \"%s\" to fail, but it succeeded", \
-                                        PROJECT_FILE, __LINE__, #expr);                                         \
+                        log_error("%s:%i: Assertion failed: expected \"%s\" to fail, but it succeeded.",        \
+                                  PROJECT_FILE, __LINE__, #expr);                                               \
                         abort();                                                                                \
                 }                                                                                               \
         })
@@ -414,6 +414,16 @@ static inline int run_test_table(void) {
                 if (!streq_ptr(_expr1, _expr2)) {                                                               \
                         log_error("%s:%i: Assertion failed: expected \"%s == %s\", got \"%s != %s\"",           \
                                   PROJECT_FILE, __LINE__, #expr1, #expr2, strnull(_expr1), strnull(_expr2));    \
+                        abort();                                                                                \
+                }                                                                                               \
+        })
+
+#define ASSERT_PTR_EQ(expr1, expr2)                                                                             \
+        ({                                                                                                      \
+                const void *_expr1 = (expr1), *_expr2 = (expr2);                                                \
+                if (_expr1 != _expr2) {                                                                         \
+                        log_error("%s:%i: Assertion failed: expected \"%s == %s\", got \"0x%p != 0x%p\"",       \
+                                  PROJECT_FILE, __LINE__, #expr1, #expr2, _expr1, _expr2);                      \
                         abort();                                                                                \
                 }                                                                                               \
         })

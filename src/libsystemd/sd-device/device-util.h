@@ -110,6 +110,19 @@ bool device_is_devtype(sd_device *device, const char *devtype);
 static inline bool device_property_can_set(const char *property) {
         return property &&
                 !STR_IN_SET(property,
-                            "ACTION", "DEVLINKS", "DEVNAME", "DEVPATH", "DEVTYPE", "DRIVER",
-                            "IFINDEX", "MAJOR", "MINOR", "SEQNUM", "SUBSYSTEM", "TAGS");
+                            /* basic properties set by kernel, only in netlink event */
+                            "ACTION", "SEQNUM", "SYNTH_UUID",
+                            /* basic properties set by kernel, both in netlink event and uevent file */
+                            "DEVPATH", "DEVPATH_OLD", "SUBSYSTEM", "DEVTYPE", "DRIVER", "MODALIAS",
+                            /* device node */
+                            "DEVNAME", "DEVMODE", "DEVUID", "DEVGID", "MAJOR", "MINOR",
+                            /* block device */
+                            "DISKSEQ", "PARTN",
+                            /* network interface (INTERFACE_OLD is set by udevd) */
+                            "IFINDEX", "INTERFACE", "INTERFACE_OLD",
+                            /* basic properties set by udevd */
+                            "DEVLINKS", "TAGS", "CURRENT_TAGS", "USEC_INITIALIZED", "UDEV_DATABASE_VERSION") &&
+                /* Similar to SYNTH_UUID, but set based on KEY=VALUE arguments passed by userspace.
+                 * See kernel's f36776fafbaa0094390dd4e7e3e29805e0b82730 (v4.13) */
+                !startswith(property, "SYNTH_ARG_");
 }
