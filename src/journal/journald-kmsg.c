@@ -385,6 +385,41 @@ static int dispatch_dev_kmsg(sd_event_source *es, int fd, uint32_t revents, void
         return server_read_dev_kmsg(s);
 }
 
+int server_reload_dev_kmsg(Server *s) {
+        int r;
+
+        assert(s);
+
+        mode_t mode = O_CLOEXEC|O_NONBLOCK|O_NOCTTY|
+                (s->read_kmsg ? O_RDWR : O_WRONLY);
+
+        int flags = fcntl(s->dev_kmsg_fd, F_GETFL);
+        if (flags == -1) {
+                // TODO: Proceed with reload?
+                /* Since we are not sure whether mode was updated post-reload, log warning and proceed with reload. */
+                log_full_errno(LOG_WARNING, errno, "Failed to check what mode dev_kmsg_fd was opened in: %m.\n");
+        } else if ((flags & mode) == mode) {
+                /* s->read_kmsg has not changed since before. No-op. */
+                return 0;
+        }
+
+        /* Flush kmsg values */
+        r = server_flush_dev_kmsg(s);
+        if (r < 0) {
+                // TODO: what is correct behavior here?
+                log_error("Failed to flush dev_kmsg_fd before reload.");
+                return 0;
+        }
+
+        /* Set kmsg values to default. */
+        s->dev_kmsg_readable = false;
+        s->dev_kmsg_event_source = sd_event_source_unref(s->dev_kmsg_event_source);
+        s->dev_kmsg_fd = safe_close(s->dev_kmsg_fd);
+        s->dev_kmsg_fd = -EBADF;
+
+        return server_open_dev_kmsg(s);
+}
+
 int server_open_dev_kmsg(Server *s) {
         int r;
 
