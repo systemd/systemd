@@ -370,7 +370,13 @@ int verb_status(int argc, char *argv[], void *userdata) {
 
         pager_open(arg_pager_flags);
 
-        if (!arg_root && is_efi_boot()) {
+        if (arg_root)
+                log_debug("Skipping 'System' section, operating offline.");
+        else if (!is_efi_boot())
+                printf("%sSystem:%s\n"
+                       "Not booted with EFI\n\n",
+                       ansi_underline(), ansi_normal());
+        else {
                 static const struct {
                         uint64_t flag;
                         const char *name;
@@ -567,10 +573,7 @@ int verb_status(int argc, char *argv[], void *userdata) {
                 }
 
                 printf("\n");
-        } else
-                printf("%sSystem:%s\n"
-                       "Not booted with EFI\n\n",
-                       ansi_underline(), ansi_normal());
+        }
 
         if (arg_esp_path)
                 RET_GATHER(r, status_binaries(arg_esp_path, esp_uuid));

@@ -717,7 +717,7 @@ static int run(int argc, char *argv[]) {
                 r = mount_image_privately_interactively(
                                 arg_image,
                                 arg_image_policy,
-                                DISSECT_IMAGE_GENERIC_ROOT |
+                                DISSECT_IMAGE_USR_NO_ROOT |
                                 DISSECT_IMAGE_RELAX_VAR_CHECK |
                                 DISSECT_IMAGE_ALLOW_USERSPACE_VERITY,
                                 &mounted_dir,
