@@ -1159,7 +1159,7 @@ static int fd_copy_directory(
                                          denylist, subvolumes, hardlink_context, child_display_path, progress_path,
                                          progress_bytes, userdata);
 
-                if (q == -EINTR) /* Propagate SIGINT/SIGTERM up instantly */
+                if (IN_SET(q, -EINTR, -ENOSPC)) /* Propagate SIGINT/SIGTERM and ENOSPC up instantly */
                         return q;
                 if (q == -EEXIST && (copy_flags & COPY_MERGE))
                         q = 0;
