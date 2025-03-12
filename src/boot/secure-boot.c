@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "console.h"
+#include "efi-string-table.h"
 #include "efivars.h"
 #include "proto/security-arch.h"
 #include "secure-boot.h"
@@ -287,3 +288,12 @@ void uninstall_security_override(void) {
         if (security_override.original_hook2)
                 security_override.security2->FileAuthentication = security_override.original_hook2;
 }
+
+static const char *secure_boot_enroll_table[_SECURE_BOOT_ENROLL_MAX] = {
+        [ENROLL_OFF]     = "off",
+        [ENROLL_MANUAL]  = "manual",
+        [ENROLL_IF_SAFE] = "if-safe",
+        [ENROLL_FORCE]   = "force"
+};
+
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(secure_boot_enroll, secure_boot_enroll);
