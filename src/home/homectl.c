@@ -2548,7 +2548,7 @@ static int create_or_register_from_credentials(void) {
                 const char *e;
                 if ((e = startswith(de->d_name, "home.create.")))
                         op = OPERATION_CREATE;
-                if ((e = startswith(de->d_name, "home.register.")))
+                else if ((e = startswith(de->d_name, "home.register.")))
                         op = OPERATION_REGISTER;
                 else
                         continue;
