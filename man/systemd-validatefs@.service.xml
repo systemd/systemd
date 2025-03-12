@@ -58,6 +58,14 @@
       GPT partition type UUID formatted as string. It is compared with the partition type UUID of the
       partition this file system is located on, and if different the validation will fail.</para></listitem>
     </orderedlist>
+
+    <para>The <filename>systemd-validatefs@.service</filename> unit is automatically pulled into the initial
+    transaction by
+    <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    for all file systems it discovers and generates mounts
+    for. <citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    will do this for all mounts with the <option>x-systemd.validatefs</option> mount option in
+    <filename>/etc/fstab</filename>.</para>
   </refsect1>
 
   <refsect1>
