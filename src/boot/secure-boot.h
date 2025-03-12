@@ -14,7 +14,7 @@ typedef enum {
 bool secure_boot_enabled(void);
 SecureBootMode secure_boot_mode(void);
 
-EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path, bool force);
+EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path, bool force, bool poweroff);
 
 typedef bool (*security_validator_t)(
                 const void *ctx,

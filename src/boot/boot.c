@@ -131,6 +131,7 @@ typedef struct {
         bool reboot_for_bitlocker;
         RebootOnError reboot_on_error;
         secure_boot_enroll secure_boot_enroll;
+        bool secure_boot_enroll_poweroff;
         bool force_menu;
         bool use_saved_entry;
         bool use_saved_entry_efivar;
@@ -344,12 +345,15 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
                 break;
         case ENROLL_MANUAL:
                 printf("    secure-boot-enroll: manual\n");
+                printf("    secure-boot-enroll-poweroff: %ls\n", yes_no(config->secure_boot_enroll_poweroff));
                 break;
         case ENROLL_IF_SAFE:
                 printf("    secure-boot-enroll: if-safe\n");
+                printf("    secure-boot-enroll-poweroff: %ls\n", yes_no(config->secure_boot_enroll_poweroff));
                 break;
         case ENROLL_FORCE:
                 printf("    secure-boot-enroll: force\n");
+                printf("    secure-boot-enroll-poweroff: %ls\n", yes_no(config->secure_boot_enroll_poweroff));
                 break;
         default:
                 assert_not_reached();
@@ -1099,7 +1103,9 @@ static void config_defaults_load_from_file(Config *config, char *content) {
                         else
                                 log_error("Error parsing 'secure-boot-enroll' config option, ignoring: %s",
                                           value);
-
+                } else if (streq8(key, "secure-boot-enroll-poweroff")) {
+                        if (!parse_boolean(value, &config->secure_boot_enroll_poweroff))
+                                log_error("Error parsing 'secure-boot-enroll-poweroff' config option, ignoring: %s", value);
                 } else if (streq8(key, "console-mode")) {
                         if (streq8(value, "auto"))
                                 config->console_mode = CONSOLE_MODE_AUTO;
@@ -1455,6 +1461,7 @@ static void config_load_defaults(Config *config, EFI_FILE *root_dir) {
                 .auto_firmware = true,
                 .reboot_on_error = REBOOT_AUTO,
                 .secure_boot_enroll = ENROLL_IF_SAFE,
+                .secure_boot_enroll_poweroff = false,
                 .idx_default_efivar = IDX_INVALID,
                 .console_mode = CONSOLE_MODE_KEEP,
                 .console_mode_efivar = CONSOLE_MODE_KEEP,
@@ -2742,7 +2749,7 @@ static void save_selected_entry(const Config *config, const BootEntry *entry) {
 static EFI_STATUS call_secure_boot_enroll(const BootEntry *entry, EFI_FILE *root_dir, EFI_HANDLE parent_image) {
         assert(entry);
 
-        return secure_boot_enroll_at(root_dir, entry->path, /* force= */ true);
+        return secure_boot_enroll_at(root_dir, entry->path, /* force= */ true, /* poweroff= */ false);
 }
 
 static EFI_STATUS secure_boot_discover_keys(Config *config, EFI_FILE *root_dir) {
@@ -2793,7 +2800,7 @@ static EFI_STATUS secure_boot_discover_keys(Config *config, EFI_FILE *root_dir) 
                     strcaseeq16(dirent->FileName, u"auto"))
                         /* If we auto enroll successfully this call does not return.
                          * If it fails we still want to add other potential entries to the menu. */
-                        secure_boot_enroll_at(root_dir, entry->path, config->secure_boot_enroll == ENROLL_FORCE);
+                        secure_boot_enroll_at(root_dir, entry->path, config->secure_boot_enroll == ENROLL_FORCE, config->secure_boot_enroll_poweroff);
         }
 
         return EFI_SUCCESS;
