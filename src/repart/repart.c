@@ -80,6 +80,7 @@
 #include "tpm2-util.h"
 #include "user-util.h"
 #include "utf8.h"
+#include "xattr-util.h"
 
 /* If not configured otherwise use a minimal partition size of 10M */
 #define DEFAULT_MIN_SIZE (10ULL*1024ULL*1024ULL)
@@ -396,6 +397,8 @@ typedef struct Partition {
         char *compression;
         char *compression_level;
 
+        int add_validatefs;
+
         uint64_t gpt_flags;
         int no_auto;
         int read_only;
@@ -578,6 +581,7 @@ static Partition *partition_new(void) {
                 .growfs = -1,
                 .verity_data_block_size = UINT64_MAX,
                 .verity_hash_block_size = UINT64_MAX,
+                .add_validatefs = -1,
         };
 
         return p;
@@ -689,6 +693,7 @@ static void partition_foreignize(Partition *p) {
         p->read_only = -1;
         p->growfs = -1;
         p->verity = VERITY_OFF;
+        p->add_validatefs = false;
 
         partition_mountpoint_free_many(p->mountpoints, p->n_mountpoints);
         p->mountpoints = NULL;
@@ -2337,10 +2342,23 @@ static int partition_finalize_fstype(Partition *p, const char *path) {
         return free_and_strdup_warn(&p->format, v);
 }
 
+static bool partition_add_validatefs(const Partition *p) {
+        assert(p);
+
+        if (p->add_validatefs >= 0)
+                return p->add_validatefs;
+
+        return p->format && !STR_IN_SET(p->format, "swap", "vfat");
+}
+
 static bool partition_needs_populate(const Partition *p) {
         assert(p);
         assert(!p->supplement_for || !p->suppressing); /* Avoid infinite recursion */
-        return !strv_isempty(p->copy_files) || !strv_isempty(p->make_directories) || !strv_isempty(p->make_symlinks) ||
+
+        return !strv_isempty(p->copy_files) ||
+                !strv_isempty(p->make_directories) ||
+                !strv_isempty(p->make_symlinks) ||
+                partition_add_validatefs(p) ||
                 (p->suppressing && partition_needs_populate(p->suppressing));
 }
 
@@ -2383,6 +2401,7 @@ static int partition_read_definition(Partition *p, const char *path, const char 
                 { "Partition", "Compression",              config_parse_string,            CONFIG_PARSE_STRING_SAFE_AND_ASCII, &p->compression             },
                 { "Partition", "CompressionLevel",         config_parse_string,            CONFIG_PARSE_STRING_SAFE_AND_ASCII, &p->compression_level       },
                 { "Partition", "SupplementFor",            config_parse_string,            0,                                  &p->supplement_for_name     },
+                { "Partition", "AddValidateFS",            config_parse_tristate,          0,                                  &p->add_validatefs          },
                 {}
         };
         _cleanup_free_ char *filename = NULL;
@@ -5866,6 +5885,53 @@ static int set_default_subvolume(Partition *p, const char *root) {
         return 0;
 }
 
+static int do_make_validatefs_xattrs(const Partition *p, const char *root) {
+        int r;
+
+        assert(p);
+        assert(root);
+
+        if (!partition_add_validatefs(p))
+                return 0;
+
+        _cleanup_close_ int fd = open(root, O_DIRECTORY|O_CLOEXEC);
+        if (fd < 0)
+                return log_error_errno(errno, "Failed to open root inode '%s': %m", root);
+
+        if (p->new_label) {
+                r = xsetxattr(fd, /* path= */ NULL, AT_EMPTY_PATH, "user.validatefs.gpt_label", p->new_label);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set 'user.validatefs.gpt_label' extended attribute: %m");
+        }
+
+        r = xsetxattr(fd, /* path= */ NULL, AT_EMPTY_PATH, "user.validatefs.gpt_type_uuid", SD_ID128_TO_UUID_STRING(p->type.uuid));
+        if (r < 0)
+                return log_error_errno(r, "Failed to set 'user.validatefs.gpt_type_uuid' extended attribute: %m");
+
+        /* Prefer the data from MountPoint= if specified, otherwise use data we derive from the partition type */
+        _cleanup_strv_free_ char **l = NULL;
+        if (p->n_mountpoints > 0) {
+                FOREACH_ARRAY(m, p->mountpoints, p->n_mountpoints)
+                        if (strv_extend(&l, m->where) < 0)
+                                return log_oom();
+        } else {
+                const char *m = gpt_partition_type_mountpoint_nulstr(p->type);
+                if (m) {
+                        l = strv_split_nulstr(m);
+                        if (!l)
+                                return log_oom();
+                }
+        }
+
+        if (!strv_isempty(l)) {
+                r = xsetxattr_strv(fd, /* path= */ NULL, AT_EMPTY_PATH, "user.validatefs.mount_point", l);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set 'user.validatefs.mount_point' extended attribute: %m");
+        }
+
+        return 0;
+}
+
 static int partition_populate_directory(Context *context, Partition *p, char **ret) {
         _cleanup_(rm_rf_physical_and_freep) char *root = NULL;
         const char *vt;
@@ -5896,6 +5962,10 @@ static int partition_populate_directory(Context *context, Partition *p, char **r
                 return r;
 
         r = do_make_symlinks(p, root);
+        if (r < 0)
+                return r;
+
+        r = do_make_validatefs_xattrs(p, root);
         if (r < 0)
                 return r;
 
@@ -5940,6 +6010,9 @@ static int partition_populate_filesystem(Context *context, Partition *p, const c
                         _exit(EXIT_FAILURE);
 
                 if (do_make_symlinks(p, fs) < 0)
+                        _exit(EXIT_FAILURE);
+
+                if (do_make_validatefs_xattrs(p, fs) < 0)
                         _exit(EXIT_FAILURE);
 
                 if (make_subvolumes_read_only(p, fs) < 0)
@@ -6080,7 +6153,7 @@ static int context_mkfs(Context *context) {
                 log_info("Formatting future partition %" PRIu64 ".", p->partno);
 
                 /* If we're not writing to a loop device or if we're populating a read-only filesystem, we
-                 * have to populate using the filesystem's mkfs's --root (or equivalent) option. To do that,
+                 * have to populate using the filesystem's mkfs's --root= (or equivalent) option. To do that,
                  * we need to set up the final directory tree beforehand. */
 
                 if (partition_needs_populate(p) && (!t->loop || fstype_is_ro(p->format))) {
