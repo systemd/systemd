@@ -1821,9 +1821,13 @@ int unit_test_start_limit(Unit *u) {
 
         reason = strjoina("unit ", u->id, " failed");
 
-        emergency_action(u->manager, u->start_limit_action,
-                         EMERGENCY_ACTION_IS_WATCHDOG|EMERGENCY_ACTION_WARN,
-                         u->reboot_arg, -1, reason);
+        emergency_action(
+                        u->manager,
+                        u->start_limit_action,
+                        EMERGENCY_ACTION_IS_WATCHDOG|EMERGENCY_ACTION_WARN|EMERGENCY_ACTION_SLEEP_5S,
+                        u->reboot_arg,
+                        /* exit_status= */ -1,
+                        reason);
 
         return -ECANCELED;
 }
@@ -2710,10 +2714,10 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
 
                 if (os != UNIT_FAILED && ns == UNIT_FAILED) {
                         reason = strjoina("unit ", u->id, " failed");
-                        emergency_action(m, u->failure_action, 0, u->reboot_arg, unit_failure_action_exit_status(u), reason);
+                        emergency_action(m, u->failure_action, EMERGENCY_ACTION_WARN|EMERGENCY_ACTION_SLEEP_5S, u->reboot_arg, unit_failure_action_exit_status(u), reason);
                 } else if (!UNIT_IS_INACTIVE_OR_FAILED(os) && ns == UNIT_INACTIVE) {
                         reason = strjoina("unit ", u->id, " succeeded");
-                        emergency_action(m, u->success_action, 0, u->reboot_arg, unit_success_action_exit_status(u), reason);
+                        emergency_action(m, u->success_action, /* flags= */ 0, u->reboot_arg, unit_success_action_exit_status(u), reason);
                 }
         }
 
