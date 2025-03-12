@@ -899,6 +899,16 @@
                 <entry/>
                 <entry>X</entry>
               </row>
+              <row>
+                <entry>Termination due to OOM</entry>
+                <entry/>
+                <entry>X</entry>
+                <entry/>
+                <entry>X</entry>
+                <entry>X</entry>
+                <entry/>
+                <entry/>
+              </row>
             </tbody>
           </tgroup>
         </table>
