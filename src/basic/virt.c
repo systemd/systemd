@@ -432,8 +432,8 @@ static Virtualization detect_vm_zvm(void) {
         _cleanup_free_ char *t = NULL;
         int r;
 
-        r = get_proc_field("/proc/sysinfo", "VM00 Control Program", WHITESPACE, &t);
-        if (r == -ENOENT)
+        r = get_proc_field("/proc/sysinfo", "VM00 Control Program", &t);
+        if (IN_SET(r, -ENOENT, -ENODATA))
                 return VIRTUALIZATION_NONE;
         if (r < 0)
                 return r;
@@ -655,7 +655,7 @@ Virtualization detect_container(void) {
         /* proot doesn't use PID namespacing, so we can just check if we have a matching tracer for this
          * invocation without worrying about it being elsewhere.
          */
-        r = get_proc_field("/proc/self/status", "TracerPid", WHITESPACE, &p);
+        r = get_proc_field("/proc/self/status", "TracerPid", &p);
         if (r < 0)
                 log_debug_errno(r, "Failed to read our own trace PID, ignoring: %m");
         else if (!streq(p, "0")) {
