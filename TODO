@@ -130,6 +130,11 @@ Deprecations and removals:
 
 Features:
 
+* make journalctl something we can invoke like the askpw/polkit agents, and
+  then spawn it from "systemctl start" and similar with a precise filter on the
+  unit. Make sure that it syncs on the journal when done so that we show
+  "complete" logs. Make this easily reachable via a new "-v" switch or so.
+
 * bsod: add target "bsod.target" or so, which invokes systemd-bsod.target and
   waits and then reboots. Then use OnFailure=bsod.target from various jobs that
   should result in system reboots, such as TPM tamper detection cases.
