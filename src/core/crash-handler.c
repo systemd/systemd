@@ -19,14 +19,16 @@
 
 _noreturn_ void freeze_or_exit_or_reboot(void) {
 
-        /* If we are running in a container, let's prefer exiting, after all we can propagate an exit code to
-         * the container manager, and thus inform it that something went wrong. */
+        /**
+        * If we are running in a container, let's prefer exiting, after all we can propagate an exit code to
+         * the container manager, and thus inform it that something went wrong.
         if (detect_container() > 0) {
                 log_struct(LOG_EMERG,
                            LOG_MESSAGE("Exiting PID 1..."),
                            "MESSAGE_ID=" SD_MESSAGE_CRASH_EXIT_STR);
                 _exit(EXIT_EXCEPTION);
         }
+
 
         if (arg_crash_action == CRASH_POWEROFF) {
                 log_notice("Shutting down...");
@@ -44,6 +46,7 @@ _noreturn_ void freeze_or_exit_or_reboot(void) {
                                  LOG_MESSAGE("Failed to reboot: %m"),
                                  "MESSAGE_ID=" SD_MESSAGE_CRASH_FAILED_STR);
         }
+        */
 
         log_struct(LOG_EMERG,
                    LOG_MESSAGE("Freezing execution."),
