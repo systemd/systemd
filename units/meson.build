@@ -814,6 +814,10 @@ units = [
           'symlinks' : ['multi-user.target.wants/'],
         },
         {
+          'file' : 'systemd-userdb-load-credentials.service',
+          'conditions' : ['ENABLE_USERDB'],
+        },
+        {
           'file' : 'systemd-userdbd.service.in',
           'conditions' : ['ENABLE_USERDB'],
         },
