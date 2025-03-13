@@ -89,25 +89,20 @@ static int pidfd_get_info(int fd, struct pidfd_info *info) {
 
 static int pidfd_get_pid_fdinfo(int fd, pid_t *ret) {
         char path[STRLEN("/proc/self/fdinfo/") + DECIMAL_STR_MAX(int)];
-        _cleanup_free_ char *fdinfo = NULL;
+        _cleanup_free_ char *p = NULL;
         int r;
 
         assert(fd >= 0);
 
         xsprintf(path, "/proc/self/fdinfo/%i", fd);
 
-        r = read_full_virtual_file(path, &fdinfo, NULL);
+        r = get_proc_field(path, "Pid", &p);
         if (r == -ENOENT)
                 return proc_fd_enoent_errno();
+        if (r == -ENODATA) /* not a pidfd? */
+                return -ENOTTY;
         if (r < 0)
                 return r;
-
-        char *p = find_line_startswith(fdinfo, "Pid:");
-        if (!p)
-                return -ENOTTY; /* not a pidfd? */
-
-        p = skip_leading_chars(p, /* bad = */ NULL);
-        p[strcspn(p, WHITESPACE)] = 0;
 
         if (streq(p, "0"))
                 return -EREMOTE; /* PID is in foreign PID namespace? */
