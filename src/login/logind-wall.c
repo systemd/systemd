@@ -80,7 +80,7 @@ static int warn_wall(Manager *m, usec_t n) {
 
         _cleanup_free_ char *username = uid_to_name(m->scheduled_shutdown_uid);
 
-        int level = left ? LOG_INFO : LOG_NOTICE;
+        int level = left ? LOG_NOTICE : LOG_INFO;
 
         log_struct(level,
                    LOG_MESSAGE("%s", l),
