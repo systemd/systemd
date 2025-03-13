@@ -942,6 +942,7 @@ manpages = [
   ['30-systemd-environment-d-generator'],
   'ENABLE_ENVIRONMENT_D'],
  ['systemd-escape', '1', [], ''],
+ ['systemd-factory-reset-esp.service', '8', [], ''],
  ['systemd-factory-reset-generator', '8', [], ''],
  ['systemd-factory-reset',
   '8',

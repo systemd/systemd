@@ -1,0 +1,50 @@
+<?xml version="1.0"?>
+<!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+<refentry id="systemd-factory-reset"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-factory-reset-esp.service</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-factory-reset-esp.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-factory-reset-esp.service</refname>
+    <refpurpose>Delete non-vendor content from the ESP and XBOOTLDR</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>/usr/lib/systemd/systemd-factory-reset-esp</filename></para>
+    <para><filename>systemd-factory-reset-esp.service</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><filename>systemd-factory-reset-esp.service</filename> is a part of systemd's factory reset logic,
+    which deletes non-vendor system extension images, UKI addons, and credentials from the EFI System and
+    Extended Bootloader Partitions. The vendor and non-vendor versions of these resources are stored in
+    different directories, as described in <member><citerefentry><refentrytitle>systemd-stub</refentrytitle>
+    <manvolnum>7</manvolnum></citerefentry></member>.</para>
+
+    <para>See <ulink url="https://systemd.io/FACTORY_RESET">Factory Reset</ulink> for an overview of the
+    factory reset logic.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-factory-reset</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><ulink url="https://systemd.io/FACTORY_RESET">Factory Reset</ulink></member>
+    </simplelist></para>
+  </refsect1>
+</refentry>
