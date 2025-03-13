@@ -98,7 +98,7 @@ int verify_file_at(int dir_fd, const char *fn, const char *blob, bool accept_ext
 
 int script_get_shebang_interpreter(const char *path, char **ret);
 
-int get_proc_field(const char *filename, const char *pattern, const char *terminator, char **field);
+int get_proc_field(const char *path, const char *key, char **ret);
 
 DIR* xopendirat(int dir_fd, const char *name, int flags);
 

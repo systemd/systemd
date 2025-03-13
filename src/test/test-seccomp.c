@@ -382,7 +382,7 @@ TEST(protect_sysctl) {
                 return;
         }
 
-        assert_se(get_proc_field("/proc/self/status", "Seccomp", WHITESPACE, &seccomp) == 0);
+        assert_se(get_proc_field("/proc/self/status", "Seccomp", &seccomp) == 0);
         if (!streq(seccomp, "0"))
                 log_warning("Warning: seccomp filter detected, results may be unreliable for %s", __func__);
 

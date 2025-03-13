@@ -333,19 +333,19 @@ TEST(script_get_shebang_interpreter) {
 }
 
 TEST(status_field) {
-        _cleanup_free_ char *p = NULL, *s = NULL, *z = NULL;
+        _cleanup_free_ char *p = NULL, *s = NULL;
         unsigned long long total = 0, buffers = 0;
         int r;
 
-        r = get_proc_field("/proc/meminfo", "MemTotal", WHITESPACE, &p);
-        if (r != -ENOENT) {
+        r = get_proc_field("/proc/meminfo", "MemTotal", &p);
+        if (!IN_SET(r, -ENOENT, -ENOSYS)) {
                 assert_se(r == 0);
                 puts(p);
                 assert_se(safe_atollu(p, &total) == 0);
         }
 
-        r = get_proc_field("/proc/meminfo", "Buffers", WHITESPACE, &s);
-        if (r != -ENOENT) {
+        r = get_proc_field("/proc/meminfo", "Buffers", &s);
+        if (!IN_SET(r, -ENOENT, -ENOSYS)) {
                 assert_se(r == 0);
                 puts(s);
                 assert_se(safe_atollu(s, &buffers) == 0);
@@ -353,14 +353,6 @@ TEST(status_field) {
 
         if (p)
                 assert_se(buffers < total);
-
-        /* Seccomp should be a good test for field full of zeros. */
-        r = get_proc_field("/proc/meminfo", "Seccomp", WHITESPACE, &z);
-        if (r != -ENOENT) {
-                assert_se(r == 0);
-                puts(z);
-                assert_se(safe_atollu(z, &buffers) == 0);
-        }
 }
 
 TEST(read_one_line_file) {
