@@ -4,17 +4,22 @@
 
 #include "bitfield.h"
 #include "build.h"
+#include "creds-util.h"
+#include "copy.h"
 #include "dirent-util.h"
 #include "errno-list.h"
 #include "escape.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "format-table.h"
 #include "format-util.h"
 #include "main-func.h"
+#include "mkdir-label.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "pretty-print.h"
+#include "recurse-dir.h"
 #include "socket-util.h"
 #include "strv.h"
 #include "terminal-util.h"
@@ -1164,6 +1169,224 @@ static int ssh_authorized_keys(int argc, char *argv[], void *userdata) {
         return r;
 }
 
+static int load_credential_one(int credential_dir_fd, const char *name, int userdb_dir_fd) {
+        int r;
+
+        assert(credential_dir_fd >= 0);
+        assert(name);
+        assert(userdb_dir_fd >= 0);
+
+        const char *user = startswith(name, "userdb.user.");
+        const char *group = startswith(name, "userdb.group.");
+
+        if (!user && !group)
+                return 0;
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        unsigned line = 0, column = 0;
+        r = sd_json_parse_file_at(NULL, credential_dir_fd, name, SD_JSON_PARSE_SENSITIVE, &v, &line, &column);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse credential '%s' as JSON at %u:%u: %m", name, line, column);
+
+        _cleanup_(user_record_unrefp) UserRecord *ur = NULL, *ur_stripped = NULL, *ur_privileged = NULL;
+        _cleanup_(group_record_unrefp) GroupRecord *gr = NULL, *gr_stripped = NULL, *gr_privileged = NULL;
+
+        if (user) {
+                ur = user_record_new();
+                if (!ur)
+                        return log_oom();
+
+                r = user_record_load(ur, v, USER_RECORD_LOAD_MASK_SECRET|USER_RECORD_LOG);
+                if (r < 0)
+                        return r;
+
+                if (!uid_is_valid(ur->uid))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "JSON user record missing uid field");
+
+                if (!gid_is_valid(ur->gid))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "JSON user record missing gid field");
+
+                r = user_record_clone(ur, USER_RECORD_LOAD_MASK_PRIVILEGED|USER_RECORD_LOG, &ur_stripped);
+                if (r < 0)
+                        return r;
+
+                r = user_record_clone(ur, USER_RECORD_EXTRACT_PRIVILEGED|USER_RECORD_EMPTY_OK|USER_RECORD_LOG, &ur_privileged);
+                if (r < 0)
+                        return r;
+        } else {
+                gr = group_record_new();
+                if (!gr)
+                        return log_oom();
+
+                r = group_record_load(gr, v, USER_RECORD_LOAD_MASK_SECRET|USER_RECORD_LOG);
+                if (r < 0)
+                        return r;
+
+                if (!gid_is_valid(gr->gid))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "JSON group record missing gid field");
+
+                r = group_record_clone(gr, USER_RECORD_LOAD_MASK_PRIVILEGED|USER_RECORD_LOG, &gr_stripped);
+                if (r < 0)
+                        return r;
+
+                r = group_record_clone(gr, USER_RECORD_EXTRACT_PRIVILEGED|USER_RECORD_EMPTY_OK|USER_RECORD_LOG, &gr_privileged);
+                if (r < 0)
+                        return r;
+        }
+
+        _cleanup_free_ char *fn = strjoin(ur ? ur->user_name : gr->group_name, ur ? ".user" : ".group");
+        if (!fn)
+                return log_oom();
+
+        if (!filename_is_valid(fn))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Passed credential '%s' would result in invalid filename '%s'.",
+                                       name, fn);
+
+        _cleanup_free_ char *formatted = NULL;
+        r = sd_json_variant_format(ur ? ur_stripped->json : gr_stripped->json, SD_JSON_FORMAT_NEWLINE, &formatted);
+        if (r < 0)
+                return log_error_errno(r, "Failed to format JSON record: %m");
+
+        r = write_string_file_at(userdb_dir_fd, fn, formatted, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write JSON record to /run/userdb/%s: %m", fn);
+
+        _cleanup_free_ char *link = NULL;
+        if (ur) {
+                if (asprintf(&link, UID_FMT ".user", ur->uid) < 0)
+                        return log_oom();
+        } else {
+                if (asprintf(&link, GID_FMT ".group", gr->gid) < 0)
+                        return log_oom();
+        }
+
+        if (symlinkat(fn, userdb_dir_fd, link) < 0)
+                return log_error_errno(errno, "Failed to symlink %s to %s", link, fn);
+
+        log_info("Installed /run/userdb/%s from credential.", fn);
+
+        if ((ur && !sd_json_variant_is_blank_object(ur_privileged->json)) ||
+            (gr && !sd_json_variant_is_blank_object(gr_privileged->json))) {
+                free(fn);
+                fn = strjoin(ur ? ur->user_name : gr->group_name, ur ? ".user-privileged" : ".group-privileged");
+                if (!fn)
+                        return log_oom();
+
+                free(formatted);
+                r = sd_json_variant_format(ur ? ur_privileged->json : gr_privileged->json, SD_JSON_FORMAT_NEWLINE, &formatted);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to format JSON record: %m");
+
+                r = write_string_file_at(userdb_dir_fd, fn, formatted, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_MODE_0600);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to write JSON record to /run/userdb/%s: %m", fn);
+
+                free(link);
+
+                if (ur) {
+                        if (asprintf(&link, UID_FMT ".user-privileged", ur->uid) < 0)
+                                return log_oom();
+                } else {
+                        if (asprintf(&link, GID_FMT ".group-privileged", gr->gid) < 0)
+                                return log_oom();
+                }
+
+                if (symlinkat(fn, userdb_dir_fd, link) < 0)
+                        return log_error_errno(errno, "Failed to symlink %s to %s", link, fn);
+
+                log_info("Installed /run/userdb/%s from credential.", fn);
+        }
+
+        if (ur) {
+                STRV_FOREACH(g, ur->member_of) {
+                        _cleanup_free_ char *membership = strjoin(ur->user_name, ":", *g);
+                        if (!membership)
+                                return log_oom();
+
+                        _cleanup_close_ int fd = openat(userdb_dir_fd, membership, O_WRONLY|O_CREAT|O_CLOEXEC, 0644);
+                        if (fd < 0)
+                                return log_error_errno(errno, "Failed to create %s: %m", membership);
+
+                        log_info("Installed /run/userdb/%s from credential.", membership);
+                }
+        } else {
+                STRV_FOREACH(u, gr->members) {
+                        _cleanup_free_ char *membership = strjoin(*u, ":", gr->group_name);
+                        if (!membership)
+                                return log_oom();
+
+                        _cleanup_close_ int fd = openat(userdb_dir_fd, membership, O_WRONLY|O_CREAT|O_CLOEXEC, 0644);
+                        if (fd < 0)
+                                return log_error_errno(errno, "Failed to create %s: %m", membership);
+
+                        log_info("Installed /run/userdb/%s from credential.", membership);
+                }
+        }
+
+        if (ur && user_record_disposition(ur) == USER_REGULAR) {
+                const char *hd = user_record_home_directory(ur);
+
+                r = RET_NERRNO(access(hd, F_OK));
+                if (r < 0) {
+                        if (r != -ENOENT)
+                                return log_error_errno(r, "Failed to check if %s exists: %m", hd);
+
+                        r = mkdir_parents(hd, 0755);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to create parent directories of %s: %m", hd);
+
+                        if (mkdir(hd, 0700) < 0 && errno != EEXIST)
+                                return log_error_errno(r, "Failed to create %s: %m", hd);
+
+                        if (chown(hd, ur->uid, ur->gid) < 0)
+                                return log_error_errno(r, "Failed to chown %s: %m", hd);
+
+                        r = copy_tree(user_record_skeleton_directory(ur), hd, ur->uid, ur->gid, COPY_MERGE, NULL, NULL);
+                        if (r < 0 && r != -ENOENT)
+                                return log_error_errno(r, "Failed to copy skeleton directory to %s: %m", hd);
+                }
+        }
+
+        return 0;
+}
+
+static int load_credentials(int argc, char *argv[], void *userdata) {
+        int r;
+
+        _cleanup_close_ int credential_dir_fd = open_credentials_dir();
+        if (IN_SET(credential_dir_fd, -ENXIO, -ENOENT)) {
+                /* Credential env var not set, or dir doesn't exist. */
+                log_debug("No credentials found.");
+                return 0;
+        }
+        if (credential_dir_fd < 0)
+                return log_error_errno(credential_dir_fd, "Failed to open credentials directory: %m");
+
+        _cleanup_close_ int userdb_dir_fd = xopenat_full(AT_FDCWD, "/run/userdb",
+                                                         /* open_flags= */ O_DIRECTORY|O_CREAT|O_CLOEXEC,
+                                                         /* xopen_flags= */ XO_LABEL,
+                                                         /* mode= */ 0755);
+        if (userdb_dir_fd < 0)
+                return log_error_errno(userdb_dir_fd, "Failed to create '/run/userdb': %m");
+
+        _cleanup_free_ DirectoryEntries *des = NULL;
+        r = readdir_all(credential_dir_fd, RECURSE_DIR_SORT|RECURSE_DIR_IGNORE_DOT|RECURSE_DIR_ENSURE_TYPE, &des);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enumerate credentials: %m");
+
+        FOREACH_ARRAY(i, des->entries, des->n_entries) {
+                struct dirent *de = *i;
+
+                if (de->d_type != DT_REG)
+                        continue;
+
+                RET_GATHER(r, load_credential_one(credential_dir_fd, de->d_name, userdb_dir_fd));
+        }
+
+        return r;
+}
+
 static int help(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -1183,6 +1406,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  groups-of-user [USER…]     Show groups the specified users are members of\n"
                "  services                   Show enabled database services\n"
                "  ssh-authorized-keys USER   Show SSH authorized keys for user\n"
+               "  load-credentials           Load JSON user/group records from credentials\n"
                "\nOptions:\n"
                "  -h --help                  Show this help\n"
                "     --version               Show package version\n"
@@ -1516,6 +1740,8 @@ static int run(int argc, char *argv[]) {
                 /* This one is a helper for sshd_config's AuthorizedKeysCommand= setting, it's not a
                  * user-facing verb and thus should not appear in man pages or --help texts. */
                 { "ssh-authorized-keys", 2,        VERB_ANY, 0,            ssh_authorized_keys },
+                /* Ditto, this is only for use systemd-userdb-load-credentials.service. */
+                { "load-credentials",    VERB_ANY, VERB_ANY, 0,            load_credentials    },
                 {}
         };
 
