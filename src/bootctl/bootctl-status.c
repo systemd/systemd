@@ -482,16 +482,16 @@ int verb_status(int argc, char *argv[], void *userdata) {
 
                         sd_id128_t loader_partition_uuid = SD_ID128_NULL;
                         (void) efi_loader_get_device_part_uuid(&loader_partition_uuid);
-                        print_yes_no_line(/* first= */ false, !sd_id128_is_null(loader_partition_uuid), "Boot loader set partition information");
 
                         _cleanup_free_ char *loader_url = NULL;
                         (void) efi_get_variable_string_and_warn(EFI_LOADER_VARIABLE_STR("LoaderDeviceURL"), &loader_url);
-                        print_yes_no_line(/* first= */ false, !!loader_url, "Boot loader set network boot URL information");
 
                         if (!sd_id128_is_null(loader_partition_uuid)) {
                                 if (!sd_id128_is_null(esp_uuid) && !sd_id128_equal(esp_uuid, loader_partition_uuid))
-                                        printf("WARNING: The boot loader reports a different partition UUID than the detected ESP ("SD_ID128_UUID_FORMAT_STR" vs. "SD_ID128_UUID_FORMAT_STR")!\n",
-                                               SD_ID128_FORMAT_VAL(loader_partition_uuid), SD_ID128_FORMAT_VAL(esp_uuid));
+                                        printf("WARNING: The boot loader reports a different partition UUID than the detected ESP "
+                                               "("SD_ID128_UUID_FORMAT_STR" vs. "SD_ID128_UUID_FORMAT_STR")!\n",
+                                               SD_ID128_FORMAT_VAL(loader_partition_uuid),
+                                               SD_ID128_FORMAT_VAL(esp_uuid));
 
                                 printf("    Partition: /dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR "\n",
                                        SD_ID128_FORMAT_VAL(loader_partition_uuid));
@@ -522,17 +522,18 @@ int verb_status(int argc, char *argv[], void *userdata) {
 
                         sd_id128_t stub_partition_uuid = SD_ID128_NULL;
                         (void) efi_stub_get_device_part_uuid(&stub_partition_uuid);
-                        print_yes_no_line(/* first= */ false, !sd_id128_is_null(stub_partition_uuid), "Stub loader set partition information");
 
                         _cleanup_free_ char *stub_url = NULL;
                         (void) efi_get_variable_string_and_warn(EFI_LOADER_VARIABLE_STR("StubDeviceURL"), &stub_url);
-                        print_yes_no_line(/* first= */ false, !!stub_url, "Stub set network boot URL information");
 
                         if (!sd_id128_is_null(stub_partition_uuid)) {
-                                if (!(!sd_id128_is_null(esp_uuid) && sd_id128_equal(esp_uuid, stub_partition_uuid)) &&
-                                    !(!sd_id128_is_null(xbootldr_uuid) && sd_id128_equal(xbootldr_uuid, stub_partition_uuid)))
-                                        printf("WARNING: The stub loader reports a different UUID than the detected ESP or XBOOTDLR partition ("SD_ID128_UUID_FORMAT_STR" vs. "SD_ID128_UUID_FORMAT_STR"/"SD_ID128_UUID_FORMAT_STR")!\n",
-                                               SD_ID128_FORMAT_VAL(stub_partition_uuid), SD_ID128_FORMAT_VAL(esp_uuid), SD_ID128_FORMAT_VAL(xbootldr_uuid));
+                                if (!sd_id128_equal(esp_uuid, stub_partition_uuid) &&
+                                    !sd_id128_equal(xbootldr_uuid, stub_partition_uuid))
+                                        printf("WARNING: The stub loader reports a different UUID than the detected ESP or XBOOTDLR partition "
+                                               "("SD_ID128_UUID_FORMAT_STR" vs. "SD_ID128_UUID_FORMAT_STR"/"SD_ID128_UUID_FORMAT_STR")!\n",
+                                               SD_ID128_FORMAT_VAL(stub_partition_uuid),
+                                               SD_ID128_FORMAT_VAL(esp_uuid),
+                                               SD_ID128_FORMAT_VAL(xbootldr_uuid));
 
                                 printf("    Partition: /dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR "\n",
                                        SD_ID128_FORMAT_VAL(stub_partition_uuid));
