@@ -334,7 +334,7 @@ static int manager_check_ask_password(Manager *m) {
                 if (inotify_fd < 0)
                         return log_error_errno(errno, "Failed to create inotify object: %m");
 
-                (void) mkdir_p_label("/run/systemd/ask-password", 0755);
+                (void) mkdir_label("/run/systemd/ask-password", 0755);
                 r = inotify_add_watch_and_warn(inotify_fd, "/run/systemd/ask-password", IN_CLOSE_WRITE|IN_DELETE|IN_MOVED_TO|IN_ONLYDIR);
                 if (r < 0)
                         return r;
@@ -1045,7 +1045,7 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
                         if (r < 0)
                                 return r;
 
-                        r = mkdir_p_label(units_path, 0755);
+                        r = mkdir_label(units_path, 0755);
                 }
                 if (r < 0 && r != -EEXIST)
                         return r;
@@ -1103,7 +1103,6 @@ static int manager_setup_notify(Manager *m) {
                                                m->notify_socket);
                 sa_len = r;
 
-                (void) mkdir_parents_label(m->notify_socket, 0755);
                 (void) sockaddr_un_unlink(&sa.un);
 
                 r = mac_selinux_bind(fd, &sa.sa, sa_len);
@@ -2039,10 +2038,30 @@ void manager_reloading_stopp(Manager **m) {
         }
 }
 
+static int manager_make_runtime_dir(Manager *m) {
+        int r;
+
+        assert(m);
+
+        _cleanup_free_ char *d = path_join(m->prefix[EXEC_DIRECTORY_RUNTIME], "systemd");
+        if (!d)
+                return log_oom();
+
+        r = mkdir_label(d, 0755);
+        if (r < 0 && r != -EEXIST)
+                return log_error_errno(r, "Failed to create directory '%s/': %m", d);
+
+        return 0;
+}
+
 int manager_startup(Manager *m, FILE *serialization, FDSet *fds, const char *root) {
         int r;
 
         assert(m);
+
+        r = manager_make_runtime_dir(m);
+        if (r < 0)
+                return r;
 
         /* If we are running in test mode, we still want to run the generators,
          * but we should not touch the real generator directories. */
