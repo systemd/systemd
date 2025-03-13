@@ -59,7 +59,6 @@ static int normalize_and_maybe_pin_inode(
                 if (r < 0)
                         return r;
                 *ret_opath = r;
-
                 *ret_tfd = -EBADF;
                 return 0;
         }
@@ -77,7 +76,7 @@ static int normalize_and_maybe_pin_inode(
         return 0;
 }
 
-static int getxattr_pinned_internal(
+static ssize_t getxattr_pinned_internal(
                 int fd,
                 const char *path,
                 int at_flags,
@@ -104,11 +103,7 @@ static int getxattr_pinned_internal(
                 return -errno;
 
         assert((size_t) n <= size);
-
-        if (n > INT_MAX) /* We couldn't return this as 'int' anymore */
-                return -E2BIG;
-
-        return (int) n;
+        return n;
 }
 
 int getxattr_at_malloc(
@@ -116,7 +111,8 @@ int getxattr_at_malloc(
                 const char *path,
                 const char *name,
                 int at_flags,
-                char **ret) {
+                char **ret,
+                size_t *ret_size) {
 
         _cleanup_close_ int opened_fd = -EBADF;
         bool by_procfs;
@@ -154,20 +150,31 @@ int getxattr_at_malloc(
 
                 l = MALLOC_ELEMENTSOF(v) - 1;
 
-                r = getxattr_pinned_internal(fd, path, at_flags, by_procfs, name, v, l);
-                if (r >= 0) {
-                        v[r] = 0; /* NUL terminate */
+                ssize_t n;
+                n = getxattr_pinned_internal(fd, path, at_flags, by_procfs, name, v, l);
+                if (n >= 0) {
+                        /* Refuse extended attributes with embedded NUL bytes if the caller isn't interested
+                         * in the size. After all this must mean the caller assumes we return a NUL
+                         * terminated strings, but if there's a NUL byte embedded they are definitely not
+                         * regular strings */
+                        if (!ret_size && n > 1 && memchr(v, 0, n - 1))
+                                return -EBADMSG;
+
+                        v[n] = 0; /* NUL terminate */
                         *ret = TAKE_PTR(v);
-                        return r;
+                        if (ret_size)
+                                *ret_size = (size_t) n;
+
+                        return 0;
                 }
-                if (r != -ERANGE)
-                        return r;
+                if (n != -ERANGE)
+                        return (int) n;
 
-                r = getxattr_pinned_internal(fd, path, at_flags, by_procfs, name, NULL, 0);
-                if (r < 0)
-                        return r;
+                n = getxattr_pinned_internal(fd, path, at_flags, by_procfs, name, NULL, 0);
+                if (n < 0)
+                        return (int) n;
 
-                l = (size_t) r;
+                l = (size_t) n;
         }
 }
 
@@ -175,12 +182,9 @@ int getxattr_at_bool(int fd, const char *path, const char *name, int at_flags) {
         _cleanup_free_ char *v = NULL;
         int r;
 
-        r = getxattr_at_malloc(fd, path, name, at_flags, &v);
+        r = getxattr_at_malloc(fd, path, name, at_flags, &v, /* ret_size= */ NULL);
         if (r < 0)
                 return r;
-
-        if (memchr(v, 0, r)) /* Refuse embedded NUL byte */
-                return -EINVAL;
 
         return parse_boolean(v);
 }
@@ -408,9 +412,10 @@ int getcrtime_at(
         else
                 a = USEC_INFINITY;
 
-        r = getxattr_at_malloc(fd, path, "user.crtime_usec", at_flags, (char**) &le);
+        size_t le_size;
+        r = getxattr_at_malloc(fd, path, "user.crtime_usec", at_flags, (char**) &le, &le_size);
         if (r >= 0) {
-                if (r != sizeof(*le))
+                if (le_size != sizeof(*le))
                         r = -EIO;
                 else
                         r = parse_crtime(*le, &b);
