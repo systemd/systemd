@@ -33,7 +33,6 @@
 #include "fd-util.h"
 #include "fs-util.h"
 #include "log.h"
-#include "mkdir-label.h"
 #include "process-util.h"
 #include "selinux-access.h"
 #include "serialize.h"
@@ -958,7 +957,6 @@ int bus_init_private(Manager *m) {
                 return log_error_errno(r, "Can't set path for AF_UNIX socket to bind to: %m");
         sa_len = r;
 
-        (void) mkdir_parents_label(sa.un.sun_path, 0755);
         (void) sockaddr_un_unlink(&sa.un);
 
         fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
