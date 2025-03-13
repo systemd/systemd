@@ -104,7 +104,10 @@ int device_open_from_devnum(mode_t mode, dev_t devnum, int flags, char **ret_dev
 
 char** device_make_log_fields(sd_device *device);
 
-bool device_in_subsystem(sd_device *device, const char *subsystem);
+bool device_in_subsystems(sd_device *device, char * const *subsystems);
+static inline bool device_in_subsystem(sd_device *device, const char *subsystem) {
+        return device_in_subsystems(device, STRV_MAKE(subsystem));
+}
 bool device_is_devtype(sd_device *device, const char *devtype);
 
 static inline bool device_property_can_set(const char *property) {
