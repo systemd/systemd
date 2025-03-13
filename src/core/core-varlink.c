@@ -161,6 +161,9 @@ static int manager_varlink_send_managed_oom_initial(Manager *m) {
         if (!MANAGER_IS_USER(m))
                 return 0;
 
+        if (MANAGER_IS_TEST_RUN(m))
+                return 0;
+
         assert(m->managed_oom_varlink);
 
         r = build_managed_oom_cgroups_json(m, &v);
@@ -207,6 +210,9 @@ static int manager_varlink_managed_oom_connect(Manager *m) {
         if (!MANAGER_IS_USER(m))
                 return -EINVAL;
 
+        if (MANAGER_IS_TEST_RUN(m))
+                return 0;
+
         r = sd_varlink_connect_address(&link, VARLINK_ADDR_PATH_MANAGED_OOM_USER);
         if (r == -ENOENT)
                 return 0;
@@ -244,6 +250,9 @@ int manager_varlink_send_managed_oom_update(Unit *u) {
         assert(u);
 
         if (!UNIT_VTABLE(u)->can_set_managed_oom || !u->manager)
+                return 0;
+
+        if (MANAGER_IS_TEST_RUN(u->manager))
                 return 0;
 
         crt = unit_get_cgroup_runtime(u);
