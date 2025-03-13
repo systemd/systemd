@@ -37,14 +37,14 @@ int switch_root(const char *new_root,
         static const struct {
                 const char *path;
                 unsigned long mount_flags;                 /* Flags to apply if SWITCH_ROOT_RECURSIVE_RUN is unset */
-                unsigned long mount_flags_recursive_run;   /* Flags to apply if SWITCH_ROOT_RECURSIVE_RUN is set (0 if shall be skipped) */
+                bool skip_recursive_run;                   /* Whether or not this path should be skipped when SWITCH_ROOT_RECURSIVE_RUN is set */
         } transfer_table[] = {
-                { "/dev",             MS_BIND|MS_REC,  MS_BIND|MS_REC }, /* Recursive, because we want to save the original /dev/shm/ + /dev/pts/ and similar */
-                { "/sys",             MS_BIND|MS_REC,  MS_BIND|MS_REC }, /* Similar, we want to retain various API VFS, or the cgroupv1 /sys/fs/cgroup/ tree */
-                { "/proc",            MS_BIND|MS_REC,  MS_BIND|MS_REC }, /* Similar */
-                { "/run",             MS_BIND,         MS_BIND|MS_REC }, /* Recursive except on soft reboot, see above */
-                { "/run/credentials", MS_BIND|MS_REC,  0 /* skip! */  }, /* Credential mounts should survive */
-                { "/run/host",        MS_BIND|MS_REC,  0 /* skip! */  }, /* Host supplied hierarchy should also survive */
+                { "/dev",             MS_BIND|MS_REC,  /* skip_recursive_run = */ false }, /* Recursive, because we want to save the original /dev/shm/ + /dev/pts/ and similar */
+                { "/sys",             MS_BIND|MS_REC,  /* skip_recursive_run = */ false }, /* Similar, we want to retain various API VFS, or the cgroupv1 /sys/fs/cgroup/ tree */
+                { "/proc",            MS_BIND|MS_REC,  /* skip_recursive_run = */ false }, /* Similar */
+                { "/run",             MS_BIND,         /* skip_recursive_run = */ false }, /* Recursive except on soft reboot, see above */
+                { "/run/credentials", MS_BIND|MS_REC,  /* skip_recursive_run = */ true  }, /* Credential mounts should survive */
+                { "/run/host",        MS_BIND|MS_REC,  /* skip_recursive_run = */ true  }, /* Host supplied hierarchy should also survive */
         };
 
         _cleanup_close_ int old_root_fd = -EBADF, new_root_fd = -EBADF;
@@ -127,10 +127,8 @@ int switch_root(const char *new_root,
 
         FOREACH_ELEMENT(transfer, transfer_table) {
                 _cleanup_free_ char *chased = NULL;
-                unsigned long mount_flags;
 
-                mount_flags = FLAGS_SET(flags, SWITCH_ROOT_RECURSIVE_RUN) ? transfer->mount_flags_recursive_run : transfer->mount_flags;
-                if (mount_flags == 0) /* skip if zero */
+                if (FLAGS_SET(flags, SWITCH_ROOT_RECURSIVE_RUN) && transfer->skip_recursive_run)
                         continue;
 
                 if (access(transfer->path, F_OK) < 0) {
@@ -149,9 +147,44 @@ int switch_root(const char *new_root,
                 if (r > 0) /* If it is already mounted, then do nothing */
                         continue;
 
-                r = mount_nofollow_verbose(LOG_ERR, transfer->path, chased, NULL, mount_flags, NULL);
-                if (r < 0)
-                        return r;
+                if (FLAGS_SET(flags, SWITCH_ROOT_RECURSIVE_RUN)) {
+                        /* On recursive runs, first create a bind mount with MOVE_MOUNT_BENEATH, and then MS_MOVE
+                         * the original mount point to the new root. This ensures that the mount point in the final
+                         * destination is the original mount, but also ensures that the mount is available in the old
+                         * root during the switch root. The latter is true because when we MS_MOVE, the bind mount is revelead. */
+                        _cleanup_close_ int mnt_fd = -EBADF, target_fd = -EBADF;
+
+                        target_fd = open(transfer->path, O_PATH|O_NOFOLLOW|O_CLOEXEC);
+                        if (target_fd < 0)
+                                return log_error_errno(errno, "Failed to open '%s': %m", transfer->path);
+
+                        mnt_fd = open_tree(-EBADF, transfer->path, OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC);
+                        if (mnt_fd < 0)
+                                return log_error_errno(errno, "Failed to open_tree '%s': %m", transfer->path);
+
+                        r = RET_NERRNO(mount_setattr(mnt_fd, "", AT_EMPTY_PATH,
+                                                     &(struct mount_attr) { .propagation = 0 },
+                                                     MOUNT_ATTR_SIZE_VER0));
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to set mount attrs: %m");
+
+                        r = RET_NERRNO(move_mount(mnt_fd, "",
+                                                  target_fd, "",
+                                                  MOVE_MOUNT_BENEATH|MOVE_MOUNT_F_EMPTY_PATH|MOVE_MOUNT_T_EMPTY_PATH));
+                        if (r == -EINVAL)
+                                log_warning_errno(r, "Failed to move bind mount beneath '%s', ignoring: %m", transfer->path);
+                        else if (r < 0)
+                                return log_debug_errno(r, "Failed to move bind mount beneath '%s': %m", transfer->path);
+
+                        r = mount_nofollow_verbose(LOG_ERR, transfer->path, chased, NULL, MS_MOVE, NULL);
+                        if (r < 0)
+                                return r;
+                } else {
+                        r = mount_nofollow_verbose(LOG_ERR, transfer->path, chased, NULL, transfer->mount_flags, NULL);
+                        if (r < 0)
+                                return r;
+                }
+
         }
 
         if (fchdir(new_root_fd) < 0)
