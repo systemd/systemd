@@ -132,6 +132,18 @@ typedef enum UserRecordLoadFlags {
                                           USER_RECORD_STRIP_BINDING |
                                           USER_RECORD_STRIP_STATUS,
 
+        USER_RECORD_LOAD_MASK_PRIVILEGED = USER_RECORD_REQUIRE_REGULAR|
+                                           USER_RECORD_STRIP_PRIVILEGED|
+                                           USER_RECORD_ALLOW_PER_MACHINE|
+                                           USER_RECORD_ALLOW_BINDING|
+                                           USER_RECORD_ALLOW_SIGNATURE,
+
+        USER_RECORD_EXTRACT_PRIVILEGED   = USER_RECORD_STRIP_REGULAR|
+                                           USER_RECORD_ALLOW_PRIVILEGED|
+                                           USER_RECORD_STRIP_PER_MACHINE|
+                                           USER_RECORD_STRIP_BINDING|
+                                           USER_RECORD_STRIP_SIGNATURE,
+
         /* Whether to log about loader errors beyond LOG_DEBUG */
         USER_RECORD_LOG                 = 1U << 28,
 
