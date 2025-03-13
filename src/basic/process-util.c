@@ -870,9 +870,9 @@ int get_process_umask(pid_t pid, mode_t *ret) {
 
         p = procfs_file_alloca(pid, "status");
 
-        r = get_proc_field(p, "Umask", WHITESPACE, &m);
+        r = get_proc_field(p, "Umask", &m);
         if (r == -ENOENT)
-                return -ESRCH;
+                return proc_mounted() == 0 ? -ENOSYS : -ESRCH;
         if (r < 0)
                 return r;
 
@@ -2079,7 +2079,7 @@ int get_process_threads(pid_t pid) {
 
         p = procfs_file_alloca(pid, "status");
 
-        r = get_proc_field(p, "Threads", WHITESPACE, &t);
+        r = get_proc_field(p, "Threads", &t);
         if (r == -ENOENT)
                 return proc_mounted() == 0 ? -ENOSYS : -ESRCH;
         if (r < 0)
