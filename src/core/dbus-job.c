@@ -247,7 +247,7 @@ void bus_job_send_change_signal(Job *j) {
                 job_add_to_gc_queue(j);
         }
 
-        r = bus_foreach_bus(j->manager, j->bus_track, j->sent_dbus_new_signal ? send_changed_signal : send_new_signal, j);
+        r = bus_foreach_bus_signal(j->manager, j->bus_track, j->sent_dbus_new_signal ? send_changed_signal : send_new_signal, j);
         if (r < 0)
                 log_debug_errno(r, "Failed to send job change signal for %u: %m", j->id);
 
@@ -308,7 +308,7 @@ void bus_job_send_removed_signal(Job *j) {
         /* Make sure that any change signal on the unit is reflected before we send out the change signal on the job */
         bus_unit_send_pending_change_signal(j->unit, true);
 
-        r = bus_foreach_bus(j->manager, j->bus_track, send_removed_signal, j);
+        r = bus_foreach_bus_signal(j->manager, j->bus_track, send_removed_signal, j);
         if (r < 0)
                 log_debug_errno(r, "Failed to send job remove signal for %u: %m", j->id);
 }
