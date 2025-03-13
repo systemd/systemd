@@ -48,11 +48,11 @@ static int run(int argc, char *argv[]) {
 
         sigbus_install();
 
-        r = server_new(&s);
+        r = server_new(&s, namespace);
         if (r < 0)
                 return log_oom();
 
-        r = server_init(s, namespace);
+        r = server_init(s);
         if (r < 0)
                 return r;
 
