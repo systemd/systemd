@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <threads.h>
 #include <unistd.h>
 
 #include "cgroup-setup.h"
@@ -9,171 +8,15 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "missing_magic.h"
 #include "mkdir.h"
 #include "parse-util.h"
 #include "path-util.h"
-#include "proc-cmdline.h"
 #include "process-util.h"
 #include "recurse-dir.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "user-util.h"
-#include "virt.h"
-
-static int cg_any_controller_used_for_v1(void) {
-        _cleanup_free_ char *buf = NULL;
-        _cleanup_strv_free_ char **lines = NULL;
-        int r;
-
-        r = read_full_virtual_file("/proc/cgroups", &buf, NULL);
-        if (r < 0)
-                return log_debug_errno(r, "Could not read /proc/cgroups, ignoring: %m");
-
-        r = strv_split_newlines_full(&lines, buf, 0);
-        if (r < 0)
-                return r;
-
-        /* The intention of this is to check if the fully unified cgroup tree setup is possible, meaning all
-         * enabled kernel cgroup controllers are currently not in use by cgroup1.  For reference:
-         * https://systemd.io/CGROUP_DELEGATION/#three-different-tree-setups-
-         *
-         * Note that this is typically only useful to check inside a container where we don't know what
-         * cgroup tree setup is in use by the host; if the host is using legacy or hybrid, we can't use
-         * unified since some or all controllers would be missing. This is not the best way to detect this,
-         * as whatever container manager created our container should have mounted /sys/fs/cgroup
-         * appropriately, but in case that wasn't done, we try to detect if it's possible for us to use
-         * unified cgroups. */
-        STRV_FOREACH(line, lines) {
-                _cleanup_free_ char *name = NULL, *hierarchy_id = NULL, *num = NULL, *enabled = NULL;
-
-                /* Skip header line */
-                if (startswith(*line, "#"))
-                        continue;
-
-                const char *p = *line;
-                r = extract_many_words(&p, NULL, 0, &name, &hierarchy_id, &num, &enabled);
-                if (r < 0)
-                        return log_debug_errno(r, "Error parsing /proc/cgroups line, ignoring: %m");
-                else if (r < 4) {
-                        log_debug("Invalid /proc/cgroups line, ignoring.");
-                        continue;
-                }
-
-                /* Ignore disabled controllers. */
-                if (streq(enabled, "0"))
-                        continue;
-
-                /* Ignore controllers we don't care about. */
-                if (cgroup_controller_from_string(name) < 0)
-                        continue;
-
-                /* Since the unified cgroup doesn't use multiple hierarchies, if any controller has a
-                 * non-zero hierarchy_id that means it's in use already in a legacy (or hybrid) cgroup v1
-                 * hierarchy, and can't be used in a unified cgroup. */
-                if (!streq(hierarchy_id, "0")) {
-                        log_debug("Cgroup controller %s in use by legacy v1 hierarchy.", name);
-                        return 1;
-                }
-        }
-
-        return 0;
-}
-
-bool cg_is_unified_wanted(void) {
-        static thread_local int wanted = -1;
-        int r;
-
-        /* If we have a cached value, return that. */
-        if (wanted >= 0)
-                return wanted;
-
-        /* If the hierarchy is already mounted, then follow whatever was chosen for it. */
-        r = cg_unified_cached(true);
-        if (r >= 0)
-                return (wanted = r >= CGROUP_UNIFIED_ALL);
-
-        /* If we have explicit configuration for v1 or v2, respect that. */
-        if (cg_is_legacy_force_enabled())
-                return (wanted = false);
-
-        bool b;
-        r = proc_cmdline_get_bool("systemd.unified_cgroup_hierarchy", /* flags = */ 0, &b);
-        if (r > 0 && b)
-                return (wanted = true);
-
-        /* If we passed cgroup_no_v1=all with no other instructions, it seems highly unlikely that we want to
-         * use hybrid or legacy hierarchy. */
-        _cleanup_free_ char *c = NULL;
-        r = proc_cmdline_get_key("cgroup_no_v1", 0, &c);
-        if (r > 0 && streq_ptr(c, "all"))
-                return (wanted = true);
-
-        /* If any controller is in use as v1, don't use unified. */
-        if (cg_any_controller_used_for_v1() > 0)
-                return (wanted = false);
-
-        return (wanted = true);
-}
-
-bool cg_is_legacy_wanted(void) {
-        /* Check if we have cgroup v2 already mounted. */
-        if (cg_unified_cached(true) == CGROUP_UNIFIED_ALL)
-                return false;
-
-        /* Otherwise, assume that at least partial legacy is wanted,
-         * since cgroup v2 should already be mounted at this point. */
-        return true;
-}
-
-bool cg_is_hybrid_wanted(void) {
-        static thread_local int wanted = -1;
-        int r;
-
-        /* If we have a cached value, return that. */
-        if (wanted >= 0)
-                return wanted;
-
-        /* If the hierarchy is already mounted, then follow whatever was chosen for it. */
-        if (cg_unified_cached(true) == CGROUP_UNIFIED_ALL)
-                return (wanted = false);
-
-        /* Otherwise, let's see what the kernel command line has to say.  Since checking is expensive, cache
-         * a non-error result.
-         * The meaning of the kernel option is reversed wrt. to the return value of this function, hence the
-         * negation. */
-        bool b;
-        r = proc_cmdline_get_bool("systemd.legacy_systemd_cgroup_controller", /* flags = */ 0, &b);
-        if (r > 0)
-                return (wanted = !b);
-
-        /* The default hierarchy is "unified". But if this is reached, it means that unified hierarchy was
-         * not mounted, so return true too. */
-        return (wanted = true);
-}
-
-bool cg_is_legacy_enabled(void) {
-        int r;
-        bool b;
-
-        r = proc_cmdline_get_bool("systemd.unified_cgroup_hierarchy", /* flags = */ 0, &b);
-        return r > 0 && !b;
-}
-
-bool cg_is_legacy_force_enabled(void) {
-        int r;
-        bool b;
-
-        /* Require both systemd.unified_cgroup_hierarchy=0 and SYSTEMD_CGROUP_ENABLE_LEGACY_FORCE=1. */
-
-        if (!cg_is_legacy_enabled())
-                return false;
-
-        r = proc_cmdline_get_bool("SYSTEMD_CGROUP_ENABLE_LEGACY_FORCE", /* flags = */ 0, &b);
-        if (r <= 0 || !b)
-                return false;
-
-        return true;
-}
 
 int cg_weight_parse(const char *s, uint64_t *ret) {
         uint64_t u;
@@ -1108,4 +951,30 @@ int cg_uninstall_release_agent(const char *controller) {
                 return r;
 
         return 0;
+}
+
+int cg_has_legacy(void) {
+        struct statfs fs;
+
+        /* Checks if any legacy controller/hierarchy is mounted. */
+
+        if (statfs("/sys/fs/cgroup/", &fs) < 0) {
+                if (errno == ENOENT) /* sysfs not mounted? */
+                        return false;
+
+                return log_debug_errno(errno, "Failed to statfs /sys/fs/cgroup/: %m");
+        }
+
+        if (is_fs_type(&fs, CGROUP2_SUPER_MAGIC) ||
+            is_fs_type(&fs, SYSFS_MAGIC)) /* not mounted yet */
+                return false;
+
+        if (is_fs_type(&fs, TMPFS_MAGIC)) {
+                log_debug("Found tmpfs on /sys/fs/cgroup/, assuming legacy hierarchy.");
+                return true;
+        }
+
+        return log_debug_errno(SYNTHETIC_ERRNO(ENOMEDIUM),
+                               "Unknown filesystem type %llx mounted on /sys/fs/cgroup/.",
+                               (unsigned long long) fs.f_type);
 }
