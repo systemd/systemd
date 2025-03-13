@@ -3201,14 +3201,6 @@ int main(int argc, char *argv[]) {
                         goto finish;
                 }
 
-                if (!skip_setup) {
-                        r = mount_cgroup_legacy_controllers(loaded_policy);
-                        if (r < 0) {
-                                error_message = "Failed to mount cgroup v1 hierarchy";
-                                goto finish;
-                        }
-                }
-
                 /* The efivarfs is now mounted, let's lock down the system token. */
                 lock_down_efi_variables();
         } else {
@@ -3309,6 +3301,23 @@ int main(int argc, char *argv[]) {
         }
 
         log_execution_mode(&first_boot);
+
+        r = cg_has_legacy();
+        if (r < 0) {
+                error_message = "Failed to check cgroup hierarchy";
+                goto finish;
+        }
+        if (r > 0) {
+                r = log_full_errno(LOG_EMERG, SYNTHETIC_ERRNO(EPROTO),
+                                   "Detected cgroup v1 hierarchy at /sys/fs/cgroup/, which is no longer supported by current version of systemd.\n"
+                                   "Please instruct your initrd to mount cgroup v2 (unified) hierarchy,\n"
+                                   "possibly by removing any stale kernel command line options, such as:\n"
+                                   "  systemd.legacy_systemd_cgroup_controller=1\n"
+                                   "  systemd.unified_cgroup_hierarchy=0");
+
+                error_message = "Detected unsupported legacy cgroup hierarchy, refusing execution";
+                goto finish;
+        }
 
         r = initialize_runtime(skip_setup,
                                first_boot,

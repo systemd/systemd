@@ -4,7 +4,6 @@
 set -eux
 set -o pipefail
 
-# default to Debian testing
 DISTRO="${DISTRO:-debian}"
 RELEASE="${RELEASE:-bookworm}"
 SALSA_URL="${SALSA_URL:-https://salsa.debian.org/systemd-team/systemd.git}"
@@ -20,13 +19,21 @@ ARTIFACTS_DIR=/tmp/artifacts
 PHASES=(${@:-SETUP RUN})
 UBUNTU_RELEASE="$(lsb_release -cs)"
 
+
 create_container() {
     sudo lxc-create -n "$CONTAINER" -t download -- -d "$DISTRO" -r "$RELEASE" -a "$ARCH"
 
     # unconfine the container, otherwise some tests fail
-    echo 'lxc.apparmor.profile = unconfined' | sudo tee -a "/var/lib/lxc/$CONTAINER/config"
+    #
+    # disable automatic cgroup setup, instead let pid1 figure it out in mount_setup().
+    # This is especially important to ensure we get unified cgroup hierarchy
+    sudo tee "/var/lib/lxc/$CONTAINER/config.systemd_upstream" <<EOF
+lxc.apparmor.profile = unconfined
+lxc.mount.auto =
+lxc.mount.auto = proc:mixed sys:mixed
+EOF
 
-    sudo lxc-start -n "$CONTAINER"
+    sudo lxc-start -n "$CONTAINER" --define "lxc.include=/var/lib/lxc/$CONTAINER/config.systemd_upstream"
 
     # enable source repositories so that apt-get build-dep works
     sudo lxc-attach -n "$CONTAINER" -- sh -ex <<EOF
@@ -55,6 +62,9 @@ systemctl enable systemd-networkd
 EOF
     sudo lxc-stop -n "$CONTAINER"
 }
+
+findmnt -R /sys/fs/cgroup
+cat /proc/cmdline
 
 for phase in "${PHASES[@]}"; do
     case "$phase" in
@@ -112,6 +122,7 @@ EOF
                                                        ../systemd_*.dsc \
                                                        -o "$ARTIFACTS_DIR" \
                                                        -- lxc -s "$CONTAINER" \
+                                                           --define "lxc.include=/var/lib/lxc/$CONTAINER/config.systemd_upstream" \
                 || [ $? -eq 2 ]
         ;;
         *)
