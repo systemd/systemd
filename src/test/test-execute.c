@@ -1128,6 +1128,23 @@ static void test_exec_runtimedirectory(Manager *m) {
         test(m, "exec-runtimedirectory-owner-" NOBODY_GROUP_NAME ".service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_GROUP, CLD_EXITED);
 }
 
+static void test_exec_statedirectory_stdoutput(Manager *m) {
+        if (MANAGER_IS_USER(m)) {
+                log_notice("Skipping %s for user manager", __func__);
+                return;
+        }
+
+        _cleanup_free_ char *bad = private_directory_bad(m);
+        if (bad) {
+                log_warning("%s: %s has bad permissions, skipping test.", __func__, bad);
+                return;
+        }
+
+        int status = can_unshare ? 0 : EXIT_NAMESPACE;
+
+        test(m, "exec-statedirectory-stdoutput.service", status, CLD_EXITED);
+}
+
 static void test_exec_capabilityboundingset(Manager *m) {
         int r;
 
@@ -1359,6 +1376,7 @@ static void run_tests(RuntimeScope scope, char **patterns) {
                 entry(test_exec_readwritepaths),
                 entry(test_exec_restrictnamespaces),
                 entry(test_exec_runtimedirectory),
+                entry(test_exec_statedirectory_stdoutput),
                 entry(test_exec_specifier),
                 entry(test_exec_standardinput),
                 entry(test_exec_standardoutput),
