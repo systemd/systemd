@@ -136,8 +136,8 @@ systemd_index_xml = custom_target(
         output : 'systemd.index.xml',
         command : [make_man_index_py, '@OUTPUT@'] + nonindex_xml_files)
 
-foreach tuple : xsltproc.found() ? [['systemd.directives', '7', systemd_directives_xml],
-                                    ['systemd.index',      '7', systemd_index_xml]] : []
+foreach tuple : xsltproc.found() and have_lxml ? [['systemd.directives', '7', systemd_directives_xml],
+                                                  ['systemd.index',      '7', systemd_index_xml]] : []
         stem = tuple[0]
         section = tuple[1]
         xml = tuple[2]
@@ -152,7 +152,7 @@ foreach tuple : xsltproc.found() ? [['systemd.directives', '7', systemd_directiv
                 input : xml,
                 output : man,
                 command : xslt_cmd + [custom_man_xsl, '@INPUT@'],
-                install : want_man and have_lxml,
+                install : want_man,
                 install_dir : mandirn)
         man_pages += p1
 
@@ -179,7 +179,7 @@ foreach tuple : xsltproc.found() ? [['systemd.directives', '7', systemd_directiv
                 output : html,
                 command : xslt_cmd + [custom_html_xsl, '@INPUT@'],
                 depends : [man_page_depends, p2],
-                install : want_html and have_lxml,
+                install : want_html,
                 install_dir : docdir / 'html')
         html_pages += p3
 endforeach
