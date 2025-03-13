@@ -17,7 +17,7 @@ static int load_available_kernel_filesystems(Set **ret) {
 
         /* Let's read the available filesystems */
 
-        r = read_virtual_file("/proc/filesystems", SIZE_MAX, &t, NULL);
+        r = read_full_file("/proc/filesystems", &t, /* ret_size= */ NULL);
         if (r < 0)
                 return r;
 

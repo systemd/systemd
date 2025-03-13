@@ -491,7 +491,11 @@ int read_virtual_file_at(
          * max_size specifies a limit on the bytes read. If max_size is SIZE_MAX, the full file is read. If
          * the full file is too large to read, an error is returned. For other values of max_size, *partial
          * contents* may be returned. (Though the read is still done using one syscall.) Returns 0 on
-         * partial success, 1 if untruncated contents were read. */
+         * partial success, 1 if untruncated contents were read.
+         *
+         * Rule: for kernfs files using "seq_file" → use regular read_full_file_at()
+         *       for kernfs files using "raw" → use read_virtual_file_at()
+         */
 
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
         assert(max_size <= READ_VIRTUAL_BYTES_MAX || max_size == SIZE_MAX);
