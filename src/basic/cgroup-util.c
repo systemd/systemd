@@ -704,25 +704,6 @@ int cg_set_xattr(const char *path, const char *name, const void *value, size_t s
         return RET_NERRNO(setxattr(fs, name, value, size, flags));
 }
 
-int cg_get_xattr(const char *path, const char *name, void *value, size_t size) {
-        _cleanup_free_ char *fs = NULL;
-        ssize_t n;
-        int r;
-
-        assert(path);
-        assert(name);
-
-        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, path, NULL, &fs);
-        if (r < 0)
-                return r;
-
-        n = getxattr(fs, name, value, size);
-        if (n < 0)
-                return -errno;
-
-        return (int) n;
-}
-
 int cg_get_xattr_malloc(const char *path, const char *name, char **ret, size_t *ret_size) {
         _cleanup_free_ char *fs = NULL;
         int r;
