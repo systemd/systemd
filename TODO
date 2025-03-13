@@ -130,6 +130,10 @@ Deprecations and removals:
 
 Features:
 
+* bsod: add target "bsod.target" or so, which invokes systemd-bsod.target and
+  waits and then reboots. Then use OnFailure=bsod.target from various jobs that
+  should result in system reboots, such as TPM tamper detection cases.
+
 * pcrextend: maybe add option to disable measurements entirely via kernel cmdline
 
 * tpm2-setup: reboot if we detect SRK changed
