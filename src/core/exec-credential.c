@@ -890,7 +890,7 @@ static int setup_credentials_internal(
 
         r = path_is_mount_point(final);
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Failed to determine if '%s' is a mountpoint: %m", final);
         final_mounted = r > 0;
 
         if (final_mounted) {
@@ -1083,7 +1083,7 @@ int exec_setup_credentials(
                 FOREACH_STRING(i, t, u) {
                         r = mkdir_label(i, 0700);
                         if (r < 0 && r != -EEXIST)
-                                return r;
+                                return log_debug_errno(r, "Failed to make directory '%s': %m", i);
                 }
 
                 r = setup_credentials_internal(
