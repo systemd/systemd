@@ -678,4 +678,5 @@ systemctl reload dbus.service
 enable_debug
 run_testcases
 
+exit 1
 touch /testok
