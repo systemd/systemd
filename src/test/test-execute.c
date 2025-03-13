@@ -1416,9 +1416,10 @@ static void run_tests(RuntimeScope scope, char **patterns) {
         start = now(CLOCK_MONOTONIC);
 
         for (const test_entry *test = tests; test->f; test++)
-                if (strv_fnmatch_or_empty(patterns, test->name, FNM_NOESCAPE))
+                if (strv_fnmatch_or_empty(patterns, test->name, FNM_NOESCAPE)) {
+                        log_info("Starting %s.", test->name);
                         test->f(m);
-                else
+                } else
                         log_info("Skipping %s because it does not match any pattern.", test->name);
 
         finish = now(CLOCK_MONOTONIC);
