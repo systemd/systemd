@@ -2717,13 +2717,13 @@ int user_record_test_password_change_required(UserRecord *h) {
         return change_permitted ? 0 : -EROFS;
 }
 
-int user_record_is_root(const UserRecord *u) {
+bool user_record_is_root(const UserRecord *u) {
         assert(u);
 
         return u->uid == 0 || streq_ptr(u->user_name, "root");
 }
 
-int user_record_is_nobody(const UserRecord *u) {
+bool user_record_is_nobody(const UserRecord *u) {
         assert(u);
 
         return u->uid == UID_NOBODY || STRPTR_IN_SET(u->user_name, NOBODY_USER_NAME, "nobody");
