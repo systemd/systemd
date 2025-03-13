@@ -372,3 +372,15 @@ bool group_record_match(GroupRecord *h, const UserDBMatch *match) {
 
         return true;
 }
+
+int group_record_is_root(const GroupRecord *g) {
+        assert(g);
+
+        return g->gid == 0 || streq_ptr(g->group_name, "root");
+}
+
+int group_record_is_nobody(const GroupRecord *g) {
+        assert(g);
+
+        return g->gid == GID_NOBODY || STRPTR_IN_SET(g->group_name, NOBODY_GROUP_NAME, "nobody");
+}
