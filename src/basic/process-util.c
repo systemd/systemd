@@ -507,48 +507,10 @@ int get_process_exe(pid_t pid, char **ret) {
         return 0;
 }
 
-static int get_process_id(pid_t pid, const char *field, uid_t *ret) {
-        _cleanup_fclose_ FILE *f = NULL;
-        const char *p;
+int pid_get_uid(pid_t pid, uid_t *ret) {
         int r;
 
-        assert(field);
-        assert(ret);
-
-        if (pid < 0)
-                return -EINVAL;
-
-        p = procfs_file_alloca(pid, "status");
-        r = fopen_unlocked(p, "re", &f);
-        if (r == -ENOENT)
-                return -ESRCH;
-        if (r < 0)
-                return r;
-
-        for (;;) {
-                _cleanup_free_ char *line = NULL;
-                char *l;
-
-                r = read_stripped_line(f, LONG_LINE_MAX, &line);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        break;
-
-                l = startswith(line, field);
-                if (l) {
-                        l += strspn(l, WHITESPACE);
-
-                        l[strcspn(l, WHITESPACE)] = 0;
-
-                        return parse_uid(l, ret);
-                }
-        }
-
-        return -EIO;
-}
-
-int pid_get_uid(pid_t pid, uid_t *ret) {
+        assert(pid >= 0);
         assert(ret);
 
         if (pid == 0 || pid == getpid_cached()) {
@@ -556,7 +518,14 @@ int pid_get_uid(pid_t pid, uid_t *ret) {
                 return 0;
         }
 
-        return get_process_id(pid, "Uid:", ret);
+        _cleanup_free_ char *v = NULL;
+        r = procfs_file_get_field(pid, "status", "Uid", &v);
+        if (r == -ENOENT)
+                return -ESRCH;
+        if (r < 0)
+                return r;
+
+        return parse_uid(v, ret);
 }
 
 int pidref_get_uid(const PidRef *pid, uid_t *ret) {
@@ -589,14 +558,24 @@ int pidref_get_uid(const PidRef *pid, uid_t *ret) {
 }
 
 int get_process_gid(pid_t pid, gid_t *ret) {
+        int r;
+
+        assert(pid >= 0);
+        assert(ret);
 
         if (pid == 0 || pid == getpid_cached()) {
                 *ret = getgid();
                 return 0;
         }
 
-        assert_cc(sizeof(uid_t) == sizeof(gid_t));
-        return get_process_id(pid, "Gid:", ret);
+        _cleanup_free_ char *v = NULL;
+        r = procfs_file_get_field(pid, "status", "Gid", &v);
+        if (r == -ENOENT)
+                return -ESRCH;
+        if (r < 0)
+                return r;
+
+        return parse_gid(v, ret);
 }
 
 int get_process_cwd(pid_t pid, char **ret) {
@@ -862,15 +841,12 @@ int pidref_get_start_time(const PidRef *pid, usec_t *ret) {
 
 int get_process_umask(pid_t pid, mode_t *ret) {
         _cleanup_free_ char *m = NULL;
-        const char *p;
         int r;
 
         assert(pid >= 0);
         assert(ret);
 
-        p = procfs_file_alloca(pid, "status");
-
-        r = get_proc_field(p, "Umask", &m);
+        r = procfs_file_get_field(pid, "status", "Umask", &m);
         if (r == -ENOENT)
                 return -ESRCH;
         if (r < 0)
@@ -2071,15 +2047,12 @@ _noreturn_ void freeze(void) {
 
 int get_process_threads(pid_t pid) {
         _cleanup_free_ char *t = NULL;
-        const char *p;
         int n, r;
 
         if (pid < 0)
                 return -EINVAL;
 
-        p = procfs_file_alloca(pid, "status");
-
-        r = get_proc_field(p, "Threads", &t);
+        r = procfs_file_get_field(pid, "status", "Threads", &t);
         if (r == -ENOENT)
                 return -ESRCH;
         if (r < 0)
