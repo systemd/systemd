@@ -122,7 +122,7 @@ int proc_cmdline(char **ret) {
         if (detect_container() > 0)
                 return pid_get_cmdline(1, SIZE_MAX, 0, ret);
 
-        return read_virtual_file("/proc/cmdline", SIZE_MAX, ret, NULL);
+        return read_full_file("/proc/cmdline", ret, /* ret_size= */  NULL);
 }
 
 static int proc_cmdline_strv_internal(char ***ret, bool filter_pid1_args) {
