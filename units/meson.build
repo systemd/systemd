@@ -838,6 +838,10 @@ units = [
           'conditions' : ['ENABLE_NSRESOURCED'],
         },
         {
+          'file' : 'systemd-validatefs@.service.in',
+          'conditions' : ['HAVE_BLKID'],
+        },
+        {
           'file' : 'systemd-vconsole-setup.service.in',
           'conditions' : ['ENABLE_VCONSOLE'],
         },
