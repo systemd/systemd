@@ -19,6 +19,7 @@ ARTIFACTS_DIR=/tmp/artifacts
 PHASES=(${@:-SETUP RUN})
 UBUNTU_RELEASE="$(lsb_release -cs)"
 
+
 create_container() {
     sudo lxc-create -n "$CONTAINER" -t download -- -d "$DISTRO" -r "$RELEASE" -a "$ARCH"
 
@@ -30,6 +31,7 @@ create_container() {
 lxc.apparmor.profile = unconfined
 lxc.mount.auto =
 lxc.mount.auto = proc:mixed sys:mixed
+lxc.init.cmd = /sbin/init systemd.unified_cgroup_hierarchy=1
 EOF
 
     sudo lxc-start -n "$CONTAINER" --define "lxc.include=/var/lib/lxc/$CONTAINER/config.systemd_upstream"
@@ -61,6 +63,9 @@ systemctl enable systemd-networkd
 EOF
     sudo lxc-stop -n "$CONTAINER"
 }
+
+findmnt -R /sys/fs/cgroup
+cat /proc/cmdline
 
 for phase in "${PHASES[@]}"; do
     case "$phase" in
