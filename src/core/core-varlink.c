@@ -633,7 +633,7 @@ static int manager_varlink_init_system(Manager *m) {
         bool fresh = r > 0;
 
         if (!MANAGER_IS_TEST_RUN(m)) {
-                (void) mkdir_p_label("/run/systemd/userdb", 0755);
+                (void) mkdir_label("/run/systemd/userdb", 0755);
 
                 FOREACH_STRING(address, "/run/systemd/userdb/io.systemd.DynamicUser", VARLINK_ADDR_PATH_MANAGED_OOM_SYSTEM) {
                         if (!fresh) {
