@@ -229,6 +229,7 @@ static inline bool verity_settings_data_covers(const VeritySettings *verity, Par
 int verity_settings_copy(VeritySettings *dest, const VeritySettings *source);
 
 int dissected_image_load_verity_sig_partition(DissectedImage *m, int fd, VeritySettings *verity);
+int dissected_image_guess_verity_roothash(DissectedImage *m, VeritySettings *verity);
 
 bool dissected_image_verity_candidate(const DissectedImage *image, PartitionDesignator d);
 bool dissected_image_verity_ready(const DissectedImage *image, PartitionDesignator d);
