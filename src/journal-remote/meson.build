@@ -2,6 +2,7 @@
 
 systemd_journal_upload_sources = files(
         'journal-compression-util.c',
+        'journal-header-util.c',
         'journal-upload-journal.c',
         'journal-upload.c',
 )
@@ -87,6 +88,12 @@ executables += [
                         libshared,
                         libsystemd_journal_remote,
                 ],
+        },
+]
+
+executables += [
+        test_template + {
+                'sources' : files('test-journal-header-util.c', 'journal-header-util.c'),
         },
 ]
 
