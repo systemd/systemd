@@ -656,19 +656,27 @@ static int add_partition_root_flags(DissectedPartition *p) {
 static int add_root_cryptsetup(void) {
 #if HAVE_LIBCRYPTSETUP
 
-        /* If a device /dev/gpt-auto-root-luks appears, then make it pull in systemd-cryptsetup-root.service, which
-         * sets it up, and causes /dev/gpt-auto-root to appear which is all we are looking for. */
+        assert(arg_auto_root != GPT_AUTO_ROOT_OFF);
 
-        const char *bdev = "/dev/gpt-auto-root-luks";
+        /* If a device /dev/gpt-auto-root-luks or /dev/disk/by-designator/root-luks appears, then make it
+         * pull in systemd-cryptsetup@root.service, which sets it up, and causes /dev/gpt-auto-root or
+         * /dev/disk/by-designator/root to appear which is all we are looking for. */
 
-        if (arg_auto_root == GPT_AUTO_ROOT_FORCE) {
+        const char *bdev =
+                IN_SET(arg_auto_root, GPT_AUTO_ROOT_DISSECT, GPT_AUTO_ROOT_DISSECT_FORCE) ?
+                "/dev/disk/by-designator/root-luks" : "/dev/gpt-auto-root-luks";
+
+        if (IN_SET(arg_auto_root, GPT_AUTO_ROOT_FORCE, GPT_AUTO_ROOT_DISSECT_FORCE)) {
                 /* Similar logic as in add_root_mount(), see below */
                 FactoryResetMode f = factory_reset_mode();
                 if (f < 0)
                         log_warning_errno(f, "Failed to determine whether we are in factory reset mode, assuming not: %m");
 
                 if (IN_SET(f, FACTORY_RESET_ON, FACTORY_RESET_COMPLETE))
-                        bdev = "/dev/gpt-auto-root-luks-ignore-factory-reset";
+                        bdev =
+                                IN_SET(arg_auto_root, GPT_AUTO_ROOT_DISSECT, GPT_AUTO_ROOT_DISSECT_FORCE) ?
+                                "/dev/disk/by-designator/root-luks-ignore-factory-reset" :
+                                "/dev/gpt-auto-root-luks-ignore-factory-reset";
         }
 
         return add_cryptsetup("root", bdev, arg_root_options, MOUNT_RW|MOUNT_MEASURE, /* require= */ false, NULL);
@@ -715,14 +723,19 @@ static int add_root_mount(void) {
          * factory reset the latter is the link to use, otherwise the former (so that we don't accidentally
          * mount a root partition too early that is about to be wiped and replaced by another one). */
 
-        const char *bdev = "/dev/gpt-auto-root";
-        if (arg_auto_root == GPT_AUTO_ROOT_FORCE) {
+        const char *bdev =
+                IN_SET(arg_auto_root, GPT_AUTO_ROOT_DISSECT, GPT_AUTO_ROOT_DISSECT_FORCE) ?
+                "/dev/disk/by-designator/root" : "/dev/gpt-auto-root";
+        if (IN_SET(arg_auto_root, GPT_AUTO_ROOT_FORCE, GPT_AUTO_ROOT_DISSECT_FORCE)) {
                 FactoryResetMode f = factory_reset_mode();
                 if (f < 0)
                         log_warning_errno(f, "Failed to determine whether we are in factory reset mode, assuming not: %m");
 
                 if (IN_SET(f, FACTORY_RESET_ON, FACTORY_RESET_COMPLETE))
-                        bdev = "/dev/gpt-auto-root-ignore-factory-reset";
+                        bdev =
+                                IN_SET(arg_auto_root, GPT_AUTO_ROOT_DISSECT, GPT_AUTO_ROOT_DISSECT_FORCE) ?
+                                "/dev/disk/by-designator/root-ignore-factory-reset" :
+                                "/dev/gpt-auto-root-ignore-factory-reset";
         }
 
         if (in_initrd()) {
