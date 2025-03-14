@@ -58,6 +58,9 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached();
                 }
 
+        if (argc != optind + 2)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expected two arguments: command string and device path.");
+
         arg_command = argv[optind++];
         if (!arg_command)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -66,7 +69,7 @@ static int parse_argv(int argc, char *argv[]) {
         arg_syspath = argv[optind++];
         if (!arg_syspath)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "device is missing.");
+                                       "Device is missing.");
 
         return 1;
 }
