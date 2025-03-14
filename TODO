@@ -145,6 +145,11 @@ Features:
 
 * tpm2-setup: reboot if we detect SRK changed
 
+* validatefs: validate more things: check if image id + os id of initrd match
+  target mount, so that we refuse early any attempts to boot into different
+  images with the wrong kernels. check min/max kernel version too. all encoded
+  via xattrs in the target fs.
+
 * pcrextend: when we fail to measure, reboot the system (at least optionally).
   important because certain measurements are supposed to "destroy" tpm object
   access.
