@@ -2177,8 +2177,10 @@ static int run(int argc, char *argv[]) {
 
         if (arg_image) {
                 r = verity_settings_load(
-                        &arg_verity_settings,
-                        arg_image, NULL, NULL);
+                                &arg_verity_settings,
+                                arg_image,
+                                /* root_hash_path= */ NULL,
+                                /* root_hash_sig_path= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to read verity artifacts for %s: %m", arg_image);
 
@@ -2243,6 +2245,12 @@ static int run(int argc, char *argv[]) {
                                                 &arg_verity_settings);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to load verity signature partition: %m");
+
+                                r = dissected_image_guess_verity_roothash(
+                                                m,
+                                                &arg_verity_settings);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to guess verity root hash: %m");
 
                                 if (arg_action != ACTION_DISSECT) {
                                         r = dissected_image_decrypt_interactively(
