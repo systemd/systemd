@@ -363,4 +363,4 @@ NotifyAccess notify_access_from_string(const char *s) _pure_;
 const char* job_mode_to_string(JobMode t) _const_;
 JobMode job_mode_from_string(const char *s) _pure_;
 
-SpecialGlyph unit_active_state_to_glyph(UnitActiveState state);
+Glyph unit_active_state_to_glyph(UnitActiveState state);

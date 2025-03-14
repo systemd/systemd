@@ -213,9 +213,9 @@ static int table_add_uid_boundaries(Table *table, const UIDRange *p) {
                 if (i->test && !i->test())
                         continue;
 
-                name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_DOWN),
+                name = strjoin(glyph(GLYPH_ARROW_DOWN),
                                " begin ", i->name, " users ",
-                               special_glyph(SPECIAL_GLYPH_ARROW_DOWN));
+                               glyph(GLYPH_ARROW_DOWN));
                 if (!name)
                         return log_oom();
 
@@ -225,7 +225,7 @@ static int table_add_uid_boundaries(Table *table, const UIDRange *p) {
 
                 r = table_add_many(
                                 table,
-                                TABLE_STRING, special_glyph(SPECIAL_GLYPH_TREE_TOP),
+                                TABLE_STRING, glyph(GLYPH_TREE_TOP),
                                 TABLE_STRING, name,
                                 TABLE_SET_COLOR, ansi_grey(),
                                 TABLE_STRING, user_disposition_to_string(i->disposition),
@@ -242,9 +242,9 @@ static int table_add_uid_boundaries(Table *table, const UIDRange *p) {
                         return table_log_add_error(r);
 
                 free(name);
-                name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_UP),
+                name = strjoin(glyph(GLYPH_ARROW_UP),
                                " end ", i->name, " users ",
-                               special_glyph(SPECIAL_GLYPH_ARROW_UP));
+                               glyph(GLYPH_ARROW_UP));
                 if (!name)
                         return log_oom();
 
@@ -255,7 +255,7 @@ static int table_add_uid_boundaries(Table *table, const UIDRange *p) {
 
                 r = table_add_many(
                                 table,
-                                TABLE_STRING, special_glyph(SPECIAL_GLYPH_TREE_RIGHT),
+                                TABLE_STRING, glyph(GLYPH_TREE_RIGHT),
                                 TABLE_STRING, name,
                                 TABLE_SET_COLOR, ansi_grey(),
                                 TABLE_STRING, user_disposition_to_string(i->disposition),
@@ -284,15 +284,15 @@ static int add_unavailable_uid(Table *table, uid_t start, uid_t end) {
         assert(table);
         assert(start <= end);
 
-        name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_DOWN),
+        name = strjoin(glyph(GLYPH_ARROW_DOWN),
                        " begin unavailable users ",
-                       special_glyph(SPECIAL_GLYPH_ARROW_DOWN));
+                       glyph(GLYPH_ARROW_DOWN));
         if (!name)
                 return log_oom();
 
         r = table_add_many(
                         table,
-                        TABLE_STRING, special_glyph(SPECIAL_GLYPH_TREE_TOP),
+                        TABLE_STRING, glyph(GLYPH_TREE_TOP),
                         TABLE_STRING, name,
                         TABLE_SET_COLOR, ansi_grey(),
                         TABLE_EMPTY,
@@ -308,15 +308,15 @@ static int add_unavailable_uid(Table *table, uid_t start, uid_t end) {
                 return table_log_add_error(r);
 
         free(name);
-        name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_UP),
+        name = strjoin(glyph(GLYPH_ARROW_UP),
                        " end unavailable users ",
-                       special_glyph(SPECIAL_GLYPH_ARROW_UP));
+                       glyph(GLYPH_ARROW_UP));
         if (!name)
                 return log_oom();
 
         r = table_add_many(
                         table,
-                        TABLE_STRING, special_glyph(SPECIAL_GLYPH_TREE_RIGHT),
+                        TABLE_STRING, glyph(GLYPH_TREE_RIGHT),
                         TABLE_STRING, name,
                         TABLE_SET_COLOR, ansi_grey(),
                         TABLE_EMPTY,
@@ -609,9 +609,9 @@ static int table_add_gid_boundaries(Table *table, const UIDRange *p) {
                 if (i->test && !i->test())
                         continue;
 
-                name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_DOWN),
+                name = strjoin(glyph(GLYPH_ARROW_DOWN),
                                " begin ", i->name, " groups ",
-                               special_glyph(SPECIAL_GLYPH_ARROW_DOWN));
+                               glyph(GLYPH_ARROW_DOWN));
                 if (!name)
                         return log_oom();
 
@@ -621,7 +621,7 @@ static int table_add_gid_boundaries(Table *table, const UIDRange *p) {
 
                 r = table_add_many(
                                 table,
-                                TABLE_STRING, special_glyph(SPECIAL_GLYPH_TREE_TOP),
+                                TABLE_STRING, glyph(GLYPH_TREE_TOP),
                                 TABLE_STRING, name,
                                 TABLE_SET_COLOR, ansi_grey(),
                                 TABLE_STRING, user_disposition_to_string(i->disposition),
@@ -635,9 +635,9 @@ static int table_add_gid_boundaries(Table *table, const UIDRange *p) {
                         return table_log_add_error(r);
 
                 free(name);
-                name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_UP),
+                name = strjoin(glyph(GLYPH_ARROW_UP),
                                " end ", i->name, " groups ",
-                               special_glyph(SPECIAL_GLYPH_ARROW_UP));
+                               glyph(GLYPH_ARROW_UP));
                 if (!name)
                         return log_oom();
 
@@ -648,7 +648,7 @@ static int table_add_gid_boundaries(Table *table, const UIDRange *p) {
 
                 r = table_add_many(
                                 table,
-                                TABLE_STRING, special_glyph(SPECIAL_GLYPH_TREE_RIGHT),
+                                TABLE_STRING, glyph(GLYPH_TREE_RIGHT),
                                 TABLE_STRING, name,
                                 TABLE_SET_COLOR, ansi_grey(),
                                 TABLE_STRING, user_disposition_to_string(i->disposition),
@@ -674,15 +674,15 @@ static int add_unavailable_gid(Table *table, uid_t start, uid_t end) {
         assert(table);
         assert(start <= end);
 
-        name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_DOWN),
+        name = strjoin(glyph(GLYPH_ARROW_DOWN),
                        " begin unavailable groups ",
-                       special_glyph(SPECIAL_GLYPH_ARROW_DOWN));
+                       glyph(GLYPH_ARROW_DOWN));
         if (!name)
                 return log_oom();
 
         r = table_add_many(
                         table,
-                        TABLE_STRING, special_glyph(SPECIAL_GLYPH_TREE_TOP),
+                        TABLE_STRING, glyph(GLYPH_TREE_TOP),
                         TABLE_STRING, name,
                         TABLE_SET_COLOR, ansi_grey(),
                         TABLE_EMPTY,
@@ -695,15 +695,15 @@ static int add_unavailable_gid(Table *table, uid_t start, uid_t end) {
                 return table_log_add_error(r);
 
         free(name);
-        name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_UP),
+        name = strjoin(glyph(GLYPH_ARROW_UP),
                        " end unavailable groups ",
-                       special_glyph(SPECIAL_GLYPH_ARROW_UP));
+                       glyph(GLYPH_ARROW_UP));
         if (!name)
                 return log_oom();
 
         r = table_add_many(
                         table,
-                        TABLE_STRING, special_glyph(SPECIAL_GLYPH_TREE_RIGHT),
+                        TABLE_STRING, glyph(GLYPH_TREE_RIGHT),
                         TABLE_STRING, name,
                         TABLE_SET_COLOR, ansi_grey(),
                         TABLE_EMPTY,

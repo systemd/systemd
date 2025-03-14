@@ -2772,7 +2772,7 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *ds = NULL;
 
                         log_debug("Requesting DS (%s %s) to validate transaction %" PRIu16 " (%s empty response).",
-                                  special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), name, t->id,
+                                  glyph(GLYPH_ARROW_RIGHT), name, t->id,
                                   dns_resource_key_name(dns_transaction_key(t)));
 
                         ds = dns_resource_key_new(dns_transaction_key(t)->class, DNS_TYPE_DS, name);

@@ -155,7 +155,7 @@ static void tar_import_report_progress(TarImport *i) {
                 (void) draw_progress_barf(
                                 percent,
                                 "%s %s/%s",
-                                special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
+                                glyph(GLYPH_ARROW_RIGHT),
                                 FORMAT_BYTES(i->written_compressed),
                                 FORMAT_BYTES(i->input_stat.st_size));
         else
