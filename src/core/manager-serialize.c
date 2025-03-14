@@ -303,10 +303,10 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                                 r = fd_get_path(fd, &fn);
                                 if (r < 0)
                                         log_debug_errno(r, "Received serialized fd %i %s %m",
-                                                        fd, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT));
+                                                        fd, glyph(GLYPH_ARROW_RIGHT));
                                 else
                                         log_debug("Received serialized fd %i %s %s",
-                                                  fd, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), strna(fn));
+                                                  fd, glyph(GLYPH_ARROW_RIGHT), strna(fn));
                         }
                 }
         }

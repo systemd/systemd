@@ -232,9 +232,9 @@ static int format_config_files(char ***files, const char *main_config) {
 
         STRV_FOREACH(d, *files) {
                 _cleanup_free_ char *s = NULL;
-                int glyph = *(d + 1) == NULL ? SPECIAL_GLYPH_TREE_RIGHT : SPECIAL_GLYPH_TREE_BRANCH;
+                Glyph tree = *(d + 1) == NULL ? GLYPH_TREE_RIGHT : GLYPH_TREE_BRANCH;
 
-                s = strjoin(special_glyph(glyph), *d);
+                s = strjoin(glyph(tree), *d);
                 if (!s)
                         return log_oom();
 
@@ -918,7 +918,7 @@ static int link_status_one(
 
         /* First line: circle, ifindex, ifname. */
         printf("%s%s%s %d: %s\n",
-               on_color_operational, special_glyph(SPECIAL_GLYPH_BLACK_CIRCLE), off_color_operational,
+               on_color_operational, glyph(GLYPH_BLACK_CIRCLE), off_color_operational,
                info->ifindex, info->name);
 
         r = table_print(table, NULL);

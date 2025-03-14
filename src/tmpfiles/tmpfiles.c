@@ -4481,7 +4481,7 @@ static int read_config_files(
 
         STRV_FOREACH(f, files)
                 if (p && path_equal(*f, p)) {
-                        log_debug("Parsing arguments at position \"%s\"%s", *f, special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+                        log_debug("Parsing arguments at position \"%s\"%s", *f, glyph(GLYPH_ELLIPSIS));
 
                         r = parse_arguments(c, config_dirs, args, invalid_config);
                         if (r < 0)

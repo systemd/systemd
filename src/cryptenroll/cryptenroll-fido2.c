@@ -178,7 +178,7 @@ int enroll_fido2(
                 fprintf(stderr,
                         "A FIDO2 credential has been registered for this volume:\n\n"
                         "    %s%sfido2-cid=%s",
-                        emoji_enabled() ? special_glyph(SPECIAL_GLYPH_LOCK_AND_KEY) : "",
+                        emoji_enabled() ? glyph(GLYPH_LOCK_AND_KEY) : "",
                         emoji_enabled() ? " " : "",
                         ansi_highlight());
                 fflush(stderr);

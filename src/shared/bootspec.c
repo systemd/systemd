@@ -1664,7 +1664,7 @@ static void print_addon(
                 const char *addon_str) {
 
         printf("  %s: %s\n", addon_str, addon->location);
-        printf("      options: %s%s\n", special_glyph(SPECIAL_GLYPH_TREE_RIGHT), addon->cmdline);
+        printf("      options: %s%s\n", glyph(GLYPH_TREE_RIGHT), addon->cmdline);
 }
 
 static int indent_embedded_newlines(char *cmdline, char **ret_cmdline) {

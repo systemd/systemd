@@ -182,7 +182,7 @@ static int prompt_loop(
                                 l,
                                 strv_isempty(l) ? "%s %s (empty to skip): "
                                                 : "%s %s (empty to skip, \"list\" to list options): ",
-                                special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET), text);
+                                glyph(GLYPH_TRIANGULAR_BULLET), text);
                 if (r < 0)
                         return log_error_errno(r, "Failed to query user: %m");
 
@@ -779,8 +779,8 @@ static int prompt_root_password(int rfd) {
 
         print_welcome(rfd);
 
-        msg1 = strjoina(special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET), " Please enter the new root password (empty to skip):");
-        msg2 = strjoina(special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET), " Please enter the new root password again:");
+        msg1 = strjoina(glyph(GLYPH_TRIANGULAR_BULLET), " Please enter the new root password (empty to skip):");
+        msg2 = strjoina(glyph(GLYPH_TRIANGULAR_BULLET), " Please enter the new root password again:");
 
         suggest_passwords();
 

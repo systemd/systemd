@@ -492,7 +492,7 @@ static int handle_generic_user_record_error(
         } else if (sd_bus_error_has_name(error, BUS_ERROR_TOKEN_PROTECTED_AUTHENTICATION_PATH_NEEDED)) {
 
                 log_notice("%s%sPlease authenticate physically on security token.",
-                           emoji_enabled() ? special_glyph(SPECIAL_GLYPH_TOUCH) : "",
+                           emoji_enabled() ? glyph(GLYPH_TOUCH) : "",
                            emoji_enabled() ? " " : "");
 
                 r = user_record_set_pkcs11_protected_authentication_path_permitted(hr, true);
@@ -502,7 +502,7 @@ static int handle_generic_user_record_error(
         } else if (sd_bus_error_has_name(error, BUS_ERROR_TOKEN_USER_PRESENCE_NEEDED)) {
 
                 log_notice("%s%sPlease confirm presence on security token.",
-                           emoji_enabled() ? special_glyph(SPECIAL_GLYPH_TOUCH) : "",
+                           emoji_enabled() ? glyph(GLYPH_TOUCH) : "",
                            emoji_enabled() ? " " : "");
 
                 r = user_record_set_fido2_user_presence_permitted(hr, true);
@@ -512,7 +512,7 @@ static int handle_generic_user_record_error(
         } else if (sd_bus_error_has_name(error, BUS_ERROR_TOKEN_USER_VERIFICATION_NEEDED)) {
 
                 log_notice("%s%sPlease verify user on security token.",
-                           emoji_enabled() ? special_glyph(SPECIAL_GLYPH_TOUCH) : "",
+                           emoji_enabled() ? glyph(GLYPH_TOUCH) : "",
                            emoji_enabled() ? " " : "");
 
                 r = user_record_set_fido2_user_verification_permitted(hr, true);
@@ -2085,11 +2085,11 @@ static int passwd_home(int argc, char *argv[], void *userdata) {
         if (arg_pkcs11_token_uri)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "To change the PKCS#11 security token use 'homectl update --pkcs11-token-uri=%s'.",
-                                       special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+                                       glyph(GLYPH_ELLIPSIS));
         if (arg_fido2_device)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "To change the FIDO2 security token use 'homectl update --fido2-device=%s'.",
-                                       special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+                                       glyph(GLYPH_ELLIPSIS));
         if (identity_properties_specified())
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "The 'passwd' verb does not permit changing other record properties at the same time.");
 
@@ -2724,7 +2724,7 @@ static int create_interactively(void) {
 
                 r = ask_string(&username,
                                "%s Please enter user name to create (empty to skip): ",
-                               special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET));
+                               glyph(GLYPH_TRIANGULAR_BULLET));
                 if (r < 0)
                         return log_error_errno(r, "Failed to query user for username: %m");
 
@@ -2780,7 +2780,7 @@ static int create_interactively(void) {
                 r = ask_string_full(&s,
                                group_completion_callback, &available,
                                "%s Please enter an auxiliary group for user %s (empty to continue, \"list\" to list available groups): ",
-                               special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET), username);
+                               glyph(GLYPH_TRIANGULAR_BULLET), username);
                 if (r < 0)
                         return log_error_errno(r, "Failed to query user for auxiliary group: %m");
 
@@ -2865,7 +2865,7 @@ static int create_interactively(void) {
 
                 r = ask_string(&shell,
                                "%s Please enter the shell to use for user %s (empty for default): ",
-                               special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET), username);
+                               glyph(GLYPH_TRIANGULAR_BULLET), username);
                 if (r < 0)
                         return log_error_errno(r, "Failed to query user for username: %m");
 
@@ -4614,7 +4614,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                                 if (u < REBALANCE_WEIGHT_MIN || u > REBALANCE_WEIGHT_MAX)
                                         return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "Rebalancing weight out of valid range %" PRIu64 "%s%" PRIu64 ": %s",
-                                                               REBALANCE_WEIGHT_MIN, special_glyph(SPECIAL_GLYPH_ELLIPSIS), REBALANCE_WEIGHT_MAX, optarg);
+                                                               REBALANCE_WEIGHT_MIN, glyph(GLYPH_ELLIPSIS), REBALANCE_WEIGHT_MAX, optarg);
                         }
 
                         /* Drop from per machine stuff and everywhere */
@@ -5252,7 +5252,7 @@ static int verb_list_signing_keys(int argc, char *argv[], void *userdata) {
                         if (m < 0)
                                 return log_oom();
                         if (n > 64) /* check if we truncated the original version */
-                                if (!strextend(&h, special_glyph(SPECIAL_GLYPH_ELLIPSIS)))
+                                if (!strextend(&h, glyph(GLYPH_ELLIPSIS)))
                                         return log_oom();
                 }
 
