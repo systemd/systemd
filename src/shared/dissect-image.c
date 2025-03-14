@@ -1519,20 +1519,29 @@ static int dissect_image(
          * we don't check encryption requirements here, because we haven't probed the file system yet, hence
          * don't know if this is encrypted or not) */
         for (PartitionDesignator di = 0; di < _PARTITION_DESIGNATOR_MAX; di++) {
-                PartitionDesignator vi, si;
-                PartitionPolicyFlags found_flags;
-
                 any = any || m->partitions[di].found;
 
-                vi = partition_verity_of(di);
-                si = partition_verity_sig_of(di);
-
                 /* Determine the verity protection level for this partition. */
-                found_flags = m->partitions[di].found ?
-                        (vi >= 0 && m->partitions[vi].found ?
-                         (si >= 0 && m->partitions[si].found ? PARTITION_POLICY_SIGNED : PARTITION_POLICY_VERITY) :
-                         PARTITION_POLICY_ENCRYPTED|PARTITION_POLICY_UNPROTECTED) :
-                        (m->partitions[di].ignored ? PARTITION_POLICY_UNUSED : PARTITION_POLICY_ABSENT);
+                PartitionPolicyFlags found_flags;
+                if (m->partitions[di].found) {
+                        found_flags = PARTITION_POLICY_ENCRYPTED|PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_UNUSED;
+
+                        PartitionDesignator vi = partition_verity_of(di);
+                        if (vi >= 0 && m->partitions[vi].found) {
+                                found_flags |= PARTITION_POLICY_VERITY;
+
+                                PartitionDesignator si = partition_verity_sig_of(di);
+                                if (si >= 0 && m->partitions[si].found)
+                                        found_flags |= PARTITION_POLICY_SIGNED;
+                        }
+                } else
+                        found_flags = m->partitions[di].ignored ? PARTITION_POLICY_UNUSED : PARTITION_POLICY_ABSENT;
+
+                if (DEBUG_LOGGING) {
+                        _cleanup_free_ char *s = NULL;
+                        (void) partition_policy_flags_to_string(found_flags, /* simplify= */ false, &s);
+                        log_debug("Found for designator %s: %s", partition_designator_to_string(di), strna(s));
+                }
 
                 r = image_policy_check_protection(policy, di, found_flags);
                 if (r < 0)
