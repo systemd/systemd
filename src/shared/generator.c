@@ -1108,6 +1108,10 @@ GptAutoRoot parse_gpt_auto_root(const char *value) {
                 return GPT_AUTO_ROOT_DISSECT_FORCE;
         }
 
-        log_debug("Disabling root partition auto-detection, root= is neither unset, nor set to 'gpt-auto', 'gpt-auto-force', 'dissect' or 'dissect-force'.");
+        if (streq(value, "off"))
+                log_debug("Disabling root partition auto-detection, root= handling is explicitly turned off.");
+        else
+                log_debug("Disabling root partition auto-detection, root= is neither unset, nor set to 'gpt-auto', 'gpt-auto-force', 'dissect' or 'dissect-force'.");
+
         return GPT_AUTO_ROOT_OFF;
 }
