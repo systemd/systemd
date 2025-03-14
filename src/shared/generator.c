@@ -1034,7 +1034,10 @@ bool generator_soft_rebooted(void) {
 GptAutoRoot parse_gpt_auto_root(const char *value) {
         assert(value);
 
-        /* Parses the 'gpt-auto'/'gpt-auto-root' parameters to root= */
+        /* Parses the 'gpt-auto'/'gpt-auto-root'/'dissect'/'dissect-force' parameters to root=
+         *
+         * note that we are not using a regular string table here, because the mode names don't fully match
+         * the parameter names. And root= being something else is not an error. */
 
         if (streq(value, "gpt-auto")) {
                 log_debug("Enabling root partition auto-detection (respecting factory reset mode), root= is explicitly set to 'gpt-auto'.");
@@ -1046,6 +1049,16 @@ GptAutoRoot parse_gpt_auto_root(const char *value) {
                 return GPT_AUTO_ROOT_FORCE;
         }
 
-        log_debug("Disabling root partition auto-detection, root= is neither unset, nor set to 'gpt-auto' or 'gpt-auto-force'.");
+        if (streq(value, "dissect")) {
+                log_debug("Enabling root partition auto-detection via full image dissection (respecting factory reset mode), root= is explicitly set to 'dissect'.");
+                return GPT_AUTO_ROOT_DISSECT;
+        }
+
+        if (streq(value, "dissect-force")) {
+                log_debug("Enabling root partition auto-detection via full image dissection (ignoring factory reset mode), root= is explicitly set to 'dissect-force'.");
+                return GPT_AUTO_ROOT_DISSECT_FORCE;
+        }
+
+        log_debug("Disabling root partition auto-detection, root= is neither unset, nor set to 'gpt-auto', 'gpt-auto-force', 'dissect' or 'dissect-force'.");
         return GPT_AUTO_ROOT_OFF;
 }
