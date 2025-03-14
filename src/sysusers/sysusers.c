@@ -481,7 +481,7 @@ static int write_temporary_passwd(
                 return 0;
 
         if (arg_dry_run) {
-                log_info("Would write /etc/passwd%s", special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+                log_info("Would write /etc/passwd%s", glyph(GLYPH_ELLIPSIS));
                 return 0;
         }
 
@@ -624,7 +624,7 @@ static int write_temporary_shadow(
                 return 0;
 
         if (arg_dry_run) {
-                log_info("Would write /etc/shadow%s", special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+                log_info("Would write /etc/shadow%s", glyph(GLYPH_ELLIPSIS));
                 return 0;
         }
 
@@ -759,7 +759,7 @@ static int write_temporary_group(
                 return 0;
 
         if (arg_dry_run) {
-                log_info("Would write /etc/group%s", special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+                log_info("Would write /etc/group%s", glyph(GLYPH_ELLIPSIS));
                 return 0;
         }
 
@@ -872,7 +872,7 @@ static int write_temporary_gshadow(
                 return 0;
 
         if (arg_dry_run) {
-                log_info("Would write /etc/gshadow%s", special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+                log_info("Would write /etc/gshadow%s", glyph(GLYPH_ELLIPSIS));
                 return 0;
         }
 
@@ -2224,13 +2224,13 @@ static int read_config_files(Context *c, char **args) {
 
         STRV_FOREACH(f, files)
                 if (p && path_equal(*f, p)) {
-                        log_debug("Parsing arguments at position \"%s\"%s", *f, special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+                        log_debug("Parsing arguments at position \"%s\"%s", *f, glyph(GLYPH_ELLIPSIS));
 
                         r = parse_arguments(c, args);
                         if (r < 0)
                                 return r;
                 } else {
-                        log_debug("Reading config file \"%s\"%s", *f, special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+                        log_debug("Reading config file \"%s\"%s", *f, glyph(GLYPH_ELLIPSIS));
 
                         /* Just warn, ignore result otherwise */
                         (void) read_config_file(c, *f, /* ignore_enoent= */ true);

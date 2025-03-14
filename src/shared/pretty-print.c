@@ -525,14 +525,14 @@ void draw_progress_bar_unbuffered(const char *prefix, double percentage) {
                                                 fprintf(stderr, "\x1B[38;2;%u;%u;%um", r8, g8, b8);
                                         }
 
-                                        fputs(special_glyph(SPECIAL_GLYPH_HORIZONTAL_FAT), stderr);
+                                        fputs(glyph(GLYPH_HORIZONTAL_FAT), stderr);
                                 } else if (i+1 < length && !separator_done) {
                                         fputs(ansi_normal(), stderr);
                                         fputc(' ', stderr);
                                         separator_done = true;
                                         fputs(ansi_grey(), stderr);
                                 } else
-                                        fputs(special_glyph(SPECIAL_GLYPH_HORIZONTAL_DOTTED), stderr);
+                                        fputs(glyph(GLYPH_HORIZONTAL_DOTTED), stderr);
                         }
 
                         fputs(ansi_normal(), stderr);

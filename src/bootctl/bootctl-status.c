@@ -137,7 +137,7 @@ static int print_efi_option(uint16_t id, int *n_printed, bool in_order) {
         printf("       Status: %sactive%s\n", active ? "" : "in", in_order ? ", boot-order" : "");
         printf("    Partition: /dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR "\n",
                SD_ID128_FORMAT_VAL(partition));
-        printf("         File: %s%s\n", special_glyph(SPECIAL_GLYPH_TREE_RIGHT), path);
+        printf("         File: %s%s\n", glyph(GLYPH_TREE_RIGHT), path);
         printf("\n");
 
         (*n_printed)++;
@@ -230,7 +230,7 @@ static int enumerate_binaries(
                                   * one more, and can draw the tree glyph properly. */
                         printf("         %s %s%s\n",
                                *is_first ? "File:" : "     ",
-                               special_glyph(SPECIAL_GLYPH_TREE_BRANCH), *previous);
+                               glyph(GLYPH_TREE_BRANCH), *previous);
                         *is_first = false;
                         *previous = mfree(*previous);
                 }
@@ -281,7 +281,7 @@ static int status_binaries(const char *esp_path, sd_id128_t partition) {
         if (last) /* let's output the last entry now, since now we know that there will be no more, and can draw the tree glyph properly */
                 printf("         %s %s%s\n",
                        is_first ? "File:" : "     ",
-                       special_glyph(SPECIAL_GLYPH_TREE_RIGHT), last);
+                       glyph(GLYPH_TREE_RIGHT), last);
 
         if (r == 0 && !arg_quiet)
                 log_info("systemd-boot not installed in ESP.");
@@ -505,7 +505,7 @@ int verb_status(int argc, char *argv[], void *userdata) {
                                 printf("    Partition: n/a\n");
 
                         if (loader_path)
-                                printf("       Loader: %s%s\n", special_glyph(SPECIAL_GLYPH_TREE_RIGHT), strna(loader_path));
+                                printf("       Loader: %s%s\n", glyph(GLYPH_TREE_RIGHT), strna(loader_path));
 
                         if (loader_url)
                                 printf(" Net Boot URL: %s\n", loader_url);
@@ -546,7 +546,7 @@ int verb_status(int argc, char *argv[], void *userdata) {
                                 printf("    Partition: n/a\n");
 
                         if (stub_path)
-                                printf("         Stub: %s%s\n", special_glyph(SPECIAL_GLYPH_TREE_RIGHT), strna(stub_path));
+                                printf("         Stub: %s%s\n", glyph(GLYPH_TREE_RIGHT), strna(stub_path));
 
                         if (stub_url)
                                 printf(" Net Boot URL: %s\n", stub_url);

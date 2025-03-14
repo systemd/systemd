@@ -768,8 +768,8 @@ static int enumerate_sysv(const LookupPaths *lp, Hashmap *all_services) {
                                                "Please update package to include a native systemd unit file.\n"
                                                "%s This compatibility logic is deprecated, expect removal soon. %s",
                                                fpath,
-                                               special_glyph(SPECIAL_GLYPH_WARNING_SIGN),
-                                               special_glyph(SPECIAL_GLYPH_WARNING_SIGN)),
+                                               glyph(GLYPH_WARNING_SIGN),
+                                               glyph(GLYPH_WARNING_SIGN)),
                                    "MESSAGE_ID=" SD_MESSAGE_SYSV_GENERATOR_DEPRECATED_STR,
                                    "SYSVSCRIPT=%s", fpath,
                                    "UNIT=%s", name);
