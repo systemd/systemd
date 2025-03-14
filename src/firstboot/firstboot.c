@@ -124,11 +124,17 @@ static void print_welcome(int rfd) {
         (void) terminal_reset_defensive_locked(STDOUT_FILENO, /* flags= */ 0);
 
         if (colors_enabled())
-                printf("\nWelcome to your new installation of \x1B[%sm%s\x1B[0m!\n", ac, pn);
+                printf("\n"
+                       ANSI_HIGHLIGHT "Welcome to your new installation of " ANSI_NORMAL "\x1B[%sm%s" ANSI_HIGHLIGHT "!" ANSI_NORMAL "\n", ac, pn);
         else
                 printf("\nWelcome to your new installation of %s!\n", pn);
 
-        printf("\nPlease configure your system!\n");
+        putchar('\n');
+        if (emoji_enabled()) {
+                fputs(special_glyph(SPECIAL_GLYPH_SPARKLES), stdout);
+                putchar(' ');
+        }
+        printf("Please configure your new system!\n");
 
         any_key_to_proceed();
 

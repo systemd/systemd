@@ -2710,7 +2710,12 @@ static int create_interactively(void) {
                 return 0;
         }
 
-        printf("\nPlease create your user account!\n");
+        putchar('\n');
+        if (emoji_enabled()) {
+                fputs(special_glyph(SPECIAL_GLYPH_HOME), stdout);
+                putchar(' ');
+        }
+        printf("Please create your user account!\n");
 
         if (!any_key_to_proceed()) {
                 log_notice("Skipping.");
