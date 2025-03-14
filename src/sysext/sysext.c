@@ -1814,6 +1814,12 @@ static int merge_subprocess(
                         if (r < 0)
                                 return r;
 
+                        r = dissected_image_guess_verity_roothash(
+                                        m,
+                                        &verity_settings);
+                        if (r < 0)
+                                return r;
+
                         r = dissected_image_decrypt_interactively(
                                         m, NULL,
                                         &verity_settings,
