@@ -32,6 +32,7 @@ import socket
 import struct
 import subprocess
 import sys
+import tempfile
 import time
 import unittest
 
@@ -8854,6 +8855,45 @@ class NetworkdSysctlTest(unittest.TestCase, Utilities):
         self.assertRegex(log, r"Foreign process 'sysctl\[\d+\]' changed sysctl '/proc/sys/net/ipv6/conf/dummy98/proxy_ndp' from '0' to '1', conflicting with our setting to '0'")
         self.assertNotIn("changed sysctl '/proc/sys/net/ipv6/conf/dummy98/hop_limit'", log)
         self.assertNotIn("changed sysctl '/proc/sys/net/ipv6/conf/dummy98/max_addresses'", log)
+
+class NetworkdRestartTest(unittest.TestCase, Utilities):
+
+    def setUp(self):
+        setup_common()
+
+    def tearDown(self):
+        tear_down_common()
+
+    def test_restart(self):
+        copy_network_unit('12-dummy.netdev', '85-static-ipv6.network')
+        start_networkd()
+        self.wait_online('dummy98:routable')
+
+        # Add an unmanaged interface with an up address
+        call('ip link add unmanaged0 type dummy')
+        call('ip link set unmanaged0 up')
+        call('ip -6 addr add 2001:db8:9999:f101::15/64 dev unmanaged0')
+
+        # Start `ip monitor` with output to a temporary file
+        with tempfile.TemporaryFile(mode='r+', prefix='ip_monitor') as logfile:
+            process = subprocess.Popen(['ip', 'monitor', 'dev', 'dummy98'], stdout=logfile, shell=False)
+            restart_networkd()
+            time.sleep(3)
+
+            if process.poll() is None:
+                process.terminate()
+
+            # Read the `ip monitor` output looking for network changes
+            logfile.seek(0)
+            for line in logfile:
+                # Check if a link went down
+                self.assertNotRegex(line, 'unmanaged0: .* state DOWN')
+                self.assertNotRegex(line, 'dummy98: .* state DOWN')
+                # Check if an address was removed
+                self.assertNotRegex(line, '^Deleted .* 2001:db8:')
+                self.assertNotRegex(line, '^Deleted 2001:db8:.*/64')
+                # Check if the default route was removed
+                self.assertNotRegex(line, '^Deleted default via fe80::f0ca:cc1a')
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
