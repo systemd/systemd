@@ -3,6 +3,19 @@
 set -eux
 set -o pipefail
 
+if ! command -v systemd-repart >/dev/null; then
+    echo "no systemd-repart"
+    return
+fi
+
+if systemd-detect-virt --quiet --container; then
+    echo "Skipping encrypt mount tests in container."
+    return
+fi
+
+export SYSTEMD_LOG_LEVEL=debug
+export PAGER=cat
+
 at_exit() {
     set +e
     rm -rf /tmp/validatefs-test/
