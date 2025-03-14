@@ -12,7 +12,7 @@ The recommended way to boot a [`systemd`](https://systemd.io/) based
 components:
 
 1. A boot loader,
-   i.e.. [`systemd-boot`](https://www.freedesktop.org/software/systemd/man/latest/systemd-boot.html)
+   i.e. [`systemd-boot`](https://www.freedesktop.org/software/systemd/man/latest/systemd-boot.html)
    that provides interactive and programmatic control of what precisely to
    boot. It takes care of enumerating all possible boot targets (implementing
    the [Boot Loader
