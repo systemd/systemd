@@ -544,7 +544,7 @@ TEST(sd_device_enumerator_add_all_parents) {
         log_debug("found %u devices", devices_count_without_parents);
 
         /* STEP 2: enumerate again with all_parents() */
-        ASSERT_OK(sd_device_enumerator_add_all_parents(e) >= 0);
+        ASSERT_OK(sd_device_enumerator_add_all_parents(e));
 
         unsigned not_filtered_parent_count = 0;
         FOREACH_DEVICE(e, dev) {
