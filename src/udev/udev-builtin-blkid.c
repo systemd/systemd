@@ -145,8 +145,25 @@ static int find_gpt_root(UdevEvent *event, blkid_probe pr, const char *loop_back
          * After the initrd→host transition: look at the current block device mounted at / and set the same
          * properties to its whole block device. */
 
+        const char *devnode;
+        r = sd_device_get_devname(dev, &devnode);
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to get device node: %m");
+
+        if (!device_in_subsystem(dev, "block")) {
+                log_device_debug(dev, "Invoked on non-block device '%s', ignoring.", devnode);
+                return 0;
+        }
         if (!device_is_devtype(dev, "disk")) {
                 log_device_debug(dev, "Skipping GPT root logic on partition block device.");
+                return 0;
+        }
+
+        r = blockdev_partscan_enabled(dev);
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to determine if block device '%s' supports partitions: %m", devnode);
+        if (r == 0) {
+                log_device_debug(dev, "Invoked on block device '%s' that lacks partition scanning, ignoring.", devnode);
                 return 0;
         }
 
