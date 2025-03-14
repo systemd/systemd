@@ -82,6 +82,7 @@ const char* special_glyph_full(SpecialGlyph code, bool force_utf) {
                         [SPECIAL_GLYPH_GREEN_CIRCLE]            = "o",
                         [SPECIAL_GLYPH_SUPERHERO]               = "S",
                         [SPECIAL_GLYPH_IDCARD]                  = "@",
+                        [SPECIAL_GLYPH_HOME]                    = "^",
                 },
 
                 /* UTF-8 */
@@ -153,6 +154,7 @@ const char* special_glyph_full(SpecialGlyph code, bool force_utf) {
                         [SPECIAL_GLYPH_GREEN_CIRCLE]            = u8"🟢",
                         [SPECIAL_GLYPH_SUPERHERO]               = u8"🦸",
                         [SPECIAL_GLYPH_IDCARD]                  = u8"🪪",
+                        [SPECIAL_GLYPH_HOME]                    = u8"🏠",
                 },
         };
 
