@@ -2384,6 +2384,12 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                         if (r < 0)
                                 return r;
 
+                        r = dissected_image_guess_verity_roothash(
+                                        dissected_image,
+                                        p->verity);
+                        if (r < 0)
+                                return r;
+
                         r = dissected_image_decrypt(
                                         dissected_image,
                                         NULL,
