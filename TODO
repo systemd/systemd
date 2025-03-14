@@ -130,6 +130,19 @@ Deprecations and removals:
 
 Features:
 
+* dissection logic: maybe introduce partition label pattern filtering: when
+  considering partitions match partition labels against some pattern (fnmatch()
+  or similar to those used by sysupdate). usecase: make sure particleos' home
+  partition is only used by particleos.
+
+* gpt-auto-generator: make use of new dissect device symlinks for unlocking
+  verity, too. That way there's no need to pin verity via roothash=/usrhash= on
+  kernel cmdline anymore, and we can take signatures into account. maybe take
+  usrhash=/roothash= kernel cmdline parameters into account when supporting this
+  in udev-builtin-dissect
+
+* gpt-auto-generator: maybe unlocking luks via mount.usr=dissect too.
+
 * make journalctl something we can invoke like the askpw/polkit agents, and
   then spawn it from "systemctl start" and similar with a precise filter on the
   unit. Make sure that it syncs on the journal when done so that we show
@@ -174,8 +187,6 @@ Features:
 * dissect: instead of searching for root and /usr partitions first, look for
   verity signature partitions first instead, then match up what we find with
   locally available keys, and then use first that works.
-
-* gpt-auto-root doesn't take image policy into account.
 
 * maybe define a /etc/machine-info field for the ANSI color to associate with a
   hostname. Then use it for the shell prompt to highlight the hostname. Maybe
@@ -1683,11 +1694,6 @@ Features:
 
 * systemd-sysext: optionally, run it in initrd already, before transitioning
   into host, to open up possibility for services shipped like that.
-
-* introduce /dev/disk/root/* symlinks that allow referencing partitions on the
-  disk the rootfs is on in a reasonably secure way. (or maybe: add
-  /dev/gpt-auto-{home,srv,boot,…} similar in style to /dev/gpt-auto-root as we
-  already have it.
 
 * whenever we receive fds via SCM_RIGHTS make sure none got dropped due to the
   reception limit the kernel silently enforces.
