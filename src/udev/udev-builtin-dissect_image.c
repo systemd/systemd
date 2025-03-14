@@ -198,6 +198,10 @@ static int verb_probe(UdevEvent *event, sd_device *dev) {
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to load verity signature data from image: %m");
 
+        r = dissected_image_guess_verity_roothash(image, &verity);
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to guess root hash from image: %m");
+
         /* Marker that we determined this to be a suitable image */
         (void) udev_builtin_add_property(event, "ID_DISSECT_IMAGE", "1");
 

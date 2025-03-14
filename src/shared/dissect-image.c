@@ -3525,6 +3525,69 @@ int dissected_image_load_verity_sig_partition(
         return 1;
 }
 
+int dissected_image_guess_verity_roothash(
+                DissectedImage *m,
+                VeritySettings *verity) {
+
+        int r;
+
+        assert(m);
+        assert(verity);
+
+        /* Guesses the Verity root hash from the partitions we found, taking into account that as per
+         * https://uapi-group.org/specifications/specs/discoverable_partitions_specification/ the UUIDS of
+         * the data and verity partitions are respectively the first and second halves of the dm-verity
+         * roothash.
+         *
+         * Note of course that relying on this guesswork is mostly useful for later attestation, not so much
+         * for a-priori security. */
+
+        if (verity->root_hash) /* Already loaded? */
+                return 0;
+
+        r = secure_getenv_bool("SYSTEMD_DISSECT_VERITY_GUESS");
+        if (r < 0 && r != -ENXIO)
+                log_debug_errno(r, "Failed to parse $SYSTEMD_DISSECT_VERITY_GUESS, ignoring: %m");
+        if (r == 0)
+                return 0;
+
+        PartitionDesignator dd = verity->designator;
+        if (dd < 0) {
+                if (m->partitions[PARTITION_ROOT_VERITY].found)
+                        dd = PARTITION_ROOT;
+                else if (m->partitions[PARTITION_USR_VERITY].found)
+                        dd = PARTITION_USR;
+                else
+                        return 0;
+        }
+
+        DissectedPartition *d = m->partitions + dd;
+        if (!d->found)
+                return 0;
+
+        PartitionDesignator dv = partition_verity_of(dd);
+        assert(dv >= 0);
+
+        DissectedPartition *p = m->partitions + dv;
+        if (!p->found)
+                return 0;
+
+        _cleanup_free_ uint8_t *rh = malloc(sizeof(sd_id128_t) * 2);
+        if (!rh)
+                return log_oom_debug();
+
+        memcpy(mempcpy(rh, &d->uuid, sizeof(sd_id128_t)), &p->uuid, sizeof(sd_id128_t));
+        verity->root_hash = TAKE_PTR(rh);
+        verity->root_hash_size = sizeof(sd_id128_t) * 2;
+
+        verity->designator = dd;
+
+        m->verity_ready = true;
+        m->partitions[dd].rw = false;
+
+        return 0;
+}
+
 int dissected_image_acquire_metadata(
                 DissectedImage *m,
                 int userns_fd,
@@ -4038,6 +4101,10 @@ int mount_image_privately_interactively(
         if (r < 0)
                 return r;
 
+        r = dissected_image_guess_verity_roothash(dissected_image, &verity);
+        if (r < 0)
+                return r;
+
         r = dissected_image_decrypt_interactively(dissected_image, NULL, &verity, flags);
         if (r < 0)
                 return r;
@@ -4178,6 +4245,10 @@ int verity_dissect_and_mount(
                 return log_debug_errno(r, "Failed to dissect image: %m");
 
         r = dissected_image_load_verity_sig_partition(dissected_image, loop_device->fd, verity);
+        if (r < 0)
+                return r;
+
+        r = dissected_image_guess_verity_roothash(dissected_image, verity);
         if (r < 0)
                 return r;
 
