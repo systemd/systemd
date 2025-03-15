@@ -204,7 +204,7 @@ static int lock_device(
                         return log_error_errno(SYNTHETIC_ERRNO(EBUSY), "Device '%s' is currently locked.", path);
 
                 if (deadline == USEC_INFINITY)  {
-                        log_info("Device '%s' is currently locked, waiting%s", path, special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+                        log_info("Device '%s' is currently locked, waiting%s", path, glyph(GLYPH_ELLIPSIS));
 
                         r = lock_generic(fd, LOCK_BSD, LOCK_EX);
                 } else {
@@ -212,7 +212,7 @@ static int lock_device(
 
                         log_info("Device '%s' is currently locked, waiting %s%s",
                                  path, FORMAT_TIMESPAN(left, 0),
-                                 special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+                                 glyph(GLYPH_ELLIPSIS));
 
                         r = lock_generic_with_timeout(fd, LOCK_BSD, LOCK_EX, left);
                         if (r == -ETIMEDOUT)
@@ -222,7 +222,7 @@ static int lock_device(
                         return log_error_errno(r, "Failed to lock device '%s': %m", path);
         }
 
-        log_debug("Successfully locked %s (%u:%u)%s", path, major(devno), minor(devno), special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+        log_debug("Successfully locked %s (%u:%u)%s", path, major(devno), minor(devno), glyph(GLYPH_ELLIPSIS));
 
         return TAKE_FD(fd);
 }

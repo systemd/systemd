@@ -421,7 +421,7 @@ static int list_versions_finished(sd_bus_message *reply, void *userdata, sd_bus_
         color = update_set_flags_to_color(v.flags);
 
         if (urlify_enabled() && !strv_isempty(v.changelog)) {
-                version_link = strjoin(v.version, special_glyph(SPECIAL_GLYPH_EXTERNAL_LINK));
+                version_link = strjoin(v.version, glyph(GLYPH_EXTERNAL_LINK));
                 if (!version_link)
                         return log_oom();
         }
@@ -688,10 +688,10 @@ static int check_describe_finished(sd_bus_message *reply, void *userdata, sd_bus
                 return bus_log_parse_error(r);
 
         if (urlify_enabled() && !strv_isempty(v.changelog))
-                lnk = special_glyph(SPECIAL_GLYPH_EXTERNAL_LINK);
+                lnk = glyph(GLYPH_EXTERNAL_LINK);
 
         update = strjoin(empty_to_dash(current), " ",
-                         special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), " ",
+                         glyph(GLYPH_ARROW_RIGHT), " ",
                          v.version, strempty(lnk));
         if (!update)
                 return log_oom();
@@ -1328,7 +1328,7 @@ static int list_features(sd_bus *bus) {
                         return r;
 
                 if (urlify_enabled() && f.documentation) {
-                        name_link = strjoin(f.name, special_glyph(SPECIAL_GLYPH_EXTERNAL_LINK));
+                        name_link = strjoin(f.name, glyph(GLYPH_EXTERNAL_LINK));
                         if (!name_link)
                                 return log_oom();
                 }
