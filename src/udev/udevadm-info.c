@@ -718,13 +718,13 @@ static int output_tree_device(
 
         prefix = strempty(prefix);
 
-        printf("%s%s%s\n", prefix, special_glyph(more ? SPECIAL_GLYPH_TREE_BRANCH : SPECIAL_GLYPH_TREE_RIGHT), str);
+        printf("%s%s%s\n", prefix, glyph(more ? GLYPH_TREE_BRANCH : GLYPH_TREE_RIGHT), str);
 
-        subprefix = strjoin(prefix, special_glyph(more ? SPECIAL_GLYPH_TREE_VERTICAL : SPECIAL_GLYPH_TREE_SPACE));
+        subprefix = strjoin(prefix, glyph(more ? GLYPH_TREE_VERTICAL : GLYPH_TREE_SPACE));
         if (!subprefix)
                 return log_oom();
 
-        subsubprefix = strjoin(subprefix, special_glyph(SPECIAL_GLYPH_VERTICAL_DOTTED), " ");
+        subsubprefix = strjoin(subprefix, glyph(GLYPH_VERTICAL_DOTTED), " ");
         if (!subsubprefix)
                 return log_oom();
 

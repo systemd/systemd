@@ -1262,7 +1262,7 @@ static int install_profile_dropin(
 
                 r = copy_file_atomic(from, dropin, 0644, copy_flags);
                 if (r < 0)
-                        return log_debug_errno(r, "Failed to copy %s %s %s: %m", from, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), dropin);
+                        return log_debug_errno(r, "Failed to copy %s %s %s: %m", from, glyph(GLYPH_ARROW_RIGHT), dropin);
 
                 (void) portable_changes_add(changes, n_changes, PORTABLE_COPY, dropin, from);
 
@@ -1273,7 +1273,7 @@ static int install_profile_dropin(
                 else
                         r = RET_NERRNO(symlink(from, dropin));
                 if (r < 0)
-                        return log_debug_errno(r, "Failed to link %s %s %s: %m", from, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), dropin);
+                        return log_debug_errno(r, "Failed to link %s %s %s: %m", from, glyph(GLYPH_ARROW_RIGHT), dropin);
 
                 (void) portable_changes_add(changes, n_changes, PORTABLE_SYMLINK, dropin, from);
         }
@@ -1472,7 +1472,7 @@ static int install_image(
                                         r,
                                         "Failed to copy %s %s %s: %m",
                                         image_path,
-                                        special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
+                                        glyph(GLYPH_ARROW_RIGHT),
                                         target);
 
         } else {
@@ -1481,7 +1481,7 @@ static int install_image(
                                         errno,
                                         "Failed to link %s %s %s: %m",
                                         image_path,
-                                        special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
+                                        glyph(GLYPH_ARROW_RIGHT),
                                         target);
         }
 

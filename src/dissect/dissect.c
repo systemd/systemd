@@ -2114,12 +2114,12 @@ static int action_validate(void) {
                 return r;
 
         if (isatty_safe(STDOUT_FILENO) && emoji_enabled())
-                printf("%s ", special_glyph(SPECIAL_GLYPH_SPARKLES));
+                printf("%s ", glyph(GLYPH_SPARKLES));
 
         printf("%sOK%s", ansi_highlight_green(), ansi_normal());
 
         if (isatty_safe(STDOUT_FILENO) && emoji_enabled())
-                printf(" %s", special_glyph(SPECIAL_GLYPH_SPARKLES));
+                printf(" %s", glyph(GLYPH_SPARKLES));
 
         putc('\n', stdout);
         return 0;

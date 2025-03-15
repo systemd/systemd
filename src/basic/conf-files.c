@@ -407,7 +407,7 @@ int conf_file_read(
                 f = stdin;
                 fn = "<stdin>";
 
-                log_debug("Reading config from stdin%s", special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+                log_debug("Reading config from stdin%s", glyph(GLYPH_ELLIPSIS));
 
         } else if (is_path(fn)) {
                 r = path_make_absolute_cwd(fn, &_fn);
@@ -419,14 +419,14 @@ int conf_file_read(
                 if (!_f)
                         r = -errno;
                 else
-                        log_debug("Reading config file \"%s\"%s", fn, special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+                        log_debug("Reading config file \"%s\"%s", fn, glyph(GLYPH_ELLIPSIS));
 
         } else {
                 r = search_and_fopen(fn, "re", root, config_dirs, &_f, &_fn);
                 if (r >= 0) {
                         f = _f;
                         fn = _fn;
-                        log_debug("Reading config file \"%s\"%s", fn, special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+                        log_debug("Reading config file \"%s\"%s", fn, glyph(GLYPH_ELLIPSIS));
                 }
         }
 

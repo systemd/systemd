@@ -850,7 +850,7 @@ static void mount_dump(Unit *u, FILE *f, const char *prefix) {
                         continue;
 
                 fprintf(f, "%s%s %s:\n",
-                        prefix, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), mount_exec_command_to_string(c));
+                        prefix, glyph(GLYPH_ARROW_RIGHT), mount_exec_command_to_string(c));
 
                 exec_command_dump(m->exec_command + c, f, prefix2);
         }

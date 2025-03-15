@@ -3387,13 +3387,13 @@ int home_resize_luks(
 
         log_info("Ready to resize image size %s %s %s, partition size %s %s %s, file system size %s %s %s.",
                  FORMAT_BYTES(old_image_size),
-                 special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
+                 glyph(GLYPH_ARROW_RIGHT),
                  FORMAT_BYTES(new_image_size),
                  FORMAT_BYTES(setup->partition_size),
-                 special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
+                 glyph(GLYPH_ARROW_RIGHT),
                  FORMAT_BYTES(new_partition_size),
                  FORMAT_BYTES(old_fs_size),
-                 special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
+                 glyph(GLYPH_ARROW_RIGHT),
                  FORMAT_BYTES(new_fs_size));
 
         if (new_fs_size > old_fs_size) { /* → Grow */

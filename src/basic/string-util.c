@@ -247,7 +247,7 @@ bool string_has_cc(const char *p, const char *ok) {
 }
 
 static int write_ellipsis(char *buf, bool unicode) {
-        const char *s = special_glyph_full(SPECIAL_GLYPH_ELLIPSIS, unicode);
+        const char *s = glyph_full(GLYPH_ELLIPSIS, unicode);
         assert(strlen(s) == 3);
         memcpy(buf, s, 3);
         return 3;

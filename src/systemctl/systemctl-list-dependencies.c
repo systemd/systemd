@@ -36,7 +36,7 @@ static int list_dependencies_print(const char *name, UnitActiveState state, int 
                         on = ansi_highlight_red();
                 }
 
-                printf("%s%s%s ", on, special_glyph(unit_active_state_to_glyph(state)), ansi_normal());
+                printf("%s%s%s ", on, glyph(unit_active_state_to_glyph(state)), ansi_normal());
         }
 
         if (!arg_plain) {
@@ -46,7 +46,7 @@ static int list_dependencies_print(const char *name, UnitActiveState state, int 
                                 printf("%s...\n",max_len % 2 ? "" : " ");
                                 return 0;
                         }
-                        printf("%s", special_glyph(branches & (1 << i) ? SPECIAL_GLYPH_TREE_VERTICAL : SPECIAL_GLYPH_TREE_SPACE));
+                        printf("%s", glyph(branches & (1 << i) ? GLYPH_TREE_VERTICAL : GLYPH_TREE_SPACE));
                 }
                 len += 2;
 
@@ -55,7 +55,7 @@ static int list_dependencies_print(const char *name, UnitActiveState state, int 
                         return 0;
                 }
 
-                printf("%s", special_glyph(last ? SPECIAL_GLYPH_TREE_RIGHT : SPECIAL_GLYPH_TREE_BRANCH));
+                printf("%s", glyph(last ? GLYPH_TREE_RIGHT : GLYPH_TREE_BRANCH));
         }
 
         if (arg_full) {

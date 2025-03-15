@@ -457,7 +457,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
 
         fprintf(f,
                 "%s%s Unit %s:\n",
-                prefix, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), u->id);
+                prefix, glyph(GLYPH_ARROW_RIGHT), u->id);
 
         SET_FOREACH(t, u->aliases)
                 fprintf(f, "%s\tAlias: %s\n", prefix, t);
