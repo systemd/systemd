@@ -184,11 +184,11 @@ TEST(fd_is_namespace) {
         ASSERT_OK_ZERO(fd_is_namespace(fd, NAMESPACE_NET));
         fd = safe_close(fd);
 
-        ASSERT_OK((fd = namespace_open_by_type(NAMESPACE_IPC)));
+        ASSERT_OK(fd = namespace_open_by_type(NAMESPACE_IPC));
         ASSERT_OK_POSITIVE(fd_is_namespace(fd, NAMESPACE_IPC));
         fd = safe_close(fd);
 
-        ASSERT_OK((fd = namespace_open_by_type(NAMESPACE_NET)));
+        ASSERT_OK(fd = namespace_open_by_type(NAMESPACE_NET));
         ASSERT_OK_POSITIVE(fd_is_namespace(fd, NAMESPACE_NET));
 }
 
