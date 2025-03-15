@@ -122,8 +122,8 @@
 #  define _nonnull_if_nonzero_(p, n)
 #endif
 
-#define XSTRINGIFY(x) #x
-#define STRINGIFY(x) XSTRINGIFY(x)
+#define XSTRINGIFY(...) #__VA_ARGS__
+#define STRINGIFY(...) XSTRINGIFY(__VA_ARGS__)
 
 #ifndef __COVERITY__
 #  define VOID_0 ((void)0)
