@@ -1442,7 +1442,7 @@ int make_userns(uid_t uid_shift,
         }
 
         /* We always assign the same UID and GID ranges */
-        userns_fd = userns_acquire(line, line);
+        userns_fd = userns_acquire(line, line, /* setgroups_deny= */ true);
         if (userns_fd < 0)
                 return log_debug_errno(userns_fd, "Failed to acquire new userns: %m");
 

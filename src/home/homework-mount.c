@@ -232,7 +232,7 @@ static int make_home_userns(uid_t stored_uid, uid_t exposed_uid) {
 
         log_debug("Creating userns with mapping:\n%s", text);
 
-        userns_fd = userns_acquire(text, text); /* same uid + gid mapping */
+        userns_fd = userns_acquire(text, text, /* setgroups_deny= */ true); /* same uid + gid mapping */
         if (userns_fd < 0)
                 return log_error_errno(userns_fd, "Failed to allocate user namespace: %m");
 
