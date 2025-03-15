@@ -26,6 +26,7 @@
 #include "loopback-setup.h"
 #include "missing_syscall.h"
 #include "mkdir-label.h"
+#include "mount-setup.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
 #include "namespace-util.h"
@@ -1373,33 +1374,15 @@ static int mount_private_sysfs(const MountEntry *m, const NamespaceParameters *p
         return mount_private_apivfs("sysfs", mount_entry_path(m), "/sys", /* opts = */ NULL, p->runtime_scope);
 }
 
-static bool check_recursiveprot_supported(void) {
-        int r;
-
-        /* memory_recursiveprot is only supported for kernels >= 5.7. Note mount_option_supported uses fsopen()
-         * and fsconfig() which are supported for kernels >= 5.2. So if mount_option_supported() returns an
-         * error, we can assume memory_recursiveprot is not supported. */
-        r = mount_option_supported("cgroup2", "memory_recursiveprot", NULL);
-        if (r < 0)
-                log_debug_errno(r, "Failed to determine whether the 'memory_recursiveprot' mount option is supported, assuming not: %m");
-        else if (r == 0)
-                log_debug("This kernel version does not support 'memory_recursiveprot', not using mount option.");
-
-        return r > 0;
-}
-
 static int mount_private_cgroup2fs(const MountEntry *m, const NamespaceParameters *p) {
         _cleanup_free_ char *opts = NULL;
 
         assert(m);
         assert(p);
 
-        if (check_recursiveprot_supported()) {
-                opts = strdup(strempty(mount_entry_options(m)));
+        if (cgroupfs_recursiveprot_supported()) {
+                opts = strextend_with_separator(NULL, ",", mount_entry_options(m) ?: POINTER_MAX, "memory_recursiveprot");
                 if (!opts)
-                        return -ENOMEM;
-
-                if (!strextend_with_separator(&opts, ",", "memory_recursiveprot"))
                         return -ENOMEM;
         }
 

@@ -8,12 +8,12 @@
 
 #include "alloc-util.h"
 #include "btrfs-util.h"
-#include "cgroup-util.h"
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "log.h"
 #include "macro.h"
+#include "missing_magic.h"
 #include "mountpoint-util.h"
 #include "path-util.h"
 #include "rm-rf.h"
@@ -24,7 +24,7 @@
  * after all: we can create arbitrary directory hierarchies in it, and hence can also use rm_rf() on it
  * to remove those again. */
 static bool is_physical_fs(const struct statfs *sfs) {
-        return !is_temporary_fs(sfs) && !is_cgroup_fs(sfs);
+        return !is_temporary_fs(sfs) && !is_fs_type(sfs, CGROUP2_SUPER_MAGIC);
 }
 
 static int patch_dirfd_mode(
