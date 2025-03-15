@@ -204,7 +204,7 @@ TEST(copy_tree) {
                 assert_se(read_full_file(f, &buf, &sz) == 0);
                 ASSERT_STREQ(buf, "file\n");
 
-                k = lgetxattr_malloc(f, "user.testxattr", &c);
+                k = lgetxattr_malloc(f, "user.testxattr", &c, /* ret_size= */ NULL);
                 assert_se(xattr_worked < 0 || ((k >= 0) == !!xattr_worked));
 
                 if (k >= 0) {

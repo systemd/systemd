@@ -1672,18 +1672,18 @@ int copy_xattr(int df, const char *from, int dt, const char *to, CopyFlags copy_
                 return r;
 
         NULSTR_FOREACH(p, names) {
-                _cleanup_free_ char *value = NULL;
-
                 if (!FLAGS_SET(copy_flags, COPY_ALL_XATTRS) && !startswith(p, "user."))
                         continue;
 
-                r = getxattr_at_malloc(df, from, p, 0, &value);
+                _cleanup_free_ char *value = NULL;
+                size_t value_size;
+                r = getxattr_at_malloc(df, from, p, 0, &value, &value_size);
                 if (r == -ENODATA)
                         continue; /* gone by now */
                 if (r < 0)
                         return r;
 
-                RET_GATHER(ret, xsetxattr_full(dt, to, /* at_flags = */ 0, p, value, r, /* xattr_flags = */ 0));
+                RET_GATHER(ret, xsetxattr_full(dt, to, /* at_flags = */ 0, p, value, value_size, /* xattr_flags = */ 0));
         }
 
         return ret;

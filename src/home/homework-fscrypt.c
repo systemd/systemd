@@ -320,7 +320,7 @@ static int fscrypt_setup(
                 if (safe_atou32(nr, NULL) < 0)
                         continue;
 
-                n = fgetxattr_malloc(setup->root_fd, xa, &value);
+                n = fgetxattr_malloc(setup->root_fd, xa, &value, /* ret_size= */ NULL);
                 if (n == -ENODATA) /* deleted by now? */
                         continue;
                 if (n < 0)

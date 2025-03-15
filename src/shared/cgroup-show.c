@@ -186,13 +186,13 @@ static int show_cgroup_name(
 
                 NULSTR_FOREACH(xa, nl) {
                         _cleanup_free_ char *x = NULL, *y = NULL, *buf = NULL;
-                        int n;
 
                         if (!STARTSWITH_SET(xa, "user.", "trusted."))
                                 continue;
 
-                        n = fgetxattr_malloc(fd, xa, &buf);
-                        if (n < 0) {
+                        size_t buf_size;
+                        r = fgetxattr_malloc(fd, xa, &buf, &buf_size);
+                        if (r < 0) {
                                 log_debug_errno(r, "Failed to read xattr '%s' off '%s', ignoring: %m", xa, path);
                                 continue;
                         }
@@ -201,7 +201,7 @@ static int show_cgroup_name(
                         if (!x)
                                 return -ENOMEM;
 
-                        y = cescape_length(buf, n);
+                        y = cescape_length(buf, buf_size);
                         if (!y)
                                 return -ENOMEM;
 
