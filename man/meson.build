@@ -164,7 +164,7 @@ foreach tuple : xsltproc.found() ? [['systemd.directives', '7', systemd_directiv
                         input : p2,
                         output : htmlalias,
                         command : [ln, '-fs', html, '@OUTPUT@'])
-                if want_html
+                if want_html and have_lxml
                         install_symlink(htmlalias,
                                         pointing_to : html,
                                         install_dir : docdir / 'html')
