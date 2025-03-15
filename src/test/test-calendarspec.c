@@ -97,7 +97,7 @@ TEST(hourly_bug_4031) {
 
         ASSERT_OK(calendar_spec_from_string("hourly", &c));
         n = now(CLOCK_REALTIME);
-        ASSERT_OK((r = calendar_spec_next_usec(c, n, &u)));
+        ASSERT_OK(r = calendar_spec_next_usec(c, n, &u));
 
         log_info("Now: %s (%"PRIu64")", FORMAT_TIMESTAMP_STYLE(n, TIMESTAMP_US), n);
         log_info("Next hourly: %s (%"PRIu64")", r < 0 ? STRERROR(r) : FORMAT_TIMESTAMP_STYLE(u, TIMESTAMP_US), u);

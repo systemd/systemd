@@ -610,7 +610,7 @@ TEST(openat_report_new) {
         _cleanup_close_ int tfd = -EBADF, fd = -EBADF;
         bool b;
 
-        ASSERT_OK((tfd = mkdtemp_open(NULL, 0, &t)));
+        ASSERT_OK(tfd = mkdtemp_open(NULL, 0, &t));
 
         fd = openat_report_new(tfd, "test", O_RDWR|O_CREAT, 0666, &b);
         ASSERT_OK(fd);

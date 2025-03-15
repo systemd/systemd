@@ -319,8 +319,8 @@ TEST(terminal_new_session) {
         _cleanup_close_ int pty_fd = -EBADF, peer_fd = -EBADF;
         int r;
 
-        ASSERT_OK((pty_fd = openpt_allocate(O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK, NULL)));
-        ASSERT_OK((peer_fd = pty_open_peer(pty_fd, O_RDWR|O_NOCTTY|O_CLOEXEC)));
+        ASSERT_OK(pty_fd = openpt_allocate(O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK, NULL));
+        ASSERT_OK(peer_fd = pty_open_peer(pty_fd, O_RDWR|O_NOCTTY|O_CLOEXEC));
 
         r = safe_fork_full("test-term-session",
                            (int[]) { peer_fd, peer_fd, peer_fd },

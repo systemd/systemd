@@ -188,7 +188,7 @@ _unused_ static void test_compress_stream(const char *compression,
 
         log_debug("/* create source from %s */", srcfile);
 
-        ASSERT_OK((src = open(srcfile, O_RDONLY|O_CLOEXEC)));
+        ASSERT_OK(src = open(srcfile, O_RDONLY|O_CLOEXEC));
 
         log_debug("/* test compression */");
 

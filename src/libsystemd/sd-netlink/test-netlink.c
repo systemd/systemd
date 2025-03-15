@@ -100,7 +100,7 @@ TEST(message_address) {
         ASSERT_OK(sd_rtnl_message_new_addr(rtnl, &message, RTM_GETADDR, ifindex, AF_INET));
         ASSERT_OK(sd_netlink_message_set_request_dump(message, true));
 
-        ASSERT_OK((r = sd_netlink_call(rtnl, message, 0, &reply)));
+        ASSERT_OK(r = sd_netlink_call(rtnl, message, 0, &reply));
 
         /* If the loopback device is down we won't get any results. */
         if (r > 0) {
@@ -134,7 +134,7 @@ TEST(message_route) {
         ASSERT_OK(sd_netlink_message_read_u32(req, RTA_OIF, &u32_data));
         ASSERT_EQ(u32_data, index);
 
-        ASSERT_NULL((req = sd_netlink_message_unref(req)));
+        ASSERT_NULL(req = sd_netlink_message_unref(req));
 }
 
 static int link_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
@@ -173,7 +173,7 @@ TEST(netlink_event_loop) {
         ASSERT_OK(sd_event_run(event, 0));
 
         ASSERT_OK(sd_netlink_detach_event(rtnl));
-        ASSERT_NULL((rtnl = sd_netlink_unref(rtnl)));
+        ASSERT_NULL(rtnl = sd_netlink_unref(rtnl));
 }
 
 static void test_async_destroy(void *userdata) {
@@ -226,7 +226,7 @@ TEST(netlink_call_async) {
         ASSERT_OK(sd_netlink_wait(rtnl, 0));
         ASSERT_OK(sd_netlink_process(rtnl, &reply));
 
-        ASSERT_NULL((rtnl = sd_netlink_unref(rtnl)));
+        ASSERT_NULL(rtnl = sd_netlink_unref(rtnl));
 }
 
 struct test_async_object {
@@ -307,7 +307,7 @@ TEST(async_destroy_callback) {
         ASSERT_PTR_EQ(test_async_object_ref(t), t);
         ASSERT_EQ(t->n_ref, 2U);
 
-        ASSERT_NULL((slot = sd_netlink_slot_unref(slot)));
+        ASSERT_NULL(slot = sd_netlink_slot_unref(slot));
         ASSERT_EQ(t->n_ref, 1U);
 
         ASSERT_NULL(sd_netlink_message_unref(m));
@@ -320,7 +320,7 @@ TEST(async_destroy_callback) {
         ASSERT_PTR_EQ(test_async_object_ref(t), t);
         ASSERT_EQ(t->n_ref, 2U);
 
-        ASSERT_NULL((rtnl = sd_netlink_unref(rtnl)));
+        ASSERT_NULL(rtnl = sd_netlink_unref(rtnl));
         ASSERT_EQ(t->n_ref, 1U);
 }
 
@@ -329,7 +329,7 @@ static int pipe_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata)
 
         (*counter)--;
 
-        ASSERT_OK((r = sd_netlink_message_get_errno(m)));
+        ASSERT_OK(r = sd_netlink_message_get_errno(m));
         log_info_errno(r, "%d left in pipe. got reply: %m", *counter);
         return 1;
 }
@@ -356,7 +356,7 @@ TEST(pipe) {
                 ASSERT_OK(sd_netlink_process(rtnl, NULL));
         }
 
-        ASSERT_NULL((rtnl = sd_netlink_unref(rtnl)));
+        ASSERT_NULL(rtnl = sd_netlink_unref(rtnl));
 }
 
 TEST(message_container) {
@@ -403,10 +403,10 @@ TEST(sd_netlink_add_match) {
         ASSERT_OK(sd_netlink_add_match(rtnl, &s2, RTM_NEWLINK, link_handler, NULL, NULL, NULL));
         ASSERT_OK(sd_netlink_add_match(rtnl, NULL, RTM_NEWLINK, link_handler, NULL, NULL, NULL));
 
-        ASSERT_NULL((s1 = sd_netlink_slot_unref(s1)));
-        ASSERT_NULL((s2 = sd_netlink_slot_unref(s2)));
+        ASSERT_NULL(s1 = sd_netlink_slot_unref(s1));
+        ASSERT_NULL(s2 = sd_netlink_slot_unref(s2));
 
-        ASSERT_NULL((rtnl = sd_netlink_unref(rtnl)));
+        ASSERT_NULL(rtnl = sd_netlink_unref(rtnl));
 }
 
 TEST(dump_addresses) {
@@ -578,23 +578,23 @@ TEST(genl) {
 
         ASSERT_OK(sd_genl_add_match(genl, NULL, CTRL_GENL_NAME, "notify", 0, genl_ctrl_match_callback, NULL, NULL, "genl-ctrl-notify"));
 
-        ASSERT_NULL((m = sd_netlink_message_unref(m)));
+        ASSERT_NULL(m = sd_netlink_message_unref(m));
         ASSERT_FAIL(sd_genl_message_new(genl, "should-not-exist", CTRL_CMD_GETFAMILY, &m));
         ASSERT_ERROR(sd_genl_message_new(genl, "should-not-exist", CTRL_CMD_GETFAMILY, &m), EOPNOTSUPP);
 
         /* These families may not be supported by kernel. Hence, ignore results. */
         (void) sd_genl_message_new(genl, FOU_GENL_NAME, 0, &m);
-        ASSERT_NULL((m = sd_netlink_message_unref(m)));
+        ASSERT_NULL(m = sd_netlink_message_unref(m));
         (void) sd_genl_message_new(genl, L2TP_GENL_NAME, 0, &m);
-        ASSERT_NULL((m = sd_netlink_message_unref(m)));
+        ASSERT_NULL(m = sd_netlink_message_unref(m));
         (void) sd_genl_message_new(genl, MACSEC_GENL_NAME, 0, &m);
-        ASSERT_NULL((m = sd_netlink_message_unref(m)));
+        ASSERT_NULL(m = sd_netlink_message_unref(m));
         (void) sd_genl_message_new(genl, NL80211_GENL_NAME, 0, &m);
-        ASSERT_NULL((m = sd_netlink_message_unref(m)));
+        ASSERT_NULL(m = sd_netlink_message_unref(m));
         (void) sd_genl_message_new(genl, NETLBL_NLTYPE_UNLABELED_NAME, 0, &m);
 
         for (;;) {
-                ASSERT_OK((r = sd_event_run(event, 500 * USEC_PER_MSEC)));
+                ASSERT_OK(r = sd_event_run(event, 500 * USEC_PER_MSEC));
                 if (r == 0)
                         return;
         }
@@ -636,8 +636,8 @@ TEST(rtnl_set_link_name) {
                 return (void) log_tests_skipped("dummy network interface is not supported");
         ASSERT_OK(r);
 
-        ASSERT_NULL((message = sd_netlink_message_unref(message)));
-        ASSERT_NULL((reply = sd_netlink_message_unref(reply)));
+        ASSERT_NULL(message = sd_netlink_message_unref(message));
+        ASSERT_NULL(reply = sd_netlink_message_unref(reply));
 
         ASSERT_OK(sd_rtnl_message_new_link(rtnl, &message, RTM_GETLINK, 0));
         ASSERT_OK(sd_netlink_message_append_string(message, IFLA_IFNAME, "test-netlink"));
@@ -664,7 +664,7 @@ TEST(rtnl_set_link_name) {
         ASSERT_ERROR(rtnl_set_link_name(&rtnl, ifindex, "testlongalternativename", NULL), EINVAL);
         ASSERT_OK(rtnl_set_link_name(&rtnl, ifindex, "test-shortname", STRV_MAKE("testlongalternativename", "test-shortname", "test-additional-name")));
 
-        ASSERT_NULL((alternative_names = strv_free(alternative_names)));
+        ASSERT_NULL(alternative_names = strv_free(alternative_names));
         ASSERT_OK(rtnl_get_link_alternative_names(&rtnl, ifindex, &alternative_names));
         ASSERT_TRUE(strv_contains(alternative_names, "testlongalternativename"));
         ASSERT_TRUE(strv_contains(alternative_names, "test-additional-name"));
@@ -672,7 +672,7 @@ TEST(rtnl_set_link_name) {
 
         ASSERT_OK(rtnl_delete_link_alternative_names(&rtnl, ifindex, STRV_MAKE("testlongalternativename")));
 
-        ASSERT_NULL((alternative_names = strv_free(alternative_names)));
+        ASSERT_NULL(alternative_names = strv_free(alternative_names));
         ASSERT_OK_EQ(rtnl_get_link_alternative_names(&rtnl, ifindex, &alternative_names), ifindex);
         ASSERT_FALSE(strv_contains(alternative_names, "testlongalternativename"));
         ASSERT_TRUE(strv_contains(alternative_names, "test-additional-name"));
@@ -682,7 +682,7 @@ TEST(rtnl_set_link_name) {
         ASSERT_OK_EQ(rtnl_resolve_link_alternative_name(&rtnl, "test-additional-name", NULL), ifindex);
         ASSERT_OK_EQ(rtnl_resolve_link_alternative_name(&rtnl, "test-additional-name", &resolved), ifindex);
         ASSERT_STREQ(resolved, "test-shortname");
-        ASSERT_NULL((resolved = mfree(resolved)));
+        ASSERT_NULL(resolved = mfree(resolved));
 
         ASSERT_OK(rtnl_rename_link(&rtnl, "test-shortname", "test-shortname"));
         ASSERT_OK(rtnl_rename_link(&rtnl, "test-shortname", "test-shortname2"));
@@ -691,12 +691,12 @@ TEST(rtnl_set_link_name) {
         ASSERT_OK_EQ(rtnl_resolve_link_alternative_name(&rtnl, "test-additional-name", NULL), ifindex);
         ASSERT_OK_EQ(rtnl_resolve_link_alternative_name(&rtnl, "test-additional-name", &resolved), ifindex);
         ASSERT_STREQ(resolved, "test-shortname3");
-        ASSERT_NULL((resolved = mfree(resolved)));
+        ASSERT_NULL(resolved = mfree(resolved));
 
         ASSERT_OK_EQ(rtnl_resolve_link_alternative_name(&rtnl, "test-shortname3", NULL), ifindex);
         ASSERT_OK_EQ(rtnl_resolve_link_alternative_name(&rtnl, "test-shortname3", &resolved), ifindex);
         ASSERT_STREQ(resolved, "test-shortname3");
-        ASSERT_NULL((resolved = mfree(resolved)));
+        ASSERT_NULL(resolved = mfree(resolved));
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

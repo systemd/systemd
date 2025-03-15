@@ -33,10 +33,10 @@ TEST(find_converted_keymap) {
                         }, &ans));
         ASSERT_NULL(ans);
 
-        ASSERT_OK((r = find_converted_keymap(
+        ASSERT_OK(r = find_converted_keymap(
                         &(X11Context) {
                                 .layout  = (char*) "pl",
-                        }, &ans)));
+                        }, &ans));
         if (r == 0)
                 return (void) log_tests_skipped("keymaps are not installed");
 
@@ -115,7 +115,7 @@ TEST(vconsole_convert_to_x11) {
         /* "gh" has no mapping in kbd-model-map and kbd provides a converted keymap for this layout. */
         log_info("/* test with a converted keymap (gh:) */");
         ASSERT_OK(free_and_strdup(&vc.keymap, "gh"));
-        ASSERT_OK((r = vconsole_convert_to_x11(&vc, x11_context_verify, &xc)));
+        ASSERT_OK(r = vconsole_convert_to_x11(&vc, x11_context_verify, &xc));
         if (r == 0)
                 return (void) log_tests_skipped("keymaps are not installed");
 

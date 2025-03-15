@@ -379,6 +379,7 @@ possible_common_cc_flags = [
         '-Warray-bounds=2',
         '-Wdate-time',
         '-Wendif-labels',
+        '-Werror=bool-compare',
         '-Werror=discarded-qualifiers',
         '-Werror=format=2',
         '-Werror=format-signedness',

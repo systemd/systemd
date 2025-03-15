@@ -221,6 +221,9 @@ static inline int run_test_table(void) {
         long long: "%lld",                      \
         unsigned long long: "%llu")
 
+#ifdef __COVERITY__
+#define ASSERT_OK(expr) __coverity_check__((expr) >= 0)
+#else
 #define ASSERT_OK(expr)                                                                                         \
         ({                                                                                                      \
                 typeof(expr) _result = (expr);                                                                  \
@@ -230,8 +233,12 @@ static inline int run_test_table(void) {
                         abort();                                                                                \
                 }                                                                                               \
          })
+#endif
 
 /* For functions that return a boolean on success and a negative errno on failure. */
+#ifdef __COVERITY__
+#define ASSERT_OK_POSITIVE(expr) __coverity_check__((expr) > 0)
+#else
 #define ASSERT_OK_POSITIVE(expr)                                                                                \
         ({                                                                                                      \
                 typeof(expr) _result = (expr);                                                                  \
@@ -246,7 +253,11 @@ static inline int run_test_table(void) {
                         abort();                                                                                \
                 }                                                                                               \
          })
+#endif
 
+#ifdef __COVERITY__
+#define ASSERT_OK_ZERO(expr) __coverity_check__((expr) == 0)
+#else
 #define ASSERT_OK_ZERO(expr)                                                                                    \
         ({                                                                                                      \
                 typeof(expr) _result = (expr);                                                                  \
@@ -263,7 +274,11 @@ static inline int run_test_table(void) {
                         abort();                                                                                \
                 }                                                                                               \
          })
+#endif
 
+#ifdef __COVERITY__
+#define ASSERT_OK_EQ(expr1, expr2) __coverity_check__((expr1) == (expr2))
+#else
 #define ASSERT_OK_EQ(expr1, expr2)                                                                              \
         ({                                                                                                      \
                 typeof(expr1) _expr1 = (expr1);                                                                 \
@@ -283,7 +298,11 @@ static inline int run_test_table(void) {
                         abort();                                                                                \
                 }                                                                                               \
         })
+#endif
 
+#ifdef __COVERITY__
+#define ASSERT_OK_ERRNO(expr) __coverity_check__((expr) >= 0)
+#else
 #define ASSERT_OK_ERRNO(expr)                                                                                   \
         ({                                                                                                      \
                 typeof(expr) _result = (expr);                                                                  \
@@ -293,7 +312,11 @@ static inline int run_test_table(void) {
                         abort();                                                                                \
                 }                                                                                               \
         })
+#endif
 
+#ifdef __COVERITY__
+#define ASSERT_OK_ZERO_ERRNO(expr) __coverity_check__((expr) == 0)
+#else
 #define ASSERT_OK_ZERO_ERRNO(expr)                                                                              \
         ({                                                                                                      \
                 typeof(expr) _result = (expr);                                                                  \
@@ -310,7 +333,11 @@ static inline int run_test_table(void) {
                         abort();                                                                                \
                 }                                                                                               \
         })
+#endif
 
+#ifdef __COVERITY__
+#define ASSERT_OK_EQ_ERRNO(expr1, expr2) __coverity_check__((expr1) == (expr2))
+#else
 #define ASSERT_OK_EQ_ERRNO(expr1, expr2)                                                                        \
         ({                                                                                                      \
                 typeof(expr1) _expr1 = (expr1);                                                                 \
@@ -330,7 +357,11 @@ static inline int run_test_table(void) {
                         abort();                                                                                \
                 }                                                                                               \
         })
+#endif
 
+#ifdef __COVERITY__
+#define ASSERT_FAIL(expr) __coverity_check__((expr) < 0)
+#else
 #define ASSERT_FAIL(expr)                                                                                       \
         ({                                                                                                      \
                 typeof(expr) _result = (expr);                                                                  \
@@ -340,7 +371,11 @@ static inline int run_test_table(void) {
                         abort();                                                                                \
                 }                                                                                               \
         })
+#endif
 
+#ifdef __COVERITY__
+#define ASSERT_ERROR(expr1, expr2) __coverity_check__((expr1) == -(expr2))
+#else
 #define ASSERT_ERROR(expr1, expr2)                                                                              \
         ({                                                                                                      \
                 int _expr1 = (expr1);                                                                           \
@@ -355,7 +390,11 @@ static inline int run_test_table(void) {
                         abort();                                                                                \
                 }                                                                                               \
         })
+#endif
 
+#ifdef __COVERITY__
+#define ASSERT_ERROR_ERRNO(expr1, expr2) __coverity_check__((expr1) < 0 && errno == (expr2))
+#else
 #define ASSERT_ERROR_ERRNO(expr1, expr2)                                                                        \
         ({                                                                                                      \
                 int _expr1 = (expr1);                                                                           \
@@ -370,7 +409,11 @@ static inline int run_test_table(void) {
                         abort();                                                                                \
                 }                                                                                               \
         })
+#endif
 
+#ifdef __COVERITY__
+#define ASSERT_TRUE(expr) __coverity_check__(!!(expr))
+#else
 #define ASSERT_TRUE(expr)                                                                                       \
         ({                                                                                                      \
                 if (!(expr)) {                                                                                  \
@@ -379,7 +422,11 @@ static inline int run_test_table(void) {
                         abort();                                                                                \
                 }                                                                                               \
         })
+#endif
 
+#ifdef __COVERITY__
+#define ASSERT_FALSE(expr) __coverity_check__(!(expr))
+#else
 #define ASSERT_FALSE(expr)                                                                                      \
         ({                                                                                                      \
                 if ((expr)) {                                                                                   \
@@ -388,7 +435,11 @@ static inline int run_test_table(void) {
                         abort();                                                                                \
                 }                                                                                               \
         })
+#endif
 
+#ifdef __COVERITY__
+#define ASSERT_NULL(expr) __coverity_check__((expr) == NULL)
+#else
 #define ASSERT_NULL(expr)                                                                                       \
         ({                                                                                                      \
                 typeof(expr) _result = (expr);                                                                  \
@@ -398,7 +449,11 @@ static inline int run_test_table(void) {
                         abort();                                                                                \
                 }                                                                                               \
         })
+#endif
 
+#ifdef __COVERITY__
+#define ASSERT_NOT_NULL(expr) __coverity_check__((expr) != NULL)
+#else
 #define ASSERT_NOT_NULL(expr)                                                                                   \
         ({                                                                                                      \
                 if ((expr) == NULL) {                                                                           \
@@ -407,7 +462,11 @@ static inline int run_test_table(void) {
                         abort();                                                                                \
                 }                                                                                               \
         })
+#endif
 
+#ifdef __COVERITY__
+#define ASSERT_STREQ(expr1, expr2) __coverity_check__(streq_ptr((expr1), (expr2)))
+#else
 #define ASSERT_STREQ(expr1, expr2)                                                                              \
         ({                                                                                                      \
                 const char *_expr1 = (expr1), *_expr2 = (expr2);                                                \
@@ -417,7 +476,11 @@ static inline int run_test_table(void) {
                         abort();                                                                                \
                 }                                                                                               \
         })
+#endif
 
+#ifdef __COVERITY__
+#define ASSERT_PTR_EQ(expr1, expr2) __coverity_check__((expr1) == (expr2))
+#else
 #define ASSERT_PTR_EQ(expr1, expr2)                                                                             \
         ({                                                                                                      \
                 const void *_expr1 = (expr1), *_expr2 = (expr2);                                                \
@@ -427,10 +490,14 @@ static inline int run_test_table(void) {
                         abort();                                                                                \
                 }                                                                                               \
         })
+#endif
 
 /* DECIMAL_STR_FMT() uses _Generic which cannot be used in string concatenation so we have to format the
  * input into strings first and then format those into the final assertion message. */
 
+#ifdef __COVERITY__
+#define ASSERT_EQ(expr1, expr2) __coverity_check__((expr1) == (expr2))
+#else
 #define ASSERT_EQ(expr1, expr2)                                                                                 \
         ({                                                                                                      \
                 typeof(expr1) _expr1 = (expr1);                                                                 \
@@ -445,7 +512,11 @@ static inline int run_test_table(void) {
                         abort();                                                                                \
                 }                                                                                               \
         })
+#endif
 
+#ifdef __COVERITY__
+#define ASSERT_GE(expr1, expr2) __coverity_check__((expr1) >= (expr2))
+#else
 #define ASSERT_GE(expr1, expr2)                                                                                 \
         ({                                                                                                      \
                 typeof(expr1) _expr1 = (expr1);                                                                 \
@@ -460,7 +531,11 @@ static inline int run_test_table(void) {
                         abort();                                                                                \
                 }                                                                                               \
         })
+#endif
 
+#ifdef __COVERITY__
+#define ASSERT_LE(expr1, expr2) __coverity_check__((expr1) <= (expr2))
+#else
 #define ASSERT_LE(expr1, expr2)                                                                                 \
         ({                                                                                                      \
                 typeof(expr1) _expr1 = (expr1);                                                                 \
@@ -475,7 +550,11 @@ static inline int run_test_table(void) {
                         abort();                                                                                \
                 }                                                                                               \
         })
+#endif
 
+#ifdef __COVERITY__
+#define ASSERT_NE(expr1, expr2) __coverity_check__((expr1) != (expr2))
+#else
 #define ASSERT_NE(expr1, expr2)                                                                                 \
         ({                                                                                                      \
                 typeof(expr1) _expr1 = (expr1);                                                                 \
@@ -490,7 +569,11 @@ static inline int run_test_table(void) {
                         abort();                                                                                \
                 }                                                                                               \
         })
+#endif
 
+#ifdef __COVERITY__
+#define ASSERT_GT(expr1, expr2) __coverity_check__((expr1) > (expr2))
+#else
 #define ASSERT_GT(expr1, expr2)                                                                                 \
         ({                                                                                                      \
                 typeof(expr1) _expr1 = (expr1);                                                                 \
@@ -505,7 +588,11 @@ static inline int run_test_table(void) {
                         abort();                                                                                \
                 }                                                                                               \
         })
+#endif
 
+#ifdef __COVERITY__
+#define ASSERT_LT(expr1, expr2) __coverity_check__((expr1) < (expr2))
+#else
 #define ASSERT_LT(expr1, expr2)                                                                                 \
         ({                                                                                                      \
                 typeof(expr1) _expr1 = (expr1);                                                                 \
@@ -520,7 +607,11 @@ static inline int run_test_table(void) {
                         abort();                                                                                \
                 }                                                                                               \
         })
+#endif
 
+#ifdef __COVERITY__
+#define ASSERT_SIGNAL(expr, signal) __coverity_check__(((expr), false))
+#else
 #define ASSERT_SIGNAL(expr, signal)                                                                             \
         ({                                                                                                      \
                 ASSERT_TRUE(SIGNAL_VALID(signal));                                                              \
@@ -543,7 +634,11 @@ static inline int run_test_table(void) {
                         abort();                                                                                \
                 }                                                                                               \
         })
+#endif
 
+#ifdef __COVERITY__
+#define ASSERT_EQ_ID128(expr1, expr2) __coverity_check__(sd_id128_equal((expr1), (expr2)))
+#else
 #define ASSERT_EQ_ID128(expr1, expr2)                                                                           \
         ({                                                                                                      \
                 typeof(expr1) _expr1 = (expr1);                                                                 \
@@ -556,7 +651,11 @@ static inline int run_test_table(void) {
                         abort();                                                                                \
                 }                                                                                               \
         })
+#endif
 
+#ifdef __COVERITY__
+#define ASSERT_NE_ID128(expr1, expr2) __coverity_check__(!sd_id128_equal((expr1), (expr2)))
+#else
 #define ASSERT_NE_ID128(expr1, expr2)                                                                           \
         ({                                                                                                      \
                 typeof(expr1) _expr1 = (expr1);                                                                 \
@@ -569,12 +668,16 @@ static inline int run_test_table(void) {
                         abort();                                                                                \
                 }                                                                                               \
         })
+#endif
 
 #define EFI_GUID_Fmt "%08x-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x"
 #define EFI_GUID_Arg(guid) (guid).Data1, (guid).Data2, (guid).Data3,                           \
                            (guid).Data4[0], (guid).Data4[1], (guid).Data4[2], (guid).Data4[3], \
                            (guid).Data4[4], (guid).Data4[5], (guid).Data4[6], (guid).Data4[7]  \
 
+#ifdef __COVERITY__
+#define ASSERT_EQ_EFI_GUID(expr1, expr2) __coverity_check__(efi_guid_equal((expr1), (expr2)))
+#else
 #define ASSERT_EQ_EFI_GUID(expr1, expr2)                                                                        \
         ({                                                                                                      \
                 typeof(expr1) _expr1 = (expr1);                                                                 \
@@ -588,3 +691,4 @@ static inline int run_test_table(void) {
                         abort();                                                                                \
                 }                                                                                               \
         })
+#endif
