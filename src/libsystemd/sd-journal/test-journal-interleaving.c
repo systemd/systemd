@@ -236,7 +236,7 @@ static void test_cursor(sd_journal *j) {
         ASSERT_OK(sd_journal_seek_head(j));
 
         for (;;) {
-                ASSERT_OK((r = sd_journal_next(j)));
+                ASSERT_OK(r = sd_journal_next(j));
                 if (r == 0)
                         break;
 

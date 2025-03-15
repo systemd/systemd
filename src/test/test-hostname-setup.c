@@ -87,19 +87,19 @@ TEST(hostname_substitute_wildcards) {
         ASSERT_NOT_NULL((buf = strdup("")));
         ASSERT_OK(hostname_substitute_wildcards(buf));
         ASSERT_STREQ(buf, "");
-        ASSERT_NULL((buf = mfree(buf)));
+        ASSERT_NULL(buf = mfree(buf));
 
         ASSERT_NOT_NULL((buf = strdup("hogehoge")));
         ASSERT_OK(hostname_substitute_wildcards(buf));
         ASSERT_STREQ(buf, "hogehoge");
-        ASSERT_NULL((buf = mfree(buf)));
+        ASSERT_NULL(buf = mfree(buf));
 
         ASSERT_NOT_NULL((buf = strdup("hoge??hoge??foo?")));
         ASSERT_OK(hostname_substitute_wildcards(buf));
         log_debug("hostname_substitute_wildcards(\"hoge??hoge??foo?\"): → \"%s\"", buf);
         ASSERT_EQ(fnmatch("hoge??hoge??foo?", buf, /* flags= */ 0), 0);
         ASSERT_TRUE(hostname_is_valid(buf, /* flags= */ 0));
-        ASSERT_NULL((buf = mfree(buf)));
+        ASSERT_NULL(buf = mfree(buf));
 }
 
 TEST(hostname_setup) {

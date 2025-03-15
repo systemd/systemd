@@ -31,7 +31,7 @@ TEST(id128) {
         ASSERT_OK(sd_id128_randomize(&id));
         printf("random: %s\n", sd_id128_to_string(id, t));
 
-        ASSERT_OK(sd_id128_from_string(t, &id2) == 0);
+        ASSERT_OK(sd_id128_from_string(t, &id2));
         ASSERT_EQ_ID128(id, id2);
         ASSERT_TRUE(sd_id128_in_set(id, id));
         ASSERT_TRUE(sd_id128_in_set(id, id2));
@@ -116,7 +116,7 @@ TEST(id128) {
         ASSERT_OK(sd_id128_randomize(&id));
         ASSERT_OK(id128_write_fd(fd, ID128_FORMAT_PLAIN, id));
 
-        ASSERT_OK_ERRNO(lseek(fd, 0, SEEK_SET) == 0);
+        ASSERT_OK_ERRNO(lseek(fd, 0, SEEK_SET));
         ASSERT_ERROR(id128_read_fd(fd, ID128_FORMAT_UUID, &id2), EUCLEAN);
 
         ASSERT_OK_ERRNO(lseek(fd, 0, SEEK_SET));

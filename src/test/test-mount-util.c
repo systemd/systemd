@@ -540,7 +540,7 @@ TEST(path_is_network_fs_harder) {
         _cleanup_close_ int dir_fd = -EBADF;
         int r;
 
-        ASSERT_OK((dir_fd = open("/", O_PATH | O_CLOEXEC)));
+        ASSERT_OK(dir_fd = open("/", O_PATH | O_CLOEXEC));
         FOREACH_STRING(s,
                        "/", "/dev/", "/proc/", "/run/", "/sys/", "/tmp/", "/usr/", "/var/tmp/",
                        "", ".", "../../../", "/this/path/should/not/exist/for/test-mount-util/") {

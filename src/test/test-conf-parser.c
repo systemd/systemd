@@ -409,7 +409,7 @@ TEST(config_parse_standard_file_with_dropins_full) {
         _cleanup_close_ int rfd = -EBADF;
         int r;
 
-        ASSERT_OK((rfd = mkdtemp_open("/tmp/test-config-parse-XXXXXX", 0, &root)));
+        ASSERT_OK(rfd = mkdtemp_open("/tmp/test-config-parse-XXXXXX", 0, &root));
         assert_se(mkdir_p_root(root, "/etc/kernel/install.conf.d", UID_INVALID, GID_INVALID, 0755));
         assert_se(mkdir_p_root(root, "/run/kernel/install.conf.d", UID_INVALID, GID_INVALID, 0755));
         assert_se(mkdir_p_root(root, "/usr/lib/kernel/install.conf.d", UID_INVALID, GID_INVALID, 0755));
