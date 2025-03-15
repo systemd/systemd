@@ -461,6 +461,12 @@ static int vl_method_mount_image(
         if (r < 0)
                 return r;
 
+        r = dissected_image_guess_verity_roothash(
+                        di,
+                        &verity);
+        if (r < 0)
+                return r;
+
         r = dissected_image_decrypt(
                         di,
                         p.password,

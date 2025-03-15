@@ -404,11 +404,11 @@ static int dissected_image_probe_filesystems(
 
                 if (streq_ptr(p->fstype, "crypto_LUKS")) {
                         m->encrypted = true;
-                        found_flags = PARTITION_POLICY_ENCRYPTED; /* found this one, and its definitely encrypted */
+                        found_flags = PARTITION_POLICY_UNUSED|PARTITION_POLICY_ENCRYPTED; /* found this one, and its definitely encrypted */
                 } else
                         /* found it, but it's definitely not encrypted, hence mask the encrypted flag, but
                          * set all other ways that indicate "present". */
-                        found_flags = PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_VERITY|PARTITION_POLICY_SIGNED;
+                        found_flags = PARTITION_POLICY_UNUSED|PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_VERITY|PARTITION_POLICY_SIGNED;
 
                 if (p->fstype && fstype_is_ro(p->fstype))
                         p->rw = false;
@@ -1487,12 +1487,6 @@ static int dissect_image(
                 if (verity->designator >= 0 && !m->partitions[verity->designator].found)
                         return -EADDRNOTAVAIL;
 
-                bool have_verity_sig_partition;
-                if (verity->designator >= 0)
-                        have_verity_sig_partition = m->partitions[verity->designator == PARTITION_USR ? PARTITION_USR_VERITY_SIG : PARTITION_ROOT_VERITY_SIG].found;
-                else
-                        have_verity_sig_partition = m->partitions[PARTITION_USR_VERITY_SIG].found || m->partitions[PARTITION_ROOT_VERITY_SIG].found;
-
                 if (verity->root_hash) {
                         /* If we have an explicit root hash and found the partitions for it, then we are ready to use
                          * Verity, set things up for it */
@@ -1503,8 +1497,6 @@ static int dissect_image(
 
                                 /* If we found a verity setup, then the root partition is necessarily read-only. */
                                 m->partitions[PARTITION_ROOT].rw = false;
-                                m->verity_ready = true;
-
                         } else {
                                 assert(verity->designator == PARTITION_USR);
 
@@ -1512,23 +1504,12 @@ static int dissect_image(
                                         return -EADDRNOTAVAIL;
 
                                 m->partitions[PARTITION_USR].rw = false;
-                                m->verity_ready = true;
                         }
 
-                        if (m->verity_ready)
-                                m->verity_sig_ready = verity->root_hash_sig || have_verity_sig_partition;
+                        m->verity_ready = true;
 
-                } else if (have_verity_sig_partition) {
-
-                        /* If we found an embedded signature partition, we are ready, too. */
-
-                        m->verity_ready = m->verity_sig_ready = true;
-                        if (verity->designator >= 0)
-                                m->partitions[verity->designator == PARTITION_USR ? PARTITION_USR : PARTITION_ROOT].rw = false;
-                        else if (m->partitions[PARTITION_USR_VERITY_SIG].found)
-                                m->partitions[PARTITION_USR].rw = false;
-                        else if (m->partitions[PARTITION_ROOT_VERITY_SIG].found)
-                                m->partitions[PARTITION_ROOT].rw = false;
+                        if (verity->root_hash_sig)
+                                m->verity_sig_ready = true;
                 }
         }
 
@@ -1538,20 +1519,29 @@ static int dissect_image(
          * we don't check encryption requirements here, because we haven't probed the file system yet, hence
          * don't know if this is encrypted or not) */
         for (PartitionDesignator di = 0; di < _PARTITION_DESIGNATOR_MAX; di++) {
-                PartitionDesignator vi, si;
-                PartitionPolicyFlags found_flags;
-
                 any = any || m->partitions[di].found;
 
-                vi = partition_verity_of(di);
-                si = partition_verity_sig_of(di);
-
                 /* Determine the verity protection level for this partition. */
-                found_flags = m->partitions[di].found ?
-                        (vi >= 0 && m->partitions[vi].found ?
-                         (si >= 0 && m->partitions[si].found ? PARTITION_POLICY_SIGNED : PARTITION_POLICY_VERITY) :
-                         PARTITION_POLICY_ENCRYPTED|PARTITION_POLICY_UNPROTECTED) :
-                        (m->partitions[di].ignored ? PARTITION_POLICY_UNUSED : PARTITION_POLICY_ABSENT);
+                PartitionPolicyFlags found_flags;
+                if (m->partitions[di].found) {
+                        found_flags = PARTITION_POLICY_ENCRYPTED|PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_UNUSED;
+
+                        PartitionDesignator vi = partition_verity_of(di);
+                        if (vi >= 0 && m->partitions[vi].found) {
+                                found_flags |= PARTITION_POLICY_VERITY;
+
+                                PartitionDesignator si = partition_verity_sig_of(di);
+                                if (si >= 0 && m->partitions[si].found)
+                                        found_flags |= PARTITION_POLICY_SIGNED;
+                        }
+                } else
+                        found_flags = m->partitions[di].ignored ? PARTITION_POLICY_UNUSED : PARTITION_POLICY_ABSENT;
+
+                if (DEBUG_LOGGING) {
+                        _cleanup_free_ char *s = NULL;
+                        (void) partition_policy_flags_to_string(found_flags, /* simplify= */ false, &s);
+                        log_debug("Found for designator %s: %s", partition_designator_to_string(di), strna(s));
+                }
 
                 r = image_policy_check_protection(policy, di, found_flags);
                 if (r < 0)
@@ -3389,15 +3379,6 @@ int dissected_image_load_verity_sig_partition(
                 int fd,
                 VeritySettings *verity) {
 
-        _cleanup_free_ void *root_hash = NULL, *root_hash_sig = NULL;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-        size_t root_hash_size, root_hash_sig_size;
-        _cleanup_free_ char *buf = NULL;
-        PartitionDesignator d;
-        DissectedPartition *p;
-        sd_json_variant *rh, *sig;
-        ssize_t n;
-        char *e;
         int r;
 
         assert(m);
@@ -3413,10 +3394,28 @@ int dissected_image_load_verity_sig_partition(
         if (r == 0)
                 return 0;
 
-        d = partition_verity_sig_of(verity->designator < 0 ? PARTITION_ROOT : verity->designator);
-        assert(d >= 0);
+        PartitionDesignator dd = verity->designator;
+        if (dd < 0) {
+                if (m->partitions[PARTITION_ROOT_VERITY].found)
+                        dd = PARTITION_ROOT;
+                else if (m->partitions[PARTITION_USR_VERITY].found)
+                        dd = PARTITION_USR;
+                else
+                        return 0;
+        }
 
-        p = m->partitions + d;
+        if (!m->partitions[dd].found)
+                return 0;
+
+        PartitionDesignator dv = partition_verity_of(dd);
+        assert(dv >= 0);
+        if (!m->partitions[dv].found)
+                return 0;
+
+        PartitionDesignator ds = partition_verity_sig_of(dd);
+        assert(ds >= 0);
+
+        DissectedPartition *p = m->partitions + ds;
         if (!p->found)
                 return 0;
         if (p->offset == UINT64_MAX || p->size == UINT64_MAX)
@@ -3425,17 +3424,17 @@ int dissected_image_load_verity_sig_partition(
         if (p->size > 4*1024*1024) /* Signature data cannot possible be larger than 4M, refuse that */
                 return log_debug_errno(SYNTHETIC_ERRNO(EFBIG), "Verity signature partition is larger than 4M, refusing.");
 
-        buf = new(char, p->size+1);
+        _cleanup_free_ char *buf = new(char, p->size+1);
         if (!buf)
                 return -ENOMEM;
 
-        n = pread(fd, buf, p->size, p->offset);
+        ssize_t n = pread(fd, buf, p->size, p->offset);
         if (n < 0)
                 return -ENOMEM;
         if ((uint64_t) n != p->size)
                 return -EIO;
 
-        e = memchr(buf, 0, p->size);
+        const char *e = memchr(buf, 0, p->size);
         if (e) {
                 /* If we found a NUL byte then the rest of the data must be NUL too */
                 if (!memeqzero(e, p->size - (e - buf)))
@@ -3443,14 +3442,17 @@ int dissected_image_load_verity_sig_partition(
         } else
                 buf[p->size] = 0;
 
-        r = sd_json_parse(buf, 0, &v, NULL, NULL);
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        r = sd_json_parse(buf, 0, &v, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
         if (r < 0)
                 return log_debug_errno(r, "Failed to parse signature JSON data: %m");
 
-        rh = sd_json_variant_by_key(v, "rootHash");
+        sd_json_variant *rh = sd_json_variant_by_key(v, "rootHash");
         if (!rh)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Signature JSON object lacks 'rootHash' field.");
 
+        _cleanup_free_ void *root_hash = NULL;
+        size_t root_hash_size;
         r = sd_json_variant_unhex(rh, &root_hash, &root_hash_size);
         if (r < 0)
                 return log_debug_errno(r, "Failed to parse root hash field: %m");
@@ -3466,10 +3468,12 @@ int dissected_image_load_verity_sig_partition(
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Root hash in signature JSON data (%s) doesn't match configured hash (%s).", strna(a), strna(b));
         }
 
-        sig = sd_json_variant_by_key(v, "signature");
+        sd_json_variant *sig = sd_json_variant_by_key(v, "signature");
         if (!sig)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Signature JSON object lacks 'signature' field.");
 
+        _cleanup_free_ void *root_hash_sig = NULL;
+        size_t root_hash_sig_size;
         r = sd_json_variant_unbase64(sig, &root_hash_sig, &root_hash_sig_size);
         if (r < 0)
                 return log_debug_errno(r, "Failed to parse signature field: %m");
@@ -3480,7 +3484,76 @@ int dissected_image_load_verity_sig_partition(
         free_and_replace(verity->root_hash_sig, root_hash_sig);
         verity->root_hash_sig_size = root_hash_sig_size;
 
+        verity->designator = dd;
+
+        m->verity_ready = true;
+        m->verity_sig_ready = true;
+        m->partitions[dd].rw = false;
+
         return 1;
+}
+
+int dissected_image_guess_verity_roothash(
+                DissectedImage *m,
+                VeritySettings *verity) {
+
+        int r;
+
+        assert(m);
+        assert(verity);
+
+        /* Guesses the Verity root hash from the partitions we found, taking into account that as per
+         * https://uapi-group.org/specifications/specs/discoverable_partitions_specification/ the UUIDS of
+         * the data and verity partitions are respectively the first and second halves of the dm-verity
+         * roothash.
+         *
+         * Note of course that relying on this guesswork is mostly useful for later attestation, not so much
+         * for a-priori security. */
+
+        if (verity->root_hash) /* Already loaded? */
+                return 0;
+
+        r = secure_getenv_bool("SYSTEMD_DISSECT_VERITY_GUESS");
+        if (r < 0 && r != -ENXIO)
+                log_debug_errno(r, "Failed to parse $SYSTEMD_DISSECT_VERITY_GUESS, ignoring: %m");
+        if (r == 0)
+                return 0;
+
+        PartitionDesignator dd = verity->designator;
+        if (dd < 0) {
+                if (m->partitions[PARTITION_ROOT_VERITY].found)
+                        dd = PARTITION_ROOT;
+                else if (m->partitions[PARTITION_USR_VERITY].found)
+                        dd = PARTITION_USR;
+                else
+                        return 0;
+        }
+
+        DissectedPartition *d = m->partitions + dd;
+        if (!d->found)
+                return 0;
+
+        PartitionDesignator dv = partition_verity_of(dd);
+        assert(dv >= 0);
+
+        DissectedPartition *p = m->partitions + dv;
+        if (!p->found)
+                return 0;
+
+        _cleanup_free_ uint8_t *rh = malloc(sizeof(sd_id128_t) * 2);
+        if (!rh)
+                return log_oom_debug();
+
+        memcpy(mempcpy(rh, &d->uuid, sizeof(sd_id128_t)), &p->uuid, sizeof(sd_id128_t));
+        verity->root_hash = TAKE_PTR(rh);
+        verity->root_hash_size = sizeof(sd_id128_t) * 2;
+
+        verity->designator = dd;
+
+        m->verity_ready = true;
+        m->partitions[dd].rw = false;
+
+        return 0;
 }
 
 int dissected_image_acquire_metadata(
@@ -3996,6 +4069,10 @@ int mount_image_privately_interactively(
         if (r < 0)
                 return r;
 
+        r = dissected_image_guess_verity_roothash(dissected_image, &verity);
+        if (r < 0)
+                return r;
+
         r = dissected_image_decrypt_interactively(dissected_image, NULL, &verity, flags);
         if (r < 0)
                 return r;
@@ -4136,6 +4213,10 @@ int verity_dissect_and_mount(
                 return log_debug_errno(r, "Failed to dissect image: %m");
 
         r = dissected_image_load_verity_sig_partition(dissected_image, loop_device->fd, verity);
+        if (r < 0)
+                return r;
+
+        r = dissected_image_guess_verity_roothash(dissected_image, verity);
         if (r < 0)
                 return r;
 
