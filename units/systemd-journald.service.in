@@ -57,7 +57,7 @@ StandardOutput=null
 SystemCallArchitectures=native
 SystemCallErrorNumber=EPERM
 SystemCallFilter=@system-service
-Type=notify
+Type=notify-reload
 PassEnvironment=TERM
 {{SERVICE_WATCHDOG}}
 

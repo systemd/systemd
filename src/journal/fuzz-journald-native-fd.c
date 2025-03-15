@@ -20,7 +20,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         fuzz_setup_logging();
 
-        assert_se(server_new(&s) >= 0);
+        assert_se(server_new(&s, NULL) >= 0);
         dummy_server_init(s, NULL, 0);
 
         sealed_fd = memfd_new_and_seal(NULL, data, size);
