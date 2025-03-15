@@ -1959,6 +1959,7 @@ static bool manager_dbus_is_running(Manager *m, bool deserialized) {
                     SERVICE_MOUNTING,
                     SERVICE_RELOAD,
                     SERVICE_RELOAD_NOTIFY,
+                    SERVICE_RELOAD_MOUNTING,
                     SERVICE_RELOAD_SIGNAL))
                 return false;
 
