@@ -365,18 +365,10 @@ int bind_user_setup(
                 const char *root) {
 
         static const UserRecordLoadFlags strip_flags = /* Removes privileged info */
-                USER_RECORD_REQUIRE_REGULAR|
-                USER_RECORD_STRIP_PRIVILEGED|
-                USER_RECORD_ALLOW_PER_MACHINE|
-                USER_RECORD_ALLOW_BINDING|
-                USER_RECORD_ALLOW_SIGNATURE|
+                USER_RECORD_LOAD_MASK_PRIVILEGED|
                 USER_RECORD_PERMISSIVE;
         static const UserRecordLoadFlags shadow_flags = /* Extracts privileged info */
-                USER_RECORD_STRIP_REGULAR|
-                USER_RECORD_ALLOW_PRIVILEGED|
-                USER_RECORD_STRIP_PER_MACHINE|
-                USER_RECORD_STRIP_BINDING|
-                USER_RECORD_STRIP_SIGNATURE|
+                USER_RECORD_EXTRACT_PRIVILEGED|
                 USER_RECORD_EMPTY_OK|
                 USER_RECORD_PERMISSIVE;
         int r;
