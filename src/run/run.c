@@ -1101,7 +1101,7 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                         if (!arg_shell_prompt_prefix)
                                 return log_oom();
                 } else if (emoji_enabled()) {
-                        arg_shell_prompt_prefix = strjoin(special_glyph(privileged_execution() ? SPECIAL_GLYPH_SUPERHERO : SPECIAL_GLYPH_IDCARD), " ");
+                        arg_shell_prompt_prefix = strjoin(glyph(privileged_execution() ? GLYPH_SUPERHERO : GLYPH_IDCARD), " ");
                         if (!arg_shell_prompt_prefix)
                                 return log_oom();
                 }
@@ -1988,7 +1988,7 @@ static void set_window_title(PTYForward *f) {
                 return (void) log_oom();
 
         if (emoji_enabled())
-                dot = strjoin(special_glyph(privileged_execution() ? SPECIAL_GLYPH_RED_CIRCLE : SPECIAL_GLYPH_YELLOW_CIRCLE), " ");
+                dot = strjoin(glyph(privileged_execution() ? GLYPH_RED_CIRCLE : GLYPH_YELLOW_CIRCLE), " ");
 
         if (arg_host || hn)
                 (void) pty_forward_set_titlef(f, "%s%s on %s", strempty(dot), cl, arg_host ?: hn);

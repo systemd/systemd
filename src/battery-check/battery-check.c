@@ -144,7 +144,7 @@ static int run(int argc, char *argv[]) {
         if (r == 0)
                 return 0;
         log_struct(LOG_EMERG,
-                   LOG_MESSAGE("%s " BATTERY_LOW_MESSAGE, special_glyph(SPECIAL_GLYPH_LOW_BATTERY)),
+                   LOG_MESSAGE("%s " BATTERY_LOW_MESSAGE, glyph(GLYPH_LOW_BATTERY)),
                    "MESSAGE_ID=" SD_MESSAGE_BATTERY_LOW_WARNING_STR);
 
         fd = open_terminal("/dev/console", O_WRONLY|O_NOCTTY|O_CLOEXEC);
@@ -152,10 +152,10 @@ static int run(int argc, char *argv[]) {
                 log_warning_errno(fd, "Failed to open console, ignoring: %m");
         else
                 dprintf(fd, ANSI_HIGHLIGHT_RED "%s " BATTERY_LOW_MESSAGE ANSI_NORMAL "\n",
-                        special_glyph_full(SPECIAL_GLYPH_LOW_BATTERY, /* force_utf = */ false));
+                        glyph_full(GLYPH_LOW_BATTERY, /* force_utf = */ false));
 
         if (asprintf(&plymouth_message, "%s " BATTERY_LOW_MESSAGE,
-                     special_glyph_full(SPECIAL_GLYPH_LOW_BATTERY, /* force_utf = */ true)) < 0)
+                     glyph_full(GLYPH_LOW_BATTERY, /* force_utf = */ true)) < 0)
                 return log_oom();
 
         (void) plymouth_send_message("shutdown", plymouth_message);

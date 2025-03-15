@@ -1651,7 +1651,7 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
                 return yes_no(d->boolean);
 
         case TABLE_BOOLEAN_CHECKMARK:
-                return special_glyph(d->boolean ? SPECIAL_GLYPH_CHECK_MARK : SPECIAL_GLYPH_CROSS_MARK);
+                return glyph(d->boolean ? GLYPH_CHECK_MARK : GLYPH_CROSS_MARK);
 
         case TABLE_TIMESTAMP:
         case TABLE_TIMESTAMP_UTC:
@@ -2341,7 +2341,7 @@ int table_print(Table *t, FILE *f) {
 
                                         req_width = MAX(req_width,
                                                         utf8_console_width(last) +
-                                                        utf8_console_width(special_glyph(SPECIAL_GLYPH_ELLIPSIS)));
+                                                        utf8_console_width(glyph(GLYPH_ELLIPSIS)));
                                 }
 
                                 /* Determine the biggest width that any cell in this column would like to have */
@@ -2563,7 +2563,7 @@ int table_print(Table *t, FILE *f) {
                                                  * right after. This will truncate the ellipsis and add a new
                                                  * one. */
 
-                                                padded = strjoin(field, special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+                                                padded = strjoin(field, glyph(GLYPH_ELLIPSIS));
                                                 if (!padded)
                                                         return -ENOMEM;
 

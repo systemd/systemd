@@ -346,9 +346,9 @@ static void print_status_info(
         format_enable_state(i->unit_file_state, &enable_on, &enable_off);
         format_enable_state(i->unit_file_preset, &preset_on, &preset_off);
 
-        const SpecialGlyph glyph = unit_active_state_to_glyph(unit_active_state_from_string(i->active_state));
+        const Glyph icon = unit_active_state_to_glyph(unit_active_state_from_string(i->active_state));
 
-        printf("%s%s%s %s", active_on, special_glyph(glyph), active_off, strna(i->id));
+        printf("%s%s%s %s", active_on, glyph(icon), active_off, strna(i->id));
 
         if (i->description && !streq_ptr(i->id, i->description))
                 printf(" - %s", i->description);
@@ -414,7 +414,7 @@ static void print_status_info(
 
                                 printf("%s\n"
                                        "             %s", dir,
-                                       special_glyph(SPECIAL_GLYPH_TREE_RIGHT));
+                                       glyph(GLYPH_TREE_RIGHT));
                         }
 
                         last = ! (*(dropin + 1) && startswith(*(dropin + 1), dir));
@@ -489,7 +489,7 @@ static void print_status_info(
 
                 printf("%s %s%s%s %s\n",
                        t == i->triggered_by ? "TriggeredBy:" : "            ",
-                       on, special_glyph(unit_active_state_to_glyph(state)), off,
+                       on, glyph(unit_active_state_to_glyph(state)), off,
                        *t);
         }
 
@@ -516,7 +516,7 @@ static void print_status_info(
 
                 printf("%s %s%s%s %s\n",
                        t == i->triggers ? "   Triggers:" : "            ",
-                       on, special_glyph(SPECIAL_GLYPH_BLACK_CIRCLE), off,
+                       on, glyph(GLYPH_BLACK_CIRCLE), off,
                        *t);
         }
 
@@ -535,7 +535,7 @@ static void print_status_info(
                 LIST_FOREACH(conditions, c, i->conditions)
                         if (c->tristate < 0)
                                 printf("             %s %s=%s%s%s was not met\n",
-                                       --n ? special_glyph(SPECIAL_GLYPH_TREE_BRANCH) : special_glyph(SPECIAL_GLYPH_TREE_RIGHT),
+                                       --n ? glyph(GLYPH_TREE_BRANCH) : glyph(GLYPH_TREE_RIGHT),
                                        c->name,
                                        c->trigger ? "|" : "",
                                        c->negate ? "!" : "",
@@ -2343,7 +2343,7 @@ static int show_system_status(sd_bus *bus) {
                 off = ansi_normal();
         }
 
-        printf("%s%s%s %s\n", on, special_glyph(SPECIAL_GLYPH_BLACK_CIRCLE), off, arg_host ?: hn);
+        printf("%s%s%s %s\n", on, glyph(GLYPH_BLACK_CIRCLE), off, arg_host ?: hn);
 
         printf("    State: %s%s%s\n",
                on, strna(mi.state), off);

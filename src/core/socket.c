@@ -821,7 +821,7 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                         continue;
 
                 fprintf(f, "%s%s %s:\n",
-                        prefix, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), socket_exec_command_to_string(c));
+                        prefix, glyph(GLYPH_ARROW_RIGHT), socket_exec_command_to_string(c));
 
                 exec_command_dump_list(s->exec_command[c], f, prefix2);
         }
@@ -1315,7 +1315,7 @@ static int socket_symlink(Socket *s) {
                 }
                 if (r < 0)
                         log_unit_warning_errno(UNIT(s), r, "Failed to create symlink %s %s %s, ignoring: %m",
-                                               p, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), *i);
+                                               p, glyph(GLYPH_ARROW_RIGHT), *i);
         }
 
         return 0;

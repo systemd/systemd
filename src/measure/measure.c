@@ -122,7 +122,7 @@ static int help(int argc, char *argv[], void *userdata) {
                ansi_normal(),
                ansi_highlight(),
                ansi_normal(),
-               special_glyph(SPECIAL_GLYPH_ARROW_RIGHT));
+               glyph(GLYPH_ARROW_RIGHT));
 
         return 0;
 }

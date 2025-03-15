@@ -358,20 +358,20 @@ static const char* const job_mode_table[_JOB_MODE_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(job_mode, JobMode);
 
-SpecialGlyph unit_active_state_to_glyph(UnitActiveState state) {
-        static const SpecialGlyph map[_UNIT_ACTIVE_STATE_MAX] = {
-                [UNIT_ACTIVE]       = SPECIAL_GLYPH_BLACK_CIRCLE,
-                [UNIT_RELOADING]    = SPECIAL_GLYPH_CIRCLE_ARROW,
-                [UNIT_REFRESHING]   = SPECIAL_GLYPH_CIRCLE_ARROW,
-                [UNIT_INACTIVE]     = SPECIAL_GLYPH_WHITE_CIRCLE,
-                [UNIT_FAILED]       = SPECIAL_GLYPH_MULTIPLICATION_SIGN,
-                [UNIT_ACTIVATING]   = SPECIAL_GLYPH_BLACK_CIRCLE,
-                [UNIT_DEACTIVATING] = SPECIAL_GLYPH_BLACK_CIRCLE,
-                [UNIT_MAINTENANCE]  = SPECIAL_GLYPH_WHITE_CIRCLE,
+Glyph unit_active_state_to_glyph(UnitActiveState state) {
+        static const Glyph map[_UNIT_ACTIVE_STATE_MAX] = {
+                [UNIT_ACTIVE]       = GLYPH_BLACK_CIRCLE,
+                [UNIT_RELOADING]    = GLYPH_CIRCLE_ARROW,
+                [UNIT_REFRESHING]   = GLYPH_CIRCLE_ARROW,
+                [UNIT_INACTIVE]     = GLYPH_WHITE_CIRCLE,
+                [UNIT_FAILED]       = GLYPH_MULTIPLICATION_SIGN,
+                [UNIT_ACTIVATING]   = GLYPH_BLACK_CIRCLE,
+                [UNIT_DEACTIVATING] = GLYPH_BLACK_CIRCLE,
+                [UNIT_MAINTENANCE]  = GLYPH_WHITE_CIRCLE,
         };
 
         if (state < 0)
-                return _SPECIAL_GLYPH_INVALID;
+                return _GLYPH_INVALID;
 
         assert(state < _UNIT_ACTIVE_STATE_MAX);
         return map[state];

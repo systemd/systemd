@@ -212,7 +212,7 @@ int devnode_acl_all(const char *seat,
                 int k;
 
                 log_debug("Changing ACLs at %s for seat %s (uid "UID_FMT"%s"UID_FMT"%s%s)",
-                          n, seat, old_uid, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), new_uid,
+                          n, seat, old_uid, glyph(GLYPH_ARROW_RIGHT), new_uid,
                           del ? " del" : "", add ? " add" : "");
 
                 k = devnode_acl(n, flush, del, old_uid, add, new_uid);

@@ -2215,7 +2215,7 @@ static int link_update_master(Link *link, sd_netlink_message *message) {
                         log_link_debug(link, "Detached from master interface: %i", link->master_ifindex);
                 else
                         log_link_debug(link, "Master interface changed: %i %s %i", link->master_ifindex,
-                                       special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), master_ifindex);
+                                       glyph(GLYPH_ARROW_RIGHT), master_ifindex);
 
                 link_drop_from_master(link);
                 link->master_ifindex = master_ifindex;
@@ -2358,7 +2358,7 @@ static int link_update_hardware_address(Link *link, sd_netlink_message *message)
         else {
                 log_link_debug(link, "Hardware address is changed: %s %s %s",
                                HW_ADDR_TO_STR(&link->hw_addr),
-                               special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
+                               glyph(GLYPH_ARROW_RIGHT),
                                HW_ADDR_TO_STR(&addr));
 
                 hashmap_remove_value(link->manager->links_by_hw_addr, &link->hw_addr, link);
@@ -2456,7 +2456,7 @@ static int link_update_mtu(Link *link, sd_netlink_message *message) {
 
         if (link->mtu != 0)
                 log_link_debug(link, "MTU is changed: %"PRIu32" %s %"PRIu32" (min: %"PRIu32", max: %"PRIu32")",
-                               link->mtu, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), mtu,
+                               link->mtu, glyph(GLYPH_ARROW_RIGHT), mtu,
                                link->min_mtu, link->max_mtu);
 
         link->mtu = mtu;

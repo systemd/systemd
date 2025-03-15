@@ -116,7 +116,7 @@ int system_status(sd_netlink *rtnl, sd_hwdb *hwdb) {
                 return r;
 
         printf("%s%s%s Interfaces: %s\n",
-               on_color_operational, special_glyph(SPECIAL_GLYPH_BLACK_CIRCLE), off_color_operational,
+               on_color_operational, glyph(GLYPH_BLACK_CIRCLE), off_color_operational,
                strna(netifs_joined));
 
         r = table_print(table, NULL);

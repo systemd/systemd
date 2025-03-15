@@ -1724,15 +1724,15 @@ static int assess(const SecurityInfo *info,
                 uint64_t exposure;
                 const char *name;
                 const char* (*color)(void);
-                SpecialGlyph smiley;
+                Glyph smiley;
         } badness_table[] = {
-                { 100, "DANGEROUS", ansi_highlight_red,    SPECIAL_GLYPH_DEPRESSED_SMILEY        },
-                { 90,  "UNSAFE",    ansi_highlight_red,    SPECIAL_GLYPH_UNHAPPY_SMILEY          },
-                { 75,  "EXPOSED",   ansi_highlight_yellow, SPECIAL_GLYPH_SLIGHTLY_UNHAPPY_SMILEY },
-                { 50,  "MEDIUM",    NULL,                  SPECIAL_GLYPH_NEUTRAL_SMILEY          },
-                { 10,  "OK",        ansi_highlight_green,  SPECIAL_GLYPH_SLIGHTLY_HAPPY_SMILEY   },
-                { 1,   "SAFE",      ansi_highlight_green,  SPECIAL_GLYPH_HAPPY_SMILEY            },
-                { 0,   "PERFECT",   ansi_highlight_green,  SPECIAL_GLYPH_ECSTATIC_SMILEY         },
+                { 100, "DANGEROUS", ansi_highlight_red,    GLYPH_DEPRESSED_SMILEY        },
+                { 90,  "UNSAFE",    ansi_highlight_red,    GLYPH_UNHAPPY_SMILEY          },
+                { 75,  "EXPOSED",   ansi_highlight_yellow, GLYPH_SLIGHTLY_UNHAPPY_SMILEY },
+                { 50,  "MEDIUM",    NULL,                  GLYPH_NEUTRAL_SMILEY          },
+                { 10,  "OK",        ansi_highlight_green,  GLYPH_SLIGHTLY_HAPPY_SMILEY   },
+                { 1,   "SAFE",      ansi_highlight_green,  GLYPH_HAPPY_SMILEY            },
+                { 0,   "PERFECT",   ansi_highlight_green,  GLYPH_ECSTATIC_SMILEY         },
         };
 
         uint64_t badness_sum = 0, weight_sum = 0, exposure;
@@ -1906,7 +1906,7 @@ static int assess(const SecurityInfo *info,
                         name = info->id;
 
                 printf("\n%s %sOverall exposure level for %s%s: %s%" PRIu64 ".%" PRIu64 " %s%s %s\n",
-                       special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
+                       glyph(GLYPH_ARROW_RIGHT),
                        ansi_highlight(),
                        name,
                        ansi_normal(),
@@ -1914,7 +1914,7 @@ static int assess(const SecurityInfo *info,
                        exposure / 10, exposure % 10,
                        badness_table[i].name,
                        ansi_normal(),
-                       special_glyph(badness_table[i].smiley));
+                       glyph(badness_table[i].smiley));
         }
 
         fflush(stdout);
@@ -1938,7 +1938,7 @@ static int assess(const SecurityInfo *info,
                                    TABLE_SET_ALIGN_PERCENT, 100,
                                    TABLE_STRING, badness_table[i].name,
                                    TABLE_SET_COLOR, badness_table[i].color ? badness_table[i].color() : "",
-                                   TABLE_STRING, special_glyph(badness_table[i].smiley));
+                                   TABLE_STRING, glyph(badness_table[i].smiley));
                 if (r < 0)
                         return table_log_add_error(r);
         }

@@ -298,7 +298,7 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
                         hash = hexmem(hash_bytes, SHA256_DIGEST_SIZE);
 
                         printf("              %s %s %s(%s)%s\n",
-                               special_glyph(last ? SPECIAL_GLYPH_TREE_RIGHT : SPECIAL_GLYPH_TREE_BRANCH),
+                               glyph(last ? GLYPH_TREE_RIGHT : GLYPH_TREE_BRANCH),
                                link ?: filename,
                                ansi_grey(),
                                hash ?: "can't display hash",

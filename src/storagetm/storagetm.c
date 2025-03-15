@@ -706,8 +706,8 @@ static int nvme_subsystem_report(NvmeSubsystem *subsystem, NvmePort *ipv4, NvmeP
                 return log_error_errno(n_addresses, "Failed to determine local IP addresses: %m");
 
         log_notice("NVMe-TCP: %s %s%s%s (%s)",
-                   special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
-                   emoji_enabled() ? special_glyph(SPECIAL_GLYPH_COMPUTER_DISK) : "", emoji_enabled() ? " " : "",
+                   glyph(GLYPH_ARROW_RIGHT),
+                   emoji_enabled() ? glyph(GLYPH_COMPUTER_DISK) : "", emoji_enabled() ? " " : "",
                    subsystem->name, subsystem->device);
 
         FOREACH_ARRAY(a, addresses, n_addresses) {
@@ -717,7 +717,7 @@ static int nvme_subsystem_report(NvmeSubsystem *subsystem, NvmePort *ipv4, NvmeP
                         continue;
 
                 log_info("          %s Try for specific device: nvme connect -t tcp -n '%s' -a %s -s %" PRIu16,
-                         special_glyph(a >= addresses + (n_addresses - 1) ? SPECIAL_GLYPH_TREE_RIGHT : SPECIAL_GLYPH_TREE_BRANCH),
+                         glyph(a >= addresses + (n_addresses - 1) ? GLYPH_TREE_RIGHT : GLYPH_TREE_BRANCH),
                          subsystem->name,
                          IN_ADDR_TO_STRING(a->family, &a->address),
                          port->portnr);
@@ -771,14 +771,14 @@ static int nvme_port_report(NvmePort *port, bool *plymouth_done) {
                 return log_error_errno(n_addresses, "Failed to determine local IP addresses: %m");
 
         log_notice("NVMe-TCP: %s %s%sListening on %s (port %" PRIu16 ")",
-                   special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
-                   emoji_enabled() ? special_glyph(SPECIAL_GLYPH_WORLD) : "", emoji_enabled() ? " " : "",
+                   glyph(GLYPH_ARROW_RIGHT),
+                   emoji_enabled() ? glyph(GLYPH_WORLD) : "", emoji_enabled() ? " " : "",
                    af_to_ipv4_ipv6(port->ip_family),
                    port->portnr);
 
         FOREACH_ARRAY(a, addresses, n_addresses)
                 log_info("          %s Try for all devices: nvme connect-all -t tcp -a %s -s %" PRIu16,
-                         special_glyph(a >= addresses + (n_addresses - 1) ? SPECIAL_GLYPH_TREE_RIGHT : SPECIAL_GLYPH_TREE_BRANCH),
+                         glyph(a >= addresses + (n_addresses - 1) ? GLYPH_TREE_RIGHT : GLYPH_TREE_BRANCH),
                          IN_ADDR_TO_STRING(a->family, &a->address),
                          port->portnr);
 

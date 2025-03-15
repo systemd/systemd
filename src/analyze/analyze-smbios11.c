@@ -53,7 +53,7 @@ int verb_smbios11(int argc, char *argv[], void *userdata) {
 
                 if (written) {
                         if (incomplete)
-                                fputs(special_glyph(SPECIAL_GLYPH_ELLIPSIS), stdout);
+                                fputs(glyph(GLYPH_ELLIPSIS), stdout);
 
                         fputc('\n', stdout);
                 }

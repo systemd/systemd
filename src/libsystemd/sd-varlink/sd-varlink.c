@@ -110,7 +110,7 @@ static void varlink_set_state(sd_varlink *v, VarlinkState state) {
         else
                 varlink_log(v, "Changing state %s %s %s",
                             varlink_state_to_string(v->state),
-                            special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
+                            glyph(GLYPH_ARROW_RIGHT),
                             varlink_state_to_string(state));
 
         v->state = state;

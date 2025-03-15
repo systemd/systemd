@@ -816,7 +816,7 @@ int transfer_vacuum(
                 assert(oldest->resource);
 
                 log_info("%s Removing %s '%s' (%s).",
-                         special_glyph(SPECIAL_GLYPH_RECYCLING),
+                         glyph(GLYPH_RECYCLING),
                          space == UINT64_MAX ? "disabled" : "old",
                          oldest->path,
                          resource_type_to_string(oldest->resource->type));
@@ -1196,7 +1196,7 @@ int transfer_acquire_instance(Transfer *t, Instance *i, TransferProgress cb, voi
 
         assert(where);
 
-        log_info("%s Acquiring %s %s %s...", special_glyph(SPECIAL_GLYPH_DOWNLOAD), i->path, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), where);
+        log_info("%s Acquiring %s %s %s...", glyph(GLYPH_DOWNLOAD), i->path, glyph(GLYPH_ARROW_RIGHT), where);
 
         if (RESOURCE_IS_URL(i->resource->type)) {
                 /* For URL sources we require the SHA256 sum to be known so that we can validate the
@@ -1542,11 +1542,11 @@ int transfer_install_instance(
                         if (r < 0)
                                 return log_error_errno(r, "Failed to update current symlink '%s' %s '%s': %m",
                                                        link_path,
-                                                       special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
+                                                       glyph(GLYPH_ARROW_RIGHT),
                                                        relative);
 
                         log_info("Updated symlink '%s' %s '%s'.",
-                                 link_path, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), relative);
+                                 link_path, glyph(GLYPH_ARROW_RIGHT), relative);
                 }
         }
 

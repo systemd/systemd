@@ -138,7 +138,7 @@ static void tar_export_report_progress(TarExport *e) {
                 (void) draw_progress_barf(
                                 percent,
                                 "%s %s/%s",
-                                special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
+                                glyph(GLYPH_ARROW_RIGHT),
                                 FORMAT_BYTES(e->written_uncompressed),
                                 FORMAT_BYTES(e->quota_referenced));
         else

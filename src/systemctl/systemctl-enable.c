@@ -278,7 +278,7 @@ int verb_enable(int argc, char *argv[], void *userdata) {
                            "  D-Bus, udev, scripted systemctl call, ...).\n"
                            "%1$s In case of template units, the unit is meant to be enabled with some\n"
                            "  instance name specified.",
-                           special_glyph(SPECIAL_GLYPH_BULLET));
+                           glyph(GLYPH_BULLET));
 
         if (streq(verb, "disable") && arg_runtime_scope == RUNTIME_SCOPE_USER && !arg_quiet && !arg_no_warn) {
                 /* If some of the units are disabled in user scope but still enabled in global scope,

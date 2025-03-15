@@ -1427,7 +1427,7 @@ static void set_window_title(PTYForward *f) {
         (void) gethostname_strict(&hn);
 
         if (emoji_enabled())
-                dot = strjoin(special_glyph(SPECIAL_GLYPH_GREEN_CIRCLE), " ");
+                dot = strjoin(glyph(GLYPH_GREEN_CIRCLE), " ");
 
         if (hn)
                 (void) pty_forward_set_titlef(f, "%sVirtual Machine %s on %s", strempty(dot), arg_machine, hn);
@@ -2471,14 +2471,14 @@ static int run(int argc, char *argv[]) {
                 (void) terminal_urlify_path(vm_path, vm_path, &u);
 
                 log_info("%s %sSpawning VM %s on %s.%s",
-                         special_glyph(SPECIAL_GLYPH_LIGHT_SHADE), ansi_grey(), arg_machine, u ?: vm_path, ansi_normal());
+                         glyph(GLYPH_LIGHT_SHADE), ansi_grey(), arg_machine, u ?: vm_path, ansi_normal());
 
                 if (arg_console_mode == CONSOLE_INTERACTIVE)
                         log_info("%s %sPress %sCtrl-]%s three times within 1s to kill VM.%s",
-                                 special_glyph(SPECIAL_GLYPH_LIGHT_SHADE), ansi_grey(), ansi_highlight(), ansi_grey(), ansi_normal());
+                                 glyph(GLYPH_LIGHT_SHADE), ansi_grey(), ansi_highlight(), ansi_grey(), ansi_normal());
                 else if (arg_console_mode == CONSOLE_NATIVE)
                         log_info("%s %sPress %sCtrl-a x%s to kill VM.%s",
-                                 special_glyph(SPECIAL_GLYPH_LIGHT_SHADE), ansi_grey(), ansi_highlight(), ansi_grey(), ansi_normal());
+                                 glyph(GLYPH_LIGHT_SHADE), ansi_grey(), ansi_highlight(), ansi_grey(), ansi_normal());
         }
 
         r = sd_listen_fds_with_names(true, &names);

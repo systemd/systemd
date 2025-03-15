@@ -61,7 +61,7 @@ int json_dispatch_byte_array_iovec(const char *name, sd_json_variant *variant, s
                 if (b > 0xff)
                         return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL),
                                         "Element %zu of JSON field '%s' is out of range 0%s255.",
-                                        k, strna(name), special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+                                        k, strna(name), glyph(GLYPH_ELLIPSIS));
 
                 buffer[k++] = (uint8_t) b;
         }

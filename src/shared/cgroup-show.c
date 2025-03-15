@@ -71,9 +71,9 @@ static void show_pid_array(
                                        &t);
 
                 if (extra)
-                        printf("%s%s ", prefix, special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET));
+                        printf("%s%s ", prefix, glyph(GLYPH_TRIANGULAR_BULLET));
                 else
-                        printf("%s%s", prefix, special_glyph(((more || i < n_pids-1) ? SPECIAL_GLYPH_TREE_BRANCH : SPECIAL_GLYPH_TREE_RIGHT)));
+                        printf("%s%s", prefix, glyph(((more || i < n_pids-1) ? GLYPH_TREE_BRANCH : GLYPH_TREE_RIGHT)));
 
                 printf("%s%*"PID_PRI" %s%s\n", ansi_grey(), (int) pid_width, pids[i], strna(t), ansi_normal());
         }
@@ -132,7 +132,7 @@ static int show_cgroup_one_by_path(
 static int show_cgroup_name(
                 const char *path,
                 const char *prefix,
-                SpecialGlyph glyph,
+                Glyph tree,
                 OutputFlags flags) {
 
         uint64_t cgroupid = UINT64_MAX;
@@ -161,7 +161,7 @@ static int show_cgroup_name(
                 return log_error_errno(r, "Failed to extract filename from cgroup path: %m");
 
         printf("%s%s%s%s%s",
-               prefix, special_glyph(glyph),
+               prefix, glyph(tree),
                delegate ? ansi_underline() : "",
                cg_unescape(b),
                delegate ? ansi_normal() : "");
@@ -169,7 +169,7 @@ static int show_cgroup_name(
         if (delegate)
                 printf(" %s%s%s",
                        ansi_highlight(),
-                       special_glyph(SPECIAL_GLYPH_ELLIPSIS),
+                       glyph(GLYPH_ELLIPSIS),
                        ansi_normal());
 
         if (cgroupid != UINT64_MAX)
@@ -207,8 +207,8 @@ static int show_cgroup_name(
 
                         printf("%s%s%s %s%s%s: %s\n",
                                prefix,
-                               glyph == SPECIAL_GLYPH_TREE_BRANCH ? special_glyph(SPECIAL_GLYPH_TREE_VERTICAL) : "  ",
-                               special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
+                               tree == GLYPH_TREE_BRANCH ? glyph(GLYPH_TREE_VERTICAL) : "  ",
+                               glyph(GLYPH_ARROW_RIGHT),
                                ansi_blue(), x, ansi_normal(),
                                y);
                 }
@@ -261,12 +261,12 @@ int show_cgroup_by_path(
                 }
 
                 if (last) {
-                        r = show_cgroup_name(last, prefix, SPECIAL_GLYPH_TREE_BRANCH, flags);
+                        r = show_cgroup_name(last, prefix, GLYPH_TREE_BRANCH, flags);
                         if (r < 0)
                                 return r;
 
                         if (!p1) {
-                                p1 = strjoin(prefix, special_glyph(SPECIAL_GLYPH_TREE_VERTICAL));
+                                p1 = strjoin(prefix, glyph(GLYPH_TREE_VERTICAL));
                                 if (!p1)
                                         return -ENOMEM;
                         }
@@ -285,7 +285,7 @@ int show_cgroup_by_path(
                 (void) show_cgroup_one_by_path(path, prefix, n_columns, !!last, flags);
 
         if (last) {
-                r = show_cgroup_name(last, prefix, SPECIAL_GLYPH_TREE_RIGHT, flags);
+                r = show_cgroup_name(last, prefix, GLYPH_TREE_RIGHT, flags);
                 if (r < 0)
                         return r;
 

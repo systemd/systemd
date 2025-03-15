@@ -348,7 +348,7 @@ static void install_change_dump_success(const InstallChange *change) {
 
         case INSTALL_CHANGE_SYMLINK:
                 return log_info("Created symlink '%s' %s '%s'.",
-                                change->path, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), change->source);
+                                change->path, glyph(GLYPH_ARROW_RIGHT), change->source);
 
         case INSTALL_CHANGE_UNLINK:
                 return log_info("Removed '%s'.", change->path);
@@ -604,7 +604,7 @@ static int create_symlink(
 
         if (chroot_unit_symlinks_equivalent(lp, new_path, dest, old_path)) {
                 log_debug("Symlink %s %s %s already exists",
-                          new_path, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), dest);
+                          new_path, glyph(GLYPH_ARROW_RIGHT), dest);
                 return 1;
         }
 
