@@ -47,6 +47,7 @@ typedef enum MountPointFlags {
         MOUNT_RW_ONLY   = 1 << 5,
         MOUNT_PCRFS     = 1 << 6,
         MOUNT_QUOTA     = 1 << 7,
+        MOUNT_VALIDATEFS= 1 << 8,
 } MountPointFlags;
 
 typedef struct Mount {
@@ -249,9 +250,10 @@ static int add_swap(
                 return true;
         }
 
-        log_debug("Found swap entry what=%s makefs=%s growfs=%s pcrfs=%s noauto=%s nofail=%s",
+        log_debug("Found swap entry what=%s makefs=%s growfs=%s pcrfs=%s validatefs=%s noauto=%s nofail=%s",
                   what,
-                  yes_no(flags & MOUNT_MAKEFS), yes_no(flags & MOUNT_GROWFS), yes_no(flags & MOUNT_PCRFS),
+                  yes_no(flags & MOUNT_MAKEFS), yes_no(flags & MOUNT_GROWFS),
+                  yes_no(flags & MOUNT_PCRFS), yes_no(flags & MOUNT_VALIDATEFS),
                   yes_no(flags & MOUNT_NOAUTO), yes_no(flags & MOUNT_NOFAIL));
 
         r = unit_name_from_path(what, ".swap", &name);
@@ -304,6 +306,8 @@ static int add_swap(
                 log_warning("%s: growing swap devices is currently unsupported.", what);
         if (flags & MOUNT_PCRFS)
                 log_warning("%s: measuring swap devices is currently unsupported.", what);
+        if (flags & MOUNT_VALIDATEFS)
+                log_warning("%s: validating swap devices is currently unsupported.", what);
 
         if (!(flags & MOUNT_NOAUTO)) {
                 r = generator_add_symlink(arg_dest, SPECIAL_SWAP_TARGET,
@@ -688,6 +692,12 @@ static int add_mount(
                 }
         }
 
+        if (flags & MOUNT_VALIDATEFS) {
+                r = generator_hook_up_validatefs(dest, where, target_unit);
+                if (r < 0)
+                        return r;
+        }
+
         if (flags & MOUNT_QUOTA) {
                 r = generator_hook_up_quotacheck(dest, what, where, target_unit, fstype);
                 if (r < 0) {
@@ -842,6 +852,8 @@ static MountPointFlags fstab_options_to_flags(const char *options, bool is_swap)
                 flags |= MOUNT_GROWFS;
         if (fstab_test_option(options, "x-systemd.pcrfs\0"))
                 flags |= MOUNT_PCRFS;
+        if (fstab_test_option(options, "x-systemd.validatefs\0"))
+                flags |= MOUNT_VALIDATEFS;
         if (fstab_test_option(options, "usrquota\0" "grpquota\0" "quota\0" "usrjquota\0" "grpjquota\0" "prjquota\0"))
                 flags |= MOUNT_QUOTA;
         if (fstab_test_yes_no_option(options, "noauto\0" "auto\0"))
@@ -970,9 +982,10 @@ static int parse_fstab_one(
                 free_and_replace(what, p);
         }
 
-        log_debug("Found entry what=%s where=%s type=%s makefs=%s growfs=%s pcrfs=%s noauto=%s nofail=%s",
+        log_debug("Found entry what=%s where=%s type=%s makefs=%s growfs=%s pcrfs=%s validatefs=%s noauto=%s nofail=%s",
                   what, where, strna(fstype),
-                  yes_no(flags & MOUNT_MAKEFS), yes_no(flags & MOUNT_GROWFS), yes_no(flags & MOUNT_PCRFS),
+                  yes_no(flags & MOUNT_MAKEFS), yes_no(flags & MOUNT_GROWFS),
+                  yes_no(flags & MOUNT_PCRFS), yes_no(flags & MOUNT_VALIDATEFS),
                   yes_no(flags & MOUNT_NOAUTO), yes_no(flags & MOUNT_NOFAIL));
 
         bool is_sysroot = in_initrd() && path_equal(where, "/sysroot");

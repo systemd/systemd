@@ -38,6 +38,13 @@
 #include "unit-name.h"
 #include "virt.h"
 
+typedef enum MountPointFlags {
+        MOUNT_RW         = 1 << 0,
+        MOUNT_GROWFS     = 1 << 1,
+        MOUNT_MEASURE    = 1 << 2,
+        MOUNT_VALIDATEFS = 1 << 3,
+} MountPointFlags;
+
 static const char *arg_dest = NULL;
 static bool arg_enabled = true;
 static GptAutoRoot arg_auto_root = _GPT_AUTO_ROOT_INVALID;
@@ -57,9 +64,8 @@ static int add_cryptsetup(
                 const char *id,
                 const char *what,
                 const char *mount_opts,
-                bool rw,
+                MountPointFlags flags,
                 bool require,
-                bool measure,
                 char **ret_device) {
 
 #if HAVE_LIBCRYPTSETUP
@@ -97,7 +103,7 @@ static int add_cryptsetup(
                 "After=%s\n",
                 d, d);
 
-        if (!rw) {
+        if (!FLAGS_SET(flags, MOUNT_RW)) {
                 options = strdup("read-only");
                 if (!options)
                         return log_oom();
@@ -109,7 +115,7 @@ static int add_cryptsetup(
                 if (!strextend_with_separator(&options, ",", "tpm2-device=auto"))
                         return log_oom();
 
-        if (measure) {
+        if (FLAGS_SET(flags, MOUNT_MEASURE)) {
                 /* We only measure the root volume key into PCR 15 if we are booted with sd-stub (i.e. in a
                  * UKI), and sd-stub measured the UKI. We do this in order not to step into people's own PCR
                  * assignment, under the assumption that people who are fine to use sd-stub with its PCR
@@ -178,9 +184,7 @@ static int add_mount(
                 const char *what,
                 const char *where,
                 const char *fstype,
-                bool rw,
-                bool growfs,
-                bool measure,
+                MountPointFlags flags,
                 const char *options,
                 const char *description,
                 const char *post) {
@@ -203,7 +207,7 @@ static int add_mount(
         if (streq_ptr(fstype, "crypto_LUKS")) {
                 /* Mount options passed are determined by partition_pick_mount_options(), whose result
                  * is known to not contain timeout options. */
-                r = add_cryptsetup(id, what, /* mount_opts = */ NULL, rw, /* require= */ true, measure, &crypto_what);
+                r = add_cryptsetup(id, what, /* mount_opts = */ NULL, flags, /* require= */ true, &crypto_what);
                 if (r < 0)
                         return r;
 
@@ -270,13 +274,19 @@ static int add_mount(
         if (r < 0)
                 return log_error_errno(r, "Failed to write unit %s: %m", unit);
 
-        if (growfs) {
+        if (FLAGS_SET(flags, MOUNT_VALIDATEFS)) {
+                r = generator_hook_up_validatefs(arg_dest, where, post);
+                if (r < 0)
+                        return r;
+        }
+
+        if (FLAGS_SET(flags, MOUNT_GROWFS)) {
                 r = generator_hook_up_growfs(arg_dest, where, post);
                 if (r < 0)
                         return r;
         }
 
-        if (measure) {
+        if (FLAGS_SET(flags, MOUNT_MEASURE)) {
                 r = generator_hook_up_pcrfs(arg_dest, where, post);
                 if (r < 0)
                         return r;
@@ -353,9 +363,10 @@ static int add_partition_mount(
                         p->node,
                         where,
                         p->fstype,
-                        p->rw,
-                        p->growfs,
-                        /* measure= */ STR_IN_SET(id, "root", "var"), /* by default measure rootfs and /var, since they contain the "identity" of the system */
+                        (p->rw ? MOUNT_RW : 0) |
+                        MOUNT_VALIDATEFS |
+                        (p->growfs ? MOUNT_GROWFS : 0) |
+                        (STR_IN_SET(id, "root", "var") ? MOUNT_MEASURE : 0), /* by default measure rootfs and /var, since they contain the "identity" of the system */
                         options,
                         description,
                         SPECIAL_LOCAL_FS_TARGET);
@@ -383,7 +394,7 @@ static int add_partition_swap(DissectedPartition *p) {
         }
 
         if (streq_ptr(p->fstype, "crypto_LUKS")) {
-                r = add_cryptsetup("swap", p->node, /* mount_opts = */ NULL, /* rw= */ true, /* require= */ true, /* measure= */ false, &crypto_what);
+                r = add_cryptsetup("swap", p->node, /* mount_opts = */ NULL, MOUNT_RW, /* require= */ true, &crypto_what);
                 if (r < 0)
                         return r;
                 what = crypto_what;
@@ -427,8 +438,7 @@ static int add_automount(
                 const char *what,
                 const char *where,
                 const char *fstype,
-                bool rw,
-                bool growfs,
+                MountPointFlags flags,
                 const char *options,
                 const char *description,
                 usec_t timeout) {
@@ -445,12 +455,10 @@ static int add_automount(
                       what,
                       where,
                       fstype,
-                      rw,
-                      growfs,
-                      /* measure= */ false,
+                      flags,
                       options,
                       description,
-                      NULL);
+                      /* post= */ NULL);
         if (r < 0)
                 return r;
 
@@ -508,8 +516,7 @@ static int add_partition_xbootldr(DissectedPartition *p) {
                         p->node,
                         "/boot",
                         p->fstype,
-                        /* rw= */ true,
-                        /* growfs= */ false,
+                        MOUNT_RW,
                         options,
                         "Boot Loader Partition",
                         LOADER_PARTITION_IDLE_USEC);
@@ -571,8 +578,7 @@ static int add_partition_esp(DissectedPartition *p, bool has_xbootldr) {
                         p->node,
                         esp_path,
                         p->fstype,
-                        /* rw= */ true,
-                        /* growfs= */ false,
+                        MOUNT_RW,
                         options,
                         "EFI System Partition Automount",
                         LOADER_PARTITION_IDLE_USEC);
@@ -665,7 +671,7 @@ static int add_root_cryptsetup(void) {
                         bdev = "/dev/gpt-auto-root-luks-ignore-factory-reset";
         }
 
-        return add_cryptsetup("root", bdev, arg_root_options, /* rw= */ true, /* require= */ false, /* measure= */ true, NULL);
+        return add_cryptsetup("root", bdev, arg_root_options, MOUNT_RW|MOUNT_MEASURE, /* require= */ false, NULL);
 #else
         return 0;
 #endif
@@ -751,9 +757,9 @@ static int add_root_mount(void) {
                         bdev,
                         in_initrd() ? "/sysroot" : "/",
                         arg_root_fstype,
-                        /* rw= */ arg_root_rw > 0,
-                        /* growfs= */ false,
-                        /* measure= */ true,
+                        (arg_root_rw > 0 ? MOUNT_RW : 0) |
+                        (in_initrd() ? MOUNT_VALIDATEFS : 0) |
+                        MOUNT_MEASURE,
                         options,
                         "Root Partition",
                         in_initrd() ? SPECIAL_INITRD_ROOT_FS_TARGET : SPECIAL_LOCAL_FS_TARGET);

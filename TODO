@@ -139,9 +139,16 @@ Features:
   waits and then reboots. Then use OnFailure=bsod.target from various jobs that
   should result in system reboots, such as TPM tamper detection cases.
 
+* honour validatefs xattrs in dissect-image.c too
+
 * pcrextend: maybe add option to disable measurements entirely via kernel cmdline
 
 * tpm2-setup: reboot if we detect SRK changed
+
+* validatefs: validate more things: check if image id + os id of initrd match
+  target mount, so that we refuse early any attempts to boot into different
+  images with the wrong kernels. check min/max kernel version too. all encoded
+  via xattrs in the target fs.
 
 * pcrextend: when we fail to measure, reboot the system (at least optionally).
   important because certain measurements are supposed to "destroy" tpm object
@@ -152,11 +159,6 @@ Features:
   the PCR then also reboot.
 
 * cryptsetup: add boolean for disabling use of any password/recovery key slots.
-
-* dissect: when mounting a file system, look into certain xattrs on / in them, and
-  if that exists, check if gpt partition flags + type uuid + uuid match the
-  data encoded therein, so that attackers cannot make us misuse our file
-  systems
 
 * complete varlink introspection comments:
   - io.systemd.BootControl
