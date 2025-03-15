@@ -468,7 +468,7 @@ TEST(chaseat) {
         struct stat st;
         const char *p;
 
-        ASSERT_OK((tfd = mkdtemp_open(NULL, 0, &t)));
+        ASSERT_OK(tfd = mkdtemp_open(NULL, 0, &t));
 
         /* Test that AT_FDCWD with CHASE_AT_RESOLVE_IN_ROOT resolves against / and not the current working
          * directory. */
@@ -520,7 +520,7 @@ TEST(chaseat) {
         /* Test that absolute path or not are the same when resolving relative to a directory file
          * descriptor and that we always get a relative path back. */
 
-        ASSERT_OK((fd = openat(tfd, "def", O_CREAT|O_CLOEXEC, 0700)));
+        ASSERT_OK(fd = openat(tfd, "def", O_CREAT|O_CLOEXEC, 0700));
         fd = safe_close(fd);
         ASSERT_OK(symlinkat("/def", tfd, "qed"));
         ASSERT_OK(chaseat(tfd, "qed", CHASE_AT_RESOLVE_IN_ROOT, &result, NULL));
@@ -536,7 +536,7 @@ TEST(chaseat) {
 
         /* Test CHASE_PARENT */
 
-        ASSERT_OK((fd = open_mkdir_at(tfd, "chase", O_CLOEXEC, 0755)));
+        ASSERT_OK(fd = open_mkdir_at(tfd, "chase", O_CLOEXEC, 0755));
         ASSERT_OK(symlinkat("/def", fd, "parent"));
         fd = safe_close(fd);
 
@@ -668,24 +668,24 @@ TEST(chaseat) {
 
         /* Test chase_and_open_parent_at() */
 
-        ASSERT_OK((fd = chase_and_open_parent_at(tfd, "chase/parent", CHASE_AT_RESOLVE_IN_ROOT|CHASE_NOFOLLOW, &result)));
+        ASSERT_OK(fd = chase_and_open_parent_at(tfd, "chase/parent", CHASE_AT_RESOLVE_IN_ROOT|CHASE_NOFOLLOW, &result));
         ASSERT_OK(faccessat(fd, result, F_OK, AT_SYMLINK_NOFOLLOW));
         ASSERT_STREQ(result, "parent");
         fd = safe_close(fd);
         result = mfree(result);
 
-        ASSERT_OK((fd = chase_and_open_parent_at(tfd, "chase", CHASE_AT_RESOLVE_IN_ROOT, &result)));
+        ASSERT_OK(fd = chase_and_open_parent_at(tfd, "chase", CHASE_AT_RESOLVE_IN_ROOT, &result));
         ASSERT_OK(faccessat(fd, result, F_OK, 0));
         ASSERT_STREQ(result, "chase");
         fd = safe_close(fd);
         result = mfree(result);
 
-        ASSERT_OK((fd = chase_and_open_parent_at(tfd, "/", CHASE_AT_RESOLVE_IN_ROOT, &result)));
+        ASSERT_OK(fd = chase_and_open_parent_at(tfd, "/", CHASE_AT_RESOLVE_IN_ROOT, &result));
         ASSERT_STREQ(result, ".");
         fd = safe_close(fd);
         result = mfree(result);
 
-        ASSERT_OK((fd = chase_and_open_parent_at(tfd, ".", CHASE_AT_RESOLVE_IN_ROOT, &result)));
+        ASSERT_OK(fd = chase_and_open_parent_at(tfd, ".", CHASE_AT_RESOLVE_IN_ROOT, &result));
         ASSERT_STREQ(result, ".");
         fd = safe_close(fd);
         result = mfree(result);

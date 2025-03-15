@@ -39,12 +39,12 @@ static void test_sd_device_one(sd_device *d) {
         ASSERT_OK(sd_device_new_from_syspath(&dev, syspath));
         ASSERT_OK(sd_device_get_syspath(dev, &val));
         ASSERT_STREQ(syspath, val);
-        ASSERT_NULL((dev = sd_device_unref(dev)));
+        ASSERT_NULL(dev = sd_device_unref(dev));
 
         ASSERT_OK(sd_device_new_from_path(&dev, syspath));
         ASSERT_OK(sd_device_get_syspath(dev, &val));
         ASSERT_STREQ(syspath, val);
-        ASSERT_NULL((dev = sd_device_unref(dev)));
+        ASSERT_NULL(dev = sd_device_unref(dev));
 
         r = sd_device_get_ifindex(d, &ifindex);
         if (r < 0)
@@ -69,7 +69,7 @@ static void test_sd_device_one(sd_device *d) {
                 } else {
                         ASSERT_OK(sd_device_get_syspath(dev, &val));
                         ASSERT_STREQ(syspath, val);
-                        ASSERT_NULL((dev = sd_device_unref(dev)));
+                        ASSERT_NULL(dev = sd_device_unref(dev));
                 }
 
                 /* This does not require the interface really exists on the network namespace.
@@ -77,7 +77,7 @@ static void test_sd_device_one(sd_device *d) {
                 ASSERT_OK(sd_device_new_from_ifname(&dev, sysname));
                 ASSERT_OK(sd_device_get_syspath(dev, &val));
                 ASSERT_STREQ(syspath, val);
-                ASSERT_NULL((dev = sd_device_unref(dev)));
+                ASSERT_NULL(dev = sd_device_unref(dev));
         }
 
         r = sd_device_get_subsystem(d, &subsystem);
@@ -99,7 +99,7 @@ static void test_sd_device_one(sd_device *d) {
                 else {
                         ASSERT_OK(sd_device_get_syspath(dev, &val));
                         ASSERT_STREQ(syspath, val);
-                        ASSERT_NULL((dev = sd_device_unref(dev)));
+                        ASSERT_NULL(dev = sd_device_unref(dev));
                 }
 
                 /* The device ID depends on subsystem. */
@@ -115,11 +115,11 @@ static void test_sd_device_one(sd_device *d) {
                 } else {
                         ASSERT_OK(sd_device_get_syspath(dev, &val));
                         ASSERT_STREQ(syspath, val);
-                        ASSERT_NULL((dev = sd_device_unref(dev)));
+                        ASSERT_NULL(dev = sd_device_unref(dev));
                 }
 
                 /* These require udev database, and reading database requires device ID. */
-                ASSERT_OK((r = sd_device_get_is_initialized(d)));
+                ASSERT_OK(r = sd_device_get_is_initialized(d));
                 if (r > 0) {
                         r = sd_device_get_usec_since_initialized(d, &usec);
                         if (r < 0)
@@ -145,7 +145,7 @@ static void test_sd_device_one(sd_device *d) {
                 else {
                         ASSERT_OK(sd_device_get_syspath(dev, &val));
                         ASSERT_STREQ(syspath, val);
-                        ASSERT_NULL((dev = sd_device_unref(dev)));
+                        ASSERT_NULL(dev = sd_device_unref(dev));
                 }
 
                 r = sd_device_new_from_path(&dev, devname);
@@ -154,7 +154,7 @@ static void test_sd_device_one(sd_device *d) {
                 else {
                         ASSERT_OK(sd_device_get_syspath(dev, &val));
                         ASSERT_STREQ(syspath, val);
-                        ASSERT_NULL((dev = sd_device_unref(dev)));
+                        ASSERT_NULL(dev = sd_device_unref(dev));
 
                         _cleanup_close_ int fd = -EBADF;
                         fd = sd_device_open(d, O_CLOEXEC| O_NONBLOCK | (is_block ? O_RDONLY : O_NOCTTY | O_PATH));
@@ -173,18 +173,18 @@ static void test_sd_device_one(sd_device *d) {
                 ASSERT_OK(sd_device_new_from_devnum(&dev, is_block ? 'b' : 'c', devnum));
                 ASSERT_OK(sd_device_get_syspath(dev, &val));
                 ASSERT_STREQ(syspath, val);
-                ASSERT_NULL((dev = sd_device_unref(dev)));
+                ASSERT_NULL(dev = sd_device_unref(dev));
 
                 ASSERT_OK(asprintf(&p, "/dev/%s/%u:%u", is_block ? "block" : "char", major(devnum), minor(devnum)));
                 ASSERT_OK(sd_device_new_from_devname(&dev, p));
                 ASSERT_OK(sd_device_get_syspath(dev, &val));
                 ASSERT_STREQ(syspath, val);
-                ASSERT_NULL((dev = sd_device_unref(dev)));
+                ASSERT_NULL(dev = sd_device_unref(dev));
 
                 ASSERT_OK(sd_device_new_from_path(&dev, p));
                 ASSERT_OK(sd_device_get_syspath(dev, &val));
                 ASSERT_STREQ(syspath, val);
-                ASSERT_NULL((dev = sd_device_unref(dev)));
+                ASSERT_NULL(dev = sd_device_unref(dev));
         }
 
         ASSERT_OK(sd_device_get_devpath(d, &val));
@@ -216,8 +216,8 @@ static void test_sd_device_one(sd_device *d) {
                 ASSERT_TRUE(ERRNO_IS_NEG_PRIVILEGE(r) || IN_SET(r, -ENOENT, -EINVAL));
         else {
                 unsigned x;
-                ASSERT_OK((r = device_get_sysattr_unsigned(d, "nsid", &x)));
-                ASSERT_EQ((x > 0), (r > 0));
+                ASSERT_OK(r = device_get_sysattr_unsigned(d, "nsid", &x));
+                ASSERT_EQ(x > 0, r > 0);
         }
 }
 
@@ -544,7 +544,7 @@ TEST(sd_device_enumerator_add_all_parents) {
         log_debug("found %u devices", devices_count_without_parents);
 
         /* STEP 2: enumerate again with all_parents() */
-        ASSERT_OK(sd_device_enumerator_add_all_parents(e) >= 0);
+        ASSERT_OK(sd_device_enumerator_add_all_parents(e));
 
         unsigned not_filtered_parent_count = 0;
         FOREACH_DEVICE(e, dev) {
@@ -687,7 +687,7 @@ TEST(sd_device_new_from_path) {
                 ASSERT_OK(sd_device_new_from_path(&d, syspath));
                 ASSERT_OK(sd_device_get_syspath(d, &s));
                 ASSERT_STREQ(s, syspath);
-                ASSERT_NULL((d = sd_device_unref(d)));
+                ASSERT_NULL(d = sd_device_unref(d));
 
                 ASSERT_OK(sd_device_get_devname(dev, &devpath));
                 r = sd_device_new_from_path(&d, devpath);
@@ -696,7 +696,7 @@ TEST(sd_device_new_from_path) {
                 else {
                         ASSERT_OK(sd_device_get_syspath(d, &s));
                         ASSERT_STREQ(s, syspath);
-                        ASSERT_NULL((d = sd_device_unref(d)));
+                        ASSERT_NULL(d = sd_device_unref(d));
                 }
 
                 ASSERT_NOT_NULL((path = path_join(tmpdir, sysname)));
@@ -720,7 +720,7 @@ static void test_devname_from_devnum_one(const char *path) {
 
         ASSERT_OK(devname_from_devnum(st.st_mode, st.st_rdev, &resolved));
         ASSERT_TRUE(path_equal(path, resolved));
-        ASSERT_NULL((resolved = mfree(resolved)));
+        ASSERT_NULL(resolved = mfree(resolved));
         ASSERT_OK(devname_from_stat_rdev(&st, &resolved));
         ASSERT_TRUE(path_equal(path, resolved));
 }

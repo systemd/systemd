@@ -122,7 +122,7 @@ static bool test_unit_file_remove_from_name_map_trail(const LookupPaths *lp, siz
 
         ASSERT_OK_ERRNO(unlink(path));
 
-        ASSERT_OK((r = unit_file_remove_from_name_map(lp, &cache_timestamp_hash, &unit_ids, &unit_names, &path_cache, path)));
+        ASSERT_OK(r = unit_file_remove_from_name_map(lp, &cache_timestamp_hash, &unit_ids, &unit_names, &path_cache, path));
         if (r > 0)
                 return false; /* someone touches unit files. Retrying. */
 

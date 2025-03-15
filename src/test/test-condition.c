@@ -250,7 +250,7 @@ TEST(condition_test_architecture) {
         const char *sa;
         Architecture a;
 
-        ASSERT_OK((a = uname_architecture()));
+        ASSERT_OK(a = uname_architecture());
         ASSERT_NOT_NULL((sa = architecture_to_string(a)));
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_ARCHITECTURE, sa, false, false)));
