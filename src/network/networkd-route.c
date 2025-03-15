@@ -1494,15 +1494,22 @@ int link_drop_routes(Link *link, bool only_static) {
                         }
                 }
 
-                /* When we also mark foreign routes, do not mark routes assigned to other interfaces.
-                 * Otherwise, routes assigned to unmanaged interfaces will be dropped.
-                 * Note, route_get_link() does not provide assigned link for routes with an unreachable type
-                 * or IPv4 multipath routes. So, the current implementation does not support managing such
-                 * routes by other daemon or so, unless ManageForeignRoutes=no. */
-                if (!only_static) {
-                        Link *route_link;
+                Link *route_link = NULL;
+                if (route_get_link(link->manager, route, &route_link) >= 0 && route_link != link) {
+                        /* When we also mark foreign routes, do not mark routes assigned to other interfaces.
+                         * Otherwise, routes assigned to unmanaged interfaces will be dropped.
+                         * Note, route_get_link() does not provide assigned link for routes with an
+                         * unreachable type or IPv4 multipath routes. So, the current implementation does not
+                         * support managing such routes by other daemon or so, unless ManageForeignRoutes=no. */
+                        if (!only_static)
+                                continue;
 
-                        if (route_get_link(link->manager, route, &route_link) >= 0 && route_link != link)
+                        /* When we mark only static routes, do not mark routes assigned to links that we do
+                         * not know the assignment of .network files to the interfaces. Otherwise, if an
+                         * interface is in the pending state, even if the .network file to be assigned to the
+                         * interface has KeepConfiguration=yes, routes on the interface will be removed.
+                         * This is especially important when systemd-networkd is restarted. */
+                        if (!IN_SET(route_link->state, LINK_STATE_UNMANAGED, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
                                 continue;
                 }
 
