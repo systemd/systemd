@@ -21,6 +21,11 @@ ConditionVersion=systemd ">=20" "<=9000" "!=14"
 ConditionVersion=systemd " >= 20" " <= 9000 " "!= 14"
 ConditionVersion=systemd " >= 20" " * "
 
+ConditionVersion=glibc ">=2"
+ConditionVersion=glibc ">=2" "<=9000" "!=1"
+ConditionVersion=glibc " >= 2" " <= 9000 " "!= 1"
+ConditionVersion=glibc " >= 2" " * "
+
 [Service]
 ExecStart=touch /tmp/a ; /bin/sh -c 'touch /tmp/b' ; touch /tmp/c
 ExecStart=test -f /tmp/a
