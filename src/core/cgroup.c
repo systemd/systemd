@@ -3726,108 +3726,6 @@ int unit_search_main_pid(Unit *u, PidRef *ret) {
         return 0;
 }
 
-static int unit_watch_pids_in_path(Unit *u, const char *path) {
-        _cleanup_closedir_ DIR *d = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
-        int ret = 0, r;
-
-        assert(u);
-        assert(path);
-
-        r = cg_enumerate_processes(SYSTEMD_CGROUP_CONTROLLER, path, &f);
-        if (r < 0)
-                RET_GATHER(ret, r);
-        else {
-                for (;;) {
-                        _cleanup_(pidref_done) PidRef pid = PIDREF_NULL;
-
-                        r = cg_read_pidref(f, &pid, /* flags = */ 0);
-                        if (r == 0)
-                                break;
-                        if (r < 0) {
-                                RET_GATHER(ret, r);
-                                break;
-                        }
-
-                        RET_GATHER(ret, unit_watch_pidref(u, &pid, /* exclusive= */ false));
-                }
-        }
-
-        r = cg_enumerate_subgroups(SYSTEMD_CGROUP_CONTROLLER, path, &d);
-        if (r < 0)
-                RET_GATHER(ret, r);
-        else {
-                for (;;) {
-                        _cleanup_free_ char *fn = NULL, *p = NULL;
-
-                        r = cg_read_subgroup(d, &fn);
-                        if (r == 0)
-                                break;
-                        if (r < 0) {
-                                RET_GATHER(ret, r);
-                                break;
-                        }
-
-                        p = path_join(empty_to_root(path), fn);
-                        if (!p)
-                                return -ENOMEM;
-
-                        RET_GATHER(ret, unit_watch_pids_in_path(u, p));
-                }
-        }
-
-        return ret;
-}
-
-int unit_synthesize_cgroup_empty_event(Unit *u) {
-        int r;
-
-        assert(u);
-
-        /* Enqueue a synthetic cgroup empty event if this unit doesn't watch any PIDs anymore. This is compatibility
-         * support for non-unified systems where notifications aren't reliable, and hence need to take whatever we can
-         * get as notification source as soon as we stopped having any useful PIDs to watch for. */
-
-        CGroupRuntime *crt = unit_get_cgroup_runtime(u);
-        if (!crt || !crt->cgroup_path)
-                return -ENOENT;
-
-        r = cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER);
-        if (r < 0)
-                return r;
-        if (r > 0) /* On unified we have reliable notifications, and don't need this */
-                return 0;
-
-        if (!set_isempty(u->pids))
-                return 0;
-
-        unit_add_to_cgroup_empty_queue(u);
-        return 0;
-}
-
-int unit_watch_all_pids(Unit *u) {
-        int r;
-
-        assert(u);
-
-        /* Adds all PIDs from our cgroup to the set of PIDs we
-         * watch. This is a fallback logic for cases where we do not
-         * get reliable cgroup empty notifications: we try to use
-         * SIGCHLD as replacement. */
-
-        CGroupRuntime *crt = unit_get_cgroup_runtime(u);
-        if (!crt || !crt->cgroup_path)
-                return -ENOENT;
-
-        r = cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER);
-        if (r < 0)
-                return r;
-        if (r > 0) /* On unified we can use proper notifications */
-                return 0;
-
-        return unit_watch_pids_in_path(u, crt->cgroup_path);
-}
-
 static int on_cgroup_empty_event(sd_event_source *s, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
         Unit *u;
@@ -3864,34 +3762,17 @@ static int on_cgroup_empty_event(sd_event_source *s, void *userdata) {
         return 0;
 }
 
-void unit_add_to_cgroup_empty_queue(Unit *u) {
+static void unit_add_to_cgroup_empty_queue(Unit *u) {
         int r;
 
         assert(u);
 
-        /* Note that there are four different ways how cgroup empty events reach us:
-         *
-         * 1. On the unified hierarchy we get an inotify event on the cgroup
-         *
-         * 2. On the legacy hierarchy, when running in system mode, we get a datagram on the cgroup agent socket
-         *
-         * 3. On the legacy hierarchy, when running in user mode, we get a D-Bus signal on the system bus
-         *
-         * 4. On the legacy hierarchy, in service units we start watching all processes of the cgroup for SIGCHLD as
-         *    soon as we get one SIGCHLD, to deal with unreliable cgroup notifications.
-         *
-         * Regardless which way we got the notification, we'll verify it here, and then add it to a separate
-         * queue. This queue will be dispatched at a lower priority than the SIGCHLD handler, so that we always use
-         * SIGCHLD if we can get it first, and only use the cgroup empty notifications if there's no SIGCHLD pending
-         * (which might happen if the cgroup doesn't contain processes that are our own child, which is typically the
-         * case for scope units). */
+        /* Note that cgroup empty events are dispatched in a separate queue with a lower priority than
+         * the SIGCHLD handler, so that we always use SIGCHLD if we can get it first, and only use
+         * the cgroup empty notifications if there's no SIGCHLD pending (which might happen if the cgroup
+         * doesn't contain processes that are our own child, which is typically the case for scope units). */
 
         if (u->in_cgroup_empty_queue)
-                return;
-
-        /* Let's verify that the cgroup is really empty */
-        r = unit_cgroup_is_empty(u);
-        if (r <= 0)
                 return;
 
         LIST_PREPEND(cgroup_empty_queue, u->manager->cgroup_empty_queue, u);
@@ -4410,25 +4291,6 @@ Unit* manager_get_unit_by_pidref(Manager *m, PidRef *pid) {
                 return u;
 
         return NULL;
-}
-
-int manager_notify_cgroup_empty(Manager *m, const char *cgroup) {
-        Unit *u;
-
-        assert(m);
-        assert(cgroup);
-
-        /* Called on the legacy hierarchy whenever we get an explicit cgroup notification from the cgroup agent process
-         * or from the --system instance */
-
-        log_debug("Got cgroup empty notification for: %s", cgroup);
-
-        u = manager_get_unit_by_cgroup(m, cgroup);
-        if (!u)
-                return 0;
-
-        unit_add_to_cgroup_empty_queue(u);
-        return 1;
 }
 
 int unit_get_memory_available(Unit *u, uint64_t *ret) {
