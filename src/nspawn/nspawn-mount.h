@@ -3,7 +3,6 @@
 
 #include <stdbool.h>
 
-#include "cgroup-util.h"
 #include "volatile-util.h"
 
 typedef enum MountSettingsMask {
