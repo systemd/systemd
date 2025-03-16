@@ -11,6 +11,7 @@
 #include <sys/utsname.h>
 #include <time.h>
 #include <unistd.h>
+#include <gnu/libc-version.h>
 
 #include "sd-id128.h"
 
@@ -257,6 +258,9 @@ static int condition_test_version(Condition *c, char **env) {
 
         if (streq(word, "systemd"))
                 return condition_test_version_cmp(p, STRINGIFY(PROJECT_VERSION));
+
+        if (streq(word, "glibc"))
+                return condition_test_version_cmp(p, gnu_get_libc_version());
 
         /* if no predicate has been set, default to "kernel" and use the whole parameter as condition */
         if (!streq(word, "kernel"))
