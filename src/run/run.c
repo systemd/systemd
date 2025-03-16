@@ -764,7 +764,7 @@ static int parse_argv(int argc, char *argv[]) {
         if (arg_stdio != ARG_STDIO_NONE) {
                 if (with_trigger || arg_scope)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "--pty/--pty-late/--pipe is not compatible in timer or --scope mode.");
+                                               "--pty/--pty-late/--pipe is not compatible in trigger or --scope mode.");
 
                 if (arg_transport == BUS_TRANSPORT_REMOTE)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -774,6 +774,10 @@ static int parse_argv(int argc, char *argv[]) {
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "--pty/--pty-late/--pipe is not compatible with --no-block.");
         }
+
+        if (arg_stdio == ARG_STDIO_PTY && arg_pty_late && streq_ptr(arg_service_type, "oneshot"))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--pty-late is not compatible with --service-type=oneshot.");
 
         if (arg_scope && with_trigger)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -1679,7 +1683,7 @@ static int run_context_check_started(RunContext *c) {
         /* Setup ptyfwd now if --pty-late is specified. */
         r = run_context_setup_ptyfwd(c);
         if (r < 0) {
-                sd_event_exit(c->event, EXIT_FAILURE);
+                (void) sd_event_exit(c->event, EXIT_FAILURE);
                 return r;
         }
 
