@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <gnu/libc-version.h>
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/utsname.h>
@@ -673,6 +674,35 @@ TEST(condition_test_version) {
         condition_free(condition);
 
         v = strjoina("systemd  <   ", ver);
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, v, false, false)));
+        ASSERT_OK_ZERO(condition_test(condition, environ));
+        condition_free(condition);
+
+        /* Test glibc version */
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, "glibc > 1", false, false)));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        condition_free(condition);
+
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, "glibc < 2", false, false)));
+        ASSERT_OK_ZERO(condition_test(condition, environ));
+        condition_free(condition);
+
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, "glibc < 9999", false, false)));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        condition_free(condition);
+
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, "glibc > 9999", false, false)));
+        ASSERT_OK_ZERO(condition_test(condition, environ));
+        condition_free(condition);
+
+        v = strjoina("glibc = ", gnu_get_libc_version());
+
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, v, false, false)));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        condition_free(condition);
+
+        v = strjoina("glibc != ", gnu_get_libc_version());
+
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, v, false, false)));
         ASSERT_OK_ZERO(condition_test(condition, environ));
         condition_free(condition);
