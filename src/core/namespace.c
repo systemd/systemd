@@ -26,7 +26,6 @@
 #include "loopback-setup.h"
 #include "missing_syscall.h"
 #include "mkdir-label.h"
-#include "mount-setup.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
 #include "namespace-util.h"
@@ -207,14 +206,14 @@ static const MountEntry protect_control_groups_yes_table[] = {
 };
 
 /* ProtectControlGroups=private table. Note mount_private_apivfs() always use MS_NOSUID|MS_NOEXEC|MS_NODEV so
- * flags is not set here. nsdelegate has been supported since kernels >= 4.13 so it is safe to use. */
+ * flags is not set here. */
 static const MountEntry protect_control_groups_private_table[] = {
-        { "/sys/fs/cgroup",      MOUNT_PRIVATE_CGROUP2FS, false, .read_only = false, .nosuid = true, .noexec = true, .options_const = "nsdelegate"  },
+        { "/sys/fs/cgroup",      MOUNT_PRIVATE_CGROUP2FS, false, .read_only = false },
 };
 
 /* ProtectControlGroups=strict table */
 static const MountEntry protect_control_groups_strict_table[] = {
-        { "/sys/fs/cgroup",      MOUNT_PRIVATE_CGROUP2FS, false, .read_only = true,  .nosuid = true, .noexec = true, .options_const = "nsdelegate"  },
+        { "/sys/fs/cgroup",      MOUNT_PRIVATE_CGROUP2FS, false, .read_only = true },
 };
 
 /* ProtectSystem=yes table */
@@ -338,7 +337,7 @@ static bool mount_entry_read_only(const MountEntry *p) {
 static bool mount_entry_noexec(const MountEntry *p) {
         assert(p);
 
-        return p->noexec || IN_SET(p->mode, MOUNT_NOEXEC, MOUNT_INACCESSIBLE, MOUNT_PRIVATE_SYSFS, MOUNT_BIND_SYSFS, MOUNT_PROCFS);
+        return p->noexec || IN_SET(p->mode, MOUNT_NOEXEC, MOUNT_INACCESSIBLE, MOUNT_PRIVATE_SYSFS, MOUNT_BIND_SYSFS, MOUNT_PROCFS, MOUNT_PRIVATE_CGROUP2FS);
 }
 
 static bool mount_entry_exec(const MountEntry *p) {
@@ -1375,18 +1374,9 @@ static int mount_private_sysfs(const MountEntry *m, const NamespaceParameters *p
 }
 
 static int mount_private_cgroup2fs(const MountEntry *m, const NamespaceParameters *p) {
-        _cleanup_free_ char *opts = NULL;
-
         assert(m);
         assert(p);
-
-        if (cgroupfs_recursiveprot_supported()) {
-                opts = strextend_with_separator(NULL, ",", mount_entry_options(m) ?: POINTER_MAX, "memory_recursiveprot");
-                if (!opts)
-                        return -ENOMEM;
-        }
-
-        return mount_private_apivfs("cgroup2", mount_entry_path(m), "/sys/fs/cgroup", opts ?: mount_entry_options(m), p->runtime_scope);
+        return mount_private_apivfs("cgroup2", mount_entry_path(m), "/sys/fs/cgroup", /* opts = */ NULL, p->runtime_scope);
 }
 
 static int mount_procfs(const MountEntry *m, const NamespaceParameters *p) {
