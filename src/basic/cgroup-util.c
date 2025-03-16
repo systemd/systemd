@@ -2097,59 +2097,6 @@ int cg_mask_supported(CGroupMask *ret) {
         return cg_mask_supported_subtree(root, ret);
 }
 
-int cg_kernel_controllers(Set **ret) {
-        _cleanup_set_free_ Set *controllers = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
-        int r;
-
-        assert(ret);
-
-        /* Determines the full list of kernel-known controllers. Might include controllers we don't actually support
-         * and controllers that aren't currently accessible (because not mounted). This does not include "name="
-         * pseudo-controllers. */
-
-        r = fopen_unlocked("/proc/cgroups", "re", &f);
-        if (r == -ENOENT) {
-                *ret = NULL;
-                return 0;
-        }
-        if (r < 0)
-                return r;
-
-        /* Ignore the header line */
-        (void) read_line(f, SIZE_MAX, NULL);
-
-        for (;;) {
-                _cleanup_free_ char *controller = NULL;
-                int enabled = 0;
-
-                if (fscanf(f, "%ms %*i %*i %i", &controller, &enabled) != 2) {
-
-                        if (ferror(f))
-                                return -errno;
-
-                        if (feof(f))
-                                break;
-
-                        return -EBADMSG;
-                }
-
-                if (!enabled)
-                        continue;
-
-                if (!cg_controller_is_valid(controller))
-                        return -EBADMSG;
-
-                r = set_ensure_consume(&controllers, &string_hash_ops_free, TAKE_PTR(controller));
-                if (r < 0)
-                        return r;
-        }
-
-        *ret = TAKE_PTR(controllers);
-
-        return 0;
-}
-
 /* The hybrid mode was initially implemented in v232 and simply mounted cgroup2 on
  * /sys/fs/cgroup/systemd. This unfortunately broke other tools (such as docker) which expected the v1
  * "name=systemd" hierarchy on /sys/fs/cgroup/systemd. From v233 and on, the hybrid mode mounts v2 on
