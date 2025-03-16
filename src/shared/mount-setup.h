@@ -10,3 +10,5 @@ int mount_setup_early(void);
 int mount_setup(bool loaded_policy, bool leave_propagation);
 
 bool cgroupfs_recursiveprot_supported(void);
+const char* cgroupfs_mount_options(void);
+int mount_cgroupfs(const char *path);
