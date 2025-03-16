@@ -8,6 +8,10 @@ CHANGES WITH 258 in spe:
           removed. cgroup v2 ('unified' hierarchy) will always mounted during
           system bootup and systemd-nspawn container initialization.
 
+        * The minimum kernel baseline version has been bumped to v5.4
+          (released in 2019), with the recommended version now going up to
+          v5.7. Consult the README file for a list of kernel APIs we require.
+
         * The default access mode of tty/pts device nodes has been changed to
           0600, which was 0620 in the older releases, due to general security
           concerns about terminals being written to by other users. To restore
@@ -68,12 +72,6 @@ CHANGES WITH 258 in spe:
           deprecated because accounting data and such cannot be reasonably
           migrated between cgroups. It is likely to be fully removed in a
           future release (reach out if you have use cases).
-
-        * The recommended kernel baseline version has been bumped to v5.4
-          (released in 2019). Expect limited testing on older kernel versions,
-          where "old-kernel" taint flag would also be set. Support for them
-          will be phased out in a future release in 2025, i.e. we expect to bump
-          the minimum baseline to v5.4 then too.
 
         * Support for System V service scripts is deprecated and will be
           removed in v258. Please make sure to update your software
