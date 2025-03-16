@@ -3340,7 +3340,7 @@ static int inner_child(
                 if (r < 0)
                         return log_error_errno(errno, "Failed to unshare cgroup namespace: %m");
 
-                r = mount_cgroups(/* dest = */ NULL);
+                r = mount_cgroups(/* dest = */ NULL, /* accept_existing = */ false);
         } else
                 r = bind_mount_cgroup_hierarchy();
         if (r < 0)
@@ -4207,7 +4207,7 @@ static int outer_child(
         (void) write_string_filef(p, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MODE_0444, SD_ID128_UUID_FORMAT_STR, SD_ID128_FORMAT_VAL(arg_uuid));
 
         if (!arg_use_cgns) {
-                r = mount_cgroups(directory);
+                r = mount_cgroups(directory, /* accept_existing = */ true);
                 if (r < 0)
                         return r;
         }
