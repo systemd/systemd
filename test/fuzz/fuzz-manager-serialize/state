@@ -25,7 +25,6 @@ units-load-timestamp=1682967579189877 8447124
 env=
 notify-fd=40
 notify-socket=/run/systemd/notify
-cgroups-agent-fd=
 user-lookup=41 42
 subscribed=:1.2
 subscribed=:1.4
