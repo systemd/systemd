@@ -38,7 +38,4 @@ int cg_migrate_recursive_fallback(const char *cfrom, const char *pfrom, const ch
 int cg_migrate_v1_controllers(CGroupMask supported, CGroupMask mask, const char *from, cg_migrate_callback_t to_callback, void *userdata);
 int cg_trim_v1_controllers(CGroupMask supported, CGroupMask mask, const char *path, bool delete_root);
 
-int cg_install_release_agent(const char *controller, const char *agent);
-int cg_uninstall_release_agent(const char *controller);
-
 int cg_has_legacy(void);
