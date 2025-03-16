@@ -1723,11 +1723,6 @@ static int become_shutdown(int objective, int retval) {
         if (arg_watchdog_device)
                 (void) strv_extendf(&env_block, "WATCHDOG_DEVICE=%s", arg_watchdog_device);
 
-        /* Avoid the creation of new processes forked by the kernel; at this
-         * point, we will not listen to the signals anyway */
-        if (detect_container() <= 0)
-                (void) cg_uninstall_release_agent(SYSTEMD_CGROUP_CONTROLLER);
-
         (void) write_boot_or_shutdown_osc("shutdown");
 
         execve(SYSTEMD_SHUTDOWN_BINARY_PATH, (char **) command_line, env_block);
