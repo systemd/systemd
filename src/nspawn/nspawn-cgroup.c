@@ -8,6 +8,7 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "mkdir.h"
+#include "mount-setup.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
 #include "nspawn-cgroup.h"
@@ -154,7 +155,7 @@ int mount_cgroups(const char *dest) {
                                        "%s is already mounted but not a unified cgroup hierarchy. Refusing.", p);
         }
 
-        return mount_nofollow_verbose(LOG_ERR, "cgroup", p, "cgroup2", MS_NOSUID|MS_NOEXEC|MS_NODEV, NULL);
+        return mount_cgroupfs(p);
 }
 
 int bind_mount_cgroup_hierarchy(void) {
