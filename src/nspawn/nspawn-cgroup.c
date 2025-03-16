@@ -134,7 +134,7 @@ int create_subcgroup(
         return 0;
 }
 
-int mount_cgroups(const char *dest) {
+int mount_cgroups(const char *dest, bool accept_existing) {
         const char *p;
         int r;
 
@@ -146,6 +146,9 @@ int mount_cgroups(const char *dest) {
         if (r < 0)
                 return log_error_errno(r, "Failed to determine if %s is mounted already: %m", p);
         if (r > 0) {
+                if (!accept_existing)
+                        return log_error_errno(SYNTHETIC_ERRNO(EEXIST), "Refusing existing cgroupfs mount: %s", p);
+
                 if (access(strjoina(p, "/cgroup.procs"), F_OK) >= 0)
                         return 0;
                 if (errno != ENOENT)
