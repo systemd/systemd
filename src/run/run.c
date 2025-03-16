@@ -764,7 +764,7 @@ static int parse_argv(int argc, char *argv[]) {
         if (arg_stdio != ARG_STDIO_NONE) {
                 if (with_trigger || arg_scope)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "--pty/--pty-late/--pipe is not compatible in timer or --scope mode.");
+                                               "--pty/--pty-late/--pipe is not compatible in trigger (path/socket/timer units) or --scope mode.");
 
                 if (arg_transport == BUS_TRANSPORT_REMOTE)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
