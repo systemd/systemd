@@ -4,6 +4,10 @@ CHANGES WITH 258 in spe:
 
         Incompatible changes:
 
+        * Support for cgroup v1 ('legacy' and 'hybrid' hierarchies) has been
+          removed. cgroup v2 ('unified' hierarchy) will always mounted during
+          system bootup and systemd-nspawn container initialization.
+
         * The default access mode of tty/pts device nodes has been changed to
           0600, which was 0620 in the older releases, due to general security
           concerns about terminals being written to by other users. To restore
@@ -70,9 +74,6 @@ CHANGES WITH 258 in spe:
           where "old-kernel" taint flag would also be set. Support for them
           will be phased out in a future release in 2025, i.e. we expect to bump
           the minimum baseline to v5.4 then too.
-
-        * The complete removal of support for cgroup v1 ('legacy' and 'hybrid'
-          hierarchies) is scheduled for v258.
 
         * Support for System V service scripts is deprecated and will be
           removed in v258. Please make sure to update your software
