@@ -59,6 +59,8 @@ struct VxLan {
         bool generic_protocol_extension;
         bool inherit;
         bool independent;
+        bool external; /* a.k.a collect metadata mode */
+        bool vnifilter;
 
         struct ifla_vxlan_port_range port_range;
 };
