@@ -775,6 +775,10 @@ static int parse_argv(int argc, char *argv[]) {
                                                "--pty/--pty-late/--pipe is not compatible with --no-block.");
         }
 
+        if (arg_stdio == ARG_STDIO_PTY && arg_pty_late && streq_ptr(arg_service_type, "oneshot"))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--pty-late is not compatible with --service-type=oneshot.");
+
         if (arg_scope && with_trigger)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Path, socket or timer options are not supported in --scope mode.");
