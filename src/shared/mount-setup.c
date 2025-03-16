@@ -66,6 +66,21 @@ static bool cgroupfs_recursiveprot_supported(void) {
         return r > 0;
 }
 
+int mount_cgroupfs(const char *path) {
+        assert(path);
+
+        /* Mount a separate cgroupfs instance, taking all options we initial set into account. This is
+         * especially useful when cgroup namespace is *not* employed, since the kernel overrides all
+         * previous options if a new mount is established in initial cgns (c.f.
+         * https://github.com/torvalds/linux/blob/b69bb476dee99d564d65d418e9a20acca6f32c3f/kernel/cgroup/cgroup.c#L1984)
+         *
+         * The options shall be kept in sync with those in mount_table below. */
+
+        return mount_nofollow_verbose(LOG_ERR, "cgroup2", path, "cgroup2",
+                                      MS_NOSUID|MS_NOEXEC|MS_NODEV,
+                                      cgroupfs_recursiveprot_supported() ? "nsdelegate,memory_recursiveprot" : "nsdelegate");
+}
+
 static const MountPoint mount_table[] = {
         { "proc",        "/proc",                     "proc",       NULL,                                       MS_NOSUID|MS_NOEXEC|MS_NODEV,
           NULL,          MNT_FATAL|MNT_IN_CONTAINER|MNT_FOLLOW_SYMLINK },
