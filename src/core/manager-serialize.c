@@ -137,12 +137,6 @@ int manager_serialize(
                 (void) serialize_item(f, "notify-socket", m->notify_socket);
         }
 
-        if (m->cgroups_agent_fd >= 0) {
-                r = serialize_fd(f, fds, "cgroups-agent-fd", m->cgroups_agent_fd);
-                if (r < 0)
-                        return r;
-        }
-
         if (m->user_lookup_fds[0] >= 0) {
                 r = serialize_fd_many(f, fds, "user-lookup", m->user_lookup_fds, 2);
                 if (r < 0)
@@ -453,15 +447,6 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         if (r < 0)
                                 return r;
 
-                } else if ((val = startswith(l, "cgroups-agent-fd="))) {
-                        int fd;
-
-                        fd = deserialize_fd(fds, val);
-                        if (fd >= 0) {
-                                m->cgroups_agent_event_source = sd_event_source_disable_unref(m->cgroups_agent_event_source);
-                                close_and_replace(m->cgroups_agent_fd, fd);
-                        }
-
                 } else if ((val = startswith(l, "user-lookup="))) {
 
                         m->user_lookup_event_source = sd_event_source_disable_unref(m->user_lookup_event_source);
@@ -550,7 +535,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
 
                         if (q < _MANAGER_TIMESTAMP_MAX) /* found it */
                                 (void) deserialize_dual_timestamp(val, m->timestamps + q);
-                        else if (!STARTSWITH_SET(l, "kdbus-fd=", "honor-device-enumeration=", "ready-sent=")) /* ignore deprecated values */
+                        else if (!STARTSWITH_SET(l, "kdbus-fd=", "honor-device-enumeration=", "ready-sent=", "cgroups-agent-fd=")) /* ignore deprecated values */
                                 log_notice("Unknown serialization item '%s', ignoring.", l);
                 }
         }
