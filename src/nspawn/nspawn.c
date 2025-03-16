@@ -201,7 +201,6 @@ static UserNamespaceMode arg_userns_mode; /* initialized depending on arg_privil
 static uid_t arg_uid_shift = UID_INVALID, arg_uid_range = 0x10000U;
 static UserNamespaceOwnership arg_userns_ownership = _USER_NAMESPACE_OWNERSHIP_INVALID;
 static int arg_kill_signal = 0;
-static CGroupUnified arg_unified_cgroup_hierarchy = CGROUP_UNIFIED_UNKNOWN;
 static SettingsMask arg_settings_mask = 0;
 static int arg_settings_trusted = -1;
 static char **arg_parameters = NULL;
@@ -487,77 +486,6 @@ static int custom_mount_check_all(void) {
         return 0;
 }
 
-static int detect_unified_cgroup_hierarchy_from_environment(void) {
-        const char *e, *var = "SYSTEMD_NSPAWN_UNIFIED_HIERARCHY";
-        int r;
-
-        /* Allow the user to control whether the unified hierarchy is used */
-
-        e = getenv(var);
-        if (!e) {
-                /* $UNIFIED_CGROUP_HIERARCHY has been renamed to $SYSTEMD_NSPAWN_UNIFIED_HIERARCHY. */
-                var = "UNIFIED_CGROUP_HIERARCHY";
-                e = getenv(var);
-        }
-
-        if (!isempty(e)) {
-                r = parse_boolean(e);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to parse $%s: %m", var);
-                if (r > 0)
-                        arg_unified_cgroup_hierarchy = CGROUP_UNIFIED_ALL;
-                else
-                        arg_unified_cgroup_hierarchy = CGROUP_UNIFIED_NONE;
-        }
-
-        return 0;
-}
-
-static int detect_unified_cgroup_hierarchy_from_image(const char *directory) {
-        int r;
-
-        if (arg_userns_mode == USER_NAMESPACE_MANAGED) {
-                /* We only support the unified mode when running unprivileged */
-                arg_unified_cgroup_hierarchy = CGROUP_UNIFIED_ALL;
-                return 0;
-        }
-
-        /* Let's inherit the mode to use from the host system, but let's take into consideration what systemd
-         * in the image actually supports. */
-        r = cg_all_unified();
-        if (r < 0)
-                return log_error_errno(r, "Failed to determine whether we are in all unified mode.");
-        if (r > 0) {
-                /* Unified cgroup hierarchy support was added in 230. Unfortunately the detection
-                 * routine only detects 231, so we'll have a false negative here for 230. If there is no
-                 * systemd installation in the container, we use the unified cgroup hierarchy. */
-                r = systemd_installation_has_version(directory, "230");
-                if (r < 0 && r != -ENOENT)
-                        return log_error_errno(r, "Failed to determine systemd version in container: %m");
-                if (r == 0)
-                        arg_unified_cgroup_hierarchy = CGROUP_UNIFIED_NONE;
-                else
-                        arg_unified_cgroup_hierarchy = CGROUP_UNIFIED_ALL;
-        } else if (cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER) > 0) {
-                /* Mixed cgroup hierarchy support was added in 233. If there is no systemd installation in
-                 * the container, we use the unified cgroup hierarchy. */
-                r = systemd_installation_has_version(directory, "233");
-                if (r < 0 && r != -ENOENT)
-                        return log_error_errno(r, "Failed to determine systemd version in container: %m");
-                if (r == 0)
-                        arg_unified_cgroup_hierarchy = CGROUP_UNIFIED_NONE;
-                else
-                        arg_unified_cgroup_hierarchy = CGROUP_UNIFIED_SYSTEMD;
-        } else
-                arg_unified_cgroup_hierarchy = CGROUP_UNIFIED_NONE;
-
-        log_debug("Using %s hierarchy for container.",
-                  arg_unified_cgroup_hierarchy == CGROUP_UNIFIED_NONE ? "legacy" :
-                  arg_unified_cgroup_hierarchy == CGROUP_UNIFIED_SYSTEMD ? "hybrid" : "unified");
-
-        return 0;
-}
-
 static int parse_capability_spec(const char *spec, uint64_t *ret_mask) {
         uint64_t mask = 0;
         int r;
@@ -692,7 +620,7 @@ static int parse_environment(void) {
         else if (r != -ENXIO)
                 log_debug_errno(r, "Failed to parse $SYSTEMD_SUPPRESS_SYNC, ignoring: %m");
 
-        return detect_unified_cgroup_hierarchy_from_environment();
+        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -1681,25 +1609,6 @@ static int verify_arguments(void) {
 
         if (arg_userns_mode == USER_NAMESPACE_MANAGED && !arg_private_network)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Managed user namespace operation requires private networking, as otherwise /sys/ may not be mounted.");
-
-        if (arg_start_mode == START_PID2 && arg_unified_cgroup_hierarchy == CGROUP_UNIFIED_UNKNOWN) {
-                /* If we are running the stub init in the container, we don't need to look at what the init
-                 * in the container supports, because we are not using it. Let's immediately pick the right
-                 * setting based on the host system configuration.
-                 *
-                 * We only do this, if the user didn't use an environment variable to override the detection.
-                 */
-
-                r = cg_all_unified();
-                if (r < 0)
-                        return log_error_errno(r, "Failed to determine whether we are in all unified mode.");
-                if (r > 0)
-                        arg_unified_cgroup_hierarchy = CGROUP_UNIFIED_ALL;
-                else if (cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER) > 0)
-                        arg_unified_cgroup_hierarchy = CGROUP_UNIFIED_SYSTEMD;
-                else
-                        arg_unified_cgroup_hierarchy = CGROUP_UNIFIED_NONE;
-        }
 
         if (!(arg_clone_ns_flags & CLONE_NEWPID) ||
             !(arg_clone_ns_flags & CLONE_NEWUTS)) {
@@ -3430,16 +3339,10 @@ static int inner_child(
                 r = unshare(CLONE_NEWCGROUP);
                 if (r < 0)
                         return log_error_errno(errno, "Failed to unshare cgroup namespace: %m");
-                r = mount_cgroups(
-                                "",
-                                arg_unified_cgroup_hierarchy,
-                                arg_userns_mode != USER_NAMESPACE_NO,
-                                arg_uid_shift,
-                                arg_uid_range,
-                                arg_selinux_apifs_context,
-                                true);
+
+                r = mount_cgroups(/* dest = */ NULL, /* accept_existing = */ false);
         } else
-                r = mount_systemd_cgroup_writable("", arg_unified_cgroup_hierarchy);
+                r = bind_mount_cgroup_hierarchy();
         if (r < 0)
                 return r;
 
@@ -4209,21 +4112,6 @@ static int outer_child(
                         return r;
         }
 
-        if (arg_unified_cgroup_hierarchy == CGROUP_UNIFIED_UNKNOWN) {
-                /* OK, we don't know yet which cgroup mode to use yet. Let's figure it out, and tell the parent. */
-
-                r = detect_unified_cgroup_hierarchy_from_image(directory);
-                if (r < 0)
-                        return r;
-
-                l = send(fd_outer_socket, &arg_unified_cgroup_hierarchy, sizeof(arg_unified_cgroup_hierarchy), MSG_NOSIGNAL);
-                if (l < 0)
-                        return log_error_errno(errno, "Failed to send cgroup mode: %m");
-                if (l != sizeof(arg_unified_cgroup_hierarchy))
-                        return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                               "Short write while sending cgroup mode.");
-        }
-
         r = recursive_chown(directory, chown_uid, chown_range);
         if (r < 0)
                 return r;
@@ -4319,14 +4207,7 @@ static int outer_child(
         (void) write_string_filef(p, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MODE_0444, SD_ID128_UUID_FORMAT_STR, SD_ID128_FORMAT_VAL(arg_uuid));
 
         if (!arg_use_cgns) {
-                r = mount_cgroups(
-                                directory,
-                                arg_unified_cgroup_hierarchy,
-                                arg_userns_mode != USER_NAMESPACE_NO,
-                                chown_uid,
-                                chown_range,
-                                arg_selinux_apifs_context,
-                                false);
+                r = mount_cgroups(directory, /* accept_existing = */ true);
                 if (r < 0)
                         return r;
         }
@@ -5368,16 +5249,6 @@ static int run_container(
                 }
         }
 
-        if (arg_unified_cgroup_hierarchy == CGROUP_UNIFIED_UNKNOWN) {
-                /* The child let us know the support cgroup mode it might have read from the image. */
-                l = recv(fd_outer_socket_pair[0], &arg_unified_cgroup_hierarchy, sizeof(arg_unified_cgroup_hierarchy), 0);
-                if (l < 0)
-                        return log_error_errno(errno, "Failed to read cgroup mode: %m");
-                if (l != sizeof(arg_unified_cgroup_hierarchy))
-                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short read while reading cgroup mode (%zi bytes).%s",
-                                               l, l == 0 ? " The child is most likely dead." : "");
-        }
-
         /* Wait for the outer child. */
         r = wait_for_terminate_and_check("(sd-namespace)", *pid, WAIT_LOG_ABNORMAL);
         if (r < 0)
@@ -5572,14 +5443,9 @@ static int run_container(
         r = create_subcgroup(
                         *pid,
                         arg_keep_unit,
-                        arg_unified_cgroup_hierarchy,
                         arg_uid_shift,
                         userns_fd,
                         arg_userns_mode);
-        if (r < 0)
-                return r;
-
-        r = sync_cgroup(*pid, arg_unified_cgroup_hierarchy, arg_uid_shift);
         if (r < 0)
                 return r;
 
@@ -5981,6 +5847,15 @@ static int run(int argc, char *argv[]) {
         if (arg_cleanup)
                 return do_cleanup();
 
+        r = cg_has_legacy();
+        if (r < 0)
+                goto finish;
+        if (r > 0) {
+                r = log_error_errno(SYNTHETIC_ERRNO(EPROTO),
+                                    "Detected host uses legacy cgroup v1 hierarchy, refusing.");
+                goto finish;
+        }
+
         r = cant_be_in_netns();
         if (r < 0)
                 goto finish;
@@ -6011,12 +5886,6 @@ static int run(int argc, char *argv[]) {
         if (!arg_private_network && arg_userns_mode != USER_NAMESPACE_NO && arg_uid_shift > 0)
                 arg_caps_retain &= ~(UINT64_C(1) << CAP_NET_BIND_SERVICE);
 
-        r = cg_unified(); /* initialize cache early */
-        if (r < 0) {
-                log_error_errno(r, "Failed to determine whether the unified cgroups hierarchy is used: %m");
-                goto finish;
-        }
-
         r = verify_arguments();
         if (r < 0)
                 goto finish;
@@ -6028,19 +5897,6 @@ static int run(int argc, char *argv[]) {
         r = verify_network_interfaces_initialized();
         if (r < 0)
                 goto finish;
-
-        /* Reapply environment settings. */
-        (void) detect_unified_cgroup_hierarchy_from_environment();
-
-        if (arg_userns_mode == USER_NAMESPACE_MANAGED) {
-                r = cg_all_unified();
-                if (r < 0) {
-                        log_error_errno(r, "Failed to determine if we are in unified cgroupv2 mode: %m");
-                        goto finish;
-                }
-                if (r == 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Managed user namespace operation only supported in unified cgroupv2 mode.");
-        }
 
         /* Ignore SIGPIPE here, because we use splice() on the ptyfwd stuff and that will generate SIGPIPE if
          * the result is closed. Note that the container payload child will reset signal mask+handler anyway,
