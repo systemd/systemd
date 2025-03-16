@@ -54,39 +54,39 @@ static int cld_dumped_to_killed(int code) {
         return code == CLD_DUMPED ? CLD_KILLED : code;
 }
 
+_noreturn_
+static int time_handler(sd_event_source *s, uint64_t usec, void *userdata) {
+        Unit *unit = ASSERT_PTR(userdata);
+        int r;
+
+        log_error("Test timeout when testing %s", unit->id);
+        r = unit_kill(unit, KILL_ALL, SIGKILL, SI_USER, 0, NULL);
+        if (r < 0)
+                log_error_errno(r, "Failed to kill %s, ignoring: %m", unit->id);
+
+        abort();
+}
+
 static void wait_for_service_finish(Manager *m, Unit *unit) {
-        Service *service = NULL;
-        usec_t ts;
+        Service *service = SERVICE(ASSERT_PTR(unit));
         usec_t timeout = 2 * USEC_PER_MINUTE;
 
         ASSERT_NOT_NULL(m);
-        ASSERT_NOT_NULL(unit);
 
         /* Bump the timeout when running in plain QEMU, as some more involved tests might start hitting the
          * default 2m timeout (like exec-dynamicuser-statedir.service) */
         if (detect_virtualization() == VIRTUALIZATION_QEMU)
                 timeout *= 2;
 
-        service = SERVICE(unit);
         printf("%s\n", unit->id);
         exec_context_dump(&service->exec_context, stdout, "\t");
-        ts = now(CLOCK_MONOTONIC);
-        while (!IN_SET(service->state, SERVICE_DEAD, SERVICE_FAILED)) {
-                int r;
-                usec_t n;
 
-                r = sd_event_run(m->event, 100 * USEC_PER_MSEC);
-                ASSERT_OK(r);
+        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        ASSERT_OK(sd_event_add_time_relative(m->event, &s, CLOCK_MONOTONIC, timeout, 0, time_handler, unit));
 
-                n = now(CLOCK_MONOTONIC);
-                if (ts + timeout < n) {
-                        log_error("Test timeout when testing %s", unit->id);
-                        r = unit_kill(unit, KILL_ALL, SIGKILL, SI_USER, 0, NULL);
-                        if (r < 0)
-                                log_error_errno(r, "Failed to kill %s: %m", unit->id);
-                        exit(EXIT_FAILURE);
-                }
-        }
+        /* Here, sd_event_loop() cannot be used, as the sd_event object will be reused in the next test case. */
+        while (!IN_SET(service->state, SERVICE_DEAD, SERVICE_FAILED))
+                ASSERT_OK(sd_event_run(m->event, 100 * USEC_PER_MSEC));
 }
 
 static void check_main_result(const char *file, unsigned line, const char *func,
