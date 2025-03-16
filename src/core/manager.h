@@ -269,9 +269,6 @@ struct Manager {
         int notify_fd;
         sd_event_source *notify_event_source;
 
-        int cgroups_agent_fd;
-        sd_event_source *cgroups_agent_event_source;
-
         int signal_fd;
         sd_event_source *signal_event_source;
 
@@ -684,8 +681,7 @@ enum {
         EVENT_PRIORITY_USER_LOOKUP       = SD_EVENT_PRIORITY_NORMAL-12,
         EVENT_PRIORITY_MOUNT_TABLE       = SD_EVENT_PRIORITY_NORMAL-11,
         EVENT_PRIORITY_SWAP_TABLE        = SD_EVENT_PRIORITY_NORMAL-11,
-        EVENT_PRIORITY_CGROUP_AGENT      = SD_EVENT_PRIORITY_NORMAL-10, /* cgroupv1 */
-        EVENT_PRIORITY_CGROUP_INOTIFY    = SD_EVENT_PRIORITY_NORMAL-10, /* cgroupv2 */
+        EVENT_PRIORITY_CGROUP_INOTIFY    = SD_EVENT_PRIORITY_NORMAL-10,
         EVENT_PRIORITY_CGROUP_OOM        = SD_EVENT_PRIORITY_NORMAL-9,
         EVENT_PRIORITY_PIDREF            = SD_EVENT_PRIORITY_NORMAL-8,
         EVENT_PRIORITY_HANDOFF_TIMESTAMP = SD_EVENT_PRIORITY_NORMAL-7,

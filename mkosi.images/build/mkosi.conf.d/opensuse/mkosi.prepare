@@ -24,6 +24,9 @@ mkosi-chroot \
         tee /tmp/buildrequires |
         xargs --delimiter '\n' mkosi-install
 
+sed '/systemd-cgroups-agent/d' "pkg/$PKG_SUBDIR${GIT_SUBDIR:+/$GIT_SUBDIR}/files.systemd" >/tmp/files.systemd
+mount --bind /tmp/files.systemd "pkg/$PKG_SUBDIR${GIT_SUBDIR:+/$GIT_SUBDIR}/files.systemd"
+
 until mkosi-chroot \
     rpmbuild \
     -bd \
