@@ -4324,44 +4324,26 @@ int manager_setup_cgroup(Manager *m) {
 
         (void) sd_event_source_set_description(m->cgroup_empty_event_source, "cgroup-empty");
 
-        /* 4. Install notifier inotify object, or agent */
-        if (cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER) > 0) {
+        /* 4. Install cgroup empty event notifier inotify object */
+        m->cgroup_inotify_event_source = sd_event_source_disable_unref(m->cgroup_inotify_event_source);
+        safe_close(m->cgroup_inotify_fd);
 
-                /* In the unified hierarchy we can get cgroup empty notifications via inotify. */
+        m->cgroup_inotify_fd = inotify_init1(IN_NONBLOCK|IN_CLOEXEC);
+        if (m->cgroup_inotify_fd < 0)
+                return log_error_errno(errno, "Failed to create control group inotify object: %m");
 
-                m->cgroup_inotify_event_source = sd_event_source_disable_unref(m->cgroup_inotify_event_source);
-                safe_close(m->cgroup_inotify_fd);
+        r = sd_event_add_io(m->event, &m->cgroup_inotify_event_source, m->cgroup_inotify_fd, EPOLLIN, on_cgroup_inotify_event, m);
+        if (r < 0)
+                return log_error_errno(r, "Failed to watch control group inotify object: %m");
 
-                m->cgroup_inotify_fd = inotify_init1(IN_NONBLOCK|IN_CLOEXEC);
-                if (m->cgroup_inotify_fd < 0)
-                        return log_error_errno(errno, "Failed to create control group inotify object: %m");
+        /* Process cgroup empty notifications early. Note that when this event is dispatched it'll
+         * just add the unit to a cgroup empty queue, hence let's run earlier than that. Also see
+         * handling of cgroup agent notifications, for the classic cgroup hierarchy support. */
+        r = sd_event_source_set_priority(m->cgroup_inotify_event_source, EVENT_PRIORITY_CGROUP_INOTIFY);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set priority of inotify event source: %m");
 
-                r = sd_event_add_io(m->event, &m->cgroup_inotify_event_source, m->cgroup_inotify_fd, EPOLLIN, on_cgroup_inotify_event, m);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to watch control group inotify object: %m");
-
-                /* Process cgroup empty notifications early. Note that when this event is dispatched it'll
-                 * just add the unit to a cgroup empty queue, hence let's run earlier than that. Also see
-                 * handling of cgroup agent notifications, for the classic cgroup hierarchy support. */
-                r = sd_event_source_set_priority(m->cgroup_inotify_event_source, EVENT_PRIORITY_CGROUP_INOTIFY);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to set priority of inotify event source: %m");
-
-                (void) sd_event_source_set_description(m->cgroup_inotify_event_source, "cgroup-inotify");
-
-        } else if (MANAGER_IS_SYSTEM(m) && manager_owns_host_root_cgroup(m) && !MANAGER_IS_TEST_RUN(m)) {
-
-                /* On the legacy hierarchy we only get notifications via cgroup agents. (Which isn't really reliable,
-                 * since it does not generate events when control groups with children run empty. */
-
-                r = cg_install_release_agent(SYSTEMD_CGROUP_CONTROLLER, SYSTEMD_CGROUPS_AGENT_PATH);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to install release agent, ignoring: %m");
-                else if (r > 0)
-                        log_debug("Installed release agent.");
-                else if (r == 0)
-                        log_debug("Release agent already installed.");
-        }
+        (void) sd_event_source_set_description(m->cgroup_inotify_event_source, "cgroup-inotify");
 
         /* 5. Make sure we are in the special "init.scope" unit in the root slice. */
         scope_path = strjoina(m->cgroup_root, "/" SPECIAL_INIT_SCOPE);
