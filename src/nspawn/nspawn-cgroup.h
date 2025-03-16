@@ -13,5 +13,5 @@ int create_subcgroup(
                 int userns_fd,
                 UserNamespaceMode userns_mode);
 
-int mount_cgroups(const char *dest);
+int mount_cgroups(const char *dest, bool accept_existing);
 int bind_mount_cgroup_hierarchy(void);
