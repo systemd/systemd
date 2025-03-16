@@ -92,73 +92,73 @@ const char* glyph_full(Glyph code, bool force_utf) {
                         [GLYPH_SPACE]                   = " ",
 
                         /* The following are multiple glyphs in both ASCII and in UNICODE */
-                        [GLYPH_TREE_VERTICAL]           = u8"│ ",
-                        [GLYPH_TREE_BRANCH]             = u8"├─",
-                        [GLYPH_TREE_RIGHT]              = u8"└─",
-                        [GLYPH_TREE_SPACE]              = u8"  ",
-                        [GLYPH_TREE_TOP]                = u8"┌─",
+                        [GLYPH_TREE_VERTICAL]           = UTF8("│ "),
+                        [GLYPH_TREE_BRANCH]             = UTF8("├─"),
+                        [GLYPH_TREE_RIGHT]              = UTF8("└─"),
+                        [GLYPH_TREE_SPACE]              = UTF8("  "),
+                        [GLYPH_TREE_TOP]                = UTF8("┌─"),
 
                         /* Single glyphs in both cases */
-                        [GLYPH_VERTICAL_DOTTED]         = u8"┆",
-                        [GLYPH_HORIZONTAL_DOTTED]       = u8"┄",
-                        [GLYPH_HORIZONTAL_FAT]          = u8"━",
-                        [GLYPH_TRIANGULAR_BULLET]       = u8"‣",
-                        [GLYPH_BLACK_CIRCLE]            = u8"●",
-                        [GLYPH_WHITE_CIRCLE]            = u8"○",
-                        [GLYPH_MULTIPLICATION_SIGN]     = u8"×",
-                        [GLYPH_CIRCLE_ARROW]            = u8"↻",
-                        [GLYPH_BULLET]                  = u8"•",
-                        [GLYPH_MU]                      = u8"μ",       /* actually called: GREEK SMALL LETTER MU */
-                        [GLYPH_CHECK_MARK]              = u8"✓",
-                        [GLYPH_CROSS_MARK]              = u8"✗",        /* actually called: BALLOT X */
-                        [GLYPH_LIGHT_SHADE]             = u8"░",
-                        [GLYPH_DARK_SHADE]              = u8"▒",
-                        [GLYPH_FULL_BLOCK]              = u8"█",
-                        [GLYPH_SIGMA]                   = u8"Σ",
-                        [GLYPH_ARROW_UP]                = u8"↑",       /* actually called: UPWARDS ARROW */
-                        [GLYPH_ARROW_DOWN]              = u8"↓",       /* actually called: DOWNWARDS ARROW */
+                        [GLYPH_VERTICAL_DOTTED]         = UTF8("┆"),
+                        [GLYPH_HORIZONTAL_DOTTED]       = UTF8("┄"),
+                        [GLYPH_HORIZONTAL_FAT]          = UTF8("━"),
+                        [GLYPH_TRIANGULAR_BULLET]       = UTF8("‣"),
+                        [GLYPH_BLACK_CIRCLE]            = UTF8("●"),
+                        [GLYPH_WHITE_CIRCLE]            = UTF8("○"),
+                        [GLYPH_MULTIPLICATION_SIGN]     = UTF8("×"),
+                        [GLYPH_CIRCLE_ARROW]            = UTF8("↻"),
+                        [GLYPH_BULLET]                  = UTF8("•"),
+                        [GLYPH_MU]                      = UTF8("μ"),       /* actually called: GREEK SMALL LETTER MU */
+                        [GLYPH_CHECK_MARK]              = UTF8("✓"),
+                        [GLYPH_CROSS_MARK]              = UTF8("✗"),        /* actually called: BALLOT X */
+                        [GLYPH_LIGHT_SHADE]             = UTF8("░"),
+                        [GLYPH_DARK_SHADE]              = UTF8("▒"),
+                        [GLYPH_FULL_BLOCK]              = UTF8("█"),
+                        [GLYPH_SIGMA]                   = UTF8("Σ"),
+                        [GLYPH_ARROW_UP]                = UTF8("↑"),       /* actually called: UPWARDS ARROW */
+                        [GLYPH_ARROW_DOWN]              = UTF8("↓"),       /* actually called: DOWNWARDS ARROW */
 
                         /* Single glyph in Unicode, two in ASCII */
-                        [GLYPH_ARROW_LEFT]              = u8"←",       /* actually called: LEFTWARDS ARROW */
-                        [GLYPH_ARROW_RIGHT]             = u8"→",       /* actually called: RIGHTWARDS ARROW */
+                        [GLYPH_ARROW_LEFT]              = UTF8("←"),       /* actually called: LEFTWARDS ARROW */
+                        [GLYPH_ARROW_RIGHT]             = UTF8("→"),       /* actually called: RIGHTWARDS ARROW */
 
                         /* Single glyph in Unicode, three in ASCII */
-                        [GLYPH_ELLIPSIS]                = u8"…",       /* actually called: HORIZONTAL ELLIPSIS */
+                        [GLYPH_ELLIPSIS]                = UTF8("…"),       /* actually called: HORIZONTAL ELLIPSIS */
 
                         /* Three glyphs in Unicode, five in ASCII */
-                        [GLYPH_EXTERNAL_LINK]           = u8"[🡕]",      /* actually called: NORTH EAST SANS-SERIF ARROW, enclosed in [] */
+                        [GLYPH_EXTERNAL_LINK]           = UTF8("[🡕]"),      /* actually called: NORTH EAST SANS-SERIF ARROW, enclosed in [] */
 
                         /* These smileys are a single glyph in Unicode, and three in ASCII */
-                        [GLYPH_ECSTATIC_SMILEY]         = u8"😇",       /* actually called: SMILING FACE WITH HALO */
-                        [GLYPH_HAPPY_SMILEY]            = u8"😀",       /* actually called: GRINNING FACE */
-                        [GLYPH_SLIGHTLY_HAPPY_SMILEY]   = u8"🙂",       /* actually called: SLIGHTLY SMILING FACE */
-                        [GLYPH_NEUTRAL_SMILEY]          = u8"😐",       /* actually called: NEUTRAL FACE */
-                        [GLYPH_SLIGHTLY_UNHAPPY_SMILEY] = u8"🙁",       /* actually called: SLIGHTLY FROWNING FACE */
-                        [GLYPH_UNHAPPY_SMILEY]          = u8"😨",       /* actually called: FEARFUL FACE */
-                        [GLYPH_DEPRESSED_SMILEY]        = u8"🤢",       /* actually called: NAUSEATED FACE */
+                        [GLYPH_ECSTATIC_SMILEY]         = UTF8("😇"),       /* actually called: SMILING FACE WITH HALO */
+                        [GLYPH_HAPPY_SMILEY]            = UTF8("😀"),       /* actually called: GRINNING FACE */
+                        [GLYPH_SLIGHTLY_HAPPY_SMILEY]   = UTF8("🙂"),       /* actually called: SLIGHTLY SMILING FACE */
+                        [GLYPH_NEUTRAL_SMILEY]          = UTF8("😐"),       /* actually called: NEUTRAL FACE */
+                        [GLYPH_SLIGHTLY_UNHAPPY_SMILEY] = UTF8("🙁"),       /* actually called: SLIGHTLY FROWNING FACE */
+                        [GLYPH_UNHAPPY_SMILEY]          = UTF8("😨"),       /* actually called: FEARFUL FACE */
+                        [GLYPH_DEPRESSED_SMILEY]        = UTF8("🤢"),       /* actually called: NAUSEATED FACE */
 
                         /* This emoji is a single character cell glyph in Unicode, and three in ASCII */
-                        [GLYPH_LOCK_AND_KEY]            = u8"🔐",       /* actually called: CLOSED LOCK WITH KEY */
+                        [GLYPH_LOCK_AND_KEY]            = UTF8("🔐"),       /* actually called: CLOSED LOCK WITH KEY */
 
                         /* This emoji is a single character cell glyph in Unicode, and two in ASCII */
-                        [GLYPH_TOUCH]                   = u8"👆",       /* actually called: BACKHAND INDEX POINTING UP */
+                        [GLYPH_TOUCH]                   = UTF8("👆"),       /* actually called: BACKHAND INDEX POINTING UP */
 
                         /* These four emojis are single character cell glyphs in Unicode and also in ASCII. */
-                        [GLYPH_RECYCLING]               = u8"♻️",        /* actually called: UNIVERSAL RECYCLNG SYMBOL */
-                        [GLYPH_DOWNLOAD]                = u8"⤵️",        /* actually called: RIGHT ARROW CURVING DOWN */
-                        [GLYPH_SPARKLES]                = u8"✨",
-                        [GLYPH_LOW_BATTERY]             = u8"🪫",
-                        [GLYPH_WARNING_SIGN]            = u8"⚠️",
-                        [GLYPH_COMPUTER_DISK]           = u8"💽",
-                        [GLYPH_WORLD]                   = u8"🌍",
+                        [GLYPH_RECYCLING]               = UTF8("♻️"),        /* actually called: UNIVERSAL RECYCLNG SYMBOL */
+                        [GLYPH_DOWNLOAD]                = UTF8("⤵️"),        /* actually called: RIGHT ARROW CURVING DOWN */
+                        [GLYPH_SPARKLES]                = UTF8("✨"),
+                        [GLYPH_LOW_BATTERY]             = UTF8("🪫"),
+                        [GLYPH_WARNING_SIGN]            = UTF8("⚠️"),
+                        [GLYPH_COMPUTER_DISK]           = UTF8("💽"),
+                        [GLYPH_WORLD]                   = UTF8("🌍"),
 
-                        [GLYPH_RED_CIRCLE]              = u8"🔴",
-                        [GLYPH_YELLOW_CIRCLE]           = u8"🟡",
-                        [GLYPH_BLUE_CIRCLE]             = u8"🔵",
-                        [GLYPH_GREEN_CIRCLE]            = u8"🟢",
-                        [GLYPH_SUPERHERO]               = u8"🦸",
-                        [GLYPH_IDCARD]                  = u8"🪪",
-                        [GLYPH_HOME]                    = u8"🏠",
+                        [GLYPH_RED_CIRCLE]              = UTF8("🔴"),
+                        [GLYPH_YELLOW_CIRCLE]           = UTF8("🟡"),
+                        [GLYPH_BLUE_CIRCLE]             = UTF8("🔵"),
+                        [GLYPH_GREEN_CIRCLE]            = UTF8("🟢"),
+                        [GLYPH_SUPERHERO]               = UTF8("🦸"),
+                        [GLYPH_IDCARD]                  = UTF8("🪪"),
+                        [GLYPH_HOME]                    = UTF8("🏠"),
                 },
         };
 

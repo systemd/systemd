@@ -70,21 +70,21 @@ typedef struct StatusInfo {
 
 static const char* chassis_string_to_glyph(const char *chassis) {
         if (streq_ptr(chassis, "laptop"))
-                return u8"💻"; /* Personal Computer */
+                return UTF8("💻"); /* Personal Computer */
         if (streq_ptr(chassis, "desktop"))
-                return u8"🖥️"; /* Desktop Computer */
+                return UTF8("🖥️"); /* Desktop Computer */
         if (streq_ptr(chassis, "server"))
-                return u8"🖳"; /* Old Personal Computer */
+                return UTF8("🖳"); /* Old Personal Computer */
         if (streq_ptr(chassis, "tablet"))
-                return u8"具"; /* Ideograph tool, implement; draw up, write, looks vaguely tabletty */
+                return UTF8("具"); /* Ideograph tool, implement; draw up, write, looks vaguely tabletty */
         if (streq_ptr(chassis, "watch"))
-                return u8"⌚"; /* Watch */
+                return UTF8("⌚"); /* Watch */
         if (streq_ptr(chassis, "handset"))
-                return u8"🕻"; /* Left Hand Telephone Receiver */
+                return UTF8("🕻"); /* Left Hand Telephone Receiver */
         if (streq_ptr(chassis, "vm"))
-                return u8"🖴"; /* Hard disk */
+                return UTF8("🖴"); /* Hard disk */
         if (streq_ptr(chassis, "container"))
-                return u8"☐"; /* Ballot Box  */
+                return UTF8("☐"); /* Ballot Box  */
         return NULL;
 }
 
