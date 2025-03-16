@@ -1679,7 +1679,7 @@ static int run_context_check_started(RunContext *c) {
         /* Setup ptyfwd now if --pty-late is specified. */
         r = run_context_setup_ptyfwd(c);
         if (r < 0) {
-                sd_event_exit(c->event, EXIT_FAILURE);
+                (void) sd_event_exit(c->event, EXIT_FAILURE);
                 return r;
         }
 
