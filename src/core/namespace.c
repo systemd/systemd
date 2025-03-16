@@ -1320,16 +1320,6 @@ static int mount_private_apivfs(
                 return r;
 
         r = mount_nofollow_verbose(LOG_DEBUG, fstype, temporary_mount, fstype, MS_NOSUID|MS_NOEXEC|MS_NODEV, opts);
-        if (r == -EINVAL && opts)
-                /* If this failed with EINVAL then this likely means either:
-                 * 1. the textual hidepid= stuff for procfs is not supported by the kernel, and thus the
-                 *    per-instance hidepid= neither, which means we really don't want to use it, since it
-                 *    would affect our host's /proc mount.
-                 * 2. nsdelegate for cgroup2 is not supported by the kernel even though CLONE_NEWCGROUP
-                 *    is supported.
-                 *
-                 * Hence let's gracefully fallback to a classic, unrestricted version. */
-                r = mount_nofollow_verbose(LOG_DEBUG, fstype, temporary_mount, fstype, MS_NOSUID|MS_NOEXEC|MS_NODEV, /* opts = */ NULL);
         if (ERRNO_IS_NEG_PRIVILEGE(r)) {
                 /* When we do not have enough privileges to mount a new instance, fall back to use an
                  * existing mount. */
@@ -1348,8 +1338,8 @@ static int mount_private_apivfs(
                         return r;
 
                 return 1;
-
-        } else if (r < 0)
+        }
+        if (r < 0)
                 return r;
 
         /* OK. We have a new mount instance. Let's clear an existing mount and its submounts. */
@@ -1405,14 +1395,14 @@ static int mount_procfs(const MountEntry *m, const NamespaceParameters *p) {
                  * fsopen()/fsconfig() was also backported on some distros which allows us to detect
                  * hidepid=/subset= support in even more scenarios. */
 
-                if (mount_option_supported("proc", "hidepid", hpv) != 0) {
+                if (mount_option_supported("proc", "hidepid", hpv) > 0) {
                         opts = strjoin("hidepid=", hpv);
                         if (!opts)
                                 return -ENOMEM;
                 }
 
                 if (p->proc_subset == PROC_SUBSET_PID &&
-                    mount_option_supported("proc", "subset", "pid") != 0)
+                    mount_option_supported("proc", "subset", "pid") > 0)
                         if (!strextend_with_separator(&opts, ",", "subset=pid"))
                                 return -ENOMEM;
         }
