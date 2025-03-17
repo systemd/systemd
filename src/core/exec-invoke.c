@@ -1377,7 +1377,7 @@ static bool context_has_no_new_privileges(const ExecContext *c) {
 
 static bool seccomp_allows_drop_privileges(const ExecContext *c) {
         void *id, *val;
-        bool has_capget = false, has_capset = false, has_prctl = false;
+        bool have_capget = false, have_capset = false, have_prctl = false;
 
         assert(c);
 
@@ -1391,17 +1391,17 @@ static bool seccomp_allows_drop_privileges(const ExecContext *c) {
                 name = seccomp_syscall_resolve_num_arch(SCMP_ARCH_NATIVE, PTR_TO_INT(id) - 1);
 
                 if (streq(name, "capget"))
-                        has_capget = true;
+                        have_capget = true;
                 else if (streq(name, "capset"))
-                        has_capset = true;
+                        have_capset = true;
                 else if (streq(name, "prctl"))
-                        has_prctl = true;
+                        have_prctl = true;
         }
 
         if (c->syscall_allow_list)
-                return has_capget && has_capset && has_prctl;
+                return have_capget && have_capset && have_prctl;
         else
-                return !(has_capget || has_capset || has_prctl);
+                return !(have_capget || have_capset || have_prctl);
 }
 
 static bool skip_seccomp_unavailable(const ExecContext *c, const ExecParameters *p, const char *msg) {
@@ -4171,7 +4171,7 @@ static int setup_delegated_namespaces(
                 uid_t gid,
                 const ExecCommand *command,
                 bool needs_sandboxing,
-                bool has_cap_sys_admin,
+                bool have_cap_sys_admin,
                 int *reterr_exit_status) {
 
         int r;
@@ -4262,7 +4262,7 @@ static int setup_delegated_namespaces(
                  * We need to check prior to entering the user namespace because if we're running unprivileged or in a
                  * system without CAP_SYS_ADMIN, then we can have CAP_SYS_ADMIN in the current user namespace but not
                  * once we unshare a mount namespace. */
-                if (!has_cap_sys_admin) {
+                if (!have_cap_sys_admin) {
                         r = can_mount_proc(context, params);
                         if (r < 0) {
                                 *reterr_exit_status = EXIT_NAMESPACE;
@@ -4510,7 +4510,7 @@ int exec_invoke(
                 needs_mount_namespace,  /* Do we need to set up a mount namespace for this kernel? */
                 needs_ambient_hack;     /* Do we need to apply the ambient capabilities hack? */
         bool keep_seccomp_privileges = false;
-        bool has_cap_sys_admin = false;
+        bool have_cap_sys_admin = false;
 #if HAVE_SELINUX
         _cleanup_free_ char *mac_selinux_context_net = NULL;
         bool use_selinux = false;
@@ -5185,7 +5185,7 @@ int exec_invoke(
         uint64_t capability_ambient_set = context->capability_ambient_set;
 
         /* Check CAP_SYS_ADMIN before we enter user namespace to see if we can mount /proc even though its masked. */
-        has_cap_sys_admin = have_effective_cap(CAP_SYS_ADMIN) > 0;
+        have_cap_sys_admin = have_effective_cap(CAP_SYS_ADMIN) > 0;
 
         if (needs_sandboxing) {
                 /* MAC enablement checks need to be done before a new mount ns is created, as they rely on
@@ -5282,7 +5282,7 @@ int exec_invoke(
                         gid,
                         command,
                         needs_sandboxing,
-                        has_cap_sys_admin,
+                        have_cap_sys_admin,
                         exit_status);
         if (r < 0)
                 return r;
@@ -5343,7 +5343,7 @@ int exec_invoke(
                         gid,
                         command,
                         needs_sandboxing,
-                        has_cap_sys_admin,
+                        have_cap_sys_admin,
                         exit_status);
         if (r < 0)
                 return r;
