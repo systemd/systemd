@@ -16,7 +16,7 @@ testcase_mount() {
 
 testcase_network() {
     (! systemd-run -p PrivateUsersEx=self -p PrivateNetwork=yes --wait --pipe -- ip link add veth1 type veth peer name veth2)
-    systemd-run -p PrivateUsersEx=self -p PrivateMounts=yes -p DelegateNamespaces=mnt --wait --pipe -- ip link add veth1 type veth peer name veth2
+    systemd-run -p PrivateUsersEx=self -p PrivateNetwork=yes -p DelegateNamespaces=net --wait --pipe -- ip link add veth1 type veth peer name veth2
 }
 
 testcase_cgroup() {
