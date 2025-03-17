@@ -25,41 +25,35 @@
 static const char *arg_dest = NULL;
 static bool arg_enabled = true;
 
-static int add_serial_getty(const char *tty) {
-        _cleanup_free_ char *instance = NULL;
+static int add_getty_impl(const char *tty, const char *unit, const char *type) {
         int r;
 
         assert(tty);
+        assert(unit);
+        assert(type);
 
         tty = skip_dev_prefix(tty);
 
-        log_debug("Automatically adding serial getty for /dev/%s.", tty);
-
+        _cleanup_free_ char *instance = NULL;
         r = unit_name_path_escape(tty, &instance);
         if (r < 0)
-                return log_error_errno(r, "Failed to escape tty path: %m");
+                return log_error_errno(r, "Failed to escape tty path %s: %m", tty);
 
-        return generator_add_symlink_full(arg_dest,
-                                          "getty.target", "wants",
-                                          SYSTEM_DATA_UNIT_DIR "/serial-getty@.service", instance);
+        _cleanup_free_ char *unit_path = path_join(SYSTEM_DATA_UNIT_DIR, unit);
+        if (!unit_path)
+                return log_oom();
+
+        log_debug("Automatically adding %s getty for %s.", type, tty);
+
+        return generator_add_symlink_full(arg_dest, "getty.target", "wants", unit_path, instance);
+}
+
+static int add_serial_getty(const char *tty) {
+        return add_getty_impl(tty, "serial-getty@.service", "serial");
 }
 
 static int add_container_getty(const char *tty) {
-        _cleanup_free_ char *instance = NULL;
-        int r;
-
-        assert(tty);
-        assert(!path_startswith(tty, "/dev/"));
-
-        log_debug("Automatically adding container getty for /dev/pts/%s.", tty);
-
-        r = unit_name_path_escape(tty, &instance);
-        if (r < 0)
-                return log_error_errno(r, "Failed to escape tty path: %m");
-
-        return generator_add_symlink_full(arg_dest,
-                                          "getty.target", "wants",
-                                          SYSTEM_DATA_UNIT_DIR "/container-getty@.service", instance);
+        return add_getty_impl(tty, "container-getty@.service", "container");
 }
 
 static int verify_tty(const char *path) {
