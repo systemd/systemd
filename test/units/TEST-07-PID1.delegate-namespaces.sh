@@ -9,6 +9,15 @@ set -o pipefail
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
+# IMPORTANT: For /proc/ to be remounted in pid namespace within an unprivileged user namespace, there needs to
+# be at least 1 unmasked procfs mount in ANY directory. Otherwise, if /proc/ is masked (e.g. /proc/scsi is
+# over-mounted with tmpfs), then mounting a new /proc/ will fail.
+#
+# Thus, to guarantee PrivatePIDs=yes tests for unprivileged users pass, we mount a new procfs on a temporary
+# directory with no masking. This will guarantee an unprivileged user can mount a new /proc/ successfully.
+mkdir -p /tmp/TEST-07-PID1-delegate-namespaces-proc
+mount -t proc proc /tmp/TEST-07-PID1-delegate-namespaces-proc
+
 testcase_mount() {
     (! systemd-run -p PrivateUsersEx=self -p PrivateMounts=yes --wait --pipe -- mount --bind /usr /home)
     systemd-run -p PrivateUsersEx=self -p PrivateMounts=yes -p DelegateNamespaces=mnt --wait --pipe -- mount --bind /usr /home
