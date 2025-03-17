@@ -744,7 +744,7 @@ int append_unit_dependencies(sd_bus *bus, char **names, char ***ret) {
                 if (strv_extend(&with_deps, *name) < 0)
                         return log_oom();
 
-                (void) unit_get_dependencies(bus, *name, &deps);
+                (void) unit_get_dependencies_systemctl(bus, *name, &deps);
 
                 if (strv_extend_strv_consume(&with_deps, deps, /* filter_duplicates = */ true) < 0)
                         return log_oom();
@@ -772,7 +772,7 @@ int maybe_extend_with_unit_dependencies(sd_bus *bus, char ***list) {
         return strv_free_and_replace(*list, list_with_deps);
 }
 
-int unit_get_dependencies(sd_bus *bus, const char *name, char ***ret) {
+int unit_get_dependencies_systemctl(sd_bus *bus, const char *name, char ***ret) {
         _cleanup_strv_free_ char **deps = NULL;
 
         static const struct bus_properties_map map[_DEPENDENCY_MAX][7] = {
