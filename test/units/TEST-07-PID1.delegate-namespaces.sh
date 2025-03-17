@@ -42,6 +42,18 @@ testcase_implied_private_users_self() {
     systemd-run -p PrivateUsersEx=identity -p PrivateMounts=yes -p DelegateNamespaces=mnt --wait bash -c 'test "$(cat /proc/self/uid_map)" == "         0          0      65536"'
 }
 
+testcase_user_manager() {
+    systemctl start user@0
+    # DelegateNamespaces=yes is implied for user managers.
+    systemd-run --machine=testuser@.host --user -p PrivateMounts=yes -p AmbientCapabilities="~" --wait --pipe -- mount --bind /usr /home
+    # Even those with CAP_SYS_ADMIN.
+    SYSTEMD_LOG_LEVEL=debug systemd-run --machine=.host --user -p PrivateMounts=yes --wait --pipe -- mount --bind /usr /home
+    # But can be overridden for user managers that are running with CAP_SYS_ADMIN.
+    (! systemd-run --machine=.host --user -p PrivateMounts=yes -p DelegateNamespaces=no --wait --pipe -- mount --bind /usr /home)
+    # But not for those without CAP_SYS_ADMIN.
+    systemd-run --machine=testuser@.host --user -p PrivateMounts=yes -p DelegateNamespaces=no -p AmbientCapabilities="~" --wait --pipe -- mount --bind /usr /home
+}
+
 testcase_multiple_features() {
     unsquashfs -no-xattrs -d /tmp/TEST-07-PID1-delegate-namespaces-root /usr/share/minimal_0.raw
 
