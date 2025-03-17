@@ -159,26 +159,18 @@ udevadm test --json=short /sys/class/net/$netdev | jq . >/dev/null
 udevadm test --json=help
 udevadm test -h
 
-# udevadm test-builtin path_id "$loopdev"
-udevadm test-builtin net_id /sys/class/net/$netdev
-udevadm test-builtin net_id "$(systemd-escape -p --suffix device /sys/devices/virtual/net/$netdev)"
-udevadm test-builtin -a add net_id /sys/class/net/$netdev
-udevadm test-builtin -a remove net_id /sys/class/net/$netdev
-udevadm test-builtin -a change net_id /sys/class/net/$netdev
-udevadm test-builtin -a move net_id /sys/class/net/$netdev
-udevadm test-builtin -a online net_id /sys/class/net/$netdev
-udevadm test-builtin -a offline net_id /sys/class/net/$netdev
-udevadm test-builtin -a bind net_id /sys/class/net/$netdev
-udevadm test-builtin -a unbind net_id /sys/class/net/$netdev
-udevadm test-builtin -a help net_id /sys/class/net/$netdev
-udevadm test-builtin net_setup_link /sys/class/net/$netdev
+# Builtins
+(! udevadm test-builtin aaaaa /dev/null)
 udevadm test-builtin blkid "$loopdev"
-udevadm test-builtin input_id /sys/class/net/$netdev
-udevadm test-builtin keyboard /dev/null
-# udevadm test-builtin kmod /sys/class/net/$netdev
-udevadm test-builtin uaccess /dev/null
-# udevadm test-builtin usb_id dev/null
-(! udevadm test-builtin hello /sys/class/net/$netdev)
+(! udevadm test-builtin "btrfs" "$loopdev")
+(! udevadm test-builtin "btrfs aaaaa" "$loopdev")
+(! udevadm test-builtin "btrfs ready aaa" "$loopdev")
+udevadm test-builtin "btrfs ready" "$loopdev"
+udevadm test-builtin "btrfs ready $loopdev" "$loopdev"
+(! udevadm test-builtin factory_reset "$loopdev")
+(! udevadm test-builtin "factory_reset aaa" "$loopdev")
+udevadm test-builtin "factory_reset status" "$loopdev"
+
 # systemd-hwdb update is extremely slow when combined with sanitizers and run
 # in a VM without acceleration, so let's just skip the one particular test
 # if we detect this combination
@@ -199,6 +191,28 @@ EOF
     systemd-hwdb update
 fi
 
+udevadm test-builtin input_id /dev/null
+udevadm test-builtin keyboard /dev/null
+udevadm test-builtin kmod /dev/null
+udevadm test-builtin net_driver /sys/class/net/$netdev | grep -F 'ID_NET_DRIVER=dummy'
+(! udevadm test-builtin net_driver /dev/null)
+udevadm test-builtin net_id /sys/class/net/$netdev
+udevadm test-builtin net_id "$(systemd-escape -p --suffix device /sys/devices/virtual/net/$netdev)"
+(! udevadm test-builtin net_id /dev/null)
+udevadm test-builtin -a add net_id /sys/class/net/$netdev
+udevadm test-builtin -a remove net_id /sys/class/net/$netdev
+udevadm test-builtin -a change net_id /sys/class/net/$netdev
+udevadm test-builtin -a move net_id /sys/class/net/$netdev
+udevadm test-builtin -a online net_id /sys/class/net/$netdev
+udevadm test-builtin -a offline net_id /sys/class/net/$netdev
+udevadm test-builtin -a bind net_id /sys/class/net/$netdev
+udevadm test-builtin -a unbind net_id /sys/class/net/$netdev
+udevadm test-builtin -a help net_id /sys/class/net/$netdev
+udevadm test-builtin net_setup_link /sys/class/net/$netdev
+(! udevadm net_setup_link /dev/null)
+(! udevadm test-builtin path_id /dev/null)
+udevadm test-builtin uaccess /dev/null
+(! udevadm test-builtin usb_id /dev/null)
 
 udevadm trigger
 udevadm trigger /dev/null
