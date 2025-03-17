@@ -4262,7 +4262,7 @@ static int setup_delegated_namespaces(
                  * We need to check prior to entering the user namespace because if we're running unprivileged or in a
                  * system without CAP_SYS_ADMIN, then we can have CAP_SYS_ADMIN in the current user namespace but not
                  * once we unshare a mount namespace. */
-                if (!have_cap_sys_admin) {
+                if (!have_cap_sys_admin || delegate) {
                         r = can_mount_proc(context, params);
                         if (r < 0) {
                                 *reterr_exit_status = EXIT_NAMESPACE;
