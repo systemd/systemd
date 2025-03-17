@@ -1062,7 +1062,7 @@ static int copy_skel(UserRecord *h, int root_fd, const char *skel) {
         assert(h);
         assert(root_fd >= 0);
 
-        r = copy_tree_at(AT_FDCWD, skel, root_fd, ".", h->uid, h->gid, COPY_MERGE|COPY_REPLACE, NULL, NULL);
+        r = copy_tree_at(AT_FDCWD, skel, root_fd, ".", h->uid, user_record_gid(h), COPY_MERGE|COPY_REPLACE, NULL, NULL);
         if (r == -ENOENT) {
                 log_info("Skeleton directory %s missing, ignoring.", skel);
                 return 0;

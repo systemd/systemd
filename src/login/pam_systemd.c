@@ -241,6 +241,11 @@ static int acquire_user_record(
                         return PAM_USER_UNKNOWN;
                 }
 
+                if (!uid_is_valid(ur->uid)) {
+                        pam_syslog_errno(handle, LOG_ERR, r, "User record of user '%s' has no UID, refusing: %m", username);
+                        return PAM_USER_UNKNOWN;
+                }
+
                 r = sd_json_variant_format(ur->json, 0, &formatted);
                 if (r < 0)
                         return pam_syslog_errno(handle, LOG_ERR, r, "Failed to format user JSON: %m");
