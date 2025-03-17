@@ -195,6 +195,9 @@ int manager_add_user_by_name(
         if (r < 0)
                 return r;
 
+        if (!uid_is_valid(ur->uid)) /* Refuse users without UID */
+                return -ESRCH;
+
         return manager_add_user(m, ur, ret_user);
 }
 

@@ -244,8 +244,12 @@ int bind_user_prepare(
                  * UID is safer. */
                 if (user_record_is_root(u))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Mapping 'root' user not supported, sorry.");
+
                 if (user_record_is_nobody(u))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Mapping 'nobody' user not supported, sorry.");
+
+                if (!uid_is_valid(u->uid))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot bind user with no UID, refusing.");
 
                 if (u->uid >= uid_shift && u->uid < uid_shift + uid_range)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "UID of user '%s' to map is already in container UID range, refusing.", u->user_name);
