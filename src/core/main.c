@@ -1558,8 +1558,6 @@ static int bump_unix_max_dgram_qlen(void) {
 }
 
 static int fixup_environment(void) {
-        _cleanup_free_ char *term = NULL;
-        const char *t;
         int r;
 
         /* Only fix up the environment when we are started as PID 1 */
@@ -1575,19 +1573,29 @@ static int fixup_environment(void) {
          * not have support for color mode for example.
          *
          * However if TERM was configured through the kernel command line then leave it alone. */
+        _cleanup_free_ char *term = NULL;
         r = proc_cmdline_get_key("TERM", 0, &term);
         if (r < 0)
                 return r;
-
-        if (r == 0) {
+        if (r > 0) {
+                /* If we pick up $TERM, then also pick up $COLORTERM, $NO_COLOR */
+                FOREACH_STRING(v, "COLORTERM", "NO_COLOR") {
+                        _cleanup_free_ char *vv = NULL;
+                        r = proc_cmdline_get_key(v, 0, &vv);
+                        if (r < 0)
+                                return r;
+                        if (r > 0 && setenv(v, vv, /* overwrite= */ true) < 0)
+                                return -errno;
+                }
+        } else {
+                /* If no $TERM is set then look for the per-tty variable instead */
                 r = proc_cmdline_get_key("systemd.tty.term.console", 0, &term);
                 if (r < 0)
                         return r;
         }
 
-        t = term ?: default_term_for_tty("/dev/console");
-
-        if (setenv("TERM", t, 1) < 0)
+        const char *t = term ?: default_term_for_tty("/dev/console");
+        if (setenv("TERM", t, /* overwrite= */ true) < 0)
                 return -errno;
 
         /* The kernels sets HOME=/ for init. Let's undo this. */
