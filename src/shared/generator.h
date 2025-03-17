@@ -126,4 +126,4 @@ typedef enum GptAutoRoot {
         _GPT_AUTO_ROOT_INVALID = -EINVAL,
 } GptAutoRoot;
 
-GptAutoRoot parse_gpt_auto_root(const char *value);
+GptAutoRoot parse_gpt_auto_root(const char *switch_name, const char *value);

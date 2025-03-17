@@ -41,15 +41,20 @@
 static const char *arg_dest = NULL;
 static bool arg_enabled = true;
 static GptAutoRoot arg_auto_root = _GPT_AUTO_ROOT_INVALID;
+static GptAutoRoot arg_auto_usr = _GPT_AUTO_ROOT_INVALID;
 static bool arg_swap_enabled = true;
 static char *arg_root_fstype = NULL;
 static char *arg_root_options = NULL;
 static int arg_root_rw = -1;
+static char *arg_usr_fstype = NULL;
+static char *arg_usr_options = NULL;
 static ImagePolicy *arg_image_policy = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root_fstype, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root_options, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_usr_fstype, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_usr_options, freep);
 
 #define LOADER_PARTITION_IDLE_USEC (120 * USEC_PER_SEC)
 
@@ -673,7 +678,14 @@ static int add_root_cryptsetup(void) {
                                 "/dev/gpt-auto-root-luks-ignore-factory-reset";
         }
 
-        return add_cryptsetup("root", bdev, arg_root_options, /* rw= */ true, /* require= */ false, /* measure= */ true, NULL);
+        return add_cryptsetup(
+                        "root",
+                        bdev,
+                        arg_root_options,
+                        /* rw= */ true,
+                        /* require= */ false,
+                        /* measure= */ true,
+                        /* ret_deivce= */ NULL);
 #else
         return 0;
 #endif
@@ -770,6 +782,89 @@ static int add_root_mount(void) {
                         options,
                         "Root Partition",
                         in_initrd() ? SPECIAL_INITRD_ROOT_FS_TARGET : SPECIAL_LOCAL_FS_TARGET);
+#else
+        return 0;
+#endif
+}
+
+
+static int add_usr_mount(void) {
+#if ENABLE_EFI
+        int r;
+
+        /* /usr/ discovery must be enabled explicitly. */
+        if (arg_auto_usr == GPT_AUTO_ROOT_OFF ||
+            arg_auto_usr < 0)
+                return 0;
+
+        /* We do not support the other gpt-auto modes for /usr/, but the parser should already have checked that. */
+        assert(arg_auto_usr == GPT_AUTO_ROOT_DISSECT);
+
+        if (arg_root_fstype && !arg_usr_fstype) {
+                arg_usr_fstype = strdup(arg_root_fstype);
+                if (!arg_usr_fstype)
+                        return log_oom();
+        }
+
+        if (arg_root_options && !arg_usr_options) {
+                arg_usr_options = strdup(arg_root_options);
+                if (!arg_usr_options)
+                        return log_oom();
+        }
+
+        if (in_initrd()) {
+                r = add_cryptsetup(
+                                "usr",
+                                "/dev/disk/by-designator/usr-luks",
+                                arg_usr_options,
+                                /* rw= */ false,
+                                /* require= */ false,
+                                /* measure= */ false,
+                                /* ret_device= */ NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        _cleanup_free_ char *options = NULL;
+        r = partition_pick_mount_options(
+                        PARTITION_USR,
+                        arg_usr_fstype,
+                        /* rw= */ false,
+                        /* discard= */ true,
+                        &options,
+                        /* ret_ms_flags= */ NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to pick /usr/ mount options: %m");
+
+        if (arg_usr_options)
+                if (!strextend_with_separator(&options, ",", arg_usr_options))
+                        return log_oom();
+
+        r = add_mount("usr",
+                      "/dev/disk/by-designator/usr",
+                      in_initrd() ? "/sysusr/usr" : "/usr",
+                      arg_usr_fstype,
+                      /* rw= */ false,
+                      /* growfs= */ false,
+                      /* measure= */ false,
+                      options,
+                      "/usr/ Partition",
+                      in_initrd() ? SPECIAL_INITRD_USR_FS_TARGET : SPECIAL_LOCAL_FS_TARGET);
+        if (r < 0)
+                return r;
+
+        log_debug("Synthesizing entry what=/sysusr/usr where=/sysroot/usr opts=bind");
+
+        return add_mount("usr-bind",
+                      "/sysusr/usr",
+                      "/sysroot/usr",
+                      /* fstype= */ NULL,
+                      /* rw= */ false,
+                      /* growfs= */ false,
+                      /* measure= */ true,
+                      "bind",
+                      "/usr/ Partition (Final)",
+                      in_initrd() ? SPECIAL_INITRD_FS_TARGET : SPECIAL_LOCAL_FS_TARGET);
 #else
         return 0;
 #endif
@@ -966,7 +1061,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 /* Disable root disk logic if there's a root= value specified (unless it happens to be
                  * "gpt-auto" or "gpt-auto-force") */
 
-                arg_auto_root = parse_gpt_auto_root(value);
+                arg_auto_root = parse_gpt_auto_root("root=", value);
                 assert(arg_auto_root >= 0);
 
         } else if (streq(key, "roothash")) {
@@ -992,6 +1087,37 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                         return 0;
 
                 if (!strextend_with_separator(&arg_root_options, ",", value))
+                        return log_oom();
+
+        } else if (streq(key, "mount.usr")) {
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
+
+                /* Disable root disk logic if there's a root= value specified (unless it happens to be
+                 * "gpt-auto" or "gpt-auto-force") */
+
+                arg_auto_usr = parse_gpt_auto_root("mount.usr=", value);
+                assert(arg_auto_usr >= 0);
+
+                if (IN_SET(arg_auto_usr, GPT_AUTO_ROOT_ON, GPT_AUTO_ROOT_FORCE, GPT_AUTO_ROOT_DISSECT_FORCE)) {
+                        log_warning("'gpt-auto', 'gpt-auto-force' and 'dissect-force' are not supported for mount.usr=. Automatically resorting to mount.usr=dissect mode instead.");
+                        arg_auto_usr = GPT_AUTO_ROOT_DISSECT;
+                }
+
+        } else if (streq(key, "mount.usrfstype")) {
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
+
+                return free_and_strdup_warn(&arg_usr_fstype, empty_to_null(value));
+
+        } else if (streq(key, "mount.usrflags")) {
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
+
+                if (!strextend_with_separator(&arg_usr_options, ",", value))
                         return log_oom();
 
         } else if (streq(key, "rw") && !value)
@@ -1038,6 +1164,7 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
 
         r = 0;
         RET_GATHER(r, add_root_mount());
+        RET_GATHER(r, add_usr_mount());
         RET_GATHER(r, add_mounts());
 
         return r;
