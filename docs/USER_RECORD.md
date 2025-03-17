@@ -312,6 +312,7 @@ and its value to set for the user's login session, in a format compatible with
 environment variable listed here is automatically set by
 [`pam_systemd`](https://www.freedesktop.org/software/systemd/man/pam_systemd.html)
 for all login sessions of the user.
+
 `timeZone` → A string indicating a preferred timezone to use for the user. When
 logging in
 [`pam_systemd`](https://www.freedesktop.org/software/systemd/man/pam_systemd.html)
