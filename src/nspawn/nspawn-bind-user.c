@@ -279,11 +279,11 @@ int bind_user_prepare(
                 if (!GREEDY_REALLOC(c->data, c->n_data + 1))
                         return log_oom();
 
-                sm = strdup(u->home_directory);
+                sm = strdup(user_record_home_directory(u));
                 if (!sm)
                         return log_oom();
 
-                sd = strdup(cu->home_directory);
+                sd = strdup(user_record_home_directory(cu));
                 if (!sd)
                         return log_oom();
 
