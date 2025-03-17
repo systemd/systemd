@@ -1334,29 +1334,48 @@ static int transient_service_set_properties(sd_bus_message *m, const char *pty_p
                 send_term = false;
 
         if (send_term != 0) {
-                const char *e;
+                const char *e, *colorterm = NULL, *no_color = NULL;
 
-                /* Propagate $TERM only if we are actually connected to a TTY */
+                /* Propagate $TERM + $COLORTERM + $NO_COLOR if we are actually connected to a TTY */
                 if (isatty_safe(STDIN_FILENO) || isatty_safe(STDOUT_FILENO) || isatty_safe(STDERR_FILENO)) {
-                        e = getenv("TERM");
+                        e = strv_find_prefix(environ, "TERM=");
                         send_term = !!e;
+
+                        if (send_term) {
+                                /* If we send $TERM along, then also propagate $COLORTERM + $NO_COLOR right with it */
+                                colorterm = strv_find_prefix(environ, "COLORTERM=");
+                                no_color = strv_find_prefix(environ, "NO_COLOR=");
+                        }
                 } else
                         /* If we are not connected to any TTY ourselves, then send TERM=dumb, but only if we
                          * really need to (because we actually allocated a TTY for the service) */
-                        e = "dumb";
+                        e = "TERM=dumb";
 
                 if (send_term > 0) {
-                        _cleanup_free_ char *n = NULL;
-
-                        n = strjoin("TERM=", e);
-                        if (!n)
-                                return log_oom();
-
-                        r = sd_bus_message_append(m,
-                                                  "(sv)",
-                                                  "Environment", "as", 1, n);
+                        r = sd_bus_message_append(
+                                        m,
+                                        "(sv)",
+                                        "Environment", "as", 1, e);
                         if (r < 0)
                                 return bus_log_create_error(r);
+
+                        if (colorterm) {
+                                r = sd_bus_message_append(
+                                                m,
+                                                "(sv)",
+                                                "Environment", "as", 1, colorterm);
+                                if (r < 0)
+                                        return bus_log_create_error(r);
+                        }
+
+                        if (no_color) {
+                                r = sd_bus_message_append(
+                                                m,
+                                                "(sv)",
+                                                "Environment", "as", 1, no_color);
+                                if (r < 0)
+                                        return bus_log_create_error(r);
+                        }
                 }
         }
 

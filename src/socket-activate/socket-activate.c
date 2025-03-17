@@ -132,7 +132,7 @@ static int exec_process(const char *name, char **argv, int start_fd, size_t n_fd
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "--inetd only supported for single file descriptors.");
 
-        FOREACH_STRING(var, "TERM", "PATH", "USER", "HOME") {
+        FOREACH_STRING(var, "TERM", "COLORTERM", "NO_COLOR", "PATH", "USER", "HOME") {
                 const char *n;
 
                 n = strv_find_prefix(environ, var);

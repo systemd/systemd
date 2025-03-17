@@ -1912,7 +1912,7 @@ static int build_environment(
         assert(cgroup_context);
         assert(ret);
 
-#define N_ENV_VARS 20
+#define N_ENV_VARS 21
         our_env = new0(char*, N_ENV_VARS + _EXEC_DIRECTORY_TYPE_MAX);
         if (!our_env)
                 return -ENOMEM;
@@ -2048,8 +2048,28 @@ static int build_environment(
                                 term = cmdline;
                 }
 
-                if (!term)
+                if (!term) {
+                        /* If no precise $TERM is known and we pick a fallback default, then let's also set
+                         * $COLORTERM=truecolor. That's because our fallback default is vt220, which is
+                         * generally a safe bet (as it supports PageUp/PageDown unlike vt100, and is quite
+                         * universally available in terminfo/termcap), except for the fact that real DEC
+                         * vt220 gear never actually supported color. Most tools these days generate color on
+                         * vt220 anyway, ignoring the physical capabilities of the real hardware, but some
+                         * tools actually believe in the historical truth. Which is unfortunate since *we*
+                         * *don't* care about the historical truth, we just want sane defaults if nothing
+                         * better is explicitly configured. It's 2025 after all, at the time of writing,
+                         * pretty much all terminal emulators actually *do* support color, hence if we don't
+                         * know any better let's explicitly claim color support via $COLORTERM. Or in other
+                         * words: we now explicitly claim to be connected to a franken-vt220 with true color
+                         * support. */
+                        x = strdup("COLORTERM=truecolor");
+                        if (!x)
+                                return -ENOMEM;
+
+                        our_env[n_env++] = x;
+
                         term = default_term_for_tty(tty_path);
+                }
 
                 x = strjoin("TERM=", term);
                 if (!x)
