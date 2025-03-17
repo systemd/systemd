@@ -1020,9 +1020,11 @@ int generator_write_veritysetup_service_section(
         if (!hash_what_escaped)
                 return log_oom();
 
-        roothash_escaped = specifier_escape(roothash);
-        if (!roothash_escaped)
-                return log_oom();
+        if (roothash) {
+                roothash_escaped = specifier_escape(roothash);
+                if (!roothash_escaped)
+                        return log_oom();
+        }
 
         if (options) {
                 options_escaped = specifier_escape(options);
@@ -1037,7 +1039,7 @@ int generator_write_veritysetup_service_section(
                 "RemainAfterExit=yes\n"
                 "ExecStart=" SYSTEMD_VERITYSETUP_PATH " attach '%s' '%s' '%s' '%s' '%s'\n"
                 "ExecStop=" SYSTEMD_VERITYSETUP_PATH " detach '%s'\n",
-                name_escaped, data_what_escaped, hash_what_escaped, roothash_escaped, strempty(options_escaped),
+                name_escaped, data_what_escaped, hash_what_escaped, empty_to_dash(roothash_escaped), strempty(options_escaped),
                 name_escaped);
 
         return 0;
