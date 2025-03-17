@@ -16,7 +16,7 @@ testcase_mount() {
 
 testcase_network() {
     (! systemd-run -p PrivateUsersEx=self -p PrivateNetwork=yes --wait --pipe -- ip link add veth1 type veth peer name veth2)
-    systemd-run -p PrivateUsersEx=self -p PrivateMounts=yes -p DelegateNamespaces=mnt --wait --pipe -- ip link add veth1 type veth peer name veth2
+    systemd-run -p PrivateUsersEx=self -p PrivateNetwork=yes -p DelegateNamespaces=net --wait --pipe -- ip link add veth1 type veth peer name veth2
 }
 
 testcase_cgroup() {
@@ -40,6 +40,18 @@ testcase_implied_private_users_self() {
     # If explicitly set it PrivateUsers= is not overridden.
     systemd-run -p PrivateUsersEx=identity -p PrivateMounts=yes -p DelegateNamespaces=mnt --wait --pipe -- mount --bind /usr /home
     systemd-run -p PrivateUsersEx=identity -p PrivateMounts=yes -p DelegateNamespaces=mnt --wait bash -c 'test "$(cat /proc/self/uid_map)" == "         0          0      65536"'
+}
+
+testcase_user_manager() {
+    systemctl start user@0
+    # DelegateNamespaces=yes is implied for user managers.
+    systemd-run --machine=testuser@.host --user -p PrivateMounts=yes -p AmbientCapabilities="~" --wait --pipe -- mount --bind /usr /home
+    # Even those with CAP_SYS_ADMIN.
+    SYSTEMD_LOG_LEVEL=debug systemd-run --machine=.host --user -p PrivateMounts=yes --wait --pipe -- mount --bind /usr /home
+    # But can be overridden for user managers that are running with CAP_SYS_ADMIN.
+    (! systemd-run --machine=.host --user -p PrivateMounts=yes -p DelegateNamespaces=no --wait --pipe -- mount --bind /usr /home)
+    # But not for those without CAP_SYS_ADMIN.
+    systemd-run --machine=testuser@.host --user -p PrivateMounts=yes -p DelegateNamespaces=no -p AmbientCapabilities="~" --wait --pipe -- mount --bind /usr /home
 }
 
 testcase_multiple_features() {
@@ -78,3 +90,5 @@ testcase_multiple_features() {
 
     rm -rf /tmp/TEST-07-PID1-delegate-namespaces-root
 }
+
+run_testcases
