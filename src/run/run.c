@@ -1646,33 +1646,17 @@ static int on_retry_timer(sd_event_source *s, uint64_t usec, void *userdata) {
 }
 
 static int run_context_reconnect(RunContext *c) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
         int r;
 
         assert(c);
 
         run_context_detach_bus(c);
 
-        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
         r = connect_bus(&bus);
-        if (r < 0) {
-                log_warning_errno(r, "Failed to reconnect, retrying in 2s: %m");
-
-                r = event_reset_time_relative(
-                                c->event,
-                                &c->retry_timer,
-                                CLOCK_MONOTONIC,
-                                2 * USEC_PER_SEC, /* accuracy= */ 0,
-                                on_retry_timer, c,
-                                SD_EVENT_PRIORITY_NORMAL,
-                                "retry-timeout",
-                                /* force_reset= */ false);
-                if (r < 0) {
-                        (void) sd_event_exit(c->event, EXIT_FAILURE);
-                        return log_error_errno(r, "Failed to install retry timer: %m");
-                }
-
-                return 0;
-        }
+        if (r < 0)
+                goto setup_timer;
 
         r = run_context_attach_bus(c, bus);
         if (r < 0) {
@@ -1680,9 +1664,54 @@ static int run_context_reconnect(RunContext *c) {
                 return r;
         }
 
+        r = sd_bus_call_method(bus,
+                               "org.freedesktop.systemd1",
+                               c->bus_path,
+                               "org.freedesktop.systemd1.Unit",
+                               "Ref",
+                               &error,
+                               /* reply = */ NULL, NULL);
+        if (r < 0) {
+                /* Hmm, the service manager probably hasn't finished reexecution just yet? Try again later. */
+                if (sd_bus_error_has_names(&error,
+                                           SD_BUS_ERROR_NO_REPLY,
+                                           SD_BUS_ERROR_DISCONNECTED,
+                                           SD_BUS_ERROR_TIMED_OUT,
+                                           SD_BUS_ERROR_SERVICE_UNKNOWN,
+                                           SD_BUS_ERROR_NAME_HAS_NO_OWNER))
+                        goto setup_timer;
+
+                if (sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_OBJECT))
+                        log_warning_errno(r, "Unit deactivated during reconnection to the bus, exiting.");
+                else
+                        log_error_errno(r, "Failed to re-add reference to unit: %s", bus_error_message(&error, r));
+
+                (void) sd_event_exit(c->event, EXIT_FAILURE);
+                return r;
+        }
+
         log_info("Reconnected to bus.");
 
         return run_context_update(c);
+
+setup_timer:
+        log_warning_errno(r, "Failed to reconnect, retrying in 2s: %m");
+
+        r = event_reset_time_relative(
+                        c->event,
+                        &c->retry_timer,
+                        CLOCK_MONOTONIC,
+                        2 * USEC_PER_SEC, /* accuracy= */ 0,
+                        on_retry_timer, c,
+                        SD_EVENT_PRIORITY_NORMAL,
+                        "retry-timeout",
+                        /* force_reset= */ false);
+        if (r < 0) {
+                (void) sd_event_exit(c->event, EXIT_FAILURE);
+                return log_error_errno(r, "Failed to install retry timer: %m");
+        }
+
+        return 0;
 }
 
 static int run_context_check_started(RunContext *c) {
@@ -1792,7 +1821,7 @@ static int run_context_update(RunContext *c) {
                                     SD_BUS_ERROR_SERVICE_UNKNOWN,
                                     SD_BUS_ERROR_NAME_HAS_NO_OWNER)) {
 
-                        log_info("Bus call failed due to connection problems. Trying to reconnect...");
+                        log_info_errno(r, "Bus call failed due to connection problems. Trying to reconnect...");
                         /* Not propagating error, because we handled it already, by reconnecting. */
                         return run_context_reconnect(c);
                 }
