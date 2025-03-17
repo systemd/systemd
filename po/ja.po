@@ -3,20 +3,21 @@
 # Japanese translation for systemd.
 #
 # Takuro Onoue <kusanaginoturugi@gmail.com>, 2021.
+# Y T <yi818670@gmail.com>, 2025.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-03-10 03:26+0900\n"
-"PO-Revision-Date: 2021-09-09 03:04+0000\n"
-"Last-Translator: Takuro Onoue <kusanaginoturugi@gmail.com>\n"
+"PO-Revision-Date: 2025-03-17 03:11+0000\n"
+"Last-Translator: Y T <yi818670@gmail.com>\n"
 "Language-Team: Japanese <https://translate.fedoraproject.org/projects/"
-"systemd/master/ja/>\n"
+"systemd/main/ja/>\n"
 "Language: ja\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
-"X-Generator: Weblate 4.8\n"
+"X-Generator: Weblate 5.10.2\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -57,11 +58,11 @@ msgstr "システムマネージャ環境変数を設定もしくは解除する
 
 #: src/core/org.freedesktop.systemd1.policy.in:64
 msgid "Reload the systemd state"
-msgstr "systemdの状態の再読込"
+msgstr "systemdの状態の再読み込み"
 
 #: src/core/org.freedesktop.systemd1.policy.in:65
 msgid "Authentication is required to reload the systemd state."
-msgstr "systemdの状態を再読込するには認証が必要です。"
+msgstr "systemdの状態を再読み込みするには認証が必要です。"
 
 #: src/core/org.freedesktop.systemd1.policy.in:74
 msgid "Dump the systemd state without rate limits"
@@ -367,15 +368,15 @@ msgstr "システムの説明を取得するには認証が必要です。"
 
 #: src/import/org.freedesktop.import1.policy:22
 msgid "Import a disk image"
-msgstr "ディスクイメージのの読込"
+msgstr "ディスクイメージの読み込み"
 
 #: src/import/org.freedesktop.import1.policy:23
 msgid "Authentication is required to import an image."
-msgstr "ディスクイメージを読込むには認証が必要です。"
+msgstr "ディスクイメージを読み込みむには認証が必要です。"
 
 #: src/import/org.freedesktop.import1.policy:32
 msgid "Export a disk image"
-msgstr "ディスクイメージの書出し"
+msgstr "ディスクイメージの書き出し"
 
 #: src/import/org.freedesktop.import1.policy:33
 msgid "Authentication is required to export disk image."
@@ -447,7 +448,7 @@ msgstr "アプリケーションがシステムのスリープを遅延させる
 
 #: src/login/org.freedesktop.login1.policy:56
 msgid "Authentication is required for an application to delay system sleep."
-msgstr "アプリケーションがシステムのスリープを遅延させるには許可が必要です。"
+msgstr "アプリケーションがシステムのスリープを遅延させるには認証が必要です。"
 
 #: src/login/org.freedesktop.login1.policy:65
 msgid "Allow applications to inhibit automatic system suspend"
@@ -703,11 +704,11 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:332
 msgid "Manage active sessions, users and seats"
-msgstr "アクティブなセッションやユーザ，シートの管理"
+msgstr "アクティブなセッションやユーザ、シートの管理"
 
 #: src/login/org.freedesktop.login1.policy:333
 msgid "Authentication is required to manage active sessions, users and seats."
-msgstr "アクティブなセッションやユーザ，シートを管理するには認証が必要です。"
+msgstr "アクティブなセッションやユーザ、シートを管理するには認証が必要です。"
 
 #: src/login/org.freedesktop.login1.policy:342
 msgid "Lock or unlock active sessions"
@@ -1009,7 +1010,7 @@ msgstr "ポータブルサービスイメージを読み込むには認証が必
 
 #: src/portable/org.freedesktop.portable1.policy:23
 msgid "Attach or detach a portable service image"
-msgstr "ポータブルサービスイメージの接続もしくは切り離し"
+msgstr "ポータブルサービスイメージの接続もしくは切断"
 
 #: src/portable/org.freedesktop.portable1.policy:24
 msgid ""
@@ -1188,7 +1189,7 @@ msgstr "'$(unit)'を停止するには認証が必要です。"
 
 #: src/core/dbus-unit.c:369
 msgid "Authentication is required to reload '$(unit)'."
-msgstr "'$(unit)'を再読込するには認証が必要です。"
+msgstr "'$(unit)'を再読み込みするには認証が必要です。"
 
 #: src/core/dbus-unit.c:370 src/core/dbus-unit.c:371
 msgid "Authentication is required to restart '$(unit)'."
