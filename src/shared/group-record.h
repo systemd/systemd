@@ -49,3 +49,6 @@ const char* group_record_group_name_and_realm(GroupRecord *h);
 UserDisposition group_record_disposition(GroupRecord *h);
 
 bool group_record_matches_group_name(const GroupRecord *g, const char *groupname);
+
+int group_record_is_root(const GroupRecord *g);
+int group_record_is_nobody(const GroupRecord *g);
