@@ -19,6 +19,14 @@ static int builtin_btrfs(UdevEvent *event, int argc, char *argv[]) {
         if (argc != 3 || !streq(argv[1], "ready"))
                 return log_device_error_errno(dev, SYNTHETIC_ERRNO(EINVAL), "Invalid arguments");
 
+        if (strlen(argv[2]) >= sizeof_field(struct btrfs_ioctl_vol_args, name))
+                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL), "Device name too long for BTRFS_IOC_DEVICES_READY call: %s", argv[2]);
+
+        if (event->event_mode != EVENT_UDEV_WORKER) {
+                log_device_debug(dev, "Running in test mode, skipping execution of 'btrfs' builtin command.");
+                return 0;
+        }
+
         _cleanup_close_ int fd = open("/dev/btrfs-control", O_RDWR|O_CLOEXEC|O_NOCTTY);
         if (fd < 0) {
                 if (ERRNO_IS_DEVICE_ABSENT(errno)) {
@@ -33,9 +41,6 @@ static int builtin_btrfs(UdevEvent *event, int argc, char *argv[]) {
         }
 
         struct btrfs_ioctl_vol_args args = {};
-        if (strlen(argv[2]) >= sizeof(args.name))
-                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL), "Device name too long for BTRFS_IOC_DEVICES_READY call: %s", argv[2]);
-
         strncpy(args.name, argv[2], sizeof(args.name)-1);
         r = ioctl(fd, BTRFS_IOC_DEVICES_READY, &args);
         if (r < 0)
