@@ -3337,6 +3337,8 @@ static int inner_child(
                 (char*) "PATH=" DEFAULT_PATH_COMPAT,
                 NULL, /* container */
                 NULL, /* TERM */
+                NULL, /* COLORTERM */
+                NULL, /* NO_COLOR */
                 NULL, /* HOME */
                 NULL, /* USER */
                 NULL, /* LOGNAME */
@@ -3588,9 +3590,17 @@ static int inner_child(
         /* LXC sets container=lxc, so follow the scheme here */
         envp[n_env++] = strjoina("container=", arg_container_service_name);
 
-        /* Propagate $TERM unless we are invoked in pipe mode and stdin/stdout/stderr don't refer to a TTY */
-        const char *term = (arg_console_mode != CONSOLE_PIPE || on_tty()) ? strv_find_prefix(environ, "TERM=") : NULL;
-        envp[n_env++] = (char*) (term ?: "TERM=dumb");
+        /* Propagate $TERM & Co. unless we are invoked in pipe mode and stdin/stdout/stderr don't refer to a TTY */
+        if (arg_console_mode != CONSOLE_PIPE || on_tty()) {
+                FOREACH_STRING(v, "TERM=", "COLORTERM=", "NO_COLOR=") {
+                        char *t = strv_find_prefix(environ, v);
+                        if (!t)
+                                continue;
+
+                        envp[n_env++] = t;
+                }
+        } else
+                envp[n_env++] = (char*) "TERM=dumb";
 
         if (home || !uid_is_valid(arg_uid) || arg_uid == 0)
                 if (asprintf(envp + n_env++, "HOME=%s", home ?: "/root") < 0)

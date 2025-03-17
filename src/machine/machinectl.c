@@ -1362,15 +1362,17 @@ static int shell_machine(int argc, char *argv[], void *userdata) {
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                        "Shell only supported on local machines.");
 
-        /* Pass $TERM to shell session, if not explicitly specified. */
-        if (!strv_find_prefix(arg_setenv, "TERM=")) {
-                const char *t;
+        /* Pass $TERM & Co. to shell session, if not explicitly specified. */
+        FOREACH_STRING(v, "TERM=", "COLORTERM=", "NO_COLOR=") {
+                if (strv_find_prefix(arg_setenv, v))
+                        continue;
 
-                t = strv_find_prefix(environ, "TERM=");
-                if (t) {
-                        if (strv_extend(&arg_setenv, t) < 0)
-                                return log_oom();
-                }
+                const char *t = strv_find_prefix(environ, v);
+                if (!t)
+                        continue;
+
+                if (strv_extend(&arg_setenv, t) < 0)
+                        return log_oom();
         }
 
         (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
