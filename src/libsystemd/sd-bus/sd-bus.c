@@ -1760,8 +1760,10 @@ _public_ int sd_bus_open_user_machine(sd_bus **ret, const char *user_and_machine
         assert_return(user_and_machine, -EINVAL);
         assert_return(ret, -EINVAL);
 
-        /* Shortcut things if we'd end up on this host and as the same user.  */
-        if (user_and_machine_equivalent(user_and_machine))
+        /* Shortcut things if we'd end up on this host and as the same user and have one of the necessary
+         * environment variables set already.  */
+        if (user_and_machine_equivalent(user_and_machine) &&
+            (secure_getenv("DBUS_SESSION_BUS_ADDRESS") || secure_getenv("XDG_RUNTIME_DIR")))
                 return sd_bus_open_user(ret);
 
         r = user_and_machine_valid(user_and_machine);
