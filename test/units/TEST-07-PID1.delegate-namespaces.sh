@@ -45,6 +45,15 @@ testcase_implied_private_users_self() {
 testcase_multiple_features() {
     unsquashfs -no-xattrs -d /tmp/TEST-07-PID1-delegate-namespaces-root /usr/share/minimal_0.raw
 
+    # IMPORTANT: For /proc/ to be remounted in pid namespace within an unprivileged user namespace, there needs to
+    # be at least 1 unmasked procfs mount in ANY directory. Otherwise, if /proc/ is masked (e.g. /proc/scsi is
+    # over-mounted with tmpfs), then mounting a new /proc/ will fail.
+    #
+    # Thus, to guarantee PrivatePIDs=yes tests for unprivileged users pass, we mount a new procfs on a temporary
+    # directory with no masking. This will guarantee an unprivileged user can mount a new /proc/ successfully.
+    mkdir -p /tmp/TEST-07-PID1-delegate-namespaces-proc
+    mount -t proc proc /tmp/TEST-07-PID1-delegate-namespaces-proc
+
     systemd-run \
         -p PrivatePIDs=yes \
         -p RootDirectory=/tmp/TEST-07-PID1-delegate-namespaces-root \
@@ -75,6 +84,8 @@ testcase_multiple_features() {
         --wait \
         --pipe \
         grep MARKER=1 /etc/os-release
+
+    umount /tmp/TEST-07-PID1-delegate-namespaces-proc
 
     rm -rf /tmp/TEST-07-PID1-delegate-namespaces-root
 }
