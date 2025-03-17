@@ -1682,6 +1682,24 @@ static int run_context_reconnect(RunContext *c) {
 
         log_info("Reconnected to bus.");
 
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        r = sd_bus_call_method(bus,
+                               "org.freedesktop.systemd1",
+                               c->bus_path,
+                               "org.freedesktop.systemd1.Unit",
+                               "Ref",
+                               &error,
+                               /* reply = */ NULL, NULL);
+        if (r < 0) {
+                if (sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_OBJECT))
+                        log_warning_errno(r, "Unit deactivated during reconnection to the bus, exiting.");
+                else
+                        log_error_errno(r, "Failed to re-add reference to unit: %s", bus_error_message(&error, r));
+
+                (void) sd_event_exit(c->event, EXIT_FAILURE);
+                return r;
+        }
+
         return run_context_update(c);
 }
 
