@@ -78,3 +78,5 @@ testcase_multiple_features() {
 
     rm -rf /tmp/TEST-07-PID1-delegate-namespaces-root
 }
+
+run_testcases
