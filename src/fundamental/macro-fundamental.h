@@ -125,6 +125,10 @@
 #define XSTRINGIFY(x) #x
 #define STRINGIFY(x) XSTRINGIFY(x)
 
+/* C23 changed char8_t from char to unsigned char, hence we cannot pass u8 literals to e.g. fputs() without
+ * casting. Let's introduce our own way to declare UTF-8 literals, which casts u8 literals to const char*. */
+#define UTF8(s) ((const char*) (u8"" s))
+
 #ifndef __COVERITY__
 #  define VOID_0 ((void)0)
 #else
