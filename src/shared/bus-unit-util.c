@@ -1669,13 +1669,14 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
         if (STR_IN_SET(field, "RestrictNamespaces",
                               "DelegateNamespaces")) {
                 bool invert = false;
+                unsigned long all = UPDATE_FLAG(NAMESPACE_FLAGS_ALL, CLONE_NEWUSER, !streq(field, "DelegateNamespaces"));
                 unsigned long flags;
 
                 r = parse_boolean(eq);
                 if (r > 0)
-                        flags = 0;
+                        flags = streq(field, "RestrictNamespaces") ? 0 : all;
                 else if (r == 0)
-                        flags = NAMESPACE_FLAGS_ALL;
+                        flags = streq(field, "RestrictNamespaces") ? all : 0;
                 else {
                         if (eq[0] == '~') {
                                 invert = true;
@@ -1688,7 +1689,7 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                 }
 
                 if (invert)
-                        flags = (~flags) & NAMESPACE_FLAGS_ALL;
+                        flags = (~flags) & all;
 
                 r = sd_bus_message_append(m, "(sv)", field, "t", (uint64_t) flags);
                 if (r < 0)
