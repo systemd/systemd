@@ -344,6 +344,7 @@ will automatically initialize the login process' nice level to this value with,
 which is then inherited by all the user's processes, see
 [`setpriority()`](https://man7.org/linux/man-pages/man2/setpriority.2.html) for
 more information.
+
 `resourceLimits` → An object, where each key refers to a Linux resource limit
 (such as `RLIMIT_NOFILE` and similar).
 Their values should be an object with two keys `cur` and `max` for the soft and hard resource limit.
