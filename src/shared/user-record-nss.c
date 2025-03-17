@@ -141,7 +141,7 @@ int nss_passwd_to_user_record(
                         &hr->json,
                         SD_JSON_BUILD_PAIR("userName", SD_JSON_BUILD_STRING(hr->user_name)),
                         SD_JSON_BUILD_PAIR("uid", SD_JSON_BUILD_UNSIGNED(hr->uid)),
-                        SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(hr->gid)),
+                        SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(user_record_gid(hr))),
                         SD_JSON_BUILD_PAIR_CONDITION(!!hr->real_name, "realName", SD_JSON_BUILD_STRING(hr->real_name)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!hr->home_directory, "homeDirectory", SD_JSON_BUILD_STRING(hr->home_directory)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!hr->shell, "shell", SD_JSON_BUILD_STRING(hr->shell)),

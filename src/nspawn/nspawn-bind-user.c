@@ -93,7 +93,7 @@ static int convert_user(
 
         assert(u);
         assert(g);
-        assert(u->gid == g->gid);
+        assert(user_record_gid(u) == g->gid);
 
         r = check_etc_passwd_collisions(directory, u->user_name, UID_INVALID);
         if (r < 0)
@@ -250,7 +250,7 @@ int bind_user_prepare(
                 if (u->uid >= uid_shift && u->uid < uid_shift + uid_range)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "UID of user '%s' to map is already in container UID range, refusing.", u->user_name);
 
-                r = groupdb_by_gid(u->gid, /* match= */ NULL, USERDB_DONT_SYNTHESIZE_INTRINSIC|USERDB_DONT_SYNTHESIZE_FOREIGN, &g);
+                r = groupdb_by_gid(user_record_gid(u), /* match= */ NULL, USERDB_DONT_SYNTHESIZE_INTRINSIC|USERDB_DONT_SYNTHESIZE_FOREIGN, &g);
                 if (r < 0)
                         return log_error_errno(r, "Failed to resolve group of user '%s': %m", u->user_name);
 
