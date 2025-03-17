@@ -2435,6 +2435,11 @@ static int start_transient_scope(sd_bus *bus) {
                         return log_oom();
         }
 
+        /* Stop agents before we pass control away and before we drop privileges, to avoid TTY conflicts and
+         * before we become unable to stop agents. */
+        polkit_agent_close();
+        ask_password_agent_close();
+
         if (arg_nice_set) {
                 if (setpriority(PRIO_PROCESS, 0, arg_nice) < 0)
                         return log_error_errno(errno, "Failed to set nice level: %m");
@@ -2522,10 +2527,6 @@ static int start_transient_scope(sd_bus *bus) {
                         log_warning("Invalid environment variable name evaluates to an empty string: %s", strna(jb));
                 }
         }
-
-        /* Stop agents before we pass control away, to avoid TTY conflicts */
-        polkit_agent_close();
-        ask_password_agent_close();
 
         execvpe(arg_cmdline[0], arg_cmdline, env);
 
