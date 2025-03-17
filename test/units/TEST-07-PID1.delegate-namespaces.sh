@@ -16,7 +16,7 @@ testcase_mount() {
 
 testcase_network() {
     (! systemd-run -p PrivateUsersEx=self -p PrivateNetwork=yes --wait --pipe -- ip link add veth1 type veth peer name veth2)
-    systemd-run -p PrivateUsersEx=self -p PrivateMounts=yes -p DelegateNamespaces=mnt --wait --pipe -- ip link add veth1 type veth peer name veth2
+    systemd-run -p PrivateUsersEx=self -p PrivateNetwork=yes -p DelegateNamespaces=net --wait --pipe -- ip link add veth1 type veth peer name veth2
 }
 
 testcase_cgroup() {
@@ -42,8 +42,29 @@ testcase_implied_private_users_self() {
     systemd-run -p PrivateUsersEx=identity -p PrivateMounts=yes -p DelegateNamespaces=mnt --wait bash -c 'test "$(cat /proc/self/uid_map)" == "         0          0      65536"'
 }
 
+testcase_user_manager() {
+    systemctl start user@0
+    # DelegateNamespaces=yes is implied for user managers.
+    systemd-run --machine=testuser@.host --user -p PrivateMounts=yes -p AmbientCapabilities="~" --wait --pipe -- mount --bind /usr /home
+    # Even those with CAP_SYS_ADMIN.
+    SYSTEMD_LOG_LEVEL=debug systemd-run --machine=.host --user -p PrivateMounts=yes --wait --pipe -- mount --bind /usr /home
+    # But can be overridden for user managers that are running with CAP_SYS_ADMIN.
+    (! systemd-run --machine=.host --user -p PrivateMounts=yes -p DelegateNamespaces=no --wait --pipe -- mount --bind /usr /home)
+    # But not for those without CAP_SYS_ADMIN.
+    systemd-run --machine=testuser@.host --user -p PrivateMounts=yes -p DelegateNamespaces=no -p AmbientCapabilities="~" --wait --pipe -- mount --bind /usr /home
+}
+
 testcase_multiple_features() {
     unsquashfs -no-xattrs -d /tmp/TEST-07-PID1-delegate-namespaces-root /usr/share/minimal_0.raw
+
+    # IMPORTANT: For /proc/ to be remounted in pid namespace within an unprivileged user namespace, there needs to
+    # be at least 1 unmasked procfs mount in ANY directory. Otherwise, if /proc/ is masked (e.g. /proc/scsi is
+    # over-mounted with tmpfs), then mounting a new /proc/ will fail.
+    #
+    # Thus, to guarantee PrivatePIDs=yes tests for unprivileged users pass, we mount a new procfs on a temporary
+    # directory with no masking. This will guarantee an unprivileged user can mount a new /proc/ successfully.
+    mkdir -p /tmp/TEST-07-PID1-delegate-namespaces-proc
+    mount -t proc proc /tmp/TEST-07-PID1-delegate-namespaces-proc
 
     systemd-run \
         -p PrivatePIDs=yes \
@@ -76,5 +97,9 @@ testcase_multiple_features() {
         --pipe \
         grep MARKER=1 /etc/os-release
 
+    umount /tmp/TEST-07-PID1-delegate-namespaces-proc
+
     rm -rf /tmp/TEST-07-PID1-delegate-namespaces-root
 }
+
+run_testcases
