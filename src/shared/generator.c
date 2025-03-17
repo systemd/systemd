@@ -216,8 +216,8 @@ static int write_fsck_sysroot_service(
 
         /* Writes out special versions of systemd-fsck-root.service and systemd-fsck-usr.service for use in
          * the initrd. The regular statically shipped versions of these unit files use / and /usr for as
-         * paths, which doesn't match what we need for the initrd (where the dirs are /sysroot +
-         * /sysusr/usr), hence we overwrite those versions here. */
+         * paths, which doesn't match what we need for the initrd (where the dirs are /sysroot/ +
+         * /sysusr/usr/), hence we overwrite those versions here. */
 
         escaped = specifier_escape(what);
         if (!escaped)
@@ -280,7 +280,7 @@ int generator_write_fsck_deps(
         assert(where);
 
         /* Let's do an early exit if we are invoked for the root and /usr/ trees in the initrd, to avoid
-         * generating confusing log messages */
+         * generating confusing log messages. */
         if (in_initrd() && PATH_IN_SET(where, "/", "/usr")) {
                 log_debug("Skipping fsck for %s in initrd.", where);
                 return 0;
@@ -1043,7 +1043,8 @@ bool generator_soft_rebooted(void) {
         return (cached = (u > 0));
 }
 
-GptAutoRoot parse_gpt_auto_root(const char *value) {
+GptAutoRoot parse_gpt_auto_root(const char *switch_name, const char *value) {
+        assert(switch_name);
         assert(value);
 
         /* Parses the 'gpt-auto'/'gpt-auto-root'/'dissect'/'dissect-force' parameters to root=
@@ -1052,29 +1053,29 @@ GptAutoRoot parse_gpt_auto_root(const char *value) {
          * the parameter names. And root= being something else is not an error. */
 
         if (streq(value, "gpt-auto")) {
-                log_debug("Enabling root partition auto-detection (respecting factory reset mode), root= is explicitly set to 'gpt-auto'.");
+                log_debug("Enabling partition auto-detection (respecting factory reset mode), %s is explicitly set to 'gpt-auto'.", switch_name);
                 return GPT_AUTO_ROOT_ON;
         }
 
         if (streq(value, "gpt-auto-force")) {
-                log_debug("Enabling root partition auto-detection (ignoring factory reset mode), root= is explicitly set to 'gpt-auto-force'.");
+                log_debug("Enabling partition auto-detection (ignoring factory reset mode), %s is explicitly set to 'gpt-auto-force'.", switch_name);
                 return GPT_AUTO_ROOT_FORCE;
         }
 
         if (streq(value, "dissect")) {
-                log_debug("Enabling root partition auto-detection via full image dissection (respecting factory reset mode), root= is explicitly set to 'dissect'.");
+                log_debug("Enabling partition auto-detection via full image dissection (respecting factory reset mode), %s is explicitly set to 'dissect'.", switch_name);
                 return GPT_AUTO_ROOT_DISSECT;
         }
 
         if (streq(value, "dissect-force")) {
-                log_debug("Enabling root partition auto-detection via full image dissection (ignoring factory reset mode), root= is explicitly set to 'dissect-force'.");
+                log_debug("Enabling partition auto-detection via full image dissection (ignoring factory reset mode), %s is explicitly set to 'dissect-force'.", switch_name);
                 return GPT_AUTO_ROOT_DISSECT_FORCE;
         }
 
         if (streq(value, "off"))
-                log_debug("Disabling root partition auto-detection, root= handling is explicitly turned off.");
+                log_debug("Disabling partition auto-detection, %s handling is explicitly turned off.", switch_name);
         else
-                log_debug("Disabling root partition auto-detection, root= is neither unset, nor set to 'gpt-auto', 'gpt-auto-force', 'dissect' or 'dissect-force'.");
+                log_debug("Disabling partition auto-detection, %s is neither unset, nor set to 'gpt-auto', 'gpt-auto-force', 'dissect' or 'dissect-force'.", switch_name);
 
         return GPT_AUTO_ROOT_OFF;
 }
