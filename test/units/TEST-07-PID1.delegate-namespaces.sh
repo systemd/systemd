@@ -65,7 +65,7 @@ testcase_multiple_features() {
         -p BindReadOnlyPaths=/usr/share \
         -p NoNewPrivileges=yes \
         -p ProtectSystem=strict \
-        -p User=testuser\
+        -p User=testuser \
         -p Group=testuser \
         -p RuntimeDirectory=abc \
         -p StateDirectory=qed \
