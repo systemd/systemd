@@ -1507,6 +1507,7 @@ static int mount_image(
                         mount_entry_path(m),
                         m->image_options_const,
                         image_policy,
+                        /* image_filter= */ NULL,
                         host_os_release_id,
                         host_os_release_version_id,
                         host_os_release_sysext_level,
@@ -2352,6 +2353,7 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                                         p->verity,
                                         p->root_image_options,
                                         p->root_image_policy,
+                                        /* image_filter= */ NULL,
                                         dissect_image_flags,
                                         &dissected_image);
                         if (r < 0)

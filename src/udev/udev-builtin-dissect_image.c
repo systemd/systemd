@@ -121,6 +121,7 @@ static int verb_probe(UdevEvent *event, sd_device *dev) {
                         &arg_verity_settings,
                         /* mount_options= */ NULL,
                         image_policy,
+                        /* image_filter= */ NULL,
                         DISSECT_IMAGE_READ_ONLY|
                         DISSECT_IMAGE_GPT_ONLY|
                         DISSECT_IMAGE_USR_NO_ROOT|
@@ -167,6 +168,7 @@ static int verb_probe(UdevEvent *event, sd_device *dev) {
                                         &arg_verity_settings,
                                         /* mount_options= */ NULL,
                                         image_policy_mangled,
+                                        /* image_filter= */ NULL,
                                         DISSECT_IMAGE_READ_ONLY|
                                         DISSECT_IMAGE_GPT_ONLY|
                                         DISSECT_IMAGE_USR_NO_ROOT|
