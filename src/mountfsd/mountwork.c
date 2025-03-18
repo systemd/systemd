@@ -414,6 +414,7 @@ static int vl_method_mount_image(
                                 &verity,
                                 /* mount_options= */ NULL,
                                 use_policy,
+                                /* image_filter= */ NULL,
                                 dissect_flags,
                                 &di);
                 if (r == -ENOPKG)
