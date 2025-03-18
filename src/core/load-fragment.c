@@ -2535,12 +2535,12 @@ int config_parse_user_group_compat(
 
         if (strstr(lvalue, "User") && streq(k, NOBODY_USER_NAME))
                 log_struct(LOG_NOTICE,
-                           "MESSAGE=%s:%u: Special user %s configured, this is not safe!", filename, line, k,
-                           "UNIT=%s", unit,
-                           "MESSAGE_ID=" SD_MESSAGE_NOBODY_USER_UNSUITABLE_STR,
-                           "OFFENDING_USER=%s", k,
-                           "CONFIG_FILE=%s", filename,
-                           "CONFIG_LINE=%u", line);
+                           LOG_MESSAGE("%s:%u: Special user %s configured, this is not safe!", filename, line, k),
+                           LOG_MESSAGE_ID(SD_MESSAGE_NOBODY_USER_UNSUITABLE_STR),
+                           LOG_ITEM("UNIT=%s", unit),
+                           LOG_ITEM("OFFENDING_USER=%s", k),
+                           LOG_ITEM("CONFIG_FILE=%s", filename),
+                           LOG_ITEM("CONFIG_LINE=%u", line));
 
         return free_and_replace(*user, k);
 }

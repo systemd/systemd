@@ -1891,15 +1891,15 @@ _public_ int sd_event_trim_memory(void) {
                    LOG_MESSAGE("Memory trimming took %s, returned %s to OS.",
                                FORMAT_TIMESPAN(period, 0),
                                FORMAT_BYTES(l)),
-                   "MESSAGE_ID=" SD_MESSAGE_MEMORY_TRIM_STR,
-                   "TRIMMED_BYTES=%zu", l,
-                   "TRIMMED_USEC=" USEC_FMT, period);
+                   LOG_MESSAGE_ID(SD_MESSAGE_MEMORY_TRIM_STR),
+                   LOG_ITEM("TRIMMED_BYTES=%zu", l),
+                   LOG_ITEM("TRIMMED_USEC=" USEC_FMT, period));
 #else
         log_struct(LOG_DEBUG,
                    LOG_MESSAGE("Memory trimming took %s.",
                                FORMAT_TIMESPAN(period, 0)),
-                   "MESSAGE_ID=" SD_MESSAGE_MEMORY_TRIM_STR,
-                   "TRIMMED_USEC=" USEC_FMT, period);
+                   LOG_MESSAGE_ID(SD_MESSAGE_MEMORY_TRIM_STR),
+                   LOG_ITEM("TRIMMED_USEC=" USEC_FMT, period));
 #endif
 
         return 0;

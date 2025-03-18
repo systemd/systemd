@@ -3,6 +3,8 @@
 #include <stddef.h>
 #include <sys/stat.h>
 
+#include "sd-messages.h"
+
 #include "errno-util.h"
 #include "id128-util.h"
 #include "log.h"
