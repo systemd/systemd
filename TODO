@@ -128,6 +128,12 @@ Deprecations and removals:
 
 Features:
 
+* maybe replace nss-machines with logic in networkd that registers records with
+  systemd-resolved, based on DHCP leases, so that we gain compat with VMs.
+  Implementation idea: encode in an ifaltname the intended local name to expose this
+  under and then parse that out and map it to the combined A/AAAA of all handed
+  out leases.
+
 * make journalctl something we can invoke like the askpw/polkit agents, and
   then spawn it from "systemctl start" and similar with a precise filter on the
   unit. Make sure that it syncs on the journal when done so that we show
