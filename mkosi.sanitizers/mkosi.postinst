@@ -87,6 +87,7 @@ wrap=(
     su
     tar
     tgtd
+    unix_chkpwd
     useradd
     userdel
     veritysetup
