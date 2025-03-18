@@ -3768,7 +3768,9 @@ _public_ int sd_varlink_server_listen_name(sd_varlink_server *s, const char *nam
         if (r < 0)
                 return r;
 
-        for (int i = 0; i < r; i++) {
+        int n_names = r;
+
+        for (int i = 0; i < n_names; i++) {
                 int b, fd;
                 socklen_t l = sizeof(b);
 
