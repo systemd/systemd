@@ -278,6 +278,7 @@ int sd_bus_message_seal(sd_bus_message *m, uint64_t cookie, uint64_t timeout_use
 
 int sd_bus_message_get_type(sd_bus_message *m, uint8_t *type);
 int sd_bus_message_get_cookie(sd_bus_message *m, uint64_t *cookie);
+int sd_bus_message_get_endian(sd_bus_message *m, uint8_t *endian);
 int sd_bus_message_get_reply_cookie(sd_bus_message *m, uint64_t *cookie);
 int sd_bus_message_get_priority(sd_bus_message *m, int64_t *priority) _sd_deprecated_;
 
