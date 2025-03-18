@@ -2664,7 +2664,7 @@ static int acquire_group_list(char ***ret) {
                                 if (r < 0 && r != -ESRCH)
                                         return log_debug_errno(r, "Failed to check if matching user exists for group '%s': %m", gr->group_name);
 
-                                if (r >= 0 && ur->gid == gr->gid)
+                                if (r >= 0 && user_record_gid(ur) == gr->gid)
                                         continue;
                         }
 

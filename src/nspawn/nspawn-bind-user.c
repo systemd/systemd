@@ -93,7 +93,7 @@ static int convert_user(
 
         assert(u);
         assert(g);
-        assert(u->gid == g->gid);
+        assert(user_record_gid(u) == g->gid);
 
         r = check_etc_passwd_collisions(directory, u->user_name, UID_INVALID);
         if (r < 0)
@@ -244,13 +244,17 @@ int bind_user_prepare(
                  * UID is safer. */
                 if (user_record_is_root(u))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Mapping 'root' user not supported, sorry.");
+
                 if (user_record_is_nobody(u))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Mapping 'nobody' user not supported, sorry.");
+
+                if (!uid_is_valid(u->uid))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot bind user with no UID, refusing.");
 
                 if (u->uid >= uid_shift && u->uid < uid_shift + uid_range)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "UID of user '%s' to map is already in container UID range, refusing.", u->user_name);
 
-                r = groupdb_by_gid(u->gid, /* match= */ NULL, USERDB_DONT_SYNTHESIZE_INTRINSIC|USERDB_DONT_SYNTHESIZE_FOREIGN, &g);
+                r = groupdb_by_gid(user_record_gid(u), /* match= */ NULL, USERDB_DONT_SYNTHESIZE_INTRINSIC|USERDB_DONT_SYNTHESIZE_FOREIGN, &g);
                 if (r < 0)
                         return log_error_errno(r, "Failed to resolve group of user '%s': %m", u->user_name);
 
@@ -279,11 +283,11 @@ int bind_user_prepare(
                 if (!GREEDY_REALLOC(c->data, c->n_data + 1))
                         return log_oom();
 
-                sm = strdup(u->home_directory);
+                sm = strdup(user_record_home_directory(u));
                 if (!sm)
                         return log_oom();
 
-                sd = strdup(cu->home_directory);
+                sd = strdup(user_record_home_directory(cu));
                 if (!sd)
                         return log_oom();
 

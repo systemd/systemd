@@ -216,18 +216,18 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
         }
         if (uid_is_valid(hr->uid))
                 printf("         UID: " UID_FMT "\n", hr->uid);
-        if (gid_is_valid(hr->gid)) {
+        if (gid_is_valid(user_record_gid(hr))) {
                 if (show_full_group_info) {
                         _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
 
-                        r = groupdb_by_gid(hr->gid, /* match= */ NULL, /* flags= */ 0, &gr);
+                        r = groupdb_by_gid(user_record_gid(hr), /* match= */ NULL, /* flags= */ 0, &gr);
                         if (r < 0) {
                                 errno = -r;
-                                printf("         GID: " GID_FMT " (unresolvable: %m)\n", hr->gid);
+                                printf("         GID: " GID_FMT " (unresolvable: %m)\n", user_record_gid(hr));
                         } else
-                                printf("         GID: " GID_FMT " (%s)\n", hr->gid, gr->group_name);
+                                printf("         GID: " GID_FMT " (%s)\n", user_record_gid(hr), gr->group_name);
                 } else
-                        printf("         GID: " GID_FMT "\n", hr->gid);
+                        printf("         GID: " GID_FMT "\n", user_record_gid(hr));
         } else if (uid_is_valid(hr->uid)) /* Show UID as GID if not separately configured */
                 printf("         GID: " GID_FMT "\n", (gid_t) hr->uid);
 
