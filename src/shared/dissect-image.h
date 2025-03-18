@@ -19,6 +19,7 @@ typedef struct DissectedPartition DissectedPartition;
 typedef struct DecryptedImage DecryptedImage;
 typedef struct MountOptions MountOptions;
 typedef struct VeritySettings VeritySettings;
+typedef struct ImageFilter ImageFilter;
 
 struct DissectedPartition {
         bool found:1;
@@ -148,6 +149,11 @@ struct VeritySettings {
                 .designator = _PARTITION_DESIGNATOR_INVALID     \
         }
 
+struct ImageFilter {
+        /* A per designator glob matching against the partition label */
+        char *pattern[_PARTITION_DESIGNATOR_MAX];
+};
+
 /* We include image-policy.h down here, since ImagePolicy wants a complete definition of PartitionDesignator first. */
 #include "image-policy.h"
 
@@ -161,10 +167,10 @@ static inline int probe_filesystem(const char *path, char **ret_fstype) {
 }
 
 int dissect_log_error(int log_level, int r, const char *name, const VeritySettings *verity);
-int dissect_image_file(const char *path, const VeritySettings *verity, const MountOptions *mount_options, const ImagePolicy *image_policy, DissectImageFlags flags, DissectedImage **ret);
-int dissect_image_file_and_warn(const char *path, const VeritySettings *verity, const MountOptions *mount_options, const ImagePolicy *image_policy, DissectImageFlags flags, DissectedImage **ret);
-int dissect_loop_device(LoopDevice *loop, const VeritySettings *verity, const MountOptions *mount_options, const ImagePolicy *image_policy, DissectImageFlags flags, DissectedImage **ret);
-int dissect_loop_device_and_warn(LoopDevice *loop, const VeritySettings *verity, const MountOptions *mount_options, const ImagePolicy *image_policy, DissectImageFlags flags, DissectedImage **ret);
+int dissect_image_file(const char *path, const VeritySettings *verity, const MountOptions *mount_options, const ImagePolicy *image_policy, const ImageFilter *filter, DissectImageFlags flags, DissectedImage **ret);
+int dissect_image_file_and_warn(const char *path, const VeritySettings *verity, const MountOptions *mount_options, const ImagePolicy *image_policy, const ImageFilter *filter, DissectImageFlags flags, DissectedImage **ret);
+int dissect_loop_device(LoopDevice *loop, const VeritySettings *verity, const MountOptions *mount_options, const ImagePolicy *image_policy, const ImageFilter *filter, DissectImageFlags flags, DissectedImage **ret);
+int dissect_loop_device_and_warn(LoopDevice *loop, const VeritySettings *verity, const MountOptions *mount_options, const ImagePolicy *image_policy, const ImageFilter *filter, DissectImageFlags flags, DissectedImage **ret);
 
 void dissected_image_close(DissectedImage *m);
 DissectedImage* dissected_image_unref(DissectedImage *m);
@@ -200,6 +206,11 @@ DecryptedImage* decrypted_image_unref(DecryptedImage *p);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DecryptedImage*, decrypted_image_unref);
 
 int dissected_image_relinquish(DissectedImage *m);
+
+void image_filter_done(ImageFilter *f);
+ImageFilter *image_filter_free(ImageFilter *f);
+DEFINE_TRIVIAL_CLEANUP_FUNC(ImageFilter*, image_filter_free);
+int image_filter_parse(const char *s, ImageFilter **ret);
 
 int verity_settings_load(VeritySettings *verity, const char *image, const char *root_hash_path, const char *root_hash_sig_path);
 
@@ -237,7 +248,7 @@ bool dissected_image_verity_sig_ready(const DissectedImage *image, PartitionDesi
 
 int mount_image_privately_interactively(const char *path, const ImagePolicy *image_policy, DissectImageFlags flags, char **ret_directory, int *ret_dir_fd, LoopDevice **ret_loop_device);
 
-int verity_dissect_and_mount(int src_fd, const char *src, const char *dest, const MountOptions *options, const ImagePolicy *image_policy, const char *required_host_os_release_id, const char *required_host_os_release_version_id, const char *required_host_os_release_sysext_level, const char *required_host_os_release_confext_level, const char *required_sysext_scope, VeritySettings *verity, DissectedImage **ret_image);
+int verity_dissect_and_mount(int src_fd, const char *src, const char *dest, const MountOptions *options, const ImagePolicy *image_policy, const ImageFilter *image_filter, const char *required_host_os_release_id, const char *required_host_os_release_version_id, const char *required_host_os_release_sysext_level, const char *required_host_os_release_confext_level, const char *required_sysext_scope, VeritySettings *verity, DissectedImage **ret_image);
 
 int dissect_fstype_ok(const char *fstype);
 

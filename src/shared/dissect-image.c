@@ -667,6 +667,18 @@ static int compare_arch(Architecture a, Architecture b) {
         return 0;
 }
 
+static bool image_filter_test(const ImageFilter *filter, PartitionDesignator d, const char *name) {
+        assert(d < _PARTITION_DESIGNATOR_MAX);
+
+        if (d < 0) /* For unspecified designators we have no filter expression */
+                return true;
+
+        if (!filter || !filter->pattern[d])
+                return true;
+
+        return fnmatch(filter->pattern[d], strempty(name),  FNM_NOESCAPE) == 0;
+}
+
 static int dissect_image(
                 DissectedImage *m,
                 int fd,
@@ -674,6 +686,7 @@ static int dissect_image(
                 const VeritySettings *verity,
                 const MountOptions *mount_options,
                 const ImagePolicy *policy,
+                const ImageFilter *filter,
                 DissectImageFlags flags) {
 
         sd_id128_t root_uuid = SD_ID128_NULL, root_verity_uuid = SD_ID128_NULL;
@@ -791,6 +804,9 @@ static int dissect_image(
                         bool encrypted;
 
                         /* OK, we have found a file system, that's our root partition then. */
+
+                        if (!image_filter_test(filter, PARTITION_ROOT, /* label= */ NULL)) /* do a filter check with an empty partition label */
+                                return -ECOMM;
 
                         r = image_policy_may_use(policy, PARTITION_ROOT);
                         if (r < 0)
@@ -1006,6 +1022,9 @@ static int dissect_image(
                         if (streq_ptr(label, "_empty"))
                                 continue;
 
+                        if (!image_filter_test(filter, type.designator, label))
+                                continue;
+
                         log_debug("Dissecting %s partition with label %s and UUID %s",
                                   strna(partition_designator_to_string(type.designator)), strna(label), SD_ID128_TO_UUID_STRING(id));
 
@@ -1162,6 +1181,9 @@ static int dissect_image(
                         /* We don't have a designator for SD_GPT_LINUX_GENERIC so check the UUID instead. */
                         } else if (sd_id128_equal(type.uuid, SD_GPT_LINUX_GENERIC)) {
 
+                                if (!image_filter_test(filter, PARTITION_ROOT, label))
+                                        continue;
+
                                 check_partition_flags(node, pflags,
                                                       SD_GPT_FLAG_NO_AUTO | SD_GPT_FLAG_READ_ONLY | SD_GPT_FLAG_GROWFS);
 
@@ -1307,6 +1329,9 @@ static int dissect_image(
                                 if (pflags != 0x80) /* Bootable flag */
                                         continue;
 
+                                if (!image_filter_test(filter, PARTITION_ROOT, /* label= */ NULL))
+                                        continue;
+
                                 if (generic_node)
                                         multiple_generic = true;
                                 else {
@@ -1323,6 +1348,9 @@ static int dissect_image(
                                 _cleanup_free_ char *o = NULL, *n = NULL;
                                 sd_id128_t id = SD_ID128_NULL;
                                 const char *options = NULL;
+
+                                if (!image_filter_test(filter, PARTITION_XBOOTLDR, /* label= */ NULL))
+                                        continue;
 
                                 r = image_policy_may_use(policy, PARTITION_XBOOTLDR);
                                 if (r < 0)
@@ -1570,6 +1598,7 @@ int dissect_image_file(
                 const VeritySettings *verity,
                 const MountOptions *mount_options,
                 const ImagePolicy *image_policy,
+                const ImageFilter *image_filter,
                 DissectImageFlags flags,
                 DissectedImage **ret) {
 
@@ -1602,7 +1631,7 @@ int dissect_image_file(
         if (r < 0)
                 return r;
 
-        r = dissect_image(m, fd, path, verity, mount_options, image_policy, flags);
+        r = dissect_image(m, fd, path, verity, mount_options, image_policy, image_filter, flags);
         if (r < 0)
                 return r;
 
@@ -1672,12 +1701,13 @@ int dissect_image_file_and_warn(
                 const VeritySettings *verity,
                 const MountOptions *mount_options,
                 const ImagePolicy *image_policy,
+                const ImageFilter *image_filter,
                 DissectImageFlags flags,
                 DissectedImage **ret) {
 
         return dissect_log_error(
                         LOG_ERR,
-                        dissect_image_file(path, verity, mount_options, image_policy, flags, ret),
+                        dissect_image_file(path, verity, mount_options, image_policy, image_filter, flags, ret),
                         path,
                         verity);
 }
@@ -3134,6 +3164,68 @@ int dissected_image_relinquish(DissectedImage *m) {
         return 0;
 }
 
+void image_filter_done(ImageFilter *f) {
+        assert(f);
+
+        FOREACH_ELEMENT(p, f->pattern)
+                *p = mfree(*p);
+}
+
+ImageFilter *image_filter_free(ImageFilter *f) {
+        if (!f)
+                return NULL;
+
+        image_filter_done(f);
+        return mfree(f);
+}
+
+int image_filter_parse(const char *s, ImageFilter **ret) {
+        _cleanup_(image_filter_freep) ImageFilter *f = NULL;
+        int r;
+
+        if (isempty(s)) {
+                if (ret)
+                        *ret = NULL;
+                return 0;
+        }
+
+        for (;;) {
+                _cleanup_free_ char *word = NULL;
+
+                r = extract_first_word(&s, &word, ":", EXTRACT_UNQUOTE|EXTRACT_DONT_COALESCE_SEPARATORS);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to extract word: %m");
+                if (r == 0)
+                        break;
+
+                _cleanup_free_ char *designator = NULL, *pattern = NULL;
+                const char *x = word;
+                r = extract_many_words(&x, "=", EXTRACT_UNQUOTE|EXTRACT_DONT_COALESCE_SEPARATORS, &designator, &pattern);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to extract designator: %m");
+                if (r != 2 || !isempty(x))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Unable to split: %m");
+
+                PartitionDesignator d = partition_designator_from_string(designator);
+                if (d < 0)
+                        return log_debug_errno(d, "Failed to parse partition designator: %s", designator);
+
+                if (!f) {
+                        f = new0(ImageFilter, 1);
+                        if (!f)
+                                return log_oom_debug();
+                } else if (f->pattern[d])
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Duplicate pattern for '%s', refusing.", partition_designator_to_string(d));
+
+                f->pattern[d] = TAKE_PTR(pattern);
+        }
+
+        if (ret)
+                *ret = TAKE_PTR(f);
+
+        return 0;
+}
+
 static char *build_auxiliary_path(const char *image, const char *suffix) {
         const char *e;
         char *n;
@@ -3940,6 +4032,7 @@ int dissect_loop_device(
                 const VeritySettings *verity,
                 const MountOptions *mount_options,
                 const ImagePolicy *image_policy,
+                const ImageFilter *image_filter,
                 DissectImageFlags flags,
                 DissectedImage **ret) {
 
@@ -3957,7 +4050,15 @@ int dissect_loop_device(
         m->image_size = m->loop->device_size;
         m->sector_size = m->loop->sector_size;
 
-        r = dissect_image(m, loop->fd, loop->node, verity, mount_options, image_policy, flags);
+        r = dissect_image(
+                        m,
+                        loop->fd,
+                        loop->node,
+                        verity,
+                        mount_options,
+                        image_policy,
+                        image_filter,
+                        flags);
         if (r < 0)
                 return r;
 
@@ -3975,6 +4076,7 @@ int dissect_loop_device_and_warn(
                 const VeritySettings *verity,
                 const MountOptions *mount_options,
                 const ImagePolicy *image_policy,
+                const ImageFilter *image_filter,
                 DissectImageFlags flags,
                 DissectedImage **ret) {
 
@@ -3982,7 +4084,7 @@ int dissect_loop_device_and_warn(
 
         return dissect_log_error(
                         LOG_ERR,
-                        dissect_loop_device(loop, verity, mount_options, image_policy, flags, ret),
+                        dissect_loop_device(loop, verity, mount_options, image_policy, image_filter, flags, ret),
                         loop->backing_file ?: loop->node,
                         verity);
 }
@@ -4101,6 +4203,7 @@ int mount_image_privately_interactively(
                         &verity,
                         /* mount_options= */ NULL,
                         image_policy,
+                        /* image_filter= */ NULL,
                         flags,
                         &dissected_image);
         if (r < 0)
@@ -4182,6 +4285,7 @@ int verity_dissect_and_mount(
                 const char *dest,
                 const MountOptions *options,
                 const ImagePolicy *image_policy,
+                const ImageFilter *image_filter,
                 const char *required_host_os_release_id,
                 const char *required_host_os_release_version_id,
                 const char *required_host_os_release_sysext_level,
@@ -4239,6 +4343,7 @@ int verity_dissect_and_mount(
                         verity,
                         options,
                         image_policy,
+                        image_filter,
                         dissect_image_flags,
                         &dissected_image);
         /* No partition table? Might be a single-filesystem image, try again */
@@ -4248,6 +4353,7 @@ int verity_dissect_and_mount(
                                 verity,
                                 options,
                                 image_policy,
+                                image_filter,
                                 dissect_image_flags | DISSECT_IMAGE_NO_PARTITION_TABLE,
                                 &dissected_image);
         if (r < 0)

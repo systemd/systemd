@@ -1100,6 +1100,7 @@ static int enumerate_partitions(dev_t devnum) {
                         /* verity= */ NULL,
                         /* mount_options= */ NULL,
                         image_policy,
+                        /* image_filter= */ NULL,
                         DISSECT_IMAGE_GPT_ONLY|
                         DISSECT_IMAGE_USR_NO_ROOT|
                         DISSECT_IMAGE_DISKSEQ_DEVNODE|
