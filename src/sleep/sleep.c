@@ -617,7 +617,7 @@ static int run(int argc, char *argv[]) {
                 if (r < 0)
                         return r;
 
-                r = unit_freezer_freeze(user_slice_freezer);
+                r = unit_freezer_freeze_check_wakeup(user_slice_freezer);
                 if (r < 0) {
                         (void) unit_freezer_thaw(user_slice_freezer);
                         return r;
