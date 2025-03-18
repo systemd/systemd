@@ -182,8 +182,16 @@ Features:
 * gpt-auto-root doesn't take image policy into account.
 
 * maybe define a /etc/machine-info field for the ANSI color to associate with a
-  hostname. Then use it for the shell prompt to highlight the hostname. Maybe
-  even hash it from the hostname as a fallback, in a reasonable way.
+  hostname. Then use it for the shell prompt to highlight the hostname. If no
+  color is explicitly set, hash a color automatically from the hostname as a
+  fallback, in a reasonable way. Take inspiration from the ANSI_COLOR= field
+  that already exists in /etc/os-release, i.e. use the same field name and
+  syntax. When hashing the color, use the hsv_to_rgb() helper we already have,
+  fixate S and V to something reasonable and constant, and derive the H from
+  the hostname. Ultimate goal with this: give people a visual hint about the
+  system they are on if the have many to deal with, by giving each a color
+  identity. This code should be placed in hostnamed, so that clients can query
+  the color via varlink or dbus.
 
 * unify how blockdev_get_root() and sysupdate find the default root block device
 
