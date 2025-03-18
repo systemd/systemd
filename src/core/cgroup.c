@@ -5214,6 +5214,7 @@ static int unit_cgroup_freezer_kernel_state(Unit *u, FreezerState *ret) {
 int unit_cgroup_freezer_action(Unit *u, FreezerAction action) {
         _cleanup_free_ char *path = NULL;
         FreezerState current, next, objective;
+        bool action_in_progress = false;
         int r;
 
         assert(u);
@@ -5234,8 +5235,15 @@ int unit_cgroup_freezer_action(Unit *u, FreezerAction action) {
         if (r < 0)
                 return r;
 
-        if (current == objective)
-                goto skip;
+        if (current == objective) {
+                if (objective == FREEZER_FROZEN)
+                        goto skip;
+
+                /* Skip thaw only if no freeze operation was in flight */
+                if (IN_SET(u->freezer_state, FREEZER_RUNNING, FREEZER_THAWING))
+                        goto skip;
+        } else
+                action_in_progress = true;
 
         if (next == freezer_state_finish(next)) {
                 /* We're directly transitioning into a finished state, which in theory means that
@@ -5267,12 +5275,13 @@ int unit_cgroup_freezer_action(Unit *u, FreezerAction action) {
         if (r < 0)
                 return r;
 
-        unit_set_freezer_state(u, next);
-        return 1; /* Wait for cgroup event before replying */
-
 skip:
-        unit_set_freezer_state(u, freezer_state_finish(next));
-        return 0;
+        if (action_in_progress)
+                unit_set_freezer_state(u, next);
+        else
+                unit_set_freezer_state(u, freezer_state_finish(next));
+
+        return action_in_progress;
 }
 
 int unit_get_cpuset(Unit *u, CPUSet *cpus, const char *name) {
