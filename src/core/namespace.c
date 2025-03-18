@@ -1542,7 +1542,7 @@ static int mount_image(
         }
 
         r = verity_dissect_and_mount(
-                        /* src_fd= */ -1,
+                        /* src_fd= */ -EBADF,
                         mount_entry_source(m),
                         mount_entry_path(m),
                         m->image_options_const,
