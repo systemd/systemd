@@ -970,11 +970,7 @@ static int mount_in_namespace_legacy(
                                 options,
                                 image_policy,
                                 /* image_filter= */ NULL,
-                                /* required_host_os_release_id= */ NULL,
-                                /* required_host_os_release_version_id= */ NULL,
-                                /* required_host_os_release_sysext_level= */ NULL,
-                                /* required_host_os_release_confext_level= */ NULL,
-                                /* required_sysext_scope= */ NULL,
+                                /* extension_release_data= */ NULL,
                                 /* verity= */ NULL,
                                 /* ret_image= */ NULL);
         else
@@ -1195,11 +1191,7 @@ static int mount_in_namespace(
                                 options,
                                 image_policy,
                                 /* image_filter= */ NULL,
-                                /* required_host_os_release_id= */ NULL,
-                                /* required_host_os_release_version_id= */ NULL,
-                                /* required_host_os_release_sysext_level= */ NULL,
-                                /* required_host_os_release_confext_level= */ NULL,
-                                /* required_sysext_scope= */ NULL,
+                                /* extension_release_data= */ NULL,
                                 /* verity= */ NULL,
                                 &img);
                 if (r < 0)

@@ -20,6 +20,7 @@ typedef struct DecryptedImage DecryptedImage;
 typedef struct MountOptions MountOptions;
 typedef struct VeritySettings VeritySettings;
 typedef struct ImageFilter ImageFilter;
+typedef struct ExtensionReleaseData ExtensionReleaseData;
 
 struct DissectedPartition {
         bool found:1;
@@ -154,6 +155,14 @@ struct ImageFilter {
         char *pattern[_PARTITION_DESIGNATOR_MAX];
 };
 
+struct ExtensionReleaseData {
+        char *os_release_id;
+        char *os_release_version_id;
+        char *os_release_sysext_level;
+        char *os_release_confext_level;
+        char *os_release_extension_scope;
+};
+
 /* We include image-policy.h down here, since ImagePolicy wants a complete definition of PartitionDesignator first. */
 #include "image-policy.h"
 
@@ -248,7 +257,7 @@ bool dissected_image_verity_sig_ready(const DissectedImage *image, PartitionDesi
 
 int mount_image_privately_interactively(const char *path, const ImagePolicy *image_policy, DissectImageFlags flags, char **ret_directory, int *ret_dir_fd, LoopDevice **ret_loop_device);
 
-int verity_dissect_and_mount(int src_fd, const char *src, const char *dest, const MountOptions *options, const ImagePolicy *image_policy, const ImageFilter *image_filter, const char *required_host_os_release_id, const char *required_host_os_release_version_id, const char *required_host_os_release_sysext_level, const char *required_host_os_release_confext_level, const char *required_sysext_scope, VeritySettings *verity, DissectedImage **ret_image);
+int verity_dissect_and_mount(int src_fd, const char *src, const char *dest, const MountOptions *options, const ImagePolicy *image_policy, const ImageFilter *image_filter, const ExtensionReleaseData *required_release_data, VeritySettings *verity, DissectedImage **ret_image);
 
 int dissect_fstype_ok(const char *fstype);
 
@@ -256,6 +265,8 @@ int probe_sector_size(int fd, uint32_t *ret);
 int probe_sector_size_prefer_ioctl(int fd, uint32_t *ret);
 
 int partition_pick_mount_options(PartitionDesignator d, const char *fstype, bool rw, bool discard, char **ret_options, unsigned long *ret_ms_flags);
+
+void extension_release_data_done(ExtensionReleaseData *data);
 
 static inline const char* dissected_partition_fstype(const DissectedPartition *m) {
         assert(m);
