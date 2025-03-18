@@ -309,9 +309,8 @@ static int fscrypt_setup(
         NULSTR_FOREACH(xa, xattr_buf) {
                 _cleanup_free_ void *salt = NULL, *encrypted = NULL;
                 _cleanup_free_ char *value = NULL;
-                size_t salt_size, encrypted_size;
+                size_t salt_size, encrypted_size, vsize;
                 const char *nr, *e;
-                int n;
 
                 /* Check if this xattr has the format 'trusted.fscrypt_slot<nr>' where '<nr>' is a 32-bit unsigned integer */
                 nr = startswith(xa, "trusted.fscrypt_slot");
@@ -320,13 +319,13 @@ static int fscrypt_setup(
                 if (safe_atou32(nr, NULL) < 0)
                         continue;
 
-                n = fgetxattr_malloc(setup->root_fd, xa, &value);
-                if (n == -ENODATA) /* deleted by now? */
+                r = fgetxattr_malloc(setup->root_fd, xa, &value, &vsize);
+                if (r == -ENODATA) /* deleted by now? */
                         continue;
-                if (n < 0)
-                        return log_error_errno(n, "Failed to read %s xattr: %m", xa);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read %s xattr: %m", xa);
 
-                e = memchr(value, ':', n);
+                e = memchr(value, ':', vsize);
                 if (!e)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "xattr %s lacks ':' separator.", xa);
 
@@ -334,7 +333,7 @@ static int fscrypt_setup(
                 if (r < 0)
                         return log_error_errno(r, "Failed to decode salt of %s: %m", xa);
 
-                r = unbase64mem_full(e + 1, n - (e - value) - 1, /* secure = */ false, &encrypted, &encrypted_size);
+                r = unbase64mem_full(e + 1, vsize - (e - value) - 1, /* secure = */ false, &encrypted, &encrypted_size);
                 if (r < 0)
                         return log_error_errno(r, "Failed to decode encrypted key of %s: %m", xa);
 
