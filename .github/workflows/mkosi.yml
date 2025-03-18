@@ -79,7 +79,7 @@ jobs:
             vm: 0
             skip: TEST-21-DFUZZER
           - distro: fedora
-            release: "41"
+            release: "42"
             sanitizers: address,undefined
             llvm: 1
             cflags: "-Og"
