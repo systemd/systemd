@@ -147,10 +147,9 @@ void dev_kmsg_record(Server *s, char *p, size_t l) {
                 /* Did we lose any? */
                 if (serial > *s->kernel_seqnum)
                         server_driver_message(s, 0,
-                                              "MESSAGE_ID=" SD_MESSAGE_JOURNAL_MISSED_STR,
+                                              LOG_MESSAGE_ID(SD_MESSAGE_JOURNAL_MISSED_STR),
                                               LOG_MESSAGE("Missed %"PRIu64" kernel messages",
-                                                          serial - *s->kernel_seqnum),
-                                              NULL);
+                                                          serial - *s->kernel_seqnum));
 
                 /* Make sure we never read this one again. Note that
                  * we always store the next message serial we expect
