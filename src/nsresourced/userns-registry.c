@@ -186,7 +186,7 @@ static int userns_registry_load(int dir_fd, const char *fn, UserNamespaceInfo **
                 if (!gid_is_valid(userns_info->start_gid))
                         userns_info->start_gid = userns_info->start_uid;
                 if (!gid_is_valid(userns_info->target_gid))
-                        userns_info->target_gid = userns_info->target_gid;
+                        userns_info->target_gid = userns_info->target_uid;
 
                 if (userns_info->size > UINT32_MAX - userns_info->start_gid ||
                     userns_info->size > UINT32_MAX - userns_info->target_gid)
