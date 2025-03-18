@@ -1802,6 +1802,7 @@ static int merge_subprocess(
                                         &verity_settings,
                                         /* mount_options= */ NULL,
                                         pick_image_policy(img),
+                                        /* image_filter= */ NULL,
                                         flags,
                                         &m);
                         if (r < 0)
