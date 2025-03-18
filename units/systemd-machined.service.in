@@ -13,7 +13,7 @@ Documentation=man:systemd-machined.service(8)
 Documentation=man:org.freedesktop.machine1(5)
 
 Wants=machine.slice
-After=machine.slice
+After=machine.slice systemd-machined.socket
 RequiresMountsFor=/var/lib/machines
 
 [Service]
