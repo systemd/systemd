@@ -734,11 +734,11 @@ void dns_server_warn_downgrade(DnsServer *server) {
                 return;
 
         log_struct(LOG_NOTICE,
-                   "MESSAGE_ID=" SD_MESSAGE_DNSSEC_DOWNGRADE_STR,
+                   LOG_MESSAGE_ID(SD_MESSAGE_DNSSEC_DOWNGRADE_STR),
                    LOG_MESSAGE("Server %s does not support DNSSEC, downgrading to non-DNSSEC mode.",
                                strna(dns_server_string_full(server))),
-                   "DNS_SERVER=%s", strna(dns_server_string_full(server)),
-                   "DNS_SERVER_FEATURE_LEVEL=%s", dns_server_feature_level_to_string(server->possible_feature_level));
+                   LOG_ITEM("DNS_SERVER=%s", strna(dns_server_string_full(server))),
+                   LOG_ITEM("DNS_SERVER_FEATURE_LEVEL=%s", dns_server_feature_level_to_string(server->possible_feature_level)));
 
         server->warned_downgrade = true;
 }

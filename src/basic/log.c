@@ -1649,9 +1649,9 @@ int log_syntax_internal(
                                         level,
                                         error,
                                         file, line, func,
-                                        "MESSAGE_ID=" SD_MESSAGE_INVALID_CONFIGURATION_STR,
-                                        "CONFIG_FILE=%s", config_file,
-                                        "CONFIG_LINE=%u", config_line,
+                                        LOG_MESSAGE_ID(SD_MESSAGE_INVALID_CONFIGURATION_STR),
+                                        LOG_ITEM("CONFIG_FILE=%s", config_file),
+                                        LOG_ITEM("CONFIG_LINE=%u", config_line),
                                         LOG_MESSAGE("%s:%u: %s", config_file, config_line, buffer),
                                         unit_fmt, unit,
                                         NULL);
@@ -1660,8 +1660,8 @@ int log_syntax_internal(
                                         level,
                                         error,
                                         file, line, func,
-                                        "MESSAGE_ID=" SD_MESSAGE_INVALID_CONFIGURATION_STR,
-                                        "CONFIG_FILE=%s", config_file,
+                                        LOG_MESSAGE_ID(SD_MESSAGE_INVALID_CONFIGURATION_STR),
+                                        LOG_ITEM("CONFIG_FILE=%s", config_file),
                                         LOG_MESSAGE("%s: %s", config_file, buffer),
                                         unit_fmt, unit,
                                         NULL);
@@ -1670,7 +1670,7 @@ int log_syntax_internal(
                                 level,
                                 error,
                                 file, line, func,
-                                "MESSAGE_ID=" SD_MESSAGE_INVALID_CONFIGURATION_STR,
+                                LOG_MESSAGE_ID(SD_MESSAGE_INVALID_CONFIGURATION_STR),
                                 LOG_MESSAGE("%s: %s", unit, buffer),
                                 unit_fmt, unit,
                                 NULL);
@@ -1679,7 +1679,7 @@ int log_syntax_internal(
                                 level,
                                 error,
                                 file, line, func,
-                                "MESSAGE_ID=" SD_MESSAGE_INVALID_CONFIGURATION_STR,
+                                LOG_MESSAGE_ID(SD_MESSAGE_INVALID_CONFIGURATION_STR),
                                 LOG_MESSAGE("%s", buffer),
                                 NULL);
 }

@@ -947,16 +947,10 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
         /* Prepare log fields we can use for structured logging */
         if (MANAGER_IS_SYSTEM(m)) {
                 m->unit_log_field = "UNIT=";
-                m->unit_log_format_string = "UNIT=%s";
-
                 m->invocation_log_field = "INVOCATION_ID=";
-                m->invocation_log_format_string = "INVOCATION_ID=%s";
         } else {
                 m->unit_log_field = "USER_UNIT=";
-                m->unit_log_format_string = "USER_UNIT=%s";
-
                 m->invocation_log_field = "USER_INVOCATION_ID=";
-                m->invocation_log_format_string = "USER_INVOCATION_ID=%s";
         }
 
         /* Reboot immediately if the user hits C-A-D more often than 7x per 2s */
@@ -3259,7 +3253,7 @@ static int manager_dispatch_time_change_fd(sd_event_source *source, int fd, uint
         Unit *u;
 
         log_struct(LOG_DEBUG,
-                   "MESSAGE_ID=" SD_MESSAGE_TIME_CHANGE_STR,
+                   LOG_MESSAGE_ID(SD_MESSAGE_TIME_CHANGE_STR),
                    LOG_MESSAGE("Time has been changed"));
 
         /* Restart the watch */
@@ -3788,8 +3782,8 @@ static void log_taint_string(Manager *m) {
 
         log_struct(LOG_NOTICE,
                    LOG_MESSAGE("System is tainted: %s", taint),
-                   "TAINT=%s", taint,
-                   "MESSAGE_ID=" SD_MESSAGE_TAINTED_STR);
+                   LOG_ITEM("TAINT=%s", taint),
+                   LOG_MESSAGE_ID(SD_MESSAGE_TAINTED_STR));
 }
 
 static void manager_notify_finished(Manager *m) {
@@ -3805,8 +3799,8 @@ static void manager_notify_finished(Manager *m) {
                                                                 m->timestamps[MANAGER_TIMESTAMP_SHUTDOWN_START].monotonic);
 
                 log_struct(LOG_INFO,
-                           "MESSAGE_ID=" SD_MESSAGE_STARTUP_FINISHED_STR,
-                           "USERSPACE_USEC="USEC_FMT, userspace_usec,
+                           LOG_MESSAGE_ID(SD_MESSAGE_STARTUP_FINISHED_STR),
+                           LOG_ITEM("USERSPACE_USEC="USEC_FMT, userspace_usec),
                            LOG_MESSAGE("Soft-reboot finished in %s, counter is now at %u.",
                                        FORMAT_TIMESPAN(total_usec, USEC_PER_MSEC),
                                        m->soft_reboots_count));
@@ -3837,10 +3831,10 @@ static void manager_notify_finished(Manager *m) {
                         initrd_usec = m->timestamps[MANAGER_TIMESTAMP_USERSPACE].monotonic - m->timestamps[MANAGER_TIMESTAMP_INITRD].monotonic;
 
                         log_struct(LOG_INFO,
-                                   "MESSAGE_ID=" SD_MESSAGE_STARTUP_FINISHED_STR,
-                                   "KERNEL_USEC="USEC_FMT, kernel_usec,
-                                   "INITRD_USEC="USEC_FMT, initrd_usec,
-                                   "USERSPACE_USEC="USEC_FMT, userspace_usec,
+                                   LOG_MESSAGE_ID(SD_MESSAGE_STARTUP_FINISHED_STR),
+                                   LOG_ITEM("KERNEL_USEC="USEC_FMT, kernel_usec),
+                                   LOG_ITEM("INITRD_USEC="USEC_FMT, initrd_usec),
+                                   LOG_ITEM("USERSPACE_USEC="USEC_FMT, userspace_usec),
                                    LOG_MESSAGE("Startup finished in %s%s (kernel) + %s (initrd) + %s (userspace) = %s.",
                                                buf,
                                                FORMAT_TIMESPAN(kernel_usec, USEC_PER_MSEC),
@@ -3854,9 +3848,9 @@ static void manager_notify_finished(Manager *m) {
                         initrd_usec = 0;
 
                         log_struct(LOG_INFO,
-                                   "MESSAGE_ID=" SD_MESSAGE_STARTUP_FINISHED_STR,
-                                   "KERNEL_USEC="USEC_FMT, kernel_usec,
-                                   "USERSPACE_USEC="USEC_FMT, userspace_usec,
+                                   LOG_MESSAGE_ID(SD_MESSAGE_STARTUP_FINISHED_STR),
+                                   LOG_ITEM("KERNEL_USEC="USEC_FMT, kernel_usec),
+                                   LOG_ITEM("USERSPACE_USEC="USEC_FMT, userspace_usec),
                                    LOG_MESSAGE("Startup finished in %s%s (kernel) + %s (userspace) = %s.",
                                                buf,
                                                FORMAT_TIMESPAN(kernel_usec, USEC_PER_MSEC),
@@ -3869,8 +3863,8 @@ static void manager_notify_finished(Manager *m) {
                 total_usec = userspace_usec = m->timestamps[MANAGER_TIMESTAMP_FINISH].monotonic - m->timestamps[MANAGER_TIMESTAMP_USERSPACE].monotonic;
 
                 log_struct(LOG_INFO,
-                           "MESSAGE_ID=" SD_MESSAGE_USER_STARTUP_FINISHED_STR,
-                           "USERSPACE_USEC="USEC_FMT, userspace_usec,
+                           LOG_MESSAGE_ID(SD_MESSAGE_USER_STARTUP_FINISHED_STR),
+                           LOG_ITEM("USERSPACE_USEC="USEC_FMT, userspace_usec),
                            LOG_MESSAGE("Startup finished in %s.",
                                        FORMAT_TIMESPAN(total_usec, USEC_PER_MSEC)));
         }
