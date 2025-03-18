@@ -1153,6 +1153,15 @@ static int manager_create_session_by_bus(
                                                  "No seat '%s' known", cseat);
         }
 
+        _cleanup_free_ char *resolved = NULL;
+        if (tty_is_console(tty)) {
+                r = resolve_dev_console(&resolved);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to resolve /dev/console, ignoring: %m");
+                else
+                        tty = resolved;
+        }
+
         if (isempty(tty))
                 tty = NULL;
         else if (tty_is_vc(tty)) {
