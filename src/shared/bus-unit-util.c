@@ -3047,10 +3047,12 @@ int bus_service_manager_reload(sd_bus *bus) {
 typedef struct UnitFreezer {
         char *name;
         sd_bus *bus;
+        bool freeze_unit_handled;
+        int freeze_unit_status;
 } UnitFreezer;
 
-/* Wait for 60 seconds at maximum for freezer operation */
-#define FREEZE_BUS_CALL_TIMEOUT (60 * USEC_PER_SEC)
+/* Wait for 5 seconds at maximum for freezer operation */
+#define FREEZE_BUS_CALL_TIMEOUT (5 * USEC_PER_SEC)
 
 UnitFreezer* unit_freezer_free(UnitFreezer *f) {
         if (!f)
@@ -3137,4 +3139,92 @@ ExecDirectoryFlags exec_directory_flags_from_string(const char *s) {
                 return EXEC_DIRECTORY_READ_ONLY;
 
         return _EXEC_DIRECTORY_FLAGS_INVALID;
+}
+
+static int read_wakeup_count(uint64_t *ret_wakeup_count) {
+        _cleanup_free_ char *t = NULL;
+        int r;
+
+        r = read_one_line_file("/sys/power/wakeup_count", &t);
+        if (r < 0)
+                return r;
+
+        r = safe_atou64(t, ret_wakeup_count);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+static int freeze_unit_handler(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
+        UnitFreezer *f = ASSERT_PTR(userdata);
+
+        const sd_bus_error *e = sd_bus_message_get_error(m);
+        if (e) {
+                int r = sd_bus_error_get_errno(e);
+
+                if (sd_bus_error_has_names(
+                                    e,
+                                    BUS_ERROR_NO_SUCH_UNIT,
+                                    BUS_ERROR_UNIT_INACTIVE,
+                                    SD_BUS_ERROR_NOT_SUPPORTED)) {
+
+                        log_debug_errno(r, "Skipping freezer for '%s': %s", f->name, bus_error_message(e, r));
+                        f->freeze_unit_status = 0;
+                } else {
+                        log_error_errno(r, "Failed to freeze unit '%s': %s", f->name, bus_error_message(e, r));
+                        f->freeze_unit_status = -r;
+                }
+        } else {
+                log_info("Successfully froze unit '%s'.", f->name);
+                f->freeze_unit_status = 1;
+        }
+
+        f->freeze_unit_handled = true;
+        return 0;
+}
+
+int unit_freezer_freeze_check_wakeup(UnitFreezer *f) {
+        _cleanup_(sd_bus_slot_unrefp) sd_bus_slot *slot = NULL;
+        uint64_t wakeup_count_start;
+        int r;
+
+        assert(f);
+        assert(f->name);
+        assert(f->bus);
+
+        f->freeze_unit_handled = false;
+
+        r = read_wakeup_count(&wakeup_count_start);
+        if (r < 0)
+                return log_error_errno(r, "Failed to read wakeup event counter: %m");
+
+        r = bus_call_method_async(
+                        f->bus, &slot, bus_systemd_mgr, "FreezeUnit", freeze_unit_handler, f, "s", f->name);
+        if (r < 0)
+                return log_error_errno(r, "Failed to freeze unit '%s': %m", f->name);
+
+        for (;;) {
+                uint64_t wakeup_count_now;
+
+                r = sd_bus_wait(f->bus, 8 * USEC_PER_MSEC);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_process(f->bus, NULL);
+                if (r < 0)
+                        return r;
+
+                if (f->freeze_unit_handled)
+                        return f->freeze_unit_status;
+
+                r = read_wakeup_count(&wakeup_count_now);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read wakeup event counter: %m");
+
+                if (wakeup_count_now > wakeup_count_start) {
+                        log_error("Freezing unit '%s' aborted: Wakeup event detected", f->name);
+                        return -ECANCELED;
+                }
+        }
 }
