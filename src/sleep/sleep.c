@@ -285,21 +285,21 @@ static int execute(
         (void) lock_all_homes();
 
         log_struct(LOG_INFO,
-                   "MESSAGE_ID=" SD_MESSAGE_SLEEP_START_STR,
+                   LOG_MESSAGE_ID(SD_MESSAGE_SLEEP_START_STR),
                    LOG_MESSAGE("Performing sleep operation '%s'...", sleep_operation_to_string(operation)),
-                   "SLEEP=%s", sleep_operation_to_string(arg_operation));
+                   LOG_ITEM("SLEEP=%s", sleep_operation_to_string(arg_operation)));
 
         r = write_state(state_fd, sleep_config->states[operation]);
         if (r < 0)
                 log_struct_errno(LOG_ERR, r,
-                                 "MESSAGE_ID=" SD_MESSAGE_SLEEP_STOP_STR,
+                                 LOG_MESSAGE_ID(SD_MESSAGE_SLEEP_STOP_STR),
                                  LOG_MESSAGE("Failed to put system to sleep. System resumed again: %m"),
-                                 "SLEEP=%s", sleep_operation_to_string(arg_operation));
+                                 LOG_ITEM("SLEEP=%s", sleep_operation_to_string(arg_operation)));
         else
                 log_struct(LOG_INFO,
-                           "MESSAGE_ID=" SD_MESSAGE_SLEEP_STOP_STR,
+                           LOG_MESSAGE_ID(SD_MESSAGE_SLEEP_STOP_STR),
                            LOG_MESSAGE("System returned from sleep operation '%s'.", sleep_operation_to_string(arg_operation)),
-                           "SLEEP=%s", sleep_operation_to_string(arg_operation));
+                           LOG_ITEM("SLEEP=%s", sleep_operation_to_string(arg_operation)));
 
         arguments[1] = "post";
         (void) execute_directories(dirs, DEFAULT_TIMEOUT_USEC, NULL, NULL, (char **) arguments, NULL, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
