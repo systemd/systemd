@@ -2106,10 +2106,11 @@ static int action_validate(void) {
         r = dissect_image_file_and_warn(
                         arg_image,
                         &arg_verity_settings,
-                        NULL,
+                        /* mount_options= */ NULL,
                         arg_image_policy,
+                        /* image_filter= */ NULL,
                         arg_flags,
-                        NULL);
+                        /* ret= */ NULL);
         if (r < 0)
                 return r;
 
@@ -2231,6 +2232,7 @@ static int run(int argc, char *argv[]) {
                                                 &arg_verity_settings,
                                                 /* mount_options= */ NULL,
                                                 arg_image_policy,
+                                                /* image_filter= */ NULL,
                                                 arg_flags,
                                                 &m);
                                 if (r < 0)

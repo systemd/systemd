@@ -6370,8 +6370,9 @@ static int run(int argc, char *argv[]) {
                         r = dissect_loop_device_and_warn(
                                         loop,
                                         &arg_verity_settings,
-                                        /* mount_options=*/ NULL,
+                                        /* mount_options= */ NULL,
                                         arg_image_policy ?: &image_policy_container,
+                                        /* image_filter= */ NULL,
                                         dissect_image_flags,
                                         &dissected_image);
                         if (r == -ENOPKG) {
