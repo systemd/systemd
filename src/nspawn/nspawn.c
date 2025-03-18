@@ -6057,13 +6057,10 @@ static int run(int argc, char *argv[]) {
          * so just turning this off here means we only turn it off in nspawn itself, not any children. */
         (void) ignore_signals(SIGPIPE);
 
-        n_fd_passed = sd_listen_fds(false);
-        if (n_fd_passed > 0) {
-                r = fdset_new_listen_fds(&fds, false);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to collect file descriptors: %m");
-                        goto finish;
-                }
+        r = fdset_new_listen_fds(&fds, false);
+        if (r < 0) {
+                log_error_errno(r, "Failed to collect file descriptors: %m");
+                goto finish;
         }
 
         /* The "default" umask. This is appropriate for most file and directory
