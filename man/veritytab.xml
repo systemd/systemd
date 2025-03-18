@@ -213,11 +213,11 @@ This is based on crypttab(5).
       </varlistentry>
 
       <varlistentry>
-        <term><option>root-hash-signature=<replaceable>PATH</replaceable>|base64:<replaceable>HEX</replaceable></option></term>
+        <term><option>root-hash-signature=<replaceable>PATH</replaceable>|base64:<replaceable>BASE64</replaceable></option></term>
 
-        <listitem><para>A base64 string encoding the root hash signature prefixed by <literal>base64:</literal> or a
-        path to roothash signature file used to verify the root hash (in kernel). This feature requires Linux kernel
-        version 5.4 or more recent.</para>
+        <listitem><para>A base64 string encoding the root hash signature prefixed by
+        <literal>base64:</literal> or an absolute path to a root hash signature file used to verify the root
+        hash (in kernel). This feature requires Linux kernel version 5.4 or more recent.</para>
 
         <xi:include href="version-info.xml" xpointer="v248"/></listitem>
       </varlistentry>
