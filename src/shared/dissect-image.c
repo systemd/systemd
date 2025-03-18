@@ -4286,11 +4286,7 @@ int verity_dissect_and_mount(
                 const MountOptions *options,
                 const ImagePolicy *image_policy,
                 const ImageFilter *image_filter,
-                const char *required_host_os_release_id,
-                const char *required_host_os_release_version_id,
-                const char *required_host_os_release_sysext_level,
-                const char *required_host_os_release_confext_level,
-                const char *required_sysext_scope,
+                const ExtensionReleaseData *extension_release_data,
                 VeritySettings *verity,
                 DissectedImage **ret_image) {
 
@@ -4304,7 +4300,7 @@ int verity_dissect_and_mount(
         assert(src);
         /* Verifying release metadata requires mounted image for now, so ensure the check is skipped when
          * opening an image without mounting it immediately (i.e.: 'dest' is NULL). */
-        assert(!required_host_os_release_id || dest);
+        assert(!extension_release_data || dest);
 
         relax_extension_release_check = mount_options_relax_extension_release_checks(options);
 
@@ -4403,11 +4399,11 @@ int verity_dissect_and_mount(
          * First, check the distro ID. If that matches, then check the new SYSEXT_LEVEL value if
          * available, or else fallback to VERSION_ID. If neither is present (eg: rolling release),
          * then a simple match on the ID will be performed. */
-        if (required_host_os_release_id) {
+        if (extension_release_data && extension_release_data->os_release_id) {
                 _cleanup_strv_free_ char **extension_release = NULL;
                 ImageClass class = IMAGE_SYSEXT;
 
-                assert(!isempty(required_host_os_release_id));
+                assert(!isempty(extension_release_data->os_release_id));
 
                 r = load_extension_release_pairs(dest, IMAGE_SYSEXT, dissected_image->image_name, relax_extension_release_check, &extension_release);
                 if (r == -ENOENT) {
@@ -4420,10 +4416,10 @@ int verity_dissect_and_mount(
 
                 r = extension_release_validate(
                                 dissected_image->image_name,
-                                required_host_os_release_id,
-                                required_host_os_release_version_id,
-                                class == IMAGE_SYSEXT ? required_host_os_release_sysext_level : required_host_os_release_confext_level,
-                                required_sysext_scope,
+                                extension_release_data->os_release_id,
+                                extension_release_data->os_release_version_id,
+                                class == IMAGE_SYSEXT ? extension_release_data->os_release_sysext_level : extension_release_data->os_release_confext_level,
+                                extension_release_data->os_release_extension_scope,
                                 extension_release,
                                 class);
                 if (r == 0)
@@ -4440,6 +4436,16 @@ int verity_dissect_and_mount(
                 *ret_image = TAKE_PTR(dissected_image);
 
         return 0;
+}
+
+void extension_release_data_done(ExtensionReleaseData *data) {
+        assert(data);
+
+        data->os_release_id = mfree(data->os_release_id);
+        data->os_release_version_id = mfree(data->os_release_version_id);
+        data->os_release_sysext_level = mfree(data->os_release_sysext_level);
+        data->os_release_confext_level = mfree(data->os_release_confext_level);
+        data->os_release_extension_scope = mfree(data->os_release_extension_scope);
 }
 
 int get_common_dissect_directory(char **ret) {
