@@ -153,7 +153,7 @@ int log_struct_internal(
                 const char *file,
                 int line,
                 const char *func,
-                const char *format, ...) _printf_(6,0) _sentinel_;
+                const char *format, ...) _sentinel_;
 
 int log_oom_internal(
                 int level,
@@ -314,10 +314,14 @@ bool log_on_console(void) _pure_;
 /* Do a fake formatting of the message string to let the scanner verify the arguments against the format
  * message. The variable will never be set to true, but we don't tell the compiler that :) */
 extern bool _log_message_dummy;
-#  define LOG_MESSAGE(fmt, ...) "MESSAGE=%.0d" fmt, (_log_message_dummy && printf(fmt, ##__VA_ARGS__)), ##__VA_ARGS__
+#  define LOG_ITEM(fmt, ...) "%.0d" fmt, (_log_message_dummy && printf(fmt, ##__VA_ARGS__)), ##__VA_ARGS__
+#  define LOG_MESSAGE(fmt, ...) LOG_ITEM("MESSAGE=" fmt, ##__VA_ARGS__)
 #else
+#  define LOG_ITEM(fmt, ...) fmt, ##__VA_ARGS__
 #  define LOG_MESSAGE(fmt, ...) "MESSAGE=" fmt, ##__VA_ARGS__
 #endif
+
+#define LOG_MESSAGE_ID(id) LOG_ITEM("MESSAGE_ID=" id)
 
 void log_received_signal(int level, const struct signalfd_siginfo *si);
 

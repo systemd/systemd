@@ -521,10 +521,9 @@ void server_maybe_warn_forward_syslog_missed(Server *s) {
                 return;
 
         server_driver_message(s, 0,
-                              "MESSAGE_ID=" SD_MESSAGE_FORWARD_SYSLOG_MISSED_STR,
+                              LOG_MESSAGE_ID(SD_MESSAGE_FORWARD_SYSLOG_MISSED_STR),
                               LOG_MESSAGE("Forwarding to syslog missed %u messages.",
-                                          s->n_forward_syslog_missed),
-                              NULL);
+                                          s->n_forward_syslog_missed));
 
         s->n_forward_syslog_missed = 0;
         s->last_warn_forward_syslog_missed = n;

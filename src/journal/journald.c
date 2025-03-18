@@ -66,9 +66,8 @@ static int run(int argc, char *argv[]) {
                 log_debug("systemd-journald running as PID "PID_FMT" for the system.", getpid_cached());
 
         server_driver_message(s, 0,
-                              "MESSAGE_ID=" SD_MESSAGE_JOURNAL_START_STR,
-                              LOG_MESSAGE("Journal started"),
-                              NULL);
+                              LOG_MESSAGE_ID(SD_MESSAGE_JOURNAL_START_STR),
+                              LOG_MESSAGE("Journal started"));
 
         /* Make sure to send the usage message *after* flushing the
          * journal so entries from the runtime journals are ordered
@@ -124,9 +123,8 @@ static int run(int argc, char *argv[]) {
                 log_debug("systemd-journald stopped as PID "PID_FMT" for the system.", getpid_cached());
 
         server_driver_message(s, 0,
-                              "MESSAGE_ID=" SD_MESSAGE_JOURNAL_STOP_STR,
-                              LOG_MESSAGE("Journal stopped"),
-                              NULL);
+                              LOG_MESSAGE_ID(SD_MESSAGE_JOURNAL_STOP_STR),
+                              LOG_MESSAGE("Journal stopped"));
 
         return 0;
 }
