@@ -2513,11 +2513,11 @@ static int run(int argc, char *argv[]) {
                                  glyph(GLYPH_LIGHT_SHADE), ansi_grey(), ansi_highlight(), ansi_grey(), ansi_normal());
         }
 
-        r = sd_listen_fds_with_names(true, &names);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get passed file descriptors: %m");
+        int n = sd_listen_fds_with_names(true, &names);
+        if (n < 0)
+                return log_error_errno(n, "Failed to get passed file descriptors: %m");
 
-        for (int i = 0; i < r; i++) {
+        for (int i = 0; i < n; i++) {
                 int fd = SD_LISTEN_FDS_START + i;
                 if (streq(names[i], "kvm"))
                         kvm_device_fd = fd;
