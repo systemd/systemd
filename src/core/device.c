@@ -681,8 +681,8 @@ static int device_setup_unit(Manager *m, sd_device *dev, const char *path, bool 
         if (r < 0)
                 return log_struct_errno(
                                 LOG_WARNING, r,
-                                "MESSAGE_ID=" SD_MESSAGE_DEVICE_PATH_NOT_SUITABLE_STR,
-                                "DEVICE=%s", path,
+                                LOG_MESSAGE_ID(SD_MESSAGE_DEVICE_PATH_NOT_SUITABLE_STR),
+                                LOG_ITEM("DEVICE=%s", path),
                                 LOG_MESSAGE("Failed to generate valid unit name from device path '%s', ignoring device: %m",
                                             path));
 
