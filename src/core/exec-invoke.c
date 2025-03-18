@@ -4200,7 +4200,7 @@ static void log_command_line(
         _cleanup_free_ char *cmdline = quote_command_line(argv, SHELL_ESCAPE_EMPTY);
 
         log_exec_struct(context, params, LOG_DEBUG,
-                        "EXECUTABLE=%s", executable,
+                        LOG_ITEM("EXECUTABLE=%s", executable),
                         LOG_EXEC_MESSAGE(params, "%s: %s", msg, strnull(cmdline)),
                         LOG_EXEC_INVOCATION_ID(params));
 }
@@ -5482,11 +5482,11 @@ int exec_invoke(
         if (r < 0) {
                 *exit_status = EXIT_EXEC;
                 log_exec_struct_errno(context, params, LOG_NOTICE, r,
-                                      "MESSAGE_ID=" SD_MESSAGE_SPAWN_FAILED_STR,
+                                      LOG_MESSAGE_ID(SD_MESSAGE_SPAWN_FAILED_STR),
                                       LOG_EXEC_MESSAGE(params,
                                                        "Unable to locate executable '%s': %m",
                                                        command->path),
-                                      "EXECUTABLE=%s", command->path);
+                                      LOG_ITEM("EXECUTABLE=%s", command->path));
                 /* If the error will be ignored by manager, tune down the log level here. Missing executable
                  * is very much expected in this case. */
                 return r != -ENOMEM && FLAGS_SET(command->flags, EXEC_COMMAND_IGNORE_FAILURE) ? 1 : r;

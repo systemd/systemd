@@ -729,10 +729,10 @@ static int method_set_timezone(sd_bus_message *m, void *userdata, sd_bus_error *
         }
 
         log_struct(LOG_INFO,
-                   "MESSAGE_ID=" SD_MESSAGE_TIMEZONE_CHANGE_STR,
-                   "TIMEZONE=%s", c->zone,
-                   "TIMEZONE_SHORTNAME=%s", tzname[daylight],
-                   "DAYLIGHT=%i", daylight,
+                   LOG_MESSAGE_ID(SD_MESSAGE_TIMEZONE_CHANGE_STR),
+                   LOG_ITEM("TIMEZONE=%s", c->zone),
+                   LOG_ITEM("TIMEZONE_SHORTNAME=%s", tzname[daylight]),
+                   LOG_ITEM("DAYLIGHT=%i", daylight),
                    LOG_MESSAGE("Changed time zone to '%s' (%s).", c->zone, tzname[daylight]));
 
         (void) sd_bus_emit_properties_changed(sd_bus_message_get_bus(m),
@@ -931,8 +931,8 @@ static int method_set_time(sd_bus_message *m, void *userdata, sd_bus_error *erro
         }
 
         log_struct(LOG_INFO,
-                   "MESSAGE_ID=" SD_MESSAGE_TIME_CHANGE_STR,
-                   "REALTIME="USEC_FMT, timespec_load(&ts),
+                   LOG_MESSAGE_ID(SD_MESSAGE_TIME_CHANGE_STR),
+                   LOG_ITEM("REALTIME="USEC_FMT, timespec_load(&ts)),
                    LOG_MESSAGE("Changed local time to %s", strnull(FORMAT_TIMESTAMP(timespec_load(&ts)))));
 
         return sd_bus_reply_method_return(m, NULL);
