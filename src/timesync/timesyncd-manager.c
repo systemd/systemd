@@ -618,10 +618,10 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                 log_struct(LOG_INFO,
                            LOG_MESSAGE("Initial clock synchronization to %s.",
                                        FORMAT_TIMESTAMP_STYLE(dts.realtime, TIMESTAMP_US)),
-                           "MESSAGE_ID=" SD_MESSAGE_TIME_SYNC_STR,
-                           "MONOTONIC_USEC=" USEC_FMT, dts.monotonic,
-                           "REALTIME_USEC=" USEC_FMT, dts.realtime,
-                           "BOOTTIME_USEC=" USEC_FMT, dts.boottime);
+                           LOG_MESSAGE_ID(SD_MESSAGE_TIME_SYNC_STR),
+                           LOG_ITEM("MONOTONIC_USEC=" USEC_FMT, dts.monotonic),
+                           LOG_ITEM("REALTIME_USEC=" USEC_FMT, dts.realtime),
+                           LOG_ITEM("BOOTTIME_USEC=" USEC_FMT, dts.boottime));
         }
 
         r = manager_arm_timer(m, m->poll_interval_usec);

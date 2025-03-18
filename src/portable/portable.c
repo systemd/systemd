@@ -1602,7 +1602,7 @@ static void log_portable_verb(
                                isempty(profile) ? "" : "' using profile '",
                                strempty(profile)),
                    message_id,
-                   "PORTABLE_ROOT=%s", strna(root_base_name));
+                   LOG_ITEM("PORTABLE_ROOT=%s", strna(root_base_name)));
 }
 
 int portable_attach(
