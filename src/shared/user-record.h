@@ -132,6 +132,18 @@ typedef enum UserRecordLoadFlags {
                                           USER_RECORD_STRIP_BINDING |
                                           USER_RECORD_STRIP_STATUS,
 
+        USER_RECORD_LOAD_MASK_PRIVILEGED = USER_RECORD_REQUIRE_REGULAR|
+                                           USER_RECORD_STRIP_PRIVILEGED|
+                                           USER_RECORD_ALLOW_PER_MACHINE|
+                                           USER_RECORD_ALLOW_BINDING|
+                                           USER_RECORD_ALLOW_SIGNATURE,
+
+        USER_RECORD_EXTRACT_PRIVILEGED   = USER_RECORD_STRIP_REGULAR|
+                                           USER_RECORD_ALLOW_PRIVILEGED|
+                                           USER_RECORD_STRIP_PER_MACHINE|
+                                           USER_RECORD_STRIP_BINDING|
+                                           USER_RECORD_STRIP_SIGNATURE,
+
         /* Whether to log about loader errors beyond LOG_DEBUG */
         USER_RECORD_LOG                 = 1U << 28,
 
@@ -477,8 +489,8 @@ int user_record_masked_equal(UserRecord *a, UserRecord *b, UserRecordMask mask);
 int user_record_test_blocked(UserRecord *h);
 int user_record_test_password_change_required(UserRecord *h);
 
-int user_record_is_root(const UserRecord *u);
-int user_record_is_nobody(const UserRecord *u);
+bool user_record_is_root(const UserRecord *u);
+bool user_record_is_nobody(const UserRecord *u);
 
 /* The following six are user by group-record.c, that's why we export them here */
 int json_dispatch_realm(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
