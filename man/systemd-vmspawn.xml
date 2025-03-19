@@ -164,15 +164,31 @@
 
           <listitem>
             <para>If <option>--tpm=</option> is not specified, vmspawn will detect the presence of <citerefentry project='debian'>
-            <refentrytitle>swtpm</refentrytitle><manvolnum>8</manvolnum></citerefentry> and use it if available.
-            If yes is specified <citerefentry project='debian'><refentrytitle>swtpm</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-            is always used, and if no is set <citerefentry project='debian'><refentrytitle>swtpm</refentrytitle>
+            <refentrytitle>swtpm</refentrytitle><manvolnum>8</manvolnum></citerefentry> and use it if
+            available.  If yes is specified <citerefentry
+            project='debian'><refentrytitle>swtpm</refentrytitle><manvolnum>8</manvolnum></citerefentry> is
+            always used, and if no is set <citerefentry project='debian'><refentrytitle>swtpm</refentrytitle>
             <manvolnum>8</manvolnum></citerefentry> is never used.</para>
-
-            <para>Note: the virtual TPM used may change in future.</para>
 
             <xi:include href="version-info.xml" xpointer="v256"/>
           </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--tpm-state=<replaceable>PATH</replaceable></option></term>
+          <term><option>--tpm-state=auto</option></term>
+          <term><option>--tpm-state=off</option></term>
+
+          <listitem><para>Configures where to place TPM state, in case TPM support is enabled (see
+          <option>--tpm=</option> above). This takes an absolute file system path to a directory to
+          persistently place the state in. If the directory is missing it is created as needed. If set to the
+          special string <literal>auto</literal> a peristent path is automatically derived from the VM image
+          path or directory path, with the <literal>.tpmstate</literal> suffix appended. If set to the
+          special string <literal>off</literal> the TPM state is only maintained transiently and flushed out
+          when the VM shuts down. This mode is not suitable for VMs which lock disk encryption keys to the
+          TPM, as these keys will be lost on every reboot. Defaults to <literal>auto</literal>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/></listitem>
         </varlistentry>
 
         <varlistentry>

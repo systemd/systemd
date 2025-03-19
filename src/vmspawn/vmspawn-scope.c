@@ -180,7 +180,6 @@ void socket_service_pair_done(SocketServicePair *p) {
         p->exec_start = strv_free(p->exec_start);
         p->exec_stop_post = strv_free(p->exec_stop_post);
         p->unit_name_prefix = mfree(p->unit_name_prefix);
-        p->runtime_directory = mfree(p->runtime_directory);
         p->listen_address = mfree(p->listen_address);
         p->socket_type = 0;
 }
@@ -232,10 +231,11 @@ int start_socket_service_pair(sd_bus *bus, const char *scope, SocketServicePair 
                                   /* a(sv) - Properties */
                                   5,
                                   "Description", "s",     p->listen_address,
-                                  "AddRef",      "b",     1,
+                                  "AddRef",      "b",     true,
                                   "BindsTo",     "as",    1, scope,
                                   "Listen",      "a(ss)", 1, socket_type_str, p->listen_address,
-                                  "CollectMode", "s",     "inactive-or-failed");
+                                  "CollectMode", "s",     "inactive-or-failed",
+                                  "RemoveOnStop", "b",    true);
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -263,12 +263,6 @@ int start_socket_service_pair(sd_bus *bus, const char *scope, SocketServicePair 
                                   "CollectMode", "s",  "inactive-or-failed");
         if (r < 0)
                 return bus_log_create_error(r);
-
-        if (p->runtime_directory) {
-                r = sd_bus_message_append(m, "(sv)", "RuntimeDirectory", "as", 1, p->runtime_directory);
-                if (r < 0)
-                        return bus_log_create_error(r);
-        }
 
         if (p->exec_start_pre) {
                 r = message_add_commands(m, "ExecStartPre", &p->exec_start_pre, 1);
