@@ -587,6 +587,10 @@ static int scope_deserialize_item(Unit *u, const char *key, const char *value, F
 static void scope_notify_cgroup_empty_event(Unit *u) {
         Scope *s = ASSERT_PTR(SCOPE(u));
 
+        if (!unit_cgroup_is_empty(u)) {
+                log_unit_debug(u, "Cgroup not empty anymore, skipping state change");
+                return;
+        }
         log_unit_debug(u, "cgroup is empty");
 
         if (IN_SET(s->state, SCOPE_RUNNING, SCOPE_ABANDONED, SCOPE_STOP_SIGTERM, SCOPE_STOP_SIGKILL))
