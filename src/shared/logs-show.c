@@ -463,9 +463,6 @@ static void parse_display_realtime(
         assert(j);
         assert(ret);
 
-        // FIXME: _SOURCE_MONOTONIC_TIMESTAMP is in CLOCK_BOOTTIME, hence we cannot use it for adjusting realtime.
-        source_monotonic = NULL;
-
         /* First, try _SOURCE_REALTIME_TIMESTAMP. */
         if (source_realtime && safe_atou64(source_realtime, &t) >= 0 && VALID_REALTIME(t)) {
                 *ret = t;
@@ -479,11 +476,14 @@ static void parse_display_realtime(
         }
 
         /* If _SOURCE_MONOTONIC_TIMESTAMP is provided, adjust the header timestamp. */
+        // FIXME: _SOURCE_MONOTONIC_TIMESTAMP is in CLOCK_BOOTTIME, hence we cannot use it for adjusting realtime.
+        /*
         if (source_monotonic && safe_atou64(source_monotonic, &s) >= 0 && VALID_MONOTONIC(s) &&
             sd_journal_get_monotonic_usec(j, &u, &(sd_id128_t) {}) >= 0) {
                 *ret = map_clock_usec_raw(t, u, s);
                 return;
         }
+        */
 
         /* Otherwise, use the header timestamp as is. */
         *ret = t;
@@ -504,14 +504,14 @@ static void parse_display_timestamp(
         assert(ret_display_ts);
         assert(ret_boot_id);
 
-        // FIXME: _SOURCE_MONOTONIC_TIMESTAMP is in CLOCK_BOOTTIME, hence we cannot use it for adjusting realtime.
-        source_monotonic = NULL;
-
         if (source_realtime && safe_atou64(source_realtime, &t) >= 0 && VALID_REALTIME(t))
                 source_ts.realtime = t;
 
+        // FIXME: _SOURCE_MONOTONIC_TIMESTAMP is in CLOCK_BOOTTIME, hence we cannot use it for adjusting realtime.
+        /*
         if (source_monotonic && safe_atou64(source_monotonic, &t) >= 0 && VALID_MONOTONIC(t))
                 source_ts.monotonic = t;
+        */
 
         (void) sd_journal_get_realtime_usec(j, &header_ts.realtime);
         (void) sd_journal_get_monotonic_usec(j, &header_ts.monotonic, &boot_id);
