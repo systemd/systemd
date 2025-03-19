@@ -88,10 +88,10 @@ export TEST_SKIP="TEST-21-DFUZZER"
 
 mkosi summary
 mkosi -f sandbox -- true
-mkosi -f sandbox -- meson setup --buildtype=debugoptimized -Dintegration-tests=true build
+mkosi sandbox -- meson setup --buildtype=debugoptimized -Dintegration-tests=true build
 mkosi genkey
-mkosi -f sandbox -- meson compile -C build mkosi
-mkosi -f sandbox -- \
+mkosi sandbox -- meson compile -C build mkosi
+mkosi sandbox -- \
     meson test \
     -C build \
     --no-rebuild \
