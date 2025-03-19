@@ -40,7 +40,9 @@ static int save_timestamp(const char *dir, struct timespec *ts) {
                      timespec_load_nsec(ts)) < 0)
                 return log_oom();
 
-        r = write_string_file_full(AT_FDCWD, path, message, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_LABEL, ts, NULL);
+        r = write_string_file_full(AT_FDCWD, path, message,
+                                   WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_LABEL|WRITE_STRING_FILE_MKDIR_0755,
+                                   ts, NULL);
         if (r == -EROFS && !arg_root)
                 log_debug_errno(r, "Cannot create \"%s\", file system is read-only.", path);
         else if (r < 0)
