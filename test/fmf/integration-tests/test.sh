@@ -17,28 +17,7 @@ echo "Clock source: $(cat /sys/devices/system/clocksource/clocksource0/current_c
 sysctl fs.inotify.max_user_watches=65536 || true
 sysctl fs.inotify.max_user_instances=1024 || true
 
-# Allow running the integration tests downstream in dist-git with something like
-# the following snippet which makes the dist-git sources available in $TMT_SOURCE_DIR:
-#
-# summary: systemd Fedora test suite
-# discover:
-#   how: fmf
-#   dist-git-source: true
-#   dist-git-install-builddeps: false
-# prepare:
-#   - name: systemd
-#     how: install
-#     exclude:
-#       - systemd-standalone-.*
-# execute:
-#   how: tmt
-
-shopt -s extglob
-
-if [[ -n "${TMT_SOURCE_DIR:-}" ]]; then
-    # Match either directories ending with branch names (e.g. systemd-fmf) or releases (e.g systemd-257.1).
-    pushd "$TMT_SOURCE_DIR"/systemd-+([0-9a-z.~])/
-elif [[ -n "${PACKIT_TARGET_URL:-}" ]]; then
+if [[ -n "${PACKIT_TARGET_URL:-}" ]]; then
     # Prepare systemd source tree
     git clone "$PACKIT_TARGET_URL" systemd --branch "$PACKIT_TARGET_BRANCH"
     pushd systemd
