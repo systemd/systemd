@@ -700,8 +700,8 @@ static int oci_uid_gid_mappings(const char *name, sd_json_variant *v, sd_json_di
         if (r < 0)
                 return r;
 
-        if (data.host_id + data.range < data.host_id ||
-            data.container_id + data.range < data.container_id)
+        if (data.range > UINT32_MAX - data.host_id ||
+            data.range > UINT32_MAX - data.container_id)
                 return json_log(v, flags, SYNTHETIC_ERRNO(EINVAL),
                                 "UID/GID range goes beyond UID/GID validity range, refusing.");
 

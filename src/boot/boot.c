@@ -1814,19 +1814,19 @@ static bool is_sd_boot(EFI_FILE *root_dir, const char16_t *loader_path) {
         if (err != EFI_SUCCESS)
                 return false;
 
-        PeSectionVector vector = {};
+        PeSectionVector vector[1] = {};
         pe_locate_profile_sections(
                         section_table,
                         n_section_table,
                         section_names,
                         /* profile= */ UINT_MAX,
                         /* validate_base= */ 0,
-                        &vector);
-        if (vector.memory_size != STRLEN(SD_MAGIC))
+                        vector);
+        if (vector[0].memory_size != STRLEN(SD_MAGIC))
                 return false;
 
-        err = file_handle_read(handle, vector.file_offset, vector.file_size, &content, &read);
-        if (err != EFI_SUCCESS || vector.file_size != read)
+        err = file_handle_read(handle, vector[0].file_offset, vector[0].file_size, &content, &read);
+        if (err != EFI_SUCCESS || vector[0].file_size != read)
                 return false;
 
         return memcmp(content, SD_MAGIC, STRLEN(SD_MAGIC)) == 0;
@@ -2093,7 +2093,7 @@ static void boot_entry_add_type2(
 
         /* and now iterate through possible profiles, and create a menu item for each profile we find */
         for (unsigned profile = 0; profile < UNIFIED_PROFILES_MAX; profile ++) {
-                PeSectionVector sections[_SECTION_MAX];
+                PeSectionVector sections[_SECTION_MAX] = {};
 
                 /* Start out with the base sections */
                 memcpy(sections, base_sections, sizeof(sections));
