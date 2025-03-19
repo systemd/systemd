@@ -3,13 +3,12 @@
 
 #include "efi.h"
 #include "efi-string.h"
+#include "log.h"
 #include "memory-util-fundamental.h"
+#include "proto/file-io.h"
 #include "string-util-fundamental.h"
 
 #if SD_BOOT
-
-#include "log.h"
-#include "proto/file-io.h"
 
 /* This is provided by the linker. */
 extern uint8_t __executable_start[];
@@ -179,20 +178,6 @@ static inline void strv_freep(char16_t ***p) {
 
 EFI_STATUS open_directory(EFI_FILE *root_dir, const char16_t *path, EFI_FILE **ret);
 
-/* Conversion between EFI_PHYSICAL_ADDRESS and pointers is not obvious. The former is always 64-bit, even on
- * 32-bit archs. And gcc complains if we cast a pointer to an integer of a different size. Hence let's do the
- * conversion indirectly: first into uintptr_t and then extended to EFI_PHYSICAL_ADDRESS. */
-static inline EFI_PHYSICAL_ADDRESS POINTER_TO_PHYSICAL_ADDRESS(const void *p) {
-        return (EFI_PHYSICAL_ADDRESS) (uintptr_t) p;
-}
-
-static inline void *PHYSICAL_ADDRESS_TO_POINTER(EFI_PHYSICAL_ADDRESS addr) {
-        /* On 32-bit systems the address might not be convertible (as pointers are 32-bit but
-         * EFI_PHYSICAL_ADDRESS 64-bit) */
-        assert(addr <= UINTPTR_MAX);
-        return (void *) (uintptr_t) addr;
-}
-
 /* If EFI_DEBUG, print our name and version and also report the address of the image base so a debugger can
  * be attached. See debug-sd-boot.sh for how this can be done. */
 void notify_debugger(const char *identity, bool wait);
@@ -254,8 +239,40 @@ char16_t *get_extra_dir(const EFI_DEVICE_PATH *file_path);
 
 #include "alloc-util.h"
 
+#define xnew(type, n) ASSERT_PTR(new(type, n))
 #define xnew0(type, n) ASSERT_PTR(new0(type, n))
+
+static inline void* find_configuration_table(const EFI_GUID *guid) {
+        return NULL;
+}
+
+static inline EFI_STATUS get_file_info(EFI_FILE *handle, EFI_FILE_INFO **ret, size_t *ret_size) {
+        return EFI_UNSUPPORTED;
+}
+
+static inline void file_closep(EFI_FILE **handle) {
+        if (!*handle)
+                return;
+
+        assert_not_reached();
+}
+
+#define _cleanup_file_close_ _cleanup_(file_closep)
 
 #endif
 
 char16_t *url_replace_last_component(const char16_t *url, const char16_t *filename);
+
+/* Conversion between EFI_PHYSICAL_ADDRESS and pointers is not obvious. The former is always 64-bit, even on
+ * 32-bit archs. And gcc complains if we cast a pointer to an integer of a different size. Hence let's do the
+ * conversion indirectly: first into uintptr_t and then extended to EFI_PHYSICAL_ADDRESS. */
+static inline EFI_PHYSICAL_ADDRESS POINTER_TO_PHYSICAL_ADDRESS(const void *p) {
+        return (EFI_PHYSICAL_ADDRESS) (uintptr_t) p;
+}
+
+static inline void* PHYSICAL_ADDRESS_TO_POINTER(EFI_PHYSICAL_ADDRESS addr) {
+        /* On 32-bit systems the address might not be convertible (as pointers are 32-bit but
+         * EFI_PHYSICAL_ADDRESS 64-bit) */
+        assert(addr <= UINTPTR_MAX);
+        return (void *) (uintptr_t) addr;
+}

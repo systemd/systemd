@@ -4,6 +4,7 @@
 # shellcheck disable=SC2206
 PHASES=(${@:-SETUP RUN RUN_ASAN_UBSAN CLEANUP})
 ADDITIONAL_DEPS=(
+    device-tree-compiler
     clang
     expect
     fdisk
