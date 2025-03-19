@@ -126,9 +126,6 @@ fi
 # for now.
 export TEST_SKIP="TEST-21-DFUZZER"
 
-# Create missing mountpoint for mkosi sandbox.
-mkdir -p /etc/pacman.d/gnupg
-
 mkosi summary
 mkosi -f sandbox -- true
 mkosi -f sandbox -- meson setup --buildtype=debugoptimized -Dintegration-tests=true build
