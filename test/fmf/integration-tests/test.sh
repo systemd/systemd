@@ -17,46 +17,25 @@ echo "Clock source: $(cat /sys/devices/system/clocksource/clocksource0/current_c
 sysctl fs.inotify.max_user_watches=65536 || true
 sysctl fs.inotify.max_user_instances=1024 || true
 
-# Allow running the integration tests downstream in dist-git with something like
-# the following snippet which makes the dist-git sources available in $TMT_SOURCE_DIR:
-#
-# summary: systemd Fedora test suite
-# discover:
-#   how: fmf
-#   dist-git-source: true
-#   dist-git-install-builddeps: false
-# prepare:
-#   - name: systemd
-#     how: install
-#     exclude:
-#       - systemd-standalone-.*
-# execute:
-#   how: tmt
-
-shopt -s extglob
-
-if [[ -n "${TMT_SOURCE_DIR:-}" ]]; then
-    # Match either directories ending with branch names (e.g. systemd-fmf) or releases (e.g systemd-257.1).
-    pushd "$TMT_SOURCE_DIR"/systemd-+([0-9a-z.~])/
-elif [[ -n "${PACKIT_TARGET_URL:-}" ]]; then
-    # Prepare systemd source tree
-    git clone "$PACKIT_TARGET_URL" systemd --branch "$PACKIT_TARGET_BRANCH"
-    pushd systemd
-
-    # If we're running in a pull request job, merge the remote branch into the current main
-    if [[ -n "${PACKIT_SOURCE_URL:-}" ]]; then
-        git remote add pr "${PACKIT_SOURCE_URL:?}"
-        git fetch pr "${PACKIT_SOURCE_BRANCH:?}"
-        git merge "pr/$PACKIT_SOURCE_BRANCH"
-    fi
-
-    git log --oneline -5
+if [[ -n "${KOJI_TASK_ID:-}" ]]; then
+    koji download-task --noprogress --arch="src,noarch,$(rpm --eval '%{_arch}')" "$KOJI_TASK_ID"
+elif [[ -n "${CBS_TASK_ID:-}" ]]; then
+    cbs download-task --noprogress --arch="src,noarch,$(rpm --eval '%{_arch}')" "$CBS_TASK_ID"
+elif [[ -n "${PACKIT_SRPM_URL:-}" ]]; then
+    COPR_BUILD_ID="$(basename "$(dirname "$PACKIT_SRPM_URL")")"
+    COPR_CHROOT="$(basename "$(dirname "$(dirname "$PACKIT_BUILD_LOG_URL")")")"
+    copr download-build --rpms --chroot "$COPR_CHROOT" "$COPR_BUILD_ID"
+    mv "$COPR_CHROOT"/* .
 else
-    echo "Not running within packit or Fedora CI"
+    echo "Not running within packit and no CBS/koji task ID provided"
     exit 1
 fi
 
-# Now prepare mkosi, possibly at the same version required by the systemd repo
+mkdir systemd
+rpm2cpio ./systemd-*.src.rpm | cpio --to-stdout --extract './systemd-*.tar.gz' | tar xz --strip-components=1 -C systemd
+pushd systemd
+
+# Now prepare mkosi at the same version required by the systemd repo.
 git clone https://github.com/systemd/mkosi
 mkosi_hash="$(grep systemd/mkosi@ .github/workflows/mkosi.yml | sed "s|.*systemd/mkosi@||g")"
 git -C mkosi checkout "$mkosi_hash"
@@ -68,11 +47,18 @@ export PATH="$PWD/mkosi/bin:$PATH"
 
 tee mkosi.local.conf <<EOF
 [Distribution]
-Release=${VERSION_ID:-rawhide}
+Distribution=${MKOSI_DISTRIBUTION:-$ID}
+Release=${MKOSI_RELEASE:-${VERSION_ID:-rawhide}}
+PackageDirectories=.
+
+[Content]
+SELinuxRelabel=yes
 
 [Build]
-ToolsTreeDistribution=$ID
-ToolsTreeRelease=${VERSION_ID:-rawhide}
+ToolsTreeDistribution=${MKOSI_DISTRIBUTION:-$ID}
+ToolsTreeRelease=${MKOSI_RELEASE:-${VERSION_ID:-rawhide}}
+Environment=NO_BUILD=1
+WithTests=yes
 EOF
 
 if [[ -n "${TEST_SELINUX_CHECK_AVCS:-}" ]]; then
@@ -81,35 +67,6 @@ if [[ -n "${TEST_SELINUX_CHECK_AVCS:-}" ]]; then
 KernelCommandLineExtra=systemd.setenv=TEST_SELINUX_CHECK_AVCS=$TEST_SELINUX_CHECK_AVCS
 EOF
 fi
-
-if [[ -n "${TESTING_FARM_REQUEST_ID:-}" ]]; then
-    tee --append mkosi.local.conf <<EOF
-[Content]
-SELinuxRelabel=yes
-
-[Build]
-ToolsTreeSandboxTrees=
-        /etc/yum.repos.d/:/etc/yum.repos.d/
-        /var/share/test-artifacts/:/var/share/test-artifacts/
-SandboxTrees=
-        /etc/yum.repos.d/:/etc/yum.repos.d/
-        /var/share/test-artifacts/:/var/share/test-artifacts/
-Environment=NO_BUILD=1
-WithTests=yes
-EOF
-
-    cat /etc/dnf/dnf.conf
-    cat /etc/yum.repos.d/*
-
-    # Ensure packages built for this test have highest priority
-    echo -e "\npriority=1" >> /etc/yum.repos.d/copr_build*
-
-    # Disable mkosi's own repository logic
-    touch /etc/yum.repos.d/mkosi.repo
-fi
-
-# TODO: drop once BTRFS regression is fixed in kernel 6.13
-sed -i "s/Format=btrfs/Format=ext4/" mkosi.repart/10-root.conf
 
 # If we don't have KVM, skip running in qemu, as it's too slow. But try to load the module first.
 modprobe kvm || true
@@ -128,9 +85,6 @@ fi
 # This test is only really useful if we're building with sanitizers and takes a long time, so let's skip it
 # for now.
 export TEST_SKIP="TEST-21-DFUZZER"
-
-# Create missing mountpoint for mkosi sandbox.
-mkdir -p /etc/pacman.d/gnupg
 
 mkosi summary
 mkosi -f sandbox -- true
