@@ -109,6 +109,8 @@ int acquire_luks2_key(
                         n_policy_hash,
                         srk,
                         ret_decrypted_key);
+        if (r == -EREMOTE)
+                return log_error_errno(r, "TPM key integrity check failed. Key enrolled in superblock most likely does not belong to this TPM.");
         if (r < 0)
                 return log_error_errno(r, "Failed to unseal secret using TPM2: %m");
 
