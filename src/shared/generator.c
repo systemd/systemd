@@ -286,6 +286,18 @@ int generator_write_fsck_deps(
                 return 0;
         }
 
+        if (fstype) {
+                if (!fstype_is_blockdev_backed(fstype)) {
+                        log_debug("Skipping file system check for non-block based file system '%s'.", what);
+                        return 0;
+                }
+
+                if (fstype_is_ro(fstype)) {
+                        log_debug("Skipping file system check for read-only file system '%s'.", what);
+                        return 0;
+                }
+        }
+
         if (!is_device_path(what)) {
                 log_warning("Checking was requested for \"%s\", but it is not a device.", what);
                 return 0;
