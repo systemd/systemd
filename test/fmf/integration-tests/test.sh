@@ -108,9 +108,6 @@ EOF
     touch /etc/yum.repos.d/mkosi.repo
 fi
 
-# TODO: drop once BTRFS regression is fixed in kernel 6.13
-sed -i "s/Format=btrfs/Format=ext4/" mkosi.repart/10-root.conf
-
 # If we don't have KVM, skip running in qemu, as it's too slow. But try to load the module first.
 modprobe kvm || true
 if [[ ! -e /dev/kvm ]]; then
@@ -128,9 +125,6 @@ fi
 # This test is only really useful if we're building with sanitizers and takes a long time, so let's skip it
 # for now.
 export TEST_SKIP="TEST-21-DFUZZER"
-
-# Create missing mountpoint for mkosi sandbox.
-mkdir -p /etc/pacman.d/gnupg
 
 mkosi summary
 mkosi -f sandbox -- true
