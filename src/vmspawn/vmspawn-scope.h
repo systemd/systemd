@@ -12,7 +12,6 @@ typedef struct SocketServicePair {
         char **exec_start;
         char **exec_stop_post;
         char *unit_name_prefix;
-        char *runtime_directory;
         char *listen_address;
         int socket_type;
 } SocketServicePair;

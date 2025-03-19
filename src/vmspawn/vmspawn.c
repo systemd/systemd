@@ -81,6 +81,14 @@
 
 #define VM_TAP_HASH_KEY SD_ID128_MAKE(01,d0,c6,4c,2b,df,24,fb,c0,f8,b2,09,7d,59,b2,93)
 
+typedef enum TpmStateMode {
+        TPM_STATE_OFF,      /* keep no state around */
+        TPM_STATE_AUTO,     /* keep state around, derive path from image/directory */
+        TPM_STATE_PATH,     /* explicitly specified location */
+        _TPM_STATE_MODE_MAX,
+        _TPM_STATE_MODE_INVALID = -EINVAL,
+} TpmStateMode;
+
 typedef struct SSHInfo {
         unsigned cid;
         char *private_key_path;
@@ -108,9 +116,7 @@ static uid_t arg_uid_shift = UID_INVALID, arg_uid_range = 0x10000U;
 static RuntimeMountContext arg_runtime_mounts = {};
 static SettingsMask arg_settings_mask = 0;
 static char *arg_firmware = NULL;
-static char *arg_runtime_directory = NULL;
 static char *arg_forward_journal = NULL;
-static bool arg_runtime_directory_created = false;
 static bool arg_privileged = false;
 static bool arg_register = false;
 static bool arg_keep_unit = false;
@@ -124,12 +130,13 @@ static bool arg_discard_disk = true;
 struct ether_addr arg_network_provided_mac = {};
 static char **arg_smbios11 = NULL;
 static uint64_t arg_grow_image = 0;
+static char *arg_tpm_state_path = NULL;
+static TpmStateMode arg_tpm_state_mode = TPM_STATE_AUTO;
 
 STATIC_DESTRUCTOR_REGISTER(arg_directory, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_machine, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_cpus, freep);
-STATIC_DESTRUCTOR_REGISTER(arg_runtime_directory, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_credentials, machine_credential_context_done);
 STATIC_DESTRUCTOR_REGISTER(arg_firmware, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_linux, freep);
@@ -141,6 +148,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_extra_drives, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_background, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_ssh_key_type, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_smbios11, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_tpm_state_path, freep);
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
@@ -168,6 +176,8 @@ static int help(void) {
                "     --vsock=BOOL          Override autodetection of VSOCK support\n"
                "     --vsock-cid=CID       Specify the CID to use for the guest's VSOCK support\n"
                "     --tpm=BOOL            Enable use of a virtual TPM\n"
+               "     --tpm-state=no|auto|PATH\n"
+               "                           Where to store TPM state\n"
                "     --linux=PATH          Specify the linux kernel for direct kernel boot\n"
                "     --initrd=PATH         Specify the initrd for direct kernel boot\n"
                "  -n --network-tap         Create a TAP device for networking\n"
@@ -263,6 +273,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_DISCARD_DISK,
                 ARG_CONSOLE,
                 ARG_BACKGROUND,
+                ARG_TPM_STATE,
         };
 
         static const struct option options[] = {
@@ -307,6 +318,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "background",        required_argument, NULL, ARG_BACKGROUND        },
                 { "smbios11",          required_argument, NULL, 's'                   },
                 { "grow-image",        required_argument, NULL, 'G'                   },
+                { "tpm-state",         required_argument, NULL, 'T'                   },
                 {}
         };
 
@@ -600,6 +612,26 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse --grow-image= parameter: %s", optarg);
 
+                        break;
+
+                case ARG_TPM_STATE:
+                        if (path_is_absolute(optarg) && path_is_valid(optarg)) {
+                                r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_tpm_state_path);
+                                if (r < 0)
+                                        return r;
+
+                                arg_tpm_state_mode = TPM_STATE_PATH;
+                                break;
+                        }
+
+                        r = isempty(optarg) ? false :
+                                streq(optarg, "auto") ? true :
+                                parse_boolean(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --tpm-state= parameter: %s", optarg);
+
+                        arg_tpm_state_mode = r ? TPM_STATE_AUTO : TPM_STATE_OFF;
+                        arg_tpm_state_path = mfree(arg_tpm_state_path);
                         break;
 
                 case '?':
@@ -1030,48 +1062,55 @@ static int start_tpm(
                 sd_bus *bus,
                 const char *scope,
                 const char *swtpm,
-                char **ret_state_tempdir) {
+                const char *runtime_dir,
+                char **ret_listen_address) {
 
-        _cleanup_(rm_rf_physical_and_freep) char *state_dir = NULL;
-        _cleanup_free_ char *scope_prefix = NULL;
-        _cleanup_(socket_service_pair_done) SocketServicePair ssp = {
-                .socket_type = SOCK_STREAM,
-        };
         int r;
 
         assert(bus);
         assert(scope);
         assert(swtpm);
-        assert(ret_state_tempdir);
+        assert(runtime_dir);
 
+        _cleanup_free_ char *scope_prefix = NULL;
         r = unit_name_to_prefix(scope, &scope_prefix);
         if (r < 0)
                 return log_error_errno(r, "Failed to strip .scope suffix from scope: %m");
+
+        _cleanup_(socket_service_pair_done) SocketServicePair ssp = {
+                .socket_type = SOCK_STREAM,
+        };
 
         ssp.unit_name_prefix = strjoin(scope_prefix, "-tpm");
         if (!ssp.unit_name_prefix)
                 return log_oom();
 
-        state_dir = path_join(arg_runtime_directory, ssp.unit_name_prefix);
-        if (!state_dir)
-                return log_oom();
-
-        if (arg_runtime_directory_created) {
-                ssp.runtime_directory = path_join("systemd/vmspawn", ssp.unit_name_prefix);
-                if (!ssp.runtime_directory)
-                        return log_oom();
-        }
-
-        ssp.listen_address = path_join(state_dir, "sock");
+        ssp.listen_address = path_join(runtime_dir, "tpm.sock");
         if (!ssp.listen_address)
                 return log_oom();
+
+        _cleanup_free_ char *transient_state_dir = NULL;
+        const char *state_dir;
+        if (arg_tpm_state_path)
+                state_dir = arg_tpm_state_path;
+        else {
+                transient_state_dir = path_join(runtime_dir, ssp.unit_name_prefix);
+                if (!transient_state_dir)
+                        return log_oom();
+
+                state_dir = transient_state_dir;
+        }
+
+        r = mkdir_p(state_dir, 0700);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create TPM state directory '%s': %m", state_dir);
 
         _cleanup_free_ char *swtpm_setup = NULL;
         r = find_executable("swtpm_setup", &swtpm_setup);
         if (r < 0)
                 return log_error_errno(r, "Failed to find swtpm_setup binary: %m");
 
-        ssp.exec_start_pre = strv_new(swtpm_setup, "--tpm-state", state_dir, "--tpm2", "--pcr-banks", "sha256");
+        ssp.exec_start_pre = strv_new(swtpm_setup, "--tpm-state", state_dir, "--tpm2", "--pcr-banks", "sha256", "--not-overwrite");
         if (!ssp.exec_start_pre)
                 return log_oom();
 
@@ -1091,31 +1130,39 @@ static int start_tpm(
         if (r < 0)
                 return r;
 
-        *ret_state_tempdir = TAKE_PTR(state_dir);
+        if (ret_listen_address)
+                *ret_listen_address = TAKE_PTR(ssp.listen_address);
+
         return 0;
 }
 
-static int start_systemd_journal_remote(sd_bus *bus, const char *scope, unsigned port, const char *sd_journal_remote, char **ret_listen_address) {
-        _cleanup_free_ char *scope_prefix = NULL;
-        _cleanup_(socket_service_pair_done) SocketServicePair ssp = {
-                .socket_type = SOCK_STREAM,
-        };
+static int start_systemd_journal_remote(
+                sd_bus *bus,
+                const char *scope,
+                unsigned port,
+                const char *sd_journal_remote,
+                char **ret_listen_address) {
+
         int r;
 
         assert(bus);
         assert(scope);
         assert(sd_journal_remote);
 
+        _cleanup_free_ char *scope_prefix = NULL;
         r = unit_name_to_prefix(scope, &scope_prefix);
         if (r < 0)
                 return log_error_errno(r, "Failed to strip .scope suffix from scope: %m");
+
+        _cleanup_(socket_service_pair_done) SocketServicePair ssp = {
+                .socket_type = SOCK_STREAM,
+        };
 
         ssp.unit_name_prefix = strjoin(scope_prefix, "-forward-journal");
         if (!ssp.unit_name_prefix)
                 return log_oom();
 
-        r = asprintf(&ssp.listen_address, "vsock:2:%u", port);
-        if (r < 0)
+        if (asprintf(&ssp.listen_address, "vsock:2:%u", port) < 0)
                 return log_oom();
 
         ssp.exec_start = strv_new(
@@ -1197,47 +1244,40 @@ static int find_virtiofsd(char **ret) {
         return 0;
 }
 
-static int start_virtiofsd(sd_bus *bus, const char *scope, const char *directory, bool uidmap, char **ret_state_tempdir, char **ret_sock_name) {
-        _cleanup_(rm_rf_physical_and_freep) char *state_dir = NULL;
-        _cleanup_free_ char *virtiofsd = NULL, *sock_name = NULL, *scope_prefix = NULL;
-        _cleanup_(socket_service_pair_done) SocketServicePair ssp = {
-                .socket_type = SOCK_STREAM,
-        };
+static int start_virtiofsd(
+                sd_bus *bus,
+                const char *scope,
+                const char *directory,
+                bool uidmap,
+                const char *runtime_dir,
+                char **ret_listen_address) {
+
         static unsigned virtiofsd_instance = 0;
         int r;
 
         assert(bus);
         assert(scope);
         assert(directory);
-        assert(ret_state_tempdir);
-        assert(ret_sock_name);
+        assert(runtime_dir);
 
+        _cleanup_free_ char *virtiofsd = NULL;
         r = find_virtiofsd(&virtiofsd);
         if (r < 0)
                 return r;
 
+        _cleanup_free_ char *scope_prefix = NULL;
         r = unit_name_to_prefix(scope, &scope_prefix);
         if (r < 0)
                 return log_error_errno(r, "Failed to strip .scope suffix from scope: %m");
 
+        _cleanup_(socket_service_pair_done) SocketServicePair ssp = {
+                .socket_type = SOCK_STREAM,
+        };
+
         if (asprintf(&ssp.unit_name_prefix, "%s-virtiofsd-%u", scope_prefix, virtiofsd_instance++) < 0)
                 return log_oom();
 
-        state_dir = path_join(arg_runtime_directory, ssp.unit_name_prefix);
-        if (!state_dir)
-                return log_oom();
-
-        if (arg_runtime_directory_created) {
-                ssp.runtime_directory = strjoin("systemd/vmspawn/", ssp.unit_name_prefix);
-                if (!ssp.runtime_directory)
-                        return log_oom();
-        }
-
-        if (asprintf(&sock_name, "sock-%"PRIx64, random_u64()) < 0)
-                return log_oom();
-
-        ssp.listen_address = path_join(state_dir, sock_name);
-        if (!ssp.listen_address)
+        if (asprintf(&ssp.listen_address, "%s/sock-%"PRIx64, runtime_dir, random_u64()) < 0)
                 return log_oom();
 
         /* QEMU doesn't support submounts so don't announce them */
@@ -1267,8 +1307,8 @@ static int start_virtiofsd(sd_bus *bus, const char *scope, const char *directory
         if (r < 0)
                 return r;
 
-        *ret_state_tempdir = TAKE_PTR(state_dir);
-        *ret_sock_name = TAKE_PTR(sock_name);
+        if (ret_listen_address)
+                *ret_listen_address = TAKE_PTR(ssp.listen_address);
 
         return 0;
 }
@@ -1634,17 +1674,26 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 return log_oom();
 
         /* if we are going to be starting any units with state then create our runtime dir */
-        if (arg_tpm != 0 || arg_directory || arg_runtime_mounts.n_mounts != 0) {
-                r = runtime_directory(arg_privileged ? RUNTIME_SCOPE_SYSTEM : RUNTIME_SCOPE_USER, "systemd/vmspawn",
-                                      &arg_runtime_directory);
+        _cleanup_free_ char *runtime_dir = NULL;
+        if (arg_tpm != 0 || arg_directory || arg_runtime_mounts.n_mounts != 0 || arg_pass_ssh_key) {
+                _cleanup_free_ char *subdir = NULL;
+
+                if (asprintf(&subdir, "systemd/vmspawn.%" PRIx64, random_u64()) < 0)
+                        return log_oom();
+
+                r = runtime_directory(
+                                arg_privileged ? RUNTIME_SCOPE_SYSTEM : RUNTIME_SCOPE_USER,
+                                subdir,
+                                &runtime_dir);
                 if (r < 0)
                         return log_error_errno(r, "Failed to lookup runtime directory: %m");
                 if (r > 0) { /* We need to create our own runtime dir */
-                        r = mkdir_p(arg_runtime_directory, 0755);
+                        r = mkdir_p(runtime_dir, 0755);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to create runtime directory: %m");
-                        arg_runtime_directory_created = true;
+                                return log_error_errno(r, "Failed to create runtime directory '%s: %m", runtime_dir);
                 }
+
+                log_debug("Using runtime directory: %s", runtime_dir);
         }
 
         _cleanup_close_ int delegate_userns_fd = -EBADF, tap_fd = -EBADF;
@@ -1957,7 +2006,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
                 escaped_image = escape_qemu_value(arg_image);
                 if (!escaped_image)
-                        log_oom();
+                        return log_oom();
 
                 r = strv_extendf(&cmdline, "if=none,id=vmspawn,file=%s,format=raw,discard=%s", escaped_image, on_off(arg_discard_disk));
                 if (r < 0)
@@ -1971,34 +2020,28 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         }
 
         if (arg_directory) {
-                _cleanup_free_ char *sock_path = NULL, *sock_name = NULL, *escaped_sock_path = NULL;
-
-                r = start_virtiofsd(bus, trans_scope, arg_directory, /* uidmap= */ true, &sock_path, &sock_name);
+                _cleanup_free_ char *listen_address = NULL;
+                r = start_virtiofsd(bus, trans_scope, arg_directory, /* uidmap= */ true, runtime_dir, &listen_address);
                 if (r < 0)
                         return r;
 
-                escaped_sock_path = escape_qemu_value(sock_path);
-                if (!escaped_sock_path)
-                        log_oom();
-
-                r = strv_extend(&cmdline, "-chardev");
-                if (r < 0)
+                _cleanup_free_ char *escaped_listen_address = escape_qemu_value(listen_address);
+                if (!escaped_listen_address)
                         return log_oom();
 
-                r = strv_extendf(&cmdline, "socket,id=%1$s,path=%2$s/%1$s", sock_name, escaped_sock_path);
-                if (r < 0)
+                if (strv_extend(&cmdline, "-chardev") < 0)
                         return log_oom();
 
-                r = strv_extend(&cmdline, "-device");
-                if (r < 0)
+                if (strv_extendf(&cmdline, "socket,id=rootdir,path=%s", escaped_listen_address) < 0)
                         return log_oom();
 
-                r = strv_extendf(&cmdline, "vhost-user-fs-pci,queue-size=1024,chardev=%s,tag=root", sock_name);
-                if (r < 0)
+                if (strv_extend_many(
+                                    &cmdline,
+                                    "-device",
+                                    "vhost-user-fs-pci,queue-size=1024,chardev=rootdir,tag=root") < 0)
                         return log_oom();
 
-                r = strv_extend(&arg_kernel_cmdline_extra, "root=root rootfstype=virtiofs rw");
-                if (r < 0)
+                if (strv_extend(&arg_kernel_cmdline_extra, "root=root rootfstype=virtiofs rw") < 0)
                         return log_oom();
         }
 
@@ -2007,38 +2050,37 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 return log_oom();
 
         FOREACH_ARRAY(mount, arg_runtime_mounts.mounts, arg_runtime_mounts.n_mounts) {
-                _cleanup_free_ char *sock_path = NULL, *sock_name = NULL, *clean_target = NULL, *escaped_sock_path = NULL;
-                r = start_virtiofsd(bus, trans_scope, mount->source, /* uidmap= */ false, &sock_path, &sock_name);
+                _cleanup_free_ char *listen_address = NULL;
+                r = start_virtiofsd(bus, trans_scope, mount->source, /* uidmap= */ false, runtime_dir, &listen_address);
                 if (r < 0)
                         return r;
 
-                escaped_sock_path = escape_qemu_value(sock_path);
-                if (!escaped_sock_path)
-                        log_oom();
-
-                r = strv_extend(&cmdline, "-chardev");
-                if (r < 0)
+                _cleanup_free_ char *escaped_listen_address = escape_qemu_value(listen_address);
+                if (!escaped_listen_address)
                         return log_oom();
 
-                r = strv_extendf(&cmdline, "socket,id=%1$s,path=%2$s/%1$s", sock_name, escaped_sock_path);
-                if (r < 0)
+                if (strv_extend(&cmdline, "-chardev") < 0)
                         return log_oom();
 
-                r = strv_extend(&cmdline, "-device");
-                if (r < 0)
+                _cleanup_free_ char *id = NULL;
+                if (asprintf(&id, "mnt%zi", mount - arg_runtime_mounts.mounts) < 0)
                         return log_oom();
 
-                r = strv_extendf(&cmdline, "vhost-user-fs-pci,queue-size=1024,chardev=%1$s,tag=%1$s", sock_name);
-                if (r < 0)
+                if (strv_extendf(&cmdline, "socket,id=%s,path=%s", id, escaped_listen_address) < 0)
                         return log_oom();
 
-                clean_target = xescape(mount->target, "\":");
+                if (strv_extend(&cmdline, "-device") < 0)
+                        return log_oom();
+
+                if (strv_extendf(&cmdline, "vhost-user-fs-pci,queue-size=1024,chardev=%1$s,tag=%1$s", id) < 0)
+                        return log_oom();
+
+                _cleanup_free_ char *clean_target = xescape(mount->target, "\":");
                 if (!clean_target)
                         return log_oom();
 
-                r = strv_extendf(&arg_kernel_cmdline_extra, "systemd.mount-extra=\"%s:%s:virtiofs:%s\"",
-                                 sock_name, clean_target, mount->read_only ? "ro" : "rw");
-                if (r < 0)
+                if (strv_extendf(&arg_kernel_cmdline_extra, "systemd.mount-extra=\"%s:%s:virtiofs:%s\"",
+                                 id, clean_target, mount->read_only ? "ro" : "rw") < 0)
                         return log_oom();
         }
 
@@ -2052,15 +2094,40 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         /* disable TPM autodetection if the user's hardware doesn't support it */
         if (!ARCHITECTURE_SUPPORTS_TPM) {
-                if (arg_tpm < 0) {
-                        arg_tpm = 0;
-                        log_debug("TPM not support on %s, disabling tpm autodetection and continuing", architecture_to_string(native_architecture()));
-                } else if (arg_tpm > 0)
+                if (arg_tpm > 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "TPM not supported on %s, refusing", architecture_to_string(native_architecture()));
+                if (arg_tpm < 0) {
+                        arg_tpm = false;
+                        log_debug("TPM not support on %s, disabling tpm autodetection and continuing", architecture_to_string(native_architecture()));
+                }
         }
 
         _cleanup_free_ char *swtpm = NULL;
         if (arg_tpm != 0) {
+                if (arg_tpm_state_mode == TPM_STATE_AUTO &&
+                    !arg_tpm_state_path) {
+                        const char *p = ASSERT_PTR(arg_image ?: arg_directory);
+
+                        _cleanup_free_ char *parent = NULL;
+                        r = path_extract_directory(p, &parent);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to extract parent directory from '%s': %m", p);
+
+                        _cleanup_free_ char *filename = NULL;
+                        r = path_extract_filename(p, &filename);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to extract filename from '%s': %m", p);
+
+                        if (!strextend(&filename, ".tpmstate"))
+                                return log_oom();
+
+                        arg_tpm_state_path = path_join(parent, filename);
+                        if (!arg_tpm_state_path)
+                                return log_oom();
+
+                        log_debug("Storing TPM state persistently under '%s'.", arg_tpm_state_path);
+                }
+
                 r = find_executable("swtpm", &swtpm);
                 if (r < 0) {
                         /* log if the user asked for swtpm and we cannot find it */
@@ -2072,34 +2139,30 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 }
         }
 
-        _cleanup_free_ char *tpm_state_tempdir = NULL;
+        _cleanup_free_ char *tpm_socket_address = NULL;
         if (swtpm) {
-                r = start_tpm(bus, trans_scope, swtpm, &tpm_state_tempdir);
+                r = start_tpm(bus, trans_scope, swtpm, runtime_dir, &tpm_socket_address);
                 if (r < 0) {
                         /* only bail if the user asked for a tpm */
                         if (arg_tpm > 0)
                                 return log_error_errno(r, "Failed to start tpm: %m");
+
                         log_debug_errno(r, "Failed to start tpm, ignoring: %m");
                 }
         }
 
-        if (tpm_state_tempdir) {
-                _cleanup_free_ char *escaped_state_dir = NULL;
-
-                escaped_state_dir = escape_qemu_value(tpm_state_tempdir);
-                if (!escaped_state_dir)
-                        log_oom();
-
-                r = strv_extend(&cmdline, "-chardev");
-                if (r < 0)
+        if (tpm_socket_address) {
+                _cleanup_free_ char *escaped_tpm_socket_address = escape_qemu_value(tpm_socket_address);
+                if (!escaped_tpm_socket_address)
                         return log_oom();
 
-                r = strv_extendf(&cmdline, "socket,id=chrtpm,path=%s/sock", escaped_state_dir);
-                if (r < 0)
+                if (strv_extend(&cmdline, "-chardev") < 0)
                         return log_oom();
 
-                r = strv_extend_many(&cmdline, "-tpmdev", "emulator,id=tpm0,chardev=chrtpm");
-                if (r < 0)
+                if (strv_extendf(&cmdline, "socket,id=chrtpm,path=%s", tpm_socket_address) < 0)
+                        return log_oom();
+
+                if (strv_extend_many(&cmdline, "-tpmdev", "emulator,id=tpm0,chardev=chrtpm") < 0)
                         return log_oom();
 
                 if (native_architecture() == ARCHITECTURE_X86_64)
@@ -2165,7 +2228,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to strip .scope suffix from scope: %m");
 
-                privkey_path = strjoin(arg_runtime_directory, "/", scope_prefix, "-", key_type);
+                privkey_path = strjoin(runtime_dir, "/", scope_prefix, "-", key_type);
                 if (!privkey_path)
                         return log_oom();
 
