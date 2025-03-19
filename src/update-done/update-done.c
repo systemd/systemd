@@ -6,6 +6,7 @@
 
 #include "alloc-util.h"
 #include "fileio.h"
+#include "main-func.h"
 #include "path-util.h"
 #include "selinux-util.h"
 #include "time-util.h"
@@ -40,23 +41,23 @@ static int save_timestamp(const char *dir, struct timespec *ts) {
         return 0;
 }
 
-int main(int argc, char *argv[]) {
+static int run(int argc, char *argv[]) {
         struct stat st;
-        int r, q = 0;
+        int r;
 
         log_setup();
 
-        if (stat("/usr", &st) < 0) {
-                log_error_errno(errno, "Failed to stat /usr: %m");
-                return EXIT_FAILURE;
-        }
+        if (stat("/usr", &st) < 0)
+                return log_error_errno(errno, "Failed to stat /usr: %m");
 
         r = mac_init();
         if (r < 0)
-                return EXIT_FAILURE;
+                return r;
 
-        r = save_timestamp("/etc/", &st.st_mtim);
-        q = save_timestamp("/var/", &st.st_mtim);
-
-        return r < 0 || q < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        r = 0;
+        RET_GATHER(r, save_timestamp("/etc/", &st.st_mtim));
+        RET_GATHER(r, save_timestamp("/var/", &st.st_mtim));
+        return r;
 }
+
+DEFINE_MAIN_FUNCTION(run);
