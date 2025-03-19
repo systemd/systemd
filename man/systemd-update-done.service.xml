@@ -18,7 +18,7 @@
   <refnamediv>
     <refname>systemd-update-done.service</refname>
     <refname>systemd-update-done</refname>
-    <refpurpose>Mark <filename>/etc/</filename> and <filename>/var/</filename> fully updated</refpurpose>
+    <refpurpose>Mark <filename>/etc/</filename> and <filename>/var/</filename> as fully updated</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -61,6 +61,16 @@
     used it overrides the <varname>ConditionNeedsUpdate=</varname> unit condition checks. In that case
     <filename>systemd-update-done.service</filename> will not reset the condition state until a follow-up
     reboot where the kernel switch is not specified anymore.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options are understood:</para>
+
+    <variablelist>
+      <xi:include href="standard-options.xml" xpointer="help" />
+    </variablelist>
   </refsect1>
 
   <refsect1>
