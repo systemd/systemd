@@ -102,9 +102,8 @@ static int create_special_device(
 
         fprintf(f,
                 "Before=veritysetup.target\n"
-                "BindsTo=%s %s\n"
-                "After=%s %s\n",
-                d, e,
+                "BindsTo=%1$s %2$s\n"
+                "After=%1$s %2$s\n",
                 d, e);
 
         r = generator_write_veritysetup_service_section(f, name, u, v, roothash, options);
@@ -222,7 +221,6 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 r = free_and_strdup(&arg_usr_options, value);
                 if (r < 0)
                         return log_oom();
-
         }
 
         return 0;
