@@ -335,7 +335,7 @@ int make_filesystem(
         _cleanup_(unlink_and_freep) char *protofile = NULL;
         char vol_id[CONST_MAX(SD_ID128_UUID_STRING_MAX, 8U + 1U)] = {};
         int stdio_fds[3] = { -EBADF, STDERR_FILENO, STDERR_FILENO};
-        ForkFlags flags = FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT|
+        ForkFlags fork_flags = FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT|
                         FORK_CLOSE_ALL_FDS|FORK_REARRANGE_STDIO|FORK_REOPEN_LOG;
         int r;
 
@@ -663,7 +663,7 @@ int make_filesystem(
                         return log_error_errno(r, "Failed to stat '%s': %m", node);
 
                 if (S_ISBLK(st.st_mode))
-                        flags |= FORK_NEW_MOUNTNS;
+                        fork_flags |= FORK_NEW_MOUNTNS;
         }
 
         if (DEBUG_LOGGING) {
@@ -678,7 +678,7 @@ int make_filesystem(
                         stdio_fds,
                         /*except_fds=*/ NULL,
                         /*n_except_fds=*/ 0,
-                        flags,
+                        fork_flags,
                         /*ret_pid=*/ NULL);
         if (r < 0)
                 return r;
@@ -695,7 +695,7 @@ int make_filesystem(
                  * on unformatted free space, so let's trick it and other mkfs tools into thinking no
                  * partitions are mounted. See https://github.com/kdave/btrfs-progs/issues/640 for more
                  ° information. */
-                 if (flags & FORK_NEW_MOUNTNS)
+                 if (fork_flags & FORK_NEW_MOUNTNS)
                         (void) mount_nofollow_verbose(LOG_DEBUG, "/dev/null", "/proc/self/mounts", NULL, MS_BIND, NULL);
 
                 execvp(mkfs, argv);
