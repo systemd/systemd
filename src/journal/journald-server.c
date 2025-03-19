@@ -119,7 +119,7 @@ static int server_determine_path_usage(
 
         if (fstatvfs(dirfd(d), &ss) < 0)
                 return log_ratelimit_error_errno(errno, JOURNAL_LOG_RATELIMIT,
-                                                "Failed to fstatvfs(%s): %m", path);
+                                                 "Failed to fstatvfs(%s): %m", path);
 
         *ret_free = ss.f_bsize * ss.f_bavail;
         *ret_used = 0;

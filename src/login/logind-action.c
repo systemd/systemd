@@ -173,11 +173,10 @@ HandleAction handle_action_sleep_select(Manager *m) {
         assert(m);
 
         FOREACH_ELEMENT(i, sleep_actions) {
-                HandleActionSleepMask action_mask = 1U << *i;
                 const HandleActionData *a;
                 _cleanup_free_ char *load_state = NULL;
 
-                if (!FLAGS_SET(m->handle_action_sleep_mask, action_mask))
+                if (!BIT_SET(m->handle_action_sleep_mask, *i))
                         continue;
 
                 a = ASSERT_PTR(handle_action_lookup(*i));
@@ -484,7 +483,7 @@ int config_parse_handle_action_sleep(
                         continue;
                 }
 
-                *mask |= 1U << a;
+                SET_BIT(*mask, a);
         }
 
         if (*mask == 0)
