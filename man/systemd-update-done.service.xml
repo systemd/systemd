@@ -69,6 +69,15 @@
     <para>The following options are understood:</para>
 
     <variablelist>
+      <varlistentry>
+        <term><option>--root=<replaceable>root</replaceable></option></term>
+        <listitem><para>Takes a directory path as an argument. The program
+        will operate on paths below the specified root directory.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
     </variablelist>
   </refsect1>
