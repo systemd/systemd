@@ -38,5 +38,6 @@ jobs:
   trigger: pull_request
   fmf_path: test/fmf
   tmt_plan: ci
+  use_target_repo_for_fmf_url: true
   targets:
   - fedora-rawhide-x86_64
