@@ -108,9 +108,6 @@ EOF
     touch /etc/yum.repos.d/mkosi.repo
 fi
 
-# TODO: drop once BTRFS regression is fixed in kernel 6.13
-sed -i "s/Format=btrfs/Format=ext4/" mkosi.repart/10-root.conf
-
 # If we don't have KVM, skip running in qemu, as it's too slow. But try to load the module first.
 modprobe kvm || true
 if [[ ! -e /dev/kvm ]]; then
