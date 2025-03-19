@@ -32,7 +32,7 @@ static int save_timestamp(const char *dir, struct timespec *ts) {
 
         fd = chase_and_open(dir, arg_root,
                             CHASE_PREFIX_ROOT | CHASE_WARN | CHASE_MUST_BE_DIRECTORY,
-                            O_DIRECTORY | O_CLOEXEC,
+                            O_DIRECTORY | O_CLOEXEC | O_CREAT,
                             &dirpath);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to open %s%s: %m", strempty(arg_root), dir);
