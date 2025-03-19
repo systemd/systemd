@@ -222,11 +222,11 @@ static RequestOperation look_for_escape(PTYForward *f, const char *buffer, size_
                 case 0x1D: { /* Check for ^] */
                         usec_t nw = now(CLOCK_MONOTONIC);
 
-                        if (f->escape_counter == 0 || nw > f->escape_timestamp + ESCAPE_USEC) {
+                        if (f->escape_counter == 0 || nw > usec_add(f->escape_timestamp, ESCAPE_USEC)) {
                                 f->escape_timestamp = nw;
                                 f->escape_counter = 1;
                         } else {
-                                (f->escape_counter)++;
+                                f->escape_counter++;
 
                                 if (f->escape_counter >= 3)
                                         return REQUEST_EXIT;
@@ -237,7 +237,7 @@ static RequestOperation look_for_escape(PTYForward *f, const char *buffer, size_
 
                 case 'a'...'z':
                         if (f->escape_counter == 2 &&
-                            now(CLOCK_MONOTONIC) <= f->escape_timestamp + ESCAPE_USEC) {
+                            now(CLOCK_MONOTONIC) <= usec_add(f->escape_timestamp, ESCAPE_USEC)) {
                                 f->escape_timestamp = 0;
                                 f->escape_counter = 0;
                                 return REQUEST_HOTKEY_BASE + *p;

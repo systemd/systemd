@@ -7,6 +7,7 @@
 #define _INDEX_TO_MASK(type, i, uniq)                                   \
         ({                                                              \
                 int UNIQ_T(_i, uniq) = (i);                             \
+                assert(UNIQ_T(_i, uniq) >= 0);                          \
                 assert(UNIQ_T(_i, uniq) < (int)sizeof(type) * 8);       \
                 ((type)1) << UNIQ_T(_i, uniq);                          \
         })

@@ -153,23 +153,22 @@ static int dump_processes(
 
         if (!hashmap_isempty(cg->pids)) {
                 const char *name;
-                size_t n = 0, i;
-                pid_t *pids;
                 void *pidp;
-                int width;
+                size_t n = 0;
 
                 /* Order processes by their PID */
-                pids = newa(pid_t, hashmap_size(cg->pids));
+                pid_t *pids = newa(pid_t, hashmap_size(cg->pids));
 
                 HASHMAP_FOREACH_KEY(name, pidp, cg->pids)
                         pids[n++] = PTR_TO_PID(pidp);
 
                 assert(n == hashmap_size(cg->pids));
+                assert(n > 0);
                 typesafe_qsort(pids, n, pid_compare_func);
 
-                width = DECIMAL_STR_WIDTH(pids[n-1]);
+                int width = DECIMAL_STR_WIDTH(pids[n-1]);
 
-                for (i = 0; i < n; i++) {
+                for (size_t i = 0; i < n; i++) {
                         _cleanup_free_ char *e = NULL;
                         const char *special;
                         bool more;
