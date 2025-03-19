@@ -525,8 +525,8 @@ cap_net_raw              13
       <example>
         <title>Evaluate conditions that check kernel versions</title>
 
-        <programlisting>$ systemd-analyze condition 'ConditionKernelVersion = ! &lt;4.0' \
-        'ConditionKernelVersion = &gt;=5.1' \
+        <programlisting>$ systemd-analyze condition 'ConditionVersion = ! &lt;4.0' \
+        'ConditionVersion = &gt;=5.1' \
         'ConditionACPower=|false' \
         'ConditionArchitecture=|!arm' \
         'AssertPathExists=/etc/os-release'
@@ -534,8 +534,8 @@ test.service: AssertPathExists=/etc/os-release succeeded.
 Asserts succeeded.
 test.service: ConditionArchitecture=|!arm succeeded.
 test.service: ConditionACPower=|false failed.
-test.service: ConditionKernelVersion=&gt;=5.1 succeeded.
-test.service: ConditionKernelVersion=!&lt;4.0 succeeded.
+test.service: ConditionVersion=&gt;=5.1 succeeded.
+test.service: ConditionVersion=!&lt;4.0 succeeded.
 Conditions succeeded.</programlisting>
       </example>
     </refsect2>

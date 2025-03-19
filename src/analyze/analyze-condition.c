@@ -14,41 +14,48 @@ static int parse_condition(Unit *u, const char *line) {
         assert(u);
         assert(line);
 
-        for (ConditionType t = 0; t < _CONDITION_TYPE_MAX; t++) {
-                ConfigParserCallback callback;
-                Condition **target;
-                const char *p, *name;
+        line = skip_leading_chars(line, /* bad = */ NULL);
 
-                name = condition_type_to_string(t);
-                p = startswith(line, name);
-                if (p)
-                        target = &u->conditions;
-                else {
-                        name = assert_type_to_string(t);
-                        p = startswith(line, name);
-                        if (!p)
-                                continue;
+        const char *eq = strchr(line, '=');
+        if (!eq)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot parse \"%s\".", line);
 
-                        target = &u->asserts;
-                }
+        _cleanup_free_ char *type_string = strndup(line, eq - line);
+        if (!type_string)
+                return log_oom();
 
-                p += strspn(p, WHITESPACE);
+        delete_trailing_chars(type_string, /* bad = */ NULL);
 
-                if (*p != '=')
-                        continue;
-                p++;
-
-                p += strspn(p, WHITESPACE);
-
-                if (condition_takes_path(t))
-                        callback = config_parse_unit_condition_path;
-                else
-                        callback = config_parse_unit_condition_string;
-
-                return callback(NULL, "(cmdline)", 0, NULL, 0, name, t, p, target, u);
+        Condition **target;
+        ConditionType type;
+        if (startswith(type_string, "Condition")) {
+                target = &u->conditions;
+                type = condition_type_from_string(type_string);
+        } else {
+                target = &u->asserts;
+                type = assert_type_from_string(type_string);
         }
+        if (type < 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot parse \"%s\".", line);
 
-        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot parse \"%s\".", line);
+        const char *val = skip_leading_chars(eq + 1, /* bad = */ NULL);
+
+        ConfigParserCallback callback;
+        if (condition_takes_path(type))
+                callback = config_parse_unit_condition_path;
+        else
+                callback = config_parse_unit_condition_string;
+
+        return callback(/* unit = */ NULL,
+                        /* filename = */ "(cmdline)",
+                        /* line = */ 0,
+                        /* section = */ NULL,
+                        /* section_line = */ 0,
+                        /* lvalue = */ type_string,
+                        /* ltype = */ type,
+                        /* rvalue = */ val,
+                        /* data = */ target,
+                        /* userdata = */ u);
 }
 
 _printf_(7, 8)
