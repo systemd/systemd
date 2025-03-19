@@ -6,16 +6,12 @@
 
 #include "alloc-util.h"
 #include "fileio.h"
+#include "path-util.h"
 #include "selinux-util.h"
 #include "time-util.h"
 
-#define MESSAGE                                                         \
-        "# This file was created by systemd-update-done. Its only\n"    \
-        "# purpose is to hold a timestamp of the time this directory\n" \
-        "# was updated. See man:systemd-update-done.service(8).\n"
-
-static int apply_timestamp(const char *path, struct timespec *ts) {
-        _cleanup_free_ char *message = NULL;
+static int save_timestamp(const char *dir, struct timespec *ts) {
+        _cleanup_free_ char *message = NULL, *path = NULL;
         int r;
 
         /*
@@ -23,9 +19,16 @@ static int apply_timestamp(const char *path, struct timespec *ts) {
          * to support filesystems which cannot store nanosecond-precision timestamps.
          */
 
+        path = path_join(dir, ".updated");
+        if (!path)
+                return log_oom();
+
         if (asprintf(&message,
-                     MESSAGE
+                     "# This file was created by systemd-update-done. The timestamp below is the\n"
+                     "# modification time of /usr/ for which the most recent updates of %s have\n"
+                     "# been applied. See man:systemd-update-done.service(8) for details.\n"
                      "TIMESTAMP_NSEC=" NSEC_FMT "\n",
+                     dir,
                      timespec_load_nsec(ts)) < 0)
                 return log_oom();
 
@@ -52,8 +55,8 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 return EXIT_FAILURE;
 
-        r = apply_timestamp("/etc/.updated", &st.st_mtim);
-        q = apply_timestamp("/var/.updated", &st.st_mtim);
+        r = save_timestamp("/etc/", &st.st_mtim);
+        q = save_timestamp("/var/", &st.st_mtim);
 
         return r < 0 || q < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
