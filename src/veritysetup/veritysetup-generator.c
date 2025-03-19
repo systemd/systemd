@@ -65,14 +65,11 @@ static int create_special_device(
 
         /* if one of them is missing however, the data is simply incomplete and this is an error */
         if (!roothash)
-                log_error("Verity information for %s incomplete, root hash unspecified.", name);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Verity information for %s incomplete, root hash unspecified.", name);
         if (!data_what)
-                log_error("Verity information for %s incomplete, data device unspecified.", name);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Verity information for %s incomplete, data device unspecified.", name);
         if (!hash_what)
-                log_error("Verity information for %s incomplete, hash device unspecified.", name);
-
-        if (!roothash || !data_what || !hash_what)
-                return -EINVAL;
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Verity information for %s incomplete, hash device unspecified.", name);
 
         _cleanup_free_ char *service = NULL;
         r = unit_name_build("systemd-veritysetup", name, ".service", &service);
