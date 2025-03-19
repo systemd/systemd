@@ -86,6 +86,7 @@ ssize_t loop_read(int fd, void *buf, size_t nbytes, bool do_poll) {
                         return n;
 
                 assert((size_t) k <= nbytes);
+                assert(k <= SSIZE_MAX - n);
 
                 p += k;
                 nbytes -= k;
