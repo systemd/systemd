@@ -54,6 +54,8 @@
  * out specific attributes from us. */
 #define LOG_LEVEL_CGROUP_WRITE(r) (IN_SET(abs(r), ENOENT, EROFS, EACCES, EPERM) ? LOG_DEBUG : LOG_WARNING)
 
+static void unit_remove_from_cgroup_empty_queue(Unit *u);
+
 uint64_t cgroup_tasks_max_resolve(const CGroupTasksMax *tasks_max) {
         if (tasks_max->scale == 0)
                 return tasks_max->value;
@@ -3072,6 +3074,10 @@ int unit_attach_pids_to_cgroup(Unit *u, Set *pids, const char *suffix_path) {
                                 else {
                                         if (ret >= 0)
                                                 ret++; /* Count successful additions */
+
+                                        /* the cgroup is definitely not empty now, in case the unit was in
+                                         * the cgroup empty queue, drop it from there */
+                                        unit_remove_from_cgroup_empty_queue(u);
                                         continue; /* When the bus thing worked via the bus we are fully done for this PID. */
                                 }
                         }
@@ -3080,8 +3086,10 @@ int unit_attach_pids_to_cgroup(Unit *u, Set *pids, const char *suffix_path) {
                                 ret = r; /* Remember first error */
 
                         continue;
-                } else if (ret >= 0)
+                } else if (ret >= 0) {
+                        unit_remove_from_cgroup_empty_queue(u);
                         ret++; /* Count successful additions */
+                }
 
                 r = cg_all_unified();
                 if (r < 0)
