@@ -8,3 +8,6 @@ require:
     - distribution-gpg-keys
     - dnf
     - git-core
+    - koji
+    - centos-packager
+    - copr-cli
