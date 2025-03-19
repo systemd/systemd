@@ -1355,6 +1355,8 @@ int decrypt_credential_and_warn(
                                 /* n_policy_hash= */ 1,
                                 /* srk= */ NULL,
                                 &tpm2_key);
+                if (r == -EREMOTE)
+                        return log_error_errno(r, "TPM key integrity check failed. Key enrolled in superblock most likely does not belong to this TPM.");
                 if (r < 0)
                         return log_error_errno(r, "Failed to unseal secret using TPM2: %m");
 #else
