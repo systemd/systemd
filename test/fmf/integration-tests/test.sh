@@ -47,16 +47,16 @@ export PATH="$PWD/mkosi/bin:$PATH"
 
 tee mkosi.local.conf <<EOF
 [Distribution]
-Distribution=$ID
-Release=${VERSION_ID:-rawhide}
+Distribution=${MKOSI_DISTRIBUTION:-$ID}
+Release=${MKOSI_RELEASE:-${VERSION_ID:-rawhide}}
 PackageDirectories=.
 
 [Content]
 SELinuxRelabel=yes
 
 [Build]
-ToolsTreeDistribution=$ID
-ToolsTreeRelease=${VERSION_ID:-rawhide}
+ToolsTreeDistribution=${MKOSI_DISTRIBUTION:-$ID}
+ToolsTreeRelease=${MKOSI_RELEASE:-${VERSION_ID:-rawhide}}
 Environment=NO_BUILD=1
 WithTests=yes
 EOF
