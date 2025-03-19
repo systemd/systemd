@@ -8,10 +8,15 @@
 #include "alloc-util.h"
 #include "fileio.h"
 #include "main-func.h"
+#include "parse-argument.h"
 #include "path-util.h"
 #include "pretty-print.h"
 #include "selinux-util.h"
 #include "time-util.h"
+
+static char *arg_root = NULL;
+
+STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 
 static int save_timestamp(const char *dir, struct timespec *ts) {
         _cleanup_free_ char *message = NULL, *path = NULL;
@@ -22,7 +27,7 @@ static int save_timestamp(const char *dir, struct timespec *ts) {
          * to support filesystems which cannot store nanosecond-precision timestamps.
          */
 
-        path = path_join(dir, ".updated");
+        path = path_join(arg_root, dir, ".updated");
         if (!path)
                 return log_oom();
 
@@ -36,7 +41,7 @@ static int save_timestamp(const char *dir, struct timespec *ts) {
                 return log_oom();
 
         r = write_string_file_full(AT_FDCWD, path, message, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_LABEL, ts, NULL);
-        if (r == -EROFS)
+        if (r == -EROFS && !arg_root)
                 log_debug_errno(r, "Cannot create \"%s\", file system is read-only.", path);
         else if (r < 0)
                 return log_error_errno(r, "Failed to write \"%s\": %m", path);
@@ -55,6 +60,7 @@ static int help(void) {
                "%5$sMark /etc/ and /var/ as fully updated.%6$s\n"
                "\n%3$sOptions:%4$s\n"
                "  -h --help              Show this help\n"
+               "     --root=PATH         Operate on root directory PATH\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -67,12 +73,17 @@ static int help(void) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
+        enum {
+                ARG_ROOT = 0x100,
+        };
+
         static const struct option options[] = {
                 { "help",     no_argument,       NULL, 'h'          },
+                { "root",     required_argument, NULL, ARG_ROOT     },
                 {},
         };
 
-        int c;
+        int r, c;
 
         assert(argc >= 0);
         assert(argv);
@@ -83,6 +94,12 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'h':
                         return help();
+
+                case ARG_ROOT:
+                        r = parse_path_argument(optarg, false, &arg_root);
+                        if (r < 0)
+                                return r;
+                        break;
 
                 case '?':
                         return -EINVAL;
@@ -108,8 +125,12 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        if (stat("/usr", &st) < 0)
-                return log_error_errno(errno, "Failed to stat /usr: %m");
+        _cleanup_free_ char *path = path_join(arg_root, "/usr");
+        if (!path)
+                return log_oom();
+
+        if (stat(path, &st) < 0)
+                return log_error_errno(errno, "Failed to stat %s: %m", path);
 
         r = mac_init();
         if (r < 0)
