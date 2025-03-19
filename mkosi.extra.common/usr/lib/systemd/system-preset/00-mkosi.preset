@@ -22,6 +22,9 @@ enable systemd-networkd-wait-online.service
 # systemd-resolved is disable by default on CentOS so make sure it is enabled.
 enable systemd-resolved.service
 
+# systemd-userdbd.socket is disabled by default on OpenSUSE
+enable systemd-userdbd.socket
+
 # We install dnf in some images but it's only going to be used rarely,
 # so let's not have dnf create its cache.
 disable dnf-makecache.*
