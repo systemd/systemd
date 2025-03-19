@@ -3028,11 +3028,13 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
                           '25-vxlan-ipv6.netdev', '25-vxlan-ipv6.network',
                           '25-vxlan-independent.netdev', '26-netdev-link-local-addressing-yes.network',
                           '25-veth.netdev', '25-vxlan-veth99.network', '25-ipv6-prefix.network',
-                          '25-vxlan-local-slaac.netdev', '25-vxlan-local-slaac.network')
+                          '25-vxlan-local-slaac.netdev', '25-vxlan-local-slaac.network',
+                          '25-vxlan-external.netdev', '25-vxlan-external.network')
         start_networkd()
 
         self.wait_online('test1:degraded', 'veth99:routable', 'veth-peer:degraded',
-                         'vxlan99:degraded', 'vxlan98:degraded', 'vxlan97:degraded', 'vxlan-slaac:degraded')
+                         'vxlan99:degraded', 'vxlan98:degraded', 'vxlan97:degraded', 'vxlan-slaac:degraded',
+                         'vxlan-external:degraded')
         self.networkctl_check_unit('test1', '11-dummy', '25-vxlan-test1')
         self.networkctl_check_unit('veth99', '25-veth', '25-vxlan-veth99')
         self.networkctl_check_unit('veth-peer', '25-veth', '25-ipv6-prefix')
@@ -3040,6 +3042,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.networkctl_check_unit('vxlan98', '25-vxlan-independent', '26-netdev-link-local-addressing-yes')
         self.networkctl_check_unit('vxlan97', '25-vxlan-ipv6', '25-vxlan-ipv6')
         self.networkctl_check_unit('vxlan-slaac', '25-vxlan-local-slaac', '25-vxlan-local-slaac')
+        self.networkctl_check_unit('vxlan-external', '25-vxlan-external', '25-vxlan-external')
 
         output = check_output('ip -d -d link show vxlan99')
         print(output)
@@ -3083,6 +3086,12 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         output = check_output('ip -6 address show veth99')
         print(output)
         self.assertIn('inet6 2002:da8:1:0:1034:56ff:fe78:9abc/64 scope global dynamic', output)
+
+        output = check_output('ip -d link show vxlan-external')
+        print(output)
+        self.assertIn('vxlan id 0', output)
+        self.assertIn('external', output)
+        self.assertIn('vnifilter', output)
 
     @unittest.skipUnless(compare_kernel_version("6"), reason="Causes kernel panic on unpatched kernels: https://bugzilla.kernel.org/show_bug.cgi?id=208315")
     def test_macsec(self):

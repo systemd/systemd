@@ -669,7 +669,8 @@
       <varlistentry>
         <term><varname>VNI=</varname></term>
         <listitem>
-          <para>The VXLAN Network Identifier (or VXLAN Segment ID). Takes a number in the range 1…16777215.</para>
+          <para>The VXLAN Network Identifier (or VXLAN Segment ID). Takes a number in the range 1…16777215.
+          Ignored if <varname>External=</varname> is set to true.</para>
 
         <xi:include href="version-info.xml" xpointer="v243"/>
         </listitem>
@@ -897,6 +898,24 @@
           using <varname>VXLAN=</varname> is required for the VXLAN to be created.</para>
 
           <xi:include href="version-info.xml" xpointer="v247"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>External=</varname></term>
+        <listitem>
+          <para>Takes a boolean. When true, the vxlan interface is externally controlled, for example by an
+          EVPN control plane. Defaults to false.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>VNIFilter=</varname></term>
+        <listitem>
+          <para>Takes a boolean. When true, the interface is capable of filtering VNI filtering.
+          Ignored if <varname>External=</varname> is set to false. Defaults to false.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/>
         </listitem>
       </varlistentry>
     </variablelist>
