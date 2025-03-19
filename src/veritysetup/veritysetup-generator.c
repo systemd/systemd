@@ -92,7 +92,7 @@ static int create_special_device(
         if (r < 0)
                 return log_error_errno(r, "Failed to generate unit name: %m");
 
-        r = generator_open_unit_file(arg_dest, NULL, service, &f);
+        r = generator_open_unit_file(arg_dest, "/proc/cmdline", service, &f);
         if (r < 0)
                 return r;
 
