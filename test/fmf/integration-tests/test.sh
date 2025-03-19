@@ -57,6 +57,7 @@ SELinuxRelabel=yes
 [Build]
 ToolsTreeDistribution=${MKOSI_DISTRIBUTION:-$ID}
 ToolsTreeRelease=${MKOSI_RELEASE:-${VERSION_ID:-rawhide}}
+ToolsTreePackageDirectories=..
 Environment=NO_BUILD=1
 WithTests=yes
 EOF
@@ -90,7 +91,7 @@ mkosi summary
 mkosi -f sandbox -- true
 mkosi sandbox -- meson setup --buildtype=debugoptimized -Dintegration-tests=true build
 mkosi genkey
-mkosi sandbox -- meson compile -C build mkosi
+mkosi -f
 mkosi sandbox -- \
     meson test \
     -C build \
