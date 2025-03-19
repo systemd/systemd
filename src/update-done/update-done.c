@@ -6,15 +6,23 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "chase.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "main-func.h"
+#include "parse-argument.h"
 #include "path-util.h"
 #include "pretty-print.h"
 #include "selinux-util.h"
 #include "time-util.h"
 
+static char *arg_root = NULL;
+
+STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
+
 static int save_timestamp(const char *dir, struct timespec *ts) {
-        _cleanup_free_ char *message = NULL, *path = NULL;
+        _cleanup_free_ char *message = NULL, *dirpath = NULL;
+        _cleanup_close_ int fd = -EBADF;
         int r;
 
         /*
@@ -22,9 +30,12 @@ static int save_timestamp(const char *dir, struct timespec *ts) {
          * to support filesystems which cannot store nanosecond-precision timestamps.
          */
 
-        path = path_join(dir, ".updated");
-        if (!path)
-                return log_oom();
+        fd = chase_and_open(dir, arg_root,
+                            CHASE_PREFIX_ROOT | CHASE_WARN | CHASE_MUST_BE_DIRECTORY,
+                            O_DIRECTORY | O_CLOEXEC,
+                            &dirpath);
+        if (fd < 0)
+                return log_error_errno(fd, "Failed to open %s%s: %m", strempty(arg_root), dir);
 
         if (asprintf(&message,
                      "# This file was created by systemd-update-done. The timestamp below is the\n"
@@ -35,11 +46,15 @@ static int save_timestamp(const char *dir, struct timespec *ts) {
                      timespec_load_nsec(ts)) < 0)
                 return log_oom();
 
-        r = write_string_file_full(AT_FDCWD, path, message, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_LABEL, ts, NULL);
-        if (r == -EROFS)
-                log_debug_errno(r, "Cannot create \"%s\", file system is read-only.", path);
+        r = write_string_file_full(fd, ".updated", message,
+                                   WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_LABEL,
+                                   ts, NULL);
+        if (r == -EROFS && !arg_root)
+                log_debug_errno(r, "Cannot create \"%s/.updated\", file system is read-only.", dirpath);
         else if (r < 0)
-                return log_error_errno(r, "Failed to write \"%s\": %m", path);
+                return log_error_errno(r, "Failed to write \"%s/.updated\": %m", dirpath);
+        log_debug("%s/.updated updated to TIMESTAMP_NSEC="NSEC_FMT, dirpath, timespec_load_nsec(ts));
+
         return 0;
 }
 
@@ -55,6 +70,7 @@ static int help(void) {
                "%5$sMark /etc/ and /var/ as fully updated.%6$s\n"
                "\n%3$sOptions:%4$s\n"
                "  -h --help              Show this help\n"
+               "     --root=PATH         Operate on root directory PATH\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -67,12 +83,17 @@ static int help(void) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
+        enum {
+                ARG_ROOT = 0x100,
+        };
+
         static const struct option options[] = {
                 { "help",     no_argument,       NULL, 'h'          },
+                { "root",     required_argument, NULL, ARG_ROOT     },
                 {},
         };
 
-        int c;
+        int r, c;
 
         assert(argc >= 0);
         assert(argv);
@@ -83,6 +104,12 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'h':
                         return help();
+
+                case ARG_ROOT:
+                        r = parse_path_argument(optarg, /* suppress_root= */ true, &arg_root);
+                        if (r < 0)
+                                return r;
+                        break;
 
                 case '?':
                         return -EINVAL;
@@ -99,6 +126,7 @@ static int parse_argv(int argc, char *argv[]) {
 
 
 static int run(int argc, char *argv[]) {
+        _cleanup_free_ char *path = NULL;
         struct stat st;
         int r;
 
@@ -108,8 +136,12 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        if (stat("/usr", &st) < 0)
-                return log_error_errno(errno, "Failed to stat /usr: %m");
+        r = chase_and_stat("/usr", arg_root,
+                           CHASE_PREFIX_ROOT | CHASE_WARN | CHASE_MUST_BE_DIRECTORY,
+                           /* ret_path = */ NULL,
+                           &st);
+        if (r < 0)
+                return log_error_errno(r, "Failed to stat %s/usr/: %m", strempty(arg_root));
 
         r = mac_init();
         if (r < 0)
