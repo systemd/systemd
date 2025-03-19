@@ -17,3 +17,5 @@ static inline int QCMD_FIXED(uint32_t cmd, uint32_t type) {
 
 int quotactl_devnum(int cmd, dev_t devnum, int id, void *addr);
 int quotactl_path(int cmd, const char *path, int id, void *addr);
+int quota_query_proj_id(int fd, uint32_t proj_id, struct dqblk *req);
+int quota_proj_id_set_recursive(int fd, uint32_t proj_id, bool verify_exclusive);
