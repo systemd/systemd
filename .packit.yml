@@ -18,7 +18,7 @@ actions:
 
   post-upstream-clone:
     # Use the Fedora Rawhide specfile
-    - git clone https://src.fedoraproject.org/rpms/systemd .packit_rpm --depth=1
+    - bash -c 'git clone https://src.fedoraproject.org/rpms/systemd .packit_rpm --revision "$(grep GIT_COMMIT= mkosi.images/build/mkosi.conf.d/centos-fedora/mkosi.conf | cut -d= -f2)"'
     - bash -c 'echo "%bcond upstream 1" > .packit_rpm/systemd.spec.new'
     - bash -c 'echo "%define meson_extra_configure_options --werror" >> .packit_rpm/systemd.spec.new'
     - bash -c 'cat .packit_rpm/systemd.spec >> .packit_rpm/systemd.spec.new'
@@ -38,5 +38,6 @@ jobs:
   trigger: pull_request
   fmf_path: test/fmf
   tmt_plan: ci
+  use_target_repo_for_fmf_url: true
   targets:
   - fedora-rawhide-x86_64
