@@ -1269,7 +1269,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 static int run(const char *dest, const char *dest_early, const char *dest_late) {
         int r;
 
-        assert_se(arg_dest = dest_late);
+        assert_se(arg_dest = dest);
 
         if (detect_container() > 0) {
                 log_debug("In a container, exiting.");
