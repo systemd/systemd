@@ -17,6 +17,7 @@
 #include "process-util.h"
 #include "signal-util.h"
 #include "string-util.h"
+#include "udev-error.h"
 #include "udev-event.h"
 #include "udev-rules.h"
 #include "udev-spawn.h"
@@ -239,59 +240,6 @@ static int worker_process_device(UdevWorker *worker, sd_device *dev) {
         return 0;
 }
 
-void udev_broadcast_result(sd_device_monitor *monitor, sd_device *dev, EventResult result) {
-        int r;
-
-        assert(dev);
-
-        /* On exit, manager->monitor is already NULL. */
-        if (!monitor)
-                return;
-
-        if (result != EVENT_RESULT_SUCCESS) {
-                (void) device_add_property(dev, "UDEV_WORKER_FAILED", "1");
-
-                switch (result) {
-                case EVENT_RESULT_NERRNO_MIN ... EVENT_RESULT_NERRNO_MAX: {
-                        const char *str;
-
-                        (void) device_add_propertyf(dev, "UDEV_WORKER_ERRNO", "%i", -result);
-
-                        str = errno_to_name(result);
-                        if (str)
-                                (void) device_add_property(dev, "UDEV_WORKER_ERRNO_NAME", str);
-                        break;
-                }
-                case EVENT_RESULT_EXIT_STATUS_BASE ... EVENT_RESULT_EXIT_STATUS_MAX:
-                        assert(result != EVENT_RESULT_EXIT_STATUS_BASE);
-                        (void) device_add_propertyf(dev, "UDEV_WORKER_EXIT_STATUS", "%i", result - EVENT_RESULT_EXIT_STATUS_BASE);
-                        break;
-
-                case EVENT_RESULT_TRY_AGAIN:
-                        assert_not_reached();
-                        break;
-
-                case EVENT_RESULT_SIGNAL_BASE ... EVENT_RESULT_SIGNAL_MAX: {
-                        const char *str;
-
-                        (void) device_add_propertyf(dev, "UDEV_WORKER_SIGNAL", "%i", result - EVENT_RESULT_SIGNAL_BASE);
-
-                        str = signal_to_string(result - EVENT_RESULT_SIGNAL_BASE);
-                        if (str)
-                                (void) device_add_property(dev, "UDEV_WORKER_SIGNAL_NAME", str);
-                        break;
-                }
-                default:
-                        log_device_warning(dev, "Unknown event result \"%i\", ignoring.", result);
-                }
-        }
-
-        r = device_monitor_send(monitor, NULL, dev);
-        if (r < 0)
-                log_device_warning_errno(dev, r,
-                                         "Failed to broadcast event to libudev listeners, ignoring: %m");
-}
-
 static int worker_send_result(UdevWorker *worker, EventResult result) {
         assert(worker);
         assert(worker->pipe_fd >= 0);
@@ -310,11 +258,15 @@ static int worker_device_monitor_handler(sd_device_monitor *monitor, sd_device *
                 /* if we couldn't acquire the flock(), then requeue the event */
                 log_device_debug(dev, "Block device is currently locked, requeueing the event.");
         else {
-                if (r < 0)
+                if (r < 0) {
                         log_device_warning_errno(dev, r, "Failed to process device, ignoring: %m");
+                        (void) device_add_errno(dev, r);
+                }
 
                 /* send processed event back to libudev listeners */
-                udev_broadcast_result(monitor, dev, r);
+                int k = device_monitor_send(monitor, NULL, dev);
+                if (k < 0)
+                        log_device_warning_errno(dev, k, "Failed to broadcast event to libudev listeners, ignoring: %m");
         }
 
         /* send udevd the result of the event execution */
