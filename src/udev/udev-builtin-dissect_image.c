@@ -13,6 +13,7 @@
 
 static ImagePolicy *arg_image_policy = NULL;
 static VeritySettings arg_verity_settings = VERITY_SETTINGS_DEFAULT;
+static ImageFilter *arg_image_filter = NULL;
 
 static int acquire_image_policy(ImagePolicy **ret) {
         int r;
@@ -77,6 +78,27 @@ static int acquire_verity_settings(VeritySettings *ret) {
         return 0;
 }
 
+static int acquire_image_filter(ImageFilter **ret) {
+        int r;
+
+        assert(ret);
+
+        _cleanup_free_ char *value = NULL;
+        r = proc_cmdline_get_key("systemd.image_filter", /* flags= */ 0, &value);
+        if (r < 0)
+                return log_error_errno(r, "Failed to read systemd.image_filter= kernel command line switch: %m");
+        if (r == 0) {
+                *ret = NULL;
+                return 0;
+        }
+
+        r = image_filter_parse(value, ret);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse image filter '%s': %m", value);
+
+        return 1;
+}
+
 static int verb_probe(UdevEvent *event, sd_device *dev) {
         int r;
 
@@ -121,7 +143,7 @@ static int verb_probe(UdevEvent *event, sd_device *dev) {
                         &arg_verity_settings,
                         /* mount_options= */ NULL,
                         image_policy,
-                        /* image_filter= */ NULL,
+                        arg_image_filter,
                         DISSECT_IMAGE_READ_ONLY|
                         DISSECT_IMAGE_GPT_ONLY|
                         DISSECT_IMAGE_USR_NO_ROOT|
@@ -168,7 +190,7 @@ static int verb_probe(UdevEvent *event, sd_device *dev) {
                                         &arg_verity_settings,
                                         /* mount_options= */ NULL,
                                         image_policy_mangled,
-                                        /* image_filter= */ NULL,
+                                        arg_image_filter,
                                         DISSECT_IMAGE_READ_ONLY|
                                         DISSECT_IMAGE_GPT_ONLY|
                                         DISSECT_IMAGE_USR_NO_ROOT|
@@ -367,12 +389,17 @@ static int builtin_dissect_image_init(void) {
         if (r < 0)
                 return r;
 
+        r = acquire_image_filter(&arg_image_filter);
+        if (r < 0)
+                return r;
+
         return 0;
 }
 
 static void builtin_dissect_image_exit(void) {
         arg_image_policy = image_policy_free(arg_image_policy);
         verity_settings_done(&arg_verity_settings);
+        arg_image_filter = image_filter_free(arg_image_filter);
 }
 
 const UdevBuiltin udev_builtin_dissect_image = {
