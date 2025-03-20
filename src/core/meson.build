@@ -117,7 +117,6 @@ libcore_static = static_library(
                         libdl,
                         libm,
                         libmount,
-                        libpam,
                         librt,
                         libseccomp,
                         libselinux,
