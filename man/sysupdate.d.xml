@@ -595,15 +595,23 @@
 
         <para>If the source type is selected as <constant>url-file</constant> or
         <constant>url-tar</constant> this must be a HTTP/HTTPS URL. The URL is suffixed with
-        <filename>/SHA256SUMS</filename> to acquire the manifest file, with
-        <filename>/SHA256SUMS.gpg</filename> to acquire the detached signature file for it, and with the file
-        names listed in the manifest file in case an update is executed and a resource shall be
-        downloaded.</para>
+        the value assigned to the <varname>ManifestFile</varname> variable.</para>
 
         <para>For all other source resource types this must be a local path in the file system, referring to
         a local directory to find the versions of this resource in.</para>
 
         <xi:include href="version-info.xml" xpointer="v251"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ManifestFile=</varname></term>
+
+        <listitem><para>Specifies the filename of the manifest. Defaults to <filename>SHA256SUMS</filename>.
+        This is intended only as a fallback override. Extension maintainers should provide a
+        <filename>SHA256SUMS</filename> file and a corresponding <filename>SHA256SUMS.gpg</filename>
+        for verification</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
 
       <varlistentry>
