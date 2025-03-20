@@ -1175,7 +1175,8 @@ static int setup_pam(
                 gid_t gid,
                 char ***env, /* updated on success */
                 const int fds[], size_t n_fds,
-                int exec_fd) {
+                int exec_fd,
+                pid_t *ret_pid) {
 
 #if HAVE_PAM
         AskPasswordConvData conv_data = {
@@ -1194,7 +1195,7 @@ static int setup_pam(
         sigset_t old_ss;
         int pam_code = PAM_SUCCESS, r;
         bool close_session = false;
-        pid_t parent_pid;
+        pid_t child_pid, parent_pid;
         int flags = 0;
 
         assert(context);
@@ -1274,7 +1275,7 @@ static int setup_pam(
 
         parent_pid = getpid_cached();
 
-        r = safe_fork("(sd-pam)", 0, NULL);
+        r = safe_fork("(sd-pam)", 0, &child_pid);
         if (r < 0)
                 goto fail;
         if (r == 0) {
@@ -1359,6 +1360,9 @@ static int setup_pam(
          * recover. However, warn loudly if it happens. */
         if (!barrier_place_and_sync(&barrier))
                 log_error("PAM initialization failed");
+
+        if (ret_pid)
+                *ret_pid = child_pid;
 
         return strv_free_and_replace(*env, e);
 
@@ -4617,6 +4621,49 @@ static void prepare_terminal(
                 (void) osc_context_open_service(p->unit_id, p->invocation_id, /* ret_seq= */ NULL);
 }
 
+static int cg_subgroup_attach_pid(
+                const ExecContext *context,
+                const CGroupContext *cgroup_context,
+                const ExecParameters *params,
+                const char *prefix,
+                pid_t pid,
+                int *reterr_exit_status) {
+
+        _cleanup_free_ char *subgroup = NULL;
+        int r;
+
+        assert(context);
+        assert(cgroup_context);
+        assert(params);
+        assert(reterr_exit_status);
+
+        r = exec_params_get_cgroup_path(params, cgroup_context, prefix, &subgroup);
+        if (r < 0) {
+                *reterr_exit_status = EXIT_CGROUP;
+                return log_exec_error_errno(context, params, r, "Failed to acquire cgroup path: %m");
+        }
+        if (r == 0)
+                return 0;
+
+        r = cg_attach_everywhere(params->cgroup_supported, subgroup, pid);
+        if (r == -EUCLEAN) {
+                *reterr_exit_status = EXIT_CGROUP;
+                return log_exec_error_errno(context, params, r,
+                                            "Failed to attach process " PID_FMT " to cgroup '%s', "
+                                            "because the cgroup or one of its parents or "
+                                            "siblings is in the threaded mode.",
+                                            pid == 0 ? getpid_cached() : pid, subgroup);
+        }
+        if (r < 0) {
+                *reterr_exit_status = EXIT_CGROUP;
+                return log_exec_error_errno(context, params, r,
+                                            "Failed to attach process " PID_FMT " to cgroup %s: %m",
+                                            pid == 0 ? getpid_cached() : pid, subgroup);
+        }
+
+        return 0;
+}
+
 int exec_invoke(
                 const ExecCommand *command,
                 const ExecContext *context,
@@ -4928,25 +4975,17 @@ int exec_invoke(
         /* Journald will try to look-up our cgroup in order to populate _SYSTEMD_CGROUP and _SYSTEMD_UNIT fields.
          * Hence we need to migrate to the target cgroup from init.scope before connecting to journald */
         if (params->cgroup_path) {
-                _cleanup_free_ char *p = NULL;
-
-                r = exec_params_get_cgroup_path(params, cgroup_context, &p);
-                if (r < 0) {
-                        *exit_status = EXIT_CGROUP;
-                        return log_exec_error_errno(context, params, r, "Failed to acquire cgroup path: %m");
-                }
-
-                r = cg_attach_everywhere(params->cgroup_supported, p, 0);
+                r = cg_attach_everywhere(params->cgroup_supported, params->cgroup_path, 0);
                 if (r == -EUCLEAN) {
                         *exit_status = EXIT_CGROUP;
                         return log_exec_error_errno(context, params, r,
                                                     "Failed to attach process to cgroup '%s', "
                                                     "because the cgroup or one of its parents or "
-                                                    "siblings is in the threaded mode.", p);
+                                                    "siblings is in the threaded mode.", params->cgroup_path);
                 }
                 if (r < 0) {
                         *exit_status = EXIT_CGROUP;
-                        return log_exec_error_errno(context, params, r, "Failed to attach to cgroup %s: %m", p);
+                        return log_exec_error_errno(context, params, r, "Failed to attach to cgroup %s: %m", params->cgroup_path);
                 }
         }
 
@@ -5165,7 +5204,7 @@ int exec_invoke(
                                 return log_exec_error_errno(context, params, r, "Failed to adjust control group access: %m");
                         }
 
-                        r = exec_params_get_cgroup_path(params, cgroup_context, &p);
+                        r = exec_params_get_cgroup_path(params, cgroup_context, params->cgroup_path, &p);
                         if (r < 0) {
                                 *exit_status = EXIT_CGROUP;
                                 return log_exec_error_errno(context, params, r, "Failed to acquire cgroup path: %m");
@@ -5340,10 +5379,18 @@ int exec_invoke(
                  * wins here. (See above.) */
 
                 /* All fds passed in the fds array will be closed in the pam child process. */
-                r = setup_pam(context, params, username, uid, gid, &accum_env, params->fds, n_fds, params->exec_fd);
+                pid_t pam_pid;
+                r = setup_pam(context, params, username, uid, gid, &accum_env, params->fds, n_fds, params->exec_fd, &pam_pid);
                 if (r < 0) {
                         *exit_status = EXIT_PAM;
                         return log_exec_error_errno(context, params, r, "Failed to set up PAM session: %m");
+                }
+
+                if (params->cgroup_path) {
+                        /* Move PAM into subgroup immediately if one is configured. */
+                        r = cg_subgroup_attach_pid(context, cgroup_context, params, params->cgroup_path, pam_pid, exit_status);
+                        if (r < 0)
+                                return r;
                 }
 
                 /* PAM modules might have set some ambient caps. Query them here and merge them into
@@ -5466,6 +5513,23 @@ int exec_invoke(
                         exit_status);
         if (r < 0)
                 return r;
+
+        /* Move ourselves into the subcgroup now *after* we've unshared the cgroup namespace, which ensures
+         * the root of the cgroup namespace is the top level service cgroup and not the subcgroup. Don't do
+         * this for control processes that are spawned immediately into a subcgroup, as those are already in
+         * the right place. */
+        if (params->cgroup_path && !exec_params_needs_control_subcgroup(params)) {
+                r = cg_subgroup_attach_pid(
+                                context,
+                                cgroup_context,
+                                params,
+                                /* If we're in a cgroup namespace, adjust the prefix accordingly. */
+                                needs_sandboxing && exec_needs_cgroup_namespace(context, params) ? NULL : params->cgroup_path,
+                                /* pid= */ 0,
+                                exit_status);
+                if (r < 0)
+                        return r;
+        }
 
         /* Now that the mount namespace has been set up and privileges adjusted, let's look for the thing we
          * shall execute. */
