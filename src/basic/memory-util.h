@@ -35,12 +35,15 @@ static inline void* mempcpy_safe(void *dst, const void *src, size_t n) {
         return mempcpy(dst, src, n);
 }
 
-#define mempcpy_typesafe(dst, src, n)                                   \
+#define _mempcpy_typesafe(dst, src, n, sz)                              \
         ({                                                              \
-                size_t _sz_;                                            \
-                assert_se(MUL_SAFE(&_sz_, sizeof((dst)[0]), n));        \
-                (typeof((dst)[0])*) mempcpy_safe(dst, src, _sz_);       \
+                size_t sz;                                              \
+                assert_se(MUL_SAFE(&sz, sizeof((dst)[0]), n));          \
+                (typeof((dst)[0])*) mempcpy_safe(dst, src, sz);         \
         })
+
+#define mempcpy_typesafe(dst, src, n)                                   \
+        _mempcpy_typesafe(dst, src, n, UNIQ_T(sz, UNIQ))
 
 /* Normal memcmp() requires s1 and s2 to be nonnull. We do nothing if n is 0. */
 static inline int memcmp_safe(const void *s1, const void *s2, size_t n) {
