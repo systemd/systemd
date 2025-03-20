@@ -605,7 +605,7 @@ static int add_mount(
                 fprintf(f, "After=%s\n", extra_after);
 
         if (passno != 0) {
-                r = generator_write_fsck_deps(f, dest, what, where, fstype);
+                r = generator_write_fsck_deps(f, dest, what, where, fstype, opts);
                 if (r < 0)
                         return r;
         }
