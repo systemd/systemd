@@ -3,7 +3,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
-<refentry id="systemd-update-done.service">
+<refentry id="systemd-update-done.service" xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>systemd-update-done.service</title>
@@ -18,7 +18,7 @@
   <refnamediv>
     <refname>systemd-update-done.service</refname>
     <refname>systemd-update-done</refname>
-    <refpurpose>Mark <filename>/etc/</filename> and <filename>/var/</filename> fully updated</refpurpose>
+    <refpurpose>Mark <filename>/etc/</filename> and <filename>/var/</filename> as fully updated</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -37,12 +37,11 @@
     <filename>/etc/</filename> or <filename>/var/</filename> on the
     following boot.</para>
 
-    <para><filename>systemd-update-done.service</filename> updates the
-    file modification time (mtime) of the stamp files
-    <filename>/etc/.updated</filename> and
-    <filename>/var/.updated</filename> to the modification time of the
-    <filename>/usr/</filename> directory, unless the stamp files are
-    already newer.</para>
+    <para><filename>systemd-update-done.service</filename> updates the file modification time (mtime) stored
+    in and "on" the files <filename>/etc/.updated</filename> and <filename>/var/.updated</filename> to the
+    modification time of the <filename>/usr/</filename> directory, unless the stamp files are already newer.
+    (The timestamp is stored as the mtime field on the file, but also <emphasis>in</emphasis> the file
+    to support filesystems that do not store full timestamp precision.)</para>
 
     <para>Services that shall run after offline upgrades of
     <filename>/usr/</filename> should order themselves before
@@ -62,6 +61,25 @@
     used it overrides the <varname>ConditionNeedsUpdate=</varname> unit condition checks. In that case
     <filename>systemd-update-done.service</filename> will not reset the condition state until a follow-up
     reboot where the kernel switch is not specified anymore.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>--root=<replaceable>root</replaceable></option></term>
+        <listitem><para>Takes a directory path as an argument. The program
+        will operate on paths below the specified root directory.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="help" />
+    </variablelist>
   </refsect1>
 
   <refsect1>
