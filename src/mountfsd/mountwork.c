@@ -414,6 +414,7 @@ static int vl_method_mount_image(
                                 &verity,
                                 /* mount_options= */ NULL,
                                 use_policy,
+                                /* image_filter= */ NULL,
                                 dissect_flags,
                                 &di);
                 if (r == -ENOPKG)
@@ -457,6 +458,12 @@ static int vl_method_mount_image(
         r = dissected_image_load_verity_sig_partition(
                         di,
                         loop->fd,
+                        &verity);
+        if (r < 0)
+                return r;
+
+        r = dissected_image_guess_verity_roothash(
+                        di,
                         &verity);
         if (r < 0)
                 return r;
