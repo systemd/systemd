@@ -270,7 +270,8 @@ int generator_write_fsck_deps(
                 const char *dir,
                 const char *what,
                 const char *where,
-                const char *fstype) {
+                const char *fstype,
+                const char *options) {
 
         int r;
 
@@ -296,6 +297,11 @@ int generator_write_fsck_deps(
                         log_debug("Skipping file system check for read-only file system '%s'.", what);
                         return 0;
                 }
+        }
+
+        if (fstab_test_option(options, "bind\0")) {
+                log_debug("Skipping file system check for bind mount of '%s'.", what);
+                return 0;
         }
 
         if (!is_device_path(what)) {
