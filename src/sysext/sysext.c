@@ -1802,6 +1802,7 @@ static int merge_subprocess(
                                         &verity_settings,
                                         /* mount_options= */ NULL,
                                         pick_image_policy(img),
+                                        /* image_filter= */ NULL,
                                         flags,
                                         &m);
                         if (r < 0)
@@ -1810,6 +1811,12 @@ static int merge_subprocess(
                         r = dissected_image_load_verity_sig_partition(
                                         m,
                                         d->fd,
+                                        &verity_settings);
+                        if (r < 0)
+                                return r;
+
+                        r = dissected_image_guess_verity_roothash(
+                                        m,
                                         &verity_settings);
                         if (r < 0)
                                 return r;
