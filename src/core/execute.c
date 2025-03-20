@@ -408,16 +408,15 @@ bool exec_directory_is_private(const ExecContext *context, ExecDirectoryType typ
 int exec_params_get_cgroup_path(
                 const ExecParameters *params,
                 const CGroupContext *c,
+                const char *prefix,
                 char **ret) {
 
         const char *subgroup = NULL;
         char *p;
 
         assert(params);
+        assert(c);
         assert(ret);
-
-        if (!params->cgroup_path)
-                return -EINVAL;
 
         /* If we are called for a unit where cgroup delegation is on, and the payload created its own populated
          * subcgroup (which we expect it to do, after all it asked for delegation), then we cannot place the control
@@ -436,9 +435,9 @@ int exec_params_get_cgroup_path(
         }
 
         if (subgroup)
-                p = path_join(params->cgroup_path, subgroup);
+                p = path_join(prefix, subgroup);
         else
-                p = strdup(params->cgroup_path);
+                p = strdup(prefix);
         if (!p)
                 return -ENOMEM;
 
@@ -479,7 +478,7 @@ int exec_spawn(
                 const CGroupContext *cgroup_context,
                 PidRef *ret) {
 
-        _cleanup_free_ char *subcgroup_path = NULL, *max_log_levels = NULL, *executor_path = NULL;
+        _cleanup_free_ char *max_log_levels = NULL, *executor_path = NULL;
         _cleanup_fdset_free_ FDSet *fdset = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
@@ -506,7 +505,9 @@ int exec_spawn(
         log_command_line(unit, "About to execute", command->path, command->argv);
 
         if (params->cgroup_path) {
-                r = exec_params_get_cgroup_path(params, cgroup_context, &subcgroup_path);
+                _cleanup_free_ char *subcgroup_path = NULL;
+
+                r = exec_params_get_cgroup_path(params, cgroup_context, params->cgroup_path, &subcgroup_path);
                 if (r < 0)
                         return log_unit_error_errno(unit, r, "Failed to acquire subcgroup path: %m");
                 if (r > 0) {
@@ -585,24 +586,24 @@ int exec_spawn(
                                   "--log-level", max_log_levels,
                                   "--log-target", log_target_to_string(manager_get_executor_log_target(unit->manager))),
                         environ,
-                        cg_unified() > 0 ? subcgroup_path : NULL,
+                        cg_unified() > 0 ? params->cgroup_path : NULL,
                         &pidref);
 
         /* Drop the ambient set again, so no processes other than sd-executore spawned from the manager inherit it. */
         (void) capability_ambient_set_apply(0, /* also_inherit= */ false);
 
-        if (r == -EUCLEAN && subcgroup_path)
+        if (r == -EUCLEAN && params->cgroup_path)
                 return log_unit_error_errno(unit, r,
                                             "Failed to spawn process into cgroup '%s', because the cgroup "
                                             "or one of its parents or siblings is in the threaded mode.",
-                                            subcgroup_path);
+                                            params->cgroup_path);
         if (r < 0)
                 return log_unit_error_errno(unit, r, "Failed to spawn executor: %m");
         /* We add the new process to the cgroup both in the child (so that we can be sure that no user code is ever
          * executed outside of the cgroup) and in the parent (so that we can be sure that when we kill the cgroup the
          * process will be killed too). */
-        if (r == 0 && subcgroup_path)
-                (void) cg_attach(SYSTEMD_CGROUP_CONTROLLER, subcgroup_path, pidref.pid);
+        if (r == 0 && params->cgroup_path)
+                (void) cg_attach(SYSTEMD_CGROUP_CONTROLLER, params->cgroup_path, pidref.pid);
         /* r > 0: Already in the right cgroup thanks to CLONE_INTO_CGROUP */
 
         log_unit_debug(unit, "Forked %s as " PID_FMT " (%s CLONE_INTO_CGROUP)",
