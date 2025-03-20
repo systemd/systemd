@@ -25,6 +25,7 @@
 #include "udev-builtin.h"
 #include "udev-config.h"
 #include "udev-ctrl.h"
+#include "udev-error.h"
 #include "udev-event.h"
 #include "udev-manager.h"
 #include "udev-manager-ctrl.h"
@@ -684,7 +685,11 @@ static void event_requeue(Event *event) {
         return;
 
 fail:
-        udev_broadcast_result(event->manager->monitor, dev, r);
+        (void) device_add_errno(dev, r);
+        r = device_monitor_send(event->manager->monitor, NULL, dev);
+        if (r < 0)
+                log_device_warning_errno(dev, r, "Failed to broadcast event to libudev listeners, ignoring: %m");
+
         event_free(event);
 }
 
@@ -1038,46 +1043,50 @@ static int on_sighup(sd_event_source *s, const struct signalfd_siginfo *si, void
 }
 
 static int on_sigchld(sd_event_source *s, const siginfo_t *si, void *userdata) {
-        Worker *worker = ASSERT_PTR(userdata);
-        Manager *manager = ASSERT_PTR(worker->manager);
+        _cleanup_(worker_freep) Worker *worker = ASSERT_PTR(userdata);
         sd_device *dev = worker->event ? ASSERT_PTR(worker->event->dev) : NULL;
-        EventResult result;
+        int r;
 
         assert(si);
 
         switch (si->si_code) {
         case CLD_EXITED:
-                if (si->si_status == 0)
+                if (si->si_status == 0) {
                         log_device_debug(dev, "Worker ["PID_FMT"] exited.", si->si_pid);
-                else
-                        log_device_warning(dev, "Worker ["PID_FMT"] exited with return code %i.",
-                                           si->si_pid, si->si_status);
-                result = EVENT_RESULT_EXIT_STATUS_BASE + si->si_status;
+                        return 0;
+                }
+
+                log_device_warning(dev, "Worker ["PID_FMT"] exited with return code %i.",
+                                   si->si_pid, si->si_status);
+                if (!dev)
+                        return 0;
+
+                (void) device_add_exit_status(dev, si->si_status);
                 break;
 
         case CLD_KILLED:
         case CLD_DUMPED:
                 log_device_warning(dev, "Worker ["PID_FMT"] terminated by signal %i (%s).",
                                    si->si_pid, si->si_status, signal_to_string(si->si_status));
-                result = EVENT_RESULT_SIGNAL_BASE + si->si_status;
+                if (!dev)
+                        return 0;
+
+                (void) device_add_signal(dev, si->si_status);
                 break;
 
         default:
                 assert_not_reached();
         }
 
-        if (result != EVENT_RESULT_SUCCESS && dev) {
-                /* delete state from disk */
-                device_delete_db(dev);
-                device_tag_index(dev, NULL, false);
+        /* delete state from disk */
+        device_delete_db(dev);
+        device_tag_index(dev, NULL, false);
 
-                /* Forward kernel event to libudev listeners */
-                udev_broadcast_result(manager->monitor, dev, result);
-        }
+        r = device_monitor_send(worker->manager->monitor, NULL, dev);
+        if (r < 0)
+                log_device_warning_errno(dev, r, "Failed to broadcast event to libudev listeners, ignoring: %m");
 
-        worker_free(worker);
-
-        return 1;
+        return 0;
 }
 
 static int on_post(sd_event_source *s, void *userdata) {
