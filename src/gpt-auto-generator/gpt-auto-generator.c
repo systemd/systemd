@@ -50,6 +50,7 @@ static int arg_root_rw = -1;
 static char *arg_usr_fstype = NULL;
 static char *arg_usr_options = NULL;
 static ImagePolicy *arg_image_policy = NULL;
+static ImageFilter *arg_image_filter = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root_fstype, freep);
@@ -1102,7 +1103,7 @@ static int enumerate_partitions(dev_t devnum) {
                         /* verity= */ NULL,
                         /* mount_options= */ NULL,
                         image_policy,
-                        /* image_filter= */ NULL,
+                        arg_image_filter,
                         DISSECT_IMAGE_GPT_ONLY|
                         DISSECT_IMAGE_USR_NO_ROOT|
                         DISSECT_IMAGE_DISKSEQ_DEVNODE|
@@ -1251,8 +1252,17 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 arg_root_rw = false;
         else if (proc_cmdline_key_streq(key, "systemd.image_policy"))
                 return parse_image_policy_argument(value, &arg_image_policy);
+        else if (proc_cmdline_key_streq(key, "systemd.image_filter")) {
+                _cleanup_(image_filter_freep) ImageFilter *f = NULL;
 
-        else if (streq(key, "systemd.swap")) {
+                r = image_filter_parse(value, &f);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse image filter: %s", value);
+
+                image_filter_free(arg_image_filter);
+                arg_image_filter = TAKE_PTR(f);
+
+        } else if (streq(key, "systemd.swap")) {
 
                 r = value ? parse_boolean(value) : 1;
                 if (r < 0)
