@@ -22,7 +22,8 @@ int generator_write_fsck_deps(
         const char *dir,
         const char *what,
         const char *where,
-        const char *type);
+        const char *type,
+        const char *options);
 
 int generator_write_device_timeout(
         const char *dir,
