@@ -30,7 +30,6 @@ typedef struct Manager {
         sd_device_monitor *monitor;
         UdevCtrl *ctrl;
         sd_varlink_server *varlink_server;
-        int worker_notify_fd;
 
         /* used by udev-watch */
         int inotify_fd;
