@@ -36,7 +36,7 @@ static int parse_condition(Unit *u, const char *line) {
                 type = assert_type_from_string(type_string);
         }
         if (type < 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot parse \"%s\".", line);
+                return log_error_errno(type, "Cannot parse \"%s\".", line);
 
         const char *val = skip_leading_chars(eq + 1, /* bad = */ NULL);
 
