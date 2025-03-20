@@ -104,4 +104,32 @@ testcase_basic_strict() {
     test_basic "strict" "yes" true "$READ_ONLY_MOUNT_FLAG"
 }
 
+testcase_delegate_subgroup() {
+    # Make sure the service cgroup is the root of the cgroup namespace when we use DelegateSubgroup.
+    systemd-run \
+        -p ProtectControlGroupsEx=private \
+        -p PrivateMounts=yes \
+        -p Delegate=yes \
+        -p DelegateSubgroup=supervisor \
+        --wait \
+        --pipe \
+        ls /sys/fs/cgroup/supervisor
+}
+
+testcase_delegate_subgroup_control() {
+    # Make sure control processes are not namespaced and are still put in the .control cgroup.
+    assert_eq "$(
+        systemd-run \
+        -p ProtectControlGroupsEx=private \
+        -p PrivateMounts=yes \
+        -p Delegate=yes \
+        -p DelegateSubgroup=supervisor \
+        -p ExecStartPre="cat /proc/self/cgroup" \
+        --unit delegate-subgroup-control \
+        --wait \
+        --pipe \
+        true
+    )" "0::/system.slice/delegate-subgroup-control.service/.control"
+}
+
 run_testcases
