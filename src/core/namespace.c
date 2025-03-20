@@ -1496,9 +1496,8 @@ static int mount_image(
                 const char *root_directory,
                 const ImagePolicy *image_policy) {
 
-        _cleanup_free_ char *host_os_release_id = NULL, *host_os_release_version_id = NULL,
-                            *host_os_release_sysext_level = NULL, *host_os_release_confext_level = NULL,
-                            *extension_name = NULL;
+        _cleanup_(extension_release_data_done) ExtensionReleaseData rdata = {};
+        _cleanup_free_ char *extension_name = NULL;
         int r;
 
         assert(m);
@@ -1510,14 +1509,14 @@ static int mount_image(
         if (m->mode == MOUNT_EXTENSION_IMAGE) {
                 r = parse_os_release(
                                 empty_to_root(root_directory),
-                                "ID", &host_os_release_id,
-                                "VERSION_ID", &host_os_release_version_id,
-                                image_class_info[IMAGE_SYSEXT].level_env, &host_os_release_sysext_level,
-                                image_class_info[IMAGE_CONFEXT].level_env, &host_os_release_confext_level,
+                                "ID", &rdata.os_release_id,
+                                "VERSION_ID", &rdata.os_release_version_id,
+                                image_class_info[IMAGE_SYSEXT].level_env, &rdata.os_release_sysext_level,
+                                image_class_info[IMAGE_CONFEXT].level_env, &rdata.os_release_confext_level,
                                 NULL);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to acquire 'os-release' data of OS tree '%s': %m", empty_to_root(root_directory));
-                if (isempty(host_os_release_id))
+                if (isempty(rdata.os_release_id))
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "'ID' field not found or empty in 'os-release' data of OS tree '%s'.", empty_to_root(root_directory));
         }
 
@@ -1527,26 +1526,23 @@ static int mount_image(
                         mount_entry_path(m),
                         m->image_options_const,
                         image_policy,
-                        host_os_release_id,
-                        host_os_release_version_id,
-                        host_os_release_sysext_level,
-                        host_os_release_confext_level,
-                        /* required_sysext_scope= */ NULL,
+                        /* image_filter= */ NULL,
+                        &rdata,
                         &m->verity,
                         /* ret_image= */ NULL);
         if (r == -ENOENT && m->ignore)
                 return 0;
-        if (r == -ESTALE && host_os_release_id)
+        if (r == -ESTALE && rdata.os_release_id)
                 return log_error_errno(r, // FIXME: this should not be logged ad LOG_ERR, as it will result in duplicate logging.
                                        "Failed to mount image %s, extension-release metadata does not match the lower layer's: ID=%s%s%s%s%s%s%s",
                                        mount_entry_source(m),
-                                       host_os_release_id,
-                                       host_os_release_version_id ? " VERSION_ID=" : "",
-                                       strempty(host_os_release_version_id),
-                                       host_os_release_sysext_level ? image_class_info[IMAGE_SYSEXT].level_env_print : "",
-                                       strempty(host_os_release_sysext_level),
-                                       host_os_release_confext_level ? image_class_info[IMAGE_CONFEXT].level_env_print : "",
-                                       strempty(host_os_release_confext_level));
+                                       rdata.os_release_id,
+                                       rdata.os_release_version_id ? " VERSION_ID=" : "",
+                                       strempty(rdata.os_release_version_id),
+                                       rdata.os_release_sysext_level ? image_class_info[IMAGE_SYSEXT].level_env_print : "",
+                                       strempty(rdata.os_release_sysext_level),
+                                       rdata.os_release_confext_level ? image_class_info[IMAGE_CONFEXT].level_env_print : "",
+                                       strempty(rdata.os_release_confext_level));
         if (r < 0)
                 return log_debug_errno(r, "Failed to mount image %s on %s: %m", mount_entry_source(m), mount_entry_path(m));
 
@@ -2372,6 +2368,7 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                                         p->verity,
                                         p->root_image_options,
                                         p->root_image_policy,
+                                        /* image_filter= */ NULL,
                                         dissect_image_flags,
                                         &dissected_image);
                         if (r < 0)
@@ -2380,6 +2377,12 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                         r = dissected_image_load_verity_sig_partition(
                                         dissected_image,
                                         loop_device->fd,
+                                        p->verity);
+                        if (r < 0)
+                                return r;
+
+                        r = dissected_image_guess_verity_roothash(
+                                        dissected_image,
                                         p->verity);
                         if (r < 0)
                                 return r;
