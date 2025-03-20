@@ -4256,11 +4256,7 @@ static int cg_bpf_mask_supported(CGroupMask *ret) {
 }
 
 int manager_setup_cgroup(Manager *m) {
-        _cleanup_free_ char *path = NULL;
-        const char *scope_path;
-        int r, all_unified;
-        CGroupMask mask;
-        char *e;
+        int r;
 
         assert(m);
 
@@ -4271,17 +4267,7 @@ int manager_setup_cgroup(Manager *m) {
                 return log_error_errno(r, "Cannot determine cgroup we are running in: %m");
 
         /* Chop off the init scope, if we are already located in it */
-        e = endswith(m->cgroup_root, "/" SPECIAL_INIT_SCOPE);
-
-        /* LEGACY: Also chop off the system slice if we are in
-         * it. This is to support live upgrades from older systemd
-         * versions where PID 1 was moved there. Also see
-         * cg_get_root_path(). */
-        if (!e && MANAGER_IS_SYSTEM(m)) {
-                e = endswith(m->cgroup_root, "/" SPECIAL_SYSTEM_SLICE);
-                if (!e)
-                        e = endswith(m->cgroup_root, "/system"); /* even more legacy */
-        }
+        char *e = endswith(m->cgroup_root, "/" SPECIAL_INIT_SCOPE);
         if (e)
                 *e = 0;
 
@@ -4289,29 +4275,11 @@ int manager_setup_cgroup(Manager *m) {
          * easily prepend it everywhere. */
         delete_trailing_chars(m->cgroup_root, "/");
 
-        /* 2. Show data */
-        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, m->cgroup_root, NULL, &path);
-        if (r < 0)
-                return log_error_errno(r, "Cannot find cgroup mount point: %m");
-
-        r = cg_unified();
-        if (r < 0)
-                return log_error_errno(r, "Couldn't determine if we are running in the unified hierarchy: %m");
-
-        all_unified = cg_all_unified();
-        if (all_unified < 0)
-                return log_error_errno(all_unified, "Couldn't determine whether we are in all unified mode: %m");
-        if (all_unified > 0)
-                log_debug("Unified cgroup hierarchy is located at %s.", path);
-        else {
-                r = cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to determine whether systemd's own controller is in unified mode: %m");
-                if (r > 0)
-                        log_debug("Unified cgroup hierarchy is located at %s. Controllers are on legacy hierarchies.", path);
-                else
-                        log_debug("Using cgroup controller " SYSTEMD_CGROUP_CONTROLLER_LEGACY ". File system hierarchy is at %s.", path);
-        }
+        /* 2. Pin the cgroupfs mount, so that it cannot be unmounted */
+        safe_close(m->pin_cgroupfs_fd);
+        m->pin_cgroupfs_fd = open("/sys/fs/cgroup", O_PATH|O_CLOEXEC|O_DIRECTORY);
+        if (m->pin_cgroupfs_fd < 0)
+                return log_error_errno(errno, "Failed to pin cgroup hierarchy: %m");
 
         /* 3. Allocate cgroup empty defer event source */
         m->cgroup_empty_event_source = sd_event_source_disable_unref(m->cgroup_empty_event_source);
@@ -4354,39 +4322,30 @@ int manager_setup_cgroup(Manager *m) {
         (void) sd_event_source_set_description(m->cgroup_inotify_event_source, "cgroup-inotify");
 
         /* 5. Make sure we are in the special "init.scope" unit in the root slice. */
-        scope_path = strjoina(m->cgroup_root, "/" SPECIAL_INIT_SCOPE);
-        r = cg_create_and_attach(SYSTEMD_CGROUP_CONTROLLER, scope_path, 0);
+        const char *scope_path = strjoina(m->cgroup_root, "/" SPECIAL_INIT_SCOPE);
+        r = cg_create_and_attach(SYSTEMD_CGROUP_CONTROLLER, scope_path, /* pid = */ 0);
         if (r >= 0) {
                 /* Also, move all other userspace processes remaining in the root cgroup into that scope. */
                 r = cg_migrate(SYSTEMD_CGROUP_CONTROLLER, m->cgroup_root, SYSTEMD_CGROUP_CONTROLLER, scope_path, 0);
                 if (r < 0)
                         log_warning_errno(r, "Couldn't move remaining userspace processes, ignoring: %m");
 
-                /* 6. And pin it, so that it cannot be unmounted */
-                safe_close(m->pin_cgroupfs_fd);
-                m->pin_cgroupfs_fd = open(path, O_PATH|O_CLOEXEC|O_DIRECTORY);
-                if (m->pin_cgroupfs_fd < 0)
-                        return log_error_errno(errno, "Failed to open pin file: %m");
-
         } else if (!MANAGER_IS_TEST_RUN(m))
                 return log_error_errno(r, "Failed to create %s control group: %m", scope_path);
 
-        /* 7. Always enable hierarchical support if it exists... */
-        if (!all_unified && !MANAGER_IS_TEST_RUN(m))
-                (void) cg_set_attribute("memory", "/", "memory.use_hierarchy", "1");
-
-        /* 8. Figure out which controllers are supported */
+        /* 6. Figure out which controllers are supported */
         r = cg_mask_supported_subtree(m->cgroup_root, &m->cgroup_supported);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine supported controllers: %m");
 
-        /* 9. Figure out which bpf-based pseudo-controllers are supported */
+        /* 7. Figure out which bpf-based pseudo-controllers are supported */
+        CGroupMask mask;
         r = cg_bpf_mask_supported(&mask);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine supported bpf-based pseudo-controllers: %m");
         m->cgroup_supported |= mask;
 
-        /* 10. Log which controllers are supported */
+        /* 8. Log which controllers are supported */
         for (CGroupController c = 0; c < _CGROUP_CONTROLLER_MAX; c++)
                 log_debug("Controller '%s' supported: %s", cgroup_controller_to_string(c),
                           yes_no(m->cgroup_supported & CGROUP_CONTROLLER_TO_MASK(c)));
