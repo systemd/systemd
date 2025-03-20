@@ -415,13 +415,22 @@ static int verb_attach(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to configure data device: %m");
 
-        if (arg_root_hash_signature_size > 0)
+        if (arg_root_hash_signature_size > 0) {
 #if HAVE_CRYPT_ACTIVATE_BY_SIGNED_KEY
                 r = crypt_activate_by_signed_key(cd, volume, rh, rh_size, arg_root_hash_signature, arg_root_hash_signature_size, arg_activate_flags);
+                if (r < 0) {
+                        log_info_errno(r, "Unable to activate verity device '%s' with root hash signature (%m), retrying without.", volume);
+
+                        r = crypt_activate_by_volume_key(cd, volume, rh, rh_size, arg_activate_flags);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to activate verity device '%s' both with and without root hash signature: %m", volume);
+
+                        log_info("Activation of verity device '%s' succeeded without root hash signature.", volume);
+                }
 #else
                 assert_not_reached();
 #endif
-        else
+        } else
                 r = crypt_activate_by_volume_key(cd, volume, rh, rh_size, arg_activate_flags);
         if (r < 0)
                 return log_error_errno(r, "Failed to set up verity device '%s': %m", volume);
