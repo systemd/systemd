@@ -390,6 +390,7 @@ static const NLAPolicy rtnl_link_info_data_vxlan_policies[] = {
         [IFLA_VXLAN_GPE]               = BUILD_POLICY(FLAG),
         [IFLA_VXLAN_TTL_INHERIT]       = BUILD_POLICY(FLAG),
         [IFLA_VXLAN_DF]                = BUILD_POLICY(U8),
+        [IFLA_VXLAN_VNIFILTER]         = BUILD_POLICY(U8),
 };
 
 static const NLAPolicy rtnl_link_info_data_xfrm_policies[] = {

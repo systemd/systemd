@@ -109,7 +109,7 @@ static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_netli
         /* The properties below cannot be updated, and the kernel refuses the whole request if one of the
          * following attributes is set for an existing interface. */
 
-        if (v->vni <= VXLAN_VID_MAX) {
+        if (!v->external && v->vni <= VXLAN_VID_MAX) {
                 r = sd_netlink_message_append_u32(m, IFLA_VXLAN_ID, v->vni);
                 if (r < 0)
                         return r;
@@ -190,6 +190,16 @@ static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_netli
 
         if (v->generic_protocol_extension) {
                 r = sd_netlink_message_append_flag(m, IFLA_VXLAN_GPE);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_netlink_message_append_u8(m, IFLA_VXLAN_COLLECT_METADATA, v->external);
+        if (r < 0)
+                return r;
+
+        if (v->external) {
+                r = sd_netlink_message_append_u8(m, IFLA_VXLAN_VNIFILTER, v->vnifilter);
                 if (r < 0)
                         return r;
         }
@@ -393,11 +403,6 @@ static int netdev_vxlan_verify(NetDev *netdev, const char *filename) {
 
         VxLan *v = VXLAN(netdev);
 
-        if (v->vni > VXLAN_VID_MAX)
-                return log_netdev_warning_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
-                                                "%s: VXLAN without valid VNI (or VXLAN Segment ID) configured. Ignoring.",
-                                                filename);
-
         if (v->ttl > 255)
                 return log_netdev_warning_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
                                                 "%s: VXLAN TTL must be <= 255. Ignoring.",
@@ -415,6 +420,18 @@ static int netdev_vxlan_verify(NetDev *netdev, const char *filename) {
                 return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
                                               "The local address cannot be '%s' when Independent= is enabled, ignoring.",
                                               strna(netdev_local_address_type_to_string(v->local_type)));
+
+        if (v->external) {
+                if (v->vni <= VXLAN_VID_MAX)
+                        log_netdev_warning(netdev, "VNI= is set while External= is enabled. VNI= setting will be ignored.");
+        } else {
+                if (v->vnifilter)
+                        log_netdev_warning(netdev, "VNIFilter= is enabled while External= is disabled. VNIFilter= setting will be ignored.");
+                if (v->vni > VXLAN_VID_MAX)
+                        return log_netdev_warning_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
+                                                        "%s: VXLAN without valid VNI (or VXLAN Segment ID) configured. Ignoring.",
+                                                        filename);
+        }
 
         return 0;
 }
@@ -446,6 +463,8 @@ static void vxlan_init(NetDev *netdev) {
         v->udpcsum = false;
         v->udp6zerocsumtx = false;
         v->udp6zerocsumrx = false;
+        v->external = false;
+        v->vnifilter = false;
 }
 
 const NetDevVTable vxlan_vtable = {
