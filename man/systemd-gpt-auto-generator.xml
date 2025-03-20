@@ -317,6 +317,17 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>systemd.image_filter=</varname></term>
+
+        <listitem><para>Takes an image dissection filter string as argument (as per
+        <citerefentry><refentrytitle>systemd.image-filter</refentrytitle><manvolnum>7</manvolnum></citerefentry>),
+        and allows enforcing a set of globbing patterns on the partition matching of the automatically
+        discovered GPT partition table entries.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>root=</varname></term>
         <term><varname>rootfstype=</varname></term>
         <term><varname>rootflags=</varname></term>
