@@ -1028,10 +1028,6 @@ int cg_get_root_path(char **ret_path) {
                 return r;
 
         e = endswith(p, "/" SPECIAL_INIT_SCOPE);
-        if (!e)
-                e = endswith(p, "/" SPECIAL_SYSTEM_SLICE); /* legacy */
-        if (!e)
-                e = endswith(p, "/system"); /* even more legacy */
         if (e)
                 *e = 0;
 
