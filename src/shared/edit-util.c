@@ -236,8 +236,7 @@ static int create_edit_temp_file(EditFile *e, const char *contents, size_t conte
 }
 
 static int run_editor_child(const EditFileContext *context) {
-        _cleanup_strv_free_ char **args = NULL;
-        const char *editor;
+        _cleanup_strv_free_ char **args = NULL, **editor = NULL;
         int r;
 
         assert(context);
@@ -247,15 +246,14 @@ static int run_editor_child(const EditFileContext *context) {
          * If neither SYSTEMD_EDITOR nor EDITOR nor VISUAL are present, we try to execute
          * well known editors. */
         FOREACH_STRING(e, "SYSTEMD_EDITOR", "EDITOR", "VISUAL") {
-                editor = empty_to_null(getenv(e));
-                if (editor)
-                        break;
-        }
+                const char *m = empty_to_null(getenv(e));
+                if (m) {
+                        editor = strv_split(m, WHITESPACE);
+                        if (!editor)
+                                return log_oom();
 
-        if (editor) {
-                args = strv_split(editor, WHITESPACE);
-                if (!args)
-                        return log_oom();
+                        break;
+                }
         }
 
         if (context->n_files == 1 && context->files[0].line > 1) {
@@ -271,8 +269,18 @@ static int run_editor_child(const EditFileContext *context) {
                         return log_oom();
         }
 
-        if (editor)
-                execvp(args[0], (char* const*) args);
+        size_t editor_n = strv_length(editor);
+        if (editor_n > 0) {
+                /* Strings are owned by 'editor' and 'args' */
+                _cleanup_free_ char **cmdline = new(char*, editor_n + strv_length(args) + 1);
+                if (!cmdline)
+                        return log_oom();
+
+                *mempcpy_typesafe(mempcpy_typesafe(cmdline, editor, editor_n), args, strv_length(args)) = NULL;
+
+                execvp(cmdline[0], cmdline);
+                log_warning_errno(errno, "Specified editor '%s' not available, trying fallbacks: %m", editor[0]);
+        }
 
         bool prepended = false;
         FOREACH_STRING(name, "editor", "nano", "vim", "vi") {
