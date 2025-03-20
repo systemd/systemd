@@ -298,24 +298,26 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...]\n"
-               "\n%sListen on sockets and launch child on connection.%s\n"
-               "\nOptions:\n"
-               "  -h --help                  Show this help and exit\n"
-               "     --version               Print version string and exit\n"
-               "  -l --listen=ADDR           Listen for raw connections at ADDR\n"
-               "  -d --datagram              Listen on datagram instead of stream socket\n"
-               "     --seqpacket             Listen on SOCK_SEQPACKET instead of stream socket\n"
-               "  -a --accept                Spawn separate child for each connection\n"
-               "  -E --setenv=NAME[=VALUE]   Pass an environment variable to children\n"
-               "     --fdname=NAME[:NAME...] Specify names for file descriptors\n"
-               "     --inetd                 Enable inetd file descriptor passing protocol\n"
-               "\nNote: file descriptors from sd_listen_fds() will be passed through.\n"
-               "\nSee the %s for details.\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal(),
-               link);
+        printf("%1$s [OPTIONS...]\n"
+                "\n%4$sListen on sockets and launch child on connection.%5$s\n"
+                "\n%2$sOptions:%3$s\n"
+                "  -h --help                  Show this help and exit\n"
+                "     --version               Print version string and exit\n"
+                "  -l --listen=ADDR           Listen for raw connections at ADDR\n"
+                "  -d --datagram              Listen on datagram instead of stream socket\n"
+                "     --seqpacket             Listen on SOCK_SEQPACKET instead of stream socket\n"
+                "  -a --accept                Spawn separate child for each connection\n"
+                "  -E --setenv=NAME[=VALUE]   Pass an environment variable to children\n"
+                "     --fdname=NAME[:NAME...] Specify names for file descriptors\n"
+                "     --inetd                 Enable inetd file descriptor passing protocol\n"
+                "\nNote: file descriptors from sd_listen_fds() will be passed through.\n"
+                "\nSee the %6$s for details.\n",
+                program_invocation_short_name,
+                ansi_underline(),
+                ansi_normal(),
+                ansi_highlight(),
+                ansi_normal(),
+                link);
 
         return 0;
 }
