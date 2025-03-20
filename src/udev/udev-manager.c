@@ -16,6 +16,7 @@
 #include "iovec-util.h"
 #include "list.h"
 #include "mkdir.h"
+#include "notify-recv.h"
 #include "process-util.h"
 #include "selinux-util.h"
 #include "signal-util.h"
@@ -153,7 +154,6 @@ Manager* manager_free(Manager *manager) {
         event_queue_cleanup(manager, EVENT_UNDEF);
 
         safe_close(manager->inotify_fd);
-        safe_close(manager->worker_notify_fd);
 
         sd_device_monitor_unref(manager->monitor);
         udev_ctrl_unref(manager->ctrl);
@@ -421,10 +421,14 @@ static int worker_spawn(Manager *manager, Event *event) {
                         .monitor = TAKE_PTR(worker_monitor),
                         .properties = TAKE_PTR(manager->properties),
                         .rules = TAKE_PTR(manager->rules),
-                        .pipe_fd = TAKE_FD(manager->worker_notify_fd),
                         .inotify_fd = TAKE_FD(manager->inotify_fd),
                         .config = manager->config,
                 };
+
+                if (setenv("NOTIFY_SOCKET", "/run/udev/notify", /* overwrite = */ true) < 0) {
+                        log_error_errno(errno, "Failed to set $NOTIFY_SOCKET: %m");
+                        _exit(EXIT_FAILURE);
+                }
 
                 /* Worker process */
                 r = udev_worker_main(&w, event->dev);
@@ -809,65 +813,41 @@ static int on_uevent(sd_device_monitor *monitor, sd_device *dev, void *userdata)
         return 1;
 }
 
-static int on_worker(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+static int on_notify(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         Manager *manager = ASSERT_PTR(userdata);
+        int r;
 
-        for (;;) {
-                EventResult result;
-                struct iovec iovec = IOVEC_MAKE(&result, sizeof(result));
-                CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct ucred))) control;
-                struct msghdr msghdr = {
-                        .msg_iov = &iovec,
-                        .msg_iovlen = 1,
-                        .msg_control = &control,
-                        .msg_controllen = sizeof(control),
-                };
-                ssize_t size;
-                struct ucred *ucred;
-                Worker *worker;
+        assert(fd >= 0);
 
-                size = recvmsg_safe(fd, &msghdr, MSG_DONTWAIT);
-                if (size == -EINTR)
-                        continue;
-                if (size == -EAGAIN)
-                        /* nothing more to read */
-                        break;
-                if (size < 0)
-                        return log_error_errno(size, "Failed to receive message: %m");
+        _cleanup_(pidref_done) PidRef sender = PIDREF_NULL;
+        _cleanup_strv_free_ char **l = NULL;
+        r = notify_recv_strv(fd, &l, /* ret_ucred= */ NULL, &sender);
+        if (r == -EAGAIN)
+                return 0;
+        if (r < 0)
+                return r;
 
-                cmsg_close_all(&msghdr);
-
-                if (size != sizeof(result)) {
-                        log_warning("Ignoring worker message with invalid size %zi bytes", size);
-                        continue;
-                }
-
-                ucred = CMSG_FIND_DATA(&msghdr, SOL_SOCKET, SCM_CREDENTIALS, struct ucred);
-                if (!ucred || ucred->pid <= 0) {
-                        log_warning("Ignoring worker message without valid PID");
-                        continue;
-                }
-
-                /* lookup worker who sent the signal */
-                worker = hashmap_get(manager->workers, PID_TO_PTR(ucred->pid));
-                if (!worker) {
-                        log_debug("Worker ["PID_FMT"] returned, but is no longer tracked", ucred->pid);
-                        continue;
-                }
-
-                if (worker->state == WORKER_KILLING) {
-                        worker->state = WORKER_KILLED;
-                        (void) kill(worker->pid, SIGTERM);
-                } else if (worker->state != WORKER_KILLED)
-                        worker->state = WORKER_IDLE;
-
-                if (result == EVENT_RESULT_TRY_AGAIN)
-                        event_requeue(worker->event);
-                else
-                        event_free(worker->event);
+        /* lookup worker who sent the signal */
+        Worker *worker = hashmap_get(manager->workers, PID_TO_PTR(sender.pid));
+        if (!worker) {
+                log_warning("Received notify datagram of unknown process ["PID_FMT"], ignoring.", sender.pid);
+                return 0;
         }
 
-        return 1;
+        if (strv_contains(l, "TRY_AGAIN=1"))
+                /* Worker cannot lock the device. Requeue the event. */
+                event_requeue(worker->event);
+        else
+                event_free(worker->event);
+
+        /* Update the state of the worker. */
+        if (worker->state == WORKER_KILLING) {
+                worker->state = WORKER_KILLED;
+                (void) kill(worker->pid, SIGTERM);
+        } else if (worker->state != WORKER_KILLED)
+                worker->state = WORKER_IDLE;
+
+        return 0;
 }
 
 static int synthesize_change_one(sd_device *dev, sd_device *target) {
@@ -1140,7 +1120,6 @@ Manager* manager_new(void) {
 
         *manager = (Manager) {
                 .inotify_fd = -EBADF,
-                .worker_notify_fd = -EBADF,
                 .config_by_udev_conf = UDEV_CONFIG_INIT,
                 .config_by_command = UDEV_CONFIG_INIT,
                 .config_by_kernel = UDEV_CONFIG_INIT,
@@ -1276,40 +1255,49 @@ static int manager_start_inotify(Manager *manager) {
         return 0;
 }
 
-static int manager_start_worker_event(Manager *manager) {
-        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
-        _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
+static int manager_start_notify_event(Manager *manager) {
+        static const union sockaddr_union sa = {
+                .un.sun_family = AF_UNIX,
+                .un.sun_path = "/run/udev/notify",
+        };
+
         int r;
 
         assert(manager);
         assert(manager->event);
 
-        /* unnamed socket from workers to the main daemon */
-        r = socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, pair);
-        if (r < 0)
-                return log_error_errno(errno, "Failed to create socketpair for communicating with workers: %m");
+        _cleanup_close_ int fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
+        if (fd < 0)
+                return log_error_errno(errno, "Failed to create notification socket: %m");
 
-        r = setsockopt_int(pair[READ_END], SOL_SOCKET, SO_PASSCRED, true);
-        if (r < 0)
-                return log_error_errno(r, "Failed to enable SO_PASSCRED: %m");
+        (void) sockaddr_un_unlink(&sa.un);
 
-        r = sd_event_add_io(manager->event, &s, pair[READ_END], EPOLLIN, on_worker, manager);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create worker event source: %m");
+        if (bind(fd, &sa.sa, SOCKADDR_UN_LEN(sa.un)) < 0)
+                return log_error_errno(errno, "Failed to bind notification socket: %m");
 
-        (void) sd_event_source_set_description(s, "manager-worker-event");
+        r = setsockopt_int(fd, SOL_SOCKET, SO_PASSCRED, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enable SO_PASSCRED on notification socket: %m");
+
+        r = setsockopt_int(fd, SOL_SOCKET, SO_PASSPIDFD, true);
+        if (r < 0)
+                log_debug_errno(r, "Failed to enable SO_PASSPIDFD on notification socket, ignoring. %m");
+
+        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        r = sd_event_add_io(manager->event, &s, fd, EPOLLIN, on_notify, manager);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create notification event source: %m");
 
         r = sd_event_source_set_io_fd_own(s, true);
         if (r < 0)
-                return log_error_errno(r, "Failed to make worker event source own file descriptor: %m");
+                return log_error_errno(r, "Failed to make notification event source own file descriptor: %m");
 
-        TAKE_FD(pair[READ_END]);
+        TAKE_FD(fd);
 
         r = sd_event_source_set_floating(s, true);
         if (r < 0)
-                return log_error_errno(r, "Failed to make worker event source floating: %m");
+                return log_error_errno(r, "Failed to make notification event source floating: %m");
 
-        manager->worker_notify_fd = TAKE_FD(pair[WRITE_END]);
         return 0;
 }
 
@@ -1386,7 +1374,7 @@ int manager_main(Manager *manager) {
         if (r < 0)
                 return r;
 
-        r = manager_start_worker_event(manager);
+        r = manager_start_notify_event(manager);
         if (r < 0)
                 return r;
 
