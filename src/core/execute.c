@@ -236,8 +236,14 @@ static bool needs_cgroup_namespace(ProtectControlGroups i) {
         return IN_SET(i, PROTECT_CONTROL_GROUPS_PRIVATE, PROTECT_CONTROL_GROUPS_STRICT);
 }
 
-ProtectControlGroups exec_get_protect_control_groups(const ExecContext *context) {
+ProtectControlGroups exec_get_protect_control_groups(const ExecContext *context, const ExecParameters *params) {
         assert(context);
+
+        /* CGroup namespaces don't really make sense for control processes and can't really be supported as
+         * (some) control processes need to be spawned directly into a subcgroup to avoid violating the
+         * "no inner processes" rule of cgroupv2, so don't do any cgroup namespacing for control processes. */
+        if (params && needs_cgroup_namespace(context->protect_control_groups) && FLAGS_SET(params->flags, EXEC_IS_CONTROL))
+                return PROTECT_CONTROL_GROUPS_YES;
 
         /* If cgroup namespace is configured via ProtectControlGroups=private or strict but we can't actually
          * use cgroup namespace, we ignore the setting and do not unshare the namespace.
@@ -252,22 +258,22 @@ ProtectControlGroups exec_get_protect_control_groups(const ExecContext *context)
         return context->protect_control_groups;
 }
 
-bool exec_needs_cgroup_namespace(const ExecContext *context) {
+bool exec_needs_cgroup_namespace(const ExecContext *context, const ExecParameters *params) {
         assert(context);
 
-        return needs_cgroup_namespace(exec_get_protect_control_groups(context));
+        return needs_cgroup_namespace(exec_get_protect_control_groups(context, params));
 }
 
-bool exec_needs_cgroup_mount(const ExecContext *context) {
+bool exec_needs_cgroup_mount(const ExecContext *context, const ExecParameters *params) {
         assert(context);
 
-        return exec_get_protect_control_groups(context) != PROTECT_CONTROL_GROUPS_NO;
+        return exec_get_protect_control_groups(context, params) != PROTECT_CONTROL_GROUPS_NO;
 }
 
-bool exec_is_cgroup_mount_read_only(const ExecContext *context) {
+bool exec_is_cgroup_mount_read_only(const ExecContext *context, const ExecParameters *params) {
         assert(context);
 
-        return IN_SET(exec_get_protect_control_groups(context), PROTECT_CONTROL_GROUPS_YES, PROTECT_CONTROL_GROUPS_STRICT);
+        return IN_SET(exec_get_protect_control_groups(context, params), PROTECT_CONTROL_GROUPS_YES, PROTECT_CONTROL_GROUPS_STRICT);
 }
 
 bool exec_needs_pid_namespace(const ExecContext *context) {
@@ -325,7 +331,7 @@ bool exec_needs_mount_namespace(
             context->protect_kernel_tunables ||
             context->protect_kernel_modules ||
             context->protect_kernel_logs ||
-            exec_needs_cgroup_mount(context) ||
+            exec_needs_cgroup_mount(context, params) ||
             context->protect_proc != PROTECT_PROC_DEFAULT ||
             context->proc_subset != PROC_SUBSET_ALL ||
             exec_needs_ipc_namespace(context) ||
@@ -399,19 +405,24 @@ bool exec_directory_is_private(const ExecContext *context, ExecDirectoryType typ
         return true;
 }
 
+static int exec_params_needs_control_subcgroup(const ExecParameters *params) {
+        return FLAGS_SET(params->flags, EXEC_CGROUP_DELEGATE) &&
+                        FLAGS_SET(params->flags, EXEC_CONTROL_CGROUP) &&
+                        FLAGS_SET(params->flags, EXEC_IS_CONTROL);
+}
+
 int exec_params_get_cgroup_path(
                 const ExecParameters *params,
                 const CGroupContext *c,
+                const char *prefix,
                 char **ret) {
 
         const char *subgroup = NULL;
         char *p;
 
         assert(params);
+        assert(c);
         assert(ret);
-
-        if (!params->cgroup_path)
-                return -EINVAL;
 
         /* If we are called for a unit where cgroup delegation is on, and the payload created its own populated
          * subcgroup (which we expect it to do, after all it asked for delegation), then we cannot place the control
@@ -430,9 +441,9 @@ int exec_params_get_cgroup_path(
         }
 
         if (subgroup)
-                p = path_join(params->cgroup_path, subgroup);
+                p = path_join(prefix, subgroup);
         else
-                p = strdup(params->cgroup_path);
+                p = strdup(strempty(prefix));
         if (!p)
                 return -ENOMEM;
 
@@ -501,7 +512,7 @@ int exec_spawn(
         log_command_line(unit, "About to execute", command->path, command->argv);
 
         if (params->cgroup_path) {
-                r = exec_params_get_cgroup_path(params, cgroup_context, &subcgroup_path);
+                r = exec_params_get_cgroup_path(params, cgroup_context, params->cgroup_path, &subcgroup_path);
                 if (r < 0)
                         return log_unit_error_errno(unit, r, "Failed to acquire subcgroup path: %m");
                 if (r > 0) {
@@ -513,6 +524,13 @@ int exec_spawn(
                                 return log_unit_error_errno(unit, r, "Failed to create subcgroup '%s': %m", subcgroup_path);
                 }
         }
+
+        /* We cannot spawn the main service process into the subcgroup as it might need to unshare the cgroup
+         * namespace first if one is configured to make sure the root of the cgroup namespace is the service
+         * cgroup and not the subcgroup. However, when running control commands on a live service, the
+         * commands have to be spawned inside a subcgroup, otherwise we violate the no inner processes rule
+         * of cgroupv2. */
+        const char *cgtarget = exec_params_needs_control_subcgroup(params) ? subcgroup_path : params->cgroup_path;
 
         /* In order to avoid copy-on-write traps and OOM-kills when pid1's memory.current is above the
          * child's memory.max, serialize all the state needed to start the unit, and pass it to the
@@ -576,24 +594,24 @@ int exec_spawn(
                                   "--log-level", max_log_levels,
                                   "--log-target", log_target_to_string(manager_get_executor_log_target(unit->manager))),
                         environ,
-                        subcgroup_path,
+                        cgtarget,
                         &pidref);
 
         /* Drop the ambient set again, so no processes other than sd-executore spawned from the manager inherit it. */
         (void) capability_ambient_set_apply(0, /* also_inherit= */ false);
 
-        if (r == -EUCLEAN && subcgroup_path)
+        if (r == -EUCLEAN && cgtarget)
                 return log_unit_error_errno(unit, r,
                                             "Failed to spawn process into cgroup '%s', because the cgroup "
                                             "or one of its parents or siblings is in the threaded mode.",
-                                            subcgroup_path);
+                                            cgtarget);
         if (r < 0)
                 return log_unit_error_errno(unit, r, "Failed to spawn executor: %m");
         /* We add the new process to the cgroup both in the child (so that we can be sure that no user code is ever
          * executed outside of the cgroup) and in the parent (so that we can be sure that when we kill the cgroup the
          * process will be killed too). */
-        if (r == 0 && subcgroup_path)
-                (void) cg_attach(subcgroup_path, pidref.pid);
+        if (r == 0 && cgtarget)
+                (void) cg_attach(cgtarget, pidref.pid);
         /* r > 0: Already in the right cgroup thanks to CLONE_INTO_CGROUP */
 
         log_unit_debug(unit, "Forked %s as " PID_FMT " (%s CLONE_INTO_CGROUP)",

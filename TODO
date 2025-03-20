@@ -128,6 +128,9 @@ Deprecations and removals:
 
 Features:
 
+* pid1: Maybe we should run control processes in the same pidns/cgroupns as the
+  main pid if it's still alive?
+
 * loginctl: show argv[] of "leader" process in tabular list-sessions output
 
 * loginctl: show "service identifier" in tabular list-sessions output, to make
