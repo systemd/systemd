@@ -305,7 +305,7 @@ int generator_write_fsck_deps(
         }
 
         if (!is_device_path(what)) {
-                log_warning("Checking was requested for \"%s\", but it is not a device.", what);
+                log_debug("Checking was requested for \"%s\", but it is not a device.", what);
                 return 0;
         }
 
