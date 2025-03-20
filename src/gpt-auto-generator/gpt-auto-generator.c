@@ -347,7 +347,7 @@ static int add_mount(
         if (post)
                 fprintf(f, "Before=%s\n", post);
 
-        r = generator_write_fsck_deps(f, arg_dest, what, where, fstype);
+        r = generator_write_fsck_deps(f, arg_dest, what, where, fstype, options);
         if (r < 0)
                 return r;
 
