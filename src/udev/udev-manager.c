@@ -628,7 +628,7 @@ static int on_event_retry(sd_event_source *s, uint64_t usec, void *userdata) {
         return 1;
 }
 
-static int event_requeue(Event *event) {
+static void event_requeue(Event *event) {
         usec_t now_usec;
         int r;
 
@@ -636,23 +636,29 @@ static int event_requeue(Event *event) {
         assert(event->manager);
         assert(event->manager->event);
 
+        sd_device *dev = ASSERT_PTR(event->dev);
+
         event->timeout_warning_event = sd_event_source_disable_unref(event->timeout_warning_event);
         event->timeout_event = sd_event_source_disable_unref(event->timeout_event);
 
         /* add a short delay to suppress busy loop */
         r = sd_event_now(event->manager->event, CLOCK_BOOTTIME, &now_usec);
-        if (r < 0)
-                return log_device_warning_errno(event->dev, r,
-                                                "Failed to get current time, "
-                                                "skipping event (SEQNUM=%"PRIu64", ACTION=%s): %m",
-                                                event->seqnum, strna(device_action_to_string(event->action)));
+        if (r < 0) {
+                log_device_warning_errno(
+                                dev, r,
+                                "Failed to get current time, skipping event (SEQNUM=%"PRIu64", ACTION=%s): %m",
+                                event->seqnum, strna(device_action_to_string(event->action)));
+                goto fail;
+        }
 
-        if (event->retry_again_timeout_usec > 0 && event->retry_again_timeout_usec <= now_usec)
-                return log_device_warning_errno(event->dev, SYNTHETIC_ERRNO(ETIMEDOUT),
-                                                "The underlying block device is locked by a process more than %s, "
-                                                "skipping event (SEQNUM=%"PRIu64", ACTION=%s).",
-                                                FORMAT_TIMESPAN(EVENT_RETRY_TIMEOUT_USEC, USEC_PER_MINUTE),
-                                                event->seqnum, strna(device_action_to_string(event->action)));
+        if (event->retry_again_timeout_usec > 0 && event->retry_again_timeout_usec <= now_usec) {
+                r = log_device_warning_errno(
+                                dev, SYNTHETIC_ERRNO(ETIMEDOUT),
+                                "The underlying block device is locked by a process more than %s, skipping event (SEQNUM=%"PRIu64", ACTION=%s).",
+                                FORMAT_TIMESPAN(EVENT_RETRY_TIMEOUT_USEC, USEC_PER_MINUTE),
+                                event->seqnum, strna(device_action_to_string(event->action)));
+                goto fail;
+        }
 
         event->retry_again_next_usec = usec_add(now_usec, EVENT_RETRY_INTERVAL_USEC);
         if (event->retry_again_timeout_usec == 0)
@@ -662,17 +668,24 @@ static int event_requeue(Event *event) {
                                       CLOCK_MONOTONIC, EVENT_RETRY_INTERVAL_USEC, 0,
                                       on_event_retry, NULL,
                                       0, "retry-event", true);
-        if (r < 0)
-                return log_device_warning_errno(event->dev, r, "Failed to reset timer event source for retrying event, "
-                                                "skipping event (SEQNUM=%"PRIu64", ACTION=%s): %m",
-                                                event->seqnum, strna(device_action_to_string(event->action)));
+        if (r < 0) {
+                log_device_warning_errno(
+                                dev, r,
+                                "Failed to reset timer event source for retrying event, skipping event (SEQNUM=%"PRIu64", ACTION=%s): %m",
+                                event->seqnum, strna(device_action_to_string(event->action)));
+                goto fail;
+        }
 
-        if (event->worker && event->worker->event == event)
+        if (event->worker)
                 event->worker->event = NULL;
         event->worker = NULL;
 
         event->state = EVENT_QUEUED;
-        return 0;
+        return;
+
+fail:
+        udev_broadcast_result(event->manager->monitor, dev, r);
+        event_free(event);
 }
 
 static int event_queue_assume_block_device_unlocked(Manager *manager, sd_device *dev) {
@@ -843,13 +856,10 @@ static int on_worker(sd_event_source *s, int fd, uint32_t revents, void *userdat
                 } else if (worker->state != WORKER_KILLED)
                         worker->state = WORKER_IDLE;
 
-                /* worker returned */
-                if (result == EVENT_RESULT_TRY_AGAIN &&
-                    event_requeue(worker->event) < 0)
-                        udev_broadcast_result(manager->monitor, worker->event->dev, -ETIMEDOUT);
-
-                /* When event_requeue() succeeds, worker->event is NULL, and event_free() handles NULL gracefully. */
-                event_free(worker->event);
+                if (result == EVENT_RESULT_TRY_AGAIN)
+                        event_requeue(worker->event);
+                else
+                        event_free(worker->event);
         }
 
         return 1;
