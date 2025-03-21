@@ -369,9 +369,21 @@ static int setup_input(
         case EXEC_INPUT_TTY_FORCE:
         case EXEC_INPUT_TTY_FAIL: {
                 _cleanup_close_ int tty_fd = -EBADF;
+                _cleanup_free_ char *resolved = NULL;
                 const char *tty_path;
 
                 tty_path = ASSERT_PTR(exec_context_tty_path(context));
+
+                if (tty_is_console(tty_path)) {
+                        r = resolve_dev_console(&resolved);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to resolve /dev/console, ignoring: %m");
+                        else {
+
+                                log_debug("Resolved /dev/console to %s", resolved);
+                                tty_path = resolved;
+                        }
+                }
 
                 tty_fd = acquire_terminal(tty_path,
                                           i == EXEC_INPUT_TTY_FAIL  ? ACQUIRE_TERMINAL_TRY :
