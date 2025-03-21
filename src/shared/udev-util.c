@@ -42,7 +42,12 @@ int udev_parse_config_full(const ConfigTableItem config_table[]) {
 int udev_parse_config(void) {
         int r, log_val = -1;
         const ConfigTableItem config_table[] = {
-                { NULL, "udev_log", config_parse_log_level, 0, &log_val },
+                { NULL, "udev_log",       config_parse_log_level, 0, &log_val },
+                { NULL, "children_max",   NULL,                   0, NULL     },
+                { NULL, "exec_delay",     NULL,                   0, NULL     },
+                { NULL, "event_timeout",  NULL,                   0, NULL     },
+                { NULL, "resolve_names",  NULL,                   0, NULL     },
+                { NULL, "timeout_signal", NULL,                   0, NULL     },
                 {}
         };
 
