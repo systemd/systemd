@@ -2172,7 +2172,7 @@ static int verify_shutdown_creds(
                 sd_bus_error *error) {
 
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
-        bool multiple_sessions, blocked, interactive;
+        bool multiple_sessions, blocked, interactive, error_or_denial = false;
         Inhibitor *offending = NULL;
         uid_t uid;
         int r;
@@ -2206,8 +2206,15 @@ static int verify_shutdown_creds(
                                 interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
                                 &m->polkit_registry,
                                 error);
-                if (r < 0)
-                        return r;
+                if (r < 0) {
+                        /* If we get -EALREADY, it means a polkit decision was made, but not for
+                         * this action in particular. Assuming we are blocked on inhibitors,
+                         * ignore that error and allow the decision to be revealed below. */
+                        if (blocked && r == -EALREADY)
+                                error_or_denial = true;
+                        else
+                                return r;
+                }
                 if (r == 0)
                         return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
         }
@@ -2260,6 +2267,13 @@ static int verify_shutdown_creds(
                 if (r == 0)
                         return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
         }
+
+        /* If error_or_denial was set above, it means that a polkit denial or
+         * error was deferred for a future call to bus_verify_polkit_async_full()
+         * to catch. In any case, it also means that the payload guarded by
+         * these polkit calls should never be executed, and hence we should
+         * never reach this point. */
+        assert(!error_or_denial);
 
         return 0;
 }
@@ -3754,6 +3768,7 @@ static int method_inhibit(sd_bus_message *message, void *userdata, sd_bus_error 
         InhibitMode mm;
         InhibitWhat w;
         uid_t uid;
+        bool error_or_denial = false;
         int r;
 
         assert(message);
@@ -3801,11 +3816,25 @@ static int method_inhibit(sd_bus_message *message, void *userdata, sd_bus_error 
                                 /* details= */ NULL,
                                 &m->polkit_registry,
                                 error);
-                if (r < 0)
-                        return r;
+                if (r < 0) {
+                        /* If we get -EALREADY, it means a polkit decision was made, but not for
+                         * this action in particular. Assuming there are more actions requested,
+                         * ignore that error and allow the decision to be revealed later. */
+                        if ((~v & w) && r == -EALREADY)
+                                error_or_denial = true;
+                        else
+                                return r;
+                }
                 if (r == 0)
                         return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
         }
+
+        /* If error_or_denial was set above, it means that a polkit denial or
+         * error was deferred for a future call to bus_verify_polkit_async()
+         * to catch. In any case, it also means that the payload guarded by
+         * these polkit calls should never be executed, and hence we should
+         * never reach this point. */
+        assert(!error_or_denial);
 
         r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_EUID|SD_BUS_CREDS_PID|SD_BUS_CREDS_PIDFD, &creds);
         if (r < 0)
