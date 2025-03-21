@@ -3602,7 +3602,7 @@ static int apply_mount_namespace(
                 .private_dev = needs_sandboxing && context->private_devices,
                 .private_network = needs_sandboxing && exec_needs_network_namespace(context),
                 .private_ipc = needs_sandboxing && exec_needs_ipc_namespace(context),
-                .private_pids = needs_sandboxing && exec_needs_pid_namespace(context) ? context->private_pids : PRIVATE_PIDS_NO,
+                .private_pids = needs_sandboxing && exec_needs_pid_namespace(context, params) ? context->private_pids : PRIVATE_PIDS_NO,
                 .private_tmp = needs_sandboxing ? context->private_tmp : PRIVATE_TMP_NO,
                 .private_var_tmp = needs_sandboxing ? context->private_var_tmp : PRIVATE_TMP_NO,
 
@@ -4182,7 +4182,7 @@ static bool exec_context_needs_cap_sys_admin(const ExecContext *context) {
                !strv_isempty(context->extension_directories) ||
                context->protect_system != PROTECT_SYSTEM_NO ||
                context->protect_home != PROTECT_HOME_NO ||
-               exec_needs_pid_namespace(context) ||
+               exec_needs_pid_namespace(context, params) ||
                context->protect_kernel_tunables ||
                context->protect_kernel_modules ||
                context->protect_kernel_logs ||
@@ -4330,7 +4330,7 @@ static int setup_delegated_namespaces(
 
         /* Unshare a new PID namespace before setting up mounts to ensure /proc/ is mounted with only processes in PID namespace visible.
          * Note PrivatePIDs=yes implies MountAPIVFS=yes so we'll always ensure procfs is remounted. */
-        if (needs_sandboxing && exec_needs_pid_namespace(context) &&
+        if (needs_sandboxing && exec_needs_pid_namespace(context, params) &&
             exec_namespace_is_delegated(context, params, have_cap_sys_admin, CLONE_NEWPID) == delegate) {
                 if (params->pidref_transport_fd < 0) {
                         *reterr_exit_status = EXIT_NAMESPACE;
