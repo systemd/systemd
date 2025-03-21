@@ -204,7 +204,7 @@ int cg_attach(const char *controller, const char *path, pid_t pid) {
 
         r = cg_get_path_and_check(controller, path, "cgroup.procs", &fs);
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Failed to get cgroup path and check: %m");
 
         if (pid == 0)
                 pid = getpid_cached();
@@ -216,7 +216,7 @@ int cg_attach(const char *controller, const char *path, pid_t pid) {
                 /* When the threaded mode is used, we cannot read/write the file. Let's return recognizable error. */
                 return -EUCLEAN;
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Failed to write string file %s: %m", fs);
 
         r = cg_hybrid_unified();
         if (r < 0)
