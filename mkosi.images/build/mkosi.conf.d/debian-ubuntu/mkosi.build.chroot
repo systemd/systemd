@@ -34,8 +34,11 @@ fi
 # We transplant the debian/ folder from the deb package sources into the upstream sources.
 mount --mkdir --bind "$SRCDIR/pkg/$PKG_SUBDIR/debian" "$SRCDIR"/debian
 
-# We remove the patches so they don't get applied.
-rm -rf "$SRCDIR"/debian/patches/*
+# We hide the patches so they don't get applied.
+if [[ -d "$SRCDIR/debian/patches" ]]; then
+    mkdir /tmp/patches
+    mount --bind /tmp/patches "$SRCDIR/debian/patches"
+fi
 
 # While the build directory can be specified through DH_OPTIONS, the default one is hardcoded everywhere so
 # we have to use that. Because it is architecture dependent, we query it using dpkg-architecture first.
