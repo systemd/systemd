@@ -8,7 +8,8 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Factory Reset Initiation
+Description=Initiate Factory Reset
 Documentation=man:systemd.special(7)
 Wants=systemd-factory-reset-reboot.service
 Before=systemd-factory-reset-reboot.service
+AssertPathExists=/run/systemd/factory-reset-supported
