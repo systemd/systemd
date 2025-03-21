@@ -1486,6 +1486,12 @@ int log_get_max_level(void) {
         return log_max_level;
 }
 
+int log_get_target_max_level(LogTarget target) {
+        assert(target >= 0);
+        assert(target < _LOG_TARGET_SINGLE_MAX);
+        return log_target_max_level[target];
+}
+
 void log_show_color(bool b) {
         show_color = b;
 }
