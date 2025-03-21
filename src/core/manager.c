@@ -3391,7 +3391,7 @@ int manager_loop(Manager *m) {
                         continue;
 
                 /* Sleep for watchdog runtime wait time */
-                r = sd_event_run(m->event, watchdog_runtime_wait());
+                r = sd_event_run(m->event, watchdog_runtime_wait(2));
                 if (r < 0)
                         return log_error_errno(r, "Failed to run event loop: %m");
         }

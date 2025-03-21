@@ -15,7 +15,7 @@ int watchdog_setup_pretimeout_governor(const char *governor);
 int watchdog_ping(void);
 void watchdog_report_if_missing(void);
 void watchdog_close(bool disarm);
-usec_t watchdog_runtime_wait(void);
+usec_t watchdog_runtime_wait(unsigned divisor);
 
 static inline void watchdog_free_device(void) {
         (void) watchdog_set_device(NULL);
