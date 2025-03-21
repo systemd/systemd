@@ -23,6 +23,7 @@
 #define BUS_ERROR_UNIT_LINKED                  "org.freedesktop.systemd1.UnitLinked"
 #define BUS_ERROR_UNIT_BAD_PATH                "org.freedesktop.systemd1.UnitBadPath"
 #define BUS_ERROR_JOB_TYPE_NOT_APPLICABLE      "org.freedesktop.systemd1.JobTypeNotApplicable"
+#define BUS_ERROR_CONCURRENCY_LIMIT_REACHED    "org.freedesktop.systemd1.ConcurrencyLimitReached"
 #define BUS_ERROR_NO_ISOLATION                 "org.freedesktop.systemd1.NoIsolation"
 #define BUS_ERROR_SHUTTING_DOWN                "org.freedesktop.systemd1.ShuttingDown"
 #define BUS_ERROR_SCOPE_NOT_RUNNING            "org.freedesktop.systemd1.ScopeNotRunning"
