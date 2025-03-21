@@ -37,8 +37,8 @@ jobs:
 
 - job: tests
   trigger: pull_request
-  fmf_path: test/fmf
-  tmt_plan: ci
-  use_target_repo_for_fmf_url: true
+  fmf_url: https://src.fedoraproject.org/rpms/systemd
+  # This is automatically updated by tools/fetch-distro.py --update fedora
+  fmf_ref: 2da5793357e262088a57e1b710586e5be1da6593
   targets:
   - fedora-rawhide-x86_64
