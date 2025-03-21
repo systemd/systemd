@@ -279,6 +279,7 @@ class UkifyConfig:
     pcrsig: Union[str, Path, None]
     join_pcrsig: Optional[Path]
     phase_path_groups: Optional[list[str]]
+    allow_custom_phases: bool
     policy_digest: bool
     profile: Optional[str]
     sb_cert: Union[str, Path, None]
@@ -622,24 +623,9 @@ def parse_banks(s: str) -> list[str]:
     return banks
 
 
-KNOWN_PHASES = (
-    'enter-initrd',
-    'leave-initrd',
-    'sysinit',
-    'ready',
-    'shutdown',
-    'final',
-)
-
-
 def parse_phase_paths(s: str) -> list[str]:
     # Split on commas or whitespace here. Commas might be hard to parse visually.
     paths = re.split(r',|\s+', s)
-
-    for path in paths:
-        for phase in path.split(':'):
-            if phase not in KNOWN_PHASES:
-                raise argparse.ArgumentTypeError(f'Unknown boot phase {phase!r} ({path=})')
 
     return paths
 
@@ -2160,6 +2146,12 @@ CONFIG_ITEMS = [
         config_push=ConfigItem.config_set_group,
     ),
     ConfigItem(
+        '--allow-custom-phases',
+        action=argparse.BooleanOptionalAction,
+        help='Allow use of custom defined phases',
+        config_key='PCRSignature:/AllowCustomPhases',
+    ),
+    ConfigItem(
         '--tools',
         type=Path,
         action='append',
@@ -2322,6 +2314,16 @@ def resolve_at_path(value: Optional[str]) -> Union[Path, str, None]:
     return value
 
 
+KNOWN_PHASES = (
+    'enter-initrd',
+    'leave-initrd',
+    'sysinit',
+    'ready',
+    'shutdown',
+    'final',
+)
+
+
 def finalize_options(opts: argparse.Namespace) -> None:
     # Figure out which syntax is being used, one of:
     # ukify verb --arg --arg --arg
@@ -2369,8 +2371,14 @@ def finalize_options(opts: argparse.Namespace) -> None:
         raise ValueError('--pcr-certificate= specifications must match --pcr-private-key=')
     if n_pcr_pub is not None and n_pcr_cert is not None:
         raise ValueError('--pcr-public-key= and --pcr-certificate= cannot be used at the same time')
-    if n_phase_path_groups is not None and n_phase_path_groups != n_pcr_priv:
-        raise ValueError('--phases= specifications must match --pcr-private-key=')
+    if n_phase_path_groups is not None:
+        if n_phase_path_groups != n_pcr_priv:
+            raise ValueError('--phases= specifications must match --pcr-private-key=')
+        if not opts.allow_custom_phases:
+            for phase_path in itertools.chain.from_iterable(opts.phase_path_groups):
+                for phase in phase_path.split(':'):
+                    if phase not in KNOWN_PHASES:
+                        raise argparse.ArgumentTypeError(f'Unknown boot phase {phase!r} ({phase_path=})')
 
     opts.cmdline = resolve_at_path(opts.cmdline)
 
