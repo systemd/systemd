@@ -112,6 +112,19 @@ int bus_wait_for_jobs_new(sd_bus *bus, BusWaitForJobs **ret) {
         if (r < 0)
                 return r;
 
+        r = sd_bus_call_method_async(
+                        bus,
+                        /* slot= */ NULL,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "Subscribe",
+                        /* callback= */ NULL,
+                        /* userdata= */ NULL,
+                        /* types= */ NULL);
+        if (r < 0)
+                return r;
+
         *ret = TAKE_PTR(d);
 
         return 0;
