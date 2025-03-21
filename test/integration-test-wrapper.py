@@ -574,29 +574,28 @@ def main() -> None:
         and not sanitizer
     ):
         journal_file.unlink(missing_ok=True)
-    elif os.getenv('TEST_JOURNAL_USE_TMP', '0') == '1':
+    elif os.getenv('TEST_JOURNAL_USE_TMP', '0') == '1' and journal_file.exists():
         dst = args.meson_build_dir / f'test/journal/{name}.journal'
         dst.parent.mkdir(parents=True, exist_ok=True)
-        shutil.move(journal_file, dst)
+        journal_file = shutil.move(journal_file, dst)
 
     if shell or (result.returncode in (args.exit_code, 77) and not coredumps and not sanitizer):
         exit(0 if shell or result.returncode == args.exit_code else 77)
 
-    ops = []
+    if journal_file.exists():
+        ops = []
 
-    if os.getenv('GITHUB_ACTIONS'):
-        id = os.environ['GITHUB_RUN_ID']
-        workflow = os.environ['GITHUB_WORKFLOW']
-        iteration = os.environ['GITHUB_RUN_ATTEMPT']
-        artifact = (
-            f'ci-{workflow}-{id}-{iteration}-{summary.distribution}-{summary.release}-failed-test-journals'
-        )
-        ops += [f'gh run download {id} --name {artifact} -D ci/{artifact}']
-        journal_file = Path(f'ci/{artifact}/test/journal/{name}.journal')
+        if os.getenv('GITHUB_ACTIONS'):
+            id = os.environ['GITHUB_RUN_ID']
+            wf = os.environ['GITHUB_WORKFLOW']
+            iter = os.environ['GITHUB_RUN_ATTEMPT']
+            artifact = f'ci-{wf}-{id}-{iter}-{summary.distribution}-{summary.release}-failed-test-journals'
+            ops += [f'gh run download {id} --name {artifact} -D ci/{artifact}']
+            journal_file = Path(f'ci/{artifact}/test/journal/{name}.journal')
 
-    ops += [f'journalctl --file {journal_file} --no-hostname -o short-monotonic -u {args.unit} -p info']
+        ops += [f'journalctl --file {journal_file} --no-hostname -o short-monotonic -u {args.unit} -p info']
 
-    print(f'Test failed, relevant logs can be viewed with: \n\n{(" && ".join(ops))}\n', file=sys.stderr)
+        print(f'Test failed, relevant logs can be viewed with: \n\n{(" && ".join(ops))}\n', file=sys.stderr)
 
     # 0 also means we failed so translate that to a non-zero exit code to mark the test as failed.
     exit(result.returncode or 1)
