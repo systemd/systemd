@@ -10653,6 +10653,12 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
                      in  t flags);
     properties:
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly u ConcurrencyHardMax = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly u ConcurrencySoftMax = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly u NCurrentlyActive = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly s Slice = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly s ControlGroup = '...';
@@ -10834,6 +10840,12 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
 
     <!--method RemoveSubgroup is not documented!-->
 
+    <!--property ConcurrencyHardMax is not documented!-->
+
+    <!--property ConcurrencySoftMax is not documented!-->
+
+    <!--property NCurrentlyActive is not documented!-->
+
     <!--property Slice is not documented!-->
 
     <!--property ControlGroupId is not documented!-->
@@ -11009,6 +11021,12 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
     <variablelist class="dbus-method" generated="True" extra-ref="AttachProcesses()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="RemoveSubgroup()"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ConcurrencyHardMax"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ConcurrencySoftMax"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="NCurrentlyActive"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Slice"/>
 
@@ -12231,7 +12249,10 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>EffectiveTasksMax</varname>, and
       <varname>MemoryZSwapWriteback</varname> were added in version 256.</para>
       <para><varname>ManagedOOMMemoryPressureDurationUSec</varname> was added in version 257.</para>
-      <para><function>RemoveSubgroup()</function> was added in version 258.</para>
+      <para><varname>ConcurrencyHardMax</varname>,
+      <varname>ConcurrencySoftMax</varname>,
+      <varname>NCurrentlyActive</varname> and
+      <function>RemoveSubgroup()</function> were added in version 258.</para>
     </refsect2>
     <refsect2>
       <title>Scope Unit Objects</title>

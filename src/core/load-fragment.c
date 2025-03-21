@@ -5941,6 +5941,28 @@ int config_parse_mount_node(
         return config_parse_string(unit, filename, line, section, section_line, lvalue, ltype, path, data, userdata);
 }
 
+int config_parse_concurrency_max(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        unsigned *concurrency_max = ASSERT_PTR(data);
+
+        if (isempty(rvalue) || streq(rvalue, "infinity")) {
+                *concurrency_max = UINT_MAX;
+                return 0;
+        }
+
+        return config_parse_unsigned(unit, filename, line, section, section_line, lvalue, ltype, rvalue, data, userdata);
+}
+
 static int merge_by_names(Unit *u, Set *names, const char *id) {
         char *k;
         int r;

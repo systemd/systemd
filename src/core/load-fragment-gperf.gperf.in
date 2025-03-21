@@ -592,6 +592,8 @@ Path.MakeDirectory,                           config_parse_bool,                
 Path.DirectoryMode,                           config_parse_mode,                                  0,                                  offsetof(Path, directory_mode)
 Path.TriggerLimitIntervalSec,                 config_parse_sec,                                   0,                                  offsetof(Path, trigger_limit.interval)
 Path.TriggerLimitBurst,                       config_parse_unsigned,                              0,                                  offsetof(Path, trigger_limit.burst)
+Slice.ConcurrencySoftMax,                     config_parse_concurrency_max,                       0,                                  offsetof(Slice, concurrency_soft_max)
+Slice.ConcurrencyHardMax,                     config_parse_concurrency_max,                       0,                                  offsetof(Slice, concurrency_hard_max)
 {{ CGROUP_CONTEXT_CONFIG_ITEMS('Slice') }}
 {{ CGROUP_CONTEXT_CONFIG_ITEMS('Scope') }}
 {{ KILL_CONTEXT_CONFIG_ITEMS('Scope') }}
