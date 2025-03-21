@@ -200,7 +200,17 @@ static int vl_method_create_session(sd_varlink *link, sd_json_variant *parameter
                         return sd_varlink_error(link, "io.systemd.Login.NoSuchSeat", /* parameters= */ NULL);
         }
 
+        _cleanup_free_ char *resolved = NULL;
+
         if (p.tty) {
+                if (tty_is_console(p.tty)) {
+                        r = resolve_dev_console(&resolved);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to resolve /dev/console, ignoring: %m");
+                        else
+                                p.tty = resolved;
+                }
+
                 if (tty_is_vc(p.tty)) {
                         if (!seat)
                                 seat = m->seat0;
