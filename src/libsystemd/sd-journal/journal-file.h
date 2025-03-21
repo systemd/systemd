@@ -59,6 +59,8 @@ typedef enum OfflineState {
         OFFLINE_DONE,
 } OfflineState;
 
+typedef struct ObjectCache ObjectCache;
+
 typedef struct JournalFile {
         int fd;
         MMapFileDescriptor *cache_fd;
@@ -95,6 +97,7 @@ typedef struct JournalFile {
         usec_t post_change_timer_period;
 
         OrderedHashmap *chain_cache;
+        ObjectCache *object_cache;
 
         pthread_t offline_thread;
         volatile OfflineState offline_state;
