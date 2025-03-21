@@ -23,7 +23,9 @@ static int watchdog_fd = -EBADF;
 static char *watchdog_device = NULL;
 static usec_t watchdog_timeout = 0; /* 0 → close device and USEC_INFINITY → don't change timeout */
 static usec_t watchdog_pretimeout = 0; /* 0 → disable pretimeout and USEC_INFINITY → don't change pretimeout */
-static usec_t watchdog_last_ping = USEC_INFINITY;
+static usec_t watchdog_last_good_ping = USEC_INFINITY;
+static usec_t watchdog_last_bad_ping = USEC_INFINITY;
+static unsigned watchdog_bad_pings = 0;
 static bool watchdog_supports_pretimeout = false; /* Depends on kernel state that might change at runtime */
 static char *watchdog_pretimeout_governor = NULL;
 
@@ -35,6 +37,11 @@ static char *watchdog_pretimeout_governor = NULL;
  * as well.
  */
 #define WATCHDOG_TIMEOUT_MAX_SEC (CONST_MIN(UINT_MAX/1000U, (unsigned)INT_MAX))
+
+/* How many times to ping the watchdog in a single burst. */
+#define WATCHDOG_PING_BURST 3
+/* How many times to ping the watchdog in total before giving up on it. */
+#define WATCHDOG_MAX_FAILED_PINGS 15
 
 #define WATCHDOG_GOV_NAME_MAXLEN 20 /* From the kernel watchdog driver */
 
@@ -193,7 +200,7 @@ static int watchdog_set_pretimeout(void) {
 }
 
 usec_t watchdog_get_last_ping(clockid_t clock) {
-        return map_clock_usec(watchdog_last_ping, CLOCK_BOOTTIME, clock);
+        return map_clock_usec(watchdog_last_good_ping, CLOCK_BOOTTIME, clock);
 }
 
 static int watchdog_ping_now(void) {
@@ -202,12 +209,35 @@ static int watchdog_ping_now(void) {
         assert(watchdog_fd >= 0);
 
         r = RET_NERRNO(ioctl(watchdog_fd, WDIOC_KEEPALIVE, 0));
-        if (r < 0)
-                return log_warning_errno(r, "Failed to ping hardware watchdog, ignoring: %m");
+        if (r < 0) {
+                watchdog_last_bad_ping = now(CLOCK_BOOTTIME);
+                if (++ watchdog_bad_pings >= WATCHDOG_MAX_FAILED_PINGS) {
+                        log_struct_errno(LOG_ERR, r,
+                                         LOG_MESSAGE("Failed to ping hardware watchdog %s, closing watchdog after %u attempts: %m",
+                                                     watchdog_device, watchdog_bad_pings),
+                                         "MESSAGE_ID=" SD_MESSAGE_WATCHDOG_PING_FAILED_STR,
+                                         "WATCHDOG_DEVICE=%s", watchdog_device);
+                        watchdog_timeout = USEC_INFINITY;
+                        watchdog_close(/* disarm= */ true);
+                } else
+                        log_struct_errno(LOG_WARNING, r,
+                                         LOG_MESSAGE("Failed to ping hardware watchdog %s: %m",
+                                                     watchdog_device),
+                                         "MESSAGE_ID=" SD_MESSAGE_WATCHDOG_PING_FAILED_STR,
+                                         "WATCHDOG_DEVICE=%s", watchdog_device);
+        } else {
+                watchdog_last_good_ping = now(CLOCK_BOOTTIME);
+                if (watchdog_bad_pings > 0) {
+                        log_struct(LOG_INFO,
+                                   LOG_MESSAGE("Succesfullly pinged hardware watchdog %s after %u attempts: %m",
+                                               watchdog_device, watchdog_bad_pings + 1),
+                                   "WATCHDOG_DEVICE=%s", watchdog_device);
+                        watchdog_bad_pings = 0;
+                        watchdog_last_bad_ping = USEC_INFINITY;
+                }
+        }
 
-        watchdog_last_ping = now(CLOCK_BOOTTIME);
-
-        return 0;
+        return r;
 }
 
 static int watchdog_update_pretimeout(void) {
@@ -358,7 +388,8 @@ static int watchdog_open(bool ignore_ratelimit) {
                                        watchdog_device ? " " : "",
                                        strempty(watchdog_device));
 
-        watchdog_last_ping = USEC_INFINITY;
+        watchdog_last_good_ping = watchdog_last_bad_ping = USEC_INFINITY;
+        watchdog_bad_pings = 0;
 
         r = RET_NERRNO(ioctl(watchdog_fd, WDIOC_GETSUPPORT, &ident));
         if (r < 0)
@@ -410,7 +441,7 @@ int watchdog_setup(usec_t timeout) {
          * it's a nop if the device is already opened). */
 
         if (timeout == 0) {
-                watchdog_close(true);
+                watchdog_close(/* disarm= */ true);
                 return 0;
         }
 
@@ -454,6 +485,10 @@ int watchdog_setup_pretimeout_governor(const char *governor) {
 }
 
 static usec_t watchdog_calc_timeout(void) {
+        /* If we failed to many times, don't schedule the next attempt at all. */
+        if (watchdog_bad_pings >= WATCHDOG_MAX_FAILED_PINGS)
+                return 0;
+
         /* Calculate the effective timeout which accounts for the watchdog
          * pretimeout if configured and supported. */
         if (watchdog_supports_pretimeout && timestamp_is_set(watchdog_pretimeout) && watchdog_timeout >= watchdog_pretimeout)
@@ -462,20 +497,26 @@ static usec_t watchdog_calc_timeout(void) {
                 return watchdog_timeout;
 }
 
-usec_t watchdog_runtime_wait(void) {
+usec_t watchdog_runtime_wait(unsigned divisor) {
         usec_t timeout = watchdog_calc_timeout();
         if (!timestamp_is_set(timeout))
                 return USEC_INFINITY;
 
-        /* Sleep half the watchdog timeout since the last successful ping at most */
-        if (timestamp_is_set(watchdog_last_ping)) {
-                usec_t ntime = now(CLOCK_BOOTTIME);
+        /* Sleep watchdog timeout / divisor since the last successful ping attempt at most,
+         * or the fifth of that if the ping failed. */
 
-                assert(ntime >= watchdog_last_ping);
-                return usec_sub_unsigned(watchdog_last_ping + timeout/2, ntime);
+        usec_t ts = MAX(timestamp_is_set(watchdog_last_good_ping) ? watchdog_last_good_ping : 0u,
+                        timestamp_is_set(watchdog_last_bad_ping) ? watchdog_last_bad_ping : 0u);
+        if (ts > 0) {
+                usec_t ntime = now(CLOCK_BOOTTIME);
+                if (ts == watchdog_last_bad_ping)
+                        divisor *= 5;
+
+                assert(ntime >= ts);
+                return usec_sub_unsigned(ts + timeout / divisor, ntime);
         }
 
-        return timeout / 2;
+        return timeout / divisor;
 }
 
 int watchdog_ping(void) {
@@ -486,17 +527,10 @@ int watchdog_ping(void) {
                 /* open_watchdog() will automatically ping the device for us if necessary */
                 return watchdog_open(/* ignore_ratelimit= */ false);
 
-        /* Never ping earlier than watchdog_timeout/4 and try to ping
-         * by watchdog_timeout/2 plus scheduling latencies at the latest */
-        if (timestamp_is_set(watchdog_last_ping)) {
-                usec_t ntime = now(CLOCK_BOOTTIME),
-                       timeout = watchdog_calc_timeout();
-
-                assert(ntime >= watchdog_last_ping);
-
-                if (ntime - watchdog_last_ping < timeout/4)
-                        return 0;
-        }
+        /* Ping approximately watchdog_timeout/4 after a successful ping, or even less than that
+         * after an unsuccessful ping. */
+        if (watchdog_runtime_wait(/* divisor= */ 4) > 0)
+                return 0;
 
         return watchdog_ping_now();
 }

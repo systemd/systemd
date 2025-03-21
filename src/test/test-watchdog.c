@@ -23,7 +23,7 @@ int main(int argc, char *argv[]) {
                 log_warning_errno(r, "Failed to open watchdog: %m");
 
         for (unsigned i = 0; i < count; i++) {
-                timeout = watchdog_runtime_wait();
+                timeout = watchdog_runtime_wait(/* divisor= */ 2);
                 log_info("Sleeping %s…", FORMAT_TIMESPAN(timeout, USEC_PER_SEC));
                 usleep_safe(timeout);
                 log_info("Pinging...");
@@ -32,6 +32,6 @@ int main(int argc, char *argv[]) {
                         log_warning_errno(r, "Failed to ping watchdog: %m");
         }
 
-        watchdog_close(true);
+        watchdog_close(/* disarm= */ true);
         return 0;
 }

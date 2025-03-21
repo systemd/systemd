@@ -262,6 +262,9 @@ _SD_BEGIN_DECLARATIONS;
 #define SD_MESSAGE_WATCHDOG_OPEN_FAILED               SD_ID128_MAKE(37,5a,c1,51,ef,9d,4d,e3,90,68,b3,ef,bf,ed,0c,ee)
 #define SD_MESSAGE_WATCHDOG_OPEN_FAILED_STR           SD_ID128_MAKE_STR(37,5a,c1,51,ef,9d,4d,e3,90,68,b3,ef,bf,ed,0c,ee)
 
+#define SD_MESSAGE_WATCHDOG_PING_FAILED               SD_ID128_MAKE(87,39,78,9e,ca,06,43,25,af,15,a8,ed,0e,cf,c5,56)
+#define SD_MESSAGE_WATCHDOG_PING_FAILED_STR           SD_ID128_MAKE_STR(87,39,78,9e,ca,06,43,25,af,15,a8,ed,0e,cf,c5,56)
+
 #define SD_MESSAGE_SHUTDOWN_SCHEDULED                 SD_ID128_MAKE(9e,70,66,27,9d,c8,40,3d,a7,9c,e4,b1,a6,90,64,b2)
 #define SD_MESSAGE_SHUTDOWN_SCHEDULED_STR             SD_ID128_MAKE_STR(9e,70,66,27,9d,c8,40,3d,a7,9c,e4,b1,a6,90,64,b2)
 
