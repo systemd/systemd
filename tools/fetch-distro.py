@@ -97,15 +97,15 @@ def update_distro(args, distro: str, config: dict):
     subdir = config['Environment'].get('GIT_SUBDIR')
     old_commit = config['Environment']['GIT_COMMIT']
 
-    cmd = ['git', '-C', f'pkg/{distro}', 'switch', branch]
-    print(f"+ {shlex.join(cmd)}")
-    subprocess.check_call(cmd)
-
     if args.fetch:
         cmd = ['git', '-C', f'pkg/{distro}', 'fetch', 'origin', '-v',
                f'{branch}:remotes/origin/{branch}']
         print(f"+ {shlex.join(cmd)}")
         subprocess.check_call(cmd)
+
+    cmd = ['git', '-C', f'pkg/{distro}', 'switch', branch]
+    print(f"+ {shlex.join(cmd)}")
+    subprocess.check_call(cmd)
 
     cmd = ['git', '-C', f'pkg/{distro}', 'log', '-n1', '--format=%H',
            f'refs/remotes/origin/{branch}']
