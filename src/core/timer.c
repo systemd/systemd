@@ -124,6 +124,8 @@ static int timer_add_trigger_dependencies(Timer *t) {
         if (r < 0)
                 return r;
 
+        x->invoked_by = UNIT_TIMER;
+
         return unit_add_two_dependencies(UNIT(t), UNIT_BEFORE, UNIT_TRIGGERS, x, true, UNIT_DEPENDENCY_IMPLICIT);
 }
 
@@ -618,6 +620,8 @@ static void timer_enter_running(Timer *t) {
                 goto fail;
         }
 
+        trigger->invoked_by = UNIT_TIMER;
+
         r = manager_add_job(UNIT(t)->manager, JOB_START, trigger, JOB_REPLACE, &error, &job);
         if (r < 0) {
                 log_unit_warning(UNIT(t), "Failed to queue unit startup job: %s", bus_error_message(&error, r));
@@ -688,8 +692,20 @@ static int timer_start(Unit *u) {
 
 static int timer_stop(Unit *u) {
         Timer *t = ASSERT_PTR(TIMER(u));
+        Unit *trigger;
 
         assert(IN_SET(t->state, TIMER_WAITING, TIMER_RUNNING, TIMER_ELAPSED));
+
+        if (u->manager->defaults.persist_timer_cgroups) {
+                trigger = UNIT_TRIGGER(u);
+                if (trigger) {
+                        /* Reset the invoked-by field so that unit_prune_cgroup() can delete the
+                         * no-longer-needed cgroup */
+                        trigger->invoked_by = _UNIT_TYPE_INVALID;
+                        unit_pick_cgroup_path(trigger);
+                        unit_prune_cgroup(trigger);
+                }
+        }
 
         timer_enter_dead(t, TIMER_SUCCESS);
         return 1;

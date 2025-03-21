@@ -4365,6 +4365,8 @@ int manager_set_unit_defaults(Manager *m, const UnitDefaults *defaults) {
         rlimit_free_all(m->defaults.rlimit);
         memcpy(m->defaults.rlimit, rlimit, sizeof(struct rlimit*) * _RLIMIT_MAX);
 
+        m->defaults.persist_timer_cgroups = defaults->persist_timer_cgroups;
+
         return 0;
 }
 
@@ -5260,6 +5262,8 @@ void unit_defaults_init(UnitDefaults *defaults, RuntimeScope scope) {
 
                 .oom_policy = OOM_STOP,
                 .oom_score_adjust_set = false,
+
+                .persist_timer_cgroups = false,
         };
 }
 
