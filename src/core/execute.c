@@ -232,7 +232,7 @@ bool exec_needs_ipc_namespace(const ExecContext *context) {
         return context->private_ipc || context->ipc_namespace_path;
 }
 
-static bool can_apply_cgroup_namespace(const ExecContext *context, const ExecParameters *params) {
+static bool can_apply_cgroup_namespace(const ExecContext *context) {
         return cg_all_unified() > 0 && ns_type_supported(NAMESPACE_CGROUP);
 }
 
@@ -249,7 +249,7 @@ ProtectControlGroups exec_get_protect_control_groups(const ExecContext *context,
          * to no and yes respectively. This ensures that strict always gets a read-only mount of /sys/fs/cgroup.
          *
          * TODO: Remove fallback once cgroupv1 support is removed in v258. */
-        if (needs_cgroup_namespace(context->protect_control_groups) && !can_apply_cgroup_namespace(context, params)) {
+        if (needs_cgroup_namespace(context->protect_control_groups) && !can_apply_cgroup_namespace(context)) {
                 if (context->protect_control_groups == PROTECT_CONTROL_GROUPS_PRIVATE)
                         return PROTECT_CONTROL_GROUPS_NO;
                 if (context->protect_control_groups == PROTECT_CONTROL_GROUPS_STRICT)
