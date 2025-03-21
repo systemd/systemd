@@ -37,8 +37,17 @@ jobs:
 
 - job: tests
   trigger: pull_request
-  fmf_path: test/fmf
-  tmt_plan: ci
-  use_target_repo_for_fmf_url: true
+  fmf_url: https://src.fedoraproject.org/rpms/systemd
+  # This is automatically updated by tools/fetch-distro.py --update fedora
+  fmf_ref: 2ecfbec1a444a2ec9e3dab91d04565330cf809ea
   targets:
   - fedora-rawhide-x86_64
+  # testing-farm in the Fedora repository is explicitly configured to use testing-farm bare metal runners as
+  # the volume of pull requests there is very low. Upstream the volume of pull requests is much higher and
+  # we'll bottleneck ourselves if we insist on bare metal runners, so explicitly do not request support for
+  # nested virtualization so we don't only consider bare metal runners.
+  tf_extra_params:
+    environments:
+      - hardware:
+          virtualization:
+            is-supported: false
