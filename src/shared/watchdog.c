@@ -7,6 +7,8 @@
 #include <unistd.h>
 #include <linux/watchdog.h>
 
+#include "sd-messages.h"
+
 #include "devnum-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
@@ -344,7 +346,10 @@ static int watchdog_open(bool ignore_ratelimit) {
                 }
 
                 if (watchdog_fd != -ENOENT)
-                        return log_warning_errno(watchdog_fd, "Failed to open watchdog device %s: %m", *wd);
+                        return log_struct_errno(LOG_WARNING, watchdog_fd,
+                                                LOG_MESSAGE("Failed to open watchdog device %s: %m", *wd),
+                                                "MESSAGE_ID=" SD_MESSAGE_WATCHDOG_OPEN_FAILED_STR,
+                                                "WATCHDOG_DEVICE=%s", *wd);
         }
 
         if (watchdog_fd < 0)
@@ -357,13 +362,19 @@ static int watchdog_open(bool ignore_ratelimit) {
 
         r = RET_NERRNO(ioctl(watchdog_fd, WDIOC_GETSUPPORT, &ident));
         if (r < 0)
-                log_info_errno(r, "Using hardware watchdog %s, no support for WDIOC_GETSUPPORT ioctl: %m",
-                               watchdog_device);
+                log_struct_errno(LOG_INFO, r,
+                                 LOG_MESSAGE("Using hardware watchdog %s, no support for WDIOC_GETSUPPORT ioctl: %m",
+                                             watchdog_device),
+                                 "MESSAGE_ID=" SD_MESSAGE_WATCHDOG_OPENED_STR,
+                                 "WATCHDOG_DEVICE=%s", watchdog_device);
         else
-                log_info("Using hardware watchdog %s: '%s', version %x.",
-                         watchdog_device,
-                         ident.identity,
-                         ident.firmware_version),
+                log_struct(LOG_INFO,
+                           LOG_MESSAGE("Using hardware watchdog %s: '%s', version %x.",
+                                       watchdog_device,
+                                       ident.identity,
+                                       ident.firmware_version),
+                           "MESSAGE_ID=" SD_MESSAGE_WATCHDOG_OPENED_STR,
+                           "WATCHDOG_DEVICE=%s", watchdog_device);
 
         r = watchdog_update_timeout();
         if (r < 0)
@@ -505,12 +516,16 @@ void watchdog_report_if_missing(void) {
         if (watchdog_open(/* ignore_ratelimit= */ true) >= 0)
                 return;
 
-        log_full_errno(watchdog_device ? LOG_WARNING : LOG_NOTICE,
-                       watchdog_fd,
-                       "Failed to open %swatchdog device%s%s before the initial transaction completed: %m",
-                       watchdog_device ? "" : "any ",
-                       watchdog_device ? " " : "",
-                       strempty(watchdog_device));
+        if (watchdog_device)
+                log_struct_errno(LOG_WARNING, watchdog_fd,
+                                 LOG_MESSAGE("Failed to open watchdog device %s before the initial transaction completed: %m",
+                                             watchdog_device),
+                                 "MESSAGE_ID=" SD_MESSAGE_WATCHDOG_OPEN_FAILED_STR,
+                                 "WATCHDOG_DEVICE=%s", watchdog_device);
+        else
+                log_struct_errno(LOG_WARNING, watchdog_fd,
+                                 LOG_MESSAGE("Failed to open any watchdog device before the initial transaction completed: %m"),
+                                 "MESSAGE_ID=" SD_MESSAGE_WATCHDOG_OPEN_FAILED_STR);
 }
 
 void watchdog_close(bool disarm) {
