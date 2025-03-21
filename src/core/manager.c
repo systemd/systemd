@@ -3352,13 +3352,13 @@ int manager_loop(Manager *m) {
 
         while (m->objective == MANAGER_OK) {
 
-                (void) watchdog_ping();
-
                 if (!ratelimit_below(&rl)) {
                         /* Yay, something is going seriously wrong, pause a little */
                         log_warning("Looping too fast. Throttling execution a little.");
                         sleep(1);
                 }
+
+                (void) watchdog_ping();
 
                 if (manager_dispatch_load_queue(m) > 0)
                         continue;
