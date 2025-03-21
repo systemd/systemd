@@ -276,8 +276,12 @@ bool exec_is_cgroup_mount_read_only(const ExecContext *context, const ExecParame
         return IN_SET(exec_get_protect_control_groups(context, params), PROTECT_CONTROL_GROUPS_YES, PROTECT_CONTROL_GROUPS_STRICT);
 }
 
-bool exec_needs_pid_namespace(const ExecContext *context) {
+bool exec_needs_pid_namespace(const ExecContext *context, const ExecParameters *params) {
         assert(context);
+
+        /* PID namespaces don't really make sense for control processes so let's not use them for those. */
+        if (params && FLAGS_SET(params->flags, EXEC_IS_CONTROL))
+                return false;
 
         return context->private_pids != PRIVATE_PIDS_NO && ns_type_supported(NAMESPACE_PID);
 }
@@ -335,7 +339,7 @@ bool exec_needs_mount_namespace(
             context->protect_proc != PROTECT_PROC_DEFAULT ||
             context->proc_subset != PROC_SUBSET_ALL ||
             exec_needs_ipc_namespace(context) ||
-            exec_needs_pid_namespace(context))
+            exec_needs_pid_namespace(context, params))
                 return true;
 
         if (context->root_directory) {
