@@ -42,13 +42,13 @@ def read_config(distro: str):
     images = {image["Image"]: image for image in data["Images"]}
     return images["build"]
 
-def commit_file(distro: str, file: Path, commit: str, changes: str):
+def commit_file(distro: str, files: list[Path], commit: str, changes: str):
     message = '\n'.join((
         f'mkosi: update {distro} commit reference',
         '',
         changes))
 
-    cmd = ['git', 'commit', '-m', message, str(file)]
+    cmd = ['git', 'commit', '-m', message, *(str(file) for file in files)]
     print(f"+ {shlex.join(cmd)}")
     subprocess.check_call(cmd)
 
@@ -111,7 +111,17 @@ def update_distro(args, distro: str, config: dict):
             new = s.replace(old_commit, new_commit)
             assert new != s
             file.write_text(new)
-            commit_file(distro, file, new_commit, changes)
+            tocommit = [file]
+
+            if distro == "fedora":
+                packit = Path(".packit.yml")
+                s = packit.read_text()
+                assert old_commit in s
+                new = s.replace(old_commit, new_commit)
+                packit.write_text(new)
+                tocommit += [packit]
+
+            commit_file(distro, tocommit, new_commit, changes)
             break
     else:
         raise ValueError(f'{distro}: hash {new_commit} not found under {conf_dir}')
