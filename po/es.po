@@ -11,7 +11,7 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2024-11-28 18:16+0900\n"
-"PO-Revision-Date: 2025-03-20 20:00+0000\n"
+"PO-Revision-Date: 2025-03-21 12:57+0000\n"
 "Last-Translator: Jose Ortuno <jose_ortuno@hotmail.com>\n"
 "Language-Team: Spanish <https://translate.fedoraproject.org/projects/systemd/"
 "main/es/>\n"
@@ -502,7 +502,7 @@ msgid ""
 "the power key."
 msgstr ""
 "Necesita autenticarse para que una aplicación impida el manejo de la tecla "
-"de encendido/apagado por parte del sistema."
+"de encendido/apagado del sistema."
 
 #: src/login/org.freedesktop.login1.policy:86
 msgid "Allow applications to inhibit system handling of the suspend key"
@@ -558,10 +558,9 @@ msgid ""
 "the reboot key."
 msgstr ""
 "Necesita autenticarse para que una aplicación impida el manejo de la tecla "
-"de encendido/apagado por parte del sistema."
+"de encendido/apagado del sistema."
 
 #: src/login/org.freedesktop.login1.policy:128
-#, fuzzy
 msgid "Allow non-logged-in user to run programs"
 msgstr "Permitir la ejecución de programas a usuarios no conectados"
 
@@ -669,36 +668,31 @@ msgid "Halt the system"
 msgstr "Detener el sistema"
 
 #: src/login/org.freedesktop.login1.policy:236
-#, fuzzy
 msgid "Authentication is required to halt the system."
-msgstr "Se requiere autenticación para hibernar el sistema."
+msgstr "Se requiere autenticación para detener el sistema."
 
 #: src/login/org.freedesktop.login1.policy:246
-#, fuzzy
 msgid "Halt the system while other users are logged in"
-msgstr "Hibernar el sistema mientras todavía hay usuarios conectados"
+msgstr "Detener el sistema mientras todavía hay usuarios conectados"
 
 #: src/login/org.freedesktop.login1.policy:247
-#, fuzzy
 msgid ""
 "Authentication is required to halt the system while other users are logged "
 "in."
 msgstr ""
-"Se requiere autenticación para hibernar el sistema mientras todavía hay "
+"Se requiere autenticación para detener el sistema mientras todavía hay "
 "usuarios conectados."
 
 #: src/login/org.freedesktop.login1.policy:257
-#, fuzzy
 msgid "Halt the system while an application is inhibiting this"
-msgstr "Hibernar el sistema a pesar de que una aplicación lo impide"
+msgstr "Detener el sistema a pesar de que una aplicación lo impide"
 
 #: src/login/org.freedesktop.login1.policy:258
-#, fuzzy
 msgid ""
 "Authentication is required to halt the system while an application is "
 "inhibiting this."
 msgstr ""
-"Se requiere autenticación para hibernar el sistema a pesar de que una "
+"Se requiere autenticación para detener el sistema a pesar de que una "
 "aplicación lo impide."
 
 #: src/login/org.freedesktop.login1.policy:268
@@ -793,10 +787,8 @@ msgstr ""
 "Necesita autenticarse para establecer la «razón» de reinicio en el núcleo."
 
 #: src/login/org.freedesktop.login1.policy:363
-#, fuzzy
 msgid "Indicate to the firmware to boot to setup interface"
-msgstr ""
-"Permitir indicación al firmware para arrancar la interfaz de configuración"
+msgstr "Informar al firmware que inicie la interfaz de configuración"
 
 #: src/login/org.freedesktop.login1.policy:364
 msgid ""
