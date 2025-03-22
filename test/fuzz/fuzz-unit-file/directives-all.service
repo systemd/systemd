@@ -732,6 +732,7 @@ DefaultLimitRTTIME=
 DefaultLimitSIGPENDING=
 DefaultLimitSTACK=
 DefaultMemoryAccounting=
+DefaultPersistTimerCgroups=
 DefaultRestartSec=
 DefaultStandardError=
 DefaultStandardOutput=
