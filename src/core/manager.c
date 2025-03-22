@@ -428,7 +428,7 @@ static int manager_read_timezone_stat(Manager *m) {
         assert(m);
 
         /* Read the current stat() data of /etc/localtime so that we detect changes */
-        if (lstat("/etc/localtime", &st) < 0) {
+        if (lstat(etc_localtime(), &st) < 0) {
                 log_debug_errno(errno, "Failed to stat /etc/localtime, ignoring: %m");
                 changed = m->etc_localtime_accessible;
                 m->etc_localtime_accessible = false;
@@ -465,7 +465,7 @@ static int manager_setup_timezone_change(Manager *m) {
          * Note that we create the new event source first here, before releasing the old one. This should optimize
          * behaviour as this way sd-event can reuse the old watch in case the inode didn't change. */
 
-        r = sd_event_add_inotify(m->event, &new_event, "/etc/localtime",
+        r = sd_event_add_inotify(m->event, &new_event, etc_localtime(),
                                  IN_ATTRIB|IN_MOVE_SELF|IN_CLOSE_WRITE|IN_DONT_FOLLOW, manager_dispatch_timezone_change, m);
         if (r == -ENOENT) {
                 /* If the file doesn't exist yet, subscribe to /etc instead, and wait until it is created either by
