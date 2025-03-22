@@ -299,6 +299,7 @@ struct Network {
         MulticastRouter multicast_router;
         int bridge_locked;
         int bridge_mac_authentication_bypass;
+        int bridge_vlan_tunnel;
 
         /* Bridge VLAN */
         uint16_t bridge_vlan_pvid;
