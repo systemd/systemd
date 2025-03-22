@@ -311,8 +311,6 @@ int cg_mask_supported_subtree(const char *root, CGroupMask *ret);
 int cg_mask_from_string(const char *s, CGroupMask *ret);
 int cg_mask_to_string(CGroupMask mask, char **ret);
 
-int cg_kernel_controllers(Set **controllers);
-
 bool cg_ns_supported(void);
 bool cg_freezer_supported(void);
 bool cg_kill_supported(void);

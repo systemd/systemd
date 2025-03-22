@@ -69,61 +69,6 @@ void bus_send_pending_reload_message(Manager *m) {
         return;
 }
 
-int bus_forward_agent_released(Manager *m, const char *path) {
-        int r;
-
-        assert(m);
-        assert(path);
-
-        if (!MANAGER_IS_SYSTEM(m))
-                return 0;
-
-        if (!m->system_bus)
-                return 0;
-
-        /* If we are running a system instance we forward the agent message on the system bus, so that the user
-         * instances get notified about this, too */
-
-        r = sd_bus_emit_signal(m->system_bus,
-                               "/org/freedesktop/systemd1/agent",
-                               "org.freedesktop.systemd1.Agent",
-                               "Released",
-                               "s", path);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to propagate agent release message: %m");
-
-        return 1;
-}
-
-static int signal_agent_released(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
-        Manager *m = ASSERT_PTR(userdata);
-        const char *cgroup;
-        uid_t sender_uid;
-        int r;
-
-        assert(message);
-
-        /* only accept org.freedesktop.systemd1.Agent from UID=0 */
-        r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_EUID, &creds);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_creds_get_euid(creds, &sender_uid);
-        if (r < 0 || sender_uid != 0)
-                return 0;
-
-        /* parse 'cgroup-empty' notification */
-        r = sd_bus_message_read(message, "s", &cgroup);
-        if (r < 0) {
-                bus_log_parse_error(r);
-                return 0;
-        }
-
-        manager_notify_cgroup_empty(m, cgroup);
-        return 0;
-}
-
 static int signal_disconnected(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = ASSERT_PTR(userdata);
         sd_bus *bus;
@@ -890,30 +835,6 @@ int bus_init_api(Manager *m) {
         return 0;
 }
 
-static void bus_setup_system(Manager *m, sd_bus *bus) {
-        int r;
-
-        assert(m);
-        assert(bus);
-
-        /* if we are a user instance we get the Released message via the system bus */
-        if (MANAGER_IS_USER(m)) {
-                r = sd_bus_match_signal_async(
-                                bus,
-                                NULL,
-                                NULL,
-                                "/org/freedesktop/systemd1/agent",
-                                "org.freedesktop.systemd1.Agent",
-                                "Released",
-                                signal_agent_released, NULL, m);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to request Released match on system bus: %m");
-        }
-
-        log_debug("Successfully connected to system bus.");
-        return;
-}
-
 int bus_init_system(Manager *m) {
         _cleanup_(sd_bus_close_unrefp) sd_bus *bus = NULL;
         int r;
@@ -938,9 +859,9 @@ int bus_init_system(Manager *m) {
                         return r;
         }
 
-        bus_setup_system(m, bus);
-
         m->system_bus = TAKE_PTR(bus);
+
+        log_debug("Successfully connected to system bus.");
 
         return 0;
 }

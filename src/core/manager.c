@@ -122,7 +122,6 @@
 #define DEFAULT_TASKS_MAX ((CGroupTasksMax) { 15U, 100U }) /* 15% */
 
 static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata);
-static int manager_dispatch_cgroups_agent_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata);
 static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata);
 static int manager_dispatch_time_change_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata);
 static int manager_dispatch_idle_pipe_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata);
@@ -912,7 +911,6 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
                 .show_status_overridden = _SHOW_STATUS_INVALID,
 
                 .notify_fd = -EBADF,
-                .cgroups_agent_fd = -EBADF,
                 .signal_fd = -EBADF,
                 .user_lookup_fds = EBADF_PAIR,
                 .handoff_timestamp_fds = EBADF_PAIR,
@@ -1137,80 +1135,6 @@ static int manager_setup_notify(Manager *m) {
                         return log_error_errno(r, "Failed to set priority of notify event source: %m");
 
                 (void) sd_event_source_set_description(m->notify_event_source, "manager-notify");
-        }
-
-        return 0;
-}
-
-static int manager_setup_cgroups_agent(Manager *m) {
-
-        static const union sockaddr_union sa = {
-                .un.sun_family = AF_UNIX,
-                .un.sun_path = "/run/systemd/cgroups-agent",
-        };
-        int r;
-
-        /* This creates a listening socket we receive cgroups agent messages on. We do not use D-Bus for delivering
-         * these messages from the cgroups agent binary to PID 1, as the cgroups agent binary is very short-living, and
-         * each instance of it needs a new D-Bus connection. Since D-Bus connections are SOCK_STREAM/AF_UNIX, on
-         * overloaded systems the backlog of the D-Bus socket becomes relevant, as not more than the configured number
-         * of D-Bus connections may be queued until the kernel will start dropping further incoming connections,
-         * possibly resulting in lost cgroups agent messages. To avoid this, we'll use a private SOCK_DGRAM/AF_UNIX
-         * socket, where no backlog is relevant as communication may take place without an actual connect() cycle, and
-         * we thus won't lose messages.
-         *
-         * Note that PID 1 will forward the agent message to system bus, so that the user systemd instance may listen
-         * to it. The system instance hence listens on this special socket, but the user instances listen on the system
-         * bus for these messages. */
-
-        if (MANAGER_IS_TEST_RUN(m))
-                return 0;
-
-        if (!MANAGER_IS_SYSTEM(m))
-                return 0;
-
-        r = cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER);
-        if (r < 0)
-                return log_error_errno(r, "Failed to determine whether unified cgroups hierarchy is used: %m");
-        if (r > 0) /* We don't need this anymore on the unified hierarchy */
-                return 0;
-
-        if (m->cgroups_agent_fd < 0) {
-                _cleanup_close_ int fd = -EBADF;
-
-                /* First free all secondary fields */
-                m->cgroups_agent_event_source = sd_event_source_disable_unref(m->cgroups_agent_event_source);
-
-                fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
-                if (fd < 0)
-                        return log_error_errno(errno, "Failed to allocate cgroups agent socket: %m");
-
-                (void) fd_increase_rxbuf(fd, MANAGER_SOCKET_RCVBUF_SIZE);
-
-                (void) sockaddr_un_unlink(&sa.un);
-
-                /* Only allow root to connect to this socket */
-                WITH_UMASK(0077)
-                        r = bind(fd, &sa.sa, SOCKADDR_UN_LEN(sa.un));
-                if (r < 0)
-                        return log_error_errno(errno, "bind(%s) failed: %m", sa.un.sun_path);
-
-                m->cgroups_agent_fd = TAKE_FD(fd);
-        }
-
-        if (!m->cgroups_agent_event_source) {
-                r = sd_event_add_io(m->event, &m->cgroups_agent_event_source, m->cgroups_agent_fd, EPOLLIN, manager_dispatch_cgroups_agent_fd, m);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to allocate cgroups agent event source: %m");
-
-                /* Process cgroups notifications early. Note that when the agent notification is received
-                 * we'll just enqueue the unit in the cgroup empty queue, hence pick a high priority than
-                 * that. Also see handling of cgroup inotify for the unified cgroup stuff. */
-                r = sd_event_source_set_priority(m->cgroups_agent_event_source, EVENT_PRIORITY_CGROUP_AGENT);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to set priority of cgroups agent event source: %m");
-
-                (void) sd_event_source_set_description(m->cgroups_agent_event_source, "manager-cgroups-agent");
         }
 
         return 0;
@@ -1769,7 +1693,6 @@ Manager* manager_free(Manager *m) {
         sd_event_source_unref(m->signal_event_source);
         sd_event_source_unref(m->sigchld_event_source);
         sd_event_source_unref(m->notify_event_source);
-        sd_event_source_unref(m->cgroups_agent_event_source);
         sd_event_source_unref(m->time_change_event_source);
         sd_event_source_unref(m->timezone_change_event_source);
         sd_event_source_unref(m->jobs_in_progress_event_source);
@@ -1781,7 +1704,6 @@ Manager* manager_free(Manager *m) {
 
         safe_close(m->signal_fd);
         safe_close(m->notify_fd);
-        safe_close(m->cgroups_agent_fd);
         safe_close_pair(m->user_lookup_fds);
         safe_close_pair(m->handoff_timestamp_fds);
         safe_close_pair(m->pidref_transport_fds);
@@ -2141,11 +2063,6 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds, const char *roo
                 r = manager_setup_notify(m);
                 if (r < 0)
                         /* No sense to continue without notifications, our children would fail anyway. */
-                        return r;
-
-                r = manager_setup_cgroups_agent(m);
-                if (r < 0)
-                        /* Likewise, no sense to continue without empty cgroup notifications. */
                         return r;
 
                 r = manager_setup_user_lookup_fd(m);
@@ -2685,35 +2602,6 @@ static unsigned manager_dispatch_dbus_queue(Manager *m) {
         }
 
         return n;
-}
-
-static int manager_dispatch_cgroups_agent_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
-        Manager *m = userdata;
-        char buf[PATH_MAX];
-        ssize_t n;
-
-        n = recv(fd, buf, sizeof(buf), 0);
-        if (n < 0)
-                return log_error_errno(errno, "Failed to read cgroups agent message: %m");
-        if (n == 0) {
-                log_error("Got zero-length cgroups agent message, ignoring.");
-                return 0;
-        }
-        if ((size_t) n >= sizeof(buf)) {
-                log_error("Got overly long cgroups agent message, ignoring.");
-                return 0;
-        }
-
-        if (memchr(buf, 0, n)) {
-                log_error("Got cgroups agent message with embedded NUL byte, ignoring.");
-                return 0;
-        }
-        buf[n] = 0;
-
-        manager_notify_cgroup_empty(m, buf);
-        (void) bus_forward_agent_released(m, buf);
-
-        return 0;
 }
 
 static bool manager_process_barrier_fd(char * const *tags, FDSet *fds) {
@@ -3725,7 +3613,6 @@ int manager_reload(Manager *m) {
 
         /* Re-register notify_fd as event source, and set up other sockets/communication channels we might need */
         (void) manager_setup_notify(m);
-        (void) manager_setup_cgroups_agent(m);
         (void) manager_setup_user_lookup_fd(m);
         (void) manager_setup_handoff_timestamp_fd(m);
         (void) manager_setup_pidref_transport_fd(m);

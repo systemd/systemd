@@ -150,9 +150,6 @@ All tools:
 
 `systemd-nspawn`:
 
-* `$SYSTEMD_NSPAWN_UNIFIED_HIERARCHY=1` — if set, force `systemd-nspawn` into
-  unified cgroup hierarchy mode.
-
 * `$SYSTEMD_NSPAWN_API_VFS_WRITABLE=1` — if set, make `/sys/`, `/proc/sys/`,
   and friends writable in the container. If set to "network", leave only
   `/proc/sys/net/` writable.
