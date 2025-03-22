@@ -315,7 +315,7 @@ static int async_polkit_read_reply(sd_bus_message *reply, AsyncPolkitQuery *q) {
                 log_debug("Polkit authorization for action '%s' succeeded.", a->action);
                 LIST_PREPEND(authorized, q->authorized_actions, TAKE_PTR(a));
         } else if (challenge) {
-                log_debug("Polkit authorization for action requires '%s' interactive authentication, which we didn't allow.", a->action);
+                log_debug("Polkit authorization for action '%s' requires interactive authentication, which we didn't allow.", a->action);
                 q->error_action = TAKE_PTR(a);
                 sd_bus_error_set_const(&q->error, SD_BUS_ERROR_INTERACTIVE_AUTHORIZATION_REQUIRED, "Interactive authentication required.");
         } else {

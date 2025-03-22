@@ -2206,7 +2206,10 @@ static int verify_shutdown_creds(
                                 interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
                                 &m->polkit_registry,
                                 error);
-                if (r < 0)
+                /* If we get -EALREADY, it means a polkit decision was made, but not for
+                 * this action in particular. Assuming we are blocked on inhibitors,
+                 * ignore that error and allow the decision to be revealed below. */
+                if (r < 0 && !(blocked && r == -EALREADY))
                         return r;
                 if (r == 0)
                         return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */

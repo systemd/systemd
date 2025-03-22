@@ -150,4 +150,6 @@ if enable_logind
                      install_dir : dbussystemservicedir)
         install_data('org.freedesktop.login1.policy',
                      install_dir : polkitpolicydir)
+        install_data('10-systemd-logind-root-ignore-inhibitors.rules.example',
+                     install_dir : polkitrulesdir)
 endif
