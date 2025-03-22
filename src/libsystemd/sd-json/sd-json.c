@@ -5040,10 +5040,10 @@ int json_log_internal(
                                 level,
                                 error,
                                 file, line, func,
-                                "MESSAGE_ID=" SD_MESSAGE_INVALID_CONFIGURATION_STR,
-                                "CONFIG_FILE=%s", source,
-                                "CONFIG_LINE=%u", source_line,
-                                "CONFIG_COLUMN=%u", source_column,
+                                LOG_MESSAGE_ID(SD_MESSAGE_INVALID_CONFIGURATION_STR),
+                                LOG_ITEM("CONFIG_FILE=%s", source),
+                                LOG_ITEM("CONFIG_LINE=%u", source_line),
+                                LOG_ITEM("CONFIG_COLUMN=%u", source_column),
                                 LOG_MESSAGE("%s:%u:%u: %s", source, source_line, source_column, buffer),
                                 NULL);
         else if (source_line > 0 && source_column > 0)
@@ -5051,9 +5051,9 @@ int json_log_internal(
                                 level,
                                 error,
                                 file, line, func,
-                                "MESSAGE_ID=" SD_MESSAGE_INVALID_CONFIGURATION_STR,
-                                "CONFIG_LINE=%u", source_line,
-                                "CONFIG_COLUMN=%u", source_column,
+                                LOG_MESSAGE_ID(SD_MESSAGE_INVALID_CONFIGURATION_STR),
+                                LOG_ITEM("CONFIG_LINE=%u", source_line),
+                                LOG_ITEM("CONFIG_COLUMN=%u", source_column),
                                 LOG_MESSAGE("(string):%u:%u: %s", source_line, source_column, buffer),
                                 NULL);
         else
@@ -5061,7 +5061,7 @@ int json_log_internal(
                                 level,
                                 error,
                                 file, line, func,
-                                "MESSAGE_ID=" SD_MESSAGE_INVALID_CONFIGURATION_STR,
+                                LOG_MESSAGE_ID(SD_MESSAGE_INVALID_CONFIGURATION_STR),
                                 LOG_MESSAGE("%s", buffer),
                                 NULL);
 }

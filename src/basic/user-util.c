@@ -763,8 +763,8 @@ bool valid_user_group_name(const char *u, ValidUserFlags flags) {
                 if (FLAGS_SET(flags, VALID_USER_WARN) && !valid_user_group_name(u, 0))
                         log_struct(LOG_NOTICE,
                                    LOG_MESSAGE("Accepting user/group name '%s', which does not match strict user/group name rules.", u),
-                                   "USER_GROUP_NAME=%s", u,
-                                   "MESSAGE_ID=" SD_MESSAGE_UNSAFE_USER_NAME_STR);
+                                   LOG_ITEM("USER_GROUP_NAME=%s", u),
+                                   LOG_MESSAGE_ID(SD_MESSAGE_UNSAFE_USER_NAME_STR));
 
                 /* Note that we make no restrictions on the length in relaxed mode! */
         } else {

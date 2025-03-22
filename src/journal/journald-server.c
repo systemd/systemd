@@ -228,27 +228,26 @@ void server_space_usage_message(Server *s, JournalStorage *storage) {
         const JournalMetrics *metrics = &storage->metrics;
 
         server_driver_message(s, 0,
-                              "MESSAGE_ID=" SD_MESSAGE_JOURNAL_USAGE_STR,
+                              LOG_MESSAGE_ID(SD_MESSAGE_JOURNAL_USAGE_STR),
                               LOG_MESSAGE("%s (%s) is %s, max %s, %s free.",
                                           storage->name, storage->path,
                                           FORMAT_BYTES(storage->space.vfs_used),
                                           FORMAT_BYTES(storage->space.limit),
                                           FORMAT_BYTES(storage->space.available)),
-                              "JOURNAL_NAME=%s", storage->name,
-                              "JOURNAL_PATH=%s", storage->path,
-                              "CURRENT_USE=%"PRIu64, storage->space.vfs_used,
-                              "CURRENT_USE_PRETTY=%s", FORMAT_BYTES(storage->space.vfs_used),
-                              "MAX_USE=%"PRIu64, metrics->max_use,
-                              "MAX_USE_PRETTY=%s", FORMAT_BYTES(metrics->max_use),
-                              "DISK_KEEP_FREE=%"PRIu64, metrics->keep_free,
-                              "DISK_KEEP_FREE_PRETTY=%s", FORMAT_BYTES(metrics->keep_free),
-                              "DISK_AVAILABLE=%"PRIu64, storage->space.vfs_available,
-                              "DISK_AVAILABLE_PRETTY=%s", FORMAT_BYTES(storage->space.vfs_available),
-                              "LIMIT=%"PRIu64, storage->space.limit,
-                              "LIMIT_PRETTY=%s", FORMAT_BYTES(storage->space.limit),
-                              "AVAILABLE=%"PRIu64, storage->space.available,
-                              "AVAILABLE_PRETTY=%s", FORMAT_BYTES(storage->space.available),
-                              NULL);
+                              LOG_ITEM("JOURNAL_NAME=%s", storage->name),
+                              LOG_ITEM("JOURNAL_PATH=%s", storage->path),
+                              LOG_ITEM("CURRENT_USE=%"PRIu64, storage->space.vfs_used),
+                              LOG_ITEM("CURRENT_USE_PRETTY=%s", FORMAT_BYTES(storage->space.vfs_used)),
+                              LOG_ITEM("MAX_USE=%"PRIu64, metrics->max_use),
+                              LOG_ITEM("MAX_USE_PRETTY=%s", FORMAT_BYTES(metrics->max_use)),
+                              LOG_ITEM("DISK_KEEP_FREE=%"PRIu64, metrics->keep_free),
+                              LOG_ITEM("DISK_KEEP_FREE_PRETTY=%s", FORMAT_BYTES(metrics->keep_free)),
+                              LOG_ITEM("DISK_AVAILABLE=%"PRIu64, storage->space.vfs_available),
+                              LOG_ITEM("DISK_AVAILABLE_PRETTY=%s", FORMAT_BYTES(storage->space.vfs_available)),
+                              LOG_ITEM("LIMIT=%"PRIu64, storage->space.limit),
+                              LOG_ITEM("LIMIT_PRETTY=%s", FORMAT_BYTES(storage->space.limit)),
+                              LOG_ITEM("AVAILABLE=%"PRIu64, storage->space.available),
+                              LOG_ITEM("AVAILABLE_PRETTY=%s", FORMAT_BYTES(storage->space.available)));
 }
 
 static void server_add_acls(JournalFile *f, uid_t uid) {
@@ -1211,8 +1210,7 @@ static void server_dispatch_message_real(
         server_write_to_journal(s, journal_uid, iovec, n, &ts, priority);
 }
 
-void server_driver_message(Server *s, pid_t object_pid, const char *message_id, const char *format, ...) {
-
+void server_driver_message_internal(Server *s, pid_t object_pid, const char *format, ...) {
         struct iovec *iovec;
         size_t n = 0, k, m;
         va_list ap;
@@ -1232,12 +1230,12 @@ void server_driver_message(Server *s, pid_t object_pid, const char *message_id, 
         assert_cc(6 == LOG_INFO);
         iovec[n++] = IOVEC_MAKE_STRING("PRIORITY=6");
 
-        if (message_id)
-                iovec[n++] = IOVEC_MAKE_STRING(message_id);
         k = n;
 
         va_start(ap, format);
+        DISABLE_WARNING_FORMAT_NONLITERAL;
         r = log_format_iovec(iovec, m, &n, false, 0, format, ap);
+        REENABLE_WARNING;
         /* Error handling below */
         va_end(ap);
 
@@ -1302,10 +1300,9 @@ void server_dispatch_message(
                 /* Write a suppression message if we suppressed something */
                 if (rl > 1)
                         server_driver_message(s, c->pid,
-                                              "MESSAGE_ID=" SD_MESSAGE_JOURNAL_DROPPED_STR,
+                                              LOG_MESSAGE_ID(SD_MESSAGE_JOURNAL_DROPPED_STR),
                                               LOG_MESSAGE("Suppressed %i messages from %s", rl - 1, c->unit),
-                                              "N_DROPPED=%i", rl - 1,
-                                              NULL);
+                                              LOG_ITEM("N_DROPPED=%i", rl - 1));
         }
 
         server_dispatch_message_real(s, iovec, n, m, c, tv, priority, object_pid);
@@ -1449,12 +1446,11 @@ finish:
                 }
         }
 
-        server_driver_message(s, 0, NULL,
+        server_driver_message(s, 0,
                               LOG_MESSAGE("Time spent on flushing to %s is %s for %u entries.",
                                           s->system_storage.path,
                                           FORMAT_TIMESPAN(usec_sub_unsigned(now(CLOCK_MONOTONIC), start), 0),
-                                          n),
-                              NULL);
+                                          n));
 
         fn = strjoina(s->runtime_directory, "/flushed");
         k = touch(fn);

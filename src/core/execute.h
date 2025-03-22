@@ -643,12 +643,8 @@ const char* exec_get_private_notify_socket_path(const ExecContext *context, cons
 
 #define LOG_EXEC_ID_FIELD(ep) \
         ((ep)->runtime_scope == RUNTIME_SCOPE_USER ? "USER_UNIT=" : "UNIT=")
-#define LOG_EXEC_ID_FIELD_FORMAT(ep) \
-        ((ep)->runtime_scope == RUNTIME_SCOPE_USER ? "USER_UNIT=%s" : "UNIT=%s")
 #define LOG_EXEC_INVOCATION_ID_FIELD(ep) \
         ((ep)->runtime_scope == RUNTIME_SCOPE_USER ? "USER_INVOCATION_ID=" : "INVOCATION_ID=")
-#define LOG_EXEC_INVOCATION_ID_FIELD_FORMAT(ep) \
-        ((ep)->runtime_scope == RUNTIME_SCOPE_USER ? "USER_INVOCATION_ID=%s" : "INVOCATION_ID=%s")
 
 #define log_exec_full_errno_zerook(ec, ep, level, error, ...)                     \
         ({                                                                        \
@@ -693,8 +689,8 @@ const char* exec_get_private_notify_socket_path(const ExecContext *context, cons
 
 /* Like LOG_MESSAGE(), but with the unit name prefixed. */
 #define LOG_EXEC_MESSAGE(ep, fmt, ...) LOG_MESSAGE("%s: " fmt, (ep)->unit_id, ##__VA_ARGS__)
-#define LOG_EXEC_ID(ep) LOG_EXEC_ID_FIELD_FORMAT(ep), (ep)->unit_id
-#define LOG_EXEC_INVOCATION_ID(ep) LOG_EXEC_INVOCATION_ID_FIELD_FORMAT(ep), (ep)->invocation_id_string
+#define LOG_EXEC_ID(ep) LOG_ITEM("%s%s", LOG_EXEC_ID_FIELD(ep), (ep)->unit_id)
+#define LOG_EXEC_INVOCATION_ID(ep) LOG_ITEM("%s%s", LOG_EXEC_INVOCATION_ID_FIELD(ep), (ep)->invocation_id_string)
 
 #define log_exec_struct_errno(ec, ep, level, error, ...)                          \
         ({                                                                        \

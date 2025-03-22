@@ -1381,8 +1381,8 @@ void valgrind_summary_hack(void) {
                 if (pid < 0)
                         log_struct_errno(
                                 LOG_EMERG, errno,
-                                "MESSAGE_ID=" SD_MESSAGE_VALGRIND_HELPER_FORK_STR,
-                                LOG_MESSAGE( "Failed to fork off valgrind helper: %m"));
+                                LOG_MESSAGE_ID(SD_MESSAGE_VALGRIND_HELPER_FORK_STR),
+                                LOG_MESSAGE("Failed to fork off valgrind helper: %m"));
                 else if (pid == 0)
                         exit(EXIT_SUCCESS);
                 else {

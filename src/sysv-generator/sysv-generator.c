@@ -770,9 +770,9 @@ static int enumerate_sysv(const LookupPaths *lp, Hashmap *all_services) {
                                                fpath,
                                                glyph(GLYPH_WARNING_SIGN),
                                                glyph(GLYPH_WARNING_SIGN)),
-                                   "MESSAGE_ID=" SD_MESSAGE_SYSV_GENERATOR_DEPRECATED_STR,
-                                   "SYSVSCRIPT=%s", fpath,
-                                   "UNIT=%s", name);
+                                   LOG_MESSAGE_ID(SD_MESSAGE_SYSV_GENERATOR_DEPRECATED_STR),
+                                   LOG_ITEM("SYSVSCRIPT=%s", fpath),
+                                   LOG_ITEM("UNIT=%s", name));
 
                         service = new(SysvStub, 1);
                         if (!service)

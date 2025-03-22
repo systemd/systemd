@@ -637,11 +637,11 @@ static int dns_trust_anchor_remove_revoked(DnsTrustAnchor *d, DnsResourceRecord 
 
         /* We found the key! Warn the user */
         log_struct(LOG_WARNING,
-                   "MESSAGE_ID=" SD_MESSAGE_DNSSEC_TRUST_ANCHOR_REVOKED_STR,
+                   LOG_MESSAGE_ID(SD_MESSAGE_DNSSEC_TRUST_ANCHOR_REVOKED_STR),
                    LOG_MESSAGE("DNSSEC trust anchor %s has been revoked.\n"
                                "Please update the trust anchor, or upgrade your operating system.",
                                strna(dns_resource_record_to_string(rr))),
-                   "TRUST_ANCHOR=%s", dns_resource_record_to_string(rr));
+                   LOG_ITEM("TRUST_ANCHOR=%s", dns_resource_record_to_string(rr)));
 
         if (dns_answer_size(new_answer) <= 0) {
                 assert_se(hashmap_remove(d->positive_by_key, rr->key) == old_answer);

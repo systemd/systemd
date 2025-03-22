@@ -626,8 +626,8 @@ static void job_emit_start_message(Unit *u, uint32_t job_id, JobType t) {
                 DISABLE_WARNING_FORMAT_NONLITERAL;
                 log_unit_struct(u, LOG_INFO,
                                 msg_fmt, ident,
-                                "JOB_ID=%" PRIu32, job_id,
-                                "JOB_TYPE=%s", job_type_to_string(t),
+                                LOG_ITEM("JOB_ID=%" PRIu32, job_id),
+                                LOG_ITEM("JOB_TYPE=%s", job_type_to_string(t)),
                                 LOG_UNIT_INVOCATION_ID(u),
                                 mid);
                 REENABLE_WARNING;
@@ -792,9 +792,9 @@ static void job_emit_done_message(Unit *u, uint32_t job_id, JobType t, JobResult
                                         job_done_messages[result].log_level,
                                         LOG_MESSAGE("%s was skipped because no trigger condition checks were met.",
                                                     ident),
-                                        "JOB_ID=%" PRIu32, job_id,
-                                        "JOB_TYPE=%s", job_type_to_string(t),
-                                        "JOB_RESULT=%s", job_result_to_string(result),
+                                        LOG_ITEM("JOB_ID=%" PRIu32, job_id),
+                                        LOG_ITEM("JOB_TYPE=%s", job_type_to_string(t)),
+                                        LOG_ITEM("JOB_RESULT=%s", job_result_to_string(result)),
                                         LOG_UNIT_INVOCATION_ID(u),
                                         mid);
                         else
@@ -806,9 +806,9 @@ static void job_emit_done_message(Unit *u, uint32_t job_id, JobType t, JobResult
                                                     condition_type_to_string(c->type),
                                                     c->negate ? "!" : "",
                                                     c->parameter),
-                                        "JOB_ID=%" PRIu32, job_id,
-                                        "JOB_TYPE=%s", job_type_to_string(t),
-                                        "JOB_RESULT=%s", job_result_to_string(result),
+                                        LOG_ITEM("JOB_ID=%" PRIu32, job_id),
+                                        LOG_ITEM("JOB_TYPE=%s", job_type_to_string(t)),
+                                        LOG_ITEM("JOB_RESULT=%s", job_result_to_string(result)),
                                         LOG_UNIT_INVOCATION_ID(u),
                                         mid);
                 } else {
@@ -817,9 +817,9 @@ static void job_emit_done_message(Unit *u, uint32_t job_id, JobType t, JobResult
                         DISABLE_WARNING_FORMAT_NONLITERAL;
                         log_unit_struct(u, job_done_messages[result].log_level,
                                         msg_fmt, ident,
-                                        "JOB_ID=%" PRIu32, job_id,
-                                        "JOB_TYPE=%s", job_type_to_string(t),
-                                        "JOB_RESULT=%s", job_result_to_string(result),
+                                        LOG_ITEM("JOB_ID=%" PRIu32, job_id),
+                                        LOG_ITEM("JOB_TYPE=%s", job_type_to_string(t)),
+                                        LOG_ITEM("JOB_RESULT=%s", job_result_to_string(result)),
                                         LOG_UNIT_INVOCATION_ID(u),
                                         mid);
                         REENABLE_WARNING;
@@ -1076,8 +1076,8 @@ int job_finish_and_invalidate(Job *j, JobResult result, bool recursive, bool alr
          * And JOB_FAILURE is already handled by the unit itself (unit_notify). */
         if (IN_SET(result, JOB_TIMEOUT, JOB_DEPENDENCY)) {
                 log_unit_struct(u, LOG_NOTICE,
-                                "JOB_TYPE=%s", job_type_to_string(t),
-                                "JOB_RESULT=%s", job_result_to_string(result),
+                                LOG_ITEM("JOB_TYPE=%s", job_type_to_string(t)),
+                                LOG_ITEM("JOB_RESULT=%s", job_result_to_string(result)),
                                 LOG_UNIT_MESSAGE(u, "Job %s/%s failed with result '%s'.",
                                                  u->id,
                                                  job_type_to_string(t),

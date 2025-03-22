@@ -463,7 +463,7 @@ static void log_command_line(Unit *unit, const char *msg, const char *executable
         _cleanup_free_ char *cmdline = quote_command_line(argv, SHELL_ESCAPE_EMPTY);
 
         log_unit_struct(unit, LOG_DEBUG,
-                        "EXECUTABLE=%s", executable,
+                        LOG_ITEM("EXECUTABLE=%s", executable),
                         LOG_UNIT_MESSAGE(unit, "%s: %s", msg, strnull(cmdline)),
                         LOG_UNIT_INVOCATION_ID(unit));
 }

@@ -1911,8 +1911,8 @@ static int mount_setup_unit(
         if (r < 0)
                 return log_struct_errno(
                                 LOG_WARNING, r,
-                                "MESSAGE_ID=" SD_MESSAGE_MOUNT_POINT_PATH_NOT_SUITABLE_STR,
-                                "MOUNT_POINT=%s", where,
+                                LOG_MESSAGE_ID(SD_MESSAGE_MOUNT_POINT_PATH_NOT_SUITABLE_STR),
+                                LOG_ITEM("MOUNT_POINT=%s", where),
                                 LOG_MESSAGE("Failed to generate valid unit name from mount point path '%s', ignoring mount point: %m",
                                             where));
 

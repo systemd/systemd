@@ -84,8 +84,8 @@ static int warn_wall(Manager *m, usec_t n) {
 
         log_struct(level,
                    LOG_MESSAGE("%s", l),
-                   "ACTION=%s", handle_action_to_string(m->scheduled_shutdown_action),
-                   "MESSAGE_ID=" SD_MESSAGE_SHUTDOWN_SCHEDULED_STR,
+                   LOG_ITEM("ACTION=%s", handle_action_to_string(m->scheduled_shutdown_action)),
+                   LOG_MESSAGE_ID(SD_MESSAGE_SHUTDOWN_SCHEDULED_STR),
                    username ? "OPERATOR=%s" : NULL, username);
 
         if (m->enable_wall_messages)

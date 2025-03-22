@@ -679,6 +679,6 @@ int main(int argc, char *argv[]) {
 error:
         log_struct_errno(LOG_EMERG, r,
                          LOG_MESSAGE("Critical error while doing system shutdown: %m"),
-                         "MESSAGE_ID=" SD_MESSAGE_SHUTDOWN_ERROR_STR);
+                         LOG_MESSAGE_ID(SD_MESSAGE_SHUTDOWN_ERROR_STR));
         freeze();
 }

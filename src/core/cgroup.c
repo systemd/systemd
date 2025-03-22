@@ -4003,13 +4003,13 @@ int unit_check_oomd_kill(Unit *u) {
 
         if (n > 0)
                 log_unit_struct(u, LOG_NOTICE,
-                                "MESSAGE_ID=" SD_MESSAGE_UNIT_OOMD_KILL_STR,
+                                LOG_MESSAGE_ID(SD_MESSAGE_UNIT_OOMD_KILL_STR),
                                 LOG_UNIT_INVOCATION_ID(u),
                                 LOG_UNIT_MESSAGE(u, "systemd-oomd killed %"PRIu64" process(es) in this unit.", n),
-                                "N_PROCESSES=%" PRIu64, n);
+                                LOG_ITEM("N_PROCESSES=%" PRIu64, n));
         else
                 log_unit_struct(u, LOG_NOTICE,
-                                "MESSAGE_ID=" SD_MESSAGE_UNIT_OOMD_KILL_STR,
+                                LOG_MESSAGE_ID(SD_MESSAGE_UNIT_OOMD_KILL_STR),
                                 LOG_UNIT_INVOCATION_ID(u),
                                 LOG_UNIT_MESSAGE(u, "systemd-oomd killed some process(es) in this unit."));
 
@@ -4051,7 +4051,7 @@ int unit_check_oom(Unit *u) {
                 return 0;
 
         log_unit_struct(u, LOG_NOTICE,
-                        "MESSAGE_ID=" SD_MESSAGE_UNIT_OUT_OF_MEMORY_STR,
+                        LOG_MESSAGE_ID(SD_MESSAGE_UNIT_OUT_OF_MEMORY_STR),
                         LOG_UNIT_INVOCATION_ID(u),
                         LOG_UNIT_MESSAGE(u, "A process of this unit has been killed by the OOM killer."));
 

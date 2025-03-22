@@ -5124,10 +5124,10 @@ void unit_warn_if_dir_nonempty(Unit *u, const char* where) {
         }
 
         log_unit_struct(u, LOG_NOTICE,
-                        "MESSAGE_ID=" SD_MESSAGE_OVERMOUNTING_STR,
+                        LOG_MESSAGE_ID(SD_MESSAGE_OVERMOUNTING_STR),
                         LOG_UNIT_INVOCATION_ID(u),
                         LOG_UNIT_MESSAGE(u, "Directory %s to mount over is not empty, mounting anyway.", where),
-                        "WHERE=%s", where);
+                        LOG_ITEM("WHERE=%s", where));
 }
 
 int unit_log_noncanonical_mount_path(Unit *u, const char *where) {
@@ -5136,10 +5136,10 @@ int unit_log_noncanonical_mount_path(Unit *u, const char *where) {
 
         /* No need to mention "." or "..", they would already have been rejected by unit_name_from_path() */
         log_unit_struct(u, LOG_ERR,
-                        "MESSAGE_ID=" SD_MESSAGE_NON_CANONICAL_MOUNT_STR,
+                        LOG_MESSAGE_ID(SD_MESSAGE_NON_CANONICAL_MOUNT_STR),
                         LOG_UNIT_INVOCATION_ID(u),
                         LOG_UNIT_MESSAGE(u, "Mount path %s is not canonical (contains a symlink).", where),
-                        "WHERE=%s", where);
+                        LOG_ITEM("WHERE=%s", where));
 
         return -ELOOP;
 }
@@ -6064,7 +6064,7 @@ void unit_log_success(Unit *u) {
          * a lot of devices. */
         log_unit_struct(u,
                         MANAGER_IS_USER(u->manager) ? LOG_DEBUG : LOG_INFO,
-                        "MESSAGE_ID=" SD_MESSAGE_UNIT_SUCCESS_STR,
+                        LOG_MESSAGE_ID(SD_MESSAGE_UNIT_SUCCESS_STR),
                         LOG_UNIT_INVOCATION_ID(u),
                         LOG_UNIT_MESSAGE(u, "Deactivated successfully."));
 }
@@ -6074,10 +6074,10 @@ void unit_log_failure(Unit *u, const char *result) {
         assert(result);
 
         log_unit_struct(u, LOG_WARNING,
-                        "MESSAGE_ID=" SD_MESSAGE_UNIT_FAILURE_RESULT_STR,
+                        LOG_MESSAGE_ID(SD_MESSAGE_UNIT_FAILURE_RESULT_STR),
                         LOG_UNIT_INVOCATION_ID(u),
                         LOG_UNIT_MESSAGE(u, "Failed with result '%s'.", result),
-                        "UNIT_RESULT=%s", result);
+                        LOG_ITEM("UNIT_RESULT=%s", result));
 }
 
 void unit_log_skip(Unit *u, const char *result) {
@@ -6085,10 +6085,10 @@ void unit_log_skip(Unit *u, const char *result) {
         assert(result);
 
         log_unit_struct(u, LOG_INFO,
-                        "MESSAGE_ID=" SD_MESSAGE_UNIT_SKIPPED_STR,
+                        LOG_MESSAGE_ID(SD_MESSAGE_UNIT_SKIPPED_STR),
                         LOG_UNIT_INVOCATION_ID(u),
                         LOG_UNIT_MESSAGE(u, "Skipped due to '%s'.", result),
-                        "UNIT_RESULT=%s", result);
+                        LOG_ITEM("UNIT_RESULT=%s", result));
 }
 
 void unit_log_process_exit(
@@ -6116,7 +6116,7 @@ void unit_log_process_exit(
                 level = LOG_WARNING;
 
         log_unit_struct(u, level,
-                        "MESSAGE_ID=" SD_MESSAGE_UNIT_PROCESS_EXIT_STR,
+                        LOG_MESSAGE_ID(SD_MESSAGE_UNIT_PROCESS_EXIT_STR),
                         LOG_UNIT_MESSAGE(u, "%s exited, code=%s, status=%i/%s%s",
                                          kind,
                                          sigchld_code_to_string(code), status,
@@ -6124,9 +6124,9 @@ void unit_log_process_exit(
                                                ? exit_status_to_string(status, EXIT_STATUS_FULL)
                                                : signal_to_string(status)),
                                          success ? " (success)" : ""),
-                        "EXIT_CODE=%s", sigchld_code_to_string(code),
-                        "EXIT_STATUS=%i", status,
-                        "COMMAND=%s", strna(command),
+                        LOG_ITEM("EXIT_CODE=%s", sigchld_code_to_string(code)),
+                        LOG_ITEM("EXIT_STATUS=%i", status),
+                        LOG_ITEM("COMMAND=%s", strna(command)),
                         LOG_UNIT_INVOCATION_ID(u));
 }
 

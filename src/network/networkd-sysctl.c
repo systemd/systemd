@@ -67,13 +67,13 @@ static int sysctl_event_handler(void *ctx, void *data, size_t data_sz) {
 
         if (!strneq(value, we->newvalue, sizeof(we->newvalue)))
                 log_struct(LOG_WARNING,
-                           "MESSAGE_ID=" SD_MESSAGE_SYSCTL_CHANGED_STR,
-                           "OBJECT_PID=" PID_FMT, we->pid,
-                           "OBJECT_COMM=%s", we->comm,
-                           "SYSCTL=%s", path,
-                           "OLDVALUE=%s", we->current,
-                           "NEWVALUE=%s", we->newvalue,
-                           "OURVALUE=%s", value,
+                           LOG_MESSAGE_ID(SD_MESSAGE_SYSCTL_CHANGED_STR),
+                           LOG_ITEM("OBJECT_PID=" PID_FMT, we->pid),
+                           LOG_ITEM("OBJECT_COMM=%s", we->comm),
+                           LOG_ITEM("SYSCTL=%s", path),
+                           LOG_ITEM("OLDVALUE=%s", we->current),
+                           LOG_ITEM("NEWVALUE=%s", we->newvalue),
+                           LOG_ITEM("OURVALUE=%s", value),
                            LOG_MESSAGE("Foreign process '%s[" PID_FMT "]' changed sysctl '%s' from '%s' to '%s', conflicting with our setting to '%s'.",
                                        we->comm, we->pid, path, we->current, we->newvalue, value));
 

@@ -956,9 +956,9 @@ static int dhcp4_request_address(Link *link, bool announce) {
                                                     prefixlen,
                                                     IPV4_ADDRESS_FMT_VAL(router[0]),
                                                     IPV4_ADDRESS_FMT_VAL(server)),
-                                   "ADDRESS="IPV4_ADDRESS_FMT_STR, IPV4_ADDRESS_FMT_VAL(address),
-                                   "PREFIXLEN=%u", prefixlen,
-                                   "GATEWAY="IPV4_ADDRESS_FMT_STR, IPV4_ADDRESS_FMT_VAL(router[0]));
+                                   LOG_ITEM("ADDRESS="IPV4_ADDRESS_FMT_STR, IPV4_ADDRESS_FMT_VAL(address)),
+                                   LOG_ITEM("PREFIXLEN=%u", prefixlen),
+                                   LOG_ITEM("GATEWAY="IPV4_ADDRESS_FMT_STR, IPV4_ADDRESS_FMT_VAL(router[0])));
                 else
                         log_struct(LOG_INFO,
                                    LOG_LINK_INTERFACE(link),
@@ -966,8 +966,8 @@ static int dhcp4_request_address(Link *link, bool announce) {
                                                     IPV4_ADDRESS_FMT_VAL(address),
                                                     prefixlen,
                                                     IPV4_ADDRESS_FMT_VAL(server)),
-                                   "ADDRESS="IPV4_ADDRESS_FMT_STR, IPV4_ADDRESS_FMT_VAL(address),
-                                   "PREFIXLEN=%u", prefixlen);
+                                   LOG_ITEM("ADDRESS="IPV4_ADDRESS_FMT_STR, IPV4_ADDRESS_FMT_VAL(address)),
+                                   LOG_ITEM("PREFIXLEN=%u", prefixlen));
         }
 
         r = address_new(&addr);

@@ -145,7 +145,7 @@ static int run(int argc, char *argv[]) {
                 return 0;
         log_struct(LOG_EMERG,
                    LOG_MESSAGE("%s " BATTERY_LOW_MESSAGE, glyph(GLYPH_LOW_BATTERY)),
-                   "MESSAGE_ID=" SD_MESSAGE_BATTERY_LOW_WARNING_STR);
+                   LOG_MESSAGE_ID(SD_MESSAGE_BATTERY_LOW_WARNING_STR));
 
         fd = open_terminal("/dev/console", O_WRONLY|O_NOCTTY|O_CLOEXEC);
         if (fd < 0)
@@ -168,7 +168,7 @@ static int run(int argc, char *argv[]) {
         if (r > 0) {
                 log_struct(LOG_EMERG,
                            LOG_MESSAGE("Battery level critically low, powering off."),
-                           "MESSAGE_ID=" SD_MESSAGE_BATTERY_LOW_POWEROFF_STR);
+                           LOG_MESSAGE_ID(SD_MESSAGE_BATTERY_LOW_POWEROFF_STR));
                 return r;
         }
 

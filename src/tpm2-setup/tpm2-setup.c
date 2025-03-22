@@ -296,7 +296,7 @@ static int run(int argc, char *argv[]) {
         if (r == -EDEADLK) {
                 log_struct_errno(LOG_INFO, r,
                                  LOG_MESSAGE("Insufficient permissions to access TPM, not generating SRK."),
-                                 "MESSAGE_ID=" SD_MESSAGE_SRK_ENROLLMENT_NEEDS_AUTHORIZATION_STR);
+                                 LOG_MESSAGE_ID(SD_MESSAGE_SRK_ENROLLMENT_NEEDS_AUTHORIZATION_STR));
                 return 76; /* Special return value which means "Insufficient permissions to access TPM,
                             * cannot generate SRK". This isn't really an error when called at boot. */;
         }
@@ -307,7 +307,7 @@ static int run(int argc, char *argv[]) {
 
         if (runtime_key.pkey) {
                 if (memcmp_nn(tpm2_key.fingerprint, tpm2_key.fingerprint_size,
-                             runtime_key.fingerprint, runtime_key.fingerprint_size) != 0)
+                              runtime_key.fingerprint, runtime_key.fingerprint_size) != 0)
                         return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                                "Saved runtime SRK differs from TPM SRK, refusing.");
 

@@ -1038,11 +1038,11 @@ static int measure_volume_key(
                 return log_error_errno(r, "Could not extend PCR: %m");
 
         log_struct(LOG_INFO,
-                   "MESSAGE_ID=" SD_MESSAGE_TPM_PCR_EXTEND_STR,
+                   LOG_MESSAGE_ID(SD_MESSAGE_TPM_PCR_EXTEND_STR),
                    LOG_MESSAGE("Successfully extended PCR index %u with '%s' and volume key (banks %s).", arg_tpm2_measure_pcr, s, joined),
-                   "MEASURING=%s", s,
-                   "PCR=%u", arg_tpm2_measure_pcr,
-                   "BANKS=%s", joined);
+                   LOG_ITEM("MEASURING=%s", s),
+                   LOG_ITEM("PCR=%u", arg_tpm2_measure_pcr),
+                   LOG_ITEM("BANKS=%s", joined));
 
         return 0;
 #else

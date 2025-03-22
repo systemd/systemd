@@ -113,7 +113,7 @@ static int request_tpm2_clear(void) {
                 return log_error_errno(r, "Failed to request TPM2 clearing via PPI, unable to write to /sys/class/tpm/tpm0/ppi/request: %m");
 
         log_struct(LOG_NOTICE,
-                   "MESSAGE_ID=" SD_MESSAGE_TPM2_CLEAR_REQUESTED_STR,
+                   LOG_MESSAGE_ID(SD_MESSAGE_TPM2_CLEAR_REQUESTED_STR),
                    LOG_MESSAGE("Requested TPM2 clearing via PPI. Firmware will verify with user and clear TPM on reboot."));
         return 0;
 }

@@ -1875,7 +1875,7 @@ static int bus_manager_log_shutdown(
         const char *log_verb = a->log_verb ? strjoina("SHUTDOWN=", a->log_verb) : NULL;
 
         return log_struct(LOG_NOTICE,
-                          "MESSAGE_ID=%s", a->message_id ?: SD_MESSAGE_SHUTDOWN_STR,
+                          LOG_ITEM("MESSAGE_ID=%s", a->message_id ?: SD_MESSAGE_SHUTDOWN_STR),
                           LOG_MESSAGE("%s%s%s%s.",
                                       message,
                                       m->wall_message ? " (" : "",
@@ -2866,8 +2866,8 @@ static int method_cancel_scheduled_shutdown(sd_bus_message *message, void *userd
 
                 log_struct(LOG_INFO,
                            LOG_MESSAGE("System shutdown has been cancelled"),
-                           "ACTION=%s", handle_action_to_string(a->handle),
-                           "MESSAGE_ID=" SD_MESSAGE_SHUTDOWN_CANCELED_STR,
+                           LOG_ITEM("ACTION=%s", handle_action_to_string(a->handle)),
+                           LOG_MESSAGE_ID(SD_MESSAGE_SHUTDOWN_CANCELED_STR),
                            username ? "OPERATOR=%s" : NULL, username);
 
                 (void) wall("System shutdown has been cancelled",

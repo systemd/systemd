@@ -2178,7 +2178,7 @@ static int invoke_main_loop(
                         *ret_error_message = "Failed to run main loop";
                         return log_struct_errno(LOG_EMERG, objective,
                                                 LOG_MESSAGE("Failed to run main loop: %m"),
-                                                "MESSAGE_ID=" SD_MESSAGE_CORE_MAINLOOP_FAILED_STR);
+                                                LOG_MESSAGE_ID(SD_MESSAGE_CORE_MAINLOOP_FAILED_STR));
                 }
 
                 /* Ensure shutdown timestamp is taken even when bypassing the job engine */
@@ -2492,7 +2492,7 @@ static int initialize_runtime(
                                 *ret_error_message = "Failed to drop capability bounding set of usermode helpers";
                                 return log_struct_errno(LOG_EMERG, r,
                                                         LOG_MESSAGE("Failed to drop capability bounding set of usermode helpers: %m"),
-                                                        "MESSAGE_ID=" SD_MESSAGE_CORE_CAPABILITY_BOUNDING_USER_STR);
+                                                        LOG_MESSAGE_ID(SD_MESSAGE_CORE_CAPABILITY_BOUNDING_USER_STR));
                         }
 
                         r = capability_bounding_set_drop(arg_capability_bounding_set, true);
@@ -2500,7 +2500,7 @@ static int initialize_runtime(
                                 *ret_error_message = "Failed to drop capability bounding set";
                                 return log_struct_errno(LOG_EMERG, r,
                                                         LOG_MESSAGE("Failed to drop capability bounding set: %m"),
-                                                        "MESSAGE_ID=" SD_MESSAGE_CORE_CAPABILITY_BOUNDING_STR);
+                                                        LOG_MESSAGE_ID(SD_MESSAGE_CORE_CAPABILITY_BOUNDING_STR));
                         }
                 }
 
@@ -2509,7 +2509,7 @@ static int initialize_runtime(
                                 *ret_error_message = "Failed to disable new privileges";
                                 return log_struct_errno(LOG_EMERG, errno,
                                                         LOG_MESSAGE("Failed to disable new privileges: %m"),
-                                                        "MESSAGE_ID=" SD_MESSAGE_CORE_DISABLE_PRIVILEGES_STR);
+                                                        LOG_MESSAGE_ID(SD_MESSAGE_CORE_DISABLE_PRIVILEGES_STR));
                         }
                 }
 
@@ -2526,7 +2526,7 @@ static int initialize_runtime(
                         *ret_error_message = "$XDG_RUNTIME_DIR is not set";
                         return log_struct_errno(LOG_EMERG, r,
                                                 LOG_MESSAGE("Failed to determine $XDG_RUNTIME_DIR path: %m"),
-                                                "MESSAGE_ID=" SD_MESSAGE_CORE_NO_XDGDIR_PATH_STR);
+                                                LOG_MESSAGE_ID(SD_MESSAGE_CORE_NO_XDGDIR_PATH_STR));
                 }
 
                 if (!skip_setup) {
@@ -2635,14 +2635,14 @@ static int do_queue_default_job(
                         *ret_error_message = "Failed to start default target";
                         return log_struct_errno(LOG_EMERG, r,
                                                 LOG_MESSAGE("Failed to start default target: %s", bus_error_message(&error, r)),
-                                                "MESSAGE_ID=" SD_MESSAGE_CORE_START_TARGET_FAILED_STR);
+                                                LOG_MESSAGE_ID(SD_MESSAGE_CORE_START_TARGET_FAILED_STR));
                 }
 
         } else if (r < 0) {
                 *ret_error_message = "Failed to isolate default target";
                 return log_struct_errno(LOG_EMERG, r,
                                         LOG_MESSAGE("Failed to isolate default target: %s", bus_error_message(&error, r)),
-                                        "MESSAGE_ID=" SD_MESSAGE_CORE_ISOLATE_TARGET_FAILED_STR);
+                                        LOG_MESSAGE_ID(SD_MESSAGE_CORE_ISOLATE_TARGET_FAILED_STR));
         } else
                 log_info("Queued %s job for default target %s.",
                          job_type_to_string(job->type),
@@ -2992,7 +2992,7 @@ static int collect_fds(FDSet **ret_fds, const char **ret_error_message) {
                 *ret_error_message = "Failed to allocate fd set";
                 return log_struct_errno(LOG_EMERG, r,
                                         LOG_MESSAGE("Failed to allocate fd set: %m"),
-                                        "MESSAGE_ID=" SD_MESSAGE_CORE_FD_SET_FAILED_STR);
+                                        LOG_MESSAGE_ID(SD_MESSAGE_CORE_FD_SET_FAILED_STR));
         }
 
         /* The serialization fd should have O_CLOEXEC turned on already, let's verify that we didn't pick it up here */
@@ -3185,7 +3185,7 @@ int main(int argc, char *argv[]) {
                 if (r < 0) {
                         log_struct_errno(LOG_EMERG, r,
                                          LOG_MESSAGE("Failed to fix up PID 1 environment: %m"),
-                                         "MESSAGE_ID=" SD_MESSAGE_CORE_PID1_ENVIRONMENT_STR);
+                                         LOG_MESSAGE_ID(SD_MESSAGE_CORE_PID1_ENVIRONMENT_STR));
                         error_message = "Failed to fix up PID1 environment";
                         goto finish;
                 }
@@ -3342,7 +3342,7 @@ int main(int argc, char *argv[]) {
         if (r < 0) {
                 log_struct_errno(LOG_EMERG, r,
                                  LOG_MESSAGE("Failed to allocate manager object: %m"),
-                                 "MESSAGE_ID=" SD_MESSAGE_CORE_MANAGER_ALLOCATE_STR);
+                                 LOG_MESSAGE_ID(SD_MESSAGE_CORE_MANAGER_ALLOCATE_STR));
                 error_message = "Failed to allocate manager object";
                 goto finish;
         }

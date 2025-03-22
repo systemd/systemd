@@ -619,8 +619,8 @@ static int save_external_coredump(
         if (truncated)
                 log_struct(LOG_INFO,
                            LOG_MESSAGE("Core file was truncated to %"PRIu64" bytes.", max_size),
-                           "SIZE_LIMIT=%"PRIu64, max_size,
-                           "MESSAGE_ID=" SD_MESSAGE_TRUNCATED_CORE_STR);
+                           LOG_ITEM("SIZE_LIMIT=%"PRIu64, max_size),
+                           LOG_MESSAGE_ID(SD_MESSAGE_TRUNCATED_CORE_STR));
 
         r = fix_permissions(fd, tmp, fn, context, allow_user);
         if (r < 0)
