@@ -16,6 +16,7 @@ After=tpm2.target systemd-pcrmachine.service
 Before=shutdown.target
 ConditionPathExists=!/etc/initrd-release
 ConditionSecurity=measured-uki
+FailureAction=reboot-force
 
 [Service]
 Type=oneshot

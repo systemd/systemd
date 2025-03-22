@@ -16,6 +16,7 @@ After=tpm2.target
 Before=sysinit.target cryptsetup-pre.target cryptsetup.target shutdown.target initrd-switch-root.target systemd-sysext.service
 ConditionPathExists=/etc/initrd-release
 ConditionSecurity=measured-uki
+FailureAction=reboot-force
 
 [Service]
 Type=oneshot
