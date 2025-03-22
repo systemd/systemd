@@ -281,6 +281,10 @@
     automatically measured into PCR 15 on activation, via
     <citerefentry><refentrytitle>systemd-pcrfs@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
 
+    <para>Mount constraint metadata contained in the file systems is validated by pulling in
+    <citerefentry><refentrytitle>systemd-validatefs@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    for generated mounts.</para>
+
     <para><filename>systemd-gpt-auto-generator</filename> implements
     <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
   </refsect1>
@@ -375,6 +379,7 @@
       <member><citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd-cryptsetup@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd-pcrfs@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-validatefs@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
       <member><citerefentry project='die-net'><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
       <member><citerefentry project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
