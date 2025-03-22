@@ -6370,8 +6370,9 @@ static int run(int argc, char *argv[]) {
                         r = dissect_loop_device_and_warn(
                                         loop,
                                         &arg_verity_settings,
-                                        /* mount_options=*/ NULL,
+                                        /* mount_options= */ NULL,
                                         arg_image_policy ?: &image_policy_container,
+                                        /* image_filter= */ NULL,
                                         dissect_image_flags,
                                         &dissected_image);
                         if (r == -ENOPKG) {
@@ -6391,10 +6392,20 @@ static int run(int argc, char *argv[]) {
                                         dissected_image,
                                         loop->fd,
                                         &arg_verity_settings);
-                        if (r < 0)
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to load Verity signature partition: %m");
                                 goto finish;
+                        }
 
-                        if (dissected_image->has_verity && !arg_verity_settings.root_hash && !dissected_image->has_verity_sig)
+                        r = dissected_image_guess_verity_roothash(
+                                        dissected_image,
+                                        &arg_verity_settings);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to guess Verity root hash: %m");
+                                goto finish;
+                        }
+
+                        if (dissected_image->has_verity && !arg_verity_settings.root_hash)
                                 log_notice("Note: image %s contains verity information, but no root hash specified and no embedded "
                                            "root hash signature found! Proceeding without integrity checking.", arg_image);
 

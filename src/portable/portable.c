@@ -425,6 +425,7 @@ static int portable_extract_by_path(
                                 /* verity= */ NULL,
                                 /* mount_options= */ NULL,
                                 image_policy,
+                                /* image_filter= */ NULL,
                                 flags,
                                 &m);
                 if (r == -ENOPKG)
