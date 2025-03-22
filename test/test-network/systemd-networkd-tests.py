@@ -6027,7 +6027,7 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
     def test_bridge_property(self):
         copy_network_unit('11-dummy.netdev', '12-dummy.netdev', '26-bridge.netdev',
                           '26-bridge-slave-interface-1.network', '26-bridge-slave-interface-2.network',
-                          '25-bridge99.network')
+                          '25-bridge99.network', '14-dummy.netdev', '26-bridge-vlan-tunnel.network')
         start_networkd()
         self.check_bridge_property()
 
@@ -6038,6 +6038,7 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
             '26-bridge.netdev',
             '26-bridge-slave-interface-1.network',
             '26-bridge-slave-interface-2.network',
+            '26-bridge-vlan-tunnel.network',
             '25-bridge99.network')
         networkctl_reload()
         self.check_bridge_property()
@@ -6066,7 +6067,11 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
         self.assertIn('bridge_slave', output)
         self.assertIn('mtu 9000 ', output)
 
+        output = check_output('ip -d link show dummy97')
+        self.assertIn('vlan_tunnel on ', output)
+
         remove_link('dummy98')
+        remove_link('dummy97')
         self.wait_operstate('bridge99', 'no-carrier')
 
         output = check_output('ip -d link show bridge99')

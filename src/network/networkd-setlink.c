@@ -332,6 +332,12 @@ static int link_configure_fill_message(
                                 return r;
                 }
 
+                if (link->network->vlan_tunnel >= 0) {
+                        r = sd_netlink_message_append_u8(req, IFLA_BRPORT_VLAN_TUNNEL, link->network->vlan_tunnel);
+                        if (r < 0)
+                                return r;
+                }
+
                 r = sd_netlink_message_close_container(req);
                 if (r < 0)
                         return r;

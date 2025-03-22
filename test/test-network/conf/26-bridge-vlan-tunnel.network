@@ -1,0 +1,11 @@
+[Match]
+Name=dummy97
+
+[Link]
+MTUBytes=9000
+
+[Network]
+Bridge=bridge99
+
+[Bridge]
+VLANTunnel=true
