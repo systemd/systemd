@@ -25,7 +25,6 @@ typedef struct UdevWorker {
         Hashmap *properties;
         UdevRules *rules;
 
-        int pipe_fd;
         int inotify_fd; /* Do not close! */
 
         UdevConfig config;
@@ -48,5 +47,4 @@ typedef enum EventResult {
 void udev_worker_done(UdevWorker *worker);
 int udev_worker_main(UdevWorker *worker, sd_device *dev);
 
-void udev_broadcast_result(sd_device_monitor *monitor, sd_device *dev, EventResult result);
 int udev_get_whole_disk(sd_device *dev, sd_device **ret_device, const char **ret_devname);
