@@ -77,6 +77,7 @@ shared_sources = files(
         'find-esp.c',
         'firewall-util-nft.c',
         'firewall-util.c',
+        'fork-journal.c',
         'format-table.c',
         'fstab-util.c',
         'generator.c',
