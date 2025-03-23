@@ -237,8 +237,9 @@ void manager_exit(Manager *manager) {
         /* close sources of new events and discard buffered events */
         manager->ctrl = udev_ctrl_unref(manager->ctrl);
         manager->varlink_server = sd_varlink_server_unref(manager->varlink_server);
+
+        /* Disable the event source, but do not close the fd. It will be pushed to fd store. */
         manager->inotify_event = sd_event_source_disable_unref(manager->inotify_event);
-        manager->inotify_fd = safe_close(manager->inotify_fd);
 
         /* Disable the device monitor but do not free device monitor, as it may be used when a worker failed,
          * and the manager needs to broadcast the kernel event assigned to the worker to libudev listeners.
@@ -951,8 +952,10 @@ static int on_post(sd_event_source *s, void *userdata) {
 
         /* There are no idle workers. */
 
-        if (manager->exit)
+        if (manager->exit) {
+                (void) manager_push_inotify(manager);
                 return sd_event_exit(manager->event, 0);
+        }
 
         if (manager->cgroup && set_isempty(manager->synthesize_change_child_event_sources))
                 /* cleanup possible left-over processes in our cgroup */
@@ -1027,6 +1030,8 @@ static int manager_listen_fds(Manager *manager) {
                         r = manager_init_ctrl(manager, fd);
                 else if (streq(names[i], "systemd-udevd-kernel.socket"))
                         r = manager_init_device_monitor(manager, fd);
+                else if (streq(names[i], "inotify"))
+                        r = manager_init_inotify(manager, fd);
                 else
                         r = log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                             "Received unexpected fd (%s), ignoring.", names[i]);
