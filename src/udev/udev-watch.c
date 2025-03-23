@@ -6,6 +6,7 @@
 
 #include "alloc-util.h"
 #include "blockdev-util.h"
+#include "daemon-util.h"
 #include "device-util.h"
 #include "dirent-util.h"
 #include "event-util.h"
@@ -198,6 +199,18 @@ static int manager_on_inotify(sd_event_source *s, int fd, uint32_t revents, void
         return 0;
 }
 
+int manager_push_inotify(Manager *manager) {
+        int r;
+
+        assert(manager);
+
+        r = notify_push_fd(manager->inotify_fd, "inotify");
+        if (r < 0)
+                return log_warning_errno(r, "Failed to push inotify file descriptor: %m");
+
+        return 0;
+}
+
 static int manager_restore_watch(Manager *manager) {
         int r;
 
@@ -254,10 +267,18 @@ finalize:
         return r;
 }
 
-static int manager_init_inotify(Manager *manager) {
-        int fd;
-
+int manager_init_inotify(Manager *manager, int fd) {
         assert(manager);
+
+        /* This takes passed file descriptor on success. */
+
+        if (fd >= 0) {
+                if (manager->inotify_fd >= 0)
+                        return log_warning_errno(SYNTHETIC_ERRNO(EALREADY), "Received multiple inotify fd (%i), ignoring.", fd);
+
+                manager->inotify_fd = fd;
+                return 0;
+        }
 
         if (manager->inotify_fd >= 0)
                 return 0;
@@ -276,7 +297,7 @@ int manager_start_inotify(Manager *manager) {
         assert(manager);
         assert(manager->event);
 
-        r = manager_init_inotify(manager);
+        r = manager_init_inotify(manager, -EBADF);
         if (r < 0)
                 return r;
 
