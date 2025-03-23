@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
-#include "blockdev-util.h"
 #include "cgroup-util.h"
 #include "common-signal.h"
 #include "daemon-util.h"
@@ -12,7 +11,6 @@
 #include "fd-util.h"
 #include "fs-util.h"
 #include "hashmap.h"
-#include "inotify-util.h"
 #include "iovec-util.h"
 #include "list.h"
 #include "mkdir.h"
@@ -703,7 +701,7 @@ fail:
         event_free(event);
 }
 
-static int event_queue_assume_block_device_unlocked(Manager *manager, sd_device *dev) {
+int event_queue_assume_block_device_unlocked(Manager *manager, sd_device *dev) {
         const char *devname;
         int r;
 
@@ -852,162 +850,6 @@ static int on_worker_notify(sd_event_source *s, int fd, uint32_t revents, void *
                 (void) pidref_kill(&worker->pidref, SIGTERM);
         } else if (worker->state != WORKER_KILLED)
                 worker->state = WORKER_IDLE;
-
-        return 0;
-}
-
-static int synthesize_change_one(sd_device *dev, sd_device *target) {
-        int r;
-
-        assert(dev);
-        assert(target);
-
-        if (DEBUG_LOGGING) {
-                const char *syspath = NULL;
-                (void) sd_device_get_syspath(target, &syspath);
-                log_device_debug(dev, "device is closed, synthesising 'change' on %s", strna(syspath));
-        }
-
-        r = sd_device_trigger(target, SD_DEVICE_CHANGE);
-        if (r < 0)
-                return log_device_debug_errno(target, r, "Failed to trigger 'change' uevent: %m");
-
-        DEVICE_TRACE_POINT(synthetic_change_event, dev);
-
-        return 0;
-}
-
-static int synthesize_change_all(sd_device *dev) {
-        int r;
-
-        assert(dev);
-
-        r = blockdev_reread_partition_table(dev);
-        if (r < 0)
-                log_device_debug_errno(dev, r, "Failed to re-read partition table, ignoring: %m");
-        bool part_table_read = r >= 0;
-
-        /* search for partitions */
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
-        r = partition_enumerator_new(dev, &e);
-        if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to initialize partition enumerator, ignoring: %m");
-
-        /* We have partitions and re-read the table, the kernel already sent out a "change"
-         * event for the disk, and "remove/add" for all partitions. */
-        if (part_table_read && sd_device_enumerator_get_device_first(e))
-                return 0;
-
-        /* We have partitions but re-reading the partition table did not work, synthesize
-         * "change" for the disk and all partitions. */
-        r = synthesize_change_one(dev, dev);
-        FOREACH_DEVICE(e, d)
-                RET_GATHER(r, synthesize_change_one(dev, d));
-
-        return r;
-}
-
-static int synthesize_change_child_handler(sd_event_source *s, const siginfo_t *si, void *userdata) {
-        Manager *manager = ASSERT_PTR(userdata);
-        assert(s);
-
-        sd_event_source_unref(set_remove(manager->synthesize_change_child_event_sources, s));
-        return 0;
-}
-
-static int synthesize_change(Manager *manager, sd_device *dev) {
-        int r;
-
-        assert(manager);
-        assert(dev);
-
-        const char *sysname;
-        r = sd_device_get_sysname(dev, &sysname);
-        if (r < 0)
-                return r;
-
-        if (startswith(sysname, "dm-") || block_device_is_whole_disk(dev) <= 0)
-                return synthesize_change_one(dev, dev);
-
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
-        r = pidref_safe_fork(
-                        "(udev-synth)",
-                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE,
-                        &pidref);
-        if (r < 0)
-                return r;
-        if (r == 0) {
-                /* child */
-                (void) synthesize_change_all(dev);
-                _exit(EXIT_SUCCESS);
-        }
-
-        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
-        r = event_add_child_pidref(manager->event, &s, &pidref, WEXITED, synthesize_change_child_handler, manager);
-        if (r < 0) {
-                log_debug_errno(r, "Failed to add child event source for "PID_FMT", ignoring: %m", pidref.pid);
-                return 0;
-        }
-
-        r = sd_event_source_set_child_pidfd_own(s, true);
-        if (r < 0)
-                return r;
-        TAKE_PIDREF(pidref);
-
-        r = set_ensure_put(&manager->synthesize_change_child_event_sources, &event_source_hash_ops, s);
-        if (r < 0)
-                return r;
-        TAKE_PTR(s);
-
-        return 0;
-}
-
-static int on_inotify(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        Manager *manager = ASSERT_PTR(userdata);
-        union inotify_event_buffer buffer;
-        ssize_t l;
-        int r;
-
-        l = read(fd, &buffer, sizeof(buffer));
-        if (l < 0) {
-                if (ERRNO_IS_TRANSIENT(errno))
-                        return 0;
-
-                return log_error_errno(errno, "Failed to read inotify fd: %m");
-        }
-
-        FOREACH_INOTIFY_EVENT_WARN(e, buffer, l) {
-                _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
-                const char *devnode;
-
-                /* Do not handle IN_IGNORED here. Especially, do not try to call udev_watch_end() from the
-                 * main process. Otherwise, the pair of the symlinks may become inconsistent, and several
-                 * garbage may remain. The old symlinks are removed by a worker that processes the
-                 * corresponding 'remove' uevent;
-                 * udev_event_execute_rules() -> event_execute_rules_on_remove() -> udev_watch_end(). */
-
-                if (!FLAGS_SET(e->mask, IN_CLOSE_WRITE))
-                        continue;
-
-                r = device_new_from_watch_handle(&dev, e->wd);
-                if (r < 0) {
-                        /* Device may be removed just after closed. */
-                        log_debug_errno(r, "Failed to create sd_device object from watch handle, ignoring: %m");
-                        continue;
-                }
-
-                r = sd_device_get_devname(dev, &devnode);
-                if (r < 0) {
-                        /* Also here, device may be already removed. */
-                        log_device_debug_errno(dev, r, "Failed to get device node, ignoring: %m");
-                        continue;
-                }
-
-                log_device_debug(dev, "Received inotify event for %s.", devnode);
-
-                (void) event_queue_assume_block_device_unlocked(manager, dev);
-                (void) synthesize_change(manager, dev);
-        }
 
         return 0;
 }
@@ -1247,31 +1089,6 @@ static int manager_start_device_monitor(Manager *manager) {
         if (r < 0)
                 return log_error_errno(r, "Failed to start device monitor: %m");
 
-        return 0;
-}
-
-static int manager_start_inotify(Manager *manager) {
-        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
-        _cleanup_close_ int fd = -EBADF;
-        int r;
-
-        assert(manager);
-        assert(manager->event);
-
-        fd = inotify_init1(IN_CLOEXEC);
-        if (fd < 0)
-                return log_error_errno(errno, "Failed to create inotify descriptor: %m");
-
-        udev_watch_restore(fd);
-
-        r = sd_event_add_io(manager->event, &s, fd, EPOLLIN, on_inotify, manager);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create inotify event source: %m");
-
-        (void) sd_event_source_set_description(s, "manager-inotify");
-
-        manager->inotify_fd = TAKE_FD(fd);
-        manager->inotify_event = TAKE_PTR(s);
         return 0;
 }
 
