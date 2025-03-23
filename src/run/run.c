@@ -30,6 +30,7 @@
 #include "exec-util.h"
 #include "exit-status.h"
 #include "fd-util.h"
+#include "fork-journal.h"
 #include "format-util.h"
 #include "fs-util.h"
 #include "hostname-setup.h"
@@ -92,6 +93,7 @@ static char **arg_socket_property = NULL;
 static char **arg_timer_property = NULL;
 static bool arg_with_timer = false;
 static bool arg_quiet = false;
+static bool arg_verbose = false;
 static bool arg_aggressive_gc = false;
 static char *arg_working_directory = NULL;
 static bool arg_shell = false;
@@ -159,6 +161,7 @@ static int help(void) {
                "                                  agents until unit is started up\n"
                "  -P --pipe                       Pass STDIN/STDOUT/STDERR directly to service\n"
                "  -q --quiet                      Suppress information messages during runtime\n"
+               "  -v --verbose                    Show unit logs while executing operation\n"
                "     --json=pretty|short|off      Print unit name and invocation id as JSON\n"
                "  -G --collect                    Unload unit after it ran, even when failed\n"
                "  -S --shell                      Invoke a $SHELL interactively\n"
@@ -338,6 +341,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "pty-late",           no_argument,       NULL, 'T'                    },
                 { "pipe",               no_argument,       NULL, 'P'                    },
                 { "quiet",              no_argument,       NULL, 'q'                    },
+                { "verbose",            no_argument,       NULL, 'v'                    },
                 { "on-active",          required_argument, NULL, ARG_ON_ACTIVE          },
                 { "on-boot",            required_argument, NULL, ARG_ON_BOOT            },
                 { "on-startup",         required_argument, NULL, ARG_ON_STARTUP         },
@@ -371,7 +375,7 @@ static int parse_argv(int argc, char *argv[]) {
         /* Resetting to 0 forces the invocation of an internal initialization routine of getopt_long()
          * that checks for GNU extensions in optstring ('-' or '+' at the beginning). */
         optind = 0;
-        while ((c = getopt_long(argc, argv, "+hrC:H:M:E:p:tTPqGdSu:", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "+hrC:H:M:E:p:tTPqvGdSu:", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -496,6 +500,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'q':
                         arg_quiet = true;
+                        break;
+
+                case 'v':
+                        arg_verbose = true;
                         break;
 
                 case ARG_ON_ACTIVE:
@@ -2291,6 +2299,10 @@ static int start_transient_service(sd_bus *bus) {
                 return r;
         peer_fd = safe_close(peer_fd);
 
+        _cleanup_(journal_terminate) PidRef journal_pid = PIDREF_NULL;
+        if (arg_verbose)
+                (void) journal_fork(arg_runtime_scope, STRV_MAKE(c.unit), &journal_pid);
+
         r = bus_call_with_hint(bus, m, "service", &reply);
         if (r < 0)
                 return r;
@@ -2364,6 +2376,9 @@ static int start_transient_service(sd_bus *bus) {
                 r = sd_event_loop(c.event);
                 if (r < 0)
                         return log_error_errno(r, "Failed to run event loop: %m");
+
+                /* Close the journal watch logic before we output the exit summary */
+                journal_terminate(&journal_pid);
 
                 if (arg_wait && !arg_quiet) {
 
