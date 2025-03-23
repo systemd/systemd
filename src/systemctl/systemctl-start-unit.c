@@ -9,6 +9,7 @@
 #include "bus-util.h"
 #include "bus-wait-for-jobs.h"
 #include "bus-wait-for-units.h"
+#include "fork-journal.h"
 #include "macro.h"
 #include "special.h"
 #include "string-util.h"
@@ -387,11 +388,15 @@ int verb_start(int argc, char *argv[], void *userdata) {
                         return log_error_errno(r, "Failed to allocate unit watch context: %m");
         }
 
+        _cleanup_(journal_terminatep) Set *journal_pids = NULL;
         if (arg_marked)
                 ret = enqueue_marked_jobs(bus, w);
         else
                 STRV_FOREACH(name, names) {
                         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+
+                        if (arg_verbose)
+                                (void) journal_fork(arg_runtime_scope, &journal_pids, *name);
 
                         r = start_unit_one(bus, method, job_type, *name, mode, &error, w, wu);
                         if (ret == EXIT_SUCCESS && r < 0)
