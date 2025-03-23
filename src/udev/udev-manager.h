@@ -64,3 +64,5 @@ void notify_ready(Manager *manager);
 void manager_kill_workers(Manager *manager, bool force);
 
 bool devpath_conflict(const char *a, const char *b);
+
+int event_queue_assume_block_device_unlocked(Manager *manager, sd_device *dev);
