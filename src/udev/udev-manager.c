@@ -152,6 +152,8 @@ Manager* manager_free(Manager *manager) {
         event_queue_cleanup(manager, EVENT_UNDEF);
 
         safe_close(manager->inotify_fd);
+        hashmap_free(manager->inotify_device_ids_by_watch_handle);
+        hashmap_free(manager->inotify_watch_handles_by_device_id);
 
         sd_device_monitor_unref(manager->monitor);
         udev_ctrl_unref(manager->ctrl);
@@ -833,6 +835,17 @@ static int on_notify(sd_event_source *s, int fd, uint32_t revents, void *userdat
                 return 0;
         }
 
+        const char *v = strv_env_get(l, "INOTIFY_WATCH_ADD");
+        if (v) {
+                (void) manager_save_watch(manager, worker->event->dev, v);
+                return 0;
+        }
+
+        if (strv_contains(l, "INOTIFY_WATCH_REMOVE=1")) {
+                (void) manager_remove_watch(manager, worker->event->dev);
+                return 0;
+        }
+
         if (strv_contains(l, "TRY_AGAIN=1"))
                 /* Worker cannot lock the device. Requeue the event. */
                 event_requeue(worker->event);
@@ -1024,6 +1037,8 @@ static int manager_listen_fds(Manager *manager) {
                         r = manager_init_device_monitor(manager, fd);
                 else if (streq(names[i], "inotify"))
                         r = manager_init_inotify(manager, fd);
+                else if (streq(names[i], "manager-serialization"))
+                        r = manager_deserialize_fd(manager, &fd);
                 else
                         r = log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                             "Received unexpected fd (%s), ignoring.", names[i]);

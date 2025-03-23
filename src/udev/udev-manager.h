@@ -33,6 +33,8 @@ typedef struct Manager {
 
         /* used by udev-watch */
         int inotify_fd;
+        Hashmap *inotify_device_ids_by_watch_handle;
+        Hashmap *inotify_watch_handles_by_device_id;
         sd_event_source *inotify_event;
         Set *synthesize_change_child_event_sources;
 
@@ -46,6 +48,7 @@ typedef struct Manager {
         UdevConfig config_by_control;
         UdevConfig config;
 
+        bool deserialized;
         bool stop_exec_queue;
         bool exit;
 } Manager;
