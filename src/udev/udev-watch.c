@@ -6,6 +6,7 @@
 
 #include "alloc-util.h"
 #include "blockdev-util.h"
+#include "daemon-util.h"
 #include "device-util.h"
 #include "dirent-util.h"
 #include "event-util.h"
@@ -198,6 +199,18 @@ static int manager_on_inotify(sd_event_source *s, int fd, uint32_t revents, void
         return 0;
 }
 
+int manager_serialize(Manager *manager) {
+        int r;
+
+        assert(manager);
+
+        r = notify_push_fd(manager->inotify_fd, "inotify");
+        if (r < 0)
+                return log_error_errno(r, "Failed to push inotify file descriptor: %m");
+
+        return 0;
+}
+
 static int manager_restore_watch(Manager *manager) {
         int r;
 
@@ -254,26 +267,49 @@ finalize:
         return r;
 }
 
+int manager_init_inotify(Manager *manager, int fd) {
+        assert(manager);
+
+        /* This takes passed file descriptor on success. */
+
+        if (fd >= 0) {
+                if (manager->inotify_fd >= 0)
+                        return log_warning_errno(SYNTHETIC_ERRNO(EALREADY), "Received multiple inotify fd (%i), ignoring.", fd);
+        } else {
+                if (manager->inotify_fd >= 0)
+                        return 0;
+
+                fd = inotify_init1(IN_CLOEXEC);
+                if (fd < 0)
+                        return log_error_errno(errno, "Failed to create inotify descriptor: %m");
+        }
+
+        manager->inotify_fd = fd;
+        return 0;
+}
+
 int manager_start_inotify(Manager *manager) {
         int r;
 
         assert(manager);
         assert(manager->event);
 
-        _cleanup_close_ int fd = inotify_init1(IN_CLOEXEC);
-        if (fd < 0)
-                return log_error_errno(errno, "Failed to create inotify descriptor: %m");
+        bool restore = (manager->inotify_fd < 0);
 
-        (void) manager_restore_watch(manager);
+        r = manager_init_inotify(manager, -EBADF);
+        if (r < 0)
+                return r;
+
+        if (restore)
+                (void) manager_restore_watch(manager);
 
         _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
-        r = sd_event_add_io(manager->event, &s, fd, EPOLLIN, manager_on_inotify, manager);
+        r = sd_event_add_io(manager->event, &s, manager->inotify_fd, EPOLLIN, manager_on_inotify, manager);
         if (r < 0)
                 return log_error_errno(r, "Failed to create inotify event source: %m");
 
         (void) sd_event_source_set_description(s, "manager-inotify");
 
-        manager->inotify_fd = TAKE_FD(fd);
         manager->inotify_event = TAKE_PTR(s);
         return 0;
 }
