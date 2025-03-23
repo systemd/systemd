@@ -88,6 +88,7 @@ bool arg_show_types = false;
 int arg_check_inhibitors = -1;
 bool arg_dry_run = false;
 bool arg_quiet = false;
+bool arg_verbose = false;
 bool arg_no_warn = false;
 bool arg_full = false;
 bool arg_recursive = false;
@@ -302,6 +303,7 @@ static int systemctl_help(void) {
                "                             suspend-then-hibernate, hybrid-sleep, default,\n"
                "                             rescue, emergency, and exit.\n"
                "  -q --quiet             Suppress output\n"
+               "  -v --verbose           Show unit logs while executing operation\n"
                "     --no-warn           Suppress several warnings shown by default\n"
                "     --wait              For (re)start, wait until service stopped again\n"
                "                         For is-system-running, wait until startup is completed\n"
@@ -508,6 +510,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "no-wall",             no_argument,       NULL, ARG_NO_WALL             },
                 { "dry-run",             no_argument,       NULL, ARG_DRY_RUN             },
                 { "quiet",               no_argument,       NULL, 'q'                     },
+                { "verbose",             no_argument,       NULL, 'v'                     },
                 { "no-warn",             no_argument,       NULL, ARG_NO_WARN             },
                 { "root",                required_argument, NULL, ARG_ROOT                },
                 { "image",               required_argument, NULL, ARG_IMAGE               },
@@ -554,7 +557,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
         /* We default to allowing interactive authorization only in systemctl (not in the legacy commands) */
         arg_ask_password = true;
 
-        while ((c = getopt_long(argc, argv, "hC:t:p:P:alqfs:H:M:n:o:iTr.::", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hC:t:p:P:alqvfs:H:M:n:o:iTr.::", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -766,6 +769,10 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         if (arg_legend < 0)
                                 arg_legend = false;
 
+                        break;
+
+                case 'v':
+                        arg_verbose = true;
                         break;
 
                 case 'f':
