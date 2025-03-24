@@ -773,8 +773,13 @@
         <term><option>-f</option></term>
         <term><option>--follow</option></term>
 
-        <listitem><para>Show only the most recent journal entries, and continuously print new entries as
-        they are appended to the journal.</para></listitem>
+        <listitem><para>Show only the most recent journal entries, and continuously print new entries as they
+        are appended to the journal, until Ctrl-C is hit (or the tool is otherwise terminated).</para>
+
+        <para><command>journalctl</command> will send an
+        <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+        <literal>READY=1</literal> message once it initialized and successfully established its watch on the
+        journal.</para></listitem>
       </varlistentry>
 
       <varlistentry>
