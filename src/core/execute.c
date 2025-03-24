@@ -976,7 +976,7 @@ static bool tty_may_match_dev_console(const char *tty) {
                 return true; /* if we could not resolve, assume it may */
 
         /* "tty0" means the active VC, so it may be the same sometimes */
-        return path_equal(resolved, tty) || (streq(resolved, "tty0") && tty_is_vc(tty));
+        return path_equal(skip_dev_prefix(resolved), tty) || (streq(skip_dev_prefix(resolved), "tty0") && tty_is_vc(tty));
 }
 
 static bool exec_context_may_touch_tty(const ExecContext *ec) {
