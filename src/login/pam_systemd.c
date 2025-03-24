@@ -1891,8 +1891,11 @@ _public_ PAM_EXTERN int pam_sm_close_session(
                         if (r != PAM_SUCCESS)
                                 return r;
 
+                        /* `ReleaseSession` returns -ENXIO if the session does not exist.  This may occur if
+                         * logind was quicker than (sd-pam) and has already removed the session after
+                         * detecting that the session leader has terminated. */
                         r = bus_call_method(bus, bus_login_mgr, "ReleaseSession", &error, NULL, "s", id);
-                        if (r < 0)
+                        if (r < 0 && r != -ENXIO)
                                 return pam_syslog_pam_error(handle, LOG_ERR, PAM_SESSION_ERR,
                                                             "Failed to release session: %s", bus_error_message(&error, r));
                 }
