@@ -1234,13 +1234,12 @@ _public_ int sd_journal_previous_skip(sd_journal *j, uint64_t skip) {
         return real_journal_next_skip(j, DIRECTION_UP, skip);
 }
 
-_public_ int sd_journal_get_cursor(sd_journal *j, char **cursor) {
+_public_ int sd_journal_get_cursor(sd_journal *j, char **ret_cursor) {
         Object *o;
         int r;
 
         assert_return(j, -EINVAL);
         assert_return(!journal_origin_changed(j), -ECHILD);
-        assert_return(cursor, -EINVAL);
 
         if (!j->current_file || j->current_file->current_offset <= 0)
                 return -EADDRNOTAVAIL;
@@ -1249,7 +1248,10 @@ _public_ int sd_journal_get_cursor(sd_journal *j, char **cursor) {
         if (r < 0)
                 return r;
 
-        if (asprintf(cursor,
+        if (!ret_cursor)
+                return 0;
+
+        if (asprintf(ret_cursor,
                      "s=%s;i=%"PRIx64";b=%s;m=%"PRIx64";t=%"PRIx64";x=%"PRIx64,
                      SD_ID128_TO_STRING(j->current_file->header->seqnum_id), le64toh(o->entry.seqnum),
                      SD_ID128_TO_STRING(o->entry.boot_id), le64toh(o->entry.monotonic),
