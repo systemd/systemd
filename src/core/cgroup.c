@@ -4510,10 +4510,6 @@ int unit_get_memory_available(Unit *u, uint64_t *ret) {
                 if (!unit_context)
                         return -ENODATA;
 
-                CGroupRuntime *crt = unit_get_cgroup_runtime(u);
-                if (!crt || !crt->cgroup_path)
-                        continue;
-
                 (void) unit_get_memory_accounting(u, CGROUP_MEMORY_CURRENT, &current);
                 /* in case of error, previous current propagates as lower bound */
 
