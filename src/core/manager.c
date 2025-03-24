@@ -3346,13 +3346,13 @@ int manager_loop(Manager *m) {
 
         while (m->objective == MANAGER_OK) {
 
-                (void) watchdog_ping();
-
                 if (!ratelimit_below(&rl)) {
                         /* Yay, something is going seriously wrong, pause a little */
                         log_warning("Looping too fast. Throttling execution a little.");
                         sleep(1);
                 }
+
+                (void) watchdog_ping();
 
                 if (manager_dispatch_load_queue(m) > 0)
                         continue;
@@ -3385,7 +3385,7 @@ int manager_loop(Manager *m) {
                         continue;
 
                 /* Sleep for watchdog runtime wait time */
-                r = sd_event_run(m->event, watchdog_runtime_wait());
+                r = sd_event_run(m->event, watchdog_runtime_wait(/* divisor= */ 2));
                 if (r < 0)
                         return log_error_errno(r, "Failed to run event loop: %m");
         }
@@ -3576,9 +3576,6 @@ void manager_set_watchdog(Manager *m, WatchdogType t, usec_t timeout) {
         if (MANAGER_IS_USER(m))
                 return;
 
-        if (m->watchdog[t] == timeout)
-                return;
-
         if (m->watchdog_overridden[t] == USEC_INFINITY) {
                 if (t == WATCHDOG_RUNTIME)
                         (void) watchdog_setup(timeout);
@@ -3595,9 +3592,6 @@ void manager_override_watchdog(Manager *m, WatchdogType t, usec_t timeout) {
         assert(m);
 
         if (MANAGER_IS_USER(m))
-                return;
-
-        if (m->watchdog_overridden[t] == timeout)
                 return;
 
         usec = timeout == USEC_INFINITY ? m->watchdog[t] : timeout;
@@ -3870,6 +3864,9 @@ static void manager_notify_finished(Manager *m) {
         }
 
         bus_manager_send_finished(m, firmware_usec, loader_usec, kernel_usec, initrd_usec, userspace_usec, total_usec);
+
+        if (MANAGER_IS_SYSTEM(m) && detect_container() <= 0)
+                watchdog_report_if_missing();
 
         log_taint_string(m);
 }

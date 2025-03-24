@@ -1985,9 +1985,9 @@ static int do_reexecute(
         assert(saved_rlimit_memlock);
         assert(ret_error_message);
 
-        /* Close and disarm the watchdog, so that the new instance can reinitialize it, but doesn't get
-         * rebooted while we do that */
-        watchdog_close(true);
+        /* Close and disarm the watchdog, so that the new instance can reinitialize it, but the machine
+         * doesn't get rebooted while we do that. */
+        watchdog_close(/* disarm= */ true);
 
         if (!switch_root_dir && objective == MANAGER_SOFT_REBOOT) {
                 /* If no switch root dir is specified, then check if /run/nextroot/ qualifies and use that */
