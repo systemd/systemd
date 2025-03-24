@@ -586,16 +586,18 @@ static int help(void) {
 
         printf("%1$s [HOST:PORT]\n"
                "%1$s [SOCKET]\n\n"
-               "Bidirectionally proxy local sockets to another (possibly remote) socket.\n\n"
+               "%2$sBidirectionally proxy local sockets to another (possibly remote) socket.%3$s\n\n"
                "  -c --connections-max=  Set the maximum number of connections to be accepted\n"
                "     --exit-idle-time=   Exit when without a connection for this duration. See\n"
-               "                         the %3$s for time span format\n"
+               "                         the %4$s for time span format\n"
                "  -h --help              Show this help\n"
                "     --version           Show package version\n"
-               "\nSee the %2$s for details.\n",
+               "\nSee the %5$s for details.\n",
                program_invocation_short_name,
-               link,
-               time_link);
+               ansi_highlight(),
+               ansi_normal(),
+               time_link,
+               link);
 
         return 0;
 }
