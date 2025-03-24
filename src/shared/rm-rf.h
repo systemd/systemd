@@ -34,20 +34,27 @@ static inline int rm_rf(const char *path, RemoveFlags flags) {
         return rm_rf_at(AT_FDCWD, path, flags);
 }
 
-/* Useful for usage with _cleanup_(), destroys a directory and frees the pointer */
-static inline char *rm_rf_physical_and_free(char *p) {
+/* Useful for usage with _cleanup_(), destroys a directory */
+static inline const char* rm_rf_physical(const char *p) {
         PROTECT_ERRNO;
 
         if (!p)
                 return NULL;
 
         (void) rm_rf(p, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_MISSING_OK|REMOVE_CHMOD);
+        return NULL;
+}
+DEFINE_TRIVIAL_CLEANUP_FUNC(const char*, rm_rf_physical);
+
+/* Similar as above, but also frees the pointer */
+static inline char* rm_rf_physical_and_free(char *p) {
+        rm_rf_physical(p);
         return mfree(p);
 }
 DEFINE_TRIVIAL_CLEANUP_FUNC(char*, rm_rf_physical_and_free);
 
 /* Similar as above, but also has magic btrfs subvolume powers */
-static inline char *rm_rf_subvolume_and_free(char *p) {
+static inline char* rm_rf_subvolume_and_free(char *p) {
         PROTECT_ERRNO;
 
         if (!p)
