@@ -4,23 +4,26 @@
  * Copyright © 2009 Scott James Remnant <scott@netsplit.com>
  */
 
-#include <sys/inotify.h>
-
 #include "alloc-util.h"
-#include "device-private.h"
+#include "blockdev-util.h"
+#include "daemon-util.h"
 #include "device-util.h"
 #include "dirent-util.h"
+#include "event-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
+#include "inotify-util.h"
 #include "mkdir.h"
 #include "parse-util.h"
 #include "rm-rf.h"
 #include "stdio-util.h"
 #include "string-util.h"
+#include "udev-manager.h"
+#include "udev-trace.h"
 #include "udev-util.h"
 #include "udev-watch.h"
 
-int device_new_from_watch_handle_at(sd_device **ret, int dirfd, int wd) {
+static int device_new_from_watch_handle_at(sd_device **ret, int dirfd, int wd) {
         char path_wd[STRLEN("/run/udev/watch/") + DECIMAL_STR_MAX(int)];
         _cleanup_free_ char *id = NULL;
         int r;
@@ -43,13 +46,177 @@ int device_new_from_watch_handle_at(sd_device **ret, int dirfd, int wd) {
         return sd_device_new_from_device_id(ret, id);
 }
 
-int udev_watch_restore(int inotify_fd) {
-        _cleanup_closedir_ DIR *dir = NULL;
+static int synthesize_change_one(sd_device *dev, sd_device *target) {
+        int r;
+
+        assert(dev);
+        assert(target);
+
+        if (DEBUG_LOGGING) {
+                const char *syspath = NULL;
+                (void) sd_device_get_syspath(target, &syspath);
+                log_device_debug(dev, "device is closed, synthesising 'change' on %s", strna(syspath));
+        }
+
+        r = sd_device_trigger(target, SD_DEVICE_CHANGE);
+        if (r < 0)
+                return log_device_debug_errno(target, r, "Failed to trigger 'change' uevent: %m");
+
+        DEVICE_TRACE_POINT(synthetic_change_event, dev);
+
+        return 0;
+}
+
+static int synthesize_change_all(sd_device *dev) {
+        int r;
+
+        assert(dev);
+
+        r = blockdev_reread_partition_table(dev);
+        if (r < 0)
+                log_device_debug_errno(dev, r, "Failed to re-read partition table, ignoring: %m");
+        bool part_table_read = r >= 0;
+
+        /* search for partitions */
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        r = partition_enumerator_new(dev, &e);
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to initialize partition enumerator, ignoring: %m");
+
+        /* We have partitions and re-read the table, the kernel already sent out a "change"
+         * event for the disk, and "remove/add" for all partitions. */
+        if (part_table_read && sd_device_enumerator_get_device_first(e))
+                return 0;
+
+        /* We have partitions but re-reading the partition table did not work, synthesize
+         * "change" for the disk and all partitions. */
+        r = synthesize_change_one(dev, dev);
+        FOREACH_DEVICE(e, d)
+                RET_GATHER(r, synthesize_change_one(dev, d));
+
+        return r;
+}
+
+static int synthesize_change_child_handler(sd_event_source *s, const siginfo_t *si, void *userdata) {
+        Manager *manager = ASSERT_PTR(userdata);
+        assert(s);
+
+        sd_event_source_unref(set_remove(manager->synthesize_change_child_event_sources, s));
+        return 0;
+}
+
+static int synthesize_change(Manager *manager, sd_device *dev) {
+        int r;
+
+        assert(manager);
+        assert(dev);
+
+        const char *sysname;
+        r = sd_device_get_sysname(dev, &sysname);
+        if (r < 0)
+                return r;
+
+        if (startswith(sysname, "dm-") || block_device_is_whole_disk(dev) <= 0)
+                return synthesize_change_one(dev, dev);
+
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        r = pidref_safe_fork(
+                        "(udev-synth)",
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE,
+                        &pidref);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                /* child */
+                (void) synthesize_change_all(dev);
+                _exit(EXIT_SUCCESS);
+        }
+
+        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        r = event_add_child_pidref(manager->event, &s, &pidref, WEXITED, synthesize_change_child_handler, manager);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to add child event source for "PID_FMT", ignoring: %m", pidref.pid);
+                return 0;
+        }
+
+        r = sd_event_source_set_child_pidfd_own(s, true);
+        if (r < 0)
+                return r;
+        TAKE_PIDREF(pidref);
+
+        r = set_ensure_put(&manager->synthesize_change_child_event_sources, &event_source_hash_ops, s);
+        if (r < 0)
+                return r;
+        TAKE_PTR(s);
+
+        return 0;
+}
+
+static int manager_process_inotify(Manager *manager, const struct inotify_event *e) {
+        int r;
+
+        assert(manager);
+        assert(e);
+
+        /* Do not handle IN_IGNORED here. Especially, do not try to call udev_watch_end() from the
+         * main process. Otherwise, the pair of the symlinks may become inconsistent, and several
+         * garbage may remain. The old symlinks are removed by a worker that processes the
+         * corresponding 'remove' uevent;
+         * udev_event_execute_rules() -> event_execute_rules_on_remove() -> udev_watch_end(). */
+
+        if (!FLAGS_SET(e->mask, IN_CLOSE_WRITE))
+                return 0;
+
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        r = device_new_from_watch_handle_at(&dev, /* dirfd = */-EBADF, e->wd);
+        if (r < 0) /* Device may be removed just after closed. */
+                return log_debug_errno(r, "Failed to create sd_device object from watch handle, ignoring: %m");
+
+        log_device_debug(dev, "Received inotify event of watch handle %i.", e->wd);
+
+        (void) event_queue_assume_block_device_unlocked(manager, dev);
+        (void) synthesize_change(manager, dev);
+        return 0;
+}
+
+static int manager_on_inotify(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        Manager *manager = ASSERT_PTR(userdata);
+
+        assert(fd >= 0);
+
+        union inotify_event_buffer buffer;
+        ssize_t l = read(fd, &buffer, sizeof(buffer));
+        if (l < 0) {
+                if (ERRNO_IS_TRANSIENT(errno))
+                        return 0;
+
+                return log_error_errno(errno, "Failed to read inotify fd: %m");
+        }
+
+        FOREACH_INOTIFY_EVENT_WARN(e, buffer, l)
+                (void) manager_process_inotify(manager, e);
+
+        return 0;
+}
+
+int manager_push_inotify(Manager *manager) {
+        int r;
+
+        assert(manager);
+
+        r = notify_push_fd(manager->inotify_fd, "inotify");
+        if (r < 0)
+                return log_warning_errno(r, "Failed to push inotify file descriptor: %m");
+
+        return 0;
+}
+
+static int manager_restore_watch(Manager *manager) {
         int r;
 
         /* Move any old watches directory out of the way, and then restore the watches. */
 
-        assert(inotify_fd >= 0);
+        assert(manager);
 
         (void) rm_rf("/run/udev/watch.old", REMOVE_ROOT);
 
@@ -63,7 +230,7 @@ int udev_watch_restore(int inotify_fd) {
                 goto finalize;
         }
 
-        dir = opendir("/run/udev/watch.old");
+        _cleanup_closedir_ DIR *dir = opendir("/run/udev/watch.old");
         if (!dir) {
                 r = log_warning_errno(errno,
                                       "Failed to open old watches directory '/run/udev/watch.old/'. "
@@ -71,20 +238,17 @@ int udev_watch_restore(int inotify_fd) {
                 goto finalize;
         }
 
-        FOREACH_DIRENT_ALL(de, dir, break) {
-                _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
-                int wd;
+        FOREACH_DIRENT(de, dir, break) {
 
                 /* For backward compatibility, read symlink from watch handle to device ID. This is necessary
                  * when udevd is restarted after upgrading from v248 or older. The new format (ID -> wd) was
                  * introduced by e7f781e473f5119bf9246208a6de9f6b76a39c5d (v249). */
 
-                if (dot_or_dot_dot(de->d_name))
-                        continue;
-
+                int wd;
                 if (safe_atoi(de->d_name, &wd) < 0)
-                        continue;
+                        continue; /* This should be ID -> wd symlink. Skipping. */
 
+                _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
                 r = device_new_from_watch_handle_at(&dev, dirfd(dir), wd);
                 if (r < 0) {
                         log_full_errno(r == -ENODEV ? LOG_DEBUG : LOG_WARNING, r,
@@ -93,7 +257,7 @@ int udev_watch_restore(int inotify_fd) {
                         continue;
                 }
 
-                (void) udev_watch_begin(inotify_fd, dev);
+                (void) udev_watch_begin(manager->inotify_fd, dev);
         }
 
         r = 0;
@@ -101,6 +265,51 @@ int udev_watch_restore(int inotify_fd) {
 finalize:
         (void) rm_rf("/run/udev/watch.old", REMOVE_ROOT);
         return r;
+}
+
+int manager_init_inotify(Manager *manager, int fd) {
+        assert(manager);
+
+        /* This takes passed file descriptor on success. */
+
+        if (fd >= 0) {
+                if (manager->inotify_fd >= 0)
+                        return log_warning_errno(SYNTHETIC_ERRNO(EALREADY), "Received multiple inotify fd (%i), ignoring.", fd);
+
+                manager->inotify_fd = fd;
+                return 0;
+        }
+
+        if (manager->inotify_fd >= 0)
+                return 0;
+
+        fd = inotify_init1(IN_CLOEXEC);
+        if (fd < 0)
+                return log_error_errno(errno, "Failed to create inotify descriptor: %m");
+
+        manager->inotify_fd = fd;
+        return manager_restore_watch(manager);
+}
+
+int manager_start_inotify(Manager *manager) {
+        int r;
+
+        assert(manager);
+        assert(manager->event);
+
+        r = manager_init_inotify(manager, -EBADF);
+        if (r < 0)
+                return r;
+
+        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        r = sd_event_add_io(manager->event, &s, manager->inotify_fd, EPOLLIN, manager_on_inotify, manager);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create inotify event source: %m");
+
+        (void) sd_event_source_set_description(s, "manager-inotify");
+
+        manager->inotify_event = TAKE_PTR(s);
+        return 0;
 }
 
 static int udev_watch_clear(sd_device *dev, int dirfd, int *ret_wd) {
