@@ -418,7 +418,7 @@ int verb_status(int argc, char *argv[], void *userdata) {
                         { EFI_STUB_FEATURE_MULTI_PROFILE_UKI,         "Stub understands profile selector"                           },
                 };
                 _cleanup_free_ char *fw_type = NULL, *fw_info = NULL, *loader = NULL, *loader_path = NULL, *stub = NULL, *stub_path = NULL,
-                        *current_entry = NULL, *oneshot_entry = NULL, *default_entry = NULL;
+                        *current_entry = NULL, *oneshot_entry = NULL, *default_entry = NULL, *sysfail_entry = NULL, *sysfail_reason = NULL;
                 uint64_t loader_features = 0, stub_features = 0;
                 int have;
 
@@ -433,6 +433,8 @@ int verb_status(int argc, char *argv[], void *userdata) {
                 (void) efi_get_variable_string_and_warn(EFI_LOADER_VARIABLE_STR("LoaderEntrySelected"), &current_entry);
                 (void) efi_get_variable_string_and_warn(EFI_LOADER_VARIABLE_STR("LoaderEntryOneShot"), &oneshot_entry);
                 (void) efi_get_variable_string_and_warn(EFI_LOADER_VARIABLE_STR("LoaderEntryDefault"), &default_entry);
+                (void) efi_get_variable_string_and_warn(EFI_LOADER_VARIABLE_STR("LoaderEntrySysFail"), &sysfail_entry);
+                (void) efi_get_variable_string_and_warn(EFI_LOADER_VARIABLE_STR("LoaderSysFailReason"), &sysfail_reason);
 
                 SecureBootMode secure = efi_get_secure_boot_mode();
                 printf("%sSystem:%s\n", ansi_underline(), ansi_normal());
@@ -511,12 +513,17 @@ int verb_status(int argc, char *argv[], void *userdata) {
                         if (loader_url)
                                 printf(" Net Boot URL: %s\n", loader_url);
 
+                        if (sysfail_entry)
+                                printf("System Failure Reason: %s\n", sysfail_reason);
+
                         if (current_entry)
                                 printf("Current Entry: %s\n", current_entry);
                         if (default_entry)
                                 printf("Default Entry: %s\n", default_entry);
                         if (oneshot_entry && !streq_ptr(oneshot_entry, default_entry))
                                 printf("OneShot Entry: %s\n", oneshot_entry);
+                        if (sysfail_entry)
+                                printf("SysFail Entry: %s\n", sysfail_entry);
 
                         printf("\n");
                 }
