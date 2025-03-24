@@ -280,6 +280,7 @@ typedef enum CGroupMemoryAccountingMetric {
         _CGROUP_MEMORY_ACCOUNTING_METRIC_CACHED_LAST = CGROUP_MEMORY_SWAP_PEAK,
 
         /* These attributes are transient, so no need for caching. */
+        CGROUP_MEMORY_CURRENT,
         CGROUP_MEMORY_SWAP_CURRENT,
         CGROUP_MEMORY_ZSWAP_CURRENT,
 
@@ -479,7 +480,6 @@ int unit_watch_all_pids(Unit *u);
 int unit_synthesize_cgroup_empty_event(Unit *u);
 
 int unit_get_memory_available(Unit *u, uint64_t *ret);
-int unit_get_memory_current(Unit *u, uint64_t *ret);
 int unit_get_memory_accounting(Unit *u, CGroupMemoryAccountingMetric metric, uint64_t *ret);
 int unit_get_tasks_current(Unit *u, uint64_t *ret);
 int unit_get_cpu_usage(Unit *u, nsec_t *ret);
