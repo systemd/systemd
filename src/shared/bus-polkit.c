@@ -440,7 +440,7 @@ static int async_polkit_query_check_action(
 
         /* Also deny if we've got an auth. failure for a previous action */
         if (q->denied_action || q->error_action)
-                return -EALREADY;
+                return -EBUSY;
 
         return 0; /* no reply yet */
 }

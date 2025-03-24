@@ -2207,10 +2207,10 @@ static int verify_shutdown_creds(
                                 &m->polkit_registry,
                                 error);
                 if (r < 0) {
-                        /* If we get -EALREADY, it means a polkit decision was made, but not for
+                        /* If we get -EBUSY, it means a polkit decision was made, but not for
                          * this action in particular. Assuming we are blocked on inhibitors,
                          * ignore that error and allow the decision to be revealed below. */
-                        if (blocked && r == -EALREADY)
+                        if (blocked && r == -EBUSY)
                                 error_or_denial = true;
                         else
                                 return r;
@@ -3817,10 +3817,10 @@ static int method_inhibit(sd_bus_message *message, void *userdata, sd_bus_error 
                                 &m->polkit_registry,
                                 error);
                 if (r < 0) {
-                        /* If we get -EALREADY, it means a polkit decision was made, but not for
+                        /* If we get -EBUSY, it means a polkit decision was made, but not for
                          * this action in particular. Assuming there are more actions requested,
                          * ignore that error and allow the decision to be revealed later. */
-                        if ((~v & w) && r == -EALREADY)
+                        if ((~v & w) && r == -EBUSY)
                                 error_or_denial = true;
                         else
                                 return r;
