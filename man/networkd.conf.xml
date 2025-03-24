@@ -401,9 +401,12 @@ DUIDRawData=00:00:ab:11:f9:2a:c2:77:29:f9:5c:00</programlisting>
 
     <variablelist class='network-directives'>
       <varlistentry>
-        <term><varname>UseDomains=</varname></term>
+        <term><varname>PersistLeases=</varname></term>
         <listitem>
-          <para>Same as the one in the [IPv6AcceptRA] section, but applied for DHCPv4 protocol.</para>
+          <para>Specifies the default value for per-network <varname>PersistLeases=</varname>.
+          Takes a boolean. See for details in
+          <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+          Defaults to <literal>yes</literal>.</para>
 
           <xi:include href="version-info.xml" xpointer="v256"/>
         </listitem>
