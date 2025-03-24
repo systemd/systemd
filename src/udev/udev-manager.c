@@ -1373,12 +1373,12 @@ int manager_main(Manager *manager) {
         if (r < 0)
                 log_warning_errno(r, "Failed to apply permissions on static device nodes, ignoring: %m");
 
-        notify_ready(manager);
+        _unused_ _cleanup_(notify_on_cleanup) const char *notify_message =
+                notify_start(NOTIFY_READY, NOTIFY_STOPPING);
 
         r = sd_event_loop(manager->event);
         if (r < 0)
-                log_error_errno(r, "Event loop failed: %m");
+                return log_error_errno(r, "Event loop failed: %m");
 
-        (void) sd_notify(/* unset= */ false, NOTIFY_STOPPING);
-        return r;
+        return 0;
 }
