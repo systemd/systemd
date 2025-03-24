@@ -299,7 +299,37 @@ static int on_journal_event(sd_event_source *s, int fd, uint32_t revents, void *
 }
 
 static int on_first_event(sd_event_source *s, void *userdata) {
-        return show_and_fflush(userdata, s);
+        Context *c = ASSERT_PTR(userdata);
+        int r;
+
+        assert(s);
+
+        r = show_and_fflush(c, s);
+        if (r < 0)
+                return r;
+
+        if (arg_follow && !arg_reverse && !arg_cursor && !arg_after_cursor && !arg_cursor_file && !arg_since_set) {
+                r = sd_journal_get_cursor(c->journal, /* ret_cursor= */ NULL);
+                if (r == -EADDRNOTAVAIL) {
+                        /* If we shall operate in --follow mode, and we are unable to get a cursor after
+                         * doing our first round of output, then this means there was no data to show
+                         * whatsoever, and we hence have no stable position on any line at all. This means,
+                         * when we get notified about changes, we shouldn't try to position the cursor at the
+                         * end of the logs anymore, but at the beginning, since anythng showing up from now
+                         * that matches our filters is good now. Hence, simply disable the effect of --lines=
+                         * now. */
+
+                        r = sd_journal_seek_head(c->journal);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to seek to head: %m");
+
+                        c->need_seek = true;
+
+                } else if (r < 0)
+                        return log_error_errno(r, "Failed to get cursor: %m");
+        }
+
+        return 0;
 }
 
 static int on_signal(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
