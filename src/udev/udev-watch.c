@@ -44,50 +44,39 @@ int device_new_from_watch_handle_at(sd_device **ret, int dirfd, int wd) {
 }
 
 int udev_watch_restore(int inotify_fd) {
-        _cleanup_closedir_ DIR *dir = NULL;
+        _cleanup_(rm_rf_physicalp) const char *old = "/run/udev/watch.old";
         int r;
 
         /* Move any old watches directory out of the way, and then restore the watches. */
 
         assert(inotify_fd >= 0);
 
-        (void) rm_rf("/run/udev/watch.old", REMOVE_ROOT);
-
-        if (rename("/run/udev/watch", "/run/udev/watch.old") < 0) {
+        (void) rm_rf(old, REMOVE_ROOT);
+        if (rename("/run/udev/watch", old) < 0) {
                 if (errno == ENOENT)
                         return 0;
 
-                r = log_warning_errno(errno,
-                                      "Failed to move watches directory '/run/udev/watch/'. "
-                                      "Old watches will not be restored: %m");
-                goto finalize;
+                return log_warning_errno(errno, "Failed to move watches directory '/run/udev/watch/': %m");
         }
 
-        dir = opendir("/run/udev/watch.old");
-        if (!dir) {
-                r = log_warning_errno(errno,
-                                      "Failed to open old watches directory '/run/udev/watch.old/'. "
-                                      "Old watches will not be restored: %m");
-                goto finalize;
-        }
+        _cleanup_closedir_ DIR *dir = opendir(old);
+        if (!dir)
+                return log_warning_errno(errno, "Failed to open old watches directory '/run/udev/watch.old/': %m");
 
-        FOREACH_DIRENT_ALL(de, dir, break) {
-                _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
-                int wd;
+        FOREACH_DIRENT(de, dir, break) {
 
                 /* For backward compatibility, read symlink from watch handle to device ID. This is necessary
                  * when udevd is restarted after upgrading from v248 or older. The new format (ID -> wd) was
                  * introduced by e7f781e473f5119bf9246208a6de9f6b76a39c5d (v249). */
 
-                if (dot_or_dot_dot(de->d_name))
-                        continue;
-
+                int wd;
                 if (safe_atoi(de->d_name, &wd) < 0)
-                        continue;
+                        continue; /* This should be ID -> wd symlink. Skipping. */
 
+                _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
                 r = device_new_from_watch_handle_at(&dev, dirfd(dir), wd);
                 if (r < 0) {
-                        log_full_errno(r == -ENODEV ? LOG_DEBUG : LOG_WARNING, r,
+                        log_full_errno(ERRNO_IS_NEG_DEVICE_ABSENT(r) ? LOG_DEBUG : LOG_WARNING, r,
                                        "Failed to create sd_device object from saved watch handle '%i', ignoring: %m",
                                        wd);
                         continue;
@@ -96,11 +85,7 @@ int udev_watch_restore(int inotify_fd) {
                 (void) udev_watch_begin(inotify_fd, dev);
         }
 
-        r = 0;
-
-finalize:
-        (void) rm_rf("/run/udev/watch.old", REMOVE_ROOT);
-        return r;
+        return 0;
 }
 
 static int udev_watch_clear(sd_device *dev, int dirfd, int *ret_wd) {
