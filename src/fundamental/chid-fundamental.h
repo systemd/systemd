@@ -11,7 +11,7 @@
 #include "efi-fundamental.h"
 #include "string-util-fundamental.h"
 
-#define CHID_TYPES_MAX 15
+#define CHID_TYPES_MAX 18
 
 typedef enum ChidSmbiosFields {
         CHID_SMBIOS_MANUFACTURER,
@@ -25,6 +25,7 @@ typedef enum ChidSmbiosFields {
         CHID_SMBIOS_BIOS_MAJOR,
         CHID_SMBIOS_BIOS_MINOR,
         CHID_SMBIOS_ENCLOSURE_TYPE,
+        CHID_EDID_PANEL,
         _CHID_SMBIOS_FIELDS_MAX,
 } ChidSmbiosFields;
 
