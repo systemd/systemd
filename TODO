@@ -132,16 +132,17 @@ Features:
 
 * run0: maybe enable utmp for run0 sessions, so that they are easily visible.
 
+* maybe beef up sd-event: optionally, allow sd-event to query the timestamp of
+  next pending datagram inside a SOCK_DGRAM IO fd, and order event source
+  dispatching by that. Enable this on the native + syslog sockets in journald,
+  so that we add correct ordering between the two. Use MSG_PEEK + SCM_TIMESTAMP
+  for this.
+
 * maybe replace nss-machines with logic in networkd that registers records with
   systemd-resolved, based on DHCP leases, so that we gain compat with VMs.
   Implementation idea: encode in an ifaltname the intended local name to expose this
   under and then parse that out and map it to the combined A/AAAA of all handed
   out leases.
-
-* make journalctl something we can invoke like the askpw/polkit agents, and
-  then spawn it from "systemctl start" and similar with a precise filter on the
-  unit. Make sure that it syncs on the journal when done so that we show
-  "complete" logs. Make this easily reachable via a new "-v" switch or so.
 
 * bsod: add target "bsod.target" or so, which invokes systemd-bsod.target and
   waits and then reboots. Then use OnFailure=bsod.target from various jobs that
@@ -2420,7 +2421,6 @@ Features:
                 journalctl /usr/bin/X11 --invocation=-1
   - systemctl: change 'status' to show logs for the last invocation, not a fixed
     number of lines
-  - systemctl: expand --wait to show logs for the invocation with a new switch
   - improve journalctl performance by loading journal files
     lazily. Encode just enough information in the file name, so that we
     do not have to open it to know that it is not interesting for us, for
@@ -2689,11 +2689,6 @@ Features:
   operates on lexicographically before starting to work, in order to
   ensure deterministic behaviour if two unit files conflict (like DMs
   do, for example)
-
-* add "systemctl start -v foobar.service" that shows logs of a service
-  while the start command runs. This is non-trivial to do without
-  races though, since we should flush out all journal messages before
-  returning from the "systemctl stop".
 
 * systemctl: if some operation fails, show log output?
 
