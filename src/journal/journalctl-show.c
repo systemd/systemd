@@ -2,6 +2,7 @@
 
 #include <unistd.h>
 
+#include "sd-daemon.h"
 #include "sd-event.h"
 
 #include "ansi-color.h"
@@ -328,6 +329,7 @@ static int on_first_event(sd_event_source *s, void *userdata) {
                         return log_error_errno(r, "Failed to get cursor: %m");
         }
 
+        (void) sd_notify(/* unset_environment= */ false, "READY=1");
         return 0;
 }
 
@@ -484,6 +486,8 @@ int action_show(char **matches) {
                 /* re-send the original signal. */
                 return sig;
         }
+
+        (void) sd_notify(/* unset_environment= */ false, "READY=1");
 
         r = show(&c);
         if (r < 0)
