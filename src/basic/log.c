@@ -1108,7 +1108,9 @@ int log_struct_internal(
                         iovec[n++] = IOVEC_MAKE_STRING(header);
 
                         va_start(ap, format);
+                        DISABLE_WARNING_FORMAT_NONLITERAL;
                         r = log_format_iovec(iovec, iovec_len, &n, true, error, format, ap);
+                        REENABLE_WARNING;
                         m = n;
                         if (r < 0)
                                 fallback = true;
@@ -1145,7 +1147,9 @@ int log_struct_internal(
                 errno = ERRNO_VALUE(error);
 
                 va_copy(aq, ap);
+                DISABLE_WARNING_FORMAT_NONLITERAL;
                 (void) vsnprintf(buf, sizeof buf, format, aq);
+                REENABLE_WARNING;
                 va_end(aq);
 
                 if (startswith(buf, "MESSAGE=")) {
@@ -1649,9 +1653,9 @@ int log_syntax_internal(
                                         level,
                                         error,
                                         file, line, func,
-                                        "MESSAGE_ID=" SD_MESSAGE_INVALID_CONFIGURATION_STR,
-                                        "CONFIG_FILE=%s", config_file,
-                                        "CONFIG_LINE=%u", config_line,
+                                        LOG_MESSAGE_ID(SD_MESSAGE_INVALID_CONFIGURATION_STR),
+                                        LOG_ITEM("CONFIG_FILE=%s", config_file),
+                                        LOG_ITEM("CONFIG_LINE=%u", config_line),
                                         LOG_MESSAGE("%s:%u: %s", config_file, config_line, buffer),
                                         unit_fmt, unit,
                                         NULL);
@@ -1660,8 +1664,8 @@ int log_syntax_internal(
                                         level,
                                         error,
                                         file, line, func,
-                                        "MESSAGE_ID=" SD_MESSAGE_INVALID_CONFIGURATION_STR,
-                                        "CONFIG_FILE=%s", config_file,
+                                        LOG_MESSAGE_ID(SD_MESSAGE_INVALID_CONFIGURATION_STR),
+                                        LOG_ITEM("CONFIG_FILE=%s", config_file),
                                         LOG_MESSAGE("%s: %s", config_file, buffer),
                                         unit_fmt, unit,
                                         NULL);
@@ -1670,7 +1674,7 @@ int log_syntax_internal(
                                 level,
                                 error,
                                 file, line, func,
-                                "MESSAGE_ID=" SD_MESSAGE_INVALID_CONFIGURATION_STR,
+                                LOG_MESSAGE_ID(SD_MESSAGE_INVALID_CONFIGURATION_STR),
                                 LOG_MESSAGE("%s: %s", unit, buffer),
                                 unit_fmt, unit,
                                 NULL);
@@ -1679,7 +1683,7 @@ int log_syntax_internal(
                                 level,
                                 error,
                                 file, line, func,
-                                "MESSAGE_ID=" SD_MESSAGE_INVALID_CONFIGURATION_STR,
+                                LOG_MESSAGE_ID(SD_MESSAGE_INVALID_CONFIGURATION_STR),
                                 LOG_MESSAGE("%s", buffer),
                                 NULL);
 }

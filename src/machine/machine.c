@@ -537,9 +537,9 @@ int machine_start(Machine *m, sd_bus_message *properties, sd_bus_error *error) {
                 return r;
 
         log_struct(LOG_INFO,
-                   "MESSAGE_ID=" SD_MESSAGE_MACHINE_START_STR,
-                   "NAME=%s", m->name,
-                   "LEADER="PID_FMT, m->leader.pid,
+                   LOG_MESSAGE_ID(SD_MESSAGE_MACHINE_START_STR),
+                   LOG_ITEM("NAME=%s", m->name),
+                   LOG_ITEM("LEADER="PID_FMT, m->leader.pid),
                    LOG_MESSAGE("New machine %s.", m->name));
 
         if (!dual_timestamp_is_set(&m->timestamp))
@@ -586,9 +586,9 @@ int machine_finalize(Machine *m) {
 
         if (m->started) {
                 log_struct(LOG_INFO,
-                           "MESSAGE_ID=" SD_MESSAGE_MACHINE_STOP_STR,
-                           "NAME=%s", m->name,
-                           "LEADER="PID_FMT, m->leader.pid,
+                           LOG_MESSAGE_ID(SD_MESSAGE_MACHINE_STOP_STR),
+                           LOG_ITEM("NAME=%s", m->name),
+                           LOG_ITEM("LEADER="PID_FMT, m->leader.pid),
                            LOG_MESSAGE("Machine %s terminated.", m->name));
 
                 m->stopping = true; /* The machine is supposed to be going away. Don't try to kill it. */

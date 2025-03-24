@@ -252,10 +252,10 @@ static int run(int argc, char *argv[]) {
                                 exit_status_to_string(exit_status, EXIT_STATUS_LIBC | EXIT_STATUS_SYSTEMD));
 
                 log_exec_struct_errno(&context, &params, LOG_ERR, r,
-                                      "MESSAGE_ID=" SD_MESSAGE_SPAWN_FAILED_STR,
+                                      LOG_MESSAGE_ID(SD_MESSAGE_SPAWN_FAILED_STR),
                                       LOG_EXEC_MESSAGE(&params, "Failed at step %s spawning %s: %m",
                                                        status, command.path),
-                                      "EXECUTABLE=%s", command.path);
+                                      LOG_ITEM("EXECUTABLE=%s", command.path));
         } else
                 /* r == 0: 'skip' is chosen in the confirm spawn prompt
                  * r > 0:  expected/ignored failure, do not log at error level */

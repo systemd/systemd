@@ -327,8 +327,8 @@ static int manager_handle_action_secure_attention_key(
 
         log_struct(LOG_INFO,
                    LOG_MESSAGE("Secure Attention Key sequence pressed on seat %s", seat),
-                   "MESSAGE_ID=" SD_MESSAGE_SECURE_ATTENTION_KEY_PRESS_STR,
-                   "SEAT_ID=%s", seat);
+                   LOG_MESSAGE_ID(SD_MESSAGE_SECURE_ATTENTION_KEY_PRESS_STR),
+                   LOG_ITEM("SEAT_ID=%s", seat));
 
         r = sd_bus_emit_signal(
                         m->bus,
