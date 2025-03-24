@@ -4514,7 +4514,7 @@ int unit_get_memory_available(Unit *u, uint64_t *ret) {
                 if (!crt || !crt->cgroup_path)
                         continue;
 
-                (void) unit_get_memory_current(u, &current);
+                (void) unit_get_memory_accounting(u, CGROUP_MEMORY_CURRENT, &current);
                 /* in case of error, previous current propagates as lower bound */
 
                 if (unit_has_name(u, SPECIAL_ROOT_SLICE))
@@ -4532,38 +4532,10 @@ int unit_get_memory_available(Unit *u, uint64_t *ret) {
         return 0;
 }
 
-int unit_get_memory_current(Unit *u, uint64_t *ret) {
-        int r;
-
-        // FIXME: Merge this into unit_get_memory_accounting after support for cgroup v1 is dropped
-
-        assert(u);
-        assert(ret);
-
-        if (!UNIT_CGROUP_BOOL(u, memory_accounting))
-                return -ENODATA;
-
-        CGroupRuntime *crt = unit_get_cgroup_runtime(u);
-        if (!crt || !crt->cgroup_path)
-                return -ENODATA;
-
-        /* The root cgroup doesn't expose this information, let's get it from /proc instead */
-        if (unit_has_host_root_cgroup(u))
-                return procfs_memory_get_used(ret);
-
-        if ((crt->cgroup_realized_mask & CGROUP_MASK_MEMORY) == 0)
-                return -ENODATA;
-
-        r = cg_all_unified();
-        if (r < 0)
-                return r;
-
-        return cg_get_attribute_as_uint64("memory", crt->cgroup_path, r > 0 ? "memory.current" : "memory.usage_in_bytes", ret);
-}
-
 int unit_get_memory_accounting(Unit *u, CGroupMemoryAccountingMetric metric, uint64_t *ret) {
 
         static const char* const attributes_table[_CGROUP_MEMORY_ACCOUNTING_METRIC_MAX] = {
+                [CGROUP_MEMORY_CURRENT]       = "memory.current",
                 [CGROUP_MEMORY_PEAK]          = "memory.peak",
                 [CGROUP_MEMORY_SWAP_CURRENT]  = "memory.swap.current",
                 [CGROUP_MEMORY_SWAP_PEAK]     = "memory.swap.peak",
@@ -4582,8 +4554,13 @@ int unit_get_memory_accounting(Unit *u, CGroupMemoryAccountingMetric metric, uin
                 return -ENODATA;
 
         /* The root cgroup doesn't expose this information. */
-        if (unit_has_host_root_cgroup(u))
+        if (unit_has_host_root_cgroup(u)) {
+                /* System-wide memory usage can be acquired from /proc/ */
+                if (metric == CGROUP_MEMORY_CURRENT)
+                        return procfs_memory_get_used(ret);
+
                 return -ENODATA;
+        }
 
         CGroupRuntime *crt = unit_get_cgroup_runtime(u);
         if (!crt)
@@ -4593,12 +4570,6 @@ int unit_get_memory_accounting(Unit *u, CGroupMemoryAccountingMetric metric, uin
                 goto finish;
 
         if (!FLAGS_SET(crt->cgroup_realized_mask, CGROUP_MASK_MEMORY))
-                return -ENODATA;
-
-        r = cg_all_unified();
-        if (r < 0)
-                return r;
-        if (r == 0)
                 return -ENODATA;
 
         r = cg_get_attribute_as_uint64("memory", crt->cgroup_path, attributes_table[metric], &bytes);
@@ -5686,6 +5657,7 @@ static const char* const cgroup_io_accounting_metric_table[_CGROUP_IO_ACCOUNTING
 DEFINE_STRING_TABLE_LOOKUP(cgroup_io_accounting_metric, CGroupIOAccountingMetric);
 
 static const char* const cgroup_memory_accounting_metric_table[_CGROUP_MEMORY_ACCOUNTING_METRIC_MAX] = {
+        [CGROUP_MEMORY_CURRENT]       = "MemoryCurrent",
         [CGROUP_MEMORY_PEAK]          = "MemoryPeak",
         [CGROUP_MEMORY_SWAP_CURRENT]  = "MemorySwapCurrent",
         [CGROUP_MEMORY_SWAP_PEAK]     = "MemorySwapPeak",
