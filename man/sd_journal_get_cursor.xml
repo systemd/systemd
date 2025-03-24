@@ -28,7 +28,7 @@
       <funcprototype>
         <funcdef>int <function>sd_journal_get_cursor</function></funcdef>
         <paramdef>sd_journal *<parameter>j</parameter></paramdef>
-        <paramdef>char **<parameter>cursor</parameter></paramdef>
+        <paramdef>char **<parameter>ret_cursor</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
@@ -91,6 +91,40 @@
     the current entry matches the specified cursor, 0 if it does not
     match the specified cursor or a negative errno-style error code on
     failure.</para>
+
+    <refsect2>
+      <title>Errors</title>
+
+      <para>Returned errors may indicate the following problems:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><constant>-EADDRNOTAVAIL</constant></term>
+
+          <listitem><para>The journal context is currently not positioned on any entry, and hence no cursor
+          string can be generated.</para>
+
+          <xi:include href="version-info.xml" xpointer="v209"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
+
+          <listitem><para>The journal context parameter is <constant>NULL</constant>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v209"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ECHILD</constant></term>
+
+          <listitem><para>The journal context object has been allocated in a different process than it is
+          being used in now.</para>
+
+          <xi:include href="version-info.xml" xpointer="v209"/></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
   </refsect1>
 
   <refsect1>
