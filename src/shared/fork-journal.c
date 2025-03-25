@@ -107,6 +107,7 @@ int journal_fork(RuntimeScope scope, Set **pids, const char *unit) {
                 "--lines=1",
                 scope == RUNTIME_SCOPE_SYSTEM ? "--unit" : "--user-unit",
                 unit,
+                "--synchronize-on-exit=yes",
                 NULL,
         };
 
