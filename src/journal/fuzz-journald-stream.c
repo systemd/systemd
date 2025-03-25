@@ -32,7 +32,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
                 sd_event_run(s->event, UINT64_MAX);
 
         if (s->n_stdout_streams > 0)
-                stdout_stream_destroy(stream);
+                stdout_stream_terminate(stream);
 
         return 0;
 }
