@@ -137,7 +137,7 @@ StdoutStream* stdout_stream_free(StdoutStream *s) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(StdoutStream*, stdout_stream_free);
 
-void stdout_stream_destroy(StdoutStream *s) {
+void stdout_stream_terminate(StdoutStream *s) {
         if (!s)
                 return;
 
@@ -649,7 +649,7 @@ static int stdout_stream_process(sd_event_source *es, int fd, uint32_t revents, 
         return 1;
 
 terminate:
-        stdout_stream_destroy(s);
+        stdout_stream_terminate(s);
         return 0;
 }
 
