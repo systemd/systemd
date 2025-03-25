@@ -24,7 +24,7 @@ def find_undocumented_functions(pages, ignorelist):
 
         hist_section = pagetree.find("refsect1[title='History']")
         for func in pagetree.findall("//funcprototype/funcdef/function"):
-            path = f"/refsynopsisdiv/funcsynopsis/funcprototype/funcdef/function[.='{func.text}']"
+            path = f"./refsynopsisdiv/funcsynopsis/funcprototype/funcdef/function[.='{func.text}']"
             assert pagetree.findall(path) == [func]
 
             if (
@@ -40,7 +40,7 @@ def construct_path(element):
     tag = element.tag
 
     if tag == "refentry":
-        return ""
+        return "."
 
     predicate = ""
     if tag == "varlistentry":
