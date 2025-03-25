@@ -12,8 +12,14 @@ static SD_VARLINK_DEFINE_ERROR(NotSupportedByNamespaces);
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_Journal,
                 "io.systemd.Journal",
+                SD_VARLINK_INTERFACE_COMMENT("Journal control APIs"),
+                SD_VARLINK_SYMBOL_COMMENT("Write out all pending log messages out to disk, and reply only after that's complete."),
                 &vl_method_Synchronize,
+                SD_VARLINK_SYMBOL_COMMENT("Rotate journal files, i.e. close existing files, start new ones."),
                 &vl_method_Rotate,
+                SD_VARLINK_SYMBOL_COMMENT("Flush runtime logs to persistent logs, i.e. flush log data from /run/ into /var/, and continue writing future log data to the latter location."),
                 &vl_method_FlushToVar,
+                SD_VARLINK_SYMBOL_COMMENT("Relinquish use of /var/ again, return to do runtime logging into /run/ only."),
                 &vl_method_RelinquishVar,
+                SD_VARLINK_SYMBOL_COMMENT("Journal service running as per-namespace instance, and requested operation is not supported for namespaced journal."),
                 &vl_error_NotSupportedByNamespaces);

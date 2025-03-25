@@ -167,7 +167,6 @@ Features:
 * complete varlink introspection comments:
   - io.systemd.BootControl
   - io.systemd.Hostname
-  - io.systemd.Journal
   - io.systemd.ManagedOOM
   - io.systemd.Network
   - io.systemd.PCRExtend
