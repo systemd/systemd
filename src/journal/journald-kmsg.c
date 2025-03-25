@@ -160,7 +160,7 @@ void dev_kmsg_record(Server *s, char *p, size_t l) {
                 *s->kernel_seqnum = serial + 1;
         }
 
-        /* monotonic timestamp */
+        /* CLOCK_BOOTTIME timestamp */
         l -= (e - p) + 1;
         p = e + 1;
         e = memchr(p, ',', l);
@@ -315,6 +315,9 @@ void dev_kmsg_record(Server *s, char *p, size_t l) {
 
         if (saved_log_max_level != INT_MAX)
                 log_set_max_level(saved_log_max_level);
+
+        s->dev_kmsg_timestamp = usec;
+        sync_req_revalidate_by_timestamp(s);
 
 finish:
         for (j = 0; j < z; j++)

@@ -14,6 +14,7 @@ systemd_journald_extract_sources = files(
         'journald-server.c',
         'journald-socket.c',
         'journald-stream.c',
+        'journald-sync.c',
         'journald-syslog.c',
         'journald-varlink.c',
         'journald-wall.c',
