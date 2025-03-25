@@ -9,6 +9,7 @@
 .deps/
 .venv/
 .mypy_cache/
+.mkosi-private/
 __pycache__/
 /*.gcda
 /*.gcno
