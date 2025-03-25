@@ -48,17 +48,6 @@
  * let's enforce a line length matching the maximum unit name length (255) */
 #define STDOUT_STREAM_SETUP_PROTOCOL_LINE_MAX (UNIT_NAME_MAX-1U)
 
-typedef enum StdoutStreamState {
-        STDOUT_STREAM_IDENTIFIER,
-        STDOUT_STREAM_UNIT_ID,
-        STDOUT_STREAM_PRIORITY,
-        STDOUT_STREAM_LEVEL_PREFIX,
-        STDOUT_STREAM_FORWARD_TO_SYSLOG,
-        STDOUT_STREAM_FORWARD_TO_KMSG,
-        STDOUT_STREAM_FORWARD_TO_CONSOLE,
-        STDOUT_STREAM_RUNNING,
-} StdoutStreamState;
-
 /* The different types of log record terminators: a real \n was read, a NUL character was read, the maximum line length
  * was reached, or the end of the stream was reached */
 
@@ -72,43 +61,12 @@ typedef enum LineBreak {
         _LINE_BREAK_INVALID = -EINVAL,
 } LineBreak;
 
-struct StdoutStream {
-        Server *server;
-        StdoutStreamState state;
-
-        int fd;
-
-        struct ucred ucred;
-        char *label;
-        char *identifier;
-        char *unit_id;
-        int priority;
-        bool level_prefix:1;
-        bool forward_to_syslog:1;
-        bool forward_to_kmsg:1;
-        bool forward_to_console:1;
-
-        bool fdstore:1;
-        bool in_notify_queue:1;
-
-        char *buffer;
-        size_t length;
-
-        sd_event_source *event_source;
-
-        char *state_file;
-
-        ClientContext *context;
-
-        LIST_FIELDS(StdoutStream, stdout_stream);
-        LIST_FIELDS(StdoutStream, stdout_stream_notify_queue);
-
-        char id_field[STRLEN("_STREAM_ID=") + SD_ID128_STRING_MAX];
-};
-
 StdoutStream* stdout_stream_free(StdoutStream *s) {
         if (!s)
                 return NULL;
+
+        while (s->stream_sync_reqs)
+                stream_sync_req_free(s->stream_sync_reqs);
 
         if (s->server) {
                 if (s->context)
@@ -120,8 +78,6 @@ StdoutStream* stdout_stream_free(StdoutStream *s) {
 
                 if (s->in_notify_queue)
                         LIST_REMOVE(stdout_stream_notify_queue, s->server->stdout_streams_notify_queue, s);
-
-                (void) server_start_or_stop_idle_timer(s->server); /* Maybe we are idle now? */
         }
 
         sd_event_source_disable_unref(s->event_source);
@@ -144,7 +100,16 @@ void stdout_stream_terminate(StdoutStream *s) {
         if (s->state_file)
                 (void) unlink(s->state_file);
 
-        stdout_stream_free(s);
+        StreamSyncReq *ssr;
+        while ((ssr = s->stream_sync_reqs)) {
+                SyncReq *req = ssr->req;
+                stream_sync_req_free(TAKE_PTR(ssr));
+                sync_req_revalidate(TAKE_PTR(req));
+        }
+
+        Server *server = s->server;
+        stdout_stream_free(TAKE_PTR(s));
+        (void) server_start_or_stop_idle_timer(server); /* Maybe we are idle now? */
 }
 
 static int stdout_stream_save(StdoutStream *s) {
@@ -646,6 +611,10 @@ static int stdout_stream_process(sd_event_source *es, int fd, uint32_t revents, 
         s->length = l - consumed;
         memmove(s->buffer, p + consumed, s->length);
 
+        LIST_FOREACH(by_stdout_stream, ssr, s->stream_sync_reqs)
+                /* NB: this might invalidate the stdout stream! */
+                stream_sync_req_advance_revalidate(ssr, consumed);
+
         return 1;
 
 terminate:
@@ -746,14 +715,23 @@ static int stdout_stream_new(sd_event_source *es, int listen_fd, uint32_t revent
                 fd = safe_close(fd);
 
                 server_driver_message(s, u.pid, LOG_MESSAGE("Too many stdout streams, refusing connection."));
+
+                server_notify_stream(s, /* stream= */ NULL);
                 return 0;
         }
 
-        r = stdout_stream_install(s, fd, NULL);
-        if (r < 0)
+        StdoutStream *stream;
+        r = stdout_stream_install(s, fd, &stream);
+        if (r < 0) {
+                server_notify_stream(s, /* stream= */ NULL);
                 return r;
+        }
 
         TAKE_FD(fd);
+
+        /* Tell the synchronization logic that we dropped one item from the incoming connection queue */
+        server_notify_stream(s, stream);
+
         return 0;
 }
 
