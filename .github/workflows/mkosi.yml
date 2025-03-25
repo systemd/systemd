@@ -191,10 +191,14 @@ jobs:
 
       - name: Configure meson
         run: |
+          # /usr/sbin/bpftool is completely broken inside containers on Ubuntu which makes meson blow up so
+          # disable the bpf-framework stuff to avoid the issue.
+          # TODO: Drop when we move off Ubuntu Noble as this will be fixed in the next Ubuntu LTS release.
           sudo mkosi sandbox -- \
             meson setup \
             --buildtype=debugoptimized \
             -Dintegration-tests=true \
+            -Dbpf-framework=disabled \
             build
 
       - name: Build image
