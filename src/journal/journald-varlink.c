@@ -1,75 +1,63 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "journald-sync.h"
 #include "journald-varlink.h"
 #include "varlink-io.systemd.Journal.h"
 #include "varlink-io.systemd.service.h"
 #include "varlink-util.h"
 
-static int synchronize_second_half(sd_event_source *event_source, void *userdata) {
-        sd_varlink *link = ASSERT_PTR(userdata);
-        Server *s;
+void sync_req_varlink_reply(SyncReq *req) {
         int r;
 
-        assert_se(s = sd_varlink_get_userdata(link));
+        assert(req);
 
-        /* This is the "second half" of the Synchronize() varlink method. This function is called as deferred
-         * event source at a low priority to ensure the synchronization completes after all queued log
-         * messages are processed. */
-        server_full_sync(s, /* wait = */ true);
+        /* This is the "second half" of the Synchronize() varlink method. This function is called when we
+         * determine that no messages that were enqueued to us when the request was initiated is pending
+         * anymore. */
 
-        /* Let's get rid of the event source now, by marking it as non-floating again. It then has no ref
-         * anymore and is immediately destroyed after we return from this function, i.e. from this event
-         * source handler at the end. */
-        r = sd_event_source_set_floating(event_source, false);
+        if (req->offline)
+                server_full_sync(req->server, /* wait = */ true);
+
+        /* Disconnect the SyncReq from the Varlink connection object, and free it */
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = TAKE_PTR(req->link);
+        sd_varlink_set_userdata(vl, req->server); /* reinstall server object */
+        req = sync_req_free(req);
+
+        r = sd_varlink_reply(vl, NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to mark event source as non-floating: %m");
-
-        return sd_varlink_reply(link, NULL);
-}
-
-static void synchronize_destroy(void *userdata) {
-        sd_varlink_unref(userdata);
+                log_debug_errno(r, "Failed to reply to Synchronize() client, ignoring: %m");
 }
 
 static int vl_method_synchronize(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
-        _cleanup_(sd_event_source_unrefp) sd_event_source *event_source = NULL;
+        int offline = -1;
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "offline", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate, 0, 0},
+                {}
+        };
+
         Server *s = ASSERT_PTR(userdata);
         int r;
 
         assert(link);
 
-        r = sd_varlink_dispatch(link, parameters, /* dispatch_table = */ NULL, /* userdata = */ NULL);
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &offline);
         if (r != 0)
                 return r;
 
-        log_info("Received client request to sync journal.");
+        log_full(offline != 0 ? LOG_INFO : LOG_DEBUG,
+                 "Received client request to sync journal (%s offlining).", offline != 0 ? "with" : "without");
 
-        /* We don't do the main work now, but instead enqueue a deferred event loop job which will do
-         * it. That job is scheduled at low priority, so that we return from this method call only after all
-         * queued but not processed log messages are written to disk, so that this method call returning can
-         * be used as nice synchronization point. */
-        r = sd_event_add_defer(s->event, &event_source, synchronize_second_half, link);
+        _cleanup_(sync_req_freep) SyncReq *sr = NULL;
+
+        r = sync_req_new(s, link, &sr);
         if (r < 0)
-                return log_error_errno(r, "Failed to allocate defer event source: %m");
+                return r;
 
-        r = sd_event_source_set_destroy_callback(event_source, synchronize_destroy);
-        if (r < 0)
-                return log_error_errno(r, "Failed to set event source destroy callback: %m");
+        sr->offline = offline != 0;
+        sd_varlink_set_userdata(link, sr);
 
-        sd_varlink_ref(link); /* The varlink object is now left to the destroy callback to unref */
-
-        r = sd_event_source_set_priority(event_source, SD_EVENT_PRIORITY_NORMAL+15);
-        if (r < 0)
-                return log_error_errno(r, "Failed to set defer event source priority: %m");
-
-        /* Give up ownership of this event source. It will now be destroyed along with event loop itself,
-         * unless it destroys itself earlier. */
-        r = sd_event_source_set_floating(event_source, true);
-        if (r < 0)
-                return log_error_errno(r, "Failed to mark event source as floating: %m");
-
-        (void) sd_event_source_set_description(event_source, "deferred-sync");
-
+        sync_req_revalidate(TAKE_PTR(sr));
         return 0;
 }
 
@@ -143,6 +131,15 @@ static void vl_disconnect(sd_varlink_server *server, sd_varlink *link, void *use
 
         assert(server);
         assert(link);
+
+        void *u = sd_varlink_get_userdata(link);
+        if (u != s) {
+                /* If this is a Varlink connection that does not have the Server object as userdata, then it has a SyncReq object instead. Let's finish it. */
+
+                SyncReq *req = u;
+                sd_varlink_set_userdata(link, s); /* reinstall server object */
+                sync_req_free(req);
+        }
 
         (void) server_start_or_stop_idle_timer(s); /* maybe we are idle now */
 }
