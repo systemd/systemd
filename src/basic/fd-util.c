@@ -70,7 +70,7 @@ int safe_close(int fd) {
                  * only condition we want to check for here is whether
                  * the fd was invalid at all... */
 
-                assert_se(close_nointr(fd) != -EBADF);
+                safe_assert_se(close_nointr(fd) != -EBADF);
         }
 
         return -EBADF;
@@ -135,7 +135,7 @@ FILE* safe_fclose(FILE *f) {
         if (f) {
                 PROTECT_ERRNO;
 
-                assert_se(fclose_nointr(f) != -EBADF);
+                safe_assert_se(fclose_nointr(f) != -EBADF);
         }
 
         return NULL;
@@ -146,7 +146,7 @@ DIR* safe_closedir(DIR *d) {
         if (d) {
                 PROTECT_ERRNO;
 
-                assert_se(closedir(d) >= 0 || errno != EBADF);
+                safe_assert_se(closedir(d) >= 0 || errno != EBADF);
         }
 
         return NULL;
