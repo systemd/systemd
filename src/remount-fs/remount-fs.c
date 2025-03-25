@@ -19,8 +19,8 @@
 #include "signal-util.h"
 #include "strv.h"
 
-/* Goes through /etc/fstab and remounts all API file systems, applying options that are in /etc/fstab that systemd
- * might not have respected */
+/* Goes through /etc/fstab and remounts all API file systems, applying options that are in /etc/fstab that
+ * systemd might not have respected. */
 
 static int track_pid(Hashmap **h, const char *path, pid_t pid) {
         _cleanup_free_ char *c = NULL;
