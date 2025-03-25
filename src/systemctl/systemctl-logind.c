@@ -109,6 +109,12 @@ int logind_reboot(enum action a) {
         }
         if (r >= 0)
                 return 0;
+        if (getuid() == 0 && sd_bus_error_has_name(&error, SD_BUS_ERROR_INTERACTIVE_AUTHORIZATION_REQUIRED))
+                return log_error_errno(r,
+                                       "The current polkit policy does not allow root to ignore inhibitors without authentication in order to %s.\n"
+                                       "To allow this action, a new polkit rule is needed.\n"
+                                       "See " POLKIT_RULES_DIR "/10-systemd-logind-root-ignore-inhibitors.rules.example.",
+                                       action_table[a].verb);
         if (!sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_METHOD) || a == ACTION_SLEEP)
                 return log_error_errno(r, "Call to %s failed: %s", actions[a], bus_error_message(&error, r));
 
