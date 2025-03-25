@@ -332,6 +332,8 @@ struct Manager {
         /* Data specific to the D-Bus subsystem */
         sd_bus *api_bus, *system_bus;
         Set *private_buses;
+        /* Private buses on which client called Subscribe() method */
+        Set *private_buses_subscribed;
         int private_listen_fd;
         sd_event_source *private_listen_event_source;
 
