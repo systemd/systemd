@@ -8,6 +8,7 @@
 .gdb_history
 .deps/
 .mypy_cache/
+.mkosi-private/
 __pycache__/
 /*.gcda
 /*.gcno
