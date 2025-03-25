@@ -7,13 +7,11 @@
 #include "service.h"
 #include "tests.h"
 
-int main(int argc, char *argv[]) {
+TEST_RET(watch_pid) {
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
         _cleanup_(manager_freep) Manager *m = NULL;
         Unit *a, *b, *c, *u;
         int r;
-
-        test_setup_logging(LOG_DEBUG);
 
         if (getuid() != 0)
                 return log_tests_skipped("not root");
@@ -98,5 +96,12 @@ int main(int argc, char *argv[]) {
         unit_unwatch_pid(c, pid);
         ASSERT_NULL(manager_get_unit_by_pid(m, pid));
 
-        return 0;
+        return EXIT_SUCCESS;
 }
+
+static int intro(void) {
+        log_show_color(true);
+        return EXIT_SUCCESS;
+}
+
+DEFINE_TEST_MAIN_WITH_INTRO(LOG_DEBUG, intro);
