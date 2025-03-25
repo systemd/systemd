@@ -2725,8 +2725,10 @@ _public_ int sd_event_source_get_io_revents(sd_event_source *s, uint32_t *ret) {
         assert_return(s, -EINVAL);
         assert_return(ret, -EINVAL);
         assert_return(s->type == SOURCE_IO, -EDOM);
-        assert_return(s->pending, -ENODATA);
         assert_return(!event_origin_changed(s->event), -ECHILD);
+
+        if (!s->pending)
+                return -ENODATA;
 
         *ret = s->io.revents;
         return 0;
