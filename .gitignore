@@ -27,8 +27,9 @@ __pycache__/
 /mkosi.installdir/
 /mkosi.key
 /mkosi.crt
-/mkosi.tools
+/mkosi.tools/
 /mkosi.tools.manifest
+/.mkosi-private/
 mkosi.local.conf
 /tags
 .dir-locals-2.el
