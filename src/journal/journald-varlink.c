@@ -46,8 +46,23 @@ static int vl_method_synchronize(sd_varlink *link, sd_json_variant *parameters, 
         if (r != 0)
                 return r;
 
-        log_full(offline != 0 ? LOG_INFO : LOG_DEBUG,
-                 "Received client request to sync journal (%s offlining).", offline != 0 ? "with" : "without");
+        if (offline > 0) {
+                /* Do not allow unprivileged clients to offline the journal files, since that's potentially slow */
+                r = varlink_check_privileged_peer(link);
+                if (r < 0)
+                        return r;
+        } else if (offline < 0) {
+                uid_t uid = 0;
+
+                r = sd_varlink_get_peer_uid(link, &uid);
+                if (r < 0)
+                        return r;
+
+                offline = uid == 0; /* for compat, if not specified default to offlining, except for non-root */
+        }
+
+        log_full(offline ? LOG_INFO : LOG_DEBUG,
+                 "Received client request to sync journal (%s offlining).", offline ? "with" : "without");
 
         _cleanup_(sync_req_freep) SyncReq *sr = NULL;
 
@@ -55,7 +70,7 @@ static int vl_method_synchronize(sd_varlink *link, sd_json_variant *parameters, 
         if (r < 0)
                 return r;
 
-        sr->offline = offline != 0;
+        sr->offline = offline;
         sd_varlink_set_userdata(link, sr);
 
         sync_req_revalidate(TAKE_PTR(sr));
@@ -72,6 +87,10 @@ static int vl_method_rotate(sd_varlink *link, sd_json_variant *parameters, sd_va
         if (r != 0)
                 return r;
 
+        r = varlink_check_privileged_peer(link);
+        if (r < 0)
+                return r;
+
         log_info("Received client request to rotate journal, rotating.");
         server_full_rotate(s);
 
@@ -86,6 +105,10 @@ static int vl_method_flush_to_var(sd_varlink *link, sd_json_variant *parameters,
 
         r = sd_varlink_dispatch(link, parameters, /* dispatch_table = */ NULL, /* userdata = */ NULL);
         if (r != 0)
+                return r;
+
+        r = varlink_check_privileged_peer(link);
+        if (r < 0)
                 return r;
 
         if (s->namespace)
@@ -105,6 +128,10 @@ static int vl_method_relinquish_var(sd_varlink *link, sd_json_variant *parameter
 
         r = sd_varlink_dispatch(link, parameters, /* dispatch_table = */ NULL, /* userdata = */ NULL);
         if (r != 0)
+                return r;
+
+        r = varlink_check_privileged_peer(link);
+        if (r < 0)
                 return r;
 
         if (s->namespace)
@@ -152,7 +179,7 @@ int server_open_varlink(Server *s, const char *socket, int fd) {
 
         r = varlink_server_new(
                         &s->varlink_server,
-                        SD_VARLINK_SERVER_ROOT_ONLY|SD_VARLINK_SERVER_INHERIT_USERDATA,
+                        SD_VARLINK_SERVER_ACCOUNT_UID|SD_VARLINK_SERVER_INHERIT_USERDATA,
                         s);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate varlink server object: %m");
@@ -185,7 +212,7 @@ int server_open_varlink(Server *s, const char *socket, int fd) {
                 return r;
 
         if (fd < 0)
-                r = sd_varlink_server_listen_address(s->varlink_server, socket, 0600);
+                r = sd_varlink_server_listen_address(s->varlink_server, socket, 0666);
         else
                 r = sd_varlink_server_listen_fd(s->varlink_server, fd);
         if (r < 0)
