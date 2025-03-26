@@ -199,6 +199,7 @@ static void remove_item(Prioq *q, struct prioq_item *i) {
                 /* Not last entry, let's replace the last entry with
                  * this one, and reshuffle */
 
+                assert(i >= q->items);
                 k = i - q->items;
 
                 i->data = l->data;
@@ -262,6 +263,7 @@ void prioq_reshuffle(Prioq *q, void *data, unsigned *idx) {
         if (!i)
                 return;
 
+        assert(i >= q->items);
         k = i - q->items;
         k = shuffle_down(q, k);
         shuffle_up(q, k);
