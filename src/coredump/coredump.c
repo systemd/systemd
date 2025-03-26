@@ -329,21 +329,30 @@ static int fix_permissions_and_link(
         return 0;
 }
 
-static int maybe_remove_external_coredump(const char *filename, uint64_t size) {
+static int maybe_remove_external_coredump(
+                const Context *c,
+                const char *filename,
+                uint64_t size) {
 
-        /* Returns 1 if might remove, 0 if will not remove, < 0 on error. */
+        assert(c);
+
+        /* Returns true if might remove, false if will not remove, < 0 on error. */
+
+        if (arg_storage != COREDUMP_STORAGE_NONE &&
+            (c->is_pid1 || c->is_journald)) /* Always keep around in case of journald/pid1, since we cannot rely on the journal to accept them */
+                return false;
 
         if (arg_storage == COREDUMP_STORAGE_EXTERNAL &&
             size <= arg_external_size_max)
-                return 0;
+                return false;
 
         if (!filename)
-                return 1;
+                return true;
 
         if (unlink(filename) < 0 && errno != ENOENT)
                 return log_error_errno(errno, "Failed to unlink %s: %m", filename);
 
-        return 1;
+        return true;
 }
 
 static int make_filename(const Context *context, char **ret) {
@@ -860,7 +869,10 @@ static int submit_coredump(
                 /* If we don't want to keep the coredump on disk, remove it now, as later on we
                  * will lack the privileges for it. However, we keep the fd to it, so that we can
                  * still process it and log it. */
-                r = maybe_remove_external_coredump(filename, coredump_node_fd >= 0 ? coredump_compressed_size : coredump_size);
+                r = maybe_remove_external_coredump(
+                                context,
+                                filename,
+                                coredump_node_fd >= 0 ? coredump_compressed_size : coredump_size);
                 if (r < 0)
                         return r;
                 if (r == 0)
