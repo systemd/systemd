@@ -449,8 +449,17 @@ TEST(path_get_mnt_id_at_null) {
         id2 = -1;
 }
 
+TEST(get_mount_point_info) {
+        FOREACH_STRING(v, "/", "/proc", "/sys", "/dev") {
+                _cleanup_free_ char *type, *what;
+
+                ASSERT_OK(get_mount_point_info(v, &type, &what));
+                log_info("'%s' → %s, %s", v, type, what);
+        }
+}
+
 static int intro(void) {
-        /* let's move into our own mount namespace with all propagation from the host turned off, so
+        /* Let's move into our own mount namespace with all propagation from the host turned off, so
          * that /proc/self/mountinfo is static and constant for the whole time our test runs. */
 
         if (unshare(CLONE_NEWNS) < 0) {

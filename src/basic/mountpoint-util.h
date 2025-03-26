@@ -66,6 +66,7 @@ bool fstype_can_fmask_dmask(const char *fstype);
 
 const char* fstype_norecovery_option(const char *fstype);
 
+int get_mount_point_info(const char *mountpoint, char **ret_type, char **ret_where);
 int dev_is_devtmpfs(void);
 
 int mount_nofollow(
