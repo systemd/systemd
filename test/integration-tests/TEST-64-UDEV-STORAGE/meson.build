@@ -1,18 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 name = fs.name(meson.current_source_dir())
-unit = configure_file(
-        input : files('../test.service.in'),
-        output : '@0@.service'.format(name),
-        # Disable user service manager by default for performance.
-        configuration : integration_test_template['configuration'] + {
-              'wants' : '',
-              'after' : '',
-        },
-)
-
 udev_storage_tests = []
-
 cmdline = []
 qemu_args = ['-device', 'virtio-scsi-pci,id=scsi0']
 
@@ -252,8 +241,11 @@ foreach testcase : udev_storage_tests
         integration_tests += [
                 integration_test_template + {
                         'name' : '@0@-@1@'.format(name, testcase['name']),
-                        # Make sure the service is still named TEST-64-UDEV-STORAGE.service.
-                        'unit' : unit,
+                        # Disable user service manager by default for performance.
+                        'configuration' : integration_test_template['configuration'] + {
+                                'wants' : '',
+                                'after' : '',
+                        },
                         'cmdline' : integration_test_template['cmdline'] + [
                                 'systemd.setenv=TEST_FUNCTION_NAME=testcase_@0@'.format(testcase['name'])
                         ],
