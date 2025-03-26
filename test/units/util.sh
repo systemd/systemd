@@ -160,7 +160,6 @@ coverage_create_nspawn_dropin() {
     # If we're collecting coverage, bind mount the $BUILD_DIR into the nspawn
     # container so gcov can update the counters. This is mostly for standalone
     # containers, as machinectl stuff is handled by overriding the systemd-nspawn@.service
-    # (see test/test-functions:install_systemd())
     local root="${1:?}"
     local container
 
