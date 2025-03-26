@@ -566,12 +566,11 @@ bool fstype_can_uid_gid(const char *fstype) {
                           "vfat");
 }
 
-int dev_is_devtmpfs(void) {
+int get_mount_point_info(const char *mount_point, char **ret_type, char **ret_what) {
         _cleanup_fclose_ FILE *proc_self_mountinfo = NULL;
         int mount_id, r;
-        char *e;
 
-        r = path_get_mnt_id("/dev", &mount_id);
+        r = path_get_mnt_id(mount_point, &mount_id);
         if (r < 0)
                 return r;
 
@@ -582,14 +581,14 @@ int dev_is_devtmpfs(void) {
                 return r;
 
         for (;;) {
-                _cleanup_free_ char *line = NULL;
+                _cleanup_free_ char *line = NULL, *type = NULL, *what = NULL;
                 int mid;
 
                 r = read_line(proc_self_mountinfo, LONG_LINE_MAX, &line);
                 if (r < 0)
                         return r;
                 if (r == 0)
-                        break;
+                        return -ENXIO;
 
                 if (sscanf(line, "%i", &mid) != 1)
                         continue;
@@ -597,16 +596,35 @@ int dev_is_devtmpfs(void) {
                 if (mid != mount_id)
                         continue;
 
-                e = strstrafter(line, " - ");
+                const char *e = strstrafter(line, " - ");
                 if (!e)
                         continue;
 
-                /* accept any name that starts with the currently expected type */
-                if (startswith(e, "devtmpfs"))
-                        return true;
+                r = extract_many_words(&e, /* separators= */ NULL, EXTRACT_RETAIN_ESCAPE,
+                                       &type, &what);
+                if (r < 0)
+                        return r;
+
+                if (ret_type)
+                        *ret_type = TAKE_PTR(type);
+                if (ret_what)
+                        *ret_what = TAKE_PTR(what);
+                return 0;
         }
 
-        return false;
+}
+
+int dev_is_devtmpfs(void) {
+        _cleanup_free_ char *type = NULL;
+        int r;
+
+        r = get_mount_point_info("/dev", &type, NULL);
+        if (r == -ENXIO) /* mountpoint not found */
+                return false;
+        if (r < 0)
+                return r;
+
+        return streq(type, "devtmpfs");
 }
 
 static int mount_fd(
