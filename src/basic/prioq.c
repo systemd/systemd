@@ -46,6 +46,11 @@ Prioq* prioq_free(Prioq *q) {
         if (!q)
                 return NULL;
 
+        /* Invalidate the index fields of any remaining objects */
+        FOREACH_ARRAY(item, q->items, q->n_items)
+                if (item->idx)
+                        *(item->idx) = PRIOQ_IDX_NULL;
+
         free(q->items);
         return mfree(q);
 }
@@ -177,6 +182,11 @@ static void remove_item(Prioq *q, struct prioq_item *i) {
 
         assert(q);
         assert(i);
+
+        /* Let's invalidate the index pointer stored in the user's object to indicate the item is now removed
+         * from the priority queue */
+        if (i->idx)
+                *(i->idx) = PRIOQ_IDX_NULL;
 
         l = q->items + q->n_items - 1;
 
