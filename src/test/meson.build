@@ -12,8 +12,8 @@ test_hashmap_ordered_c = custom_target(
 path = run_command(sh, '-c', 'echo "$PATH"', check: true).stdout().strip()
 test_env = environment()
 test_env.set('SYSTEMD_LANGUAGE_FALLBACK_MAP', language_fallback_map)
-test_env.set('PATH', project_build_root + ':' + path)
-test_env.set('PROJECT_BUILD_ROOT', project_build_root)
+test_env.set('PATH', meson.project_build_root() + ':' + path)
+test_env.set('PROJECT_BUILD_ROOT', meson.project_build_root())
 test_env.set('SYSTEMD_SLOW_TESTS', want_slow_tests ? '1' : '0')
 
 if efi_addon != ''
