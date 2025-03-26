@@ -29,13 +29,9 @@ conf.set('PROJECT_VERSION', project_major_version,
          description : 'Numerical project version (used where a simple number is expected)')
 conf.set_quoted('PROJECT_VERSION_FULL', meson.project_version(), description : 'Full project version')
 
-# This is to be used instead of meson.source_root(), as the latter will return
-# the wrong result when systemd is being built as a meson subproject
-project_source_root = meson.current_source_dir()
-project_build_root = meson.current_build_dir()
 relative_source_path = run_command('realpath',
-                                   '--relative-to=@0@'.format(project_build_root),
-                                   project_source_root,
+                                   '--relative-to=@0@'.format(meson.project_build_root()),
+                                   meson.project_source_root(),
                                    check : true).stdout().strip()
 conf.set_quoted('RELATIVE_SOURCE_PATH', relative_source_path)
 
@@ -2238,8 +2234,8 @@ runtest_env = custom_target(
         output : 'systemd-runtest.env',
         command : [sh, '-c',
                    '{ echo SYSTEMD_TEST_DATA=@0@; echo SYSTEMD_CATALOG_DIR=@1@; } >@OUTPUT@'.format(
-                           project_source_root / 'test',
-                           project_build_root / 'catalog')],
+                           meson.project_source_root() / 'test',
+                           meson.project_build_root() / 'catalog')],
         depends : catalogs,
         build_by_default : true)
 
@@ -2814,8 +2810,8 @@ if get_option('mode') == 'developer' and want_tests != 'false' and jekyll.found(
              jekyll,
              suite : 'dist',
              args : ['build',
-                     '--source', project_source_root / 'docs',
-                     '--destination', project_build_root / '_site'])
+                     '--source', meson.project_source_root() / 'docs',
+                     '--destination', meson.project_build_root() / '_site'])
 endif
 
 #####################################################################
@@ -2892,7 +2888,7 @@ endforeach
 if git.found()
         all_files = run_command(
                 env, '-u', 'GIT_WORK_TREE',
-                git, '--git-dir=@0@/.git'.format(project_source_root),
+                git, '--git-dir=@0@/.git'.format(meson.project_source_root()),
                      'ls-files', ':/*.[ch]', ':/*.cc',
                 check : false)
         if all_files.returncode() == 0
@@ -2901,10 +2897,10 @@ if git.found()
                 custom_target(
                         'tags',
                         output : 'tags',
-                        command : [env, 'etags', '-o', '@0@/TAGS'.format(project_source_root)] + all_files)
+                        command : [env, 'etags', '-o', '@0@/TAGS'.format(meson.project_source_root())] + all_files)
                 run_target(
                         'ctags',
-                        command : [env, 'ctags', '--tag-relative=never', '-o', '@0@/tags'.format(project_source_root)] + all_files)
+                        command : [env, 'ctags', '--tag-relative=never', '-o', '@0@/tags'.format(meson.project_source_root())] + all_files)
 
                 ############################################
 
@@ -2912,7 +2908,7 @@ if git.found()
                         test('check-includes',
                              files('tools/check-includes.py'),
                              args: all_files,
-                             env : ['PROJECT_SOURCE_ROOT=@0@'.format(project_source_root)],
+                             env : ['PROJECT_SOURCE_ROOT=@0@'.format(meson.project_source_root())],
                              suite : 'headers')
                 endif
         endif
@@ -2927,18 +2923,18 @@ if git.found()
         ####################################################
 
         git_head = run_command(
-                git, '--git-dir=@0@/.git'.format(project_source_root),
+                git, '--git-dir=@0@/.git'.format(meson.project_source_root()),
                      'rev-parse', 'HEAD',
                 check : false).stdout().strip()
         git_head_short = run_command(
-                git, '--git-dir=@0@/.git'.format(project_source_root),
+                git, '--git-dir=@0@/.git'.format(meson.project_source_root()),
                      'rev-parse', '--short=7', 'HEAD',
                 check : false).stdout().strip()
 
         run_target(
                 'git-snapshot',
                 command : [git, 'archive',
-                           '-o', '@0@/systemd-@1@.tar.gz'.format(project_source_root,
+                           '-o', '@0@/systemd-@1@.tar.gz'.format(meson.project_source_root(),
                                                                  git_head_short),
                            '--prefix', 'systemd-@0@/'.format(git_head),
                            'HEAD'])
@@ -2970,7 +2966,7 @@ custom_target('installed-unit-files.txt',
               capture : true,
               install : want_tests != 'no' and install_tests,
               install_dir : testdata_dir,
-              command : [meson_extract_unit_files, project_build_root])
+              command : [meson_extract_unit_files, meson.project_build_root()])
 
 #####################################################################
 
