@@ -98,7 +98,7 @@ static int remount_by_fstab(Hashmap **ret_pids) {
                 if (path_equal(me->mnt_dir, "/"))
                         has_root = true;
 
-                r = do_remount(me->mnt_dir, false, &pids);
+                r = do_remount(me->mnt_dir, /* force_rw= */ false, &pids);
                 if (r < 0)
                         return r;
         }
@@ -132,7 +132,7 @@ static int run(int argc, char *argv[]) {
                         log_warning_errno(r, "Failed to parse $SYSTEMD_REMOUNT_ROOT_RW, ignoring: %m");
 
                 if (r > 0) {
-                        r = do_remount("/", true, &pids);
+                        r = do_remount("/", /* force_rw= */ true, &pids);
                         if (r < 0)
                                 return r;
                 }
