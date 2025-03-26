@@ -1,18 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 name = fs.name(meson.current_source_dir())
-unit = configure_file(
-        input : files('../test.service.in'),
-        output : '@0@.service'.format(name),
-        # Disable user service manager by default for performance.
-        configuration : integration_test_template['configuration'] + {
-              'wants' : '',
-              'after' : '',
-        },
-)
-
 udev_storage_tests = []
-
 cmdline = []
 qemu_args = ['-device', 'virtio-scsi-pci,id=scsi0']
 
@@ -160,7 +149,7 @@ foreach i : range(128)
         cmdline += [f'--drive=@id@:1M::']
         div = i / 32
         mod = i % 32
-        qemu_args += ['-device', f'scsi-hd,drive=@id@,bus=scsi@div@.0,channel=0,scsi-id=@mod@,lun=0']
+        qemu_args += ['-device', f'scsi-hd,drive=@id@,serial=@id@,bus=scsi@div@.0,channel=0,scsi-id=@mod@,lun=0']
 endforeach
 
 udev_storage_tests += {
@@ -233,7 +222,7 @@ if qemu.found()
                 foreach i : range(16)
                         id = f'drive@i@'
                         cmdline += [f'--drive=@id@:40M::']
-                        qemu_args += ['-device', f'scsi-hd,drive=@id@,bus=scsi0.0,channel=0,scsi-id=0,lun=@i@']
+                        qemu_args += ['-device', f'scsi-hd,drive=@id@,serial=@id@,bus=scsi0.0,channel=0,scsi-id=0,lun=@i@']
                 endforeach
 
                 udev_storage_tests += {
@@ -252,8 +241,11 @@ foreach testcase : udev_storage_tests
         integration_tests += [
                 integration_test_template + {
                         'name' : '@0@-@1@'.format(name, testcase['name']),
-                        # Make sure the service is still named TEST-64-UDEV-STORAGE.service.
-                        'unit' : unit,
+                        # Disable user service manager by default for performance.
+                        'configuration' : integration_test_template['configuration'] + {
+                                'wants' : '',
+                                'after' : '',
+                        },
                         'cmdline' : integration_test_template['cmdline'] + [
                                 'systemd.setenv=TEST_FUNCTION_NAME=testcase_@0@'.format(testcase['name'])
                         ],
