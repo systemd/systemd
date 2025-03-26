@@ -396,7 +396,10 @@ static int on_signal(sd_event_source *s, const struct signalfd_siginfo *si, void
 
         (void) sd_varlink_set_userdata(vl, c);
 
-        r = sd_varlink_invoke(vl, "io.systemd.Journal.Synchronize", /* parameters= */ NULL);
+        r = sd_varlink_invokebo(
+                        vl,
+                        "io.systemd.Journal.Synchronize",
+                        SD_JSON_BUILD_PAIR_BOOLEAN("offline", false));
         if (r < 0) {
                 log_warning_errno(r, "Failed to issue synchronization request: %m");
                 goto finish;
