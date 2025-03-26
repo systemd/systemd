@@ -304,7 +304,7 @@ static const char *coredump_tmpfile_name(const char *s) {
         return s ?: "(unnamed temporary file)";
 }
 
-static int fix_permissions(
+static int fix_permissions_and_link(
                 int fd,
                 const char *filename,
                 const char *target,
@@ -595,7 +595,7 @@ static int save_external_coredump(
                         uncompressed_size += partial_uncompressed_size;
                 }
 
-                r = fix_permissions(fd_compressed, tmp_compressed, fn_compressed, context, allow_user);
+                r = fix_permissions_and_link(fd_compressed, tmp_compressed, fn_compressed, context, allow_user);
                 if (r < 0)
                         return r;
 
@@ -622,7 +622,7 @@ static int save_external_coredump(
                            LOG_ITEM("SIZE_LIMIT=%"PRIu64, max_size),
                            LOG_MESSAGE_ID(SD_MESSAGE_TRUNCATED_CORE_STR));
 
-        r = fix_permissions(fd, tmp, fn, context, allow_user);
+        r = fix_permissions_and_link(fd, tmp, fn, context, allow_user);
         if (r < 0)
                 return log_error_errno(r, "Failed to fix permissions and finalize coredump %s into %s: %m", coredump_tmpfile_name(tmp), fn);
 
