@@ -4471,7 +4471,7 @@ Unit *manager_get_unit_by_pidref_cgroup(Manager *m, const PidRef *pid) {
         return manager_get_unit_by_cgroup(m, cgroup);
 }
 
-Unit *manager_get_unit_by_pidref_watching(Manager *m, const PidRef *pid) {
+Unit* manager_get_unit_by_pidref_watching(Manager *m, const PidRef *pid) {
         Unit *u, **array;
 
         assert(m);
@@ -4517,15 +4517,6 @@ Unit* manager_get_unit_by_pidref(Manager *m, PidRef *pid) {
                 return u;
 
         return NULL;
-}
-
-Unit *manager_get_unit_by_pid(Manager *m, pid_t pid) {
-        assert(m);
-
-        if (!pid_is_valid(pid))
-                return NULL;
-
-        return manager_get_unit_by_pidref(m, &PIDREF_MAKE_FROM_PID(pid));
 }
 
 int manager_notify_cgroup_empty(Manager *m, const char *cgroup) {

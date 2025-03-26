@@ -876,9 +876,7 @@ void unit_notify_cgroup_oom(Unit *u, bool managed_oom);
 void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_success);
 
 int unit_watch_pidref(Unit *u, const PidRef *pid, bool exclusive);
-int unit_watch_pid(Unit *u, pid_t pid, bool exclusive);
 void unit_unwatch_pidref(Unit *u, const PidRef *pid);
-void unit_unwatch_pid(Unit *u, pid_t pid);
 void unit_unwatch_all_pids(Unit *u);
 void unit_unwatch_pidref_done(Unit *u, PidRef *pidref);
 

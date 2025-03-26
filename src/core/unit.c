@@ -2820,20 +2820,6 @@ int unit_watch_pidref(Unit *u, const PidRef *pid, bool exclusive) {
         return 0;
 }
 
-int unit_watch_pid(Unit *u, pid_t pid, bool exclusive) {
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
-        int r;
-
-        assert(u);
-        assert(pid_is_valid(pid));
-
-        r = pidref_set_pid(&pidref, pid);
-        if (r < 0)
-                return r;
-
-        return unit_watch_pidref(u, &pidref, exclusive);
-}
-
 void unit_unwatch_pidref(Unit *u, const PidRef *pid) {
         assert(u);
         assert(pidref_is_set(pid));
@@ -2881,10 +2867,6 @@ void unit_unwatch_pidref(Unit *u, const PidRef *pid) {
                         assert_se(hashmap_replace(u->manager->watch_pids_more, new_pid3, array) >= 0);
                 }
         }
-}
-
-void unit_unwatch_pid(Unit *u, pid_t pid) {
-        return unit_unwatch_pidref(u, &PIDREF_MAKE_FROM_PID(pid));
 }
 
 void unit_unwatch_all_pids(Unit *u) {
