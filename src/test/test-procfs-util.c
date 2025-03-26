@@ -41,7 +41,7 @@ int main(int argc, char *argv[]) {
 
         limit = MIN(pid_max - (pid_max > 0), threads_max);
 
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         log_info("Limit of tasks: %" PRIu64, limit);
         assert_se(limit > 0);
 
@@ -54,7 +54,7 @@ int main(int argc, char *argv[]) {
                 r = procfs_tasks_set_limit(limit-1);
                 if (IN_SET(r, -ENOENT, -EROFS) || ERRNO_IS_PRIVILEGE(r))
                         return log_tests_skipped_errno(r, "can't set tasks limit");
-                assert_se(r >= 0);
+                ASSERT_OK(r);
 
                 assert_se(procfs_get_pid_max(&v) >= 0);
                 /* We never decrease the pid_max, so it shouldn't have changed */

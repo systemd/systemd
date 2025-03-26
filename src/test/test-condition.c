@@ -1025,7 +1025,7 @@ static void test_condition_test_cpus_one(const char *s, bool result) {
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_CPUS, s, false, false)));
 
         r = condition_test(condition, environ);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(r == result);
         condition_free(condition);
 }
@@ -1085,7 +1085,7 @@ static void test_condition_test_memory_one(const char *s, bool result) {
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_MEMORY, s, false, false)));
 
         r = condition_test(condition, environ);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(r == result);
         condition_free(condition);
 }
@@ -1165,7 +1165,7 @@ static void test_condition_test_environment_one(const char *s, bool result) {
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_ENVIRONMENT, s, false, false)));
 
         r = condition_test(condition, environ);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(r == result);
         condition_free(condition);
 }

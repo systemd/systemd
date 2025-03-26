@@ -19,7 +19,7 @@ static void test_one(const char *data, ...) {
                 const char *nn;
 
                 t = xml_tokenize(&data, &name, &state, NULL);
-                assert_se(t >= 0);
+                ASSERT_OK(t);
 
                 tt = va_arg(ap, int);
                 assert_se(tt >= 0);

@@ -127,7 +127,7 @@ TEST(load_userns) {
         if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
                 return;
 
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(uid_range_contains(p, getuid()));
 
         r = running_in_userns();

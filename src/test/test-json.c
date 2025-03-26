@@ -97,7 +97,7 @@ static void test_variant_one(const char *data, Test test) {
         assert_se(v);
 
         r = sd_json_variant_format(v, 0, &s);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(s);
         assert_se((size_t) r == strlen(s));
 
@@ -117,7 +117,7 @@ static void test_variant_one(const char *data, Test test) {
 
         s = mfree(s);
         r = sd_json_variant_format(w, SD_JSON_FORMAT_PRETTY, &s);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(s);
         assert_se((size_t) r == strlen(s));
 
@@ -125,7 +125,7 @@ static void test_variant_one(const char *data, Test test) {
         w = sd_json_variant_unref(w);
 
         r = sd_json_variant_format(v, SD_JSON_FORMAT_PRETTY, &s);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(s);
         assert_se((size_t) r == strlen(s));
 
@@ -141,14 +141,14 @@ static void test_variant_one(const char *data, Test test) {
 
         s = mfree(s);
         r = sd_json_variant_format(v, SD_JSON_FORMAT_COLOR, &s);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(s);
         assert_se((size_t) r == strlen(s));
         printf("Normal with color: %s\n", s);
 
         s = mfree(s);
         r = sd_json_variant_format(v, SD_JSON_FORMAT_COLOR|SD_JSON_FORMAT_PRETTY, &s);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(s);
         assert_se((size_t) r == strlen(s));
         printf("Pretty with color:\n%s\n", s);
@@ -541,7 +541,7 @@ TEST(depth) {
                 }
 #endif
 
-                assert_se(r >= 0);
+                ASSERT_OK(r);
 
                 sd_json_variant_unref(v);
                 v = TAKE_PTR(w);
@@ -1057,7 +1057,7 @@ TEST(json_sensitive) {
         s = mfree(s);
 
         r = sd_json_variant_format(b, SD_JSON_FORMAT_CENSOR_SENSITIVE, &s);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(s);
         assert_se((size_t) r == strlen(s));
         s = mfree(s);
@@ -1069,7 +1069,7 @@ TEST(json_sensitive) {
         sd_json_variant_dump(v, SD_JSON_FORMAT_COLOR|SD_JSON_FORMAT_PRETTY, NULL, NULL);
 
         r = sd_json_variant_format(v, SD_JSON_FORMAT_CENSOR_SENSITIVE, &s);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(s);
         assert_se((size_t) r == strlen(s));
         s = mfree(s);
@@ -1083,7 +1083,7 @@ TEST(json_sensitive) {
         sd_json_variant_dump(v, SD_JSON_FORMAT_COLOR|SD_JSON_FORMAT_PRETTY, NULL, NULL);
 
         r = sd_json_variant_format(v, SD_JSON_FORMAT_CENSOR_SENSITIVE, &s);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(s);
         assert_se((size_t) r == strlen(s));
         s = mfree(s);

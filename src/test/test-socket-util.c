@@ -159,7 +159,7 @@ TEST(getpeercred_getpeergroups) {
         int r;
 
         r = safe_fork("(getpeercred)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT, NULL);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         if (r == 0) {
                 static const gid_t gids[] = { 3, 4, 5, 6, 7 };
@@ -189,7 +189,7 @@ TEST(getpeercred_getpeergroups) {
                         test_gids = newa(gid_t, ngroups_max);
 
                         r = getgroups(ngroups_max, test_gids);
-                        assert_se(r >= 0);
+                        ASSERT_OK(r);
                         n_test_gids = (size_t) r;
                 }
 
@@ -226,7 +226,7 @@ TEST(passfd_read) {
         assert_se(socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) >= 0);
 
         r = safe_fork("(passfd_read)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT, NULL);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         if (r == 0) {
                 /* Child */
@@ -254,7 +254,7 @@ TEST(passfd_read) {
 
         assert_se(fd >= 0);
         ssize_t n = read(fd, buf, sizeof(buf)-1);
-        assert_se(n >= 0);
+        ASSERT_OK(n);
         buf[n] = 0;
         ASSERT_STREQ(buf, file_contents);
 }
@@ -268,7 +268,7 @@ TEST(passfd_contents_read) {
         assert_se(socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) >= 0);
 
         r = safe_fork("(passfd_contents_read)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT, NULL);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         if (r == 0) {
                 /* Child */
@@ -302,7 +302,7 @@ TEST(passfd_contents_read) {
 
         assert_se(fd >= 0);
         r = read(fd, buf, sizeof(buf)-1);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         buf[r] = 0;
         ASSERT_STREQ(buf, file_contents);
 }
@@ -320,7 +320,7 @@ TEST(pass_many_fds_contents_read) {
         assert_se(socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) >= 0);
 
         r = safe_fork("(passfd_contents_read)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT, NULL);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         if (r == 0) {
                 /* Child */
@@ -365,7 +365,7 @@ TEST(pass_many_fds_contents_read) {
         for (size_t i = 0; i < 3; ++i) {
                 assert_se(fds[i] >= 0);
                 r = read(fds[i], buf, sizeof(buf)-1);
-                assert_se(r >= 0);
+                ASSERT_OK(r);
                 buf[r] = 0;
                 ASSERT_STREQ(buf, file_contents[i]);
                 safe_close(fds[i]);
@@ -380,7 +380,7 @@ TEST(receive_nopassfd) {
         assert_se(socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) >= 0);
 
         r = safe_fork("(receive_nopassfd)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT, NULL);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         if (r == 0) {
                 /* Child */
@@ -416,7 +416,7 @@ TEST(send_nodata_nofd) {
         assert_se(socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) >= 0);
 
         r = safe_fork("(send_nodata_nofd)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT, NULL);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         if (r == 0) {
                 /* Child */
@@ -449,7 +449,7 @@ TEST(send_emptydata) {
         assert_se(socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) >= 0);
 
         r = safe_fork("(send_emptydata)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT, NULL);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         if (r == 0) {
                 /* Child */

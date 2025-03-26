@@ -19,10 +19,10 @@ static void assert_equal_fd(int fd1, int fd2) {
                 ssize_t x, y;
 
                 x = read(fd1, a, sizeof(a));
-                assert_se(x >= 0);
+                ASSERT_OK(x);
 
                 y = read(fd2, b, sizeof(b));
-                assert_se(y >= 0);
+                ASSERT_OK(y);
 
                 assert_se(x == y);
 
@@ -70,7 +70,7 @@ TEST(copy_data_fd) {
         assert_se(socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0, sfd) >= 0);
 
         r = safe_fork("(sd-pipe)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_LOG, &pid);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         if (r == 0) {
                 /* child */
