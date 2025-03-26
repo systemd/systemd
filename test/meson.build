@@ -220,7 +220,7 @@ if rpm.found() and rpmspec.found()
                 test('test-rpm-macros',
                      test_rpm_macros,
                      suite : 'dist',
-                     args : [project_build_root])
+                     args : [meson.project_build_root()])
         endif
 else
       message('Skipping test-rpm-macros since rpm and/or rpmspec are not available')
@@ -232,20 +232,20 @@ if want_tests != 'false' and conf.get('HAVE_DMI') == 1
         udev_dmi_memory_id_test = find_program('udev-dmi-memory-id-test.sh')
         exe = executables_by_name.get('dmi_memory_id')
 
-        if git.found() and fs.is_dir(project_source_root / '.git')
+        if git.found() and fs.is_dir(meson.project_source_root() / '.git')
                 out = run_command(
                         env, '-u', 'GIT_WORK_TREE',
-                        git, '--git-dir=@0@/.git'.format(project_source_root),
+                        git, '--git-dir=@0@/.git'.format(meson.project_source_root()),
                         'ls-files', ':/test/dmidecode-dumps/*.bin',
                         check: true)
         else
                 out = run_command(
-                        sh, '-c', 'cd "$1"; echo test/dmidecode-dumps/*.bin', '_', project_source_root,
+                        sh, '-c', 'cd "$1"; echo test/dmidecode-dumps/*.bin', '_', meson.project_source_root(),
                         check: true)
         endif
 
         foreach p : out.stdout().split()
-                source = project_source_root / p
+                source = meson.project_source_root() / p
                 test('dmidecode_' + fs.stem(p),
                      udev_dmi_memory_id_test,
                      suite : 'udev',
