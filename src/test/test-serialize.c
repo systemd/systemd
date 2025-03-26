@@ -124,7 +124,7 @@ TEST(serialize_strv) {
                 r = read_line(f, LONG_LINE_MAX, &line);
                 if (r == 0)
                         break;
-                assert_se(r > 0);
+                ASSERT_OK_POSITIVE(r);
 
                 const char *t = startswith(line, "strv3=");
                 assert_se(t);

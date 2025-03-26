@@ -27,7 +27,7 @@ TEST(secure_bits_basic) {
                 _cleanup_free_ char *s = NULL;
 
                 r = secure_bits_from_string(*bit);
-                assert_se(r > 0);
+                ASSERT_OK_POSITIVE(r);
                 assert_se(secure_bits_is_valid(r));
                 assert_se(secure_bits_to_string_alloc(r, &s) >= 0);
                 printf("%s = 0x%x = %s\n", *bit, (unsigned)r, s);
@@ -38,7 +38,7 @@ TEST(secure_bits_basic) {
         joined = strv_join((char**)string_bits, " ");
         assert_se(joined);
         r = secure_bits_from_string(joined);
-        assert_se(r > 0);
+        ASSERT_OK_POSITIVE(r);
         assert_se(secure_bits_is_valid(r));
         assert_se(secure_bits_to_string_alloc(r, &str) >= 0);
         printf("%s = 0x%x = %s\n", joined, (unsigned)r, str);
@@ -86,7 +86,7 @@ TEST(secure_bits_mix) {
                 int r;
 
                 r = secure_bits_from_string(s->input);
-                assert_se(r > 0);
+                ASSERT_OK_POSITIVE(r);
                 assert_se(secure_bits_is_valid(r));
                 assert_se(secure_bits_to_string_alloc(r, &str) >= 0);
                 printf("%s = 0x%x = %s\n", s->input, (unsigned)r, str);

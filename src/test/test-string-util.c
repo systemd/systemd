@@ -447,7 +447,7 @@ TEST(foreach_word) {
                         assert_se(i == ELEMENTSOF(expected));
                         break;
                 }
-                assert_se(r > 0);
+                ASSERT_OK_POSITIVE(r);
 
                 ASSERT_STREQ(expected[i++], word);
         }

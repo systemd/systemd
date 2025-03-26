@@ -111,7 +111,7 @@ static void test_compress_decompress(const char* label, const char* type,
                         continue;
                 }
 
-                assert_se(j > 0);
+                ASSERT_OK_POSITIVE(j);
                 if (j >= size)
                         log_error("%s \"compressed\" %zu -> %zu", label, size, j);
 

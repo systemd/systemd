@@ -342,7 +342,7 @@ TEST(cpus_in_affinity_mask) {
         int r;
 
         r = cpus_in_affinity_mask();
-        assert_se(r > 0);
+        ASSERT_OK_POSITIVE(r);
         log_info("cpus_in_affinity_mask: %d", r);
 }
 

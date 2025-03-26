@@ -111,7 +111,7 @@ TEST(seccomp_arch_to_string) {
         const char *name;
 
         a = seccomp_arch_native();
-        assert_se(a > 0);
+        ASSERT_OK_POSITIVE(a);
         name = seccomp_arch_to_string(a);
         assert_se(name);
         assert_se(seccomp_arch_from_string(name, &b) >= 0);

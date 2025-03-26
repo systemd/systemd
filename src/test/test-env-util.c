@@ -537,7 +537,7 @@ TEST(getenv_steal_erase) {
                 _exit(EXIT_SUCCESS);
         }
 
-        assert_se(r > 0);
+        ASSERT_OK_POSITIVE(r);
 }
 
 TEST(strv_env_name_is_valid) {
