@@ -14,6 +14,7 @@
 #include "main-func.h"
 #include "mount-setup.h"
 #include "mount-util.h"
+#include "mountpoint-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "signal-util.h"
@@ -69,11 +70,46 @@ static int do_remount(const char *path, bool force_rw, Hashmap **pids) {
         return track_pid(pids, path, pid);
 }
 
+static int mount_point_matches(const struct mntent *me) {
+        _cleanup_free_ char *type = NULL, *what = NULL;
+        int r;
+
+        r = get_mount_point_info(ASSERT_PTR(me)->mnt_dir, &type, &what);
+        if (r == -ENXIO) { /* Not mounted */
+                log_info("Mount point %s is not mounted.", me->mnt_dir);
+                return false;
+        }
+        if (r < 0)
+                return log_warning_errno(r, "Failed to acquire information about mount point %s: %m", me->mnt_dir);
+
+        if (!streq(type, me->mnt_type) && !streq(me->mnt_type, "auto")) {
+                log_info("File system mounted at %s doesn't match fstab (type %s vs. %s), ignoring.",
+                         me->mnt_dir, type, me->mnt_type);
+                return false;
+        }
+
+        /* Figure out if the two paths point at the same device node */
+        _cleanup_free_ char *node = fstab_node_to_udev_node(me->mnt_fsname);
+        if (!node)
+                return log_oom();
+
+        r = path_equal_or_inode_same_full(what, node, AT_NO_AUTOMOUNT);
+        if (r < 0)
+                log_warning_errno(r, "Failed to determine if %s and %s for mount point %s are same: %m",
+                                  what, node, me->mnt_dir);
+        else if (r == 0)
+                log_info("File system mounted at %s doesn't match fstab (%s vs. %s), ignoring.",
+                         me->mnt_dir, what, me->mnt_fsname);
+        else
+                log_debug("File system mounted at %s matches fstab.", me->mnt_dir);
+        return r;
+}
+
 static int remount_by_fstab(Hashmap **ret_pids) {
         _cleanup_hashmap_free_ Hashmap *pids = NULL;
         _cleanup_endmntent_ FILE *f = NULL;
         bool has_root = false;
-        struct mntent* me;
+        struct mntent *me;
         int r;
 
         assert(ret_pids);
@@ -93,6 +129,10 @@ static int remount_by_fstab(Hashmap **ret_pids) {
                 /* Remount the root fs, /usr, and all API VFSs */
                 if (!mount_point_is_api(me->mnt_dir) &&
                     !PATH_IN_SET(me->mnt_dir, "/", "/usr"))
+                        continue;
+
+                r = mount_point_matches(me);
+                if (r <= 0)
                         continue;
 
                 if (path_equal(me->mnt_dir, "/"))
