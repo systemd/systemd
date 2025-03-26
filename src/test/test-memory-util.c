@@ -36,13 +36,13 @@ TEST(cleanup_array) {
         {
                 assert_se(memeqbyte('x', saved_iov, sizeof(struct iovec) * saved_n));
                 assert_se(iov);
-                assert_se(n > 0);
+                ASSERT_OK_POSITIVE(n);
 
                 CLEANUP_ARRAY(iov, n, my_destructor);
 
                 assert_se(memeqbyte('x', saved_iov, sizeof(struct iovec) * saved_n));
                 assert_se(iov);
-                assert_se(n > 0);
+                ASSERT_OK_POSITIVE(n);
         }
 
         assert_se(memeqbyte('y', saved_iov, sizeof(struct iovec) * saved_n));

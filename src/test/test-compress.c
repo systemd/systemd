@@ -125,17 +125,17 @@ _unused_ static void test_decompress_startswith(const char *compression,
         len = strlen(data);
 
         r = decompress_sw(compressed, csize, (void **) &decompressed, data, len, '\0');
-        assert_se(r > 0);
+        ASSERT_OK_POSITIVE(r);
         r = decompress_sw(compressed, csize, (void **) &decompressed, data, len, 'w');
         assert_se(r == 0);
         r = decompress_sw(compressed, csize, (void **) &decompressed, "barbarbar", 9, ' ');
         assert_se(r == 0);
         r = decompress_sw(compressed, csize, (void **) &decompressed, data, len - 1, data[len-1]);
-        assert_se(r > 0);
+        ASSERT_OK_POSITIVE(r);
         r = decompress_sw(compressed, csize, (void **) &decompressed, data, len - 1, 'w');
         assert_se(r == 0);
         r = decompress_sw(compressed, csize, (void **) &decompressed, data, len, '\0');
-        assert_se(r > 0);
+        ASSERT_OK_POSITIVE(r);
 }
 
 _unused_ static void test_decompress_startswith_short(const char *compression,

@@ -296,7 +296,7 @@ TEST(passfd_contents_read) {
         pair[1] = safe_close(pair[1]);
 
         k = receive_one_fd_iov(pair[0], &iov, 1, MSG_DONTWAIT, &fd);
-        assert_se(k > 0);
+        ASSERT_OK_POSITIVE(k);
         buf[k] = 0;
         ASSERT_STREQ(buf, wire_contents);
 
@@ -356,7 +356,7 @@ TEST(pass_many_fds_contents_read) {
         pair[1] = safe_close(pair[1]);
 
         k = receive_many_fds_iov(pair[0], &iov, 1, &fds, &n_fds, MSG_DONTWAIT);
-        assert_se(k > 0);
+        ASSERT_OK_POSITIVE(k);
         buf[k] = 0;
         ASSERT_STREQ(buf, wire_contents);
 
@@ -401,7 +401,7 @@ TEST(receive_nopassfd) {
         pair[1] = safe_close(pair[1]);
 
         k = receive_one_fd_iov(pair[0], &iov, 1, MSG_DONTWAIT, &fd);
-        assert_se(k > 0);
+        ASSERT_OK_POSITIVE(k);
         buf[k] = 0;
         ASSERT_STREQ(buf, wire_contents);
 
