@@ -3,7 +3,6 @@
 integration_tests += [
         integration_test_template + {
                 'name' : fs.name(meson.current_source_dir()),
+                'unit' : files('TEST-07-PID1.service'),
         },
 ]
-
-testdata_subdirs += [meson.current_source_dir() / 'TEST-03-JOBS.units']

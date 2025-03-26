@@ -151,6 +151,31 @@ options to provide mkosi with a directory containing the systemd packages or a
 repository file that points to a repository with the systemd packages that
 should be installed.
 
+If the rpms are installed on the host system that the tests are running on,
+you'll probably want to disable usage of the tools tree so that the tools from
+the host system are used to build the image by adding the following to
+`mkosi.local.conf`:
+
+```conf
+[Build]
+ToolsTree=
+```
+
+On the other hand, if the rpms are available but not installed on the host
+system, you'll want to make sure they're installed into the mkosi tools tree so
+that they're used to build the image by using either
+`ToolsTreePackageDirectories=` or `ToolsTreeSandboxTrees=` similarly to
+`PackageDirectories=` or `SandboxTrees=` mentioned above.
+
+Finally, we'll make use of the standalone mode of running the integration tests
+to avoid having to install any build dependencies.
+
+```sh
+$ mkosi -f sandbox -- meson setup testsuite test/integration-tests/standalone
+$ mkosi -f
+$ mkosi sandbox -- meson test -C testsuite --num-processes "$(($(nproc) / 4))"
+```
+
 ### SELinux AVCs
 
 To have `TEST-06-SELINUX` check for SELinux denials, write the following to
