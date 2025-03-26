@@ -212,7 +212,7 @@ endif
 ############################################################
 
 buildroot_substs = configuration_data()
-buildroot_substs.set_quoted('BUILD_ROOT', project_build_root)
+buildroot_substs.set_quoted('BUILD_ROOT', meson.project_build_root())
 
 configure_file(
         input : 'man.in',
@@ -229,7 +229,7 @@ configure_file(
 update_dbus_docs = custom_target(
         'update-dbus-docs-impl',
         output : 'update-dbus-docs',
-        command : [update_dbus_docs_py, '--build-dir', project_build_root, '@INPUT@'],
+        command : [update_dbus_docs_py, '--build-dir', meson.project_build_root(), '@INPUT@'],
         input : dbus_docs,
         depends : dbus_programs)
 
@@ -237,7 +237,7 @@ if conf.get('BUILD_MODE_DEVELOPER') == 1
         test('dbus-docs-fresh',
              update_dbus_docs_py,
              suite : 'dist',
-             args : ['--build-dir', project_build_root, '--test', dbus_docs],
+             args : ['--build-dir', meson.project_build_root(), '--test', dbus_docs],
              depends : dbus_programs)
 
         test('check-version-history',
