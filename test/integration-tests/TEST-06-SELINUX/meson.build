@@ -13,5 +13,3 @@ integration_tests += [
                 'mkosi-args' : integration_test_template['mkosi-args'] + ['--runtime-build-sources=no'],
         },
 ]
-
-testdata_subdirs += [meson.current_source_dir() / 'TEST-06-SELINUX.units']
