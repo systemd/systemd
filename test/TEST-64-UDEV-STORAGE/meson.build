@@ -160,7 +160,7 @@ foreach i : range(128)
         cmdline += [f'--drive=@id@:1M::']
         div = i / 32
         mod = i % 32
-        qemu_args += ['-device', f'scsi-hd,drive=@id@,bus=scsi@div@.0,channel=0,scsi-id=@mod@,lun=0']
+        qemu_args += ['-device', f'scsi-hd,drive=@id@,serial=@id@,bus=scsi@div@.0,channel=0,scsi-id=@mod@,lun=0']
 endforeach
 
 udev_storage_tests += {
@@ -233,7 +233,7 @@ if qemu.found()
                 foreach i : range(16)
                         id = f'drive@i@'
                         cmdline += [f'--drive=@id@:40M::']
-                        qemu_args += ['-device', f'scsi-hd,drive=@id@,bus=scsi0.0,channel=0,scsi-id=0,lun=@i@']
+                        qemu_args += ['-device', f'scsi-hd,drive=@id@,serial=@id@,bus=scsi0.0,channel=0,scsi-id=0,lun=@i@']
                 endforeach
 
                 udev_storage_tests += {
