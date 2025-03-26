@@ -383,7 +383,7 @@ TEST(cg_tests) {
                 log_tests_skipped("cgroup not mounted");
                 return;
         }
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         all = cg_all_unified();
         assert_se(IN_SET(all, 0, 1));

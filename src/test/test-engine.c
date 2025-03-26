@@ -96,7 +96,7 @@ int main(int argc, char *argv[]) {
         r = manager_new(RUNTIME_SCOPE_USER, MANAGER_TEST_RUN_BASIC, &m);
         if (manager_errno_skip_test(r))
                 return log_tests_skipped_errno(r, "manager_new");
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(manager_startup(m, NULL, NULL, NULL) >= 0);
 
         printf("Load1:\n");

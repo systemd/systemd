@@ -233,7 +233,7 @@ TEST(touch_file) {
                         log_notice("Running in unprivileged container? Skipping remaining tests in %s", __func__);
                         return;
                 }
-                assert_se(r >= 0);
+                ASSERT_OK(r);
                 assert_se(touch_file(a, false, test_mtime, test_uid, test_gid, 0640) >= 0);
                 assert_se(lstat(a, &st) >= 0);
                 assert_se(st.st_uid == test_uid);

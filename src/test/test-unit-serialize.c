@@ -37,7 +37,7 @@ TEST(deserialize_exec_command) {
                 return;
         }
 
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         test_deserialize_exec_command_one(m, "main-command", EXEC_START_ABSOLUTE, 0);
         test_deserialize_exec_command_one(m, "main-command", EXEC_START_RELATIVE, 0);

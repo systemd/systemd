@@ -53,7 +53,7 @@ TEST_RET(add_acls_for_user) {
                 return log_tests_skipped("no ACL support on /tmp");
 
         log_info_errno(r, "fd_add_uid_acl_permission(%i, "UID_FMT", ACL_READ): %m", fd, uid);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         cmd = strjoina("ls -l ", fn);
         ASSERT_OK_ZERO_ERRNO(system(cmd));

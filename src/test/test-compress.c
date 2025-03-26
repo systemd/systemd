@@ -67,7 +67,7 @@ _unused_ static void test_compress_decompress(
                 log_info_errno(r, "compression failed: %m");
                 assert_se(may_fail);
         } else {
-                assert_se(r >= 0);
+                ASSERT_OK(r);
                 r = decompress(compressed, csize,
                                (void **) &decompressed, &csize, 0);
                 assert_se(r == 0);
@@ -120,7 +120,7 @@ _unused_ static void test_decompress_startswith(const char *compression,
                 assert_se(compressed2);
                 r = compress(data, data_len, compressed, BUFSIZE_2, &csize, /* level = */ -1);
         }
-        assert_se(r >= 0);
+        assert_se(r);
 
         len = strlen(data);
 
@@ -151,7 +151,7 @@ _unused_ static void test_decompress_startswith_short(const char *compression,
         log_info("/* %s with %s */", __func__, compression);
 
         r = compress(TEXT, sizeof TEXT, buf, sizeof buf, &csize, /* level = */ -1);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         for (size_t i = 1; i < strlen(TEXT); i++) {
                 _cleanup_free_ void *buf2 = NULL;
@@ -243,18 +243,18 @@ static void test_lz4_decompress_partial(void) {
         huge[HUGE_SIZE - 1] = '\0';
 
         r = sym_LZ4_compress_default(huge, buf, HUGE_SIZE, buf_size);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         compressed = r;
         log_info("Compressed %i → %zu", HUGE_SIZE, compressed);
 
         r = sym_LZ4_decompress_safe(buf, huge, r, HUGE_SIZE);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         log_info("Decompressed → %i", r);
 
         r = sym_LZ4_decompress_safe_partial(buf, huge,
                                         compressed,
                                         12, HUGE_SIZE);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         log_info("Decompressed partial %i/%i → %i", 12, HUGE_SIZE, r);
 
         for (size_t size = 1; size < sizeof(buf2); size++) {

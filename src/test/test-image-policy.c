@@ -39,7 +39,7 @@ static void test_policy(const ImagePolicy *p, const char *name) {
                 f = image_policy_get(p, d);
                 if (f < 0) {
                         f = image_policy_get_exhaustively(p, d);
-                        assert_se(f >= 0);
+                        ASSERT_OK(f);
                         assert_se(partition_policy_flags_to_string(f, /* simplified= */ true, &k) >= 0);
 
                         printf("%s\t%s → n/a (exhaustively: %s)%s\n", ansi_grey(), partition_designator_to_string(d), k, ansi_normal());

@@ -173,7 +173,7 @@ TEST(serialize_environment) {
                 const char *l;
 
                 r = read_line(f, LONG_LINE_MAX, &line);
-                assert_se(r >= 0);
+                ASSERT_OK(r);
 
                 if (r == 0)
                         break;
@@ -183,7 +183,7 @@ TEST(serialize_environment) {
                 assert_se(startswith(l, "env="));
 
                 r = deserialize_environment(l+4, &env2);
-                assert_se(r >= 0);
+                ASSERT_OK(r);
         }
         assert_se(feof(f));
 
