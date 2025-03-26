@@ -9,14 +9,27 @@ unit = configure_file(
         },
 )
 
-systemd_networkd_tests_py = files('../test-network/systemd-networkd-tests.py')
-network_testcases = run_command('sed',
-                                '-ne',
-                                '/^class .*Tests/ { s/^class *//; s/(.*$//; p}',
-                                systemd_networkd_tests_py,
-                                check : true).stdout().split()
-
-foreach testcase : network_testcases
+foreach testcase : [
+        'NetworkctlTests',
+        'NetworkdMatchTests',
+        'WaitOnlineTests',
+        'NetworkdNetDevTests',
+        'NetworkdL2TPTests',
+        'NetworkdNetworkTests',
+        'NetworkdTCTests',
+        'NetworkdStateFileTests',
+        'NetworkdBondTests',
+        'NetworkdBridgeTests',
+        'NetworkdSRIOVTests',
+        'NetworkdLLDPTests',
+        'NetworkdRATests',
+        'NetworkdDHCPServerTests',
+        'NetworkdDHCPServerRelayAgentTests',
+        'NetworkdDHCPClientTests',
+        'NetworkdDHCPPDTests',
+        'NetworkdIPv6PrefixTests',
+        'NetworkdMTUTests',
+]
         integration_tests += [
                 integration_test_template + {
                         'name' : '@0@-@1@'.format(name, testcase),
