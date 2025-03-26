@@ -70,18 +70,18 @@ TEST(chase) {
         /* Paths that use symlinks underneath the "root" */
 
         r = chase(p, NULL, 0, &result, NULL);
-        assert_se(r > 0);
+        ASSERT_OK_POSITIVE(r);
         assert_se(path_equal(result, "/usr"));
         result = mfree(result);
 
         r = chase(p, "/.//../../../", 0, &result, NULL);
-        assert_se(r > 0);
+        ASSERT_OK_POSITIVE(r);
         assert_se(path_equal(result, "/usr"));
         result = mfree(result);
 
         pslash = strjoina(p, "/");
         r = chase(pslash, NULL, 0, &result, NULL);
-        assert_se(r > 0);
+        ASSERT_OK_POSITIVE(r);
         assert_se(path_equal(result, "/usr/"));
         result = mfree(result);
 
@@ -108,12 +108,12 @@ TEST(chase) {
         ASSERT_OK(mkdir(q, 0700));
 
         r = chase(p, temp, 0, &result, NULL);
-        assert_se(r > 0);
+        ASSERT_OK_POSITIVE(r);
         assert_se(path_equal(result, q));
         result = mfree(result);
 
         r = chase(pslash, temp, 0, &result, NULL);
-        assert_se(r > 0);
+        ASSERT_OK_POSITIVE(r);
         assert_se(path_equal(result, qslash));
         result = mfree(result);
 
@@ -121,12 +121,12 @@ TEST(chase) {
         assert_se(symlink("/", p) >= 0);
 
         r = chase(p, NULL, 0, &result, NULL);
-        assert_se(r > 0);
+        ASSERT_OK_POSITIVE(r);
         assert_se(path_equal(result, "/"));
         result = mfree(result);
 
         r = chase(p, temp, 0, &result, NULL);
-        assert_se(r > 0);
+        ASSERT_OK_POSITIVE(r);
         assert_se(path_equal(result, temp));
         result = mfree(result);
 
@@ -172,13 +172,13 @@ TEST(chase) {
         ASSERT_OK(symlink("///usr///", p));
 
         r = chase(p, NULL, 0, &result, NULL);
-        assert_se(r > 0);
+        ASSERT_OK_POSITIVE(r);
         assert_se(path_equal(result, "/usr"));
         ASSERT_STREQ(result, "/usr"); /* we guarantee that we drop redundant slashes */
         result = mfree(result);
 
         r = chase(p, temp, 0, &result, NULL);
-        assert_se(r > 0);
+        ASSERT_OK_POSITIVE(r);
         assert_se(path_equal(result, q));
         result = mfree(result);
 
@@ -202,14 +202,14 @@ TEST(chase) {
 
                 /* Allow this when the user-owned directories are all in the "root". */
                 r = chase(p, q, CHASE_SAFE, &result, NULL);
-                assert_se(r > 0);
+                ASSERT_OK_POSITIVE(r);
                 result = mfree(result);
         }
 
         /* Paths using . */
 
         r = chase("/etc/./.././", NULL, 0, &result, NULL);
-        assert_se(r > 0);
+        ASSERT_OK_POSITIVE(r);
         assert_se(path_equal(result, "/"));
         result = mfree(result);
 
@@ -218,7 +218,7 @@ TEST(chase) {
         result = mfree(result);
 
         r = chase("/../.././//../../etc", NULL, 0, &result, NULL);
-        assert_se(r > 0);
+        ASSERT_OK_POSITIVE(r);
         ASSERT_STREQ(result, "/etc");
         result = mfree(result);
 
@@ -228,7 +228,7 @@ TEST(chase) {
         result = mfree(result);
 
         r = chase("/../.././//../../etc", "/", CHASE_PREFIX_ROOT, &result, NULL);
-        assert_se(r > 0);
+        ASSERT_OK_POSITIVE(r);
         ASSERT_STREQ(result, "/etc");
         result = mfree(result);
 
@@ -433,7 +433,7 @@ TEST(chase) {
         result = mfree(result);
 
         r = chase("/usr", NULL, CHASE_STEP, &result, NULL);
-        assert_se(r > 0);
+        ASSERT_OK_POSITIVE(r);
         ASSERT_STREQ("/usr", result);
         result = mfree(result);
 
@@ -442,7 +442,7 @@ TEST(chase) {
         assert_se(symlink(".", p) >= 0);
         q = strjoina(p, "/top/dot/dotdota");
         r = chase(q, p, 0, &result, NULL);
-        assert_se(r > 0);
+        ASSERT_OK_POSITIVE(r);
         assert_se(path_equal(path_startswith(result, p), "usr"));
         result = mfree(result);
 
