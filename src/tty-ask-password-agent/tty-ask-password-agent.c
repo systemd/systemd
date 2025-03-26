@@ -34,6 +34,7 @@
 #include "main-func.h"
 #include "memory-util.h"
 #include "mkdir-label.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
 #include "process-util.h"
@@ -251,7 +252,7 @@ static int process_one_password_file(const char *filename, FILE *f) {
                 if (arg_queryPID != 0) {
                     if (pid != arg_queryPID /* TODO: && compare PID with arg_query */) {
                         if (arg_action == ACTION_QUERY)
-                            log_info("Not querying '%s' (PID " PID_FMT "), ignored by query '%s'.", strna(message), pid, arg_query);
+                            log_info("Not querying '%s' (PID " PID_FMT "), ignored by query 'pid=%d'.", strna(message), pid, arg_queryPID);
 
                         return 0;
                     }
