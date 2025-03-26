@@ -2026,6 +2026,7 @@
           <term><varname>AssertHost=</varname></term>
           <term><varname>AssertKernelCommandLine=</varname></term>
           <term><varname>AssertKernelVersion=</varname></term>
+          <term><varname>AssertVersion=</varname></term>
           <term><varname>AssertCredential=</varname></term>
           <term><varname>AssertEnvironment=</varname></term>
           <term><varname>AssertSecurity=</varname></term>
