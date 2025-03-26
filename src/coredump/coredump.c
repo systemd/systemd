@@ -615,9 +615,9 @@ static int save_external_coredump(
 
                 *ret_filename = TAKE_PTR(fn_compressed);       /* compressed */
                 *ret_node_fd = TAKE_FD(fd_compressed);         /* compressed */
-                *ret_compressed_size = (uint64_t) st.st_size;  /* compressed */
                 *ret_data_fd = TAKE_FD(fd);
                 *ret_size = uncompressed_size;
+                *ret_compressed_size = (uint64_t) st.st_size;  /* compressed */
                 *ret_truncated = truncated;
                 tmp_compressed = mfree(tmp_compressed);
 
@@ -642,8 +642,10 @@ static int save_external_coredump(
                 return log_error_errno(errno, "Failed to seek on coredump %s: %m", fn);
 
         *ret_filename = TAKE_PTR(fn);
+        *ret_node_fd = -EBADF;
         *ret_data_fd = TAKE_FD(fd);
         *ret_size = (uint64_t) st.st_size;
+        *ret_compressed_size = UINT64_MAX;
         *ret_truncated = truncated;
 
         return 0;
