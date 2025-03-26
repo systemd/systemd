@@ -9,4 +9,4 @@ ExecStartPre=rm -f /failed /testok
 ExecStart=@command@
 Type=oneshot
 MemoryAccounting=@memory-accounting@
-Environment=SYSTEMD_PAGER=
+Environment=SYSTEMD_PAGER= @env@
