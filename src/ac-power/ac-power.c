@@ -2,6 +2,7 @@
 
 #include <getopt.h>
 
+#include "ansi-color.h"
 #include "battery-util.h"
 #include "build.h"
 #include "main-func.h"
@@ -14,13 +15,17 @@ static enum {
 } arg_action = ACTION_AC_POWER;
 
 static void help(void) {
-        printf("%s\n\n"
-               "Report whether we are connected to an external power source.\n\n"
+        printf("%1$s [OPTION]\n"
+               "\n%2$sReport whether we are connected to an external power source.%4$s\n"
+               "\n%3$sOptions:%4$s\n"
                "  -h --help             Show this help\n"
                "     --version          Show package version\n"
                "  -v --verbose          Show state as text\n"
                "     --low              Check if battery is discharging and low\n",
-               program_invocation_short_name);
+               program_invocation_short_name,
+               ansi_highlight(),
+               ansi_underline(),
+               ansi_normal());
 }
 
 static int parse_argv(int argc, char *argv[]) {
