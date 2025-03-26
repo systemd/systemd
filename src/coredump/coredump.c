@@ -619,7 +619,6 @@ static int save_external_coredump(
                 *ret_size = uncompressed_size;
                 *ret_compressed_size = (uint64_t) st.st_size;  /* compressed */
                 *ret_truncated = truncated;
-                tmp_compressed = mfree(tmp_compressed);
 
                 return 0;
         }
