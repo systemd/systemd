@@ -1197,7 +1197,6 @@ static int vl_method_add_mount_to_user_namespace(sd_varlink *link, sd_json_varia
         };
         int r, mnt_id = 0;
         struct stat userns_st;
-        uid_t peer_uid;
 
         assert(link);
         assert(parameters);
@@ -1207,11 +1206,9 @@ static int vl_method_add_mount_to_user_namespace(sd_varlink *link, sd_json_varia
                 return r;
 
         /* Allowlisting arbitrary mounts is a privileged operation */
-        r = sd_varlink_get_peer_uid(link, &peer_uid);
+        r = varlink_check_privileged_peer(link);
         if (r < 0)
                 return r;
-        if (peer_uid != 0)
-                return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, NULL);
 
         r = sd_varlink_dispatch(link, parameters, parameter_dispatch_table, &p);
         if (r != 0)
