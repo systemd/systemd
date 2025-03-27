@@ -189,6 +189,10 @@ static int worker_new(Worker **ret, Manager *manager, sd_device_monitor *worker_
         if (r < 0)
                 return r;
 
+        r = sd_event_source_set_priority(worker->child_event_source, EVENT_PRIORITY_WORKER_SIGCHLD);
+        if (r < 0)
+                return r;
+
         r = hashmap_ensure_put(&manager->workers, &worker_hash_op, &worker->pidref, worker);
         if (r < 0)
                 return r;
@@ -1123,6 +1127,10 @@ static int manager_start_device_monitor(Manager *manager) {
         if (r < 0)
                 return log_error_errno(r, "Failed to start device monitor: %m");
 
+        r = sd_event_source_set_priority(sd_device_monitor_get_event_source(manager->monitor), EVENT_PRIORITY_DEVICE_MONITOR);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set priority to device monitor: %m");
+
         return 0;
 }
 
@@ -1134,7 +1142,7 @@ static int manager_start_worker_notify(Manager *manager) {
 
         r = notify_socket_prepare(
                         manager->event,
-                        SD_EVENT_PRIORITY_NORMAL,
+                        EVENT_PRIORITY_WORKER_NOTIFY,
                         on_worker_notify,
                         manager,
                         &manager->worker_notify_socket_path);
