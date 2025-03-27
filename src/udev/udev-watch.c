@@ -386,6 +386,10 @@ int manager_start_inotify(Manager *manager) {
         if (r < 0)
                 return log_error_errno(r, "Failed to create inotify event source: %m");
 
+        r = sd_event_source_set_priority(s, EVENT_PRIORITY_INOTIFY_WATCH);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set priority to inotify event source: %m");
+
         (void) sd_event_source_set_description(s, "manager-inotify");
 
         manager->inotify_event = TAKE_PTR(s);
