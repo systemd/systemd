@@ -4,10 +4,14 @@
 #include "sd-device.h"
 
 typedef struct Manager Manager;
+typedef struct UdevWorker UdevWorker;
 
 int manager_push_inotify(Manager *manager);
 int manager_init_inotify(Manager *manager, int fd);
 int manager_start_inotify(Manager *manager);
 
-int udev_watch_begin(int inotify_fd, sd_device *dev);
-int udev_watch_end(int inotify_fd, sd_device *dev);
+int manager_add_watch(Manager *manager, sd_device *dev);
+int manager_remove_watch(Manager *manager, sd_device *dev);
+
+int udev_watch_begin(UdevWorker *worker, sd_device *dev);
+int udev_watch_end(UdevWorker *worker, sd_device *dev);
