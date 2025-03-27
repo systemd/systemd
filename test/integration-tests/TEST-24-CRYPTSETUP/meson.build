@@ -22,5 +22,6 @@ integration_tests += [
                         '--runtime-size=11G',
                 ],
                 'vm' : true,
+                'firmware' : 'linux',
         },
 ]
