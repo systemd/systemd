@@ -1158,7 +1158,8 @@ static int fd_copy_directory(
                                          denylist, subvolumes, hardlink_context, child_display_path, progress_path,
                                          progress_bytes, userdata);
 
-                if (IN_SET(r, -EINTR, -ENOSPC)) /* Propagate SIGINT/SIGTERM and ENOSPC up instantly */
+                /* Propagate unsupported, SIGINT/SIGTERM, and ENOSPC up instantly */
+                if (ERRNO_IS_NOT_SUPPORTED(r) || IN_SET(r, -EINTR, -ENOSPC))
                         return r;
                 if (r == -EEXIST && (copy_flags & COPY_MERGE))
                         r = 0;
