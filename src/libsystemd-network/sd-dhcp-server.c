@@ -729,7 +729,7 @@ static int server_send_forcerenew(
                                     sizeof(DHCPMessage) + optoffset);
 }
 
-static int parse_request(uint8_t code, uint8_t len, const void *option, void *userdata) {
+static int parse_request(uint8_t code, size_t len, const void *option, void *userdata) {
         DHCPRequest *req = ASSERT_PTR(userdata);
         int r;
 
