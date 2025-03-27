@@ -178,6 +178,8 @@ option('rfkill', type : 'boolean',
        description : 'support for the rfkill tools')
 option('xdg-autostart', type : 'boolean',
        description : 'install the xdg-autostart-generator and unit')
+option('nspawn', type : 'feature',
+       description : 'build and install systemd-nspawn')
 option('man', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        value : 'disabled',
        description : 'build and install man pages')
