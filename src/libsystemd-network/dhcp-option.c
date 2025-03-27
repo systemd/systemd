@@ -6,15 +6,23 @@
 #include <errno.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "alloc-util.h"
 #include "dhcp-option.h"
+#include "dhcp-protocol.h"
 #include "dhcp-server-internal.h"
 #include "dns-domain.h"
+#include "hash-funcs.h"
+#include "hashmap.h"
 #include "hostname-util.h"
+#include "list.h"
+#include "macro.h"
 #include "memory-util.h"
 #include "ordered-set.h"
+#include "sd-dhcp-protocol.h"
 #include "strv.h"
+#include "unaligned.h"
 #include "utf8.h"
 
 /* Append type-length value structure to the options buffer */
@@ -276,10 +284,10 @@ int dhcp_option_append(DHCPMessage *message, size_t size, size_t *offset,
         return -ENOBUFS;
 }
 
-static int parse_options(const uint8_t options[], size_t buflen, uint8_t *overload,
-                         uint8_t *message_type, char **error_message, dhcp_option_callback_t cb,
-                         void *userdata) {
-        uint8_t code, len;
+static int parse_options(const uint8_t options[], size_t buflen, uint8_t *message_type,
+                         char **error_message, dhcp_option_callback_t cb, void *userdata) {
+        uint8_t code;
+        uint16_t len;
         const uint8_t *option;
         size_t offset = 0;
         int r;
@@ -287,18 +295,11 @@ static int parse_options(const uint8_t options[], size_t buflen, uint8_t *overlo
         while (offset < buflen) {
                 code = options[offset++];
 
-                switch (code) {
-                case SD_DHCP_OPTION_PAD:
-                        continue;
-
-                case SD_DHCP_OPTION_END:
-                        return 0;
-                }
-
-                if (buflen < offset + 1)
+                if (buflen < offset + 2)
                         return -ENOBUFS;
 
-                len = options[offset++];
+                len = unaligned_read_be16(&options[offset]);
+                offset += 2;
 
                 if (buflen < offset + len)
                         return -EINVAL;
@@ -333,14 +334,6 @@ static int parse_options(const uint8_t options[], size_t buflen, uint8_t *overlo
                         }
 
                         break;
-                case SD_DHCP_OPTION_OVERLOAD:
-                        if (len != 1)
-                                return -EINVAL;
-
-                        if (overload)
-                                *overload = *option;
-
-                        break;
 
                 default:
                         if (cb)
@@ -356,10 +349,174 @@ static int parse_options(const uint8_t options[], size_t buflen, uint8_t *overlo
         return 0;
 }
 
+typedef struct MergeOptionNode {
+        const uint8_t *data;
+        LIST_FIELDS(struct MergeOptionNode, options);
+} MergeOptionNode;
+
+static MergeOptionNode* merge_option_free(MergeOptionNode *head) {
+        LIST_CLEAR(options, head, free);
+        return NULL;
+}
+
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(merge_option_node_ops,
+                                              void,
+                                              trivial_hash_func,
+                                              trivial_compare_func,
+                                              MergeOptionNode,
+                                              merge_option_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(MergeOptionNode*, merge_option_free);
+#define _cleanup_merge_option_node_ _cleanup_(merge_option_freep)
+
+static int dhcp_option_merge_append(const uint8_t *buf, size_t buflen, OrderedHashmap **opts,
+                                    size_t *tot_len, uint8_t *overload) {
+        int r;
+        size_t offset = 0;
+        _cleanup_merge_option_node_ MergeOptionNode *next = NULL;
+
+        assert(buf);
+        assert(opts);
+        assert(tot_len);
+
+        while (offset < buflen) {
+                const uint8_t *data = &buf[offset];
+                uint8_t code = buf[offset++];
+
+                switch (code) {
+                case SD_DHCP_OPTION_PAD:
+                        continue;
+                case SD_DHCP_OPTION_END:
+                        return 0;
+                }
+
+                if (buflen < offset + 1)
+                        return -ENOBUFS;
+
+                uint8_t len = buf[offset++];
+
+                if (buflen < offset + len)
+                        return -EINVAL;
+
+                switch (code) {
+                case SD_DHCP_OPTION_OVERLOAD:
+                        if (len != 1)
+                                return -EINVAL;
+                        if (overload)
+                                *overload = buf[offset];
+                        offset++;
+                        continue;
+                }
+
+                next = new(MergeOptionNode, 1);
+                if (!next)
+                        return -ENOMEM;
+                *next = (MergeOptionNode){.data = data};
+
+                MergeOptionNode *head = ordered_hashmap_get(*opts, UINT_TO_PTR(code));
+                if (head)
+                        LIST_APPEND(options, head, TAKE_PTR(next));
+                else {
+                        r = ordered_hashmap_ensure_put(opts, &merge_option_node_ops,
+                                                       UINT_TO_PTR(code), next);
+                        if (r < 0)
+                                return r;
+                        TAKE_PTR(next);
+                }
+
+                offset += len;
+                *tot_len += len;
+        }
+
+        return 0;
+}
+
+/* RFC3396 specifies how DHCP options longer than 255 bytes should be handled.
+ *
+ * Option is to be repeated multiple times and treated as one, long, option. However, the cut can
+ * happen at byte boundaries, and clients MUST assume no semantic meaning whatsoever from this cut.
+ * In practice, this means the cut can happen anywhere in the middle of a semantic unit of the
+ * option (e.g. DHCP option 121 (Classless Static Routes) can be split in the middle of a route).
+ *
+ * With the current architecture of stateless callbacks that take a whole chunk of memory, it
+ * becomes hard to retain data between two consecutive callbacks without major changes to the
+ * architecture.
+ *
+ * This function will merge DHCP options by concatenating options of the same type, producing a new
+ * TLV buffer, but using u16 len fields instead of u8. This works due to a DHCP message size having
+ * an inherent upper bound, lower than u16::MAX.
+ *
+ * Basically, this produces the aggregated option buffer the RFC talks about.
+ */
+static int dhcp_option_merge(const DHCPMessage *message, size_t buflen, uint8_t **ret_merged) {
+        _cleanup_ordered_hashmap_free_ OrderedHashmap *opts = NULL;
+        uint8_t *aggregate, overload = 0;
+        size_t tot_len = 0;
+        int r;
+
+        assert(message);
+        assert(ret_merged);
+
+        /* RFC3396 5. The Aggregate Option Buffer
+         *
+         *   [...], an option that doesn't fit into one field can't overlap the boundary into
+         *   another field - the encoding agent must instead break the option into two parts and
+         *   store one part in each buffer.
+         *
+         *   To simplify this discussion, we will talk about an aggregate option buffer, which will
+         *   be the aggregate of the three buffers. [...] The aggregate option buffer is made up of
+         *   the optional parameters field, the file field, and the sname field, in that order.
+         *
+         * Since options cannot overlap from one field to another, it is safe to read them in
+         * isolation.
+         */
+        r = dhcp_option_merge_append(message->options, buflen, &opts, &tot_len, &overload);
+        if (r < 0)
+                return r;
+        if (overload & DHCP_OVERLOAD_FILE) {
+                r = dhcp_option_merge_append(message->file, sizeof(message->file), &opts,
+                                             &tot_len, NULL);
+                if (r < 0)
+                        return r;
+        }
+        if (overload & DHCP_OVERLOAD_SNAME) {
+                r = dhcp_option_merge_append(message->sname, sizeof(message->sname), &opts,
+                                             &tot_len, NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        /* Consolidate in a new buffer */
+        buflen = tot_len + ordered_hashmap_size(opts) * 3;
+        aggregate = new(uint8_t, buflen);
+        if (!aggregate)
+                return r;
+
+        size_t offset = 0;
+        MergeOptionNode *head;
+        ORDERED_HASHMAP_FOREACH(head, opts) {
+                uint8_t code = head->data[0];
+                uint8_t *opt_base = &aggregate[offset];
+                offset += 3;
+
+                size_t len = 0;
+                LIST_FOREACH(options, opt, head) {
+                        size_t optlen = opt->data[1];
+                        memcpy_safe(&aggregate[offset], &opt->data[2], optlen);
+                        offset += optlen;
+                        len += optlen;
+                }
+                opt_base[0] = code;
+                unaligned_write_be16(&opt_base[1], len);
+        }
+
+        *ret_merged = aggregate;
+        return buflen;
+}
+
 int dhcp_option_parse(DHCPMessage *message, size_t len, dhcp_option_callback_t cb, void *userdata, char **ret_error_message) {
         _cleanup_free_ char *error_message = NULL;
-        uint8_t overload = 0;
         uint8_t message_type = 0;
+        _cleanup_free_ uint8_t *options = NULL;
         int r;
 
         if (!message)
@@ -370,21 +527,14 @@ int dhcp_option_parse(DHCPMessage *message, size_t len, dhcp_option_callback_t c
 
         len -= sizeof(DHCPMessage);
 
-        r = parse_options(message->options, len, &overload, &message_type, &error_message, cb, userdata);
+        r = dhcp_option_merge(message, len, &options);
         if (r < 0)
                 return r;
+        len = r;
 
-        if (overload & DHCP_OVERLOAD_FILE) {
-                r = parse_options(message->file, sizeof(message->file), NULL, &message_type, &error_message, cb, userdata);
-                if (r < 0)
-                        return r;
-        }
-
-        if (overload & DHCP_OVERLOAD_SNAME) {
-                r = parse_options(message->sname, sizeof(message->sname), NULL, &message_type, &error_message, cb, userdata);
-                if (r < 0)
-                        return r;
-        }
+        r = parse_options(options, len, &message_type, &error_message, cb, userdata);
+        if (r < 0)
+                return r;
 
         if (message_type == 0)
                 return -ENOMSG;

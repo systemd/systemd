@@ -14,6 +14,12 @@
 #include "memory-util.h"
 #include "tests.h"
 
+struct opt_overrides {
+        uint8_t code;
+        uint8_t data[128];
+        size_t len;
+};
+
 struct option_desc {
         uint8_t sname[64];
         int snamelen;
@@ -22,6 +28,8 @@ struct option_desc {
         uint8_t options[128];
         int len;
         bool success;
+        struct opt_overrides overrides[16];
+        int overrideslen;
         int filepos;
         int snamepos;
         int pos;
@@ -52,6 +60,27 @@ static struct option_desc option_tests[] = {
           { 222, 3, 1, 2, 3 }, 5,
           { SD_DHCP_OPTION_OVERLOAD, 1,
             DHCP_OVERLOAD_FILE|DHCP_OVERLOAD_SNAME }, 3, true, },
+        /* test RFC3396: option split across multiple options, cut at an arbitrary byte boundary.
+         * Example here for a routing table, where the split is in the middle of the route.
+         * In practice, this will happen when the routes don't fit in a single option, but the
+         * behavior will likely be the same.
+         */
+        {
+                .options = {
+                        SD_DHCP_OPTION_MESSAGE_TYPE, 1, DHCP_ACK,
+                        SD_DHCP_OPTION_CLASSLESS_STATIC_ROUTE, 4, 22, 172, 16, 0,
+                        SD_DHCP_OPTION_CLASSLESS_STATIC_ROUTE, 4, 0, 0, 0, 0,
+                },
+                .len = 15,
+                .success = true,
+                /* the whole option must be reconstituted, so let's override the payload */
+                .overrides = {{
+                        .code = SD_DHCP_OPTION_CLASSLESS_STATIC_ROUTE,
+                        .data = {22, 172, 16, 0, 0, 0, 0, 0},
+                        .len = 8,
+                }},
+                .overrideslen = 1,
+        },
 };
 
 static const char *dhcp_type(int type) {
@@ -143,12 +172,13 @@ static void test_ignore_opts(uint8_t *descoption, int *descpos, int *desclen) {
         }
 }
 
-static int test_options_cb(uint8_t code, uint8_t len, const void *option, void *userdata) {
+static int test_options_cb(uint8_t code, size_t len, const void *option, void *userdata) {
         struct option_desc *desc = userdata;
         uint8_t *descoption = NULL;
         int *desclen = NULL, *descpos = NULL;
         uint8_t optcode = 0;
         uint8_t optlen = 0;
+        size_t descoption_offset;
 
         assert_se((!desc && !code && !len) || desc);
 
@@ -193,21 +223,30 @@ static int test_options_cb(uint8_t code, uint8_t len, const void *option, void *
 
         optcode = descoption[*descpos];
         optlen = descoption[*descpos + 1];
+        descoption_offset = *descpos + 2;
+
+        for (int i = 0; i < desc->overrideslen; i++)
+                if (desc->overrides[i].code == optcode) {
+                        optlen = desc->overrides[i].len;
+                        descoption = desc->overrides[i].data;
+                        descoption_offset = 0;
+                        break;
+                }
 
         if (verbose)
-                printf("DHCP code %2d(%2d) len %2d(%2d) ", code, optcode,
+                printf("DHCP code %2d(%2d) len %4zu(%2d) ", code, optcode,
                                 len, optlen);
 
         assert_se(code == optcode);
         assert_se(len == optlen);
 
-        for (unsigned i = 0; i < len; i++) {
+        for (size_t i = 0; i < len; i++) {
                 if (verbose)
                         printf("0x%02x(0x%02x) ",
                                ((uint8_t*) option)[i],
-                               descoption[*descpos + 2 + i]);
+                               descoption[descoption_offset + i]);
 
-                assert_se(((uint8_t*) option)[i] == descoption[*descpos + 2 + i]);
+                assert_se(((uint8_t*) option)[i] == descoption[descoption_offset + i]);
         }
 
         if (verbose)
@@ -332,9 +371,9 @@ static void test_option_set(void) {
                         assert_se(offset == pos);
         }
 
-        for (unsigned i = 0; i < 9; i++) {
+        for (size_t i = 0; i < 9; i++) {
                 if (verbose)
-                        printf("%2u: 0x%02x(0x%02x) (options)\n", i, result->options[i],
+                        printf("%2zu: 0x%02x(0x%02x) (options)\n", i, result->options[i],
                                the_options[i]);
                 assert_se(result->options[i] == the_options[i]);
         }
