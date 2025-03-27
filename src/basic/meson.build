@@ -274,6 +274,8 @@ filesystem_switch_case_h = custom_target(
 
 basic_sources += [filesystem_list_h, filesystem_switch_case_h, filesystems_gperf_h]
 
+libsystemd_req = dependency('systemd', static: true, required: true)
+
 libbasic_static = static_library(
         'basic',
         basic_sources,
@@ -285,6 +287,7 @@ libbasic_static = static_library(
                         liblz4_cflags,
                         libm,
                         librt,
+                        libsystemd_req,
                         libxz_cflags,
                         libzstd_cflags,
                         threads,
