@@ -7,7 +7,7 @@ integration_test_template = {
         'timeout' : 1800,
         'storage' : 'volatile',
         'priority' : 0,
-        'firmware' : 'linux',
+        'firmware' : 'linux-noinitrd',
         'enabled' : true,
         'configuration' : {
                 'memory-accounting' : 'no',

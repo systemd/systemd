@@ -8,5 +8,6 @@ integration_tests += [
                 ],
                 'exit-code' : 124,
                 'vm' : true,
+                'firmware' : 'linux',
         },
 ]
