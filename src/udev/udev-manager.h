@@ -14,6 +14,11 @@
 #include "udev-ctrl.h"
 #include "udev-def.h"
 
+#define EVENT_PRIORITY_INOTIFY_WATCH  (SD_EVENT_PRIORITY_NORMAL - 30) /* This must have a higher priority than the worker notification.*/
+#define EVENT_PRIORITY_WORKER_NOTIFY  (SD_EVENT_PRIORITY_NORMAL - 20) /* This must have a higher priority than the worker sigchld event. */
+#define EVENT_PRIORITY_WORKER_SIGCHLD (SD_EVENT_PRIORITY_NORMAL - 10)
+#define EVENT_PRIORITY_DEVICE_MONITOR (SD_EVENT_PRIORITY_NORMAL + 10) /* To make other signals and timer event sources processed earlier. */
+
 typedef struct Event Event;
 typedef struct UdevRules UdevRules;
 typedef struct Worker Worker;
