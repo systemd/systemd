@@ -10,6 +10,11 @@ if [[ "$FSTYPE" == "fuseblk" ]]; then
     exit 77
 fi
 
+if ! command -v systemd-nspawn >/dev/null; then
+    echo "no systemd-nspawn" >/skipped
+    exit 77
+fi
+
 # shellcheck source=test/units/test-control.sh
 . "$(dirname "$0")"/test-control.sh
 

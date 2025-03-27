@@ -1610,6 +1610,9 @@ conf.set10('ENABLE_REMOTE', have)
 feature = get_option('vmspawn').disable_auto_if(conf.get('BUILD_MODE_DEVELOPER') == 0)
 conf.set10('ENABLE_VMSPAWN', feature.allowed())
 
+feature = get_option('nspawn')
+conf.set10('ENABLE_NSPAWN', feature.allowed())
+
 conf.set10('DEFAULT_MOUNTFSD_TRUSTED_DIRECTORIES', get_option('default-mountfsd-trusted-directories'))
 
 foreach term : ['analyze',
@@ -3046,6 +3049,7 @@ foreach tuple : [
         ['machined'],
         ['mountfsd'],
         ['networkd'],
+        ['nspawn'],
         ['nsresourced'],
         ['nss-myhostname'],
         ['nss-mymachines'],
