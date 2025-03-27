@@ -23,7 +23,7 @@ struct sd_dhcp_raw_option {
         LIST_FIELDS(struct sd_dhcp_raw_option, options);
 
         uint8_t tag;
-        uint8_t length;
+        size_t length;
         void *data;
 };
 
@@ -89,9 +89,9 @@ struct sd_dhcp_lease {
 
 int dhcp_lease_new(sd_dhcp_lease **ret);
 
-int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void *userdata);
+int dhcp_lease_parse_options(uint8_t code, size_t len, const void *option, void *userdata);
 int dhcp_lease_parse_search_domains(const uint8_t *option, size_t len, char ***domains);
-int dhcp_lease_insert_private_option(sd_dhcp_lease *lease, uint8_t tag, const void *data, uint8_t len);
+int dhcp_lease_insert_private_option(sd_dhcp_lease *lease, uint8_t tag, const void *data, size_t len);
 
 void dhcp_lease_set_timestamp(sd_dhcp_lease *lease, const triple_timestamp *timestamp);
 int dhcp_lease_set_default_subnet_mask(sd_dhcp_lease *lease);
