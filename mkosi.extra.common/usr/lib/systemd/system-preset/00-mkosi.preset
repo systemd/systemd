@@ -37,6 +37,15 @@ disable iscsi.service
 disable iscsid.socket
 disable iscsiuio.socket
 
+# Enabled by default on Fedora, but don't make sense for our use case.
+disable lvm2-lvmpolld.socket
+disable lvm2-monitor.service
+disable dracut-shutdown.service
+disable dm-event.socket
+disable fstrim.timer
+disable raid-check.timer
+disable systemd-tmpfiles-clean.timer
+
 # mkosi relabels the image itself so no need to do it on boot.
 disable selinux-autorelabel-mark.service
 
