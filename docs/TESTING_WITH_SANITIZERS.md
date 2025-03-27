@@ -102,5 +102,4 @@ make things work as expected in most cases. This will, obviously, not work with
 statically linked sanitizer libraries.
 
 These shenanigans are performed automatically when running the integration test
-suite (i.e. `test/TEST-??-*`) and are located in `test/test-functions` (mainly,
-but not only, in the `create_asan_wrapper` function).
+suite.

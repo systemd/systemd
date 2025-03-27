@@ -7,5 +7,3 @@ integration_tests += [
                 'coredump-exclude-regex' : '/(bash|sleep)$',
         },
 ]
-
-testdata_subdirs += [meson.current_source_dir() / 'TEST-16-EXTEND-TIMEOUT.units']
