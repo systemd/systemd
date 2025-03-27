@@ -20,15 +20,13 @@
  */
 
 static int run(int argc, char **argv) {
-        _cleanup_close_ int fd = -EBADF;
-        char **args = strv_skip(argv, 1);
         int r;
 
         test_setup_logging(LOG_DEBUG);
 
-        args = !strv_isempty(args) ? args : STRV_MAKE("/bin/true");
+        char **args = strv_skip(argv, 1) ?: STRV_MAKE("/bin/true");
 
-        fd = open(args[0], O_RDONLY | O_CLOEXEC);
+        _cleanup_close_ int fd = open(args[0], O_RDONLY | O_CLOEXEC);
         if (fd < 0)
                 return log_error_errno(errno, "open(%s) failed: %m", args[0]);
 
