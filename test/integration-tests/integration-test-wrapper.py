@@ -489,6 +489,22 @@ def main() -> None:
     else:
         rtc = None
 
+    # mkosi will use the UEFI secure boot firmware by default on UEFI platforms. However, this breaks on
+    # Github Actions in combination with KVM because of a HyperV bug so make sure we use the non secure
+    # boot firmware on Github Actions.
+    # TODO: Drop after the HyperV bug that breaks secure boot KVM guests is solved
+    if args.firmware == 'auto' and os.getenv('GITHUB_ACTIONS'):
+        firmware = 'uefi'
+    # Whenever possible, boot without an initrd. This requires the target distribution kernel to have the
+    # necessary modules (virtio-blk, ext4) builtin.
+    elif args.firmware == 'linux-noinitrd' and (summary.distribution, summary.release) not in (
+        ('fedora', 'rawhide'),
+        ('arch', 'rolling'),
+    ):
+        firmware = 'linux'
+    else:
+        firmware = args.firmware
+
     cmd = [
         args.mkosi,
         '--directory', os.fspath(args.meson_source_dir),
@@ -508,11 +524,7 @@ def main() -> None:
         '--runtime-scratch=no',
         *([f'--qemu-args=-rtc base={rtc}'] if rtc else []),
         *args.mkosi_args,
-        # mkosi will use the UEFI secure boot firmware by default on UEFI platforms. However, this breaks on
-        # Github Actions in combination with KVM because of a HyperV bug so make sure we use the non secure
-        # boot firmware on Github Actions.
-        # TODO: Drop after the HyperV bug that breaks secure boot KVM guests is solved
-        '--firmware', 'uefi' if args.firmware == 'auto' and os.getenv("GITHUB_ACTIONS") else args.firmware,
+        '--firmware', firmware,
         *(['--kvm', 'no'] if int(os.getenv('TEST_NO_KVM', '0')) else []),
         '--kernel-command-line-extra',
         ' '.join(
