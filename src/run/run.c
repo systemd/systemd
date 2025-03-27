@@ -2153,6 +2153,60 @@ static int run_context_setup_ptyfwd(RunContext *c) {
         return 0;
 }
 
+static void run_context_show_result(RunContext *c) {
+        assert(c);
+
+        if (!isempty(c->result))
+                log_info("Finished with result: %s", strna(c->result));
+
+        if (c->exit_code > 0)
+                log_info("Main processes terminated with: code=%s, status=%u/%s",
+                         sigchld_code_to_string(c->exit_code),
+                         c->exit_status,
+                         strna(c->exit_code == CLD_EXITED ?
+                               exit_status_to_string(c->exit_status, EXIT_STATUS_FULL) :
+                               signal_to_string(c->exit_status)));
+
+        if (timestamp_is_set(c->inactive_enter_usec) &&
+            timestamp_is_set(c->inactive_exit_usec) &&
+            c->inactive_enter_usec > c->inactive_exit_usec)
+                log_info("Service runtime: %s",
+                         FORMAT_TIMESPAN(c->inactive_enter_usec - c->inactive_exit_usec, USEC_PER_MSEC));
+
+        if (c->cpu_usage_nsec != NSEC_INFINITY)
+                log_info("CPU time consumed: %s",
+                         FORMAT_TIMESPAN(DIV_ROUND_UP(c->cpu_usage_nsec, NSEC_PER_USEC), USEC_PER_MSEC));
+
+        if (c->memory_peak != UINT64_MAX) {
+                const char *swap;
+
+                if (c->memory_swap_peak != UINT64_MAX)
+                        swap = strjoina(" (swap: ", FORMAT_BYTES(c->memory_swap_peak), ")");
+                else
+                        swap = "";
+
+                log_info("Memory peak: %s%s", FORMAT_BYTES(c->memory_peak), swap);
+        }
+
+        const char *ip_ingress = NULL, *ip_egress = NULL;
+        if (!IN_SET(c->ip_ingress_bytes, 0, UINT64_MAX))
+                ip_ingress = strjoina(" received: ", FORMAT_BYTES(c->ip_ingress_bytes));
+        if (!IN_SET(c->ip_egress_bytes, 0, UINT64_MAX))
+                ip_egress = strjoina(" sent: ", FORMAT_BYTES(c->ip_egress_bytes));
+
+        if (ip_ingress || ip_egress)
+                log_info("IP traffic%s%s", strempty(ip_ingress), strempty(ip_egress));
+
+        const char *io_read = NULL, *io_write = NULL;
+        if (!IN_SET(c->io_read_bytes, 0, UINT64_MAX))
+                io_read = strjoina(" read: ", FORMAT_BYTES(c->io_read_bytes));
+        if (!IN_SET(c->io_write_bytes, 0, UINT64_MAX))
+                io_write = strjoina(" written: ", FORMAT_BYTES(c->io_write_bytes));
+
+        if (io_read || io_write)
+                log_info("IO bytes%s%s", strempty(io_read), strempty(io_write));
+}
+
 static int start_transient_service(sd_bus *bus) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -2348,60 +2402,8 @@ static int start_transient_service(sd_bus *bus) {
                 /* Close the journal watch logic before we output the exit summary */
                 journal_terminate(&journal_pid);
 
-                if (arg_wait && !arg_quiet) {
-
-                        if (!isempty(c.result))
-                                log_info("Finished with result: %s", strna(c.result));
-
-                        if (c.exit_code > 0)
-                                log_info("Main processes terminated with: code=%s, status=%u/%s",
-                                         sigchld_code_to_string(c.exit_code),
-                                         c.exit_status,
-                                         strna(c.exit_code == CLD_EXITED ?
-                                               exit_status_to_string(c.exit_status, EXIT_STATUS_FULL) :
-                                               signal_to_string(c.exit_status)));
-
-                        if (timestamp_is_set(c.inactive_enter_usec) &&
-                            timestamp_is_set(c.inactive_exit_usec) &&
-                            c.inactive_enter_usec > c.inactive_exit_usec)
-                                log_info("Service runtime: %s",
-                                         FORMAT_TIMESPAN(c.inactive_enter_usec - c.inactive_exit_usec, USEC_PER_MSEC));
-
-                        if (c.cpu_usage_nsec != NSEC_INFINITY)
-                                log_info("CPU time consumed: %s",
-                                         FORMAT_TIMESPAN(DIV_ROUND_UP(c.cpu_usage_nsec, NSEC_PER_USEC), USEC_PER_MSEC));
-
-                        if (c.memory_peak != UINT64_MAX) {
-                                const char *swap;
-
-                                if (c.memory_swap_peak != UINT64_MAX)
-                                        swap = strjoina(" (swap: ", FORMAT_BYTES(c.memory_swap_peak), ")");
-                                else
-                                        swap = "";
-
-                                log_info("Memory peak: %s%s", FORMAT_BYTES(c.memory_peak), swap);
-                        }
-
-                        const char *ip_ingress = NULL, *ip_egress = NULL;
-
-                        if (!IN_SET(c.ip_ingress_bytes, 0, UINT64_MAX))
-                                ip_ingress = strjoina(" received: ", FORMAT_BYTES(c.ip_ingress_bytes));
-                        if (!IN_SET(c.ip_egress_bytes, 0, UINT64_MAX))
-                                ip_egress = strjoina(" sent: ", FORMAT_BYTES(c.ip_egress_bytes));
-
-                        if (ip_ingress || ip_egress)
-                                log_info("IP traffic%s%s", strempty(ip_ingress), strempty(ip_egress));
-
-                        const char *io_read = NULL, *io_write = NULL;
-
-                        if (!IN_SET(c.io_read_bytes, 0, UINT64_MAX))
-                                io_read = strjoina(" read: ", FORMAT_BYTES(c.io_read_bytes));
-                        if (!IN_SET(c.io_write_bytes, 0, UINT64_MAX))
-                                io_write = strjoina(" written: ", FORMAT_BYTES(c.io_write_bytes));
-
-                        if (io_read || io_write)
-                                log_info("IO bytes%s%s", strempty(io_read), strempty(io_write));
-                }
+                if (arg_wait && !arg_quiet)
+                        run_context_show_result(&c);
 
                 /* Try to propagate the service's return value. But if the service defines
                  * e.g. SuccessExitStatus, honour this, and return 0 to mean "success". */
