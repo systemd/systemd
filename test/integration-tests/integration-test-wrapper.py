@@ -365,6 +365,7 @@ def main() -> None:
     parser.add_argument('--coredump-exclude-regex', required=True)
     parser.add_argument('--sanitizer-exclude-regex', required=True)
     parser.add_argument('--rtc', action=argparse.BooleanOptionalAction)
+    parser.add_argument('--skip', action=argparse.BooleanOptionalAction)
     parser.add_argument('mkosi_args', nargs='*')
     args = parser.parse_args()
 
@@ -384,6 +385,10 @@ def main() -> None:
 
     if args.vm and bool(int(os.getenv('TEST_NO_QEMU', '0'))):
         print(f'TEST_NO_QEMU=1, skipping {args.name}', file=sys.stderr)
+        exit(77)
+
+    if args.skip:
+        print(f'meson requirements for test {args.name} were not fulfilled, skipping', file=sys.stderr)
         exit(77)
 
     for s in os.getenv('TEST_SKIP', '').split():
