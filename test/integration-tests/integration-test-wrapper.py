@@ -350,6 +350,15 @@ def process_coverage(args: argparse.Namespace, summary: Summary, name: str, jour
             print(f'Wrote coverage report for {name} to {output}', file=sys.stderr)
 
 
+def statfs(path: Path) -> str:
+    return subprocess.run(
+        ['stat', '--file-system', os.fspath(path), '--format=%T'],
+        stdout=subprocess.PIPE,
+        text=True,
+        check=True,
+    ).stdout.strip()
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--mkosi', required=True)
@@ -442,7 +451,12 @@ def main() -> None:
         )
 
     if os.getenv('TEST_JOURNAL_USE_TMP', '0') == '1':
-        journal_file = Path(f'/tmp/systemd-integration-tests/journal/{name}.journal')
+        if statfs(Path('/tmp')) != 'tmpfs' and statfs(Path('/dev/shm')) == 'tmpfs':
+            tmp = Path('/dev/shm')
+        else:
+            tmp = Path('/tmp')
+
+        journal_file = tmp / f'systemd-integration-tests/journal/{name}.journal'
     else:
         journal_file = (args.meson_build_dir / f'test/journal/{name}.journal').absolute()
 
