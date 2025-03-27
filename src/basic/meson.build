@@ -285,6 +285,7 @@ libbasic_static = static_library(
                         liblz4_cflags,
                         libm,
                         librt,
+                        libsystemd,
                         libxz_cflags,
                         libzstd_cflags,
                         threads,
