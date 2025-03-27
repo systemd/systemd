@@ -9,6 +9,7 @@
 #include <sys/time.h>
 #include <sys/timerfd.h>
 #include <sys/types.h>
+#include <systemd/sd-journal.h>
 #include <threads.h>
 #include <unistd.h>
 
@@ -22,7 +23,6 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
-#include "sd-journal.h"
 #include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
