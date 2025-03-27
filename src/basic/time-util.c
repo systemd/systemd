@@ -12,6 +12,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "chase.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
@@ -1610,20 +1611,29 @@ int get_timezone(char **ret) {
 
         assert(ret);
 
-        r = readlink_malloc("/etc/localtime", &t);
+        r = chase(etc_localtime(), NULL, 0, &t, NULL);
         if (r == -ENOENT)
                 /* If the symlink does not exist, assume "UTC", like glibc does */
                 return strdup_to(ret, "UTC");
         if (r < 0)
-                return r; /* Return EINVAL if not a symlink */
+                return r;
 
-        const char *e = PATH_STARTSWITH_SET(t, "/usr/share/zoneinfo/", "../usr/share/zoneinfo/");
+        const char *e = path_startswith(t, "/usr/share/zoneinfo/");
         if (!e)
                 return -EINVAL;
         if (!timezone_is_valid(e, LOG_DEBUG))
                 return -EINVAL;
 
         return strdup_to(ret, e);
+}
+
+const char* etc_localtime(void) {
+        static const char *cached = NULL;
+
+        if (!cached)
+                cached = secure_getenv("SYSTEMD_ETC_LOCALTIME") ?: "/etc/localtime";
+
+        return cached;
 }
 
 int mktime_or_timegm_usec(
