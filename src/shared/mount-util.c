@@ -1975,3 +1975,13 @@ int path_is_network_fs_harder_at(int dir_fd, const char *path) {
 
         return false;
 }
+
+char* find_mountpoint(const char *path) {
+        _cleanup_free_ char *mtpoint = NULL;
+
+        mtpoint = mnt_get_mountpoint(path);
+        if (!mtpoint)
+                return NULL;
+
+        return mtpoint ? TAKE_PTR(mtpoint) : strdup("");
+}
