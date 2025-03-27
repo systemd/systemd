@@ -514,7 +514,10 @@ units = [
           'file' : 'systemd-networkd.socket',
           'conditions' : ['ENABLE_NETWORKD'],
         },
-        { 'file' : 'systemd-nspawn@.service.in' },
+        {
+          'file' : 'systemd-nspawn@.service.in',
+          'conditions' : ['ENABLE_NSPAWN'],
+        },
         {
           'file' : 'systemd-vmspawn@.service.in',
           'conditions' : ['ENABLE_VMSPAWN'],

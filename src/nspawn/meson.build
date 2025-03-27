@@ -1,5 +1,9 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+if conf.get('ENABLE_NSPAWN') != 1
+        subdir_done()
+endif
+
 libnspawn_core_sources = files(
         'nspawn-bind-user.c',
         'nspawn-cgroup.c',
@@ -45,27 +49,29 @@ nspawn_common_template = {
 nspawn_test_template = test_template + nspawn_common_template
 nspawn_fuzz_template = fuzz_template + nspawn_common_template
 
-executables += [
-        executable_template + {
-                'name' : 'systemd-nspawn',
-                'public' : true,
-                'sources' : files('nspawn.c'),
-                'link_with' : nspawn_libs,
-                'dependencies' : [
-                        libblkid,
-                        libseccomp,
-                ],
-        },
-        nspawn_test_template + {
-                'sources' : files('test-nspawn-tables.c'),
-        },
-        nspawn_test_template + {
-                'sources' : files('test-nspawn-util.c'),
-        },
-        nspawn_fuzz_template + {
-                'sources' : files('fuzz-nspawn-settings.c'),
-        },
-        nspawn_fuzz_template + {
-                'sources' : files('fuzz-nspawn-oci.c'),
-        },
-]
+if conf.get('ENABLE_NSPAWN') == 1
+        executables += [
+                executable_template + {
+                        'name' : 'systemd-nspawn',
+                        'public' : true,
+                        'sources' : files('nspawn.c'),
+                        'link_with' : nspawn_libs,
+                        'dependencies' : [
+                                libblkid,
+                                libseccomp,
+                        ],
+                },
+                nspawn_test_template + {
+                        'sources' : files('test-nspawn-tables.c'),
+                },
+                nspawn_test_template + {
+                        'sources' : files('test-nspawn-util.c'),
+                },
+                nspawn_fuzz_template + {
+                        'sources' : files('fuzz-nspawn-settings.c'),
+                },
+                nspawn_fuzz_template + {
+                        'sources' : files('fuzz-nspawn-oci.c'),
+                },
+        ]
+endif
