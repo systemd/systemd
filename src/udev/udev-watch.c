@@ -22,6 +22,7 @@
 #include "udev-trace.h"
 #include "udev-util.h"
 #include "udev-watch.h"
+#include "udev-worker.h"
 
 static int device_new_from_watch_handle_at(sd_device **ret, int dirfd, int wd) {
         char path_wd[STRLEN("/run/udev/watch/") + DECIMAL_STR_MAX(int)];
@@ -152,17 +153,53 @@ static int synthesize_change(Manager *manager, sd_device *dev) {
         return 0;
 }
 
+static int udev_watch_clear_by_wd(int wd) {
+        int r;
+
+        _cleanup_close_ int dirfd = RET_NERRNO(open("/run/udev/watch/", O_CLOEXEC | O_DIRECTORY | O_NOFOLLOW | O_RDONLY));
+        if (dirfd < 0)
+                return dirfd;
+
+        char wd_str[DECIMAL_STR_MAX(int)];
+        xsprintf(wd_str, "%d", wd);
+
+        _cleanup_free_ char *id = NULL, *wd_alloc = NULL;
+        r = readlinkat_malloc(dirfd, wd_str, &id);
+        if (r < 0)
+                goto finalize;
+
+        r = readlinkat_malloc(dirfd, id, &wd_alloc);
+        if (r < 0)
+                goto finalize;
+
+        if (!streq(wd_str, wd_alloc)) {
+                r = -ESTALE;
+                goto finalize;
+        }
+
+        if (unlinkat(dirfd, id, 0) < 0 && errno != ENOENT)
+                r = -errno;
+
+finalize:
+        if (unlinkat(dirfd, wd_str, 0) < 0 && errno != ENOENT)
+                RET_GATHER(r, -errno);
+
+        return r;
+}
+
 static int manager_process_inotify(Manager *manager, const struct inotify_event *e) {
         int r;
 
         assert(manager);
         assert(e);
 
-        /* Do not handle IN_IGNORED here. Especially, do not try to call udev_watch_end() from the
-         * main process. Otherwise, the pair of the symlinks may become inconsistent, and several
-         * garbage may remain. The old symlinks are removed by a worker that processes the
-         * corresponding 'remove' uevent;
-         * udev_event_execute_rules() -> event_execute_rules_on_remove() -> udev_watch_end(). */
+        if (FLAGS_SET(e->mask, IN_IGNORED)) {
+                r = udev_watch_clear_by_wd(e->wd);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to remove saved symlink(s) for watch handle %i, ignoring: %m", e->wd);
+
+                return 0;
+        }
 
         if (!FLAGS_SET(e->mask, IN_CLOSE_WRITE))
                 return 0;
@@ -250,7 +287,7 @@ static int udev_watch_restore(Manager *manager) {
                         continue;
                 }
 
-                (void) udev_watch_begin(manager->inotify_fd, dev);
+                (void) manager_add_watch(manager, dev);
         }
 
         return 0;
@@ -371,18 +408,15 @@ finalize:
         return r;
 }
 
-int udev_watch_begin(int inotify_fd, sd_device *dev) {
+int manager_add_watch(Manager *manager, sd_device *dev) {
         char wd_str[DECIMAL_STR_MAX(int)];
         _cleanup_close_ int dirfd = -EBADF;
         const char *devnode, *id;
         int wd, r;
 
-        assert(inotify_fd >= 0);
+        assert(manager);
         assert(dev);
 
-        /* Ignore the request of watching the device node on remove event, as the device node specified by
-         * DEVNAME= has already been removed, and may already be assigned to another device. Consider the
-         * case e.g. a USB stick memory was unplugged and then another one is plugged. */
         if (device_for_action(dev, SD_DEVICE_REMOVE))
                 return 0;
 
@@ -403,7 +437,7 @@ int udev_watch_begin(int inotify_fd, sd_device *dev) {
 
         /* 2. Add inotify watch */
         log_device_debug(dev, "Adding watch on '%s'", devnode);
-        wd = inotify_add_watch(inotify_fd, devnode, IN_CLOSE_WRITE);
+        wd = inotify_add_watch(manager->inotify_fd, devnode, IN_CLOSE_WRITE);
         if (wd < 0)
                 return log_device_debug_errno(dev, errno, "Failed to watch device node '%s': %m", devnode);
 
@@ -426,19 +460,16 @@ int udev_watch_begin(int inotify_fd, sd_device *dev) {
 
 on_failure:
         (void) unlinkat(dirfd, id, 0);
-        (void) inotify_rm_watch(inotify_fd, wd);
+        (void) inotify_rm_watch(manager->inotify_fd, wd);
         return r;
 }
 
-int udev_watch_end(int inotify_fd, sd_device *dev) {
+int manager_remove_watch(Manager *manager, sd_device *dev) {
         _cleanup_close_ int dirfd = -EBADF;
         int wd, r;
 
-        assert(inotify_fd >= 0);
+        assert(manager);
         assert(dev);
-
-        if (sd_device_get_devname(dev, NULL) < 0)
-                return 0;
 
         dirfd = RET_NERRNO(open("/run/udev/watch", O_CLOEXEC | O_DIRECTORY | O_NOFOLLOW | O_RDONLY));
         if (dirfd == -ENOENT)
@@ -453,7 +484,67 @@ int udev_watch_end(int inotify_fd, sd_device *dev) {
 
         /* Then, remove inotify watch. */
         log_device_debug(dev, "Removing watch handle %i.", wd);
-        (void) inotify_rm_watch(inotify_fd, wd);
+        (void) inotify_rm_watch(manager->inotify_fd, wd);
 
         return 0;
+}
+
+static int on_sigusr1(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
+        UdevWorker *worker = ASSERT_PTR(userdata);
+
+        if ((pid_t) si->ssi_pid != worker->manager_pid) {
+                log_debug("Received SIGUSR1 from unexpected process [%"PRIu32"], ignoring.", si->ssi_pid);
+                return 0;
+        }
+
+        return sd_event_exit(sd_event_source_get_event(s), 0);
+}
+
+static int notify_and_wait_signal(UdevWorker *worker, sd_device *dev, const char *msg) {
+        int r;
+
+        assert(worker);
+        assert(dev);
+        assert(msg);
+
+        if (sd_device_get_devname(dev, NULL) < 0)
+                return 0;
+
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        r = sd_event_new(&e);
+        if (r < 0)
+                return r;
+
+        r = sd_event_add_signal(e, /* ret_event_source = */ NULL, SIGUSR1 | SD_EVENT_SIGNAL_PROCMASK, on_sigusr1, worker);
+        if (r < 0)
+                return r;
+
+        r = sd_notify(/* unset_environment = */ false, msg);
+        if (r <= 0)
+                return r;
+
+        return sd_event_loop(e);
+}
+
+int udev_watch_begin(UdevWorker *worker, sd_device *dev) {
+        assert(worker);
+        assert(dev);
+
+        /* Ignore the request of watching the device node on remove event, as the device node specified by
+         * DEVNAME= has already been removed, and may already be assigned to another device. Consider the
+         * case e.g. a USB stick memory was unplugged and then another one is plugged. */
+        if (device_for_action(dev, SD_DEVICE_REMOVE))
+                return 0;
+
+        return notify_and_wait_signal(worker, dev, "INOTIFY_WATCH_ADD=1");
+}
+
+int udev_watch_end(UdevWorker *worker, sd_device *dev) {
+        assert(worker);
+        assert(dev);
+
+        if (sd_device_get_devname(dev, NULL) < 0)
+                return 0;
+
+        return notify_and_wait_signal(worker, dev, "INOTIFY_WATCH_REMOVE=1");
 }
