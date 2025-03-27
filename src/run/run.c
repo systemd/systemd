@@ -29,6 +29,7 @@
 #include "exit-status.h"
 #include "fd-util.h"
 #include "fork-journal.h"
+#include "format-table.h"
 #include "format-util.h"
 #include "fs-util.h"
 #include "hostname-setup.h"
@@ -2145,29 +2146,66 @@ static int run_context_setup_ptyfwd(RunContext *c) {
         return 0;
 }
 
-static void run_context_show_result(RunContext *c) {
+static int run_context_show_result(RunContext *c) {
+        int r;
+
         assert(c);
 
-        if (!isempty(c->result))
-                log_info("Finished with result: %s", strna(c->result));
+        _cleanup_(table_unrefp) Table *t = table_new_vertical();
+        if (!t)
+                return log_oom();
 
-        if (c->exit_code > 0)
-                log_info("Main processes terminated with: code=%s, status=%u/%s",
-                         sigchld_code_to_string(c->exit_code),
-                         c->exit_status,
-                         strna(c->exit_code == CLD_EXITED ?
-                               exit_status_to_string(c->exit_status, EXIT_STATUS_FULL) :
-                               signal_to_string(c->exit_status)));
+        if (!isempty(c->result)) {
+                r = table_add_many(
+                                t,
+                                TABLE_FIELD, "Finished with result",
+                                TABLE_STRING, c->result,
+                                TABLE_SET_COLOR, streq(c->result, "success") ? ansi_highlight_green() : ansi_highlight_red());
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        if (c->exit_code > 0) {
+                r = table_add_cell(
+                                t,
+                                /* ret_cell= */ NULL,
+                                TABLE_FIELD,
+                                "Main processes terminated with");
+                if (r < 0)
+                        return table_log_add_error(r);
+
+                r = table_add_cell_stringf(
+                                t,
+                                /* ret_cell= */ NULL,
+                                "code=%s, status=%u/%s",
+                                sigchld_code_to_string(c->exit_code),
+                                c->exit_status,
+                                strna(c->exit_code == CLD_EXITED ?
+                                      exit_status_to_string(c->exit_status, EXIT_STATUS_FULL) :
+                                      signal_to_string(c->exit_status)));
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
 
         if (timestamp_is_set(c->inactive_enter_usec) &&
             timestamp_is_set(c->inactive_exit_usec) &&
-            c->inactive_enter_usec > c->inactive_exit_usec)
-                log_info("Service runtime: %s",
-                         FORMAT_TIMESPAN(c->inactive_enter_usec - c->inactive_exit_usec, USEC_PER_MSEC));
+            c->inactive_enter_usec > c->inactive_exit_usec) {
+                r = table_add_many(
+                                t,
+                                TABLE_FIELD, "Service runtime",
+                                TABLE_TIMESPAN_MSEC, c->inactive_enter_usec - c->inactive_exit_usec);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
 
-        if (c->cpu_usage_nsec != NSEC_INFINITY)
-                log_info("CPU time consumed: %s",
-                         FORMAT_TIMESPAN(DIV_ROUND_UP(c->cpu_usage_nsec, NSEC_PER_USEC), USEC_PER_MSEC));
+        if (c->cpu_usage_nsec != NSEC_INFINITY) {
+                r = table_add_many(
+                                t,
+                                TABLE_FIELD, "CPU time consumed",
+                                TABLE_TIMESPAN_MSEC, DIV_ROUND_UP(c->cpu_usage_nsec, NSEC_PER_USEC));
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
 
         if (c->memory_peak != UINT64_MAX) {
                 const char *swap;
@@ -2177,26 +2215,71 @@ static void run_context_show_result(RunContext *c) {
                 else
                         swap = "";
 
-                log_info("Memory peak: %s%s", FORMAT_BYTES(c->memory_peak), swap);
+                r = table_add_cell(
+                                t,
+                                /* ret_cell= */ NULL,
+                                TABLE_FIELD, "Memory peak");
+                if (r < 0)
+                        return table_log_add_error(r);
+
+                r = table_add_cell_stringf(
+                                t,
+                                /* ret_cell= */ NULL,
+                                "%s%s",
+                                FORMAT_BYTES(c->memory_peak), swap);
+                if (r < 0)
+                        return table_log_add_error(r);
         }
 
         const char *ip_ingress = NULL, *ip_egress = NULL;
         if (!IN_SET(c->ip_ingress_bytes, 0, UINT64_MAX))
-                ip_ingress = strjoina(" received: ", FORMAT_BYTES(c->ip_ingress_bytes));
+                ip_ingress = strjoina("received ", FORMAT_BYTES(c->ip_ingress_bytes));
         if (!IN_SET(c->ip_egress_bytes, 0, UINT64_MAX))
-                ip_egress = strjoina(" sent: ", FORMAT_BYTES(c->ip_egress_bytes));
+                ip_egress = strjoina("sent ", FORMAT_BYTES(c->ip_egress_bytes));
 
-        if (ip_ingress || ip_egress)
-                log_info("IP traffic%s%s", strempty(ip_ingress), strempty(ip_egress));
+        if (ip_ingress || ip_egress) {
+                r = table_add_cell(
+                                t,
+                                /* ret_cell= */ NULL,
+                                TABLE_FIELD, "IP Traffic");
+                if (r < 0)
+                        return table_log_add_error(r);
+
+                r = table_add_cell_stringf(
+                                t,
+                                /* ret_cell= */ NULL,
+                                "%s%s%s", strempty(ip_ingress), ip_ingress && ip_egress ? ", " : "", strempty(ip_egress));
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
 
         const char *io_read = NULL, *io_write = NULL;
         if (!IN_SET(c->io_read_bytes, 0, UINT64_MAX))
-                io_read = strjoina(" read: ", FORMAT_BYTES(c->io_read_bytes));
+                io_read = strjoina("read ", FORMAT_BYTES(c->io_read_bytes));
         if (!IN_SET(c->io_write_bytes, 0, UINT64_MAX))
-                io_write = strjoina(" written: ", FORMAT_BYTES(c->io_write_bytes));
+                io_write = strjoina("written ", FORMAT_BYTES(c->io_write_bytes));
 
-        if (io_read || io_write)
-                log_info("IO bytes%s%s", strempty(io_read), strempty(io_write));
+        if (io_read || io_write) {
+                r = table_add_cell(
+                                t,
+                                /* ret_cell= */ NULL,
+                                TABLE_FIELD, "IO Bytes");
+                if (r < 0)
+                        return table_log_add_error(r);
+
+                r = table_add_cell_stringf(
+                                t,
+                                /* ret_cell= */ NULL,
+                                "%s%s%s", strempty(io_read), io_read && io_write ? ", " : "", strempty(io_write));
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        r = table_print(t, stderr);
+        if (r < 0)
+                return table_log_print_error(r);
+
+        return 0;
 }
 
 static int start_transient_service(sd_bus *bus) {
