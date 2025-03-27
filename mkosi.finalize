@@ -1,0 +1,5 @@
+#!/bin/bash
+# SPDX-License-Identifier: CC-0
+set -e
+
+touch -r "$BUILDROOT/usr" "$BUILDROOT/etc/.updated" "$BUILDROOT/var/.updated"
