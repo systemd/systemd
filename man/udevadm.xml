@@ -714,6 +714,14 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><option>-L</option></term>
+          <term><option>--get-log-level</term>
+          <listitem>
+            <para>Print textual representation of the current log level of
+            <filename>systemd-udevd</filename>.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><option>-s</option></term>
           <term><option>--stop-exec-queue</option></term>
           <listitem>

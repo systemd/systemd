@@ -802,6 +802,7 @@ static int manager_varlink_init_machine(Manager *m) {
                         "io.systemd.MachineImage.CleanPool",    vl_method_clean_pool,
                         "io.systemd.service.Ping",              varlink_method_ping,
                         "io.systemd.service.SetLogLevel",       varlink_method_set_log_level,
+                        "io.systemd.service.GetLogLevel",       varlink_method_get_log_level,
                         "io.systemd.service.GetEnvironment",    varlink_method_get_environment);
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink methods: %m");

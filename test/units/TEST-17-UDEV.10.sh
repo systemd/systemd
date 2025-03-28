@@ -55,6 +55,7 @@ udevadm control -l notice
 udevadm control --log-level info
 udevadm control --log-level debug
 (! udevadm control -l hello)
+udevadm control -L
 udevadm control -s
 udevadm control -S
 udevadm control -R
