@@ -179,6 +179,7 @@ int manager_start_varlink_server(Manager *manager) {
                         "io.systemd.service.Ping",           varlink_method_ping,
                         "io.systemd.service.Reload",         vl_method_reload,
                         "io.systemd.service.SetLogLevel",    vl_method_set_log_level,
+                        "io.systemd.service.GetLogLevel",    varlink_method_get_log_level,
                         "io.systemd.service.GetEnvironment", varlink_method_get_environment,
                         "io.systemd.Udev.SetTrace",          vl_method_set_trace,
                         "io.systemd.Udev.SetChildrenMax",    vl_method_set_children_max,

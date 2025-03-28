@@ -288,6 +288,7 @@ int manager_connect_varlink(Manager *m) {
                         "io.systemd.Network.SetPersistentStorage", vl_method_set_persistent_storage,
                         "io.systemd.service.Ping",                 varlink_method_ping,
                         "io.systemd.service.SetLogLevel",          varlink_method_set_log_level,
+                        "io.systemd.service.GetLogLevel",          varlink_method_get_log_level,
                         "io.systemd.service.GetEnvironment",       varlink_method_get_environment);
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink methods: %m");
