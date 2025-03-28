@@ -1004,17 +1004,21 @@ TEST(strv_skip) {
         test_strv_skip_one(STRV_MAKE("foo", "bar", "baz"), 0, STRV_MAKE("foo", "bar", "baz"));
         test_strv_skip_one(STRV_MAKE("foo", "bar", "baz"), 1, STRV_MAKE("bar", "baz"));
         test_strv_skip_one(STRV_MAKE("foo", "bar", "baz"), 2, STRV_MAKE("baz"));
-        test_strv_skip_one(STRV_MAKE("foo", "bar", "baz"), 3, STRV_MAKE(NULL));
-        test_strv_skip_one(STRV_MAKE("foo", "bar", "baz"), 4, STRV_MAKE(NULL));
-        test_strv_skip_one(STRV_MAKE("foo", "bar", "baz"), 55, STRV_MAKE(NULL));
+        test_strv_skip_one(STRV_MAKE("foo", "bar", "baz"), 3, NULL);
+        test_strv_skip_one(STRV_MAKE("foo", "bar", "baz"), 4, NULL);
+        test_strv_skip_one(STRV_MAKE("foo", "bar", "baz"), 55, NULL);
 
         test_strv_skip_one(STRV_MAKE("quux"), 0, STRV_MAKE("quux"));
-        test_strv_skip_one(STRV_MAKE("quux"), 1, STRV_MAKE(NULL));
-        test_strv_skip_one(STRV_MAKE("quux"), 55, STRV_MAKE(NULL));
+        test_strv_skip_one(STRV_MAKE("quux"), 1, NULL);
+        test_strv_skip_one(STRV_MAKE("quux"), 55, NULL);
 
-        test_strv_skip_one(STRV_MAKE(NULL), 0, STRV_MAKE(NULL));
-        test_strv_skip_one(STRV_MAKE(NULL), 1, STRV_MAKE(NULL));
-        test_strv_skip_one(STRV_MAKE(NULL), 55, STRV_MAKE(NULL));
+        test_strv_skip_one(STRV_MAKE(NULL), 0, NULL);
+        test_strv_skip_one(STRV_MAKE(NULL), 1, NULL);
+        test_strv_skip_one(STRV_MAKE(NULL), 55, NULL);
+
+        test_strv_skip_one(NULL, 0, NULL);
+        test_strv_skip_one(NULL, 1, NULL);
+        test_strv_skip_one(NULL, 55, NULL);
 }
 
 TEST(strv_extend_n) {

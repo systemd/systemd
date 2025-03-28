@@ -17,7 +17,24 @@ int verb_exit_status(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to right-align status: %m");
 
-        if (strv_isempty(strv_skip(argv, 1)))
+        char **args = strv_skip(argv, 1);
+        if (args)
+                STRV_FOREACH(arg, args) {
+                        int status;
+
+                        status = exit_status_from_string(*arg);
+                        if (status < 0)
+                                return log_error_errno(status, "Invalid exit status \"%s\".", *arg);
+
+                        assert(status >= 0 && (size_t) status < ELEMENTSOF(exit_status_mappings));
+                        r = table_add_many(table,
+                                           TABLE_STRING, exit_status_mappings[status].name ?: "-",
+                                           TABLE_INT, status,
+                                           TABLE_STRING, exit_status_class(status) ?: "-");
+                        if (r < 0)
+                                return table_log_add_error(r);
+                }
+        else
                 for (size_t i = 0; i < ELEMENTSOF(exit_status_mappings); i++) {
                         if (!exit_status_mappings[i].name)
                                 continue;
@@ -26,22 +43,6 @@ int verb_exit_status(int argc, char *argv[], void *userdata) {
                                            TABLE_STRING, exit_status_mappings[i].name,
                                            TABLE_INT, (int) i,
                                            TABLE_STRING, exit_status_class(i));
-                        if (r < 0)
-                                return table_log_add_error(r);
-                }
-        else
-                for (int i = 1; i < argc; i++) {
-                        int status;
-
-                        status = exit_status_from_string(argv[i]);
-                        if (status < 0)
-                                return log_error_errno(status, "Invalid exit status \"%s\".", argv[i]);
-
-                        assert(status >= 0 && (size_t) status < ELEMENTSOF(exit_status_mappings));
-                        r = table_add_many(table,
-                                           TABLE_STRING, exit_status_mappings[status].name ?: "-",
-                                           TABLE_INT, status,
-                                           TABLE_STRING, exit_status_class(status) ?: "-");
                         if (r < 0)
                                 return table_log_add_error(r);
                 }

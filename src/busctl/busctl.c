@@ -547,9 +547,21 @@ static int tree(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return r;
 
-        if (argc <= 1) {
+        char **args = strv_skip(argv, 1);
+        if (args)
+                STRV_FOREACH(arg, args) {
+                        if (arg != args)
+                                puts("");
+
+                        if (args[1]) {
+                                pager_open(arg_pager_flags);
+                                printf("Service %s%s%s:\n", ansi_highlight(), *arg, ansi_normal());
+                        }
+
+                        RET_GATHER(r, tree_one(bus, *arg));
+                }
+        else {
                 _cleanup_strv_free_ char **names = NULL;
-                bool not_first = false;
 
                 r = sd_bus_list_names(bus, &names, NULL);
                 if (r < 0)
@@ -557,42 +569,21 @@ static int tree(int argc, char **argv, void *userdata) {
 
                 pager_open(arg_pager_flags);
 
-                STRV_FOREACH(i, names) {
-                        int q;
-
-                        if (!arg_unique && (*i)[0] == ':')
+                STRV_FOREACH(name, names) {
+                        if (!arg_unique && (*name)[0] == ':')
                                 continue;
 
-                        if (!arg_acquired && (*i)[0] == ':')
+                        if (!arg_acquired && (*name)[0] == ':')
                                 continue;
 
-                        if (not_first)
-                                printf("\n");
+                        if (name != names)
+                                puts("");
 
-                        printf("Service %s%s%s:\n", ansi_highlight(), *i, ansi_normal());
+                        printf("Service %s%s%s:\n", ansi_highlight(), *name, ansi_normal());
 
-                        q = tree_one(bus, *i);
-                        if (q < 0 && r >= 0)
-                                r = q;
-
-                        not_first = true;
+                        RET_GATHER(r, tree_one(bus, *name));
                 }
-        } else
-                STRV_FOREACH(i, strv_skip(argv, 1)) {
-                        int q;
-
-                        if (i > argv+1)
-                                printf("\n");
-
-                        if (argv[2]) {
-                                pager_open(arg_pager_flags);
-                                printf("Service %s%s%s:\n", ansi_highlight(), *i, ansi_normal());
-                        }
-
-                        q = tree_one(bus, *i);
-                        if (q < 0 && r >= 0)
-                                r = q;
-                }
+        }
 
         return r;
 }

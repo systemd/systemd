@@ -106,15 +106,30 @@ static void dump_filesystem_set(const FilesystemSet *set) {
 }
 
 int verb_filesystems(int argc, char *argv[], void *userdata) {
-        bool first = true;
-
 #if ! HAVE_LIBBPF
         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Not compiled with libbpf support, sorry.");
 #endif
 
         pager_open(arg_pager_flags);
 
-        if (strv_isempty(strv_skip(argv, 1))) {
+        char **args = strv_skip(argv, 1);
+        if (args)
+                STRV_FOREACH(name, args) {
+                        if (name != args)
+                                puts("");
+
+                        const FilesystemSet *set = filesystem_set_find(*name);
+                        if (!set) {
+                                /* make sure the error appears below normal output */
+                                fflush(stdout);
+
+                                return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
+                                                       "Filesystem set \"%s\" not found.", *name);
+                        }
+
+                        dump_filesystem_set(set);
+                }
+        else {
                 _cleanup_set_free_ Set *kernel = NULL, *known = NULL;
                 int k;
 
@@ -126,27 +141,24 @@ int verb_filesystems(int argc, char *argv[], void *userdata) {
 
                 for (FilesystemGroups i = 0; i < _FILESYSTEM_SET_MAX; i++) {
                         const FilesystemSet *set = filesystem_sets + i;
-                        if (!first)
+                        if (i > 0)
                                 puts("");
 
                         dump_filesystem_set(set);
                         filesystem_set_remove(kernel, set);
                         if (i != FILESYSTEM_SET_KNOWN)
                                 filesystem_set_remove(known, set);
-                        first = false;
                 }
 
                 if (arg_quiet)  /* Let's not show the extra stuff in quiet mode */
                         return 0;
 
                 if (!set_isempty(known)) {
-                        _cleanup_free_ char **l = NULL;
-
                         printf("\n"
                                "# %sUngrouped filesystems%s (known but not included in any of the groups except @known):\n",
                                ansi_highlight(), ansi_normal());
 
-                        l = set_get_strv(known);
+                        _cleanup_free_ char **l = set_get_strv(known);
                         if (!l)
                                 return log_oom();
 
@@ -197,25 +209,7 @@ int verb_filesystems(int argc, char *argv[], void *userdata) {
                         STRV_FOREACH(filesystem, l)
                                 printf("#   %s\n", *filesystem);
                 }
-        } else
-                STRV_FOREACH(name, strv_skip(argv, 1)) {
-                        const FilesystemSet *set;
-
-                        if (!first)
-                                puts("");
-
-                        set = filesystem_set_find(*name);
-                        if (!set) {
-                                /* make sure the error appears below normal output */
-                                fflush(stdout);
-
-                                return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
-                                                       "Filesystem set \"%s\" not found.", *name);
-                        }
-
-                        dump_filesystem_set(set);
-                        first = false;
-                }
+        }
 
         return EXIT_SUCCESS;
 }
