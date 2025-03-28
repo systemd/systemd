@@ -359,11 +359,9 @@ if install_tests
                                exclude_files : '.gitattributes',
                                install_dir : testdata_dir)
         endif
-        if conf.get('ENABLE_RESOLVE') == 1
-                install_subdir('test-resolve',
-                               exclude_files : '.gitattributes',
-                               install_dir : testdata_dir)
-        endif
+        install_subdir('test-resolve',
+                       exclude_files : '.gitattributes',
+                       install_dir : testdata_dir)
 
         # The unit tests implemented as shell scripts expect to find testdata/
         # in the directory where they are stored.
