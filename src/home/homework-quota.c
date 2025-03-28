@@ -10,6 +10,7 @@
 #include "quota-util.h"
 #include "stat-util.h"
 #include "user-util.h"
+#include "virt.h"
 
 int home_update_quota_btrfs(UserRecord *h, const char *path) {
         int r;
@@ -52,7 +53,10 @@ int home_update_quota_classic(UserRecord *h, const char *path) {
         if (r < 0)
                 return log_error_errno(r, "Failed to determine block device of %s: %m", path);
         if (devno == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(ENODEV), "File system %s not backed by a block device.", path);
+                return log_full_errno(
+                                detect_container() > 0 ? LOG_DEBUG : LOG_WARNING,
+                                SYNTHETIC_ERRNO(ENODEV),
+                                "File system %s not backed by a block device.", path);
 
         r = quotactl_devnum(QCMD_FIXED(Q_GETQUOTA, USRQUOTA), devno, h->uid, &req);
         if (r == -ESRCH)
