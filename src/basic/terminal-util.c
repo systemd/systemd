@@ -1156,10 +1156,12 @@ int resolve_dev_console(char **ret) {
                 tty = active;
         }
 
-        if (tty != active)
-                return strdup_to(ret, tty);
+        _cleanup_free_ char *path = NULL;
+        path = path_join("/dev", tty);
+        if (!path)
+                return -ENOMEM;
 
-        *ret = TAKE_PTR(active);
+        *ret = TAKE_PTR(path);
         return 0;
 }
 
@@ -1231,9 +1233,7 @@ bool tty_is_vc_resolve(const char *tty) {
 
         assert(tty);
 
-        tty = skip_dev_prefix(tty);
-
-        if (streq(tty, "console")) {
+        if (streq(skip_dev_prefix(tty), "console")) {
                 if (resolve_dev_console(&resolved) < 0)
                         return false;
 

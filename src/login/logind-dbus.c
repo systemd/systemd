@@ -1153,40 +1153,53 @@ static int manager_create_session_by_bus(
                                                  "No seat '%s' known", cseat);
         }
 
+        _cleanup_free_ char *resolved = NULL;
+
         if (isempty(tty))
                 tty = NULL;
-        else if (tty_is_vc(tty)) {
-                int v;
+        else {
+                if (tty_is_console(tty)) {
+                        r = resolve_dev_console(&resolved);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to resolve /dev/console, ignoring: %m");
+                        else
+                                tty = resolved;
+                }
 
-                if (!seat)
-                        seat = m->seat0;
-                else if (seat != m->seat0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                                 "TTY %s is virtual console but seat %s is not seat0", tty, seat->id);
+                if (tty_is_vc(tty)) {
+                        int v;
 
-                v = vtnr_from_tty(tty);
-                if (v <= 0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                                 "Cannot determine VT number from virtual console TTY %s", tty);
+                        if (!seat)
+                                seat = m->seat0;
+                        else if (seat != m->seat0)
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                         "TTY %s is virtual console but seat %s is not seat0", tty, seat->id);
 
-                if (vtnr == 0)
-                        vtnr = (uint32_t) v;
-                else if (vtnr != (uint32_t) v)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                                 "Specified TTY and VT number do not match");
+                        v = vtnr_from_tty(tty);
+                        if (v <= 0)
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                         "Cannot determine VT number from virtual console TTY %s", tty);
 
-        } else if (tty_is_console(tty)) {
+                        if (vtnr == 0)
+                                vtnr = (uint32_t) v;
+                        else if (vtnr != (uint32_t) v)
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                         "Specified TTY and VT number do not match");
 
-                if (!seat)
-                        seat = m->seat0;
-                else if (seat != m->seat0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                                 "Console TTY specified but seat is not seat0");
+                } else if (tty_is_console(tty)) {
 
-                if (vtnr != 0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                                 "Console TTY specified but VT number is not 0");
+                        if (!seat)
+                                seat = m->seat0;
+                        else if (seat != m->seat0)
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                         "Console TTY specified but seat is not seat0");
+
+                        if (vtnr != 0)
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                         "Console TTY specified but VT number is not 0");
+                }
         }
+
 
         if (seat) {
                 if (seat_has_vts(seat)) {
