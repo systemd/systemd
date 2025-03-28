@@ -1,5 +1,9 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+if conf.get('ENABLE_NSPAWN') != 1
+        subdir_done()
+endif
+
 libnspawn_core_sources = files(
         'nspawn-bind-user.c',
         'nspawn-cgroup.c',
@@ -58,14 +62,18 @@ executables += [
         },
         nspawn_test_template + {
                 'sources' : files('test-nspawn-tables.c'),
+                'conditions' : ['ENABLE_NSPAWN'],
         },
         nspawn_test_template + {
                 'sources' : files('test-nspawn-util.c'),
+                'conditions' : ['ENABLE_NSPAWN'],
         },
         nspawn_fuzz_template + {
                 'sources' : files('fuzz-nspawn-settings.c'),
+                'conditions' : ['ENABLE_NSPAWN'],
         },
         nspawn_fuzz_template + {
                 'sources' : files('fuzz-nspawn-oci.c'),
+                'conditions' : ['ENABLE_NSPAWN'],
         },
 ]
