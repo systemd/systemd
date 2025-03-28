@@ -104,4 +104,9 @@ testcase_basic_strict() {
     test_basic "strict" "yes" true "$READ_ONLY_MOUNT_FLAG"
 }
 
+testcase_delegate_subgroup() {
+    # Make sure the service cgroup is the root of the cgroup namespace when we use DelegateSubgroup.
+    systemd-run -p ProtectControlGroupsEx=private -p PrivateMounts=yes -p Delegate=yes -p DelegateSubgroup=supervisor --wait --pipe ls /sys/fs/cgroup/supervisor
+}
+
 run_testcases
