@@ -350,6 +350,15 @@ def process_coverage(args: argparse.Namespace, summary: Summary, name: str, jour
             print(f'Wrote coverage report for {name} to {output}', file=sys.stderr)
 
 
+def statfs(path: Path) -> str:
+    return subprocess.run(
+        ['stat', '--file-system', os.fspath(path), '--format=%T'],
+        stdout=subprocess.PIPE,
+        text=True,
+        check=True,
+    ).stdout.strip()
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--mkosi', required=True)
@@ -365,6 +374,7 @@ def main() -> None:
     parser.add_argument('--coredump-exclude-regex', required=True)
     parser.add_argument('--sanitizer-exclude-regex', required=True)
     parser.add_argument('--rtc', action=argparse.BooleanOptionalAction)
+    parser.add_argument('--skip', action=argparse.BooleanOptionalAction)
     parser.add_argument('mkosi_args', nargs='*')
     args = parser.parse_args()
 
@@ -384,6 +394,10 @@ def main() -> None:
 
     if args.vm and bool(int(os.getenv('TEST_NO_QEMU', '0'))):
         print(f'TEST_NO_QEMU=1, skipping {args.name}', file=sys.stderr)
+        exit(77)
+
+    if args.skip:
+        print(f'meson requirements for test {args.name} were not fulfilled, skipping', file=sys.stderr)
         exit(77)
 
     for s in os.getenv('TEST_SKIP', '').split():
@@ -437,7 +451,12 @@ def main() -> None:
         )
 
     if os.getenv('TEST_JOURNAL_USE_TMP', '0') == '1':
-        journal_file = Path(f'/tmp/systemd-integration-tests/journal/{name}.journal')
+        if statfs(Path('/tmp')) != 'tmpfs' and statfs(Path('/dev/shm')) == 'tmpfs':
+            tmp = Path('/dev/shm')
+        else:
+            tmp = Path('/tmp')
+
+        journal_file = tmp / f'systemd-integration-tests/journal/{name}.journal'
     else:
         journal_file = (args.meson_build_dir / f'test/journal/{name}.journal').absolute()
 
@@ -489,6 +508,22 @@ def main() -> None:
     else:
         rtc = None
 
+    # mkosi will use the UEFI secure boot firmware by default on UEFI platforms. However, this breaks on
+    # Github Actions in combination with KVM because of a HyperV bug so make sure we use the non secure
+    # boot firmware on Github Actions.
+    # TODO: Drop after the HyperV bug that breaks secure boot KVM guests is solved
+    if args.firmware == 'auto' and os.getenv('GITHUB_ACTIONS'):
+        firmware = 'uefi'
+    # Whenever possible, boot without an initrd. This requires the target distribution kernel to have the
+    # necessary modules (virtio-blk, ext4) builtin.
+    elif args.firmware == 'linux-noinitrd' and (summary.distribution, summary.release) not in (
+        ('fedora', 'rawhide'),
+        ('arch', 'rolling'),
+    ):
+        firmware = 'linux'
+    else:
+        firmware = args.firmware
+
     cmd = [
         args.mkosi,
         '--directory', os.fspath(args.meson_source_dir),
@@ -508,11 +543,7 @@ def main() -> None:
         '--runtime-scratch=no',
         *([f'--qemu-args=-rtc base={rtc}'] if rtc else []),
         *args.mkosi_args,
-        # mkosi will use the UEFI secure boot firmware by default on UEFI platforms. However, this breaks on
-        # Github Actions in combination with KVM because of a HyperV bug so make sure we use the non secure
-        # boot firmware on Github Actions.
-        # TODO: Drop after the HyperV bug that breaks secure boot KVM guests is solved
-        '--firmware', 'uefi' if args.firmware == 'auto' and os.getenv("GITHUB_ACTIONS") else args.firmware,
+        '--firmware', firmware,
         *(['--kvm', 'no'] if int(os.getenv('TEST_NO_KVM', '0')) else []),
         '--kernel-command-line-extra',
         ' '.join(

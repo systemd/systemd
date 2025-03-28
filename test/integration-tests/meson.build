@@ -7,7 +7,7 @@ integration_test_template = {
         'timeout' : 1800,
         'storage' : 'volatile',
         'priority' : 0,
-        'firmware' : 'linux',
+        'firmware' : 'linux-noinitrd',
         'enabled' : true,
         'configuration' : {
                 'memory-accounting' : 'no',
@@ -125,6 +125,10 @@ foreach integration_test : integration_tests
                 integration_test_args += ['--rtc']
         endif
 
+        if not integration_test['enabled']
+                integration_test_args += ['--skip']
+        endif
+
         if not mkosi.found()
                 continue
         endif
@@ -151,10 +155,6 @@ foreach integration_test : integration_tests
 
         if want_integration_tests
                 integration_test_env += {'SYSTEMD_INTEGRATION_TESTS': '1'}
-        endif
-
-        if not integration_test['enabled']
-                continue
         endif
 
         # We don't explicitly depend on the "mkosi" target because that means the image is rebuilt on every

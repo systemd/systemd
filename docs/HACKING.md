@@ -39,7 +39,7 @@ chance that your distribution's packaged version of mkosi will be too old.
 Then, you can build, run and test systemd executables as follows:
 
 ```sh
-$ mkosi -f sandbox -- meson setup build
+$ mkosi -f sandbox -- meson setup -Dbpf-framework=disabled build # bpftool detection inside mkosi sandbox is broken on Ubuntu Noble and older
 $ mkosi -f sandbox -- meson compile -C build
 $ mkosi -f sandbox -- build/systemctl --version
 $ mkosi -f sandbox -- meson test -C build          # Run the unit tests
