@@ -4,6 +4,7 @@
 #include <stdint.h>
 
 #include "chid.h"
+#include "edid.h"
 #include "smbios.h"
 #include "tests.h"
 
@@ -77,6 +78,11 @@ static RawSmbiosInfo current_info = {};
 void smbios_raw_info_get_cached(RawSmbiosInfo *ret_info) {
         assert(ret_info);
         *ret_info = current_info;
+}
+
+EFI_STATUS edid_get_panel_id(char16_t **ret_panel) {
+        assert(ret_panel);
+        return EFI_UNSUPPORTED;
 }
 
 TEST(chid_match) {
