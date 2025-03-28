@@ -30,7 +30,7 @@ static void test_in_addr_prefix_from_string_one(
         assert_se(l == prefixlen);
 
         r = in_addr_prefix_from_string_auto(p, &f, &q, &l);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         assert_se(f == family);
         assert_se(in_addr_equal(family, &q, u));

@@ -86,7 +86,7 @@ TEST(mkdir_p_safe) {
                 assert_se(mkdir_p_safe(tmp, p, 0000, UID_INVALID, GID_INVALID, 0) == -EACCES);
                 _exit(EXIT_SUCCESS);
         }
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 }
 
 TEST(mkdir_p_root) {

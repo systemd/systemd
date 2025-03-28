@@ -68,7 +68,7 @@ TEST(sd_hwdb_new_from_path) {
                         break;
         }
 
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 }
 
 static int intro(void) {

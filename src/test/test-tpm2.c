@@ -1214,7 +1214,7 @@ static int check_calculate_seal(Tpm2Context *c) {
                 r = tpm2_index_from_handle(c, handle, &index);
                 if (r == -EOPNOTSUPP)
                         return log_tests_skipped("libtss2-esys version too old to support tpm2_index_from_handle()");
-                assert_se(r >= 0);
+                ASSERT_OK(r);
 
                 calculate_seal_and_unseal(c, index, public);
         }
@@ -1303,7 +1303,7 @@ static void check_seal_unseal(Tpm2Context *c) {
                         log_tests_skipped("libesys too old for tpm2_index_from_handle");
                         return;
                 }
-                assert_se(r >= 0);
+                ASSERT_OK(r);
 
                 check_seal_unseal_for_handle(c, transient_handle_index);
         }

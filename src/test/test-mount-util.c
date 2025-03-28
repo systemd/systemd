@@ -89,7 +89,7 @@ static void test_mount_flags_to_string_one(unsigned long flags, const char *expe
 
         r = mount_flags_to_string(flags, &x);
         log_info("flags: %#lX → %d/\"%s\"", flags, r, strnull(x));
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         ASSERT_STREQ(x, expected);
 }
 
@@ -315,7 +315,7 @@ TEST(make_mount_switch_root) {
                               FORK_NEW_MOUNTNS |
                               FORK_MOUNTNS_SLAVE,
                               NULL);
-                assert_se(r >= 0);
+                ASSERT_OK(r);
 
                 if (r == 0) {
                         assert_se(make_mount_point(i->path) >= 0);
@@ -373,7 +373,7 @@ TEST(umount_recursive) {
                 if (ERRNO_IS_NEG_PRIVILEGE(r))
                         return (void) log_notice("Skipping umount_recursive() test, lacking privileges");
 
-                assert_se(r >= 0);
+                ASSERT_OK(r);
                 if (r == 0) { /* child */
                         _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
                         _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
@@ -443,7 +443,7 @@ TEST(fd_make_mount_point) {
                       FORK_NEW_MOUNTNS |
                       FORK_MOUNTNS_SLAVE,
                       NULL);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         if (r == 0) {
                 _cleanup_close_ int fd = -EBADF, fd2 = -EBADF;
@@ -476,7 +476,7 @@ TEST(bind_mount_submounts) {
         if (ERRNO_IS_NEG_PRIVILEGE(r))
                 return (void) log_tests_skipped("Skipping bind_mount_submounts() test, lacking privileges");
 
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         assert_se(x = path_join(a, "foo"));
         assert_se(touch(x) >= 0);

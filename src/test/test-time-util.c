@@ -668,7 +668,7 @@ static void test_parse_timestamp_one(const char *str, usec_t max_diff, usec_t ex
 
         r = parse_timestamp(str, &usec);
         log_debug("/* %s(%s): max_diff="USEC_FMT", expected="USEC_FMT", result="USEC_FMT" */", __func__, str, max_diff, expected, usec);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(usec >= expected);
         assert_se(usec_sub_unsigned(usec, expected) <= max_diff);
 }

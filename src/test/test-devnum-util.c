@@ -82,7 +82,7 @@ static void test_device_path_make_canonical_one(const char *path) {
                 return;
         }
 
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(path_equal(path, resolved));
 
         assert_se(device_path_make_major_minor(st.st_mode, st.st_rdev, &raw) >= 0);

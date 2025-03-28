@@ -157,7 +157,7 @@ static void verify_digest(const char *digest_alg, const struct iovec *data, size
         r = openssl_digest_many(digest_alg, data, n_data, &digest, &digest_size);
         if (r == -EOPNOTSUPP)
                 return;
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         DEFINE_HEX_PTR(e, expect);
         assert_se(memcmp_nn(e, e_len, digest, digest_size) == 0);

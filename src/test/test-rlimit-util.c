@@ -153,7 +153,7 @@ TEST(pid_getrlimit) {
 
                 /* We fork off a child so that getrlimit() doesn't work anymore */
                 r = safe_fork("(getrlimit)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL|FORK_LOG|FORK_WAIT, /* ret_pid= */ NULL);
-                assert_se(r >= 0);
+                ASSERT_OK(r);
 
                 if (r == 0) {
                         struct rlimit indirect;

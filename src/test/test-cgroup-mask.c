@@ -48,7 +48,7 @@ TEST_RET(cgroup_mask, .sd_booted = true) {
                 return log_tests_skipped("cannot create manager");
         }
 
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         /* Turn off all kinds of default accounting, so that we can
          * verify the masks resulting of our configuration and nothing

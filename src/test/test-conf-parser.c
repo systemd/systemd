@@ -451,7 +451,7 @@ TEST(config_parse_standard_file_with_dropins_full) {
                         /* userdata= */ NULL,
                         /* ret_stats_by_path= */ NULL,
                         /* ret_dropin_files= */ &dropins);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         ASSERT_STREQ(A, "aaa");
         ASSERT_STREQ(B, "bbb");
         ASSERT_STREQ(C, "c1");
@@ -490,7 +490,7 @@ TEST(config_parse_standard_file_with_dropins_full) {
                         /* userdata= */ NULL,
                         /* ret_stats_by_path= */ NULL,
                         /* ret_dropin_files= */ NULL);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         ASSERT_STREQ(A, "aaa");
         ASSERT_STREQ(B, "bbb");
         ASSERT_STREQ(C, "c1");

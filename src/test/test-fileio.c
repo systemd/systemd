@@ -66,7 +66,7 @@ TEST(parse_env_file) {
         fclose(f);
 
         r = load_env_file(NULL, t, &a);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         STRV_FOREACH(i, a)
                 log_info("Got: <%s>", *i);
@@ -146,10 +146,10 @@ TEST(parse_env_file) {
         }
 
         r = write_env_file(AT_FDCWD, p, NULL, a);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         r = load_env_file(NULL, p, &b);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 }
 
 static void test_one_shell_var(const char *file, const char *variable, const char *value) {
@@ -193,7 +193,7 @@ TEST(parse_multiline_env_file) {
         test_one_shell_var(t, "tri", "bar     var \tgar ");
 
         r = load_env_file(NULL, t, &a);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         STRV_FOREACH(i, a)
                 log_info("Got: <%s>", *i);
@@ -209,10 +209,10 @@ TEST(parse_multiline_env_file) {
         }
 
         r = write_env_file(AT_FDCWD, p, NULL, a);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         r = load_env_file(NULL, p, &b);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 }
 
 TEST(merge_env_file) {
@@ -237,10 +237,10 @@ TEST(merge_env_file) {
                                 "zzzz=${foobar:-${nothing}}\n"
                                 "zzzzz=${nothing:+${nothing}}\n"
                                 , WRITE_STRING_FILE_AVOID_NEWLINE);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         r = merge_env_file(&a, NULL, t);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         strv_sort(a);
 
         STRV_FOREACH(i, a)
@@ -259,7 +259,7 @@ TEST(merge_env_file) {
         ASSERT_NULL(a[10]);
 
         r = merge_env_file(&a, NULL, t);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         strv_sort(a);
 
         STRV_FOREACH(i, a)
@@ -300,10 +300,10 @@ TEST(merge_env_file_invalid) {
                                 "#\n"
                                 "\n\n"                  /* empty line */
                                 , WRITE_STRING_FILE_AVOID_NEWLINE);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         r = merge_env_file(&a, NULL, t);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         STRV_FOREACH(i, a)
                 log_info("Got: <%s>", *i);
@@ -470,7 +470,7 @@ TEST(write_string_file_verify) {
         r = read_one_line_file("/proc/version", &buf);
         if (ERRNO_IS_NEG_PRIVILEGE(r))
                 return;
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(buf2 = strjoin(buf, "\n"));
 
         r = write_string_file("/proc/version", buf, 0);
@@ -524,7 +524,7 @@ TEST(load_env_file_pairs) {
         assert_se(r == 0);
 
         r = load_env_file_pairs_fd(fd, fn, &l);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         check_file_pairs_one(l);
         l = strv_free(l);
 
@@ -532,7 +532,7 @@ TEST(load_env_file_pairs) {
         assert_se(f);
 
         r = load_env_file_pairs(f, fn, &l);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         check_file_pairs_one(l);
 }
 
@@ -554,38 +554,38 @@ TEST(search_and_fopen) {
         fd = safe_close(fd);
 
         r = search_and_fopen(basename(name), "re", NULL, (const char**) dirs, &f, &p);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(e = path_startswith(p, "/tmp/"));
         ASSERT_STREQ(basename(name), e);
         f = safe_fclose(f);
         p = mfree(p);
 
         r = search_and_fopen(basename(name), NULL, NULL, (const char**) dirs, NULL, &p);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(e = path_startswith(p, "/tmp/"));
         ASSERT_STREQ(basename(name), e);
         p = mfree(p);
 
         r = search_and_fopen(name, "re", NULL, (const char**) dirs, &f, &p);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(path_equal(name, p));
         f = safe_fclose(f);
         p = mfree(p);
 
         r = search_and_fopen(name, NULL, NULL, (const char**) dirs, NULL, &p);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(path_equal(name, p));
         p = mfree(p);
 
         r = search_and_fopen(basename(name), "re", "/", (const char**) dirs, &f, &p);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(e = path_startswith(p, "/tmp/"));
         ASSERT_STREQ(basename(name), e);
         f = safe_fclose(f);
         p = mfree(p);
 
         r = search_and_fopen(basename(name), NULL, "/", (const char**) dirs, NULL, &p);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(e = path_startswith(p, "/tmp/"));
         ASSERT_STREQ(basename(name), e);
         p = mfree(p);
@@ -625,14 +625,14 @@ TEST(search_and_fopen_nulstr) {
         fd = safe_close(fd);
 
         r = search_and_fopen_nulstr(basename(name), "re", NULL, dirs, &f, &p);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(e = path_startswith(p, "/tmp/"));
         ASSERT_STREQ(basename(name), e);
         f = safe_fclose(f);
         p = mfree(p);
 
         r = search_and_fopen_nulstr(name, "re", NULL, dirs, &f, &p);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(path_equal(name, p));
         f = safe_fclose(f);
         p = mfree(p);
@@ -666,7 +666,7 @@ TEST(writing_tmpfile) {
         printf("tmpfile: %s", name);
 
         r = writev(fd, iov, 3);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         r = read_full_file(name, &contents, &size);
         assert_se(r == 0);
@@ -842,7 +842,7 @@ TEST(read_line3) {
         assert_se(f);
 
         r = read_line(f, LINE_MAX, &line);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         if (r == 0)
                 assert_se(line && isempty(line));
         else
@@ -948,7 +948,7 @@ TEST(read_full_file_socket) {
         assert_se(asprintf(&clientname, "@%" PRIx64 "/test-bindname", random_u64()) >= 0);
 
         r = safe_fork("(server)", FORK_DEATHSIG_SIGTERM|FORK_LOG, &pid);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         if (r == 0) {
                 union sockaddr_union peer = {};
                 socklen_t peerlen = sizeof(peer);

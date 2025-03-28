@@ -128,7 +128,7 @@ static void test_shareable_ns(unsigned long nsflag) {
         }
 
         r = wait_for_terminate(pid1, &si);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(si.si_code == CLD_EXITED);
         if (si.si_status == EX_NOPERM)
                 permission_denied = true;
@@ -136,7 +136,7 @@ static void test_shareable_ns(unsigned long nsflag) {
                 n += si.si_status;
 
         r = wait_for_terminate(pid2, &si);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(si.si_code == CLD_EXITED);
         if (si.si_status == EX_NOPERM)
                 permission_denied = true;
@@ -144,7 +144,7 @@ static void test_shareable_ns(unsigned long nsflag) {
                 n += si.si_status;
 
         r = wait_for_terminate(pid3, &si);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(si.si_code == CLD_EXITED);
         if (si.si_status == EX_NOPERM)
                 permission_denied = true;

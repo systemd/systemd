@@ -100,7 +100,7 @@ TEST(chown_recursive) {
         if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
                 return (void) log_tests_skipped_errno(r, "no acl supported on /tmp");
 
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(setxattr(p, "system.posix_acl_default", default_acl, sizeof(default_acl), 0) >= 0);
         assert_se(lstat(p, &st) >= 0);
         assert_se(S_ISDIR(st.st_mode));

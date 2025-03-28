@@ -459,7 +459,7 @@ static int parse_argv(int argc, char **argv,
                                            slow_tests_enabled() ? "foo_no_such_host" : NULL));
 
                 n = make_addresses(&addrs);
-                assert_se(n >= 0);
+                ASSERT_OK(n);
         }
 
         *the_modules = TAKE_PTR(modules);

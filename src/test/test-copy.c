@@ -308,7 +308,7 @@ TEST_RET(copy_bytes) {
         assert_se(r == 0);
 
         ssize_t n = read(pipefd[0], buf, sizeof(buf));
-        assert_se(n >= 0);
+        ASSERT_OK(n);
 
         assert_se(lseek(infd, 0, SEEK_SET) == 0);
         ssize_t n2 = read(infd, buf2, sizeof(buf2));
@@ -442,7 +442,7 @@ TEST_RET(copy_holes) {
         r = RET_NERRNO(fallocate(fd, FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE, 0, 1));
         if (ERRNO_IS_NOT_SUPPORTED(r))
                 return log_tests_skipped("Filesystem doesn't support hole punching");
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         ASSERT_OK_ERRNO(fstat(fd, &stat));
         blksz = stat.st_blksize;

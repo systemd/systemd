@@ -97,7 +97,7 @@ TEST(rm_rf_chmod) {
                  * hence drop privs here */
 
                 r = safe_fork("(setresuid)", FORK_DEATHSIG_SIGTERM|FORK_WAIT, NULL);
-                assert_se(r >= 0);
+                ASSERT_OK(r);
 
                 if (r == 0) {
                         /* child */

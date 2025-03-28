@@ -33,7 +33,7 @@ TEST(getxattr_at_malloc) {
         r = setxattr(x, "user.foo", "bar", 3, 0);
         if (r < 0 && ERRNO_IS_NOT_SUPPORTED(errno))
                 return (void) log_tests_skipped_errno(errno, "no xattrs supported on /var/tmp");
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         ASSERT_OK(getxattr_at_malloc(fd, "test", "user.foo", 0, &value, /* ret_size= */ NULL));
         assert_se(memcmp(value, "bar", 3) == 0);

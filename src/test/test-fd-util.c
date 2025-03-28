@@ -136,7 +136,7 @@ TEST(open_serialization_file) {
         int r;
 
         r = open_serialization_file("test", &f);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(f);
 
         assert_se(fwrite("test\n", 1, 5, f) == 5);
@@ -167,7 +167,7 @@ TEST(rearrange_stdio) {
         int r;
 
         r = safe_fork("rearrange", FORK_WAIT|FORK_LOG, &pid);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         if (r == 0) {
                 _cleanup_free_ char *path = NULL;
@@ -379,7 +379,7 @@ TEST(close_all_fds) {
                 test_close_all_fds_inner();
                 _exit(EXIT_SUCCESS);
         }
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         if (geteuid() != 0)
                 return (void) log_tests_skipped("Lacking privileges for test with close_range() blocked and /proc/ overmounted");
@@ -395,7 +395,7 @@ TEST(close_all_fds) {
         }
         if (ERRNO_IS_NEG_PRIVILEGE(r))
                 return (void) log_tests_skipped("Lacking privileges for test in namespace with /proc/ overmounted");
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         if (!is_seccomp_available())
                 return (void) log_tests_skipped("Seccomp not available");
@@ -410,7 +410,7 @@ TEST(close_all_fds) {
 
                 _exit(EXIT_SUCCESS);
         }
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         r = safe_fork("(caf-scnp)", FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE, NULL);
         if (r == 0) {
@@ -428,7 +428,7 @@ TEST(close_all_fds) {
                 test_close_all_fds_inner();
                 _exit(EXIT_SUCCESS);
         }
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 }
 
 TEST(format_proc_fd_path) {

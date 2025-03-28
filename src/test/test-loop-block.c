@@ -75,7 +75,7 @@ static void* thread_func(void *ptr) {
                 r = loop_device_make(fd, O_RDONLY, 0, UINT64_MAX, 0, LO_FLAGS_PARTSCAN, LOCK_SH, &loop);
                 if (r < 0)
                         log_error_errno(r, "Failed to allocate loopback device: %m");
-                assert_se(r >= 0);
+                ASSERT_OK(r);
                 assert_se(loop->dev);
                 assert_se(loop->backing_file);
 
@@ -84,7 +84,7 @@ static void* thread_func(void *ptr) {
                 r = dissect_loop_device(loop, NULL, NULL, NULL, DISSECT_IMAGE_READ_ONLY|DISSECT_IMAGE_ADD_PARTITION_DEVICES|DISSECT_IMAGE_PIN_PARTITION_DEVICES, &dissected);
                 if (r < 0)
                         log_error_errno(r, "Failed dissect loopback device %s: %m", loop->node);
-                assert_se(r >= 0);
+                ASSERT_OK(r);
 
                 log_info("Dissected loop device %s", loop->node);
 
@@ -108,7 +108,7 @@ static void* thread_func(void *ptr) {
                                 /* userns_fd= */ -EBADF,
                                 DISSECT_IMAGE_READ_ONLY);
                 log_notice_errno(r, "Mounted %s → %s: %m", loop->node, mounted);
-                assert_se(r >= 0);
+                ASSERT_OK(r);
 
                 /* Now the block device is mounted, we don't need no manual lock anymore, the devices are now
                  * pinned by the mounts. */
@@ -237,13 +237,13 @@ static int run(int argc, char *argv[]) {
 
         FOREACH_STRING(fs, "vfat", "ext4") {
                 r = mkfs_exists(fs);
-                assert_se(r >= 0);
+                ASSERT_OK(r);
                 if (!r) {
                         log_tests_skipped("mkfs.{vfat|ext4} not installed");
                         return 0;
                 }
         }
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         assert_se(sd_id128_randomize(&id) >= 0);
         assert_se(make_filesystem(dissected->partitions[PARTITION_ESP].node, "vfat", "EFI", NULL, id, true, false, 0, NULL, NULL, NULL) >= 0);

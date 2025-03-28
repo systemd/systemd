@@ -102,7 +102,7 @@ static void test_fd(int fd, const void *buf, size_t n) {
         ssize_t m;
 
         m = read(fd, rbuf, n + 1);
-        assert_se(m >= 0);
+        ASSERT_OK(m);
         assert_se(memcmp_nn(buf, n, rbuf, m) == 0);
 }
 

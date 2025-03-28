@@ -12,7 +12,7 @@ TEST(get_locales) {
         int r;
 
         r = get_locales(&locales);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(locales);
 
         STRV_FOREACH(p, locales) {
@@ -66,7 +66,7 @@ TEST(keymaps) {
         if (r == -ENOENT)
                 return; /* skip test if no keymaps are installed */
 
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(kmaps);
 
         STRV_FOREACH(p, kmaps) {
