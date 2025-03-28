@@ -10,7 +10,6 @@
 
 #include "missing_fcntl.h"
 #include "missing_fs.h"
-#include "missing_syscall_def.h"
 
 /* Possible value for FLAGS parameter of `umount2'.  */
 enum
