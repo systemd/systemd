@@ -126,6 +126,8 @@ Deprecations and removals:
 * In v260: remove support for deprecated FactoryReset EFI variable in
   systemd-repart, replaced by FactoryResetRequest.
 
+* Consider removing root=gpt-auto, and push people to use root=dissect instead.
+
 Features:
 
 * maybe replace nss-machines with logic in networkd that registers records with
@@ -156,6 +158,8 @@ Features:
   the PCR then also reboot.
 
 * cryptsetup: add boolean for disabling use of any password/recovery key slots.
+  (i.e. that we can operate in a tpm-only mode, and thus protect us from rogue
+  root disks)
 
 * dissect: when mounting a file system, look into certain xattrs on / in them, and
   if that exists, check if gpt partition flags + type uuid + uuid match the
@@ -174,12 +178,6 @@ Features:
   - io.systemd.Resolve
   - io.systemd.oom
   - io.systemd.sysext
-
-* dissect: instead of searching for root and /usr partitions first, look for
-  verity signature partitions first instead, then match up what we find with
-  locally available keys, and then use first that works.
-
-* gpt-auto-root doesn't take image policy into account.
 
 * maybe define a /etc/machine-info field for the ANSI color to associate with a
   hostname. Then use it for the shell prompt to highlight the hostname. If no
@@ -1176,10 +1174,6 @@ Features:
 * consider adding a new partition type, just for /opt/ for usage in system
   extensions
 
-* gpt-auto-discovery: also use the pkcs7 signature stuff, and pass signature to
-  kernel. So far we only did this for the various --image= switches, but not
-  for the root fs or /usr/.
-
 * dissection policy should enforce that unlocking can only take place by
   certain means, i.e. only via pw, only via tpm2, or only via fido, or a
   combination thereof.
@@ -1343,9 +1337,6 @@ Features:
 
 * chase(): take inspiration from path_extract_filename() and return
   O_DIRECTORY if input path contains trailing slash.
-
-* chase(): refuse resolution if trailing slash is specified on input,
-  but final node is not a directory
 
 * document in boot loader spec that symlinks in XBOOTLDR/ESP are not OK even if
   non-VFAT fs is used.
@@ -1666,12 +1657,6 @@ Features:
   data in the image, make sure the image filename actually matches this, so
   that images cannot be misused.
 
-* New udev block device symlink names:
-  /dev/disk/by-parttypelabel/<pttype>-<ptlabel>. Use case: if pt label is used
-  as partition image version string, this is a safe way to reference a specific
-  version of a specific partition type, in particular where related partitions
-  are processed (e.g. verity + rootfs both named "LennartOS_0.7").
-
 * sysupdate:
   - add fuzzing to the pattern parser
   - support casync as download mechanism
@@ -1687,11 +1672,6 @@ Features:
 
 * systemd-sysext: optionally, run it in initrd already, before transitioning
   into host, to open up possibility for services shipped like that.
-
-* introduce /dev/disk/root/* symlinks that allow referencing partitions on the
-  disk the rootfs is on in a reasonably secure way. (or maybe: add
-  /dev/gpt-auto-{home,srv,boot,…} similar in style to /dev/gpt-auto-root as we
-  already have it.
 
 * whenever we receive fds via SCM_RIGHTS make sure none got dropped due to the
   reception limit the kernel silently enforces.

@@ -32,6 +32,7 @@ rules = [
                '80-net-setup-link.rules',
                '81-net-bridge.rules',
                '81-net-dhcp.rules',
+               '90-image-dissect.rules',
                '90-iocost.rules',
               )],
 

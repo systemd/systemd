@@ -1,0 +1,56 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+ACTION=="remove", GOTO="image_dissect_end"
+SUBSYSTEM!="block", GOTO="image_dissect_end"
+
+# Add symlink to GPT root disk – in two flavours: one which takes the factory
+# reset state into account, and one which does not. The former is useful for
+# wipe-rootfs-on-factory-reset scenarios where we should not be tempted to use
+# the root fs before factory reset is complete. The latter is useful for
+# wipe-only-/var-on-factory-reset where we should use it (because that's where
+# repart.d/ definitions are placed which tell us what to wipe).
+ENV{ID_PART_GPT_AUTO_ROOT}!="1", GOTO="gpt_auto_root_end"
+      IMPORT{builtin}="factory_reset status"
+      ENV{ID_FS_TYPE}!="crypto_LUKS", ENV{ID_FACTORY_RESET}!="on", SYMLINK+="gpt-auto-root"
+      ENV{ID_FS_TYPE}!="crypto_LUKS", ENV{ID_FACTORY_RESET}=="on|complete", SYMLINK+="gpt-auto-root-ignore-factory-reset"
+      ENV{ID_FS_TYPE}=="crypto_LUKS", ENV{ID_FACTORY_RESET}!="on", SYMLINK+="gpt-auto-root-luks"
+      ENV{ID_FS_TYPE}=="crypto_LUKS", ENV{ID_FACTORY_RESET}=="on|complete", SYMLINK+="gpt-auto-root-luks-ignore-factory-reset"
+LABEL="gpt_auto_root_end"
+
+# Note we don't need to condition the gpt-auto-root LUKS symlink for
+# auto-discovered LUKS devices, because it's sufficient if we do this for the
+# underlying partition block device, which is covered by the above.
+ENV{DM_UUID}=="CRYPT-*", ENV{DM_NAME}=="root", IMPORT{builtin}="factory_reset status", SYMLINK+="gpt-auto-root"
+ENV{DM_UUID}=="CRYPT-*", ENV{DM_NAME}=="root", ENV{ID_FACTORY_RESET}=="on|complete", SYMLINK+="gpt-auto-root-ignore-factory-reset"
+
+# If this is the whole disk that we booted from, then dissect it
+ENV{DEVTYPE}=="disk", ENV{ID_PART_GPT_AUTO_ROOT_DISK}=="1", IMPORT{builtin}="dissect_image probe"
+ENV{DEVTYPE}=="disk", ENV{ID_PART_GPT_AUTO_ROOT_DISK}=="1", ENV{ID_FACTORY_RESET}=="", IMPORT{builtin}="factory_reset status"
+
+# If this is a partition, and we found something on the parent, then copy the
+# right properties from the parent, and rename them
+ENV{DEVTYPE}=="partition", ENV{ID_DISSECT_IMAGE}!="", IMPORT{builtin}="dissect_image copy"
+
+# Create symlinks based on the designator for the partitions themselves. If we detect LUKS or Verity, suffix them with "-luks" or "-vdata"
+ENV{DEVTYPE}!="partition", GOTO="dissect_partition_symlinks_end"
+    ENV{ID_DISSECT_PART_DESIGNATOR}=="", GOTO="dissect_partition_symlinks_end"
+        ENV{ID_FS_TYPE}!="crypto_LUKS", ENV{ID_DISSECT_PART_HAS_VERITY}!="1", ENV{ID_FACTORY_RESET}!="on", SYMLINK+="disk/by-designator/$env{ID_DISSECT_PART_DESIGNATOR}"
+        ENV{ID_FS_TYPE}!="crypto_LUKS", ENV{ID_DISSECT_PART_HAS_VERITY}!="1", ENV{ID_FACTORY_RESET}=="on|complete", SYMLINK+="disk/by-designator/$env{ID_DISSECT_PART_DESIGNATOR}-ignore-factory-reset"
+        ENV{ID_FS_TYPE}=="crypto_LUKS", ENV{ID_FACTORY_RESET}!="on", SYMLINK+="disk/by-designator/$env{ID_DISSECT_PART_DESIGNATOR}-luks"
+        ENV{ID_FS_TYPE}=="crypto_LUKS", ENV{ID_FACTORY_RESET}=="on|complete", SYMLINK+="disk/by-designator/$env{ID_DISSECT_PART_DESIGNATOR}-luks-ignore-factory-reset"
+        ENV{ID_FS_TYPE}!="crypto_LUKS", ENV{ID_DISSECT_PART_HAS_VERITY}=="1", ENV{ID_FACTORY_RESET}!="on", SYMLINK+="disk/by-designator/$env{ID_DISSECT_PART_DESIGNATOR}-verity-data"
+        ENV{ID_FS_TYPE}!="crypto_LUKS", ENV{ID_DISSECT_PART_HAS_VERITY}=="1", ENV{ID_FACTORY_RESET}=="on|complete", SYMLINK+="disk/by-designator/$env{ID_DISSECT_PART_DESIGNATOR}-verity-data-ignore-factory-reset"
+LABEL="dissect_partition_symlinks_end"
+
+# For LUKS or Verity partitions we rely on the selected volume name
+ENV{DM_UUID}=="CRYPT-*", ENV{DM_NAME}=="root|usr|home|srv|swap|tmp|var", IMPORT{builtin}="factory_reset status", SYMLINK+="disk/by-designator/$env{DM_NAME}"
+ENV{DM_UUID}=="CRYPT-*", ENV{DM_NAME}=="root|usr|home|srv|swap|tmp|var", ENV{ID_FACTORY_RESET}=="on|complete", SYMLINK+="disk/by-designator/$env{DM_NAME}-ignore-factory-reset"
+
+LABEL="image_dissect_end"
