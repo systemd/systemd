@@ -582,7 +582,7 @@ static int efi_timestamp(EFI_TIME *ret) {
         assert(ret);
 
         r = secure_getenv_uint64("SOURCE_DATE_EPOCH", &epoch);
-        if (r != -ENXIO)
+        if (r < 0 && r != -ENXIO)
                 log_debug_errno(r, "Failed to parse $SOURCE_DATE_EPOCH, ignoring: %m");
 
         r = localtime_or_gmtime_usec(epoch != UINT64_MAX ? epoch : now(CLOCK_REALTIME), /*utc=*/ true, &tm);
