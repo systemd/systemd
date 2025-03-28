@@ -921,7 +921,10 @@ int wait_for_terminate_and_check(const char *name, pid_t pid, WaitFlags flags) {
         siginfo_t status;
         int r, prio;
 
-        assert(pid > 1);
+        if (pid <= 0)
+                return -ESRCH;
+        if (pid == 1)
+                return -EINVAL;
 
         if (!name) {
                 r = pid_get_comm(pid, &buffer);
@@ -954,6 +957,21 @@ int wait_for_terminate_and_check(const char *name, pid_t pid, WaitFlags flags) {
 
         log_full(prio, "%s failed due to unknown reason.", strna(name));
         return -EPROTO;
+}
+
+int pidref_wait_for_terminate_and_check(const char *name, PidRef *pidref, WaitFlags flags) {
+        int r;
+
+        /* NB: invalidates the pidref parameter! */
+
+        if (!pidref_is_set(pidref))
+                return -ESRCH;
+        if (pidref_is_remote(pidref))
+                return -EREMOTE;
+
+        r = wait_for_terminate_and_check(name, pidref->pid, flags);
+        pidref_done(pidref);
+        return r;
 }
 
 /*

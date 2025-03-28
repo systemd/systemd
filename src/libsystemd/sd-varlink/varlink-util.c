@@ -181,3 +181,19 @@ int varlink_server_new(
         *ret = TAKE_PTR(s);
         return 0;
 }
+
+int varlink_check_privileged_peer(sd_varlink *vl) {
+        int r;
+
+        assert(vl);
+
+        uid_t uid;
+        r = sd_varlink_get_peer_uid(vl, &uid);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get peer UID: %m");
+
+        if (uid != 0)
+                return sd_varlink_error(vl, SD_VARLINK_ERROR_PERMISSION_DENIED, /* parameters= */ NULL);
+
+        return 0;
+}

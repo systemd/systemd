@@ -46,6 +46,11 @@ Prioq* prioq_free(Prioq *q) {
         if (!q)
                 return NULL;
 
+        /* Invalidate the index fields of any remaining objects */
+        FOREACH_ARRAY(item, q->items, q->n_items)
+                if (item->idx)
+                        *(item->idx) = PRIOQ_IDX_NULL;
+
         free(q->items);
         return mfree(q);
 }
@@ -178,6 +183,11 @@ static void remove_item(Prioq *q, struct prioq_item *i) {
         assert(q);
         assert(i);
 
+        /* Let's invalidate the index pointer stored in the user's object to indicate the item is now removed
+         * from the priority queue */
+        if (i->idx)
+                *(i->idx) = PRIOQ_IDX_NULL;
+
         l = q->items + q->n_items - 1;
 
         if (i == l)
@@ -189,6 +199,7 @@ static void remove_item(Prioq *q, struct prioq_item *i) {
                 /* Not last entry, let's replace the last entry with
                  * this one, and reshuffle */
 
+                assert(i >= q->items);
                 k = i - q->items;
 
                 i->data = l->data;
@@ -252,6 +263,7 @@ void prioq_reshuffle(Prioq *q, void *data, unsigned *idx) {
         if (!i)
                 return;
 
+        assert(i >= q->items);
         k = i - q->items;
         k = shuffle_down(q, k);
         shuffle_up(q, k);
