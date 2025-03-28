@@ -8,6 +8,12 @@ latest version of mkosi. See
 for more specific details. Make sure `mkosi` is available in `$PATH` when
 reconfiguring meson to make sure it is picked up properly.
 
+If you haven't done it already, be sure to generate signing keys for `mkosi`:
+
+```shell
+$ mkosi genkey
+```
+
 Next, we can build the integration test image with meson:
 
 ```shell
