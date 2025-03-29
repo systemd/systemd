@@ -1454,6 +1454,23 @@ int socket_bind_to_ifindex(int fd, int ifindex) {
         return setsockopt_int(fd, SOL_SOCKET, SO_BINDTOIFINDEX, ifindex);
 }
 
+int socket_autobind(int fd, char **ret_name) {
+        assert(fd >= 0);
+        assert(ret_name);
+
+        union sockaddr_union sa = {
+                .sa.sa_family = AF_UNIX,
+        };
+        if (bind(fd, &sa.sa, offsetof(union sockaddr_union, un.sun_path)) < 0)
+                return log_debug_errno(errno, "Failed to autobind AF_UNIX socket: %m");
+
+        r = getsockname_pretty(fd, ret_name);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get autobind socket name: %m");
+
+        return 0;
+}
+
 ssize_t recvmsg_safe(int sockfd, struct msghdr *msg, int flags) {
         ssize_t n;
 
