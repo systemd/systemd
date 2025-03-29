@@ -1445,25 +1445,32 @@ int socket_bind_to_ifname(int fd, const char *ifname) {
 }
 
 int socket_bind_to_ifindex(int fd, int ifindex) {
-        char ifname[IF_NAMESIZE];
-        int r;
-
         assert(fd >= 0);
 
         if (ifindex <= 0)
                 /* Drop binding */
                 return RET_NERRNO(setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, NULL, 0));
 
-        r = setsockopt_int(fd, SOL_SOCKET, SO_BINDTOIFINDEX, ifindex);
-        if (r != -ENOPROTOOPT)
-                return r;
+        return setsockopt_int(fd, SOL_SOCKET, SO_BINDTOIFINDEX, ifindex);
+}
 
-        /* Fall back to SO_BINDTODEVICE on kernels < 5.0 which didn't have SO_BINDTOIFINDEX */
-        r = format_ifname(ifindex, ifname);
+int socket_autobind(int fd, char **ret_name) {
+        int r;
+
+        assert(fd >= 0);
+        assert(ret_name);
+
+        union sockaddr_union sa = {
+                .sa.sa_family = AF_UNIX,
+        };
+        if (bind(fd, &sa.sa, offsetof(union sockaddr_union, un.sun_path)) < 0)
+                return log_debug_errno(errno, "Failed to autobind AF_UNIX socket: %m");
+
+        r = getsockname_pretty(fd, ret_name);
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Failed to get autobind socket name: %m");
 
-        return socket_bind_to_ifname(fd, ifname);
+        return 0;
 }
 
 ssize_t recvmsg_safe(int sockfd, struct msghdr *msg, int flags) {
