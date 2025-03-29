@@ -52,7 +52,7 @@ typedef struct MountPoint {
         MountMode mode;
 } MountPoint;
 
-bool cgroupfs_recursiveprot_supported(void) {
+static bool cgroupfs_recursiveprot_supported(void) {
         int r;
 
         /* Added in kernel 5.7 */
