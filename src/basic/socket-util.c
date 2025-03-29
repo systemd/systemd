@@ -1445,25 +1445,13 @@ int socket_bind_to_ifname(int fd, const char *ifname) {
 }
 
 int socket_bind_to_ifindex(int fd, int ifindex) {
-        char ifname[IF_NAMESIZE];
-        int r;
-
         assert(fd >= 0);
 
         if (ifindex <= 0)
                 /* Drop binding */
                 return RET_NERRNO(setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, NULL, 0));
 
-        r = setsockopt_int(fd, SOL_SOCKET, SO_BINDTOIFINDEX, ifindex);
-        if (r != -ENOPROTOOPT)
-                return r;
-
-        /* Fall back to SO_BINDTODEVICE on kernels < 5.0 which didn't have SO_BINDTOIFINDEX */
-        r = format_ifname(ifindex, ifname);
-        if (r < 0)
-                return r;
-
-        return socket_bind_to_ifname(fd, ifname);
+        return setsockopt_int(fd, SOL_SOCKET, SO_BINDTOIFINDEX, ifindex);
 }
 
 ssize_t recvmsg_safe(int sockfd, struct msghdr *msg, int flags) {
