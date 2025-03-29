@@ -2405,6 +2405,11 @@ RestrictNamespaces=~cgroup net</programlisting>
         after the user namespace is unshared. Other namespaces will be unshared before the user namespace is
         unshared.</para>
 
+        <para>Note that some namespace sandboxing options might entail mount namespace for private API VFS instances,
+        such as <varname>PrivatePIDs=</varname>, <varname>ProtectControlGroups=private/strict</varname>, or
+        <varname>PrivateNetwork=</varname>. When any of the mentioned options are enabled, mount namespace
+        is implicitly delegated.</para>
+
         <para>Delegating any namespace with <varname>DelegateNamespaces=</varname> implies
         <varname>PrivateUsers=self</varname> unless <varname>PrivateUsers=</varname> is explicitly enabled
         already by the unit. Delegating a namespace does not imply that the namespace is unshared, that is
