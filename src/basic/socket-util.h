@@ -322,6 +322,8 @@ static inline int getsockopt_int(int fd, int level, int optname, int *ret) {
 int socket_bind_to_ifname(int fd, const char *ifname);
 int socket_bind_to_ifindex(int fd, int ifindex);
 
+int socket_autobind(int fd, char **ret_name);
+
 /* Define a 64-bit version of timeval/timespec in any case, even on 32-bit userspace. */
 struct timeval_large {
         uint64_t tvl_sec, tvl_usec;
