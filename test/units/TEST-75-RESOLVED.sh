@@ -21,6 +21,11 @@ if ! command knotc >/dev/null; then
     exit 77
 fi
 
+if ! command -v resolvectl >/dev/null || ! command -v networkctl >/dev/null; then
+    echo "resolved/networkd not found, skipping..." | tee --append /skipped
+    exit 77
+fi
+
 # We need at least Knot 3.0 which support (among others) the ds-push directive
 knotc -c /usr/lib/systemd/tests/testdata/knot-data/knot.conf conf-check
 

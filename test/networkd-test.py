@@ -47,6 +47,12 @@ def setUpModule():
     global tmpmounts
 
     """Initialize the environment, and perform sanity checks on it."""
+
+    if shutil.which('networkctl') is None:
+        raise unittest.SkipTest('networkd not installed')
+    if shutil.which('resolvectl') is None:
+        raise unittest.SkipTest('resolved not installed')
+
     if NETWORKD_WAIT_ONLINE is None:
         raise OSError(errno.ENOENT, 'systemd-networkd-wait-online not found')
 
