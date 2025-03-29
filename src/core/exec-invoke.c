@@ -4273,7 +4273,17 @@ static bool exec_namespace_is_delegated(
         if (context->delegate_namespaces == NAMESPACE_FLAGS_INITIAL)
                 return params->runtime_scope == RUNTIME_SCOPE_USER;
 
-        return FLAGS_SET(context->delegate_namespaces, namespace);
+        if (FLAGS_SET(context->delegate_namespaces, namespace))
+                return true;
+
+        /* Various namespaces imply mountns for private procfs/sysfs/cgroupfs instances, which means when
+         * those are delegated mountns must be deferred too.
+         *
+         * The list should stay in sync with exec_needs_mount_namespace(). */
+        if (namespace == CLONE_NEWNS)
+                return context->delegate_namespaces & (CLONE_NEWPID|CLONE_NEWCGROUP|CLONE_NEWNET);
+
+        return false;
 }
 
 static int setup_delegated_namespaces(
