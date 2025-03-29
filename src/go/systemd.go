@@ -12,6 +12,8 @@ import (
 	"C"
 	"fmt"
 	"runtime/debug"
+
+	rcconf "github.com/systemd/systemd/src/go/rc-conf"
 )
 
 func main() {}
@@ -23,4 +25,10 @@ func GoBuildVersion() {
 		return
 	}
 	fmt.Printf("Version: %s\n", bi.Main.Version)
+}
+
+//export GenerateRCConf
+func GenerateRCConf() {
+	config := rcconf.ParseConfig()
+	rcconf.Enable(&config)
 }
