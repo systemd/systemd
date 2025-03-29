@@ -262,7 +262,7 @@ static int apply_tmpfs_quota(
                 uint64_t v =
                         (scale == 0) ? 0 :
                         (scale == UINT32_MAX) ? UINT64_MAX :
-                        (uint64_t) ((double) (sfs.f_blocks * sfs.f_frsize) / scale * UINT32_MAX);
+                        (uint64_t) ((double) (sfs.f_blocks * sfs.f_frsize) * scale / UINT32_MAX);
 
                 v = MIN(v, limit);
                 v /= QIF_DQBLKSIZE;
