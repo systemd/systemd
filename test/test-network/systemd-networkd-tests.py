@@ -8958,6 +8958,10 @@ if __name__ == '__main__':
     else:
         source_dir = None
 
+    if networkd_bin is None or resolved_bin is None or timesyncd_bin is None:
+        print("networkd tests require networkd/resolved/timesyncd to be enabled")
+        sys.exit(77)
+
     use_valgrind = ns.use_valgrind
     enable_debug = ns.enable_debug
     asan_options = ns.asan_options
