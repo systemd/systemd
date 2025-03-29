@@ -665,24 +665,22 @@ getent passwd aliastest@myrealm
 getent passwd aliastest2@myrealm
 getent passwd aliastest3@myrealm
 
-if findmnt -n -o options /tmp | grep -q usrquota ; then
+NEWPASSWORD=quux homectl create tmpfsquota --storage=subvolume --dev-shm-limit=50K --tmp-limit=50K -P
+for p in /dev/shm /tmp; do
+    if findmnt -n -o options "$p" | grep -q usrquota; then
+        run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u tmpfsquota dd if=/dev/zero of="$p/quotatestfile1" bs=1024 count=30
+        (! run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u tmpfsquota dd if=/dev/zero of="$p/quotatestfile2" bs=1024 count=30)
+        run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u tmpfsquota rm "$p/quotatestfile1" "$p/quotatestfile2"
+        run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u tmpfsquota dd if=/dev/zero of="$p/quotatestfile1" bs=1024 count=30
+        run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u tmpfsquota rm "$p/quotatestfile1"
+    fi
+done
 
-    NEWPASSWORD=quux homectl create tmpfsquota --storage=subvolume --dev-shm-limit=50K -P
-
-    run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u tmpfsquota dd if=/dev/zero of=/dev/shm/quotatestfile1 bs=1024 count=30
-    (! run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u tmpfsquota dd if=/dev/zero of=/dev/shm/quotatestfile2 bs=1024 count=30)
-    run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u tmpfsquota rm /dev/shm/quotatestfile1 /dev/shm/quotatestfile2
-    run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u tmpfsquota dd if=/dev/zero of=/dev/shm/quotatestfile1 bs=1024 count=30
-    run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u tmpfsquota rm /dev/shm/quotatestfile1
-
-    systemctl stop user@"$(id -u tmpfsquota)".service
-
-    wait_for_state tmpfsquota inactive
-    homectl remove tmpfsquota
-fi
+systemctl stop user@"$(id -u tmpfsquota)".service
+wait_for_state tmpfsquota inactive
+homectl remove tmpfsquota
 
 NEWPASSWORD=quux homectl create subareatest --storage=subvolume -P
-
 run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest mkdir Areas
 run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest cp -av /etc/skel Areas/furb
 run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest cp -av /etc/skel Areas/molb
