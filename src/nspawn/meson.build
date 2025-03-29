@@ -61,14 +61,11 @@ executables += [
         },
         nspawn_test_template + {
                 'sources' : files('test-nspawn-tables.c'),
-                'conditions' : ['ENABLE_NSPAWN'],
         },
         nspawn_fuzz_template + {
                 'sources' : files('fuzz-nspawn-settings.c'),
-                'conditions' : ['ENABLE_NSPAWN'],
         },
         nspawn_fuzz_template + {
                 'sources' : files('fuzz-nspawn-oci.c'),
-                'conditions' : ['ENABLE_NSPAWN'],
         },
 ]
