@@ -57,8 +57,7 @@ static enum {
 static bool arg_plymouth = false;
 static bool arg_console = false;
 static char *arg_device = NULL;
-// static char *arg_query = NULL; # Str support
-static int arg_queryPID = 0;
+static int arg_query_pid = 0;
 
 STATIC_DESTRUCTOR_REGISTER(arg_device, freep);
 
@@ -216,6 +215,14 @@ static int process_one_password_file(const char *filename, FILE *f) {
         if (not_after > 0 && now(CLOCK_MONOTONIC) > not_after)
                 return 0;
 
+        if (arg_query_pid != 0) {
+                if (pid != arg_query_pid /* TODO: && compare PID with arg_query */) {
+                        if (arg_action == ACTION_QUERY)
+                                log_info("Not querying '%s' (PID " PID_FMT "), ignored by query 'pid=%d'.", strna(message), pid, arg_query_pid);
+                return 0;
+                }
+        }
+        
         if (pid > 0 && pid_is_alive(pid) <= 0)
                 return 0;
 
@@ -247,15 +254,6 @@ static int process_one_password_file(const char *filename, FILE *f) {
                                 log_info("Not querying '%s' (PID " PID_FMT "), lacking privileges.", strna(message), pid);
 
                         return 0;
-                }
-
-                if (arg_queryPID != 0) {
-                    if (pid != arg_queryPID /* TODO: && compare PID with arg_query */) {
-                        if (arg_action == ACTION_QUERY)
-                            log_info("Not querying '%s' (PID " PID_FMT "), ignored by query 'pid=%d'.", strna(message), pid, arg_queryPID);
-
-                        return 0;
-                    }
                 }
 
                 SET_FLAG(flags, ASK_PASSWORD_ACCEPT_CACHED, accept_cached);
@@ -336,7 +334,7 @@ static int parse_query(const char *arg) {
                 goto default_noarg;
 
         if (streq(arg, "all")) {
-                arg_queryPID = 0;
+                arg_query_pid = 0;
                 return 1;
         }
 
@@ -350,11 +348,11 @@ static int parse_query(const char *arg) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse --query='%s'.", arg);
         }
 
-        arg_queryPID = n;
+        arg_query_pid = n;
         return 1;
 
 default_noarg:
-        arg_queryPID = 0;
+        arg_query_pid = 0;
         return 0;
 }
 
