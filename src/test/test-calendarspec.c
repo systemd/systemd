@@ -219,6 +219,7 @@ TEST(calendar_spec_next) {
         /* Check that we don't start looping if mktime() moves us backwards */
         test_next("Sun *-*-* 01:00:00 Europe/Dublin", "", 1616412478000000, 1617494400000000);
         test_next("Sun *-*-* 01:00:00 Europe/Dublin", "IST", 1616412478000000, 1617494400000000);
+        test_next("Sun *-*-* *:00:00 Europe/Dublin", "", 1743292800000000, 1743296400000000);
 }
 
 TEST(calendar_spec_from_string) {
