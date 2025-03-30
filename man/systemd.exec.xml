@@ -2411,6 +2411,11 @@ RestrictNamespaces=~cgroup net</programlisting>
         done with the namespace specific unit setting such as <varname>PrivateNetwork=</varname> or
         <varname>PrivateMounts=</varname>.</para>
 
+        <para>Note that some namespace sandboxing options might entail mount namespace for private API VFS instances,
+        such as <varname>PrivatePIDs=</varname>, <varname>ProtectControlGroups=private/strict</varname>, or
+        <varname>PrivateNetwork=</varname>. If any of the mentioned options are enabled, mount namespace
+        is implicitly delegated.</para>
+
         <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
 
