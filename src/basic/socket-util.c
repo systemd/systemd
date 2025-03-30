@@ -1445,25 +1445,46 @@ int socket_bind_to_ifname(int fd, const char *ifname) {
 }
 
 int socket_bind_to_ifindex(int fd, int ifindex) {
-        char ifname[IF_NAMESIZE];
-        int r;
-
         assert(fd >= 0);
 
         if (ifindex <= 0)
                 /* Drop binding */
                 return RET_NERRNO(setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, NULL, 0));
 
-        r = setsockopt_int(fd, SOL_SOCKET, SO_BINDTOIFINDEX, ifindex);
-        if (r != -ENOPROTOOPT)
-                return r;
+        return setsockopt_int(fd, SOL_SOCKET, SO_BINDTOIFINDEX, ifindex);
+}
 
-        /* Fall back to SO_BINDTODEVICE on kernels < 5.0 which didn't have SO_BINDTOIFINDEX */
-        r = format_ifname(ifindex, ifname);
+int socket_autobind(int fd, char **ret_name) {
+        _cleanup_free_ char *name = NULL;
+        sd_id128_t random;
+        int r;
+
+        /* Generate a random abstract socket name and bind fd to it. This is modeled after the kernel
+         * "autobind" feature, but uses 128-bit random number internally. */
+
+        assert(fd >= 0);
+        assert(ret_name);
+
+        r = sd_id128_randomize(&random);
         if (r < 0)
                 return r;
 
-        return socket_bind_to_ifname(fd, ifname);
+        name = strdup(SD_ID128_TO_STRING(random));
+        if (!name)
+                return -ENOMEM;
+
+        union sockaddr_union sa = {
+                .un.sun_family = AF_UNIX,
+        };
+        assert_cc(SD_ID128_STRING_MAX < sizeof(sa.un.sun_path));
+        sa.un.sun_path[0] = 0;
+        strcpy(sa.un.sun_path + 1, name);
+
+        if (bind(fd, &sa.sa, SOCKADDR_UN_LEN(sa.un)) < 0)
+                return -errno;
+
+        *ret_name = TAKE_PTR(name);
+        return 0;
 }
 
 ssize_t recvmsg_safe(int sockfd, struct msghdr *msg, int flags) {
