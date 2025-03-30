@@ -1255,7 +1255,9 @@ static int find_next(const CalendarSpec *spec, struct tm *tm, usec_t *usec) {
         for (unsigned iteration = 0; iteration < MAX_CALENDAR_ITERATIONS; iteration++) {
                 /* Normalize the current date */
                 (void) mktime_or_timegm_usec(&c, spec->utc, /* ret= */ NULL);
-                c.tm_isdst = spec->dst;
+                if (iteration == 0) {
+                        c.tm_isdst = spec->dst;
+                }
 
                 c.tm_year += 1900;
                 r = find_matching_component(spec, spec->year, &c, &c.tm_year);
