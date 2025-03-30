@@ -1235,6 +1235,15 @@ static bool matches_weekday(int weekdays_bits, const struct tm *tm, bool utc) {
         return (weekdays_bits & (1 << k));
 }
 
+static int compare_tm(const struct tm *t1, const struct tm *t2) {
+        if (t1->tm_year != t2->tm_year) return t1->tm_year - t2->tm_year;
+        if (t1->tm_mon  != t2->tm_mon)  return t1->tm_mon  - t2->tm_mon;
+        if (t1->tm_mday != t2->tm_mday) return t1->tm_mday - t2->tm_mday;
+        if (t1->tm_hour != t2->tm_hour) return t1->tm_hour - t2->tm_hour;
+        if (t1->tm_min  != t2->tm_min)  return t1->tm_min  - t2->tm_min;
+        return t1->tm_sec - t2->tm_sec;
+}
+
 /* A safety valve: if we get stuck in the calculation, return an error.
  * C.f. https://bugzilla.redhat.com/show_bug.cgi?id=1941335. */
 #define MAX_CALENDAR_ITERATIONS 1000
@@ -1243,6 +1252,7 @@ static int find_next(const CalendarSpec *spec, struct tm *tm, usec_t *usec) {
         struct tm c;
         int tm_usec;
         int r;
+        int dst;
 
         /* Returns -ENOENT if the expression is not going to elapse anymore */
 
@@ -1251,11 +1261,13 @@ static int find_next(const CalendarSpec *spec, struct tm *tm, usec_t *usec) {
 
         c = *tm;
         tm_usec = *usec;
+        dst = spec->dst;
 
         for (unsigned iteration = 0; iteration < MAX_CALENDAR_ITERATIONS; iteration++) {
                 /* Normalize the current date */
                 (void) mktime_or_timegm_usec(&c, spec->utc, /* ret= */ NULL);
-                c.tm_isdst = spec->dst;
+                if (dst != -2)
+                        c.tm_isdst = dst;
 
                 c.tm_year += 1900;
                 r = find_matching_component(spec, spec->year, &c, &c.tm_year);
@@ -1344,6 +1356,14 @@ static int find_next(const CalendarSpec *spec, struct tm *tm, usec_t *usec) {
                 }
                 if (r == 0)
                         continue;
+
+                r = compare_tm(tm, &c);
+                if (r > 0 || (r == 0 && *usec - 1 >= (usec_t) tm_usec)) {
+                        /* We're stuck - advance, let mktime determine DST transition and try again. */
+                        dst = -2;
+                        c.tm_hour++;
+                        continue;
+                }
 
                 *tm = c;
                 *usec = tm_usec;
