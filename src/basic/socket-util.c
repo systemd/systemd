@@ -28,6 +28,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "random-util.h"
 #include "socket-util.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -1445,25 +1446,43 @@ int socket_bind_to_ifname(int fd, const char *ifname) {
 }
 
 int socket_bind_to_ifindex(int fd, int ifindex) {
-        char ifname[IF_NAMESIZE];
-        int r;
-
         assert(fd >= 0);
 
         if (ifindex <= 0)
                 /* Drop binding */
                 return RET_NERRNO(setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, NULL, 0));
 
-        r = setsockopt_int(fd, SOL_SOCKET, SO_BINDTOIFINDEX, ifindex);
-        if (r != -ENOPROTOOPT)
-                return r;
+        return setsockopt_int(fd, SOL_SOCKET, SO_BINDTOIFINDEX, ifindex);
+}
 
-        /* Fall back to SO_BINDTODEVICE on kernels < 5.0 which didn't have SO_BINDTOIFINDEX */
-        r = format_ifname(ifindex, ifname);
-        if (r < 0)
-                return r;
+int socket_autobind(int fd, char **ret_name) {
+        _cleanup_free_ char *name = NULL;
+        uint64_t random;
+        int r;
 
-        return socket_bind_to_ifname(fd, ifname);
+        /* Generate a random abstract socket name and bind fd to it. This is modeled after the kernel
+         * "autobind" feature, but uses 64-bit random number internally. */
+
+        assert(fd >= 0);
+        assert(ret_name);
+
+        random = random_u64();
+
+        if (asprintf(&name, "@%" PRIu64, random) < 0)
+                return -ENOMEM;
+
+        union sockaddr_union sa = {
+                .un.sun_family = AF_UNIX,
+        };
+        assert_cc(DECIMAL_STR_MAX(uint64_t) < sizeof(sa.un.sun_path));
+        strcpy(sa.un.sun_path, name);
+        sa.un.sun_path[0] = 0;
+
+        if (bind(fd, &sa.sa, SOCKADDR_UN_LEN(sa.un)) < 0)
+                return -errno;
+
+        *ret_name = TAKE_PTR(name);
+        return 0;
 }
 
 ssize_t recvmsg_safe(int sockfd, struct msghdr *msg, int flags) {
