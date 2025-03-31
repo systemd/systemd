@@ -33,7 +33,7 @@ static int help(void) {
                 return log_oom();
 
         printf("%1$s [OPTIONS...] /path/to/mountpoint\n"
-               "\n%3$sCheck file system validation constraints.%4$s\n"
+               "\n%3$sCheck file system validation constraints.%4$s\n\n"
                "  -h --help            Show this help and exit\n"
                "     --version         Print version string and exit\n"
                "     --root=PATH|auto  Operate relative to the specified path\n"
@@ -136,7 +136,7 @@ static int validate_fields_read(int fd, ValidateFields *ret) {
         assert(ret);
 
         _cleanup_free_ char *t = NULL;
-        r = getxattr_at_malloc(fd, /* path= */ NULL, "user.validatefs.gpt_type_uuid", AT_EMPTY_PATH, &t, /* ret_size= */ NULL);
+        r = fgetxattr_malloc(fd, "user.validatefs.gpt_type_uuid", &t, /* ret_size= */ NULL);
         if (r < 0) {
                 if (r != -ENODATA && !ERRNO_IS_NOT_SUPPORTED(r))
                         return log_error_errno(r, "Failed to read 'user.validatefs.gpt_type_uuid' xattr: %m");
@@ -146,7 +146,7 @@ static int validate_fields_read(int fd, ValidateFields *ret) {
                         return log_error_errno(r, "Failed to parse 'user.validatefs.gpt_type_uuid' xattr: %s", t);
         }
 
-        r = getxattr_at_malloc(fd, /* path= */ NULL, "user.validatefs.gpt_label", AT_EMPTY_PATH, &f.gpt_label, /* ret_size= */ NULL);
+        r = fgetxattr_malloc(fd, "user.validatefs.gpt_label", &f.gpt_label, /* ret_size= */ NULL);
         if (r < 0) {
                 if (r != -ENODATA && !ERRNO_IS_NOT_SUPPORTED(r))
                         return log_error_errno(r, "Failed to read 'user.validatefs.gpt_label' xattr: %m");
@@ -318,14 +318,10 @@ static int run(int argc, char *argv[]) {
                 return r;
         if (r == 0) {
                 log_info("File system '%s' has no validation constraints set, not validating.", resolved);
-                return EXIT_SUCCESS;
+                return 0;
         }
 
-        r = validate_fields_check(target_fd, resolved, &f);
-        if (r < 0)
-                return r;
-
-        return EXIT_SUCCESS;
+        return validate_fields_check(target_fd, resolved, &f);
 }
 
 DEFINE_MAIN_FUNCTION(run);
