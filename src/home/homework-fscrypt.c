@@ -628,7 +628,7 @@ int home_create_fscrypt(
                 nr++;
         }
 
-        (void) home_update_quota_classic(h, temporary);
+        (void) home_update_quota_classic(h, setup->root_fd, temporary);
 
         r = home_shift_uid(setup->root_fd, HOME_RUNTIME_WORK_DIR, h->uid, h->uid, &mount_fd);
         if (r > 0)
