@@ -84,8 +84,7 @@ typedef enum WorkerState {
 
 typedef struct Worker {
         Manager *manager;
-        pid_t pid;
-        sd_event_source *child_event_source;
+        PidRef pidref;
         union sockaddr_union address;
         WorkerState state;
         Event *event;
@@ -124,9 +123,9 @@ static Worker* worker_free(Worker *worker) {
                 return NULL;
 
         if (worker->manager)
-                hashmap_remove(worker->manager->workers, PID_TO_PTR(worker->pid));
+                hashmap_remove(worker->manager->workers, &worker->pidref);
 
-        sd_event_source_unref(worker->child_event_source);
+        pidref_done(&worker->pidref);
         event_free(worker->event);
 
         return mfree(worker);
@@ -135,9 +134,9 @@ static Worker* worker_free(Worker *worker) {
 DEFINE_TRIVIAL_CLEANUP_FUNC(Worker*, worker_free);
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 worker_hash_op,
-                void,
-                trivial_hash_func,
-                trivial_compare_func,
+                PidRef,
+                pidref_hash_func,
+                pidref_compare_func,
                 Worker,
                 worker_free);
 
@@ -172,32 +171,36 @@ Manager* manager_free(Manager *manager) {
 
 static int on_sigchld(sd_event_source *s, const siginfo_t *si, void *userdata);
 
-static int worker_new(Worker **ret, Manager *manager, sd_device_monitor *worker_monitor, pid_t pid) {
+static int worker_new(Worker **ret, Manager *manager, sd_device_monitor *worker_monitor, PidRef *pidref) {
         _cleanup_(worker_freep) Worker *worker = NULL;
         int r;
 
         assert(ret);
         assert(manager);
         assert(worker_monitor);
-        assert(pid > 1);
+        assert(pidref);
+
+        /* This consumes passed pidref. */
 
         worker = new(Worker, 1);
-        if (!worker)
+        if (!worker) {
+                pidref_done(pidref);
                 return -ENOMEM;
+        }
 
         *worker = (Worker) {
-                .pid = pid,
+                .pidref = TAKE_PIDREF(*pidref),
         };
 
         r = device_monitor_get_address(worker_monitor, &worker->address);
         if (r < 0)
                 return r;
 
-        r = sd_event_add_child(manager->event, &worker->child_event_source, pid, WEXITED, on_sigchld, worker);
+        r = event_add_child_pidref(manager->event, NULL, pidref, WEXITED, on_sigchld, worker);
         if (r < 0)
                 return r;
 
-        r = hashmap_ensure_put(&manager->workers, &worker_hash_op, PID_TO_PTR(pid), worker);
+        r = hashmap_ensure_put(&manager->workers, &worker_hash_op, &worker->pidref, worker);
         if (r < 0)
                 return r;
 
@@ -222,7 +225,7 @@ void manager_kill_workers(Manager *manager, bool force) {
                 }
 
                 worker->state = WORKER_KILLED;
-                (void) kill(worker->pid, SIGTERM);
+                (void) pidref_kill(&worker->pidref, SIGTERM);
         }
 }
 
@@ -323,10 +326,10 @@ static int on_event_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
         assert(event->manager);
         assert(event->worker);
 
-        kill_and_sigcont(event->worker->pid, event->manager->config.timeout_signal);
+        (void) pidref_kill_and_sigcont(&event->worker->pidref, event->manager->config.timeout_signal);
         event->worker->state = WORKER_KILLED;
 
-        log_device_error(event->dev, "Worker ["PID_FMT"] processing SEQNUM=%"PRIu64" killed", event->worker->pid, event->seqnum);
+        log_device_error(event->dev, "Worker ["PID_FMT"] processing SEQNUM=%"PRIu64" killed", event->worker->pidref.pid, event->seqnum);
 
         return 1;
 }
@@ -336,7 +339,7 @@ static int on_event_timeout_warning(sd_event_source *s, uint64_t usec, void *use
 
         assert(event->worker);
 
-        log_device_warning(event->dev, "Worker ["PID_FMT"] processing SEQNUM=%"PRIu64" is taking a long time", event->worker->pid, event->seqnum);
+        log_device_warning(event->dev, "Worker ["PID_FMT"] processing SEQNUM=%"PRIu64" is taking a long time", event->worker->pidref.pid, event->seqnum);
 
         return 1;
 }
@@ -396,12 +399,13 @@ static void worker_attach_event(Worker *worker, Event *event) {
 }
 
 static int worker_spawn(Manager *manager, Event *event) {
-        _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *worker_monitor = NULL;
-        Worker *worker;
-        pid_t pid;
         int r;
 
+        assert(manager);
+        assert(event);
+
         /* listen for new events */
+        _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *worker_monitor = NULL;
         r = device_monitor_new_full(&worker_monitor, MONITOR_GROUP_NONE, -1);
         if (r < 0)
                 return r;
@@ -413,7 +417,8 @@ static int worker_spawn(Manager *manager, Event *event) {
         if (r < 0)
                 return log_error_errno(r, "Worker: Failed to set unicast sender: %m");
 
-        r = safe_fork("(udev-worker)", FORK_DEATHSIG_SIGTERM, &pid);
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        r = pidref_safe_fork("(udev-worker)", FORK_DEATHSIG_SIGTERM, &pidref);
         if (r < 0) {
                 event->state = EVENT_QUEUED;
                 return log_error_errno(r, "Failed to fork() worker: %m");
@@ -438,13 +443,14 @@ static int worker_spawn(Manager *manager, Event *event) {
                 _exit(r < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
         }
 
-        r = worker_new(&worker, manager, worker_monitor, pid);
+        Worker *worker;
+        r = worker_new(&worker, manager, worker_monitor, &pidref);
         if (r < 0)
                 return log_error_errno(r, "Failed to create worker object: %m");
 
         worker_attach_event(worker, event);
 
-        log_device_debug(event->dev, "Worker ["PID_FMT"] is forked for processing SEQNUM=%"PRIu64".", pid, event->seqnum);
+        log_device_debug(event->dev, "Worker ["PID_FMT"] is forked for processing SEQNUM=%"PRIu64".", worker->pidref.pid, event->seqnum);
         return 0;
 }
 
@@ -469,8 +475,8 @@ static int event_run(Event *event) {
                 r = device_monitor_send(manager->monitor, &worker->address, event->dev);
                 if (r < 0) {
                         log_device_error_errno(event->dev, r, "Worker ["PID_FMT"] did not accept message, killing the worker: %m",
-                                               worker->pid);
-                        (void) kill(worker->pid, SIGKILL);
+                                               worker->pidref.pid);
+                        (void) pidref_kill(&worker->pidref, SIGKILL);
                         worker->state = WORKER_KILLED;
                         continue;
                 }
@@ -830,7 +836,7 @@ static int on_worker_notify(sd_event_source *s, int fd, uint32_t revents, void *
                 return r;
 
         /* lookup worker who sent the signal */
-        Worker *worker = hashmap_get(manager->workers, PID_TO_PTR(sender.pid));
+        Worker *worker = hashmap_get(manager->workers, &sender);
         if (!worker) {
                 log_warning("Received notify datagram of unknown process ["PID_FMT"], ignoring.", sender.pid);
                 return 0;
@@ -845,7 +851,7 @@ static int on_worker_notify(sd_event_source *s, int fd, uint32_t revents, void *
         /* Update the state of the worker. */
         if (worker->state == WORKER_KILLING) {
                 worker->state = WORKER_KILLED;
-                (void) kill(worker->pid, SIGTERM);
+                (void) pidref_kill(&worker->pidref, SIGTERM);
         } else if (worker->state != WORKER_KILLED)
                 worker->state = WORKER_IDLE;
 
