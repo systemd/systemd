@@ -55,8 +55,8 @@
 #include "user-record-util.h"
 #include "user-record.h"
 #include "user-util.h"
-#include "varlink-io.systemd.service.h"
 #include "varlink-io.systemd.UserDatabase.h"
+#include "varlink-io.systemd.service.h"
 #include "varlink-util.h"
 
 /* Where to look for private/public keys that are used to sign the user records. We are not using
@@ -533,14 +533,15 @@ static int search_quota(uid_t uid, const char *exclude_quota_path) {
                 struct dqblk req;
                 struct stat st;
 
-                if (stat(where, &st) < 0) {
+                _cleanup_close_ int fd = open(where, O_RDONLY|O_CLOEXEC|O_DIRECTORY);
+                if (fd < 0) {
                         log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_ERR, errno,
-                                       "Failed to stat %s, ignoring: %m", where);
+                                       "Failed to open '%s', ignoring: %m", where);
                         continue;
                 }
 
-                if (major(st.st_dev) == 0) {
-                        log_debug("Directory %s is not on a real block device, not checking quota for UID use.", where);
+                if (fstat(fd, &st) < 0) {
+                        log_error_errno(errno, "Failed to stat '%s', ignoring: %m", where);
                         continue;
                 }
 
@@ -559,7 +560,7 @@ static int search_quota(uid_t uid, const char *exclude_quota_path) {
 
                 previous_devno = st.st_dev;
 
-                r = quotactl_devnum(QCMD_FIXED(Q_GETQUOTA, USRQUOTA), st.st_dev, uid, &req);
+                r = quotactl_fd_with_fallback(fd, QCMD_FIXED(Q_GETQUOTA, USRQUOTA), uid, &req);
                 if (r < 0) {
                         if (ERRNO_IS_NOT_SUPPORTED(r))
                                 log_debug_errno(r, "No UID quota support on %s, ignoring.", where);

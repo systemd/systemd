@@ -3,6 +3,6 @@
 
 #include "user-record.h"
 
-int home_update_quota_btrfs(UserRecord *h, const char *path);
-int home_update_quota_classic(UserRecord *h, const char *path);
-int home_update_quota_auto(UserRecord *h, const char *path);
+int home_update_quota_btrfs(UserRecord *h, int fd, const char *path);
+int home_update_quota_classic(UserRecord *h, int fd, const char *path);
+int home_update_quota_auto(UserRecord *h, int fd, const char *path);
