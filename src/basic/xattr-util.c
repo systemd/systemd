@@ -13,11 +13,13 @@
 #include "fd-util.h"
 #include "macro.h"
 #include "missing_syscall.h"
+#include "nulstr-util.h"
 #include "parse-util.h"
 #include "sparse-endian.h"
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "time-util.h"
 #include "xattr-util.h"
 
@@ -187,6 +189,24 @@ int getxattr_at_bool(int fd, const char *path, const char *name, int at_flags) {
                 return r;
 
         return parse_boolean(v);
+}
+
+int getxattr_at_strv(int fd, const char *path, const char *name, int at_flags, char ***ret_strv) {
+        int r;
+
+        _cleanup_free_ char *nulstr = NULL;
+        size_t nulstr_size = 0;
+
+        r = getxattr_at_malloc(fd, path, name, at_flags, &nulstr, &nulstr_size);
+        if (r < 0)
+                return r;
+
+        _cleanup_strv_free_ char **l = strv_parse_nulstr(nulstr, nulstr_size);
+        if (!l)
+                return -ENOMEM;
+
+        *ret_strv = TAKE_PTR(l);
+        return 0;
 }
 
 static int listxattr_pinned_internal(
