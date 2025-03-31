@@ -1076,6 +1076,7 @@ static int manager_bind_varlink(Manager *m) {
                         "io.systemd.UserDatabase.GetMemberships", vl_method_get_memberships,
                         "io.systemd.service.Ping",                varlink_method_ping,
                         "io.systemd.service.SetLogLevel",         varlink_method_set_log_level,
+                        "io.systemd.service.GetLogLevel",         varlink_method_get_log_level,
                         "io.systemd.service.GetEnvironment",      varlink_method_get_environment);
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink methods: %m");
