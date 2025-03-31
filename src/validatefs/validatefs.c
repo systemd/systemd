@@ -136,7 +136,7 @@ static int validate_fields_read(int fd, ValidateFields *ret) {
         assert(ret);
 
         _cleanup_free_ char *t = NULL;
-        r = getxattr_at_malloc(fd, /* path= */ NULL, "user.validatefs.gpt_type_uuid", AT_EMPTY_PATH, &t, /* ret_size= */ NULL);
+        r = fgetxattr_malloc(fd, "user.validatefs.gpt_type_uuid", &t, /* ret_size= */ NULL);
         if (r < 0) {
                 if (r != -ENODATA && !ERRNO_IS_NOT_SUPPORTED(r))
                         return log_error_errno(r, "Failed to read 'user.validatefs.gpt_type_uuid' xattr: %m");
@@ -146,7 +146,7 @@ static int validate_fields_read(int fd, ValidateFields *ret) {
                         return log_error_errno(r, "Failed to parse 'user.validatefs.gpt_type_uuid' xattr: %s", t);
         }
 
-        r = getxattr_at_malloc(fd, /* path= */ NULL, "user.validatefs.gpt_label", AT_EMPTY_PATH, &f.gpt_label, /* ret_size= */ NULL);
+        r = fgetxattr_malloc(fd, "user.validatefs.gpt_label", &f.gpt_label, /* ret_size= */ NULL);
         if (r < 0) {
                 if (r != -ENODATA && !ERRNO_IS_NOT_SUPPORTED(r))
                         return log_error_errno(r, "Failed to read 'user.validatefs.gpt_label' xattr: %m");
