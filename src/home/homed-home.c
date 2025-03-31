@@ -25,7 +25,6 @@
 #include "memfd-util.h"
 #include "missing_magic.h"
 #include "missing_mman.h"
-#include "missing_syscall.h"
 #include "mkdir.h"
 #include "path-util.h"
 #include "process-util.h"
@@ -2419,6 +2418,7 @@ static int home_get_disk_status_directory(
         uint64_t disk_size = UINT64_MAX, disk_usage = UINT64_MAX, disk_free = UINT64_MAX,
                 disk_ceiling = UINT64_MAX, disk_floor = UINT64_MAX;
         mode_t access_mode = MODE_INVALID;
+        _cleanup_close_ int fd = -EBADF;
         statfs_f_type_t fstype = 0;
         struct statfs sfs;
         struct dqblk req;
@@ -2440,7 +2440,13 @@ static int home_get_disk_status_directory(
         if (!path)
                 goto finish;
 
-        if (statfs(path, &sfs) < 0)
+        fd = open(path, O_CLOEXEC|O_RDONLY);
+        if (fd < 0) {
+                log_debug_errno(errno, "Failed to open '%s', ignoring: %m", path);
+                goto finish;
+        }
+
+        if (fstatfs(fd, &sfs) < 0)
                 log_debug_errno(errno, "Failed to statfs() %s, ignoring: %m", path);
         else {
                 disk_free = sfs.f_bsize * sfs.f_bavail;
@@ -2454,13 +2460,13 @@ static int home_get_disk_status_directory(
 
         if (IN_SET(h->record->storage, USER_CLASSIC, USER_DIRECTORY, USER_SUBVOLUME)) {
 
-                r = btrfs_is_subvol(path);
+                r = btrfs_is_subvol_fd(fd);
                 if (r < 0)
                         log_debug_errno(r, "Failed to determine whether %s is a btrfs subvolume: %m", path);
                 else if (r > 0) {
                         BtrfsQuotaInfo qi;
 
-                        r = btrfs_subvol_get_subtree_quota(path, 0, &qi);
+                        r = btrfs_subvol_get_subtree_quota_fd(fd, /* subvol_id= */ 0, &qi);
                         if (r < 0)
                                 log_debug_errno(r, "Failed to query btrfs subtree quota, ignoring: %m");
                         else {
@@ -2493,7 +2499,7 @@ static int home_get_disk_status_directory(
         }
 
         if (IN_SET(h->record->storage, USER_CLASSIC, USER_DIRECTORY, USER_FSCRYPT)) {
-                r = quotactl_path(QCMD_FIXED(Q_GETQUOTA, USRQUOTA), path, h->uid, &req);
+                r = quotactl_fd_with_fallback(fd, QCMD_FIXED(Q_GETQUOTA, USRQUOTA), h->uid, &req);
                 if (r < 0) {
                         if (ERRNO_IS_NOT_SUPPORTED(r)) {
                                 log_debug_errno(r, "No UID quota support on %s.", path);
