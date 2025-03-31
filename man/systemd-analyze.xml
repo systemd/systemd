@@ -1713,6 +1713,14 @@ LEGEND: M → sys_vendor (LENOVO) ┄ F → product_family (ThinkPad X1 Carbon G
         <xi:include href="version-info.xml" xpointer="v257"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--drm-device=<replaceable>DRM</replaceable></option></term>
+
+        <listitem><para>When provided with the <command>chid</command> command, use this sysfs path to a DRM device to fetch EDID from. Example: <filename>/sys/class/drm/card1-HDMI-A-1</filename></para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
       <xi:include href="standard-options.xml" xpointer="no-pager" />
