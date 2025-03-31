@@ -291,7 +291,7 @@ Manager* manager_free(Manager *m) {
         m->device_monitor = sd_device_monitor_unref(m->device_monitor);
 
         m->inotify_event_source = sd_event_source_unref(m->inotify_event_source);
-        m->notify_socket_event_source = sd_event_source_unref(m->notify_socket_event_source);
+        m->notify_socket_path = mfree(m->notify_socket_path);
         m->deferred_rescan_event_source = sd_event_source_unref(m->deferred_rescan_event_source);
         m->deferred_gc_event_source = sd_event_source_unref(m->deferred_gc_event_source);
         m->deferred_auto_login_event_source = sd_event_source_unref(m->deferred_auto_login_event_source);
@@ -1142,64 +1142,23 @@ static int on_notify_socket(sd_event_source *s, int fd, uint32_t revents, void *
 }
 
 static int manager_listen_notify(Manager *m) {
-        _cleanup_close_ int fd = -EBADF;
-        union sockaddr_union sa = {
-                .un.sun_family = AF_UNIX,
-                .un.sun_path = "/run/systemd/home/notify",
-        };
-        const char *suffix;
         int r;
 
         assert(m);
-        assert(!m->notify_socket_event_source);
+        assert(!m->notify_socket_path);
 
-        suffix = getenv("SYSTEMD_HOME_DEBUG_SUFFIX");
-        if (suffix) {
-                _cleanup_free_ char *unix_path = NULL;
-
-                unix_path = strjoin("/run/systemd/home/notify.", suffix);
-                if (!unix_path)
-                        return log_oom();
-                r = sockaddr_un_set_path(&sa.un, unix_path);
-                if (r < 0)
-                        return log_error_errno(r, "Socket path %s does not fit in sockaddr_un: %m", unix_path);
-        }
-
-        fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
-        if (fd < 0)
-                return log_error_errno(errno, "Failed to create listening socket: %m");
-
-        (void) mkdir_parents(sa.un.sun_path, 0755);
-        (void) sockaddr_un_unlink(&sa.un);
-
-        if (bind(fd, &sa.sa, SOCKADDR_UN_LEN(sa.un)) < 0)
-                return log_error_errno(errno, "Failed to bind to socket: %m");
-
-        r = setsockopt_int(fd, SOL_SOCKET, SO_PASSCRED, true);
+        r = notify_socket_prepare(
+                        m->event,
+                        SD_EVENT_PRIORITY_NORMAL - 5, /* Make sure we process sd_notify() before SIGCHLD for
+                                                       * any worker, so that we always know the error number
+                                                       * of a client before it exits. */
+                        on_notify_socket,
+                        m,
+                        &m->notify_socket_path);
         if (r < 0)
-                return log_error_errno(r, "Failed to enable SO_PASSCRED on notify socket: %m");
+                return log_error_errno(r, "Failed to prepare notify socket: %m");
 
-        r = setsockopt_int(fd, SOL_SOCKET, SO_PASSPIDFD, true);
-        if (r < 0)
-                log_warning_errno(r, "Failed to enable SO_PASSPIDFD on notify socket, ignoring: %m");
-
-        r = sd_event_add_io(m->event, &m->notify_socket_event_source, fd, EPOLLIN, on_notify_socket, m);
-        if (r < 0)
-                return log_error_errno(r, "Failed to allocate event source for notify socket: %m");
-
-        (void) sd_event_source_set_description(m->notify_socket_event_source, "notify-socket");
-
-        /* Make sure we process sd_notify() before SIGCHLD for any worker, so that we always know the error
-         * number of a client before it exits. */
-        r = sd_event_source_set_priority(m->notify_socket_event_source, SD_EVENT_PRIORITY_NORMAL - 5);
-        if (r < 0)
-                return log_error_errno(r, "Failed to alter priority of NOTIFY_SOCKET event source: %m");
-
-        r = sd_event_source_set_io_fd_own(m->notify_socket_event_source, true);
-        if (r < 0)
-                return log_error_errno(r, "Failed to pass ownership of notify socket: %m");
-
-        return TAKE_FD(fd);
+        return 0;
 }
 
 static int manager_add_device(Manager *m, sd_device *d) {

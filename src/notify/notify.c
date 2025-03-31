@@ -494,28 +494,28 @@ static int action_fork(char *const *_command) {
         if (!command)
                 return log_oom();
 
-        _cleanup_close_ int socket_fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
-        if (socket_fd < 0)
-                return log_error_errno(errno, "Failed to allocate AF_UNIX socket for notifications: %m");
-
-        r = setsockopt_int(socket_fd, SOL_SOCKET, SO_PASSCRED, true);
-        if (r < 0)
-                return log_error_errno(r, "Failed to enable SO_PASSCRED: %m");
-
-        r = setsockopt_int(socket_fd, SOL_SOCKET, SO_PASSPIDFD, true);
-        if (r < 0)
-                log_debug_errno(r, "Failed to enable SO_PASSPIDFD, ignoring: %m");
-
-        _cleanup_free_ char *addr_string = NULL;
-        r = socket_autobind(socket_fd, &addr_string);
-        if (r < 0)
-                return log_error_errno(r, "Failed to bind notify socket: %m");
-
         _cleanup_free_ char *c = strv_join(command, " ");
         if (!c)
                 return log_oom();
 
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        r = sd_event_new(&event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate event loop: %m");
+
         _cleanup_(pidref_done) PidRef child = PIDREF_NULL;
+        _cleanup_free_ char *addr_string = NULL;
+        r = notify_socket_prepare(
+                        event,
+                        SD_EVENT_PRIORITY_NORMAL - 10, /* If we receive both the sd_notify() message and a
+                                                        * SIGCHLD always process sd_notify() first, it's the
+                                                        * more interesting, "positive" information. */
+                        on_notify_socket,
+                        &child,
+                        &addr_string);
+        if (r < 0)
+                return log_error_errno(r, "Failed to prepare notify socket: %m");
+
         r = pidref_safe_fork_full(
                         "(notify)",
                         /* stdio_fds= */ (const int[]) { -EBADF, -EBADF, STDERR_FILENO },
@@ -526,11 +526,6 @@ static int action_fork(char *const *_command) {
         if (r < 0)
                 return log_error_errno(r, "Failed to fork child in order to execute '%s': %m", c);
         if (r == 0) {
-                /* Let's explicitly close the fds we just opened. Not because it was necessary (we should be
-                 * setting O_CLOEXEC after all on all of them), but mostly to make debugging nice */
-                socket_fd = safe_close(socket_fd);
-                pidref_done(&child);
-
                 if (setenv("NOTIFY_SOCKET", addr_string, /* overwrite= */ true) < 0) {
                         log_error_errno(errno, "Failed to set $NOTIFY_SOCKET: %m");
                         _exit(EXIT_MEMORY);
@@ -548,22 +543,6 @@ static int action_fork(char *const *_command) {
         }
 
         BLOCK_SIGNALS(SIGCHLD);
-
-        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
-        r = sd_event_new(&event);
-        if (r < 0)
-                return log_error_errno(r, "Failed to allocate event loop: %m");
-
-        _cleanup_(sd_event_source_disable_unrefp) sd_event_source *socket_event_source = NULL;
-        r = sd_event_add_io(event, &socket_event_source, socket_fd, EPOLLIN, on_notify_socket, &child);
-        if (r < 0)
-                return log_error_errno(r, "Failed to allocate IO source: %m");
-
-        /* If we receive both the sd_notify() message and a SIGCHLD always process sd_notify() first, it's
-         * the more interesting, "positive" information. */
-        r = sd_event_source_set_priority(socket_event_source, SD_EVENT_PRIORITY_NORMAL - 10);
-        if (r < 0)
-                return log_error_errno(r, "Failed to change child event source priority: %m");
 
         _cleanup_(sd_event_source_disable_unrefp) sd_event_source *child_event_source = NULL;
         r = event_add_child_pidref(event, &child_event_source, &child, WEXITED, on_child, /* userdata= */ NULL);
