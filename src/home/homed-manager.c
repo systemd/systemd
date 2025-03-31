@@ -554,7 +554,7 @@ static int search_quota(uid_t uid, const char *exclude_quota_path) {
 
                 if ((FLAGS_SET(req.dqb_valid, QIF_SPACE) && req.dqb_curspace > 0) ||
                     (FLAGS_SET(req.dqb_valid, QIF_INODES) && req.dqb_curinodes > 0)) {
-                        log_debug_errno(errno, "Quota reports UID " UID_FMT " occupies disk space on %s.", uid, where);
+                        log_debug("Quota reports UID " UID_FMT " occupies disk space on %s.", uid, where);
                         return 1;
                 }
         }
