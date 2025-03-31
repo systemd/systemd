@@ -1308,21 +1308,9 @@ static int home_start_work(
         if (r < 0)
                 return r;
         if (r == 0) {
-                _cleanup_free_ char *joined = NULL;
-                const char *suffix, *unix_path;
-
                 /* Child */
 
-                suffix = getenv("SYSTEMD_HOME_DEBUG_SUFFIX");
-                if (suffix) {
-                        joined = strjoin("/run/systemd/home/notify.", suffix);
-                        if (!joined)
-                                return log_oom();
-                        unix_path = joined;
-                } else
-                        unix_path = "/run/systemd/home/notify";
-
-                if (setenv("NOTIFY_SOCKET", unix_path, 1) < 0) {
+                if (setenv("NOTIFY_SOCKET", h->manager->notify_socket_path, /* overwrite = */ true) < 0) {
                         log_error_errno(errno, "Failed to set $NOTIFY_SOCKET: %m");
                         _exit(EXIT_FAILURE);
                 }

@@ -4,6 +4,8 @@
 #include <sys/ioctl.h>
 #include <sys/mount.h>
 
+#include "sd-daemon.h"
+
 #include "alloc-util.h"
 #include "blockdev-util.h"
 #include "common-signal.h"
@@ -12,11 +14,11 @@
 #include "device-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
-#include "io-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "signal-util.h"
 #include "string-util.h"
+#include "udev-error.h"
 #include "udev-event.h"
 #include "udev-rules.h"
 #include "udev-spawn.h"
@@ -33,7 +35,6 @@ void udev_worker_done(UdevWorker *worker) {
         sd_device_monitor_unref(worker->monitor);
         hashmap_free(worker->properties);
         udev_rules_free(worker->rules);
-        safe_close(worker->pipe_fd);
 }
 
 int udev_get_whole_disk(sd_device *dev, sd_device **ret_device, const char **ret_devname) {
@@ -191,8 +192,17 @@ static int worker_process_device(UdevWorker *worker, sd_device *dev) {
          *
          * The user-facing side of this: https://systemd.io/BLOCK_DEVICE_LOCKING */
         r = worker_lock_whole_disk(dev, &fd_lock);
-        if (r == -EAGAIN)
-                return EVENT_RESULT_TRY_AGAIN;
+        if (r == -EAGAIN) {
+                log_device_debug(dev, "Block device is currently locked, requeueing the event.");
+
+                r = sd_notify(/* unset_environment = */ false, "TRY_AGAIN=1");
+                if (r < 0) {
+                        log_device_warning_errno(dev, r, "Failed to send notifycation message to manager process: %m");
+                        (void) sd_event_exit(worker->event, r);
+                }
+
+                return 0;
+        }
         if (r < 0)
                 return r;
 
@@ -200,7 +210,7 @@ static int worker_process_device(UdevWorker *worker, sd_device *dev) {
                 (void) worker_mark_block_device_read_only(dev);
 
         /* Disable watch during event processing. */
-        r = udev_watch_end(worker->inotify_fd, dev);
+        r = udev_watch_end(worker, dev);
         if (r < 0)
                 log_device_warning_errno(dev, r, "Failed to remove inotify watch, ignoring: %m");
 
@@ -218,8 +228,8 @@ static int worker_process_device(UdevWorker *worker, sd_device *dev) {
 
         /* Enable watch if requested. */
         if (udev_event->inotify_watch) {
-                r = udev_watch_begin(worker->inotify_fd, dev);
-                if (r < 0 && r != -ENOENT) /* The device may be already removed, ignore -ENOENT. */
+                r = udev_watch_begin(worker, dev);
+                if (r < 0)
                         log_device_warning_errno(dev, r, "Failed to add inotify watch, ignoring: %m");
         }
 
@@ -236,91 +246,52 @@ static int worker_process_device(UdevWorker *worker, sd_device *dev) {
         }
 
         log_device_uevent(dev, "Device processed");
-        return 0;
-}
 
-void udev_broadcast_result(sd_device_monitor *monitor, sd_device *dev, EventResult result) {
-        int r;
-
-        assert(dev);
-
-        /* On exit, manager->monitor is already NULL. */
-        if (!monitor)
-                return;
-
-        if (result != EVENT_RESULT_SUCCESS) {
-                (void) device_add_property(dev, "UDEV_WORKER_FAILED", "1");
-
-                switch (result) {
-                case EVENT_RESULT_NERRNO_MIN ... EVENT_RESULT_NERRNO_MAX: {
-                        const char *str;
-
-                        (void) device_add_propertyf(dev, "UDEV_WORKER_ERRNO", "%i", -result);
-
-                        str = errno_to_name(result);
-                        if (str)
-                                (void) device_add_property(dev, "UDEV_WORKER_ERRNO_NAME", str);
-                        break;
-                }
-                case EVENT_RESULT_EXIT_STATUS_BASE ... EVENT_RESULT_EXIT_STATUS_MAX:
-                        assert(result != EVENT_RESULT_EXIT_STATUS_BASE);
-                        (void) device_add_propertyf(dev, "UDEV_WORKER_EXIT_STATUS", "%i", result - EVENT_RESULT_EXIT_STATUS_BASE);
-                        break;
-
-                case EVENT_RESULT_TRY_AGAIN:
-                        assert_not_reached();
-                        break;
-
-                case EVENT_RESULT_SIGNAL_BASE ... EVENT_RESULT_SIGNAL_MAX: {
-                        const char *str;
-
-                        (void) device_add_propertyf(dev, "UDEV_WORKER_SIGNAL", "%i", result - EVENT_RESULT_SIGNAL_BASE);
-
-                        str = signal_to_string(result - EVENT_RESULT_SIGNAL_BASE);
-                        if (str)
-                                (void) device_add_property(dev, "UDEV_WORKER_SIGNAL_NAME", str);
-                        break;
-                }
-                default:
-                        log_device_warning(dev, "Unknown event result \"%i\", ignoring.", result);
-                }
+        /* send processed event to libudev listeners */
+        r = device_monitor_send(worker->monitor, NULL, dev);
+        if (r < 0) {
+                log_device_warning_errno(dev, r, "Failed to broadcast event to libudev listeners: %m");
+                (void) sd_event_exit(worker->event, r);
+                return 0;
         }
 
-        r = device_monitor_send(monitor, NULL, dev);
-        if (r < 0)
-                log_device_warning_errno(dev, r,
-                                         "Failed to broadcast event to libudev listeners, ignoring: %m");
-}
+        r = sd_notify(/* unset_environment = */ false, "PROCESSED=1");
+        if (r < 0) {
+                log_device_warning_errno(dev, r, "Failed to send notifycation message to manager process: %m");
+                (void) sd_event_exit(worker->event, r);
+        }
 
-static int worker_send_result(UdevWorker *worker, EventResult result) {
-        assert(worker);
-        assert(worker->pipe_fd >= 0);
-
-        return loop_write(worker->pipe_fd, &result, sizeof(result));
+        return 0;
 }
 
 static int worker_device_monitor_handler(sd_device_monitor *monitor, sd_device *dev, void *userdata) {
         UdevWorker *worker = ASSERT_PTR(userdata);
         int r;
 
+        assert(monitor);
         assert(dev);
 
         r = worker_process_device(worker, dev);
-        if (r == EVENT_RESULT_TRY_AGAIN)
-                /* if we couldn't acquire the flock(), then requeue the event */
-                log_device_debug(dev, "Block device is currently locked, requeueing the event.");
-        else {
-                if (r < 0)
-                        log_device_warning_errno(dev, r, "Failed to process device, ignoring: %m");
+        if (r < 0) {
+                log_device_warning_errno(dev, r, "Failed to process device, ignoring: %m");
+                (void) device_add_errno(dev, r);
 
-                /* send processed event back to libudev listeners */
-                udev_broadcast_result(monitor, dev, r);
+                /* broadcast (possibly partially processed) event to libudev listeners */
+                int k = device_monitor_send(monitor, NULL, dev);
+                if (k < 0) {
+                        log_device_warning_errno(dev, k, "Failed to broadcast event to libudev listeners: %m");
+                        (void) sd_event_exit(worker->event, k);
+                        return 0;
+                }
+
+                const char *e = errno_to_name(r);
+                r = sd_notifyf(/* unset_environment = */ false, "ERRNO=%i%s%s", -r, e ? "\nERRNO_NAME=" : "", strempty(e));
+                if (r < 0) {
+                        log_device_warning_errno(dev, r, "Failed to send notifycation message to manager process, ignoring: %m");
+                        (void) sd_event_exit(worker->event, r);
+                        return 0;
+                }
         }
-
-        /* send udevd the result of the event execution */
-        r = worker_send_result(worker, r);
-        if (r < 0)
-                log_device_warning_errno(dev, r, "Failed to send signal to main daemon, ignoring: %m");
 
         /* Reset the log level, as it might be changed by "OPTIONS=log_level=". */
         log_set_max_level(worker->config.log_level);

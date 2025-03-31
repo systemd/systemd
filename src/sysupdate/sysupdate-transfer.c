@@ -945,14 +945,12 @@ static int callout_context_new(const Transfer *t, const Instance *i, TransferPro
 }
 
 static int helper_on_exit(sd_event_source *s, const siginfo_t *si, void *userdata) {
-        _cleanup_(callout_context_freep) CalloutContext *ctx = ASSERT_PTR(userdata);
+        CalloutContext *ctx = ASSERT_PTR(userdata);
         int r;
 
         assert(s);
         assert(si);
         assert(ctx);
-
-        pidref_done(&ctx->pid);
 
         if (si->si_code == CLD_EXITED) {
                 if (si->si_status == EXIT_SUCCESS) {
@@ -1031,11 +1029,7 @@ static int run_callout(
                 const Instance *instance,
                 TransferProgress callback,
                 void *userdata) {
-        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
-        _cleanup_(sd_event_source_unrefp) sd_event_source *exit_source = NULL, *notify_source = NULL;
-        _cleanup_close_ int fd = -EBADF;
-        _cleanup_free_ char *bind_name = NULL;
-        union sockaddr_union bsa;
+
         int r;
 
         assert(name);
@@ -1043,11 +1037,11 @@ static int run_callout(
         assert(cmdline[0]);
 
         _cleanup_(callout_context_freep) CalloutContext *ctx = NULL;
-
         r = callout_context_new(transfer, instance, callback, name, userdata, &ctx);
         if (r < 0)
                 return log_oom();
 
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         r = sd_event_new(&event);
         if (r < 0)
                 return log_error_errno(r, "Failed to create event: %m");
@@ -1060,27 +1054,15 @@ static int run_callout(
         if (r < 0)
                 return log_error_errno(r, "Failed to register signal to event: %m");
 
-        fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
-        if (fd < 0)
-                return log_error_errno(errno, "Failed to create UNIX socket for notification: %m");
-
-        if (asprintf(&bind_name, "@%" PRIx64 "/sysupdate/" PID_FMT "/notify", random_u64(), getpid_cached()) < 0)
-                return log_oom();
-
-        r = sockaddr_un_set_path(&bsa.un, bind_name);
+        _cleanup_free_ char *bind_name = NULL;
+        r = notify_socket_prepare(
+                        event,
+                        SD_EVENT_PRIORITY_NORMAL - 5,
+                        helper_on_notify,
+                        ctx,
+                        &bind_name);
         if (r < 0)
-                return log_error_errno(r, "Failed to set socket path: %m");
-
-        if (bind(fd, &bsa.sa, r) < 0)
-                return log_error_errno(errno, "Failed to bind to notification socket: %m");
-
-        r = setsockopt_int(fd, SOL_SOCKET, SO_PASSCRED, true);
-        if (r < 0)
-                return log_error_errno(r, "Failed to enable SO_PASSCRED: %m");
-
-        r = setsockopt_int(fd, SOL_SOCKET, SO_PASSPIDFD, true);
-        if (r < 0)
-                log_debug_errno(r, "Failed to enable SO_PASSPIDFD, ignoring: %m");
+                return log_error_errno(r, "Failed to prepare notify socket: %m");
 
         r = pidref_safe_fork(ctx->name, FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_LOG, &ctx->pid);
         if (r < 0)
@@ -1097,27 +1079,14 @@ static int run_callout(
         }
 
         /* Quit the loop w/ when child process exits */
-        r = event_add_child_pidref(event, &exit_source, &ctx->pid, WEXITED, helper_on_exit, (void*) ctx);
+        _cleanup_(sd_event_source_unrefp) sd_event_source *exit_source = NULL;
+        r = event_add_child_pidref(event, &exit_source, &ctx->pid, WEXITED, helper_on_exit, ctx);
         if (r < 0)
                 return log_error_errno(r, "Failed to add child process to event loop: %m");
 
         r = sd_event_source_set_child_process_own(exit_source, true);
         if (r < 0)
                 return log_error_errno(r, "Failed to take ownership of child process: %m");
-
-        /* Propagate sd_notify calls */
-        r = sd_event_add_io(event, &notify_source, fd, EPOLLIN, helper_on_notify, TAKE_PTR(ctx));
-        if (r < 0)
-                return log_error_errno(r, "Failed to add notification propagation to event loop: %m");
-
-        (void) sd_event_source_set_description(notify_source, "notify-socket");
-
-        (void) sd_event_source_set_priority(notify_source, SD_EVENT_PRIORITY_NORMAL - 5);
-
-        r = sd_event_source_set_io_fd_own(notify_source, true);
-        if (r < 0)
-                return log_error_errno(r, "Event loop failed to take ownership of notification source: %m");
-        TAKE_FD(fd);
 
         /* Process events until the helper quits */
         return sd_event_loop(event);
