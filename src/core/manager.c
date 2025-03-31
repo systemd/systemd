@@ -1109,10 +1109,10 @@ static int manager_setup_notify(Manager *m) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to enable SO_PASSCRED for notify socket: %m");
 
+                // TODO: enforce SO_PASSPIDFD when our baseline of the kernel version is bumped to >= 6.5.
                 r = setsockopt_int(fd, SOL_SOCKET, SO_PASSPIDFD, true);
                 if (r < 0 && r != -ENOPROTOOPT)
                         log_warning_errno(r, "Failed to enable SO_PASSPIDFD for notify socket, ignoring: %m");
-                // TODO: maybe enforce SO_PASSPIDFD?
 
                 m->notify_fd = TAKE_FD(fd);
 
@@ -5002,8 +5002,8 @@ static int manager_dispatch_pidref_transport_fd(sd_event_source *source, int fd,
          * - Child PIDFD in SCM_RIGHTS in message body
          * - Child PID in message IOV
          *
-         * SO_PASSPIDFD may not be supported by the kernel so we fall back to using parent PID from ucreds
-         * and accept some raciness. */
+         * SO_PASSPIDFD may not be supported by the kernel (it is supported since v6.5) so we fall back to
+         * using parent PID from ucreds and accept some raciness. */
         n = recvmsg_safe(m->pidref_transport_fds[0], &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC|MSG_TRUNC);
         if (ERRNO_IS_NEG_TRANSIENT(n))
                 return 0; /* Spurious wakeup, try again */
