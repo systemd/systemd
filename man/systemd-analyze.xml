@@ -1091,7 +1091,7 @@ io.systemd.credential:vmm.notify_socket=vsock-stream:2:254570042
     </refsect2>
 
     <refsect2>
-      <title><command>systemd-analyze chid</command></title>
+      <title><command>systemd-analyze chid <optional>/sys/class/drm/&lt;card&gt;/edid</optional></command></title>
 
       <para>Shows a list of Computer Hardware IDs (CHIDs) of the local system. These IDs identify the
       system's computer hardware, based on SMBIOS data. See <ulink
