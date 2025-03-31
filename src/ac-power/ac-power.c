@@ -24,20 +24,18 @@ static int help(void) {
                 return log_oom();
 
         printf("%1$s [OPTION]\n"
-               "\n%2$sReport whether we are connected to an external power source.%4$s\n"
-               "\n%3$sOptions:%4$s\n"
+               "\n%2$sReport whether we are connected to an external power source.%3$s\n\n"
                "  -h --help             Show this help\n"
                "     --version          Show package version\n"
                "  -v --verbose          Show state as text\n"
                "     --low              Check if battery is discharging and low\n"
-               "\nSee the %3$s%5$s%4$s for details.\n",
+               "\nSee the %4$s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
-               ansi_underline(),
                ansi_normal(),
                link);
 
-               return 0;
+        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
