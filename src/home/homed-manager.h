@@ -42,8 +42,7 @@ struct Manager {
 
         sd_event_source *inotify_event_source;
 
-        /* An event source we receive sd_notify() messages from our worker from */
-        sd_event_source *notify_socket_event_source;
+        char *notify_socket_path;
 
         sd_device_monitor *device_monitor;
 
