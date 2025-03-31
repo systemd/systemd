@@ -7,6 +7,6 @@ executables += [
                         'HAVE_OPENSSL',
                 ],
                 'sources' : files('sbsign.c'),
-                'dependencies' : libopenssl,
+                'dependencies' : [libopenssl, libgo_dep],
         },
 ]
