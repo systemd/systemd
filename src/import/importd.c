@@ -107,9 +107,7 @@ struct Manager {
 
         Hashmap *polkit_registry;
 
-        int notify_fd;
-
-        sd_event_source *notify_event_source;
+        char *notify_socket_path;
 
         bool use_btrfs_subvol;
         bool use_btrfs_quota;
@@ -467,7 +465,7 @@ static int transfer_start(Transfer *t) {
                 /* Child */
 
                 if (setenv("SYSTEMD_LOG_TARGET", "console-prefixed", 1) < 0 ||
-                    setenv("NOTIFY_SOCKET", "/run/systemd/import/notify", 1) < 0) {
+                    setenv("NOTIFY_SOCKET", t->manager->notify_socket_path, 1) < 0) {
                         log_error_errno(errno, "setenv() failed: %m");
                         _exit(EXIT_FAILURE);
                 }
@@ -624,8 +622,7 @@ static Manager *manager_unref(Manager *m) {
         if (!m)
                 return NULL;
 
-        sd_event_source_unref(m->notify_event_source);
-        safe_close(m->notify_fd);
+        free(m->notify_socket_path);
 
         while ((t = hashmap_first(m->transfers)))
                 transfer_unref(t);
@@ -687,10 +684,6 @@ static int manager_on_notify(sd_event_source *s, int fd, uint32_t revents, void 
 
 static int manager_new(Manager **ret) {
         _cleanup_(manager_unrefp) Manager *m = NULL;
-        static const union sockaddr_union sa = {
-                .un.sun_family = AF_UNIX,
-                .un.sun_path = "/run/systemd/import/notify",
-        };
         int r;
 
         assert(ret);
@@ -725,26 +718,12 @@ static int manager_new(Manager **ret) {
         if (r < 0)
                 log_debug_errno(r, "Failed to enable watchdog logic, ignoring: %m");
 
-        m->notify_fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
-        if (m->notify_fd < 0)
-                return -errno;
-
-        (void) mkdir_parents_label(sa.un.sun_path, 0755);
-        (void) sockaddr_un_unlink(&sa.un);
-
-        if (bind(m->notify_fd, &sa.sa, SOCKADDR_UN_LEN(sa.un)) < 0)
-                return -errno;
-
-        r = setsockopt_int(m->notify_fd, SOL_SOCKET, SO_PASSCRED, true);
-        if (r < 0)
-                return r;
-
-        r = setsockopt_int(m->notify_fd, SOL_SOCKET, SO_PASSPIDFD, true);
-        if (r < 0)
-                log_debug_errno(r, "Failed to enable SO_PASSPIDFD on notification socket, ignoring. %m");
-
-        r = sd_event_add_io(m->event, &m->notify_event_source,
-                            m->notify_fd, EPOLLIN, manager_on_notify, m);
+        r = notify_socket_prepare(
+                        m->event,
+                        SD_EVENT_PRIORITY_NORMAL,
+                        manager_on_notify,
+                        m,
+                        &m->notify_socket_path);
         if (r < 0)
                 return r;
 
