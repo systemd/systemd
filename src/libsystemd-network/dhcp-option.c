@@ -349,6 +349,210 @@ static int parse_options(const uint8_t options[], size_t buflen, uint8_t *messag
         return 0;
 }
 
+/* draft-tojens-dhcp-option-concat-considerations
+ *
+ * Not all DHCP options are created equal, and some may not be concatenation-compatible. The draft
+ * defines a few option categories, and there we define our strategy wrt. concatenation.
+ *
+ * 1. Fixed length options: let's not concatenate those. Splitting most of those options is a waste
+ *    of space, thus it is unlikely that any agent split them.
+ *    Treat each occurence as a separate instance, and keep the "parse at least one" behavior.
+ *    Arguments can be made about "long" options (e.g. authentication options), as those can be
+ *    split without wasting space. However, be conservative and don't try to concatenate them
+ *    without further guidance.
+ * 2. Multiple-of-fixed-length options: let's eagerly concatenate those. If all instances have a
+ *    valid mod length, then so does the resulting instance. And if the resulting concatenated
+ *    option has an invalid length, so did (some of) the separate instances.
+ * 3. Arbitrary length options: let's be simple and also concatenate those.
+ *
+ * Note that this classification is *unopinionated* about the classification. Some options may be
+ * discussed as to whether they qualify as a category, or whether the category behavior makes
+ * sense.
+ * At the time of writing, SD_DHCP_OPTION_DIRECTORY_AGENT is suspect, as it's a multiple of
+ * fixed-length, but with a leading extra byte. In the light of both RFC3396 and the draft, the
+ * final behavior of concatenation is assumed to be best.
+ */
+static bool dhcp_option_can_merge(uint8_t code) {
+        switch (code) {
+        /* Fixed-length options */
+        case SD_DHCP_OPTION_SUBNET_MASK:
+        case SD_DHCP_OPTION_TIME_OFFSET:
+        case SD_DHCP_OPTION_BOOT_FILE_SIZE:
+        case SD_DHCP_OPTION_SWAP_SERVER:
+        case SD_DHCP_OPTION_FORWARD:
+        case SD_DHCP_OPTION_SOURCE_ROUTE:
+        case SD_DHCP_OPTION_DEFAULT_IP_TTL:
+        case SD_DHCP_OPTION_MTU_TIMEOUT:
+        case SD_DHCP_OPTION_MTU_INTERFACE:
+        case SD_DHCP_OPTION_MTU_SUBNET:
+        case SD_DHCP_OPTION_BROADCAST:
+        case SD_DHCP_OPTION_MASK_DISCOVERY:
+        case SD_DHCP_OPTION_MASK_SUPPLIER:
+        case SD_DHCP_OPTION_ROUTER_DISCOVERY:
+        case SD_DHCP_OPTION_ROUTER_REQUEST:
+        case SD_DHCP_OPTION_TRAILERS:
+        case SD_DHCP_OPTION_ARP_TIMEOUT:
+        case SD_DHCP_OPTION_ETHERNET:
+        case SD_DHCP_OPTION_DEFAULT_TCP_TTL:
+        case SD_DHCP_OPTION_KEEPALIVE_TIME:
+        case SD_DHCP_OPTION_KEEPALIVE_DATA:
+        case SD_DHCP_OPTION_NETBIOS_NODE_TYPE:
+        case SD_DHCP_OPTION_REQUESTED_IP_ADDRESS:
+        case SD_DHCP_OPTION_IP_ADDRESS_LEASE_TIME:
+        case SD_DHCP_OPTION_OVERLOAD:
+        case SD_DHCP_OPTION_MESSAGE_TYPE:
+        case SD_DHCP_OPTION_SERVER_IDENTIFIER:
+        case SD_DHCP_OPTION_MAXIMUM_MESSAGE_SIZE:
+        case SD_DHCP_OPTION_RENEWAL_TIME:
+        case SD_DHCP_OPTION_REBINDING_TIME:
+        case SD_DHCP_OPTION_NETWARE_IP_OPTION:
+        case SD_DHCP_OPTION_RAPID_COMMIT:
+        case SD_DHCP_OPTION_AUTHENTICATION:
+        case SD_DHCP_OPTION_CLIENT_LAST_TRANSACTION_TIME:
+        case SD_DHCP_OPTION_CLIENT_SYSTEM:
+        case SD_DHCP_OPTION_CLIENT_NDI:
+        case SD_DHCP_OPTION_UUID:
+        case SD_DHCP_OPTION_IPV6_ONLY_PREFERRED:
+        case SD_DHCP_OPTION_DHCP4O6_SOURCE_ADDRESS:
+        case SD_DHCP_OPTION_AUTO_CONFIG:
+        case SD_DHCP_OPTION_SUBNET_SELECTION:
+        case SD_DHCP_OPTION_GEOCONF:
+        case SD_DHCP_OPTION_GEOLOC:
+        case SD_DHCP_OPTION_BASE_TIME:
+        case SD_DHCP_OPTION_START_TIME_OF_STATE:
+        case SD_DHCP_OPTION_QUERY_START_TIME:
+        case SD_DHCP_OPTION_QUERY_END_TIME:
+        case SD_DHCP_OPTION_DHCP_STATE:
+        case SD_DHCP_OPTION_DATA_SOURCE:
+        case SD_DHCP_OPTION_PORT_PARAMS:
+        case SD_DHCP_OPTION_PXELINUX_MAGIC:
+        case SD_DHCP_OPTION_REBOOT_TIME:
+        case SD_DHCP_OPTION_6RD:
+        /* apple-specific, not documented, so be conservative */
+        case SD_DHCP_OPTION_LDAP:
+        case SD_DHCP_OPTION_NETINFO_ADDRESS:
+        case SD_DHCP_OPTION_NETINFO_TAG:
+                return false;
+        /* Multiple of fixed-length options */
+        case SD_DHCP_OPTION_ROUTER:
+        case SD_DHCP_OPTION_TIME_SERVER:
+        case SD_DHCP_OPTION_NAME_SERVER:
+        case SD_DHCP_OPTION_DOMAIN_NAME_SERVER:
+        case SD_DHCP_OPTION_LOG_SERVER:
+        case SD_DHCP_OPTION_QUOTES_SERVER:
+        case SD_DHCP_OPTION_LPR_SERVER:
+        case SD_DHCP_OPTION_IMPRESS_SERVER:
+        case SD_DHCP_OPTION_RLP_SERVER:
+        case SD_DHCP_OPTION_POLICY_FILTER:
+        case SD_DHCP_OPTION_MTU_PLATEAU:
+        case SD_DHCP_OPTION_STATIC_ROUTE:
+        case SD_DHCP_OPTION_NIS_SERVER:
+        case SD_DHCP_OPTION_NTP_SERVER:
+        case SD_DHCP_OPTION_NETBIOS_NAME_SERVER:
+        case SD_DHCP_OPTION_NETBIOS_DIST_SERVER:
+        case SD_DHCP_OPTION_X_WINDOW_FONT:
+        case SD_DHCP_OPTION_X_WINDOW_MANAGER:
+        case SD_DHCP_OPTION_NIS_SERVER_ADDR:
+        case SD_DHCP_OPTION_HOME_AGENT_ADDRESSES:
+        case SD_DHCP_OPTION_SMTP_SERVER:
+        case SD_DHCP_OPTION_POP3_SERVER:
+        case SD_DHCP_OPTION_NNTP_SERVER:
+        case SD_DHCP_OPTION_WWW_SERVER:
+        case SD_DHCP_OPTION_FINGER_SERVER:
+        case SD_DHCP_OPTION_IRC_SERVER:
+        case SD_DHCP_OPTION_STREETTALK_SERVER:
+        case SD_DHCP_OPTION_STDA_SERVER:
+        case SD_DHCP_OPTION_DIRECTORY_AGENT: /* multiple of four plus one */
+        case SD_DHCP_OPTION_NDS_SERVER:
+        case SD_DHCP_OPTION_BCMCS_CONTROLLER_ADDRESS:
+        case SD_DHCP_OPTION_ASSOCIATED_IP:
+        case SD_DHCP_OPTION_NAME_SERVICE_SEARCH:
+        case SD_DHCP_OPTION_PANA_AGENT:
+        case SD_DHCP_OPTION_CAPWAP_AC_ADDRESS:
+        case SD_DHCP_OPTION_ANDSF_ADDRESS:
+        case SD_DHCP_OPTION_TFTP_SERVER_ADDRESS:
+        /* Arbitrary length options */
+        case SD_DHCP_OPTION_HOST_NAME:
+        case SD_DHCP_OPTION_MERIT_DUMP_FILE:
+        case SD_DHCP_OPTION_DOMAIN_NAME:
+        case SD_DHCP_OPTION_ROOT_PATH:
+        case SD_DHCP_OPTION_EXTENSION_FILE:
+        case SD_DHCP_OPTION_NIS_DOMAIN:
+        case SD_DHCP_OPTION_VENDOR_SPECIFIC:
+        case SD_DHCP_OPTION_NETBIOS_SCOPE:
+        case SD_DHCP_OPTION_PARAMETER_REQUEST_LIST:
+        case SD_DHCP_OPTION_ERROR_MESSAGE:
+        case SD_DHCP_OPTION_VENDOR_CLASS_IDENTIFIER:
+        case SD_DHCP_OPTION_CLIENT_IDENTIFIER:
+        case SD_DHCP_OPTION_NIS_DOMAIN_NAME:
+        case SD_DHCP_OPTION_BOOT_SERVER_NAME:
+        case SD_DHCP_OPTION_BOOT_FILENAME:
+        case SD_DHCP_OPTION_USER_CLASS:
+        case SD_DHCP_OPTION_SERVICE_SCOPE:
+        case SD_DHCP_OPTION_RELAY_AGENT_INFORMATION:
+        case SD_DHCP_OPTION_ISNS:
+        case SD_DHCP_OPTION_USER_AUTHENTICATION:
+        case SD_DHCP_OPTION_POSIX_TIMEZONE:
+        case SD_DHCP_OPTION_TZDB_TIMEZONE:
+        case SD_DHCP_OPTION_DHCP_CAPTIVE_PORTAL:
+        case SD_DHCP_OPTION_LOST_SERVER_FQDN:
+        case SD_DHCP_OPTION_FORCERENEW_NONCE_CAPABLE:
+        case SD_DHCP_OPTION_DOTS_RI:
+        case SD_DHCP_OPTION_STATUS_CODE:
+        case SD_DHCP_OPTION_CONFIGURATION_FILE:
+        case SD_DHCP_OPTION_PATH_PREFIX:
+        case SD_DHCP_OPTION_ACCESS_DOMAIN:
+        case SD_DHCP_OPTION_SUBNET_ALLOCATION:
+        case SD_DHCP_OPTION_VIRTUAL_SUBNET_SELECTION:
+        case SD_DHCP_OPTION_PRIVATE_PROXY_AUTODISCOVERY:
+        /* MUST implement DHCP option concatenation as per RFC3396 */
+        case SD_DHCP_OPTION_FQDN:
+        case SD_DHCP_OPTION_BCMCS_CONTROLLER_DOMAIN_NAME:
+        case SD_DHCP_OPTION_GEOCONF_CIVIC:
+        case SD_DHCP_OPTION_DOMAIN_SEARCH:
+        case SD_DHCP_OPTION_SIP_SERVER: /* RFC3396 is mentioned as "work in progress" */
+        case SD_DHCP_OPTION_CLASSLESS_STATIC_ROUTE:
+        case SD_DHCP_OPTION_CABLELABS_CLIENT_CONFIGURATION:
+        case SD_DHCP_OPTION_VENDOR_CLASS:
+        case SD_DHCP_OPTION_VENDOR_SPECIFIC_INFORMATION:
+        case SD_DHCP_OPTION_MOS_ADDRESS:
+        case SD_DHCP_OPTION_MOS_FQDN:
+        case SD_DHCP_OPTION_SIP_SERVICE_DOMAIN:
+        case SD_DHCP_OPTION_SZTP_REDIRECT:
+        case SD_DHCP_OPTION_RDNSS_SELECTION:
+        case SD_DHCP_OPTION_DOTS_ADDRESS:
+        case SD_DHCP_OPTION_PCP_SERVER:
+        case SD_DHCP_OPTION_PRIVATE_CLASSLESS_STATIC_ROUTE: /* Microsoft's version of 121 */
+        /* RFC2242: [...] and its maximum length is 255.
+         * While the length of the option is bounded, and fits in one option, the does not need
+         * splitting to fit in an option. However, due to the option being potentially be long,
+         * agents may decide to split the option e.g. across the option and sname fields.
+         * Let's support concatenation for this option.
+         */
+        case SD_DHCP_OPTION_NETWARE_IP_DOMAIN:
+        /* RFC2241: The maximum possible length for this option is 255 bytes.
+         * Same reasoning as the previous one.
+         */
+        case SD_DHCP_OPTION_NDS_TREE_NAME:
+        /* RFC2241: A single DHCP option can only contain 255 octets. Since an NDS context name can
+         *          be longer than that, this option can appear more than once in the DHCP packet.
+         *          The contents of all NDS Context options in the packet should be concatenated as
+         *          suggested in the DHCP specification [3, page 24] to get the complete NDS
+         *          context. A single encoded character could be split between two NDS Context
+         *          Options.
+         * This basically describes what RFC3396 later formalizes, but predates it.
+         */
+        case SD_DHCP_OPTION_NDS_CONTEXT:
+        /* RFC8520: The entire option MUST NOT exceed 255 octets.
+         * Same as with 2242: it may be split across multiple instances of the option.
+         */
+        case SD_DHCP_OPTION_MUD_URL:
+                return true;
+        default:
+                return false;
+        }
+}
+
 typedef struct MergeOptionNode {
         const uint8_t *data;
         LIST_FIELDS(struct MergeOptionNode, options);
@@ -423,6 +627,8 @@ static int dhcp_option_merge_append(const uint8_t *buf, size_t buflen, OrderedHa
                         TAKE_PTR(next);
                 }
 
+                if (!head || !dhcp_option_can_merge(code))
+                        *tot_len += 3; /* option code + 16-bit length */
                 offset += len;
                 *tot_len += len;
         }
@@ -486,8 +692,7 @@ static int dhcp_option_merge(const DHCPMessage *message, size_t buflen, uint8_t 
         }
 
         /* Consolidate in a new buffer */
-        buflen = tot_len + ordered_hashmap_size(opts) * 3;
-        aggregate = new(uint8_t, buflen);
+        aggregate = new(uint8_t, tot_len);
         if (!aggregate)
                 return r;
 
@@ -495,22 +700,39 @@ static int dhcp_option_merge(const DHCPMessage *message, size_t buflen, uint8_t 
         MergeOptionNode *head;
         ORDERED_HASHMAP_FOREACH(head, opts) {
                 uint8_t code = head->data[0];
-                uint8_t *opt_base = &aggregate[offset];
-                offset += 3;
+                if (dhcp_option_can_merge(code)) {
+                        uint8_t *opt_base = &aggregate[offset];
+                        offset += 3;
 
-                size_t len = 0;
-                LIST_FOREACH(options, opt, head) {
-                        size_t optlen = opt->data[1];
-                        memcpy_safe(&aggregate[offset], &opt->data[2], optlen);
-                        offset += optlen;
-                        len += optlen;
-                }
-                opt_base[0] = code;
-                unaligned_write_be16(&opt_base[1], len);
+                        size_t len = 0;
+                        LIST_FOREACH(options, opt, head) {
+                                size_t optlen = opt->data[1];
+                                memcpy_safe(&aggregate[offset], &opt->data[2], optlen);
+                                offset += optlen;
+                                len += optlen;
+                        }
+
+                        /* Our input data is a DHCP message fitting in a UDP datagram. The only way
+                         * to exceed a 16-bit length is from a logic error.
+                         */
+                        if (len > UINT16_MAX)
+                                return -EINVAL;
+                        opt_base[0] = code;
+                        unaligned_write_be16(&opt_base[1], len);
+                } else
+                        LIST_FOREACH(options, opt, head) {
+                                size_t optlen = opt->data[1];
+
+                                aggregate[offset] = code;
+                                unaligned_write_be16(&aggregate[offset + 1], (uint16_t)optlen);
+                                memcpy_safe(&aggregate[offset + 3], &opt->data[2], optlen);
+
+                                offset += 3 + optlen;
+                        }
         }
 
         *ret_merged = aggregate;
-        return buflen;
+        return tot_len;
 }
 
 int dhcp_option_parse(DHCPMessage *message, size_t len, dhcp_option_callback_t cb, void *userdata, char **ret_error_message) {
