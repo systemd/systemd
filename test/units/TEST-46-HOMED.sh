@@ -668,11 +668,18 @@ getent passwd aliastest3@myrealm
 NEWPASSWORD=quux homectl create tmpfsquota --storage=subvolume --dev-shm-limit=50K --tmp-limit=50K -P
 for p in /dev/shm /tmp; do
     if findmnt -n -o options "$p" | grep -q usrquota; then
+        # Check if we can display the quotas. If we cannot, than it's likely
+        # that PID1 was also not able to set the limits and we should not fail
+        # in the tests below.
+        /usr/lib/systemd/tests/unit-tests/manual/test-display-quota tmpfsquota "$p" || set +e
+
         run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u tmpfsquota dd if=/dev/zero of="$p/quotatestfile1" bs=1024 count=30
         (! run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u tmpfsquota dd if=/dev/zero of="$p/quotatestfile2" bs=1024 count=30)
         run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u tmpfsquota rm "$p/quotatestfile1" "$p/quotatestfile2"
         run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u tmpfsquota dd if=/dev/zero of="$p/quotatestfile1" bs=1024 count=30
         run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u tmpfsquota rm "$p/quotatestfile1"
+
+        set -e
     fi
 done
 
