@@ -318,14 +318,10 @@ static int run(int argc, char *argv[]) {
                 return r;
         if (r == 0) {
                 log_info("File system '%s' has no validation constraints set, not validating.", resolved);
-                return EXIT_SUCCESS;
+                return 0;
         }
 
-        r = validate_fields_check(target_fd, resolved, &f);
-        if (r < 0)
-                return r;
-
-        return EXIT_SUCCESS;
+        return validate_fields_check(target_fd, resolved, &f);
 }
 
 DEFINE_MAIN_FUNCTION(run);
