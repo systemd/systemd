@@ -2057,6 +2057,39 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
                 networkctl_reload()
                 self.wait_online('ipvlan99:degraded', 'test1:degraded')
 
+    @expectedFailureIfModuleIsNotAvailable('hsr')
+    def test_hsr(self):
+        first = True
+        for proto, supervision in [['hsr', 9], ['prp', 127]]:
+            if first:
+                first = False
+            else:
+                self.tearDown()
+
+            print(f'### test_hsr(proto={proto}, supervision={supervision})')
+            with self.subTest(proto=proto, supervision=supervision):
+                copy_network_unit('25-hsr.netdev', '25-hsr.network',
+                                  '11-dummy.netdev', '11-dummy.network',
+                                  '12-dummy.netdev', '12-dummy-no-address.network')
+                with open(os.path.join(network_unit_dir, '25-hsr.netdev'), mode='a', encoding='utf-8') as f:
+                    f.write('Protocol=' + proto + '\nSupervision=' + str(supervision))
+
+                start_networkd()
+                self.wait_online('hsr99:degraded')
+                self.networkctl_check_unit('hsr99', '25-hsr', '25-hsr')
+                self.networkctl_check_unit('test1', '11-dummy', '11-dummy')
+                self.networkctl_check_unit('dummy98', '12-dummy', '12-dummy-no-address')
+
+                output = check_output('ip -d link show hsr99')
+                print(output)
+                self.assertRegex(output, 'hsr slave1 test1 slave2')
+                self.assertRegex(output, 'supervision 01:15:4e:00:01:' + f'{supervision:02x}')
+                self.assertRegex(output, 'proto ' + ('0' if proto == 'hsr' else '1') + ' ')
+
+                touch_network_unit('25-hsr.netdev')
+                networkctl_reload()
+                self.wait_online('hsr99:degraded')
+
     @expectedFailureIfModuleIsNotAvailable('ipvtap')
     def test_ipvtap(self):
         first = True

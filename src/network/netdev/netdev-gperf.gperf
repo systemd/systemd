@@ -12,6 +12,7 @@ _Pragma("GCC diagnostic ignored \"-Wzero-as-null-pointer-constant\"")
 #include "conf-parser.h"
 #include "fou-tunnel.h"
 #include "geneve.h"
+#include "hsr.h"
 #include "ipoib.h"
 #include "ipvlan.h"
 #include "l2tp-tunnel.h"
@@ -172,6 +173,9 @@ GENEVE.DestinationPort,                   config_parse_ip_port,                 
 GENEVE.IPDoNotFragment,                   config_parse_geneve_df,                    0,                             offsetof(Geneve, geneve_df)
 GENEVE.FlowLabel,                         config_parse_geneve_flow_label,            0,                             0
 GENEVE.InheritInnerProtocol,              config_parse_bool,                         0,                             offsetof(Geneve, inherit_inner_protocol)
+HSR.Ports,                                config_parse_ifnames,                      IFNAME_VALID_ALTERNATIVE,      offsetof(Hsr, ports)
+HSR.Protocol,                             config_parse_hsr_protocol,                 0,                             offsetof(Hsr, protocol)
+HSR.Supervision,                          config_parse_uint8,                        0,                             offsetof(Hsr, supervision)
 MACsec.Port,                              config_parse_macsec_port,                  0,                             0
 MACsec.Encrypt,                           config_parse_tristate,                     0,                             offsetof(MACsec, encrypt)
 MACsecReceiveChannel.Port,                config_parse_macsec_port,                  0,                             0
