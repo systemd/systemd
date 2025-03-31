@@ -12,6 +12,7 @@
 #include "ether-addr-util.h"
 #include "macro.h"
 #include "memory-util.h"
+#include "sd-dhcp-protocol.h"
 #include "tests.h"
 
 struct opt_overrides {
@@ -78,6 +79,53 @@ static struct option_desc option_tests[] = {
                         .code = SD_DHCP_OPTION_CLASSLESS_STATIC_ROUTE,
                         .data = {22, 172, 16, 0, 0, 0, 0, 0},
                         .len = 8,
+                }},
+                .overrideslen = 1,
+        },
+        /* test draft-tojens-dhcp-option-concat-considerations: not all options should be
+         * concatenated. Concatenation-requiring is already tested by the previous test.
+         * test fixed-length options.
+         */
+        {
+                .options = {
+                        SD_DHCP_OPTION_MESSAGE_TYPE, 1, DHCP_ACK,
+                        SD_DHCP_OPTION_SUBNET_MASK, 4, 255, 255, 255, 0,
+                        SD_DHCP_OPTION_SUBNET_MASK, 4, 255, 255, 255, 0,
+                },
+                .len = 15,
+                .success = true,
+                /* no overrides: option should not be concatenated */
+        },
+        /* test multiple of fixed-length */
+        {
+                .options = {
+                        SD_DHCP_OPTION_MESSAGE_TYPE, 1, DHCP_ACK,
+                        SD_DHCP_OPTION_DOMAIN_NAME_SERVER, 3, 8, 8, 8,
+                        SD_DHCP_OPTION_DOMAIN_NAME_SERVER, 5, 8, 1, 1, 1, 1,
+                },
+                .len = 15,
+                .success = true,
+                .overrides = {{
+                        .code = SD_DHCP_OPTION_DOMAIN_NAME_SERVER,
+                        .data = {8, 8, 8, 8, 1, 1, 1, 1},
+                        .len = 8,
+                }},
+                .overrideslen = 1,
+        },
+        /* test arbitrary length */
+        {
+                .options = {
+                        SD_DHCP_OPTION_MESSAGE_TYPE, 1, DHCP_ACK,
+                        SD_DHCP_OPTION_HOST_NAME, 3, 'f', 'o', 'o',
+                        SD_DHCP_OPTION_HOST_NAME, 3, 'b', 'a', 'r',
+                        SD_DHCP_OPTION_HOST_NAME, 3, 'b', 'a', 'z',
+                },
+                .len = 18,
+                .success = true,
+                .overrides = {{
+                        .code = SD_DHCP_OPTION_HOST_NAME,
+                        .data = "foobarbaz",
+                        .len = 9,
                 }},
                 .overrideslen = 1,
         },
