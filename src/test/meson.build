@@ -268,6 +268,10 @@ executables += [
                 'conditions' : ['HAVE_OPENSSL_OR_GCRYPT'],
         },
         test_template + {
+                'sources' : files('test-display-quota.c'),
+                'type' : 'manual',
+        },
+        test_template + {
                 'sources' : files('test-dlopen-so.c'),
                 'dependencies' : [
                         libp11kit_cflags,
