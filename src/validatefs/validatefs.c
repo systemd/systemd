@@ -33,7 +33,7 @@ static int help(void) {
                 return log_oom();
 
         printf("%1$s [OPTIONS...] /path/to/mountpoint\n"
-               "\n%3$sCheck file system validation constraints.%4$s\n"
+               "\n%3$sCheck file system validation constraints.%4$s\n\n"
                "  -h --help            Show this help and exit\n"
                "     --version         Print version string and exit\n"
                "     --root=PATH|auto  Operate relative to the specified path\n"
