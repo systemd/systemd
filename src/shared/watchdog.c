@@ -229,7 +229,7 @@ static int watchdog_ping_now(void) {
                 watchdog_last_good_ping = now(CLOCK_BOOTTIME);
                 if (watchdog_bad_pings > 0) {
                         log_struct(LOG_INFO,
-                                   LOG_MESSAGE("Succesfullly pinged hardware watchdog %s after %u attempts: %m",
+                                   LOG_MESSAGE("Successfully pinged hardware watchdog %s after %u attempts: %m",
                                                watchdog_device, watchdog_bad_pings + 1),
                                    "WATCHDOG_DEVICE=%s", watchdog_device);
                         watchdog_bad_pings = 0;
