@@ -89,7 +89,7 @@ typedef struct Worker {
         Event *event;
 } Worker;
 
-static Event *event_free(Event *event) {
+static Event* event_free(Event *event) {
         if (!event)
                 return NULL;
 
@@ -117,7 +117,7 @@ static void event_queue_cleanup(Manager *manager, EventState match_state) {
         }
 }
 
-static Worker *worker_free(Worker *worker) {
+static Worker* worker_free(Worker *worker) {
         if (!worker)
                 return NULL;
 
@@ -131,7 +131,13 @@ static Worker *worker_free(Worker *worker) {
 }
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Worker*, worker_free);
-DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(worker_hash_op, void, trivial_hash_func, trivial_compare_func, Worker, worker_free);
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+                worker_hash_op,
+                void,
+                trivial_hash_func,
+                trivial_compare_func,
+                Worker,
+                worker_free);
 
 Manager* manager_free(Manager *manager) {
         if (!manager)
@@ -1373,12 +1379,12 @@ int manager_main(Manager *manager) {
         if (r < 0)
                 log_warning_errno(r, "Failed to apply permissions on static device nodes, ignoring: %m");
 
-        notify_ready(manager);
+        _unused_ _cleanup_(notify_on_cleanup) const char *notify_message =
+                notify_start(NOTIFY_READY, NOTIFY_STOPPING);
 
         r = sd_event_loop(manager->event);
         if (r < 0)
-                log_error_errno(r, "Event loop failed: %m");
+                return log_error_errno(r, "Event loop failed: %m");
 
-        (void) sd_notify(/* unset= */ false, NOTIFY_STOPPING);
-        return r;
+        return 0;
 }
