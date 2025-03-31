@@ -1,2 +1,6 @@
+github.com/coreos/go-systemd/v22 v22.5.0 h1:RrqgGjYQKalulkV8NGVIfkXQf6YYmOyiJKk8iXXhfZs=
+github.com/coreos/go-systemd/v22 v22.5.0/go.mod h1:Y58oyj3AT4RCenI/lSvhwexgC+NSVTIJ3seZv2GcEnc=
 github.com/foxboron/go-uefi v0.0.0-20241219185318-19dc140271bf h1:eKPYdh9Dq7P/Tc6GRt4HqqsVK8b2vt0IGP+xmZ8dMjo=
 github.com/foxboron/go-uefi v0.0.0-20241219185318-19dc140271bf/go.mod h1:q85c4IRlhhwdRJgGIUWrisDjU8dgcMj8dnXZCXo3hus=
+github.com/godbus/dbus/v5 v5.0.4 h1:9349emZab16e7zQvpmsbtjc18ykshndd8y2PG3sgJbA=
+github.com/godbus/dbus/v5 v5.0.4/go.mod h1:xhWf0FNVPg57R7Z0UbKHbJfkEywrmjJnf7w5xrFpKfA=

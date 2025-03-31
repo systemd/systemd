@@ -2,11 +2,14 @@ package rcconf
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"net"
 	"os"
 	"os/exec"
 	"strings"
+
+	"github.com/coreos/go-systemd/v22/dbus"
 )
 
 type Config struct {
@@ -158,14 +161,27 @@ func Enable(cfg *Config) {
 		systemd_exec("hostnamectl", "hostname", cfg.hostname)
 	}
 
+	conn, err := dbus.NewSystemdConnectionContext(context.Background())
+	if err != nil {
+		fmt.Printf("cannot connect to system bus")
+		return
+	}
+	defer conn.Close()
+
 	if len(cfg.disabled_daemons) != 0 {
-		args := []string{"disable", "--now", "--no-block"}
-		systemd_exec("systemctl", append(args, cfg.disabled_daemons...)...)
+		_, err = conn.DisableUnitFilesContext(context.Background(), cfg.disabled_daemons, false)
+		if err != nil {
+			fmt.Printf("unable to disable daemons=%v", cfg.disabled_daemons)
+			return
+		}
 	}
 
 	if len(cfg.enabled_daemons) != 0 {
-		args := []string{"enable", "--now", "--no-block"}
-		systemd_exec("systemctl", append(args, cfg.enabled_daemons...)...)
+		_, _, err = conn.EnableUnitFilesContext(context.Background(), cfg.enabled_daemons, false, false)
+		if err != nil {
+			fmt.Printf("unable to enable daemons=%v", cfg.enabled_daemons)
+			return
+		}
 	}
 
 	// Networking
@@ -195,8 +211,30 @@ func Enable(cfg *Config) {
 
 		if config_complete {
 			networkd_file.Write([]byte(network_cfg))
-			systemd_exec("systemctl", "daemon-reload")
-			systemd_exec("systemctl", "enable", "--now", "--no-block", "systemd-networkd")
+
+			err = conn.ReloadContext(context.Background())
+			if err != nil {
+				fmt.Printf("unable to daemon reload")
+				return
+			}
+
+			services := []string{"systemd-networkd"}
+			_, _, err = conn.EnableUnitFilesContext(context.Background(), services, false, false)
+			if err != nil {
+				fmt.Printf("cannot enable systemd-networkd")
+			}
+
+			// might already enabled, so we restart anyway
+			reschan := make(chan string)
+			_, err = conn.RestartUnitContext(context.Background(), "systemd-networkd", "replace", reschan)
+			if err != nil {
+				fmt.Printf("cannot restart systemd-networkd")
+			}
+
+			job := <-reschan
+			if job != "done" {
+				fmt.Printf("check systemd-networkd logs..")
+			}
 		}
 	}
 }
