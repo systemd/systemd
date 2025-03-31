@@ -945,14 +945,12 @@ static int callout_context_new(const Transfer *t, const Instance *i, TransferPro
 }
 
 static int helper_on_exit(sd_event_source *s, const siginfo_t *si, void *userdata) {
-        _cleanup_(callout_context_freep) CalloutContext *ctx = ASSERT_PTR(userdata);
+        CalloutContext *ctx = ASSERT_PTR(userdata);
         int r;
 
         assert(s);
         assert(si);
         assert(ctx);
-
-        pidref_done(&ctx->pid);
 
         if (si->si_code == CLD_EXITED) {
                 if (si->si_status == EXIT_SUCCESS) {
@@ -1043,7 +1041,6 @@ static int run_callout(
         assert(cmdline[0]);
 
         _cleanup_(callout_context_freep) CalloutContext *ctx = NULL;
-
         r = callout_context_new(transfer, instance, callback, name, userdata, &ctx);
         if (r < 0)
                 return log_oom();
@@ -1097,7 +1094,7 @@ static int run_callout(
         }
 
         /* Quit the loop w/ when child process exits */
-        r = event_add_child_pidref(event, &exit_source, &ctx->pid, WEXITED, helper_on_exit, (void*) ctx);
+        r = event_add_child_pidref(event, &exit_source, &ctx->pid, WEXITED, helper_on_exit, ctx);
         if (r < 0)
                 return log_error_errno(r, "Failed to add child process to event loop: %m");
 
@@ -1106,7 +1103,7 @@ static int run_callout(
                 return log_error_errno(r, "Failed to take ownership of child process: %m");
 
         /* Propagate sd_notify calls */
-        r = sd_event_add_io(event, &notify_source, fd, EPOLLIN, helper_on_notify, TAKE_PTR(ctx));
+        r = sd_event_add_io(event, &notify_source, fd, EPOLLIN, helper_on_notify, ctx);
         if (r < 0)
                 return log_error_errno(r, "Failed to add notification propagation to event loop: %m");
 
