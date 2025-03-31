@@ -506,17 +506,10 @@ static int action_fork(char *const *_command) {
         if (r < 0)
                 log_debug_errno(r, "Failed to enable SO_PASSPIDFD, ignoring: %m");
 
-        /* Pick an address via auto-bind */
-        union sockaddr_union sa = {
-                .sa.sa_family = AF_UNIX,
-        };
-        if (bind(socket_fd, &sa.sa, offsetof(union sockaddr_union, un.sun_path)) < 0)
-                return log_error_errno(errno, "Failed to bind AF_UNIX socket: %m");
-
         _cleanup_free_ char *addr_string = NULL;
-        r = getsockname_pretty(socket_fd, &addr_string);
+        r = socket_autobind(socket_fd, &addr_string);
         if (r < 0)
-                return log_error_errno(r, "Failed to get socket name: %m");
+                return log_error_errno(r, "Failed to bind notify socket: %m");
 
         _cleanup_free_ char *c = strv_join(command, " ");
         if (!c)
