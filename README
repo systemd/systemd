@@ -42,7 +42,7 @@ REQUIREMENTS:
                      ≥ 4.17 for cgroup-bpf socket address hooks, /sys/power/resume_offset,
                             and FRA_PROTOCOL attribute for fib rules
                      ≥ 4.20 for PSI (used by systemd-oomd)
-                     ≥ 5.0 for SO_BINDTOIFINDEX
+                     ≥ 5.1 for SO_BINDTOIFINDEX
                      ≥ 5.2 for cgroup freezer and new mount API
                      ≥ 5.3 for bounded loops in BPF program, keyring namespacing,
                            and nexthop support

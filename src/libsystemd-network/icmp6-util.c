@@ -118,7 +118,8 @@ int icmp6_receive(
                 struct in6_addr *ret_sender,
                 triple_timestamp *ret_timestamp) {
 
-        /* This needs to be initialized with zero. See #20741. */
+        /* This needs to be initialized with zero. See #20741.
+         * The issue is fixed on glibc-2.35 (8fba672472ae0055387e9315fc2eddfa6775ca79). */
         CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(int)) + /* ttl */
                          CMSG_SPACE_TIMEVAL) control = {};
         struct iovec iov = { buffer, size };

@@ -1509,7 +1509,8 @@ int server_process_datagram(
          * limit is known.
          *
          * Here, we need to explicitly initialize the buffer with zero, as glibc has a bug in
-         * __convert_scm_timestamps(), which assumes the buffer is initialized. See #20741. */
+         * __convert_scm_timestamps(), which assumes the buffer is initialized. See #20741.
+         * The issue is fixed on glibc-2.35 (8fba672472ae0055387e9315fc2eddfa6775ca79). */
         CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct ucred)) +
                          CMSG_SPACE_TIMEVAL +
                          CMSG_SPACE(sizeof(int)) + /* fd */
