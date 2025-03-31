@@ -343,6 +343,18 @@ int xsetxattr_full(
         return 0;
 }
 
+int xsetxattr_strv(int fd, const char *path, int at_flags, const char *name, char * const* l) {
+        int r;
+
+        _cleanup_free_ char *nulstr = NULL;
+        size_t size = 0;
+        r = strv_make_nulstr(l, &nulstr, &size);
+        if (r < 0)
+                return r;
+
+        return xsetxattr_full(fd, path, at_flags, name, nulstr, size, /* xattr_flags= */ 0);
+}
+
 int xremovexattr(int fd, const char *path, int at_flags, const char *name) {
         int r;
 
