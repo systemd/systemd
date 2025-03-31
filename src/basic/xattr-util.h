@@ -20,6 +20,7 @@ static inline int fgetxattr_malloc(int fd, const char *name, char **ret, size_t 
 }
 
 int getxattr_at_bool(int fd, const char *path, const char *name, int at_flags);
+int getxattr_at_strv(int fd, const char *path, const char *name, int at_flags, char ***ret_strv);
 
 int listxattr_at_malloc(int fd, const char *path, int at_flags, char **ret);
 static inline int listxattr_malloc(const char *path, char **ret) {
@@ -48,6 +49,8 @@ static inline int xsetxattr(
                 const char *value) {
         return xsetxattr_full(fd, path, at_flags, name, value, SIZE_MAX, 0);
 }
+
+int xsetxattr_strv(int fd, const char *path, int at_flags, const char *name, char *const*l);
 
 int xremovexattr(int fd, const char *path, int at_flags, const char *name);
 

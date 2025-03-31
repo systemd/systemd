@@ -764,6 +764,43 @@ int generator_hook_up_pcrfs(
         return generator_add_symlink_full(dir, where_unit, "wants", pcrfs_unit_path, instance);
 }
 
+int generator_hook_up_validatefs(
+                const char *dir,
+                const char *where,
+                const char *target) {
+
+        _cleanup_free_ char *where_unit = NULL, *instance = NULL;
+        const char *validatefs_unit, *validatefs_unit_path;
+        int r;
+
+        assert(dir);
+        assert(where);
+
+        /* never hook this in for the actual root fs, because it's too late then, we already are running from
+         * the root fs, it makes no sense to validate it anymore */
+        if (empty_or_root(where))
+                return 0;
+
+        r = unit_name_from_path(where, ".mount", &where_unit);
+        if (r < 0)
+                return log_error_errno(r, "Failed to make unit name from path '%s': %m", where);
+
+        validatefs_unit = SPECIAL_VALIDATEFS_SERVICE;
+        validatefs_unit_path = SYSTEM_DATA_UNIT_DIR "/" SPECIAL_VALIDATEFS_SERVICE;
+
+        r = unit_name_path_escape(where, &instance);
+        if (r < 0)
+                return log_error_errno(r, "Failed to escape path '%s': %m", where);
+
+        if (target) {
+                r = generator_add_ordering(dir, target, "After", validatefs_unit, instance);
+                if (r < 0)
+                        return r;
+        }
+
+        return generator_add_symlink_full(dir, where_unit, "wants", validatefs_unit_path, instance);
+}
+
 int generator_hook_up_quotacheck(
                 const char *dir,
                 const char *what,
