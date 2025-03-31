@@ -669,10 +669,15 @@ NEWPASSWORD=quux homectl create tmpfsquota --storage=subvolume --dev-shm-limit=5
 for p in /dev/shm /tmp; do
     if findmnt -n -o options "$p" | grep -q usrquota; then
         run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u tmpfsquota dd if=/dev/zero of="$p/quotatestfile1" bs=1024 count=30
+        /usr/lib/systemd/tests/unit-tests/manual/test-display-quota tmpfsquota /dev/shm /tmp || :
         (! run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u tmpfsquota dd if=/dev/zero of="$p/quotatestfile2" bs=1024 count=30)
+        /usr/lib/systemd/tests/unit-tests/manual/test-display-quota tmpfsquota /dev/shm /tmp || :
         run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u tmpfsquota rm "$p/quotatestfile1" "$p/quotatestfile2"
+        /usr/lib/systemd/tests/unit-tests/manual/test-display-quota tmpfsquota /dev/shm /tmp || :
         run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u tmpfsquota dd if=/dev/zero of="$p/quotatestfile1" bs=1024 count=30
+        /usr/lib/systemd/tests/unit-tests/manual/test-display-quota tmpfsquota /dev/shm /tmp || :
         run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u tmpfsquota rm "$p/quotatestfile1"
+        /usr/lib/systemd/tests/unit-tests/manual/test-display-quota tmpfsquota /dev/shm /tmp || :
     fi
 done
 
