@@ -192,10 +192,11 @@ int getxattr_at_bool(int fd, const char *path, const char *name, int at_flags) {
 }
 
 int getxattr_at_strv(int fd, const char *path, const char *name, int at_flags, char ***ret_strv) {
+        _cleanup_free_ char *nulstr = NULL;
+        size_t nulstr_size;
         int r;
 
-        _cleanup_free_ char *nulstr = NULL;
-        size_t nulstr_size = 0;
+        assert(ret_strv);
 
         r = getxattr_at_malloc(fd, path, name, at_flags, &nulstr, &nulstr_size);
         if (r < 0)
@@ -343,11 +344,13 @@ int xsetxattr_full(
         return 0;
 }
 
-int xsetxattr_strv(int fd, const char *path, int at_flags, const char *name, char * const* l) {
+int xsetxattr_strv(int fd, const char *path, int at_flags, const char *name, char * const *l) {
+        _cleanup_free_ char *nulstr = NULL;
+        size_t size;
         int r;
 
-        _cleanup_free_ char *nulstr = NULL;
-        size_t size = 0;
+        assert(name);
+
         r = strv_make_nulstr(l, &nulstr, &size);
         if (r < 0)
                 return r;

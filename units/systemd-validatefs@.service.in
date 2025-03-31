@@ -15,9 +15,9 @@ BindsTo=%i.mount
 Conflicts=shutdown.target
 After=%i.mount
 Before=shutdown.target systemd-pcrfs@%i.service systemd-quotacheck@%i.service systemd-growfs@%i.service
+FailureAction=reboot-immediate
 
 [Service]
 Type=oneshot
 RemainAfterExit=yes
 ExecStart={{LIBEXECDIR}}/systemd-validatefs --root=auto %f
-FailureAction=reboot-immediate
