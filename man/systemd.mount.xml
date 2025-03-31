@@ -433,6 +433,22 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>x-systemd.validatefs</option></term>
+
+        <listitem><para>Validates mount constraint metadata of the mounted file system after mounting
+        it. This ensures the
+        <citerefentry><refentrytitle>systemd-validatefs@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        service is pulled in by the mount unit.</para>
+
+        <para>Note that this option can only be used in <filename>/etc/fstab</filename>, and will be ignored
+        when part of the <varname>Options=</varname> setting in a unit file. It is also implied for all
+        partitions discovered by
+        <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>x-systemd.rw-only</option></term>
 
         <listitem><para>If a mount operation fails to mount the file system
