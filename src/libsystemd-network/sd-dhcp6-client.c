@@ -1289,7 +1289,8 @@ static int client_receive_message(
 
         sd_dhcp6_client *client = ASSERT_PTR(userdata);
         DHCP6_CLIENT_DONT_DESTROY(client);
-        /* This needs to be initialized with zero. See #20741. */
+        /* This needs to be initialized with zero. See #20741.
+         * The issue is fixed on glibc-2.35 (8fba672472ae0055387e9315fc2eddfa6775ca79). */
         CMSG_BUFFER_TYPE(CMSG_SPACE_TIMEVAL) control = {};
         struct iovec iov;
         union sockaddr_union sa = {};
