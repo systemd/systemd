@@ -3,6 +3,8 @@
 #include "analyze.h"
 #include "analyze-chid.h"
 #include "chid-fundamental.h"
+#include "dirent-util.h"
+#include "edid-fundamental.h"
 #include "efi-api.h"
 #include "escape.h"
 #include "fd-util.h"
@@ -13,11 +15,25 @@
 #include "utf8.h"
 #include "virt.h"
 
+static const char *const extra_chid_types[CHID_TYPES_MAX - EXTRA_CHID_BASE] = {
+    [0] = "ext0",
+    [1] = "ext1",
+    [2] = "ext2",
+};
+
 static int parse_chid_type(const char *s, size_t *ret) {
         unsigned u;
         int r;
 
         assert(s);
+
+        for (size_t i = 0; i < ELEMENTSOF(extra_chid_types); i++) {
+                if (!streq(extra_chid_types[i], s))
+                        continue;
+                if (ret)
+                        *ret = EXTRA_CHID_BASE + i;
+                return 0;
+        }
 
         r = safe_atou(s, &u);
         if (r < 0)
@@ -43,6 +59,7 @@ static const char *const chid_smbios_friendly[_CHID_SMBIOS_FIELDS_MAX] = {
         [CHID_SMBIOS_BIOS_MAJOR]             = "bios-major",
         [CHID_SMBIOS_BIOS_MINOR]             = "bios-minor",
         [CHID_SMBIOS_ENCLOSURE_TYPE]         = "enclosure-type",
+        [CHID_EDID_PANEL]                    = "edid-panel",
 };
 
 static const char chid_smbios_fields_char[_CHID_SMBIOS_FIELDS_MAX] = {
@@ -57,6 +74,7 @@ static const char chid_smbios_fields_char[_CHID_SMBIOS_FIELDS_MAX] = {
         [CHID_SMBIOS_BIOS_MAJOR]             = 'R',
         [CHID_SMBIOS_BIOS_MINOR]             = 'r',
         [CHID_SMBIOS_ENCLOSURE_TYPE]         = 'e',
+        [CHID_EDID_PANEL]                    = 'E',
 };
 
 static char *chid_smbios_fields_string(uint32_t combination) {
@@ -90,10 +108,16 @@ static int add_chid(Table *table, const EFI_GUID guids[static CHID_TYPES_MAX], s
         if (!flags)
                 return log_oom();
 
-        r = table_add_many(table,
-                           TABLE_UINT, (unsigned) t,
-                           TABLE_STRING, flags,
-                           TABLE_UUID, id);
+        if (t < EXTRA_CHID_BASE)
+                r = table_add_many(table,
+                                   TABLE_UINT, (unsigned) t,
+                                   TABLE_STRING, flags,
+                                   TABLE_UUID, id);
+        else
+                r = table_add_many(table,
+                                   TABLE_STRING, extra_chid_types[t - EXTRA_CHID_BASE],
+                                   TABLE_STRING, flags,
+                                   TABLE_UUID, id);
         if (r < 0)
                 return table_log_add_error(r);
 
@@ -223,6 +247,47 @@ static int smbios_fields_acquire(char16_t *fields[static _CHID_SMBIOS_FIELDS_MAX
         return 0;
 }
 
+static int edid_parse(const char *edid_path, char16_t **ret_panel) {
+        int r;
+        _cleanup_free_ char *edid_content = NULL;
+        size_t edid_size = 0;
+
+        r = read_full_file(edid_path, &edid_content, &edid_size);
+        if (r < 0)
+                return r;
+
+        EdidHeader header;
+        if (!edid_parse_blob(edid_content, edid_size, &header))
+                return -EINVAL;
+
+        EdidPanelId panel_id;
+        if (!edid_get_panel_id(&header, &panel_id))
+                return -EINVAL;
+
+        *ret_panel = new0(char16_t, 5);
+        edid_panel_id(&panel_id, *ret_panel);
+        return 0;
+}
+
+static int edid_acquire(char16_t **ret_panel) {
+        _cleanup_closedir_ DIR *dir = opendir("/sys/class/drm");
+        if (!dir)
+                return log_error_errno(errno, "Failed to open DRM sysfs object: %m");
+
+        FOREACH_DIRENT(de, dir, return -errno) {
+                if (de->d_type != DT_DIR && de->d_type != DT_LNK)
+                        continue;
+
+                _cleanup_free_ char *edid_path = path_join("/sys/class/drm", de->d_name, "edid");
+                if (edid_parse(edid_path, ret_panel) < 0)
+                        continue;
+
+                break;
+        }
+
+        return 0;
+}
+
 int verb_chid(int argc, char *argv[], void *userdata) {
 
         _cleanup_(table_unrefp) Table *table = NULL;
@@ -243,10 +308,19 @@ int verb_chid(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
+        const char *edid_path = strv_find_prefix(strv_skip(argv, 1), "/sys/class/drm/");
+
+        if (edid_path)
+                r = edid_parse(edid_path, &smbios_fields[CHID_EDID_PANEL]);
+        else
+                r = edid_acquire(&smbios_fields[CHID_EDID_PANEL]);
+        if (r < 0)
+                return log_error_errno(errno, "Failed to parse EDID: %m");;
+
         EFI_GUID chids[CHID_TYPES_MAX] = {};
         chid_calculate((const char16_t* const*) smbios_fields, chids);
 
-        if (strv_isempty(strv_skip(argv, 1)))
+        if (strv_isempty(strv_skip(argv, 1)) || edid_path)
                 for (size_t t = 0; t < CHID_TYPES_MAX; t++) {
                         r = add_chid(table, chids, t);
                         if (r < 0)
@@ -257,7 +331,7 @@ int verb_chid(int argc, char *argv[], void *userdata) {
                         size_t t;
                         r = parse_chid_type(*as, &t);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to pare CHID type: %s", *as);
+                                return log_error_errno(r, "Failed to parse CHID type: %s", *as);
 
                         r = add_chid(table, chids, t);
                         if (r < 0)
