@@ -1225,7 +1225,8 @@ static size_t relay_agent_information_length(const char* agent_circuit_id, const
 static int server_receive_message(sd_event_source *s, int fd,
                                   uint32_t revents, void *userdata) {
         _cleanup_free_ DHCPMessage *message = NULL;
-        /* This needs to be initialized with zero. See #20741. */
+        /* This needs to be initialized with zero. See #20741.
+         * The issue is fixed on glibc-2.35 (8fba672472ae0055387e9315fc2eddfa6775ca79). */
         CMSG_BUFFER_TYPE(CMSG_SPACE_TIMEVAL +
                          CMSG_SPACE(sizeof(struct in_pktinfo))) control = {};
         sd_dhcp_server *server = ASSERT_PTR(userdata);
