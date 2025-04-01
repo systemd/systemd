@@ -304,7 +304,7 @@ void manager_reload(Manager *manager, bool force) {
 static int on_kill_workers_event(sd_event_source *s, uint64_t usec, void *userdata) {
         Manager *manager = ASSERT_PTR(userdata);
 
-        log_debug("Cleanup idle workers");
+        log_debug("Cleaning up idle workers.");
         manager_kill_workers(manager, false);
 
         return 1;
@@ -1068,6 +1068,7 @@ static int on_sigchld(sd_event_source *s, const siginfo_t *si, void *userdata) {
 
 static int on_post(sd_event_source *s, void *userdata) {
         Manager *manager = ASSERT_PTR(userdata);
+        int r;
 
         if (manager->events) {
                 /* Try to process pending events if idle workers exist. Why is this necessary?
@@ -1085,18 +1086,31 @@ static int on_post(sd_event_source *s, void *userdata) {
                 if (errno != ENOENT)
                         log_warning_errno(errno, "Failed to unlink /run/udev/queue, ignoring: %m");
         } else
-                log_debug("No events are queued, removing /run/udev/queue.");
+                log_debug("No events are queued, removed /run/udev/queue.");
 
         if (!hashmap_isempty(manager->workers)) {
                 /* There are idle workers */
-                (void) event_reset_time_relative(manager->event, &manager->kill_workers_event,
-                                                 CLOCK_MONOTONIC, 3 * USEC_PER_SEC, USEC_PER_SEC,
-                                                 on_kill_workers_event, manager,
-                                                 0, "kill-workers-event", false);
+                r = event_reset_time_relative(
+                                manager->event,
+                                &manager->kill_workers_event,
+                                CLOCK_MONOTONIC,
+                                3 * USEC_PER_SEC,
+                                USEC_PER_SEC,
+                                on_kill_workers_event,
+                                manager,
+                                SD_EVENT_PRIORITY_NORMAL,
+                                "kill-workers-event",
+                                /* force_reset = */ false);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to enable timer event source for cleaning up idle workers, ignoring: %m");
+
                 return 1;
         }
 
         /* There are no idle workers. */
+        r = sd_event_source_set_enabled(manager->kill_workers_event, SD_EVENT_OFF);
+        if (r < 0)
+                log_warning_errno(r, "Failed to disable timer event source for cleaning up idle workers, ignoring: %m");
 
         if (manager->exit)
                 return sd_event_exit(manager->event, 0);
