@@ -13,13 +13,7 @@ typedef struct DnsTlsServerData DnsTlsServerData;
 typedef struct DnsTlsStreamData DnsTlsStreamData;
 typedef struct Manager Manager;
 
-#if DNS_OVER_TLS_USE_GNUTLS
-#include "resolved-dnstls-gnutls.h"
-#elif DNS_OVER_TLS_USE_OPENSSL
 #include "resolved-dnstls-openssl.h"
-#else
-#error Unknown dependency for supporting DNS-over-TLS
-#endif
 
 #define DNSTLS_STREAM_CLOSED 1
 
