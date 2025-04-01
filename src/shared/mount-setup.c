@@ -206,7 +206,7 @@ static int mount_one(const MountPoint *p, bool relabel) {
                   p->what,
                   p->where,
                   p->type,
-                  strna(o));
+                  o ?: "''");
 
         r = mount_verbose_full(priority, p->what, p->where, p->type, p->flags, o, FLAGS_SET(p->mode, MNT_FOLLOW_SYMLINK));
         if (r < 0)
