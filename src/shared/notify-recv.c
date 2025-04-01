@@ -7,6 +7,61 @@
 #include "strv.h"
 #include "user-util.h"
 
+int notify_socket_prepare(
+                sd_event *event,
+                int64_t priority,
+                sd_event_io_handler_t handler,
+                void *userdata,
+                char **ret_path) {
+
+        int r;
+
+        assert(event);
+
+        _cleanup_close_ int fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
+        if (fd < 0)
+                return log_debug_errno(errno, "Failed to create notification socket: %m");
+
+        _cleanup_free_ char *path = NULL;
+        r = socket_autobind(fd, &path);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to bind notification socket: %m");
+
+        r = setsockopt_int(fd, SOL_SOCKET, SO_PASSCRED, true);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to enable SO_PASSCRED on notification socket: %m");
+
+        /* SO_PASSPIDFD is supported since kernel v6.5. */
+        r = setsockopt_int(fd, SOL_SOCKET, SO_PASSPIDFD, true);
+        if (r < 0)
+                log_debug_errno(r, "Failed to enable SO_PASSPIDFD on notification socket, ignoring. %m");
+
+        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        r = sd_event_add_io(event, &s, fd, EPOLLIN, handler, userdata);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to create notification event source: %m");
+
+        r = sd_event_source_set_priority(s, priority);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to set priority to notification event source: %m");
+
+        r = sd_event_source_set_io_fd_own(s, true);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to make notification event source own file descriptor: %m");
+        TAKE_FD(fd);
+
+        (void) sd_event_source_set_description(s, "notify-socket");
+
+        r = sd_event_source_set_floating(s, true);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to make notification event source floating: %m");
+
+        if (ret_path)
+                *ret_path = TAKE_PTR(path);
+
+        return 0;
+}
+
 int notify_recv_with_fds(
                 int fd,
                 char **ret_text,

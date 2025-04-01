@@ -3,8 +3,17 @@
 
 #include <sys/socket.h>
 
+#include "sd-event.h"
+
 #include "fdset.h"
 #include "pidref.h"
+
+int notify_socket_prepare(
+                sd_event *event,
+                int64_t priority,
+                sd_event_io_handler_t handler,
+                void *userdata,
+                char **ret_path);
 
 int notify_recv_with_fds(
                 int fd,
