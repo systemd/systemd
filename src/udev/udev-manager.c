@@ -293,7 +293,7 @@ static void manager_reload(Manager *manager, bool force) {
 static int on_kill_workers_event(sd_event_source *s, uint64_t usec, void *userdata) {
         Manager *manager = ASSERT_PTR(userdata);
 
-        log_debug("Cleanup idle workers");
+        log_debug("Cleaning up idle workers.");
         manager_kill_workers(manager, false);
 
         return 1;
@@ -1165,7 +1165,7 @@ static int on_post(sd_event_source *s, void *userdata) {
                 if (errno != ENOENT)
                         log_warning_errno(errno, "Failed to unlink /run/udev/queue, ignoring: %m");
         } else
-                log_debug("No events are queued, removing /run/udev/queue.");
+                log_debug("No events are queued, removed /run/udev/queue.");
 
         if (!hashmap_isempty(manager->workers)) {
                 /* There are idle workers */
