@@ -363,7 +363,7 @@ option('default-llmnr', type : 'combo',
        choices : ['yes', 'resolve', 'no'],
        description : 'default LLMNR mode',
        value : 'yes')
-option('dns-over-tls', type : 'combo', choices : ['auto', 'gnutls', 'openssl', 'true', 'false'],
+option('dns-over-tls', type : 'combo', choices : ['auto', 'openssl', 'true', 'false'],
        description : 'DNS-over-TLS support')
 option('dns-servers', type : 'string',
        description : 'space-separated list of default DNS servers',

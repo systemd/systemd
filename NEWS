@@ -58,6 +58,9 @@ CHANGES WITH 258 in spe:
         * The 'split-usr', 'rootlibdir', and 'rootprefix' meson options, which
           were deprecated in v255, have been removed.
 
+        * OpenSSL is the only crypto backend for systemd-resolved, and support
+          for gnutls has been removed.
+
         Announcements of Future Feature Removals:
 
         * The D-Bus method org.freedesktop.systemd1.StartAuxiliaryScope() is
