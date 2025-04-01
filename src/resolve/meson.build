@@ -103,7 +103,7 @@ systemd_resolved_sources += custom_target(
 systemd_resolved_dependencies = [threads, libm] + [lib_openssl_or_gcrypt]
 if conf.get('ENABLE_DNS_OVER_TLS') == 1
         systemd_resolved_sources += files(
-                'resolved-dnstls-openssl.c',
+                'resolved-dnstls.c',
         )
         systemd_resolved_dependencies += libopenssl
 endif
