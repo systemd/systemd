@@ -23,7 +23,6 @@
 
   <refsynopsisdiv>
     <para><simplelist>
-      <member><filename>/etc/systemd/coredump.conf</filename></member>
       <member><filename>/run/systemd/coredump.conf</filename></member>
       <member><filename>/usr/local/lib/systemd/coredump.conf</filename></member>
       <member><filename>/usr/lib/systemd/coredump.conf</filename></member>
@@ -163,9 +162,7 @@
       </varlistentry>
     </variablelist>
 
-    <para>The defaults for all values are listed as comments in the
-    template <filename>/etc/systemd/coredump.conf</filename> file that
-    is installed by default.</para>
+    <para>Use 'systemd-analyze cat-config systemd/coredump.conf' to display the full config.</para>
   </refsect1>
 
   <refsect1>
