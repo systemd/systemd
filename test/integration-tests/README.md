@@ -163,9 +163,9 @@ ToolsTree=
 
 On the other hand, if the rpms are available but not installed on the host
 system, you'll want to make sure they're installed into the mkosi tools tree so
-that they're used to build the image by using either
-`ToolsTreePackageDirectories=` or `ToolsTreeSandboxTrees=` similarly to
-`PackageDirectories=` or `SandboxTrees=` mentioned above.
+that they're used to build the image by again using either
+`PackageDirectories=` or `SandboxTrees=`, but this time in
+`mkosi.tools.conf/mkosi.local.conf` instead of `mkosi.local.conf`.
 
 Finally, we'll make use of the standalone mode of running the integration tests
 to avoid having to install any build dependencies.
