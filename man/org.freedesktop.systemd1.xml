@@ -8952,7 +8952,7 @@ node /org/freedesktop/systemd1/unit/systemd_2dtmpfiles_2dclean_2etimer {
       elapsation point on the <constant>CLOCK_REALTIME</constant> clock, relative to its epoch.</para>
 
       <para><varname>NextElapseUSecRealtime</varname> contains the next elapsation point on the
-      <constant>CLOCK_REALTIME</constant> clock in miscroseconds since the epoch, or 0 if this timer event
+      <constant>CLOCK_REALTIME</constant> clock in microseconds since the epoch, or 0 if this timer event
       does not include at least one calendar event.</para>
 
       <para>Similarly, <varname>NextElapseUSecMonotonic</varname> contains the next elapsation point on the
