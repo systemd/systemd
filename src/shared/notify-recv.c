@@ -17,6 +17,10 @@ int notify_socket_prepare(
         int r;
 
         assert(event);
+        assert(ret_path);
+
+        /* This creates an autobind AF_UNIX socket and adds an IO event source for the socket, which helps
+         * prepare the notification socket used to communicate with worker processes. */
 
         _cleanup_close_ int fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
         if (fd < 0)
@@ -34,7 +38,7 @@ int notify_socket_prepare(
         /* SO_PASSPIDFD is supported since kernel v6.5. */
         r = setsockopt_int(fd, SOL_SOCKET, SO_PASSPIDFD, true);
         if (r < 0)
-                log_debug_errno(r, "Failed to enable SO_PASSPIDFD on notification socket, ignoring. %m");
+                log_debug_errno(r, "Failed to enable SO_PASSPIDFD on notification socket, ignoring: %m");
 
         _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
         r = sd_event_add_io(event, &s, fd, EPOLLIN, handler, userdata);
@@ -56,9 +60,7 @@ int notify_socket_prepare(
         if (r < 0)
                 return log_debug_errno(r, "Failed to make notification event source floating: %m");
 
-        if (ret_path)
-                *ret_path = TAKE_PTR(path);
-
+        *ret_path = TAKE_PTR(path);
         return 0;
 }
 
