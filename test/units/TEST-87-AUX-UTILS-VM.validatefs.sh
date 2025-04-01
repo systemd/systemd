@@ -5,12 +5,12 @@ set -o pipefail
 
 if ! command -v systemd-repart >/dev/null; then
     echo "no systemd-repart"
-    return
+    exit 0
 fi
 
 if ! test -x /usr/lib/systemd/systemd-validatefs ; then
     echo "no systemd-validatefs"
-    return
+    exit 0
 fi
 
 export SYSTEMD_LOG_LEVEL=debug
