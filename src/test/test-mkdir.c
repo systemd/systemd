@@ -22,33 +22,33 @@ TEST(mkdir_p_safe) {
 
         ASSERT_NOT_NULL(p = path_join(tmp, "run/aaa/bbb"));
         ASSERT_OK(mkdir_p(p, 0755));
-        ASSERT_GT(is_dir(p, false), 0);
-        ASSERT_GT(is_dir(p, true), 0);
+        ASSERT_OK_POSITIVE(is_dir(p, false));
+        ASSERT_OK_POSITIVE(is_dir(p, true));
 
         p = mfree(p);
         ASSERT_NOT_NULL(p = path_join(tmp, "run/ccc/ddd"));
         ASSERT_OK(mkdir_p_safe(tmp, p, 0755, UID_INVALID, GID_INVALID, 0));
-        ASSERT_GT(is_dir(p, false), 0);
-        ASSERT_GT(is_dir(p, true), 0);
+        ASSERT_OK_POSITIVE(is_dir(p, false));
+        ASSERT_OK_POSITIVE(is_dir(p, true));
 
         p = mfree(p);
         ASSERT_NOT_NULL(p = path_join(tmp, "var/run"));
         ASSERT_OK(mkdir_parents_safe(tmp, p, 0755, UID_INVALID, GID_INVALID, 0));
-        ASSERT_OK(symlink("../run", p));
-        ASSERT_EQ(is_dir(p, false), 0);
-        ASSERT_GT(is_dir(p, true), 0);
+        ASSERT_OK_ERRNO(symlink("../run", p));
+        ASSERT_OK_ZERO(is_dir(p, false));
+        ASSERT_OK_POSITIVE(is_dir(p, true));
 
         ASSERT_ERROR(mkdir_safe(p, 0755, UID_INVALID, GID_INVALID, 0), ENOTDIR);
         ASSERT_OK(mkdir_safe(p, 0755, UID_INVALID, GID_INVALID, MKDIR_IGNORE_EXISTING));
         ASSERT_OK(mkdir_safe(p, 0755, UID_INVALID, GID_INVALID, MKDIR_FOLLOW_SYMLINK));
-        ASSERT_EQ(is_dir(p, false), 0);
-        ASSERT_GT(is_dir(p, true), 0);
+        ASSERT_OK_ZERO(is_dir(p, false));
+        ASSERT_OK_POSITIVE(is_dir(p, true));
 
         p = mfree(p);
         ASSERT_NOT_NULL(p = path_join(tmp, "var/run/hoge/foo/baz"));
         ASSERT_OK(mkdir_p_safe(tmp, p, 0755, UID_INVALID, GID_INVALID, 0));
-        ASSERT_GT(is_dir(p, false), 0);
-        ASSERT_GT(is_dir(p, true), 0);
+        ASSERT_OK_POSITIVE(is_dir(p, false));
+        ASSERT_OK_POSITIVE(is_dir(p, true));
 
         p = mfree(p);
         ASSERT_NOT_NULL(p = path_join(tmp, "not-exists"));
@@ -66,27 +66,26 @@ TEST(mkdir_p_safe) {
         q = mfree(q);
         ASSERT_NOT_NULL(p = path_join(tmp, "symlink"));
         ASSERT_NOT_NULL(q = path_join(p, "hoge/foo"));
-        ASSERT_OK(symlink("aaa", p));
+        ASSERT_OK_ERRNO(symlink("aaa", p));
         ASSERT_OK(mkdir_p_safe(tmp, q, 0755, UID_INVALID, GID_INVALID, 0));
-        ASSERT_GT(is_dir(q, false), 0);
-        ASSERT_GT(is_dir(q, true), 0);
+        ASSERT_OK_POSITIVE(is_dir(q, false));
+        ASSERT_OK_POSITIVE(is_dir(q, true));
         q = mfree(q);
         ASSERT_NOT_NULL(q = path_join(tmp, "aaa/hoge/foo"));
-        ASSERT_GT(is_dir(q, false), 0);
-        ASSERT_GT(is_dir(q, true), 0);
+        ASSERT_OK_POSITIVE(is_dir(q, false));
+        ASSERT_OK_POSITIVE(is_dir(q, true));
 
         ASSERT_ERROR(mkdir_p_safe(tmp, "/tmp/test-mkdir-outside", 0755, UID_INVALID, GID_INVALID, 0), EINVAL);
 
         p = mfree(p);
         ASSERT_NOT_NULL(p = path_join(tmp, "zero-mode/should-fail-to-create-child"));
         ASSERT_OK(mkdir_parents_safe(tmp, p, 0000, UID_INVALID, GID_INVALID, 0));
-        r = safe_fork("(test-mkdir-no-cap)", FORK_DEATHSIG_SIGTERM | FORK_WAIT | FORK_LOG, NULL);
+        ASSERT_OK(r = safe_fork("(test-mkdir-no-cap)", FORK_DEATHSIG_SIGTERM | FORK_WAIT | FORK_LOG, NULL));
         if (r == 0) {
                 (void) capability_bounding_set_drop(0, /* right_now = */ true);
                 ASSERT_ERROR(mkdir_p_safe(tmp, p, 0000, UID_INVALID, GID_INVALID, 0), EACCES);
                 _exit(EXIT_SUCCESS);
         }
-        ASSERT_OK(r);
 }
 
 TEST(mkdir_p_root) {
@@ -97,21 +96,21 @@ TEST(mkdir_p_root) {
 
         ASSERT_NOT_NULL(p = path_join(tmp, "run/aaa/bbb"));
         ASSERT_OK(mkdir_p_root(tmp, "/run/aaa/bbb", UID_INVALID, GID_INVALID, 0755));
-        ASSERT_GT(is_dir(p, false), 0);
-        ASSERT_GT(is_dir(p, true), 0);
+        ASSERT_OK_POSITIVE(is_dir(p, false));
+        ASSERT_OK_POSITIVE(is_dir(p, true));
 
         p = mfree(p);
         ASSERT_NOT_NULL(p = path_join(tmp, "var/run"));
         ASSERT_OK(mkdir_parents_safe(tmp, p, 0755, UID_INVALID, GID_INVALID, 0));
-        ASSERT_OK(symlink("../run", p));
-        ASSERT_EQ(is_dir(p, false), 0);
-        ASSERT_GT(is_dir(p, true), 0);
+        ASSERT_OK_ERRNO(symlink("../run", p));
+        ASSERT_OK_ZERO(is_dir(p, false));
+        ASSERT_OK_POSITIVE(is_dir(p, true));
 
         p = mfree(p);
         ASSERT_NOT_NULL(p = path_join(tmp, "var/run/hoge/foo/baz"));
         ASSERT_OK(mkdir_p_root(tmp, "/var/run/hoge/foo/baz", UID_INVALID, GID_INVALID, 0755));
-        ASSERT_GT(is_dir(p, false), 0);
-        ASSERT_GT(is_dir(p, true), 0);
+        ASSERT_OK_POSITIVE(is_dir(p, false));
+        ASSERT_OK_POSITIVE(is_dir(p, true));
 
         p = mfree(p);
         ASSERT_NOT_NULL(p = path_join(tmp, "not-exists"));
@@ -147,8 +146,8 @@ TEST(mkdir_p_root_full) {
 
         ASSERT_NOT_NULL((p = path_join(tmp, "foo")));
         ASSERT_OK(mkdir_p_root_full(tmp, "/foo", UID_INVALID, GID_INVALID, 0755, 2 * USEC_PER_SEC, NULL));
-        ASSERT_GT(is_dir(p, false), 0);
-        ASSERT_GT(is_dir(p, true), 0);
+        ASSERT_OK_POSITIVE(is_dir(p, false));
+        ASSERT_OK_POSITIVE(is_dir(p, true));
         ASSERT_OK_ERRNO(stat(p, &st));
         ASSERT_EQ(st.st_mtim.tv_sec, 2);
         ASSERT_EQ(st.st_atim.tv_sec, 2);
@@ -156,8 +155,8 @@ TEST(mkdir_p_root_full) {
         p = mfree(p);
         ASSERT_NOT_NULL((p = path_join(tmp, "dir-not-exists/foo")));
         ASSERT_OK(mkdir_p_root_full(NULL, p, UID_INVALID, GID_INVALID, 0755, 90 * USEC_PER_HOUR, NULL));
-        ASSERT_GT(is_dir(p, false), 0);
-        ASSERT_GT(is_dir(p, true), 0);
+        ASSERT_OK_POSITIVE(is_dir(p, false));
+        ASSERT_OK_POSITIVE(is_dir(p, true));
         p = mfree(p);
         ASSERT_NOT_NULL((p = path_join(tmp, "dir-not-exists")));
         ASSERT_OK_ERRNO(stat(p, &st));
