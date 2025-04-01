@@ -916,24 +916,29 @@ int wait_for_terminate(pid_t pid, siginfo_t *status) {
  * A warning is emitted if the process terminates abnormally,
  * and also if it returns non-zero unless check_exit_code is true.
  */
-int wait_for_terminate_and_check(const char *name, pid_t pid, WaitFlags flags) {
-        _cleanup_free_ char *buffer = NULL;
+int pidref_wait_for_terminate_and_check(const char *name, PidRef *pidref, WaitFlags flags) {
         siginfo_t status;
         int r, prio;
 
-        assert(pid > 1);
+        if (!pidref_is_set(pidref))
+                return -ESRCH;
+        if (pidref_is_remote(pidref))
+                return -EREMOTE;
+        if (pidref->pid == 1)
+                return -EINVAL;
 
+        _cleanup_free_ char *buffer = NULL;
         if (!name) {
-                r = pid_get_comm(pid, &buffer);
+                r = pidref_get_comm(pidref, &buffer);
                 if (r < 0)
-                        log_debug_errno(r, "Failed to acquire process name of " PID_FMT ", ignoring: %m", pid);
+                        log_debug_errno(r, "Failed to acquire process name of " PID_FMT ", ignoring: %m", pidref->pid);
                 else
                         name = buffer;
         }
 
         prio = flags & WAIT_LOG_ABNORMAL ? LOG_ERR : LOG_DEBUG;
 
-        r = wait_for_terminate(pid, &status);
+        r = pidref_wait_for_terminate(pidref, &status);
         if (r < 0)
                 return log_full_errno(prio, r, "Failed to wait for %s: %m", strna(name));
 
@@ -954,6 +959,10 @@ int wait_for_terminate_and_check(const char *name, pid_t pid, WaitFlags flags) {
 
         log_full(prio, "%s failed due to unknown reason.", strna(name));
         return -EPROTO;
+}
+
+int wait_for_terminate_and_check(const char *name, pid_t pid, WaitFlags flags) {
+        return pidref_wait_for_terminate_and_check(name, &PIDREF_MAKE_FROM_PID(pid), flags);
 }
 
 /*

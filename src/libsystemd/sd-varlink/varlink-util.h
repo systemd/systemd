@@ -26,3 +26,5 @@ int varlink_server_new(
                 sd_varlink_server **ret,
                 sd_varlink_server_flags_t flags,
                 void *userdata);
+
+int varlink_check_privileged_peer(sd_varlink *vl);
