@@ -25,7 +25,7 @@ jobs:
     steps:
       - id: artifact
         name: Download Pull Request Metadata artifact
-        uses: redhat-plumbers-in-action/download-artifact@463ae626ac2dd333491c7beccaa24c12c5c259b8
+        uses: redhat-plumbers-in-action/download-artifact@103e5f882470b59e9d71c80ecb2d0a0b91a7c43b
         with:
           name: Pull Request Metadata
 
