@@ -22,7 +22,7 @@ NVME_UUID="$(cat /proc/sys/kernel/random/uuid)"
 systemd-run -u teststoragetm.service -p Type=notify -p "Environment=SYSTEMD_NVME_UUID=${NVME_UUID:?}" /usr/lib/systemd/systemd-storagetm /var/tmp/storagetm.test --nqn=quux
 NVME_DEVICE="/dev/disk/by-id/nvme-uuid.${NVME_UUID:?}"
 
-nvme connect-all -vv -t tcp -a 127.0.0.1 -s 16858 --hostid="$(cat /proc/sys/kernel/random/uuid)"
+nvme connect-all -vv -t tcp -a 127.0.0.1 -s 16858 --hostnqn="$(nvme gen-hostnqn)"
 udevadm wait --settle "$NVME_DEVICE"
 
 dd if="$NVME_DEVICE" bs=1024 | cmp /var/tmp/storagetm.test -
