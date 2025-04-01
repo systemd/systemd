@@ -1475,18 +1475,6 @@ endif
 dmi_arches = ['x86', 'x86_64', 'aarch64', 'arm', 'ia64', 'loongarch64', 'mips', 'riscv64']
 conf.set10('HAVE_DMI', host_machine.cpu_family() in dmi_arches)
 
-# We support one or the other. If gcrypt is available, we assume it's there to
-# be used, and use it in preference.
-opt = get_option('cryptolib')
-if opt == 'openssl' and conf.get('HAVE_OPENSSL') == 0
-        error('openssl requested as the default cryptolib, but not available')
-endif
-conf.set10('PREFER_OPENSSL',
-           opt == 'openssl' or (opt == 'auto' and conf.get('HAVE_OPENSSL') == 1 and conf.get('HAVE_GCRYPT') == 0))
-conf.set10('HAVE_OPENSSL_OR_GCRYPT',
-           conf.get('HAVE_OPENSSL') == 1 or conf.get('HAVE_GCRYPT') == 1)
-lib_openssl_or_gcrypt = conf.get('PREFER_OPENSSL') == 1 ? [libopenssl] : [libgcrypt, libgpg_error]
-
 dns_over_tls = get_option('dns-over-tls')
 have_openssl = conf.get('HAVE_OPENSSL') == 1
 if dns_over_tls == 'false'
@@ -1525,8 +1513,8 @@ have = get_option('repart').require(
 conf.set10('ENABLE_REPART', have)
 
 default_dnssec = get_option('default-dnssec')
-if default_dnssec != 'no' and conf.get('HAVE_OPENSSL_OR_GCRYPT') == 0
-        message('default-dnssec cannot be set to yes or allow-downgrade openssl and gcrypt are disabled. Setting default-dnssec to no.')
+if default_dnssec != 'no' and conf.get('HAVE_OPENSSL') == 0
+        message('default-dnssec cannot be set to yes or allow-downgrade when openssl is disabled. Setting default-dnssec to no.')
         default_dnssec = 'no'
 endif
 conf.set('DEFAULT_DNSSEC_MODE',
@@ -1557,7 +1545,7 @@ conf.set10('ENABLE_STORAGETM', get_option('storagetm'))
 
 have = get_option('importd').require(
         conf.get('HAVE_LIBCURL') == 1 and
-        conf.get('HAVE_OPENSSL_OR_GCRYPT') == 1 and
+        conf.get('HAVE_OPENSSL') == 1 and
         conf.get('HAVE_ZLIB') == 1 and
         conf.get('HAVE_XZ') == 1,
         error_message : 'curl, openssl/grypt, zlib and xz required').allowed()
@@ -3123,14 +3111,6 @@ if static_libudev == 'false'
         missing += 'static-libudev'
 else
         found += 'static-libudev(@0@)'.format(static_libudev)
-endif
-
-if conf.get('HAVE_OPENSSL_OR_GCRYPT') == 1 and conf.get('PREFER_OPENSSL') == 1
-        found += 'cryptolib(openssl)'
-elif conf.get('HAVE_OPENSSL_OR_GCRYPT') == 1
-        found += 'cryptolib(gcrypt)'
-else
-        missing += 'cryptolib'
 endif
 
 summary({

@@ -100,12 +100,11 @@ systemd_resolved_sources += custom_target(
         output : 'resolved-dnssd-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
 
-systemd_resolved_dependencies = [threads, libm] + [lib_openssl_or_gcrypt]
+systemd_resolved_dependencies = [threads, libm, libopenssl]
 if conf.get('ENABLE_DNS_OVER_TLS') == 1
         systemd_resolved_sources += files(
                 'resolved-dnstls.c',
         )
-        systemd_resolved_dependencies += libopenssl
 endif
 
 link_with = [
@@ -119,7 +118,7 @@ resolve_common_template = {
                 libsystemd_resolve_core,
         ],
         'dependencies' : [
-                lib_openssl_or_gcrypt,
+                libopenssl,
                 libm,
         ],
 }
@@ -144,7 +143,7 @@ executables += [
                 'sources' : resolvectl_sources,
                 'link_with' : link_with,
                 'dependencies' : [
-                        lib_openssl_or_gcrypt,
+                        libopenssl,
                         libidn,
                         libm,
                         threads,
@@ -188,7 +187,7 @@ executables += [
         },
         resolve_test_template + {
                 'sources' : files('test-dnssec.c'),
-                'conditions' : ['HAVE_OPENSSL_OR_GCRYPT'],
+                'conditions' : ['HAVE_OPENSSL'],
         },
         resolve_test_template + {
                 'sources' : files('test-dnssec-complex.c'),
@@ -200,11 +199,7 @@ executables += [
                         basic_dns_sources,
                         systemd_resolved_sources,
                 ],
-                'dependencies' : [
-                        lib_openssl_or_gcrypt,
-                        libm,
-                        systemd_resolved_dependencies,
-                ],
+                'dependencies' : systemd_resolved_dependencies,
                 'include_directories' : resolve_includes,
         },
         test_template + {
@@ -257,11 +252,7 @@ executables += [
                         basic_dns_sources,
                         systemd_resolved_sources,
                 ],
-                'dependencies' : [
-                        lib_openssl_or_gcrypt,
-                        libm,
-                        systemd_resolved_dependencies,
-                ],
+                'dependencies' : systemd_resolved_dependencies,
                 'include_directories' : resolve_includes,
         },
         test_template + {
@@ -270,11 +261,7 @@ executables += [
                         basic_dns_sources,
                         systemd_resolved_sources,
                 ],
-                'dependencies' : [
-                        lib_openssl_or_gcrypt,
-                        libm,
-                        systemd_resolved_dependencies,
-                ],
+                'dependencies' : systemd_resolved_dependencies,
                 'include_directories' : resolve_includes,
                 'type' : 'manual',
         },

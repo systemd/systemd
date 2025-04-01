@@ -169,6 +169,8 @@ int digest_and_sign(const EVP_MD *md, EVP_PKEY *privkey, const void *data, size_
 
 int pkcs7_new(X509 *certificate, EVP_PKEY *private_key, PKCS7 **ret_p7, PKCS7_SIGNER_INFO **ret_si);
 
+int string_hashsum(const char *s, size_t len, const char *md_algorithm, char **ret);
+
 #else
 
 typedef struct X509 X509;
@@ -196,6 +198,10 @@ static inline void* ASN1_TYPE_free(ASN1_TYPE *p) {
 static inline void* ASN1_STRING_free(ASN1_STRING *p) {
         assert(p == NULL);
         return NULL;
+}
+
+static inline int string_hashsum(const char *s, size_t len, const char *md_algorithm, char **ret) {
+        return -EOPNOTSUPP;
 }
 
 #endif
@@ -230,29 +236,6 @@ int openssl_load_private_key(
                 EVP_PKEY **ret_private_key,
                 OpenSSLAskPasswordUI **ret_user_interface);
 
-#if PREFER_OPENSSL
-/* The openssl definition */
-typedef const EVP_MD* hash_md_t;
-typedef const EVP_MD* hash_algorithm_t;
-typedef int elliptic_curve_t;
-typedef EVP_MD_CTX* hash_context_t;
-#  define OPENSSL_OR_GCRYPT(a, b) (a)
-
-#elif HAVE_GCRYPT
-
-#  include <gcrypt.h>
-
-/* The gcrypt definition */
-typedef int hash_md_t;
-typedef const char* hash_algorithm_t;
-typedef const char* elliptic_curve_t;
-typedef gcry_md_hd_t hash_context_t;
-#  define OPENSSL_OR_GCRYPT(a, b) (b)
-#endif
-
-#if PREFER_OPENSSL
-int string_hashsum(const char *s, size_t len, const char *md_algorithm, char **ret);
-
 static inline int string_hashsum_sha224(const char *s, size_t len, char **ret) {
         return string_hashsum(s, len, "SHA224", ret);
 }
@@ -260,4 +243,3 @@ static inline int string_hashsum_sha224(const char *s, size_t len, char **ret) {
 static inline int string_hashsum_sha256(const char *s, size_t len, char **ret) {
         return string_hashsum(s, len, "SHA256", ret);
 }
-#endif

@@ -439,8 +439,8 @@ option('gnutls', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 
        description : 'gnutls support')
 option('openssl', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'openssl support')
-option('cryptolib', type : 'combo', choices : ['auto', 'openssl', 'gcrypt'],
-       description : 'whether to use openssl or gcrypt where both are supported')
+option('cryptolib', type : 'combo', choices : ['auto', 'openssl'],
+       description : 'This option is deprecated and will be removed in a future release')
 option('p11kit', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'p11kit support')
 option('libfido2', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },

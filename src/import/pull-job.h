@@ -74,7 +74,7 @@ struct PullJob {
         usec_t last_status_usec;
 
         bool calc_checksum;
-        hash_context_t checksum_ctx;
+        EVP_MD_CTX *checksum_ctx;
 
         char *checksum;
         bool sync;
