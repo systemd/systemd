@@ -240,8 +240,7 @@ REQUIREMENTS:
         libcurl >= 7.32.0 (optional)
         libidn2 or libidn (optional)
         gnutls >= 3.1.4 (optional)
-               >= 3.6.0 is required to support DNS-over-TLS with gnutls
-        openssl >= 1.1.0 (optional, required to support DNS-over-TLS with openssl)
+        openssl >= 1.1.0 (optional, required to support DNS-over-TLS)
         p11-kit >= 0.23.3 (optional)
         libfido2 (optional)
         tpm2-tss (optional)
