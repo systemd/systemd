@@ -77,6 +77,10 @@ ENV{DDC_DEVICE}=="?*", TAG+="uaccess"
 # media player raw devices (for user-mode drivers, Android SDK, etc.)
 SUBSYSTEM=="usb", ENV{ID_MEDIA_PLAYER}=="?*", TAG+="uaccess"
 
+# Android devices (ADB DBC / ADB)
+SUBSYSTEM=="usb", ENV{ID_USB_INTERFACES}=="*:dc02??:*", TAG+="uaccess"
+SUBSYSTEM=="usb", ENV{ID_USB_INTERFACES}=="*:ff42??:*", TAG+="uaccess"
+
 # software-defined radio communication devices
 ENV{ID_SOFTWARE_RADIO}=="?*", TAG+="uaccess"
 
