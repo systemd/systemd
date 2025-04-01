@@ -2333,6 +2333,7 @@ void device_clear_sysattr_cache(sd_device *device) {
 typedef struct SysAttrCacheEntry {
         char *key;
         char *value;
+        size_t size;
         int error;
 } SysAttrCacheEntry;
 
@@ -2350,7 +2351,7 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 char, path_hash_func, path_compare,
                 SysAttrCacheEntry, sysattr_cache_entry_free);
 
-static int device_cache_sysattr_value_full(sd_device *device, char *key, char *value, int error, bool ignore_uevent) {
+static int device_cache_sysattr_value_full(sd_device *device, char *key, char *value, size_t size, int error, bool ignore_uevent) {
         int r;
 
         assert(device);
@@ -2378,6 +2379,7 @@ static int device_cache_sysattr_value_full(sd_device *device, char *key, char *v
         *entry = (SysAttrCacheEntry) {
                 .key = key,
                 .value = value,
+                .size = size,
                 .error = error,
         };
 
@@ -2390,10 +2392,10 @@ static int device_cache_sysattr_value_full(sd_device *device, char *key, char *v
 }
 
 int device_cache_sysattr_value(sd_device *device, char *key, char *value, int error) {
-        return device_cache_sysattr_value_full(device, key, value, error, /* ignore_uevent = */ true);
+        return device_cache_sysattr_value_full(device, key, value, strlen(value), error, /* ignore_uevent = */ true);
 }
 
-static int device_get_cached_sysattr_value(sd_device *device, const char *key, const char **ret_value) {
+static int device_get_cached_sysattr_value(sd_device *device, const char *key, const char **ret_value, size_t *ret_size) {
         SysAttrCacheEntry *entry;
 
         assert(device);
@@ -2409,6 +2411,8 @@ static int device_get_cached_sysattr_value(sd_device *device, const char *key, c
         }
         if (ret_value)
                 *ret_value = entry->value;
+        if (ret_size)
+                *ret_size = entry->size;
         return 0;
 }
 
@@ -2459,16 +2463,17 @@ int device_chase(sd_device *device, const char *path, ChaseFlags flags, char **r
         return 0;
 }
 
-_public_ int sd_device_get_sysattr_value(sd_device *device, const char *sysattr, const char **ret_value) {
+_public_ int sd_device_get_sysattr_value_with_size(sd_device *device, const char *sysattr, const char **ret_value, size_t *ret_size) {
         _cleanup_free_ char *resolved = NULL, *value = NULL;
         _cleanup_close_ int fd = -EBADF;
+        size_t size = 0;
         int r;
 
         assert_return(device, -EINVAL);
         assert_return(sysattr, -EINVAL);
 
         /* Look for possibly already cached result. */
-        r = device_get_cached_sysattr_value(device, sysattr, ret_value);
+        r = device_get_cached_sysattr_value(device, sysattr, ret_value, ret_size);
         if (r != -ENOANO)
                 return r;
 
@@ -2487,6 +2492,9 @@ _public_ int sd_device_get_sysattr_value(sd_device *device, const char *sysattr,
                         return -ENOMEM;
 
                 r = readlink_value(prefixed, &value);
+                if (r == 0)
+                        size = strlen(value);
+
                 if (r != -EINVAL) /* -EINVAL means the path is not a symlink. */
                         goto cache_result;
         }
@@ -2496,13 +2504,12 @@ _public_ int sd_device_get_sysattr_value(sd_device *device, const char *sysattr,
                 goto cache_result;
 
         /* Look for cached result again with the resolved path. */
-        r = device_get_cached_sysattr_value(device, resolved, ret_value);
+        r = device_get_cached_sysattr_value(device, resolved, ret_value, ret_size);
         if (r != -ENOANO)
                 return r;
 
         /* Read attribute value, Some attributes contain embedded '\0'. So, it is necessary to also get the
          * size of the result. See issue #20025. */
-        size_t size;
         r = read_virtual_file_fd(fd, SIZE_MAX, &value, &size);
         if (r < 0)
                 goto cache_result;
@@ -2521,7 +2528,7 @@ cache_result:
                         return RET_GATHER(r, -ENOMEM);
         }
 
-        int k = device_cache_sysattr_value_full(device, resolved, value, -r, /* ignore_uevent = */ false);
+        int k = device_cache_sysattr_value_full(device, resolved, value, size, -r, /* ignore_uevent = */ false);
         if (k < 0) {
                 if (r < 0)
                         log_device_debug_errno(device, k,
@@ -2543,11 +2550,17 @@ cache_result:
 
         if (ret_value && r >= 0)
                 *ret_value = value;
+        if (ret_size && r >= 0)
+                *ret_size = size;
 
         /* device_cache_sysattr_value_full() takes 'resolved' and 'value' on success. */
         TAKE_PTR(resolved);
         TAKE_PTR(value);
         return r;
+}
+
+_public_ int sd_device_get_sysattr_value(sd_device *device, const char *sysattr, const char **ret_value) {
+        return sd_device_get_sysattr_value_with_size(device, sysattr, ret_value, NULL);
 }
 
 int device_get_sysattr_int(sd_device *device, const char *sysattr, int *ret_value) {
