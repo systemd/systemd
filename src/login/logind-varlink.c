@@ -241,12 +241,9 @@ static int vl_method_create_session(sd_varlink *link, sd_json_variant *parameter
                 p.remote = p.remote_user || p.remote_host;
 
         /* Before we continue processing this, let's ensure the peer is privileged */
-        uid_t peer_uid;
-        r = sd_varlink_get_peer_uid(link, &peer_uid);
+        r = varlink_check_privileged_peer(link);
         if (r < 0)
-                return log_debug_errno(r, "Failed to get peer UID: %m");
-        if (peer_uid != 0)
-                return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, /* parameters= */ NULL);
+                return r;
 
         if (!pidref_is_set(&p.pid)) {
                 r = varlink_get_peer_pidref(link, &p.pid);
