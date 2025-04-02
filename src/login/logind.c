@@ -29,6 +29,7 @@
 #include "logind-seat-dbus.h"
 #include "logind-session-dbus.h"
 #include "logind-user-dbus.h"
+#include "logind-utmp.h"
 #include "logind-varlink.h"
 #include "main-func.h"
 #include "mkdir-label.h"
