@@ -262,7 +262,6 @@ conf.set_quoted('PREFIX',                                     prefixdir)
 conf.set_quoted('PREFIX_NOSLASH',                             prefixdir_noslash)
 conf.set_quoted('RANDOM_SEED',                                randomseeddir / 'random-seed')
 conf.set_quoted('RANDOM_SEED_DIR',                            randomseeddir)
-conf.set_quoted('RC_LOCAL_PATH',                              get_option('rc-local'))
 conf.set_quoted('SSHCONFDIR',                                 sshconfdir)
 conf.set_quoted('SSHDCONFDIR',                                sshdconfdir)
 conf.set_quoted('SHELLPROFILEDIR',                            shellprofiledir)
@@ -303,6 +302,7 @@ conf.set_quoted('SYSTEM_SHUTDOWN_PATH',                       systemshutdowndir)
 conf.set_quoted('SYSTEM_SLEEP_PATH',                          systemsleepdir)
 conf.set_quoted('SYSTEM_SYSVINIT_PATH',                       sysvinit_path)
 conf.set_quoted('SYSTEM_SYSVRCND_PATH',                       sysvrcnd_path)
+conf.set_quoted('SYSTEM_SYSVRCLOCAL_PATH',                    sysvrclocal_path)
 conf.set_quoted('SYSUSERS_DIR',                               sysusersdir)
 conf.set_quoted('TMPFILES_DIR',                               tmpfilesdir)
 conf.set_quoted('USER_TMPFILES_DIR',                          usertmpfilesdir)
@@ -2930,6 +2930,7 @@ summary({
         'lib directory' :                   libdir,
         'SysV init scripts' :               sysvinit_path,
         'SysV rc?.d directories' :          sysvrcnd_path,
+        'SysV rc.local script' :            sysvrclocal_path,
         'PAM modules directory' :           pamlibdir,
         'PAM configuration directory' :     pamconfdir,
         'ssh server configuration directory' : sshdconfdir,
@@ -2946,7 +2947,6 @@ summary({
         'bash completions directory' :      bashcompletiondir,
         'zsh completions directory' :       zshcompletiondir,
         'private shared lib version tag' :  shared_lib_tag,
-        'extra start script' :              get_option('rc-local'),
         'debug shell' :                     '@0@ @ @1@'.format(get_option('debug-shell'),
                                                                get_option('debug-tty')),
         'system UIDs' :                     '<=@0@ (alloc >=@1@)'.format(conf.get('SYSTEM_UID_MAX'),
