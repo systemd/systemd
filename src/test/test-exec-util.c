@@ -275,7 +275,7 @@ TEST(stdout_gathering) {
 
         r = execute_directories(dirs, DEFAULT_TIMEOUT_USEC, gather_stdouts, args, NULL, NULL,
                                 EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         log_info("got: %s", output);
 
@@ -335,13 +335,13 @@ TEST(environment_gathering) {
          * good. Force our own PATH in environment, to prevent expansion of sh built-in $PATH */
         old = getenv("PATH");
         r = setenv("PATH", "no-sh-built-in-path", 1);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         if (access(name, X_OK) < 0 && ERRNO_IS_PRIVILEGE(errno))
                 return;
 
         r = execute_directories(dirs, DEFAULT_TIMEOUT_USEC, gather_environment, args, NULL, NULL, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         STRV_FOREACH(p, env)
                 log_info("got env: \"%s\"", *p);
@@ -357,7 +357,7 @@ TEST(environment_gathering) {
         assert_se(env);
 
         r = execute_directories(dirs, DEFAULT_TIMEOUT_USEC, gather_environment, args, NULL, env, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         STRV_FOREACH(p, env)
                 log_info("got env: \"%s\"", *p);

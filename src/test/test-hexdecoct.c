@@ -314,7 +314,7 @@ TEST(base64mem_linebreak) {
                 m = 1 + random_u64_range(n + 5);
 
                 l = base64mem_full(data, n, m, &encoded);
-                assert_se(l >= 0);
+                ASSERT_OK(l);
                 assert_se(encoded);
                 assert_se((size_t) l == strlen(encoded));
 
