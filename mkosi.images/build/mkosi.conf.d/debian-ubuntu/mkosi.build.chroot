@@ -60,6 +60,12 @@ EOF
 cat debian/changelog >>/tmp/changelog
 mount --bind /tmp/changelog "$PWD/debian/changelog"
 
+DEB_BUILD_PROFILES="$(awk '$1=$1' <<<"\
+    $( ((WITH_TESTS)) || echo nocheck) \
+    $( ((WITH_DOCS)) || echo nodoc) \
+    pkg.systemd.upstream \
+")"
+
 # TODO: Drop GENSYMBOLS_LEVEL once https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=986746 is fixed.
 build() {
     env \
@@ -75,11 +81,7 @@ build() {
         optimize=-lto \
         hardening=-fortify \
     ")" \
-    DEB_BUILD_PROFILES="$(awk '$1=$1' <<<"\
-        $( ((WITH_TESTS)) || echo nocheck) \
-        $( ((WITH_DOCS)) || echo nodoc) \
-        pkg.systemd.upstream \
-    ")" \
+    DEB_BUILD_PROFILES="$DEB_BUILD_PROFILES" \
     DEB_CFLAGS_APPEND="$MKOSI_CFLAGS $CFLAGS" \
     DEB_CXXFLAGS_APPEND="$MKOSI_CFLAGS $CFLAGS" \
     DEB_LDFLAGS_APPEND="$MKOSI_LDFLAGS $LDFLAGS" \
@@ -101,7 +103,7 @@ build() {
     return $EXIT_STATUS
 }
 
-trap 'umount "$SRCDIR/obj-$DEB_HOST_GNU_TYPE" && dpkg-buildpackage -T clean' EXIT
+trap 'umount "$SRCDIR/obj-$DEB_HOST_GNU_TYPE" && DEB_BUILD_PROFILES="$DEB_BUILD_PROFILES" dpkg-buildpackage -T clean' EXIT
 
 if ! build; then
     # debhelper installs files for each package to debian/<package> so we figure out which files were
