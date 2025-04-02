@@ -72,13 +72,13 @@ int memfd_new_full(const char *name, unsigned extra_flags) {
                         MFD_CLOEXEC | MFD_NOEXEC_SEAL | extra_flags);
 }
 
-int memfd_add_seals(int fd, unsigned seals) {
+static int memfd_add_seals(int fd, unsigned seals) {
         assert(fd >= 0);
 
         return RET_NERRNO(fcntl(fd, F_ADD_SEALS, seals));
 }
 
-int memfd_get_seals(int fd, unsigned *ret_seals) {
+static int memfd_get_seals(int fd, unsigned *ret_seals) {
         int r;
 
         assert(fd >= 0);
