@@ -201,10 +201,10 @@ enum nss_status _nss_##module##_getsgent_r(             \
 enum nss_status _nss_##module##_initgroups_dyn(         \
                 const char *user,                       \
                 gid_t group,                            \
-                long int *start,                        \
-                long int *size,                         \
+                long *start,                            \
+                long *size,                             \
                 gid_t **groupsp,                        \
-                long int limit,                         \
+                long limit,                             \
                 int *errnop) _public_;
 
 typedef enum nss_status (*_nss_gethostbyname4_r_t)(

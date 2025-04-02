@@ -965,7 +965,7 @@ enum nss_status _nss_systemd_initgroups_dyn(
                 long *start,
                 long *size,
                 gid_t **groupsp,
-                long int limit,
+                long limit,
                 int *errnop) {
 
         _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;

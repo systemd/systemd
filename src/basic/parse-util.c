@@ -528,7 +528,7 @@ int safe_atollu_full(const char *s, unsigned base, unsigned long long *ret_llu) 
         return 0;
 }
 
-int safe_atolli(const char *s, long long int *ret_lli) {
+int safe_atolli(const char *s, long long *ret_lli) {
         unsigned base = 0;
         char *x = NULL;
         long long l;

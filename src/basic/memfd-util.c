@@ -97,7 +97,7 @@ int memfd_set_sealed(int fd) {
 }
 
 int memfd_get_sealed(int fd) {
-        unsigned int seals;
+        unsigned seals;
         int r;
 
         r = memfd_get_seals(fd, &seals);
