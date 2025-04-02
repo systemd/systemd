@@ -6,7 +6,7 @@
 ]>
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<refentry id="systemd-rc-local-generator" conditional='HAVE_SYSV_COMPAT'>
+<refentry id="systemd-rc-local-generator" conditional='HAVE_SYSV_COMPAT HAVE_SYSV_RC_LOCAL'>
   <refentryinfo>
     <title>systemd-rc-local-generator</title>
     <productname>systemd</productname>
@@ -20,7 +20,7 @@
   <refnamediv>
     <refname>systemd-rc-local-generator</refname>
     <refname>rc-local.service</refname>
-    <refpurpose>Compatibility generator and service to start <filename>&RC_LOCAL_PATH;</filename> during boot</refpurpose>
+    <refpurpose>Compatibility generator and service to start <filename>&SYSTEM_SYSVRCLOCAL_PATH;</filename> during boot</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -32,7 +32,7 @@
     <title>Description</title>
 
     <para><command>systemd-rc-local-generator</command> is a generator that checks whether
-    <filename>&RC_LOCAL_PATH;</filename> exists and is executable, and if it is, pulls the
+    <filename>&SYSTEM_SYSVRCLOCAL_PATH;</filename> exists and is executable, and if it is, pulls the
     <filename>rc-local.service</filename> unit into the boot process. This unit is responsible for running
     this script during late boot. The script is run after <filename>network.target</filename>, but in
     parallel with most other regular system services.</para>
@@ -53,7 +53,7 @@ Wants=network-online.target
 After=network-online.target
 </programlisting>
 
-    <para>Support for <filename>&RC_LOCAL_PATH;</filename> is provided for compatibility with specific
+    <para>Support for <filename>&SYSTEM_SYSVRCLOCAL_PATH;</filename> is provided for compatibility with specific
     System V systems only. However, it is strongly recommended to avoid using this script today, and instead
     provide proper unit files with appropriate dependencies for any scripts to run during the boot process.
     Note that the path to the script is set at compile time and varies between distributions.</para>
@@ -66,7 +66,7 @@ After=network-online.target
     <title>Notes</title>
 
     <para>On systems with SELinux, when creating the file, make sure to set the appropriate context, e.g.
-    with "<command>sudo restorecon -v &RC_LOCAL_PATH;</command>".
+    with "<command>sudo restorecon -v &SYSTEM_SYSVRCLOCAL_PATH;</command>".
     </para>
   </refsect1>
 
