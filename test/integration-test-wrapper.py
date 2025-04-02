@@ -395,6 +395,11 @@ def main() -> None:
     shell = bool(int(os.getenv('TEST_SHELL', '0')))
     summary = Summary.get(args)
 
+    # Keep list in sync with TEST-06-SELINUX.sh
+    if args.name == 'TEST-06-SELINUX' and summary.distribution not in ('fedora', 'centos'):
+        print('Skipping TEST-06-SELINUX, only enabled for Fedora/CentOS', file=sys.stderr)
+        exit(77)
+
     if shell and not sys.stdin.isatty():
         print(
             '--interactive must be passed to meson test to use TEST_SHELL=1',
