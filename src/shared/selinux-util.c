@@ -407,14 +407,14 @@ int mac_selinux_apply_fd(int fd, const char *path, const char *label) {
         return 0;
 }
 
-int mac_selinux_get_create_label_from_exe(const char *exe, char **label) {
+int mac_selinux_get_create_label_from_exe(const char *exe, char **ret_label) {
 #if HAVE_SELINUX
         _cleanup_freecon_ char *mycon = NULL, *fcon = NULL;
         security_class_t sclass;
         int r;
 
         assert(exe);
-        assert(label);
+        assert(ret_label);
 
         r = selinux_init(/* force= */ false);
         if (r < 0)
@@ -436,14 +436,14 @@ int mac_selinux_get_create_label_from_exe(const char *exe, char **label) {
         if (sclass == 0)
                 return -ENOSYS;
 
-        return RET_NERRNO(security_compute_create_raw(mycon, fcon, sclass, label));
+        return RET_NERRNO(security_compute_create_raw(mycon, fcon, sclass, ret_label));
 #else
         return -EOPNOTSUPP;
 #endif
 }
 
-int mac_selinux_get_our_label(char **ret) {
-        assert(ret);
+int mac_selinux_get_our_label(char **ret_label) {
+        assert(ret_label);
 
 #if HAVE_SELINUX
         int r;
@@ -460,7 +460,7 @@ int mac_selinux_get_our_label(char **ret) {
         if (!con)
                 return -EOPNOTSUPP;
 
-        *ret = TAKE_PTR(con);
+        *ret_label = TAKE_PTR(con);
         return 0;
 #else
         return -EOPNOTSUPP;
