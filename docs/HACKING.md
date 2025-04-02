@@ -86,7 +86,7 @@ not required to write basic patches.
 
 By default, `mkosi` will first build a tools tree and use it build the image and
 provide the environment for `mkosi sandbox`. To disable the tools tree and use
-binaries from your host instead, write the following to `mkosi.local.conf`:
+binaries from your host instead, write the following to `mkosi/mkosi.local.conf`:
 
 ```conf
 [Build]
@@ -317,6 +317,6 @@ VScode, you'd have to add the following to the VSCode workspace settings of the 
 
 ```json
 {
-    "clangd.path": "<path-to-systemd-repository>/mkosi.clangd",
+    "clangd.path": "<path-to-systemd-repository>/mkosi/mkosi.clangd",
 }
 ```

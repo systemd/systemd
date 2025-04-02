@@ -33,7 +33,7 @@ $ mkosi -f
 Note that by default we assume that `build/` is used as the meson build directory that will be used to run
 the integration tests. If you want to use another directory as the meson build directory, you will have to
 configure the mkosi build directory (`BuildDirectory=`), cache directory (`CacheDirectory=`) and output
-directory (`OutputDirectory=`) to point to the other directory using `mkosi.local.conf`.
+directory (`OutputDirectory=`) to point to the other directory using `mkosi/mkosi.local.conf`.
 
 After the image has been built, the integration tests can be run with:
 
@@ -69,7 +69,7 @@ $ mkosi -f sandbox -- meson compile -C build mkosi && env SYSTEMD_INTEGRATION_TE
 
 The integration tests use the same mkosi configuration that's used when you run
 mkosi in the systemd reposistory, so any local modifications to the mkosi
-configuration (e.g. in `mkosi.local.conf`) are automatically picked up and used
+configuration (e.g. in `mkosi/mkosi.local.conf`) are automatically picked up and used
 by the integration tests as well.
 
 ## Iterating on an integration test
@@ -144,7 +144,7 @@ progress and only move the journal to its final location in the build directory
 ## Running the integration tests without building systemd from source
 
 If you want to run the integration tests against prebuilt systemd packages,
-first add the following to `mkosi.local.conf` to stop mkosi from building
+first add the following to `mkosi/mkosi.local.conf` to stop mkosi from building
 systemd packages from source:
 
 ```conf
@@ -160,7 +160,7 @@ should be installed.
 If the rpms are installed on the host system that the tests are running on,
 you'll probably want to disable usage of the tools tree so that the tools from
 the host system are used to build the image by adding the following to
-`mkosi.local.conf`:
+`mkosi/mkosi.local.conf`:
 
 ```conf
 [Build]
@@ -171,7 +171,7 @@ On the other hand, if the rpms are available but not installed on the host
 system, you'll want to make sure they're installed into the mkosi tools tree so
 that they're used to build the image by again using either
 `PackageDirectories=` or `SandboxTrees=`, but this time in
-`mkosi.tools.conf/mkosi.local.conf` instead of `mkosi.local.conf`.
+`mkosi/mkosi.tools.conf/mkosi.local.conf` instead of `mkosi/mkosi.local.conf`.
 
 Finally, we'll make use of the standalone mode of running the integration tests
 to avoid having to install any build dependencies.
@@ -185,7 +185,7 @@ $ mkosi sandbox -- meson test -C testsuite --num-processes "$(($(nproc) / 4))"
 ### SELinux AVCs
 
 To have `TEST-06-SELINUX` check for SELinux denials, write the following to
-mkosi.local.conf:
+`mkosi/mkosi.local.conf`:
 
 ```conf
 [Runtime]
