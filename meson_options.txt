@@ -45,8 +45,8 @@ option('sysvinit-path', type : 'string', value : '/etc/init.d',
        description : 'the directory where the SysV init scripts are located')
 option('sysvrcnd-path', type : 'string', value : '/etc/rc.d',
        description : 'the base directory for SysV rcN.d directories')
-option('rc-local', type : 'string',
-       value : '/etc/rc.local')
+option('rc-local', type : 'string', value : '/etc/rc.local',
+       description : 'path to SysV rc.local script')
 option('initrd', type : 'boolean',
        description : 'install services for use when running systemd in initrd')
 option('compat-mutable-uid-boundaries', type : 'boolean', value : false,
