@@ -35,17 +35,12 @@ testcase_network() {
     systemd-run -p PrivateUsersEx=self -p PrivateNetwork=yes -p DelegateNamespaces=net --wait --pipe -- ip link add veth1 type veth peer name veth2
 }
 
-testcase_cgroup() {
-    (! systemd-run -p PrivateUsersEx=self -p ProtectControlGroupsEx=private --wait --pipe -- sh -c 'echo 0 >/sys/fs/cgroup/cgroup.pressure')
-    systemd-run -p PrivateUsersEx=self -p ProtectControlGroupsEx=private -p DelegateNamespaces=cgroup --wait --pipe -- sh -c 'echo 0 >/sys/fs/cgroup/cgroup.pressure'
-}
-
 testcase_pid() {
     # MountAPIVFS=yes always bind mounts child mounts of APIVFS filesystems, which means /proc/sys is always read-only
     # so we can't write to it when running in a container.
     if ! systemd-detect-virt --container; then
         (! systemd-run -p PrivateUsersEx=self -p PrivatePIDs=yes -p MountAPIVFS=yes --wait --pipe -- sh -c 'echo 5 >/proc/sys/kernel/ns_last_pid')
-        systemd-run -p PrivateUsersEx=self -p PrivatePIDs=yes -p MountAPIVFS=yes -p DelegateNamespaces="mnt pid" --wait --pipe -- sh -c 'echo 5 >/proc/sys/kernel/ns_last_pid'
+        systemd-run -p PrivateUsersEx=self -p PrivatePIDs=yes -p MountAPIVFS=yes -p DelegateNamespaces=pid --wait --pipe -- sh -c 'echo 5 >/proc/sys/kernel/ns_last_pid'
     fi
 }
 

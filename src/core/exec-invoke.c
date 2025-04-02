@@ -3441,7 +3441,7 @@ static int apply_mount_namespace(
 
         /* We need to make the pressure path writable even if /sys/fs/cgroups is made read-only, as the
          * service will need to write to it in order to start the notifications. */
-        if (exec_is_cgroup_mount_read_only(context, params) && memory_pressure_path && !streq(memory_pressure_path, "/dev/null")) {
+        if (exec_is_cgroup_mount_read_only(context) && memory_pressure_path && !streq(memory_pressure_path, "/dev/null")) {
                 read_write_paths_cleanup = strv_copy(context->read_write_paths);
                 if (!read_write_paths_cleanup)
                         return -ENOMEM;
@@ -3586,7 +3586,7 @@ static int apply_mount_namespace(
                  * sandbox inside the mount namespace. */
                 .ignore_protect_paths = !needs_sandboxing && !context->dynamic_user && root_dir,
 
-                .protect_control_groups = needs_sandboxing ? exec_get_protect_control_groups(context, params) : PROTECT_CONTROL_GROUPS_NO,
+                .protect_control_groups = needs_sandboxing ? exec_get_protect_control_groups(context) : PROTECT_CONTROL_GROUPS_NO,
                 .protect_kernel_tunables = needs_sandboxing && context->protect_kernel_tunables,
                 .protect_kernel_modules = needs_sandboxing && context->protect_kernel_modules,
                 .protect_kernel_logs = needs_sandboxing && context->protect_kernel_logs,
@@ -4205,9 +4205,8 @@ static void log_command_line(
                         LOG_EXEC_INVOCATION_ID(params));
 }
 
-static bool exec_context_needs_cap_sys_admin(const ExecContext *context, const ExecParameters *params) {
+static bool exec_context_needs_cap_sys_admin(const ExecContext *context) {
         assert(context);
-        assert(params);
 
         return context->private_users != PRIVATE_USERS_NO ||
                context->private_tmp != PRIVATE_TMP_NO ||
@@ -4229,7 +4228,7 @@ static bool exec_context_needs_cap_sys_admin(const ExecContext *context, const E
                context->protect_kernel_tunables ||
                context->protect_kernel_modules ||
                context->protect_kernel_logs ||
-               exec_needs_cgroup_mount(context, params) ||
+               exec_needs_cgroup_mount(context) ||
                context->protect_clock ||
                context->protect_hostname != PROTECT_HOSTNAME_NO ||
                !strv_isempty(context->read_write_paths) ||
@@ -4270,13 +4269,23 @@ static bool exec_namespace_is_delegated(
         /* If we need unprivileged private users, we've already unshared a user namespace by the time we call
          * setup_delegated_namespaces() for the first time so let's make sure we do all other namespace
          * unsharing in the first call to setup_delegated_namespaces() by returning false here. */
-        if (!have_cap_sys_admin && exec_context_needs_cap_sys_admin(context, params))
+        if (!have_cap_sys_admin && exec_context_needs_cap_sys_admin(context))
                 return false;
 
         if (context->delegate_namespaces == NAMESPACE_FLAGS_INITIAL)
                 return params->runtime_scope == RUNTIME_SCOPE_USER;
 
-        return FLAGS_SET(context->delegate_namespaces, namespace);
+        if (FLAGS_SET(context->delegate_namespaces, namespace))
+                return true;
+
+        /* Various namespaces imply mountns for private procfs/sysfs/cgroupfs instances, which means when
+         * those are delegated mountns must be deferred too.
+         *
+         * The list should stay in sync with exec_needs_mount_namespace(). */
+        if (namespace == CLONE_NEWNS)
+                return context->delegate_namespaces & (CLONE_NEWPID|CLONE_NEWCGROUP|CLONE_NEWNET);
+
+        return false;
 }
 
 static int setup_delegated_namespaces(
@@ -4355,7 +4364,7 @@ static int setup_delegated_namespaces(
                         log_exec_warning(context, params, "PrivateIPC=yes is configured, but the kernel does not support IPC namespaces, ignoring.");
         }
 
-        if (needs_sandboxing && exec_needs_cgroup_namespace(context, params) &&
+        if (needs_sandboxing && exec_needs_cgroup_namespace(context) &&
             exec_namespace_is_delegated(context, params, have_cap_sys_admin, CLONE_NEWCGROUP) == delegate) {
                 if (unshare(CLONE_NEWCGROUP) < 0) {
                         *reterr_exit_status = EXIT_NAMESPACE;
@@ -5197,7 +5206,7 @@ int exec_invoke(
                                  * to the cgroup namespace to environment variables and mounts. If chown/chmod fails, we should not pass memory
                                  * pressure path environment variable or read-write mount to the unit. This is why we check if
                                  * memory_pressure_path != NULL in the conditional below. */
-                                if (memory_pressure_path && needs_sandboxing && exec_needs_cgroup_namespace(context, params)) {
+                                if (memory_pressure_path && needs_sandboxing && exec_needs_cgroup_namespace(context)) {
                                         memory_pressure_path = mfree(memory_pressure_path);
                                         r = cg_get_path("memory", "", "memory.pressure", &memory_pressure_path);
                                         if (r < 0) {
@@ -5364,7 +5373,7 @@ int exec_invoke(
                 }
         }
 
-        if (needs_sandboxing && !have_cap_sys_admin && exec_context_needs_cap_sys_admin(context, params)) {
+        if (needs_sandboxing && !have_cap_sys_admin && exec_context_needs_cap_sys_admin(context)) {
                 /* If we're unprivileged, set up the user namespace first to enable use of the other namespaces.
                  * Users with CAP_SYS_ADMIN can set up user namespaces last because they will be able to
                  * set up all of the other namespaces (i.e. network, mount, UTS) without a user namespace. */
