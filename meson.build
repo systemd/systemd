@@ -94,6 +94,8 @@ sysvinit_path = get_option('sysvinit-path')
 sysvrcnd_path = get_option('sysvrcnd-path')
 conf.set10('HAVE_SYSV_COMPAT', sysvinit_path != '' and sysvrcnd_path != '',
            description : 'SysV init scripts and rcN.d links are supported')
+sysvrclocal_path = get_option('rc-local')
+conf.set10('HAVE_SYSV_RC_LOCAL', sysvrclocal_path != '')
 conf.set10('CREATE_LOG_DIRS', get_option('create-log-dirs'))
 
 if get_option('hibernate') and not get_option('initrd')
