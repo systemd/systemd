@@ -181,10 +181,6 @@ bool manager_is_docked_or_external_displays(Manager *m);
 bool manager_is_on_external_power(void);
 bool manager_all_buttons_ignored(Manager *m);
 
-int manager_read_utmp(Manager *m);
-void manager_connect_utmp(Manager *m);
-void manager_reconnect_utmp(Manager *m);
-
 /* gperf lookup function */
 const struct ConfigPerfItem* logind_gperf_lookup(const char *key, GPERF_LEN_TYPE length);
 
