@@ -35,9 +35,9 @@ int mac_selinux_fix_full(int atfd, const char *inode_path, const char *label_pat
 int mac_selinux_apply(const char *path, const char *label);
 int mac_selinux_apply_fd(int fd, const char *path, const char *label);
 
-int mac_selinux_get_create_label_from_exe(const char *exe, char **label);
-int mac_selinux_get_our_label(char **label);
-int mac_selinux_get_child_mls_label(int socket_fd, const char *exe, const char *exec_label, char **label);
+int mac_selinux_get_create_label_from_exe(const char *exe, char **ret_label);
+int mac_selinux_get_our_label(char **ret_label);
+int mac_selinux_get_child_mls_label(int socket_fd, const char *exe, const char *exec_label, char **ret_label);
 
 int mac_selinux_create_file_prepare_at(int dirfd, const char *path, mode_t mode);
 static inline int mac_selinux_create_file_prepare(const char *path, mode_t mode) {
