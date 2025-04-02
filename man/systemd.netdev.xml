@@ -164,6 +164,9 @@
           <row><entry><varname>geneve</varname></entry>
           <entry>A GEneric NEtwork Virtualization Encapsulation (GENEVE) netdev driver.</entry></row>
 
+          <row><entry><varname>hsr</varname></entry>
+          <entry>A High-availability Seamless Redundancy (HSR) or Parallel Redundancy Protocol (PRP) interface. Provides seamless failover against failure of any single network component.</entry></row>
+
           <row><entry><varname>l2tp</varname></entry>
           <entry>A Layer 2 Tunneling Protocol (L2TP) is a tunneling protocol used to support virtual private networks (VPNs) or as part of the delivery of services by ISPs. It does not provide any encryption or confidentiality by itself</entry></row>
 
@@ -1022,6 +1025,44 @@
           header instead of Ethernet. Defaults to false.</para>
 
           <xi:include href="version-info.xml" xpointer="v254"/>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>[HSR] Section Options</title>
+
+    <para>The [HSR] section only applies for
+    netdevs of kind <literal>hsr</literal>, and accepts the
+    following keys:</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>Ports=</varname></term>
+        <listitem>
+          <para>Specifies the underlying interfaces. This field is mandatory and must contain exactly two
+          interface names.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>Protocol=</varname></term>
+        <listitem>
+          <para>Specifies the protocol used by the interface and can be one of <literal>hsr</literal> or
+          <literal>prp</literal>. Defaults to <literal>hsr</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>Supervision=</varname></term>
+        <listitem>
+          <para>Specifies the last byte of the supervision address.
+          Takes a number between 0 and 255. Defaults to 0.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/>
         </listitem>
       </varlistentry>
     </variablelist>
