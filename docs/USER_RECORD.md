@@ -312,6 +312,7 @@ and its value to set for the user's login session, in a format compatible with
 environment variable listed here is automatically set by
 [`pam_systemd`](https://www.freedesktop.org/software/systemd/man/pam_systemd.html)
 for all login sessions of the user.
+
 `timeZone` → A string indicating a preferred timezone to use for the user. When
 logging in
 [`pam_systemd`](https://www.freedesktop.org/software/systemd/man/pam_systemd.html)
@@ -343,6 +344,7 @@ will automatically initialize the login process' nice level to this value with,
 which is then inherited by all the user's processes, see
 [`setpriority()`](https://man7.org/linux/man-pages/man2/setpriority.2.html) for
 more information.
+
 `resourceLimits` → An object, where each key refers to a Linux resource limit
 (such as `RLIMIT_NOFILE` and similar).
 Their values should be an object with two keys `cur` and `max` for the soft and hard resource limit.
