@@ -146,7 +146,7 @@ jobs:
 
       - name: Configure
         run: |
-          tee mkosi.local.conf <<EOF
+          tee mkosi/mkosi.local.conf <<EOF
           [Distribution]
           Distribution=${{ matrix.distro }}
           Release=${{ matrix.release }}
