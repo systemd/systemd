@@ -449,6 +449,170 @@ static void test_option_set(void) {
                 printf ("\n");
 }
 
+struct long_option_test {
+        const char *name;
+        struct {
+                uint8_t code;
+                size_t len;
+                uint8_t data[1024];
+        } option;
+        size_t max_optlen;
+        bool use_file;
+        bool success;
+        uint8_t expected_option[500];
+        size_t expected_optlen;
+        uint8_t expected_file[128];
+        size_t expected_filelen;
+};
+
+static struct long_option_test long_option_tests[] = {
+        {
+                .name = "test that a regular option can be serialized",
+                .option.code = SD_DHCP_OPTION_SUBNET_MASK,
+                .option.len = 4,
+                .option.data = {255, 255, 255, 0},
+                .max_optlen = 128,
+                .success = true,
+                .expected_option = {SD_DHCP_OPTION_SUBNET_MASK, 4, 255, 255, 255, 0},
+                .expected_optlen = 6,
+        },
+        {
+                .name = "test that a regular option fails if there is not enough space",
+                .option.code = SD_DHCP_OPTION_SUBNET_MASK,
+                .option.len = 4,
+                .option.data = {255, 255, 255, 0},
+                .max_optlen = 2,
+                .success = false,
+        },
+        {
+                .name = "test that a regular option fallbacks to the file buffer when allowed",
+                .option.code = SD_DHCP_OPTION_SUBNET_MASK,
+                .option.len = 4,
+                .option.data = {255, 255, 255, 0},
+                .max_optlen = 2,
+                .use_file = true,
+                .success = true,
+                .expected_option = {SD_DHCP_OPTION_END, SD_DHCP_OPTION_PAD},
+                .expected_optlen = 2,
+                .expected_file = {SD_DHCP_OPTION_SUBNET_MASK, 4, 255, 255, 255, 0},
+                .expected_filelen = 6,
+        },
+        {
+                .name = "test that a mergeable long option is split across two options (RFC3396)",
+                .option.code = SD_DHCP_OPTION_CLASSLESS_STATIC_ROUTE,
+                .option.len = 256, /* one byte short to fit in one option! */
+                .option.data = {
+                        24, 10, 0, 0, 1, 2, 3, 4, 24, 10, 0, 1, 1, 2, 3, 4,
+                        24, 10, 0, 2, 1, 2, 3, 4, 24, 10, 0, 3, 1, 2, 3, 4,
+                        24, 10, 0, 4, 1, 2, 3, 4, 24, 10, 0, 5, 1, 2, 3, 4,
+                        24, 10, 0, 6, 1, 2, 3, 4, 24, 10, 0, 7, 1, 2, 3, 4,
+                        24, 10, 0, 8, 1, 2, 3, 4, 24, 10, 0, 9, 1, 2, 3, 4,
+                        24, 10, 0, 10, 1, 2, 3, 4, 24, 10, 0, 11, 1, 2, 3, 4,
+                        24, 10, 0, 12, 1, 2, 3, 4, 24, 10, 0, 13, 1, 2, 3, 4,
+                        24, 10, 0, 14, 1, 2, 3, 4, 24, 10, 0, 15, 1, 2, 3, 4,
+                        24, 10, 0, 16, 1, 2, 3, 4, 24, 10, 0, 17, 1, 2, 3, 4,
+                        24, 10, 0, 18, 1, 2, 3, 4, 24, 10, 0, 19, 1, 2, 3, 4,
+                        24, 10, 0, 20, 1, 2, 3, 4, 24, 10, 0, 21, 1, 2, 3, 4,
+                        24, 10, 0, 22, 1, 2, 3, 4, 24, 10, 0, 23, 1, 2, 3, 4,
+                        24, 10, 0, 24, 1, 2, 3, 4, 24, 10, 0, 25, 1, 2, 3, 4,
+                        24, 10, 0, 26, 1, 2, 3, 4, 24, 10, 0, 27, 1, 2, 3, 4,
+                        24, 10, 0, 28, 1, 2, 3, 4, 24, 10, 0, 29, 1, 2, 3, 4,
+                        24, 10, 0, 30, 1, 2, 3, 4, 24, 10, 0, 31, 1, 2, 3, 4,
+                },
+                .max_optlen = 500,
+                .success = true,
+                .expected_option = {
+                        SD_DHCP_OPTION_CLASSLESS_STATIC_ROUTE, 255,
+                        24, 10, 0, 0, 1, 2, 3, 4, 24, 10, 0, 1, 1, 2, 3, 4,
+                        24, 10, 0, 2, 1, 2, 3, 4, 24, 10, 0, 3, 1, 2, 3, 4,
+                        24, 10, 0, 4, 1, 2, 3, 4, 24, 10, 0, 5, 1, 2, 3, 4,
+                        24, 10, 0, 6, 1, 2, 3, 4, 24, 10, 0, 7, 1, 2, 3, 4,
+                        24, 10, 0, 8, 1, 2, 3, 4, 24, 10, 0, 9, 1, 2, 3, 4,
+                        24, 10, 0, 10, 1, 2, 3, 4, 24, 10, 0, 11, 1, 2, 3, 4,
+                        24, 10, 0, 12, 1, 2, 3, 4, 24, 10, 0, 13, 1, 2, 3, 4,
+                        24, 10, 0, 14, 1, 2, 3, 4, 24, 10, 0, 15, 1, 2, 3, 4,
+                        24, 10, 0, 16, 1, 2, 3, 4, 24, 10, 0, 17, 1, 2, 3, 4,
+                        24, 10, 0, 18, 1, 2, 3, 4, 24, 10, 0, 19, 1, 2, 3, 4,
+                        24, 10, 0, 20, 1, 2, 3, 4, 24, 10, 0, 21, 1, 2, 3, 4,
+                        24, 10, 0, 22, 1, 2, 3, 4, 24, 10, 0, 23, 1, 2, 3, 4,
+                        24, 10, 0, 24, 1, 2, 3, 4, 24, 10, 0, 25, 1, 2, 3, 4,
+                        24, 10, 0, 26, 1, 2, 3, 4, 24, 10, 0, 27, 1, 2, 3, 4,
+                        24, 10, 0, 28, 1, 2, 3, 4, 24, 10, 0, 29, 1, 2, 3, 4,
+                        24, 10, 0, 30, 1, 2, 3, 4, 24, 10, 0, 31, 1, 2, 3,
+                        SD_DHCP_OPTION_CLASSLESS_STATIC_ROUTE, 1,
+                        4,
+                },
+                .expected_optlen = 260,
+        },
+        {
+                .name = "test that a mergeable option is split across options and file if needed",
+                .option.code = SD_DHCP_OPTION_CLASSLESS_STATIC_ROUTE,
+                .option.len = 8,
+                .option.data = {24, 10, 0, 0, 1, 2, 3, 4},
+                .max_optlen = 8,
+                .use_file = true,
+                .success = true,
+                .expected_option = {
+                        SD_DHCP_OPTION_CLASSLESS_STATIC_ROUTE, 5, 24, 10, 0, 0, 1,
+                        SD_DHCP_OPTION_END,
+                },
+                .expected_optlen = 8,
+                .expected_file = {SD_DHCP_OPTION_CLASSLESS_STATIC_ROUTE, 3, 2, 3, 4},
+                .expected_filelen = 5,
+        },
+};
+
+static void test_option_append_long(struct long_option_test *desc) {
+        _cleanup_free_ DHCPMessage *result = NULL;
+        uint8_t overload = 0;
+        size_t offset = 0;
+        int r;
+
+        if (verbose)
+                printf(">>> %s\n", desc->name);
+
+        result = malloc0(sizeof(DHCPMessage) + desc->max_optlen);
+        assert_se(result);
+
+        if (desc->use_file)
+                overload |= DHCP_OVERLOAD_FILE;
+
+        r = dhcp_option_append(result, desc->max_optlen, &offset, overload,
+                               desc->option.code, desc->option.len, desc->option.data);
+        if (verbose)
+                printf("dhcp_option_append=%d, offset=%zu\n", r, offset);
+        if (!desc->success) {
+                assert_se(r < 0);
+                return;
+        }
+        assert_se(r == 0);
+        assert_se(offset == desc->expected_optlen + desc->expected_filelen);
+
+        if (verbose)
+                printf("opts: ");
+        for (unsigned i = 0; i < desc->expected_optlen; i++) {
+                if (verbose)
+                        printf("0x%02x(0x%02x) ", result->options[i], desc->expected_option[i]);
+                if (verbose && result->options[i] != desc->expected_option[i])
+                        printf("\n");
+                assert_se(result->options[i] == desc->expected_option[i]);
+        }
+        if (verbose)
+                printf("\n");
+
+        if (verbose)
+                printf("file: ");
+        for (unsigned i = 0; i < desc->expected_filelen; i++) {
+                if (verbose)
+                        printf("0x%02x(0x%02x) ", result->file[i], desc->expected_file[i]);
+                if (verbose && result->file[i] != desc->expected_file[i])
+                        printf("\n");
+                assert_se(result->file[i] == desc->expected_file[i]);
+        }
+        if (verbose)
+                printf("\n");
+}
+
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_DEBUG);
 
@@ -459,6 +623,9 @@ int main(int argc, char *argv[]) {
 
         FOREACH_ELEMENT(desc, option_tests)
                 test_options(desc);
+
+        FOREACH_ELEMENT(desc, long_option_tests)
+                test_option_append_long(desc);
 
         test_option_set();
 
