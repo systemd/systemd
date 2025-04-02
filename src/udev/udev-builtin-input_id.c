@@ -288,7 +288,7 @@ static bool test_pointers(
          * libinput uses similar heuristics, any changes here should be added to libinput too.
          */
         if (is_joystick) {
-                static const unsigned int well_known_keyboard_keys[] = {
+                static const unsigned well_known_keyboard_keys[] = {
                         KEY_LEFTCTRL, KEY_CAPSLOCK, KEY_NUMLOCK, KEY_INSERT,
                         KEY_MUTE, KEY_CALC, KEY_FILE, KEY_MAIL, KEY_PLAYPAUSE,
                         KEY_BRIGHTNESSDOWN,

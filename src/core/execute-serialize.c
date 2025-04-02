@@ -3493,7 +3493,7 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-context-syscall-archs="))) {
-                        unsigned int id;
+                        unsigned id;
 
                         r = safe_atou(val, &id);
                         if (r < 0)

@@ -82,7 +82,7 @@ static void print_border(FILE *output, unsigned width, unsigned row, unsigned co
         }
 }
 
-static void write_qrcode(FILE *output, QRcode *qr, unsigned int row, unsigned int column) {
+static void write_qrcode(FILE *output, QRcode *qr, unsigned row, unsigned column) {
         assert(qr);
 
         if (!output)

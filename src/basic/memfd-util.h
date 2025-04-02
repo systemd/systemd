@@ -20,9 +20,6 @@ static inline int memfd_new_and_seal_string(const char *name, const char *s) {
         return memfd_new_and_seal(name, s, SIZE_MAX);
 }
 
-int memfd_add_seals(int fd, unsigned seals);
-int memfd_get_seals(int fd, unsigned *ret_seals);
-
 int memfd_set_sealed(int fd);
 int memfd_get_sealed(int fd);
 

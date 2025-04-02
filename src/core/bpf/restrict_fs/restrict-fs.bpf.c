@@ -16,7 +16,7 @@
 #include <stdint.h>
 
 struct super_block {
-        unsigned long int s_magic;
+        unsigned long s_magic;
 } __attribute__((preserve_access_index));
 
 struct inode {
