@@ -1041,6 +1041,8 @@ static int manager_listen_fds(Manager *manager) {
                         r = manager_init_ctrl(manager, fd);
                 else if (streq(names[i], "systemd-udevd-kernel.socket"))
                         r = manager_init_device_monitor(manager, fd);
+                else if (streq(names[i], "inotify"))
+                        r = manager_init_inotify(manager, fd);
                 else
                         r = log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                             "Received unexpected fd (%s), ignoring.", names[i]);
