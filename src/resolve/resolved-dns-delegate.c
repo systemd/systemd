@@ -10,7 +10,7 @@
 #include "strv.h"
 
 #define DNS_DELEGATES_MAX 4096U
-#define DNS_DELEGATE_SEARCH_DIRS ((const char* const*) CONF_PATHS_STRV("systemd/dns-delegate"))
+#define DNS_DELEGATE_SEARCH_DIRS ((const char* const*) CONF_PATHS_STRV("systemd/dns-delegate.d"))
 
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 dns_delegate_hash_ops,
