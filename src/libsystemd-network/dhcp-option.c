@@ -7,6 +7,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/param.h>
 
 #include "alloc-util.h"
 #include "dhcp-option.h"
@@ -24,6 +25,8 @@
 #include "strv.h"
 #include "unaligned.h"
 #include "utf8.h"
+
+static bool dhcp_option_can_merge(uint8_t code);
 
 /* Append type-length value structure to the options buffer */
 static int dhcp_option_append_tlv(uint8_t options[], size_t size, size_t *offset, uint8_t code, size_t optlen, const void *optval) {
@@ -211,9 +214,9 @@ int dhcp_option_remove_option(uint8_t *options, size_t length, uint8_t option_co
         return length - r;
 }
 
-int dhcp_option_append(DHCPMessage *message, size_t size, size_t *offset,
-                       uint8_t overload,
-                       uint8_t code, size_t optlen, const void *optval) {
+static int dhcp_option_append_short(DHCPMessage *message, size_t size, size_t *offset,
+                                    uint8_t overload,
+                                    uint8_t code, size_t optlen, const void *optval) {
         const bool use_file = overload & DHCP_OVERLOAD_FILE;
         const bool use_sname = overload & DHCP_OVERLOAD_SNAME;
         int r;
@@ -282,6 +285,101 @@ int dhcp_option_append(DHCPMessage *message, size_t size, size_t *offset,
         }
 
         return -ENOBUFS;
+}
+
+static int dhcp_option_append_long(DHCPMessage *message, size_t size, size_t *offset,
+                                   uint8_t overload,
+                                   uint8_t code, size_t optlen, const uint8_t *optval) {
+        const bool use_file = overload & DHCP_OVERLOAD_FILE;
+        const bool use_sname = overload & DHCP_OVERLOAD_SNAME;
+        size_t available, to_write;
+        int r;
+
+        assert(message);
+        assert(offset);
+
+        /* If *offset is in range [0, size), we are writing to ->options,
+         * if *offset is in range [size, size + sizeof(message->file)) and use_file, we are writing to ->file,
+         * if *offset is in range [size + use_file*sizeof(message->file),
+         *                         size + use_file*sizeof(message->file) + sizeof(message->sname))
+         * and use_sname, we are writing to ->sname.
+         */
+
+        while (optlen > 0) {
+                if (*offset + 3 < size) {
+                        /* still space in the options array for at least TL and end */
+                        available = size - 3 - *offset;
+                        to_write = MIN3(available, optlen, (size_t)UINT8_MAX);
+
+                        r = option_append(message->options, size, offset, code, to_write, optval);
+                        if (r < 0)
+                                return r;
+
+                        optval += to_write;
+                        optlen -= to_write;
+                        if (to_write == available) {
+                                /* close the options array */
+                                r = option_append(message->options, size, offset,
+                                                  SD_DHCP_OPTION_END, 0, NULL);
+                                if (r < 0)
+                                        return r;
+                        }
+
+                        continue;
+                }
+
+                size_t file_offset = *offset - size;
+                if (use_file && file_offset + 3 < sizeof(message->file)) {
+                        /* still space in the file array for at least TL and end */
+                        available = sizeof(message->file) - 3 - file_offset;
+                        to_write = MIN3(available, optlen, (size_t)UINT8_MAX);
+
+                        r = option_append(message->file, sizeof(message->file), &file_offset,
+                                          code, to_write, optval);
+                        if (r < 0)
+                                return r;
+
+                        optval += to_write;
+                        optlen -= to_write;
+                        *offset = size + file_offset;
+                        if (to_write == available) {
+                                /* close the file array */
+                                r = option_append(message->file, sizeof(message->file), &file_offset,
+                                                  SD_DHCP_OPTION_END, 0, NULL);
+                                if (r < 0)
+                                        return r;
+                        }
+
+                        continue;
+                }
+
+                size_t sname_offset = *offset - size - (use_file ? sizeof(message->file) : 0);
+                if (use_sname && sname_offset + 3 < sizeof(message->sname)) {
+                        /* still space in the sname array for at least TL and end */
+                        available = sizeof(message->sname) - 3 - sname_offset;
+                        to_write = MIN3(available, optlen, (size_t)UINT8_MAX);
+
+                        r = option_append(message->sname, sizeof(message->sname), &sname_offset,
+                                          code, to_write, optval);
+                        if (r < 0)
+                                return r;
+                        optval += to_write;
+                        optlen -= to_write;
+                        *offset = size + (use_file ? sizeof(message->file) : 0) + sname_offset;
+                }
+
+                return -ENOBUFS;
+        }
+
+        return 0;
+}
+
+int dhcp_option_append(DHCPMessage *message, size_t size, size_t *offset,
+                       uint8_t overload,
+                       uint8_t code, size_t optlen, const void *optval) {
+        if (dhcp_option_can_merge(code))
+                return dhcp_option_append_long(message, size, offset, overload, code, optlen, optval);
+        return dhcp_option_append_short(message, size, offset, overload, code, optlen, optval);
 }
 
 static int parse_options(const uint8_t options[], size_t buflen, uint8_t *message_type,
