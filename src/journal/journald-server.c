@@ -2270,7 +2270,8 @@ int server_start_or_stop_idle_timer(Server *s) {
 
         assert(s);
 
-        if (!server_is_idle(s)) {
+        if (sd_event_get_state(s->event) == SD_EVENT_FINISHED ||
+            !server_is_idle(s)) {
                 s->idle_event_source = sd_event_source_disable_unref(s->idle_event_source);
                 return 0;
         }
