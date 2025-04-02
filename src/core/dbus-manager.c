@@ -996,7 +996,7 @@ static int transient_unit_from_message(
         if (r < 0)
                 return r;
 
-        if (!unit_is_pristine(u))
+        if (!unit_is_pristine(u) && !UNIT_IS_INACTIVE_OR_FAILED(unit_active_state(u)))
                 return sd_bus_error_setf(error, BUS_ERROR_UNIT_EXISTS,
                                          "Unit %s was already loaded or has a fragment file.", name);
 
