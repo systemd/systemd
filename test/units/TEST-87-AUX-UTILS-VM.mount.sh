@@ -46,7 +46,7 @@ systemd-umount "$WORK_DIR/overlay"
 dd if=/dev/zero of="$WORK_DIR/simple.img" bs=1M count=16
 mkfs.ext4 -L sd-mount-test "$WORK_DIR/simple.img"
 LOOP="$(losetup --show --find "$WORK_DIR/simple.img")"
-udevadm wait --timeout 60 --settle "$LOOP"
+udevadm wait --timeout=60 --settle "$LOOP"
 # Also wait for the .device unit for the loop device is active. Otherwise, the .device unit activation
 # that is triggered by the .mount unit introduced by systemd-mount below may time out.
 timeout 60 bash -c "until systemctl is-active $LOOP; do sleep 1; done"
@@ -139,7 +139,7 @@ systemd-mount --discover "$WORK_DIR/simple.img"
 # We can access files in the image even if the loopback block device is not initialized by udevd.
 test -e /run/media/system/simple.img/foo.bar
 # systemd-mount --list and systemd-umount require the loopback block device is initialized by udevd.
-udevadm settle --timeout 30
+udevadm settle --timeout=30
 assert_in "/dev/loop.* ext4 +sd-mount-test" "$(systemd-mount --list --full)"
 LOOP_AUTO=$(systemd-mount --list --full --no-legend | awk '$7 == "sd-mount-test" { print $1 }')
 LOOP_AUTO_DEVPATH=$(udevadm info --query property --property DEVPATH --value "$LOOP_AUTO")

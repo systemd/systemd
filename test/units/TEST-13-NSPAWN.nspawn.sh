@@ -394,7 +394,7 @@ testcase_nspawn_settings() {
     for dev in sd-host-only sd-shared{1,2,3} sd-macvlan{1,2} sd-macvlanloong sd-ipvlan{1,2} sd-ipvlanlooong; do
         ip link add "$dev" type dummy
     done
-    udevadm settle
+    udevadm settle --timeout=30
     ip link property add dev sd-shared3 altname sd-altname3 altname sd-altname-tooooooooooooo-long
     ip link
     trap nspawn_settings_cleanup RETURN

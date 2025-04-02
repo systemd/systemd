@@ -28,6 +28,9 @@ blk="$(mktemp)"
 dd if=/dev/zero of="$blk" bs=1M count=1
 loopdev="$(losetup --show -f "$blk")"
 
+# Wait for devices created in the above being processed.
+udevadm settle --timeout=30
+
 udevadm -h
 
 udevadm control -e

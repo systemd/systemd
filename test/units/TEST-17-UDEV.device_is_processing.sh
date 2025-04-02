@@ -24,7 +24,7 @@ at_exit() {
 
 trap at_exit EXIT
 
-udevadm settle
+udevadm settle --timeout=30
 
 mkdir -p /run/udev/udev.conf.d/
 cat >/run/udev/udev.conf.d/timeout.conf <<EOF

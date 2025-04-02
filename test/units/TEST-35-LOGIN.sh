@@ -207,7 +207,7 @@ EOF
     input_name=${input_name%/device/name}
     lid_dev=/dev/${input_name#/sys/class/}
     udevadm info --wait-for-initialization=10s "$lid_dev"
-    udevadm settle
+    udevadm settle --timeout=30
 
     # close lid
     evemu-event "$lid_dev" --sync --type 5 --code 0 --value 1
@@ -457,7 +457,7 @@ EOF
         echo "cannot find suitable scsi block device" >&2
         exit 1
     fi
-    udevadm settle
+    udevadm settle --timeout=30
     udevadm info "$dev"
 
     # trigger logind and activate session
@@ -476,7 +476,7 @@ EOF
         echo "cannot find suitable scsi block device" >&2
         exit 1
     fi
-    udevadm settle
+    udevadm settle --timeout=30
 
     # check ACL
     sleep 1

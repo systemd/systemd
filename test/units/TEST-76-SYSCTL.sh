@@ -18,7 +18,7 @@ assert_rc 0 /usr/lib/systemd/systemd-sysctl --strict /tmp/foo.conf
 
 if ! systemd-detect-virt --quiet --container; then
     ip link add hoge type dummy
-    udevadm wait /sys/class/net/hoge
+    udevadm wait --timeout=30 /sys/class/net/hoge
 
     cat >/tmp/foo.conf <<EOF
 net.ipv4.conf.*.drop_gratuitous_arp=1

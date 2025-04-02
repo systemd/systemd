@@ -30,7 +30,7 @@ systemd-run -u teststoragetm.service -p Type=notify -p "Environment=SYSTEMD_NVME
 NVME_DEVICE="/dev/disk/by-id/nvme-uuid.${NVME_UUID:?}"
 
 nvme connect-all "${VERBOSE}" -t tcp -a 127.0.0.1 -s 16858 --hostnqn="$(nvme gen-hostnqn)"
-udevadm wait --settle "$NVME_DEVICE"
+udevadm wait --settle --timeout=30 "$NVME_DEVICE"
 
 dd if="$NVME_DEVICE" bs=1024 | cmp /var/tmp/storagetm.test -
 

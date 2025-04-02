@@ -77,7 +77,7 @@ cleanup_image() (
         unset LOOPDEV
     fi
 
-    udevadm settle
+    udevadm settle --timeout=30
 
     rm -rf "${IMAGE_DIR}"
     unset IMAGE_DIR
@@ -101,7 +101,7 @@ EOF
     LOOPDEV="$(losetup --show -P -f "${IMAGE_DIR}/image")"
     sfdisk "$LOOPDEV" <"${IMAGE_DIR}/partscript"
 
-    udevadm settle
+    udevadm settle --timeout=30
 
     mkfs.vfat -n esp  "${LOOPDEV}p1"
     mkfs.ext4 -L root "${LOOPDEV}p2"
@@ -158,7 +158,7 @@ cleanup_raid() (
         mdadm --misc --force --zero-superblock "${LOOPDEV2}p2"
     fi
 
-    udevadm settle
+    udevadm settle --timeout=30
 
     if [[ -n "${LOOPDEV1:-}" ]]; then
         mdadm --misc --force --zero-superblock "${LOOPDEV1}p1"
@@ -174,7 +174,7 @@ cleanup_raid() (
         unset LOOPDEV2
     fi
 
-    udevadm settle
+    udevadm settle --timeout=30
 
     rm -rf "${IMAGE_DIR}"
 
@@ -210,7 +210,7 @@ EOF
     sfdisk "$LOOPDEV1" <"${IMAGE_DIR}/partscript"
     sfdisk "$LOOPDEV2" <"${IMAGE_DIR}/partscript"
 
-    udevadm settle
+    udevadm settle --timeout=30
 
     printf 'y\ny\n' | mdadm --create /dev/md/raid-esp --name "raid-esp" "${LOOPDEV1}p1" "${LOOPDEV2}p1" -v -f --level=1 --raid-devices=2
     mkfs.vfat /dev/md/raid-esp
