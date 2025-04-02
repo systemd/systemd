@@ -56,11 +56,11 @@ static int monitor_handler(sd_device_monitor *m, sd_device *d, void *userdata) {
 static void prepare_monitor(sd_device_monitor **ret_server, sd_device_monitor **ret_client, union sockaddr_union *ret_address) {
         _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor_server = NULL, *monitor_client = NULL;
 
-        ASSERT_OK(device_monitor_new_full(&monitor_server, MONITOR_GROUP_NONE, -1));
+        ASSERT_OK(device_monitor_new_full(&monitor_server, MONITOR_GROUP_NONE, -EBADF));
         ASSERT_OK(sd_device_monitor_set_description(monitor_server, "sender"));
         ASSERT_OK(sd_device_monitor_start(monitor_server, NULL, NULL));
 
-        ASSERT_OK(device_monitor_new_full(&monitor_client, MONITOR_GROUP_NONE, -1));
+        ASSERT_OK(device_monitor_new_full(&monitor_client, MONITOR_GROUP_NONE, -EBADF));
         ASSERT_OK(sd_device_monitor_set_description(monitor_client, "client"));
         ASSERT_OK(device_monitor_allow_unicast_sender(monitor_client, monitor_server));
         ASSERT_OK(device_monitor_get_address(monitor_client, ret_address));
@@ -106,7 +106,7 @@ TEST(sd_device_monitor_is_running) {
 
         ASSERT_OK_ZERO(sd_device_monitor_is_running(NULL));
 
-        ASSERT_OK(device_monitor_new_full(&m, MONITOR_GROUP_NONE, -1));
+        ASSERT_OK(device_monitor_new_full(&m, MONITOR_GROUP_NONE, -EBADF));
         ASSERT_OK_ZERO(sd_device_monitor_is_running(m));
         ASSERT_OK(sd_device_monitor_start(m, NULL, NULL));
         ASSERT_OK_POSITIVE(sd_device_monitor_is_running(m));
