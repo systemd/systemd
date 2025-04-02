@@ -2,6 +2,8 @@
 
 id = find_program('id', required : true)
 uid = run_command(id, '-u', check : true).stdout().strip().to_int()
+cmd = 'if [ -e /etc/os-release ]; then . /etc/os-release; else . /usr/lib/os-release; fi; echo $ID'
+os_release_id = run_command(sh, '-c', cmd, check: true).stdout().strip()
 
 integration_tests += [
         integration_test_template + {
@@ -14,6 +16,6 @@ integration_tests += [
                 # Make sure we don't mount anything with virtiofs as otherwise fixfiles will try to relabel
                 # it.
                 'mkosi-args' : integration_test_template['mkosi-args'] + ['--runtime-build-sources=no'],
-                'enabled' : uid == 0,
+                'enabled' : uid == 0 and (os_release_id == 'fedora' or os_release_id == 'centos'),
         },
 ]
