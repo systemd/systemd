@@ -112,7 +112,7 @@ static int on_spawn_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
                          spawn->cmd, spawn->pidref.pid,
                          FORMAT_TIMESPAN(spawn->timeout_usec, USEC_PER_SEC));
 
-        pidref_kill_and_sigcont(&spawn->pidref, spawn->timeout_signal);
+        (void) pidref_kill_and_sigcont(&spawn->pidref, spawn->timeout_signal);
         return 1;
 }
 
