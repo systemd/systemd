@@ -180,7 +180,7 @@ static int setup_monitor(sd_event *event, MonitorNetlinkGroup group, const char 
         assert(event);
         assert(ret);
 
-        r = device_monitor_new_full(&monitor, group, /* fd = */ -1);
+        r = device_monitor_new_full(&monitor, group, -EBADF);
         if (r < 0)
                 return r;
 
