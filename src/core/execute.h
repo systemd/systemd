@@ -523,6 +523,7 @@ int exec_command_append(ExecCommand *c, const char *path, ...) _sentinel_;
 void exec_context_init(ExecContext *c);
 void exec_context_done(ExecContext *c);
 void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix);
+int exec_context_copy(ExecContext *dst, const ExecContext *src);
 
 int exec_context_destroy_runtime_directory(const ExecContext *c, const char *runtime_root);
 int exec_context_destroy_mount_ns_dir(Unit *u);

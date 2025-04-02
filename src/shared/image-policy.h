@@ -104,6 +104,8 @@ static inline ImagePolicy* image_policy_free(ImagePolicy *p) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(ImagePolicy*, image_policy_free);
 
+int image_policy_copy(ImagePolicy **dst, const ImagePolicy *src);
+
 CONFIG_PARSER_PROTOTYPE(config_parse_image_policy);
 int parse_image_policy_argument(const char *s, ImagePolicy **policy);
 

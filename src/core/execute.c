@@ -4,6 +4,7 @@
 #include <fcntl.h>
 #include <linux/prctl.h>
 #include <poll.h>
+#include <string.h>
 #include <sys/file.h>
 #include <sys/mman.h>
 #include <sys/personality.h>
@@ -14,6 +15,12 @@
 #include <unistd.h>
 #include <utmpx.h>
 
+#include "hashmap.h"
+#include "iovec-util-fundamental.h"
+#include "iovec-util.h"
+#include "list.h"
+#include "numa-util.h"
+#include "ordered-set.h"
 #include "sd-messages.h"
 
 #include "af-list.h"
@@ -59,6 +66,7 @@
 #include "securebits-util.h"
 #include "selinux-util.h"
 #include "serialize.h"
+#include "set.h"
 #include "sort-util.h"
 #include "special.h"
 #include "stat-util.h"
@@ -1571,6 +1579,456 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
         }
 
         strv_dump(f, prefix, "ExtensionDirectories", c->extension_directories);
+}
+
+int exec_context_copy(ExecContext *dst, const ExecContext *src) {
+        int s, r;
+        char *str;
+        void *ptr, *key, *val;
+
+        assert(src);
+        assert(dst);
+
+        dst->environment = strv_free(dst->environment);
+        if (!strv_isempty(src->environment)) {
+                dst->environment = strv_copy(src->environment);
+                if (!dst->environment)
+                    return -ENOMEM;
+        }
+        dst->environment_files = strv_free(dst->environment_files);
+        if (!strv_isempty(src->environment_files)) {
+                dst->environment_files = strv_copy(src->environment_files);
+                if (!dst->environment_files)
+                    return -ENOMEM;
+        }
+        dst->pass_environment = strv_free(dst->pass_environment);
+        if (!strv_isempty(src->pass_environment)) {
+                dst->pass_environment = strv_copy(src->pass_environment);
+                if (!dst->pass_environment)
+                    return -ENOMEM;
+        }
+        dst->unset_environment = strv_free(dst->unset_environment);
+        if (!strv_isempty(src->unset_environment)) {
+                dst->unset_environment = strv_copy(src->unset_environment);
+                if (!dst->unset_environment)
+                    return -ENOMEM;
+        }
+
+        rlimit_free_all(dst->rlimit);
+        r = rlimit_copy_all(dst->rlimit, src->rlimit);
+        if (r < 0)
+                return r;
+
+        free_and_strdup(&dst->working_directory, src->working_directory);
+        free_and_strdup(&dst->root_directory, src->root_directory);
+        free_and_strdup(&dst->root_image, src->root_image);
+        free_and_strdup(&dst->root_verity, src->root_verity);
+        free_and_strdup(&dst->root_hash_path, src->root_hash_path);
+        free_and_strdup(&dst->root_hash_sig_path, src->root_hash_sig_path);
+
+        s = src->root_hash_size;
+        if (src->root_hash && s) {
+                _cleanup_free_ void *buf = NULL;
+                buf = memdup(src->root_hash, s);
+                if (!buf)
+                        return -ENOMEM;
+                free_and_replace(dst->root_hash, buf);
+        }
+
+        s = src->root_hash_sig_size;
+        dst->root_hash_sig = mfree(dst->root_hash_sig);
+        if (src->root_hash_sig && s) {
+                _cleanup_free_ void *buf = NULL;
+                buf = memdup(src->root_hash_sig, s);
+                if (!buf)
+                        return -ENOMEM;
+                free_and_replace(dst->root_hash_sig, buf);
+        }
+
+        dst->root_hash_size = src->root_hash_size;
+        dst->root_hash_sig_size = src->root_hash_sig_size;
+
+        dst->root_image_options = mount_options_free_all(dst->root_image_options);
+        LIST_FOREACH(mount_options, m, src->root_image_options) {
+                _cleanup_(mount_options_free_allp) MountOptions *o = NULL;
+
+                o = new(MountOptions, 1);
+                if (!o)
+                        return -ENOMEM;
+
+                *o = (MountOptions) {
+                        .partition_designator = m->partition_designator,
+                        .options = strdup(m->options),
+                };
+                if (!o->options)
+                        return -ENOMEM;
+
+                LIST_APPEND(mount_options, dst->root_image_options, TAKE_PTR(o));
+        }
+
+        dst->root_ephemeral = src->root_ephemeral;
+        dst->working_directory_missing_ok = src->working_directory_missing_ok;
+        dst->working_directory_home = src->working_directory_home;
+        dst->oom_score_adjust_set = src->oom_score_adjust_set;
+        dst->coredump_filter_set = src->coredump_filter_set;
+        dst->nice_set = src->nice_set;
+        dst->ioprio_set = src->ioprio_set;
+        dst->cpu_sched_set = src->cpu_sched_set;
+        dst->same_pgrp = src->same_pgrp;
+        dst->cpu_sched_reset_on_fork = src->cpu_sched_reset_on_fork;
+        dst->non_blocking = src->non_blocking;
+
+        dst->umask = src->umask;
+        dst->oom_score_adjust = src->oom_score_adjust;
+        dst->nice = src->nice;
+        dst->ioprio = src->ioprio;
+        dst->cpu_sched_policy = src->cpu_sched_policy;
+        dst->cpu_sched_priority = src->cpu_sched_priority;
+        dst->coredump_filter = src->coredump_filter;
+
+        cpu_set_reset(&dst->cpu_set);
+        cpu_set_add_all(&dst->cpu_set, &src->cpu_set);
+
+        numa_policy_reset(&dst->numa_policy);
+        dst->numa_policy.type = src->numa_policy.type;
+        cpu_set_add_all(&dst->numa_policy.nodes, &src->numa_policy.nodes);
+
+        dst->cpu_affinity_from_numa = src->cpu_affinity_from_numa;
+
+        dst->std_input = src->std_input;
+        dst->std_output = src->std_output;
+        dst->std_error = src->std_error;
+
+        dst->stdio_as_fds = src->stdio_as_fds;
+
+        for (size_t l = 0; l < 3; l++) {
+                free_and_strdup(&dst->stdio_fdname[l], src->stdio_fdname[l]);
+                free_and_strdup(&dst->stdio_file[l], src->stdio_file[l]);
+        }
+
+        s = src->stdin_data_size;
+        if (src->stdin_data && s) {
+                _cleanup_free_ void *buf = NULL;
+                buf = memdup(src->stdin_data, s);
+                if (!buf)
+                        return -ENOMEM;
+                free_and_replace(dst->stdin_data, buf);
+        }
+
+        dst->stdin_data_size = src->stdin_data_size;
+        dst->timer_slack_nsec = src->timer_slack_nsec;
+
+        free_and_strdup(&dst->tty_path, src->tty_path);
+
+        dst->tty_reset = src->tty_reset;
+        dst->tty_vhangup = src->tty_vhangup;
+        dst->tty_vt_disallocate = src->tty_vt_disallocate;
+
+        dst->tty_rows = src->tty_rows;
+        dst->tty_cols = src->tty_cols;
+
+        dst->ignore_sigpipe = src->ignore_sigpipe;
+
+        dst->keyring_mode = src->keyring_mode;
+
+        free_and_strdup(&dst->user, src->user);
+        free_and_strdup(&dst->group, src->group);
+
+        dst->supplementary_groups = strv_free(dst->supplementary_groups);
+        if (!strv_isempty(src->supplementary_groups)) {
+                dst->supplementary_groups = strv_copy(src->supplementary_groups);
+                if (!dst->supplementary_groups)
+                    return -ENOMEM;
+        }
+
+        dst->set_login_environment = src->set_login_environment;
+
+        free_and_strdup(&dst->pam_name, src->pam_name);
+        free_and_strdup(&dst->utmp_id, src->utmp_id);
+
+        dst->utmp_mode = src->utmp_mode;
+
+        dst->no_new_privileges = src->no_new_privileges;
+        dst->selinux_context_ignore = src->selinux_context_ignore;
+        dst->apparmor_profile_ignore = src->apparmor_profile_ignore;
+        dst->smack_process_label_ignore = src->smack_process_label_ignore;
+
+        free_and_strdup(&dst->selinux_context, src->selinux_context);
+        free_and_strdup(&dst->apparmor_profile, src->apparmor_profile);
+        free_and_strdup(&dst->smack_process_label, src->smack_process_label);
+
+        dst->read_write_paths = strv_free(dst->read_write_paths);
+        if (!strv_isempty(src->read_write_paths)) {
+                dst->read_write_paths = strv_copy(src->read_write_paths);
+                if (!dst->read_write_paths)
+                    return -ENOMEM;
+        }
+        dst->read_only_paths = strv_free(dst->read_only_paths);
+        if (!strv_isempty(src->read_only_paths)) {
+                dst->read_only_paths = strv_copy(src->read_only_paths);
+                if (!dst->read_only_paths)
+                    return -ENOMEM;
+        }
+        dst->inaccessible_paths = strv_free(dst->inaccessible_paths);
+        if (!strv_isempty(src->inaccessible_paths)) {
+                dst->inaccessible_paths = strv_copy(src->inaccessible_paths);
+                if (!dst->inaccessible_paths)
+                    return -ENOMEM;
+        }
+        dst->exec_paths = strv_free(dst->exec_paths);
+        if (!strv_isempty(src->exec_paths)) {
+                dst->exec_paths = strv_copy(src->exec_paths);
+                if (!dst->exec_paths)
+                    return -ENOMEM;
+        }
+        dst->no_exec_paths = strv_free(dst->no_exec_paths);
+        if (!strv_isempty(src->no_exec_paths)) {
+                dst->no_exec_paths = strv_copy(src->no_exec_paths);
+                if (!dst->no_exec_paths)
+                    return -ENOMEM;
+        }
+        dst->exec_search_path = strv_free(dst->exec_search_path);
+        if (!strv_isempty(src->exec_search_path)) {
+                dst->exec_search_path = strv_copy(src->exec_search_path);
+                if (!dst->exec_search_path)
+                    return -ENOMEM;
+        }
+
+        dst->mount_propagation_flag = src->mount_propagation_flag;
+
+        bind_mount_free_many(dst->bind_mounts, dst->n_bind_mounts);
+        dst->n_bind_mounts = 0;
+        FOREACH_ARRAY(i, src->bind_mounts, src->n_bind_mounts) {
+                bind_mount_add(&dst->bind_mounts, &dst->n_bind_mounts, i);
+        }
+        // No need to dst->n_bind_mounts = src->n_bind_mounts;
+
+        temporary_filesystem_free_many(dst->temporary_filesystems, dst->n_temporary_filesystems);
+        dst->n_temporary_filesystems = 0;
+        FOREACH_ARRAY(i, src->temporary_filesystems, src->n_temporary_filesystems) {
+                temporary_filesystem_add(&dst->temporary_filesystems, &dst->n_temporary_filesystems, i->path, i->options);
+        }
+        // No need to dst->n_temporary_filesystems = src->n_temporary_filesystems;
+
+        dst->mount_images = mount_image_free_many(dst->mount_images, &dst->n_mount_images);
+        dst->n_mount_images = 0;
+        FOREACH_ARRAY(i, src->mount_images, src->n_mount_images) {
+                mount_image_add(&dst->mount_images, &dst->n_mount_images, i);
+        }
+        // No need to dst->n_mount_images = src->n_mount_images;
+
+        dst->extension_images = mount_image_free_many(dst->extension_images, &dst->n_extension_images);
+        dst->n_extension_images = 0;
+        FOREACH_ARRAY(i, src->extension_images, src->n_extension_images) {
+                mount_image_add(&dst->extension_images, &dst->n_extension_images, i);
+        }
+        // No need to dst->n_extension_images = src->n_extension_images;
+
+        dst->extension_directories = strv_free(dst->extension_directories);
+        if (!strv_isempty(src->extension_directories)) {
+                dst->extension_directories = strv_copy(src->extension_directories);
+                if (!dst->extension_directories)
+                    return -ENOMEM;
+        }
+
+        dst->capability_bounding_set = src->capability_bounding_set;
+        dst->capability_ambient_set = src->capability_ambient_set;
+        dst->secure_bits = src->secure_bits;
+        dst->syslog_priority = src->syslog_priority;
+        dst->syslog_level_prefix = src->syslog_level_prefix;
+
+        free_and_strdup(&dst->syslog_identifier, src->syslog_identifier);
+
+        exec_context_free_log_extra_fields(dst);
+        FOREACH_ARRAY(i, src->log_extra_fields, src->n_log_extra_fields) {
+                if (!GREEDY_REALLOC(dst->log_extra_fields, dst->n_log_extra_fields + 1))
+                        return -ENOMEM;
+
+                dst->log_extra_fields[dst->n_log_extra_fields].iov_len = i->iov_len;
+                dst->log_extra_fields[dst->n_log_extra_fields++].iov_base = strdup(i->iov_base);
+                if (!dst->log_extra_fields[dst->n_log_extra_fields-1].iov_base)
+                        return -ENOMEM;
+        }
+
+        // No need to take dst->n_log_extra_fields from src;
+
+        dst->log_filter_allowed_patterns = set_free(dst->log_filter_allowed_patterns);
+        SET_FOREACH(str, src->log_filter_allowed_patterns) {
+                set_put_strdupv(&dst->log_filter_allowed_patterns, &str);
+        }
+
+        dst->log_filter_denied_patterns = set_free(dst->log_filter_denied_patterns);
+        SET_FOREACH(str, src->log_filter_denied_patterns) {
+                set_put_strdupv(&dst->log_filter_denied_patterns, &str);
+        }
+
+        dst->log_ratelimit.interval = src->log_ratelimit.interval;
+        dst->log_ratelimit.burst = src->log_ratelimit.burst;
+        dst->log_ratelimit.num = src->log_ratelimit.num;
+        dst->log_ratelimit.begin = src->log_ratelimit.begin;
+
+        dst->log_level_max = src->log_level_max;
+        free_and_strdup(&dst->log_namespace, src->log_namespace);
+
+        dst->protect_proc = src->protect_proc;
+        dst->proc_subset = src->proc_subset;
+        dst->private_mounts = src->private_mounts;
+        dst->mount_apivfs = src->mount_apivfs;
+        dst->bind_log_sockets = src->bind_log_sockets;
+        dst->memory_ksm = src->memory_ksm;
+        dst->private_tmp = src->private_tmp;
+        dst->private_network = src->private_network;
+        dst->private_devices = src->private_devices;
+        dst->private_users = src->private_users;
+        dst->private_ipc = src->private_ipc;
+        dst->protect_kernel_tunables = src->protect_kernel_tunables;
+        dst->protect_kernel_modules = src->protect_kernel_modules;
+        dst->protect_kernel_logs = src->protect_kernel_logs;
+        dst->protect_clock = src->protect_clock;
+
+        dst->protect_control_groups = src->protect_control_groups;
+        dst->protect_system = src->protect_system;
+        dst->protect_home = src->protect_home;
+        dst->private_pids = src->private_pids;
+        dst->protect_hostname = src->protect_hostname;
+
+        free_and_strdup(&dst->private_hostname, src->private_hostname);
+
+        dst->dynamic_user = src->dynamic_user;
+        dst->remove_ipc = src->remove_ipc;
+        dst->memory_deny_write_execute = src->memory_deny_write_execute;
+        dst->restrict_realtime = src->restrict_realtime;
+        dst->restrict_suid_sgid = src->restrict_suid_sgid;
+        dst->lock_personality = src->lock_personality;
+
+        dst->personality = src->personality;
+        dst->restrict_namespaces = src->restrict_namespaces;
+        dst->delegate_namespaces = src->delegate_namespaces;
+
+        dst->restrict_filesystems = set_free(dst->restrict_filesystems);
+        SET_FOREACH(str, src->restrict_filesystems) {
+                set_put_strdupv(&dst->restrict_filesystems, &str);
+        }
+
+        dst->restrict_filesystems_allow_list = src->restrict_filesystems_allow_list;
+
+        dst->syscall_filter = hashmap_free(dst->syscall_filter);
+        HASHMAP_FOREACH_KEY(val, key, src->syscall_filter){
+                int v = PTR_TO_INT(val);
+                int k = PTR_TO_INT(key);
+                hashmap_ensure_put(&dst->syscall_filter, NULL, INT_TO_PTR(k), INT_TO_PTR(v));
+        }
+
+        dst->syscall_archs = set_free(dst->syscall_archs);
+        SET_FOREACH(ptr, src->syscall_archs) {
+                uint32_t v = PTR_TO_UINT32(ptr);
+                set_ensure_put(&dst->syscall_archs, NULL, UINT_TO_PTR(v));
+        }
+
+        dst->syscall_errno = src->syscall_errno;
+        dst->syscall_allow_list = src->syscall_allow_list;
+
+        dst->syscall_log = hashmap_free(dst->syscall_log);
+        HASHMAP_FOREACH_KEY(val, key, src->syscall_log){
+                int v = PTR_TO_INT(val);
+                int k = PTR_TO_INT(key);
+                hashmap_ensure_put(&dst->syscall_log, NULL, INT_TO_PTR(k), INT_TO_PTR(v));
+        }
+
+        dst->syscall_log_allow_list = src->syscall_log_allow_list;
+        dst->address_families_allow_list = src->address_families_allow_list;
+
+        dst->address_families = set_free(dst->address_families);
+        SET_FOREACH(ptr, src->address_families) {
+                int f = PTR_TO_INT(ptr);
+                set_ensure_put(&dst->address_families, NULL, INT_TO_PTR(f));
+        }
+
+        free_and_strdup(&dst->network_namespace_path, src->network_namespace_path);
+        free_and_strdup(&dst->ipc_namespace_path, src->ipc_namespace_path);
+
+        exec_directory_done(dst->directories);
+        dst->directories->mode = src->directories->mode;
+        dst->directories->n_items = 0;
+        FOREACH_ARRAY(i, src->directories->items, src->directories->n_items) {
+                _cleanup_strv_free_ char **ln = NULL;
+                _cleanup_free_ char *p = NULL;
+                p = strdup(i->path);
+                if (!p)
+                        return -ENOMEM;
+                if (!strv_isempty(i->symlinks)) {
+                        ln = strv_copy(i->symlinks);
+                        if (!ln)
+                            return -ENOMEM;
+                }
+                if (!GREEDY_REALLOC(dst->directories->items, dst->directories->n_items + 1))
+                        return -ENOMEM;
+
+                dst->directories->items[dst->directories->n_items++] = (ExecDirectoryItem) {
+                        .path = TAKE_PTR(p),
+                        .symlinks = TAKE_PTR(ln),
+                        .flags = i->flags,
+                        .idmapped = i->idmapped
+                };
+        }
+
+        dst->runtime_directory_preserve_mode = src->runtime_directory_preserve_mode;
+
+        dst->timeout_clean_usec = src->timeout_clean_usec;
+
+        ExecSetCredential *sc;
+        dst->set_credentials = hashmap_free(dst->set_credentials);
+        HASHMAP_FOREACH(sc, src->set_credentials) {
+                _cleanup_free_ void *buf = NULL;
+                buf = memdup(sc->data, sc->size);
+                if (!buf)
+                        return -ENOMEM;
+                exec_context_put_set_credential(dst, sc->id, TAKE_PTR(buf), sc->size, sc->encrypted);
+        }
+
+        ExecLoadCredential *lc;
+        dst->load_credentials = hashmap_free(dst->load_credentials);
+        HASHMAP_FOREACH(lc, src->load_credentials) {
+                exec_context_put_load_credential(dst, lc->id, lc->path, lc->encrypted);
+        }
+
+        ExecImportCredential *ic;
+        dst->import_credentials = ordered_set_free(dst->import_credentials);
+        ORDERED_SET_FOREACH(ic, src->import_credentials) {
+                exec_context_put_import_credential(dst, ic->glob, ic->rename);
+        }
+
+        if (dst->root_image_policy)
+                dst->root_image_policy = image_policy_free(dst->root_image_policy);
+        if (src->root_image_policy && src->root_image_policy->n_policies > 0) {
+                FILE *f = fopen("/run/dbg", "a");
+                fprintf(f, "root: %zu\n", src->root_image_policy->n_policies);
+                fclose(f);
+                r = image_policy_copy(&dst->root_image_policy, src->root_image_policy);
+                if (r < 0)
+                        return r;
+        }
+
+        if (dst->mount_image_policy)
+                dst->mount_image_policy = image_policy_free(dst->mount_image_policy);
+        if (src->mount_image_policy && src->mount_image_policy->n_policies > 0) {
+                FILE *f = fopen("/run/dbg", "a");
+                fprintf(f, "mount: %zu\n", src->mount_image_policy->n_policies);
+                fclose(f);
+                r = image_policy_copy(&dst->mount_image_policy, src->mount_image_policy);
+                if (r < 0)
+                        return r;
+        }
+
+        if (dst->extension_image_policy)
+                dst->extension_image_policy = image_policy_free(dst->extension_image_policy);
+        if (src->extension_image_policy && src->extension_image_policy->n_policies > 0) {
+                r = image_policy_copy(&dst->extension_image_policy, src->extension_image_policy);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
 }
 
 bool exec_context_maintains_privileges(const ExecContext *c) {

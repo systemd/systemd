@@ -14,6 +14,7 @@
 #include "bus-log-control-api.h"
 #include "bus-message-util.h"
 #include "bus-util.h"
+#include "cgroup.h"
 #include "chase.h"
 #include "confidential-virt.h"
 #include "dbus-cgroup.h"
@@ -31,9 +32,11 @@
 #include "format-util.h"
 #include "initrd-util.h"
 #include "install.h"
+#include "job.h"
 #include "locale-util.h"
 #include "log.h"
 #include "manager-dump.h"
+#include "manager.h"
 #include "memfd-util.h"
 #include "os-util.h"
 #include "parse-util.h"
@@ -45,6 +48,8 @@
 #include "strv.h"
 #include "syslog-util.h"
 #include "taint.h"
+#include "unit-name.h"
+#include "unit.h"
 #include "user-util.h"
 #include "version.h"
 #include "virt.h"
@@ -1067,14 +1072,61 @@ static int transient_aux_units_from_message(
         return 0;
 }
 
+static int set_slice_from_unit(Unit *u, const Unit *src_u) {
+        Unit *slice;
+
+        assert(u);
+        assert(src_u);
+
+        slice = UNIT_GET_SLICE(src_u);
+        if (!slice)
+                return log_error_errno(-1, "Failed to get slice for transient unit");
+
+        return unit_set_slice(u, slice);
+}
+
+static int set_cgroup_context_from(Unit *u, const Unit *src_u) {
+        CGroupContext *c;
+
+        assert(u);
+        assert(src_u);
+
+        if (!is_subslice_or_eq(UNIT_GET_SLICE(u)->id, UNIT_GET_SLICE(src_u)->id))
+                set_slice_from_unit(u, src_u);
+
+        c = unit_get_cgroup_context(u);
+        if (!c)
+                return -1;
+
+        return cgroup_context_copy(c, unit_get_cgroup_context(src_u));
+}
+
+static int set_exec_context_from(Unit *u, const Unit *src_u) {
+        ExecContext *ec, *src_ec;
+
+        assert(u);
+        assert(src_u);
+
+        ec = unit_get_exec_context(u);
+        src_ec = unit_get_exec_context(src_u);
+
+        if (!ec || !src_ec)
+                return -1;
+
+        return exec_context_copy(ec, src_ec);
+}
+
 static int method_start_transient_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         const char *name, *smode;
         Manager *m = ASSERT_PTR(userdata);
         JobMode mode;
-        Unit *u;
+        Unit *u, *src_u;
         int r;
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
 
         assert(message);
+
+        assert_cc(sizeof(pid_t) == sizeof(uint32_t));
 
         r = mac_selinux_access_check(message, "start", error);
         if (r < 0)
@@ -1101,6 +1153,27 @@ static int method_start_transient_unit(sd_bus_message *message, void *userdata, 
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
         r = transient_unit_from_message(m, message, name, &u, error);
+        if (r < 0)
+                return r;
+
+        /* Apply restrictions from sender unit to transient unit */
+        r = bus_query_sender_pidref(message, &pidref);
+        if (r < 0)
+                return r;
+        src_u = manager_get_unit_by_pidref(m, &pidref);
+        if (src_u) {
+                if (!streq(src_u->id, "systemd-logind.service")
+                        && !streq(src_u->id, "session-1.scope")) {
+                        if (u->type == UNIT_SERVICE) {
+                                r = set_cgroup_context_from(u, src_u);
+                                if (r < 0)
+                                        return r;
+                                r = set_exec_context_from(u, src_u);
+                        } else {
+                                r = set_cgroup_context_from(u, src_u);
+                        }
+                }
+        }
         if (r < 0)
                 return r;
 
