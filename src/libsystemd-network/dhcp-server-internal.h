@@ -90,9 +90,10 @@ typedef struct DHCPRequest {
         be32_t server_id;
         be32_t requested_ip;
         usec_t lifetime;
-        const uint8_t *agent_info_option;
+        uint8_t *agent_info_option;
+        size_t agent_info_option_len;
         char *hostname;
-        const uint8_t *parameter_request_list;
+        uint8_t *parameter_request_list;
         size_t parameter_request_list_len;
         bool rapid_commit;
         triple_timestamp timestamp;
