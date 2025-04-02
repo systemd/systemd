@@ -73,7 +73,7 @@ _public_ struct udev_monitor *udev_monitor_new_from_netlink(struct udev *udev, c
         if (g < 0)
                 return_with_errno(NULL, EINVAL);
 
-        r = device_monitor_new_full(&m, g, -1);
+        r = device_monitor_new_full(&m, g, -EBADF);
         if (r < 0)
                 return_with_errno(NULL, r);
 
