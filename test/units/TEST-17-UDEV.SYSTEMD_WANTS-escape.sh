@@ -27,7 +27,7 @@ at_exit() {
 
 trap at_exit EXIT
 
-udevadm settle --timeout 30
+udevadm settle --timeout=30
 
 mkdir -p /run/systemd/system/
 cat >/run/systemd/system/test@.service <<EOF
@@ -53,7 +53,7 @@ ESCAPED=$(systemd-escape -p "${SYSPATH}")
 SHELL_ESCAPED=$(printf '%q' "${ESCAPED}")
 assert_eq "$(systemd-escape -u -p "${ESCAPED}")" "${SYSPATH}"
 
-udevadm wait --timeout 30 --settle "/sys/class/net/${IFNAME}"
+udevadm wait --timeout=30 --settle "/sys/class/net/${IFNAME}"
 assert_eq "$(udevadm info --query=property --property SYSTEMD_WANTS --value "/sys/class/net/${IFNAME}")" "test@${ESCAPED}.service"
 # The value shown by systemctl is doubly escaped and quoted.
 assert_eq "$(systemctl show -p Wants --value "${ESCAPED}.device")" "\"test@${SHELL_ESCAPED}.service\""

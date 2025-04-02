@@ -199,11 +199,11 @@ if [[ -n "${OPENSSL_CONFIG:-}" ]]; then
 fi
 # The kernel sometimes(?) does not emit "add" uevent for loop block partition devices.
 # Let's not expect the devices to be initialized.
-udevadm wait --timeout 60 --settle --initialized=no "${partitions[@]}"
-udevadm lock --device="${loop}p1" dd if="$MINIMAL_IMAGE.raw" of="${loop}p1"
-udevadm lock --device="${loop}p2" dd if="$MINIMAL_IMAGE.verity" of="${loop}p2"
+udevadm wait --timeout=60 --settle --initialized=no "${partitions[@]}"
+udevadm lock --timeout=60 --device="${loop}p1" dd if="$MINIMAL_IMAGE.raw" of="${loop}p1"
+udevadm lock --timeout=60 --device="${loop}p2" dd if="$MINIMAL_IMAGE.verity" of="${loop}p2"
 if [[ -n "${OPENSSL_CONFIG:-}" ]]; then
-    udevadm lock --device="${loop}p3" dd if="$MINIMAL_IMAGE.verity-sig" of="${loop}p3"
+    udevadm lock --timeout=60 --device="${loop}p3" dd if="$MINIMAL_IMAGE.verity-sig" of="${loop}p3"
 fi
 losetup -d "$loop"
 udevadm settle --timeout=60
