@@ -127,7 +127,7 @@ def update_distro(args, distro: str, config: dict):
     changes = subprocess.check_output(cmd, text=True).strip()
 
     conf_dir = Path('mkosi.conf.d')
-    files = conf_dir.glob('*/*.conf')
+    files = conf_dir.glob('**/pkgenv.conf')
     for file in files:
         s = file.read_text()
         if old_commit in s:
