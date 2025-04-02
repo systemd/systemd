@@ -9,10 +9,11 @@ sources = files(
         'journald-native.c',
         'journald-rate-limit.c',
         'journald-server.c',
+        'journald-socket.c',
         'journald-stream.c',
         'journald-syslog.c',
+        'journald-varlink.c',
         'journald-wall.c',
-        'journald-socket.c',
 )
 
 sources += custom_target(
