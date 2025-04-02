@@ -232,7 +232,6 @@ int lock_main(int argc, char *argv[], void *userdata) {
         _cleanup_free_ dev_t *devnos = NULL;
         size_t n_devnos = 0;
         usec_t deadline;
-        pid_t pid;
         int r;
 
         r = parse_argv(argc, argv);
@@ -290,7 +289,11 @@ int lock_main(int argc, char *argv[], void *userdata) {
         /* Ignore SIGINT and allow the forked process to receive it */
         (void) ignore_signals(SIGINT);
 
-        r = safe_fork("(lock)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_CLOSE_ALL_FDS|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pid);
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        r = pidref_safe_fork(
+                        "(lock)",
+                        FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_CLOSE_ALL_FDS|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG,
+                        &pidref);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -302,5 +305,5 @@ int lock_main(int argc, char *argv[], void *userdata) {
                 _exit(EXIT_FAILURE);
         }
 
-        return wait_for_terminate_and_check(arg_cmdline[0], pid, 0);
+        return pidref_wait_for_terminate_and_check(arg_cmdline[0], &pidref, 0);
 }
