@@ -101,9 +101,7 @@ endforeach
 
 foreach integration_test : integration_tests
         integration_test_args = [
-                # We don't use meson.project_source_root() because that doesn't work for running the tests
-                # standalone (see standalone/meson.build).
-                '--meson-source-dir', meson.current_source_dir() / '../..',
+                '--meson-source-dir', meson.project_source_root(),
                 '--meson-build-dir', meson.project_build_root(),
                 '--name', integration_test['name'],
                 '--storage', integration_test['storage'],

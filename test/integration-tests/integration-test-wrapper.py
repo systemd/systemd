@@ -53,7 +53,7 @@ class Summary:
             subprocess.run(
                 [
                     args.mkosi,
-                    '--directory', os.fspath(args.meson_source_dir),
+                    '--directory', os.fspath(args.mkosi_dir),
                     '--json',
                     'summary',
                 ],
@@ -329,7 +329,7 @@ def process_coverage(args: argparse.Namespace, summary: Summary, name: str, jour
                     '--quiet',
                 ],
                 check=True,
-                cwd=os.fspath(args.meson_source_dir),
+                cwd=os.fspath(args.mkosi_dir),
             )  # fmt: skip
 
             subprocess.run(
@@ -342,7 +342,7 @@ def process_coverage(args: argparse.Namespace, summary: Summary, name: str, jour
                     '--quiet',
                 ],
                 check=True,
-                cwd=os.fspath(args.meson_source_dir),
+                cwd=os.fspath(args.mkosi_dir),
             )  # fmt: skip
 
             Path(f'{output}.new').unlink()
@@ -377,6 +377,22 @@ def main() -> None:
     parser.add_argument('--skip', action=argparse.BooleanOptionalAction)
     parser.add_argument('mkosi_args', nargs='*')
     args = parser.parse_args()
+
+    # The meson source directory can either be the top-level repository directory or the
+    # test/integration-tests/standalone subdirectory in the repository directory. The mkosi configuration
+    # will always be a parent directory of one of these directories and at most 4 levels upwards, so don't
+    # look further than that.
+    dirs = [args.meson_source_dir] + list(args.meson_source_dir.parents)
+    for p in dirs[: min(len(dirs), 4)]:
+        if (p / 'mkosi/mkosi.conf').exists():
+            setattr(args, 'mkosi_dir', p)
+            break
+    else:
+        print(
+            f'Directory with mkosi config not found in any parent directories of {args.meson_source_dir}',
+            file=sys.stderr,
+        )
+        exit(1)
 
     if not bool(int(os.getenv('SYSTEMD_INTEGRATION_TESTS', '0'))):
         print(
@@ -531,7 +547,7 @@ def main() -> None:
 
     cmd = [
         args.mkosi,
-        '--directory', os.fspath(args.meson_source_dir),
+        '--directory', os.fspath(args.mkosi_dir),
         '--machine', name,
         '--ephemeral=yes',
         *(['--forward-journal', journal_file] if journal_file else []),
