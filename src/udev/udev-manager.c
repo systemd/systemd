@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
-#include "blockdev-util.h"
 #include "cgroup-util.h"
 #include "common-signal.h"
 #include "daemon-util.h"
@@ -12,7 +11,6 @@
 #include "fd-util.h"
 #include "fs-util.h"
 #include "hashmap.h"
-#include "inotify-util.h"
 #include "iovec-util.h"
 #include "list.h"
 #include "mkdir.h"
@@ -200,6 +198,10 @@ static int worker_new(Worker **ret, Manager *manager, sd_device_monitor *worker_
         if (r < 0)
                 return r;
 
+        r = sd_event_source_set_priority(worker->child_event_source, EVENT_PRIORITY_WORKER_SIGCHLD);
+        if (r < 0)
+                return r;
+
         r = hashmap_ensure_put(&manager->workers, &worker_hash_op, &worker->pidref, worker);
         if (r < 0)
                 return r;
@@ -239,8 +241,9 @@ void manager_exit(Manager *manager) {
         /* close sources of new events and discard buffered events */
         manager->ctrl = udev_ctrl_unref(manager->ctrl);
         manager->varlink_server = sd_varlink_server_unref(manager->varlink_server);
+
+        /* Disable the event source, but do not close the fd. It will be pushed to fd store. */
         manager->inotify_event = sd_event_source_disable_unref(manager->inotify_event);
-        manager->inotify_fd = safe_close(manager->inotify_fd);
 
         /* Disable the device monitor but do not free device monitor, as it may be used when a worker failed,
          * and the manager needs to broadcast the kernel event assigned to the worker to libudev listeners.
@@ -417,6 +420,7 @@ static int worker_spawn(Manager *manager, Event *event) {
         if (r < 0)
                 return log_error_errno(r, "Worker: Failed to set unicast sender: %m");
 
+        pid_t manager_pid = getpid_cached();
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         r = pidref_safe_fork("(udev-worker)", FORK_DEATHSIG_SIGTERM, &pidref);
         if (r < 0) {
@@ -428,8 +432,8 @@ static int worker_spawn(Manager *manager, Event *event) {
                         .monitor = TAKE_PTR(worker_monitor),
                         .properties = TAKE_PTR(manager->properties),
                         .rules = TAKE_PTR(manager->rules),
-                        .inotify_fd = TAKE_FD(manager->inotify_fd),
                         .config = manager->config,
+                        .manager_pid = manager_pid,
                 };
 
                 if (setenv("NOTIFY_SOCKET", manager->worker_notify_socket_path, /* overwrite = */ true) < 0) {
@@ -705,7 +709,7 @@ fail:
         event_free(event);
 }
 
-static int event_queue_assume_block_device_unlocked(Manager *manager, sd_device *dev) {
+int event_queue_assume_block_device_unlocked(Manager *manager, sd_device *dev) {
         const char *devname;
         int r;
 
@@ -842,6 +846,48 @@ static int on_worker_notify(sd_event_source *s, int fd, uint32_t revents, void *
                 return 0;
         }
 
+        if (strv_contains(l, "INOTIFY_WATCH_ADD=1")) {
+                assert(worker->event);
+
+                r = manager_add_watch(manager, worker->event->dev);
+                if (ERRNO_IS_NEG_DEVICE_ABSENT(r))
+                        r = 0;
+                if (r < 0)
+                        log_device_warning_errno(worker->event->dev, r, "Failed to add inotify watch, ignoring: %m");
+
+                /* Send the result back to the worker process. */
+                r = pidref_sigqueue(&sender, SIGUSR1, r);
+                if (r < 0) {
+                        log_device_warning_errno(worker->event->dev, r,
+                                                 "Failed to send signal to worker process ["PID_FMT"], killing the worker process: %m",
+                                                 sender.pid);
+
+                        (void) pidref_kill(&sender, SIGTERM);
+                        worker->state = WORKER_KILLED;
+                }
+                return 0;
+        }
+
+        if (strv_contains(l, "INOTIFY_WATCH_REMOVE=1")) {
+                assert(worker->event);
+
+                r = manager_remove_watch(manager, worker->event->dev);
+                if (r < 0)
+                        log_device_warning_errno(worker->event->dev, r, "Failed to remove inotify watch, ignoring: %m");
+
+                /* Send the result back to the worker process. */
+                r = pidref_sigqueue(&sender, SIGUSR1, r);
+                if (r < 0) {
+                        log_device_warning_errno(worker->event->dev, r,
+                                                 "Failed to send signal to worker process ["PID_FMT"], killing the worker process: %m",
+                                                 sender.pid);
+
+                        (void) pidref_kill(&sender, SIGTERM);
+                        worker->state = WORKER_KILLED;
+                }
+                return 0;
+        }
+
         if (strv_contains(l, "TRY_AGAIN=1"))
                 /* Worker cannot lock the device. Requeue the event. */
                 event_requeue(worker->event);
@@ -854,162 +900,6 @@ static int on_worker_notify(sd_event_source *s, int fd, uint32_t revents, void *
                 (void) pidref_kill(&worker->pidref, SIGTERM);
         } else if (worker->state != WORKER_KILLED)
                 worker->state = WORKER_IDLE;
-
-        return 0;
-}
-
-static int synthesize_change_one(sd_device *dev, sd_device *target) {
-        int r;
-
-        assert(dev);
-        assert(target);
-
-        if (DEBUG_LOGGING) {
-                const char *syspath = NULL;
-                (void) sd_device_get_syspath(target, &syspath);
-                log_device_debug(dev, "device is closed, synthesising 'change' on %s", strna(syspath));
-        }
-
-        r = sd_device_trigger(target, SD_DEVICE_CHANGE);
-        if (r < 0)
-                return log_device_debug_errno(target, r, "Failed to trigger 'change' uevent: %m");
-
-        DEVICE_TRACE_POINT(synthetic_change_event, dev);
-
-        return 0;
-}
-
-static int synthesize_change_all(sd_device *dev) {
-        int r;
-
-        assert(dev);
-
-        r = blockdev_reread_partition_table(dev);
-        if (r < 0)
-                log_device_debug_errno(dev, r, "Failed to re-read partition table, ignoring: %m");
-        bool part_table_read = r >= 0;
-
-        /* search for partitions */
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
-        r = partition_enumerator_new(dev, &e);
-        if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to initialize partition enumerator, ignoring: %m");
-
-        /* We have partitions and re-read the table, the kernel already sent out a "change"
-         * event for the disk, and "remove/add" for all partitions. */
-        if (part_table_read && sd_device_enumerator_get_device_first(e))
-                return 0;
-
-        /* We have partitions but re-reading the partition table did not work, synthesize
-         * "change" for the disk and all partitions. */
-        r = synthesize_change_one(dev, dev);
-        FOREACH_DEVICE(e, d)
-                RET_GATHER(r, synthesize_change_one(dev, d));
-
-        return r;
-}
-
-static int synthesize_change_child_handler(sd_event_source *s, const siginfo_t *si, void *userdata) {
-        Manager *manager = ASSERT_PTR(userdata);
-        assert(s);
-
-        sd_event_source_unref(set_remove(manager->synthesize_change_child_event_sources, s));
-        return 0;
-}
-
-static int synthesize_change(Manager *manager, sd_device *dev) {
-        int r;
-
-        assert(manager);
-        assert(dev);
-
-        const char *sysname;
-        r = sd_device_get_sysname(dev, &sysname);
-        if (r < 0)
-                return r;
-
-        if (startswith(sysname, "dm-") || block_device_is_whole_disk(dev) <= 0)
-                return synthesize_change_one(dev, dev);
-
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
-        r = pidref_safe_fork(
-                        "(udev-synth)",
-                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE,
-                        &pidref);
-        if (r < 0)
-                return r;
-        if (r == 0) {
-                /* child */
-                (void) synthesize_change_all(dev);
-                _exit(EXIT_SUCCESS);
-        }
-
-        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
-        r = event_add_child_pidref(manager->event, &s, &pidref, WEXITED, synthesize_change_child_handler, manager);
-        if (r < 0) {
-                log_debug_errno(r, "Failed to add child event source for "PID_FMT", ignoring: %m", pidref.pid);
-                return 0;
-        }
-
-        r = sd_event_source_set_child_pidfd_own(s, true);
-        if (r < 0)
-                return r;
-        TAKE_PIDREF(pidref);
-
-        r = set_ensure_put(&manager->synthesize_change_child_event_sources, &event_source_hash_ops, s);
-        if (r < 0)
-                return r;
-        TAKE_PTR(s);
-
-        return 0;
-}
-
-static int on_inotify(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        Manager *manager = ASSERT_PTR(userdata);
-        union inotify_event_buffer buffer;
-        ssize_t l;
-        int r;
-
-        l = read(fd, &buffer, sizeof(buffer));
-        if (l < 0) {
-                if (ERRNO_IS_TRANSIENT(errno))
-                        return 0;
-
-                return log_error_errno(errno, "Failed to read inotify fd: %m");
-        }
-
-        FOREACH_INOTIFY_EVENT_WARN(e, buffer, l) {
-                _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
-                const char *devnode;
-
-                /* Do not handle IN_IGNORED here. Especially, do not try to call udev_watch_end() from the
-                 * main process. Otherwise, the pair of the symlinks may become inconsistent, and several
-                 * garbage may remain. The old symlinks are removed by a worker that processes the
-                 * corresponding 'remove' uevent;
-                 * udev_event_execute_rules() -> event_execute_rules_on_remove() -> udev_watch_end(). */
-
-                if (!FLAGS_SET(e->mask, IN_CLOSE_WRITE))
-                        continue;
-
-                r = device_new_from_watch_handle(&dev, e->wd);
-                if (r < 0) {
-                        /* Device may be removed just after closed. */
-                        log_debug_errno(r, "Failed to create sd_device object from watch handle, ignoring: %m");
-                        continue;
-                }
-
-                r = sd_device_get_devname(dev, &devnode);
-                if (r < 0) {
-                        /* Also here, device may be already removed. */
-                        log_device_debug_errno(dev, r, "Failed to get device node, ignoring: %m");
-                        continue;
-                }
-
-                log_device_debug(dev, "Received inotify event for %s.", devnode);
-
-                (void) event_queue_assume_block_device_unlocked(manager, dev);
-                (void) synthesize_change(manager, dev);
-        }
 
         return 0;
 }
@@ -1123,8 +1013,10 @@ static int on_post(sd_event_source *s, void *userdata) {
         if (r < 0)
                 log_warning_errno(r, "Failed to disable timer event source for cleaning up idle workers, ignoring: %m");
 
-        if (manager->exit)
+        if (manager->exit) {
+                (void) manager_push_inotify(manager);
                 return sd_event_exit(manager->event, 0);
+        }
 
         if (manager->cgroup && set_isempty(manager->synthesize_change_child_event_sources))
                 /* cleanup possible left-over processes in our cgroup */
@@ -1199,6 +1091,8 @@ static int manager_listen_fds(Manager *manager) {
                         r = manager_init_ctrl(manager, fd);
                 else if (streq(names[i], "systemd-udevd-kernel.socket"))
                         r = manager_init_device_monitor(manager, fd);
+                else if (streq(names[i], "inotify"))
+                        r = manager_init_inotify(manager, fd);
                 else
                         r = log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                             "Received unexpected fd (%s), ignoring.", names[i]);
@@ -1249,31 +1143,10 @@ static int manager_start_device_monitor(Manager *manager) {
         if (r < 0)
                 return log_error_errno(r, "Failed to start device monitor: %m");
 
-        return 0;
-}
-
-static int manager_start_inotify(Manager *manager) {
-        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
-        _cleanup_close_ int fd = -EBADF;
-        int r;
-
-        assert(manager);
-        assert(manager->event);
-
-        fd = inotify_init1(IN_CLOEXEC);
-        if (fd < 0)
-                return log_error_errno(errno, "Failed to create inotify descriptor: %m");
-
-        udev_watch_restore(fd);
-
-        r = sd_event_add_io(manager->event, &s, fd, EPOLLIN, on_inotify, manager);
+        r = sd_event_source_set_priority(sd_device_monitor_get_event_source(manager->monitor), EVENT_PRIORITY_DEVICE_MONITOR);
         if (r < 0)
-                return log_error_errno(r, "Failed to create inotify event source: %m");
+                return log_error_errno(r, "Failed to set priority to device monitor: %m");
 
-        (void) sd_event_source_set_description(s, "manager-inotify");
-
-        manager->inotify_fd = TAKE_FD(fd);
-        manager->inotify_event = TAKE_PTR(s);
         return 0;
 }
 
@@ -1285,7 +1158,7 @@ static int manager_start_worker_notify(Manager *manager) {
 
         r = notify_socket_prepare(
                         manager->event,
-                        SD_EVENT_PRIORITY_NORMAL,
+                        EVENT_PRIORITY_WORKER_NOTIFY,
                         on_worker_notify,
                         manager,
                         &manager->worker_notify_socket_path);
