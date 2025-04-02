@@ -62,6 +62,9 @@ typedef enum {
         PROP_LOCATION,
         PROP_HARDWARE_VENDOR,
         PROP_HARDWARE_MODEL,
+        PROP_HARDWARE_FAMILY,
+        PROP_HARDWARE_SKU,
+        PROP_HARDWARE_VERSION,
 
         /* Read from /etc/os-release (or /usr/lib/os-release) */
         PROP_OS_PRETTY_NAME,
@@ -166,7 +169,10 @@ static void context_read_machine_info(Context *c) {
                       (UINT64_C(1) << PROP_DEPLOYMENT) |
                       (UINT64_C(1) << PROP_LOCATION) |
                       (UINT64_C(1) << PROP_HARDWARE_VENDOR) |
-                      (UINT64_C(1) << PROP_HARDWARE_MODEL));
+                      (UINT64_C(1) << PROP_HARDWARE_MODEL) |
+                      (UINT64_C(1) << PROP_HARDWARE_FAMILY) |
+                      (UINT64_C(1) << PROP_HARDWARE_SKU) |
+                      (UINT64_C(1) << PROP_HARDWARE_VERSION));
 
         r = parse_env_file(NULL, "/etc/machine-info",
                            "PRETTY_HOSTNAME", &c->data[PROP_PRETTY_HOSTNAME],
@@ -175,7 +181,10 @@ static void context_read_machine_info(Context *c) {
                            "DEPLOYMENT", &c->data[PROP_DEPLOYMENT],
                            "LOCATION", &c->data[PROP_LOCATION],
                            "HARDWARE_VENDOR", &c->data[PROP_HARDWARE_VENDOR],
-                           "HARDWARE_MODEL", &c->data[PROP_HARDWARE_MODEL]);
+                           "HARDWARE_MODEL", &c->data[PROP_HARDWARE_MODEL],
+                           "HARDWARE_FAMILY", &c->data[PROP_HARDWARE_FAMILY],
+                           "HARDWARE_SKU", &c->data[PROP_HARDWARE_SKU],
+                           "HARDWARE_VERSION", &c->data[PROP_HARDWARE_VERSION]);
         if (r < 0 && r != -ENOENT)
                 log_warning_errno(r, "Failed to read /etc/machine-info, ignoring: %m");
 
@@ -393,6 +402,29 @@ static int get_hardware_serial(Context *c, char **ret) {
         }
 
         return get_device_tree_sysattr(c, "serial-number", ret);
+}
+
+static int get_hardware_version(Context *c, char **ret) {
+        int r = -ENOENT;
+
+        assert(c);
+        assert(ret);
+
+        FOREACH_STRING(attr, "product_version", "board_version") {
+                r = get_dmi_sysattr(c, attr, ret);
+                if (r >= 0 || !ERRNO_IS_NEG_DEVICE_ABSENT(r))
+                        return r;
+        }
+
+        return r;
+}
+
+static int get_hardware_family(Context *c, char **ret) {
+        return get_dmi_sysattr(c, "product_family", ret);
+}
+
+static int get_hardware_sku(Context *c, char **ret) {
+        return get_dmi_sysattr(c, "product_sku", ret);
 }
 
 static int get_firmware_version(Context *c, char **ret) {
@@ -820,7 +852,9 @@ static int property_get_hardware_property(
 
         assert(reply);
         assert(c);
-        assert(IN_SET(prop, PROP_HARDWARE_VENDOR, PROP_HARDWARE_MODEL));
+        assert(IN_SET(prop, PROP_HARDWARE_VENDOR, PROP_HARDWARE_MODEL,
+                      PROP_HARDWARE_FAMILY, PROP_HARDWARE_SKU,
+                      PROP_HARDWARE_VERSION));
         assert(getter);
 
         context_read_machine_info(c);
@@ -853,6 +887,42 @@ static int property_get_hardware_model(
                 sd_bus_error *error) {
 
         return property_get_hardware_property(reply, userdata, PROP_HARDWARE_MODEL, get_hardware_model);
+}
+
+static int property_get_hardware_family(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        return property_get_hardware_property(reply, userdata, PROP_HARDWARE_FAMILY, get_hardware_family);
+}
+
+static int property_get_hardware_sku(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        return property_get_hardware_property(reply, userdata, PROP_HARDWARE_SKU, get_hardware_sku);
+}
+
+static int property_get_hardware_version(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        return property_get_hardware_property(reply, userdata, PROP_HARDWARE_VERSION, get_hardware_version);
 }
 
 static int property_get_firmware_version(
@@ -1535,7 +1605,8 @@ static int method_get_hardware_serial(sd_bus_message *m, void *userdata, sd_bus_
 static int build_describe_response(Context *c, bool privileged, sd_json_variant **ret) {
         _cleanup_free_ char *hn = NULL, *dhn = NULL, *in = NULL,
                 *chassis = NULL, *vendor = NULL, *model = NULL, *serial = NULL, *firmware_version = NULL,
-                *firmware_vendor = NULL, *chassis_asset_tag = NULL;
+                *firmware_vendor = NULL, *chassis_asset_tag = NULL, *family = NULL, *sku = NULL,
+                *version = NULL;
         _cleanup_strv_free_ char **os_release_pairs = NULL, **machine_info_pairs = NULL;
         usec_t firmware_date = USEC_INFINITY, eol = USEC_INFINITY;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
@@ -1571,6 +1642,12 @@ static int build_describe_response(Context *c, bool privileged, sd_json_variant 
                 (void) get_hardware_vendor(c, &vendor);
         if (isempty(c->data[PROP_HARDWARE_MODEL]))
                 (void) get_hardware_model(c, &model);
+        if (isempty(c->data[PROP_HARDWARE_FAMILY]))
+                (void) get_hardware_family(c, &family);
+        if (isempty(c->data[PROP_HARDWARE_SKU]))
+                (void) get_hardware_sku(c, &sku);
+        if (isempty(c->data[PROP_HARDWARE_VERSION]))
+                (void) get_hardware_version(c, &version);
 
         if (privileged) {
                 /* The product UUID and hardware serial is only available to privileged clients */
@@ -1624,6 +1701,9 @@ static int build_describe_response(Context *c, bool privileged, sd_json_variant 
                         SD_JSON_BUILD_PAIR_STRING("HardwareVendor", vendor ?: c->data[PROP_HARDWARE_VENDOR]),
                         SD_JSON_BUILD_PAIR_STRING("HardwareModel", model ?: c->data[PROP_HARDWARE_MODEL]),
                         SD_JSON_BUILD_PAIR_STRING("HardwareSerial", serial),
+                        SD_JSON_BUILD_PAIR_STRING("HardwareFamily", family ?: c->data[PROP_HARDWARE_FAMILY]),
+                        SD_JSON_BUILD_PAIR_STRING("HardwareSKU", sku ?: c->data[PROP_HARDWARE_SKU]),
+                        SD_JSON_BUILD_PAIR_STRING("HardwareVersion", version ?: c->data[PROP_HARDWARE_VERSION]),
                         SD_JSON_BUILD_PAIR_STRING("FirmwareVersion", firmware_version),
                         SD_JSON_BUILD_PAIR_STRING("FirmwareVendor", firmware_vendor),
                         JSON_BUILD_PAIR_FINITE_USEC("FirmwareDate", firmware_date),
@@ -1702,6 +1782,9 @@ static const sd_bus_vtable hostname_vtable[] = {
         SD_BUS_PROPERTY("BootID", "ay", property_get_boot_id, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("VSockCID", "u", property_get_vsock_cid, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ChassisAssetTag", "s", property_get_chassis_asset_tag, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("HardwareFamily", "s", property_get_hardware_family, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("HardwareSKU", "s", property_get_hardware_sku, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("HardwareVersion", "s", property_get_hardware_version, 0, SD_BUS_VTABLE_PROPERTY_CONST),
 
         SD_BUS_METHOD_WITH_ARGS("SetHostname",
                                 SD_BUS_ARGS("s", hostname, "b", interactive),
