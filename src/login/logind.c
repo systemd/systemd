@@ -30,6 +30,7 @@
 #include "logind-session-dbus.h"
 #include "logind-user-dbus.h"
 #include "logind-varlink.h"
+#include "logind-utmp.h"
 #include "main-func.h"
 #include "mkdir-label.h"
 #include "parse-util.h"
