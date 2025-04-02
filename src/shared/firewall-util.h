@@ -74,7 +74,7 @@ int nft_set_element_modify_iprange(
                 const char *table,
                 const char *set,
                 const union in_addr_union *source,
-                unsigned int source_prefixlen);
+                unsigned source_prefixlen);
 
 int nft_set_element_modify_ip(
                 FirewallContext *ctx,

@@ -857,10 +857,10 @@ void fw_nftables_exit(FirewallContext *ctx) {
 static int nft_message_append_setelem_iprange(
                 sd_netlink_message *m,
                 const union in_addr_union *source,
-                unsigned int prefixlen) {
+                unsigned prefixlen) {
 
         uint32_t mask, start, end;
-        unsigned int nplen;
+        unsigned nplen;
         int r;
 
         assert(m);
@@ -896,7 +896,7 @@ static int nft_message_append_setelem_iprange(
 static int nft_message_append_setelem_ip6range(
                 sd_netlink_message *m,
                 const union in_addr_union *source,
-                unsigned int prefixlen) {
+                unsigned prefixlen) {
 
         union in_addr_union start, end;
         int r;
@@ -931,7 +931,7 @@ int nft_set_element_modify_iprange(
                 const char *table,
                 const char *set,
                 const union in_addr_union *source,
-                unsigned int source_prefixlen) {
+                unsigned source_prefixlen) {
 
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
@@ -1041,7 +1041,7 @@ int fw_nftables_add_masquerade(
                 bool add,
                 int af,
                 const union in_addr_union *source,
-                unsigned int source_prefixlen) {
+                unsigned source_prefixlen) {
 
         int r;
 

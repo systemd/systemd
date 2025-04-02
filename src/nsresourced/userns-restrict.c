@@ -101,7 +101,7 @@ int userns_restrict_install(
         if (r < 0)
                 return log_error_errno(r, "Failed to size userns/mnt_id hash table: %m");
 
-        r = sym_bpf_map__set_max_entries(obj->maps.userns_ringbuf, USERNS_MAX * sizeof(unsigned int));
+        r = sym_bpf_map__set_max_entries(obj->maps.userns_ringbuf, USERNS_MAX * sizeof(unsigned));
         if (r < 0)
                 return log_error_errno(r, "Failed to size userns ring buffer: %m");
 

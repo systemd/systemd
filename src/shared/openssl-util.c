@@ -164,7 +164,7 @@ int openssl_digest_many(
         if (!buf)
                 return log_oom_debug();
 
-        unsigned int size;
+        unsigned size;
         if (!EVP_DigestFinal_ex(ctx, buf, &size))
                 return log_openssl_errors("Failed to finalize Digest");
 
@@ -260,7 +260,7 @@ int openssl_hmac_many(
         size_t size;
         if (!EVP_MAC_final(ctx, buf, &size, digest_size))
 #else
-        unsigned int size;
+        unsigned size;
         if (!HMAC_Final(ctx, buf, &size))
 #endif
                 return log_openssl_errors("Failed to finalize HMAC");

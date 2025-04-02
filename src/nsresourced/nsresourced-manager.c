@@ -521,15 +521,15 @@ static int ringbuf_event(void *userdata, void *data, size_t size) {
         Manager *m = ASSERT_PTR(userdata);
         size_t n;
 
-        if ((size % sizeof(unsigned int)) != 0) /* Not multiples of "unsigned int"? */
+        if ((size % sizeof(unsigned)) != 0) /* Not multiples of "unsigned"? */
                 return -EIO;
 
-        n = size / sizeof(unsigned int);
+        n = size / sizeof(unsigned);
         for (size_t i = 0; i < n; i++) {
                 const void *d;
                 uint64_t inode;
 
-                d = (const uint8_t*) data + i * sizeof(unsigned int);
+                d = (const uint8_t*) data + i * sizeof(unsigned);
                 inode = unaligned_read_ne32(d);
 
                 log_debug("Got BPF ring buffer notification that user namespace %" PRIu64 " is now dead.", inode);
