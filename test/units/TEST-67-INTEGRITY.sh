@@ -87,7 +87,7 @@ test_one() {
     udevadm wait --timeout=30 --settle "${DM_NODE}"
     mkfs.ext4 -U "${FS_UUID}" "${DM_NODE}"
     # Wait for synthetic events being processed.
-    udevadm settle
+    udevadm settle --timeout=30
     integritysetup close "${DM_NAME}"
     udevadm wait --timeout=30 --settle --removed "${DM_NODE}"
 
