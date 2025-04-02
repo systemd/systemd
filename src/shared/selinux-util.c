@@ -436,7 +436,11 @@ int mac_selinux_get_create_label_from_exe(const char *exe, char **label) {
         if (sclass == 0)
                 return -ENOSYS;
 
-        return RET_NERRNO(security_compute_create_raw(mycon, fcon, sclass, label));
+        r = RET_NERRNO(security_compute_create_raw(mycon, fcon, sclass, label));
+        if (r < 0)
+                return mac_selinux_enforcing() ? r : -ENOSYS;
+
+        return 0;
 #else
         return -EOPNOTSUPP;
 #endif
