@@ -10,3 +10,4 @@ ExecStart=@command@
 Type=oneshot
 MemoryAccounting=@memory-accounting@
 Environment=SYSTEMD_PAGER= @env@
+UnsetEnvironment=JOURNAL_STREAM
