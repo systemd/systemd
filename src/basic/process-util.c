@@ -879,27 +879,8 @@ int get_process_umask(pid_t pid, mode_t *ret) {
         return parse_mode(m, ret);
 }
 
-int wait_for_terminate(pid_t pid, siginfo_t *status) {
-        siginfo_t dummy;
-
-        assert(pid >= 1);
-
-        if (!status)
-                status = &dummy;
-
-        for (;;) {
-                zero(*status);
-
-                if (waitid(P_PID, pid, status, WEXITED) < 0) {
-
-                        if (errno == EINTR)
-                                continue;
-
-                        return negative_errno();
-                }
-
-                return 0;
-        }
+int wait_for_terminate(pid_t pid, siginfo_t *ret) {
+        return pidref_wait_for_terminate(&PIDREF_MAKE_FROM_PID(pid), ret);
 }
 
 /*
