@@ -6,15 +6,12 @@
 
 int manager_read_utmp(Manager *m) {
 #if ENABLE_UTMP
-        int r;
-        _unused_ _cleanup_(utxent_cleanup) bool utmpx = false;
-
         assert(m);
 
         if (utmpxname(UTMPX_FILE) < 0)
                 return log_error_errno(errno, "Failed to set utmp path to " UTMPX_FILE ": %m");
 
-        utmpx = utxent_start();
+        _unused_ _cleanup_(utxent_cleanup) bool utmpx = utxent_start();
 
         for (;;) {
                 _cleanup_free_ char *t = NULL;
@@ -44,8 +41,7 @@ int manager_read_utmp(Manager *m) {
 
                 c = path_startswith(t, "/dev/");
                 if (c) {
-                        r = free_and_strdup(&t, c);
-                        if (r < 0)
+                        if (free_and_strdup(&t, c) < 0)
                                 return log_oom();
                 }
 
@@ -63,6 +59,7 @@ int manager_read_utmp(Manager *m) {
                         s->tty = mfree(s->tty);
                         s->tty_validity = TTY_UTMP_INCONSISTENT;
                         log_debug("Session '%s' has inconsistent TTY information, dropping TTY information.", s->id);
+                        session_save(s);
                         continue;
                 }
 
@@ -73,6 +70,7 @@ int manager_read_utmp(Manager *m) {
                 s->tty = TAKE_PTR(t);
                 s->tty_validity = TTY_FROM_UTMP;
                 log_debug("Acquired TTY information '%s' from utmp for session '%s'.", s->tty, s->id);
+                session_save(s);
         }
 
 #else
