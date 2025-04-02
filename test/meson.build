@@ -283,27 +283,33 @@ endif
 
 if install_tests
         foreach integration_test : integration_tests
-                if 'unit' in integration_test
-                        integration_test_unit = integration_test['unit']
-                else
-                        integration_test_unit_env = []
+                integration_test_unit_env = []
+                integration_test_extra_unit_properties = []
+                integration_test_extra_service_properties = []
 
-                        foreach key, value : integration_test['configuration']['env']
-                                integration_test_unit_env += [f'@key@=@value@']
-                        endforeach
+                foreach key, value : integration_test['configuration']['env']
+                        integration_test_unit_env += [f'@key@=@value@']
+                endforeach
 
-                        integration_test_unit = configure_file(
-                                input : 'test.service.in',
-                                output : '@0@.service'.format(integration_test['name']),
-                                configuration : integration_test['configuration'] + {
-                                        'env' : ' '.join(integration_test_unit_env)
-                                },
-                        )
-                endif
+                foreach key, value : integration_test['configuration']['unit']
+                        integration_test_extra_unit_properties += [f'@key@=@value@']
+                endforeach
 
-                if install_tests
-                        install_data(integration_test_unit, install_dir : testdata_dir / 'units')
-                endif
+                foreach key, value : integration_test['configuration']['service']
+                        integration_test_extra_service_properties += [f'@key@=@value@']
+                endforeach
+
+                integration_test_unit = configure_file(
+                        input : 'test.service.in',
+                        output : '@0@.service'.format(integration_test['name']),
+                        configuration : integration_test['configuration'] + {
+                                'env' : ' '.join(integration_test_unit_env),
+                                'unit' : '\n'.join(integration_test_extra_unit_properties),
+                                'service' : '\n'.join(integration_test_extra_service_properties),
+                        },
+                )
+
+                install_data(integration_test_unit, install_dir : testdata_dir / 'units')
         endforeach
 
         testdata_subdirs = [
