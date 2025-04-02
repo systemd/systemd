@@ -2063,6 +2063,14 @@ evdev:name:Quickstart Button 3:dmi:bvn*:bvr*:bd*:svnTOSHIBA*:pnPORTEGEZ830:*
  KEYBOARD_KEY_1=touchpad_toggle                         # Touchpad toggle
 
 ###########################################################
+# TUXEDO Computers
+###########################################################
+
+# TUXEDO Computers notebooks with board_vendor NB02
+evdev:atkbd:dmi:*:svnTUXEDO:*:rvnNB02:*
+ KEYBOARD_KEY_f8=fn
+
+###########################################################
 # VIA
 ###########################################################
 
