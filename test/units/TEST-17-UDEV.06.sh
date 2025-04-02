@@ -19,7 +19,7 @@ function check() {
     for _ in {1..2}; do
         systemctl restart systemd-udevd.service
         udevadm control --ping
-        udevadm settle
+        udevadm settle --timeout=30
         check_validity
 
         for _ in {1..2}; do

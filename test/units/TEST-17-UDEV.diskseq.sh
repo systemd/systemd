@@ -42,7 +42,7 @@ MountImages=$TMPDIR/foo.raw:/var
 EOF
 systemctl daemon-reload
 
-udevadm settle
+udevadm settle --timeout=30
 
 # Check if no lock file exists, if the lock directory exists.
 if [[ -d /run/udev/links.lock/ ]]; then
@@ -62,7 +62,7 @@ done
 
 systemctl stop test-diskseq.service || :
 
-udevadm settle
+udevadm settle --timeout=30
 
 # Check if the lock directory exists, but no lock file exists in it.
 [[ -d /run/udev/links.lock/ ]]
