@@ -620,7 +620,8 @@ int make_filesystem(
 
         } else if (streq(fstype, "erofs")) {
                 argv = strv_new(mkfs,
-                                "-U", vol_id);
+                                "-U", vol_id,
+                                "--hard-dereference");
                 if (!argv)
                         return log_oom();
 
