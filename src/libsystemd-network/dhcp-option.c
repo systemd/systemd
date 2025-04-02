@@ -530,6 +530,11 @@ static bool dhcp_option_can_merge(uint8_t code) {
         case SD_DHCP_OPTION_LDAP:
         case SD_DHCP_OPTION_NETINFO_ADDRESS:
         case SD_DHCP_OPTION_NETINFO_TAG:
+        /* despite being a variable-length option, there are two sub-options defined in RFC3046, so
+         * it is expected to be so short that no splitting will happen. furthermore, it simplifies
+         * relay implementation.
+         */
+        case SD_DHCP_OPTION_RELAY_AGENT_INFORMATION:
                 return false;
         /* Multiple of fixed-length options */
         case SD_DHCP_OPTION_ROUTER:
@@ -587,7 +592,6 @@ static bool dhcp_option_can_merge(uint8_t code) {
         case SD_DHCP_OPTION_BOOT_FILENAME:
         case SD_DHCP_OPTION_USER_CLASS:
         case SD_DHCP_OPTION_SERVICE_SCOPE:
-        case SD_DHCP_OPTION_RELAY_AGENT_INFORMATION:
         case SD_DHCP_OPTION_ISNS:
         case SD_DHCP_OPTION_USER_AUTHENTICATION:
         case SD_DHCP_OPTION_POSIX_TIMEZONE:
