@@ -16,6 +16,7 @@
 #include "iovec-util.h"
 #include "list.h"
 #include "mkdir.h"
+#include "notify-recv.h"
 #include "process-util.h"
 #include "selinux-util.h"
 #include "signal-util.h"
@@ -25,6 +26,7 @@
 #include "udev-builtin.h"
 #include "udev-config.h"
 #include "udev-ctrl.h"
+#include "udev-error.h"
 #include "udev-event.h"
 #include "udev-manager.h"
 #include "udev-manager-ctrl.h"
@@ -82,7 +84,7 @@ typedef enum WorkerState {
 
 typedef struct Worker {
         Manager *manager;
-        pid_t pid;
+        PidRef pidref;
         sd_event_source *child_event_source;
         union sockaddr_union address;
         WorkerState state;
@@ -122,9 +124,10 @@ static Worker* worker_free(Worker *worker) {
                 return NULL;
 
         if (worker->manager)
-                hashmap_remove(worker->manager->workers, PID_TO_PTR(worker->pid));
+                hashmap_remove(worker->manager->workers, &worker->pidref);
 
-        sd_event_source_unref(worker->child_event_source);
+        sd_event_source_disable_unref(worker->child_event_source);
+        pidref_done(&worker->pidref);
         event_free(worker->event);
 
         return mfree(worker);
@@ -133,9 +136,9 @@ static Worker* worker_free(Worker *worker) {
 DEFINE_TRIVIAL_CLEANUP_FUNC(Worker*, worker_free);
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 worker_hash_op,
-                void,
-                trivial_hash_func,
-                trivial_compare_func,
+                PidRef,
+                pidref_hash_func,
+                pidref_compare_func,
                 Worker,
                 worker_free);
 
@@ -152,7 +155,8 @@ Manager* manager_free(Manager *manager) {
         event_queue_cleanup(manager, EVENT_UNDEF);
 
         safe_close(manager->inotify_fd);
-        safe_close(manager->worker_notify_fd);
+
+        free(manager->worker_notify_socket_path);
 
         sd_device_monitor_unref(manager->monitor);
         udev_ctrl_unref(manager->ctrl);
@@ -169,32 +173,34 @@ Manager* manager_free(Manager *manager) {
 
 static int on_sigchld(sd_event_source *s, const siginfo_t *si, void *userdata);
 
-static int worker_new(Worker **ret, Manager *manager, sd_device_monitor *worker_monitor, pid_t pid) {
+static int worker_new(Worker **ret, Manager *manager, sd_device_monitor *worker_monitor, PidRef *pidref) {
         _cleanup_(worker_freep) Worker *worker = NULL;
         int r;
 
         assert(ret);
         assert(manager);
         assert(worker_monitor);
-        assert(pid > 1);
+        assert(pidref);
+
+        /* This takes and invalidates pidref even on some error cases. */
 
         worker = new(Worker, 1);
         if (!worker)
                 return -ENOMEM;
 
         *worker = (Worker) {
-                .pid = pid,
+                .pidref = TAKE_PIDREF(*pidref),
         };
 
         r = device_monitor_get_address(worker_monitor, &worker->address);
         if (r < 0)
                 return r;
 
-        r = sd_event_add_child(manager->event, &worker->child_event_source, pid, WEXITED, on_sigchld, worker);
+        r = event_add_child_pidref(manager->event, &worker->child_event_source, &worker->pidref, WEXITED, on_sigchld, worker);
         if (r < 0)
                 return r;
 
-        r = hashmap_ensure_put(&manager->workers, &worker_hash_op, PID_TO_PTR(pid), worker);
+        r = hashmap_ensure_put(&manager->workers, &worker_hash_op, &worker->pidref, worker);
         if (r < 0)
                 return r;
 
@@ -219,7 +225,7 @@ void manager_kill_workers(Manager *manager, bool force) {
                 }
 
                 worker->state = WORKER_KILLED;
-                (void) kill(worker->pid, SIGTERM);
+                (void) pidref_kill(&worker->pidref, SIGTERM);
         }
 }
 
@@ -236,7 +242,11 @@ void manager_exit(Manager *manager) {
         manager->inotify_event = sd_event_source_disable_unref(manager->inotify_event);
         manager->inotify_fd = safe_close(manager->inotify_fd);
 
-        manager->monitor = sd_device_monitor_unref(manager->monitor);
+        /* Disable the device monitor but do not free device monitor, as it may be used when a worker failed,
+         * and the manager needs to broadcast the kernel event assigned to the worker to libudev listeners.
+         * Note, hwere we cannot use sd_device_monitor_stop(), as it changes the multicast group of the socket. */
+        (void) sd_event_source_set_enabled(sd_device_monitor_get_event_source(manager->monitor), SD_EVENT_OFF);
+        (void) sd_device_monitor_detach_event(manager->monitor);
 
         /* discard queued events and kill workers */
         event_queue_cleanup(manager, EVENT_QUEUED);
@@ -316,10 +326,10 @@ static int on_event_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
         assert(event->manager);
         assert(event->worker);
 
-        kill_and_sigcont(event->worker->pid, event->manager->config.timeout_signal);
+        (void) pidref_kill_and_sigcont(&event->worker->pidref, event->manager->config.timeout_signal);
         event->worker->state = WORKER_KILLED;
 
-        log_device_error(event->dev, "Worker ["PID_FMT"] processing SEQNUM=%"PRIu64" killed", event->worker->pid, event->seqnum);
+        log_device_error(event->dev, "Worker ["PID_FMT"] processing SEQNUM=%"PRIu64" killed.", event->worker->pidref.pid, event->seqnum);
 
         return 1;
 }
@@ -329,7 +339,7 @@ static int on_event_timeout_warning(sd_event_source *s, uint64_t usec, void *use
 
         assert(event->worker);
 
-        log_device_warning(event->dev, "Worker ["PID_FMT"] processing SEQNUM=%"PRIu64" is taking a long time", event->worker->pid, event->seqnum);
+        log_device_warning(event->dev, "Worker ["PID_FMT"] processing SEQNUM=%"PRIu64" is taking a long time.", event->worker->pidref.pid, event->seqnum);
 
         return 1;
 }
@@ -389,13 +399,14 @@ static void worker_attach_event(Worker *worker, Event *event) {
 }
 
 static int worker_spawn(Manager *manager, Event *event) {
-        _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *worker_monitor = NULL;
-        Worker *worker;
-        pid_t pid;
         int r;
 
+        assert(manager);
+        assert(event);
+
         /* listen for new events */
-        r = device_monitor_new_full(&worker_monitor, MONITOR_GROUP_NONE, -1);
+        _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *worker_monitor = NULL;
+        r = device_monitor_new_full(&worker_monitor, MONITOR_GROUP_NONE, -EBADF);
         if (r < 0)
                 return r;
 
@@ -406,7 +417,8 @@ static int worker_spawn(Manager *manager, Event *event) {
         if (r < 0)
                 return log_error_errno(r, "Worker: Failed to set unicast sender: %m");
 
-        r = safe_fork("(udev-worker)", FORK_DEATHSIG_SIGTERM, &pid);
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        r = pidref_safe_fork("(udev-worker)", FORK_DEATHSIG_SIGTERM, &pidref);
         if (r < 0) {
                 event->state = EVENT_QUEUED;
                 return log_error_errno(r, "Failed to fork() worker: %m");
@@ -416,10 +428,14 @@ static int worker_spawn(Manager *manager, Event *event) {
                         .monitor = TAKE_PTR(worker_monitor),
                         .properties = TAKE_PTR(manager->properties),
                         .rules = TAKE_PTR(manager->rules),
-                        .pipe_fd = TAKE_FD(manager->worker_notify_fd),
                         .inotify_fd = TAKE_FD(manager->inotify_fd),
                         .config = manager->config,
                 };
+
+                if (setenv("NOTIFY_SOCKET", manager->worker_notify_socket_path, /* overwrite = */ true) < 0) {
+                        log_error_errno(errno, "Failed to set $NOTIFY_SOCKET: %m");
+                        _exit(EXIT_FAILURE);
+                }
 
                 /* Worker process */
                 r = udev_worker_main(&w, event->dev);
@@ -427,13 +443,14 @@ static int worker_spawn(Manager *manager, Event *event) {
                 _exit(r < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
         }
 
-        r = worker_new(&worker, manager, worker_monitor, pid);
+        Worker *worker;
+        r = worker_new(&worker, manager, worker_monitor, &pidref);
         if (r < 0)
                 return log_error_errno(r, "Failed to create worker object: %m");
 
         worker_attach_event(worker, event);
 
-        log_device_debug(event->dev, "Worker ["PID_FMT"] is forked for processing SEQNUM=%"PRIu64".", pid, event->seqnum);
+        log_device_debug(event->dev, "Worker ["PID_FMT"] is forked for processing SEQNUM=%"PRIu64".", worker->pidref.pid, event->seqnum);
         return 0;
 }
 
@@ -458,8 +475,8 @@ static int event_run(Event *event) {
                 r = device_monitor_send(manager->monitor, &worker->address, event->dev);
                 if (r < 0) {
                         log_device_error_errno(event->dev, r, "Worker ["PID_FMT"] did not accept message, killing the worker: %m",
-                                               worker->pid);
-                        (void) kill(worker->pid, SIGKILL);
+                                               worker->pidref.pid);
+                        (void) pidref_kill(&worker->pidref, SIGKILL);
                         worker->state = WORKER_KILLED;
                         continue;
                 }
@@ -624,7 +641,7 @@ static int on_event_retry(sd_event_source *s, uint64_t usec, void *userdata) {
         return 1;
 }
 
-static int event_requeue(Event *event) {
+static void event_requeue(Event *event) {
         usec_t now_usec;
         int r;
 
@@ -632,23 +649,29 @@ static int event_requeue(Event *event) {
         assert(event->manager);
         assert(event->manager->event);
 
+        sd_device *dev = ASSERT_PTR(event->dev);
+
         event->timeout_warning_event = sd_event_source_disable_unref(event->timeout_warning_event);
         event->timeout_event = sd_event_source_disable_unref(event->timeout_event);
 
         /* add a short delay to suppress busy loop */
         r = sd_event_now(event->manager->event, CLOCK_BOOTTIME, &now_usec);
-        if (r < 0)
-                return log_device_warning_errno(event->dev, r,
-                                                "Failed to get current time, "
-                                                "skipping event (SEQNUM=%"PRIu64", ACTION=%s): %m",
-                                                event->seqnum, strna(device_action_to_string(event->action)));
+        if (r < 0) {
+                log_device_warning_errno(
+                                dev, r,
+                                "Failed to get current time, skipping event (SEQNUM=%"PRIu64", ACTION=%s): %m",
+                                event->seqnum, strna(device_action_to_string(event->action)));
+                goto fail;
+        }
 
-        if (event->retry_again_timeout_usec > 0 && event->retry_again_timeout_usec <= now_usec)
-                return log_device_warning_errno(event->dev, SYNTHETIC_ERRNO(ETIMEDOUT),
-                                                "The underlying block device is locked by a process more than %s, "
-                                                "skipping event (SEQNUM=%"PRIu64", ACTION=%s).",
-                                                FORMAT_TIMESPAN(EVENT_RETRY_TIMEOUT_USEC, USEC_PER_MINUTE),
-                                                event->seqnum, strna(device_action_to_string(event->action)));
+        if (event->retry_again_timeout_usec > 0 && event->retry_again_timeout_usec <= now_usec) {
+                r = log_device_warning_errno(
+                                dev, SYNTHETIC_ERRNO(ETIMEDOUT),
+                                "The underlying block device is locked by a process more than %s, skipping event (SEQNUM=%"PRIu64", ACTION=%s).",
+                                FORMAT_TIMESPAN(EVENT_RETRY_TIMEOUT_USEC, USEC_PER_MINUTE),
+                                event->seqnum, strna(device_action_to_string(event->action)));
+                goto fail;
+        }
 
         event->retry_again_next_usec = usec_add(now_usec, EVENT_RETRY_INTERVAL_USEC);
         if (event->retry_again_timeout_usec == 0)
@@ -658,17 +681,28 @@ static int event_requeue(Event *event) {
                                       CLOCK_MONOTONIC, EVENT_RETRY_INTERVAL_USEC, 0,
                                       on_event_retry, NULL,
                                       0, "retry-event", true);
-        if (r < 0)
-                return log_device_warning_errno(event->dev, r, "Failed to reset timer event source for retrying event, "
-                                                "skipping event (SEQNUM=%"PRIu64", ACTION=%s): %m",
-                                                event->seqnum, strna(device_action_to_string(event->action)));
+        if (r < 0) {
+                log_device_warning_errno(
+                                dev, r,
+                                "Failed to reset timer event source for retrying event, skipping event (SEQNUM=%"PRIu64", ACTION=%s): %m",
+                                event->seqnum, strna(device_action_to_string(event->action)));
+                goto fail;
+        }
 
-        if (event->worker && event->worker->event == event)
+        if (event->worker)
                 event->worker->event = NULL;
         event->worker = NULL;
 
         event->state = EVENT_QUEUED;
-        return 0;
+        return;
+
+fail:
+        (void) device_add_errno(dev, r);
+        r = device_monitor_send(event->manager->monitor, NULL, dev);
+        if (r < 0)
+                log_device_warning_errno(dev, r, "Failed to broadcast event to libudev listeners, ignoring: %m");
+
+        event_free(event);
 }
 
 static int event_queue_assume_block_device_unlocked(Manager *manager, sd_device *dev) {
@@ -787,68 +821,41 @@ static int on_uevent(sd_device_monitor *monitor, sd_device *dev, void *userdata)
         return 1;
 }
 
-static int on_worker(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+static int on_worker_notify(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         Manager *manager = ASSERT_PTR(userdata);
+        int r;
 
-        for (;;) {
-                EventResult result;
-                struct iovec iovec = IOVEC_MAKE(&result, sizeof(result));
-                CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct ucred))) control;
-                struct msghdr msghdr = {
-                        .msg_iov = &iovec,
-                        .msg_iovlen = 1,
-                        .msg_control = &control,
-                        .msg_controllen = sizeof(control),
-                };
-                ssize_t size;
-                struct ucred *ucred;
-                Worker *worker;
+        assert(fd >= 0);
 
-                size = recvmsg_safe(fd, &msghdr, MSG_DONTWAIT);
-                if (size == -EINTR)
-                        continue;
-                if (size == -EAGAIN)
-                        /* nothing more to read */
-                        break;
-                if (size < 0)
-                        return log_error_errno(size, "Failed to receive message: %m");
+        _cleanup_(pidref_done) PidRef sender = PIDREF_NULL;
+        _cleanup_strv_free_ char **l = NULL;
+        r = notify_recv_strv(fd, &l, /* ret_ucred= */ NULL, &sender);
+        if (r == -EAGAIN)
+                return 0;
+        if (r < 0)
+                return r;
 
-                cmsg_close_all(&msghdr);
-
-                if (size != sizeof(result)) {
-                        log_warning("Ignoring worker message with invalid size %zi bytes", size);
-                        continue;
-                }
-
-                ucred = CMSG_FIND_DATA(&msghdr, SOL_SOCKET, SCM_CREDENTIALS, struct ucred);
-                if (!ucred || ucred->pid <= 0) {
-                        log_warning("Ignoring worker message without valid PID");
-                        continue;
-                }
-
-                /* lookup worker who sent the signal */
-                worker = hashmap_get(manager->workers, PID_TO_PTR(ucred->pid));
-                if (!worker) {
-                        log_debug("Worker ["PID_FMT"] returned, but is no longer tracked", ucred->pid);
-                        continue;
-                }
-
-                if (worker->state == WORKER_KILLING) {
-                        worker->state = WORKER_KILLED;
-                        (void) kill(worker->pid, SIGTERM);
-                } else if (worker->state != WORKER_KILLED)
-                        worker->state = WORKER_IDLE;
-
-                /* worker returned */
-                if (result == EVENT_RESULT_TRY_AGAIN &&
-                    event_requeue(worker->event) < 0)
-                        udev_broadcast_result(manager->monitor, worker->event->dev, -ETIMEDOUT);
-
-                /* When event_requeue() succeeds, worker->event is NULL, and event_free() handles NULL gracefully. */
-                event_free(worker->event);
+        /* lookup worker who sent the signal */
+        Worker *worker = hashmap_get(manager->workers, &sender);
+        if (!worker) {
+                log_warning("Received notify datagram of unknown process ["PID_FMT"], ignoring.", sender.pid);
+                return 0;
         }
 
-        return 1;
+        if (strv_contains(l, "TRY_AGAIN=1"))
+                /* Worker cannot lock the device. Requeue the event. */
+                event_requeue(worker->event);
+        else
+                event_free(worker->event);
+
+        /* Update the state of the worker. */
+        if (worker->state == WORKER_KILLING) {
+                worker->state = WORKER_KILLED;
+                (void) pidref_kill(&worker->pidref, SIGTERM);
+        } else if (worker->state != WORKER_KILLED)
+                worker->state = WORKER_IDLE;
+
+        return 0;
 }
 
 static int synthesize_change_one(sd_device *dev, sd_device *target) {
@@ -1024,46 +1031,50 @@ static int on_sighup(sd_event_source *s, const struct signalfd_siginfo *si, void
 }
 
 static int on_sigchld(sd_event_source *s, const siginfo_t *si, void *userdata) {
-        Worker *worker = ASSERT_PTR(userdata);
-        Manager *manager = ASSERT_PTR(worker->manager);
+        _cleanup_(worker_freep) Worker *worker = ASSERT_PTR(userdata);
         sd_device *dev = worker->event ? ASSERT_PTR(worker->event->dev) : NULL;
-        EventResult result;
+        int r;
 
         assert(si);
 
         switch (si->si_code) {
         case CLD_EXITED:
-                if (si->si_status == 0)
+                if (si->si_status == 0) {
                         log_device_debug(dev, "Worker ["PID_FMT"] exited.", si->si_pid);
-                else
-                        log_device_warning(dev, "Worker ["PID_FMT"] exited with return code %i.",
-                                           si->si_pid, si->si_status);
-                result = EVENT_RESULT_EXIT_STATUS_BASE + si->si_status;
+                        return 0;
+                }
+
+                log_device_warning(dev, "Worker ["PID_FMT"] exited with return code %i.",
+                                   si->si_pid, si->si_status);
+                if (!dev)
+                        return 0;
+
+                (void) device_add_exit_status(dev, si->si_status);
                 break;
 
         case CLD_KILLED:
         case CLD_DUMPED:
                 log_device_warning(dev, "Worker ["PID_FMT"] terminated by signal %i (%s).",
                                    si->si_pid, si->si_status, signal_to_string(si->si_status));
-                result = EVENT_RESULT_SIGNAL_BASE + si->si_status;
+                if (!dev)
+                        return 0;
+
+                (void) device_add_signal(dev, si->si_status);
                 break;
 
         default:
                 assert_not_reached();
         }
 
-        if (result != EVENT_RESULT_SUCCESS && dev) {
-                /* delete state from disk */
-                device_delete_db(dev);
-                device_tag_index(dev, NULL, false);
+        /* delete state from disk */
+        device_delete_db(dev);
+        device_tag_index(dev, NULL, false);
 
-                /* Forward kernel event to libudev listeners */
-                udev_broadcast_result(manager->monitor, dev, result);
-        }
+        r = device_monitor_send(worker->manager->monitor, NULL, dev);
+        if (r < 0)
+                log_device_warning_errno(dev, r, "Failed to broadcast event to libudev listeners, ignoring: %m");
 
-        worker_free(worker);
-
-        return 1;
+        return 0;
 }
 
 static int on_post(sd_event_source *s, void *userdata) {
@@ -1131,7 +1142,6 @@ Manager* manager_new(void) {
 
         *manager = (Manager) {
                 .inotify_fd = -EBADF,
-                .worker_notify_fd = -EBADF,
                 .config_by_udev_conf = UDEV_CONFIG_INIT,
                 .config_by_command = UDEV_CONFIG_INIT,
                 .config_by_kernel = UDEV_CONFIG_INIT,
@@ -1267,40 +1277,21 @@ static int manager_start_inotify(Manager *manager) {
         return 0;
 }
 
-static int manager_start_worker_event(Manager *manager) {
-        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
-        _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
+static int manager_start_worker_notify(Manager *manager) {
         int r;
 
         assert(manager);
         assert(manager->event);
 
-        /* unnamed socket from workers to the main daemon */
-        r = socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, pair);
+        r = notify_socket_prepare(
+                        manager->event,
+                        SD_EVENT_PRIORITY_NORMAL,
+                        on_worker_notify,
+                        manager,
+                        &manager->worker_notify_socket_path);
         if (r < 0)
-                return log_error_errno(errno, "Failed to create socketpair for communicating with workers: %m");
+                return log_error_errno(r, "Failed to prepare worker notification socket: %m");
 
-        r = setsockopt_int(pair[READ_END], SOL_SOCKET, SO_PASSCRED, true);
-        if (r < 0)
-                return log_error_errno(r, "Failed to enable SO_PASSCRED: %m");
-
-        r = sd_event_add_io(manager->event, &s, pair[READ_END], EPOLLIN, on_worker, manager);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create worker event source: %m");
-
-        (void) sd_event_source_set_description(s, "manager-worker-event");
-
-        r = sd_event_source_set_io_fd_own(s, true);
-        if (r < 0)
-                return log_error_errno(r, "Failed to make worker event source own file descriptor: %m");
-
-        TAKE_FD(pair[READ_END]);
-
-        r = sd_event_source_set_floating(s, true);
-        if (r < 0)
-                return log_error_errno(r, "Failed to make worker event source floating: %m");
-
-        manager->worker_notify_fd = TAKE_FD(pair[WRITE_END]);
         return 0;
 }
 
@@ -1377,7 +1368,7 @@ int manager_main(Manager *manager) {
         if (r < 0)
                 return r;
 
-        r = manager_start_worker_event(manager);
+        r = manager_start_worker_notify(manager);
         if (r < 0)
                 return r;
 
