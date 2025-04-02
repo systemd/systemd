@@ -785,6 +785,20 @@ testcase_varlink() {
     varlinkctl introspect /run/systemd/io.systemd.Login
 }
 
+testcase_restart() {
+    local UNIT
+
+    UNIT=user-sleeper.service
+
+    systemd-run --service-type=notify run0 -u logind-test-user --unit="$UNIT" sleep infinity
+    systemctl restart systemd-logind
+
+    systemctl --quiet is-active "$UNIT"
+    loginctl | grep logind-test-user | grep -qw background
+
+    systemctl kill "$UNIT"
+}
+
 setup_test_user
 test_write_dropin
 run_testcases
