@@ -281,7 +281,7 @@ static int context_acquire_device_tree(Context *c) {
         assert(c);
         assert(!c->device_tree);
 
-        r = sd_device_new_from_path(&c->device_dmi, "/proc/device-tree/");
+        r = sd_device_new_from_path(&c->device_tree, "/proc/device-tree/");
         if (ERRNO_IS_NEG_DEVICE_ABSENT(r)) {
                 log_debug_errno(r, "Failed to open /proc/device-tree/ device, ignoring: %m");
                 return 0;
