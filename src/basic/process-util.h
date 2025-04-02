@@ -65,7 +65,7 @@ static inline bool SIGINFO_CODE_IS_DEAD(int code) {
         return IN_SET(code, CLD_EXITED, CLD_KILLED, CLD_DUMPED);
 }
 
-int wait_for_terminate(pid_t pid, siginfo_t *status);
+int wait_for_terminate(pid_t pid, siginfo_t *ret);
 
 typedef enum WaitFlags {
         WAIT_LOG_ABNORMAL             = 1 << 0,
@@ -75,7 +75,9 @@ typedef enum WaitFlags {
         WAIT_LOG = WAIT_LOG_ABNORMAL|WAIT_LOG_NON_ZERO_EXIT_STATUS,
 } WaitFlags;
 
+int pidref_wait_for_terminate_and_check(const char *name, PidRef *pidref, WaitFlags flags);
 int wait_for_terminate_and_check(const char *name, pid_t pid, WaitFlags flags);
+
 int wait_for_terminate_with_timeout(pid_t pid, usec_t timeout);
 
 void sigkill_wait(pid_t pid);
