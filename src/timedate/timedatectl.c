@@ -51,11 +51,10 @@ typedef struct StatusInfo {
 static int print_status_info(const StatusInfo *i) {
         _cleanup_(table_unrefp) Table *table = NULL;
         const char *old_tz = NULL, *tz, *tz_colon;
-        bool have_time = false;
         char a[LINE_MAX];
         TableCell *cell;
         struct tm tm;
-        usec_t t;
+        usec_t t = USEC_INFINITY;
         size_t n;
         int r;
 
@@ -83,16 +82,14 @@ static int print_status_info(const StatusInfo *i) {
         else
                 tzset();
 
-        if (i->time != 0) {
+        if (timestamp_is_set(i->time))
                 t = i->time;
-                have_time = true;
-        } else if (IN_SET(arg_transport, BUS_TRANSPORT_LOCAL, BUS_TRANSPORT_MACHINE)) {
+        else if (IN_SET(arg_transport, BUS_TRANSPORT_LOCAL, BUS_TRANSPORT_MACHINE))
                 t = now(CLOCK_REALTIME);
-                have_time = true;
-        } else
+        else
                 log_warning("Could not get time from timedated and not operating locally, ignoring.");
 
-        if (have_time) {
+        if (timestamp_is_set(t)) {
                 r = localtime_or_gmtime_usec(t, /* utc= */ false, &tm);
                 if (r < 0) {
                         log_warning_errno(r, "Failed to convert system time to local time, ignoring: %m");
@@ -107,7 +104,7 @@ static int print_status_info(const StatusInfo *i) {
         if (r < 0)
                 return table_log_add_error(r);
 
-        if (have_time) {
+        if (timestamp_is_set(t)) {
                 r = localtime_or_gmtime_usec(t, /* utc= */ true, &tm);
                 if (r < 0) {
                         log_warning_errno(r, "Failed to convert system time to universal time, ignoring: %m");
@@ -122,7 +119,7 @@ static int print_status_info(const StatusInfo *i) {
         if (r < 0)
                 return table_log_add_error(r);
 
-        if (i->rtc_time > 0) {
+        if (timestamp_is_set(i->rtc_time)) {
                 r = localtime_or_gmtime_usec(i->rtc_time, /* utc= */ true, &tm);
                 if (r < 0) {
                         log_warning_errno(r, "Failed to convert RTC time to universal time, ignoring: %m");
@@ -140,7 +137,7 @@ static int print_status_info(const StatusInfo *i) {
         r = table_add_cell(table, NULL, TABLE_FIELD, "Time zone");
         if (r < 0)
                 return table_log_add_error(r);
-        if (have_time) {
+        if (timestamp_is_set(t)) {
                 r = localtime_or_gmtime_usec(t, /* utc= */ false, &tm);
                 if (r < 0) {
                         log_warning_errno(r, "Failed to determine timezone from system time, ignoring: %m");
