@@ -10,9 +10,6 @@
 #include <security/pam_modules.h>
 #include <security/pam_modutil.h>
 #include <sys/file.h>
-#if HAVE_PIDFD_OPEN
-#include <sys/pidfd.h>
-#endif
 #include <sys/stat.h>
 #include <sys/sysmacros.h>
 #include <sys/types.h>
@@ -44,12 +41,12 @@
 #include "locale-util.h"
 #include "login-util.h"
 #include "macro.h"
-#include "missing_syscall.h"
 #include "osc-context.h"
 #include "pam-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "percent-util.h"
+#include "pidfd-util.h"
 #include "process-util.h"
 #include "rlimit-util.h"
 #include "socket-util.h"
@@ -895,9 +892,9 @@ static int create_session_message(
         assert(ret);
 
         if (!avoid_pidfd) {
-                pidfd = pidfd_open(getpid_cached(), 0);
+                pidfd = pidfd_open_safe(getpid_cached(), 0);
                 if (pidfd < 0)
-                        return -errno;
+                        return pidfd;
         }
 
         r = bus_message_new_method_call(bus, &m, bus_login_mgr, pidfd >= 0 ? "CreateSessionWithPIDFD" : "CreateSession");

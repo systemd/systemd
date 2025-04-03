@@ -7,6 +7,8 @@
 #include "missing_pidfd.h"
 #include "missing_syscall.h"
 
+int pidfd_open_safe(pid_t pid, unsigned flags);
+
 int pidfd_get_namespace(int fd, unsigned long ns_type_cmd);
 
 int pidfd_get_pid(int fd, pid_t *ret);
