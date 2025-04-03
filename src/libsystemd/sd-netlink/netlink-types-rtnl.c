@@ -239,6 +239,13 @@ static const NLAPolicy rtnl_link_info_data_gre_policies[] = {
         [IFLA_GRE_ERSPAN_HWID]      = BUILD_POLICY(U16),
 };
 
+static const NLAPolicy rtnl_link_info_data_hsr_policies[] = {
+        [IFLA_HSR_SLAVE1]           = BUILD_POLICY(U32),
+        [IFLA_HSR_SLAVE2]           = BUILD_POLICY(U32),
+        [IFLA_HSR_MULTICAST_SPEC]   = BUILD_POLICY(U8),
+        [IFLA_HSR_PROTOCOL]         = BUILD_POLICY(U8),
+};
+
 static const NLAPolicy rtnl_link_info_data_ipoib_policies[] = {
         [IFLA_IPOIB_PKEY]           = BUILD_POLICY(U16),
         [IFLA_IPOIB_MODE]           = BUILD_POLICY(U16),
@@ -413,8 +420,8 @@ static const NLAPolicySetUnionElement rtnl_link_info_data_policy_set_union_eleme
         BUILD_UNION_ELEMENT_BY_STRING("gretap",    rtnl_link_info_data_gre),
 /*
         BUILD_UNION_ELEMENT_BY_STRING("gtp",       rtnl_link_info_data_gtp),
-        BUILD_UNION_ELEMENT_BY_STRING("hsr",       rtnl_link_info_data_hsr),
 */
+        BUILD_UNION_ELEMENT_BY_STRING("hsr",       rtnl_link_info_data_hsr),
         BUILD_UNION_ELEMENT_BY_STRING("ip6erspan", rtnl_link_info_data_gre),
         BUILD_UNION_ELEMENT_BY_STRING("ip6gre",    rtnl_link_info_data_gre),
         BUILD_UNION_ELEMENT_BY_STRING("ip6gretap", rtnl_link_info_data_gre),
