@@ -1618,9 +1618,9 @@ _public_ int sd_event_add_child(
         /* We always take a pidfd here if we can, even if we wait for anything else than WEXITED, so that we
          * pin the PID, and make regular waitid() handling race-free. */
 
-        s->child.pidfd = pidfd_open(pid, 0);
+        s->child.pidfd = pidfd_open_safe(pid, 0);
         if (s->child.pidfd < 0)
-                return -errno;
+                return s->child.pidfd;
 
         s->child.pidfd_owned = true; /* If we allocate the pidfd we own it by default */
 
