@@ -98,6 +98,7 @@ getfattr --dump /tmp/validatefs-test.mount/efi
 
 # the generic one we must mount by hand
 mkdir -p /tmp/validatefs-test.mount/somewhere/else
+udevadm wait --timeout=30 /dev/disk/by-label/qnurx
 mount /dev/disk/by-label/qnurx /tmp/validatefs-test.mount/somewhere/else
 getfattr --dump /tmp/validatefs-test.mount/somewhere/else
 
