@@ -28,6 +28,11 @@ static ssize_t write_entry(char *buf, size_t size, Uploader *u) {
                         u->current_cursor = mfree(u->current_cursor);
 
                         r = sd_journal_get_cursor(u->journal, &u->current_cursor);
+                        if (r == -EBADMSG) {
+                                log_debug("Encountered bad or partially written entry while acquiring cursor, leaving.");
+                                u->entry_state = ENTRY_OUTRO;
+                                continue;
+                        }
                         if (r < 0)
                                 return log_error_errno(r, "Failed to get cursor: %m");
 
@@ -53,6 +58,11 @@ static ssize_t write_entry(char *buf, size_t size, Uploader *u) {
                         usec_t realtime;
 
                         r = sd_journal_get_realtime_usec(u->journal, &realtime);
+                        if (r == -EBADMSG) {
+                                log_debug("Encountered bad or partially written realtime timestamp, leaving.");
+                                u->entry_state = ENTRY_OUTRO;
+                                continue;
+                        }
                         if (r < 0)
                                 return log_error_errno(r, "Failed to get realtime timestamp: %m");
 
@@ -79,6 +89,11 @@ static ssize_t write_entry(char *buf, size_t size, Uploader *u) {
                         sd_id128_t boot_id;
 
                         r = sd_journal_get_monotonic_usec(u->journal, &monotonic, &boot_id);
+                        if (r == -EBADMSG) {
+                                log_debug("Encountered bad or partially written monotonic timestamp, leaving.");
+                                u->entry_state = ENTRY_OUTRO;
+                                continue;
+                        }
                         if (r < 0)
                                 return log_error_errno(r, "Failed to get monotonic timestamp: %m");
 
@@ -103,7 +118,12 @@ static ssize_t write_entry(char *buf, size_t size, Uploader *u) {
                 case ENTRY_BOOT_ID: {
                         sd_id128_t boot_id;
 
-                        r = sd_journal_get_monotonic_usec(u->journal, NULL, &boot_id);
+                        r = sd_journal_get_monotonic_usec(u->journal, /* ret_monotonic= */ NULL, &boot_id);
+                        if (r == -EBADMSG) {
+                                log_debug("Encountered bad or partially written boot ID, leaving.");
+                                u->entry_state = ENTRY_OUTRO;
+                                continue;
+                        }
                         if (r < 0)
                                 return log_error_errno(r, "Failed to get monotonic timestamp: %m");
 
@@ -131,6 +151,11 @@ static ssize_t write_entry(char *buf, size_t size, Uploader *u) {
                         r = sd_journal_enumerate_data(u->journal,
                                                       &u->field_data,
                                                       &u->field_length);
+                        if (r == -EBADMSG) {
+                                log_debug("Encountered bad or partially written data field, leaving.");
+                                u->entry_state = ENTRY_OUTRO;
+                                continue;
+                        }
                         if (r < 0)
                                 return log_error_errno(r, "Failed to move to next field in entry: %m");
                         if (r == 0) {
@@ -182,9 +207,11 @@ static ssize_t write_entry(char *buf, size_t size, Uploader *u) {
                         size_t len;
 
                         c = memchr(u->field_data, '=', u->field_length);
-                        if (!c || c == u->field_data)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Invalid field.");
+                        if (!c || c == u->field_data) {
+                                log_debug("Encountered field without '='. Assuming field is still being written, leaving.");
+                                u->entry_state = ENTRY_OUTRO;
+                                continue;
+                        }
 
                         len = c - (const char*)u->field_data;
 
@@ -198,8 +225,9 @@ static ssize_t write_entry(char *buf, size_t size, Uploader *u) {
 
                         u->field_pos = len + 1;
                         u->entry_state++;
-                }
+
                         _fallthrough_;
+                }
                 case ENTRY_BINARY_FIELD_SIZE: {
                         uint64_t le64;
 
@@ -274,10 +302,7 @@ static size_t journal_input_callback(void *buf, size_t size, size_t nmemb, void 
         while (j && filled < size * nmemb) {
                 if (u->entry_state == ENTRY_DONE) {
                         r = sd_journal_next(j);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to move to next entry in journal: %m");
-                                return CURL_READFUNC_ABORT;
-                        } else if (r == 0) {
+                        if (r == 0) {
                                 if (u->input_event)
                                         log_debug("No more entries, waiting for journal.");
                                 else {
@@ -286,10 +311,23 @@ static size_t journal_input_callback(void *buf, size_t size, size_t nmemb, void 
                                 }
 
                                 u->uploading = false;
-
                                 break;
                         }
+                        if (r == -EBADMSG) {
+                                if (u->input_event)
+                                        log_debug("Read bad or partially written entry, waiting for journal.");
+                                else {
+                                        log_info("Read bad or partially written entry, waiting for journal.");
+                                        close_journal_input(u);
+                                }
 
+                                u->uploading = false;
+                                break;
+                        }
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to move to next entry in journal: %m");
+                                return CURL_READFUNC_ABORT;
+                        }
                         u->entry_state = ENTRY_CURSOR;
                 }
 
