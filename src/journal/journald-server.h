@@ -186,6 +186,12 @@ struct Server {
         ClientContext *pid1_context; /* the context of PID 1 */
 
         sd_varlink_server *varlink_server;
+
+        /* timestamp of most recently processed log messages from each source (CLOCK_REALTIME) */
+        usec_t native_timestamp, syslog_timestamp;
+
+        /* Pending synchronization requests, ordered by their timestamp */
+        Prioq *sync_req_prioq;
 };
 
 #define SERVER_MACHINE_ID(s) ((s)->machine_id_field + STRLEN("_MACHINE_ID="))
