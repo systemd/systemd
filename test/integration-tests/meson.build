@@ -15,6 +15,8 @@ integration_test_template = {
                 'wants' : 'multi-user.target user@4711.service',
                 'after' : 'user@4711.service',
                 'env' : {},
+                'service' : {},
+                'unit' : {},
         },
         'cmdline' : [],
         'credentials' : [],
@@ -109,13 +111,8 @@ foreach integration_test : integration_tests
                 '--exit-code', integration_test['exit-code'].to_string(),
                 '--coredump-exclude-regex', integration_test['coredump-exclude-regex'],
                 '--sanitizer-exclude-regex', integration_test['sanitizer-exclude-regex'],
+                '--unit', '@0@.service'.format(integration_test['name'])
         ]
-
-        if 'unit' in integration_test
-                integration_test_args += ['--unit', fs.name(integration_test['unit'])]
-        else
-                integration_test_args += ['--unit', '@0@.service'.format(integration_test['name'])]
-        endif
 
         if integration_test['vm']
                 integration_test_args += ['--vm']
