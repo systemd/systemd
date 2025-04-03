@@ -1576,7 +1576,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         _cleanup_free_ int *pass_fds = NULL;
         size_t n_pass_fds = 0;
         const char *accel, *shm;
-        int r;
+        int i, r;
 
         if (arg_privileged)
                 r = sd_bus_default_system(&bus);
@@ -1973,6 +1973,11 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return log_oom();
         }
 
+        if (arg_image || strv_length(arg_extra_drives) > 0) {
+                strv_extend_many(&cmdline, "-device", "virtio-scsi-pci,id=scsi");
+        }
+
+        i = 0;
         STRV_FOREACH(drive, arg_extra_drives) {
                 _cleanup_free_ char *escaped_drive = NULL;
 
@@ -1984,7 +1989,15 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (!escaped_drive)
                         return log_oom();
 
-                r = strv_extendf(&cmdline, "driver=raw,cache.direct=off,cache.no-flush=on,file.driver=file,file.filename=%s", escaped_drive);
+                r = strv_extendf(&cmdline, "driver=raw,cache.direct=off,cache.no-flush=on,file.driver=file,file.filename=%s,node-name=vmspawn_extra%d", escaped_drive, i);
+                if (r < 0)
+                        return log_oom();
+
+                r = strv_extend(&cmdline, "-device");
+                if (r < 0)
+                        return log_oom();
+
+                r = strv_extendf(&cmdline, "scsi-hd,drive=vmspawn_extra%d", i++);
                 if (r < 0)
                         return log_oom();
         }
@@ -2020,9 +2033,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (r < 0)
                         return log_oom();
 
-                r = strv_extend_many(&cmdline,
-                        "-device", "virtio-scsi-pci,id=scsi",
-                        "-device", "scsi-hd,drive=vmspawn,bootindex=1");
+                r = strv_extend_many(&cmdline, "-device", "scsi-hd,drive=vmspawn,bootindex=1");
                 if (r < 0)
                         return log_oom();
         }
