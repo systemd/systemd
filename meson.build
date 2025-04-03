@@ -380,6 +380,7 @@ possible_common_cc_flags = [
         '-Wendif-labels',
         '-Werror=bool-compare',
         '-Werror=discarded-qualifiers',
+        '-Werror=flex-array-member-not-at-end',
         '-Werror=format=2',
         '-Werror=format-signedness',
         '-Werror=implicit-function-declaration',
