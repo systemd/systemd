@@ -2,6 +2,7 @@
 
 #include "sd-event.h"
 
+#include "build-path.h"
 #include "device-private.h"
 #include "device-util.h"
 #include "event-util.h"
@@ -277,6 +278,12 @@ int udev_event_spawn(
                         return log_oom();
 
                 free_and_replace(argv[0], program);
+        }
+
+        char *found;
+        if (find_callout_binary(argv[0], &found) >= 0) {
+                log_device_debug(event->dev, "Found callout binary \"%s\" at \"%s\".", argv[0], found);
+                free_and_replace(argv[0], found);
         }
 
         char **envp;
