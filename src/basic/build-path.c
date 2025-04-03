@@ -7,6 +7,7 @@
 #include "build-path.h"
 #include "errno-list.h"
 #include "errno-util.h"
+#include "fd-util.h"
 #include "macro.h"
 #include "path-util.h"
 #include "process-util.h"
@@ -271,4 +272,17 @@ int pin_callout_binary(const char *path) {
         }
 
         return RET_NERRNO(open(path, O_CLOEXEC|O_PATH));
+}
+
+int find_callout_binary(const char *path, char **ret) {
+        assert(path);
+        assert(ret);
+
+        /* Similar to invoke_callout_binary(), but provides the path to the binary instead of executing it. */
+
+        _cleanup_close_ int fd = pin_callout_binary(path);
+        if (fd < 0)
+                return fd;
+
+        return fd_get_path(fd, ret);
 }

@@ -2,6 +2,7 @@
 
 #include "sd-event.h"
 
+#include "build-path.h"
 #include "device-private.h"
 #include "device-util.h"
 #include "event-util.h"
@@ -278,6 +279,13 @@ int udev_event_spawn(
 
                 free_and_replace(argv[0], program);
         }
+
+        char *found;
+        r = find_callout_binary(argv[0], &found);
+        if (r < 0)
+                return log_device_error_errno(event->dev, r, "Failed to find callout binary '%s': %m", argv[0]);
+
+        free_and_replace(argv[0], found);
 
         char **envp;
         r = device_get_properties_strv(event->dev, &envp);
