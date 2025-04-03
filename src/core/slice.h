@@ -10,6 +10,9 @@ struct Slice {
 
         SliceState state, deserialized_state;
 
+        unsigned concurrency_soft_max;
+        unsigned concurrency_hard_max;
+
         CGroupContext cgroup_context;
 
         CGroupRuntime *cgroup_runtime;
@@ -18,3 +21,8 @@ struct Slice {
 extern const UnitVTable slice_vtable;
 
 DEFINE_CAST(SLICE, Slice);
+
+unsigned slice_get_currently_active(Slice *slice, Unit *ignore, bool with_pending);
+
+bool slice_test_concurrency_hard_max(Slice *slice, Unit *ignore);
+bool slice_test_concurrency_soft_max(Slice *slice, Unit *ignore);
