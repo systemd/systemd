@@ -369,9 +369,21 @@ static int setup_input(
         case EXEC_INPUT_TTY_FORCE:
         case EXEC_INPUT_TTY_FAIL: {
                 _cleanup_close_ int tty_fd = -EBADF;
+                _cleanup_free_ char *resolved = NULL;
                 const char *tty_path;
 
                 tty_path = ASSERT_PTR(exec_context_tty_path(context));
+
+                if (tty_is_console(tty_path)) {
+                        r = resolve_dev_console(&resolved);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to resolve /dev/console, ignoring: %m");
+                        else {
+
+                                log_debug("Resolved /dev/console to %s", resolved);
+                                tty_path = resolved;
+                        }
+                }
 
                 tty_fd = acquire_terminal(tty_path,
                                           i == EXEC_INPUT_TTY_FAIL  ? ACQUIRE_TERMINAL_TRY :
@@ -1190,6 +1202,7 @@ static int setup_pam(
 
         _cleanup_(barrier_destroy) Barrier barrier = BARRIER_NULL;
         _cleanup_strv_free_ char **e = NULL;
+        _cleanup_free_ char *tty = NULL;
         pam_handle_t *handle = NULL;
         sigset_t old_ss;
         int pam_code = PAM_SUCCESS, r;
@@ -1225,15 +1238,12 @@ static int setup_pam(
                 goto fail;
         }
 
-        const char *tty = context->tty_path;
-        if (!tty) {
-                _cleanup_free_ char *q = NULL;
+        if (getttyname_malloc(STDIN_FILENO, &tty) >= 0) {
+                _cleanup_free_ char *q = path_join("/dev", tty);
+                if (!q)
+                        return NULL;
 
-                /* Hmm, so no TTY was explicitly passed, but an fd passed to us directly might be a TTY. Let's figure
-                 * out if that's the case, and read the TTY off it. */
-
-                if (getttyname_malloc(STDIN_FILENO, &q) >= 0)
-                        tty = strjoina("/dev/", q);
+                free_and_replace(tty, q);
         }
 
         if (tty) {
