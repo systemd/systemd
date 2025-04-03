@@ -30,4 +30,27 @@ LABEL="gpt_auto_root_end"
 ENV{DM_UUID}=="CRYPT-*", ENV{DM_NAME}=="root", IMPORT{builtin}="factory_reset status", SYMLINK+="gpt-auto-root"
 ENV{DM_UUID}=="CRYPT-*", ENV{DM_NAME}=="root", ENV{ID_FACTORY_RESET}=="on|complete", SYMLINK+="gpt-auto-root-ignore-factory-reset"
 
+# If this is the whole disk that we booted from, then dissect it
+ENV{DEVTYPE}=="disk", ENV{ID_PART_GPT_AUTO_ROOT_DISK}=="1", IMPORT{builtin}="dissect_image probe"
+ENV{DEVTYPE}=="disk", ENV{ID_PART_GPT_AUTO_ROOT_DISK}=="1", ENV{ID_FACTORY_RESET}=="", IMPORT{builtin}="factory_reset status"
+
+# If this is a partition, and we found something on the parent, then copy the
+# right properties from the parent, and rename them
+ENV{DEVTYPE}=="partition", ENV{ID_DISSECT_IMAGE}!="", IMPORT{builtin}="dissect_image copy"
+
+# Create symlinks based on the designator for the partitions themselves. If we detect LUKS or Verity, suffix them with "-luks" or "-vdata"
+ENV{DEVTYPE}!="partition", GOTO="dissect_partition_symlinks_end"
+    ENV{ID_DISSECT_PART_DESIGNATOR}=="", GOTO="dissect_partition_symlinks_end"
+        ENV{ID_FS_TYPE}!="crypto_LUKS", ENV{ID_DISSECT_PART_HAS_VERITY}!="1", ENV{ID_FACTORY_RESET}!="on", SYMLINK+="disk/by-designator/$env{ID_DISSECT_PART_DESIGNATOR}"
+        ENV{ID_FS_TYPE}!="crypto_LUKS", ENV{ID_DISSECT_PART_HAS_VERITY}!="1", ENV{ID_FACTORY_RESET}=="on|complete", SYMLINK+="disk/by-designator/$env{ID_DISSECT_PART_DESIGNATOR}-ignore-factory-reset"
+        ENV{ID_FS_TYPE}=="crypto_LUKS", ENV{ID_FACTORY_RESET}!="on", SYMLINK+="disk/by-designator/$env{ID_DISSECT_PART_DESIGNATOR}-luks"
+        ENV{ID_FS_TYPE}=="crypto_LUKS", ENV{ID_FACTORY_RESET}=="on|complete", SYMLINK+="disk/by-designator/$env{ID_DISSECT_PART_DESIGNATOR}-luks-ignore-factory-reset"
+        ENV{ID_FS_TYPE}!="crypto_LUKS", ENV{ID_DISSECT_PART_HAS_VERITY}=="1", ENV{ID_FACTORY_RESET}!="on", SYMLINK+="disk/by-designator/$env{ID_DISSECT_PART_DESIGNATOR}-verity-data"
+        ENV{ID_FS_TYPE}!="crypto_LUKS", ENV{ID_DISSECT_PART_HAS_VERITY}=="1", ENV{ID_FACTORY_RESET}=="on|complete", SYMLINK+="disk/by-designator/$env{ID_DISSECT_PART_DESIGNATOR}-verity-data-ignore-factory-reset"
+LABEL="dissect_partition_symlinks_end"
+
+# For LUKS or Verity partitions we rely on the selected volume name
+ENV{DM_UUID}=="CRYPT-*", ENV{DM_NAME}=="root|usr|home|srv|swap|tmp|var", IMPORT{builtin}="factory_reset status", SYMLINK+="disk/by-designator/$env{DM_NAME}"
+ENV{DM_UUID}=="CRYPT-*", ENV{DM_NAME}=="root|usr|home|srv|swap|tmp|var", ENV{ID_FACTORY_RESET}=="on|complete", SYMLINK+="disk/by-designator/$env{DM_NAME}-ignore-factory-reset"
+
 LABEL="image_dissect_end"

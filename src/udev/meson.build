@@ -22,6 +22,7 @@ libudevd_core_sources = files(
         'net/link-config.c',
         'udev-builtin.c',
         'udev-builtin-btrfs.c',
+        'udev-builtin-dissect_image.c',
         'udev-builtin-factory_reset.c',
         'udev-builtin-hwdb.c',
         'udev-builtin-input_id.c',

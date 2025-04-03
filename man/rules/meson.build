@@ -1188,6 +1188,7 @@ manpages = [
  ['systemd.environment-generator', '7', [], 'ENABLE_ENVIRONMENT_D'],
  ['systemd.exec', '5', [], ''],
  ['systemd.generator', '7', [], ''],
+ ['systemd.image-filter', '7', [], ''],
  ['systemd.image-policy', '7', [], ''],
  ['systemd.journal-fields', '7', [], ''],
  ['systemd.kill', '5', [], ''],

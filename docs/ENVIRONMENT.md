@@ -529,6 +529,14 @@ disk images with `--image=` or similar:
   images. Defaults to true, i.e. userspace signature validation is allowed. If
   false, authentication can be done only via the kernel's internal keyring.
 
+* `$SYSTEMD_DISSECT_VERITY_GUESS` – takes a boolean. Controls whether to guess
+  the Verity root hash from the partition UUIDs of a suitable pair of data
+  partition and matching Verity partition: the UUIDs two are simply joined and
+  used as root hash, in accordance with the recommendations in [Discoverable
+  Partitions
+  Specification](https://uapi-group.org/specifications/specs/discoverable_partitions_specification). Defaults
+  to true.
+
 `systemd-cryptsetup`:
 
 * `$SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE` – takes a boolean, which controls
