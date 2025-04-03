@@ -1194,6 +1194,7 @@ static int discover_root(char **ret) {
                         /* verity= */ NULL,
                         /* mount_options= */ NULL,
                         /* image_policy= */ NULL,
+                        /* image_filter= */ NULL,
                         /* flags= */ 0,
                         &image);
         if (r < 0)
