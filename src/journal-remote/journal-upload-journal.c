@@ -133,7 +133,7 @@ static ssize_t write_entry(char *buf, size_t size, Uploader *u) {
                                                       &u->field_length);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to move to next field in entry: %m");
-                        else if (r == 0) {
+                        if (r == 0) {
                                 u->entry_state = ENTRY_OUTRO;
                                 continue;
                         }
@@ -171,10 +171,10 @@ static ssize_t write_entry(char *buf, size_t size, Uploader *u) {
                                 pos += tocopy + 1;
                                 u->entry_state = ENTRY_NEW_FIELD;
                                 continue;
-                        } else {
-                                u->field_pos += tocopy;
-                                return size;
                         }
+
+                        u->field_pos += tocopy;
+                        return size;
                 }
 
                 case ENTRY_BINARY_FIELD_START: {
