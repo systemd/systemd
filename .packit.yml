@@ -19,7 +19,7 @@ actions:
   post-upstream-clone:
     # Use the Fedora Rawhide specfile
     - git clone https://src.fedoraproject.org/rpms/systemd .packit_rpm
-    - bash -c 'git -C .packit_rpm checkout "$(grep GIT_COMMIT= mkosi.conf.d/centos-fedora/mkosi.conf.d/pkgenv.conf | cut -d= -f2)"'
+    - bash -c 'git -C .packit_rpm checkout "$(grep GIT_COMMIT= mkosi/mkosi.conf.d/centos-fedora/mkosi.conf.d/pkgenv.conf | cut -d= -f2)"'
     - bash -c 'echo "%bcond upstream 1" > .packit_rpm/systemd.spec.new'
     - bash -c 'echo "%define meson_extra_configure_options --werror" >> .packit_rpm/systemd.spec.new'
     - bash -c 'cat .packit_rpm/systemd.spec >> .packit_rpm/systemd.spec.new'
@@ -39,7 +39,7 @@ jobs:
   trigger: pull_request
   fmf_url: https://src.fedoraproject.org/rpms/systemd
   # This is automatically updated by tools/fetch-distro.py --update fedora
-  fmf_ref: 617952132de4ed882b9b00ceeed077f843130f91
+  fmf_ref: b17e5d64a1cd9f1ac2600c90ea93fcf9c5c11784
   targets:
   - fedora-rawhide-x86_64
   # testing-farm in the Fedora repository is explicitly configured to use testing-farm bare metal runners as
