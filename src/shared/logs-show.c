@@ -866,10 +866,10 @@ static int output_verbose(
                 p = c + 1;
 
                 if (flags & OUTPUT_COLOR) {
-                        if (startswith(data, "MESSAGE=")) {
+                        if (memory_startswith(data, length, "MESSAGE=")) {
                                 on = ansi_highlight();
                                 off = ansi_normal();
-                        } else if (startswith(data, "CONFIG_FILE=")) {
+                        } else if (memory_startswith(data, length, "CONFIG_FILE=")) {
                                 _cleanup_free_ char *u = NULL;
 
                                 u = memdup_suffix0(p, valuelen);
@@ -881,7 +881,7 @@ static int output_verbose(
                                         valuelen = strlen(urlified);
                                 }
 
-                        } else if (startswith(data, "_")) {
+                        } else if (memory_startswith(data, length, "_")) {
                                 /* Highlight trusted data as such */
                                 on = ansi_green();
                                 off = ansi_normal();
