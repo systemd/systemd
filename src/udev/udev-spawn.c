@@ -2,9 +2,11 @@
 
 #include "sd-event.h"
 
+#include "build-path.h"
 #include "device-private.h"
 #include "device-util.h"
 #include "event-util.h"
+#include "exec-util.h"
 #include "fd-util.h"
 #include "path-util.h"
 #include "process-util.h"
@@ -279,6 +281,14 @@ int udev_event_spawn(
                 free_and_replace(argv[0], program);
         }
 
+        char *found;
+        _cleanup_close_ int fd_executable = r = pin_callout_binary(argv[0], &found);
+        if (r < 0)
+                return log_device_error_errno(event->dev, r, "Failed to find and pin callout binary \"%s\": %m", argv[0]);
+
+        log_device_debug(event->dev, "Found callout binary: \"%s\".", found);
+        free_and_replace(argv[0], found);
+
         char **envp;
         r = device_get_properties_strv(event->dev, &envp);
         if (r < 0)
@@ -290,7 +300,7 @@ int udev_event_spawn(
         r = pidref_safe_fork_full(
                         "(spawn)",
                         (int[]) { -EBADF, outpipe[WRITE_END], errpipe[WRITE_END] },
-                        NULL, 0,
+                        &fd_executable, 1,
                         FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REARRANGE_STDIO|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE,
                         &pidref);
         if (r < 0)
@@ -298,7 +308,7 @@ int udev_event_spawn(
                                               "Failed to fork() to execute command '%s': %m", cmd);
         if (r == 0) {
                 DEVICE_TRACE_POINT(spawn_exec, event->dev, cmd);
-                execve(argv[0], argv, envp);
+                (void) fexecve_or_execve(fd_executable, argv[0], argv, envp);
                 _exit(EXIT_FAILURE);
         }
 
