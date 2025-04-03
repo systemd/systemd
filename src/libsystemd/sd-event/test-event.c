@@ -1,8 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#if HAVE_PIDFD_OPEN
-#include <sys/pidfd.h>
-#endif
 #include <sys/wait.h>
 #include <unistd.h>
 
@@ -14,9 +11,9 @@
 #include "fs-util.h"
 #include "log.h"
 #include "macro.h"
-#include "missing_syscall.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pidfd-util.h"
 #include "process-util.h"
 #include "random-util.h"
 #include "rm-rf.h"
@@ -572,7 +569,7 @@ TEST(pidfd) {
 
         assert_se(pid > 1);
 
-        ASSERT_OK(pidfd = pidfd_open(pid, 0));
+        ASSERT_OK(pidfd = pidfd_open_safe(pid, 0));
 
         pid2 = fork();
         if (pid2 == 0)

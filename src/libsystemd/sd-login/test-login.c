@@ -1,9 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <poll.h>
-#if HAVE_PIDFD_OPEN
-#include <sys/pidfd.h>
-#endif
 
 #include "sd-login.h"
 
@@ -12,8 +9,8 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "log.h"
-#include "missing_syscall.h"
 #include "mountpoint-util.h"
+#include "pidfd-util.h"
 #include "process-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -78,7 +75,7 @@ TEST(login) {
         log_info("sd_pid_get_cgroup(0, …) → %s / \"%s\"", e(r), strnull(cgroup));
         assert_se(IN_SET(r, 0, -ENOMEDIUM));
 
-        pidfd = pidfd_open(getpid_cached(), 0);
+        pidfd = pidfd_open_safe(getpid_cached(), 0);
         if (pidfd >= 0) {
                 _cleanup_free_ char *cgroup2 = NULL, *session2 = NULL,
                         *unit2 = NULL, *user_unit2 = NULL, *slice2 = NULL;
