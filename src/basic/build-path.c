@@ -246,7 +246,7 @@ int invoke_callout_binary(const char *path, char *const argv[]) {
         return -errno;
 }
 
-static int open_executable(const char *path) {
+static int open_executable(const char *path, char **ret_path) {
         int r;
 
         assert(path);
@@ -263,15 +263,22 @@ static int open_executable(const char *path) {
         if (r < 0)
                 return r;
 
+        if (ret_path) {
+                r = fd_get_path(fd, ret_path);
+                if (r < 0)
+                        return r;
+        }
+
         return TAKE_FD(fd);
 }
 
-int pin_callout_binary(const char *path) {
+int pin_callout_binary(const char *path, char **ret_path) {
         int r;
 
         assert(path);
 
-        /* Similar to invoke_callout_binary(), but pins (i.e. O_PATH opens) the binary instead of executing it. */
+        /* Similar to invoke_callout_binary(), but pins (i.e. O_PATH opens) the binary instead of executing
+         * it, also optionally provides the path to the binary. */
 
         _cleanup_free_ char *fn = NULL;
         r = path_extract_filename(path, &fn);
@@ -282,14 +289,14 @@ int pin_callout_binary(const char *path) {
 
         const char *e;
         if (find_environment_binary(fn, &e) >= 0)
-                return open_executable(e);
+                return open_executable(e, ret_path);
 
         _cleanup_free_ char *np = NULL;
         if (find_build_dir_binary(fn, &np) >= 0) {
-                r = open_executable(np);
+                r = open_executable(np, ret_path);
                 if (r >= 0)
                         return r;
         }
 
-        return open_executable(path);
+        return open_executable(path, ret_path);
 }
