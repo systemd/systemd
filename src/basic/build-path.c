@@ -293,3 +293,16 @@ int pin_callout_binary(const char *path) {
 
         return open_executable(path);
 }
+
+int find_callout_binary(const char *path, char **ret) {
+        assert(path);
+        assert(ret);
+
+        /* Similar to invoke_callout_binary(), but provides the path to the binary instead of executing it. */
+
+        _cleanup_close_ int fd = pin_callout_binary(path);
+        if (fd < 0)
+                return fd;
+
+        return fd_get_path(fd, ret);
+}
