@@ -7,12 +7,13 @@
 # Adolfo Jayme Barrientos <fitoschido@gmail.com>, 2020, 2021.
 # Emilio Herrera <ehespinosa57@gmail.com>, 2021.
 # Jose Ortuno <jose_ortuno@hotmail.com>, 2025.
+# Javier Francisco <fserrador@gmail.com>, 2025.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2024-11-28 18:16+0900\n"
-"PO-Revision-Date: 2025-03-21 12:57+0000\n"
-"Last-Translator: Jose Ortuno <jose_ortuno@hotmail.com>\n"
+"PO-Revision-Date: 2025-04-03 22:43+0000\n"
+"Last-Translator: Javier Francisco <fserrador@gmail.com>\n"
 "Language-Team: Spanish <https://translate.fedoraproject.org/projects/systemd/"
 "main/es/>\n"
 "Language: es\n"
@@ -379,11 +380,11 @@ msgstr "Necesita autenticarse para obtener el numero de serie del hardware."
 
 #: src/hostname/org.freedesktop.hostname1.policy:71
 msgid "Get system description"
-msgstr "Obtener la descripcion del sistema"
+msgstr "Obtener descripción del sistema"
 
 #: src/hostname/org.freedesktop.hostname1.policy:72
 msgid "Authentication is required to get system description."
-msgstr "Necesita autenticarse para obtener la descripcion del sistema."
+msgstr "Necesita autenticarse para obtener la descripción del sistema."
 
 #: src/import/org.freedesktop.import1.policy:22
 msgid "Import a disk image"
