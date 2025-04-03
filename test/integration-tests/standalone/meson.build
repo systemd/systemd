@@ -3,8 +3,8 @@
 # This meson file can be used to run the integration tests without having to install any other dependencies
 # as follows:
 #
-# mkosi -f sandbox -- meson setup testsuite test/integration-tests/standalone
 # mkosi genkey
+# mkosi -f sandbox -- meson setup testsuite test/integration-tests/standalone
 # mkosi -f
 # mkosi sandbox -- meson test -C testsuite
 #
