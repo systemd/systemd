@@ -786,17 +786,23 @@ testcase_varlink() {
 }
 
 testcase_restart() {
-    local UNIT
+    local classes unit c
 
-    UNIT=user-sleeper.service
+    classes='user user-early user-incomplete greeter lock-screen background background-light manager manager-early'
 
-    systemd-run --service-type=notify run0 -u logind-test-user --unit="$UNIT" sleep infinity
+    for c in $classes; do
+        unit="user-sleeper-$c.service"
+        systemd-run --service-type=notify run0  --setenv XDG_SESSION_CLASS="$c" -u logind-test-user --unit="$unit" sleep infinity
+    done
+
     systemctl restart systemd-logind
 
-    systemctl --quiet is-active "$UNIT"
-    loginctl | grep logind-test-user | grep -qw background
-
-    systemctl kill "$UNIT"
+    for c in $classes; do
+        unit="user-sleeper-$c.service"
+        systemctl --quiet is-active "$unit"
+        loginctl | grep logind-test-user | grep -qw "$c"
+        systemctl kill "$unit"
+    done
 }
 
 setup_test_user
