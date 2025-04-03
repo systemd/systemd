@@ -55,7 +55,7 @@ static int print_status_info(const StatusInfo *i) {
         char a[LINE_MAX];
         TableCell *cell;
         struct tm tm;
-        usec_t t;
+        usec_t t = USEC_INFINITY; /* Avoid -Wmaybe-uninitialized false positives */
         size_t n;
         int r;
 
