@@ -65,7 +65,7 @@ EOF
 TS="${SOURCE_DATE_EPOCH:-$(date +%s)}"
 
 sed --in-place "pkg/$PKG_SUBDIR/PKGBUILD" \
-    --expression "s/^_tag=.*/_tag=$(cat meson.version)/" \
+    --expression "s/^pkgver=.*/pkgver=$(cat meson.version)/" \
     --expression "s/^pkgrel=.*/pkgrel=$(date "+%Y%m%d%H%M%S" --date "@$TS")/"
 
 # We get around makepkg's root check by setting EUID to something else.
