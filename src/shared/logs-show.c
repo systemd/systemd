@@ -363,7 +363,6 @@ finish:
 
 static int output_timestamp_realtime(
                 FILE *f,
-                sd_journal *j,
                 OutputMode mode,
                 OutputFlags flags,
                 usec_t usec) {
@@ -372,7 +371,6 @@ static int output_timestamp_realtime(
         int r;
 
         assert(f);
-        assert(j);
 
         if (!VALID_REALTIME(usec))
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "No valid realtime timestamp available, skipping showing journal entry.");
@@ -621,7 +619,7 @@ static int output_short(
         } else {
                 usec_t usec;
                 parse_display_realtime(j, realtime, monotonic, &usec);
-                r = output_timestamp_realtime(f, j, mode, flags, usec);
+                r = output_timestamp_realtime(f, mode, flags, usec);
         }
         if (r == -EINVAL)
                 return 0;
