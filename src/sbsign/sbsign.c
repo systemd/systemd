@@ -669,18 +669,18 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
                 end += n;
         }
 
-        uint32_t certsz = offsetof(WIN_CERTIFICATE, bCertificate) + sigsz;
+        uint32_t certsz = sizeof(WIN_CERTIFICATE_HEADER) + sigsz;
         n = pwrite(dstfd,
-                   &(WIN_CERTIFICATE) {
+                   &(WIN_CERTIFICATE_HEADER) {
                            .wRevision = htole16(0x200),
                            .wCertificateType = htole16(0x0002), /* PKCS7 signedData */
                            .dwLength = htole32(ROUND_UP(certsz, 8)),
                    },
-                   sizeof(WIN_CERTIFICATE),
+                   sizeof(WIN_CERTIFICATE_HEADER),
                    end);
         if (n < 0)
                 return log_error_errno(errno, "Failed to write certificate header: %m");
-        if (n != sizeof(WIN_CERTIFICATE))
+        if (n != sizeof(WIN_CERTIFICATE_HEADER))
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short write while writing certificate header.");
 
         end += n;
