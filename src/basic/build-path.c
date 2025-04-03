@@ -7,6 +7,7 @@
 #include "build-path.h"
 #include "errno-list.h"
 #include "errno-util.h"
+#include "fd-util.h"
 #include "macro.h"
 #include "path-util.h"
 #include "process-util.h"
@@ -245,6 +246,26 @@ int invoke_callout_binary(const char *path, char *const argv[]) {
         return -errno;
 }
 
+static int open_executable(const char *path) {
+        int r;
+
+        assert(path);
+
+        _cleanup_close_ int fd = RET_NERRNO(open(path, O_CLOEXEC|O_PATH));
+        if (fd < 0)
+                return fd;
+
+        r = fd_verify_regular(fd);
+        if (r < 0)
+                return r;
+
+        r = access_fd(fd, X_OK);
+        if (r < 0)
+                return r;
+
+        return TAKE_FD(fd);
+}
+
 int pin_callout_binary(const char *path) {
         int r;
 
@@ -261,14 +282,27 @@ int pin_callout_binary(const char *path) {
 
         const char *e;
         if (find_environment_binary(fn, &e) >= 0)
-                return RET_NERRNO(open(e, O_CLOEXEC|O_PATH));
+                return open_executable(e);
 
         _cleanup_free_ char *np = NULL;
         if (find_build_dir_binary(fn, &np) >= 0) {
-                r = RET_NERRNO(open(np, O_CLOEXEC|O_PATH));
+                r = open_executable(np);
                 if (r >= 0)
                         return r;
         }
 
-        return RET_NERRNO(open(path, O_CLOEXEC|O_PATH));
+        return open_executable(path);
+}
+
+int find_callout_binary(const char *path, char **ret) {
+        assert(path);
+        assert(ret);
+
+        /* Similar to invoke_callout_binary(), but provides the path to the binary instead of executing it. */
+
+        _cleanup_close_ int fd = pin_callout_binary(path);
+        if (fd < 0)
+                return fd;
+
+        return fd_get_path(fd, ret);
 }
