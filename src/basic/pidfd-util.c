@@ -11,6 +11,7 @@
 #include "memory-util.h"
 #include "missing_fs.h"
 #include "missing_magic.h"
+#include "missing_syscall.h"
 #include "mountpoint-util.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -20,6 +21,26 @@
 #include "string-util.h"
 
 static int have_pidfs = -1;
+
+int pidfd_open_safe(pid_t pid, unsigned flags) {
+        /* Unfortunately, pidfd_open() may fail with EINVAL even when passed valid arguments, which occurs
+         * when the kernel found the 'struct pid' object for the process but it does not contain any tasks.
+         * See pidfd_open() -> pidfd_create() -> pidfd_prepare() in the kernel source.
+         * That should be really fixed in the kernel, but for now let's workaround the issue by first
+         * checking the validity of the arguments, and then converting EINVAL from pidfd_open() to ESRCH. */
+
+        if (pid <= 0)
+                return -EINVAL;
+
+        if ((flags & ~(PIDFD_NONBLOCK | PIDFD_THREAD)) != 0)
+                return -EINVAL;
+
+        int fd = RET_NERRNO(pidfd_open(pid, flags));
+        if (fd == -EINVAL)
+                return -ESRCH;
+
+        return fd;
+}
 
 static int pidfd_check_pidfs(int pid_fd) {
 
