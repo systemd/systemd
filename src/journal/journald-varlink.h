@@ -2,5 +2,8 @@
 #pragma once
 
 #include "journald-server.h"
+#include "journald-sync.h"
 
 int server_open_varlink(Server *s, const char *socket, int fd);
+
+void sync_req_varlink_reply(SyncReq *req);
