@@ -106,6 +106,7 @@ simple_tests += files(
         'test-hostname-setup.c',
         'test-hostname-util.c',
         'test-id128.c',
+        'test-image-filter.c',
         'test-image-policy.c',
         'test-import-util.c',
         'test-in-addr-prefix-util.c',

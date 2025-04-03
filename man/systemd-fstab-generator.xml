@@ -83,10 +83,14 @@
 
         <listitem><para>Configures the operating system's root filesystem to mount when running in the
         initrd. This accepts a device node path (usually <filename>/dev/disk/by-uuid/…</filename> or
-        <filename>/dev/disk/by-label/…</filename> or similar), or the special values <literal>gpt-auto</literal>,
-        <literal>fstab</literal>, and <literal>tmpfs</literal>.</para>
+        <filename>/dev/disk/by-label/…</filename> or similar), or the special values
+        <literal>gpt-auto</literal>, <literal>gpt-auto-force</literal>, <literal>dissect</literal>,
+        <literal>dissect-force</literal>, <literal>fstab</literal>, <literal>fstab</literal>, and
+        <literal>off</literal>.</para>
 
-        <para>Use <literal>gpt-auto</literal> to explicitly request automatic root file system discovery via
+        <para>Set to <literal>gpt-auto</literal>, <literal>gpt-auto-force</literal>,
+        <literal>dissect</literal>, <literal>dissect-force</literal> to explicitly request automatic root
+        file system discovery, implemented in
         <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
 
         <para>Use <literal>fstab</literal> to explicitly request automatic root file system discovery via
@@ -102,6 +106,11 @@
         <para>Use <literal>bind:…</literal> to bind mount another directory as operating system root
         filesystems (added in v258). Expects an absolute path name referencing an existing directory within the initrd's file
         hierarchy to boot into.</para>
+
+        <para>Set to <literal>off</literal> to turn off mounting of a root file system.</para>
+
+        <para>Note that further <varname>root=</varname> values may be supported, implemented in additional
+        packages.</para>
 
         <xi:include href="version-info.xml" xpointer="v217"/></listitem>
       </varlistentry>
@@ -133,20 +142,18 @@
       <varlistentry>
         <term><varname>mount.usr=</varname></term>
 
-        <listitem><para>Takes the <filename>/usr/</filename> filesystem
-        to be mounted by the initrd. If
-        <varname>mount.usrfstype=</varname> or
-        <varname>mount.usrflags=</varname> is set, then
-        <varname>mount.usr=</varname> will default to the value set in
+        <listitem><para>Takes the <filename>/usr/</filename> filesystem to be mounted by the initrd. If
+        <varname>mount.usrfstype=</varname> or <varname>mount.usrflags=</varname> is set, then the mount
+        configured via <varname>mount.usr=</varname> will default to the the same value set in
         <varname>root=</varname>.</para>
 
-        <para>Otherwise, this parameter defaults to the
-        <filename>/usr/</filename> entry found in
-        <filename>/etc/fstab</filename> on the root filesystem.</para>
+        <para>Set to <literal>dissect</literal> to explicitly request automatic <filename>/usr/</filename>
+        file system discovery, implemented in
+        <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
 
-        <para><varname>mount.usr=</varname> is honored by the initrd.
-        </para>
+        <para>Set to <literal>off</literal> to turn off mounting of a separate <filename>/usr/</filename> file system.</para>
 
+        <para><varname>mount.usr=</varname> is honored by the initrd.</para>
         <xi:include href="version-info.xml" xpointer="v217"/></listitem>
       </varlistentry>
 

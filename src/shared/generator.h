@@ -122,11 +122,13 @@ bool generator_soft_rebooted(void);
                 exit_failure_if_negative)
 
 typedef enum GptAutoRoot {
-        GPT_AUTO_ROOT_OFF = 0,      /* root= set to something else */
-        GPT_AUTO_ROOT_ON,           /* root= set explicitly to "gpt-auto" */
-        GPT_AUTO_ROOT_FORCE,        /* root= set explicitly to "gpt-auto-force" → ignores factory reset mode */
+        GPT_AUTO_ROOT_OFF = 0,       /* root= set to something else */
+        GPT_AUTO_ROOT_ON,            /* root= set explicitly to "gpt-auto" */
+        GPT_AUTO_ROOT_FORCE,         /* root= set explicitly to "gpt-auto-force" → ignores factory reset mode */
+        GPT_AUTO_ROOT_DISSECT,       /* root= set to "dissect" */
+        GPT_AUTO_ROOT_DISSECT_FORCE, /* root= set to "dissect-force" → ignores factory reset mode */
         _GPT_AUTO_ROOT_MAX,
         _GPT_AUTO_ROOT_INVALID = -EINVAL,
 } GptAutoRoot;
 
-GptAutoRoot parse_gpt_auto_root(const char *value);
+GptAutoRoot parse_gpt_auto_root(const char *switch_name, const char *value);
