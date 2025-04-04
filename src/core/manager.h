@@ -510,6 +510,7 @@ struct Manager {
 
         /* Pin the systemd-executor binary, so that it never changes until re-exec, ensuring we don't have
          * serialization/deserialization compatibility issues during upgrades. */
+        char *executor_path;
         int executor_fd;
 
         unsigned soft_reboots_count;

@@ -1048,16 +1048,11 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
         }
 
         if (!FLAGS_SET(test_run_flags, MANAGER_TEST_DONT_OPEN_EXECUTOR)) {
-                m->executor_fd = pin_callout_binary(SYSTEMD_EXECUTOR_BINARY_PATH, /* ret_path = */ NULL);
+                m->executor_fd = pin_callout_binary(SYSTEMD_EXECUTOR_BINARY_PATH, &m->executor_path);
                 if (m->executor_fd < 0)
                         return log_debug_errno(m->executor_fd, "Failed to pin executor binary: %m");
 
-                if (DEBUG_LOGGING) {
-                        _cleanup_free_ char *executor_path = NULL;
-
-                        (void) fd_get_path(m->executor_fd, &executor_path);
-                        log_debug("Using systemd-executor binary from '%s'.", strna(executor_path));
-                }
+                log_debug("Using systemd-executor binary from '%s'.", m->executor_path);
         }
 
         /* Note that we do not set up the notify fd here. We do that after deserialization,
@@ -1827,6 +1822,7 @@ Manager* manager_free(Manager *m) {
 #endif
 
         safe_close(m->executor_fd);
+        free(m->executor_path);
 
         return mfree(m);
 }
