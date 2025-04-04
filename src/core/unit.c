@@ -212,6 +212,8 @@ static void unit_init(Unit *u) {
 
         if (UNIT_VTABLE(u)->init)
                 UNIT_VTABLE(u)->init(u);
+
+        u->invoked_by = _UNIT_TYPE_INVALID;
 }
 
 static int unit_add_alias(Unit *u, char *donated_name) {
