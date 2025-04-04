@@ -308,12 +308,12 @@ check_session() (
         return 1
     fi
 
-    if ! loginctl session-status "$session" | grep -q "Unit: session-${session}\.scope"; then
+    if ! loginctl show-session "$session" | grep -q "Scope=session-${session}\.scope"; then
         echo "cannot find scope unit for session $session" >&2
         return 1
     fi
 
-    leader_pid=$(loginctl session-status "$session" | awk '$1 == "Leader:" { print $2 }')
+    leader_pid=$(loginctl show-session "$session" | awk -F= '$1 == "Leader" { print $2 }')
     if [[ -z "$leader_pid" ]]; then
         echo "cannot found leader process for session $session" >&2
         return 1
