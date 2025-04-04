@@ -965,8 +965,10 @@ static int on_post(sd_event_source *s, void *userdata) {
         if (r < 0)
                 log_warning_errno(r, "Failed to disable timer event source for cleaning up idle workers, ignoring: %m");
 
-        if (manager->exit)
+        if (manager->exit) {
+                udev_watch_dump();
                 return sd_event_exit(manager->event, 0);
+        }
 
         if (manager->cgroup && set_isempty(manager->synthesize_change_child_event_sources))
                 /* cleanup possible left-over processes in our cgroup */

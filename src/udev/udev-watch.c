@@ -46,6 +46,88 @@ static int device_new_from_watch_handle_at(sd_device **ret, int dirfd, int wd) {
         return sd_device_new_from_device_id(ret, id);
 }
 
+void udev_watch_dump(void) {
+        int r;
+
+        _cleanup_closedir_ DIR *dir = opendir("/run/udev/watch/");
+        if (!dir)
+                return (void) log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING, errno,
+                                             "Failed to open old watches directory '/run/udev/watch/': %m");
+
+        _cleanup_set_free_ Set *pending_wds = NULL, *verified_wds = NULL;
+        FOREACH_DIRENT(de, dir, break) {
+                if (safe_atoi(de->d_name, NULL) >= 0) {
+                        /* This should be wd -> ID symlink */
+
+                        if (set_contains(verified_wds, de->d_name))
+                                continue;
+
+                        r = set_put_strdup(&pending_wds, de->d_name);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to store pending watch handle %s, ignoring: %m", de->d_name);
+                        continue;
+                }
+
+                _cleanup_free_ char *wd = NULL;
+                r = readlinkat_malloc(dirfd(dir), de->d_name, &wd);
+                if (r < 0) {
+                        log_warning_errno(r, "Found broken inotify watch, failed to read symlink %s, ignoring: %m", de->d_name);
+                        continue;
+                }
+
+                const char *devnode = NULL;
+                _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+                if (sd_device_new_from_device_id(&dev, de->d_name) >= 0)
+                        (void) sd_device_get_devname(dev, &devnode);
+
+                _cleanup_free_ char *id = NULL;
+                r = readlinkat_malloc(dirfd(dir), wd, &id);
+                if (r < 0) {
+                        log_warning_errno(r, "Found broken inotify watch %s on %s (%s), failed to read symlink %s, ignoring: %m",
+                                          wd, strna(devnode), de->d_name, wd);
+                        continue;
+                }
+
+                if (!streq(de->d_name, id)) {
+                        log_warning("Found broken inotify watch %s on %s (%s), broken symlink chain: %s → %s → %s",
+                                    wd, strna(devnode), de->d_name, de->d_name, wd, id);
+                        continue;
+                }
+
+                log_debug("Found inotify watch %s on %s (%s).", wd, strna(devnode), de->d_name);
+
+                free(set_remove(pending_wds, wd));
+
+                r = set_ensure_put(&verified_wds, &string_hash_ops_free, wd);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to store verified watch handle %s, ignoring: %m", wd);
+                        continue;
+                }
+                TAKE_PTR(wd);
+        }
+
+        const char *w;
+        SET_FOREACH(w, pending_wds) {
+                _cleanup_free_ char *id = NULL;
+                r = readlinkat_malloc(dirfd(dir), w, &id);
+                if (r < 0) {
+                        log_warning_errno(r, "Found broken inotify watch %s, failed to read symlink %s, ignoring: %m", w, w);
+                        continue;
+                }
+
+                const char *devnode = NULL;
+                _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+                if (sd_device_new_from_device_id(&dev, id) >= 0)
+                        (void) sd_device_get_devname(dev, &devnode);
+
+                _cleanup_free_ char *wd = NULL;
+                (void) readlinkat_malloc(dirfd(dir), id, &wd);
+
+                log_warning("Found broken inotify watch %s on %s (%s), broken symlink chain: %s → %s → %s",
+                            wd, strna(devnode), id, w, id, wd);
+        }
+}
+
 static int synthesize_change_one(sd_device *dev, sd_device *target) {
         int r;
 
@@ -289,6 +371,8 @@ int manager_start_inotify(Manager *manager) {
         r = manager_init_inotify(manager, -EBADF);
         if (r < 0)
                 return r;
+
+        udev_watch_dump();
 
         _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
         r = sd_event_add_io(manager->event, &s, manager->inotify_fd, EPOLLIN, on_inotify, manager);
