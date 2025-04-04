@@ -5,6 +5,8 @@
 
 typedef struct Manager Manager;
 
+void udev_watch_dump(void);
+
 int manager_init_inotify(Manager *manager, int fd);
 int manager_start_inotify(Manager *manager);
 
