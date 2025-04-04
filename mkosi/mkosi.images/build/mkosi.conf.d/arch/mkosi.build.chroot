@@ -59,7 +59,7 @@ EOF
 TS="${SOURCE_DATE_EPOCH:-$(date +%s)}"
 
 sed "pkg/$PKG_SUBDIR/PKGBUILD" \
-    --expression "s/^_tag=.*/_tag=$(cat meson.version)/" \
+    --expression "s/^pkgver=.*/pkgver=$(cat meson.version)/" \
     --expression "s/^pkgrel=.*/pkgrel=$(date "+%Y%m%d%H%M%S" --date "@$TS")/" >/tmp/PKGBUILD
 mount --bind /tmp/PKGBUILD "pkg/$PKG_SUBDIR/PKGBUILD"
 
