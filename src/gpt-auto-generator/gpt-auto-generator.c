@@ -60,11 +60,12 @@ static char *arg_usr_options = NULL;
 static ImagePolicy *arg_image_policy = NULL;
 static ImageFilter *arg_image_filter = NULL;
 
-STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root_fstype, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root_options, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_usr_fstype, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_usr_options, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_image_filter, image_filter_freep);
 
 #define LOADER_PARTITION_IDLE_USEC (120 * USEC_PER_SEC)
 
