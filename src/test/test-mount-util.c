@@ -606,4 +606,29 @@ TEST(umountat) {
         ASSERT_ERROR(umountat_detach_verbose(LOG_ERR, dfd, "foo"), EINVAL);
 }
 
+TEST(path_get_mount_info) {
+        /* This doesn't really "test" anything, but it puts the code through valgrind and sanitizers. */
+
+        FOREACH_STRING(v, "/", "/proc", "/sys", "/dev", "/usr/lib/systemd") {
+                _cleanup_free_ char *what, *where, *type, *options;
+
+                ASSERT_OK(path_get_mount_info(v, &what, &where, &type, &options));
+                log_info("%s → %s @ %s type=%s options=%s", v, what, where, type, options);
+        }
+}
+
+TEST(path_get_mount_info_at) {
+        /* This doesn't really "test" anything, but it puts the code through valgrind and sanitizers. */
+
+        _cleanup_close_ int fd = xopenat(AT_FDCWD, "/", O_PATH | O_CLOEXEC | O_NOFOLLOW | O_DIRECTORY);
+        ASSERT_OK(fd);
+
+        FOREACH_STRING(v, ".", "proc", "sys", "dev", "usr/lib/systemd") {
+                _cleanup_free_ char *what, *where, *type, *options;
+
+                ASSERT_OK(path_get_mount_info_at(fd, v, &what, &where, &type, &options));
+                log_info("%s → %s @ %s type=%s options=%s", v, what, where, type, options);
+        }
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
