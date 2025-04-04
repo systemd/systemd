@@ -1048,7 +1048,7 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
         }
 
         if (!FLAGS_SET(test_run_flags, MANAGER_TEST_DONT_OPEN_EXECUTOR)) {
-                m->executor_fd = pin_callout_binary(SYSTEMD_EXECUTOR_BINARY_PATH);
+                m->executor_fd = pin_callout_binary(SYSTEMD_EXECUTOR_BINARY_PATH, /* ret_path = */ NULL);
                 if (m->executor_fd < 0)
                         return log_debug_errno(m->executor_fd, "Failed to pin executor binary: %m");
 
