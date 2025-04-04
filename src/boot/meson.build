@@ -178,7 +178,6 @@ if get_option('mode') == 'developer' and get_option('debug')
 endif
 
 efi_c_ld_args = [
-        '-lgcc',
         '-nostdlib',
         '-static-pie',
         '-Wl,--entry=efi_main',
@@ -201,6 +200,11 @@ efi_c_ld_args = [
         '-z', 'relro',
         '-z', 'separate-code',
 ]
+
+# Check if the compiler is GCC and then we link to lgcc in that case only
+if cc.get_id() == 'gcc'
+    efi_c_ld_args += ['-lgcc']
+endif
 
 efi_c_ld_args += cc.get_supported_link_arguments(
         # binutils >= 2.38
