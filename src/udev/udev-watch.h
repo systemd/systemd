@@ -3,11 +3,12 @@
 
 #include "sd-device.h"
 
-int device_new_from_watch_handle_at(sd_device **ret, int dirfd, int wd);
-static inline int device_new_from_watch_handle(sd_device **ret, int wd) {
-        return device_new_from_watch_handle_at(ret, -1, wd);
-}
+typedef struct Manager Manager;
 
-int udev_watch_restore(int inotify_fd);
+void udev_watch_dump(void);
+
+int manager_init_inotify(Manager *manager, int fd);
+int manager_start_inotify(Manager *manager);
+
 int udev_watch_begin(int inotify_fd, sd_device *dev);
 int udev_watch_end(int inotify_fd, sd_device *dev);
