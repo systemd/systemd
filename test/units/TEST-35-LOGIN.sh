@@ -256,7 +256,7 @@ cleanup_session() (
 
     loginctl disable-linger logind-test-user
 
-    systemctl stop getty@tty2.service
+    systemctl stop test-getty@tty2.service
 
     for s in $(loginctl --no-legend list-sessions | grep -v manager | awk '$3 == "logind-test-user" { print $1 }'); do
         echo "INFO: stopping session $s"
@@ -285,7 +285,7 @@ cleanup_session() (
         echo "WARNING: user-${uid}.slice is still active, ignoring."
     fi
 
-    rm -rf /run/systemd/system/getty@tty2.service.d
+    rm -rf /run/systemd/system/test-getty@.service /run/systemd/system/test-getty@tty2.service.d
     systemctl daemon-reload
 
     return 0
@@ -346,8 +346,13 @@ check_session() (
 
 create_session() {
     # login with the test user to start a session
-    mkdir -p /run/systemd/system/getty@tty2.service.d
-    cat >/run/systemd/system/getty@tty2.service.d/override.conf <<EOF
+    mkdir -p /run/systemd/system/test-getty@tty2.service.d
+
+    # The integration test unit might be ordered before getty-pre.target so get rid of that dependency on the
+    # tty unit, otherwise the restart will block forever. We can't override After= in the dropin because we
+    # don't support that.
+    sed /usr/lib/systemd/system/getty@.service -e 's/getty-pre.target//' >/run/systemd/system/test-getty@.service
+    cat >/run/systemd/system/test-getty@tty2.service.d/override.conf <<EOF
 [Service]
 Type=simple
 ExecStart=
@@ -356,7 +361,7 @@ Restart=no
 EOF
     systemctl daemon-reload
 
-    systemctl restart getty@tty2.service
+    systemctl restart test-getty@tty2.service
 
     # check session
     for i in {1..30}; do
