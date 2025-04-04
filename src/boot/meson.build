@@ -178,7 +178,6 @@ if get_option('mode') == 'developer' and get_option('debug')
 endif
 
 efi_c_ld_args = [
-        '-lgcc',
         '-nostdlib',
         '-static-pie',
         '-Wl,--entry=efi_main',
