@@ -82,7 +82,9 @@ static int test_basic(bool bind_to_interface) {
 static void test_message_handler(void) {
         _cleanup_(sd_dhcp_server_unrefp) sd_dhcp_server *server = NULL;
         struct {
-                DHCPMessage message;
+                struct {
+                        DHCP_MESSAGE_HEADER_DEFINITION;
+                } _packed_ message;
                 struct {
                         uint8_t code;
                         uint8_t length;
