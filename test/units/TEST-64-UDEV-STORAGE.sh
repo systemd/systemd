@@ -1165,7 +1165,9 @@ uuid="deadbeef-dead-dead-beef-111111111111", name="mdpart1", size=8M
 uuid="deadbeef-dead-dead-beef-222222222222", name="mdpart2", size=32M
 uuid="deadbeef-dead-dead-beef-333333333333", name="mdpart3", size=16M
 EOF
-    udevadm trigger --settle --parent-match "$raid_dev"
+    # FIXME: For some reasons, the command sometimes stuck and the test will timeout.
+    # Let's enable debug logging and set a timeout to make not consume CI resource.
+    SYSTEMD_LOG_LEVEL=debug timeout 30 udevadm trigger --settle --parent-match "$raid_dev"
     udevadm wait --settle --timeout=30 "/dev/disk/by-id/md-uuid-$uuid-part2"
     mkfs.ext4 -L "$part_name" "/dev/disk/by-id/md-uuid-$uuid-part2"
     udevadm trigger --settle "/dev/disk/by-id/md-uuid-$uuid-part2"
