@@ -765,19 +765,19 @@ EOF
 
     # Now check that run0's session class control works
     systemd-run --service-type=notify run0 -u lightuser --unit="$RUN0UNIT0" sleep infinity
-    loginctl | grep lightuser | grep -q "background-light "
+    loginctl | grep lightuser | grep -qw background-light
     systemctl stop "$RUN0UNIT0"
 
     systemd-run --service-type=notify run0 -u lightuser --unit="$RUN0UNIT1" --lightweight=yes sleep infinity
-    loginctl | grep lightuser | grep -q "background-light "
+    loginctl | grep lightuser | grep -qw background-light
     systemctl stop "$RUN0UNIT1"
 
     systemd-run --service-type=notify run0 -u lightuser --unit="$RUN0UNIT2" --lightweight=no sleep infinity
-    loginctl | grep lightuser | grep -q "background "
+    loginctl | grep lightuser | grep -qw background
     systemctl stop "$RUN0UNIT2"
 
     systemd-run --service-type=notify run0 -u root --unit="$RUN0UNIT3" sleep infinity
-    loginctl | grep root | grep -q "background-light "
+    loginctl | grep root | grep -qw background-light
     systemctl stop "$RUN0UNIT3"
 }
 
