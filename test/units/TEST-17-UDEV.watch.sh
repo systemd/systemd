@@ -12,27 +12,49 @@ function check_validity() {
         ID_OR_HANDLE="$(readlink "$f")"
         test -L "/run/udev/watch/${ID_OR_HANDLE}"
         test "$(readlink "/run/udev/watch/${ID_OR_HANDLE}")" = "$(basename "$f")"
+
+        if [[ "${1:-}" == "1" ]]; then
+            journalctl -n 1 -q -I -u systemd-udevd.service --grep "Found inotify watch .*$ID_OR_HANDLE"
+        fi
     done
 }
 
 function check() {
     for _ in {1..2}; do
+        systemctl reset-failed systemd-udevd.service
         systemctl restart systemd-udevd.service
-        udevadm control --ping
+        udevadm control --ping --log-level=debug --timeout=30
         udevadm settle --timeout=30
-        check_validity
+
+        # systemd-udevd checks validity of inotify watch symlinks on start and stop.
+        assert_eq "$(journalctl -q --invocation -1 -u systemd-udevd.service --grep 'Found broken inotify watch' || :)" ""
+        assert_eq "$(journalctl -q --invocation  0 -u systemd-udevd.service --grep 'Found broken inotify watch' || :)" ""
+
+        # Also check if the inotify watch fd is pushed on stop, and received on start.
+        journalctl -n 1 -q --invocation -1 -u systemd-udevd.service --grep "Pushed inotify file descriptor to service manager."
+        journalctl -n 1 -q --invocation  0 -u systemd-udevd.service --grep "Received inotify fd \(\d\) from service manager."
+
+        check_validity 1
 
         for _ in {1..2}; do
-            udevadm trigger -w --action add --subsystem-match=block
+            udevadm trigger -w --action add --subsystem-match=block --settle
             check_validity
         done
 
         for _ in {1..2}; do
-            udevadm trigger -w --action change --subsystem-match=block
+            udevadm trigger -w --action change --subsystem-match=block --settle
             check_validity
         done
     done
 }
+
+mkdir -p /run/systemd/system/systemd-udevd.service.d/
+cat >/run/systemd/system/systemd-udevd.service.d/10-debug.conf <<EOF
+[Service]
+SYSTEMD_LOG_LEVEL=debug
+EOF
+
+systemctl daemon-reload
 
 mkdir -p /run/udev/rules.d/
 
@@ -64,8 +86,9 @@ test ! -e "/run/udev/watch/b${MAJOR}:${MINOR}"
 
 rm /run/udev/rules.d/00-debug.rules
 rm /run/udev/rules.d/50-testsuite.rules
-
 udevadm control --reload
-systemctl reset-failed systemd-udevd.service
+
+rm -f /run/systemd/system/systemd-udevd.service.d/10-debug.conf
+systemctl daemon-reload
 
 exit 0
