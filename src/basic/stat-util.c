@@ -488,11 +488,14 @@ int xstatfsat(int dir_fd, const char *path, struct statfs *ret) {
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
         assert(ret);
 
-        fd = xopenat(dir_fd, path, O_PATH|O_CLOEXEC|O_NOCTTY);
-        if (fd < 0)
-                return fd;
+        if (!isempty(path)) {
+                fd = xopenat(dir_fd, path, O_PATH|O_CLOEXEC|O_NOCTTY);
+                if (fd < 0)
+                        return fd;
+                dir_fd = fd;
+        }
 
-        return RET_NERRNO(fstatfs(fd, ret));
+        return RET_NERRNO(fstatfs(dir_fd, ret));
 }
 
 void inode_hash_func(const struct stat *q, struct siphash *state) {
