@@ -368,7 +368,7 @@ testcase_sanity_check() {
 
     # Run most of the loginctl commands from a user session to make
     # the seat/session autodetection work-ish
-    systemd-run --user --pipe --wait -M "testuser@.host" bash -eux <<\EOF
+    systemd-run --setenv=SYSTEMD_PAGER --user --pipe --wait -M "testuser@.host" bash -eux <<\EOF
     loginctl list-sessions
     loginctl list-sessions -j
     loginctl list-sessions --json=short
