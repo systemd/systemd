@@ -59,6 +59,8 @@ typedef struct {
 } _packed_ EFI_TCG2_EVENT;
 
 typedef struct {
+        uint32_t Size;
+        EFI_TCG2_EVENT_HEADER Header;
         uint32_t EventId;
         uint32_t EventSize;
         uint8_t Event[];
