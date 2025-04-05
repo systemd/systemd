@@ -23,6 +23,7 @@ static inline void notify_on_cleanup(const char **p) {
                 (void) sd_notify(false, *p);
 }
 
+int notify_remove_fd_warn(const char *name);
 int notify_remove_fd_warnf(const char *format, ...) _printf_(1, 2);
 int close_and_notify_warn(int fd, const char *name);
 int notify_push_fd(int fd, const char *name);
