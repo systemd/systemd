@@ -595,8 +595,9 @@ static int event_queue_start(Manager *manager) {
         int r;
 
         assert(manager);
+        assert(!manager->exit);
 
-        if (!manager->events || manager->exit || manager->stop_exec_queue)
+        if (!manager->events || manager->stop_exec_queue)
                 return 0;
 
         r = event_source_disable(manager->kill_workers_event);
@@ -970,8 +971,28 @@ static int manager_unlink_queue_file(Manager *manager) {
         return 0;
 }
 
+static int on_post_exit(Manager *manager) {
+        assert(manager);
+        assert(manager->exit);
+
+        LIST_FOREACH(event, event, manager->events)
+                if (event->state == EVENT_RUNNING)
+                        return 0; /* There still exist events being processed. */
+
+        (void) manager_unlink_queue_file(manager);
+
+        if (!hashmap_isempty(manager->workers))
+                return 0; /* There still exist running workers. */
+
+        udev_watch_dump();
+        return sd_event_exit(manager->event, 0);
+}
+
 static int on_post(sd_event_source *s, void *userdata) {
         Manager *manager = ASSERT_PTR(userdata);
+
+        if (manager->exit)
+                return on_post_exit(manager);
 
         if (manager->events) {
                 /* Try to process pending events if idle workers exist. Why is this necessary?
@@ -988,11 +1009,6 @@ static int on_post(sd_event_source *s, void *userdata) {
 
         if (!hashmap_isempty(manager->workers))
                 return 0; /* There still exist idle workers. */
-
-        if (manager->exit) {
-                udev_watch_dump();
-                return sd_event_exit(manager->event, 0);
-        }
 
         if (manager->cgroup && set_isempty(manager->synthesize_change_child_event_sources))
                 /* cleanup possible left-over processes in our cgroup */
