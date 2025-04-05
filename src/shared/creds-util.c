@@ -804,7 +804,9 @@ int encrypt_credential_and_warn(
         _cleanup_(iovec_done_erase) struct iovec tpm2_key = {}, output = {}, host_key = {};
         _cleanup_(EVP_CIPHER_CTX_freep) EVP_CIPHER_CTX *context = NULL;
         _cleanup_free_ struct metadata_credential_header *m = NULL;
+#if HAVE_TPM2
         uint16_t tpm2_pcr_bank = 0, tpm2_primary_alg = 0;
+#endif
         struct encrypted_credential_header *h;
         int ksz, bsz, ivsz, tsz, added, r;
         uint8_t md[SHA256_DIGEST_LENGTH];
@@ -1078,6 +1080,7 @@ int encrypt_credential_and_warn(
 
         p = ALIGN8(offsetof(struct encrypted_credential_header, iv) + ivsz);
 
+#if HAVE_TPM2
         if (iovec_is_set(&tpm2_key)) {
                 struct tpm2_credential_header *t;
 
@@ -1092,7 +1095,7 @@ int encrypt_credential_and_warn(
 
                 p += ALIGN8(offsetof(struct tpm2_credential_header, policy_hash_and_blob) + tpm2_blob.iov_len + tpm2_policy_hash.iov_len);
         }
-
+#endif
         if (iovec_is_set(&pubkey)) {
                 struct tpm2_public_key_credential_header *z;
 
