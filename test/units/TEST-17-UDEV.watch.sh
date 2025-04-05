@@ -5,6 +5,9 @@ set -o pipefail
 
 # tests for udev watch
 
+# shellcheck source=test/units/util.sh
+. "$(dirname "$0")"/util.sh
+
 function check_validity() {
     local f ID_OR_HANDLE
 
@@ -12,15 +15,28 @@ function check_validity() {
         ID_OR_HANDLE="$(readlink "$f")"
         test -L "/run/udev/watch/${ID_OR_HANDLE}"
         test "$(readlink "/run/udev/watch/${ID_OR_HANDLE}")" = "$(basename "$f")"
+
+        if [[ "${1:-}" == "1" ]]; then
+            journalctl -n 1 -q -I -u systemd-udevd.service --grep "Found inotify watch .*$ID_OR_HANDLE"
+        fi
     done
 }
 
 function check() {
     for _ in {1..2}; do
+        systemctl reset-failed systemd-udevd.service
         systemctl restart systemd-udevd.service
-        udevadm control --ping
         udevadm settle --timeout=30
-        check_validity
+
+        journalctl --sync
+
+        # Check if the inotify watch fd is received from fd store.
+        journalctl -n 1 -q -I -u systemd-udevd.service --grep "Received inotify fd \(\d\) from service manager."
+
+        # Check if there is no broken symlink chain.
+        assert_eq "$(journalctl -q -I -u systemd-udevd.service --grep 'Found broken inotify watch' || :)" ""
+
+        check_validity 1
 
         for _ in {1..2}; do
             udevadm trigger -w --action add --subsystem-match=block
@@ -34,6 +50,14 @@ function check() {
     done
 }
 
+mkdir -p /run/systemd/system/systemd-udevd.service.d/
+cat >/run/systemd/system/systemd-udevd.service.d/10-debug.conf <<EOF
+[Service]
+SYSTEMD_LOG_LEVEL=debug
+EOF
+
+systemctl daemon-reload
+
 mkdir -p /run/udev/rules.d/
 
 cat >/run/udev/rules.d/00-debug.rules <<EOF
@@ -43,6 +67,14 @@ EOF
 cat >/run/udev/rules.d/50-testsuite.rules <<EOF
 ACTION=="add", SUBSYSTEM=="block", KERNEL=="sda", OPTIONS:="watch"
 EOF
+
+# To make the previous invocation of systemd-udevd generates debugging logs on stop,
+# that will be checked by check().
+udevadm control --log-level debug
+
+# Unfortunately, journalctl --invocation= is unstable when debug logging is enabled on service manager.
+SAVED_LOG_LEVEL=$(systemctl log-level)
+systemctl log-level info
 
 check
 
@@ -64,8 +96,11 @@ test ! -e "/run/udev/watch/b${MAJOR}:${MINOR}"
 
 rm /run/udev/rules.d/00-debug.rules
 rm /run/udev/rules.d/50-testsuite.rules
-
 udevadm control --reload
-systemctl reset-failed systemd-udevd.service
+
+rm -f /run/systemd/system/systemd-udevd.service.d/10-debug.conf
+systemctl daemon-reload
+
+systemctl log-level "$SAVED_LOG_LEVEL"
 
 exit 0
