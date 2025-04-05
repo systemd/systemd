@@ -44,6 +44,7 @@ test_libudev_sym_c = custom_target(
 ############################################################
 
 simple_tests += files(
+        'test-acpi-fpdt.c',
         'test-alloc-util.c',
         'test-architecture.c',
         'test-argv-util.c',
