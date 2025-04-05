@@ -150,9 +150,6 @@ All tools:
 
 `systemd-nspawn`:
 
-* `$SYSTEMD_NSPAWN_UNIFIED_HIERARCHY=1` — if set, force `systemd-nspawn` into
-  unified cgroup hierarchy mode.
-
 * `$SYSTEMD_NSPAWN_API_VFS_WRITABLE=1` — if set, make `/sys/`, `/proc/sys/`,
   and friends writable in the container. If set to "network", leave only
   `/proc/sys/net/` writable.
@@ -528,6 +525,14 @@ disk images with `--image=` or similar:
   related directories) to authenticate signatures on Verity hashes of disk
   images. Defaults to true, i.e. userspace signature validation is allowed. If
   false, authentication can be done only via the kernel's internal keyring.
+
+* `$SYSTEMD_DISSECT_VERITY_GUESS` – takes a boolean. Controls whether to guess
+  the Verity root hash from the partition UUIDs of a suitable pair of data
+  partition and matching Verity partition: the UUIDs two are simply joined and
+  used as root hash, in accordance with the recommendations in [Discoverable
+  Partitions
+  Specification](https://uapi-group.org/specifications/specs/discoverable_partitions_specification). Defaults
+  to true.
 
 `systemd-cryptsetup`:
 

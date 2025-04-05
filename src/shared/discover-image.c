@@ -1726,6 +1726,7 @@ int image_read_metadata(Image *i, const ImagePolicy *image_policy) {
                                 /* verity= */ NULL,
                                 /* mount_options= */ NULL,
                                 image_policy,
+                                /* image_filter= */ NULL,
                                 flags,
                                 &m);
                 if (r < 0)

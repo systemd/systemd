@@ -16,7 +16,6 @@ libnspawn_core_sources = files(
         'nspawn-settings.c',
         'nspawn-setuid.c',
         'nspawn-stub-pid1.c',
-        'nspawn-util.c',
 )
 
 nspawn_gperf_c = custom_target(
@@ -62,18 +61,11 @@ executables += [
         },
         nspawn_test_template + {
                 'sources' : files('test-nspawn-tables.c'),
-                'conditions' : ['ENABLE_NSPAWN'],
-        },
-        nspawn_test_template + {
-                'sources' : files('test-nspawn-util.c'),
-                'conditions' : ['ENABLE_NSPAWN'],
         },
         nspawn_fuzz_template + {
                 'sources' : files('fuzz-nspawn-settings.c'),
-                'conditions' : ['ENABLE_NSPAWN'],
         },
         nspawn_fuzz_template + {
                 'sources' : files('fuzz-nspawn-oci.c'),
-                'conditions' : ['ENABLE_NSPAWN'],
         },
 ]

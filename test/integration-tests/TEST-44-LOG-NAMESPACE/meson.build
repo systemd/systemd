@@ -3,6 +3,17 @@
 integration_tests += [
         integration_test_template + {
                 'name' : fs.name(meson.current_source_dir()),
-                'unit' : files('TEST-44-LOG-NAMESPACE.service'),
+                'configuration' : integration_test_template['configuration'] + {
+                        'unit' : integration_test_template['configuration']['unit'] + {
+                                'Wants' : ' '.join([
+                                        'systemd-journald@foobar.socket',
+                                        'systemd-journald-varlink@foobar.socket',
+                                ]),
+                                'After' : ' '.join([
+                                        'systemd-journald@foobar.socket',
+                                        'systemd-journald-varlink@foobar.socket',
+                                ]),
+                        },
+                },
         },
 ]

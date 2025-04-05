@@ -765,19 +765,19 @@ EOF
 
     # Now check that run0's session class control works
     systemd-run --service-type=notify run0 -u lightuser --unit="$RUN0UNIT0" sleep infinity
-    loginctl | grep lightuser | grep -q "background-light "
+    loginctl | grep lightuser | grep -qw background-light
     systemctl stop "$RUN0UNIT0"
 
     systemd-run --service-type=notify run0 -u lightuser --unit="$RUN0UNIT1" --lightweight=yes sleep infinity
-    loginctl | grep lightuser | grep -q "background-light "
+    loginctl | grep lightuser | grep -qw background-light
     systemctl stop "$RUN0UNIT1"
 
     systemd-run --service-type=notify run0 -u lightuser --unit="$RUN0UNIT2" --lightweight=no sleep infinity
-    loginctl | grep lightuser | grep -q "background "
+    loginctl | grep lightuser | grep -qw background
     systemctl stop "$RUN0UNIT2"
 
     systemd-run --service-type=notify run0 -u root --unit="$RUN0UNIT3" sleep infinity
-    loginctl | grep root | grep -q "background-light "
+    loginctl | grep root | grep -qw background-light
     systemctl stop "$RUN0UNIT3"
 }
 
@@ -786,17 +786,23 @@ testcase_varlink() {
 }
 
 testcase_restart() {
-    local UNIT
+    local classes unit c
 
-    UNIT=user-sleeper.service
+    classes='user user-early user-incomplete greeter lock-screen background background-light manager manager-early'
 
-    systemd-run --service-type=notify run0 -u logind-test-user --unit="$UNIT" sleep infinity
+    for c in $classes; do
+        unit="user-sleeper-$c.service"
+        systemd-run --service-type=notify run0  --setenv XDG_SESSION_CLASS="$c" -u logind-test-user --unit="$unit" sleep infinity
+    done
+
     systemctl restart systemd-logind
 
-    systemctl --quiet is-active "$UNIT"
-    loginctl | grep logind-test-user | grep -qw background
-
-    systemctl kill "$UNIT"
+    for c in $classes; do
+        unit="user-sleeper-$c.service"
+        systemctl --quiet is-active "$unit"
+        loginctl | grep logind-test-user | grep -qw "$c"
+        systemctl kill "$unit"
+    done
 }
 
 setup_test_user

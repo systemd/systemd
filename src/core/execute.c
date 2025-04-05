@@ -473,7 +473,7 @@ int exec_spawn(
                 const CGroupContext *cgroup_context,
                 PidRef *ret) {
 
-        _cleanup_free_ char *subcgroup_path = NULL, *max_log_levels = NULL, *executor_path = NULL;
+        _cleanup_free_ char *subcgroup_path = NULL, *max_log_levels = NULL;
         _cleanup_fdset_free_ FDSet *fdset = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
@@ -481,6 +481,7 @@ int exec_spawn(
         assert(unit);
         assert(unit->manager);
         assert(unit->manager->executor_fd >= 0);
+        assert(unit->manager->executor_path);
         assert(command);
         assert(context);
         assert(params);
@@ -551,10 +552,6 @@ int exec_spawn(
         if (r < 0)
                 return log_unit_error_errno(unit, r, "Failed to convert max log levels to string: %m");
 
-        r = fd_get_path(unit->manager->executor_fd, &executor_path);
-        if (r < 0)
-                return log_unit_error_errno(unit, r, "Failed to get executor path from fd: %m");
-
         char serialization_fd_number[DECIMAL_STR_MAX(int)];
         xsprintf(serialization_fd_number, "%i", fileno(f));
 
@@ -574,7 +571,7 @@ int exec_spawn(
         /* The executor binary is pinned, to avoid compatibility problems during upgrades. */
         r = posix_spawn_wrapper(
                         FORMAT_PROC_FD_PATH(unit->manager->executor_fd),
-                        STRV_MAKE(executor_path,
+                        STRV_MAKE(unit->manager->executor_path,
                                   "--deserialize", serialization_fd_number,
                                   "--log-level", max_log_levels,
                                   "--log-target", log_target_to_string(manager_get_executor_log_target(unit->manager))),

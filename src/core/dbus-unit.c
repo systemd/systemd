@@ -1052,29 +1052,6 @@ static int property_get_slice(
         return sd_bus_message_append(reply, "s", unit_slice_name(u));
 }
 
-static int property_get_current_memory(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        uint64_t sz = UINT64_MAX;
-        Unit *u = ASSERT_PTR(userdata);
-        int r;
-
-        assert(bus);
-        assert(reply);
-
-        r = unit_get_memory_current(u, &sz);
-        if (r < 0 && r != -ENODATA)
-                log_unit_warning_errno(u, r, "Failed to get current memory usage from cgroup: %m");
-
-        return sd_bus_message_append(reply, "t", sz);
-}
-
 static int property_get_available_memory(
                 sd_bus *bus,
                 const char *path,
@@ -1652,7 +1629,7 @@ const sd_bus_vtable bus_unit_cgroup_vtable[] = {
         SD_BUS_PROPERTY("Slice", "s", property_get_slice, 0, 0),
         SD_BUS_PROPERTY("ControlGroup", "s", property_get_cgroup, 0, 0),
         SD_BUS_PROPERTY("ControlGroupId", "t", property_get_cgroup_id, 0, 0),
-        SD_BUS_PROPERTY("MemoryCurrent", "t", property_get_current_memory, 0, 0),
+        SD_BUS_PROPERTY("MemoryCurrent", "t", property_get_memory_accounting, 0, 0),
         SD_BUS_PROPERTY("MemoryPeak", "t", property_get_memory_accounting, 0, 0),
         SD_BUS_PROPERTY("MemorySwapCurrent", "t", property_get_memory_accounting, 0, 0),
         SD_BUS_PROPERTY("MemorySwapPeak", "t", property_get_memory_accounting, 0, 0),

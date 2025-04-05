@@ -15,6 +15,8 @@ integration_test_template = {
                 'wants' : 'multi-user.target user@4711.service',
                 'after' : 'user@4711.service',
                 'env' : {},
+                'service' : {},
+                'unit' : {},
         },
         'cmdline' : [],
         'credentials' : [],
@@ -99,9 +101,7 @@ endforeach
 
 foreach integration_test : integration_tests
         integration_test_args = [
-                # We don't use meson.project_source_root() because that doesn't work for running the tests
-                # standalone (see standalone/meson.build).
-                '--meson-source-dir', meson.current_source_dir() / '../..',
+                '--meson-source-dir', meson.project_source_root(),
                 '--meson-build-dir', meson.project_build_root(),
                 '--name', integration_test['name'],
                 '--storage', integration_test['storage'],
@@ -109,13 +109,8 @@ foreach integration_test : integration_tests
                 '--exit-code', integration_test['exit-code'].to_string(),
                 '--coredump-exclude-regex', integration_test['coredump-exclude-regex'],
                 '--sanitizer-exclude-regex', integration_test['sanitizer-exclude-regex'],
+                '--unit', '@0@.service'.format(integration_test['name'])
         ]
-
-        if 'unit' in integration_test
-                integration_test_args += ['--unit', fs.name(integration_test['unit'])]
-        else
-                integration_test_args += ['--unit', '@0@.service'.format(integration_test['name'])]
-        endif
 
         if integration_test['vm']
                 integration_test_args += ['--vm']

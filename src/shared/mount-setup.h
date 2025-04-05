@@ -8,3 +8,5 @@ bool mount_point_ignore(const char *path);
 
 int mount_setup_early(void);
 int mount_setup(bool loaded_policy, bool leave_propagation);
+
+int mount_cgroupfs(const char *path);
