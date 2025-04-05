@@ -342,7 +342,7 @@ void manager_set_log_level(Manager *manager, int log_level) {
                 return;
 
         log_set_max_level(manager->config.log_level);
-        manager_kill_workers(manager, /* force = */ false);
+        manager_kill_workers(manager, SIGTERM);
 }
 
 void manager_set_trace(Manager *manager, bool enable) {
@@ -357,7 +357,7 @@ void manager_set_trace(Manager *manager, bool enable) {
                 return;
 
         log_set_max_level(manager->config.log_level);
-        manager_kill_workers(manager, /* force = */ false);
+        manager_kill_workers(manager, SIGTERM);
 }
 
 static void manager_adjust_config(UdevConfig *config) {
@@ -433,7 +433,7 @@ void manager_set_environment(Manager *manager, char * const *v) {
         }
 
         if (changed)
-                manager_kill_workers(manager, /* force = */ false);
+                manager_kill_workers(manager, SIGTERM);
 }
 
 int manager_load(Manager *manager, int argc, char *argv[]) {
