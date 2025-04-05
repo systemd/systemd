@@ -32,7 +32,7 @@ void fuzz_journald_processing_function(
         if (size == 0)
                 return;
 
-        assert_se(server_new(&s) >= 0);
+        assert_se(server_new(&s, NULL) >= 0);
         dummy_server_init(s, data, size);
         (*f)(s, s->buffer, size, ucred, tv, label, label_len);
 }
