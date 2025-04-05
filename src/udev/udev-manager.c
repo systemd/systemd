@@ -77,7 +77,6 @@ typedef enum WorkerState {
         WORKER_RUNNING,
         WORKER_IDLE,
         WORKER_KILLED,
-        WORKER_KILLING,
 } WorkerState;
 
 typedef struct Worker {
@@ -208,22 +207,13 @@ static int worker_new(Worker **ret, Manager *manager, sd_device_monitor *worker_
         return 0;
 }
 
-void manager_kill_workers(Manager *manager, bool force) {
-        Worker *worker;
-
+void manager_kill_workers(Manager *manager, int signo) {
         assert(manager);
 
+        Worker *worker;
         HASHMAP_FOREACH(worker, manager->workers) {
-                if (worker->state == WORKER_KILLED)
-                        continue;
-
-                if (worker->state == WORKER_RUNNING && !force) {
-                        worker->state = WORKER_KILLING;
-                        continue;
-                }
-
                 worker->state = WORKER_KILLED;
-                (void) pidref_kill(&worker->pidref, SIGTERM);
+                (void) pidref_kill(&worker->pidref, signo);
         }
 }
 
@@ -286,7 +276,7 @@ void manager_exit(Manager *manager) {
 
         /* discard queued events and kill workers */
         event_queue_cleanup(manager, EVENT_QUEUED);
-        manager_kill_workers(manager, true);
+        manager_kill_workers(manager, SIGTERM);
 }
 
 void notify_ready(Manager *manager) {
@@ -332,7 +322,7 @@ void manager_reload(Manager *manager, bool force) {
         flags |= manager_reload_config(manager);
 
         if (FLAGS_SET(flags, UDEV_RELOAD_KILL_WORKERS))
-                manager_kill_workers(manager, false);
+                manager_kill_workers(manager, SIGTERM);
 
         udev_builtin_reload(flags);
 
@@ -876,10 +866,7 @@ static int on_worker_notify(sd_event_source *s, int fd, uint32_t revents, void *
                 event_free(worker->event);
 
         /* Update the state of the worker. */
-        if (worker->state == WORKER_KILLING) {
-                worker->state = WORKER_KILLED;
-                (void) pidref_kill(&worker->pidref, SIGTERM);
-        } else if (worker->state != WORKER_KILLED)
+        if (worker->state != WORKER_KILLED)
                 worker->state = WORKER_IDLE;
 
         return 0;
