@@ -6,7 +6,7 @@
 #include "string-util.h"
 #include "time-util.h"
 
-static int notify_remove_fd_warn(const char *name) {
+int notify_remove_fd_warn(const char *name) {
         int r;
 
         assert(name);
