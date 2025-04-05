@@ -63,8 +63,9 @@ CHANGES WITH 258 in spe:
 
         * Support for the SystemdOptions EFI variable has been removed.
 
-        * The 'split-usr', 'rootlibdir', and 'rootprefix' meson options, which
-          were deprecated in v255, have been removed.
+        * The meson options 'split-usr', 'rootlibdir', 'rootprefix' (deprecated
+          in v255), 'default-hierarchy' (v256), and 'nscd' (v257) have been
+          removed.
 
         Announcements of Future Feature Removals:
 
