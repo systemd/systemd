@@ -3002,10 +3002,8 @@ static int unit_attach_pid_to_cgroup_via_bus(Unit *u, pid_t pid, const char *suf
 
 int unit_attach_pids_to_cgroup(Unit *u, Set *pids, const char *suffix_path) {
         _cleanup_free_ char *joined = NULL;
-        CGroupMask delegated_mask;
         const char *p;
-        PidRef *pid;
-        int ret, r;
+        int ret = 0, r;
 
         assert(u);
 
@@ -3037,9 +3035,7 @@ int unit_attach_pids_to_cgroup(Unit *u, Set *pids, const char *suffix_path) {
                 p = joined;
         }
 
-        delegated_mask = unit_get_delegate_mask(u);
-
-        ret = 0;
+        PidRef *pid;
         SET_FOREACH(pid, pids) {
 
                 /* Unfortunately we cannot add pids by pidfd to a cgroup. Hence we have to use PIDs instead,
@@ -3051,10 +3047,9 @@ int unit_attach_pids_to_cgroup(Unit *u, Set *pids, const char *suffix_path) {
                         continue;
                 }
 
-                /* First, attach the PID to the main cgroup hierarchy */
                 r = cg_attach(SYSTEMD_CGROUP_CONTROLLER, p, pid->pid);
                 if (r < 0) {
-                        bool again = MANAGER_IS_USER(u->manager) && ERRNO_IS_PRIVILEGE(r);
+                        bool again = MANAGER_IS_USER(u->manager) && ERRNO_IS_NEG_PRIVILEGE(r);
 
                         log_unit_full_errno(u, again ? LOG_DEBUG : LOG_INFO,  r,
                                             "Couldn't move process "PID_FMT" to%s requested cgroup '%s': %m",
@@ -3069,66 +3064,23 @@ int unit_attach_pids_to_cgroup(Unit *u, Set *pids, const char *suffix_path) {
                                  * leaves of a subtree whose top node is not owned by us. */
 
                                 z = unit_attach_pid_to_cgroup_via_bus(u, pid->pid, suffix_path);
-                                if (z < 0)
-                                        log_unit_info_errno(u, z, "Couldn't move process "PID_FMT" to requested cgroup '%s' (directly or via the system bus): %m", pid->pid, empty_to_root(p));
-                                else {
-                                        if (ret >= 0)
-                                                ret++; /* Count successful additions */
+                                if (z >= 0)
+                                        goto success;
 
-                                        /* the cgroup is definitely not empty now, in case the unit was in
-                                         * the cgroup empty queue, drop it from there */
-                                        unit_remove_from_cgroup_empty_queue(u);
-                                        continue; /* When the bus thing worked via the bus we are fully done for this PID. */
-                                }
+                                log_unit_info_errno(u, z, "Couldn't move process "PID_FMT" to requested cgroup '%s' (directly or via the system bus): %m", pid->pid, empty_to_root(p));
                         }
 
-                        if (ret >= 0)
-                                ret = r; /* Remember first error */
-
+                        RET_GATHER(ret, r);
                         continue;
-                } else if (ret >= 0) {
-                        unit_remove_from_cgroup_empty_queue(u);
+                }
+
+        success:
+                /* the cgroup is definitely not empty now. in case the unit was in the cgroup empty queue,
+                 * drop it from there */
+                unit_remove_from_cgroup_empty_queue(u);
+
+                if (ret >= 0)
                         ret++; /* Count successful additions */
-                }
-
-                r = cg_all_unified();
-                if (r < 0)
-                        return r;
-                if (r > 0)
-                        continue;
-
-                /* In the legacy hierarchy, attach the process to the request cgroup if possible, and if not to the
-                 * innermost realized one */
-
-                for (CGroupController c = 0; c < _CGROUP_CONTROLLER_MAX; c++) {
-                        CGroupMask bit = CGROUP_CONTROLLER_TO_MASK(c);
-                        const char *realized;
-
-                        if (!(u->manager->cgroup_supported & bit))
-                                continue;
-
-                        /* If this controller is delegated and realized, honour the caller's request for the cgroup suffix. */
-                        if (delegated_mask & crt->cgroup_realized_mask & bit) {
-                                r = cg_attach(cgroup_controller_to_string(c), p, pid->pid);
-                                if (r >= 0)
-                                        continue; /* Success! */
-
-                                log_unit_debug_errno(u, r, "Failed to attach PID " PID_FMT " to requested cgroup %s in controller %s, falling back to unit's cgroup: %m",
-                                                     pid->pid, empty_to_root(p), cgroup_controller_to_string(c));
-                        }
-
-                        /* So this controller is either not delegate or realized, or something else weird happened. In
-                         * that case let's attach the PID at least to the closest cgroup up the tree that is
-                         * realized. */
-                        realized = unit_get_realized_cgroup_path(u, bit);
-                        if (!realized)
-                                continue; /* Not even realized in the root slice? Then let's not bother */
-
-                        r = cg_attach(cgroup_controller_to_string(c), realized, pid->pid);
-                        if (r < 0)
-                                log_unit_debug_errno(u, r, "Failed to attach PID " PID_FMT " to realized cgroup %s in controller %s, ignoring: %m",
-                                                     pid->pid, realized, cgroup_controller_to_string(c));
-                }
         }
 
         return ret;
