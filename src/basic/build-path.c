@@ -273,30 +273,41 @@ static int open_executable(const char *path, char **ret_path) {
 }
 
 int pin_callout_binary(const char *path, char **ret_path) {
-        int r;
+        _cleanup_free_ char *fn = NULL, *build_binary = NULL;
+        const char *e;
+        int r, fd;
 
         assert(path);
 
         /* Similar to invoke_callout_binary(), but pins (i.e. O_PATH opens) the binary instead of executing
          * it, also optionally provides the path to the binary. */
 
-        _cleanup_free_ char *fn = NULL;
         r = path_extract_filename(path, &fn);
         if (r < 0)
                 return r;
         if (r == O_DIRECTORY) /* Uh? */
                 return -EISDIR;
 
-        const char *e;
-        if (find_environment_binary(fn, &e) >= 0)
-                return open_executable(e, ret_path);
-
-        _cleanup_free_ char *np = NULL;
-        if (find_build_dir_binary(fn, &np) >= 0) {
-                r = open_executable(np, ret_path);
-                if (r >= 0)
+        if (find_environment_binary(fn, &e) >= 0) {
+                /* The environment variable counts. We'd fail if the executable is not available/invalid. */
+                r = open_and_check_executable(e, /* root = */ NULL, ret_path, &fd);
+                if (r < 0)
                         return r;
+
+                return fd;
         }
 
-        return open_executable(path, ret_path);
+        if (find_build_dir_binary(fn, &build_binary) >= 0) {
+                r = open_and_check_executable(build_binary, /* root = */ NULL, ret_path, &fd);
+                if (r >= 0)
+                        return fd;
+        }
+
+        r = find_executable_full(path, /* root = */ NULL,
+                                 /* exec_search_path = */ NULL, /* use_path_envvar = */ true,
+                                 ret_path, &fd);
+        if (r < 0)
+                return r;
+
+        return fd;
 }
