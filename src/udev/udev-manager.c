@@ -107,15 +107,6 @@ static Event* event_free(Event *event) {
         return mfree(event);
 }
 
-static void event_queue_cleanup(Manager *manager, EventState match_state) {
-        LIST_FOREACH(event, event, manager->events) {
-                if (match_state != EVENT_UNDEF && match_state != event->state)
-                        continue;
-
-                event_free(event);
-        }
-}
-
 static Worker* worker_free(Worker *worker) {
         if (!worker)
                 return NULL;
@@ -149,7 +140,7 @@ Manager* manager_free(Manager *manager) {
         udev_rules_free(manager->rules);
 
         hashmap_free(manager->workers);
-        event_queue_cleanup(manager, EVENT_UNDEF);
+        LIST_CLEAR(event, manager->events, event_free);
 
         safe_close(manager->inotify_fd);
 
@@ -280,9 +271,9 @@ void manager_exit(Manager *manager) {
         (void) sd_event_source_set_enabled(sd_device_monitor_get_event_source(manager->monitor), SD_EVENT_OFF);
         (void) sd_device_monitor_detach_event(manager->monitor);
 
-        /* discard queued events and kill workers */
-        event_queue_cleanup(manager, EVENT_QUEUED);
+        /* Kill all workers with SIGTERM, and disable unnecessary timer event source. */
         manager_kill_workers(manager, SIGTERM);
+        manager->kill_workers_event = sd_event_source_disable_unref(manager->kill_workers_event);
 }
 
 void notify_ready(Manager *manager) {
