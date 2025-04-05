@@ -231,6 +231,44 @@ void manager_kill_workers(Manager *manager, bool force) {
         }
 }
 
+static int on_kill_workers_event(sd_event_source *s, uint64_t usec, void *userdata) {
+        Manager *manager = ASSERT_PTR(userdata);
+
+        log_debug("Cleaning up idle workers.");
+        manager_kill_workers(manager, SIGTERM);
+
+        return 0;
+}
+
+static int manager_reset_kill_workers_timer(Manager *manager) {
+        int r;
+
+        assert(manager);
+
+        if (hashmap_isempty(manager->workers)) {
+                /* There are no workers. Disabling unnecessary timer event source. */
+                r = sd_event_source_set_enabled(manager->kill_workers_event, SD_EVENT_OFF);
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to disable timer event source for cleaning up workers: %m");
+        } else {
+                r = event_reset_time_relative(
+                                manager->event,
+                                &manager->kill_workers_event,
+                                CLOCK_MONOTONIC,
+                                3 * USEC_PER_SEC,
+                                USEC_PER_SEC,
+                                on_kill_workers_event,
+                                manager,
+                                SD_EVENT_PRIORITY_NORMAL,
+                                "kill-workers-event",
+                                /* force_reset = */ false);
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to enable timer event source for cleaning up workers: %m");
+        }
+
+        return 0;
+}
+
 void manager_exit(Manager *manager) {
         assert(manager);
 
@@ -313,15 +351,6 @@ void manager_reload(Manager *manager, bool force) {
         }
 
         notify_ready(manager);
-}
-
-static int on_kill_workers_event(sd_event_source *s, uint64_t usec, void *userdata) {
-        Manager *manager = ASSERT_PTR(userdata);
-
-        log_debug("Cleaning up idle workers.");
-        manager_kill_workers(manager, false);
-
-        return 1;
 }
 
 static int on_event_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
@@ -936,9 +965,26 @@ static int on_sigchld(sd_event_source *s, const siginfo_t *si, void *userdata) {
         return 0;
 }
 
+static int manager_unlink_queue_file(Manager *manager) {
+        assert(manager);
+
+        if (manager->events)
+                return 0; /* There are queued events. */
+
+        /* There are no queued events. Let's remove /run/udev/queue and clean up the idle processes. */
+        if (unlink("/run/udev/queue") < 0) {
+                if (errno == ENOENT)
+                        return 0;
+
+                return log_warning_errno(errno, "Failed to unlink /run/udev/queue: %m");
+        }
+
+        log_debug("No events are queued, removed /run/udev/queue.");
+        return 0;
+}
+
 static int on_post(sd_event_source *s, void *userdata) {
         Manager *manager = ASSERT_PTR(userdata);
-        int r;
 
         if (manager->events) {
                 /* Try to process pending events if idle workers exist. Why is this necessary?
@@ -946,41 +992,15 @@ static int on_post(sd_event_source *s, void *userdata) {
                  * the corresponding device might have been locked and the processing of the event
                  * delayed for a while, preventing the worker from processing the event immediately.
                  * Now, the device may be unlocked. Let's try again! */
-                event_queue_start(manager);
-                return 1;
+                (void) event_queue_start(manager);
+                return 0;
         }
 
-        /* There are no queued events. Let's remove /run/udev/queue and clean up the idle processes. */
+        (void) manager_unlink_queue_file(manager);
+        (void) manager_reset_kill_workers_timer(manager);
 
-        if (unlink("/run/udev/queue") < 0) {
-                if (errno != ENOENT)
-                        log_warning_errno(errno, "Failed to unlink /run/udev/queue, ignoring: %m");
-        } else
-                log_debug("No events are queued, removed /run/udev/queue.");
-
-        if (!hashmap_isempty(manager->workers)) {
-                /* There are idle workers */
-                r = event_reset_time_relative(
-                                manager->event,
-                                &manager->kill_workers_event,
-                                CLOCK_MONOTONIC,
-                                3 * USEC_PER_SEC,
-                                USEC_PER_SEC,
-                                on_kill_workers_event,
-                                manager,
-                                SD_EVENT_PRIORITY_NORMAL,
-                                "kill-workers-event",
-                                /* force_reset = */ false);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to enable timer event source for cleaning up idle workers, ignoring: %m");
-
-                return 1;
-        }
-
-        /* There are no idle workers. */
-        r = sd_event_source_set_enabled(manager->kill_workers_event, SD_EVENT_OFF);
-        if (r < 0)
-                log_warning_errno(r, "Failed to disable timer event source for cleaning up idle workers, ignoring: %m");
+        if (!hashmap_isempty(manager->workers))
+                return 0; /* There still exist idle workers. */
 
         if (manager->exit) {
                 udev_watch_dump();
@@ -991,7 +1011,7 @@ static int on_post(sd_event_source *s, void *userdata) {
                 /* cleanup possible left-over processes in our cgroup */
                 (void) cg_kill(manager->cgroup, SIGKILL, CGROUP_IGNORE_SELF, /* set=*/ NULL, /* kill_log= */ NULL, /* userdata= */ NULL);
 
-        return 1;
+        return 0;
 }
 
 Manager* manager_new(void) {
