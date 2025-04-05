@@ -246,57 +246,40 @@ int invoke_callout_binary(const char *path, char *const argv[]) {
         return -errno;
 }
 
-static int open_executable(const char *path, char **ret_path) {
-        int r;
-
-        assert(path);
-
-        _cleanup_close_ int fd = RET_NERRNO(open(path, O_CLOEXEC|O_PATH));
-        if (fd < 0)
-                return fd;
-
-        r = fd_verify_regular(fd);
-        if (r < 0)
-                return r;
-
-        r = access_fd(fd, X_OK);
-        if (r < 0)
-                return r;
-
-        if (ret_path) {
-                r = fd_get_path(fd, ret_path);
-                if (r < 0)
-                        return r;
-        }
-
-        return TAKE_FD(fd);
-}
-
 int pin_callout_binary(const char *path, char **ret_path) {
-        int r;
+        _cleanup_free_ char *fn = NULL, *build_binary = NULL;
+        const char *e;
+        int r, fd;
 
         assert(path);
 
         /* Similar to invoke_callout_binary(), but pins (i.e. O_PATH opens) the binary instead of executing
          * it, also optionally provides the path to the binary. */
 
-        _cleanup_free_ char *fn = NULL;
         r = path_extract_filename(path, &fn);
         if (r < 0)
                 return r;
         if (r == O_DIRECTORY) /* Uh? */
                 return -EISDIR;
 
-        const char *e;
-        if (find_environment_binary(fn, &e) >= 0)
-                return open_executable(e, ret_path);
-
-        _cleanup_free_ char *np = NULL;
-        if (find_build_dir_binary(fn, &np) >= 0) {
-                r = open_executable(np, ret_path);
-                if (r >= 0)
+        if (find_environment_binary(fn, &e) >= 0) {
+                /* The environment variable counts. We'd fail if the executable is not available/invalid. */
+                r = open_and_check_executable(e, /* root = */ NULL, ret_path, &fd);
+                if (r < 0)
                         return r;
+
+                return fd;
         }
 
-        return open_executable(path, ret_path);
+        if (find_build_dir_binary(fn, &build_binary) >= 0) {
+                r = open_and_check_executable(build_binary, /* root = */ NULL, ret_path, &fd);
+                if (r >= 0)
+                        return fd;
+        }
+
+        r = open_and_check_executable(path, /* root = */ NULL, ret_path, &fd);
+        if (r < 0)
+                return r;
+
+        return fd;
 }
