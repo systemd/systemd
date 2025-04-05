@@ -25,9 +25,9 @@ typedef struct UdevWorker {
         Hashmap *properties;
         UdevRules *rules;
 
-        int inotify_fd; /* Do not close! */
-
         UdevConfig config;
+
+        pid_t manager_pid;
 } UdevWorker;
 
 void udev_worker_done(UdevWorker *worker);
