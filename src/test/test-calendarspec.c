@@ -47,7 +47,7 @@ static void _test_next(int line, const char *input, const char *new_tz, usec_t a
         if (old_tz)
                 old_tz = strdupa_safe(old_tz);
 
-        if (!isempty(new_tz))
+        if (!isempty(new_tz) && !strchr(new_tz, ','))
                 new_tz = strjoina(":", new_tz);
 
         assert_se(set_unset_env("TZ", new_tz, true) == 0);
@@ -219,6 +219,8 @@ TEST(calendar_spec_next) {
         /* Check that we don't start looping if mktime() moves us backwards */
         test_next("Sun *-*-* 01:00:00 Europe/Dublin", "", 1616412478000000, 1617494400000000);
         test_next("Sun *-*-* 01:00:00 Europe/Dublin", "IST", 1616412478000000, 1617494400000000);
+        /* Europe/Dublin TZ that moves DST backwards */
+        test_next("hourly", "IST-1GMT-0,M10.5.0/1,M3.5.0/1", 1743292800000000, 1743296400000000);
 }
 
 TEST(calendar_spec_from_string) {
