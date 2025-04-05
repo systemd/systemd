@@ -40,6 +40,8 @@ typedef struct Manager {
         Hashmap *properties;
 
         sd_device_monitor *monitor;
+        sd_device_monitor *event_storage;
+
         UdevCtrl *ctrl;
         sd_varlink_server *varlink_server;
 
