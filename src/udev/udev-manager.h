@@ -75,7 +75,7 @@ void manager_exit(Manager *manager);
 
 void notify_ready(Manager *manager);
 
-void manager_kill_workers(Manager *manager, bool force);
+void manager_kill_workers(Manager *manager, int signo);
 
 bool devpath_conflict(const char *a, const char *b);
 
