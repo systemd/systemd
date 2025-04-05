@@ -5,10 +5,12 @@
 #include "sd-daemon.h"
 
 #include "event-util.h"
+#include "fd-util.h"
 #include "notify-recv.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "rm-rf.h"
+#include "socket-util.h"
 #include "tests.h"
 #include "tmpfile-util.h"
 
@@ -25,12 +27,18 @@ static void context_done(Context *c) {
 
 static int on_recv(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         Context *c = ASSERT_PTR(userdata);
+        struct ucred ucred = UCRED_INVALID;
 
+        _cleanup_(fdset_free_asyncp) FDSet *fds = NULL;
         _cleanup_(pidref_done) PidRef sender = PIDREF_NULL;
         _cleanup_strv_free_ char **l = NULL;
-        ASSERT_OK(notify_recv_strv(fd, &l, /* ret_ucred= */ NULL, &sender));
+        ASSERT_OK(notify_recv_with_fds_strv(fd, &l, &ucred, &sender, &fds));
 
         ASSERT_TRUE(pidref_equal(&c->pidref, &sender));
+
+        ASSERT_EQ(ucred.gid, getgid());
+        ASSERT_EQ(ucred.pid, c->pidref.pid);
+        ASSERT_EQ(ucred.uid, getuid());
 
         _cleanup_free_ char *joined = strv_join(l, ", ");
         ASSERT_NOT_NULL(joined);
@@ -40,10 +48,13 @@ static int on_recv(sd_event_source *s, int fd, uint32_t revents, void *userdata)
                 ASSERT_STREQ(l[0], "FIRST_MESSAGE=1");
                 ASSERT_NULL(l[1]);
                 ASSERT_EQ(c->data, 0u);
+                ASSERT_NULL(fds);
         } else if (strv_contains(l, "SECOND_MESSAGE=1")) {
                 ASSERT_STREQ(l[0], "SECOND_MESSAGE=1");
                 ASSERT_STREQ(l[1], "ADDITIONAL_DATA=hoge");
                 ASSERT_EQ(c->data, 1u);
+                ASSERT_NOT_NULL(fds);
+                ASSERT_EQ(fdset_size(fds), 2u);
         }
 
         c->data++;
@@ -80,7 +91,17 @@ TEST(notify_socket_prepare) {
         if (r == 0) {
                 ASSERT_OK_ERRNO(setenv("NOTIFY_SOCKET", path, /* overwrite = */ true));
                 ASSERT_OK_POSITIVE(sd_notify(/* unset_environment = */ false, "FIRST_MESSAGE=1"));
-                ASSERT_OK_POSITIVE(sd_notify(/* unset_environment = */ false, "FIRST_MESSAGE=2\nADDITIONAL_DATA=hoge"));
+
+                _cleanup_close_ int fd1 = open("/tmp", O_RDONLY|O_CLOEXEC|O_DIRECTORY);
+                _cleanup_close_ int fd2 = open("/dev/null", O_RDONLY|O_CLOEXEC);
+                ASSERT_TRUE(fd1 >= 0);
+                ASSERT_TRUE(fd2 >= 0);
+
+                int fds[] = {fd1, fd2};
+                ASSERT_OK_POSITIVE(
+                        sd_pid_notify_with_fds(
+                                0, /* unset_environment = */ false,
+                                "FIRST_MESSAGE=2\nADDITIONAL_DATA=hoge", fds, 2));
                 _exit(EXIT_SUCCESS);
         }
 
