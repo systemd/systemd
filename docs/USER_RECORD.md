@@ -234,6 +234,27 @@ retrievable and resolvable under every name listed here, pretty much everywhere
 the primary user name is. If logging in is attempted via an alias name it
 should be normalized to the primary name.
 
+`uuid` -> An immutable UUID that identifies this user, in normal loweccase text form.
+The UUID should be assigned to the user at creation and never change (even if the user's
+username, realm or other identifying attributes change, and even on multiple
+machines).
+For systems interoperating with Microsoft Active Directory, this field should
+be mapped to the AD [objectGUID](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-ada3/937eb5c6-f6b3-4652-a276-5d6bb8979658)
+attribute.
+
+`ntSID` -> The [Windows NT Security Identifier](https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/manage/understand-security-identifiers)
+that identifies this user account, in canonical string form. This should map to the AD
+[objectSID](https://learn.microsoft.com/de-de/openspecs/windows_protocols/ms-ada3/afac8414-c614-4c6a-b316-41f5978308bd)
+attribute when interoperating with Active Directory.
+
+`ntSIDHistory` -> An array of strings, where each string is the canoncal string
+form of a Windows NT Security Identifier that previously identified this user account.
+This should map to the [sIDHistory](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-ada3/1c47c6a0-e614-49e5-bef3-f42f71f5eeb2)
+field when interoperating with Active Directory.
+If the user's SID is changed, e.g. because the user was moved between domains,
+the user's old SID should be recorded in the `ntSIDHistory` field so that ACLs
+and permissions referring to the user's old SID can be mapped.
+
 `blobDirectory` → The absolute path to a world-readable copy of the user's blob
 directory. See [Blob Directories](/USER_RECORD_BLOB_DIRS) for more details.
 
