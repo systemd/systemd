@@ -25,6 +25,10 @@ while read -r filelist; do
     mount --bind "/tmp/$(basename "$filelist")" "$filelist"
 done < <(find "pkg/$PKG_SUBDIR${GIT_SUBDIR:+/$GIT_SUBDIR}" -name "files.*")
 
+# TODO: remove manual default-hierarchy patch when the upstream spec is updated
+sed '/default-hierarchy/ d' "pkg/$PKG_SUBDIR${GIT_SUBDIR:+/$GIT_SUBDIR}/systemd.spec" >/tmp/systemd.spec
+mount --bind /tmp/systemd.spec "pkg/$PKG_SUBDIR${GIT_SUBDIR:+/$GIT_SUBDIR}/systemd.spec"
+
 if [[ "$(rpm --eval "%{lua:print(rpm.vercmp('$(rpm --version | cut -d ' ' -f3)', '4.20'))}")" == "-1" ]]; then
     # Fix the %install override so debuginfo packages are generated.
     tee --append /usr/lib/rpm/suse/macros <<'EOF'
