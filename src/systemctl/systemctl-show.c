@@ -255,6 +255,11 @@ typedef struct UnitStatusInfo {
         /* Swap */
         const char *what;
 
+        /* Slice */
+        unsigned concurrency_hard_max;
+        unsigned concurrency_soft_max;
+        unsigned n_currently_active;
+
         /* CGroup */
         uint64_t memory_current;
         uint64_t memory_peak;
@@ -706,6 +711,26 @@ static void print_status_info(
                 if (i->status_varlink_error) {
                         printf("%sVarlink: %s", prefix, i->status_varlink_error);
                         prefix = "; ";
+                }
+
+                putchar('\n');
+        }
+
+        if (endswith(i->id, ".slice")) {
+                printf(" Act. Units: %u", i->n_currently_active);
+
+                if (i->concurrency_soft_max != UINT_MAX || i->concurrency_hard_max != UINT_MAX) {
+                        fputs(" (", stdout);
+
+                        if (i->concurrency_soft_max != UINT_MAX && i->concurrency_soft_max < i->concurrency_hard_max) {
+                                printf("soft limit: %u", i->concurrency_soft_max);
+                                if (i->concurrency_hard_max != UINT_MAX)
+                                        fputs("; ", stdout);
+                        }
+                        if (i->concurrency_hard_max != UINT_MAX)
+                                printf("hard limit: %u", i->concurrency_hard_max);
+
+                        putchar(')');
                 }
 
                 putchar('\n');
@@ -2133,6 +2158,9 @@ static int show_one(
                 { "SysFSPath",                      "s",               NULL,           offsetof(UnitStatusInfo, sysfs_path)                        },
                 { "Where",                          "s",               NULL,           offsetof(UnitStatusInfo, where)                             },
                 { "What",                           "s",               NULL,           offsetof(UnitStatusInfo, what)                              },
+                { "ConcurrencyHardMax",             "u",               NULL,           offsetof(UnitStatusInfo, concurrency_hard_max)              },
+                { "ConcurrencySoftMax",             "u",               NULL,           offsetof(UnitStatusInfo, concurrency_soft_max)              },
+                { "NCurrentlyActive",               "u",               NULL,           offsetof(UnitStatusInfo, n_currently_active)                },
                 { "MemoryCurrent",                  "t",               NULL,           offsetof(UnitStatusInfo, memory_current)                    },
                 { "MemoryPeak",                     "t",               NULL,           offsetof(UnitStatusInfo, memory_peak)                       },
                 { "MemorySwapCurrent",              "t",               NULL,           offsetof(UnitStatusInfo, memory_swap_current)               },

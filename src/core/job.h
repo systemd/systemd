@@ -83,6 +83,7 @@ enum JobResult {
         JOB_COLLECTED,           /* Job was garbage collected, since nothing needed it anymore */
         JOB_ONCE,                /* Unit was started before, and hence can't be started again */
         JOB_FROZEN,              /* Unit is currently frozen, so we can't safely operate on it */
+        JOB_CONCURRENCY,         /* Slice the unit is in has its hard concurrency limit reached */
         _JOB_RESULT_MAX,
         _JOB_RESULT_INVALID = -EINVAL,
 };
