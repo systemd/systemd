@@ -5,10 +5,12 @@
 #include "sd-daemon.h"
 
 #include "event-util.h"
+#include "fd-util.h"
 #include "notify-recv.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "rm-rf.h"
+#include "socket-util.h"
 #include "tests.h"
 #include "tmpfile-util.h"
 
@@ -86,6 +88,46 @@ TEST(notify_socket_prepare) {
 
         ASSERT_OK(event_add_child_pidref(e, NULL, &c.pidref, WEXITED, on_sigchld, &c));
         ASSERT_OK(sd_event_loop(e));
+}
+
+TEST(notify_recv) {
+        struct ucred ucred = UCRED_INVALID;
+        _cleanup_close_pair_ int fd[2] = EBADF_PAIR;
+        _cleanup_(pidref_done) PidRef sender = PIDREF_NULL;
+        _cleanup_free_ char *msg = NULL;
+        _cleanup_free_ char *text = NULL;
+
+        ASSERT_OK(socketpair(AF_UNIX, SOCK_DGRAM, 0, fd));
+
+        int optval = 1;
+        ASSERT_OK(setsockopt(fd[1], SOL_SOCKET, SO_PASSCRED, &optval, sizeof(optval)));
+
+        msg = strdup("TEST_MESSAGE=hello");
+        ASSERT_NOT_NULL(msg);
+
+        struct iovec iovec = {
+                .iov_base = msg,
+                .iov_len = strlen(msg) + 1,
+        };
+
+        struct msghdr msghdr = {
+                .msg_iov = &iovec,
+                .msg_iovlen = 1,
+                .msg_control = NULL,
+                .msg_controllen = 0,
+        };
+
+        ssize_t r = sendmsg(fd[0], &msghdr, MSG_NOSIGNAL);
+        ASSERT_EQ((ssize_t)(strlen(msg) + 1), r);
+
+        ASSERT_OK(notify_recv(fd[1], &text, &ucred, &sender));
+
+        ASSERT_NOT_NULL(text);
+        ASSERT_STREQ(text, msg);
+
+        ASSERT_EQ(ucred.gid, getgid());
+        ASSERT_EQ(ucred.pid, getpid());
+        ASSERT_EQ(ucred.uid, getuid());
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
