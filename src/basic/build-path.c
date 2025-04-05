@@ -278,7 +278,9 @@ int pin_callout_binary(const char *path, char **ret_path) {
                         return fd;
         }
 
-        r = open_and_check_executable(path, /* root = */ NULL, ret_path, &fd);
+        r = find_executable_full(path, /* root = */ NULL,
+                                 /* exec_search_path = */ NULL, /* use_path_envvar = */ true,
+                                 ret_path, &fd);
         if (r < 0)
                 return r;
 
