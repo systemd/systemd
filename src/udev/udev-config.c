@@ -483,3 +483,41 @@ UdevReloadFlags manager_reload_config(Manager *manager) {
 
         return 0;
 }
+
+static usec_t extra_timeout_usec(void) {
+        static usec_t saved = 10 * USEC_PER_SEC;
+        static bool parsed = false;
+        usec_t timeout;
+        const char *e;
+        int r;
+
+        if (parsed)
+                return saved;
+
+        parsed = true;
+
+        e = getenv("SYSTEMD_UDEV_EXTRA_TIMEOUT_SEC");
+        if (!e)
+                return saved;
+
+        r = parse_sec(e, &timeout);
+        if (r < 0)
+                log_debug_errno(r, "Failed to parse $SYSTEMD_UDEV_EXTRA_TIMEOUT_SEC=%s, ignoring: %m", e);
+
+        if (timeout > 5 * USEC_PER_HOUR) /* Add an arbitrary upper bound */
+                log_debug("Parsed $SYSTEMD_UDEV_EXTRA_TIMEOUT_SEC=%s is too large, ignoring.", e);
+        else
+                saved = timeout;
+
+        return saved;
+}
+
+usec_t manager_kill_worker_timeout(Manager *manager) {
+        assert(manager);
+
+        /* Manager.timeout_usec is also used as the timeout for running programs specified in
+         * IMPORT{program}=, PROGRAM=, or RUN=. Here, let's add an extra time before the manager
+         * kills a worker, to make it possible that the worker detects timed out of spawned programs,
+         * kills them, and finalizes the event. */
+        return usec_add(manager->config.timeout_usec, extra_timeout_usec());
+}
