@@ -220,7 +220,7 @@ int get_locales(char ***ret) {
         /* Now, all elements are owned by strv 'l'. Hence, do not call set_free_free(). */
         locales = set_free(locales);
 
-        r = getenv_bool("SYSTEMD_LIST_NON_UTF8_LOCALES");
+        r = secure_getenv_bool("SYSTEMD_LIST_NON_UTF8_LOCALES");
         if (IN_SET(r, -ENXIO, 0)) {
                 char **a, **b;
 

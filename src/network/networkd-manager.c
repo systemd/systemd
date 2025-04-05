@@ -605,7 +605,7 @@ static int persistent_storage_open(void) {
         _cleanup_close_ int fd = -EBADF;
         int r;
 
-        r = getenv_bool("SYSTEMD_NETWORK_PERSISTENT_STORAGE_READY");
+        r = secure_getenv_bool("SYSTEMD_NETWORK_PERSISTENT_STORAGE_READY");
         if (r < 0 && r != -ENXIO)
                 return log_debug_errno(r, "Failed to parse $SYSTEMD_NETWORK_PERSISTENT_STORAGE_READY environment variable, ignoring: %m");
         if (r <= 0)

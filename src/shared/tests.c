@@ -105,7 +105,7 @@ const char* get_catalog_dir(void) {
 bool slow_tests_enabled(void) {
         int r;
 
-        r = getenv_bool("SYSTEMD_SLOW_TESTS");
+        r = secure_getenv_bool("SYSTEMD_SLOW_TESTS");
         if (r >= 0)
                 return r;
 
@@ -343,11 +343,11 @@ const char* ci_environment(void) {
         if (!isempty(citype))
                 return (ans = citype);
 
-        if (getenv_bool("TRAVIS") > 0)
+        if (secure_getenv_bool("TRAVIS") > 0)
                 return (ans = "travis");
-        if (getenv_bool("SEMAPHORE") > 0)
+        if (secure_getenv_bool("SEMAPHORE") > 0)
                 return (ans = "semaphore");
-        if (getenv_bool("GITHUB_ACTIONS") > 0)
+        if (secure_getenv_bool("GITHUB_ACTIONS") > 0)
                 return (ans = "github-actions");
         if (getenv("AUTOPKGTEST_ARTIFACTS") || getenv("AUTOPKGTEST_TMP"))
                 return (ans = "autopkgtest");
@@ -359,7 +359,7 @@ const char* ci_environment(void) {
                  * https://docs.travis-ci.com/user/environment-variables/#default-environment-variables
                  * https://docs.semaphoreci.com/ci-cd-environment/environment-variables/#ci
                  */
-                r = getenv_bool(var);
+                r = secure_getenv_bool(var);
                 if (r > 0)
                         return (ans = "unknown"); /* Some other unknown thing */
                 if (r == 0)

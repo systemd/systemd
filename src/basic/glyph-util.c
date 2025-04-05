@@ -9,7 +9,7 @@ bool emoji_enabled(void) {
         static int cached_emoji_enabled = -1;
 
         if (cached_emoji_enabled < 0) {
-                int val = getenv_bool("SYSTEMD_EMOJI");
+                int val = secure_getenv_bool("SYSTEMD_EMOJI");
                 if (val >= 0)
                         return (cached_emoji_enabled = val);
 

@@ -5091,7 +5091,7 @@ bool unit_type_supported(UnitType t) {
 
                 e = strjoina("SYSTEMD_SUPPORT_", unit_type_to_string(t));
 
-                r = getenv_bool(ascii_strupper(e));
+                r = secure_getenv_bool(ascii_strupper(e));
                 if (r < 0 && r != -ENXIO)
                         log_debug_errno(r, "Failed to parse $%s, ignoring: %m", e);
 

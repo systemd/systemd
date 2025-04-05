@@ -63,7 +63,7 @@ bool urlify_enabled(void) {
         if (cached_urlify_enabled < 0) {
                 int val;
 
-                val = getenv_bool("SYSTEMD_URLIFY");
+                val = secure_getenv_bool("SYSTEMD_URLIFY");
                 if (val >= 0)
                         cached_urlify_enabled = val;
                 else
@@ -480,7 +480,7 @@ bool shall_tint_background(void) {
         if (cache >= 0)
                 return cache;
 
-        cache = getenv_bool("SYSTEMD_TINT_BACKGROUND");
+        cache = secure_getenv_bool("SYSTEMD_TINT_BACKGROUND");
         if (cache == -ENXIO)
                 return (cache = true);
         if (cache < 0)

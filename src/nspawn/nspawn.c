@@ -601,7 +601,7 @@ static int parse_capability_spec(const char *spec, uint64_t *ret_mask) {
 static int parse_share_ns_env(const char *name, unsigned long ns_flag) {
         int r;
 
-        r = getenv_bool(name);
+        r = secure_getenv_bool(name);
         if (r == -ENXIO)
                 return 0;
         if (r < 0)
@@ -616,7 +616,7 @@ static int parse_mount_settings_env(void) {
         const char *e;
         int r;
 
-        r = getenv_bool("SYSTEMD_NSPAWN_TMPFS_TMP");
+        r = secure_getenv_bool("SYSTEMD_NSPAWN_TMPFS_TMP");
         if (r < 0 && r != -ENXIO)
                 return log_error_errno(r, "Failed to parse $SYSTEMD_NSPAWN_TMPFS_TMP: %m");
         if (r >= 0)

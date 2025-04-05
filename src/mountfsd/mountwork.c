@@ -968,7 +968,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to enable exit-on-idle mode: %m");
 
-        r = getenv_bool("MOUNTFS_FIXED_WORKER");
+        r = secure_getenv_bool("MOUNTFS_FIXED_WORKER");
         if (r < 0)
                 return log_error_errno(r, "Failed to parse MOUNTFSD_FIXED_WORKER: %m");
         listen_idle_usec = r ? USEC_INFINITY : LISTEN_IDLE_USEC;
