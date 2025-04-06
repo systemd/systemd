@@ -5210,7 +5210,7 @@ int exec_invoke(
                         }
                 }
 
-                if (cg_unified() > 0 && is_pressure_supported() > 0) {
+                if (is_pressure_supported() > 0) {
                         if (cgroup_context_want_memory_pressure(cgroup_context)) {
                                 r = cg_get_path("memory", params->cgroup_path, "memory.pressure", &memory_pressure_path);
                                 if (r < 0) {
