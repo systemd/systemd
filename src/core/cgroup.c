@@ -1645,23 +1645,9 @@ static int cgroup_apply_devices(Unit *u) {
 
         policy = c->device_policy;
 
-        if (cg_all_unified() > 0) {
-                r = bpf_devices_cgroup_init(&prog, policy, c->device_allow);
-                if (r < 0)
-                        return log_unit_warning_errno(u, r, "Failed to initialize device control bpf program: %m");
-
-        } else {
-                /* Changing the devices list of a populated cgroup might result in EINVAL, hence ignore
-                 * EINVAL here. */
-
-                if (c->device_allow || policy != CGROUP_DEVICE_POLICY_AUTO)
-                        r = cg_set_attribute("devices", crt->cgroup_path, "devices.deny", "a");
-                else
-                        r = cg_set_attribute("devices", crt->cgroup_path, "devices.allow", "a");
-                if (r < 0)
-                        log_unit_full_errno(u, IN_SET(r, -ENOENT, -EROFS, -EINVAL, -EACCES, -EPERM) ? LOG_DEBUG : LOG_WARNING, r,
-                                            "Failed to reset devices.allow/devices.deny: %m");
-        }
+        r = bpf_devices_cgroup_init(&prog, policy, c->device_allow);
+        if (r < 0)
+                return log_unit_warning_errno(u, r, "Failed to initialize device control bpf program: %m");
 
         bool allow_list_static = policy == CGROUP_DEVICE_POLICY_CLOSED ||
                 (policy == CGROUP_DEVICE_POLICY_AUTO && c->device_allow);
