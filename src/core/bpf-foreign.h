@@ -5,7 +5,7 @@
 #include "unit.h"
 
 static inline int bpf_foreign_supported(void) {
-        return cg_all_unified();
+        return true;
 }
 
 /*
