@@ -373,10 +373,6 @@ typedef struct Unit {
         UnitFileState unit_file_state;
         PresetAction unit_file_preset;
 
-        /* Low-priority event source which is used to remove watched PIDs that have gone away, and subscribe to any new
-         * ones which might have appeared. */
-        sd_event_source *rewatch_pids_event_source;
-
         /* How to start OnSuccess=/OnFailure= units */
         JobMode on_success_job_mode;
         JobMode on_failure_job_mode;
@@ -879,9 +875,6 @@ int unit_watch_pidref(Unit *u, const PidRef *pid, bool exclusive);
 void unit_unwatch_pidref(Unit *u, const PidRef *pid);
 void unit_unwatch_all_pids(Unit *u);
 void unit_unwatch_pidref_done(Unit *u, PidRef *pidref);
-
-int unit_enqueue_rewatch_pids(Unit *u);
-void unit_dequeue_rewatch_pids(Unit *u);
 
 int unit_install_bus_match(Unit *u, sd_bus *bus, const char *name);
 int unit_watch_bus_name(Unit *u, const char *name);
