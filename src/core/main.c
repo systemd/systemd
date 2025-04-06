@@ -903,7 +903,7 @@ static void set_manager_settings(Manager *m) {
         m->status_unit_format = arg_status_unit_format;
 }
 
-static int parse_argv(int argc, char *argv[]) {
+static int parse_argv(int argc, char *argv[], bool on_reload) {
         enum {
                 COMMON_GETOPT_ARGS,
                 SYSTEMD_GETOPT_ARGS,
@@ -924,8 +924,15 @@ static int parse_argv(int argc, char *argv[]) {
         if (getpid_cached() == 1)
                 opterr = 0;
 
-        while ((c = getopt_long(argc, argv, SYSTEMD_GETOPT_SHORT_OPTIONS, options, NULL)) >= 0)
+        /* Reset optind to restart scanning in case getopt_long() already parsed argv. */
+        if (on_reload)
+                optind = 1;
 
+        while ((c = getopt_long(argc, argv, SYSTEMD_GETOPT_SHORT_OPTIONS, options, NULL)) >= 0) {
+
+                /* The following options can be parsed multiple times without confusing PID1. Rescanning them
+                 * is necessary when PID1 reloads, ensuring these options still take precedence over any
+                 * counterparts defined in the configuration files. */
                 switch (c) {
 
                 case ARG_LOG_LEVEL:
@@ -933,17 +940,16 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse log level \"%s\": %m", optarg);
 
-                        break;
+                        continue;
 
                 case ARG_LOG_TARGET:
                         r = log_set_target_from_string(optarg);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse log target \"%s\": %m", optarg);
 
-                        break;
+                        continue;
 
                 case ARG_LOG_COLOR:
-
                         if (optarg) {
                                 r = log_show_color_from_string(optarg);
                                 if (r < 0)
@@ -952,7 +958,7 @@ static int parse_argv(int argc, char *argv[]) {
                         } else
                                 log_show_color(true);
 
-                        break;
+                        continue;
 
                 case ARG_LOG_LOCATION:
                         if (optarg) {
@@ -963,10 +969,9 @@ static int parse_argv(int argc, char *argv[]) {
                         } else
                                 log_show_location(true);
 
-                        break;
+                        continue;
 
                 case ARG_LOG_TIME:
-
                         if (optarg) {
                                 r = log_show_time_from_string(optarg);
                                 if (r < 0)
@@ -975,7 +980,61 @@ static int parse_argv(int argc, char *argv[]) {
                         } else
                                 log_show_time(true);
 
-                        break;
+                        continue;
+
+                case ARG_SHOW_STATUS:
+                        if (optarg) {
+                                r = parse_show_status(optarg, &arg_show_status);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse show status boolean: \"%s\": %m",
+                                                               optarg);
+                        } else
+                                arg_show_status = SHOW_STATUS_YES;
+                        continue;
+
+                case ARG_DUMP_CORE:
+                        r = parse_boolean_argument("--dump-core", optarg, &arg_dump_core);
+                        if (r < 0)
+                                return r;
+                        continue;
+
+                case ARG_CRASH_CHVT:
+                        r = parse_crash_chvt(optarg, &arg_crash_chvt);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse crash virtual terminal index: \"%s\": %m",
+                                                       optarg);
+                        continue;
+
+                case ARG_CRASH_SHELL:
+                        r = parse_boolean_argument("--crash-shell", optarg, &arg_crash_shell);
+                        if (r < 0)
+                                return r;
+                        continue;
+
+                case ARG_CRASH_REBOOT:
+                        r = parse_boolean_argument("--crash-reboot", optarg, NULL);
+                        if (r < 0)
+                                return r;
+                        arg_crash_action = r > 0 ? CRASH_REBOOT : CRASH_FREEZE;
+                        continue;
+
+                case ARG_CRASH_ACTION:
+                        r = crash_action_from_string(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse crash action \"%s\": %m", optarg);
+                        arg_crash_action = r;
+                        continue;
+                }
+
+                /* On reloading, all options have already been scanned and validated once. Therefore it's
+                 * safe to stop the parsing even if the current option is unknown at this point. */
+                if (on_reload)
+                        continue;
+
+                /* The following options can only be parsed once: during PID1 startup, not during
+                 * reload. Parsing them again would reset certain PID1 states, potentially causing
+                 * inconsistencies. */
+                switch (c) {
 
                 case ARG_DEFAULT_STD_OUTPUT:
                         r = exec_output_from_string(optarg);
@@ -1034,39 +1093,6 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_action = ACTION_BUS_INTROSPECT;
                         break;
 
-                case ARG_DUMP_CORE:
-                        r = parse_boolean_argument("--dump-core", optarg, &arg_dump_core);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_CRASH_CHVT:
-                        r = parse_crash_chvt(optarg, &arg_crash_chvt);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse crash virtual terminal index: \"%s\": %m",
-                                                       optarg);
-                        break;
-
-                case ARG_CRASH_SHELL:
-                        r = parse_boolean_argument("--crash-shell", optarg, &arg_crash_shell);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_CRASH_REBOOT:
-                        r = parse_boolean_argument("--crash-reboot", optarg, NULL);
-                        if (r < 0)
-                                return r;
-                        arg_crash_action = r > 0 ? CRASH_REBOOT : CRASH_FREEZE;
-                        break;
-
-                case ARG_CRASH_ACTION:
-                        r = crash_action_from_string(optarg);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse crash action \"%s\": %m", optarg);
-                        arg_crash_action = r;
-                        break;
-
                 case ARG_CONFIRM_SPAWN:
                         arg_confirm_spawn = mfree(arg_confirm_spawn);
 
@@ -1080,16 +1106,6 @@ static int parse_argv(int argc, char *argv[]) {
                         r = parse_boolean_argument("--service-watchdogs=", optarg, &arg_service_watchdogs);
                         if (r < 0)
                                 return r;
-                        break;
-
-                case ARG_SHOW_STATUS:
-                        if (optarg) {
-                                r = parse_show_status(optarg, &arg_show_status);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to parse show status boolean: \"%s\": %m",
-                                                               optarg);
-                        } else
-                                arg_show_status = SHOW_STATUS_YES;
                         break;
 
                 case ARG_DESERIALIZE: {
@@ -1145,12 +1161,13 @@ static int parse_argv(int argc, char *argv[]) {
                 default:
                         assert_not_reached();
                 }
+        }
 
         if (optind < argc && getpid_cached() != 1)
                 /* Hmm, when we aren't run as init system let's complain about excess arguments */
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Excess arguments.");
 
-        if (arg_action == ACTION_RUN && arg_runtime_scope == RUNTIME_SCOPE_USER && !user_arg_seen)
+        if (arg_action == ACTION_RUN && arg_runtime_scope == RUNTIME_SCOPE_USER && !user_arg_seen && !on_reload)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Explicit --user argument required to run as user manager.");
 
@@ -2203,6 +2220,7 @@ static int invoke_main_loop(
                         saved_log_target = m->log_target_overridden ? log_get_target() : _LOG_TARGET_INVALID;
 
                         (void) parse_configuration(saved_rlimit_nofile, saved_rlimit_memlock);
+                        (void) parse_argv(saved_argc, saved_argv, /* on_reload= */ true);
 
                         set_manager_defaults(m);
                         set_manager_settings(m);
@@ -3232,7 +3250,7 @@ int main(int argc, char *argv[]) {
 
         (void) parse_configuration(&saved_rlimit_nofile, &saved_rlimit_memlock);
 
-        r = parse_argv(argc, argv);
+        r = parse_argv(argc, argv, /* on_reload= */ false);
         if (r < 0) {
                 error_message = "Failed to parse command line arguments";
                 goto finish;
