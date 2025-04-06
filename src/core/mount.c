@@ -2464,7 +2464,6 @@ char* mount_get_what_escaped(const Mount *m) {
 }
 
 char* mount_get_options_escaped(const Mount *m) {
-        _cleanup_free_ char *escaped = NULL;
         const char *s = NULL;
 
         assert(m);
@@ -2473,14 +2472,10 @@ char* mount_get_options_escaped(const Mount *m) {
                 s = m->parameters_proc_self_mountinfo.options;
         else if (m->from_fragment && m->parameters_fragment.options)
                 s = m->parameters_fragment.options;
+        if (!s)
+                return strdup("");
 
-        if (s) {
-                escaped = utf8_escape_invalid(s);
-                if (!escaped)
-                        return NULL;
-        }
-
-        return escaped ? TAKE_PTR(escaped) : strdup("");
+        return utf8_escape_invalid(s);
 }
 
 const char* mount_get_fstype(const Mount *m) {
