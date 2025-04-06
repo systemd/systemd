@@ -246,34 +246,8 @@ int invoke_callout_binary(const char *path, char *const argv[]) {
         return -errno;
 }
 
-static int open_executable(const char *path, char **ret_path) {
-        int r;
-
-        assert(path);
-
-        _cleanup_close_ int fd = RET_NERRNO(open(path, O_CLOEXEC|O_PATH));
-        if (fd < 0)
-                return fd;
-
-        r = fd_verify_regular(fd);
-        if (r < 0)
-                return r;
-
-        r = access_fd(fd, X_OK);
-        if (r < 0)
-                return r;
-
-        if (ret_path) {
-                r = fd_get_path(fd, ret_path);
-                if (r < 0)
-                        return r;
-        }
-
-        return TAKE_FD(fd);
-}
-
 int pin_callout_binary(const char *path, char **ret_path) {
-        int r;
+        int r, fd;
 
         assert(path);
 
@@ -288,15 +262,27 @@ int pin_callout_binary(const char *path, char **ret_path) {
                 return -EISDIR;
 
         const char *e;
-        if (find_environment_binary(fn, &e) >= 0)
-                return open_executable(e, ret_path);
+        if (find_environment_binary(fn, &e) >= 0) {
+                /* The environment variable counts. We'd fail if the executable is not available/invalid. */
+                r = open_and_check_executable(e, /* root = */ NULL, ret_path, &fd);
+                if (r < 0)
+                        return r;
+
+                return fd;
+        }
 
         _cleanup_free_ char *np = NULL;
         if (find_build_dir_binary(fn, &np) >= 0) {
-                r = open_executable(np, ret_path);
+                r = open_and_check_executable(np, /* root = */ NULL, ret_path, &fd);
                 if (r >= 0)
-                        return r;
+                        return fd;
         }
 
-        return open_executable(path, ret_path);
+        r = find_executable_full(path, /* root = */ NULL,
+                                 /* exec_search_path = */ NULL, /* use_path_envvar = */ true,
+                                 ret_path, &fd);
+        if (r < 0)
+                return r;
+
+        return fd;
 }
