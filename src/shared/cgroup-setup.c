@@ -70,13 +70,11 @@ static int trim_cb(
         return RECURSE_DIR_CONTINUE;
 }
 
-int cg_trim(const char *controller, const char *path, bool delete_root) {
+int cg_trim(const char *path, bool delete_root) {
         _cleanup_free_ char *fs = NULL;
         int r;
 
-        assert(controller);
-
-        r = cg_get_path(controller, path, NULL, &fs);
+        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, path, NULL, &fs);
         if (r < 0)
                 return r;
 
@@ -109,13 +107,11 @@ int cg_trim(const char *controller, const char *path, bool delete_root) {
 /* Create a cgroup in the hierarchy of controller.
  * Returns 0 if the group already existed, 1 on success, negative otherwise.
  */
-int cg_create(const char *controller, const char *path) {
+int cg_create(const char *path) {
         _cleanup_free_ char *fs = NULL;
         int r;
 
-        assert(controller);
-
-        r = cg_get_path_and_check(controller, path, NULL, &fs);
+        r = cg_get_path_and_check(SYSTEMD_CGROUP_CONTROLLER, path, NULL, &fs);
         if (r < 0)
                 return r;
 
@@ -132,16 +128,15 @@ int cg_create(const char *controller, const char *path) {
         return 1;
 }
 
-int cg_attach(const char *controller, const char *path, pid_t pid) {
+int cg_attach(const char *path, pid_t pid) {
         _cleanup_free_ char *fs = NULL;
         char c[DECIMAL_STR_MAX(pid_t) + 2];
         int r;
 
-        assert(controller);
         assert(path);
         assert(pid >= 0);
 
-        r = cg_get_path_and_check(controller, path, "cgroup.procs", &fs);
+        r = cg_get_path_and_check(SYSTEMD_CGROUP_CONTROLLER, path, "cgroup.procs", &fs);
         if (r < 0)
                 return r;
 
@@ -174,18 +169,18 @@ int cg_fd_attach(int fd, pid_t pid) {
         return write_string_file_at(fd, "cgroup.procs", c, WRITE_STRING_FILE_DISABLE_BUFFER);
 }
 
-int cg_create_and_attach(const char *controller, const char *path, pid_t pid) {
+int cg_create_and_attach(const char *path, pid_t pid) {
         int r, q;
 
         /* This does not remove the cgroup on failure */
 
         assert(pid >= 0);
 
-        r = cg_create(controller, path);
+        r = cg_create(path);
         if (r < 0)
                 return r;
 
-        q = cg_attach(controller, path, pid);
+        q = cg_attach(path, pid);
         if (q < 0)
                 return q;
 
@@ -193,7 +188,6 @@ int cg_create_and_attach(const char *controller, const char *path, pid_t pid) {
 }
 
 int cg_set_access(
-                const char *controller,
                 const char *path,
                 uid_t uid,
                 gid_t gid) {
@@ -218,7 +212,7 @@ int cg_set_access(
                 return 0;
 
         /* Configure access to the cgroup itself */
-        r = cg_get_path(controller, path, NULL, &fs);
+        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, path, NULL, &fs);
         if (r < 0)
                 return r;
 
@@ -230,7 +224,7 @@ int cg_set_access(
         FOREACH_ELEMENT(i, attributes) {
                 fs = mfree(fs);
 
-                r = cg_get_path(controller, path, i->name, &fs);
+                r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, path, i->name, &fs);
                 if (r < 0)
                         return r;
 
@@ -276,7 +270,6 @@ static int access_callback(
 }
 
 int cg_set_access_recursive(
-                const char *controller,
                 const char *path,
                 uid_t uid,
                 gid_t gid) {
@@ -285,7 +278,6 @@ int cg_set_access_recursive(
         _cleanup_free_ char *fs = NULL;
         int r;
 
-        assert(controller);
         assert(path);
 
         /* A recursive version of cg_set_access(). But note that this one changes ownership of *all* files,
@@ -295,7 +287,7 @@ int cg_set_access_recursive(
         if (!uid_is_valid(uid) && !gid_is_valid(gid))
                 return 0;
 
-        r = cg_get_path(controller, path, NULL, &fs);
+        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, path, NULL, &fs);
         if (r < 0)
                 return r;
 
@@ -323,20 +315,16 @@ int cg_set_access_recursive(
 }
 
 int cg_migrate(
-                const char *cfrom,
-                const char *pfrom,
-                const char *cto,
-                const char *pto,
+                const char *from,
+                const char *to,
                 CGroupFlags flags) {
 
         _cleanup_set_free_ Set *s = NULL;
         bool done;
         int r, ret = 0;
 
-        assert(cfrom);
-        assert(pfrom);
-        assert(cto);
-        assert(pto);
+        assert(from);
+        assert(to);
 
         do {
                 _cleanup_fclose_ FILE *f = NULL;
@@ -344,7 +332,7 @@ int cg_migrate(
 
                 done = true;
 
-                r = cg_enumerate_processes(cfrom, pfrom, &f);
+                r = cg_enumerate_processes(SYSTEMD_CGROUP_CONTROLLER, from, &f);
                 if (r < 0)
                         return RET_GATHER(ret, r);
 
@@ -364,7 +352,7 @@ int cg_migrate(
                         if (pid_is_kernel_thread(pid) > 0)
                                 continue;
 
-                        r = cg_attach(cto, pto, pid);
+                        r = cg_attach(to, pid);
                         if (r < 0) {
                                 if (r != -ESRCH)
                                         RET_GATHER(ret, r);
@@ -384,19 +372,7 @@ int cg_migrate(
         return ret;
 }
 
-int cg_create_everywhere(CGroupMask supported, CGroupMask mask, const char *path) {
-        return cg_create(SYSTEMD_CGROUP_CONTROLLER, path);
-}
-
-int cg_attach_everywhere(CGroupMask supported, const char *path, pid_t pid) {
-        return cg_attach(SYSTEMD_CGROUP_CONTROLLER, path, pid);
-}
-
-int cg_trim_everywhere(CGroupMask supported, const char *path, bool delete_root) {
-        return cg_trim(SYSTEMD_CGROUP_CONTROLLER, path, delete_root);
-}
-
-int cg_enable_everywhere(
+int cg_enable(
                 CGroupMask supported,
                 CGroupMask mask,
                 const char *p,
