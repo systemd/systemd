@@ -2244,13 +2244,6 @@ int unit_watch_cgroup(Unit *u) {
         if (crt->cgroup_control_inotify_wd >= 0)
                 return 0;
 
-        /* Only applies to the unified hierarchy */
-        r = cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER);
-        if (r < 0)
-                return log_error_errno(r, "Failed to determine whether the name=systemd hierarchy is unified: %m");
-        if (r == 0)
-                return 0;
-
         /* No point in watch the top-level slice, it's never going to run empty. */
         if (unit_has_name(u, SPECIAL_ROOT_SLICE))
                 return 0;
@@ -2395,20 +2388,17 @@ static int unit_update_cgroup(
                 return log_unit_error_errno(u, r, "Failed to create cgroup %s: %m", empty_to_root(crt->cgroup_path));
         created = r;
 
-        if (cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER) > 0) {
-                uint64_t cgroup_id = 0;
+        uint64_t cgroup_id = 0;
+        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, crt->cgroup_path, NULL, &cgroup_full_path);
+        if (r == 0) {
+                r = cg_path_get_cgroupid(cgroup_full_path, &cgroup_id);
+                if (r < 0)
+                        log_unit_full_errno(u, ERRNO_IS_NOT_SUPPORTED(r) ? LOG_DEBUG : LOG_WARNING, r,
+                                            "Failed to get cgroup ID of cgroup %s, ignoring: %m", cgroup_full_path);
+        } else
+                log_unit_warning_errno(u, r, "Failed to get full cgroup path on cgroup %s, ignoring: %m", empty_to_root(crt->cgroup_path));
 
-                r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, crt->cgroup_path, NULL, &cgroup_full_path);
-                if (r == 0) {
-                        r = cg_path_get_cgroupid(cgroup_full_path, &cgroup_id);
-                        if (r < 0)
-                                log_unit_full_errno(u, ERRNO_IS_NOT_SUPPORTED(r) ? LOG_DEBUG : LOG_WARNING, r,
-                                                    "Failed to get cgroup ID of cgroup %s, ignoring: %m", cgroup_full_path);
-                } else
-                        log_unit_warning_errno(u, r, "Failed to get full cgroup path on cgroup %s, ignoring: %m", empty_to_root(crt->cgroup_path));
-
-                crt->cgroup_id = cgroup_id;
-        }
+        crt->cgroup_id = cgroup_id;
 
         /* Start watching it */
         (void) unit_watch_cgroup(u);
