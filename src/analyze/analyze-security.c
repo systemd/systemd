@@ -1752,7 +1752,7 @@ static int assess(const SecurityInfo *info,
                 (void) table_set_sort(details_table, (size_t) 3, (size_t) 1);
                 (void) table_set_reverse(details_table, 3, true);
 
-                if (getenv_bool("SYSTEMD_ANALYZE_DEBUG") <= 0)
+                if (secure_getenv_bool("SYSTEMD_ANALYZE_DEBUG") <= 0)
                         (void) table_set_display(details_table, (size_t) 0, (size_t) 1, (size_t) 2, (size_t) 3, (size_t) 7);
         }
 

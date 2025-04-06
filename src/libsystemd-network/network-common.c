@@ -101,7 +101,7 @@ bool network_test_mode_enabled(void) {
         int r;
 
         if (test_mode < 0) {
-                r = getenv_bool("SYSTEMD_NETWORK_TEST_MODE");
+                r = secure_getenv_bool("SYSTEMD_NETWORK_TEST_MODE");
                 if (r < 0) {
                         if (r != -ENXIO)
                                 log_debug_errno(r, "Failed to parse $SYSTEMD_NETWORK_TEST_MODE environment variable, ignoring: %m");

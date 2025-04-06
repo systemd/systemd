@@ -827,7 +827,7 @@ static int parse_argv(int argc, char *argv[]) {
                 assert_not_reached();
         }
 
-        r = getenv_bool("SYSTEMD_USE_MOUNTFSD");
+        r = secure_getenv_bool("SYSTEMD_USE_MOUNTFSD");
         if (r < 0) {
                 if (r != -ENXIO)
                         return log_error_errno(r, "Failed to parse $SYSTEMD_USE_MOUNTFSD: %m");

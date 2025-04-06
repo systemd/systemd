@@ -794,14 +794,14 @@ int running_in_chroot(void) {
          * mount /proc, so all other programs can assume that if /proc is *not* available, we're in some
          * chroot. */
 
-        r = getenv_bool("SYSTEMD_IN_CHROOT");
+        r = secure_getenv_bool("SYSTEMD_IN_CHROOT");
         if (r >= 0)
                 return r > 0;
         if (r != -ENXIO)
                 log_debug_errno(r, "Failed to parse $SYSTEMD_IN_CHROOT, ignoring: %m");
 
         /* Deprecated but kept for backwards compatibility. */
-        if (getenv_bool("SYSTEMD_IGNORE_CHROOT") > 0)
+        if (secure_getenv_bool("SYSTEMD_IGNORE_CHROOT") > 0)
                 return 0;
 
         r = pidref_from_same_root_fs(&PIDREF_MAKE_FROM_PID(1), NULL);

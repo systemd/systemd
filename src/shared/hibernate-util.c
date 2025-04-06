@@ -446,7 +446,7 @@ int hibernation_is_safe(void) {
         bool resume_set, bypass_space_check;
         int r;
 
-        bypass_space_check = getenv_bool("SYSTEMD_BYPASS_HIBERNATION_MEMORY_CHECK") > 0;
+        bypass_space_check = secure_getenv_bool("SYSTEMD_BYPASS_HIBERNATION_MEMORY_CHECK") > 0;
 
         r = find_suitable_hibernation_device_full(NULL, &size, &used);
         if (IN_SET(r, -ENOSPC, -ESTALE) && bypass_space_check)

@@ -435,7 +435,7 @@ bool shall_set_terminal_title(void) {
         if (cache >= 0)
                 return cache;
 
-        cache = getenv_bool("SYSTEMD_ADJUST_TERMINAL_TITLE");
+        cache = secure_getenv_bool("SYSTEMD_ADJUST_TERMINAL_TITLE");
         if (cache == -ENXIO)
                 return (cache = true);
         if (cache < 0)

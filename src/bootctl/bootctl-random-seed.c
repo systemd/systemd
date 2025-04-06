@@ -72,7 +72,7 @@ static int set_system_token(void) {
                 return 0;
         }
 
-        r = getenv_bool("SYSTEMD_WRITE_SYSTEM_TOKEN");
+        r = secure_getenv_bool("SYSTEMD_WRITE_SYSTEM_TOKEN");
         if (r < 0) {
                 if (r != -ENXIO)
                         log_warning_errno(r, "Failed to parse $SYSTEMD_WRITE_SYSTEM_TOKEN, ignoring.");

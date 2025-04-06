@@ -24,7 +24,7 @@ bool running_in_chroot_or_offline(void) {
          *
          * See docs/ENVIRONMENT.md for docs.
          */
-        r = getenv_bool("SYSTEMD_OFFLINE");
+        r = secure_getenv_bool("SYSTEMD_OFFLINE");
         if (r >= 0)
                 return r > 0;
         if (r != -ENXIO)
@@ -52,7 +52,7 @@ bool should_bypass(const char *env_prefix) {
 
         env = strjoina(env_prefix, "_BYPASS");
 
-        r = getenv_bool(env);
+        r = secure_getenv_bool(env);
         if (r < 0 && r != -ENXIO)
                 log_debug_errno(r, "Failed to parse $%s, assuming no: %m", env);
         if (r <= 0)

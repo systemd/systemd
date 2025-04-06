@@ -3184,7 +3184,7 @@ static int property_get_reboot_to_firmware_setup(
         assert(reply);
         assert(userdata);
 
-        r = getenv_bool("SYSTEMD_REBOOT_TO_FIRMWARE_SETUP");
+        r = secure_getenv_bool("SYSTEMD_REBOOT_TO_FIRMWARE_SETUP");
         if (r == -ENXIO) {
                 /* EFI case: let's see what is currently configured in the EFI variables */
                 r = efi_get_reboot_to_firmware();
@@ -3221,7 +3221,7 @@ static int method_set_reboot_to_firmware_setup(
         if (r < 0)
                 return r;
 
-        r = getenv_bool("SYSTEMD_REBOOT_TO_FIRMWARE_SETUP");
+        r = secure_getenv_bool("SYSTEMD_REBOOT_TO_FIRMWARE_SETUP");
         if (r == -ENXIO) {
                 /* EFI case: let's see what the firmware supports */
 
@@ -3283,7 +3283,7 @@ static int method_can_reboot_to_firmware_setup(
 
         assert(message);
 
-        r = getenv_bool("SYSTEMD_REBOOT_TO_FIRMWARE_SETUP");
+        r = secure_getenv_bool("SYSTEMD_REBOOT_TO_FIRMWARE_SETUP");
         if (r == -ENXIO) {
                 /* EFI case: let's see what the firmware supports */
 
@@ -3328,7 +3328,7 @@ static int property_get_reboot_to_boot_loader_menu(
         assert(reply);
         assert(userdata);
 
-        r = getenv_bool("SYSTEMD_REBOOT_TO_BOOT_LOADER_MENU");
+        r = secure_getenv_bool("SYSTEMD_REBOOT_TO_BOOT_LOADER_MENU");
         if (r == -ENXIO) {
                 /* EFI case: returns the current value of LoaderConfigTimeoutOneShot. Three cases are distinguished:
                  *
@@ -3380,7 +3380,7 @@ static int method_set_reboot_to_boot_loader_menu(
         if (r < 0)
                 return r;
 
-        r = getenv_bool("SYSTEMD_REBOOT_TO_BOOT_LOADER_MENU");
+        r = secure_getenv_bool("SYSTEMD_REBOOT_TO_BOOT_LOADER_MENU");
         if (r == -ENXIO) {
                 uint64_t features;
 
@@ -3453,7 +3453,7 @@ static int method_can_reboot_to_boot_loader_menu(
 
         assert(message);
 
-        r = getenv_bool("SYSTEMD_REBOOT_TO_BOOT_LOADER_MENU");
+        r = secure_getenv_bool("SYSTEMD_REBOOT_TO_BOOT_LOADER_MENU");
         if (r == -ENXIO) {
                 uint64_t features = 0;
 
@@ -3499,7 +3499,7 @@ static int property_get_reboot_to_boot_loader_entry(
         assert(bus);
         assert(reply);
 
-        r = getenv_bool("SYSTEMD_REBOOT_TO_BOOT_LOADER_ENTRY");
+        r = secure_getenv_bool("SYSTEMD_REBOOT_TO_BOOT_LOADER_ENTRY");
         if (r == -ENXIO) {
                 /* EFI case: let's read the LoaderEntryOneShot variable */
 
@@ -3574,7 +3574,7 @@ static int method_set_reboot_to_boot_loader_entry(
         } else
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Boot loader entry name '%s' is not valid, refusing.", v);
 
-        r = getenv_bool("SYSTEMD_REBOOT_TO_BOOT_LOADER_ENTRY");
+        r = secure_getenv_bool("SYSTEMD_REBOOT_TO_BOOT_LOADER_ENTRY");
         if (r == -ENXIO) {
                 uint64_t features;
 
@@ -3642,7 +3642,7 @@ static int method_can_reboot_to_boot_loader_entry(
 
         assert(message);
 
-        r = getenv_bool("SYSTEMD_REBOOT_TO_BOOT_LOADER_ENTRY");
+        r = secure_getenv_bool("SYSTEMD_REBOOT_TO_BOOT_LOADER_ENTRY");
         if (r == -ENXIO) {
                 uint64_t features = 0;
 

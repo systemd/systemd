@@ -1508,7 +1508,7 @@ int image_path_lock(
                 return -EINVAL;
         }
 
-        if (getenv_bool("SYSTEMD_NSPAWN_LOCK") == 0) {
+        if (secure_getenv_bool("SYSTEMD_NSPAWN_LOCK") == 0) {
                 *ret_local = LOCK_FILE_INIT;
                 if (ret_global)
                         *ret_global = LOCK_FILE_INIT;
@@ -1772,7 +1772,7 @@ int image_name_lock(const char *name, int operation, LockFile *ret) {
         if (!image_name_is_valid(name))
                 return -EINVAL;
 
-        if (getenv_bool("SYSTEMD_NSPAWN_LOCK") == 0) {
+        if (secure_getenv_bool("SYSTEMD_NSPAWN_LOCK") == 0) {
                 *ret = (LockFile) LOCK_FILE_INIT;
                 return 0;
         }

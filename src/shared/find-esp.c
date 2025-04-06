@@ -42,7 +42,7 @@ static VerifyESPFlags verify_esp_flags_init(int unprivileged_mode, const char *e
         if (unprivileged_mode)
                 flags |= VERIFY_ESP_UNPRIVILEGED_MODE;
 
-        r = getenv_bool(env_name_for_relaxing);
+        r = secure_getenv_bool(env_name_for_relaxing);
         if (r < 0 && r != -ENXIO)
                 log_debug_errno(r, "Failed to parse $%s environment variable, assuming false.", env_name_for_relaxing);
         else if (r > 0)

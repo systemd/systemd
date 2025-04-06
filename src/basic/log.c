@@ -1427,7 +1427,7 @@ void log_parse_environment_variables(void) {
                  * DEBUG_INVOCATION is explicitly set to 0 we won't lower the log level below debug. This
                  * follows the logic that debug logging is an opt-in thing anyway, and if there's any reason
                  * to enable it we should not disable it here automatically. */
-                r = getenv_bool("DEBUG_INVOCATION");
+                r = secure_getenv_bool("DEBUG_INVOCATION");
                 if (r < 0 && r != -ENXIO)
                         log_warning_errno(r, "Failed to parse $DEBUG_INVOCATION value, ignoring: %m");
                 else if (r > 0)

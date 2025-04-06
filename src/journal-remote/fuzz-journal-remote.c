@@ -69,7 +69,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         }
 
         _cleanup_fclose_ FILE *dev_null = NULL;
-        if (getenv_bool("SYSTEMD_FUZZ_OUTPUT") <= 0) {
+        if (secure_getenv_bool("SYSTEMD_FUZZ_OUTPUT") <= 0) {
                 dev_null = fopen("/dev/null", "we");
                 if (!dev_null)
                         return log_error_errno(errno, "fopen(\"/dev/null\") failed: %m");

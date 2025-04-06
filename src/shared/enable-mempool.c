@@ -13,7 +13,7 @@ bool mempool_enabled(void) {
                 return false;
 
         if (cache < 0)
-                cache = getenv_bool("SYSTEMD_MEMPOOL") != 0;
+                cache = secure_getenv_bool("SYSTEMD_MEMPOOL") != 0;
 
         return cache;
 }

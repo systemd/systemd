@@ -607,7 +607,7 @@ static int loop_device_make_internal(
 static uint32_t loop_flags_mangle(uint32_t loop_flags) {
         int r;
 
-        r = getenv_bool("SYSTEMD_LOOP_DIRECT_IO");
+        r = secure_getenv_bool("SYSTEMD_LOOP_DIRECT_IO");
         if (r < 0 && r != -ENXIO)
                 log_debug_errno(r, "Failed to parse $SYSTEMD_LOOP_DIRECT_IO, ignoring: %m");
 

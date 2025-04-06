@@ -222,7 +222,7 @@ static void context_read_os_release(Context *c) {
 static bool use_dmi_data(void) {
         int r;
 
-        r = getenv_bool("SYSTEMD_HOSTNAME_FORCE_DMI");
+        r = secure_getenv_bool("SYSTEMD_HOSTNAME_FORCE_DMI");
         if (r >= 0) {
                 log_debug("Honouring $SYSTEMD_HOSTNAME_FORCE_DMI override: %s", yes_no(r));
                 return r;

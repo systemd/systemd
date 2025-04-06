@@ -618,7 +618,7 @@ static int test_userns_api_support(sd_varlink *link) {
          * via BPF APIs). This should make very sure we don't accidentally allow any of the userns stuff to
          * go through without the BPF LSM in effect. */
 
-        r = getenv_bool("NSRESOURCE_API");
+        r = secure_getenv_bool("NSRESOURCE_API");
         if (r < 0)
                 return log_error_errno(r, "Failed to parse $NSRESOURCE_API: %m");
         if (r == 0)
