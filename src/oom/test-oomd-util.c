@@ -52,7 +52,7 @@ static void test_oomd_cgroup_kill(void) {
          * by the test so that pid1 doesn't delete it before we can read the xattrs. */
         cgroup = path_join(cgroup_root, "oomdkilltest");
         assert_se(cgroup);
-        assert_se(cg_create(SYSTEMD_CGROUP_CONTROLLER, cgroup) >= 0);
+        assert_se(cg_create(cgroup) >= 0);
 
         /* If we don't have permissions to set xattrs we're likely in a userns or missing capabilities */
         r = cg_set_xattr(cgroup, "user.oomd_test", "test", 4, 0);
@@ -65,7 +65,7 @@ static void test_oomd_cgroup_kill(void) {
 
                 for (int j = 0; j < 2; j++) {
                         pid[j] = fork_and_sleep(5);
-                        assert_se(cg_attach(SYSTEMD_CGROUP_CONTROLLER, cgroup, pid[j]) >= 0);
+                        assert_se(cg_attach(cgroup, pid[j]) >= 0);
                 }
 
                 r = oomd_cgroup_kill(cgroup, false /* recurse */, false /* dry run */);
@@ -477,7 +477,7 @@ static void test_oomd_fetch_cgroup_oom_preference(void) {
          * owned by the same user. */
         if (test_xattrs && !empty_or_root(cgroup)) {
                 ctx = oomd_cgroup_context_free(ctx);
-                assert_se(cg_set_access(SYSTEMD_CGROUP_CONTROLLER, cgroup, 61183, 0) >= 0);
+                assert_se(cg_set_access(cgroup, 61183, 0) >= 0);
                 assert_se(oomd_cgroup_context_acquire(cgroup, &ctx) == 0);
 
                 assert_se(oomd_fetch_cgroup_oom_preference(ctx, NULL) == 0);
