@@ -576,7 +576,7 @@ int exec_spawn(
                                   "--log-level", max_log_levels,
                                   "--log-target", log_target_to_string(manager_get_executor_log_target(unit->manager))),
                         environ,
-                        cg_unified() > 0 ? subcgroup_path : NULL,
+                        subcgroup_path,
                         &pidref);
 
         /* Drop the ambient set again, so no processes other than sd-executore spawned from the manager inherit it. */
