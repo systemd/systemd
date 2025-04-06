@@ -276,14 +276,6 @@ int bpf_devices_supported(void) {
                 return supported = 0;
         }
 
-        r = cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER);
-        if (r < 0)
-                return log_error_errno(r, "Can't determine whether the unified hierarchy is used: %m");
-        if (r == 0) {
-                log_debug("Not running with unified cgroups, BPF device control is not supported.");
-                return supported = 0;
-        }
-
         r = bpf_program_new(BPF_PROG_TYPE_CGROUP_DEVICE, "sd_devices", &program);
         if (r < 0) {
                 log_debug_errno(r, "Can't allocate CGROUP DEVICE BPF program, BPF device control is not supported: %m");
@@ -315,38 +307,15 @@ static int allow_list_device_pattern(
 
         assert(IN_SET(type, 'b', 'c'));
 
-        if (cg_all_unified() > 0) {
-                if (!prog)
-                        return 0;
+        if (!prog)
+                return 0;
 
-                if (major != UINT_MAX && minor != UINT_MAX)
-                        return bpf_prog_allow_list_device(prog, type, major, minor, p);
-                else if (major != UINT_MAX)
-                        return bpf_prog_allow_list_major(prog, type, major, p);
-                else
-                        return bpf_prog_allow_list_class(prog, type, p);
+        if (major != UINT_MAX && minor != UINT_MAX)
+                return bpf_prog_allow_list_device(prog, type, major, minor, p);
+        if (major != UINT_MAX)
+                return bpf_prog_allow_list_major(prog, type, major, p);
 
-        } else {
-                char buf[2+DECIMAL_STR_MAX(unsigned)*2+2+4];
-                int r;
-
-                if (major != UINT_MAX && minor != UINT_MAX)
-                        xsprintf(buf, "%c %u:%u %s", type, major, minor, cgroup_device_permissions_to_string(p));
-                else if (major != UINT_MAX)
-                        xsprintf(buf, "%c %u:* %s", type, major, cgroup_device_permissions_to_string(p));
-                else
-                        xsprintf(buf, "%c *:* %s", type, cgroup_device_permissions_to_string(p));
-
-                /* Changing the devices list of a populated cgroup might result in EINVAL, hence ignore
-                 * EINVAL here. */
-
-                r = cg_set_attribute("devices", path, "devices.allow", buf);
-                if (r < 0)
-                        log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EINVAL, -EACCES, -EPERM) ? LOG_DEBUG : LOG_WARNING,
-                                       r, "Failed to set devices.allow on %s: %m", path);
-
-                return r;
-        }
+        return bpf_prog_allow_list_class(prog, type, p);
 }
 
 int bpf_devices_allow_list_device(
