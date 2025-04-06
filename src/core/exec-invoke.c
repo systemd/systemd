@@ -4956,7 +4956,7 @@ int exec_invoke(
                         return log_exec_error_errno(context, params, r, "Failed to acquire cgroup path: %m");
                 }
 
-                r = cg_attach_everywhere(params->cgroup_supported, p, 0);
+                r = cg_attach(p, 0);
                 if (r == -EUCLEAN) {
                         *exit_status = EXIT_CGROUP;
                         return log_exec_error_errno(context, params, r,
@@ -5179,7 +5179,7 @@ int exec_invoke(
                 if (params->flags & EXEC_CGROUP_DELEGATE) {
                         _cleanup_free_ char *p = NULL;
 
-                        r = cg_set_access(SYSTEMD_CGROUP_CONTROLLER, params->cgroup_path, uid, gid);
+                        r = cg_set_access(params->cgroup_path, uid, gid);
                         if (r < 0) {
                                 *exit_status = EXIT_CGROUP;
                                 return log_exec_error_errno(context, params, r, "Failed to adjust control group access: %m");
@@ -5191,7 +5191,7 @@ int exec_invoke(
                                 return log_exec_error_errno(context, params, r, "Failed to acquire cgroup path: %m");
                         }
                         if (r > 0) {
-                                r = cg_set_access_recursive(SYSTEMD_CGROUP_CONTROLLER, p, uid, gid);
+                                r = cg_set_access_recursive(p, uid, gid);
                                 if (r < 0) {
                                         *exit_status = EXIT_CGROUP;
                                         return log_exec_error_errno(context, params, r, "Failed to adjust control subgroup access: %m");
