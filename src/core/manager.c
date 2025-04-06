@@ -1636,6 +1636,7 @@ static void manager_clear_jobs_and_units(Manager *m) {
 
         assert(hashmap_isempty(m->jobs));
         assert(hashmap_isempty(m->units));
+        assert(hashmap_isempty(m->units_by_invocation_id));
 
         m->n_on_console = 0;
         m->n_running_jobs = 0;
