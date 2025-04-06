@@ -477,8 +477,6 @@ node /org/freedesktop/systemd1 {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b DefaultCPUAccounting = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
-      readonly b DefaultBlockIOAccounting = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b DefaultIOAccounting = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b DefaultIPAccounting = ...;
@@ -718,8 +716,6 @@ node /org/freedesktop/systemd1 {
     <!--property DefaultStartLimitBurst is not documented!-->
 
     <!--property DefaultCPUAccounting is not documented!-->
-
-    <!--property DefaultBlockIOAccounting is not documented!-->
 
     <!--property DefaultIOAccounting is not documented!-->
 
@@ -1166,8 +1162,6 @@ node /org/freedesktop/systemd1 {
     <variablelist class="dbus-property" generated="True" extra-ref="DefaultStartLimitBurst"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="DefaultCPUAccounting"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="DefaultBlockIOAccounting"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="DefaultIOAccounting"/>
 
@@ -2906,10 +2900,6 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t StartupCPUWeight = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly t CPUShares = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly t StartupCPUShares = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t CPUQuotaPerSecUSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t CPUQuotaPeriodUSec = ...;
@@ -2939,18 +2929,6 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       readonly a(st) IOWriteIOPSMax = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly a(st) IODeviceLatencyTargetUSec = [...];
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly b BlockIOAccounting = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly t BlockIOWeight = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly t StartupBlockIOWeight = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly a(st) BlockIODeviceWeight = [...];
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly a(st) BlockIOReadBandwidth = [...];
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly a(st) BlockIOWriteBandwidth = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly b MemoryAccounting = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
@@ -2983,8 +2961,6 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       readonly t StartupMemoryZSwapMax = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly b MemoryZSwapWriteback = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly t MemoryLimit = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly s DevicePolicy = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
@@ -3565,10 +3541,6 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <!--property StartupCPUWeight is not documented!-->
 
-    <!--property CPUShares is not documented!-->
-
-    <!--property StartupCPUShares is not documented!-->
-
     <!--property CPUQuotaPerSecUSec is not documented!-->
 
     <!--property CPUQuotaPeriodUSec is not documented!-->
@@ -3598,18 +3570,6 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <!--property IOWriteIOPSMax is not documented!-->
 
     <!--property IODeviceLatencyTargetUSec is not documented!-->
-
-    <!--property BlockIOAccounting is not documented!-->
-
-    <!--property BlockIOWeight is not documented!-->
-
-    <!--property StartupBlockIOWeight is not documented!-->
-
-    <!--property BlockIODeviceWeight is not documented!-->
-
-    <!--property BlockIOReadBandwidth is not documented!-->
-
-    <!--property BlockIOWriteBandwidth is not documented!-->
 
     <!--property MemoryAccounting is not documented!-->
 
@@ -3642,8 +3602,6 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <!--property StartupMemoryZSwapMax is not documented!-->
 
     <!--property MemoryZSwapWriteback is not documented!-->
-
-    <!--property MemoryLimit is not documented!-->
 
     <!--property DevicePolicy is not documented!-->
 
@@ -4237,10 +4195,6 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <variablelist class="dbus-property" generated="True" extra-ref="StartupCPUWeight"/>
 
-    <variablelist class="dbus-property" generated="True" extra-ref="CPUShares"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="StartupCPUShares"/>
-
     <variablelist class="dbus-property" generated="True" extra-ref="CPUQuotaPerSecUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="CPUQuotaPeriodUSec"/>
@@ -4270,18 +4224,6 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="IOWriteIOPSMax"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="IODeviceLatencyTargetUSec"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="BlockIOAccounting"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="BlockIOWeight"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="StartupBlockIOWeight"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="BlockIODeviceWeight"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="BlockIOReadBandwidth"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="BlockIOWriteBandwidth"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryAccounting"/>
 
@@ -4314,8 +4256,6 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="StartupMemoryZSwapMax"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryZSwapWriteback"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="MemoryLimit"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="DevicePolicy"/>
 
@@ -5113,10 +5053,6 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t StartupCPUWeight = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly t CPUShares = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly t StartupCPUShares = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t CPUQuotaPerSecUSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t CPUQuotaPeriodUSec = ...;
@@ -5146,18 +5082,6 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       readonly a(st) IOWriteIOPSMax = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly a(st) IODeviceLatencyTargetUSec = [...];
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly b BlockIOAccounting = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly t BlockIOWeight = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly t StartupBlockIOWeight = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly a(st) BlockIODeviceWeight = [...];
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly a(st) BlockIOReadBandwidth = [...];
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly a(st) BlockIOWriteBandwidth = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly b MemoryAccounting = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
@@ -5190,8 +5114,6 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       readonly t StartupMemoryZSwapMax = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly b MemoryZSwapWriteback = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly t MemoryLimit = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly s DevicePolicy = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
@@ -5784,10 +5706,6 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
 
     <!--property StartupCPUWeight is not documented!-->
 
-    <!--property CPUShares is not documented!-->
-
-    <!--property StartupCPUShares is not documented!-->
-
     <!--property CPUQuotaPerSecUSec is not documented!-->
 
     <!--property CPUQuotaPeriodUSec is not documented!-->
@@ -5817,18 +5735,6 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <!--property IOWriteIOPSMax is not documented!-->
 
     <!--property IODeviceLatencyTargetUSec is not documented!-->
-
-    <!--property BlockIOAccounting is not documented!-->
-
-    <!--property BlockIOWeight is not documented!-->
-
-    <!--property StartupBlockIOWeight is not documented!-->
-
-    <!--property BlockIODeviceWeight is not documented!-->
-
-    <!--property BlockIOReadBandwidth is not documented!-->
-
-    <!--property BlockIOWriteBandwidth is not documented!-->
 
     <!--property MemoryAccounting is not documented!-->
 
@@ -5861,8 +5767,6 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <!--property StartupMemoryZSwapMax is not documented!-->
 
     <!--property MemoryZSwapWriteback is not documented!-->
-
-    <!--property MemoryLimit is not documented!-->
 
     <!--property DevicePolicy is not documented!-->
 
@@ -6428,10 +6332,6 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
 
     <variablelist class="dbus-property" generated="True" extra-ref="StartupCPUWeight"/>
 
-    <variablelist class="dbus-property" generated="True" extra-ref="CPUShares"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="StartupCPUShares"/>
-
     <variablelist class="dbus-property" generated="True" extra-ref="CPUQuotaPerSecUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="CPUQuotaPeriodUSec"/>
@@ -6461,18 +6361,6 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <variablelist class="dbus-property" generated="True" extra-ref="IOWriteIOPSMax"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="IODeviceLatencyTargetUSec"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="BlockIOAccounting"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="BlockIOWeight"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="StartupBlockIOWeight"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="BlockIODeviceWeight"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="BlockIOReadBandwidth"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="BlockIOWriteBandwidth"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryAccounting"/>
 
@@ -6505,8 +6393,6 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <variablelist class="dbus-property" generated="True" extra-ref="StartupMemoryZSwapMax"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryZSwapWriteback"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="MemoryLimit"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="DevicePolicy"/>
 
@@ -7136,10 +7022,6 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t StartupCPUWeight = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly t CPUShares = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly t StartupCPUShares = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t CPUQuotaPerSecUSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t CPUQuotaPeriodUSec = ...;
@@ -7169,18 +7051,6 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       readonly a(st) IOWriteIOPSMax = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly a(st) IODeviceLatencyTargetUSec = [...];
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly b BlockIOAccounting = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly t BlockIOWeight = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly t StartupBlockIOWeight = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly a(st) BlockIODeviceWeight = [...];
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly a(st) BlockIOReadBandwidth = [...];
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly a(st) BlockIOWriteBandwidth = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly b MemoryAccounting = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
@@ -7213,8 +7083,6 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       readonly t StartupMemoryZSwapMax = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly b MemoryZSwapWriteback = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly t MemoryLimit = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly s DevicePolicy = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
@@ -7737,10 +7605,6 @@ node /org/freedesktop/systemd1/unit/home_2emount {
 
     <!--property StartupCPUWeight is not documented!-->
 
-    <!--property CPUShares is not documented!-->
-
-    <!--property StartupCPUShares is not documented!-->
-
     <!--property CPUQuotaPerSecUSec is not documented!-->
 
     <!--property CPUQuotaPeriodUSec is not documented!-->
@@ -7770,18 +7634,6 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <!--property IOWriteIOPSMax is not documented!-->
 
     <!--property IODeviceLatencyTargetUSec is not documented!-->
-
-    <!--property BlockIOAccounting is not documented!-->
-
-    <!--property BlockIOWeight is not documented!-->
-
-    <!--property StartupBlockIOWeight is not documented!-->
-
-    <!--property BlockIODeviceWeight is not documented!-->
-
-    <!--property BlockIOReadBandwidth is not documented!-->
-
-    <!--property BlockIOWriteBandwidth is not documented!-->
 
     <!--property MemoryAccounting is not documented!-->
 
@@ -7814,8 +7666,6 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <!--property StartupMemoryZSwapMax is not documented!-->
 
     <!--property MemoryZSwapWriteback is not documented!-->
-
-    <!--property MemoryLimit is not documented!-->
 
     <!--property DevicePolicy is not documented!-->
 
@@ -8297,10 +8147,6 @@ node /org/freedesktop/systemd1/unit/home_2emount {
 
     <variablelist class="dbus-property" generated="True" extra-ref="StartupCPUWeight"/>
 
-    <variablelist class="dbus-property" generated="True" extra-ref="CPUShares"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="StartupCPUShares"/>
-
     <variablelist class="dbus-property" generated="True" extra-ref="CPUQuotaPerSecUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="CPUQuotaPeriodUSec"/>
@@ -8330,18 +8176,6 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <variablelist class="dbus-property" generated="True" extra-ref="IOWriteIOPSMax"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="IODeviceLatencyTargetUSec"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="BlockIOAccounting"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="BlockIOWeight"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="StartupBlockIOWeight"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="BlockIODeviceWeight"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="BlockIOReadBandwidth"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="BlockIOWriteBandwidth"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryAccounting"/>
 
@@ -8374,8 +8208,6 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <variablelist class="dbus-property" generated="True" extra-ref="StartupMemoryZSwapMax"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryZSwapWriteback"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="MemoryLimit"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="DevicePolicy"/>
 
@@ -9132,10 +8964,6 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t StartupCPUWeight = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly t CPUShares = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly t StartupCPUShares = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t CPUQuotaPerSecUSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t CPUQuotaPeriodUSec = ...;
@@ -9165,18 +8993,6 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       readonly a(st) IOWriteIOPSMax = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly a(st) IODeviceLatencyTargetUSec = [...];
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly b BlockIOAccounting = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly t BlockIOWeight = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly t StartupBlockIOWeight = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly a(st) BlockIODeviceWeight = [...];
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly a(st) BlockIOReadBandwidth = [...];
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly a(st) BlockIOWriteBandwidth = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly b MemoryAccounting = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
@@ -9209,8 +9025,6 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       readonly t StartupMemoryZSwapMax = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly b MemoryZSwapWriteback = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly t MemoryLimit = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly s DevicePolicy = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
@@ -9715,10 +9529,6 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
 
     <!--property StartupCPUWeight is not documented!-->
 
-    <!--property CPUShares is not documented!-->
-
-    <!--property StartupCPUShares is not documented!-->
-
     <!--property CPUQuotaPerSecUSec is not documented!-->
 
     <!--property CPUQuotaPeriodUSec is not documented!-->
@@ -9748,18 +9558,6 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <!--property IOWriteIOPSMax is not documented!-->
 
     <!--property IODeviceLatencyTargetUSec is not documented!-->
-
-    <!--property BlockIOAccounting is not documented!-->
-
-    <!--property BlockIOWeight is not documented!-->
-
-    <!--property StartupBlockIOWeight is not documented!-->
-
-    <!--property BlockIODeviceWeight is not documented!-->
-
-    <!--property BlockIOReadBandwidth is not documented!-->
-
-    <!--property BlockIOWriteBandwidth is not documented!-->
 
     <!--property MemoryAccounting is not documented!-->
 
@@ -9792,8 +9590,6 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <!--property StartupMemoryZSwapMax is not documented!-->
 
     <!--property MemoryZSwapWriteback is not documented!-->
-
-    <!--property MemoryLimit is not documented!-->
 
     <!--property DevicePolicy is not documented!-->
 
@@ -10257,10 +10053,6 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
 
     <variablelist class="dbus-property" generated="True" extra-ref="StartupCPUWeight"/>
 
-    <variablelist class="dbus-property" generated="True" extra-ref="CPUShares"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="StartupCPUShares"/>
-
     <variablelist class="dbus-property" generated="True" extra-ref="CPUQuotaPerSecUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="CPUQuotaPeriodUSec"/>
@@ -10290,18 +10082,6 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <variablelist class="dbus-property" generated="True" extra-ref="IOWriteIOPSMax"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="IODeviceLatencyTargetUSec"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="BlockIOAccounting"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="BlockIOWeight"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="StartupBlockIOWeight"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="BlockIODeviceWeight"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="BlockIOReadBandwidth"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="BlockIOWriteBandwidth"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryAccounting"/>
 
@@ -10334,8 +10114,6 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <variablelist class="dbus-property" generated="True" extra-ref="StartupMemoryZSwapMax"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryZSwapWriteback"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="MemoryLimit"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="DevicePolicy"/>
 
@@ -10945,10 +10723,6 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t StartupCPUWeight = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly t CPUShares = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly t StartupCPUShares = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t CPUQuotaPerSecUSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t CPUQuotaPeriodUSec = ...;
@@ -10978,18 +10752,6 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
       readonly a(st) IOWriteIOPSMax = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly a(st) IODeviceLatencyTargetUSec = [...];
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly b BlockIOAccounting = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly t BlockIOWeight = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly t StartupBlockIOWeight = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly a(st) BlockIODeviceWeight = [...];
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly a(st) BlockIOReadBandwidth = [...];
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly a(st) BlockIOWriteBandwidth = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly b MemoryAccounting = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
@@ -11022,8 +10784,6 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
       readonly t StartupMemoryZSwapMax = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly b MemoryZSwapWriteback = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly t MemoryLimit = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly s DevicePolicy = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
@@ -11138,10 +10898,6 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
 
     <!--property StartupCPUWeight is not documented!-->
 
-    <!--property CPUShares is not documented!-->
-
-    <!--property StartupCPUShares is not documented!-->
-
     <!--property CPUQuotaPerSecUSec is not documented!-->
 
     <!--property CPUQuotaPeriodUSec is not documented!-->
@@ -11171,18 +10927,6 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
     <!--property IOWriteIOPSMax is not documented!-->
 
     <!--property IODeviceLatencyTargetUSec is not documented!-->
-
-    <!--property BlockIOAccounting is not documented!-->
-
-    <!--property BlockIOWeight is not documented!-->
-
-    <!--property StartupBlockIOWeight is not documented!-->
-
-    <!--property BlockIODeviceWeight is not documented!-->
-
-    <!--property BlockIOReadBandwidth is not documented!-->
-
-    <!--property BlockIOWriteBandwidth is not documented!-->
 
     <!--property MemoryAccounting is not documented!-->
 
@@ -11215,8 +10959,6 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
     <!--property StartupMemoryZSwapMax is not documented!-->
 
     <!--property MemoryZSwapWriteback is not documented!-->
-
-    <!--property MemoryLimit is not documented!-->
 
     <!--property DevicePolicy is not documented!-->
 
@@ -11338,10 +11080,6 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
 
     <variablelist class="dbus-property" generated="True" extra-ref="StartupCPUWeight"/>
 
-    <variablelist class="dbus-property" generated="True" extra-ref="CPUShares"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="StartupCPUShares"/>
-
     <variablelist class="dbus-property" generated="True" extra-ref="CPUQuotaPerSecUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="CPUQuotaPeriodUSec"/>
@@ -11371,18 +11109,6 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
     <variablelist class="dbus-property" generated="True" extra-ref="IOWriteIOPSMax"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="IODeviceLatencyTargetUSec"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="BlockIOAccounting"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="BlockIOWeight"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="StartupBlockIOWeight"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="BlockIODeviceWeight"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="BlockIOReadBandwidth"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="BlockIOWriteBandwidth"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryAccounting"/>
 
@@ -11415,8 +11141,6 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
     <variablelist class="dbus-property" generated="True" extra-ref="StartupMemoryZSwapMax"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryZSwapWriteback"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="MemoryLimit"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="DevicePolicy"/>
 
@@ -11569,10 +11293,6 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t StartupCPUWeight = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly t CPUShares = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly t StartupCPUShares = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t CPUQuotaPerSecUSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t CPUQuotaPeriodUSec = ...;
@@ -11602,18 +11322,6 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
       readonly a(st) IOWriteIOPSMax = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly a(st) IODeviceLatencyTargetUSec = [...];
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly b BlockIOAccounting = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly t BlockIOWeight = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly t StartupBlockIOWeight = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly a(st) BlockIODeviceWeight = [...];
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly a(st) BlockIOReadBandwidth = [...];
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly a(st) BlockIOWriteBandwidth = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly b MemoryAccounting = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
@@ -11646,8 +11354,6 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
       readonly t StartupMemoryZSwapMax = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly b MemoryZSwapWriteback = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly t MemoryLimit = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly s DevicePolicy = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
@@ -11782,10 +11488,6 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
 
     <!--property StartupCPUWeight is not documented!-->
 
-    <!--property CPUShares is not documented!-->
-
-    <!--property StartupCPUShares is not documented!-->
-
     <!--property CPUQuotaPerSecUSec is not documented!-->
 
     <!--property CPUQuotaPeriodUSec is not documented!-->
@@ -11815,18 +11517,6 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
     <!--property IOWriteIOPSMax is not documented!-->
 
     <!--property IODeviceLatencyTargetUSec is not documented!-->
-
-    <!--property BlockIOAccounting is not documented!-->
-
-    <!--property BlockIOWeight is not documented!-->
-
-    <!--property StartupBlockIOWeight is not documented!-->
-
-    <!--property BlockIODeviceWeight is not documented!-->
-
-    <!--property BlockIOReadBandwidth is not documented!-->
-
-    <!--property BlockIOWriteBandwidth is not documented!-->
 
     <!--property MemoryAccounting is not documented!-->
 
@@ -11859,8 +11549,6 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
     <!--property StartupMemoryZSwapMax is not documented!-->
 
     <!--property MemoryZSwapWriteback is not documented!-->
-
-    <!--property MemoryLimit is not documented!-->
 
     <!--property DevicePolicy is not documented!-->
 
@@ -12012,10 +11700,6 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
 
     <variablelist class="dbus-property" generated="True" extra-ref="StartupCPUWeight"/>
 
-    <variablelist class="dbus-property" generated="True" extra-ref="CPUShares"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="StartupCPUShares"/>
-
     <variablelist class="dbus-property" generated="True" extra-ref="CPUQuotaPerSecUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="CPUQuotaPeriodUSec"/>
@@ -12045,18 +11729,6 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
     <variablelist class="dbus-property" generated="True" extra-ref="IOWriteIOPSMax"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="IODeviceLatencyTargetUSec"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="BlockIOAccounting"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="BlockIOWeight"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="StartupBlockIOWeight"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="BlockIODeviceWeight"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="BlockIOReadBandwidth"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="BlockIOWriteBandwidth"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryAccounting"/>
 
@@ -12089,8 +11761,6 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
     <variablelist class="dbus-property" generated="True" extra-ref="StartupMemoryZSwapMax"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryZSwapWriteback"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="MemoryLimit"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="DevicePolicy"/>
 
