@@ -371,7 +371,7 @@ static int scope_enter_start_chown(Scope *s) {
                         }
                 }
 
-                r = cg_set_access(SYSTEMD_CGROUP_CONTROLLER, s->cgroup_runtime->cgroup_path, uid, gid);
+                r = cg_set_access(s->cgroup_runtime->cgroup_path, uid, gid);
                 if (r < 0) {
                         log_unit_error_errno(UNIT(s), r, "Failed to adjust control group access: %m");
                         _exit(EXIT_CGROUP);

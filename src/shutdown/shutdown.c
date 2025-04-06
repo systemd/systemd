@@ -466,7 +466,7 @@ int main(int argc, char *argv[]) {
                 /* Let's trim the cgroup tree on each iteration so that we leave an empty cgroup tree around,
                  * so that container managers get a nice notify event when we are down */
                 if (cgroup)
-                        (void) cg_trim(SYSTEMD_CGROUP_CONTROLLER, cgroup, false);
+                        (void) cg_trim(cgroup, false);
 
                 if (need_umount) {
                         log_info("Unmounting file systems.");
