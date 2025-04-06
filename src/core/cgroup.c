@@ -537,8 +537,7 @@ static int unit_compare_memory_limit(Unit *u, const char *property_name, uint64_
         uint64_t unit_value;
         int r;
 
-        /* Compare kernel memcg configuration against our internal systemd state. Unsupported (and will
-         * return -ENODATA) on cgroup v1.
+        /* Compare kernel memcg configuration against our internal systemd state.
          *
          * Returns:
          *
@@ -552,17 +551,6 @@ static int unit_compare_memory_limit(Unit *u, const char *property_name, uint64_
          * - ret_kernel_value will contain the actual value presented by the kernel. */
 
         assert(u);
-
-        r = cg_all_unified();
-        if (r < 0)
-                return log_debug_errno(r, "Failed to determine cgroup hierarchy version: %m");
-
-        /* Unsupported on v1.
-         *
-         * We don't return ENOENT, since that could actually mask a genuine problem where somebody else has
-         * silently masked the controller. */
-        if (r == 0)
-                return -ENODATA;
 
         /* The root slice doesn't have any controller files, so we can't compare anything. */
         if (unit_has_name(u, SPECIAL_ROOT_SLICE))
@@ -2034,21 +2022,12 @@ CGroupMask unit_get_own_mask(Unit *u) {
 CGroupMask unit_get_delegate_mask(Unit *u) {
         CGroupContext *c;
 
-        /* If delegation is turned on, then turn on selected controllers, unless we are on the legacy hierarchy and the
-         * process we fork into is known to drop privileges, and hence shouldn't get access to the controllers.
+        /* If delegation is turned on, then turn on selected controllers.
          *
          * Note that on the unified hierarchy it is safe to delegate controllers to unprivileged services. */
 
         if (!unit_cgroup_delegate(u))
                 return 0;
-
-        if (cg_all_unified() <= 0) {
-                ExecContext *e;
-
-                e = unit_get_exec_context(u);
-                if (e && !exec_context_maintains_privileges(e))
-                        return 0;
-        }
 
         assert_se(c = unit_get_cgroup_context(u));
         return CGROUP_MASK_EXTEND_JOINED(c->delegate_controllers);
@@ -3363,12 +3342,6 @@ int unit_check_oomd_kill(Unit *u) {
         if (!crt || !crt->cgroup_path)
                 return 0;
 
-        r = cg_all_unified();
-        if (r < 0)
-                return log_unit_debug_errno(u, r, "Couldn't determine whether we are in all unified mode: %m");
-        if (r == 0)
-                return 0;
-
         r = cg_get_xattr_malloc(crt->cgroup_path, "user.oomd_ooms", &value, /* ret_size= */ NULL);
         if (r < 0 && !ERRNO_IS_XATTR_ABSENT(r))
                 return r;
@@ -3994,12 +3967,6 @@ static int unit_get_cpu_usage_raw(const Unit *u, const CGroupRuntime *crt, nsec_
         if ((get_cpu_accounting_mask() & ~crt->cgroup_realized_mask) != 0)
                 return -ENODATA;
 
-        r = cg_all_unified();
-        if (r < 0)
-                return r;
-        if (r == 0)
-                return cg_get_attribute_as_uint64("cpuacct", crt->cgroup_path, "cpuacct.usage", ret);
-
         _cleanup_free_ char *val = NULL;
         uint64_t us;
 
@@ -4120,8 +4087,6 @@ static uint64_t unit_get_effective_limit_one(Unit *u, CGroupLimitType type) {
 
         cc = ASSERT_PTR(unit_get_cgroup_context(u));
         switch (type) {
-                /* Note: on legacy/hybrid hierarchies memory_max stays CGROUP_LIMIT_MAX unless configured
-                 * explicitly. Effective value of MemoryLimit= (cgroup v1) is not implemented. */
                 case CGROUP_LIMIT_MEMORY_MAX:
                         return cc->memory_max;
                 case CGROUP_LIMIT_MEMORY_HIGH:
@@ -4177,12 +4142,6 @@ static int unit_get_io_accounting_raw(
 
         if (unit_has_host_root_cgroup(u))
                 return -ENODATA; /* TODO: return useful data for the top-level cgroup */
-
-        r = cg_all_unified();
-        if (r < 0)
-                return r;
-        if (r == 0)
-                return -ENODATA;
 
         if (!FLAGS_SET(crt->cgroup_realized_mask, CGROUP_MASK_IO))
                 return -ENODATA;
@@ -4574,12 +4533,6 @@ int unit_get_cpuset(Unit *u, CPUSet *cpus, const char *name) {
                 return -ENODATA;
 
         if ((crt->cgroup_realized_mask & CGROUP_MASK_CPUSET) == 0)
-                return -ENODATA;
-
-        r = cg_all_unified();
-        if (r < 0)
-                return r;
-        if (r == 0)
                 return -ENODATA;
 
         r = cg_get_attribute("cpuset", crt->cgroup_path, name, &v);
