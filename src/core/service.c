@@ -1307,10 +1307,8 @@ static void service_set_state(Service *s, ServiceState state) {
         if (IN_SET(state,
                    SERVICE_DEAD, SERVICE_FAILED,
                    SERVICE_DEAD_BEFORE_AUTO_RESTART, SERVICE_FAILED_BEFORE_AUTO_RESTART, SERVICE_AUTO_RESTART, SERVICE_AUTO_RESTART_QUEUED,
-                   SERVICE_DEAD_RESOURCES_PINNED)) {
+                   SERVICE_DEAD_RESOURCES_PINNED))
                 unit_unwatch_all_pids(u);
-                unit_dequeue_rewatch_pids(u);
-        }
 
         if (state != SERVICE_START)
                 s->exec_fd_event_source = sd_event_source_disable_unref(s->exec_fd_event_source);
@@ -1423,10 +1421,8 @@ static int service_coldplug(Unit *u) {
                     SERVICE_DEAD, SERVICE_FAILED,
                     SERVICE_DEAD_BEFORE_AUTO_RESTART, SERVICE_FAILED_BEFORE_AUTO_RESTART, SERVICE_AUTO_RESTART, SERVICE_AUTO_RESTART_QUEUED,
                     SERVICE_CLEANING,
-                    SERVICE_DEAD_RESOURCES_PINNED)) {
-                (void) unit_enqueue_rewatch_pids(u);
+                    SERVICE_DEAD_RESOURCES_PINNED))
                 (void) unit_setup_exec_runtime(u);
-        }
 
         if (IN_SET(s->deserialized_state, SERVICE_START_POST, SERVICE_RUNNING, SERVICE_RELOAD, SERVICE_RELOAD_SIGNAL, SERVICE_RELOAD_NOTIFY, SERVICE_MOUNTING))
                 service_start_watchdog(s);
@@ -2186,7 +2182,6 @@ static void service_enter_stop_post(Service *s, ServiceResult f) {
                 s->result = f;
 
         service_unwatch_control_pid(s);
-        (void) unit_enqueue_rewatch_pids(UNIT(s));
 
         s->control_command = s->exec_command[SERVICE_EXEC_STOP_POST];
         if (s->control_command) {
@@ -2241,13 +2236,6 @@ static void service_enter_signal(Service *s, ServiceState state, ServiceResult f
         if (s->result == SERVICE_SUCCESS)
                 s->result = f;
 
-        /* Before sending any signal, make sure we track all members of this cgroup */
-        (void) unit_watch_all_pids(UNIT(s));
-
-        /* Also, enqueue a job that we recheck all our PIDs a bit later, given that it's likely some processes have
-         * died now */
-        (void) unit_enqueue_rewatch_pids(UNIT(s));
-
         kill_operation = state_to_kill_operation(s, state);
         r = unit_kill_context(UNIT(s), kill_operation);
         if (r < 0) {
@@ -2287,8 +2275,6 @@ static void service_enter_stop_by_notify(Service *s) {
 
         assert(s);
 
-        (void) unit_enqueue_rewatch_pids(UNIT(s));
-
         r = service_arm_timer(s, /* relative= */ true, s->timeout_stop_usec);
         if (r < 0) {
                 log_unit_warning_errno(UNIT(s), r, "Failed to install timer: %m");
@@ -2309,7 +2295,6 @@ static void service_enter_stop(Service *s, ServiceResult f) {
                 s->result = f;
 
         service_unwatch_control_pid(s);
-        (void) unit_enqueue_rewatch_pids(UNIT(s));
 
         s->control_command = s->exec_command[SERVICE_EXEC_STOP];
         if (s->control_command) {
@@ -4254,15 +4239,6 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         /* Notify clients about changed exit status */
         if (notify_dbus)
                 unit_add_to_dbus_queue(u);
-
-        /* We watch the main/control process otherwise we can't retrieve the unit they
-         * belong to with cgroupv1. But if they are not our direct child, we won't get a
-         * SIGCHLD for them. Therefore we need to look for others to watch so we can
-         * detect when the cgroup becomes empty. Note that the control process is always
-         * our child so it's pointless to watch all other processes. */
-        if (!control_pid_good(s))
-                if (!s->main_pid_known || s->main_pid_alien || unit_cgroup_delegate(u))
-                        (void) unit_enqueue_rewatch_pids(u);
 }
 
 static int service_dispatch_timer(sd_event_source *source, usec_t usec, void *userdata) {

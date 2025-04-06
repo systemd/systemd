@@ -753,8 +753,6 @@ Unit* unit_free(Unit *u) {
 
         unit_done(u);
 
-        unit_dequeue_rewatch_pids(u);
-
         u->match_bus_slot = sd_bus_slot_unref(u->match_bus_slot);
         u->bus_track = sd_bus_track_unref(u->bus_track);
         u->deserialized_refs = strv_free(u->deserialized_refs);
@@ -2884,87 +2882,6 @@ void unit_unwatch_pidref_done(Unit *u, PidRef *pidref) {
 
         unit_unwatch_pidref(u, pidref);
         pidref_done(pidref);
-}
-
-static void unit_tidy_watch_pids(Unit *u) {
-        PidRef *except1, *except2, *e;
-
-        assert(u);
-
-        /* Cleans dead PIDs from our list */
-
-        except1 = unit_main_pid(u);
-        except2 = unit_control_pid(u);
-
-        SET_FOREACH(e, u->pids) {
-                if (pidref_equal(except1, e) || pidref_equal(except2, e))
-                        continue;
-
-                if (pidref_is_unwaited(e) <= 0)
-                        unit_unwatch_pidref(u, e);
-        }
-}
-
-static int on_rewatch_pids_event(sd_event_source *s, void *userdata) {
-        Unit *u = ASSERT_PTR(userdata);
-
-        assert(s);
-
-        unit_tidy_watch_pids(u);
-        (void) unit_watch_all_pids(u);
-
-        /* If the PID set is empty now, then let's finish this off. */
-        unit_synthesize_cgroup_empty_event(u);
-
-        return 0;
-}
-
-int unit_enqueue_rewatch_pids(Unit *u) {
-        int r;
-
-        assert(u);
-
-        CGroupRuntime *crt = unit_get_cgroup_runtime(u);
-        if (!crt || !crt->cgroup_path)
-                return -ENOENT;
-
-        r = cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER);
-        if (r < 0)
-                return r;
-        if (r > 0) /* On unified we can use proper notifications */
-                return 0;
-
-        /* Enqueues a low-priority job that will clean up dead PIDs from our list of PIDs to watch and subscribe to new
-         * PIDs that might have appeared. We do this in a delayed job because the work might be quite slow, as it
-         * involves issuing kill(pid, 0) on all processes we watch. */
-
-        if (!u->rewatch_pids_event_source) {
-                _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
-
-                r = sd_event_add_defer(u->manager->event, &s, on_rewatch_pids_event, u);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to allocate event source for tidying watched PIDs: %m");
-
-                r = sd_event_source_set_priority(s, EVENT_PRIORITY_REWATCH_PIDS);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to adjust priority of event source for tidying watched PIDs: %m");
-
-                (void) sd_event_source_set_description(s, "tidy-watch-pids");
-
-                u->rewatch_pids_event_source = TAKE_PTR(s);
-        }
-
-        r = sd_event_source_set_enabled(u->rewatch_pids_event_source, SD_EVENT_ONESHOT);
-        if (r < 0)
-                return log_error_errno(r, "Failed to enable event source for tidying watched PIDs: %m");
-
-        return 0;
-}
-
-void unit_dequeue_rewatch_pids(Unit *u) {
-        assert(u);
-
-        u->rewatch_pids_event_source = sd_event_source_disable_unref(u->rewatch_pids_event_source);
 }
 
 bool unit_job_is_applicable(Unit *u, JobType j) {
