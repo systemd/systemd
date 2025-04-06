@@ -1412,37 +1412,6 @@ static void cgroup_apply_unified_cpu_quota(Unit *u, usec_t quota, usec_t period)
         (void) set_attribute_and_warn(u, "cpu", "cpu.max", buf);
 }
 
-static void cgroup_apply_legacy_cpu_shares(Unit *u, uint64_t shares) {
-        char buf[DECIMAL_STR_MAX(uint64_t) + 2];
-
-        xsprintf(buf, "%" PRIu64 "\n", shares);
-        (void) set_attribute_and_warn(u, "cpu", "cpu.shares", buf);
-}
-
-static void cgroup_apply_legacy_cpu_quota(Unit *u, usec_t quota, usec_t period) {
-        char buf[DECIMAL_STR_MAX(usec_t) + 2];
-
-        period = cgroup_cpu_adjust_period_and_log(u, period, quota);
-
-        xsprintf(buf, USEC_FMT "\n", period);
-        (void) set_attribute_and_warn(u, "cpu", "cpu.cfs_period_us", buf);
-
-        if (quota != USEC_INFINITY) {
-                xsprintf(buf, USEC_FMT "\n", MAX(quota * period / USEC_PER_SEC, USEC_PER_MSEC));
-                (void) set_attribute_and_warn(u, "cpu", "cpu.cfs_quota_us", buf);
-        } else
-                (void) set_attribute_and_warn(u, "cpu", "cpu.cfs_quota_us", "-1\n");
-}
-
-static uint64_t cgroup_cpu_weight_to_shares(uint64_t weight) {
-        /* we don't support idle in cgroupv1 */
-        if (weight == CGROUP_WEIGHT_IDLE)
-                return CGROUP_CPU_SHARES_MIN;
-
-        return CLAMP(weight * CGROUP_CPU_SHARES_DEFAULT / CGROUP_WEIGHT_DEFAULT,
-                     CGROUP_CPU_SHARES_MIN, CGROUP_CPU_SHARES_MAX);
-}
-
 static void cgroup_apply_unified_cpuset(Unit *u, const CPUSet *cpus, const char *name) {
         _cleanup_free_ char *buf = NULL;
 
@@ -1471,11 +1440,6 @@ static uint64_t cgroup_context_io_weight(CGroupContext *c, ManagerState state) {
         if (c->io_weight != CGROUP_WEIGHT_INVALID)
                 return c->io_weight;
         return CGROUP_WEIGHT_DEFAULT;
-}
-
-static uint64_t cgroup_weight_io_to_blkio(uint64_t io_weight) {
-        return CLAMP(io_weight * CGROUP_BLKIO_WEIGHT_DEFAULT / CGROUP_WEIGHT_DEFAULT,
-                     CGROUP_BLKIO_WEIGHT_MIN, CGROUP_BLKIO_WEIGHT_MAX);
 }
 
 static int set_bfq_weight(Unit *u, const char *controller, dev_t dev, uint64_t io_weight) {
@@ -1550,19 +1514,6 @@ static void cgroup_apply_io_device_weight(Unit *u, const char *dev_path, uint64_
                                     empty_to_root(crt->cgroup_path), (int) strcspn(buf, NEWLINE), buf);
 }
 
-static void cgroup_apply_blkio_device_weight(Unit *u, const char *dev_path, uint64_t blkio_weight) {
-        char buf[DECIMAL_STR_MAX(dev_t)*2+2+DECIMAL_STR_MAX(uint64_t)+1];
-        dev_t dev;
-        int r;
-
-        r = lookup_block_device(dev_path, &dev);
-        if (r < 0)
-                return;
-
-        xsprintf(buf, DEVNUM_FORMAT_STR " %" PRIu64 "\n", DEVNUM_FORMAT_VAL(dev), blkio_weight);
-        (void) set_attribute_and_warn(u, "blkio", "blkio.weight_device", buf);
-}
-
 static void cgroup_apply_io_device_latency(Unit *u, const char *dev_path, usec_t target) {
         char buf[DECIMAL_STR_MAX(dev_t)*2+2+7+DECIMAL_STR_MAX(uint64_t)+1];
         dev_t dev;
@@ -1598,20 +1549,6 @@ static void cgroup_apply_io_device_limit(Unit *u, const char *dev_path, uint64_t
                  limit_bufs[CGROUP_IO_RBPS_MAX], limit_bufs[CGROUP_IO_WBPS_MAX],
                  limit_bufs[CGROUP_IO_RIOPS_MAX], limit_bufs[CGROUP_IO_WIOPS_MAX]);
         (void) set_attribute_and_warn(u, "io", "io.max", buf);
-}
-
-static void cgroup_apply_blkio_device_limit(Unit *u, const char *dev_path, uint64_t rbps, uint64_t wbps) {
-        char buf[DECIMAL_STR_MAX(dev_t)*2+2+DECIMAL_STR_MAX(uint64_t)+1];
-        dev_t dev;
-
-        if (lookup_block_device(dev_path, &dev) < 0)
-                return;
-
-        sprintf(buf, DEVNUM_FORMAT_STR " %" PRIu64 "\n", DEVNUM_FORMAT_VAL(dev), rbps);
-        (void) set_attribute_and_warn(u, "blkio", "blkio.throttle.read_bps_device", buf);
-
-        sprintf(buf, DEVNUM_FORMAT_STR " %" PRIu64 "\n", DEVNUM_FORMAT_VAL(dev), wbps);
-        (void) set_attribute_and_warn(u, "blkio", "blkio.throttle.write_bps_device", buf);
 }
 
 static bool unit_has_unified_memory_config(Unit *u) {
@@ -1659,9 +1596,6 @@ void unit_modify_nft_set(Unit *u, bool add) {
                 return;
 
         if (!UNIT_HAS_CGROUP_CONTEXT(u))
-                return;
-
-        if (cg_all_unified() <= 0)
                 return;
 
         CGroupRuntime *crt = unit_get_cgroup_runtime(u);
@@ -1720,23 +1654,9 @@ static int cgroup_apply_devices(Unit *u) {
 
         policy = c->device_policy;
 
-        if (cg_all_unified() > 0) {
-                r = bpf_devices_cgroup_init(&prog, policy, c->device_allow);
-                if (r < 0)
-                        return log_unit_warning_errno(u, r, "Failed to initialize device control bpf program: %m");
-
-        } else {
-                /* Changing the devices list of a populated cgroup might result in EINVAL, hence ignore
-                 * EINVAL here. */
-
-                if (c->device_allow || policy != CGROUP_DEVICE_POLICY_AUTO)
-                        r = cg_set_attribute("devices", crt->cgroup_path, "devices.deny", "a");
-                else
-                        r = cg_set_attribute("devices", crt->cgroup_path, "devices.allow", "a");
-                if (r < 0)
-                        log_unit_full_errno(u, IN_SET(r, -ENOENT, -EROFS, -EINVAL, -EACCES, -EPERM) ? LOG_DEBUG : LOG_WARNING, r,
-                                            "Failed to reset devices.allow/devices.deny: %m");
-        }
+        r = bpf_devices_cgroup_init(&prog, policy, c->device_allow);
+        if (r < 0)
+                return log_unit_warning_errno(u, r, "Failed to initialize device control bpf program: %m");
 
         bool allow_list_static = policy == CGROUP_DEVICE_POLICY_CLOSED ||
                 (policy == CGROUP_DEVICE_POLICY_AUTO && c->device_allow);
@@ -1803,17 +1723,6 @@ static void set_io_weight(Unit *u, uint64_t weight) {
         (void) set_attribute_and_warn(u, "io", "io.weight", buf);
 }
 
-static void set_blkio_weight(Unit *u, uint64_t weight) {
-        char buf[STRLEN("\n")+DECIMAL_STR_MAX(uint64_t)];
-
-        assert(u);
-
-        (void) set_bfq_weight(u, "blkio", makedev(0, 0), weight);
-
-        xsprintf(buf, "%" PRIu64 "\n", weight);
-        (void) set_attribute_and_warn(u, "blkio", "blkio.weight", buf);
-}
-
 static void cgroup_apply_bpf_foreign_program(Unit *u) {
         assert(u);
 
@@ -1849,39 +1758,18 @@ static void cgroup_context_apply(
         /* We generally ignore errors caused by read-only mounted cgroup trees (assuming we are running in a container
          * then), and missing cgroups, i.e. EROFS and ENOENT. */
 
-        /* In fully unified mode these attributes don't exist on the host cgroup root. On legacy the weights exist, but
-         * setting the weight makes very little sense on the host root cgroup, as there are no other cgroups at this
-         * level. The quota exists there too, but any attempt to write to it is refused with EINVAL. Inside of
-         * containers we want to leave control of these to the container manager (and if cgroup v2 delegation is used
-         * we couldn't even write to them if we wanted to). */
+        /* These attributes don't exist on the host cgroup root. */
         if ((apply_mask & CGROUP_MASK_CPU) && !is_local_root) {
+                uint64_t weight;
 
-                if (cg_all_unified() > 0) {
-                        uint64_t weight;
+                if (cgroup_context_has_cpu_weight(c))
+                        weight = cgroup_context_cpu_weight(c, state);
+                else
+                        weight = CGROUP_WEIGHT_DEFAULT;
 
-                        if (cgroup_context_has_cpu_weight(c))
-                                weight = cgroup_context_cpu_weight(c, state);
-                        else
-                                weight = CGROUP_WEIGHT_DEFAULT;
-
-                        cgroup_apply_unified_cpu_idle(u, weight);
-                        cgroup_apply_unified_cpu_weight(u, weight);
-                        cgroup_apply_unified_cpu_quota(u, c->cpu_quota_per_sec_usec, c->cpu_quota_period_usec);
-
-                } else {
-                        uint64_t shares;
-
-                        if (cgroup_context_has_cpu_weight(c)) {
-                                uint64_t weight;
-
-                                weight = cgroup_context_cpu_weight(c, state);
-                                shares = cgroup_cpu_weight_to_shares(weight);
-                        } else
-                                shares = CGROUP_CPU_SHARES_DEFAULT;
-
-                        cgroup_apply_legacy_cpu_shares(u, shares);
-                        cgroup_apply_legacy_cpu_quota(u, c->cpu_quota_per_sec_usec, c->cpu_quota_period_usec);
-                }
+                cgroup_apply_unified_cpu_idle(u, weight);
+                cgroup_apply_unified_cpu_weight(u, weight);
+                cgroup_apply_unified_cpu_quota(u, c->cpu_quota_per_sec_usec, c->cpu_quota_period_usec);
         }
 
         if ((apply_mask & CGROUP_MASK_CPUSET) && !is_local_root) {
@@ -1917,89 +1805,33 @@ static void cgroup_context_apply(
                 }
         }
 
-        if (apply_mask & CGROUP_MASK_BLKIO) {
-                bool has_io;
-
-                has_io = cgroup_context_has_io_config(c);
-
-                /* Applying a 'weight' never makes sense for the host root cgroup, and for containers this should be
-                 * left to our container manager, too. */
-                if (!is_local_root) {
-                        uint64_t weight;
-
-                        if (has_io)
-                                weight = cgroup_weight_io_to_blkio(cgroup_context_io_weight(c, state));
-                        else
-                                weight = CGROUP_BLKIO_WEIGHT_DEFAULT;
-
-                        set_blkio_weight(u, weight);
-
-                        if (has_io)
-                                LIST_FOREACH(device_weights, w, c->io_device_weights) {
-                                        weight = cgroup_weight_io_to_blkio(w->weight);
-                                        cgroup_apply_blkio_device_weight(u, w->path, weight);
-                                }
-                }
-
-                /* The bandwidth limits are something that make sense to be applied to the host's root but not container
-                 * roots, as there we want the container manager to handle it */
-                if (is_host_root || !is_local_root) {
-                        if (has_io)
-                                LIST_FOREACH(device_limits, l, c->io_device_limits)
-                                        cgroup_apply_blkio_device_limit(u, l->path, l->limits[CGROUP_IO_RBPS_MAX], l->limits[CGROUP_IO_WBPS_MAX]);
-                }
-        }
-
-        /* In unified mode 'memory' attributes do not exist on the root cgroup. In legacy mode 'memory.limit_in_bytes'
-         * exists on the root cgroup, but any writes to it are refused with EINVAL. And if we run in a container we
-         * want to leave control to the container manager (and if proper cgroup v2 delegation is used we couldn't even
-         * write to this if we wanted to.) */
+        /* 'memory' attributes do not exist on the root cgroup. */
         if ((apply_mask & CGROUP_MASK_MEMORY) && !is_local_root) {
+                uint64_t max = CGROUP_LIMIT_MAX, swap_max = CGROUP_LIMIT_MAX, zswap_max = CGROUP_LIMIT_MAX, high = CGROUP_LIMIT_MAX;
 
-                if (cg_all_unified() > 0) {
-                        uint64_t max = CGROUP_LIMIT_MAX, swap_max = CGROUP_LIMIT_MAX, zswap_max = CGROUP_LIMIT_MAX, high = CGROUP_LIMIT_MAX;
+                if (unit_has_unified_memory_config(u)) {
+                        bool startup = IN_SET(state, MANAGER_STARTING, MANAGER_INITIALIZING, MANAGER_STOPPING);
 
-                        if (unit_has_unified_memory_config(u)) {
-                                bool startup = IN_SET(state, MANAGER_STARTING, MANAGER_INITIALIZING, MANAGER_STOPPING);
-
-                                high = startup && c->startup_memory_high_set ? c->startup_memory_high : c->memory_high;
-                                max = startup && c->startup_memory_max_set ? c->startup_memory_max : c->memory_max;
-                                swap_max = startup && c->startup_memory_swap_max_set ? c->startup_memory_swap_max : c->memory_swap_max;
-                                zswap_max = startup && c->startup_memory_zswap_max_set ? c->startup_memory_zswap_max : c->memory_zswap_max;
-                        }
-
-                        cgroup_apply_unified_memory_limit(u, "memory.min", unit_get_ancestor_memory_min(u));
-                        cgroup_apply_unified_memory_limit(u, "memory.low", unit_get_ancestor_memory_low(u));
-                        cgroup_apply_unified_memory_limit(u, "memory.high", high);
-                        cgroup_apply_unified_memory_limit(u, "memory.max", max);
-                        cgroup_apply_unified_memory_limit(u, "memory.swap.max", swap_max);
-                        cgroup_apply_unified_memory_limit(u, "memory.zswap.max", zswap_max);
-
-                        (void) set_attribute_and_warn(u, "memory", "memory.oom.group", one_zero(c->memory_oom_group));
-                        (void) set_attribute_and_warn(u, "memory", "memory.zswap.writeback", one_zero(c->memory_zswap_writeback));
-
-                } else {
-                        char buf[DECIMAL_STR_MAX(uint64_t) + 1];
-                        uint64_t val;
-
-                        if (unit_has_unified_memory_config(u))
-                                val = c->memory_max;
-                        else
-                                val = CGROUP_LIMIT_MAX;
-
-                        if (val == CGROUP_LIMIT_MAX)
-                                strncpy(buf, "-1\n", sizeof(buf));
-                        else
-                                xsprintf(buf, "%" PRIu64 "\n", val);
-
-                        (void) set_attribute_and_warn(u, "memory", "memory.limit_in_bytes", buf);
+                        high = startup && c->startup_memory_high_set ? c->startup_memory_high : c->memory_high;
+                        max = startup && c->startup_memory_max_set ? c->startup_memory_max : c->memory_max;
+                        swap_max = startup && c->startup_memory_swap_max_set ? c->startup_memory_swap_max : c->memory_swap_max;
+                        zswap_max = startup && c->startup_memory_zswap_max_set ? c->startup_memory_zswap_max : c->memory_zswap_max;
                 }
+
+                cgroup_apply_unified_memory_limit(u, "memory.min", unit_get_ancestor_memory_min(u));
+                cgroup_apply_unified_memory_limit(u, "memory.low", unit_get_ancestor_memory_low(u));
+                cgroup_apply_unified_memory_limit(u, "memory.high", high);
+                cgroup_apply_unified_memory_limit(u, "memory.max", max);
+                cgroup_apply_unified_memory_limit(u, "memory.swap.max", swap_max);
+                cgroup_apply_unified_memory_limit(u, "memory.zswap.max", zswap_max);
+
+                (void) set_attribute_and_warn(u, "memory", "memory.oom.group", one_zero(c->memory_oom_group));
+                (void) set_attribute_and_warn(u, "memory", "memory.zswap.writeback", one_zero(c->memory_zswap_writeback));
         }
 
-        /* On cgroup v2 we can apply BPF everywhere. On cgroup v1 we apply it everywhere except for the root of
-         * containers, where we leave this to the manager */
+        /* On cgroup v2 we can apply BPF everywhere. */
         if ((apply_mask & (CGROUP_MASK_DEVICES | CGROUP_MASK_BPF_DEVICES)) &&
-            (is_host_root || cg_all_unified() > 0 || !is_local_root))
+            (is_host_root || !is_local_root))
                 (void) cgroup_apply_devices(u);
 
         if (apply_mask & CGROUP_MASK_PIDS) {
