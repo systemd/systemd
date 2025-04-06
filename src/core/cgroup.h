@@ -442,9 +442,6 @@ uint64_t unit_get_ancestor_memory_low(Unit *u);
 uint64_t unit_get_ancestor_startup_memory_low(Unit *u);
 
 int unit_search_main_pid(Unit *u, PidRef *ret);
-int unit_watch_all_pids(Unit *u);
-
-int unit_synthesize_cgroup_empty_event(Unit *u);
 
 int unit_get_memory_available(Unit *u, uint64_t *ret);
 int unit_get_memory_accounting(Unit *u, CGroupMemoryAccountingMetric metric, uint64_t *ret);
