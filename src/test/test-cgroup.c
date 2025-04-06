@@ -114,15 +114,8 @@ TEST(cg_create) {
         ASSERT_OK_ZERO(cg_kill_recursive(test_a, 0, 0, NULL, NULL, NULL));
         ASSERT_OK_POSITIVE(cg_kill_recursive(test_b, 0, 0, NULL, NULL, NULL));
 
-        ASSERT_OK_POSITIVE(cg_migrate_recursive(SYSTEMD_CGROUP_CONTROLLER, test_b, SYSTEMD_CGROUP_CONTROLLER, test_a, 0));
-
-        ASSERT_OK_ZERO(cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, test_a));
-        ASSERT_OK_POSITIVE(cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, test_b));
-
-        ASSERT_OK_POSITIVE(cg_kill_recursive(test_a, 0, 0, NULL, NULL, NULL));
-        ASSERT_OK_ZERO(cg_kill_recursive(test_b, 0, 0, NULL, NULL, NULL));
-
-        ASSERT_OK(cg_trim(SYSTEMD_CGROUP_CONTROLLER, test_b, true));
+        ASSERT_OK(cg_trim(SYSTEMD_CGROUP_CONTROLLER, test_a, true));
+        ASSERT_ERROR(cg_trim(SYSTEMD_CGROUP_CONTROLLER, test_b, true), EBUSY);
 }
 
 TEST(id) {
