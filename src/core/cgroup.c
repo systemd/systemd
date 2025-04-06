@@ -855,14 +855,11 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
         fprintf(f,
                 "%sCPUAccounting: %s\n"
                 "%sIOAccounting: %s\n"
-                "%sBlockIOAccounting: %s\n"
                 "%sMemoryAccounting: %s\n"
                 "%sTasksAccounting: %s\n"
                 "%sIPAccounting: %s\n"
                 "%sCPUWeight: %" PRIu64 "\n"
                 "%sStartupCPUWeight: %" PRIu64 "\n"
-                "%sCPUShares: %" PRIu64 "\n"
-                "%sStartupCPUShares: %" PRIu64 "\n"
                 "%sCPUQuotaPerSecSec: %s\n"
                 "%sCPUQuotaPeriodSec: %s\n"
                 "%sAllowedCPUs: %s\n"
@@ -871,8 +868,6 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 "%sStartupAllowedMemoryNodes: %s\n"
                 "%sIOWeight: %" PRIu64 "\n"
                 "%sStartupIOWeight: %" PRIu64 "\n"
-                "%sBlockIOWeight: %" PRIu64 "\n"
-                "%sStartupBlockIOWeight: %" PRIu64 "\n"
                 "%sDefaultMemoryMin: %" PRIu64 "\n"
                 "%sDefaultMemoryLow: %" PRIu64 "\n"
                 "%sMemoryMin: %" PRIu64 "%s\n"
@@ -887,7 +882,6 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 "%sMemoryZSwapMax: %" PRIu64 "%s\n"
                 "%sStartupMemoryZSwapMax: %" PRIu64 "%s\n"
                 "%sMemoryZSwapWriteback: %s\n"
-                "%sMemoryLimit: %" PRIu64 "\n"
                 "%sTasksMax: %" PRIu64 "\n"
                 "%sDevicePolicy: %s\n"
                 "%sDisableControllers: %s\n"
@@ -900,14 +894,11 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 "%sCoredumpReceive: %s\n",
                 prefix, yes_no(c->cpu_accounting),
                 prefix, yes_no(c->io_accounting),
-                prefix, yes_no(c->blockio_accounting),
                 prefix, yes_no(c->memory_accounting),
                 prefix, yes_no(c->tasks_accounting),
                 prefix, yes_no(c->ip_accounting),
                 prefix, c->cpu_weight,
                 prefix, c->startup_cpu_weight,
-                prefix, c->cpu_shares,
-                prefix, c->startup_cpu_shares,
                 prefix, FORMAT_TIMESPAN(c->cpu_quota_per_sec_usec, 1),
                 prefix, FORMAT_TIMESPAN(c->cpu_quota_period_usec, 1),
                 prefix, strempty(cpuset_cpus),
@@ -916,8 +907,6 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 prefix, strempty(startup_cpuset_mems),
                 prefix, c->io_weight,
                 prefix, c->startup_io_weight,
-                prefix, c->blockio_weight,
-                prefix, c->startup_blockio_weight,
                 prefix, c->default_memory_min,
                 prefix, c->default_memory_low,
                 prefix, c->memory_min, format_cgroup_memory_limit_comparison(u, "MemoryMin", cda, sizeof(cda)),
@@ -932,7 +921,6 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 prefix, c->memory_zswap_max, format_cgroup_memory_limit_comparison(u, "MemoryZSwapMax", cdj, sizeof(cdj)),
                 prefix, c->startup_memory_zswap_max, format_cgroup_memory_limit_comparison(u, "StartupMemoryZSwapMax", cdk, sizeof(cdk)),
                 prefix, yes_no(c->memory_zswap_writeback),
-                prefix, c->memory_limit,
                 prefix, cgroup_tasks_max_resolve(&c->tasks_max),
                 prefix, cgroup_device_policy_to_string(c->device_policy),
                 prefix, strempty(disable_controllers_str),
@@ -987,28 +975,6 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                                         cgroup_io_limit_type_to_string(type),
                                         il->path,
                                         FORMAT_BYTES(il->limits[type]));
-
-        LIST_FOREACH(device_weights, w, c->blockio_device_weights)
-                fprintf(f,
-                        "%sBlockIODeviceWeight: %s %" PRIu64,
-                        prefix,
-                        w->path,
-                        w->weight);
-
-        LIST_FOREACH(device_bandwidths, b, c->blockio_device_bandwidths) {
-                if (b->rbps != CGROUP_LIMIT_MAX)
-                        fprintf(f,
-                                "%sBlockIOReadBandwidth: %s %s\n",
-                                prefix,
-                                b->path,
-                                FORMAT_BYTES(b->rbps));
-                if (b->wbps != CGROUP_LIMIT_MAX)
-                        fprintf(f,
-                                "%sBlockIOWriteBandwidth: %s %s\n",
-                                prefix,
-                                b->path,
-                                FORMAT_BYTES(b->wbps));
-        }
 
         SET_FOREACH(iaai, c->ip_address_allow)
                 fprintf(f, "%sIPAddressAllow: %s\n", prefix,
