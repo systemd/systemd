@@ -3884,25 +3884,6 @@ Unit* manager_get_unit_by_pidref(Manager *m, PidRef *pid) {
         return NULL;
 }
 
-int manager_notify_cgroup_empty(Manager *m, const char *cgroup) {
-        Unit *u;
-
-        assert(m);
-        assert(cgroup);
-
-        /* Called on the legacy hierarchy whenever we get an explicit cgroup notification from the cgroup agent process
-         * or from the --system instance */
-
-        log_debug("Got cgroup empty notification for: %s", cgroup);
-
-        u = manager_get_unit_by_cgroup(m, cgroup);
-        if (!u)
-                return 0;
-
-        unit_add_to_cgroup_empty_queue(u);
-        return 1;
-}
-
 int unit_get_memory_available(Unit *u, uint64_t *ret) {
         uint64_t available = UINT64_MAX, current = 0;
 
