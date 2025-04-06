@@ -253,7 +253,9 @@ struct Manager {
          * here: the first unit interested in a PID is stored in the hashmap 'watch_pids', keyed by the
          * PID. If there are other units interested too they'll be stored in a NULL-terminated array, stored
          * in the hashmap 'watch_pids_more', keyed by the PID. Thus to go through the full list of units
-         * interested in a PID we must look into both hashmaps. */
+         * interested in a PID we must look into both hashmaps.
+         *
+         * NB: the ownership of PidRefs is held by Unit.pids! */
         Hashmap *watch_pids;            /* PidRef* → Unit* */
         Hashmap *watch_pids_more;       /* PidRef* → NUL terminated array of Unit* */
 
