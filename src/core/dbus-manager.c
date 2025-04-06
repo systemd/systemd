@@ -3057,7 +3057,7 @@ const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_PROPERTY("DefaultStartLimitInterval", "t", bus_property_get_usec, offsetof(Manager, defaults.start_limit.interval), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
         SD_BUS_PROPERTY("DefaultStartLimitBurst", "u", bus_property_get_unsigned, offsetof(Manager, defaults.start_limit.burst), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DefaultCPUAccounting", "b", bus_property_get_bool, offsetof(Manager, defaults.cpu_accounting), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("DefaultBlockIOAccounting", "b", bus_property_get_bool, offsetof(Manager, defaults.blockio_accounting), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("DefaultBlockIOAccounting", "b", bus_property_get_bool_false, 0, SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_DEPRECATED|SD_BUS_VTABLE_HIDDEN),
         SD_BUS_PROPERTY("DefaultIOAccounting", "b", bus_property_get_bool, offsetof(Manager, defaults.io_accounting), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DefaultIPAccounting", "b", bus_property_get_bool, offsetof(Manager, defaults.ip_accounting), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DefaultMemoryAccounting", "b", bus_property_get_bool, offsetof(Manager, defaults.memory_accounting), SD_BUS_VTABLE_PROPERTY_CONST),
