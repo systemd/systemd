@@ -126,8 +126,6 @@ DEFINE_BUS_APPEND_PARSE_PTR("i", int32_t, int, ioprio_parse_priority);
 DEFINE_BUS_APPEND_PARSE_PTR("i", int32_t, int, parse_nice);
 DEFINE_BUS_APPEND_PARSE_PTR("i", int32_t, int, safe_atoi);
 DEFINE_BUS_APPEND_PARSE_PTR("t", uint64_t, nsec_t, parse_nsec);
-DEFINE_BUS_APPEND_PARSE_PTR("t", uint64_t, uint64_t, cg_blkio_weight_parse);
-DEFINE_BUS_APPEND_PARSE_PTR("t", uint64_t, uint64_t, cg_cpu_shares_parse);
 DEFINE_BUS_APPEND_PARSE_PTR("t", uint64_t, uint64_t, cg_weight_parse);
 DEFINE_BUS_APPEND_PARSE_PTR("t", uint64_t, uint64_t, cg_cpu_weight_parse);
 DEFINE_BUS_APPEND_PARSE_PTR("t", uint64_t, unsigned long, mount_propagation_flag_from_string);
@@ -572,7 +570,6 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                               "MemoryAccounting",
                               "MemoryZSwapWriteback",
                               "IOAccounting",
-                              "BlockIOAccounting",
                               "TasksAccounting",
                               "IPAccounting",
                               "CoredumpReceive"))
@@ -585,10 +582,6 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
         if (STR_IN_SET(field, "IOWeight",
                               "StartupIOWeight"))
                 return bus_append_cg_weight_parse(m, field, eq);
-
-        if (STR_IN_SET(field, "CPUShares",
-                              "StartupCPUShares"))
-                return bus_append_cg_cpu_shares_parse(m, field, eq);
 
         if (STR_IN_SET(field, "AllowedCPUs",
                               "StartupAllowedCPUs",
@@ -608,10 +601,6 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
 
                 return bus_append_byte_array(m, field, array, allocated);
         }
-
-        if (STR_IN_SET(field, "BlockIOWeight",
-                              "StartupBlockIOWeight"))
-                return bus_append_cg_blkio_weight_parse(m, field, eq);
 
         if (streq(field, "DisableControllers"))
                 return bus_append_strv(m, "DisableControllers", eq, /* separator= */ NULL, EXTRACT_UNQUOTE);
@@ -636,7 +625,6 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                               "MemoryMax",
                               "MemorySwapMax",
                               "MemoryZSwapMax",
-                              "MemoryLimit",
                               "TasksMax")) {
 
                 if (streq(eq, "infinity")) {
@@ -735,9 +723,7 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                 return 1;
         }
 
-        if (cgroup_io_limit_type_from_string(field) >= 0 ||
-            STR_IN_SET(field, "BlockIOReadBandwidth",
-                              "BlockIOWriteBandwidth")) {
+        if (cgroup_io_limit_type_from_string(field) >= 0) {
 
                 if (isempty(eq))
                         r = sd_bus_message_append(m, "(sv)", field, "a(st)", 0);
@@ -771,8 +757,7 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                 return 1;
         }
 
-        if (STR_IN_SET(field, "IODeviceWeight",
-                              "BlockIODeviceWeight")) {
+        if (streq(field, "IODeviceWeight")) {
                 if (isempty(eq))
                         r = sd_bus_message_append(m, "(sv)", field, "a(st)", 0);
                 else {
