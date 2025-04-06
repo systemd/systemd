@@ -2161,31 +2161,6 @@ void unit_invalidate_cgroup_members_masks(Unit *u) {
                 unit_invalidate_cgroup_members_masks(slice);
 }
 
-const char* unit_get_realized_cgroup_path(Unit *u, CGroupMask mask) {
-
-        /* Returns the realized cgroup path of the specified unit where all specified controllers are available. */
-
-        while (u) {
-                CGroupRuntime *crt = unit_get_cgroup_runtime(u);
-                if (crt &&
-                    crt->cgroup_path &&
-                    crt->cgroup_realized &&
-                    FLAGS_SET(crt->cgroup_realized_mask, mask))
-                        return crt->cgroup_path;
-
-                u = UNIT_GET_SLICE(u);
-        }
-
-        return NULL;
-}
-
-static const char *migrate_callback(CGroupMask mask, void *userdata) {
-        /* If not realized at all, migrate to root ("").
-         * It may happen if we're upgrading from older version that didn't clean up.
-         */
-        return strempty(unit_get_realized_cgroup_path(userdata, mask));
-}
-
 int unit_default_cgroup_path(const Unit *u, char **ret) {
         _cleanup_free_ char *p = NULL;
         int r;
@@ -2336,13 +2311,6 @@ int unit_watch_cgroup_memory(Unit *u) {
         if (crt->cgroup_memory_inotify_wd >= 0)
                 return 0;
 
-        /* Only applies to the unified hierarchy */
-        r = cg_all_unified();
-        if (r < 0)
-                return log_error_errno(r, "Failed to determine whether the memory controller is unified: %m");
-        if (r == 0)
-                return 0;
-
         r = hashmap_ensure_allocated(&u->manager->cgroup_memory_inotify_wd_unit, &trivial_hash_ops);
         if (r < 0)
                 return log_oom();
@@ -2402,8 +2370,7 @@ static int unit_update_cgroup(
                 CGroupMask enable_mask,
                 ManagerState state) {
 
-        bool created, is_root_slice;
-        CGroupMask migrate_mask = 0;
+        bool created;
         _cleanup_free_ char *cgroup_full_path = NULL;
         int r;
 
@@ -2447,8 +2414,7 @@ static int unit_update_cgroup(
         (void) unit_watch_cgroup(u);
         (void) unit_watch_cgroup_memory(u);
 
-        /* For v2 we preserve enabled controllers in delegated units, adjust others,
-         * for v1 we figure out which controller hierarchies need migration. */
+        /* For v2 we preserve enabled controllers in delegated units, adjust others, */
         if (created || !crt->cgroup_realized || !unit_cgroup_delegate(u)) {
                 CGroupMask result_mask = 0;
 
@@ -2459,31 +2425,11 @@ static int unit_update_cgroup(
 
                 /* Remember what's actually enabled now */
                 crt->cgroup_enabled_mask = result_mask;
-
-                migrate_mask = crt->cgroup_realized_mask ^ target_mask;
         }
 
         /* Keep track that this is now realized */
         crt->cgroup_realized = true;
         crt->cgroup_realized_mask = target_mask;
-
-        /* Migrate processes in controller hierarchies both downwards (enabling) and upwards (disabling).
-         *
-         * Unnecessary controller cgroups are trimmed (after emptied by upward migration).
-         * We perform migration also with whole slices for cases when users don't care about leave
-         * granularity. Since delegated_mask is subset of target mask, we won't trim slice subtree containing
-         * delegated units.
-         */
-        if (cg_all_unified() == 0) {
-                r = cg_migrate_v1_controllers(u->manager->cgroup_supported, migrate_mask, crt->cgroup_path, migrate_callback, u);
-                if (r < 0)
-                        log_unit_warning_errno(u, r, "Failed to migrate controller cgroups from %s, ignoring: %m", empty_to_root(crt->cgroup_path));
-
-                is_root_slice = unit_has_name(u, SPECIAL_ROOT_SLICE);
-                r = cg_trim_v1_controllers(u->manager->cgroup_supported, ~target_mask, crt->cgroup_path, !is_root_slice);
-                if (r < 0)
-                        log_unit_warning_errno(u, r, "Failed to delete controller cgroups %s, ignoring: %m", empty_to_root(crt->cgroup_path));
-        }
 
         /* Set attributes */
         cgroup_context_apply(u, target_mask, state);
@@ -2538,7 +2484,6 @@ static int unit_attach_pid_to_cgroup_via_bus(Unit *u, pid_t pid, const char *suf
 
 int unit_attach_pids_to_cgroup(Unit *u, Set *pids, const char *suffix_path) {
         _cleanup_free_ char *joined = NULL;
-        CGroupMask delegated_mask;
         const char *p;
         PidRef *pid;
         int ret, r;
@@ -2572,8 +2517,6 @@ int unit_attach_pids_to_cgroup(Unit *u, Set *pids, const char *suffix_path) {
 
                 p = joined;
         }
-
-        delegated_mask = unit_get_delegate_mask(u);
 
         ret = 0;
         SET_FOREACH(pid, pids) {
@@ -2625,45 +2568,6 @@ int unit_attach_pids_to_cgroup(Unit *u, Set *pids, const char *suffix_path) {
                 } else if (ret >= 0) {
                         unit_remove_from_cgroup_empty_queue(u);
                         ret++; /* Count successful additions */
-                }
-
-                r = cg_all_unified();
-                if (r < 0)
-                        return r;
-                if (r > 0)
-                        continue;
-
-                /* In the legacy hierarchy, attach the process to the request cgroup if possible, and if not to the
-                 * innermost realized one */
-
-                for (CGroupController c = 0; c < _CGROUP_CONTROLLER_MAX; c++) {
-                        CGroupMask bit = CGROUP_CONTROLLER_TO_MASK(c);
-                        const char *realized;
-
-                        if (!(u->manager->cgroup_supported & bit))
-                                continue;
-
-                        /* If this controller is delegated and realized, honour the caller's request for the cgroup suffix. */
-                        if (delegated_mask & crt->cgroup_realized_mask & bit) {
-                                r = cg_attach(cgroup_controller_to_string(c), p, pid->pid);
-                                if (r >= 0)
-                                        continue; /* Success! */
-
-                                log_unit_debug_errno(u, r, "Failed to attach PID " PID_FMT " to requested cgroup %s in controller %s, falling back to unit's cgroup: %m",
-                                                     pid->pid, empty_to_root(p), cgroup_controller_to_string(c));
-                        }
-
-                        /* So this controller is either not delegate or realized, or something else weird happened. In
-                         * that case let's attach the PID at least to the closest cgroup up the tree that is
-                         * realized. */
-                        realized = unit_get_realized_cgroup_path(u, bit);
-                        if (!realized)
-                                continue; /* Not even realized in the root slice? Then let's not bother */
-
-                        r = cg_attach(cgroup_controller_to_string(c), realized, pid->pid);
-                        if (r < 0)
-                                log_unit_debug_errno(u, r, "Failed to attach PID " PID_FMT " to realized cgroup %s in controller %s, ignoring: %m",
-                                                     pid->pid, realized, cgroup_controller_to_string(c));
                 }
         }
 
