@@ -63,32 +63,32 @@ TEST(cg_create) {
         log_info("Paths for test:\n%s\n%s", test_a, test_b);
 
         /* Possibly clean up left-overs from aboted previous runs */
-        (void) cg_trim(SYSTEMD_CGROUP_CONTROLLER, test_a, /* delete_root= */ true);
-        (void) cg_trim(SYSTEMD_CGROUP_CONTROLLER, test_b, /* delete_root= */ true);
+        (void) cg_trim(test_a, /* delete_root= */ true);
+        (void) cg_trim(test_b, /* delete_root= */ true);
 
-        r = cg_create(SYSTEMD_CGROUP_CONTROLLER, test_a);
+        r = cg_create(test_a);
         if (IN_SET(r, -EPERM, -EACCES, -EROFS)) {
                 log_info_errno(r, "Skipping %s: %m", __func__);
                 return;
         }
 
         ASSERT_OK_EQ(r, 1);
-        ASSERT_OK_ZERO(cg_create(SYSTEMD_CGROUP_CONTROLLER, test_a));
-        ASSERT_OK_EQ(cg_create(SYSTEMD_CGROUP_CONTROLLER, test_b), 1);
-        ASSERT_OK_EQ(cg_create(SYSTEMD_CGROUP_CONTROLLER, test_c), 1);
-        ASSERT_OK_ZERO(cg_create_and_attach(SYSTEMD_CGROUP_CONTROLLER, test_b, 0));
+        ASSERT_OK_ZERO(cg_create(test_a));
+        ASSERT_OK_EQ(cg_create(test_b), 1);
+        ASSERT_OK_EQ(cg_create(test_c), 1);
+        ASSERT_OK_ZERO(cg_create_and_attach(test_b, 0));
 
         ASSERT_OK_ZERO(cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, getpid_cached(), &path));
         ASSERT_STREQ(path, test_b);
         free(path);
 
-        ASSERT_OK_ZERO(cg_attach(SYSTEMD_CGROUP_CONTROLLER, test_a, 0));
+        ASSERT_OK_ZERO(cg_attach(test_a, 0));
 
         ASSERT_OK_ZERO(cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, getpid_cached(), &path));
         ASSERT_TRUE(path_equal(path, test_a));
         free(path);
 
-        ASSERT_OK_EQ(cg_create_and_attach(SYSTEMD_CGROUP_CONTROLLER, test_d, 0), 1);
+        ASSERT_OK_EQ(cg_create_and_attach(test_d, 0), 1);
 
         ASSERT_OK_ZERO(cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, getpid_cached(), &path));
         ASSERT_TRUE(path_equal(path, test_d));
@@ -120,7 +120,7 @@ TEST(cg_create) {
         ASSERT_OK_POSITIVE(cg_kill_recursive(test_a, 0, 0, NULL, NULL, NULL));
         ASSERT_OK_ZERO(cg_kill_recursive(test_b, 0, 0, NULL, NULL, NULL));
 
-        ASSERT_OK(cg_trim(SYSTEMD_CGROUP_CONTROLLER, test_b, true));
+        ASSERT_OK(cg_trim(test_b, true));
 }
 
 TEST(id) {

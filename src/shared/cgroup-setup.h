@@ -10,21 +10,18 @@
 int cg_weight_parse(const char *s, uint64_t *ret);
 int cg_cpu_weight_parse(const char *s, uint64_t *ret);
 
-int cg_trim(const char *controller, const char *path, bool delete_root);
+int cg_trim(const char *path, bool delete_root);
 
-int cg_create(const char *controller, const char *path);
-int cg_attach(const char *controller, const char *path, pid_t pid);
+int cg_create(const char *path);
+int cg_attach(const char *path, pid_t pid);
 int cg_fd_attach(int fd, pid_t pid);
-int cg_create_and_attach(const char *controller, const char *path, pid_t pid);
+int cg_create_and_attach(const char *path, pid_t pid);
 
-int cg_set_access(const char *controller, const char *path, uid_t uid, gid_t gid);
-int cg_set_access_recursive(const char *controller, const char *path, uid_t uid, gid_t gid);
+int cg_set_access(const char *path, uid_t uid, gid_t gid);
+int cg_set_access_recursive(const char *path, uid_t uid, gid_t gid);
 
-int cg_create_everywhere(CGroupMask supported, CGroupMask mask, const char *path);
-int cg_attach_everywhere(CGroupMask supported, const char *path, pid_t pid);
-int cg_trim_everywhere(CGroupMask supported, const char *path, bool delete_root);
-int cg_enable_everywhere(CGroupMask supported, CGroupMask mask, const char *p, CGroupMask *ret_result_mask);
+int cg_enable(CGroupMask supported, CGroupMask mask, const char *p, CGroupMask *ret_result_mask);
 
-int cg_migrate(const char *cfrom, const char *pfrom, const char *cto, const char *pto, CGroupFlags flags);
+int cg_migrate(const char *from, const char *to, CGroupFlags flags);
 
 int cg_has_legacy(void);
