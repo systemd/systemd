@@ -499,8 +499,6 @@ bool unit_has_host_root_cgroup(const Unit *u);
 
 bool unit_has_startup_cgroup_constraints(Unit *u);
 
-int manager_notify_cgroup_empty(Manager *m, const char *group);
-
 void unit_invalidate_cgroup(Unit *u, CGroupMask m);
 void unit_invalidate_cgroup_bpf(Unit *u);
 
