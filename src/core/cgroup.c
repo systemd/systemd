@@ -2383,7 +2383,7 @@ static int unit_update_cgroup(
         CGroupRuntime *crt = ASSERT_PTR(unit_get_cgroup_runtime(u));
 
         /* First, create our own group */
-        r = cg_create_everywhere(u->manager->cgroup_supported, target_mask, crt->cgroup_path);
+        r = cg_create(crt->cgroup_path);
         if (r < 0)
                 return log_unit_error_errno(u, r, "Failed to create cgroup %s: %m", empty_to_root(crt->cgroup_path));
         created = r;
@@ -2409,7 +2409,7 @@ static int unit_update_cgroup(
                 CGroupMask result_mask = 0;
 
                 /* Enable all controllers we need */
-                r = cg_enable_everywhere(u->manager->cgroup_supported, enable_mask, crt->cgroup_path, &result_mask);
+                r = cg_enable(u->manager->cgroup_supported, enable_mask, crt->cgroup_path, &result_mask);
                 if (r < 0)
                         log_unit_warning_errno(u, r, "Failed to enable/disable controllers on cgroup %s, ignoring: %m", empty_to_root(crt->cgroup_path));
 
@@ -2521,7 +2521,7 @@ int unit_attach_pids_to_cgroup(Unit *u, Set *pids, const char *suffix_path) {
                 }
 
                 /* First, attach the PID to the main cgroup hierarchy */
-                r = cg_attach(SYSTEMD_CGROUP_CONTROLLER, p, pid->pid);
+                r = cg_attach(p, pid->pid);
                 if (r < 0) {
                         bool again = MANAGER_IS_USER(u->manager) && ERRNO_IS_PRIVILEGE(r);
 
@@ -2600,7 +2600,7 @@ int unit_remove_subcgroup(Unit *u, const char *suffix_path) {
 
         log_unit_debug(u, "Removing subcgroup '%s'...", d);
 
-        r = cg_trim_everywhere(u->manager->cgroup_supported, d, delete_root);
+        r = cg_trim(d, delete_root);
         if (r < 0)
                 return log_unit_debug_errno(u, r, "Failed to fully %s cgroup '%s': %m", delete_root ? "remove" : "trim", d);
 
@@ -3123,7 +3123,7 @@ void unit_prune_cgroup(Unit *u) {
 
         is_root_slice = unit_has_name(u, SPECIAL_ROOT_SLICE);
 
-        r = cg_trim_everywhere(u->manager->cgroup_supported, crt->cgroup_path, !is_root_slice);
+        r = cg_trim(crt->cgroup_path, !is_root_slice);
         if (r < 0) {
                 int k = unit_prune_cgroup_via_bus(u);
 
@@ -3743,10 +3743,10 @@ int manager_setup_cgroup(Manager *m) {
 
         /* 5. Make sure we are in the special "init.scope" unit in the root slice. */
         const char *scope_path = strjoina(m->cgroup_root, "/" SPECIAL_INIT_SCOPE);
-        r = cg_create_and_attach(SYSTEMD_CGROUP_CONTROLLER, scope_path, /* pid = */ 0);
+        r = cg_create_and_attach(scope_path, /* pid = */ 0);
         if (r >= 0) {
                 /* Also, move all other userspace processes remaining in the root cgroup into that scope. */
-                r = cg_migrate(SYSTEMD_CGROUP_CONTROLLER, m->cgroup_root, SYSTEMD_CGROUP_CONTROLLER, scope_path, 0);
+                r = cg_migrate(m->cgroup_root, scope_path, 0);
                 if (r < 0)
                         log_warning_errno(r, "Couldn't move remaining userspace processes, ignoring: %m");
 
@@ -3779,7 +3779,7 @@ void manager_shutdown_cgroup(Manager *m, bool delete) {
         /* We can't really delete the group, since we are in it. But
          * let's trim it. */
         if (delete && m->cgroup_root && !FLAGS_SET(m->test_run_flags, MANAGER_TEST_RUN_MINIMAL))
-                (void) cg_trim(SYSTEMD_CGROUP_CONTROLLER, m->cgroup_root, false);
+                (void) cg_trim(m->cgroup_root, false);
 
         m->cgroup_empty_event_source = sd_event_source_disable_unref(m->cgroup_empty_event_source);
 
