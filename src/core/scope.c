@@ -93,10 +93,8 @@ static void scope_set_state(Scope *s, ScopeState state) {
         if (!IN_SET(state, SCOPE_STOP_SIGTERM, SCOPE_STOP_SIGKILL, SCOPE_START_CHOWN, SCOPE_RUNNING))
                 s->timer_event_source = sd_event_source_disable_unref(s->timer_event_source);
 
-        if (!IN_SET(old_state, SCOPE_DEAD, SCOPE_FAILED) && IN_SET(state, SCOPE_DEAD, SCOPE_FAILED)) {
+        if (!IN_SET(old_state, SCOPE_DEAD, SCOPE_FAILED) && IN_SET(state, SCOPE_DEAD, SCOPE_FAILED))
                 unit_unwatch_all_pids(UNIT(s));
-                unit_dequeue_rewatch_pids(UNIT(s));
-        }
 
         if (state != old_state)
                 log_unit_debug(UNIT(s), "Changed %s -> %s",
@@ -246,8 +244,7 @@ static int scope_coldplug(Unit *u) {
                                 if (r < 0 && r != -EEXIST)
                                         return r;
                         }
-                } else
-                        (void) unit_enqueue_rewatch_pids(u);
+                }
         }
 
         bus_scope_track_controller(s);
@@ -296,13 +293,6 @@ static void scope_enter_signal(Scope *s, ScopeState state, ScopeResult f) {
 
         if (s->result == SCOPE_SUCCESS)
                 s->result = f;
-
-        /* Before sending any signal, make sure we track all members of this cgroup */
-        (void) unit_watch_all_pids(UNIT(s));
-
-        /* Also, enqueue a job that we recheck all our PIDs a bit later, given that it's likely some processes have
-         * died now */
-        (void) unit_enqueue_rewatch_pids(UNIT(s));
 
         /* If we have a controller set let's ask the controller nicely to terminate the scope, instead of us going
          * directly into SIGTERM berserk mode */
@@ -384,7 +374,7 @@ static int scope_enter_start_chown(Scope *s) {
                         }
                 }
 
-                r = cg_set_access(SYSTEMD_CGROUP_CONTROLLER, s->cgroup_runtime->cgroup_path, uid, gid);
+                r = cg_set_access(s->cgroup_runtime->cgroup_path, uid, gid);
                 if (r < 0) {
                         log_unit_error_errno(UNIT(s), r, "Failed to adjust control group access: %m");
                         _exit(EXIT_CGROUP);
@@ -441,8 +431,6 @@ static int scope_enter_running(Scope *s) {
          * PIDs currently in the scope anyway. */
         unit_unwatch_all_pids(u);
 
-        /* Start watching the PIDs currently in the scope (legacy hierarchy only) */
-        (void) unit_enqueue_rewatch_pids(u);
         return 1;
 
 fail:
@@ -635,12 +623,6 @@ static void scope_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                         scope_enter_running(s);
                 return;
         }
-
-        /* If we get a SIGCHLD event for one of the processes we were interested in, then we look for others to
-         * watch, under the assumption that we'll sooner or later get a SIGCHLD for them, as the original
-         * process we watched was probably the parent of them, and they are hence now our children. */
-
-        (void) unit_enqueue_rewatch_pids(u);
 }
 
 static int scope_dispatch_timer(sd_event_source *source, usec_t usec, void *userdata) {
@@ -698,11 +680,6 @@ int scope_abandon(Scope *s) {
         s->controller_track = sd_bus_track_unref(s->controller_track);
 
         scope_set_state(s, SCOPE_ABANDONED);
-
-        /* The client is no longer watching the remaining processes, so let's step in here, under the assumption that
-         * the remaining processes will be sooner or later reassigned to us as parent. */
-        (void) unit_enqueue_rewatch_pids(UNIT(s));
-
         return 0;
 }
 
