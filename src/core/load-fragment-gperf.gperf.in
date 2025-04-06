@@ -204,8 +204,8 @@
 {{type}}.CPUAccounting,                       config_parse_bool,                                  0,                                  offsetof({{type}}, cgroup_context.cpu_accounting)
 {{type}}.CPUWeight,                           config_parse_cg_cpu_weight,                         0,                                  offsetof({{type}}, cgroup_context.cpu_weight)
 {{type}}.StartupCPUWeight,                    config_parse_cg_cpu_weight,                         0,                                  offsetof({{type}}, cgroup_context.startup_cpu_weight)
-{{type}}.CPUShares,                           config_parse_cpu_shares,                            0,                                  offsetof({{type}}, cgroup_context.cpu_shares)
-{{type}}.StartupCPUShares,                    config_parse_cpu_shares,                            0,                                  offsetof({{type}}, cgroup_context.startup_cpu_shares)
+{{type}}.CPUShares,                           config_parse_warn_compat,                           DISABLED_LEGACY,                    0
+{{type}}.StartupCPUShares,                    config_parse_warn_compat,                           DISABLED_LEGACY,                    0
 {{type}}.CPUQuota,                            config_parse_cpu_quota,                             0,                                  offsetof({{type}}, cgroup_context)
 {{type}}.CPUQuotaPeriodSec,                   config_parse_sec_def_infinity,                      0,                                  offsetof({{type}}, cgroup_context.cpu_quota_period_usec)
 {{type}}.MemoryAccounting,                    config_parse_bool,                                  0,                                  offsetof({{type}}, cgroup_context.memory_accounting)
@@ -224,7 +224,7 @@
 {{type}}.MemoryZSwapMax,                      config_parse_memory_limit,                          0,                                  offsetof({{type}}, cgroup_context)
 {{type}}.StartupMemoryZSwapMax,               config_parse_memory_limit,                          0,                                  offsetof({{type}}, cgroup_context)
 {{type}}.MemoryZSwapWriteback,                config_parse_bool,                                  0,                                  offsetof({{type}}, cgroup_context.memory_zswap_writeback)
-{{type}}.MemoryLimit,                         config_parse_memory_limit,                          0,                                  offsetof({{type}}, cgroup_context)
+{{type}}.MemoryLimit,                         config_parse_warn_compat,                           DISABLED_LEGACY,                    0
 {{type}}.DeviceAllow,                         config_parse_device_allow,                          0,                                  offsetof({{type}}, cgroup_context)
 {{type}}.DevicePolicy,                        config_parse_device_policy,                         0,                                  offsetof({{type}}, cgroup_context.device_policy)
 {{type}}.IOAccounting,                        config_parse_bool,                                  0,                                  offsetof({{type}}, cgroup_context.io_accounting)
@@ -236,12 +236,12 @@
 {{type}}.IOReadIOPSMax,                       config_parse_io_limit,                              0,                                  offsetof({{type}}, cgroup_context)
 {{type}}.IOWriteIOPSMax,                      config_parse_io_limit,                              0,                                  offsetof({{type}}, cgroup_context)
 {{type}}.IODeviceLatencyTargetSec,            config_parse_io_device_latency,                     0,                                  offsetof({{type}}, cgroup_context)
-{{type}}.BlockIOAccounting,                   config_parse_bool,                                  0,                                  offsetof({{type}}, cgroup_context.blockio_accounting)
-{{type}}.BlockIOWeight,                       config_parse_blockio_weight,                        0,                                  offsetof({{type}}, cgroup_context.blockio_weight)
-{{type}}.StartupBlockIOWeight,                config_parse_blockio_weight,                        0,                                  offsetof({{type}}, cgroup_context.startup_blockio_weight)
-{{type}}.BlockIODeviceWeight,                 config_parse_blockio_device_weight,                 0,                                  offsetof({{type}}, cgroup_context)
-{{type}}.BlockIOReadBandwidth,                config_parse_blockio_bandwidth,                     0,                                  offsetof({{type}}, cgroup_context)
-{{type}}.BlockIOWriteBandwidth,               config_parse_blockio_bandwidth,                     0,                                  offsetof({{type}}, cgroup_context)
+{{type}}.BlockIOAccounting,                   config_parse_warn_compat,                           DISABLED_LEGACY,                    0
+{{type}}.BlockIOWeight,                       config_parse_warn_compat,                           DISABLED_LEGACY,                    0
+{{type}}.StartupBlockIOWeight,                config_parse_warn_compat,                           DISABLED_LEGACY,                    0
+{{type}}.BlockIODeviceWeight,                 config_parse_warn_compat,                           DISABLED_LEGACY,                    0
+{{type}}.BlockIOReadBandwidth,                config_parse_warn_compat,                           DISABLED_LEGACY,                    0
+{{type}}.BlockIOWriteBandwidth,               config_parse_warn_compat,                           DISABLED_LEGACY,                    0
 {{type}}.TasksAccounting,                     config_parse_bool,                                  0,                                  offsetof({{type}}, cgroup_context.tasks_accounting)
 {{type}}.TasksMax,                            config_parse_tasks_max,                             0,                                  offsetof({{type}}, cgroup_context.tasks_max)
 {{type}}.Delegate,                            config_parse_delegate,                              0,                                  offsetof({{type}}, cgroup_context)
