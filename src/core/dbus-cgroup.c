@@ -35,6 +35,8 @@ static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_cgroup_device_policy, cgroup_de
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_managed_oom_mode, managed_oom_mode, ManagedOOMMode);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_managed_oom_preference, managed_oom_preference, ManagedOOMPreference);
 
+static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_blockio_ast, "a(st)", 0);
+
 static int property_get_cgroup_mask(
                 sd_bus *bus,
                 const char *path,
@@ -189,72 +191,6 @@ static int property_get_io_device_latency(
 
         LIST_FOREACH(device_latencies, l, c->io_device_latencies) {
                 r = sd_bus_message_append(reply, "(st)", l->path, l->target_usec);
-                if (r < 0)
-                        return r;
-        }
-
-        return sd_bus_message_close_container(reply);
-}
-
-static int property_get_blockio_device_weight(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        CGroupContext *c = ASSERT_PTR(userdata);
-        int r;
-
-        assert(bus);
-        assert(reply);
-
-        r = sd_bus_message_open_container(reply, 'a', "(st)");
-        if (r < 0)
-                return r;
-
-        LIST_FOREACH(device_weights, w, c->blockio_device_weights) {
-                r = sd_bus_message_append(reply, "(st)", w->path, w->weight);
-                if (r < 0)
-                        return r;
-        }
-
-        return sd_bus_message_close_container(reply);
-}
-
-static int property_get_blockio_device_bandwidths(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        CGroupContext *c = ASSERT_PTR(userdata);
-        int r;
-
-        assert(bus);
-        assert(reply);
-
-        r = sd_bus_message_open_container(reply, 'a', "(st)");
-        if (r < 0)
-                return r;
-
-        LIST_FOREACH(device_bandwidths, b, c->blockio_device_bandwidths) {
-                uint64_t v;
-
-                if (streq(property, "BlockIOReadBandwidth"))
-                        v = b->rbps;
-                else
-                        v = b->wbps;
-
-                if (v == CGROUP_LIMIT_MAX)
-                        continue;
-
-                r = sd_bus_message_append(reply, "(st)", b->path, v);
                 if (r < 0)
                         return r;
         }
@@ -450,8 +386,8 @@ const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_PROPERTY("CPUAccounting", "b", bus_property_get_bool, offsetof(CGroupContext, cpu_accounting), 0),
         SD_BUS_PROPERTY("CPUWeight", "t", NULL, offsetof(CGroupContext, cpu_weight), 0),
         SD_BUS_PROPERTY("StartupCPUWeight", "t", NULL, offsetof(CGroupContext, startup_cpu_weight), 0),
-        SD_BUS_PROPERTY("CPUShares", "t", NULL, offsetof(CGroupContext, cpu_shares), 0),
-        SD_BUS_PROPERTY("StartupCPUShares", "t", NULL, offsetof(CGroupContext, startup_cpu_shares), 0),
+        SD_BUS_PROPERTY("CPUShares", "t", bus_property_get_uint64_max, 0, SD_BUS_VTABLE_DEPRECATED|SD_BUS_VTABLE_HIDDEN),
+        SD_BUS_PROPERTY("StartupCPUShares", "t", bus_property_get_uint64_max, 0, SD_BUS_VTABLE_DEPRECATED|SD_BUS_VTABLE_HIDDEN),
         SD_BUS_PROPERTY("CPUQuotaPerSecUSec", "t", bus_property_get_usec, offsetof(CGroupContext, cpu_quota_per_sec_usec), 0),
         SD_BUS_PROPERTY("CPUQuotaPeriodUSec", "t", bus_property_get_usec, offsetof(CGroupContext, cpu_quota_period_usec), 0),
         SD_BUS_PROPERTY("AllowedCPUs", "ay", property_get_cpuset, offsetof(CGroupContext, cpuset_cpus), 0),
@@ -467,12 +403,12 @@ const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_PROPERTY("IOReadIOPSMax", "a(st)", property_get_io_device_limits, 0, 0),
         SD_BUS_PROPERTY("IOWriteIOPSMax", "a(st)", property_get_io_device_limits, 0, 0),
         SD_BUS_PROPERTY("IODeviceLatencyTargetUSec", "a(st)", property_get_io_device_latency, 0, 0),
-        SD_BUS_PROPERTY("BlockIOAccounting", "b", bus_property_get_bool, offsetof(CGroupContext, blockio_accounting), 0),
-        SD_BUS_PROPERTY("BlockIOWeight", "t", NULL, offsetof(CGroupContext, blockio_weight), 0),
-        SD_BUS_PROPERTY("StartupBlockIOWeight", "t", NULL, offsetof(CGroupContext, startup_blockio_weight), 0),
-        SD_BUS_PROPERTY("BlockIODeviceWeight", "a(st)", property_get_blockio_device_weight, 0, 0),
-        SD_BUS_PROPERTY("BlockIOReadBandwidth", "a(st)", property_get_blockio_device_bandwidths, 0, 0),
-        SD_BUS_PROPERTY("BlockIOWriteBandwidth", "a(st)", property_get_blockio_device_bandwidths, 0, 0),
+        SD_BUS_PROPERTY("BlockIOAccounting", "b", bus_property_get_bool_false, 0, SD_BUS_VTABLE_DEPRECATED|SD_BUS_VTABLE_HIDDEN),
+        SD_BUS_PROPERTY("BlockIOWeight", "t", bus_property_get_uint64_max, 0, SD_BUS_VTABLE_DEPRECATED|SD_BUS_VTABLE_HIDDEN),
+        SD_BUS_PROPERTY("StartupBlockIOWeight", "t", bus_property_get_uint64_max, 0, SD_BUS_VTABLE_DEPRECATED|SD_BUS_VTABLE_HIDDEN),
+        SD_BUS_PROPERTY("BlockIODeviceWeight", "a(st)", property_get_blockio_ast, 0, SD_BUS_VTABLE_DEPRECATED|SD_BUS_VTABLE_HIDDEN),
+        SD_BUS_PROPERTY("BlockIOReadBandwidth", "a(st)", property_get_blockio_ast, 0, SD_BUS_VTABLE_DEPRECATED|SD_BUS_VTABLE_HIDDEN),
+        SD_BUS_PROPERTY("BlockIOWriteBandwidth", "a(st)", property_get_blockio_ast, 0, SD_BUS_VTABLE_DEPRECATED|SD_BUS_VTABLE_HIDDEN),
         SD_BUS_PROPERTY("MemoryAccounting", "b", bus_property_get_bool, offsetof(CGroupContext, memory_accounting), 0),
         SD_BUS_PROPERTY("DefaultMemoryLow", "t", NULL, offsetof(CGroupContext, default_memory_low), 0),
         SD_BUS_PROPERTY("DefaultStartupMemoryLow", "t", NULL, offsetof(CGroupContext, default_startup_memory_low), 0),
@@ -489,7 +425,7 @@ const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_PROPERTY("MemoryZSwapMax", "t", NULL, offsetof(CGroupContext, memory_zswap_max), 0),
         SD_BUS_PROPERTY("StartupMemoryZSwapMax", "t", NULL, offsetof(CGroupContext, startup_memory_zswap_max), 0),
         SD_BUS_PROPERTY("MemoryZSwapWriteback", "b", bus_property_get_bool, offsetof(CGroupContext, memory_zswap_writeback), 0),
-        SD_BUS_PROPERTY("MemoryLimit", "t", NULL, offsetof(CGroupContext, memory_limit), 0),
+        SD_BUS_PROPERTY("MemoryLimit", "t", bus_property_get_uint64_max, 0, SD_BUS_VTABLE_DEPRECATED|SD_BUS_VTABLE_HIDDEN),
         SD_BUS_PROPERTY("DevicePolicy", "s", property_get_cgroup_device_policy, offsetof(CGroupContext, device_policy), 0),
         SD_BUS_PROPERTY("DeviceAllow", "a(ss)", property_get_device_allow, 0, 0),
         SD_BUS_PROPERTY("TasksAccounting", "b", bus_property_get_bool, offsetof(CGroupContext, tasks_accounting), 0),
@@ -993,9 +929,7 @@ static int bus_cgroup_set_boolean(
         }
 
 DISABLE_WARNING_TYPE_LIMITS;
-BUS_DEFINE_SET_CGROUP_WEIGHT(cpu_shares, CGROUP_MASK_CPU, CGROUP_CPU_SHARES_IS_OK, CGROUP_CPU_SHARES_INVALID);
 BUS_DEFINE_SET_CGROUP_WEIGHT(io_weight, CGROUP_MASK_IO, CGROUP_WEIGHT_IS_OK, CGROUP_WEIGHT_INVALID);
-BUS_DEFINE_SET_CGROUP_WEIGHT(blockio_weight, CGROUP_MASK_BLKIO, CGROUP_BLKIO_WEIGHT_IS_OK, CGROUP_BLKIO_WEIGHT_INVALID);
 BUS_DEFINE_SET_CGROUP_LIMIT(memory, CGROUP_MASK_MEMORY, physical_memory_scale, 1);
 BUS_DEFINE_SET_CGROUP_LIMIT(memory_protection, CGROUP_MASK_MEMORY, physical_memory_scale, 0);
 BUS_DEFINE_SET_CGROUP_LIMIT(swap, CGROUP_MASK_MEMORY, physical_memory_scale, 0);
@@ -1127,12 +1061,6 @@ int bus_cgroup_set_property(
         if (streq(name, "StartupCPUWeight"))
                 return bus_cgroup_set_cpu_weight(u, name, &c->startup_cpu_weight, message, flags, error);
 
-        if (streq(name, "CPUShares"))
-                return bus_cgroup_set_cpu_shares(u, name, &c->cpu_shares, message, flags, error);
-
-        if (streq(name, "StartupCPUShares"))
-                return bus_cgroup_set_cpu_shares(u, name, &c->startup_cpu_shares, message, flags, error);
-
         if (streq(name, "IOAccounting"))
                 return bus_cgroup_set_boolean(u, name, &c->io_accounting, CGROUP_MASK_IO, message, flags, error);
 
@@ -1141,15 +1069,6 @@ int bus_cgroup_set_property(
 
         if (streq(name, "StartupIOWeight"))
                 return bus_cgroup_set_io_weight(u, name, &c->startup_io_weight, message, flags, error);
-
-        if (streq(name, "BlockIOAccounting"))
-                return bus_cgroup_set_boolean(u, name, &c->blockio_accounting, CGROUP_MASK_BLKIO, message, flags, error);
-
-        if (streq(name, "BlockIOWeight"))
-                return bus_cgroup_set_blockio_weight(u, name, &c->blockio_weight, message, flags, error);
-
-        if (streq(name, "StartupBlockIOWeight"))
-                return bus_cgroup_set_blockio_weight(u, name, &c->startup_blockio_weight, message, flags, error);
 
         if (streq(name, "MemoryAccounting"))
                 return bus_cgroup_set_boolean(u, name, &c->memory_accounting, CGROUP_MASK_MEMORY, message, flags, error);
@@ -1235,9 +1154,6 @@ int bus_cgroup_set_property(
                         c->startup_memory_max_set = true;
                 return r;
         }
-
-        if (streq(name, "MemoryLimit"))
-                return bus_cgroup_set_memory(u, name, &c->memory_limit, message, flags, error);
 
         if (streq(name, "MemoryMinScale")) {
                 r = bus_cgroup_set_memory_protection_scale(u, name, &c->memory_min, message, flags, error);
@@ -1612,180 +1528,6 @@ int bus_cgroup_set_property(
                         LIST_FOREACH(device_latencies, a, c->io_device_latencies)
                                 fprintf(f, "IODeviceLatencyTargetSec=%s %s\n",
                                         a->path, FORMAT_TIMESPAN(a->target_usec, 1));
-
-                        r = memstream_finalize(&m, &buf, NULL);
-                        if (r < 0)
-                                return r;
-
-                        unit_write_setting(u, flags, name, buf);
-                }
-
-                return 1;
-
-        } else if (STR_IN_SET(name, "BlockIOReadBandwidth", "BlockIOWriteBandwidth")) {
-                const char *path;
-                unsigned n = 0;
-                uint64_t u64;
-                bool read;
-
-                read = streq(name, "BlockIOReadBandwidth");
-
-                r = sd_bus_message_enter_container(message, 'a', "(st)");
-                if (r < 0)
-                        return r;
-
-                while ((r = sd_bus_message_read(message, "(st)", &path, &u64)) > 0) {
-
-                        if (!path_is_normalized(path))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path '%s' specified in %s= is not normalized.", name, path);
-
-                        if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                                CGroupBlockIODeviceBandwidth *a = NULL;
-
-                                LIST_FOREACH(device_bandwidths, b, c->blockio_device_bandwidths)
-                                        if (path_equal(path, b->path)) {
-                                                a = b;
-                                                break;
-                                        }
-
-                                if (!a) {
-                                        a = new0(CGroupBlockIODeviceBandwidth, 1);
-                                        if (!a)
-                                                return -ENOMEM;
-
-                                        a->rbps = CGROUP_LIMIT_MAX;
-                                        a->wbps = CGROUP_LIMIT_MAX;
-                                        a->path = strdup(path);
-                                        if (!a->path) {
-                                                free(a);
-                                                return -ENOMEM;
-                                        }
-
-                                        LIST_APPEND(device_bandwidths, c->blockio_device_bandwidths, a);
-                                }
-
-                                if (read)
-                                        a->rbps = u64;
-                                else
-                                        a->wbps = u64;
-                        }
-
-                        n++;
-                }
-                if (r < 0)
-                        return r;
-
-                r = sd_bus_message_exit_container(message);
-                if (r < 0)
-                        return r;
-
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        _cleanup_(memstream_done) MemStream m = {};
-                        _cleanup_free_ char *buf = NULL;
-                        FILE *f;
-
-                        if (n == 0)
-                                LIST_FOREACH(device_bandwidths, a, c->blockio_device_bandwidths) {
-                                        if (read)
-                                                a->rbps = CGROUP_LIMIT_MAX;
-                                        else
-                                                a->wbps = CGROUP_LIMIT_MAX;
-                                }
-
-                        unit_invalidate_cgroup(u, CGROUP_MASK_BLKIO);
-
-                        f = memstream_init(&m);
-                        if (!f)
-                                return -ENOMEM;
-
-                        if (read) {
-                                fputs("BlockIOReadBandwidth=\n", f);
-                                LIST_FOREACH(device_bandwidths, a, c->blockio_device_bandwidths)
-                                        if (a->rbps != CGROUP_LIMIT_MAX)
-                                                fprintf(f, "BlockIOReadBandwidth=%s %" PRIu64 "\n", a->path, a->rbps);
-                        } else {
-                                fputs("BlockIOWriteBandwidth=\n", f);
-                                LIST_FOREACH(device_bandwidths, a, c->blockio_device_bandwidths)
-                                        if (a->wbps != CGROUP_LIMIT_MAX)
-                                                fprintf(f, "BlockIOWriteBandwidth=%s %" PRIu64 "\n", a->path, a->wbps);
-                        }
-
-                        r = memstream_finalize(&m, &buf, NULL);
-                        if (r < 0)
-                                return r;
-
-                        unit_write_setting(u, flags, name, buf);
-                }
-
-                return 1;
-
-        } else if (streq(name, "BlockIODeviceWeight")) {
-                const char *path;
-                uint64_t weight;
-                unsigned n = 0;
-
-                r = sd_bus_message_enter_container(message, 'a', "(st)");
-                if (r < 0)
-                        return r;
-
-                while ((r = sd_bus_message_read(message, "(st)", &path, &weight)) > 0) {
-
-                        if (!path_is_normalized(path))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path '%s' specified in %s= is not normalized.", name, path);
-
-                        if (!CGROUP_BLKIO_WEIGHT_IS_OK(weight) || weight == CGROUP_BLKIO_WEIGHT_INVALID)
-                                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "BlockIODeviceWeight= out of range");
-
-                        if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                                CGroupBlockIODeviceWeight *a = NULL;
-
-                                LIST_FOREACH(device_weights, b, c->blockio_device_weights)
-                                        if (path_equal(b->path, path)) {
-                                                a = b;
-                                                break;
-                                        }
-
-                                if (!a) {
-                                        a = new0(CGroupBlockIODeviceWeight, 1);
-                                        if (!a)
-                                                return -ENOMEM;
-
-                                        a->path = strdup(path);
-                                        if (!a->path) {
-                                                free(a);
-                                                return -ENOMEM;
-                                        }
-                                        LIST_APPEND(device_weights, c->blockio_device_weights, a);
-                                }
-
-                                a->weight = weight;
-                        }
-
-                        n++;
-                }
-
-                r = sd_bus_message_exit_container(message);
-                if (r < 0)
-                        return r;
-
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        _cleanup_(memstream_done) MemStream m = {};
-                        _cleanup_free_ char *buf = NULL;
-                        FILE *f;
-
-                        if (n == 0)
-                                while (c->blockio_device_weights)
-                                        cgroup_context_free_blockio_device_weight(c, c->blockio_device_weights);
-
-                        unit_invalidate_cgroup(u, CGROUP_MASK_BLKIO);
-
-                        f = memstream_init(&m);
-                        if (!f)
-                                return -ENOMEM;
-
-                        fputs("BlockIODeviceWeight=\n", f);
-                        LIST_FOREACH(device_weights, a, c->blockio_device_weights)
-                                fprintf(f, "BlockIODeviceWeight=%s %" PRIu64 "\n", a->path, a->weight);
 
                         r = memstream_finalize(&m, &buf, NULL);
                         if (r < 0)
@@ -2318,6 +2060,18 @@ int bus_cgroup_set_property(
 
                 return 1;
         }
+
+        if (STR_IN_SET(name,
+                       "MemoryLimit",
+                       "CPUShares",
+                       "StartupCPUShares",
+                       "BlockIOAccounting",
+                       "BlockIOWeight",
+                       "StartupBlockIOWeight",
+                       "BlockIODeviceWeight",
+                       "BlockIOReadBandwidth",
+                       "BlockIOWriteBandwidth"))
+                return 1; /* deprecated CGroup v1 properties */
 
         /* must be last */
         if (streq(name, "DisableControllers") || (u->transient && u->load_state == UNIT_STUB))
