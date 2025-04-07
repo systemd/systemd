@@ -14,6 +14,18 @@
 #include "udev-ctrl.h"
 #include "udev-def.h"
 
+/* This must have a higher priority than the worker notification, to make IN_IGNORED event received earlier
+ * than notifications about requests of adding/removing inotify watches. */
+#define EVENT_PRIORITY_INOTIFY_WATCH  (SD_EVENT_PRIORITY_NORMAL - 30)
+/* This must have a higher priority than the worker SIGCHLD event, to make notifications about completions of
+ * processing events received before SIGCHLD. */
+#define EVENT_PRIORITY_WORKER_NOTIFY  (SD_EVENT_PRIORITY_NORMAL - 20)
+/* This should have a higher priority than other events, especially timer events about killing long running
+ * worker processes or idle worker processes. */
+#define EVENT_PRIORITY_WORKER_SIGCHLD (SD_EVENT_PRIORITY_NORMAL - 10)
+/* This should have a lower priority to make signal and timer event sources processed earlier. */
+#define EVENT_PRIORITY_DEVICE_MONITOR (SD_EVENT_PRIORITY_NORMAL + 10)
+
 typedef struct Event Event;
 typedef struct UdevRules UdevRules;
 typedef struct Worker Worker;
@@ -28,6 +40,9 @@ typedef struct Manager {
         Hashmap *properties;
 
         sd_device_monitor *monitor;
+        sd_device_monitor *event_storage;
+        sd_device_monitor *event_storage_sender;
+
         UdevCtrl *ctrl;
         sd_varlink_server *varlink_server;
 
@@ -63,7 +78,7 @@ void manager_exit(Manager *manager);
 
 void notify_ready(Manager *manager);
 
-void manager_kill_workers(Manager *manager, bool force);
+void manager_kill_workers(Manager *manager, int signo);
 
 bool devpath_conflict(const char *a, const char *b);
 

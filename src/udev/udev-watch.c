@@ -22,6 +22,9 @@
 #include "udev-trace.h"
 #include "udev-util.h"
 #include "udev-watch.h"
+#include "udev-worker.h"
+
+static int udev_watch_clear_by_wd(sd_device *dev, int dirfd, int wd);
 
 static int device_new_from_watch_handle_at(sd_device **ret, int dirfd, int wd) {
         char path_wd[STRLEN("/run/udev/watch/") + DECIMAL_STR_MAX(int)];
@@ -240,11 +243,15 @@ static int manager_process_inotify(Manager *manager, const struct inotify_event 
         assert(manager);
         assert(e);
 
-        /* Do not handle IN_IGNORED here. Especially, do not try to call udev_watch_end() from the
-         * main process. Otherwise, the pair of the symlinks may become inconsistent, and several
-         * garbage may remain. The old symlinks are removed by a worker that processes the
-         * corresponding 'remove' uevent;
-         * udev_event_execute_rules() -> event_execute_rules_on_remove() -> udev_watch_end(). */
+        if (FLAGS_SET(e->mask, IN_IGNORED)) {
+                log_debug("Received inotify event about removal of watch handle %i.", e->wd);
+
+                r = udev_watch_clear_by_wd(/* dev = */ NULL, /* dirfd = */ -EBADF, e->wd);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to remove saved symlink(s) for watch handle %i, ignoring: %m", e->wd);
+
+                return 0;
+        }
 
         if (!FLAGS_SET(e->mask, IN_CLOSE_WRITE))
                 return 0;
@@ -281,13 +288,13 @@ static int on_inotify(sd_event_source *s, int fd, uint32_t revents, void *userda
         return 0;
 }
 
-static int udev_watch_restore(int inotify_fd) {
+static int udev_watch_restore(Manager *manager) {
         _cleanup_(rm_rf_safep) const char *old = "/run/udev/watch.old/";
         int r;
 
         /* Move any old watches directory out of the way, and then restore the watches. */
 
-        assert(inotify_fd >= 0);
+        assert(manager);
 
         rm_rf_safe(old);
         if (rename("/run/udev/watch/", old) < 0) {
@@ -320,7 +327,7 @@ static int udev_watch_restore(int inotify_fd) {
                         continue;
                 }
 
-                (void) udev_watch_begin(inotify_fd, dev);
+                (void) manager_add_watch(manager, dev);
         }
 
         return 0;
@@ -351,7 +358,7 @@ int manager_init_inotify(Manager *manager, int fd) {
 
         log_debug("Initialized new inotify instance, restoring inotify watches of previous invocation.");
         manager->inotify_fd = fd;
-        (void) udev_watch_restore(fd);
+        (void) udev_watch_restore(manager);
 
         r = notify_push_fd(manager->inotify_fd, "inotify");
         if (r < 0)
@@ -379,10 +386,59 @@ int manager_start_inotify(Manager *manager) {
         if (r < 0)
                 return log_error_errno(r, "Failed to create inotify event source: %m");
 
+        r = sd_event_source_set_priority(s, EVENT_PRIORITY_INOTIFY_WATCH);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set priority to inotify event source: %m");
+
         (void) sd_event_source_set_description(s, "manager-inotify");
 
         manager->inotify_event = TAKE_PTR(s);
         return 0;
+}
+
+static int udev_watch_clear_by_wd(sd_device *dev, int dirfd, int wd) {
+        int r;
+
+        _cleanup_close_ int dirfd_close = -EBADF;
+        if (dirfd < 0) {
+                dirfd_close = RET_NERRNO(open("/run/udev/watch/", O_CLOEXEC | O_DIRECTORY | O_NOFOLLOW | O_RDONLY));
+                if (dirfd_close < 0)
+                        return log_device_debug_errno(dev, dirfd_close, "Failed to open '/run/udev/watch/': %m");
+
+                dirfd = dirfd_close;
+        }
+
+        char wd_str[DECIMAL_STR_MAX(int)];
+        xsprintf(wd_str, "%d", wd);
+
+        _cleanup_free_ char *id = NULL, *wd_alloc = NULL;
+        r = readlinkat_malloc(dirfd, wd_str, &id);
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0) {
+                log_device_debug_errno(dev, r, "Failed to read '/run/udev/watch/%s': %m", wd_str);
+                goto finalize;
+        }
+
+        r = readlinkat_malloc(dirfd, id, &wd_alloc);
+        if (r < 0) {
+                log_device_debug_errno(dev, r, "Failed to read '/run/udev/watch/%s': %m", id);
+                goto finalize;
+        }
+
+        if (!streq(wd_str, wd_alloc)) {
+                r = log_device_debug_errno(dev, SYNTHETIC_ERRNO(ESTALE), "Unmatching watch handle found: %s -> %s -> %s", wd_str, id, wd_alloc);
+                goto finalize;
+        }
+
+        if (unlinkat(dirfd, id, 0) < 0 && errno != ENOENT)
+                r = log_device_debug_errno(dev, errno, "Failed to remove '/run/udev/watch/%s': %m", id);
+
+finalize:
+        if (unlinkat(dirfd, wd_str, 0) < 0 && errno != ENOENT)
+                RET_GATHER(r, log_device_debug_errno(dev, errno, "Failed to remove '/run/udev/watch/%s': %m", wd_str));
+
+        return r;
 }
 
 static int udev_watch_clear(sd_device *dev, int dirfd, int *ret_wd) {
@@ -454,13 +510,13 @@ finalize:
         return r;
 }
 
-int udev_watch_begin(int inotify_fd, sd_device *dev) {
+int manager_add_watch(Manager *manager, sd_device *dev) {
         char wd_str[DECIMAL_STR_MAX(int)];
         _cleanup_close_ int dirfd = -EBADF;
         const char *devnode, *id;
         int wd, r;
 
-        assert(inotify_fd >= 0);
+        assert(manager);
         assert(dev);
 
         /* Ignore the request of watching the device node on remove event, as the device node specified by
@@ -486,13 +542,16 @@ int udev_watch_begin(int inotify_fd, sd_device *dev) {
 
         /* 2. Add inotify watch */
         log_device_debug(dev, "Adding watch on '%s'", devnode);
-        wd = inotify_add_watch(inotify_fd, devnode, IN_CLOSE_WRITE);
+        wd = inotify_add_watch(manager->inotify_fd, devnode, IN_CLOSE_WRITE);
         if (wd < 0)
                 return log_device_debug_errno(dev, errno, "Failed to watch device node '%s': %m", devnode);
 
+        /* 3. Clear old symlinks by the newly acquired watch handle, for the case that the watch handle is reused. */
+        (void) udev_watch_clear_by_wd(dev, dirfd, wd);
+
         xsprintf(wd_str, "%d", wd);
 
-        /* 3. Create new symlinks */
+        /* 4. Create new symlinks */
         if (symlinkat(wd_str, dirfd, id) < 0) {
                 r = log_device_debug_errno(dev, errno, "Failed to create symlink '/run/udev/watch/%s' to '%s': %m", id, wd_str);
                 goto on_failure;
@@ -509,19 +568,16 @@ int udev_watch_begin(int inotify_fd, sd_device *dev) {
 
 on_failure:
         (void) unlinkat(dirfd, id, 0);
-        (void) inotify_rm_watch(inotify_fd, wd);
+        (void) inotify_rm_watch(manager->inotify_fd, wd);
         return r;
 }
 
-int udev_watch_end(int inotify_fd, sd_device *dev) {
+int manager_remove_watch(Manager *manager, sd_device *dev) {
         _cleanup_close_ int dirfd = -EBADF;
         int wd, r;
 
-        assert(inotify_fd >= 0);
+        assert(manager);
         assert(dev);
-
-        if (sd_device_get_devname(dev, NULL) < 0)
-                return 0;
 
         dirfd = RET_NERRNO(open("/run/udev/watch", O_CLOEXEC | O_DIRECTORY | O_NOFOLLOW | O_RDONLY));
         if (dirfd == -ENOENT)
@@ -536,7 +592,61 @@ int udev_watch_end(int inotify_fd, sd_device *dev) {
 
         /* Then, remove inotify watch. */
         log_device_debug(dev, "Removing watch handle %i.", wd);
-        (void) inotify_rm_watch(inotify_fd, wd);
+        (void) inotify_rm_watch(manager->inotify_fd, wd);
 
         return 0;
+}
+
+static int on_sigusr1(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
+        UdevWorker *worker = ASSERT_PTR(userdata);
+
+        if ((pid_t) si->ssi_pid != worker->manager_pid) {
+                log_debug("Received SIGUSR1 from unexpected process [%"PRIu32"], ignoring.", si->ssi_pid);
+                return 0;
+        }
+
+        return sd_event_exit(sd_event_source_get_event(s), 0);
+}
+
+static int notify_and_wait_signal(UdevWorker *worker, sd_device *dev, const char *msg) {
+        int r;
+
+        assert(worker);
+        assert(dev);
+        assert(msg);
+
+        if (sd_device_get_devname(dev, NULL) < 0)
+                return 0;
+
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        r = sd_event_new(&e);
+        if (r < 0)
+                return r;
+
+        r = sd_event_add_signal(e, /* ret_event_source = */ NULL, SIGUSR1 | SD_EVENT_SIGNAL_PROCMASK, on_sigusr1, worker);
+        if (r < 0)
+                return r;
+
+        r = sd_notify(/* unset_environment = */ false, msg);
+        if (r <= 0)
+                return r;
+
+        return sd_event_loop(e);
+}
+
+int udev_watch_begin(UdevWorker *worker, sd_device *dev) {
+        assert(worker);
+        assert(dev);
+
+        if (device_for_action(dev, SD_DEVICE_REMOVE))
+                return 0;
+
+        return notify_and_wait_signal(worker, dev, "INOTIFY_WATCH_ADD=1");
+}
+
+int udev_watch_end(UdevWorker *worker, sd_device *dev) {
+        assert(worker);
+        assert(dev);
+
+        return notify_and_wait_signal(worker, dev, "INOTIFY_WATCH_REMOVE=1");
 }
