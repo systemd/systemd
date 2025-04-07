@@ -175,6 +175,15 @@ static int process_machine(const char *machine, const char *port) {
         return process_vsock_cid(cid, port);
 }
 
+static char *startswith_sep(const char *s, const char *prefix) {
+        const char *p = startswith(s, prefix);
+
+        if (p && IN_SET(*p, '/', ','))
+                return (char*) p + 1;
+
+        return NULL;
+}
+
 static int run(int argc, char* argv[]) {
 
         log_setup();
@@ -184,19 +193,19 @@ static int run(int argc, char* argv[]) {
 
         const char *host = argv[1], *port = argv[2];
 
-        const char *p = startswith(host, "vsock/");
+        const char *p = startswith_sep(host, "vsock");
         if (p)
                 return process_vsock_string(p, port);
 
-        p = startswith(host, "unix/");
+        p = startswith_sep(host, "unix");
         if (p)
                 return process_unix(p);
 
-        p = startswith(host, "vsock-mux/");
+        p = startswith_sep(host, "vsock-mux");
         if (p)
                 return process_vsock_mux(p, port);
 
-        p = startswith(host, "machine/");
+        p = startswith_sep(host, "machine");
         if (p)
                 return process_machine(p, port);
 
