@@ -167,7 +167,7 @@ typedef struct NetDevVTable {
         /* create netdev, if not done via rtnl */
         int (*create)(NetDev *netdev);
 
-        /* perform additional configuration after netdev has been createad */
+        /* perform additional configuration after netdev has been created */
         int (*post_create)(NetDev *netdev, Link *link);
 
         /* verify that compulsory configuration options were specified */
