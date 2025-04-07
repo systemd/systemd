@@ -31,7 +31,7 @@ function check() {
         journalctl --sync
 
         # Check if the inotify watch fd is received from fd store.
-        journalctl -n 1 -q -u systemd-udevd.service --invocation=0 --grep 'Received inotify fd \(\d\) from service manager.'
+        journalctl -n 1 -q -u systemd-udevd.service --invocation=0 --grep 'Received inotify fd \(\d+\) from service manager.'
 
         # Check if there is no broken symlink chain.
         assert_eq "$(journalctl -n 1 -q -u systemd-udevd.service --invocation=0 --grep 'Found broken inotify watch' || :)" ""
@@ -56,7 +56,7 @@ function check() {
 if ! journalctl -n 1 -q -u systemd-udevd.service --invocation=1 --grep 'Pushed inotify fd to service manager.'; then
     assert_eq "$(journalctl -n 1 -q -u systemd-udevd.service --invocation=1 --grep 'Failed to push inotify fd to service manager.' || :)" ""
 fi
-if ! journalctl -n 1 -q -u systemd-udevd.service --invocation=2 --grep 'Received inotify fd \(\d\) from service manager.'; then
+if ! journalctl -n 1 -q -u systemd-udevd.service --invocation=2 --grep 'Received inotify fd \(\d+\) from service manager.'; then
     assert_eq "$(journalctl -n 1 -q -u systemd-udevd.service --invocation=2 --grep 'Pushed inotify fd to service manager.' || :)" ""
 fi
 
