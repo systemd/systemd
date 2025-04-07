@@ -395,7 +395,7 @@
 
         <para>Also note that automatic partition discovery for <filename>/usr/</filename> must be enabled
         explicitly, unlike the discovery for the root file system, which is enabled if no
-        <varname>root=</varname> paramater is passed at all.</para>
+        <varname>root=</varname> parameter is passed at all.</para>
 
         <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
