@@ -3,13 +3,13 @@
 set -eux
 set -o pipefail
 
+# shellcheck source=test/units/util.sh
+. "$(dirname "$0")"/util.sh
+
 if ! cgroupfs_supports_user_xattrs; then
     echo "CGroup does not support user xattrs, skipping LogFilterPatterns= tests."
     exit 0
 fi
-
-# shellcheck source=test/units/util.sh
-. "$(dirname "$0")"/util.sh
 
 NEEDS_RELOAD=
 
