@@ -7,4 +7,4 @@ After=blockdev@dev-sdy3.target
 
 [Swap]
 What=/dev/sdy3
-Options=x-systemd.makefs
+Options=x-systemd.makefs,nofail
