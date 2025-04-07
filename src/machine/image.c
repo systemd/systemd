@@ -60,7 +60,7 @@ int clean_pool_read_next_entry(FILE *file, char **ret_name, uint64_t *ret_usage)
         /* Return value:
          * r < 0: error
          * r == 0 last record returned
-         * r > 0 more recoreds expected */
+         * r > 0 more records expected */
 
         _cleanup_free_ char *name = NULL;
         uint64_t usage;
