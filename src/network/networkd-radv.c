@@ -722,7 +722,7 @@ int radv_add_prefix(
                 return r;
 
         if (sd_radv_is_running(link->radv)) {
-                /* Announce updated prefixe now. */
+                /* Announce updated prefix now. */
                 r = sd_radv_send(link->radv);
                 if (r < 0)
                         return r;
