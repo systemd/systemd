@@ -28,7 +28,7 @@ cleanup() {
 # Set up a test device
 trap cleanup EXIT
 
-rules="/run/udev/rules.d/99-test-17.13.rules"
+rules="/run/udev/rules.d/99-test-17.global-property.rules"
 
 mkdir -p "${rules%/*}"
 cat > "$rules" <<'EOF'
@@ -84,6 +84,35 @@ test_property /dev/null PROP_FOO 42
 udevadm control -p FOO= -p FOO=foo -p BAR=car -p BAR=
 udevadm trigger --action change --settle /dev/null
 test_property /dev/null PROP_FOO foo
+test_not_property /dev/null PROP_BAR
+
+: revert
+
+udevadm control --revert
+udevadm trigger --action change --settle /dev/null
+test_not_property /dev/null PROP_FOO
+test_not_property /dev/null PROP_BAR
+
+: set again, and restart
+
+udevadm control -p FOO=foo -p BAR=bar
+udevadm trigger --action change --settle /dev/null
+test_property /dev/null PROP_FOO foo
+test_property /dev/null PROP_BAR bar
+systemctl restart systemd-udevd.service
+udevadm trigger --action change --settle /dev/null
+test_property /dev/null PROP_FOO foo
+test_property /dev/null PROP_BAR bar
+
+: revert again, and restart
+
+udevadm control --revert
+udevadm trigger --action change --settle /dev/null
+test_not_property /dev/null PROP_FOO
+test_not_property /dev/null PROP_BAR
+systemctl restart systemd-udevd.service
+udevadm trigger --action change --settle /dev/null
+test_not_property /dev/null PROP_FOO
 test_not_property /dev/null PROP_BAR
 
 exit 0
