@@ -38,6 +38,7 @@
 #include "manager-dump.h"
 #include "manager.h"
 #include "memfd-util.h"
+#include "namespace.h"
 #include "os-util.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -1116,6 +1117,16 @@ static int set_exec_context_from(Unit *u, const Unit *src_u) {
         return exec_context_copy(ec, src_ec);
 }
 
+static bool restrict_transient(const Unit *u) {
+        ExecContext *ec;
+
+        assert(u);
+        ec = unit_get_exec_context(u);
+        if (!ec)
+                return false;
+        return ec->restrict_transient == RESTRICT_TRANSIENT_YES;
+}
+
 static int method_start_transient_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         const char *name, *smode;
         Manager *m = ASSERT_PTR(userdata);
@@ -1162,8 +1173,7 @@ static int method_start_transient_unit(sd_bus_message *message, void *userdata, 
                 return r;
         src_u = manager_get_unit_by_pidref(m, &pidref);
         if (src_u) {
-                if (!streq(src_u->id, "systemd-logind.service")
-                        && !streq(src_u->id, "session-1.scope")) {
+                if (restrict_transient(src_u)) {
                         if (u->type == UNIT_SERVICE) {
                                 r = set_cgroup_context_from(u, src_u);
                                 if (r < 0)

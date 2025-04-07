@@ -54,6 +54,7 @@ RestrictAddressFamilies=AF_UNIX AF_NETLINK
 RestrictNamespaces=yes
 RestrictRealtime=yes
 RestrictSUIDSGID=yes
+RestrictTransientUnits=no
 RuntimeDirectory=systemd/sessions systemd/seats systemd/users systemd/inhibit systemd/shutdown
 RuntimeDirectoryPreserve=yes
 StateDirectory=systemd/linger

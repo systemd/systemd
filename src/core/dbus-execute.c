@@ -53,6 +53,7 @@ static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_protect_proc, protect_proc, Pro
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_proc_subset, proc_subset, ProcSubset);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_protect_home, protect_home, ProtectHome);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_protect_system, protect_system, ProtectSystem);
+static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_restrict_transient, restrict_transient, RestrictTransientUnits);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_personality, personality, unsigned long);
 static BUS_DEFINE_PROPERTY_GET(property_get_ioprio, "i", ExecContext, exec_context_get_effective_ioprio);
 static BUS_DEFINE_PROPERTY_GET(property_get_mount_apivfs, "b", ExecContext, exec_context_get_effective_mount_apivfs);
@@ -1244,6 +1245,7 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("PrivatePIDs", "s", property_get_private_pids, offsetof(ExecContext, private_pids), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ProtectHome", "s", property_get_protect_home, offsetof(ExecContext, protect_home), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ProtectSystem", "s", property_get_protect_system, offsetof(ExecContext, protect_system), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("RestrictTransientUnits", "s", property_get_restrict_transient, offsetof(ExecContext, restrict_transient), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SameProcessGroup", "b", bus_property_get_bool, offsetof(ExecContext, same_pgrp), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("UtmpIdentifier", "s", NULL, offsetof(ExecContext, utmp_id), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("UtmpMode", "s", property_get_exec_utmp_mode, offsetof(ExecContext, utmp_mode), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -1645,6 +1647,7 @@ static BUS_DEFINE_SET_TRANSIENT_PARSE(std_input, ExecInput, exec_input_from_stri
 static BUS_DEFINE_SET_TRANSIENT_PARSE(std_output, ExecOutput, exec_output_from_string);
 static BUS_DEFINE_SET_TRANSIENT_PARSE(utmp_mode, ExecUtmpMode, exec_utmp_mode_from_string);
 static BUS_DEFINE_SET_TRANSIENT_PARSE(protect_system, ProtectSystem, protect_system_from_string);
+static BUS_DEFINE_SET_TRANSIENT_PARSE(restrict_transient, RestrictTransientUnits, restrict_transient_from_string);
 static BUS_DEFINE_SET_TRANSIENT_PARSE(protect_home, ProtectHome, protect_home_from_string);
 static BUS_DEFINE_SET_TRANSIENT_PARSE(keyring_mode, ExecKeyringMode, exec_keyring_mode_from_string);
 static BUS_DEFINE_SET_TRANSIENT_PARSE(protect_proc, ProtectProc, protect_proc_from_string);
@@ -2159,6 +2162,9 @@ int bus_exec_context_set_transient_property(
 
         if (streq(name, "TimerSlackNSec"))
                 return bus_set_transient_nsec(u, name, &c->timer_slack_nsec, message, flags, error);
+
+        if (streq(name, "RestrictTransientUnits"))
+                return bus_set_transient_restrict_transient(u, name, &c->restrict_transient, message, flags, error);
 
         if (streq(name, "ProtectSystem"))
                 return bus_set_transient_protect_system(u, name, &c->protect_system, message, flags, error);

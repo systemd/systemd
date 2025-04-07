@@ -652,6 +652,7 @@ void exec_context_init(ExecContext *c) {
                 .bind_log_sockets = -1,
                 .memory_ksm = -1,
                 .set_login_environment = -1,
+                .restrict_transient = RESTRICT_TRANSIENT_AUTO,
         };
 
         FOREACH_ARRAY(d, c->directories, _EXEC_DIRECTORY_TYPE_MAX)
@@ -1893,6 +1894,8 @@ int exec_context_copy(ExecContext *dst, const ExecContext *src) {
         dst->protect_hostname = src->protect_hostname;
 
         free_and_strdup(&dst->private_hostname, src->private_hostname);
+
+        dst->restrict_transient = src->restrict_transient;
 
         dst->dynamic_user = src->dynamic_user;
         dst->remove_ipc = src->remove_ipc;

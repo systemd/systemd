@@ -1052,6 +1052,7 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                               "SyslogIdentifier",
                               "ProtectSystem",
                               "ProtectHome",
+                              "RestrictTransientUnits",
                               "PrivateTmpEx",
                               "PrivateUsersEx",
                               "ProtectControlGroupsEx",

@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "namespace.h"
 #include <linux/prctl.h>
 #include <linux/sched.h>
 #include <linux/securebits.h>
@@ -3608,6 +3609,7 @@ static int apply_mount_namespace(
                 .protect_system = needs_sandboxing ? context->protect_system : PROTECT_SYSTEM_NO,
                 .protect_proc = needs_sandboxing ? context->protect_proc : PROTECT_PROC_DEFAULT,
                 .proc_subset = needs_sandboxing ? context->proc_subset : PROC_SUBSET_ALL,
+                .restrict_transient = needs_sandboxing ? context->restrict_transient : RESTRICT_TRANSIENT_NO,
         };
 
         r = setup_namespace(&parameters, reterr_path);

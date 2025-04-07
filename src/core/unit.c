@@ -4345,6 +4345,10 @@ int unit_patch_contexts(Unit *u) {
                         ec->restrict_suid_sgid = true;
                 }
 
+                if (ec->protect_system > PROTECT_SYSTEM_NO && ec->restrict_transient == RESTRICT_TRANSIENT_AUTO) {
+                        ec->restrict_transient = RESTRICT_TRANSIENT_YES;
+                }
+
                 FOREACH_ARRAY(d, ec->directories, _EXEC_DIRECTORY_TYPE_MAX)
                         exec_directory_sort(d);
         }

@@ -338,6 +338,7 @@ struct ExecContext {
         PrivatePIDs private_pids;
         ProtectHostname protect_hostname;
         char *private_hostname;
+        RestrictTransientUnits restrict_transient;
 
         bool dynamic_user;
         bool remove_ipc;
