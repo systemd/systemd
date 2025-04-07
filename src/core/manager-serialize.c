@@ -376,9 +376,9 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                 } else if ((val = startswith(l, "log-level-override="))) {
                         int level;
 
-                        level = log_level_from_string(val);
-                        if (level < 0)
-                                log_notice("Failed to parse log-level-override value '%s', ignoring.", val);
+                        r = safe_atoi(val, &level);
+                        if (r < 0)
+                                log_notice_errno(r, "Failed to parse log-level-override value '%s', ignoring: %m", val);
                         else
                                 manager_override_log_level(m, level);
 
