@@ -5,10 +5,14 @@
 
 #include "conf-parser.h"
 #include "cpu-set-util.h"
+#include "daemon-util.h"
+#include "fd-util.h"
+#include "fileio.h"
 #include "limits-util.h"
 #include "parse-util.h"
 #include "pretty-print.h"
 #include "proc-cmdline.h"
+#include "serialize.h"
 #include "signal-util.h"
 #include "syslog-util.h"
 #include "udev-config.h"
@@ -510,6 +514,115 @@ UdevReloadFlags manager_revert_config(Manager *manager) {
         manager_adjust_config(&manager->config);
 
         return flags | manager_needs_reload(manager, &old);
+}
+
+int manager_serialize_config(Manager *manager) {
+        int r;
+
+        assert(manager);
+
+        _cleanup_fclose_ FILE *f = NULL;
+        r = open_serialization_file("systemd-udevd", &f);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to open new serialization file: %m");
+
+        if (manager->config_by_control.log_level >= 0) {
+                r = serialize_item_format(f, "log-level", "%i", manager->config_by_control.log_level);
+                if (r < 0)
+                        return r;
+        }
+
+        if (manager->config_by_control.children_max > 0) {
+                r = serialize_item_format(f, "children-max", "%u", manager->config_by_control.children_max);
+                if (r < 0)
+                        return r;
+        }
+
+        r = serialize_bool_elide(f, "trace", manager->config_by_control.trace);
+        if (r < 0)
+                return r;
+
+        const char *k, *v;
+        HASHMAP_FOREACH_KEY(v, k, manager->properties) {
+                r = serialize_item_format(f, "property", "%s=%s", k, v);
+                if (r < 0)
+                        return r;
+        }
+
+        r = finish_serialization_file(f);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to finalize serialization file: %m");
+
+        /* Remove the previous serialization to make it replaced with the new one. */
+        (void) notify_remove_fd_warn("config-serialization");
+
+        r = notify_push_fd(fileno(f), "config-serialization");
+        if (r < 0)
+                return log_warning_errno(r, "Failed to push serialization fd to service manager: %m");
+
+        log_debug("Pushed serialization fd to service manager.");
+        return 0;
+}
+
+int manager_deserialize_config(Manager *manager, int *fd) {
+        int r;
+
+        assert(manager);
+        assert(fd);
+        assert(*fd >= 0);
+
+        /* This may invalidate passed file descriptor even on success. */
+
+        _cleanup_fclose_ FILE *f = take_fdopen(fd, "r");
+        if (!f)
+                return log_warning_errno(errno, "Failed to open serialization fd: %m");
+
+        for (;;) {
+                _cleanup_free_ char *l = NULL;
+                const char *val;
+
+                r = deserialize_read_line(f, &l);
+                if (r < 0)
+                        return r;
+                if (r == 0) /* eof or end marker */
+                        break;
+
+                if ((val = startswith(l, "log-level="))) {
+                        r = log_level_from_string(val);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to parse serialized log level (%s), ignoring: %m", val);
+                        else
+                                manager->config_by_control.log_level = r;
+
+                } else if ((val = startswith(l, "children-max="))) {
+                        r = safe_atou(val, &manager->config_by_control.children_max);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to parse serialized children max (%s), ignoring: %m", val);
+
+                } else if ((val = startswith(l, "trace="))) {
+                        r = parse_boolean(val);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to parse serialized trace (%s), ignoring: %m", val);
+                        else
+                                manager->config_by_control.trace = r;
+
+                } else if ((val = startswith(l, "property="))) {
+                        if (!udev_property_assignment_is_valid(val))
+                                r = -EINVAL;
+                        else
+                                r = manager_set_environment_one(manager, val);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to deserialize property (%s), ignoring: %m", val);
+
+                } else
+                        log_debug("Unknown serialization item, ignoring: %s", l);
+        }
+
+        manager_merge_config(manager);
+        manager_adjust_config(&manager->config);
+
+        log_debug("Deserialized config.");
+        return 0;
 }
 
 static usec_t extra_timeout_usec(void) {
