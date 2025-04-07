@@ -237,6 +237,7 @@ void manager_exit(Manager *manager) {
         /* close sources of new events and discard buffered events */
         manager->ctrl = udev_ctrl_unref(manager->ctrl);
         manager->varlink_server = sd_varlink_server_unref(manager->varlink_server);
+        (void) manager_serialize_config(manager);
 
         /* Disable the event source, but does not close the inotify fd here, as we may still receive
          * notification messages about requests to add or remove inotify watches. */
@@ -1178,6 +1179,8 @@ static int manager_listen_fds(Manager *manager) {
                         r = manager_init_device_monitor(manager, fd);
                 else if (streq(names[i], "inotify"))
                         r = manager_init_inotify(manager, fd);
+                else if (streq(names[i], "config-serialization"))
+                        r = manager_deserialize_config(manager, &fd);
                 else
                         r = log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                             "Received unexpected fd (%s), ignoring.", names[i]);
