@@ -1096,7 +1096,7 @@ bool tty_is_vc(const char *tty) {
 
         /* NB: for >= 0 values no range check is conducted here, on the assumption that the caller will
          * either extract vtnr through vtnr_from_tty() later where ERANGE would be reported, or doesn't care
-         * about whether it's strictly valid, but only asking "does this fall into the vt catogory?", for which
+         * about whether it's strictly valid, but only asking "does this fall into the vt category?", for which
          * "yes" seems to be a better answer. */
 
         return vtnr_from_tty_raw(tty, /* ret = */ NULL) >= 0;
