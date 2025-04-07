@@ -788,7 +788,7 @@ int unlinkat_deallocate(int fd, const char *name, UnlinkDeallocateFlags flags) {
                 }
         }
 
-        /* Don't dallocate if there's nothing to deallocate or if the file is linked elsewhere */
+        /* Don't deallocate if there's nothing to deallocate or if the file is linked elsewhere */
         if (st.st_blocks == 0 || st.st_nlink > 0)
                 return 0;
 
