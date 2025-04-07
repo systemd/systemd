@@ -1295,6 +1295,13 @@ static int oci_cgroup_cpu(const char *name, sd_json_variant *v, sd_json_dispatch
         return 0;
 }
 
+static uint64_t cgroup_weight_blkio_to_io(uint64_t blkio_weight) {
+        /* convert from cgroup v1 blkio.weight to v2 io.weight */
+        assert_cc(CGROUP_BLKIO_WEIGHT_MAX <= UINT64_MAX / CGROUP_WEIGHT_DEFAULT);
+        return CLAMP(blkio_weight * CGROUP_WEIGHT_DEFAULT / CGROUP_BLKIO_WEIGHT_DEFAULT,
+                     CGROUP_WEIGHT_MIN, CGROUP_WEIGHT_MAX);
+}
+
 static int oci_cgroup_block_io_weight(const char *name, sd_json_variant *v, sd_json_dispatch_flags_t flags, void *userdata) {
         Settings *s = ASSERT_PTR(userdata);
         uint64_t k;
@@ -1309,7 +1316,7 @@ static int oci_cgroup_block_io_weight(const char *name, sd_json_variant *v, sd_j
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_append(s->properties, "(sv)", "BlockIOWeight", "t", (uint64_t) k);
+        r = sd_bus_message_append(s->properties, "(sv)", "IOWeight", "t", cgroup_weight_blkio_to_io(k));
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -1361,7 +1368,8 @@ static int oci_cgroup_block_io_weight_device(const char *name, sd_json_variant *
                 if (r < 0)
                         return r;
 
-                r = sd_bus_message_append(s->properties, "(sv)", "BlockIODeviceWeight", "a(st)", 1, path, (uint64_t) data.weight);
+                r = sd_bus_message_append(s->properties, "(sv)", "IODeviceWeight", "a(st)", 1,
+                                          path, cgroup_weight_blkio_to_io(data.weight));
                 if (r < 0)
                         return bus_log_create_error(r);
         }
