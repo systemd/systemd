@@ -193,7 +193,7 @@ static int worker_process_device(UdevWorker *worker, sd_device *dev) {
          * The user-facing side of this: https://systemd.io/BLOCK_DEVICE_LOCKING */
         r = worker_lock_whole_disk(dev, &fd_lock);
         if (r == -EAGAIN) {
-                log_device_debug(dev, "Block device is currently locked, requeueing the event.");
+                log_device_debug(dev, "Block device is currently locked, requeuing the event.");
 
                 r = sd_notify(/* unset_environment = */ false, "TRY_AGAIN=1");
                 if (r < 0) {
