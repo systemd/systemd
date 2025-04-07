@@ -5189,7 +5189,7 @@ CHANGES WITH 251:
           hostnamed.
 
         * hostnamed's D-Bus interface gained a new method GetHardwareSerial()
-          for reading the hardware serial number, as reportd by DMI. It also
+          for reading the hardware serial number, as reported by DMI. It also
           exposes a new method D-Bus property FirmwareVersion that encode the
           firmware version of the system.
 

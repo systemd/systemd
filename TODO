@@ -1857,7 +1857,7 @@ Features:
   to 1K implicitly, unless explicitly opted-out.
 
 * rework seccomp/nnp logic that even if User= is used in combination with
-  a seccomp option we don't have to set NNP. For that, change uid first whil
+  a seccomp option we don't have to set NNP. For that, change uid first while
   keeping CAP_SYS_ADMIN, then apply seccomp, the drop cap.
 
 * when no locale is configured, default to UEFI's PlatformLang variable
@@ -1904,7 +1904,7 @@ Features:
 
 * add support for "portablectl attach http://foobar.com/waaa.raw (i.e. importd integration)
 
-* sync dynamic uids/gids between host+portable srvice (i.e. if DynamicUser=1 is set for a service, make sure that the
+* sync dynamic uids/gids between host+portable service (i.e. if DynamicUser=1 is set for a service, make sure that the
   selected user is resolvable in the service even if it ships its own /etc/passwd)
 
 * Fix DECIMAL_STR_MAX or DECIMAL_STR_WIDTH. One includes a trailing NUL, the
