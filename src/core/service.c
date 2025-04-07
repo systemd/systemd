@@ -2451,7 +2451,7 @@ static int service_adverse_to_leftover_processes(Service *s) {
          * Here we take these two factors and refuse to start a service if there are existing processes
          * within a control group. Databases, while generally having some protection against multiple
          * instances running, lets not stress the rigor of these. Also ExecStartPre= parts of the service
-         * aren't as rigoriously written to protect aganst against multiple use. */
+         * aren't as rigoriously written to protect against multiple use. */
 
         if (unit_warn_leftover_processes(UNIT(s), /* start = */ true) > 0 &&
             IN_SET(s->kill_context.kill_mode, KILL_MIXED, KILL_CONTROL_GROUP) &&
