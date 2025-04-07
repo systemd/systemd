@@ -113,7 +113,6 @@ static int mount_array_add_internal(
                 const char *in_options) {
 
         _cleanup_free_ char *what = NULL, *where = NULL, *fstype = NULL, *options = NULL;
-        int r;
 
         /* This takes what and where. */
 
@@ -128,17 +127,9 @@ static int mount_array_add_internal(
                 where = mfree(where);
 
         if (!isempty(in_options)) {
-                _cleanup_strv_free_ char **options_strv = NULL;
-
-                r = strv_split_full(&options_strv, in_options, ",", 0);
-                if (r < 0)
-                        return r;
-
-                r = strv_make_nulstr(options_strv, &options, NULL);
+                options = strdup(in_options);
         } else
-                r = strv_make_nulstr(STRV_MAKE("defaults"), &options, NULL);
-        if (r < 0)
-                return r;
+                options = strdup("defaults");
 
         if (!GREEDY_REALLOC(arg_mounts, arg_n_mounts + 1))
                 return -ENOMEM;
