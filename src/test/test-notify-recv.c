@@ -47,12 +47,12 @@ static int on_recv(sd_event_source *s, int fd, uint32_t revents, void *userdata)
         if (strv_contains(l, "FIRST_MESSAGE=1")) {
                 ASSERT_STREQ(l[0], "FIRST_MESSAGE=1");
                 ASSERT_NULL(l[1]);
-                ASSERT_EQ(c->data, 0u);
+                ASSERT_EQ(++c->data, 1u);
                 ASSERT_NULL(fds);
         } else if (strv_contains(l, "SECOND_MESSAGE=1")) {
                 ASSERT_STREQ(l[0], "SECOND_MESSAGE=1");
                 ASSERT_STREQ(l[1], "ADDITIONAL_DATA=hoge");
-                ASSERT_EQ(c->data, 1u);
+                ASSERT_EQ(++c->data, 2u);
                 ASSERT_NOT_NULL(fds);
                 ASSERT_EQ(fdset_size(fds), 2u);
 
@@ -63,8 +63,6 @@ static int on_recv(sd_event_source *s, int fd, uint32_t revents, void *userdata)
                         ASSERT_TRUE(STR_IN_SET(path, "/tmp", "/dev/null"));
                 }
         }
-
-        c->data++;
 
         return 0;
 }
@@ -107,7 +105,7 @@ TEST(notify_socket_prepare) {
                 ASSERT_OK_POSITIVE(
                         sd_pid_notify_with_fds(
                                 0, /* unset_environment = */ false,
-                                "FIRST_MESSAGE=2\nADDITIONAL_DATA=hoge", (int[]) { fd1, fd2 }, 2));
+                                "SECOND_MESSAGE=1\nADDITIONAL_DATA=hoge", (int[]) { fd1, fd2 }, 2));
                 _exit(EXIT_SUCCESS);
         }
 
