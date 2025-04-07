@@ -463,6 +463,24 @@ int manager_load(Manager *manager, int argc, char *argv[]) {
         return 1;
 }
 
+static UdevReloadFlags manager_needs_reload(Manager *manager, const UdevConfig *old) {
+        assert(manager);
+        assert(old);
+
+        if (manager->config.resolve_name_timing != old->resolve_name_timing)
+                return UDEV_RELOAD_RULES | UDEV_RELOAD_KILL_WORKERS;
+
+        if (manager->config.log_level != old->log_level ||
+            manager->config.exec_delay_usec != old->exec_delay_usec ||
+            manager->config.timeout_usec != old->timeout_usec ||
+            manager->config.timeout_signal != old->timeout_signal ||
+            manager->config.blockdev_read_only != old->blockdev_read_only ||
+            manager->config.trace != old->trace)
+                return UDEV_RELOAD_KILL_WORKERS;
+
+        return 0;
+}
+
 UdevReloadFlags manager_reload_config(Manager *manager) {
         assert(manager);
 
@@ -473,18 +491,25 @@ UdevReloadFlags manager_reload_config(Manager *manager) {
         manager_merge_config(manager);
         manager_adjust_config(&manager->config);
 
-        if (manager->config.resolve_name_timing != old.resolve_name_timing)
-                return UDEV_RELOAD_RULES | UDEV_RELOAD_KILL_WORKERS;
+        return manager_needs_reload(manager, &old);
+}
 
-        if (manager->config.log_level != old.log_level ||
-            manager->config.exec_delay_usec != old.exec_delay_usec ||
-            manager->config.timeout_usec != old.timeout_usec ||
-            manager->config.timeout_signal != old.timeout_signal ||
-            manager->config.blockdev_read_only != old.blockdev_read_only ||
-            manager->config.trace != old.trace)
-                return UDEV_RELOAD_KILL_WORKERS;
+UdevReloadFlags manager_revert_config(Manager *manager) {
+        assert(manager);
 
-        return 0;
+        UdevReloadFlags flags = 0;
+        if (!hashmap_isempty(manager->properties)) {
+                flags |= UDEV_RELOAD_KILL_WORKERS;
+                manager->properties = hashmap_free(manager->properties);
+        }
+
+        UdevConfig old = manager->config;
+
+        manager->config_by_control = UDEV_CONFIG_INIT;
+        manager_merge_config(manager);
+        manager_adjust_config(&manager->config);
+
+        return flags | manager_needs_reload(manager, &old);
 }
 
 static usec_t extra_timeout_usec(void) {
