@@ -1206,15 +1206,13 @@ static int oci_cgroup_cpu_shares(const char *name, sd_json_variant *v, sd_json_d
 }
 
 static int oci_cgroup_cpu_quota(const char *name, sd_json_variant *v, sd_json_dispatch_flags_t flags, void *userdata) {
-        uint64_t *u = ASSERT_PTR(userdata);
-        uint64_t k;
+        uint64_t k, *u = ASSERT_PTR(userdata);
 
         k = sd_json_variant_unsigned(v);
         if (k <= 0 || k >= UINT64_MAX)
-                return json_log(v, flags, SYNTHETIC_ERRNO(ERANGE),
-                                "period/quota value out of range.");
+                return json_log(v, flags, SYNTHETIC_ERRNO(ERANGE), "period/quota value out of range.");
 
-        *u = (uint64_t) k;
+        *u = k;
         return 0;
 }
 
@@ -1282,7 +1280,11 @@ static int oci_cgroup_cpu(const char *name, sd_json_variant *v, sd_json_dispatch
                 if (r < 0)
                         return r;
 
-                r = sd_bus_message_append(s->properties, "(sv)", "CPUQuotaPerSecUSec", "t", (uint64_t) (data.quota * USEC_PER_SEC / data.period));
+                r = sd_bus_message_append(s->properties, "(sv)", "CPUQuotaPerSecUSec", "t", data.quota * USEC_PER_SEC / data.period);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_append(s->properties, "(sv)", "CPUQuotaPeriodUSec", "t", data.period);
                 if (r < 0)
                         return bus_log_create_error(r);
 
