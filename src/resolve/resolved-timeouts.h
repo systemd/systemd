@@ -19,12 +19,35 @@
 /* Maximum attempts to send MDNS requests, see RFC 6762 Section 8.1 */
 #define MDNS_TRANSACTION_ATTEMPTS_MAX 3
 
-#define TRANSACTION_ATTEMPTS_MAX(p) (\
-                                     (p) == DNS_PROTOCOL_LLMNR ?        \
-                                     LLMNR_TRANSACTION_ATTEMPTS_MAX :   \
-                                     (p) == DNS_PROTOCOL_MDNS ?         \
-                                     MDNS_TRANSACTION_ATTEMPTS_MAX :    \
-                                     DNS_TRANSACTION_ATTEMPTS_MAX)
+/* Maximum attempts to send an mDNS continuous query.
+ *
+ * RFC 6762 Section 5.2 does not specify a maximum number of attempts directly.
+ * However, it outlines two important guidelines:
+ *
+ * 1. The interval between the first two queries MUST be at least one second.
+ * 2. The intervals between successive queries MUST increase by at least a factor of two.
+ *
+ * To adhere to these timing requirements for continuous queries,
+ * the maximum number of attempts should be set to 1.
+ */
+#define MDNS_TRANSACTION_CONTINUOUS_QUERY_MAX 1
+
+static inline unsigned dns_transaction_attempts_max(DnsProtocol p, uint64_t query_flags) {
+    switch (p) {
+
+        case DNS_PROTOCOL_LLMNR:
+            return LLMNR_TRANSACTION_ATTEMPTS_MAX;
+
+        case DNS_PROTOCOL_MDNS:
+            if (FLAGS_SET(query_flags, SD_RESOLVED_QUERY_CONTINUOUS))
+                return MDNS_TRANSACTION_CONTINUOUS_QUERY_MAX;
+            else
+                return MDNS_TRANSACTION_ATTEMPTS_MAX;
+
+        default:
+            return DNS_TRANSACTION_ATTEMPTS_MAX;
+    }
+}
 
 /* After how much time to repeat classic DNS requests */
 #define TRANSACTION_UDP_TIMEOUT_USEC (SD_RESOLVED_QUERY_TIMEOUT_USEC / DNS_TRANSACTION_ATTEMPTS_MAX)
