@@ -2338,7 +2338,7 @@ static int scan_cursor_position_response(
                         } else {
                                 int d = undecchar(c);
 
-                                /* As above, add the decimal charatcer to our column number */
+                                /* As above, add the decimal character to our column number */
                                 if (d < 0 || context->column > (UINT_MAX-d)/10)
                                         context->state = CURSOR_TEXT;
                                 else
