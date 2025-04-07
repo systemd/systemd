@@ -15,7 +15,7 @@ Requires=systemd-journald.socket
 After=systemd-journald.socket systemd-journald-dev-log.socket systemd-journald-audit.socket syslog.socket
 Before=sysinit.target
 
-# To avoid journald SIGKILLed during soft-reboot and corrupting journals.
+# To avoid journald being SIGKILLed during soft-reboot and corrupting journals.
 # See https://github.com/systemd/systemd/issues/30195
 # Note, typically soft-reboot.target will be never reached,
 # and systemd-soft-reboot.service will trigger soft-reboot.
