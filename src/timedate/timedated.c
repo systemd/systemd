@@ -31,6 +31,7 @@
 #include "hwclock-util.h"
 #include "list.h"
 #include "log.h"
+#include "log-context.h"
 #include "main-func.h"
 #include "memory-util.h"
 #include "path-util.h"
@@ -71,33 +72,13 @@ typedef struct Context {
         LIST_HEAD(UnitStatusInfo, units);
 } Context;
 
-#define log_unit_full_errno_zerook(unit, level, error, ...)             \
-        ({                                                              \
-                const UnitStatusInfo *_u = (unit);                      \
-                _u ? log_object_internal(level, error, PROJECT_FILE, __LINE__, __func__, "UNIT=", _u->name, NULL, NULL, ##__VA_ARGS__) : \
-                        log_internal(level, error, PROJECT_FILE, __LINE__, __func__, ##__VA_ARGS__); \
-        })
+#define _LOG_CONTEXT_PUSH_UNIT(unit, u)               \
+        const UnitStatusInfo *u = (unit);             \
+        LOG_CONTEXT_PUSH_KEY_VALUE("UNIT=", u->name); \
+        LOG_SET_PREFIX(u->name)
 
-#define log_unit_full_errno(unit, level, error, ...) \
-        ({                                                              \
-                int _error = (error);                                   \
-                ASSERT_NON_ZERO(_error);                                \
-                log_unit_full_errno_zerook(unit, level, _error, ##__VA_ARGS__); \
-        })
-
-#define log_unit_full(unit, level, ...) (void) log_unit_full_errno_zerook(unit, level, 0, ##__VA_ARGS__)
-
-#define log_unit_debug(unit, ...)   log_unit_full(unit, LOG_DEBUG, ##__VA_ARGS__)
-#define log_unit_info(unit, ...)    log_unit_full(unit, LOG_INFO, ##__VA_ARGS__)
-#define log_unit_notice(unit, ...)  log_unit_full(unit, LOG_NOTICE, ##__VA_ARGS__)
-#define log_unit_warning(unit, ...) log_unit_full(unit, LOG_WARNING, ##__VA_ARGS__)
-#define log_unit_error(unit, ...)   log_unit_full(unit, LOG_ERR, ##__VA_ARGS__)
-
-#define log_unit_debug_errno(unit, error, ...)   log_unit_full_errno(unit, LOG_DEBUG, error, ##__VA_ARGS__)
-#define log_unit_info_errno(unit, error, ...)    log_unit_full_errno(unit, LOG_INFO, error, ##__VA_ARGS__)
-#define log_unit_notice_errno(unit, error, ...)  log_unit_full_errno(unit, LOG_NOTICE, error, ##__VA_ARGS__)
-#define log_unit_warning_errno(unit, error, ...) log_unit_full_errno(unit, LOG_WARNING, error, ##__VA_ARGS__)
-#define log_unit_error_errno(unit, error, ...)   log_unit_full_errno(unit, LOG_ERR, error, ##__VA_ARGS__)
+#define LOG_CONTEXT_PUSH_UNIT(unit) \
+        _LOG_CONTEXT_PUSH_UNIT(unit, UNIQ_T(u, UNIQ))
 
 static void unit_status_info_clear(UnitStatusInfo *p) {
         assert(p);
@@ -155,8 +136,10 @@ static int context_add_ntp_service(Context *c, const char *s, const char *source
         if (!unit->name)
                 return -ENOMEM;
 
+        LOG_CONTEXT_PUSH_UNIT(unit);
+
         LIST_APPEND(units, c->units, unit);
-        log_unit_debug(unit, "added from %s.", source);
+        log_debug("added from %s.", source);
         TAKE_PTR(unit);
 
         return 0;
@@ -423,6 +406,8 @@ static int context_update_ntp_status(Context *c, sd_bus *bus, sd_bus_message *m)
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_free_ char *path = NULL;
 
+                LOG_CONTEXT_PUSH_UNIT(u);
+
                 unit_status_info_clear(u);
 
                 path = unit_dbus_path_from_name(u->name);
@@ -439,7 +424,7 @@ static int context_update_ntp_status(Context *c, sd_bus *bus, sd_bus_message *m)
                                 NULL,
                                 u);
                 if (r < 0)
-                        return log_unit_error_errno(u, r, "Failed to get properties: %s", bus_error_message(&error, r));
+                        return log_error_errno(r, "Failed to get properties: %s", bus_error_message(&error, r));
         }
 
         return 0;
@@ -493,6 +478,8 @@ static int unit_start_or_stop(UnitStatusInfo *u, sd_bus *bus, sd_bus_error *erro
         assert(bus);
         assert(error);
 
+        LOG_CONTEXT_PUSH_UNIT(u);
+
         r = bus_call_method(
                 bus,
                 bus_systemd_mgr,
@@ -502,8 +489,8 @@ static int unit_start_or_stop(UnitStatusInfo *u, sd_bus *bus, sd_bus_error *erro
                 "ss",
                 u->name,
                 "replace");
-        log_unit_full_errno_zerook(u, r < 0 ? LOG_WARNING : LOG_DEBUG, r,
-                                   "%s unit: %m", start ? "Starting" : "Stopping");
+        log_full_errno_zerook(r < 0 ? LOG_WARNING : LOG_DEBUG, r,
+                              "%s unit: %m", start ? "Starting" : "Stopping");
         if (r < 0)
                 return r;
 
@@ -527,12 +514,14 @@ static int unit_enable_or_disable(UnitStatusInfo *u, sd_bus *bus, sd_bus_error *
 
         /* Call context_update_ntp_status() to update UnitStatusInfo before calling this. */
 
+        LOG_CONTEXT_PUSH_UNIT(u);
+
         if (streq(u->unit_file_state, "enabled") == enable) {
-                log_unit_debug(u, "already %sd.", enable_disable(enable));
+                log_debug("already %sd.", enable_disable(enable));
                 return 0;
         }
 
-        log_unit_info(u, "%s unit.", enable ? "Enabling" : "Disabling");
+        log_info("%s unit.", enable ? "Enabling" : "Disabling");
 
         if (enable)
                 r = bus_call_method(
@@ -998,6 +987,8 @@ static int method_set_ntp(sd_bus_message *m, void *userdata, sd_bus_error *error
                         if (!streq(u->load_state, "loaded"))
                                 continue;
 
+                        LOG_CONTEXT_PUSH_UNIT(u);
+
                         r = unit_enable_or_disable(u, bus, error, enable_this_one);
                         if (r < 0)
                                 /* If enablement failed, don't start this unit. */
@@ -1005,9 +996,9 @@ static int method_set_ntp(sd_bus_message *m, void *userdata, sd_bus_error *error
 
                         r = unit_start_or_stop(u, bus, error, enable_this_one);
                         if (r < 0)
-                                log_unit_warning_errno(u, r, "Failed to %s %sd NTP unit, ignoring: %m",
-                                                       enable_this_one ? "start" : "stop",
-                                                       enable_disable(enable_this_one));
+                                log_warning_errno(r, "Failed to %s %sd NTP unit, ignoring: %m",
+                                                  enable_this_one ? "start" : "stop",
+                                                  enable_disable(enable_this_one));
                         if (enable_this_one)
                                 selected = u;
                 }
