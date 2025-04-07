@@ -225,7 +225,7 @@ be (re-)established, but is instead started when the network has connectivity,
 and if the network goes away, it fails and relies on the system manager to
 restart it if appropriate.
 
-## Modyfing the meaning of `network-online.target`
+## Modifying the meaning of `network-online.target`
 
 As described above, the meaning of this target is defined first by which
 implementing services are enabled (`NetworkManager-wait-online.service`,
