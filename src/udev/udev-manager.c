@@ -255,6 +255,8 @@ static int manager_reset_kill_workers_timer(Manager *manager) {
 }
 
 void manager_exit(Manager *manager) {
+        int r;
+
         assert(manager);
 
         manager->exit = true;
@@ -264,6 +266,9 @@ void manager_exit(Manager *manager) {
         /* close sources of new events and discard buffered events */
         manager->ctrl = udev_ctrl_unref(manager->ctrl);
         manager->varlink_server = sd_varlink_server_unref(manager->varlink_server);
+        r = manager_serialize_config(manager);
+        if (r < 0)
+                log_warning_errno(r, "Failed to serialize config: %m");
 
         /* Disable the event source, but doe not close the inotify fd here, as we may still receive
          * notification messages about requests to add or remove inotify watches. */
@@ -1205,6 +1210,8 @@ static int manager_listen_fds(Manager *manager) {
                         r = manager_init_inotify(manager, fd);
                 else if (streq(names[i], "event-storage"))
                         r = manager_init_event_storage(manager, fd, names[i]);
+                else if (streq(names[i], "config-serialization"))
+                        r = manager_deserialize_config(manager, &fd);
                 else
                         r = log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                             "Received unexpected fd (%s), ignoring.", names[i]);
