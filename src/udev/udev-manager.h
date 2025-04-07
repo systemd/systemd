@@ -73,6 +73,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 int manager_init(Manager *manager);
 int manager_main(Manager *manager);
 void manager_reload(Manager *manager, bool force);
+void manager_revert(Manager *manager);
 void manager_exit(Manager *manager);
 
 void notify_ready(Manager *manager);
