@@ -338,6 +338,17 @@ void manager_reload(Manager *manager, bool force) {
         notify_ready(manager);
 }
 
+void manager_revert(Manager *manager) {
+        assert(manager);
+
+        UdevReloadFlags flags = manager_revert_config(manager);
+        if (flags == 0)
+                return;
+
+        assert(flags == UDEV_RELOAD_KILL_WORKERS);
+        manager_kill_workers(manager, SIGTERM);
+}
+
 static int on_event_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
         Event *event = ASSERT_PTR(userdata);
 
