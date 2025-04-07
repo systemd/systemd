@@ -77,7 +77,6 @@ typedef enum WorkerState {
         WORKER_RUNNING,
         WORKER_IDLE,
         WORKER_KILLED,
-        WORKER_KILLING,
 } WorkerState;
 
 typedef struct Worker {
@@ -106,15 +105,6 @@ static Event* event_free(Event *event) {
                 event->worker->event = NULL;
 
         return mfree(event);
-}
-
-static void event_queue_cleanup(Manager *manager, EventState match_state) {
-        LIST_FOREACH(event, event, manager->events) {
-                if (match_state != EVENT_UNDEF && match_state != event->state)
-                        continue;
-
-                event_free(event);
-        }
 }
 
 static Worker* worker_free(Worker *worker) {
@@ -150,7 +140,8 @@ Manager* manager_free(Manager *manager) {
         udev_rules_free(manager->rules);
 
         hashmap_free(manager->workers);
-        event_queue_cleanup(manager, EVENT_UNDEF);
+        while (manager->events)
+                event_free(manager->events);
 
         safe_close(manager->inotify_fd);
 
@@ -208,23 +199,52 @@ static int worker_new(Worker **ret, Manager *manager, sd_device_monitor *worker_
         return 0;
 }
 
-void manager_kill_workers(Manager *manager, bool force) {
+void manager_kill_workers(Manager *manager, int signo) {
+        assert(manager);
+
         Worker *worker;
+        HASHMAP_FOREACH(worker, manager->workers) {
+                worker->state = WORKER_KILLED;
+                (void) pidref_kill(&worker->pidref, signo);
+        }
+}
+
+static int on_kill_workers_event(sd_event_source *s, uint64_t usec, void *userdata) {
+        Manager *manager = ASSERT_PTR(userdata);
+
+        log_debug("Cleaning up idle workers.");
+        manager_kill_workers(manager, SIGTERM);
+
+        return 0;
+}
+
+static int manager_reset_kill_workers_timer(Manager *manager) {
+        int r;
 
         assert(manager);
 
-        HASHMAP_FOREACH(worker, manager->workers) {
-                if (worker->state == WORKER_KILLED)
-                        continue;
-
-                if (worker->state == WORKER_RUNNING && !force) {
-                        worker->state = WORKER_KILLING;
-                        continue;
-                }
-
-                worker->state = WORKER_KILLED;
-                (void) pidref_kill(&worker->pidref, SIGTERM);
+        if (hashmap_isempty(manager->workers)) {
+                /* There are no workers. Disabling unnecessary timer event source. */
+                r = sd_event_source_set_enabled(manager->kill_workers_event, SD_EVENT_OFF);
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to disable timer event source for cleaning up workers: %m");
+        } else {
+                r = event_reset_time_relative(
+                                manager->event,
+                                &manager->kill_workers_event,
+                                CLOCK_MONOTONIC,
+                                3 * USEC_PER_SEC,
+                                USEC_PER_SEC,
+                                on_kill_workers_event,
+                                manager,
+                                SD_EVENT_PRIORITY_NORMAL,
+                                "kill-workers-event",
+                                /* force_reset = */ false);
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to enable timer event source for cleaning up workers: %m");
         }
+
+        return 0;
 }
 
 void manager_exit(Manager *manager) {
@@ -246,9 +266,9 @@ void manager_exit(Manager *manager) {
         (void) sd_event_source_set_enabled(sd_device_monitor_get_event_source(manager->monitor), SD_EVENT_OFF);
         (void) sd_device_monitor_detach_event(manager->monitor);
 
-        /* discard queued events and kill workers */
-        event_queue_cleanup(manager, EVENT_QUEUED);
-        manager_kill_workers(manager, true);
+        /* Kill all workers with SIGTERM, and disable unnecessary timer event source. */
+        manager_kill_workers(manager, SIGTERM);
+        manager->kill_workers_event = sd_event_source_disable_unref(manager->kill_workers_event);
 }
 
 void notify_ready(Manager *manager) {
@@ -294,7 +314,7 @@ void manager_reload(Manager *manager, bool force) {
         flags |= manager_reload_config(manager);
 
         if (FLAGS_SET(flags, UDEV_RELOAD_KILL_WORKERS))
-                manager_kill_workers(manager, false);
+                manager_kill_workers(manager, SIGTERM);
 
         udev_builtin_reload(flags);
 
@@ -307,15 +327,6 @@ void manager_reload(Manager *manager, bool force) {
         }
 
         notify_ready(manager);
-}
-
-static int on_kill_workers_event(sd_event_source *s, uint64_t usec, void *userdata) {
-        Manager *manager = ASSERT_PTR(userdata);
-
-        log_debug("Cleaning up idle workers.");
-        manager_kill_workers(manager, false);
-
-        return 1;
 }
 
 static int on_event_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
@@ -569,8 +580,9 @@ static int event_queue_start(Manager *manager) {
         int r;
 
         assert(manager);
+        assert(!manager->exit);
 
-        if (!manager->events || manager->exit || manager->stop_exec_queue)
+        if (!manager->events || manager->stop_exec_queue)
                 return 0;
 
         r = event_source_disable(manager->kill_workers_event);
@@ -815,10 +827,7 @@ static int on_worker_notify(sd_event_source *s, int fd, uint32_t revents, void *
                 event_free(worker->event);
 
         /* Update the state of the worker. */
-        if (worker->state == WORKER_KILLING) {
-                worker->state = WORKER_KILLED;
-                (void) pidref_kill(&worker->pidref, SIGTERM);
-        } else if (worker->state != WORKER_KILLED)
+        if (worker->state != WORKER_KILLED)
                 worker->state = WORKER_IDLE;
 
         return 0;
@@ -887,9 +896,46 @@ static int on_sigchld(sd_event_source *s, const siginfo_t *si, void *userdata) {
         return 0;
 }
 
+static int manager_unlink_queue_file(Manager *manager) {
+        assert(manager);
+
+        if (manager->events)
+                return 0; /* There are queued events. */
+
+        /* There are no queued events. Let's remove /run/udev/queue and clean up the idle processes. */
+        if (unlink("/run/udev/queue") < 0) {
+                if (errno == ENOENT)
+                        return 0;
+
+                return log_warning_errno(errno, "Failed to unlink /run/udev/queue: %m");
+        }
+
+        log_debug("No events are queued, removed /run/udev/queue.");
+        return 0;
+}
+
+static int on_post_exit(Manager *manager) {
+        assert(manager);
+        assert(manager->exit);
+
+        LIST_FOREACH(event, event, manager->events)
+                if (event->state == EVENT_RUNNING)
+                        return 0; /* There still exist events being processed. */
+
+        (void) manager_unlink_queue_file(manager);
+
+        if (!hashmap_isempty(manager->workers))
+                return 0; /* There still exist running workers. */
+
+        udev_watch_dump();
+        return sd_event_exit(manager->event, 0);
+}
+
 static int on_post(sd_event_source *s, void *userdata) {
         Manager *manager = ASSERT_PTR(userdata);
-        int r;
+
+        if (manager->exit)
+                return on_post_exit(manager);
 
         if (manager->events) {
                 /* Try to process pending events if idle workers exist. Why is this necessary?
@@ -897,52 +943,21 @@ static int on_post(sd_event_source *s, void *userdata) {
                  * the corresponding device might have been locked and the processing of the event
                  * delayed for a while, preventing the worker from processing the event immediately.
                  * Now, the device may be unlocked. Let's try again! */
-                event_queue_start(manager);
-                return 1;
+                (void) event_queue_start(manager);
+                return 0;
         }
 
-        /* There are no queued events. Let's remove /run/udev/queue and clean up the idle processes. */
+        (void) manager_unlink_queue_file(manager);
+        (void) manager_reset_kill_workers_timer(manager);
 
-        if (unlink("/run/udev/queue") < 0) {
-                if (errno != ENOENT)
-                        log_warning_errno(errno, "Failed to unlink /run/udev/queue, ignoring: %m");
-        } else
-                log_debug("No events are queued, removed /run/udev/queue.");
-
-        if (!hashmap_isempty(manager->workers)) {
-                /* There are idle workers */
-                r = event_reset_time_relative(
-                                manager->event,
-                                &manager->kill_workers_event,
-                                CLOCK_MONOTONIC,
-                                3 * USEC_PER_SEC,
-                                USEC_PER_SEC,
-                                on_kill_workers_event,
-                                manager,
-                                SD_EVENT_PRIORITY_NORMAL,
-                                "kill-workers-event",
-                                /* force_reset = */ false);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to enable timer event source for cleaning up idle workers, ignoring: %m");
-
-                return 1;
-        }
-
-        /* There are no idle workers. */
-        r = sd_event_source_set_enabled(manager->kill_workers_event, SD_EVENT_OFF);
-        if (r < 0)
-                log_warning_errno(r, "Failed to disable timer event source for cleaning up idle workers, ignoring: %m");
-
-        if (manager->exit) {
-                udev_watch_dump();
-                return sd_event_exit(manager->event, 0);
-        }
+        if (!hashmap_isempty(manager->workers))
+                return 0; /* There still exist idle workers. */
 
         if (manager->cgroup && set_isempty(manager->synthesize_change_child_event_sources))
                 /* cleanup possible left-over processes in our cgroup */
                 (void) cg_kill(manager->cgroup, SIGKILL, CGROUP_IGNORE_SELF, /* set=*/ NULL, /* kill_log= */ NULL, /* userdata= */ NULL);
 
-        return 1;
+        return 0;
 }
 
 Manager* manager_new(void) {
