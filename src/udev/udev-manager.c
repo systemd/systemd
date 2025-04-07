@@ -11,6 +11,7 @@
 #include "fd-util.h"
 #include "fs-util.h"
 #include "hashmap.h"
+#include "io-util.h"
 #include "iovec-util.h"
 #include "list.h"
 #include "mkdir.h"
@@ -77,7 +78,6 @@ typedef enum WorkerState {
         WORKER_RUNNING,
         WORKER_IDLE,
         WORKER_KILLED,
-        WORKER_KILLING,
 } WorkerState;
 
 typedef struct Worker {
@@ -106,15 +106,6 @@ static Event* event_free(Event *event) {
                 event->worker->event = NULL;
 
         return mfree(event);
-}
-
-static void event_queue_cleanup(Manager *manager, EventState match_state) {
-        LIST_FOREACH(event, event, manager->events) {
-                if (match_state != EVENT_UNDEF && match_state != event->state)
-                        continue;
-
-                event_free(event);
-        }
 }
 
 static Worker* worker_free(Worker *worker) {
@@ -150,13 +141,16 @@ Manager* manager_free(Manager *manager) {
         udev_rules_free(manager->rules);
 
         hashmap_free(manager->workers);
-        event_queue_cleanup(manager, EVENT_UNDEF);
+        while (manager->events)
+                event_free(manager->events);
 
         safe_close(manager->inotify_fd);
 
         free(manager->worker_notify_socket_path);
 
         sd_device_monitor_unref(manager->monitor);
+        sd_device_monitor_unref(manager->event_storage);
+
         udev_ctrl_unref(manager->ctrl);
         sd_varlink_server_unref(manager->varlink_server);
 
@@ -198,6 +192,10 @@ static int worker_new(Worker **ret, Manager *manager, sd_device_monitor *worker_
         if (r < 0)
                 return r;
 
+        r = sd_event_source_set_priority(worker->child_event_source, EVENT_PRIORITY_WORKER_SIGCHLD);
+        if (r < 0)
+                return r;
+
         r = hashmap_ensure_put(&manager->workers, &worker_hash_op, &worker->pidref, worker);
         if (r < 0)
                 return r;
@@ -208,23 +206,52 @@ static int worker_new(Worker **ret, Manager *manager, sd_device_monitor *worker_
         return 0;
 }
 
-void manager_kill_workers(Manager *manager, bool force) {
+void manager_kill_workers(Manager *manager, int signo) {
+        assert(manager);
+
         Worker *worker;
+        HASHMAP_FOREACH(worker, manager->workers) {
+                worker->state = WORKER_KILLED;
+                (void) pidref_kill(&worker->pidref, signo);
+        }
+}
+
+static int on_kill_workers_event(sd_event_source *s, uint64_t usec, void *userdata) {
+        Manager *manager = ASSERT_PTR(userdata);
+
+        log_debug("Cleaning up idle workers.");
+        manager_kill_workers(manager, SIGTERM);
+
+        return 0;
+}
+
+static int manager_reset_kill_workers_timer(Manager *manager) {
+        int r;
 
         assert(manager);
 
-        HASHMAP_FOREACH(worker, manager->workers) {
-                if (worker->state == WORKER_KILLED)
-                        continue;
-
-                if (worker->state == WORKER_RUNNING && !force) {
-                        worker->state = WORKER_KILLING;
-                        continue;
-                }
-
-                worker->state = WORKER_KILLED;
-                (void) pidref_kill(&worker->pidref, SIGTERM);
+        if (hashmap_isempty(manager->workers)) {
+                /* There are no workers. Disabling unnecessary timer event source. */
+                r = sd_event_source_set_enabled(manager->kill_workers_event, SD_EVENT_OFF);
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to disable timer event source for cleaning up workers: %m");
+        } else {
+                r = event_reset_time_relative(
+                                manager->event,
+                                &manager->kill_workers_event,
+                                CLOCK_MONOTONIC,
+                                3 * USEC_PER_SEC,
+                                USEC_PER_SEC,
+                                on_kill_workers_event,
+                                manager,
+                                SD_EVENT_PRIORITY_NORMAL,
+                                "kill-workers-event",
+                                /* force_reset = */ false);
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to enable timer event source for cleaning up workers: %m");
         }
+
+        return 0;
 }
 
 void manager_exit(Manager *manager) {
@@ -237,8 +264,10 @@ void manager_exit(Manager *manager) {
         /* close sources of new events and discard buffered events */
         manager->ctrl = udev_ctrl_unref(manager->ctrl);
         manager->varlink_server = sd_varlink_server_unref(manager->varlink_server);
+
+        /* Disable the event source, but doe not close the inotify fd here, as we may still receive
+         * notification messages about requests to add or remove inotify watches. */
         manager->inotify_event = sd_event_source_disable_unref(manager->inotify_event);
-        manager->inotify_fd = safe_close(manager->inotify_fd);
 
         /* Disable the device monitor but do not free device monitor, as it may be used when a worker failed,
          * and the manager needs to broadcast the kernel event assigned to the worker to libudev listeners.
@@ -246,9 +275,9 @@ void manager_exit(Manager *manager) {
         (void) sd_event_source_set_enabled(sd_device_monitor_get_event_source(manager->monitor), SD_EVENT_OFF);
         (void) sd_device_monitor_detach_event(manager->monitor);
 
-        /* discard queued events and kill workers */
-        event_queue_cleanup(manager, EVENT_QUEUED);
-        manager_kill_workers(manager, true);
+        /* Kill all workers with SIGTERM, and disable unnecessary timer event source. */
+        manager_kill_workers(manager, SIGTERM);
+        manager->kill_workers_event = sd_event_source_disable_unref(manager->kill_workers_event);
 }
 
 void notify_ready(Manager *manager) {
@@ -294,7 +323,7 @@ void manager_reload(Manager *manager, bool force) {
         flags |= manager_reload_config(manager);
 
         if (FLAGS_SET(flags, UDEV_RELOAD_KILL_WORKERS))
-                manager_kill_workers(manager, false);
+                manager_kill_workers(manager, SIGTERM);
 
         udev_builtin_reload(flags);
 
@@ -307,15 +336,6 @@ void manager_reload(Manager *manager, bool force) {
         }
 
         notify_ready(manager);
-}
-
-static int on_kill_workers_event(sd_event_source *s, uint64_t usec, void *userdata) {
-        Manager *manager = ASSERT_PTR(userdata);
-
-        log_debug("Cleaning up idle workers.");
-        manager_kill_workers(manager, false);
-
-        return 1;
 }
 
 static int on_event_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
@@ -383,6 +403,7 @@ static int worker_spawn(Manager *manager, Event *event) {
         if (r < 0)
                 return log_error_errno(r, "Worker: Failed to set unicast sender: %m");
 
+        pid_t manager_pid = getpid_cached();
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         r = pidref_safe_fork("(udev-worker)", FORK_DEATHSIG_SIGTERM, &pidref);
         if (r < 0) {
@@ -394,8 +415,8 @@ static int worker_spawn(Manager *manager, Event *event) {
                         .monitor = TAKE_PTR(worker_monitor),
                         .properties = TAKE_PTR(manager->properties),
                         .rules = TAKE_PTR(manager->rules),
-                        .inotify_fd = TAKE_FD(manager->inotify_fd),
                         .config = manager->config,
+                        .manager_pid = manager_pid,
                 };
 
                 if (setenv("NOTIFY_SOCKET", manager->worker_notify_socket_path, /* overwrite = */ true) < 0) {
@@ -569,8 +590,9 @@ static int event_queue_start(Manager *manager) {
         int r;
 
         assert(manager);
+        assert(!manager->exit);
 
-        if (!manager->events || manager->exit || manager->stop_exec_queue)
+        if (!manager->events || manager->stop_exec_queue)
                 return 0;
 
         r = event_source_disable(manager->kill_workers_event);
@@ -768,6 +790,116 @@ static int event_queue_insert(Manager *manager, sd_device *dev) {
         return 0;
 }
 
+static int manager_serialize_events(Manager *manager) {
+        int r;
+
+        assert(manager);
+
+        _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *storage = NULL, *sender = NULL;
+        r = device_monitor_new_full(&storage, MONITOR_GROUP_NONE, -EBADF);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to create new device monitor instance: %m");
+
+        r = device_monitor_new_full(&sender, MONITOR_GROUP_NONE, -EBADF);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to create new device monitor instance: %m");
+
+        union sockaddr_union a;
+        r = device_monitor_get_address(storage, &a);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to get address of device monitor socket: %m");
+
+        uint64_t n = 0;
+        LIST_FOREACH(event, event, manager->events) {
+                if (event->state != EVENT_QUEUED)
+                        continue;
+
+                r = device_monitor_send(manager->monitor, &a, event->dev);
+                if (r < 0)
+                        return log_device_warning_errno(event->dev, r, "Failed to save event to socket storage: %m");
+
+                n++;
+        }
+
+        if (n == 0)
+                return 0;
+
+        r = notify_push_fd(sd_device_monitor_get_fd(storage), "event-storage");
+        if (r < 0)
+                return log_warning_errno(r, "Failed to push event storage fd to service manager: %m");
+
+        log_debug("Serialized %"PRIu64" events to socket storage.", n);
+        return 0;
+}
+
+static int manager_init_event_storage(Manager *manager, int fd, const char *name) {
+        int r;
+
+        assert(manager);
+        assert(fd >= 0);
+        assert(name);
+
+        /* This takes passed file descriptor on success. */
+
+        if (manager->event_storage)
+                return log_warning_errno(SYNTHETIC_ERRNO(EALREADY), "Received multiple event storage socket (%i), ignoring.", fd);
+
+        r = sd_is_socket(fd, AF_NETLINK, SOCK_RAW, /* listening = */ -1);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to verify type of event storage socket (%i), ignoring: %m", fd);
+        if (r == 0)
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "Received invalid event storage socket (%i), ignoring.", fd);
+
+        r = device_monitor_new_full(&manager->event_storage, MONITOR_GROUP_NONE, fd);
+        if (r < 0)
+                return log_error_errno(r, "Failed to initialize event storage device monitor: %m");
+
+        /* Remove the socket from fdstore, to make not future invocations get events on the previous invocation. */
+        (void) notify_remove_fd_warn(name);
+        return 0;
+}
+
+static int manager_deserialize_events(Manager *manager) {
+        int r;
+
+        assert(manager);
+
+        _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *storage = TAKE_PTR(manager->event_storage);
+        if (!storage)
+                return 0;
+
+        /* Note, we cannot set trusted sender here, as even if we serialize the sender address or sender
+         * socket, the obtained sender address on receive will be different from the serialized one.
+         * Is it a kernel bug? */
+
+        uint64_t n = 0;
+        for (;;) {
+                r = fd_wait_for_event(sd_device_monitor_get_fd(storage), POLLIN, 0);
+                if (r == -EINTR)
+                        continue;
+                if (r < 0)
+                        return log_error_errno(r, "Failed to wait for event: %m");
+                if (r == 0)
+                        break;
+
+                _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+                r = sd_device_monitor_receive(storage, &dev);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to receive device from event storage, ignoring: %m");
+                        continue;
+                }
+
+                r = event_queue_insert(manager, dev);
+                if (r < 0)
+                        return log_device_error_errno(dev, r, "Failed to insert device into event queue: %m");
+
+                n++;
+        }
+
+        log_debug("Deserialized %"PRIu64" events from socket storage.", n);
+        return 0;
+}
+
 static int on_uevent(sd_device_monitor *monitor, sd_device *dev, void *userdata) {
         Manager *manager = ASSERT_PTR(userdata);
         int r;
@@ -808,6 +940,48 @@ static int on_worker_notify(sd_event_source *s, int fd, uint32_t revents, void *
                 return 0;
         }
 
+        if (strv_contains(l, "INOTIFY_WATCH_ADD=1")) {
+                assert(worker->event);
+
+                r = manager_add_watch(manager, worker->event->dev);
+                if (ERRNO_IS_NEG_DEVICE_ABSENT(r))
+                        r = 0;
+                if (r < 0)
+                        log_device_warning_errno(worker->event->dev, r, "Failed to add inotify watch, ignoring: %m");
+
+                /* Send the result back to the worker process. */
+                r = pidref_sigqueue(&sender, SIGUSR1, r);
+                if (r < 0) {
+                        log_device_warning_errno(worker->event->dev, r,
+                                                 "Failed to send signal to worker process ["PID_FMT"], killing the worker process: %m",
+                                                 sender.pid);
+
+                        (void) pidref_kill(&sender, SIGTERM);
+                        worker->state = WORKER_KILLED;
+                }
+                return 0;
+        }
+
+        if (strv_contains(l, "INOTIFY_WATCH_REMOVE=1")) {
+                assert(worker->event);
+
+                r = manager_remove_watch(manager, worker->event->dev);
+                if (r < 0)
+                        log_device_warning_errno(worker->event->dev, r, "Failed to remove inotify watch, ignoring: %m");
+
+                /* Send the result back to the worker process. */
+                r = pidref_sigqueue(&sender, SIGUSR1, r);
+                if (r < 0) {
+                        log_device_warning_errno(worker->event->dev, r,
+                                                 "Failed to send signal to worker process ["PID_FMT"], killing the worker process: %m",
+                                                 sender.pid);
+
+                        (void) pidref_kill(&sender, SIGTERM);
+                        worker->state = WORKER_KILLED;
+                }
+                return 0;
+        }
+
         if (strv_contains(l, "TRY_AGAIN=1"))
                 /* Worker cannot lock the device. Requeue the event. */
                 event_requeue(worker->event);
@@ -815,10 +989,7 @@ static int on_worker_notify(sd_event_source *s, int fd, uint32_t revents, void *
                 event_free(worker->event);
 
         /* Update the state of the worker. */
-        if (worker->state == WORKER_KILLING) {
-                worker->state = WORKER_KILLED;
-                (void) pidref_kill(&worker->pidref, SIGTERM);
-        } else if (worker->state != WORKER_KILLED)
+        if (worker->state != WORKER_KILLED)
                 worker->state = WORKER_IDLE;
 
         return 0;
@@ -887,9 +1058,48 @@ static int on_sigchld(sd_event_source *s, const siginfo_t *si, void *userdata) {
         return 0;
 }
 
+static int manager_unlink_queue_file(Manager *manager) {
+        assert(manager);
+
+        if (manager->events)
+                return 0; /* There are queued events. */
+
+        /* There are no queued events. Let's remove /run/udev/queue and clean up the idle processes. */
+        if (unlink("/run/udev/queue") < 0) {
+                if (errno == ENOENT)
+                        return 0;
+
+                return log_warning_errno(errno, "Failed to unlink /run/udev/queue: %m");
+        }
+
+        log_debug("No events are queued, removed /run/udev/queue.");
+        return 0;
+}
+
+static int on_post_exit(Manager *manager) {
+        assert(manager);
+        assert(manager->exit);
+
+        LIST_FOREACH(event, event, manager->events)
+                if (event->state == EVENT_RUNNING)
+                        return 0; /* There still exist events being processed. */
+
+        (void) manager_unlink_queue_file(manager);
+
+        if (!hashmap_isempty(manager->workers))
+                return 0; /* There still exist running workers. */
+
+        (void) manager_serialize_events(manager);
+
+        udev_watch_dump();
+        return sd_event_exit(manager->event, 0);
+}
+
 static int on_post(sd_event_source *s, void *userdata) {
         Manager *manager = ASSERT_PTR(userdata);
-        int r;
+
+        if (manager->exit)
+                return on_post_exit(manager);
 
         if (manager->events) {
                 /* Try to process pending events if idle workers exist. Why is this necessary?
@@ -897,52 +1107,21 @@ static int on_post(sd_event_source *s, void *userdata) {
                  * the corresponding device might have been locked and the processing of the event
                  * delayed for a while, preventing the worker from processing the event immediately.
                  * Now, the device may be unlocked. Let's try again! */
-                event_queue_start(manager);
-                return 1;
+                (void) event_queue_start(manager);
+                return 0;
         }
 
-        /* There are no queued events. Let's remove /run/udev/queue and clean up the idle processes. */
+        (void) manager_unlink_queue_file(manager);
+        (void) manager_reset_kill_workers_timer(manager);
 
-        if (unlink("/run/udev/queue") < 0) {
-                if (errno != ENOENT)
-                        log_warning_errno(errno, "Failed to unlink /run/udev/queue, ignoring: %m");
-        } else
-                log_debug("No events are queued, removed /run/udev/queue.");
-
-        if (!hashmap_isempty(manager->workers)) {
-                /* There are idle workers */
-                r = event_reset_time_relative(
-                                manager->event,
-                                &manager->kill_workers_event,
-                                CLOCK_MONOTONIC,
-                                3 * USEC_PER_SEC,
-                                USEC_PER_SEC,
-                                on_kill_workers_event,
-                                manager,
-                                SD_EVENT_PRIORITY_NORMAL,
-                                "kill-workers-event",
-                                /* force_reset = */ false);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to enable timer event source for cleaning up idle workers, ignoring: %m");
-
-                return 1;
-        }
-
-        /* There are no idle workers. */
-        r = sd_event_source_set_enabled(manager->kill_workers_event, SD_EVENT_OFF);
-        if (r < 0)
-                log_warning_errno(r, "Failed to disable timer event source for cleaning up idle workers, ignoring: %m");
-
-        if (manager->exit) {
-                udev_watch_dump();
-                return sd_event_exit(manager->event, 0);
-        }
+        if (!hashmap_isempty(manager->workers))
+                return 0; /* There still exist idle workers. */
 
         if (manager->cgroup && set_isempty(manager->synthesize_change_child_event_sources))
                 /* cleanup possible left-over processes in our cgroup */
                 (void) cg_kill(manager->cgroup, SIGKILL, CGROUP_IGNORE_SELF, /* set=*/ NULL, /* kill_log= */ NULL, /* userdata= */ NULL);
 
-        return 1;
+        return 0;
 }
 
 Manager* manager_new(void) {
@@ -1013,6 +1192,8 @@ static int manager_listen_fds(Manager *manager) {
                         r = manager_init_device_monitor(manager, fd);
                 else if (streq(names[i], "inotify"))
                         r = manager_init_inotify(manager, fd);
+                else if (streq(names[i], "event-storage"))
+                        r = manager_init_event_storage(manager, fd, names[i]);
                 else
                         r = log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                             "Received unexpected fd (%s), ignoring.", names[i]);
@@ -1063,6 +1244,10 @@ static int manager_start_device_monitor(Manager *manager) {
         if (r < 0)
                 return log_error_errno(r, "Failed to start device monitor: %m");
 
+        r = sd_event_source_set_priority(sd_device_monitor_get_event_source(manager->monitor), EVENT_PRIORITY_DEVICE_MONITOR);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set priority to device monitor: %m");
+
         return 0;
 }
 
@@ -1074,7 +1259,7 @@ static int manager_start_worker_notify(Manager *manager) {
 
         r = notify_socket_prepare(
                         manager->event,
-                        SD_EVENT_PRIORITY_NORMAL,
+                        EVENT_PRIORITY_WORKER_NOTIFY,
                         on_worker_notify,
                         manager,
                         &manager->worker_notify_socket_path);
@@ -1158,6 +1343,10 @@ int manager_main(Manager *manager) {
                 return r;
 
         r = manager_start_worker_notify(manager);
+        if (r < 0)
+                return r;
+
+        r = manager_deserialize_events(manager);
         if (r < 0)
                 return r;
 
