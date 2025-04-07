@@ -1186,22 +1186,22 @@ static int oci_cgroup_memory(const char *name, sd_json_variant *v, sd_json_dispa
 }
 
 struct cpu_data {
-        uint64_t shares;
+        uint64_t weight;
         uint64_t quota;
         uint64_t period;
         CPUSet cpu_set;
 };
 
 static int oci_cgroup_cpu_shares(const char *name, sd_json_variant *v, sd_json_dispatch_flags_t flags, void *userdata) {
-        uint64_t *u = ASSERT_PTR(userdata);
-        uint64_t k;
+        uint64_t k, *u = ASSERT_PTR(userdata);
 
         k = sd_json_variant_unsigned(v);
         if (k < CGROUP_CPU_SHARES_MIN || k > CGROUP_CPU_SHARES_MAX)
-                return json_log(v, flags, SYNTHETIC_ERRNO(ERANGE),
-                                "shares value out of range.");
+                return json_log(v, flags, SYNTHETIC_ERRNO(ERANGE), "shares value out of range.");
 
-        *u = (uint64_t) k;
+        /* convert from cgroup v1 cpu.shares to v2 cpu.weight */
+        assert_cc(CGROUP_CPU_SHARES_MAX <= UINT64_MAX / CGROUP_WEIGHT_DEFAULT);
+        *u = CLAMP(k * CGROUP_WEIGHT_DEFAULT / CGROUP_CPU_SHARES_DEFAULT, CGROUP_WEIGHT_MIN, CGROUP_WEIGHT_MAX);
         return 0;
 }
 
@@ -1237,7 +1237,7 @@ static int oci_cgroup_cpu_cpus(const char *name, sd_json_variant *v, sd_json_dis
 static int oci_cgroup_cpu(const char *name, sd_json_variant *v, sd_json_dispatch_flags_t flags, void *userdata) {
 
         static const sd_json_dispatch_field table[] = {
-                { "shares",          SD_JSON_VARIANT_UNSIGNED, oci_cgroup_cpu_shares, offsetof(struct cpu_data, shares), 0 },
+                { "shares",          SD_JSON_VARIANT_UNSIGNED, oci_cgroup_cpu_shares, offsetof(struct cpu_data, weight), 0 },
                 { "quota",           SD_JSON_VARIANT_UNSIGNED, oci_cgroup_cpu_quota,  offsetof(struct cpu_data, quota),  0 },
                 { "period",          SD_JSON_VARIANT_UNSIGNED, oci_cgroup_cpu_quota,  offsetof(struct cpu_data, period), 0 },
                 { "realtimeRuntime", SD_JSON_VARIANT_UNSIGNED, oci_unsupported,       0,                                 0 },
@@ -1248,7 +1248,7 @@ static int oci_cgroup_cpu(const char *name, sd_json_variant *v, sd_json_dispatch
         };
 
         struct cpu_data data = {
-                .shares = UINT64_MAX,
+                .weight = UINT64_MAX,
                 .quota = UINT64_MAX,
                 .period = UINT64_MAX,
         };
@@ -1265,12 +1265,12 @@ static int oci_cgroup_cpu(const char *name, sd_json_variant *v, sd_json_dispatch
         cpu_set_reset(&s->cpu_set);
         s->cpu_set = data.cpu_set;
 
-        if (data.shares != UINT64_MAX) {
+        if (data.weight != UINT64_MAX) {
                 r = settings_allocate_properties(s);
                 if (r < 0)
                         return r;
 
-                r = sd_bus_message_append(s->properties, "(sv)", "CPUShares", "t", data.shares);
+                r = sd_bus_message_append(s->properties, "(sv)", "CPUWeight", "t", data.weight);
                 if (r < 0)
                         return bus_log_create_error(r);
         }
