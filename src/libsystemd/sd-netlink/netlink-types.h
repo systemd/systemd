@@ -37,6 +37,7 @@ typedef struct NLAPolicySetUnion NLAPolicySetUnion;
 
 const NLAPolicy *rtnl_get_policy(uint16_t nlmsg_type);
 const NLAPolicy *nfnl_get_policy(uint16_t nlmsg_type);
+const NLAPolicy *sdnl_get_policy(uint16_t nlmsg_type, uint16_t nlmsg_flags);
 const NLAPolicySet *genl_get_policy_set_by_name(const char *name);
 int genl_get_policy_set_and_header_size(
                 sd_netlink *nl,
