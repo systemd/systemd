@@ -3554,7 +3554,7 @@ int varlink_server_listen_address(VarlinkServer *s, const char *address, mode_t 
 
 int varlink_server_listen_auto(VarlinkServer *s) {
         _cleanup_strv_free_ char **names = NULL;
-        int r, n = 0;
+        int r, m, n = 0;
 
         assert_return(s, -EINVAL);
 
@@ -3564,11 +3564,11 @@ int varlink_server_listen_auto(VarlinkServer *s) {
          * See https://varlink.org/#activation for the environment variables this is backed by and the
          * recommended "varlink" identifier in $LISTEN_FDNAMES. */
 
-        r = sd_listen_fds_with_names(/* unset_environment= */ false, &names);
-        if (r < 0)
-                return r;
+        m = sd_listen_fds_with_names(/* unset_environment= */ false, &names);
+        if (m < 0)
+                return m;
 
-        for (int i = 0; i < r; i++) {
+        for (int i = 0; i < m; i++) {
                 int b, fd;
                 socklen_t l = sizeof(b);
 
