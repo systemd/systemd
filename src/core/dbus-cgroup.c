@@ -714,17 +714,6 @@ static int bus_cgroup_set_transient_property(
                                 return r;
 
                         unit_write_setting(u, flags, name, buf);
-
-                        if (c->bpf_foreign_programs) {
-                                r = bpf_foreign_supported();
-                                if (r < 0)
-                                        return r;
-                                if (r == 0)
-                                        log_full(LOG_DEBUG,
-                                                 "Transient unit %s configures a BPF program pinned to BPF "
-                                                 "filesystem, but the local system does not support that.\n"
-                                                 "Starting this unit will fail!", u->id);
-                        }
                 }
 
                 return 1;
