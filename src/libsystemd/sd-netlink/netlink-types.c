@@ -71,6 +71,9 @@ int netlink_get_policy_set_and_header_size(
                         break;
                 case NETLINK_GENERIC:
                         return genl_get_policy_set_and_header_size(nl, type, ret_policy_set, ret_header_size);
+                case NETLINK_SOCK_DIAG:
+                        policy = sdnl_get_policy(type, flags);
+                        break;
                 default:
                         return -EOPNOTSUPP;
                 }
