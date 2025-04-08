@@ -34,7 +34,7 @@ int sd_nfnl_message_new(sd_netlink *nfnl, sd_netlink_message **ret, int nfproto,
         assert_return(nfproto_is_valid(nfproto), -EINVAL);
         assert_return(NFNL_MSG_TYPE(msg_type) == msg_type, -EINVAL);
 
-        r = message_new(nfnl, &m, subsys << 8 | msg_type);
+        r = message_new(nfnl, &m, subsys << 8 | msg_type, NLM_F_REQUEST | NLM_F_ACK);
         if (r < 0)
                 return r;
 
