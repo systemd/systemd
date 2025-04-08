@@ -1858,7 +1858,9 @@ static int build_environment(
          * could cause problem for e.g. getty, since login doesn't override $HOME, and $LOGNAME and $SHELL don't
          * really make much sense since we're not logged in. Hence we conditionalize the three based on
          * SetLoginEnvironment= switch. */
-        if (!c->user && !c->dynamic_user && p->runtime_scope == RUNTIME_SCOPE_SYSTEM) {
+        if (!username && !c->dynamic_user && p->runtime_scope == RUNTIME_SCOPE_SYSTEM) {
+                assert(!c->user);
+
                 r = get_fixed_user("root", &username, NULL, NULL, &home, &shell);
                 if (r < 0)
                         return log_exec_debug_errno(c,
