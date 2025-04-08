@@ -33,3 +33,6 @@ __pycache__/
 .dir-locals-2.el
 .vscode/
 /pkg/
+/doc-migration/.venv
+/doc-migration/build
+.venv
