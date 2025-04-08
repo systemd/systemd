@@ -2692,6 +2692,13 @@ if mkosi.found()
         )
 endif
 
+if install_tests
+        install_subdir('mkosi',
+                       install_dir : testsdir,
+                       exclude_files : ['mkosi.local.conf', 'mkosi.key', 'mkosi.crt'],
+                       exclude_directories : ['mkosi.local'])
+endif
+
 ############################################################
 
 subdir('rules.d')
