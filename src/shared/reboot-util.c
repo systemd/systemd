@@ -42,6 +42,9 @@ int update_reboot_parameter_and_warn(const char *parameter, bool keep) {
                 if (unlink("/run/systemd/reboot-param") < 0) {
                         if (errno == ENOENT)
                                 return 0;
+                        /* handle read-only filesystem */
+                        if (access("/run/systemd/reboot-param", F_OK) < 0 && errno == ENOENT)
+                                return 0;
 
                         return log_warning_errno(errno, "Failed to unlink reboot parameter file: %m");
                 }
