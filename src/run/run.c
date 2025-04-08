@@ -962,18 +962,25 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                 const char *e;
 
                 e = strv_env_get(arg_environment, "SHELL");
-                if (e)
+                if (e) {
                         arg_exec_path = strdup(e);
-                else {
+                        if (!arg_exec_path)
+                                return log_oom();
+                } else {
                         if (arg_transport == BUS_TRANSPORT_LOCAL) {
                                 r = get_shell(&arg_exec_path);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to determine shell: %m");
-                        } else
+                        } else {
                                 arg_exec_path = strdup("/bin/sh");
+                                if (!arg_exec_path)
+                                        return log_oom();
+                        }
+
+                        r = strv_env_assign(&arg_environment, "SHELL", arg_exec_path);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to set $SHELL environment variable: %m");
                 }
-                if (!arg_exec_path)
-                        return log_oom();
 
                 l = make_login_shell_cmdline(arg_exec_path);
         }
