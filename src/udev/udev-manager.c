@@ -189,6 +189,10 @@ static int worker_new(Worker **ret, Manager *manager, sd_device_monitor *worker_
         if (r < 0)
                 return r;
 
+        r = sd_event_source_set_priority(worker->child_event_source, EVENT_PRIORITY_WORKER_SIGCHLD);
+        if (r < 0)
+                return r;
+
         r = hashmap_ensure_put(&manager->workers, &worker_hash_op, &worker->pidref, worker);
         if (r < 0)
                 return r;
@@ -257,8 +261,10 @@ void manager_exit(Manager *manager) {
         /* close sources of new events and discard buffered events */
         manager->ctrl = udev_ctrl_unref(manager->ctrl);
         manager->varlink_server = sd_varlink_server_unref(manager->varlink_server);
+
+        /* Disable the event source, but doe not close the inotify fd here, as we may still receive
+         * notification messages about requests to add or remove inotify watches. */
         manager->inotify_event = sd_event_source_disable_unref(manager->inotify_event);
-        manager->inotify_fd = safe_close(manager->inotify_fd);
 
         /* Disable the device monitor but do not free device monitor, as it may be used when a worker failed,
          * and the manager needs to broadcast the kernel event assigned to the worker to libudev listeners.
@@ -394,6 +400,7 @@ static int worker_spawn(Manager *manager, Event *event) {
         if (r < 0)
                 return log_error_errno(r, "Worker: Failed to set unicast sender: %m");
 
+        pid_t manager_pid = getpid_cached();
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         r = pidref_safe_fork("(udev-worker)", FORK_DEATHSIG_SIGTERM, &pidref);
         if (r < 0) {
@@ -405,8 +412,8 @@ static int worker_spawn(Manager *manager, Event *event) {
                         .monitor = TAKE_PTR(worker_monitor),
                         .properties = TAKE_PTR(manager->properties),
                         .rules = TAKE_PTR(manager->rules),
-                        .inotify_fd = TAKE_FD(manager->inotify_fd),
                         .config = manager->config,
+                        .manager_pid = manager_pid,
                 };
 
                 if (setenv("NOTIFY_SOCKET", manager->worker_notify_socket_path, /* overwrite = */ true) < 0) {
@@ -820,6 +827,48 @@ static int on_worker_notify(sd_event_source *s, int fd, uint32_t revents, void *
                 return 0;
         }
 
+        if (strv_contains(l, "INOTIFY_WATCH_ADD=1")) {
+                assert(worker->event);
+
+                r = manager_add_watch(manager, worker->event->dev);
+                if (ERRNO_IS_NEG_DEVICE_ABSENT(r))
+                        r = 0;
+                if (r < 0)
+                        log_device_warning_errno(worker->event->dev, r, "Failed to add inotify watch, ignoring: %m");
+
+                /* Send the result back to the worker process. */
+                r = pidref_sigqueue(&sender, SIGUSR1, r);
+                if (r < 0) {
+                        log_device_warning_errno(worker->event->dev, r,
+                                                 "Failed to send signal to worker process ["PID_FMT"], killing the worker process: %m",
+                                                 sender.pid);
+
+                        (void) pidref_kill(&sender, SIGTERM);
+                        worker->state = WORKER_KILLED;
+                }
+                return 0;
+        }
+
+        if (strv_contains(l, "INOTIFY_WATCH_REMOVE=1")) {
+                assert(worker->event);
+
+                r = manager_remove_watch(manager, worker->event->dev);
+                if (r < 0)
+                        log_device_warning_errno(worker->event->dev, r, "Failed to remove inotify watch, ignoring: %m");
+
+                /* Send the result back to the worker process. */
+                r = pidref_sigqueue(&sender, SIGUSR1, r);
+                if (r < 0) {
+                        log_device_warning_errno(worker->event->dev, r,
+                                                 "Failed to send signal to worker process ["PID_FMT"], killing the worker process: %m",
+                                                 sender.pid);
+
+                        (void) pidref_kill(&sender, SIGTERM);
+                        worker->state = WORKER_KILLED;
+                }
+                return 0;
+        }
+
         if (strv_contains(l, "TRY_AGAIN=1"))
                 /* Worker cannot lock the device. Requeue the event. */
                 event_requeue(worker->event);
@@ -1078,6 +1127,10 @@ static int manager_start_device_monitor(Manager *manager) {
         if (r < 0)
                 return log_error_errno(r, "Failed to start device monitor: %m");
 
+        r = sd_event_source_set_priority(sd_device_monitor_get_event_source(manager->monitor), EVENT_PRIORITY_DEVICE_MONITOR);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set priority to device monitor: %m");
+
         return 0;
 }
 
@@ -1089,7 +1142,7 @@ static int manager_start_worker_notify(Manager *manager) {
 
         r = notify_socket_prepare(
                         manager->event,
-                        SD_EVENT_PRIORITY_NORMAL,
+                        EVENT_PRIORITY_WORKER_NOTIFY,
                         on_worker_notify,
                         manager,
                         &manager->worker_notify_socket_path);
