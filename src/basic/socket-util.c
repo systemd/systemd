@@ -1463,7 +1463,6 @@ int socket_autobind(int fd, char **ret_name) {
          * "autobind" feature, but uses 64-bit random number internally. */
 
         assert(fd >= 0);
-        assert(ret_name);
 
         random = random_u64();
 
@@ -1480,7 +1479,8 @@ int socket_autobind(int fd, char **ret_name) {
         if (bind(fd, &sa.sa, r) < 0)
                 return -errno;
 
-        *ret_name = TAKE_PTR(name);
+        if (ret_name)
+                *ret_name = TAKE_PTR(name);
         return 0;
 }
 
