@@ -1087,27 +1087,6 @@ static int manager_listen_fds(Manager *manager) {
         return 0;
 }
 
-int manager_init(Manager *manager) {
-        int r;
-
-        assert(manager);
-
-        r = manager_listen_fds(manager);
-        if (r < 0)
-                return log_error_errno(r, "Failed to listen on fds: %m");
-
-        _cleanup_free_ char *cgroup = NULL;
-        r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, 0, &cgroup);
-        if (r < 0)
-                log_debug_errno(r, "Failed to get cgroup, ignoring: %m");
-        else if (endswith(cgroup, "/udev")) { /* If we are in a subcgroup /udev/ we assume it was delegated to us */
-                log_debug("Running in delegated subcgroup '%s'.", cgroup);
-                manager->cgroup = TAKE_PTR(cgroup);
-        }
-
-        return 0;
-}
-
 static int manager_start_device_monitor(Manager *manager) {
         int r;
 
@@ -1205,7 +1184,20 @@ int manager_main(Manager *manager) {
 
         assert(manager);
 
+        _cleanup_free_ char *cgroup = NULL;
+        r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, 0, &cgroup);
+        if (r < 0)
+                log_debug_errno(r, "Failed to get cgroup, ignoring: %m");
+        else if (endswith(cgroup, "/udev")) { /* If we are in a subcgroup /udev/ we assume it was delegated to us */
+                log_debug("Running in delegated subcgroup '%s'.", cgroup);
+                manager->cgroup = TAKE_PTR(cgroup);
+        }
+
         r = manager_setup_event(manager);
+        if (r < 0)
+                return r;
+
+        r = manager_listen_fds(manager);
         if (r < 0)
                 return r;
 
