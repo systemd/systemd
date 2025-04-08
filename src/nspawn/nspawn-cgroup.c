@@ -87,9 +87,9 @@ int create_subcgroup(
                 return log_oom();
 
         if (userns_mode != USER_NAMESPACE_MANAGED)
-                r = cg_create_and_attach(SYSTEMD_CGROUP_CONTROLLER, payload, pid);
+                r = cg_create_and_attach(payload, pid);
         else
-                r = cg_create(SYSTEMD_CGROUP_CONTROLLER, payload);
+                r = cg_create(payload);
         if (r < 0)
                 return log_error_errno(r, "Failed to create %s subcgroup: %m", payload);
 
@@ -124,13 +124,13 @@ int create_subcgroup(
                 if (!supervisor)
                         return log_oom();
 
-                r = cg_create_and_attach(SYSTEMD_CGROUP_CONTROLLER, supervisor, 0);
+                r = cg_create_and_attach(supervisor, 0);
                 if (r < 0)
                         return log_error_errno(r, "Failed to create %s subcgroup: %m", supervisor);
         }
 
         /* Try to enable as many controllers as possible for the new payload. */
-        (void) cg_enable_everywhere(supported, supported, cgroup, NULL);
+        (void) cg_enable(supported, supported, cgroup, NULL);
         return 0;
 }
 

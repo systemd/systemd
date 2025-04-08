@@ -173,7 +173,6 @@ static void unit_init(Unit *u) {
 
                 cc->cpu_accounting = u->manager->defaults.cpu_accounting;
                 cc->io_accounting = u->manager->defaults.io_accounting;
-                cc->blockio_accounting = u->manager->defaults.blockio_accounting;
                 cc->memory_accounting = u->manager->defaults.memory_accounting;
                 cc->tasks_accounting = u->manager->defaults.tasks_accounting;
                 cc->ip_accounting = u->manager->defaults.ip_accounting;
@@ -753,8 +752,6 @@ Unit* unit_free(Unit *u) {
         bus_unit_send_removed_signal(u);
 
         unit_done(u);
-
-        unit_dequeue_rewatch_pids(u);
 
         u->match_bus_slot = sd_bus_slot_unref(u->match_bus_slot);
         u->bus_track = sd_bus_track_unref(u->bus_track);
@@ -1572,9 +1569,6 @@ static int unit_add_oomd_dependencies(Unit *u) {
 
         bool wants_oomd = c->moom_swap == MANAGED_OOM_KILL || c->moom_mem_pressure == MANAGED_OOM_KILL;
         if (!wants_oomd)
-                return 0;
-
-        if (!cg_all_unified())
                 return 0;
 
         r = cg_mask_supported(&mask);
@@ -2888,87 +2882,6 @@ void unit_unwatch_pidref_done(Unit *u, PidRef *pidref) {
 
         unit_unwatch_pidref(u, pidref);
         pidref_done(pidref);
-}
-
-static void unit_tidy_watch_pids(Unit *u) {
-        PidRef *except1, *except2, *e;
-
-        assert(u);
-
-        /* Cleans dead PIDs from our list */
-
-        except1 = unit_main_pid(u);
-        except2 = unit_control_pid(u);
-
-        SET_FOREACH(e, u->pids) {
-                if (pidref_equal(except1, e) || pidref_equal(except2, e))
-                        continue;
-
-                if (pidref_is_unwaited(e) <= 0)
-                        unit_unwatch_pidref(u, e);
-        }
-}
-
-static int on_rewatch_pids_event(sd_event_source *s, void *userdata) {
-        Unit *u = ASSERT_PTR(userdata);
-
-        assert(s);
-
-        unit_tidy_watch_pids(u);
-        (void) unit_watch_all_pids(u);
-
-        /* If the PID set is empty now, then let's finish this off. */
-        unit_synthesize_cgroup_empty_event(u);
-
-        return 0;
-}
-
-int unit_enqueue_rewatch_pids(Unit *u) {
-        int r;
-
-        assert(u);
-
-        CGroupRuntime *crt = unit_get_cgroup_runtime(u);
-        if (!crt || !crt->cgroup_path)
-                return -ENOENT;
-
-        r = cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER);
-        if (r < 0)
-                return r;
-        if (r > 0) /* On unified we can use proper notifications */
-                return 0;
-
-        /* Enqueues a low-priority job that will clean up dead PIDs from our list of PIDs to watch and subscribe to new
-         * PIDs that might have appeared. We do this in a delayed job because the work might be quite slow, as it
-         * involves issuing kill(pid, 0) on all processes we watch. */
-
-        if (!u->rewatch_pids_event_source) {
-                _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
-
-                r = sd_event_add_defer(u->manager->event, &s, on_rewatch_pids_event, u);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to allocate event source for tidying watched PIDs: %m");
-
-                r = sd_event_source_set_priority(s, EVENT_PRIORITY_REWATCH_PIDS);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to adjust priority of event source for tidying watched PIDs: %m");
-
-                (void) sd_event_source_set_description(s, "tidy-watch-pids");
-
-                u->rewatch_pids_event_source = TAKE_PTR(s);
-        }
-
-        r = sd_event_source_set_enabled(u->rewatch_pids_event_source, SD_EVENT_ONESHOT);
-        if (r < 0)
-                return log_error_errno(r, "Failed to enable event source for tidying watched PIDs: %m");
-
-        return 0;
-}
-
-void unit_dequeue_rewatch_pids(Unit *u) {
-        assert(u);
-
-        u->rewatch_pids_event_source = sd_event_source_disable_unref(u->rewatch_pids_event_source);
 }
 
 bool unit_job_is_applicable(Unit *u, JobType j) {
@@ -4892,16 +4805,7 @@ int unit_kill_context(Unit *u, KillOperation k) {
 
                 } else if (r > 0) {
 
-                        /* FIXME: For now, on the legacy hierarchy, we will not wait for the cgroup members to die if
-                         * we are running in a container or if this is a delegation unit, simply because cgroup
-                         * notification is unreliable in these cases. It doesn't work at all in containers, and outside
-                         * of containers it can be confused easily by left-over directories in the cgroup — which
-                         * however should not exist in non-delegated units. On the unified hierarchy that's different,
-                         * there we get proper events. Hence rely on them. */
-
-                        if (cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER) > 0 ||
-                            (detect_container() == 0 && !unit_cgroup_delegate(u)))
-                                wait_for_exit = true;
+                        wait_for_exit = true;
 
                         if (send_sighup) {
                                 r = unit_pid_set(u, &pid_set);
@@ -5501,7 +5405,7 @@ int unit_fork_helper_process(Unit *u, const char *name, bool into_cgroup, PidRef
         (void) ignore_signals(SIGPIPE);
 
         if (crt && crt->cgroup_path) {
-                r = cg_attach_everywhere(u->manager->cgroup_supported, crt->cgroup_path, 0);
+                r = cg_attach(crt->cgroup_path, 0);
                 if (r < 0) {
                         log_unit_error_errno(u, r, "Failed to join unit cgroup %s: %m", empty_to_root(crt->cgroup_path));
                         _exit(EXIT_CGROUP);
