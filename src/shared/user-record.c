@@ -1611,6 +1611,7 @@ int user_record_load(UserRecord *h, sd_json_variant *v, UserRecordLoadFlags load
                 { "userName",                   SD_JSON_VARIANT_STRING,        json_dispatch_user_group_name,        offsetof(UserRecord, user_name),                     SD_JSON_RELAX  },
                 { "aliases",                    SD_JSON_VARIANT_ARRAY,         json_dispatch_user_group_list,        offsetof(UserRecord, aliases),                       SD_JSON_RELAX  },
                 { "realm",                      SD_JSON_VARIANT_STRING,        json_dispatch_realm,                  offsetof(UserRecord, realm),                         0              },
+                { "uuid",                       SD_JSON_VARIANT_STRING,        sd_json_dispatch_id128,               offsetof(UserRecord, uuid),                          0              },
                 { "blobDirectory",              SD_JSON_VARIANT_STRING,        json_dispatch_path,                   offsetof(UserRecord, blob_directory),                SD_JSON_STRICT },
                 { "blobManifest",               SD_JSON_VARIANT_OBJECT,        dispatch_blob_manifest,               offsetof(UserRecord, blob_manifest),                 0              },
                 { "realName",                   SD_JSON_VARIANT_STRING,        json_dispatch_gecos,                  offsetof(UserRecord, real_name),                     0              },

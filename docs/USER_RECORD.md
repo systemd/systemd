@@ -234,6 +234,13 @@ retrievable and resolvable under every name listed here, pretty much everywhere
 the primary user name is. If logging in is attempted via an alias name it
 should be normalized to the primary name.
 
+`uuid` -> A string containing a lowercase UUID that identifies this user.
+The UUID should be assigned to the user at creation, be the same across multiple machines,
+and never change (even if the user's username, realm or other identifying attributes change).
+When the user database is backed by Microsoft Active Directory, this field should contain
+he value from the [objectGUID](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-ada3/937eb5c6-f6b3-4652-a276-5d6bb8979658)
+attribute. The same UUID can be retrieved via `mbr_uid_to_uuid` on macOS.
+
 `blobDirectory` → The absolute path to a world-readable copy of the user's blob
 directory. See [Blob Directories](/USER_RECORD_BLOB_DIRS) for more details.
 
