@@ -28,7 +28,7 @@ cleanup() {
 # Set up a test device
 trap cleanup EXIT
 
-rules="/run/udev/rules.d/99-test-17.13.rules"
+rules="/run/udev/rules.d/99-test-17.global-property.rules"
 
 mkdir -p "${rules%/*}"
 cat > "$rules" <<'EOF'
