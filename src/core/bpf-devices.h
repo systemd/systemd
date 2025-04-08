@@ -15,7 +15,6 @@ int bpf_devices_apply_policy(
                 const char *cgroup_path,
                 BPFProgram **prog_installed);
 
-int bpf_devices_supported(void);
 int bpf_devices_allow_list_device(BPFProgram *prog, const char *path, const char *node, CGroupDevicePermissions p);
 int bpf_devices_allow_list_major(BPFProgram *prog, const char *path, const char *name, char type, CGroupDevicePermissions p);
 int bpf_devices_allow_list_static(BPFProgram *prog, const char *path);
