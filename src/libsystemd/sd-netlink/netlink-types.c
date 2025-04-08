@@ -51,6 +51,7 @@ const NLAPolicySetUnion *policy_get_policy_set_union(const NLAPolicy *policy) {
 int netlink_get_policy_set_and_header_size(
                 sd_netlink *nl,
                 uint16_t type,
+                uint16_t flags,
                 const NLAPolicySet **ret_policy_set,
                 size_t *ret_header_size) {
 
