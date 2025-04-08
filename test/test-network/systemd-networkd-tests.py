@@ -29,6 +29,7 @@ import signal
 import socket
 import subprocess
 import sys
+import tempfile
 import time
 import unittest
 
@@ -4228,6 +4229,62 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'inet 10.1.2.3/16 scope global dummy98')
         self.assertNotRegex(output, 'inet 10.2.3.4/16 scope global dynamic dummy98')
 
+    def check_keep_configuration_on_restart(self):
+        self.wait_online('dummy98:routable')
+        self.wait_online('unmanaged0:routable', setup_state='unmanaged')
+
+        print('### ip -6 address show dev dummy98')
+        output = check_output('ip -6 address show dev dummy98')
+        print(output)
+        self.assertIn('inet6 2001:db8:0:f101::15/64 scope global', output)
+        self.assertIn('inet6 2001:db8:1:f101::15/64 scope global deprecated', output)
+
+        print('### ip -6 address show dev unmanaged0')
+        output = check_output('ip -6 address show dev unmanaged0')
+        print(output)
+        self.assertIn('inet6 2001:db8:9999:f101::15/64 scope global', output)
+
+        print('### ip -6 route show default dev dummy98')
+        output = check_output('ip -6 route show default dev dummy98')
+        print(output)
+        self.assertIn('default via fe80::f0ca:cc1a proto static metric 1 pref medium', output)
+
+    def test_keep_configuration_on_restart(self):
+        # Add an unmanaged interface with an up address
+        call('ip link add unmanaged0 type dummy')
+        call('ip link set unmanaged0 up')
+        call('ip -6 addr add 2001:db8:9999:f101::15/64 dev unmanaged0')
+
+        copy_network_unit('12-dummy.netdev', '85-static-ipv6.network')
+        start_networkd()
+        self.check_keep_configuration_on_restart()
+
+        # Start `ip monitor` with output to a temporary file
+        with tempfile.TemporaryFile(mode='r+', prefix='ip_monitor') as logfile:
+            process = subprocess.Popen(['ip', 'monitor', 'dev', 'dummy98'], stdout=logfile, text=True)
+            restart_networkd()
+            self.check_keep_configuration_on_restart()
+
+            process.send_signal(signal.SIGTERM)
+            process.wait()
+
+            print('### ip monitor dev dummy98 BEGIN')
+
+            # Read the `ip monitor` output looking for network changes
+            logfile.seek(0)
+            for line in logfile:
+                print(line, end="")
+                # Check if a link went down
+                self.assertNotRegex(line, 'unmanaged0: .* state DOWN')
+                self.assertNotRegex(line, 'dummy98: .* state DOWN')
+                # Check if an address was removed
+                self.assertNotRegex(line, '^Deleted .* 2001:db8:')
+                self.assertNotRegex(line, '^Deleted 2001:db8:.*/64')
+                # Check if the default route was removed
+                self.assertNotRegex(line, '^Deleted default via fe80::f0ca:cc1a')
+
+            print('### ip monitor dev dummy98 END')
+
     def check_nexthop(self, manage_foreign_nexthops, first):
         self.wait_online('veth99:routable', 'veth-peer:routable', 'dummy98:routable')
 
@@ -7878,6 +7935,10 @@ if __name__ == '__main__':
         source_dir = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../"))
     else:
         source_dir = None
+
+    if networkd_bin is None or resolved_bin is None or timesyncd_bin is None:
+        print("networkd tests require networkd/resolved/timesyncd to be enabled")
+        sys.exit(77)
 
     use_valgrind = ns.use_valgrind
     enable_debug = ns.enable_debug

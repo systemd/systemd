@@ -13,6 +13,7 @@ if [[ -d "pkg/$PKG_SUBDIR/.git" ]]; then
     fi
 
     if [[ -n "$(git -C "pkg/$PKG_SUBDIR" status --porcelain)" ]]; then
+        echo "pkg/$PKG_SUBDIR is dirty, not checking out commit $GIT_COMMIT" >&2
         exit 0
     fi
 
@@ -25,6 +26,7 @@ if [[ -d "pkg/$PKG_SUBDIR/.git" ]]; then
     if ! git -C "pkg/$PKG_SUBDIR" merge-base --is-ancestor HEAD "origin/$GIT_BRANCH"; then
         EXIT_STATUS=$?
         if [[ $EXIT_STATUS -eq 1 ]]; then
+            echo "Currently checked out pkg/$PKG_SUBDIR commit is not an ancestor of origin/$GIT_BRANCH, not checking out commit $GIT_COMMIT" >&2
             exit 0
         else
             exit $EXIT_STATUS
