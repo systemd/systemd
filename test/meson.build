@@ -282,6 +282,9 @@ if want_tests != 'false'
 endif
 
 if install_tests
+        install_subdir('integration-tests',
+                       install_dir : testsdir)
+
         foreach integration_test : integration_tests
                 integration_test_unit_env = []
                 integration_test_extra_unit_properties = []
