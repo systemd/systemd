@@ -93,7 +93,7 @@ _udevadm() {
                        -g --tag-match -y --sysname-match --name-match -b --parent-match
                        --prioritized-subsystem'
         [SETTLE]='-t --timeout -E --exit-if-exists'
-        [CONTROL_STANDALONE]='-e --exit -s --stop-exec-queue -S --start-exec-queue -R --reload --ping
+        [CONTROL_STANDALONE]='-e --exit -s --stop-exec-queue -S --start-exec-queue -R --reload --ping --revert
                               --load-credentials'
         [CONTROL_ARG]='-l --log-priority -p --property -m --children-max -t --timeout --trace'
         [MONITOR_STANDALONE]='-k --kernel -u --udev -p --property'

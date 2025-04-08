@@ -11,6 +11,7 @@
 #include "fd-util.h"
 #include "fs-util.h"
 #include "hashmap.h"
+#include "io-util.h"
 #include "iovec-util.h"
 #include "list.h"
 #include "mkdir.h"
@@ -148,6 +149,8 @@ Manager* manager_free(Manager *manager) {
         free(manager->worker_notify_socket_path);
 
         sd_device_monitor_unref(manager->monitor);
+        sd_device_monitor_unref(manager->event_storage);
+
         udev_ctrl_unref(manager->ctrl);
         sd_varlink_server_unref(manager->varlink_server);
 
@@ -186,6 +189,10 @@ static int worker_new(Worker **ret, Manager *manager, sd_device_monitor *worker_
                 return r;
 
         r = event_add_child_pidref(manager->event, &worker->child_event_source, &worker->pidref, WEXITED, on_sigchld, worker);
+        if (r < 0)
+                return r;
+
+        r = sd_event_source_set_priority(worker->child_event_source, EVENT_PRIORITY_WORKER_SIGCHLD);
         if (r < 0)
                 return r;
 
@@ -257,8 +264,11 @@ void manager_exit(Manager *manager) {
         /* close sources of new events and discard buffered events */
         manager->ctrl = udev_ctrl_unref(manager->ctrl);
         manager->varlink_server = sd_varlink_server_unref(manager->varlink_server);
+        (void) manager_serialize_config(manager);
+
+        /* Disable the event source, but doe not close the inotify fd here, as we may still receive
+         * notification messages about requests to add or remove inotify watches. */
         manager->inotify_event = sd_event_source_disable_unref(manager->inotify_event);
-        manager->inotify_fd = safe_close(manager->inotify_fd);
 
         /* Disable the device monitor but do not free device monitor, as it may be used when a worker failed,
          * and the manager needs to broadcast the kernel event assigned to the worker to libudev listeners.
@@ -329,6 +339,17 @@ void manager_reload(Manager *manager, bool force) {
         notify_ready(manager);
 }
 
+void manager_revert(Manager *manager) {
+        assert(manager);
+
+        UdevReloadFlags flags = manager_revert_config(manager);
+        if (flags == 0)
+                return;
+
+        assert(flags == UDEV_RELOAD_KILL_WORKERS);
+        manager_kill_workers(manager, SIGTERM);
+}
+
 static int on_event_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
         Event *event = ASSERT_PTR(userdata);
 
@@ -394,6 +415,7 @@ static int worker_spawn(Manager *manager, Event *event) {
         if (r < 0)
                 return log_error_errno(r, "Worker: Failed to set unicast sender: %m");
 
+        pid_t manager_pid = getpid_cached();
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         r = pidref_safe_fork("(udev-worker)", FORK_DEATHSIG_SIGTERM, &pidref);
         if (r < 0) {
@@ -405,8 +427,8 @@ static int worker_spawn(Manager *manager, Event *event) {
                         .monitor = TAKE_PTR(worker_monitor),
                         .properties = TAKE_PTR(manager->properties),
                         .rules = TAKE_PTR(manager->rules),
-                        .inotify_fd = TAKE_FD(manager->inotify_fd),
                         .config = manager->config,
+                        .manager_pid = manager_pid,
                 };
 
                 if (setenv("NOTIFY_SOCKET", manager->worker_notify_socket_path, /* overwrite = */ true) < 0) {
@@ -780,6 +802,116 @@ static int event_queue_insert(Manager *manager, sd_device *dev) {
         return 0;
 }
 
+static int manager_serialize_events(Manager *manager) {
+        int r;
+
+        assert(manager);
+
+        _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *storage = NULL, *sender = NULL;
+        r = device_monitor_new_full(&storage, MONITOR_GROUP_NONE, -EBADF);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to create new device monitor instance: %m");
+
+        r = device_monitor_new_full(&sender, MONITOR_GROUP_NONE, -EBADF);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to create new device monitor instance: %m");
+
+        union sockaddr_union a;
+        r = device_monitor_get_address(storage, &a);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to get address of device monitor socket: %m");
+
+        uint64_t n = 0;
+        LIST_FOREACH(event, event, manager->events) {
+                if (event->state != EVENT_QUEUED)
+                        continue;
+
+                r = device_monitor_send(manager->monitor, &a, event->dev);
+                if (r < 0)
+                        return log_device_warning_errno(event->dev, r, "Failed to save event to socket storage: %m");
+
+                n++;
+        }
+
+        if (n == 0)
+                return 0;
+
+        r = notify_push_fd(sd_device_monitor_get_fd(storage), "event-storage");
+        if (r < 0)
+                return log_warning_errno(r, "Failed to push event storage fd to service manager: %m");
+
+        log_debug("Serialized %"PRIu64" events to socket storage.", n);
+        return 0;
+}
+
+static int manager_init_event_storage(Manager *manager, int fd, const char *name) {
+        int r;
+
+        assert(manager);
+        assert(fd >= 0);
+        assert(name);
+
+        /* This takes passed file descriptor on success. */
+
+        if (manager->event_storage)
+                return log_warning_errno(SYNTHETIC_ERRNO(EALREADY), "Received multiple event storage socket (%i), ignoring.", fd);
+
+        r = sd_is_socket(fd, AF_NETLINK, SOCK_RAW, /* listening = */ -1);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to verify type of event storage socket (%i), ignoring: %m", fd);
+        if (r == 0)
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "Received invalid event storage socket (%i), ignoring.", fd);
+
+        r = device_monitor_new_full(&manager->event_storage, MONITOR_GROUP_NONE, fd);
+        if (r < 0)
+                return log_error_errno(r, "Failed to initialize event storage device monitor: %m");
+
+        /* Remove the socket from fdstore, to make not future invocations get events on the previous invocation. */
+        (void) notify_remove_fd_warn(name);
+        return 0;
+}
+
+static int manager_deserialize_events(Manager *manager) {
+        int r;
+
+        assert(manager);
+
+        _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *storage = TAKE_PTR(manager->event_storage);
+        if (!storage)
+                return 0;
+
+        /* Note, we cannot set trusted sender here, as even if we serialize the sender address or sender
+         * socket, the obtained sender address on receive will be different from the serialized one.
+         * Is it a kernel bug? */
+
+        uint64_t n = 0;
+        for (;;) {
+                r = fd_wait_for_event(sd_device_monitor_get_fd(storage), POLLIN, 0);
+                if (r == -EINTR)
+                        continue;
+                if (r < 0)
+                        return log_error_errno(r, "Failed to wait for event: %m");
+                if (r == 0)
+                        break;
+
+                _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+                r = sd_device_monitor_receive(storage, &dev);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to receive device from event storage, ignoring: %m");
+                        continue;
+                }
+
+                r = event_queue_insert(manager, dev);
+                if (r < 0)
+                        return log_device_error_errno(dev, r, "Failed to insert device into event queue: %m");
+
+                n++;
+        }
+
+        log_debug("Deserialized %"PRIu64" events from socket storage.", n);
+        return 0;
+}
+
 static int on_uevent(sd_device_monitor *monitor, sd_device *dev, void *userdata) {
         Manager *manager = ASSERT_PTR(userdata);
         int r;
@@ -817,6 +949,48 @@ static int on_worker_notify(sd_event_source *s, int fd, uint32_t revents, void *
         Worker *worker = hashmap_get(manager->workers, &sender);
         if (!worker) {
                 log_warning("Received notify datagram of unknown process ["PID_FMT"], ignoring.", sender.pid);
+                return 0;
+        }
+
+        if (strv_contains(l, "INOTIFY_WATCH_ADD=1")) {
+                assert(worker->event);
+
+                r = manager_add_watch(manager, worker->event->dev);
+                if (ERRNO_IS_NEG_DEVICE_ABSENT(r))
+                        r = 0;
+                if (r < 0)
+                        log_device_warning_errno(worker->event->dev, r, "Failed to add inotify watch, ignoring: %m");
+
+                /* Send the result back to the worker process. */
+                r = pidref_sigqueue(&sender, SIGUSR1, r);
+                if (r < 0) {
+                        log_device_warning_errno(worker->event->dev, r,
+                                                 "Failed to send signal to worker process ["PID_FMT"], killing the worker process: %m",
+                                                 sender.pid);
+
+                        (void) pidref_kill(&sender, SIGTERM);
+                        worker->state = WORKER_KILLED;
+                }
+                return 0;
+        }
+
+        if (strv_contains(l, "INOTIFY_WATCH_REMOVE=1")) {
+                assert(worker->event);
+
+                r = manager_remove_watch(manager, worker->event->dev);
+                if (r < 0)
+                        log_device_warning_errno(worker->event->dev, r, "Failed to remove inotify watch, ignoring: %m");
+
+                /* Send the result back to the worker process. */
+                r = pidref_sigqueue(&sender, SIGUSR1, r);
+                if (r < 0) {
+                        log_device_warning_errno(worker->event->dev, r,
+                                                 "Failed to send signal to worker process ["PID_FMT"], killing the worker process: %m",
+                                                 sender.pid);
+
+                        (void) pidref_kill(&sender, SIGTERM);
+                        worker->state = WORKER_KILLED;
+                }
                 return 0;
         }
 
@@ -927,6 +1101,8 @@ static int on_post_exit(Manager *manager) {
         if (!hashmap_isempty(manager->workers))
                 return 0; /* There still exist running workers. */
 
+        (void) manager_serialize_events(manager);
+
         udev_watch_dump();
         return sd_event_exit(manager->event, 0);
 }
@@ -1028,6 +1204,10 @@ static int manager_listen_fds(Manager *manager) {
                         r = manager_init_device_monitor(manager, fd);
                 else if (streq(names[i], "inotify"))
                         r = manager_init_inotify(manager, fd);
+                else if (streq(names[i], "event-storage"))
+                        r = manager_init_event_storage(manager, fd, names[i]);
+                else if (streq(names[i], "config-serialization"))
+                        r = manager_deserialize_config(manager, &fd);
                 else
                         r = log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                             "Received unexpected fd (%s), ignoring.", names[i]);
@@ -1078,6 +1258,10 @@ static int manager_start_device_monitor(Manager *manager) {
         if (r < 0)
                 return log_error_errno(r, "Failed to start device monitor: %m");
 
+        r = sd_event_source_set_priority(sd_device_monitor_get_event_source(manager->monitor), EVENT_PRIORITY_DEVICE_MONITOR);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set priority to device monitor: %m");
+
         return 0;
 }
 
@@ -1089,7 +1273,7 @@ static int manager_start_worker_notify(Manager *manager) {
 
         r = notify_socket_prepare(
                         manager->event,
-                        SD_EVENT_PRIORITY_NORMAL,
+                        EVENT_PRIORITY_WORKER_NOTIFY,
                         on_worker_notify,
                         manager,
                         &manager->worker_notify_socket_path);
@@ -1173,6 +1357,10 @@ int manager_main(Manager *manager) {
                 return r;
 
         r = manager_start_worker_notify(manager);
+        if (r < 0)
+                return r;
+
+        r = manager_deserialize_events(manager);
         if (r < 0)
                 return r;
 
