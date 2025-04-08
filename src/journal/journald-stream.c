@@ -840,10 +840,9 @@ static int stdout_stream_restore(Server *s, const char *fname, int fd) {
         assert(fname);
         assert(fd >= 0);
 
-        if (s->n_stdout_streams >= STDOUT_STREAMS_MAX) {
-                log_warning("Too many stdout streams, refusing restoring of stream.");
-                return -ENOBUFS;
-        }
+        if (s->n_stdout_streams >= STDOUT_STREAMS_MAX)
+                return log_warning_errno(SYNTHETIC_ERRNO(ENOBUFS),
+                                         "Too many stdout streams, refusing restoring of stream.");
 
         r = stdout_stream_install(s, fd, &stream);
         if (r < 0)
