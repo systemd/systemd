@@ -1370,7 +1370,7 @@ static usec_t cgroup_cpu_adjust_period_and_log(Unit *u, usec_t period, usec_t qu
         return new_period;
 }
 
-static void cgroup_apply_unified_cpu_weight(Unit *u, uint64_t weight) {
+static void cgroup_apply_cpu_weight(Unit *u, uint64_t weight) {
         char buf[DECIMAL_STR_MAX(uint64_t) + 2];
 
         if (weight == CGROUP_WEIGHT_IDLE)
@@ -1379,7 +1379,7 @@ static void cgroup_apply_unified_cpu_weight(Unit *u, uint64_t weight) {
         (void) set_attribute_and_warn(u, "cpu", "cpu.weight", buf);
 }
 
-static void cgroup_apply_unified_cpu_idle(Unit *u, uint64_t weight) {
+static void cgroup_apply_cpu_idle(Unit *u, uint64_t weight) {
         int r;
         bool is_idle;
         const char *idle_val;
@@ -1398,7 +1398,7 @@ static void cgroup_apply_unified_cpu_idle(Unit *u, uint64_t weight) {
                                     "cpu.idle", empty_to_root(crt->cgroup_path), idle_val);
 }
 
-static void cgroup_apply_unified_cpu_quota(Unit *u, usec_t quota, usec_t period) {
+static void cgroup_apply_cpu_quota(Unit *u, usec_t quota, usec_t period) {
         char buf[(DECIMAL_STR_MAX(usec_t) + 1) * 2 + 1];
 
         assert(u);
@@ -1412,7 +1412,7 @@ static void cgroup_apply_unified_cpu_quota(Unit *u, usec_t quota, usec_t period)
         (void) set_attribute_and_warn(u, "cpu", "cpu.max", buf);
 }
 
-static void cgroup_apply_unified_cpuset(Unit *u, const CPUSet *cpus, const char *name) {
+static void cgroup_apply_cpuset(Unit *u, const CPUSet *cpus, const char *name) {
         _cleanup_free_ char *buf = NULL;
 
         buf = cpu_set_to_range_string(cpus);
@@ -1555,7 +1555,7 @@ static void cgroup_apply_io_device_limit(Unit *u, const char *dev_path, uint64_t
         (void) set_attribute_and_warn(u, "io", "io.max", buf);
 }
 
-static bool unit_has_unified_memory_config(Unit *u) {
+static bool unit_has_memory_config(Unit *u) {
         CGroupContext *c;
 
         assert(u);
@@ -1570,7 +1570,7 @@ static bool unit_has_unified_memory_config(Unit *u) {
                c->memory_zswap_max != CGROUP_LIMIT_MAX || c->startup_memory_zswap_max_set;
 }
 
-static void cgroup_apply_unified_memory_limit(Unit *u, const char *file, uint64_t v) {
+static void cgroup_apply_memory_limit(Unit *u, const char *file, uint64_t v) {
         char buf[DECIMAL_STR_MAX(uint64_t) + 1] = "max\n";
 
         if (v != CGROUP_LIMIT_MAX)
@@ -1771,14 +1771,14 @@ static void cgroup_context_apply(
                 else
                         weight = CGROUP_WEIGHT_DEFAULT;
 
-                cgroup_apply_unified_cpu_idle(u, weight);
-                cgroup_apply_unified_cpu_weight(u, weight);
-                cgroup_apply_unified_cpu_quota(u, c->cpu_quota_per_sec_usec, c->cpu_quota_period_usec);
+                cgroup_apply_cpu_idle(u, weight);
+                cgroup_apply_cpu_weight(u, weight);
+                cgroup_apply_cpu_quota(u, c->cpu_quota_per_sec_usec, c->cpu_quota_period_usec);
         }
 
         if ((apply_mask & CGROUP_MASK_CPUSET) && !is_local_root) {
-                cgroup_apply_unified_cpuset(u, cgroup_context_allowed_cpus(c, state), "cpuset.cpus");
-                cgroup_apply_unified_cpuset(u, cgroup_context_allowed_mems(c, state), "cpuset.mems");
+                cgroup_apply_cpuset(u, cgroup_context_allowed_cpus(c, state), "cpuset.cpus");
+                cgroup_apply_cpuset(u, cgroup_context_allowed_mems(c, state), "cpuset.mems");
         }
 
         /* The 'io' controller attributes are not exported on the host's root cgroup (being a pure cgroup v2
@@ -1813,7 +1813,7 @@ static void cgroup_context_apply(
         if ((apply_mask & CGROUP_MASK_MEMORY) && !is_local_root) {
                 uint64_t max = CGROUP_LIMIT_MAX, swap_max = CGROUP_LIMIT_MAX, zswap_max = CGROUP_LIMIT_MAX, high = CGROUP_LIMIT_MAX;
 
-                if (unit_has_unified_memory_config(u)) {
+                if (unit_has_memory_config(u)) {
                         bool startup = IN_SET(state, MANAGER_STARTING, MANAGER_INITIALIZING, MANAGER_STOPPING);
 
                         high = startup && c->startup_memory_high_set ? c->startup_memory_high : c->memory_high;
@@ -1822,12 +1822,12 @@ static void cgroup_context_apply(
                         zswap_max = startup && c->startup_memory_zswap_max_set ? c->startup_memory_zswap_max : c->memory_zswap_max;
                 }
 
-                cgroup_apply_unified_memory_limit(u, "memory.min", unit_get_ancestor_memory_min(u));
-                cgroup_apply_unified_memory_limit(u, "memory.low", unit_get_ancestor_memory_low(u));
-                cgroup_apply_unified_memory_limit(u, "memory.high", high);
-                cgroup_apply_unified_memory_limit(u, "memory.max", max);
-                cgroup_apply_unified_memory_limit(u, "memory.swap.max", swap_max);
-                cgroup_apply_unified_memory_limit(u, "memory.zswap.max", zswap_max);
+                cgroup_apply_memory_limit(u, "memory.min", unit_get_ancestor_memory_min(u));
+                cgroup_apply_memory_limit(u, "memory.low", unit_get_ancestor_memory_low(u));
+                cgroup_apply_memory_limit(u, "memory.high", high);
+                cgroup_apply_memory_limit(u, "memory.max", max);
+                cgroup_apply_memory_limit(u, "memory.swap.max", swap_max);
+                cgroup_apply_memory_limit(u, "memory.zswap.max", zswap_max);
 
                 (void) set_attribute_and_warn(u, "memory", "memory.oom.group", one_zero(c->memory_oom_group));
                 (void) set_attribute_and_warn(u, "memory", "memory.zswap.writeback", one_zero(c->memory_zswap_writeback));
@@ -1980,7 +1980,7 @@ static CGroupMask unit_get_cgroup_mask(Unit *u) {
                 mask |= CGROUP_MASK_IO | CGROUP_MASK_BLKIO;
 
         if (c->memory_accounting ||
-            unit_has_unified_memory_config(u))
+            unit_has_memory_config(u))
                 mask |= CGROUP_MASK_MEMORY;
 
         if (c->device_allow ||
