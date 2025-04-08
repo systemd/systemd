@@ -9,3 +9,8 @@ echo "Hello from dummy init, beautiful day, innit?"
 ip link
 EOF
 chmod +x "$BUILDROOT/sbin/init"
+
+# Arch relies on tmpfiles.d/etc.conf but this image isn't booted
+if [ ! -e "$BUILDROOT/etc/os-release" ]; then
+    ln -s ../usr/lib/os-release "$BUILDROOT/etc/os-release"
+fi
