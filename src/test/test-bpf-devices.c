@@ -257,6 +257,11 @@ int main(int argc, char *argv[]) {
 
         test_setup_logging(LOG_DEBUG);
 
+        r = bpf_program_supported();
+        if (r < 0)
+                return log_tests_skipped_errno(r, "BPF device filter not supported");
+        ASSERT_TRUE(r);
+
         ASSERT_OK(getrlimit(RLIMIT_MEMLOCK, &rl));
         rl.rlim_cur = rl.rlim_max = MAX(rl.rlim_max, CAN_MEMLOCK_SIZE);
         (void) setrlimit(RLIMIT_MEMLOCK, &rl);
@@ -273,11 +278,6 @@ int main(int argc, char *argv[]) {
                 return log_tests_skipped("cgroupfs not available");
         if (r < 0)
                 return log_tests_skipped_errno(r, "Failed to prepare cgroup subtree");
-
-        r = bpf_devices_supported();
-        if (r == 0)
-                return log_tests_skipped("BPF device filter not supported");
-        ASSERT_EQ(r, 1);
 
         r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, cgroup, NULL, &controller_path);
         ASSERT_OK(r);
