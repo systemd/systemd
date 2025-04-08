@@ -44,7 +44,7 @@ def read_config(distro: str):
 
 def commit_file(distro: str, files: list[Path], commit: str, changes: str):
     message = '\n'.join((
-        f'mkosi: update {distro} commit reference',
+        f'mkosi: update {distro} commit reference to {commit}',
         '',
         changes))
 
