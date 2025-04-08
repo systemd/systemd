@@ -101,6 +101,7 @@ static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 static char *arg_shell_prompt_prefix = NULL;
 static int arg_lightweight = -1;
 static char *arg_area = NULL;
+static bool arg_switch_shell = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_description, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_environment, strv_freep);
@@ -212,6 +213,7 @@ static int help_sudo_mode(void) {
                "  -g --group=GROUP                Run as system group\n"
                "     --nice=NICE                  Nice level\n"
                "  -D --chdir=PATH                 Set working directory\n"
+               "  -i --switch-shell               Invoke command using target user's login shell\n"
                "     --setenv=NAME[=VALUE]        Set environment variable\n"
                "     --background=COLOR           Set ANSI color for background\n"
                "     --pty                        Request allocation of a pseudo TTY for stdio\n"
@@ -842,6 +844,7 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                 { "group",               required_argument, NULL, 'g'                     },
                 { "nice",                required_argument, NULL, ARG_NICE                },
                 { "chdir",               required_argument, NULL, 'D'                     },
+                { "switch-shell",        no_argument,       NULL, 'i'                     },
                 { "setenv",              required_argument, NULL, ARG_SETENV              },
                 { "background",          required_argument, NULL, ARG_BACKGROUND          },
                 { "pty",                 no_argument,       NULL, ARG_PTY                 },
@@ -861,7 +864,7 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
         /* Resetting to 0 forces the invocation of an internal initialization routine of getopt_long()
          * that checks for GNU extensions in optstring ('-' or '+' at the beginning). */
         optind = 0;
-        while ((c = getopt_long(argc, argv, "+hVu:g:D:a:", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "+hVu:g:D:a:i", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -975,6 +978,10 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
 
                         break;
 
+                case 'i':
+                        arg_switch_shell = true;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -1025,7 +1032,7 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
         _cleanup_strv_free_ char **l = NULL;
         if (argc > optind)
                 l = strv_copy(argv + optind);
-        else {
+        else if (!arg_switch_shell) {
                 const char *e;
 
                 e = strv_env_get(arg_environment, "SHELL");
@@ -1053,6 +1060,16 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
         }
         if (!l)
                 return log_oom();
+
+        if (arg_switch_shell) {
+                arg_exec_path = strdup("/bin/sh");
+                if (!arg_exec_path)
+                        return log_oom();
+
+                r = strv_prepend(&l, "-sh");
+                if (r < 0)
+                        return log_oom();
+        }
 
         strv_free_and_replace(arg_cmdline, l);
 
@@ -1260,10 +1277,8 @@ static int transient_kill_set_properties(sd_bus_message *m) {
 static int transient_service_set_properties(sd_bus_message *m, const char *pty_path, int pty_fd) {
         int r, send_term; /* tri-state */
 
-        /* We disable environment expansion on the server side via ExecStartEx=:.
-         * ExecStartEx was added relatively recently (v243), and some bugs were fixed only later.
-         * So use that feature only if required. It will fail with older systemds. */
-        bool use_ex_prop = !arg_expand_environment;
+        /* Use ExecStartEx if new exec flags are required. */
+        bool use_ex_prop = !arg_expand_environment || arg_switch_shell;
 
         assert(m);
         assert((!!pty_path) == (pty_fd >= 0));
@@ -1450,7 +1465,9 @@ static int transient_service_set_properties(sd_bus_message *m, const char *pty_p
                         _cleanup_strv_free_ char **opts = NULL;
 
                         r = exec_command_flags_to_strv(
-                                        (arg_expand_environment ? 0 : EXEC_COMMAND_NO_ENV_EXPAND)|(arg_ignore_failure ? EXEC_COMMAND_IGNORE_FAILURE : 0),
+                                        (arg_expand_environment ? 0 : EXEC_COMMAND_NO_ENV_EXPAND)|
+                                        (arg_ignore_failure ? EXEC_COMMAND_IGNORE_FAILURE : 0)|
+                                        (arg_switch_shell ? EXEC_COMMAND_PREFIX_SHELL : 0),
                                         &opts);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to format execute flags: %m");
