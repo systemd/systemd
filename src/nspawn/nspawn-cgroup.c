@@ -4,6 +4,7 @@
 
 #include "alloc-util.h"
 #include "cgroup-setup.h"
+#include "chase.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
@@ -135,12 +136,10 @@ int create_subcgroup(
 }
 
 int mount_cgroups(const char *dest, bool accept_existing) {
-        const char *p;
+        char *p;
         int r;
 
-        p = prefix_roota(dest, "/sys/fs/cgroup");
-
-        (void) mkdir_p(p, 0755);
+        chase("/sys/fs/cgroup", dest, CHASE_MKDIR_0755, &p, NULL);
 
         r = path_is_mount_point_full(p, dest, AT_SYMLINK_FOLLOW);
         if (r < 0)
