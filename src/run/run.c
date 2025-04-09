@@ -215,6 +215,7 @@ static int help_sudo_mode(void) {
                "  -D --chdir=PATH                 Set working directory\n"
                "  -i --switch-shell               Invoke command using target user's login shell\n"
                "     --setenv=NAME[=VALUE]        Set environment variable\n"
+               "     --expand-environment=BOOL    Control expansion of environment variables\n"
                "     --background=COLOR           Set ANSI color for background\n"
                "     --pty                        Request allocation of a pseudo TTY for stdio\n"
                "     --pty-late                   Just like --pty, but leave TTY access to agents\n"
@@ -825,6 +826,7 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                 ARG_PIPE,
                 ARG_SHELL_PROMPT_PREFIX,
                 ARG_LIGHTWEIGHT,
+                ARG_EXPAND_ENVIRONMENT,
         };
 
         /* If invoked as "run0" binary, let's expose a more sudo-like interface. We add various extensions
@@ -846,6 +848,7 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                 { "chdir",               required_argument, NULL, 'D'                     },
                 { "switch-shell",        no_argument,       NULL, 'i'                     },
                 { "setenv",              required_argument, NULL, ARG_SETENV              },
+                { "expand-environment",  required_argument, NULL, ARG_EXPAND_ENVIRONMENT  },
                 { "background",          required_argument, NULL, ARG_BACKGROUND          },
                 { "pty",                 no_argument,       NULL, ARG_PTY                 },
                 { "pty-late",            no_argument,       NULL, ARG_PTY_LATE            },
@@ -936,6 +939,12 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Cannot assign environment variable %s: %m", optarg);
 
+                        break;
+
+                case ARG_EXPAND_ENVIRONMENT:
+                        r = parse_boolean_argument("--expand-environment=", optarg, &arg_expand_environment);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_BACKGROUND:
