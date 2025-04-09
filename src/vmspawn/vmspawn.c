@@ -1974,6 +1974,13 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return log_oom();
         }
 
+        if (arg_image || strv_length(arg_extra_drives) > 0) {
+                r = strv_extend_many(&cmdline, "-device", "virtio-scsi-pci,id=scsi");
+                if (r < 0)
+                        return log_oom();
+        }
+
+        unsigned i = 0;
         STRV_FOREACH(drive, arg_extra_drives) {
                 _cleanup_free_ char *escaped_drive = NULL;
 
@@ -1985,7 +1992,15 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (!escaped_drive)
                         return log_oom();
 
-                r = strv_extendf(&cmdline, "driver=raw,cache.direct=off,cache.no-flush=on,file.driver=file,file.filename=%s", escaped_drive);
+                r = strv_extendf(&cmdline, "driver=raw,cache.direct=off,cache.no-flush=on,file.driver=file,file.filename=%s,node-name=vmspawn_extra_%u", escaped_drive, i);
+                if (r < 0)
+                        return log_oom();
+
+                r = strv_extend(&cmdline, "-device");
+                if (r < 0)
+                        return log_oom();
+
+                r = strv_extendf(&cmdline, "scsi-hd,drive=vmspawn_extra_%u", i++);
                 if (r < 0)
                         return log_oom();
         }
@@ -2021,9 +2036,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (r < 0)
                         return log_oom();
 
-                r = strv_extend_many(&cmdline,
-                        "-device", "virtio-scsi-pci,id=scsi",
-                        "-device", "scsi-hd,drive=vmspawn,bootindex=1");
+                r = strv_extend_many(&cmdline, "-device", "scsi-hd,drive=vmspawn,bootindex=1");
                 if (r < 0)
                         return log_oom();
         }
