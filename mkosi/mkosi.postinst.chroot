@@ -42,8 +42,9 @@ done
 # systemd-journald.
 rm -rf "$BUILDROOT/var/log/journal"
 
+# Make sure our own nsswitch.conf from the repository is used instead of the distribution's by deleting the
+# distribution's and relying on tmpfiles to put ours in place during boot.
 rm -f /etc/nsswitch.conf
-cp "$SRCDIR/factory/etc/nsswitch.conf" /etc/nsswitch.conf
 
 # Remove to make TEST-73-LOCALE pass on Ubuntu.
 rm -f /etc/default/keyboard
