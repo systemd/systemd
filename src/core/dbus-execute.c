@@ -1470,11 +1470,12 @@ int bus_property_get_exec_ex_command_list(
         return sd_bus_message_close_container(reply);
 }
 
-static char *exec_command_flags_to_exec_chars(ExecCommandFlags flags) {
+static char* exec_command_flags_to_exec_chars(ExecCommandFlags flags) {
         return strjoin(FLAGS_SET(flags, EXEC_COMMAND_IGNORE_FAILURE)   ? "-" : "",
                        FLAGS_SET(flags, EXEC_COMMAND_NO_ENV_EXPAND)    ? ":" : "",
                        FLAGS_SET(flags, EXEC_COMMAND_FULLY_PRIVILEGED) ? "+" : "",
-                       FLAGS_SET(flags, EXEC_COMMAND_NO_SETUID)        ? "!" : "");
+                       FLAGS_SET(flags, EXEC_COMMAND_NO_SETUID)        ? "!" : "",
+                       FLAGS_SET(flags, EXEC_COMMAND_PREFIX_SHELL)     ? "|" : "");
 }
 
 int bus_set_transient_exec_command(
@@ -1502,30 +1503,58 @@ int bus_set_transient_exec_command(
                 return r;
 
         while ((r = sd_bus_message_enter_container(message, 'r', ex_prop ? "sasas" : "sasb")) > 0) {
-                _cleanup_strv_free_ char **argv = NULL, **ex_opts = NULL;
+                _cleanup_strv_free_ char **argv = NULL;
                 const char *path;
-                int b;
+                ExecCommandFlags command_flags;
 
                 r = sd_bus_message_read(message, "s", &path);
                 if (r < 0)
                         return r;
 
-                if (!path_is_absolute(path) && !filename_is_valid(path))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                                 "\"%s\" is neither a valid executable name nor an absolute path",
-                                                 path);
-
                 r = sd_bus_message_read_strv(message, &argv);
                 if (r < 0)
                         return r;
 
-                if (strv_isempty(argv))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                                 "\"%s\" argv cannot be empty", name);
+                if (ex_prop) {
+                        _cleanup_strv_free_ char **ex_opts = NULL;
 
-                r = ex_prop ? sd_bus_message_read_strv(message, &ex_opts) : sd_bus_message_read(message, "b", &b);
-                if (r < 0)
-                        return r;
+                        r = sd_bus_message_read_strv(message, &ex_opts);
+                        if (r < 0)
+                                return r;
+
+                        r = exec_command_flags_from_strv(ex_opts, &command_flags);
+                        if (r < 0)
+                                return r;
+                } else {
+                        int b;
+
+                        r = sd_bus_message_read(message, "b", &b);
+                        if (r < 0)
+                                return r;
+
+                        command_flags = b ? EXEC_COMMAND_IGNORE_FAILURE : 0;
+                }
+
+                if (!FLAGS_SET(command_flags, EXEC_COMMAND_PREFIX_SHELL)) {
+                        if (!path_is_absolute(path) && !filename_is_valid(path))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                         "\"%s\" is neither a valid executable name nor an absolute path",
+                                                         path);
+
+                        if (strv_isempty(argv))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                         "\"%s\" argv cannot be empty", name);
+                } else {
+                        /* Always normalize path and argv0 to be "sh" */
+                        path = "/bin/sh";
+
+                        if (strv_isempty(argv))
+                                r = strv_extend(&argv, path);
+                        else
+                                r = free_and_strdup(&argv[0], argv[0][0] == '-' ? "-sh" : "sh");
+                        if (r < 0)
+                                return r;
+                }
 
                 r = sd_bus_message_exit_container(message);
                 if (r < 0)
@@ -1540,18 +1569,12 @@ int bus_set_transient_exec_command(
 
                         *c = (ExecCommand) {
                                 .argv = TAKE_PTR(argv),
+                                .flags = command_flags,
                         };
 
                         r = path_simplify_alloc(path, &c->path);
                         if (r < 0)
                                 return r;
-
-                        if (ex_prop) {
-                                r = exec_command_flags_from_strv(ex_opts, &c->flags);
-                                if (r < 0)
-                                        return r;
-                        } else if (b)
-                                c->flags |= EXEC_COMMAND_IGNORE_FAILURE;
 
                         exec_command_append_list(exec_command, TAKE_PTR(c));
                 }
@@ -1583,17 +1606,19 @@ int bus_set_transient_exec_command(
                         _cleanup_free_ char *a = NULL, *exec_chars = NULL;
                         UnitWriteFlags esc_flags = UNIT_ESCAPE_SPECIFIERS |
                                 (FLAGS_SET(c->flags, EXEC_COMMAND_NO_ENV_EXPAND) ? UNIT_ESCAPE_EXEC_SYNTAX : UNIT_ESCAPE_EXEC_SYNTAX_ENV);
+                        bool prefix_shell = FLAGS_SET(c->flags, EXEC_COMMAND_PREFIX_SHELL);
 
                         exec_chars = exec_command_flags_to_exec_chars(c->flags);
                         if (!exec_chars)
                                 return -ENOMEM;
 
-                        a = unit_concat_strv(c->argv, esc_flags);
+                        a = unit_concat_strv(prefix_shell ? strv_skip(c->argv, 1) : c->argv, esc_flags);
                         if (!a)
                                 return -ENOMEM;
 
-                        if (streq_ptr(c->path, c->argv ? c->argv[0] : NULL))
-                                fprintf(f, "%s=%s%s\n", written_name, exec_chars, a);
+                        if (prefix_shell || streq(c->path, c->argv[0]))
+                                fprintf(f, "%s=%s%s%s\n",
+                                        written_name, exec_chars, prefix_shell && c->argv[0][0] == '-' ? "@" : "", a);
                         else {
                                 _cleanup_free_ char *t = NULL;
                                 const char *p;
