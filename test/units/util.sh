@@ -359,7 +359,7 @@ EOF
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=echo foo
+ExecStart=sh -c 'echo "foo"; journalctl --sync'
 
 [Install]
 WantedBy=multi-user.target

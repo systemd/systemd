@@ -137,12 +137,12 @@ testcase_basic_system() {
 
 testcase_basic_user() {
     # Make sure we also work correctly on user units.
-    loginctl enable-linger testuser
+    systemctl start user@4711
 
     test_basic "/user.slice/user-$(id -u testuser).slice/user@$(id -u testuser).service/TEST.slice/TEST-55.slice/TEST-55-OOMD.slice/TEST-55-OOMD-workload.slice" \
                --machine "testuser@.host" --user
 
-    loginctl disable-linger testuser
+    systemctl stop user@4711
 }
 
 testcase_preference_avoid() {
