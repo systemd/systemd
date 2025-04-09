@@ -781,6 +781,6 @@ Tools using the Varlink protocol (such as `varlinkctl`) or sd-bus (such as
 `systemd-tpm2-clear`:
 
 * `SYSTEMD_TPM2_ALLOW_CLEAR` – takes a boolean. Overrides the effect of the
-  `systemd.factory_reset=` kernel command line option: if set to false,
+  `systemd.tpm2_allow_clear=` kernel command line option: if set to false,
   requesting a TPM clearing is skipped, and the command immediately exits
   successfully.
