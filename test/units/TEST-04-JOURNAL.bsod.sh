@@ -82,6 +82,7 @@ setterm --term linux --dump --file /tmp/console.dump
 
 # systemd-bsod should pick up emergency messages only with UID=0, so let's check
 # that as well
+systemctl start user@4711
 systemd-run --user --machine testuser@ --wait --pipe systemd-cat -p emerg echo "User emergency message"
 systemd-cat -p emerg echo "Root emergency message"
 journalctl --sync

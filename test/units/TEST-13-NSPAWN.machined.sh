@@ -91,6 +91,7 @@ machinectl status long-running long-running long-running
 machinectl status --full long-running
 machinectl status --quiet --lines=1 long-running
 machinectl status --lines=0 --max-addresses=0 long-running
+systemctl start user@4711
 machinectl status --machine=testuser@.host long-running
 machinectl status --output=help long-running
 while read -r output; do

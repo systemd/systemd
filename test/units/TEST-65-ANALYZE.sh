@@ -19,6 +19,7 @@ systemd-analyze time || :
 systemd-analyze critical-chain || :
 # blame
 systemd-analyze blame
+systemctl start user@4711
 systemd-run --wait --user --pipe -M testuser@.host systemd-analyze blame
 (! systemd-analyze blame --global)
 # plot

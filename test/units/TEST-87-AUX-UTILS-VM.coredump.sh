@@ -152,6 +152,7 @@ rm -f /tmp/core.{output,redirected}
 
 # Unprivileged stuff
 # Related issue: https://github.com/systemd/systemd/issues/26912
+systemctl start user@4711
 UNPRIV_CMD=(systemd-run --user --wait --pipe -M "testuser@.host" --)
 # Trigger a couple of coredumps as an unprivileged user
 "${UNPRIV_CMD[@]}" "$MAKE_DUMP_SCRIPT" "$CORE_TEST_UNPRIV_BIN" "SIGTRAP"
