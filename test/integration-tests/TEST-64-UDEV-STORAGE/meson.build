@@ -246,10 +246,7 @@ foreach testcase : udev_storage_tests
         integration_tests += [
                 integration_test_template + {
                         'name' : '@0@-@1@'.format(name, testcase['name']),
-                        # Disable user service manager by default for performance.
                         'configuration' : integration_test_template['configuration'] + {
-                                'wants' : '',
-                                'after' : '',
                                 'command' : f'/usr/lib/systemd/tests/testdata/units/@name@.sh',
                                 'env' : integration_test_template['configuration']['env'] + {
                                         'TEST_FUNCTION_NAME': 'testcase_@0@'.format(testcase['name']),
