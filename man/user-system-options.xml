@@ -5,6 +5,7 @@
 
 <variablelist xmlns:xi="http://www.w3.org/2001/XInclude">
   <varlistentry id='user'>
+    <term><option>-U</option></term>
     <term><option>--user</option></term>
 
     <listitem id='user-text'>

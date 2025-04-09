@@ -2473,7 +2473,7 @@ static int help(void) {
                "     --no-legend           Do not show the headers and footers\n"
                "  -l --full                Do not ellipsize output\n"
                "     --system              Connect to system bus\n"
-               "     --user                Connect to user bus\n"
+               "  -U --user                Connect to user bus\n"
                "  -H --host=[USER@]HOST    Operate on remote host\n"
                "  -M --machine=CONTAINER   Operate on local container\n"
                "     --address=ADDRESS     Connect to bus specified by address\n"
@@ -2523,7 +2523,6 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NO_PAGER,
                 ARG_NO_LEGEND,
                 ARG_SYSTEM,
-                ARG_USER,
                 ARG_ADDRESS,
                 ARG_MATCH,
                 ARG_SHOW_MACHINE,
@@ -2551,7 +2550,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "no-legend",                       no_argument,       NULL, ARG_NO_LEGEND                       },
                 { "full",                            no_argument,       NULL, 'l'                                 },
                 { "system",                          no_argument,       NULL, ARG_SYSTEM                          },
-                { "user",                            no_argument,       NULL, ARG_USER                            },
+                { "user",                            no_argument,       NULL, 'U'                                 },
                 { "address",                         required_argument, NULL, ARG_ADDRESS                         },
                 { "show-machine",                    no_argument,       NULL, ARG_SHOW_MACHINE                    },
                 { "unique",                          no_argument,       NULL, ARG_UNIQUE                          },
@@ -2583,7 +2582,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hH:M:C:J:qjlN:", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hUH:M:C:J:qjlN:", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -2605,7 +2604,7 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_full = true;
                         break;
 
-                case ARG_USER:
+                case 'U':
                         arg_runtime_scope = RUNTIME_SCOPE_USER;
                         break;
 
