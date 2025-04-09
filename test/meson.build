@@ -282,8 +282,22 @@ if want_tests != 'false'
 endif
 
 if install_tests
-        install_subdir('integration-tests',
-                       install_dir : testsdir)
+        if meson.version().version_compare('<1.3.0')
+                if not rsync.found()
+                        error('rsync is required to install the integration test data')
+                endif
+
+                rsync_r = rsync.full_path() + ' -rlpt --exclude .gitattributes -- "@0@" "${DESTDIR:-}@1@"'
+        endif
+
+        if meson.version().version_compare('>=1.3.0')
+                install_subdir('integration-tests',
+                               install_dir : testsdir,
+                               follow_symlinks : false)
+        else
+                meson.add_install_script(sh, '-c',
+                                         rsync_r.format(meson.current_source_dir() / 'integration-tests', testdata_dir))
+        endif
 
         foreach integration_test : integration_tests
                 integration_test_unit_env = []
@@ -350,11 +364,6 @@ if install_tests
                                        install_dir : testdata_dir,
                                        follow_symlinks : false)
                 else
-                        if not rsync.found()
-                                error('rsync is required to install the integration test data')
-                        endif
-
-                        rsync_r = rsync.full_path() + ' -rlpt --exclude .gitattributes -- "@0@" "${DESTDIR:-}@1@"'
                         meson.add_install_script(sh, '-c',
                                                  rsync_r.format(meson.current_source_dir() / subdir, testdata_dir))
                 endif
