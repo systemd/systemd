@@ -4,6 +4,7 @@
 
 #include "alloc-util.h"
 #include "cgroup-setup.h"
+#include "chase.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
@@ -135,21 +136,22 @@ int create_subcgroup(
 }
 
 int mount_cgroups(const char *dest, bool accept_existing) {
-        const char *p;
+        char *p;
+        _cleanup_close_ int fd = -EBADF;
         int r;
 
-        p = prefix_roota(dest, "/sys/fs/cgroup");
+        r = chase("/sys/fs/cgroup", dest, CHASE_PREFIX_ROOT | CHASE_MKDIR_0755, &p, &fd);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine if a missing directory in %s was created: %m", p);
 
-        (void) mkdir_p(p, 0755);
-
-        r = path_is_mount_point_full(p, dest, AT_SYMLINK_FOLLOW);
+        r = is_mount_point_at(fd, "", AT_SYMLINK_FOLLOW);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine if %s is mounted already: %m", p);
         if (r > 0) {
                 if (!accept_existing)
                         return log_error_errno(SYNTHETIC_ERRNO(EEXIST), "Refusing existing cgroupfs mount: %s", p);
 
-                if (access(strjoina(p, "/cgroup.procs"), F_OK) >= 0)
+                if (faccessat(fd, strjoina(p, "/cgroup.procs"), F_OK, 0) >= 0)
                         return 0;
                 if (errno != ENOENT)
                         return log_error_errno(errno, "Failed to determine if mount point %s contains the unified cgroup hierarchy: %m", p);
