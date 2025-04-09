@@ -30,9 +30,9 @@ TEST(memfd_get_sealed) {
         ASSERT_OK(memfd_get_size(fd, &size));
         ASSERT_EQ(size, new_size / 2);
 
-        ASSERT_OK(memfd_get_sealed(fd) == 0);
-        ASSERT_OK(memfd_set_sealed(fd) >= 0);
-        ASSERT_OK(memfd_get_sealed(fd) > 0);
+        ASSERT_OK_ZERO(memfd_get_sealed(fd));
+        ASSERT_OK(memfd_set_sealed(fd));
+        ASSERT_OK_POSITIVE(memfd_get_sealed(fd));
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
