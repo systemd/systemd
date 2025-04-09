@@ -6041,21 +6041,23 @@ static int append_btrfs_subvols(char ***l, OrderedHashmap *subvolumes, const cha
         assert(l);
 
         ORDERED_HASHMAP_FOREACH(subvolume, subvolumes) {
-                _cleanup_free_ char *s = NULL, *f = NULL;
+                _cleanup_free_ char *s = NULL, *f = NULL, *p = NULL;
 
-                s = strdup(subvolume->path);
-                if (!s)
+                p = strdup(subvolume->path);
+                if (!p)
                         return log_oom();
 
                 f = subvolume_flags_to_string(subvolume->flags);
                 if (!f)
                         return log_oom();
 
-                if (streq_ptr(subvolume->path, default_subvolume) &&
-                    !strextend_with_separator(&f, ",", "default"))
+                if (streq_ptr(subvolume->path, default_subvolume) && !strextend(&s, "default"))
                         return log_oom();
 
-                if (!isempty(f) && !strextend_with_separator(&s, ":", f))
+                if (!isempty(f) && !strextend_with_separator(&s, "-", f))
+                        return log_oom();
+
+                if (!strextend_with_separator(&s, ":", p))
                         return log_oom();
 
                 r = strv_extend_many(l, "--subvol", s);
