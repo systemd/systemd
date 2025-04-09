@@ -801,7 +801,7 @@ int running_in_chroot(void) {
                 log_debug_errno(r, "Failed to parse $SYSTEMD_IN_CHROOT, ignoring: %m");
 
         /* Deprecated but kept for backwards compatibility. */
-        if (getenv_bool("SYSTEMD_IGNORE_CHROOT") > 0)
+        if (secure_getenv_bool("SYSTEMD_IGNORE_CHROOT") > 0)
                 return 0;
 
         r = pidref_from_same_root_fs(&PIDREF_MAKE_FROM_PID(1), NULL);
