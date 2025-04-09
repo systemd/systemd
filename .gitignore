@@ -23,8 +23,8 @@ __pycache__/
 /ID
 /build*
 /install-tree
-/mkosi.key
-/mkosi.crt
+/mkosi/mkosi.key
+/mkosi/mkosi.crt
 /mkosi.tools/
 /mkosi.tools.manifest
 /mkosi/mkosi.local.conf
