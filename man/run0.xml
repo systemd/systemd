@@ -191,6 +191,23 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--expand-environment=<replaceable>BOOL</replaceable></option></term>
+
+        <listitem><para>Controls whether to expand environment variables in service manager. If enabled (the default),
+        environment variables specified will be expanded in the same way as in commands specified via
+        <varname>ExecStart=</varname> in units. Refer to <citerefentry>
+        <refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for details.</para>
+
+        <para>It is especially useful to disable environment variable expansion in service manager when
+        <option>-i/--switch-shell</option> is used, so that the parameter expansion is performed only once
+        and by the actual shell.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--background=<replaceable>COLOR</replaceable></option></term>
 
         <listitem><para>Change the terminal background color to the specified ANSI color as long as the
