@@ -61,10 +61,13 @@ udevadm control -R
 udevadm control -p HELLO=world
 udevadm control -m 42
 udevadm control --ping -t 5
-udevadm control --trace yes
 udevadm control --trace no
+udevadm control --trace yes
 udevadm control --load-credentials
 udevadm control -h
+# Sanity check for serialization and deserialization
+systemctl restart systemd-udevd.service
+udevadm control --revert
 
 udevadm info /dev/null
 udevadm info /sys/class/net/$netdev
