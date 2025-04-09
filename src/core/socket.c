@@ -2346,6 +2346,8 @@ static void socket_enter_running(Socket *s, int cfd_in) {
                         }
 
                         r = manager_add_job(UNIT(s)->manager, JOB_START, UNIT_DEREF(s->service), JOB_REPLACE, &error, /* ret = */ NULL);
+                        if (r == -EDEADLK)
+                                return (void) log_unit_debug_errno(UNIT(s), r, "Failed to queue service startup job, ignoring: %s", bus_error_message(&error, r));
                         if (r < 0)
                                 goto queue_error;
                 }
