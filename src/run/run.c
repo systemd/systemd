@@ -101,6 +101,7 @@ static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 static char *arg_shell_prompt_prefix = NULL;
 static int arg_lightweight = -1;
 static char *arg_area = NULL;
+static bool arg_switch_shell = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_description, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_environment, strv_freep);
@@ -212,7 +213,9 @@ static int help_sudo_mode(void) {
                "  -g --group=GROUP                Run as system group\n"
                "     --nice=NICE                  Nice level\n"
                "  -D --chdir=PATH                 Set working directory\n"
+               "  -i --switch-shell               Invoke command using target user's login shell\n"
                "     --setenv=NAME[=VALUE]        Set environment variable\n"
+               "     --expand-environment=BOOL    Control expansion of environment variables\n"
                "     --background=COLOR           Set ANSI color for background\n"
                "     --pty                        Request allocation of a pseudo TTY for stdio\n"
                "     --pty-late                   Just like --pty, but leave TTY access to agents\n"
@@ -823,6 +826,7 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                 ARG_PIPE,
                 ARG_SHELL_PROMPT_PREFIX,
                 ARG_LIGHTWEIGHT,
+                ARG_EXPAND_ENVIRONMENT,
         };
 
         /* If invoked as "run0" binary, let's expose a more sudo-like interface. We add various extensions
@@ -842,7 +846,9 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                 { "group",               required_argument, NULL, 'g'                     },
                 { "nice",                required_argument, NULL, ARG_NICE                },
                 { "chdir",               required_argument, NULL, 'D'                     },
+                { "switch-shell",        no_argument,       NULL, 'i'                     },
                 { "setenv",              required_argument, NULL, ARG_SETENV              },
+                { "expand-environment",  required_argument, NULL, ARG_EXPAND_ENVIRONMENT  },
                 { "background",          required_argument, NULL, ARG_BACKGROUND          },
                 { "pty",                 no_argument,       NULL, ARG_PTY                 },
                 { "pty-late",            no_argument,       NULL, ARG_PTY_LATE            },
@@ -935,6 +941,12 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
 
                         break;
 
+                case ARG_EXPAND_ENVIRONMENT:
+                        r = parse_boolean_argument("--expand-environment=", optarg, &arg_expand_environment);
+                        if (r < 0)
+                                return r;
+                        break;
+
                 case ARG_BACKGROUND:
                         r = free_and_strdup_warn(&arg_background, optarg);
                         if (r < 0)
@@ -973,6 +985,10 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
 
+                        break;
+
+                case 'i':
+                        arg_switch_shell = true;
                         break;
 
                 case '?':
@@ -1025,27 +1041,44 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
         _cleanup_strv_free_ char **l = NULL;
         if (argc > optind)
                 l = strv_copy(argv + optind);
-        else {
+        else if (!arg_switch_shell) {
                 const char *e;
 
                 e = strv_env_get(arg_environment, "SHELL");
-                if (e)
+                if (e) {
                         arg_exec_path = strdup(e);
-                else {
+                        if (!arg_exec_path)
+                                return log_oom();
+                } else {
                         if (arg_transport == BUS_TRANSPORT_LOCAL) {
                                 r = get_shell(&arg_exec_path);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to determine shell: %m");
-                        } else
+                        } else {
                                 arg_exec_path = strdup("/bin/sh");
+                                if (!arg_exec_path)
+                                        return log_oom();
+                        }
+
+                        r = strv_env_assign(&arg_environment, "SHELL", arg_exec_path);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to set $SHELL environment variable: %m");
                 }
-                if (!arg_exec_path)
-                        return log_oom();
 
                 l = make_login_shell_cmdline(arg_exec_path);
         }
         if (!l)
                 return log_oom();
+
+        if (arg_switch_shell) {
+                arg_exec_path = strdup("/bin/sh");
+                if (!arg_exec_path)
+                        return log_oom();
+
+                r = strv_prepend(&l, "-sh");
+                if (r < 0)
+                        return log_oom();
+        }
 
         strv_free_and_replace(arg_cmdline, l);
 
@@ -1443,7 +1476,9 @@ static int transient_service_set_properties(sd_bus_message *m, const char *pty_p
                         _cleanup_strv_free_ char **opts = NULL;
 
                         r = exec_command_flags_to_strv(
-                                        (arg_expand_environment ? 0 : EXEC_COMMAND_NO_ENV_EXPAND)|(arg_ignore_failure ? EXEC_COMMAND_IGNORE_FAILURE : 0),
+                                        (arg_expand_environment ? 0 : EXEC_COMMAND_NO_ENV_EXPAND)|
+                                        (arg_ignore_failure ? EXEC_COMMAND_IGNORE_FAILURE : 0)|
+                                        (arg_switch_shell ? EXEC_COMMAND_PREFIX_SHELL : 0),
                                         &opts);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to format execute flags: %m");
