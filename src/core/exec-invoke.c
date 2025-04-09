@@ -854,6 +854,7 @@ restore_stdio:
 
 static int get_fixed_user(
                 const char *user_or_uid,
+                bool prefer_nss,
                 const char **ret_username,
                 uid_t *ret_uid,
                 gid_t *ret_gid,
@@ -865,7 +866,8 @@ static int get_fixed_user(
         assert(user_or_uid);
         assert(ret_username);
 
-        r = get_user_creds(&user_or_uid, ret_uid, ret_gid, ret_home, ret_shell, USER_CREDS_CLEAN);
+        r = get_user_creds(&user_or_uid, ret_uid, ret_gid, ret_home, ret_shell,
+                           USER_CREDS_CLEAN|(prefer_nss ? USER_CREDS_PREFER_NSS : 0));
         if (r < 0)
                 return r;
 
@@ -1973,8 +1975,10 @@ static int build_environment(
          * could cause problem for e.g. getty, since login doesn't override $HOME, and $LOGNAME and $SHELL don't
          * really make much sense since we're not logged in. Hence we conditionalize the three based on
          * SetLoginEnvironment= switch. */
-        if (!c->user && !c->dynamic_user && p->runtime_scope == RUNTIME_SCOPE_SYSTEM) {
-                r = get_fixed_user("root", &username, NULL, NULL, &home, &shell);
+        if (!username && !c->dynamic_user && p->runtime_scope == RUNTIME_SCOPE_SYSTEM) {
+                assert(!c->user);
+
+                r = get_fixed_user("root", /* prefer_nss = */ false, &username, NULL, NULL, &home, &shell);
                 if (r < 0)
                         return log_exec_debug_errno(c,
                                                     p,
@@ -4645,7 +4649,8 @@ int exec_invoke(
                 const CGroupContext *cgroup_context,
                 int *exit_status) {
 
-        _cleanup_strv_free_ char **our_env = NULL, **pass_env = NULL, **joined_exec_search_path = NULL, **accum_env = NULL, **replaced_argv = NULL;
+        _cleanup_strv_free_ char **our_env = NULL, **pass_env = NULL, **joined_exec_search_path = NULL, **accum_env = NULL,
+                        **replaced_argv = NULL, **prefixed_argv = NULL;
         int r;
         const char *username = NULL, *groupname = NULL;
         _cleanup_free_ char *home_buffer = NULL, *memory_pressure_path = NULL, *own_user = NULL;
@@ -4892,7 +4897,7 @@ int exec_invoke(
 
                 if (context->user)
                         u = context->user;
-                else if (context->pam_name) {
+                else if (context->pam_name || FLAGS_SET(command->flags, EXEC_COMMAND_PREFIX_SHELL)) {
                         /* If PAM is enabled but no user name is explicitly selected, then use our own one. */
                         own_user = getusername_malloc();
                         if (!own_user) {
@@ -4904,7 +4909,14 @@ int exec_invoke(
                         u = NULL;
 
                 if (u) {
-                        r = get_fixed_user(u, &username, &uid, &gid, &pwent_home, &shell);
+                        /* We can't use nss unconditionally for root without risking deadlocks if some IPC services
+                         * will be started by pid1 and are ordered after us. But if SetLoginEnvironment= is
+                         * enabled explicitly, or PAM shall be invoked, let's consult NSS even for root,
+                         * so that the user gets accurate $SHELL in session(-like) contexts. */
+                        r = get_fixed_user(u,
+                                           /* prefer_nss = */ context->set_login_environment > 0 || context->pam_name ||
+                                                              FLAGS_SET(command->flags, EXEC_COMMAND_PREFIX_SHELL),
+                                           &username, &uid, &gid, &pwent_home, &shell);
                         if (r < 0) {
                                 *exit_status = EXIT_USER;
                                 return log_exec_error_errno(context, params, r, "Failed to determine user credentials: %m");
@@ -5490,17 +5502,18 @@ int exec_invoke(
         /* Now that the mount namespace has been set up and privileges adjusted, let's look for the thing we
          * shall execute. */
 
+        const char *p = FLAGS_SET(command->flags, EXEC_COMMAND_PREFIX_SHELL) ? ASSERT_PTR(shell) : ASSERT_PTR(command->path);
+
         _cleanup_free_ char *executable = NULL;
         _cleanup_close_ int executable_fd = -EBADF;
-        r = find_executable_full(command->path, /* root= */ NULL, context->exec_search_path, false, &executable, &executable_fd);
+        r = find_executable_full(p, /* root= */ NULL, context->exec_search_path, false, &executable, &executable_fd);
         if (r < 0) {
                 *exit_status = EXIT_EXEC;
                 log_exec_struct_errno(context, params, LOG_NOTICE, r,
                                       LOG_MESSAGE_ID(SD_MESSAGE_SPAWN_FAILED_STR),
                                       LOG_EXEC_MESSAGE(params,
-                                                       "Unable to locate executable '%s': %m",
-                                                       command->path),
-                                      LOG_ITEM("EXECUTABLE=%s", command->path));
+                                                       "Unable to locate executable '%s': %m", p),
+                                      LOG_ITEM("EXECUTABLE=%s", p));
                 /* If the error will be ignored by manager, tune down the log level here. Missing executable
                  * is very much expected in this case. */
                 return r != -ENOMEM && FLAGS_SET(command->flags, EXEC_COMMAND_IGNORE_FAILURE) ? 1 : r;
@@ -5924,10 +5937,12 @@ int exec_invoke(
                 strv_free_and_replace(accum_env, ee);
         }
 
+        final_argv = FLAGS_SET(command->flags, EXEC_COMMAND_PREFIX_SHELL) ? strv_skip(command->argv, 1) : command->argv;
+
         if (!FLAGS_SET(command->flags, EXEC_COMMAND_NO_ENV_EXPAND)) {
                 _cleanup_strv_free_ char **unset_variables = NULL, **bad_variables = NULL;
 
-                r = replace_env_argv(command->argv, accum_env, &replaced_argv, &unset_variables, &bad_variables);
+                r = replace_env_argv(final_argv, accum_env, &replaced_argv, &unset_variables, &bad_variables);
                 if (r < 0) {
                         *exit_status = EXIT_MEMORY;
                         return log_exec_error_errno(context,
@@ -5952,8 +5967,33 @@ int exec_invoke(
                                          "Invalid environment variable name evaluates to an empty string: %s",
                                          strna(jb));
                 }
-        } else
-                final_argv = command->argv;
+        }
+
+        if (FLAGS_SET(command->flags, EXEC_COMMAND_PREFIX_SHELL)) {
+                r = strv_extendf(&prefixed_argv, "%s%s", command->argv[0][0] == '-' ? "-" : "", shell);
+                if (r < 0) {
+                        *exit_status = EXIT_MEMORY;
+                        return log_oom();
+                }
+
+                if (!strv_isempty(final_argv)) {
+                        _cleanup_free_ char *cmdline_joined = NULL;
+
+                        cmdline_joined = strv_join(final_argv, " ");
+                        if (!cmdline_joined) {
+                                *exit_status = EXIT_MEMORY;
+                                return log_oom();
+                        }
+
+                        r = strv_extend_many(&prefixed_argv, "-c", cmdline_joined);
+                        if (r < 0) {
+                                *exit_status = EXIT_MEMORY;
+                                return log_oom();
+                        }
+                }
+
+                final_argv = prefixed_argv;
+        }
 
         log_command_line(context, params, "Executing", executable, final_argv);
 
