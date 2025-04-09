@@ -49,6 +49,7 @@ typedef enum ExecCommandFlags {
         EXEC_COMMAND_FULLY_PRIVILEGED = 1 << 1,
         EXEC_COMMAND_NO_SETUID        = 1 << 2,
         EXEC_COMMAND_NO_ENV_EXPAND    = 1 << 3,
+        EXEC_COMMAND_PREFIX_SHELL     = 1 << 4,
         _EXEC_COMMAND_FLAGS_INVALID   = -EINVAL,
         _EXEC_COMMAND_FLAGS_ALL       = (1 << 4) -1,
 } ExecCommandFlags;
