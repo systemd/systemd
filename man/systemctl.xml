@@ -506,6 +506,9 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           <listitem>
             <para>Reload one or more units if they support it. If not, stop and then start them instead. If the units
             are not running yet, they will be started.</para>
+
+            <para>This has a slightly differing functionality when used in combination with <option>--marked</option>,
+            see below.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
