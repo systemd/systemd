@@ -3204,7 +3204,7 @@ int service_deserialize_exec_command(
         bool control, found = false, last = false;
         int r;
 
-        enum ExecCommandState {
+        enum {
                 STATE_EXEC_COMMAND_TYPE,
                 STATE_EXEC_COMMAND_INDEX,
                 STATE_EXEC_COMMAND_PATH,
@@ -3230,6 +3230,7 @@ int service_deserialize_exec_command(
                         break;
 
                 switch (state) {
+
                 case STATE_EXEC_COMMAND_TYPE:
                         id = service_exec_command_from_string(arg);
                         if (id < 0)
@@ -3237,11 +3238,12 @@ int service_deserialize_exec_command(
 
                         state = STATE_EXEC_COMMAND_INDEX;
                         break;
+
                 case STATE_EXEC_COMMAND_INDEX:
-                        /* PID 1234 is serialized as either '1234' or '+1234'. The second form is used to
-                         * mark the last command in a sequence. We warn if the deserialized command doesn't
-                         * match what we have loaded from the unit, but we don't need to warn if that is the
-                         * last command. */
+                        /* ExecCommand index 1234 is serialized as either '1234' or '+1234'. The second form
+                         * is used to mark the last command in a sequence. We warn if the deserialized command
+                         * doesn't match what we have loaded from the unit, but we don't need to warn if
+                         * that is the last command. */
 
                         r = safe_atou(arg, &idx);
                         if (r < 0)
@@ -3250,15 +3252,18 @@ int service_deserialize_exec_command(
 
                         state = STATE_EXEC_COMMAND_PATH;
                         break;
+
                 case STATE_EXEC_COMMAND_PATH:
                         path = TAKE_PTR(arg);
                         state = STATE_EXEC_COMMAND_ARGS;
                         break;
+
                 case STATE_EXEC_COMMAND_ARGS:
                         r = strv_extend(&argv, arg);
                         if (r < 0)
                                 return r;
                         break;
+
                 default:
                         assert_not_reached();
                 }
