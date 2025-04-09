@@ -34,7 +34,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
                 .match_callback = {},
         };
 
-        if (getenv_bool("SYSTEMD_FUZZ_OUTPUT") <= 0)
+        if (secure_getenv_bool("SYSTEMD_FUZZ_OUTPUT") <= 0)
                 assert_se(g = memstream_init(&m));
 
         for (size_t offset = 0; offset < size; ) {
