@@ -51,10 +51,6 @@ int run_udevd(int argc, char *argv[]) {
         if (r < 0 && r != -EEXIST)
                 return log_error_errno(r, "Failed to create /run/udev: %m");
 
-        r = manager_init(manager);
-        if (r < 0)
-                return r;
-
         if (arg_daemonize) {
                 pid_t pid;
 
