@@ -331,17 +331,28 @@ static int bus_append_exec_command(sd_bus_message *m, const char *field, const c
                         }
                         break;
 
+                case '|':
+                        if (FLAGS_SET(flags, EXEC_COMMAND_VIA_SHELL))
+                                done = true;
+                        else {
+                                flags |= EXEC_COMMAND_VIA_SHELL;
+                                eq++;
+                        }
+                        break;
+
                 default:
                         done = true;
                 }
         } while (!done);
 
-        if (!is_ex_prop && (flags & (EXEC_COMMAND_NO_ENV_EXPAND|EXEC_COMMAND_FULLY_PRIVILEGED|EXEC_COMMAND_NO_SETUID))) {
+        if (!is_ex_prop && (flags & (EXEC_COMMAND_NO_ENV_EXPAND|EXEC_COMMAND_FULLY_PRIVILEGED|EXEC_COMMAND_NO_SETUID|EXEC_COMMAND_VIA_SHELL))) {
                 /* Upgrade the ExecXYZ= property to ExecXYZEx= for convenience */
                 is_ex_prop = true;
+
                 upgraded_name = strjoin(field, "Ex");
                 if (!upgraded_name)
                         return log_oom();
+                field = upgraded_name;
         }
 
         if (is_ex_prop) {
@@ -350,7 +361,12 @@ static int bus_append_exec_command(sd_bus_message *m, const char *field, const c
                         return log_error_errno(r, "Failed to convert ExecCommandFlags to strv: %m");
         }
 
-        if (explicit_path) {
+        if (FLAGS_SET(flags, EXEC_COMMAND_VIA_SHELL)) {
+                path = strdup(_PATH_BSHELL);
+                if (!path)
+                        return log_oom();
+
+        } else if (explicit_path) {
                 r = extract_first_word(&eq, &path, NULL, EXTRACT_UNQUOTE|EXTRACT_CUNESCAPE);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse path: %m");
@@ -364,11 +380,17 @@ static int bus_append_exec_command(sd_bus_message *m, const char *field, const c
         if (r < 0)
                 return log_error_errno(r, "Failed to parse command line: %m");
 
+        if (FLAGS_SET(flags, EXEC_COMMAND_VIA_SHELL)) {
+                r = strv_prepend(&l, explicit_path ? "-sh" : "sh");
+                if (r < 0)
+                        return log_oom();
+        }
+
         r = sd_bus_message_open_container(m, SD_BUS_TYPE_STRUCT, "sv");
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_message_append_basic(m, SD_BUS_TYPE_STRING, upgraded_name ?: field);
+        r = sd_bus_message_append_basic(m, SD_BUS_TYPE_STRING, field);
         if (r < 0)
                 return bus_log_create_error(r);
 

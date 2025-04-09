@@ -888,7 +888,7 @@ int config_parse_exec(
         bool semicolon;
 
         do {
-                _cleanup_free_ char *path = NULL, *firstword = NULL;
+                _cleanup_free_ char *firstword = NULL;
 
                 semicolon = false;
 
@@ -915,6 +915,8 @@ int config_parse_exec(
                          *
                          * "-":  Ignore if the path doesn't exist
                          * "@":  Allow overriding argv[0] (supplied as a separate argument)
+                         * "|":  Prefix the cmdline with target user's shell (when combined with "@" invoke
+                         *       login shell semantics)
                          * ":":  Disable environment variable substitution
                          * "+":  Run with full privileges and no sandboxing
                          * "!":  Apply sandboxing except for user/group credentials
@@ -926,6 +928,8 @@ int config_parse_exec(
                                 separate_argv0 = true;
                         else if (*f == ':' && !FLAGS_SET(flags, EXEC_COMMAND_NO_ENV_EXPAND))
                                 flags |= EXEC_COMMAND_NO_ENV_EXPAND;
+                        else if (*f == '|' && !FLAGS_SET(flags, EXEC_COMMAND_VIA_SHELL))
+                                flags |= EXEC_COMMAND_VIA_SHELL;
                         else if (*f == '+' && !(flags & (EXEC_COMMAND_FULLY_PRIVILEGED|EXEC_COMMAND_NO_SETUID)) && !ambient_hack)
                                 flags |= EXEC_COMMAND_FULLY_PRIVILEGED;
                         else if (*f == '!' && !(flags & (EXEC_COMMAND_FULLY_PRIVILEGED|EXEC_COMMAND_NO_SETUID)) && !ambient_hack)
@@ -947,45 +951,59 @@ int config_parse_exec(
 
                 ignore = FLAGS_SET(flags, EXEC_COMMAND_IGNORE_FAILURE);
 
-                r = unit_path_printf(u, f, &path);
-                if (r < 0) {
-                        log_syntax(unit, ignore ? LOG_WARNING : LOG_ERR, filename, line, r,
-                                   "Failed to resolve unit specifiers in '%s'%s: %m",
-                                   f, ignore ? ", ignoring" : "");
-                        return ignore ? 0 : -ENOEXEC;
-                }
-
-                if (isempty(path)) {
-                        log_syntax(unit, ignore ? LOG_WARNING : LOG_ERR, filename, line, 0,
-                                   "Empty path in command line%s: %s",
-                                   ignore ? ", ignoring" : "", rvalue);
-                        return ignore ? 0 : -ENOEXEC;
-                }
-                if (!string_is_safe(path)) {
-                        log_syntax(unit, ignore ? LOG_WARNING : LOG_ERR, filename, line, 0,
-                                   "Executable path contains special characters%s: %s",
-                                   ignore ? ", ignoring" : "", path);
-                        return ignore ? 0 : -ENOEXEC;
-                }
-                if (path_implies_directory(path)) {
-                        log_syntax(unit, ignore ? LOG_WARNING : LOG_ERR, filename, line, 0,
-                                   "Executable path specifies a directory%s: %s",
-                                   ignore ? ", ignoring" : "", path);
-                        return ignore ? 0 : -ENOEXEC;
-                }
-
-                if (!filename_or_absolute_path_is_valid(path)) {
-                        log_syntax(unit, ignore ? LOG_WARNING : LOG_ERR, filename, line, 0,
-                                   "Neither a valid executable name nor an absolute path%s: %s",
-                                   ignore ? ", ignoring" : "", path);
-                        return ignore ? 0 : -ENOEXEC;
-                }
-
                 _cleanup_strv_free_ char **args = NULL;
+                _cleanup_free_ char *path = NULL;
 
-                if (!separate_argv0)
-                        if (strv_extend(&args, path) < 0)
+                if (FLAGS_SET(flags, EXEC_COMMAND_VIA_SHELL)) {
+                        /* Use _PATH_BSHELL as placeholder since we can't do NSS lookups in pid1. This would
+                         * be exported to various dbus properties and is used to determine SELinux label -
+                         * which isn't accurate, but is a best-effort thing to assume all shells have more
+                         * or less the same label. */
+                        path = strdup(_PATH_BSHELL);
+                        if (!path)
                                 return log_oom();
+
+                        if (strv_extend_many(&args, separate_argv0 ? "-sh" : "sh", empty_to_null(f)) < 0)
+                                return log_oom();
+                } else {
+                        r = unit_path_printf(u, f, &path);
+                        if (r < 0) {
+                                log_syntax(unit, ignore ? LOG_WARNING : LOG_ERR, filename, line, r,
+                                           "Failed to resolve unit specifiers in '%s'%s: %m",
+                                           f, ignore ? ", ignoring" : "");
+                                return ignore ? 0 : -ENOEXEC;
+                        }
+
+                        if (isempty(path)) {
+                                log_syntax(unit, ignore ? LOG_WARNING : LOG_ERR, filename, line, 0,
+                                           "Empty path in command line%s: %s",
+                                           ignore ? ", ignoring" : "", rvalue);
+                                return ignore ? 0 : -ENOEXEC;
+                        }
+                        if (!string_is_safe(path)) {
+                                log_syntax(unit, ignore ? LOG_WARNING : LOG_ERR, filename, line, 0,
+                                           "Executable path contains special characters%s: %s",
+                                           ignore ? ", ignoring" : "", path);
+                                return ignore ? 0 : -ENOEXEC;
+                        }
+                        if (path_implies_directory(path)) {
+                                log_syntax(unit, ignore ? LOG_WARNING : LOG_ERR, filename, line, 0,
+                                           "Executable path specifies a directory%s: %s",
+                                           ignore ? ", ignoring" : "", path);
+                                return ignore ? 0 : -ENOEXEC;
+                        }
+
+                        if (!filename_or_absolute_path_is_valid(path)) {
+                                log_syntax(unit, ignore ? LOG_WARNING : LOG_ERR, filename, line, 0,
+                                           "Neither a valid executable name nor an absolute path%s: %s",
+                                           ignore ? ", ignoring" : "", path);
+                                return ignore ? 0 : -ENOEXEC;
+                        }
+
+                        if (!separate_argv0)
+                                if (strv_extend(&args, path) < 0)
+                                        return log_oom();
+                }
 
                 while (!isempty(p)) {
                         _cleanup_free_ char *word = NULL, *resolved = NULL;
