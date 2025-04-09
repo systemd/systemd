@@ -770,6 +770,14 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><option>--revert</option></term>
+          <listitem>
+            <para>Revert previously set configurations.</para>
+
+            <xi:include href="version-info.xml" xpointer="v258"/>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><option>-t</option></term>
           <term><option>--timeout=<replaceable>seconds</replaceable></option></term>
           <listitem>
