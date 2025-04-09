@@ -9,7 +9,6 @@
 # mkosi sandbox -- meson test -C testsuite
 #
 project('systemd-testsuite',
-        version : files('../../../meson.version'),
         license : 'LGPLv2+',
         default_options: ['warning_level=2'],
         meson_version : '>= 0.62.0',
