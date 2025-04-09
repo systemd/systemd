@@ -263,7 +263,7 @@ static int systemctl_help(void) {
                "  -h --help              Show this help\n"
                "     --version           Show package version\n"
                "     --system            Connect to system manager\n"
-               "     --user              Connect to user service manager\n"
+               "  -U --user              Connect to user service manager\n"
                "  -C --capsule=NAME      Connect to service manager of specified capsule\n"
                "  -H --host=[USER@]HOST  Operate on remote host\n"
                "  -M --machine=CONTAINER Operate on a local container\n"
@@ -437,7 +437,6 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_IGNORE_DEPENDENCIES,     /* compatibility only */
                 ARG_VALUE,
                 ARG_VERSION,
-                ARG_USER,
                 ARG_SYSTEM,
                 ARG_GLOBAL,
                 ARG_NO_BLOCK,
@@ -496,7 +495,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "ignore-inhibitors",   no_argument,       NULL, 'i'                     }, /* compatibility only */
                 { "check-inhibitors",    required_argument, NULL, ARG_CHECK_INHIBITORS    },
                 { "value",               no_argument,       NULL, ARG_VALUE               },
-                { "user",                no_argument,       NULL, ARG_USER                },
+                { "user",                no_argument,       NULL, 'U'                     },
                 { "system",              no_argument,       NULL, ARG_SYSTEM              },
                 { "global",              no_argument,       NULL, ARG_GLOBAL              },
                 { "capsule",             required_argument, NULL, 'C'                     },
@@ -554,7 +553,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
         /* We default to allowing interactive authorization only in systemctl (not in the legacy commands) */
         arg_ask_password = true;
 
-        while ((c = getopt_long(argc, argv, "hC:t:p:P:alqfs:H:M:n:o:iTr.::", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hUC:t:p:P:alqfs:H:M:n:o:iTr.::", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -677,7 +676,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         _arg_job_mode = "ignore-dependencies";
                         break;
 
-                case ARG_USER:
+                case 'U':
                         arg_runtime_scope = RUNTIME_SCOPE_USER;
                         break;
 
