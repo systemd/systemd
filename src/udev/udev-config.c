@@ -20,6 +20,7 @@
 
 #define WORKER_NUM_MAX UINT64_C(2048)
 
+static int default_log_level = LOG_INFO;
 static bool arg_debug = false;
 bool arg_daemonize = false;
 
@@ -279,7 +280,7 @@ static void manager_merge_config_log_level(Manager *manager) {
         if (manager->config.trace)
                 manager->config.log_level = LOG_DEBUG;
         else
-                MERGE_NON_NEGATIVE(log_level, log_get_max_level());
+                MERGE_NON_NEGATIVE(log_level, default_log_level);
 }
 
 static void manager_merge_config(Manager *manager) {
@@ -440,6 +441,8 @@ int manager_load(Manager *manager, int argc, char *argv[]) {
         int r;
 
         assert(manager);
+
+        default_log_level = log_get_max_level();
 
         manager_parse_udev_config(&manager->config_by_udev_conf);
 
