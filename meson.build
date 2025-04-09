@@ -1988,11 +1988,12 @@ endif
 conf.set_quoted('VERSION_TAG', version_tag)
 
 vcs_tag = get_option('vcs-tag')
-version_h = vcs_tag(
+version_h = custom_target('version',
+        build_always_stale : vcs_tag,
         input : 'src/version/version.h.in',
         output : 'version.h',
-        fallback : '',
-        command : [vcs_tag ? 'tools/vcs-tag.sh' : 'true', get_option('mode')],
+        capture : true,
+        command : ['tools/vcs-tag.sh', '@INPUT@', get_option('mode'), vcs_tag ? '1' : '0'],
 )
 
 shared_lib_tag = get_option('shared-lib-tag')
