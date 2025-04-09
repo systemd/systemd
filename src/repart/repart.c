@@ -312,19 +312,6 @@ static SubvolumeFlags subvolume_flags_from_string(const char *s) {
         return flags;
 }
 
-static char* subvolume_flags_to_string(SubvolumeFlags flags) {
-        const char *l[CONST_LOG2U(_SUBVOLUME_FLAGS_MASK + 1) + 1]; /* one string per known flag at most */
-        size_t m = 0;
-
-        if (FLAGS_SET(flags, SUBVOLUME_RO))
-                l[m++] = "ro";
-
-        assert(m < ELEMENTSOF(l));
-        l[m] = NULL;
-
-        return strv_join((char**) l, ",");
-}
-
 typedef struct Subvolume {
         char *path;
         SubvolumeFlags flags;
@@ -6041,21 +6028,15 @@ static int append_btrfs_subvols(char ***l, OrderedHashmap *subvolumes, const cha
         assert(l);
 
         ORDERED_HASHMAP_FOREACH(subvolume, subvolumes) {
-                _cleanup_free_ char *s = NULL, *f = NULL;
+                _cleanup_free_ char *s = NULL;
 
-                s = strdup(subvolume->path);
-                if (!s)
+                if (streq_ptr(subvolume->path, default_subvolume) && !strextend(&s, "default"))
                         return log_oom();
 
-                f = subvolume_flags_to_string(subvolume->flags);
-                if (!f)
+                if (FLAGS_SET(subvolume->flags, SUBVOLUME_RO) && !strextend_with_separator(&s, "-", "ro"))
                         return log_oom();
 
-                if (streq_ptr(subvolume->path, default_subvolume) &&
-                    !strextend_with_separator(&f, ",", "default"))
-                        return log_oom();
-
-                if (!isempty(f) && !strextend_with_separator(&s, ":", f))
+                if (!strextend_with_separator(&s, ":", subvolume->path))
                         return log_oom();
 
                 r = strv_extend_many(l, "--subvol", s);
