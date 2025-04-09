@@ -1854,7 +1854,7 @@ static int apply_protect_hostname(const ExecContext *c, const ExecParameters *p,
         }
 #endif
 
-        return 0;
+        return 1;
 }
 
 static void do_idle_pipe_dance(int idle_pipe[static 4]) {
@@ -4451,8 +4451,8 @@ static int setup_delegated_namespaces(
                 r = apply_protect_hostname(context, params, reterr_exit_status);
                 if (r < 0)
                         return r;
-
-                log_exec_debug(context, params, "Set up %sUTS namespace", delegate ? "delegated " : "");
+                if (r > 0)
+                        log_exec_debug(context, params, "Set up %sUTS namespace", delegate ? "delegated " : "");
         }
 
         return 0;
@@ -5467,8 +5467,8 @@ int exec_invoke(
                         *exit_status = EXIT_USER;
                         return log_exec_error_errno(context, params, r, "Failed to set up user namespacing: %m");
                 }
-
-                log_debug("Set up privileged user namespace");
+                if (r > 0)
+                        log_debug("Set up privileged user namespace");
         }
 
         /* Call setup_delegated_namespaces() the second time to unshare all delegated namespaces. */
