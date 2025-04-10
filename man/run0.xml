@@ -168,6 +168,17 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--switch-shell</option></term>
+        <term><option>-i</option></term>
+
+        <listitem><para>Runs the specified command via the target user's login shell if any, or spawns
+        the shell directly.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--setenv=<replaceable>NAME</replaceable>[=<replaceable>VALUE</replaceable>]</option></term>
 
         <listitem><para>Runs the invoked session with the specified environment variable set. This parameter
@@ -176,6 +187,23 @@
         invoking environment will be used.</para>
 
         <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--expand-environment=<replaceable>BOOL</replaceable></option></term>
+
+        <listitem><para>Controls whether to expand environment variables in service manager. If enabled (the default),
+        environment variables specified will be expanded in the same way as in commands specified via
+        <varname>ExecStart=</varname> in units. Refer to <citerefentry>
+        <refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for details.</para>
+
+        <para>It is especially useful to disable environment variable expansion in service manager when
+        <option>-i/--switch-shell</option> is used, so that the parameter expansion is performed only once
+        and by the actual shell.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/>
         </listitem>
       </varlistentry>
 
@@ -290,9 +318,9 @@
 
     <para>All command line arguments after the first non-option argument become part of the command line of
     the launched process. If no command line is specified an interactive shell is invoked. The shell to
-    invoke may be controlled via <option>--setenv=SHELL=…</option> and currently defaults to the
-    <emphasis>originating user's</emphasis> shell (i.e. not the target user's!) if operating locally, or
-    <filename>/bin/sh</filename> when operating with <option>--machine=</option>.</para>
+    invoke may be controlled via <option>-i/--switch-shell</option> - when specified the target user's shell
+    is used - or <option>--setenv=SHELL=…</option>. By default, the <emphasis>originating user's</emphasis> shell
+    is executed if operating locally, or <filename>/bin/sh</filename> when operating with <option>--machine=</option>.</para>
   </refsect1>
 
   <refsect1>
