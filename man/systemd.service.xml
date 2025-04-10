@@ -1425,9 +1425,8 @@
     </table>
 
     <para><literal>@</literal>, <literal>-</literal>, <literal>:</literal>, and one of
-    <literal>+</literal>/<literal>!</literal>/<literal>!!</literal> may be used together and they can appear in any
-    order. However, only one of <literal>+</literal>, <literal>!</literal>, <literal>!!</literal> may be used at a
-    time.</para>
+    <literal>+</literal>/<literal>!</literal> may be used together and they can appear in any order.
+    However, <literal>+</literal> and <literal>!</literal> may not be specified at the same time.</para>
 
     <para>For each command, the first argument must be either an absolute path to an executable or a simple
     file name without any slashes. If the command is not a full (absolute) path, it will be resolved to a
