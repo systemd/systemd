@@ -41,7 +41,7 @@ function run_meson() {
 
 set -ex
 
-MESON_ARGS=(-Dcryptolib=${CRYPTOLIB:-auto})
+MESON_ARGS=()
 
 # (Re)set the current oom-{score-}adj. For some reason root on GH actions is able to _decrease_
 # its oom-score even after dropping all capabilities (including CAP_SYS_RESOURCE), until the

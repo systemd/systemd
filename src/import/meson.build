@@ -78,7 +78,7 @@ executables += [
                 'sources' : systemd_pull_sources,
                 'link_with' : common_libs,
                 'dependencies' : common_deps + [
-                        lib_openssl_or_gcrypt,
+                        libopenssl,
                 ],
         },
         libexec_template + {

@@ -268,8 +268,8 @@ executables += [
         },
         test_template + {
                 'sources' : files('test-cryptolib.c'),
-                'dependencies' : lib_openssl_or_gcrypt,
-                'conditions' : ['HAVE_OPENSSL_OR_GCRYPT'],
+                'dependencies' : libopenssl,
+                'conditions' : ['HAVE_OPENSSL'],
         },
         test_template + {
                 'sources' : files('test-display-quota.c'),
