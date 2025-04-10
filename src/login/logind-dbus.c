@@ -1113,6 +1113,9 @@ static int manager_create_session_by_bus(
         if (leader.pid == 1 || pidref_is_self(&leader))
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid leader PID");
 
+        if (leader.fd < 0)
+                return sd_bus_error_set_errnof(error, EUNATCH, "Leader PIDFD not available");
+
         SessionType t;
         if (isempty(type))
                 t = _SESSION_TYPE_INVALID;
