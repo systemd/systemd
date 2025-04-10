@@ -31,7 +31,7 @@ static void log_syntax_callback(const char *unit, int level, void *userdata) {
 
         r = set_put_strdup(s, unit);
         if (r < 0) {
-                set_free_free(*s);
+                set_free(*s);
                 *s = POINTER_MAX;
         }
 }
@@ -265,7 +265,7 @@ static int verify_unit(Unit *u, bool check_man, const char *root) {
 static void set_destroy_ignore_pointer_max(Set **s) {
         if (*s == POINTER_MAX)
                 return;
-        set_free_free(*s);
+        set_free(*s);
 }
 
 int verify_units(
