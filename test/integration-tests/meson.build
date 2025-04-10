@@ -26,6 +26,7 @@ integration_test_template = {
         'coredump-exclude-regex' : '',
         'sanitizer-exclude-regex' : '',
         'rtc' : false,
+        'tpm' : false,
 }
 
 foreach dirname : [
@@ -118,6 +119,10 @@ foreach integration_test : integration_tests
 
         if integration_test['rtc']
                 integration_test_args += ['--rtc']
+        endif
+
+        if integration_test['tpm']
+                integration_test_args += ['--tpm']
         endif
 
         if not integration_test['enabled']

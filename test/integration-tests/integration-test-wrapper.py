@@ -374,6 +374,7 @@ def main() -> None:
     parser.add_argument('--coredump-exclude-regex', required=True)
     parser.add_argument('--sanitizer-exclude-regex', required=True)
     parser.add_argument('--rtc', action=argparse.BooleanOptionalAction)
+    parser.add_argument('--tpm', action=argparse.BooleanOptionalAction)
     parser.add_argument('--skip', action=argparse.BooleanOptionalAction)
     parser.add_argument('mkosi_args', nargs='*')
     args = parser.parse_args()
@@ -566,6 +567,7 @@ def main() -> None:
         *args.mkosi_args,
         '--firmware', firmware,
         *(['--kvm', 'no'] if int(os.getenv('TEST_NO_KVM', '0')) else []),
+        '--tpm', 'yes' if args.tpm else 'no',
         '--kernel-command-line-extra',
         ' '.join(
             [
