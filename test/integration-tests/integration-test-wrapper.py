@@ -631,7 +631,7 @@ def main() -> None:
     elif os.getenv('TEST_JOURNAL_USE_TMP', '0') == '1' and journal_file.exists():
         dst = args.meson_build_dir / f'test/journal/{name}.journal'
         dst.parent.mkdir(parents=True, exist_ok=True)
-        journal_file = shutil.move(journal_file, dst)
+        journal_file = Path(shutil.move(journal_file, dst))
 
     if shell or (result.returncode in (args.exit_code, 77) and not coredumps and not sanitizer):
         exit_code = 0 if shell or result.returncode == args.exit_code else 77
