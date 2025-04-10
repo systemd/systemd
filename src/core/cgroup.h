@@ -38,6 +38,7 @@ typedef struct CGroupBlockIODeviceWeight CGroupBlockIODeviceWeight;
 typedef struct CGroupBlockIODeviceBandwidth CGroupBlockIODeviceBandwidth;
 typedef struct CGroupBPFForeignProgram CGroupBPFForeignProgram;
 typedef struct CGroupSocketBindItem CGroupSocketBindItem;
+typedef struct CGroupDeviceMemoryLimit CGroupDeviceMemoryLimit;
 typedef struct CGroupRuntime CGroupRuntime;
 
 typedef enum CGroupDevicePolicy {
@@ -134,6 +135,15 @@ typedef enum CGroupPressureWatch {
         _CGROUP_PRESSURE_WATCH_INVALID = -EINVAL,
 } CGroupPressureWatch;
 
+struct CGroupDeviceMemoryLimit {
+        LIST_FIELDS(CGroupDeviceMemoryLimit, dev_limits);
+        char *region;
+        uint64_t max;
+        uint64_t low;
+        bool max_valid;
+        bool low_valid;
+};
+
 /* The user-supplied cgroup-related configuration options. This remains mostly immutable while the service
  * manager is running (except for an occasional SetProperty() configuration change), outside of reload
  * cycles. When adding members make sure to update cgroup_context_copy() accordingly. */
@@ -184,6 +194,8 @@ struct CGroupContext {
         uint64_t startup_memory_swap_max;
         uint64_t memory_zswap_max;
         uint64_t startup_memory_zswap_max;
+
+        LIST_HEAD(CGroupDeviceMemoryLimit, dev_mem_limits);
 
         bool default_memory_min_set:1;
         bool default_memory_low_set:1;
@@ -422,6 +434,7 @@ int cgroup_context_add_block_io_device_bandwidth_dup(CGroupContext *c, const CGr
 int cgroup_context_add_device_allow_dup(CGroupContext *c, const CGroupDeviceAllow *a);
 int cgroup_context_add_socket_bind_item_allow_dup(CGroupContext *c, const CGroupSocketBindItem *i);
 int cgroup_context_add_socket_bind_item_deny_dup(CGroupContext *c, const CGroupSocketBindItem *i);
+int cgroup_context_add_device_memory_limit(CGroupContext *c, const CGroupDeviceMemoryLimit *l);
 
 void unit_modify_nft_set(Unit *u, bool add);
 
