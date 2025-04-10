@@ -221,11 +221,7 @@ static void test_sd_device_one(sd_device *d) {
         }
 }
 
-TEST(sd_device_enumerator_devices) {
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
-
-        ASSERT_OK(sd_device_enumerator_new(&e));
-        ASSERT_OK(sd_device_enumerator_allow_uninitialized(e));
+static void exclude_problematic_devices(sd_device_enumerator *e) {
         /* On some CI environments, it seems some loop block devices and corresponding bdi devices sometimes
          * disappear during running this test. Let's exclude them here for stability. */
         ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, "bdi", false));
@@ -233,6 +229,15 @@ TEST(sd_device_enumerator_devices) {
         /* On CentOS CI, systemd-networkd-tests.py may be running when this test is invoked. The networkd
          * test creates and removes many network interfaces, and may interfere with this test. */
         ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, "net", false));
+}
+
+TEST(sd_device_enumerator_devices) {
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+
+        ASSERT_OK(sd_device_enumerator_new(&e));
+        ASSERT_OK(sd_device_enumerator_allow_uninitialized(e));
+        exclude_problematic_devices(e);
+
         FOREACH_DEVICE(e, d)
                 test_sd_device_one(d);
 }
@@ -300,10 +305,7 @@ static bool test_sd_device_enumerator_filter_subsystem_trial(void) {
 
         ASSERT_NOT_NULL((subsystems = hashmap_new(&string_hash_ops)));
         ASSERT_OK(sd_device_enumerator_new(&e));
-        /* See comments in TEST(sd_device_enumerator_devices). */
-        ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, "bdi", false));
-        ASSERT_OK(sd_device_enumerator_add_nomatch_sysname(e, "loop*"));
-        ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, "net", false));
+        exclude_problematic_devices(e);
 
         FOREACH_DEVICE(e, d) {
                 const char *syspath, *subsystem;
@@ -478,14 +480,15 @@ static void check_parent_match(sd_device_enumerator *e, sd_device *dev) {
 
 TEST(sd_device_enumerator_add_match_parent) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        /* Some devices have thousands of children. Avoid spending too much time in the double loop below. */
+        unsigned iterations = 200;
         int r;
 
         ASSERT_OK(sd_device_enumerator_new(&e));
         ASSERT_OK(sd_device_enumerator_allow_uninitialized(e));
-        /* See comments in TEST(sd_device_enumerator_devices). */
-        ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, "bdi", false));
-        ASSERT_OK(sd_device_enumerator_add_nomatch_sysname(e, "loop*"));
-        ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, "net", false));
+        exclude_problematic_devices(e);
+
+        ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, "memory", false));
 
         if (!slow_tests_enabled())
                 ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, "block", true));
@@ -494,6 +497,9 @@ TEST(sd_device_enumerator_add_match_parent) {
                 _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *p = NULL;
                 const char *syspath;
                 sd_device *parent;
+
+                if (iterations-- == 0)
+                        break;
 
                 ASSERT_OK(sd_device_get_syspath(dev, &syspath));
 
@@ -560,14 +566,13 @@ TEST(sd_device_enumerator_add_all_parents) {
 
 TEST(sd_device_get_child) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        /* Some devices have thousands of children. Avoid spending too much time in the double loop below. */
+        unsigned iterations = 3000;
         int r;
 
         ASSERT_OK(sd_device_enumerator_new(&e));
         ASSERT_OK(sd_device_enumerator_allow_uninitialized(e));
-        /* See comments in TEST(sd_device_enumerator_devices). */
-        ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, "bdi", false));
-        ASSERT_OK(sd_device_enumerator_add_nomatch_sysname(e, "loop*"));
-        ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, "net", false));
+        exclude_problematic_devices(e);
 
         if (!slow_tests_enabled())
                 ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, "block", true));
@@ -592,6 +597,9 @@ TEST(sd_device_get_child) {
 
                 FOREACH_DEVICE_CHILD_WITH_SUFFIX(parent, child, suffix) {
                         const char *s;
+
+                        if (iterations-- == 0)
+                                return;
 
                         ASSERT_NOT_NULL(child);
                         ASSERT_NOT_NULL(suffix);
