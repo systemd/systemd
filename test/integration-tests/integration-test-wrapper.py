@@ -374,6 +374,7 @@ def main() -> None:
     parser.add_argument('--coredump-exclude-regex', required=True)
     parser.add_argument('--sanitizer-exclude-regex', required=True)
     parser.add_argument('--rtc', action=argparse.BooleanOptionalAction)
+    parser.add_argument('--tpm', action=argparse.BooleanOptionalAction)
     parser.add_argument('--skip', action=argparse.BooleanOptionalAction)
     parser.add_argument('mkosi_args', nargs='*')
     args = parser.parse_args()
@@ -566,6 +567,7 @@ def main() -> None:
         *args.mkosi_args,
         '--firmware', firmware,
         *(['--kvm', 'no'] if int(os.getenv('TEST_NO_KVM', '0')) else []),
+        '--tpm', 'yes' if args.tpm else 'no',
         '--kernel-command-line-extra',
         ' '.join(
             [
@@ -629,7 +631,7 @@ def main() -> None:
     elif os.getenv('TEST_JOURNAL_USE_TMP', '0') == '1' and journal_file.exists():
         dst = args.meson_build_dir / f'test/journal/{name}.journal'
         dst.parent.mkdir(parents=True, exist_ok=True)
-        journal_file = shutil.move(journal_file, dst)
+        journal_file = Path(shutil.move(journal_file, dst))
 
     if shell or (result.returncode in (args.exit_code, 77) and not coredumps and not sanitizer):
         exit(0 if shell or result.returncode == args.exit_code else 77)
