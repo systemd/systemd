@@ -912,35 +912,31 @@ static void hashmap_free_no_clear(HashmapBase *h) {
                 free(h);
 }
 
-HashmapBase* _hashmap_free(HashmapBase *h, free_func_t default_free_key, free_func_t default_free_value) {
+HashmapBase* _hashmap_free(HashmapBase *h) {
         if (h) {
-                _hashmap_clear(h, default_free_key, default_free_value);
+                _hashmap_clear(h);
                 hashmap_free_no_clear(h);
         }
 
         return NULL;
 }
 
-void _hashmap_clear(HashmapBase *h, free_func_t default_free_key, free_func_t default_free_value) {
-        free_func_t free_key, free_value;
+void _hashmap_clear(HashmapBase *h) {
         if (!h)
                 return;
 
-        free_key = h->hash_ops->free_key ?: default_free_key;
-        free_value = h->hash_ops->free_value ?: default_free_value;
-
-        if (free_key || free_value) {
+        if (h->hash_ops->free_key || h->hash_ops->free_value) {
 
                 /* If destructor calls are defined, let's destroy things defensively: let's take the item out of the
                  * hash table, and only then call the destructor functions. If these destructors then try to unregister
                  * themselves from our hash table a second time, the entry is already gone. */
 
                 for (void *v, *k; (v = _hashmap_first_key_and_value(h, /* remove = */ true, &k)); ) {
-                        if (free_key)
-                                free_key(k);
+                        if (h->hash_ops->free_key)
+                                h->hash_ops->free_key(k);
 
-                        if (free_value)
-                                free_value(v);
+                        if (h->hash_ops->free_value)
+                                h->hash_ops->free_value(v);
                 }
         }
 
@@ -1775,7 +1771,7 @@ HashmapBase* _hashmap_copy(HashmapBase *h  HASHMAP_DEBUG_PARAMS) {
         }
 
         if (r < 0)
-                return _hashmap_free(copy, NULL, NULL);
+                return _hashmap_free(copy);
 
         return copy;
 }
