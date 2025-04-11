@@ -520,6 +520,7 @@ typedef struct UserDBMatch {
                 uid_t uid_max;
                 gid_t gid_max;
         };
+        sd_id128_t uuid;
 } UserDBMatch;
 
 #define USER_DISPOSITION_MASK_ALL ((UINT64_C(1) << _USER_DISPOSITION_MAX) - UINT64_C(1))
@@ -529,6 +530,7 @@ typedef struct UserDBMatch {
                 .disposition_mask = USER_DISPOSITION_MASK_ALL,  \
                 .uid_min = 0,                                   \
                 .uid_max = UID_INVALID-1,                       \
+                .uuid = SD_ID128_NULL,                          \
        }
 
 static inline bool userdb_match_is_set(const UserDBMatch *match) {
@@ -538,7 +540,8 @@ static inline bool userdb_match_is_set(const UserDBMatch *match) {
         return !strv_isempty(match->fuzzy_names) ||
                 !FLAGS_SET(match->disposition_mask, USER_DISPOSITION_MASK_ALL) ||
                 match->uid_min > 0 ||
-                match->uid_max < UID_INVALID-1;
+                match->uid_max < UID_INVALID-1 ||
+                !sd_id128_is_null(match->uuid);
 }
 
 static inline void userdb_match_done(UserDBMatch *match) {
