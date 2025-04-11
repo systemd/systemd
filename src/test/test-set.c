@@ -400,4 +400,25 @@ TEST(set_fnmatch) {
         assert_se(!set_fnmatch(match, nomatch, "cccXX"));
 }
 
+TEST(set_to_strv) {
+        _cleanup_set_free_ Set *set = NULL;
+
+        char **v = STRV_MAKE("aaa", "bbb", "ccc");
+        STRV_FOREACH(p, v)
+                ASSERT_OK(set_put_strdup(&set, *p));
+        ASSERT_EQ(set_size(set), strv_length(v));
+
+        _cleanup_free_ char **a = NULL;
+        ASSERT_NOT_NULL(a = set_get_strv(set));
+        ASSERT_EQ(strv_length(a), strv_length(v));
+        ASSERT_TRUE(strv_equal_ignore_order(a, v));
+
+        _cleanup_strv_free_ char **b = NULL;
+        ASSERT_NOT_NULL(b = set_to_strv(set));
+        ASSERT_EQ(strv_length(b), strv_length(v));
+        ASSERT_TRUE(strv_equal_ignore_order(b, v));
+
+        ASSERT_TRUE(set_isempty(set));
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);
