@@ -11,6 +11,7 @@
 #include "cgroup-show.h"
 #include "cpu-set-util.h"
 #include "errno-util.h"
+#include "execute.h"
 #include "exec-util.h"
 #include "exit-status.h"
 #include "fd-util.h"
@@ -28,6 +29,7 @@
 #include "open-file.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "percent-util.h"
 #include "pretty-print.h"
 #include "process-util.h"
 #include "signal-util.h"
@@ -152,6 +154,13 @@ typedef struct UnitCondition {
 
         LIST_FIELDS(struct UnitCondition, conditions);
 } UnitCondition;
+
+typedef struct QuotaInfo {
+        bool quota_enforce;
+        bool quota_accounting;
+        uint64_t quota_usage;
+        uint64_t quota_limit;
+} QuotaInfo;
 
 static UnitCondition* unit_condition_free(UnitCondition *c) {
         if (!c)
@@ -286,6 +295,9 @@ typedef struct UnitStatusInfo {
         uint64_t default_memory_low;
         uint64_t default_startup_memory_low;
 
+        /* Exec Quotas */
+        QuotaInfo exec_directories_quota[_EXEC_DIRECTORY_TYPE_MAX];
+
         LIST_HEAD(ExecStatusInfo, exec_status_info_list);
 } UnitStatusInfo;
 
@@ -323,6 +335,32 @@ static void format_enable_state(const char *enable_state, const char **enable_on
                 *enable_off = ansi_normal();
         } else
                 *enable_on = *enable_off = "";
+}
+
+static void print_exec_directory_quota(UnitStatusInfo *i, ExecDirectoryType dt) {
+        assert(i);
+
+        if (!IN_SET(dt, EXEC_DIRECTORY_STATE, EXEC_DIRECTORY_CACHE, EXEC_DIRECTORY_LOGS))
+                return;
+
+        if (i->exec_directories_quota[dt].quota_accounting || i->exec_directories_quota[dt].quota_enforce) {
+                const char *print_label = NULL;
+                if (dt == EXEC_DIRECTORY_STATE)
+                        print_label = "StateDirectory";
+                else if (dt == EXEC_DIRECTORY_CACHE)
+                        print_label = "CacheDirectory";
+                else if (dt == EXEC_DIRECTORY_LOGS)
+                        print_label = "LogsDirectory";
+
+                printf("        %s: %s", print_label, FORMAT_BYTES(i->exec_directories_quota[dt].quota_usage));
+
+                if (i->exec_directories_quota[dt].quota_enforce) {
+                        printf(" (");
+                        printf("max: %s", FORMAT_BYTES(i->exec_directories_quota[dt].quota_limit));
+                        printf(")");
+                }
+                printf("\n");
+        }
 }
 
 static void print_status_info(
@@ -838,6 +876,9 @@ static void print_status_info(
         if (i->cpu_usage_nsec != UINT64_MAX)
                 printf("        CPU: %s\n", FORMAT_TIMESPAN(i->cpu_usage_nsec / NSEC_PER_USEC, USEC_PER_MSEC));
 
+        for (ExecDirectoryType dt = 0; dt < _EXEC_DIRECTORY_TYPE_MAX; dt++)
+                print_exec_directory_quota(i, dt);
+
         if (i->control_group) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 static const char prefix[] = "             ";
@@ -1083,6 +1124,26 @@ static int map_exec(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_e
         return 0;
 }
 
+static int map_quota(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
+        int r;
+        QuotaInfo *qi = ASSERT_PTR(userdata);
+        int quota_enforce;
+        int quota_accounting;
+        uint64_t quota_usage;
+        uint64_t quota_limit;
+
+        r = sd_bus_message_read(m, "(bbtt)", &quota_enforce, &quota_accounting, &quota_usage, &quota_limit);
+        if (r < 0)
+                return r;
+
+        qi->quota_enforce = quota_enforce;
+        qi->quota_accounting = quota_accounting;
+        qi->quota_usage = quota_usage;
+        qi->quota_limit = quota_limit;
+
+        return 0;
+}
+
 static int print_property(const char *name, const char *expected_value, sd_bus_message *m, BusPrintPropertyFlags flags) {
         char bus_type;
         const char *contents;
@@ -1298,6 +1359,23 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
 
                                 fputc('\n', stdout);
                         }
+                        return 1;
+                } else if (STR_IN_SET(name, "StateDirectoryQuota", "CacheDirectoryQuota", "LogsDirectoryQuota")) {
+                        uint64_t quota_absolute;
+                        uint32_t quota_scale;
+                        int quota_enforce;
+
+                        r = sd_bus_message_read(m, "(tub)", &quota_absolute, &quota_scale, &quota_enforce);
+                        if (r < 0)
+                                return r;
+
+                        if (!quota_enforce)
+                                bus_print_property_value(name, expected_value, flags, "[not set]");
+                        else if (quota_absolute != UINT64_MAX)
+                                bus_print_property_valuef(name, expected_value, flags, "%" PRIu64, quota_absolute);
+                        else
+                                bus_print_property_valuef(name, expected_value, flags, "%d%%", UINT32_SCALE_TO_PERCENT(quota_scale));
+
                         return 1;
                 }
 
@@ -2067,115 +2145,118 @@ static int show_one(
                 bool *ellipsized) {
 
         static const struct bus_properties_map property_map[] = {
-                { "Id",                             "s",               NULL,           offsetof(UnitStatusInfo, id)                                },
+                { "Id",                             "s",               NULL,           offsetof(UnitStatusInfo, id)                                             },
                 { "LoadState",                      "s",               NULL,           offsetof(UnitStatusInfo, load_state)                        },
                 { "ActiveState",                    "s",               NULL,           offsetof(UnitStatusInfo, active_state)                      },
                 { "FreezerState",                   "s",               NULL,           offsetof(UnitStatusInfo, freezer_state)                     },
                 { "Documentation",                  "as",              NULL,           offsetof(UnitStatusInfo, documentation)                     },
                 {}
         }, status_map[] = {
-                { "Id",                             "s",               NULL,           offsetof(UnitStatusInfo, id)                                },
-                { "LoadState",                      "s",               NULL,           offsetof(UnitStatusInfo, load_state)                        },
-                { "ActiveState",                    "s",               NULL,           offsetof(UnitStatusInfo, active_state)                      },
-                { "FreezerState",                   "s",               NULL,           offsetof(UnitStatusInfo, freezer_state)                     },
-                { "SubState",                       "s",               NULL,           offsetof(UnitStatusInfo, sub_state)                         },
-                { "Job",                            "(uo)",            bus_map_job_id, offsetof(UnitStatusInfo, job_id)                            },
-                { "UnitFileState",                  "s",               NULL,           offsetof(UnitStatusInfo, unit_file_state)                   },
-                { "UnitFilePreset",                 "s",               NULL,           offsetof(UnitStatusInfo, unit_file_preset)                  },
-                { "Description",                    "s",               NULL,           offsetof(UnitStatusInfo, description)                       },
-                { "Following",                      "s",               NULL,           offsetof(UnitStatusInfo, following)                         },
-                { "Documentation",                  "as",              NULL,           offsetof(UnitStatusInfo, documentation)                     },
-                { "FragmentPath",                   "s",               NULL,           offsetof(UnitStatusInfo, fragment_path)                     },
-                { "SourcePath",                     "s",               NULL,           offsetof(UnitStatusInfo, source_path)                       },
-                { "ControlGroup",                   "s",               NULL,           offsetof(UnitStatusInfo, control_group)                     },
-                { "DropInPaths",                    "as",              NULL,           offsetof(UnitStatusInfo, dropin_paths)                      },
-                { "LoadError",                      "(ss)",            map_load_error, offsetof(UnitStatusInfo, load_error)                        },
-                { "Result",                         "s",               NULL,           offsetof(UnitStatusInfo, result)                            },
-                { "TriggeredBy",                    "as",              NULL,           offsetof(UnitStatusInfo, triggered_by)                      },
-                { "Triggers",                       "as",              NULL,           offsetof(UnitStatusInfo, triggers)                          },
-                { "InactiveExitTimestamp",          "t",               NULL,           offsetof(UnitStatusInfo, inactive_exit_timestamp)           },
-                { "InactiveExitTimestampMonotonic", "t",               NULL,           offsetof(UnitStatusInfo, inactive_exit_timestamp_monotonic) },
-                { "ActiveEnterTimestamp",           "t",               NULL,           offsetof(UnitStatusInfo, active_enter_timestamp)            },
-                { "ActiveExitTimestamp",            "t",               NULL,           offsetof(UnitStatusInfo, active_exit_timestamp)             },
-                { "InactiveEnterTimestamp",         "t",               NULL,           offsetof(UnitStatusInfo, inactive_enter_timestamp)          },
-                { "RuntimeMaxUSec",                 "t",               NULL,           offsetof(UnitStatusInfo, runtime_max_sec)                   },
-                { "InvocationID",                   "s",               bus_map_id128,  offsetof(UnitStatusInfo, invocation_id)                     },
-                { "NeedDaemonReload",               "b",               NULL,           offsetof(UnitStatusInfo, need_daemon_reload)                },
-                { "Transient",                      "b",               NULL,           offsetof(UnitStatusInfo, transient)                         },
-                { "ExecMainPID",                    "u",               NULL,           offsetof(UnitStatusInfo, main_pid)                          },
-                { "MainPID",                        "u",               map_main_pid,   0                                                           },
-                { "ControlPID",                     "u",               NULL,           offsetof(UnitStatusInfo, control_pid)                       },
-                { "PIDFile",                        "s",               NULL,           offsetof(UnitStatusInfo, pid_file)                          },
-                { "StatusText",                     "s",               NULL,           offsetof(UnitStatusInfo, status_text)                       },
-                { "StatusErrno",                    "i",               NULL,           offsetof(UnitStatusInfo, status_errno)                      },
-                { "StatusBusError",                 "s",               NULL,           offsetof(UnitStatusInfo, status_bus_error)                  },
-                { "StatusVarlinkError",             "s",               NULL,           offsetof(UnitStatusInfo, status_varlink_error)              },
-                { "FileDescriptorStoreMax",         "u",               NULL,           offsetof(UnitStatusInfo, fd_store_max)                      },
-                { "NFileDescriptorStore",           "u",               NULL,           offsetof(UnitStatusInfo, n_fd_store)                        },
-                { "ExecMainStartTimestamp",         "t",               NULL,           offsetof(UnitStatusInfo, start_timestamp)                   },
-                { "ExecMainExitTimestamp",          "t",               NULL,           offsetof(UnitStatusInfo, exit_timestamp)                    },
-                { "ExecMainCode",                   "i",               NULL,           offsetof(UnitStatusInfo, exit_code)                         },
-                { "ExecMainStatus",                 "i",               NULL,           offsetof(UnitStatusInfo, exit_status)                       },
-                { "LogNamespace",                   "s",               NULL,           offsetof(UnitStatusInfo, log_namespace)                     },
-                { "ConditionTimestamp",             "t",               NULL,           offsetof(UnitStatusInfo, condition_timestamp)               },
-                { "ConditionResult",                "b",               NULL,           offsetof(UnitStatusInfo, condition_result)                  },
-                { "Conditions",                     "a(sbbsi)",        map_conditions, 0                                                           },
-                { "AssertTimestamp",                "t",               NULL,           offsetof(UnitStatusInfo, assert_timestamp)                  },
-                { "AssertResult",                   "b",               NULL,           offsetof(UnitStatusInfo, assert_result)                     },
-                { "Asserts",                        "a(sbbsi)",        map_asserts,    0                                                           },
-                { "NextElapseUSecRealtime",         "t",               NULL,           offsetof(UnitStatusInfo, next_elapse_real)                  },
-                { "NextElapseUSecMonotonic",        "t",               NULL,           offsetof(UnitStatusInfo, next_elapse_monotonic)             },
-                { "NAccepted",                      "u",               NULL,           offsetof(UnitStatusInfo, n_accepted)                        },
-                { "NConnections",                   "u",               NULL,           offsetof(UnitStatusInfo, n_connections)                     },
-                { "NRefused",                       "u",               NULL,           offsetof(UnitStatusInfo, n_refused)                         },
-                { "Accept",                         "b",               NULL,           offsetof(UnitStatusInfo, accept)                            },
-                { "Listen",                         "a(ss)",           map_listen,     offsetof(UnitStatusInfo, listen)                            },
-                { "SysFSPath",                      "s",               NULL,           offsetof(UnitStatusInfo, sysfs_path)                        },
-                { "Where",                          "s",               NULL,           offsetof(UnitStatusInfo, where)                             },
-                { "What",                           "s",               NULL,           offsetof(UnitStatusInfo, what)                              },
-                { "MemoryCurrent",                  "t",               NULL,           offsetof(UnitStatusInfo, memory_current)                    },
-                { "MemoryPeak",                     "t",               NULL,           offsetof(UnitStatusInfo, memory_peak)                       },
-                { "MemorySwapCurrent",              "t",               NULL,           offsetof(UnitStatusInfo, memory_swap_current)               },
-                { "MemorySwapPeak",                 "t",               NULL,           offsetof(UnitStatusInfo, memory_swap_peak)                  },
-                { "MemoryZSwapCurrent",             "t",               NULL,           offsetof(UnitStatusInfo, memory_zswap_current)              },
-                { "MemoryAvailable",                "t",               NULL,           offsetof(UnitStatusInfo, memory_available)                  },
-                { "DefaultMemoryMin",               "t",               NULL,           offsetof(UnitStatusInfo, default_memory_min)                },
-                { "DefaultMemoryLow",               "t",               NULL,           offsetof(UnitStatusInfo, default_memory_low)                },
-                { "DefaultStartupMemoryLow",        "t",               NULL,           offsetof(UnitStatusInfo, default_startup_memory_low)        },
-                { "MemoryMin",                      "t",               NULL,           offsetof(UnitStatusInfo, memory_min)                        },
-                { "MemoryLow",                      "t",               NULL,           offsetof(UnitStatusInfo, memory_low)                        },
-                { "StartupMemoryLow",               "t",               NULL,           offsetof(UnitStatusInfo, startup_memory_low)                },
-                { "MemoryHigh",                     "t",               NULL,           offsetof(UnitStatusInfo, memory_high)                       },
-                { "StartupMemoryHigh",              "t",               NULL,           offsetof(UnitStatusInfo, startup_memory_high)               },
-                { "MemoryMax",                      "t",               NULL,           offsetof(UnitStatusInfo, memory_max)                        },
-                { "StartupMemoryMax",               "t",               NULL,           offsetof(UnitStatusInfo, startup_memory_max)                },
-                { "MemorySwapMax",                  "t",               NULL,           offsetof(UnitStatusInfo, memory_swap_max)                   },
-                { "StartupMemorySwapMax",           "t",               NULL,           offsetof(UnitStatusInfo, startup_memory_swap_max)           },
-                { "MemoryZSwapMax",                 "t",               NULL,           offsetof(UnitStatusInfo, memory_zswap_max)                  },
-                { "StartupMemoryZSwapMax",          "t",               NULL,           offsetof(UnitStatusInfo, startup_memory_zswap_max)          },
-                { "MemoryLimit",                    "t",               NULL,           offsetof(UnitStatusInfo, memory_limit)                      },
-                { "CPUUsageNSec",                   "t",               NULL,           offsetof(UnitStatusInfo, cpu_usage_nsec)                    },
-                { "TasksCurrent",                   "t",               NULL,           offsetof(UnitStatusInfo, tasks_current)                     },
-                { "TasksMax",                       "t",               NULL,           offsetof(UnitStatusInfo, tasks_max)                         },
-                { "IPIngressBytes",                 "t",               NULL,           offsetof(UnitStatusInfo, ip_ingress_bytes)                  },
-                { "IPEgressBytes",                  "t",               NULL,           offsetof(UnitStatusInfo, ip_egress_bytes)                   },
-                { "IOReadBytes",                    "t",               NULL,           offsetof(UnitStatusInfo, io_read_bytes)                     },
-                { "IOWriteBytes",                   "t",               NULL,           offsetof(UnitStatusInfo, io_write_bytes)                    },
-                { "ExecCondition",                  "a(sasbttttuii)",  map_exec,       0                                                           },
-                { "ExecConditionEx",                "a(sasasttttuii)", map_exec,       0                                                           },
-                { "ExecStartPre",                   "a(sasbttttuii)",  map_exec,       0                                                           },
-                { "ExecStartPreEx",                 "a(sasasttttuii)", map_exec,       0                                                           },
-                { "ExecStart",                      "a(sasbttttuii)",  map_exec,       0                                                           },
-                { "ExecStartEx",                    "a(sasasttttuii)", map_exec,       0                                                           },
-                { "ExecStartPost",                  "a(sasbttttuii)",  map_exec,       0                                                           },
-                { "ExecStartPostEx",                "a(sasasttttuii)", map_exec,       0                                                           },
-                { "ExecReload",                     "a(sasbttttuii)",  map_exec,       0                                                           },
-                { "ExecReloadEx",                   "a(sasasttttuii)", map_exec,       0                                                           },
-                { "ExecStopPre",                    "a(sasbttttuii)",  map_exec,       0                                                           },
-                { "ExecStop",                       "a(sasbttttuii)",  map_exec,       0                                                           },
-                { "ExecStopEx",                     "a(sasasttttuii)", map_exec,       0                                                           },
-                { "ExecStopPost",                   "a(sasbttttuii)",  map_exec,       0                                                           },
-                { "ExecStopPostEx",                 "a(sasasttttuii)", map_exec,       0                                                           },
+                { "Id",                             "s",               NULL,           offsetof(UnitStatusInfo, id)                                             },
+                { "LoadState",                      "s",               NULL,           offsetof(UnitStatusInfo, load_state)                                     },
+                { "ActiveState",                    "s",               NULL,           offsetof(UnitStatusInfo, active_state)                                   },
+                { "FreezerState",                   "s",               NULL,           offsetof(UnitStatusInfo, freezer_state)                                  },
+                { "SubState",                       "s",               NULL,           offsetof(UnitStatusInfo, sub_state)                                      },
+                { "Job",                            "(uo)",            bus_map_job_id, offsetof(UnitStatusInfo, job_id)                                         },
+                { "UnitFileState",                  "s",               NULL,           offsetof(UnitStatusInfo, unit_file_state)                                },
+                { "UnitFilePreset",                 "s",               NULL,           offsetof(UnitStatusInfo, unit_file_preset)                               },
+                { "Description",                    "s",               NULL,           offsetof(UnitStatusInfo, description)                                    },
+                { "Following",                      "s",               NULL,           offsetof(UnitStatusInfo, following)                                      },
+                { "Documentation",                  "as",              NULL,           offsetof(UnitStatusInfo, documentation)                                  },
+                { "FragmentPath",                   "s",               NULL,           offsetof(UnitStatusInfo, fragment_path)                                  },
+                { "SourcePath",                     "s",               NULL,           offsetof(UnitStatusInfo, source_path)                                    },
+                { "ControlGroup",                   "s",               NULL,           offsetof(UnitStatusInfo, control_group)                                  },
+                { "DropInPaths",                    "as",              NULL,           offsetof(UnitStatusInfo, dropin_paths)                                   },
+                { "LoadError",                      "(ss)",            map_load_error, offsetof(UnitStatusInfo, load_error)                                     },
+                { "Result",                         "s",               NULL,           offsetof(UnitStatusInfo, result)                                         },
+                { "TriggeredBy",                    "as",              NULL,           offsetof(UnitStatusInfo, triggered_by)                                   },
+                { "Triggers",                       "as",              NULL,           offsetof(UnitStatusInfo, triggers)                                       },
+                { "InactiveExitTimestamp",          "t",               NULL,           offsetof(UnitStatusInfo, inactive_exit_timestamp)                        },
+                { "InactiveExitTimestampMonotonic", "t",               NULL,           offsetof(UnitStatusInfo, inactive_exit_timestamp_monotonic)              },
+                { "ActiveEnterTimestamp",           "t",               NULL,           offsetof(UnitStatusInfo, active_enter_timestamp)                         },
+                { "ActiveExitTimestamp",            "t",               NULL,           offsetof(UnitStatusInfo, active_exit_timestamp)                          },
+                { "InactiveEnterTimestamp",         "t",               NULL,           offsetof(UnitStatusInfo, inactive_enter_timestamp)                       },
+                { "RuntimeMaxUSec",                 "t",               NULL,           offsetof(UnitStatusInfo, runtime_max_sec)                                },
+                { "InvocationID",                   "s",               bus_map_id128,  offsetof(UnitStatusInfo, invocation_id)                                  },
+                { "NeedDaemonReload",               "b",               NULL,           offsetof(UnitStatusInfo, need_daemon_reload)                             },
+                { "Transient",                      "b",               NULL,           offsetof(UnitStatusInfo, transient)                                      },
+                { "ExecMainPID",                    "u",               NULL,           offsetof(UnitStatusInfo, main_pid)                                       },
+                { "MainPID",                        "u",               map_main_pid,   0                                                                        },
+                { "ControlPID",                     "u",               NULL,           offsetof(UnitStatusInfo, control_pid)                                    },
+                { "PIDFile",                        "s",               NULL,           offsetof(UnitStatusInfo, pid_file)                                       },
+                { "StatusText",                     "s",               NULL,           offsetof(UnitStatusInfo, status_text)                                    },
+                { "StatusErrno",                    "i",               NULL,           offsetof(UnitStatusInfo, status_errno)                                   },
+                { "StatusBusError",                 "s",               NULL,           offsetof(UnitStatusInfo, status_bus_error)                               },
+                { "StatusVarlinkError",             "s",               NULL,           offsetof(UnitStatusInfo, status_varlink_error)                           },
+                { "FileDescriptorStoreMax",         "u",               NULL,           offsetof(UnitStatusInfo, fd_store_max)                                   },
+                { "NFileDescriptorStore",           "u",               NULL,           offsetof(UnitStatusInfo, n_fd_store)                                     },
+                { "ExecMainStartTimestamp",         "t",               NULL,           offsetof(UnitStatusInfo, start_timestamp)                                },
+                { "ExecMainExitTimestamp",          "t",               NULL,           offsetof(UnitStatusInfo, exit_timestamp)                                 },
+                { "ExecMainCode",                   "i",               NULL,           offsetof(UnitStatusInfo, exit_code)                                      },
+                { "ExecMainStatus",                 "i",               NULL,           offsetof(UnitStatusInfo, exit_status)                                    },
+                { "LogNamespace",                   "s",               NULL,           offsetof(UnitStatusInfo, log_namespace)                                  },
+                { "ConditionTimestamp",             "t",               NULL,           offsetof(UnitStatusInfo, condition_timestamp)                            },
+                { "ConditionResult",                "b",               NULL,           offsetof(UnitStatusInfo, condition_result)                               },
+                { "Conditions",                     "a(sbbsi)",        map_conditions, 0                                                                        },
+                { "AssertTimestamp",                "t",               NULL,           offsetof(UnitStatusInfo, assert_timestamp)                               },
+                { "AssertResult",                   "b",               NULL,           offsetof(UnitStatusInfo, assert_result)                                  },
+                { "Asserts",                        "a(sbbsi)",        map_asserts,    0                                                                        },
+                { "NextElapseUSecRealtime",         "t",               NULL,           offsetof(UnitStatusInfo, next_elapse_real)                               },
+                { "NextElapseUSecMonotonic",        "t",               NULL,           offsetof(UnitStatusInfo, next_elapse_monotonic)                          },
+                { "NAccepted",                      "u",               NULL,           offsetof(UnitStatusInfo, n_accepted)                                     },
+                { "NConnections",                   "u",               NULL,           offsetof(UnitStatusInfo, n_connections)                                  },
+                { "NRefused",                       "u",               NULL,           offsetof(UnitStatusInfo, n_refused)                                      },
+                { "Accept",                         "b",               NULL,           offsetof(UnitStatusInfo, accept)                                         },
+                { "Listen",                         "a(ss)",           map_listen,     offsetof(UnitStatusInfo, listen)                                         },
+                { "SysFSPath",                      "s",               NULL,           offsetof(UnitStatusInfo, sysfs_path)                                     },
+                { "Where",                          "s",               NULL,           offsetof(UnitStatusInfo, where)                                          },
+                { "What",                           "s",               NULL,           offsetof(UnitStatusInfo, what)                                           },
+                { "MemoryCurrent",                  "t",               NULL,           offsetof(UnitStatusInfo, memory_current)                                 },
+                { "MemoryPeak",                     "t",               NULL,           offsetof(UnitStatusInfo, memory_peak)                                    },
+                { "MemorySwapCurrent",              "t",               NULL,           offsetof(UnitStatusInfo, memory_swap_current)                            },
+                { "MemorySwapPeak",                 "t",               NULL,           offsetof(UnitStatusInfo, memory_swap_peak)                               },
+                { "MemoryZSwapCurrent",             "t",               NULL,           offsetof(UnitStatusInfo, memory_zswap_current)                           },
+                { "MemoryAvailable",                "t",               NULL,           offsetof(UnitStatusInfo, memory_available)                               },
+                { "DefaultMemoryMin",               "t",               NULL,           offsetof(UnitStatusInfo, default_memory_min)                             },
+                { "DefaultMemoryLow",               "t",               NULL,           offsetof(UnitStatusInfo, default_memory_low)                             },
+                { "DefaultStartupMemoryLow",        "t",               NULL,           offsetof(UnitStatusInfo, default_startup_memory_low)                     },
+                { "MemoryMin",                      "t",               NULL,           offsetof(UnitStatusInfo, memory_min)                                     },
+                { "MemoryLow",                      "t",               NULL,           offsetof(UnitStatusInfo, memory_low)                                     },
+                { "StartupMemoryLow",               "t",               NULL,           offsetof(UnitStatusInfo, startup_memory_low)                             },
+                { "MemoryHigh",                     "t",               NULL,           offsetof(UnitStatusInfo, memory_high)                                    },
+                { "StartupMemoryHigh",              "t",               NULL,           offsetof(UnitStatusInfo, startup_memory_high)                            },
+                { "MemoryMax",                      "t",               NULL,           offsetof(UnitStatusInfo, memory_max)                                     },
+                { "StartupMemoryMax",               "t",               NULL,           offsetof(UnitStatusInfo, startup_memory_max)                             },
+                { "MemorySwapMax",                  "t",               NULL,           offsetof(UnitStatusInfo, memory_swap_max)                                },
+                { "StartupMemorySwapMax",           "t",               NULL,           offsetof(UnitStatusInfo, startup_memory_swap_max)                        },
+                { "MemoryZSwapMax",                 "t",               NULL,           offsetof(UnitStatusInfo, memory_zswap_max)                               },
+                { "StartupMemoryZSwapMax",          "t",               NULL,           offsetof(UnitStatusInfo, startup_memory_zswap_max)                       },
+                { "MemoryLimit",                    "t",               NULL,           offsetof(UnitStatusInfo, memory_limit)                                   },
+                { "CPUUsageNSec",                   "t",               NULL,           offsetof(UnitStatusInfo, cpu_usage_nsec)                                 },
+                { "TasksCurrent",                   "t",               NULL,           offsetof(UnitStatusInfo, tasks_current)                                  },
+                { "TasksMax",                       "t",               NULL,           offsetof(UnitStatusInfo, tasks_max)                                      },
+                { "IPIngressBytes",                 "t",               NULL,           offsetof(UnitStatusInfo, ip_ingress_bytes)                               },
+                { "IPEgressBytes",                  "t",               NULL,           offsetof(UnitStatusInfo, ip_egress_bytes)                                },
+                { "IOReadBytes",                    "t",               NULL,           offsetof(UnitStatusInfo, io_read_bytes)                                  },
+                { "IOWriteBytes",                   "t",               NULL,           offsetof(UnitStatusInfo, io_write_bytes)                                 },
+                { "StateDirectoryQuotaInfo",        "(bbtt)",          map_quota,      offsetof(UnitStatusInfo, exec_directories_quota[EXEC_DIRECTORY_STATE])   },
+                { "CacheDirectoryQuotaInfo",        "(bbtt)",          map_quota,      offsetof(UnitStatusInfo, exec_directories_quota[EXEC_DIRECTORY_CACHE])   },
+                { "LogsDirectoryQuotaInfo",         "(bbtt)",          map_quota,      offsetof(UnitStatusInfo, exec_directories_quota[EXEC_DIRECTORY_LOGS])    },
+                { "ExecCondition",                  "a(sasbttttuii)",  map_exec,       0                                                                        },
+                { "ExecConditionEx",                "a(sasasttttuii)", map_exec,       0                                                                        },
+                { "ExecStartPre",                   "a(sasbttttuii)",  map_exec,       0                                                                        },
+                { "ExecStartPreEx",                 "a(sasasttttuii)", map_exec,       0                                                                        },
+                { "ExecStart",                      "a(sasbttttuii)",  map_exec,       0                                                                        },
+                { "ExecStartEx",                    "a(sasasttttuii)", map_exec,       0                                                                        },
+                { "ExecStartPost",                  "a(sasbttttuii)",  map_exec,       0                                                                        },
+                { "ExecStartPostEx",                "a(sasasttttuii)", map_exec,       0                                                                        },
+                { "ExecReload",                     "a(sasbttttuii)",  map_exec,       0                                                                        },
+                { "ExecReloadEx",                   "a(sasasttttuii)", map_exec,       0                                                                        },
+                { "ExecStopPre",                    "a(sasbttttuii)",  map_exec,       0                                                                        },
+                { "ExecStop",                       "a(sasbttttuii)",  map_exec,       0                                                                        },
+                { "ExecStopEx",                     "a(sasasttttuii)", map_exec,       0                                                                        },
+                { "ExecStopPost",                   "a(sasbttttuii)",  map_exec,       0                                                                        },
+                { "ExecStopPostEx",                 "a(sasasttttuii)", map_exec,       0                                                                        },
                 {}
         };
 
