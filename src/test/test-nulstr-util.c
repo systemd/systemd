@@ -110,7 +110,7 @@ TEST(strv_make_nulstr) {
 }
 
 TEST(set_make_nulstr) {
-        _cleanup_set_free_free_ Set *set = NULL;
+        _cleanup_set_free_ Set *set = NULL;
         size_t len = 0;
         int r;
 
@@ -130,7 +130,7 @@ TEST(set_make_nulstr) {
                 static const char expect[] = { 0x00, 0x00 };
                 _cleanup_free_ char *nulstr = NULL;
 
-                set = set_new(NULL);
+                set = set_new(&string_hash_ops_free);
                 assert_se(set);
 
                 r = set_make_nulstr(set, &nulstr, &len);

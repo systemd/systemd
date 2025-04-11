@@ -3653,7 +3653,7 @@ int config_parse_restrict_filesystems(
 
         if (isempty(rvalue)) {
                 /* Empty assignment resets the list */
-                c->restrict_filesystems = set_free_free(c->restrict_filesystems);
+                c->restrict_filesystems = set_free(c->restrict_filesystems);
                 c->restrict_filesystems_allow_list = false;
                 return 0;
         }
@@ -6056,7 +6056,7 @@ int config_parse_restrict_network_interfaces(
 
         if (isempty(rvalue)) {
                 /* Empty assignment resets the list */
-                c->restrict_network_interfaces = set_free_free(c->restrict_network_interfaces);
+                c->restrict_network_interfaces = set_free(c->restrict_network_interfaces);
                 return 0;
         }
 
@@ -6178,8 +6178,6 @@ static int merge_by_names(Unit *u, Set *names, const char *id) {
 }
 
 int unit_load_fragment(Unit *u) {
-        const char *fragment;
-        _cleanup_set_free_free_ Set *names = NULL;
         int r;
 
         assert(u);
@@ -6201,6 +6199,8 @@ int unit_load_fragment(Unit *u) {
         if (r < 0)
                 return log_error_errno(r, "Failed to rebuild name map: %m");
 
+        const char *fragment;
+        _cleanup_set_free_ Set *names = NULL;
         r = unit_file_find_fragment(u->manager->unit_id_map,
                                     u->manager->unit_name_map,
                                     u->id,
@@ -6681,8 +6681,8 @@ int config_parse_log_filter_patterns(
 
         if (isempty(pattern)) {
                 /* Empty assignment resets the lists. */
-                c->log_filter_allowed_patterns = set_free_free(c->log_filter_allowed_patterns);
-                c->log_filter_denied_patterns = set_free_free(c->log_filter_denied_patterns);
+                c->log_filter_allowed_patterns = set_free(c->log_filter_allowed_patterns);
+                c->log_filter_denied_patterns = set_free(c->log_filter_denied_patterns);
                 return 0;
         }
 
