@@ -145,9 +145,8 @@ TEST(set_ensure_allocated) {
 }
 
 TEST(set_copy) {
-        _cleanup_set_free_ Set *s = NULL;
-        _cleanup_set_free_free_ Set *copy = NULL;
-        char *key1, *key2, *key3, *key4;
+        _cleanup_set_free_ Set *s = NULL, *copy = NULL;
+        _cleanup_free_ char *key1 = NULL, *key2 = NULL, *key3 = NULL, *key4 = NULL;
 
         key1 = strdup("key1");
         assert_se(key1);
