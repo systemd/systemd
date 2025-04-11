@@ -911,25 +911,16 @@ int session_send_create_reply_bus(Session *s, const sd_bus_error *error) {
         if (sd_bus_error_is_set(error))
                 return sd_bus_reply_method_error(c, error);
 
-        _cleanup_close_ int fifo_fd = session_create_fifo(s);
-        if (fifo_fd < 0)
-                return fifo_fd;
-
-        /* Update the session state file before we notify the client about the result. */
-        session_save(s);
-
         _cleanup_free_ char *p = session_bus_path(s);
         if (!p)
                 return -ENOMEM;
 
         log_debug("Sending D-Bus reply about created session: "
-                  "id=%s object_path=%s uid=" UID_FMT " runtime_path=%s "
-                  "session_fd=%d seat=%s vtnr=%u",
+                  "id=%s object_path=%s uid=" UID_FMT " runtime_path=%s seat=%s vtnr=%u",
                   s->id,
                   p,
                   s->user->user_record->uid,
                   s->user->runtime_path,
-                  fifo_fd,
                   s->seat ? s->seat->id : "",
                   s->vtnr);
 
@@ -938,7 +929,10 @@ int session_send_create_reply_bus(Session *s, const sd_bus_error *error) {
                         s->id,
                         p,
                         s->user->runtime_path,
-                        fifo_fd,
+                        s->leader.fd, /* This is supposed to be a fifo fd which older versions logind would
+                                         return to clients and subscribe to EOF upon which the session gets
+                                         closed. We've bumped our baseline to v5.4 where pidfd is better
+                                         suited for the job. But still need to return *something* to the client. */
                         (uint32_t) s->user->user_record->uid,
                         s->seat ? s->seat->id : "",
                         (uint32_t) s->vtnr,

@@ -44,7 +44,6 @@
 
 #define RELEASE_USEC (20*USEC_PER_SEC)
 
-static void session_remove_fifo(Session *s);
 static void session_restore_vt(Session *s);
 
 int session_new(Manager *m, const char *id, Session **ret) {
@@ -66,7 +65,6 @@ int session_new(Manager *m, const char *id, Session **ret) {
                 .manager = m,
                 .id = strdup(id),
                 .state_file = path_join("/run/systemd/sessions/", id),
-                .fifo_fd = -EBADF,
                 .vtfd = -EBADF,
                 .audit_id = AUDIT_SESSION_INVALID,
                 .tty_validity = _TTY_VALIDITY_INVALID,
@@ -107,10 +105,8 @@ static int session_watch_pidfd(Session *s) {
         assert(s);
         assert(s->manager);
         assert(pidref_is_set(&s->leader));
+        assert(s->leader.fd >= 0);
         assert(!s->leader_pidfd_event_source);
-
-        if (s->leader.fd < 0)
-                return 0;
 
         r = sd_event_add_io(s->manager->event, &s->leader_pidfd_event_source, s->leader.fd, EPOLLIN, session_dispatch_leader_pidfd, s);
         if (r < 0)
@@ -209,12 +205,7 @@ Session* session_free(Session *s) {
 
         hashmap_remove(s->manager->sessions, s->id);
 
-        sd_event_source_unref(s->fifo_event_source);
-        safe_close(s->fifo_fd);
-
-        /* Note that we remove neither the state file nor the fifo path here, since we want both to survive
-         * daemon restarts */
-        free(s->fifo_path);
+        /* Note that we don't remove the state file here, since it's supposed to survive daemon restarts */
         free(s->state_file);
         free(s->id);
 
@@ -237,6 +228,7 @@ int session_set_leader_consume(Session *s, PidRef _leader) {
 
         assert(s);
         assert(pidref_is_set(&pidref));
+        assert(pidref.fd >= 0);
 
         if (pidref_equal(&s->leader, &pidref))
                 return 0;
@@ -331,9 +323,6 @@ int session_save(Session *s) {
                 fprintf(f, "SCOPE=%s\n", s->scope);
         if (s->scope_job)
                 fprintf(f, "SCOPE_JOB=%s\n", s->scope_job);
-
-        if (s->fifo_path)
-                fprintf(f, "FIFO=%s\n", s->fifo_path);
 
         if (s->seat)
                 fprintf(f, "SEAT=%s\n", s->seat->id);
@@ -486,7 +475,8 @@ int session_load(Session *s) {
                 *controller = NULL,
                 *active = NULL,
                 *devices = NULL,
-                *is_display = NULL;
+                *is_display = NULL,
+                *fifo_path = NULL; /* compat only, not used */
 
         int k, r;
 
@@ -496,7 +486,7 @@ int session_load(Session *s) {
                            "REMOTE",          &remote,
                            "SCOPE",           &s->scope,
                            "SCOPE_JOB",       &s->scope_job,
-                           "FIFO",            &s->fifo_path,
+                           "FIFO",            &fifo_path,
                            "SEAT",            &seat,
                            "TTY",             &s->tty,
                            "TTY_VALIDITY",    &tty_validity,
@@ -615,19 +605,10 @@ int session_load(Session *s) {
         if (streq_ptr(state, "closing"))
                 s->stopping = true;
 
-        if (s->fifo_path) {
-                int fd;
-
-                /* If we open an unopened pipe for reading we will not
-                   get an EOF. to trigger an EOF we hence open it for
-                   writing, but close it right away which then will
-                   trigger the EOF. This will happen immediately if no
-                   other process has the FIFO open for writing, i. e.
-                   when the session died before logind (re)started. */
-
-                fd = session_create_fifo(s);
-                safe_close(fd);
-        }
+        /* logind before v258 used a fifo for session close notification. Since v258 we fully employ
+         * pidfd for the job, hence just unlink the legacy fifo. */
+        if (fifo_path)
+                (void) unlink(fifo_path);
 
         if (realtime)
                 (void) deserialize_usec(realtime, &s->timestamp.realtime);
@@ -681,13 +662,19 @@ int session_load(Session *s) {
                 _cleanup_(pidref_done) PidRef p = PIDREF_NULL;
 
                 r = pidref_set_pid(&p, s->deserialized_pid);
-                if (r >= 0)
-                        r = session_set_leader_consume(s, TAKE_PIDREF(p));
                 if (r < 0)
-                        log_warning_errno(r, "Failed to set leader PID for session '%s': %m", s->id);
+                        return log_error_errno(r, "Failed to deserialize leader PID for session '%s': %m", s->id);
+                if (p.fd < 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                               "Failed to acquire pidfd for session leader '" PID_FMT "', refusing.",
+                                               p.pid);
+
+                r = session_set_leader_consume(s, TAKE_PIDREF(p));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set leader PID for session '%s': %m", s->id);
         }
 
-        return r;
+        return 0;
 }
 
 int session_activate(Session *s) {
@@ -967,9 +954,6 @@ int session_stop(Session *s, bool force) {
 
         if (s->seat)
                 seat_evict_position(s->seat, s);
-
-        /* We are going down, don't care about FIFOs anymore */
-        session_remove_fifo(s);
 
         /* Kill cgroup */
         r = session_stop_scope(s, force);
@@ -1264,71 +1248,6 @@ int session_set_tty(Session *s, const char *tty) {
         return 1;
 }
 
-static int session_dispatch_fifo(sd_event_source *es, int fd, uint32_t revents, void *userdata) {
-        Session *s = ASSERT_PTR(userdata);
-
-        assert(s->fifo_fd == fd);
-
-        /* EOF on the FIFO means the session died abnormally. */
-
-        session_remove_fifo(s);
-        session_stop(s, /* force = */ false);
-
-        session_add_to_gc_queue(s);
-
-        return 1;
-}
-
-int session_create_fifo(Session *s) {
-        int r;
-
-        assert(s);
-
-        /* Create FIFO */
-        if (!s->fifo_path) {
-                r = mkdir_safe_label("/run/systemd/sessions", 0755, 0, 0, MKDIR_WARN_MODE);
-                if (r < 0)
-                        return r;
-
-                s->fifo_path = strjoin("/run/systemd/sessions/", s->id, ".ref");
-                if (!s->fifo_path)
-                        return -ENOMEM;
-
-                if (mkfifo(s->fifo_path, 0600) < 0 && errno != EEXIST)
-                        return -errno;
-        }
-
-        /* Open reading side */
-        if (s->fifo_fd < 0) {
-                s->fifo_fd = open(s->fifo_path, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
-                if (s->fifo_fd < 0)
-                        return -errno;
-        }
-
-        if (!s->fifo_event_source) {
-                r = sd_event_add_io(s->manager->event, &s->fifo_event_source, s->fifo_fd, 0, session_dispatch_fifo, s);
-                if (r < 0)
-                        return r;
-
-                /* Let's make sure we noticed dead sessions before we process new bus requests (which might
-                 * create new sessions). */
-                r = sd_event_source_set_priority(s->fifo_event_source, SD_EVENT_PRIORITY_NORMAL-10);
-                if (r < 0)
-                        return r;
-        }
-
-        /* Open writing side */
-        return RET_NERRNO(open(s->fifo_path, O_WRONLY|O_CLOEXEC|O_NONBLOCK));
-}
-
-static void session_remove_fifo(Session *s) {
-        assert(s);
-
-        s->fifo_event_source = sd_event_source_unref(s->fifo_event_source);
-        s->fifo_fd = safe_close(s->fifo_fd);
-        s->fifo_path = unlink_and_free(s->fifo_path);
-}
-
 bool session_may_gc(Session *s, bool drop_not_started) {
         int r;
 
@@ -1348,9 +1267,6 @@ bool session_may_gc(Session *s, bool drop_not_started) {
         if (r < 0)
                 log_debug_errno(r, "Unable to determine if leader PID " PID_FMT " is still alive, assuming not: %m", s->leader.pid);
         if (r > 0)
-                return false;
-
-        if (s->fifo_fd >= 0 && pipe_eof(s->fifo_fd) <= 0)
                 return false;
 
         if (s->scope_job) {
@@ -1393,7 +1309,7 @@ SessionState session_get_state(Session *s) {
         if (s->stopping || s->timer_event_source)
                 return SESSION_CLOSING;
 
-        if (s->scope_job || (!pidref_is_set(&s->leader) && s->fifo_fd < 0))
+        if (s->scope_job || !pidref_is_set(&s->leader))
                 return SESSION_OPENING;
 
         if (session_is_active(s))
