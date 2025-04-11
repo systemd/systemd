@@ -4360,6 +4360,52 @@ int unit_patch_contexts(Unit *u) {
         }
 
         cc = unit_get_cgroup_context(u);
+        bool is_user_service = SERVICE(u) && strstr(u->id, "user@");
+        if (cc && (SLICE(u) || is_user_service)) {
+                FILE *f = fopen("/sys/fs/cgroup/dmem.region.capacity", "r");
+                if (!f)
+                        goto skip;
+                char *linebuf = NULL;
+                size_t size = 0;
+
+                while (getline(&linebuf, &size, f) != -1) {
+
+                        if (strstr(linebuf, "drm/")) {
+                                char *space = strstr(linebuf, " ");
+                                if (!space)
+                                        goto cont;
+                                size_t path_len = space - linebuf;
+                                char *region = malloc(path_len + 1);
+                                if (!region)
+                                        goto cont;
+                                strncpy(region, linebuf, path_len);
+                                region[path_len] = '\0';
+                                char *val_start = space + 1;
+
+                                uint64_t val = strtoull(val_start, NULL, 10);
+
+                                CGroupDeviceMemoryLimit lim = {
+                                        .region = region,
+                                        .low = val,
+                                        .max = val,
+                                        .low_valid = true,
+                                        .max_valid = true,
+                                };
+                                cgroup_context_add_device_memory_limit(cc, &lim);
+
+                                free(region);
+                        }
+
+                cont:
+                        free(linebuf);
+                        linebuf = NULL;
+                        size = 0;
+                }
+                free(linebuf);
+                fclose(f);
+        }
+skip:
+
         if (cc && ec) {
 
                 if (ec->private_devices &&

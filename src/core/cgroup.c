@@ -358,6 +358,28 @@ int cgroup_context_add_socket_bind_item_deny_dup(CGroupContext *c, const CGroupS
         return cgroup_context_add_socket_bind_item_dup(c, i, c->socket_bind_deny);
 }
 
+int cgroup_context_add_device_memory_limit(CGroupContext *c, const CGroupDeviceMemoryLimit *l) {
+        _cleanup_free_ CGroupDeviceMemoryLimit *n = NULL;
+
+        assert(c);
+        assert(l);
+
+        n = new (CGroupDeviceMemoryLimit, 1);
+        if (!n)
+                return -ENOMEM;
+
+        *n = (CGroupDeviceMemoryLimit){
+                .region = strdup(l->region),
+                .max = l->max,
+                .low = l->low,
+                .max_valid = l->max_valid,
+                .low_valid = l->low_valid,
+        };
+
+        LIST_PREPEND(dev_limits, c->dev_mem_limits, TAKE_PTR(n));
+        return 0;
+}
+
 int cgroup_context_copy(CGroupContext *dst, const CGroupContext *src) {
         struct in_addr_prefix *i;
         char *iface;
@@ -509,6 +531,12 @@ int cgroup_context_copy(CGroupContext *dst, const CGroupContext *src) {
 
         LIST_FOREACH_BACKWARDS(socket_bind_items, l, LIST_FIND_TAIL(socket_bind_items, src->socket_bind_deny)) {
                 r = cgroup_context_add_socket_bind_item_deny_dup(dst, l);
+                if (r < 0)
+                        return r;
+        }
+
+        LIST_FOREACH_BACKWARDS(dev_limits, l, LIST_FIND_TAIL(dev_limits, src->dev_mem_limits)) {
+                r = cgroup_context_add_device_memory_limit(dst, l);
                 if (r < 0)
                         return r;
         }
@@ -1832,6 +1860,25 @@ static void cgroup_apply_unified_memory_limit(Unit *u, const char *file, uint64_
         (void) set_attribute_and_warn(u, "memory", file, buf);
 }
 
+static int cgroup_apply_unified_dev_memory_limit(
+                Unit *u, const char *file, const char *region, uint64_t v) {
+
+        /* <region> + 'space' + value + null-terminator */
+        size_t buf_size = strlen(region) + 1 +
+                        DECIMAL_STR_MAX(uint64_t) + 1;
+        char *buf = new0(char, buf_size);
+        if (!buf)
+                return log_oom();
+
+        if (v == CGROUP_LIMIT_MAX)
+                snprintf(buf, buf_size, "%s max\n", region);
+        else
+                snprintf(buf, buf_size, "%s %" PRIu64 "\n", region, v);
+
+        (void) set_attribute_and_warn(u, "dmem", file, buf);
+        return 0;
+}
+
 static void cgroup_apply_firewall(Unit *u) {
         assert(u);
 
@@ -2273,6 +2320,17 @@ static void cgroup_context_apply(
                 }
         }
 
+        if (apply_mask & CGROUP_MASK_DMEM) {
+                LIST_FOREACH(dev_limits, l, c->dev_mem_limits) {
+                        if (l->low_valid)
+                                cgroup_apply_unified_dev_memory_limit(
+                                                u, "dmem.low", l->region, l->low);
+                        if (l->max_valid)
+                                cgroup_apply_unified_dev_memory_limit(
+                                                u, "dmem.max", l->region, l->max);
+                }
+        }
+
         /* On cgroup v2 we can apply BPF everywhere. On cgroup v1 we apply it everywhere except for the root of
          * containers, where we leave this to the manager */
         if ((apply_mask & (CGROUP_MASK_DEVICES | CGROUP_MASK_BPF_DEVICES)) &&
@@ -2433,6 +2491,8 @@ static CGroupMask unit_get_cgroup_mask(Unit *u) {
         if (c->tasks_accounting ||
             cgroup_tasks_max_isset(&c->tasks_max))
                 mask |= CGROUP_MASK_PIDS;
+
+        mask |= CGROUP_MASK_DMEM;
 
         return CGROUP_MASK_EXTEND_JOINED(mask);
 }
