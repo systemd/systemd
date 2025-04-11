@@ -19,7 +19,6 @@ sources = files(
         'netdev/macvlan.c',
         'netdev/netdev-util.c',
         'netdev/netdev.c',
-        'netdev/netdevsim.c',
         'netdev/nlmon.c',
         'netdev/tunnel.c',
         'netdev/tuntap.c',
