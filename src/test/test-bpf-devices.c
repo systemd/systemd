@@ -299,8 +299,7 @@ int main(int argc, char *argv[]) {
         ASSERT_OK(path_extract_directory(cgroup, &parent));
 
         ASSERT_OK(cg_mask_supported(&supported));
-        r = cg_attach_everywhere(supported, parent, 0);
-        ASSERT_OK(r);
+        ASSERT_OK(cg_attach(parent, 0));
 
         return 0;
 }

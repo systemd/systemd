@@ -794,7 +794,7 @@ static int parse_config_file(void) {
                 { "Manager", "DefaultCPUAccounting",         config_parse_bool,                  0,                        &arg_defaults.cpu_accounting      },
                 { "Manager", "DefaultIOAccounting",          config_parse_bool,                  0,                        &arg_defaults.io_accounting       },
                 { "Manager", "DefaultIPAccounting",          config_parse_bool,                  0,                        &arg_defaults.ip_accounting       },
-                { "Manager", "DefaultBlockIOAccounting",     config_parse_bool,                  0,                        &arg_defaults.blockio_accounting  },
+                { "Manager", "DefaultBlockIOAccounting",     config_parse_warn_compat,           DISABLED_LEGACY,          NULL                              },
                 { "Manager", "DefaultMemoryAccounting",      config_parse_bool,                  0,                        &arg_defaults.memory_accounting   },
                 { "Manager", "DefaultTasksAccounting",       config_parse_bool,                  0,                        &arg_defaults.tasks_accounting    },
                 { "Manager", "DefaultTasksMax",              config_parse_tasks_max,             0,                        &arg_defaults.tasks_max           },

@@ -13,17 +13,6 @@ bool cgroup_bpf_supported(void) {
         if (supported >= 0)
                 return supported;
 
-        r = cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER);
-        if (r < 0) {
-                log_warning_errno(r, "Can't determine whether the unified hierarchy is used: %m");
-                return (supported = false);
-        }
-
-        if (r == 0) {
-                log_info("Not running with unified cgroup hierarchy, disabling cgroup BPF features.");
-                return (supported = false);
-        }
-
         r = dlopen_bpf();
         if (r < 0) {
                 log_full_errno(in_initrd() ? LOG_DEBUG : LOG_INFO,

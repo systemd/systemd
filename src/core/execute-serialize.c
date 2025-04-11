@@ -40,10 +40,6 @@ static int exec_cgroup_context_serialize(const CGroupContext *c, FILE *f) {
         if (r < 0)
                 return r;
 
-        r = serialize_bool_elide(f, "exec-cgroup-context-block-io-accounting", c->blockio_accounting);
-        if (r < 0)
-                return r;
-
         r = serialize_bool_elide(f, "exec-cgroup-context-memory-accounting", c->memory_accounting);
         if (r < 0)
                 return r;
@@ -68,18 +64,6 @@ static int exec_cgroup_context_serialize(const CGroupContext *c, FILE *f) {
 
         if (c->startup_cpu_weight != CGROUP_WEIGHT_INVALID) {
                 r = serialize_item_format(f, "exec-cgroup-context-startup-cpu-weight", "%" PRIu64, c->startup_cpu_weight);
-                if (r < 0)
-                        return r;
-        }
-
-        if (c->cpu_shares != CGROUP_CPU_SHARES_INVALID) {
-                r = serialize_item_format(f, "exec-cgroup-context-cpu-shares", "%" PRIu64, c->cpu_shares);
-                if (r < 0)
-                        return r;
-        }
-
-        if (c->startup_cpu_shares != CGROUP_CPU_SHARES_INVALID) {
-                r = serialize_item_format(f, "exec-cgroup-context-startup-cpu-shares", "%" PRIu64, c->startup_cpu_shares);
                 if (r < 0)
                         return r;
         }
@@ -136,18 +120,6 @@ static int exec_cgroup_context_serialize(const CGroupContext *c, FILE *f) {
 
         if (c->startup_io_weight != CGROUP_WEIGHT_INVALID) {
                 r = serialize_item_format(f, "exec-cgroup-context-startup-io-weight", "%" PRIu64, c->startup_io_weight);
-                if (r < 0)
-                        return r;
-        }
-
-        if (c->blockio_weight != CGROUP_BLKIO_WEIGHT_INVALID) {
-                r = serialize_item_format(f, "exec-cgroup-context-block-io-weight", "%" PRIu64, c->blockio_weight);
-                if (r < 0)
-                        return r;
-        }
-
-        if (c->startup_blockio_weight != CGROUP_BLKIO_WEIGHT_INVALID) {
-                r = serialize_item_format(f, "exec-cgroup-context-startup-block-io-weight", "%" PRIu64, c->startup_blockio_weight);
                 if (r < 0)
                         return r;
         }
@@ -233,12 +205,6 @@ static int exec_cgroup_context_serialize(const CGroupContext *c, FILE *f) {
         r = serialize_bool(f, "exec-cgroup-context-memory-zswap-writeback", c->memory_zswap_writeback);
         if (r < 0)
                 return r;
-
-        if (c->memory_limit != CGROUP_LIMIT_MAX) {
-                r = serialize_item_format(f, "exec-cgroup-context-memory-limit", "%" PRIu64, c->memory_limit);
-                if (r < 0)
-                        return r;
-        }
 
         if (c->tasks_max.value != UINT64_MAX) {
                 r = serialize_item_format(f, "exec-cgroup-context-tasks-max-value", "%" PRIu64, c->tasks_max.value);
@@ -390,31 +356,6 @@ static int exec_cgroup_context_serialize(const CGroupContext *c, FILE *f) {
                                 return r;
                 }
 
-        LIST_FOREACH(device_weights, w, c->blockio_device_weights) {
-                r = serialize_item_format(f, "exec-cgroup-context-blockio-device-weight", "%s %" PRIu64,
-                                          w->path,
-                                          w->weight);
-                if (r < 0)
-                        return r;
-        }
-
-        LIST_FOREACH(device_bandwidths, b, c->blockio_device_bandwidths) {
-                if (b->rbps != CGROUP_LIMIT_MAX) {
-                        r = serialize_item_format(f, "exec-cgroup-context-blockio-read-bandwidth", "%s %" PRIu64,
-                                                  b->path,
-                                                  b->rbps);
-                        if (r < 0)
-                                return r;
-                }
-                if (b->wbps != CGROUP_LIMIT_MAX) {
-                        r = serialize_item_format(f, "exec-cgroup-context-blockio-write-bandwidth", "%s %" PRIu64,
-                                                  b->path,
-                                                  b->wbps);
-                        if (r < 0)
-                                return r;
-                }
-        }
-
         SET_FOREACH(iaai, c->ip_address_allow) {
                 r = serialize_item(f,
                                    "exec-cgroup-context-ip-address-allow",
@@ -512,11 +453,6 @@ static int exec_cgroup_context_deserialize(CGroupContext *c, FILE *f) {
                         if (r < 0)
                                 return r;
                         c->io_accounting = r;
-                } else if ((val = startswith(l, "exec-cgroup-context-block-io-accounting="))) {
-                        r = parse_boolean(val);
-                        if (r < 0)
-                                return r;
-                        c->blockio_accounting = r;
                 } else if ((val = startswith(l, "exec-cgroup-context-memory-accounting="))) {
                         r = parse_boolean(val);
                         if (r < 0)
@@ -543,14 +479,6 @@ static int exec_cgroup_context_deserialize(CGroupContext *c, FILE *f) {
                                 return r;
                 } else if ((val = startswith(l, "exec-cgroup-context-startup-cpu-weight="))) {
                         r = safe_atou64(val, &c->startup_cpu_weight);
-                        if (r < 0)
-                                return r;
-                } else if ((val = startswith(l, "exec-cgroup-context-cpu-shares="))) {
-                        r = safe_atou64(val, &c->cpu_shares);
-                        if (r < 0)
-                                return r;
-                } else if ((val = startswith(l, "exec-cgroup-context-startup-cpu-shares="))) {
-                        r = safe_atou64(val, &c->startup_cpu_shares);
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-cgroup-context-cpu-quota-per-sec-usec="))) {
@@ -625,14 +553,6 @@ static int exec_cgroup_context_deserialize(CGroupContext *c, FILE *f) {
                         r = safe_atou64(val, &c->startup_io_weight);
                         if (r < 0)
                                 return r;
-                } else if ((val = startswith(l, "exec-cgroup-context-block-io-weight="))) {
-                        r = safe_atou64(val, &c->blockio_weight);
-                        if (r < 0)
-                                return r;
-                } else if ((val = startswith(l, "exec-cgroup-context-startup-block-io-weight="))) {
-                        r = safe_atou64(val, &c->startup_blockio_weight);
-                        if (r < 0)
-                                return r;
                 } else if ((val = startswith(l, "exec-cgroup-context-default-memory-min="))) {
                         r = safe_atou64(val, &c->default_memory_min);
                         if (r < 0)
@@ -690,10 +610,6 @@ static int exec_cgroup_context_deserialize(CGroupContext *c, FILE *f) {
                         if (r < 0)
                                 return r;
                         c->memory_zswap_writeback = r;
-                } else if ((val = startswith(l, "exec-cgroup-context-memory-limit="))) {
-                        r = safe_atou64(val, &c->memory_limit);
-                        if (r < 0)
-                                return r;
                 } else if ((val = startswith(l, "exec-cgroup-context-tasks-max-value="))) {
                         r = safe_atou64(val, &c->tasks_max.value);
                         if (r < 0)
@@ -910,87 +826,6 @@ static int exec_cgroup_context_deserialize(CGroupContext *c, FILE *f) {
                         }
 
                         r = safe_atou64(limits, &limit->limits[t]);
-                        if (r < 0)
-                                return r;
-                } else if ((val = startswith(l, "exec-cgroup-context-block-io-device-weight="))) {
-                        _cleanup_free_ char *path = NULL, *weight = NULL;
-                        CGroupBlockIODeviceWeight *a = NULL;
-
-                        r = extract_many_words(&val, " ", 0, &path, &weight);
-                        if (r < 0)
-                                return r;
-                        if (r != 2)
-                                return -EINVAL;
-
-                        a = new0(CGroupBlockIODeviceWeight, 1);
-                        if (!a)
-                                return log_oom_debug();
-
-                        a->path = TAKE_PTR(path);
-
-                        LIST_PREPEND(device_weights, c->blockio_device_weights, a);
-
-                        r = safe_atou64(weight, &a->weight);
-                        if (r < 0)
-                                return r;
-                } else if ((val = startswith(l, "exec-cgroup-context-block-io-read-bandwidth="))) {
-                        _cleanup_free_ char *path = NULL, *bw = NULL;
-                        CGroupBlockIODeviceBandwidth *a = NULL;
-
-                        r = extract_many_words(&val, " ", 0, &path, &bw);
-                        if (r < 0)
-                                return r;
-                        if (r != 2)
-                                return -EINVAL;
-
-                        LIST_FOREACH(device_bandwidths, b, c->blockio_device_bandwidths)
-                                if (path_equal(b->path, path)) {
-                                        a = b;
-                                        break;
-                                }
-
-                        if (!a) {
-                                a = new0(CGroupBlockIODeviceBandwidth, 1);
-                                if (!a)
-                                        return log_oom_debug();
-
-                                a->path = TAKE_PTR(path);
-                                a->wbps = CGROUP_LIMIT_MAX;
-
-                                LIST_PREPEND(device_bandwidths, c->blockio_device_bandwidths, a);
-                        }
-
-                        r = safe_atou64(bw, &a->rbps);
-                        if (r < 0)
-                                return r;
-                } else if ((val = startswith(l, "exec-cgroup-context-block-io-write-bandwidth="))) {
-                        _cleanup_free_ char *path = NULL, *bw = NULL;
-                        CGroupBlockIODeviceBandwidth *a = NULL;
-
-                        r = extract_many_words(&val, " ", 0, &path, &bw);
-                        if (r < 0)
-                                return r;
-                        if (r != 2)
-                                return -EINVAL;
-
-                        LIST_FOREACH(device_bandwidths, b, c->blockio_device_bandwidths)
-                                if (path_equal(b->path, path)) {
-                                        a = b;
-                                        break;
-                                }
-
-                        if (!a) {
-                                a = new0(CGroupBlockIODeviceBandwidth, 1);
-                                if (!a)
-                                        return log_oom_debug();
-
-                                a->path = TAKE_PTR(path);
-                                a->rbps = CGROUP_LIMIT_MAX;
-
-                                LIST_PREPEND(device_bandwidths, c->blockio_device_bandwidths, a);
-                        }
-
-                        r = safe_atou64(bw, &a->wbps);
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-cgroup-context-ip-address-allow="))) {
