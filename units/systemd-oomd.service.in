@@ -15,7 +15,6 @@ DefaultDependencies=no
 After=swap.target
 Before=multi-user.target shutdown.target
 Conflicts=shutdown.target
-ConditionControlGroupController=v2
 ConditionControlGroupController=memory
 ConditionPathExists=/proc/pressure/cpu
 ConditionPathExists=/proc/pressure/io
@@ -24,8 +23,8 @@ Requires=systemd-oomd.socket
 After=systemd-oomd.socket systemd-sysusers.service
 
 [Service]
-AmbientCapabilities=CAP_KILL CAP_DAC_OVERRIDE
 BusName=org.freedesktop.oom1
+AmbientCapabilities=CAP_KILL CAP_DAC_OVERRIDE
 CapabilityBoundingSet=CAP_KILL CAP_DAC_OVERRIDE
 ExecStart={{LIBEXECDIR}}/systemd-oomd
 IPAddressDeny=any
