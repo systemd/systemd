@@ -25,7 +25,7 @@
 #include "strv.h"
 #include "utf8.h"
 
-static char *normalize_locale(const char *name) {
+static char* normalize_locale(const char *name) {
         const char *e;
 
         /* Locale names are weird: glibc has some magic rules when looking for the charset name on disk: it
@@ -93,17 +93,15 @@ static int add_locales_from_archive(Set *locales) {
                 uint32_t locrec_offset;
         };
 
-        const struct locarhead *h;
-        const struct namehashent *e;
-        const void *p = MAP_FAILED;
-        _cleanup_close_ int fd = -EBADF;
-        struct stat st;
         int r;
 
-        fd = open("/usr/lib/locale/locale-archive", O_RDONLY|O_NOCTTY|O_CLOEXEC);
+        assert(locales);
+
+        _cleanup_close_ int fd = open("/usr/lib/locale/locale-archive", O_RDONLY|O_NOCTTY|O_CLOEXEC);
         if (fd < 0)
                 return errno == ENOENT ? 0 : -errno;
 
+        struct stat st;
         if (fstat(fd, &st) < 0)
                 return -errno;
 
@@ -116,11 +114,12 @@ static int add_locales_from_archive(Set *locales) {
         if (file_offset_beyond_memory_size(st.st_size))
                 return -EFBIG;
 
-        p = mmap(NULL, st.st_size, PROT_READ, MAP_SHARED, fd, 0);
+        void *p = mmap(NULL, st.st_size, PROT_READ, MAP_SHARED, fd, 0);
         if (p == MAP_FAILED)
                 return -errno;
 
-        h = (const struct locarhead *) p;
+        const struct namehashent *e;
+        const struct locarhead *h = p;
         if (h->magic != 0xde020109 ||
             h->namehash_offset + h->namehash_size > st.st_size ||
             h->string_offset + h->string_size > st.st_size ||
@@ -164,6 +163,8 @@ static int add_locales_from_libdir(Set *locales) {
         _cleanup_closedir_ DIR *dir = NULL;
         int r;
 
+        assert(locales);
+
         dir = opendir("/usr/lib/locale");
         if (!dir)
                 return errno == ENOENT ? 0 : -errno;
@@ -179,7 +180,7 @@ static int add_locales_from_libdir(Set *locales) {
                         return -ENOMEM;
 
                 r = set_consume(locales, z);
-                if (r < 0 && r != -EEXIST)
+                if (r < 0)
                         return r;
         }
 
@@ -188,7 +189,6 @@ static int add_locales_from_libdir(Set *locales) {
 
 int get_locales(char ***ret) {
         _cleanup_set_free_free_ Set *locales = NULL;
-        _cleanup_strv_free_ char **l = NULL;
         int r;
 
         locales = set_new(&string_hash_ops);
@@ -212,7 +212,7 @@ int get_locales(char ***ret) {
                         free(set_remove(locales, locale));
         }
 
-        l = set_get_strv(locales);
+        _cleanup_strv_free_ char **l = set_get_strv(locales);
         if (!l)
                 return -ENOMEM;
 
@@ -224,17 +224,13 @@ int get_locales(char ***ret) {
                 if (!IN_SET(r, -ENXIO, 0))
                         log_debug_errno(r, "Failed to parse $SYSTEMD_LIST_NON_UTF8_LOCALES as boolean, ignoring: %m");
 
-                char **a, **b;
-
                 /* Filter out non-UTF-8 locales, because it's 2019, by default */
-                for (a = b = l; *a; a++) {
-
-                        if (endswith(*a, "UTF-8") ||
-                            strstr(*a, ".UTF-8@"))
+                char **b = l;
+                STRV_FOREACH(a, l)
+                        if (endswith(*a, "UTF-8") || strstr(*a, ".UTF-8@"))
                                 *(b++) = *a;
                         else
                                 free(*a);
-                }
 
                 *b = NULL;
         }
