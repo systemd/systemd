@@ -291,11 +291,6 @@ int network_verify(Network *network) {
         if (network->keep_configuration < 0)
                 network->keep_configuration = KEEP_CONFIGURATION_NO;
 
-        if (network->ipv6_proxy_ndp == 0 && !set_isempty(network->ipv6_proxy_ndp_addresses)) {
-                log_warning("%s: IPv6ProxyNDP= is disabled. Ignoring IPv6ProxyNDPAddress=.", network->filename);
-                network->ipv6_proxy_ndp_addresses = set_free_free(network->ipv6_proxy_ndp_addresses);
-        }
-
         r = network_drop_invalid_addresses(network);
         if (r < 0)
                 return r; /* network_drop_invalid_addresses() logs internally. */
@@ -752,7 +747,7 @@ static Network *network_free(Network *network) {
         free(network->dns);
         ordered_set_free(network->search_domains);
         ordered_set_free(network->route_domains);
-        set_free_free(network->dnssec_negative_trust_anchors);
+        set_free(network->dnssec_negative_trust_anchors);
 
         /* DHCP server */
         free(network->dhcp_server_relay_agent_circuit_id);
@@ -828,7 +823,7 @@ static Network *network_free(Network *network) {
         hashmap_free_with_destructor(network->stacked_netdevs, netdev_unref);
 
         /* static configs */
-        set_free_free(network->ipv6_proxy_ndp_addresses);
+        set_free(network->ipv6_proxy_ndp_addresses);
         ordered_hashmap_free(network->addresses_by_section);
         hashmap_free(network->routes_by_section);
         ordered_hashmap_free(network->nexthops_by_section);
