@@ -2016,8 +2016,13 @@ static bool token_match_attr(UdevRuleToken *token, sd_device *dev, UdevEvent *ev
                 name = nbuf;
                 _fallthrough_;
         case SUBST_TYPE_PLAIN:
-                if (sd_device_get_sysattr_value(dev, name, &value) < 0)
+                if (sd_device_get_sysattr_value(dev, name, &value) < 0) {
+                        log_event_trace(event, token, "Cannot read sysfs attribute%s%s%s: FAIL",
+                                        name != token->data ? " \"" : "",
+                                        name != token->data ? name : "",
+                                        name != token->data ? "\"" : "");
                         return false;
+                }
 
                 /* remove trailing whitespace, if not asked to match for it */
                 if (FLAGS_SET(token->match_type, MATCH_REMOVE_TRAILING_WHITESPACE)) {
@@ -2028,8 +2033,10 @@ static bool token_match_attr(UdevRuleToken *token, sd_device *dev, UdevEvent *ev
                 return token_match_string(event, token, value, /* log_result = */ true);
 
         case SUBST_TYPE_SUBSYS:
-                if (udev_resolve_subsys_kernel(name, vbuf, sizeof(vbuf), true) < 0)
+                if (udev_resolve_subsys_kernel(name, vbuf, sizeof(vbuf), true) < 0) {
+                        log_event_trace(event, token, "Cannot read sysfs attribute: FAIL");
                         return false;
+                }
 
                 /* remove trailing whitespace, if not asked to match for it */
                 if (FLAGS_SET(token->match_type, MATCH_REMOVE_TRAILING_WHITESPACE))
@@ -3128,7 +3135,7 @@ static int udev_rule_apply_parent_token_to_event(UdevRuleToken *head_token, Udev
                         else
                                 break;
 
-                log_event_line(event, line, "Checking conditions for parent devices: %s", strna(joined));
+                log_event_line(event, line, "Checking conditions for parent devices (including self): %s", strna(joined));
         }
 
         event->dev_parent = ASSERT_PTR(event->dev);
