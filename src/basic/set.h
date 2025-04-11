@@ -12,7 +12,7 @@ Set* _set_new(const struct hash_ops *hash_ops HASHMAP_DEBUG_PARAMS);
 #define set_new(ops) _set_new(ops HASHMAP_DEBUG_SRC_ARGS)
 
 static inline Set* set_free(Set *s) {
-        return (Set*) _hashmap_free(HASHMAP_BASE(s), NULL, NULL);
+        return (Set*) _hashmap_free(HASHMAP_BASE(s));
 }
 
 #define set_copy(s) ((Set*) _hashmap_copy(HASHMAP_BASE(s)  HASHMAP_DEBUG_SRC_ARGS))
@@ -71,7 +71,7 @@ static inline bool set_iterate(const Set *s, Iterator *i, void **value) {
 }
 
 static inline void set_clear(Set *s) {
-        _hashmap_clear(HASHMAP_BASE(s), NULL, NULL);
+        _hashmap_clear(HASHMAP_BASE(s));
 }
 
 static inline void *set_steal_first(Set *s) {
