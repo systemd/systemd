@@ -220,8 +220,9 @@ int get_locales(char ***ret) {
         locales = set_free(locales);
 
         r = getenv_bool("SYSTEMD_LIST_NON_UTF8_LOCALES");
-        if (IN_SET(r, -ENXIO, 0)) {
-                char **a, **b;
+        if (r <= 0) {
+                if (!IN_SET(r, -ENXIO, 0))
+                        log_debug_errno(r, "Failed to parse $SYSTEMD_LIST_NON_UTF8_LOCALES as boolean, ignoring: %m");
 
                 /* Filter out non-UTF-8 locales, because it's 2019, by default */
                 for (a = b = l; *a; a++) {
@@ -235,8 +236,7 @@ int get_locales(char ***ret) {
 
                 *b = NULL;
 
-        } else if (r < 0)
-                log_debug_errno(r, "Failed to parse $SYSTEMD_LIST_NON_UTF8_LOCALES as boolean");
+        }
 
         strv_sort(l);
 
