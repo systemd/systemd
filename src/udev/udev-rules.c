@@ -290,6 +290,18 @@ static bool token_is_for_parents(UdevRuleToken *token) {
 #define log_event_warning_errno(event, token, error, ...) log_event_full_errno(event, token, LOG_WARNING, error, __VA_ARGS__)
 #define log_event_error_errno(event, token, error, ...)   log_event_full_errno(event, token, LOG_ERR, error, __VA_ARGS__)
 
+#define _log_event_trace_errno(event, event_u, ...)                     \
+        ({                                                              \
+                UdevEvent *event_u = ASSERT_PTR(event);                 \
+                                                                        \
+                event_u->trace ?                                        \
+                        log_event_debug_errno(event_u, __VA_ARGS__) :   \
+                        (void) 0;                                       \
+        })
+
+#define log_event_trace_errno(event, ...)                               \
+        _log_event_trace_errno(event, UNIQ_T(e, UNIQ), __VA_ARGS__)
+
 #define _log_event_trace(event, event_u, ...)                           \
         ({                                                              \
                 UdevEvent *event_u = ASSERT_PTR(event);                 \
@@ -2000,6 +2012,7 @@ static bool token_match_string(UdevEvent *event, UdevRuleToken *token, const cha
 static bool token_match_attr(UdevRuleToken *token, sd_device *dev, UdevEvent *event) {
         char nbuf[UDEV_NAME_SIZE], vbuf[UDEV_NAME_SIZE];
         const char *name, *value;
+        int r;
 
         assert(token);
         assert(IN_SET(token->type, TK_M_ATTR, TK_M_PARENTS_ATTR));
@@ -2016,8 +2029,14 @@ static bool token_match_attr(UdevRuleToken *token, sd_device *dev, UdevEvent *ev
                 name = nbuf;
                 _fallthrough_;
         case SUBST_TYPE_PLAIN:
-                if (sd_device_get_sysattr_value(dev, name, &value) < 0)
+                r = sd_device_get_sysattr_value(dev, name, &value);
+                if (r < 0) {
+                        log_event_trace_errno(event, token, r, "Cannot read sysfs attribute%s%s%s: %m",
+                                              name != token->data ? " \"" : "",
+                                              name != token->data ? name : "",
+                                              name != token->data ? "\"" : "");
                         return false;
+                }
 
                 /* remove trailing whitespace, if not asked to match for it */
                 if (FLAGS_SET(token->match_type, MATCH_REMOVE_TRAILING_WHITESPACE)) {
@@ -2028,8 +2047,11 @@ static bool token_match_attr(UdevRuleToken *token, sd_device *dev, UdevEvent *ev
                 return token_match_string(event, token, value, /* log_result = */ true);
 
         case SUBST_TYPE_SUBSYS:
-                if (udev_resolve_subsys_kernel(name, vbuf, sizeof(vbuf), true) < 0)
+                r = udev_resolve_subsys_kernel(name, vbuf, sizeof(vbuf), true);
+                if (r < 0) {
+                        log_event_trace_errno(event, token, r, "Cannot read sysfs attribute: %m");
                         return false;
+                }
 
                 /* remove trailing whitespace, if not asked to match for it */
                 if (FLAGS_SET(token->match_type, MATCH_REMOVE_TRAILING_WHITESPACE))
@@ -3128,7 +3150,7 @@ static int udev_rule_apply_parent_token_to_event(UdevRuleToken *head_token, Udev
                         else
                                 break;
 
-                log_event_line(event, line, "Checking conditions for parent devices: %s", strna(joined));
+                log_event_line(event, line, "Checking conditions for parent devices (including self): %s", strna(joined));
         }
 
         event->dev_parent = ASSERT_PTR(event->dev);
