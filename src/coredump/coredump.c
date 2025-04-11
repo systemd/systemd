@@ -1458,6 +1458,11 @@ static int gather_pid_metadata_from_procfs(struct iovec_wrapper *iovw, Context *
         if (get_process_environ(pid, &t) >= 0)
                 (void) iovw_put_string_field_free(iovw, "COREDUMP_ENVIRON=", t);
 
+        /* Now that we have parsed info from /proc/ ensure the pidfd is still valid before continuing */
+        r = pidref_verify(&context->pidref);
+        if (r < 0)
+                return log_error_errno(r, "PIDFD validation failed: %m");
+
         /* we successfully acquired all metadata */
         return context_parse_iovw(context, iovw);
 }
