@@ -196,10 +196,6 @@ static int dns_trust_anchor_add_builtin_negative(DnsTrustAnchor *d) {
         if (!set_isempty(d->negative_by_name))
                 return 0;
 
-        r = set_ensure_allocated(&d->negative_by_name, &dns_name_hash_ops);
-        if (r < 0)
-                return r;
-
         /* We add a couple of domains as default negative trust
          * anchors, where it's very unlikely they will be installed in
          * the root zone. If they exist they must be private, and thus
@@ -209,7 +205,7 @@ static int dns_trust_anchor_add_builtin_negative(DnsTrustAnchor *d) {
                 if (dns_trust_anchor_knows_domain_positive(d, name))
                         continue;
 
-                r = set_put_strdup(&d->negative_by_name, name);
+                r = set_put_strdup_full(&d->negative_by_name, &dns_name_hash_ops_free, name);
                 if (r < 0)
                         return r;
         }
@@ -547,7 +543,7 @@ void dns_trust_anchor_flush(DnsTrustAnchor *d) {
 
         d->positive_by_key = hashmap_free_with_destructor(d->positive_by_key, dns_answer_unref);
         d->revoked_by_rr = set_free_with_destructor(d->revoked_by_rr, dns_resource_record_unref);
-        d->negative_by_name = set_free_free(d->negative_by_name);
+        d->negative_by_name = set_free(d->negative_by_name);
 }
 
 int dns_trust_anchor_lookup_positive(DnsTrustAnchor *d, const DnsResourceKey *key, DnsAnswer **ret) {
