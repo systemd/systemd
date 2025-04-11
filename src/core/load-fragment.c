@@ -6178,8 +6178,6 @@ static int merge_by_names(Unit *u, Set *names, const char *id) {
 }
 
 int unit_load_fragment(Unit *u) {
-        const char *fragment;
-        _cleanup_set_free_free_ Set *names = NULL;
         int r;
 
         assert(u);
@@ -6201,6 +6199,8 @@ int unit_load_fragment(Unit *u) {
         if (r < 0)
                 return log_error_errno(r, "Failed to rebuild name map: %m");
 
+        const char *fragment;
+        _cleanup_set_free_ Set *names = NULL;
         r = unit_file_find_fragment(u->manager->unit_id_map,
                                     u->manager->unit_name_map,
                                     u->id,
