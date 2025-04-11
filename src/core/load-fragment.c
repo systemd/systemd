@@ -3653,7 +3653,7 @@ int config_parse_restrict_filesystems(
 
         if (isempty(rvalue)) {
                 /* Empty assignment resets the list */
-                c->restrict_filesystems = set_free_free(c->restrict_filesystems);
+                c->restrict_filesystems = set_free(c->restrict_filesystems);
                 c->restrict_filesystems_allow_list = false;
                 return 0;
         }
@@ -6056,7 +6056,7 @@ int config_parse_restrict_network_interfaces(
 
         if (isempty(rvalue)) {
                 /* Empty assignment resets the list */
-                c->restrict_network_interfaces = set_free_free(c->restrict_network_interfaces);
+                c->restrict_network_interfaces = set_free(c->restrict_network_interfaces);
                 return 0;
         }
 
@@ -6681,8 +6681,8 @@ int config_parse_log_filter_patterns(
 
         if (isempty(pattern)) {
                 /* Empty assignment resets the lists. */
-                c->log_filter_allowed_patterns = set_free_free(c->log_filter_allowed_patterns);
-                c->log_filter_denied_patterns = set_free_free(c->log_filter_denied_patterns);
+                c->log_filter_allowed_patterns = set_free(c->log_filter_allowed_patterns);
+                c->log_filter_denied_patterns = set_free(c->log_filter_denied_patterns);
                 return 0;
         }
 
