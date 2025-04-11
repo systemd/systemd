@@ -73,7 +73,6 @@ typedef enum NetDevKind {
         NETDEV_KIND_MACSEC,
         NETDEV_KIND_MACVLAN,
         NETDEV_KIND_MACVTAP,
-        NETDEV_KIND_NETDEVSIM,
         NETDEV_KIND_NLMON,
         NETDEV_KIND_SIT,
         NETDEV_KIND_TAP,
