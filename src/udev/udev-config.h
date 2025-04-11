@@ -34,5 +34,9 @@ void manager_set_environment(Manager *manager, char * const *v);
 
 int manager_load(Manager *manager, int argc, char *argv[]);
 UdevReloadFlags manager_reload_config(Manager *manager);
+UdevReloadFlags manager_revert_config(Manager *manager);
+
+int manager_serialize_config(Manager *manager);
+int manager_deserialize_config(Manager *manager, int *fd);
 
 usec_t manager_kill_worker_timeout(Manager *manager);

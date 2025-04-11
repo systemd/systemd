@@ -17,6 +17,8 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_FIELD_COMMENT("An array of global udev property assignments. Each string must be in KEY=VALUE style."),
                 SD_VARLINK_DEFINE_INPUT(assignments, SD_VARLINK_STRING, SD_VARLINK_ARRAY));
 
+static SD_VARLINK_DEFINE_METHOD(Revert);
+
 static SD_VARLINK_DEFINE_METHOD(StartExecQueue);
 
 static SD_VARLINK_DEFINE_METHOD(StopExecQueue);
@@ -34,6 +36,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 SD_VARLINK_SYMBOL_COMMENT("Sets the global udev properties."),
                 &vl_method_SetEnvironment,
                 SD_VARLINK_SYMBOL_COMMENT("Starts processing of queued events."),
+                &vl_method_Revert,
+                SD_VARLINK_SYMBOL_COMMENT("Revert previously set configurations."),
                 &vl_method_StartExecQueue,
                 SD_VARLINK_SYMBOL_COMMENT("Stops processing of queued events."),
                 &vl_method_StopExecQueue,

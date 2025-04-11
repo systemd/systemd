@@ -103,6 +103,21 @@ static int vl_method_set_environment(sd_varlink *link, sd_json_variant *paramete
         return sd_varlink_reply(link, NULL);
 }
 
+static int vl_method_revert(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *manager = ASSERT_PTR(userdata);
+        int r;
+
+        assert(link);
+
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table = */ NULL, /* userdata = */ NULL);
+        if (r != 0)
+                return r;
+
+        log_debug("Received io.systemd.Udev.Revert()");
+        manager_revert(manager);
+        return sd_varlink_reply(link, NULL);
+}
+
 static int vl_method_start_stop_exec_queue(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         Manager *manager = ASSERT_PTR(userdata);
         const char *method;
@@ -183,6 +198,7 @@ int manager_start_varlink_server(Manager *manager) {
                         "io.systemd.Udev.SetTrace",          vl_method_set_trace,
                         "io.systemd.Udev.SetChildrenMax",    vl_method_set_children_max,
                         "io.systemd.Udev.SetEnvironment",    vl_method_set_environment,
+                        "io.systemd.Udev.Revert",            vl_method_revert,
                         "io.systemd.Udev.StartExecQueue",    vl_method_start_stop_exec_queue,
                         "io.systemd.Udev.StopExecQueue",     vl_method_start_stop_exec_queue,
                         "io.systemd.Udev.Exit",              vl_method_exit);
