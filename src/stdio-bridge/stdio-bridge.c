@@ -31,7 +31,7 @@ static int help(void) {
                "     --version           Show package version\n"
                "  -p --bus-path=PATH     Path to the bus address (default: %s)\n"
                "     --system            Connect to system bus\n"
-               "     --user              Connect to user bus\n"
+               "  -U --user              Connect to user bus\n"
                "  -M --machine=CONTAINER Name of local container to connect to\n",
                program_invocation_short_name, DEFAULT_BUS_PATH);
 
@@ -42,7 +42,6 @@ static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
                 ARG_MACHINE,
-                ARG_USER,
                 ARG_SYSTEM,
         };
 
@@ -50,7 +49,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "help",            no_argument,       NULL, 'h'         },
                 { "version",         no_argument,       NULL, ARG_VERSION },
                 { "bus-path",        required_argument, NULL, 'p'         },
-                { "user",            no_argument,       NULL, ARG_USER    },
+                { "user",            no_argument,       NULL, 'U'         },
                 { "system",          no_argument,       NULL, ARG_SYSTEM  },
                 { "machine",         required_argument, NULL, 'M'         },
                 {},
@@ -61,7 +60,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hp:M:", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hp:UM:", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -71,7 +70,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_VERSION:
                         return version();
 
-                case ARG_USER:
+                case 'U':
                         arg_runtime_scope = RUNTIME_SCOPE_USER;
                         break;
 

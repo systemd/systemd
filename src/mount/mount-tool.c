@@ -132,7 +132,7 @@ static int help(void) {
                "     --no-ask-password            Do not prompt for password\n"
                "  -q --quiet                      Suppress information messages during runtime\n"
                "     --json=pretty|short|off      Generate JSON output\n"
-               "     --user                       Run as user unit\n"
+               "  -U --user                       Run as user unit\n"
                "  -H --host=[USER@]HOST           Operate on remote host\n"
                "  -M --machine=CONTAINER          Operate on local container\n"
                "     --discover                   Discover mount device metadata\n"
@@ -173,7 +173,6 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NO_PAGER,
                 ARG_NO_LEGEND,
                 ARG_NO_ASK_PASSWORD,
-                ARG_USER,
                 ARG_SYSTEM,
                 ARG_DISCOVER,
                 ARG_MOUNT_TYPE,
@@ -199,7 +198,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "full",               no_argument,       NULL, 'l'                    },
                 { "no-ask-password",    no_argument,       NULL, ARG_NO_ASK_PASSWORD    },
                 { "quiet",              no_argument,       NULL, 'q'                    },
-                { "user",               no_argument,       NULL, ARG_USER               },
+                { "user",               no_argument,       NULL, 'U'                    },
                 { "system",             no_argument,       NULL, ARG_SYSTEM             },
                 { "host",               required_argument, NULL, 'H'                    },
                 { "machine",            required_argument, NULL, 'M'                    },
@@ -232,7 +231,7 @@ static int parse_argv(int argc, char *argv[]) {
         if (invoked_as(argv, "systemd-umount"))
                 arg_action = ACTION_UMOUNT;
 
-        while ((c = getopt_long(argc, argv, "hqH:M:t:o:p:AuGlT", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hUqH:M:t:o:p:AuGlT", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -266,7 +265,7 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_quiet = true;
                         break;
 
-                case ARG_USER:
+                case 'U':
                         arg_runtime_scope = RUNTIME_SCOPE_USER;
                         break;
 

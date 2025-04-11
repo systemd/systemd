@@ -128,7 +128,7 @@ static int help(void) {
                "  -h --help                       Show this help\n"
                "     --version                    Show package version\n"
                "     --no-ask-password            Do not prompt for password\n"
-               "     --user                       Run as user unit\n"
+               "  -U --user                       Run as user unit\n"
                "  -H --host=[USER@]HOST           Operate on remote host\n"
                "  -M --machine=CONTAINER          Operate on local container\n"
                "     --scope                      Run this as scope rather than service\n"
@@ -270,7 +270,6 @@ static int parse_argv(int argc, char *argv[]) {
 
         enum {
                 ARG_VERSION = 0x100,
-                ARG_USER,
                 ARG_SYSTEM,
                 ARG_SCOPE,
                 ARG_DESCRIPTION,
@@ -307,7 +306,7 @@ static int parse_argv(int argc, char *argv[]) {
         static const struct option options[] = {
                 { "help",               no_argument,       NULL, 'h'                    },
                 { "version",            no_argument,       NULL, ARG_VERSION            },
-                { "user",               no_argument,       NULL, ARG_USER               },
+                { "user",               no_argument,       NULL, 'U'                    },
                 { "system",             no_argument,       NULL, ARG_SYSTEM             },
                 { "capsule",            required_argument, NULL, 'C'                    },
                 { "scope",              no_argument,       NULL, ARG_SCOPE              },
@@ -365,7 +364,7 @@ static int parse_argv(int argc, char *argv[]) {
         /* Resetting to 0 forces the invocation of an internal initialization routine of getopt_long()
          * that checks for GNU extensions in optstring ('-' or '+' at the beginning). */
         optind = 0;
-        while ((c = getopt_long(argc, argv, "+hrC:H:M:E:p:tTPqGdSu:", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "+hUrC:H:M:E:p:tTPqGdSu:", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -379,7 +378,7 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_ask_password = false;
                         break;
 
-                case ARG_USER:
+                case 'U':
                         arg_runtime_scope = RUNTIME_SCOPE_USER;
                         break;
 
