@@ -426,18 +426,40 @@
       <varlistentry>
         <term><varname>CopyFiles=</varname></term>
 
-        <listitem><para>Takes a pair of colon separated absolute file system paths. The first path refers to
-        a source file or directory on the host, the second path refers to a target in the file system of the
-        newly created partition and formatted file system. This setting may be used to copy files or
-        directories from the host into the file system that is created due to the <varname>Format=</varname>
-        option. If <varname>CopyFiles=</varname> is used without <varname>Format=</varname> specified
-        explicitly, <literal>Format=</literal> with a suitable default is implied (currently
-        <literal>vfat</literal> for <literal>ESP</literal> and <literal>XBOOTLDR</literal> partitions, and
-        <literal>ext4</literal> otherwise, but this may change in the future). This option may be used
-        multiple times to copy multiple files or directories from host into the newly formatted file system.
-        The colon and second path may be omitted in which case the source path is also used as the target
-        path (relative to the root of the newly created file system). If the source path refers to a
-        directory it is copied recursively.</para>
+        <listitem><para>Takes a colon-separated triplet in the form
+        <literal><varname>source</varname>[:<varname>target</varname>[:<varname>options</varname>]]</literal>.
+        <varname>source</varname> is an absolute path which refers to a source file or directory on the host.
+        <varname>target</varname> is an absolute path in the file system of the newly created partition and
+        formatted file system.  <varname>options</varname> is a comma-separated list of options where each
+        option is in the form <literal><varname>key</varname>[=<varname>value</varname>]</literal>.</para>
+
+        <para>This setting may be used to copy files or directories from the host into the file system that
+        is created due to the <varname>Format=</varname> option. If <varname>CopyFiles=</varname> is used
+        without <varname>Format=</varname> specified explicitly, <literal>Format=</literal> with a suitable
+        default is implied (currently <literal>vfat</literal> for <literal>ESP</literal> and
+        <literal>XBOOTLDR</literal> partitions, and <literal>ext4</literal> otherwise, but this may change in
+        the future). This option may be used multiple times to copy multiple files or directories from host
+        into the newly formatted file system.</para>
+
+        <para>The <varname>target</varname> path may be omitted in which case the <varname>source</varname>
+        path is also used as the target path (relative to the root of the newly created file system). If
+        the source path refers to a directory it is copied recursively.</para>
+
+        <para>The <varname>options</varname> may contain the following values:</para>
+
+        <variablelist>
+          <varlistentry>
+            <term><varname>fsverity=</varname></term>
+            <listitem><para>May be set to the value <literal>off</literal> (the default if the option is not
+            present) or <literal>copy</literal>.  If set to <literal>off</literal> then no files copied into
+            the filesystem from this source will have fs-verity enabled.  If set to <literal>copy</literal>
+            then the fs-verity information for each file will be copied from the corresponding source
+            file.</para>
+
+            <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+
+          </varlistentry>
+        </variablelist>
 
         <para>This option has no effect if the partition already exists: it cannot be used to copy additional
         files into an existing partition, it may only be used to populate a file system created anew.</para>
