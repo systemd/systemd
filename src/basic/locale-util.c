@@ -188,10 +188,10 @@ static int add_locales_from_libdir(Set *locales) {
 }
 
 int get_locales(char ***ret) {
-        _cleanup_set_free_free_ Set *locales = NULL;
+        _cleanup_set_free_ Set *locales = NULL;
         int r;
 
-        locales = set_new(&string_hash_ops);
+        locales = set_new(&string_hash_ops_free);
         if (!locales)
                 return -ENOMEM;
 
@@ -212,12 +212,9 @@ int get_locales(char ***ret) {
                         free(set_remove(locales, locale));
         }
 
-        _cleanup_strv_free_ char **l = set_get_strv(locales);
+        _cleanup_strv_free_ char **l = set_to_strv(&locales);
         if (!l)
                 return -ENOMEM;
-
-        /* Now, all elements are owned by strv 'l'. Hence, do not call set_free_free(). */
-        locales = set_free(locales);
 
         r = getenv_bool("SYSTEMD_LIST_NON_UTF8_LOCALES");
         if (r <= 0) {
