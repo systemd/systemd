@@ -281,7 +281,7 @@ int config_parse_dnssec_negative_trust_anchors(
         assert(rvalue);
 
         if (isempty(rvalue)) {
-                *nta = set_free_free(*nta);
+                *nta = set_free(*nta);
                 return 0;
         }
 
@@ -306,7 +306,7 @@ int config_parse_dnssec_negative_trust_anchors(
                         continue;
                 }
 
-                r = set_ensure_consume(nta, &dns_name_hash_ops, TAKE_PTR(w));
+                r = set_ensure_consume(nta, &dns_name_hash_ops_free, TAKE_PTR(w));
                 if (r < 0)
                         return log_oom();
         }

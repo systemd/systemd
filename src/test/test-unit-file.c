@@ -63,7 +63,7 @@ TEST(unit_file_build_name_map) {
 
         STRV_FOREACH(id, ids) {
                  const char *fragment, *name;
-                 _cleanup_set_free_free_ Set *names = NULL;
+                 _cleanup_set_free_ Set *names = NULL;
                  log_info("*** %s ***", *id);
                  r = unit_file_find_fragment(unit_ids,
                                              unit_names,

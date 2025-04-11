@@ -219,7 +219,7 @@ static int unit_add_alias(Unit *u, char *donated_name) {
 
         /* Make sure that u->names is allocated. We may leave u->names
          * empty if we fail later, but this is not a problem. */
-        r = set_ensure_put(&u->aliases, &string_hash_ops, donated_name);
+        r = set_ensure_put(&u->aliases, &string_hash_ops_free, donated_name);
         if (r < 0)
                 return r;
         assert(r > 0);
@@ -862,7 +862,7 @@ Unit* unit_free(Unit *u) {
 
         free(u->access_selinux_context);
 
-        set_free_free(u->aliases);
+        set_free(u->aliases);
         free(u->id);
 
         activation_details_unref(u->activation_details);
@@ -907,7 +907,7 @@ static int unit_merge_names(Unit *u, Unit *other) {
         }
 
         TAKE_PTR(other->id);
-        other->aliases = set_free_free(other->aliases);
+        other->aliases = set_free(other->aliases);
 
         SET_FOREACH(name, u->aliases)
                 assert_se(hashmap_replace(u->manager->units, name, u) == 0);

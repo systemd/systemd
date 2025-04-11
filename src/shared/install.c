@@ -634,7 +634,7 @@ static int mark_symlink_for_removal(
 
         assert(p);
 
-        r = set_ensure_allocated(remove_symlinks_to, &path_hash_ops);
+        r = set_ensure_allocated(remove_symlinks_to, &path_hash_ops_free);
         if (r < 0)
                 return r;
 
@@ -2371,7 +2371,7 @@ int unit_file_unmask(
                 size_t *n_changes) {
 
         _cleanup_(lookup_paths_done) LookupPaths lp = {};
-        _cleanup_set_free_free_ Set *remove_symlinks_to = NULL;
+        _cleanup_set_free_ Set *remove_symlinks_to = NULL;
         _cleanup_strv_free_ char **todo = NULL;
         const char *config_path;
         size_t n_todo = 0;
@@ -2587,7 +2587,7 @@ int unit_file_revert(
                 InstallChange **changes,
                 size_t *n_changes) {
 
-        _cleanup_set_free_free_ Set *remove_symlinks_to = NULL;
+        _cleanup_set_free_ Set *remove_symlinks_to = NULL;
         _cleanup_(lookup_paths_done) LookupPaths lp = {};
         _cleanup_strv_free_ char **todo = NULL;
         size_t n_todo = 0;
@@ -2874,7 +2874,6 @@ static int do_unit_file_disable(
                 size_t *n_changes) {
 
         _cleanup_(install_context_done) InstallContext ctx = { .scope = scope };
-        _cleanup_set_free_free_ Set *remove_symlinks_to = NULL;
         bool has_install_info = false;
         int r;
 
@@ -2901,6 +2900,7 @@ static int do_unit_file_disable(
                 has_install_info = has_install_info || install_info_has_rules(info) || install_info_has_also(info);
         }
 
+        _cleanup_set_free_ Set *remove_symlinks_to = NULL;
         r = install_context_mark_for_removal(&ctx, lp, &remove_symlinks_to, config_path, changes, n_changes);
         if (r >= 0)
                 r = remove_marked_symlinks(remove_symlinks_to, config_path, lp, flags & UNIT_FILE_DRY_RUN, changes, n_changes);
@@ -3538,7 +3538,7 @@ static int execute_preset(
         assert(config_path);
 
         if (mode != UNIT_FILE_PRESET_ENABLE_ONLY) {
-                _cleanup_set_free_free_ Set *remove_symlinks_to = NULL;
+                _cleanup_set_free_ Set *remove_symlinks_to = NULL;
 
                 r = install_context_mark_for_removal(minus, lp, &remove_symlinks_to, config_path, changes, n_changes);
                 if (r < 0)

@@ -376,7 +376,7 @@ int unit_file_build_name_map(
          */
 
         _cleanup_hashmap_free_ Hashmap *ids = NULL, *names = NULL;
-        _cleanup_set_free_free_ Set *paths = NULL;
+        _cleanup_set_free_ Set *paths = NULL;
         _cleanup_strv_free_ char **expanded_search_path = NULL;
         uint64_t timestamp_hash;
         int r;

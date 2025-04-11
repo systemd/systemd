@@ -569,15 +569,14 @@ int unit_find_paths(
                                 return log_error_errno(r, "Failed to get DropInPaths: %s", bus_error_message(&error, r));
                 }
         } else {
-                const char *_path;
-                _cleanup_set_free_free_ Set *names = NULL;
-
                 if (!*cached_name_map) {
                         r = unit_file_build_name_map(lp, NULL, cached_id_map, cached_name_map, NULL);
                         if (r < 0)
                                 return r;
                 }
 
+                const char *_path;
+                _cleanup_set_free_ Set *names = NULL;
                 r = unit_file_find_fragment(*cached_id_map, *cached_name_map, unit_name, &_path, &names);
                 if (r < 0)
                         return log_error_errno(r, "Failed to find fragment for '%s': %m", unit_name);
