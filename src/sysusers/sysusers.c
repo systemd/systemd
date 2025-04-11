@@ -143,7 +143,7 @@ static void context_done(Context *c) {
         hashmap_free(c->database_by_gid);
         hashmap_free(c->database_by_groupname);
 
-        set_free_free(c->names);
+        set_free(c->names);
         uid_range_free(c->uid_range);
 }
 
@@ -231,9 +231,8 @@ static int load_user_database(Context *c) {
                 if (!n)
                         return -ENOMEM;
 
-                /* Note that we use NULL hash_ops (i.e. trivial_hash_ops) here, so identical strings can
-                 * exist in the set. */
-                r = set_ensure_consume(&c->names, /* hash_ops= */ NULL, n);
+                /* Note that we use trivial_hash_ops_free here, so identical strings can exist in the set. */
+                r = set_ensure_consume(&c->names, &trivial_hash_ops_free, n);
                 if (r < 0)
                         return r;
                 assert(r > 0);  /* The set uses pointer comparisons, so n must not be in the set. */
@@ -274,9 +273,8 @@ static int load_group_database(Context *c) {
                 if (!n)
                         return -ENOMEM;
 
-                /* Note that we use NULL hash_ops (i.e. trivial_hash_ops) here, so identical strings can
-                 * exist in the set. */
-                r = set_ensure_consume(&c->names, /* hash_ops= */ NULL, n);
+                /* Note that we use trivial_hash_ops_free here, so identical strings can exist in the set. */
+                r = set_ensure_consume(&c->names, &trivial_hash_ops_free, n);
                 if (r < 0)
                         return r;
                 assert(r > 0);  /* The set uses pointer comparisons, so n must not be in the set. */
