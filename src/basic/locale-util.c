@@ -97,7 +97,6 @@ static int add_locales_from_archive(Set *locales) {
         const struct namehashent *e;
         const void *p = MAP_FAILED;
         _cleanup_close_ int fd = -EBADF;
-        size_t sz = 0;
         struct stat st;
         int r;
 
@@ -154,9 +153,9 @@ static int add_locales_from_archive(Set *locales) {
 
         r = 0;
 
- finish:
+finish:
         if (p != MAP_FAILED)
-                munmap((void*) p, sz);
+                munmap((void*) p, st.st_size);
 
         return r;
 }
