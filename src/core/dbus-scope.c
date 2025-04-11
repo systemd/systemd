@@ -125,7 +125,7 @@ static int bus_scope_set_transient_property(
 
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                                 r = unit_watch_pidref(u, p, /* exclusive= */ false);
-                                if (r < 0 && r != -EEXIST)
+                                if (r < 0)
                                         return r;
                         }
 
@@ -166,7 +166,7 @@ static int bus_scope_set_transient_property(
 
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                                 r = unit_watch_pidref(u, &pidref, /* exclusive= */ false);
-                                if (r < 0 && r != -EEXIST)
+                                if (r < 0)
                                         return r;
                         }
 
