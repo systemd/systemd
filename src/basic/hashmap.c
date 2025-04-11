@@ -935,12 +935,7 @@ void _hashmap_clear(HashmapBase *h, free_func_t default_free_key, free_func_t de
                  * hash table, and only then call the destructor functions. If these destructors then try to unregister
                  * themselves from our hash table a second time, the entry is already gone. */
 
-                while (_hashmap_size(h) > 0) {
-                        void *k = NULL;
-                        void *v;
-
-                        v = _hashmap_first_key_and_value(h, true, &k);
-
+                for (void *v, *k; (v = _hashmap_first_key_and_value(h, /* remove = */ true, &k)); ) {
                         if (free_key)
                                 free_key(k);
 
