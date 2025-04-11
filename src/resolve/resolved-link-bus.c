@@ -658,7 +658,7 @@ int bus_link_method_set_dnssec(sd_bus_message *message, void *userdata, sd_bus_e
 }
 
 int bus_link_method_set_dnssec_negative_trust_anchors(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_set_free_free_ Set *ns = NULL;
+        _cleanup_set_free_ Set *ns = NULL;
         _cleanup_strv_free_ char **ntas = NULL;
         _cleanup_free_ char *j = NULL;
         Link *l = ASSERT_PTR(userdata);
@@ -670,7 +670,7 @@ int bus_link_method_set_dnssec_negative_trust_anchors(sd_bus_message *message, v
         if (r < 0)
                 return r;
 
-        ns = set_new(&dns_name_hash_ops);
+        ns = set_new(&dns_name_hash_ops_free);
         if (!ns)
                 return -ENOMEM;
 
@@ -708,8 +708,7 @@ int bus_link_method_set_dnssec_negative_trust_anchors(sd_bus_message *message, v
         bus_client_log(message, "DNSSEC NTA change");
 
         if (!set_equal(ns, l->dnssec_negative_trust_anchors)) {
-                set_free_free(l->dnssec_negative_trust_anchors);
-                l->dnssec_negative_trust_anchors = TAKE_PTR(ns);
+                set_free_and_replace(l->dnssec_negative_trust_anchors, ns);
 
                 (void) link_save_user(l);
 
