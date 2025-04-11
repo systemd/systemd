@@ -770,6 +770,16 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><option>--revert</option></term>
+          <listitem>
+            <para>Revert settings previously set with <command>udevadm control</command> command. When
+            specified, settings set with <option>-l/--log-level=</option>, <option>--trace</option>,
+            <option>-m/--children-max=</option>, and <option>-p/--property=</option> will be cleared.</para>
+
+            <xi:include href="version-info.xml" xpointer="v258"/>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><option>-t</option></term>
           <term><option>--timeout=<replaceable>seconds</replaceable></option></term>
           <listitem>
