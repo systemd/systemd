@@ -175,6 +175,7 @@ method GetUserRecord(
         dispositionMask: ?[]string,
         uidMin: ?int,
         uidMax: ?int,
+        uuid: ?string,
         service : string
 ) -> (
         record : object,
@@ -188,6 +189,7 @@ method GetGroupRecord(
         dispositionMask: ?[]string,
         gidMin: ?int,
         gidMax: ?int,
+        uuid: ?string,
         service : string
 ) -> (
         record : object,
@@ -214,10 +216,11 @@ error EnumerationNotSupported()
 The `GetUserRecord` method looks up or enumerates a user record.
 If the `uid` parameter is set it specifies the numeric UNIX UID to search for.
 If the `userName` parameter is set it specifies the name of the user to search for.
-Typically, only one of the two parameters are set, depending whether a
-look-up by UID or by name is desired.
-However, clients may also specify both parameters, in which case a record matching both will be returned, and if only
-one exists that matches one of the two parameters but not the other an error of `ConflictingRecordFound` is returned.
+If the `uuid` parameter is set it specifies the UUID of the user to search for.
+Typically, only one of the three parameters are set, depending whether a
+look-up by UID, name or UUID is desired.
+However, clients may also specify multiple parameters, in which case a record matching both will be returned, and if only
+one exists that matches some of the parameters but not others an error of `ConflictingRecordFound` is returned.
 If neither of the two parameters are set the whole user database is enumerated.
 In this case the method call needs to be made with `more` set, so that multiple method call replies may be generated as
 effect, each carrying one user record.
