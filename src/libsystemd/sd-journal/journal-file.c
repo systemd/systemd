@@ -317,7 +317,7 @@ static bool keyed_hash_requested(void) {
         int r;
 
         if (cached < 0) {
-                r = getenv_bool("SYSTEMD_JOURNAL_KEYED_HASH");
+                r = secure_getenv_bool("SYSTEMD_JOURNAL_KEYED_HASH");
                 if (r < 0) {
                         if (r != -ENXIO)
                                 log_debug_errno(r, "Failed to parse $SYSTEMD_JOURNAL_KEYED_HASH environment variable, ignoring: %m");
@@ -334,7 +334,7 @@ static bool compact_mode_requested(void) {
         int r;
 
         if (cached < 0) {
-                r = getenv_bool("SYSTEMD_JOURNAL_COMPACT");
+                r = secure_getenv_bool("SYSTEMD_JOURNAL_COMPACT");
                 if (r < 0) {
                         if (r != -ENXIO)
                                 log_debug_errno(r, "Failed to parse $SYSTEMD_JOURNAL_COMPACT environment variable, ignoring: %m");

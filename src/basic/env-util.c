@@ -546,7 +546,7 @@ char* strv_env_get_n(char * const *l, const char *name, size_t k, ReplaceEnvFlag
                         return NULL;
 
                 t = strndupa_safe(name, k);
-                return getenv(t);
+                return secure_getenv(t);
         };
 
         return NULL;
@@ -1105,7 +1105,7 @@ int getenv_steal_erase(const char *name, char **ret) {
          * it from there. Usecase: reading passwords from the env block (which is a bad idea, but useful for
          * testing, and given that people are likely going to misuse this, be thorough) */
 
-        e = getenv(name);
+        e = secure_getenv(name);
         if (!e) {
                 if (ret)
                         *ret = NULL;
@@ -1167,7 +1167,7 @@ int setenvf(const char *name, bool overwrite, const char *valuef, ...) {
 
         /* Try to suppress writes if the value is already set correctly (simply because memory management of
          * environment variables sucks a bit. */
-        if (streq_ptr(getenv(name), value))
+        if (streq_ptr(secure_getenv(name), value))
                 return 0;
 
         return RET_NERRNO(setenv(name, value, overwrite));
