@@ -34,9 +34,6 @@ set -o pipefail
 . "$(dirname "$0")"/util.sh
 
 
-export SYSTEMD_LOG_LEVEL=debug
-export SYSTEMD_LOG_TARGET=journal
-
 at_exit() {
     set +e
 
@@ -498,7 +495,7 @@ ip link | grep wl-renamed1
 EOF
     fi
 
-    timeout 30 systemd-nspawn --directory="$root"
+    timeout --foreground 30 systemd-nspawn --directory="$root"
 
     # And now for stuff that needs to run separately
     #
@@ -808,7 +805,7 @@ EOF
     touch /tmp/marker-varlink
     varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.BindMount "{\"name\": \"$container_name\", \"source\": \"/tmp/marker-varlink\", \"mkdir\": true}"
 
-    timeout 10 bash -c "while [[ '\$(systemctl show -P SubState $service_name)' == running ]]; do sleep .2; done"
+    timeout --foreground 10 bash -c "while [[ '\$(systemctl show -P SubState $service_name)' == running ]]; do sleep .2; done"
     ec="$(systemctl show -P ExecMainStatus "$service_name")"
     systemctl stop "$service_name"
 

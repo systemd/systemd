@@ -16,7 +16,7 @@ touch /tmp/test63
 
 # Make sure systemd has sufficient time to hit the trigger limit for test63.path.
 # shellcheck disable=SC2016
-timeout 30 bash -c 'until test "$(systemctl show test63.path -P ActiveState)" = failed; do sleep .2; done'
+timeout --foreground 30 bash -c 'until test "$(systemctl show test63.path -P ActiveState)" = failed; do sleep .2; done'
 test "$(systemctl show test63.service -P ActiveState)" = inactive
 test "$(systemctl show test63.service -P Result)" = success
 test "$(systemctl show test63.path -P Result)" = trigger-limit-hit
@@ -34,7 +34,7 @@ test "$(systemctl show test63.path -P Result)" = success
 # Test that glob matching works too, with $TRIGGER_PATH
 systemctl start test63-glob.path
 touch /tmp/test63-glob-foo
-timeout 60 bash -c 'until systemctl -q is-active test63-glob.service; do sleep .2; done'
+timeout --foreground 60 bash -c 'until systemctl -q is-active test63-glob.service; do sleep .2; done'
 test "$(systemctl show test63-glob.service -P ActiveState)" = active
 test "$(systemctl show test63-glob.service -P Result)" = success
 
@@ -114,11 +114,11 @@ exec {lock}<>/tmp/noexit
 flock -e $lock
 echo test1 > /tmp/copyme
 # shellcheck disable=SC2016
-timeout 30 bash -c 'until test "$(systemctl show test63-pr-30768.service -P ActiveState)" = deactivating; do sleep .2; done'
+timeout --foreground 30 bash -c 'until test "$(systemctl show test63-pr-30768.service -P ActiveState)" = deactivating; do sleep .2; done'
 diff /tmp/copyme /tmp/copied
 echo test2 > /tmp/copyme
 exec {lock}<&-
-timeout 30 bash -c 'until diff /tmp/copyme /tmp/copied >/dev/null; do sleep .2; done'
+timeout --foreground 30 bash -c 'until diff /tmp/copyme /tmp/copied >/dev/null; do sleep .2; done'
 
 systemctl log-level info
 

@@ -189,8 +189,8 @@ assert_eq "$(cat "$COUNTER_FILE")" "1"
 [[ ! -f "$FAILURE_FLAG_FILE" ]]
 
 systemctl kill --signal=KILL sleep-infinity-restart-normal.service
-timeout 10 bash -c 'while [[ ! -f $FAILURE_FLAG_FILE ]]; do sleep .5; done'
-timeout 10 bash -c 'while ! systemctl --quiet is-active counter.service; do sleep .5; done'
+timeout --foreground 10 bash -c 'while [[ ! -f $FAILURE_FLAG_FILE ]]; do sleep .5; done'
+timeout --foreground 10 bash -c 'while ! systemctl --quiet is-active counter.service; do sleep .5; done'
 assert_eq "$(cat "$COUNTER_FILE")" "2"
 
 # Test shortcutting auto restart
@@ -208,11 +208,11 @@ RemainAfterExit=yes
 EOF
 
 (! systemctl start "$UNIT_NAME")
-timeout 10 bash -c 'while [[ "$(systemctl show "$UNIT_NAME" -P SubState)" != "auto-restart" ]]; do sleep .5; done'
+timeout --foreground 10 bash -c 'while [[ "$(systemctl show "$UNIT_NAME" -P SubState)" != "auto-restart" ]]; do sleep .5; done'
 touch "$TMP_FILE"
 assert_eq "$(systemctl show "$UNIT_NAME" -P SubState)" "auto-restart"
 
-timeout 30 systemctl start "$UNIT_NAME"
+timeout --foreground 30 systemctl start "$UNIT_NAME"
 systemctl --quiet is-active "$UNIT_NAME"
 assert_eq "$(systemctl show "$UNIT_NAME" -P NRestarts)" "1"
 [[ ! -f "$TMP_FILE" ]]

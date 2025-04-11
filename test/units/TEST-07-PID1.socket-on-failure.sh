@@ -55,7 +55,7 @@ systemctl is-failed "$UNIT_NAME.socket"
 assert_eq "$(systemctl show "$UNIT_NAME.socket" -P SubState)" "failed"
 
 [[ ! -e "/tmp/$UNIT_NAME/test" ]]
-timeout 10 bash -c "until systemctl is-failed TEST-07-PID1-socket-OnFailure.service; do sleep .5; done"
+timeout --foreground 10 bash -c "until systemctl is-failed TEST-07-PID1-socket-OnFailure.service; do sleep .5; done"
 
 chattr -i "/tmp/$UNIT_NAME"
 
@@ -65,7 +65,7 @@ mkdir "/tmp/$UNIT_NAME/test"
 systemctl is-failed "$UNIT_NAME.socket"
 assert_eq "$(systemctl show "$UNIT_NAME.socket" -P SubState)" "failed"
 
-timeout 10 bash -c "while [[ -d '/tmp/$UNIT_NAME/test' ]]; do sleep .5; done"
+timeout --foreground 10 bash -c "while [[ -d '/tmp/$UNIT_NAME/test' ]]; do sleep .5; done"
 [[ ! -e "/tmp/$UNIT_NAME/test" ]]
 systemctl is-active TEST-07-PID1-socket-OnFailure.service
 

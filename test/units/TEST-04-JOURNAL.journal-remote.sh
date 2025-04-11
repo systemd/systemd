@@ -81,11 +81,11 @@ systemd-analyze cat-config systemd/journal-upload.conf
 
 systemctl restart systemd-journal-remote.socket
 systemctl restart systemd-journal-upload
-timeout 15 bash -xec 'until systemctl -q is-active systemd-journal-remote.service; do sleep 1; done'
+timeout --foreground 15 bash -xec 'until systemctl -q is-active systemd-journal-remote.service; do sleep 1; done'
 systemctl status systemd-journal-{remote,upload}
 
 # It may take a bit until the whole journal is transferred
-timeout 30 bash -xec "until journalctl --directory=/var/log/journal/remote --identifier='$TEST_TAG' --grep='$TEST_MESSAGE'; do sleep 1; done"
+timeout --foreground 30 bash -xec "until journalctl --directory=/var/log/journal/remote --identifier='$TEST_TAG' --grep='$TEST_MESSAGE'; do sleep 1; done"
 
 systemctl stop systemd-journal-upload
 systemctl stop systemd-journal-remote.{socket,service}
@@ -191,11 +191,11 @@ systemd-analyze cat-config systemd/journal-upload.conf
 
 systemctl restart systemd-journal-remote.socket
 systemctl restart systemd-journal-upload
-timeout 15 bash -xec 'until systemctl -q is-active systemd-journal-remote.service; do sleep 1; done'
+timeout --foreground 15 bash -xec 'until systemctl -q is-active systemd-journal-remote.service; do sleep 1; done'
 systemctl status systemd-journal-{remote,upload}
 
 # It may take a bit until the whole journal is transferred
-timeout 30 bash -xec "until journalctl --directory=/var/log/journal/remote --identifier='$TEST_TAG' --grep='$TEST_MESSAGE'; do sleep 1; done"
+timeout --foreground 30 bash -xec "until journalctl --directory=/var/log/journal/remote --identifier='$TEST_TAG' --grep='$TEST_MESSAGE'; do sleep 1; done"
 
 systemctl stop systemd-journal-upload
 systemctl stop systemd-journal-remote.{socket,service}
@@ -226,7 +226,7 @@ chgrp -R systemd-journal /run/systemd/journal-remote-tls
 chmod -R g+rwX /run/systemd/journal-remote-tls
 
 systemctl restart systemd-journal-upload
-timeout 10 bash -xec 'while [[ "$(systemctl show -P ActiveState systemd-journal-upload)" != failed ]]; do sleep 1; done'
+timeout --foreground 10 bash -xec 'while [[ "$(systemctl show -P ActiveState systemd-journal-upload)" != failed ]]; do sleep 1; done'
 (! systemctl status systemd-journal-upload)
 
 systemctl stop systemd-journal-upload
@@ -260,11 +260,11 @@ EOF
 
     systemctl restart systemd-journal-remote.socket
     systemctl restart systemd-journal-upload
-    timeout 15 bash -xec 'until systemctl -q is-active systemd-journal-remote.service; do sleep 1; done'
+    timeout --foreground 15 bash -xec 'until systemctl -q is-active systemd-journal-remote.service; do sleep 1; done'
     systemctl status systemd-journal-{remote,upload}
 
     # It may take a bit until the whole journal is transferred
-    timeout 30 bash -xec "until journalctl --directory=/var/log/journal/remote --identifier='$TEST_TAG' --grep='$TEST_MESSAGE'; do sleep 1; done"
+    timeout --foreground 30 bash -xec "until journalctl --directory=/var/log/journal/remote --identifier='$TEST_TAG' --grep='$TEST_MESSAGE'; do sleep 1; done"
 
     systemctl stop systemd-journal-upload
     systemctl stop systemd-journal-remote.{socket,service}

@@ -31,7 +31,7 @@ systemctl bind --mkdir TEST-23-UNIT-FILE-namespaced.service /run/TEST-23-UNIT-FI
 test "$(systemctl show -P SubState TEST-23-UNIT-FILE-namespaced.service)" = "running"
 systemctl bind --mkdir TEST-23-UNIT-FILE-namespaced.service /run/TEST-23-UNIT-FILE-marker-runtime /tmp/testfile-marker-runtime
 
-timeout 10 bash -xec 'while [[ "$(systemctl show -P SubState TEST-23-UNIT-FILE-namespaced.service)" == running ]]; do sleep .5; done'
+timeout --foreground 10 bash -xec 'while [[ "$(systemctl show -P SubState TEST-23-UNIT-FILE-namespaced.service)" == running ]]; do sleep .5; done'
 systemctl is-active TEST-23-UNIT-FILE-namespaced.service
 
 test "$(busctl --json=short get-property org.freedesktop.systemd1 /org/freedesktop/systemd1/unit/TEST_2d23_2dUNIT_2dFILE_2dnamespaced_2eservice org.freedesktop.systemd1.Unit CanLiveMount)" = "{\"type\":\"b\",\"data\":true}"
@@ -43,5 +43,5 @@ systemctl start TEST-23-UNIT-FILE-non-namespaced.service
 
 test "$(busctl --json=short get-property org.freedesktop.systemd1 /org/freedesktop/systemd1/unit/TEST_2d23_2dUNIT_2dFILE_2dnon_2dnamespaced_2eservice org.freedesktop.systemd1.Unit CanLiveMount)" = "{\"type\":\"b\",\"data\":false}"
 
-timeout 10 bash -xec 'while [[ "$(systemctl show -P SubState TEST-23-UNIT-FILE-non-namespaced.service)" == running ]]; do sleep .5; done'
+timeout --foreground 10 bash -xec 'while [[ "$(systemctl show -P SubState TEST-23-UNIT-FILE-non-namespaced.service)" == running ]]; do sleep .5; done'
 (! systemctl is-active TEST-23-UNIT-FILE-non-namespaced.service)

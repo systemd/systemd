@@ -120,6 +120,8 @@ done
 
 umount /var/lib/machines
 
+systemctl start user@4711
+
 for bus in "${SESSION_BUS_LIST[@]}"; do
     echo "Bus: $bus (session)"
     systemd-run --machine 'testuser@.host' --user --pipe --wait \

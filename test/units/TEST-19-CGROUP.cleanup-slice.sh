@@ -41,9 +41,9 @@ ps "$pid"
 kill -s TERM "$pid"
 while kill -0 "$pid" 2>/dev/null; do sleep 0.1; done
 
-timeout 30 bash -c 'while systemd-cgls /test19cleanup.slice/test19cleanup.service >& /dev/null; do sleep .5; done'
+timeout --foreground 30 bash -c 'while systemd-cgls /test19cleanup.slice/test19cleanup.service >& /dev/null; do sleep .5; done'
 assert_rc 1 systemd-cgls /test19cleanup.slice/test19cleanup.service
 
 # Check that empty cgroup /test19cleanup.slice has been removed
-timeout 30 bash -c 'while systemd-cgls /test19cleanup.slice >& /dev/null; do sleep .5; done'
+timeout --foreground 30 bash -c 'while systemd-cgls /test19cleanup.slice >& /dev/null; do sleep .5; done'
 assert_rc 1 systemd-cgls /test19cleanup.slice
