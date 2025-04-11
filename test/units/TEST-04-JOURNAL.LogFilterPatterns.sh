@@ -36,6 +36,7 @@ run_service_and_fetch_logs() {
     fi
 
     systemctl start "$unit"
+    journalctl --sync
     journalctl -q -u "$unit" -I -p notice
 }
 
