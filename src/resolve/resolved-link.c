@@ -73,7 +73,7 @@ void link_flush_settings(Link *l) {
         dns_server_unlink_all(l->dns_servers);
         dns_search_domain_unlink_all(l->search_domains);
 
-        l->dnssec_negative_trust_anchors = set_free_free(l->dnssec_negative_trust_anchors);
+        l->dnssec_negative_trust_anchors = set_free(l->dnssec_negative_trust_anchors);
 }
 
 Link *link_free(Link *l) {
@@ -459,12 +459,12 @@ static int link_update_dnssec_mode(Link *l) {
 
 static int link_update_dnssec_negative_trust_anchors(Link *l) {
         _cleanup_strv_free_ char **ntas = NULL;
-        _cleanup_set_free_free_ Set *ns = NULL;
+        _cleanup_set_free_ Set *ns = NULL;
         int r;
 
         assert(l);
 
-        l->dnssec_negative_trust_anchors = set_free_free(l->dnssec_negative_trust_anchors);
+        l->dnssec_negative_trust_anchors = set_free(l->dnssec_negative_trust_anchors);
 
         r = sd_network_link_get_dnssec_negative_trust_anchors(l->ifindex, &ntas);
         if (r == -ENODATA)
@@ -472,7 +472,7 @@ static int link_update_dnssec_negative_trust_anchors(Link *l) {
         if (r < 0)
                 return r;
 
-        ns = set_new(&dns_name_hash_ops);
+        ns = set_new(&dns_name_hash_ops_free);
         if (!ns)
                 return -ENOMEM;
 
@@ -1425,9 +1425,9 @@ int link_load_user(Link *l) {
         }
 
         if (ntas) {
-                _cleanup_set_free_free_ Set *ns = NULL;
+                _cleanup_set_free_ Set *ns = NULL;
 
-                ns = set_new(&dns_name_hash_ops);
+                ns = set_new(&dns_name_hash_ops_free);
                 if (!ns) {
                         r = -ENOMEM;
                         goto fail;
