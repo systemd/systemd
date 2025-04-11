@@ -614,10 +614,11 @@ _public_ int sd_device_monitor_receive(sd_device_monitor *m, sd_device **ret) {
 
         if (snl.nl.nl_groups == MONITOR_GROUP_NONE) {
                 /* unicast message, check if we trust the sender */
-                if (m->snl_trusted_sender.nl.nl_pid == 0 ||
+                if (m->snl_trusted_sender.nl.nl_pid != 0 &&
                     snl.nl.nl_pid != m->snl_trusted_sender.nl.nl_pid)
                         return log_monitor_errno(m, SYNTHETIC_ERRNO(EAGAIN),
-                                                 "Unicast netlink message ignored.");
+                                                 "Unicast netlink message ignored (received: %u, allowed: %u).",
+                                                 snl.nl.nl_pid, m->snl_trusted_sender.nl.nl_pid);
 
         } else if (snl.nl.nl_groups == MONITOR_GROUP_KERNEL) {
                 if (snl.nl.nl_pid > 0)
