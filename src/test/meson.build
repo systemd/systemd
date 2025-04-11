@@ -153,6 +153,7 @@ simple_tests += files(
         'test-proc-cmdline.c',
         'test-procfs-util.c',
         'test-psi-util.c',
+        'test-quota-util.c',
         'test-ratelimit.c',
         'test-raw-clone.c',
         'test-recovery-key.c',
