@@ -296,7 +296,7 @@ if install_tests
                                follow_symlinks : false)
         else
                 meson.add_install_script(sh, '-c',
-                                         rsync_r.format(meson.current_source_dir() / 'integration-tests', testdata_dir))
+                                         rsync_r.format(meson.current_source_dir() / 'integration-tests', testsdir))
         endif
 
         foreach integration_test : integration_tests
