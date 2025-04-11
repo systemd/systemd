@@ -726,28 +726,6 @@ static int nvme_subsystem_report(NvmeSubsystem *subsystem, NvmePort *ipv4, NvmeP
         return 0;
 }
 
-static int plymouth_send_text(const char *text) {
-        _cleanup_free_ char *plymouth_message = NULL;
-        int c, r;
-
-        assert(text);
-
-        c = asprintf(&plymouth_message,
-                     "M\x02%c%s%c"
-                     "A%c", /* pause spinner */
-                     (int) strlen(text) + 1, text, '\x00',
-                     '\x00');
-        if (c < 0)
-                return log_oom();
-
-        r = plymouth_send_raw(plymouth_message, c, SOCK_NONBLOCK);
-        if (r < 0)
-                return log_full_errno(ERRNO_IS_NO_PLYMOUTH(r) ? LOG_DEBUG : LOG_WARNING, r,
-                                      "Failed to communicate with plymouth, ignoring: %m");
-
-        return 0;
-}
-
 static int plymouth_notify_port(NvmePort *port, struct local_address *a) {
         _cleanup_free_ char *m = NULL;
 
@@ -757,7 +735,7 @@ static int plymouth_notify_port(NvmePort *port, struct local_address *a) {
         if (asprintf(&m, "nvme connect-all -t tcp -a %s -s %" PRIu16, IN_ADDR_TO_STRING(a->family, &a->address), port->portnr) < 0)
                 return log_oom();
 
-        return plymouth_send_text(m);
+        return plymouth_send_msg(m);
 }
 
 static int nvme_port_report(NvmePort *port, bool *plymouth_done) {
@@ -1077,7 +1055,7 @@ static int on_display_refresh(sd_event_source *s, uint64_t usec, void *userdata)
         (void) nvme_port_report(c->ipv6_port, &plymouth_done);
 
         if (!plymouth_done)
-                (void) plymouth_send_text("Network disconnected.");
+                (void) plymouth_send_msg("Network disconnected.");
 
         NvmeSubsystem *i;
         HASHMAP_FOREACH(i, c->subsystems)
@@ -1179,7 +1157,7 @@ static int run(int argc, char* argv[]) {
         }
 
         if (!plymouth_done)
-                (void) plymouth_send_text("Network disconnected.");
+                (void) plymouth_send_msg("Network disconnected.");
 
         NvmeSubsystem *i;
         HASHMAP_FOREACH(i, context.subsystems) {
