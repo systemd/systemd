@@ -291,9 +291,20 @@ if install_tests
         endif
 
         if meson.version().version_compare('>=1.3.0')
+                # Installing symlinks to directories is broken in install_subdir() so we exclude the
+                # standalone directory from install_subdir() and handle it manually.
+                # TODO: Remove when https://github.com/mesonbuild/meson/pull/14471 is available in all
+                # supported distributions.
                 install_subdir('integration-tests',
                                install_dir : testsdir,
+                               exclude_directories : ['standalone'],
                                follow_symlinks : false)
+                install_emptydir(testsdir / 'integration-tests/standalone')
+                install_data('integration-tests/standalone/meson.build',
+                             install_dir : testsdir / 'integration-tests/standalone')
+                install_symlink('integration-tests',
+                                pointing_to : '..',
+                                install_dir : testsdir / 'integration-tests/standalone')
         else
                 meson.add_install_script(sh, '-c',
                                          rsync_r.format(meson.current_source_dir() / 'integration-tests', testsdir))
