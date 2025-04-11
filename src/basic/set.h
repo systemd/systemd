@@ -15,12 +15,6 @@ static inline Set* set_free(Set *s) {
         return (Set*) _hashmap_free(HASHMAP_BASE(s), NULL, NULL);
 }
 
-static inline Set* set_free_free(Set *s) {
-        return (Set*) _hashmap_free(HASHMAP_BASE(s), free, NULL);
-}
-
-/* no set_free_free_free */
-
 #define set_copy(s) ((Set*) _hashmap_copy(HASHMAP_BASE(s)  HASHMAP_DEBUG_SRC_ARGS))
 
 int _set_ensure_allocated(Set **s, const struct hash_ops *hash_ops HASHMAP_DEBUG_PARAMS);
@@ -79,12 +73,6 @@ static inline bool set_iterate(const Set *s, Iterator *i, void **value) {
 static inline void set_clear(Set *s) {
         _hashmap_clear(HASHMAP_BASE(s), NULL, NULL);
 }
-
-static inline void set_clear_free(Set *s) {
-        _hashmap_clear(HASHMAP_BASE(s), free, NULL);
-}
-
-/* no set_clear_free_free */
 
 static inline void *set_steal_first(Set *s) {
         return _hashmap_first_key_and_value(HASHMAP_BASE(s), true, NULL);
@@ -145,10 +133,8 @@ int set_put_strsplit(Set *s, const char *v, const char *separators, ExtractFlags
         for (; ({ e = set_first(s); assert_se(!e || set_move_one(d, s, e) >= 0); e; }); )
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Set*, set_free);
-DEFINE_TRIVIAL_CLEANUP_FUNC(Set*, set_free_free);
 
 #define _cleanup_set_free_ _cleanup_(set_freep)
-#define _cleanup_set_free_free_ _cleanup_(set_free_freep)
 
 int set_strjoin(Set *s, const char *separator, bool wrap_with_separator, char **ret);
 
