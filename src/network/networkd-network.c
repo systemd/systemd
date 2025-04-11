@@ -752,7 +752,7 @@ static Network *network_free(Network *network) {
         free(network->dns);
         ordered_set_free(network->search_domains);
         ordered_set_free(network->route_domains);
-        set_free_free(network->dnssec_negative_trust_anchors);
+        set_free(network->dnssec_negative_trust_anchors);
 
         /* DHCP server */
         free(network->dhcp_server_relay_agent_circuit_id);
