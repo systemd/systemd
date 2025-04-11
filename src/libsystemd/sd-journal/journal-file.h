@@ -145,6 +145,12 @@ typedef struct {
         uint64_t hash;
 } EntryItem;
 
+void journal_file_reload(
+                JournalFile *f,
+                JournalFileFlags file_flags,
+                uint64_t compress_threshold_bytes,
+                JournalMetrics *metrics);
+
 int journal_file_open(
                 int fd,
                 const char *fname,

@@ -12,7 +12,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         fuzz_setup_logging();
 
-        assert_se(server_new(&s) >= 0);
+        assert_se(server_new(&s, NULL) >= 0);
         dummy_server_init(s, data, size);
         dev_kmsg_record(s, s->buffer, size);
 
