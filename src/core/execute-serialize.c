@@ -1089,10 +1089,6 @@ static int exec_cgroup_context_deserialize(CGroupContext *c, FILE *f) {
 
                         LIST_PREPEND(socket_bind_items, c->socket_bind_deny, item);
                 } else if ((val = startswith(l, "exec-cgroup-context-restrict-network-interfaces="))) {
-                        r = set_ensure_allocated(&c->restrict_network_interfaces, &string_hash_ops);
-                        if (r < 0)
-                                return r;
-
                         r = set_put_strdup(&c->restrict_network_interfaces, val);
                         if (r < 0)
                                 return r;
@@ -3547,10 +3543,6 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-context-restrict-filesystems="))) {
-                        r = set_ensure_allocated(&c->restrict_filesystems, &string_hash_ops);
-                        if (r < 0)
-                                return r;
-
                         r = set_put_strdup(&c->restrict_filesystems, val);
                         if (r < 0)
                                 return r;
