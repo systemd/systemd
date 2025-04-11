@@ -239,7 +239,7 @@ static int scope_coldplug(Unit *u) {
                 PidRef *pid;
                 SET_FOREACH(pid, u->pids) {
                         r = unit_watch_pidref(u, pid, /* exclusive= */ false);
-                        if (r < 0 && r != -EEXIST)
+                        if (r < 0)
                                 return r;
                 }
         }
