@@ -3,9 +3,6 @@
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
-#if HAVE_PIDFD_OPEN
-#include <sys/pidfd.h>
-#endif
 #include <sys/wait.h>
 
 #include "sd-event.h"
@@ -16,7 +13,7 @@
 #include "daemon-util.h"
 #include "fd-util.h"
 #include "log.h"
-#include "missing_syscall.h"
+#include "pidfd-util.h"
 #include "process-util.h"
 #include "tests.h"
 
@@ -103,11 +100,9 @@ int main(int argc, char *argv[]) {
 
         test_setup_logging(LOG_INFO);
 
-        fd = pidfd_open(getpid_cached(), 0);
-        if (fd < 0 && (ERRNO_IS_NOT_SUPPORTED(errno) || ERRNO_IS_PRIVILEGE(errno)))
-                return log_tests_skipped("pidfds are not available");
-        else if (fd < 0) {
-                log_error_errno(errno, "pidfd_open() failed: %m");
+        fd = pidfd_open_safe(getpid_cached(), 0);
+        if (fd < 0) {
+                log_error_errno(fd, "pidfd_open() failed: %m");
                 return EXIT_FAILURE;
         }
         safe_close(fd);
