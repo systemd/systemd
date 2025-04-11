@@ -27,7 +27,6 @@
 #include "macsec.h"
 #include "macvlan.h"
 #include "netdev.h"
-#include "netdevsim.h"
 #include "netif-util.h"
 #include "netlink-util.h"
 #include "network-util.h"
@@ -79,7 +78,6 @@ const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_MACSEC]    = &macsec_vtable,
         [NETDEV_KIND_MACVLAN]   = &macvlan_vtable,
         [NETDEV_KIND_MACVTAP]   = &macvtap_vtable,
-        [NETDEV_KIND_NETDEVSIM] = &netdevsim_vtable,
         [NETDEV_KIND_NLMON]     = &nlmon_vtable,
         [NETDEV_KIND_SIT]       = &sit_vtable,
         [NETDEV_KIND_TAP]       = &tap_vtable,
@@ -121,7 +119,6 @@ static const char* const netdev_kind_table[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_MACSEC]    = "macsec",
         [NETDEV_KIND_MACVLAN]   = "macvlan",
         [NETDEV_KIND_MACVTAP]   = "macvtap",
-        [NETDEV_KIND_NETDEVSIM] = "netdevsim",
         [NETDEV_KIND_NLMON]     = "nlmon",
         [NETDEV_KIND_SIT]       = "sit",
         [NETDEV_KIND_TAP]       = "tap",
