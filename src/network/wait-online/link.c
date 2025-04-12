@@ -11,7 +11,7 @@
 #include "string-util.h"
 #include "strv.h"
 
-Link* link_free(Link *l) {
+static Link* link_free(Link *l) {
 
         if (!l)
                 return NULL;
@@ -32,12 +32,14 @@ Link* link_free(Link *l) {
         return mfree(l);
 }
 
+DEFINE_TRIVIAL_CLEANUP_FUNC(Link*, link_free);
+
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 link_hash_ops_by_index,
                 void, trivial_hash_func, trivial_compare_func,
                 Link, link_free);
 
-int link_new(Manager *m, Link **ret, int ifindex, const char *ifname) {
+static int link_new(Manager *m, Link **ret, int ifindex, const char *ifname) {
         _cleanup_(link_freep) Link *l = NULL;
         _cleanup_free_ char *n = NULL;
         int r;
@@ -154,7 +156,7 @@ static int link_update_altnames(Link *l, sd_netlink_message *m) {
         return 0;
 }
 
-int link_update_rtnl(Link *l, sd_netlink_message *m) {
+static int link_update_rtnl(Link *l, sd_netlink_message *m) {
         int r;
 
         assert(l);
@@ -172,6 +174,75 @@ int link_update_rtnl(Link *l, sd_netlink_message *m) {
         r = link_update_altnames(l, m);
         if (r < 0)
                 return r;
+
+        return 0;
+}
+
+int rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *mm, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        uint16_t type;
+        Link *l;
+        const char *ifname;
+        int ifindex, r;
+
+        assert(rtnl);
+        assert(mm);
+
+        r = sd_netlink_message_get_type(mm, &type);
+        if (r < 0) {
+                log_warning_errno(r, "rtnl: Could not get message type, ignoring: %m");
+                return 0;
+        }
+
+        r = sd_rtnl_message_link_get_ifindex(mm, &ifindex);
+        if (r < 0) {
+                log_warning_errno(r, "rtnl: Could not get ifindex from link, ignoring: %m");
+                return 0;
+        } else if (ifindex <= 0) {
+                log_warning("rtnl: received link message with invalid ifindex %d, ignoring", ifindex);
+                return 0;
+        }
+
+        r = sd_netlink_message_read_string(mm, IFLA_IFNAME, &ifname);
+        if (r < 0) {
+                log_warning_errno(r, "rtnl: Received link message without ifname, ignoring: %m");
+                return 0;
+        }
+
+        l = hashmap_get(m->links_by_index, INT_TO_PTR(ifindex));
+
+        switch (type) {
+
+        case RTM_NEWLINK:
+                if (!l) {
+                        log_debug("Found link %s(%i)", ifname, ifindex);
+
+                        r = link_new(m, &l, ifindex, ifname);
+                        if (r < 0) {
+                                log_warning_errno(r, "Failed to create link object for %s(%i), ignoring: %m", ifname, ifindex);
+                                return 0;
+                        }
+                }
+
+                r = link_update_rtnl(l, mm);
+                if (r < 0)
+                        log_link_warning_errno(l, r, "Failed to process RTNL link message, ignoring: %m");
+
+                r = link_update_monitor(l);
+                if (r < 0)
+                        log_link_full_errno(l, IN_SET(r, -ENODATA, -ENOENT) ? LOG_DEBUG : LOG_WARNING, r,
+                                            "Failed to update link state, ignoring: %m");
+
+                break;
+
+        case RTM_DELLINK:
+                if (l) {
+                        log_link_debug(l, "Removing link");
+                        link_free(l);
+                }
+
+                break;
+        }
 
         return 0;
 }
