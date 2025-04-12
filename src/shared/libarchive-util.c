@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "libarchive-util.h"
+#include "log.h"
 
 #if HAVE_LIBARCHIVE
 static void *libarchive_dl = NULL;

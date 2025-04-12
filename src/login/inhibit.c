@@ -16,6 +16,7 @@
 #include "fd-util.h"
 #include "format-table.h"
 #include "format-util.h"
+#include "log.h"
 #include "main-func.h"
 #include "pager.h"
 #include "pretty-print.h"

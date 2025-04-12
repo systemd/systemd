@@ -23,6 +23,7 @@
 #include "fileio.h"
 #include "fs-util.h"
 #include "io-util.h"
+#include "log.h"
 #include "macro.h"
 #include "missing_fs.h"
 #include "path-util.h"
@@ -508,6 +509,12 @@ finish:
         }
 
         return 0;
+}
+
+int btrfs_log_dev_root(int level, int ret, const char *p) {
+        return log_full_errno(level, ret,
+                              "File system behind %s is reported by btrfs to be backed by pseudo-device /dev/root, which is not a valid userspace accessible device node. "
+                              "Cannot determine correct backing block device.", p);
 }
 
 int btrfs_qgroup_get_quota(const char *path, uint64_t qgroupid, BtrfsQuotaInfo *ret) {

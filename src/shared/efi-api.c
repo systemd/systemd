@@ -9,6 +9,7 @@
 #include "efivars.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "log.h"
 #include "sort-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
