@@ -33,7 +33,7 @@ struct udev_list {
         bool uptodate:1;
 };
 
-static struct udev_list_entry *udev_list_entry_free(struct udev_list_entry *entry) {
+static struct udev_list_entry* udev_list_entry_free(struct udev_list_entry *entry) {
         if (!entry)
                 return NULL;
 
@@ -51,14 +51,14 @@ static struct udev_list_entry *udev_list_entry_free(struct udev_list_entry *entr
         return mfree(entry);
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev_list_entry *, udev_list_entry_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev_list_entry*, udev_list_entry_free);
 
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 udev_list_entry_hash_ops,
                 char, string_hash_func, string_compare_func,
                 struct udev_list_entry, udev_list_entry_free);
 
-struct udev_list *udev_list_new(bool unique) {
+struct udev_list* udev_list_new(bool unique) {
         struct udev_list *list;
 
         list = new(struct udev_list, 1);
@@ -115,7 +115,7 @@ void udev_list_cleanup(struct udev_list *list) {
                         udev_list_entry_free(i);
 }
 
-struct udev_list *udev_list_free(struct udev_list *list) {
+struct udev_list* udev_list_free(struct udev_list *list) {
         if (!list)
                 return NULL;
 
@@ -125,7 +125,7 @@ struct udev_list *udev_list_free(struct udev_list *list) {
         return mfree(list);
 }
 
-struct udev_list_entry *udev_list_get_entry(struct udev_list *list) {
+struct udev_list_entry* udev_list_get_entry(struct udev_list *list) {
         if (!list)
                 return NULL;
 
@@ -163,7 +163,7 @@ struct udev_list_entry *udev_list_get_entry(struct udev_list *list) {
  *
  * Returns: udev_list_entry, #NULL if no more entries are available.
  */
-_public_ struct udev_list_entry *udev_list_entry_get_next(struct udev_list_entry *list_entry) {
+_public_ struct udev_list_entry* udev_list_entry_get_next(struct udev_list_entry *list_entry) {
         if (!list_entry)
                 return NULL;
         if (list_entry->list->unique && !list_entry->list->uptodate)
@@ -180,7 +180,7 @@ _public_ struct udev_list_entry *udev_list_entry_get_next(struct udev_list_entry
  *
  * Returns: udev_list_entry, #NULL if no matching entry is found.
  */
-_public_ struct udev_list_entry *udev_list_entry_get_by_name(struct udev_list_entry *list_entry, const char *name) {
+_public_ struct udev_list_entry* udev_list_entry_get_by_name(struct udev_list_entry *list_entry, const char *name) {
         if (!list_entry)
                 return NULL;
         if (!list_entry->list->unique || !list_entry->list->uptodate)
@@ -196,7 +196,7 @@ _public_ struct udev_list_entry *udev_list_entry_get_by_name(struct udev_list_en
  *
  * Returns: the name string of this entry.
  */
-_public_ const char *udev_list_entry_get_name(struct udev_list_entry *list_entry) {
+_public_ const char* udev_list_entry_get_name(struct udev_list_entry *list_entry) {
         if (!list_entry)
                 return NULL;
         return list_entry->name;
@@ -210,7 +210,7 @@ _public_ const char *udev_list_entry_get_name(struct udev_list_entry *list_entry
  *
  * Returns: the value string of this entry.
  */
-_public_ const char *udev_list_entry_get_value(struct udev_list_entry *list_entry) {
+_public_ const char* udev_list_entry_get_value(struct udev_list_entry *list_entry) {
         if (!list_entry)
                 return NULL;
         return list_entry->value;
