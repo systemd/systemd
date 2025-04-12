@@ -145,9 +145,8 @@ TEST(set_ensure_allocated) {
 }
 
 TEST(set_copy) {
-        _cleanup_set_free_ Set *s = NULL;
-        _cleanup_set_free_free_ Set *copy = NULL;
-        char *key1, *key2, *key3, *key4;
+        _cleanup_set_free_ Set *s = NULL, *copy = NULL;
+        _cleanup_free_ char *key1 = NULL, *key2 = NULL, *key3 = NULL, *key4 = NULL;
 
         key1 = strdup("key1");
         assert_se(key1);
@@ -398,6 +397,30 @@ TEST(set_fnmatch) {
         assert_se(!set_fnmatch(match, nomatch, "ccc"));
         assert_se(!set_fnmatch(match, nomatch, "ccccc"));
         assert_se(!set_fnmatch(match, nomatch, "cccXX"));
+}
+
+TEST(set_to_strv) {
+        _cleanup_set_free_ Set *set = NULL;
+        _cleanup_strv_free_ char **a = NULL;
+        _cleanup_free_ char **b = NULL;
+        char **v = STRV_MAKE("aaa", "bbb", "ccc");
+
+        ASSERT_NOT_NULL(a = set_to_strv(&set));
+        ASSERT_TRUE(strv_isempty(a));
+        ASSERT_NULL(set);
+        a = strv_free(a);
+
+        ASSERT_OK(set_put_strdupv(&set, v));
+        ASSERT_EQ(set_size(set), strv_length(v));
+
+        ASSERT_NOT_NULL(b = set_get_strv(set));
+        ASSERT_EQ(strv_length(b), strv_length(v));
+        ASSERT_TRUE(strv_equal_ignore_order(b, v));
+
+        ASSERT_NOT_NULL(a = set_to_strv(&set));
+        ASSERT_EQ(strv_length(a), strv_length(v));
+        ASSERT_TRUE(strv_equal_ignore_order(a, v));
+        ASSERT_NULL(set);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);
