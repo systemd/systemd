@@ -409,6 +409,8 @@ int dns_resource_key_to_json(DnsResourceKey *key, sd_json_variant **ret);
 int dns_resource_key_from_json(sd_json_variant *v, DnsResourceKey **ret);
 int dns_resource_record_to_json(DnsResourceRecord *rr, sd_json_variant **ret);
 
+void dns_resource_key_hash_func(const DnsResourceKey *k, struct siphash *state);
+int dns_resource_key_compare_func(const DnsResourceKey *x, const DnsResourceKey *y);
 void dns_resource_record_hash_func(const DnsResourceRecord *i, struct siphash *state);
 int dns_resource_record_compare_func(const DnsResourceRecord *x, const DnsResourceRecord *y);
 
