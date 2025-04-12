@@ -11,8 +11,7 @@ libefitest = static_library(
                 'efi-string.c',
         ),
         build_by_default : false,
-        include_directories : [
-                basic_includes,
+        include_directories : basic_includes + [
                 include_directories('.'),
         ],
         dependencies : userspace)
