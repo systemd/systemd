@@ -21,6 +21,7 @@
 #include "format-util.h"
 #include "hexdecoct.h"
 #include "io-util.h"
+#include "log.h"
 #include "macro.h"
 #include "memstream-util.h"
 #include "path-util.h"

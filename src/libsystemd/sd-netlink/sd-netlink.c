@@ -8,6 +8,7 @@
 #include "fd-util.h"
 #include "hashmap.h"
 #include "io-util.h"
+#include "log.h"
 #include "macro.h"
 #include "netlink-genl.h"
 #include "netlink-internal.h"

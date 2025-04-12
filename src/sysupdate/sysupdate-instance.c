@@ -3,6 +3,7 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 
+#include "log.h"
 #include "sysupdate-instance.h"
 
 void instance_metadata_destroy(InstanceMetadata *m) {

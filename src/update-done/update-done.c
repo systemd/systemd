@@ -9,6 +9,7 @@
 #include "chase.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "log.h"
 #include "main-func.h"
 #include "parse-argument.h"
 #include "path-util.h"

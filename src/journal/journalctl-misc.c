@@ -9,6 +9,7 @@
 #include "journalctl.h"
 #include "journalctl-misc.h"
 #include "journalctl-util.h"
+#include "log.h"
 #include "logs-show.h"
 #include "syslog-util.h"
 

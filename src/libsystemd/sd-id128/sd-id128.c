@@ -15,6 +15,7 @@
 #include "id128-util.h"
 #include "io-util.h"
 #include "keyring-util.h"
+#include "log.h"
 #include "macro.h"
 #include "missing_syscall.h"
 #include "path-util.h"

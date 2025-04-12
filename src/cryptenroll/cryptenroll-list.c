@@ -6,6 +6,7 @@
 #include "cryptenroll.h"
 #include "format-table.h"
 #include "json-util.h"
+#include "log.h"
 #include "parse-util.h"
 
 struct keyslot_metadata {
