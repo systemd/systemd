@@ -23,6 +23,7 @@
 #include "dhcp-packet.h"
 #include "ether-addr-util.h"
 #include "fd-util.h"
+#include "log.h"
 #include "random-util.h"
 #include "tests.h"
 

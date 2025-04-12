@@ -3,6 +3,7 @@
 #include <stdio.h>
 
 #include "libmount-util.h"
+#include "log.h"
 
 int libmount_parse_full(
                 const char *path,

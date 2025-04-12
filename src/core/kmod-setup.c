@@ -8,6 +8,7 @@
 #include "efi-api.h"
 #include "fileio.h"
 #include "kmod-setup.h"
+#include "log.h"
 #include "macro.h"
 #include "module-util.h"
 #include "recurse-dir.h"

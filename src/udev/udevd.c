@@ -9,6 +9,7 @@
 
 #include "errno-util.h"
 #include "fd-util.h"
+#include "log.h"
 #include "mkdir.h"
 #include "process-util.h"
 #include "rlimit-util.h"
