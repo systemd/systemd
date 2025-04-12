@@ -18,9 +18,7 @@
 #include "log.h"
 #include "main-func.h"
 
-#define DEFAULT_BUS_PATH "unix:path=/run/dbus/system_bus_socket"
-
-static const char *arg_bus_path = DEFAULT_BUS_PATH;
+static const char *arg_bus_path = DEFAULT_SYSTEM_BUS_ADDRESS;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
 static RuntimeScope arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
 
@@ -33,7 +31,7 @@ static int help(void) {
                "     --system            Connect to system bus\n"
                "     --user              Connect to user bus\n"
                "  -M --machine=CONTAINER Name of local container to connect to\n",
-               program_invocation_short_name, DEFAULT_BUS_PATH);
+               program_invocation_short_name, DEFAULT_SYSTEM_BUS_ADDRESS);
 
         return 0;
 }
