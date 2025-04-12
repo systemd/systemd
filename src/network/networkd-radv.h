@@ -52,10 +52,6 @@ typedef struct Prefix64 {
         sd_ndisc_prefix64 prefix64;
 } Prefix64;
 
-Prefix* prefix_free(Prefix *prefix);
-RoutePrefix* route_prefix_free(RoutePrefix *prefix);
-Prefix64* prefix64_free(Prefix64 *prefix);
-
 void network_adjust_radv(Network *network);
 
 int link_request_radv_addresses(Link *link);
