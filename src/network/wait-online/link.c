@@ -11,6 +11,32 @@
 #include "string-util.h"
 #include "strv.h"
 
+Link* link_free(Link *l) {
+
+        if (!l)
+                return NULL;
+
+        if (l->manager) {
+                hashmap_remove(l->manager->links_by_index, INT_TO_PTR(l->ifindex));
+                hashmap_remove(l->manager->links_by_name, l->ifname);
+
+                STRV_FOREACH(n, l->altnames)
+                        hashmap_remove(l->manager->links_by_name, *n);
+        }
+
+        dns_configuration_free(l->dns_configuration);
+
+        free(l->state);
+        free(l->ifname);
+        strv_free(l->altnames);
+        return mfree(l);
+}
+
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+                link_hash_ops_by_index,
+                void, trivial_hash_func, trivial_compare_func,
+                Link, link_free);
+
 int link_new(Manager *m, Link **ret, int ifindex, const char *ifname) {
         _cleanup_(link_freep) Link *l = NULL;
         _cleanup_free_ char *n = NULL;
@@ -36,7 +62,7 @@ int link_new(Manager *m, Link **ret, int ifindex, const char *ifname) {
                 .dns_configuration = hashmap_remove(m->dns_configuration_by_link_index, INT_TO_PTR(ifindex)),
         };
 
-        r = hashmap_ensure_put(&m->links_by_index, NULL, INT_TO_PTR(ifindex), l);
+        r = hashmap_ensure_put(&m->links_by_index, &link_hash_ops_by_index, INT_TO_PTR(ifindex), l);
         if (r < 0)
                 return r;
 
@@ -49,27 +75,6 @@ int link_new(Manager *m, Link **ret, int ifindex, const char *ifname) {
 
         TAKE_PTR(l);
         return 0;
-}
-
-Link *link_free(Link *l) {
-
-        if (!l)
-                return NULL;
-
-        if (l->manager) {
-                hashmap_remove(l->manager->links_by_index, INT_TO_PTR(l->ifindex));
-                hashmap_remove(l->manager->links_by_name, l->ifname);
-
-                STRV_FOREACH(n, l->altnames)
-                        hashmap_remove(l->manager->links_by_name, *n);
-        }
-
-        dns_configuration_free(l->dns_configuration);
-
-        free(l->state);
-        free(l->ifname);
-        strv_free(l->altnames);
-        return mfree(l);
 }
 
 static int link_update_name(Link *l, sd_netlink_message *m) {
