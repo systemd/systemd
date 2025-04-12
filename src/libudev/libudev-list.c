@@ -54,6 +54,11 @@ static struct udev_list_entry *udev_list_entry_free(struct udev_list_entry *entr
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev_list_entry *, udev_list_entry_free);
 
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+                udev_list_entry_hash_ops,
+                char, string_hash_func, string_compare_func,
+                struct udev_list_entry, udev_list_entry_free);
+
 struct udev_list *udev_list_new(bool unique) {
         struct udev_list *list;
 
@@ -97,7 +102,7 @@ struct udev_list_entry *udev_list_entry_add(struct udev_list *list, const char *
         if (list->unique) {
                 udev_list_entry_free(hashmap_get(list->unique_entries, entry->name));
 
-                if (hashmap_ensure_put(&list->unique_entries, &string_hash_ops, entry->name, entry) < 0)
+                if (hashmap_ensure_put(&list->unique_entries, &udev_list_entry_hash_ops, entry->name, entry) < 0)
                         return NULL;
 
                 list->uptodate = false;
@@ -115,7 +120,7 @@ void udev_list_cleanup(struct udev_list *list) {
 
         if (list->unique) {
                 list->uptodate = false;
-                hashmap_clear_with_destructor(list->unique_entries, udev_list_entry_free);
+                hashmap_clear(list->unique_entries);
         } else
                 LIST_FOREACH(entries, i, list->entries)
                         udev_list_entry_free(i);
