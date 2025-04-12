@@ -20,6 +20,7 @@
 #include "fileio.h"
 #include "io-util.h"
 #include "iovec-util.h"
+#include "log.h"
 #include "missing_random.h"
 #include "missing_syscall.h"
 #include "parse-util.h"

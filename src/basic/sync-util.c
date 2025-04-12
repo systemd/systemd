@@ -5,6 +5,7 @@
 
 #include "fd-util.h"
 #include "fs-util.h"
+#include "log.h"
 #include "path-util.h"
 #include "sync-util.h"
 

@@ -25,6 +25,7 @@
 #include "json-internal.h"
 #include "json-util.h"
 #include "ordered-set.h"
+#include "log.h"
 #include "macro.h"
 #include "math-util.h"
 #include "memory-util.h"

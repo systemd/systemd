@@ -7,6 +7,7 @@
 #include "chase.h"
 #include "fd-util.h"
 #include "fs-util.h"
+#include "log.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "recurse-dir.h"

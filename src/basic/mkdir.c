@@ -10,6 +10,7 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "log.h"
 #include "macro.h"
 #include "mkdir.h"
 #include "path-util.h"

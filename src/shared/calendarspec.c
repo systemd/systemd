@@ -14,6 +14,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "log.h"
 #include "macro.h"
 #include "memstream-util.h"
 #include "parse-util.h"

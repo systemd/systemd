@@ -215,14 +215,7 @@ char* strrep(const char *s, unsigned n);
 int split_pair(const char *s, const char *sep, char **ret_first, char **ret_second);
 
 int free_and_strdup(char **p, const char *s);
-static inline int free_and_strdup_warn(char **p, const char *s) {
-        int r;
-
-        r = free_and_strdup(p, s);
-        if (r < 0)
-                return log_oom();
-        return r;
-}
+int free_and_strdup_warn(char **p, const char *s);
 int free_and_strndup(char **p, const char *s, size_t l) _nonnull_if_nonzero_(2, 3);
 
 int strdup_to_full(char **ret, const char *src);

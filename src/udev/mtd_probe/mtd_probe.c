@@ -32,6 +32,7 @@
 #include "alloc-util.h"
 #include "build.h"
 #include "fd-util.h"
+#include "log.h"
 #include "main-func.h"
 #include "mtd_probe.h"
 

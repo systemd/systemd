@@ -13,6 +13,7 @@
 #include "fileio.h"
 #include "format-table.h"
 #include "format-util.h"
+#include "log.h"
 #include "main-func.h"
 #include "mkdir-label.h"
 #include "pager.h"

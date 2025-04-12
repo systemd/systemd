@@ -15,6 +15,7 @@
 #include "iovec-util.h"
 #include "memfd-util.h"
 #include "memory-util.h"
+#include "log.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"

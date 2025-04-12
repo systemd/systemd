@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "json-util.h"
+#include "log.h"
 #include "strv.h"
 #include "udev-manager.h"
 #include "udev-varlink.h"
