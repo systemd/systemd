@@ -2,6 +2,7 @@
 
 #include "fd-util.h"
 #include "io-util.h"
+#include "log.h"
 #include "plymouth-util.h"
 #include "socket-util.h"
 

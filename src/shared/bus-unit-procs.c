@@ -6,6 +6,7 @@
 #include "glyph-util.h"
 #include "hashmap.h"
 #include "list.h"
+#include "log.h"
 #include "macro.h"
 #include "path-util.h"
 #include "process-util.h"

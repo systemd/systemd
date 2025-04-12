@@ -5,6 +5,7 @@
 #include "glyph-util.h"
 #include "iovec-util.h"
 #include "json-util.h"
+#include "log.h"
 #include "memory-util.h"
 #include "qrcode-util.h"
 #include "recovery-key.h"

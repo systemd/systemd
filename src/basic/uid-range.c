@@ -8,6 +8,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "log.h"
 #include "macro.h"
 #include "namespace-util.h"
 #include "path-util.h"
