@@ -331,27 +331,6 @@ static inline void *ordered_hashmap_first_key(OrderedHashmap *h) {
         return _hashmap_first_key(HASHMAP_BASE(h), false);
 }
 
-#define hashmap_clear_with_destructor(h, f)                     \
-        ({                                                      \
-                Hashmap *_h = (h);                              \
-                void *_item;                                    \
-                while ((_item = hashmap_steal_first(_h)))       \
-                        f(_item);                               \
-                _h;                                             \
-        })
-#define hashmap_free_with_destructor(h, f)                      \
-        hashmap_free(hashmap_clear_with_destructor(h, f))
-#define ordered_hashmap_clear_with_destructor(h, f)                     \
-        ({                                                              \
-                OrderedHashmap *_h = (h);                               \
-                void *_item;                                            \
-                while ((_item = ordered_hashmap_steal_first(_h)))       \
-                        f(_item);                                       \
-                _h;                                                     \
-        })
-#define ordered_hashmap_free_with_destructor(h, f)                      \
-        ordered_hashmap_free(ordered_hashmap_clear_with_destructor(h, f))
-
 /* no hashmap_next */
 void* ordered_hashmap_next(OrderedHashmap *h, const void *key);
 
