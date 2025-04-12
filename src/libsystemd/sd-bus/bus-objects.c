@@ -10,6 +10,7 @@
 #include "bus-signature.h"
 #include "bus-slot.h"
 #include "bus-type.h"
+#include "log.h"
 #include "string-util.h"
 #include "strv.h"
 

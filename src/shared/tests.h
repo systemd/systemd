@@ -9,6 +9,7 @@
 
 #include "argv-util.h"
 #include "errno-util.h"
+#include "log.h"
 #include "macro.h"
 #include "process-util.h"
 #include "rlimit-util.h"

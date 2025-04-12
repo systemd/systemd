@@ -2,6 +2,7 @@
 
 #include "bus-get-properties.h"
 #include "bus-message-util.h"
+#include "log.h"
 #include "rlimit-util.h"
 #include "stdio-util.h"
 #include "string-util.h"

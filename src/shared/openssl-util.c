@@ -7,6 +7,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "hexdecoct.h"
+#include "log.h"
 #include "memory-util.h"
 #include "memstream-util.h"
 #include "openssl-util.h"

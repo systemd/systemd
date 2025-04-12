@@ -7,6 +7,7 @@
 #include "constants.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "log.h"
 #include "parse-util.h"
 #include "process-util.h"
 #include "procfs-util.h"

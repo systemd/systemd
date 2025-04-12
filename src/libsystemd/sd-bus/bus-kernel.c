@@ -18,6 +18,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
+#include "log.h"
 #include "memfd-util.h"
 #include "parse-util.h"
 #include "stdio-util.h"

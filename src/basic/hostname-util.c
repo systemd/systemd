@@ -10,6 +10,7 @@
 #include "alloc-util.h"
 #include "env-file.h"
 #include "hostname-util.h"
+#include "log.h"
 #include "os-util.h"
 #include "string-util.h"
 #include "strv.h"

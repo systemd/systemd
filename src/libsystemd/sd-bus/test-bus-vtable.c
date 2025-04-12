@@ -13,6 +13,7 @@
 
 #ifndef __cplusplus
 #  include "bus-objects.h"
+#  include "log.h"
 #endif
 
 #include "test-vtable-data.h"

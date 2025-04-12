@@ -3,6 +3,7 @@
 #include "alloc-util.h"
 #include "dhcp-client-id-internal.h"
 #include "iovec-util.h"
+#include "log.h"
 #include "json-util.h"
 #include "unaligned.h"
 #include "utf8.h"

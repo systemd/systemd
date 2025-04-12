@@ -9,6 +9,7 @@
 #include "fileio.h"
 #include "fs-util.h"
 #include "glyph-util.h"
+#include "log.h"
 #include "macro.h"
 #include "os-util.h"
 #include "parse-util.h"

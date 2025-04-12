@@ -5,6 +5,7 @@
 
 #include "alloc-util.h"
 #include "build.h"
+#include "log.h"
 #include "pretty-print.h"
 #include "service-util.h"
 #include "terminal-util.h"

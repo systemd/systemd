@@ -13,6 +13,7 @@
 #include "fd-util.h"
 #include "home-util.h"
 #include "locale-util.h"
+#include "log.h"
 #include "memory-util.h"
 #include "pam-util.h"
 #include "parse-util.h"
