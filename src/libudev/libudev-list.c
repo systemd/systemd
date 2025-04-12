@@ -72,31 +72,21 @@ struct udev_list *udev_list_new(bool unique) {
         return list;
 }
 
-struct udev_list_entry *udev_list_entry_add(struct udev_list *list, const char *_name, const char *_value) {
+struct udev_list_entry* udev_list_entry_add(struct udev_list *list, const char *name, const char *value) {
         _cleanup_(udev_list_entry_freep) struct udev_list_entry *entry = NULL;
-        _cleanup_free_ char *name = NULL, *value = NULL;
 
         assert(list);
-        assert(_name);
+        assert(name);
 
-        name = strdup(_name);
-        if (!name)
-                return NULL;
-
-        if (_value) {
-                value = strdup(_value);
-                if (!value)
-                        return NULL;
-        }
-
-        entry = new(struct udev_list_entry, 1);
+        entry = new0(struct udev_list_entry, 1);
         if (!entry)
                 return NULL;
 
-        *entry = (struct udev_list_entry) {
-                .name = TAKE_PTR(name),
-                .value = TAKE_PTR(value),
-        };
+        if (strdup_to(&entry->name, name) < 0)
+                return NULL;
+
+        if (strdup_to(&entry->value, value) < 0)
+                return NULL;
 
         if (list->unique) {
                 udev_list_entry_free(hashmap_get(list->unique_entries, entry->name));
