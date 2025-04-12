@@ -6,6 +6,7 @@
 #include "glyph-util.h"
 #include "hashmap.h"
 #include "hexdecoct.h"
+#include "log.h"
 #include "path-util.h"
 #include "percent-util.h"
 #include "pretty-print.h"
