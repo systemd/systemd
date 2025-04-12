@@ -10,6 +10,7 @@
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "json-util.h"
+#include "log.h"
 #include "macro.h"
 #include "process-util.h"
 #include "socket-util.h"

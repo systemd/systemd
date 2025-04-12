@@ -24,6 +24,7 @@
 #include "env-util.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "log.h"
 #include "memfd-util.h"
 #include "memstream-util.h"
 #include "path-util.h"
@@ -59,6 +60,10 @@ int bus_log_connect_full(int log_level, int r, BusTransport transport, RuntimeSc
                               hint_vars ? "Failed to connect to %s scope bus via %s transport: $DBUS_SESSION_BUS_ADDRESS and $XDG_RUNTIME_DIR not defined (consider using --machine=<user>@.host --user to connect to bus of other user)" :
                               hint_addr ? "Failed to connect to %s scope bus via %s transport: Operation not permitted (consider using --machine=<user>@.host --user to connect to bus of other user)" :
                                           "Failed to connect to %s scope bus via %s transport: %m", runtime_scope_to_string(scope), bus_transport_to_string(transport));
+}
+
+int bus_log_connect_error(int r, BusTransport transport, RuntimeScope scope) {
+        return bus_log_connect_full(LOG_ERR, r, transport, scope);
 }
 
 int bus_async_unregister_and_exit(sd_event *e, sd_bus *bus, const char *name) {

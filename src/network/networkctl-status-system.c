@@ -4,6 +4,7 @@
 
 #include "fs-util.h"
 #include "glyph-util.h"
+#include "log.h"
 #include "networkctl.h"
 #include "networkctl-dump-util.h"
 #include "networkctl-journal.h"

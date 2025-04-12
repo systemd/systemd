@@ -14,6 +14,7 @@
 #include "hostname-util.h"
 #include "json-util.h"
 #include "locale-util.h"
+#include "log.h"
 #include "memory-util.h"
 #include "path-util.h"
 #include "percent-util.h"

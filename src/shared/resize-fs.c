@@ -6,6 +6,7 @@
 
 #include "blockdev-util.h"
 #include "fs-util.h"
+#include "log.h"
 #include "missing_fs.h"
 #include "missing_magic.h"
 #include "missing_xfs.h"

@@ -15,6 +15,7 @@
 #include "fs-util.h"
 #include "hostname-util.h"
 #include "import-common.h"
+#include "log.h"
 #include "os-util.h"
 #include "process-util.h"
 #include "selinux-util.h"

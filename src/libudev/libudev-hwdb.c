@@ -7,6 +7,7 @@
 #include "alloc-util.h"
 #include "hwdb-util.h"
 #include "libudev-list-internal.h"
+#include "log.h"
 
 /**
  * SECTION:libudev-hwdb

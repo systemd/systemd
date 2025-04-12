@@ -4,6 +4,7 @@
 #include <unistd.h>
 
 #include "ansi-color.h"
+#include "log.h"
 #include "networkctl.h"
 #include "networkctl-util.h"
 #include "stdio-util.h"

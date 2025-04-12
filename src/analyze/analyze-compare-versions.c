@@ -4,6 +4,7 @@
 
 #include "analyze-compare-versions.h"
 #include "compare-operator.h"
+#include "log.h"
 #include "macro.h"
 #include "string-util.h"
 #include "strv.h"

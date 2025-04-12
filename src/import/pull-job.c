@@ -11,6 +11,7 @@
 #include "hexdecoct.h"
 #include "import-util.h"
 #include "io-util.h"
+#include "log.h"
 #include "machine-pool.h"
 #include "parse-util.h"
 #include "pull-common.h"

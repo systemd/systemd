@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "format-table.h"
+#include "log.h"
 #include "parse-argument.h"
 #include "path-util.h"
 #include "signal-util.h"
