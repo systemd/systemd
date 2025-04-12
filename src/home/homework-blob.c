@@ -9,6 +9,7 @@
 #include "homework-blob.h"
 #include "homework.h"
 #include "install-file.h"
+#include "log.h"
 #include "macro.h"
 #include "path-util.h"
 #include "recurse-dir.h"

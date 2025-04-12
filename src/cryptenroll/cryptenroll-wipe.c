@@ -5,6 +5,7 @@
 #include "cryptenroll-wipe.h"
 #include "cryptenroll.h"
 #include "json-util.h"
+#include "log.h"
 #include "memory-util.h"
 #include "parse-util.h"
 #include "set.h"

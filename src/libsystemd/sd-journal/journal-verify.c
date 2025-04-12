@@ -12,6 +12,7 @@
 #include "fileio.h"
 #include "fs-util.h"
 #include "gcrypt-util.h"
+#include "log.h"
 #include "journal-authenticate.h"
 #include "journal-def.h"
 #include "journal-file.h"
