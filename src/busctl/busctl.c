@@ -824,18 +824,17 @@ static int on_interface(const char *interface, uint64_t flags, void *userdata) {
                 .flags = flags,
         };
 
-        r = free_and_strdup(&m->interface, interface);
+        r = strdup_to(&m->interface, interface);
         if (r < 0)
                 return log_oom();
 
-        r = set_put(members, m);
+        r = set_consume(members, TAKE_PTR(m));
+        if (r < 0)
+                return log_oom();
         if (r == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EEXIST),
                                        "Invalid introspection data: duplicate interface '%s'.", interface);
-        if (r < 0)
-                return log_oom();
 
-        m = NULL;
         return 0;
 }
 
@@ -856,30 +855,29 @@ static int on_method(const char *interface, const char *name, const char *signat
                 .flags = flags,
         };
 
-        r = free_and_strdup(&m->interface, interface);
+        r = strdup_to(&m->interface, interface);
         if (r < 0)
                 return log_oom();
 
-        r = free_and_strdup(&m->name, name);
+        r = strdup_to(&m->name, name);
         if (r < 0)
                 return log_oom();
 
-        r = free_and_strdup(&m->signature, signature);
+        r = strdup_to(&m->signature, signature);
         if (r < 0)
                 return log_oom();
 
-        r = free_and_strdup(&m->result, result);
+        r = strdup_to(&m->result, result);
         if (r < 0)
                 return log_oom();
 
-        r = set_put(members, m);
+        r = set_consume(members, TAKE_PTR(m));
+        if (r < 0)
+                return log_oom();
         if (r == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EEXIST),
                                        "Invalid introspection data: duplicate method '%s' on interface '%s'.", name, interface);
-        if (r < 0)
-                return log_oom();
 
-        m = NULL;
         return 0;
 }
 
@@ -900,26 +898,25 @@ static int on_signal(const char *interface, const char *name, const char *signat
                 .flags = flags,
         };
 
-        r = free_and_strdup(&m->interface, interface);
+        r = strdup_to(&m->interface, interface);
         if (r < 0)
                 return log_oom();
 
-        r = free_and_strdup(&m->name, name);
+        r = strdup_to(&m->name, name);
         if (r < 0)
                 return log_oom();
 
-        r = free_and_strdup(&m->signature, signature);
+        r = strdup_to(&m->signature, signature);
         if (r < 0)
                 return log_oom();
 
-        r = set_put(members, m);
+        r = set_consume(members, TAKE_PTR(m));
+        if (r < 0)
+                return log_oom();
         if (r == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EEXIST),
                                        "Invalid introspection data: duplicate signal '%s' on interface '%s'.", name, interface);
-        if (r < 0)
-                return log_oom();
 
-        m = NULL;
         return 0;
 }
 
@@ -941,26 +938,25 @@ static int on_property(const char *interface, const char *name, const char *sign
                 .writable = writable,
         };
 
-        r = free_and_strdup(&m->interface, interface);
+        r = strdup_to(&m->interface, interface);
         if (r < 0)
                 return log_oom();
 
-        r = free_and_strdup(&m->name, name);
+        r = strdup_to(&m->name, name);
         if (r < 0)
                 return log_oom();
 
-        r = free_and_strdup(&m->signature, signature);
+        r = strdup_to(&m->signature, signature);
         if (r < 0)
                 return log_oom();
 
-        r = set_put(members, m);
+        r = set_consume(members, TAKE_PTR(m));
+        if (r < 0)
+                return log_oom();
         if (r == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EEXIST),
                                        "Invalid introspection data: duplicate property '%s' on interface '%s'.", name, interface);
-        if (r < 0)
-                return log_oom();
 
-        m = NULL;
         return 0;
 }
 
