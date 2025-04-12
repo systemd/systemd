@@ -542,7 +542,7 @@ void dns_trust_anchor_flush(DnsTrustAnchor *d) {
         assert(d);
 
         d->positive_by_key = hashmap_free_with_destructor(d->positive_by_key, dns_answer_unref);
-        d->revoked_by_rr = set_free_with_destructor(d->revoked_by_rr, dns_resource_record_unref);
+        d->revoked_by_rr = set_free(d->revoked_by_rr);
         d->negative_by_name = set_free(d->negative_by_name);
 }
 
