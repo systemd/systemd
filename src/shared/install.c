@@ -1126,11 +1126,16 @@ static InstallInfo* install_info_free(InstallInfo *i) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(InstallInfo*, install_info_free);
 
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+                install_info_hash_ops,
+                char, string_hash_func, string_compare_func,
+                InstallInfo, install_info_free);
+
 static void install_context_done(InstallContext *ctx) {
         assert(ctx);
 
-        ctx->will_process = ordered_hashmap_free_with_destructor(ctx->will_process, install_info_free);
-        ctx->have_processed = ordered_hashmap_free_with_destructor(ctx->have_processed, install_info_free);
+        ctx->will_process = ordered_hashmap_free(ctx->will_process);
+        ctx->have_processed = ordered_hashmap_free(ctx->have_processed);
 }
 
 static InstallInfo *install_info_find(InstallContext *ctx, const char *name) {
@@ -1229,7 +1234,7 @@ static int install_info_add(
         if (r < 0)
                 return r;
 
-        r = ordered_hashmap_ensure_put(&ctx->will_process, &string_hash_ops, new_info->name, new_info);
+        r = ordered_hashmap_ensure_put(&ctx->will_process, &install_info_hash_ops, new_info->name, new_info);
         if (r < 0)
                 return r;
         i = TAKE_PTR(new_info);
@@ -2195,7 +2200,7 @@ static int install_context_apply(
         if (ordered_hashmap_isempty(ctx->will_process))
                 return 0;
 
-        r = ordered_hashmap_ensure_allocated(&ctx->have_processed, &string_hash_ops);
+        r = ordered_hashmap_ensure_allocated(&ctx->have_processed, &install_info_hash_ops);
         if (r < 0)
                 return r;
 
@@ -2267,7 +2272,7 @@ static int install_context_mark_for_removal(
         if (ordered_hashmap_isempty(ctx->will_process))
                 return 0;
 
-        r = ordered_hashmap_ensure_allocated(&ctx->have_processed, &string_hash_ops);
+        r = ordered_hashmap_ensure_allocated(&ctx->have_processed, &install_info_hash_ops);
         if (r < 0)
                 return r;
 
