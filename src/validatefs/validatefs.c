@@ -52,6 +52,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_ROOT,
         };
 
+        bool root_auto = false;
         int c, r;
 
         static const struct option options[] = {
@@ -75,15 +76,12 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_ROOT:
                         if (streq(optarg, "auto")) {
                                 arg_root = mfree(arg_root);
-
-                                if (in_initrd()) {
-                                        arg_root = strdup("/sysroot");
-                                        if (!arg_root)
-                                                return log_oom();
-                                }
+                                root_auto = true;
 
                                 break;
                         }
+
+                        root_auto = false;
 
                         if (!path_is_absolute(optarg))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--root= argument must be 'auto' or absolute path, got: %s", optarg);
@@ -108,6 +106,15 @@ static int parse_argv(int argc, char *argv[]) {
         arg_target = strdup(argv[optind]);
         if (!arg_target)
                 return log_oom();
+
+        if (root_auto && in_initrd()) {
+                if (path_startswith(arg_target, "/sysusr"))
+                        arg_root = strdup("/sysusr");
+                else
+                        arg_root = strdup("/sysroot");
+                if (!arg_root)
+                        return log_oom();
+        }
 
         if (arg_root && !path_startswith(arg_target, arg_root))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Specified path '%s' does not start with specified root '%s', refusing.", arg_target, arg_root);
