@@ -59,8 +59,9 @@ typedef struct Connection {
         sd_resolve_query *resolve_query;
 } Connection;
 
-static void connection_free(Connection *c) {
-        assert(c);
+static Connection* connection_free(Connection *c) {
+        if (!c)
+                return NULL;
 
         if (c->context)
                 set_remove(c->context->connections, c);
@@ -76,7 +77,7 @@ static void connection_free(Connection *c) {
 
         sd_resolve_query_unref(c->resolve_query);
 
-        free(c);
+        return mfree(c);
 }
 
 static int idle_time_cb(sd_event_source *s, uint64_t usec, void *userdata) {
