@@ -30,6 +30,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "log.h"
 #include "mtd_probe.h"
 
 static const uint8_t cis_signature[] = {

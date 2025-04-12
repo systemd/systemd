@@ -15,6 +15,7 @@
 #include "fileio.h"
 #include "fs-util.h"
 #include "io-util.h"
+#include "log.h"
 #include "macro.h"
 #include "missing_fcntl.h"
 #include "missing_fs.h"

@@ -2,6 +2,7 @@
 
 #include "alloc-util.h"
 #include "errno-util.h"
+#include "log.h"
 #include "string-util.h"
 #include "varlink-internal.h"
 #include "varlink-util.h"

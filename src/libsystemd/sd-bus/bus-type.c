@@ -6,6 +6,7 @@
 
 #include "bus-internal.h"
 #include "bus-type.h"
+#include "log.h"
 
 bool bus_type_is_valid(char c) {
         static const char valid[] = {
