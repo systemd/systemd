@@ -572,7 +572,8 @@ Manager* manager_free(Manager *m) {
         if (!m)
                 return NULL;
 
-        hashmap_free_with_destructor(m->links_by_index, link_free);
+        /* free links_by_index at first, as it has ownership of links. */
+        hashmap_free(m->links_by_index);
         hashmap_free(m->links_by_name);
 
         sd_event_source_unref(m->network_monitor_event_source);
