@@ -311,34 +311,29 @@ static int connection_complete(Connection *c) {
 
         r = connection_create_pipes(c, c->server_to_client_buffer, &c->server_to_client_buffer_size);
         if (r < 0)
-                goto fail;
+                return r;
 
         r = connection_create_pipes(c, c->client_to_server_buffer, &c->client_to_server_buffer_size);
         if (r < 0)
-                goto fail;
+                return r;
 
         r = connection_enable_event_sources(c);
         if (r < 0)
-                goto fail;
+                return r;
 
         return 0;
-
-fail:
-        connection_release(c);
-        return 0; /* ignore errors, continue serving */
 }
 
 static int connect_cb(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         Connection *c = ASSERT_PTR(userdata);
         socklen_t solen;
-        int error, r;
+        int error;
 
         assert(s);
         assert(fd >= 0);
 
         solen = sizeof(error);
-        r = getsockopt(fd, SOL_SOCKET, SO_ERROR, &error, &solen);
-        if (r < 0) {
+        if (getsockopt(fd, SOL_SOCKET, SO_ERROR, &error, &solen) < 0) {
                 log_error_errno(errno, "Failed to issue SO_ERROR: %m");
                 goto fail;
         }
@@ -350,7 +345,8 @@ static int connect_cb(sd_event_source *s, int fd, uint32_t revents, void *userda
 
         c->client_event_source = sd_event_source_unref(c->client_event_source);
 
-        return connection_complete(c);
+        if (connection_complete(c) < 0)
+                goto fail;
 
 fail:
         connection_release(c);
@@ -365,40 +361,26 @@ static int connection_start(Connection *c, struct sockaddr *sa, socklen_t salen)
         assert(salen);
 
         c->client_fd = socket(sa->sa_family, SOCK_STREAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0);
-        if (c->client_fd < 0) {
-                log_error_errno(errno, "Failed to get remote socket: %m");
-                goto fail;
-        }
+        if (c->client_fd < 0)
+                return log_error_errno(errno, "Failed to get remote socket: %m");
 
         r = connect(c->client_fd, sa, salen);
         if (r < 0) {
-                if (errno == EINPROGRESS) {
-                        r = sd_event_add_io(c->context->event, &c->client_event_source, c->client_fd, EPOLLOUT, connect_cb, c);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to add connection socket: %m");
-                                goto fail;
-                        }
+                if (errno != EINPROGRESS)
+                        return log_error_errno(errno, "Failed to connect to remote host: %m");
 
-                        r = sd_event_source_set_enabled(c->client_event_source, SD_EVENT_ONESHOT);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to enable oneshot event source: %m");
-                                goto fail;
-                        }
-                } else {
-                        log_error_errno(errno, "Failed to connect to remote host: %m");
-                        goto fail;
-                }
-        } else {
-                r = connection_complete(c);
+                r = sd_event_add_io(c->context->event, &c->client_event_source, c->client_fd, EPOLLOUT, connect_cb, c);
                 if (r < 0)
-                        goto fail;
+                        return log_error_errno(r, "Failed to add connection socket: %m");
+
+                r = sd_event_source_set_enabled(c->client_event_source, SD_EVENT_ONESHOT);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to enable oneshot event source: %m");
+
+                return 0;
         }
 
-        return 0;
-
-fail:
-        connection_release(c);
-        return 0; /* ignore errors, continue serving */
+        return connection_complete(c);
 }
 
 static int resolve_handler(sd_resolve_query *q, int ret, const struct addrinfo *ai, Connection *c) {
@@ -412,7 +394,10 @@ static int resolve_handler(sd_resolve_query *q, int ret, const struct addrinfo *
 
         c->resolve_query = sd_resolve_query_unref(c->resolve_query);
 
-        return connection_start(c, ai->ai_addr, ai->ai_addrlen);
+        if (connection_start(c, ai->ai_addr, ai->ai_addrlen) < 0)
+                goto fail;
+
+        return 0;
 
 fail:
         connection_release(c);
@@ -434,10 +419,8 @@ static int resolve_remote(Connection *c) {
                 int sa_len;
 
                 r = sockaddr_un_set_path(&sa.un, arg_remote_host);
-                if (r < 0) {
-                        log_error_errno(r, "Specified address doesn't fit in an AF_UNIX address, refusing: %m");
-                        goto fail;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Specified address doesn't fit in an AF_UNIX address, refusing: %m");
                 sa_len = r;
 
                 return connection_start(c, &sa.sa, sa_len);
@@ -455,16 +438,10 @@ static int resolve_remote(Connection *c) {
 
         log_debug("Looking up address info for %s:%s", node, service);
         r = resolve_getaddrinfo(c->context->resolve, &c->resolve_query, node, service, &hints, resolve_handler, NULL, c);
-        if (r < 0) {
-                log_error_errno(r, "Failed to resolve remote host: %m");
-                goto fail;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to resolve remote host: %m");
 
         return 0;
-
-fail:
-        connection_release(c);
-        return 0; /* ignore errors, continue serving */
 }
 
 static int context_add_connection(Context *context, int fd) {
@@ -510,7 +487,12 @@ static int context_add_connection(Context *context, int fd) {
 
         c->context = context;
 
-        return resolve_remote(TAKE_PTR(c));
+        r = resolve_remote(c);
+        if (r < 0)
+                return r;
+
+        TAKE_PTR(c);
+        return 0;
 }
 
 static int accept_cb(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
