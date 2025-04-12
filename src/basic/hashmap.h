@@ -88,8 +88,10 @@ OrderedHashmap* _ordered_hashmap_new(const struct hash_ops *hash_ops  HASHMAP_DE
 #define hashmap_new(ops) _hashmap_new(ops  HASHMAP_DEBUG_SRC_ARGS)
 #define ordered_hashmap_new(ops) _ordered_hashmap_new(ops  HASHMAP_DEBUG_SRC_ARGS)
 
-#define hashmap_free_and_replace(a, b)          \
+#define hashmap_free_and_replace(a, b)                          \
         free_and_replace_full(a, b, hashmap_free)
+#define ordered_hashmap_free_and_replace(a, b)                  \
+        free_and_replace_full(a, b, ordered_hashmap_free)
 
 HashmapBase* _hashmap_free(HashmapBase *h);
 static inline Hashmap* hashmap_free(Hashmap *h) {
