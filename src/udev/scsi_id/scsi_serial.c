@@ -26,6 +26,7 @@
 #include "scsi.h"
 #include "scsi_id.h"
 #include "string-util.h"
+#include "time-util.h"
 
 /*
  * A priority based list of id, naa, and binary/ascii for the identifier

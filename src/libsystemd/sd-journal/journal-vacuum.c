@@ -15,6 +15,7 @@
 #include "journal-file.h"
 #include "journal-internal.h"
 #include "journal-vacuum.h"
+#include "ratelimit.h"
 #include "sort-util.h"
 #include "string-util.h"
 #include "time-util.h"
