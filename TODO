@@ -59,8 +59,6 @@ Regularly:
 
 * set_put(), hashmap_put() return values check. i.e. == 0 does not free()!
 
-* use secure_getenv() instead of getenv() where appropriate
-
 * link up selected blog stories from man pages and unit files Documentation= fields
 
 Janitorial Clean-ups:
