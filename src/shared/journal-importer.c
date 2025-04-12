@@ -12,6 +12,7 @@
 #include "journal-file.h"
 #include "journal-importer.h"
 #include "journal-util.h"
+#include "log.h"
 #include "parse-util.h"
 #include "string-util.h"
 #include "strv.h"

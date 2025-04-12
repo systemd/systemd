@@ -18,6 +18,7 @@
 
 #include "build.h"
 #include "fd-util.h"
+#include "log.h"
 #include "main-func.h"
 
 static const char *arg_device = NULL;

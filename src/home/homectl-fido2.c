@@ -16,6 +16,7 @@
 #include "libcrypt-util.h"
 #include "libfido2-util.h"
 #include "locale-util.h"
+#include "log.h"
 #include "memory-util.h"
 #include "random-util.h"
 #include "strv.h"

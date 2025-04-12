@@ -10,6 +10,7 @@
 #include "journalctl.h"
 #include "journalctl-filter.h"
 #include "journalctl-util.h"
+#include "log.h"
 #include "logs-show.h"
 #include "missing_sched.h"
 #include "path-util.h"
