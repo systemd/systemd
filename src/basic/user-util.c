@@ -20,6 +20,7 @@
 #include "fileio.h"
 #include "format-util.h"
 #include "lock-util.h"
+#include "log.h"
 #include "macro.h"
 #include "mkdir.h"
 #include "parse-util.h"

@@ -13,6 +13,7 @@
 #include "homed-home-bus.h"
 #include "homed-manager-bus.h"
 #include "homed-manager.h"
+#include "log.h"
 #include "openssl-util.h"
 #include "path-util.h"
 #include "strv.h"

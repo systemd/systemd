@@ -7,6 +7,7 @@
 #include "curl-util.h"
 #include "fd-util.h"
 #include "locale-util.h"
+#include "log.h"
 #include "string-util.h"
 #include "version.h"
 

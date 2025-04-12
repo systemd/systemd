@@ -30,6 +30,7 @@
 #include "hashmap.h"
 #include "hwclock-util.h"
 #include "list.h"
+#include "log.h"
 #include "main-func.h"
 #include "memory-util.h"
 #include "path-util.h"

@@ -22,6 +22,7 @@
 #include "format-table.h"
 #include "hostname-setup.h"
 #include "hostname-util.h"
+#include "log.h"
 #include "main-func.h"
 #include "parse-argument.h"
 #include "polkit-agent.h"

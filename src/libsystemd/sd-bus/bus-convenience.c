@@ -7,6 +7,7 @@
 #include "bus-message.h"
 #include "bus-signature.h"
 #include "bus-type.h"
+#include "log.h"
 #include "string-util.h"
 
 _public_ int sd_bus_message_send(sd_bus_message *reply) {

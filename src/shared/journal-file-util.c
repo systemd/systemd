@@ -10,6 +10,7 @@
 #include "format-util.h"
 #include "journal-authenticate.h"
 #include "journal-file-util.h"
+#include "log.h"
 #include "path-util.h"
 #include "random-util.h"
 #include "set.h"
