@@ -222,6 +222,8 @@ typedef struct Link {
         char **ntp;
 } Link;
 
+extern const struct hash_ops link_hash_ops;
+
 typedef int (*link_netlink_message_handler_t)(sd_netlink*, sd_netlink_message*, Link*);
 
 bool link_is_ready_to_configure(Link *link, bool allow_unmanaged);
