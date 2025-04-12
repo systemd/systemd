@@ -452,7 +452,6 @@ void unit_add_to_cgroup_realize_queue(Unit *u);
 int unit_cgroup_is_empty(Unit *u);
 void unit_release_cgroup(Unit *u, bool drop_cgroup_runtime);
 
-void unit_add_to_cgroup_empty_queue(Unit *u);
 int unit_check_oomd_kill(Unit *u);
 int unit_check_oom(Unit *u);
 
@@ -474,9 +473,6 @@ uint64_t unit_get_ancestor_memory_low(Unit *u);
 uint64_t unit_get_ancestor_startup_memory_low(Unit *u);
 
 int unit_search_main_pid(Unit *u, PidRef *ret);
-int unit_watch_all_pids(Unit *u);
-
-int unit_synthesize_cgroup_empty_event(Unit *u);
 
 int unit_get_memory_available(Unit *u, uint64_t *ret);
 int unit_get_memory_accounting(Unit *u, CGroupMemoryAccountingMetric metric, uint64_t *ret);
@@ -498,8 +494,6 @@ bool manager_owns_host_root_cgroup(Manager *m);
 bool unit_has_host_root_cgroup(const Unit *u);
 
 bool unit_has_startup_cgroup_constraints(Unit *u);
-
-int manager_notify_cgroup_empty(Manager *m, const char *group);
 
 void unit_invalidate_cgroup(Unit *u, CGroupMask m);
 void unit_invalidate_cgroup_bpf(Unit *u);

@@ -2947,7 +2947,7 @@ static int aux_scope_from_message(Manager *m, sd_bus_message *message, Unit **re
                         return r;
 
                 r = unit_watch_pidref(scope, p, /* exclusive= */ false);
-                if (r < 0 && r != -EEXIST)
+                if (r < 0)
                         return r;
         }
 
