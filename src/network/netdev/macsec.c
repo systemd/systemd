@@ -20,6 +20,12 @@
 #include "string-util.h"
 #include "unaligned.h"
 
+#define SECURITY_ASSOCIATION_NULL               \
+        (SecurityAssociation) {                 \
+                .activate = -1,                 \
+                .use_for_encoding = -1,         \
+        }
+
 static void security_association_clear(SecurityAssociation *sa) {
         if (!sa)
                 return;
@@ -27,13 +33,6 @@ static void security_association_clear(SecurityAssociation *sa) {
         explicit_bzero_safe(sa->key, sa->key_len);
         free(sa->key);
         free(sa->key_file);
-}
-
-static void security_association_init(SecurityAssociation *sa) {
-        assert(sa);
-
-        sa->activate = -1;
-        sa->use_for_encoding = -1;
 }
 
 static ReceiveAssociation* macsec_receive_association_free(ReceiveAssociation *c) {
@@ -78,9 +77,8 @@ static int macsec_receive_association_new_static(MACsec *s, const char *filename
         *c = (ReceiveAssociation) {
                 .macsec = s,
                 .section = TAKE_PTR(n),
+                .sa = SECURITY_ASSOCIATION_NULL,
         };
-
-        security_association_init(&c->sa);
 
         r = ordered_hashmap_ensure_put(&s->receive_associations_by_section, &config_section_hash_ops, c->section, c);
         if (r < 0)
@@ -205,9 +203,8 @@ static int macsec_transmit_association_new_static(MACsec *s, const char *filenam
         *a = (TransmitAssociation) {
                 .macsec = s,
                 .section = TAKE_PTR(n),
+                .sa = SECURITY_ASSOCIATION_NULL,
         };
-
-        security_association_init(&a->sa);
 
         r = ordered_hashmap_ensure_put(&s->transmit_associations_by_section, &config_section_hash_ops, a->section, a);
         if (r < 0)
