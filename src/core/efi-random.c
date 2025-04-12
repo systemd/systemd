@@ -9,6 +9,7 @@
 #include "efivars.h"
 #include "fd-util.h"
 #include "fs-util.h"
+#include "log.h"
 #include "random-util.h"
 #include "strv.h"
 

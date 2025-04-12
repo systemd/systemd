@@ -5,6 +5,7 @@
 #include "fileio.h"
 #include "format-util.h"
 #include "json-util.h"
+#include "log.h"
 #include "nspawn.h"
 #include "nspawn-bind-user.h"
 #include "path-util.h"

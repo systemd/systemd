@@ -3,6 +3,7 @@
 #include "common-signal.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "log.h"
 #include "memstream-util.h"
 #include "process-util.h"
 #include "signal-util.h"
