@@ -17,6 +17,7 @@
 #include "logs-show.h"
 #include "main-func.h"
 #include "memory-util.h"
+#include "microhttpd-util.h"
 #include "parse-argument.h"
 #include "parse-helpers.h"
 #include "pretty-print.h"
@@ -83,6 +84,33 @@ static const char* const journal_write_split_mode_table[_JOURNAL_WRITE_SPLIT_MAX
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP(journal_write_split_mode, JournalWriteSplitMode);
 static DEFINE_CONFIG_PARSE_ENUM(config_parse_write_split_mode, journal_write_split_mode, JournalWriteSplitMode);
+
+typedef struct MHDDaemonWrapper {
+        uint64_t fd;
+        struct MHD_Daemon *daemon;
+
+        sd_event_source *io_event;
+        sd_event_source *timer_event;
+} MHDDaemonWrapper;
+
+static MHDDaemonWrapper* MHDDaemonWrapper_free(MHDDaemonWrapper *d) {
+        if (!d)
+                return NULL;
+
+        if (d->daemon)
+                MHD_stop_daemon(d->daemon);
+        sd_event_source_unref(d->io_event);
+        sd_event_source_unref(d->timer_event);
+
+        return mfree(d);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(MHDDaemonWrapper*, MHDDaemonWrapper_free);
+
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+                mhd_daemon_hash_ops,
+                uint64_t, uint64_hash_func, uint64_compare_func,
+                MHDDaemonWrapper, MHDDaemonWrapper_free);
 
 /**********************************************************************
  **********************************************************************
@@ -525,7 +553,7 @@ static int setup_microhttpd_server(RemoteServer *s,
         if (r < 0)
                 return log_error_errno(r, "Failed to set source name: %m");
 
-        r = hashmap_ensure_put(&s->daemons, &uint64_hash_ops, &d->fd, d);
+        r = hashmap_ensure_put(&s->daemons, &mhd_daemon_hash_ops, &d->fd, d);
         if (r == -ENOMEM)
                 return log_oom();
         if (r < 0)
