@@ -9,6 +9,7 @@
 
 #include "assert-util.h"
 #include "macro.h"
+#include "memory-util.h"
 
 #if HAS_FEATURE_MEMORY_SANITIZER
 #  include <sanitizer/msan_interface.h>
@@ -267,5 +268,3 @@ _alloc_(2) static inline void *realloc0(void *p, size_t new_size) {
 
         return q;
 }
-
-#include "memory-util.h"
