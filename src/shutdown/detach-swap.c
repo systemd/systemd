@@ -9,6 +9,7 @@
 #include "detach-swap.h"
 #include "errno-util.h"
 #include "libmount-util.h"
+#include "list.h"
 
 static void swap_device_free(SwapDevice **head, SwapDevice *m) {
         assert(head);
