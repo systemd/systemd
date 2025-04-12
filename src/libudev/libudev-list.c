@@ -4,7 +4,6 @@
 #include "hashmap.h"
 #include "libudev-list-internal.h"
 #include "list.h"
-#include "sort-util.h"
 
 /**
  * SECTION:libudev-list
@@ -136,10 +135,6 @@ struct udev_list *udev_list_free(struct udev_list *list) {
         return mfree(list);
 }
 
-static int udev_list_entry_compare_func(struct udev_list_entry * const *a, struct udev_list_entry * const *b) {
-        return strcmp((*a)->name, (*b)->name);
-}
-
 struct udev_list_entry *udev_list_get_entry(struct udev_list *list) {
         if (!list)
                 return NULL;
@@ -156,17 +151,9 @@ struct udev_list_entry *udev_list_get_entry(struct udev_list *list) {
                         LIST_PREPEND(entries, list->entries, hashmap_first(list->unique_entries));
                 else {
                         _cleanup_free_ struct udev_list_entry **buf = NULL;
-                        struct udev_list_entry *entry, **p;
 
-                        buf = new(struct udev_list_entry *, n);
-                        if (!buf)
+                        if (hashmap_dump_sorted(list->unique_entries, (void***) &buf, /* ret_n = */ NULL) < 0)
                                 return NULL;
-
-                        p = buf;
-                        HASHMAP_FOREACH(entry, list->unique_entries)
-                                *p++ = entry;
-
-                        typesafe_qsort(buf, n, udev_list_entry_compare_func);
 
                         for (size_t j = n; j > 0; j--)
                                 LIST_PREPEND(entries, list->entries, buf[j-1]);
