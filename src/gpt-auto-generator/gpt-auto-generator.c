@@ -918,8 +918,7 @@ static int add_usr_mount(void) {
         int r;
 
         /* /usr/ discovery must be enabled explicitly. */
-        if (arg_auto_usr == GPT_AUTO_ROOT_OFF ||
-            arg_auto_usr < 0)
+        if (arg_auto_usr <= 0)
                 return 0;
 
         /* We do not support the other gpt-auto modes for /usr/, but the parser should already have checked that. */
@@ -980,26 +979,30 @@ static int add_usr_mount(void) {
                       "/dev/disk/by-designator/usr",
                       in_initrd() ? "/sysusr/usr" : "/usr",
                       arg_usr_fstype,
-                      (in_initrd() ? MOUNT_VALIDATEFS : 0),
+                      /* flags = */ 0,
                       options,
                       "/usr/ Partition",
                       in_initrd() ? SPECIAL_INITRD_USR_FS_TARGET : SPECIAL_LOCAL_FS_TARGET);
         if (r < 0)
                 return r;
 
-        log_debug("Synthesizing entry what=/sysusr/usr where=/sysroot/usr opts=bind");
+        if (in_initrd()) {
+                log_debug("Synthesizing entry what=/sysusr/usr where=/sysroot/usr opts=bind");
 
-        return add_mount("usr-bind",
-                         "/sysusr/usr",
-                         "/sysroot/usr",
-                         /* fstype= */ NULL,
-                         /* flags= */ 0,
-                         "bind",
-                         "/usr/ Partition (Final)",
-                         in_initrd() ? SPECIAL_INITRD_FS_TARGET : SPECIAL_LOCAL_FS_TARGET);
-#else
-        return 0;
+                r = add_mount("usr-bind",
+                              "/sysusr/usr",
+                              "/sysroot/usr",
+                              /* fstype= */ NULL,
+                              MOUNT_VALIDATEFS,
+                              "bind",
+                              "/usr/ Partition (Final)",
+                              SPECIAL_INITRD_FS_TARGET);
+                if (r < 0)
+                        return r;
+        }
+
 #endif
+        return 0;
 }
 
 static int process_loader_partitions(DissectedPartition *esp, DissectedPartition *xbootldr) {

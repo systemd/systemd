@@ -813,7 +813,9 @@ static bool sysfs_check(void) {
         return cached;
 }
 
-static int add_sysusr_sysroot_usr_bind_mount(const char *source) {
+static int add_sysusr_sysroot_usr_bind_mount(const char *source, bool validatefs) {
+        log_debug("Synthesizing entry what=/sysusr/usr where=/sysroot/usr opts=bind validatefs=%s", yes_no(validatefs));
+
         return add_mount(source,
                          arg_dest,
                          "/sysusr/usr",
@@ -822,7 +824,7 @@ static int add_sysusr_sysroot_usr_bind_mount(const char *source) {
                          /* fstype= */ NULL,
                          "bind",
                          /* passno= */ 0,
-                         /* flags= */ 0,
+                         validatefs ? MOUNT_VALIDATEFS : 0,
                          SPECIAL_INITRD_FS_TARGET,
                          /* extra_after= */ NULL);
 }
@@ -1004,15 +1006,14 @@ static int parse_fstab_one(
                       fstype,
                       options,
                       passno,
-                      flags,
+                      flags & ~(is_sysroot_usr ? MOUNT_VALIDATEFS : 0),
                       target_unit,
                       /* extra_after= */ NULL);
         if (r <= 0)
                 return r;
 
         if (is_sysroot_usr) {
-                log_debug("Synthesizing fstab entry what=/sysusr/usr where=/sysroot/usr opts=bind");
-                r = add_sysusr_sysroot_usr_bind_mount(source);
+                r = add_sysusr_sysroot_usr_bind_mount(source, flags & MOUNT_VALIDATEFS);
                 if (r < 0)
                         return r;
         }
@@ -1166,7 +1167,7 @@ static bool validate_root_or_usr_mount_source(const char *what, const char *swit
 static int add_sysroot_mount(void) {
         _cleanup_free_ char *what = NULL;
         const char *extra_opts = NULL, *fstype = NULL;
-        bool default_rw = true, makefs = false;
+        bool default_rw = true;
         MountPointFlags flags;
 
         if (!validate_root_or_usr_mount_source(arg_root_what, "root="))
@@ -1217,8 +1218,9 @@ static int add_sysroot_mount(void) {
 
         log_debug("Found entry what=%s where=/sysroot type=%s opts=%s", what, strna(arg_root_fstype), strempty(combined_options));
 
-        makefs = fstab_test_option(combined_options, "x-systemd.makefs\0");
-        flags = makefs * MOUNT_MAKEFS;
+        /* Only honor x-systemd.makefs and .validatefs here, others are not relevant in initrd/not used
+         * at all (also see mandatory_mount_drop_unapplicable_options()) */
+        flags = fstab_options_to_flags(combined_options, /* is_swap = */ false) & (MOUNT_MAKEFS|MOUNT_VALIDATEFS);
 
         return add_mount("/proc/cmdline",
                          arg_dest,
@@ -1236,8 +1238,7 @@ static int add_sysroot_mount(void) {
 static int add_sysroot_usr_mount(void) {
         _cleanup_free_ char *what = NULL;
         const char *extra_opts = NULL;
-        MountPointFlags flags;
-        bool makefs;
+        bool makefs, validatefs;
         int r;
 
         /* Returns 0 if we didn't do anything, > 0 if we either generated a unit for the /usr/ mount, or we
@@ -1307,8 +1308,10 @@ static int add_sysroot_usr_mount(void) {
 
         log_debug("Found entry what=%s where=/sysusr/usr type=%s opts=%s", what, strna(arg_usr_fstype), strempty(combined_options));
 
+        /* Only honor x-systemd.makefs and .validatefs here, others are not relevant in initrd/not used
+         * at all (also see mandatory_mount_drop_unapplicable_options()) */
         makefs = fstab_test_option(combined_options, "x-systemd.makefs\0");
-        flags = makefs * MOUNT_MAKEFS;
+        validatefs = fstab_test_option(combined_options, "x-systemd.validatefs\0");
 
         r = add_mount("/proc/cmdline",
                       arg_dest,
@@ -1318,15 +1321,13 @@ static int add_sysroot_usr_mount(void) {
                       arg_usr_fstype,
                       combined_options,
                       /* passno= */ is_device_path(what) ? 1 : 0,
-                      flags,
+                      makefs ? MOUNT_MAKEFS : 0,
                       SPECIAL_INITRD_USR_FS_TARGET,
                       "imports.target");
         if (r < 0)
                 return r;
 
-        log_debug("Synthesizing entry what=/sysusr/usr where=/sysroot/usr opts=bind");
-
-        r = add_sysusr_sysroot_usr_bind_mount("/proc/cmdline");
+        r = add_sysusr_sysroot_usr_bind_mount("/proc/cmdline", validatefs);
         if (r < 0)
                 return r;
 
