@@ -4,6 +4,7 @@
 #include "bus-message.h"
 #include "bus-polkit.h"
 #include "bus-util.h"
+#include "log.h"
 #include "process-util.h"
 #include "strv.h"
 #include "user-util.h"

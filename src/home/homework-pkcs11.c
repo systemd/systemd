@@ -2,6 +2,7 @@
 
 #include "hexdecoct.h"
 #include "homework-pkcs11.h"
+#include "log.h"
 #include "pkcs11-util.h"
 #include "strv.h"
 

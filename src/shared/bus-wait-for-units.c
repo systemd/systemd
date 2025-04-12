@@ -4,6 +4,7 @@
 #include "bus-map-properties.h"
 #include "bus-wait-for-units.h"
 #include "hashmap.h"
+#include "log.h"
 #include "string-util.h"
 #include "strv.h"
 #include "unit-def.h"

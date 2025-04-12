@@ -9,6 +9,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "log.h"
 #include "mkdir-label.h"
 #include "path-util.h"
 #include "process-util.h"

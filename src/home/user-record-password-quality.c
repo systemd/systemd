@@ -4,6 +4,7 @@
 #include "errno-util.h"
 #include "home-util.h"
 #include "libcrypt-util.h"
+#include "log.h"
 #include "password-quality-util.h"
 #include "strv.h"
 #include "user-record-password-quality.h"
