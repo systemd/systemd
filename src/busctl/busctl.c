@@ -6,6 +6,7 @@
 #include "sd-json.h"
 
 #include "alloc-util.h"
+#include "bitfield.h"
 #include "build.h"
 #include "bus-dump.h"
 #include "bus-internal.h"
@@ -23,6 +24,7 @@
 #include "glyph-util.h"
 #include "json-util.h"
 #include "log.h"
+#include "logarithm.h"
 #include "main-func.h"
 #include "memstream-util.h"
 #include "os-util.h"
@@ -963,6 +965,32 @@ DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
                 member_compare_func,
                 member_free);
 
+static int members_flags_to_string(const Member *m, char **ret) {
+        static const char *map[] = {
+                [LOG2U(SD_BUS_VTABLE_DEPRECATED)]                  = "deprecated",
+                [LOG2U(SD_BUS_VTABLE_METHOD_NO_REPLY)]             = "no-reply",
+                [LOG2U(SD_BUS_VTABLE_PROPERTY_CONST)]              = "const",
+                [LOG2U(SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE)]       = "emits-change",
+                [LOG2U(SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION)] = "emits-invalidation",
+        };
+
+        assert(m);
+        assert(ret);
+
+        _cleanup_free_ char *str = NULL;
+        for (size_t i = 0; i < ELEMENTSOF(map); i++)
+                if (BIT_SET(m->flags, i) && map[i])
+                        if (!strextend_with_separator(&str, " ", map[i]))
+                                return -ENOMEM;
+
+        if (m->writable)
+                if (!strextend_with_separator(&str, " ", "writable"))
+                        return -ENOMEM;
+
+        *ret = TAKE_PTR(str);
+        return 0;
+}
+
 static int introspect(int argc, char **argv, void *userdata) {
         static const XMLIntrospectOps ops = {
                 .on_interface = on_interface,
@@ -975,7 +1003,6 @@ static int introspect(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply_xml = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(set_freep) Set *members = NULL;
-        unsigned name_width, type_width, signature_width, result_width;
         Member *m;
         const char *xml;
         int r;
@@ -1101,51 +1128,23 @@ static int introspect(int argc, char **argv, void *userdata) {
                         return bus_log_parse_error(r);
         }
 
-        name_width = strlen("NAME");
-        type_width = strlen("TYPE");
-        signature_width = strlen("SIGNATURE");
-        result_width = strlen("RESULT/VALUE");
-
-        SET_FOREACH(m, members) {
-                if (argv[3] && !streq(argv[3], m->interface))
-                        continue;
-
-                if (m->interface)
-                        name_width = MAX(name_width, strlen(m->interface));
-                if (m->name)
-                        name_width = MAX(name_width, strlen(m->name) + 1);
-                if (m->type)
-                        type_width = MAX(type_width, strlen(m->type));
-                if (m->signature)
-                        signature_width = MAX(signature_width, strlen(m->signature));
-                if (m->result)
-                        result_width = MAX(result_width, strlen(m->result));
-                if (m->value)
-                        result_width = MAX(result_width, strlen(m->value));
-        }
-
-        if (result_width > 40 && arg_full <= 0)
-                result_width = 40;
-
         size_t n;
         _cleanup_free_ Member **sorted = NULL;
         r = set_dump_sorted(members, (void***) &sorted, &n);
         if (r < 0)
                 return log_oom();
 
-        pager_open(arg_pager_flags);
+        _cleanup_(table_unrefp) Table *table = table_new("name", "type", "signature", "result/value", "flags");
+        if (!table)
+                return log_oom();
 
-        if (arg_legend)
-                printf("%-*s %-*s %-*s %-*s %s\n",
-                       (int) name_width, "NAME",
-                       (int) type_width, "TYPE",
-                       (int) signature_width, "SIGNATURE",
-                       (int) result_width, "RESULT/VALUE",
-                       "FLAGS");
+        if (arg_full)
+                table_set_width(table, 0);
+        (void) table_set_maximum_width(table, table_get_cell(table, 0, 3), arg_full ? 100 : 40);
+        table_set_header(table, arg_legend);
+        table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
 
         FOREACH_ARRAY(p, sorted, n) {
-                _cleanup_free_ char *ellipsized = NULL;
-                const char *rv;
                 bool is_interface;
 
                 m = *p;
@@ -1158,31 +1157,37 @@ static int introspect(int argc, char **argv, void *userdata) {
                 if (argv[3] && is_interface)
                         continue;
 
-                if (m->value) {
-                        ellipsized = ellipsize(m->value, result_width, 100);
-                        if (!ellipsized)
-                                return log_oom();
+                if (is_interface)
+                        r = table_add_many(
+                                        table,
+                                        TABLE_STRING, m->interface,
+                                        TABLE_SET_COLOR, ansi_highlight());
+                else
+                        r = table_add_cell_stringf(
+                                        table, /* ret_cell = */ NULL, ".%s", m->name);
+                if (r < 0)
+                        return table_log_add_error(r);
 
-                        rv = ellipsized;
-                } else
-                        rv = empty_to_dash(m->result);
+                _cleanup_free_ char *flags = NULL;
+                r = members_flags_to_string(m, &flags);
+                if (r < 0)
+                        return log_oom();
 
-                printf("%s%s%-*s%s %-*s %-*s %-*s%s%s%s%s%s%s\n",
-                       is_interface ? ansi_highlight() : "",
-                       is_interface ? "" : ".",
-                       - !is_interface + (int) name_width,
-                       empty_to_dash(streq_ptr(m->type, "interface") ? m->interface : m->name),
-                       is_interface ? ansi_normal() : "",
-                       (int) type_width, empty_to_dash(m->type),
-                       (int) signature_width, empty_to_dash(m->signature),
-                       (int) result_width, rv,
-                       (m->flags & SD_BUS_VTABLE_DEPRECATED) ? " deprecated" : (m->flags || m->writable ? "" : " -"),
-                       (m->flags & SD_BUS_VTABLE_METHOD_NO_REPLY) ? " no-reply" : "",
-                       (m->flags & SD_BUS_VTABLE_PROPERTY_CONST) ? " const" : "",
-                       (m->flags & SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE) ? " emits-change" : "",
-                       (m->flags & SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION) ? " emits-invalidation" : "",
-                       m->writable ? " writable" : "");
+                r = table_add_many(
+                                table,
+                                TABLE_STRING, m->type,
+                                TABLE_STRING, m->signature,
+                                TABLE_STRING, m->value ?: m->result,
+                                TABLE_STRING, flags);
+                if (r < 0)
+                        return table_log_add_error(r);
         }
+
+        pager_open(arg_pager_flags);
+
+        r = table_print(table, NULL);
+        if (r < 0)
+                return table_log_print_error(r);
 
         return 0;
 }
