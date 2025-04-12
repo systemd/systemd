@@ -28,9 +28,5 @@ struct Link {
         DNSConfiguration *dns_configuration;
 };
 
-int link_new(Manager *m, Link **ret, int ifindex, const char *ifname);
-Link *link_free(Link *l);
-int link_update_rtnl(Link *l, sd_netlink_message *m);
+int rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *mm, void *userdata);
 int link_update_monitor(Link *l);
-
-DEFINE_TRIVIAL_CLEANUP_FUNC(Link*, link_free);
