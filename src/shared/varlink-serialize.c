@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "log.h"
 #include "parse-util.h"
 #include "varlink-internal.h"
 #include "varlink-serialize.h"

@@ -10,6 +10,7 @@
 #include "dhcp-option.h"
 #include "dhcp-packet.h"
 #include "ether-addr-util.h"
+#include "log.h"
 #include "macro.h"
 #include "memory-util.h"
 #include "tests.h"

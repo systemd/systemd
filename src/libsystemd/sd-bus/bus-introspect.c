@@ -7,6 +7,7 @@
 #include "bus-signature.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "log.h"
 #include "memory-util.h"
 #include "memstream-util.h"
 #include "string-util.h"

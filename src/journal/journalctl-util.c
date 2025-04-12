@@ -7,6 +7,7 @@
 #include "journal-util.h"
 #include "journalctl.h"
 #include "journalctl-util.h"
+#include "log.h"
 #include "logs-show.h"
 #include "nulstr-util.h"
 #include "rlimit-util.h"

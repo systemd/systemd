@@ -17,6 +17,7 @@
 #include "dhcp-network.h"
 #include "dhcp-protocol.h"
 #include "fd-util.h"
+#include "log.h"
 #include "unaligned.h"
 
 static int _bind_raw_socket(

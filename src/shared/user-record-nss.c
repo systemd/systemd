@@ -3,6 +3,7 @@
 #include "errno-util.h"
 #include "format-util.h"
 #include "libcrypt-util.h"
+#include "log.h"
 #include "strv.h"
 #include "user-record-nss.h"
 #include "user-util.h"

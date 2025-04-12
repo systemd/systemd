@@ -4,6 +4,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "kbd-util.h"
+#include "log.h"
 #include "string-util.h"
 #include "strv.h"
 #include "vconsole-util.h"

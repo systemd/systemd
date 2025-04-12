@@ -11,6 +11,7 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "iovec-util.h"
+#include "log.h"
 #include "netlink-internal.h"
 #include "netlink-types.h"
 #include "socket-util.h"

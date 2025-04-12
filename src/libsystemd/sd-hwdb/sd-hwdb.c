@@ -18,6 +18,7 @@
 #include "fileio.h"
 #include "hashmap.h"
 #include "hwdb-internal.h"
+#include "log.h"
 #include "nulstr-util.h"
 #include "string-util.h"
 #include "time-util.h"
