@@ -1805,6 +1805,23 @@ char** _hashmap_get_strv(HashmapBase *h) {
         return sv;
 }
 
+char** set_to_strv(Set **s) {
+        assert(s);
+
+        /* This is similar to set_get_strv(), but invalidates the set on success. */
+
+        char **v = new(char*, set_size(*s) + 1);
+        if (!v)
+                return NULL;
+
+        for (char **p = v; (*p = set_steal_first(*s)); p++)
+                ;
+
+        assert(set_isempty(*s));
+        *s = set_free(*s);
+        return v;
+}
+
 void* ordered_hashmap_next(OrderedHashmap *h, const void *key) {
         struct ordered_hashmap_entry *e;
         unsigned hash, idx;

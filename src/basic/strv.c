@@ -861,7 +861,7 @@ int strv_compare(char * const *a, char * const *b) {
         return 0;
 }
 
-bool strv_equal_ignore_order(char **a, char **b) {
+bool strv_equal_ignore_order(char * const *a, char * const *b) {
 
         /* Just like strv_equal(), but doesn't care about the order of elements or about redundant entries
          * (i.e. it's even ok if the number of entries in the array differ, as long as the difference just
