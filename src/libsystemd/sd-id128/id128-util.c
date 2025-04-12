@@ -9,6 +9,7 @@
 #include "hexdecoct.h"
 #include "id128-util.h"
 #include "io-util.h"
+#include "log.h"
 #include "namespace-util.h"
 #include "process-util.h"
 #include "sha256.h"

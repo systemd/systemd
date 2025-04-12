@@ -5,6 +5,7 @@
 
 #include "sd-netlink.h"
 
+#include "log.h"
 #include "loopback-setup.h"
 #include "missing_network.h"
 #include "netlink-util.h"

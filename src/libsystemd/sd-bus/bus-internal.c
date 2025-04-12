@@ -5,6 +5,7 @@
 #include "bus-message.h"
 #include "escape.h"
 #include "hexdecoct.h"
+#include "log.h"
 #include "string-util.h"
 
 bool object_path_is_valid(const char *p) {

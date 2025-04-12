@@ -8,6 +8,7 @@
 #include "build.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "log.h"
 #include "main-func.h"
 #include "memstream-util.h"
 #include "openssl-util.h"

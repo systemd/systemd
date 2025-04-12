@@ -6,6 +6,7 @@
 #include "extract-word.h"
 #include "gpt.h"
 #include "id128-util.h"
+#include "log.h"
 #include "parse-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
