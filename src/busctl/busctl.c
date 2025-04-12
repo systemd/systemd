@@ -808,11 +808,6 @@ static Member* member_free(Member *m) {
 }
 DEFINE_TRIVIAL_CLEANUP_FUNC(Member*, member_free);
 
-static Set* member_set_free(Set *s) {
-        return set_free_with_destructor(s, member_free);
-}
-DEFINE_TRIVIAL_CLEANUP_FUNC(Set*, member_set_free);
-
 static int on_interface(const char *interface, uint64_t flags, void *userdata) {
         _cleanup_(member_freep) Member *m = NULL;
         Set *members = ASSERT_PTR(userdata);
@@ -946,30 +941,34 @@ static int on_property(const char *interface, const char *name, const char *sign
                 .writable = writable,
         };
 
-        r = free_and_strdup(&m->interface, interface);
+        r = strdup_to(&m->interface, interface);
         if (r < 0)
                 return log_oom();
 
-        r = free_and_strdup(&m->name, name);
+        r = strdup_to(&m->name, name);
         if (r < 0)
                 return log_oom();
 
-        r = free_and_strdup(&m->signature, signature);
+        r = strdup_to(&m->signature, signature);
         if (r < 0)
                 return log_oom();
 
-        r = set_put(members, m);
+        r = set_consume(members, TAKE_PTR(m));
+        if (r < 0)
+                return log_oom();
         if (r == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EEXIST),
                                        "Invalid introspection data: duplicate property '%s' on interface '%s'.", name, interface);
-        if (r < 0)
-                return log_oom();
 
-        m = NULL;
         return 0;
 }
 
-DEFINE_PRIVATE_HASH_OPS(member_hash_ops, Member, member_hash_func, member_compare_func);
+DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
+                member_hash_ops,
+                Member,
+                member_hash_func,
+                member_compare_func,
+                member_free);
 
 static int introspect(int argc, char **argv, void *userdata) {
         static const XMLIntrospectOps ops = {
@@ -982,7 +981,7 @@ static int introspect(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply_xml = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(member_set_freep) Set *members = NULL;
+        _cleanup_(set_freep) Set *members = NULL;
         unsigned name_width, type_width, signature_width, result_width;
         Member *m;
         const char *xml;
