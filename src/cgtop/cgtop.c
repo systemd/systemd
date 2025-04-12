@@ -18,6 +18,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "hashmap.h"
+#include "log.h"
 #include "main-func.h"
 #include "missing_sched.h"
 #include "parse-argument.h"

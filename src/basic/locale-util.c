@@ -17,6 +17,7 @@
 #include "fileio.h"
 #include "hashmap.h"
 #include "locale-util.h"
+#include "log.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "set.h"

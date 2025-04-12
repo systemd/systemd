@@ -2,6 +2,7 @@
 
 #include <openssl/evp.h>
 
+#include "log.h"
 #include "pcrlock-firmware.h"
 #include "unaligned.h"
 

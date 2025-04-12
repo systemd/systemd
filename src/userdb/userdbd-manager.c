@@ -10,6 +10,7 @@
 #include "event-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
+#include "log.h"
 #include "mkdir.h"
 #include "process-util.h"
 #include "set.h"

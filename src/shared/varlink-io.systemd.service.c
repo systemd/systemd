@@ -4,6 +4,7 @@
 
 #include "env-util.h"
 #include "json-util.h"
+#include "log.h"
 #include "strv.h"
 #include "varlink-io.systemd.service.h"
 

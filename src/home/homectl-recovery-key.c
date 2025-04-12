@@ -6,6 +6,7 @@
 #include "homectl-recovery-key.h"
 #include "json-util.h"
 #include "libcrypt-util.h"
+#include "log.h"
 #include "memory-util.h"
 #include "qrcode-util.h"
 #include "random-util.h"
