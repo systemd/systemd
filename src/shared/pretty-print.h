@@ -2,6 +2,7 @@
 #pragma once
 
 #include "ansi-color.h"
+#include "assert-util.h"
 #include "glyph-util.h"
 #include "terminal-util.h"
 

@@ -4,6 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "assert-util.h"
 #include "env-util.h"
 #include "fileio.h"
 
