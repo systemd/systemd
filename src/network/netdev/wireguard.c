@@ -72,6 +72,11 @@ static WireguardPeer* wireguard_peer_free(WireguardPeer *peer) {
 
 DEFINE_SECTION_CLEANUP_FUNCTIONS(WireguardPeer, wireguard_peer_free);
 
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+                wireguard_peer_hash_ops_by_section,
+                ConfigSection, config_section_hash_func, config_section_compare_func,
+                WireguardPeer, wireguard_peer_free);
+
 static int wireguard_peer_new_static(Wireguard *w, const char *filename, unsigned section_line, WireguardPeer **ret) {
         _cleanup_(config_section_freep) ConfigSection *n = NULL;
         _cleanup_(wireguard_peer_freep) WireguardPeer *peer = NULL;
@@ -104,7 +109,7 @@ static int wireguard_peer_new_static(Wireguard *w, const char *filename, unsigne
 
         LIST_PREPEND(peers, w->peers, peer);
 
-        r = hashmap_ensure_put(&w->peers_by_section, &config_section_hash_ops, peer->section, peer);
+        r = hashmap_ensure_put(&w->peers_by_section, &wireguard_peer_hash_ops_by_section, peer->section, peer);
         if (r < 0)
                 return r;
 
@@ -1077,7 +1082,7 @@ static void wireguard_done(NetDev *netdev) {
         explicit_bzero_safe(w->private_key, WG_KEY_LEN);
         free(w->private_key_file);
 
-        hashmap_free_with_destructor(w->peers_by_section, wireguard_peer_free);
+        hashmap_free(w->peers_by_section);
 
         set_free(w->routes);
 }
