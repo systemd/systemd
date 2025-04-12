@@ -5,6 +5,7 @@
 #include <stddef.h>
 #include <sys/mman.h>
 
+#include "log.h"
 #include "macro.h"
 #include "memory-util.h"
 #include "missing_syscall.h"

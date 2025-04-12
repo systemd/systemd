@@ -3,6 +3,7 @@
 #include "alloc-util.h"
 #include "dns-domain.h"
 #include "dns-type.h"
+#include "log.h"
 #include "resolved-dns-question.h"
 #include "socket-util.h"
 

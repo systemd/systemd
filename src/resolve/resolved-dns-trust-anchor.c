@@ -9,6 +9,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "hexdecoct.h"
+#include "log.h"
 #include "nulstr-util.h"
 #include "parse-util.h"
 #include "resolved-dns-dnssec.h"

@@ -7,6 +7,7 @@
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-message-util.h"
+#include "log.h"
 #include "main-func.h"
 #include "pretty-print.h"
 #include "terminal-util.h"

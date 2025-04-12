@@ -15,6 +15,7 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "iovec-util.h"
+#include "log.h"
 #include "socket-util.h"
 #include "strxcpyx.h"
 #include "udev-ctrl.h"

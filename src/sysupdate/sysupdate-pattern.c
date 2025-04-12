@@ -3,6 +3,7 @@
 #include "alloc-util.h"
 #include "hexdecoct.h"
 #include "list.h"
+#include "log.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "stdio-util.h"

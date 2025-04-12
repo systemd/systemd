@@ -25,6 +25,7 @@
 #include "fs-util.h"
 #include "io-util.h"
 #include "json-util.h"
+#include "log.h"
 #include "memory-util.h"
 #include "mkdir-label.h"
 #include "openssl-util.h"
