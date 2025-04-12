@@ -92,6 +92,11 @@
 #  pragma GCC diagnostic ignored "-Waddress-of-packed-member"
 #endif
 
+DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+                journal_file_hash_ops_by_path,
+                char, path_hash_func, path_compare,
+                JournalFile, journal_file_close);
+
 static int mmap_prot_from_open_flags(int flags) {
         switch (flags & O_ACCMODE) {
         case O_RDONLY:
