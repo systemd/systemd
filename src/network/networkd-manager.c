@@ -692,7 +692,7 @@ Manager* manager_free(Manager *m) {
         m->tuntap_fds_by_name = hashmap_free(m->tuntap_fds_by_name);
 
         m->wiphy_by_name = hashmap_free(m->wiphy_by_name);
-        m->wiphy_by_index = hashmap_free_with_destructor(m->wiphy_by_index, wiphy_free);
+        m->wiphy_by_index = hashmap_free(m->wiphy_by_index);
 
         ordered_set_free(m->address_pools);
 
