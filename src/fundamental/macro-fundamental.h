@@ -144,6 +144,15 @@
 #define XCONCATENATE(x, y) x ## y
 #define CONCATENATE(x, y) XCONCATENATE(x, y)
 
+#define assert_cc(expr) static_assert(expr, #expr)
+
+/*
+ * STRLEN - return the length of a string literal, minus the trailing NUL byte.
+ *          Contrary to strlen(), this is a constant expression.
+ * @x: a string literal.
+ */
+#define STRLEN(x) (sizeof(""x"") - sizeof(typeof(x[0])))
+
 #if SD_BOOT
         _noreturn_ void efi_assert(const char *expr, const char *file, unsigned line, const char *function);
 
@@ -156,6 +165,75 @@
         #endif
         #define static_assert _Static_assert
         #define assert_se(expr) ({ _likely_(expr) ? VOID_0 : efi_assert(#expr, __FILE__, __LINE__, __func__); })
+#else
+
+/* Logging for various assertions */
+
+void log_set_assert_return_is_critical(bool b);
+bool log_get_assert_return_is_critical(void) _pure_;
+
+_noreturn_ void log_assert_failed(const char *text, const char *file, int line, const char *func);
+_noreturn_ void log_assert_failed_unreachable(const char *file, int line, const char *func);
+void log_assert_failed_return(const char *text, const char *file, int line, const char *func);
+
+assert_cc(STRLEN(__FILE__) > STRLEN(RELATIVE_SOURCE_PATH) + 1);
+#define PROJECT_FILE (&__FILE__[STRLEN(RELATIVE_SOURCE_PATH) + 1])
+
+#ifdef __COVERITY__
+
+/* Use special definitions of assertion macros in order to prevent
+ * false positives of ASSERT_SIDE_EFFECT on Coverity static analyzer
+ * for uses of assert_se() and assert_return().
+ *
+ * These definitions make expression go through a (trivial) function
+ * call to ensure they are not discarded. Also use ! or !! to ensure
+ * the boolean expressions are seen as such.
+ *
+ * This technique has been described and recommended in:
+ * https://community.synopsys.com/s/question/0D534000046Yuzb/suppressing-assertsideeffect-for-functions-that-allow-for-sideeffects
+ */
+
+extern void __coverity_panic__(void);
+
+static inline void __coverity_check__(int condition) {
+        if (!condition)
+                __coverity_panic__();
+}
+
+static inline int __coverity_check_and_return__(int condition) {
+        return condition;
+}
+
+#define assert_message_se(expr, message) __coverity_check__(!!(expr))
+
+#define assert_log(expr, message) __coverity_check_and_return__(!!(expr))
+
+#else  /* ! __COVERITY__ */
+
+#define assert_message_se(expr, message)                                \
+        do {                                                            \
+                if (_unlikely_(!(expr)))                                \
+                        log_assert_failed(message, PROJECT_FILE, __LINE__, __func__); \
+        } while (false)
+
+#define assert_log(expr, message) ((_likely_(expr))                     \
+        ? (true)                                                        \
+        : (log_assert_failed_return(message, PROJECT_FILE, __LINE__, __func__), false))
+
+#endif  /* __COVERITY__ */
+
+#define assert_se(expr) assert_message_se(expr, #expr)
+
+/* We override the glibc assert() here. */
+#undef assert
+#ifdef NDEBUG
+#define assert(expr) ({ if (!(expr)) __builtin_unreachable(); })
+#else
+#define assert(expr) assert_message_se(expr, #expr)
+#endif
+
+#define assert_not_reached()                                            \
+        log_assert_failed_unreachable(PROJECT_FILE, __LINE__, __func__)
 #endif
 
 /* This passes the argument through after (if asserts are enabled) checking that it is not null. */
@@ -181,8 +259,6 @@
                 assert_se(_expr_ >= _zero);              \
                 _expr_;                                  \
         })
-
-#define assert_cc(expr) static_assert(expr, #expr)
 
 #define UNIQ_T(x, uniq) CONCATENATE(__unique_prefix_, CONCATENATE(x, uniq))
 #define UNIQ __COUNTER__
@@ -424,13 +500,6 @@
 #define TAKE_PTR(ptr) TAKE_PTR_TYPE(ptr, typeof(ptr))
 #define TAKE_STRUCT_TYPE(s, type) TAKE_GENERIC(s, type, {})
 #define TAKE_STRUCT(s) TAKE_STRUCT_TYPE(s, typeof(s))
-
-/*
- * STRLEN - return the length of a string literal, minus the trailing NUL byte.
- *          Contrary to strlen(), this is a constant expression.
- * @x: a string literal.
- */
-#define STRLEN(x) (sizeof(""x"") - sizeof(typeof(x[0])))
 
 #define mfree(memory)                           \
         ({                                      \
