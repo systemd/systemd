@@ -12,6 +12,7 @@
 #include "sd-netlink.h"
 
 #include "in-addr-util.h"
+#include "log.h"
 #include "tests.h"
 
 static void acd_handler(sd_ipv4acd *acd, int event, void *userdata) {

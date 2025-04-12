@@ -22,6 +22,7 @@
 #include "fs-util.h"
 #include "gcrypt-util.h"
 #include "id128-util.h"
+#include "log.h"
 #include "journal-authenticate.h"
 #include "journal-def.h"
 #include "journal-file.h"

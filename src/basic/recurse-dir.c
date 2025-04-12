@@ -5,6 +5,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "log.h"
 #include "mountpoint-util.h"
 #include "recurse-dir.h"
 #include "sort-util.h"

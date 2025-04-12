@@ -17,6 +17,7 @@
 #include "alloc-util.h"
 #include "env-util.h"
 #include "errno-list.h"
+#include "log.h"
 #include "macro.h"
 #include "namespace-util.h"
 #include "nsflags.h"

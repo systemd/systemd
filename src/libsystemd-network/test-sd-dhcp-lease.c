@@ -3,6 +3,7 @@
 #include <errno.h>
 
 #include "dhcp-lease-internal.h"
+#include "log.h"
 #include "macro.h"
 #include "string-util.h"
 #include "strv.h"

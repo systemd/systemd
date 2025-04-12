@@ -8,6 +8,7 @@
 
 #include "ether-addr-util.h"
 #include "hexdecoct.h"
+#include "log.h"
 #include "macro.h"
 #include "string-util.h"
 

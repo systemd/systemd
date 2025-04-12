@@ -22,6 +22,7 @@
 #include "homed-home.h"
 #include "homed-home-bus.h"
 #include "json-util.h"
+#include "log.h"
 #include "memfd-util.h"
 #include "missing_magic.h"
 #include "missing_mman.h"
