@@ -4,6 +4,7 @@
 #include "fd-util.h"
 #include "log.h"
 #include "notify-recv.h"
+#include "process-util.h"
 #include "socket-util.h"
 #include "strv.h"
 #include "user-util.h"
