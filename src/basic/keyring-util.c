@@ -2,6 +2,7 @@
 
 #include "keyring-util.h"
 #include "log.h"
+#include "alloc-util.h"
 #include "memory-util.h"
 #include "missing_syscall.h"
 
