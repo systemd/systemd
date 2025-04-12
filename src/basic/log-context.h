@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 
+#include "list.h"
 #include "macro.h"
 #include "memory-util.h"
 
