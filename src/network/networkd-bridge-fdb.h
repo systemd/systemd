@@ -40,8 +40,6 @@ typedef struct BridgeFDB {
         int outgoing_ifindex;
 } BridgeFDB;
 
-BridgeFDB *bridge_fdb_free(BridgeFDB *fdb);
-
 void network_drop_invalid_bridge_fdb_entries(Network *network);
 
 int link_request_static_bridge_fdb(Link *link);
