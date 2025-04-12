@@ -680,7 +680,7 @@ Manager* manager_free(Manager *m) {
         m->links_by_index = hashmap_free_with_destructor(m->links_by_index, link_unref);
 
         m->dhcp_pd_subnet_ids = set_free(m->dhcp_pd_subnet_ids);
-        m->networks = ordered_hashmap_free_with_destructor(m->networks, network_unref);
+        m->networks = ordered_hashmap_free(m->networks);
 
         /* The same object may be registered with multiple names, and netdev_detach() may drop multiple
          * entries. Hence, hashmap_free_with_destructor() cannot be used. */
