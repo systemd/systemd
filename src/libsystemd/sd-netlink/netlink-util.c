@@ -4,6 +4,7 @@
 
 #include "fd-util.h"
 #include "iovec-util.h"
+#include "log.h"
 #include "memory-util.h"
 #include "netlink-internal.h"
 #include "netlink-util.h"
@@ -129,6 +130,17 @@ int rtnl_resolve_ifname_full(
         }
 
         return -ENODEV;
+}
+
+int rtnl_resolve_interface_or_warn(sd_netlink **rtnl, const char *name) {
+        int r;
+
+        assert(name);
+
+        r = rtnl_resolve_interface(rtnl, name);
+        if (r < 0)
+                return log_error_errno(r, "Failed to resolve interface \"%s\": %m", name);
+        return r;
 }
 
 static int set_link_name(sd_netlink *rtnl, int ifindex, const char *name) {

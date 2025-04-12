@@ -10,6 +10,7 @@
 #include "alloc-util.h"
 #include "glob-util.h"
 #include "hexdecoct.h"
+#include "log.h"
 #include "memory-util.h"
 #include "path-util.h"
 #include "random-util.h"

@@ -15,6 +15,7 @@
 #include "bus-message.h"
 #include "capability-util.h"
 #include "fd-util.h"
+#include "log.h"
 #include "process-util.h"
 #include "stdio-util.h"
 #include "string-util.h"

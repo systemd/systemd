@@ -10,6 +10,7 @@
 #include "id128-util.h"
 #include "json-util.h"
 #include "libcrypt-util.h"
+#include "log.h"
 #include "memory-util.h"
 #include "mountpoint-util.h"
 #include "path-util.h"

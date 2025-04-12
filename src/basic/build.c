@@ -6,6 +6,7 @@
 #include "ansi-color.h"
 #include "build.h"
 #include "extract-word.h"
+#include "log.h"
 #include "macro.h"
 #include "string-util.h"
 #include "terminal-util.h"

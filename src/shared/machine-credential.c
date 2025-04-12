@@ -5,6 +5,7 @@
 #include "escape.h"
 #include "extract-word.h"
 #include "fileio.h"
+#include "log.h"
 #include "macro.h"
 #include "memory-util.h"
 #include "machine-credential.h"
