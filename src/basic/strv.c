@@ -12,6 +12,7 @@
 #include "extract-word.h"
 #include "fileio.h"
 #include "gunicode.h"
+#include "log.h"
 #include "memory-util.h"
 #include "nulstr-util.h"
 #include "sort-util.h"

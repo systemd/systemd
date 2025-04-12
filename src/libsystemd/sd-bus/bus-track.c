@@ -5,6 +5,7 @@
 #include "alloc-util.h"
 #include "bus-internal.h"
 #include "bus-track.h"
+#include "log.h"
 #include "string-util.h"
 
 struct track_item {

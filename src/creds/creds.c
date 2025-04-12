@@ -17,6 +17,7 @@
 #include "io-util.h"
 #include "json-util.h"
 #include "libmount-util.h"
+#include "log.h"
 #include "main-func.h"
 #include "memory-util.h"
 #include "missing_magic.h"

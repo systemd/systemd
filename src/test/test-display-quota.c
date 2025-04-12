@@ -2,6 +2,7 @@
 
 #include "bitfield.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "missing_syscall.h"

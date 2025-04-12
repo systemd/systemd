@@ -2,6 +2,7 @@
 
 #include "cryptsetup-keyfile.h"
 #include "fileio.h"
+#include "log.h"
 #include "path-util.h"
 #include "strv.h"
 

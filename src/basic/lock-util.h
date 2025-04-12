@@ -5,6 +5,8 @@
 /* Include here so consumers have LOCK_{EX,SH,NB} available. */
 #include <sys/file.h>
 
+#include "time-util.h"
+
 typedef struct LockFile {
         int dir_fd;
         char *path;

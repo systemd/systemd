@@ -15,6 +15,7 @@
 #include "env-util.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "log.h"
 #include "main-func.h"
 #include "parse-argument.h"
 #include "parse-util.h"
