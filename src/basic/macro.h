@@ -103,6 +103,18 @@ static inline size_t GREEDY_ALLOC_ROUND_UP(size_t l) {
                 (type*)( (char *)UNIQ_T(A, uniq) - offsetof(type, member) ); \
         })
 
+/* Logging for various assertions */
+
+void log_set_assert_return_is_critical(bool b);
+bool log_get_assert_return_is_critical(void) _pure_;
+
+_noreturn_ void log_assert_failed(const char *text, const char *file, int line, const char *func);
+_noreturn_ void log_assert_failed_unreachable(const char *file, int line, const char *func);
+void log_assert_failed_return(const char *text, const char *file, int line, const char *func);
+
+assert_cc(STRLEN(__FILE__) > STRLEN(RELATIVE_SOURCE_PATH) + 1);
+#define PROJECT_FILE (&__FILE__[STRLEN(RELATIVE_SOURCE_PATH) + 1])
+
 #ifdef __COVERITY__
 
 /* Use special definitions of assertion macros in order to prevent
