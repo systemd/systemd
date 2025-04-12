@@ -328,12 +328,6 @@ static inline size_t size_add(size_t x, size_t y) {
         return saturate_add(x, y, SIZE_MAX);
 }
 
-typedef struct {
-        int _empty[0];
-} dummy_t;
-
-assert_cc(sizeof(dummy_t) == 0);
-
 /* A little helper for subtracting 1 off a pointer in a safe UB-free way. This is intended to be used for
  * loops that count down from a high pointer until some base. A naive loop would implement this like this:
  *
