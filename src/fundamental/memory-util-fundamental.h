@@ -9,6 +9,7 @@
 #  include <string.h>
 #endif
 
+#include "assert-fundamental.h"
 #include "macro-fundamental.h"
 
 #define memzero(x, l)                                           \

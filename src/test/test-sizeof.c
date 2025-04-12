@@ -11,6 +11,7 @@
 #define __STDC_WANT_IEC_60559_TYPES_EXT__
 #include <float.h>
 
+#include "assert-util.h"
 #include "time-util.h"
 
 /* Print information about various types. Useful when diagnosing
