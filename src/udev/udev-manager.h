@@ -8,6 +8,7 @@
 #include "sd-varlink.h"
 
 #include "hashmap.h"
+#include "list.h"
 #include "macro.h"
 #include "time-util.h"
 #include "udev-config.h"
