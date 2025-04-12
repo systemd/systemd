@@ -3,6 +3,7 @@
 #include "bitfield.h"
 #include "group-record.h"
 #include "json-util.h"
+#include "log.h"
 #include "strv.h"
 #include "uid-classification.h"
 #include "user-util.h"

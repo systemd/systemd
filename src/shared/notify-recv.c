@@ -2,6 +2,7 @@
 
 #include "async.h"
 #include "fd-util.h"
+#include "log.h"
 #include "notify-recv.h"
 #include "socket-util.h"
 #include "strv.h"
