@@ -1686,7 +1686,12 @@ int dns_resource_record_compare_func(const DnsResourceRecord *x, const DnsResour
         return CMP(x, y);
 }
 
-DEFINE_HASH_OPS(dns_resource_record_hash_ops, DnsResourceRecord, dns_resource_record_hash_func, dns_resource_record_compare_func);
+DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(
+                dns_resource_record_hash_ops,
+                DnsResourceRecord,
+                dns_resource_record_hash_func,
+                dns_resource_record_compare_func,
+                dns_resource_record_unref);
 
 DEFINE_HASH_OPS_FULL(
                 dns_resource_record_hash_ops_by_key,
