@@ -5,6 +5,7 @@
 #include "coredump-util.h"
 #include "extract-word.h"
 #include "fileio.h"
+#include "stdio-util.h"
 #include "string-table.h"
 #include "unaligned.h"
 #include "virt.h"
