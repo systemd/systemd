@@ -85,9 +85,9 @@
 
         <listitem><para>Takes an absolute path or the special string <literal>auto</literal>. The specified
         path is removed as prefix from the specified mount point argument before the validation. If set to
-        <literal>auto</literal> defaults to unspecified on the host and <filename>/sysroot/</filename> when
-        run in initrd context, in order to validate the mount constraint data relative to the future file
-        system root.</para>
+        <literal>auto</literal> defaults to unspecified on the host and <filename>/sysroot/</filename> or
+        <filename>/sysusr/</filename> when run in initrd context, in order to validate the mount constraint
+        data relative to the future root or usr file system.</para>
 
         <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
