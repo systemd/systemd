@@ -2,6 +2,7 @@
 
 #include "bus-introspect.h"
 #include "bus-object.h"
+#include "log.h"
 #include "macro.h"
 #include "string-util.h"
 #include "strv.h"

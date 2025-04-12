@@ -4,6 +4,7 @@
 #include "efi-api.h"
 #include "efi-loader.h"
 #include "env-util.h"
+#include "log.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "stat-util.h"

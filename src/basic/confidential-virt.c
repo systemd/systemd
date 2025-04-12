@@ -14,6 +14,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "log.h"
 #include "string-table.h"
 #include "utf8.h"
 
