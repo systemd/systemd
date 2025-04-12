@@ -827,8 +827,8 @@ static Network *network_free(Network *network) {
         ordered_hashmap_free(network->addresses_by_section);
         hashmap_free(network->routes_by_section);
         ordered_hashmap_free(network->nexthops_by_section);
-        hashmap_free_with_destructor(network->bridge_fdb_entries_by_section, bridge_fdb_free);
-        hashmap_free_with_destructor(network->bridge_mdb_entries_by_section, bridge_mdb_free);
+        hashmap_free(network->bridge_fdb_entries_by_section);
+        hashmap_free(network->bridge_mdb_entries_by_section);
         ordered_hashmap_free(network->neighbors_by_section);
         hashmap_free(network->address_labels_by_section);
         hashmap_free(network->prefixes_by_section);
