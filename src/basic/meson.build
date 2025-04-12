@@ -60,6 +60,7 @@ basic_sources = files(
         'log.c',
         'login-util.c',
         'keyring-util.c',
+        'macro.c',
         'memfd-util.c',
         'memory-util.c',
         'mempool.c',
