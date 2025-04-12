@@ -10,6 +10,7 @@
 #include "journal-authenticate.h"
 #include "journal-def.h"
 #include "journal-file.h"
+#include "log.h"
 #include "memory-util.h"
 #include "time-util.h"
 

@@ -13,6 +13,7 @@
 #include "errno-list.h"
 #include "extract-word.h"
 #include "locale-util.h"
+#include "log.h"
 #include "macro.h"
 #include "missing_network.h"
 #include "parse-util.h"

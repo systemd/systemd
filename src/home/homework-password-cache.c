@@ -2,6 +2,7 @@
 
 #include "homework-password-cache.h"
 #include "keyring-util.h"
+#include "log.h"
 #include "missing_syscall.h"
 #include "user-record.h"
 

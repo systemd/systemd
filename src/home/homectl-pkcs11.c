@@ -5,6 +5,7 @@
 #include "hexdecoct.h"
 #include "homectl-pkcs11.h"
 #include "libcrypt-util.h"
+#include "log.h"
 #include "memory-util.h"
 #include "openssl-util.h"
 #include "pkcs11-util.h"

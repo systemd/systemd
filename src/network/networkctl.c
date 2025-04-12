@@ -3,6 +3,7 @@
 #include <getopt.h>
 
 #include "build.h"
+#include "log.h"
 #include "logs-show.h"
 #include "main-func.h"
 #include "networkctl.h"

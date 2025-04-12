@@ -5,6 +5,7 @@
 #include "chase.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "log.h"
 #include "string-util.h"
 #include "uid-classification.h"
 #include "user-util.h"

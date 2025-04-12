@@ -10,6 +10,7 @@
 #include "fileio.h"
 #include "format-table.h"
 #include "io-util.h"
+#include "log.h"
 #include "main-func.h"
 #include "memfd-util.h"
 #include "pager.h"
