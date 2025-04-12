@@ -112,7 +112,7 @@ DnsScope* dns_scope_free(DnsScope *s) {
 
         hashmap_free(s->transactions_by_key);
 
-        ordered_hashmap_free_with_destructor(s->conflict_queue, dns_resource_record_unref);
+        ordered_hashmap_free(s->conflict_queue);
         sd_event_source_disable_unref(s->conflict_event_source);
 
         sd_event_source_disable_unref(s->announce_event_source);
@@ -1238,12 +1238,9 @@ static int on_conflict_dispatch(sd_event_source *es, usec_t usec, void *userdata
                 _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
                 _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
 
-                key = ordered_hashmap_first_key(scope->conflict_queue);
-                if (!key)
+                rr = ordered_hashmap_steal_first_key_and_value(scope->conflict_queue, (void**) &key);
+                if (!rr)
                         break;
-
-                rr = ordered_hashmap_remove(scope->conflict_queue, key);
-                assert(rr);
 
                 r = dns_scope_make_conflict_packet(scope, rr, &p);
                 if (r < 0) {
@@ -1265,18 +1262,10 @@ int dns_scope_notify_conflict(DnsScope *scope, DnsResourceRecord *rr) {
         assert(scope);
         assert(rr);
 
-        /* We don't send these queries immediately. Instead, we queue
-         * them, and send them after some jitter delay. */
-        r = ordered_hashmap_ensure_allocated(&scope->conflict_queue, &dns_resource_key_hash_ops);
-        if (r < 0) {
-                log_oom();
-                return r;
-        }
-
-        /* We only place one RR per key in the conflict
-         * messages, not all of them. That should be enough to
-         * indicate where there might be a conflict */
-        r = ordered_hashmap_put(scope->conflict_queue, rr->key, rr);
+        /* We don't send these queries immediately. Instead, we queue them, and send them after some jitter
+         * delay.  We only place one RR per key in the conflict messages, not all of them. That should be
+         * enough to indicate where there might be a conflict */
+        r = ordered_hashmap_ensure_put(&scope->conflict_queue, &dns_resource_record_hash_ops_by_key, rr->key, rr);
         if (IN_SET(r, 0, -EEXIST))
                 return 0;
         if (r < 0)
