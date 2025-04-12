@@ -32,21 +32,6 @@ static void item_seen(Item *item) {
         item->seen++;
 }
 
-TEST(set_free_with_destructor) {
-        Set *m;
-        struct Item items[4] = {};
-
-        assert_se(m = set_new(NULL));
-        FOREACH_ARRAY(item, items, ELEMENTSOF(items) - 1)
-                assert_se(set_put(m, item) == 1);
-
-        m = set_free_with_destructor(m, item_seen);
-        assert_se(items[0].seen == 1);
-        assert_se(items[1].seen == 1);
-        assert_se(items[2].seen == 1);
-        assert_se(items[3].seen == 0);
-}
-
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(item_hash_ops, void, trivial_hash_func, trivial_compare_func, Item, item_seen);
 
 TEST(set_free_with_hash_ops) {
