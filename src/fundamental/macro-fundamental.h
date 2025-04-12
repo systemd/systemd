@@ -521,6 +521,12 @@ static inline uint64_t ALIGN_OFFSET_U64(uint64_t l, uint64_t ali) {
 #define FLAGS_SET(v, flags) \
         ((~(v) & (flags)) == 0)
 
+typedef struct {
+        int _empty[0];
+} dummy_t;
+
+assert_cc(sizeof(dummy_t) == 0);
+
 /* Restriction/bug (see below) was fixed in GCC 15 and clang 19. */
 #if __GNUC__ >= 15 || (defined(__clang__) && __clang_major__ >= 19)
 #define DECLARE_FLEX_ARRAY(type, name) type name[]
