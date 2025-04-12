@@ -18,6 +18,14 @@
 #include "string-util.h"
 #include "strv.h"
 
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+                dns_answer_hash_ops_by_key,
+                DnsResourceKey,
+                dns_resource_key_hash_func,
+                dns_resource_key_compare_func,
+                DnsAnswer,
+                dns_answer_unref);
+
 static const char trust_anchor_dirs[] = CONF_PATHS_NULSTR("dnssec-trust-anchors.d");
 
 /* The second DS RR from https://data.iana.org/root-anchors/root-anchors.xml, retrieved February 2017 */
@@ -78,10 +86,6 @@ static int dns_trust_anchor_add_builtin_positive(DnsTrustAnchor *d) {
 
         assert(d);
 
-        r = hashmap_ensure_allocated(&d->positive_by_key, &dns_resource_key_hash_ops);
-        if (r < 0)
-                return r;
-
         /* Only add the built-in trust anchor if there's neither a DS nor a DNSKEY defined for the root domain. That
          * way users have an easy way to override the root domain DS/DNSKEY data. */
         if (dns_trust_anchor_knows_domain_positive(d, "."))
@@ -103,11 +107,11 @@ static int dns_trust_anchor_add_builtin_positive(DnsTrustAnchor *d) {
         if (r < 0)
                 return r;
 
-        r = hashmap_put(d->positive_by_key, key, answer);
+        r = hashmap_ensure_put(&d->positive_by_key, &dns_answer_hash_ops_by_key, key, answer);
         if (r < 0)
                 return r;
 
-        answer = NULL;
+        TAKE_PTR(answer);
         return 0;
 }
 
@@ -365,7 +369,7 @@ static int dns_trust_anchor_load_positive(DnsTrustAnchor *d, const char *path, u
                 return -EINVAL;
         }
 
-        r = hashmap_ensure_allocated(&d->positive_by_key, &dns_resource_key_hash_ops);
+        r = hashmap_ensure_allocated(&d->positive_by_key, &dns_answer_hash_ops_by_key);
         if (r < 0)
                 return log_oom();
 
@@ -381,7 +385,7 @@ static int dns_trust_anchor_load_positive(DnsTrustAnchor *d, const char *path, u
                 return log_error_errno(r, "Failed to add answer to trust anchor: %m");
 
         old_answer = dns_answer_unref(old_answer);
-        answer = NULL;
+        TAKE_PTR(answer);
 
         return 0;
 }
@@ -541,7 +545,7 @@ int dns_trust_anchor_load(DnsTrustAnchor *d) {
 void dns_trust_anchor_flush(DnsTrustAnchor *d) {
         assert(d);
 
-        d->positive_by_key = hashmap_free_with_destructor(d->positive_by_key, dns_answer_unref);
+        d->positive_by_key = hashmap_free(d->positive_by_key);
         d->revoked_by_rr = set_free(d->revoked_by_rr);
         d->negative_by_name = set_free(d->negative_by_name);
 }
