@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-typedef struct PidRef PidRef;
-
 #include "macro.h"
-#include "process-util.h"
 
 /* An embeddable structure carrying a reference to a process. Supposed to be used when tracking processes
  * continuously. This combines a PID, a modern Linux pidfd and the 64bit inode number of the pidfd into one
@@ -29,7 +26,7 @@ typedef struct PidRef PidRef;
  *    process. Moreover, most operations will fail with -EREMOTE. Only PidRef structures that are not marked
  *    *unset* can be marked *remote*.
  */
-struct PidRef {
+typedef struct PidRef {
         pid_t pid;      /* > 0 if the PidRef is set, otherwise set to PID_AUTOMATIC if automatic mode is
                          * desired, or 0 otherwise. */
         int fd;         /* only valid if pidfd are available in the kernel, and we manage to get an fd. If we
@@ -37,7 +34,7 @@ struct PidRef {
                          * we use -EBADF as indicator the fd is invalid. */
         uint64_t fd_id; /* the inode number of pidfd. only useful in kernel 6.9+ where pidfds live in
                            their own pidfs and each process comes with a unique inode number */
-};
+} PidRef;
 
 #define PIDREF_NULL (PidRef) { .fd = -EBADF }
 

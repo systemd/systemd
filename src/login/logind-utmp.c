@@ -2,6 +2,7 @@
 
 #include "logind-utmp.h"
 #include "path-util.h"
+#include "process-util.h"
 #include "utmp-wtmp.h"
 
 int manager_read_utmp(Manager *m) {
