@@ -9,6 +9,7 @@
 #include "errno.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "log.h"
 #include "mkdir.h"
 #include "nspawn-setuid.h"
 #include "process-util.h"

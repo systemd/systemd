@@ -7,6 +7,7 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "json-util.h"
+#include "log.h"
 #include "missing_sched.h"
 #include "namespace-util.h"
 #include "nsresource.h"

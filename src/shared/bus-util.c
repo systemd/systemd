@@ -24,6 +24,7 @@
 #include "env-util.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "log.h"
 #include "memfd-util.h"
 #include "memstream-util.h"
 #include "path-util.h"
