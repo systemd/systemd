@@ -2296,7 +2296,7 @@ static sd_journal *journal_new(int flags, const char *path, const char *namespac
                         return NULL;
         }
 
-        j->files = ordered_hashmap_new(&path_hash_ops);
+        j->files = ordered_hashmap_new(&journal_file_hash_ops_by_path);
         if (!j->files)
                 return NULL;
 
@@ -2548,7 +2548,7 @@ _public_ void sd_journal_close(sd_journal *j) {
         if (j->mmap)
                 mmap_cache_stats_log_debug(j->mmap);
 
-        ordered_hashmap_free_with_destructor(j->files, journal_file_close);
+        ordered_hashmap_free(j->files);
         iterated_cache_free(j->files_cache);
 
         hashmap_free(j->directories_by_path);
