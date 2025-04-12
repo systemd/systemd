@@ -308,7 +308,7 @@ int dns_resource_key_match_soa(const DnsResourceKey *key, const DnsResourceKey *
         return dns_name_endswith(dns_resource_key_name(key), dns_resource_key_name(soa));
 }
 
-static void dns_resource_key_hash_func(const DnsResourceKey *k, struct siphash *state) {
+void dns_resource_key_hash_func(const DnsResourceKey *k, struct siphash *state) {
         assert(k);
 
         dns_name_hash_func(dns_resource_key_name(k), state);
@@ -316,7 +316,7 @@ static void dns_resource_key_hash_func(const DnsResourceKey *k, struct siphash *
         siphash24_compress_typesafe(k->type, state);
 }
 
-static int dns_resource_key_compare_func(const DnsResourceKey *x, const DnsResourceKey *y) {
+int dns_resource_key_compare_func(const DnsResourceKey *x, const DnsResourceKey *y) {
         int r;
 
         r = dns_name_compare_func(dns_resource_key_name(x), dns_resource_key_name(y));
