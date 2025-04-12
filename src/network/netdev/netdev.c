@@ -1163,8 +1163,7 @@ int netdev_reload(Manager *manager) {
         }
 
         /* Detach old NetDev objects from Manager.
-         * Note, the same object may be registered with multiple names, and netdev_detach() may drop multiple
-         * entries. Hence, hashmap_free_with_destructor() cannot be used. */
+         * The same object may be registered with multiple names, and netdev_detach() may drop multiple entries. */
         for (NetDev *n; (n = hashmap_first(manager->netdevs)); )
                 netdev_detach(n);
 
