@@ -508,7 +508,7 @@ int exec_spawn(
                         /* If there's a subcgroup, then let's create it here now (the main cgroup was already
                          * realized by the unit logic) */
 
-                        r = cg_create(SYSTEMD_CGROUP_CONTROLLER, subcgroup_path);
+                        r = cg_create(subcgroup_path);
                         if (r < 0)
                                 return log_unit_error_errno(unit, r, "Failed to create subcgroup '%s': %m", subcgroup_path);
                 }
@@ -576,7 +576,7 @@ int exec_spawn(
                                   "--log-level", max_log_levels,
                                   "--log-target", log_target_to_string(manager_get_executor_log_target(unit->manager))),
                         environ,
-                        cg_unified() > 0 ? subcgroup_path : NULL,
+                        subcgroup_path,
                         &pidref);
 
         /* Drop the ambient set again, so no processes other than sd-executore spawned from the manager inherit it. */
@@ -593,7 +593,7 @@ int exec_spawn(
          * executed outside of the cgroup) and in the parent (so that we can be sure that when we kill the cgroup the
          * process will be killed too). */
         if (r == 0 && subcgroup_path)
-                (void) cg_attach(SYSTEMD_CGROUP_CONTROLLER, subcgroup_path, pidref.pid);
+                (void) cg_attach(subcgroup_path, pidref.pid);
         /* r > 0: Already in the right cgroup thanks to CLONE_INTO_CGROUP */
 
         log_unit_debug(unit, "Forked %s as " PID_FMT " (%s CLONE_INTO_CGROUP)",
