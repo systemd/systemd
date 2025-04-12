@@ -440,7 +440,7 @@ static int property_get_restrict_filesystems(
                 sd_bus_error *error) {
 
         ExecContext *c = ASSERT_PTR(userdata);
-        _cleanup_free_ char **l = NULL;
+        _cleanup_free_ char **l = NULL; /* Strings are owned by 'c->restrict_filesystems'! */
         int r;
 
         assert(bus);
