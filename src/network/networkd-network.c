@@ -835,7 +835,7 @@ static Network *network_free(Network *network) {
         hashmap_free(network->route_prefixes_by_section);
         hashmap_free(network->pref64_prefixes_by_section);
         hashmap_free(network->rules_by_section);
-        hashmap_free_with_destructor(network->dhcp_static_leases_by_section, dhcp_static_lease_free);
+        hashmap_free(network->dhcp_static_leases_by_section);
         ordered_hashmap_free(network->sr_iov_by_section);
         hashmap_free(network->qdiscs_by_section);
         hashmap_free(network->tclasses_by_section);
