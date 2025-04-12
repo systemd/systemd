@@ -32,6 +32,7 @@
 #include "fs-util.h"
 #include "hostname-setup.h"
 #include "hostname-util.h"
+#include "log.h"
 #include "main-func.h"
 #include "osc-context.h"
 #include "parse-argument.h"

@@ -12,6 +12,7 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "import-common.h"
+#include "log.h"
 #include "missing_fcntl.h"
 #include "pretty-print.h"
 #include "ratelimit.h"

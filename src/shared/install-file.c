@@ -8,6 +8,7 @@
 #include "fd-util.h"
 #include "fs-util.h"
 #include "install-file.h"
+#include "log.h"
 #include "missing_syscall.h"
 #include "rm-rf.h"
 #include "sync-util.h"

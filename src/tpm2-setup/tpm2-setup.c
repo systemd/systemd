@@ -10,6 +10,7 @@
 #include "fileio.h"
 #include "fs-util.h"
 #include "hexdecoct.h"
+#include "log.h"
 #include "main-func.h"
 #include "mkdir.h"
 #include "parse-util.h"

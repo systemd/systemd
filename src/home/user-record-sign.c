@@ -5,6 +5,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "json-util.h"
+#include "log.h"
 #include "memstream-util.h"
 #include "openssl-util.h"
 #include "user-record-sign.h"

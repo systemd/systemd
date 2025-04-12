@@ -7,6 +7,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
+#include "log.h"
 #include "memstream-util.h"
 #include "oomd-util.h"
 #include "parse-util.h"

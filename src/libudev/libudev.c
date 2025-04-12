@@ -10,6 +10,7 @@
 
 #include "alloc-util.h"
 #include "fd-util.h"
+#include "log.h"
 #include "string-util.h"
 
 /**

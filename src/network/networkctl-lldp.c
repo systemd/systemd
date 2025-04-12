@@ -2,6 +2,7 @@
 
 #include "alloc-util.h"
 #include "json-util.h"
+#include "log.h"
 #include "networkctl.h"
 #include "networkctl-dump-util.h"
 #include "networkctl-lldp.h"

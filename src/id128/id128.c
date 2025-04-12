@@ -8,6 +8,7 @@
 #include "format-table.h"
 #include "gpt.h"
 #include "id128-print.h"
+#include "log.h"
 #include "main-func.h"
 #include "parse-argument.h"
 #include "pretty-print.h"

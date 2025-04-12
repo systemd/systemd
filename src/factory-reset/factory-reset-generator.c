@@ -2,6 +2,7 @@
 
 #include "factory-reset.h"
 #include "generator.h"
+#include "log.h"
 #include "special.h"
 
 /* This generator pulls factory-reset-now.target into the initial transaction the kernel command line's
