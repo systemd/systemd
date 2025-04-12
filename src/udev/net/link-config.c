@@ -75,7 +75,7 @@ static LinkConfig* link_config_free(LinkConfig *config) {
         erase_and_free(config->wol_password);
         cpu_set_free(config->rps_cpu_mask);
 
-        ordered_hashmap_free_with_destructor(config->sr_iov_by_section, sr_iov_free);
+        ordered_hashmap_free(config->sr_iov_by_section);
 
         return mfree(config);
 }
