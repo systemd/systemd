@@ -813,7 +813,9 @@ static bool sysfs_check(void) {
         return cached;
 }
 
-static int add_sysusr_sysroot_usr_bind_mount(const char *source) {
+static int add_sysusr_sysroot_usr_bind_mount(const char *source, bool validatefs) {
+        log_debug("Synthesizing entry what=/sysusr/usr where=/sysroot/usr opts=bind validatefs=%s", yes_no(validatefs));
+
         return add_mount(source,
                          arg_dest,
                          "/sysusr/usr",
@@ -822,7 +824,7 @@ static int add_sysusr_sysroot_usr_bind_mount(const char *source) {
                          /* fstype= */ NULL,
                          "bind",
                          /* passno= */ 0,
-                         /* flags= */ 0,
+                         validatefs ? MOUNT_VALIDATEFS : 0,
                          SPECIAL_INITRD_FS_TARGET,
                          /* extra_after= */ NULL);
 }
@@ -1004,15 +1006,14 @@ static int parse_fstab_one(
                       fstype,
                       options,
                       passno,
-                      flags,
+                      flags & ~(is_sysroot_usr ? MOUNT_VALIDATEFS : 0),
                       target_unit,
                       /* extra_after= */ NULL);
         if (r <= 0)
                 return r;
 
         if (is_sysroot_usr) {
-                log_debug("Synthesizing fstab entry what=/sysusr/usr where=/sysroot/usr opts=bind");
-                r = add_sysusr_sysroot_usr_bind_mount(source);
+                r = add_sysusr_sysroot_usr_bind_mount(source, flags & MOUNT_VALIDATEFS);
                 if (r < 0)
                         return r;
         }
@@ -1324,9 +1325,7 @@ static int add_sysroot_usr_mount(void) {
         if (r < 0)
                 return r;
 
-        log_debug("Synthesizing entry what=/sysusr/usr where=/sysroot/usr opts=bind");
-
-        r = add_sysusr_sysroot_usr_bind_mount("/proc/cmdline");
+        r = add_sysusr_sysroot_usr_bind_mount("/proc/cmdline", /* validatefs = */ false);
         if (r < 0)
                 return r;
 
