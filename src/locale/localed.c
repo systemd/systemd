@@ -18,6 +18,7 @@
 #include "daemon-util.h"
 #include "kbd-util.h"
 #include "localed-util.h"
+#include "log.h"
 #include "macro.h"
 #include "main-func.h"
 #include "path-util.h"

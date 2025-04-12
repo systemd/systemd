@@ -9,6 +9,7 @@
 #include "dns-domain.h"
 #include "extract-word.h"
 #include "fileio.h"
+#include "log.h"
 #include "parse-util.h"
 #include "pretty-print.h"
 #include "resolvconf-compat.h"

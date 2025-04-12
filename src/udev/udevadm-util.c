@@ -9,6 +9,7 @@
 #include "conf-files.h"
 #include "constants.h"
 #include "device-private.h"
+#include "log.h"
 #include "path-util.h"
 #include "string-table.h"
 #include "udev-ctrl.h"

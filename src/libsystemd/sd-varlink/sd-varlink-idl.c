@@ -4,6 +4,7 @@
 
 #include "ansi-color.h"
 #include "json-util.h"
+#include "log.h"
 #include "memstream-util.h"
 #include "set.h"
 #include "strv.h"

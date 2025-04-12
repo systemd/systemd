@@ -5,6 +5,7 @@
 #include "alloc-util.h"
 #include "apparmor-util.h"
 #include "fileio.h"
+#include "log.h"
 #include "parse-util.h"
 
 #if HAVE_APPARMOR

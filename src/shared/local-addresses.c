@@ -7,6 +7,7 @@
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "local-addresses.h"
+#include "log.h"
 #include "macro.h"
 #include "netlink-util.h"
 #include "sort-util.h"
