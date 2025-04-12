@@ -24,6 +24,7 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "iovec-util.h"
+#include "list.h"
 #include "log.h"
 #include "macro.h"
 #include "missing_syscall.h"

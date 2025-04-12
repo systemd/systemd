@@ -18,6 +18,7 @@
 #include "detach-loopback.h"
 #include "device-util.h"
 #include "fd-util.h"
+#include "list.h"
 #include "shutdown.h"
 
 typedef struct LoopbackDevice {
