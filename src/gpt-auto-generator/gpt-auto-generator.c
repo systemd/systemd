@@ -979,7 +979,7 @@ static int add_usr_mount(void) {
                       "/dev/disk/by-designator/usr",
                       in_initrd() ? "/sysusr/usr" : "/usr",
                       arg_usr_fstype,
-                      (in_initrd() ? MOUNT_VALIDATEFS : 0),
+                      /* flags = */ 0,
                       options,
                       "/usr/ Partition",
                       in_initrd() ? SPECIAL_INITRD_USR_FS_TARGET : SPECIAL_LOCAL_FS_TARGET);
@@ -993,7 +993,7 @@ static int add_usr_mount(void) {
                               "/sysusr/usr",
                               "/sysroot/usr",
                               /* fstype= */ NULL,
-                              /* flags= */ 0,
+                              MOUNT_VALIDATEFS,
                               "bind",
                               "/usr/ Partition (Final)",
                               SPECIAL_INITRD_FS_TARGET);
