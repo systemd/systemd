@@ -1688,6 +1688,15 @@ int dns_resource_record_compare_func(const DnsResourceRecord *x, const DnsResour
 
 DEFINE_HASH_OPS(dns_resource_record_hash_ops, DnsResourceRecord, dns_resource_record_hash_func, dns_resource_record_compare_func);
 
+DEFINE_HASH_OPS_FULL(
+                dns_resource_record_hash_ops_by_key,
+                DnsResourceKey,
+                dns_resource_key_hash_func,
+                dns_resource_key_compare_func,
+                dns_resource_key_unref,
+                DnsResourceRecord,
+                dns_resource_record_unref);
+
 DnsResourceRecord *dns_resource_record_copy(DnsResourceRecord *rr) {
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *copy = NULL;
         DnsResourceRecord *t;
