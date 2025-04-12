@@ -17,6 +17,7 @@
 #include "devnum-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "list.h"
 #include "shutdown.h"
 #include "string-util.h"
 

@@ -7,7 +7,6 @@
 #include <string.h>
 #include <syslog.h>
 
-#include "list.h"
 #include "macro.h"
 #include "stdio-util.h"
 
