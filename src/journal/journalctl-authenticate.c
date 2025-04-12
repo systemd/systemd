@@ -14,6 +14,7 @@
 #include "journal-authenticate.h"
 #include "journalctl.h"
 #include "journalctl-authenticate.h"
+#include "log.h"
 #include "memstream-util.h"
 #include "path-util.h"
 #include "qrcode-util.h"

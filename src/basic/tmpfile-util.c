@@ -7,6 +7,7 @@
 #include "fileio.h"
 #include "fs-util.h"
 #include "hexdecoct.h"
+#include "log.h"
 #include "macro.h"
 #include "memfd-util.h"
 #include "missing_fcntl.h"

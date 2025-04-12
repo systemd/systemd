@@ -8,6 +8,7 @@
 
 #include "alloc-util.h"
 #include "format-util.h"
+#include "log.h"
 #include "memory-util.h"
 #include "netlink-internal.h"
 #include "netlink-types.h"
