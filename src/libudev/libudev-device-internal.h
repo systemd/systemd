@@ -6,5 +6,5 @@
 
 struct udev_device;
 
-struct udev_device *udev_device_new(struct udev *udev, sd_device *device);
-sd_device *udev_device_get_sd_device(struct udev_device *udev_device);
+struct udev_device* udev_device_new(struct udev *udev, sd_device *device);
+sd_device* udev_device_get_sd_device(struct udev_device *udev_device);
