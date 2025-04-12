@@ -1979,19 +1979,17 @@ char** exec_context_get_address_families(const ExecContext *c) {
 }
 
 char** exec_context_get_restrict_filesystems(const ExecContext *c) {
-        _cleanup_strv_free_ char **l = NULL;
-
         assert(c);
 
 #if HAVE_LIBBPF
-        l = set_get_strv(c->restrict_filesystems);
+        char **l = set_get_strv(c->restrict_filesystems);
         if (!l)
                 return NULL;
 
-        strv_sort(l);
+        return strv_sort(l);
+#else
+        return strv_new(NULL);
 #endif
-
-        return l ? TAKE_PTR(l) : strv_new(NULL);
 }
 
 void exec_status_start(ExecStatus *s, pid_t pid, const dual_timestamp *ts) {
