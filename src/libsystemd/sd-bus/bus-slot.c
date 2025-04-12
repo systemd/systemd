@@ -7,6 +7,7 @@
 #include "bus-objects.h"
 #include "bus-slot.h"
 #include "log.h"
+#include "set.h"
 #include "string-util.h"
 
 sd_bus_slot *bus_slot_allocate(
