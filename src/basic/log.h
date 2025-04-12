@@ -8,7 +8,6 @@
 #include <syslog.h>
 
 #include "macro.h"
-#include "stdio-util.h"
 
 /* Some structures we reference but don't want to pull in headers for */
 struct iovec;

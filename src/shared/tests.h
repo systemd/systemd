@@ -14,6 +14,7 @@
 #include "rlimit-util.h"
 #include "signal-util.h"
 #include "static-destruct.h"
+#include "stdio-util.h"
 #include "strv.h"
 
 static inline void log_set_assert_return_is_criticalp(bool *p) {
