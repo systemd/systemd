@@ -28,6 +28,7 @@ typedef struct Manager Manager;
 #include "open-file.h"
 #include "ordered-set.h"
 #include "path-util.h"
+#include "ratelimit.h"
 #include "rlimit-util.h"
 #include "runtime-scope.h"
 #include "set.h"

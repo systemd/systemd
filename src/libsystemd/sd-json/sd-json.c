@@ -31,6 +31,7 @@
 #include "memstream-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "ratelimit.h"
 #include "set.h"
 #include "signal-util.h"
 #include "string-table.h"
