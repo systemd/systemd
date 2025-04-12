@@ -32,6 +32,7 @@
 #include "path-util.h"
 #include "prioq.h"
 #include "random-util.h"
+#include "ratelimit.h"
 #include "set.h"
 #include "sort-util.h"
 #include "stat-util.h"
