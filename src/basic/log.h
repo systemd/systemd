@@ -79,9 +79,6 @@ int log_show_tid_from_string(const char *e);
  * environment should not be called from library code — this is always a job
  * for the application itself. */
 
-assert_cc(STRLEN(__FILE__) > STRLEN(RELATIVE_SOURCE_PATH) + 1);
-#define PROJECT_FILE (&__FILE__[STRLEN(RELATIVE_SOURCE_PATH) + 1])
-
 bool stderr_is_journal(void);
 int log_open(void);
 void log_close(void);
@@ -184,24 +181,6 @@ int log_dump_internal(
                 int line,
                 const char *func,
                 char *buffer);
-
-/* Logging for various assertions */
-_noreturn_ void log_assert_failed(
-                const char *text,
-                const char *file,
-                int line,
-                const char *func);
-
-_noreturn_ void log_assert_failed_unreachable(
-                const char *file,
-                int line,
-                const char *func);
-
-void log_assert_failed_return(
-                const char *text,
-                const char *file,
-                int line,
-                const char *func);
 
 #define log_dispatch(level, error, buffer)                              \
         log_dispatch_internal(level, error, PROJECT_FILE, __LINE__, __func__, NULL, NULL, NULL, NULL, buffer)
@@ -335,9 +314,6 @@ void log_set_open_when_needed(bool b);
 /* If turned on, then we'll never use IPC-based logging, i.e. never log to syslog or the journal. We'll only log to
  * stderr, the console or kmsg */
 void log_set_prohibit_ipc(bool b);
-
-void log_set_assert_return_is_critical(bool b);
-bool log_get_assert_return_is_critical(void) _pure_;
 
 int log_dup_console(void);
 

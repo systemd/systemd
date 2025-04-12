@@ -3,6 +3,7 @@
 
 #include <dlfcn.h>
 
+#include "assert-util.h"
 #include "macro.h"
 
 static inline void* safe_dlclose(void *dl) {

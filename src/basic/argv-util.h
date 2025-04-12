@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 
+#include "assert-util.h"
 #include "macro.h"
 
 extern int saved_argc;

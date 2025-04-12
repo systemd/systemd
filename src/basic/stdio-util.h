@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <sys/types.h>
 
+#include "assert-util.h"
 #include "macro.h"
 
 _printf_(3, 4)

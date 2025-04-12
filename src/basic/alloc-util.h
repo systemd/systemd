@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "assert-util.h"
 #include "macro.h"
 
 #if HAS_FEATURE_MEMORY_SANITIZER
