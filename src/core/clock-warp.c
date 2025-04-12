@@ -8,6 +8,7 @@
 #include "clock-util.h"
 #include "clock-warp.h"
 #include "errno-util.h"
+#include "time-util.h"
 
 int clock_reset_timewarp(void) {
         static const struct timezone tz = {
