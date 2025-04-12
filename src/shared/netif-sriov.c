@@ -9,6 +9,25 @@
 #include "stdio-util.h"
 #include "string-util.h"
 
+static SRIOV* sr_iov_free(SRIOV *sr_iov) {
+        if (!sr_iov)
+                return NULL;
+
+        if (sr_iov->sr_iov_by_section && sr_iov->section)
+                ordered_hashmap_remove(sr_iov->sr_iov_by_section, sr_iov->section);
+
+        config_section_free(sr_iov->section);
+
+        return mfree(sr_iov);
+}
+
+DEFINE_SECTION_CLEANUP_FUNCTIONS(SRIOV, sr_iov_free);
+
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+                sr_iov_hash_ops_by_section,
+                ConfigSection, config_section_hash_func, config_section_compare_func,
+                SRIOV, sr_iov_free);
+
 static int sr_iov_new(SRIOV **ret) {
         SRIOV *sr_iov;
 
@@ -57,7 +76,7 @@ static int sr_iov_new_static(OrderedHashmap **sr_iov_by_section, const char *fil
         if (r < 0)
                 return r;
 
-        r = ordered_hashmap_ensure_put(sr_iov_by_section, &config_section_hash_ops, n, sr_iov);
+        r = ordered_hashmap_ensure_put(sr_iov_by_section, &sr_iov_hash_ops_by_section, n, sr_iov);
         if (r < 0)
                 return r;
 
@@ -66,18 +85,6 @@ static int sr_iov_new_static(OrderedHashmap **sr_iov_by_section, const char *fil
 
         *ret = TAKE_PTR(sr_iov);
         return 0;
-}
-
-SRIOV *sr_iov_free(SRIOV *sr_iov) {
-        if (!sr_iov)
-                return NULL;
-
-        if (sr_iov->sr_iov_by_section && sr_iov->section)
-                ordered_hashmap_remove(sr_iov->sr_iov_by_section, sr_iov->section);
-
-        config_section_free(sr_iov->section);
-
-        return mfree(sr_iov);
 }
 
 void sr_iov_hash_func(const SRIOV *sr_iov, struct siphash *state) {
