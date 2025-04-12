@@ -26,3 +26,5 @@ int journal_file_rotate(
                 JournalFileFlags file_flags,
                 uint64_t compress_threshold_bytes,
                 Set *deferred_closes);
+
+extern const struct hash_ops journal_file_hash_ops_offline_close;

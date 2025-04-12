@@ -448,7 +448,7 @@ int journal_file_rotate(
         if (r < 0)
                 return r;
 
-        set_clear_with_destructor(deferred_closes, journal_file_offline_close);
+        set_clear(deferred_closes);
 
         r = journal_file_open(
                         /* fd= */ -EBADF,
@@ -532,3 +532,8 @@ int journal_file_open_reliably(
         return journal_file_open(-EBADF, fname, open_flags, file_flags, mode, compress_threshold_bytes, metrics,
                                  mmap_cache, /* template = */ old_file, ret);
 }
+
+DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+                journal_file_hash_ops_offline_close,
+                void, trivial_hash_func, trivial_compare_func,
+                JournalFile, journal_file_offline_close);
