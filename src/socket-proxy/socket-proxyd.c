@@ -16,6 +16,7 @@
 #include "alloc-util.h"
 #include "build.h"
 #include "daemon-util.h"
+#include "event-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "log.h"
@@ -95,31 +96,26 @@ static int idle_time_cb(sd_event_source *s, uint64_t usec, void *userdata) {
         return 0;
 }
 
-static int connection_release(Connection *c) {
-        Context *context = ASSERT_PTR(ASSERT_PTR(c)->context);
+static void context_reset_timer(Context *context) {
         int r;
 
-        connection_free(c);
+        assert(context);
 
         if (arg_exit_idle_time < USEC_INFINITY && set_isempty(context->connections)) {
-                if (context->idle_time) {
-                        r = sd_event_source_set_time_relative(context->idle_time, arg_exit_idle_time);
-                        if (r < 0)
-                                return log_error_errno(r, "Error while setting idle time: %m");
-
-                        r = sd_event_source_set_enabled(context->idle_time, SD_EVENT_ONESHOT);
-                        if (r < 0)
-                                return log_error_errno(r, "Error while enabling idle time: %m");
-                } else {
-                        r = sd_event_add_time_relative(
-                                        context->event, &context->idle_time, CLOCK_MONOTONIC,
-                                        arg_exit_idle_time, 0, idle_time_cb, context);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to create idle timer: %m");
-                }
+                r = event_reset_time_relative(
+                                context->event, &context->idle_time, CLOCK_MONOTONIC,
+                                arg_exit_idle_time, 0, idle_time_cb, context,
+                                SD_EVENT_PRIORITY_NORMAL, "idle-timer", /* force = */ true);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to reset idle timer, ignoring: %m");
         }
+}
 
-        return 0;
+static void connection_release(Connection *c) {
+        assert(c);
+
+        connection_free(c);
+        context_reset_timer(c->context);
 }
 
 static void context_clear(Context *context) {
