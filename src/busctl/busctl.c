@@ -791,10 +791,6 @@ static int member_compare_func(const Member *x, const Member *y) {
         return strcmp_ptr(x->signature, y->signature);
 }
 
-static int member_compare_funcp(Member * const *a, Member * const *b) {
-        return member_compare_func(*a, *b);
-}
-
 static Member* member_free(Member *m) {
         if (!m)
                 return NULL;
@@ -1110,9 +1106,6 @@ static int introspect(int argc, char **argv, void *userdata) {
         signature_width = strlen("SIGNATURE");
         result_width = strlen("RESULT/VALUE");
 
-        Member **sorted = newa(Member*, set_size(members));
-        size_t k = 0;
-
         SET_FOREACH(m, members) {
                 if (argv[3] && !streq(argv[3], m->interface))
                         continue;
@@ -1129,14 +1122,16 @@ static int introspect(int argc, char **argv, void *userdata) {
                         result_width = MAX(result_width, strlen(m->result));
                 if (m->value)
                         result_width = MAX(result_width, strlen(m->value));
-
-                sorted[k++] = m;
         }
 
         if (result_width > 40 && arg_full <= 0)
                 result_width = 40;
 
-        typesafe_qsort(sorted, k, member_compare_funcp);
+        size_t n;
+        _cleanup_free_ Member **sorted = NULL;
+        r = set_dump_sorted(members, (void***) &sorted, &n);
+        if (r < 0)
+                return log_oom();
 
         pager_open(arg_pager_flags);
 
@@ -1148,12 +1143,12 @@ static int introspect(int argc, char **argv, void *userdata) {
                        (int) result_width, "RESULT/VALUE",
                        "FLAGS");
 
-        for (size_t j = 0; j < k; j++) {
+        FOREACH_ARRAY(p, sorted, n) {
                 _cleanup_free_ char *ellipsized = NULL;
                 const char *rv;
                 bool is_interface;
 
-                m = sorted[j];
+                m = *p;
 
                 if (argv[3] && !streq(argv[3], m->interface))
                         continue;
