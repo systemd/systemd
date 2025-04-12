@@ -90,7 +90,7 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
 static void context_clear(Context *context) {
         assert(context);
 
-        set_free_with_destructor(context->listen, sd_event_source_unref);
+        set_free(context->listen);
         set_free(context->connections);
 
         sd_event_unref(context->event);
@@ -528,7 +528,6 @@ static int accept_cb(sd_event_source *s, int fd, uint32_t revents, void *userdat
 }
 
 static int add_listen_socket(Context *context, int fd) {
-        sd_event_source *source;
         int r;
 
         assert(context);
@@ -545,15 +544,10 @@ static int add_listen_socket(Context *context, int fd) {
         if (r < 0)
                 return log_error_errno(r, "Failed to mark file descriptor non-blocking: %m");
 
+        _cleanup_(sd_event_source_unrefp) sd_event_source *source = NULL;
         r = sd_event_add_io(context->event, &source, fd, EPOLLIN, accept_cb, context);
         if (r < 0)
                 return log_error_errno(r, "Failed to add event source: %m");
-
-        r = set_ensure_put(&context->listen, NULL, source);
-        if (r < 0) {
-                sd_event_source_unref(source);
-                return log_error_errno(r, "Failed to add source to set: %m");
-        }
 
         r = sd_event_source_set_exit_on_failure(source, true);
         if (r < 0)
@@ -564,6 +558,10 @@ static int add_listen_socket(Context *context, int fd) {
         r = sd_event_source_set_enabled(source, SD_EVENT_ONESHOT);
         if (r < 0)
                 return log_error_errno(r, "Failed to enable oneshot mode: %m");
+
+        r = set_ensure_consume(&context->listen, &event_source_hash_ops, TAKE_PTR(source));
+        if (r < 0)
+                return log_error_errno(r, "Failed to add source to set: %m");
 
         return 0;
 }
