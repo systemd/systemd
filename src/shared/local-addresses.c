@@ -154,7 +154,7 @@ int local_addresses(
 
         for (sd_netlink_message *m = reply; m; m = sd_netlink_message_next(m)) {
                 union in_addr_union a;
-                unsigned char flags, scope;
+                unsigned char scope;
                 uint16_t type;
                 int ifi, family;
 
@@ -182,7 +182,8 @@ int local_addresses(
                 if (af != AF_UNSPEC && af != family)
                         continue;
 
-                r = sd_rtnl_message_addr_get_flags(m, &flags);
+                uint32_t flags;
+                r = sd_netlink_message_read_u32(m, IFA_FLAGS, &flags);
                 if (r < 0)
                         return r;
                 if ((flags & (IFA_F_DEPRECATED|IFA_F_TENTATIVE)) != 0)

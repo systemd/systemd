@@ -146,8 +146,6 @@ int sd_rtnl_message_addr_get_ifindex(sd_netlink_message *m, int *ret); /* ifa_in
 int sd_rtnl_message_addr_get_family(sd_netlink_message *m, int *ret); /* ifa_family */
 int sd_rtnl_message_addr_set_prefixlen(sd_netlink_message *m, uint8_t prefixlen); /* ifa_prefixlen */
 int sd_rtnl_message_addr_get_prefixlen(sd_netlink_message *m, uint8_t *ret);
-int sd_rtnl_message_addr_set_flags(sd_netlink_message *m, uint8_t flags); /* ifa_flags */
-int sd_rtnl_message_addr_get_flags(sd_netlink_message *m, uint8_t *ret);
 int sd_rtnl_message_addr_set_scope(sd_netlink_message *m, uint8_t scope); /* ifa_scope */
 int sd_rtnl_message_addr_get_scope(sd_netlink_message *m, uint8_t *ret);
 
