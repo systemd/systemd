@@ -145,6 +145,8 @@ typedef struct {
         uint64_t hash;
 } EntryItem;
 
+extern const struct hash_ops journal_file_hash_ops_by_path;
+
 int journal_file_open(
                 int fd,
                 const char *fname,
