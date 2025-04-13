@@ -305,7 +305,7 @@ _public_ int sd_device_monitor_stop(sd_device_monitor *m) {
 
                 /* Save multicast groups. */
                 r = netlink_socket_get_multicast_groups(m->sock, &m->multicast_group_len, &m->multicast_groups);
-                if (r < 0 && r != -ENOPROTOOPT)
+                if (r < 0)
                         return r;
 
                 /* Leave from all multicast groups to prevent the buffer is filled. */
