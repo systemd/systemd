@@ -7,6 +7,7 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "homework-quota.h"
+#include "log.h"
 #include "missing_magic.h"
 #include "quota-util.h"
 #include "stat-util.h"

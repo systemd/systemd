@@ -8,6 +8,7 @@
 #include "acl-util.h"
 #include "alloc-util.h"
 #include "errno-util.h"
+#include "log.h"
 #include "string-util.h"
 #include "strv.h"
 #include "user-util.h"

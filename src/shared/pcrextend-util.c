@@ -8,6 +8,7 @@
 #include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
+#include "log.h"
 #include "mountpoint-util.h"
 #include "pcrextend-util.h"
 #include "strv.h"

@@ -2,6 +2,7 @@
 
 #include "chase.h"
 #include "fd-util.h"
+#include "log.h"
 #include "offline-passwd.h"
 #include "path-util.h"
 #include "user-util.h"

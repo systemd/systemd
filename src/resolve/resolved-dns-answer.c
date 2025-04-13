@@ -4,6 +4,7 @@
 
 #include "alloc-util.h"
 #include "dns-domain.h"
+#include "log.h"
 #include "random-util.h"
 #include "resolved-dns-answer.h"
 #include "resolved-dns-dnssec.h"

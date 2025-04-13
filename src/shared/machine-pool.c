@@ -4,6 +4,7 @@
 
 #include "btrfs-util.h"
 #include "label-util.h"
+#include "log.h"
 #include "machine-pool.h"
 #include "missing_magic.h"
 #include "stat-util.h"
