@@ -261,7 +261,7 @@ static void link_free_engines(Link *link) {
         link->radv = sd_radv_unref(link->radv);
 }
 
-static Link *link_free(Link *link) {
+static Link* link_free(Link *link) {
         assert(link);
 
         (void) link_clear_sysctl_shadows(link);
@@ -295,7 +295,7 @@ static Link *link_free(Link *link) {
         hashmap_free(link->bound_to_links);
         hashmap_free(link->bound_by_links);
 
-        set_free_with_destructor(link->slaves, link_unref);
+        set_free(link->slaves);
 
         network_unref(link->network);
 
@@ -306,6 +306,11 @@ static Link *link_free(Link *link) {
 }
 
 DEFINE_TRIVIAL_REF_UNREF_FUNC(Link, link, link_free);
+
+DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+                link_hash_ops,
+                void, trivial_hash_func, trivial_compare_func,
+                Link, link_unref);
 
 int link_get_by_index(Manager *m, int ifindex, Link **ret) {
         Link *link;
@@ -985,7 +990,7 @@ static int link_append_to_master(Link *link) {
         if (link_get_master(link, &master) < 0)
                 return 0;
 
-        r = set_ensure_put(&master->slaves, NULL, link);
+        r = set_ensure_put(&master->slaves, &link_hash_ops, link);
         if (r <= 0)
                 return r;
 
@@ -2746,7 +2751,7 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
                 .dns_over_tls_mode = _DNS_OVER_TLS_MODE_INVALID,
         };
 
-        r = hashmap_ensure_put(&manager->links_by_index, NULL, INT_TO_PTR(link->ifindex), link);
+        r = hashmap_ensure_put(&manager->links_by_index, &link_hash_ops, INT_TO_PTR(link->ifindex), link);
         if (r < 0)
                 return log_link_debug_errno(link, r, "Failed to store link into manager: %m");
 
