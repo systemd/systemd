@@ -38,6 +38,14 @@
 #include "umask-util.h"
 #include "user-util.h"
 
+#if defined(O_SEARCH) && defined(O_PATH) && O_SEARCH == O_PATH
+#       undef O_SEARCH
+#endif
+
+#ifndef O_SEARCH
+#       define O_SEARCH O_RDONLY
+#endif
+
 int rmdir_parents(const char *path, const char *stop) {
         char *p;
         int r;
