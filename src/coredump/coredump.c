@@ -104,6 +104,7 @@ typedef enum {
         /* The fields below were added to kernel/core_pattern at later points, so they might be missing. */
         META_ARGV_HOSTNAME = _META_ARGV_REQUIRED,  /* %h: hostname */
         META_ARGV_DUMPABLE,     /* %d: as set by the kernel */
+        META_ARGV_PIDFD,        /* %F: pidfd of the process, since v6.16 */
         /* If new fields are added, they should be added here, to maintain compatibility
          * with callers which don't know about the new fields. */
         _META_ARGV_MAX,
@@ -133,6 +134,7 @@ static const char * const meta_field_names[_META_MAX] = {
         [META_ARGV_RLIMIT]    = "COREDUMP_RLIMIT=",
         [META_ARGV_HOSTNAME]  = "COREDUMP_HOSTNAME=",
         [META_ARGV_DUMPABLE]  = "COREDUMP_DUMPABLE=",
+        [META_ARGV_PIDFD]     = "COREDUMP_BY_PIDFD=",
         [META_COMM]           = "COREDUMP_COMM=",
         [META_EXE]            = "COREDUMP_EXE=",
         [META_UNIT]           = "COREDUMP_UNIT=",
@@ -1345,7 +1347,8 @@ static int gather_pid_metadata_from_argv(
                 Context *context,
                 int argc, char **argv) {
 
-        int r;
+        _cleanup_(pidref_done) PidRef local_pidref = PIDREF_NULL;
+        int r, kernel_fd = -EBADF;
 
         assert(iovw);
         assert(context);
@@ -1377,6 +1380,47 @@ static int gather_pid_metadata_from_argv(
                         t = buf;
                 }
 
+                if (i == META_ARGV_PID) {
+                        /* Store this so that we can check whether the core will be forwarded to a container
+                         * even when the kernel doesn't provide a pidfd. Can be dropped once baseline is
+                         * >= v6.16. */
+                        r = pidref_set_pidstr(&local_pidref, t);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to initialize pidref from pid %s: %m", t);
+                }
+
+                if (i == META_ARGV_PIDFD) {
+                        /* If the current kernel doesn't support the %F specifier (which resolves to a
+                         * pidfd), but we included it in the core_pattern expression, we'll receive an empty
+                         * string here. Deal with that gracefully. */
+                        if (isempty(t))
+                                continue;
+
+                        assert(!pidref_is_set(&context->pidref));
+                        assert(kernel_fd < 0);
+
+                        kernel_fd = parse_fd(t);
+                        if (kernel_fd < 0)
+                                return log_error_errno(kernel_fd, "Failed to parse pidfd \"%s\": %m", t);
+
+                        r = pidref_set_pidfd(&context->pidref, kernel_fd);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to initialize pidref from pidfd %d: %m", kernel_fd);
+
+                        /* If there are containers involved with different versions of the code they might
+                         * not be using pidfds, so it would be wrong to set the metadata, skip it. */
+                        r = pidref_in_same_namespace(/* pid1 = */ NULL, &context->pidref, NAMESPACE_PID);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to check pidns of crashing process, ignoring: %m");
+                        if (r <= 0)
+                                continue;
+
+                        /* We don't print the fd number in the journal as it's meaningless, but we still
+                         * record that the parsing was done with a kernel-provided fd as it means it's safe
+                         * from races, which is valuable information to provide in the journal record. */
+                        t = "1";
+                }
+
                 r = iovw_put_string_field(iovw, meta_field_names[i], t);
                 if (r < 0)
                         return r;
@@ -1384,7 +1428,19 @@ static int gather_pid_metadata_from_argv(
 
         /* Cache some of the process metadata we collected so far and that we'll need to
          * access soon. */
-        return context_parse_iovw(context, iovw);
+        r = context_parse_iovw(context, iovw);
+        if (r < 0)
+                return r;
+
+        /* If the kernel didn't give us a PIDFD, then use the one derived from the
+         * PID immediately, given we have it. */
+        if (!pidref_is_set(&context->pidref))
+                context->pidref = TAKE_PIDREF(local_pidref);
+
+        /* Close the kernel-provided FD as the last thing after everything else succeeded. */
+        kernel_fd = safe_close(kernel_fd);
+
+        return 0;
 }
 
 static int gather_pid_metadata_from_procfs(struct iovec_wrapper *iovw, Context *context) {
