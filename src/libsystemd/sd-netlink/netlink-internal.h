@@ -71,7 +71,6 @@ struct sd_netlink {
         int protocol;
 
         Hashmap *broadcast_group_refs;
-        bool broadcast_group_dont_leave:1; /* until we can rely on 4.2 */
 
         OrderedSet *rqueue;
         Hashmap *rqueue_by_serial;

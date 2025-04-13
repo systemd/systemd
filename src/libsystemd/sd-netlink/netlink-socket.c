@@ -24,10 +24,6 @@ static int broadcast_groups_get(sd_netlink *nl) {
         assert(nl->fd >= 0);
 
         r = netlink_socket_get_multicast_groups(nl->fd, &len, &groups);
-        if (r == -ENOPROTOOPT) {
-                nl->broadcast_group_dont_leave = true;
-                return 0;
-        }
         if (r < 0)
                 return r;
 
@@ -106,18 +102,6 @@ int socket_broadcast_group_ref(sd_netlink *nl, unsigned group) {
         return broadcast_group_join(nl, group);
 }
 
-static int broadcast_group_leave(sd_netlink *nl, unsigned group) {
-        assert(nl);
-        assert(nl->fd >= 0);
-        assert(group > 0);
-
-        if (nl->broadcast_group_dont_leave)
-                return 0;
-
-        /* group is "unsigned", but netlink(7) says the argument for NETLINK_DROP_MEMBERSHIP is "int" */
-        return setsockopt_int(nl->fd, SOL_NETLINK, NETLINK_DROP_MEMBERSHIP, group);
-}
-
 int socket_broadcast_group_unref(sd_netlink *nl, unsigned group) {
         unsigned n_ref;
         int r;
@@ -138,7 +122,8 @@ int socket_broadcast_group_unref(sd_netlink *nl, unsigned group) {
                 /* still refs left */
                 return 0;
 
-        return broadcast_group_leave(nl, group);
+        /* group is "unsigned", but netlink(7) says the argument for NETLINK_DROP_MEMBERSHIP is "int" */
+        return setsockopt_int(nl->fd, SOL_NETLINK, NETLINK_DROP_MEMBERSHIP, group);
 }
 
 /* returns the number of bytes sent, or a negative error code */

@@ -1819,8 +1819,6 @@ int netlink_socket_get_multicast_groups(int fd, size_t *ret_len, uint32_t **ret_
 
         assert(fd >= 0);
 
-        /* This returns ENOPROTOOPT if the kernel is older than 4.2. */
-
         if (getsockopt(fd, SOL_NETLINK, NETLINK_LIST_MEMBERSHIPS, NULL, &len) < 0)
                 return -errno;
 
