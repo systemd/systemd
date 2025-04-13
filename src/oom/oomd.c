@@ -134,12 +134,6 @@ static int run(int argc, char *argv[]) {
         if (!is_pressure_supported())
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Pressure Stall Information (PSI) is not supported");
 
-        r = cg_all_unified();
-        if (r < 0)
-                return log_error_errno(r, "Failed to determine whether the unified cgroups hierarchy is used: %m");
-        if (r == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Requires the unified cgroups hierarchy");
-
         r = cg_mask_supported(&mask);
         if (r < 0)
                 return log_error_errno(r, "Failed to get supported cgroup controllers: %m");

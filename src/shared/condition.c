@@ -411,21 +411,17 @@ static int condition_test_user(Condition *c, char **env) {
 }
 
 static int condition_test_control_group_controller(Condition *c, char **env) {
+        CGroupMask system_mask, wanted_mask;
         int r;
-        CGroupMask system_mask, wanted_mask = 0;
 
         assert(c);
         assert(c->parameter);
         assert(c->type == CONDITION_CONTROL_GROUP_CONTROLLER);
 
         if (streq(c->parameter, "v2"))
-                return cg_all_unified();
-        if (streq(c->parameter, "v1")) {
-                r = cg_all_unified();
-                if (r < 0)
-                        return r;
-                return !r;
-        }
+                return true;
+        if (streq(c->parameter, "v1"))
+                return false;
 
         r = cg_mask_supported(&system_mask);
         if (r < 0)
@@ -437,7 +433,7 @@ static int condition_test_control_group_controller(Condition *c, char **env) {
                  * mixed in with valid ones -- these are only assessed on the
                  * validity of the valid controllers found. */
                 log_debug("Failed to parse cgroup string: %s", c->parameter);
-                return 1;
+                return true;
         }
 
         return FLAGS_SET(system_mask, wanted_mask);
@@ -1084,14 +1080,6 @@ static int condition_test_psi(Condition *c, char **env) {
                 slice = strstrip(first);
                 if (!slice)
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse condition parameter %s.", c->parameter);
-
-                r = cg_all_unified();
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to determine whether the unified cgroups hierarchy is used: %m");
-                if (r == 0) {
-                        log_debug("PSI condition check requires the unified cgroups hierarchy, skipping.");
-                        return 1;
-                }
 
                 r = cg_mask_supported(&mask);
                 if (r < 0)
