@@ -1,10 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <errno.h>
+#include <stdlib.h>
+
+#include "alloc-util.h"
 #include "blockdev-util.h"
 #include "device-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "path-util.h"
+#include "sd-device.h"
 #include "tests.h"
+#include "tmpfile-util.h"
 
 static void test_path_is_encrypted_one(const char *p, int expect) {
         int r;
@@ -24,6 +31,33 @@ static void test_path_is_encrypted_one(const char *p, int expect) {
         log_info("%s encrypted: %s", p, yes_no(r));
 
         assert_se(expect < 0 || ((r > 0) == (expect > 0)));
+}
+
+TEST(get_block_device) {
+        _cleanup_free_ char *path = NULL;
+        _cleanup_(sd_device_unrefp) sd_device *sd_dev = NULL;
+
+        int fd;
+        int r;
+        dev_t devnum;
+
+        ASSERT_OK(mkdtemp_malloc(NULL, &path) >= 0);
+        fd = open (path, O_RDONLY);
+        ASSERT_OK(fd);
+        close(fd);
+
+        r = get_block_device(path, &devnum);
+        ASSERT_OK(r);
+
+        r = sd_device_new_from_devnum(&sd_dev, 'b', devnum);
+        ASSERT_OK(r);
+
+        r = device_is_devtype(sd_dev, "disk");
+        ASSERT_OK(r);
+
+        sd_device *parent = NULL;
+        r = sd_device_get_parent(sd_dev, &parent);
+        ASSERT_OK(r);
 }
 
 TEST(path_is_encrypted) {
@@ -75,4 +109,9 @@ TEST(partscan_enabled) {
         }
 }
 
-DEFINE_TEST_MAIN(LOG_INFO);
+static int intro(void) {
+        log_show_color(true);
+        return EXIT_SUCCESS;
+}
+
+DEFINE_TEST_MAIN_WITH_INTRO(LOG_DEBUG, intro);
