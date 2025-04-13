@@ -230,6 +230,17 @@ COREDUMP_FILENAME=/var/lib/systemd/coredump/core.Web….552351.….zst
       </varlistentry>
 
       <varlistentry>
+        <term><varname>COREDUMP_BY_PIDFD=</varname></term>
+        <listitem><para>If the crashed process was analyzed using a PIDFD provided by the kernel (requires
+        kernel v6.16) then this field will be present and set to <literal>1</literal>. If this field is
+        not set, then the crashed process was analyzed via a PID, which is known to be subject to race
+        conditions.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>COREDUMP_TIMESTAMP=</varname></term>
         <listitem><para>The time of the crash as reported by the kernel (in μs since the epoch).</para>
 
