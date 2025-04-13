@@ -168,47 +168,7 @@ static int get_virtfn_info(sd_device *pcidev, sd_device **ret_physfn_pcidev, cha
         return -ENOENT;
 }
 
-static int get_dev_port(sd_device *dev, bool fallback_to_dev_id, unsigned *ret) {
-        unsigned v;
-        int r;
-
-        assert(dev);
-        assert(ret);
-
-        /* Get kernel provided port index for the case when multiple ports on a single PCI function. */
-
-        r = device_get_sysattr_unsigned_filtered(dev, "dev_port", &v);
-        if (r < 0)
-                return r;
-        if (r > 0) {
-                /* Found a positive index. Let's use it. */
-                *ret = v;
-                return 1; /* positive */
-        }
-        assert(v == 0);
-
-        /* With older kernels IP-over-InfiniBand network interfaces sometimes erroneously provide the port
-         * number in the 'dev_id' sysfs attribute instead of 'dev_port', which thus stays initialized as 0. */
-
-        if (fallback_to_dev_id) {
-                unsigned iftype;
-
-                r = device_get_sysattr_unsigned_filtered(dev, "type", &iftype);
-                if (r < 0)
-                        return r;
-
-                fallback_to_dev_id = (iftype == ARPHRD_INFINIBAND);
-        }
-
-        if (fallback_to_dev_id)
-                return device_get_sysattr_unsigned_filtered(dev, "dev_id", ret);
-
-        /* Otherwise, return the original index 0. */
-        *ret = 0;
-        return 0; /* zero */
-}
-
-static int get_port_specifier(sd_device *dev, bool fallback_to_dev_id, char **ret) {
+static int get_port_specifier(sd_device *dev, char **ret) {
         const char *phys_port_name;
         unsigned dev_port;
         char *buf;
@@ -247,7 +207,7 @@ static int get_port_specifier(sd_device *dev, bool fallback_to_dev_id, char **re
 
         /* Then, try to use the kernel provided port index for the case when multiple ports on a single PCI
          * function. */
-        r = get_dev_port(dev, fallback_to_dev_id, &dev_port);
+        r = device_get_sysattr_unsigned_filtered(dev, "dev_port", &dev_port);
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to get device port index: %m");
         if (r > 0) {
@@ -313,7 +273,7 @@ static int names_pci_onboard(UdevEvent *event, sd_device *pci_dev, const char *p
         if (r < 0)
                 return r;
 
-        r = get_port_specifier(dev, /* fallback_to_dev_id = */ false, &port);
+        r = get_port_specifier(dev, &port);
         if (r < 0)
                 return r;
 
@@ -689,7 +649,7 @@ static int names_pci_slot(UdevEvent *event, sd_device *pci_dev, const char *pref
         if (r < 0)
                 return r;
 
-        r = get_port_specifier(dev, /* fallback_to_dev_id = */ true, &port);
+        r = get_port_specifier(dev, &port);
         if (r < 0)
                 return r;
 
