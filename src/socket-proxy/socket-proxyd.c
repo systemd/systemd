@@ -131,10 +131,10 @@ static void context_reset_timer(Context *context) {
 }
 
 static void connection_release(Connection *c) {
-        assert(c);
+        Context *context = ASSERT_PTR(ASSERT_PTR(c)->context);
 
         connection_free(c);
-        context_reset_timer(c->context);
+        context_reset_timer(context);
 }
 
 static int connection_create_pipes(Connection *c, int buffer[static 2], size_t *sz) {
