@@ -231,7 +231,7 @@ void link_dns_settings_clear(Link *link) {
         link->dnssec_mode = _DNSSEC_MODE_INVALID;
         link->dns_over_tls_mode = _DNS_OVER_TLS_MODE_INVALID;
 
-        link->dnssec_negative_trust_anchors = set_free_free(link->dnssec_negative_trust_anchors);
+        link->dnssec_negative_trust_anchors = set_free(link->dnssec_negative_trust_anchors);
 }
 
 static void link_free_engines(Link *link) {
