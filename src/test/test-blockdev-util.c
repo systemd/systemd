@@ -4,6 +4,7 @@
 #include "device-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "path-util.h"
 #include "tests.h"
 
 static void test_path_is_encrypted_one(const char *p, int expect) {
@@ -24,6 +25,22 @@ static void test_path_is_encrypted_one(const char *p, int expect) {
         log_info("%s encrypted: %s", p, yes_no(r));
 
         assert_se(expect < 0 || ((r > 0) == (expect > 0)));
+}
+
+TEST(get_block_device) {
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        int r;
+
+        ASSERT_OK(sd_device_enumerator_new(&e));
+        ASSERT_OK(sd_device_enumerator_allow_uninitialized(e));
+        ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, "block", true));
+
+        FOREACH_DEVICE(e, dev) {
+                const char *name;
+
+                r = sd_device_get_devname(dev, &name);
+                ASSERT_OK(r);
+        }
 }
 
 TEST(path_is_encrypted) {
