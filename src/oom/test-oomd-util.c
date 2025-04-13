@@ -46,9 +46,6 @@ static void test_oomd_cgroup_kill(void) {
         if (geteuid() != 0)
                 return (void) log_tests_skipped("not root");
 
-        if (cg_all_unified() <= 0)
-                return (void) log_tests_skipped("cgroups are not running in unified mode");
-
         assert_se(cg_pid_get_path(NULL, 0, &cgroup_root) >= 0);
 
         /* Create another cgroup below this one for the pids we forked off. We need this to be managed
@@ -102,9 +99,6 @@ static void test_oomd_cgroup_context_acquire_and_insert(void) {
 
         if (!is_pressure_supported())
                 return (void) log_tests_skipped("system does not support pressure");
-
-        if (cg_all_unified() <= 0)
-                return (void) log_tests_skipped("cgroups are not running in unified mode");
 
         assert_se(cg_mask_supported(&mask) >= 0);
 
@@ -428,9 +422,6 @@ static void test_oomd_fetch_cgroup_oom_preference(void) {
 
         if (!is_pressure_supported())
                 return (void) log_tests_skipped("system does not support pressure");
-
-        if (cg_all_unified() <= 0)
-                return (void) log_tests_skipped("cgroups are not running in unified mode");
 
         assert_se(cg_mask_supported(&mask) >= 0);
 

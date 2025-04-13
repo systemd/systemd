@@ -32,7 +32,7 @@ static int short_uid_gid_range(UIDRangeUsernsMode mode) {
 }
 
 char** taint_strv(void) {
-        const char *stage[12] = {};
+        const char *stage[11] = {};
         size_t n = 0;
 
         /* Returns a "taint string", e.g. "local-hwclock:var-run-bad". Only things that are detected at

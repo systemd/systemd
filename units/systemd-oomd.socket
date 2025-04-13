@@ -13,7 +13,6 @@ Documentation=man:systemd-oomd.service(8)
 DefaultDependencies=no
 Before=sockets.target shutdown.target
 Conflicts=shutdown.target
-ConditionControlGroupController=v2
 ConditionControlGroupController=memory
 ConditionPathExists=/proc/pressure/cpu
 ConditionPathExists=/proc/pressure/io
