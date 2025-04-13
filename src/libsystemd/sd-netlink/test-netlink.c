@@ -421,8 +421,9 @@ TEST(dump_addresses) {
 
         for (sd_netlink_message *m = reply; m; m = sd_netlink_message_next(m)) {
                 uint16_t type;
-                unsigned char scope, flags;
+                unsigned char scope;
                 int family, ifindex;
+                uint32_t flags;
 
                 ASSERT_OK(sd_netlink_message_get_type(m, &type));
                 ASSERT_EQ(type, RTM_NEWADDR);
@@ -430,7 +431,7 @@ TEST(dump_addresses) {
                 ASSERT_OK(sd_rtnl_message_addr_get_ifindex(m, &ifindex));
                 ASSERT_OK(sd_rtnl_message_addr_get_family(m, &family));
                 ASSERT_OK(sd_rtnl_message_addr_get_scope(m, &scope));
-                ASSERT_OK(sd_rtnl_message_addr_get_flags(m, &flags));
+                ASSERT_OK(sd_netlink_message_read_u32(m, IFA_FLAGS, &flags));
 
                 ASSERT_GT(ifindex, 0);
                 ASSERT_TRUE(IN_SET(family, AF_INET, AF_INET6));

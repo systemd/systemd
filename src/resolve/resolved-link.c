@@ -1161,7 +1161,7 @@ int link_address_update_rtnl(LinkAddress *a, sd_netlink_message *m) {
         assert(a);
         assert(m);
 
-        r = sd_rtnl_message_addr_get_flags(m, &a->flags);
+        r = sd_netlink_message_read_u32(m, IFA_FLAGS, &a->flags);
         if (r < 0)
                 return r;
 

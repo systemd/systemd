@@ -29,7 +29,8 @@ struct LinkAddress {
         union in_addr_union in_addr_broadcast;
         unsigned char prefixlen;
 
-        unsigned char flags, scope;
+        unsigned char scope;
+        uint32_t flags;
 
         DnsResourceRecord *llmnr_address_rr;
         DnsResourceRecord *llmnr_ptr_rr;
