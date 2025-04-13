@@ -99,7 +99,7 @@ static int validate_image_fd(int fd, MountImageParameters *p) {
         if (fl < 0)
                 return log_debug_errno(fl, "Image file descriptor has unsafe flags set: %m");
 
-        switch (fl & O_ACCMODE) {
+        switch (fl & O_ACCMODE_STRICT) {
 
         case O_RDONLY:
                 p->read_only = true;

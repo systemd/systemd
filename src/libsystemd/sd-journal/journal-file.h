@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <fcntl.h>
 #include <inttypes.h>
 #include <sys/uio.h>
 
@@ -18,6 +17,7 @@
 #include "mmap-cache.h"
 #include "sparse-endian.h"
 #include "time-util.h"
+#include "missing_fcntl.h"
 
 typedef struct JournalMetrics {
         /* For all these: UINT64_MAX means "pick automatically", and 0 means "no limit enforced" */
@@ -391,5 +391,5 @@ static inline uint32_t COMPRESSION_TO_HEADER_INCOMPATIBLE_FLAG(Compression c) {
 
 static inline bool journal_file_writable(JournalFile *f) {
         assert(f);
-        return (f->open_flags & O_ACCMODE) != O_RDONLY;
+        return (f->open_flags & O_ACCMODE_STRICT) != O_RDONLY;
 }
