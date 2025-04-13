@@ -44,6 +44,11 @@
 #include "strv.h"
 #include "tclass.h"
 
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+                stacked_netdevs_hash_ops,
+                char, string_hash_func, string_compare_func,
+                NetDev, netdev_unref);
+
 static int network_resolve_netdev_one(Network *network, const char *name, NetDevKind kind, NetDev **ret) {
         const char *kind_string;
         NetDev *netdev;
@@ -105,14 +110,14 @@ static int network_resolve_stacked_netdevs(Network *network) {
                 if (network_resolve_netdev_one(network, name, PTR_TO_INT(kind), &netdev) <= 0)
                         continue;
 
-                r = hashmap_ensure_put(&network->stacked_netdevs, &string_hash_ops, netdev->ifname, netdev);
+                r = hashmap_ensure_put(&network->stacked_netdevs, &stacked_netdevs_hash_ops, netdev->ifname, netdev);
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0)
                         log_warning_errno(r, "%s: Failed to add NetDev '%s' to network, ignoring: %m",
                                           network->filename, (const char *) name);
 
-                netdev = NULL;
+                TAKE_PTR(netdev);
         }
 
         return 0;
@@ -290,11 +295,6 @@ int network_verify(Network *network) {
 
         if (network->keep_configuration < 0)
                 network->keep_configuration = KEEP_CONFIGURATION_NO;
-
-        if (network->ipv6_proxy_ndp == 0 && !set_isempty(network->ipv6_proxy_ndp_addresses)) {
-                log_warning("%s: IPv6ProxyNDP= is disabled. Ignoring IPv6ProxyNDPAddress=.", network->filename);
-                network->ipv6_proxy_ndp_addresses = set_free_free(network->ipv6_proxy_ndp_addresses);
-        }
 
         r = network_drop_invalid_addresses(network);
         if (r < 0)
@@ -752,7 +752,7 @@ static Network *network_free(Network *network) {
         free(network->dns);
         ordered_set_free(network->search_domains);
         ordered_set_free(network->route_domains);
-        set_free_free(network->dnssec_negative_trust_anchors);
+        set_free(network->dnssec_negative_trust_anchors);
 
         /* DHCP server */
         free(network->dhcp_server_relay_agent_circuit_id);
@@ -825,23 +825,23 @@ static Network *network_free(Network *network) {
         netdev_unref(network->bridge);
         netdev_unref(network->bond);
         netdev_unref(network->vrf);
-        hashmap_free_with_destructor(network->stacked_netdevs, netdev_unref);
+        hashmap_free(network->stacked_netdevs);
 
         /* static configs */
-        set_free_free(network->ipv6_proxy_ndp_addresses);
+        set_free(network->ipv6_proxy_ndp_addresses);
         ordered_hashmap_free(network->addresses_by_section);
         hashmap_free(network->routes_by_section);
         ordered_hashmap_free(network->nexthops_by_section);
-        hashmap_free_with_destructor(network->bridge_fdb_entries_by_section, bridge_fdb_free);
-        hashmap_free_with_destructor(network->bridge_mdb_entries_by_section, bridge_mdb_free);
+        hashmap_free(network->bridge_fdb_entries_by_section);
+        hashmap_free(network->bridge_mdb_entries_by_section);
         ordered_hashmap_free(network->neighbors_by_section);
         hashmap_free(network->address_labels_by_section);
-        hashmap_free_with_destructor(network->prefixes_by_section, prefix_free);
-        hashmap_free_with_destructor(network->route_prefixes_by_section, route_prefix_free);
-        hashmap_free_with_destructor(network->pref64_prefixes_by_section, prefix64_free);
+        hashmap_free(network->prefixes_by_section);
+        hashmap_free(network->route_prefixes_by_section);
+        hashmap_free(network->pref64_prefixes_by_section);
         hashmap_free(network->rules_by_section);
-        hashmap_free_with_destructor(network->dhcp_static_leases_by_section, dhcp_static_lease_free);
-        ordered_hashmap_free_with_destructor(network->sr_iov_by_section, sr_iov_free);
+        hashmap_free(network->dhcp_static_leases_by_section);
+        ordered_hashmap_free(network->sr_iov_by_section);
         hashmap_free(network->qdiscs_by_section);
         hashmap_free(network->tclasses_by_section);
 
