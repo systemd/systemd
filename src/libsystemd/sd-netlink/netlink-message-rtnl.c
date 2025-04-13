@@ -136,8 +136,6 @@ DEFINE_RTNL_MESSAGE_ADDR_GETTER(ifa_index, ifindex, int);
 DEFINE_RTNL_MESSAGE_ADDR_GETTER(ifa_family, family, int);
 DEFINE_RTNL_MESSAGE_PREFIXLEN_SETTER(addr, struct ifaddrmsg, ifa_family, ifa_prefixlen, prefixlen, uint8_t);
 DEFINE_RTNL_MESSAGE_ADDR_GETTER(ifa_prefixlen, prefixlen, uint8_t);
-DEFINE_RTNL_MESSAGE_ADDR_SETTER(ifa_flags, flags, uint8_t);
-DEFINE_RTNL_MESSAGE_ADDR_GETTER(ifa_flags, flags, uint8_t);
 DEFINE_RTNL_MESSAGE_ADDR_SETTER(ifa_scope, scope, uint8_t);
 DEFINE_RTNL_MESSAGE_ADDR_GETTER(ifa_scope, scope, uint8_t);
 
