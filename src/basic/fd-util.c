@@ -1001,13 +1001,13 @@ int fd_verify_safe_flags_full(int fd, int extra_flags) {
         if (flags < 0)
                 return -errno;
 
-        unexpected_flags = flags & ~(O_ACCMODE|O_NOFOLLOW|RAW_O_LARGEFILE|extra_flags);
+        unexpected_flags = flags & ~(O_ACCMODE_STRICT|O_NOFOLLOW|RAW_O_LARGEFILE|extra_flags);
         if (unexpected_flags != 0)
                 return log_debug_errno(SYNTHETIC_ERRNO(EREMOTEIO),
                                        "Unexpected flags set for extrinsic fd: 0%o",
                                        (unsigned) unexpected_flags);
 
-        return flags & (O_ACCMODE | extra_flags); /* return the flags variable, but remove the noise */
+        return flags & (O_ACCMODE_STRICT | extra_flags); /* return the flags variable, but remove the noise */
 }
 
 int read_nr_open(void) {
@@ -1132,7 +1132,7 @@ int fds_are_same_mount(int fd1, int fd2) {
 }
 
 const char* accmode_to_string(int flags) {
-        switch (flags & O_ACCMODE) {
+        switch (flags & O_ACCMODE_STRICT) {
         case O_RDONLY:
                 return "ro";
         case O_WRONLY:
