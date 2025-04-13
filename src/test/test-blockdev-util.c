@@ -26,6 +26,22 @@ static void test_path_is_encrypted_one(const char *p, int expect) {
         assert_se(expect < 0 || ((r > 0) == (expect > 0)));
 }
 
+TEST(get_block_device) {
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        int r;
+
+        ASSERT_OK(sd_device_enumerator_new(&e));
+        ASSERT_OK(sd_device_enumerator_allow_uninitialized(e));
+        ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, "block", true));
+
+        FOREACH_DEVICE(e, dev) {
+                const char *name;
+
+                r = sd_device_get_devname(dev, &name);
+                ASSERT_OK(r);
+        }
+}
+
 TEST(path_is_encrypted) {
         int booted = sd_booted(); /* If this is run in build environments such as koji, /dev/ might be a
                                    * regular fs. Don't assume too much if not running under systemd. */
