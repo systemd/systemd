@@ -102,6 +102,8 @@ enum {
         META_ARGV_TIMESTAMP,    /* %t: time of dump, expressed as seconds since the Epoch (we expand this to μs granularity) */
         META_ARGV_RLIMIT,       /* %c: core file size soft resource limit */
         META_ARGV_HOSTNAME,     /* %h: hostname */
+        _META_ARGV_REQUIRED_MAX,/* The following argvs are only available with new kernels, so they are optional */
+        META_ARGV_PIDFD = _META_ARGV_REQUIRED_MAX, /* %F: pidfd of the process, since v6.16 */
         _META_ARGV_MAX,
 
         /* The following indexes are cached for a couple of special fields we use (and
@@ -129,6 +131,7 @@ static const char * const meta_field_names[_META_MAX] = {
         [META_ARGV_TIMESTAMP] = "COREDUMP_TIMESTAMP=",
         [META_ARGV_RLIMIT]    = "COREDUMP_RLIMIT=",
         [META_ARGV_HOSTNAME]  = "COREDUMP_HOSTNAME=",
+        [META_ARGV_PIDFD]     = "COREDUMP_PIDFD=",
         [META_COMM]           = "COREDUMP_COMM=",
         [META_EXE]            = "COREDUMP_EXE=",
         [META_UNIT]           = "COREDUMP_UNIT=",
@@ -1021,11 +1024,11 @@ static int submit_coredump(
 
 static int context_parse_iovw(Context *context, struct iovec_wrapper *iovw) {
         const char *unit;
-        int r;
+        int r, kernel_fd = -EBADF;
 
         assert(context);
         assert(iovw);
-        assert(iovw->count >= _META_ARGV_MAX);
+        assert(iovw->count >= _META_ARGV_REQUIRED_MAX);
 
         /* Converts the data in the iovec array iovw into separate fields. Fills in context->meta[] (for
          * which no memory is allocated, it just contains direct pointers into the iovec array memory). */
@@ -1051,7 +1054,7 @@ static int context_parse_iovw(Context *context, struct iovec_wrapper *iovw) {
         }
 
         /* The basic fields from argv[] should always be there, refuse early if not */
-        for (int i = 0; i < _META_ARGV_MAX; i++)
+        for (int i = 0; i < _META_ARGV_REQUIRED_MAX; i++)
                 if (!context->meta[i])
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "A required (%s) has not been sent, aborting.", meta_field_names[i]);
 
@@ -1063,9 +1066,22 @@ static int context_parse_iovw(Context *context, struct iovec_wrapper *iovw) {
                 if (context->pidref.pid != parsed_pid)
                         return log_error_errno(r, "Passed PID " PID_FMT " does not match passed " PID_FMT ": %m", parsed_pid, context->pidref.pid);
         } else {
-                r = pidref_set_pid(&context->pidref, parsed_pid);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to initialize pidref from pid " PID_FMT ": %m", parsed_pid);
+                if (!isempty(context->meta[META_ARGV_PIDFD]))  {
+                        kernel_fd = parse_fd(context->meta[META_ARGV_PIDFD]);
+                        if (kernel_fd < 0)
+                                return log_error_errno(kernel_fd, "Failed to parse PIDFD \"%s\": %m", context->meta[META_ARGV_PIDFD]);
+
+                        r = pidref_set_pidfd(&context->pidref, kernel_fd);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to initialize pidref from pidfd %d: %m", kernel_fd);
+
+                        if (context->pidref.pid != parsed_pid)
+                                return log_error_errno(SYNTHETIC_ERRNO(ESRCH), "Passed PID " PID_FMT " does not match PID from PIDFD " PID_FMT, parsed_pid, context->pidref.pid);
+                } else {
+                        r = pidref_set_pid(&context->pidref, parsed_pid);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to initialize pidref from pid " PID_FMT ": %m", parsed_pid);
+                }
         }
 
         r = parse_uid(context->meta[META_ARGV_UID], &context->uid);
@@ -1092,6 +1108,9 @@ static int context_parse_iovw(Context *context, struct iovec_wrapper *iovw) {
          * isn't already set. */
         if (SIGNAL_VALID(context->signo) && !have_signal_name)
                 (void) iovw_put_string_field(iovw, "COREDUMP_SIGNAL_NAME=SIG", signal_to_string(context->signo));
+
+        /* Close the kernel-provided FD as the last thing after everything else succeeded */
+        kernel_fd = safe_close(kernel_fd);
 
         return 0;
 }
@@ -1321,12 +1340,12 @@ static int gather_pid_metadata_from_argv(
         /* We gather all metadata that were passed via argv[] into an array of iovecs that
          * we'll forward to the socket unit */
 
-        if (argc < _META_ARGV_MAX)
+        if (argc < _META_ARGV_REQUIRED_MAX)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Not enough arguments passed by the kernel (%i, expected %i).",
                                        argc, _META_ARGV_MAX);
 
-        for (int i = 0; i < _META_ARGV_MAX; i++) {
+        for (int i = 0; i < MIN(argc, _META_ARGV_MAX); i++) {
                 _cleanup_free_ char *buf = NULL;
                 const char *t = argv[i];
 
