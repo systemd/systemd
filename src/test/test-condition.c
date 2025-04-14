@@ -121,19 +121,13 @@ TEST(condition_test_path) {
 
 TEST(condition_test_control_group_hierarchy) {
         Condition *condition;
-        int r;
 
-        r = cg_unified();
-        if (IN_SET(r, -ENOMEDIUM, -ENOENT))
-                return (void) log_tests_skipped("cgroupfs is not mounted");
-        ASSERT_OK(r);
-
-        ASSERT_NOT_NULL((condition = condition_new(CONDITION_CONTROL_GROUP_CONTROLLER, "v1", false, false)));
-        ASSERT_OK_EQ(condition_test(condition, environ),  r < CGROUP_UNIFIED_ALL);
+        ASSERT_NOT_NULL(condition = condition_new(CONDITION_CONTROL_GROUP_CONTROLLER, "v1", false, false));
+        ASSERT_OK_ZERO(condition_test(condition, environ));
         condition_free(condition);
 
-        ASSERT_NOT_NULL((condition = condition_new(CONDITION_CONTROL_GROUP_CONTROLLER, "v2", false, false)));
-        ASSERT_OK_EQ(condition_test(condition, environ), r >= CGROUP_UNIFIED_ALL);
+        ASSERT_NOT_NULL(condition = condition_new(CONDITION_CONTROL_GROUP_CONTROLLER, "v2", false, false));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ));
         condition_free(condition);
 }
 
