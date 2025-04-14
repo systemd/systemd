@@ -19,6 +19,7 @@
 #include "cgroup-util.h"
 #include "conf-parser.h"
 #include "creds-util.h"
+#include "daemon-util.h"
 #include "dirent-util.h"
 #include "event-util.h"
 #include "extract-word.h"
@@ -95,6 +96,7 @@
 
 static int server_schedule_sync(Server *s, int priority);
 static int server_refresh_idle_timer(Server *s);
+static int server_dispatch_reload_signal(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata);
 
 static int server_determine_path_usage(
                 Server *s,
@@ -264,6 +266,12 @@ static void server_add_acls(JournalFile *f, uid_t uid) {
 #endif
 }
 
+static JournalFileFlags get_journal_file_flags(Server *s, bool seal) {
+        return (s->compress.enabled ? JOURNAL_COMPRESS : 0) |
+                (seal ? JOURNAL_SEAL : 0) |
+                JOURNAL_STRICT_ORDER;
+}
+
 static int server_open_journal(
                 Server *s,
                 bool reliably,
@@ -281,10 +289,7 @@ static int server_open_journal(
         assert(fname);
         assert(ret);
 
-        file_flags =
-                (s->compress.enabled ? JOURNAL_COMPRESS : 0) |
-                (seal ? JOURNAL_SEAL : 0) |
-                JOURNAL_STRICT_ORDER;
+        file_flags = get_journal_file_flags(s, seal);
 
         set_clear_with_destructor(s->deferred_closes, journal_file_offline_close);
 
@@ -717,7 +722,7 @@ void server_rotate(Server *s) {
 
         log_debug("Rotating...");
 
-        /* First, rotate the system journal (either in its runtime flavour or in its runtime flavour) */
+        /* First, rotate the system journal (either in its runtime flavour or in its system flavour) */
         (void) server_do_rotate(s, &s->runtime_journal, "runtime", /* seal= */ false, /* uid= */ 0);
         (void) server_do_rotate(s, &s->system_journal, "system", s->seal, /* uid= */ 0);
 
@@ -1785,6 +1790,10 @@ static int server_setup_signals(Server *s) {
 
         assert(s);
 
+        r = sd_event_add_signal(s->event, NULL, SIGHUP|SD_EVENT_SIGNAL_PROCMASK, server_dispatch_reload_signal, s);
+        if (r < 0)
+                return r;
+
         r = sd_event_add_signal(s->event, &s->sigusr1_event_source, SIGUSR1|SD_EVENT_SIGNAL_PROCMASK, dispatch_sigusr1, s);
         if (r < 0)
                 return r;
@@ -1840,7 +1849,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (r < 0)
                         log_warning("Failed to parse forward to syslog switch \"%s\". Ignoring.", value);
                 else
-                        s->forward_to_syslog = r;
+                        s->cmdline_config.forward_to_syslog = r;
 
         } else if (proc_cmdline_key_streq(key, "systemd.journald.forward_to_kmsg")) {
 
@@ -1848,7 +1857,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (r < 0)
                         log_warning("Failed to parse forward to kmsg switch \"%s\". Ignoring.", value);
                 else
-                        s->forward_to_kmsg = r;
+                        s->cmdline_config.forward_to_kmsg = r;
 
         } else if (proc_cmdline_key_streq(key, "systemd.journald.forward_to_console")) {
 
@@ -1856,7 +1865,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (r < 0)
                         log_warning("Failed to parse forward to console switch \"%s\". Ignoring.", value);
                 else
-                        s->forward_to_console = r;
+                        s->cmdline_config.forward_to_console = r;
 
         } else if (proc_cmdline_key_streq(key, "systemd.journald.forward_to_wall")) {
 
@@ -1864,7 +1873,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (r < 0)
                         log_warning("Failed to parse forward to wall switch \"%s\". Ignoring.", value);
                 else
-                        s->forward_to_wall = r;
+                        s->cmdline_config.forward_to_wall = r;
 
         } else if (proc_cmdline_key_streq(key, "systemd.journald.max_level_console")) {
 
@@ -1875,7 +1884,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (r < 0)
                         log_warning("Failed to parse max level console value \"%s\". Ignoring.", value);
                 else
-                        s->max_level_console = r;
+                        s->cmdline_config.max_level_console = r;
 
         } else if (proc_cmdline_key_streq(key, "systemd.journald.max_level_store")) {
 
@@ -1886,7 +1895,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (r < 0)
                         log_warning("Failed to parse max level store value \"%s\". Ignoring.", value);
                 else
-                        s->max_level_store = r;
+                        s->cmdline_config.max_level_store = r;
 
         } else if (proc_cmdline_key_streq(key, "systemd.journald.max_level_syslog")) {
 
@@ -1897,7 +1906,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (r < 0)
                         log_warning("Failed to parse max level syslog value \"%s\". Ignoring.", value);
                 else
-                        s->max_level_syslog = r;
+                        s->cmdline_config.max_level_syslog = r;
 
         } else if (proc_cmdline_key_streq(key, "systemd.journald.max_level_kmsg")) {
 
@@ -1908,7 +1917,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (r < 0)
                         log_warning("Failed to parse max level kmsg value \"%s\". Ignoring.", value);
                 else
-                        s->max_level_kmsg = r;
+                        s->cmdline_config.max_level_kmsg = r;
 
         } else if (proc_cmdline_key_streq(key, "systemd.journald.max_level_wall")) {
 
@@ -1919,7 +1928,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (r < 0)
                         log_warning("Failed to parse max level wall value \"%s\". Ignoring.", value);
                 else
-                        s->max_level_wall = r;
+                        s->cmdline_config.max_level_wall = r;
 
         } else if (proc_cmdline_key_streq(key, "systemd.journald.max_level_socket")) {
 
@@ -1930,7 +1939,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (r < 0)
                         log_warning("Failed to parse max level socket value \"%s\". Ignoring.", value);
                 else
-                        s->max_level_socket = r;
+                        s->cmdline_config.max_level_socket = r;
 
         } else if (startswith(key, "systemd.journald"))
                 log_warning("Unknown journald kernel command line option \"%s\". Ignoring.", key);
@@ -2374,7 +2383,7 @@ static void server_load_credentials(Server *s) {
         if (r < 0)
                 log_debug_errno(r, "Failed to read credential journal.forward_to_socket, ignoring: %m");
         else {
-                r = socket_address_parse(&s->forward_to_socket, data);
+                r = socket_address_parse(&s->cred_config.forward_to_socket, data);
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse socket address '%s' from credential journal.forward_to_socket, ignoring: %m", (char *) data);
         }
@@ -2389,12 +2398,263 @@ static void server_load_credentials(Server *s) {
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse storage '%s' from credential journal.storage, ignoring: %m", (char *) data);
                 else
-                        s->storage = r;
+                        s->cred_config.storage = r;
         }
 }
 
-int server_new(Server **ret) {
+static void server_set_defaults(Server *s) {
+        assert(s);
+
+        s->storage = s->namespace ? STORAGE_PERSISTENT : STORAGE_AUTO;
+
+        s->compress.enabled = true;
+        s->compress.threshold_bytes = UINT64_MAX;
+
+        s->seal = true;
+
+        s->read_kmsg = !s->namespace;
+
+        s->set_audit = true;
+        s->sync_interval_usec = DEFAULT_SYNC_INTERVAL_USEC;
+
+        s->ratelimit_interval = DEFAULT_RATE_LIMIT_INTERVAL;
+        s->ratelimit_burst = DEFAULT_RATE_LIMIT_BURST;
+
+        s->system_storage.name = "System Journal";
+        journal_reset_metrics(&s->system_storage.metrics);
+
+        s->runtime_storage.name = "Runtime Journal";
+        journal_reset_metrics(&s->runtime_storage.metrics);
+
+        s->max_retention_usec = 0;
+        s->max_file_usec = DEFAULT_MAX_FILE_USEC;
+
+        s->forward_to_syslog = false;
+        s->forward_to_kmsg = false;
+        s->forward_to_console = false;
+        s->forward_to_wall = true;
+        s->forward_to_socket = (SocketAddress) { .sockaddr.sa.sa_family = AF_UNSPEC };
+
+        s->tty_path = NULL;
+
+        s->max_level_store = LOG_DEBUG;
+        s->max_level_syslog = LOG_DEBUG;
+        s->max_level_kmsg = LOG_NOTICE;
+        s->max_level_console = LOG_INFO;
+        s->max_level_wall = LOG_EMERG;
+        s->max_level_socket = LOG_DEBUG;
+
+        s->split_mode = SPLIT_UID;
+        s->line_max = DEFAULT_LINE_MAX;
+}
+
+static void server_merge_cred_config(Server *s) {
+        assert(s);
+
+        s->forward_to_socket =
+                s->cred_config_from_conf.forward_to_socket.sockaddr.sa.sa_family != AF_UNSPEC ? s->cred_config_from_conf.forward_to_socket :
+                s->cred_config.forward_to_socket.sockaddr.sa.sa_family != AF_UNSPEC ? s->cred_config.forward_to_socket :
+                (SocketAddress) { .sockaddr.sa.sa_family = AF_UNSPEC };
+
+        s->storage =
+                s->cred_config_from_conf.storage != _STORAGE_INVALID ? s->cred_config_from_conf.storage :
+                s->cred_config.storage != _STORAGE_INVALID ? s->cred_config.storage :
+                s->namespace ? STORAGE_PERSISTENT : STORAGE_AUTO;
+}
+
+#define MERGE_BOOL(name, default_value)                         \
+        s->name =                                         \
+                s->cmdline_config.name ||                 \
+                s->cmdline_config_from_conf.name ||       \
+                default_value;
+
+#define MERGE_NON_NEGATIVE(name, default_value)                                                 \
+        s->name =                                                                  \
+                s->cmdline_config.name >= 0 ? s->cmdline_config.name :           \
+                s->cmdline_config_from_conf.name >= 0 ? s->cmdline_config_from_conf.name :  \
+                default_value;
+
+static void server_merge_cmdline_config(Server *s) {
+        assert(s);
+
+        MERGE_BOOL(forward_to_kmsg, false);
+        MERGE_BOOL(forward_to_syslog, false);
+        MERGE_BOOL(forward_to_console, false);
+        MERGE_BOOL(forward_to_wall, true);
+
+        MERGE_NON_NEGATIVE(max_level_store, LOG_DEBUG);
+        MERGE_NON_NEGATIVE(max_level_syslog, LOG_DEBUG);
+        MERGE_NON_NEGATIVE(max_level_kmsg, LOG_NOTICE);
+        MERGE_NON_NEGATIVE(max_level_console, LOG_INFO);
+        MERGE_NON_NEGATIVE(max_level_wall, LOG_EMERG);
+        MERGE_NON_NEGATIVE(max_level_socket, LOG_DEBUG);
+}
+
+static void set_ratelimit(Server *s) {
+        if ((s->ratelimit_interval != 0) != (s->ratelimit_burst != 0)) { /* One set to 0 and the other not? */
+                log_debug("Setting both rate limit interval and burst from "USEC_FMT",%u to 0,0",
+                          s->ratelimit_interval, s->ratelimit_burst);
+                s->ratelimit_interval = s->ratelimit_burst = 0;
+        }
+}
+
+static void server_set_cred_conf_defaults(JournalCredConfig *c) {
+        assert(c);
+
+        c->forward_to_socket = (SocketAddress) { .sockaddr.sa.sa_family = AF_UNSPEC };
+        c->storage = _STORAGE_INVALID;
+}
+
+static void server_set_cmdline_conf_defaults(JournalCmdlineConfig *c) {
+        assert(c);
+
+        c->forward_to_syslog = false;
+        c->forward_to_kmsg = false;
+        c->forward_to_console = false;
+        c->forward_to_wall = false;
+
+        c->max_level_store = -1;
+        c->max_level_syslog = -1;
+        c->max_level_kmsg = -1;
+        c->max_level_console = -1;
+        c->max_level_wall = -1;
+        c->max_level_socket = -1;
+}
+
+static void server_load_config(Server *s) {
+        int r;
+
+        assert(s);
+
+        server_set_defaults(s);
+        server_set_cred_conf_defaults(&s->cred_config);
+        server_set_cmdline_conf_defaults(&s->cmdline_config);
+
+        server_load_credentials(s);
+        server_parse_config_file(s);
+        server_merge_cred_config(s);
+
+        if (!s->namespace) {
+                /* Parse kernel command line, but only if we are not a namespace instance */
+                r = proc_cmdline_parse(parse_proc_cmdline_item, s, PROC_CMDLINE_STRIP_RD_PREFIX);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
+        }
+        server_merge_cmdline_config(s);
+
+        set_ratelimit(s);
+}
+
+static void server_reload_config(Server *s) {
+        assert(s);
+
+        server_set_defaults(s);
+
+        server_parse_config_file(s);
+
+        server_merge_cred_config(s);
+        server_merge_cmdline_config(s);
+
+        set_ratelimit(s);
+}
+
+/*
+ * The default for the journals based on server_system_journal_open() called in server_init() is
+ * that system_journal will be NULL and runtime_journal will be set as long as s->storage != STORAGE_NONE.
+ * This function will attempt to achieve the same state: system_journal == NULL and runtime_journal will be set with the new conf values.
+ */
+static int server_reload_journals(Server *s) {
+        int r;
+
+        assert(s);
+
+        if (s->system_journal && IN_SET(s->storage, STORAGE_PERSISTENT, STORAGE_AUTO)) {
+                server_driver_message(s, 0,
+                        "MESSAGE_ID=" SD_MESSAGE_JOURNAL_USAGE_STR,
+                        LOG_MESSAGE("In system journal - volatile"),
+                        NULL);
+
+                journal_file_reload(
+                        s->system_journal,
+                        get_journal_file_flags(s, s->seal),
+                        s->compress.threshold_bytes,
+                        &s->system_storage.metrics);
+        } else if (s->system_journal && s->storage == STORAGE_VOLATILE) {
+                server_driver_message(s, 0,
+                        "MESSAGE_ID=" SD_MESSAGE_JOURNAL_USAGE_STR,
+                        LOG_MESSAGE("In system journal - volatile"),
+                        NULL);
+                /*
+                * system_journal will be set to NULL
+                * Because runtime_journal is set to NULL above, it will be created with the new configuration.
+                */
+                r = server_relinquish_var(s);
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to relinquish to runtime journal on reload, ignoring: %m");
+        } else if (s->runtime_journal && IN_SET(s->storage, STORAGE_PERSISTENT, STORAGE_AUTO, STORAGE_VOLATILE)) {
+                server_driver_message(s, 0,
+                        "MESSAGE_ID=" SD_MESSAGE_JOURNAL_USAGE_STR,
+                        LOG_MESSAGE("In runtime journal - volatile: keep_free %s, max_size %s, max_use %s, n_max_files %s free.",
+                                FORMAT_BYTES(s->runtime_journal->metrics.keep_free),
+                                FORMAT_BYTES(s->runtime_journal->metrics.max_size),
+                                FORMAT_BYTES(s->runtime_journal->metrics.max_use),
+                                FORMAT_BYTES(s->runtime_journal->metrics.n_max_files)),
+                        NULL);
+
+                journal_file_reload(
+                        s->runtime_journal,
+                        get_journal_file_flags(s, false),
+                        s->compress.threshold_bytes,
+                        &s->runtime_storage.metrics);
+
+                        server_driver_message(s, 0,
+                                "MESSAGE_ID=" SD_MESSAGE_JOURNAL_USAGE_STR,
+                        LOG_MESSAGE("POST In runtime journal - volatile: keep_free %s, max_size %s, max_use %s, n_max_files %s free.",
+                                        FORMAT_BYTES(s->runtime_journal->metrics.keep_free),
+                                        FORMAT_BYTES(s->runtime_journal->metrics.max_size),
+                                        FORMAT_BYTES(s->runtime_journal->metrics.max_use),
+                                        FORMAT_BYTES(s->runtime_journal->metrics.n_max_files)),
+                                NULL);
+        } else if (s->storage == STORAGE_VOLATILE) {
+                r = server_system_journal_open(s, /* flush_requested= */ false, /* relinquish_requested= */ false);
+        }
+
+        /* If journal-related configuration changed, this will help it take effect. */
+        server_vacuum(s, /* verbose = */ false);
+
+        return 0;
+}
+
+static int server_dispatch_reload_signal(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
+        Server *server = ASSERT_PTR(userdata);
+        int r;
+
+        (void) notify_reloading();
+
+        /* Necessary cleanup before setting defaults */
+        free(server->tty_path);
+
+        server_reload_config(server);
+
+        r = server_reload_dev_kmsg(server);
+        if (r < 0) {
+                return r;
+        }
+
+        // TODO: Confirm that updating kernel_seqnum and seqnum is not needed.
+
+        r = server_reload_journals(server);
+        if (r < 0) {
+                return r;
+        }
+
+        (void) sd_notify(/* unset= */ false, NOTIFY_READY);
+        return 0;
+}
+
+int server_new(Server **ret, const char *namespace) {
         _cleanup_(server_freep) Server *s = NULL;
+        int r;
 
         assert(ret);
 
@@ -2412,36 +2672,9 @@ int server_new(Server **ret) {
                 .notify_fd = -EBADF,
                 .forward_socket_fd = -EBADF,
 
-                .compress.enabled = true,
-                .compress.threshold_bytes = UINT64_MAX,
-                .seal = true,
-
-                .set_audit = true,
-
                 .watchdog_usec = USEC_INFINITY,
 
-                .sync_interval_usec = DEFAULT_SYNC_INTERVAL_USEC,
                 .sync_scheduled = false,
-
-                .ratelimit_interval = DEFAULT_RATE_LIMIT_INTERVAL,
-                .ratelimit_burst = DEFAULT_RATE_LIMIT_BURST,
-
-                .forward_to_wall = true,
-                .forward_to_socket = { .sockaddr.sa.sa_family = AF_UNSPEC },
-
-                .max_file_usec = DEFAULT_MAX_FILE_USEC,
-
-                .max_level_store = LOG_DEBUG,
-                .max_level_syslog = LOG_DEBUG,
-                .max_level_kmsg = LOG_NOTICE,
-                .max_level_console = LOG_INFO,
-                .max_level_wall = LOG_EMERG,
-                .max_level_socket = LOG_DEBUG,
-
-                .line_max = DEFAULT_LINE_MAX,
-
-                .runtime_storage.name = "Runtime Journal",
-                .system_storage.name = "System Journal",
 
                 .kmsg_own_ratelimit = {
                         .interval = DEFAULT_KMSG_OWN_INTERVAL,
@@ -2452,44 +2685,23 @@ int server_new(Server **ret) {
                 .sigrtmin18_info.memory_pressure_userdata = s,
         };
 
+        r = server_set_namespace(s, namespace);
+        if (r < 0)
+                return r;
+
+        server_load_config(s);
+
         *ret = TAKE_PTR(s);
         return 0;
 }
 
-int server_init(Server *s, const char *namespace) {
+int server_init(Server *s) {
         const char *native_socket, *syslog_socket, *stdout_socket, *varlink_socket, *e;
         _cleanup_fdset_free_ FDSet *fds = NULL;
         int n, r, varlink_fd = -EBADF;
         bool no_sockets;
 
         assert(s);
-
-        r = server_set_namespace(s, namespace);
-        if (r < 0)
-                return r;
-
-        /* By default, only read from /dev/kmsg if are the main namespace */
-        s->read_kmsg = !s->namespace;
-        s->storage = s->namespace ? STORAGE_PERSISTENT : STORAGE_AUTO;
-
-        journal_reset_metrics(&s->system_storage.metrics);
-        journal_reset_metrics(&s->runtime_storage.metrics);
-
-        server_load_credentials(s);
-        server_parse_config_file(s);
-
-        if (!s->namespace) {
-                /* Parse kernel command line, but only if we are not a namespace instance */
-                r = proc_cmdline_parse(parse_proc_cmdline_item, s, PROC_CMDLINE_STRIP_RD_PREFIX);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
-        }
-
-        if (!!s->ratelimit_interval != !!s->ratelimit_burst) { /* One set to 0 and the other not? */
-                log_debug("Setting both rate limit interval and burst from "USEC_FMT",%u to 0,0",
-                          s->ratelimit_interval, s->ratelimit_burst);
-                s->ratelimit_interval = s->ratelimit_burst = 0;
-        }
 
         e = getenv("RUNTIME_DIRECTORY");
         if (e)

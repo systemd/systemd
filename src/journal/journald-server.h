@@ -68,6 +68,25 @@ typedef struct SeqnumData {
         uint64_t seqnum;
 } SeqnumData;
 
+typedef struct JournalCredConfig {
+        SocketAddress forward_to_socket;
+        Storage storage;
+} JournalCredConfig;
+
+typedef struct JournalCmdlineConfig {
+        bool forward_to_kmsg;
+        bool forward_to_syslog;
+        bool forward_to_console;
+        bool forward_to_wall;
+
+        int max_level_store;
+        int max_level_syslog;
+        int max_level_kmsg;
+        int max_level_console;
+        int max_level_wall;
+        int max_level_socket;
+} JournalCmdlineConfig;
+
 struct Server {
         char *namespace;
 
@@ -186,6 +205,16 @@ struct Server {
         ClientContext *pid1_context; /* the context of PID 1 */
 
         sd_varlink_server *varlink_server;
+
+        /* Caching of credentials data */
+        SocketAddress cred_forward_to_socket;
+        Storage cred_storage;
+
+        JournalCredConfig cred_config;
+        JournalCredConfig cred_config_from_conf;
+
+        JournalCmdlineConfig cmdline_config;
+        JournalCmdlineConfig cmdline_config_from_conf;
 };
 
 #define SERVER_MACHINE_ID(s) ((s)->machine_id_field + STRLEN("_MACHINE_ID="))
@@ -228,8 +257,8 @@ CONFIG_PARSER_PROTOTYPE(config_parse_split_mode);
 const char* split_mode_to_string(SplitMode s) _const_;
 SplitMode split_mode_from_string(const char *s) _pure_;
 
-int server_new(Server **ret);
-int server_init(Server *s, const char *namespace);
+int server_new(Server **ret, const char *namespace);
+int server_init(Server *s);
 Server* server_free(Server *s);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Server*, server_free);
 void server_full_sync(Server *s, bool wait);
