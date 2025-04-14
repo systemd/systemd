@@ -205,6 +205,7 @@ int ipv4acd_configure(Link *link, const Address *address) {
 
         assert(link);
         assert(link->manager);
+        assert(link->network);
         assert(address);
 
         if (address->family != AF_INET)
@@ -246,6 +247,10 @@ int ipv4acd_configure(Link *link, const Address *address) {
                 return r;
 
         r = sd_ipv4acd_set_address(acd, &address->in_addr.in);
+        if (r < 0)
+                return r;
+
+        r = sd_ipv4acd_set_timeout(acd, link->network->ipv4_dad_timeout);
         if (r < 0)
                 return r;
 
