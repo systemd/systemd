@@ -1,0 +1,34 @@
+#!/bin/bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
+set -e
+
+if [[ "$1" == "build" ]]; then
+    exit 0
+fi
+
+pkgdir=/usr/host-pkgs
+distrover=$(dnf repoquery --disablerepo mkosi --latest-limit=1 --queryformat='%{evr}' systemd)
+develver=$(rpm -q --queryformat='%{evr}' systemd)
+distromajor=$(dnf repoquery --disablerepo mkosi --latest-limit=1 --queryformat='%{version}' systemd)
+develmajor=$(rpm -q --queryformat='%{v}' systemd)
+
+distromajor=$(grep -o '^[0-9]\+' <<<"$distromajor")
+develmajor=$(grep -o '^[0-9]\+' <<<"$develmajor")
+deltaver=$((develmajor - distromajor))
+
+if [[ $deltaver -gt 2 ]]; then
+    echo "Skipping upgrade test, distro version is too old: $distrover"
+    exit 0
+elif [[ $deltaver -le 0 ]]; then
+    echo "Skipping upgrade test, distro version is newer or equal: $distrover"
+    exit 0
+fi
+
+# Filter only noarch and arch packages otherwise on CentOS 9 we could end having i686 packages too
+distropkgs=$(dnf repoquery 'systemd*' | grep -F "$distrover" | grep -e noarch -e "$DISTRIBUTION_ARCHITECTURE" | grep -v -e -debuginfo -e -debugsource -e standalone)
+develpkgs=$(dnf repoquery 'systemd*' | grep -F "$develver" | grep -e noarch -e "$DISTRIBUTION_ARCHITECTURE" | grep -v -e -debuginfo -e -debugsource -e standalone)
+
+# shellcheck disable=SC2086
+dnf download --arch noarch --arch "$DISTRIBUTION_ARCHITECTURE" --destdir "$BUILDROOT$pkgdir/distro" $distropkgs
+# shellcheck disable=SC2086
+dnf download --arch noarch --arch "$DISTRIBUTION_ARCHITECTURE" --destdir "$BUILDROOT$pkgdir/devel" $develpkgs
