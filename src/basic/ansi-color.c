@@ -3,7 +3,9 @@
 #include <stdlib.h>
 
 #include "ansi-color.h"
+#include "extract-word.h"
 #include "log.h"
+#include "parse-util.h"
 #include "process-util.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -81,6 +83,45 @@ static ColorMode get_color_mode_impl(void) {
          * invoke systemd in a container or via a serial link or such, and use a true 256 color
          * terminal to do so. */
         return COLOR_256;
+}
+
+bool validate_ansi_color(const char *color) {
+        int r;
+
+        if (isempty(color))
+                return true;
+
+        if (string_has_cc(color, /* ok= */ "\x1B"))
+                return false;
+
+        _cleanup_strv_free_ char **parts = NULL;
+        r = strv_split_full(&parts, color, "[", EXTRACT_DONT_COALESCE_SEPARATORS);
+        if (r < 0)
+                return false;
+
+        r = streq(parts[0], "\x1B");  /* prefix for ANSI seq */
+        if (r != 1)
+                return false;
+
+        _cleanup_strv_free_ char **ansi_seq = NULL;
+        r = strv_split_full(&ansi_seq, parts[1], ";", EXTRACT_DONT_COALESCE_SEPARATORS);
+        if (r < 0)
+                return false;
+
+        size_t ansi_seq_length = strv_length(ansi_seq);
+        if (ansi_seq_length < 2)
+                return false;
+
+        unsigned code;
+        for (size_t i = 0; i < strv_length(ansi_seq); i++) {
+                r = safe_atou(ansi_seq[i], &code);
+                if (r < 0 && i == strv_length(ansi_seq) - 1) {
+                        if (ansi_seq[i][strlen(ansi_seq[i]) - 1] == 'm')  /* suffix for ANSI seq */
+                                return true;
+                }
+        }
+
+        return false;
 }
 
 ColorMode get_color_mode(void) {
