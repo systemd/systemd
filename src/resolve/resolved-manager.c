@@ -518,13 +518,8 @@ static int manager_watch_hostname(Manager *m) {
         }
 
         r = sd_event_add_io(m->event, &m->hostname_event_source, m->hostname_fd, 0, on_hostname_change, m);
-        if (r < 0) {
-                if (r == -EPERM)
-                        /* kernels prior to 3.2 don't support polling this file. Ignore the failure. */
-                        m->hostname_fd = safe_close(m->hostname_fd);
-                else
-                        return log_error_errno(r, "Failed to add hostname event source: %m");
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to add hostname event source: %m");
 
         (void) sd_event_source_set_description(m->hostname_event_source, "hostname");
 
