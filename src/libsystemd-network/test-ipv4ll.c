@@ -81,7 +81,7 @@ static void test_public_api_setters(sd_event *e) {
         if (verbose)
                 printf("* %s\n", __func__);
 
-        assert_se(sd_ipv4ll_new(&ll) == 0);
+        assert_se(sd_ipv4ll_new(&ll, 0) == 0);
         assert_se(ll);
 
         ASSERT_RETURN_EXPECTED_SE(sd_ipv4ll_attach_event(NULL, NULL, 0) == -EINVAL);
@@ -131,7 +131,7 @@ static void test_basic_request(sd_event *e, const struct in_addr *start_address)
         if (verbose)
                 printf("* %s\n", __func__);
 
-        assert_se(sd_ipv4ll_new(&ll) == 0);
+        assert_se(sd_ipv4ll_new(&ll, 0) == 0);
         if (in4_addr_is_set(start_address))
                 assert_se(sd_ipv4ll_set_address(ll, start_address) >= 0);
         ASSERT_RETURN_EXPECTED_SE(sd_ipv4ll_start(ll) == -EINVAL);

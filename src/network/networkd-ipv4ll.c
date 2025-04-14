@@ -223,6 +223,7 @@ int ipv4ll_configure(Link *link) {
         int r;
 
         assert(link);
+        assert(link->network);
 
         if (!link_ipv4ll_enabled(link))
                 return 0;
@@ -230,7 +231,7 @@ int ipv4ll_configure(Link *link) {
         if (link->ipv4ll)
                 return 0;
 
-        r = sd_ipv4ll_new(&link->ipv4ll);
+        r = sd_ipv4ll_new(&link->ipv4ll, link->network->ipv4_dad_timeout);
         if (r < 0)
                 return r;
 
