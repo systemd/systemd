@@ -179,29 +179,9 @@ CPUWeight=20   DisableControllers=cpu              /          \
 
     <para>Units of the types listed above can have settings for resource control configuration:</para>
 
-    <refsect2><title>CPU Accounting and Control</title>
+    <refsect2><title>CPU Control</title>
 
     <variablelist class='unit-directives'>
-
-      <varlistentry>
-        <term><varname>CPUAccounting=</varname></term>
-
-        <listitem>
-          <para>Turn on CPU usage accounting for this unit. Takes a
-          boolean argument. Note that turning on CPU accounting for
-          one unit will also implicitly turn it on for all units
-          contained in the same slice and for all its parent slices
-          and the units contained therein. The system default for this
-          setting may be controlled with
-          <varname>DefaultCPUAccounting=</varname> in
-          <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
-
-          <para>Under the unified cgroup hierarchy, CPU accounting is available for all units and this
-          setting has no effect.</para>
-
-          <xi:include href="version-info.xml" xpointer="v208"/>
-        </listitem>
-      </varlistentry>
 
       <varlistentry>
         <term><varname>CPUWeight=<replaceable>weight</replaceable></varname></term>
@@ -1705,7 +1685,17 @@ DeviceAllow=/dev/loop-control
           <varname>BlockIOWriteBandwidth=<replaceable>device</replaceable> <replaceable>bytes</replaceable></varname>.
           Please switch to the unified cgroup hierarchy.</para>
 
- <xi:include href="version-info.xml" xpointer="v252"/></listitem>
+          <xi:include href="version-info.xml" xpointer="v252"/></listitem>
+        </varlistentry>
+      </variablelist>
+
+      <variablelist>
+        <varlistentry>
+          <term>systemd 258</term>
+          <listitem><para><varname>CPUAccounting=</varname> setting is deprecated, because it is always available
+          on the unified cgroup hierarchy and such setting has no effect.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/></listitem>
         </varlistentry>
       </variablelist>
   </refsect1>
