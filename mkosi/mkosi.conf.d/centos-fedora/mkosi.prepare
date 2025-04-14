@@ -25,3 +25,20 @@ for DEPS in "${DEP_TYPES[@]}"; do
         sort --unique |
         xargs --delimiter '\n' --no-run-if-empty mkosi-install
 done
+
+# Get the systemd version installed in the host assuming it's recent enough
+# but a major version older than the one in the image.
+if dnf --version |grep -q '^4\.'; then
+    disable='--disablerepo'
+elif dnf --version |grep -q '^dnf5\s'; then
+    disable='--disable-repo'
+else
+    echo 'Unknown dnf version!'
+    exit 1
+fi
+
+curver=$(dnf repoquery "$disable" mkosi --latest-limit=1 --queryformat='%{evr}' systemd)
+pkgs=$(dnf repoquery 'systemd*' |grep -F "$curver" |grep -v -e -debuginfo -e -debugsource -e -devel)
+arch=$(rpm --eval '%{_arch}')
+
+dnf download --arch noarch --arch "$arch" --destdir "$BUILDROOT/usr/host-pkgs" $pkgs
