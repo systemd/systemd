@@ -153,37 +153,12 @@ DEFINE_CONFIG_PARSE_ENUM(config_parse_oom_policy, oom_policy, OOMPolicy);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_managed_oom_preference, managed_oom_preference, ManagedOOMPreference);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_memory_pressure_watch, cgroup_pressure_watch, CGroupPressureWatch);
 DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_ip_tos, ip_tos, int, -1);
-DEFINE_CONFIG_PARSE_PTR(config_parse_blockio_weight, cg_blkio_weight_parse, uint64_t);
 DEFINE_CONFIG_PARSE_PTR(config_parse_cg_weight, cg_weight_parse, uint64_t);
 DEFINE_CONFIG_PARSE_PTR(config_parse_cg_cpu_weight, cg_cpu_weight_parse, uint64_t);
-static DEFINE_CONFIG_PARSE_PTR(config_parse_cpu_shares_internal, cg_cpu_shares_parse, uint64_t);
 DEFINE_CONFIG_PARSE_PTR(config_parse_exec_mount_propagation_flag, mount_propagation_flag_from_string, unsigned long);
 DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_numa_policy, mpol, int, -1);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_status_unit_format, status_unit_format, StatusUnitFormat);
 DEFINE_CONFIG_PARSE_ENUM_FULL(config_parse_socket_timestamping, socket_timestamping_from_string_harder, SocketTimestamping);
-
-int config_parse_cpu_shares(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-
-        log_syntax(unit, LOG_WARNING, filename, line, 0,
-                   "Unit uses %s=; please use CPUWeight= instead. Support for %s= will be removed soon.",
-                   lvalue, lvalue);
-
-        return config_parse_cpu_shares_internal(unit, filename, line, section, section_line, lvalue, ltype, rvalue, data, userdata);
-}
 
 bool contains_instance_specifier_superset(const char *s) {
         const char *p, *q;
@@ -3899,10 +3874,6 @@ int config_parse_memory_limit(
         else if (streq(lvalue, "StartupMemoryZSwapMax")) {
                 c->startup_memory_zswap_max = bytes;
                 c->startup_memory_zswap_max_set = true;
-        } else if (streq(lvalue, "MemoryLimit")) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Unit uses MemoryLimit=; please use MemoryMax= instead. Support for MemoryLimit= will be removed soon.");
-                c->memory_limit = bytes;
         } else
                 return -EINVAL;
 
@@ -4473,177 +4444,6 @@ int config_parse_io_limit(
         }
 
         l->limits[type] = num;
-
-        return 0;
-}
-
-int config_parse_blockio_device_weight(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        _cleanup_free_ char *path = NULL, *resolved = NULL;
-        CGroupBlockIODeviceWeight *w;
-        CGroupContext *c = data;
-        const char *p = ASSERT_PTR(rvalue);
-        uint64_t u;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-
-        log_syntax(unit, LOG_WARNING, filename, line, 0,
-                   "Unit uses %s=; please use IO*= settings instead. Support for %s= will be removed soon.",
-                   lvalue, lvalue);
-
-        if (isempty(rvalue)) {
-                while (c->blockio_device_weights)
-                        cgroup_context_free_blockio_device_weight(c, c->blockio_device_weights);
-
-                return 0;
-        }
-
-        r = extract_first_word(&p, &path, NULL, EXTRACT_UNQUOTE);
-        if (r == -ENOMEM)
-                return log_oom();
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to extract device node and weight from '%s', ignoring.", rvalue);
-                return 0;
-        }
-        if (r == 0 || isempty(p)) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Invalid device node or weight specified in '%s', ignoring.", rvalue);
-                return 0;
-        }
-
-        r = unit_path_printf(userdata, path, &resolved);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to resolve unit specifiers in '%s', ignoring: %m", path);
-                return 0;
-        }
-
-        r = path_simplify_and_warn(resolved, 0, unit, filename, line, lvalue);
-        if (r < 0)
-                return 0;
-
-        r = cg_blkio_weight_parse(p, &u);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid block IO weight '%s', ignoring: %m", p);
-                return 0;
-        }
-
-        assert(u != CGROUP_BLKIO_WEIGHT_INVALID);
-
-        w = new0(CGroupBlockIODeviceWeight, 1);
-        if (!w)
-                return log_oom();
-
-        w->path = TAKE_PTR(resolved);
-        w->weight = u;
-
-        LIST_APPEND(device_weights, c->blockio_device_weights, w);
-        return 0;
-}
-
-int config_parse_blockio_bandwidth(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        _cleanup_free_ char *path = NULL, *resolved = NULL;
-        CGroupBlockIODeviceBandwidth *b = NULL;
-        CGroupContext *c = data;
-        const char *p = ASSERT_PTR(rvalue);
-        uint64_t bytes;
-        bool read;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-
-        log_syntax(unit, LOG_WARNING, filename, line, 0,
-                   "Unit uses %s=; please use IO*= settings instead. Support for %s= will be removed soon.",
-                   lvalue, lvalue);
-
-        read = streq("BlockIOReadBandwidth", lvalue);
-
-        if (isempty(rvalue)) {
-                LIST_FOREACH(device_bandwidths, t, c->blockio_device_bandwidths) {
-                        t->rbps = CGROUP_LIMIT_MAX;
-                        t->wbps = CGROUP_LIMIT_MAX;
-                }
-                return 0;
-        }
-
-        r = extract_first_word(&p, &path, NULL, EXTRACT_UNQUOTE);
-        if (r == -ENOMEM)
-                return log_oom();
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to extract device node and bandwidth from '%s', ignoring.", rvalue);
-                return 0;
-        }
-        if (r == 0 || isempty(p)) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Invalid device node or bandwidth specified in '%s', ignoring.", rvalue);
-                return 0;
-        }
-
-        r = unit_path_printf(userdata, path, &resolved);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to resolve unit specifiers in '%s', ignoring: %m", path);
-                return 0;
-        }
-
-        r = path_simplify_and_warn(resolved, 0, unit, filename, line, lvalue);
-        if (r < 0)
-                return 0;
-
-        r = parse_size(p, 1000, &bytes);
-        if (r < 0 || bytes <= 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid Block IO Bandwidth '%s', ignoring.", p);
-                return 0;
-        }
-
-        LIST_FOREACH(device_bandwidths, t, c->blockio_device_bandwidths)
-                if (path_equal(resolved, t->path)) {
-                        b = t;
-                        break;
-                }
-
-        if (!b) {
-                b = new0(CGroupBlockIODeviceBandwidth, 1);
-                if (!b)
-                        return log_oom();
-
-                b->path = TAKE_PTR(resolved);
-                b->rbps = CGROUP_LIMIT_MAX;
-                b->wbps = CGROUP_LIMIT_MAX;
-
-                LIST_APPEND(device_bandwidths, c->blockio_device_bandwidths, b);
-        }
-
-        if (read)
-                b->rbps = bytes;
-        else
-                b->wbps = bytes;
 
         return 0;
 }
@@ -6372,7 +6172,6 @@ void unit_dump_config_items(FILE *f) {
 #endif
                 { config_parse_namespace_flags,       "NAMESPACES" },
                 { config_parse_restrict_filesystems,  "FILESYSTEMS"  },
-                { config_parse_cpu_shares,            "SHARES" },
                 { config_parse_cg_weight,             "WEIGHT" },
                 { config_parse_cg_cpu_weight,         "CPUWEIGHT" },
                 { config_parse_memory_limit,          "LIMIT" },
@@ -6381,9 +6180,6 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_io_limit,              "LIMIT" },
                 { config_parse_io_device_weight,      "DEVICEWEIGHT" },
                 { config_parse_io_device_latency,     "DEVICELATENCY" },
-                { config_parse_blockio_bandwidth,     "BANDWIDTH" },
-                { config_parse_blockio_weight,        "WEIGHT" },
-                { config_parse_blockio_device_weight, "DEVICEWEIGHT" },
                 { config_parse_long,                  "LONG" },
                 { config_parse_socket_service,        "SERVICE" },
 #if HAVE_SELINUX
