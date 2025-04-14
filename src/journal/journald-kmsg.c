@@ -104,7 +104,7 @@ void dev_kmsg_record(Server *s, char *p, size_t l) {
         unsigned long long usec;
         size_t n = 0, z = 0, j;
         int priority, r;
-        char *e, *f, *k;
+        char *e, *k;
         uint64_t serial;
         size_t pl;
         int saved_log_max_level = INT_MAX;
@@ -116,6 +116,7 @@ void dev_kmsg_record(Server *s, char *p, size_t l) {
         if (l <= 0)
                 return;
 
+        /* syslog prefix including priority and facility */
         e = memchr(p, ',', l);
         if (!e)
                 return;
@@ -128,6 +129,7 @@ void dev_kmsg_record(Server *s, char *p, size_t l) {
         if (s->forward_to_kmsg && LOG_FAC(priority) != LOG_KERN)
                 return;
 
+        /* seqnum */
         l -= (e - p) + 1;
         p = e + 1;
         e = memchr(p, ',', l);
@@ -158,23 +160,28 @@ void dev_kmsg_record(Server *s, char *p, size_t l) {
                 *s->kernel_seqnum = serial + 1;
         }
 
+        /* monotonic timestamp */
         l -= (e - p) + 1;
         p = e + 1;
-        f = memchr(p, ';', l);
-        if (!f)
-                return;
-        /* Kernel 3.6 has the flags field, kernel 3.5 lacks that */
         e = memchr(p, ',', l);
-        if (!e || f < e)
-                e = f;
+        if (!e)
+                return;
         *e = 0;
 
         r = safe_atollu(p, &usec);
         if (r < 0)
                 return;
 
-        l -= (f - p) + 1;
-        p = f + 1;
+        /* ignore flags and any other fields, and find the beginning of the message */
+        l -= (e - p) + 1;
+        p = e + 1;
+        e = memchr(p, ';', l);
+        if (!e)
+                return;
+
+        /* finding the end of the message */
+        l -= (e - p) + 1;
+        p = e + 1;
         e = memchr(p, '\n', l);
         if (!e)
                 return;
