@@ -491,6 +491,8 @@ static void determine_compression_from_filename(const char *p) {
                 arg_format = "gzip";
         else if (endswith(p, ".bz2"))
                 arg_format = "bzip2";
+        else if (endswith(p, ".zst"))
+                arg_format = "zstd";
 }
 
 static int export_tar(int argc, char *argv[], void *userdata) {
@@ -1018,7 +1020,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "                              otherwise\n"
                "     --verify=MODE            Verification mode for downloaded images (no,\n"
                "                               checksum, signature)\n"
-               "     --format=xz|gzip|bzip2   Desired output format for export\n"
+               "     --format=xz|gzip|bzip2|zstd\n"
+               "                              Desired output format for export\n"
                "     --force                  Install image even if already exists\n"
                "  -m --class=machine          Install as machine image\n"
                "  -P --class=portable         Install as portable service image\n"
@@ -1139,7 +1142,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_FORMAT:
-                        if (!STR_IN_SET(optarg, "uncompressed", "xz", "gzip", "bzip2"))
+                        if (!STR_IN_SET(optarg, "uncompressed", "xz", "gzip", "bzip2", "zstd"))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Unknown format: %s", optarg);
 
