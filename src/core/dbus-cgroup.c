@@ -384,7 +384,6 @@ const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_PROPERTY("Delegate", "b", bus_property_get_bool, offsetof(CGroupContext, delegate), 0),
         SD_BUS_PROPERTY("DelegateControllers", "as", property_get_delegate_controllers, 0, 0),
         SD_BUS_PROPERTY("DelegateSubgroup", "s", NULL, offsetof(CGroupContext, delegate_subgroup), 0),
-        SD_BUS_PROPERTY("CPUAccounting", "b", bus_property_get_bool, offsetof(CGroupContext, cpu_accounting), 0),
         SD_BUS_PROPERTY("CPUWeight", "t", NULL, offsetof(CGroupContext, cpu_weight), 0),
         SD_BUS_PROPERTY("StartupCPUWeight", "t", NULL, offsetof(CGroupContext, startup_cpu_weight), 0),
         SD_BUS_PROPERTY("CPUQuotaPerSecUSec", "t", bus_property_get_usec, offsetof(CGroupContext, cpu_quota_per_sec_usec), 0),
@@ -441,6 +440,7 @@ const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_PROPERTY("MemoryPressureThresholdUSec", "t", bus_property_get_usec, offsetof(CGroupContext, memory_pressure_threshold_usec), 0),
         SD_BUS_PROPERTY("NFTSet", "a(iiss)", property_get_cgroup_nft_set, 0, 0),
         SD_BUS_PROPERTY("CoredumpReceive", "b", bus_property_get_bool, offsetof(CGroupContext, coredump_receive), 0),
+
         /* deprecated cgroup v1 properties */
         SD_BUS_PROPERTY("MemoryLimit", "t", bus_property_get_uint64_max, 0, SD_BUS_VTABLE_DEPRECATED|SD_BUS_VTABLE_HIDDEN),
         SD_BUS_PROPERTY("CPUShares", "t", bus_property_get_uint64_max, 0, SD_BUS_VTABLE_DEPRECATED|SD_BUS_VTABLE_HIDDEN),
@@ -451,6 +451,9 @@ const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_PROPERTY("BlockIODeviceWeight", "a(st)", property_get_blockio_ast, 0, SD_BUS_VTABLE_DEPRECATED|SD_BUS_VTABLE_HIDDEN),
         SD_BUS_PROPERTY("BlockIOReadBandwidth", "a(st)", property_get_blockio_ast, 0, SD_BUS_VTABLE_DEPRECATED|SD_BUS_VTABLE_HIDDEN),
         SD_BUS_PROPERTY("BlockIOWriteBandwidth", "a(st)", property_get_blockio_ast, 0, SD_BUS_VTABLE_DEPRECATED|SD_BUS_VTABLE_HIDDEN),
+        /* since kernel v4.15 CPU accounting requires no controller, i.e. is available everywhere */
+        SD_BUS_PROPERTY("CPUAccounting", "b", bus_property_get_bool_true, 0, SD_BUS_VTABLE_DEPRECATED|SD_BUS_VTABLE_HIDDEN),
+
         SD_BUS_VTABLE_END
 };
 
@@ -1037,9 +1040,6 @@ int bus_cgroup_set_property(
         assert(message);
 
         flags |= UNIT_PRIVATE;
-
-        if (streq(name, "CPUAccounting"))
-                return bus_cgroup_set_boolean(u, name, &c->cpu_accounting, get_cpu_accounting_mask(), message, flags, error);
 
         if (streq(name, "CPUWeight"))
                 return bus_cgroup_set_cpu_weight(u, name, &c->cpu_weight, message, flags, error);
@@ -2038,7 +2038,8 @@ int bus_cgroup_set_property(
                        "StartupBlockIOWeight",
                        "BlockIODeviceWeight",
                        "BlockIOReadBandwidth",
-                       "BlockIOWriteBandwidth")) {
+                       "BlockIOWriteBandwidth",
+                       "CPUAccounting")) { /* see comment in bus_cgroup_vtable */
 
                 r = sd_bus_message_skip(message, NULL);
                 if (r < 0)
