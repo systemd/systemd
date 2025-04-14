@@ -172,6 +172,15 @@
 
         <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>ANSI_COLOR=</varname></term>
+
+        <listitem><para>Adds color to the hostname when showing on the console. If it is not explicitly set,
+        then a fallback color is automatically hashed from the hostname.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
