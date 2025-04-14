@@ -343,7 +343,7 @@ int server_flush_dev_kmsg(Server *s) {
         if (s->dev_kmsg_fd < 0)
                 return 0;
 
-        if (!s->dev_kmsg_readable)
+        if (!s->read_kmsg)
                 return 0;
 
         log_debug("Flushing /dev/kmsg...");
@@ -406,7 +406,6 @@ int server_open_dev_kmsg(Server *s) {
                 goto finish;
         }
 
-        s->dev_kmsg_readable = true;
         return 0;
 
 finish:
@@ -423,7 +422,7 @@ int server_open_kernel_seqnum(Server *s) {
         /* We store the seqnum we last read in an mmapped file. That way we can just use it like a variable,
          * but it is persistent and automatically flushed at reboot. */
 
-        if (!s->dev_kmsg_readable)
+        if (!s->read_kmsg)
                 return 0;
 
         r = server_map_seqnum_file(s, "kernel-seqnum", sizeof(uint64_t), (void**) &s->kernel_seqnum);
