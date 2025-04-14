@@ -112,6 +112,7 @@ struct Network {
         char **bind_carrier;
         bool default_route_on_device;
         AddressFamily ip_masquerade;
+        usec_t ipv4_dad_timeout_usec;
 
         /* Protocol independent settings */
         UseDomains use_domains;
