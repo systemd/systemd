@@ -222,18 +222,16 @@ int cg_set_access(
 
         /* Configure access to the cgroup's attributes */
         FOREACH_ELEMENT(i, attributes) {
-                fs = mfree(fs);
+                _cleanup_free_ char *a = path_join(fs, i->name);
+                if (!a)
+                        return -ENOMEM;
 
-                r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, path, i->name, &fs);
-                if (r < 0)
-                        return r;
-
-                r = chmod_and_chown(fs, 0644, uid, gid);
+                r = chmod_and_chown(a, 0644, uid, gid);
                 if (r < 0) {
                         if (i->fatal)
                                 return r;
 
-                        log_debug_errno(r, "Failed to set access on cgroup %s, ignoring: %m", fs);
+                        log_debug_errno(r, "Failed to set access on cgroup %s, ignoring: %m", a);
                 }
         }
 
