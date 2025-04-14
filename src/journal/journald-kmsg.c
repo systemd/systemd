@@ -380,38 +380,35 @@ int server_open_dev_kmsg(Server *s) {
         int r;
 
         assert(s);
+        assert(s->dev_kmsg_fd < 0);
+        assert(!s->dev_kmsg_event_source);
 
-        mode_t mode = O_CLOEXEC|O_NONBLOCK|O_NOCTTY|
-                (s->read_kmsg ? O_RDWR : O_WRONLY);
+        mode_t mode = O_CLOEXEC|O_NONBLOCK|O_NOCTTY|(s->read_kmsg ? O_RDWR : O_WRONLY);
 
-        s->dev_kmsg_fd = open("/dev/kmsg", mode);
-        if (s->dev_kmsg_fd < 0) {
+        _cleanup_close_ int fd = open("/dev/kmsg", mode);
+        if (fd < 0) {
                 log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING,
                                errno, "Failed to open /dev/kmsg for %s access, ignoring: %m", accmode_to_string(mode));
                 return 0;
         }
 
-        if (!s->read_kmsg)
+        if (!s->read_kmsg) {
+                s->dev_kmsg_fd = TAKE_FD(fd);
                 return 0;
-
-        r = sd_event_add_io(s->event, &s->dev_kmsg_event_source, s->dev_kmsg_fd, EPOLLIN, dispatch_dev_kmsg, s);
-        if (r < 0) {
-                log_error_errno(r, "Failed to add /dev/kmsg fd to event loop: %m");
-                goto finish;
         }
 
-        r = sd_event_source_set_priority(s->dev_kmsg_event_source, SD_EVENT_PRIORITY_IMPORTANT+10);
-        if (r < 0) {
-                log_error_errno(r, "Failed to adjust priority of kmsg event source: %m");
-                goto finish;
-        }
+        _cleanup_(sd_event_source_unrefp) sd_event_source *es = NULL;
+        r = sd_event_add_io(s->event, &es, fd, EPOLLIN, dispatch_dev_kmsg, s);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add /dev/kmsg fd to event loop: %m");
 
+        r = sd_event_source_set_priority(es, SD_EVENT_PRIORITY_IMPORTANT+10);
+        if (r < 0)
+                return log_error_errno(r, "Failed to adjust priority of kmsg event source: %m");
+
+        s->dev_kmsg_fd = TAKE_FD(fd);
+        s->dev_kmsg_event_source = TAKE_PTR(es);
         return 0;
-
-finish:
-        s->dev_kmsg_event_source = sd_event_source_unref(s->dev_kmsg_event_source);
-        s->dev_kmsg_fd = safe_close(s->dev_kmsg_fd);
-        return r;
 }
 
 int server_open_kernel_seqnum(Server *s) {
