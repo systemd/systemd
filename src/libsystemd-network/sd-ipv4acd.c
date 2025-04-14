@@ -43,7 +43,7 @@
 #define MAX_CONFLICTS 10U
 
 /* Default timeout from the RFC */
-#define TIMEOUT_DEFAULT_USEC (7 * USEC_PER_SEC)
+#define TIMEOUT_DEFAULT_USEC (200 * USEC_PER_MSEC)
 
 typedef enum IPv4ACDState {
         IPV4ACD_STATE_INIT,
