@@ -25,7 +25,7 @@ DEFINE_PRIVATE_HASH_OPS_FULL(
 bool link_ipv4acd_supported(Link *link) {
         assert(link);
 
-        if (link->flags & IFF_LOOPBACK)
+        if (link->flags & (IFF_LOOPBACK | IFF_NOARP))
                 return false;
 
         /* ARPHRD_INFINIBAND seems to potentially support IPv4ACD.
@@ -37,13 +37,6 @@ bool link_ipv4acd_supported(Link *link) {
                 return false;
 
         if (ether_addr_is_null(&link->hw_addr.ether))
-                return false;
-
-        if (streq_ptr(link->kind, "vrf"))
-                return false;
-
-        /* L3 or L3S mode do not support ARP. */
-        if (IN_SET(link_get_ipvlan_mode(link), NETDEV_IPVLAN_MODE_L3, NETDEV_IPVLAN_MODE_L3S))
                 return false;
 
         return true;
