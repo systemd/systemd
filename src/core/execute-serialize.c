@@ -34,10 +34,6 @@ static int exec_cgroup_context_serialize(const CGroupContext *c, FILE *f) {
         if (!c)
                 return 0;
 
-        r = serialize_bool_elide(f, "exec-cgroup-context-cpu-accounting", c->cpu_accounting);
-        if (r < 0)
-                return r;
-
         r = serialize_bool_elide(f, "exec-cgroup-context-io-accounting", c->io_accounting);
         if (r < 0)
                 return r;
@@ -445,12 +441,7 @@ static int exec_cgroup_context_deserialize(CGroupContext *c, FILE *f) {
                 if (r == 0) /* eof or end marker */
                         break;
 
-                if ((val = startswith(l, "exec-cgroup-context-cpu-accounting="))) {
-                        r = parse_boolean(val);
-                        if (r < 0)
-                                return r;
-                        c->cpu_accounting = r;
-                } else if ((val = startswith(l, "exec-cgroup-context-io-accounting="))) {
+                if ((val = startswith(l, "exec-cgroup-context-io-accounting="))) {
                         r = parse_boolean(val);
                         if (r < 0)
                                 return r;
