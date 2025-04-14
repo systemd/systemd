@@ -172,6 +172,18 @@
 
         <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>ANSI_COLOR=</varname></term>
+
+	<listitem><para>Adds color to the hostname when showing on the console. This should be specified as
+        string suitable for inclusion in the ESC [ m ANSI/ECMA-48 escape code for setting graphical rendition.
+        If it is not explicitly set, then a fallback color is automatically hashed from the hostname.</para>
+
+        <para>Examples: <literal>ANSI_COLOR="0;31"</literal> for red, or <literal>ANSI_COLOR="1;34"</literal></para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
