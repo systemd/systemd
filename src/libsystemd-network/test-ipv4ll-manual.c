@@ -41,7 +41,7 @@ static void ll_handler(sd_ipv4ll *ll, int event, void *userdata) {
 static int client_run(int ifindex, const char *seed_str, const struct in_addr *start_address, const struct ether_addr *ha, sd_event *e) {
         sd_ipv4ll *ll;
 
-        assert_se(sd_ipv4ll_new(&ll) >= 0);
+        assert_se(sd_ipv4ll_new(&ll, 0) >= 0);
         assert_se(sd_ipv4ll_attach_event(ll, e, 0) >= 0);
 
         assert_se(sd_ipv4ll_set_ifindex(ll, ifindex) >= 0);

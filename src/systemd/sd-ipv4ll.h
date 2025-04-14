@@ -56,7 +56,7 @@ int sd_ipv4ll_start(sd_ipv4ll *ll);
 int sd_ipv4ll_stop(sd_ipv4ll *ll);
 sd_ipv4ll *sd_ipv4ll_ref(sd_ipv4ll *ll);
 sd_ipv4ll *sd_ipv4ll_unref(sd_ipv4ll *ll);
-int sd_ipv4ll_new(sd_ipv4ll **ret);
+int sd_ipv4ll_new(sd_ipv4ll **ret, uint64_t timeout_usec);
 
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_ipv4ll, sd_ipv4ll_unref);
 

@@ -74,7 +74,7 @@ static sd_ipv4ll *ipv4ll_free(sd_ipv4ll *ll) {
 
 DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_ipv4ll, sd_ipv4ll, ipv4ll_free);
 
-int sd_ipv4ll_new(sd_ipv4ll **ret) {
+int sd_ipv4ll_new(sd_ipv4ll **ret, uint64_t timeout_usec) {
         _cleanup_(sd_ipv4ll_unrefp) sd_ipv4ll *ll = NULL;
         int r;
 
@@ -95,6 +95,10 @@ int sd_ipv4ll_new(sd_ipv4ll **ret) {
                 return r;
 
         r = sd_ipv4acd_set_check_mac_callback(ll->acd, ipv4ll_check_mac, ll);
+        if (r < 0)
+                return r;
+
+        r = sd_ipv4acd_set_timeout(ll->acd, timeout_usec);
         if (r < 0)
                 return r;
 

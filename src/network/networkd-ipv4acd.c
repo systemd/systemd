@@ -249,6 +249,12 @@ int ipv4acd_configure(Link *link, const Address *address) {
         if (r < 0)
                 return r;
 
+        if (link->network) {
+                r = sd_ipv4acd_set_timeout(acd, link->network->ipv4_dad_timeout);
+                if (r < 0)
+                        return r;
+        }
+
         r = sd_ipv4acd_set_callback(acd, on_acd, link);
         if (r < 0)
                 return r;
