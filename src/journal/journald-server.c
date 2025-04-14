@@ -383,7 +383,6 @@ static int server_system_journal_open(
                                 &s->system_storage.metrics,
                                 &s->system_journal);
                 if (r >= 0) {
-                        server_add_acls(s->system_journal, 0);
                         (void) cache_space_refresh(s, &s->system_storage);
                         patch_min_use(&s->system_storage);
                 } else {
@@ -450,7 +449,6 @@ static int server_system_journal_open(
                 }
 
                 if (s->runtime_journal) {
-                        server_add_acls(s->runtime_journal, 0);
                         (void) cache_space_refresh(s, &s->runtime_storage);
                         patch_min_use(&s->runtime_storage);
                         server_drop_flushed_flag(s);
