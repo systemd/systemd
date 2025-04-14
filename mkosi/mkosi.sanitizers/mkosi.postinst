@@ -10,7 +10,14 @@ if [[ ! -f "$BUILDROOT/$LIBSYSTEMD" ]]; then
 fi
 
 # ASAN and syscall filters aren't compatible with each other.
-find "$BUILDROOT"/usr "$BUILDROOT"/etc -name '*.service' -type f -exec sed -i 's/^\(MemoryDeny\|SystemCall\)/# \1/' {} +
+find "$BUILDROOT"/usr "$BUILDROOT"/etc -name '*.service' -type f |while read -r unit; do
+    mkdir -p "$unit.d"
+    cat > "$unit.d/override.conf" <<EOF
+[Service]
+MemoryDenyWriteExecute=no
+SystemCallFilter=
+EOF
+done
 
 # 'systemd-hwdb update' takes > 50s when built with sanitizers so let's not run it by default.
 systemctl --root="$BUILDROOT" mask systemd-hwdb-update.service
