@@ -47,6 +47,7 @@ lib_import_common = static_library(
                 libbzip2,
                 libxz,
                 libz,
+                libzstd,
                 userspace,
         ],
         build_by_default : false)
@@ -61,6 +62,7 @@ common_deps = [
         libcurl,
         libxz,
         libz,
+        libzstd,
 ]
 
 executables += [

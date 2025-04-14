@@ -73,7 +73,7 @@ _importctl() {
                 comps='no checksum signature'
                 ;;
             --format)
-                comps='uncompressed xz gzip bzip2'
+                comps='uncompressed xz gzip bzip2 zstd'
                 ;;
             --class)
                 comps='machine portable sysext confext'
