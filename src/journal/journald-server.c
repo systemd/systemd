@@ -252,12 +252,10 @@ void server_space_usage_message(Server *s, JournalStorage *storage) {
 
 static void server_add_acls(JournalFile *f, uid_t uid) {
         assert(f);
+        assert(uid > 0);
 
 #if HAVE_ACL
         int r;
-
-        if (uid_for_system_journal(uid))
-                return;
 
         r = fd_add_uid_acl_permission(f->fd, uid, ACL_READ);
         if (r < 0)
@@ -463,7 +461,7 @@ static int server_find_user_journal(Server *s, uid_t uid, JournalFile **ret) {
         _cleanup_free_ char *p = NULL;
         int r;
 
-        assert(!uid_for_system_journal(uid));
+        assert(uid > 0);
 
         f = ordered_hashmap_get(s->user_journals, UID_TO_PTR(uid));
         if (f)
@@ -530,7 +528,7 @@ static JournalFile* server_find_journal(Server *s, uid_t uid) {
         if (!IN_SET(s->storage, STORAGE_AUTO, STORAGE_PERSISTENT))
                 return NULL;
 
-        if (!uid_for_system_journal(uid)) {
+        if (uid > 0) {
                 JournalFile *f = NULL;
 
                 r = server_find_user_journal(s, uid, &f);
@@ -573,7 +571,8 @@ static int server_do_rotate(
                                                          "Failed to create new %s journal: %m", name);
         }
 
-        server_add_acls(*f, uid);
+        if (uid > 0)
+                server_add_acls(*f, uid);
         return r;
 }
 
@@ -1188,13 +1187,14 @@ static void server_dispatch_message_real(
                 /* Split up strictly by (non-root) UID */
                 journal_uid = c->uid;
         else if (s->split_mode == SPLIT_LOGIN && c && c->uid > 0 && uid_is_valid(c->owner_uid))
-                /* Split up by login UIDs.  We do this only if the
-                 * realuid is not root, in order not to accidentally
-                 * leak privileged information to the user that is
-                 * logged by a privileged process that is part of an
-                 * unprivileged session. */
+                /* Split up by login UIDs.  We do this only if the realuid is not root, in order not to
+                 * accidentally leak privileged information to the user that is logged by a privileged
+                 * process that is part of an unprivileged session. */
                 journal_uid = c->owner_uid;
         else
+                journal_uid = 0;
+
+        if (uid_for_system_journal(journal_uid))
                 journal_uid = 0;
 
         /* Get the closest, linearized time we have for this log event from the event loop. (Note that we do
