@@ -325,14 +325,6 @@ static int server_read_dev_kmsg(Server *s) {
         if (l == 0)
                 return 0;
         if (l < 0) {
-                /* Old kernels which don't allow reading from /dev/kmsg return EINVAL when we try. So handle
-                 * this cleanly, but don't try to ever read from it again. */
-                if (errno == EINVAL) {
-                        s->dev_kmsg_event_source = sd_event_source_unref(s->dev_kmsg_event_source);
-                        s->dev_kmsg_readable = false;
-                        return 0;
-                }
-
                 if (ERRNO_IS_TRANSIENT(errno) || errno == EPIPE)
                         return 0;
 
@@ -403,11 +395,6 @@ int server_open_dev_kmsg(Server *s) {
                 return 0;
 
         r = sd_event_add_io(s->event, &s->dev_kmsg_event_source, s->dev_kmsg_fd, EPOLLIN, dispatch_dev_kmsg, s);
-        if (r == -EPERM) { /* This will fail with EPERM on older kernels where /dev/kmsg is not readable. */
-                log_debug_errno(r, "Not reading from /dev/kmsg since that's not supported, apparently.");
-                r = 0;
-                goto finish;
-        }
         if (r < 0) {
                 log_error_errno(r, "Failed to add /dev/kmsg fd to event loop: %m");
                 goto finish;
