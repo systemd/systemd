@@ -104,7 +104,7 @@ void dev_kmsg_record(Server *s, char *p, size_t l) {
         unsigned long long usec;
         size_t n = 0, z = 0, j;
         int priority, r;
-        char *e, *f, *k;
+        char *e, *k;
         uint64_t serial;
         size_t pl;
         int saved_log_max_level = INT_MAX;
@@ -116,6 +116,7 @@ void dev_kmsg_record(Server *s, char *p, size_t l) {
         if (l <= 0)
                 return;
 
+        /* syslog prefix including priority and facility */
         e = memchr(p, ',', l);
         if (!e)
                 return;
@@ -128,6 +129,7 @@ void dev_kmsg_record(Server *s, char *p, size_t l) {
         if (s->forward_to_kmsg && LOG_FAC(priority) != LOG_KERN)
                 return;
 
+        /* seqnum */
         l -= (e - p) + 1;
         p = e + 1;
         e = memchr(p, ',', l);
@@ -158,23 +160,28 @@ void dev_kmsg_record(Server *s, char *p, size_t l) {
                 *s->kernel_seqnum = serial + 1;
         }
 
+        /* monotonic timestamp */
         l -= (e - p) + 1;
         p = e + 1;
-        f = memchr(p, ';', l);
-        if (!f)
-                return;
-        /* Kernel 3.6 has the flags field, kernel 3.5 lacks that */
         e = memchr(p, ',', l);
-        if (!e || f < e)
-                e = f;
+        if (!e)
+                return;
         *e = 0;
 
         r = safe_atollu(p, &usec);
         if (r < 0)
                 return;
 
-        l -= (f - p) + 1;
-        p = f + 1;
+        /* ignore flags and any other fields, and find the beginning of the message */
+        l -= (e - p) + 1;
+        p = e + 1;
+        e = memchr(p, ';', l);
+        if (!e)
+                return;
+
+        /* find the end of the message */
+        l -= (e - p) + 1;
+        p = e + 1;
         e = memchr(p, '\n', l);
         if (!e)
                 return;
@@ -320,19 +327,12 @@ static int server_read_dev_kmsg(Server *s) {
 
         assert(s);
         assert(s->dev_kmsg_fd >= 0);
+        assert(s->read_kmsg);
 
         l = read(s->dev_kmsg_fd, buffer, sizeof(buffer) - 1);
         if (l == 0)
                 return 0;
         if (l < 0) {
-                /* Old kernels which don't allow reading from /dev/kmsg return EINVAL when we try. So handle
-                 * this cleanly, but don't try to ever read from it again. */
-                if (errno == EINVAL) {
-                        s->dev_kmsg_event_source = sd_event_source_unref(s->dev_kmsg_event_source);
-                        s->dev_kmsg_readable = false;
-                        return 0;
-                }
-
                 if (ERRNO_IS_TRANSIENT(errno) || errno == EPIPE)
                         return 0;
 
@@ -351,7 +351,7 @@ int server_flush_dev_kmsg(Server *s) {
         if (s->dev_kmsg_fd < 0)
                 return 0;
 
-        if (!s->dev_kmsg_readable)
+        if (!s->read_kmsg)
                 return 0;
 
         log_debug("Flushing /dev/kmsg...");
@@ -388,44 +388,35 @@ int server_open_dev_kmsg(Server *s) {
         int r;
 
         assert(s);
+        assert(s->dev_kmsg_fd < 0);
+        assert(!s->dev_kmsg_event_source);
 
-        mode_t mode = O_CLOEXEC|O_NONBLOCK|O_NOCTTY|
-                (s->read_kmsg ? O_RDWR : O_WRONLY);
+        mode_t mode = O_CLOEXEC|O_NONBLOCK|O_NOCTTY|(s->read_kmsg ? O_RDWR : O_WRONLY);
 
-        s->dev_kmsg_fd = open("/dev/kmsg", mode);
-        if (s->dev_kmsg_fd < 0) {
+        _cleanup_close_ int fd = open("/dev/kmsg", mode);
+        if (fd < 0) {
                 log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING,
                                errno, "Failed to open /dev/kmsg for %s access, ignoring: %m", accmode_to_string(mode));
                 return 0;
         }
 
-        if (!s->read_kmsg)
+        if (!s->read_kmsg) {
+                s->dev_kmsg_fd = TAKE_FD(fd);
                 return 0;
-
-        r = sd_event_add_io(s->event, &s->dev_kmsg_event_source, s->dev_kmsg_fd, EPOLLIN, dispatch_dev_kmsg, s);
-        if (r == -EPERM) { /* This will fail with EPERM on older kernels where /dev/kmsg is not readable. */
-                log_debug_errno(r, "Not reading from /dev/kmsg since that's not supported, apparently.");
-                r = 0;
-                goto finish;
-        }
-        if (r < 0) {
-                log_error_errno(r, "Failed to add /dev/kmsg fd to event loop: %m");
-                goto finish;
         }
 
-        r = sd_event_source_set_priority(s->dev_kmsg_event_source, SD_EVENT_PRIORITY_IMPORTANT+10);
-        if (r < 0) {
-                log_error_errno(r, "Failed to adjust priority of kmsg event source: %m");
-                goto finish;
-        }
+        _cleanup_(sd_event_source_unrefp) sd_event_source *es = NULL;
+        r = sd_event_add_io(s->event, &es, fd, EPOLLIN, dispatch_dev_kmsg, s);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add /dev/kmsg fd to event loop: %m");
 
-        s->dev_kmsg_readable = true;
+        r = sd_event_source_set_priority(es, SD_EVENT_PRIORITY_IMPORTANT+10);
+        if (r < 0)
+                return log_error_errno(r, "Failed to adjust priority of kmsg event source: %m");
+
+        s->dev_kmsg_fd = TAKE_FD(fd);
+        s->dev_kmsg_event_source = TAKE_PTR(es);
         return 0;
-
-finish:
-        s->dev_kmsg_event_source = sd_event_source_unref(s->dev_kmsg_event_source);
-        s->dev_kmsg_fd = safe_close(s->dev_kmsg_fd);
-        return r;
 }
 
 int server_open_kernel_seqnum(Server *s) {
@@ -436,7 +427,7 @@ int server_open_kernel_seqnum(Server *s) {
         /* We store the seqnum we last read in an mmapped file. That way we can just use it like a variable,
          * but it is persistent and automatically flushed at reboot. */
 
-        if (!s->dev_kmsg_readable)
+        if (!s->read_kmsg)
                 return 0;
 
         r = server_map_seqnum_file(s, "kernel-seqnum", sizeof(uint64_t), (void**) &s->kernel_seqnum);

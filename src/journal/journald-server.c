@@ -2031,17 +2031,8 @@ static int server_open_hostname(Server *s) {
                 return log_error_errno(errno, "Failed to open /proc/sys/kernel/hostname: %m");
 
         r = sd_event_add_io(s->event, &s->hostname_event_source, s->hostname_fd, 0, dispatch_hostname_change, s);
-        if (r < 0) {
-                /* kernels prior to 3.2 don't support polling this file. Ignore
-                 * the failure. */
-                if (r == -EPERM) {
-                        log_warning_errno(r, "Failed to register hostname fd in event loop, ignoring: %m");
-                        s->hostname_fd = safe_close(s->hostname_fd);
-                        return 0;
-                }
-
+        if (r < 0)
                 return log_error_errno(r, "Failed to register hostname fd in event loop: %m");
-        }
 
         r = sd_event_source_set_priority(s->hostname_event_source, SD_EVENT_PRIORITY_IMPORTANT-10);
         if (r < 0)
