@@ -173,7 +173,6 @@ static void unit_init(Unit *u) {
 
                 cc->cpu_accounting = u->manager->defaults.cpu_accounting;
                 cc->io_accounting = u->manager->defaults.io_accounting;
-                cc->blockio_accounting = u->manager->defaults.blockio_accounting;
                 cc->memory_accounting = u->manager->defaults.memory_accounting;
                 cc->tasks_accounting = u->manager->defaults.tasks_accounting;
                 cc->ip_accounting = u->manager->defaults.ip_accounting;
@@ -1570,9 +1569,6 @@ static int unit_add_oomd_dependencies(Unit *u) {
 
         bool wants_oomd = c->moom_swap == MANAGED_OOM_KILL || c->moom_mem_pressure == MANAGED_OOM_KILL;
         if (!wants_oomd)
-                return 0;
-
-        if (!cg_all_unified())
                 return 0;
 
         r = cg_mask_supported(&mask);
@@ -4809,16 +4805,7 @@ int unit_kill_context(Unit *u, KillOperation k) {
 
                 } else if (r > 0) {
 
-                        /* FIXME: For now, on the legacy hierarchy, we will not wait for the cgroup members to die if
-                         * we are running in a container or if this is a delegation unit, simply because cgroup
-                         * notification is unreliable in these cases. It doesn't work at all in containers, and outside
-                         * of containers it can be confused easily by left-over directories in the cgroup — which
-                         * however should not exist in non-delegated units. On the unified hierarchy that's different,
-                         * there we get proper events. Hence rely on them. */
-
-                        if (cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER) > 0 ||
-                            (detect_container() == 0 && !unit_cgroup_delegate(u)))
-                                wait_for_exit = true;
+                        wait_for_exit = true;
 
                         if (send_sighup) {
                                 r = unit_pid_set(u, &pid_set);
@@ -5418,7 +5405,7 @@ int unit_fork_helper_process(Unit *u, const char *name, bool into_cgroup, PidRef
         (void) ignore_signals(SIGPIPE);
 
         if (crt && crt->cgroup_path) {
-                r = cg_attach_everywhere(u->manager->cgroup_supported, crt->cgroup_path, 0);
+                r = cg_attach(crt->cgroup_path, 0);
                 if (r < 0) {
                         log_unit_error_errno(u, r, "Failed to join unit cgroup %s: %m", empty_to_root(crt->cgroup_path));
                         _exit(EXIT_CGROUP);
