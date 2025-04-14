@@ -45,6 +45,14 @@ typedef enum ProtectSystem {
         _PROTECT_SYSTEM_INVALID = -EINVAL,
 } ProtectSystem;
 
+typedef enum RestrictTransientUnits {
+        RESTRICT_TRANSIENT_NO,
+        RESTRICT_TRANSIENT_YES,
+        RESTRICT_TRANSIENT_AUTO,
+        _RESTRICT_TRANSIENT_MAX,
+        _RESTRICT_TRANSIENT_INVALID = -EINVAL,
+} RestrictTransientUnits;
+
 typedef enum ProtectProc {
         PROTECT_PROC_DEFAULT,
         PROTECT_PROC_NOACCESS,   /* hidepid=noaccess */
@@ -200,6 +208,7 @@ struct NamespaceParameters {
         ProcSubset proc_subset;
         PrivateTmp private_tmp;
         PrivatePIDs private_pids;
+        RestrictTransientUnits restrict_transient;
 };
 
 int setup_namespace(const NamespaceParameters *p, char **reterr_path);
@@ -230,6 +239,9 @@ ProtectHostname protect_hostname_from_string(const char *s) _pure_;
 
 const char* protect_system_to_string(ProtectSystem p) _const_;
 ProtectSystem protect_system_from_string(const char *s) _pure_;
+
+const char* restrict_transient_to_string(RestrictTransientUnits p) _const_;
+RestrictTransientUnits restrict_transient_from_string(const char *s) _pure_;
 
 const char* protect_proc_to_string(ProtectProc i) _const_;
 ProtectProc protect_proc_from_string(const char *s) _pure_;

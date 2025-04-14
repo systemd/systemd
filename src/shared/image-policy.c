@@ -774,6 +774,27 @@ int image_policy_intersect(const ImagePolicy *a, const ImagePolicy *b, ImagePoli
         return 0;
 }
 
+int image_policy_copy(ImagePolicy **dst, const ImagePolicy *src) {
+        _cleanup_(image_policy_freep) ImagePolicy *p = NULL;
+
+        assert(dst);
+        assert(src);
+
+        p = image_policy_new(src->n_policies);
+        if (!p)
+                return -ENOMEM;
+        p->default_flags = src->default_flags;
+        p->n_policies = 0;
+        FOREACH_ARRAY(i, src->policies, src->n_policies) {
+                p->policies[p->n_policies++] = (PartitionPolicy) {
+                        .designator = i->designator,
+                        .flags = i->flags,
+                };
+        }
+        *dst = TAKE_PTR(p);
+        return 0;
+}
+
 int image_policy_ignore_designators(const ImagePolicy *p, const PartitionDesignator table[], size_t n_table, ImagePolicy **ret) {
         assert(p);
         assert(table || n_table == 0);

@@ -3300,6 +3300,14 @@ static const char *const protect_system_table[_PROTECT_SYSTEM_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(protect_system, ProtectSystem, PROTECT_SYSTEM_YES);
 
+static const char *const restrict_transient_table[_RESTRICT_TRANSIENT_MAX] = {
+        [RESTRICT_TRANSIENT_NO]     = "no",
+        [RESTRICT_TRANSIENT_YES]    = "yes",
+        [RESTRICT_TRANSIENT_AUTO]    = "auto",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(restrict_transient, RestrictTransientUnits, RESTRICT_TRANSIENT_YES);
+
 static const char *const protect_control_groups_table[_PROTECT_CONTROL_GROUPS_MAX] = {
         [PROTECT_CONTROL_GROUPS_NO]      = "no",
         [PROTECT_CONTROL_GROUPS_YES]     = "yes",

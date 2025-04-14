@@ -10,6 +10,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "in-addr-prefix-util.h"
+#include "namespace.h"
 #include "parse-helpers.h"
 #include "parse-util.h"
 #include "percent-util.h"
@@ -1950,6 +1951,10 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
         if (r < 0)
                 return r;
 
+        r = serialize_item(f, "exec-context-restrict-transient", restrict_transient_to_string(c->restrict_transient));
+        if (r < 0)
+                return r;
+
         r = serialize_bool_elide(f, "exec-context-same-pgrp", c->same_pgrp);
         if (r < 0)
                 return r;
@@ -2851,6 +2856,10 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                 } else if ((val = startswith(l, "exec-context-protect-system="))) {
                         c->protect_system = protect_system_from_string(val);
                         if (c->protect_system < 0)
+                                return -EINVAL;
+                } else if ((val = startswith(l, "exec-context-restrict-transient="))) {
+                        c->restrict_transient = restrict_transient_from_string(val);
+                        if (c->restrict_transient < 0)
                                 return -EINVAL;
                 } else if ((val = startswith(l, "exec-context-same-pgrp="))) {
                         r = parse_boolean(val);

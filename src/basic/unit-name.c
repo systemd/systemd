@@ -823,6 +823,32 @@ int slice_build_parent_slice(const char *slice, char **ret) {
         return 1;
 }
 
+bool is_subslice_or_eq(const char *slice, const char *parent) {
+        size_t sl, pl;
+
+        assert(slice);
+        assert(parent);
+
+        if (!slice_name_is_valid(slice))
+                return -EINVAL;
+
+        if (!slice_name_is_valid(parent))
+                return -EINVAL;
+
+        if (streq(parent, SPECIAL_ROOT_SLICE))
+                return true;
+        else if (streq(parent, slice))
+                return true;
+        else {
+                sl = strlen(slice);
+                pl = strlen(parent);
+                if (sl < pl - 6)
+                        return false;
+
+                return strneq(slice, parent, pl - 6);
+        }
+}
+
 int slice_build_subslice(const char *slice, const char *name, char **ret) {
         char *subslice;
 

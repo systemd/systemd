@@ -70,6 +70,7 @@ static inline int unit_name_mangle(const char *name, UnitNameMangle flags, char 
 }
 
 int slice_build_parent_slice(const char *slice, char **ret);
+bool is_subslice_or_eq(const char *slice, const char *parent);
 int slice_build_subslice(const char *slice, const char *name, char **subslice);
 bool slice_name_is_valid(const char *name);
 
