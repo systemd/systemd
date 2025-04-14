@@ -109,6 +109,13 @@ CHANGES WITH 258 in spe:
         * The meson option 'integration-tests' has been deprecated, and will be
           removed in a future release.
 
+        systemd-networkd and networkctl:
+
+        * systemd-networkd now supports configuring the timeout for IPv4
+          Duplicate Address Detection via a new setting
+          IPv4DuplicateAddressDetectionTimeoutSec=. The default timeout value
+          has been changed from 7 seconds to 200 milliseconds.
+
         — <place>, <date>
 
 CHANGES WITH 257:
