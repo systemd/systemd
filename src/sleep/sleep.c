@@ -588,6 +588,23 @@ static int parse_argv(int argc, char *argv[]) {
         return 1 /* work to do */;
 }
 
+static int write_wakeup_count(void) {
+        static const char wakeup_count_path[] = "/sys/power/wakeup_count";
+        _cleanup_free_ char *buf = NULL;
+        size_t bufsize;
+        int r;
+
+        r = read_full_virtual_file(wakeup_count_path, &buf, &bufsize);
+        if (r < 0)
+                return log_debug_errno(r, "Unable to read %s: %m", wakeup_count_path);
+
+        r = write_string_file(wakeup_count_path, buf, WRITE_STRING_FILE_DISABLE_BUFFER);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to write wakeup count %s: %m", wakeup_count_path);
+
+        return 0;
+}
+
 static int run(int argc, char *argv[]) {
         _cleanup_(unit_freezer_freep) UnitFreezer *user_slice_freezer = NULL;
         _cleanup_(sleep_config_freep) SleepConfig *sleep_config = NULL;
@@ -607,6 +624,11 @@ static int run(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EACCES),
                                        "Sleep operation \"%s\" is disabled by configuration, refusing.",
                                        sleep_operation_to_string(arg_operation));
+
+        /* Write wakeup_count to avoid any race condition */
+        r = write_wakeup_count();
+        if (r < 0)
+                return r;
 
         /* Freeze the user sessions */
         r = getenv_bool("SYSTEMD_SLEEP_FREEZE_USER_SESSIONS");
