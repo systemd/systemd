@@ -60,3 +60,11 @@ do
         tee --append /tmp/buildrequires |
         xargs --delimiter '\n' mkosi-install
 done
+
+# Get the systemd version installed in the host assuming it's recent enough
+# but a major version older than the one in the image.
+curver=$(rpm -q --queryformat '%{V}-%{R}' systemd)
+pkgs=$(dnf repoquery 'systemd*' |grep "$curver" |grep -v -e -debuginfo -e -debugsource -e -devel)
+
+dnf install 'dnf-command(download)'
+dnf --enableplugin download download --archlist $(rpm --eval '%{_arch}'),noarch --destdir $BUILDROOT/usr/host-pkgs $pkgs
