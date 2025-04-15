@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
+#include <execinfo.h>
 #include <fcntl.h>
 #include <inttypes.h>
 #include <limits.h>
@@ -964,7 +965,24 @@ int log_object_internal(
         return r;
 }
 
-static void log_assert(
+void log_backtrace(int level)
+{
+        int nframes;
+        void *framebuff[32];
+        zero(framebuff);
+
+        nframes = backtrace(framebuff, ELEMENTSOF(framebuff));
+
+        char **frames = backtrace_symbols(framebuff, nframes);
+        assert_se(frames != NULL);
+        for (int i = 0; i < nframes; i++) {
+                log_dispatch_internal(level, 0, PROJECT_FILE, __LINE__, __func__, NULL, NULL, NULL, NULL, frames[i]);
+        }
+
+        free(frames);
+}
+
+void log_assert(
                 int level,
                 const char *text,
                 const char *file,
