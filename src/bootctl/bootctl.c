@@ -43,7 +43,7 @@ bool arg_print_dollar_boot_path = false;
 bool arg_print_loader_path = false;
 bool arg_print_stub_path = false;
 unsigned arg_print_root_device = 0;
-bool arg_touch_variables = true;
+int arg_touch_variables = -1;
 bool arg_install_random_seed = true;
 PagerFlags arg_pager_flags = 0;
 bool arg_graceful = false;
@@ -213,6 +213,27 @@ static int print_loader_or_stub_path(void) {
         return 0;
 }
 
+bool touch_variables(void) {
+        /* If we run in a container or on a non-EFI system, automatically turn off EFI file system access,
+         * unless explicitly overriden. */
+
+        if (arg_touch_variables >= 0)
+                return arg_touch_variables;
+
+        if (arg_root) {
+                log_notice("Operating on %s, skipping EFI variable modifications.",
+                           arg_image ? "image" : "root directory");
+                return false;
+        }
+
+        if (!is_efi_boot()) { /* NB: this internally checks if we run in a container */
+                log_notice("Not booted with EFI or running in a container, skipping EFI variable modifications.");
+                return false;
+        }
+
+        return true;
+}
+
 static int help(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -271,7 +292,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "                       Specify disk image dissection policy\n"
                "     --install-source=auto|image|host\n"
                "                       Where to pick files when using --root=/--image=\n"
-               "     --no-variables    Don't touch EFI variables\n"
+               "     --variables=yes|no\n"
+               "                       Whether to modify EFI variables\n"
                "     --random-seed=yes|no\n"
                "                       Whether to create random-seed file during install\n"
                "     --no-pager        Do not pipe output into a pager\n"
@@ -327,6 +349,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_IMAGE_POLICY,
                 ARG_INSTALL_SOURCE,
                 ARG_VERSION,
+                ARG_VARIABLES,
                 ARG_NO_VARIABLES,
                 ARG_RANDOM_SEED,
                 ARG_NO_PAGER,
@@ -362,7 +385,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "print-loader-path",           no_argument,       NULL, ARG_PRINT_LOADER_PATH           },
                 { "print-stub-path",             no_argument,       NULL, ARG_PRINT_STUB_PATH             },
                 { "print-root-device",           no_argument,       NULL, 'R'                             },
-                { "no-variables",                no_argument,       NULL, ARG_NO_VARIABLES                },
+                { "variables",                   required_argument, NULL, ARG_VARIABLES                   },
+                { "no-variables",                no_argument,       NULL, ARG_NO_VARIABLES                }, /* Compability */
                 { "random-seed",                 required_argument, NULL, ARG_RANDOM_SEED                 },
                 { "no-pager",                    no_argument,       NULL, ARG_NO_PAGER                    },
                 { "graceful",                    no_argument,       NULL, ARG_GRACEFUL                    },
@@ -458,6 +482,12 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'R':
                         arg_print_root_device++;
+                        break;
+
+                case ARG_VARIABLES:
+                        r = parse_tristate_argument("--variables=", optarg, &arg_touch_variables);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_NO_VARIABLES:
@@ -642,10 +672,6 @@ static int run(int argc, char *argv[]) {
         int r;
 
         log_setup();
-
-        /* If we run in a container, automatically turn off EFI file system access */
-        if (detect_container() > 0)
-                arg_touch_variables = false;
 
         r = parse_argv(argc, argv);
         if (r <= 0)
