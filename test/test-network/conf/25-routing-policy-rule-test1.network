@@ -48,6 +48,24 @@ From=10.1.0.0/16
 Priority=104
 Table=12
 
+[RoutingPolicyRule]
+IncomingInterface=test1
+FirewallMark=0/1
+Priority=200
+Table=20
+
+[RoutingPolicyRule]
+IncomingInterface=test1
+FirewallMark=7/255
+Priority=201
+Table=21
+
+[RoutingPolicyRule]
+IncomingInterface=test1
+FirewallMark=9999
+Priority=202
+Table=22
+
 # The four routing policy rules below intentionally have the same config
 # excepts for their To= addresses. See issue #35874.
 [RoutingPolicyRule]
