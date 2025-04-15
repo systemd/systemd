@@ -38,6 +38,7 @@
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pidfd-util.h"
 #include "polkit-agent.h"
 #include "pretty-print.h"
 #include "process-util.h"
