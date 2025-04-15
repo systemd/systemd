@@ -104,7 +104,7 @@ static ssize_t getxattr_pinned_internal(
         if (n < 0)
                 return -errno;
 
-        assert((size_t) n <= size);
+        assert(size == 0 || (size_t) n <= size);
         return n;
 }
 
