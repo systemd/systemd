@@ -40,7 +40,7 @@ struct udev_queue {
  *
  * Returns: the udev queue context, or #NULL on error.
  **/
-_public_ struct udev_queue *udev_queue_new(struct udev *udev) {
+_public_ struct udev_queue* udev_queue_new(struct udev *udev) {
         struct udev_queue *udev_queue;
 
         udev_queue = new(struct udev_queue, 1);
@@ -56,7 +56,7 @@ _public_ struct udev_queue *udev_queue_new(struct udev *udev) {
         return udev_queue;
 }
 
-static struct udev_queue *udev_queue_free(struct udev_queue *udev_queue) {
+static struct udev_queue* udev_queue_free(struct udev_queue *udev_queue) {
         assert(udev_queue);
 
         safe_close(udev_queue->fd);
@@ -91,7 +91,7 @@ DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(struct udev_queue, udev_queue, udev_queue_f
  *
  * Returns: the udev library context.
  **/
-_public_ struct udev *udev_queue_get_udev(struct udev_queue *udev_queue) {
+_public_ struct udev* udev_queue_get_udev(struct udev_queue *udev_queue) {
         assert_return_errno(udev_queue, NULL, EINVAL);
 
         return udev_queue->udev;
@@ -155,8 +155,11 @@ _public_ int udev_queue_get_queue_is_empty(struct udev_queue *udev_queue) {
  *
  * Returns: a flag indicating if udev is currently handling events.
  **/
-_public_ int udev_queue_get_seqnum_sequence_is_finished(struct udev_queue *udev_queue,
-                                                        unsigned long long int start, unsigned long long int end) {
+_public_ int udev_queue_get_seqnum_sequence_is_finished(
+                struct udev_queue *udev_queue,
+                unsigned long long int start,
+                unsigned long long int end) {
+
         return udev_queue_is_empty() > 0;
 }
 
@@ -181,7 +184,7 @@ _public_ int udev_queue_get_seqnum_is_finished(struct udev_queue *udev_queue, un
  *
  * Returns: NULL.
  **/
-_public_ struct udev_list_entry *udev_queue_get_queued_list_entry(struct udev_queue *udev_queue) {
+_public_ struct udev_list_entry* udev_queue_get_queued_list_entry(struct udev_queue *udev_queue) {
         return_with_errno(NULL, ENODATA);
 }
 
