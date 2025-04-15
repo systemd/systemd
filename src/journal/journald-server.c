@@ -286,7 +286,7 @@ static int server_open_journal(
                 (seal ? JOURNAL_SEAL : 0) |
                 JOURNAL_STRICT_ORDER;
 
-        set_clear_with_destructor(s->deferred_closes, journal_file_offline_close);
+        set_clear(s->deferred_closes);
 
         if (reliably)
                 r = journal_file_open_reliably(
@@ -1477,8 +1477,8 @@ int server_relinquish_var(Server *s) {
         (void) server_system_journal_open(s, /* flush_requested */ false, /* relinquish_requested=*/ true);
 
         s->system_journal = journal_file_offline_close(s->system_journal);
-        ordered_hashmap_clear_with_destructor(s->user_journals, journal_file_offline_close);
-        set_clear_with_destructor(s->deferred_closes, journal_file_offline_close);
+        ordered_hashmap_clear(s->user_journals);
+        set_clear(s->deferred_closes);
 
         server_refresh_idle_timer(s);
         return 0;
@@ -2494,7 +2494,7 @@ int server_init(Server *s, const char *namespace) {
 
         (void) mkdir_p(s->runtime_directory, 0755);
 
-        s->user_journals = ordered_hashmap_new(NULL);
+        s->user_journals = ordered_hashmap_new(&journal_file_hash_ops_offline_close);
         if (!s->user_journals)
                 return log_oom();
 
@@ -2502,7 +2502,7 @@ int server_init(Server *s, const char *namespace) {
         if (!s->mmap)
                 return log_oom();
 
-        s->deferred_closes = set_new(NULL);
+        s->deferred_closes = set_new(&journal_file_hash_ops_offline_close);
         if (!s->deferred_closes)
                 return log_oom();
 
@@ -2699,7 +2699,7 @@ Server* server_free(Server *s) {
         free(s->namespace);
         free(s->namespace_field);
 
-        set_free_with_destructor(s->deferred_closes, journal_file_offline_close);
+        set_free(s->deferred_closes);
 
         while (s->stdout_streams)
                 stdout_stream_free(s->stdout_streams);
@@ -2709,7 +2709,7 @@ Server* server_free(Server *s) {
         (void) journal_file_offline_close(s->system_journal);
         (void) journal_file_offline_close(s->runtime_journal);
 
-        ordered_hashmap_free_with_destructor(s->user_journals, journal_file_offline_close);
+        ordered_hashmap_free(s->user_journals);
 
         sd_varlink_server_unref(s->varlink_server);
 

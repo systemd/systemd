@@ -8,23 +8,6 @@
 #include "journal-remote-write.h"
 #include "journal-vacuum.h"
 
-#if HAVE_MICROHTTPD
-#include "microhttpd-util.h"
-
-typedef struct MHDDaemonWrapper MHDDaemonWrapper;
-
-struct MHDDaemonWrapper {
-        uint64_t fd;
-        struct MHD_Daemon *daemon;
-
-        sd_event_source *io_event;
-        sd_event_source *timer_event;
-};
-
-MHDDaemonWrapper* MHDDaemonWrapper_free(MHDDaemonWrapper *d);
-DEFINE_TRIVIAL_CLEANUP_FUNC(MHDDaemonWrapper*, MHDDaemonWrapper_free);
-#endif
-
 struct RemoteServer {
         RemoteSource **sources;
         size_t active;
@@ -36,9 +19,7 @@ struct RemoteServer {
         Writer *_single_writer;
         uint64_t event_count;
 
-#if HAVE_MICROHTTPD
         Hashmap *daemons;
-#endif
         const char *output;                    /* either the output file or directory */
 
         JournalWriteSplitMode split_mode;
