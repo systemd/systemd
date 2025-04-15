@@ -845,22 +845,11 @@ int bpf_firewall_supported(void) {
 
         /* Checks whether BPF firewalling is supported. For this, we check the following things:
          *
-         * - whether the unified hierarchy is being used
          * - the BPF implementation in the kernel supports BPF_PROG_TYPE_CGROUP_SKB programs, which we require
          * - the BPF implementation in the kernel supports the BPF_PROG_DETACH call, which we require
          */
         if (supported >= 0)
                 return supported;
-
-        r = cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER);
-        if (r < 0)
-                return log_error_errno(r, "bpf-firewall: Can't determine whether the unified hierarchy is used: %m");
-        if (r == 0) {
-                bpf_firewall_unsupported_reason =
-                        log_debug_errno(SYNTHETIC_ERRNO(EUCLEAN),
-                                        "bpf-firewall: Not running with unified cgroup hierarchy, BPF firewalling is not supported.");
-                return supported = BPF_FIREWALL_UNSUPPORTED;
-        }
 
         /* prog_name is NULL since it is supported only starting from v4.15 kernel. */
         r = bpf_program_new(BPF_PROG_TYPE_CGROUP_SKB, NULL, &program);

@@ -1586,9 +1586,6 @@ void unit_modify_nft_set(Unit *u, bool add) {
         if (!UNIT_HAS_CGROUP_CONTEXT(u))
                 return;
 
-        if (cg_all_unified() <= 0)
-                return;
-
         CGroupRuntime *crt = unit_get_cgroup_runtime(u);
         if (!crt || crt->cgroup_id == 0)
                 return;
@@ -2243,13 +2240,6 @@ int unit_watch_cgroup(Unit *u) {
         if (crt->cgroup_control_inotify_wd >= 0)
                 return 0;
 
-        /* Only applies to the unified hierarchy */
-        r = cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER);
-        if (r < 0)
-                return log_error_errno(r, "Failed to determine whether the name=systemd hierarchy is unified: %m");
-        if (r == 0)
-                return 0;
-
         /* No point in watch the top-level slice, it's never going to run empty. */
         if (unit_has_name(u, SPECIAL_ROOT_SLICE))
                 return 0;
@@ -2308,13 +2298,6 @@ int unit_watch_cgroup_memory(Unit *u) {
                 return 0;
 
         if (crt->cgroup_memory_inotify_wd >= 0)
-                return 0;
-
-        /* Only applies to the unified hierarchy */
-        r = cg_all_unified();
-        if (r < 0)
-                return log_error_errno(r, "Failed to determine whether the memory controller is unified: %m");
-        if (r == 0)
                 return 0;
 
         r = hashmap_ensure_allocated(&u->manager->cgroup_memory_inotify_wd_unit, &trivial_hash_ops);
