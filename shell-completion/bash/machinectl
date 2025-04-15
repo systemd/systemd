@@ -85,7 +85,7 @@ _machinectl() {
                 comps=$( machinectl --verify=help 2>/dev/null )
                 ;;
             --format)
-                comps='uncompressed xz gzip bzip2'
+                comps='uncompressed xz gzip bzip2 zstd'
                 ;;
         esac
         COMPREPLY=( $(compgen -W '$comps' -- "$cur") )

@@ -43,6 +43,8 @@ static void determine_compression_from_filename(const char *p) {
                 arg_compress = IMPORT_COMPRESS_GZIP;
         else if (endswith(p, ".bz2"))
                 arg_compress = IMPORT_COMPRESS_BZIP2;
+        else if (endswith(p, ".zst"))
+                arg_compress = IMPORT_COMPRESS_ZSTD;
         else
                 arg_compress = IMPORT_COMPRESS_UNCOMPRESSED;
 }
@@ -254,6 +256,8 @@ static int parse_argv(int argc, char *argv[]) {
                                 arg_compress = IMPORT_COMPRESS_GZIP;
                         else if (streq(optarg, "bzip2"))
                                 arg_compress = IMPORT_COMPRESS_BZIP2;
+                        else if (streq(optarg, "zstd"))
+                                arg_compress = IMPORT_COMPRESS_ZSTD;
                         else
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Unknown format: %s", optarg);

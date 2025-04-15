@@ -2334,7 +2334,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_FORMAT:
-                        if (!STR_IN_SET(optarg, "uncompressed", "xz", "gzip", "bzip2"))
+                        if (!STR_IN_SET(optarg, "uncompressed", "xz", "gzip", "bzip2", "zstd"))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Unknown format: %s", optarg);
 

@@ -153,6 +153,8 @@ int tar_strip_suffixes(const char *name, char **ret) {
         if (!e)
                 e = endswith(name, ".tar.bz2");
         if (!e)
+                e = endswith(name, ".tar.zst");
+        if (!e)
                 e = endswith(name, ".tgz");
         if (!e)
                 e = strchr(name, 0);
@@ -174,6 +176,7 @@ int raw_strip_suffixes(const char *p, char **ret) {
                 ".xz\0"
                 ".gz\0"
                 ".bz2\0"
+                ".zst\0"
                 ".sysext.raw\0"
                 ".confext.raw\0"
                 ".raw\0"
