@@ -398,10 +398,12 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--no-variables</option></term>
-        <listitem><para>Do not touch the firmware's boot loader list stored in EFI variables.</para>
+        <term><option>--variables=yes|no</option></term>
+        <listitem><para>Controls whether to touch the firmware's boot loader list stored in EFI variables,
+        and other EFI variables. If not specified defaults to no when execution in a container runtime is
+        detected, yes otherwise.</para>
 
-        <xi:include href="version-info.xml" xpointer="v220"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
 
       <varlistentry>
