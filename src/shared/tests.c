@@ -306,11 +306,7 @@ static int enter_cgroup(char **ret_cgroup, bool enter_subroot) {
         /* If this fails, then we don't mind as the later cgroup operations will fail too, and it's fine if
          * we handle any errors at that point. */
 
-        r = cg_create_everywhere(supported, _CGROUP_MASK_ALL, cgroup_subroot);
-        if (r < 0)
-                return r;
-
-        r = cg_attach_everywhere(supported, cgroup_subroot, 0);
+        r = cg_create_and_attach(cgroup_subroot, 0);
         if (r < 0)
                 return r;
 
