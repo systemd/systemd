@@ -2852,8 +2852,11 @@ int unit_pick_cgroup_path(Unit *u) {
                 return log_unit_error_errno(u, r, "Failed to generate default cgroup path: %m");
 
         r = unit_set_cgroup_path(u, path);
-        if (r == -EEXIST)
+        if (r == -EEXIST) {
+                if (u->invoked_by == UNIT_TIMER && u->manager->defaults.persist_timer_cgroups)
+                        return 0;
                 return log_unit_error_errno(u, r, "Control group %s exists already.", empty_to_root(path));
+        }
         if (r < 0)
                 return log_unit_error_errno(u, r, "Failed to set unit's control group path to %s: %m", empty_to_root(path));
 
@@ -3645,20 +3648,24 @@ void unit_prune_cgroup(Unit *u) {
 
         is_root_slice = unit_has_name(u, SPECIAL_ROOT_SLICE);
 
-        r = cg_trim_everywhere(u->manager->cgroup_supported, crt->cgroup_path, !is_root_slice);
-        if (r < 0) {
-                int k = unit_prune_cgroup_via_bus(u);
+        if (u->invoked_by == UNIT_TIMER && u->manager->defaults.persist_timer_cgroups) {
+                log_unit_debug(u, "Persisting cgroup");
+        } else {
+                r = cg_trim_everywhere(u->manager->cgroup_supported, crt->cgroup_path, !is_root_slice);
+                if (r < 0) {
+                        int k = unit_prune_cgroup_via_bus(u);
 
-                if (k >= 0)
-                        log_unit_debug_errno(u, r, "Failed to destroy cgroup %s on our own (%m), but worked when talking to PID 1.", empty_to_root(crt->cgroup_path));
-                else {
-                        /* One reason we could have failed here is, that the cgroup still contains a process.
-                         * However, if the cgroup becomes removable at a later time, it might be removed when
-                         * the containing slice is stopped. So even if we failed now, this unit shouldn't
-                         * assume that the cgroup is still realized the next time it is started. Do not
-                         * return early on error, continue cleanup. */
-                        log_unit_full_errno(u, r == -EBUSY ? LOG_DEBUG : LOG_WARNING, r,
-                                            "Failed to destroy cgroup %s, ignoring: %m", empty_to_root(crt->cgroup_path));
+                        if (k >= 0)
+                                log_unit_debug_errno(u, r, "Failed to destroy cgroup %s on our own (%m), but worked when talking to PID 1.", empty_to_root(crt->cgroup_path));
+                        else {
+                                /* One reason we could have failed here is, that the cgroup still contains a process.
+                                 * However, if the cgroup becomes removable at a later time, it might be removed when
+                                 * the containing slice is stopped. So even if we failed now, this unit shouldn't
+                                 * assume that the cgroup is still realized the next time it is started. Do not
+                                 * return early on error, continue cleanup. */
+                                log_unit_full_errno(u, r == -EBUSY ? LOG_DEBUG : LOG_WARNING, r,
+                                                    "Failed to destroy cgroup %s, ignoring: %m", empty_to_root(crt->cgroup_path));
+                        }
                 }
         }
 

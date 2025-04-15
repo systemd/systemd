@@ -810,6 +810,7 @@ static int parse_config_file(void) {
 #else
                 { "Manager", "DefaultSmackProcessLabel",     config_parse_warn_compat,           DISABLED_CONFIGURATION,   NULL                              },
 #endif
+                { "Manager", "PersistTimerCgroups",          config_parse_bool,                  0,                        &arg_defaults.persist_timer_cgroups},
                 {}
         };
 
