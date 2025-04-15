@@ -415,7 +415,7 @@ static int dns_trust_anchor_load_negative(DnsTrustAnchor *d, const char *path, u
                 return -EINVAL;
         }
 
-        r = set_ensure_consume(&d->negative_by_name, &dns_name_hash_ops, TAKE_PTR(domain));
+        r = set_ensure_consume(&d->negative_by_name, &dns_name_hash_ops_free, TAKE_PTR(domain));
         if (r < 0)
                 return log_oom();
 
