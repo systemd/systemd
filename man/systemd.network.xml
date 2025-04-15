@@ -1719,8 +1719,10 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
         <term><varname>FirewallMark=</varname></term>
         <listitem>
           <para>Specifies the iptables firewall mark value to match (a number in the range
-          1…4294967295). Optionally, the firewall mask (also a number between 1…4294967295) can be
-          suffixed with a slash (<literal>/</literal>), e.g., <literal>7/255</literal>.</para>
+          0…4294967295). Optionally, the firewall mask (also a number between 0…4294967295) can be
+          suffixed with a slash (<literal>/</literal>), e.g., <literal>7/255</literal>. When the
+          mark value is non-zero and no mask is explicitly specified, all bits of the mark are
+          compared. </para>
 
           <xi:include href="version-info.xml" xpointer="v235"/>
         </listitem>
