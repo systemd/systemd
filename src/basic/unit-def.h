@@ -298,6 +298,10 @@ typedef enum JobMode {
         _JOB_MODE_INVALID = -EINVAL,
 } JobMode;
 
+typedef enum UnitTransientOwnerFlags {
+        TRANSIENT_OWNER_STOP_ON_EXIT = UINT64_C(1) << 0,
+} UnitTransientOwnerFlags;
+
 char* unit_dbus_path_from_name(const char *name);
 int unit_name_from_dbus_path(const char *path, char **name);
 
