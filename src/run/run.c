@@ -1093,6 +1093,12 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
         if (strv_extend(&arg_property, "PAMName=systemd-run0") < 0)
                 return log_oom();
 
+        /* The service manager ignores SIGPIPE for all spawned processes by default. Let's explicitly override
+         * that here, since we're primarily invoked in interactive environments, and the termination of
+         * local terminal session should be acknowledged by remote even for --pipe stdio. */
+        if (strv_extend(&arg_property, "IgnoreSIGPIPE=no") < 0)
+                return log_oom();
+
         if (!arg_background && arg_stdio == ARG_STDIO_PTY && shall_tint_background()) {
                 double hue;
 
