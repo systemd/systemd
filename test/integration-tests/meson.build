@@ -12,8 +12,6 @@ integration_test_template = {
         'configuration' : {
                 'memory-accounting' : 'no',
                 'command' : '/usr/lib/systemd/tests/testdata/units/%N.sh',
-                'wants' : 'multi-user.target user@4711.service',
-                'after' : 'user@4711.service',
                 'env' : {},
                 'service' : {},
                 'unit' : {},
@@ -96,6 +94,7 @@ foreach dirname : [
         'TEST-85-NETWORK',
         'TEST-86-MULTI-PROFILE-UKI',
         'TEST-87-AUX-UTILS-VM',
+        'TEST-88-UPGRADE',
 ]
         subdir(dirname)
 endforeach
