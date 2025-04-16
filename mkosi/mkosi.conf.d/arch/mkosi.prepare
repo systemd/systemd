@@ -17,14 +17,16 @@ for PACKAGE in "${PACKAGES[@]}"; do
             sed --quiet 's/^Depends On *: //p' # Filter out everything except "Depends On:" line and fetch dependencies from it.
     )"
 
-    DEPS="$DEPS $(
-        pacman --sync --info "$PACKAGE" |
-            sed '1,/^$/d' | # Only keep result from first repository (delete everything after first blank line).
-            sed --quiet '/Optional Deps/,/Conflicts With/{/Conflicts With/!p}' | # Get every line from "Optional Deps" (inclusive) until "Conflicts With" (exclusive).
-            sed 's/Optional Deps *: //' | # Drop "Optional Deps :" from first line.
-            sed 's/ *\(.*\):.*/\1/' | # Drop descriptions (everything after first colon for all lines).
-            tr '\n' ' ' # Transform newlines to whitespace.
-    )"
+    if ! ((SYSTEMD_REQUIRED_DEPS_ONLY)); then
+        DEPS="$DEPS $(
+            pacman --sync --info "$PACKAGE" |
+                sed '1,/^$/d' | # Only keep result from first repository (delete everything after first blank line).
+                sed --quiet '/Optional Deps/,/Conflicts With/{/Conflicts With/!p}' | # Get every line from "Optional Deps" (inclusive) until "Conflicts With" (exclusive).
+                sed 's/Optional Deps *: //' | # Drop "Optional Deps :" from first line.
+                sed 's/ *\(.*\):.*/\1/' | # Drop descriptions (everything after first colon for all lines).
+                tr '\n' ' ' # Transform newlines to whitespace.
+        )"
+    fi
 done
 
 echo "$DEPS" |
