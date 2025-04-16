@@ -219,7 +219,10 @@ static int allocate_scope(void) {
                 return 0;
         }
 
-        r = sd_bus_default_system(&bus);
+        if (geteuid() == 0)
+                r = sd_bus_default_system(&bus);
+        else
+                r = sd_bus_default_user(&bus);
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to system bus: %m");
 
