@@ -22,9 +22,14 @@ for PACKAGE in "${PACKAGES[@]}"; do
     # Get all the dependencies of the systemd packages including recommended and suggested dependencies.
     PATTERNS+=(
         "?and(?reverse-depends(?exact-name($PACKAGE)), $COMMON)"
-        "?and(?reverse-recommends(?exact-name($PACKAGE)), $COMMON)"
-        "?and(?reverse-suggests(?exact-name($PACKAGE)), $COMMON)"
     )
+
+    if ! ((SYSTEMD_REQUIRED_DEPS_ONLY)); then
+        PATTERNS+=(
+            "?and(?reverse-recommends(?exact-name($PACKAGE)), $COMMON)"
+            "?and(?reverse-suggests(?exact-name($PACKAGE)), $COMMON)"
+        )
+    fi
 done
 
 mkosi-install "${PATTERNS[@]}"
