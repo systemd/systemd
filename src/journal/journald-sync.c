@@ -32,6 +32,8 @@ void stream_sync_req_advance_revalidate(StreamSyncReq *ssr, size_t p) {
 
         /* NB: This might invalidate the 'ssr' object! */
 
+        log_notice("NOW PENDING BYTES AT %zu minus %zu", ssr->pending_siocinq, p);
+
         if (p < ssr->pending_siocinq) {
                 ssr->pending_siocinq -= p;
                 return;
@@ -142,6 +144,7 @@ static int sync_req_add_stream(SyncReq *req, StdoutStream *ss) {
         int v = 0;
         if (ioctl(ss->fd, SIOCINQ, &v) < 0)
                 log_debug_errno(errno, "Failed to issue SIOCINQ on stream socket, ignoring: %m");
+        log_notice("XXX PENDING INCOMING STDOUT BYTES: %i", v);
         if (v <= 0)
                 return 0; /* Pending messages are zero anyway? then there's nothing to track */
 
@@ -232,6 +235,7 @@ int sync_req_new(Server *s, sd_varlink *link, SyncReq **ret) {
         r = af_unix_get_qlen(s->stdout_fd, &req->pending_rqlen);
         if (r < 0)
                 log_warning_errno(r, "Failed to determine current incoming queue length, ignoring: %m");
+        log_notice("XXX PENDING INCOMING STDOUT: %" PRIu32, req->pending_rqlen);
         if (req->pending_rqlen > 0)
                 LIST_PREPEND(pending_rqlen, s->sync_req_pending_rqlen, req);
 
@@ -294,6 +298,8 @@ void server_notify_stream(Server *s, StdoutStream *ss) {
                 log_warning_errno(r, "Failed to determine current AF_UNIX stream socket pending connections, ignoring: %m");
                 current_qlen = UINT32_MAX;
         }
+
+        log_notice("NOW PENDING CONN AT %" PRIu32, current_qlen);
 
         LIST_FOREACH(pending_rqlen, sr, s->sync_req_pending_rqlen)
                 /* NB: this might invalidate the SyncReq object! */
