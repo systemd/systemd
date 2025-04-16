@@ -223,6 +223,7 @@ int ipv4ll_configure(Link *link) {
         int r;
 
         assert(link);
+        assert(link->network);
 
         if (!link_ipv4ll_enabled(link))
                 return 0;
@@ -250,6 +251,10 @@ int ipv4ll_configure(Link *link) {
                 return r;
 
         r = sd_ipv4ll_set_mac(link->ipv4ll, &link->hw_addr.ether);
+        if (r < 0)
+                return r;
+
+        r = sd_ipv4ll_set_timeout(link->ipv4ll, link->network->ipv4_dad_timeout);
         if (r < 0)
                 return r;
 

@@ -489,6 +489,11 @@ CHANGES WITH 257:
           existing interfaces, and invoke 'networkctl reload' or restart
           systemd-networkd.
 
+        * The timeout for IPv4 Duplicate Address Detection can now be
+          configured via a new IPv4DuplicateAddressDetectionTimeout=
+          setting. The default timeout value has been changed from 7 seconds to
+          200 milliseconds.
+
         systemd-boot, systemd-stub, and related tools:
 
         * The EFI stub now supports loading of .ucode sections with microcode
