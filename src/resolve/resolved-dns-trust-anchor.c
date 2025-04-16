@@ -14,7 +14,6 @@
 #include "resolved-dns-dnssec.h"
 #include "resolved-dns-trust-anchor.h"
 #include "set.h"
-#include "sort-util.h"
 #include "string-util.h"
 #include "strv.h"
 
@@ -477,10 +476,6 @@ static int dns_trust_anchor_load_files(
         return 0;
 }
 
-static int domain_name_cmp(char * const *a, char * const *b) {
-        return dns_name_compare_func(*a, *b);
-}
-
 static int dns_trust_anchor_dump(DnsTrustAnchor *d) {
         DnsAnswer *a;
 
@@ -503,11 +498,8 @@ static int dns_trust_anchor_dump(DnsTrustAnchor *d) {
         else {
                 _cleanup_free_ char **l = NULL, *j = NULL;
 
-                l = set_get_strv(d->negative_by_name);
-                if (!l)
+                if (set_dump_sorted(d->negative_by_name, (void***) &l, /* ret_n = */ NULL) < 0)
                         return log_oom();
-
-                typesafe_qsort(l, set_size(d->negative_by_name), domain_name_cmp);
 
                 j = strv_join(l, " ");
                 if (!j)

@@ -19,7 +19,6 @@
 #include "nulstr-util.h"
 #include "path-util.h"
 #include "set.h"
-#include "sort-util.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -122,28 +121,21 @@ static int files_add(
         return 0;
 }
 
-static int base_cmp(char * const *a, char * const *b) {
-        assert(a);
-        assert(b);
-        return path_compare_filename(*a, *b);
-}
-
 static int copy_and_sort_files_from_hashmap(Hashmap *fh, char ***ret) {
         _cleanup_free_ char **sv = NULL;
         char **files;
+        int r;
 
         assert(ret);
 
-        sv = hashmap_get_strv(fh);
-        if (!sv)
-                return -ENOMEM;
+        r = hashmap_dump_sorted(fh, (void***) &sv, /* ret_n = */ NULL);
+        if (r < 0)
+                return r;
 
-        /* The entries in the array given by hashmap_get_strv() are still owned by the hashmap. */
+        /* The entries in the array given by hashmap_dump_sorted() are still owned by the hashmap. */
         files = strv_copy(sv);
         if (!files)
                 return -ENOMEM;
-
-        typesafe_qsort(files, strv_length(files), base_cmp);
 
         *ret = files;
         return 0;
@@ -237,7 +229,7 @@ int conf_files_insert(char ***strv, const char *root, char **dirs, const char *p
         for (i = 0; i < n; i++) {
                 int c;
 
-                c = base_cmp((char* const*) *strv + i, (char* const*) &path);
+                c = path_compare_filename((*strv)[i], path);
                 if (c == 0)
                         /* Oh, there already is an entry with a matching name (the last component). */
                         STRV_FOREACH(dir, dirs) {
