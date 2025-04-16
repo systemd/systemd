@@ -8,7 +8,12 @@ fi
 
 mapfile -t PACKAGES < <(jq --raw-output .VolatilePackages[] <"$MKOSI_CONFIG")
 
-for DEPS in --requires --recommends --suggests; do
+DEP_TYPES=(--requires)
+if ! ((SYSTEMD_REQUIRED_DEPS_ONLY)); then
+    DEP_TYPES+=(--recommends --suggests)
+fi
+
+for DEPS in "${DEP_TYPES[@]}"; do
     # We need --latest-limit=1 to only consider the newest version of the packages.
     # --latest-limit=1 is per <name>.<arch> so we have to pass --arch= explicitly to make sure i686 packages
     # are not considered on x86-64.
