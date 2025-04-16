@@ -54,6 +54,11 @@ static L2tpSession* l2tp_session_free(L2tpSession *s) {
 
 DEFINE_SECTION_CLEANUP_FUNCTIONS(L2tpSession, l2tp_session_free);
 
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+                l2tp_session_hash_ops_by_section,
+                ConfigSection, config_section_hash_func, config_section_compare_func,
+                L2tpSession, l2tp_session_free);
+
 static int l2tp_session_new_static(L2tpTunnel *t, const char *filename, unsigned section_line, L2tpSession **ret) {
         _cleanup_(config_section_freep) ConfigSection *n = NULL;
         _cleanup_(l2tp_session_freep) L2tpSession *s = NULL;
@@ -84,7 +89,7 @@ static int l2tp_session_new_static(L2tpTunnel *t, const char *filename, unsigned
                 .section = TAKE_PTR(n),
         };
 
-        r = ordered_hashmap_ensure_put(&t->sessions_by_section, &config_section_hash_ops, s->section, s);
+        r = ordered_hashmap_ensure_put(&t->sessions_by_section, &l2tp_session_hash_ops_by_section, s->section, s);
         if (r < 0)
                 return r;
 
@@ -904,7 +909,7 @@ static int netdev_l2tp_tunnel_get_ifindex(NetDev *netdev, const char *name) {
 static void l2tp_tunnel_done(NetDev *netdev) {
         L2tpTunnel *t = L2TP(netdev);
 
-        ordered_hashmap_free_with_destructor(t->sessions_by_section, l2tp_session_free);
+        ordered_hashmap_free(t->sessions_by_section);
         free(t->local_ifname);
 }
 
