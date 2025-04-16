@@ -12,6 +12,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "chase.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
@@ -1605,25 +1606,43 @@ bool clock_supported(clockid_t clock) {
 }
 
 int get_timezone(char **ret) {
-        _cleanup_free_ char *t = NULL;
+        _cleanup_free_ char *t = NULL, *dir = NULL, *absolute = NULL;
         int r;
 
         assert(ret);
 
-        r = readlink_malloc("/etc/localtime", &t);
+        r = readlink_malloc(etc_localtime(), &t);
         if (r == -ENOENT)
                 /* If the symlink does not exist, assume "UTC", like glibc does */
                 return strdup_to(ret, "UTC");
         if (r < 0)
                 return r; /* Return EINVAL if not a symlink */
 
-        const char *e = PATH_STARTSWITH_SET(t, "/usr/share/zoneinfo/", "../usr/share/zoneinfo/");
+        /* The relative path depends on the depth of etc_localtime() */
+        r = path_extract_directory(etc_localtime(), &dir);
+        if (r < 0)
+                return r;
+
+        absolute = path_make_absolute(t, dir);
+        if (!absolute)
+                return -ENOMEM;
+
+        const char *e = path_startswith(absolute, "/usr/share/zoneinfo/");
         if (!e)
                 return -EINVAL;
         if (!timezone_is_valid(e, LOG_DEBUG))
                 return -EINVAL;
 
         return strdup_to(ret, e);
+}
+
+const char* etc_localtime(void) {
+        static const char *cached = NULL;
+
+        if (!cached)
+                cached = secure_getenv("SYSTEMD_ETC_LOCALTIME") ?: "/etc/localtime";
+
+        return cached;
 }
 
 int mktime_or_timegm_usec(
