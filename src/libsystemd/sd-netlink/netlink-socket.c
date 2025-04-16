@@ -298,7 +298,7 @@ static int parse_message_one(sd_netlink *nl, uint32_t group, const struct nlmsgh
                 goto finalize;
 
         /* check that we support this message type */
-        r = netlink_get_policy_set_and_header_size(nl, hdr->nlmsg_type, NULL, &size);
+        r = netlink_get_policy_set_and_header_size(nl, hdr->nlmsg_type, hdr->nlmsg_flags, NULL, &size);
         if (r == -EOPNOTSUPP) {
                 log_debug("sd-netlink: ignored message with unknown type: %i", hdr->nlmsg_type);
                 goto finalize;
