@@ -3271,8 +3271,9 @@ static int cg_bpf_mask_supported(CGroupMask *ret) {
         if (r > 0)
                 mask |= CGROUP_MASK_BPF_DEVICES;
 
-        /* BPF pinned prog (always supported by cgroup v2) */
-        mask |= CGROUP_MASK_BPF_FOREIGN;
+        /* BPF pinned prog */
+        if (bpf_program_supported() > 0)
+                mask |= CGROUP_MASK_BPF_FOREIGN;
 
         /* BPF-based bind{4|6} hooks */
         r = bpf_socket_bind_supported();
