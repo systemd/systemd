@@ -117,7 +117,11 @@ prepare_extension_image() {
     mkdir -p "$ext_dir/$hierarchy"
     touch "$ext_dir$hierarchy/preexisting-file-in-extension-image"
 
-    prepend_trap "rm -rf ${ext_dir@Q}"
+    # For issue #32965
+    touch "$root/var/lib/extensions/empty-image.raw"
+    mkdir "$root/var/lib/extensions/empty-directory"
+
+    prepend_trap "rm -rf ${ext_dir@Q} $root/var/lib/extensions/empty-image.raw $root/var/lib/extensions/empty-directory"
 }
 
 prepare_extension_mutable_dir() {
