@@ -105,32 +105,36 @@ static int parse_loader_entry_target_arg(const char *arg1, char16_t **ret_target
 int verb_set_efivar(int argc, char *argv[], void *userdata) {
         int r;
 
-        if (arg_root)
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                       "Acting on %s, skipping EFI variable setup.",
-                                       arg_image ? "image" : "root directory");
+        /* Note: changing EFI variables is the primary purpose of these verbs, hence unlike in the other
+         * verbs that might touch EFI variables where we skip things gracefully, here we fail loudly if we
+         * are not run on EFI or EFI variable modifications were turned off. */
 
-        if (!is_efi_boot())
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                       "Not booted with UEFI.");
+        if (arg_touch_variables < 0) {
+                if (arg_root)
+                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                               "Acting on %s, refusing EFI variable setup.",
+                                               arg_image ? "image" : "root directory");
 
-        if (access(EFIVAR_PATH(EFI_LOADER_VARIABLE_STR("LoaderInfo")), F_OK) < 0) {
-                if (errno == ENOENT) {
-                        log_error_errno(errno, "Not booted with a supported boot loader.");
-                        return -EOPNOTSUPP;
+                if (detect_container() > 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                               "'%s' operation not supported in a container.",
+                                               argv[0]);
+                if (!is_efi_boot())
+                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                               "Not booted with UEFI.");
+
+                if (access(EFIVAR_PATH(EFI_LOADER_VARIABLE_STR("LoaderInfo")), F_OK) < 0) {
+                        if (errno == ENOENT) {
+                                log_error_errno(errno, "Not booted with a supported boot loader.");
+                                return -EOPNOTSUPP;
+                        }
+
+                        return log_error_errno(errno, "Failed to detect whether boot loader supports '%s' operation: %m", argv[0]);
                 }
 
-                return log_error_errno(errno, "Failed to detect whether boot loader supports '%s' operation: %m", argv[0]);
-        }
-
-        if (detect_container() > 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                       "'%s' operation not supported in a container.",
-                                       argv[0]);
-
-        if (!arg_touch_variables)
+        } else if (!arg_touch_variables)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "'%s' operation cannot be combined with --no-variables.",
+                                       "'%s' operation cannot be combined with --variables=no.",
                                        argv[0]);
 
         const char *variable;

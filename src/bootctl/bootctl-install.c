@@ -865,17 +865,6 @@ static int install_variables(
         uint16_t slot;
         int r;
 
-        if (arg_root) {
-                log_info("Acting on %s, skipping EFI variable setup.",
-                         arg_image ? "image" : "root directory");
-                return 0;
-        }
-
-        if (!is_efi_boot()) {
-                log_warning("Not booted with EFI, skipping EFI variable setup.");
-                return 0;
-        }
-
         r = chase_and_access(path, esp_path, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, F_OK, NULL);
         if (r == -ENOENT)
                 return 0;
@@ -1075,7 +1064,7 @@ int verb_install(int argc, char *argv[], void *userdata) {
 
         (void) sync_everything();
 
-        if (!arg_touch_variables)
+        if (!touch_variables())
                 return 0;
 
         if (arg_arch_all) {
@@ -1206,9 +1195,6 @@ static int remove_variables(sd_id128_t uuid, const char *path, bool in_order) {
         uint16_t slot;
         int r;
 
-        if (arg_root || !is_efi_boot())
-                return 0;
-
         r = find_slot(uuid, path, &slot);
         if (r != 1)
                 return 0;
@@ -1327,7 +1313,7 @@ int verb_remove(int argc, char *argv[], void *userdata) {
 
         (void) sync_everything();
 
-        if (!arg_touch_variables)
+        if (!touch_variables())
                 return r;
 
         if (arg_arch_all) {
