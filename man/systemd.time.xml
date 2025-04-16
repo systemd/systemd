@@ -255,6 +255,13 @@ tomorrow Pacific/Auckland → Thu 2012-11-23 19:00:00
     the local timezone, similar to the supported syntax of timestamps (see above), or the timezone
     in the IANA timezone database format (also see above).</para>
 
+    <para>There is a special format for periodic events in the form
+    <literal>«timestamp» and every «timespan»</literal> to describe general
+    periodic intervals. For example timespan <literal>2w</literal>, <literal>3w</literal>, <literal>2d</literal>…
+    The reference point for such an interval must be a single point in time
+    (timestamp). This syntax can't be combined with previously described wild-card
+    formats. The minimum value for time period is <literal>60s</literal>.</para>
+
   <para>The following special expressions may be used as shorthands for longer normalized forms:</para>
 
     <programlisting>    minutely → *-*-* *:*:00
@@ -302,7 +309,8 @@ Wed..Sat,Tue 12-10-15 1:2:3 → Tue..Sat 2012-10-15 01:02:03
     weekly Pacific/Auckland → Mon *-*-* 00:00:00 Pacific/Auckland
                      yearly → *-01-01 00:00:00
                    annually → *-01-01 00:00:00
-                      *:2/3 → *-*-* *:02/3:00</programlisting>
+                      *:2/3 → *-*-* *:02/3:00
+ 25-1-1 10 CET and every 2w → 2025-01-01 09:00:00 UTC and every 2w</programlisting>
 
       <para>Calendar events are used by timer units, see
       <citerefentry><refentrytitle>systemd.timer</refentrytitle><manvolnum>5</manvolnum></citerefentry>
