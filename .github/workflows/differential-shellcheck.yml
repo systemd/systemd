@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   lint:
-    if: github.event.repository.name != 'systemd-security'
+    if: github.repository == 'systemd/systemd' || github.repository == 'systemd/systemd-stable'
     runs-on: ubuntu-24.04
 
     permissions:

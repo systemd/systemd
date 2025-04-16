@@ -17,6 +17,7 @@ permissions:
 
 jobs:
   build:
+    if: github.repository == 'systemd/systemd' || github.repository == 'systemd/systemd-stable'
     runs-on: ubuntu-24.04
     concurrency:
       group: ${{ github.workflow }}-${{ toJSON(matrix.env) }}-${{ github.ref }}

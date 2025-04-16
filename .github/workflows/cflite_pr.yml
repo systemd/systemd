@@ -14,7 +14,7 @@ permissions: read-all
 jobs:
   PR:
     runs-on: ubuntu-24.04
-    if: github.repository != 'systemd/systemd' || github.event.pull_request.user.login == 'dependabot[bot]'
+    if: ( github.repository != 'systemd/systemd' || github.event.pull_request.user.login == 'dependabot[bot]' ) && github.repository != 'systemd/systemd-security'
     concurrency:
       group: ${{ github.workflow }}-${{ matrix.sanitizer }}-${{ github.ref }}
       cancel-in-progress: true

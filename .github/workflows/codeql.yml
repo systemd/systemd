@@ -26,7 +26,7 @@ permissions:
 jobs:
   analyze:
     name: Analyze
-    if: github.repository != 'systemd/systemd-security'
+    if: github.repository == 'systemd/systemd'
     runs-on: ubuntu-24.04
     concurrency:
       group: ${{ github.workflow }}-${{ matrix.language }}-${{ github.ref }}
