@@ -360,6 +360,7 @@ int manager_init_inotify(Manager *manager, int fd) {
         manager->inotify_fd = fd;
         (void) udev_watch_restore(manager);
 
+        (void) notify_remove_fd_warn("inotify");
         r = notify_push_fd(manager->inotify_fd, "inotify");
         if (r < 0)
                 log_warning_errno(r, "Failed to push inotify fd to service manager, ignoring: %m");
