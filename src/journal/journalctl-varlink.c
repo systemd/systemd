@@ -10,7 +10,7 @@
 #include "journalctl-varlink.h"
 #include "varlink-util.h"
 
-static int varlink_connect_journal(sd_varlink **ret) {
+int varlink_connect_journal(sd_varlink **ret) {
         _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *vl = NULL;
         const char *address;
         int r;

@@ -233,7 +233,7 @@ static int genl_message_new(
         if (!policy_set)
                 return -EOPNOTSUPP;
 
-        r = message_new_full(nl, family->id, policy_set,
+        r = message_new_full(nl, family->id, NLM_F_REQUEST | NLM_F_ACK, policy_set,
                              sizeof(struct genlmsghdr) + family->additional_header_size, &m);
         if (r < 0)
                 return r;
