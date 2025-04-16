@@ -60,7 +60,7 @@ sanitize_address_undefined = custom_target(
                    'fuzzers',
                    ' '.join(fuzz_c_args + '-DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION'),
                    ' '.join(fuzz_cpp_args + '-DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION'),
-                   '-Dfuzz-tests=true -Db_lundef=false -Db_sanitize=address,undefined -Dnspawn=enabled --optimization=@0@ @1@ --auto-features=@2@'.format(
+                   '-Dfuzz-tests=true -Db_lundef=false -Db_sanitize=address,undefined --optimization=@0@ @1@ --auto-features=@2@'.format(
                            get_option('optimization'),
                            get_option('werror') ? '--werror' : '',
                            sanitize_auto_features
