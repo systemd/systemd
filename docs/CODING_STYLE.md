@@ -519,6 +519,21 @@ SPDX-License-Identifier: LGPL-2.1-or-later
           return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to read ...");
   ```
 
+- If the error shall be ignored rather than propagated, insert ", ignoring"
+  at the end:
+
+  ```c
+  r = parse(...);
+  if (r < 0)
+          log_debug_errno(r, "Failed to parse ..., ignoring: %m");
+  else
+          parsed = r;
+  ```
+
+- Insert a period at the end of the log message if no errno shall be logged.
+  Bus errors however should not end with a period, because they are passed to
+  the client where the message could be embedded within other texts.
+
 ## Memory Allocation
 
 - Always check OOM. There is no excuse. In program code, you can use
