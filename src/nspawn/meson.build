@@ -1,9 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-if conf.get('ENABLE_NSPAWN') != 1
-        subdir_done()
-endif
-
 libnspawn_core_sources = files(
         'nspawn-bind-user.c',
         'nspawn-cgroup.c',
@@ -52,6 +48,7 @@ executables += [
         executable_template + {
                 'name' : 'systemd-nspawn',
                 'public' : true,
+                'conditions' : ['ENABLE_NSPAWN'],
                 'sources' : files('nspawn.c'),
                 'link_with' : nspawn_libs,
                 'dependencies' : [
