@@ -764,11 +764,6 @@ DnsScopeMatch dns_scope_good_domain(
                 if (!dns_scope_get_dns_server(s))
                         return DNS_SCOPE_NO;
 
-                /* Route DS requests to the parent */
-                const char *route_domain = domain;
-                if (dns_question_contains_key_type(question, DNS_TYPE_DS))
-                        (void) dns_name_parent(&route_domain);
-
                 /* Always honour search domains for routing queries, except if this scope lacks DNS servers. Note that
                  * we return DNS_SCOPE_YES here, rather than just DNS_SCOPE_MAYBE, which means other wildcard scopes
                  * won't be considered anymore. */
@@ -777,7 +772,7 @@ DnsScopeMatch dns_scope_good_domain(
                         if (!d->route_only && !dns_name_is_root(d->name))
                                 has_search_domains = true;
 
-                        if (dns_name_endswith(route_domain, d->name) > 0) {
+                        if (dns_name_endswith(domain, d->name) > 0) {
                                 int c;
 
                                 c = dns_name_count_labels(d->name);

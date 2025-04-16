@@ -57,8 +57,6 @@ static inline bool dns_question_isempty(DnsQuestion *q) {
 
 int dns_question_merge(DnsQuestion *a, DnsQuestion *b, DnsQuestion **ret);
 
-bool dns_question_contains_key_type(DnsQuestion *q, uint16_t type);
-
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsQuestion*, dns_question_unref);
 
 #define _DNS_QUESTION_FOREACH(u, k, q)                                     \
