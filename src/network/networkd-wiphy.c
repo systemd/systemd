@@ -12,7 +12,7 @@
 #include "udev-util.h"
 #include "wifi-util.h"
 
-Wiphy *wiphy_free(Wiphy *w) {
+static Wiphy* wiphy_free(Wiphy *w) {
         if (!w)
                 return NULL;
 
@@ -28,6 +28,13 @@ Wiphy *wiphy_free(Wiphy *w) {
         free(w->name);
         return mfree(w);
 }
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(Wiphy*, wiphy_free);
+
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+                wiphy_hash_ops,
+                void, trivial_hash_func, trivial_compare_func,
+                Wiphy, wiphy_free);
 
 static int wiphy_new(Manager *manager, sd_netlink_message *message, Wiphy **ret) {
         _cleanup_(wiphy_freep) Wiphy *w = NULL;
@@ -56,7 +63,7 @@ static int wiphy_new(Manager *manager, sd_netlink_message *message, Wiphy **ret)
                 .name = TAKE_PTR(name),
         };
 
-        r = hashmap_ensure_put(&manager->wiphy_by_index, NULL, UINT32_TO_PTR(w->index), w);
+        r = hashmap_ensure_put(&manager->wiphy_by_index, &wiphy_hash_ops, UINT32_TO_PTR(w->index), w);
         if (r < 0)
                 return r;
 
