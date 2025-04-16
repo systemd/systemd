@@ -128,6 +128,13 @@ Deprecations and removals:
 
 Features:
 
+* loginctl: show argv[] of "leader" process in tabular list-sessions output
+
+* loginctl: show "service identifier" in tabular list-sessions output, to make
+  run0 sessions easily visible.
+
+* run0: maybe enable utmp for run0 sessions, so that they are easily visible.
+
 * maybe replace nss-machines with logic in networkd that registers records with
   systemd-resolved, based on DHCP leases, so that we gain compat with VMs.
   Implementation idea: encode in an ifaltname the intended local name to expose this
