@@ -161,6 +161,10 @@ static int socket_recv_message(int fd, void *buf, size_t buf_size, uint32_t *ret
         assert(fd >= 0);
         assert(peek || (buf && buf_size > 0));
 
+        /* Note: this might return successfully, but with a zero size under some transient conditions, such
+         * as the reception of a non-kernel message. In such a case the passed buffer might or might not be
+         * modified. Caller must treat a zero return as "no message, but also not an error". */
+
         n = recvmsg_safe(fd, &msg, peek ? (MSG_PEEK|MSG_TRUNC) : 0);
         if (ERRNO_IS_NEG_TRANSIENT(n))
                 goto transient;
@@ -179,8 +183,9 @@ static int socket_recv_message(int fd, void *buf, size_t buf_size, uint32_t *ret
 
                 if (peek) {
                         /* Drop the message. Note that we ignore ECHRNG/EXFULL errors here, which
-                         * recvmsg_safe() returns in case the payload or cdata is truncated. Here it's quite
-                         * likely it is truncated, because we pass a zero-sized buffer. */
+                         * recvmsg_safe() returns in case the payload or cdata is truncated. Given we just
+                         * want to drop the message we also don't care if its payload or cdata was
+                         * truncated. */
                         n = recvmsg_safe(fd, &msg, 0);
                         if (n < 0 && !IN_SET(n, -ECHRNG, -EXFULL))
                                 return (int) n;
