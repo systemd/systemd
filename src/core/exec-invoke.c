@@ -844,6 +844,7 @@ restore_stdio:
 
 static int get_fixed_user(
                 const char *user_or_uid,
+                bool prefer_nss,
                 const char **ret_username,
                 uid_t *ret_uid,
                 gid_t *ret_gid,
@@ -855,7 +856,8 @@ static int get_fixed_user(
         assert(user_or_uid);
         assert(ret_username);
 
-        r = get_user_creds(&user_or_uid, ret_uid, ret_gid, ret_home, ret_shell, USER_CREDS_CLEAN);
+        r = get_user_creds(&user_or_uid, ret_uid, ret_gid, ret_home, ret_shell,
+                           USER_CREDS_CLEAN|(prefer_nss ? USER_CREDS_PREFER_NSS : 0));
         if (r < 0)
                 return r;
 
@@ -1855,8 +1857,10 @@ static int build_environment(
          * could cause problem for e.g. getty, since login doesn't override $HOME, and $LOGNAME and $SHELL don't
          * really make much sense since we're not logged in. Hence we conditionalize the three based on
          * SetLoginEnvironment= switch. */
-        if (!c->user && !c->dynamic_user && p->runtime_scope == RUNTIME_SCOPE_SYSTEM) {
-                r = get_fixed_user("root", &username, NULL, NULL, &home, &shell);
+        if (!username && !c->dynamic_user && p->runtime_scope == RUNTIME_SCOPE_SYSTEM) {
+                assert(!c->user);
+
+                r = get_fixed_user("root", /* prefer_nss = */ false, &username, NULL, NULL, &home, &shell);
                 if (r < 0)
                         return log_exec_debug_errno(c,
                                                     p,
@@ -4498,7 +4502,14 @@ int exec_invoke(
                         u = NULL;
 
                 if (u) {
-                        r = get_fixed_user(u, &username, &uid, &gid, &home, &shell);
+                        /* We can't use nss unconditionally for root without risking deadlocks if some IPC services
+                         * will be started by pid1 and are ordered after us. But if SetLoginEnvironment= is
+                         * enabled *explicitly* (i.e. no exec_context_get_set_login_environment() here),
+                         * or PAM shall be invoked, let's consult NSS even for root, so that the user
+                         * gets accurate $SHELL in session(-like) contexts. */
+                        r = get_fixed_user(u,
+                                           /* prefer_nss = */ context->set_login_environment > 0 || context->pam_name,
+                                           &username, &uid, &gid, &home, &shell);
                         if (r < 0) {
                                 *exit_status = EXIT_USER;
                                 return log_exec_error_errno(context, params, r, "Failed to determine user credentials: %m");

@@ -196,6 +196,12 @@ static int socket_recv_message(int fd, void *buf, size_t buf_size, uint32_t *ret
                 log_debug("sd-netlink: ignoring message from PID %"PRIu32, sender.nl.nl_pid);
 
                 if (peek) {
+                        _cleanup_free_ uint8_t *b = new(uint8_t, n);
+                        if (!b)
+                                return -ENOMEM;
+
+                        iov = IOVEC_MAKE(b, n);
+
                         /* drop the message */
                         n = recvmsg_safe(fd, &msg, 0);
                         if (n < 0)
