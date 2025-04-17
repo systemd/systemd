@@ -5,6 +5,7 @@
 #include "ansi-color.h"
 #include "battery-util.h"
 #include "build.h"
+#include "log.h"
 #include "main-func.h"
 #include "pretty-print.h"
 

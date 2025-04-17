@@ -60,6 +60,7 @@ basic_sources = files(
         'log.c',
         'login-util.c',
         'keyring-util.c',
+        'macro.c',
         'memfd-util.c',
         'memory-util.c',
         'mempool.c',
@@ -131,14 +132,14 @@ generate_arphrd_list = find_program('generate-arphrd-list.sh')
 arphrd_list_txt = custom_target(
         'arphrd-list.txt',
         output : 'arphrd-list.txt',
-        command : [generate_arphrd_list, cpp, files('linux/if_arp.h'), config_h],
+        command : [generate_arphrd_list, cpp, files('linux/linux/if_arp.h'), config_h],
         capture : true)
 
 generate_cap_list = find_program('generate-cap-list.sh')
 cap_list_txt = custom_target(
         'cap-list.txt',
         output : 'cap-list.txt',
-        command : [generate_cap_list, cpp, files('linux/capability.h')],
+        command : [generate_cap_list, cpp, files('linux/linux/capability.h')],
         capture : true)
 
 generate_errno_list = find_program('generate-errno-list.sh')
@@ -236,7 +237,7 @@ run_target(
 ############################################################
 
 filesystem_includes = files(
-        'linux/magic.h',
+        'linux/linux/magic.h',
         'missing_magic.h',
 )
 

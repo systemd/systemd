@@ -3,6 +3,7 @@
 #include "fido2-util.h"
 #include "fileio.h"
 #include "libfido2-util.h"
+#include "log.h"
 #include "random-util.h"
 
 int fido2_generate_salt(struct iovec *ret_salt) {

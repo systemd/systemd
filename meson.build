@@ -2048,11 +2048,18 @@ boot_stubs = []
 
 build_dir_include = include_directories('.')
 
-basic_includes = include_directories(
-        'src/basic',
-        'src/fundamental',
-        'src/systemd',
-        '.')
+basic_includes = [
+        include_directories(
+                'src/basic',
+                'src/fundamental',
+                'src/systemd',
+                '.',
+        ),
+        include_directories(
+                'src/basic/linux',
+                is_system : true
+        ),
+]
 
 libsystemd_includes = [basic_includes, include_directories(
         'src/libsystemd/sd-bus',

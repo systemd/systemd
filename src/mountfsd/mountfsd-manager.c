@@ -9,6 +9,7 @@
 #include "event-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
+#include "log.h"
 #include "mkdir.h"
 #include "mountfsd-manager.h"
 #include "process-util.h"

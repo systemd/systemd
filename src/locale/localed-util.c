@@ -13,6 +13,7 @@
 #include "fileio.h"
 #include "kbd-util.h"
 #include "localed-util.h"
+#include "log.h"
 #include "mkdir-label.h"
 #include "process-util.h"
 #include "stat-util.h"
@@ -48,6 +49,10 @@ int x11_context_verify_and_warn(const X11Context *xc, int log_level, sd_bus_erro
         }
 
         return 0;
+}
+
+int x11_context_verify(const X11Context *xc) {
+        return x11_context_verify_and_warn(xc, LOG_DEBUG, NULL);
 }
 
 static int verify_keymap(const char *keymap, int log_level, sd_bus_error *error) {
@@ -88,6 +93,10 @@ int vc_context_verify_and_warn(const VCContext *vc, int log_level, sd_bus_error 
         }
 
         return 0;
+}
+
+int vc_context_verify(const VCContext *vc) {
+        return vc_context_verify_and_warn(vc, LOG_DEBUG, NULL);
 }
 
 void context_clear(Context *c) {

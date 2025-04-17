@@ -87,3 +87,5 @@
 
 /* Recommended baseline - see README for details */
 #define KERNEL_BASELINE_VERSION "5.7"
+
+#define PID_AUTOMATIC ((pid_t) INT_MIN) /* special value indicating "acquire pid from connection peer" */

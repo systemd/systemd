@@ -9,6 +9,7 @@
 #include "fd-util.h"
 #include "format-table.h"
 #include "io-util.h"
+#include "log.h"
 #include "memory-util.h"
 #if HAVE_OPENSSL
 #include "openssl-util.h"

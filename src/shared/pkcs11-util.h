@@ -14,6 +14,7 @@
 
 #include "ask-password-api.h"
 #include "dlfcn-util.h"
+#include "log.h"
 #include "macro.h"
 #include "time-util.h"
 
