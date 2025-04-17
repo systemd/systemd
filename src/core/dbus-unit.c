@@ -2352,7 +2352,9 @@ static int bus_unit_set_transient_property(
 
                 return 1;
 
-        } else if (streq(name, "Slice")) {
+        }
+
+        if (streq(name, "Slice")) {
                 Unit *slice;
                 const char *s;
 
@@ -2390,7 +2392,9 @@ static int bus_unit_set_transient_property(
 
                 return 1;
 
-        } else if (STR_IN_SET(name, "RequiresMountsFor", "WantsMountsFor")) {
+        }
+
+        if (STR_IN_SET(name, "RequiresMountsFor", "WantsMountsFor")) {
                 _cleanup_strv_free_ char **l = NULL;
 
                 r = sd_bus_message_read_strv(message, &l);
@@ -2421,13 +2425,35 @@ static int bus_unit_set_transient_property(
                 return 1;
         }
 
+        if (streq(name, "AddRef")) {
+                int b;
+
+                /* Why is this called "AddRef" rather than just "Ref", or "Reference"? There's already a "Ref()" method
+                 * on the Unit interface, and it's probably not a good idea to expose a property and a method on the
+                 * same interface (well, strictly speaking AddRef isn't exposed as full property, we just read it for
+                 * transient units, but still). And "References" and "ReferencedBy" is already used as unit reference
+                 * dependency type, hence let's not confuse things with that.
+                 *
+                 * Note that we don't actually add the reference to the bus track. We do that only after the setup of
+                 * the transient unit is complete, so that setting this property multiple times in the same transient
+                 * unit creation call doesn't count as individual references. */
+
+                r = sd_bus_message_read(message, "b", &b);
+                if (r < 0)
+                        return r;
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags))
+                        u->bus_track_add = b;
+
+                return 1;
+        }
+
         if (streq(name, "RequiresOverridable"))
                 d = UNIT_REQUIRES; /* redirect for obsolete unit dependency type */
         else if (streq(name, "RequisiteOverridable"))
                 d = UNIT_REQUISITE; /* same here */
         else
                 d = unit_dependency_from_string(name);
-
         if (d >= 0) {
                 const char *other;
 
@@ -2482,28 +2508,6 @@ static int bus_unit_set_transient_property(
 
                 return 1;
 
-        } else if (streq(name, "AddRef")) {
-
-                int b;
-
-                /* Why is this called "AddRef" rather than just "Ref", or "Reference"? There's already a "Ref()" method
-                 * on the Unit interface, and it's probably not a good idea to expose a property and a method on the
-                 * same interface (well, strictly speaking AddRef isn't exposed as full property, we just read it for
-                 * transient units, but still). And "References" and "ReferencedBy" is already used as unit reference
-                 * dependency type, hence let's not confuse things with that.
-                 *
-                 * Note that we don't actually add the reference to the bus track. We do that only after the setup of
-                 * the transient unit is complete, so that setting this property multiple times in the same transient
-                 * unit creation call doesn't count as individual references. */
-
-                r = sd_bus_message_read(message, "b", &b);
-                if (r < 0)
-                        return r;
-
-                if (!UNIT_WRITE_FLAGS_NOOP(flags))
-                        u->bus_track_add = b;
-
-                return 1;
         }
 
         return 0;
