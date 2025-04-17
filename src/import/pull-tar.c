@@ -15,6 +15,7 @@
 #include "import-common.h"
 #include "import-util.h"
 #include "install-file.h"
+#include "log.h"
 #include "macro.h"
 #include "mkdir-label.h"
 #include "path-util.h"

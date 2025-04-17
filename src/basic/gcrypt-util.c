@@ -4,6 +4,7 @@
 
 #include "gcrypt-util.h"
 #include "hexdecoct.h"
+#include "log.h"
 
 static void *gcrypt_dl = NULL;
 

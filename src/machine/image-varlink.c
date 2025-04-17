@@ -13,6 +13,7 @@
 #include "json-util.h"
 #include "machine.h"
 #include "machine-pool.h"
+#include "process-util.h"
 #include "string-util.h"
 
 typedef struct ImageUpdateParameters {

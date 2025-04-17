@@ -13,6 +13,7 @@
 #include "hostname-util.h"
 #include "idn-util.h"
 #include "in-addr-util.h"
+#include "log.h"
 #include "macro.h"
 #include "parse-util.h"
 #include "string-util.h"

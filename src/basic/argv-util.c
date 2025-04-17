@@ -8,6 +8,7 @@
 #include "argv-util.h"
 #include "capability-util.h"
 #include "errno-util.h"
+#include "log.h"
 #include "missing_sched.h"
 #include "parse-util.h"
 #include "path-util.h"

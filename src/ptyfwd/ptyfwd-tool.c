@@ -7,8 +7,10 @@
 #include "build.h"
 #include "event-util.h"
 #include "fd-util.h"
+#include "log.h"
 #include "main-func.h"
 #include "pretty-print.h"
+#include "process-util.h"
 #include "ptyfwd.h"
 #include "strv.h"
 
