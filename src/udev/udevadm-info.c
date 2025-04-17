@@ -61,6 +61,8 @@ static usec_t arg_wait_for_initialization_timeout = 0;
 PagerFlags arg_pager_flags = 0;
 static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 
+STATIC_DESTRUCTOR_REGISTER(arg_properties, strv_freep);
+
 /* Put a limit on --tree descent level to not exhaust our stack */
 #define TREE_DEPTH_MAX 64
 
@@ -82,8 +84,6 @@ typedef struct SysAttr {
         const char *name;
         const char *value;
 } SysAttr;
-
-STATIC_DESTRUCTOR_REGISTER(arg_properties, strv_freep);
 
 static int sysattr_compare(const SysAttr *a, const SysAttr *b) {
         assert(a);
