@@ -36,7 +36,7 @@ struct udev {
  *
  * Returns: stored userdata
  **/
-_public_ void *udev_get_userdata(struct udev *udev) {
+_public_ void* udev_get_userdata(struct udev *udev) {
         assert_return(udev, NULL);
 
         return udev->userdata;
@@ -66,7 +66,7 @@ _public_ void udev_set_userdata(struct udev *udev, void *userdata) {
  *
  * Returns: a new udev library context
  **/
-_public_ struct udev *udev_new(void) {
+_public_ struct udev* udev_new(void) {
         struct udev *udev;
 
         udev = new(struct udev, 1);
@@ -99,7 +99,7 @@ DEFINE_PUBLIC_TRIVIAL_REF_FUNC(struct udev, udev);
  *
  * Returns: the passed udev library context if it has still an active reference, or #NULL otherwise.
  **/
-_public_ struct udev *udev_unref(struct udev *udev) {
+_public_ struct udev* udev_unref(struct udev *udev) {
         if (!udev)
                 return NULL;
 
@@ -123,10 +123,14 @@ _public_ struct udev *udev_unref(struct udev *udev) {
  *
  **/
 _public_ void udev_set_log_fn(
-                        struct udev *udev,
-                        void (*log_fn)(struct udev *udev,
-                                       int priority, const char *file, int line, const char *fn,
-                                       const char *format, va_list args)) {
+                struct udev *udev,
+                void (*log_fn)(struct udev *udev,
+                               int priority,
+                               const char *file,
+                               int line,
+                               const char *fn,
+                               const char *format,
+                               va_list args)) {
         return;
 }
 

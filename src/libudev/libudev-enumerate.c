@@ -49,7 +49,7 @@ struct udev_enumerate {
  *
  * Returns: an enumeration context.
  **/
-_public_ struct udev_enumerate *udev_enumerate_new(struct udev *udev) {
+_public_ struct udev_enumerate* udev_enumerate_new(struct udev *udev) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         _cleanup_(udev_list_freep) struct udev_list *list = NULL;
         struct udev_enumerate *udev_enumerate;
@@ -81,7 +81,7 @@ _public_ struct udev_enumerate *udev_enumerate_new(struct udev *udev) {
         return udev_enumerate;
 }
 
-static struct udev_enumerate *udev_enumerate_free(struct udev_enumerate *udev_enumerate) {
+static struct udev_enumerate* udev_enumerate_free(struct udev_enumerate *udev_enumerate) {
         assert(udev_enumerate);
 
         udev_list_free(udev_enumerate->devices_list);
@@ -117,7 +117,7 @@ DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(struct udev_enumerate, udev_enumerate, udev
  *
  * Returns: a pointer to the context.
  */
-_public_ struct udev *udev_enumerate_get_udev(struct udev_enumerate *udev_enumerate) {
+_public_ struct udev* udev_enumerate_get_udev(struct udev_enumerate *udev_enumerate) {
         assert_return_errno(udev_enumerate, NULL, EINVAL);
 
         return udev_enumerate->udev;
@@ -131,7 +131,7 @@ _public_ struct udev *udev_enumerate_get_udev(struct udev_enumerate *udev_enumer
  *
  * Returns: a udev_list_entry.
  */
-_public_ struct udev_list_entry *udev_enumerate_get_list_entry(struct udev_enumerate *udev_enumerate) {
+_public_ struct udev_list_entry* udev_enumerate_get_list_entry(struct udev_enumerate *udev_enumerate) {
         struct udev_list_entry *e;
 
         assert_return_errno(udev_enumerate, NULL, EINVAL);
