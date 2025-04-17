@@ -46,11 +46,21 @@ static GenericNetlinkFamily *genl_family_free(GenericNetlinkFamily *f) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(GenericNetlinkFamily*, genl_family_free);
 
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+                genl_family_hash_ops_by_name,
+                char, string_hash_func, string_compare_func,
+                GenericNetlinkFamily, genl_family_free);
+
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+                genl_family_hash_ops_by_id,
+                void, trivial_hash_func, trivial_compare_func,
+                GenericNetlinkFamily, genl_family_free);
+
 void genl_clear_family(sd_netlink *nl) {
         assert(nl);
 
-        nl->genl_family_by_name = hashmap_free_with_destructor(nl->genl_family_by_name, genl_family_free);
-        nl->genl_family_by_id = hashmap_free_with_destructor(nl->genl_family_by_id, genl_family_free);
+        nl->genl_family_by_name = hashmap_free(nl->genl_family_by_name);
+        nl->genl_family_by_id = hashmap_free(nl->genl_family_by_id);
 }
 
 static int genl_family_new_unsupported(
@@ -80,7 +90,7 @@ static int genl_family_new_unsupported(
         if (!f->name)
                 return -ENOMEM;
 
-        r = hashmap_ensure_put(&nl->genl_family_by_name, &string_hash_ops, f->name, f);
+        r = hashmap_ensure_put(&nl->genl_family_by_name, &genl_family_hash_ops_by_name, f->name, f);
         if (r < 0)
                 return r;
 
@@ -190,11 +200,11 @@ static int genl_family_new(
                         return r;
         }
 
-        r = hashmap_ensure_put(&nl->genl_family_by_id, NULL, UINT_TO_PTR(f->id), f);
+        r = hashmap_ensure_put(&nl->genl_family_by_id, &genl_family_hash_ops_by_id, UINT_TO_PTR(f->id), f);
         if (r < 0)
                 return r;
 
-        r = hashmap_ensure_put(&nl->genl_family_by_name, &string_hash_ops, f->name, f);
+        r = hashmap_ensure_put(&nl->genl_family_by_name, &genl_family_hash_ops_by_name, f->name, f);
         if (r < 0) {
                 hashmap_remove(nl->genl_family_by_id, UINT_TO_PTR(f->id));
                 return r;

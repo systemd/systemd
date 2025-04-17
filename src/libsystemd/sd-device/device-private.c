@@ -692,8 +692,8 @@ int device_clone_with_db(sd_device *device, sd_device **ret) {
 void device_cleanup_tags(sd_device *device) {
         assert(device);
 
-        device->all_tags = set_free_free(device->all_tags);
-        device->current_tags = set_free_free(device->current_tags);
+        device->all_tags = set_free(device->all_tags);
+        device->current_tags = set_free(device->current_tags);
         device->property_tags_outdated = true;
         device->tags_generation++;
 }
@@ -701,7 +701,7 @@ void device_cleanup_tags(sd_device *device) {
 void device_cleanup_devlinks(sd_device *device) {
         assert(device);
 
-        set_free_free(device->devlinks);
+        set_free(device->devlinks);
         device->devlinks = NULL;
         device->property_devlinks_outdated = true;
         device->devlinks_generation++;

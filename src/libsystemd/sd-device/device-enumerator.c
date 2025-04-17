@@ -91,7 +91,7 @@ static void device_unref_many(sd_device **devices, size_t n) {
 static void device_enumerator_unref_devices(sd_device_enumerator *enumerator) {
         assert(enumerator);
 
-        hashmap_clear_with_destructor(enumerator->devices_by_syspath, sd_device_unref);
+        hashmap_clear(enumerator->devices_by_syspath);
         device_unref_many(enumerator->devices, enumerator->n_devices);
         enumerator->devices = mfree(enumerator->devices);
         enumerator->n_devices = 0;
@@ -471,6 +471,11 @@ failed:
         return r;
 }
 
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+                device_hash_ops_by_syspath,
+                char, path_hash_func, path_compare,
+                sd_device, sd_device_unref);
+
 int device_enumerator_add_device(sd_device_enumerator *enumerator, sd_device *device) {
         const char *syspath;
         int r;
@@ -482,7 +487,7 @@ int device_enumerator_add_device(sd_device_enumerator *enumerator, sd_device *de
         if (r < 0)
                 return r;
 
-        r = hashmap_ensure_put(&enumerator->devices_by_syspath, &string_hash_ops, syspath, device);
+        r = hashmap_ensure_put(&enumerator->devices_by_syspath, &device_hash_ops_by_syspath, syspath, device);
         if (IN_SET(r, -EEXIST, 0))
                 return 0;
         if (r < 0)
