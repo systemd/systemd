@@ -19,7 +19,6 @@ typedef struct DHCPStaticLease {
         size_t client_id_size;
 } DHCPStaticLease;
 
-DHCPStaticLease *dhcp_static_lease_free(DHCPStaticLease *lease);
 void network_drop_invalid_static_leases(Network *network);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_static_lease_address);

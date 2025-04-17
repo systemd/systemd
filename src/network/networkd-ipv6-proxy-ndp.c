@@ -22,7 +22,13 @@ void network_adjust_ipv6_proxy_ndp(Network *network) {
                 log_once(LOG_WARNING,
                          "%s: IPv6 proxy NDP addresses are set, but IPv6 is not supported by kernel, "
                          "Ignoring IPv6 proxy NDP addresses.", network->filename);
-                network->ipv6_proxy_ndp_addresses = set_free_free(network->ipv6_proxy_ndp_addresses);
+                network->ipv6_proxy_ndp_addresses = set_free(network->ipv6_proxy_ndp_addresses);
+                return;
+        }
+
+        if (network->ipv6_proxy_ndp == 0) {
+                log_warning("%s: IPv6ProxyNDP= is disabled. Ignoring IPv6ProxyNDPAddress=.", network->filename);
+                network->ipv6_proxy_ndp_addresses = set_free(network->ipv6_proxy_ndp_addresses);
         }
 }
 
@@ -149,7 +155,7 @@ int config_parse_ipv6_proxy_ndp_address(
         assert(rvalue);
 
         if (isempty(rvalue)) {
-                network->ipv6_proxy_ndp_addresses = set_free_free(network->ipv6_proxy_ndp_addresses);
+                network->ipv6_proxy_ndp_addresses = set_free(network->ipv6_proxy_ndp_addresses);
                 return 0;
         }
 
@@ -170,11 +176,9 @@ int config_parse_ipv6_proxy_ndp_address(
         if (!address)
                 return log_oom();
 
-        r = set_ensure_put(&network->ipv6_proxy_ndp_addresses, &in6_addr_hash_ops, address);
+        r = set_ensure_consume(&network->ipv6_proxy_ndp_addresses, &in6_addr_hash_ops_free, TAKE_PTR(address));
         if (r < 0)
                 return log_oom();
-        if (r > 0)
-                TAKE_PTR(address);
 
         return 0;
 }

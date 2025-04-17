@@ -89,11 +89,11 @@ void network_adjust_ndisc(Network *network) {
         /* When RouterAllowList=, PrefixAllowList= or RouteAllowList= are specified, then
          * RouterDenyList=, PrefixDenyList= or RouteDenyList= are ignored, respectively. */
         if (!set_isempty(network->ndisc_allow_listed_router))
-                network->ndisc_deny_listed_router = set_free_free(network->ndisc_deny_listed_router);
+                network->ndisc_deny_listed_router = set_free(network->ndisc_deny_listed_router);
         if (!set_isempty(network->ndisc_allow_listed_prefix))
-                network->ndisc_deny_listed_prefix = set_free_free(network->ndisc_deny_listed_prefix);
+                network->ndisc_deny_listed_prefix = set_free(network->ndisc_deny_listed_prefix);
         if (!set_isempty(network->ndisc_allow_listed_route_prefix))
-                network->ndisc_deny_listed_route_prefix = set_free_free(network->ndisc_deny_listed_route_prefix);
+                network->ndisc_deny_listed_route_prefix = set_free(network->ndisc_deny_listed_route_prefix);
 }
 
 static int ndisc_check_ready(Link *link);

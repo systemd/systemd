@@ -291,11 +291,6 @@ int network_verify(Network *network) {
         if (network->keep_configuration < 0)
                 network->keep_configuration = KEEP_CONFIGURATION_NO;
 
-        if (network->ipv6_proxy_ndp == 0 && !set_isempty(network->ipv6_proxy_ndp_addresses)) {
-                log_warning("%s: IPv6ProxyNDP= is disabled. Ignoring IPv6ProxyNDPAddress=.", network->filename);
-                network->ipv6_proxy_ndp_addresses = set_free_free(network->ipv6_proxy_ndp_addresses);
-        }
-
         r = network_drop_invalid_addresses(network);
         if (r < 0)
                 return r; /* network_drop_invalid_addresses() logs internally. */
@@ -752,7 +747,7 @@ static Network *network_free(Network *network) {
         free(network->dns);
         ordered_set_free(network->search_domains);
         ordered_set_free(network->route_domains);
-        set_free_free(network->dnssec_negative_trust_anchors);
+        set_free(network->dnssec_negative_trust_anchors);
 
         /* DHCP server */
         free(network->dhcp_server_relay_agent_circuit_id);
@@ -828,20 +823,20 @@ static Network *network_free(Network *network) {
         hashmap_free_with_destructor(network->stacked_netdevs, netdev_unref);
 
         /* static configs */
-        set_free_free(network->ipv6_proxy_ndp_addresses);
+        set_free(network->ipv6_proxy_ndp_addresses);
         ordered_hashmap_free(network->addresses_by_section);
         hashmap_free(network->routes_by_section);
         ordered_hashmap_free(network->nexthops_by_section);
-        hashmap_free_with_destructor(network->bridge_fdb_entries_by_section, bridge_fdb_free);
-        hashmap_free_with_destructor(network->bridge_mdb_entries_by_section, bridge_mdb_free);
+        hashmap_free(network->bridge_fdb_entries_by_section);
+        hashmap_free(network->bridge_mdb_entries_by_section);
         ordered_hashmap_free(network->neighbors_by_section);
         hashmap_free(network->address_labels_by_section);
-        hashmap_free_with_destructor(network->prefixes_by_section, prefix_free);
-        hashmap_free_with_destructor(network->route_prefixes_by_section, route_prefix_free);
-        hashmap_free_with_destructor(network->pref64_prefixes_by_section, prefix64_free);
+        hashmap_free(network->prefixes_by_section);
+        hashmap_free(network->route_prefixes_by_section);
+        hashmap_free(network->pref64_prefixes_by_section);
         hashmap_free(network->rules_by_section);
-        hashmap_free_with_destructor(network->dhcp_static_leases_by_section, dhcp_static_lease_free);
-        ordered_hashmap_free_with_destructor(network->sr_iov_by_section, sr_iov_free);
+        hashmap_free(network->dhcp_static_leases_by_section);
+        ordered_hashmap_free(network->sr_iov_by_section);
         hashmap_free(network->qdiscs_by_section);
         hashmap_free(network->tclasses_by_section);
 
