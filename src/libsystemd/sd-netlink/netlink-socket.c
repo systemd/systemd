@@ -177,11 +177,8 @@ static int socket_recv_message(int fd, void *buf, size_t buf_size, uint32_t *ret
         assert(peek || (buf && buf_size > 0));
 
         n = recvmsg_safe(fd, &msg, peek ? (MSG_PEEK|MSG_TRUNC) : 0);
-        if (ERRNO_IS_NEG_TRANSIENT(n)) {
-                if (ret_mcast_group)
-                        *ret_mcast_group = 0;
-                return 0;
-        }
+        if (ERRNO_IS_NEG_TRANSIENT(n))
+                goto transient;
         if (n == -ENOBUFS)
                 return log_debug_errno(n, "sd-netlink: kernel receive buffer overrun");
         if (n == -ECHRNG)
@@ -196,15 +193,15 @@ static int socket_recv_message(int fd, void *buf, size_t buf_size, uint32_t *ret
                 log_debug("sd-netlink: ignoring message from PID %"PRIu32, sender.nl.nl_pid);
 
                 if (peek) {
-                        /* drop the message */
+                        /* Drop the message. Note that we ignore ECHRNG/EXFULL errors here, which
+                         * recvmsg_safe() returns in case the payload or cdata is truncated. Here it's quite
+                         * likely it is truncated, because we pass a zero-sized buffer. */
                         n = recvmsg_safe(fd, &msg, 0);
-                        if (n < 0)
+                        if (n < 0 && !IN_SET(n, -ECHRNG, -EXFULL))
                                 return (int) n;
                 }
 
-                if (ret_mcast_group)
-                        *ret_mcast_group = 0;
-                return 0;
+                goto transient;
         }
 
         if (ret_mcast_group) {
@@ -218,6 +215,12 @@ static int socket_recv_message(int fd, void *buf, size_t buf_size, uint32_t *ret
         }
 
         return (int) n;
+
+transient:
+        if (ret_mcast_group)
+                *ret_mcast_group = 0;
+
+        return 0;
 }
 
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
