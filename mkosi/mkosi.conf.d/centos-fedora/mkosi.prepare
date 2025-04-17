@@ -40,6 +40,26 @@ distropkgs=$(dnf repoquery 'systemd*' |grep -F "$distrover" |grep -e noarch -e "
 develpkgs=$(dnf repoquery 'systemd*' |grep -F "$develver" |grep -e noarch -e "$DISTRIBUTION_ARCHITECTURE" |grep -v -e -debuginfo -e -debugsource)
 
 # shellcheck disable=SC2086
-dnf download --arch noarch --arch "$DISTRIBUTION_ARCHITECTURE" --destdir "$BUILDROOT$pkgdir/distro" $distropkgs
+dnf download --resolve --alldeps "$disable" mkosi --arch noarch --arch "$DISTRIBUTION_ARCHITECTURE" --destdir "$BUILDROOT$pkgdir/distro" $distropkgs
 # shellcheck disable=SC2086
 dnf download --arch noarch --arch "$DISTRIBUTION_ARCHITECTURE" --destdir "$BUILDROOT$pkgdir/devel" $develpkgs
+
+createrepo "$BUILDROOT$pkgdir/distro"
+cat >"$BUILDROOT/etc/yum.repos.d/oldpackages.repo" <<EOF
+[oldpackages]
+name=Old systemd packages to test downgrade
+baseurl=$pkgdir/distro
+enabled=0
+metadata_expire=1d
+gpgcheck=0
+EOF
+
+createrepo "$BUILDROOT$pkgdir/devel"
+cat >"$BUILDROOT/etc/yum.repos.d/newpackages.repo" <<EOF
+[newpackages]
+name=Devel systemd packages to test upgrade
+baseurl=$pkgdir/devel
+enabled=0
+metadata_expire=1d
+gpgcheck=0
+EOF
