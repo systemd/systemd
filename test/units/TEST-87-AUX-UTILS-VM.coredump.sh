@@ -74,7 +74,7 @@ printf '[Coredump]\nStorage=external' >/run/systemd/coredump.conf.d/99-external.
 "$MAKE_DUMP_SCRIPT" "$CORE_TEST_BIN" "SIGABRT"
 rm -fv /run/systemd/coredump.conf.d/99-external.conf
 # Wait a bit for the coredumps to get processed
-timeout 30 bash -c "while [[ \$(coredumpctl list -q --no-legend $CORE_TEST_BIN | wc -l) -lt 4 ]]; do sleep 1; done"
+timeout --foreground 30 bash -c "while [[ \$(coredumpctl list -q --no-legend $CORE_TEST_BIN | wc -l) -lt 4 ]]; do sleep 1; done"
 
 if cgroupfs_supports_user_xattrs; then
     # Make sure we can forward crashes back to containers
@@ -95,14 +95,14 @@ EOF
     [[ "$(systemd-detect-virt)" == "qemu" ]] && TIMEOUT=120 || TIMEOUT=60
 
     machinectl start "$CONTAINER"
-    timeout "$TIMEOUT" bash -xec "until systemd-run -M '$CONTAINER' -q --wait --pipe true; do sleep .5; done"
+    timeout --foreground "$TIMEOUT" bash -xec "until systemd-run -M '$CONTAINER' -q --wait --pipe true; do sleep .5; done"
 
     [[ "$(systemd-run -M "$CONTAINER" -q --wait --pipe coredumpctl list -q --no-legend /usr/bin/sleep | wc -l)" -eq 0 ]]
     machinectl copy-to "$CONTAINER" "$MAKE_DUMP_SCRIPT"
     systemd-run -M "$CONTAINER" -q --wait --pipe "$MAKE_DUMP_SCRIPT" "/usr/bin/sleep" "SIGABRT"
     systemd-run -M "$CONTAINER" -q --wait --pipe "$MAKE_DUMP_SCRIPT" "/usr/bin/sleep" "SIGTRAP"
     # Wait a bit for the coredumps to get processed
-    timeout 30 bash -c "while [[ \$(systemd-run -M $CONTAINER -q --wait --pipe coredumpctl list -q --no-legend /usr/bin/sleep | wc -l) -lt 2 ]]; do sleep 1; done"
+    timeout --foreground 30 bash -c "while [[ \$(systemd-run -M $CONTAINER -q --wait --pipe coredumpctl list -q --no-legend /usr/bin/sleep | wc -l) -lt 2 ]]; do sleep 1; done"
 
     machinectl stop "$CONTAINER"
     rm -rf "/var/lib/machines/$CONTAINER"
@@ -152,6 +152,7 @@ rm -f /tmp/core.{output,redirected}
 
 # Unprivileged stuff
 # Related issue: https://github.com/systemd/systemd/issues/26912
+systemctl start user@4711
 UNPRIV_CMD=(systemd-run --user --wait --pipe -M "testuser@.host" --)
 # Trigger a couple of coredumps as an unprivileged user
 "${UNPRIV_CMD[@]}" "$MAKE_DUMP_SCRIPT" "$CORE_TEST_UNPRIV_BIN" "SIGTRAP"
@@ -164,7 +165,7 @@ printf '[Coredump]\nStorage=external' >/run/systemd/coredump.conf.d/99-external.
 "${UNPRIV_CMD[@]}" "$MAKE_DUMP_SCRIPT" "$CORE_TEST_UNPRIV_BIN" "SIGABRT"
 rm -fv /run/systemd/coredump.conf.d/99-external.conf
 # Wait a bit for the coredumps to get processed
-timeout 30 bash -c "while [[ \$(coredumpctl list -q --no-legend $CORE_TEST_UNPRIV_BIN | wc -l) -lt 4 ]]; do sleep 1; done"
+timeout --foreground 30 bash -c "while [[ \$(coredumpctl list -q --no-legend $CORE_TEST_UNPRIV_BIN | wc -l) -lt 4 ]]; do sleep 1; done"
 
 # root should see coredumps from both binaries
 coredumpctl info "$CORE_TEST_UNPRIV_BIN"
@@ -197,7 +198,7 @@ rm -f /tmp/core.{output,redirected}
 journalctl -b -n 1 --output=export --output-fields=MESSAGE,COREDUMP COREDUMP_EXE="/usr/bin/test-dump" |
     /usr/lib/systemd/systemd-coredump --backtrace $$ 0 0 6 1679509994 12345 mymachine
 # Wait a bit for the coredump to get processed
-timeout 30 bash -c "while [[ \$(coredumpctl list -q --no-legend $$ | wc -l) -eq 0 ]]; do sleep 1; done"
+timeout --foreground 30 bash -c "while [[ \$(coredumpctl list -q --no-legend $$ | wc -l) -eq 0 ]]; do sleep 1; done"
 coredumpctl info "$$"
 coredumpctl info COREDUMP_HOSTNAME="mymachine"
 
@@ -245,11 +246,11 @@ END
     printf '[Coredump]\nEnterNamespace=no' >/run/systemd/coredump.conf.d/99-enter-namespace.conf
 
     unshare --pid --fork --mount-proc --mount --uts --ipc --net /bin/bash -c "$MAKE_STACKTRACE_DUMP" || :
-    timeout 30 bash -c "until coredumpctl -1 info $CORE_STACKTRACE_TEST_BIN | grep -zvqE 'baz.*bar.*foo'; do sleep .2; done"
+    timeout --foreground 30 bash -c "until coredumpctl -1 info $CORE_STACKTRACE_TEST_BIN | grep -zvqE 'baz.*bar.*foo'; do sleep .2; done"
 
     printf '[Coredump]\nEnterNamespace=yes' >/run/systemd/coredump.conf.d/99-enter-namespace.conf
     unshare --pid --fork --mount-proc --mount --uts --ipc --net /bin/bash -c "$MAKE_STACKTRACE_DUMP" || :
-    timeout 30 bash -c "until coredumpctl -1 info $CORE_STACKTRACE_TEST_BIN | grep -zqE 'baz.*bar.*foo'; do sleep .2; done"
+    timeout --foreground 30 bash -c "until coredumpctl -1 info $CORE_STACKTRACE_TEST_BIN | grep -zqE 'baz.*bar.*foo'; do sleep .2; done"
 else
     echo "libdw doesn't not support setting sysroot, skipping EnterNamespace= test"
 fi

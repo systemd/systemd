@@ -105,7 +105,7 @@ test_basic() {
     systemctl "$@" status TEST-55-OOMD-workload.slice
 
     # Verify systemd-oomd is monitoring the expected units.
-    timeout 1m bash -xec "until oomctl | grep -q -F 'Path: $cgroup_path'; do sleep 1; done"
+    timeout --foreground 1m bash -xec "until oomctl | grep -q -F 'Path: $cgroup_path'; do sleep 1; done"
     assert_in 'Memory Pressure Limit: 20.00%' \
               "$(oomctl | tac | sed -e '/Memory Pressure Monitored CGroups:/q' | tac | grep -A8 "Path: $cgroup_path")"
 
@@ -137,12 +137,12 @@ testcase_basic_system() {
 
 testcase_basic_user() {
     # Make sure we also work correctly on user units.
-    loginctl enable-linger testuser
+    systemctl start user@4711
 
     test_basic "/user.slice/user-$(id -u testuser).slice/user@$(id -u testuser).service/TEST.slice/TEST-55.slice/TEST-55-OOMD.slice/TEST-55-OOMD-workload.slice" \
                --machine "testuser@.host" --user
 
-    loginctl disable-linger testuser
+    systemctl stop user@4711
 }
 
 testcase_preference_avoid() {
@@ -232,10 +232,10 @@ EOF
     systemctl start TEST-55-OOMD-testmunch.service
     systemctl start TEST-55-OOMD-testchill.service
 
-    timeout 1m bash -xec 'until oomctl | grep "/TEST-55-OOMD-testmunch.service"; do sleep 1; done'
+    timeout --foreground 1m bash -xec 'until oomctl | grep "/TEST-55-OOMD-testmunch.service"; do sleep 1; done'
     oomctl | grep -A 2 "/TEST-55-OOMD-testmunch.service" | grep "Memory Pressure Duration: 3s"
 
-    timeout 1m bash -xec 'until oomctl | grep "/TEST-55-OOMD-testchill.service"; do sleep 1; done'
+    timeout --foreground 1m bash -xec 'until oomctl | grep "/TEST-55-OOMD-testchill.service"; do sleep 1; done'
     oomctl | grep -A 2 "/TEST-55-OOMD-testchill.service" | grep "Memory Pressure Duration: 2s"
 
     [[ "$(systemctl show -P ManagedOOMMemoryPressureDurationUSec TEST-55-OOMD-testmunch.service)" == "3s" ]]

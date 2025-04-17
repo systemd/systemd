@@ -4,8 +4,10 @@ integration_tests += [
         integration_test_template + {
                 'name' : fs.name(meson.current_source_dir()),
                 'configuration' : integration_test_template['configuration'] + {
-                        'wants' : '@0@ tpm2.target'.format(integration_test_template['configuration']['wants']),
-                        'after' : '@0@ tpm2.target'.format(integration_test_template['configuration']['after']),
+                        'unit' : integration_test_template['configuration']['unit'] + {
+                                'Wants': 'tpm2.target',
+                                'After': 'tpm2.target',
+                        },
                 },
                 'vm' : true,
                 'firmware' : 'auto',

@@ -24,7 +24,7 @@ EOF
 
     systemctl --job-mode=replace --no-block start "$unit_name"
     # Wait until the unit leaves the "inactive" state
-    timeout 5s bash -xec "while [[ \"\$(systemctl show -P ActiveState $unit_name)\" == inactive ]]; do sleep .1; done"
+    timeout --foreground 5s bash -xec "while [[ \"\$(systemctl show -P ActiveState $unit_name)\" == inactive ]]; do sleep .1; done"
     # Sleep for 1 second from the unit start to get well "into" the first (or second) ExecStart= directive
     sleep 1
 }
@@ -36,7 +36,7 @@ check_output() {
     local unit_name="${unit_path##*/}"
 
     # Wait until the unit becomes inactive before checking the log
-    timeout 10s bash -xec "while [[ \"\$(systemctl show -P ActiveState $unit_name)\" != inactive ]]; do sleep .5; done"
+    timeout --foreground 10s bash -xec "while [[ \"\$(systemctl show -P ActiveState $unit_name)\" != inactive ]]; do sleep .5; done"
 
     diff "$log_file" <(echo -ne "$expected")
 }

@@ -7,9 +7,6 @@ set -o pipefail
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
-export SYSTEMD_LOG_LEVEL=debug
-export SYSTEMD_LOG_TARGET=journal
-
 # shellcheck disable=SC2317
 at_exit() {
     set +e
@@ -384,7 +381,7 @@ touch /opt/readonly/foo && exit 1
 
 exit 0
 EOF
-timeout 30 systemd-nspawn --oci-bundle="$OCI"
+timeout --foreground 30 systemd-nspawn --oci-bundle="$OCI"
 
 # Test a couple of invalid configs
 INVALID_SNIPPETS=(

@@ -30,10 +30,10 @@ chmod +x /tmp/child
 systemd-pty-forward /tmp/child &
 PID=$!
 
-timeout 5 bash -c "until test -e /tmp/ready; do sleep .5; done"
+timeout --foreground 5 bash -c "until test -e /tmp/ready; do sleep .5; done"
 
 kill -INT "$PID"
 
-timeout 5 bash -c "until test -e /tmp/int; do sleep .5; done"
+timeout --foreground 5 bash -c "until test -e /tmp/int; do sleep .5; done"
 
 kill "$PID"

@@ -74,42 +74,46 @@ by the integration tests as well.
 
 ## Iterating on an integration test
 
-To iterate on an integration test, let's first get a shell in the integration test environment by running
-the following:
+To iterate on an integration test, let's first build the full image once to make
+sure it's ready to be used by the integration test:
 
 ```shell
-$ mkosi -f sandbox -- meson compile -C build mkosi && env SYSTEMD_INTEGRATION_TESTS=1 TEST_SHELL=1 mkosi -f sandbox -- meson test -C build -i TEST-01-BASIC
+$ mkosi -f sandbox -- meson compile -C build mkosi
 ```
 
-This will get us a shell in the integration test environment after booting the machine without running the
-integration test itself. After booting, we can verify the integration test passes by running it manually,
-for example with `systemctl start TEST-01-BASIC`.
+Then, we can run the integration test we want to iterate on as follows:
 
-Now you can extend the test in whatever way you like to add more coverage of existing features or to add
-coverage for a new feature. Once you've finished writing the logic and want to rerun the test, run the
-the following on the host:
+```shell
+$ mkosi -f sandbox -- env SYSTEMD_INTEGRATION_TESTS=1 meson test -C build --no-rebuild -i TEST-01-BASIC
+```
+
+This will run the integration test. If it fails, you'll automatically get a
+shell in the VM or container and can debug what failed. Once you've debugged and
+made the necessary changes required to make the integration test pass, you can
+rebuild systemd as follows on the host:
 
 ```shell
 $ mkosi -R
 ```
 
-This will rebuild the distribution packages without rebuilding the entire integration test image. Next, run
-the following in the integration test machine:
+This will rebuild the systemd distribution packages without rebuilding the
+entire integration test image. Next, shut down the VM or container and rerun the
+integration test:
 
 ```shell
-$ systemctl soft-reboot
-$ systemctl start TEST-01-BASIC
+$ systemctl poweroff
+$ mkosi -f sandbox -- env SYSTEMD_INTEGRATION_TESTS=1 meson test -C build --no-rebuild -i TEST-01-BASIC
 ```
 
-A soft-reboot is required to make sure all the leftover state from the previous run of the test is cleaned
-up by soft-rebooting into the btrfs snapshot we made before running the test. After the soft-reboot,
-re-running the test will first install the new packages we just built, make a new snapshot and finally run
-the test again. You can keep running the loop of `mkosi -R`, `systemctl soft-reboot` and
-`systemctl start ...` until the changes to the integration test are working.
+A reboot is required to make sure all the leftover state from the previous run
+of the test is cleaned up. Re-running the test will first install the new
+packages we just built before running the test again. You can keep running the
+loop of `mkosi -R`, `systemctl poweroff` and `mkosi -f sandbox -- env ...` until
+the changes to the integration test are working.
 
-If you're debugging a failing integration test (running `meson test --interactive` without `TEST_SHELL`),
-there's no need to run `systemctl start ...`, running `systemctl soft-reboot` on its own is sufficient to
-rerun the test.
+If you want to get a shell in the test environment itself, simply add `bash`
+anywhere within the test script, run the loop again and you'll get a bash shell
+within the test environment the next time the test runs.
 
 ### Configuration variables
 

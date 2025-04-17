@@ -45,7 +45,7 @@ udevadm cat -h
 INVOCATION_ID=$(systemctl show --property InvocationID --value systemd-udevd.service)
 udevadm control -e
 # Wait for systemd-udevd.service being restarted.
-timeout 30 bash -ec "while [[ \"\$(systemctl show --property InvocationID --value systemd-udevd.service)\" == \"$INVOCATION_ID\" ]]; do sleep .5; done"
+timeout --foreground 30 bash -ec "while [[ \"\$(systemctl show --property InvocationID --value systemd-udevd.service)\" == \"$INVOCATION_ID\" ]]; do sleep .5; done"
 udevadm control -l emerg
 udevadm control -l alert
 udevadm control -l crit
@@ -270,7 +270,7 @@ udevadm trigger -h
 if [[ "$(systemd-detect-virt -v)" != "qemu" ]]; then
     udevadm control --log-level=0
     for _ in {0..9}; do
-        timeout 30 udevadm trigger --settle
+        timeout --foreground 30 udevadm trigger --settle
     done
     udevadm control --log-level=debug
 fi
@@ -281,7 +281,7 @@ udevadm wait -t 5 /sys/class/net/$netdev
 udevadm wait --initialized true /sys/class/net/$netdev
 udevadm wait --initialized false /sys/class/net/$netdev
 (! udevadm wait --initialized hello /sys/class/net/$netdev)
-assert_rc 124 timeout 5 udevadm wait --removed /sys/class/net/$netdev
+assert_rc 124 timeout --foreground 5 udevadm wait --removed /sys/class/net/$netdev
 udevadm wait --settle /sys/class/net/$netdev
 udevadm wait -h
 

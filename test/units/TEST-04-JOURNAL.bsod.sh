@@ -76,12 +76,13 @@ systemctl stop systemd-bsod
 
 # Since we just wiped the journal, there should be no emergency messages and
 # systemd-bsod should be just a no-op
-timeout 10s /usr/lib/systemd/systemd-bsod
+timeout --foreground 10s /usr/lib/systemd/systemd-bsod
 setterm --term linux --dump --file /tmp/console.dump
 (! grep "The current boot has failed" /tmp/console.dump)
 
 # systemd-bsod should pick up emergency messages only with UID=0, so let's check
 # that as well
+systemctl start user@4711
 systemd-run --user --machine testuser@ --wait --pipe systemd-cat -p emerg echo "User emergency message"
 systemd-cat -p emerg echo "Root emergency message"
 journalctl --sync
@@ -92,7 +93,7 @@ vcs_dump_and_check "Root emergency message"
 grep -aq "Scan the error message" /tmp/console.dump
 # TODO: check if systemd-bsod exits on a key press (didn't figure this one out yet)
 kill $PID
-timeout 10 bash -c "while kill -0 $PID; do sleep .5; done"
+timeout --foreground 10 bash -c "while kill -0 $PID; do sleep .5; done"
 
 # Wipe the journal
 journalctl --vacuum-size=1 --rotate
@@ -118,6 +119,6 @@ journalctl --vacuum-size=1 --rotate
 # no "emerg" messages, see systemd/systemd#30084
 (! systemctl is-active systemd-bsod)
 systemctl start systemd-bsod
-timeout 5s bash -xec 'until systemctl is-active systemd-bsod; do sleep .5; done'
-timeout 5s systemctl stop systemd-bsod
-timeout 5s bash -xec 'while systemctl is-active systemd-bsod; do sleep .5; done'
+timeout --foreground 5s bash -xec 'until systemctl is-active systemd-bsod; do sleep .5; done'
+timeout --foreground 5s systemctl stop systemd-bsod
+timeout --foreground 5s bash -xec 'while systemctl is-active systemd-bsod; do sleep .5; done'

@@ -15,7 +15,9 @@ testcase_timedatectl() {
 
     timedatectl
     timedatectl --no-ask-password
+    systemctl start user@4711
     timedatectl status --machine=testuser@.host
+    systemctl stop user@4711
     timedatectl status
     timedatectl show
     timedatectl show --all

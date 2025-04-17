@@ -11,7 +11,7 @@ at_exit() {
     set +e
 
     machinectl kill --signal=KILL nss-mymachines-{noip,singleip,manyips}
-    mountpoint -q /var/lib/machines && timeout 10 sh -c "until umount /var/lib/machines; do sleep .5; done"
+    mountpoint -q /var/lib/machines && timeout --foreground 10 sh -c "until umount /var/lib/machines; do sleep .5; done"
     rm -f /run/systemd/nspawn/*.nspawn
 }
 
@@ -80,7 +80,7 @@ done
 # Start the containers and wait until all of them are initialized
 machinectl start nss-mymachines-{noip,singleip,manyips}
 for container in nss-mymachines-{noip,singleip,manyips}; do
-    timeout 30 bash -xec "while [[ ! -e /var/lib/machines/$container/initialized ]]; do sleep .5; done"
+    timeout --foreground 30 bash -xec "while [[ ! -e /var/lib/machines/$container/initialized ]]; do sleep .5; done"
 done
 
 # We need to configure the dummy interfaces on the "outside" as well for `getent {ahosts4,ahosts6}` to work

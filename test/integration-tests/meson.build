@@ -12,8 +12,6 @@ integration_test_template = {
         'configuration' : {
                 'memory-accounting' : 'no',
                 'command' : '/usr/lib/systemd/tests/testdata/units/%N.sh',
-                'wants' : 'multi-user.target user@4711.service',
-                'after' : 'user@4711.service',
                 'env' : {},
                 'service' : {},
                 'unit' : {},

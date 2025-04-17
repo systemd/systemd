@@ -15,6 +15,8 @@ install_extension_images
 
 systemd-analyze log-level debug
 
+systemctl start user@4711
+
 runas testuser systemd-run --wait --user --unit=test-private-users \
     -p PrivateUsers=yes -P echo hello
 

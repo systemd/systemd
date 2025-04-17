@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 [Unit]
 Description=%N
-Wants=basic.target network.target @wants@
-After=basic.target network.target @after@
+Wants=basic.target network.target systemd-user-sessions.service
+After=basic.target network.target systemd-user-sessions.service
 @unit@
 
 [Service]

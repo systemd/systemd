@@ -73,6 +73,7 @@ check_environment "$OUT_FILE"
 : >"$OUT_FILE"
 
 # Check if the generator is correctly called in a user session
+systemctl start user@4711
 systemctl -M testuser@.host --user daemon-reload
 systemctl -M testuser@.host --user show-environment | tee "$OUT_FILE"
 check_environment "$OUT_FILE"

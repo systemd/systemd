@@ -17,6 +17,7 @@ busctl list --unique --show-machine --full
 busctl list --acquired --activatable --no-legend -j | jq
 busctl status
 busctl status --machine=.host --augment-creds=no
+systemctl start user@4711
 busctl status --user --machine=testuser@.host
 busctl status org.freedesktop.systemd1
 # Ignore the exit code here, since this runs during machine bootup, so busctl

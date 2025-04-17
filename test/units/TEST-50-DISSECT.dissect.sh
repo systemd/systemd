@@ -360,7 +360,7 @@ systemctl mount-image --mkdir testservice-50d.service /tmp/wrong.raw /tmp/img
 test "$(systemctl show -P SubState testservice-50d.service)" = "running"
 systemctl mount-image --mkdir testservice-50d.service "$MINIMAL_IMAGE.raw" /tmp/img root:nosuid
 # shellcheck disable=SC2016
-timeout 30s bash -xec 'while [[ $(systemctl show -P SubState testservice-50d.service) == running ]]; do sleep .2; done'
+timeout --foreground 30s bash -xec 'while [[ $(systemctl show -P SubState testservice-50d.service) == running ]]; do sleep .2; done'
 systemctl is-active testservice-50d.service
 
 # ExtensionImages will set up an overlay
@@ -687,7 +687,7 @@ systemd-run --unit=test-root-ephemeral \
 test -n "$(ls -A /var/lib/systemd/ephemeral-trees)"
 systemctl stop test-root-ephemeral
 # shellcheck disable=SC2016
-timeout 10 bash -c 'until test -z "$(ls -A /var/lib/systemd/ephemeral-trees)"; do sleep .5; done'
+timeout --foreground 10 bash -c 'until test -z "$(ls -A /var/lib/systemd/ephemeral-trees)"; do sleep .5; done'
 test ! -f /tmp/img/abc
 
 systemd-dissect --mtree /tmp/img >/dev/null
@@ -747,7 +747,7 @@ set +o pipefail
 # "journalctl -u foo.service" may not work as expected, especially entries for _TRANSPORT=stdout,
 # for short-living services or when the service manager generates debugging logs.
 # Instead, SYSLOG_IDENTIFIER= should be reliable for stdout. Let's use it.
-timeout -v 30s journalctl -b SYSLOG_IDENTIFIER=echo _TRANSPORT=stdout -o cat -n all --follow | grep -m 1 -q '^foo$'
+timeout --foreground -v 30s journalctl -b SYSLOG_IDENTIFIER=echo _TRANSPORT=stdout -o cat -n all --follow | grep -m 1 -q '^foo$'
 set -o pipefail
 systemd-sysext unmerge --no-reload
 # Grep on the Warning to find the warning helper mentioning the daemon reload.

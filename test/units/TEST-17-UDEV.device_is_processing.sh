@@ -41,7 +41,7 @@ udevadm control --reload
 
 ip link add "$IFNAME" type dummy
 IFINDEX=$(ip -json link show "$IFNAME" | jq '.[].ifindex')
-timeout 30 bash -c "until [[ -e /run/udev/data/n${IFINDEX} ]] && grep -q -F 'ID_PROCESSING=1' /run/udev/data/n${IFINDEX}; do sleep .5; done"
+timeout --foreground 30 bash -c "until [[ -e /run/udev/data/n${IFINDEX} ]] && grep -q -F 'ID_PROCESSING=1' /run/udev/data/n${IFINDEX}; do sleep .5; done"
 
 (! systemctl is-active "sys-devices-virtual-net-${IFNAME}.device")
 (! systemctl is-active "sys-subsystem-net-devices-${IFNAME}.device")
@@ -83,7 +83,7 @@ systemd-run \
     sleep 1h
 
 udevadm trigger "/sys/class/net/${IFNAME}"
-timeout 30 bash -c "until grep -q -F 'ID_PROCESSING=1' /run/udev/data/n${IFINDEX}; do sleep .5; done"
+timeout --foreground 30 bash -c "until grep -q -F 'ID_PROCESSING=1' /run/udev/data/n${IFINDEX}; do sleep .5; done"
 
 # Check if the service and device units are still active even ID_PROCESSING flag is set.
 systemctl is-active testsleep.service

@@ -58,7 +58,7 @@ testcase_implied_private_users_self() {
 }
 
 testcase_user_manager() {
-    systemctl start user@0
+    systemctl start user@0 user@4711
     # DelegateNamespaces=yes is implied for user managers.
     systemd-run --machine=testuser@.host --user -p PrivateMounts=yes -p AmbientCapabilities="~" --wait --pipe -- mount --bind /usr /home
     # Even those with CAP_SYS_ADMIN.
@@ -67,6 +67,7 @@ testcase_user_manager() {
     (! systemd-run --machine=.host --user -p PrivateMounts=yes -p DelegateNamespaces=no --wait --pipe -- mount --bind /usr /home)
     # But not for those without CAP_SYS_ADMIN.
     systemd-run --machine=testuser@.host --user -p PrivateMounts=yes -p DelegateNamespaces=no -p AmbientCapabilities="~" --wait --pipe -- mount --bind /usr /home
+    systemctl stop user@0 user@4711
 }
 
 testcase_multiple_features() {

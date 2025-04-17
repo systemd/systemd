@@ -31,7 +31,6 @@ trap at_exit EXIT
 
 : "Setup base images"
 
-export SYSTEMD_LOG_LEVEL=debug
 export ARCHITECTURE
 export IMAGE_DIR
 export MACHINE

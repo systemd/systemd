@@ -58,7 +58,7 @@ assert_eq "$(udevadm info --query=property --property SYSTEMD_WANTS --value "/sy
 # The value shown by systemctl is doubly escaped and quoted.
 assert_eq "$(systemctl show -p Wants --value "${ESCAPED}.device")" "\"test@${SHELL_ESCAPED}.service\""
 
-timeout 30 bash -c 'until [[ -s /tmp/output-i ]] && [[ -s /tmp/output-I ]]; do sleep .5; done'
+timeout --foreground 30 bash -c 'until [[ -s /tmp/output-i ]] && [[ -s /tmp/output-I ]]; do sleep .5; done'
 assert_eq "$(cat /tmp/output-i)" "i=${ESCAPED}"
 assert_eq "$(cat /tmp/output-I)" "I=${SYSPATH}"
 
