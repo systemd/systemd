@@ -18,15 +18,20 @@ if which networkctl >/dev/null; then
 fi
 
 if dnf --version |grep -q '^4\.'; then
+    enabl='--enablerepo'
     disable='--disablerepo'
 elif dnf --version |grep -q '^dnf5\s'; then
+    enabl='--enable-repo'
     disable='--disable-repo'
 else
     echo 'Unknown dnf version!'
     exit 1
 fi
 
-dnf downgrade -y --allowerasing "$disable" '*' "$pkgdir"/distro/*.rpm
+# temporary hack until we merge https://src.fedoraproject.org/rpms/systemd/pull-request/204
+rpm -e --nodeps systemd-sysusers
+
+dnf downgrade -y --allowerasing "$disable" '*' "$enabl" oldpackages systemd
 
 newminor=$(systemctl --version |awk '/^systemd/{print$2}')
 
@@ -44,7 +49,7 @@ systemctl --failed |grep -Fqx '0 loaded units listed.'
 loginctl list-sessions
 
 # Finally test the upgrade
-dnf -y upgrade "$disable" '*' "$pkgdir"/devel/*.rpm
+dnf upgrade -y --allowerasing "$disable" '*' "$enabl" newpackages systemd
 
 # TODO: sanity checks
 
