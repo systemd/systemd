@@ -25,7 +25,31 @@ develver=$(rpm -q --queryformat='%{evr}' systemd)
 distropkgs=$(dnf repoquery 'systemd*' |grep -F "$distrover" |grep -e noarch -e "$DISTRIBUTION_ARCHITECTURE" |grep -v -e -debuginfo -e -debugsource)
 develpkgs=$(dnf repoquery 'systemd*' |grep -F "$develver" |grep -e noarch -e "$DISTRIBUTION_ARCHITECTURE" |grep -v -e -debuginfo -e -debugsource)
 
+# needed to downgrade systemd-ukify
+#distropkgs="$distropkgs python3-zstd"
+
 # shellcheck disable=SC2086
-dnf download --arch noarch --arch "$DISTRIBUTION_ARCHITECTURE" --destdir "$BUILDROOT$pkgdir/distro" $distropkgs
+dnf download --resolve --alldeps "$disable" mkosi --arch noarch --arch "$DISTRIBUTION_ARCHITECTURE" --destdir "$BUILDROOT$pkgdir/distro" $distropkgs
+#dnf download --resolve --alldeps --arch noarch --arch "$DISTRIBUTION_ARCHITECTURE" --destdir "$BUILDROOT$pkgdir/devel" $develpkgs
 # shellcheck disable=SC2086
 dnf download --arch noarch --arch "$DISTRIBUTION_ARCHITECTURE" --destdir "$BUILDROOT$pkgdir/devel" $develpkgs
+
+createrepo "$BUILDROOT$pkgdir/distro"
+cat >"$BUILDROOT/etc/yum.repos.d/oldpackages.repo" <<EOF
+[oldpackages]
+name=Old systemd packages to test downgrade
+baseurl=$pkgdir/distro
+enabled=0
+metadata_expire=1d
+gpgcheck=0
+EOF
+
+createrepo "$BUILDROOT$pkgdir/devel"
+cat >"$BUILDROOT/etc/yum.repos.d/newpackages.repo" <<EOF
+[newpackages]
+name=Devel systemd packages to test upgrade
+baseurl=$pkgdir/devel
+enabled=0
+metadata_expire=1d
+gpgcheck=0
+EOF
