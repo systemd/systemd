@@ -354,6 +354,8 @@ static int bus_append_exec_command(sd_bus_message *m, const char *field, const c
                 r = extract_first_word(&eq, &path, NULL, EXTRACT_UNQUOTE|EXTRACT_CUNESCAPE);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse path: %m");
+                if (r == 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No executable path specified, refusing.");
         }
 
         r = strv_split_full(&l, eq, NULL, EXTRACT_UNQUOTE|EXTRACT_CUNESCAPE);
