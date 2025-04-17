@@ -363,6 +363,47 @@ static int property_get_markers(
         return sd_bus_message_close_container(reply);
 }
 
+static int property_get_quota(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Unit *u = ASSERT_PTR(userdata);
+        ExecContext *c;
+        bool enforce = false, accounting = false;
+        uint64_t current_usage_bytes = 0, limit_bytes = 0;
+
+        assert(bus);
+        assert(reply);
+
+        c = unit_get_exec_context(u);
+        if (c) {
+                ExecDirectoryType dt;
+                if (streq(property, "StateDirectoryQuotaInfo"))
+                        dt = EXEC_DIRECTORY_STATE;
+                else if (streq(property, "CacheDirectoryQuotaInfo"))
+                        dt = EXEC_DIRECTORY_CACHE;
+                else if (streq(property, "LogsDirectoryQuotaInfo"))
+                        dt = EXEC_DIRECTORY_LOGS;
+                else
+                        assert_not_reached();
+
+                const QuotaLimit *q;
+                q = &c->directories[dt].exec_quota;
+                enforce = q->quota_enforce;
+                accounting = q->quota_accounting;
+
+                if (q->quota_enforce || q->quota_accounting)
+                        unit_get_exec_quota_stats(u, c, dt, &current_usage_bytes, &limit_bytes);
+        }
+
+        return sd_bus_message_append(reply, "(bbtt)", enforce, accounting, current_usage_bytes, limit_bytes);
+}
+
 static const char *const polkit_message_for_job[_JOB_TYPE_MAX] = {
         [JOB_START]       = N_("Authentication is required to start '$(unit)'."),
         [JOB_STOP]        = N_("Authentication is required to stop '$(unit)'."),
@@ -936,6 +977,9 @@ const sd_bus_vtable bus_unit_vtable[] = {
         SD_BUS_PROPERTY("Refs", "as", property_get_refs, 0, 0),
         SD_BUS_PROPERTY("ActivationDetails", "a(ss)", bus_property_get_activation_details, offsetof(Unit, activation_details), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("DebugInvocation", "b", bus_property_get_bool, offsetof(Unit, debug_invocation), 0),
+        SD_BUS_PROPERTY("StateDirectoryQuotaInfo", "(bbtt)", property_get_quota, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("CacheDirectoryQuotaInfo", "(bbtt)", property_get_quota, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("LogsDirectoryQuotaInfo", "(bbtt)", property_get_quota, 0, SD_BUS_VTABLE_PROPERTY_CONST),
 
         SD_BUS_METHOD_WITH_ARGS("Start",
                                 SD_BUS_ARGS("s", mode),

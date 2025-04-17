@@ -159,6 +159,13 @@ static inline bool EXEC_DIRECTORY_TYPE_SHALL_CHOWN(ExecDirectoryType t) {
         return t >= 0 && t < _EXEC_DIRECTORY_TYPE_MAX && t != EXEC_DIRECTORY_CONFIGURATION;
 }
 
+typedef struct QuotaLimit {
+        uint64_t quota_absolute; /* absolute quota in bytes; if UINT64_MAX relative quota configured, see below */
+        uint32_t quota_scale;    /* relative quota to backend size, scaled to 0…UINT32_MAX */
+        bool quota_enforce;
+        bool quota_accounting;
+} QuotaLimit;
+
 typedef struct ExecDirectoryItem {
         char *path;
         char **symlinks;
@@ -170,6 +177,7 @@ typedef struct ExecDirectory {
         mode_t mode;
         size_t n_items;
         ExecDirectoryItem *items;
+        QuotaLimit exec_quota;
 } ExecDirectory;
 
 typedef enum ExecCleanMask {
