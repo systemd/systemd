@@ -31,9 +31,6 @@ typedef struct Wiphy {
         RFKillState rfkill_state;
 } Wiphy;
 
-Wiphy *wiphy_free(Wiphy *w);
-DEFINE_TRIVIAL_CLEANUP_FUNC(Wiphy*, wiphy_free);
-
 int wiphy_get_by_index(Manager *manager, uint32_t index, Wiphy **ret);
 int wiphy_get_by_name(Manager *manager, const char *name, Wiphy **ret);
 

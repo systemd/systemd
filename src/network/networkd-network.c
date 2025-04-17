@@ -44,6 +44,16 @@
 #include "strv.h"
 #include "tclass.h"
 
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+                network_hash_ops,
+                char, string_hash_func, string_compare_func,
+                Network, network_unref);
+
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+                stacked_netdevs_hash_ops,
+                char, string_hash_func, string_compare_func,
+                NetDev, netdev_unref);
+
 static int network_resolve_netdev_one(Network *network, const char *name, NetDevKind kind, NetDev **ret) {
         const char *kind_string;
         NetDev *netdev;
@@ -105,14 +115,14 @@ static int network_resolve_stacked_netdevs(Network *network) {
                 if (network_resolve_netdev_one(network, name, PTR_TO_INT(kind), &netdev) <= 0)
                         continue;
 
-                r = hashmap_ensure_put(&network->stacked_netdevs, &string_hash_ops, netdev->ifname, netdev);
+                r = hashmap_ensure_put(&network->stacked_netdevs, &stacked_netdevs_hash_ops, netdev->ifname, netdev);
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0)
                         log_warning_errno(r, "%s: Failed to add NetDev '%s' to network, ignoring: %m",
                                           network->filename, (const char *) name);
 
-                netdev = NULL;
+                TAKE_PTR(netdev);
         }
 
         return 0;
@@ -589,7 +599,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
         if (r < 0)
                 return r; /* network_verify() logs internally. */
 
-        r = ordered_hashmap_ensure_put(networks, &string_hash_ops, network->name, network);
+        r = ordered_hashmap_ensure_put(networks, &network_hash_ops, network->name, network);
         if (r < 0)
                 return log_warning_errno(r, "%s: Failed to store configuration into hashmap: %m", filename);
 
@@ -640,7 +650,7 @@ static bool network_netdev_equal(Network *a, Network *b) {
 }
 
 int network_reload(Manager *manager) {
-        OrderedHashmap *new_networks = NULL;
+        _cleanup_ordered_hashmap_free_ OrderedHashmap *new_networks = NULL;
         Network *n, *old;
         int r;
 
@@ -648,7 +658,7 @@ int network_reload(Manager *manager) {
 
         r = network_load(manager, &new_networks);
         if (r < 0)
-                goto failure;
+                return r;
 
         ORDERED_HASHMAP_FOREACH(n, new_networks) {
                 r = network_get_by_name(manager, n->name, &old);
@@ -670,14 +680,13 @@ int network_reload(Manager *manager) {
                 /* Nothing updated, use the existing Network object, and drop the new one. */
                 r = ordered_hashmap_replace(new_networks, old->name, old);
                 if (r < 0)
-                        goto failure;
+                        return r;
 
                 network_ref(old);
                 network_unref(n);
         }
 
-        ordered_hashmap_free_with_destructor(manager->networks, network_unref);
-        manager->networks = new_networks;
+        ordered_hashmap_free_and_replace(manager->networks, new_networks);
 
         r = manager_build_dhcp_pd_subnet_ids(manager);
         if (r < 0)
@@ -688,11 +697,6 @@ int network_reload(Manager *manager) {
                 return r;
 
         return 0;
-
-failure:
-        ordered_hashmap_free_with_destructor(new_networks, network_unref);
-
-        return r;
 }
 
 int manager_build_dhcp_pd_subnet_ids(Manager *manager) {
@@ -820,7 +824,7 @@ static Network *network_free(Network *network) {
         netdev_unref(network->bridge);
         netdev_unref(network->bond);
         netdev_unref(network->vrf);
-        hashmap_free_with_destructor(network->stacked_netdevs, netdev_unref);
+        hashmap_free(network->stacked_netdevs);
 
         /* static configs */
         set_free(network->ipv6_proxy_ndp_addresses);

@@ -947,8 +947,6 @@ static int link_save(Link *link) {
 }
 
 void link_dirty(Link *link) {
-        int r;
-
         assert(link);
         assert(link->manager);
 
@@ -962,10 +960,9 @@ void link_dirty(Link *link) {
         /* Also mark manager dirty as link is dirty */
         link->manager->dirty = true;
 
-        r = set_ensure_put(&link->manager->dirty_links, NULL, link);
-        if (r <= 0)
-                /* Ignore allocation errors and don't take another ref if the link was already dirty */
-                return;
+        if (set_ensure_put(&link->manager->dirty_links, &link_hash_ops, link) <= 0)
+                return; /* Ignore allocation errors and don't take another ref if the link was already dirty */
+
         link_ref(link);
 }
 
