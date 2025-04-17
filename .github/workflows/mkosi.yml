@@ -197,7 +197,6 @@ jobs:
           sudo mkosi sandbox -- \
             meson setup \
             --buildtype=debugoptimized \
-            -Dintegration-tests=true \
             -Dbpf-framework=disabled \
             build
 
@@ -233,7 +232,8 @@ jobs:
             meson test \
             -C build \
             --no-rebuild \
-            --suite integration-tests \
+            --setup=integration \
+            --suite=integration-tests \
             --print-errorlogs \
             --no-stdsplit \
             --num-processes "$(($(nproc) - 1))" \

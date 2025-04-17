@@ -13,6 +13,12 @@ project('systemd', 'c',
         meson_version : '>= 0.62.0',
 )
 
+add_test_setup(
+        'default',
+        exclude_suites : ['integration-tests'],
+        is_default : true,
+)
+
 project_major_version = meson.project_version().split('.')[0].split('~')[0]
 if meson.project_version().contains('.')
         project_minor_version = meson.project_version().split('.')[-1].split('~')[0]
@@ -339,7 +345,6 @@ meson_build_sh = find_program('tools/meson-build.sh')
 want_tests = get_option('tests')
 want_slow_tests = want_tests != 'false' and get_option('slow-tests')
 want_fuzz_tests = want_tests != 'false' and get_option('fuzz-tests')
-want_integration_tests = want_tests != 'false' and get_option('integration-tests')
 install_tests = want_tests != 'false' and get_option('install-tests')
 
 if add_languages('cpp', native : false, required : fuzzer_build)
@@ -2661,10 +2666,6 @@ endif
 #####################################################################
 
 mkosi = find_program('mkosi', required : false)
-if want_integration_tests and not mkosi.found()
-        error('Could not find mkosi which is required to run the integration tests')
-endif
-
 mkosi_depends = public_programs
 
 foreach executable : ['systemd-journal-remote', 'systemd-sbsign', 'systemd-keyutil']

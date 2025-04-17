@@ -361,7 +361,7 @@ def statfs(path: Path) -> str:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--mkosi', required=True)
+    parser.add_argument('--mkosi', default=None)
     parser.add_argument('--meson-source-dir', required=True, type=Path)
     parser.add_argument('--meson-build-dir', required=True, type=Path)
     parser.add_argument('--name', required=True)
@@ -379,6 +379,12 @@ def main() -> None:
     parser.add_argument('mkosi_args', nargs='*')
     args = parser.parse_args()
 
+    if not args.mkosi:
+        args.mkosi = shutil.which('mkosi')
+        if not args.mkosi:
+            print('Could not find mkosi which is required to run the integration tests', file=sys.stderr)
+            sys.exit(1)
+
     # The meson source directory can either be the top-level repository directory or the
     # test/integration-tests/standalone subdirectory in the repository directory. The mkosi configuration
     # will always be a parent directory of one of these directories and at most 4 levels upwards, so don't
@@ -394,13 +400,6 @@ def main() -> None:
             file=sys.stderr,
         )
         exit(1)
-
-    if not bool(int(os.getenv('SYSTEMD_INTEGRATION_TESTS', '0'))):
-        print(
-            f'SYSTEMD_INTEGRATION_TESTS=1 not found in environment, skipping {args.name}',
-            file=sys.stderr,
-        )
-        exit(77)
 
     if args.slow and not bool(int(os.getenv('SYSTEMD_SLOW_TESTS', '0'))):
         print(

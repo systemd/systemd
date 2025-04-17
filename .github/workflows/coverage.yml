@@ -90,7 +90,6 @@ jobs:
           sudo mkosi sandbox -- \
             meson setup \
             --buildtype=debugoptimized \
-            -Dintegration-tests=true \
             build
 
       - name: Build image
@@ -120,7 +119,8 @@ jobs:
             meson test \
             -C build \
             --no-rebuild \
-            --suite integration-tests \
+            --setup=integration \
+            --suite=integration-tests \
             --print-errorlogs \
             --no-stdsplit \
             --num-processes "$(($(nproc) - 1))" \
