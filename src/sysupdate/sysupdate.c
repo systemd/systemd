@@ -13,6 +13,7 @@
 #include "format-table.h"
 #include "glyph-util.h"
 #include "hexdecoct.h"
+#include "image-policy.h"
 #include "json-util.h"
 #include "main-func.h"
 #include "mount-util.h"
