@@ -3,6 +3,7 @@
 #include <errno.h>
 #include <stddef.h>
 
+#include "log.h"
 #include "macro.h"
 #include "string-util.h"
 #include "xml.h"

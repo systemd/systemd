@@ -4,6 +4,7 @@
 
 #include "alloc-util.h"
 #include "fd-util.h"
+#include "log.h"
 #include "portabled-operation.h"
 #include "process-util.h"
 

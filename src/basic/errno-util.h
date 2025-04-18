@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "assert-util.h"
 #include "macro.h"
 
 /* strerror(3) says that glibc uses a maximum length of 1024 bytes. */

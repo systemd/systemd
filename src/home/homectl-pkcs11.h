@@ -3,6 +3,8 @@
 
 #include "sd-json.h"
 
+#include "log.h"
+
 int identity_add_token_pin(sd_json_variant **v, const char *pin);
 
 #if HAVE_P11KIT

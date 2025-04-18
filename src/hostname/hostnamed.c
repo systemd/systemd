@@ -26,6 +26,7 @@
 #include "hostname-util.h"
 #include "id128-util.h"
 #include "json-util.h"
+#include "log.h"
 #include "main-func.h"
 #include "nulstr-util.h"
 #include "os-util.h"

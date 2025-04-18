@@ -8,6 +8,8 @@
 #if HAVE_APPARMOR
 #  include <sys/apparmor.h>
 
+#include "memory-util.h"
+
 extern DLSYM_PROTOTYPE(aa_change_onexec);
 extern DLSYM_PROTOTYPE(aa_change_profile);
 extern DLSYM_PROTOTYPE(aa_features_new_from_kernel);
