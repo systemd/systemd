@@ -79,12 +79,10 @@ CHANGES WITH 258 in spe:
           is therefore unused. Moreover, the exit of session leader process
           will immediately cause the session to be stopped.
 
-        Announcements of Future Feature Removals:
+        * The D-Bus method org.freedesktop.systemd1.StartAuxiliaryScope() has
+          been removed, which was deprecated since v257.
 
-        * The D-Bus method org.freedesktop.systemd1.StartAuxiliaryScope() is
-          deprecated because accounting data and such cannot be reasonably
-          migrated between cgroups. It is likely to be fully removed in a
-          future release (reach out if you have use cases).
+        Announcements of Future Feature Removals:
 
         * Support for System V service scripts is deprecated and will be
           removed in v258. Please make sure to update your software
