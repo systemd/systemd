@@ -3,8 +3,9 @@
 
 #include "sd-bus.h"
 
-#include "bus-util.h"
-#include "machine.h"
+#include "bus-object.h"
+
+typedef struct Machine Machine;
 
 typedef enum {
         MACHINE_COPY_REPLACE = 1 << 0, /* Public API via DBUS, do not change */

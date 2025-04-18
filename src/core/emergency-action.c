@@ -6,6 +6,7 @@
 #include "bus-error.h"
 #include "bus-util.h"
 #include "emergency-action.h"
+#include "manager.h"
 #include "raw-reboot.h"
 #include "reboot-util.h"
 #include "special.h"
@@ -157,7 +158,7 @@ void emergency_action(
                 if (exit_status >= 0)
                         m->return_value = exit_status;
 
-                if (MANAGER_IS_USER(m) || detect_container() > 0) {
+                if (manager_is_user(m) || detect_container() > 0) {
                         log_and_status(m, action, flags, "Exiting", reason);
                         (void) manager_add_job_by_name_and_warn(m, JOB_START, SPECIAL_EXIT_TARGET, JOB_REPLACE_IRREVERSIBLY, NULL, NULL);
                         break;
@@ -176,7 +177,7 @@ void emergency_action(
                 if (exit_status >= 0)
                         m->return_value = exit_status;
 
-                if (MANAGER_IS_USER(m) || detect_container() > 0) {
+                if (manager_is_user(m) || detect_container() > 0) {
                         log_and_status(m, action, flags, "Exiting immediately", reason);
                         m->objective = MANAGER_EXIT;
                         break;

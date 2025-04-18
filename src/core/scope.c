@@ -10,6 +10,7 @@
 #include "exit-status.h"
 #include "load-dropin.h"
 #include "log.h"
+#include "manager.h"
 #include "process-util.h"
 #include "random-util.h"
 #include "scope.h"
@@ -128,7 +129,7 @@ static int scope_verify(Scope *s) {
         assert(UNIT(s)->load_state == UNIT_LOADED);
 
         if (set_isempty(UNIT(s)->pids) &&
-            !MANAGER_IS_RELOADING(UNIT(s)->manager) &&
+            !manager_is_reloading(UNIT(s)->manager) &&
             !unit_has_name(UNIT(s), SPECIAL_INIT_SCOPE))
                 return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOENT), "Scope has no PIDs. Refusing.");
 
@@ -183,7 +184,7 @@ static int scope_load(Unit *u) {
 
         assert(u->load_state == UNIT_STUB);
 
-        if (!u->transient && !MANAGER_IS_RELOADING(u->manager))
+        if (!u->transient && !manager_is_reloading(u->manager))
                 /* Refuse to load non-transient scope units, but allow them while reloading. */
                 return -ENOENT;
 
@@ -447,7 +448,7 @@ static int scope_start(Unit *u) {
 
         assert(s->state == SCOPE_DEAD);
 
-        if (!u->transient && !MANAGER_IS_RELOADING(u->manager))
+        if (!u->transient && !manager_is_reloading(u->manager))
                 return -ENOENT;
 
         (void) unit_realize_cgroup(u);

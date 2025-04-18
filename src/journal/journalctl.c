@@ -7,6 +7,7 @@
 #include "build.h"
 #include "glob-util.h"
 #include "id128-print.h"
+#include "image-policy.h"
 #include "journalctl.h"
 #include "journalctl-authenticate.h"
 #include "journalctl-catalog.h"
