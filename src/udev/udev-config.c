@@ -553,9 +553,6 @@ int manager_serialize_config(Manager *manager) {
         if (r < 0)
                 return log_warning_errno(r, "Failed to finalize serialization file: %m");
 
-        /* Remove the previous serialization to make it replaced with the new one. */
-        (void) notify_remove_fd_warn("config-serialization");
-
         r = notify_push_fd(fileno(f), "config-serialization");
         if (r < 0)
                 return log_warning_errno(r, "Failed to push serialization fd to service manager: %m");
