@@ -8,6 +8,7 @@
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "dbus-unit.h"
+#include "manager.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "transaction.h"

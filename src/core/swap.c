@@ -17,6 +17,7 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "fstab-util.h"
+#include "manager.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"

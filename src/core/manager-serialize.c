@@ -5,6 +5,7 @@
 #include "clean-ipc.h"
 #include "core-varlink.h"
 #include "dbus.h"
+#include "dynamic-user.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
