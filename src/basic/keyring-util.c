@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "keyring-util.h"
+#include "log.h"
+#include "alloc-util.h"
 #include "memory-util.h"
 #include "missing_syscall.h"
 

@@ -18,6 +18,7 @@
 #include "fs-util.h"
 #include "hostname-util.h"
 #include "io-util.h"
+#include "log.h"
 #include "login-util.h"
 #include "macro.h"
 #include "parse-util.h"

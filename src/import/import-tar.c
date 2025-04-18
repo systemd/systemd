@@ -15,6 +15,7 @@
 #include "import-tar.h"
 #include "install-file.h"
 #include "io-util.h"
+#include "log.h"
 #include "machine-pool.h"
 #include "missing_fs.h"
 #include "mkdir-label.h"

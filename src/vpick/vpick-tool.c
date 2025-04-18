@@ -6,6 +6,7 @@
 #include "build.h"
 #include "format-table.h"
 #include "fs-util.h"
+#include "log.h"
 #include "main-func.h"
 #include "parse-util.h"
 #include "path-util.h"

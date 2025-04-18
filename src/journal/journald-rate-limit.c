@@ -3,6 +3,7 @@
 #include "alloc-util.h"
 #include "hashmap.h"
 #include "journald-rate-limit.h"
+#include "log.h"
 #include "logarithm.h"
 #include "string-util.h"
 #include "time-util.h"

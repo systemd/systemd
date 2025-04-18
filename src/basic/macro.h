@@ -42,6 +42,9 @@
 #error "neither int nor long are four bytes long?!?"
 #endif
 
+assert_cc(STRLEN(__FILE__) > STRLEN(RELATIVE_SOURCE_PATH) + 1);
+#define PROJECT_FILE (&__FILE__[STRLEN(RELATIVE_SOURCE_PATH) + 1])
+
 static inline uint64_t u64_multiply_safe(uint64_t a, uint64_t b) {
         if (_unlikely_(a != 0 && b > (UINT64_MAX / a)))
                 return 0; /* overflow */
@@ -102,76 +105,6 @@ static inline size_t GREEDY_ALLOC_ROUND_UP(size_t l) {
                 const typeof( ((type*)0)->member ) *UNIQ_T(A, uniq) = (ptr); \
                 (type*)( (char *)UNIQ_T(A, uniq) - offsetof(type, member) ); \
         })
-
-#ifdef __COVERITY__
-
-/* Use special definitions of assertion macros in order to prevent
- * false positives of ASSERT_SIDE_EFFECT on Coverity static analyzer
- * for uses of assert_se() and assert_return().
- *
- * These definitions make expression go through a (trivial) function
- * call to ensure they are not discarded. Also use ! or !! to ensure
- * the boolean expressions are seen as such.
- *
- * This technique has been described and recommended in:
- * https://community.synopsys.com/s/question/0D534000046Yuzb/suppressing-assertsideeffect-for-functions-that-allow-for-sideeffects
- */
-
-extern void __coverity_panic__(void);
-
-static inline void __coverity_check__(int condition) {
-        if (!condition)
-                __coverity_panic__();
-}
-
-static inline int __coverity_check_and_return__(int condition) {
-        return condition;
-}
-
-#define assert_message_se(expr, message) __coverity_check__(!!(expr))
-
-#define assert_log(expr, message) __coverity_check_and_return__(!!(expr))
-
-#else  /* ! __COVERITY__ */
-
-#define assert_message_se(expr, message)                                \
-        do {                                                            \
-                if (_unlikely_(!(expr)))                                \
-                        log_assert_failed(message, PROJECT_FILE, __LINE__, __func__); \
-        } while (false)
-
-#define assert_log(expr, message) ((_likely_(expr))                     \
-        ? (true)                                                        \
-        : (log_assert_failed_return(message, PROJECT_FILE, __LINE__, __func__), false))
-
-#endif  /* __COVERITY__ */
-
-#define assert_se(expr) assert_message_se(expr, #expr)
-
-/* We override the glibc assert() here. */
-#undef assert
-#ifdef NDEBUG
-#define assert(expr) ({ if (!(expr)) __builtin_unreachable(); })
-#else
-#define assert(expr) assert_message_se(expr, #expr)
-#endif
-
-#define assert_not_reached()                                            \
-        log_assert_failed_unreachable(PROJECT_FILE, __LINE__, __func__)
-
-#define assert_return(expr, r)                                          \
-        do {                                                            \
-                if (!assert_log(expr, #expr))                           \
-                        return (r);                                     \
-        } while (false)
-
-#define assert_return_errno(expr, r, err)                               \
-        do {                                                            \
-                if (!assert_log(expr, #expr)) {                         \
-                        errno = err;                                    \
-                        return (r);                                     \
-                }                                                       \
-        } while (false)
 
 #define return_with_errno(r, err)                     \
         do {                                          \
@@ -251,59 +184,6 @@ static inline int __coverity_check_and_return__(int condition) {
 /* Pointers range from NULL to POINTER_MAX */
 #define POINTER_MAX ((void*) UINTPTR_MAX)
 
-#define _DEFINE_TRIVIAL_REF_FUNC(type, name, scope)             \
-        scope type *name##_ref(type *p) {                       \
-                if (!p)                                         \
-                        return NULL;                            \
-                                                                \
-                /* For type check. */                           \
-                unsigned *q = &p->n_ref;                        \
-                assert(*q > 0);                                 \
-                assert_se(*q < UINT_MAX);                       \
-                                                                \
-                (*q)++;                                         \
-                return p;                                       \
-        }
-
-#define _DEFINE_TRIVIAL_UNREF_FUNC(type, name, free_func, scope) \
-        scope type *name##_unref(type *p) {                      \
-                if (!p)                                          \
-                        return NULL;                             \
-                                                                 \
-                assert(p->n_ref > 0);                            \
-                p->n_ref--;                                      \
-                if (p->n_ref > 0)                                \
-                        return NULL;                             \
-                                                                 \
-                return free_func(p);                             \
-        }
-
-#define DEFINE_TRIVIAL_REF_FUNC(type, name)     \
-        _DEFINE_TRIVIAL_REF_FUNC(type, name,)
-#define DEFINE_PRIVATE_TRIVIAL_REF_FUNC(type, name)     \
-        _DEFINE_TRIVIAL_REF_FUNC(type, name, static)
-#define DEFINE_PUBLIC_TRIVIAL_REF_FUNC(type, name)      \
-        _DEFINE_TRIVIAL_REF_FUNC(type, name, _public_)
-
-#define DEFINE_TRIVIAL_UNREF_FUNC(type, name, free_func)        \
-        _DEFINE_TRIVIAL_UNREF_FUNC(type, name, free_func,)
-#define DEFINE_PRIVATE_TRIVIAL_UNREF_FUNC(type, name, free_func)        \
-        _DEFINE_TRIVIAL_UNREF_FUNC(type, name, free_func, static)
-#define DEFINE_PUBLIC_TRIVIAL_UNREF_FUNC(type, name, free_func)         \
-        _DEFINE_TRIVIAL_UNREF_FUNC(type, name, free_func, _public_)
-
-#define DEFINE_TRIVIAL_REF_UNREF_FUNC(type, name, free_func)    \
-        DEFINE_TRIVIAL_REF_FUNC(type, name);                    \
-        DEFINE_TRIVIAL_UNREF_FUNC(type, name, free_func);
-
-#define DEFINE_PRIVATE_TRIVIAL_REF_UNREF_FUNC(type, name, free_func)    \
-        DEFINE_PRIVATE_TRIVIAL_REF_FUNC(type, name);                    \
-        DEFINE_PRIVATE_TRIVIAL_UNREF_FUNC(type, name, free_func);
-
-#define DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(type, name, free_func)    \
-        DEFINE_PUBLIC_TRIVIAL_REF_FUNC(type, name);                    \
-        DEFINE_PUBLIC_TRIVIAL_UNREF_FUNC(type, name, free_func);
-
 /* A macro to force copying of a variable from memory. This is useful whenever we want to read something from
  * memory and want to make sure the compiler won't optimize away the destination variable for us. It's not
  * supposed to be a full CPU memory barrier, i.e. CPU is still allowed to reorder the reads, but it is not
@@ -327,12 +207,6 @@ static inline int __coverity_check_and_return__(int condition) {
 static inline size_t size_add(size_t x, size_t y) {
         return saturate_add(x, y, SIZE_MAX);
 }
-
-typedef struct {
-        int _empty[0];
-} dummy_t;
-
-assert_cc(sizeof(dummy_t) == 0);
 
 /* A little helper for subtracting 1 off a pointer in a safe UB-free way. This is intended to be used for
  * loops that count down from a high pointer until some base. A naive loop would implement this like this:
@@ -358,5 +232,3 @@ assert_cc(sizeof(dummy_t) == 0);
         for (typeof(entry) _va_sentinel_[1] = {}, _entries_[] = { __VA_ARGS__ __VA_OPT__(,) _va_sentinel_[0] }, *_current_ = _entries_; \
              ((long)(_current_ - _entries_) < (long)(ELEMENTSOF(_entries_) - 1)) && ({ entry = *_current_; true; }); \
              _current_++)
-
-#include "log.h"

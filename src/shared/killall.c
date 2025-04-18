@@ -16,6 +16,7 @@
 #include "format-util.h"
 #include "initrd-util.h"
 #include "killall.h"
+#include "log.h"
 #include "parse-util.h"
 #include "process-util.h"
 #include "set.h"

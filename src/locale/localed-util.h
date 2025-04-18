@@ -2,6 +2,7 @@
 #pragma once
 
 #include <sys/stat.h>
+#include <syslog.h>
 
 #include "sd-bus.h"
 
@@ -29,7 +30,6 @@ int x11_context_verify_and_warn(const X11Context *xc, int log_level, sd_bus_erro
 static inline int x11_context_verify(const X11Context *xc) {
         return x11_context_verify_and_warn(xc, LOG_DEBUG, NULL);
 }
-
 X11Context *context_get_x11_context(Context *c);
 
 int vc_context_verify_and_warn(const VCContext *vc, int log_level, sd_bus_error *error);

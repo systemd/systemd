@@ -5,6 +5,7 @@
 
 #include "sd-json.h"
 
+#include "log.h"
 #include "macro.h"
 #include "pidref.h"
 

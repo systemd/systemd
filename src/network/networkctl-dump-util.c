@@ -3,6 +3,7 @@
 #include "format-ifname.h"
 #include "in-addr-util.h"
 #include "local-addresses.h"
+#include "log.h"
 #include "networkctl-dump-util.h"
 #include "stdio-util.h"
 #include "strv.h"

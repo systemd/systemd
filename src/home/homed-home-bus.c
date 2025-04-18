@@ -10,6 +10,7 @@
 #include "homed-bus.h"
 #include "homed-home-bus.h"
 #include "homed-home.h"
+#include "log.h"
 #include "strv.h"
 #include "user-record-util.h"
 #include "user-util.h"

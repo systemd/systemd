@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "dlfcn-util.h"
+#include "log.h"
 
 static int dlsym_many_or_warnv(void *dl, int log_level, va_list ap) {
         void (**fn)(void);
