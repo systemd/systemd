@@ -2,8 +2,6 @@
 #pragma once
 
 #include "bus-object.h"
-#include "discover-image.h"
-#include "machined.h"
 
 extern const BusObjectImplementation image_object;
 
