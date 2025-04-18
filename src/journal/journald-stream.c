@@ -16,6 +16,7 @@
 #include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
+#include "fdset.h"
 #include "fileio.h"
 #include "fs-util.h"
 #include "iovec-util.h"
