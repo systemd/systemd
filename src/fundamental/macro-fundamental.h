@@ -1,10 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#if !SD_BOOT
-#  include <assert.h>
-#endif
-
 #include <limits.h>
 #include <stdalign.h>
 #include <stdbool.h>
@@ -144,11 +140,7 @@
 #define XCONCATENATE(x, y) x ## y
 #define CONCATENATE(x, y) XCONCATENATE(x, y)
 
-#if SD_BOOT
-        #define static_assert _Static_assert
-#endif
-
-#define assert_cc(expr) static_assert(expr, #expr)
+#define assert_cc(expr) _Static_assert(expr, #expr)
 
 #define UNIQ_T(x, uniq) CONCATENATE(__unique_prefix_, CONCATENATE(x, uniq))
 #define UNIQ __COUNTER__
