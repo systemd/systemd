@@ -6,6 +6,7 @@
 
 #include "fd-util.h"
 #include "iovec-util.h"
+#include "journald-server.h"
 #include "journald-socket.h"
 #include "log.h"
 #include "macro.h"
