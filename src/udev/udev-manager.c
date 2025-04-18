@@ -1166,7 +1166,7 @@ static int manager_listen_fds(Manager *manager) {
 
         int n = sd_listen_fds_with_names(/* unset_environment = */ true, &names);
         if (n < 0)
-                return n;
+                return log_error_errno(n, "Failed to listen on fds: %m");
 
         for (int i = 0; i < n; i++) {
                 int fd = SD_LISTEN_FDS_START + i;
