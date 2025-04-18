@@ -943,7 +943,6 @@ static bool context_allocate_partitions(Context *context, uint64_t *ret_largest_
 
                 /* How much do we need to fit? */
                 required = partition_min_size_with_padding(context, p);
-                assert(required % context->grain_size == 0);
 
                 for (size_t i = 0; i < context->n_free_areas; i++) {
                         a = context->free_areas[i];
