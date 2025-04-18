@@ -58,6 +58,18 @@ variables. All EFI variables use the vendor UUID
 * The EFI variable `LoaderEntryDefault` contains the default boot loader entry
   to use. It contains a NUL-terminated boot loader entry identifier.
 
+* The EFI variable `LoaderEntrySysFail` specifies the boot loader entry to be
+  used in case of a system failure. System failure (SysFail) boot entries can
+  optionally modify the automatic selection order in the event of a failure,
+  such as a boot firmware update failure with the failure status recorded in
+  the EFI system table. If a system failure occurs and `LoaderEntrySysFail` is set,
+  systemd-boot will use this boot entry and store the actual SysFail reason in
+  the `LoaderSysFailReason` EFI variable.
+
+* The EFI variable `LoaderSysFailReason` contains the system failure reason.
+  This variable is used in cooperation with `LoaderEntrySysFail` boot entry.
+  If system failure doesn't occur `LoaderSysFailReason` is not set at all.
+
 * Similarly, the EFI variable `LoaderEntryOneShot` contains the default boot
   loader entry to use for a single following boot. It is set by the OS in order
   to request booting into a specific menu entry on the following boot. When set

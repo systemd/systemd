@@ -19,6 +19,7 @@ enable machines.target
 
 enable getty@.service
 
+enable systemd-boot-clear-sysfail.service
 enable systemd-boot-update.service
 enable systemd-confext.service
 enable systemd-homed.service
