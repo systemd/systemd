@@ -23,6 +23,7 @@
 #include "event-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
+#include "fdset.h"
 #include "fileio.h"
 #include "format-util.h"
 #include "fs-util.h"
