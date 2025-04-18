@@ -21,6 +21,7 @@
    License along with the GNU C Library; if not, see
    <https://www.gnu.org/licenses/>.  */
 
+#include "assert-fundamental.h"
 #include "macro-fundamental.h"
 #include "memory-util-fundamental.h"
 #include "sha256-fundamental.h"

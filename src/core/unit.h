@@ -22,6 +22,7 @@ typedef enum UnitMountDependencyType {
 #include "emergency-action.h"
 #include "install.h"
 #include "list.h"
+#include "log-context.h"
 #include "mount-util.h"
 #include "pidref.h"
 #include "unit-file.h"

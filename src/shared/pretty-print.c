@@ -12,6 +12,7 @@
 #include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "log.h"
 #include "pager.h"
 #include "path-util.h"
 #include "pretty-print.h"

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "journal-internal.h"
+#include "log.h"
 #include "logs-show.h"
 #include "networkctl.h"
 #include "networkctl-journal.h"

@@ -2,6 +2,7 @@
 
 #include "cgroup-util.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "json-util.h"
 #include "logind.h"
 #include "logind-dbus.h"

@@ -32,6 +32,7 @@
 #include "hexdecoct.h"
 #include "initrd-util.h"
 #include "json-util.h"
+#include "list.h"
 #include "main-func.h"
 #include "mkdir-label.h"
 #include "openssl-util.h"

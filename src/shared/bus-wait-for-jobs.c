@@ -5,6 +5,7 @@
 #include "bus-util.h"
 #include "bus-wait-for-jobs.h"
 #include "escape.h"
+#include "log.h"
 #include "set.h"
 #include "strv.h"
 #include "unit-def.h"

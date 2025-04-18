@@ -8,6 +8,7 @@
 #include <libkmod.h>
 
 #include "macro.h"
+#include "memory-util.h"
 
 extern DLSYM_PROTOTYPE(kmod_list_next);
 extern DLSYM_PROTOTYPE(kmod_load_resources);

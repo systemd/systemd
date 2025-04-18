@@ -3,6 +3,7 @@
 
 #include "sd-bus.h"
 
+#include "memory-util.h"
 #include "time-util.h"
 #include "unit-def.h"
 

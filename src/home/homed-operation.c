@@ -2,6 +2,7 @@
 
 #include "fd-util.h"
 #include "homed-operation.h"
+#include "log.h"
 
 Operation *operation_new(OperationType type, sd_bus_message *m) {
         Operation *o;

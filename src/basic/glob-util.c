@@ -8,6 +8,7 @@
 #include "dirent-util.h"
 #include "errno-util.h"
 #include "glob-util.h"
+#include "log.h"
 #include "macro.h"
 #include "path-util.h"
 #include "strv.h"

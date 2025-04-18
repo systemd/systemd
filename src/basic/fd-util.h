@@ -8,6 +8,7 @@
 #include <sys/socket.h>
 
 #include "macro.h"
+#include "memory-util.h"
 #include "missing_fcntl.h"
 #include "stdio-util.h"
 

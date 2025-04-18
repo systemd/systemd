@@ -2,6 +2,7 @@
 
 #include <sched.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/resource.h>
 #include <sys/socket.h>
@@ -11,6 +12,7 @@
 #define __STDC_WANT_IEC_60559_TYPES_EXT__
 #include <float.h>
 
+#include "assert-util.h"
 #include "time-util.h"
 
 /* Print information about various types. Useful when diagnosing
