@@ -6,6 +6,7 @@
 #include "sd-id128.h"
 
 #include "macro.h"
+#include "memory-util.h"
 
 typedef struct KernelHibernateLocation KernelHibernateLocation;
 
