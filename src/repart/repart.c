@@ -946,17 +946,13 @@ static uint64_t partition_max_size(const Context *context, const Partition *p) {
 }
 
 static uint64_t partition_min_padding(const Partition *p) {
-        uint64_t override_min;
-
         assert(p);
-
-        override_min = p->suppressing ? MAX(p->padding_min, p->suppressing->padding_min) : p->padding_min;
-        return override_min != UINT64_MAX ? override_min : 0;
+        return p->padding_min != UINT64_MAX ? p->padding_min : 0;
 }
 
 static uint64_t partition_max_padding(const Partition *p) {
         assert(p);
-        return p->suppressing ? MIN(p->padding_max, p->suppressing->padding_max) : p->padding_max;
+        return p->padding_max;
 }
 
 static uint64_t partition_min_size_with_padding(Context *context, const Partition *p) {
@@ -1081,7 +1077,6 @@ static bool context_allocate_partitions(Context *context, uint64_t *ret_largest_
 
                 /* How much do we need to fit? */
                 required = partition_min_size_with_padding(context, p);
-                assert(required % context->grain_size == 0);
 
                 /* For existing partitions, we should verify that they'll actually fit */
                 if (PARTITION_EXISTS(p)) {
@@ -1162,7 +1157,7 @@ static uint32_t partition_weight(const Partition *p) {
 
 static uint32_t partition_padding_weight(const Partition *p) {
         assert(p);
-        return p->suppressing ? p->suppressing->padding_weight : p->padding_weight;
+        return p->padding_weight;
 }
 
 static int context_sum_weights(Context *context, FreeArea *a, uint64_t *ret) {
@@ -2986,10 +2981,6 @@ static int context_read_definitions(Context *context) {
                 if (!check_cross_def_ranges_valid(p->size_min, p->size_max, tgt->size_min, tgt->size_max))
                         return log_syntax(NULL, LOG_ERR, p->definition_path, 1, SYNTHETIC_ERRNO(EINVAL),
                                           "SizeMinBytes= larger than SizeMaxBytes= when merged with SupplementFor= target.");
-
-                if (!check_cross_def_ranges_valid(p->padding_min, p->padding_max, tgt->padding_min, tgt->padding_max))
-                        return log_syntax(NULL, LOG_ERR, p->definition_path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                          "PaddingMinBytes= larger than PaddingMaxBytes= when merged with SupplementFor= target.");
 
                 p->supplement_for = tgt;
                 tgt->suppressing = tgt->supplement_target_for = p;
