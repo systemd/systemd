@@ -5,6 +5,7 @@
 #include <netinet/in.h>
 
 #include "macro.h"
+#include "memory-util.h"
 #include "time-util.h"
 
 typedef struct ICMP6Pakcet {

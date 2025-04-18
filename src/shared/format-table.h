@@ -8,6 +8,7 @@
 #include "sd-json.h"
 
 #include "macro.h"
+#include "memory-util.h"
 #include "pager.h"
 
 typedef enum TableDataType {

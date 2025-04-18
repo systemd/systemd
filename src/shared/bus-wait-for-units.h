@@ -2,6 +2,7 @@
 #pragma once
 
 #include "macro.h"
+#include "memory-util.h"
 #include "sd-bus.h"
 
 typedef struct BusWaitForUnits BusWaitForUnits;
