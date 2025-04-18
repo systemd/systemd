@@ -38,6 +38,7 @@
 #include "fd-util.h"
 #include "hexdecoct.h"
 #include "hostname-setup.h"
+#include "image-policy.h"
 #include "io-util.h"
 #include "ioprio-util.h"
 #include "iovec-util.h"

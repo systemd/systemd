@@ -10,6 +10,7 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "label-util.h"
+#include "log.h"
 #include "mkdir-label.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
