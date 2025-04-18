@@ -13,6 +13,7 @@
 #include "logind-seat-dbus.h"
 #include "logind-seat.h"
 #include "logind-session-dbus.h"
+#include "logind-user.h"
 #include "logind.h"
 #include "strv.h"
 #include "user-util.h"

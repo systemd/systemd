@@ -4,6 +4,7 @@
 #include "cgroup-util.h"
 #include "format-util.h"
 #include "macro.h"
+#include "manager.h"
 #include "sd-path.h"
 #include "specifier.h"
 #include "string-util.h"
@@ -148,7 +149,7 @@ static int specifier_shared_data_dir(char specifier, const void *data, const cha
 
         assert(ret);
 
-        return sd_path_lookup(MANAGER_IS_SYSTEM(u->manager) ? SD_PATH_SYSTEM_SHARED : SD_PATH_USER_SHARED, NULL, ret);
+        return sd_path_lookup(manager_is_system(u->manager) ? SD_PATH_SYSTEM_SHARED : SD_PATH_USER_SHARED, NULL, ret);
 }
 
 int unit_name_printf(const Unit *u, const char* format, char **ret) {

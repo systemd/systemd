@@ -487,9 +487,9 @@ static void test_exec_ignoresigpipe(Manager *m) {
 static void test_exec_privatetmp(Manager *m) {
         ASSERT_OK(touch("/tmp/test-exec_privatetmp"));
 
-        if (MANAGER_IS_SYSTEM(m) || have_userns_privileges()) {
-                test(m, "exec-privatetmp-yes.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
-                test(m, "exec-privatetmp-disabled-by-prefix.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
+        if (manager_is_system(m) || have_userns_privileges()) {
+                test(m, "exec-privatetmp-yes.service", can_unshare ? 0 : manager_is_system(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
+                test(m, "exec-privatetmp-disabled-by-prefix.service", can_unshare ? 0 : manager_is_system(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
         }
 
         test(m, "exec-privatetmp-no.service", 0, CLD_EXITED);
@@ -509,12 +509,12 @@ static void test_exec_privatedevices(Manager *m) {
                 return;
         }
 
-        if (MANAGER_IS_SYSTEM(m) || have_userns_privileges()) {
-                test(m, "exec-privatedevices-yes.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
+        if (manager_is_system(m) || have_userns_privileges()) {
+                test(m, "exec-privatedevices-yes.service", can_unshare ? 0 : manager_is_system(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
                 if (access("/dev/kmsg", F_OK) >= 0)
-                        test(m, "exec-privatedevices-bind.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
-                test(m, "exec-privatedevices-disabled-by-prefix.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
-                test(m, "exec-privatedevices-yes-with-group.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
+                        test(m, "exec-privatedevices-bind.service", can_unshare ? 0 : manager_is_system(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
+                test(m, "exec-privatedevices-disabled-by-prefix.service", can_unshare ? 0 : manager_is_system(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
+                test(m, "exec-privatedevices-yes-with-group.service", can_unshare ? 0 : manager_is_system(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
         }
 
         test(m, "exec-privatedevices-no.service", 0, CLD_EXITED);
@@ -527,13 +527,13 @@ static void test_exec_privatedevices(Manager *m) {
                 return;
         }
 
-        if (MANAGER_IS_SYSTEM(m) || have_userns_privileges()) {
-                test(m, "exec-privatedevices-yes-capability-mknod.service", can_unshare || MANAGER_IS_SYSTEM(m) ? 0 : EXIT_NAMESPACE, CLD_EXITED);
-                test(m, "exec-privatedevices-yes-capability-sys-rawio.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_NAMESPACE, CLD_EXITED);
+        if (manager_is_system(m) || have_userns_privileges()) {
+                test(m, "exec-privatedevices-yes-capability-mknod.service", can_unshare || manager_is_system(m) ? 0 : EXIT_NAMESPACE, CLD_EXITED);
+                test(m, "exec-privatedevices-yes-capability-sys-rawio.service", manager_is_system(m) ? 0 : EXIT_NAMESPACE, CLD_EXITED);
         }
 
-        test(m, "exec-privatedevices-no-capability-mknod.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_FAILURE, CLD_EXITED);
-        test(m, "exec-privatedevices-no-capability-sys-rawio.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_FAILURE, CLD_EXITED);
+        test(m, "exec-privatedevices-no-capability-mknod.service", manager_is_system(m) ? 0 : EXIT_FAILURE, CLD_EXITED);
+        test(m, "exec-privatedevices-no-capability-sys-rawio.service", manager_is_system(m) ? 0 : EXIT_FAILURE, CLD_EXITED);
 }
 
 static void test_exec_protecthome(Manager *m) {
@@ -563,27 +563,27 @@ static void test_exec_protectkernelmodules(Manager *m) {
                 return;
         }
 
-        test(m, "exec-protectkernelmodules-no-capabilities.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_FAILURE, CLD_EXITED);
+        test(m, "exec-protectkernelmodules-no-capabilities.service", manager_is_system(m) ? 0 : EXIT_FAILURE, CLD_EXITED);
 
-        if (MANAGER_IS_SYSTEM(m) || have_userns_privileges()) {
-                test(m, "exec-protectkernelmodules-yes-capabilities.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_NAMESPACE, CLD_EXITED);
-                test(m, "exec-protectkernelmodules-yes-mount-propagation.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
+        if (manager_is_system(m) || have_userns_privileges()) {
+                test(m, "exec-protectkernelmodules-yes-capabilities.service", manager_is_system(m) ? 0 : EXIT_NAMESPACE, CLD_EXITED);
+                test(m, "exec-protectkernelmodules-yes-mount-propagation.service", can_unshare ? 0 : manager_is_system(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
         }
 }
 
 static void test_exec_readonlypaths(Manager *m) {
 
-        if (MANAGER_IS_SYSTEM(m) || have_userns_privileges())
-                test(m, "exec-readonlypaths-simple.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
+        if (manager_is_system(m) || have_userns_privileges())
+                test(m, "exec-readonlypaths-simple.service", can_unshare ? 0 : manager_is_system(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
 
         if (path_is_read_only_fs("/var") > 0) {
                 log_notice("Directory /var is readonly, skipping remaining tests in %s", __func__);
                 return;
         }
 
-        test(m, "exec-readonlypaths.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
+        test(m, "exec-readonlypaths.service", can_unshare ? 0 : manager_is_system(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
         test(m, "exec-readonlypaths-with-bindpaths.service", can_unshare ? 0 : EXIT_NAMESPACE, CLD_EXITED);
-        test(m, "exec-readonlypaths-mount-propagation.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
+        test(m, "exec-readonlypaths-mount-propagation.service", can_unshare ? 0 : manager_is_system(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
 }
 
 static void test_exec_readwritepaths(Manager *m) {
@@ -593,7 +593,7 @@ static void test_exec_readwritepaths(Manager *m) {
                 return;
         }
 
-        test(m, "exec-readwritepaths-mount-propagation.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
+        test(m, "exec-readwritepaths-mount-propagation.service", can_unshare ? 0 : manager_is_system(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
 }
 
 static void test_exec_inaccessiblepaths(Manager *m) {
@@ -603,15 +603,15 @@ static void test_exec_inaccessiblepaths(Manager *m) {
                 return;
         }
 
-        if (MANAGER_IS_SYSTEM(m) || have_userns_privileges())
-                test(m, "exec-inaccessiblepaths-sys.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
+        if (manager_is_system(m) || have_userns_privileges())
+                test(m, "exec-inaccessiblepaths-sys.service", can_unshare ? 0 : manager_is_system(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
 
         if (path_is_read_only_fs("/") > 0) {
                 log_notice("Root directory is readonly, skipping remaining tests in %s", __func__);
                 return;
         }
 
-        test(m, "exec-inaccessiblepaths-mount-propagation.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
+        test(m, "exec-inaccessiblepaths-mount-propagation.service", can_unshare ? 0 : manager_is_system(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
 }
 
 #if !HAS_FEATURE_ADDRESS_SANITIZER
@@ -780,7 +780,7 @@ static void test_exec_mount_apivfs(Manager *m) {
                 return;
         }
 
-        if (MANAGER_IS_USER(m) && !have_userns_privileges())
+        if (manager_is_user(m) && !have_userns_privileges())
                 return (void)log_notice("Skipping %s, do not have user namespace privileges", __func__);
 
         ASSERT_OK(find_libraries(fullpath_touch, &libraries));
@@ -800,7 +800,7 @@ static void test_exec_mount_apivfs(Manager *m) {
 
         ASSERT_OK(mkdir_p("/tmp/test-exec-mount-apivfs-no/root", 0755));
 
-        test(m, "exec-mount-apivfs-no.service", can_unshare || !MANAGER_IS_SYSTEM(m) ? 0 : EXIT_NAMESPACE, CLD_EXITED);
+        test(m, "exec-mount-apivfs-no.service", can_unshare || !manager_is_system(m) ? 0 : EXIT_NAMESPACE, CLD_EXITED);
 
         (void) rm_rf("/tmp/test-exec-mount-apivfs-no/root", REMOVE_ROOT|REMOVE_PHYSICAL);
 #endif
@@ -808,8 +808,8 @@ static void test_exec_mount_apivfs(Manager *m) {
 
 static void test_exec_noexecpaths(Manager *m) {
 
-        if (MANAGER_IS_SYSTEM(m) || have_userns_privileges())
-                test(m, "exec-noexecpaths-simple.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
+        if (manager_is_system(m) || have_userns_privileges())
+                test(m, "exec-noexecpaths-simple.service", can_unshare ? 0 : manager_is_system(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
         else
                 return (void)log_notice("Skipping %s, do not have user namespace privileges", __func__);
 }
@@ -853,8 +853,8 @@ static void test_exec_systemcallfilter(Manager *m) {
         test(m, "exec-systemcallfilter-override-error-action.service", SIGSYS, CLD_KILLED);
         test(m, "exec-systemcallfilter-override-error-action2.service", errno_from_name("EILSEQ"), CLD_EXITED);
 
-        test(m, "exec-systemcallfilter-nonewprivileges.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_GROUP, CLD_EXITED);
-        test(m, "exec-systemcallfilter-nonewprivileges-protectclock.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_GROUP, CLD_EXITED);
+        test(m, "exec-systemcallfilter-nonewprivileges.service", manager_is_system(m) ? 0 : EXIT_GROUP, CLD_EXITED);
+        test(m, "exec-systemcallfilter-nonewprivileges-protectclock.service", manager_is_system(m) ? 0 : EXIT_GROUP, CLD_EXITED);
 
         r = find_executable("capsh", NULL);
         if (r < 0) {
@@ -862,8 +862,8 @@ static void test_exec_systemcallfilter(Manager *m) {
                 return;
         }
 
-        test(m, "exec-systemcallfilter-nonewprivileges-bounding1.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_GROUP, CLD_EXITED);
-        test(m, "exec-systemcallfilter-nonewprivileges-bounding2.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_GROUP, CLD_EXITED);
+        test(m, "exec-systemcallfilter-nonewprivileges-bounding1.service", manager_is_system(m) ? 0 : EXIT_GROUP, CLD_EXITED);
+        test(m, "exec-systemcallfilter-nonewprivileges-bounding2.service", manager_is_system(m) ? 0 : EXIT_GROUP, CLD_EXITED);
 #endif
 }
 
@@ -916,7 +916,7 @@ static void test_exec_systemcallfilter_system(Manager *m) {
                 return;
         }
 
-        test(m, "exec-systemcallfilter-system-user.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_GROUP, CLD_EXITED);
+        test(m, "exec-systemcallfilter-system-user.service", manager_is_system(m) ? 0 : EXIT_GROUP, CLD_EXITED);
 
         if (!check_nobody_user_and_group()) {
                 log_notice("nobody user/group is not synthesized or may conflict to other entries, skipping remaining tests in %s", __func__);
@@ -928,12 +928,12 @@ static void test_exec_systemcallfilter_system(Manager *m) {
                 return;
         }
 
-        test(m, "exec-systemcallfilter-system-user-" NOBODY_USER_NAME ".service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_GROUP, CLD_EXITED);
+        test(m, "exec-systemcallfilter-system-user-" NOBODY_USER_NAME ".service", manager_is_system(m) ? 0 : EXIT_GROUP, CLD_EXITED);
 #endif
 }
 
 static void test_exec_user(Manager *m) {
-        test(m, "exec-user.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_GROUP, CLD_EXITED);
+        test(m, "exec-user.service", manager_is_system(m) ? 0 : EXIT_GROUP, CLD_EXITED);
 
         if (!check_nobody_user_and_group()) {
                 log_notice("nobody user/group is not synthesized or may conflict to other entries, skipping remaining tests in %s", __func__);
@@ -945,11 +945,11 @@ static void test_exec_user(Manager *m) {
                 return;
         }
 
-        test(m, "exec-user-" NOBODY_USER_NAME ".service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_GROUP, CLD_EXITED);
+        test(m, "exec-user-" NOBODY_USER_NAME ".service", manager_is_system(m) ? 0 : EXIT_GROUP, CLD_EXITED);
 }
 
 static void test_exec_group(Manager *m) {
-        test(m, "exec-group.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_GROUP, CLD_EXITED);
+        test(m, "exec-group.service", manager_is_system(m) ? 0 : EXIT_GROUP, CLD_EXITED);
 
         if (!check_nobody_user_and_group()) {
                 log_notice("nobody user/group is not synthesized or may conflict to other entries, skipping remaining tests in %s", __func__);
@@ -961,11 +961,11 @@ static void test_exec_group(Manager *m) {
                 return;
         }
 
-        test(m, "exec-group-" NOBODY_GROUP_NAME ".service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_GROUP, CLD_EXITED);
+        test(m, "exec-group-" NOBODY_GROUP_NAME ".service", manager_is_system(m) ? 0 : EXIT_GROUP, CLD_EXITED);
 }
 
 static void test_exec_supplementarygroups(Manager *m) {
-        int status = MANAGER_IS_SYSTEM(m) ? 0 : EXIT_GROUP;
+        int status = manager_is_system(m) ? 0 : EXIT_GROUP;
         test(m, "exec-supplementarygroups.service", status, CLD_EXITED);
         test(m, "exec-supplementarygroups-single-group.service", status, CLD_EXITED);
         test(m, "exec-supplementarygroups-single-group-user.service", status, CLD_EXITED);
@@ -992,7 +992,7 @@ static char* private_directory_bad(Manager *m) {
 }
 
 static void test_exec_dynamicuser(Manager *m) {
-        if (MANAGER_IS_USER(m)) {
+        if (manager_is_user(m)) {
                 log_notice("Skipping %s for user manager", __func__);
                 return;
         }
@@ -1100,9 +1100,9 @@ static void test_exec_passenvironment(Manager *m) {
 }
 
 static void test_exec_umask(Manager *m) {
-        if (MANAGER_IS_SYSTEM(m) || have_userns_privileges()) {
-                test(m, "exec-umask-default.service", can_unshare || MANAGER_IS_SYSTEM(m) ? 0 : EXIT_NAMESPACE, CLD_EXITED);
-                test(m, "exec-umask-0177.service", can_unshare || MANAGER_IS_SYSTEM(m) ? 0 : EXIT_NAMESPACE, CLD_EXITED);
+        if (manager_is_system(m) || have_userns_privileges()) {
+                test(m, "exec-umask-default.service", can_unshare || manager_is_system(m) ? 0 : EXIT_NAMESPACE, CLD_EXITED);
+                test(m, "exec-umask-0177.service", can_unshare || manager_is_system(m) ? 0 : EXIT_NAMESPACE, CLD_EXITED);
         } else
                 return (void)log_notice("Skipping %s, do not have user namespace privileges", __func__);
 }
@@ -1113,7 +1113,7 @@ static void test_exec_runtimedirectory(Manager *m) {
         (void) rm_rf("/run/test-exec_runtimedirectory2", REMOVE_ROOT|REMOVE_PHYSICAL);
 
         test(m, "exec-runtimedirectory-mode.service", 0, CLD_EXITED);
-        test(m, "exec-runtimedirectory-owner.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_GROUP, CLD_EXITED);
+        test(m, "exec-runtimedirectory-owner.service", manager_is_system(m) ? 0 : EXIT_GROUP, CLD_EXITED);
 
         if (!check_nobody_user_and_group()) {
                 log_notice("nobody user/group is not synthesized or may conflict to other entries, skipping remaining tests in %s", __func__);
@@ -1125,7 +1125,7 @@ static void test_exec_runtimedirectory(Manager *m) {
                 return;
         }
 
-        test(m, "exec-runtimedirectory-owner-" NOBODY_GROUP_NAME ".service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_GROUP, CLD_EXITED);
+        test(m, "exec-runtimedirectory-owner-" NOBODY_GROUP_NAME ".service", manager_is_system(m) ? 0 : EXIT_GROUP, CLD_EXITED);
 }
 
 static void test_exec_capabilityboundingset(Manager *m) {
@@ -1151,8 +1151,8 @@ static void test_exec_capabilityboundingset(Manager *m) {
 }
 
 static void test_exec_basic(Manager *m) {
-        if (MANAGER_IS_SYSTEM(m) || have_userns_privileges())
-                test(m, "exec-basic.service", can_unshare || MANAGER_IS_SYSTEM(m) ? 0 : EXIT_NAMESPACE, CLD_EXITED);
+        if (manager_is_system(m) || have_userns_privileges())
+                test(m, "exec-basic.service", can_unshare || manager_is_system(m) ? 0 : EXIT_NAMESPACE, CLD_EXITED);
         else
                 return (void)log_notice("Skipping %s, do not have user namespace privileges", __func__);
 }
@@ -1202,7 +1202,7 @@ static void test_exec_privatenetwork(Manager *m) {
         if (!have_net_dummy)
                 return (void)log_notice("Skipping %s, dummy network interface not available", __func__);
 
-        if (MANAGER_IS_USER(m) && !have_userns_privileges())
+        if (manager_is_user(m) && !have_userns_privileges())
                 return (void)log_notice("Skipping %s, do not have user namespace privileges", __func__);
 
         r = find_executable("ip", NULL);
@@ -1211,8 +1211,8 @@ static void test_exec_privatenetwork(Manager *m) {
                 return;
         }
 
-        test(m, "exec-privatenetwork-yes-privatemounts-no.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_NETWORK : EXIT_FAILURE, CLD_EXITED);
-        test(m, "exec-privatenetwork-yes-privatemounts-yes.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_NETWORK : EXIT_NAMESPACE, CLD_EXITED);
+        test(m, "exec-privatenetwork-yes-privatemounts-no.service", can_unshare ? 0 : manager_is_system(m) ? EXIT_NETWORK : EXIT_FAILURE, CLD_EXITED);
+        test(m, "exec-privatenetwork-yes-privatemounts-yes.service", can_unshare ? 0 : manager_is_system(m) ? EXIT_NETWORK : EXIT_NAMESPACE, CLD_EXITED);
 }
 
 static void test_exec_networknamespacepath(Manager *m) {
@@ -1224,7 +1224,7 @@ static void test_exec_networknamespacepath(Manager *m) {
         if (!have_netns)
                 return (void)log_notice("Skipping %s, network namespace not available", __func__);
 
-        if (MANAGER_IS_USER(m) && !have_userns_privileges())
+        if (manager_is_user(m) && !have_userns_privileges())
                 return (void)log_notice("Skipping %s, do not have user namespace privileges", __func__);
 
         r = find_executable("ip", NULL);
@@ -1233,8 +1233,8 @@ static void test_exec_networknamespacepath(Manager *m) {
                 return;
         }
 
-        test(m, "exec-networknamespacepath-privatemounts-no.service", MANAGER_IS_SYSTEM(m) ? EXIT_SUCCESS : EXIT_FAILURE, CLD_EXITED);
-        test(m, "exec-networknamespacepath-privatemounts-yes.service", can_unshare ? EXIT_SUCCESS : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
+        test(m, "exec-networknamespacepath-privatemounts-no.service", manager_is_system(m) ? EXIT_SUCCESS : EXIT_FAILURE, CLD_EXITED);
+        test(m, "exec-networknamespacepath-privatemounts-yes.service", can_unshare ? EXIT_SUCCESS : manager_is_system(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
 }
 
 static void test_exec_oomscoreadjust(Manager *m) {
@@ -1244,7 +1244,7 @@ static void test_exec_oomscoreadjust(Manager *m) {
                 log_notice("Testing in container, skipping remaining tests in %s", __func__);
                 return;
         }
-        test(m, "exec-oomscoreadjust-negative.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_FAILURE, CLD_EXITED);
+        test(m, "exec-oomscoreadjust-negative.service", manager_is_system(m) ? 0 : EXIT_FAILURE, CLD_EXITED);
 }
 
 static void test_exec_ioschedulingclass(Manager *m) {
@@ -1256,7 +1256,7 @@ static void test_exec_ioschedulingclass(Manager *m) {
                 log_notice("Testing in container, skipping remaining tests in %s", __func__);
                 return;
         }
-        test(m, "exec-ioschedulingclass-realtime.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_IOPRIO, CLD_EXITED);
+        test(m, "exec-ioschedulingclass-realtime.service", manager_is_system(m) ? 0 : EXIT_IOPRIO, CLD_EXITED);
 }
 
 static void test_exec_unsetenvironment(Manager *m) {
@@ -1265,7 +1265,7 @@ static void test_exec_unsetenvironment(Manager *m) {
 
 static void test_exec_specifier(Manager *m) {
         test(m, "exec-specifier.service", 0, CLD_EXITED);
-        if (MANAGER_IS_SYSTEM(m))
+        if (manager_is_system(m))
                 test(m, "exec-specifier-system.service", 0, CLD_EXITED);
         else
                 test(m, "exec-specifier-user.service", 0, CLD_EXITED);
@@ -1307,7 +1307,7 @@ static void test_exec_umask_namespace(Manager *m) {
                 log_notice("Testing without inaccessible, skipping %s", __func__);
                 return;
         }
-        test(m, "exec-umask-namespace.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_NAMESPACE : EXIT_GROUP, CLD_EXITED);
+        test(m, "exec-umask-namespace.service", can_unshare ? 0 : manager_is_system(m) ? EXIT_NAMESPACE : EXIT_GROUP, CLD_EXITED);
 }
 
 typedef struct test_entry {

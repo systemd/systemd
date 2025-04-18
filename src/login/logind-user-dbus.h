@@ -3,7 +3,10 @@
 
 #include "sd-bus.h"
 
-#include "logind-user.h"
+#include "bus-object.h"
+#include "macro.h"
+
+typedef struct User User;
 
 extern const BusObjectImplementation user_object;
 

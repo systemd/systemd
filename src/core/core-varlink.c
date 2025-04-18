@@ -3,9 +3,12 @@
 #include "sd-varlink.h"
 
 #include "core-varlink.h"
+#include "dynamic-user.h"
 #include "json-util.h"
+#include "manager.h"
 #include "mkdir-label.h"
 #include "strv.h"
+#include "unit.h"
 #include "user-util.h"
 #include "varlink-internal.h"
 #include "varlink-io.systemd.UserDatabase.h"
@@ -158,10 +161,10 @@ static int manager_varlink_send_managed_oom_initial(Manager *m) {
 
         assert(m);
 
-        if (!MANAGER_IS_USER(m))
+        if (!manager_is_user(m))
                 return 0;
 
-        if (MANAGER_IS_TEST_RUN(m))
+        if (manager_is_test_run(m))
                 return 0;
 
         assert(m->managed_oom_varlink);
@@ -207,10 +210,10 @@ static int manager_varlink_managed_oom_connect(Manager *m) {
         if (m->managed_oom_varlink)
                 return 1;
 
-        if (!MANAGER_IS_USER(m))
+        if (!manager_is_user(m))
                 return -EINVAL;
 
-        if (MANAGER_IS_TEST_RUN(m))
+        if (manager_is_test_run(m))
                 return 0;
 
         r = sd_varlink_connect_address(&link, VARLINK_ADDR_PATH_MANAGED_OOM_USER);
@@ -252,14 +255,14 @@ int manager_varlink_send_managed_oom_update(Unit *u) {
         if (!UNIT_VTABLE(u)->can_set_managed_oom || !u->manager)
                 return 0;
 
-        if (MANAGER_IS_TEST_RUN(u->manager))
+        if (manager_is_test_run(u->manager))
                 return 0;
 
         crt = unit_get_cgroup_runtime(u);
         if (!crt || !crt->cgroup_path)
                 return 0;
 
-        if (MANAGER_IS_SYSTEM(u->manager)) {
+        if (manager_is_system(u->manager)) {
                 /* In system mode we can't send any notifications unless oomd connected back to us. In this
                  * mode oomd must initiate communication, not us. */
                 if (!u->manager->managed_oom_varlink)
@@ -296,7 +299,7 @@ int manager_varlink_send_managed_oom_update(Unit *u) {
         if (r < 0)
                 return r;
 
-        if (MANAGER_IS_SYSTEM(u->manager))
+        if (manager_is_system(u->manager))
                 /* in system mode, oomd is our client, thus send out notifications as replies to the
                  * initiating method call from them. */
                 r = sd_varlink_notify(u->manager->managed_oom_varlink, v);
@@ -590,7 +593,7 @@ int manager_setup_varlink_server(Manager *m) {
         if (m->varlink_server)
                 return 0;
 
-        if (!MANAGER_IS_SYSTEM(m))
+        if (!manager_is_system(m))
                 return -EINVAL;
 
         r = varlink_server_new(&s, SD_VARLINK_SERVER_ACCOUNT_UID|SD_VARLINK_SERVER_INHERIT_USERDATA, m);
@@ -633,7 +636,7 @@ static int manager_varlink_init_system(Manager *m) {
 
         assert(m);
 
-        if (!MANAGER_IS_SYSTEM(m))
+        if (!manager_is_system(m))
                 return 0;
 
         r = manager_setup_varlink_server(m);
@@ -641,7 +644,7 @@ static int manager_varlink_init_system(Manager *m) {
                 return log_error_errno(r, "Failed to set up varlink server: %m");
         bool fresh = r > 0;
 
-        if (!MANAGER_IS_TEST_RUN(m)) {
+        if (!manager_is_test_run(m)) {
                 (void) mkdir_label("/run/systemd/userdb", 0755);
 
                 FOREACH_STRING(address, "/run/systemd/userdb/io.systemd.DynamicUser", VARLINK_ADDR_PATH_MANAGED_OOM_SYSTEM) {
@@ -671,17 +674,17 @@ static int manager_varlink_init_system(Manager *m) {
 static int manager_varlink_init_user(Manager *m) {
         assert(m);
 
-        if (!MANAGER_IS_USER(m))
+        if (!manager_is_user(m))
                 return 0;
 
-        if (MANAGER_IS_TEST_RUN(m))
+        if (manager_is_test_run(m))
                 return 0;
 
         return manager_varlink_managed_oom_connect(m);
 }
 
 int manager_varlink_init(Manager *m) {
-        return MANAGER_IS_SYSTEM(m) ? manager_varlink_init_system(m) : manager_varlink_init_user(m);
+        return manager_is_system(m) ? manager_varlink_init_system(m) : manager_varlink_init_user(m);
 }
 
 void manager_varlink_done(Manager *m) {

@@ -26,6 +26,7 @@
 #include "fs-util.h"
 #include "glyph-util.h"
 #include "hostname-util.h"
+#include "image-policy.h"
 #include "kbd-util.h"
 #include "libcrypt-util.h"
 #include "locale-util.h"
