@@ -1054,6 +1054,9 @@ bool unit_passes_filter(Unit *u, char * const *states, char * const *patterns);
 
 int unit_compare_priority(Unit *a, Unit *b);
 
+const char* unit_log_field(const Unit *u);
+const char* unit_invocation_log_field(const Unit *u);
+
 UnitMountDependencyType unit_mount_dependency_type_from_string(const char *s) _const_;
 const char* unit_mount_dependency_type_to_string(UnitMountDependencyType t) _const_;
 UnitDependency unit_mount_dependency_type_to_dependency_type(UnitMountDependencyType t) _pure_;
@@ -1071,7 +1074,7 @@ UnitDependency unit_mount_dependency_type_to_dependency_type(UnitMountDependency
                 LOG_CONTEXT_PUSH_IOV(_c ? _c->log_extra_fields : NULL,  \
                                      _c ? _c->n_log_extra_fields : 0);  \
                 !_do_log ? -ERRNO_VALUE(error) :                        \
-                        _u ? log_object_internal(_l, error, PROJECT_FILE, __LINE__, __func__, _u->manager->unit_log_field, _u->id, _u->manager->invocation_log_field, _u->invocation_id_string, ##__VA_ARGS__) : \
+                        _u ? log_object_internal(_l, error, PROJECT_FILE, __LINE__, __func__, unit_log_field(_u), _u->id, unit_invocation_log_field(_u), _u->invocation_id_string, ##__VA_ARGS__) : \
                                 log_internal(_l, error, PROJECT_FILE, __LINE__, __func__, ##__VA_ARGS__); \
         })
 
@@ -1138,8 +1141,8 @@ UnitDependency unit_mount_dependency_type_to_dependency_type(UnitMountDependency
 
 /* Like LOG_MESSAGE(), but with the unit name prefixed. */
 #define LOG_UNIT_MESSAGE(unit, fmt, ...) LOG_MESSAGE("%s: " fmt, (unit)->id, ##__VA_ARGS__)
-#define LOG_UNIT_ID(unit) LOG_ITEM("%s%s", (unit)->manager->unit_log_field, (unit)->id)
-#define LOG_UNIT_INVOCATION_ID(unit) LOG_ITEM("%s%s", (unit)->manager->invocation_log_field, (unit)->invocation_id_string)
+#define LOG_UNIT_ID(unit) LOG_ITEM("%s%s", unit_log_field((unit)), (unit)->id)
+#define LOG_UNIT_INVOCATION_ID(unit) LOG_ITEM("%s%s", unit_invocation_log_field((unit)), (unit)->invocation_id_string)
 
 const char* collect_mode_to_string(CollectMode m) _const_;
 CollectMode collect_mode_from_string(const char *s) _pure_;
@@ -1198,8 +1201,8 @@ typedef struct UnitForEachDependencyData {
 #define _LOG_CONTEXT_PUSH_UNIT(unit, u, c)                                                              \
         const Unit *u = (unit);                                                                         \
         const ExecContext *c = unit_get_exec_context(u);                                                \
-        LOG_CONTEXT_PUSH_KEY_VALUE(u->manager->unit_log_field, u->id);                                  \
-        LOG_CONTEXT_PUSH_KEY_VALUE(u->manager->invocation_log_field, u->invocation_id_string);          \
+        LOG_CONTEXT_PUSH_KEY_VALUE(unit_log_field(u), u->id);                                           \
+        LOG_CONTEXT_PUSH_KEY_VALUE(unit_invocation_log_field(u), u->invocation_id_string);              \
         LOG_CONTEXT_PUSH_IOV(c ? c->log_extra_fields : NULL, c ? c->n_log_extra_fields : 0);            \
         LOG_CONTEXT_SET_LOG_LEVEL(c->log_level_max >= 0 ? c->log_level_max : log_get_max_level())
 
