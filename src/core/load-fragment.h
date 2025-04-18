@@ -2,7 +2,8 @@
 #pragma once
 
 #include "conf-parser.h"
-#include "unit.h"
+
+typedef struct Unit Unit;
 
 /* These functions are declared in the header to make them accessible to unit tests. */
 bool contains_instance_specifier_superset(const char *s);
