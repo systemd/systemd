@@ -1727,9 +1727,9 @@ static int log_unit_internal(void *userdata, int level, int error, const char *f
         va_start(ap, format);
         if (u)
                 r = log_object_internalv(level, error, file, line, func,
-                                         u->manager->unit_log_field,
+                                         unit_log_field(u),
                                          u->id,
-                                         u->manager->invocation_log_field,
+                                         unit_invocation_log_field(u),
                                          u->invocation_id_string,
                                          format, ap);
         else
@@ -2471,10 +2471,10 @@ static int unit_log_resources(Unit *u) {
         if (!set_iovec_string_field(iovec, &n_iovec, "MESSAGE_ID=", SD_MESSAGE_UNIT_RESOURCES_STR))
                 return log_oom();
 
-        if (!set_iovec_string_field(iovec, &n_iovec, u->manager->unit_log_field, u->id))
+        if (!set_iovec_string_field(iovec, &n_iovec, unit_log_field(u), u->id))
                 return log_oom();
 
-        if (!set_iovec_string_field(iovec, &n_iovec, u->manager->invocation_log_field, u->invocation_id_string))
+        if (!set_iovec_string_field(iovec, &n_iovec, unit_invocation_log_field(u), u->invocation_id_string))
                 return log_oom();
 
         log_unit_struct_iovec(u, log_level, iovec, n_iovec);
@@ -6578,6 +6578,14 @@ int unit_compare_priority(Unit *a, Unit *b) {
                 return ret;
 
         return strcmp(a->id, b->id);
+}
+
+const char* unit_log_field(const Unit *u) {
+        return MANAGER_IS_SYSTEM(ASSERT_PTR(u)->manager) ? "UNIT=" : "USER_UNIT=";
+}
+
+const char* unit_invocation_log_field(const Unit *u) {
+        return MANAGER_IS_SYSTEM(ASSERT_PTR(u)->manager) ? "INVOCATION_ID=" : "USER_INVOCATION_ID=";
 }
 
 const ActivationDetailsVTable * const activation_details_vtable[_UNIT_TYPE_MAX] = {
