@@ -10,6 +10,7 @@
 #include "sd-event.h"
 
 #include "errno-util.h"
+#include "log.h"
 #include "macro.h"
 #include "pidref.h"
 #include "runtime-scope.h"

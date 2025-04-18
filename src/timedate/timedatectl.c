@@ -16,6 +16,7 @@
 #include "env-util.h"
 #include "format-table.h"
 #include "in-addr-util.h"
+#include "log.h"
 #include "main-func.h"
 #include "pager.h"
 #include "parse-util.h"

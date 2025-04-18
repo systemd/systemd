@@ -6,6 +6,7 @@
 
 #include <stdbool.h>
 
+#include "memory-util.h"
 #include "time-util.h"
 
 typedef struct CalendarComponent {

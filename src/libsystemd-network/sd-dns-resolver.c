@@ -1,9 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "dns-resolver-internal.h"
+#include "log.h"
 #include "macro.h"
 #include "unaligned.h"
 #include "socket-netlink.h"
+#include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"

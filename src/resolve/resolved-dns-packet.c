@@ -7,6 +7,7 @@
 #include "alloc-util.h"
 #include "dns-domain.h"
 #include "escape.h"
+#include "log.h"
 #include "memory-util.h"
 #include "resolved-dns-packet.h"
 #include "set.h"

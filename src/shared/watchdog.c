@@ -15,6 +15,7 @@
 #include "fileio.h"
 #include "log.h"
 #include "path-util.h"
+#include "ratelimit.h"
 #include "string-util.h"
 #include "time-util.h"
 #include "watchdog.h"

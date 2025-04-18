@@ -12,6 +12,8 @@
 #if HAVE_SELINUX
 #include <selinux/selinux.h>
 
+#include "memory-util.h"
+
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(char*, freecon, NULL);
 #else
 static inline void freeconp(char **p) {

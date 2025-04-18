@@ -22,6 +22,7 @@
 #include "io-util.h"
 #include "iovec-util.h"
 #include "list.h"
+#include "log.h"
 #include "memory-util.h"
 #include "missing_syscall.h"
 #include "process-util.h"

@@ -3,6 +3,7 @@
 
 #include "list.h"
 #include "macro.h"
+#include "memory-util.h"
 
 typedef enum OpenFileFlag {
         OPENFILE_READ_ONLY = 1 << 0,

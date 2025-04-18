@@ -6,6 +6,7 @@
 
 #include "fstab-util.h"
 #include "macro.h"
+#include "memory-util.h"
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct libmnt_table*, mnt_free_table, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct libmnt_iter*, mnt_free_iter, NULL);

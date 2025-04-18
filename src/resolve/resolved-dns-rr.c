@@ -8,6 +8,7 @@
 #include "escape.h"
 #include "hexdecoct.h"
 #include "json-util.h"
+#include "log.h"
 #include "memory-util.h"
 #include "resolved-dns-dnssec.h"
 #include "resolved-dns-packet.h"
