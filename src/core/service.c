@@ -165,7 +165,7 @@ static void service_init(Unit *u) {
         s->control_pid = PIDREF_NULL;
         s->control_command_id = _SERVICE_EXEC_COMMAND_INVALID;
 
-        s->exec_context.keyring_mode = MANAGER_IS_SYSTEM(u->manager) ?
+        s->exec_context.keyring_mode = manager_is_system(u->manager) ?
                 EXEC_KEYRING_PRIVATE : EXEC_KEYRING_INHERIT;
 
         s->notify_access_override = _NOTIFY_ACCESS_INVALID;
@@ -754,7 +754,7 @@ static int service_add_default_dependencies(Service *s) {
         /* Add a number of automatic dependencies useful for the
          * majority of services. */
 
-        if (MANAGER_IS_SYSTEM(UNIT(s)->manager)) {
+        if (manager_is_system(UNIT(s)->manager)) {
                 /* First, pull in the really early boot stuff, and
                  * require it, so that we fail if we can't acquire
                  * it. */
@@ -1319,7 +1319,7 @@ static void service_set_state(Service *s, ServiceState state) {
         if (state != SERVICE_MOUNTING) /* Just in case */
                 s->mount_request = sd_bus_message_unref(s->mount_request);
 
-        if (state == SERVICE_EXITED && !MANAGER_IS_RELOADING(u->manager)) {
+        if (state == SERVICE_EXITED && !manager_is_reloading(u->manager)) {
                 /* For the inactive states unit_notify() will trim the cgroup. But for exit we have to
                  * do that ourselves... */
                 unit_prune_cgroup(u);
@@ -1784,7 +1784,7 @@ static int service_spawn_internal(
                                 return -ENOMEM;
         }
 
-        if (MANAGER_IS_USER(UNIT(s)->manager)) {
+        if (manager_is_user(UNIT(s)->manager)) {
                 if (asprintf(our_env + n_env++, "MANAGERPID="PID_FMT, getpid_cached()) < 0)
                         return -ENOMEM;
 
@@ -1902,7 +1902,7 @@ static int service_spawn_internal(
 
         /* System D-Bus needs nss-systemd disabled, so that we don't deadlock */
         SET_FLAG(exec_params.flags, EXEC_NSS_DYNAMIC_BYPASS,
-                 MANAGER_IS_SYSTEM(UNIT(s)->manager) && unit_has_name(UNIT(s), SPECIAL_DBUS_SERVICE));
+                 manager_is_system(UNIT(s)->manager) && unit_has_name(UNIT(s), SPECIAL_DBUS_SERVICE));
 
         strv_free_and_replace(exec_params.environment, final_env);
         exec_params.watchdog_usec = service_get_watchdog_usec(s);

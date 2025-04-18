@@ -263,7 +263,7 @@ void bus_job_send_pending_change_signal(Job *j, bool including_new) {
         if (!j->sent_dbus_new_signal && !including_new)
                 return;
 
-        if (MANAGER_IS_RELOADING(j->manager))
+        if (manager_is_reloading(j->manager))
                 return;
 
         bus_job_send_change_signal(j);

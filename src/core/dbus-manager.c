@@ -1620,7 +1620,7 @@ static int method_reboot(sd_bus_message *message, void *userdata, sd_bus_error *
 
         assert(message);
 
-        if (!MANAGER_IS_SYSTEM(m))
+        if (!manager_is_system(m))
                 return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED,
                                         "Reboot is only supported by system manager.");
 
@@ -1643,7 +1643,7 @@ static int method_soft_reboot(sd_bus_message *message, void *userdata, sd_bus_er
 
         assert(message);
 
-        if (!MANAGER_IS_SYSTEM(m))
+        if (!manager_is_system(m))
                 return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED,
                                         "Soft reboot is only supported by system manager.");
 
@@ -1682,7 +1682,7 @@ static int method_poweroff(sd_bus_message *message, void *userdata, sd_bus_error
 
         assert(message);
 
-        if (!MANAGER_IS_SYSTEM(m))
+        if (!manager_is_system(m))
                 return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED,
                                         "Powering off is only supported by system manager.");
 
@@ -1703,7 +1703,7 @@ static int method_halt(sd_bus_message *message, void *userdata, sd_bus_error *er
 
         assert(message);
 
-        if (!MANAGER_IS_SYSTEM(m))
+        if (!manager_is_system(m))
                 return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED,
                                         "Halt is only supported by system manager.");
 
@@ -1724,7 +1724,7 @@ static int method_kexec(sd_bus_message *message, void *userdata, sd_bus_error *e
 
         assert(message);
 
-        if (!MANAGER_IS_SYSTEM(m))
+        if (!manager_is_system(m))
                 return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED,
                                         "KExec is only supported by system manager.");
 
@@ -1747,7 +1747,7 @@ static int method_switch_root(sd_bus_message *message, void *userdata, sd_bus_er
 
         assert(message);
 
-        if (!MANAGER_IS_SYSTEM(m))
+        if (!manager_is_system(m))
                 return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED,
                                         "Root switching is only supported by system manager.");
 
@@ -1966,7 +1966,7 @@ static int method_lookup_dynamic_user_by_name(sd_bus_message *message, void *use
         if (r < 0)
                 return r;
 
-        if (!MANAGER_IS_SYSTEM(m))
+        if (!manager_is_system(m))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED,
                                          "Dynamic users are only supported in the system instance.");
         if (!valid_user_group_name(name, VALID_USER_RELAX))
@@ -1996,7 +1996,7 @@ static int method_lookup_dynamic_user_by_uid(sd_bus_message *message, void *user
         if (r < 0)
                 return r;
 
-        if (!MANAGER_IS_SYSTEM(m))
+        if (!manager_is_system(m))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED,
                                          "Dynamic users are only supported in the system instance.");
         if (!uid_is_valid(uid))
@@ -2023,7 +2023,7 @@ static int method_get_dynamic_users(sd_bus_message *message, void *userdata, sd_
 
         assert_cc(sizeof(uid_t) == sizeof(uint32_t));
 
-        if (!MANAGER_IS_SYSTEM(m))
+        if (!manager_is_system(m))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED,
                                          "Dynamic users are only supported in the system instance.");
 
