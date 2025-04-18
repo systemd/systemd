@@ -14,6 +14,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "find-esp.h"
+#include "log.h"
 #include "path-util.h"
 #include "pe-binary.h"
 #include "pretty-print.h"

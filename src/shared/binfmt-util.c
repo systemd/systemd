@@ -9,6 +9,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "log.h"
 #include "missing_magic.h"
 #include "stat-util.h"
 

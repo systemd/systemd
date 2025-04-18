@@ -10,6 +10,7 @@
 #include "journalctl-filter.h"
 #include "journalctl-show.h"
 #include "journalctl-util.h"
+#include "log.h"
 #include "logs-show.h"
 #include "terminal-util.h"
 

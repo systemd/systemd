@@ -6,6 +6,7 @@
 #include "errno-util.h"
 #include "escape.h"
 #include "iovec-util.h"
+#include "log.h"
 #include "memory-util.h"
 #include "password-quality-util.h"
 #include "strv.h"

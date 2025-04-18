@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "libfido2-util.h"
+#include "log.h"
 
 #if HAVE_LIBFIDO2
 #include "alloc-util.h"
@@ -9,7 +10,6 @@
 #include "dlfcn-util.h"
 #include "format-table.h"
 #include "glyph-util.h"
-#include "log.h"
 #include "memory-util.h"
 #include "plymouth-util.h"
 #include "strv.h"

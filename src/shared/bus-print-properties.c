@@ -5,6 +5,7 @@
 #include "cgroup-util.h"
 #include "escape.h"
 #include "mountpoint-util.h"
+#include "log.h"
 #include "nsflags.h"
 #include "parse-util.h"
 #include "stdio-util.h"

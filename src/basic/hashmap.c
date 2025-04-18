@@ -12,6 +12,7 @@
 #include "alloc-util.h"
 #include "fileio.h"
 #include "hashmap.h"
+#include "log.h"
 #include "logarithm.h"
 #include "macro.h"
 #include "memory-util.h"

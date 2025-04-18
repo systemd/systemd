@@ -12,6 +12,7 @@
 #include "bus-error.h"
 #include "errno-list.h"
 #include "errno-util.h"
+#include "log.h"
 #include "string-util.h"
 #include "strv.h"
 

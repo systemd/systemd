@@ -4,6 +4,7 @@
 #include <stdlib.h>
 
 #include "fido_id_desc.h"
+#include "log.h"
 #include "macro.h"
 #include "tests.h"
 

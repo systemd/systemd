@@ -7,6 +7,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "log.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tmpfile-util.h"

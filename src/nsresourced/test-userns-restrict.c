@@ -4,6 +4,7 @@
 #include <sys/mount.h>
 
 #include "fd-util.h"
+#include "log.h"
 #include "main-func.h"
 #include "missing_syscall.h"
 #include "namespace-util.h"
