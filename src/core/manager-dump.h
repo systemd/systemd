@@ -3,7 +3,7 @@
 
 #include <stdio.h>
 
-#include "manager.h"
+typedef struct Manager Manager;
 
 void manager_dump_jobs(Manager *s, FILE *f, char **patterns, const char *prefix);
 int manager_get_dump_jobs_string(Manager *m, char **patterns, const char *prefix, char **ret);

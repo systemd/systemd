@@ -1,15 +1,28 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "conf-parser.h"
+#include "dropin.h"
 #include "fs-util.h"
 #include "load-dropin.h"
 #include "load-fragment.h"
 #include "log.h"
+#include "manager.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "unit-name.h"
 #include "unit.h"
+
+int unit_find_dropin_paths(Unit *u, bool use_unit_path_cache, char ***paths) {
+        assert(u);
+
+        return unit_file_find_dropin_paths(NULL,
+                                           u->manager->lookup_paths.search_path,
+                                           use_unit_path_cache ? u->manager->unit_path_cache : NULL,
+                                           ".d", ".conf",
+                                           u->id, u->aliases,
+                                           paths);
+}
 
 static int process_deps(Unit *u, UnitDependency dependency, const char *dir_suffix) {
         _cleanup_strv_free_ char **paths = NULL;
