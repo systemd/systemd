@@ -3,7 +3,10 @@
 
 #include "sd-varlink.h"
 
-#include "machine.h"
+#include "pidref.h"
+
+typedef struct Machine Machine;
+typedef struct Manager Manager;
 
 #define VARLINK_ERROR_MACHINE_NO_SUCH_MACHINE           "io.systemd.Machine.NoSuchMachine"
 #define VARLINK_ERROR_MACHINE_EXISTS                    "io.systemd.Machine.MachineExists"
