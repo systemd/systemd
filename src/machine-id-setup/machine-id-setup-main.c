@@ -9,6 +9,7 @@
 #include "build.h"
 #include "dissect-image.h"
 #include "id128-util.h"
+#include "image-policy.h"
 #include "log.h"
 #include "machine-id-setup.h"
 #include "main-func.h"

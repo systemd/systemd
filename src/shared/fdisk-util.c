@@ -5,6 +5,7 @@
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fdisk-util.h"
+#include "log.h"
 #include "parse-util.h"
 
 #if HAVE_LIBFDISK
