@@ -358,7 +358,7 @@ option('default-llmnr', type : 'combo',
        choices : ['yes', 'resolve', 'no'],
        description : 'default LLMNR mode',
        value : 'yes')
-option('dns-over-tls', type : 'combo', choices : ['auto', 'gnutls', 'openssl', 'true', 'false'],
+option('dns-over-tls', type : 'combo', choices : ['auto', 'openssl', 'true', 'false'],
        description : 'DNS-over-TLS support')
 option('dns-servers', type : 'string',
        description : 'space-separated list of default DNS servers',
@@ -434,8 +434,8 @@ option('gnutls', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 
        description : 'gnutls support')
 option('openssl', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'openssl support')
-option('cryptolib', type : 'combo', choices : ['auto', 'openssl', 'gcrypt'],
-       description : 'whether to use openssl or gcrypt where both are supported')
+option('cryptolib', type : 'combo', choices : ['auto', 'openssl'],
+       description : 'This option is deprecated and will be removed in a future release')
 option('p11kit', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'p11kit support')
 option('libfido2', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },

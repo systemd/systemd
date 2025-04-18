@@ -1791,7 +1791,6 @@ Features:
   with matches, then activate app through that passing socket over
 
 * unify on openssl:
-  - kill gnutls support in resolved
   - figure out what to do about libmicrohttpd, which has a hard dependency on
     gnutls
   - port fsprg over to a dlopen lib, then switch it to openssl

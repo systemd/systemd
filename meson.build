@@ -1482,50 +1482,18 @@ endif
 dmi_arches = ['x86', 'x86_64', 'aarch64', 'arm', 'ia64', 'loongarch64', 'mips', 'riscv64']
 conf.set10('HAVE_DMI', host_machine.cpu_family() in dmi_arches)
 
-# We support one or the other. If gcrypt is available, we assume it's there to
-# be used, and use it in preference.
-opt = get_option('cryptolib')
-if opt == 'openssl' and conf.get('HAVE_OPENSSL') == 0
-        error('openssl requested as the default cryptolib, but not available')
-endif
-conf.set10('PREFER_OPENSSL',
-           opt == 'openssl' or (opt == 'auto' and conf.get('HAVE_OPENSSL') == 1 and conf.get('HAVE_GCRYPT') == 0))
-conf.set10('HAVE_OPENSSL_OR_GCRYPT',
-           conf.get('HAVE_OPENSSL') == 1 or conf.get('HAVE_GCRYPT') == 1)
-lib_openssl_or_gcrypt = conf.get('PREFER_OPENSSL') == 1 ? [libopenssl] : [libgcrypt, libgpg_error]
-
 dns_over_tls = get_option('dns-over-tls')
-if dns_over_tls != 'false'
-        if dns_over_tls == 'gnutls' and conf.get('PREFER_OPENSSL') == 1
-                error('Sorry, -Ddns-over-tls=gnutls is not supported when openssl is used as the cryptolib')
-        endif
-
-        if dns_over_tls == 'gnutls'
-                have_openssl = false
-        else
-                have_openssl = conf.get('HAVE_OPENSSL') == 1
-                if dns_over_tls == 'openssl' and not have_openssl
-                        error('DNS-over-TLS support was requested with openssl, but dependencies are not available')
-                endif
-        endif
-        if dns_over_tls == 'openssl' or have_openssl
-                have_gnutls = false
-        else
-                have_gnutls = conf.get('HAVE_GNUTLS') == 1 and libgnutls.version().version_compare('>= 3.6.0')
-                if dns_over_tls != 'auto' and not have_gnutls
-                        str = dns_over_tls == 'gnutls' ? ' with gnutls' : ''
-                        error('DNS-over-TLS support was requested@0@, but dependencies are not available'.format(str))
-                endif
-        endif
-        have = have_gnutls or have_openssl
-else
+have_openssl = conf.get('HAVE_OPENSSL') == 1
+if dns_over_tls == 'false'
         have = false
-        have_gnutls = false
-        have_openssl = false
+elif dns_over_tls == 'auto'
+        have = have_openssl
+elif have_openssl
+        have = true
+else
+        error('DNS-over-TLS support was requested, but OpenSSL support is disabled.')
 endif
 conf.set10('ENABLE_DNS_OVER_TLS', have)
-conf.set10('DNS_OVER_TLS_USE_GNUTLS', have_gnutls)
-conf.set10('DNS_OVER_TLS_USE_OPENSSL', have_openssl)
 
 default_dns_over_tls = get_option('default-dns-over-tls')
 if default_dns_over_tls != 'no' and conf.get('ENABLE_DNS_OVER_TLS') == 0
@@ -1552,8 +1520,8 @@ have = get_option('repart').require(
 conf.set10('ENABLE_REPART', have)
 
 default_dnssec = get_option('default-dnssec')
-if default_dnssec != 'no' and conf.get('HAVE_OPENSSL_OR_GCRYPT') == 0
-        message('default-dnssec cannot be set to yes or allow-downgrade openssl and gcrypt are disabled. Setting default-dnssec to no.')
+if default_dnssec != 'no' and conf.get('HAVE_OPENSSL') == 0
+        message('default-dnssec cannot be set to yes or allow-downgrade when openssl is disabled. Setting default-dnssec to no.')
         default_dnssec = 'no'
 endif
 conf.set('DEFAULT_DNSSEC_MODE',
@@ -1584,7 +1552,7 @@ conf.set10('ENABLE_STORAGETM', get_option('storagetm'))
 
 have = get_option('importd').require(
         conf.get('HAVE_LIBCURL') == 1 and
-        conf.get('HAVE_OPENSSL_OR_GCRYPT') == 1 and
+        conf.get('HAVE_OPENSSL') == 1 and
         conf.get('HAVE_ZLIB') == 1 and
         conf.get('HAVE_XZ') == 1,
         error_message : 'curl, openssl/grypt, zlib and xz required').allowed()
@@ -3097,6 +3065,7 @@ foreach tuple : [
 
         # optional features
         ['dmi'],
+        ['DNS-over-TLS'],
         ['idn'],
         ['polkit'],
         ['legacy-pkla',            install_polkit_pkla],
@@ -3159,22 +3128,6 @@ if static_libudev == 'false'
         missing += 'static-libudev'
 else
         found += 'static-libudev(@0@)'.format(static_libudev)
-endif
-
-if conf.get('HAVE_OPENSSL_OR_GCRYPT') == 1 and conf.get('PREFER_OPENSSL') == 1
-        found += 'cryptolib(openssl)'
-elif conf.get('HAVE_OPENSSL_OR_GCRYPT') == 1
-        found += 'cryptolib(gcrypt)'
-else
-        missing += 'cryptolib'
-endif
-
-if conf.get('DNS_OVER_TLS_USE_GNUTLS') == 1
-        found += 'DNS-over-TLS(gnutls)'
-elif conf.get('DNS_OVER_TLS_USE_OPENSSL') == 1
-        found += 'DNS-over-TLS(openssl)'
-else
-        missing += 'DNS-over-TLS'
 endif
 
 summary({

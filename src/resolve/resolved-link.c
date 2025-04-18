@@ -418,11 +418,11 @@ void link_set_dnssec_mode(Link *l, DnssecMode mode) {
 
         assert(l);
 
-#if !HAVE_OPENSSL_OR_GCRYPT
+#if !HAVE_OPENSSL
         if (IN_SET(mode, DNSSEC_YES, DNSSEC_ALLOW_DOWNGRADE))
                 log_link_warning(l,
                                  "DNSSEC option for the link cannot be enabled or set to allow-downgrade "
-                                 "when systemd-resolved is built without a cryptographic library. "
+                                 "when systemd-resolved is built without openssl. "
                                  "Turning off DNSSEC support.");
         return;
 #endif

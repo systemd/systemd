@@ -1224,7 +1224,6 @@ int pkcs7_new(X509 *certificate, EVP_PKEY *private_key, PKCS7 **ret_p7, PKCS7_SI
         return 0;
 }
 
-#  if PREFER_OPENSSL
 int string_hashsum(
                 const char *s,
                 size_t len,
@@ -1251,7 +1250,6 @@ int string_hashsum(
         *ret = TAKE_PTR(enc);
         return 0;
 }
-#  endif
 
 static int ecc_pkey_generate_volume_keys(
                 EVP_PKEY *pkey,

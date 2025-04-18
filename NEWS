@@ -67,6 +67,12 @@ CHANGES WITH 258 in spe:
           in v255), 'default-hierarchy' (v256), and 'nscd' (v257) have been
           removed.
 
+        * OpenSSL is the only crypto backend for systemd-resolved and
+          systemd-importd, and support for gnutls and gcrypt has been removed.
+          Hence, support for 'dns-over-tls=gnutls' meson option has been
+          removed. Also, 'cryptolib' meson option has been deprecated, and will
+          be removed in a future release.
+
         Announcements of Future Feature Removals:
 
         * The D-Bus method org.freedesktop.systemd1.StartAuxiliaryScope() is

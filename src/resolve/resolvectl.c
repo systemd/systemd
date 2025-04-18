@@ -22,7 +22,6 @@
 #include "escape.h"
 #include "format-ifname.h"
 #include "format-table.h"
-#include "gcrypt-util.h"
 #include "hostname-util.h"
 #include "json-util.h"
 #include "main-func.h"

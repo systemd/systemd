@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#if !ENABLE_DNS_OVER_TLS || !DNS_OVER_TLS_USE_OPENSSL
+#if !ENABLE_DNS_OVER_TLS || !HAVE_OPENSSL
 #error This source file requires DNS-over-TLS to be enabled and OpenSSL to be available.
 #endif
 
