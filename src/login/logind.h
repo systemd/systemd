@@ -41,7 +41,7 @@ struct Manager {
         LIST_HEAD(Session, session_gc_queue);
         LIST_HEAD(User, user_gc_queue);
 
-        sd_device_monitor *device_seat_monitor, *device_monitor, *device_vcsa_monitor, *device_button_monitor;
+        sd_device_monitor *device_monitor;
 
         sd_event_source *console_active_event_source;
 
