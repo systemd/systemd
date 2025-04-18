@@ -9,15 +9,19 @@
 #include <linux/if_macsec.h>
 #include <linux/l2tp.h>
 #include <linux/nl80211.h>
+#include <linux/unix_diag.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "sd-netlink.h"
 
 #include "alloc-util.h"
 #include "ether-addr-util.h"
+#include "fd-util.h"
 #include "macro.h"
 #include "netlink-genl.h"
 #include "netlink-internal.h"
+#include "netlink-sock-diag.h"
 #include "netlink-util.h"
 #include "socket-util.h"
 #include "stdio-util.h"
@@ -698,6 +702,30 @@ TEST(rtnl_set_link_name) {
         ASSERT_OK_EQ(rtnl_resolve_link_alternative_name(&rtnl, "test-shortname3", &resolved), ifindex);
         ASSERT_STREQ(resolved, "test-shortname3");
         ASSERT_NULL(resolved = mfree(resolved));
+}
+
+TEST(sock_diag_unix) {
+        _cleanup_(sd_netlink_unrefp) sd_netlink *nl = NULL;
+
+        ASSERT_OK(sd_sock_diag_socket_open(&nl));
+
+        _cleanup_close_ int unix_fd = ASSERT_FD(socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0));
+        ASSERT_OK(socket_autobind(unix_fd, /* ret_name= */ NULL));
+        ASSERT_OK_ERRNO(listen(unix_fd, 123));
+
+        struct stat st;
+        ASSERT_OK_ERRNO(fstat(unix_fd, &st));
+
+        uint64_t cookie;
+        socklen_t cookie_len = sizeof(cookie);
+        ASSERT_OK_ERRNO(getsockopt(unix_fd, SOL_SOCKET, SO_COOKIE, &cookie, &cookie_len));
+        ASSERT_EQ(cookie_len, sizeof(cookie));
+
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL;
+        ASSERT_OK(sd_sock_diag_message_new_unix(nl, &message, st.st_ino, cookie, UDIAG_SHOW_RQLEN));
+
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *reply = NULL;
+        ASSERT_OK(sd_netlink_call(nl, message, /* usec= */ 0, &reply));
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
