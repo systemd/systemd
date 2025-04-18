@@ -48,6 +48,13 @@ NamespaceType clone_flag_to_namespace_type(unsigned long clone_flag) {
         return _NAMESPACE_TYPE_INVALID;
 }
 
+bool namespace_type_supported(NamespaceType type) {
+        assert(type >= 0 && type < _NAMESPACE_TYPE_MAX);
+
+        const char *p = pid_namespace_path(0, type);
+        return access(p, F_OK) >= 0;
+}
+
 static int pidref_namespace_open_by_type_internal(const PidRef *pidref, NamespaceType type, bool *need_verify) {
         int r;
 
