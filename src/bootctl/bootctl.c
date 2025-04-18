@@ -215,7 +215,7 @@ static int print_loader_or_stub_path(void) {
 
 bool touch_variables(void) {
         /* If we run in a container or on a non-EFI system, automatically turn off EFI file system access,
-         * unless explicitly overriden. */
+         * unless explicitly overridden. */
 
         if (arg_touch_variables >= 0)
                 return arg_touch_variables;
@@ -388,7 +388,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "print-stub-path",             no_argument,       NULL, ARG_PRINT_STUB_PATH             },
                 { "print-root-device",           no_argument,       NULL, 'R'                             },
                 { "variables",                   required_argument, NULL, ARG_VARIABLES                   },
-                { "no-variables",                no_argument,       NULL, ARG_NO_VARIABLES                }, /* Compability */
+                { "no-variables",                no_argument,       NULL, ARG_NO_VARIABLES                }, /* Compatibility alias */
                 { "random-seed",                 required_argument, NULL, ARG_RANDOM_SEED                 },
                 { "no-pager",                    no_argument,       NULL, ARG_NO_PAGER                    },
                 { "graceful",                    no_argument,       NULL, ARG_GRACEFUL                    },
