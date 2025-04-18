@@ -20,6 +20,7 @@
 #include <stdio.h>
 
 #include "alloc-util.h"
+#include "dynamic-user.h"
 #include "execute-serialize.h"
 #include "fd-util.h"
 #include "fuzz.h"

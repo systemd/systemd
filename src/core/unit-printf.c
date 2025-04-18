@@ -4,6 +4,7 @@
 #include "cgroup-util.h"
 #include "format-util.h"
 #include "macro.h"
+#include "manager.h"
 #include "sd-path.h"
 #include "specifier.h"
 #include "string-util.h"

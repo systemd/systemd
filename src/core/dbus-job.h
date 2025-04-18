@@ -3,8 +3,9 @@
 
 #include "sd-bus.h"
 
-#include "unit.h"
 #include "bus-object.h"
+
+typedef struct Job Job;
 
 extern const sd_bus_vtable bus_job_vtable[];
 extern const BusObjectImplementation job_object;
