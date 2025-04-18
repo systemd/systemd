@@ -7,6 +7,7 @@
 #include "alloc-util.h"
 #include "build.h"
 #include "hwdb-util.h"
+#include "log.h"
 #include "main-func.h"
 #include "pretty-print.h"
 #include "selinux-util.h"

@@ -3,6 +3,7 @@
 #include "catalog.h"
 #include "journalctl.h"
 #include "journalctl-catalog.h"
+#include "log.h"
 #include "path-util.h"
 
 int action_update_catalog(void) {

@@ -8,6 +8,7 @@
 #include "journalctl.h"
 #include "journalctl-util.h"
 #include "journalctl-varlink.h"
+#include "log.h"
 #include "varlink-util.h"
 
 static int varlink_connect_journal(sd_varlink **ret) {

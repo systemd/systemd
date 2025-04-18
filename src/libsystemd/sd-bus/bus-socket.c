@@ -19,6 +19,7 @@
 #include "hexdecoct.h"
 #include "io-util.h"
 #include "iovec-util.h"
+#include "log.h"
 #include "macro.h"
 #include "memory-util.h"
 #include "path-util.h"

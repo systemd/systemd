@@ -18,6 +18,7 @@
 #include "gunicode.h"
 #include "id128-util.h"
 #include "in-addr-util.h"
+#include "log.h"
 #include "memory-util.h"
 #include "memstream-util.h"
 #include "pager.h"

@@ -9,6 +9,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "log.h"
 #include "macro.h"
 #include "pam-util.h"
 #include "process-util.h"

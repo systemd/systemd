@@ -6,6 +6,7 @@
 #include "fileio.h"
 #include "gcrypt-util.h"
 #include "hexdecoct.h"
+#include "log.h"
 #include "memory-util.h"
 #include "memstream-util.h"
 #include "openssl-util.h"

@@ -5,6 +5,7 @@
 #include "hostname-setup.h"
 #include "hostname-util.h"
 #include "idn-util.h"
+#include "log.h"
 #include "resolved-util.h"
 #include "utf8.h"
 

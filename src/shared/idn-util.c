@@ -10,6 +10,7 @@
 #include "alloc-util.h"
 #include "dlfcn-util.h"
 #include "idn-util.h"
+#include "log.h"
 
 #if HAVE_LIBIDN || HAVE_LIBIDN2
 static void* idn_dl = NULL;

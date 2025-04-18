@@ -13,6 +13,7 @@
 #include "fd-util.h"
 #include "fs-util.h"
 #include "lock-util.h"
+#include "log.h"
 #include "macro.h"
 #include "missing_fcntl.h"
 #include "path-util.h"

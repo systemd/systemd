@@ -6,6 +6,7 @@
 #include "bus-util.h"
 #include "glob-util.h"
 #include "json-util.h"
+#include "log.h"
 #include "networkctl.h"
 #include "networkctl-description.h"
 #include "networkctl-util.h"

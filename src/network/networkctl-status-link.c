@@ -26,6 +26,7 @@
 #include "networkctl-status-link.h"
 #include "networkctl-status-system.h"
 #include "networkctl-util.h"
+#include "stdio-util.h"
 #include "strv.h"
 #include "udev-util.h"
 

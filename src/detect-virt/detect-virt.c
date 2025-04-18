@@ -8,6 +8,7 @@
 #include "alloc-util.h"
 #include "build.h"
 #include "confidential-virt.h"
+#include "log.h"
 #include "main-func.h"
 #include "pretty-print.h"
 #include "string-table.h"

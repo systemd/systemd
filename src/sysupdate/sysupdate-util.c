@@ -4,6 +4,7 @@
 
 #include "bus-error.h"
 #include "bus-locator.h"
+#include "log.h"
 #include "login-util.h"
 
 #include "sysupdate-util.h"

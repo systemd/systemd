@@ -12,6 +12,7 @@
 #include "alloc-util.h"
 #include "errno-util.h"
 #include "hostname-util.h"
+#include "log.h"
 #include "macro.h"
 #include "memory-util.h"
 #include "path-util.h"
