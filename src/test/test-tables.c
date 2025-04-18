@@ -82,7 +82,6 @@ int main(int argc, char **argv) {
         test_table(mount_result, MOUNT_RESULT);
         test_table(mount_state, MOUNT_STATE);
         test_table(name_policy, NAMEPOLICY);
-        test_table(namespace_type, NAMESPACE_TYPE);
         test_table(notify_access, NOTIFY_ACCESS);
         test_table(notify_state, NOTIFY_STATE);
         test_table(output_mode, OUTPUT_MODE);

@@ -1820,7 +1820,7 @@ static int apply_protect_hostname(const ExecContext *c, const ExecParameters *p,
         if (c->protect_hostname == PROTECT_HOSTNAME_NO)
                 return 0;
 
-        if (ns_type_supported(NAMESPACE_UTS)) {
+        if (namespace_type_supported(NAMESPACE_UTS)) {
                 if (unshare(CLONE_NEWUTS) < 0) {
                         if (!ERRNO_IS_NOT_SUPPORTED(errno) && !ERRNO_IS_PRIVILEGE(errno)) {
                                 *ret_exit_status = EXIT_NAMESPACE;
@@ -4339,7 +4339,7 @@ static int setup_delegated_namespaces(
                  * own user namespace). We need CAP_NET_ADMIN to be able to configure the loopback device in
                  * the new network namespace. And if we don't have that, then we could only create a network
                  * namespace without the ability to set up "lo". Hence gracefully skip things then. */
-                if (ns_type_supported(NAMESPACE_NET) && have_effective_cap(CAP_NET_ADMIN) > 0) {
+                if (namespace_type_supported(NAMESPACE_NET) && have_effective_cap(CAP_NET_ADMIN) > 0) {
                         r = setup_shareable_ns(runtime->shared->netns_storage_socket, CLONE_NEWNET);
                         if (ERRNO_IS_NEG_PRIVILEGE(r))
                                 log_exec_notice_errno(context, params, r,
@@ -4361,7 +4361,7 @@ static int setup_delegated_namespaces(
             exec_namespace_is_delegated(context, params, have_cap_sys_admin, CLONE_NEWIPC) == delegate &&
             runtime->shared && runtime->shared->ipcns_storage_socket[0] >= 0) {
 
-                if (ns_type_supported(NAMESPACE_IPC)) {
+                if (namespace_type_supported(NAMESPACE_IPC)) {
                         r = setup_shareable_ns(runtime->shared->ipcns_storage_socket, CLONE_NEWIPC);
                         if (ERRNO_IS_NEG_PRIVILEGE(r))
                                 log_exec_warning_errno(context, params, r,
