@@ -14,6 +14,7 @@
 #include "glyph-util.h"
 #include "gunicode.h"
 #include "locale-util.h"
+#include "log.h"
 #include "macro.h"
 #include "memory-util.h"
 #include "memstream-util.h"
@@ -1040,6 +1041,15 @@ int free_and_strdup(char **p, const char *s) {
         free_and_replace(*p, t);
 
         return 1;
+}
+
+int free_and_strdup_warn(char **p, const char *s) {
+        int r;
+
+        r = free_and_strdup(p, s);
+        if (r < 0)
+                return log_oom();
+        return r;
 }
 
 int free_and_strndup(char **p, const char *s, size_t l) {

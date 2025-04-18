@@ -13,6 +13,7 @@
 
 #include "alloc-util.h"
 #include "in-addr-util.h"
+#include "log.h"
 #include "parse-util.h"
 #include "string-util.h"
 #include "tests.h"

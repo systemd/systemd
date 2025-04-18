@@ -2,7 +2,9 @@
 
 #include <getopt.h>
 
+#include "assert-util.h"
 #include "hwdb-util.h"
+#include "log.h"
 #include "udevadm.h"
 
 static const char *arg_test = NULL;

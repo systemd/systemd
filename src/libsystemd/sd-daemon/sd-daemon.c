@@ -20,6 +20,7 @@
 #include "fs-util.h"
 #include "io-util.h"
 #include "iovec-util.h"
+#include "log.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"

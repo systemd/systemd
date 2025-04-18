@@ -4,6 +4,7 @@
 #include <stdbool.h>
 
 #include "macro.h"
+#include "memory-util.h"
 
 #if HAVE_VMLINUX_H
 #include "bpf/userns_restrict/userns-restrict-skel.h"

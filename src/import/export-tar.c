@@ -7,6 +7,7 @@
 #include "export-tar.h"
 #include "fd-util.h"
 #include "import-common.h"
+#include "log.h"
 #include "pretty-print.h"
 #include "process-util.h"
 #include "ratelimit.h"

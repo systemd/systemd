@@ -26,6 +26,7 @@
 #include "install.h"
 #include "iovec-util.h"
 #include "locale-util.h"
+#include "log-context.h"
 #include "loop-util.h"
 #include "mkdir.h"
 #include "nulstr-util.h"

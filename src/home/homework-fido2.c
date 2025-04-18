@@ -5,6 +5,7 @@
 #include "hexdecoct.h"
 #include "homework-fido2.h"
 #include "libfido2-util.h"
+#include "log.h"
 #include "memory-util.h"
 #include "strv.h"
 

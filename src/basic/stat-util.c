@@ -16,6 +16,7 @@
 #include "filesystems.h"
 #include "fs-util.h"
 #include "hash-funcs.h"
+#include "log.h"
 #include "macro.h"
 #include "missing_fs.h"
 #include "missing_magic.h"

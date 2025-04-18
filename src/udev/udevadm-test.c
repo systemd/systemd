@@ -10,6 +10,7 @@
 #include "sd-device.h"
 
 #include "device-private.h"
+#include "log.h"
 #include "parse-argument.h"
 #include "static-destruct.h"
 #include "strv.h"

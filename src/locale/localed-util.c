@@ -13,6 +13,7 @@
 #include "fileio.h"
 #include "kbd-util.h"
 #include "localed-util.h"
+#include "log.h"
 #include "mkdir-label.h"
 #include "process-util.h"
 #include "stat-util.h"

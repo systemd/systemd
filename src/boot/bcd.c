@@ -2,6 +2,7 @@
 
 #include <stdalign.h>
 
+#include "assert-fundamental.h"
 #include "bcd.h"
 #include "efi-string.h"
 

@@ -3,6 +3,7 @@
 
 #include <signal.h>
 
+#include "assert-util.h"
 #include "macro.h"
 
 int reset_all_signal_handlers(void);
