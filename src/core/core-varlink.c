@@ -3,9 +3,12 @@
 #include "sd-varlink.h"
 
 #include "core-varlink.h"
+#include "dynamic-user.h"
 #include "json-util.h"
+#include "manager.h"
 #include "mkdir-label.h"
 #include "strv.h"
+#include "unit.h"
 #include "user-util.h"
 #include "varlink-internal.h"
 #include "varlink-io.systemd.UserDatabase.h"

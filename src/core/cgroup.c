@@ -27,6 +27,7 @@
 #include "io-util.h"
 #include "ip-protocol-list.h"
 #include "limits-util.h"
+#include "manager.h"
 #include "nulstr-util.h"
 #include "parse-util.h"
 #include "path-util.h"

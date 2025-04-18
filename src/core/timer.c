@@ -12,6 +12,7 @@
 #include "dbus-timer.h"
 #include "dbus-unit.h"
 #include "fs-util.h"
+#include "manager.h"
 #include "parse-util.h"
 #include "random-util.h"
 #include "serialize.h"
