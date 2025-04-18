@@ -343,7 +343,7 @@ static int path_add_default_dependencies(Path *p) {
         if (r < 0)
                 return r;
 
-        if (MANAGER_IS_SYSTEM(UNIT(p)->manager)) {
+        if (manager_is_system(UNIT(p)->manager)) {
                 r = unit_add_two_dependencies_by_name(UNIT(p), UNIT_AFTER, UNIT_REQUIRES, SPECIAL_SYSINIT_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
                 if (r < 0)
                         return r;

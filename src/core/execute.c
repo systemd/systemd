@@ -782,7 +782,7 @@ int exec_context_destroy_runtime_directory(const ExecContext *c, const char *run
 int exec_context_destroy_mount_ns_dir(Unit *u) {
         _cleanup_free_ char *p = NULL;
 
-        if (!u || !MANAGER_IS_SYSTEM(u->manager))
+        if (!u || !manager_is_system(u->manager))
                 return 0;
 
         p = path_join("/run/systemd/propagate/", u->id);

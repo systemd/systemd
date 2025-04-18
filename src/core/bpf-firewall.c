@@ -946,7 +946,7 @@ void emit_bpf_firewall_warning(Unit *u) {
         assert(u);
         assert(u->manager);
 
-        if (warned || MANAGER_IS_TEST_RUN(u->manager))
+        if (warned || manager_is_test_run(u->manager))
                 return;
 
         bool quiet = ERRNO_IS_PRIVILEGE(bpf_firewall_unsupported_reason) && detect_container() > 0;

@@ -193,7 +193,7 @@ static void unit_init(Unit *u) {
                         ec->oom_score_adjust_set = true;
                 }
 
-                if (MANAGER_IS_SYSTEM(u->manager))
+                if (manager_is_system(u->manager))
                         ec->keyring_mode = EXEC_KEYRING_SHARED;
                 else {
                         ec->keyring_mode = EXEC_KEYRING_INHERIT;
@@ -746,7 +746,7 @@ Unit* unit_free(Unit *u) {
 
         u->transient_file = safe_fclose(u->transient_file);
 
-        if (!MANAGER_IS_RELOADING(u->manager))
+        if (!manager_is_reloading(u->manager))
                 unit_remove_transient(u);
 
         bus_unit_send_removed_signal(u);
@@ -792,7 +792,7 @@ Unit* unit_free(Unit *u) {
 
         unit_release_cgroup(u, /* drop_cgroup_runtime = */ true);
 
-        if (!MANAGER_IS_RELOADING(u->manager))
+        if (!manager_is_reloading(u->manager))
                 unit_unlink_state_files(u);
 
         unit_unref_uid_gid(u, false);
@@ -1255,7 +1255,7 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
                 }
         }
 
-        if (!MANAGER_IS_SYSTEM(u->manager))
+        if (!manager_is_system(u->manager))
                 return 0;
 
         /* For the following three directory types we need write access, and /var/ is possibly on the root
@@ -2628,7 +2628,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
                 (void) manager_varlink_send_managed_oom_update(u);
 
         /* Update timestamps for state changes */
-        if (!MANAGER_IS_RELOADING(m)) {
+        if (!manager_is_reloading(m)) {
                 dual_timestamp_now(&u->state_change_timestamp);
 
                 if (UNIT_IS_INACTIVE_OR_FAILED(os) && !UNIT_IS_INACTIVE_OR_FAILED(ns))
@@ -2657,7 +2657,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
 
         unit_update_on_console(u);
 
-        if (!MANAGER_IS_RELOADING(m)) {
+        if (!manager_is_reloading(m)) {
                 bool unexpected;
 
                 /* Let's propagate state changes to the job */
@@ -2703,7 +2703,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
 
         unit_trigger_notify(u);
 
-        if (!MANAGER_IS_RELOADING(m)) {
+        if (!manager_is_reloading(m)) {
                 const char *reason;
 
                 if (os != UNIT_FAILED && ns == UNIT_FAILED) {
@@ -3369,7 +3369,7 @@ int unit_set_default_slice(Unit *u) {
                 if (!escaped)
                         return -ENOMEM;
 
-                if (MANAGER_IS_SYSTEM(u->manager))
+                if (manager_is_system(u->manager))
                         slice_name = strjoina("system-", escaped, ".slice");
                 else
                         slice_name = strjoina("app-", escaped, ".slice");
@@ -3379,7 +3379,7 @@ int unit_set_default_slice(Unit *u) {
                  * the root slice. They don't really belong in one of the subslices. */
                 slice_name = SPECIAL_ROOT_SLICE;
 
-        else if (MANAGER_IS_SYSTEM(u->manager))
+        else if (manager_is_system(u->manager))
                 slice_name = SPECIAL_SYSTEM_SLICE;
         else
                 slice_name = SPECIAL_APP_SLICE;
@@ -3634,7 +3634,7 @@ int unit_add_node_dependency(Unit *u, const char *what, UnitDependency dep, Unit
                 dep = UNIT_BINDS_TO;
 
         return unit_add_two_dependencies(u, UNIT_AFTER,
-                                         MANAGER_IS_SYSTEM(u->manager) ? dep : UNIT_WANTS,
+                                         manager_is_system(u->manager) ? dep : UNIT_WANTS,
                                          device, true, mask);
 }
 
@@ -4171,7 +4171,7 @@ static int unit_verify_contexts(const Unit *u) {
         if (!ec)
                 return 0;
 
-        if (MANAGER_IS_USER(u->manager) && ec->dynamic_user)
+        if (manager_is_user(u->manager) && ec->dynamic_user)
                 return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOEXEC), "DynamicUser= enabled for user unit, which is not supported. Refusing.");
 
         if (ec->dynamic_user && ec->working_directory_home)
@@ -4213,7 +4213,7 @@ int unit_patch_contexts(Unit *u) {
                                         return -ENOMEM;
                         }
 
-                if (MANAGER_IS_USER(u->manager) && !ec->working_directory) {
+                if (manager_is_user(u->manager) && !ec->working_directory) {
                         r = get_home_dir(&ec->working_directory);
                         if (r < 0)
                                 return r;
@@ -5104,7 +5104,7 @@ static void unit_modify_user_nft_set(Unit *u, bool add, NFTSetSource source, uin
 
         assert(u);
 
-        if (!MANAGER_IS_SYSTEM(u->manager))
+        if (!manager_is_system(u->manager))
                 return;
 
         CGroupContext *c;
@@ -5323,7 +5323,7 @@ int unit_set_exec_params(Unit *u, ExecParameters *p) {
 
         p->cgroup_supported = u->manager->cgroup_supported;
         p->prefix = u->manager->prefix;
-        SET_FLAG(p->flags, EXEC_PASS_LOG_UNIT|EXEC_CHOWN_DIRECTORIES, MANAGER_IS_SYSTEM(u->manager));
+        SET_FLAG(p->flags, EXEC_PASS_LOG_UNIT|EXEC_CHOWN_DIRECTORIES, manager_is_system(u->manager));
 
         /* Copy parameters from unit */
         CGroupRuntime *crt = unit_get_cgroup_runtime(u);
@@ -5522,7 +5522,7 @@ static int unit_get_invocation_path(Unit *u, char **ret) {
         assert(u);
         assert(ret);
 
-        if (MANAGER_IS_SYSTEM(u->manager))
+        if (manager_is_system(u->manager))
                 p = strjoin("/run/systemd/units/invocation:", u->id);
         else {
                 _cleanup_free_ char *user_path = NULL;
@@ -5709,7 +5709,7 @@ void unit_export_state_files(Unit *u) {
         if (!u->id)
                 return;
 
-        if (MANAGER_IS_TEST_RUN(u->manager))
+        if (manager_is_test_run(u->manager))
                 return;
 
         /* Exports a couple of unit properties to /run/systemd/units/, so that journald can quickly query this data
@@ -5727,7 +5727,7 @@ void unit_export_state_files(Unit *u) {
 
         (void) unit_export_invocation_id(u);
 
-        if (!MANAGER_IS_SYSTEM(u->manager))
+        if (!manager_is_system(u->manager))
                 return;
 
         c = unit_get_exec_context(u);
@@ -5758,7 +5758,7 @@ void unit_unlink_state_files(Unit *u) {
                 }
         }
 
-        if (!MANAGER_IS_SYSTEM(u->manager))
+        if (!manager_is_system(u->manager))
                 return;
 
         if (u->exported_log_level_max) {
@@ -5959,7 +5959,7 @@ void unit_log_success(Unit *u) {
          * This message has low information value for regular users and it might be a bit overwhelming on a system with
          * a lot of devices. */
         log_unit_struct(u,
-                        MANAGER_IS_USER(u->manager) ? LOG_DEBUG : LOG_INFO,
+                        manager_is_user(u->manager) ? LOG_DEBUG : LOG_INFO,
                         LOG_MESSAGE_ID(SD_MESSAGE_UNIT_SUCCESS_STR),
                         LOG_UNIT_INVOCATION_ID(u),
                         LOG_UNIT_MESSAGE(u, "Deactivated successfully."));

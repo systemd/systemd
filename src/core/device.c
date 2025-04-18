@@ -204,7 +204,7 @@ static void device_found_changed(Device *d, DeviceFound previous, DeviceFound no
 static void device_update_found_one(Device *d, DeviceFound found, DeviceFound mask) {
         assert(d);
 
-        if (MANAGER_IS_RUNNING(UNIT(d)->manager)) {
+        if (manager_is_running(UNIT(d)->manager)) {
                 DeviceFound n, previous;
 
                 /* When we are already running, then apply the new mask right-away, and trigger state changes
@@ -267,14 +267,14 @@ static int device_coldplug(Unit *u) {
         DeviceState state = d->deserialized_state;
 
         /* On initial boot, switch-root, reload, reexecute, the following happen:
-         * 1. MANAGER_IS_RUNNING() == false
+         * 1. manager_is_running() == false
          * 2. enumerate devices: manager_enumerate() -> device_enumerate()
          *    Device.enumerated_found is set.
          * 3. deserialize devices: manager_deserialize() -> device_deserialize_item()
          *    Device.deserialize_state and Device.deserialized_found are set.
          * 4. coldplug devices: manager_coldplug() -> device_coldplug()
          *    deserialized properties are copied to the main properties.
-         * 5. MANAGER_IS_RUNNING() == true: manager_ready()
+         * 5. manager_is_running() == true: manager_ready()
          * 6. catchup devices: manager_catchup() -> device_catchup()
          *    Device.enumerated_found is applied to Device.found, and state is updated based on that.
          *
@@ -288,7 +288,7 @@ static int device_coldplug(Unit *u) {
          *   general, we have several serialized devices. So, DEVICE_FOUND_UDEV bit in the
          *   Device.deserialized_found must be ignored, as udev rules in initrd and the main system are often
          *   different. If the deserialized state is DEVICE_PLUGGED, we need to downgrade it to
-         *   DEVICE_TENTATIVE. Unlike the other starting mode, MANAGER_IS_SWITCHING_ROOT() is true when
+         *   DEVICE_TENTATIVE. Unlike the other starting mode, manager_is_switching_root() is true when
          *   device_coldplug() and device_catchup() are called. Hence, let's conditionalize the operations by
          *   using the flag. After switch-root, systemd-udevd will (re-)process all devices, and the
          *   Device.found and Device.state will be adjusted.
@@ -297,7 +297,7 @@ static int device_coldplug(Unit *u) {
          *   Device.deserialized_state. Of course, deserialized parameters may be outdated, but the unit
          *   state can be adjusted later by device_catchup() or uevents. */
 
-        if (MANAGER_IS_SWITCHING_ROOT(m) &&
+        if (manager_is_switching_root(m) &&
             !FLAGS_SET(d->enumerated_found, DEVICE_FOUND_UDEV)) {
 
                 /* The device has not been enumerated. On switching-root, such situation is natural. See the
@@ -549,7 +549,7 @@ static int device_add_udev_wants(Unit *u, sd_device *dev) {
 
         assert(dev);
 
-        property = MANAGER_IS_USER(u->manager) ? "SYSTEMD_USER_WANTS" : "SYSTEMD_WANTS";
+        property = manager_is_user(u->manager) ? "SYSTEMD_USER_WANTS" : "SYSTEMD_WANTS";
 
         r = sd_device_get_property_value(dev, property, &wants);
         if (r < 0)
@@ -794,7 +794,7 @@ static int device_setup_devlink_unit_one(Manager *m, const char *devlink, Set **
         assert(not_ready_units);
 
         if (sd_device_new_from_devname(&dev, devlink) >= 0 && device_is_ready(dev)) {
-                if (MANAGER_IS_RUNNING(m) && device_is_processed(dev) <= 0)
+                if (manager_is_running(m) && device_is_processed(dev) <= 0)
                         /* The device is being processed by udevd. We will receive relevant uevent for the
                          * device later when completed. Let's ignore the device now. */
                         return 0;

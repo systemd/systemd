@@ -173,7 +173,7 @@ void job_uninstall(Job *j) {
         /* Detach from next 'bigger' objects */
 
         /* daemon-reload should be transparent to job observers */
-        if (!MANAGER_IS_RELOADING(j->manager))
+        if (!manager_is_reloading(j->manager))
                 bus_job_send_removed_signal(j);
 
         *pj = NULL;
@@ -1417,7 +1417,7 @@ void job_shutdown_magic(Job *j) {
         /* This is the very beginning of the shutdown phase, so take the timestamp here */
         dual_timestamp_now(j->manager->timestamps + MANAGER_TIMESTAMP_SHUTDOWN_START);
 
-        if (!MANAGER_IS_SYSTEM(j->manager))
+        if (!manager_is_system(j->manager))
                 return;
 
         /* In case messages on console has been disabled on boot */

@@ -946,7 +946,7 @@ int transaction_add_job_and_dependencies(
          * jobs are spawned as part of coldplugging itself (see e. g. path_coldplug()).  This way, we
          * "recursively" coldplug units, ensuring that we do not look at state of not-yet-coldplugged
          * units. */
-        if (MANAGER_IS_RELOADING(unit->manager))
+        if (manager_is_reloading(unit->manager))
                 unit_coldplug(unit);
 
         if (by)

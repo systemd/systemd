@@ -1764,7 +1764,7 @@ void bus_unit_send_pending_change_signal(Unit *u, bool including_new) {
                                                          * caller explicitly asked us to send it anyway) */
                 return;
 
-        if (MANAGER_IS_RELOADING(u->manager)) /* Don't generate unnecessary PropertiesChanged signals for the same unit
+        if (manager_is_reloading(u->manager)) /* Don't generate unnecessary PropertiesChanged signals for the same unit
                                                * when we are reloading. */
                 return;
 

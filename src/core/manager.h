@@ -523,19 +523,13 @@ static inline usec_t manager_default_timeout_abort_usec(Manager *m) {
         return m->defaults.timeout_abort_set ? m->defaults.timeout_abort_usec : m->defaults.timeout_stop_usec;
 }
 
-#define MANAGER_IS_SYSTEM(m) ((m)->runtime_scope == RUNTIME_SCOPE_SYSTEM)
-#define MANAGER_IS_USER(m) ((m)->runtime_scope == RUNTIME_SCOPE_USER)
-
-#define MANAGER_IS_RELOADING(m) ((m)->n_reloading > 0)
-
-#define MANAGER_IS_FINISHED(m) (dual_timestamp_is_set((m)->timestamps + MANAGER_TIMESTAMP_FINISH))
-
-/* The objective is set to OK as soon as we enter the main loop, and set otherwise as soon as we are done with it */
-#define MANAGER_IS_RUNNING(m) ((m)->objective == MANAGER_OK)
-
-#define MANAGER_IS_SWITCHING_ROOT(m) ((m)->switching_root)
-
-#define MANAGER_IS_TEST_RUN(m) ((m)->test_run_flags != 0)
+bool manager_is_system(const Manager *m);
+bool manager_is_user(const Manager *m);
+bool manager_is_reloading(const Manager *m);
+bool manager_is_finished(const Manager *m);
+bool manager_is_running(const Manager *m);
+bool manager_is_switching_root(const Manager *m);
+bool manager_is_test_run(const Manager *m);
 
 static inline usec_t manager_default_timeout(RuntimeScope scope) {
         return scope == RUNTIME_SCOPE_SYSTEM ? DEFAULT_TIMEOUT_USEC : DEFAULT_USER_TIMEOUT_USEC;
