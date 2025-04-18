@@ -764,29 +764,6 @@ TEST(hashmap_free) {
         }
 }
 
-typedef struct Item {
-        int seen;
-} Item;
-static void item_seen(Item *item) {
-        item->seen++;
-}
-
-TEST(hashmap_free_with_destructor) {
-        Hashmap *m;
-        struct Item items[4] = {};
-        unsigned i;
-
-        assert_se(m = hashmap_new(NULL));
-        for (i = 0; i < ELEMENTSOF(items) - 1; i++)
-                assert_se(hashmap_put(m, INT_TO_PTR(i), items + i) == 1);
-
-        m = hashmap_free_with_destructor(m, item_seen);
-        assert_se(items[0].seen == 1);
-        assert_se(items[1].seen == 1);
-        assert_se(items[2].seen == 1);
-        assert_se(items[3].seen == 0);
-}
-
 TEST(hashmap_first) {
         _cleanup_hashmap_free_ Hashmap *m = NULL;
 

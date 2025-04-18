@@ -93,12 +93,12 @@ OrderedHashmap* _ordered_hashmap_new(const struct hash_ops *hash_ops  HASHMAP_DE
 #define ordered_hashmap_free_and_replace(a, b)                  \
         free_and_replace_full(a, b, ordered_hashmap_free)
 
-HashmapBase* _hashmap_free(HashmapBase *h, free_func_t default_free_key, free_func_t default_free_value);
+HashmapBase* _hashmap_free(HashmapBase *h);
 static inline Hashmap* hashmap_free(Hashmap *h) {
-        return (void*) _hashmap_free(HASHMAP_BASE(h), NULL, NULL);
+        return (void*) _hashmap_free(HASHMAP_BASE(h));
 }
 static inline OrderedHashmap* ordered_hashmap_free(OrderedHashmap *h) {
-        return (void*) _hashmap_free(HASHMAP_BASE(h), NULL, NULL);
+        return (void*) _hashmap_free(HASHMAP_BASE(h));
 }
 
 IteratedCache* iterated_cache_free(IteratedCache *cache);
@@ -266,12 +266,12 @@ static inline bool ordered_hashmap_iterate(OrderedHashmap *h, Iterator *i, void 
         return _hashmap_iterate(HASHMAP_BASE(h), i, value, key);
 }
 
-void _hashmap_clear(HashmapBase *h, free_func_t default_free_key, free_func_t default_free_value);
+void _hashmap_clear(HashmapBase *h);
 static inline void hashmap_clear(Hashmap *h) {
-        _hashmap_clear(HASHMAP_BASE(h), NULL, NULL);
+        _hashmap_clear(HASHMAP_BASE(h));
 }
 static inline void ordered_hashmap_clear(OrderedHashmap *h) {
-        _hashmap_clear(HASHMAP_BASE(h), NULL, NULL);
+        _hashmap_clear(HASHMAP_BASE(h));
 }
 
 /*
@@ -330,27 +330,6 @@ static inline void *hashmap_first_key(Hashmap *h) {
 static inline void *ordered_hashmap_first_key(OrderedHashmap *h) {
         return _hashmap_first_key(HASHMAP_BASE(h), false);
 }
-
-#define hashmap_clear_with_destructor(h, f)                     \
-        ({                                                      \
-                Hashmap *_h = (h);                              \
-                void *_item;                                    \
-                while ((_item = hashmap_steal_first(_h)))       \
-                        f(_item);                               \
-                _h;                                             \
-        })
-#define hashmap_free_with_destructor(h, f)                      \
-        hashmap_free(hashmap_clear_with_destructor(h, f))
-#define ordered_hashmap_clear_with_destructor(h, f)                     \
-        ({                                                              \
-                OrderedHashmap *_h = (h);                               \
-                void *_item;                                            \
-                while ((_item = ordered_hashmap_steal_first(_h)))       \
-                        f(_item);                                       \
-                _h;                                                     \
-        })
-#define ordered_hashmap_free_with_destructor(h, f)                      \
-        ordered_hashmap_free(ordered_hashmap_clear_with_destructor(h, f))
 
 /* no hashmap_next */
 void* ordered_hashmap_next(OrderedHashmap *h, const void *key);
