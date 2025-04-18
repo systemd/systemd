@@ -17,6 +17,7 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "fstab-util.h"
+#include "manager.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
@@ -79,7 +80,7 @@ static bool swap_may_gc(Unit *u) {
 static bool swap_is_extrinsic(Unit *u) {
         assert(SWAP(u));
 
-        return MANAGER_IS_USER(u->manager);
+        return manager_is_user(u->manager);
 }
 
 static void swap_unset_proc_swaps(Swap *s) {
@@ -227,7 +228,7 @@ static int swap_add_default_dependencies(Swap *s) {
         if (!UNIT(s)->default_dependencies)
                 return 0;
 
-        if (!MANAGER_IS_SYSTEM(UNIT(s)->manager))
+        if (!manager_is_system(UNIT(s)->manager))
                 return 0;
 
         if (detect_container() > 0)

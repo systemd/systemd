@@ -1,7 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "journald-server.h"
+#include <sys/socket.h>
+
+#include "macro.h"
+
+typedef struct Server Server;
 
 int syslog_fixup_facility(int priority) _const_;
 

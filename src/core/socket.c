@@ -28,6 +28,7 @@
 #include "ip-protocol-list.h"
 #include "label-util.h"
 #include "log.h"
+#include "manager.h"
 #include "mkdir-label.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -282,7 +283,7 @@ static int socket_add_default_dependencies(Socket *s) {
         if (r < 0)
                 return r;
 
-        if (MANAGER_IS_SYSTEM(UNIT(s)->manager)) {
+        if (manager_is_system(UNIT(s)->manager)) {
                 r = unit_add_two_dependencies_by_name(UNIT(s), UNIT_AFTER, UNIT_REQUIRES, SPECIAL_SYSINIT_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
                 if (r < 0)
                         return r;

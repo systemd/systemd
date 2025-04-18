@@ -2289,7 +2289,7 @@ static int invoke_main_loop(
                         return objective;
 
                 case MANAGER_EXIT:
-                        if (MANAGER_IS_USER(m)) {
+                        if (manager_is_user(m)) {
                                 log_debug("Exit.");
 
                                 *ret_retval = m->return_value;

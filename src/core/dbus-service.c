@@ -163,7 +163,7 @@ static int bus_service_method_mount(sd_bus_message *message, void *userdata, sd_
 
         assert(message);
 
-        if (!MANAGER_IS_SYSTEM(u->manager))
+        if (!manager_is_system(u->manager))
                 return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "Adding bind mounts at runtime is only supported by system manager");
 
         r = unit_can_live_mount(u, error);

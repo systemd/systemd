@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "manager.h"
+typedef struct Manager Manager;
+typedef struct Unit Unit;
 
 int manager_setup_varlink_server(Manager *m);
 

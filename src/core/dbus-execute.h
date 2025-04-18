@@ -5,6 +5,7 @@
 #include "sd-bus-vtable.h"
 
 #include "execute.h"
+#include "unit.h"
 
 #define BUS_EXEC_STATUS_VTABLE(prefix, offset, flags)                   \
         BUS_PROPERTY_DUAL_TIMESTAMP(prefix "StartTimestamp", (offset) + offsetof(ExecStatus, start_timestamp), flags), \

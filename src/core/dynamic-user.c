@@ -12,6 +12,7 @@
 #include "fs-util.h"
 #include "iovec-util.h"
 #include "lock-util.h"
+#include "manager.h"
 #include "parse-util.h"
 #include "random-util.h"
 #include "serialize.h"

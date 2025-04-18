@@ -42,6 +42,7 @@
 #include "dbus-unit.h"
 #include "dbus.h"
 #include "dirent-util.h"
+#include "dynamic-user.h"
 #include "env-util.h"
 #include "escape.h"
 #include "event-util.h"
@@ -139,7 +140,7 @@ static void manager_vacuum(Manager *m);
 static usec_t manager_watch_jobs_next_time(Manager *m) {
         usec_t timeout;
 
-        if (MANAGER_IS_USER(m))
+        if (manager_is_user(m))
                 /* Let the user manager without a timeout show status quickly, so the system manager can make
                  * use of it, if it wants to. */
                 timeout = JOBS_IN_PROGRESS_WAIT_USEC * 2 / 3;
@@ -327,7 +328,7 @@ static int manager_check_ask_password(Manager *m) {
 
         /* We only care about passwords prompts when running in system mode (because that's the only time we
          * manage a console) */
-        if (!MANAGER_IS_SYSTEM(m))
+        if (!manager_is_system(m))
                 return 0;
 
         if (!m->ask_password_event_source) {
@@ -401,7 +402,7 @@ static int manager_setup_time_change(Manager *m) {
 
         assert(m);
 
-        if (MANAGER_IS_TEST_RUN(m))
+        if (manager_is_test_run(m))
                 return 0;
 
         m->time_change_event_source = sd_event_source_disable_unref(m->time_change_event_source);
@@ -450,7 +451,7 @@ static int manager_setup_timezone_change(Manager *m) {
 
         assert(m);
 
-        if (MANAGER_IS_TEST_RUN(m))
+        if (manager_is_test_run(m))
                 return 0;
 
         /* We watch /etc/localtime for three events: change of the link count (which might mean removal from /etc even
@@ -493,7 +494,7 @@ static int manager_enable_special_signals(Manager *m) {
 
         assert(m);
 
-        if (!MANAGER_IS_SYSTEM(m) || MANAGER_IS_TEST_RUN(m))
+        if (!manager_is_system(m) || manager_is_test_run(m))
                 return 0;
 
         /* Enable that we get SIGINT on control-alt-del. In containers this will fail with EPERM (older) or
@@ -672,7 +673,7 @@ int manager_default_environment(Manager *m) {
 
         m->transient_environment = strv_free(m->transient_environment);
 
-        if (MANAGER_IS_SYSTEM(m)) {
+        if (manager_is_system(m)) {
                 /* The system manager always starts with a clean environment for its children. It does not
                  * import the kernel's or the parents' exported variables.
                  *
@@ -741,7 +742,7 @@ static int manager_setup_prefix(Manager *m) {
 
         assert(m);
 
-        const struct table_entry *p = MANAGER_IS_SYSTEM(m) ? paths_system : paths_user;
+        const struct table_entry *p = manager_is_system(m) ? paths_system : paths_user;
         int r;
 
         for (ExecDirectoryType i = 0; i < _EXEC_DIRECTORY_TYPE_MAX; i++) {
@@ -864,13 +865,13 @@ static int manager_find_credentials_dirs(Manager *m) {
 void manager_set_switching_root(Manager *m, bool switching_root) {
         assert(m);
 
-        m->switching_root = MANAGER_IS_SYSTEM(m) && switching_root;
+        m->switching_root = manager_is_system(m) && switching_root;
 }
 
 double manager_get_progress(Manager *m) {
         assert(m);
 
-        if (MANAGER_IS_FINISHED(m) || m->n_installed_jobs == 0)
+        if (manager_is_finished(m) || m->n_installed_jobs == 0)
                 return 1.0;
 
         return 1.0 - ((double) hashmap_size(m->jobs) / (double) m->n_installed_jobs);
@@ -880,6 +881,35 @@ static int compare_job_priority(const void *a, const void *b) {
         const Job *x = a, *y = b;
 
         return unit_compare_priority(x->unit, y->unit);
+}
+
+bool manager_is_system(const Manager *m) {
+        return ASSERT_PTR(m)->runtime_scope == RUNTIME_SCOPE_SYSTEM;
+}
+
+bool manager_is_user(const Manager *m) {
+        return ASSERT_PTR(m)->runtime_scope == RUNTIME_SCOPE_USER;
+}
+
+bool manager_is_reloading(const Manager *m) {
+        return ASSERT_PTR(m)->n_reloading > 0;
+}
+
+bool manager_is_finished(const Manager *m) {
+        return dual_timestamp_is_set(ASSERT_PTR(m)->timestamps + MANAGER_TIMESTAMP_FINISH);
+}
+
+bool manager_is_running(const Manager *m) {
+        /* The objective is set to OK as soon as we enter the main loop, and set otherwise as soon as we are done with it */
+        return ASSERT_PTR(m)->objective == MANAGER_OK;
+}
+
+bool manager_is_switching_root(const Manager *m) {
+        return ASSERT_PTR(m)->switching_root;
+}
+
+bool manager_is_test_run(const Manager *m) {
+        return ASSERT_PTR(m)->test_run_flags != 0;
 }
 
 int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, Manager **ret) {
@@ -936,20 +966,11 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
         unit_defaults_init(&m->defaults, runtime_scope);
 
 #if ENABLE_EFI
-        if (MANAGER_IS_SYSTEM(m) && detect_container() <= 0)
+        if (manager_is_system(m) && detect_container() <= 0)
                 boot_timestamps(m->timestamps + MANAGER_TIMESTAMP_USERSPACE,
                                 m->timestamps + MANAGER_TIMESTAMP_FIRMWARE,
                                 m->timestamps + MANAGER_TIMESTAMP_LOADER);
 #endif
-
-        /* Prepare log fields we can use for structured logging */
-        if (MANAGER_IS_SYSTEM(m)) {
-                m->unit_log_field = "UNIT=";
-                m->invocation_log_field = "INVOCATION_ID=";
-        } else {
-                m->unit_log_field = "USER_UNIT=";
-                m->invocation_log_field = "USER_INVOCATION_ID=";
-        }
 
         /* Reboot immediately if the user hits C-A-D more often than 7x per 2s */
         m->ctrl_alt_del_ratelimit = (const RateLimit) { .interval = 2 * USEC_PER_SEC, .burst = 7 };
@@ -1022,7 +1043,7 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
                         return r;
 
 #if HAVE_LIBBPF
-                if (MANAGER_IS_SYSTEM(m) && bpf_restrict_fs_supported(/* initialize = */ true)) {
+                if (manager_is_system(m) && bpf_restrict_fs_supported(/* initialize = */ true)) {
                         r = bpf_restrict_fs_setup(m);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to setup LSM BPF, ignoring: %m");
@@ -1031,7 +1052,7 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
         }
 
         if (test_run_flags == 0) {
-                if (MANAGER_IS_SYSTEM(m))
+                if (manager_is_system(m))
                         r = mkdir_label("/run/systemd/units", 0755);
                 else {
                         _cleanup_free_ char *units_path = NULL;
@@ -1064,7 +1085,7 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
 static int manager_setup_notify(Manager *m) {
         int r;
 
-        if (MANAGER_IS_TEST_RUN(m))
+        if (manager_is_test_run(m))
                 return 0;
 
         if (m->notify_fd < 0) {
@@ -1855,7 +1876,7 @@ static bool manager_dbus_is_running(Manager *m, bool deserialized) {
          * and the service unit. If the 'deserialized' parameter is true we'll check the deserialized state of the unit
          * rather than the current one. */
 
-        if (MANAGER_IS_TEST_RUN(m))
+        if (manager_is_test_run(m))
                 return false;
 
         u = manager_get_unit(m, SPECIAL_DBUS_SOCKET);
@@ -1881,21 +1902,21 @@ static bool manager_dbus_is_running(Manager *m, bool deserialized) {
 static void manager_setup_bus(Manager *m) {
         assert(m);
 
-        if (MANAGER_IS_TEST_RUN(m))
+        if (manager_is_test_run(m))
                 return;
 
         /* Let's set up our private bus connection now, unconditionally */
         (void) bus_init_private(m);
 
         /* If we are in --user mode also connect to the system bus now */
-        if (MANAGER_IS_USER(m))
+        if (manager_is_user(m))
                 (void) bus_init_system(m);
 
         /* Let's connect to the bus now, but only if the unit is supposed to be up */
-        if (manager_dbus_is_running(m, MANAGER_IS_RELOADING(m))) {
+        if (manager_dbus_is_running(m, manager_is_reloading(m))) {
                 (void) bus_init_api(m);
 
-                if (MANAGER_IS_SYSTEM(m))
+                if (manager_is_system(m))
                         (void) bus_init_system(m);
         }
 }
@@ -1908,10 +1929,10 @@ static void manager_preset_all(Manager *m) {
         if (m->first_boot <= 0)
                 return;
 
-        if (!MANAGER_IS_SYSTEM(m))
+        if (!manager_is_system(m))
                 return;
 
-        if (MANAGER_IS_TEST_RUN(m))
+        if (manager_is_test_run(m))
                 return;
 
         /* If this is the first boot, and we are in the host system, then preset everything */
@@ -1941,7 +1962,7 @@ static void manager_ready(Manager *m) {
         manager_catchup(m);
 
         /* Create a file which will indicate when the manager started loading units the last time. */
-        if (MANAGER_IS_SYSTEM(m))
+        if (manager_is_system(m))
                 (void) touch_file("/run/systemd/systemd-units-load", false,
                         m->timestamps[MANAGER_TIMESTAMP_UNITS_LOAD].realtime ?: now(CLOCK_REALTIME),
                         UID_INVALID, GID_INVALID, 0444);
@@ -1988,7 +2009,7 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds, const char *roo
         /* If we are running in test mode, we still want to run the generators,
          * but we should not touch the real generator directories. */
         r = lookup_paths_init_or_warn(&m->lookup_paths, m->runtime_scope,
-                                      MANAGER_IS_TEST_RUN(m) ? LOOKUP_PATHS_TEMPORARY_GENERATED : 0,
+                                      manager_is_test_run(m) ? LOOKUP_PATHS_TEMPORARY_GENERATED : 0,
                                       root);
         if (r < 0)
                 return r;
@@ -2534,7 +2555,7 @@ static unsigned manager_dispatch_dbus_queue(Manager *m) {
 
         /* When we are reloading, let's not wait with generating signals, since we need to exit the manager as quickly
          * as we can. There's no point in throttling generation of signals in that case. */
-        if (MANAGER_IS_RELOADING(m) || m->send_reloading_done || m->pending_reload_message)
+        if (manager_is_reloading(m) || m->send_reloading_done || m->pending_reload_message)
                 budget = UINT_MAX; /* infinite budget in this case */
         else {
                 /* Anything to do at all? */
@@ -2914,7 +2935,7 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
         }
 
         log_received_signal(sfsi.ssi_signo == SIGCHLD ||
-                            (sfsi.ssi_signo == SIGTERM && MANAGER_IS_USER(m))
+                            (sfsi.ssi_signo == SIGTERM && manager_is_user(m))
                             ? LOG_DEBUG : LOG_INFO,
                             &sfsi);
 
@@ -2928,7 +2949,7 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
                 break;
 
         case SIGTERM:
-                if (MANAGER_IS_SYSTEM(m)) {
+                if (manager_is_system(m)) {
                         /* This is for compatibility with the original sysvinit */
                         m->objective = MANAGER_REEXECUTE;
                         break;
@@ -2936,7 +2957,7 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
 
                 _fallthrough_;
         case SIGINT:
-                if (MANAGER_IS_SYSTEM(m))
+                if (manager_is_system(m))
                         manager_handle_ctrl_alt_del(m);
                 else
                         manager_start_special(m, SPECIAL_EXIT_TARGET, JOB_REPLACE_IRREVERSIBLY);
@@ -2944,14 +2965,14 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
 
         case SIGWINCH:
                 /* This is a nop on non-init */
-                if (MANAGER_IS_SYSTEM(m))
+                if (manager_is_system(m))
                         manager_start_special(m, SPECIAL_KBREQUEST_TARGET, JOB_REPLACE);
 
                 break;
 
         case SIGPWR:
                 /* This is a nop on non-init */
-                if (MANAGER_IS_SYSTEM(m))
+                if (manager_is_system(m))
                         manager_start_special(m, SPECIAL_SIGPWR_TARGET, JOB_REPLACE);
 
                 break;
@@ -2962,7 +2983,7 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
 
                         (void) bus_init_api(m);
 
-                        if (MANAGER_IS_SYSTEM(m))
+                        if (manager_is_system(m))
                                 (void) bus_init_system(m);
                 } else
                         manager_start_special(m, SPECIAL_DBUS_SERVICE, JOB_REPLACE);
@@ -2988,7 +3009,7 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
 
         default: {
 
-                if (MANAGER_IS_SYSTEM(m)) {
+                if (manager_is_system(m)) {
                         /* Starting SIGRTMIN+0 */
                         static const struct {
                                 const char *target;
@@ -3100,7 +3121,7 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
                         break;
 
                 case 24:
-                        if (MANAGER_IS_USER(m)) {
+                        if (manager_is_user(m)) {
                                 m->objective = MANAGER_EXIT;
                                 return 0;
                         }
@@ -3361,11 +3382,11 @@ void manager_send_unit_audit(Manager *m, Unit *u, int type, bool success) {
         assert(m);
         assert(u);
 
-        if (!MANAGER_IS_SYSTEM(m))
+        if (!manager_is_system(m))
                 return;
 
         /* Don't generate audit events if the service was already started and we're just deserializing */
-        if (MANAGER_IS_RELOADING(m))
+        if (manager_is_reloading(m))
                 return;
 
         audit_fd = get_core_audit_fd();
@@ -3397,11 +3418,11 @@ void manager_send_unit_plymouth(Manager *m, Unit *u) {
         assert(m);
         assert(u);
 
-        if (!MANAGER_IS_SYSTEM(m))
+        if (!manager_is_system(m))
                 return;
 
         /* Don't generate plymouth events if the service was already started and we're just deserializing */
-        if (MANAGER_IS_RELOADING(m))
+        if (manager_is_reloading(m))
                 return;
 
         if (detect_container() > 0)
@@ -3428,7 +3449,7 @@ void manager_send_unit_supervisor(Manager *m, Unit *u, bool active) {
         /* Notify a "supervisor" process about our progress, i.e. a container manager, hypervisor, or
          * surrounding service manager. */
 
-        if (MANAGER_IS_RELOADING(m))
+        if (manager_is_reloading(m))
                 return;
 
         if (!UNIT_VTABLE(u)->notify_supervisor)
@@ -3445,7 +3466,7 @@ void manager_send_unit_supervisor(Manager *m, Unit *u, bool active) {
 usec_t manager_get_watchdog(Manager *m, WatchdogType t) {
         assert(m);
 
-        if (MANAGER_IS_USER(m))
+        if (manager_is_user(m))
                 return USEC_INFINITY;
 
         if (m->watchdog_overridden[t] != USEC_INFINITY)
@@ -3458,7 +3479,7 @@ void manager_set_watchdog(Manager *m, WatchdogType t, usec_t timeout) {
 
         assert(m);
 
-        if (MANAGER_IS_USER(m))
+        if (manager_is_user(m))
                 return;
 
         if (m->watchdog_overridden[t] == USEC_INFINITY) {
@@ -3476,7 +3497,7 @@ void manager_override_watchdog(Manager *m, WatchdogType t, usec_t timeout) {
 
         assert(m);
 
-        if (MANAGER_IS_USER(m))
+        if (manager_is_user(m))
                 return;
 
         usec = timeout == USEC_INFINITY ? m->watchdog[t] : timeout;
@@ -3494,7 +3515,7 @@ int manager_set_watchdog_pretimeout_governor(Manager *m, const char *governor) {
 
         assert(m);
 
-        if (MANAGER_IS_USER(m))
+        if (manager_is_user(m))
                 return 0;
 
         if (streq_ptr(m->watchdog_pretimeout_governor, governor))
@@ -3517,7 +3538,7 @@ int manager_override_watchdog_pretimeout_governor(Manager *m, const char *govern
 
         assert(m);
 
-        if (MANAGER_IS_USER(m))
+        if (manager_is_user(m))
                 return 0;
 
         if (streq_ptr(m->watchdog_pretimeout_governor_overridden, governor))
@@ -3649,7 +3670,7 @@ bool manager_unit_inactive_or_pending(Manager *m, const char *name) {
 static void log_taint_string(Manager *m) {
         assert(m);
 
-        if (MANAGER_IS_USER(m) || m->taint_logged)
+        if (manager_is_user(m) || m->taint_logged)
                 return;
 
         m->taint_logged = true; /* only check for taint once */
@@ -3667,10 +3688,10 @@ static void log_taint_string(Manager *m) {
 static void manager_notify_finished(Manager *m) {
         usec_t firmware_usec, loader_usec, kernel_usec, initrd_usec, userspace_usec, total_usec;
 
-        if (MANAGER_IS_TEST_RUN(m))
+        if (manager_is_test_run(m))
                 return;
 
-        if (MANAGER_IS_SYSTEM(m) && m->soft_reboots_count > 0) {
+        if (manager_is_system(m) && m->soft_reboots_count > 0) {
                 /* The soft-reboot case, where we only report data for the last reboot */
                 firmware_usec = loader_usec = initrd_usec = kernel_usec = 0;
                 total_usec = userspace_usec = usec_sub_unsigned(m->timestamps[MANAGER_TIMESTAMP_FINISH].monotonic,
@@ -3682,7 +3703,7 @@ static void manager_notify_finished(Manager *m) {
                            LOG_MESSAGE("Soft-reboot finished in %s, counter is now at %u.",
                                        FORMAT_TIMESPAN(total_usec, USEC_PER_MSEC),
                                        m->soft_reboots_count));
-        } else if (MANAGER_IS_SYSTEM(m) && detect_container() <= 0) {
+        } else if (manager_is_system(m) && detect_container() <= 0) {
                 char buf[FORMAT_TIMESPAN_MAX + STRLEN(" (firmware) + ") + FORMAT_TIMESPAN_MAX + STRLEN(" (loader) + ")]
                         = {};
                 char *p = buf;
@@ -3749,7 +3770,7 @@ static void manager_notify_finished(Manager *m) {
 
         bus_manager_send_finished(m, firmware_usec, loader_usec, kernel_usec, initrd_usec, userspace_usec, total_usec);
 
-        if (MANAGER_IS_SYSTEM(m) && detect_container() <= 0)
+        if (manager_is_system(m) && detect_container() <= 0)
                 watchdog_report_if_missing();
 
         log_taint_string(m);
@@ -3761,7 +3782,7 @@ static void manager_send_ready_on_basic_target(Manager *m) {
         assert(m);
 
         /* We send READY=1 on reaching basic.target only when running in --user mode. */
-        if (!MANAGER_IS_USER(m) || m->ready_sent)
+        if (!manager_is_user(m) || m->ready_sent)
                 return;
 
         r = sd_notify(/* unset_environment= */ false,
@@ -3819,11 +3840,11 @@ static void manager_check_basic_target(Manager *m) {
 void manager_check_finished(Manager *m) {
         assert(m);
 
-        if (MANAGER_IS_RELOADING(m))
+        if (manager_is_reloading(m))
                 return;
 
         /* Verify that we have entered the event loop already, and not left it again. */
-        if (!MANAGER_IS_RUNNING(m))
+        if (!manager_is_running(m))
                 return;
 
         manager_check_basic_target(m);
@@ -3846,7 +3867,7 @@ void manager_check_finished(Manager *m) {
         /* Notify Type=idle units that we are done now */
         manager_close_idle_pipe(m);
 
-        if (MANAGER_IS_FINISHED(m))
+        if (manager_is_finished(m))
                 return;
 
         manager_flip_auto_status(m, false, "boot finished");
@@ -3897,7 +3918,7 @@ static int manager_run_environment_generators(Manager *m) {
 
         assert(m);
 
-        if (MANAGER_IS_TEST_RUN(m) && !(m->test_run_flags & MANAGER_TEST_RUN_ENV_GENERATORS))
+        if (manager_is_test_run(m) && !(m->test_run_flags & MANAGER_TEST_RUN_ENV_GENERATORS))
                 return 0;
 
         paths = env_generator_binary_paths(m->runtime_scope);
@@ -3942,7 +3963,7 @@ static int build_generator_environment(Manager *m, char ***ret) {
         if (r < 0)
                 return r;
 
-        if (MANAGER_IS_SYSTEM(m)) {
+        if (manager_is_system(m)) {
                 /* Note that $SYSTEMD_IN_INITRD may be used to override the initrd detection in much of our
                  * codebase. This is hence more than purely informational. It will shortcut detection of the
                  * initrd state if generators invoke our own tools. But that's OK, as it would come to the
@@ -4043,7 +4064,7 @@ static int manager_run_generators(Manager *m) {
 
         assert(m);
 
-        if (MANAGER_IS_TEST_RUN(m) && !(m->test_run_flags & MANAGER_TEST_RUN_GENERATORS))
+        if (manager_is_test_run(m) && !(m->test_run_flags & MANAGER_TEST_RUN_GENERATORS))
                 return 0;
 
         paths = generator_binary_paths(m->runtime_scope);
@@ -4063,14 +4084,14 @@ static int manager_run_generators(Manager *m) {
          * we are the user manager, let's just execute the generators directly. We might not have the
          * necessary privileges, and the system manager has already mounted /tmp/ and everything else for us.
          */
-        if (MANAGER_IS_USER(m)) {
+        if (manager_is_user(m)) {
                 r = manager_execute_generators(m, paths, /* remount_ro= */ false);
                 goto finish;
         }
 
         /* On some systems /tmp/ doesn't exist, and on some other systems we cannot create it at all. Avoid
          * trying to mount a private tmpfs on it as there's no one size fits all. */
-        if (is_dir("/tmp", /* follow= */ false) > 0 && !MANAGER_IS_TEST_RUN(m))
+        if (is_dir("/tmp", /* follow= */ false) > 0 && !manager_is_test_run(m))
                 flags |= FORK_PRIVATE_TMP;
 
         r = safe_fork("(sd-gens)", flags, NULL);
@@ -4251,18 +4272,18 @@ void manager_recheck_dbus(Manager *m) {
          * just reuse the connection of the API bus). That's because the system bus after all runs as service
          * of the system instance, while in the user instance we can assume it's already there. */
 
-        if (MANAGER_IS_RELOADING(m))
+        if (manager_is_reloading(m))
                 return; /* don't check while we are reloading… */
 
         if (manager_dbus_is_running(m, false)) {
                 (void) bus_init_api(m);
 
-                if (MANAGER_IS_SYSTEM(m))
+                if (manager_is_system(m))
                         (void) bus_init_system(m);
         } else {
                 (void) bus_done_api(m);
 
-                if (MANAGER_IS_SYSTEM(m))
+                if (manager_is_system(m))
                         (void) bus_done_system(m);
         }
 }
@@ -4272,11 +4293,11 @@ static bool manager_journal_is_running(Manager *m) {
 
         assert(m);
 
-        if (MANAGER_IS_TEST_RUN(m))
+        if (manager_is_test_run(m))
                 return false;
 
         /* If we are the user manager we can safely assume that the journal is up */
-        if (!MANAGER_IS_SYSTEM(m))
+        if (!manager_is_system(m))
                 return true;
 
         /* Check that the socket is not only up, but in RUNNING state */
@@ -4318,7 +4339,7 @@ void manager_recheck_journal(Manager *m) {
                 return;
 
         /* Don't check this while we are reloading, things might still change */
-        if (MANAGER_IS_RELOADING(m))
+        if (manager_is_reloading(m))
                 return;
 
         /* The journal is fully and entirely up? If so, let's permit logging to it, if that's configured. If
@@ -4331,7 +4352,7 @@ void manager_recheck_journal(Manager *m) {
 static ShowStatus manager_get_show_status(Manager *m) {
         assert(m);
 
-        if (MANAGER_IS_USER(m))
+        if (manager_is_user(m))
                 return _SHOW_STATUS_INVALID;
 
         if (m->show_status_overridden != _SHOW_STATUS_INVALID)
@@ -4358,7 +4379,7 @@ void manager_set_show_status(Manager *m, ShowStatus mode, const char *reason) {
         assert(reason);
         assert(mode >= 0 && mode < _SHOW_STATUS_MAX);
 
-        if (MANAGER_IS_USER(m))
+        if (manager_is_user(m))
                 return;
 
         if (mode == m->show_status)
@@ -4383,7 +4404,7 @@ void manager_override_show_status(Manager *m, ShowStatus mode, const char *reaso
         assert(m);
         assert(mode < _SHOW_STATUS_MAX);
 
-        if (MANAGER_IS_USER(m))
+        if (manager_is_user(m))
                 return;
 
         if (mode == m->show_status_overridden)
@@ -4450,7 +4471,7 @@ fail:
 void manager_set_first_boot(Manager *m, bool b) {
         assert(m);
 
-        if (!MANAGER_IS_SYSTEM(m))
+        if (!manager_is_system(m))
                 return;
 
         if (m->first_boot != (int) b) {
@@ -4470,7 +4491,7 @@ void manager_disable_confirm_spawn(void) {
 static bool manager_should_show_status(Manager *m, StatusType type) {
         assert(m);
 
-        if (!MANAGER_IS_SYSTEM(m))
+        if (!manager_is_system(m))
                 return false;
 
         if (m->no_console_output)
@@ -4551,7 +4572,7 @@ ManagerState manager_state(Manager *m) {
                 return MANAGER_STOPPING;
 
         /* Did we ever finish booting? If not then we are still starting up */
-        if (!MANAGER_IS_FINISHED(m)) {
+        if (!manager_is_finished(m)) {
 
                 u = manager_get_unit(m, SPECIAL_BASIC_TARGET);
                 if (!u || !UNIT_IS_ACTIVE_OR_RELOADING(unit_active_state(u)))
@@ -4560,7 +4581,7 @@ ManagerState manager_state(Manager *m) {
                 return MANAGER_STARTING;
         }
 
-        if (MANAGER_IS_SYSTEM(m)) {
+        if (manager_is_system(m)) {
                 /* Are the rescue or emergency targets active or queued? If so we are in maintenance state */
                 u = manager_get_unit(m, SPECIAL_RESCUE_TARGET);
                 if (u && unit_active_or_pending(u))
@@ -5149,7 +5170,7 @@ LogTarget manager_get_executor_log_target(Manager *m) {
         assert(m);
 
         /* If journald is not available tell sd-executor to go to kmsg, as it might be starting journald */
-        if (!MANAGER_IS_TEST_RUN(m) && !manager_journal_is_running(m))
+        if (!manager_is_test_run(m) && !manager_journal_is_running(m))
                 return LOG_TARGET_KMSG;
 
         return log_get_target();
@@ -5205,11 +5226,3 @@ static const char* const manager_timestamp_table[_MANAGER_TIMESTAMP_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(manager_timestamp, ManagerTimestamp);
-
-static const char* const oom_policy_table[_OOM_POLICY_MAX] = {
-        [OOM_CONTINUE] = "continue",
-        [OOM_STOP]     = "stop",
-        [OOM_KILL]     = "kill",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(oom_policy, OOMPolicy);

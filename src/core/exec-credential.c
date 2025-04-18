@@ -11,6 +11,7 @@
 #include "io-util.h"
 #include "iovec-util.h"
 #include "label-util.h"
+#include "log.h"
 #include "mkdir-label.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"

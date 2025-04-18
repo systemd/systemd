@@ -22,6 +22,7 @@
 #include "io-util.h"
 #include "label-util.h"
 #include "mkdir-label.h"
+#include "manager.h"
 #include "mount-util.h"
 #include "mount.h"
 #include "mountpoint-util.h"
@@ -132,7 +133,7 @@ static int automount_add_default_dependencies(Automount *a) {
         if (!UNIT(a)->default_dependencies)
                 return 0;
 
-        if (!MANAGER_IS_SYSTEM(UNIT(a)->manager))
+        if (!manager_is_system(UNIT(a)->manager))
                 return 0;
 
         r = unit_add_dependency_by_name(UNIT(a), UNIT_BEFORE, SPECIAL_LOCAL_FS_TARGET, true, UNIT_DEPENDENCY_DEFAULT);

@@ -3,8 +3,8 @@
 
 #include "sd-bus.h"
 
-#include "logind.h"
-#include "logind-session.h"
+typedef struct Manager Manager;
+typedef struct Session Session;
 
 int manager_varlink_init(Manager *m);
 void manager_varlink_done(Manager *m);
