@@ -9,25 +9,27 @@
 
 #include "sd-id128.h"
 
-/* Circular dependency with manager.h, needs to be defined before local includes */
+#include "cgroup.h"
+#include "condition.h"
+#include "emergency-action.h"
+#include "execute.h"
+#include "install.h"
+#include "job.h"
+#include "list.h"
+#include "log-context.h"
+#include "mount-util.h"
+#include "pidref.h"
+#include "ratelimit.h"
+#include "unit-file.h"
+
+typedef struct UnitRef UnitRef;
+
 typedef enum UnitMountDependencyType {
         UNIT_MOUNT_WANTS,
         UNIT_MOUNT_REQUIRES,
         _UNIT_MOUNT_DEPENDENCY_TYPE_MAX,
         _UNIT_MOUNT_DEPENDENCY_TYPE_INVALID = -EINVAL,
 } UnitMountDependencyType;
-
-#include "cgroup.h"
-#include "condition.h"
-#include "emergency-action.h"
-#include "install.h"
-#include "list.h"
-#include "log-context.h"
-#include "mount-util.h"
-#include "pidref.h"
-#include "unit-file.h"
-
-typedef struct UnitRef UnitRef;
 
 typedef enum KillOperation {
         KILL_TERMINATE,
@@ -45,6 +47,21 @@ typedef enum CollectMode {
         _COLLECT_MODE_MAX,
         _COLLECT_MODE_INVALID = -EINVAL,
 } CollectMode;
+
+typedef enum OOMPolicy {
+        OOM_CONTINUE,          /* The kernel or systemd-oomd kills the process it wants to kill, and that's it */
+        OOM_STOP,              /* The kernel or systemd-oomd kills the process it wants to kill, and we stop the unit */
+        OOM_KILL,              /* The kernel or systemd-oomd kills the process it wants to kill, and all others in the unit, and we stop the unit */
+        _OOM_POLICY_MAX,
+        _OOM_POLICY_INVALID = -EINVAL,
+} OOMPolicy;
+
+typedef enum StatusType {
+        STATUS_TYPE_EPHEMERAL,
+        STATUS_TYPE_NORMAL,
+        STATUS_TYPE_NOTICE,
+        STATUS_TYPE_EMERGENCY,
+} StatusType;
 
 static inline bool UNIT_IS_ACTIVE_OR_RELOADING(UnitActiveState t) {
         return IN_SET(t, UNIT_ACTIVE, UNIT_RELOADING, UNIT_REFRESHING);
@@ -1060,6 +1077,9 @@ const char* unit_invocation_log_field(const Unit *u);
 UnitMountDependencyType unit_mount_dependency_type_from_string(const char *s) _const_;
 const char* unit_mount_dependency_type_to_string(UnitMountDependencyType t) _const_;
 UnitDependency unit_mount_dependency_type_to_dependency_type(UnitMountDependencyType t) _pure_;
+
+const char* oom_policy_to_string(OOMPolicy i) _const_;
+OOMPolicy oom_policy_from_string(const char *s) _pure_;
 
 /* Macros which append UNIT= or USER_UNIT= to the message */
 

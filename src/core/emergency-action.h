@@ -3,7 +3,10 @@
 
 #include <errno.h>
 
+#include "macro.h"
 #include "runtime-scope.h"
+
+typedef struct Manager Manager;
 
 typedef enum EmergencyAction {
         EMERGENCY_ACTION_NONE,
@@ -33,9 +36,6 @@ typedef enum EmergencyActionFlags {
         EMERGENCY_ACTION_SLEEP_5S    = 1 << 2, /* wait 5s before executing action; only honoured together with EMERGENCY_ACTION_WARN */
         _EMERGENCY_ACTION_FLAGS_MAX  = (1 << 3) - 1,
 } EmergencyActionFlags;
-
-#include "macro.h"
-#include "manager.h"
 
 void emergency_action(
                 Manager *m,
