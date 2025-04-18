@@ -251,59 +251,6 @@ static inline int __coverity_check_and_return__(int condition) {
 /* Pointers range from NULL to POINTER_MAX */
 #define POINTER_MAX ((void*) UINTPTR_MAX)
 
-#define _DEFINE_TRIVIAL_REF_FUNC(type, name, scope)             \
-        scope type *name##_ref(type *p) {                       \
-                if (!p)                                         \
-                        return NULL;                            \
-                                                                \
-                /* For type check. */                           \
-                unsigned *q = &p->n_ref;                        \
-                assert(*q > 0);                                 \
-                assert_se(*q < UINT_MAX);                       \
-                                                                \
-                (*q)++;                                         \
-                return p;                                       \
-        }
-
-#define _DEFINE_TRIVIAL_UNREF_FUNC(type, name, free_func, scope) \
-        scope type *name##_unref(type *p) {                      \
-                if (!p)                                          \
-                        return NULL;                             \
-                                                                 \
-                assert(p->n_ref > 0);                            \
-                p->n_ref--;                                      \
-                if (p->n_ref > 0)                                \
-                        return NULL;                             \
-                                                                 \
-                return free_func(p);                             \
-        }
-
-#define DEFINE_TRIVIAL_REF_FUNC(type, name)     \
-        _DEFINE_TRIVIAL_REF_FUNC(type, name,)
-#define DEFINE_PRIVATE_TRIVIAL_REF_FUNC(type, name)     \
-        _DEFINE_TRIVIAL_REF_FUNC(type, name, static)
-#define DEFINE_PUBLIC_TRIVIAL_REF_FUNC(type, name)      \
-        _DEFINE_TRIVIAL_REF_FUNC(type, name, _public_)
-
-#define DEFINE_TRIVIAL_UNREF_FUNC(type, name, free_func)        \
-        _DEFINE_TRIVIAL_UNREF_FUNC(type, name, free_func,)
-#define DEFINE_PRIVATE_TRIVIAL_UNREF_FUNC(type, name, free_func)        \
-        _DEFINE_TRIVIAL_UNREF_FUNC(type, name, free_func, static)
-#define DEFINE_PUBLIC_TRIVIAL_UNREF_FUNC(type, name, free_func)         \
-        _DEFINE_TRIVIAL_UNREF_FUNC(type, name, free_func, _public_)
-
-#define DEFINE_TRIVIAL_REF_UNREF_FUNC(type, name, free_func)    \
-        DEFINE_TRIVIAL_REF_FUNC(type, name);                    \
-        DEFINE_TRIVIAL_UNREF_FUNC(type, name, free_func);
-
-#define DEFINE_PRIVATE_TRIVIAL_REF_UNREF_FUNC(type, name, free_func)    \
-        DEFINE_PRIVATE_TRIVIAL_REF_FUNC(type, name);                    \
-        DEFINE_PRIVATE_TRIVIAL_UNREF_FUNC(type, name, free_func);
-
-#define DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(type, name, free_func)    \
-        DEFINE_PUBLIC_TRIVIAL_REF_FUNC(type, name);                    \
-        DEFINE_PUBLIC_TRIVIAL_UNREF_FUNC(type, name, free_func);
-
 /* A macro to force copying of a variable from memory. This is useful whenever we want to read something from
  * memory and want to make sure the compiler won't optimize away the destination variable for us. It's not
  * supposed to be a full CPU memory barrier, i.e. CPU is still allowed to reorder the reads, but it is not

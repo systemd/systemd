@@ -4,6 +4,7 @@
 #include "sd-event.h"
 
 #include "macro.h"
+#include "memory-util.h"
 #include "time-util.h"
 
 typedef struct UdevCtrl UdevCtrl;

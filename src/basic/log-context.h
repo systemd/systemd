@@ -5,6 +5,7 @@
 #include <stddef.h>
 
 #include "macro.h"
+#include "memory-util.h"
 
 /*
  * The log context allows attaching extra metadata to log messages written to the journal via log.h. We keep
