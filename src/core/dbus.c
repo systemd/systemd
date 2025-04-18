@@ -82,7 +82,7 @@ static int signal_disconnected(sd_bus_message *message, void *userdata, sd_bus_e
         }
         if (bus == m->system_bus) {
                 /* If we are the system manager, this is already logged by the API bus. */
-                if (!MANAGER_IS_SYSTEM(m))
+                if (!manager_is_system(m))
                         log_notice("Got disconnect on system bus.");
                 bus_done_system(m);
         }
@@ -800,10 +800,10 @@ int bus_init_api(Manager *m) {
                 return 0;
 
         /* The API and system bus is the same if we are running in system mode */
-        if (MANAGER_IS_SYSTEM(m) && m->system_bus)
+        if (manager_is_system(m) && m->system_bus)
                 bus = sd_bus_ref(m->system_bus);
         else {
-                if (MANAGER_IS_SYSTEM(m))
+                if (manager_is_system(m))
                         r = sd_bus_open_system_with_description(&bus, "bus-api-system");
                 else
                         r = sd_bus_open_user_with_description(&bus, "bus-api-user");
@@ -843,7 +843,7 @@ int bus_init_system(Manager *m) {
                 return 0;
 
         /* The API and system bus is the same if we are running in system mode */
-        if (MANAGER_IS_SYSTEM(m) && m->api_bus)
+        if (manager_is_system(m) && m->api_bus)
                 bus = sd_bus_ref(m->api_bus);
         else {
                 r = sd_bus_open_system_with_description(&bus, "bus-system");
@@ -878,7 +878,7 @@ int bus_init_private(Manager *m) {
         if (m->private_listen_fd >= 0)
                 return 0;
 
-        if (MANAGER_IS_SYSTEM(m)) {
+        if (manager_is_system(m)) {
 
                 /* We want the private bus only when running as init */
                 if (getpid_cached() != 1)
@@ -983,7 +983,7 @@ static void destroy_bus(Manager *m, sd_bus **bus) {
 
         /* Possibly flush unwritten data, but only if we are
          * unprivileged, since we don't want to sync here */
-        if (!MANAGER_IS_SYSTEM(m))
+        if (!manager_is_system(m))
                 sd_bus_flush(*bus);
 
         /* And destroy the object */

@@ -418,7 +418,7 @@ static bool mount_is_extrinsic(Unit *u) {
          * ourselves but it's fine if the user operates on them with us. */
 
         /* We only automatically manage mounts if we are in system mode */
-        if (MANAGER_IS_USER(u->manager))
+        if (manager_is_user(u->manager))
                 return true;
 
         p = get_mount_parameters(m);
