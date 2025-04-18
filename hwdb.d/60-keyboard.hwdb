@@ -383,6 +383,7 @@ evdev:name:gpio-keys:phys:gpio-keys/input0:ev:3:dmi:bvn*:bvr*:bd*:svncube:pni1-T
 ###########################################################
 
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDell*:pn*:*
+ KEYBOARD_KEY_68=prog1                                  # G-Mode (Dell-specific)
  KEYBOARD_KEY_81=playpause                              # Play/Pause
  KEYBOARD_KEY_82=stopcd                                 # Stop
  KEYBOARD_KEY_83=previoussong                           # Previous song
@@ -397,7 +398,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDell*:pn*:*
  KEYBOARD_KEY_8c=brightness_auto                        # Fn+Right Auto Brightness
  KEYBOARD_KEY_8f=switchvideomode                        # Fn+F7 aspect ratio
  KEYBOARD_KEY_90=previoussong                           # Front panel previous song
- KEYBOARD_KEY_91=prog1                                  # Wi-Fi Catcher (Dell-specific)
+ KEYBOARD_KEY_91=prog2                                  # Wi-Fi Catcher (Dell-specific)
  KEYBOARD_KEY_92=media                                  # MediaDirect button (house icon)
  KEYBOARD_KEY_93=brightness_auto                        # Fn+Left Auto Brightness
  KEYBOARD_KEY_95=camera                                 # Shutter button - Takes a picture if optional camera available
