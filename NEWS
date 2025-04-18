@@ -79,6 +79,17 @@ CHANGES WITH 258 in spe:
           is therefore unused. Moreover, the exit of session leader process
           will immediately cause the session to be stopped.
 
+        * To work around limitations of X11's keyboard handling systemd's
+          keyboard mapping hardware database (hwdb.d/60-keyboard.hwdb) so far
+          mapped the microphone mute and touchpad on/off/toggle keys to the
+          function keys F20, F21, F22, F23 instead of their correct key codes.
+          This key code mangling has been removed.
+          To maintain compatibility with X11 applications that rely on the old
+          function key code mappings, this mangling has now been moved to the
+          relevant X11 keyboard driver modules. In order to ensure these keys
+          continue to work, update to xf86-input-evdev >= 2.11.0 and
+          xf86-input-libinput >= 1.5.0 before updating to systemd >= 258.
+
         Announcements of Future Feature Removals:
 
         * The D-Bus method org.freedesktop.systemd1.StartAuxiliaryScope() is
@@ -96,17 +107,6 @@ CHANGES WITH 258 in spe:
           more generic FactoryResetRequest variable instead, which can be
           managed by "systemd-factory-reset request" and "systemd-factory-reset
           complete".
-
-        * To work around limitations of X11's keyboard handling systemd's
-          keyboard mapping hardware database (hwdb.d/60-keyboard.hwdb) so far
-          mapped the microphone mute and touchpad on/off/toggle keys to the
-          function keys F20, F21, F22, F23 instead of their correct key codes.
-          This key code mangling will be removed in the next systemd release.
-          To maintain compatibility with X11 applications that rely on the old
-          function key code mappings, this mangling has now been moved to the
-          relevant X11 keyboard driver modules. In order to ensure these keys
-          continue to work, update to xf86-input-evdev >= 2.11.0 and
-          xf86-input-libinput >= 1.5.0 before updating to systemd >= 258.
 
         * The meson option 'integration-tests' has been deprecated, and will be
           removed in a future release.
