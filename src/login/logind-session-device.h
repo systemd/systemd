@@ -1,18 +1,19 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-typedef enum DeviceType DeviceType;
+#include "list.h"
+#include "memory-util.h"
+
+typedef struct Device Device;
+typedef struct Session Session;
 typedef struct SessionDevice SessionDevice;
 
-#include "list.h"
-#include "logind.h"
-
-enum DeviceType {
+typedef enum DeviceType {
         DEVICE_TYPE_UNKNOWN,
         DEVICE_TYPE_DRM,
         DEVICE_TYPE_EVDEV,
         DEVICE_TYPE_HIDRAW,
-};
+} DeviceType;
 
 struct SessionDevice {
         Session *session;
