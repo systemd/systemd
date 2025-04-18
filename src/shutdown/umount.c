@@ -18,6 +18,7 @@
 #include "fs-util.h"
 #include "fstab-util.h"
 #include "libmount-util.h"
+#include "log.h"
 #include "mkdir.h"
 #include "mount-setup.h"
 #include "mount-util.h"

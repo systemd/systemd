@@ -65,6 +65,7 @@
 #include "format-table.h"
 #include "glob-util.h"
 #include "hashmap.h"
+#include "image-policy.h"
 #include "locale-util.h"
 #include "log.h"
 #include "main-func.h"
