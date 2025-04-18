@@ -24,6 +24,7 @@
 #include "dbus-unit.h"
 #include "dbus.h"
 #include "dropin.h"
+#include "dynamic-user.h"
 #include "env-util.h"
 #include "escape.h"
 #include "exec-credential.h"
@@ -6809,6 +6810,14 @@ static const char* const unit_mount_dependency_type_table[_UNIT_MOUNT_DEPENDENCY
 };
 
 DEFINE_STRING_TABLE_LOOKUP(unit_mount_dependency_type, UnitMountDependencyType);
+
+static const char* const oom_policy_table[_OOM_POLICY_MAX] = {
+        [OOM_CONTINUE] = "continue",
+        [OOM_STOP]     = "stop",
+        [OOM_KILL]     = "kill",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(oom_policy, OOMPolicy);
 
 UnitDependency unit_mount_dependency_type_to_dependency_type(UnitMountDependencyType t) {
         switch (t) {

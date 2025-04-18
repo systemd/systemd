@@ -42,6 +42,7 @@
 #include "dbus-unit.h"
 #include "dbus.h"
 #include "dirent-util.h"
+#include "dynamic-user.h"
 #include "env-util.h"
 #include "escape.h"
 #include "event-util.h"
@@ -5182,11 +5183,3 @@ static const char* const manager_timestamp_table[_MANAGER_TIMESTAMP_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(manager_timestamp, ManagerTimestamp);
-
-static const char* const oom_policy_table[_OOM_POLICY_MAX] = {
-        [OOM_CONTINUE] = "continue",
-        [OOM_STOP]     = "stop",
-        [OOM_KILL]     = "kill",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(oom_policy, OOMPolicy);

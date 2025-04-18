@@ -3,9 +3,7 @@
 
 #include "unit.h"
 
-typedef struct Slice Slice;
-
-struct Slice {
+typedef struct Slice {
         Unit meta;
 
         SliceState state, deserialized_state;
@@ -16,7 +14,7 @@ struct Slice {
         CGroupContext cgroup_context;
 
         CGroupRuntime *cgroup_runtime;
-};
+} Slice;
 
 extern const UnitVTable slice_vtable;
 
