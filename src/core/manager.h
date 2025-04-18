@@ -472,9 +472,6 @@ struct Manager {
         RateLimit ctrl_alt_del_ratelimit;
         EmergencyAction cad_burst_action;
 
-        const char *unit_log_field;
-        const char *invocation_log_field;
-
         int first_boot; /* tri-state */
 
         /* Prefixes of e.g. RuntimeDirectory= */
