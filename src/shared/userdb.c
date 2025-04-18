@@ -12,6 +12,7 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "json-util.h"
+#include "log.h"
 #include "missing_syscall.h"
 #include "parse-util.h"
 #include "set.h"

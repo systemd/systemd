@@ -8,6 +8,7 @@
 #include "iovec-util.h"
 #include "iovec-wrapper.h"
 #include "log.h"
+#include "log-context.h"
 #include "process-util.h"
 #include "string-util.h"
 #include "strv.h"

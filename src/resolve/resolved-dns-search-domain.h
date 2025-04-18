@@ -5,6 +5,7 @@
 
 #include "list.h"
 #include "macro.h"
+#include "memory-util.h"
 
 typedef struct DnsSearchDomain DnsSearchDomain;
 typedef struct Link Link;

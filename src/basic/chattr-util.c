@@ -10,6 +10,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
+#include "log.h"
 #include "macro.h"
 #include "string-util.h"
 

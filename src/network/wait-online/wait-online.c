@@ -8,6 +8,7 @@
 
 #include "build.h"
 #include "daemon-util.h"
+#include "log.h"
 #include "main-func.h"
 #include "manager.h"
 #include "parse-argument.h"

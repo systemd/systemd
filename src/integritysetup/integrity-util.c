@@ -3,6 +3,7 @@
 
 #include "extract-word.h"
 #include "fileio.h"
+#include "log.h"
 #include "path-util.h"
 #include "percent-util.h"
 

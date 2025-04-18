@@ -11,6 +11,7 @@
 
 #include "dlfcn-util.h"
 #include "macro.h"
+#include "memory-util.h"
 
 extern DLSYM_PROTOTYPE(gcry_md_close);
 extern DLSYM_PROTOTYPE(gcry_md_copy);

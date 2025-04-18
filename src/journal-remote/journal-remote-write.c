@@ -5,6 +5,7 @@
 #include "alloc-util.h"
 #include "journal-file-util.h"
 #include "journal-remote.h"
+#include "log.h"
 #include "path-util.h"
 #include "stat-util.h"
 

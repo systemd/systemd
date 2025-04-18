@@ -18,6 +18,7 @@
 #include "format-util.h"
 #include "hostname-util.h"
 #include "locale-util.h"
+#include "log.h"
 #include "macro.h"
 #include "nulstr-util.h"
 #include "output-mode.h"

@@ -5,6 +5,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "ipe-setup.h"
+#include "log.h"
 #include "nulstr-util.h"
 #include "path-util.h"
 

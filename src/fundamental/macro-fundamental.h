@@ -1,10 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#if !SD_BOOT
-#  include <assert.h>
-#endif
-
 #include <limits.h>
 #include <stdalign.h>
 #include <stdbool.h>
@@ -144,45 +140,7 @@
 #define XCONCATENATE(x, y) x ## y
 #define CONCATENATE(x, y) XCONCATENATE(x, y)
 
-#if SD_BOOT
-        _noreturn_ void efi_assert(const char *expr, const char *file, unsigned line, const char *function);
-
-        #ifdef NDEBUG
-                #define assert(expr) ({ if (!(expr)) __builtin_unreachable(); })
-                #define assert_not_reached() __builtin_unreachable()
-        #else
-                #define assert(expr) ({ _likely_(expr) ? VOID_0 : efi_assert(#expr, __FILE__, __LINE__, __func__); })
-                #define assert_not_reached() efi_assert("Code should not be reached", __FILE__, __LINE__, __func__)
-        #endif
-        #define static_assert _Static_assert
-        #define assert_se(expr) ({ _likely_(expr) ? VOID_0 : efi_assert(#expr, __FILE__, __LINE__, __func__); })
-#endif
-
-/* This passes the argument through after (if asserts are enabled) checking that it is not null. */
-#define ASSERT_PTR(expr) _ASSERT_PTR(expr, UNIQ_T(_expr_, UNIQ), assert)
-#define ASSERT_SE_PTR(expr) _ASSERT_PTR(expr, UNIQ_T(_expr_, UNIQ), assert_se)
-#define _ASSERT_PTR(expr, var, check)      \
-        ({                                 \
-                typeof(expr) var = (expr); \
-                check(var);                \
-                var;                       \
-        })
-
-#define ASSERT_NONNEG(expr)                              \
-        ({                                               \
-                typeof(expr) _expr_ = (expr), _zero = 0; \
-                assert(_expr_ >= _zero);                 \
-                _expr_;                                  \
-        })
-
-#define ASSERT_SE_NONNEG(expr)                           \
-        ({                                               \
-                typeof(expr) _expr_ = (expr), _zero = 0; \
-                assert_se(_expr_ >= _zero);              \
-                _expr_;                                  \
-        })
-
-#define assert_cc(expr) static_assert(expr, #expr)
+#define assert_cc(expr) _Static_assert(expr, #expr)
 
 #define UNIQ_T(x, uniq) CONCATENATE(__unique_prefix_, CONCATENATE(x, uniq))
 #define UNIQ __COUNTER__
@@ -438,82 +396,6 @@
                 (typeof(memory)) NULL;          \
         })
 
-static inline size_t ALIGN_TO(size_t l, size_t ali) {
-        assert(ISPOWEROF2(ali));
-
-        if (l > SIZE_MAX - (ali - 1))
-                return SIZE_MAX; /* indicate overflow */
-
-        return ((l + (ali - 1)) & ~(ali - 1));
-}
-
-static inline uint64_t ALIGN_TO_U64(uint64_t l, uint64_t ali) {
-        assert(ISPOWEROF2(ali));
-
-        if (l > UINT64_MAX - (ali - 1))
-                return UINT64_MAX; /* indicate overflow */
-
-        return ((l + (ali - 1)) & ~(ali - 1));
-}
-
-static inline size_t ALIGN_DOWN(size_t l, size_t ali) {
-        assert(ISPOWEROF2(ali));
-
-        return l & ~(ali - 1);
-}
-
-static inline uint64_t ALIGN_DOWN_U64(uint64_t l, uint64_t ali) {
-        assert(ISPOWEROF2(ali));
-
-        return l & ~(ali - 1);
-}
-
-static inline size_t ALIGN_OFFSET(size_t l, size_t ali) {
-        assert(ISPOWEROF2(ali));
-
-        return l & (ali - 1);
-}
-
-static inline uint64_t ALIGN_OFFSET_U64(uint64_t l, uint64_t ali) {
-        assert(ISPOWEROF2(ali));
-
-        return l & (ali - 1);
-}
-
-#define ALIGN2(l) ALIGN_TO(l, 2)
-#define ALIGN4(l) ALIGN_TO(l, 4)
-#define ALIGN8(l) ALIGN_TO(l, 8)
-#define ALIGN2_PTR(p) ((void*) ALIGN2((uintptr_t) p))
-#define ALIGN4_PTR(p) ((void*) ALIGN4((uintptr_t) p))
-#define ALIGN8_PTR(p) ((void*) ALIGN8((uintptr_t) p))
-#define ALIGN(l)  ALIGN_TO(l, sizeof(void*))
-#define ALIGN_PTR(p) ((void*) ALIGN((uintptr_t) (p)))
-
-/* Checks if the specified pointer is aligned as appropriate for the specific type */
-#define IS_ALIGNED16(p) (((uintptr_t) p) % alignof(uint16_t) == 0)
-#define IS_ALIGNED32(p) (((uintptr_t) p) % alignof(uint32_t) == 0)
-#define IS_ALIGNED64(p) (((uintptr_t) p) % alignof(uint64_t) == 0)
-
-/* Same as ALIGN_TO but callable in constant contexts. */
-#define CONST_ALIGN_TO(l, ali)                                         \
-        __builtin_choose_expr(                                         \
-                __builtin_constant_p(l) &&                             \
-                __builtin_constant_p(ali) &&                           \
-                CONST_ISPOWEROF2(ali) &&                               \
-                (l <= SIZE_MAX - (ali - 1)),      /* overflow? */      \
-                ((l) + (ali) - 1) & ~((ali) - 1),                      \
-                VOID_0)
-
-/* Similar to ((t *) (void *) (p)) to cast a pointer. The macro asserts that the pointer has a suitable
- * alignment for type "t". This exists for places where otherwise "-Wcast-align=strict" would issue a
- * warning or if you want to assert that the cast gives a pointer of suitable alignment. */
-#define CAST_ALIGN_PTR(t, p)                                    \
-        ({                                                      \
-                const void *_p = (p);                           \
-                assert(((uintptr_t) _p) % alignof(t) == 0); \
-                (t *) _p;                                       \
-        })
-
 #define UPDATE_FLAG(orig, flag, b)                      \
         ((b) ? ((orig) | (flag)) : ((orig) & ~(flag)))
 #define SET_FLAG(v, flag, b) \
@@ -521,41 +403,11 @@ static inline uint64_t ALIGN_OFFSET_U64(uint64_t l, uint64_t ali) {
 #define FLAGS_SET(v, flags) \
         ((~(v) & (flags)) == 0)
 
-/* A wrapper for 'func' to return void.
- * Only useful when a void-returning function is required by some API. */
-#define DEFINE_TRIVIAL_DESTRUCTOR(name, type, func)             \
-        static inline void name(type *p) {                      \
-                func(p);                                        \
-        }
+typedef struct {
+        int _empty[0];
+} dummy_t;
 
-/* When func() returns the void value (NULL, -1, …) of the appropriate type */
-#define DEFINE_TRIVIAL_CLEANUP_FUNC(type, func)                 \
-        static inline void func##p(type *p) {                   \
-                if (*p)                                         \
-                        *p = func(*p);                          \
-        }
-
-/* When func() doesn't return the appropriate type, set variable to empty afterwards.
- * The func() may be provided by a dynamically loaded shared library, hence add an assertion. */
-#define DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(type, func, empty)     \
-        static inline void func##p(type *p) {                   \
-                if (*p != (empty)) {                            \
-                        DISABLE_WARNING_ADDRESS;                \
-                        assert(func);                           \
-                        REENABLE_WARNING;                       \
-                        func(*p);                               \
-                        *p = (empty);                           \
-                }                                               \
-        }
-
-/* When func() doesn't return the appropriate type, and is also a macro, set variable to empty afterwards. */
-#define DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_MACRO(type, func, empty)       \
-        static inline void func##p(type *p) {                           \
-                if (*p != (empty)) {                                    \
-                        func(*p);                                       \
-                        *p = (empty);                                   \
-                }                                                       \
-        }
+assert_cc(sizeof(dummy_t) == 0);
 
 /* Restriction/bug (see below) was fixed in GCC 15 and clang 19. */
 #if __GNUC__ >= 15 || (defined(__clang__) && __clang_major__ >= 19)

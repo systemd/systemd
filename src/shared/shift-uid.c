@@ -6,6 +6,7 @@
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "log.h"
 #include "missing_magic.h"
 #include "shift-uid.h"
 #include "stat-util.h"

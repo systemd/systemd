@@ -13,6 +13,7 @@
 #include "bus-wait-for-jobs.h"
 #include "conf-files.h"
 #include "edit-util.h"
+#include "log.h"
 #include "mkdir-label.h"
 #include "netlink-util.h"
 #include "network-util.h"

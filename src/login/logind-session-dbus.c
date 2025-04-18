@@ -10,6 +10,7 @@
 #include "bus-util.h"
 #include "devnum-util.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "logind-brightness.h"
 #include "logind-dbus.h"
 #include "logind-polkit.h"

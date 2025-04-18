@@ -7,6 +7,8 @@
 #include <archive.h>
 #include <archive_entry.h>
 
+#include "memory-util.h"
+
 extern DLSYM_PROTOTYPE(archive_entry_free);
 extern DLSYM_PROTOTYPE(archive_entry_new);
 extern DLSYM_PROTOTYPE(archive_entry_set_ctime);

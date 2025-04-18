@@ -4,6 +4,7 @@
 #include "fileio.h"
 #include "env-file.h"
 #include "kernel-image.h"
+#include "log.h"
 #include "os-util.h"
 #include "parse-util.h"
 #include "pe-binary.h"

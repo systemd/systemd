@@ -17,6 +17,7 @@
 #include "iovec-util.h"
 #include "json-util.h"
 #include "list.h"
+#include "log.h"
 #include "mkdir.h"
 #include "path-util.h"
 #include "process-util.h"

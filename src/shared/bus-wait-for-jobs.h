@@ -4,6 +4,7 @@
 #include "sd-bus.h"
 
 #include "macro.h"
+#include "memory-util.h"
 
 typedef struct BusWaitForJobs BusWaitForJobs;
 

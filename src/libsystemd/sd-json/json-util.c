@@ -8,6 +8,7 @@
 #include "in-addr-util.h"
 #include "iovec-util.h"
 #include "json-util.h"
+#include "log.h"
 #include "mountpoint-util.h"
 #include "parse-util.h"
 #include "path-util.h"

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "ansi-color.h"
+#include "assert-util.h"
 #include "glyph-util.h"
 #include "sysupdate-update-set-flags.h"
 #include "terminal-util.h"
