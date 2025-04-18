@@ -5,12 +5,13 @@
 
 #include "sd-bus.h"
 #include "sd-event.h"
+#include "sd-varlink.h"
 
 #include "list.h"
 
+typedef struct Machine Machine;
+typedef struct Manager Manager;
 typedef struct Operation Operation;
-
-#include "machined.h"
 
 #define OPERATIONS_MAX 64
 
