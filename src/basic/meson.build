@@ -58,6 +58,7 @@ basic_sources = files(
         'locale-util.c',
         'lock-util.c',
         'log.c',
+        'log-context.c',
         'login-util.c',
         'keyring-util.c',
         'memfd-util.c',

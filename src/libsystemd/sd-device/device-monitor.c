@@ -22,6 +22,7 @@
 #include "hashmap.h"
 #include "io-util.h"
 #include "iovec-util.h"
+#include "log-context.h"
 #include "missing_socket.h"
 #include "mountpoint-util.h"
 #include "set.h"
