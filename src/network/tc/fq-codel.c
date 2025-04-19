@@ -5,9 +5,9 @@
 
 #include "alloc-util.h"
 #include "conf-parser.h"
+#include "fq-codel.h"
 #include "netlink-util.h"
 #include "parse-util.h"
-#include "qdisc.h"
 #include "string-util.h"
 #include "strv.h"
 
