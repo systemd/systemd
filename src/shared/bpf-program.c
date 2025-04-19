@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
+#include <linux/bpf_insn.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -40,6 +41,58 @@ static const char *const bpf_cgroup_attach_type_table[__MAX_BPF_ATTACH_TYPE] = {
 DEFINE_STRING_TABLE_LOOKUP(bpf_cgroup_attach_type, int);
 
 DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(bpf_program_hash_ops, void, trivial_hash_func, trivial_compare_func, bpf_program_free);
+
+int bpf_program_supported(void) {
+        static bool cached = false;
+        static int result = 0;
+        int r;
+
+        /* Currently, we only use the following three types:
+        * - BPF_PROG_TYPE_CGROUP_SKB, supported since kernel v4.10 (0e33661de493db325435d565a4a722120ae4cbf3),
+        * - BPF_PROG_TYPE_CGROUP_DEVICE, supported since kernel v4.15 (ebc614f687369f9df99828572b1d85a7c2de3d92),
+        * - BPF_PROG_TYPE_CGROUP_SOCK_ADDR, supported since kernel v4.17 (4fbac77d2d092b475dda9eea66da674369665427).
+        * Hence, as our baseline on the kernel is v5.4, it is enough to check only if CONFIG_CGROUP_BPF is
+        * ebabled on the kernel (see comments below). */
+
+        if (cached)
+                return result;
+
+        cached = true;
+
+        /* Unfortunately the kernel allows us to create BPF_PROG_TYPE_CGROUP_SKB (and other types, maybe?)
+         * programs even when CONFIG_CGROUP_BPF is turned off at kernel compilation time. This sucks o
+         * f course: why does it allow us to create a cgroup BPF program if we can't do a thing with it later?
+         *
+         * We detect this case by issuing the BPF_PROG_DETACH bpf() call with invalid file descriptors: if
+         * CONFIG_CGROUP_BPF is turned off, then the call will fail early with EINVAL. If it is turned on the
+         * parameters are validated however, and that'll fail with EBADF then.
+         *
+         * The check seems also important when we are running with sanitizers. When running with sanitizers
+         * (at least with llvm-20), the following check and other bpf() calls fails even if the kernel
+         * supports BPF. To avoid unexpected fail when running with sanitizers, let's explicitly check if
+         * bpf() syscall works. */
+
+        // FIXME: Clang doesn't 0-pad with structured initialization, causing
+        // the kernel to reject the bpf_attr as invalid. See:
+        // https://github.com/torvalds/linux/blob/v5.9/kernel/bpf/syscall.c#L65
+        // Ideally it should behave like GCC, so that we can remove these workarounds.
+        union bpf_attr attr;
+        zero(attr);
+        attr.attach_type = BPF_CGROUP_INET_EGRESS; /* since kernel v4.10 (0e33661de493db325435d565a4a722120ae4cbf3) */
+        attr.target_fd = -EBADF;
+        attr.attach_bpf_fd = -EBADF;
+
+        if (bpf(BPF_PROG_DETACH, &attr, sizeof(attr)) < 0) {
+                if (errno != EBADF)
+                        return result = log_debug_errno(errno, "Didn't get EBADF from invalid BPF_PROG_DETACH call: %m");
+
+                /* YAY! */
+                return result = true;
+        }
+
+        return result = log_debug_errno(SYNTHETIC_ERRNO(EBADE),
+                                        "Wut? Kernel accepted our invalid BPF_PROG_DETACH call? Something is weird, assuming BPF is broken and hence not supported.");
+}
 
 BPFProgram *bpf_program_free(BPFProgram *p) {
         if (!p)
