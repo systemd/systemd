@@ -38,6 +38,7 @@
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pidfd-util.h"
 #include "polkit-agent.h"
 #include "pretty-print.h"
 #include "process-util.h"
@@ -57,6 +58,7 @@ static bool arg_scope = false;
 static bool arg_remain_after_exit = false;
 static bool arg_no_block = false;
 static bool arg_wait = false;
+static bool arg_owned = false;
 static const char *arg_unit = NULL;
 static char *arg_description = NULL;
 static const char *arg_slice = NULL;
@@ -1012,6 +1014,7 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
         arg_service_type = "exec";
         arg_quiet = true;
         arg_wait = true;
+        arg_owned = true;
         arg_aggressive_gc = true;
 
         if (IN_SET(arg_stdio, ARG_STDIO_NONE, ARG_STDIO_AUTO))
@@ -1385,6 +1388,17 @@ static int transient_service_set_properties(sd_bus_message *m, const char *pty_p
                                         return bus_log_create_error(r);
                         }
                 }
+        }
+
+        if (arg_owned) {
+                _cleanup_close_ int pidfd = pidfd_open(getpid_cached(), /* flags = */ 0);
+                if (pidfd < 0)
+                        return log_error_errno(errno, "Failed to pin our own process via pidfd: %m");
+
+                r = sd_bus_message_append(m, "(sv)",
+                                          "TransientOwners", "a(hb)", 1, pidfd, true);
+                if (r < 0)
+                        return bus_log_create_error(r);
         }
 
         if (!strv_isempty(arg_environment)) {
@@ -1912,6 +1926,7 @@ static void run_context_detach_bus(RunContext *c) {
 
 static int pty_forward_handler(PTYForward *f, int rcode, void *userdata) {
         RunContext *c = ASSERT_PTR(userdata);
+        int r;
 
         assert(f);
 
@@ -1922,6 +1937,27 @@ static int pty_forward_handler(PTYForward *f, int rcode, void *userdata) {
 
                 /* If --wait is specified, we'll only exit the pty forwarding, but will continue to wait
                  * for the service to end. If the user hits ^C we'll exit too. */
+
+                if (arg_owned && c->bus) {
+                        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+
+                        /* If owned, the service manager would be watching for our exit and bring down the unit.
+                         * But let's explicitly issue stop request here, so that we synchronously wait until
+                         * the unit terminates. */
+
+                        r = sd_bus_call_method(c->bus,
+                                               "org.freedesktop.systemd1",
+                                               c->bus_path,
+                                               "org.freedesktop.systemd1.Unit",
+                                               "Stop",
+                                               &error, /* reply = */ NULL,
+                                               "s", "replace");
+                        if (r < 0) {
+                                (void) sd_event_exit(c->event, EXIT_FAILURE);
+                                return log_error_errno(r, "Failed to stop transient unit: %s", bus_error_message(&error, r));
+                        }
+                }
+
         } else if (rcode < 0) {
                 (void) sd_event_exit(c->event, EXIT_FAILURE);
                 return log_error_errno(rcode, "Error on PTY forwarding logic: %m");
