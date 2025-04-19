@@ -2,6 +2,8 @@
 #pragma once
 
 #include "conf-parser.h"
+#include "logind-inhibit.h"
+#include "sleep-config.h"
 
 typedef enum HandleAction {
         HANDLE_IGNORE,
@@ -40,10 +42,6 @@ typedef enum HandleActionSleepMask {
 } HandleActionSleepMask;
 
 #define HANDLE_ACTION_SLEEP_MASK_DEFAULT (HANDLE_SLEEP_SUSPEND_THEN_HIBERNATE_MASK|HANDLE_SLEEP_SUSPEND_MASK|HANDLE_SLEEP_HIBERNATE_MASK)
-
-#include "logind-inhibit.h"
-#include "logind.h"
-#include "sleep-config.h"
 
 static inline bool handle_action_valid(HandleAction a) {
         return a >= 0 && a < _HANDLE_ACTION_MAX;

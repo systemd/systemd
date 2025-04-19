@@ -2,7 +2,6 @@
 #pragma once
 
 #include "fdset.h"
-#include "unit.h"
 
 typedef struct Unit Unit;
 

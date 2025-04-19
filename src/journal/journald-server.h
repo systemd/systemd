@@ -7,8 +7,6 @@
 #include "sd-event.h"
 #include "sd-varlink.h"
 
-typedef struct Server Server;
-
 #include "common-signal.h"
 #include "conf-parser.h"
 #include "hashmap.h"
@@ -68,7 +66,7 @@ typedef struct SeqnumData {
         uint64_t seqnum;
 } SeqnumData;
 
-struct Server {
+typedef struct Server {
         char *namespace;
 
         int syslog_fd;
@@ -185,7 +183,7 @@ struct Server {
         ClientContext *pid1_context; /* the context of PID 1 */
 
         sd_varlink_server *varlink_server;
-};
+} Server;
 
 #define SERVER_MACHINE_ID(s) ((s)->machine_id_field + STRLEN("_MACHINE_ID="))
 

@@ -3,8 +3,11 @@
 #include <string.h>
 
 #include "alloc-util.h"
+#include "logind.h"
 #include "logind-device.h"
+#include "logind-seat.h"
 #include "logind-seat-dbus.h"
+#include "logind-session-device.h"
 
 Device* device_new(Manager *m, const char *sysfs, bool master) {
         Device *d;

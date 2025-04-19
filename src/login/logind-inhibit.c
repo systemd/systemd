@@ -17,6 +17,7 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "io-util.h"
+#include "logind.h"
 #include "logind-dbus.h"
 #include "logind-inhibit.h"
 #include "mkdir-label.h"

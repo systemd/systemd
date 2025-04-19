@@ -4,6 +4,7 @@
 #include "sd-bus.h"
 
 #include "bus-object.h"
-#include "logind.h"
+
+typedef struct Manager Manager;
 
 int check_polkit_chvt(sd_bus_message *message, Manager *manager, sd_bus_error *error);

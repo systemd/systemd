@@ -5,6 +5,7 @@
 
 #include "bus-polkit.h"
 #include "btrfs-util.h"
+#include "discover-image.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "image.h"
@@ -12,7 +13,9 @@
 #include "io-util.h"
 #include "json-util.h"
 #include "machine.h"
+#include "machined.h"
 #include "machine-pool.h"
+#include "operation.h"
 #include "process-util.h"
 #include "string-util.h"
 

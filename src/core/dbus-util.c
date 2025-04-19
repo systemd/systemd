@@ -4,6 +4,7 @@
 #include "bus-util.h"
 #include "dbus-util.h"
 #include "escape.h"
+#include "manager.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "reboot-util.h"

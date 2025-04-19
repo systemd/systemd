@@ -1,15 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-typedef struct ExecStatus ExecStatus;
-typedef struct ExecCommand ExecCommand;
-typedef struct ExecContext ExecContext;
-typedef struct ExecSharedRuntime ExecSharedRuntime;
-typedef struct DynamicCreds DynamicCreds;
-typedef struct ExecRuntime ExecRuntime;
-typedef struct ExecParameters ExecParameters;
-typedef struct Manager Manager;
-
 #include <sched.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -22,6 +13,7 @@ typedef struct Manager Manager;
 #include "exec-util.h"
 #include "fdset.h"
 #include "list.h"
+#include "log-context.h"
 #include "namespace.h"
 #include "nsflags.h"
 #include "numa-util.h"
@@ -33,6 +25,19 @@ typedef struct Manager Manager;
 #include "runtime-scope.h"
 #include "set.h"
 #include "time-util.h"
+
+struct ucred;
+
+typedef struct CGroupContext CGroupContext;
+typedef struct ExecStatus ExecStatus;
+typedef struct ExecCommand ExecCommand;
+typedef struct ExecContext ExecContext;
+typedef struct ExecSharedRuntime ExecSharedRuntime;
+typedef struct DynamicCreds DynamicCreds;
+typedef struct ExecRuntime ExecRuntime;
+typedef struct ExecParameters ExecParameters;
+typedef struct Manager Manager;
+typedef struct Unit Unit;
 
 #define EXEC_STDIN_DATA_MAX (64U*1024U*1024U)
 
@@ -493,9 +498,6 @@ struct ExecParameters {
                 .handoff_timestamp_fd   = -EBADF, \
                 .pidref_transport_fd    = -EBADF, \
         }
-
-#include "unit.h"
-#include "dynamic-user.h"
 
 int exec_spawn(
                 Unit *unit,

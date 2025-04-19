@@ -1,5 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "log.h"
+#include "logind.h"
+#include "logind-session.h"
 #include "logind-utmp.h"
 #include "path-util.h"
 #include "process-util.h"

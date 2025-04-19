@@ -25,6 +25,7 @@
 #include "dbus-unit.h"
 #include "dbus-util.h"
 #include "dbus.h"
+#include "dynamic-user.h"
 #include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"

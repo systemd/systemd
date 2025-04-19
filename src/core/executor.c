@@ -9,6 +9,8 @@
 #include "argv-util.h"
 #include "build.h"
 #include "capability-util.h"
+#include "cgroup.h"
+#include "dynamic-user.h"
 #include "exec-invoke.h"
 #include "execute-serialize.h"
 #include "execute.h"

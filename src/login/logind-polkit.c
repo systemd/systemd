@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "bus-polkit.h"
+#include "logind.h"
 #include "logind-polkit.h"
 #include "user-util.h"
 

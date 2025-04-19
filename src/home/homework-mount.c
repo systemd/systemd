@@ -10,6 +10,7 @@
 #include "home-util.h"
 #include "homework-mount.h"
 #include "homework.h"
+#include "log.h"
 #include "missing_syscall.h"
 #include "mkdir.h"
 #include "mount-util.h"

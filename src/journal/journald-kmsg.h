@@ -1,7 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "journald-server.h"
+#include <stddef.h>
+#include <sys/socket.h>
+
+typedef struct Server Server;
 
 int server_open_dev_kmsg(Server *s);
 int server_flush_dev_kmsg(Server *s);

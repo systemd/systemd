@@ -22,6 +22,7 @@
 #include "initrd-util.h"
 #include "label-util.h"
 #include "libmount-util.h"
+#include "log.h"
 #include "missing_syscall.h"
 #include "mkdir-label.h"
 #include "mount-util.h"

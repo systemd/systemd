@@ -39,6 +39,7 @@
 #include "fs-util.h"
 #include "glob-util.h"
 #include "hexdecoct.h"
+#include "image-policy.h"
 #include "io-util.h"
 #include "label-util.h"
 #include "log.h"

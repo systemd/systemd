@@ -4,7 +4,9 @@
 #include "sd-bus.h"
 
 #include "bus-object.h"
-#include "logind-seat.h"
+#include "macro.h"
+
+typedef struct Seat Seat;
 
 extern const BusObjectImplementation seat_object;
 

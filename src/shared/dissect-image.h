@@ -20,6 +20,7 @@ typedef struct DecryptedImage DecryptedImage;
 typedef struct MountOptions MountOptions;
 typedef struct VeritySettings VeritySettings;
 typedef struct ImageFilter ImageFilter;
+typedef struct ImagePolicy ImagePolicy;
 typedef struct ExtensionReleaseData ExtensionReleaseData;
 
 struct DissectedPartition {
@@ -162,9 +163,6 @@ struct ExtensionReleaseData {
         char *os_release_confext_level;
         char *os_release_extension_scope;
 };
-
-/* We include image-policy.h down here, since ImagePolicy wants a complete definition of PartitionDesignator first. */
-#include "image-policy.h"
 
 MountOptions* mount_options_free_all(MountOptions *options);
 DEFINE_TRIVIAL_CLEANUP_FUNC(MountOptions*, mount_options_free_all);

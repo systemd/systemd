@@ -16,6 +16,7 @@
 #include "journal-util.h"
 #include "journald-client.h"
 #include "journald-context.h"
+#include "journald-server.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"

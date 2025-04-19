@@ -10,6 +10,7 @@
 #include "exit-status.h"
 #include "load-dropin.h"
 #include "log.h"
+#include "manager.h"
 #include "process-util.h"
 #include "random-util.h"
 #include "scope.h"

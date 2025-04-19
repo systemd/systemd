@@ -6,6 +6,7 @@
 #include "bus-error.h"
 #include "bus-util.h"
 #include "emergency-action.h"
+#include "manager.h"
 #include "raw-reboot.h"
 #include "reboot-util.h"
 #include "special.h"

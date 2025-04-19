@@ -2,6 +2,7 @@
 
 #include "logind-action.h"
 #include "logind-session.h"
+#include "logind-user.h"
 #include "sleep-config.h"
 #include "test-tables.h"
 #include "tests.h"

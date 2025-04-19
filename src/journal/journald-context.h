@@ -4,6 +4,7 @@
 #include <inttypes.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <syslog.h>
 
 #include "sd-id128.h"
 
@@ -11,11 +12,9 @@
 #include "set.h"
 #include "time-util.h"
 
-typedef struct ClientContext ClientContext;
+typedef struct Server Server;
 
-#include "journald-server.h"
-
-struct ClientContext {
+typedef struct ClientContext {
         unsigned n_ref;
         unsigned lru_index;
         usec_t timestamp;
@@ -60,7 +59,7 @@ struct ClientContext {
 
         Set *log_filter_allowed_patterns;
         Set *log_filter_denied_patterns;
-};
+} ClientContext;
 
 int client_context_get(
                 Server *s,

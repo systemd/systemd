@@ -4,6 +4,6 @@
 #include "sd-bus.h"
 #include "sd-device.h"
 
-#include "logind.h"
+typedef struct Manager Manager;
 
 int manager_write_brightness(Manager *m, sd_device *device, uint32_t brightness, sd_bus_message *message);

@@ -10,6 +10,7 @@
 #include "parse-util.h"
 #include "serialize.h"
 #include "string-table.h"
+#include "unit.h"
 #include "unit-serialize.h"
 #include "user-util.h"
 

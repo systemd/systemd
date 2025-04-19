@@ -9,6 +9,8 @@
 #include "image-varlink.h"
 #include "json-util.h"
 #include "machine-varlink.h"
+#include "machine.h"
+#include "machined.h"
 #include "machined-varlink.h"
 #include "mkdir.h"
 #include "process-util.h"

@@ -1,18 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-typedef struct Service Service;
-typedef struct ServiceFDStore ServiceFDStore;
-typedef struct ServiceExtraFD ServiceExtraFD;
-
 #include "exit-status.h"
 #include "kill.h"
+#include "manager.h"
 #include "open-file.h"
 #include "path.h"
 #include "pidref.h"
 #include "ratelimit.h"
 #include "socket.h"
 #include "unit.h"
+
+typedef struct Service Service;
 
 typedef enum ServiceRestart {
         SERVICE_RESTART_NO,
@@ -101,7 +100,7 @@ typedef enum ServiceRestartMode {
         _SERVICE_RESTART_MODE_INVALID = -EINVAL,
 } ServiceRestartMode;
 
-struct ServiceFDStore {
+typedef struct ServiceFDStore {
         Service *service;
 
         int fd;
@@ -109,13 +108,13 @@ struct ServiceFDStore {
         sd_event_source *event_source;
         bool do_poll;
 
-        LIST_FIELDS(ServiceFDStore, fd_store);
-};
+        LIST_FIELDS(struct ServiceFDStore, fd_store);
+} ServiceFDStore;
 
-struct ServiceExtraFD {
+typedef struct ServiceExtraFD {
         int fd;
         char *fdname;
-};
+} ServiceExtraFD;
 
 struct Service {
         Unit meta;

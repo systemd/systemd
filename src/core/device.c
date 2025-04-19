@@ -13,6 +13,7 @@
 #include "device-util.h"
 #include "device.h"
 #include "log.h"
+#include "manager.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "ratelimit.h"

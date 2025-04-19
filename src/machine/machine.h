@@ -1,15 +1,18 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-typedef struct Machine Machine;
-typedef enum KillWhom KillWhom;
+#include "sd-bus.h"
+#include "sd-event.h"
+#include "sd-id128.h"
 
 #include "copy.h"
 #include "list.h"
-#include "machined.h"
-#include "operation.h"
 #include "pidref.h"
 #include "time-util.h"
+
+typedef struct Machine Machine;
+typedef struct Manager Manager;
+typedef struct Operation Operation;
 
 typedef enum MachineState {
         MACHINE_OPENING,    /* Machine is being registered */
@@ -27,12 +30,12 @@ typedef enum MachineClass {
         _MACHINE_CLASS_INVALID = -EINVAL,
 } MachineClass;
 
-enum KillWhom {
+typedef enum KillWhom {
         KILL_LEADER,
         KILL_ALL,
         _KILL_WHOM_MAX,
         _KILL_WHOM_INVALID = -EINVAL,
-};
+} KillWhom;
 
 struct Machine {
         Manager *manager;

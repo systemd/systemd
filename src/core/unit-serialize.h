@@ -1,10 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <stdbool.h>
 #include <stdio.h>
 
-#include "unit.h"
-#include "fdset.h"
+typedef struct Unit Unit;
+typedef struct FDSet FDSet;
 
 /* These functions serialize state for our own usage, i.e.: across a reload/reexec, rather than for being
  * passed to a child process. */

@@ -3,13 +3,11 @@
 
 #include "unit.h"
 
-typedef struct Target Target;
-
-struct Target {
+typedef struct Target {
         Unit meta;
 
         TargetState state, deserialized_state;
-};
+} Target;
 
 extern const UnitVTable target_vtable;
 

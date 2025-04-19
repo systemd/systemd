@@ -28,6 +28,7 @@
 #include "ip-protocol-list.h"
 #include "label-util.h"
 #include "log.h"
+#include "manager.h"
 #include "mkdir-label.h"
 #include "parse-util.h"
 #include "path-util.h"

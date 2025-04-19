@@ -22,6 +22,7 @@
 #include "label-util.h"
 #include "list.h"
 #include "lock-util.h"
+#include "log.h"
 #include "loop-util.h"
 #include "loopback-setup.h"
 #include "missing_syscall.h"

@@ -1,13 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-typedef struct Socket Socket;
-typedef struct SocketPeer SocketPeer;
-
-#include "mount.h"
 #include "pidref.h"
 #include "socket-util.h"
 #include "unit.h"
+
+typedef struct Socket Socket;
+typedef struct SocketPeer SocketPeer;
 
 typedef enum SocketExecCommand {
         SOCKET_EXEC_START_PRE,

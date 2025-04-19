@@ -22,6 +22,7 @@
 #include "io-util.h"
 #include "label-util.h"
 #include "mkdir-label.h"
+#include "manager.h"
 #include "mount-util.h"
 #include "mount.h"
 #include "mountpoint-util.h"

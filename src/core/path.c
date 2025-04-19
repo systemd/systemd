@@ -16,6 +16,7 @@
 #include "glob-util.h"
 #include "inotify-util.h"
 #include "macro.h"
+#include "manager.h"
 #include "mkdir-label.h"
 #include "path.h"
 #include "path-util.h"

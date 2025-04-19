@@ -12,6 +12,7 @@
 #include "homework-mount.h"
 #include "homework-quota.h"
 #include "keyring-util.h"
+#include "log.h"
 #include "memory-util.h"
 #include "missing_fs.h"
 #include "missing_keyctl.h"

@@ -25,6 +25,7 @@
 #include "format-table.h"
 #include "fs-util.h"
 #include "glob-util.h"
+#include "image-policy.h"
 #include "journal-internal.h"
 #include "journal-util.h"
 #include "json-util.h"

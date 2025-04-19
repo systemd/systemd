@@ -3,7 +3,9 @@
 
 #include "sd-bus-vtable.h"
 
-#include "manager.h"
+#include "time-util.h"
+
+typedef struct Manager Manager;
 
 extern const sd_bus_vtable bus_manager_vtable[];
 extern const sd_bus_vtable bus_manager_log_control_vtable[];

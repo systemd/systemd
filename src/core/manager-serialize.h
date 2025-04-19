@@ -2,9 +2,10 @@
 #pragma once
 
 #include <stdbool.h>
+#include <stdio.h>
 
-#include "manager.h"
-#include "fdset.h"
+typedef struct FDSet FDSet;
+typedef struct Manager Manager;
 
 #define DESTROY_IPC_FLAG (UINT32_C(1) << 31)
 

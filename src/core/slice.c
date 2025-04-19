@@ -7,6 +7,7 @@
 #include "dbus-unit.h"
 #include "fd-util.h"
 #include "log.h"
+#include "manager.h"
 #include "serialize.h"
 #include "slice.h"
 #include "special.h"

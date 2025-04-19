@@ -22,6 +22,7 @@
 #include "in-addr-prefix-util.h"
 #include "ip-protocol-list.h"
 #include "limits-util.h"
+#include "manager.h"
 #include "memstream-util.h"
 #include "parse-util.h"
 #include "path-util.h"

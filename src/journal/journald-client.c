@@ -3,6 +3,8 @@
 #include "cgroup-util.h"
 #include "errno-util.h"
 #include "journald-client.h"
+#include "journald-context.h"
+#include "log.h"
 #include "nulstr-util.h"
 #include "pcre2-util.h"
 #include "strv.h"

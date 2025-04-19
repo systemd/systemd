@@ -45,6 +45,7 @@
 #include "hexdecoct.h"
 #include "hmac.h"
 #include "id128-util.h"
+#include "image-policy.h"
 #include "initrd-util.h"
 #include "io-util.h"
 #include "json-util.h"

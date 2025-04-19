@@ -10,8 +10,6 @@
 #include "pidref.h"
 #include "unit.h"
 
-typedef struct Swap Swap;
-
 typedef enum SwapExecCommand {
         SWAP_EXEC_ACTIVATE,
         SWAP_EXEC_DEACTIVATE,
@@ -38,7 +36,7 @@ typedef struct SwapParameters {
         bool priority_set;
 } SwapParameters;
 
-struct Swap {
+typedef struct Swap {
         Unit meta;
 
         char *what;
@@ -85,7 +83,7 @@ struct Swap {
         devices for the same swap. We chain them up here. */
 
         LIST_FIELDS(struct Swap, same_devnode);
-};
+} Swap;
 
 extern const UnitVTable swap_vtable;
 

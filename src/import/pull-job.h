@@ -5,9 +5,7 @@
 
 #include "curl-util.h"
 #include "import-compress.h"
-#include "macro.h"
 #include "openssl-util.h"
-#include "pull-common.h"
 
 typedef struct PullJob PullJob;
 

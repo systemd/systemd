@@ -5,6 +5,7 @@
 
 #include "automount.h"
 #include "device.h"
+#include "mount.h"
 #include "path.h"
 #include "scope.h"
 #include "service.h"

@@ -2,6 +2,7 @@
 
 #include "analyze-image-policy.h"
 #include "analyze.h"
+#include "image-policy.h"
 #include "format-table.h"
 #include "terminal-util.h"
 

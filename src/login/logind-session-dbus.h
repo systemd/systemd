@@ -4,7 +4,10 @@
 #include "sd-bus.h"
 
 #include "bus-object.h"
-#include "logind-session.h"
+#include "macro.h"
+
+typedef struct Manager Manager;
+typedef struct Session Session;
 
 extern const BusObjectImplementation session_object;
 

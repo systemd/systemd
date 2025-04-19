@@ -1,8 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-typedef struct KillContext KillContext;
-
 #include <stdbool.h>
 #include <stdio.h>
 
@@ -18,7 +16,7 @@ typedef enum KillMode {
         _KILL_MODE_INVALID = -EINVAL,
 } KillMode;
 
-struct KillContext {
+typedef struct KillContext {
         KillMode kill_mode;
         int kill_signal;
         int restart_kill_signal;
@@ -26,7 +24,7 @@ struct KillContext {
         int watchdog_signal;
         bool send_sigkill;
         bool send_sighup;
-};
+} KillContext;
 
 typedef enum KillWhom {
         /* Kill whom is a property of an operation */

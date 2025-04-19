@@ -7,18 +7,18 @@
 #include "sd-event.h"
 #include "sd-varlink.h"
 
-typedef struct Manager Manager;
-
+#include "bus-object.h"
 #include "hashmap.h"
-#include "image-dbus.h"
 #include "list.h"
 #include "local-addresses.h"
-#include "machine-dbus.h"
-#include "machine.h"
-#include "operation.h"
 #include "pidref.h"
+#include "runtime-scope.h"
 
-struct Manager {
+typedef struct Image Image;
+typedef struct Machine Machine;
+typedef struct Operation Operation;
+
+typedef struct Manager {
         sd_event *event;
         sd_bus *bus;
 
@@ -44,7 +44,7 @@ struct Manager {
         sd_varlink_server *varlink_machine_server;
 
         RuntimeScope runtime_scope; /* for now: always RUNTIME_SCOPE_SYSTEM */
-};
+} Manager;
 
 int manager_add_machine(Manager *m, const char *name, Machine **ret);
 int manager_get_machine_by_pidref(Manager *m, const PidRef *pidref, Machine **ret);

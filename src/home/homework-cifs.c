@@ -9,6 +9,7 @@
 #include "fs-util.h"
 #include "homework-cifs.h"
 #include "homework-mount.h"
+#include "log.h"
 #include "memfd-util.h"
 #include "mkdir.h"
 #include "mount-util.h"

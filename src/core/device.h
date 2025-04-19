@@ -3,8 +3,6 @@
 
 #include "unit.h"
 
-typedef struct Device Device;
-
 /* A mask specifying where we have seen the device currently. This is a bitmask because the device might show up
  * asynchronously from each other at various places. For example, in very common case a device might already be mounted
  * before udev finished probing it (think: a script setting up a loopback block device, formatting it and mounting it
@@ -17,7 +15,7 @@ typedef enum DeviceFound {
         _DEVICE_FOUND_MASK = DEVICE_FOUND_UDEV|DEVICE_FOUND_MOUNT|DEVICE_FOUND_SWAP,
 } DeviceFound;
 
-struct Device {
+typedef struct Device {
         Unit meta;
 
         char *sysfs, *deserialized_sysfs;
@@ -36,7 +34,7 @@ struct Device {
 
         /* The SYSTEMD_WANTS udev property for this device the last time we saw it */
         char **wants_property;
-};
+} Device;
 
 extern const UnitVTable device_vtable;
 

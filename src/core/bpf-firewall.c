@@ -20,6 +20,7 @@
 #include "bpf-program.h"
 #include "fd-util.h"
 #include "in-addr-prefix-util.h"
+#include "manager.h"
 #include "memory-util.h"
 #include "missing_syscall.h"
 #include "unit.h"

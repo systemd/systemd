@@ -8,8 +8,6 @@
 #include "sd-event.h"
 #include "sd-varlink.h"
 
-typedef struct Manager Manager;
-
 #include "hashmap.h"
 #include "homed-home.h"
 
@@ -25,7 +23,7 @@ typedef enum RebalanceState {
         _REBALANCE_STATE_INVALID = -1,
 } RebalanceState;
 
-struct Manager {
+typedef struct Manager {
         sd_event *event;
         sd_bus *bus;
 
@@ -68,7 +66,7 @@ struct Manager {
          * running a rebalancing operation for. 'rebalance_queued_method_calls' are the method calls that
          * have been queued since then and that we'll operate on once we complete the current run. */
         Set *rebalance_pending_method_calls, *rebalance_queued_method_calls;
-};
+} Manager;
 
 int manager_new(Manager **ret);
 Manager* manager_free(Manager *m);

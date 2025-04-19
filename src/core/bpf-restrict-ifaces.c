@@ -3,6 +3,7 @@
 #include "fd-util.h"
 #include "bpf-restrict-ifaces.h"
 #include "netlink-util.h"
+#include "unit.h"
 
 #if BPF_FRAMEWORK
 /* libbpf, clang and llc compile time dependencies are satisfied */

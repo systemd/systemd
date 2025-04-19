@@ -1,9 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "sd-event.h"
+
 #include "pidref.h"
+#include "time-util.h"
 
 typedef struct Inhibitor Inhibitor;
+typedef struct Manager Manager;
 
 typedef enum InhibitWhat {
         INHIBIT_SHUTDOWN             = 1 << 0,
@@ -25,8 +29,6 @@ typedef enum InhibitMode {
         _INHIBIT_MODE_MAX,
         _INHIBIT_MODE_INVALID = -EINVAL,
 } InhibitMode;
-
-#include "logind.h"
 
 struct Inhibitor {
         Manager *manager;

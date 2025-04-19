@@ -4,6 +4,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "hashmap.h"
+#include "manager.h"
 #include "manager-dump.h"
 #include "memstream-util.h"
 #include "unit-serialize.h"
