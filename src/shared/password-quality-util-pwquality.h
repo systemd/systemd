@@ -9,6 +9,7 @@
 #include <pwquality.h>
 
 #include "dlfcn-util.h"
+#include "memory-util.h"
 
 extern DLSYM_PROTOTYPE(pwquality_check);
 extern DLSYM_PROTOTYPE(pwquality_default_settings);

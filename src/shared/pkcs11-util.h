@@ -15,7 +15,7 @@
 #include "ask-password-api.h"
 #include "dlfcn-util.h"
 #include "log.h"
-#include "macro.h"
+#include "memory-util.h"
 #include "time-util.h"
 
 bool pkcs11_uri_valid(const char *uri);

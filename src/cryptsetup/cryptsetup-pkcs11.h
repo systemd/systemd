@@ -3,6 +3,7 @@
 
 #include <sys/types.h>
 
+#include "ask-password-api.h"
 #include "cryptsetup-util.h"
 #include "log.h"
 #include "time-util.h"

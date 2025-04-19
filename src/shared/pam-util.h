@@ -2,7 +2,9 @@
 #pragma once
 
 #include <security/pam_modules.h>
+#include <syslog.h>
 
+#include "macro.h"
 #include "sd-bus.h"
 
 void pam_log_setup(void);

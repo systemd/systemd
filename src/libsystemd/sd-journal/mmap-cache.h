@@ -6,6 +6,7 @@
 #include <sys/stat.h>
 
 #include "journal-def.h"
+#include "memory-util.h"
 
 typedef struct MMapCache MMapCache;
 typedef struct MMapFileDescriptor MMapFileDescriptor;

@@ -4,6 +4,7 @@
 #include <inttypes.h>
 
 #include "sd-device.h"
+#include "sd-netlink.h"
 
 #include "macro.h"
 
