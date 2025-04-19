@@ -1,10 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-typedef struct Seat Seat;
-
 #include "list.h"
-#include "logind-session.h"
+#include "memory-util.h"
+#include "string-util.h"
+#include "time-util.h"
+
+typedef struct Device Device;
+typedef struct Manager Manager;
+typedef struct Seat Seat;
+typedef struct Session Session;
 
 struct Seat {
         Manager *manager;

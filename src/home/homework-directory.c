@@ -8,6 +8,7 @@
 #include "homework-directory.h"
 #include "homework-mount.h"
 #include "homework-quota.h"
+#include "log.h"
 #include "mkdir.h"
 #include "mount-util.h"
 #include "path-util.h"
