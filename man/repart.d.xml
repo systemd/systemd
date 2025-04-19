@@ -919,10 +919,9 @@
         for the merged partition for some other reason.</para>
 
         <para>The following fields are merged into the target definition in the specified ways:
-        <varname>Weight=</varname> and <varname>PaddingWeight=</varname> are simply overwritten;
-        <varname>SizeMinBytes=</varname> and <varname>PaddingMinBytes=</varname> use the larger of the two
-        values; <varname>SizeMaxBytes=</varname> and <varname>PaddingMaxBytes=</varname> use the smaller
-        value; and <varname>CopyFiles=</varname>, <varname>ExcludeFiles=</varname>,
+        <varname>Weight=</varname>is simply overwritten; <varname>SizeMinBytes=</varname> uses the larger of
+        the two values; <varname>SizeMaxBytes=</varname> uses the smaller value; and
+        <varname>CopyFiles=</varname>, <varname>ExcludeFiles=</varname>,
         <varname>ExcludeFilesTarget=</varname>, <varname>MakeDirectories=</varname>, and
         <varname>Subvolumes=</varname> are concatenated.</para>
 
