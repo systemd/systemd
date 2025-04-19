@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
+#include "sys/mman.h"
+
 #include "cgroup-util.h"
 #include "common-signal.h"
 #include "daemon-util.h"
@@ -11,6 +13,7 @@
 #include "fd-util.h"
 #include "fs-util.h"
 #include "hashmap.h"
+#include "io-util.h"
 #include "iovec-util.h"
 #include "list.h"
 #include "mkdir.h"
@@ -88,13 +91,116 @@ typedef struct Worker {
         Event *event;
 } Worker;
 
+typedef struct UdevSeqnum {
+        uint64_t next_seqnum;       /* The expected next seqnum of event to be received. */
+        uint64_t min_queued_seqnum; /* The minimum queued seqnum. Each seqnum of queued event must be equal or larger than this. */
+} UdevSeqnum;
+
+static int manager_map_seqnum_file(Manager *manager) {
+        int r;
+
+        assert(manager);
+        assert(!manager->seqnum);
+
+        _cleanup_close_ int fd = open("/run/udev/seqnum", O_RDWR|O_CREAT|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, 0644);
+        if (fd < 0)
+                return log_error_errno(errno, "Failed to open /run/udev/seqnum: %m");
+
+        r = posix_fallocate_loop(fd, 0, sizeof(UdevSeqnum));
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate /run/udev/seqnum: %m");
+
+        void *p = mmap(NULL, sizeof(UdevSeqnum), PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
+        if (p == MAP_FAILED)
+                return log_error_errno(errno, "Failed to mmap /run/udev/seqnum: %m");
+
+        manager->seqnum = p;
+        return 0;
+}
+
+static void manager_unmap_seqnum_file(Manager *manager) {
+        assert(manager);
+
+        if (!manager->seqnum)
+                return;
+
+        log_debug("next_seqnum: %"PRIu64", min_queued_seqnum: %"PRIu64,
+                  manager->seqnum->next_seqnum, manager->seqnum->min_queued_seqnum);
+        munmap(manager->seqnum, sizeof(UdevSeqnum));
+        manager->seqnum = NULL;
+}
+
+static void manager_update_min_queued_seqnum(Manager *manager, Event *event) {
+        assert(manager);
+        assert(event);
+
+        if (!manager->seqnum)
+                return;
+
+        sd_device *dev = manager->events ? manager->events->dev : event->dev;
+        uint64_t seqnum = manager->events ? manager->events->seqnum : event->seqnum + 1;
+        if (seqnum < manager->seqnum->min_queued_seqnum)
+                log_device_warning(dev,
+                                   "Already processed event (SEQNUM=%"PRIu64") has been queued and/or processed again?",
+                                   seqnum);
+        else
+                manager->seqnum->min_queued_seqnum = seqnum;
+}
+
+static int manager_validate_seqnum(Manager *manager, sd_device *dev, bool is_new) {
+        uint64_t seqnum;
+        int r;
+
+        assert(manager);
+        assert(manager->seqnum);
+        assert(dev);
+
+        r = sd_device_get_seqnum(dev, &seqnum);
+        if (r < 0)
+                return log_device_warning_errno(dev, r, "Failed to get seqnum: %m");
+
+        /* We already processed this event? */
+        if (seqnum < manager->seqnum->min_queued_seqnum)
+                return log_device_warning_errno(
+                                dev, SYNTHETIC_ERRNO(EALREADY),
+                                "The event %"PRIu64" has been already processed.", seqnum);
+
+        if (is_new) {
+                /* We already queued this event? */
+                if (seqnum < manager->seqnum->next_seqnum)
+                        return log_device_warning_errno(
+                                        dev, SYNTHETIC_ERRNO(EALREADY),
+                                        "The event %"PRIu64" has been already queued.", seqnum);
+
+                /* Unfortunately, unlike the kmsg seqnum verification done by journald, udevd cannot know how
+                 * many events lost, as the kernel sends an event for a network interface to all network
+                 * namespaces with _different_ seqnum. See
+                 * https://github.com/torvalds/linux/commit/07e98962fa778b9782c8845dfcb06a84cc050744 */
+
+                /* Note that here we always store the next event seqnum we expect. */
+                manager->seqnum->next_seqnum = seqnum + 1;
+
+        } else {
+                /* Deserialized a future event? */
+                if (seqnum >= manager->seqnum->next_seqnum)
+                        return log_device_warning_errno(
+                                        dev, SYNTHETIC_ERRNO(ESTALE),
+                                        "The deserialized event %"PRIu64" has not been queued previously.", seqnum);
+        }
+
+        return 0;
+}
+
 static Event* event_free(Event *event) {
         if (!event)
                 return NULL;
 
-        assert(event->manager);
+        Manager *manager = ASSERT_PTR(event->manager);
 
-        LIST_REMOVE(event, event->manager->events, event);
+        /* Remove the current event from the list, before updating the seqnum file. */
+        LIST_REMOVE(event, manager->events, event);
+        /* Update seqnum file before unref the device, as it may be used on logging. */
+        manager_update_min_queued_seqnum(manager, event);
         sd_device_unref(event->dev);
 
         sd_event_source_unref(event->retry_event_source);
@@ -139,15 +245,18 @@ Manager* manager_free(Manager *manager) {
         hashmap_free(manager->properties);
         udev_rules_free(manager->rules);
 
+        /* The file must be unmapped before freeing events (hence also workers). */
+        manager_unmap_seqnum_file(manager);
+
         hashmap_free(manager->workers);
         while (manager->events)
                 event_free(manager->events);
-
         safe_close(manager->inotify_fd);
 
         free(manager->worker_notify_socket_path);
 
         sd_device_monitor_unref(manager->monitor);
+
         udev_ctrl_unref(manager->ctrl);
         sd_varlink_server_unref(manager->varlink_server);
 
@@ -863,6 +972,108 @@ static int event_queue_insert(Manager *manager, sd_device *dev) {
         return 0;
 }
 
+static int manager_serialize_events(Manager *manager) {
+        int r;
+
+        assert(manager);
+
+        _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *storage = NULL;
+        r = device_monitor_new_full(&storage, MONITOR_GROUP_NONE, -EBADF);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to create new device monitor instance: %m");
+
+        union sockaddr_union a;
+        r = device_monitor_get_address(storage, &a);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to get address of device monitor socket: %m");
+
+        uint64_t n = 0;
+        LIST_FOREACH(event, event, manager->events) {
+                if (event->state != EVENT_QUEUED)
+                        continue;
+
+                r = device_monitor_send(storage, &a, event->dev);
+                if (r < 0) {
+                        log_device_warning_errno(event->dev, r, "Failed to save event to socket storage, ignoring: %m");
+                        continue;
+                }
+
+                n++;
+        }
+
+        if (n == 0)
+                return 0;
+
+        r = notify_push_fd(sd_device_monitor_get_fd(storage), "event-serialization");
+        if (r < 0)
+                return log_warning_errno(r, "Failed to push event serialization fd to service manager: %m");
+
+        log_debug("Serialized %"PRIu64" events.", n);
+        return 0;
+}
+
+static int manager_deserialize_events(Manager *manager, int *fd) {
+        int r;
+
+        assert(manager);
+        assert(fd);
+        assert(*fd >= 0);
+
+        /* This may take and invalidate passed file descriptor even on failure. */
+
+        /* At this stage, we have not receive any events from the kernel, hence should be empty. */
+        if (manager->events)
+                return log_warning_errno(SYNTHETIC_ERRNO(EALREADY), "Received multiple event storage socket (%i).", *fd);
+
+        r = sd_is_socket(*fd, AF_NETLINK, SOCK_RAW, /* listening = */ -1);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to verify type of event storage socket (%i): %m", *fd);
+        if (r == 0)
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "Received invalid event storage socket (%i).", *fd);
+
+        _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *storage = NULL;
+        r = device_monitor_new_full(&storage, MONITOR_GROUP_NONE, *fd);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to initialize event storage: %m");
+        TAKE_FD(*fd);
+
+        r = device_monitor_allow_unicast_sender(storage, storage);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to set trusted sender for event storage: %m");
+
+        uint64_t n = 0;
+        for (;;) {
+                r = fd_wait_for_event(sd_device_monitor_get_fd(storage), POLLIN, 0);
+                if (r == -EINTR)
+                        continue;
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to wait for event from event storage: %m");
+                if (r == 0)
+                        break;
+
+                _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+                r = sd_device_monitor_receive(storage, &dev);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to receive device from event storage, ignoring: %m");
+                        continue;
+                }
+
+                if (manager_validate_seqnum(manager, dev, /* is_new = */ false) < 0)
+                        continue;
+
+                r = event_queue_insert(manager, dev);
+                if (r < 0) {
+                        log_device_warning_errno(dev, r, "Failed to insert device into event queue, ignoring: %m");
+                        continue;
+                }
+
+                n++;
+        }
+
+        log_debug("Deserialized %"PRIu64" events.", n);
+        return 0;
+}
+
 static int on_uevent(sd_device_monitor *monitor, sd_device *dev, void *userdata) {
         Manager *manager = ASSERT_PTR(userdata);
         int r;
@@ -871,15 +1082,17 @@ static int on_uevent(sd_device_monitor *monitor, sd_device *dev, void *userdata)
 
         device_ensure_usec_initialized(dev, NULL);
 
+        if (manager_validate_seqnum(manager, dev, /* is_new = */ true) < 0)
+                return 0;
+
         r = event_queue_insert(manager, dev);
         if (r < 0) {
                 log_device_error_errno(dev, r, "Failed to insert device into event queue: %m");
-                return 1;
+                return 0;
         }
 
         (void) event_queue_assume_block_device_unlocked(manager, dev);
-
-        return 1;
+        return 0;
 }
 
 static int manager_init_device_monitor(Manager *manager, int fd) {
@@ -1077,6 +1290,8 @@ static int on_post_exit(Manager *manager) {
         if (!hashmap_isempty(manager->workers))
                 return 0; /* There still exist running workers. */
 
+        (void) manager_serialize_events(manager);
+
         udev_watch_dump();
         return sd_event_exit(manager->event, 0);
 }
@@ -1181,6 +1396,8 @@ static int manager_listen_fds(Manager *manager) {
                         r = manager_init_inotify(manager, fd);
                 else if (streq(names[i], "config-serialization"))
                         r = manager_deserialize_config(manager, &fd);
+                else if (streq(names[i], "event-serialization"))
+                        r = manager_deserialize_events(manager, &fd);
                 else
                         r = log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                             "Received unexpected fd (%s), ignoring.", names[i]);
@@ -1204,6 +1421,11 @@ int manager_main(Manager *manager) {
                 log_debug("Running in delegated subcgroup '%s'.", cgroup);
                 manager->cgroup = TAKE_PTR(cgroup);
         }
+
+        /* This must be earlier than event deserialization done in manager_listen_fds(). */
+        r = manager_map_seqnum_file(manager);
+        if (r < 0)
+                return r;
 
         r = manager_setup_event(manager);
         if (r < 0)
@@ -1247,6 +1469,11 @@ int manager_main(Manager *manager) {
 
         _unused_ _cleanup_(notify_on_cleanup) const char *notify_message =
                 notify_start(NOTIFY_READY, NOTIFY_STOPPING);
+
+        /* We will start processing events in the loop below. Before starting processing, let's remove the
+         * event serialization fd from the fdstore, to avoid retrieving the serialized events again in future
+         * invocations. Otherwise, the serialized events may be processed multiple times. */
+        (void) notify_remove_fd_warn("event-serialization");
 
         r = sd_event_loop(manager->event);
         if (r < 0)

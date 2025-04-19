@@ -29,12 +29,14 @@
 
 typedef struct Event Event;
 typedef struct UdevRules UdevRules;
+typedef struct UdevSeqnum UdevSeqnum;
 typedef struct Worker Worker;
 
 typedef struct Manager {
         sd_event *event;
         Hashmap *workers;
         LIST_HEAD(Event, events);
+        UdevSeqnum *seqnum;
         char *cgroup;
 
         UdevRules *rules;
