@@ -1,7 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#if !SD_BOOT
+#include <stdlib.h>
+#include <sys/uio.h>
+#endif
+
 #include "assert-fundamental.h"
+#include "macro-fundamental.h"
 
 #if SD_BOOT
 /* struct iovec is a POSIX userspace construct. Let's introduce it also in EFI mode, it's just so useful */

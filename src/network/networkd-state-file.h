@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <stdbool.h>
+
 typedef struct Link Link;
 typedef struct Manager Manager;
 

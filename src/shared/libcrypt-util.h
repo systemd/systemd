@@ -2,6 +2,7 @@
 #pragma once
 
 #include <stdbool.h>
+#include <stddef.h>
 
 int make_salt(char **ret);
 int hash_password_full(const char *password, void **cd_data, int *cd_size, char **ret);

@@ -13,6 +13,7 @@
 #include "import-common.h"
 #include "import-compress.h"
 #include "import-tar.h"
+#include "import-util.h"
 #include "install-file.h"
 #include "io-util.h"
 #include "log.h"
