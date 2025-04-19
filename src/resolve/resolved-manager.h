@@ -3,6 +3,7 @@
 
 #include <sys/stat.h>
 
+#include "sd-bus.h"
 #include "sd-event.h"
 #include "sd-netlink.h"
 #include "sd-network.h"
@@ -13,27 +14,28 @@
 #include "list.h"
 #include "ordered-set.h"
 #include "resolve-util.h"
-
-typedef struct Manager Manager;
-
-#include "resolved-dns-query.h"
-#include "resolved-dns-search-domain.h"
+#include "resolved-dns-dnssec.h"
 #include "resolved-dns-stream.h"
 #include "resolved-dns-stub.h"
 #include "resolved-dns-trust-anchor.h"
-#include "resolved-link.h"
-#include "resolved-socket-graveyard.h"
+#include "resolved-dnstls.h"
+#include "resolved-etc-hosts.h"
+
+typedef enum DnsServerType DnsServerType;
+
+typedef struct DnsQuery DnsQuery;
+typedef struct DnsResourceKey DnsResourceKey;
+typedef struct DnsSearchDomain DnsSearchDomain;
+typedef struct DnsScope DnsScope;
+typedef struct DnsServer DnsServer;
+typedef struct Link Link;
+typedef struct LinkAddress LinkAddress;
+typedef struct SocketGraveyard SocketGraveyard;
 
 #define MANAGER_SEARCH_DOMAINS_MAX 256
 #define MANAGER_DNS_SERVERS_MAX 256
 
-typedef struct EtcHosts {
-        Hashmap *by_address;
-        Hashmap *by_name;
-        Set *no_address;
-} EtcHosts;
-
-struct Manager {
+typedef struct Manager {
         sd_event *event;
 
         ResolveSupport llmnr_support;
@@ -170,7 +172,7 @@ struct Manager {
         size_t n_socket_graveyard;
 
         struct sigrtmin18_info sigrtmin18_info;
-};
+} Manager;
 
 /* Manager */
 

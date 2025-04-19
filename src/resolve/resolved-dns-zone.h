@@ -2,19 +2,19 @@
 #pragma once
 
 #include "hashmap.h"
+#include "list.h"
+
+typedef struct DnsAnswer DnsAnswer;
+typedef struct DnsResourceKey DnsResourceKey;
+typedef struct DnsResourceRecord DnsResourceRecord;
+typedef struct DnsScope DnsScope;
+typedef struct DnsTransaction DnsTransaction;
+typedef struct DnsZoneItem DnsZoneItem;
 
 typedef struct DnsZone {
         Hashmap *by_key;
         Hashmap *by_name;
 } DnsZone;
-
-typedef struct DnsZoneItem DnsZoneItem;
-typedef enum DnsZoneItemState DnsZoneItemState;
-
-#include "resolved-dns-answer.h"
-#include "resolved-dns-question.h"
-#include "resolved-dns-rr.h"
-#include "resolved-dns-transaction.h"
 
 /* RFC 4795 Section 2.8. suggests a TTL of 30s by default */
 #define LLMNR_DEFAULT_TTL (30)
@@ -22,12 +22,12 @@ typedef enum DnsZoneItemState DnsZoneItemState;
 /* RFC 6762 Section 10. suggests a TTL of 120s by default */
 #define MDNS_DEFAULT_TTL (120)
 
-enum DnsZoneItemState {
+typedef enum DnsZoneItemState {
         DNS_ZONE_ITEM_PROBING,
         DNS_ZONE_ITEM_ESTABLISHED,
         DNS_ZONE_ITEM_VERIFYING,
         DNS_ZONE_ITEM_WITHDRAWN,
-};
+} DnsZoneItemState;
 
 struct DnsZoneItem {
         DnsScope *scope;

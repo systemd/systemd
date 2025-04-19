@@ -10,10 +10,19 @@
 #include "fd-util.h"
 #include "glyph-util.h"
 #include "random-util.h"
+#include "resolved-dns-answer.h"
 #include "resolved-dns-cache.h"
+#include "resolved-dns-packet.h"
+#include "resolved-dns-query.h"
+#include "resolved-dns-question.h"
+#include "resolved-dns-rr.h"
+#include "resolved-dns-scope.h"
+#include "resolved-dns-server.h"
 #include "resolved-dns-transaction.h"
 #include "resolved-dnstls.h"
+#include "resolved-link.h"
 #include "resolved-llmnr.h"
+#include "resolved-socket-graveyard.h"
 #include "resolved-timeouts.h"
 #include "string-table.h"
 
@@ -2786,6 +2795,20 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
         }
 
         return dns_transaction_dnssec_is_live(t);
+}
+
+DnsResourceKey* dns_transaction_key(DnsTransaction *t) {
+        assert(t);
+
+        /* Return the lookup key of this transaction. Either takes the lookup key from the bypass packet if
+         * we are a bypass transaction. Or take the configured key for regular transactions. */
+
+        if (t->key)
+                return t->key;
+
+        assert(t->bypass);
+
+        return dns_question_first_key(t->bypass->question);
 }
 
 void dns_transaction_notify(DnsTransaction *t, DnsTransaction *source) {
