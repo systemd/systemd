@@ -885,8 +885,11 @@ int replace_env_argv(
                 char ***ret_bad_variables) {
 
         _cleanup_strv_free_ char **n = NULL, **unset_variables = NULL, **bad_variables = NULL;
-        size_t k = 0, l = 0;
+        size_t k = 0, l;
         int r;
+
+        assert(!strv_isempty(argv));
+        assert(ret);
 
         l = strv_length(argv);
 
