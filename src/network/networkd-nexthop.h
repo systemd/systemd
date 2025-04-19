@@ -17,6 +17,7 @@ typedef struct Link Link;
 typedef struct Manager Manager;
 typedef struct Network Network;
 typedef struct NextHop NextHop;
+typedef struct Request Request;
 typedef int (*nexthop_netlink_handler_t)(
                 sd_netlink *rtnl,
                 sd_netlink_message *m,

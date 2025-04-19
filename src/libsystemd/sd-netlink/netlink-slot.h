@@ -1,7 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <stdbool.h>
+
 #include "sd-netlink.h"
+
+#include "netlink-internal.h"
 
 int netlink_slot_allocate(
                 sd_netlink *nl,

@@ -3,7 +3,7 @@
 
 #include <sched.h>
 
-#include "macro.h"
+#include "memory-util.h"
 #include "missing_syscall.h"
 
 /* This wraps the libc interface with a variable to keep the allocated size. */

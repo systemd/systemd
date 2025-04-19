@@ -7,7 +7,7 @@
 
 #include "sd-id128.h"
 
-#include "macro.h"
+#include "memory-util.h"
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct fdisk_context*, fdisk_unref_context, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct fdisk_partition*, fdisk_unref_partition, NULL);

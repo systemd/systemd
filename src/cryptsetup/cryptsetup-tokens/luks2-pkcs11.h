@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include <stddef.h>
+
 struct crypt_device;
 
 int acquire_luks2_key(

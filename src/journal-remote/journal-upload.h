@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include <curl/curl.h>
 #include <inttypes.h>
 
 #include "sd-event.h"
