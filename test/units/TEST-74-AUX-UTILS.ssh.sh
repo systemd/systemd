@@ -62,8 +62,13 @@ modprobe vsock_loopback ||:
 if test -e /dev/vsock -a -d /sys/module/vsock_loopback ; then
     ssh -o StrictHostKeyChecking=no -v -i "$ROOTID" vsock/1 cat /etc/machine-id | cmp - /etc/machine-id
 
-    if ! command -v scp &> /dev/null ; then
+    if ! command -v scp &> /dev/null; then
         echo "scp not found, skipping subtest" >&2
+    elif ! systemd-analyze compare-versions "$(ssh -V 2>&1 | sed -e 's/OpenSSH_//; s/\,.*$//')" '<' 10.0; then
+        # Since OpenSSH 10.0p1 (487cf4c18c123b66c1f3f733398cd37e6b2ab6ab),
+        # hostname with comma is refused. See
+        # https://bugzilla.mindrot.org/show_bug.cgi?id=3816
+        echo "ssh $(ssh -V 2>&1) has bug in validating hostname, skipping subtest" >&2
     else
         OUT_FILE=$(mktemp -u)
         scp -o StrictHostKeyChecking=no -v -i "$ROOTID" vsock,1:/etc/machine-id "$OUT_FILE"
