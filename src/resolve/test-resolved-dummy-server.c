@@ -2,11 +2,13 @@
 
 #include "sd-daemon.h"
 
+#include "dns-type.h"
 #include "fd-util.h"
 #include "iovec-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "resolved-dns-packet.h"
+#include "resolved-dns-question.h"
 #include "resolved-manager.h"
 #include "socket-netlink.h"
 #include "socket-util.h"

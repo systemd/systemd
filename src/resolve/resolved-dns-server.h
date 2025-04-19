@@ -6,6 +6,8 @@
 #include "in-addr-util.h"
 #include "list.h"
 #include "resolve-util.h"
+#include "resolved-dnstls.h"
+#include "resolved-conf.h"
 #include "time-util.h"
 
 typedef struct DnsScope DnsScope;
@@ -15,9 +17,7 @@ typedef struct DnsPacket DnsPacket;
 typedef struct Link Link;
 typedef struct Manager Manager;
 
-#include "resolved-dnstls.h"
-
-typedef enum DnsServerType {
+typedef enum DnsServerType : int {
         DNS_SERVER_SYSTEM,
         DNS_SERVER_FALLBACK,
         DNS_SERVER_LINK,
@@ -25,12 +25,10 @@ typedef enum DnsServerType {
         _DNS_SERVER_TYPE_INVALID = -EINVAL,
 } DnsServerType;
 
-#include "resolved-conf.h"
-
 const char* dns_server_type_to_string(DnsServerType i) _const_;
 DnsServerType dns_server_type_from_string(const char *s) _pure_;
 
-typedef enum DnsServerFeatureLevel {
+typedef enum DnsServerFeatureLevel : int {
         DNS_SERVER_FEATURE_LEVEL_TCP,
         DNS_SERVER_FEATURE_LEVEL_UDP,
         DNS_SERVER_FEATURE_LEVEL_EDNS0,

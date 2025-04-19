@@ -4,6 +4,9 @@
 #include <linux/if.h>
 
 #include "netlink-internal.h"
+#include "resolved-dns-packet.h"
+#include "resolved-dns-scope.h"
+#include "resolved-dns-server.h"
 #include "resolved-link.h"
 #include "resolved-manager.h"
 
