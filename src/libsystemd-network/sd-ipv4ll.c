@@ -153,6 +153,12 @@ int sd_ipv4ll_set_mac(sd_ipv4ll *ll, const struct ether_addr *addr) {
         return 0;
 }
 
+int sd_ipv4ll_set_timeout(sd_ipv4ll *ll, uint64_t timeout_usec) {
+        assert_return(ll, -EINVAL);
+
+        return sd_ipv4acd_set_timeout(ll->acd, timeout_usec);
+}
+
 int sd_ipv4ll_detach_event(sd_ipv4ll *ll) {
         assert_return(ll, -EINVAL);
 
