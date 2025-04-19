@@ -2,7 +2,8 @@
 #pragma once
 
 #include "bus-object.h"
-#include "timesyncd-manager.h"
+
+typedef struct Manager Manager;
 
 extern const BusObjectImplementation manager_object;
 
