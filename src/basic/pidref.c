@@ -96,11 +96,11 @@ int pidref_set_pid(PidRef *pidref, pid_t pid) {
                 (void) pidfd_get_inode_id_self_cached(&pidfdid);
         }
 
-        fd = pidfd_open(pid, 0);
+        fd = pidfd_open_safe(pid, 0);
         if (fd < 0) {
                 /* Graceful fallback in case the kernel is out of fds */
-                if (!ERRNO_IS_RESOURCE(errno))
-                        return log_debug_errno(errno, "Failed to open pidfd for pid " PID_FMT ": %m", pid);
+                if (!ERRNO_IS_NEG_RESOURCE(fd))
+                        return log_debug_errno(fd, "Failed to open pidfd for pid " PID_FMT ": %m", pid);
 
                 fd = -EBADF;
         }

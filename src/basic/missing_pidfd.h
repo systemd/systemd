@@ -1,9 +1,19 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <fcntl.h>
 #include <linux/types.h>
+#include <sys/ioctl.h>
 #if HAVE_PIDFD_OPEN
 #include <sys/pidfd.h>
+#endif
+
+#ifndef PIDFD_NONBLOCK
+#  define PIDFD_NONBLOCK O_NONBLOCK
+#endif
+
+#ifndef PIDFD_THREAD
+#  define PIDFD_THREAD O_EXCL
 #endif
 
 #ifndef PIDFS_IOCTL_MAGIC
