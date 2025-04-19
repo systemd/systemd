@@ -240,3 +240,6 @@ int manager_send_dns_configuration_changed(Manager *m, Link *l, bool reset);
 
 int manager_start_dns_configuration_monitor(Manager *m);
 void manager_stop_dns_configuration_monitor(Manager *m);
+
+int manager_parse_search_domains_and_warn(Manager *m, const char *string);
+int manager_parse_dns_server_string_and_warn(Manager *m, DnsServerType type, const char *string);
