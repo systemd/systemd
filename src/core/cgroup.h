@@ -121,7 +121,7 @@ typedef enum CGroupPressureWatch {
 
 /* The user-supplied cgroup-related configuration options. This remains mostly immutable while the service
  * manager is running (except for an occasional SetProperty() configuration change), outside of reload
- * cycles. When adding members make sure to update cgroup_context_copy() accordingly. */
+ * cycles. */
 struct CGroupContext {
         bool cpu_accounting;
         bool io_accounting;
@@ -382,15 +382,6 @@ static inline bool cgroup_context_want_memory_pressure(const CGroupContext *c) {
 int cgroup_context_add_device_allow(CGroupContext *c, const char *dev, CGroupDevicePermissions p);
 int cgroup_context_add_or_update_device_allow(CGroupContext *c, const char *dev, CGroupDevicePermissions p);
 int cgroup_context_add_bpf_foreign_program(CGroupContext *c, uint32_t attach_type, const char *path);
-static inline int cgroup_context_add_bpf_foreign_program_dup(CGroupContext *c, const CGroupBPFForeignProgram *p) {
-        return cgroup_context_add_bpf_foreign_program(c, p->attach_type, p->bpffs_path);
-}
-int cgroup_context_add_io_device_limit_dup(CGroupContext *c, const CGroupIODeviceLimit *l);
-int cgroup_context_add_io_device_weight_dup(CGroupContext *c, const CGroupIODeviceWeight *w);
-int cgroup_context_add_io_device_latency_dup(CGroupContext *c, const CGroupIODeviceLatency *l);
-int cgroup_context_add_device_allow_dup(CGroupContext *c, const CGroupDeviceAllow *a);
-int cgroup_context_add_socket_bind_item_allow_dup(CGroupContext *c, const CGroupSocketBindItem *i);
-int cgroup_context_add_socket_bind_item_deny_dup(CGroupContext *c, const CGroupSocketBindItem *i);
 
 void unit_modify_nft_set(Unit *u, bool add);
 
