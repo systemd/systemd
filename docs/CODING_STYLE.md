@@ -250,6 +250,19 @@ SPDX-License-Identifier: LGPL-2.1-or-later
     implementation file so that only a forward declaration of the struct is
     required and not the full definition.
 
+- Please keep header files as lean as possible. Prefer implementing functions in
+  the implementation (.c) file over implementing them in the corresponding
+  header file. Inline functions in the header are allowed if they are just a few
+  lines and don't require including any extra header files that would otherwise
+  not have to be included. Similarly, prefer forward declarations of structs
+  over including the corresponding header file. Keeping header files as lean as
+  possible speeds up incremental builds when header files are changed (either by
+  yourself when working on a pull request or as part of rebasing onto the main
+  branch) as each file that (transitively) includes a header that was changed
+  needs to be recompiled. By keeping the number of header files included by
+  other header files low, we reduce the impact of modifying header files on
+  incremental builds as much as possible.
+
 - The order in which header files are included doesn't matter too
   much. systemd-internal headers must not rely on an include order, so it is
   safe to include them in any order possible.  However, to not clutter global
