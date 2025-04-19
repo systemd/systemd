@@ -31,6 +31,7 @@
 #include "strv.h"
 #include "sysupdate.h"
 #include "sysupdate-feature.h"
+#include "sysupdate-instance.h"
 #include "sysupdate-transfer.h"
 #include "sysupdate-update-set.h"
 #include "sysupdate-util.h"

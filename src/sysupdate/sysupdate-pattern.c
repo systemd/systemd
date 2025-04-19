@@ -8,6 +8,7 @@
 #include "path-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
+#include "sysupdate-instance.h"
 #include "sysupdate-pattern.h"
 
 typedef enum PatternElementType {

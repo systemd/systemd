@@ -7,14 +7,12 @@
 
 #include "sd-id128.h"
 
-/* Forward declare this type so that the headers below can use it */
-typedef struct Transfer Transfer;
-
 #include "sysupdate-partition.h"
 #include "sysupdate-resource.h"
-#include "sysupdate.h"
 
-struct Transfer {
+typedef struct Context Context;
+
+typedef struct Transfer {
         char *id;
 
         char *min_version;
@@ -55,7 +53,7 @@ struct Transfer {
         PartitionChange partition_change;
 
         Context *context;
-};
+} Transfer;
 
 typedef int (*TransferProgress)(const Transfer *t, const Instance *inst, unsigned percentage);
 
