@@ -3,7 +3,7 @@
 
 #include <pthread.h>
 
-#include "macro.h"
+#include "assert-util.h"
 
 static inline pthread_mutex_t* pthread_mutex_lock_assert(pthread_mutex_t *mutex) {
         assert_se(pthread_mutex_lock(mutex) == 0);

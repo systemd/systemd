@@ -2,6 +2,7 @@
 #pragma once
 
 #include <inttypes.h>
+#include <net/ethernet.h>
 
 #include "conf-parser.h"
 #include "in-addr-util.h"
