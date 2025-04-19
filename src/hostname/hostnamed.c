@@ -15,6 +15,7 @@
 #include "bus-get-properties.h"
 #include "bus-log-control-api.h"
 #include "bus-polkit.h"
+#include "color-util.h"
 #include "constants.h"
 #include "daemon-util.h"
 #include "device-private.h"
@@ -63,6 +64,7 @@ typedef enum {
         PROP_LOCATION,
         PROP_HARDWARE_VENDOR,
         PROP_HARDWARE_MODEL,
+        PROP_ANSI_COLOR,
 
         /* Read from /etc/os-release (or /usr/lib/os-release) */
         PROP_OS_PRETTY_NAME,
@@ -167,7 +169,8 @@ static void context_read_machine_info(Context *c) {
                       (UINT64_C(1) << PROP_DEPLOYMENT) |
                       (UINT64_C(1) << PROP_LOCATION) |
                       (UINT64_C(1) << PROP_HARDWARE_VENDOR) |
-                      (UINT64_C(1) << PROP_HARDWARE_MODEL));
+                      (UINT64_C(1) << PROP_HARDWARE_MODEL) |
+                      (UINT64_C(1) << PROP_ANSI_COLOR));
 
         r = parse_env_file(NULL, "/etc/machine-info",
                            "PRETTY_HOSTNAME", &c->data[PROP_PRETTY_HOSTNAME],
@@ -176,7 +179,8 @@ static void context_read_machine_info(Context *c) {
                            "DEPLOYMENT", &c->data[PROP_DEPLOYMENT],
                            "LOCATION", &c->data[PROP_LOCATION],
                            "HARDWARE_VENDOR", &c->data[PROP_HARDWARE_VENDOR],
-                           "HARDWARE_MODEL", &c->data[PROP_HARDWARE_MODEL]);
+                           "HARDWARE_MODEL", &c->data[PROP_HARDWARE_MODEL],
+                           "ANSI_COLOR", &c->data[PROP_ANSI_COLOR]);
         if (r < 0 && r != -ENOENT)
                 log_warning_errno(r, "Failed to read /etc/machine-info, ignoring: %m");
 
@@ -489,6 +493,35 @@ static bool valid_deployment(const char *deployment) {
         return in_charset(deployment, VALID_DEPLOYMENT_CHARS);
 }
 
+static const char* fallback_ansi_color(Context *c) {
+        uint64_t hash;
+        const uint8_t key[16] = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+                                   0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f};
+        double h, s = 0.7, v = 0.9;
+        uint8_t r, g, b;
+        const char* hostname;
+        _cleanup_free_ char *color = NULL;
+        int k;
+        struct siphash state;
+
+        assert(c);
+
+        hostname = isempty(c->data[PROP_STATIC_HOSTNAME_SUBSTITUTED_WILDCARDS]) ? \
+                "localhost" : c->data[PROP_STATIC_HOSTNAME_SUBSTITUTED_WILDCARDS];
+        siphash24_init(&state, key);
+        string_hash_func(hostname, &state);
+        hash = siphash24_finalize(&state);
+        h = (double)(hash % 360);
+        hsv_to_rgb(h, s, v, &r, &g, &b);
+        k = asprintf(&color, "38;2;%u;%u;%u", r, g, b);
+        if (k < 0) {
+                log_oom();
+                return NULL;
+        }
+
+        return color;
+}
+
 static const char* fallback_chassis_by_virtualization(void) {
         Virtualization v = detect_virtualization();
         if (v < 0) {
@@ -773,6 +806,7 @@ static int context_write_data_machine_info(Context *c) {
                 [PROP_CHASSIS] = "CHASSIS",
                 [PROP_DEPLOYMENT] = "DEPLOYMENT",
                 [PROP_LOCATION] = "LOCATION",
+                [PROP_ANSI_COLOR] = "ANSI_COLOR",
         };
         _cleanup_strv_free_ char **l = NULL;
         int r;
@@ -787,7 +821,7 @@ static int context_write_data_machine_info(Context *c) {
         if (r < 0 && r != -ENOENT)
                 return r;
 
-        for (int p = PROP_PRETTY_HOSTNAME; p <= PROP_LOCATION; p++) {
+        for (int p = PROP_PRETTY_HOSTNAME; p <= PROP_ANSI_COLOR; p++) {
                 assert(name[p]);
 
                 r = strv_env_assign(&l, name[p], empty_to_null(c->data[p]));
@@ -809,6 +843,30 @@ static int context_write_data_machine_info(Context *c) {
 
         TAKE_PTR(s);
         return 0;
+}
+
+static int property_get_ansi_color(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Context *c = ASSERT_PTR(userdata);
+        _cleanup_free_ char *fallback = NULL;
+        const char *color;
+
+        context_read_etc_hostname(c);
+        context_read_machine_info(c);
+
+        if (isempty(c->data[PROP_ANSI_COLOR]))
+                color = fallback_ansi_color(c);
+        else
+                color = c->data[PROP_ANSI_COLOR];
+
+        return sd_bus_message_append(reply, "s", color);
 }
 
 static int property_get_hardware_property(
@@ -1242,6 +1300,122 @@ static int validate_and_substitute_hostname(const char *name, char **ret_substit
         return 1;
 }
 
+static bool validate_ansi_color(const char *color) {
+        if (isempty(color))
+                return true;
+
+        if (string_has_cc(color, NULL))
+                return false;
+        _cleanup_strv_free_ char **parts = NULL;
+        int r = strv_split_full(&parts, color, ";", EXTRACT_DONT_COALESCE_SEPARATORS);
+        if (r < 0)
+                return false;
+
+        if (strv_length(parts) < 2)
+                return false;
+
+        unsigned code;
+        r = safe_atou(parts[0], &code);
+        if (r < 0)
+                return false;
+
+        if (code == 0) {
+                if (strv_length(parts) != 2)
+                        return false;
+                r = safe_atou(parts[1], &code);
+                if (r < 0 || code > 255)
+                        return false;
+                return true;
+        }
+
+        if (code == 38 || code == 48) {
+                r = safe_atou(parts[1], &code);
+                if (r < 0 || (code != 2 && code != 5))
+                        return false;
+
+                if (code == 2) {
+                        if (strv_length(parts) != 5)
+                                return false;
+                        for (int i = 2; i < 5; i++) {
+                                r = safe_atou(parts[i], &code);
+                                if (r < 0 || code > 255)
+                                        return false;
+                        }
+                        return true;
+                }
+
+                if (code == 5) {
+                        if (strv_length(parts) != 3)
+                                return false;
+                        r = safe_atou(parts[2], &code);
+                        if (r < 0 || code > 255)
+                                return false;
+                        return true;
+                }
+        }
+
+        return false;
+}
+
+static int method_set_ansi_color(sd_bus_message *m,void *userdata, sd_bus_error *error) {
+        Context *c = ASSERT_PTR(userdata);
+        const char *color;
+        int interactive, r;
+
+        assert(m);
+
+        r = sd_bus_message_read(m, "sb", &color, &interactive);
+        if (r < 0)
+                return r;
+
+        color = empty_to_null(color);
+        context_read_machine_info(c);
+
+        if (streq_ptr(color, c->data[PROP_ANSI_COLOR]))
+                return sd_bus_reply_method_return(m, NULL);
+
+        if (!isempty(color) &&  !validate_ansi_color(color))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid ANSI color '%s'", color);
+
+        r = bus_verify_polkit_async_full(
+                        m,
+                        "org.freedesktop.hostname1.set-machine-info",
+                        NULL,
+                        UID_INVALID,
+                        interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
+                        &c->polkit_registry,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1;
+
+        r = free_and_strdup_warn(&c->data[PROP_ANSI_COLOR], color);
+        if (r < 0)
+                return r;
+
+        r = context_write_data_machine_info(c);
+        if (r < 0) {
+                log_error_errno(r, "Failed to write machine info: %m");
+                if (ERRNO_IS_PRIVILEGE(r))
+                        return sd_bus_error_set(error, BUS_ERROR_FILE_IS_PROTECTED, "Not allowed to update /etc/machine-info.");
+                if (r == -EROFS)
+                        return sd_bus_error_set(error, BUS_ERROR_READ_ONLY_FILESYSTEM, "/etc/machine-info is in a read-only filesystem.");
+                return sd_bus_error_set_errnof(error, r, "Failed to write machine info: %m");
+        }
+
+        log_info("Changed ANSI color to '%s'", strna(c->data[PROP_ANSI_COLOR]));
+
+        (void) sd_bus_emit_properties_changed(
+                        sd_bus_message_get_bus(m),
+                        "/org/freedesktop/hostname1",
+                        "org.freedesktop.hostname1",
+                        "AnsiColor",
+                        NULL);
+
+        return sd_bus_reply_method_return(m, NULL);
+}
+
 static int method_set_hostname(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         Context *c = ASSERT_PTR(userdata);
         const char *name;
@@ -1536,7 +1710,7 @@ static int method_get_hardware_serial(sd_bus_message *m, void *userdata, sd_bus_
 static int build_describe_response(Context *c, bool privileged, sd_json_variant **ret) {
         _cleanup_free_ char *hn = NULL, *dhn = NULL, *in = NULL,
                 *chassis = NULL, *vendor = NULL, *model = NULL, *serial = NULL, *firmware_version = NULL,
-                *firmware_vendor = NULL, *chassis_asset_tag = NULL;
+                *firmware_vendor = NULL, *chassis_asset_tag = NULL, *ansi_color = NULL;
         _cleanup_strv_free_ char **os_release_pairs = NULL, **machine_info_pairs = NULL;
         usec_t firmware_date = USEC_INFINITY, eol = USEC_INFINITY;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
@@ -1627,6 +1801,7 @@ static int build_describe_response(Context *c, bool privileged, sd_json_variant 
                         SD_JSON_BUILD_PAIR_STRING("HardwareSerial", serial),
                         SD_JSON_BUILD_PAIR_STRING("FirmwareVersion", firmware_version),
                         SD_JSON_BUILD_PAIR_STRING("FirmwareVendor", firmware_vendor),
+                        SD_JSON_BUILD_PAIR_STRING("AnsiColor", ansi_color ?: c->data[PROP_ANSI_COLOR]),
                         JSON_BUILD_PAIR_FINITE_USEC("FirmwareDate", firmware_date),
                         SD_JSON_BUILD_PAIR_ID128("MachineID", machine_id),
                         SD_JSON_BUILD_PAIR_ID128("BootID", boot_id),
@@ -1703,6 +1878,7 @@ static const sd_bus_vtable hostname_vtable[] = {
         SD_BUS_PROPERTY("BootID", "ay", property_get_boot_id, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("VSockCID", "u", property_get_vsock_cid, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ChassisAssetTag", "s", property_get_chassis_asset_tag, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("AnsiColor", "s", property_get_ansi_color, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
 
         SD_BUS_METHOD_WITH_ARGS("SetHostname",
                                 SD_BUS_ARGS("s", hostname, "b", interactive),
@@ -1753,6 +1929,12 @@ static const sd_bus_vtable hostname_vtable[] = {
                                 SD_BUS_NO_ARGS,
                                 SD_BUS_RESULT("s", json),
                                 method_describe,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+
+        SD_BUS_METHOD_WITH_ARGS("SetAniColor",
+                                SD_BUS_ARGS("s", color, "b", interactive),
+                                SD_BUS_NO_RESULT,
+                                method_set_ansi_color,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
 
         SD_BUS_VTABLE_END,
