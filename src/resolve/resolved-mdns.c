@@ -497,7 +497,7 @@ static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *us
                         scope->manager->enable_cache,
                         DNS_PROTOCOL_MDNS,
                         NULL,
-                        DNS_PACKET_RCODE(p),
+                        dns_packet_rcode(p),
                         p->answer,
                         NULL,
                         false,
