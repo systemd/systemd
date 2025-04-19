@@ -8,6 +8,7 @@
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "dbus-unit.h"
+#include "slice.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "transaction.h"
@@ -985,6 +986,16 @@ int transaction_add_job_and_dependencies(
                 return sd_bus_error_setf(e, BUS_ERROR_JOB_TYPE_NOT_APPLICABLE,
                                          "Job type %s is not applicable for unit %s.",
                                          job_type_to_string(type), unit->id);
+
+        if (type == JOB_START) {
+                /* The hard concurrency limit for slice units we already enforce when a job is enqueued */
+                Slice *slice = SLICE(UNIT_GET_SLICE(unit));
+                if (slice && slice_concurrency_hard_max_reached(slice, unit))
+                        return sd_bus_error_setf(
+                                        e, BUS_ERROR_CONCURRENCY_LIMIT_REACHED,
+                                        "Concurrency limit of the slice unit '%s' (or any of its parents) the unit '%s' is contained in has been reached, refusing start job.",
+                                        UNIT(slice)->id, unit->id);
+        }
 
         /* First add the job. */
         ret = transaction_add_one_job(tr, type, unit, &is_new);

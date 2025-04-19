@@ -252,6 +252,8 @@ static int check_wait_response(BusWaitForJobs *d, WaitJobsFlags flags, const cha
                         log_error("Unit %s was started already once and can't be started again.", d->name);
                 else if (streq(d->result, "frozen"))
                         log_error("Cannot perform operation on frozen unit %s.", d->name);
+                else if (streq(d->result, "concurrency"))
+                        log_error("Concurrency limit of a slice unit %s is contained in has been reached.", d->name);
                 else if (endswith(d->name, ".service")) {
                         /* Job result is unknown. For services, let's also try Result property. */
                         _cleanup_free_ char *result = NULL;
@@ -282,6 +284,8 @@ static int check_wait_response(BusWaitForJobs *d, WaitJobsFlags flags, const cha
                 return -ESTALE;
         else if (streq(d->result, "frozen"))
                 return -EDEADLK;
+        else if (streq(d->result, "concurrency"))
+                return -ETOOMANYREFS;
 
         return log_debug_errno(SYNTHETIC_ERRNO(ENOMEDIUM),
                                "Unexpected job result '%s' for unit '%s', assuming server side newer than us.",

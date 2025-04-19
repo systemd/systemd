@@ -1852,19 +1852,21 @@ static bool unit_verify_deps(Unit *u) {
 }
 
 /* Errors that aren't really errors:
- *         -EALREADY:   Unit is already started.
- *         -ECOMM:      Condition failed
- *         -EAGAIN:     An operation is already in progress. Retry later.
+ *         -EALREADY:     Unit is already started.
+ *         -ECOMM:        Condition failed
+ *         -EAGAIN:       An operation is already in progress. Retry later.
  *
  * Errors that are real errors:
- *         -EBADR:      This unit type does not support starting.
- *         -ECANCELED:  Start limit hit, too many requests for now
- *         -EPROTO:     Assert failed
- *         -EINVAL:     Unit not loaded
- *         -EOPNOTSUPP: Unit type not supported
- *         -ENOLINK:    The necessary dependencies are not fulfilled.
- *         -ESTALE:     This unit has been started before and can't be started a second time
- *         -ENOENT:     This is a triggering unit and unit to trigger is not loaded
+ *         -EBADR:        This unit type does not support starting.
+ *         -ECANCELED:    Start limit hit, too many requests for now
+ *         -EPROTO:       Assert failed
+ *         -EINVAL:       Unit not loaded
+ *         -EOPNOTSUPP:   Unit type not supported
+ *         -ENOLINK:      The necessary dependencies are not fulfilled.
+ *         -ESTALE:       This unit has been started before and can't be started a second time
+ *         -EDEADLK:      This unit is frozen
+ *         -ENOENT:       This is a triggering unit and unit to trigger is not loaded
+ *         -ETOOMANYREFS: The hard concurrency limit of at least one of the slices the unit is contained in has been reached
  */
 int unit_start(Unit *u, ActivationDetails *details) {
         UnitActiveState state;
@@ -1945,6 +1947,24 @@ int unit_start(Unit *u, ActivationDetails *details) {
         /* If it is stopped, but we cannot start it, then fail */
         if (!UNIT_VTABLE(u)->start)
                 return -EBADR;
+
+        if (UNIT_IS_INACTIVE_OR_FAILED(state)) {
+                Slice *slice = SLICE(UNIT_GET_SLICE(u));
+
+                if (slice) {
+                        /* Check hard concurrency limit. Note this is partially redundant, we already checked
+                         * this when enqueuing jobs. However, between the time when we enqueued this and the
+                         * time we are dispatching the queue the configuration might have changed, hence
+                         * check here again */
+                        if (slice_concurrency_hard_max_reached(slice, u))
+                                return -ETOOMANYREFS;
+
+                        /* Also check soft concurrenty limit, and return EAGAIN so that the job is kept in
+                         * the queue */
+                        if (slice_concurrency_soft_max_reached(slice, u))
+                                return -EAGAIN; /* Try again, keep in queue */
+                }
+        }
 
         /* We don't suppress calls to ->start() here when we are already starting, to allow this request to
          * be used as a "hurry up" call, for example when the unit is in some "auto restart" state where it
@@ -2601,6 +2621,45 @@ static bool unit_process_job(Job *j, UnitActiveState ns, bool reload_success) {
         return unexpected;
 }
 
+static void unit_recursive_add_to_run_queue(Unit *u) {
+        assert(u);
+
+        if (u->job)
+                job_add_to_run_queue(u->job);
+
+        Unit *child;
+        UNIT_FOREACH_DEPENDENCY(child, u, UNIT_ATOM_SLICE_OF) {
+
+                if (!child->job)
+                        continue;
+
+                unit_recursive_add_to_run_queue(child);
+        }
+}
+
+static void unit_check_concurrency_limit(Unit *u) {
+        assert(u);
+
+        Unit *slice = UNIT_GET_SLICE(u);
+        if (!slice)
+                return;
+
+        /* If a unit was stopped, maybe it has pending siblings (or children thereof) that can be started now */
+
+        if (SLICE(slice)->concurrency_soft_max != UINT_MAX) {
+                Unit *sibling;
+                UNIT_FOREACH_DEPENDENCY(sibling, slice, UNIT_ATOM_SLICE_OF) {
+                        if (sibling == u)
+                                continue;
+
+                        unit_recursive_add_to_run_queue(sibling);
+                }
+        }
+
+        /* Also go up the tree. */
+        unit_check_concurrency_limit(slice);
+}
+
 void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_success) {
         assert(u);
         assert(os < _UNIT_ACTIVE_STATE_MAX);
@@ -2734,6 +2793,9 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
 
                 /* Maybe we can release some resources now? */
                 unit_submit_to_release_resources_queue(u);
+
+                /* Maybe the concurrency limits now allow dispatching of another start job in this slice? */
+                unit_check_concurrency_limit(u);
 
         } else if (UNIT_IS_ACTIVE_OR_RELOADING(ns)) {
                 /* Start uphold units regardless if going up was expected or not */
