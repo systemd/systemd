@@ -1,6 +1,8 @@
 #!/bin/bash
 set -e
 
+rm -f "$BUILDROOT/sbin/init"
+
 # We don't use mkosi.extra because /usr/sbin could be a symlink and cp doesn't handle that properly until
 # coreutils 9.5 or newer.
 cat >"$BUILDROOT/sbin/init" <<EOF
