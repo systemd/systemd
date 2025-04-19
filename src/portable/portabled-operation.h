@@ -8,9 +8,8 @@
 
 #include "list.h"
 
+typedef struct Manager Manager;
 typedef struct Operation Operation;
-
-#include "portabled.h"
 
 #define OPERATIONS_MAX 64
 
