@@ -20,6 +20,7 @@
 #include "bpf-program.h"
 #include "fd-util.h"
 #include "in-addr-prefix-util.h"
+#include "manager.h"
 #include "memory-util.h"
 #include "missing_syscall.h"
 #include "unit.h"
@@ -946,7 +947,7 @@ void emit_bpf_firewall_warning(Unit *u) {
         assert(u);
         assert(u->manager);
 
-        if (warned || MANAGER_IS_TEST_RUN(u->manager))
+        if (warned || manager_is_test_run(u->manager))
                 return;
 
         bool quiet = ERRNO_IS_PRIVILEGE(bpf_firewall_unsupported_reason) && detect_container() > 0;

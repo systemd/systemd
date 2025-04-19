@@ -7,6 +7,7 @@
 #include "dbus-unit.h"
 #include "fd-util.h"
 #include "log.h"
+#include "manager.h"
 #include "serialize.h"
 #include "slice.h"
 #include "special.h"
@@ -127,7 +128,7 @@ static int slice_load_root_slice(Unit *u) {
 static int slice_load_system_slice(Unit *u) {
         assert(u);
 
-        if (!MANAGER_IS_SYSTEM(u->manager))
+        if (!manager_is_system(u->manager))
                 return 0;
         if (!unit_has_name(u, SPECIAL_SYSTEM_SLICE))
                 return 0;
@@ -335,7 +336,7 @@ static void slice_enumerate_perpetual(Manager *m) {
                 s->cgroup_context.memory_accounting = true;
         }
 
-        if (MANAGER_IS_SYSTEM(m))
+        if (manager_is_system(m))
                 (void) slice_make_perpetual(m, SPECIAL_SYSTEM_SLICE, NULL);
 }
 

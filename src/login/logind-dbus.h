@@ -4,10 +4,13 @@
 #include "sd-bus.h"
 
 #include "bus-object.h"
-#include "logind-action.h"
 #include "logind-session.h"
-#include "logind-user.h"
-#include "logind.h"
+#include "macro.h"
+
+typedef struct Manager Manager;
+typedef struct User User;
+typedef struct Seat Seat;
+typedef struct HandleActionData HandleActionData;
 
 int manager_get_session_from_creds(Manager *m, sd_bus_message *message, const char *name, sd_bus_error *error, Session **ret);
 int manager_get_user_from_creds(Manager *m, sd_bus_message *message, uid_t uid, sd_bus_error *error, User **ret);

@@ -27,6 +27,7 @@
 #include "io-util.h"
 #include "ip-protocol-list.h"
 #include "limits-util.h"
+#include "manager.h"
 #include "nulstr-util.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -71,7 +72,7 @@ bool manager_owns_host_root_cgroup(Manager *m) {
          * appears to be no nice way to detect whether we are in a CLONE_NEWCGROUP namespace we instead just check if
          * we run in any kind of container virtualization. */
 
-        if (MANAGER_IS_USER(m))
+        if (manager_is_user(m))
                 return false;
 
         if (detect_container() > 0)
@@ -1224,7 +1225,7 @@ static void cgroup_xattr_apply(Unit *u) {
         cgroup_log_xattr_apply(u);
         cgroup_coredump_xattr_apply(u);
 
-        if (!MANAGER_IS_SYSTEM(u->manager))
+        if (!manager_is_system(u->manager))
                 return;
 
         cgroup_invocation_id_xattr_apply(u);
@@ -1580,7 +1581,7 @@ void unit_modify_nft_set(Unit *u, bool add) {
 
         assert(u);
 
-        if (!MANAGER_IS_SYSTEM(u->manager))
+        if (!manager_is_system(u->manager))
                 return;
 
         if (!UNIT_HAS_CGROUP_CONTEXT(u))
@@ -2438,7 +2439,7 @@ static int unit_attach_pid_to_cgroup_via_bus(Unit *u, pid_t pid, const char *suf
 
         assert(u);
 
-        if (MANAGER_IS_SYSTEM(u->manager))
+        if (manager_is_system(u->manager))
                 return -EINVAL;
 
         if (!u->manager->system_bus)
@@ -2517,7 +2518,7 @@ int unit_attach_pids_to_cgroup(Unit *u, Set *pids, const char *suffix_path) {
 
                 r = cg_attach(p, pid->pid);
                 if (r < 0) {
-                        bool again = MANAGER_IS_USER(u->manager) && ERRNO_IS_NEG_PRIVILEGE(r);
+                        bool again = manager_is_user(u->manager) && ERRNO_IS_NEG_PRIVILEGE(r);
 
                         log_unit_full_errno(u, again ? LOG_DEBUG : LOG_INFO,  r,
                                             "Couldn't move process "PID_FMT" to%s requested cgroup '%s': %m",
@@ -3045,7 +3046,7 @@ static int unit_prune_cgroup_via_bus(Unit *u) {
         assert(u);
         assert(u->manager);
 
-        if (MANAGER_IS_SYSTEM(u->manager))
+        if (manager_is_system(u->manager))
                 return -EINVAL;
 
         if (!u->manager->system_bus)
@@ -3621,7 +3622,7 @@ int manager_setup_cgroup(Manager *m) {
                 if (r < 0)
                         log_warning_errno(r, "Couldn't move remaining userspace processes, ignoring: %m");
 
-        } else if (!MANAGER_IS_TEST_RUN(m))
+        } else if (!manager_is_test_run(m))
                 return log_error_errno(r, "Failed to create %s control group: %m", scope_path);
 
         /* 6. Figure out which controllers are supported */
