@@ -234,6 +234,29 @@ SPDX-License-Identifier: LGPL-2.1-or-later
                   const char *input);
   ```
 
+- Please do not introduce new circular dependencies between header files.
+  Effectively this means that if a.h includes b.h, then b.h cannot include a.h,
+  directly or transitively via another header. Circular header dependencies can
+  make for extremely confusing errors when modifying the headers, which can be
+  easily avoided by getting rid of the circular dependency. To get rid of a
+  circular header dependency, there are a few possible techniques:
+  - Introduce a new common header with the declarations that need to be shared
+    by both headers and include only this header in the other headers.
+  - Move declarations around between the two headers so one header doesn't need
+    to include the other header anymore.
+  - Use forward declarations if possible to remove the need for one header to
+    include the other. To make this possible, you can move the body of static
+    inline functions that require the full definition of a struct into the
+    implementation file so that only a forward declaration of the struct is
+    required and not the full definition.
+
+- Please keep header files as lean as possible. Prefer implementing functions in
+  the implementation (.c) file over implementing them in the corresponding
+  header file. Inline functions in the header are allowed if they are just a few
+  lines and don't require including any extra header files that would otherwise
+  not have to be included. Similarly, prefer forward declarations of structs
+  over including the corresponding header file.
+
 - The order in which header files are included doesn't matter too
   much. systemd-internal headers must not rely on an include order, so it is
   safe to include them in any order possible.  However, to not clutter global
