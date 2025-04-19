@@ -3,8 +3,9 @@
 
 #include "sd-bus.h"
 
-#include "bus-util.h"
-#include "resolved-link.h"
+#include "bus-object.h"
+
+typedef struct Link Link;
 
 extern const BusObjectImplementation link_object;
 

@@ -5,6 +5,7 @@
 #include "dns-type.h"
 #include "log.h"
 #include "resolved-dns-question.h"
+#include "resolved-dns-rr.h"
 #include "socket-util.h"
 
 DnsQuestion *dns_question_new(size_t n) {

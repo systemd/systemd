@@ -2,7 +2,10 @@
 #pragma once
 
 #include "bus-object.h"
-#include "resolved-manager.h"
+#include "macro.h"
+
+typedef struct DnsServer DnsServer;
+typedef struct Manager Manager;
 
 extern const BusObjectImplementation manager_object;
 
