@@ -3,7 +3,7 @@
 
 #include "sd-bus.h"
 
-#include "portable.h"
+typedef struct PortableChange PortableChange;
 
 extern const sd_bus_vtable manager_vtable[];
 

@@ -42,6 +42,7 @@
 #include "dbus-unit.h"
 #include "dbus.h"
 #include "dirent-util.h"
+#include "dynamic-user.h"
 #include "env-util.h"
 #include "escape.h"
 #include "event-util.h"
@@ -941,15 +942,6 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
                                 m->timestamps + MANAGER_TIMESTAMP_FIRMWARE,
                                 m->timestamps + MANAGER_TIMESTAMP_LOADER);
 #endif
-
-        /* Prepare log fields we can use for structured logging */
-        if (MANAGER_IS_SYSTEM(m)) {
-                m->unit_log_field = "UNIT=";
-                m->invocation_log_field = "INVOCATION_ID=";
-        } else {
-                m->unit_log_field = "USER_UNIT=";
-                m->invocation_log_field = "USER_INVOCATION_ID=";
-        }
 
         /* Reboot immediately if the user hits C-A-D more often than 7x per 2s */
         m->ctrl_alt_del_ratelimit = (const RateLimit) { .interval = 2 * USEC_PER_SEC, .burst = 7 };
@@ -5205,11 +5197,3 @@ static const char* const manager_timestamp_table[_MANAGER_TIMESTAMP_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(manager_timestamp, ManagerTimestamp);
-
-static const char* const oom_policy_table[_OOM_POLICY_MAX] = {
-        [OOM_CONTINUE] = "continue",
-        [OOM_STOP]     = "stop",
-        [OOM_KILL]     = "kill",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(oom_policy, OOMPolicy);

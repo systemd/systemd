@@ -10,13 +10,12 @@
 #include "fs-util.h"
 #include "time-util.h"
 
-typedef struct InstanceMetadata InstanceMetadata;
-typedef struct Instance Instance;
-
-#include "sysupdate-resource.h"
 #include "sysupdate-partition.h"
 
-struct InstanceMetadata {
+typedef struct Resource Resource;
+typedef struct Instance Instance;
+
+typedef struct InstanceMetadata {
         /* Various bits of metadata for each instance, that is either derived from the filename/GPT label or
          * from metadata of the file/partition itself */
         char *version;
@@ -33,7 +32,7 @@ struct InstanceMetadata {
         int growfs;
         uint8_t sha256sum[32];             /* SHA256 sum of the download (i.e. compressed) file */
         bool sha256sum_set;
-};
+} InstanceMetadata;
 
 #define INSTANCE_METADATA_NULL                  \
         {                                       \

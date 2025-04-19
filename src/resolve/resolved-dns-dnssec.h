@@ -1,14 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-typedef enum DnssecResult DnssecResult;
-typedef enum DnssecVerdict DnssecVerdict;
+#include <errno.h>
+#include <stdbool.h>
+#include <stdint.h>
 
-#include "dns-domain.h"
-#include "resolved-dns-answer.h"
-#include "resolved-dns-rr.h"
+#include "time-util.h"
 
-enum DnssecResult {
+typedef struct DnsAnswer DnsAnswer;
+typedef struct DnsResourceKey DnsResourceKey;
+typedef struct DnsResourceRecord DnsResourceRecord;
+
+typedef enum DnssecResult : int {
         /* These six are returned by dnssec_verify_rrset() */
         DNSSEC_VALIDATED,
         DNSSEC_VALIDATED_WILDCARD, /* Validated via a wildcard RRSIG, further NSEC/NSEC3 checks necessary */
@@ -30,9 +33,9 @@ enum DnssecResult {
 
         _DNSSEC_RESULT_MAX,
         _DNSSEC_RESULT_INVALID = -EINVAL,
-};
+} DnssecResult;
 
-enum DnssecVerdict {
+typedef enum DnssecVerdict : int {
         DNSSEC_SECURE,
         DNSSEC_INSECURE,
         DNSSEC_BOGUS,
@@ -40,7 +43,7 @@ enum DnssecVerdict {
 
         _DNSSEC_VERDICT_MAX,
         _DNSSEC_VERDICT_INVALID = -EINVAL,
-};
+} DnssecVerdict;
 
 #define DNSSEC_CANONICAL_HOSTNAME_MAX (DNS_HOSTNAME_MAX + 2)
 

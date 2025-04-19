@@ -6,6 +6,7 @@
 
 #include "fd-util.h"
 #include "bpf-socket-bind.h"
+#include "unit.h"
 
 #if BPF_FRAMEWORK
 /* libbpf, clang, llvm and bpftool compile time dependencies are satisfied */

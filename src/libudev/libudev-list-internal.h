@@ -3,7 +3,7 @@
 
 #include "libudev.h"
 
-#include "macro.h"
+#include "memory-util.h"
 
 struct udev_list;
 

@@ -1,20 +1,27 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "sd-event.h"
+
+#include "dns-def.h"
 #include "list.h"
 #include "ratelimit.h"
-
-typedef struct DnsQueryCandidate DnsQueryCandidate;
-typedef struct DnsScope DnsScope;
-
+#include "resolve-util.h"
 #include "resolved-dns-cache.h"
-#include "resolved-dns-dnssec.h"
-#include "resolved-dns-packet.h"
-#include "resolved-dns-query.h"
-#include "resolved-dns-search-domain.h"
-#include "resolved-dns-server.h"
-#include "resolved-dns-stream.h"
 #include "resolved-dns-zone.h"
+#include "socket-util.h"
+
+enum DnsProtocol : int;
+typedef enum DnsProtocol DnsProtocol;
+
+typedef struct DnsQuery DnsQuery;
+typedef struct DnsQueryCandidate DnsQueryCandidate;
+typedef struct DnsQuestion DnsQuestion;
+typedef struct DnsSearchDomain DnsSearchDomain;
+typedef struct DnsServer DnsServer;
+typedef struct DnsStream DnsStream;
+typedef struct Link Link;
+typedef struct Manager Manager;
 
 typedef enum DnsScopeMatch {
         DNS_SCOPE_NO,

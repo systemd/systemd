@@ -3,17 +3,20 @@
 
 #include "sd-event.h"
 
+#include "list.h"
 #include "ordered-set.h"
 #include "socket-util.h"
+#include "resolved-dnstls.h"
 
+enum DnsProtocol : int;
+typedef enum DnsProtocol DnsProtocol;
+
+typedef struct DnsPacket DnsPacket;
 typedef struct DnsServer DnsServer;
 typedef struct DnsStream DnsStream;
 typedef struct DnsTransaction DnsTransaction;
 typedef struct Manager Manager;
 typedef struct DnsStubListenerExtra DnsStubListenerExtra;
-
-#include "resolved-dns-packet.h"
-#include "resolved-dnstls.h"
 
 /* Various timeouts for establishing TCP connections. First the default timeout for that. */
 #define DNS_STREAM_DEFAULT_TIMEOUT_USEC (10 * USEC_PER_SEC)

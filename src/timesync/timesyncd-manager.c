@@ -35,6 +35,7 @@
 #include "time-util.h"
 #include "timesyncd-conf.h"
 #include "timesyncd-manager.h"
+#include "timesyncd-server.h"
 #include "user-util.h"
 
 #ifndef ADJ_SETOFFSET

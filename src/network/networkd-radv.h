@@ -15,6 +15,7 @@
 #include "ndisc-option.h"
 #include "networkd-util.h"
 
+typedef struct Address Address;
 typedef struct Link Link;
 typedef struct Network Network;
 

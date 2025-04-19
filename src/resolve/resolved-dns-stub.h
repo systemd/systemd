@@ -1,11 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "sd-event.h"
+
 #include "hash-funcs.h"
+#include "hashmap.h"
+#include "in-addr-util.h"
 
 typedef struct DnsStubListenerExtra DnsStubListenerExtra;
+typedef struct Manager Manager;
 
-typedef enum DnsStubListenerMode {
+typedef enum DnsStubListenerMode : int {
         DNS_STUB_LISTENER_NO,
         DNS_STUB_LISTENER_UDP = 1 << 0,
         DNS_STUB_LISTENER_TCP = 1 << 1,
@@ -13,8 +18,6 @@ typedef enum DnsStubListenerMode {
         _DNS_STUB_LISTENER_MODE_MAX,
         _DNS_STUB_LISTENER_MODE_INVALID = -EINVAL,
 } DnsStubListenerMode;
-
-#include "resolved-manager.h"
 
 struct DnsStubListenerExtra {
         Manager *manager;

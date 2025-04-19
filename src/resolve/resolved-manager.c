@@ -33,16 +33,28 @@
 #include "random-util.h"
 #include "resolved-bus.h"
 #include "resolved-conf.h"
+#include "resolved-dns-answer.h"
+#include "resolved-dns-packet.h"
+#include "resolved-dns-query.h"
+#include "resolved-dns-question.h"
+#include "resolved-dns-rr.h"
+#include "resolved-dns-search-domain.h"
+#include "resolved-dns-scope.h"
+#include "resolved-dns-server.h"
 #include "resolved-dns-stub.h"
+#include "resolved-dns-transaction.h"
 #include "resolved-dnssd.h"
 #include "resolved-etc-hosts.h"
+#include "resolved-link.h"
 #include "resolved-llmnr.h"
 #include "resolved-manager.h"
 #include "resolved-mdns.h"
 #include "resolved-resolv-conf.h"
+#include "resolved-socket-graveyard.h"
 #include "resolved-util.h"
 #include "resolved-varlink.h"
 #include "socket-util.h"
+#include "socket-netlink.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "utf8.h"
@@ -2158,4 +2170,109 @@ void manager_stop_dns_configuration_monitor(Manager *m) {
         m->dns_configuration_json = sd_json_variant_unref(m->dns_configuration_json);
         m->netlink_new_route_slot = sd_netlink_slot_unref(m->netlink_new_route_slot);
         m->netlink_del_route_slot = sd_netlink_slot_unref(m->netlink_del_route_slot);
+}
+
+static int manager_add_dns_server_by_string(Manager *m, DnsServerType type, const char *word) {
+        _cleanup_free_ char *server_name = NULL;
+        union in_addr_union address;
+        int family, r, ifindex = 0;
+        uint16_t port;
+        DnsServer *s;
+
+        assert(m);
+        assert(word);
+
+        r = in_addr_port_ifindex_name_from_string_auto(word, &family, &address, &port, &ifindex, &server_name);
+        if (r < 0)
+                return r;
+
+        /* Silently filter out 0.0.0.0, 127.0.0.53, 127.0.0.54 (our own stub DNS listener) */
+        if (!dns_server_address_valid(family, &address))
+                return 0;
+
+        /* By default, the port number is determined with the transaction feature level.
+         * See dns_transaction_port() and dns_server_port(). */
+        if (IN_SET(port, 53, 853))
+                port = 0;
+
+        /* Filter out duplicates */
+        s = dns_server_find(manager_get_first_dns_server(m, type), family, &address, port, ifindex, server_name);
+        if (s) {
+                /* Drop the marker. This is used to find the servers that ceased to exist, see
+                 * manager_mark_dns_servers() and manager_flush_marked_dns_servers(). */
+                dns_server_move_back_and_unmark(s);
+                return 0;
+        }
+
+        return dns_server_new(m, NULL, type, NULL, family, &address, port, ifindex, server_name, RESOLVE_CONFIG_SOURCE_FILE);
+}
+
+int manager_parse_dns_server_string_and_warn(Manager *m, DnsServerType type, const char *string) {
+        int r;
+
+        assert(m);
+        assert(string);
+
+        for (;;) {
+                _cleanup_free_ char *word = NULL;
+
+                r = extract_first_word(&string, &word, NULL, 0);
+                if (r <= 0)
+                        return r;
+
+                r = manager_add_dns_server_by_string(m, type, word);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to add DNS server address '%s', ignoring: %m", word);
+        }
+}
+
+static int manager_add_search_domain_by_string(Manager *m, const char *domain) {
+        DnsSearchDomain *d;
+        bool route_only;
+        int r;
+
+        assert(m);
+        assert(domain);
+
+        route_only = *domain == '~';
+        if (route_only)
+                domain++;
+
+        if (dns_name_is_root(domain) || streq(domain, "*")) {
+                route_only = true;
+                domain = ".";
+        }
+
+        r = dns_search_domain_find(m->search_domains, domain, &d);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                dns_search_domain_move_back_and_unmark(d);
+        else {
+                r = dns_search_domain_new(m, &d, DNS_SEARCH_DOMAIN_SYSTEM, NULL, domain);
+                if (r < 0)
+                        return r;
+        }
+
+        d->route_only = route_only;
+        return 0;
+}
+
+int manager_parse_search_domains_and_warn(Manager *m, const char *string) {
+        int r;
+
+        assert(m);
+        assert(string);
+
+        for (;;) {
+                _cleanup_free_ char *word = NULL;
+
+                r = extract_first_word(&string, &word, NULL, EXTRACT_UNQUOTE);
+                if (r <= 0)
+                        return r;
+
+                r = manager_add_search_domain_by_string(m, word);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to add search domain '%s', ignoring: %m", word);
+        }
 }

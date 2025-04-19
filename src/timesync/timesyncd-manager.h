@@ -14,9 +14,11 @@
 #include "time-util.h"
 #include "timesyncd-ntp-message.h"
 
-typedef struct Manager Manager;
+enum ServerType : int;
+typedef enum ServerType ServerType;
 
-#include "timesyncd-server.h"
+typedef struct ServerAddress ServerAddress;
+typedef struct ServerName ServerName;
 
 /*
  * "A client MUST NOT under any conditions use a poll interval less
@@ -32,7 +34,7 @@ typedef struct Manager Manager;
 
 #define DEFAULT_SAVE_TIME_INTERVAL_USEC (60 * USEC_PER_SEC)
 
-struct Manager {
+typedef struct Manager {
         sd_bus *bus;
         sd_event *event;
         sd_resolve *resolve;
@@ -116,7 +118,7 @@ struct Manager {
         /* Used to coalesce bus PropertiesChanged events */
         sd_event_source *deferred_ntp_server_event_source;
         unsigned ntp_server_change_mask;
-};
+} Manager;
 
 int manager_new(Manager **ret);
 Manager* manager_free(Manager *m);

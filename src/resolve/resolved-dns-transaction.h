@@ -2,20 +2,26 @@
 #pragma once
 
 #include "sd-event.h"
+
 #include "in-addr-util.h"
+#include "list.h"
+#include "resolved-def.h"
+#include "set.h"
 
+enum DnssecResult : int;
+typedef enum DnssecResult DnssecResult;
+enum DnsServerFeatureLevel : int;
+typedef enum DnsServerFeatureLevel DnsServerFeatureLevel;
+
+typedef struct DnsAnswer DnsAnswer;
+typedef struct DnsPacket DnsPacket;
+typedef struct DnsResourceKey DnsResourceKey;
+typedef struct DnsScope DnsScope;
+typedef struct DnsServer DnsServer;
+typedef struct DnsStream DnsStream;
 typedef struct DnsTransaction DnsTransaction;
-typedef struct DnsTransactionFinder DnsTransactionFinder;
-typedef enum DnsTransactionState DnsTransactionState;
-typedef enum DnsTransactionSource DnsTransactionSource;
 
-#include "resolved-dns-answer.h"
-#include "resolved-dns-dnssec.h"
-#include "resolved-dns-packet.h"
-#include "resolved-dns-question.h"
-#include "resolved-dns-server.h"
-
-enum DnsTransactionState {
+typedef enum DnsTransactionState : int {
         DNS_TRANSACTION_NULL,
         DNS_TRANSACTION_PENDING,
         DNS_TRANSACTION_VALIDATING,
@@ -36,18 +42,18 @@ enum DnsTransactionState {
         DNS_TRANSACTION_STUB_LOOP,
         _DNS_TRANSACTION_STATE_MAX,
         _DNS_TRANSACTION_STATE_INVALID = -EINVAL,
-};
+} DnsTransactionState;
 
 #define DNS_TRANSACTION_IS_LIVE(state) IN_SET((state), DNS_TRANSACTION_NULL, DNS_TRANSACTION_PENDING, DNS_TRANSACTION_VALIDATING)
 
-enum DnsTransactionSource {
+typedef enum DnsTransactionSource {
         DNS_TRANSACTION_NETWORK,
         DNS_TRANSACTION_CACHE,
         DNS_TRANSACTION_ZONE,
         DNS_TRANSACTION_TRUST_ANCHOR,
         _DNS_TRANSACTION_SOURCE_MAX,
         _DNS_TRANSACTION_SOURCE_INVALID = -EINVAL,
-};
+} DnsTransactionSource;
 
 struct DnsTransaction {
         DnsScope *scope;
@@ -163,19 +169,7 @@ void dns_transaction_notify(DnsTransaction *t, DnsTransaction *source);
 int dns_transaction_validate_dnssec(DnsTransaction *t);
 int dns_transaction_request_dnssec_keys(DnsTransaction *t);
 
-static inline DnsResourceKey *dns_transaction_key(DnsTransaction *t) {
-        assert(t);
-
-        /* Return the lookup key of this transaction. Either takes the lookup key from the bypass packet if
-         * we are a bypass transaction. Or take the configured key for regular transactions. */
-
-        if (t->key)
-                return t->key;
-
-        assert(t->bypass);
-
-        return dns_question_first_key(t->bypass->question);
-}
+DnsResourceKey *dns_transaction_key(DnsTransaction *t);
 
 static inline uint64_t dns_transaction_source_to_query_flags(DnsTransactionSource s) {
 

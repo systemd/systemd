@@ -8,6 +8,7 @@
 #include "fileio.h"
 #include "fs-util.h"
 #include "id128-util.h"
+#include "log.h"
 #include "mkfs-util.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"

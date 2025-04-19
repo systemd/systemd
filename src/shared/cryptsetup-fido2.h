@@ -3,6 +3,7 @@
 
 #include <sys/types.h>
 
+#include "ask-password-api.h"
 #include "cryptsetup-util.h"
 #include "libfido2-util.h"
 #include "log.h"
