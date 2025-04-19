@@ -5,10 +5,11 @@
 #include <stdbool.h>
 #include <sys/types.h>
 
-typedef struct UpdateSet UpdateSet;
+enum UpdateSetFlags : int;
+typedef enum UpdateSetFlags UpdateSetFlags;
 
-#include "sysupdate-instance.h"
-#include "sysupdate-update-set-flags.h"
+typedef struct Instance Instance;
+typedef struct UpdateSet UpdateSet;
 
 struct UpdateSet {
         UpdateSetFlags flags;

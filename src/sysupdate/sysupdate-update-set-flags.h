@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-typedef enum UpdateSetFlags {
+typedef enum UpdateSetFlags : int {
         UPDATE_NEWEST     = 1 << 0,
         UPDATE_AVAILABLE  = 1 << 1,
         UPDATE_INSTALLED  = 1 << 2,
