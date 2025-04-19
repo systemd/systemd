@@ -33,6 +33,8 @@ struct BPFProgram {
         uint32_t attached_flags;
 };
 
+int bpf_program_supported(void);
+
 int bpf_program_new(uint32_t prog_type, const char *prog_name, BPFProgram **ret);
 int bpf_program_new_from_bpffs_path(const char *path, BPFProgram **ret);
 BPFProgram *bpf_program_free(BPFProgram *p);

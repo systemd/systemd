@@ -1477,8 +1477,6 @@ static int socket_address_listen_do(
         })
 
 static int fork_needed(const SocketAddress *address, Socket *s) {
-        int r;
-
         assert(address);
         assert(s);
 
@@ -1492,13 +1490,9 @@ static int fork_needed(const SocketAddress *address, Socket *s) {
                         if (nft_set->source == NFT_SET_SOURCE_CGROUP)
                                 return true;
 
-        if (IN_SET(address->sockaddr.sa.sa_family, AF_INET, AF_INET6)) {
-                r = bpf_firewall_supported();
-                if (r < 0)
-                        return r;
-                if (r != BPF_FIREWALL_UNSUPPORTED) /* If BPF firewalling isn't supported anyway — there's no point in this forking complexity */
+        if (IN_SET(address->sockaddr.sa.sa_family, AF_INET, AF_INET6))
+                if (bpf_program_supported() <= 0) /* If BPF firewalling isn't supported anyway — there's no point in this forking complexity */
                         return true;
-        }
 
         return exec_needs_network_namespace(&s->exec_context);
 }
@@ -3023,10 +3017,7 @@ static int socket_accept_in_cgroup(Socket *s, SocketPort *p, int fd) {
         if (!IN_SET(p->address.sockaddr.sa.sa_family, AF_INET, AF_INET6))
                 goto shortcut;
 
-        r = bpf_firewall_supported();
-        if (r < 0)
-                return r;
-        if (r == BPF_FIREWALL_UNSUPPORTED)
+        if (bpf_program_supported() <= 0)
                 goto shortcut;
 
         if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, pair) < 0)
