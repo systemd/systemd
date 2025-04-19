@@ -8,6 +8,7 @@
 #include "conf-parser.h"
 #include "alloc-util.h"
 #include "extract-word.h"
+#include "networkd-link.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
