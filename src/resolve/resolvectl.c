@@ -38,6 +38,7 @@
 #include "resolvectl.h"
 #include "resolved-def.h"
 #include "resolved-dns-packet.h"
+#include "resolved-dns-rr.h"
 #include "resolved-util.h"
 #include "socket-netlink.h"
 #include "sort-util.h"

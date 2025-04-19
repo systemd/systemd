@@ -8,15 +8,15 @@
 #include "hashmap.h"
 #include "in-addr-util.h"
 #include "macro.h"
-#include "sparse-endian.h"
-
-typedef struct DnsPacketHeader DnsPacketHeader;
-typedef struct DnsPacket DnsPacket;
-
 #include "resolved-def.h"
 #include "resolved-dns-answer.h"
-#include "resolved-dns-question.h"
-#include "resolved-dns-rr.h"
+#include "sparse-endian.h"
+
+typedef struct DnsAnswer DnsAnswer;
+typedef struct DnsPacket DnsPacket;
+typedef struct DnsQuestion DnsQuestion;
+typedef struct DnsResourceKey DnsResourceKey;
+typedef struct DnsResourceRecord DnsResourceRecord;
 
 typedef enum DnsProtocol {
         DNS_PROTOCOL_DNS,
@@ -26,14 +26,14 @@ typedef enum DnsProtocol {
         _DNS_PROTOCOL_INVALID = -EINVAL,
 } DnsProtocol;
 
-struct DnsPacketHeader {
+typedef struct DnsPacketHeader {
         uint16_t id;
         be16_t flags;
         be16_t qdcount;
         be16_t ancount;
         be16_t nscount;
         be16_t arcount;
-} _packed_;
+} _packed_ DnsPacketHeader;
 
 #define DNS_PACKET_HEADER_SIZE sizeof(DnsPacketHeader)
 #define UDP4_PACKET_HEADER_SIZE (sizeof(struct iphdr) + sizeof(struct udphdr))
