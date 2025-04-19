@@ -159,6 +159,9 @@ void dns_server_unlink_on_reload(DnsServer *server);
 bool dns_server_unlink_marked(DnsServer *first);
 void dns_server_mark_all(DnsServer *first);
 
+int manager_parse_search_domains_and_warn(Manager *m, const char *string);
+int manager_parse_dns_server_string_and_warn(Manager *m, DnsServerType type, const char *string);
+
 DnsServer *manager_get_first_dns_server(Manager *m, DnsServerType t);
 
 DnsServer *manager_set_dns_server(Manager *m, DnsServer *s);

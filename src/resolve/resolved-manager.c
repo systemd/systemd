@@ -43,6 +43,7 @@
 #include "resolved-util.h"
 #include "resolved-varlink.h"
 #include "socket-util.h"
+#include "socket-netlink.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "utf8.h"
