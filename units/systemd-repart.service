@@ -22,14 +22,14 @@ ConditionDirectoryNotEmpty=|/sysusr/usr/local/lib/repart.d
 DefaultDependencies=no
 Wants=modprobe@loop.service modprobe@dm_mod.service
 After=initrd-usr-fs.target modprobe@loop.service modprobe@dm_mod.service systemd-tpm2-setup-early.service
-Before=initrd-root-fs.target factory-reset-now.target
+Before=initrd-root-fs.target factory-reset-now.target factory-reset.target
 Conflicts=shutdown.target initrd-switch-root.target
 Before=shutdown.target initrd-switch-root.target
 
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=systemd-repart --dry-run=no
+ExecStart=systemd-repart --dry-run=no --stamp-factory-reset
 
 # The tool returns 76 if it can't find the root block device
 SuccessExitStatus=76
