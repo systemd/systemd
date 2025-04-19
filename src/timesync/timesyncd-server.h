@@ -4,10 +4,11 @@
 #include "list.h"
 #include "socket-util.h"
 
+typedef struct Manager Manager;
 typedef struct ServerAddress ServerAddress;
 typedef struct ServerName ServerName;
 
-typedef enum ServerType {
+typedef enum ServerType : int {
         SERVER_SYSTEM,
         SERVER_FALLBACK,
         SERVER_LINK,
@@ -15,8 +16,6 @@ typedef enum ServerType {
         _SERVER_TYPE_MAX,
         _SERVER_TYPE_INVALID = -EINVAL,
 } ServerType;
-
-#include "timesyncd-manager.h"
 
 struct ServerAddress {
         ServerName *name;
