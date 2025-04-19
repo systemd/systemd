@@ -176,7 +176,7 @@ static int make_reply_packet(DnsPacket *packet, DnsPacket **ret) {
         assert(packet);
         assert(ret);
 
-        r = dns_packet_new(&p, DNS_PROTOCOL_DNS, 0, DNS_PACKET_PAYLOAD_SIZE_MAX(packet));
+        r = dns_packet_new(&p, DNS_PROTOCOL_DNS, 0, dns_packet_payload_size_max(packet));
         if (r < 0)
                 return r;
 
