@@ -9,7 +9,6 @@
 #include "list.h"
 #include "log-link.h"
 #include "netdev-util.h"
-#include "networkd-link.h"
 #include "time-util.h"
 
 /* Special hardware address value to suppress generating persistent hardware address for the netdev. */
