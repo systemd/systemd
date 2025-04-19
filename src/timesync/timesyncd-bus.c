@@ -18,6 +18,8 @@
 #include "strv.h"
 #include "time-util.h"
 #include "timesyncd-bus.h"
+#include "timesyncd-manager.h"
+#include "timesyncd-server.h"
 #include "user-util.h"
 
 static int property_get_servers(
