@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <stdbool.h>
+
 #if HAVE_LIBBPF
 
 #include <bpf/bpf.h>
@@ -49,3 +51,4 @@ int bpf_get_error_translated(const void *ptr);
 #endif
 
 int dlopen_bpf(void);
+bool cgroup_bpf_supported(void);

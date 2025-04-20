@@ -65,12 +65,6 @@ libcore_sources = files(
         'unit.c',
 )
 
-if conf.get('BPF_FRAMEWORK') == 1
-        libcore_sources += files(
-                'bpf-util.c',
-        )
-endif
-
 subdir('bpf/socket_bind')
 subdir('bpf/restrict_fs')
 subdir('bpf/restrict_ifaces')
