@@ -264,6 +264,34 @@ int ipv4ll_configure(Link *link) {
         return sd_ipv4ll_set_check_mac_callback(link->ipv4ll, ipv4ll_check_mac, link->manager);
 }
 
+int ipv4ll_start(Link *link) {
+        int r;
+
+        assert(link);
+
+        if (!link->ipv4ll)
+                return 0;
+
+        if (sd_ipv4ll_is_running(link->ipv4ll))
+                return 0;
+
+        if (!link_has_carrier(link))
+                return 0;
+
+        /* On exit, we cannot and should not start sd-ipv4ll. */
+        r = sd_event_get_state(link->manager->event);
+        if (r < 0)
+                return r;
+        if (r == SD_EVENT_FINISHED)
+                return 0;
+
+        r = sd_ipv4ll_start(link->ipv4ll);
+        if (r < 0)
+                return r;
+
+        return 1; /* started */
+}
+
 int link_drop_ipv4ll_config(Link *link, Network *network) {
         int ret = 0;
 

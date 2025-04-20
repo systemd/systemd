@@ -728,11 +728,11 @@ static int link_acquire_dynamic_ipv4_conf(Link *link) {
                                 return log_link_warning_errno(link, r, "Could not set IPv4 link-local start address: %m");
                 }
 
-                r = sd_ipv4ll_start(link->ipv4ll);
+                r = ipv4ll_start(link);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Could not acquire IPv4 link-local address: %m");
-
-                log_link_debug(link, "Acquiring IPv4 link-local address.");
+                if (r > 0)
+                        log_link_debug(link, "Acquiring IPv4 link-local address.");
         }
 
         r = link_start_dhcp4_server(link);
