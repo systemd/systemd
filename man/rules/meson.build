@@ -1150,7 +1150,6 @@ manpages = [
   ['systemd-sysupdated'],
   'ENABLE_SYSUPDATED'],
  ['systemd-sysusers', '8', ['systemd-sysusers.service'], ''],
- ['systemd-sysv-generator', '8', [], 'HAVE_SYSV_COMPAT'],
  ['systemd-time-wait-sync.service',
   '8',
   ['systemd-time-wait-sync'],
