@@ -47,8 +47,6 @@ A: Note that there might be more than one target active at the same time. So the
 $ systemctl list-units --type=target
 ```
 
-If you are just interested in a single number, you can use the venerable _runlevel_ command, but again, its output might be misleading.
-
 **Q: I want to change a service file, but rpm keeps overwriting it in /usr/lib/systemd/system all the time, how should I handle this?**
 
 A: The recommended way is to copy the service file from /usr/lib/systemd/system to /etc/systemd/system and edit it there. The latter directory takes precedence over the former, and rpm will never overwrite it. If you want to use the distributed service file again you can simply delete (or rename) the service file in /etc/systemd/system again.
