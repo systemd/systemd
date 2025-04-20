@@ -1187,7 +1187,7 @@ manpages = [
  ['systemd-update-done.service', '8', ['systemd-update-done'], ''],
  ['systemd-update-utmp.service',
   '8',
-  ['systemd-update-utmp', 'systemd-update-utmp-runlevel.service'],
+  ['systemd-update-utmp'],
   'ENABLE_UTMP'],
  ['systemd-user-sessions.service', '8', ['systemd-user-sessions'], 'HAVE_PAM'],
  ['systemd-userdbd.service', '8', ['systemd-userdbd'], 'ENABLE_USERDB'],

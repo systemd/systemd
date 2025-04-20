@@ -2272,7 +2272,7 @@ Features:
 
 * clean up date formatting and parsing so that all absolute/relative timestamps we format can also be parsed
 
-* on shutdown: move utmp, wall, audit logic all into PID 1 (or logind?), get rid of systemd-update-utmp-runlevel
+* on shutdown: move utmp, wall, audit logic all into PID 1 (or logind?)
 
 * make repeated alt-ctrl-del presses printing a dump
 
