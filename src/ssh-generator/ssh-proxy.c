@@ -178,7 +178,7 @@ static int process_machine(const char *machine, const char *port) {
 static char *startswith_sep(const char *s, const char *prefix) {
         const char *p = startswith(s, prefix);
 
-        if (p && IN_SET(*p, '/', ','))
+        if (p && IN_SET(*p, '/', '%'))
                 return (char*) p + 1;
 
         return NULL;
