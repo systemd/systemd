@@ -29,7 +29,6 @@
 #include "systemctl-cancel-job.h"
 #include "systemctl-clean-or-freeze.h"
 #include "systemctl-compat-halt.h"
-#include "systemctl-compat-runlevel.h"
 #include "systemctl-compat-shutdown.h"
 #include "systemctl-daemon-reload.h"
 #include "systemctl-edit.h"
@@ -1128,10 +1127,6 @@ int systemctl_dispatch_parse_argv(int argc, char *argv[]) {
         } else if (invoked_as(argv, "shutdown")) {
                 arg_action = ACTION_POWEROFF;
                 return shutdown_parse_argv(argc, argv);
-
-        } else if (invoked_as(argv, "runlevel")) {
-                arg_action = ACTION_RUNLEVEL;
-                return runlevel_parse_argv(argc, argv);
         }
 
         arg_action = ACTION_SYSTEMCTL;
@@ -1320,10 +1315,6 @@ static int run(int argc, char *argv[]) {
         case ACTION_SHOW_SHUTDOWN:
         case ACTION_SYSTEMCTL_SHOW_SHUTDOWN:
                 r = logind_show_shutdown();
-                break;
-
-        case ACTION_RUNLEVEL:
-                r = runlevel_main();
                 break;
 
         case ACTION_EXIT:
