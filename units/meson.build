@@ -819,11 +819,6 @@ units = [
           'symlinks' : ['sysinit.target.wants/'],
         },
         {
-          'file' : 'systemd-update-utmp-runlevel.service.in',
-          'conditions' : ['ENABLE_UTMP', 'HAVE_SYSV_COMPAT'],
-          'symlinks' : ['multi-user.target.wants/', 'graphical.target.wants/', 'rescue.target.wants/'],
-        },
-        {
           'file' : 'systemd-update-utmp.service.in',
           'conditions' : ['ENABLE_UTMP'],
           'symlinks' : ['sysinit.target.wants/'],
