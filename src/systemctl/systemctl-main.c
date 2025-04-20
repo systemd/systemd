@@ -16,7 +16,6 @@
 #include "systemctl-cancel-job.h"
 #include "systemctl-clean-or-freeze.h"
 #include "systemctl-compat-halt.h"
-#include "systemctl-compat-runlevel.h"
 #include "systemctl-compat-telinit.h"
 #include "systemctl-daemon-reload.h"
 #include "systemctl-edit.h"
@@ -234,10 +233,6 @@ static int run(int argc, char *argv[]) {
         case ACTION_SHOW_SHUTDOWN:
         case ACTION_SYSTEMCTL_SHOW_SHUTDOWN:
                 r = logind_show_shutdown();
-                break;
-
-        case ACTION_RUNLEVEL:
-                r = runlevel_main();
                 break;
 
         case ACTION_EXIT:
