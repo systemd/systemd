@@ -2371,7 +2371,6 @@ subdir('src/system-update-generator')
 subdir('src/systemctl')
 subdir('src/sysupdate')
 subdir('src/sysusers')
-subdir('src/sysv-generator')
 subdir('src/storagetm')
 subdir('src/timedate')
 subdir('src/timesync')
@@ -2723,7 +2722,6 @@ subdir('test')
 
 #####################################################################
 
-subdir('docs/sysvinit')
 subdir('docs/var-log')
 subdir('hwdb.d')
 subdir('man')
