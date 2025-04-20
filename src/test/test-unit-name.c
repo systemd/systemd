@@ -963,7 +963,6 @@ TEST(unit_name_from_dbus_path) {
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2dudevd_2dkernel_2esocket", 0, "systemd-udevd-kernel.socket");
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2dudevd_2eservice", 0, "systemd-udevd.service");
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2dupdate_2ddone_2eservice", 0, "systemd-update-done.service");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2dupdate_2dutmp_2drunlevel_2eservice", 0, "systemd-update-utmp-runlevel.service");
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2dupdate_2dutmp_2eservice", 0, "systemd-update-utmp.service");
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2duser_2dsessions_2eservice", 0, "systemd-user-sessions.service");
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2dvconsole_2dsetup_2eservice", 0, "systemd-vconsole-setup.service");
