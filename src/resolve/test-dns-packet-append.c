@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "dns-type.h"
+#include "resolved-dns-answer.h"
 #include "resolved-dns-packet.h"
+#include "resolved-dns-question.h"
 #include "resolved-dns-rr.h"
 
 #include "list.h"
@@ -37,7 +39,7 @@ TEST(packet_set_flags_dns_checking_enabled) {
         ASSERT_EQ(DNS_PACKET_RA(packet), 0);
         ASSERT_EQ(DNS_PACKET_AD(packet), 0);
         ASSERT_EQ(DNS_PACKET_CD(packet), 0);
-        ASSERT_EQ(DNS_PACKET_RCODE(packet), 0);
+        ASSERT_EQ(dns_packet_rcode(packet), 0);
 }
 
 TEST(packet_set_flags_dns_checking_disabled) {
@@ -56,7 +58,7 @@ TEST(packet_set_flags_dns_checking_disabled) {
         ASSERT_EQ(DNS_PACKET_RA(packet), 0);
         ASSERT_EQ(DNS_PACKET_AD(packet), 0);
         ASSERT_EQ(DNS_PACKET_CD(packet), 1);
-        ASSERT_EQ(DNS_PACKET_RCODE(packet), 0);
+        ASSERT_EQ(dns_packet_rcode(packet), 0);
 }
 
 TEST(packet_set_flags_llmnr) {
@@ -75,7 +77,7 @@ TEST(packet_set_flags_llmnr) {
         ASSERT_EQ(DNS_PACKET_RA(packet), 0);
         ASSERT_EQ(DNS_PACKET_AD(packet), 0);
         ASSERT_EQ(DNS_PACKET_CD(packet), 0);
-        ASSERT_EQ(DNS_PACKET_RCODE(packet), 0);
+        ASSERT_EQ(dns_packet_rcode(packet), 0);
 }
 
 TEST(packet_set_flags_mdns_not_truncated) {
@@ -94,7 +96,7 @@ TEST(packet_set_flags_mdns_not_truncated) {
         ASSERT_EQ(DNS_PACKET_RA(packet), 0);
         ASSERT_EQ(DNS_PACKET_AD(packet), 0);
         ASSERT_EQ(DNS_PACKET_CD(packet), 0);
-        ASSERT_EQ(DNS_PACKET_RCODE(packet), 0);
+        ASSERT_EQ(dns_packet_rcode(packet), 0);
 }
 
 TEST(packet_set_flags_mdns_truncated) {
@@ -113,7 +115,7 @@ TEST(packet_set_flags_mdns_truncated) {
         ASSERT_EQ(DNS_PACKET_RA(packet), 0);
         ASSERT_EQ(DNS_PACKET_AD(packet), 0);
         ASSERT_EQ(DNS_PACKET_CD(packet), 0);
-        ASSERT_EQ(DNS_PACKET_RCODE(packet), 0);
+        ASSERT_EQ(dns_packet_rcode(packet), 0);
 }
 
 /* ================================================================

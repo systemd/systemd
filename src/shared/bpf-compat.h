@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <bpf/libbpf.h>
+
 /* libbpf has been moving quickly.
  * They added new symbols in the 0.x versions and shortly after removed
  * deprecated symbols in 1.0.

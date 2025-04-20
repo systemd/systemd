@@ -77,7 +77,3 @@ DEFINE_SECTION_CLEANUP_FUNCTIONS(TClass, tclass_unref);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_tclass_parent);
 CONFIG_PARSER_PROTOTYPE(config_parse_tclass_classid);
-
-#include "drr.h"
-#include "htb.h"
-#include "qfq.h"

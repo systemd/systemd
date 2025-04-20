@@ -1,9 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "resolved-dns-answer.h"
-#include "resolved-dns-question.h"
-#include "resolved-manager.h"
+#include <stdbool.h>
+#include <stdint.h>
+
+typedef enum DnsProtocol DnsProtocol;
+
+typedef struct DnsAnswer DnsAnswer;
+typedef struct DnsQuestion DnsQuestion;
+typedef struct Manager Manager;
 
 int dns_synthesize_family(uint64_t flags);
 DnsProtocol dns_synthesize_protocol(uint64_t flags);

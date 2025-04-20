@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "hash-funcs.h"
-#include "macro.h"
-#include "sysupdate-transfer.h"
+#include "memory-util.h"
 
 typedef struct Feature {
         unsigned n_ref;

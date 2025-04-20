@@ -5,7 +5,15 @@
 #include <arpa/inet.h>
 
 #include "alloc-util.h"
+#include "dns-domain.h"
 #include "fd-util.h"
+#include "resolved-dns-answer.h"
+#include "resolved-dns-packet.h"
+#include "resolved-dns-question.h"
+#include "resolved-dns-rr.h"
+#include "resolved-dns-scope.h"
+#include "resolved-dns-transaction.h"
+#include "resolved-link.h"
 #include "resolved-manager.h"
 #include "resolved-mdns.h"
 #include "sort-util.h"
@@ -497,7 +505,7 @@ static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *us
                         scope->manager->enable_cache,
                         DNS_PROTOCOL_MDNS,
                         NULL,
-                        DNS_PACKET_RCODE(p),
+                        dns_packet_rcode(p),
                         p->answer,
                         NULL,
                         false,

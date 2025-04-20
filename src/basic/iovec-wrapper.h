@@ -5,6 +5,7 @@
 #include <sys/uio.h>
 
 #include "macro.h"
+#include "memory-util.h"
 
 struct iovec_wrapper {
         struct iovec *iovec;

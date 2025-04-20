@@ -2,6 +2,7 @@
 
 #include "alloc-util.h"
 #include "dns-domain.h"
+#include "dns-type.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "hexdecoct.h"
@@ -9,8 +10,10 @@
 #include "memory-util.h"
 #include "memstream-util.h"
 #include "openssl-util.h"
+#include "resolved-dns-answer.h"
 #include "resolved-dns-dnssec.h"
 #include "resolved-dns-packet.h"
+#include "resolved-dns-rr.h"
 #include "sort-util.h"
 #include "string-table.h"
 

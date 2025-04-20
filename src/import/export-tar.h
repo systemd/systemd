@@ -4,7 +4,7 @@
 #include "sd-event.h"
 
 #include "import-compress.h"
-#include "macro.h"
+#include "memory-util.h"
 
 typedef struct TarExport TarExport;
 

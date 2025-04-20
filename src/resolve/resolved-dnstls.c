@@ -10,6 +10,7 @@
 
 #include "io-util.h"
 #include "openssl-util.h"
+#include "resolved-dns-server.h"
 #include "resolved-dns-stream.h"
 #include "resolved-dnstls.h"
 #include "resolved-manager.h"

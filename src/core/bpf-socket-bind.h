@@ -2,7 +2,8 @@
 #pragma once
 
 #include "fdset.h"
-#include "unit.h"
+
+typedef struct Unit Unit;
 
 int bpf_socket_bind_supported(void);
 

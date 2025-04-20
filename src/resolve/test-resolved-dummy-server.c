@@ -2,11 +2,13 @@
 
 #include "sd-daemon.h"
 
+#include "dns-type.h"
 #include "fd-util.h"
 #include "iovec-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "resolved-dns-packet.h"
+#include "resolved-dns-question.h"
 #include "resolved-manager.h"
 #include "socket-netlink.h"
 #include "socket-util.h"
@@ -176,7 +178,7 @@ static int make_reply_packet(DnsPacket *packet, DnsPacket **ret) {
         assert(packet);
         assert(ret);
 
-        r = dns_packet_new(&p, DNS_PROTOCOL_DNS, 0, DNS_PACKET_PAYLOAD_SIZE_MAX(packet));
+        r = dns_packet_new(&p, DNS_PROTOCOL_DNS, 0, dns_packet_payload_size_max(packet));
         if (r < 0)
                 return r;
 

@@ -1,12 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-typedef struct User User;
+#include "sd-event.h"
 
 #include "conf-parser.h"
 #include "list.h"
-#include "logind.h"
 #include "user-record.h"
+
+typedef struct Manager Manager;
+typedef struct Session Session;
+typedef struct User User;
 
 typedef enum UserState {
         USER_OFFLINE,    /* Not logged in at all */

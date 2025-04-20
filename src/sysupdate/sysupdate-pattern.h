@@ -3,8 +3,9 @@
 
 #include <stdbool.h>
 
-#include "sysupdate-instance.h"
 #include "time-util.h"
+
+typedef struct InstanceMetadata InstanceMetadata;
 
 enum {
         PATTERN_MATCH_NO,
