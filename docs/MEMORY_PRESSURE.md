@@ -16,7 +16,7 @@ it can attempt various things to make more memory available again ("reclaim"):
   pages are the many memory mapped executable files and shared libraries on
   disk, among others.
 
-* The kernel can flush out memory packages not backed by files on disk
+* The kernel can flush out memory pages not backed by files on disk
   ("anonymous" memory, i.e. memory allocated via `malloc()` and similar calls,
   or `tmpfs` file system contents) if there's swap to write it to.
 
