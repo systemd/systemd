@@ -463,3 +463,6 @@ assert_cc(sizeof(dummy_t) == 0);
 
 #define PTR_TO_SIZE(p) ((size_t) ((uintptr_t) (p)))
 #define SIZE_TO_PTR(u) ((void *) ((uintptr_t) (u)))
+
+assert_cc(STRLEN(__FILE__) > STRLEN(RELATIVE_SOURCE_PATH) + 1);
+#define PROJECT_FILE (&__FILE__[STRLEN(RELATIVE_SOURCE_PATH) + 1])
