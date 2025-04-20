@@ -38,16 +38,6 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
         return 0;
 }
 
-static void test_files(void) {
-
-#if HAVE_SYSV_COMPAT
-        if (access("/forcequotacheck", F_OK) >= 0) {
-                log_error("Please pass 'quotacheck.mode=force' on the kernel command line rather than creating /forcequotacheck on the root file system. Proceeding anyway.");
-                arg_force = true;
-        }
-#endif
-}
-
 static int run(int argc, char *argv[]) {
         int r;
 
@@ -62,8 +52,6 @@ static int run(int argc, char *argv[]) {
         r = proc_cmdline_parse(parse_proc_cmdline_item, NULL, 0);
         if (r < 0)
                 log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
-
-        test_files();
 
         if (!arg_force) {
                 if (arg_skip)
