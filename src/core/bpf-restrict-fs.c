@@ -27,7 +27,6 @@
 /* libbpf, clang and llc compile time dependencies are satisfied */
 #include "bpf-dlopen.h"
 #include "bpf-link.h"
-#include "bpf-util.h"
 #include "bpf/restrict_fs/restrict-fs-skel.h"
 
 #define CGROUP_HASH_SIZE_MAX 2048

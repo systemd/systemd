@@ -11,7 +11,6 @@
 /* libbpf, clang, llvm and bpftool compile time dependencies are satisfied */
 #include "bpf-dlopen.h"
 #include "bpf-link.h"
-#include "bpf-util.h"
 #include "bpf/socket_bind/socket-bind-api.bpf.h"
 #include "bpf/socket_bind/socket-bind-skel.h"
 
