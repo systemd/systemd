@@ -1747,6 +1747,8 @@ static int link_carrier_gained(Link *link) {
 
         assert(link);
 
+        log_link_info(link, "Gained carrier");
+
         r = event_source_disable(link->carrier_lost_timer);
         if (r < 0)
                 log_link_warning_errno(link, r, "Failed to disable carrier lost timer, ignoring: %m");
@@ -1849,6 +1851,8 @@ static int link_carrier_lost(Link *link) {
 
         assert(link);
 
+        log_link_info(link, "Lost carrier");
+
         if (link->iftype == ARPHRD_CAN)
                 /* let's shortcut things for CAN which doesn't need most of what's done below. */
                 usec = 0;
@@ -1902,6 +1906,8 @@ static int link_admin_state_up(Link *link) {
         /* This is called every time an interface admin state changes to up;
          * specifically, when IFF_UP flag changes from unset to set. */
 
+        log_link_info(link, "Link UP");
+
         if (!link->network)
                 return 0;
 
@@ -1919,6 +1925,8 @@ static int link_admin_state_up(Link *link) {
 
 static int link_admin_state_down(Link *link) {
         assert(link);
+
+        log_link_info(link, "Link DOWN");
 
         link_forget_nexthops(link);
         link_forget_routes(link);
@@ -2167,33 +2175,21 @@ static int link_update_flags(Link *link, sd_netlink_message *message) {
 
         link_update_operstate(link, true);
 
-        if (!link_was_admin_up && (link->flags & IFF_UP)) {
-                log_link_info(link, "Link UP");
+        r = 0;
 
+        if (!link_was_admin_up && (link->flags & IFF_UP))
                 r = link_admin_state_up(link);
-                if (r < 0)
-                        return r;
-        } else if (link_was_admin_up && !(link->flags & IFF_UP)) {
-                log_link_info(link, "Link DOWN");
-
+        else if (link_was_admin_up && !(link->flags & IFF_UP))
                 r = link_admin_state_down(link);
-                if (r < 0)
-                        return r;
-        }
+        if (r < 0)
+                return r;
 
-        if (!had_carrier && link_has_carrier(link)) {
-                log_link_info(link, "Gained carrier");
-
+        if (!had_carrier && link_has_carrier(link))
                 r = link_carrier_gained(link);
-                if (r < 0)
-                        return r;
-        } else if (had_carrier && !link_has_carrier(link)) {
-                log_link_info(link, "Lost carrier");
-
-                r = link_carrier_lost(link);
-                if (r < 0)
-                        return r;
-        }
+        else if (had_carrier && !link_has_carrier(link))
+                link_carrier_lost(link);
+        if (r < 0)
+                return r;
 
         return 0;
 }
