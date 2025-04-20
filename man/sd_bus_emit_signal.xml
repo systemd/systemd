@@ -91,7 +91,7 @@
         <funcdef>int <function>sd_bus_emit_interfaces_added_strv</function></funcdef>
         <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
         <paramdef>const char *<parameter>path</parameter></paramdef>
-        <paramdef>const char **<parameter>interfaces</parameter></paramdef>
+        <paramdef>char **<parameter>interfaces</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
@@ -106,7 +106,7 @@
         <funcdef>int <function>sd_bus_emit_interfaces_removed_strv</function></funcdef>
         <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
         <paramdef>const char *<parameter>path</parameter></paramdef>
-        <paramdef>const char **<parameter>interfaces</parameter></paramdef>
+        <paramdef>char **<parameter>interfaces</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
@@ -123,7 +123,7 @@
         <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
         <paramdef>const char *<parameter>path</parameter></paramdef>
         <paramdef>const char *<parameter>interface</parameter></paramdef>
-        <paramdef>const char **<parameter>names</parameter></paramdef>
+        <paramdef>char **<parameter>names</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
