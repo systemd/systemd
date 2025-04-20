@@ -247,33 +247,3 @@ int utmp_put_dead_process(const char *id, pid_t pid, int code, int status) {
 
         return write_utmp_wtmp(&store, &store_wtmp);
 }
-
-int utmp_put_runlevel(int runlevel, int previous) {
-        struct utmpx store = {};
-        int r;
-
-        assert(runlevel > 0);
-
-        if (previous <= 0) {
-                /* Find the old runlevel automatically */
-
-                r = utmp_get_runlevel(&previous, NULL);
-                if (r < 0) {
-                        if (r != -ESRCH)
-                                return r;
-
-                        previous = 0;
-                }
-        }
-
-        if (previous == runlevel)
-                return 0;
-
-        init_entry(&store, 0);
-
-        store.ut_type = RUN_LVL;
-        store.ut_pid = (runlevel & 0xFF) | ((previous & 0xFF) << 8);
-        strncpy(store.ut_user, "runlevel", sizeof(store.ut_user));
-
-        return write_entry_both(&store);
-}

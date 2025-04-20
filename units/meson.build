@@ -409,15 +409,6 @@ units = [
           'symlinks' : ['sysinit.target.wants/'],
         },
         {
-          'file' : 'systemd-initctl.service.in',
-          'conditions' : ['HAVE_SYSV_COMPAT'],
-        },
-        {
-          'file' : 'systemd-initctl.socket',
-          'conditions' : ['HAVE_SYSV_COMPAT'],
-          'symlinks' : ['sockets.target.wants/'],
-        },
-        {
           'file' : 'systemd-journal-catalog-update.service',
           'symlinks' : ['sysinit.target.wants/'],
         },
@@ -805,11 +796,6 @@ units = [
         {
           'file' : 'systemd-update-done.service.in',
           'symlinks' : ['sysinit.target.wants/'],
-        },
-        {
-          'file' : 'systemd-update-utmp-runlevel.service.in',
-          'conditions' : ['ENABLE_UTMP', 'HAVE_SYSV_COMPAT'],
-          'symlinks' : ['multi-user.target.wants/', 'graphical.target.wants/', 'rescue.target.wants/'],
         },
         {
           'file' : 'systemd-update-utmp.service.in',
