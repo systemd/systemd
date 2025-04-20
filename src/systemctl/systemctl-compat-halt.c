@@ -11,7 +11,6 @@
 #include "reboot-util.h"
 #include "systemctl.h"
 #include "systemctl-compat-halt.h"
-#include "systemctl-compat-telinit.h"
 #include "systemctl-logind.h"
 #include "systemctl-start-unit.h"
 #include "systemctl-util.h"
@@ -171,7 +170,7 @@ int halt_main(void) {
                 arg_no_block = true;
 
                 if (!arg_dry_run)
-                        return start_with_fallback();
+                        return verb_start(0, NULL, NULL);
         }
 
         r = must_be_root();
