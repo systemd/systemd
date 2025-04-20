@@ -16,7 +16,6 @@
 #include "systemctl-cancel-job.h"
 #include "systemctl-clean-or-freeze.h"
 #include "systemctl-compat-halt.h"
-#include "systemctl-compat-telinit.h"
 #include "systemctl-daemon-reload.h"
 #include "systemctl-edit.h"
 #include "systemctl-enable.h"
@@ -213,19 +212,6 @@ static int run(int argc, char *argv[]) {
                 r = halt_main();
                 break;
 
-        case ACTION_RUNLEVEL2:
-        case ACTION_RUNLEVEL3:
-        case ACTION_RUNLEVEL4:
-        case ACTION_RUNLEVEL5:
-        case ACTION_RESCUE:
-                r = start_with_fallback();
-                break;
-
-        case ACTION_RELOAD:
-        case ACTION_REEXEC:
-                r = reload_with_fallback();
-                break;
-
         case ACTION_CANCEL_SHUTDOWN:
                 r = logind_cancel_shutdown();
                 break;
@@ -235,6 +221,9 @@ static int run(int argc, char *argv[]) {
                 r = logind_show_shutdown();
                 break;
 
+        case ACTION_RESCUE:
+        case ACTION_RELOAD:
+        case ACTION_REEXEC:
         case ACTION_EXIT:
         case ACTION_SLEEP:
         case ACTION_SUSPEND:
