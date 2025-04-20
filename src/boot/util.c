@@ -13,6 +13,19 @@
 /* Never try to read more than 16G into memory (and on 32bit 1G) */
 #define FILE_READ_MAX MIN(SIZE_MAX/4, UINT64_C(16)*1024U*1024U*1024U)
 
+void free(void *p) {
+        if (!p)
+                return;
+
+        /* Debugging an invalid free requires trace logging to find the call site or a debugger attached. For
+         * release builds it is not worth the bother to even warn when we cannot even print a call stack. */
+#ifdef EFI_DEBUG
+        assert_se(BS->FreePool(p) == EFI_SUCCESS);
+#else
+        (void) BS->FreePool(p);
+#endif
+}
+
 void convert_efi_path(char16_t *path) {
         assert(path);
 
