@@ -16,7 +16,7 @@
 #include "networkd-dhcp-prefix-delegation.h"
 #include "networkd-dhcp4-bus.h"
 #include "networkd-dhcp4.h"
-#include "networkd-ipv4acd.h"
+#include "networkd-ipv4ll.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-network.h"
@@ -1192,13 +1192,11 @@ static int dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
                                 return 0;
                         }
 
-                        if (link->ipv4ll && !sd_ipv4ll_is_running(link->ipv4ll)) {
-                                log_link_debug(link, "DHCP client is stopped. Acquiring IPv4 link-local address");
-
-                                r = sd_ipv4ll_start(link->ipv4ll);
-                                if (r < 0 && r != -ESTALE) /* On exit, we cannot and should not start sd-ipv4ll. */
-                                        return log_link_warning_errno(link, r, "Could not acquire IPv4 link-local address: %m");
-                        }
+                        r = ipv4ll_start(link);
+                        if (r < 0)
+                                return log_link_warning_errno(link, r, "Could not acquire IPv4 link-local address: %m");
+                        if (r > 0)
+                                log_link_debug(link, "DHCP client is stopped. Acquiring IPv4 link-local address.");
 
                         if (link->dhcp_lease) {
                                 if (link->network->dhcp_send_release) {
@@ -1270,13 +1268,11 @@ static int dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
                         break;
 
                 case SD_DHCP_CLIENT_EVENT_TRANSIENT_FAILURE:
-                        if (link->ipv4ll && !sd_ipv4ll_is_running(link->ipv4ll)) {
+                        r = ipv4ll_start(link);
+                        if (r < 0)
+                                return log_link_warning_errno(link, r, "Could not acquire IPv4 link-local address: %m");
+                        if (r > 0)
                                 log_link_debug(link, "Problems acquiring DHCP lease, acquiring IPv4 link-local address");
-
-                                r = sd_ipv4ll_start(link->ipv4ll);
-                                if (r < 0)
-                                        return log_link_warning_errno(link, r, "Could not acquire IPv4 link-local address: %m");
-                        }
                         break;
 
                 default:
