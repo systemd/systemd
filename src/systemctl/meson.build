@@ -5,7 +5,6 @@ systemctl_sources = files(
         'systemctl-cancel-job.c',
         'systemctl-clean-or-freeze.c',
         'systemctl-compat-halt.c',
-        'systemctl-compat-runlevel.c',
         'systemctl-compat-shutdown.c',
         'systemctl-compat-telinit.c',
         'systemctl-daemon-reload.c',
@@ -73,7 +72,7 @@ executables += [
 ]
 
 foreach alias : (['halt', 'poweroff', 'reboot', 'shutdown'] +
-                 (conf.get('HAVE_SYSV_COMPAT') == 1 ? ['runlevel', 'telinit'] : []))
+                 (conf.get('HAVE_SYSV_COMPAT') == 1 ? ['telinit'] : []))
         install_symlink(alias,
                         pointing_to : sbin_to_bin + 'systemctl',
                         install_dir : sbindir)
