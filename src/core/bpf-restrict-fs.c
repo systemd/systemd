@@ -10,6 +10,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "bpf-dlopen.h"
 #include "bpf-restrict-fs.h"
 #include "cgroup-util.h"
 #include "fd-util.h"
@@ -27,7 +28,6 @@
 /* libbpf, clang and llc compile time dependencies are satisfied */
 #include "bpf-dlopen.h"
 #include "bpf-link.h"
-#include "bpf-util.h"
 #include "bpf/restrict_fs/restrict-fs-skel.h"
 
 #define CGROUP_HASH_SIZE_MAX 2048
