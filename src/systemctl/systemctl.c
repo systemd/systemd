@@ -1334,7 +1334,7 @@ static int run(int argc, char *argv[]) {
 
         case ACTION_RELOAD:
         case ACTION_REEXEC:
-                r = reload_with_fallback();
+                r = daemon_reload_with_fallback();
                 break;
 
         case ACTION_CANCEL_SHUTDOWN:

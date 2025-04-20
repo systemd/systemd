@@ -140,18 +140,3 @@ int start_with_fallback(void) {
 
         return log_error_errno(r, "Failed to talk to init daemon: %m");
 }
-
-int reload_with_fallback(void) {
-
-        assert(IN_SET(arg_action, ACTION_RELOAD, ACTION_REEXEC));
-
-        /* First, try systemd via D-Bus */
-        if (daemon_reload(arg_action, /* graceful= */ true) > 0)
-                return 0;
-
-        /* That didn't work, so let's try signals */
-        if (kill(1, arg_action == ACTION_RELOAD ? SIGHUP : SIGTERM) < 0)
-                return log_error_errno(errno, "kill() failed: %m");
-
-        return 0;
-}
