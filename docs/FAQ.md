@@ -11,13 +11,7 @@ Also check out the [Tips & Tricks](/TIPS_AND_TRICKS)!
 
 **Q: How do I change the current runlevel?**
 
-A: In systemd runlevels are exposed via "target units". You can change them like this:
-
-```sh
-# systemctl isolate runlevel5.target
-```
-
-Note however, that the concept of runlevels is a bit out of date, and it is usually nicer to use modern names for this. e.g.:
+A: The concept of runlevels is obsolete. A set of target units are exposed that carry similar semantics, e.g. runlevel 5 -> `graphical.target`:
 
 ```sh
 # systemctl isolate graphical.target
