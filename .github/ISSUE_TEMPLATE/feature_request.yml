@@ -74,7 +74,6 @@ body:
         - 'systemd-sysctl'
         - 'systemd-sysext'
         - 'systemd-sysusers'
-        - 'systemd-sysv-generator'
         - 'systemd-timedate'
         - 'systemd-timesync'
         - 'systemd-tmpfiles'
