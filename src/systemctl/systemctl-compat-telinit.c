@@ -4,13 +4,16 @@
 #include <signal.h>
 
 #include "alloc-util.h"
+#include "fd-util.h"
+#include "initreq.h"
+#include "io-util.h"
 #include "log.h"
 #include "pretty-print.h"
+#include "strv.h"
 #include "systemctl.h"
 #include "systemctl-compat-telinit.h"
 #include "systemctl-daemon-reload.h"
 #include "systemctl-start-unit.h"
-#include "systemctl-sysv-compat.h"
 
 static int telinit_help(void) {
         _cleanup_free_ char *link = NULL;
@@ -122,6 +125,61 @@ int telinit_parse_argv(int argc, char *argv[]) {
 
         return 1;
 }
+
+#if HAVE_SYSV_COMPAT
+static int talk_initctl(char rl) {
+        _cleanup_close_ int fd = -EBADF;
+        const char *path;
+        int r;
+
+        /* Try to switch to the specified SysV runlevel. Returns == 0 if the operation does not apply on this
+         * system, and > 0 on success. */
+
+        if (rl == 0)
+                return 0;
+
+        FOREACH_STRING(_path, "/run/initctl", "/dev/initctl") {
+                path = _path;
+
+                fd = open(path, O_WRONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY);
+                if (fd < 0 && errno != ENOENT)
+                        return log_error_errno(errno, "Failed to open %s: %m", path);
+                if (fd >= 0)
+                        break;
+        }
+        if (fd < 0)
+                return 0;
+
+        struct init_request request = {
+                .magic = INIT_MAGIC,
+                .sleeptime = 0,
+                .cmd = INIT_CMD_RUNLVL,
+                .runlevel = rl,
+        };
+
+        r = loop_write(fd, &request, sizeof(request));
+        if (r < 0)
+                return log_error_errno(r, "Failed to write to %s: %m", path);
+
+        return 1;
+}
+
+static int action_to_runlevel(void) {
+        static const char table[_ACTION_MAX] = {
+                [ACTION_HALT] =      '0',
+                [ACTION_POWEROFF] =  '0',
+                [ACTION_REBOOT] =    '6',
+                [ACTION_RUNLEVEL2] = '2',
+                [ACTION_RUNLEVEL3] = '3',
+                [ACTION_RUNLEVEL4] = '4',
+                [ACTION_RUNLEVEL5] = '5',
+                [ACTION_RESCUE] =    '1'
+        };
+
+        assert(arg_action >= 0 && arg_action < _ACTION_MAX);
+        return table[arg_action];
+}
+#endif
 
 int start_with_fallback(void) {
         int r;
