@@ -284,11 +284,11 @@
       <para>Old-style daemons are usually activated exclusively on boot (and manually by the administrator)
       via SysV init scripts, as detailed in the <ulink
       url="http://refspecs.linuxbase.org/LSB_3.1.1/LSB-Core-generic/LSB-Core-generic/iniscrptact.html">LSB
-      Linux Standard Base Core Specification</ulink>. This method of activation is supported ubiquitously on
-      Linux init systems, both old-style and new-style systems. Among other issues, SysV init scripts have
-      the disadvantage of involving shell scripts in the boot process. New-style init systems generally use
-      updated versions of activation, both during boot-up and during runtime and using more minimal service
-      description files.</para>
+      Linux Standard Base Core Specification</ulink>. Among other issues, SysV init scripts have
+      the disadvantage of involving shell scripts in the boot process. Support for init scripts has been
+      phased out in modern Linux init systems, and should not be relied upon. New-style init systems
+      generally use updated versions of activation, both during boot-up and during runtime and using
+      more minimal service description files.</para>
 
       <para>In systemd, if the developer or administrator wants to
       make sure that a service or other unit is activated
