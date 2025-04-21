@@ -588,7 +588,7 @@ static int parse_environment(void) {
 
         /* SYSTEMD_NSPAWN_USE_CGNS=0 can be used to disable CLONE_NEWCGROUP use,
          * even if it is supported. If not supported, it has no effect. */
-        if (!cg_ns_supported())
+        if (!namespace_type_supported(NAMESPACE_CGROUP))
                 arg_use_cgns = false;
         else {
                 r = getenv_bool("SYSTEMD_NSPAWN_USE_CGNS");

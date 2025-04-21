@@ -1570,7 +1570,7 @@ static int socket_address_listen_in_cgroup(
                     s->exec_runtime->shared &&
                     s->exec_runtime->shared->netns_storage_socket[0] >= 0) {
 
-                        if (ns_type_supported(NAMESPACE_NET)) {
+                        if (namespace_type_supported(NAMESPACE_NET)) {
                                 r = setup_shareable_ns(s->exec_runtime->shared->netns_storage_socket, CLONE_NEWNET);
                                 if (r < 0) {
                                         log_unit_error_errno(UNIT(s), r, "Failed to join network namespace: %m");
