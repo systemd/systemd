@@ -3263,17 +3263,6 @@ int open_shareable_ns_path(int ns_storage_socket[static 2], const char *path, un
         return 1;
 }
 
-bool ns_type_supported(NamespaceType type) {
-        const char *t, *ns_proc;
-
-        t = namespace_type_to_string(type);
-        if (!t) /* Don't know how to translate this? Then it's not supported */
-                return false;
-
-        ns_proc = strjoina("/proc/self/ns/", t);
-        return access(ns_proc, F_OK) == 0;
-}
-
 static const char *const protect_home_table[_PROTECT_HOME_MAX] = {
         [PROTECT_HOME_NO]        = "no",
         [PROTECT_HOME_YES]       = "yes",
@@ -3308,19 +3297,6 @@ static const char *const protect_control_groups_table[_PROTECT_CONTROL_GROUPS_MA
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(protect_control_groups, ProtectControlGroups, PROTECT_CONTROL_GROUPS_YES);
-
-static const char* const namespace_type_table[] = {
-        [NAMESPACE_MOUNT]  = "mnt",
-        [NAMESPACE_CGROUP] = "cgroup",
-        [NAMESPACE_UTS]    = "uts",
-        [NAMESPACE_IPC]    = "ipc",
-        [NAMESPACE_USER]   = "user",
-        [NAMESPACE_PID]    = "pid",
-        [NAMESPACE_NET]    = "net",
-        [NAMESPACE_TIME]   = "time",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(namespace_type, NamespaceType);
 
 static const char* const protect_proc_table[_PROTECT_PROC_MAX] = {
         [PROTECT_PROC_DEFAULT]    = "default",

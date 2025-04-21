@@ -28,6 +28,8 @@ extern const struct namespace_info {
 
 NamespaceType clone_flag_to_namespace_type(unsigned long clone_flag);
 
+bool namespace_type_supported(NamespaceType type);
+
 int pidref_namespace_open_by_type(const PidRef *pidref, NamespaceType type);
 int namespace_open_by_type(NamespaceType type);
 

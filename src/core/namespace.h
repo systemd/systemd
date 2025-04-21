@@ -258,8 +258,3 @@ int temporary_filesystem_add(TemporaryFileSystem **t, size_t *n,
 
 MountImage* mount_image_free_many(MountImage *m, size_t *n);
 int mount_image_add(MountImage **m, size_t *n, const MountImage *item);
-
-const char* namespace_type_to_string(NamespaceType t) _const_;
-NamespaceType namespace_type_from_string(const char *s) _pure_;
-
-bool ns_type_supported(NamespaceType type);
