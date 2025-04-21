@@ -5,12 +5,8 @@
 #include <unistd.h>
 
 #include "env-util.h"
-#include "fd-util.h"
-#include "initreq.h"
 #include "install.h"
-#include "io-util.h"
 #include "log.h"
-#include "parse-util.h"
 #include "path-lookup.h"
 #include "path-util.h"
 #include "process-util.h"
@@ -18,101 +14,6 @@
 #include "strv.h"
 #include "systemctl.h"
 #include "systemctl-sysv-compat.h"
-#include "time-util.h"
-
-int talk_initctl(char rl) {
-#if HAVE_SYSV_COMPAT
-        _cleanup_close_ int fd = -EBADF;
-        const char *path;
-        int r;
-
-        /* Try to switch to the specified SysV runlevel. Returns == 0 if the operation does not apply on this
-         * system, and > 0 on success. */
-
-        if (rl == 0)
-                return 0;
-
-        FOREACH_STRING(_path, "/run/initctl", "/dev/initctl") {
-                path = _path;
-
-                fd = open(path, O_WRONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY);
-                if (fd < 0 && errno != ENOENT)
-                        return log_error_errno(errno, "Failed to open %s: %m", path);
-                if (fd >= 0)
-                        break;
-        }
-        if (fd < 0)
-                return 0;
-
-        struct init_request request = {
-                .magic = INIT_MAGIC,
-                .sleeptime = 0,
-                .cmd = INIT_CMD_RUNLVL,
-                .runlevel = rl,
-        };
-
-        r = loop_write(fd, &request, sizeof(request));
-        if (r < 0)
-                return log_error_errno(r, "Failed to write to %s: %m", path);
-
-        return 1;
-#else
-        return -EOPNOTSUPP;
-#endif
-}
-
-int parse_shutdown_time_spec(const char *t, usec_t *ret) {
-        int r;
-
-        assert(t);
-        assert(ret);
-
-        if (streq(t, "now"))
-                *ret = 0;
-        else if (!strchr(t, ':')) {
-                uint64_t u;
-
-                if (safe_atou64(t, &u) < 0)
-                        return -EINVAL;
-
-                *ret = now(CLOCK_REALTIME) + USEC_PER_MINUTE * u;
-        } else {
-                char *e = NULL;
-                long hour, minute;
-
-                errno = 0;
-                hour = strtol(t, &e, 10);
-                if (errno > 0 || *e != ':' || hour < 0 || hour > 23)
-                        return -EINVAL;
-
-                minute = strtol(e+1, &e, 10);
-                if (errno > 0 || *e != 0 || minute < 0 || minute > 59)
-                        return -EINVAL;
-
-                usec_t n = now(CLOCK_REALTIME);
-                struct tm tm = {};
-
-                r = localtime_or_gmtime_usec(n, /* utc= */ false, &tm);
-                if (r < 0)
-                        return r;
-
-                tm.tm_hour = (int) hour;
-                tm.tm_min = (int) minute;
-                tm.tm_sec = 0;
-
-                usec_t s;
-                r = mktime_or_timegm_usec(&tm, /* utc= */ false, &s);
-                if (r < 0)
-                        return r;
-
-                while (s <= n)
-                        s += USEC_PER_DAY;
-
-                *ret = s;
-        }
-
-        return 0;
-}
 
 int enable_sysv_units(const char *verb, char **args) {
         int r = 0;
@@ -263,24 +164,4 @@ int enable_sysv_units(const char *verb, char **args) {
                 return enable_state;
 #endif
         return r;
-}
-
-int action_to_runlevel(void) {
-#if HAVE_SYSV_COMPAT
-        static const char table[_ACTION_MAX] = {
-                [ACTION_HALT] =      '0',
-                [ACTION_POWEROFF] =  '0',
-                [ACTION_REBOOT] =    '6',
-                [ACTION_RUNLEVEL2] = '2',
-                [ACTION_RUNLEVEL3] = '3',
-                [ACTION_RUNLEVEL4] = '4',
-                [ACTION_RUNLEVEL5] = '5',
-                [ACTION_RESCUE] =    '1'
-        };
-
-        assert(arg_action >= 0 && arg_action < _ACTION_MAX);
-        return table[arg_action];
-#else
-        return -EOPNOTSUPP;
-#endif
 }
