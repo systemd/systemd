@@ -31,7 +31,6 @@ systemctl_sources = files(
         'systemctl-start-special.c',
         'systemctl-start-unit.c',
         'systemctl-switch-root.c',
-        'systemctl-sysv-compat.c',
         'systemctl-trivial-method.c',
         'systemctl-util.c',
         'systemctl-whoami.c',
