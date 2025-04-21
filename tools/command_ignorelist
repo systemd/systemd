@@ -326,7 +326,6 @@ systemd.special.xml ./refsect1[title="Units managed by the system service manage
 systemd.special.xml ./refsect1[title="Units managed by the system service manager"]/refsect2[title="Special Passive System Units "]/variablelist/varlistentry[term="remote-fs-pre.target"]
 systemd.special.xml ./refsect1[title="Units managed by the system service manager"]/refsect2[title="Special System Units"]/variablelist/varlistentry[term="rescue.target"]
 systemd.special.xml ./refsect1[title="Units managed by the system service manager"]/refsect2[title="Special Passive System Units "]/variablelist/varlistentry[term="rpcbind.target"]
-systemd.special.xml ./refsect1[title="Units managed by the system service manager"]/refsect2[title="Special System Units"]/variablelist/varlistentry[term="runlevel2.target"]
 systemd.special.xml ./refsect1[title="Units managed by the system service manager"]/refsect2[title="Special System Units"]/variablelist/varlistentry[term="shutdown.target"]
 systemd.special.xml ./refsect1[title="Units managed by the system service manager"]/refsect2[title="Special System Units"]/variablelist/varlistentry[term="sigpwr.target"]
 systemd.special.xml ./refsect1[title="Units managed by the system service manager"]/refsect2[title="Special System Units"]/variablelist/varlistentry[term="sleep.target"]
