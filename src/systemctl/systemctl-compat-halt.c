@@ -77,15 +77,10 @@ int halt_parse_argv(int argc, char *argv[]) {
                 {}
         };
 
-        int c, r, runlevel;
+        int c, r;
 
         assert(argc >= 0);
         assert(argv);
-
-        /* called in sysvinit system as last command in shutdown/reboot so this is always forceful */
-        if (utmp_get_runlevel(&runlevel, NULL) >= 0)
-                if (IN_SET(runlevel, '0', '6'))
-                        arg_force = 2;
 
         while ((c = getopt_long(argc, argv, "pfwdnih", options, NULL)) >= 0)
                 switch (c) {
