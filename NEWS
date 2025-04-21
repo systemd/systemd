@@ -69,9 +69,9 @@ CHANGES WITH 258 in spe:
 
         * OpenSSL is the only crypto backend for systemd-resolved and
           systemd-importd, and support for gnutls and gcrypt has been removed.
-          Hence, support for 'dns-over-tls=gnutls' meson option has been
-          removed. Also, 'cryptolib' meson option has been deprecated, and will
-          be removed in a future release.
+          Hence, 'gnutls' for 'dns-over-tls=' meson option has been deprecated,
+          deprecated. Also, 'cryptolib' meson option has been deprecated. They
+          will be removed in a future release.
 
         * systemd-logind's session tracking, which used to be performed via
           fifo fd installed in the client, has been fully switched to be

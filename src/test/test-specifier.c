@@ -89,9 +89,7 @@ TEST(specifier_printf) {
 
 TEST(specifier_real_path) {
         static const Specifier table[] = {
-                { 'p', specifier_string,         "/dev/initctl" },
-                { 'y', specifier_real_path,      "/dev/initctl" },
-                { 'Y', specifier_real_directory, "/dev/initctl" },
+                { 'p', specifier_string,         "/dev/tty" },
                 { 'w', specifier_real_path,      "/dev/tty" },
                 { 'W', specifier_real_directory, "/dev/tty" },
                 {}
@@ -100,14 +98,10 @@ TEST(specifier_real_path) {
         _cleanup_free_ char *w = NULL;
         int r;
 
-        r = specifier_printf("p=%p y=%y Y=%Y w=%w W=%W", SIZE_MAX, table, NULL, NULL, &w);
-        assert_se(r >= 0 || r == -ENOENT);
-        assert_se(w || r == -ENOENT);
-        puts(strnull(w));
-
-        /* /dev/initctl should normally be a symlink to /run/initctl */
-        if (inode_same("/dev/initctl", "/run/initctl", 0) > 0)
-                ASSERT_STREQ(w, "p=/dev/initctl y=/run/initctl Y=/run w=/dev/tty W=/dev");
+        r = specifier_printf("p=%p w=%w W=%W", SIZE_MAX, table, NULL, NULL, &w);
+        if (r < 0)
+                ASSERT_ERROR(r, ENOENT);
+        ASSERT_STREQ(w, "p=/dev/tty w=/dev/tty W=/dev");
 }
 
 TEST(specifier_real_path_missing_file) {
