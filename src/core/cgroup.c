@@ -1817,11 +1817,6 @@ static void cgroup_context_apply(
                 (void) set_attribute_and_warn(u, "memory", "memory.zswap.writeback", one_zero(c->memory_zswap_writeback));
         }
 
-        /* On cgroup v2 we can apply BPF everywhere. */
-        if ((apply_mask & (CGROUP_MASK_DEVICES | CGROUP_MASK_BPF_DEVICES)) &&
-            (is_host_root || !is_local_root))
-                (void) cgroup_apply_devices(u);
-
         if (apply_mask & CGROUP_MASK_PIDS) {
 
                 if (is_host_root) {
@@ -1862,6 +1857,10 @@ static void cgroup_context_apply(
                                 (void) set_attribute_and_warn(u, "pids", "pids.max", "max\n");
                 }
         }
+
+        /* On cgroup v2 we can apply BPF everywhere. */
+        if (apply_mask & CGROUP_MASK_BPF_DEVICES)
+                (void) cgroup_apply_devices(u);
 
         if (apply_mask & CGROUP_MASK_BPF_FIREWALL)
                 cgroup_apply_firewall(u);
