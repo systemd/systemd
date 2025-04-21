@@ -11,6 +11,10 @@ if [[ ! -d "pkg/$PKG_SUBDIR/debian" ]]; then
     exit 1
 fi
 
+for i in systemd.install systemd.manpages systemd-sysv.install systemd-sysv.manpages; do
+    sed -i -e '/initctl/ d; /rc-local/ d; /runlevel/ d; /systemd-sysv-install/ d; /sysv-generator/ d; /telinit/ d;' "pkg/$PKG_SUBDIR/debian/$i"
+done
+
 MKOSI_CFLAGS="-O0 -g"
 if ((LLVM)); then
     # TODO: Remove -fno-sanitize-function when https://github.com/systemd/systemd/issues/29972 is fixed.
