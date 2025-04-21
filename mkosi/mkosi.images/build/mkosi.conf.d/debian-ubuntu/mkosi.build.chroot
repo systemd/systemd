@@ -11,6 +11,20 @@ if [[ ! -d "pkg/$PKG_SUBDIR/debian" ]]; then
     exit 1
 fi
 
+cleanup() {
+    for filelist in systemd.install systemd.manpages systemd-sysv.install systemd-sysv.manpages; do
+        mv "pkg/$PKG_SUBDIR/debian/${filelist}.bak" "pkg/$PKG_SUBDIR/debian/$filelist" || :
+    done
+    rm -rf /tmp/filelist.bak
+}
+
+trap cleanup EXIT
+
+# TODO: drop this workaround when Debian/Ubuntu drops SysV compat
+for filelist in systemd.install systemd.manpages systemd-sysv.install systemd-sysv.manpages; do
+    sed -i.bak -e '/(initctl|rc-local|runlevel|systemd-sysv-install|sysv-generator|telinit)/ d' "pkg/$PKG_SUBDIR/debian/$filelist"
+done
+
 MKOSI_CFLAGS="-O0 -g"
 if ((LLVM)); then
     # TODO: Remove -fno-sanitize-function when https://github.com/systemd/systemd/issues/29972 is fixed.

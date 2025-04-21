@@ -90,6 +90,7 @@ build() {
         --noprep \
         --build-in-place \
         --with upstream \
+        --without sysvcompat \
         $( ((WITH_TESTS)) || echo "--nocheck") \
         --define "_topdir /var/tmp" \
         --define "_sourcedir $PWD/pkg/$PKG_SUBDIR${GIT_SUBDIR:+/$GIT_SUBDIR}" \
