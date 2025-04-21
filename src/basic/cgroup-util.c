@@ -241,35 +241,6 @@ int cg_read_event(
         }
 }
 
-bool cg_ns_supported(void) {
-        static thread_local int supported = -1;
-
-        if (supported >= 0)
-                return supported;
-
-        if (access("/proc/self/ns/cgroup", F_OK) >= 0)
-                return (supported = true);
-        if (errno != ENOENT)
-                log_debug_errno(errno, "Failed to check whether /proc/self/ns/cgroup is available, assuming not: %m");
-        return (supported = false);
-}
-
-bool cg_freezer_supported(void) {
-        static thread_local int supported = -1;
-
-        if (supported >= 0)
-                return supported;
-
-        if (cg_all_unified() <= 0)
-                return (supported = false);
-
-        if (access("/sys/fs/cgroup/init.scope/cgroup.freeze", F_OK) >= 0)
-                return (supported = true);
-        if (errno != ENOENT)
-                log_debug_errno(errno, "Failed to check whether cgroup freezer is available, assuming not: %m");
-        return (supported = false);
-}
-
 bool cg_kill_supported(void) {
         static thread_local int supported = -1;
 

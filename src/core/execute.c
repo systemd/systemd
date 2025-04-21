@@ -243,7 +243,7 @@ ProtectControlGroups exec_get_protect_control_groups(const ExecContext *context)
          * use cgroup namespace, we ignore the setting and do not unshare the namespace.
          * ProtectControlGroups=private and strict get downgraded to no and yes respectively. This ensures
          * that strict always gets a read-only mount of /sys/fs/cgroup/. */
-        if (needs_cgroup_namespace(context->protect_control_groups) && !ns_type_supported(NAMESPACE_CGROUP)) {
+        if (needs_cgroup_namespace(context->protect_control_groups) && !namespace_type_supported(NAMESPACE_CGROUP)) {
                 if (context->protect_control_groups == PROTECT_CONTROL_GROUPS_PRIVATE)
                         return PROTECT_CONTROL_GROUPS_NO;
                 if (context->protect_control_groups == PROTECT_CONTROL_GROUPS_STRICT)
@@ -273,7 +273,7 @@ bool exec_is_cgroup_mount_read_only(const ExecContext *context) {
 bool exec_needs_pid_namespace(const ExecContext *context) {
         assert(context);
 
-        return context->private_pids != PRIVATE_PIDS_NO && ns_type_supported(NAMESPACE_PID);
+        return context->private_pids != PRIVATE_PIDS_NO && namespace_type_supported(NAMESPACE_PID);
 }
 
 bool exec_needs_mount_namespace(

@@ -6296,7 +6296,7 @@ int unit_freezer_action(Unit *u, FreezerAction action) {
         assert(u);
         assert(IN_SET(action, FREEZER_FREEZE, FREEZER_THAW));
 
-        if (!cg_freezer_supported() || !unit_can_freeze(u))
+        if (!unit_can_freeze(u))
                 return -EOPNOTSUPP;
 
         if (u->job)
