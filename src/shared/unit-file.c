@@ -838,13 +838,14 @@ const char* runlevel_to_target(const char *word) {
                 word = startswith(word, "rd.");
                 if (!word)
                         return NULL;
-        }
 
-        rlmap_ptr = in_initrd() ? rlmap_initrd : rlmap;
+                rlmap_ptr = rlmap_initrd;
+        } else
+                rlmap_ptr = rlmap;
 
-        for (size_t i = 0; rlmap_ptr[i]; i += 2)
-                if (streq(word, rlmap_ptr[i]))
-                        return rlmap_ptr[i+1];
+        STRV_FOREACH_PAIR(rl, target, rlmap_ptr)
+                if (streq(word, *rl))
+                        return *target;
 
         return NULL;
 }
