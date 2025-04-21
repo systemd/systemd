@@ -57,7 +57,6 @@
 #include "systemctl-start-special.h"
 #include "systemctl-start-unit.h"
 #include "systemctl-switch-root.h"
-#include "systemctl-sysv-compat.h"
 #include "systemctl-trivial-method.h"
 #include "systemctl-util.h"
 #include "systemctl-whoami.h"
