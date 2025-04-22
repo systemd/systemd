@@ -102,6 +102,7 @@ static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 static char *arg_shell_prompt_prefix = NULL;
 static int arg_lightweight = -1;
 static char *arg_area = NULL;
+static bool arg_login = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_description, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_environment, strv_freep);
@@ -213,6 +214,7 @@ static int help_sudo_mode(void) {
                "  -g --group=GROUP                Run as system group\n"
                "     --nice=NICE                  Nice level\n"
                "  -D --chdir=PATH                 Set working directory\n"
+               "  -i --login                      Invoke command via target user's login shell and home\n"
                "     --setenv=NAME[=VALUE]        Set environment variable\n"
                "     --background=COLOR           Set ANSI color for background\n"
                "     --pty                        Request allocation of a pseudo TTY for stdio\n"
@@ -255,7 +257,7 @@ static int add_timer_property(const char *name, const char *val) {
         return 0;
 }
 
-static char **make_login_shell_cmdline(const char *shell) {
+static char** make_login_shell_cmdline(const char *shell) {
         _cleanup_free_ char *argv0 = NULL;
 
         assert(shell);
@@ -843,6 +845,7 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                 { "group",               required_argument, NULL, 'g'                     },
                 { "nice",                required_argument, NULL, ARG_NICE                },
                 { "chdir",               required_argument, NULL, 'D'                     },
+                { "login",               no_argument,       NULL, 'i'                     },
                 { "setenv",              required_argument, NULL, ARG_SETENV              },
                 { "background",          required_argument, NULL, ARG_BACKGROUND          },
                 { "pty",                 no_argument,       NULL, ARG_PTY                 },
@@ -862,7 +865,7 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
         /* Resetting to 0 forces the invocation of an internal initialization routine of getopt_long()
          * that checks for GNU extensions in optstring ('-' or '+' at the beginning). */
         optind = 0;
-        while ((c = getopt_long(argc, argv, "+hVu:g:D:a:", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "+hVu:g:D:a:i", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -976,6 +979,10 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
 
                         break;
 
+                case 'i':
+                        arg_login = true;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -992,7 +999,7 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
         }
 
         if (!arg_working_directory) {
-                if (arg_exec_user) {
+                if (arg_exec_user || arg_login) {
                         /* When switching to a specific user, also switch to its home directory. */
                         arg_working_directory = strdup("~");
                         if (!arg_working_directory)
@@ -1024,9 +1031,11 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
         arg_send_sighup = true;
 
         _cleanup_strv_free_ char **l = NULL;
-        if (argc > optind)
+        if (argc > optind) {
                 l = strv_copy(argv + optind);
-        else {
+                if (!l)
+                        return log_oom();
+        } else if (!arg_login) {
                 const char *e;
 
                 e = strv_env_get(arg_environment, "SHELL");
@@ -1051,9 +1060,19 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                 }
 
                 l = make_login_shell_cmdline(arg_exec_path);
+                if (!l)
+                        return log_oom();
         }
-        if (!l)
-                return log_oom();
+
+        if (arg_login) {
+                arg_exec_path = strdup("/bin/sh");
+                if (!arg_exec_path)
+                        return log_oom();
+
+                r = strv_prepend(&l, "-sh");
+                if (r < 0)
+                        return log_oom();
+        }
 
         strv_free_and_replace(arg_cmdline, l);
 
@@ -1091,6 +1110,12 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                 return log_oom();
 
         if (strv_extend(&arg_property, "PAMName=systemd-run0") < 0)
+                return log_oom();
+
+        /* The service manager ignores SIGPIPE for all spawned processes by default. Let's explicitly override
+         * that here, since we're primarily invoked in interactive environments, and the termination of
+         * local terminal session should be acknowledged by remote even for --pipe stdio. */
+        if (strv_extend(&arg_property, "IgnoreSIGPIPE=no") < 0)
                 return log_oom();
 
         if (!arg_background && arg_stdio == ARG_STDIO_PTY && shall_tint_background()) {
@@ -1261,10 +1286,8 @@ static int transient_kill_set_properties(sd_bus_message *m) {
 static int transient_service_set_properties(sd_bus_message *m, const char *pty_path, int pty_fd) {
         int r, send_term; /* tri-state */
 
-        /* We disable environment expansion on the server side via ExecStartEx=:.
-         * ExecStartEx was added relatively recently (v243), and some bugs were fixed only later.
-         * So use that feature only if required. It will fail with older systemds. */
-        bool use_ex_prop = !arg_expand_environment;
+        /* Use ExecStartEx if new exec flags are required. */
+        bool use_ex_prop = !arg_expand_environment || arg_login;
 
         assert(m);
         assert((!!pty_path) == (pty_fd >= 0));
@@ -1451,7 +1474,9 @@ static int transient_service_set_properties(sd_bus_message *m, const char *pty_p
                         _cleanup_strv_free_ char **opts = NULL;
 
                         r = exec_command_flags_to_strv(
-                                        (arg_expand_environment ? 0 : EXEC_COMMAND_NO_ENV_EXPAND)|(arg_ignore_failure ? EXEC_COMMAND_IGNORE_FAILURE : 0),
+                                        (arg_expand_environment ? 0 : EXEC_COMMAND_NO_ENV_EXPAND)|
+                                        (arg_ignore_failure ? EXEC_COMMAND_IGNORE_FAILURE : 0)|
+                                        (arg_login ? EXEC_COMMAND_PREFIX_SHELL : 0),
                                         &opts);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to format execute flags: %m");
@@ -2811,7 +2836,12 @@ static int run(int argc, char* argv[]) {
 
                 if (strv_isempty(arg_cmdline))
                         t = strdup(arg_unit);
-                else if (startswith(arg_cmdline[0], "-")) {
+                else if (arg_login) {
+                        if (arg_cmdline[1])
+                                t = quote_command_line(arg_cmdline + 1, SHELL_ESCAPE_EMPTY);
+                        else
+                                t = strjoin("LOGIN", arg_exec_user ? ": " : NULL, arg_exec_user);
+                } else if (startswith(arg_cmdline[0], "-")) {
                         /* Drop the login shell marker from the command line when generating the description,
                          * in order to minimize user confusion. */
                         _cleanup_strv_free_ char **l = strv_copy(arg_cmdline);
