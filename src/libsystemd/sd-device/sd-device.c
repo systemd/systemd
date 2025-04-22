@@ -507,7 +507,7 @@ _public_ int sd_device_new_from_subsystem_sysname(
                         if (streq(sep, "drivers")) /* If the sysname is "drivers", then it's the drivers directory itself that is meant. */
                                 r = device_new_from_path_join(&device, subsystem, subsys, "drivers", "/sys/bus/", subsys, "/drivers", NULL);
                         else
-                                r = device_new_from_path_join(&device, subsystem, subsys, sep, "/sys/bus/", subsys, "/drivers/", sep);
+                                r = device_new_from_path_join(&device, subsystem, subsys, sysname + (sep - name), "/sys/bus/", subsys, "/drivers/", sep);
                         if (r < 0)
                                 return r;
                 }
