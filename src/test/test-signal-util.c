@@ -16,8 +16,8 @@ TEST(rt_signals) {
         info(SIGRTMIN);
         info(SIGRTMAX);
 
-        /* We use signals SIGRTMIN+0 to SIGRTMIN+24 unconditionally */
-        assert_se(SIGRTMAX - SIGRTMIN >= 24);
+        /* We use signals SIGRTMIN+0 to SIGRTMIN+30 unconditionally */
+        assert_se(SIGRTMAX - SIGRTMIN >= 30);
 }
 
 static void test_signal_to_string_one(int val) {
