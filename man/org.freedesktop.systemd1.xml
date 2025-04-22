@@ -280,12 +280,6 @@ node /org/freedesktop/systemd1 {
       GetDynamicUsers(out a(us) users);
       DumpUnitFileDescriptorStore(in  s name,
                                   out a(suuutuusu) entries);
-      @org.freedesktop.DBus.Deprecated("true")
-      StartAuxiliaryScope(in  s name,
-                          in  ah pidfds,
-                          in  t flags,
-                          in  a(sv) properties,
-                          out o job);
     signals:
       UnitNew(s id,
               o unit);
@@ -620,8 +614,6 @@ node /org/freedesktop/systemd1 {
     <!--method LookupDynamicUserByUID is not documented!-->
 
     <!--method GetDynamicUsers is not documented!-->
-
-    <!--method StartAuxiliaryScope is not documented!-->
 
     <!--property SecurityStartTimestampMonotonic is not documented!-->
 
@@ -984,8 +976,6 @@ node /org/freedesktop/systemd1 {
     <variablelist class="dbus-method" generated="True" extra-ref="GetDynamicUsers()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="DumpUnitFileDescriptorStore()"/>
-
-    <variablelist class="dbus-method" generated="True" extra-ref="StartAuxiliaryScope()"/>
 
     <variablelist class="dbus-signal" generated="True" extra-ref="UnitNew()"/>
 
@@ -12008,8 +11998,8 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <function>QueueSignalUnit()</function>,
       <function>SoftReboot()</function>, and
       <function>DumpUnitFileDescriptorStore()</function> were added in version 254.</para>
-      <para><function>StartAuxiliaryScope()</function>,
-      <varname>ShutdownStartTimestamp</varname>,
+      <para><function>StartAuxiliaryScope()</function> was added in version 256, deprecated in version 257, removed in version 258.</para>
+      <para><varname>ShutdownStartTimestamp</varname>,
       <varname>ShutdownStartTimestampMonotonic</varname>, and
       <varname>SoftRebootsCount</varname> were added in version 256.</para>
       <para><function>RemoveSubgroupFromUnit()</function> was added in version 258.</para>
