@@ -2690,9 +2690,9 @@ static int context_copy_from_one(Context *context, const char *src) {
         if (r < 0)
                 return r;
 
-        r = fd_verify_regular(fd);
+        r = fd_verify_regular_or_block(fd);
         if (r < 0)
-                return log_error_errno(r, "%s is not a file: %m", src);
+                return log_error_errno(r, "%s is not a file nor a block device: %m", src);
 
         r = fdisk_new_context_at(fd, /* path = */ NULL, /* read_only = */ true, /* sector_size = */ UINT32_MAX, &c);
         if (r < 0)

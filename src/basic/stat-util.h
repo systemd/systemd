@@ -32,6 +32,9 @@ int fd_verify_linked(int fd);
 int stat_verify_device_node(const struct stat *st);
 int is_device_node(const char *path);
 
+int stat_verify_regular_or_block(const struct stat *st);
+int fd_verify_regular_or_block(int fd);
+
 int dir_is_empty_at(int dir_fd, const char *path, bool ignore_hidden_or_backup);
 static inline int dir_is_empty(const char *path, bool ignore_hidden_or_backup) {
         return dir_is_empty_at(AT_FDCWD, path, ignore_hidden_or_backup);
