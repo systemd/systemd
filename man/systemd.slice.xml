@@ -3,7 +3,7 @@
   "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<refentry id="systemd.slice">
+<refentry id="systemd.slice" xmlns:xi="http://www.w3.org/2001/XInclude">
   <refentryinfo>
     <title>systemd.slice</title>
     <productname>systemd</productname>
@@ -104,9 +104,43 @@
     <para>Slice unit files may include [Unit] and [Install] sections, which are described in
     <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
-    <para>Slice files may include a [Slice] section. Options that may be used in this section are shared with other unit types.
-    These options are documented in
+    <para>Slice files may include a [Slice] section. Many options that may be used in this section are shared
+    with other unit types. These options are documented in
     <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+    <para>The options specific to the [Slice] section of slice units are the following:</para>
+
+    <variablelist class='unit-directives'>
+      <varlistentry>
+        <term><varname>ConcurrencyHardMax=</varname></term>
+        <term><varname>ConcurrencySoftMax=</varname></term>
+
+        <listitem><para>Configures a hard and a soft limit on the maximum number of units assigned to this
+        slice (or any descendent slices) that may be active at the same time. If the hard limit is reached no
+        further units associated with the slice may be activated, and their activation will fail with an
+        error. If the soft limit is reached any further requested activation of units will be queued, but no
+        immediate error is generated. The queued activation job will remain queued until the number of
+        concurrent active units within the slice is below the limit again.</para>
+
+        <para>If the special value <literal>infinity</literal> is specified, no concurrency limit is
+        enforced. This is the default.</para>
+
+        <para>Note that if multiple start jobs are queued for units, and all their dependencies are fulfilled
+        they'll be processed in an order that is dependent on the unit type, the CPU weight (for unit types
+        that know the concept, such as services), the nice level (similar), and finally in alphabetical order
+        by the unit name. This may be used to influence dispatching order when using
+        <varname>ConcurrencySoftMax=</varname> to pace concurrency within a slice unit.</para>
+
+        <para>Note that these options have a hierarchial effect: a limit set for a slice unit will apply to
+        both the units immediately within the slice, but also all units further down the slice tree. Also
+        note that each sub-slice unit counts as one unit each too, and thus when choosing a limit for a slice
+        hierarchy the limit must provide room for both the payload units (i.e. services, mounts, …) and
+        structural units (i.e. slice units), if any are defined.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+    </variablelist>
+
   </refsect1>
 
   <refsect1>
