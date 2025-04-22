@@ -971,7 +971,7 @@
 
         <listitem><para>Takes a string containing additional mount options to use when mounting the LUKS
         volume. If specified, this string will be appended to the default, built-in mount
-        options.</para>
+        options. Defaults to "compress=zstd:1,noacl,user_subvol_rm_allowed".</para>
 
         <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
