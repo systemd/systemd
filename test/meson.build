@@ -65,17 +65,6 @@ endif
 
 ############################################################
 
-if want_tests != 'false' and conf.get('HAVE_SYSV_COMPAT') == 1
-        sysv_generator_test_py = find_program('sysv-generator-test.py')
-        exe = executables_by_name.get('systemd-sysv-generator')
-        test('sysv-generator-test',
-             sysv_generator_test_py,
-             depends : exe,
-             suite : 'sysv')
-endif
-
-############################################################
-
 if want_tests != 'false' and conf.get('HAVE_BLKID') == 1
         test_bootctl_json_sh = find_program('test-bootctl-json.sh')
         exe = executables_by_name.get('bootctl')
