@@ -359,8 +359,6 @@ systemd.xml ./refsect1[title="Options"]/refsect2[title="Options that duplicate k
 systemd.xml ./refsect1[title="Options"]/refsect2[title="Options that duplicate kernel command line settings"]/variablelist/varlistentry[term="--default-standard-output="]
 systemd.xml ./refsect1[title="Directories"]/variablelist[1]/varlistentry[term="System unit directories"]
 systemd.xml ./refsect1[title="Directories"]/variablelist[2]/varlistentry[term="User unit directories"]
-systemd.xml ./refsect1[title="Directories"]/variablelist[3]/varlistentry[term="SysV init scripts directory"]
-systemd.xml ./refsect1[title="Directories"]/variablelist[4]/varlistentry[term="SysV runlevel link farm directory"]
 systemd.xml ./refsect1[title="Signals"]/variablelist/varlistentry[term="SIGTERM"]
 systemd.xml ./refsect1[title="Signals"]/variablelist/varlistentry[term="SIGINT"]
 systemd.xml ./refsect1[title="Signals"]/variablelist/varlistentry[term="SIGWINCH"]
