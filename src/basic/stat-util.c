@@ -152,6 +152,26 @@ int is_device_node(const char *path) {
         return verify_stat_at(AT_FDCWD, path, false, stat_verify_device_node, false);
 }
 
+int stat_verify_regular_or_block(const struct stat *st) {
+        assert(st);
+
+        if (S_ISDIR(st->st_mode))
+                return -EISDIR;
+
+        if (S_ISLNK(st->st_mode))
+                return -ELOOP;
+
+        if (!S_ISREG(st->st_mode) && !S_ISBLK(st->st_mode))
+                return -EBADFD;
+
+        return 0;
+}
+
+int fd_verify_regular_or_block(int fd) {
+        assert(fd >= 0);
+        return verify_stat_at(fd, NULL, false, stat_verify_regular_or_block, true);
+}
+
 int dir_is_empty_at(int dir_fd, const char *path, bool ignore_hidden_or_backup) {
         _cleanup_close_ int fd = -EBADF;
         struct dirent *buf;
