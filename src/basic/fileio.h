@@ -29,6 +29,7 @@ typedef enum {
         WRITE_STRING_FILE_MODE_0444                  = 1 << 11,
         WRITE_STRING_FILE_SUPPRESS_REDUNDANT_VIRTUAL = 1 << 12,
         WRITE_STRING_FILE_LABEL                      = 1 << 13,
+        WRITE_STRING_FILE_NONBLOCK                   = 1 << 14,
 } WriteStringFileFlags;
 
 typedef enum {
