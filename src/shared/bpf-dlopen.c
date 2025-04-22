@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "dlfcn-util.h"
 #include "bpf-dlopen.h"
+#include "dlfcn-util.h"
+#include "initrd-util.h"
 #include "log.h"
 #include "strv.h"
 
@@ -72,9 +73,13 @@ static int bpf_print_func(enum libbpf_print_level level, const char *fmt, va_lis
         return log_internalv(LOG_DEBUG, errno, NULL, 0, NULL, fmt, ap);
 }
 
-int dlopen_bpf(void) {
+int dlopen_bpf_full(int log_level) {
+        static int cached = 0;
         void *dl;
         int r;
+
+        if (cached != 0)
+                return cached;
 
         ELF_NOTE_DLOPEN("bpf",
                         "Support firewalling and sandboxing with BPF",
@@ -91,8 +96,9 @@ int dlopen_bpf(void) {
                  * list for both files, and when we assume 1.0+ is present we can remove this dlopen */
                 dl = dlopen("libbpf.so.0", RTLD_NOW|RTLD_NODELETE);
                 if (!dl)
-                        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                               "neither libbpf.so.1 nor libbpf.so.0 are installed: %s", dlerror());
+                        return cached = log_full_errno(log_level, SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                                       "Neither libbpf.so.1 nor libbpf.so.0 are installed, cgroup BPF features disabled: %s",
+                                                       dlerror());
 
                 log_debug("Loaded 'libbpf.so.0' via dlopen()");
 
@@ -129,7 +135,7 @@ int dlopen_bpf(void) {
                 );
         }
         if (r < 0)
-                return r;
+                return cached = log_full_errno(log_level, r, "Failed to load libbpf symbols, cgroup BPF features disabled: %m");
 
         r = dlsym_many_or_warn(
                         dl, LOG_DEBUG,
@@ -171,14 +177,14 @@ int dlopen_bpf(void) {
                         DLSYM_ARG(ring_buffer__new),
                         DLSYM_ARG(ring_buffer__poll));
         if (r < 0)
-                return r;
+                return cached = log_full_errno(log_level, r, "Failed to load libbpf symbols, cgroup BPF features disabled: %m");
 
         /* We set the print helper unconditionally. Otherwise libbpf will emit not useful log messages. */
         (void) sym_libbpf_set_print(bpf_print_func);
 
         REENABLE_WARNING;
 
-        return r;
+        return cached = true;
 }
 
 int bpf_get_error_translated(const void *ptr) {
@@ -200,8 +206,15 @@ int bpf_get_error_translated(const void *ptr) {
 
 #else
 
-int dlopen_bpf(void) {
-        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                               "libbpf support is not compiled in.");
+int dlopen_bpf_full(int log_level) {
+        if (cached) {
+                assert(result != 0);
+                return result;
+        }
+
+        cached = true;
+
+        return result = log_full_errno(log_level, SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "libbpf support is not compiled in, cgroup BPF features disabled.");
 }
 #endif
