@@ -6,17 +6,18 @@
 #include "sd-netlink.h"
 
 #include "in-addr-util.h"
+#include "list.h"
 #include "network-util.h"
 #include "ratelimit.h"
 #include "resolve-util.h"
 
+typedef struct DnsResourceRecord DnsResourceRecord;
+typedef struct DnsScope DnsScope;
+typedef struct DnsSearchDomain DnsSearchDomain;
+typedef struct DnsServer DnsServer;
 typedef struct Link Link;
 typedef struct LinkAddress LinkAddress;
-
-#include "resolved-dns-rr.h"
-#include "resolved-dns-scope.h"
-#include "resolved-dns-search-domain.h"
-#include "resolved-dns-server.h"
+typedef struct Manager Manager;
 
 #define LINK_SEARCH_DOMAINS_MAX 256
 #define LINK_DNS_SERVERS_MAX 256

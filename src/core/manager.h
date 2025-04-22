@@ -17,6 +17,14 @@
 #include "list.h"
 #include "prioq.h"
 #include "ratelimit.h"
+#include "execute.h"
+#include "emergency-action.h"
+#include "job.h"
+#include "path-lookup.h"
+#include "show-status.h"
+#include "transaction.h"
+#include "unit-name.h"
+#include "unit.h"
 
 struct libmnt_monitor;
 typedef struct Unit Unit;
@@ -61,21 +69,6 @@ typedef enum ManagerObjective {
         _MANAGER_OBJECTIVE_MAX,
         _MANAGER_OBJECTIVE_INVALID = -EINVAL,
 } ManagerObjective;
-
-typedef enum StatusType {
-        STATUS_TYPE_EPHEMERAL,
-        STATUS_TYPE_NORMAL,
-        STATUS_TYPE_NOTICE,
-        STATUS_TYPE_EMERGENCY,
-} StatusType;
-
-typedef enum OOMPolicy {
-        OOM_CONTINUE,          /* The kernel or systemd-oomd kills the process it wants to kill, and that's it */
-        OOM_STOP,              /* The kernel or systemd-oomd kills the process it wants to kill, and we stop the unit */
-        OOM_KILL,              /* The kernel or systemd-oomd kills the process it wants to kill, and all others in the unit, and we stop the unit */
-        _OOM_POLICY_MAX,
-        _OOM_POLICY_INVALID = -EINVAL,
-} OOMPolicy;
 
 /* Notes:
  * 1. TIMESTAMP_FIRMWARE, TIMESTAMP_LOADER, TIMESTAMP_KERNEL, TIMESTAMP_INITRD,
@@ -134,14 +127,6 @@ typedef enum WatchdogType {
         WATCHDOG_PRETIMEOUT,
         _WATCHDOG_TYPE_MAX,
 } WatchdogType;
-
-#include "execute.h"
-#include "job.h"
-#include "path-lookup.h"
-#include "show-status.h"
-#include "transaction.h"
-#include "unit-name.h"
-#include "unit.h"
 
 typedef enum ManagerTestRunFlags {
         MANAGER_TEST_NORMAL                  = 0,       /* run normally */
@@ -472,9 +457,6 @@ struct Manager {
         RateLimit ctrl_alt_del_ratelimit;
         EmergencyAction cad_burst_action;
 
-        const char *unit_log_field;
-        const char *invocation_log_field;
-
         int first_boot; /* tri-state */
 
         /* Prefixes of e.g. RuntimeDirectory= */
@@ -672,9 +654,6 @@ int manager_override_watchdog_pretimeout_governor(Manager *m, const char *govern
 LogTarget manager_get_executor_log_target(Manager *m);
 
 int manager_allocate_idle_pipe(Manager *m);
-
-const char* oom_policy_to_string(OOMPolicy i) _const_;
-OOMPolicy oom_policy_from_string(const char *s) _pure_;
 
 void unit_defaults_init(UnitDefaults *defaults, RuntimeScope scope);
 void unit_defaults_done(UnitDefaults *defaults);

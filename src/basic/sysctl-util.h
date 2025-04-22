@@ -8,6 +8,8 @@
 #include "stdio-util.h"
 #include "string-util.h"
 
+typedef struct Hashmap Hashmap;
+
 char* sysctl_normalize(char *s);
 int sysctl_read(const char *property, char **value);
 int sysctl_write_full(const char *property, const char *value, Hashmap **shadow);

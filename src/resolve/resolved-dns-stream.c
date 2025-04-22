@@ -9,6 +9,8 @@
 #include "iovec-util.h"
 #include "macro.h"
 #include "missing_network.h"
+#include "resolved-dns-packet.h"
+#include "resolved-dns-server.h"
 #include "resolved-dns-stream.h"
 #include "resolved-manager.h"
 

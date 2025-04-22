@@ -5,7 +5,10 @@
 #include "escape.h"
 #include "log.h"
 #include "memory-util.h"
+#include "resolved-dns-answer.h"
 #include "resolved-dns-packet.h"
+#include "resolved-dns-question.h"
+#include "resolved-dns-rr.h"
 #include "set.h"
 #include "stdio-util.h"
 #include "string-table.h"
@@ -32,6 +35,47 @@ static void rewind_dns_packet(DnsPacketRewinder *rewinder) {
                 .saved_rindex = (p)->rindex,            \
         }
 #define CANCEL_REWINDER(rewinder) do { (rewinder).packet = NULL; } while (0)
+
+uint16_t dns_packet_rcode(DnsPacket *p) {
+        uint16_t rcode;
+
+        if (p->opt)
+                rcode = (uint16_t) ((p->opt->ttl >> 20) & 0xFF0);
+        else
+                rcode = 0;
+
+        return rcode | (be16toh(DNS_PACKET_HEADER(p)->flags) & 0xF);
+};
+
+uint16_t dns_packet_payload_size_max(DnsPacket *p) {
+
+        /* Returns the advertised maximum size for replies, or the DNS default if there's nothing defined. */
+
+        if (p->ipproto == IPPROTO_TCP) /* we ignore EDNS(0) size data on TCP, like everybody else */
+                return DNS_PACKET_SIZE_MAX;
+
+        if (p->opt)
+                return MAX(DNS_PACKET_UNICAST_SIZE_MAX, p->opt->key->class);
+
+        return DNS_PACKET_UNICAST_SIZE_MAX;
+}
+
+bool dns_packet_do(DnsPacket *p) {
+        if (!p->opt)
+                return false;
+
+        return !!(p->opt->ttl & (1U << 15));
+}
+
+bool dns_packet_version_supported(DnsPacket *p) {
+        /* Returns true if this packet is in a version we support. Which means either non-EDNS or EDNS(0), but not EDNS
+         * of any newer versions */
+
+        if (!p->opt)
+                return true;
+
+        return DNS_RESOURCE_RECORD_OPT_VERSION_SUPPORTED(p->opt);
+}
 
 int dns_packet_new(
                 DnsPacket **ret,
@@ -278,7 +322,7 @@ int dns_packet_validate_reply(DnsPacket *p) {
 
         case DNS_PROTOCOL_MDNS:
                 /* RFC 6762, Section 18 */
-                if (DNS_PACKET_RCODE(p) != 0)
+                if (dns_packet_rcode(p) != 0)
                         return -EBADMSG;
 
                 break;
@@ -347,7 +391,7 @@ int dns_packet_validate_query(DnsPacket *p) {
                 /* RFC 6762, Section 18 specifies that messages with non-zero RCODE
                  * must be silently ignored, and that we must ignore the values of
                  * AA, RD, RA, AD, and CD bits. */
-                if (DNS_PACKET_RCODE(p) != 0)
+                if (dns_packet_rcode(p) != 0)
                         return -EBADMSG;
 
                 break;

@@ -1,8 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-typedef struct ImagePolicy ImagePolicy;
-
 #include "conf-parser.h"
 #include "dissect-image.h"
 #include "errno-list.h"
@@ -48,11 +46,11 @@ typedef struct PartitionPolicy {
         PartitionPolicyFlags flags;
 } PartitionPolicy;
 
-struct ImagePolicy {
+typedef struct ImagePolicy {
         PartitionPolicyFlags default_flags;  /* for any designator not listed in the list below */
         size_t n_policies;
         PartitionPolicy policies[];          /* sorted by designator, hence suitable for binary search */
-};
+} ImagePolicy;
 
 /* Default policies for various use cases */
 extern const ImagePolicy image_policy_allow;

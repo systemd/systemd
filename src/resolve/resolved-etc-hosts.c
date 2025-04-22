@@ -4,11 +4,16 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "dns-domain.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "hostname-util.h"
+#include "resolved-dns-answer.h"
+#include "resolved-dns-question.h"
+#include "resolved-dns-rr.h"
 #include "resolved-dns-synthesize.h"
 #include "resolved-etc-hosts.h"
+#include "resolved-manager.h"
 #include "socket-netlink.h"
 #include "stat-util.h"
 #include "string-util.h"

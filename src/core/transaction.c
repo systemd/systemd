@@ -8,6 +8,7 @@
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "dbus-unit.h"
+#include "manager.h"
 #include "slice.h"
 #include "strv.h"
 #include "terminal-util.h"
@@ -393,7 +394,7 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
                                 break;
                 }
 
-                unit_ids = merge_unit_ids(j->manager->unit_log_field, array); /* ignore error */
+                unit_ids = merge_unit_ids(unit_log_field(j->unit), array); /* ignore error */
 
                 STRV_FOREACH_PAIR(unit_id, job_type, array)
                         /* logging for j not k here to provide a consistent narrative */

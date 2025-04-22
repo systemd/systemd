@@ -3,6 +3,7 @@
 #include <linux/if_arp.h>
 
 #include "missing_network.h"
+#include "networkd-link.h"
 #include "xfrm.h"
 
 static int xfrm_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *message) {

@@ -13,18 +13,18 @@
 #include "conf-parser.h"
 #include "hashmap.h"
 #include "list.h"
+#include "logind-action.h"
 #include "set.h"
 #include "time-util.h"
 #include "user-record.h"
 
-typedef struct Manager Manager;
+typedef struct Button Button;
+typedef struct Device Device;
+typedef struct Seat Seat;
+typedef struct Session Session;
+typedef struct User User;
 
-#include "logind-action.h"
-#include "logind-button.h"
-#include "logind-device.h"
-#include "logind-inhibit.h"
-
-struct Manager {
+typedef struct Manager {
         sd_event *event;
         sd_bus *bus;
 
@@ -150,7 +150,7 @@ struct Manager {
         dual_timestamp init_ts;
 
         sd_varlink_server *varlink_server;
-};
+} Manager;
 
 void manager_reset_config(Manager *m);
 int manager_parse_config_file(Manager *m);

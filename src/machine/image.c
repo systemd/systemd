@@ -7,6 +7,7 @@
 #include "fileio.h"
 #include "image.h"
 #include "io-util.h"
+#include "machined.h"
 #include "operation.h"
 #include "process-util.h"
 #include "string-table.h"

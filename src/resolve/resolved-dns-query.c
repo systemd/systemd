@@ -7,9 +7,18 @@
 #include "glyph-util.h"
 #include "hostname-util.h"
 #include "local-addresses.h"
+#include "resolved-dns-answer.h"
+#include "resolved-dns-packet.h"
 #include "resolved-dns-query.h"
+#include "resolved-dns-question.h"
+#include "resolved-dns-rr.h"
+#include "resolved-dns-scope.h"
+#include "resolved-dns-search-domain.h"
+#include "resolved-dns-stub.h"
 #include "resolved-dns-synthesize.h"
+#include "resolved-dns-transaction.h"
 #include "resolved-etc-hosts.h"
+#include "resolved-manager.h"
 #include "resolved-timeouts.h"
 #include "string-util.h"
 
@@ -1492,4 +1501,14 @@ int validate_and_mangle_query_flags(
                 *flags |= SD_RESOLVED_NO_TXT;
 
         return 0;
+}
+
+uint64_t dns_query_reply_flags_make(DnsQuery *q) {
+        assert(q);
+
+        return SD_RESOLVED_FLAGS_MAKE(q->answer_protocol,
+                                      q->answer_family,
+                                      dns_query_fully_authenticated(q),
+                                      dns_query_fully_confidential(q)) |
+                (q->answer_query_flags & (SD_RESOLVED_FROM_MASK|SD_RESOLVED_SYNTHETIC));
 }

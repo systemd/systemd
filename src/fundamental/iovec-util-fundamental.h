@@ -2,6 +2,7 @@
 #pragma once
 
 #include "assert-fundamental.h"
+#include "macro-fundamental.h"
 
 #if SD_BOOT
 /* struct iovec is a POSIX userspace construct. Let's introduce it also in EFI mode, it's just so useful */
@@ -13,6 +14,9 @@ struct iovec {
 DISABLE_WARNING_REDUNDANT_DECLS;
 static inline void free(void *p);
 REENABLE_WARNING;
+#else
+#include <sys/uio.h>
+#include <stdlib.h>
 #endif
 
 /* This accepts both const and non-const pointers */

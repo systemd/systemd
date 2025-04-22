@@ -4,7 +4,7 @@
 #include "sd-varlink.h"
 #include "sd-varlink-idl.h"
 
-#include "macro.h"
+#include "memory-util.h"
 
 int varlink_idl_parse(const char *text, unsigned *ret_line, unsigned *ret_column, sd_varlink_interface **ret);
 sd_varlink_interface* varlink_interface_free(sd_varlink_interface *interface);

@@ -1,11 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-typedef struct DnsQuestion DnsQuestion;
-typedef struct DnsQuestionItem DnsQuestionItem;
+#include <stdio.h>
 
-#include "macro.h"
-#include "resolved-dns-rr.h"
+#include "in-addr-util.h"
+#include "memory-util.h"
+
+typedef struct DnsResourceKey DnsResourceKey;
+typedef struct DnsResourceRecord DnsResourceRecord;
 
 /* A simple array of resource keys */
 
@@ -13,16 +15,16 @@ typedef enum DnsQuestionFlags {
         DNS_QUESTION_WANTS_UNICAST_REPLY = 1 << 0, /* For mDNS: sender is willing to accept unicast replies */
 } DnsQuestionFlags;
 
-struct DnsQuestionItem {
+typedef struct DnsQuestionItem {
         DnsResourceKey *key;
         DnsQuestionFlags flags;
-};
+} DnsQuestionItem;
 
-struct DnsQuestion {
+typedef struct DnsQuestion {
         unsigned n_ref;
         size_t n_keys, n_allocated;
         DnsQuestionItem items[];
-};
+} DnsQuestion;
 
 DnsQuestion *dns_question_new(size_t n);
 DnsQuestion *dns_question_ref(DnsQuestion *q);

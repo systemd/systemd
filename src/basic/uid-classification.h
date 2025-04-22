@@ -4,6 +4,8 @@
 #include <stdbool.h>
 #include <sys/types.h>
 
+#include "macro.h"
+
 /* The container base should have the last 16 bit set to zero */
 assert_cc((CONTAINER_UID_BASE_MIN & 0xFFFFU) == 0);
 assert_cc((CONTAINER_UID_BASE_MAX & 0xFFFFU) == 0);
