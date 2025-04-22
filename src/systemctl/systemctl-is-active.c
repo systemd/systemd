@@ -5,7 +5,6 @@
 #include "pretty-print.h"
 #include "syslog-util.h"
 #include "systemctl-is-active.h"
-#include "systemctl-sysv-compat.h"
 #include "systemctl-util.h"
 #include "systemctl.h"
 
