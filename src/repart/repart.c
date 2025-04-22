@@ -2675,6 +2675,20 @@ static int determine_current_padding(
         return 0;
 }
 
+static int verify_regular_or_block(int fd) {
+        struct stat st;
+
+        assert(fd >= 0);
+
+        if (fstat(fd, &st) < 0)
+                return -errno;
+
+        if (!S_ISREG(st.st_mode) && !S_ISBLK(st.st_mode))
+                return -EBADFD;
+
+        return 0;
+}
+
 static int context_copy_from_one(Context *context, const char *src) {
         _cleanup_close_ int fd = -EBADF;
         _cleanup_(fdisk_unref_contextp) struct fdisk_context *c = NULL;
@@ -2690,9 +2704,9 @@ static int context_copy_from_one(Context *context, const char *src) {
         if (r < 0)
                 return r;
 
-        r = fd_verify_regular(fd);
+        r = verify_regular_or_block(fd);
         if (r < 0)
-                return log_error_errno(r, "%s is not a file: %m", src);
+                return log_error_errno(r, "%s is not a file nor a block device: %m", src);
 
         r = fdisk_new_context_at(fd, /* path = */ NULL, /* read_only = */ true, /* sector_size = */ UINT32_MAX, &c);
         if (r < 0)
