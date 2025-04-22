@@ -5,6 +5,7 @@ typedef struct Address Address;
 typedef struct Link Link;
 
 bool link_ipv4acd_supported(Link *link);
+bool link_ipv4acd_enabled(Link *link);
 bool ipv4acd_bound(Link *link, const Address *address);
 int ipv4acd_configure(Link *link, const Address *address);
 void ipv4acd_detach(Link *link, const Address *address);

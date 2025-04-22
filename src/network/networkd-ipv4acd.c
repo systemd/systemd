@@ -66,6 +66,18 @@ static bool address_ipv4acd_enabled(Link *link, const Address *address) {
         return link_ipv4acd_supported(link);
 }
 
+bool link_ipv4acd_enabled(Link *link) {
+        assert(link);
+        assert(link->network);
+
+        Address *address;
+        ORDERED_HASHMAP_FOREACH(address, link->network->addresses_by_section)
+                if (address_ipv4acd_enabled(link, address))
+                        return true;
+
+        return false;
+}
+
 bool ipv4acd_bound(Link *link, const Address *address) {
         sd_ipv4acd *acd;
 

@@ -12,6 +12,8 @@
 #include "netlink-util.h"
 #include "networkd-address.h"
 #include "networkd-can.h"
+#include "networkd-ipv4acd.h"
+#include "networkd-ipv4ll.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-queue.h"
@@ -176,6 +178,30 @@ static int link_unset_master_handler(sd_netlink *rtnl, sd_netlink_message *m, Re
 
 static int link_set_mtu_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, void *userdata) {
         return set_link_handler_internal(rtnl, m, req, link, /* ignore = */ true, get_link_default_handler);
+}
+
+static int link_get_arp(Link *link) {
+        assert(link);
+
+        /* This returns tristate. */
+
+        if (!link->network)
+                return -1;
+
+        /* If ARP= is explicitly specified, use the setting. */
+        if (link->network->arp >= 0)
+                return link->network->arp;
+
+        /* Enable ARP when IPv4ACD is enabled. */
+        if (link_ipv4acd_enabled(link))
+                return true;
+
+        /* Similary, enable ARP when IPv4LL is enabled. */
+        if (link_ipv4ll_enabled(link))
+                return true;
+
+        /* Otherwise, do not change the flag. */
+        return -1;
 }
 
 static int link_configure_fill_message(
@@ -360,9 +386,11 @@ static int link_configure_fill_message(
         case REQUEST_TYPE_SET_LINK_FLAGS: {
                 unsigned ifi_change = 0, ifi_flags = 0;
 
-                if (link->network->arp >= 0) {
+                int arp = link_get_arp(link);
+
+                if (arp >= 0) {
                         ifi_change |= IFF_NOARP;
-                        SET_FLAG(ifi_flags, IFF_NOARP, link->network->arp == 0);
+                        SET_FLAG(ifi_flags, IFF_NOARP, arp == 0);
                 }
 
                 if (link->network->multicast >= 0) {
@@ -844,7 +872,7 @@ int link_request_to_set_flags(Link *link) {
         assert(link);
         assert(link->network);
 
-        if (link->network->arp < 0 &&
+        if (link_get_arp(link) < 0 &&
             link->network->multicast < 0 &&
             link->network->allmulticast < 0 &&
             link->network->promiscuous < 0)
