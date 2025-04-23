@@ -16,6 +16,14 @@ Before=sysinit.target
 Wants=systemd-udev-load-credentials.service
 ConditionPathIsReadWrite=/sys
 
+# To avoid systemd-udevd being SIGKILLed during a soft reboot,
+# and causing queued uevents to be lost.
+# Note, typically soft-reboot.target will be never reached,
+# and systemd-soft-reboot.service will trigger soft-reboot.
+# Hence, this must be stopped before systemd-soft-reboot.service.
+Before=soft-reboot.target systemd-soft-reboot.service
+Conflicts=soft-reboot.target
+
 [Service]
 CapabilityBoundingSet=~CAP_SYS_TIME CAP_WAKE_ALARM
 Delegate=pids
