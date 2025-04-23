@@ -1130,25 +1130,6 @@ int getenv_steal_erase(const char *name, char **ret) {
         return 1;
 }
 
-int set_full_environment(char **env) {
-        int r;
-
-        clearenv();
-
-        STRV_FOREACH(e, env) {
-                _cleanup_free_ char *k = NULL, *v = NULL;
-
-                r = split_pair(*e, "=", &k, &v);
-                if (r < 0)
-                        return r;
-
-                if (setenv(k, v, /* overwrite= */ true) < 0)
-                        return -errno;
-        }
-
-        return 0;
-}
-
 int setenvf(const char *name, bool overwrite, const char *valuef, ...) {
         _cleanup_free_ char *value = NULL;
         va_list ap;
