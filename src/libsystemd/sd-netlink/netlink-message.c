@@ -1077,60 +1077,28 @@ int sd_netlink_message_has_flag(sd_netlink_message *m, uint16_t attr_type) {
 
 int sd_netlink_message_read_strv(sd_netlink_message *m, uint16_t container_type, uint16_t attr_type, char ***ret) {
         _cleanup_strv_free_ char **s = NULL;
-        const NLAPolicySet *policy_set;
-        const NLAPolicy *policy;
-        struct rtattr *rta;
-        void *container;
-        size_t rt_len;
+        const char *str;
         int r;
 
         assert_return(m, -EINVAL);
-        assert_return(m->n_containers < NETLINK_CONTAINER_DEPTH, -EINVAL);
 
-        policy = policy_set_get_policy(
-                        m->containers[m->n_containers].policy_set,
-                        container_type);
-        if (!policy)
-                return -EOPNOTSUPP;
-
-        if (policy_get_type(policy) != NETLINK_TYPE_NESTED)
-                return -EINVAL;
-
-        policy_set = policy_set_get_policy_set(
-                        m->containers[m->n_containers].policy_set,
-                        container_type);
-        if (!policy_set)
-                return -EOPNOTSUPP;
-
-        policy = policy_set_get_policy(policy_set, attr_type);
-        if (!policy)
-                return -EOPNOTSUPP;
-
-        if (policy_get_type(policy) != NETLINK_TYPE_STRING)
-                return -EINVAL;
-
-        r = netlink_message_read_internal(m, container_type, &container, NULL);
+        r = sd_netlink_message_enter_container(m, container_type);
         if (r < 0)
                 return r;
 
-        rt_len = (size_t) r;
-        rta = container;
+        size_t count;
+        (void) sd_netlink_message_get_attributes_count(m, attr_type, &count);
 
-        /* RTA_OK() macro compares with rta->rt_len, which is unsigned short, and
-         * LGTM.com analysis does not like the type difference. Hence, here we
-         * introduce an unsigned short variable as a workaround. */
-        unsigned short len = rt_len;
-        for (; RTA_OK(rta, len); rta = RTA_NEXT(rta, len)) {
-                uint16_t type;
-
-                type = RTA_TYPE(rta);
-                if (type != attr_type)
-                        continue;
-
-                r = strv_extend(&s, RTA_DATA(rta));
+        for (unsigned i = 0; i < count; i++) {
+                r = sd_netlink_message_read_string_indexed(m, attr_type, &str, i);
+                if (r < 0)
+                        return r;
+                r = strv_extend(&s, str);
                 if (r < 0)
                         return r;
         }
+
+        (void) sd_netlink_message_exit_container(m);
 
         *ret = TAKE_PTR(s);
         return 0;
