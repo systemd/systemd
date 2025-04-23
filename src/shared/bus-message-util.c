@@ -56,25 +56,6 @@ int bus_message_read_ifindex(sd_bus_message *message, sd_bus_error *error, int *
         return 0;
 }
 
-int bus_message_read_family(sd_bus_message *message, sd_bus_error *error, int *ret) {
-        int family, r;
-
-        assert(message);
-        assert(ret);
-
-        assert_cc(sizeof(int) == sizeof(int32_t));
-
-        r = sd_bus_message_read(message, "i", &family);
-        if (r < 0)
-                return r;
-
-        if (!IN_SET(family, AF_INET, AF_INET6))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unknown address family %i", family);
-
-        *ret = family;
-        return 0;
-}
-
 int bus_message_read_in_addr_auto(sd_bus_message *message, sd_bus_error *error, int *ret_family, union in_addr_union *ret_addr) {
         int family, r;
         const void *d;

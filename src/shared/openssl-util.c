@@ -787,29 +787,6 @@ int rsa_pkey_to_n_e(
         return 0;
 }
 
-/* Generate a new RSA key with the specified number of bits. */
-int rsa_pkey_new(size_t bits, EVP_PKEY **ret) {
-        assert(ret);
-
-        _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, NULL);
-        if (!ctx)
-                return log_openssl_errors("Failed to create new EVP_PKEY_CTX");
-
-        if (EVP_PKEY_keygen_init(ctx) <= 0)
-                return log_openssl_errors("Failed to initialize EVP_PKEY_CTX");
-
-        if (EVP_PKEY_CTX_set_rsa_keygen_bits(ctx, (int) bits) <= 0)
-                return log_openssl_errors("Failed to set RSA bits to %zu", bits);
-
-        _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
-        if (EVP_PKEY_keygen(ctx, &pkey) <= 0)
-                return log_openssl_errors("Failed to generate ECC key");
-
-        *ret = TAKE_PTR(pkey);
-
-        return 0;
-}
-
 /* Generate ECC public key from provided curve ID and x/y points. */
 int ecc_pkey_from_curve_x_y(
                 int curve_id,
