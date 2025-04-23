@@ -138,6 +138,7 @@ int sd_netlink_message_get_type(sd_netlink_message *m, uint16_t *ret);
 int sd_netlink_message_set_flags(sd_netlink_message *m, uint16_t flags);
 int sd_netlink_message_is_broadcast(sd_netlink_message *m);
 int sd_netlink_message_get_max_attribute(sd_netlink_message *m, uint16_t *ret);
+int sd_netlink_message_get_attributes_count(sd_netlink_message *m, uint16_t attr_type, size_t *ret);
 
 /* rtnl */
 int sd_rtnl_message_get_family(sd_netlink_message *m, int *ret);
