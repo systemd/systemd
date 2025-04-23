@@ -96,12 +96,28 @@ CHANGES WITH 258 in spe:
         * The D-Bus method org.freedesktop.systemd1.StartAuxiliaryScope() has
           been removed, which was deprecated since v257.
 
-        Announcements of Future Feature Removals:
+        * Support for System V service scripts has been removed:
+          - systemd-rc-local-generator and systemd-sysv-generator have been
+            removed.
+          - System V services can no longer be enabled/disabled with systemctl
+            commands.
+          - runlevel[0-6].target has been removed.
 
-        * Support for System V service scripts is deprecated and will be
-          removed in v258. Please make sure to update your software
-          *now* to include a native systemd unit file instead of a legacy
-          System V script to retain compatibility with future systemd releases.
+        * Support for System V style system state control has been removed:
+          - The /dev/initctl device node has been removed.
+          - The initctl, runlevel and telinit commands have been removed.
+          - Support for system state control via the init command (e.g.
+            'init 3') has been removed.
+          - The concept of runlevels has been removed, so runlevel transitions
+            are no longer recorded in the utmp/wtmp databases.
+
+        * Support for System V compatible /forcefsck and /fastboot files by
+          systemd-fsck has been removed. Similarly, support for /forcequotacheck
+          files by systemd-quotacheck has been removed. To control the execution
+          mode of fsck/quotacheck at boot time, use the kernel command line
+          options of the same names.
+
+        Announcements of Future Feature Removals:
 
         * Support for systemd-repart's FactoryReset EFI variable has been
           deprecated and support for it will be removed in v260. Use the newer,
