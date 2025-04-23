@@ -289,7 +289,6 @@ int make_cstring(const char *s, size_t n, MakeCStringMode mode, char **ret);
 
 size_t strspn_from_end(const char *str, const char *accept);
 
-char* strdupspn(const char *a, const char *accept);
 char* strdupcspn(const char *a, const char *reject);
 
 char* find_line_startswith(const char *haystack, const char *needle);

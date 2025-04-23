@@ -203,23 +203,6 @@ success:
         return PAM_SUCCESS;
 }
 
-int pam_release_bus_connection(pam_handle_t *handle, const char *module_name) {
-        _cleanup_free_ char *cache_id = NULL;
-        int r;
-
-        assert(module_name);
-
-        cache_id = pam_make_bus_cache_id(module_name);
-        if (!cache_id)
-                return pam_log_oom(handle);
-
-        r = pam_set_data(handle, cache_id, NULL, NULL);
-        if (r != PAM_SUCCESS)
-                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to release PAM user record data: @PAMERR@");
-
-        return PAM_SUCCESS;
-}
-
 int pam_get_bus_data(
                 pam_handle_t *handle,
                 const char *module_name,

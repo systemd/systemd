@@ -211,23 +211,6 @@ int pidfd_get_uid(int fd, uid_t *ret) {
         return 0;
 }
 
-int pidfd_get_cgroupid(int fd, uint64_t *ret) {
-        struct pidfd_info info = { .mask = PIDFD_INFO_CGROUPID };
-        int r;
-
-        assert(fd >= 0);
-
-        r = pidfd_get_info(fd, &info);
-        if (r < 0)
-                return r;
-
-        assert(FLAGS_SET(info.mask, PIDFD_INFO_CGROUPID));
-
-        if (ret)
-                *ret = info.cgroupid;
-        return 0;
-}
-
 int pidfd_get_inode_id(int fd, uint64_t *ret) {
         static bool file_handle_supported = true;
         int r;

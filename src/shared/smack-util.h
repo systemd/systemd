@@ -31,7 +31,6 @@ int mac_smack_read_at(int fd, const char *path, SmackAttr attr, char **ret);
 int mac_smack_apply_at(int fd, const char *path, SmackAttr attr, const char *label);
 
 int mac_smack_apply_pid(pid_t pid, const char *label);
-int mac_smack_copy(const char *dest, const char *src);
 
 int mac_smack_fix_full(int atfd, const char *inode_path, const char *label_path, LabelFixFlags flags);
 #else
@@ -48,10 +47,6 @@ static inline int mac_smack_apply_at(int fd, const char *path, SmackAttr attr, c
 }
 
 static inline int mac_smack_apply_pid(pid_t pid, const char *label) {
-        return 0;
-}
-
-static inline int mac_smack_copy(const char *dest, const char *src) {
         return 0;
 }
 

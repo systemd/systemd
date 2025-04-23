@@ -72,7 +72,6 @@ extern const struct hash_ops hw_addr_hash_ops_free;
 
 #define ETHER_ADDR_TO_STRING_MAX (3*6)
 char* ether_addr_to_string(const struct ether_addr *addr, char buffer[ETHER_ADDR_TO_STRING_MAX]);
-int ether_addr_to_string_alloc(const struct ether_addr *addr, char **ret);
 /* Use only as function argument, never stand-alone! */
 #define ETHER_ADDR_TO_STR(addr) ether_addr_to_string((addr), (char[ETHER_ADDR_TO_STRING_MAX]){})
 

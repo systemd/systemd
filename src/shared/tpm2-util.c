@@ -1656,16 +1656,6 @@ void tpm2_tpml_pcr_selection_add_mask(TPML_PCR_SELECTION *l, TPMI_ALG_HASH hash,
         tpm2_tpml_pcr_selection_add_tpms_pcr_selection(l, &tpms);
 }
 
-/* Remove the PCR selections in the mask, with the provided hash. */
-void tpm2_tpml_pcr_selection_sub_mask(TPML_PCR_SELECTION *l, TPMI_ALG_HASH hash, uint32_t mask) {
-        TPMS_PCR_SELECTION tpms;
-
-        assert(l);
-
-        tpm2_tpms_pcr_selection_from_mask(mask, hash, &tpms);
-        tpm2_tpml_pcr_selection_sub_tpms_pcr_selection(l, &tpms);
-}
-
 /* Add all PCR selections in 'b' to 'a'. */
 void tpm2_tpml_pcr_selection_add(TPML_PCR_SELECTION *a, const TPML_PCR_SELECTION *b) {
         assert(a);
@@ -1822,27 +1812,6 @@ static int cmp_pcr_values(const Tpm2PCRValue *a, const Tpm2PCRValue *b) {
  * (sorting simply by the TPM2 hash algorithm number), and then sorting by pcr index. */
 void tpm2_sort_pcr_values(Tpm2PCRValue *pcr_values, size_t n_pcr_values) {
         typesafe_qsort(pcr_values, n_pcr_values, cmp_pcr_values);
-}
-
-int tpm2_pcr_values_from_mask(uint32_t mask, TPMI_ALG_HASH hash, Tpm2PCRValue **ret_pcr_values, size_t *ret_n_pcr_values) {
-        _cleanup_free_ Tpm2PCRValue *pcr_values = NULL;
-        size_t n_pcr_values = 0;
-
-        assert(ret_pcr_values);
-        assert(ret_n_pcr_values);
-
-        FOREACH_PCR_IN_MASK(index, mask)
-                if (!GREEDY_REALLOC_APPEND(
-                                pcr_values,
-                                n_pcr_values,
-                                &TPM2_PCR_VALUE_MAKE(index, hash, {}),
-                                1))
-                        return log_oom_debug();
-
-        *ret_pcr_values = TAKE_PTR(pcr_values);
-        *ret_n_pcr_values = n_pcr_values;
-
-        return 0;
 }
 
 int tpm2_pcr_values_to_mask(
@@ -2034,20 +2003,6 @@ int tpm2_pcr_values_from_string(const char *arg, Tpm2PCRValue **ret_pcr_values, 
         *ret_n_pcr_values = n_pcr_values;
 
         return 0;
-}
-
-/* Return a string representing the array of PCR values. The format is as described in
- * tpm2_pcr_values_from_string(). This does not check for validity. */
-char* tpm2_pcr_values_to_string(const Tpm2PCRValue *pcr_values, size_t n_pcr_values) {
-        _cleanup_free_ char *s = NULL;
-
-        FOREACH_ARRAY(v, pcr_values, n_pcr_values) {
-                _cleanup_free_ char *pcrstr = tpm2_pcr_value_to_string(v);
-                if (!pcrstr || !strextend_with_separator(&s, "+", pcrstr))
-                        return NULL;
-        }
-
-        return s ? TAKE_PTR(s) : strdup("");
 }
 
 void tpm2_log_debug_tpml_pcr_selection(const TPML_PCR_SELECTION *l, const char *msg) {
@@ -2335,133 +2290,6 @@ static int tpm2_load_external(
                                        "Failed to load public key into TPM: %s", sym_Tss2_RC_Decode(rc));
 
         *ret_handle = TAKE_PTR(handle);
-
-        return 0;
-}
-
-/* This calls TPM2_CreateLoaded() directly, without checking if the TPM supports it. Callers should instead
- * use tpm2_create_loaded(). */
-static int _tpm2_create_loaded(
-                Tpm2Context *c,
-                const Tpm2Handle *parent,
-                const Tpm2Handle *session,
-                const TPMT_PUBLIC *template,
-                const TPMS_SENSITIVE_CREATE *sensitive,
-                TPM2B_PUBLIC **ret_public,
-                TPM2B_PRIVATE **ret_private,
-                Tpm2Handle **ret_handle) {
-
-        usec_t ts;
-        TSS2_RC rc;
-        int r;
-
-        assert(c);
-        assert(parent);
-        assert(template);
-
-        log_debug("Creating loaded object on TPM.");
-
-        ts = now(CLOCK_MONOTONIC);
-
-        /* Copy the input template and zero the unique area. */
-        TPMT_PUBLIC template_copy = *template;
-        zero(template_copy.unique);
-
-        TPM2B_TEMPLATE tpm2b_template;
-        size_t size = 0;
-        rc = sym_Tss2_MU_TPMT_PUBLIC_Marshal(
-                        &template_copy,
-                        tpm2b_template.buffer,
-                        sizeof(tpm2b_template.buffer),
-                        &size);
-        if (rc != TSS2_RC_SUCCESS)
-                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                       "Failed to marshal public key template: %s", sym_Tss2_RC_Decode(rc));
-        assert(size <= UINT16_MAX);
-        tpm2b_template.size = size;
-
-        TPM2B_SENSITIVE_CREATE tpm2b_sensitive;
-        if (sensitive)
-                tpm2b_sensitive = (TPM2B_SENSITIVE_CREATE) {
-                        .size = sizeof(*sensitive),
-                        .sensitive = *sensitive,
-                };
-        else
-                tpm2b_sensitive = (TPM2B_SENSITIVE_CREATE) {};
-
-        _cleanup_(tpm2_handle_freep) Tpm2Handle *handle = NULL;
-        r = tpm2_handle_new(c, &handle);
-        if (r < 0)
-                return r;
-
-        _cleanup_(Esys_Freep) TPM2B_PUBLIC *public = NULL;
-        _cleanup_(Esys_Freep) TPM2B_PRIVATE *private = NULL;
-        rc = sym_Esys_CreateLoaded(
-                        c->esys_context,
-                        parent->esys_handle,
-                        session ? session->esys_handle : ESYS_TR_PASSWORD,
-                        ESYS_TR_NONE,
-                        ESYS_TR_NONE,
-                        &tpm2b_sensitive,
-                        &tpm2b_template,
-                        &handle->esys_handle,
-                        &private,
-                        &public);
-        if (rc != TSS2_RC_SUCCESS)
-                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                       "Failed to generate loaded object in TPM: %s",
-                                       sym_Tss2_RC_Decode(rc));
-
-        log_debug("Successfully created loaded object on TPM in %s.",
-                  FORMAT_TIMESPAN(now(CLOCK_MONOTONIC) - ts, USEC_PER_MSEC));
-
-        if (ret_public)
-                *ret_public = TAKE_PTR(public);
-        if (ret_private)
-                *ret_private = TAKE_PTR(private);
-        if (ret_handle)
-                *ret_handle = TAKE_PTR(handle);
-
-        return 0;
-}
-
-/* This calls TPM2_CreateLoaded() if the TPM supports it, otherwise it calls TPM2_Create() and TPM2_Load()
- * separately. Do not use this to create primary keys, because some HW TPMs refuse to allow that; instead use
- * tpm2_create_primary(). */
-int tpm2_create_loaded(
-                Tpm2Context *c,
-                const Tpm2Handle *parent,
-                const Tpm2Handle *session,
-                const TPMT_PUBLIC *template,
-                const TPMS_SENSITIVE_CREATE *sensitive,
-                TPM2B_PUBLIC **ret_public,
-                TPM2B_PRIVATE **ret_private,
-                Tpm2Handle **ret_handle) {
-
-        int r;
-
-        if (tpm2_supports_command(c, TPM2_CC_CreateLoaded))
-                return _tpm2_create_loaded(c, parent, session, template, sensitive, ret_public, ret_private, ret_handle);
-
-        /* Unfortunately, this TPM doesn't support CreateLoaded (added at spec revision 130) so we need to
-         * create and load manually. */
-        _cleanup_(Esys_Freep) TPM2B_PUBLIC *public = NULL;
-        _cleanup_(Esys_Freep) TPM2B_PRIVATE *private = NULL;
-        r = tpm2_create(c, parent, session, template, sensitive, &public, &private);
-        if (r < 0)
-                return r;
-
-        _cleanup_(tpm2_handle_freep) Tpm2Handle *handle = NULL;
-        r = tpm2_load(c, parent, session, public, private, &handle);
-        if (r < 0)
-                return r;
-
-        if (ret_public)
-                *ret_public = TAKE_PTR(public);
-        if (ret_private)
-                *ret_private = TAKE_PTR(private);
-        if (ret_handle)
-                *ret_handle = TAKE_PTR(handle);
 
         return 0;
 }
@@ -7866,14 +7694,6 @@ const char* tpm2_sym_alg_to_string(uint16_t alg) {
                 log_debug("Unknown symmetric algorithm id 0x%" PRIx16, alg);
                 return NULL;
         }
-}
-
-int tpm2_sym_alg_from_string(const char *alg) {
-#if HAVE_TPM2
-        if (strcaseeq_ptr(alg, "aes"))
-                return TPM2_ALG_AES;
-#endif
-        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown symmetric algorithm name '%s'", alg);
 }
 
 const char* tpm2_sym_mode_to_string(uint16_t mode) {

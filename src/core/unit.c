@@ -4426,19 +4426,6 @@ CGroupContext *unit_get_cgroup_context(const Unit *u) {
         return (CGroupContext*) ((uint8_t*) u + offset);
 }
 
-ExecRuntime *unit_get_exec_runtime(const Unit *u) {
-        size_t offset;
-
-        if (u->type < 0)
-                return NULL;
-
-        offset = UNIT_VTABLE(u)->exec_runtime_offset;
-        if (offset <= 0)
-                return NULL;
-
-        return *(ExecRuntime**) ((uint8_t*) u + offset);
-}
-
 CGroupRuntime *unit_get_cgroup_runtime(const Unit *u) {
         size_t offset;
 
