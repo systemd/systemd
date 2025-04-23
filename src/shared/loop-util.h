@@ -5,7 +5,7 @@
 
 #include "sd-device.h"
 
-#include "macro.h"
+#include "memory-util.h"
 #include "time-util.h"
 
 typedef struct LoopDevice LoopDevice;

@@ -3,6 +3,7 @@
 #include "analyze-image-policy.h"
 #include "analyze.h"
 #include "format-table.h"
+#include "image-policy.h"
 #include "terminal-util.h"
 
 static int table_add_designator_line(Table *table, PartitionDesignator d, PartitionPolicyFlags f) {

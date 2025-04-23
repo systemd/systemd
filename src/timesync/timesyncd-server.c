@@ -3,6 +3,7 @@
 #include "alloc-util.h"
 #include "log.h"
 #include "string-table.h"
+#include "timesyncd-manager.h"
 #include "timesyncd-server.h"
 
 static const char * const server_type_table[_SERVER_TYPE_MAX] = {

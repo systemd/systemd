@@ -24,6 +24,7 @@
 #include "dbus-unit.h"
 #include "dbus.h"
 #include "dropin.h"
+#include "dynamic-user.h"
 #include "env-util.h"
 #include "escape.h"
 #include "exec-credential.h"
@@ -1727,9 +1728,9 @@ static int log_unit_internal(void *userdata, int level, int error, const char *f
         va_start(ap, format);
         if (u)
                 r = log_object_internalv(level, error, file, line, func,
-                                         u->manager->unit_log_field,
+                                         unit_log_field(u),
                                          u->id,
-                                         u->manager->invocation_log_field,
+                                         unit_invocation_log_field(u),
                                          u->invocation_id_string,
                                          format, ap);
         else
@@ -2491,10 +2492,10 @@ static int unit_log_resources(Unit *u) {
         if (!set_iovec_string_field(iovec, &n_iovec, "MESSAGE_ID=", SD_MESSAGE_UNIT_RESOURCES_STR))
                 return log_oom();
 
-        if (!set_iovec_string_field(iovec, &n_iovec, u->manager->unit_log_field, u->id))
+        if (!set_iovec_string_field(iovec, &n_iovec, unit_log_field(u), u->id))
                 return log_oom();
 
-        if (!set_iovec_string_field(iovec, &n_iovec, u->manager->invocation_log_field, u->invocation_id_string))
+        if (!set_iovec_string_field(iovec, &n_iovec, unit_invocation_log_field(u), u->invocation_id_string))
                 return log_oom();
 
         log_unit_struct_iovec(u, log_level, iovec, n_iovec);
@@ -6642,6 +6643,14 @@ int unit_compare_priority(Unit *a, Unit *b) {
         return strcmp(a->id, b->id);
 }
 
+const char* unit_log_field(const Unit *u) {
+        return MANAGER_IS_SYSTEM(ASSERT_PTR(u)->manager) ? "UNIT=" : "USER_UNIT=";
+}
+
+const char* unit_invocation_log_field(const Unit *u) {
+        return MANAGER_IS_SYSTEM(ASSERT_PTR(u)->manager) ? "INVOCATION_ID=" : "USER_INVOCATION_ID=";
+}
+
 const ActivationDetailsVTable * const activation_details_vtable[_UNIT_TYPE_MAX] = {
         [UNIT_PATH]  = &activation_details_path_vtable,
         [UNIT_TIMER] = &activation_details_timer_vtable,
@@ -6801,6 +6810,14 @@ static const char* const unit_mount_dependency_type_table[_UNIT_MOUNT_DEPENDENCY
 };
 
 DEFINE_STRING_TABLE_LOOKUP(unit_mount_dependency_type, UnitMountDependencyType);
+
+static const char* const oom_policy_table[_OOM_POLICY_MAX] = {
+        [OOM_CONTINUE] = "continue",
+        [OOM_STOP]     = "stop",
+        [OOM_KILL]     = "kill",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(oom_policy, OOMPolicy);
 
 UnitDependency unit_mount_dependency_type_to_dependency_type(UnitMountDependencyType t) {
         switch (t) {

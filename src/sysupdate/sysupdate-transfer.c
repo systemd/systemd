@@ -31,6 +31,7 @@
 #include "sync-util.h"
 #include "sysupdate.h"
 #include "sysupdate-feature.h"
+#include "sysupdate-instance.h"
 #include "sysupdate-pattern.h"
 #include "sysupdate-resource.h"
 #include "sysupdate-transfer.h"

@@ -18,6 +18,27 @@
 #include "strv.h"
 #include "tc-util.h"
 
+#include "cake.h"
+#include "codel.h"
+#include "ets.h"
+#include "fifo.h"
+#include "fq-codel.h"
+#include "fq-pie.h"
+#include "fq.h"
+#include "gred.h"
+#include "hhf.h"
+#include "htb.h"
+#include "mq.h"
+#include "multiq.h"
+#include "pie.h"
+#include "qfq.h"
+#include "netem.h"
+#include "drr.h"
+#include "sfb.h"
+#include "sfq.h"
+#include "tbf.h"
+#include "teql.h"
+
 const QDiscVTable * const qdisc_vtable[_QDISC_KIND_MAX] = {
         [QDISC_KIND_BFIFO]           = &bfifo_vtable,
         [QDISC_KIND_CAKE]            = &cake_vtable,

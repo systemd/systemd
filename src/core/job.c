@@ -16,6 +16,7 @@
 #include "job.h"
 #include "log.h"
 #include "macro.h"
+#include "manager.h"
 #include "parse-util.h"
 #include "serialize.h"
 #include "set.h"

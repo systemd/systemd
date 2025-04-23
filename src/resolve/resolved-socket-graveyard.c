@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "resolved-manager.h"
 #include "resolved-socket-graveyard.h"
 
 #define SOCKET_GRAVEYARD_USEC (5 * USEC_PER_SEC)

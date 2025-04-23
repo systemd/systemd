@@ -7,6 +7,8 @@
 #include "sd-event.h"
 
 #include "list.h"
+#include "memory-util.h"
+#include "time-util.h"
 #include "unit-dependency-atom.h"
 
 typedef struct ActivationDetails ActivationDetails;

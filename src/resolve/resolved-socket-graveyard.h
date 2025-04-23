@@ -1,9 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-typedef struct SocketGraveyard SocketGraveyard;
+#include "sd-event.h"
 
-#include "resolved-manager.h"
+#include "list.h"
+#include "time-util.h"
+
+typedef struct Manager Manager;
+typedef struct SocketGraveyard SocketGraveyard;
 
 struct SocketGraveyard {
         Manager *manager;

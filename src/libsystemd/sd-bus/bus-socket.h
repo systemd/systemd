@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <stdbool.h>
+
 #include "sd-bus.h"
 
 void bus_socket_setup(sd_bus *b);

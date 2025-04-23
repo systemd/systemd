@@ -3,7 +3,9 @@
 
 #include "sd-bus.h"
 
-#include "manager.h"
+#include "fdset.h"
+
+typedef struct Manager Manager;
 
 void bus_send_pending_reload_message(Manager *m);
 

@@ -2,7 +2,9 @@
 
 #include "af-list.h"
 #include "capability-util.h"
+#include "cgroup.h"
 #include "cgroup-setup.h"
+#include "dynamic-user.h"
 #include "escape.h"
 #include "exec-credential.h"
 #include "execute-serialize.h"

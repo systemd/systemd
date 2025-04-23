@@ -17,6 +17,7 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "hashmap.h"
+#include "image-policy.h"
 #include "libcrypt-util.h"
 #include "main-func.h"
 #include "memory-util.h"

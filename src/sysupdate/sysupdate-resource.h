@@ -9,10 +9,8 @@
 #include "hashmap.h"
 #include "macro.h"
 
-/* Forward declare this type so that the headers below can use it */
 typedef struct Resource Resource;
-
-#include "sysupdate-instance.h"
+typedef struct Instance Instance;
 
 typedef enum ResourceType {
         RESOURCE_URL_FILE,

@@ -3,6 +3,7 @@
 #pragma once
 
 #include "qdisc.h"
+#include "tclass.h"
 
 typedef struct DeficitRoundRobinScheduler {
         QDisc meta;

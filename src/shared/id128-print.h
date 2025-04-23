@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include <errno.h>
 #include <stdbool.h>
 
 #include "sd-id128.h"

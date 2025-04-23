@@ -4,6 +4,7 @@
 
 #include "conf-parser.h"
 #include "qdisc.h"
+#include "tclass.h"
 
 typedef struct QuickFairQueueing {
         QDisc meta;

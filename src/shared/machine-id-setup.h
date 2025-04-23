@@ -3,6 +3,8 @@
 
 #include <stdbool.h>
 
+#include "sd-id128.h"
+
 typedef enum MachineIdSetupFlags {
         MACHINE_ID_SETUP_FORCE_TRANSIENT = 1 << 0,
         MACHINE_ID_SETUP_FORCE_FIRMWARE  = 1 << 1,

@@ -3,6 +3,7 @@
 
 #include "sd-device.h"
 
+#include "time-util.h"
 #include "udev-def.h"
 
 int find_device(const char *id, const char *prefix, sd_device **ret);

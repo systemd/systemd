@@ -6,6 +6,8 @@
 #include "in-addr-util.h"
 #include "list.h"
 #include "resolve-util.h"
+#include "resolved-conf.h"
+#include "resolved-dnstls.h"
 #include "time-util.h"
 
 typedef struct DnsScope DnsScope;
@@ -15,8 +17,6 @@ typedef struct DnsPacket DnsPacket;
 typedef struct Link Link;
 typedef struct Manager Manager;
 
-#include "resolved-dnstls.h"
-
 typedef enum DnsServerType {
         DNS_SERVER_SYSTEM,
         DNS_SERVER_FALLBACK,
@@ -24,8 +24,6 @@ typedef enum DnsServerType {
         _DNS_SERVER_TYPE_MAX,
         _DNS_SERVER_TYPE_INVALID = -EINVAL,
 } DnsServerType;
-
-#include "resolved-conf.h"
 
 const char* dns_server_type_to_string(DnsServerType i) _const_;
 DnsServerType dns_server_type_from_string(const char *s) _pure_;
@@ -158,6 +156,9 @@ void dns_server_unlink_all(DnsServer *first);
 void dns_server_unlink_on_reload(DnsServer *server);
 bool dns_server_unlink_marked(DnsServer *first);
 void dns_server_mark_all(DnsServer *first);
+
+int manager_parse_search_domains_and_warn(Manager *m, const char *string);
+int manager_parse_dns_server_string_and_warn(Manager *m, DnsServerType type, const char *string);
 
 DnsServer *manager_get_first_dns_server(Manager *m, DnsServerType t);
 

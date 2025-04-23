@@ -2,6 +2,7 @@
 #pragma once
 
 #include <stdbool.h>
+#include <sys/types.h>
 
 int home_mount_node(const char *node, const char *fstype, bool discard, unsigned long flags, const char *extra_mount_options);
 int home_unshare_and_mkdir(void);

@@ -4,6 +4,7 @@
 /* Copyright (C) IBM Corp. 2003 */
 
 #include <scsi/scsi.h>
+#include <sys/types.h>
 
 struct scsi_ioctl_command {
         unsigned inlen;        /* excluding scsi command length */

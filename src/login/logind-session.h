@@ -1,14 +1,20 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-typedef struct Session Session;
-typedef enum KillWhom KillWhom;
+#include "sd-bus.h"
+#include "sd-event.h"
+#include "sd-varlink.h"
 
+#include "hashmap.h"
 #include "list.h"
-#include "login-util.h"
-#include "logind-user.h"
 #include "pidref.h"
 #include "string-util.h"
+#include "time-util.h"
+
+typedef struct Manager Manager;
+typedef struct Seat Seat;
+typedef struct Session Session;
+typedef struct User User;
 
 typedef enum SessionState {
         SESSION_OPENING,  /* Session scope is being created */
@@ -85,12 +91,12 @@ typedef enum SessionType {
 
 #define SESSION_TYPE_IS_GRAPHICAL(type) IN_SET(type, SESSION_X11, SESSION_WAYLAND, SESSION_MIR)
 
-enum KillWhom {
+typedef enum KillWhom {
         KILL_LEADER,
         KILL_ALL,
         _KILL_WHOM_MAX,
         _KILL_WHOM_INVALID = -EINVAL,
-};
+} KillWhom;
 
 typedef enum TTYValidity {
         TTY_FROM_PAM,

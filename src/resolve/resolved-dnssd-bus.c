@@ -2,6 +2,7 @@
 
 #include "alloc-util.h"
 #include "bus-polkit.h"
+#include "resolved-dns-scope.h"
 #include "resolved-dnssd-bus.h"
 #include "resolved-dnssd.h"
 #include "resolved-link.h"

@@ -4,10 +4,10 @@
 #include <linux/pkt_sched.h>
 
 #include "alloc-util.h"
+#include "codel.h"
 #include "conf-parser.h"
 #include "netlink-util.h"
 #include "parse-util.h"
-#include "qdisc.h"
 #include "string-util.h"
 
 static int controlled_delay_init(QDisc *qdisc) {

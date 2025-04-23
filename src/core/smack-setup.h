@@ -7,4 +7,6 @@
         Nathaniel Chen <nathaniel.chen@intel.com>
 ***/
 
+#include <stdbool.h>
+
 int mac_smack_setup(bool *loaded_policy);

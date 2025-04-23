@@ -4,16 +4,24 @@
 #include "sd-bus.h"
 #include "sd-varlink.h"
 
+#include "in-addr-util.h"
+#include "list.h"
+#include "resolved-def.h"
+#include "resolved-dns-dnssec.h"
+#include "resolved-dns-packet.h"
+#include "resolved-dns-transaction.h"
 #include "set.h"
 
+typedef struct DnsAnswer DnsAnswer;
+typedef struct DnsPacket DnsPacket;
 typedef struct DnsQueryCandidate DnsQueryCandidate;
 typedef struct DnsQuery DnsQuery;
+typedef struct DnsQuestion DnsQuestion;
+typedef struct DnsScope DnsScope;
+typedef struct DnsSearchDomain DnsSearchDomain;
+typedef struct DnsStream DnsStream;
 typedef struct DnsStubListenerExtra DnsStubListenerExtra;
-
-#include "resolved-dns-answer.h"
-#include "resolved-dns-question.h"
-#include "resolved-dns-search-domain.h"
-#include "resolved-dns-transaction.h"
+typedef struct Manager Manager;
 
 struct DnsQueryCandidate {
         unsigned n_ref;
@@ -160,12 +168,4 @@ bool dns_query_fully_authoritative(DnsQuery *q);
 
 int validate_and_mangle_query_flags(Manager *manager, uint64_t *flags, const char *name, uint64_t ok);
 
-static inline uint64_t dns_query_reply_flags_make(DnsQuery *q) {
-        assert(q);
-
-        return SD_RESOLVED_FLAGS_MAKE(q->answer_protocol,
-                                      q->answer_family,
-                                      dns_query_fully_authenticated(q),
-                                      dns_query_fully_confidential(q)) |
-                (q->answer_query_flags & (SD_RESOLVED_FROM_MASK|SD_RESOLVED_SYNTHETIC));
-}
+uint64_t dns_query_reply_flags_make(DnsQuery *q);

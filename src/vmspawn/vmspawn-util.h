@@ -2,7 +2,9 @@
 #pragma once
 
 #include <stdbool.h>
-#include "macro.h"
+
+#include "assert-util.h"
+#include "memory-util.h"
 
 #if defined(__x86_64__) || defined(__i386__) || defined(__arm__) || defined(__aarch64__)
 #  define ARCHITECTURE_SUPPORTS_SMBIOS 1

@@ -5,6 +5,7 @@
 #include <stdbool.h>
 
 #include "conf-parser.h"
+#include "in-addr-util.h"
 
 typedef struct Link Link;
 typedef struct Manager Manager;
