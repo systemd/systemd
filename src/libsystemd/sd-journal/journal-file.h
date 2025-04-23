@@ -4,14 +4,11 @@
 #include <inttypes.h>
 #include <sys/uio.h>
 
-#if HAVE_GCRYPT
-#  include <gcrypt.h>
-#endif
-
 #include "sd-event.h"
 #include "sd-id128.h"
 
 #include "compress.h"
+#include "gcrypt-util.h"
 #include "hashmap.h"
 #include "journal-def.h"
 #include "missing_fcntl.h"
@@ -106,7 +103,6 @@ typedef struct JournalFile {
         void *compress_buffer;
 #endif
 
-#if HAVE_GCRYPT
         gcry_md_hd_t hmac;
         bool hmac_running;
 
@@ -121,7 +117,6 @@ typedef struct JournalFile {
 
         void *fsprg_seed;
         size_t fsprg_seed_size;
-#endif
 
         /* When we insert this file into the per-boot priority queue 'newest_by_boot_id' in sd_journal, then by these keys */
         sd_id128_t newest_boot_id;
