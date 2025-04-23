@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/pkt_sched.h>
+
 #include "multiq.h"
 
 static int multi_queueing_fill_message(Link *link, QDisc *qdisc, sd_netlink_message *req) {

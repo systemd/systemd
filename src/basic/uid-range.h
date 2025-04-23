@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include <sys/types.h>
 
-#include "macro.h"
+#include "memory-util.h"
 
 typedef struct UIDRangeEntry {
         uid_t start, nr;

@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "hashmap.h"
 #include "macro.h"
 #include "stdio-util.h"
 #include "string-util.h"

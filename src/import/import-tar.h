@@ -4,8 +4,7 @@
 #include "sd-event.h"
 
 #include "import-common.h"
-#include "import-util.h"
-#include "macro.h"
+#include "memory-util.h"
 
 typedef struct TarImport TarImport;
 

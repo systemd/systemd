@@ -21,6 +21,7 @@
 #include "home-util.h"
 #include "homed-home.h"
 #include "homed-home-bus.h"
+#include "homed-manager.h"
 #include "json-util.h"
 #include "log.h"
 #include "memfd-util.h"

@@ -4,7 +4,7 @@
 #include <microhttpd.h>
 #include <stdarg.h>
 
-#include "macro.h"
+#include "memory-util.h"
 
 /* Those defines are added when options are renamed. If the old names
  * are not '#define'd, then they are not deprecated yet and there are

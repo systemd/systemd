@@ -10,9 +10,9 @@
 #include "netlink-util.h"
 #include "networkd-manager.h"
 #include "parse-util.h"
-#include "qdisc.h"
 #include "string-util.h"
 #include "strv.h"
+#include "tbf.h"
 #include "tc-util.h"
 
 static int token_bucket_filter_fill_message(Link *link, QDisc *qdisc, sd_netlink_message *req) {

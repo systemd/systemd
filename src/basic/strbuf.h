@@ -5,7 +5,7 @@
 #include <stdint.h>
 #include <sys/types.h>
 
-#include "macro.h"
+#include "memory-util.h"
 
 struct strbuf {
         char *buf;

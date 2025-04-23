@@ -22,6 +22,7 @@
 #include "fileio.h"
 #include "hexdecoct.h"
 #include "hostname-util.h"
+#include "image-policy.h"
 #include "ioprio-util.h"
 #include "iovec-util.h"
 #include "journal-file.h"

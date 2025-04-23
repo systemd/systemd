@@ -6,6 +6,7 @@
 
 #include "alloc-util.h"
 #include "hexdecoct.h"
+#include "resolved-dns-answer.h"
 #include "resolved-dns-dnssec.h"
 #include "resolved-dns-rr.h"
 #include "string-util.h"

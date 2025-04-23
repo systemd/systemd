@@ -6,6 +6,10 @@
 
 #include "errno-util.h"
 #include "fd-util.h"
+#include "resolved-dns-packet.h"
+#include "resolved-dns-scope.h"
+#include "resolved-dns-transaction.h"
+#include "resolved-link.h"
 #include "resolved-llmnr.h"
 #include "resolved-manager.h"
 

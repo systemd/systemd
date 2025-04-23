@@ -5,7 +5,7 @@
 
 #include "sd-event.h"
 
-#include "macro.h"
+#include "memory-util.h"
 
 typedef struct PTYForward PTYForward;
 

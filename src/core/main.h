@@ -3,6 +3,8 @@
 
 #include <stdbool.h>
 
+#include "crash-handler.h"
+
 extern bool arg_dump_core;
 extern int arg_crash_chvt;
 extern bool arg_crash_shell;

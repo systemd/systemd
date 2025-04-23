@@ -11,6 +11,7 @@
 #include "bus-util.h"
 #include "conf-parser.h"
 #include "format-util.h"
+#include "logind.h"
 #include "logind-action.h"
 #include "logind-dbus.h"
 #include "logind-seat-dbus.h"
