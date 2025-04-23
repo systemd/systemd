@@ -300,19 +300,19 @@ TEST(pty_open_peer) {
         _cleanup_free_ char *pty_path = NULL;
 
         pty_fd = openpt_allocate(O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK, &pty_path);
-        assert(pty_fd >= 0);
-        assert(pty_path);
+        assert_se(pty_fd >= 0);
+        assert_se(pty_path);
 
         peer_fd = pty_open_peer(pty_fd, O_RDWR|O_NOCTTY|O_CLOEXEC);
-        assert(peer_fd >= 0);
+        assert_se(peer_fd >= 0);
 
         static const char x[] = { 'x', '\n' };
-        assert(write(pty_fd, x, sizeof(x)) == 2);
+        assert_se(write(pty_fd, x, sizeof(x)) == 2);
 
         char buf[3];
-        assert(read(peer_fd, &buf, sizeof(buf)) == sizeof(x));
-        assert(buf[0] == x[0]);
-        assert(buf[1] == x[1]);
+        assert_se(read(peer_fd, &buf, sizeof(buf)) == sizeof(x));
+        assert_se(buf[0] == x[0]);
+        assert_se(buf[1] == x[1]);
 }
 
 TEST(terminal_new_session) {

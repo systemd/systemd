@@ -49,9 +49,9 @@ int ndisc_router_solicit_parse(sd_radv *ra, sd_ndisc_router_solicit *rs) {
                                       "Too small to be a router solicit, ignoring.");
 
         const struct nd_router_solicit *a = (const struct nd_router_solicit*) rs->packet->raw_packet;
-        assert(a);
-        assert(a->nd_rs_type == ND_ROUTER_SOLICIT);
-        assert(a->nd_rs_code == 0);
+        assert_se(a);
+        assert_se(a->nd_rs_type == ND_ROUTER_SOLICIT);
+        assert_se(a->nd_rs_code == 0);
 
         r = ndisc_parse_options(rs->packet, &rs->options);
         if (r < 0)

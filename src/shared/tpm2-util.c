@@ -4897,7 +4897,7 @@ static int tpm2_kdfe(
 
         void *end = mempcpy(mempcpy(stpcpy(info, label) + 1, context_u, context_u_size), context_v, context_v_size);
         /* assert we copied exactly the right amount that we allocated */
-        assert(end > info && (uintptr_t) end - (uintptr_t) info == info_len);
+        assert_se(end > info && (uintptr_t) end - (uintptr_t) info == info_len);
 
         _cleanup_free_ void *buf = NULL;
         r = kdf_ss_derive(

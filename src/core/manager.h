@@ -27,7 +27,6 @@
 #include "unit.h"
 
 struct libmnt_monitor;
-typedef struct Unit Unit;
 
 /* Enforce upper limit how many names we allow */
 #define MANAGER_MAX_NAMES 131072 /* 128K */

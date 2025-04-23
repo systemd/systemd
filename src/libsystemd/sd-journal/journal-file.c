@@ -302,7 +302,6 @@ JournalFile* journal_file_close(JournalFile *f) {
         free(f->compress_buffer);
 #endif
 
-#if HAVE_GCRYPT
         if (f->fss_file) {
                 size_t sz = PAGE_ALIGN(f->fss_file_size);
                 assert(sz < SIZE_MAX);
@@ -314,7 +313,6 @@ JournalFile* journal_file_close(JournalFile *f) {
 
         if (f->hmac)
                 sym_gcry_md_close(f->hmac);
-#endif
 
         return mfree(f);
 }
