@@ -86,6 +86,8 @@ static bool sync_req_is_complete(SyncReq *req) {
 
         if (req->boottime_prioq_idx != PRIOQ_IDX_NULL) {
 
+                log_notice("is complete kmsg syncts=" USEC_FMT " devts=" USEC_FMT, req->boottime, req->server->dev_kmsg_timestamp);
+
                 /* Very similar to the above, but for /dev/kmsg we operate on the CLOCK_BOOTTIME clock */
 
                 if (req->server->dev_kmsg_event_source) {
@@ -239,13 +241,17 @@ int sync_req_new(Server *s, sd_varlink *link, SyncReq **ret) {
         req->realtime = now(CLOCK_REALTIME);
         req->boottime = now(CLOCK_BOOTTIME);
 
-        r = prioq_ensure_put(&s->sync_req_realtime_prioq, sync_req_realtime_compare, req, &req->realtime_prioq_idx);
-        if (r < 0)
-                return r;
+        if (s->native_event_source || s->syslog_event_source) {
+                r = prioq_ensure_put(&s->sync_req_realtime_prioq, sync_req_realtime_compare, req, &req->realtime_prioq_idx);
+                if (r < 0)
+                        return r;
+        }
 
-        r = prioq_ensure_put(&s->sync_req_boottime_prioq, sync_req_boottime_compare, req, &req->boottime_prioq_idx);
-        if (r < 0)
-                return r;
+        if (s->dev_kmsg_event_source) {
+                r = prioq_ensure_put(&s->sync_req_boottime_prioq, sync_req_boottime_compare, req, &req->boottime_prioq_idx);
+                if (r < 0)
+                        return r;
+        }
 
         r = sd_event_add_defer(s->event, &req->idle_event_source, on_idle, req);
         if (r < 0)
@@ -272,6 +278,8 @@ int sync_req_new(Server *s, sd_varlink *link, SyncReq **ret) {
                 log_warning_errno(r, "Failed to determine current incoming queue length, ignoring: %m");
         if (req->pending_rqlen > 0)
                 LIST_PREPEND(pending_rqlen, s->sync_req_pending_rqlen, req);
+
+        log_warning("ENQUEUED SYNC: sync=" USEC_FMT " q=" USEC_FMT, req->boottime, s->dev_kmsg_timestamp);
 
         *ret = TAKE_PTR(req);
         return 0;

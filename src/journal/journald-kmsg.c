@@ -160,7 +160,7 @@ void dev_kmsg_record(Server *s, char *p, size_t l) {
                 *s->kernel_seqnum = serial + 1;
         }
 
-        /* monotonic timestamp */
+        /* CLOCK_BOOTTIME timestamp */
         l -= (e - p) + 1;
         p = e + 1;
         e = memchr(p, ',', l);
