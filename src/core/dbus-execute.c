@@ -2771,18 +2771,11 @@ int bus_exec_context_set_transient_property(
 
                         if (strv_isempty(l))
                                 c->syscall_archs = set_free(c->syscall_archs);
-                        else
-                                STRV_FOREACH(s, l) {
-                                        uint32_t a;
-
-                                        r = seccomp_arch_from_string(*s, &a);
-                                        if (r < 0)
-                                                return r;
-
-                                        r = set_ensure_put(&c->syscall_archs, NULL, UINT32_TO_PTR(a + 1));
-                                        if (r < 0)
-                                                return r;
-                                }
+                        else {
+                                r = parse_syscall_archs(l, &c->syscall_archs);
+                                if (r < 0)
+                                        return r;
+                        }
 
                         joined = strv_join(l, " ");
                         if (!joined)
