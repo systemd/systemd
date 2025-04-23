@@ -32,6 +32,7 @@ libjournal_core = static_library(
 
 journalctl_sources = files(
         'journalctl.c',
+        'journalctl-authenticate.c',
         'journalctl-catalog.c',
         'journalctl-filter.c',
         'journalctl-misc.c',
@@ -39,10 +40,6 @@ journalctl_sources = files(
         'journalctl-util.c',
         'journalctl-varlink.c',
 )
-
-if conf.get('HAVE_GCRYPT') == 1
-        journalctl_sources += files('journalctl-authenticate.c')
-endif
 
 if get_option('link-journalctl-shared')
         journalctl_link_with = [libshared]

@@ -17,7 +17,7 @@ struct iovec {
 };
 
 DISABLE_WARNING_REDUNDANT_DECLS;
-static inline void free(void *p);
+void free(void *p);
 REENABLE_WARNING;
 #endif
 

@@ -6,12 +6,13 @@
 #include <stdbool.h>
 #include <stddef.h>
 
+#include "memory-util.h"
+
 #if HAVE_GCRYPT
 #include <gcrypt.h>
 
 #include "dlfcn-util.h"
 #include "macro.h"
-#include "memory-util.h"
 
 extern DLSYM_PROTOTYPE(gcry_md_close);
 extern DLSYM_PROTOTYPE(gcry_md_copy);
@@ -46,15 +47,6 @@ extern DLSYM_PROTOTYPE(gcry_strerror);
 
 int initialize_libgcrypt(bool secmem);
 
-static inline gcry_md_hd_t* sym_gcry_md_closep(gcry_md_hd_t *md) {
-        if (!md || !*md)
-                return NULL;
-        sym_gcry_md_close(*md);
-
-        return NULL;
-}
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(gcry_md_hd_t, gcry_md_close, NULL);
-
 /* Copied from gcry_md_putc from gcrypt.h due to the need to call the sym_ variant */
 #define sym_gcry_md_putc(h,c)                              \
         do {                                               \
@@ -63,4 +55,12 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(gcry_md_hd_t, gcry_md_close, NULL);
                         sym_gcry_md_write((h__), NULL, 0); \
                 (h__)->buf[(h__)->bufpos++] = (c) & 0xff;  \
         } while(false)
+#else
+typedef struct gcry_md_handle *gcry_md_hd_t;
+
+static inline void sym_gcry_md_close(gcry_md_hd_t h) {
+        assert(h == NULL);
+}
 #endif
+
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(gcry_md_hd_t, sym_gcry_md_close, NULL);

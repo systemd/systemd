@@ -25,6 +25,7 @@ static void* fssheader_free(FSSHeader *p) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(FSSHeader*, fssheader_free);
 
+#if HAVE_GCRYPT
 static uint64_t journal_file_tag_seqnum(JournalFile *f) {
         uint64_t r;
 
@@ -35,8 +36,10 @@ static uint64_t journal_file_tag_seqnum(JournalFile *f) {
 
         return r;
 }
+#endif
 
 int journal_file_append_tag(JournalFile *f) {
+#if HAVE_GCRYPT
         Object *o;
         uint64_t p;
         int r;
@@ -76,9 +79,13 @@ int journal_file_append_tag(JournalFile *f) {
         f->hmac_running = false;
 
         return 0;
+#else
+        return -EOPNOTSUPP;
+#endif
 }
 
 int journal_file_hmac_start(JournalFile *f) {
+#if HAVE_GCRYPT
         uint8_t key[256 / 8]; /* Let's pass 256 bit from FSPRG to HMAC */
         gcry_error_t err;
         int r;
@@ -107,6 +114,9 @@ int journal_file_hmac_start(JournalFile *f) {
         f->hmac_running = true;
 
         return 0;
+#else
+        return -EOPNOTSUPP;
+#endif
 }
 
 static int journal_file_get_epoch(JournalFile *f, uint64_t realtime, uint64_t *epoch) {
@@ -252,6 +262,7 @@ int journal_file_maybe_append_tag(JournalFile *f, uint64_t realtime) {
 }
 
 int journal_file_hmac_put_object(JournalFile *f, ObjectType type, Object *o, uint64_t p) {
+#if HAVE_GCRYPT
         int r;
 
         assert(f);
@@ -307,9 +318,13 @@ int journal_file_hmac_put_object(JournalFile *f, ObjectType type, Object *o, uin
         }
 
         return 0;
+#else
+        return -EOPNOTSUPP;
+#endif
 }
 
 int journal_file_hmac_put_header(JournalFile *f) {
+#if HAVE_GCRYPT
         int r;
 
         assert(f);
@@ -334,6 +349,9 @@ int journal_file_hmac_put_header(JournalFile *f) {
         sym_gcry_md_write(f->hmac, &f->header->data_hash_table_offset, offsetof(Header, tail_object_offset) - offsetof(Header, data_hash_table_offset));
 
         return 0;
+#else
+        return -EOPNOTSUPP;
+#endif
 }
 
 int journal_file_fss_load(JournalFile *f) {
@@ -415,6 +433,7 @@ int journal_file_fss_load(JournalFile *f) {
 }
 
 int journal_file_hmac_setup(JournalFile *f) {
+#if HAVE_GCRYPT
         gcry_error_t e;
         int r;
 
@@ -430,6 +449,9 @@ int journal_file_hmac_setup(JournalFile *f) {
                 return -EOPNOTSUPP;
 
         return 0;
+#else
+        return -EOPNOTSUPP;
+#endif
 }
 
 int journal_file_append_first_tag(JournalFile *f) {

@@ -3,6 +3,8 @@
 sd_journal_sources = files(
         'sd-journal/audit-type.c',
         'sd-journal/catalog.c',
+        'sd-journal/fsprg.c',
+        'sd-journal/journal-authenticate.c',
         'sd-journal/journal-file.c',
         'sd-journal/journal-send.c',
         'sd-journal/journal-vacuum.c',
@@ -11,13 +13,6 @@ sd_journal_sources = files(
         'sd-journal/mmap-cache.c',
         'sd-journal/sd-journal.c',
 )
-
-if conf.get('HAVE_GCRYPT') == 1
-        sd_journal_sources += files(
-                'sd-journal/fsprg.c',
-                'sd-journal/journal-authenticate.c',
-        )
-endif
 
 audit_type_includes = [config_h,
                        missing_audit_h,

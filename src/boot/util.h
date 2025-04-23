@@ -14,18 +14,9 @@
 /* This is provided by the linker. */
 extern uint8_t __executable_start[];
 
-static inline void free(void *p) {
-        if (!p)
-                return;
-
-        /* Debugging an invalid free requires trace logging to find the call site or a debugger attached. For
-         * release builds it is not worth the bother to even warn when we cannot even print a call stack. */
-#ifdef EFI_DEBUG
-        assert_se(BS->FreePool(p) == EFI_SUCCESS);
-#else
-        (void) BS->FreePool(p);
-#endif
-}
+DISABLE_WARNING_REDUNDANT_DECLS;
+void free(void *p);
+REENABLE_WARNING;
 
 static inline void freep(void *p) {
         free(*(void **) p);
