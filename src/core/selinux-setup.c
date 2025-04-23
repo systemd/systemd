@@ -19,21 +19,13 @@
 #include "string-util.h"
 #include "time-util.h"
 
-#if HAVE_SELINUX
-_printf_(2,3)
-static int null_log(int type, const char *fmt, ...) {
-        return 0;
-}
-#endif
-
 int mac_selinux_setup(bool *loaded_policy) {
         assert(loaded_policy);
 
 #if HAVE_SELINUX
         int r;
 
-        /* Turn off all of SELinux' own logging, we want to do that ourselves */
-        selinux_set_callback(SELINUX_CB_LOG, (const union selinux_callback) { .func_log = null_log });
+        mac_selinux_disable_logging();
 
         /* Don't load policy in the initrd if we don't appear to have it.  For the real root, we check below
          * if we've already loaded policy, and return gracefully. */
