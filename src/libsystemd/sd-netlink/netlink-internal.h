@@ -98,7 +98,8 @@ typedef struct sd_netlink {
 } sd_netlink;
 
 struct netlink_attribute {
-        size_t offset; /* offset from hdr to attribute */
+        size_t *offsets; /* offset from hdr to attribute */
+        size_t offsets_count;
         bool nested:1;
         bool net_byteorder:1;
 };
