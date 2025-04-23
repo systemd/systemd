@@ -139,6 +139,12 @@ CHANGES WITH 258 in spe:
         * The command 'journalctl --follow' now exits with success on
           SIGTERM/SIGINT, or its pipe STDOUT is disconnected.
 
+        * Support for traditional /forcefsck and /fastboot files to control fsck
+          on boot has been removed from systemd-fsck. Similarly, support for
+          /forcequotacheck file to control quotacheck on boot has been removed
+          from systemd-quotacheck. To control the execution mode of them at boot
+          time, please use the kernel command line options of the same names.
+
         Announcements of Future Feature Removals:
 
         * Support for System V service scripts is deprecated and will be
