@@ -36,29 +36,36 @@ jobs:
           VALIDATE_ALL_CODEBASE: false
           VALIDATE_GITHUB_ACTIONS: true
 
+      - uses: systemd/mkosi@dbb4020beee2cdf250f93a425794f1cf8b0fe693
+
       - name: Check that tabs are not used in Python code
         run: sh -c '! git grep -P "\\t" -- src/ukify/ukify.py test/integration-tests/integration-test-wrapper.py'
 
-      - name: Install ruff and mypy
+      - name: Build tools tree
         run: |
-          python3 -m pip install --break-system-packages --upgrade setuptools wheel pip
-          python3 -m pip install --break-system-packages mypy types-Pillow ruff
+          tee mkosi/mkosi.local.conf <<EOF
+          [Build]
+          ToolsTreeDistribution=fedora
+          ToolsTreeRelease=rawhide
+          EOF
+
+          mkosi -f sandbox -- true
 
       - name: Run mypy
         run: |
-          python3 -m mypy --version
-          python3 -m mypy src/test/generate-sym-test.py src/ukify/ukify.py test/integration-tests/integration-test-wrapper.py
+          mkosi sandbox -- mypy --version
+          mkosi sandbox -- mypy src/test/generate-sym-test.py src/ukify/ukify.py test/integration-tests/integration-test-wrapper.py
 
       - name: Run ruff check
         run: |
-          ruff --version
-          ruff check src/test/generate-sym-test.py src/ukify/ukify.py test/integration-tests/integration-test-wrapper.py
+          mkosi sandbox -- ruff --version
+          mkosi sandbox -- ruff check src/test/generate-sym-test.py src/ukify/ukify.py test/integration-tests/integration-test-wrapper.py
 
       - name: Run ruff format
         run: |
-          ruff --version
-          if ! ruff format --check src/test/generate-sym-test.py src/ukify/ukify.py test/integration-tests/integration-test-wrapper.py
+          mkosi sandbox -- ruff --version
+          if ! mkosi sandbox -- ruff format --check src/test/generate-sym-test.py src/ukify/ukify.py test/integration-tests/integration-test-wrapper.py
           then
               echo "Please run 'ruff format' on the above files or apply the diffs below manually"
-              ruff format --check --quiet --diff src/test/generate-sym-test.py src/ukify/ukify.py test/integration-tests/integration-test-wrapper.py
+              mkosi sandbox -- ruff format --check --quiet --diff src/test/generate-sym-test.py src/ukify/ukify.py test/integration-tests/integration-test-wrapper.py
           fi
