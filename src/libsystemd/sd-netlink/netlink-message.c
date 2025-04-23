@@ -17,6 +17,12 @@
 
 #define GET_CONTAINER(m, i) ((struct rtattr*)((uint8_t*)(m)->hdr + (m)->containers[i].offset))
 
+static struct netlink_attributes *netlink_attributes_free(struct netlink_attributes *attributes) {
+        return mfree(attributes);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct netlink_attributes *, netlink_attributes_free);
+
 int message_new_empty(sd_netlink *nl, sd_netlink_message **ret) {
         sd_netlink_message *m;
 
@@ -134,7 +140,7 @@ sd_netlink_message* sd_netlink_message_unref(sd_netlink_message *m) {
                 free(m->hdr);
 
                 for (i = 0; i <= m->n_containers; i++)
-                        free(m->containers[i].attributes);
+                        netlink_attributes_free(m->containers[i].attributes);
 
                 sd_netlink_message *t = m;
                 m = m->next;
@@ -1116,7 +1122,7 @@ static int netlink_container_parse(
                 struct rtattr *rta,
                 size_t rt_len) {
 
-        _cleanup_free_ struct netlink_attributes *attributes = NULL;
+        _cleanup_(netlink_attributes_freep) struct netlink_attributes *attributes = NULL;
         uint16_t max_attr = 0;
         const size_t n_extra = DIV_ROUND_UP(sizeof(struct netlink_attributes), sizeof(struct netlink_attribute));
 
@@ -1290,7 +1296,7 @@ int sd_netlink_message_exit_container(sd_netlink_message *m) {
         assert_return(m->sealed, -EINVAL);
         assert_return(m->n_containers > 0, -EINVAL);
 
-        m->containers[m->n_containers].attributes = mfree(m->containers[m->n_containers].attributes);
+        m->containers[m->n_containers].attributes = netlink_attributes_free(m->containers[m->n_containers].attributes);
         m->containers[m->n_containers].policy_set = NULL;
 
         m->n_containers--;
@@ -1361,7 +1367,7 @@ int sd_netlink_message_rewind(sd_netlink_message *m, sd_netlink *nl) {
         message_seal(m);
 
         for (unsigned i = 1; i <= m->n_containers; i++)
-                m->containers[i].attributes = mfree(m->containers[i].attributes);
+                m->containers[i].attributes = netlink_attributes_free(m->containers[i].attributes);
 
         m->n_containers = 0;
 
