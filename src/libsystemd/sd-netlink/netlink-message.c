@@ -18,6 +18,13 @@
 #define GET_CONTAINER(m, i) ((struct rtattr*)((uint8_t*)(m)->hdr + (m)->containers[i].offset))
 
 static struct netlink_attributes *netlink_attributes_free(struct netlink_attributes *attributes) {
+        uint16_t attr;
+
+        if (!attributes)
+                return NULL;
+
+        for (attr = 0; attr <= attributes->max_attribute; attr++)
+                mfree(attributes->attributes[attr].offsets);
         return mfree(attributes);
 }
 
@@ -725,11 +732,12 @@ int sd_netlink_message_cancel_array(sd_netlink_message *m) {
         return 0;
 }
 
-static int netlink_message_read_internal(
+static int netlink_message_read_internal_indexed(
                 sd_netlink_message *m,
                 uint16_t attr_type,
                 void **ret_data,
-                bool *ret_net_byteorder) {
+                bool *ret_net_byteorder,
+                unsigned int index) {
 
         struct netlink_attribute *attribute;
         struct rtattr *rta;
@@ -747,10 +755,10 @@ static int netlink_message_read_internal(
 
         attribute = &m->containers[m->n_containers].attributes->attributes[attr_type];
 
-        if (attribute->offset == 0)
+        if (index >= attribute->offsets_count)
                 return -ENODATA;
 
-        rta = (struct rtattr*)((uint8_t *) m->hdr + attribute->offset);
+        rta = (struct rtattr*)((uint8_t *) m->hdr + attribute->offsets[index]);
 
         if (ret_data)
                 *ret_data = RTA_DATA(rta);
@@ -759,6 +767,14 @@ static int netlink_message_read_internal(
                 *ret_net_byteorder = attribute->net_byteorder;
 
         return RTA_PAYLOAD(rta);
+}
+
+static int netlink_message_read_internal(
+                sd_netlink_message *m,
+                uint16_t attr_type,
+                void **ret_data,
+                bool *ret_net_byteorder) {
+        return netlink_message_read_internal_indexed(m, attr_type, ret_data, ret_net_byteorder, 0);
 }
 
 static int netlink_message_read_impl(
@@ -1142,10 +1158,10 @@ static int netlink_container_parse(
                 attributes->max_attribute = max_attr;
                 attribute = &attributes->attributes[attr];
 
-                if (attribute->offset != 0)
-                        log_debug("sd-netlink: message parse - overwriting repeated attribute");
+                if (!GREEDY_REALLOC(attribute->offsets, attribute->offsets_count + 1))
+                        return -ENOMEM;
 
-                attribute->offset = (uint8_t *) rta - (uint8_t *) m->hdr;
+                attribute->offsets[attribute->offsets_count++] = (uint8_t *) rta - (uint8_t *) m->hdr;
                 attribute->nested = RTA_FLAGS(rta) & NLA_F_NESTED;
                 attribute->net_byteorder = RTA_FLAGS(rta) & NLA_F_NET_BYTEORDER;
         }
@@ -1311,6 +1327,21 @@ int sd_netlink_message_get_max_attribute(sd_netlink_message *m, uint16_t *ret) {
 
         *ret = m->containers[m->n_containers].attributes ?
                m->containers[m->n_containers].attributes->max_attribute : 0;
+        return 0;
+}
+
+int sd_netlink_message_get_attributes_count(sd_netlink_message *m, uint16_t attr_type, size_t *ret) {
+        assert_return(m, -EINVAL);
+        assert_return(m->sealed, -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        if (!m->containers[m->n_containers].attributes ||
+            attr_type > m->containers[m->n_containers].attributes->max_attribute) {
+                *ret = 0;
+                return 0;
+        }
+
+        *ret = m->containers[m->n_containers].attributes->attributes[attr_type].offsets_count;
         return 0;
 }
 
