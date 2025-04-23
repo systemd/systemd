@@ -237,31 +237,6 @@ static int ndisc_option_consume(Set **options, sd_ndisc_option *p) {
         return set_ensure_consume(options, &ndisc_option_hash_ops, p);
 }
 
-int ndisc_option_set_raw(Set **options, size_t length, const uint8_t *bytes) {
-        _cleanup_free_ uint8_t *copy = NULL;
-
-        assert(options);
-        assert(bytes);
-
-        if (length == 0)
-                return -EINVAL;
-
-        copy = newdup(uint8_t, bytes, length);
-        if (!copy)
-                return -ENOMEM;
-
-        sd_ndisc_option *p = ndisc_option_new(/* type = */ 0, /* offset = */ 0);
-        if (!p)
-                return -ENOMEM;
-
-        p->raw = (sd_ndisc_raw) {
-                .bytes = TAKE_PTR(copy),
-                .length = length,
-        };
-
-        return ndisc_option_consume(options, p);
-}
-
 static int ndisc_option_build_raw(const sd_ndisc_option *option, uint8_t **ret) {
         assert(option);
         assert(option->type == 0);
