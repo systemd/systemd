@@ -1134,14 +1134,6 @@ int pidref_is_my_child(PidRef *pid) {
         return ppid == getpid_cached();
 }
 
-int pid_is_my_child(pid_t pid) {
-
-        if (pid == 0)
-                return false;
-
-        return pidref_is_my_child(&PIDREF_MAKE_FROM_PID(pid));
-}
-
 int pidref_is_unwaited(PidRef *pid) {
         int r;
 

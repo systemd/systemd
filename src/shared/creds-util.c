@@ -288,17 +288,6 @@ int read_credential_strings_many_internal(
         return ret < 0 ? ret : all;
 }
 
-int read_credential_bool(const char *name) {
-        _cleanup_free_ void *data = NULL;
-        int r;
-
-        r = read_credential(name, &data, NULL);
-        if (r < 0)
-                return IN_SET(r, -ENXIO, -ENOENT) ? 0 : r;
-
-        return parse_boolean(data);
-}
-
 int get_credential_user_password(const char *username, char **ret_password, bool *ret_is_hashed) {
         _cleanup_(erase_and_freep) char *creds_password = NULL;
         _cleanup_free_ char *cn = NULL;

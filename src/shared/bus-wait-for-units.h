@@ -38,4 +38,3 @@ int bus_wait_for_units_add_unit(
                 void *userdata);
 
 int bus_wait_for_units_run(BusWaitForUnits *d);
-BusWaitForUnitsState bus_wait_for_units_state(BusWaitForUnits *d);
