@@ -889,7 +889,7 @@ int sd_netlink_message_read_string_strdup(sd_netlink_message *m, uint16_t attr_t
         return strdup_to(ret, s);
 }
 
-int sd_netlink_message_read_string(sd_netlink_message *m, uint16_t attr_type, const char **ret) {
+int sd_netlink_message_read_string_indexed(sd_netlink_message *m, uint16_t attr_type, unsigned index, const char **ret) {
         void *attr_data;
         int r;
 
@@ -899,7 +899,7 @@ int sd_netlink_message_read_string(sd_netlink_message *m, uint16_t attr_type, co
         if (r < 0)
                 return r;
 
-        r = netlink_message_read_internal(m, attr_type, &attr_data, NULL);
+        r = netlink_message_read_internal_indexed(m, attr_type, &attr_data, NULL, index);
         if (r < 0)
                 return r;
 
@@ -910,6 +910,12 @@ int sd_netlink_message_read_string(sd_netlink_message *m, uint16_t attr_type, co
                 *ret = (const char *) attr_data;
 
         return r;
+}
+
+int sd_netlink_message_read_string(sd_netlink_message *m, uint16_t attr_type, const char **ret) {
+        unsigned index = netlink_message_get_last_index(m, attr_type);
+
+        return sd_netlink_message_read_string_indexed(m, attr_type, index, ret);
 }
 
 int sd_netlink_message_read_u8(sd_netlink_message *m, uint16_t attr_type, uint8_t *ret) {
