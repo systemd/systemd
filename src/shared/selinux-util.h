@@ -32,6 +32,8 @@ int mac_selinux_init_lazy(void);
 void mac_selinux_maybe_reload(void);
 void mac_selinux_finish(void);
 
+void mac_selinux_disable_logging(void);
+
 int mac_selinux_fix_full(int atfd, const char *inode_path, const char *label_path, LabelFixFlags flags);
 
 int mac_selinux_apply(const char *path, const char *label);
