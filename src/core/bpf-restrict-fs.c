@@ -27,7 +27,6 @@
 /* libbpf, clang and llc compile time dependencies are satisfied */
 #include "bpf-dlopen.h"
 #include "bpf-link.h"
-#include "bpf-util.h"
 #include "bpf/restrict_fs/restrict-fs-skel.h"
 
 #define CGROUP_HASH_SIZE_MAX 2048
@@ -102,7 +101,7 @@ bool bpf_restrict_fs_supported(bool initialize) {
         if (!initialize)
                 return false;
 
-        if (!cgroup_bpf_supported())
+        if (dlopen_bpf_full(LOG_WARNING) < 0)
                 return (supported = false);
 
         r = lsm_supported("bpf");

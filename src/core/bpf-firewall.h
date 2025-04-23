@@ -6,14 +6,6 @@
 #include "cgroup.h"
 #include "unit.h"
 
-enum {
-        BPF_FIREWALL_UNSUPPORTED          = 0,
-        BPF_FIREWALL_SUPPORTED            = 1,
-        BPF_FIREWALL_SUPPORTED_WITH_MULTI = 2,
-};
-
-int bpf_firewall_supported(void);
-
 int bpf_firewall_compile(Unit *u);
 int bpf_firewall_install(Unit *u);
 int bpf_firewall_load_custom(Unit *u);

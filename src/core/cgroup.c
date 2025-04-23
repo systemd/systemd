@@ -3257,22 +3257,11 @@ static int cg_bpf_mask_supported(CGroupMask *ret) {
         CGroupMask mask = 0;
         int r;
 
-        /* BPF-based firewall */
-        r = bpf_firewall_supported();
-        if (r < 0)
-                return r;
-        if (r > 0)
-                mask |= CGROUP_MASK_BPF_FIREWALL;
-
-        /* BPF-based device access control */
-        r = bpf_devices_supported();
-        if (r < 0)
-                return r;
-        if (r > 0)
-                mask |= CGROUP_MASK_BPF_DEVICES;
-
-        /* BPF pinned prog (always supported by cgroup v2) */
-        mask |= CGROUP_MASK_BPF_FOREIGN;
+        /* BPF-based firewall, device access control, and pinned foreign prog */
+        if (bpf_program_supported() > 0)
+                mask |= CGROUP_MASK_BPF_FIREWALL |
+                        CGROUP_MASK_BPF_DEVICES |
+                        CGROUP_MASK_BPF_FOREIGN;
 
         /* BPF-based bind{4|6} hooks */
         r = bpf_socket_bind_supported();
