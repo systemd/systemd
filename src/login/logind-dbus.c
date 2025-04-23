@@ -2280,7 +2280,7 @@ static int verify_shutdown_creds(
          * to catch. In any case, it also means that the payload guarded by
          * these polkit calls should never be executed, and hence we should
          * never reach this point. */
-        assert(!error_or_denial);
+        assert_se(!error_or_denial);
 
         return 0;
 }
@@ -3841,7 +3841,7 @@ static int method_inhibit(sd_bus_message *message, void *userdata, sd_bus_error 
          * to catch. In any case, it also means that the payload guarded by
          * these polkit calls should never be executed, and hence we should
          * never reach this point. */
-        assert(!error_or_denial);
+        assert_se(!error_or_denial);
 
         r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_EUID|SD_BUS_CREDS_PID|SD_BUS_CREDS_PIDFD, &creds);
         if (r < 0)

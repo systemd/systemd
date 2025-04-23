@@ -92,6 +92,7 @@ endforeach
 efi_conf.set_quoted('PROJECT_VERSION', project_major_version)
 efi_conf.set_quoted('VERSION_TAG', version_tag)
 efi_conf.set('PROJECT_URL', conf.get('PROJECT_URL'))
+efi_conf.set_quoted('RELATIVE_SOURCE_PATH', relative_source_path)
 
 if meson.is_cross_build() and get_option('sbat-distro') == 'auto'
         warning('Auto detection of SBAT information not supported when cross-building, disabling SBAT.')
