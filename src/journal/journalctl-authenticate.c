@@ -23,6 +23,7 @@
 #include "terminal-util.h"
 #include "tmpfile-util.h"
 
+#if HAVE_GCRYPT
 static int format_key(
                 const void *seed,
                 size_t seed_size,
@@ -51,8 +52,10 @@ static int format_key(
 
         return memstream_finalize(&m, ret, NULL);
 }
+#endif
 
 int action_setup_keys(void) {
+#if HAVE_GCRYPT
         _cleanup_(unlink_and_freep) char *tmpfile = NULL;
         _cleanup_close_ int fd = -EBADF;
         _cleanup_free_ char *path = NULL;
@@ -236,4 +239,7 @@ int action_setup_keys(void) {
 #endif
 
         return 0;
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Forward-secure sealing not available.");
+#endif
 }

@@ -42,9 +42,6 @@
 #error "neither int nor long are four bytes long?!?"
 #endif
 
-assert_cc(STRLEN(__FILE__) > STRLEN(RELATIVE_SOURCE_PATH) + 1);
-#define PROJECT_FILE (&__FILE__[STRLEN(RELATIVE_SOURCE_PATH) + 1])
-
 static inline uint64_t u64_multiply_safe(uint64_t a, uint64_t b) {
         if (_unlikely_(a != 0 && b > (UINT64_MAX / a)))
                 return 0; /* overflow */
