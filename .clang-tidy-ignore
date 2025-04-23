@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+man/*
+# These contain external headers that we don't want to check.
+src/basic/include/*
+# clang-tidy can't parse BPF source files.
+src/core/bpf/*
+src/network/bpf/*
+src/nsresourced/bpf/*
+# The glib headers contain cyclic dependencies and clang-tidy
+# can't distinguish between our code and glib headers so we
+# exclude this test.
+src/libsystemd/sd-bus/test-bus-marshal.c
