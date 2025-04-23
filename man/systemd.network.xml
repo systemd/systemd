@@ -1443,7 +1443,7 @@ DuplicateAddressDetection=none</programlisting></para>
           <literal>ipv4</literal> for IPv4 link-local addresses (169.254.0.0/16), <literal>ipv6</literal>
           for IPv6 addresses, and <literal>none</literal> otherwise.</para>
 
-          <para>When enabled, regradless implicitly or not, <varname>ARP=</varname> is enabled unless it is
+          <para>When enabled, regardless implicitly or not, <varname>ARP=</varname> is enabled unless it is
           explicitly configured.</para>
 
           <xi:include href="version-info.xml" xpointer="v232"/>

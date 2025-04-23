@@ -196,7 +196,7 @@ static int link_get_arp(Link *link) {
         if (link_ipv4acd_enabled(link))
                 return true;
 
-        /* Similary, enable ARP when IPv4LL is enabled. */
+        /* Similarly, enable ARP when IPv4LL is enabled. */
         if (link_ipv4ll_enabled(link))
                 return true;
 
