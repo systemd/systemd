@@ -146,10 +146,6 @@ static inline void ndisc_option_remove_by_type(Set *options, uint8_t type) {
         ndisc_option_remove(options, &(const sd_ndisc_option) { .type = type });
 }
 
-int ndisc_option_set_raw(
-                Set **options,
-                size_t length,
-                const uint8_t *bytes);
 int ndisc_option_add_link_layer_address(
                 Set **options,
                 uint8_t type,

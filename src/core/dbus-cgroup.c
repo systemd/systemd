@@ -1647,12 +1647,9 @@ int bus_cgroup_set_property(
                         if (r == 0)
                                 break;
 
-                        r = sd_bus_message_read(message, "i", &family);
+                        r = bus_message_read_family(message, error, &family);
                         if (r < 0)
                                 return r;
-
-                        if (!IN_SET(family, AF_INET, AF_INET6))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "%s= expects IPv4 or IPv6 addresses only.", name);
 
                         r = sd_bus_message_read_array(message, 'y', &ap, &an);
                         if (r < 0)

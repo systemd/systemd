@@ -84,5 +84,3 @@ sd_bus_creds* bus_creds_new(void);
 void bus_creds_done(sd_bus_creds *c);
 
 int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, PidRef *pidref, pid_t tid);
-
-int bus_creds_extend_by_pid(sd_bus_creds *c, uint64_t mask, sd_bus_creds **ret);
