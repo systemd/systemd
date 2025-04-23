@@ -15,7 +15,7 @@ from pathlib import Path
 URL = 'https://github.com/systemd/mkosi'
 BRANCH = 'main'  # We only want to ever use commits on upstream 'main' branch
 CONFIG = Path('mkosi/mkosi.conf')
-WORKFLOWS = [Path('.github/workflows/mkosi.yml'), Path('.github/workflows/coverage.yml')]
+WORKFLOWS = [Path('.github/workflows') / f for f in ['mkosi.yml', 'coverage.yml', 'linter.yml']]
 
 def parse_args():
     p = argparse.ArgumentParser(
