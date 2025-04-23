@@ -1143,7 +1143,7 @@ static int netlink_container_parse(
         return 0;
 }
 
-int sd_netlink_message_enter_container(sd_netlink_message *m, uint16_t attr_type) {
+int sd_netlink_message_enter_container_indexed(sd_netlink_message *m, uint16_t attr_type, unsigned int index) {
         const NLAPolicy *policy;
         const NLAPolicySet *policy_set;
         void *container;
@@ -1229,7 +1229,7 @@ int sd_netlink_message_enter_container(sd_netlink_message *m, uint16_t attr_type
         if (!policy_set)
                 return -EOPNOTSUPP;
 
-        r = netlink_message_read_internal(m, attr_type, &container, NULL);
+        r = netlink_message_read_internal_indexed(m, attr_type, &container, NULL, index);
         if (r < 0)
                 return r;
 
@@ -1248,6 +1248,10 @@ int sd_netlink_message_enter_container(sd_netlink_message *m, uint16_t attr_type
         m->containers[m->n_containers].policy_set = policy_set;
 
         return 0;
+}
+
+int sd_netlink_message_enter_container(sd_netlink_message *m, uint16_t attr_type) {
+        return sd_netlink_message_enter_container_indexed(m, attr_type, 0);
 }
 
 int sd_netlink_message_enter_array(sd_netlink_message *m, uint16_t attr_type) {
