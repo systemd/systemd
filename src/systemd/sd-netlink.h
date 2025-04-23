@@ -121,6 +121,7 @@ int sd_netlink_message_read_cache_info(sd_netlink_message *m, uint16_t attr_type
 int sd_netlink_message_read_in_addr(sd_netlink_message *m, uint16_t attr_type, struct in_addr *ret);
 int sd_netlink_message_read_in6_addr(sd_netlink_message *m, uint16_t attr_type, struct in6_addr *ret);
 int sd_netlink_message_has_flag(sd_netlink_message *m, uint16_t attr_type);
+int sd_netlink_message_enter_container_indexed(sd_netlink_message *m, uint16_t attr_type, unsigned int index);
 int sd_netlink_message_enter_container(sd_netlink_message *m, uint16_t attr_type);
 int sd_netlink_message_enter_array(sd_netlink_message *m, uint16_t attr_type);
 int sd_netlink_message_exit_container(sd_netlink_message *m);
