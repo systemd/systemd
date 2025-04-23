@@ -93,7 +93,8 @@ Set *arg_output_fields = NULL;
 char *arg_pattern = NULL;
 pcre2_code *arg_compiled_pattern = NULL;
 PatternCompileCase arg_case = PATTERN_COMPILE_CASE_AUTO;
-static ImagePolicy *arg_image_policy = NULL;
+ImagePolicy *arg_image_policy = NULL;
+bool arg_synchronize_on_exit = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_cursor, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_cursor_file, freep);
@@ -268,6 +269,8 @@ static int help(void) {
                "     --no-tail               Show all lines, even in follow mode\n"
                "     --truncate-newline      Truncate entries by first newline character\n"
                "  -q --quiet                 Do not show info messages and privilege warning\n"
+               "     --synchronize-on-exit=BOOL\n"
+               "                             Wait for Journal synchronization before exiting\n"
                "\n%3$sPager Control Options:%4$s\n"
                "     --no-pager              Do not pipe output into a pager\n"
                "  -e --pager-end             Immediately jump to the end in the pager\n"
@@ -356,6 +359,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_OUTPUT_FIELDS,
                 ARG_NAMESPACE,
                 ARG_LIST_NAMESPACES,
+                ARG_SYNCHRONIZE_ON_EXIT,
         };
 
         static const struct option options[] = {
@@ -429,6 +433,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "output-fields",        required_argument, NULL, ARG_OUTPUT_FIELDS        },
                 { "namespace",            required_argument, NULL, ARG_NAMESPACE            },
                 { "list-namespaces",      no_argument,       NULL, ARG_LIST_NAMESPACES      },
+                { "synchronize-on-exit",  required_argument, NULL, ARG_SYNCHRONIZE_ON_EXIT  },
                 {}
         };
 
@@ -972,6 +977,13 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
                 }
+                case ARG_SYNCHRONIZE_ON_EXIT:
+                        r = parse_boolean_argument("--synchronize-on-exit", optarg, &arg_synchronize_on_exit);
+                        if (r < 0)
+                                return r;
+
+                        break;
+
                 case '?':
                         return -EINVAL;
 

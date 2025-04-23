@@ -316,6 +316,9 @@ void dev_kmsg_record(Server *s, char *p, size_t l) {
         if (saved_log_max_level != INT_MAX)
                 log_set_max_level(saved_log_max_level);
 
+        s->dev_kmsg_timestamp = usec;
+        sync_req_revalidate_by_timestamp(s);
+
 finish:
         for (j = 0; j < z; j++)
                 free(iovec[j].iov_base);
@@ -410,7 +413,7 @@ int server_open_dev_kmsg(Server *s) {
         if (r < 0)
                 return log_error_errno(r, "Failed to add /dev/kmsg fd to event loop: %m");
 
-        r = sd_event_source_set_priority(es, SD_EVENT_PRIORITY_IMPORTANT+10);
+        r = sd_event_source_set_priority(es, SD_EVENT_PRIORITY_NORMAL+5);
         if (r < 0)
                 return log_error_errno(r, "Failed to adjust priority of kmsg event source: %m");
 
