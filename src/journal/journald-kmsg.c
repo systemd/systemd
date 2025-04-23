@@ -410,7 +410,7 @@ int server_open_dev_kmsg(Server *s) {
         if (r < 0)
                 return log_error_errno(r, "Failed to add /dev/kmsg fd to event loop: %m");
 
-        r = sd_event_source_set_priority(es, SD_EVENT_PRIORITY_IMPORTANT+10);
+        r = sd_event_source_set_priority(es, SD_EVENT_PRIORITY_NORMAL+5);
         if (r < 0)
                 return log_error_errno(r, "Failed to adjust priority of kmsg event source: %m");
 
