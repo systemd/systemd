@@ -8,19 +8,12 @@
 #include "fdset.h"
 #include "memory-util.h"
 
-typedef struct DynamicUser DynamicUser;
 typedef struct Manager Manager;
-
-typedef struct DynamicCreds {
-        /* A combination of a dynamic user and group */
-        DynamicUser *user;
-        DynamicUser *group;
-} DynamicCreds;
 
 /* Note that this object always allocates a pair of user and group under the same name, even if one of them isn't
  * used. This means, if you want to allocate a group and user pair, and they might have two different names, then you
  * need to allocated two of these objects. DynamicCreds below makes that easy. */
-struct DynamicUser {
+typedef struct DynamicUser {
         Manager *manager;
         unsigned n_ref;
 
@@ -29,7 +22,13 @@ struct DynamicUser {
         int storage_socket[2];
 
         char name[];
-};
+} DynamicUser;
+
+typedef struct DynamicCreds {
+        /* A combination of a dynamic user and group */
+        DynamicUser *user;
+        DynamicUser *group;
+} DynamicCreds;
 
 int dynamic_user_serialize(Manager *m, FILE *f, FDSet *fds);
 int dynamic_user_serialize_one(DynamicUser *d, const char *key, FILE *f, FDSet *fds);
