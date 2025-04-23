@@ -187,24 +187,6 @@ int mac_smack_fix_full(
 
         return smack_fix_fd(inode_fd, label_path, flags);
 }
-
-int mac_smack_copy(const char *dest, const char *src) {
-        _cleanup_free_ char *label = NULL;
-        int r;
-
-        assert(dest);
-        assert(src);
-
-        r = mac_smack_read(src, SMACK_ATTR_ACCESS, &label);
-        if (r < 0)
-                return r;
-
-        r = mac_smack_apply(dest, SMACK_ATTR_ACCESS, label);
-        if (r < 0)
-                return r;
-
-        return r;
-}
 #endif
 
 int renameat_and_apply_smack_floor_label(int fdf, const char *from, int fdt, const char *to) {

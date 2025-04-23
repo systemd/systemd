@@ -147,8 +147,6 @@ int rsa_oaep_encrypt_bytes(const EVP_PKEY *pkey, const char *digest_alg, const c
 
 int rsa_pkey_to_suitable_key_size(EVP_PKEY *pkey, size_t *ret_suitable_key_size);
 
-int rsa_pkey_new(size_t bits, EVP_PKEY **ret);
-
 int rsa_pkey_from_n_e(const void *n, size_t n_size, const void *e, size_t e_size, EVP_PKEY **ret);
 
 int rsa_pkey_to_n_e(const EVP_PKEY *pkey, void **ret_n, size_t *ret_n_size, void **ret_e, size_t *ret_e_size);
