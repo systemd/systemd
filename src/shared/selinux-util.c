@@ -167,6 +167,8 @@ static int selinux_init(bool force) {
         if (!force && initialized != LAZY_INITIALIZED)
                 return 1;
 
+        mac_selinux_disable_logging();
+
         r = selinux_status_open(/* netlink fallback= */ 1);
         if (r < 0) {
                 if (!ERRNO_IS_PRIVILEGE(errno))
@@ -260,6 +262,20 @@ void mac_selinux_finish(void) {
         have_status_page = false;
 
         initialized = false;
+#endif
+}
+
+#if HAVE_SELINUX
+_printf_(2,3)
+static int selinux_log_glue(int type, const char *fmt, ...) {
+        return 0;
+}
+#endif
+
+void mac_selinux_disable_logging(void) {
+#if HAVE_SELINUX
+        /* Turn off all of SELinux' own logging, we want to do that ourselves */
+        selinux_set_callback(SELINUX_CB_LOG, (const union selinux_callback) { .func_log = selinux_log_glue });
 #endif
 }
 
