@@ -64,6 +64,7 @@ typedef enum ProcSubset {
 typedef enum PrivateBPF {
         PRIVATE_BPF_NO,
         PRIVATE_BPF_YES,
+        PRIVATE_BPF_TOKEN,
         _PRIVATE_BPF_MAX,
         _PRIVATE_BPF_INVALID = -EINVAL,
 } PrivateBPF;
