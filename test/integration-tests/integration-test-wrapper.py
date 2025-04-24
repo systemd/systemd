@@ -12,11 +12,14 @@ import os
 import re
 import shlex
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
 import textwrap
 from pathlib import Path
+from types import FrameType
+from typing import Optional
 
 EMERGENCY_EXIT_DROPIN = """\
 [Unit]
@@ -359,7 +362,23 @@ def statfs(path: Path) -> str:
     ).stdout.strip()
 
 
+INTERRUPTED = False
+
+
+def onsignal(signal: int, frame: Optional[FrameType]) -> None:
+    global INTERRUPTED
+    if INTERRUPTED:
+        return
+
+    INTERRUPTED = True
+    raise KeyboardInterrupt()
+
+
 def main() -> None:
+    signal.signal(signal.SIGINT, onsignal)
+    signal.signal(signal.SIGTERM, onsignal)
+    signal.signal(signal.SIGHUP, onsignal)
+
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--mkosi', default=None)
     parser.add_argument('--meson-source-dir', required=True, type=Path)
@@ -592,19 +611,22 @@ def main() -> None:
         'vm' if args.vm or os.getuid() != 0 or os.getenv('TEST_PREFER_QEMU', '0') == '1' else 'boot',
     ]  # fmt: skip
 
-    result = subprocess.run(cmd)
-
-    # On Debian/Ubuntu we get a lot of random QEMU crashes. Retry once, and then skip if it fails again.
-    if args.vm and result.returncode == 247 and args.exit_code != 247:
-        if journal_file:
-            journal_file.unlink(missing_ok=True)
+    try:
         result = subprocess.run(cmd)
+
+        # On Debian/Ubuntu we get a lot of random QEMU crashes. Retry once, and then skip if it fails again.
         if args.vm and result.returncode == 247 and args.exit_code != 247:
-            print(
-                f'Test {args.name} failed due to QEMU crash (error 247), ignoring',
-                file=sys.stderr,
-            )
-            exit(77)
+            if journal_file:
+                journal_file.unlink(missing_ok=True)
+            result = subprocess.run(cmd)
+            if args.vm and result.returncode == 247 and args.exit_code != 247:
+                print(
+                    f'Test {args.name} failed due to QEMU crash (error 247), ignoring',
+                    file=sys.stderr,
+                )
+                exit(77)
+    except KeyboardInterrupt:
+        result = subprocess.CompletedProcess(args=cmd, returncode=-signal.SIGINT)
 
     coredumps = process_coredumps(args, journal_file)
 
