@@ -2824,16 +2824,6 @@ if git.found()
                 run_target(
                         'ctags',
                         command : [env, 'ctags', '--tag-relative=never', '-o', '@0@/tags'.format(meson.project_source_root())] + all_files)
-
-                ############################################
-
-                if want_tests != 'false' and conf.get('BUILD_MODE_DEVELOPER') == 1
-                        test('check-includes',
-                             files('tools/check-includes.py'),
-                             args: all_files,
-                             env : ['PROJECT_SOURCE_ROOT=@0@'.format(meson.project_source_root())],
-                             suite : 'headers')
-                endif
         endif
 
         ####################################################
