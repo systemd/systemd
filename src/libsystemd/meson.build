@@ -35,7 +35,8 @@ audit_type_to_name = custom_target(
         command : [awk, '-f', '@INPUT0@', '@INPUT1@'],
         capture : true)
 
-sd_journal_sources += [audit_type_to_name]
+generated_sources += audit_type_to_name
+sd_journal_sources += audit_type_to_name
 
 ############################################################
 

@@ -2,7 +2,8 @@
 ---
 Checks: '
     -*,
-    misc-header-include-cycle
+    misc-header-include-cycle,
+    readability-duplicate-include
 '
 WarningsAsErrors: '*'
 HeaderFileExtensions:

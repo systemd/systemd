@@ -47,6 +47,7 @@ homed_gperf_c = custom_target(
         output : 'homed-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
 
+generated_sources += [homed_gperf_c]
 systemd_homed_sources += [homed_gperf_c]
 
 homectl_sources = files(

@@ -62,7 +62,7 @@ gperf_file = custom_target(
         command : [generate_dns_type_gperf, 'dns_type', 'DNS_TYPE_', '@INPUT@'],
         capture : true)
 
-basic_dns_sources += custom_target(
+dns_type_from_name_h = custom_target(
         'dns_type-from-name.h',
         input : gperf_file,
         output : 'dns_type-from-name.h',
@@ -74,12 +74,15 @@ basic_dns_sources += custom_target(
                    '@INPUT@'],
         capture : true)
 
-basic_dns_sources += custom_target(
+dns_type_to_name_h = custom_target(
         'dns_type-to-name.h',
         input : ['dns_type-to-name.awk', dns_type_list_txt],
         output : 'dns_type-to-name.h',
         command : [awk, '-f', '@INPUT0@', '@INPUT1@'],
         capture : true)
+
+generated_sources += [dns_type_from_name_h, dns_type_to_name_h]
+basic_dns_sources += [dns_type_from_name_h, dns_type_to_name_h]
 
 libsystemd_resolve_core = static_library(
         'systemd-resolve-core',
@@ -88,17 +91,20 @@ libsystemd_resolve_core = static_library(
         dependencies : userspace,
         build_by_default : false)
 
-systemd_resolved_sources += custom_target(
+resolved_gperf_c = custom_target(
         'resolved_gperf.c',
         input : 'resolved-gperf.gperf',
         output : 'resolved-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
 
-systemd_resolved_sources += custom_target(
+resolved_dnssd_gperf_c = custom_target(
         'resolved_dnssd_gperf.c',
         input : 'resolved-dnssd-gperf.gperf',
         output : 'resolved-dnssd-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
+
+generated_sources += [resolved_gperf_c, resolved_dnssd_gperf_c]
+systemd_resolved_sources += [resolved_gperf_c, resolved_dnssd_gperf_c]
 
 systemd_resolved_dependencies = [threads, libm, libopenssl]
 if conf.get('ENABLE_DNS_OVER_TLS') == 1

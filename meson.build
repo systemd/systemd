@@ -1911,11 +1911,11 @@ if conf.get('BPF_FRAMEWORK') == 1
         endif
 endif
 
+vmlinux_h_dependency = []
 if use_provided_vmlinux_h
         if not fs.exists(provided_vmlinux_h_path)
                 error('Path to provided vmlinux.h does not exist.')
         endif
-        vmlinux_h_dependency = []
         bpf_o_unstripped_cmd += ['-I' + fs.parent(provided_vmlinux_h_path)]
         message('Using provided @0@'.format(provided_vmlinux_h_path))
 elif use_generated_vmlinux_h
@@ -2008,6 +2008,7 @@ modules = [] # nss, pam, and other plugins
 executables = []
 executables_by_name = {}
 fuzzer_exes = []
+generated_sources = [version_h, vmlinux_h_dependency]
 
 # binaries that have --help and are intended for use by humans,
 # usually, but not always, installed in /bin.
@@ -2823,16 +2824,6 @@ if git.found()
                 run_target(
                         'ctags',
                         command : [env, 'ctags', '--tag-relative=never', '-o', '@0@/tags'.format(meson.project_source_root())] + all_files)
-
-                ############################################
-
-                if want_tests != 'false' and conf.get('BUILD_MODE_DEVELOPER') == 1
-                        test('check-includes',
-                             files('tools/check-includes.py'),
-                             args: all_files,
-                             env : ['PROJECT_SOURCE_ROOT=@0@'.format(meson.project_source_root())],
-                             suite : 'headers')
-                endif
         endif
 
         ####################################################
@@ -2863,6 +2854,27 @@ if git.found()
 endif
 
 #####################################################################
+
+alias_target('gensources', generated_sources)
+
+run_clang_tidy = find_program('run-clang-tidy', required : false)
+if run_clang_tidy.found()
+        run_target(
+                'clang-tidy',
+                command : [
+                        run_clang_tidy,
+                        '-use-color',
+                        '-quiet',
+                        '-p', meson.project_build_root(),
+                        # There seems to be a bug in clang-tidy where by even with --quiet some
+                        # messages from clang's own diagnostics engine leak through:
+                        #     X warnings generated.
+                        # Until this is fixed upstream, we use -fno-caret-diagnostics to suppress these.
+                        '-extra-arg=-fno-caret-diagnostics',
+                ],
+                depends : generated_sources
+        )
+endif
 
 check_api_docs_sh = find_program('tools/check-api-docs.sh')
 run_target(

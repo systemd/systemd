@@ -10,6 +10,8 @@ logind_gperf_c = custom_target(
         output : 'logind-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
 
+generated_sources += logind_gperf_c
+
 liblogind_core_sources = files(
         'logind-action.c',
         'logind-brightness.c',

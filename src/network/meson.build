@@ -148,23 +148,26 @@ if conf.get('HAVE_VMLINUX_H') == 1
         sources += sysctl_monitor_skel_h
 endif
 
-sources += custom_target(
+networkd_gperf_c = custom_target(
         'networkd-gperf.c',
         input : 'networkd-gperf.gperf',
         output : 'networkd-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
 
-sources += custom_target(
+networkd_network_gperf_c = custom_target(
         'networkd-network-gperf.c',
         input : networkd_network_gperf_gperf,
         output : 'networkd-network-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
 
-sources += custom_target(
+netdev_gperf_c = custom_target(
         'netdev-gperf.c',
         input : networkd_netdev_gperf_gperf,
         output : 'netdev-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
+
+generated_sources += [networkd_gperf_c, networkd_network_gperf_c, netdev_gperf_c]
+sources += [networkd_gperf_c, networkd_network_gperf_c, netdev_gperf_c]
 
 if get_option('link-networkd-shared')
         networkd_link_with = [libshared]
