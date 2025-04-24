@@ -396,6 +396,8 @@ void unit_release_resources(Unit *u) {
 
         assert(u);
 
+        LOG_CONTEXT_PUSH_UNIT(u);
+
         if (u->job || u->nop_job)
                 return;
 
