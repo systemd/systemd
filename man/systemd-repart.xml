@@ -620,6 +620,27 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--append-fstab=</option></term>
+
+        <listitem><para>Takes one of <literal>no</literal>, <literal>auto</literal> or
+        <literal>replace</literal>. Controls how the generated
+        <citerefentry project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        file by <option>--generate-fstab</option> will behave in case that there is a previously
+        existing file.
+
+        <para>If <literal>no</literal> <command>systemd-repart</command> will complain and abort in
+        case that there is a file. This is the current default behaviour. If <literal>replace</literal>
+        the file will be silently replaced with the new generated one.</para>
+
+        If <literal>auto</literal> <command>systemd-repart</command> will search in the pre-existing file
+        the section that belong to the automatically generated content and will replace it with the newer
+        generated content, and keep the user provided section if there is one. The sections are identified
+        looking for the automatic comments added by the command.
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--generate-fstab=<replaceable>PATH</replaceable></option></term>
 
         <listitem><para>Specifies a path where to write
