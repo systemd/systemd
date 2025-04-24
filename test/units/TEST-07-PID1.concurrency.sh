@@ -9,19 +9,19 @@ set -o pipefail
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
-cat >/etc/systemd/system/concurrency1.slice <<EOF
+cat >/run/systemd/system/concurrency1.slice <<EOF
 [Slice]
 ConcurrencyHardMax=4
 ConcurrencySoftMax=3
 EOF
 
-cat >/etc/systemd/system/sleepforever1@.service <<EOF
+cat >/run/systemd/system/sleepforever1@.service <<EOF
 [Service]
 Slice=concurrency1.slice
 ExecStart=sleep infinity
 EOF
 
-cat >/etc/systemd/system/sync-on-sleepforever1@.service <<EOF
+cat >/run/systemd/system/sync-on-sleepforever1@.service <<EOF
 [Unit]
 After=sleepforever1@%i.service
 
@@ -29,22 +29,22 @@ After=sleepforever1@%i.service
 ExecStart=true
 EOF
 
-cat >/etc/systemd/system/concurrency1-concurrency2.slice <<EOF
+cat >/run/systemd/system/concurrency1-concurrency2.slice <<EOF
 [Slice]
 ConcurrencySoftMax=1
 EOF
 
-cat >/etc/systemd/system/sleepforever2@.service <<EOF
+cat >/run/systemd/system/sleepforever2@.service <<EOF
 [Service]
 Slice=concurrency1-concurrency2.slice
 ExecStart=sleep infinity
 EOF
-cat >/etc/systemd/system/concurrency1-concurrency3.slice <<EOF
+cat >/run/systemd/system/concurrency1-concurrency3.slice <<EOF
 [Slice]
 ConcurrencySoftMax=1
 EOF
 
-cat >/etc/systemd/system/sleepforever3@.service <<EOF
+cat >/run/systemd/system/sleepforever3@.service <<EOF
 [Service]
 Slice=concurrency1-concurrency3.slice
 ExecStart=sleep infinity
@@ -117,12 +117,12 @@ systemctl start sleepforever3@a.service
 systemctl stop concurrency1.slice
 systemctl reset-failed
 
-rm /etc/systemd/system/concurrency1.slice
-rm /etc/systemd/system/concurrency1-concurrency2.slice
-rm /etc/systemd/system/concurrency1-concurrency3.slice
-rm /etc/systemd/system/sleepforever1@.service
-rm /etc/systemd/system/sync-on-sleepforever1@.service
-rm /etc/systemd/system/sleepforever2@.service
-rm /etc/systemd/system/sleepforever3@.service
+rm /run/systemd/system/concurrency1.slice
+rm /run/systemd/system/concurrency1-concurrency2.slice
+rm /run/systemd/system/concurrency1-concurrency3.slice
+rm /run/systemd/system/sleepforever1@.service
+rm /run/systemd/system/sync-on-sleepforever1@.service
+rm /run/systemd/system/sleepforever2@.service
+rm /run/systemd/system/sleepforever3@.service
 
 systemctl daemon-reload
