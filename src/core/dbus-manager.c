@@ -1000,6 +1000,8 @@ static int transient_unit_from_message(
         if (r < 0)
                 return r;
 
+        LOG_CONTEXT_PUSH_UNIT(u);
+
         if (!unit_is_pristine(u))
                 return sd_bus_error_setf(error, BUS_ERROR_UNIT_EXISTS,
                                          "Unit %s was already loaded or has a fragment file.", name);
@@ -1107,6 +1109,8 @@ static int method_start_transient_unit(sd_bus_message *message, void *userdata, 
         r = transient_unit_from_message(m, message, name, &u, error);
         if (r < 0)
                 return r;
+
+        LOG_CONTEXT_PUSH_UNIT(u);
 
         r = transient_aux_units_from_message(m, message, error);
         if (r < 0)
@@ -2772,6 +2776,8 @@ static int method_abandon_scope(sd_bus_message *message, void *userdata, sd_bus_
         r = bus_get_unit_by_name(m, message, name, &u, error);
         if (r < 0)
                 return r;
+
+        LOG_CONTEXT_PUSH_UNIT(u);
 
         if (u->type != UNIT_SCOPE)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
