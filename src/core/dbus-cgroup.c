@@ -1636,46 +1636,29 @@ int bus_cgroup_set_property(
                         return r;
 
                 for (;;) {
-                        const void *ap;
-                        int32_t family;
-                        uint32_t prefixlen;
-                        size_t an;
-
                         r = sd_bus_message_enter_container(message, 'r', "iayu");
                         if (r < 0)
                                 return r;
                         if (r == 0)
                                 break;
 
-                        r = sd_bus_message_read(message, "i", &family);
+                        struct in_addr_prefix prefix;
+                        r = bus_message_read_in_addr_auto(message, error, &prefix.family, &prefix.address);
                         if (r < 0)
                                 return r;
 
-                        if (!IN_SET(family, AF_INET, AF_INET6))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "%s= expects IPv4 or IPv6 addresses only.", name);
-
-                        r = sd_bus_message_read_array(message, 'y', &ap, &an);
-                        if (r < 0)
-                                return r;
-
-                        if (an != FAMILY_ADDRESS_SIZE(family))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "IP address has wrong size for family (%s, expected %zu, got %zu)",
-                                                               af_to_name(family), FAMILY_ADDRESS_SIZE(family), an);
-
+                        uint32_t prefixlen;
                         r = sd_bus_message_read(message, "u", &prefixlen);
                         if (r < 0)
                                 return r;
 
-                        if (prefixlen > FAMILY_ADDRESS_SIZE(family)*8)
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Prefix length %" PRIu32 " too large for address family %s.", prefixlen, af_to_name(family));
+                        if (prefixlen > FAMILY_ADDRESS_SIZE(prefix.family)*8)
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                         "Prefix length %" PRIu32 " too large for address family %s.",
+                                                         prefixlen, af_to_name(prefix.family));
 
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                                struct in_addr_prefix prefix = {
-                                        .family = family,
-                                        .prefixlen = prefixlen,
-                                };
-
-                                memcpy(&prefix.address, ap, an);
+                                prefix.prefixlen = (uint8_t) prefixlen;
 
                                 r = in_addr_prefix_add(&new_prefixes, &prefix);
                                 if (r < 0)
