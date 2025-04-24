@@ -2233,6 +2233,48 @@ static int build_pass_environment(const ExecContext *c, char ***ret) {
         return 0;
 }
 
+#if HAVE_BPF_TOKEN_CREATE
+_noreturn_ static void bpftoken_helper(int parent_fd)
+{
+        _cleanup_close_ int fs_fd = -EBADF, mnt_fd = -EBADF;
+        int r;
+
+        fs_fd = receive_one_fd(parent_fd, 0);
+        if (fs_fd < 0)
+                _exit(EXIT_FAILURE);
+
+        r = fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_cmds", "any", 0);
+        if (r < 0)
+                _exit(EXIT_FAILURE);
+
+        r = fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_maps", "any", 0);
+        if (r < 0)
+                _exit(EXIT_FAILURE);
+
+        r = fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_progs", "any", 0);
+        if (r < 0)
+                _exit(EXIT_FAILURE);
+
+        r = fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_attachs", "any", 0);
+        if (r < 0)
+                _exit(EXIT_FAILURE);
+
+        r = fsconfig(fs_fd, FSCONFIG_CMD_CREATE, NULL, NULL, 0);
+        if (r < 0)
+                _exit(EXIT_FAILURE);
+
+        mnt_fd = fsmount(fs_fd, 0, 0);
+        if (mnt_fd < 0)
+                _exit(EXIT_FAILURE);
+
+        r = send_one_fd(parent_fd, mnt_fd, 0);
+        if (r < 0)
+                _exit(EXIT_FAILURE);
+
+        exit(0);
+}
+#endif
+
 _noreturn_ static void sd_userns(int errno_pipe[2], int unshare_ready_fd, uint64_t *c, char *uid_map, char *gid_map, bool allow_setgroups)
 {
         _cleanup_close_ int fd = -EBADF;
@@ -3622,6 +3664,7 @@ static int apply_mount_namespace(
                 .protect_system = needs_sandboxing ? context->protect_system : PROTECT_SYSTEM_NO,
                 .protect_proc = needs_sandboxing ? context->protect_proc : PROTECT_PROC_DEFAULT,
                 .proc_subset = needs_sandboxing ? context->proc_subset : PROC_SUBSET_ALL,
+                .private_bpf = needs_sandboxing ? context->private_bpf : false,
         };
 
         r = setup_namespace(&parameters, reterr_path);
@@ -4630,6 +4673,12 @@ int exec_invoke(
         int ngids = 0, ngids_after_pam = 0;
         int socket_fd = -EBADF, named_iofds[3] = EBADF_TRIPLET;
         size_t n_storage_fds, n_socket_fds, n_extra_fds;
+        PrivateBPF private_bpf = context->private_bpf;
+
+#if HAVE_BPF_TOKEN_CREATE
+        _cleanup_close_pair_ int token_fds[2] = EBADF_PAIR;
+        _cleanup_(sigkill_waitp) pid_t bpftoken_pid = 0;
+#endif
 
         assert(command);
         assert(context);
@@ -4707,7 +4756,7 @@ int exec_invoke(
                 return log_error_errno(r, "Failed to get OpenFile= file descriptors: %m");
         }
 
-        int keep_fds[n_fds + 4];
+        int keep_fds[n_fds + 5];
         memcpy_safe(keep_fds, params->fds, n_fds * sizeof(int));
         n_keep_fds = n_fds;
 
@@ -5322,6 +5371,30 @@ int exec_invoke(
                 }
         }
 
+        if (private_bpf == PRIVATE_BPF_TOKEN) {
+#if HAVE_BPF_TOKEN_CREATE
+                r = dlopen_bpf();
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to load libbpf, skipping BPF token creation: %m");
+                        private_bpf = PRIVATE_BPF_NO;
+                }
+
+                r = socketpair(AF_UNIX, SOCK_SEQPACKET, 0, token_fds);
+                if (r < 0)
+                        return r;
+
+                r = safe_fork("(bpf-token)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL, &bpftoken_pid);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        bpftoken_helper(token_fds[1]);
+
+#else
+                log_warning("BPF token creation is not supported, skipping creation.");
+                private_bpf = PRIVATE_BPF_NO;
+#endif
+        }
+
         if (needs_sandboxing && !have_cap_sys_admin && exec_context_needs_cap_sys_admin(context)) {
                 /* If we're unprivileged, set up the user namespace first to enable use of the other namespaces.
                  * Users with CAP_SYS_ADMIN can set up user namespaces last because they will be able to
@@ -5422,6 +5495,50 @@ int exec_invoke(
                         exit_status);
         if (r < 0)
                 return r;
+
+#if HAVE_BPF_TOKEN_CREATE
+        if (private_bpf == PRIVATE_BPF_TOKEN) {
+                _cleanup_close_ int fs_fd, mnt_fd, bpffs_fd, token_fd;
+
+                fs_fd = fsopen("bpf", 0);
+                if (fs_fd < 0)
+                        return fs_fd;
+
+                r = send_one_fd(token_fds[0], fs_fd, 0);
+                if (r < 0)
+                        return r;
+
+                mnt_fd = receive_one_fd(token_fds[0], 0);
+                if (mnt_fd < 0)
+                        return fs_fd;
+
+                bpffs_fd = openat(mnt_fd, ".", O_RDONLY);
+                if (bpffs_fd < 0)
+                        return bpffs_fd;
+
+                token_fd = sym_bpf_token_create(bpffs_fd, NULL);
+                if (token_fd < 0)
+                        return token_fd;
+
+                r = move_mount(mnt_fd, "", AT_FDCWD, "/sys/fs/bpf", MOVE_MOUNT_F_EMPTY_PATH);
+                if (r < 0)
+                        return r;
+
+                r = wait_for_terminate_and_check("(bpf-token)", TAKE_PID(bpftoken_pid), 0);
+                if (r < 0)
+                        return r;
+                if (r != EXIT_SUCCESS) /* If something strange happened with the child, let's consider this fatal, too */
+                        return -EIO;
+
+                r = add_shifted_fd(keep_fds, ELEMENTSOF(keep_fds), &n_keep_fds, &token_fd);
+                if (r < 0) {
+                        *exit_status = EXIT_FDS;
+                        return log_error_errno(r, "Failed to collect shifted fd: %m");
+                }
+
+                TAKE_FD(token_fd);
+        }
+#endif
 
         /* Now that the mount namespace has been set up and privileges adjusted, let's look for the thing we
          * shall execute. */
