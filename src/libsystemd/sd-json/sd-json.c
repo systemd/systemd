@@ -4912,10 +4912,10 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                                 if (r < 0)
                                         goto finish;
 
-                                r = command == _SD_JSON_BUILD_BASE64    ? sd_json_variant_new_base64(&add_more, p, sz) :
-                                    command == _SD_JSON_BUILD_BASE32HEX ? sd_json_variant_new_base32hex(&add_more, p, sz) :
-                                    command == _SD_JSON_BUILD_HEX       ? sd_json_variant_new_hex(&add_more, p, sz) :
-                                                                          sd_json_variant_new_octescape(&add_more, p, sz);
+                                r = command == _JSON_BUILD_PAIR_BASE64_NON_EMPTY    ? sd_json_variant_new_base64(&add_more, p, sz) :
+                                    command == _JSON_BUILD_PAIR_BASE32HEX_NON_EMPTY ? sd_json_variant_new_base32hex(&add_more, p, sz) :
+                                    command == _JSON_BUILD_PAIR_HEX_NON_EMPTY       ? sd_json_variant_new_hex(&add_more, p, sz) :
+                                                                                      sd_json_variant_new_octescape(&add_more, p, sz);
                                 if (r < 0)
                                         goto finish;
                         }
