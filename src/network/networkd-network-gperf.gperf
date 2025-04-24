@@ -9,7 +9,6 @@ _Pragma("GCC diagnostic ignored \"-Wzero-as-null-pointer-constant\"")
 
 #include "conf-parser.h"
 #include "in-addr-prefix-util.h"
-#include "netem.h"
 #include "net-condition.h"
 #include "networkd-address-generation.h"
 #include "networkd-address-label.h"
