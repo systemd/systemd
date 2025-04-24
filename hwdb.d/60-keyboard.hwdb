@@ -2071,6 +2071,10 @@ evdev:name:Quickstart Button 3:dmi:bvn*:bvr*:bd*:svnTOSHIBA*:pnPORTEGEZ830:*
 evdev:atkbd:dmi:*:svnTUXEDO:*:rvnNB02:*
  KEYBOARD_KEY_f8=fn
 
+# TUXEDO InfinityFlex 14 Gen1
+evdev:atkbd:dmi:*:svnTUXEDO:*:rnDN50Z-140HC-YD:*
+ KEYBOARD_KEY_6e=fn
+
 ###########################################################
 # VIA
 ###########################################################
