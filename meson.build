@@ -1639,6 +1639,10 @@ foreach term : ['analyze',
         conf.set10(name, have)
 endforeach
 
+libbpf = dependency('libbpf', required : false)
+have = cc.has_function('bpf_token_create', prefix : '''#include <bpf/bpf.h>''', dependencies : libbpf)
+conf.set10('HAVE_BPF_TOKEN_CREATE', have)
+
 enable_sysusers = conf.get('ENABLE_SYSUSERS') == 1
 
 foreach tuple : [['nss-mymachines', 'machined'],
