@@ -254,6 +254,12 @@ this is a requirement of threaded cgroups: either a cgroup and all its siblings
 are threaded or none –, but systemd expects it to be a regular cgroup. Thus you
 have to nest a second cgroup beneath it which then can be threaded.)
 
+Finally, if you turn on cgroup delegation with `Delegate=yes`, systemd will make
+the requested controllers available to your service or scope, but won't actually
+enable them. Currently you have to do that manually by writing to
+`cgroup.subtree_control` within your delegated cgroup (e.g. write `+memory` to
+enable the memory controller).
+
 ## Three Scenarios
 
 Let's say you write a container manager, and you wonder what to do regarding
