@@ -37,8 +37,10 @@ if conf.get('ENABLE_UKIFY') == 1
                 capture : true,
                 build_by_default : want_tests != 'false')
 else
-        test_hwids_section_c = ''
+        test_hwids_section_c = []
 endif
+
+generated_sources += test_hwids_section_c
 
 executables += [
         efi_test_template + {

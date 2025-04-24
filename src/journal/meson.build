@@ -16,11 +16,14 @@ sources = files(
         'journald-wall.c',
 )
 
-sources += custom_target(
+journald_gperf_c = custom_target(
         'journald-gperf.c',
         input : 'journald-gperf.gperf',
         output : 'journald-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
+
+generated_sources += journald_gperf_c
+sources += journald_gperf_c
 
 libjournal_core = static_library(
         'journal-core',

@@ -189,6 +189,7 @@ foreach item : [['af',     af_list_txt,     'af',         ''],
         generated_gperf_headers += [target1, target2]
 endforeach
 
+generated_sources += generated_gperf_headers
 basic_sources += generated_gperf_headers
 
 ############################################################
@@ -274,6 +275,7 @@ filesystem_switch_case_h = custom_target(
                    '@INPUT@'],
         capture : true)
 
+generated_sources += [filesystem_list_h, filesystem_switch_case_h, filesystems_gperf_h]
 basic_sources += [filesystem_list_h, filesystem_switch_case_h, filesystems_gperf_h]
 
 libbasic_static = static_library(

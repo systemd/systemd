@@ -11,11 +11,14 @@ systemd_timesyncd_sources = files(
         'timesyncd-bus.c',
 )
 
-sources += custom_target(
+timesyncd_gperf_c = custom_target(
         'timesyncd-gperf.c',
         input : 'timesyncd-gperf.gperf',
         output : 'timesyncd-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
+
+generated_sources += timesyncd_gperf_c
+sources += timesyncd_gperf_c
 
 if get_option('link-timesyncd-shared')
         timesyncd_link_with = [libshared]

@@ -3,8 +3,14 @@
 #include <math.h>
 #include <stdlib.h>
 
+/* We make an exception here to our usual "include system headers first" rule because we need one of these
+ * macros to disable a warning triggered by the glib headers. */
+#include "macro-fundamental.h"
+
 #if HAVE_GLIB
-#include <gio/gio.h>
+DISABLE_WARNING_FORMAT_NONLITERAL
+#include <gio/gio.h> /* NOLINT */
+REENABLE_WARNING
 #endif
 
 #if HAVE_DBUS

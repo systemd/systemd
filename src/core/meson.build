@@ -102,6 +102,8 @@ load_fragment_gperf_nulstr_c = custom_target(
         command : [awk, '-f', '@INPUT0@', '@INPUT1@'],
         capture : true)
 
+generated_sources += [load_fragment_gperf_c, load_fragment_gperf_nulstr_c]
+
 libcore_name = 'systemd-core-@0@'.format(shared_lib_tag)
 
 libcore_static = static_library(

@@ -92,6 +92,8 @@ keyboard_keys_from_name_h = custom_target(
                    '@INPUT@'],
         capture : true)
 
+generated_sources += keyboard_keys_from_name_h
+
 ############################################################
 
 udev_link_gperf_gperf = files('net/link-config-gperf.gperf')
@@ -101,6 +103,8 @@ link_config_gperf_c = custom_target(
         input : udev_link_gperf_gperf,
         output : 'link-config-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
+
+generated_sources += link_config_gperf_c
 
 ############################################################
 

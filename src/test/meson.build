@@ -9,6 +9,8 @@ test_hashmap_ordered_c = custom_target(
         capture : true,
         build_by_default : want_tests != 'false')
 
+generated_sources += test_hashmap_ordered_c
+
 path = run_command(sh, '-c', 'echo "$PATH"', check: true).stdout().strip()
 test_env = environment()
 test_env.set('SYSTEMD_LANGUAGE_FALLBACK_MAP', language_fallback_map)
@@ -40,6 +42,8 @@ test_libudev_sym_c = custom_target(
         command : [generate_sym_test_py, libudev_sym_path, libudev_dir_path, libudev_h_path],
         capture : true,
         build_by_default : want_tests != 'false')
+
+generated_sources += [test_libsystemd_sym_c, test_libudev_sym_c]
 
 ############################################################
 

@@ -20,7 +20,8 @@ nspawn_gperf_c = custom_target(
         output : 'nspawn-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
 
-libnspawn_core_sources += [nspawn_gperf_c]
+generated_sources += nspawn_gperf_c
+libnspawn_core_sources += nspawn_gperf_c
 
 libnspawn_core = static_library(
         'nspawn-core',

@@ -331,3 +331,11 @@ compilation database used by clangd to use clang as the compiler as well:
 ```sh
 $ mkosi sandbox -- env CC=clang CXX=clang++ meson setup build
 ```
+
+Additionally, the `gensources` target can be used to make sure all generated
+sources are generated to avoid clangd complaining that these source files don't
+exist.
+
+```sh
+$ mkosi sandbox -- ninja -C build gensources
+```
