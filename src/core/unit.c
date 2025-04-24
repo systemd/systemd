@@ -397,6 +397,8 @@ void unit_release_resources(Unit *u) {
         if (u->perpetual)
                 return;
 
+        LOG_CONTEXT_PUSH_UNIT(u);
+
         state = unit_active_state(u);
         if (!UNIT_IS_INACTIVE_OR_FAILED(state))
                 return;
