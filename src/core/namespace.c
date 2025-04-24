@@ -168,7 +168,7 @@ static const MountEntry private_bpf_no_table[] = {
         { "/sys/fs/bpf",         MOUNT_READ_ONLY,    true  },
 };
 
-static const MountEntry private_bpf_yes_table[] = {
+static const MountEntry private_bpf_token_yes_table[] = {
         { "/sys/fs/bpf",         MOUNT_BPFFS,        true  },
 };
 
@@ -841,7 +841,8 @@ static int append_private_bpf(MountList *ml, PrivateBPF private_bpf, bool ignore
         case PRIVATE_BPF_NO:
                 return append_static_mounts(ml, private_bpf_no_table, ELEMENTSOF(private_bpf_no_table), ignore_protect);
         case PRIVATE_BPF_YES:
-                return append_static_mounts(ml, private_bpf_yes_table, ELEMENTSOF(private_bpf_yes_table), ignore_protect);
+        case PRIVATE_BPF_TOKEN:
+                return append_static_mounts(ml, private_bpf_token_yes_table, ELEMENTSOF(private_bpf_token_yes_table), ignore_protect);
         default:
                 return -EINVAL;
         }
@@ -1441,6 +1442,9 @@ static int mount_procfs(const MountEntry *m, const NamespaceParameters *p) {
 static int mount_bpffs(const MountEntry *m, const NamespaceParameters *p) {
         assert(m);
         assert(p);
+
+        /* If PrivateBPF=yes, mount a private instance. If PrivateBPF=token, mount bpffs anyway
+         * as a stub, will umount and remount later following the BPF token API. */
 
         return mount_private_apivfs("bpf", mount_entry_path(m), "/sys/fs/bpf", NULL, p->runtime_scope);
 }
@@ -3356,6 +3360,7 @@ DEFINE_STRING_TABLE_LOOKUP(proc_subset, ProcSubset);
 
 static const char* const private_bpf_table[_PRIVATE_BPF_MAX] = {
         [PRIVATE_BPF_NO]    = "no",
+        [PRIVATE_BPF_TOKEN] = "token",
         [PRIVATE_BPF_YES]   = "yes",
 };
 
