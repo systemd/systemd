@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
+#include "sys/mman.h"
+
 #include "cgroup-util.h"
 #include "common-signal.h"
 #include "daemon-util.h"
@@ -89,13 +91,116 @@ typedef struct Worker {
         Event *event;
 } Worker;
 
+typedef struct UdevSeqnum {
+        uint64_t next_seqnum;       /* The expected next seqnum of event to be received. */
+        uint64_t min_queued_seqnum; /* The minimum queued seqnum. Each seqnum of queued event must be equal or larger than this. */
+} UdevSeqnum;
+
+static int manager_map_seqnum_file(Manager *manager) {
+        int r;
+
+        assert(manager);
+        assert(!manager->seqnum);
+
+        _cleanup_close_ int fd = open("/run/udev/seqnum", O_RDWR|O_CREAT|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, 0644);
+        if (fd < 0)
+                return log_error_errno(errno, "Failed to open /run/udev/seqnum: %m");
+
+        r = posix_fallocate_loop(fd, 0, sizeof(UdevSeqnum));
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate /run/udev/seqnum: %m");
+
+        void *p = mmap(NULL, sizeof(UdevSeqnum), PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
+        if (p == MAP_FAILED)
+                return log_error_errno(errno, "Failed to mmap /run/udev/seqnum: %m");
+
+        manager->seqnum = p;
+        return 0;
+}
+
+static void manager_unmap_seqnum_file(Manager *manager) {
+        assert(manager);
+
+        if (!manager->seqnum)
+                return;
+
+        log_debug("next_seqnum: %"PRIu64", min_queued_seqnum: %"PRIu64,
+                  manager->seqnum->next_seqnum, manager->seqnum->min_queued_seqnum);
+        munmap(manager->seqnum, sizeof(UdevSeqnum));
+        manager->seqnum = NULL;
+}
+
+static void manager_update_min_queued_seqnum(Manager *manager, Event *event) {
+        assert(manager);
+        assert(event);
+
+        if (!manager->seqnum)
+                return;
+
+        sd_device *dev = manager->events ? manager->events->dev : event->dev;
+        uint64_t seqnum = manager->events ? manager->events->seqnum : event->seqnum + 1;
+        if (seqnum < manager->seqnum->min_queued_seqnum)
+                log_device_warning(dev,
+                                   "Already processed event (SEQNUM=%"PRIu64") has been queued and/or processed again?",
+                                   seqnum);
+        else
+                manager->seqnum->min_queued_seqnum = seqnum;
+}
+
+static int manager_validate_seqnum(Manager *manager, sd_device *dev, bool is_new) {
+        uint64_t seqnum;
+        int r;
+
+        assert(manager);
+        assert(manager->seqnum);
+        assert(dev);
+
+        r = sd_device_get_seqnum(dev, &seqnum);
+        if (r < 0)
+                return log_device_warning_errno(dev, r, "Failed to get seqnum: %m");
+
+        /* We already processed this event? */
+        if (seqnum < manager->seqnum->min_queued_seqnum)
+                return log_device_warning_errno(
+                                dev, SYNTHETIC_ERRNO(EALREADY),
+                                "The event %"PRIu64" has been already processed.", seqnum);
+
+        if (is_new) {
+                /* We already queued this event? */
+                if (seqnum < manager->seqnum->next_seqnum)
+                        return log_device_warning_errno(
+                                        dev, SYNTHETIC_ERRNO(EALREADY),
+                                        "The event %"PRIu64" has been already queued.", seqnum);
+
+                /* Unfortunately, unlike the kmsg seqnum verification done by journald, udevd cannot know how
+                 * many events lost, as the kernel sends an event for a network interface to all network
+                 * namespaces with _different_ seqnum. See
+                 * https://github.com/torvalds/linux/commit/07e98962fa778b9782c8845dfcb06a84cc050744 */
+
+                /* Note that here we always store the next event seqnum we expect. */
+                manager->seqnum->next_seqnum = seqnum + 1;
+
+        } else {
+                /* Deserialized a future event? */
+                if (seqnum >= manager->seqnum->next_seqnum)
+                        return log_device_warning_errno(
+                                        dev, SYNTHETIC_ERRNO(ESTALE),
+                                        "The deserialized event %"PRIu64" has not been queued previously.", seqnum);
+        }
+
+        return 0;
+}
+
 static Event* event_free(Event *event) {
         if (!event)
                 return NULL;
 
-        assert(event->manager);
+        Manager *manager = ASSERT_PTR(event->manager);
 
-        LIST_REMOVE(event, event->manager->events, event);
+        /* Remove the current event from the list, before updating the seqnum file. */
+        LIST_REMOVE(event, manager->events, event);
+        /* Update seqnum file before unref the device, as it may be used on logging. */
+        manager_update_min_queued_seqnum(manager, event);
         sd_device_unref(event->dev);
 
         sd_event_source_unref(event->retry_event_source);
@@ -140,10 +245,13 @@ Manager* manager_free(Manager *manager) {
         hashmap_free(manager->properties);
         udev_rules_free(manager->rules);
 
+        /* The file must be unmapped before freeing queued events (hence also workers).
+         * Otherwise, freeing queued events may update the seqnum file. */
+        manager_unmap_seqnum_file(manager);
+
         hashmap_free(manager->workers);
         while (manager->events)
                 event_free(manager->events);
-
         safe_close(manager->inotify_fd);
 
         free(manager->worker_notify_socket_path);
@@ -219,7 +327,7 @@ static int manager_reset_kill_workers_timer(Manager *manager) {
                                 USEC_PER_SEC,
                                 on_kill_workers_event,
                                 manager,
-                                SD_EVENT_PRIORITY_NORMAL,
+                                EVENT_PRIORITY_WORKER_TIMER,
                                 "kill-workers-event",
                                 /* force_reset = */ false);
                 if (r < 0)
@@ -450,13 +558,28 @@ static void worker_attach_event(Worker *worker, Event *event) {
         event->state = EVENT_RUNNING;
         event->worker = worker;
 
-        (void) sd_event_add_time_relative(e, &event->timeout_warning_event, CLOCK_MONOTONIC,
-                                          udev_warn_timeout(manager->config.timeout_usec), USEC_PER_SEC,
-                                          on_event_timeout_warning, event);
+        (void) event_reset_time_relative(
+                        e,
+                        &event->timeout_warning_event,
+                        CLOCK_MONOTONIC,
+                        udev_warn_timeout(manager->config.timeout_usec),
+                        USEC_PER_SEC,
+                        on_event_timeout_warning,
+                        event,
+                        EVENT_PRIORITY_WORKER_TIMER,
+                        "event-timeout-warn",
+                        /* force_reset = */ true);
 
-        (void) sd_event_add_time_relative(e, &event->timeout_event, CLOCK_MONOTONIC,
-                                          manager_kill_worker_timeout(manager), USEC_PER_SEC,
-                                          on_event_timeout, event);
+        (void) event_reset_time_relative(
+                        e,
+                        &event->timeout_event, CLOCK_MONOTONIC,
+                        manager_kill_worker_timeout(manager),
+                        USEC_PER_SEC,
+                        on_event_timeout,
+                        event,
+                        EVENT_PRIORITY_WORKER_TIMER,
+                        "event-timeout-kill",
+                        /* force_reset = */ true);
 }
 
 static int worker_spawn(Manager *manager, Event *event) {
@@ -740,10 +863,17 @@ static void event_requeue(Event *event) {
         if (event->retry_again_timeout_usec == 0)
                 event->retry_again_timeout_usec = usec_add(now_usec, EVENT_RETRY_TIMEOUT_USEC);
 
-        r = event_reset_time_relative(event->manager->event, &event->retry_event_source,
-                                      CLOCK_MONOTONIC, EVENT_RETRY_INTERVAL_USEC, 0,
-                                      on_event_retry, NULL,
-                                      0, "retry-event", true);
+        r = event_reset_time_relative(
+                        event->manager->event,
+                        &event->retry_event_source,
+                        CLOCK_MONOTONIC,
+                        EVENT_RETRY_INTERVAL_USEC,
+                        /* accuracy = */ 0,
+                        on_event_retry,
+                        /* userdata = */ NULL,
+                        EVENT_PRIORITY_RETRY_EVENT,
+                        "retry-event",
+                        /* force_reset = */ true);
         if (r < 0) {
                 log_device_warning_errno(
                                 dev, r,
@@ -951,6 +1081,9 @@ static int manager_deserialize_events(Manager *manager, int *fd) {
                         continue;
                 }
 
+                if (manager_validate_seqnum(manager, dev, /* is_new = */ false) < 0)
+                        continue;
+
                 r = event_queue_insert(manager, dev);
                 if (r < 0) {
                         log_device_warning_errno(dev, r, "Failed to insert device into event queue, ignoring: %m");
@@ -972,15 +1105,17 @@ static int on_uevent(sd_device_monitor *monitor, sd_device *dev, void *userdata)
 
         device_ensure_usec_initialized(dev, NULL);
 
+        if (manager_validate_seqnum(manager, dev, /* is_new = */ true) < 0)
+                return 0;
+
         r = event_queue_insert(manager, dev);
         if (r < 0) {
                 log_device_error_errno(dev, r, "Failed to insert device into event queue: %m");
-                return 1;
+                return 0;
         }
 
         (void) event_queue_assume_block_device_unlocked(manager, dev);
-
-        return 1;
+        return 0;
 }
 
 static int manager_init_device_monitor(Manager *manager, int fd) {
@@ -1153,6 +1288,9 @@ static int manager_unlink_queue_file(Manager *manager) {
         if (manager->events)
                 return 0; /* There are queued events. */
 
+        if (!set_isempty(manager->synthesize_change_child_event_sources))
+                return 0; /* There are child processes that should trigger synthetic events. */
+
         /* There are no queued events. Let's remove /run/udev/queue and clean up the idle processes. */
         if (unlink("/run/udev/queue") < 0) {
                 if (errno == ENOENT)
@@ -1213,6 +1351,37 @@ static int on_post(sd_event_source *s, void *userdata) {
         return 0;
 }
 
+static int manager_setup_signal(
+                Manager *manager,
+                sd_event *event,
+                int signal,
+                sd_event_signal_handler_t handler,
+                int64_t priority,
+                const char *description) {
+
+        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        int r;
+
+        assert(manager);
+        assert(event);
+
+        r = sd_event_add_signal(event, &s, signal | SD_EVENT_SIGNAL_PROCMASK, handler, manager);
+        if (r < 0)
+                return r;
+
+        r = sd_event_source_set_priority(s, priority);
+        if (r < 0)
+                return r;
+
+        (void) sd_event_source_set_description(s, description);
+
+        r = sd_event_source_set_floating(s, true);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 static int manager_setup_event(Manager *manager) {
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         int r;
@@ -1226,15 +1395,15 @@ static int manager_setup_event(Manager *manager) {
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate event loop: %m");
 
-        r = sd_event_add_signal(e, /* ret_event_source = */ NULL, SIGINT | SD_EVENT_SIGNAL_PROCMASK, on_sigterm, manager);
+        r = manager_setup_signal(manager, e, SIGINT, on_sigterm, EVENT_PRIORITY_SIGTERM, "sigint-event-source");
         if (r < 0)
                 return log_error_errno(r, "Failed to create SIGINT event source: %m");
 
-        r = sd_event_add_signal(e, /* ret_event_source = */ NULL, SIGTERM | SD_EVENT_SIGNAL_PROCMASK, on_sigterm, manager);
+        r = manager_setup_signal(manager, e, SIGTERM, on_sigterm, EVENT_PRIORITY_SIGTERM, "sigterm-event-source");
         if (r < 0)
                 return log_error_errno(r, "Failed to create SIGTERM event source: %m");
 
-        r = sd_event_add_signal(e, /* ret_event_source = */ NULL, SIGHUP | SD_EVENT_SIGNAL_PROCMASK, on_sighup, manager);
+        r = manager_setup_signal(manager, e, SIGHUP, on_sighup, EVENT_PRIORITY_SIGHUP, "sighup-event-source");
         if (r < 0)
                 return log_error_errno(r, "Failed to create SIGHUP event source: %m");
 
@@ -1309,6 +1478,11 @@ int manager_main(Manager *manager) {
                 log_debug("Running in delegated subcgroup '%s'.", cgroup);
                 manager->cgroup = TAKE_PTR(cgroup);
         }
+
+        /* This must be earlier than event deserialization done in manager_listen_fds(). */
+        r = manager_map_seqnum_file(manager);
+        if (r < 0)
+                return r;
 
         r = manager_setup_event(manager);
         if (r < 0)
