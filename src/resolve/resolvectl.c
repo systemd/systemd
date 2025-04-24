@@ -1354,19 +1354,19 @@ static int reset_server_features(int argc, char **argv, void *userdata) {
         return 0;
 }
 
-static int read_dns_server_one(
-                sd_bus_message *m,
-                bool with_ifindex,  /* read "ifindex" reply that also carries an interface index */
-                bool extended,      /* read "extended" reply, i.e. with port number and server name */
-                bool only_global,   /* suppress entries with an (non-loopback) ifindex set (i.e. which are specific to some interface) */
-                char **ret) {
+typedef enum {
+        READ_DNS_WITH_IFINDEX = 1 << 0, /* read "ifindex" reply that also carries an interface index */
+        READ_DNS_EXTENDED     = 1 << 1, /* read "extended" reply, i.e. with port number and server name */
+        READ_DNS_ONLY_GLOBAL  = 1 << 2, /* suppress entries with an (non-loopback) ifindex set (i.e. which are specific to some interface) */
+} ReadDNSFlag;
 
+static int read_dns_server_one(sd_bus_message *m, ReadDNSFlag flags, char **ret) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *pretty = NULL;
         union in_addr_union a;
         const char *name = NULL;
         int32_t ifindex = 0;
-        int family, r, k;
+        int family, r;
         uint16_t port = 0;
 
         assert(m);
@@ -1375,22 +1375,43 @@ static int read_dns_server_one(
         r = sd_bus_message_enter_container(
                         m,
                         'r',
-                        with_ifindex ? (extended ? "iiayqs" : "iiay") :
-                                       (extended ? "iayqs" : "iay"));
+                        FLAGS_SET(flags, READ_DNS_WITH_IFINDEX) ? (FLAGS_SET(flags, READ_DNS_EXTENDED) ? "iiayqs" : "iiay") :
+                                                                  (FLAGS_SET(flags, READ_DNS_EXTENDED) ? "iayqs" : "iay"));
         if (r <= 0)
                 return r;
 
-        if (with_ifindex) {
+        if (FLAGS_SET(flags, READ_DNS_WITH_IFINDEX)) {
                 r = sd_bus_message_read(m, "i", &ifindex);
                 if (r < 0)
                         return r;
         }
 
-        k = bus_message_read_in_addr_auto(m, &error, &family, &a);
-        if (k < 0 && !sd_bus_error_has_name(&error, SD_BUS_ERROR_INVALID_ARGS))
-                return k;
+        r = bus_message_read_in_addr_auto(m, &error, &family, &a);
+        if (r < 0) {
+                if (sd_bus_error_has_name(&error, SD_BUS_ERROR_INVALID_ARGS)) {
+                        /* CurrentDNSServer provides AF_UNSPEC when no current server assigned. */
+                        log_debug("Invalid DNS server, ignoring: %s", bus_error_message(&error, r));
 
-        if (extended) {
+                        for (;;) {
+                                r = sd_bus_message_skip(m, NULL);
+                                if (r == -ENXIO) /* End of the container */
+                                        break;
+                                if (r < 0)
+                                        return r;
+                        }
+
+                        r = sd_bus_message_exit_container(m);
+                        if (r < 0)
+                                return r;
+
+                        *ret = NULL;
+                        return 1;
+                }
+
+                return r;
+        }
+
+        if (FLAGS_SET(flags, READ_DNS_EXTENDED)) {
                 r = sd_bus_message_read(m, "q", &port);
                 if (r < 0)
                         return r;
@@ -1404,13 +1425,7 @@ static int read_dns_server_one(
         if (r < 0)
                 return r;
 
-        if (k < 0) {
-                log_debug("Invalid DNS server, ignoring: %s", bus_error_message(&error, k));
-                *ret = NULL;
-                return 1;
-        }
-
-        if (only_global && ifindex > 0 && ifindex != LOOPBACK_IFINDEX) {
+        if (FLAGS_SET(flags, READ_DNS_ONLY_GLOBAL) && ifindex > 0 && ifindex != LOOPBACK_IFINDEX) {
                 /* This one has an (non-loopback) ifindex set, and we were told to suppress those. Hence do so. */
                 *ret = NULL;
                 return 1;
@@ -1424,7 +1439,7 @@ static int read_dns_server_one(
         return 1;
 }
 
-static int map_link_dns_servers_internal(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata, bool extended) {
+static int map_link_dns_servers_internal(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata, ReadDNSFlag flags) {
         char ***l = ASSERT_PTR(userdata);
         int r;
 
@@ -1432,14 +1447,14 @@ static int map_link_dns_servers_internal(sd_bus *bus, const char *member, sd_bus
         assert(member);
         assert(m);
 
-        r = sd_bus_message_enter_container(m, 'a', extended ? "(iayqs)" : "(iay)");
+        r = sd_bus_message_enter_container(m, 'a', FLAGS_SET(flags, READ_DNS_EXTENDED) ? "(iayqs)" : "(iay)");
         if (r < 0)
                 return r;
 
         for (;;) {
                 _cleanup_free_ char *pretty = NULL;
 
-                r = read_dns_server_one(m, /* with_ifindex= */ false, extended, /* only_global= */ false, &pretty);
+                r = read_dns_server_one(m, flags, &pretty);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -1461,25 +1476,25 @@ static int map_link_dns_servers_internal(sd_bus *bus, const char *member, sd_bus
 }
 
 static int map_link_dns_servers(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
-        return map_link_dns_servers_internal(bus, member, m, error, userdata, false);
+        return map_link_dns_servers_internal(bus, member, m, error, userdata, /* flags = */ 0);
 }
 
 static int map_link_dns_servers_ex(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
-        return map_link_dns_servers_internal(bus, member, m, error, userdata, true);
+        return map_link_dns_servers_internal(bus, member, m, error, userdata, READ_DNS_EXTENDED);
 }
 
 static int map_link_current_dns_server(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
         assert(m);
         assert(userdata);
 
-        return read_dns_server_one(m, /* with_ifindex= */ false, /* extended= */ false, /* only_global= */ false, userdata);
+        return read_dns_server_one(m, /* flags = */ 0, userdata);
 }
 
 static int map_link_current_dns_server_ex(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
         assert(m);
         assert(userdata);
 
-        return read_dns_server_one(m, /* with_ifindex= */ false, /* extended= */ true, /* only_global= */ false, userdata);
+        return read_dns_server_one(m, READ_DNS_EXTENDED, userdata);
 }
 
 static int read_domain_one(sd_bus_message *m, bool with_ifindex, char **ret) {
@@ -1905,7 +1920,7 @@ static int map_global_dns_servers_internal(
                 sd_bus_message *m,
                 sd_bus_error *error,
                 void *userdata,
-                bool extended) {
+                ReadDNSFlag flags) {
 
         char ***l = ASSERT_PTR(userdata);
         int r;
@@ -1914,14 +1929,14 @@ static int map_global_dns_servers_internal(
         assert(member);
         assert(m);
 
-        r = sd_bus_message_enter_container(m, 'a', extended ? "(iiayqs)" : "(iiay)");
+        r = sd_bus_message_enter_container(m, 'a', FLAGS_SET(flags, READ_DNS_EXTENDED) ? "(iiayqs)" : "(iiay)");
         if (r < 0)
                 return r;
 
         for (;;) {
                 _cleanup_free_ char *pretty = NULL;
 
-                r = read_dns_server_one(m, /* with_ifindex= */ true, extended, /* only_global= */ true, &pretty);
+                r = read_dns_server_one(m, flags, &pretty);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -1943,19 +1958,19 @@ static int map_global_dns_servers_internal(
 }
 
 static int map_global_dns_servers(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
-        return map_global_dns_servers_internal(bus, member, m, error, userdata, /* extended= */ false);
+        return map_global_dns_servers_internal(bus, member, m, error, userdata, READ_DNS_WITH_IFINDEX | READ_DNS_ONLY_GLOBAL);
 }
 
 static int map_global_dns_servers_ex(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
-        return map_global_dns_servers_internal(bus, member, m, error, userdata, /* extended= */ true);
+        return map_global_dns_servers_internal(bus, member, m, error, userdata, READ_DNS_WITH_IFINDEX | READ_DNS_ONLY_GLOBAL | READ_DNS_EXTENDED);
 }
 
 static int map_global_current_dns_server(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
-        return read_dns_server_one(m, /* with_ifindex= */ true, /* extended= */ false, /* only_global= */ true, userdata);
+        return read_dns_server_one(m, READ_DNS_WITH_IFINDEX | READ_DNS_ONLY_GLOBAL, userdata);
 }
 
 static int map_global_current_dns_server_ex(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
-        return read_dns_server_one(m, /* with_ifindex= */ true, /* extended= */ true, /* only_global= */ true, userdata);
+        return read_dns_server_one(m, READ_DNS_WITH_IFINDEX | READ_DNS_ONLY_GLOBAL | READ_DNS_EXTENDED, userdata);
 }
 
 static int map_global_domains(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
