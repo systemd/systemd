@@ -5,3 +5,4 @@ set -o pipefail
 
 systemd-run -p PrivateBPF=no --wait true
 systemd-run -p PrivateBPF=yes --wait true
+systemd-run -p PrivateBPF=token -p PrivateUsers=yes -p PrivateMounts=yes -p DelegateNamespaces=mnt --wait true
