@@ -180,6 +180,7 @@ static int arg_offline = -1;
 static char **arg_copy_from = NULL;
 static char *arg_copy_source = NULL;
 static char *arg_make_ddi = NULL;
+static bool arg_merge_fstab = false;
 static char *arg_generate_fstab = NULL;
 static char *arg_generate_crypttab = NULL;
 static Set *arg_verity_settings = NULL;
@@ -7430,6 +7431,8 @@ static int context_fstab(Context *context) {
         _cleanup_(unlink_and_freep) char *t = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *path = NULL;
+        _cleanup_free_ char *c = NULL;
+        size_t l;
         int r;
 
         assert(context);
@@ -7483,6 +7486,14 @@ static int context_fstab(Context *context) {
                                 p->format,
                                 options,
                                 p->type.designator == PARTITION_ROOT ? 1 : 2);
+                }
+        }
+
+        if (arg_merge_fstab) {
+                r = read_full_file(path, &c, &l);
+                if (r >= 0 && l > 0) {
+                        fprintf(f, "%s", c);
+                        (void) unlink(path);
                 }
         }
 
@@ -8104,6 +8115,7 @@ static int help(void) {
                "  -C --make-ddi=confext   Make a configuration extension DDI\n"
                "  -P --make-ddi=portable  Make a portable service DDI\n"
                "\n%3$sAuxiliary Resource Generation:%4$s\n"
+               "     --merge-fstab=BOOL   Whether merge existing fstab with the generated one\n"
                "     --generate-fstab=PATH\n"
                "                          Write fstab configuration to the given path\n"
                "     --generate-crypttab=PATH\n"
@@ -8159,6 +8171,7 @@ static int parse_argv(int argc, char *argv[], X509 **ret_certificate, EVP_PKEY *
                 ARG_OFFLINE,
                 ARG_COPY_FROM,
                 ARG_MAKE_DDI,
+                ARG_MERGE_FSTAB,
                 ARG_GENERATE_FSTAB,
                 ARG_GENERATE_CRYPTTAB,
                 ARG_LIST_DEVICES,
@@ -8205,6 +8218,7 @@ static int parse_argv(int argc, char *argv[], X509 **ret_certificate, EVP_PKEY *
                 { "copy-from",            required_argument, NULL, ARG_COPY_FROM            },
                 { "copy-source",          required_argument, NULL, 's'                      },
                 { "make-ddi",             required_argument, NULL, ARG_MAKE_DDI             },
+                { "merge-fstab",          required_argument, NULL, ARG_MERGE_FSTAB          },
                 { "generate-fstab",       required_argument, NULL, ARG_GENERATE_FSTAB       },
                 { "generate-crypttab",    required_argument, NULL, ARG_GENERATE_CRYPTTAB    },
                 { "list-devices",         no_argument,       NULL, ARG_LIST_DEVICES         },
@@ -8584,6 +8598,12 @@ static int parse_argv(int argc, char *argv[], X509 **ret_certificate, EVP_PKEY *
 
                 case 'P':
                         r = free_and_strdup_warn(&arg_make_ddi, "portable");
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_MERGE_FSTAB:
+                        r = parse_boolean_argument("--merge-fstab=", optarg, &arg_merge_fstab);
                         if (r < 0)
                                 return r;
                         break;
