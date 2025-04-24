@@ -1175,6 +1175,9 @@ static int manager_unlink_queue_file(Manager *manager) {
         if (manager->events)
                 return 0; /* There are queued events. */
 
+        if (!set_isempty(manager->synthesize_change_child_event_sources))
+                return 0; /* There are child processes that should trigger synthetic events. */
+
         /* There are no queued events. Let's remove /run/udev/queue and clean up the idle processes. */
         if (unlink("/run/udev/queue") < 0) {
                 if (errno != ENOENT)
