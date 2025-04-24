@@ -400,6 +400,9 @@ Features:
 * in pid1: include ExecStart= cmdlines (and other Exec*= cmdlines) in polkit
   request, so that policies can match against command lines.
 
+* allow dynamic modifications of ConcurrencyHardMax= and ConcurrencySoftMax=
+  via DBus (and with that also by daemon-reload)
+
 * importd: introduce a per-user instance, that downloads into per-user DDI dirs
 
 * sysupdated: similar
