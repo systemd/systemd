@@ -1366,7 +1366,7 @@ static int read_dns_server_one(sd_bus_message *m, ReadDNSFlag flags, char **ret)
         union in_addr_union a;
         const char *name = NULL;
         int32_t ifindex = 0;
-        int family, r, k;
+        int family, r;
         uint16_t port = 0;
 
         assert(m);
@@ -1386,9 +1386,30 @@ static int read_dns_server_one(sd_bus_message *m, ReadDNSFlag flags, char **ret)
                         return r;
         }
 
-        k = bus_message_read_in_addr_auto(m, &error, &family, &a);
-        if (k < 0 && !sd_bus_error_has_name(&error, SD_BUS_ERROR_INVALID_ARGS))
-                return k;
+        r = bus_message_read_in_addr_auto(m, &error, &family, &a);
+        if (r < 0) {
+                if (sd_bus_error_has_name(&error, SD_BUS_ERROR_INVALID_ARGS)) {
+                        /* CurrentDNSServer provides AF_UNSPEC when no current server assigned. */
+                        log_debug("Invalid DNS server, ignoring: %s", bus_error_message(&error, r));
+
+                        for (;;) {
+                                r = sd_bus_message_skip(m, NULL);
+                                if (r == -ENXIO) /* End of the container */
+                                        break;
+                                if (r < 0)
+                                        return r;
+                        }
+
+                        r = sd_bus_message_exit_container(m);
+                        if (r < 0)
+                                return r;
+
+                        *ret = NULL;
+                        return 1;
+                }
+
+                return r;
+        }
 
         if (FLAGS_SET(flags, READ_DNS_EXTENDED)) {
                 r = sd_bus_message_read(m, "q", &port);
@@ -1403,12 +1424,6 @@ static int read_dns_server_one(sd_bus_message *m, ReadDNSFlag flags, char **ret)
         r = sd_bus_message_exit_container(m);
         if (r < 0)
                 return r;
-
-        if (k < 0) {
-                log_debug("Invalid DNS server, ignoring: %s", bus_error_message(&error, k));
-                *ret = NULL;
-                return 1;
-        }
 
         if (FLAGS_SET(flags, READ_DNS_ONLY_GLOBAL) && ifindex > 0 && ifindex != LOOPBACK_IFINDEX) {
                 /* This one has an (non-loopback) ifindex set, and we were told to suppress those. Hence do so. */
