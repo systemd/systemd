@@ -1109,6 +1109,9 @@ else
 
         # Can build BPF program from source code in restricted C
         conf.set10('BPF_FRAMEWORK', deps_found)
+
+        have = cc.has_function('bpf_token_create', prefix : '''#include <bpf/bpf.h>''', dependencies : libbpf)
+        conf.set10('HAVE_BPF_TOKEN_CREATE', have)
 endif
 
 libmount = dependency('mount',
