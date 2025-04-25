@@ -469,11 +469,149 @@ static int stat_device(void) {
         return 0;
 }
 
-static int export_devices(sd_device_enumerator *e) {
-        sd_device *d;
+static int parse_key_value_argument(const char *s, char **key, char **value) {
+        _cleanup_free_ char *k = NULL, *v = NULL;
+        int r;
+
+        assert(s);
+        assert(key);
+        assert(value);
+
+        r = extract_many_words(&s, "=", EXTRACT_DONT_COALESCE_SEPARATORS, &k, &v);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse key/value pair %s: %m", s);
+        if (r < 2)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Missing '=' in key/value pair %s.", s);
+
+        if (!filename_is_valid(k))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "%s is not a valid key name", k);
+
+        free_and_replace(*key, k);
+        free_and_replace(*value, v);
+        return 0;
+}
+
+static int add_match_parent(sd_device_enumerator *e, const char *s, const char *dir) {
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
         int r;
 
         assert(e);
+        assert(s);
+        assert(dir);
+
+        r = find_device(s, dir, &dev);
+        if (r < 0)
+                return log_error_errno(r, "Failed to open the device '%s': %m", optarg);
+
+        r = device_enumerator_add_match_parent_incremental(e, dev);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add parent match '%s': %m", optarg);
+
+        return 0;
+}
+
+static int setup_matches(sd_device_enumerator *e) {
+        int r;
+
+        assert(e);
+
+        STRV_FOREACH(s, arg_subsystem_match) {
+                r = sd_device_enumerator_add_match_subsystem(e, *s, /* match= */ true);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add subsystem match '%s': %m", *s);
+        }
+
+        STRV_FOREACH(s, arg_subsystem_nomatch) {
+                r = sd_device_enumerator_add_match_subsystem(e, *s, /* match= */ false);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add negative subsystem match '%s': %m", *s);
+        }
+
+        STRV_FOREACH(a, arg_attr_match) {
+                _cleanup_free_ char *k = NULL, *v = NULL;
+
+                r = parse_key_value_argument(*a, &k, &v);
+                if (r < 0)
+                        return r;
+
+                r = sd_device_enumerator_add_match_sysattr(e, k, v, /* match= */ true);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add sysattr match '%s=%s': %m", k, v);
+        }
+
+        STRV_FOREACH(a, arg_attr_nomatch) {
+                _cleanup_free_ char *k = NULL, *v = NULL;
+
+                r = parse_key_value_argument(*a, &k, &v);
+                if (r < 0)
+                        return r;
+
+                r = sd_device_enumerator_add_match_sysattr(e, k, v, /* match= */ false);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add negative sysattr match '%s=%s': %m", k, v);
+        }
+
+        STRV_FOREACH(p, arg_property_match) {
+                _cleanup_free_ char *k = NULL, *v = NULL;
+
+                r = parse_key_value_argument(*p, &k, &v);
+                if (r < 0)
+                        return r;
+
+                r = sd_device_enumerator_add_match_property_required(e, k, v);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add property match '%s=%s': %m", k, v);
+        }
+
+        STRV_FOREACH(t, arg_tag_match) {
+                r = sd_device_enumerator_add_match_tag(e, *t);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add tag match '%s': %m", *t);
+        }
+
+        STRV_FOREACH(s, arg_sysname_match) {
+                r = sd_device_enumerator_add_match_sysname(e, *s);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add sysname match '%s': %m", *s);
+        }
+
+        STRV_FOREACH(n, arg_name_match) {
+                r = add_match_parent(e, *n, "/dev");
+                if (r < 0)
+                        return r;
+        }
+
+        STRV_FOREACH(p, arg_parent_match) {
+                r = add_match_parent(e, *p, "/sys");
+                if (r < 0)
+                        return r;
+        }
+
+        if (arg_initialized_match != -1) {
+                r = device_enumerator_add_match_is_initialized(e, arg_initialized_match);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set initialized filter: %m");
+        }
+
+        return 0;
+}
+
+static int export_devices(void) {
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        sd_device *d;
+        int r;
+
+        r = sd_device_enumerator_new(&e);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create device enumerator: %m");
+
+        r = sd_device_enumerator_allow_uninitialized(e);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allow uninitialized devices: %m");
+
+        r = setup_matches(e);
+        if (r < 0)
+                return r;
 
         r = device_enumerator_scan_devices(e);
         if (r < 0)
@@ -883,133 +1021,6 @@ static int print_tree(sd_device* below) {
         return 0;
 }
 
-static int parse_key_value_argument(const char *s, char **key, char **value) {
-        _cleanup_free_ char *k = NULL, *v = NULL;
-        int r;
-
-        assert(s);
-        assert(key);
-        assert(value);
-
-        r = extract_many_words(&s, "=", EXTRACT_DONT_COALESCE_SEPARATORS, &k, &v);
-        if (r < 0)
-                return log_error_errno(r, "Failed to parse key/value pair %s: %m", s);
-        if (r < 2)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Missing '=' in key/value pair %s.", s);
-
-        if (!filename_is_valid(k))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "%s is not a valid key name", k);
-
-        free_and_replace(*key, k);
-        free_and_replace(*value, v);
-        return 0;
-}
-
-static int add_match_parent(sd_device_enumerator *e, const char *s, const char *dir) {
-        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
-        int r;
-
-        assert(e);
-        assert(s);
-        assert(dir);
-
-        r = find_device(s, dir, &dev);
-        if (r < 0)
-                return log_error_errno(r, "Failed to open the device '%s': %m", optarg);
-
-        r = device_enumerator_add_match_parent_incremental(e, dev);
-        if (r < 0)
-                return log_error_errno(r, "Failed to add parent match '%s': %m", optarg);
-
-        return 0;
-}
-
-static int setup_matches(sd_device_enumerator *e) {
-        int r;
-
-        assert(e);
-
-        STRV_FOREACH(s, arg_subsystem_match) {
-                r = sd_device_enumerator_add_match_subsystem(e, *s, /* match= */ true);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to add subsystem match '%s': %m", *s);
-        }
-
-        STRV_FOREACH(s, arg_subsystem_nomatch) {
-                r = sd_device_enumerator_add_match_subsystem(e, *s, /* match= */ false);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to add negative subsystem match '%s': %m", *s);
-        }
-
-        STRV_FOREACH(a, arg_attr_match) {
-                _cleanup_free_ char *k = NULL, *v = NULL;
-
-                r = parse_key_value_argument(*a, &k, &v);
-                if (r < 0)
-                        return r;
-
-                r = sd_device_enumerator_add_match_sysattr(e, k, v, /* match= */ true);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to add sysattr match '%s=%s': %m", k, v);
-        }
-
-        STRV_FOREACH(a, arg_attr_nomatch) {
-                _cleanup_free_ char *k = NULL, *v = NULL;
-
-                r = parse_key_value_argument(*a, &k, &v);
-                if (r < 0)
-                        return r;
-
-                r = sd_device_enumerator_add_match_sysattr(e, k, v, /* match= */ false);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to add negative sysattr match '%s=%s': %m", k, v);
-        }
-
-        STRV_FOREACH(p, arg_property_match) {
-                _cleanup_free_ char *k = NULL, *v = NULL;
-
-                r = parse_key_value_argument(*p, &k, &v);
-                if (r < 0)
-                        return r;
-
-                r = sd_device_enumerator_add_match_property_required(e, k, v);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to add property match '%s=%s': %m", k, v);
-        }
-
-        STRV_FOREACH(t, arg_tag_match) {
-                r = sd_device_enumerator_add_match_tag(e, *t);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to add tag match '%s': %m", *t);
-        }
-
-        STRV_FOREACH(s, arg_sysname_match) {
-                r = sd_device_enumerator_add_match_sysname(e, *s);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to add sysname match '%s': %m", *s);
-        }
-
-        STRV_FOREACH(n, arg_name_match) {
-                r = add_match_parent(e, *n, "/dev");
-                if (r < 0)
-                        return r;
-        }
-
-        STRV_FOREACH(p, arg_parent_match) {
-                r = add_match_parent(e, *p, "/sys");
-                if (r < 0)
-                        return r;
-        }
-
-        if (arg_initialized_match != -1) {
-                r = device_enumerator_add_match_is_initialized(e, arg_initialized_match);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to set initialized filter: %m");
-        }
-
-        return 0;
-}
-
 static int check_args(void) {
         if (IN_SET(arg_action_type, ACTION_DEVICE_ID_FILE, ACTION_CLEANUP_DB))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -1311,23 +1322,8 @@ int info_main(int argc, char *argv[], void *userdata) {
                 return print_tree(NULL);
         }
 
-        if (arg_action_type == ACTION_EXPORT) {
-                _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
-
-                r = sd_device_enumerator_new(&e);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to create device enumerator: %m");
-
-                r = sd_device_enumerator_allow_uninitialized(e);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to allow uninitialized devices: %m");
-
-                r = setup_matches(e);
-                if (r < 0)
-                        return r;
-
-                return export_devices(e);
-        }
+        if (arg_action_type == ACTION_EXPORT)
+                return export_devices();
 
         ret = 0;
         STRV_FOREACH(p, arg_devices) {
