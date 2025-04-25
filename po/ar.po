@@ -7,131 +7,136 @@ msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2024-11-28 18:16+0900\n"
-"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
-"Last-Translator: Automatically generated\n"
-"Language-Team: none\n"
+"PO-Revision-Date: 2025-04-25 12:44+0000\n"
+"Last-Translator: joo es <johndevand@tutanota.com>\n"
+"Language-Team: Arabic <https://translate.fedoraproject.org/projects/systemd/"
+"main/ar/>\n"
 "Language: ar\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=6; plural=n==0 ? 0 : n==1 ? 1 : n==2 ? 2 : n%100>=3 "
+"&& n%100<=10 ? 3 : n%100>=11 ? 4 : 5;\n"
+"X-Generator: Weblate 5.11\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
-msgstr ""
+msgstr "أرسل عبارة السر مرة أخرى إلى النظام"
 
 #: src/core/org.freedesktop.systemd1.policy.in:23
 msgid ""
 "Authentication is required to send the entered passphrase back to the system."
-msgstr ""
+msgstr "الاستيثاق مطلوب لإرسال عبارة السر المُدخلة مرة أخرى إلى النظام."
 
 #: src/core/org.freedesktop.systemd1.policy.in:33
 msgid "Manage system services or other units"
-msgstr ""
+msgstr "أدر خدمات النظام أو الوحدات الأخرى"
 
 #: src/core/org.freedesktop.systemd1.policy.in:34
 msgid "Authentication is required to manage system services or other units."
-msgstr ""
+msgstr "الاستيثاق مطلوب لإدارة خدمات النظام أو الوحدات الأخرى."
 
 #: src/core/org.freedesktop.systemd1.policy.in:43
 msgid "Manage system service or unit files"
-msgstr ""
+msgstr "أدر خدمة النظام أو ملفات الوحدات"
 
 #: src/core/org.freedesktop.systemd1.policy.in:44
 msgid "Authentication is required to manage system service or unit files."
-msgstr ""
+msgstr "الاستيثاق مطلوب لإدارة خدمة النظام أو ملفات الوحدات."
 
 #: src/core/org.freedesktop.systemd1.policy.in:54
 msgid "Set or unset system and service manager environment variables"
-msgstr ""
+msgstr "عيّن أو ألغِ تعيين متغيرات بيئة مدير الخدمات و النظام"
 
 #: src/core/org.freedesktop.systemd1.policy.in:55
 msgid ""
 "Authentication is required to set or unset system and service manager "
 "environment variables."
 msgstr ""
+"الاستيثاق مطلوب لتعيين أو إلغاء تعيين متغيرات بيئة مدير الخدمات و النظام."
 
 #: src/core/org.freedesktop.systemd1.policy.in:64
 msgid "Reload the systemd state"
-msgstr ""
+msgstr "أعد تحميل حالة systemd"
 
 #: src/core/org.freedesktop.systemd1.policy.in:65
 msgid "Authentication is required to reload the systemd state."
-msgstr ""
+msgstr "الاستيثاق مطلوب لإعادة تحميل حالة systemd."
 
 #: src/core/org.freedesktop.systemd1.policy.in:74
 msgid "Dump the systemd state without rate limits"
-msgstr ""
+msgstr "أفرغ حالة systemd بدون حدّ المعدّل"
 
 #: src/core/org.freedesktop.systemd1.policy.in:75
 msgid ""
 "Authentication is required to dump the systemd state without rate limits."
-msgstr ""
+msgstr "الاستيثاق مطلوب لتفريغ حالة systemd بدون حدّ المعدّل."
 
 #: src/home/org.freedesktop.home1.policy:13
 msgid "Create a home area"
-msgstr ""
+msgstr "أنشئ منطقة المنزل"
 
 #: src/home/org.freedesktop.home1.policy:14
 msgid "Authentication is required to create a user's home area."
-msgstr ""
+msgstr "الاستيثاق مطلوب لإنشاء منطقة مستخدم المنزل."
 
 #: src/home/org.freedesktop.home1.policy:23
 msgid "Remove a home area"
-msgstr ""
+msgstr "أزل منطقة المنزل"
 
 #: src/home/org.freedesktop.home1.policy:24
 msgid "Authentication is required to remove a user's home area."
-msgstr ""
+msgstr "الاستيثاق مطلوب لإزالة منطقة مستخدم المنزل."
 
 #: src/home/org.freedesktop.home1.policy:33
 msgid "Check credentials of a home area"
-msgstr ""
+msgstr "تحقق من بيانات اعتماد منطقة المنزل"
 
 #: src/home/org.freedesktop.home1.policy:34
 msgid ""
 "Authentication is required to check credentials against a user's home area."
-msgstr ""
+msgstr "الاستيثاق مطلوب لمطابقة بيانات الاعتماد مع منطقة مستخدم المنزل."
 
 #: src/home/org.freedesktop.home1.policy:43
 msgid "Update a home area"
-msgstr ""
+msgstr "حدّث منطقة المنزل"
 
 #: src/home/org.freedesktop.home1.policy:44
 msgid "Authentication is required to update a user's home area."
-msgstr ""
+msgstr "الاستيثاق مطلوب لتحديث منطقة مستخدم المنزل."
 
 #: src/home/org.freedesktop.home1.policy:53
 msgid "Update your home area"
-msgstr ""
+msgstr "حدّث منطقة منزلك"
 
 #: src/home/org.freedesktop.home1.policy:54
 msgid "Authentication is required to update your home area."
-msgstr ""
+msgstr "الاستيثاق مطلوب لتحديث منطقة منزلك."
 
 #: src/home/org.freedesktop.home1.policy:63
 msgid "Resize a home area"
-msgstr ""
+msgstr "حجّم منطقة المنزل"
 
 #: src/home/org.freedesktop.home1.policy:64
 msgid "Authentication is required to resize a user's home area."
-msgstr ""
+msgstr "الاستيثاق مطلوب لتغيير حجم منطقة مستخدم المنزل."
 
 #: src/home/org.freedesktop.home1.policy:73
 msgid "Change password of a home area"
-msgstr ""
+msgstr "غيّر كلمة سر منطقة المنزل"
 
 #: src/home/org.freedesktop.home1.policy:74
 msgid ""
 "Authentication is required to change the password of a user's home area."
-msgstr ""
+msgstr "الاستيثاق مطلوب لتغيير كلمة سر منطقة مستخدم المنزل."
 
 #: src/home/org.freedesktop.home1.policy:83
 msgid "Activate a home area"
-msgstr ""
+msgstr "فعّل منقطة المنزل"
 
 #: src/home/org.freedesktop.home1.policy:84
 msgid "Authentication is required to activate a user's home area."
-msgstr ""
+msgstr "الاستيثاق مطلوب لتفعيل منطقة مستخدم المنزل."
 
 #: src/home/pam_systemd_home.c:293
 #, c-format
@@ -139,48 +144,50 @@ msgid ""
 "Home of user %s is currently absent, please plug in the necessary storage "
 "device or backing file system."
 msgstr ""
+"منزل المستخدم %s غير متواجد حالياً، يُرجى توصيل جهاز التخزين اللازم أو نظام "
+"الملفات الاحتياطي."
 
 #: src/home/pam_systemd_home.c:298
 #, c-format
 msgid "Too frequent login attempts for user %s, try again later."
-msgstr ""
+msgstr "محاولات الولوج متكررة جدًا للمستخدم %s، حاول مرة أخرى لاحقًا."
 
 #: src/home/pam_systemd_home.c:310
 msgid "Password: "
-msgstr ""
+msgstr "كلمة السر: "
 
 #: src/home/pam_systemd_home.c:312
 #, c-format
 msgid "Password incorrect or not sufficient for authentication of user %s."
-msgstr ""
+msgstr "كلمة السر غير صحيحة أو غير كافية لاستيثاق المستخدم %s."
 
 #: src/home/pam_systemd_home.c:313
 msgid "Sorry, try again: "
-msgstr ""
+msgstr "عذرًا، حاول مرة أخرى: "
 
 #: src/home/pam_systemd_home.c:335
 msgid "Recovery key: "
-msgstr ""
+msgstr "مفتاح الاسترداد: "
 
 #: src/home/pam_systemd_home.c:337
 #, c-format
 msgid ""
 "Password/recovery key incorrect or not sufficient for authentication of user "
 "%s."
-msgstr ""
+msgstr "كلمة السر/مفتاح الاسترداد غير صحيح أو غير كافٍ لاستيثاق المستخدم %s."
 
 #: src/home/pam_systemd_home.c:338
 msgid "Sorry, reenter recovery key: "
-msgstr ""
+msgstr "عذرًا، أعد إدخال مفتاح الاسترداد: "
 
 #: src/home/pam_systemd_home.c:358
 #, c-format
 msgid "Security token of user %s not inserted."
-msgstr ""
+msgstr "لم يُدرج رمز الأمان للمستخدم %s."
 
 #: src/home/pam_systemd_home.c:359 src/home/pam_systemd_home.c:362
 msgid "Try again with password: "
-msgstr ""
+msgstr "حاول مرة أخرى باستخدام كلمة السر: "
 
 #: src/home/pam_systemd_home.c:361
 #, c-format
@@ -188,153 +195,158 @@ msgid ""
 "Password incorrect or not sufficient, and configured security token of user "
 "%s not inserted."
 msgstr ""
+"كلمة السر غير صحيحة أو غير كافية، ورمز الأمان المُعدّ للمستخدم %s لم يُدرج."
 
 #: src/home/pam_systemd_home.c:381
 msgid "Security token PIN: "
-msgstr ""
+msgstr "رمز (PIN) لرمز الأمان: "
 
 #: src/home/pam_systemd_home.c:398
 #, c-format
 msgid "Please authenticate physically on security token of user %s."
-msgstr ""
+msgstr "يُرجى لاستيثاق فعليًا باستخدام رمز الأمان للمستخدم %s."
 
 #: src/home/pam_systemd_home.c:409
 #, c-format
 msgid "Please confirm presence on security token of user %s."
-msgstr ""
+msgstr "يُرجى تأكيد وجود رمز الأمان للمستخدم %s."
 
 #: src/home/pam_systemd_home.c:420
 #, c-format
 msgid "Please verify user on security token of user %s."
-msgstr ""
+msgstr "يُرجى التحقق من المستخدم على رمز الأمان للمستخدم %s."
 
 #: src/home/pam_systemd_home.c:429
 msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
 msgstr ""
+"رمز PIN لرمز الأمان مُقفل، يُرجى فتحه أولاً. (تلميح: قد يكون الإزالة وإعادة "
+"الإدخال كافيين.)"
 
 #: src/home/pam_systemd_home.c:437
 #, c-format
 msgid "Security token PIN incorrect for user %s."
-msgstr ""
+msgstr "رمز (PIN) غير صحيح للمستخدم %s."
 
 #: src/home/pam_systemd_home.c:438 src/home/pam_systemd_home.c:457
 #: src/home/pam_systemd_home.c:476
 msgid "Sorry, retry security token PIN: "
-msgstr ""
+msgstr "عذرًا، أعد إدخال رمز PIN لرمز الأمان: "
 
 #: src/home/pam_systemd_home.c:456
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
-msgstr ""
+msgstr "رمز PIN لرمز الأمان للمستخدم %s غير صحيح (تبقى محاولات قليلة فقط!)"
 
 #: src/home/pam_systemd_home.c:475
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
-msgstr ""
+msgstr "رمز PIN لرمز الأمان للمستخدم %s غير صحيح (تبقى محاولة واحدة فقط!)"
 
 #: src/home/pam_systemd_home.c:643
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
-msgstr ""
+msgstr "مجلد المستخدم %s غير نشط حالياً، يُرجى الولوج محلياً أولاً."
 
 #: src/home/pam_systemd_home.c:645
 #, c-format
 msgid "Home of user %s is currently locked, please unlock locally first."
-msgstr ""
+msgstr "مجلد المستخدم %s مُقفل حالياً، يُرجى فتحه محلياً أولاً."
 
 #: src/home/pam_systemd_home.c:677
 #, c-format
 msgid "Too many unsuccessful login attempts for user %s, refusing."
-msgstr ""
+msgstr "عدد محاولات ولوج الفاشلة للمستخدم %s كبير جدًا، يتم الرفض."
 
 #: src/home/pam_systemd_home.c:964
 msgid "User record is blocked, prohibiting access."
-msgstr ""
+msgstr "حُظر سجلّ المستخدم، يُمنع الوصول."
 
 #: src/home/pam_systemd_home.c:968
 msgid "User record is not valid yet, prohibiting access."
-msgstr ""
+msgstr "سجلّ المستخدم غير صالح بعد، يُمنع الوصول."
 
 #: src/home/pam_systemd_home.c:972
 msgid "User record is not valid anymore, prohibiting access."
-msgstr ""
+msgstr "سجلّ المستخدم لم يعد صالحًا، يُمنع الوصول."
 
 #: src/home/pam_systemd_home.c:977 src/home/pam_systemd_home.c:1028
 msgid "User record not valid, prohibiting access."
-msgstr ""
+msgstr "سجلّ المستخدم غير صالح، يُمنع الوصول."
 
 #: src/home/pam_systemd_home.c:989
 #, c-format
 msgid "Too many logins, try again in %s."
-msgstr ""
+msgstr "عدد الولوج كبير جدًا، حاول مرة أخرى بعد %s."
 
 #: src/home/pam_systemd_home.c:1000
 msgid "Password change required."
-msgstr ""
+msgstr "مطلوب تغيير كلمة السر."
 
 #: src/home/pam_systemd_home.c:1004
 msgid "Password expired, change required."
-msgstr ""
+msgstr "انتهت صلاحية كلمة السر، يتطلب التغيير."
 
 #: src/home/pam_systemd_home.c:1010
 msgid "Password is expired, but can't change, refusing login."
-msgstr ""
+msgstr "كلمة السر منتهية الصلاحية، ولا يمكن تغييرها، يتم رفض الولوج."
 
 #: src/home/pam_systemd_home.c:1014
 msgid "Password will expire soon, please change."
-msgstr ""
+msgstr "ستنتهي صلاحية كلمة السر قريبًا، يُرجى تغييرها."
 
 #: src/hostname/org.freedesktop.hostname1.policy:20
 msgid "Set hostname"
-msgstr ""
+msgstr "عيّن اسم المضيف"
 
 #: src/hostname/org.freedesktop.hostname1.policy:21
 msgid "Authentication is required to set the local hostname."
-msgstr ""
+msgstr "الاستيثاق مطلوب لتعيين اسم المضيف المحلي."
 
 #: src/hostname/org.freedesktop.hostname1.policy:30
 msgid "Set static hostname"
-msgstr ""
+msgstr "عيّن اسم المضيف الثابت"
 
 #: src/hostname/org.freedesktop.hostname1.policy:31
 msgid ""
 "Authentication is required to set the statically configured local hostname, "
 "as well as the pretty hostname."
 msgstr ""
+"الاستيثاق مطلوب لتعيين اسم المضيف المحلي المُعدّ بشكل ثابت، وكذلك اسم المضيف "
+"الجميل."
 
 #: src/hostname/org.freedesktop.hostname1.policy:41
 msgid "Set machine information"
-msgstr ""
+msgstr "عيّن معلومات الجهاز"
 
 #: src/hostname/org.freedesktop.hostname1.policy:42
 msgid "Authentication is required to set local machine information."
-msgstr ""
+msgstr "الاستيثاق مطلوب لتعيين معلومات الجهاز محلي."
 
 #: src/hostname/org.freedesktop.hostname1.policy:51
 msgid "Get product UUID"
-msgstr ""
+msgstr "احصل على معرّف UUID للمنتج"
 
 #: src/hostname/org.freedesktop.hostname1.policy:52
 msgid "Authentication is required to get product UUID."
-msgstr ""
+msgstr "الاستيثاق مطلوب للحصول على معرّف UUID للمنتج."
 
 #: src/hostname/org.freedesktop.hostname1.policy:61
 msgid "Get hardware serial number"
-msgstr ""
+msgstr "احصل على رقم الجهاز التسلسليّ"
 
 #: src/hostname/org.freedesktop.hostname1.policy:62
 msgid "Authentication is required to get hardware serial number."
-msgstr ""
+msgstr "الاستيثاق مطلوب للحصول على رقم الجهاز التسلسليّ."
 
 #: src/hostname/org.freedesktop.hostname1.policy:71
 msgid "Get system description"
-msgstr ""
+msgstr "احصل على وصف النظام"
 
 #: src/hostname/org.freedesktop.hostname1.policy:72
 msgid "Authentication is required to get system description."
-msgstr ""
+msgstr "الاستيثاق مطلوب للحصول على وصف النظام."
 
 #: src/import/org.freedesktop.import1.policy:22
 msgid "Import a disk image"
