@@ -636,10 +636,10 @@ bool exec_needs_network_namespace(const ExecContext *context);
 bool exec_needs_ipc_namespace(const ExecContext *context);
 bool exec_needs_pid_namespace(const ExecContext *context, const ExecParameters *params);
 
-ProtectControlGroups exec_get_protect_control_groups(const ExecContext *context);
-bool exec_needs_cgroup_namespace(const ExecContext *context);
-bool exec_needs_cgroup_mount(const ExecContext *context);
-bool exec_is_cgroup_mount_read_only(const ExecContext *context);
+ProtectControlGroups exec_get_protect_control_groups(const ExecContext *context, const ExecParameters *params);
+bool exec_needs_cgroup_namespace(const ExecContext *context, const ExecParameters *params);
+bool exec_needs_cgroup_mount(const ExecContext *context, const ExecParameters *params);
+bool exec_is_cgroup_mount_read_only(const ExecContext *context, const ExecParameters *params);
 
 const char* exec_get_private_notify_socket_path(const ExecContext *context, const ExecParameters *params, bool needs_sandboxing);
 
