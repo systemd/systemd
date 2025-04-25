@@ -3048,8 +3048,8 @@ _public_ int sd_varlink_push_fd(sd_varlink *v, int fd) {
         if (!v->allow_fd_passing_output)
                 return -EPERM;
 
-        if (v->n_pushed_fds >= INT_MAX)
-                return -ENOMEM;
+        if (v->n_pushed_fds >= SCM_MAX_FD) /* Kernel doesn't support more than 253 fds per message, refuse early hence */
+                return -ENOBUFS;
 
         if (!GREEDY_REALLOC(v->pushed_fds, v->n_pushed_fds + 1))
                 return -ENOMEM;
