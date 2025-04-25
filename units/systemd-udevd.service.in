@@ -26,7 +26,7 @@ Conflicts=soft-reboot.target
 
 [Service]
 CapabilityBoundingSet=~CAP_SYS_TIME CAP_WAKE_ALARM
-Delegate=pids
+Delegate=
 DelegateSubgroup=udev
 Type=notify-reload
 # Note that udev will reset the value internally for its workers
