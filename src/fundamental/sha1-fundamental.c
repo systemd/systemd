@@ -76,6 +76,12 @@ Still 100% public domain
 modified for use with systemd
 */
 
+#if SD_BOOT
+#  include "efi-string.h"
+#else
+#  include <string.h>
+#endif
+
 #include "memory-util-fundamental.h"
 #include "sha1-fundamental.h"
 
