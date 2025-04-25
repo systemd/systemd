@@ -1306,10 +1306,8 @@ int info_main(int argc, char *argv[], void *userdata) {
         if (arg_action_type == ACTION_CLEANUP_DB)
                 return cleanup_db();
 
-        if (arg_action_type == ACTION_DEVICE_ID_FILE) {
-                assert(arg_name);
+        if (arg_action_type == ACTION_DEVICE_ID_FILE)
                 return stat_device();
-        }
 
         pager_open(arg_pager_flags);
 
