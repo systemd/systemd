@@ -551,7 +551,8 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(ExecRuntime*, exec_runtime_free);
 ExecRuntime* exec_runtime_destroy(ExecRuntime *rt);
 void exec_runtime_clear(ExecRuntime *rt);
 
-int exec_params_get_cgroup_path(const ExecParameters *params, const CGroupContext *c, char **ret);
+int exec_params_needs_control_subcgroup(const ExecParameters *params);
+int exec_params_get_cgroup_path(const ExecParameters *params, const CGroupContext *c, const char *prefix, char **ret);
 void exec_params_shallow_clear(ExecParameters *p);
 void exec_params_dump(const ExecParameters *p, FILE* f, const char *prefix);
 void exec_params_deep_clear(ExecParameters *p);
