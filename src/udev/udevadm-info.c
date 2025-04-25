@@ -575,7 +575,7 @@ static void cleanup_dirs_after_db_cleanup(DIR *dir, DIR *datadir) {
         }
 }
 
-static void cleanup_db(void) {
+static int cleanup_db(void) {
         _cleanup_closedir_ DIR *dir1 = NULL, *dir2 = NULL, *dir3 = NULL, *dir4 = NULL;
 
         dir1 = opendir("/run/udev/data");
@@ -596,6 +596,8 @@ static void cleanup_db(void) {
 
         /* Do not remove /run/udev/watch. It will be handled by udevd well on restart.
          * And should not be removed by external program when udevd is running. */
+
+        return 0;
 }
 
 static int query_device(QueryType query, sd_device* device) {
@@ -1314,10 +1316,8 @@ int info_main(int argc, char *argv[], void *userdata) {
         if (r <= 0)
                 return r;
 
-        if (arg_cleanup_db) {
-                cleanup_db();
-                return 0;
-        }
+        if (arg_cleanup_db)
+                return cleanup_db();
 
         if (arg_action == ACTION_DEVICE_ID_FILE) {
                 assert(arg_name);
