@@ -237,38 +237,48 @@ static bool needs_cgroup_namespace(ProtectControlGroups i) {
         return IN_SET(i, PROTECT_CONTROL_GROUPS_PRIVATE, PROTECT_CONTROL_GROUPS_STRICT);
 }
 
-ProtectControlGroups exec_get_protect_control_groups(const ExecContext *context) {
+ProtectControlGroups exec_get_protect_control_groups(const ExecContext *context, const ExecParameters *params) {
         assert(context);
+
+        if (!needs_cgroup_namespace(context->protect_control_groups))
+                return context->protect_control_groups;
+
+        /* CGroup namespaces don't really make sense for control processes and can't really be supported as
+         * (some) control processes need to be spawned directly into a subcgroup to avoid violating the
+         * "no inner processes" rule of cgroupv2, so don't do any cgroup namespacing for control processes. */
+        if (params && FLAGS_SET(params->flags, EXEC_IS_CONTROL))
+                return PROTECT_CONTROL_GROUPS_YES;
 
         /* If cgroup namespace is configured via ProtectControlGroups=private or strict but we can't actually
          * use cgroup namespace, we ignore the setting and do not unshare the namespace.
          * ProtectControlGroups=private and strict get downgraded to no and yes respectively. This ensures
          * that strict always gets a read-only mount of /sys/fs/cgroup/. */
-        if (needs_cgroup_namespace(context->protect_control_groups) && !namespace_type_supported(NAMESPACE_CGROUP)) {
+        if (!namespace_type_supported(NAMESPACE_CGROUP)) {
                 if (context->protect_control_groups == PROTECT_CONTROL_GROUPS_PRIVATE)
                         return PROTECT_CONTROL_GROUPS_NO;
                 if (context->protect_control_groups == PROTECT_CONTROL_GROUPS_STRICT)
                         return PROTECT_CONTROL_GROUPS_YES;
         }
+
         return context->protect_control_groups;
 }
 
-bool exec_needs_cgroup_namespace(const ExecContext *context) {
+bool exec_needs_cgroup_namespace(const ExecContext *context, const ExecParameters *params) {
         assert(context);
 
-        return needs_cgroup_namespace(exec_get_protect_control_groups(context));
+        return needs_cgroup_namespace(exec_get_protect_control_groups(context, params));
 }
 
-bool exec_needs_cgroup_mount(const ExecContext *context) {
+bool exec_needs_cgroup_mount(const ExecContext *context, const ExecParameters *params) {
         assert(context);
 
-        return exec_get_protect_control_groups(context) != PROTECT_CONTROL_GROUPS_NO;
+        return exec_get_protect_control_groups(context, params) != PROTECT_CONTROL_GROUPS_NO;
 }
 
-bool exec_is_cgroup_mount_read_only(const ExecContext *context) {
+bool exec_is_cgroup_mount_read_only(const ExecContext *context, const ExecParameters *params) {
         assert(context);
 
-        return IN_SET(exec_get_protect_control_groups(context), PROTECT_CONTROL_GROUPS_YES, PROTECT_CONTROL_GROUPS_STRICT);
+        return IN_SET(exec_get_protect_control_groups(context, params), PROTECT_CONTROL_GROUPS_YES, PROTECT_CONTROL_GROUPS_STRICT);
 }
 
 bool exec_needs_pid_namespace(const ExecContext *context, const ExecParameters *params) {
@@ -330,7 +340,7 @@ bool exec_needs_mount_namespace(
             context->protect_kernel_tunables ||
             context->protect_kernel_modules ||
             context->protect_kernel_logs ||
-            exec_needs_cgroup_mount(context) ||
+            exec_needs_cgroup_mount(context, params) ||
             context->protect_proc != PROTECT_PROC_DEFAULT ||
             context->proc_subset != PROC_SUBSET_ALL ||
             exec_needs_ipc_namespace(context) ||
