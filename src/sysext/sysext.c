@@ -736,8 +736,8 @@ static int mount_overlayfs(
                 if (r < 0)
                         return r;
                 /* redirect_dir=on and noatime prevent unnecessary upcopies, metacopy=off prevents broken
-                 * files from partial upcopies after umount. */
-                if (!strextend(&options, ",redirect_dir=on,noatime,metacopy=off"))
+                 * files from partial upcopies after umount, index=off allows reuse of the upper/work dirs */
+                if (!strextend(&options, ",redirect_dir=on,noatime,metacopy=off,index=off"))
                         return log_oom();
         }
 
