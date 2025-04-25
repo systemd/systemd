@@ -992,6 +992,17 @@ DuplicateAddressDetection=none</programlisting></para>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>IPv4DuplicateAddressDetectionTimeout=</varname></term>
+        <listitem>
+          <para>Configures the maximum timeout for IPv4 Duplicate Address Detection (RFC 5227). Must be a
+          value between 1 millisecond and 60 seconds. If set, Duplicate Address Detection takes a randomized
+          time between 57% (4/7) and 100% of the given value. If unset, defaults to 200 milliseconds.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>IPv4ReversePathFilter=</varname></term>
         <listitem>
           <para>Configure IPv4 Reverse Path Filtering. If enabled, when an IPv4 packet is received, the machine will first check
