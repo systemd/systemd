@@ -450,17 +450,16 @@ static int record_to_json(sd_device *device, sd_json_variant **ret) {
         return 0;
 }
 
-static int stat_device(const char *name, bool export, const char *prefix) {
+static int stat_device(void) {
         struct stat statbuf;
 
-        assert(name);
+        assert(arg_name);
 
-        if (stat(name, &statbuf) != 0)
+        if (stat(arg_name, &statbuf) != 0)
                 return -errno;
 
-        if (export) {
-                if (!prefix)
-                        prefix = "INFO_";
+        if (arg_export) {
+                const char *prefix = arg_export_prefix ?: "INFO_";
                 printf("%sMAJOR=%u\n"
                        "%sMINOR=%u\n",
                        prefix, major(statbuf.st_dev),
@@ -1284,7 +1283,7 @@ int info_main(int argc, char *argv[], void *userdata) {
                 return cleanup_db();
 
         if (arg_action_type == ACTION_DEVICE_ID_FILE)
-                return stat_device(arg_name, arg_export, arg_export_prefix);
+                return stat_device();
 
         pager_open(arg_pager_flags);
 
