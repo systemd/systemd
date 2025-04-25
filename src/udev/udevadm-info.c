@@ -617,8 +617,6 @@ static int export_devices(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to scan devices: %m");
 
-        pager_open(arg_pager_flags);
-
         FOREACH_DEVICE_AND_SUBSYSTEM(e, d)
                 if (sd_json_format_enabled(arg_json_format_flags)) {
                         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
