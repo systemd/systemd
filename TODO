@@ -383,8 +383,6 @@ Features:
   credential (would probably require some binary that converts credential to
   User= parameter?
 
-* sd-varlink should probably enforce a limit on queued outgoing replies
-
 * systemd-firstboot: optionally install an ssh key for root for offline use.
 
 * Allocate UIDs/GIDs automatically in userdbctl load-credentials if none are
