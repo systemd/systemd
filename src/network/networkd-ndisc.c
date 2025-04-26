@@ -2737,10 +2737,17 @@ static int ndisc_neighbor_handle_non_router_message(Link *link, sd_ndisc_neighbo
         if (r < 0)
                 return r;
 
-        (void) ndisc_drop_outdated(link, /* router = */ &address, /* timestamp_usec = */ USEC_INFINITY);
-        (void) ndisc_drop_redirect(link, &address);
+        sd_ndisc_router *rt = hashmap_get(link->ndisc_routers_by_sender, &address);
+        if (!rt)
+                return 0;
 
-        return 0;
+        /* Remove the default gateway via the host, but keep the configurations based on the RA options. */
+        r = ndisc_router_drop_default(link, rt);
+
+        /* Also remove the routes configured by Redirect messages, and forget the remembered RA message. */
+        RET_GATHER(r, ndisc_drop_router_one(link, rt, USEC_INFINITY));
+
+        return r;
 }
 
 static int ndisc_neighbor_handle_router_message(Link *link, sd_ndisc_neighbor *na) {
