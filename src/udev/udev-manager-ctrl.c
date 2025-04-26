@@ -125,7 +125,7 @@ int manager_start_ctrl(Manager *manager) {
         /* This needs to be after the inotify and uevent handling, to make sure that the ping is send back
          * after fully processing the pending uevents (including the synthetic ones we may create due to
          * inotify events). */
-        r = sd_event_source_set_priority(udev_ctrl_get_event_source(manager->ctrl), SD_EVENT_PRIORITY_IDLE);
+        r = sd_event_source_set_priority(udev_ctrl_get_event_source(manager->ctrl), EVENT_PRIORITY_CONTROL);
         if (r < 0)
                 return log_error_errno(r, "Failed to set IDLE event priority for udev control event source: %m");
 
