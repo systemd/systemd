@@ -852,15 +852,16 @@ static int event_queue_insert(Manager *manager, sd_device *dev) {
                 .state = EVENT_QUEUED,
         };
 
-        if (!manager->events) {
+        LIST_APPEND(event, manager->events, event);
+        log_device_uevent(dev, "Device is queued");
+
+        if (!manager->queue_file_created) {
                 r = touch("/run/udev/queue");
                 if (r < 0)
                         log_warning_errno(r, "Failed to touch /run/udev/queue, ignoring: %m");
+                else
+                        manager->queue_file_created = true;
         }
-
-        LIST_APPEND(event, manager->events, event);
-
-        log_device_uevent(dev, "Device is queued");
 
         return 0;
 }
@@ -1155,13 +1156,12 @@ static int manager_unlink_queue_file(Manager *manager) {
 
         /* There are no queued events. Let's remove /run/udev/queue and clean up the idle processes. */
         if (unlink("/run/udev/queue") < 0) {
-                if (errno == ENOENT)
-                        return 0;
+                if (errno != ENOENT)
+                        return log_warning_errno(errno, "Failed to unlink /run/udev/queue: %m");
+        } else
+                log_debug("No events are queued, removed /run/udev/queue.");
 
-                return log_warning_errno(errno, "Failed to unlink /run/udev/queue: %m");
-        }
-
-        log_debug("No events are queued, removed /run/udev/queue.");
+        manager->queue_file_created = false;
         return 0;
 }
 
