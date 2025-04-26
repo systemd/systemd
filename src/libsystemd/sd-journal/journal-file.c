@@ -4070,8 +4070,7 @@ int journal_file_open(
         int r;
 
         assert(fd >= 0 || fname);
-        assert(file_flags >= 0);
-        assert(file_flags <= _JOURNAL_FILE_FLAGS_MAX);
+        assert((file_flags & ~_JOURNAL_FILE_FLAGS_ALL) == 0);
         assert(mmap_cache);
         assert(ret);
 
