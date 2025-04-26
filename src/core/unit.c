@@ -1281,6 +1281,12 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
                 r = unit_add_dependency_by_name(u, UNIT_AFTER, SPECIAL_TMPFILES_SETUP_SERVICE, true, UNIT_DEPENDENCY_FILE);
                 if (r < 0)
                         return r;
+        } else if (c->private_tmp == PRIVATE_TMP_DISCONNECTED) {
+                /* Even if PrivateTmp=disconnected, we still require /var/tmp/ mountpoint to be present,
+                 * i.e. /var/ needs to be mounted. */
+                r = unit_add_mounts_for(u, "/var", UNIT_DEPENDENCY_FILE, UNIT_MOUNT_WANTS);
+                if (r < 0)
+                        return r;
         }
 
         if (c->root_image) {
