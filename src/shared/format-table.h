@@ -86,6 +86,7 @@ typedef enum TableErsatz {
         TABLE_ERSATZ_UNSET,
         TABLE_ERSATZ_NA,
         _TABLE_ERSATZ_MAX,
+        _TABLE_ERSATZ_INVALID = -EINVAL,
 } TableErsatz;
 
 typedef struct Table Table;
