@@ -877,8 +877,23 @@ static int event_queue_insert(Manager *manager, sd_device *dev) {
                 .state = EVENT_QUEUED,
         };
 
-        LIST_INSERT_AFTER(event, manager->events, manager->last_event, event);
-        manager->last_event = event;
+        Event *prev = NULL;
+        LIST_FOREACH_BACKWARDS(event, i, manager->last_event) {
+                if (i->seqnum < event->seqnum) {
+                        prev = i;
+                        break;
+                }
+                if (i->seqnum == event->seqnum)
+                        return log_device_warning_errno(dev, SYNTHETIC_ERRNO(EALREADY), "The event (SEQNUM=%"PRIu64") has been already queued.", event->seqnum);
+        }
+
+        LIST_INSERT_AFTER(event, manager->events, prev, event);
+        if (prev == manager->last_event)
+                manager->last_event = event;
+        else
+                log_device_debug(dev, "Unordered event is received (last queued event seqnum=%"PRIu64", newly received event seqnum=%"PRIu64"), reordering.",
+                                 manager->last_event->seqnum, event->seqnum);
+
         event->manager = manager;
         TAKE_PTR(event);
         log_device_uevent(dev, "Device is queued");
