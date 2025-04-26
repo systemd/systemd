@@ -132,7 +132,7 @@ typedef enum JournalFileFlags {
         JOURNAL_COMPRESS        = 1 << 0,
         JOURNAL_SEAL            = 1 << 1,
         JOURNAL_STRICT_ORDER    = 1 << 2,
-        _JOURNAL_FILE_FLAGS_MAX = JOURNAL_COMPRESS|JOURNAL_SEAL|JOURNAL_STRICT_ORDER,
+        _JOURNAL_FILE_FLAGS_ALL = JOURNAL_COMPRESS|JOURNAL_SEAL|JOURNAL_STRICT_ORDER,
 } JournalFileFlags;
 
 typedef struct {
