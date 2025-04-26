@@ -35,6 +35,7 @@ typedef struct Manager {
         sd_event *event;
         Hashmap *workers;
         LIST_HEAD(Event, events);
+        Event *last_event;
         char *cgroup;
 
         UdevRules *rules;
