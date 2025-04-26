@@ -93,8 +93,11 @@ static Event* event_free(Event *event) {
         if (!event)
                 return NULL;
 
-        if (event->manager)
+        if (event->manager) {
+                if (event->manager->last_event == event)
+                        event->manager->last_event = event->event_prev;
                 LIST_REMOVE(event, event->manager->events, event);
+        }
 
         if (event->worker)
                 event->worker->event = NULL;
@@ -874,7 +877,8 @@ static int event_queue_insert(Manager *manager, sd_device *dev) {
                 .state = EVENT_QUEUED,
         };
 
-        LIST_APPEND(event, manager->events, event);
+        LIST_INSERT_AFTER(event, manager->events, manager->last_event, event);
+        manager->last_event = event;
         event->manager = manager;
         TAKE_PTR(event);
         log_device_uevent(dev, "Device is queued");
