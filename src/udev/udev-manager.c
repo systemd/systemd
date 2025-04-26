@@ -93,20 +93,22 @@ static Event* event_free(Event *event) {
         if (!event)
                 return NULL;
 
-        assert(event->manager);
+        if (event->manager)
+                LIST_REMOVE(event, event->manager->events, event);
 
-        LIST_REMOVE(event, event->manager->events, event);
+        if (event->worker)
+                event->worker->event = NULL;
+
         sd_device_unref(event->dev);
 
         sd_event_source_unref(event->retry_event_source);
         sd_event_source_unref(event->timeout_warning_event);
         sd_event_source_unref(event->timeout_event);
 
-        if (event->worker)
-                event->worker->event = NULL;
-
         return mfree(event);
 }
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(Event*, event_free);
 
 static Worker* worker_free(Worker *worker) {
         if (!worker)
@@ -827,7 +829,6 @@ static int event_queue_insert(Manager *manager, sd_device *dev) {
         const char *devpath, *devpath_old = NULL, *id = NULL, *devnode = NULL;
         sd_device_action_t action;
         uint64_t seqnum;
-        Event *event;
         int r;
 
         assert(manager);
@@ -858,12 +859,11 @@ static int event_queue_insert(Manager *manager, sd_device *dev) {
         if (r < 0 && r != -ENOENT)
                 return r;
 
-        event = new(Event, 1);
+        _cleanup_(event_freep) Event *event = new(Event, 1);
         if (!event)
                 return -ENOMEM;
 
         *event = (Event) {
-                .manager = manager,
                 .dev = sd_device_ref(dev),
                 .seqnum = seqnum,
                 .action = action,
@@ -875,6 +875,8 @@ static int event_queue_insert(Manager *manager, sd_device *dev) {
         };
 
         LIST_APPEND(event, manager->events, event);
+        event->manager = manager;
+        TAKE_PTR(event);
         log_device_uevent(dev, "Device is queued");
 
         if (!manager->queue_file_created) {
