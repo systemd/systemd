@@ -364,7 +364,7 @@ static const struct {
 static int device_found_to_string_many(DeviceFound flags, char **ret) {
         _cleanup_free_ char *s = NULL;
 
-        assert(flags >= 0);
+        assert((flags & ~_DEVICE_FOUND_MASK) == 0);
         assert(ret);
 
         FOREACH_ELEMENT(i, device_found_map) {
