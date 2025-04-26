@@ -61,6 +61,7 @@ typedef struct Manager {
         UdevConfig config_by_control;
         UdevConfig config;
 
+        bool queue_file_created;
         bool stop_exec_queue;
         bool exit;
 } Manager;
