@@ -483,15 +483,14 @@ static int run(int argc, char **argv) {
                 }
 
                 log_info("Communication attempt on fd %i.", event.data.fd);
-                if (arg_accept) {
-                        r = do_accept(exec_argv, event.data.fd);
-                        if (r < 0)
-                                return r;
-                } else
-                        break;
-        }
 
-        return exec_process(exec_argv, SD_LISTEN_FDS_START, (size_t) n);
+                if (!arg_accept)
+                        return exec_process(exec_argv, SD_LISTEN_FDS_START, (size_t) n);
+
+                r = do_accept(exec_argv, event.data.fd);
+                if (r < 0)
+                        return r;
+        }
 }
 
 DEFINE_MAIN_FUNCTION(run);
