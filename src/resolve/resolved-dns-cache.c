@@ -1022,7 +1022,7 @@ static int answer_add_clamp_ttl(
                 }
         }
 
-        r = dns_answer_add_extend(answer, rr, ifindex, answer_flags, rrsig);
+        r = dns_answer_add_extend_full(answer, rr, ifindex, answer_flags, rrsig, until);
         if (r < 0)
                 return r;
 
