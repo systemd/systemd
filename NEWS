@@ -6899,7 +6899,7 @@ CHANGES WITH 248:
         * When resolving host names and other records resolvectl will now
           report where the data was acquired from (i.e. the local cache, the
           network, locally synthesized, …) and whether the network traffic it
-          effected was encrypted or not. Moreover the tool acquired a number of
+          affected was encrypted or not. Moreover the tool acquired a number of
           new options --cache=, --synthesize=, --network=, --zone=,
           --trust-anchor=, --validate= that take booleans and may be used to
           tweak a lookup, i.e. whether it may be answered from cached
@@ -7033,7 +7033,7 @@ CHANGES WITH 248:
           set-property". Once a marker is set, "systemctl reload-or-restart
           --marked" may be invoked to execute the operation the units are
           marked for. This is useful for package managers that want to mark
-          units for restart/reload while updating, but effect the actual
+          units for restart/reload while updating, but affect the actual
           operations at a later step at once.
 
         * The sd_bus_message_read_strv() API call of sd-bus may now also be

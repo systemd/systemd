@@ -2107,7 +2107,7 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         services need to write to these at runtime; it is hence recommended to turn this on for most services. For this
         setting the same restrictions regarding mount propagation and privileges apply as for
         <varname>ReadOnlyPaths=</varname> and related calls, see above. Defaults to off.
-        Note that this option does not prevent indirect changes to kernel tunables effected by IPC calls to
+        Note that this option does not prevent indirect changes to kernel tunables affected by IPC calls to
         other processes. However, <varname>InaccessiblePaths=</varname> may be used to make relevant IPC file system
         objects inaccessible. If <varname>ProtectKernelTunables=</varname> is set,
         <varname>MountAPIVFS=yes</varname> is implied.</para>

@@ -81,7 +81,7 @@ typedef enum UnitDependencyMask {
          * type) */
         UNIT_DEPENDENCY_IMPLICIT           = 1 << 1,
 
-        /* A dependency effected by DefaultDependencies=yes. Note that dependencies marked this way are conceptually
+        /* A dependency affected by DefaultDependencies=yes. Note that dependencies marked this way are conceptually
          * just a subset of UNIT_DEPENDENCY_FILE, as DefaultDependencies= is itself a unit file setting that can only
          * be set in unit files. We make this two separate bits only to help debugging how dependencies came to be. */
         UNIT_DEPENDENCY_DEFAULT            = 1 << 2,
