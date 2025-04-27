@@ -109,7 +109,8 @@ static int dns_answer_add_raw(
                 DnsResourceRecord *rr,
                 int ifindex,
                 DnsAnswerFlags flags,
-                DnsResourceRecord *rrsig) {
+                DnsResourceRecord *rrsig,
+                usec_t until) {
 
         _cleanup_(dns_answer_item_unrefp) DnsAnswerItem *item = NULL;
         int r;
@@ -131,6 +132,7 @@ static int dns_answer_add_raw(
                 .rr = dns_resource_record_ref(rr),
                 .ifindex = ifindex,
                 .flags = flags,
+                .until = until,
                 .rrsig = dns_resource_record_ref(rrsig),
         };
 
@@ -152,7 +154,8 @@ static int dns_answer_add_raw_all(DnsAnswer *a, DnsAnswer *source) {
                                 item->rr,
                                 item->ifindex,
                                 item->flags,
-                                item->rrsig);
+                                item->rrsig,
+                                USEC_INFINITY);
                 if (r < 0)
                         return r;
         }
@@ -160,12 +163,13 @@ static int dns_answer_add_raw_all(DnsAnswer *a, DnsAnswer *source) {
         return 0;
 }
 
-int dns_answer_add(
+int dns_answer_add_full(
                 DnsAnswer *a,
                 DnsResourceRecord *rr,
                 int ifindex,
                 DnsAnswerFlags flags,
-                DnsResourceRecord *rrsig) {
+                DnsResourceRecord *rrsig,
+                usec_t until) {
 
         DnsAnswerItem tmp, *exist;
 
@@ -220,7 +224,7 @@ int dns_answer_add(
                 return 0;
         }
 
-        return dns_answer_add_raw(a, rr, ifindex, flags, rrsig);
+        return dns_answer_add_raw(a, rr, ifindex, flags, rrsig, until);
 }
 
 static int dns_answer_add_all(DnsAnswer *a, DnsAnswer *b) {
@@ -236,12 +240,13 @@ static int dns_answer_add_all(DnsAnswer *a, DnsAnswer *b) {
         return 0;
 }
 
-int dns_answer_add_extend(
+int dns_answer_add_extend_full(
                 DnsAnswer **a,
                 DnsResourceRecord *rr,
                 int ifindex,
                 DnsAnswerFlags flags,
-                DnsResourceRecord *rrsig) {
+                DnsResourceRecord *rrsig,
+                usec_t until) {
 
         int r;
 
@@ -252,7 +257,7 @@ int dns_answer_add_extend(
         if (r < 0)
                 return r;
 
-        return dns_answer_add(*a, rr, ifindex, flags, rrsig);
+        return dns_answer_add_full(*a, rr, ifindex, flags, rrsig, until);
 }
 
 int dns_answer_add_soa(DnsAnswer *a, const char *name, uint32_t ttl, int ifindex) {
