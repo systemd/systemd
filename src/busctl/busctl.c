@@ -1694,6 +1694,73 @@ static int message_append_cmdline(sd_bus_message *m, const char *signature, FDSe
         return 0;
 }
 
+static int bus_message_dump(sd_bus_message *m, uint64_t flags) {
+        const char *contents;
+        int r;
+
+        assert(m);
+
+        r = sd_bus_message_rewind(m, !FLAGS_SET(flags, SD_BUS_MESSAGE_DUMP_SUBTREE_ONLY));
+        if (r < 0)
+                return log_error_errno(r, "Failed to rewind: %m");
+
+        if (FLAGS_SET(flags, SD_BUS_MESSAGE_DUMP_SUBTREE_ONLY)) {
+                r = sd_bus_message_peek_type(m, /* ret_type = */ NULL, &contents);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                r = sd_bus_message_enter_container(m, 'v', contents);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+        } else {
+                r = sd_bus_message_is_empty(m);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+                if (r > 0 || arg_quiet)
+                        return 0;
+        }
+
+        if (sd_json_format_enabled(arg_json_format_flags)) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+
+                if (arg_json_format_flags & (SD_JSON_FORMAT_PRETTY|SD_JSON_FORMAT_PRETTY_AUTO))
+                        pager_open(arg_pager_flags);
+
+                r = sd_bus_message_dump_json(m, flags, &v);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to dump DBus message to JSON object: %m");
+
+                r = sd_json_variant_dump(v, arg_json_format_flags, NULL, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to dump JSON object: %m");
+
+        } else if (arg_verbose) {
+                pager_open(arg_pager_flags);
+
+                r = sd_bus_message_dump(m, NULL, flags);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to dump DBus message: %m");
+        } else {
+
+                fputs(FLAGS_SET(flags, SD_BUS_MESSAGE_DUMP_SUBTREE_ONLY) ? contents : sd_bus_message_get_signature(m, true), stdout);
+                fputc(' ', stdout);
+
+                r = format_cmdline(m, stdout, /* needs_space = */ false);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                fputc('\n', stdout);
+        }
+
+        if (FLAGS_SET(flags, SD_BUS_MESSAGE_DUMP_SUBTREE_ONLY)) {
+                r = sd_bus_message_exit_container(m);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+        }
+
+        return 0;
+}
+
 static int call(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -1758,43 +1825,7 @@ static int call(int argc, char **argv, void *userdata) {
                 return log_error_errno(r, "Call failed: %s", bus_error_message(&error, r));
         }
 
-        r = sd_bus_message_is_empty(reply);
-        if (r < 0)
-                return bus_log_parse_error(r);
-        if (r > 0 || arg_quiet)
-                return 0;
-
-        if (sd_json_format_enabled(arg_json_format_flags)) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-
-                if (arg_json_format_flags & (SD_JSON_FORMAT_PRETTY|SD_JSON_FORMAT_PRETTY_AUTO))
-                        pager_open(arg_pager_flags);
-
-                r = sd_bus_message_dump_json(reply, /* flags = */ 0, &v);
-                if (r < 0)
-                        return r;
-
-                sd_json_variant_dump(v, arg_json_format_flags, NULL, NULL);
-
-        } else if (arg_verbose) {
-                pager_open(arg_pager_flags);
-
-                r = sd_bus_message_dump(reply, stdout, 0);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to dump dbus message: %m");
-        } else {
-
-                fputs(sd_bus_message_get_signature(reply, true), stdout);
-                fputc(' ', stdout);
-
-                r = format_cmdline(reply, stdout, false);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-
-                fputc('\n', stdout);
-        }
-
-        return 0;
+        return bus_message_dump(reply, /* flags = */ 0);
 }
 
 static int emit_signal(int argc, char **argv, void *userdata) {
@@ -1853,8 +1884,6 @@ static int get_property(int argc, char **argv, void *userdata) {
 
         STRV_FOREACH(i, argv + 4) {
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-                const char *contents = NULL;
-                char type;
 
                 r = sd_bus_call_method(bus, argv[1], argv[2],
                                        "org.freedesktop.DBus.Properties", "Get",
@@ -1866,93 +1895,16 @@ static int get_property(int argc, char **argv, void *userdata) {
                                                bus_error_message(&error, r));
                 }
 
-                r = sd_bus_message_peek_type(reply, &type, &contents);
+                r = bus_message_dump(reply, SD_BUS_MESSAGE_DUMP_SUBTREE_ONLY);
                 if (r < 0)
-                        return bus_log_parse_error(r);
-
-                r = sd_bus_message_enter_container(reply, 'v', contents);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-
-                if (sd_json_format_enabled(arg_json_format_flags)) {
-                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-
-                        if (arg_json_format_flags & (SD_JSON_FORMAT_PRETTY|SD_JSON_FORMAT_PRETTY_AUTO))
-                                pager_open(arg_pager_flags);
-
-                        r = sd_bus_message_dump_json(reply, SD_BUS_MESSAGE_DUMP_SUBTREE_ONLY, &v);
-                        if (r < 0)
-                                return r;
-
-                        sd_json_variant_dump(v, arg_json_format_flags, NULL, NULL);
-
-                } else if (arg_verbose) {
-                        pager_open(arg_pager_flags);
-
-                        r = sd_bus_message_dump(reply, stdout, SD_BUS_MESSAGE_DUMP_SUBTREE_ONLY);
-                        if (r < 0)
-                                return r;
-                } else {
-                        fputs(contents, stdout);
-                        fputc(' ', stdout);
-
-                        r = format_cmdline(reply, stdout, false);
-                        if (r < 0)
-                                return bus_log_parse_error(r);
-
-                        fputc('\n', stdout);
-                }
-
-                r = sd_bus_message_exit_container(reply);
-                if (r < 0)
-                        return bus_log_parse_error(r);
+                        return r;
         }
 
         return 0;
 }
 
 static int on_bus_signal_impl(sd_bus_message *msg) {
-        int r;
-
-        assert(msg);
-
-        r = sd_bus_message_is_empty(msg);
-        if (r < 0)
-                return bus_log_parse_error(r);
-        if (r > 0 || arg_quiet)
-                return 0;
-
-        if (!FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF)) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-
-                if (arg_json_format_flags & (SD_JSON_FORMAT_PRETTY|SD_JSON_FORMAT_PRETTY_AUTO))
-                        pager_open(arg_pager_flags);
-
-                r = sd_bus_message_dump_json(msg, /* flags = */ 0, &v);
-                if (r < 0)
-                        return r;
-
-                sd_json_variant_dump(v, arg_json_format_flags, NULL, NULL);
-
-        } else if (arg_verbose) {
-                pager_open(arg_pager_flags);
-
-                r = sd_bus_message_dump(msg, stdout, 0);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to dump dbus message: %m\n");
-        } else {
-
-                fputs(sd_bus_message_get_signature(msg, true), stdout);
-                fputc(' ', stdout);
-
-                r = format_cmdline(msg, stdout, false);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-
-                fputc('\n', stdout);
-        }
-
-        return 0;
+        return bus_message_dump(msg, /* flags = */ 0);
 }
 
 static int on_bus_signal(sd_bus_message *msg, void *userdata, sd_bus_error *ret_error) {
