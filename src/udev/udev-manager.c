@@ -219,7 +219,7 @@ static int manager_reset_kill_workers_timer(Manager *manager) {
                                 USEC_PER_SEC,
                                 on_kill_workers_event,
                                 manager,
-                                SD_EVENT_PRIORITY_NORMAL,
+                                EVENT_PRIORITY_WORKER_TIMER,
                                 "kill-workers-event",
                                 /* force_reset = */ false);
                 if (r < 0)
@@ -450,13 +450,28 @@ static void worker_attach_event(Worker *worker, Event *event) {
         event->state = EVENT_RUNNING;
         event->worker = worker;
 
-        (void) sd_event_add_time_relative(e, &event->timeout_warning_event, CLOCK_MONOTONIC,
-                                          udev_warn_timeout(manager->config.timeout_usec), USEC_PER_SEC,
-                                          on_event_timeout_warning, event);
+        (void) event_reset_time_relative(
+                        e,
+                        &event->timeout_warning_event,
+                        CLOCK_MONOTONIC,
+                        udev_warn_timeout(manager->config.timeout_usec),
+                        USEC_PER_SEC,
+                        on_event_timeout_warning,
+                        event,
+                        EVENT_PRIORITY_WORKER_TIMER,
+                        "event-timeout-warn",
+                        /* force_reset = */ true);
 
-        (void) sd_event_add_time_relative(e, &event->timeout_event, CLOCK_MONOTONIC,
-                                          manager_kill_worker_timeout(manager), USEC_PER_SEC,
-                                          on_event_timeout, event);
+        (void) event_reset_time_relative(
+                        e,
+                        &event->timeout_event, CLOCK_MONOTONIC,
+                        manager_kill_worker_timeout(manager),
+                        USEC_PER_SEC,
+                        on_event_timeout,
+                        event,
+                        EVENT_PRIORITY_WORKER_TIMER,
+                        "event-timeout-kill",
+                        /* force_reset = */ true);
 }
 
 static int worker_spawn(Manager *manager, Event *event) {
@@ -740,10 +755,17 @@ static void event_requeue(Event *event) {
         if (event->retry_again_timeout_usec == 0)
                 event->retry_again_timeout_usec = usec_add(now_usec, EVENT_RETRY_TIMEOUT_USEC);
 
-        r = event_reset_time_relative(event->manager->event, &event->retry_event_source,
-                                      CLOCK_MONOTONIC, EVENT_RETRY_INTERVAL_USEC, 0,
-                                      on_event_retry, NULL,
-                                      0, "retry-event", true);
+        r = event_reset_time_relative(
+                        event->manager->event,
+                        &event->retry_event_source,
+                        CLOCK_MONOTONIC,
+                        EVENT_RETRY_INTERVAL_USEC,
+                        /* accuracy = */ 0,
+                        on_event_retry,
+                        /* userdata = */ NULL,
+                        EVENT_PRIORITY_RETRY_EVENT,
+                        "retry-event",
+                        /* force_reset = */ true);
         if (r < 0) {
                 log_device_warning_errno(
                                 dev, r,
@@ -852,15 +874,16 @@ static int event_queue_insert(Manager *manager, sd_device *dev) {
                 .state = EVENT_QUEUED,
         };
 
-        if (!manager->events) {
+        LIST_APPEND(event, manager->events, event);
+        log_device_uevent(dev, "Device is queued");
+
+        if (!manager->queue_file_created) {
                 r = touch("/run/udev/queue");
                 if (r < 0)
                         log_warning_errno(r, "Failed to touch /run/udev/queue, ignoring: %m");
+                else
+                        manager->queue_file_created = true;
         }
-
-        LIST_APPEND(event, manager->events, event);
-
-        log_device_uevent(dev, "Device is queued");
 
         return 0;
 }
@@ -1153,15 +1176,17 @@ static int manager_unlink_queue_file(Manager *manager) {
         if (manager->events)
                 return 0; /* There are queued events. */
 
+        if (!set_isempty(manager->synthesize_change_child_event_sources))
+                return 0; /* There are child processes that should trigger synthetic events. */
+
         /* There are no queued events. Let's remove /run/udev/queue and clean up the idle processes. */
         if (unlink("/run/udev/queue") < 0) {
-                if (errno == ENOENT)
-                        return 0;
+                if (errno != ENOENT)
+                        return log_warning_errno(errno, "Failed to unlink /run/udev/queue: %m");
+        } else
+                log_debug("No events are queued, removed /run/udev/queue.");
 
-                return log_warning_errno(errno, "Failed to unlink /run/udev/queue: %m");
-        }
-
-        log_debug("No events are queued, removed /run/udev/queue.");
+        manager->queue_file_created = false;
         return 0;
 }
 
@@ -1213,6 +1238,37 @@ static int on_post(sd_event_source *s, void *userdata) {
         return 0;
 }
 
+static int manager_setup_signal(
+                Manager *manager,
+                sd_event *event,
+                int signal,
+                sd_event_signal_handler_t handler,
+                int64_t priority,
+                const char *description) {
+
+        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        int r;
+
+        assert(manager);
+        assert(event);
+
+        r = sd_event_add_signal(event, &s, signal | SD_EVENT_SIGNAL_PROCMASK, handler, manager);
+        if (r < 0)
+                return r;
+
+        r = sd_event_source_set_priority(s, priority);
+        if (r < 0)
+                return r;
+
+        (void) sd_event_source_set_description(s, description);
+
+        r = sd_event_source_set_floating(s, true);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 static int manager_setup_event(Manager *manager) {
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         int r;
@@ -1226,15 +1282,15 @@ static int manager_setup_event(Manager *manager) {
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate event loop: %m");
 
-        r = sd_event_add_signal(e, /* ret_event_source = */ NULL, SIGINT | SD_EVENT_SIGNAL_PROCMASK, on_sigterm, manager);
+        r = manager_setup_signal(manager, e, SIGINT, on_sigterm, EVENT_PRIORITY_SIGTERM, "sigint-event-source");
         if (r < 0)
                 return log_error_errno(r, "Failed to create SIGINT event source: %m");
 
-        r = sd_event_add_signal(e, /* ret_event_source = */ NULL, SIGTERM | SD_EVENT_SIGNAL_PROCMASK, on_sigterm, manager);
+        r = manager_setup_signal(manager, e, SIGTERM, on_sigterm, EVENT_PRIORITY_SIGTERM, "sigterm-event-source");
         if (r < 0)
                 return log_error_errno(r, "Failed to create SIGTERM event source: %m");
 
-        r = sd_event_add_signal(e, /* ret_event_source = */ NULL, SIGHUP | SD_EVENT_SIGNAL_PROCMASK, on_sighup, manager);
+        r = manager_setup_signal(manager, e, SIGHUP, on_sighup, EVENT_PRIORITY_SIGHUP, "sighup-event-source");
         if (r < 0)
                 return log_error_errno(r, "Failed to create SIGHUP event source: %m");
 
