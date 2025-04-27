@@ -25,6 +25,7 @@
 
 #include "sd-event.h"
 #include "sd-id128.h"
+#include "sd-json.h"
 
 #include "_sd-common.h"
 #include "sd-bus-protocol.h"
@@ -258,6 +259,7 @@ int sd_bus_message_rewind(sd_bus_message *m, int complete);
 int sd_bus_message_sensitive(sd_bus_message *m);
 
 int sd_bus_message_dump(sd_bus_message *m, FILE *f, uint64_t flags);
+int sd_bus_message_dump_json(sd_bus_message *m, uint64_t flags, sd_json_variant **ret);
 
 /* Bus management */
 
