@@ -1225,11 +1225,18 @@
 
   <refsect1 id='sr-iov'>
     <title>[SR-IOV] Section Options</title>
-    <para>The [SR-IOV] section accepts the following keys. Specify several [SR-IOV] sections to
-    configure several SR-IOVs. SR-IOV provides the ability to partition a single physical PCI resource
-    into virtual PCI functions which can then be injected into a VM. In the case of network VFs, SR-IOV
-    improves north-south network performance (that is, traffic with endpoints outside the host machine)
-    by allowing traffic to bypass the host machine’s network stack.</para>
+    <para>SR-IOV provides the ability to partition a single physical PCI resource into virtual PCI
+    functions which can then be e.g. injected into a VM. In the case of network VFs, SR-IOV reduces
+    latency and CPU utilisation for north-south network traffic (that is, traffic with endpoints
+    outside the host machine), by allowing traffic to bypass the host machine’s network stack.
+    </para>
+
+    <para>The presence of an [SR-IOV] section in a .link file will cause the creation and
+    configuration of the specified virtual function. Within a .network file, the specified virtual
+    function will be configured, but must already exist. Specify several [SR-IOV] sections to
+    configure several SR-IOVs.</para>
+
+    <para>The [SR-IOV] section accepts the following keys.</para>
 
     <variablelist class='network-directives'>
       <varlistentry>
