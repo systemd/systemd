@@ -7,7 +7,7 @@ msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2024-11-28 18:16+0900\n"
-"PO-Revision-Date: 2025-04-25 12:44+0000\n"
+"PO-Revision-Date: 2025-04-27 21:59+0000\n"
 "Last-Translator: joo es <johndevand@tutanota.com>\n"
 "Language-Team: Arabic <https://translate.fedoraproject.org/projects/systemd/"
 "main/ar/>\n"
@@ -350,227 +350,227 @@ msgstr "الاستيثاق مطلوب للحصول على وصف النظام."
 
 #: src/import/org.freedesktop.import1.policy:22
 msgid "Import a disk image"
-msgstr ""
+msgstr "استورد صورة قرص"
 
 #: src/import/org.freedesktop.import1.policy:23
 msgid "Authentication is required to import an image."
-msgstr ""
+msgstr "الاستيثاق مطلوب الاستيراد صورة القرص."
 
 #: src/import/org.freedesktop.import1.policy:32
 msgid "Export a disk image"
-msgstr ""
+msgstr "صدّر صورة قرص"
 
 #: src/import/org.freedesktop.import1.policy:33
 msgid "Authentication is required to export disk image."
-msgstr ""
+msgstr "الاستيثاق مطلوب لتصدير صورة القرص."
 
 #: src/import/org.freedesktop.import1.policy:42
 msgid "Download a disk image"
-msgstr ""
+msgstr "نزّل صورة قرص"
 
 #: src/import/org.freedesktop.import1.policy:43
 msgid "Authentication is required to download a disk image."
-msgstr ""
+msgstr "الاستيثاق مطلوب لتنزيل صورة القرص."
 
 #: src/import/org.freedesktop.import1.policy:52
 msgid "Cancel transfer of a disk image"
-msgstr ""
+msgstr "ألغِ نقل صورة القرص"
 
 #: src/import/org.freedesktop.import1.policy:53
 msgid ""
 "Authentication is required to cancel the ongoing transfer of a disk image."
-msgstr ""
+msgstr "الاستيثاق مطلوب لإلغاء نقل صورة القرص."
 
 #: src/locale/org.freedesktop.locale1.policy:22
 msgid "Set system locale"
-msgstr ""
+msgstr "عيّن لغة النظام"
 
 #: src/locale/org.freedesktop.locale1.policy:23
 msgid "Authentication is required to set the system locale."
-msgstr ""
+msgstr "الاستيثاق مطلوب لتعيين لغة النظام."
 
 #: src/locale/org.freedesktop.locale1.policy:33
 msgid "Set system keyboard settings"
-msgstr ""
+msgstr "عيّن إعدادات لوحة المفاتيح النظام"
 
 #: src/locale/org.freedesktop.locale1.policy:34
 msgid "Authentication is required to set the system keyboard settings."
-msgstr ""
+msgstr "الاستيثاق مطلوب لتعيين إعدادات لوحة المفاتيح النظام."
 
 #: src/login/org.freedesktop.login1.policy:22
 msgid "Allow applications to inhibit system shutdown"
-msgstr ""
+msgstr "اسمح للتطبيقات بمنع إيقاف تشغيل النظام"
 
 #: src/login/org.freedesktop.login1.policy:23
 msgid ""
 "Authentication is required for an application to inhibit system shutdown."
-msgstr ""
+msgstr "الاستيثاق مطلوب للتطبيق لمنع إيقاف تشغيل النظام."
 
 #: src/login/org.freedesktop.login1.policy:33
 msgid "Allow applications to delay system shutdown"
-msgstr ""
+msgstr "اسمح للتطبيقات بتأخير إيقاف تشغيل النظام"
 
 #: src/login/org.freedesktop.login1.policy:34
 msgid "Authentication is required for an application to delay system shutdown."
-msgstr ""
+msgstr "الاستيثاق مطلوب للتطبيق لتأخير إيقاف تشغيل النظام."
 
 #: src/login/org.freedesktop.login1.policy:44
 msgid "Allow applications to inhibit system sleep"
-msgstr ""
+msgstr "اسمح للتطبيقات بمنع نوم النظام"
 
 #: src/login/org.freedesktop.login1.policy:45
 msgid "Authentication is required for an application to inhibit system sleep."
-msgstr ""
+msgstr "الاستيثاق مطلوب للتطبيق لمنع النظام من النوم."
 
 #: src/login/org.freedesktop.login1.policy:55
 msgid "Allow applications to delay system sleep"
-msgstr ""
+msgstr "اسمح للتطبيقات بتأخير نوم النظام"
 
 #: src/login/org.freedesktop.login1.policy:56
 msgid "Authentication is required for an application to delay system sleep."
-msgstr ""
+msgstr "الاستيثاق مطلوب للتطبيق بتأخير نوم النظام."
 
 #: src/login/org.freedesktop.login1.policy:65
 msgid "Allow applications to inhibit automatic system suspend"
-msgstr ""
+msgstr "اسمح للتطبيقات بمنع تعليق النظام التلقائيًا"
 
 #: src/login/org.freedesktop.login1.policy:66
 msgid ""
 "Authentication is required for an application to inhibit automatic system "
 "suspend."
-msgstr ""
+msgstr "الاستيثاق مطلوب للتطبيق لمنع تعليق النظام تلقائيًا."
 
 #: src/login/org.freedesktop.login1.policy:75
 msgid "Allow applications to inhibit system handling of the power key"
-msgstr ""
+msgstr "اسمح للتطبيقات بمنع النظام من التعامل مع مفتاح التشغيل"
 
 #: src/login/org.freedesktop.login1.policy:76
 msgid ""
 "Authentication is required for an application to inhibit system handling of "
 "the power key."
-msgstr ""
+msgstr "الاستيثاق مطلوب للتطبيق لمنع النظام من التعامل مع مفتاح التشغيل."
 
 #: src/login/org.freedesktop.login1.policy:86
 msgid "Allow applications to inhibit system handling of the suspend key"
-msgstr ""
+msgstr "اسمح للتطبيقات بمنع النظام من التعامل مع مفتاح التعليق"
 
 #: src/login/org.freedesktop.login1.policy:87
 msgid ""
 "Authentication is required for an application to inhibit system handling of "
 "the suspend key."
-msgstr ""
+msgstr "الاستيثاق مطلوب للتطبيق لمنع النظام من التعامل مع مفتاح التعليق."
 
 #: src/login/org.freedesktop.login1.policy:97
 msgid "Allow applications to inhibit system handling of the hibernate key"
-msgstr ""
+msgstr "اسمح للتطبيقات بمنع النظام من التعامل مع مفتاح السبات"
 
 #: src/login/org.freedesktop.login1.policy:98
 msgid ""
 "Authentication is required for an application to inhibit system handling of "
 "the hibernate key."
-msgstr ""
+msgstr "الاستيثاق مطلوب للتطبيق لمنع النظام من التعامل مع مفتاح السبات."
 
 #: src/login/org.freedesktop.login1.policy:107
 msgid "Allow applications to inhibit system handling of the lid switch"
-msgstr ""
+msgstr "اسمح للتطبيقات بمنع النظام من التعامل مع مفتاح الغطاء"
 
 #: src/login/org.freedesktop.login1.policy:108
 msgid ""
 "Authentication is required for an application to inhibit system handling of "
 "the lid switch."
-msgstr ""
+msgstr "الاستيثاق مطلوب للتطبيق لمنع النظام من التعامل مع مفتاح الغطاء."
 
 #: src/login/org.freedesktop.login1.policy:117
 msgid "Allow applications to inhibit system handling of the reboot key"
-msgstr ""
+msgstr "اسمح للتطبيقات بمنع النظام من التعامل مع مفتاح إعادة التشغيل"
 
 #: src/login/org.freedesktop.login1.policy:118
 msgid ""
 "Authentication is required for an application to inhibit system handling of "
 "the reboot key."
-msgstr ""
+msgstr "الاستيثاق مطلوب للتطبيق لمنع النظام من التعامل مع مفتاح إعادة التشغيل."
 
 #: src/login/org.freedesktop.login1.policy:128
 msgid "Allow non-logged-in user to run programs"
-msgstr ""
+msgstr "اسمح للمستخدم غير الموالِج بتشغيل البرامج"
 
 #: src/login/org.freedesktop.login1.policy:129
 msgid "Explicit request is required to run programs as a non-logged-in user."
-msgstr ""
+msgstr "يتطلب تشغيل البرامج كمستخدم غير موالِج طلبًا صريحًا."
 
 #: src/login/org.freedesktop.login1.policy:138
 msgid "Allow non-logged-in users to run programs"
-msgstr ""
+msgstr "اسمح للمستخدمين غير الموالِجين بتشغيل البرامج"
 
 #: src/login/org.freedesktop.login1.policy:139
 msgid "Authentication is required to run programs as a non-logged-in user."
-msgstr ""
+msgstr "الاستيثاق مطلوب لتشغيل البرامج كمستخدم غير موالِج."
 
 #: src/login/org.freedesktop.login1.policy:148
 msgid "Allow attaching devices to seats"
-msgstr ""
+msgstr "اسمح بتوصيل الأجهزة بالمقاعد"
 
 #: src/login/org.freedesktop.login1.policy:149
 msgid "Authentication is required to attach a device to a seat."
-msgstr ""
+msgstr "الاستيثاق مطلوب لتوصيل جهاز بمقعد."
 
 #: src/login/org.freedesktop.login1.policy:159
 msgid "Flush device to seat attachments"
-msgstr ""
+msgstr "أفرغ جميع توصيلات الجهاز"
 
 #: src/login/org.freedesktop.login1.policy:160
 msgid "Authentication is required to reset how devices are attached to seats."
-msgstr ""
+msgstr "الاستيثاق مطلوب لإعادة تعيين كيفية توصيل الأجهزة بالمقاعد."
 
 #: src/login/org.freedesktop.login1.policy:169
 msgid "Power off the system"
-msgstr ""
+msgstr "أطفئ النظام"
 
 #: src/login/org.freedesktop.login1.policy:170
 msgid "Authentication is required to power off the system."
-msgstr ""
+msgstr "الاستيثاق مطلوب لإطفاء النظام."
 
 #: src/login/org.freedesktop.login1.policy:180
 msgid "Power off the system while other users are logged in"
-msgstr ""
+msgstr "أطفئ النظام أثناء ولوج مستخدمون آخرون"
 
 #: src/login/org.freedesktop.login1.policy:181
 msgid ""
 "Authentication is required to power off the system while other users are "
 "logged in."
-msgstr ""
+msgstr "الاستيثاق مطلوب لإطفاء النظام أثناء ولوج مستخدمون آخرون."
 
 #: src/login/org.freedesktop.login1.policy:191
 msgid "Power off the system while an application is inhibiting this"
-msgstr ""
+msgstr "أطفئ النظام أثناء منع التطبيق ذلك"
 
 #: src/login/org.freedesktop.login1.policy:192
 msgid ""
 "Authentication is required to power off the system while an application is "
 "inhibiting this."
-msgstr ""
+msgstr "الاستيثاق مطلوب لإطفاء النظام أثناء منع التطبيق ذلك."
 
 #: src/login/org.freedesktop.login1.policy:202
 msgid "Reboot the system"
-msgstr ""
+msgstr "أعد تشغيل النظام"
 
 #: src/login/org.freedesktop.login1.policy:203
 msgid "Authentication is required to reboot the system."
-msgstr ""
+msgstr "الاستيثاق مطلوب لإعادة تشغيل النظام."
 
 #: src/login/org.freedesktop.login1.policy:213
 msgid "Reboot the system while other users are logged in"
-msgstr ""
+msgstr "أعد تشغيل النظام أثناء ولوج مستخدمون آخرون"
 
 #: src/login/org.freedesktop.login1.policy:214
 msgid ""
 "Authentication is required to reboot the system while other users are logged "
 "in."
-msgstr ""
+msgstr "الاستيثاق مطلوب لإعادة تشغيل النظام أثناء ولوج مستخدمون آخرون."
 
 #: src/login/org.freedesktop.login1.policy:224
 msgid "Reboot the system while an application is inhibiting this"
-msgstr ""
+msgstr "أعد تشغيل النظام أثناء منع التطبيق ذلك"
 
 #: src/login/org.freedesktop.login1.policy:225
 msgid ""
@@ -588,13 +588,13 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:246
 msgid "Halt the system while other users are logged in"
-msgstr ""
+msgstr "أوقف النظام أثناء ولوج مستخدمون آخرون"
 
 #: src/login/org.freedesktop.login1.policy:247
 msgid ""
 "Authentication is required to halt the system while other users are logged "
 "in."
-msgstr ""
+msgstr "الاستيثاق مطلوب لإيقاف النظام أثناء ولوج مستخدمون آخرون."
 
 #: src/login/org.freedesktop.login1.policy:257
 msgid "Halt the system while an application is inhibiting this"
@@ -616,13 +616,13 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:278
 msgid "Suspend the system while other users are logged in"
-msgstr ""
+msgstr "علّق النظام أثناء ولوج مستخدمون آخرون"
 
 #: src/login/org.freedesktop.login1.policy:279
 msgid ""
 "Authentication is required to suspend the system while other users are "
 "logged in."
-msgstr ""
+msgstr "الاستيثاق مطلوب لتعليق النظام أثناء ولوج مستخدمون آخرون."
 
 #: src/login/org.freedesktop.login1.policy:289
 msgid "Suspend the system while an application is inhibiting this"
@@ -644,13 +644,13 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:310
 msgid "Hibernate the system while other users are logged in"
-msgstr ""
+msgstr "أسبِت النظام أثناء ولوج مستخدمون آخرون"
 
 #: src/login/org.freedesktop.login1.policy:311
 msgid ""
 "Authentication is required to hibernate the system while other users are "
 "logged in."
-msgstr ""
+msgstr "الاستيثاق مطلوب لإسبات النظام أثناء ولوج مستخدمون آخرون."
 
 #: src/login/org.freedesktop.login1.policy:321
 msgid "Hibernate the system while an application is inhibiting this"
