@@ -19,6 +19,7 @@
 #include "cgroup-util.h"
 #include "conf-parser.h"
 #include "creds-util.h"
+#include "daemon-util.h"
 #include "dirent-util.h"
 #include "event-util.h"
 #include "extract-word.h"
@@ -2056,10 +2057,7 @@ static int dispatch_notify_event(sd_event_source *es, int fd, uint32_t revents, 
          * there's something to send it will be turned on again. */
 
         if (!s->sent_notify_ready) {
-                static const char p[] = "READY=1\n"
-                                        "STATUS=Processing requests...";
-
-                if (send(s->notify_fd, p, strlen(p), MSG_DONTWAIT) < 0) {
+                if (send(s->notify_fd, NOTIFY_READY, strlen(NOTIFY_READY), MSG_DONTWAIT) < 0) {
                         if (errno == EAGAIN)
                                 return 0;
 
