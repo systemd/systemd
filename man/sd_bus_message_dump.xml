@@ -18,6 +18,7 @@
 
   <refnamediv>
     <refname>sd_bus_message_dump</refname>
+    <refname>sd_bus_message_dump_json</refname>
 
     <refpurpose>Produce a string representation of a message for debugging purposes</refpurpose>
   </refnamediv>
@@ -26,18 +27,25 @@
     <funcsynopsis>
       <funcsynopsisinfo>#include &lt;systemd/sd-bus.h&gt;</funcsynopsisinfo>
 
+      <funcsynopsisinfo><token>enum</token> {
+      <constant>SD_BUS_MESSAGE_DUMP_WITH_HEADER</constant>,
+      <constant>SD_BUS_MESSAGE_DUMP_SUBTREE_ONLY</constant>
+};</funcsynopsisinfo>
+
       <funcprototype>
         <funcdef>int sd_bus_message_dump</funcdef>
         <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
         <paramdef>FILE *<parameter>f</parameter></paramdef>
         <paramdef>uint64_t <parameter>flags</parameter></paramdef>
       </funcprototype>
-    </funcsynopsis>
 
-    <para>
-      <constant>SD_BUS_MESSAGE_DUMP_WITH_HEADER</constant>,
-      <constant>SD_BUS_MESSAGE_DUMP_SUBTREE_ONLY</constant>
-    </para>
+      <funcprototype>
+        <funcdef>int sd_bus_message_dump_json</funcdef>
+        <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
+        <paramdef>uint64_t <parameter>flags</parameter></paramdef>
+        <paramdef>sd_json_variant **<parameter>ret</parameter></paramdef>
+      </funcprototype>
+    </funcsynopsis>
   </refsynopsisdiv>
 
   <refsect1>
@@ -59,6 +67,12 @@
     position afterwards, for example with
     <citerefentry><refentrytitle>sd_bus_message_rewind</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
     </para>
+
+    <para>The <function>sd_bus_message_dump_json()</function> function converts the DBus message
+    <parameter>m</parameter> to a JSON object and stores to <parameter>ret</parameter>. The caller should
+    call <function>sd_json_variant_unref()</function> for the acquired JSON object when it is not necessary.
+    This may be useful for dumping a DBus message in JSON format with
+    <function>sd_json_variant_dump()</function>.</para>
   </refsect1>
 
   <refsect1>
@@ -102,6 +116,7 @@
     <para><simplelist type="inline">
       <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd-json</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
     </simplelist></para>
   </refsect1>
 
