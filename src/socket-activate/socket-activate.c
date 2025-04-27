@@ -10,6 +10,7 @@
 
 #include "alloc-util.h"
 #include "build.h"
+#include "daemon-util.h"
 #include "env-util.h"
 #include "errno-util.h"
 #include "escape.h"
@@ -29,7 +30,6 @@
 static char **arg_listen = NULL;
 static bool arg_accept = false;
 static int arg_socket_type = SOCK_STREAM;
-static char **arg_args = NULL;
 static char **arg_setenv = NULL;
 static char **arg_fdnames = NULL;
 static bool arg_inetd = false;
@@ -124,9 +124,13 @@ static int open_sockets(int *ret_epoll_fd, bool accept) {
         return count;
 }
 
-static int exec_process(const char *name, char **argv, int start_fd, size_t n_fds) {
+static int exec_process(char * const *argv, int start_fd, size_t n_fds) {
         _cleanup_strv_free_ char **envp = NULL;
         int r;
+
+        assert(!strv_isempty(argv));
+        assert(start_fd >= 0);
+        assert(n_fds > 0);
 
         if (arg_inetd && n_fds != 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -207,16 +211,19 @@ static int exec_process(const char *name, char **argv, int start_fd, size_t n_fd
         if (!joined)
                 return log_oom();
 
-        log_info("Execing %s (%s)", name, joined);
-        execvpe(name, argv, envp);
+        log_info("Executing: %s", joined);
+        execvpe(argv[0], argv, envp);
 
-        return log_error_errno(errno, "Failed to execp %s (%s): %m", name, joined);
+        return log_error_errno(errno, "Failed to execute '%s': %m", joined);
 }
 
-static int fork_and_exec_process(const char *child, char **argv, int fd) {
+static int fork_and_exec_process(char * const *argv, int fd) {
         _cleanup_free_ char *joined = NULL;
         pid_t child_pid;
         int r;
+
+        assert(!strv_isempty(argv));
+        assert(fd >= 0);
 
         joined = strv_join(argv, " ");
         if (!joined)
@@ -229,15 +236,15 @@ static int fork_and_exec_process(const char *child, char **argv, int fd) {
                 return r;
         if (r == 0) {
                 /* In the child */
-                exec_process(child, argv, fd, 1);
+                (void) exec_process(argv, fd, 1);
                 _exit(EXIT_FAILURE);
         }
 
-        log_info("Spawned %s (%s) as PID " PID_FMT ".", child, joined, child_pid);
+        log_info("Spawned '%s' as PID " PID_FMT ".", joined, child_pid);
         return 0;
 }
 
-static int do_accept(const char *name, char **argv, int fd) {
+static int do_accept(char * const *argv, int fd) {
         _cleanup_free_ char *local = NULL, *peer = NULL;
         _cleanup_close_ int fd_accepted = -EBADF;
 
@@ -253,18 +260,18 @@ static int do_accept(const char *name, char **argv, int fd) {
         (void) getpeername_pretty(fd_accepted, true, &peer);
         log_info("Connection from %s to %s", strna(peer), strna(local));
 
-        return fork_and_exec_process(name, argv, fd_accepted);
+        return fork_and_exec_process(argv, fd_accepted);
 }
 
 /* SIGCHLD handler. */
 static void sigchld_hdl(int sig) {
+        int r;
+
         PROTECT_ERRNO;
 
         for (;;) {
-                siginfo_t si;
-                int r;
+                siginfo_t si = {};
 
-                si.si_pid = 0;
                 r = waitid(P_ALL, 0, &si, WEXITED | WNOHANG);
                 if (r < 0) {
                         if (errno != ECHILD)
@@ -436,8 +443,6 @@ static int parse_argv(int argc, char *argv[]) {
                                        "Datagram sockets do not accept connections. "
                                        "The --datagram and --accept options may not be combined.");
 
-        arg_args = argv + optind;
-
         return 1 /* work to do */;
 }
 
@@ -452,21 +457,29 @@ static int run(int argc, char **argv) {
         if (r <= 0)
                 return r;
 
-        exec_argv = strv_copy(arg_args);
+        exec_argv = strv_copy(argv + optind);
         if (!exec_argv)
                 return log_oom();
 
         assert(!strv_isempty(exec_argv));
-
-        r = install_chld_handler();
-        if (r < 0)
-                return r;
 
         n = open_sockets(&epoll_fd, arg_accept);
         if (n < 0)
                 return n;
         if (n == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "No sockets to listen on specified or passed in.");
+
+        /* Notify the caller that all sockets are open now. We only do this in --accept mode however,
+         * since otherwise our process will be replaced and it's better to leave the readiness notify
+         * to the actual payload. */
+        _unused_ _cleanup_(notify_on_cleanup) const char *notify = NULL;
+        if (arg_accept) {
+                r = install_chld_handler();
+                if (r < 0)
+                        return r;
+
+                notify = notify_start(NOTIFY_READY, NOTIFY_STOPPING);
+        }
 
         for (;;) {
                 struct epoll_event event;
@@ -479,15 +492,14 @@ static int run(int argc, char **argv) {
                 }
 
                 log_info("Communication attempt on fd %i.", event.data.fd);
-                if (arg_accept) {
-                        r = do_accept(exec_argv[0], exec_argv, event.data.fd);
-                        if (r < 0)
-                                return r;
-                } else
-                        break;
-        }
 
-        return exec_process(exec_argv[0], exec_argv, SD_LISTEN_FDS_START, (size_t) n);
+                if (!arg_accept)
+                        return exec_process(exec_argv, SD_LISTEN_FDS_START, (size_t) n);
+
+                r = do_accept(exec_argv, event.data.fd);
+                if (r < 0)
+                        return r;
+        }
 }
 
 DEFINE_MAIN_FUNCTION(run);
