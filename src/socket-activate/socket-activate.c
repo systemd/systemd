@@ -10,6 +10,7 @@
 
 #include "alloc-util.h"
 #include "build.h"
+#include "daemon-util.h"
 #include "env-util.h"
 #include "errno-util.h"
 #include "escape.h"
@@ -471,6 +472,13 @@ static int run(int argc, char **argv) {
                 return n;
         if (n == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "No sockets to listen on specified or passed in.");
+
+        /* Notify the caller that all sockets are open now. We only do this in --accept mode however,
+         * since otherwise our process will be replaced and it's better to leave the readiness notify
+         * to the actual payload. */
+        _unused_ _cleanup_(notify_on_cleanup) const char *notify = NULL;
+        if (arg_accept)
+                notify = notify_start(NOTIFY_READY, NOTIFY_STOPPING);
 
         for (;;) {
                 struct epoll_event event;
