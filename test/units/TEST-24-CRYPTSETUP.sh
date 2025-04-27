@@ -17,6 +17,8 @@ if [[ -s /failed ]]; then
     exit 1
 fi
 
+exit 1
+
 at_exit() {
     set +e
 
