@@ -265,13 +265,13 @@ static int do_accept(char * const *argv, int fd) {
 
 /* SIGCHLD handler. */
 static void sigchld_hdl(int sig) {
+        int r;
+
         PROTECT_ERRNO;
 
         for (;;) {
-                siginfo_t si;
-                int r;
+                siginfo_t si = {};
 
-                si.si_pid = 0;
                 r = waitid(P_ALL, 0, &si, WEXITED | WNOHANG);
                 if (r < 0) {
                         if (errno != ECHILD)
@@ -463,10 +463,6 @@ static int run(int argc, char **argv) {
 
         assert(!strv_isempty(exec_argv));
 
-        r = install_chld_handler();
-        if (r < 0)
-                return r;
-
         n = open_sockets(&epoll_fd, arg_accept);
         if (n < 0)
                 return n;
@@ -477,8 +473,13 @@ static int run(int argc, char **argv) {
          * since otherwise our process will be replaced and it's better to leave the readiness notify
          * to the actual payload. */
         _unused_ _cleanup_(notify_on_cleanup) const char *notify = NULL;
-        if (arg_accept)
+        if (arg_accept) {
+                r = install_chld_handler();
+                if (r < 0)
+                        return r;
+
                 notify = notify_start(NOTIFY_READY, NOTIFY_STOPPING);
+        }
 
         for (;;) {
                 struct epoll_event event;
