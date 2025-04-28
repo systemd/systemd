@@ -107,6 +107,26 @@ ForEachMacros:
   - STRV_FOREACH
   - STRV_FOREACH_BACKWARDS
   - STRV_FOREACH_PAIR
+IncludeBlocks: Regroup
+IncludeCategories:
+  # To start a new block, bump Priority with 1.
+  # To sort lower within the same block, bump SortPriority with 1.
+  # <net/if.h> and <netinet/in.h> must be included before any <linux/*.h>.
+  - Regex:           '^<net/if\.h>$'
+    Priority:        1
+    SortPriority:    1
+  - Regex:           '^<netinet/in\.h>$'
+    Priority:        1
+    SortPriority:    1
+  - Regex:           '^<.*\.h>$'
+    Priority:        1
+    SortPriority:    2
+  - Regex:           '^"sd-.*\.h"$'
+    Priority:        2
+    SortPriority:    3
+  - Regex:           '.*'
+    Priority:        3
+    SortPriority:    4
 IndentPPDirectives: AfterHash
 IndentWidth: 8
 IndentWrappedFunctionNames: true
