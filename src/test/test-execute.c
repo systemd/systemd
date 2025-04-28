@@ -490,6 +490,17 @@ static void test_exec_privatetmp(Manager *m) {
         if (MANAGER_IS_SYSTEM(m) || have_userns_privileges()) {
                 test(m, "exec-privatetmp-yes.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
                 test(m, "exec-privatetmp-disabled-by-prefix.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
+
+                (void) unlink("/var/tmp/test-exec_privatetmp_disconnected");
+                test(m, "exec-privatetmp-disconnected.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
+                ASSERT_FAIL(access("/var/tmp/test-exec_privatetmp_disconnected", F_OK));
+        }
+
+        if (MANAGER_IS_SYSTEM(m)) {
+                ASSERT_OK(mount_nofollow_verbose(LOG_DEBUG, "tmpfs", "/var/", "tmpfs", MS_NOSUID|MS_NODEV, NULL));
+                test(m, "exec-privatetmp-disconnected.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
+                ASSERT_OK_POSITIVE(dir_is_empty("/var/", /* ignore_hidden_or_backup= */ false));
+                ASSERT_OK(umount_verbose(LOG_DEBUG, "/var/", /* flags = */ 0));
         }
 
         test(m, "exec-privatetmp-no.service", 0, CLD_EXITED);

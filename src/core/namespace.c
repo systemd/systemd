@@ -60,6 +60,7 @@ typedef enum MountMode {
         MOUNT_PRIVATE_DEV,
         MOUNT_BIND_DEV,
         MOUNT_EMPTY_DIR,
+        MOUNT_EMPTY_DIR_WHEN_EMPTY,
         MOUNT_PRIVATE_SYSFS,
         MOUNT_BIND_SYSFS,
         MOUNT_PROCFS,
@@ -263,6 +264,7 @@ static const char * const mount_mode_table[_MOUNT_MODE_MAX] = {
         [MOUNT_PRIVATE_DEV]           = "private-dev",
         [MOUNT_BIND_DEV]              = "bind-dev",
         [MOUNT_EMPTY_DIR]             = "empty-dir",
+        [MOUNT_EMPTY_DIR_WHEN_EMPTY]  = "empty-dir-when-empty",
         [MOUNT_PRIVATE_SYSFS]         = "private-sysfs",
         [MOUNT_BIND_SYSFS]            = "bind-sysfs",
         [MOUNT_PRIVATE_CGROUP2FS]     = "private-cgroup2fs",
@@ -1790,6 +1792,16 @@ static int apply_one_mount(
                 break;
         }
 
+        case MOUNT_EMPTY_DIR_WHEN_EMPTY:
+                r = dir_is_empty(mount_entry_path(m), /* ignore_hidden_or_backup= */ false);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to check if %s is empty or not: %m", mount_entry_path(m));
+                if (r == 0) {
+                        log_debug("Directory %s is not empty, skipping mounting an empty directory on it.", mount_entry_path(m));
+                        return 0; /* skipped */
+                }
+
+                _fallthrough_;
         case MOUNT_EMPTY_DIR:
         case MOUNT_PRIVATE_TMPFS:
         case MOUNT_TMPFS:
@@ -1907,6 +1919,11 @@ static int apply_one_mount(
         return 1;
 }
 
+static bool propagate_attribute_to_submounts(const MountEntry *m) {
+        assert(m);
+        return !IN_SET(m->mode, MOUNT_EMPTY_DIR, MOUNT_EMPTY_DIR_WHEN_EMPTY, MOUNT_TMPFS, MOUNT_PRIVATE_TMPFS);
+}
+
 static int make_read_only(const MountEntry *m, char **deny_list, FILE *proc_self_mountinfo) {
         unsigned long new_flags = 0, flags_mask = 0;
         bool submounts;
@@ -1935,9 +1952,7 @@ static int make_read_only(const MountEntry *m, char **deny_list, FILE *proc_self
          * nothing further down.  Set /dev readonly, but not submounts like /dev/shm. Also, we only set the
          * per-mount read-only flag.  We can't set it on the superblock, if we are inside a user namespace
          * and running Linux <= 4.17. */
-        submounts =
-                mount_entry_read_only(m) &&
-                !IN_SET(m->mode, MOUNT_EMPTY_DIR, MOUNT_TMPFS, MOUNT_PRIVATE_TMPFS);
+        submounts = mount_entry_read_only(m) && propagate_attribute_to_submounts(m);
         if (submounts)
                 r = bind_remount_recursive_with_mountinfo(mount_entry_path(m), new_flags, flags_mask, deny_list, proc_self_mountinfo);
         else
@@ -1977,8 +1992,7 @@ static int make_noexec(const MountEntry *m, char **deny_list, FILE *proc_self_mo
         if (flags_mask == 0) /* No Change? */
                 return 0;
 
-        submounts = !IN_SET(m->mode, MOUNT_EMPTY_DIR, MOUNT_TMPFS, MOUNT_PRIVATE_TMPFS);
-
+        submounts = propagate_attribute_to_submounts(m);
         if (submounts)
                 r = bind_remount_recursive_with_mountinfo(mount_entry_path(m), new_flags, flags_mask, deny_list, proc_self_mountinfo);
         else
@@ -2002,7 +2016,7 @@ static int make_nosuid(const MountEntry *m, FILE *proc_self_mountinfo) {
         if (m->state != MOUNT_APPLIED)
                 return 0;
 
-        submounts = !IN_SET(m->mode, MOUNT_EMPTY_DIR, MOUNT_TMPFS, MOUNT_PRIVATE_TMPFS);
+        submounts = propagate_attribute_to_submounts(m);
         if (submounts)
                 r = bind_remount_recursive_with_mountinfo(mount_entry_path(m), MS_NOSUID, MS_NOSUID, NULL, proc_self_mountinfo);
         else
@@ -2454,7 +2468,7 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
          * directories, as they are world writable and ephemeral uid/gid will be used. */
         if (p->private_tmp == PRIVATE_TMP_DISCONNECTED) {
                 _cleanup_free_ char *tmpfs_dir = NULL, *tmp_dir = NULL, *var_tmp_dir = NULL;
-                MountEntry *tmpfs_entry, *tmp_entry, *var_tmp_entry;
+                MountEntry *tmpfs_entry, *tmp_entry, *var_entry, *var_tmp_entry;
 
                 tmpfs_dir = path_join(p->private_namespace_dir, "unit-private-tmp");
                 tmp_dir = path_join(tmpfs_dir, "tmp");
@@ -2482,6 +2496,17 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                         .mode = MOUNT_BIND,
                         .source_dir_mode = 01777,
                         .create_source_dir = true,
+                };
+
+                var_entry = mount_list_extend(&ml);
+                if (!var_entry)
+                        return log_oom_debug();
+                *var_entry = (MountEntry) {
+                        .path_const = "/var",
+                        .mode = MOUNT_EMPTY_DIR_WHEN_EMPTY,
+                        .read_only = true,
+                        .options_const = "mode=0755" TMPFS_LIMITS_EMPTY_OR_ALMOST,
+                        .flags = MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME,
                 };
 
                 var_tmp_entry = mount_list_extend(&ml);
