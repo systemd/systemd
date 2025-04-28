@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Test for PrivateTmp=disconnected
+
+[Service]
+ExecStart=sh -x -c 'test ! -f /tmp/test-exec_privatetmp'
+ExecStart=sh -x -c 'if [[ ! -d /var/lib ]]; then (! touch /var/hoge); fi'
+ExecStart=touch /var/tmp/test-exec_privatetmp_disconnected
+Type=oneshot
+PrivateTmp=disconnected
