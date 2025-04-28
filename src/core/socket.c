@@ -3,12 +3,12 @@
 #include <arpa/inet.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <linux/sctp.h>
 #include <mqueue.h>
 #include <netinet/tcp.h>
 #include <sys/epoll.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include <linux/sctp.h>
 
 #include "alloc-util.h"
 #include "bpf-firewall.h"
@@ -46,8 +46,8 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
-#include "unit-name.h"
 #include "unit.h"
+#include "unit-name.h"
 #include "user-util.h"
 
 struct SocketPeer {

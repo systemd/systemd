@@ -13,10 +13,10 @@
 #include <stdlib.h>
 #include <sys/file.h>
 #include <sys/ioctl.h>
-#include <sysexits.h>
-#include <termios.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sysexits.h>
+#include <termios.h>
 #include <unistd.h>
 
 #include "alloc-util.h"

@@ -1,12 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/fib_rules.h>
+#include <linux/if.h>
+#include <linux/nexthop.h>
+#include <linux/nl80211.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <unistd.h>
-#include <linux/if.h>
-#include <linux/fib_rules.h>
-#include <linux/nexthop.h>
-#include <linux/nl80211.h>
 
 #include "sd-netlink.h"
 
@@ -34,9 +34,9 @@
 #include "mount-util.h"
 #include "netlink-util.h"
 #include "network-internal.h"
+#include "networkd-address.h"
 #include "networkd-address-label.h"
 #include "networkd-address-pool.h"
-#include "networkd-address.h"
 #include "networkd-dhcp-server-bus.h"
 #include "networkd-dhcp6.h"
 #include "networkd-link-bus.h"

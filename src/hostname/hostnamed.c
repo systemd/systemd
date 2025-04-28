@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
-#include <sys/utsname.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/utsname.h>
 #include <unistd.h>
 
 #include "sd-device.h"
@@ -18,8 +18,8 @@
 #include "constants.h"
 #include "daemon-util.h"
 #include "device-private.h"
-#include "env-file-label.h"
 #include "env-file.h"
+#include "env-file-label.h"
 #include "env-util.h"
 #include "fileio.h"
 #include "hostname-setup.h"

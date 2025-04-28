@@ -7,8 +7,8 @@
 #include "special.h"
 #include "string-util.h"
 #include "target.h"
-#include "unit-name.h"
 #include "unit.h"
+#include "unit-name.h"
 
 static const UnitActiveState state_translation_table[_TARGET_STATE_MAX] = {
         [TARGET_DEAD]   = UNIT_INACTIVE,

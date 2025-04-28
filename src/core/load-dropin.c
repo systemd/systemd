@@ -10,8 +10,8 @@
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
-#include "unit-name.h"
 #include "unit.h"
+#include "unit-name.h"
 
 int unit_find_dropin_paths(Unit *u, bool use_unit_path_cache, char ***paths) {
         assert(u);

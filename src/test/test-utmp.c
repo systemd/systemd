@@ -4,8 +4,8 @@
 #include "socket-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
-#include "utmp-wtmp.h"
 #include "tests.h"
+#include "utmp-wtmp.h"
 
 #define UTX_LINESIZE sizeof_field(struct utmpx, ut_line)
 #define UTX_NAMESIZE sizeof_field(struct utmpx, ut_user)

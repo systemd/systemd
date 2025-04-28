@@ -2,8 +2,8 @@
 
 #include "alloc-util.h"
 #include "device-util.h"
-#include "netlink-util.h"
 #include "netif-sriov.h"
+#include "netlink-util.h"
 #include "parse-util.h"
 #include "set.h"
 #include "stdio-util.h"

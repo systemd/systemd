@@ -1,9 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-event.h"
+
 #include "alloc-util.h"
 #include "fuzz-journald.h"
 #include "journald-server.h"
-#include "sd-event.h"
 
 void dummy_server_init(Server *s, const uint8_t *buffer, size_t size) {
         assert(s);
