@@ -1820,6 +1820,8 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         <varname>Requires=</varname>, <varname>After=</varname> dependencies on
         <filename>var.mount</filename>, <emphasis>nor</emphasis> <varname>After=</varname> ordering on
         <citerefentry><refentrytitle>systemd-tmpfiles-setup.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+        And, if <filename>/var/tmp/</filename> does not exist when the service being started, another
+        read-only tmpfs will be mounted on <filename>/var/</filename>.
         If the service needs to access files under <filename>/var/</filename>, then the service should have
         explicit dependency on <varname>RequiresMountsFor=/var/</varname> and <varname>After=</varname>
         ordering on
