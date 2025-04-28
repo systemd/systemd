@@ -9,8 +9,8 @@
 #include <errno.h>
 #include <stdio.h>
 
-#include "sd-bus.h"
 #include "sd-bus-vtable.h"
+#include "sd-bus.h"
 
 #ifndef __cplusplus
 #  include "bus-objects.h"

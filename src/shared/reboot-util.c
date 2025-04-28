@@ -8,9 +8,9 @@
 
 #if HAVE_XENCTRL
 #define __XEN_INTERFACE_VERSION__ 0x00040900
-#include <xen/xen.h>
 #include <xen/kexec.h>
 #include <xen/sys/privcmd.h>
+#include <xen/xen.h>
 #endif
 
 #include "alloc-util.h"

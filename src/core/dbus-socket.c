@@ -11,9 +11,9 @@
 #include "ip-protocol-list.h"
 #include "parse-util.h"
 #include "path-util.h"
-#include "socket.h"
 #include "socket-netlink.h"
 #include "socket-util.h"
+#include "socket.h"
 #include "string-util.h"
 #include "unit.h"
 

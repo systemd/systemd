@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
+#include <linux/vt.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>
-#include <linux/vt.h>
 
 #include "sd-device.h"
 
@@ -19,13 +19,13 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "limits-util.h"
-#include "logind.h"
 #include "logind-button.h"
 #include "logind-device.h"
 #include "logind-seat.h"
 #include "logind-session.h"
 #include "logind-user.h"
 #include "logind-utmp.h"
+#include "logind.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"

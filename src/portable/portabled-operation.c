@@ -5,8 +5,8 @@
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "log.h"
-#include "portabled.h"
 #include "portabled-operation.h"
+#include "portabled.h"
 #include "process-util.h"
 
 static int operation_done(sd_event_source *s, const siginfo_t *si, void *userdata) {

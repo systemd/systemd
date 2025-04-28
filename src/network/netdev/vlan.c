@@ -1,10 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 /* Make sure the net/if.h header is included before any linux/ one */
-#include <net/if.h>
 #include <errno.h>
 #include <linux/if_arp.h>
 #include <linux/if_vlan.h>
+#include <net/if.h>
 
 #include "parse-util.h"
 #include "vlan-util.h"

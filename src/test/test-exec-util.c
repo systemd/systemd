@@ -6,8 +6,8 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
-#include "copy.h"
 #include "constants.h"
+#include "copy.h"
 #include "env-util.h"
 #include "exec-util.h"
 #include "fd-util.h"

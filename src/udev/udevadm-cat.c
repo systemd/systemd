@@ -7,8 +7,8 @@
 #include "pretty-print.h"
 #include "static-destruct.h"
 #include "strv.h"
-#include "udevadm.h"
 #include "udevadm-util.h"
+#include "udevadm.h"
 
 static char *arg_root = NULL;
 static CatFlags arg_cat_flags = 0;

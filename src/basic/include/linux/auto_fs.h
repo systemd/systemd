@@ -13,8 +13,8 @@
 #ifndef _LINUX_AUTO_FS_H
 #define _LINUX_AUTO_FS_H
 
-#include <linux/types.h>
 #include <linux/limits.h>
+#include <linux/types.h>
 #include <sys/ioctl.h>
 
 #define AUTOFS_PROTO_VERSION		5

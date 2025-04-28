@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "analyze.h"
 #include "analyze-blame.h"
 #include "analyze-time-data.h"
+#include "analyze.h"
 #include "format-table.h"
 
 int verb_blame(int argc, char *argv[], void *userdata) {

@@ -8,9 +8,9 @@
 #include "networkd-manager.h"
 #include "networkd-network.h"
 #include "networkd-nexthop.h"
-#include "networkd-route.h"
 #include "networkd-route-nexthop.h"
 #include "networkd-route-util.h"
+#include "networkd-route.h"
 #include "parse-util.h"
 #include "string-util.h"
 

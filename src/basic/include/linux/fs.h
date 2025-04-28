@@ -10,10 +10,10 @@
  * linux-api@vger.kernel.org.
  */
 
-#include <linux/limits.h>
-#include <linux/ioctl.h>
-#include <linux/types.h>
 #include <linux/fscrypt.h>
+#include <linux/ioctl.h>
+#include <linux/limits.h>
+#include <linux/types.h>
 
 /* Use of MS_* flags within the kernel is restricted to core mount(2) code. */
 #include <linux/mount.h>

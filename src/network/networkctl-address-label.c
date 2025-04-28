@@ -7,8 +7,8 @@
 #include "format-table.h"
 #include "in-addr-util.h"
 #include "log.h"
-#include "networkctl.h"
 #include "networkctl-address-label.h"
+#include "networkctl.h"
 
 static int dump_address_labels(sd_netlink *rtnl) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;

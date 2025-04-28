@@ -24,10 +24,11 @@
 #include <netinet/in.h>
 #include <sys/types.h>
 
-#include "_sd-common.h"
 #include "sd-event.h"
 #include "sd-ndisc-protocol.h"
 #include "sd-ndisc-router-solicit.h"
+
+#include "_sd-common.h"
 
 _SD_BEGIN_DECLARATIONS;
 
