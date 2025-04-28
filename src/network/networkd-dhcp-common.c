@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <netinet/in.h>
-#include <linux/if_arp.h>
 
 #include "bus-error.h"
 #include "bus-locator.h"
@@ -20,6 +19,8 @@
 #include "string-table.h"
 #include "strv.h"
 #include "vrf.h"
+
+#include <linux/if_arp.h>
 
 static uint32_t link_get_vrf_table(Link *link) {
         assert(link);

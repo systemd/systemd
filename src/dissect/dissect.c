@@ -2,7 +2,6 @@
 
 #include <fcntl.h>
 #include <getopt.h>
-#include <linux/loop.h>
 #include <stdio.h>
 #include <sys/file.h>
 #include <sys/ioctl.h>
@@ -54,6 +53,8 @@
 #include "uid-classification.h"
 #include "user-util.h"
 #include "vpick.h"
+
+#include <linux/loop.h>
 
 static enum {
         ACTION_DISSECT,

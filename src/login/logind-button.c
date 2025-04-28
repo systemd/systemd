@@ -2,7 +2,6 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <linux/input.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
 
@@ -11,10 +10,12 @@
 #include "alloc-util.h"
 #include "async.h"
 #include "fd-util.h"
-#include "logind.h"
 #include "logind-button.h"
 #include "logind-dbus.h"
+#include "logind.h"
 #include "string-util.h"
+
+#include <linux/input.h>
 
 /* KEY_RESTART is the highest value key in keys_interested. */
 #define _KEY_MAX_INTERESTED KEY_RESTART

@@ -8,10 +8,10 @@
 #include <inttypes.h>
 
 #include "sd-dhcp6-lease.h"
-#include "dns-resolver-internal.h"
 
 #include "dhcp6-option.h"
 #include "dhcp6-protocol.h"
+#include "dns-resolver-internal.h"
 #include "macro.h"
 #include "set.h"
 #include "time-util.h"

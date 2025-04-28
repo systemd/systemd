@@ -5,8 +5,8 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
-#include <syslog.h>
 #include <sys/stat.h>
+#include <syslog.h>
 
 #include "alloc-util.h"
 #include "hashmap.h"

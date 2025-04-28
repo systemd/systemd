@@ -2,9 +2,9 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <sys/prctl.h>
-#include <stdint.h>
 
 #include "sd-daemon.h"
 
@@ -19,8 +19,8 @@
 #include "journal-remote.h"
 #include "log.h"
 #include "macro.h"
-#include "parse-util.h"
 #include "parse-helpers.h"
+#include "parse-util.h"
 #include "process-util.h"
 #include "socket-util.h"
 #include "stdio-util.h"

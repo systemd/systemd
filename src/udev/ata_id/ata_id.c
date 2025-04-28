@@ -9,8 +9,6 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
-#include <linux/bsg.h>
-#include <linux/hdreg.h>
 #include <scsi/scsi.h>
 #include <scsi/scsi_ioctl.h>
 #include <scsi/sg.h>
@@ -31,6 +29,9 @@
 #include "memory-util.h"
 #include "udev-util.h"
 #include "unaligned.h"
+
+#include <linux/bsg.h>
+#include <linux/hdreg.h>
 
 #define COMMAND_TIMEOUT_MSEC (30 * 1000)
 

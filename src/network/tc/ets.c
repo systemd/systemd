@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/pkt_sched.h>
-
 #include "alloc-util.h"
 #include "conf-parser.h"
 #include "ets.h"
@@ -12,6 +10,8 @@
 #include "qdisc.h"
 #include "string-util.h"
 #include "tc-util.h"
+
+#include <linux/pkt_sched.h>
 
 static int enhanced_transmission_selection_fill_message(Link *link, QDisc *qdisc, sd_netlink_message *req) {
         EnhancedTransmissionSelection *ets;

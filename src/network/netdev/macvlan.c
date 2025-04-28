@@ -3,13 +3,14 @@
 /* Make sure the net/if.h header is included before any linux/ one */
 #include <net/if.h>
 #include <netinet/in.h>
-#include <linux/if_arp.h>
 
 #include "conf-parser.h"
-#include "macvlan.h"
 #include "macvlan-util.h"
+#include "macvlan.h"
 #include "networkd-network.h"
 #include "parse-util.h"
+
+#include <linux/if_arp.h>
 
 typedef enum BCQueueThreshold {
         BC_QUEUE_THRESHOLD_UNDEF   = INT32_MIN,

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "analyze.h"
 #include "analyze-smbios11.h"
+#include "analyze.h"
 #include "escape.h"
 #include "smbios11.h"
 #include "virt.h"

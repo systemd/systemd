@@ -4,11 +4,6 @@
 #include <net/if.h>
 #include <netinet/ether.h>
 #include <netinet/in.h>
-#include <linux/fou.h>
-#include <linux/genetlink.h>
-#include <linux/if_macsec.h>
-#include <linux/l2tp.h>
-#include <linux/nl80211.h>
 #include <unistd.h>
 
 #include "sd-netlink.h"
@@ -24,6 +19,12 @@
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
+
+#include <linux/fou.h>
+#include <linux/genetlink.h>
+#include <linux/if_macsec.h>
+#include <linux/l2tp.h>
+#include <linux/nl80211.h>
 
 TEST(message_newlink_bridge) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;

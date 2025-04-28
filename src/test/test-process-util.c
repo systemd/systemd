@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
-#include <linux/oom.h>
 #include <pthread.h>
 #include <sys/eventfd.h>
 #include <sys/mount.h>
@@ -11,6 +10,8 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+
+#include <linux/oom.h>
 #if HAVE_VALGRIND_VALGRIND_H
 #include <valgrind/valgrind.h>
 #endif

@@ -2,7 +2,6 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <linux/prctl.h>
 #include <poll.h>
 #include <sys/file.h>
 #include <sys/mman.h>
@@ -31,8 +30,8 @@
 #include "errno-list.h"
 #include "escape.h"
 #include "exec-credential.h"
-#include "execute.h"
 #include "execute-serialize.h"
+#include "execute.h"
 #include "exit-status.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -44,8 +43,8 @@
 #include "lock-util.h"
 #include "log.h"
 #include "macro.h"
-#include "manager.h"
 #include "manager-dump.h"
+#include "manager.h"
 #include "memory-util.h"
 #include "missing_fs.h"
 #include "mkdir-label.h"
@@ -73,6 +72,8 @@
 #include "unit-serialize.h"
 #include "user-util.h"
 #include "utmp-wtmp.h"
+
+#include <linux/prctl.h>
 
 static bool is_terminal_input(ExecInput i) {
         return IN_SET(i,

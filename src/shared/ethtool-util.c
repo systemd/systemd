@@ -2,9 +2,6 @@
 
 #include <net/if.h>
 #include <sys/ioctl.h>
-#include <linux/ethtool.h>
-#include <linux/netdevice.h>
-#include <linux/sockios.h>
 
 #include "conf-parser.h"
 #include "ethtool-util.h"
@@ -17,6 +14,10 @@
 #include "string-table.h"
 #include "strv.h"
 #include "strxcpyx.h"
+
+#include <linux/ethtool.h>
+#include <linux/netdevice.h>
+#include <linux/sockios.h>
 
 static const char* const duplex_table[_DUP_MAX] = {
         [DUP_FULL] = "full",

@@ -2,9 +2,10 @@
 #pragma once
 
 #include <netinet/in.h>
-#include <linux/if_bridge.h>
 
 #include "conf-parser.h"
+
+#include <linux/if_bridge.h>
 
 typedef enum BridgeState {
         NETDEV_BRIDGE_STATE_DISABLED   = BR_STATE_DISABLED,

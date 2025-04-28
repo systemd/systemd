@@ -1,8 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
-#include <linux/audit.h>
-#include <linux/netlink.h>
 #include <stdio.h>
 #include <sys/socket.h>
 
@@ -18,6 +16,9 @@
 #include "stat-util.h"
 #include "user-util.h"
 #include "virt.h"
+
+#include <linux/audit.h>
+#include <linux/netlink.h>
 
 static int audit_read_field(const PidRef *pid, const char *field, char **ret) {
         int r;

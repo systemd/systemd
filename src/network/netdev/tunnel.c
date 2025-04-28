@@ -1,11 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <netinet/in.h>
-#include <linux/fou.h>
-#include <linux/if_arp.h>
-#include <linux/if_tunnel.h>
-#include <linux/ip.h>
-#include <linux/ip6_tunnel.h>
 
 #include "af-list.h"
 #include "conf-parser.h"
@@ -18,6 +13,12 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "tunnel.h"
+
+#include <linux/fou.h>
+#include <linux/if_arp.h>
+#include <linux/if_tunnel.h>
+#include <linux/ip.h>
+#include <linux/ip6_tunnel.h>
 
 #define DEFAULT_IPV6_TTL   64
 #define IP6_FLOWINFO_FLOWLABEL  htobe32(0x000FFFFF)

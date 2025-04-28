@@ -4,8 +4,8 @@
 
 #include "env-util.h"
 #include "iovec-util.h"
-#include "log.h"
 #include "log-context.h"
+#include "log.h"
 #include "strv.h"
 
 static int saved_log_context_enabled = -1;

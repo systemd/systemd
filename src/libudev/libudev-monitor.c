@@ -3,14 +3,13 @@
 #include <errno.h>
 #include <poll.h>
 
-#include "libudev.h"
-
 #include "alloc-util.h"
 #include "device-monitor-private.h"
 #include "device-private.h"
 #include "device-util.h"
 #include "io-util.h"
 #include "libudev-device-internal.h"
+#include "libudev.h"
 #include "string-util.h"
 
 /**

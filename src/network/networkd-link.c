@@ -3,10 +3,6 @@
 /* Make sure the net/if.h header is included before any linux/ one */
 #include <net/if.h>
 #include <netinet/in.h>
-#include <linux/if.h>
-#include <linux/if_arp.h>
-#include <linux/if_link.h>
-#include <linux/netdevice.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
@@ -72,6 +68,11 @@
 #include "tuntap.h"
 #include "udev-util.h"
 #include "vrf.h"
+
+#include <linux/if.h>
+#include <linux/if_arp.h>
+#include <linux/if_link.h>
+#include <linux/netdevice.h>
 
 void link_required_operstate_for_online(Link *link, LinkOperationalStateRange *ret) {
         assert(link);

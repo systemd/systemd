@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later
  * Copyright © 2019 VMware, Inc. */
 
-#include <linux/pkt_sched.h>
 #include <math.h>
 
 #include "alloc-util.h"
@@ -14,6 +13,8 @@
 #include "strv.h"
 #include "tbf.h"
 #include "tc-util.h"
+
+#include <linux/pkt_sched.h>
 
 static int token_bucket_filter_fill_message(Link *link, QDisc *qdisc, sd_netlink_message *req) {
         uint32_t rtab[256], ptab[256];

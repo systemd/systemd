@@ -1,8 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <linux/nl80211.h>
-
 #include "sd-bus.h"
 #include "sd-device.h"
 #include "sd-lldp-tx.h"
@@ -30,6 +28,8 @@
 #include "ordered-set.h"
 #include "resolve-util.h"
 #include "socket-netlink.h"
+
+#include <linux/nl80211.h>
 
 typedef enum KeepConfiguration {
         KEEP_CONFIGURATION_NO               = 0,

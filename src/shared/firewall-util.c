@@ -5,8 +5,8 @@
 #include <string.h>
 
 #include "alloc-util.h"
-#include "firewall-util.h"
 #include "firewall-util-private.h"
+#include "firewall-util.h"
 #include "log.h"
 #include "netlink-util.h"
 #include "string-table.h"

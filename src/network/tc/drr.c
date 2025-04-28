@@ -1,14 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later
  * Copyright © 2020 VMware, Inc. */
 
-#include <linux/pkt_sched.h>
-
 #include "alloc-util.h"
 #include "conf-parser.h"
 #include "drr.h"
 #include "netlink-util.h"
 #include "parse-util.h"
 #include "string-util.h"
+
+#include <linux/pkt_sched.h>
 
 const QDiscVTable drr_vtable = {
         .object_size = sizeof(DeficitRoundRobinScheduler),

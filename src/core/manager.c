@@ -2,7 +2,6 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <linux/kd.h>
 #include <sys/epoll.h>
 #include <sys/inotify.h>
 #include <sys/ioctl.h>
@@ -11,6 +10,8 @@
 #include <sys/timerfd.h>
 #include <sys/wait.h>
 #include <unistd.h>
+
+#include <linux/kd.h>
 
 #if HAVE_AUDIT
 #include <libaudit.h>
@@ -63,9 +64,9 @@
 #include "locale-setup.h"
 #include "log.h"
 #include "macro.h"
-#include "manager.h"
 #include "manager-dump.h"
 #include "manager-serialize.h"
+#include "manager.h"
 #include "memory-util.h"
 #include "mkdir-label.h"
 #include "mount-util.h"

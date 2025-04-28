@@ -1,14 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later
  * Copyright © 2020 VMware, Inc. */
 
-#include <linux/pkt_sched.h>
-
 #include "alloc-util.h"
 #include "conf-parser.h"
 #include "gred.h"
 #include "netlink-util.h"
 #include "parse-util.h"
 #include "string-util.h"
+
+#include <linux/pkt_sched.h>
 
 static int generic_random_early_detection_init(QDisc *qdisc) {
         GenericRandomEarlyDetection *gred;

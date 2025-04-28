@@ -3,9 +3,9 @@
 
 typedef struct Hsr Hsr;
 
-#include <linux/if_link.h>
-
 #include "netdev.h"
+
+#include <linux/if_link.h>
 
 typedef enum HsrProtocol {
         NETDEV_HSR_PROTOCOL_HSR = HSR_PROTOCOL_HSR,

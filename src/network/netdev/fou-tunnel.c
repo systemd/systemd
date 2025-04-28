@@ -2,9 +2,7 @@
 
 /* Make sure the net/if.h header is included before any linux/ one */
 #include <net/if.h>
-#include <linux/fou.h>
 #include <netinet/in.h>
-#include <linux/ip.h>
 
 #include "conf-parser.h"
 #include "fou-tunnel.h"
@@ -14,6 +12,9 @@
 #include "parse-util.h"
 #include "string-table.h"
 #include "string-util.h"
+
+#include <linux/fou.h>
+#include <linux/ip.h>
 
 static const char* const fou_encap_type_table[_NETDEV_FOO_OVER_UDP_ENCAP_MAX] = {
         [NETDEV_FOO_OVER_UDP_ENCAP_DIRECT] = "FooOverUDP",

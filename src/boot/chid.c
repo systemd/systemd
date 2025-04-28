@@ -14,8 +14,8 @@
  * https://github.com/aarch64-laptops/edk2/blob/dtbloader-app/EmbeddedPkg/Application/ConfigTableLoader/CHID.c
  */
 
-#include "chid.h"
 #include "chid-fundamental.h"
+#include "chid.h"
 #include "efi.h"
 #include "sha1-fundamental.h"
 #include "smbios.h"

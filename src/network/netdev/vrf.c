@@ -2,10 +2,11 @@
 
 /* Make sure the net/if.h header is included before any linux/ one */
 #include <net/if.h>
-#include <linux/if_arp.h>
 #include <netinet/in.h>
 
 #include "vrf.h"
+
+#include <linux/if_arp.h>
 
 static int netdev_vrf_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
         assert(!link);

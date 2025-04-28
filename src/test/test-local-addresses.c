@@ -2,7 +2,6 @@
 
 /* Make sure the net/if.h header is included before any linux/ one */
 #include <net/if.h>
-#include <linux/if.h>
 #include <stdio.h>
 
 #include "af-list.h"
@@ -12,6 +11,8 @@
 #include "local-addresses.h"
 #include "netlink-util.h"
 #include "tests.h"
+
+#include <linux/if.h>
 
 static bool support_rta_via = false;
 

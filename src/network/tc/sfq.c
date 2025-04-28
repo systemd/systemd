@@ -1,8 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later
  * Copyright © 2019 VMware, Inc. */
 
-#include <linux/pkt_sched.h>
-
 #include "alloc-util.h"
 #include "conf-parser.h"
 #include "netlink-util.h"
@@ -10,6 +8,8 @@
 #include "qdisc.h"
 #include "sfq.h"
 #include "string-util.h"
+
+#include <linux/pkt_sched.h>
 
 static int stochastic_fairness_queueing_fill_message(Link *link, QDisc *qdisc, sd_netlink_message *req) {
         StochasticFairnessQueueing *sfq;

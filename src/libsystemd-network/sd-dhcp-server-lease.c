@@ -3,8 +3,8 @@
 #include "dhcp-server-lease-internal.h"
 #include "fd-util.h"
 #include "fs-util.h"
-#include "json-util.h"
 #include "iovec-util.h"
+#include "json-util.h"
 #include "mkdir.h"
 #include "tmpfile-util.h"
 

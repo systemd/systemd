@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/prctl.h>
 #include <stdio.h>
 #include <sys/mount.h>
 #include <sys/prctl.h>
@@ -10,8 +9,8 @@
 
 #include "build-path.h"
 #include "capability-util.h"
-#include "cpu-set-util.h"
 #include "copy.h"
+#include "cpu-set-util.h"
 #include "dropin.h"
 #include "errno-list.h"
 #include "fd-util.h"
@@ -27,14 +26,16 @@
 #include "seccomp-util.h"
 #include "service.h"
 #include "signal-util.h"
-#include "static-destruct.h"
 #include "stat-util.h"
+#include "static-destruct.h"
 #include "sysctl-util.h"
 #include "tests.h"
 #include "tmpfile-util.h"
 #include "unit.h"
 #include "user-util.h"
 #include "virt.h"
+
+#include <linux/prctl.h>
 
 #define PRIVATE_UNIT_DIR "/run/test-execute-unit-dir"
 

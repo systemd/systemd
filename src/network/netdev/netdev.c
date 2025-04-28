@@ -3,7 +3,6 @@
 /* Make sure the net/if.h header is included before any linux/ one */
 #include <net/if.h>
 #include <netinet/in.h>
-#include <linux/if_arp.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -53,6 +52,8 @@
 #include "wireguard.h"
 #include "wlan.h"
 #include "xfrm.h"
+
+#include <linux/if_arp.h>
 
 const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_BAREUDP]   = &bare_udp_vtable,

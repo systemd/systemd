@@ -2,7 +2,6 @@
 
 /* Make sure the net/if.h header is included before any linux/ one */
 #include <net/if.h>
-#include <linux/if_addrlabel.h>
 
 #include "alloc-util.h"
 #include "netlink-util.h"
@@ -12,6 +11,8 @@
 #include "networkd-network.h"
 #include "networkd-queue.h"
 #include "parse-util.h"
+
+#include <linux/if_addrlabel.h>
 
 AddressLabel *address_label_free(AddressLabel *label) {
         if (!label)

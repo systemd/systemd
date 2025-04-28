@@ -4,7 +4,6 @@
 ***/
 
 #include <netinet/in.h>
-#include <linux/if_bridge.h>
 #include <stdbool.h>
 
 #include "alloc-util.h"
@@ -16,6 +15,8 @@
 #include "networkd-network.h"
 #include "parse-util.h"
 #include "vlan-util.h"
+
+#include <linux/if_bridge.h>
 
 static bool is_bit_set(unsigned nr, const uint32_t *addr) {
         assert(nr < BRIDGE_VLAN_BITMAP_MAX);

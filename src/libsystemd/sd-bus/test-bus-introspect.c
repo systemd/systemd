@@ -2,9 +2,8 @@
 
 #include "bus-introspect.h"
 #include "log.h"
-#include "tests.h"
-
 #include "test-vtable-data.h"
+#include "tests.h"
 
 static void test_manual_introspection_one(const sd_bus_vtable vtable[]) {
         struct introspect intro = {};

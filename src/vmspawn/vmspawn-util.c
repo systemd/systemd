@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <unistd.h>
-#include <linux/vhost.h>
 #include <sys/ioctl.h>
+#include <unistd.h>
 
 #include "sd-json.h"
 
@@ -27,6 +26,8 @@
 #include "string-util.h"
 #include "strv.h"
 #include "vmspawn-util.h"
+
+#include <linux/vhost.h>
 
 static const char* const architecture_to_qemu_table[_ARCHITECTURE_MAX] = {
         [ARCHITECTURE_ARM64]       = "aarch64",     /* differs from our name */

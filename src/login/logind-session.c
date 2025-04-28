@@ -2,8 +2,6 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <linux/kd.h>
-#include <linux/vt.h>
 #include <signal.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
@@ -25,16 +23,16 @@
 #include "fs-util.h"
 #include "io-util.h"
 #include "login-util.h"
-#include "logind.h"
 #include "logind-dbus.h"
-#include "logind-seat.h"
 #include "logind-seat-dbus.h"
+#include "logind-seat.h"
 #include "logind-session-dbus.h"
 #include "logind-session-device.h"
 #include "logind-session.h"
-#include "logind-user.h"
 #include "logind-user-dbus.h"
+#include "logind-user.h"
 #include "logind-varlink.h"
+#include "logind.h"
 #include "mkdir-label.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -46,6 +44,9 @@
 #include "tmpfile-util.h"
 #include "uid-classification.h"
 #include "user-util.h"
+
+#include <linux/kd.h>
+#include <linux/vt.h>
 
 #define RELEASE_USEC (20*USEC_PER_SEC)
 

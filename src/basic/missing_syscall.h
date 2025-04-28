@@ -4,12 +4,13 @@
 /* Missing glibc definitions to access certain kernel APIs */
 
 #include <errno.h>
-#include <linux/time_types.h>
 #include <signal.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+
+#include <linux/time_types.h>
 
 #ifdef ARCH_MIPS
 #include <asm/sgidefs.h>

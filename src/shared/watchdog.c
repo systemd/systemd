@@ -5,7 +5,6 @@
 #include <sys/ioctl.h>
 #include <syslog.h>
 #include <unistd.h>
-#include <linux/watchdog.h>
 
 #include "sd-messages.h"
 
@@ -19,6 +18,8 @@
 #include "string-util.h"
 #include "time-util.h"
 #include "watchdog.h"
+
+#include <linux/watchdog.h>
 
 static int watchdog_fd = -EBADF;
 static char *watchdog_device = NULL;

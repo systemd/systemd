@@ -5,7 +5,6 @@
 
 #include <errno.h>
 #include <getopt.h>
-#include <linux/reboot.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <sys/mman.h>
@@ -49,6 +48,8 @@
 #include "umount.h"
 #include "virt.h"
 #include "watchdog.h"
+
+#include <linux/reboot.h>
 
 #define SYNC_PROGRESS_ATTEMPTS 3
 #define SYNC_TIMEOUT_USEC (10*USEC_PER_SEC)

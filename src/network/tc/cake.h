@@ -2,10 +2,10 @@
  * Copyright © 2020 VMware, Inc. */
 #pragma once
 
-#include <linux/pkt_sched.h>
-
 #include "conf-parser.h"
 #include "qdisc.h"
+
+#include <linux/pkt_sched.h>
 
 typedef enum CakeCompensationMode {
         CAKE_COMPENSATION_MODE_NONE = CAKE_ATM_NONE,

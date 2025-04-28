@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "analyze.h"
 #include "analyze-unit-paths.h"
+#include "analyze.h"
 #include "path-lookup.h"
 #include "strv.h"
 

@@ -3,7 +3,6 @@
 #include <elf.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <linux/random.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -29,6 +28,8 @@
 #include "random-util.h"
 #include "sha256.h"
 #include "time-util.h"
+
+#include <linux/random.h>
 
 /* This is a "best effort" kind of thing, but has no real security value. So, this should only be used by
  * random_bytes(), which is not meant for crypto. This could be made better, but we're *not* trying to roll a

@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
-#include <linux/prctl.h>
 #include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -23,6 +22,8 @@
 #include "process-util.h"
 #include "stat-util.h"
 #include "user-util.h"
+
+#include <linux/prctl.h>
 
 int have_effective_cap(int value) {
         _cleanup_cap_free_ cap_t cap = NULL;

@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
-#include <linux/magic.h>
 #include <sched.h>
 #include <sys/eventfd.h>
 #include <sys/mount.h>
@@ -20,6 +19,8 @@
 #include "stat-util.h"
 #include "tests.h"
 #include "tmpfile-util.h"
+
+#include <linux/magic.h>
 
 TEST(statx_definitions) {
         /* Check if linux/stat.h is included from sys/stat.h. */

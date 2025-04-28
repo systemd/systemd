@@ -6,8 +6,6 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <linux/blkpg.h>
-#include <linux/loop.h>
 #include <sys/file.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
@@ -23,8 +21,8 @@
 #include "env-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
-#include "fs-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "loop-util.h"
 #include "missing_fs.h"
 #include "parse-util.h"
@@ -34,6 +32,9 @@
 #include "stdio-util.h"
 #include "string-util.h"
 #include "tmpfile-util.h"
+
+#include <linux/blkpg.h>
+#include <linux/loop.h>
 
 static void cleanup_clear_loop_close(int *fd) {
         if (*fd < 0)

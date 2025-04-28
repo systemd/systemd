@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <linux/nl80211.h>
 #include <stdbool.h>
 
 #include "sd-device.h"
@@ -9,6 +8,8 @@
 #include "conf-parser.h"
 #include "ether-addr-util.h"
 #include "set.h"
+
+#include <linux/nl80211.h>
 
 typedef struct NetMatch {
         Set *hw_addr;

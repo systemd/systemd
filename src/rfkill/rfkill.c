@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
-#include <linux/rfkill.h>
 #include <poll.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -24,6 +23,8 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "udev-util.h"
+
+#include <linux/rfkill.h>
 
 /* Note that any write is delayed until exit and the rfkill state will not be
  * stored for rfkill indices that disappear after a change. */
