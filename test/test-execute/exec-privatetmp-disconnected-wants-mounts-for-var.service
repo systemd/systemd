@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Test for PrivateTmp=disconnected with WantsMountsFor=/var/
+DefaultDependencies=no
+WantsMountsFor=/var/
+
+[Service]
+ExecStart=sh -x -c 'test ! -f /tmp/test-exec_privatetmp'
+ExecStart=touch /tmp/test-exec_privatetmp_disconnected
+ExecStart=touch /var/tmp/test-exec_privatetmp_disconnected
+ExecStart=sh -x -c 'test x$$TMPDIR = x'
+Type=oneshot
+ProtectSystem=strict
+PrivateTmp=disconnected
