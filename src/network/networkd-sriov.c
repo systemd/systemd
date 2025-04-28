@@ -16,11 +16,8 @@ static int sr_iov_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req,
         assert(link);
 
         r = sd_netlink_message_get_errno(m);
-        if (r < 0 && r != -EEXIST) {
-                log_link_message_error_errno(link, m, r, "Could not set up SR-IOV");
-                link_enter_failed(link);
-                return 1;
-        }
+        if (r < 0)
+                log_link_message_warning_errno(link, m, r, "Failed to set up SR-IOV virtual function, ignoring");
 
         if (link->sr_iov_messages == 0) {
                 log_link_debug(link, "SR-IOV configured");
