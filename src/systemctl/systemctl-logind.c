@@ -9,10 +9,10 @@
 #include "login-util.h"
 #include "mountpoint-util.h"
 #include "process-util.h"
+#include "systemctl.h"
 #include "systemctl-logind.h"
 #include "systemctl-start-unit.h"
 #include "systemctl-util.h"
-#include "systemctl.h"
 #include "terminal-util.h"
 #include "user-util.h"
 

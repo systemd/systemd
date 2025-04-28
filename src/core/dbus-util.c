@@ -8,9 +8,9 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "reboot-util.h"
+#include "unit.h"
 #include "unit-printf.h"
 #include "user-util.h"
-#include "unit.h"
 
 int bus_property_get_triggered_unit(
                 sd_bus *bus,

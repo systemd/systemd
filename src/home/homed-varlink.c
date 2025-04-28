@@ -6,8 +6,8 @@
 #include "json-util.h"
 #include "log.h"
 #include "strv.h"
-#include "user-record-util.h"
 #include "user-record.h"
+#include "user-record-util.h"
 #include "user-util.h"
 
 typedef struct LookupParameters {

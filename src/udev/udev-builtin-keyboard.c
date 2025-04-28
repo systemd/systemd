@@ -2,9 +2,9 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <linux/input.h>
 #include <stdlib.h>
 #include <sys/ioctl.h>
-#include <linux/input.h>
 
 #include "device-util.h"
 #include "fd-util.h"

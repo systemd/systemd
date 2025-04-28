@@ -6,10 +6,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "libudev.h"
-
 #include "alloc-util.h"
 #include "fd-util.h"
+#include "libudev.h"
 #include "log.h"
 #include "string-util.h"
 

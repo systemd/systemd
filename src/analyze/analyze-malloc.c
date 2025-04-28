@@ -2,8 +2,8 @@
 
 #include "sd-bus.h"
 
-#include "analyze-malloc.h"
 #include "analyze.h"
+#include "analyze-malloc.h"
 #include "bus-error.h"
 #include "bus-internal.h"
 #include "bus-message-util.h"

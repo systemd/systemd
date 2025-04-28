@@ -2,7 +2,6 @@
 #pragma once
 
 #include "libudev.h"
-
 #include "memory-util.h"
 
 struct udev_list;

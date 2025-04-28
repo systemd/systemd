@@ -11,9 +11,9 @@
 #include "locale-util.h"
 #include "memory-util.h"
 #include "sort-util.h"
+#include "systemctl.h"
 #include "systemctl-list-machines.h"
 #include "systemctl-util.h"
-#include "systemctl.h"
 #include "terminal-util.h"
 
 const struct bus_properties_map machine_info_property_map[] = {

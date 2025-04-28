@@ -16,12 +16,10 @@
 #ifndef _IPTABLES_H
 #define _IPTABLES_H
 
-#include <linux/types.h>
-
 #include <linux/if.h>
-#include <linux/netfilter_ipv4.h>
-
 #include <linux/netfilter/x_tables.h>
+#include <linux/netfilter_ipv4.h>
+#include <linux/types.h>
 
 #define IPT_FUNCTION_MAXNAMELEN XT_FUNCTION_MAXNAMELEN
 #define IPT_TABLE_MAXNAMELEN XT_TABLE_MAXNAMELEN

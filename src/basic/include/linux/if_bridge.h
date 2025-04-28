@@ -14,9 +14,9 @@
 #ifndef _LINUX_IF_BRIDGE_H
 #define _LINUX_IF_BRIDGE_H
 
-#include <linux/types.h>
 #include <linux/if_ether.h>
 #include <linux/in6.h>
+#include <linux/types.h>
 
 #define SYSFS_BRIDGE_ATTR	"bridge"
 #define SYSFS_BRIDGE_FDB	"brforward"

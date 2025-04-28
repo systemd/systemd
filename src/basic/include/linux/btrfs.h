@@ -24,9 +24,9 @@
 extern "C" {
 #endif
 
-#include <linux/types.h>
-#include <linux/ioctl.h>
 #include <linux/fs.h>
+#include <linux/ioctl.h>
+#include <linux/types.h>
 
 #define BTRFS_IOCTL_MAGIC 0x94
 #define BTRFS_VOL_NAME_MAX 255
