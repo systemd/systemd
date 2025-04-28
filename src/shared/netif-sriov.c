@@ -107,6 +107,18 @@ DEFINE_PRIVATE_HASH_OPS(
         sr_iov_hash_func,
         sr_iov_compare_func);
 
+bool sr_iov_has_config(SRIOV *sr_iov) {
+        assert(sr_iov);
+
+        return
+                !ether_addr_is_null(&sr_iov->mac) ||
+                sr_iov->vf_spoof_check_setting >= 0 ||
+                sr_iov->query_rss >= 0 ||
+                sr_iov->trust >= 0 ||
+                sr_iov->link_state >= 0 ||
+                sr_iov->vlan > 0;
+}
+
 int sr_iov_set_netlink_message(SRIOV *sr_iov, sd_netlink_message *req) {
         int r;
 

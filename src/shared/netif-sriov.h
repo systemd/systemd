@@ -35,6 +35,7 @@ typedef struct SRIOV {
 
 void sr_iov_hash_func(const SRIOV *sr_iov, struct siphash *state);
 int sr_iov_compare_func(const SRIOV *s1, const SRIOV *s2);
+bool sr_iov_has_config(SRIOV *sr_iov);
 int sr_iov_set_netlink_message(SRIOV *sr_iov, sd_netlink_message *req);
 int sr_iov_get_num_vfs(sd_device *device, uint32_t *ret);
 int sr_iov_set_num_vfs(sd_device *device, uint32_t num_vfs, OrderedHashmap *sr_iov_by_section);
