@@ -923,7 +923,7 @@ static int link_apply_sr_iov_config(Link *link) {
                 r = sr_iov_configure(link, &link->event->rtnl, sr_iov);
                 if (r < 0)
                         log_link_warning_errno(link, r,
-                                               "Failed to configure SR-IOV virtual function %"PRIu32", ignoring: %m",
+                                               "Failed to set up SR-IOV virtual function %"PRIu32", ignoring: %m",
                                                sr_iov->vf);
         }
 
