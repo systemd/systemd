@@ -1241,6 +1241,71 @@ testcase_14_refuse_record_types() {
     (! run varlinkctl call /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.ResolveService '{"name":"","type":"_mysvc._tcp","domain":"signed.test"}')
 }
 
+# Test systemd-networkd-wait-online interactions with systemd-resolved
+testcase_15_wait_online_dns() {
+    # Cleanup
+    # shellcheck disable=SC2317
+    cleanup() {
+        echo "===== journalctl -u "$unit" ====="
+        journalctl -b --no-pager --no-hostname --full -u "$unit"
+        echo "=========="
+        rm -f /run/systemd/resolved.conf.d/global-dns.conf
+        restart_resolved
+        resolvectl revert dns0
+    }
+
+    trap cleanup RETURN ERR
+
+    local unit
+
+    unit="wait-online-dns-$(systemd-id128 new -u).service"
+
+    # Clear global and per-interface DNS before monitoring the configuration change.
+    mkdir -p /run/systemd/resolved.conf.d/
+    {
+        echo "[Resolve]"
+        echo "DNS="
+        echo "FallbackDNS="
+    } > /run/systemd/resolved.conf.d/global-dns.conf
+    systemctl reload systemd-resolved.service
+    resolvectl dns dns0 ""
+    resolvectl domain dns0 ""
+
+    # Stop systemd-resolved before calling systemd-networkd-wait-online. It should retry connections.
+    systemctl stop systemd-resolved.service
+
+    # Begin systemd-networkd-wait-online --dns
+    systemd-run -u "$unit" -p "Environment=SYSTEMD_LOG_LEVEL=debug" -p "Environment=SYSTEMD_LOG_TARGET=journal" -p "Type=exec" \
+        /usr/lib/systemd/systemd-networkd-wait-online --timeout=20 --dns --interface=dns0
+
+    # Wait until a connection attempt is refused
+    timeout 10 bash -c "until journalctl -b -u $unit --grep='Failed to connect to /run/systemd/resolve/io.systemd.Resolve.Monitor: Connection refused' > /dev/null; do sleep 0.1; done"
+    systemctl start systemd-resolved.service
+
+    # Wait until a retry attempt succeeds
+    timeout 10 bash -c "until journalctl -b -u $unit --grep='dns0: No.*DNS server is accessible' > /dev/null; do sleep 0.1; done"
+
+    # Update the global configuration. Restart rather than reload systemd-resolved so that
+    # systemd-networkd-wait-online has to re-connect to the varlink service.
+    mkdir -p /run/systemd/resolved.conf.d/
+    {
+        echo "[Resolve]"
+        echo "DNS=10.0.0.1"
+    } > /run/systemd/resolved.conf.d/global-dns.conf
+    systemctl restart systemd-resolved.service
+
+    # Wait for the monitor to exit gracefully.
+    while systemctl --quiet is-active "$unit"; do
+        sleep 0.5
+    done
+
+    # Check that a disconnect happened, and was handled.
+    journalctl -b -u "$unit" --grep="DNS configuration monitor disconnected, reconnecting..." > /dev/null
+
+    # Check that dns0 was found to be online.
+    journalctl -b -u "$unit" --grep="dns0: link is configured by networkd and online." > /dev/null
+}
+
 # PRE-SETUP
 systemctl unmask systemd-resolved.service
 systemctl enable --now systemd-resolved.service

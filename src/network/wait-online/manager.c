@@ -10,6 +10,7 @@
 
 #include "alloc-util.h"
 #include "dns-configuration.h"
+#include "event-util.h"
 #include "json-util.h"
 #include "link.h"
 #include "manager.h"
@@ -338,6 +339,39 @@ static int manager_network_monitor_listen(Manager *m) {
         return 0;
 }
 
+static int manager_dns_configuration_listen(Manager *m);
+
+static int on_retry_dns_configuration_listen(sd_event_source *e, uint64_t usec, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+
+        m->varlink_client = sd_varlink_unref(m->varlink_client);
+        m->varlink_retry_timer = sd_event_source_disable_unref(m->varlink_retry_timer);
+
+        return manager_dns_configuration_listen(m);
+}
+
+static int manager_retry_dns_configuration_listen(Manager *m) {
+        int r;
+
+        assert(m);
+
+        r = event_reset_time_relative(
+                        m->event,
+                        &m->varlink_retry_timer,
+                        CLOCK_MONOTONIC,
+                        2 * USEC_PER_SEC,
+                        /* accuracy= */ 0,
+                        on_retry_dns_configuration_listen,
+                        m,
+                        SD_EVENT_PRIORITY_NORMAL,
+                        "retry-dns-configuration-listen",
+                        /* force_reset= */ false);
+        if (r < 0)
+                return log_error_errno(r, "Failed to install retry timer: %m");
+
+        return 0;
+}
+
 static int on_dns_configuration_event(
                 sd_varlink *link,
                 sd_json_variant *parameters,
@@ -352,6 +386,12 @@ static int on_dns_configuration_event(
         assert(link);
 
         if (error_id) {
+                if (streq(error_id, SD_VARLINK_ERROR_DISCONNECTED)) {
+                        log_debug("DNS configuration monitor disconnected, reconnecting...");
+
+                        return manager_retry_dns_configuration_listen(m);
+                }
+
                 log_warning("DNS configuration event error, ignoring: %s", error_id);
                 return 0;
         }
@@ -412,6 +452,8 @@ static int manager_dns_configuration_listen(Manager *m) {
                 return 0;
 
         r = sd_varlink_connect_address(&vl, "/run/systemd/resolve/io.systemd.Resolve.Monitor");
+        if (ERRNO_IS_NEG_DISCONNECT(r))
+                return manager_retry_dns_configuration_listen(m);
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to io.systemd.Resolve.Monitor: %m");
 
@@ -516,6 +558,7 @@ Manager* manager_free(Manager *m) {
 
         dns_configuration_free(m->dns_configuration);
         hashmap_free(m->dns_configuration_by_link_index);
+        sd_event_source_disable_unref(m->varlink_retry_timer);
 
         return mfree(m);
 }
