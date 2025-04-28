@@ -1191,11 +1191,27 @@ static int introspect(int argc, char **argv, void *userdata) {
 }
 
 static int message_dump(sd_bus_message *m, FILE *f) {
-        return sd_bus_message_dump(m, f, SD_BUS_MESSAGE_DUMP_WITH_HEADER);
+        int r;
+
+        assert(m);
+
+        r = sd_bus_message_dump(m, f, SD_BUS_MESSAGE_DUMP_WITH_HEADER);
+        if (r < 0)
+                return log_error_errno(r, "Failed to dump DBus message: %m");
+
+        return 0;
 }
 
 static int message_pcap(sd_bus_message *m, FILE *f) {
-        return bus_message_pcap_frame(m, arg_snaplen, f);
+        int r;
+
+        assert(m);
+
+        r = bus_message_pcap_frame(m, arg_snaplen, f);
+        if (r < 0)
+                return log_error_errno(r, "Failed to dump DBus message in PCAP format: %m");
+
+        return 0;
 }
 
 static int message_json(sd_bus_message *m, FILE *f) {
