@@ -2,8 +2,8 @@
 
 #include "alloc-util.h"
 #include "netlink-util.h"
-#include "networkd-route.h"
 #include "networkd-route-metric.h"
+#include "networkd-route.h"
 #include "parse-util.h"
 #include "string-util.h"
 

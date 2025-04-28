@@ -3,11 +3,11 @@
 #if HAVE_SELINUX
 #include <selinux/selinux.h>
 #endif
+#include <linux/sockios.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <sys/signalfd.h>
 #include <sys/statvfs.h>
-#include <linux/sockios.h>
 
 #include "sd-daemon.h"
 #include "sd-journal.h"

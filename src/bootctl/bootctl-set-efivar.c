@@ -3,10 +3,10 @@
 #include <uchar.h>
 #include <unistd.h>
 
-#include "bootctl.h"
 #include "bootctl-set-efivar.h"
-#include "efivars.h"
+#include "bootctl.h"
 #include "efi-loader.h"
+#include "efivars.h"
 #include "stdio-util.h"
 #include "utf8.h"
 #include "virt.h"

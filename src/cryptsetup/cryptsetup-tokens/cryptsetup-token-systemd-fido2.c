@@ -4,8 +4,8 @@
 #include <libcryptsetup.h>
 #include <string.h>
 
-#include "cryptsetup-token.h"
 #include "cryptsetup-token-util.h"
+#include "cryptsetup-token.h"
 #include "hexdecoct.h"
 #include "json-util.h"
 #include "luks2-fido2.h"

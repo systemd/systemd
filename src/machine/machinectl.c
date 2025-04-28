@@ -15,8 +15,8 @@
 
 #include "alloc-util.h"
 #include "ask-password-agent.h"
-#include "build.h"
 #include "build-path.h"
+#include "build.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-locator.h"

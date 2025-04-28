@@ -6,8 +6,8 @@
 
 #include "btrfs-util.h"
 #include "fs-util.h"
-#include "label.h"
 #include "label-util.h"
+#include "label.h"
 #include "macro.h"
 #include "selinux-util.h"
 #include "smack-util.h"

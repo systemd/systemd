@@ -10,8 +10,8 @@
 #include "device-util.h"
 #include "log.h"
 #include "udev-builtin.h"
-#include "udevadm.h"
 #include "udevadm-util.h"
+#include "udevadm.h"
 
 static sd_device_action_t arg_action = SD_DEVICE_ADD;
 static const char *arg_command = NULL;

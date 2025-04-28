@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "fuzz.h"
-
 #include <sys/mman.h>
 
 #include "sd-journal.h"
@@ -10,6 +8,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "fuzz.h"
 #include "journal-remote.h"
 #include "logs-show.h"
 #include "memfd-util.h"

@@ -6,8 +6,8 @@
 #include "device-private.h"
 #include "netif-naming-scheme.h"
 #include "proc-cmdline.h"
-#include "string-util.h"
 #include "string-table.h"
+#include "string-util.h"
 
 static const NamingScheme naming_schemes[] = {
         { "v238", NAMING_V238 },

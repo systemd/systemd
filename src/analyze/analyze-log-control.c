@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "analyze.h"
 #include "analyze-log-control.h"
+#include "analyze.h"
 #include "verb-log-control.h"
 
 int verb_log_control(int argc, char *argv[], void *userdata) {

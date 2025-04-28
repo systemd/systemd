@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "analyze.h"
 #include "analyze-srk.h"
+#include "analyze.h"
 #include "fileio.h"
 #include "tpm2-util.h"
 

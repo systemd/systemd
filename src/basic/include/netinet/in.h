@@ -4,8 +4,8 @@
 #include <linux/in.h>
 #include <linux/in6.h>
 #include <linux/ipv6.h>
-#include <stdint.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <sys/socket.h>
 
 #define INET_ADDRSTRLEN 16

@@ -4,9 +4,9 @@
 ***/
 
 #include <arpa/inet.h>
-#include <netinet/icmp6.h>
 #include <linux/if.h>
 #include <linux/if_arp.h>
+#include <netinet/icmp6.h>
 
 #include "sd-ndisc.h"
 
