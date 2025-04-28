@@ -1907,6 +1907,11 @@ static int apply_one_mount(
         return 1;
 }
 
+static bool propagate_attribute_to_submounts(const MountEntry *m) {
+        assert(m);
+        return !IN_SET(m->mode, MOUNT_EMPTY_DIR, MOUNT_TMPFS, MOUNT_PRIVATE_TMPFS);
+}
+
 static int make_read_only(const MountEntry *m, char **deny_list, FILE *proc_self_mountinfo) {
         unsigned long new_flags = 0, flags_mask = 0;
         bool submounts;
@@ -1935,9 +1940,7 @@ static int make_read_only(const MountEntry *m, char **deny_list, FILE *proc_self
          * nothing further down.  Set /dev readonly, but not submounts like /dev/shm. Also, we only set the
          * per-mount read-only flag.  We can't set it on the superblock, if we are inside a user namespace
          * and running Linux <= 4.17. */
-        submounts =
-                mount_entry_read_only(m) &&
-                !IN_SET(m->mode, MOUNT_EMPTY_DIR, MOUNT_TMPFS, MOUNT_PRIVATE_TMPFS);
+        submounts = mount_entry_read_only(m) && propagate_attribute_to_submounts(m);
         if (submounts)
                 r = bind_remount_recursive_with_mountinfo(mount_entry_path(m), new_flags, flags_mask, deny_list, proc_self_mountinfo);
         else
@@ -1977,8 +1980,7 @@ static int make_noexec(const MountEntry *m, char **deny_list, FILE *proc_self_mo
         if (flags_mask == 0) /* No Change? */
                 return 0;
 
-        submounts = !IN_SET(m->mode, MOUNT_EMPTY_DIR, MOUNT_TMPFS, MOUNT_PRIVATE_TMPFS);
-
+        submounts = propagate_attribute_to_submounts(m);
         if (submounts)
                 r = bind_remount_recursive_with_mountinfo(mount_entry_path(m), new_flags, flags_mask, deny_list, proc_self_mountinfo);
         else
@@ -2002,7 +2004,7 @@ static int make_nosuid(const MountEntry *m, FILE *proc_self_mountinfo) {
         if (m->state != MOUNT_APPLIED)
                 return 0;
 
-        submounts = !IN_SET(m->mode, MOUNT_EMPTY_DIR, MOUNT_TMPFS, MOUNT_PRIVATE_TMPFS);
+        submounts = propagate_attribute_to_submounts(m);
         if (submounts)
                 r = bind_remount_recursive_with_mountinfo(mount_entry_path(m), MS_NOSUID, MS_NOSUID, NULL, proc_self_mountinfo);
         else
