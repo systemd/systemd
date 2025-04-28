@@ -6,8 +6,8 @@ typedef struct VxLan VxLan;
 #include <linux/if_link.h>
 
 #include "in-addr-util.h"
-#include "netdev-util.h"
 #include "netdev.h"
+#include "netdev-util.h"
 
 #define VXLAN_VID_MAX (1u << 24) - 1
 #define VXLAN_FLOW_LABEL_MAX_MASK 0xFFFFFU

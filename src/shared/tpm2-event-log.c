@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "tpm2-event-log.h"
-
 #include "sort-util.h"
+#include "tpm2-event-log.h"
 
 typedef struct tpm2_log_event_type_info {
         uint32_t event_type;

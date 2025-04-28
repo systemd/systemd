@@ -1,21 +1,20 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <netinet/in.h>
-#include <netinet/ip.h>
 #include <linux/if.h>
 #include <linux/if_arp.h>
+#include <netinet/in.h>
+#include <netinet/ip.h>
 
 #include "alloc-util.h"
 #include "device-private.h"
 #include "dhcp-client-internal.h"
 #include "hostname-setup.h"
 #include "hostname-util.h"
-#include "parse-util.h"
 #include "network-internal.h"
 #include "networkd-address.h"
 #include "networkd-dhcp-prefix-delegation.h"
-#include "networkd-dhcp4-bus.h"
 #include "networkd-dhcp4.h"
+#include "networkd-dhcp4-bus.h"
 #include "networkd-ipv4ll.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
@@ -26,6 +25,7 @@
 #include "networkd-route.h"
 #include "networkd-setlink.h"
 #include "networkd-state-file.h"
+#include "parse-util.h"
 #include "string-table.h"
 #include "strv.h"
 #include "sysctl-util.h"

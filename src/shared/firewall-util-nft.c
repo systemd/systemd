@@ -3,13 +3,13 @@
 #include <arpa/inet.h>
 #include <endian.h>
 #include <errno.h>
-#include <stddef.h>
-#include <string.h>
-#include <linux/netfilter/nf_tables.h>
 #include <linux/netfilter/nf_nat.h>
+#include <linux/netfilter/nf_tables.h>
 #include <linux/netfilter_ipv4.h>
 #include <netinet/ip.h>
 #include <netinet/ip6.h>
+#include <stddef.h>
+#include <string.h>
 
 #include "sd-netlink.h"
 

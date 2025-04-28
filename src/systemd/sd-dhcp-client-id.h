@@ -20,9 +20,8 @@
 #include <inttypes.h>
 #include <sys/types.h>
 
-#include "sd-dhcp-duid.h"
-
 #include "_sd-common.h"
+#include "sd-dhcp-duid.h"
 
 _SD_BEGIN_DECLARATIONS;
 

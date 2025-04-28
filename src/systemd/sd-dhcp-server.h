@@ -21,11 +21,10 @@
 #include <inttypes.h>
 #include <netinet/in.h>
 
+#include "_sd-common.h"
 #include "sd-dhcp-lease.h"
 #include "sd-dhcp-option.h"
 #include "sd-event.h"
-
-#include "_sd-common.h"
 
 _SD_BEGIN_DECLARATIONS;
 

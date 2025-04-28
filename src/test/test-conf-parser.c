@@ -2,8 +2,8 @@
 
 #include "conf-parser.h"
 #include "fd-util.h"
-#include "fs-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "log.h"
 #include "macro.h"
 #include "mkdir.h"

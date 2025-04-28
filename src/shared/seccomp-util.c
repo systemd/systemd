@@ -9,9 +9,11 @@
 #include <sys/shm.h>
 #include <sys/stat.h>
 
+/* clang-format off */
 /* include missing_syscall_def.h earlier to make __SNR_foo mapped to __NR_foo. */
 #include "missing_syscall_def.h"
 #include <seccomp.h>
+/* clang-format on */
 
 #include "af-list.h"
 #include "alloc-util.h"

@@ -1,10 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-/* Make sure the net/if.h header is included before any linux/ one */
-#include <net/if.h>
 #include <arpa/inet.h>
 #include <errno.h>
 #include <limits.h>
+#include <linux/if.h>
+#include <net/if.h>
 #include <netdb.h>
 #include <netinet/ip.h>
 #include <poll.h>
@@ -14,7 +14,6 @@
 #include <stdlib.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
-#include <linux/if.h>
 
 #include "alloc-util.h"
 #include "errno-util.h"

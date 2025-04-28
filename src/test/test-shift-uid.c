@@ -4,9 +4,9 @@
 
 #include "log.h"
 #include "shift-uid.h"
-#include "user-util.h"
 #include "string-util.h"
 #include "tests.h"
+#include "user-util.h"
 
 int main(int argc, char *argv[]) {
         uid_t shift, range;

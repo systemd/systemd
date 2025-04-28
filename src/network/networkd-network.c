@@ -1,9 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-/* Make sure the net/if.h header is included before any linux/ one */
+#include <linux/netdevice.h>
 #include <net/if.h>
 #include <netinet/in.h>
-#include <linux/netdevice.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -16,8 +15,8 @@
 #include "net-condition.h"
 #include "netdev/macvlan.h"
 #include "network-util.h"
-#include "networkd-address-label.h"
 #include "networkd-address.h"
+#include "networkd-address-label.h"
 #include "networkd-bridge-fdb.h"
 #include "networkd-bridge-mdb.h"
 #include "networkd-dhcp-common.h"

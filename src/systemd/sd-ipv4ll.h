@@ -22,9 +22,8 @@
 #include <net/ethernet.h>
 #include <netinet/in.h>
 
-#include "sd-event.h"
-
 #include "_sd-common.h"
+#include "sd-event.h"
 
 _SD_BEGIN_DECLARATIONS;
 

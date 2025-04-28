@@ -5,8 +5,8 @@
 #include "errno-util.h"
 #include "format-util.h"
 #include "log.h"
-#include "procfs-util.h"
 #include "process-util.h"
+#include "procfs-util.h"
 #include "tests.h"
 
 int main(int argc, char *argv[]) {

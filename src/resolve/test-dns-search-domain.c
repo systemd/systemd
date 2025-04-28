@@ -1,10 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "log.h"
 #include "resolved-dns-search-domain.h"
 #include "resolved-link.h"
 #include "resolved-manager.h"
-
-#include "log.h"
 #include "tests.h"
 
 static void check_domains(DnsSearchDomain *head, const char **expected, size_t n) {

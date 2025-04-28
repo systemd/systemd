@@ -4,8 +4,8 @@
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdio.h>
-#include <syslog.h>
 #include <sys/types.h>
+#include <syslog.h>
 #include <termios.h>
 #include <unistd.h>
 

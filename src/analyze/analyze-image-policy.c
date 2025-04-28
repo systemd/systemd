@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "analyze-image-policy.h"
 #include "analyze.h"
+#include "analyze-image-policy.h"
 #include "format-table.h"
 #include "image-policy.h"
 #include "terminal-util.h"

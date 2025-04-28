@@ -23,8 +23,8 @@
 #include "log.h"
 #include "manager.h"
 #include "mkdir-label.h"
-#include "mount-setup.h"
 #include "mount.h"
+#include "mount-setup.h"
 #include "mountpoint-util.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -35,8 +35,8 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
-#include "unit-name.h"
 #include "unit.h"
+#include "unit-name.h"
 #include "utf8.h"
 
 #define RETRY_UMOUNT_MAX 32

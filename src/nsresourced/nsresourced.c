@@ -4,9 +4,9 @@
 #include <sys/types.h>
 
 #include "daemon-util.h"
-#include "nsresourced-manager.h"
 #include "log.h"
 #include "main-func.h"
+#include "nsresourced-manager.h"
 #include "signal-util.h"
 
 static int run(int argc, char *argv[]) {
