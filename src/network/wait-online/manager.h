@@ -38,6 +38,7 @@ struct Manager {
         sd_varlink *varlink_client;
         DNSConfiguration *dns_configuration;
         Hashmap *dns_configuration_by_link_index;
+        sd_event_source *varlink_retry_timer;
 };
 
 Manager* manager_free(Manager *m);
