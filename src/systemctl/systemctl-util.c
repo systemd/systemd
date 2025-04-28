@@ -25,8 +25,8 @@
 #include "reboot-util.h"
 #include "set.h"
 #include "stat-util.h"
-#include "systemctl-util.h"
 #include "systemctl.h"
+#include "systemctl-util.h"
 #include "terminal-util.h"
 #include "verbs.h"
 

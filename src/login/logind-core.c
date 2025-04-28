@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
+#include <linux/vt.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>
-#include <linux/vt.h>
 
 #include "sd-device.h"
 

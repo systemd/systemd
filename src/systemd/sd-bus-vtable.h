@@ -20,8 +20,9 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "_sd-common.h"
 #include "sd-bus-protocol.h"
+
+#include "_sd-common.h"
 
 _SD_BEGIN_DECLARATIONS;
 

@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "efivars-fundamental.h"
 #include "efivars.h"
+#include "efivars-fundamental.h"
 #include "string-util.h"
 
 /* Various calls for interfacing with EFI variables from the official UEFI specs. */

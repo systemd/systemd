@@ -1,12 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 /* Make sure the net/if.h header is included before any linux/ one */
-#include <net/if.h>
-#include <netinet/in.h>
 #include <linux/if.h>
 #include <linux/if_arp.h>
 #include <linux/if_link.h>
 #include <linux/netdevice.h>
+#include <net/if.h>
+#include <netinet/in.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
@@ -32,8 +32,8 @@
 #include "missing_network.h"
 #include "netlink-util.h"
 #include "network-internal.h"
-#include "networkd-address-label.h"
 #include "networkd-address.h"
+#include "networkd-address-label.h"
 #include "networkd-bridge-fdb.h"
 #include "networkd-bridge-mdb.h"
 #include "networkd-bridge-vlan.h"
@@ -45,8 +45,8 @@
 #include "networkd-ipv4acd.h"
 #include "networkd-ipv4ll.h"
 #include "networkd-ipv6-proxy-ndp.h"
-#include "networkd-link-bus.h"
 #include "networkd-link.h"
+#include "networkd-link-bus.h"
 #include "networkd-lldp-tx.h"
 #include "networkd-manager.h"
 #include "networkd-ndisc.h"
@@ -54,8 +54,8 @@
 #include "networkd-nexthop.h"
 #include "networkd-queue.h"
 #include "networkd-radv.h"
-#include "networkd-route-util.h"
 #include "networkd-route.h"
+#include "networkd-route-util.h"
 #include "networkd-routing-policy-rule.h"
 #include "networkd-setlink.h"
 #include "networkd-sriov.h"

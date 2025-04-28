@@ -3,8 +3,8 @@
 #ifndef _LINUX_CFM_BRIDGE_H_
 #define _LINUX_CFM_BRIDGE_H_
 
-#include <linux/types.h>
 #include <linux/if_ether.h>
+#include <linux/types.h>
 
 #define ETHER_HEADER_LENGTH		(6+6+4+2)
 #define CFM_MAID_LENGTH			48

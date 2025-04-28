@@ -9,8 +9,8 @@
 #include "sd-event.h"
 #include "sd-varlink.h"
 
-#include "cgroup-util.h"
 #include "cgroup.h"
+#include "cgroup-util.h"
 #include "common-signal.h"
 #include "emergency-action.h"
 #include "execute.h"
@@ -23,8 +23,8 @@
 #include "ratelimit.h"
 #include "show-status.h"
 #include "transaction.h"
-#include "unit-name.h"
 #include "unit.h"
+#include "unit-name.h"
 
 struct libmnt_monitor;
 

@@ -4,8 +4,8 @@
 
 #include "alloc-util.h"
 #include "pretty-print.h"
-#include "systemctl-compat-runlevel.h"
 #include "systemctl.h"
+#include "systemctl-compat-runlevel.h"
 #include "terminal-util.h"
 #include "utmp-wtmp.h"
 

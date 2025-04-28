@@ -4,9 +4,9 @@
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "locale-util.h"
+#include "systemctl.h"
 #include "systemctl-list-jobs.h"
 #include "systemctl-util.h"
-#include "systemctl.h"
 #include "terminal-util.h"
 
 static int output_waiting_jobs(sd_bus *bus, Table *table, uint32_t id, const char *method, const char *prefix) {

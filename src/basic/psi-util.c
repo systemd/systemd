@@ -11,8 +11,8 @@
 #include "fileio.h"
 #include "parse-util.h"
 #include "psi-util.h"
-#include "string-util.h"
 #include "stat-util.h"
+#include "string-util.h"
 #include "strv.h"
 
 int read_resource_pressure(const char *path, PressureType type, ResourcePressure *ret) {

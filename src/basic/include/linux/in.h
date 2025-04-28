@@ -19,10 +19,10 @@
 #ifndef _LINUX_IN_H
 #define _LINUX_IN_H
 
-#include <linux/types.h>
-#include <linux/stddef.h>
 #include <linux/libc-compat.h>
 #include <linux/socket.h>
+#include <linux/stddef.h>
+#include <linux/types.h>
 
 #if __UAPI_DEF_IN_IPPROTO
 /* Standard well-defined IP protocols.  */

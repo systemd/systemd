@@ -2,10 +2,10 @@
 
 #include "bus-error.h"
 #include "bus-locator.h"
+#include "systemctl.h"
 #include "systemctl-add-dependency.h"
 #include "systemctl-daemon-reload.h"
 #include "systemctl-util.h"
-#include "systemctl.h"
 
 int verb_add_dependency(int argc, char *argv[], void *userdata) {
         _cleanup_strv_free_ char **names = NULL;

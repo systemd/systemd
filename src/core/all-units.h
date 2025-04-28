@@ -1,8 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "unit.h"
-
 #include "automount.h"
 #include "device.h"
 #include "mount.h"
@@ -14,3 +12,4 @@
 #include "swap.h"
 #include "target.h"
 #include "timer.h"
+#include "unit.h"

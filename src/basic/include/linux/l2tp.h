@@ -8,10 +8,10 @@
 #ifndef _LINUX_L2TP_H_
 #define _LINUX_L2TP_H_
 
-#include <linux/types.h>
-#include <linux/socket.h>
 #include <linux/in.h>
 #include <linux/in6.h>
+#include <linux/socket.h>
+#include <linux/types.h>
 
 /**
  * struct sockaddr_l2tpip - the sockaddr structure for L2TP-over-IP sockets

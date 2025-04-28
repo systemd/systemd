@@ -7,6 +7,7 @@
 #  include "util.h"
 #else
 #  include <stdlib.h>
+
 #  include "alloc-util.h"
 #  define xnew(t, n) ASSERT_SE_PTR(new(t, n))
 #  define xmalloc(n) ASSERT_SE_PTR(malloc(n))

@@ -2,9 +2,9 @@
 
 #include "bus-error.h"
 #include "bus-locator.h"
+#include "systemctl.h"
 #include "systemctl-trivial-method.h"
 #include "systemctl-util.h"
-#include "systemctl.h"
 
 /* A generic implementation for cases we just need to invoke a simple method call on the Manager object. */
 

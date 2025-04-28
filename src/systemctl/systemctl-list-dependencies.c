@@ -4,9 +4,9 @@
 #include "locale-util.h"
 #include "sort-util.h"
 #include "special.h"
+#include "systemctl.h"
 #include "systemctl-list-dependencies.h"
 #include "systemctl-util.h"
-#include "systemctl.h"
 #include "terminal-util.h"
 
 static int list_dependencies_print(const char *name, UnitActiveState state, int level, unsigned branches, bool last) {

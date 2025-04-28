@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <netinet/ether.h>
-#include <linux/if.h>
 #include <fnmatch.h>
+#include <linux/if.h>
+#include <netinet/ether.h>
 
 #include "sd-event.h"
 #include "sd-json.h"

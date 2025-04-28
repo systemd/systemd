@@ -9,8 +9,8 @@
 #include <threads.h>
 #include <unistd.h>
 
-#include "confidential-virt-fundamental.h"
 #include "confidential-virt.h"
+#include "confidential-virt-fundamental.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
