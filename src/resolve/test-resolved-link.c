@@ -3,14 +3,13 @@
 #include <net/if.h>
 #include <linux/if.h>
 
+#include "log.h"
 #include "netlink-internal.h"
 #include "resolved-dns-packet.h"
 #include "resolved-dns-scope.h"
 #include "resolved-dns-server.h"
 #include "resolved-link.h"
 #include "resolved-manager.h"
-
-#include "log.h"
 #include "tests.h"
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(LinkAddress*, link_address_free);

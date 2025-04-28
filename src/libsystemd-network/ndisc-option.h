@@ -1,15 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <netinet/in.h>
 #include <inttypes.h>
 #include <net/ethernet.h>
 #include <netinet/icmp6.h>
-#include <netinet/in.h>
 #include <netinet/ip6.h>
 #include <sys/uio.h>
 
-#include "sd-ndisc-protocol.h"
 #include "sd-dns-resolver.h"
+#include "sd-ndisc-protocol.h"
 
 #include "icmp6-packet.h"
 #include "macro.h"

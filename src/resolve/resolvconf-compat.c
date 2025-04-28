@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <getopt.h>
 #include <net/if.h>
+#include <getopt.h>
 
 #include "alloc-util.h"
 #include "build.h"

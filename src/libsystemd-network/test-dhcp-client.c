@@ -3,8 +3,8 @@
   Copyright © 2013 Intel Corporation. All rights reserved.
 ***/
 
-#include <errno.h>
 #include <net/if.h>
+#include <errno.h>
 #include <net/if_arp.h>
 #include <stdio.h>
 #include <sys/socket.h>

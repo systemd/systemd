@@ -5,8 +5,8 @@
   Copyright © 2014 Axis Communications AB. All rights reserved.
 ***/
 
-#include <net/ethernet.h>
 #include <netinet/in.h>
+#include <net/ethernet.h>
 
 #include "socket-util.h"
 #include "sparse-endian.h"

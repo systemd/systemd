@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/mount.h>
 #include <fcntl.h>
 #include <sys/ioctl.h>
-#include <sys/mount.h>
 
 #include "errno-util.h"
 #include "fd-util.h"

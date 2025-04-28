@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <unistd.h>
 #include <sys/types.h>
+#include <unistd.h>
 
 #include "bus-internal.h"
 #include "bus-message.h"

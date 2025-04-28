@@ -6,8 +6,8 @@
 #include <linux/if_arp.h>
 
 #include "conf-parser.h"
-#include "ipvlan.h"
 #include "ipvlan-util.h"
+#include "ipvlan.h"
 #include "networkd-link.h"
 #include "string-util.h"
 

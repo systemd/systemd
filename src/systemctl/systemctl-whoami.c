@@ -2,9 +2,9 @@
 
 #include "format-util.h"
 #include "parse-util.h"
-#include "systemctl.h"
 #include "systemctl-util.h"
 #include "systemctl-whoami.h"
+#include "systemctl.h"
 
 int verb_whoami(int argc, char *argv[], void *userdata) {
         sd_bus *bus;

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <stddef.h>
 #include <sys/mount.h>
+#include <stddef.h>
 
 #include "blockdev-util.h"
 #include "bus-unit-util.h"
@@ -14,7 +14,6 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "home-util.h"
-#include "homework.h"
 #include "homework-blob.h"
 #include "homework-cifs.h"
 #include "homework-directory.h"
@@ -23,6 +22,7 @@
 #include "homework-luks.h"
 #include "homework-mount.h"
 #include "homework-pkcs11.h"
+#include "homework.h"
 #include "json-util.h"
 #include "libcrypt-util.h"
 #include "main-func.h"

@@ -5,11 +5,11 @@
   Copyright © 2014-2015 Intel Corporation. All rights reserved.
 ***/
 
-#include <net/ethernet.h>
 #include <netinet/in.h>
+#include <net/ethernet.h>
 
-#include "sd-event.h"
 #include "sd-dhcp6-client.h"
+#include "sd-event.h"
 
 #include "dhcp-duid-internal.h"
 #include "dhcp6-client-internal.h"

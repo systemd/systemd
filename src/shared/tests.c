@@ -1,10 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/mount.h>
 #include <sched.h>
 #include <signal.h>
 #include <stdlib.h>
 #include <sys/mman.h>
-#include <sys/mount.h>
 #include <sys/wait.h>
 
 #include "sd-bus.h"

@@ -7,9 +7,9 @@
 #include "glob-util.h"
 #include "json-util.h"
 #include "log.h"
-#include "networkctl.h"
 #include "networkctl-description.h"
 #include "networkctl-util.h"
+#include "networkctl.h"
 #include "stdio-util.h"
 #include "strv.h"
 

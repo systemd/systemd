@@ -1,10 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/mount.h>
 #include <fcntl.h>
 #include <linux/oom.h>
 #include <pthread.h>
 #include <sys/eventfd.h>
-#include <sys/mount.h>
 #include <sys/personality.h>
 #include <sys/prctl.h>
 #include <sys/stat.h>

@@ -6,8 +6,8 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 
-#include "macro.h"
 #include "label-util.h"
+#include "macro.h"
 
 #if HAVE_SELINUX
 #include <selinux/selinux.h>

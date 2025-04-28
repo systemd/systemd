@@ -1,10 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/mount.h>
 #include <fcntl.h>
 #include <linux/magic.h>
 #include <sched.h>
 #include <sys/eventfd.h>
-#include <sys/mount.h>
 #include <unistd.h>
 
 #include "alloc-util.h"

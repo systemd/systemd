@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <netinet/in.h>
 #include <arpa/inet.h>
 #include <errno.h>
 #include <net/if_arp.h>
-#include <netinet/in.h>
 #include <resolv.h>
 #include <stdio.h>
 

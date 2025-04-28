@@ -26,7 +26,6 @@
 #if HAVE_VMLINUX_H
 
 #include "bpf-link.h"
-
 #include "bpf/sysctl_monitor/sysctl-monitor-skel.h"
 #include "bpf/sysctl_monitor/sysctl-write-event.h"
 

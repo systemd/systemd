@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "sort-util.h"
 #include "alloc-util.h"
+#include "sort-util.h"
 
 /* hey glibc, APIs with callbacks without a user pointer are so useless */
 void *xbsearch_r(const void *key, const void *base, size_t nmemb, size_t size,

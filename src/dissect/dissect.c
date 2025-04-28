@@ -1,12 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/mount.h>
 #include <fcntl.h>
 #include <getopt.h>
 #include <linux/loop.h>
 #include <stdio.h>
 #include <sys/file.h>
 #include <sys/ioctl.h>
-#include <sys/mount.h>
 
 #include "sd-device.h"
 

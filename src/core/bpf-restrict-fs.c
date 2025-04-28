@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/types.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <linux/types.h>
 #include <sys/resource.h>
 #include <sys/stat.h>
 #include <sys/time.h>

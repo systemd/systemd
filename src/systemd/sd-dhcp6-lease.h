@@ -19,8 +19,8 @@
   along with systemd; If not, see <https://www.gnu.org/licenses/>.
 ***/
 
-#include <inttypes.h>
 #include <netinet/in.h>
+#include <inttypes.h>
 #include <sys/types.h>
 
 #include "sd-dhcp6-option.h"

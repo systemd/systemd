@@ -1,10 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <net/if.h>
 #include <errno.h>
 #include <inttypes.h>
 #include <linux/ipv6.h>
 #include <linux/netfilter/nf_tables.h>
-#include <net/if.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/socket.h>

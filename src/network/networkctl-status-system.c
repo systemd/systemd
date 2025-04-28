@@ -5,11 +5,11 @@
 #include "fs-util.h"
 #include "glyph-util.h"
 #include "log.h"
-#include "networkctl.h"
 #include "networkctl-dump-util.h"
 #include "networkctl-journal.h"
 #include "networkctl-status-system.h"
 #include "networkctl-util.h"
+#include "networkctl.h"
 #include "sort-util.h"
 #include "strv.h"
 

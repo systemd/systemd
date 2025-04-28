@@ -10,11 +10,11 @@
 /* <linux/types.h> must precede <bpf/bpf_helpers.h> due to
  * <bpf/bpf_helpers.h> does not depend from type header by design.
  */
+#include <linux/bpf.h>
 #include <linux/types.h>
+#include <netinet/in.h>
 #include <bpf/bpf_endian.h>
 #include <bpf/bpf_helpers.h>
-#include <linux/bpf.h>
-#include <netinet/in.h>
 #include <stdbool.h>
 
 /*

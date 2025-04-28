@@ -1,10 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/mount.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
 #include <stdbool.h>
-#include <sys/mount.h>
 #include <sys/stat.h>
 #include <unistd.h>
 

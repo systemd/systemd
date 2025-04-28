@@ -3,9 +3,9 @@
 #include <sys/utsname.h>
 
 #include "af-list.h"
-#include "analyze.h"
 #include "analyze-security.h"
 #include "analyze-verify.h"
+#include "analyze.h"
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-map-properties.h"

@@ -16,8 +16,8 @@
 #include "socket-util.h"
 #include "string-util.h"
 #include "terminal-util.h"
-#include "vmspawn-register.h"
 #include "varlink-util.h"
+#include "vmspawn-register.h"
 
 int register_machine(
                 sd_bus *bus,

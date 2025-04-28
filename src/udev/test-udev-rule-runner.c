@@ -3,11 +3,11 @@
   Copyright © 2003-2004 Greg Kroah-Hartman <greg@kroah.com>
 ***/
 
+#include <sys/mount.h>
 #include <errno.h>
 #include <sched.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/mount.h>
 #include <sys/signalfd.h>
 #include <unistd.h>
 

@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <netinet/in.h>
+#include <linux/genetlink.h>
 #include <linux/if_arp.h>
 #include <linux/l2tp.h>
-#include <linux/genetlink.h>
 
 #include "conf-parser.h"
 #include "hashmap.h"

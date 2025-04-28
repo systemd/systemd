@@ -21,8 +21,8 @@
 #include "uid-classification.h"
 #include "user-record-nss.h"
 #include "user-util.h"
-#include "userdb.h"
 #include "userdb-dropin.h"
+#include "userdb.h"
 
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(link_hash_ops, void, trivial_hash_func, trivial_compare_func, sd_varlink, sd_varlink_unref);
 

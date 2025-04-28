@@ -19,15 +19,16 @@
   along with systemd; If not, see <https://www.gnu.org/licenses/>.
 ***/
 
+#include <netinet/in.h>
 #include <inttypes.h>
 #include <net/ethernet.h>
-#include <netinet/in.h>
 #include <sys/types.h>
 
-#include "_sd-common.h"
 #include "sd-event.h"
 #include "sd-ndisc-protocol.h"
 #include "sd-ndisc-router-solicit.h"
+
+#include "_sd-common.h"
 
 _SD_BEGIN_DECLARATIONS;
 

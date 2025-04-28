@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <netinet/in.h>
 #include <errno.h>
 #include <math.h>
-#include <netinet/in.h>
 #include <netinet/ip.h>
 #include <resolv.h>
 #include <stdlib.h>
@@ -26,9 +26,9 @@
 #include "log.h"
 #include "logarithm.h"
 #include "network-util.h"
+#include "random-util.h"
 #include "ratelimit.h"
 #include "resolve-private.h"
-#include "random-util.h"
 #include "socket-util.h"
 #include "string-util.h"
 #include "strv.h"

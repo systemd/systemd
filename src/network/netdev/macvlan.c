@@ -6,8 +6,8 @@
 #include <linux/if_arp.h>
 
 #include "conf-parser.h"
-#include "macvlan.h"
 #include "macvlan-util.h"
+#include "macvlan.h"
 #include "networkd-network.h"
 #include "parse-util.h"
 

@@ -3,10 +3,10 @@
   Copyright © 2017 Intel Corporation. All rights reserved.
 ***/
 
-#include <linux/ipv6.h>
-#include <netinet/icmp6.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <linux/ipv6.h>
+#include <netinet/icmp6.h>
 
 #include "sd-radv.h"
 

@@ -1,13 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/mount.h>
 #include <errno.h>
 #include <getopt.h>
+#include <linux/fs.h> /* Must be included after <sys/mount.h> */
 #include <linux/fuse.h>
 #include <linux/loop.h>
 #include <stdlib.h>
 #include <sys/file.h>
 #include <sys/ioctl.h>
-#include <sys/mount.h>
 #include <sys/personality.h>
 #include <sys/prctl.h>
 #include <sys/types.h>
@@ -15,14 +16,11 @@
 #include <termios.h>
 #include <unistd.h>
 
-#include <linux/fs.h> /* Must be included after <sys/mount.h> */
-
 #include "sd-bus.h"
 #include "sd-daemon.h"
 #include "sd-id128.h"
 
 #include "alloc-util.h"
-#include "ether-addr-util.h"
 #include "barrier.h"
 #include "base-filesystem.h"
 #include "btrfs-util.h"
@@ -45,6 +43,7 @@
 #include "dissect-image.h"
 #include "env-util.h"
 #include "escape.h"
+#include "ether-addr-util.h"
 #include "fd-util.h"
 #include "fdset.h"
 #include "fileio.h"

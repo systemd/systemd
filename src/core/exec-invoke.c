@@ -1,11 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/mount.h>
 #include <linux/prctl.h>
 #include <linux/sched.h>
 #include <linux/securebits.h>
 #include <sys/eventfd.h>
 #include <sys/ioctl.h>
-#include <sys/mount.h>
 #include <sys/prctl.h>
 
 #if HAVE_PAM
@@ -24,8 +24,8 @@
 #include "bpf-restrict-fs.h"
 #include "btrfs-util.h"
 #include "capability-util.h"
-#include "cgroup.h"
 #include "cgroup-setup.h"
+#include "cgroup.h"
 #include "chase.h"
 #include "chattr-util.h"
 #include "chown-recursive.h"

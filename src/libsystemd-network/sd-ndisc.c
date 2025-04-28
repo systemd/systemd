@@ -3,8 +3,8 @@
   Copyright © 2014 Intel Corporation. All rights reserved.
 ***/
 
-#include <netinet/icmp6.h>
 #include <netinet/in.h>
+#include <netinet/icmp6.h>
 
 #include "sd-ndisc.h"
 

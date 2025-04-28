@@ -24,10 +24,10 @@
 #include "parse-util.h"
 #include "pretty-print.h"
 #include "random-util.h"
+#include "sha256.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "sync-util.h"
-#include "sha256.h"
 #include "xattr-util.h"
 
 typedef enum SeedAction {

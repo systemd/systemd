@@ -3,8 +3,8 @@
   Copyright © 2014 Intel Corporation. All rights reserved.
 ***/
 
-#include <net/ethernet.h>
 #include <net/if.h>
+#include <net/ethernet.h>
 
 #include "alloc-util.h"
 #include "bridge.h"

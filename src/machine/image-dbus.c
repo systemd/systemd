@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <sys/file.h>
 #include <sys/mount.h>
+#include <sys/file.h>
 
 #include "alloc-util.h"
 #include "bus-get-properties.h"

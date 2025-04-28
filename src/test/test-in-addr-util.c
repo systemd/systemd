@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <fnmatch.h>
 #include <netinet/in.h>
+#include <fnmatch.h>
 
 #include "in-addr-util.h"
 #include "strv.h"

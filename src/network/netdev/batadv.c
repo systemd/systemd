@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <inttypes.h>
 #include <netinet/in.h>
+#include <inttypes.h>
 #include <linux/genetlink.h>
 #include <linux/if_arp.h>
 

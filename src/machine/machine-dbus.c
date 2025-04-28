@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <sys/mount.h>
+#include <errno.h>
 #include <sys/wait.h>
 
 #include "alloc-util.h"

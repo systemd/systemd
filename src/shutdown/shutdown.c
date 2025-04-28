@@ -3,13 +3,13 @@
   Copyright © 2010 ProFUSION embedded systems
 ***/
 
+#include <sys/mount.h>
 #include <errno.h>
 #include <getopt.h>
 #include <linux/reboot.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <sys/mman.h>
-#include <sys/mount.h>
 #include <sys/reboot.h>
 #include <sys/stat.h>
 #include <unistd.h>

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <net/if.h>
+#include <errno.h>
 #include <netdb.h>
 #include <nss.h>
 #include <stdlib.h>

@@ -14,8 +14,8 @@
 #include "sd-lldp-rx.h"
 #include "sd-lldp-tx.h"
 #include "sd-ndisc.h"
-#include "sd-radv.h"
 #include "sd-netlink.h"
+#include "sd-radv.h"
 
 #include "ether-addr-util.h"
 #include "log-link.h"
