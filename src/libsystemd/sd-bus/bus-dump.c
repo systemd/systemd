@@ -20,29 +20,20 @@
 #include "strv.h"
 #include "terminal-util.h"
 
-static char *indent(unsigned level, uint64_t flags) {
-        char *p;
-        unsigned n, i = 0;
-
-        n = 0;
-
-        if (flags & SD_BUS_MESSAGE_DUMP_SUBTREE_ONLY && level > 0)
+static char* indent(unsigned level, uint64_t flags) {
+        if (FLAGS_SET(flags, SD_BUS_MESSAGE_DUMP_SUBTREE_ONLY) && level > 0)
                 level -= 1;
 
-        if (flags & SD_BUS_MESSAGE_DUMP_WITH_HEADER)
+        unsigned n = level * 8;
+        if (FLAGS_SET(flags, SD_BUS_MESSAGE_DUMP_WITH_HEADER))
                 n += 2;
 
-        p = new(char, n + level*8 + 1);
+        char *p = new(char, n + 1);
         if (!p)
                 return NULL;
 
-        if (flags & SD_BUS_MESSAGE_DUMP_WITH_HEADER) {
-                p[i++] = ' ';
-                p[i++] = ' ';
-        }
-
-        memset(p + i, ' ', level*8);
-        p[i + level*8] = 0;
+        memset(p, ' ', n);
+        p[n] = '\0';
 
         return p;
 }
@@ -57,7 +48,7 @@ _public_ int sd_bus_message_dump(sd_bus_message *m, FILE *f, uint64_t flags) {
         if (!f)
                 f = stdout;
 
-        if (flags & SD_BUS_MESSAGE_DUMP_WITH_HEADER) {
+        if (FLAGS_SET(flags, SD_BUS_MESSAGE_DUMP_WITH_HEADER)) {
                 usec_t ts = m->realtime;
 
                 if (ts == 0)
@@ -125,11 +116,11 @@ _public_ int sd_bus_message_dump(sd_bus_message *m, FILE *f, uint64_t flags) {
                 bus_creds_dump(&m->creds, f, true);
         }
 
-        r = sd_bus_message_rewind(m, !(flags & SD_BUS_MESSAGE_DUMP_SUBTREE_ONLY));
+        r = sd_bus_message_rewind(m, !FLAGS_SET(flags, SD_BUS_MESSAGE_DUMP_SUBTREE_ONLY));
         if (r < 0)
                 return log_error_errno(r, "Failed to rewind: %m");
 
-        if (!(flags & SD_BUS_MESSAGE_DUMP_SUBTREE_ONLY)) {
+        if (!FLAGS_SET(flags, SD_BUS_MESSAGE_DUMP_SUBTREE_ONLY)) {
                 _cleanup_free_ char *prefix = NULL;
 
                 prefix = indent(0, flags);
@@ -266,7 +257,7 @@ _public_ int sd_bus_message_dump(sd_bus_message *m, FILE *f, uint64_t flags) {
                 }
         }
 
-        if (!(flags & SD_BUS_MESSAGE_DUMP_SUBTREE_ONLY)) {
+        if (!FLAGS_SET(flags, SD_BUS_MESSAGE_DUMP_SUBTREE_ONLY)) {
                 _cleanup_free_ char *prefix = NULL;
 
                 prefix = indent(0, flags);
@@ -540,8 +531,8 @@ static void pcapng_section_header(FILE *f, const char *os, const char *app) {
                 len += pcapng_optlen(strlen(os));
         if (app)
                 len += pcapng_optlen(strlen(app));
-        len += pcapng_optlen(0);	/* OPT_END */
-        len += sizeof(uint32_t);	/* trailer length */
+        len += pcapng_optlen(0);        /* OPT_END */
+        len += sizeof(uint32_t);        /* trailer length */
 
         struct pcapng_section hdr = {
                 .block_type = PCAPNG_SECTION_BLOCK,
@@ -599,12 +590,12 @@ int bus_message_pcap_frame(sd_bus_message *m, size_t snaplen, FILE *f) {
         unsigned i;
         size_t w;
 
-        if (!f)
-                f = stdout;
-
         assert(m);
         assert(snaplen > 0);
         assert((size_t) (uint32_t) snaplen == snaplen);
+
+        if (!f)
+                f = stdout;
 
         ts = m->realtime ?: now(CLOCK_REALTIME);
         msglen = BUS_MESSAGE_SIZE(m);
