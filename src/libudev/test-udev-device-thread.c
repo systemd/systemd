@@ -6,6 +6,7 @@
 #include <stdlib.h>
 
 #include "libudev.h"
+
 #include "tests.h"
 
 #define handle_error_errno(error, msg)                          \

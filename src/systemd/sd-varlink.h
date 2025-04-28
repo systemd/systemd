@@ -20,11 +20,10 @@
 #include <stdarg.h>
 #include <sys/types.h>
 
+#include "_sd-common.h"
 #include "sd-event.h"
 #include "sd-json.h"
 #include "sd-varlink-idl.h"
-
-#include "_sd-common.h"
 
 _SD_BEGIN_DECLARATIONS;
 

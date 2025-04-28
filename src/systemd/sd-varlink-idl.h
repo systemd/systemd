@@ -20,9 +20,8 @@
 #include <errno.h>
 #include <stdio.h>
 
-#include "sd-json.h"
-
 #include "_sd-common.h"
+#include "sd-json.h"
 
 _SD_BEGIN_DECLARATIONS;
 

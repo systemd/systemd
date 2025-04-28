@@ -23,12 +23,11 @@
 #include <sys/types.h>
 #include <sys/uio.h>
 
-#include "sd-event.h"
-#include "sd-id128.h"
-
 #include "_sd-common.h"
 #include "sd-bus-protocol.h"
 #include "sd-bus-vtable.h"
+#include "sd-event.h"
+#include "sd-id128.h"
 
 _SD_BEGIN_DECLARATIONS;
 

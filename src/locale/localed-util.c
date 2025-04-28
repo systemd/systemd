@@ -6,8 +6,8 @@
 #include <unistd.h>
 
 #include "copy.h"
-#include "env-file-label.h"
 #include "env-file.h"
+#include "env-file-label.h"
 #include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"

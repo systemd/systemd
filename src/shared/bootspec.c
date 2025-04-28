@@ -2,8 +2,8 @@
 
 #include <unistd.h>
 
-#include "bootspec-fundamental.h"
 #include "bootspec.h"
+#include "bootspec-fundamental.h"
 #include "chase.h"
 #include "conf-files.h"
 #include "devnum-util.h"

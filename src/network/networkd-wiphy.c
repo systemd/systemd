@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <net/if_arp.h>
 #include <linux/nl80211.h>
+#include <net/if_arp.h>
 
 #include "device-private.h"
 #include "device-util.h"

@@ -3,8 +3,8 @@
   Copyright © 2016 Canonical Ltd.
 ***/
 
-#include <unistd.h>
 #include <fcntl.h>
+#include <unistd.h>
 
 #include "clock-util.h"
 #include "fd-util.h"

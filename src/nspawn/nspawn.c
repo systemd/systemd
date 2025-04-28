@@ -2,6 +2,7 @@
 
 #include <errno.h>
 #include <getopt.h>
+#include <linux/fs.h>
 #include <linux/fuse.h>
 #include <linux/loop.h>
 #include <stdlib.h>
@@ -15,14 +16,11 @@
 #include <termios.h>
 #include <unistd.h>
 
-#include <linux/fs.h> /* Must be included after <sys/mount.h> */
-
 #include "sd-bus.h"
 #include "sd-daemon.h"
 #include "sd-id128.h"
 
 #include "alloc-util.h"
-#include "ether-addr-util.h"
 #include "barrier.h"
 #include "base-filesystem.h"
 #include "btrfs-util.h"
@@ -45,6 +43,7 @@
 #include "dissect-image.h"
 #include "env-util.h"
 #include "escape.h"
+#include "ether-addr-util.h"
 #include "fd-util.h"
 #include "fdset.h"
 #include "fileio.h"
@@ -67,6 +66,7 @@
 #include "mountpoint-util.h"
 #include "namespace-util.h"
 #include "notify-recv.h"
+#include "nspawn.h"
 #include "nspawn-bind-user.h"
 #include "nspawn-cgroup.h"
 #include "nspawn-expose-ports.h"
@@ -78,7 +78,6 @@
 #include "nspawn-settings.h"
 #include "nspawn-setuid.h"
 #include "nspawn-stub-pid1.h"
-#include "nspawn.h"
 #include "nsresource.h"
 #include "nulstr-util.h"
 #include "os-util.h"

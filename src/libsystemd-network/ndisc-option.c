@@ -3,8 +3,8 @@
 #include <linux/ipv6.h>
 #include <netinet/icmp6.h>
 
-#include "dns-resolver-internal.h"
 #include "dns-domain.h"
+#include "dns-resolver-internal.h"
 #include "ether-addr-util.h"
 #include "hostname-util.h"
 #include "icmp6-util.h"

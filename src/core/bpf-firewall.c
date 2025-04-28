@@ -1,13 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-/* Make sure the net/if.h header is included before any linux/ one */
-#include <net/if.h>
 #include <arpa/inet.h>
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <linux/bpf_insn.h>
 #include <net/ethernet.h>
+#include <net/if.h>
 #include <netinet/ip.h>
 #include <netinet/ip6.h>
 #include <stddef.h>
@@ -23,8 +22,8 @@
 #include "manager.h"
 #include "memory-util.h"
 #include "missing_syscall.h"
-#include "unit.h"
 #include "strv.h"
+#include "unit.h"
 #include "virt.h"
 
 enum {

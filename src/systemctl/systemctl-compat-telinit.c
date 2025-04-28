@@ -6,11 +6,11 @@
 #include "alloc-util.h"
 #include "pretty-print.h"
 #include "rlimit-util.h"
+#include "systemctl.h"
 #include "systemctl-compat-telinit.h"
 #include "systemctl-daemon-reload.h"
 #include "systemctl-start-unit.h"
 #include "systemctl-sysv-compat.h"
-#include "systemctl.h"
 #include "terminal-util.h"
 
 static int telinit_help(void) {

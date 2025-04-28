@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "portable.h"
-#include "portabled-image.h"
 #include "portabled.h"
+#include "portabled-image.h"
 
 Image *manager_image_cache_get(Manager *m, const char *name_or_path) {
         assert(m);
