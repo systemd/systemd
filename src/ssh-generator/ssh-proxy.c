@@ -41,7 +41,7 @@ static int process_vsock_cid(unsigned cid, const char *port) {
                 return log_error_errno(errno, "Failed to connect to vsock:%u:%u: %m", sa.vm.svm_cid, sa.vm.svm_port);
 
         /* OpenSSH wants us to send a single byte along with the file descriptor, hence do so */
-        r = send_one_fd_iov(STDOUT_FILENO, fd, &iovec_nul_byte, /* n_iovec= */ 1, /* flags= */ 0);
+        r = send_one_fd_iov(STDOUT_FILENO, fd, &iovec_nul_byte, /* iovlen= */ 1, /* flags= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to send socket via STDOUT: %m");
 
@@ -86,7 +86,7 @@ static int process_unix(const char *path) {
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to AF_UNIX socket %s: %m", path);
 
-        r = send_one_fd_iov(STDOUT_FILENO, fd, &iovec_nul_byte, /* n_iovec= */ 1, /* flags= */ 0);
+        r = send_one_fd_iov(STDOUT_FILENO, fd, &iovec_nul_byte, /* iovlen= */ 1, /* flags= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to send socket via STDOUT: %m");
 
@@ -130,7 +130,7 @@ static int process_vsock_mux(const char *path, const char *port) {
         if (r < 0)
                 return log_error_errno(r, "Failed to send CONNECT to %s:%s: %m", path, port);
 
-        r = send_one_fd_iov(STDOUT_FILENO, fd, &iovec_nul_byte, /* n_iovec= */ 1, /* flags= */ 0);
+        r = send_one_fd_iov(STDOUT_FILENO, fd, &iovec_nul_byte, /* iovlen= */ 1, /* flags= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to send socket via STDOUT: %m");
 
