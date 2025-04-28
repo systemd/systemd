@@ -915,6 +915,9 @@ static int link_apply_sr_iov_config(Link *link) {
         }
 
         ORDERED_HASHMAP_FOREACH(sr_iov, link->config->sr_iov_by_section) {
+                if (!sr_iov_has_config(sr_iov))
+                        continue;
+
                 if (sr_iov->vf >= n) {
                         log_link_warning(link, "SR-IOV virtual function %"PRIu32" does not exist, ignoring.", sr_iov->vf);
                         continue;

@@ -84,6 +84,9 @@ int link_request_sr_iov_vfs(Link *link) {
         link->sr_iov_configured = false;
 
         ORDERED_HASHMAP_FOREACH(sr_iov, link->network->sr_iov_by_section) {
+                if (!sr_iov_has_config(sr_iov))
+                        continue;
+
                 r = link_queue_request_safe(link, REQUEST_TYPE_SRIOV,
                                             sr_iov, NULL,
                                             sr_iov_hash_func,
