@@ -2,8 +2,8 @@
 
 #include "sd-json.h"
 
-#include "analyze.h"
 #include "analyze-inspect-elf.h"
+#include "analyze.h"
 #include "chase.h"
 #include "elf-util.h"
 #include "errno-util.h"

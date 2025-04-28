@@ -1,16 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/pkt_sched.h>
-
 #include "alloc-util.h"
 #include "conf-parser.h"
+#include "htb.h"
 #include "netlink-util.h"
 #include "networkd-link.h"
 #include "parse-util.h"
 #include "qdisc.h"
-#include "htb.h"
 #include "string-util.h"
 #include "tc-util.h"
+
+#include <linux/pkt_sched.h>
 
 #define HTB_DEFAULT_RATE_TO_QUANTUM  10
 #define HTB_DEFAULT_MTU              1600  /* Ethernet packet length */

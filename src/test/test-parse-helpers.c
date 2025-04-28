@@ -1,12 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/in.h>
-#include <sys/socket.h>
 #include <stdio.h>
+#include <sys/socket.h>
 
 #include "macro.h"
 #include "parse-helpers.h"
 #include "tests.h"
+
+#include <linux/in.h>
 
 static void test_valid_item(
                 const char *str,

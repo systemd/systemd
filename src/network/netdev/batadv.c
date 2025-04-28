@@ -2,8 +2,6 @@
 
 #include <inttypes.h>
 #include <netinet/in.h>
-#include <linux/genetlink.h>
-#include <linux/if_arp.h>
 
 #include "batadv.h"
 #include "fileio.h"
@@ -14,6 +12,9 @@
 #include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
+
+#include <linux/genetlink.h>
+#include <linux/if_arp.h>
 
 static void batadv_init(NetDev *n) {
         BatmanAdvanced *b = BATADV(n);

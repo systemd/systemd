@@ -1,8 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later
  * Copyright © 2019 VMware, Inc. */
 
-#include <linux/pkt_sched.h>
-
 #include "alloc-util.h"
 #include "conf-parser.h"
 #include "fq.h"
@@ -11,6 +9,8 @@
 #include "parse-util.h"
 #include "string-util.h"
 #include "strv.h"
+
+#include <linux/pkt_sched.h>
 
 static int fair_queueing_init(QDisc *qdisc) {
         FairQueueing *fq;

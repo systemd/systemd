@@ -2,9 +2,10 @@
 #pragma once
 
 #include <inttypes.h>
-#include <linux/keyctl.h>
 
 #include "macro.h"
+
+#include <linux/keyctl.h>
 
 /* From linux/key.h */
 #ifndef KEY_POS_VIEW

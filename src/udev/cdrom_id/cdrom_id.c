@@ -5,7 +5,6 @@
 
 #include <fcntl.h>
 #include <getopt.h>
-#include <linux/cdrom.h>
 #include <scsi/sg.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
@@ -20,6 +19,8 @@
 #include "string-util.h"
 #include "udev-util.h"
 #include "unaligned.h"
+
+#include <linux/cdrom.h>
 
 static bool arg_eject = false;
 static bool arg_lock = false;

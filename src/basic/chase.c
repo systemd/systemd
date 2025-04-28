@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/magic.h>
-
 #include "alloc-util.h"
 #include "chase.h"
 #include "fd-util.h"
@@ -12,6 +10,8 @@
 #include "path-util.h"
 #include "string-util.h"
 #include "user-util.h"
+
+#include <linux/magic.h>
 
 bool unsafe_transition(const struct stat *a, const struct stat *b) {
         /* Returns true if the transition from a to b is safe, i.e. that we never transition from unprivileged to

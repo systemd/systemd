@@ -21,8 +21,8 @@
 #include "resolved-manager.h"
 #include "resolved-varlink.h"
 #include "socket-netlink.h"
-#include "varlink-io.systemd.Resolve.h"
 #include "varlink-io.systemd.Resolve.Monitor.h"
+#include "varlink-io.systemd.Resolve.h"
 #include "varlink-io.systemd.service.h"
 #include "varlink-util.h"
 

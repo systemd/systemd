@@ -3,11 +3,11 @@
 
 #if HAVE_LIBBPF
 
-#include <bpf/bpf.h>
-#include <bpf/libbpf.h>
-
 #include "bpf-compat.h"
 #include "dlfcn-util.h"
+
+#include <bpf/bpf.h>
+#include <bpf/libbpf.h>
 
 extern DLSYM_PROTOTYPE(bpf_link__destroy);
 extern DLSYM_PROTOTYPE(bpf_link__fd);

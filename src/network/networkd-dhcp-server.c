@@ -1,8 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <netinet/in.h>
-#include <linux/if_arp.h>
-#include <linux/if.h>
 
 #include "sd-dhcp-server.h"
 
@@ -27,6 +25,9 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
+
+#include <linux/if.h>
+#include <linux/if_arp.h>
 
 static bool link_dhcp4_server_enabled(Link *link) {
         assert(link);

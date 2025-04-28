@@ -29,11 +29,11 @@
 #define __RWF_DONTCACHE_SAVED__ 0x00000080
 #endif
 
+#include "macro.h"
+
 #include <linux/btrfs.h>
 #include <linux/btrfs_tree.h>
 #include <linux/fs.h>
-
-#include "macro.h"
 
 /* check RWF_xyz are redefined by linux/fs.h */
 assert_cc(RWF_HIPRI     == __RWF_HIPRI_SAVED__);

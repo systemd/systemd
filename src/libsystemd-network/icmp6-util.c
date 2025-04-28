@@ -4,9 +4,8 @@
 ***/
 
 /* Make sure the net/if.h header is included before any linux/ one */
-#include <net/if.h>
 #include <errno.h>
-#include <linux/if_packet.h>
+#include <net/if.h>
 #include <netinet/icmp6.h>
 #include <netinet/in.h>
 #include <netinet/ip6.h>
@@ -21,6 +20,8 @@
 #include "iovec-util.h"
 #include "network-common.h"
 #include "socket-util.h"
+
+#include <linux/if_packet.h>
 
 int icmp6_bind(int ifindex, bool is_router) {
         struct icmp6_filter filter = {};

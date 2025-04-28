@@ -1,8 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/if.h>
-#include <linux/if_arp.h>
-
 #include "in-addr-util.h"
 #include "networkd-address.h"
 #include "networkd-ipv6ll.h"
@@ -14,6 +11,9 @@
 #include "string-table.h"
 #include "strv.h"
 #include "sysctl-util.h"
+
+#include <linux/if.h>
+#include <linux/if_arp.h>
 
 bool link_ipv6ll_enabled(Link *link) {
         assert(link);

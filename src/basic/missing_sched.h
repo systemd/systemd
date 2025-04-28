@@ -1,10 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <linux/types.h>
 #include <sched.h>
 
 #include "macro.h"
+
+#include <linux/types.h>
 
 /* 769071ac9f20b6a447410c7eaa55d1a5233ef40c (5.8),
  * defined in sched.h since glibc-2.36. */

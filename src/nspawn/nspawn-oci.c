@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/oom.h>
-
 #include "sd-json.h"
 
 #include "bus-util.h"
@@ -23,6 +21,8 @@
 #include "string-util.h"
 #include "strv.h"
 #include "user-util.h"
+
+#include <linux/oom.h>
 
 /* TODO:
  * OCI runtime tool implementation

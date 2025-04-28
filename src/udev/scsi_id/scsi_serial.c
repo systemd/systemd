@@ -8,8 +8,6 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
-#include <linux/bsg.h>
-#include <linux/types.h>
 #include <scsi/scsi.h>
 #include <scsi/sg.h>
 #include <stdio.h>
@@ -28,6 +26,9 @@
 #include "scsi_id.h"
 #include "string-util.h"
 #include "time-util.h"
+
+#include <linux/bsg.h>
+#include <linux/types.h>
 
 /*
  * A priority based list of id, naa, and binary/ascii for the identifier

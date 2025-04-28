@@ -1,9 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/if.h>
-#include <linux/ipv6_route.h>
-#include <linux/nexthop.h>
-
 #include "alloc-util.h"
 #include "event-util.h"
 #include "netlink-util.h"
@@ -20,6 +16,10 @@
 #include "strv.h"
 #include "vrf.h"
 #include "wireguard.h"
+
+#include <linux/if.h>
+#include <linux/ipv6_route.h>
+#include <linux/nexthop.h>
 
 static Route* route_detach_impl(Route *route) {
         assert(route);

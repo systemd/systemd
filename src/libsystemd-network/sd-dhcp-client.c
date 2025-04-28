@@ -9,7 +9,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/ioctl.h>
-#include <linux/if_infiniband.h>
 
 #include "sd-dhcp-client.h"
 
@@ -38,6 +37,8 @@
 #include "time-util.h"
 #include "utf8.h"
 #include "web-util.h"
+
+#include <linux/if_infiniband.h>
 
 #define MAX_MAC_ADDR_LEN CONST_MAX(INFINIBAND_ALEN, ETH_ALEN)
 

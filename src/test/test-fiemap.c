@@ -2,16 +2,17 @@
 
 #include <fcntl.h>
 #include <inttypes.h>
-#include <linux/fiemap.h>
 #include <stdio.h>
 #include <sys/types.h>
 #include <unistd.h>
 
 #include "errno-util.h"
 #include "fd-util.h"
-#include "log.h"
 #include "hibernate-util.h"
+#include "log.h"
 #include "tests.h"
+
+#include <linux/fiemap.h>
 
 static int test_fiemap_one(const char *path) {
         _cleanup_free_ struct fiemap *fiemap = NULL;

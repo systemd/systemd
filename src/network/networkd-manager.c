@@ -3,10 +3,6 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <unistd.h>
-#include <linux/if.h>
-#include <linux/fib_rules.h>
-#include <linux/nexthop.h>
-#include <linux/nl80211.h>
 
 #include "sd-netlink.h"
 
@@ -40,9 +36,9 @@
 #include "networkd-dhcp-server-bus.h"
 #include "networkd-dhcp6.h"
 #include "networkd-link-bus.h"
-#include "networkd-manager.h"
 #include "networkd-manager-bus.h"
 #include "networkd-manager-varlink.h"
+#include "networkd-manager.h"
 #include "networkd-neighbor.h"
 #include "networkd-network-bus.h"
 #include "networkd-nexthop.h"
@@ -67,6 +63,11 @@
 #include "tmpfile-util.h"
 #include "tuntap.h"
 #include "udev-util.h"
+
+#include <linux/fib_rules.h>
+#include <linux/if.h>
+#include <linux/nexthop.h>
+#include <linux/nl80211.h>
 
 /* use 128 MB for receive socket kernel queue. */
 #define RCVBUF_SIZE    (128*1024*1024)

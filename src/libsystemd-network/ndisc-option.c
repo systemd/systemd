@@ -1,10 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/ipv6.h>
 #include <netinet/icmp6.h>
 
-#include "dns-resolver-internal.h"
 #include "dns-domain.h"
+#include "dns-resolver-internal.h"
 #include "ether-addr-util.h"
 #include "hostname-util.h"
 #include "icmp6-util.h"
@@ -15,6 +14,8 @@
 #include "network-common.h"
 #include "strv.h"
 #include "unaligned.h"
+
+#include <linux/ipv6.h>
 
 /* RFC does not say anything about the maximum number of options, but let's limit the number of options for
  * safety. Typically, the number of options in an ICMPv6 message should be only a few. */

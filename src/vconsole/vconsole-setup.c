@@ -6,17 +6,14 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
-#include <linux/kd.h>
-#include <linux/tiocl.h>
-#include <linux/vt.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <sys/file.h>
 #include <sys/ioctl.h>
-#include <sysexits.h>
-#include <termios.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sysexits.h>
+#include <termios.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -38,6 +35,10 @@
 #include "strv.h"
 #include "terminal-util.h"
 #include "virt.h"
+
+#include <linux/kd.h>
+#include <linux/tiocl.h>
+#include <linux/vt.h>
 
 typedef struct Context {
         char *keymap;

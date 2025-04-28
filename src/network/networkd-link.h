@@ -2,7 +2,6 @@
 #pragma once
 
 #include <endian.h>
-#include <linux/nl80211.h>
 
 #include "sd-bus.h"
 #include "sd-device.h"
@@ -14,8 +13,8 @@
 #include "sd-lldp-rx.h"
 #include "sd-lldp-tx.h"
 #include "sd-ndisc.h"
-#include "sd-radv.h"
 #include "sd-netlink.h"
+#include "sd-radv.h"
 
 #include "ether-addr-util.h"
 #include "log-link.h"
@@ -29,6 +28,8 @@
 #include "ratelimit.h"
 #include "resolve-util.h"
 #include "set.h"
+
+#include <linux/nl80211.h>
 
 typedef enum LinkState {
         LINK_STATE_PENDING,     /* udev has not initialized the link */

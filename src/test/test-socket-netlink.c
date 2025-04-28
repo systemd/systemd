@@ -2,9 +2,9 @@
 
 #include "alloc-util.h"
 #include "missing_network.h"
-#include "tests.h"
 #include "socket-netlink.h"
 #include "string-util.h"
+#include "tests.h"
 
 static void test_socket_address_parse_one(const char *in, int ret, int family, const char *expected) {
         SocketAddress a;

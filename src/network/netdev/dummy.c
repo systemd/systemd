@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/if_arp.h>
-
 #include "dummy.h"
+
+#include <linux/if_arp.h>
 
 static bool dummy_can_set_mac(NetDev *netdev, const struct hw_addr_data *hw_addr) {
         return true;

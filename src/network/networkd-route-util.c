@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/rtnetlink.h>
 #include <threads.h>
 
 #include "alloc-util.h"
@@ -16,6 +15,8 @@
 #include "string-util.h"
 #include "strv.h"
 #include "sysctl-util.h"
+
+#include <linux/rtnetlink.h>
 
 #define ROUTES_DEFAULT_MAX_PER_FAMILY 4096
 

@@ -1,9 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <netinet/in.h>
-#include <linux/if_arp.h>
-#include <linux/l2tp.h>
-#include <linux/genetlink.h>
 
 #include "conf-parser.h"
 #include "hashmap.h"
@@ -16,6 +13,10 @@
 #include "socket-util.h"
 #include "string-table.h"
 #include "string-util.h"
+
+#include <linux/genetlink.h>
+#include <linux/if_arp.h>
+#include <linux/l2tp.h>
 
 static const char* const l2tp_l2spec_type_table[_NETDEV_L2TP_L2SPECTYPE_MAX] = {
         [NETDEV_L2TP_L2SPECTYPE_NONE]    = "none",

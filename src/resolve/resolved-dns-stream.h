@@ -5,8 +5,8 @@
 
 #include "list.h"
 #include "ordered-set.h"
-#include "resolved-dnstls.h"
 #include "resolved-dns-packet.h"
+#include "resolved-dnstls.h"
 #include "socket-util.h"
 
 typedef struct DnsPacket DnsPacket;

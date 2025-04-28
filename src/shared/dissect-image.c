@@ -4,13 +4,14 @@
 #include <valgrind/memcheck.h>
 #endif
 
-#include <linux/dm-ioctl.h>
-#include <linux/loop.h>
 #include <sys/file.h>
 #include <sys/mount.h>
 #include <sys/prctl.h>
 #include <sys/wait.h>
 #include <sysexits.h>
+
+#include <linux/dm-ioctl.h>
+#include <linux/loop.h>
 
 #if HAVE_OPENSSL
 #include <openssl/err.h>

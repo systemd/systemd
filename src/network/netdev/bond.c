@@ -1,17 +1,18 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <netinet/in.h>
-#include <linux/if_arp.h>
 
 #include "alloc-util.h"
-#include "bond.h"
 #include "bond-util.h"
+#include "bond.h"
 #include "conf-parser.h"
 #include "ether-addr-util.h"
 #include "extract-word.h"
 #include "netlink-util.h"
 #include "networkd-manager.h"
 #include "string-table.h"
+
+#include <linux/if_arp.h>
 
 /*
  * Number of seconds between instances where the bonding

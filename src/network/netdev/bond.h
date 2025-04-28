@@ -2,12 +2,13 @@
 #pragma once
 
 #include <netinet/in.h>
-#include <linux/if_bonding.h>
 
 #include "bond-util.h"
 #include "macro.h"
 #include "netdev.h"
 #include "ordered-set.h"
+
+#include <linux/if_bonding.h>
 
 typedef struct Bond {
         NetDev meta;

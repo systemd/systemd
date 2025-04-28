@@ -2,8 +2,6 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <linux/loop.h>
-#include <linux/magic.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/file.h>
@@ -49,6 +47,9 @@
 #include "utf8.h"
 #include "vpick.h"
 #include "xattr-util.h"
+
+#include <linux/loop.h>
+#include <linux/magic.h>
 
 const char* const image_search_path[_IMAGE_CLASS_MAX] = {
         [IMAGE_MACHINE] =   "/etc/machines\0"              /* only place symlinks here */

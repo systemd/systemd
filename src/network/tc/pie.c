@@ -1,14 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later
  * Copyright © 2020 VMware, Inc. */
 
-#include <linux/pkt_sched.h>
-
 #include "alloc-util.h"
 #include "conf-parser.h"
-#include "pie.h"
 #include "netlink-util.h"
 #include "parse-util.h"
+#include "pie.h"
 #include "string-util.h"
+
+#include <linux/pkt_sched.h>
 
 static int pie_fill_message(Link *link, QDisc *qdisc, sd_netlink_message *req) {
         ProportionalIntegralControllerEnhanced *pie;

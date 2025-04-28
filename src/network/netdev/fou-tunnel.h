@@ -2,10 +2,11 @@
 #pragma once
 
 #include <netinet/in.h>
-#include <linux/fou.h>
 
 #include "in-addr-util.h"
 #include "netdev.h"
+
+#include <linux/fou.h>
 
 typedef enum FooOverUDPEncapType {
         NETDEV_FOO_OVER_UDP_ENCAP_UNSPEC = FOU_ENCAP_UNSPEC,

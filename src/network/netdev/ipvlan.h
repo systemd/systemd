@@ -2,10 +2,11 @@
 #pragma once
 
 #include <netinet/in.h>
-#include <linux/if_link.h>
 
 #include "ipvlan-util.h"
 #include "netdev.h"
+
+#include <linux/if_link.h>
 
 typedef struct IPVlan {
         NetDev meta;

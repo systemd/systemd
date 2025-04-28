@@ -9,7 +9,6 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
-#include <linux/usb/ch11.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -25,6 +24,8 @@
 #include "sysexits.h"
 #include "udev-builtin.h"
 #include "udev-util.h"
+
+#include <linux/usb/ch11.h>
 
 _printf_(2,3)
 static void path_prepend(char **path, const char *fmt, ...) {

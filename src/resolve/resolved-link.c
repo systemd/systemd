@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/if.h>
 #include <unistd.h>
 
 #include "sd-network.h"
@@ -28,6 +27,8 @@
 #include "string-util.h"
 #include "strv.h"
 #include "tmpfile-util.h"
+
+#include <linux/if.h>
 
 int link_new(Manager *m, Link **ret, int ifindex) {
         _cleanup_(link_freep) Link *l = NULL;

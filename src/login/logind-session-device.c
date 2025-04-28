@@ -1,28 +1,29 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
-#include <linux/hidraw.h>
-#include <linux/input.h>
 #include <string.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>
 
-#include "sd-device.h"
 #include "sd-daemon.h"
+#include "sd-device.h"
 
 #include "alloc-util.h"
 #include "bus-util.h"
 #include "daemon-util.h"
 #include "device-util.h"
 #include "fd-util.h"
-#include "logind.h"
 #include "logind-device.h"
 #include "logind-seat.h"
-#include "logind-session.h"
 #include "logind-session-dbus.h"
 #include "logind-session-device.h"
+#include "logind-session.h"
+#include "logind.h"
 #include "missing_drm.h"
 #include "parse-util.h"
+
+#include <linux/hidraw.h>
+#include <linux/input.h>
 
 enum SessionDeviceNotifications {
         SESSION_DEVICE_RESUME,

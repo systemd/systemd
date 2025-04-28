@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <arpa/inet.h>
-#include <linux/sockios.h>
 #include <sys/ioctl.h>
 
 #include "sd-event.h"
@@ -20,6 +19,8 @@
 #include "time-util.h"
 #include "unaligned.h"
 #include "web-util.h"
+
+#include <linux/sockios.h>
 
 /* The LLDP spec calls this "txFastInit", see 9.2.5.19 */
 #define LLDP_FAST_TX_INIT 4U

@@ -3,7 +3,6 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
-#include <linux/random.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <sys/xattr.h>
@@ -24,11 +23,13 @@
 #include "parse-util.h"
 #include "pretty-print.h"
 #include "random-util.h"
+#include "sha256.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "sync-util.h"
-#include "sha256.h"
 #include "xattr-util.h"
+
+#include <linux/random.h>
 
 typedef enum SeedAction {
         ACTION_LOAD,

@@ -5,8 +5,8 @@
 
 #include "bus-log-control-api.h"
 #include "daemon-util.h"
-#include "homed-manager.h"
 #include "homed-manager-bus.h"
+#include "homed-manager.h"
 #include "log.h"
 #include "main-func.h"
 #include "service-util.h"

@@ -2,8 +2,6 @@
 
 /* Make sure the net/if.h header is included before any linux/ one */
 #include <net/if.h>
-#include <linux/if_arp.h>
-#include <linux/if_bridge.h>
 #include <netinet/in.h>
 
 #include "bridge.h"
@@ -11,6 +9,9 @@
 #include "networkd-manager.h"
 #include "string-table.h"
 #include "vlan-util.h"
+
+#include <linux/if_arp.h>
+#include <linux/if_bridge.h>
 
 assert_cc((int) MULTICAST_ROUTER_NONE            == (int) MDB_RTR_TYPE_DISABLED);
 assert_cc((int) MULTICAST_ROUTER_TEMPORARY_QUERY == (int) MDB_RTR_TYPE_TEMP_QUERY);

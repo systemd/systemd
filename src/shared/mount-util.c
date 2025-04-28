@@ -6,7 +6,6 @@
 #include <sys/stat.h>
 #include <sys/statvfs.h>
 #include <unistd.h>
-#include <linux/loop.h>
 
 #include "alloc-util.h"
 #include "chase.h"
@@ -40,6 +39,8 @@
 #include "strv.h"
 #include "tmpfile-util.h"
 #include "user-util.h"
+
+#include <linux/loop.h>
 
 int umount_recursive_full(const char *prefix, int flags, char **keep) {
         _cleanup_fclose_ FILE *f = NULL;

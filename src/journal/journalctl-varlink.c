@@ -5,9 +5,9 @@
 #include "errno-util.h"
 #include "journal-internal.h"
 #include "journal-vacuum.h"
-#include "journalctl.h"
 #include "journalctl-util.h"
 #include "journalctl-varlink.h"
+#include "journalctl.h"
 #include "log.h"
 #include "varlink-util.h"
 

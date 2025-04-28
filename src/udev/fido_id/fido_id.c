@@ -9,7 +9,6 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
-#include <linux/hid.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>
@@ -26,6 +25,8 @@
 #include "path-util.h"
 #include "string-util.h"
 #include "udev-util.h"
+
+#include <linux/hid.h>
 
 static const char *arg_device = NULL;
 

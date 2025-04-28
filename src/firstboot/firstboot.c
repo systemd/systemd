@@ -2,7 +2,6 @@
 
 #include <fcntl.h>
 #include <getopt.h>
-#include <linux/loop.h>
 #include <unistd.h>
 
 #include "sd-id128.h"
@@ -53,6 +52,8 @@
 #include "umask-util.h"
 #include "user-util.h"
 #include "vconsole-util.h"
+
+#include <linux/loop.h>
 
 static char *arg_root = NULL;
 static char *arg_image = NULL;

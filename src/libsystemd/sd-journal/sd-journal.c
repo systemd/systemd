@@ -3,7 +3,6 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
-#include <linux/magic.h>
 #include <poll.h>
 #include <stddef.h>
 #include <sys/inotify.h>
@@ -45,6 +44,8 @@
 #include "strv.h"
 #include "syslog-util.h"
 #include "uid-classification.h"
+
+#include <linux/magic.h>
 
 #define JOURNAL_FILES_RECHECK_USEC (2 * USEC_PER_SEC)
 

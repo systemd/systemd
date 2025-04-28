@@ -1,9 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 /* Make sure the net/if.h header is included before any linux/ one */
-#include <net/if.h>
 #include <errno.h>
-#include <linux/veth.h>
+#include <net/if.h>
 #include <stdlib.h>
 #include <unistd.h>
 
@@ -14,6 +13,8 @@
 #include "in-addr-util.h"
 #include "log.h"
 #include "tests.h"
+
+#include <linux/veth.h>
 
 static void acd_handler(sd_ipv4acd *acd, int event, void *userdata) {
         assert_se(acd);

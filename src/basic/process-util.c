@@ -3,7 +3,6 @@
 #include <ctype.h>
 #include <errno.h>
 #include <limits.h>
-#include <linux/oom.h>
 #include <pthread.h>
 #include <spawn.h>
 #include <stdbool.h>
@@ -17,6 +16,8 @@
 #include <syslog.h>
 #include <threads.h>
 #include <unistd.h>
+
+#include <linux/oom.h>
 #if HAVE_VALGRIND_VALGRIND_H
 #include <valgrind/valgrind.h>
 #endif

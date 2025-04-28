@@ -2,7 +2,6 @@
 
 #include <errno.h>
 #include <getopt.h>
-#include <linux/vt.h>
 #include <stdio.h>
 #include <sys/ioctl.h>
 
@@ -23,6 +22,8 @@
 #include "signal-util.h"
 #include "sysctl-util.h"
 #include "terminal-util.h"
+
+#include <linux/vt.h>
 
 static bool arg_continuous = false;
 static char *arg_tty = NULL;

@@ -1,18 +1,18 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/nexthop.h>
-
 #include "alloc-util.h"
 #include "extract-word.h"
 #include "netlink-util.h"
 #include "networkd-manager.h"
 #include "networkd-network.h"
 #include "networkd-nexthop.h"
-#include "networkd-route.h"
 #include "networkd-route-nexthop.h"
 #include "networkd-route-util.h"
+#include "networkd-route.h"
 #include "parse-util.h"
 #include "string-util.h"
+
+#include <linux/nexthop.h>
 
 void route_detach_from_nexthop(Route *route) {
         NextHop *nh;

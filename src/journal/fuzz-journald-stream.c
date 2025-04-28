@@ -1,13 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/sockios.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
 
 #include "fd-util.h"
-#include "fuzz.h"
 #include "fuzz-journald.h"
+#include "fuzz.h"
 #include "journald-stream.h"
+
+#include <linux/sockios.h>
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_close_pair_ int stream_fds[2] = EBADF_PAIR;

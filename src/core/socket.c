@@ -8,7 +8,6 @@
 #include <sys/epoll.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include <linux/sctp.h>
 
 #include "alloc-util.h"
 #include "bpf-firewall.h"
@@ -40,8 +39,8 @@
 #include "service.h"
 #include "signal-util.h"
 #include "smack-util.h"
-#include "socket.h"
 #include "socket-netlink.h"
+#include "socket.h"
 #include "special.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -49,6 +48,8 @@
 #include "unit-name.h"
 #include "unit.h"
 #include "user-util.h"
+
+#include <linux/sctp.h>
 
 struct SocketPeer {
         unsigned n_ref;

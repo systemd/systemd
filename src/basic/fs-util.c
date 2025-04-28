@@ -4,8 +4,6 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <sys/file.h>
-#include <linux/falloc.h>
-#include <linux/magic.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -37,6 +35,9 @@
 #include "tmpfile-util.h"
 #include "umask-util.h"
 #include "user-util.h"
+
+#include <linux/falloc.h>
+#include <linux/magic.h>
 
 int rmdir_parents(const char *path, const char *stop) {
         char *p;

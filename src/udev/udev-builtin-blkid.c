@@ -12,7 +12,6 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
-#include <linux/loop.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/ioctl.h>
@@ -35,6 +34,8 @@
 #include "strv.h"
 #include "strxcpyx.h"
 #include "udev-builtin.h"
+
+#include <linux/loop.h>
 
 static void print_property(UdevEvent *event, const char *name, const char *value) {
         char s[256];

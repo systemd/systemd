@@ -1,10 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <linux/nl80211.h>
-
 #include "conf-parser.h"
 #include "netdev.h"
+
+#include <linux/nl80211.h>
 
 typedef struct WLan {
         NetDev meta;
