@@ -4,8 +4,6 @@
 #include <stdio.h>
 #include <unistd.h>
 
-#include "xdg-autostart-service.h"
-
 #include "conf-parser.h"
 #include "escape.h"
 #include "fd-util.h"
@@ -20,6 +18,7 @@
 #include "strv.h"
 #include "unit-name.h"
 #include "user-util.h"
+#include "xdg-autostart-service.h"
 
 XdgAutostartService* xdg_autostart_service_free(XdgAutostartService *s) {
         if (!s)

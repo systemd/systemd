@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <netinet/in.h>
 #include <errno.h>
 #include <limits.h>
 #include <mqueue.h>
-#include <netinet/in.h>
 #include <poll.h>
 #include <stdarg.h>
 #include <stddef.h>

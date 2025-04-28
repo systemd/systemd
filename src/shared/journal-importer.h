@@ -2,8 +2,8 @@
 
 #pragma once
 
-#include <stddef.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <sys/uio.h>
 
 #include "sd-id128.h"

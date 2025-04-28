@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <netinet/in.h>
+#include <errno.h>
 #include <linux/if_arp.h>
 #include <linux/if_infiniband.h>
 #include <string.h>

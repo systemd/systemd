@@ -5,8 +5,8 @@
 
 #if HAVE_VMLINUX_H
 
-#include <sched.h>
 #include <sys/mount.h>
+#include <sched.h>
 
 #include "bpf-dlopen.h"
 #include "bpf-link.h"

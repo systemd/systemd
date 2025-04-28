@@ -17,7 +17,6 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include "libudev.h"
 #include "sd-device.h"
 
 #include "alloc-util.h"
@@ -25,6 +24,7 @@
 #include "device-util.h"
 #include "libudev-device-internal.h"
 #include "libudev-list-internal.h"
+#include "libudev.h"
 #include "parse-util.h"
 #include "time-util.h"
 

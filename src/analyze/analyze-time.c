@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "analyze.h"
-#include "analyze-time.h"
 #include "analyze-time-data.h"
+#include "analyze-time.h"
+#include "analyze.h"
 
 int verb_time(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;

@@ -5,6 +5,7 @@
 #include <arpa/inet.h>
 #include <errno.h>
 #include <limits.h>
+#include <linux/if.h>
 #include <netdb.h>
 #include <netinet/ip.h>
 #include <poll.h>
@@ -14,7 +15,6 @@
 #include <stdlib.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
-#include <linux/if.h>
 
 #include "alloc-util.h"
 #include "errno-util.h"

@@ -11,9 +11,9 @@
 #include "proc-cmdline.h"
 #include "signal-util.h"
 #include "stat-util.h"
-#include "systemctl.h"
 #include "systemctl-switch-root.h"
 #include "systemctl-util.h"
+#include "systemctl.h"
 
 static int same_file_in_root(
                 const char *root,

@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <net/if.h>
 #include <getopt.h>
 #include <locale.h>
-#include <net/if.h>
 
 #include "sd-bus.h"
 #include "sd-json.h"

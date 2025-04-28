@@ -23,8 +23,8 @@
 #include "manager.h"
 #include "memory-util.h"
 #include "missing_syscall.h"
-#include "unit.h"
 #include "strv.h"
+#include "unit.h"
 #include "virt.h"
 
 enum {

@@ -10,7 +10,6 @@
 #include <sys/stat.h>
 
 /* include missing_syscall_def.h earlier to make __SNR_foo mapped to __NR_foo. */
-#include "missing_syscall_def.h"
 #include <seccomp.h>
 
 #include "af-list.h"
@@ -19,6 +18,7 @@
 #include "errno-list.h"
 #include "log.h"
 #include "macro.h"
+#include "missing_syscall_def.h"
 #include "namespace-util.h"
 #include "nsflags.h"
 #include "nulstr-util.h"

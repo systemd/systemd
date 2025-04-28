@@ -18,8 +18,8 @@
   along with systemd; If not, see <https://www.gnu.org/licenses/>.
 ***/
 
-#include <inttypes.h>
 #include <netinet/in.h>
+#include <inttypes.h>
 
 #include "sd-dhcp-lease.h"
 #include "sd-dhcp-option.h"

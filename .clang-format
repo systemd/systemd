@@ -107,6 +107,34 @@ ForEachMacros:
   - STRV_FOREACH
   - STRV_FOREACH_BACKWARDS
   - STRV_FOREACH_PAIR
+IncludeBlocks: Regroup
+IncludeCategories:
+  # To start a new block, bump Priority to max(Priority, SortPriority) + 1.
+  # To sort lower within the same block, bump SortPriority to max(Priority, SortPriority) + 1.
+  # "vmlinux.h" must always be included first in BPF programs before anything else.
+  - Regex:           '^"vmlinux.h"$'
+    Priority:        1
+  # <net/if.h>, <netinet/in.h> and <sys/mount.h> must be included before any <linux/*.h>.
+  - Regex:           '^<net/if\.h>$'
+    Priority:        2
+  - Regex:           '^<netinet/in\.h>$'
+    Priority:        2
+  - Regex:           '^<sys/mount\.h>$'
+    Priority:        2
+  # <linux/bpf.h> and <linux/types.h> should be included before any <bpf/*.h> headers.
+  - Regex:           '^<linux/(bpf|types)\.h>$'
+    Priority:        2
+  - Regex:           '^<.*\.h>$'
+    Priority:        2
+    SortPriority:    3
+  - Regex:           '^"sd-.*\.h"$'
+    Priority:        4
+  - Regex:           '^"audit_type-to-name.h"$'
+    Priority:        6
+  - Regex:           '.*'
+    Priority:        5
+# Make sure the "main header" is not treated any differently than other headers.
+IncludeIsMainRegex: '^$'
 IndentPPDirectives: AfterHash
 IndentWidth: 8
 IndentWrappedFunctionNames: true

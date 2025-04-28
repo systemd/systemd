@@ -18,8 +18,8 @@
   along with systemd; If not, see <https://www.gnu.org/licenses/>.
 ***/
 
-#include <net/ethernet.h>
 #include <netinet/in.h>
+#include <net/ethernet.h>
 #include <stdbool.h>
 
 #include "sd-event.h"

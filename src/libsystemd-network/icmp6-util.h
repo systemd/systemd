@@ -5,8 +5,8 @@
   Copyright © 2014-2015 Intel Corporation. All rights reserved.
 ***/
 
-#include <net/ethernet.h>
 #include <netinet/in.h>
+#include <net/ethernet.h>
 #include <stdbool.h>
 #include <sys/uio.h>
 

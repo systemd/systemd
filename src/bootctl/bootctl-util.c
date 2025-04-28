@@ -2,8 +2,8 @@
 
 #include <sys/mman.h>
 
-#include "bootctl.h"
 #include "bootctl-util.h"
+#include "bootctl.h"
 #include "errno-util.h"
 #include "fileio.h"
 #include "stat-util.h"

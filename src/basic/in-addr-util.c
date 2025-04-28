@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <net/if.h>
 #include <arpa/inet.h>
 #include <endian.h>
 #include <errno.h>
-#include <net/if.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>

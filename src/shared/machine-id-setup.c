@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/mount.h>
 #include <fcntl.h>
 #include <sched.h>
-#include <sys/mount.h>
 #include <unistd.h>
 
 #include "sd-daemon.h"

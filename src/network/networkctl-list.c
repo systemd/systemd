@@ -4,11 +4,11 @@
 
 #include "format-table.h"
 #include "netif-util.h"
-#include "networkctl.h"
 #include "networkctl-description.h"
 #include "networkctl-link-info.h"
 #include "networkctl-list.h"
 #include "networkctl-util.h"
+#include "networkctl.h"
 
 int list_links(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;

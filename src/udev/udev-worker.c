@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
+#include <sys/mount.h>
 #include <sys/file.h>
 #include <sys/ioctl.h>
-#include <sys/mount.h>
 
 #include "sd-daemon.h"
 

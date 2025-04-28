@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/mount.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <sys/mount.h>
 
 #include "alloc-util.h"
 #include "chase.h"

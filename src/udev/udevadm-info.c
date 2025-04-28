@@ -31,8 +31,8 @@
 #include "string-util.h"
 #include "terminal-util.h"
 #include "udev-util.h"
-#include "udevadm.h"
 #include "udevadm-util.h"
+#include "udevadm.h"
 
 typedef enum ActionType {
         ACTION_QUERY,

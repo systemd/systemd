@@ -6,9 +6,9 @@
 #include "extract-word.h"
 #include "fileio.h"
 #include "log.h"
+#include "machine-credential.h"
 #include "macro.h"
 #include "memory-util.h"
-#include "machine-credential.h"
 #include "path-util.h"
 #include "string-util-fundamental.h"
 

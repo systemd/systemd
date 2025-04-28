@@ -1,11 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-bus.h"
 #include "sd-bus-vtable.h"
+#include "sd-bus.h"
 
-#include "unit.h"
 #include "cgroup.h"
+#include "unit.h"
 
 extern const sd_bus_vtable bus_cgroup_vtable[];
 

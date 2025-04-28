@@ -5,11 +5,11 @@
  * Author: Patrick Mansfield<patmans@us.ibm.com>
  */
 
+#include <linux/types.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
 #include <linux/bsg.h>
-#include <linux/types.h>
 #include <scsi/scsi.h>
 #include <scsi/sg.h>
 #include <stdio.h>

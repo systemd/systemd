@@ -1,10 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <net/if.h>
-#include <sys/ioctl.h>
 #include <linux/ethtool.h>
 #include <linux/netdevice.h>
 #include <linux/sockios.h>
+#include <sys/ioctl.h>
 
 #include "conf-parser.h"
 #include "ethtool-util.h"

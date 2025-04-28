@@ -19,8 +19,8 @@
 #include "static-destruct.h"
 #include "string-util.h"
 #include "strv.h"
-#include "udevadm.h"
 #include "udevadm-util.h"
+#include "udevadm.h"
 #include "virt.h"
 
 static bool arg_verbose = false;

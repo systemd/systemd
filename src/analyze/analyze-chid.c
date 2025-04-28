@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "analyze.h"
 #include "analyze-chid.h"
+#include "analyze.h"
 #include "chid-fundamental.h"
 #include "efi-api.h"
 #include "escape.h"

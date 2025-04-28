@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <netinet/in.h>
 #include <arpa/inet.h>
 #include <malloc.h>
-#include <netinet/in.h>
 #include <sys/socket.h>
 
 #include "fd-util.h"

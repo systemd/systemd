@@ -4,8 +4,8 @@
 #include <linux/if_arp.h>
 
 #include "alloc-util.h"
-#include "bond.h"
 #include "bond-util.h"
+#include "bond.h"
 #include "conf-parser.h"
 #include "ether-addr-util.h"
 #include "extract-word.h"

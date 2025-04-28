@@ -3,9 +3,9 @@
   Copyright © 2010 ProFUSION embedded systems
 ***/
 
+#include <sys/mount.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <sys/mount.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>

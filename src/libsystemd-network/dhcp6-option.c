@@ -3,8 +3,8 @@
   Copyright © 2014-2015 Intel Corporation. All rights reserved.
 ***/
 
-#include <errno.h>
 #include <netinet/in.h>
+#include <errno.h>
 
 #include "sd-dhcp6-client.h"
 

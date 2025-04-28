@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/mount.h>
 #include <ctype.h>
 #include <errno.h>
 #include <limits.h>
@@ -9,7 +10,6 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/mount.h>
 #include <sys/personality.h>
 #include <sys/prctl.h>
 #include <sys/types.h>

@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <net/if.h>
 #include <arpa/inet.h>
 #include <fcntl.h>
-#include <net/if.h>
 #include <net/if_arp.h>
 #include <pthread.h>
 #include <signal.h>
@@ -26,10 +26,11 @@
 #if ENABLE_DNS_OVER_TLS
 #include "resolved-dnstls.h"
 #endif
+#include "sd-event.h"
+
 #include "resolved-dns-server.h"
 #include "resolved-dns-stream.h"
 #include "resolved-manager.h"
-#include "sd-event.h"
 #include "sparse-endian.h"
 #include "tests.h"
 

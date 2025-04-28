@@ -2,14 +2,13 @@
 
 #include <pthread.h>
 
-#include "sd-varlink.h"
 #include "sd-varlink-idl.h"
+#include "sd-varlink.h"
 
 #include "fd-util.h"
 #include "pretty-print.h"
 #include "tests.h"
 #include "varlink-idl-util.h"
-#include "varlink-io.systemd.h"
 #include "varlink-io.systemd.AskPassword.h"
 #include "varlink-io.systemd.BootControl.h"
 #include "varlink-io.systemd.Credentials.h"
@@ -25,10 +24,11 @@
 #include "varlink-io.systemd.Network.h"
 #include "varlink-io.systemd.PCRExtend.h"
 #include "varlink-io.systemd.PCRLock.h"
-#include "varlink-io.systemd.Resolve.h"
 #include "varlink-io.systemd.Resolve.Monitor.h"
+#include "varlink-io.systemd.Resolve.h"
 #include "varlink-io.systemd.Udev.h"
 #include "varlink-io.systemd.UserDatabase.h"
+#include "varlink-io.systemd.h"
 #include "varlink-io.systemd.oom.h"
 #include "varlink-io.systemd.service.h"
 #include "varlink-io.systemd.sysext.h"

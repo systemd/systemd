@@ -1,8 +1,8 @@
 #ifndef SD_DNS_RESOLVER_H
 #define SD_DNS_RESOLVER_H
 
-#include <errno.h>
 #include <netinet/in.h>
+#include <errno.h>
 #include <stddef.h>
 #include <stdint.h>
 

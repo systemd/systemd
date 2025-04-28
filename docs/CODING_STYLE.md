@@ -344,15 +344,16 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   }
   ```
 
-- The order in which header files are included doesn't matter too
-  much. systemd-internal headers must not rely on an include order, so it is
-  safe to include them in any order possible.  However, to not clutter global
-  includes, and to make sure internal definitions will not affect global
-  headers, please always include the headers of external components first
-  (these are all headers enclosed in <>), followed by our own exported headers
-  (usually everything that's prefixed by `sd-`), and then followed by internal
-  headers.  Furthermore, in all three groups, order all includes alphabetically
-  so duplicate includes can easily be detected.
+- systemd-internal headers must not rely on an include order, so that it is safe
+  to  include them in any order possible. To not clutter global includes, and to
+  make sure internal definitions will not affect global headers, please always
+  include the headers of external components first (these are all headers
+  enclosed in <>), followed by our own exported headers (usually everything
+  that's prefixed by `sd-`), and then followed by internal headers. Furthermore,
+  in all three groups, all includes should be ordered alphabetically. Note that
+  sometimes, we do not sort system headers alphabetically when they rely on
+  being included in a specific order. For example `<netinet/in.h>` has to be
+  included before `<linux/in.h>`.
 
 - Please avoid using global variables as much as you can. And if you do use
   them make sure they are static at least, instead of exported. Especially in

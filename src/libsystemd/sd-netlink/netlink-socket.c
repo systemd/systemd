@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <malloc.h>
 #include <netinet/in.h>
+#include <malloc.h>
 #include <stdbool.h>
 #include <unistd.h>
 

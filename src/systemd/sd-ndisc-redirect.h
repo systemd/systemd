@@ -17,9 +17,9 @@
   along with systemd; If not, see <https://www.gnu.org/licenses/>.
 ***/
 
+#include <netinet/in.h>
 #include <inttypes.h>
 #include <net/ethernet.h>
-#include <netinet/in.h>
 #include <netinet/ip6.h>
 #include <sys/types.h>
 #include <time.h>

@@ -1,12 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-#include <stdlib.h>
 #include <sys/mount.h>
+#include <errno.h>
+#include <linux/loop.h>
+#include <stdlib.h>
 #include <sys/stat.h>
 #include <sys/statvfs.h>
 #include <unistd.h>
-#include <linux/loop.h>
 
 #include "alloc-util.h"
 #include "chase.h"

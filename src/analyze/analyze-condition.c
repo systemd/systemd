@@ -2,9 +2,9 @@
 
 #include <stdlib.h>
 
-#include "analyze.h"
 #include "analyze-condition.h"
 #include "analyze-verify-util.h"
+#include "analyze.h"
 #include "condition.h"
 #include "conf-parser.h"
 #include "load-fragment.h"

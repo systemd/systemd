@@ -1,10 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/mount.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
 #include <linux/oom.h>
-#include <sys/mount.h>
 #include <sys/prctl.h>
 #include <sys/utsname.h>
 #include <unistd.h>
@@ -65,9 +65,9 @@
 #include "loopback-setup.h"
 #include "machine-id-setup.h"
 #include "main.h"
-#include "manager.h"
 #include "manager-dump.h"
 #include "manager-serialize.h"
+#include "manager.h"
 #include "mkdir-label.h"
 #include "mount-setup.h"
 #include "mount-util.h"

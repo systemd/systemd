@@ -1,11 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/mount.h>
 #include <errno.h>
 #include <stdio.h>
-#include <sys/mount.h>
+#include <sys/auxv.h>
 #include <sys/prctl.h>
 #include <sys/statvfs.h>
-#include <sys/auxv.h>
 #include <sys/xattr.h>
 #include <unistd.h>
 

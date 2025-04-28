@@ -1,11 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/mount.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
 #include <linux/auto_dev-ioctl.h>
 #include <sys/epoll.h>
-#include <sys/mount.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -21,8 +21,8 @@
 #include "fstab-util.h"
 #include "io-util.h"
 #include "label-util.h"
-#include "mkdir-label.h"
 #include "manager.h"
+#include "mkdir-label.h"
 #include "mount-util.h"
 #include "mount.h"
 #include "mountpoint-util.h"

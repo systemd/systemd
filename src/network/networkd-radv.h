@@ -10,8 +10,8 @@
 
 #include "sd-radv.h"
 
-#include "in-addr-util.h"
 #include "conf-parser.h"
+#include "in-addr-util.h"
 #include "ndisc-option.h"
 #include "networkd-util.h"
 

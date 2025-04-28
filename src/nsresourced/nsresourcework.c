@@ -2,13 +2,12 @@
 
 /* Make sure the net/if.h header is included before any linux/ one */
 #include <net/if.h>
-
+#include <sys/mount.h>
 #include <fcntl.h>
 #include <linux/if_tun.h>
 #include <linux/nsfs.h>
 #include <linux/veth.h>
 #include <sys/eventfd.h>
-#include <sys/mount.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <utmpx.h>
