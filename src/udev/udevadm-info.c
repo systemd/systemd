@@ -1052,7 +1052,7 @@ int info_main(int argc, char *argv[], void *userdata) {
                         if (r < 0)
                                 return r;
 
-                        r = parse_key_value_argument(optarg, &k, &v);
+                        r = parse_key_value_argument(optarg, /* require_value= */ true, &k, &v);
                         if (r < 0)
                                 return r;
 
@@ -1070,7 +1070,7 @@ int info_main(int argc, char *argv[], void *userdata) {
                         if (r < 0)
                                 return r;
 
-                        r = parse_key_value_argument(optarg, &k, &v);
+                        r = parse_key_value_argument(optarg, /* require_value= */ true, &k, &v);
                         if (r < 0)
                                 return r;
 
