@@ -492,19 +492,11 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_uuid = true;
                         break;
 
-                case ARG_PRIORITIZED_SUBSYSTEM: {
-                        _cleanup_strv_free_ char **subsystems = NULL;
-
-                        subsystems = strv_split(optarg, ",");
-                        if (!subsystems)
-                                return log_error_errno(r, "Failed to parse prioritized subsystem '%s': %m", optarg);
-
-                        r = strv_extend_strv(&arg_prioritized_subsystems, subsystems, /* filter_duplicates= */ false);
+                case ARG_PRIORITIZED_SUBSYSTEM:
+                        r = strv_split_and_extend(&arg_prioritized_subsystems, optarg, ",", /* filter_duplicates= */ false);
                         if (r < 0)
                                 return log_oom();
-
                         break;
-                }
 
                 case ARG_INITIALIZED_MATCH:
                         arg_initialized_match = MATCH_INITIALIZED_YES;
