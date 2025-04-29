@@ -100,8 +100,12 @@ enum {
         META_ARGV_SIGNAL,       /* %s: number of signal causing dump */
         META_ARGV_TIMESTAMP,    /* %t: time of dump, expressed as seconds since the Epoch (we expand this to μs granularity) */
         META_ARGV_RLIMIT,       /* %c: core file size soft resource limit */
-        META_ARGV_HOSTNAME,     /* %h: hostname */
+        _META_ARGV_REQUIRED,
+        /* The fields below were added to kernel/core_pattern at later points, so they might be missing. */
+        META_ARGV_HOSTNAME = _META_ARGV_REQUIRED,  /* %h: hostname */
         _META_ARGV_MAX,
+        /* If new fields are added, they should be added here, to maintain compatibility
+         * with callers which don't know about the new fields. */
 
         /* The following indexes are cached for a couple of special fields we use (and
          * thereby need to be retrieved quickly) for naming coredump files, and attaching
@@ -112,7 +116,7 @@ enum {
         _META_MANDATORY_MAX,
 
         /* The rest are similar to the previous ones except that we won't fail if one of
-         * them is missing. */
+         * them is missing in a message sent over the socket. */
 
         META_EXE = _META_MANDATORY_MAX,
         META_UNIT,
@@ -1050,7 +1054,7 @@ static int context_parse_iovw(Context *context, struct iovec_wrapper *iovw) {
         }
 
         /* The basic fields from argv[] should always be there, refuse early if not */
-        for (int i = 0; i < _META_ARGV_MAX; i++)
+        for (int i = 0; i < _META_ARGV_REQUIRED; i++)
                 if (!context->meta[i])
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "A required (%s) has not been sent, aborting.", meta_field_names[i]);
 
@@ -1318,14 +1322,17 @@ static int gather_pid_metadata_from_argv(
         assert(context);
 
         /* We gather all metadata that were passed via argv[] into an array of iovecs that
-         * we'll forward to the socket unit */
+         * we'll forward to the socket unit.
+         *
+         * We require at least _META_ARGV_REQUIRED args, but will accept more.
+         * We know how to parse _META_ARGV_MAX args. The rest will be ignored. */
 
-        if (argc < _META_ARGV_MAX)
+        if (argc < _META_ARGV_REQUIRED)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Not enough arguments passed by the kernel (%i, expected %i).",
-                                       argc, _META_ARGV_MAX);
+                                       "Not enough arguments passed by the kernel (%i, expected between %i and %i).",
+                                       argc, _META_ARGV_REQUIRED, _META_ARGV_MAX);
 
-        for (int i = 0; i < _META_ARGV_MAX; i++) {
+        for (int i = 0; i < MIN(argc, _META_ARGV_MAX); i++) {
                 _cleanup_free_ char *buf = NULL;
                 const char *t = argv[i];
 
