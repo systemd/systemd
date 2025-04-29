@@ -3,8 +3,8 @@
   Copyright © 2016 BISDN GmbH. All rights reserved.
 ***/
 
-#include <netinet/in.h>
 #include <linux/if_bridge.h>
+#include <netinet/in.h>
 #include <stdbool.h>
 
 #include "alloc-util.h"

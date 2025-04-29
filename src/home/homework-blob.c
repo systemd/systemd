@@ -1,13 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "copy.h"
-#include "fileio.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "format-util.h"
 #include "fs-util.h"
 #include "home-util.h"
-#include "homework-blob.h"
 #include "homework.h"
+#include "homework-blob.h"
 #include "install-file.h"
 #include "log.h"
 #include "macro.h"

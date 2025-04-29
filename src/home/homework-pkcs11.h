@@ -3,8 +3,8 @@
 
 #if HAVE_P11KIT
 #include "memory-util.h"
-#include "user-record.h"
 #include "pkcs11-util.h"
+#include "user-record.h"
 
 struct pkcs11_callback_data {
         UserRecord *user_record;

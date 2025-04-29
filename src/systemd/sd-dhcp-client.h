@@ -22,8 +22,8 @@
 #include <inttypes.h>
 #include <net/ethernet.h>
 #include <netinet/in.h>
-#include <sys/types.h>
 #include <stdbool.h>
+#include <sys/types.h>
 
 #include "sd-device.h"
 #include "sd-dhcp-client-id.h"

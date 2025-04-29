@@ -16,8 +16,8 @@
 #include "parse-util.h"
 #include "random-util.h"
 #include "rm-rf.h"
-#include "tmpfile-util.h"
 #include "tests.h"
+#include "tmpfile-util.h"
 
 /* This program tests skipping around in a multi-file journal. */
 

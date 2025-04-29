@@ -5,6 +5,8 @@
 
 #include "alloc-util.h"
 #include "conf-parser.h"
+#include "drr.h"
+#include "htb.h"
 #include "in-addr-util.h"
 #include "netlink-util.h"
 #include "networkd-link.h"
@@ -12,15 +14,12 @@
 #include "networkd-network.h"
 #include "networkd-queue.h"
 #include "parse-util.h"
+#include "qfq.h"
 #include "set.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tc-util.h"
 #include "tclass.h"
-
-#include "drr.h"
-#include "htb.h"
-#include "qfq.h"
 
 const TClassVTable * const tclass_vtable[_TCLASS_KIND_MAX] = {
         [TCLASS_KIND_DRR] = &drr_tclass_vtable,

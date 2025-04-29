@@ -1,11 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-bus.h"
+
 #include "alloc-util.h"
 #include "bus-get-properties.h"
 #include "bus-log-control-api.h"
 #include "bus-util.h"
 #include "log.h"
-#include "sd-bus.h"
 #include "syslog-util.h"
 
 int bus_property_get_log_level(

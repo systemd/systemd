@@ -17,9 +17,9 @@
 #ifndef __IF_TUN_H
 #define __IF_TUN_H
 
-#include <linux/types.h>
-#include <linux/if_ether.h>
 #include <linux/filter.h>
+#include <linux/if_ether.h>
+#include <linux/types.h>
 
 /* Read queue size */
 #define TUN_READQ_SIZE	500

@@ -5,8 +5,8 @@
 
 #if HAVE_PWQUALITY
 /* pwquality.h uses size_t but doesn't include sys/types.h on its own */
-#include <sys/types.h>
 #include <pwquality.h>
+#include <sys/types.h>
 
 #include "dlfcn-util.h"
 #include "memory-util.h"

@@ -2,8 +2,8 @@
 
 #include "fd-util.h"
 #include "fs-util.h"
-#include "fuzz-journald.h"
 #include "fuzz.h"
+#include "fuzz-journald.h"
 #include "journald-native.h"
 #include "memfd-util.h"
 #include "process-util.h"

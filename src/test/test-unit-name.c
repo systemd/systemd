@@ -5,10 +5,10 @@
 
 #include "sd-id128.h"
 
-#include "alloc-util.h"
 #include "all-units.h"
-#include "glob-util.h"
+#include "alloc-util.h"
 #include "format-util.h"
+#include "glob-util.h"
 #include "hostname-setup.h"
 #include "hostname-util.h"
 #include "macro.h"
@@ -20,10 +20,10 @@
 #include "string-util.h"
 #include "tests.h"
 #include "tmpfile-util.h"
+#include "unit.h"
 #include "unit-def.h"
 #include "unit-name.h"
 #include "unit-printf.h"
-#include "unit.h"
 #include "user-util.h"
 
 static char *runtime_dir = NULL;

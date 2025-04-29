@@ -2,10 +2,10 @@
 
 #include <dirent.h>
 #include <errno.h>
+#include <stdio.h>
 #include <sys/prctl.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <stdio.h>
 
 #include "alloc-util.h"
 #include "bitfield.h"

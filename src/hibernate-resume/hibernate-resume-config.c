@@ -4,13 +4,13 @@
 
 #include "alloc-util.h"
 #include "device-nodes.h"
+#include "efivars.h"
 #include "fstab-util.h"
 #include "hibernate-resume-config.h"
 #include "os-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "proc-cmdline.h"
-#include "efivars.h"
 
 typedef struct KernelHibernateLocation {
         char *device;

@@ -5,9 +5,9 @@
 
 #include "btrfs-util.h"
 #include "fd-util.h"
-#include "fs-util.h"
 #include "fileio.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "log.h"
 #include "string-util.h"
 #include "tests.h"

@@ -3,10 +3,10 @@
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "parse-util.h"
+#include "systemctl.h"
 #include "systemctl-cancel-job.h"
 #include "systemctl-trivial-method.h"
 #include "systemctl-util.h"
-#include "systemctl.h"
 
 int verb_cancel(int argc, char *argv[], void *userdata) {
         sd_bus *bus;

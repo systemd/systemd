@@ -18,8 +18,8 @@
 #include "udev-dump.h"
 #include "udev-event.h"
 #include "udev-rules.h"
-#include "udevadm-util.h"
 #include "udevadm.h"
+#include "udevadm-util.h"
 
 static sd_device_action_t arg_action = SD_DEVICE_ADD;
 static ResolveNameTiming arg_resolve_name_timing = RESOLVE_NAME_EARLY;

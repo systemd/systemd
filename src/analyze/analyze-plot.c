@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "analyze.h"
 #include "analyze-plot.h"
 #include "analyze-time-data.h"
-#include "analyze.h"
 #include "bus-error.h"
 #include "bus-map-properties.h"
 #include "format-table.h"

@@ -3,8 +3,8 @@
   Copyright © 2014 Intel Corporation. All rights reserved.
 ***/
 
-#include <netinet/icmp6.h>
 #include <arpa/inet.h>
+#include <netinet/icmp6.h>
 #include <unistd.h>
 
 #include "sd-ndisc.h"
@@ -14,9 +14,9 @@
 #include "hexdecoct.h"
 #include "icmp6-packet.h"
 #include "icmp6-test-util.h"
+#include "ndisc-internal.h"
 #include "socket-util.h"
 #include "strv.h"
-#include "ndisc-internal.h"
 #include "tests.h"
 
 static struct ether_addr mac_addr = {

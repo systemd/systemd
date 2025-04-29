@@ -2,8 +2,8 @@
 #ifndef __LINUX_NEIGHBOUR_H
 #define __LINUX_NEIGHBOUR_H
 
-#include <linux/types.h>
 #include <linux/netlink.h>
+#include <linux/types.h>
 
 struct ndmsg {
 	__u8		ndm_family;

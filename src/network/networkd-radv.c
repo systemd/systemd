@@ -3,13 +3,13 @@
   Copyright © 2017 Intel Corporation. All rights reserved.
 ***/
 
-#include <netinet/icmp6.h>
 #include <arpa/inet.h>
+#include <netinet/icmp6.h>
 
 #include "dns-domain.h"
 #include "ndisc-router-internal.h"
-#include "networkd-address-generation.h"
 #include "networkd-address.h"
+#include "networkd-address-generation.h"
 #include "networkd-dhcp-prefix-delegation.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
@@ -19,8 +19,8 @@
 #include "networkd-route-util.h"
 #include "parse-util.h"
 #include "radv-internal.h"
-#include "string-util.h"
 #include "string-table.h"
+#include "string-util.h"
 #include "strv.h"
 
 bool link_radv_enabled(Link *link) {
