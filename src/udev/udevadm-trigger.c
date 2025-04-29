@@ -282,12 +282,15 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                 case 'v':
                         arg_verbose = true;
                         break;
+
                 case 'n':
                         arg_dry_run = true;
                         break;
+
                 case 'q':
                         arg_quiet = true;
                         break;
+
                 case 't':
                         if (streq(optarg, "devices"))
                                 device_type = TYPE_DEVICES;
@@ -298,21 +301,25 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                         else
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown type --type=%s", optarg);
                         break;
+
                 case 'c':
                         r = parse_device_action(optarg, &action);
                         if (r <= 0)
                                 return r;
                         break;
+
                 case 's':
                         r = sd_device_enumerator_add_match_subsystem(e, optarg, true);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to add subsystem match '%s': %m", optarg);
                         break;
+
                 case 'S':
                         r = sd_device_enumerator_add_match_subsystem(e, optarg, false);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to add negative subsystem match '%s': %m", optarg);
                         break;
+
                 case 'a':
                         buf = keyval(optarg, &key, &val);
                         if (!buf)
@@ -321,6 +328,7 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to add sysattr match '%s=%s': %m", key, val);
                         break;
+
                 case 'A':
                         buf = keyval(optarg, &key, &val);
                         if (!buf)
@@ -329,6 +337,7 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to add negative sysattr match '%s=%s': %m", key, val);
                         break;
+
                 case 'p':
                         buf = keyval(optarg, &key, &val);
                         if (!buf)
@@ -337,16 +346,19 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to add property match '%s=%s': %m", key, val);
                         break;
+
                 case 'g':
                         r = sd_device_enumerator_add_match_tag(e, optarg);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to add tag match '%s': %m", optarg);
                         break;
+
                 case 'y':
                         r = sd_device_enumerator_add_match_sysname(e, optarg);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to add sysname match '%s': %m", optarg);
                         break;
+
                 case 'b': {
                         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
 
@@ -359,11 +371,13 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                                 return log_error_errno(r, "Failed to add parent match '%s': %m", optarg);
                         break;
                 }
+
                 case ARG_INCLUDE_PARENTS:
                         r = sd_device_enumerator_add_all_parents(e);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to always include all parents: %m");
                         break;
+
                 case 'w':
                         arg_settle = true;
                         break;
@@ -408,18 +422,23 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                         }
                         break;
                 }
+
                 case ARG_INITIALIZED_MATCH:
                 case ARG_INITIALIZED_NOMATCH:
                         r = device_enumerator_add_match_is_initialized(e, c == ARG_INITIALIZED_MATCH ? MATCH_INITIALIZED_YES : MATCH_INITIALIZED_NO);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set initialized filter: %m");
                         break;
+
                 case 'V':
                         return print_version();
+
                 case 'h':
                         return help();
+
                 case '?':
                         return -EINVAL;
+
                 default:
                         assert_not_reached();
                 }
