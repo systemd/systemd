@@ -663,6 +663,14 @@ units = [
           'conditions' : ['ENABLE_RESOLVE'],
         },
         {
+          'file' : 'systemd-resolved-varlink.socket',
+          'conditions' : ['ENABLE_RESOLVE'],
+        },
+        {
+          'file' : 'systemd-resolved-monitor.socket',
+          'conditions' : ['ENABLE_RESOLVE'],
+        },
+        {
           'file' : 'systemd-rfkill.service.in',
           'conditions' : ['ENABLE_RFKILL'],
         },
