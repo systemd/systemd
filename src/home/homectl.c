@@ -50,7 +50,6 @@
 #include "rlimit-util.h"
 #include "rm-rf.h"
 #include "terminal-util.h"
-#include "tmpfile-util.h"
 #include "uid-classification.h"
 #include "user-record.h"
 #include "user-record-password-quality.h"

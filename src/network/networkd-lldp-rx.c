@@ -15,7 +15,6 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
-#include "tmpfile-util.h"
 
 DEFINE_CONFIG_PARSE_ENUM(config_parse_lldp_mode, lldp_mode, LLDPMode);
 

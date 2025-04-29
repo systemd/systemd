@@ -30,7 +30,6 @@
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
-#include "tmpfile-util.h"
 #include "user-util.h"
 
 /* Nontrivial value serves as a placeholder to check that parsing function (didn't) change it */

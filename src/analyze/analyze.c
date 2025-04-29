@@ -88,7 +88,6 @@
 #include "strxcpyx.h"
 #include "terminal-util.h"
 #include "time-util.h"
-#include "tmpfile-util.h"
 #include "unit-name.h"
 #include "verb-log-control.h"
 #include "verbs.h"
