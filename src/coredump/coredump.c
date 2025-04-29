@@ -108,6 +108,7 @@ typedef enum {
         _META_ARGV_REQUIRED,
         /* The fields below were added to kernel/core_pattern at later points, so they might be missing. */
         META_ARGV_HOSTNAME = _META_ARGV_REQUIRED,  /* %h: hostname */
+        META_ARGV_DUMPABLE,     /* %d: as set by the kernel */
         /* If new fields are added, they should be added here, to maintain compatibility
          * with callers which don't know about the new fields. */
         _META_ARGV_MAX,
@@ -136,6 +137,7 @@ static const char * const meta_field_names[_META_MAX] = {
         [META_ARGV_TIMESTAMP] = "COREDUMP_TIMESTAMP=",
         [META_ARGV_RLIMIT]    = "COREDUMP_RLIMIT=",
         [META_ARGV_HOSTNAME]  = "COREDUMP_HOSTNAME=",
+        [META_ARGV_DUMPABLE]  = "COREDUMP_DUMPABLE=",
         [META_COMM]           = "COREDUMP_COMM=",
         [META_EXE]            = "COREDUMP_EXE=",
         [META_UNIT]           = "COREDUMP_UNIT=",
@@ -146,6 +148,7 @@ typedef struct Context {
         PidRef pidref;
         uid_t uid;
         gid_t gid;
+        unsigned dumpable;
         int signo;
         uint64_t rlimit;
         bool is_pid1;
@@ -433,14 +436,16 @@ static int grant_user_access(int core_fd, const Context *context) {
         if (r < 0)
                 return r;
 
-        /* We allow access if we got all the data and at_secure is not set and
-         * the uid/gid matches euid/egid. */
+        /* We allow access if dumpable on the command line was exactly 1, we got all the data,
+         * at_secure is not set, and the uid/gid match euid/egid. */
         bool ret =
+                context->dumpable == 1 &&
                 at_secure == 0 &&
                 uid != UID_INVALID && euid != UID_INVALID && uid == euid &&
                 gid != GID_INVALID && egid != GID_INVALID && gid == egid;
-        log_debug("Will %s access (uid="UID_FMT " euid="UID_FMT " gid="GID_FMT " egid="GID_FMT " at_secure=%s)",
+        log_debug("Will %s access (dumpable=%u uid="UID_FMT " euid="UID_FMT " gid="GID_FMT " egid="GID_FMT " at_secure=%s)",
                   ret ? "permit" : "restrict",
+                  context->dumpable,
                   uid, euid, gid, egid, yes_no(at_secure));
         return ret;
 }
@@ -1082,6 +1087,16 @@ static int context_parse_iovw(Context *context, struct iovec_wrapper *iovw) {
         r = safe_atou64(context->meta[META_ARGV_RLIMIT], &context->rlimit);
         if (r < 0)
                 log_warning_errno(r, "Failed to parse resource limit \"%s\", ignoring: %m", context->meta[META_ARGV_RLIMIT]);
+
+        /* The value is set to contents of /proc/sys/fs/suid_dumpable, which we set to 2,
+         * if the process is marked as not dumpable, see PR_SET_DUMPABLE(2const). */
+        if (context->meta[META_ARGV_DUMPABLE]) {
+                r = safe_atou(context->meta[META_ARGV_DUMPABLE], &context->dumpable);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse dumpable field \"%s\": %m", context->meta[META_ARGV_DUMPABLE]);
+                if (context->dumpable > 2)
+                        log_notice("Got unexpected %%d/dumpable value %u.", context->dumpable);
+        }
 
         unit = context->meta[META_UNIT];
         context->is_pid1 = streq(context->meta[META_ARGV_PID], "1") || streq_ptr(unit, SPECIAL_INIT_SCOPE);
