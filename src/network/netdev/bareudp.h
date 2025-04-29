@@ -4,10 +4,10 @@
 
 typedef struct BareUDP BareUDP;
 
-#include <linux/if_ether.h>
-
 #include "conf-parser.h"
 #include "netdev.h"
+
+#include <linux/if_ether.h>
 
 typedef enum BareUDPProtocol {
         BARE_UDP_PROTOCOL_IPV4    = ETH_P_IP,

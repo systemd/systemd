@@ -8,8 +8,6 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <linux/input.h>
-#include <linux/limits.h>
 #include <stdarg.h>
 #include <unistd.h>
 
@@ -19,6 +17,9 @@
 #include "stdio-util.h"
 #include "string-util.h"
 #include "udev-builtin.h"
+
+#include <linux/input.h>
+#include <linux/limits.h>
 
 /* we must use this kernel-compatible implementation */
 #define BITS_PER_LONG (sizeof(unsigned long) * 8)

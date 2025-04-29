@@ -3,8 +3,8 @@
 #include "journal-internal.h"
 #include "log.h"
 #include "logs-show.h"
-#include "networkctl.h"
 #include "networkctl-journal.h"
+#include "networkctl.h"
 #include "terminal-util.h"
 
 static OutputFlags get_output_flags(void) {

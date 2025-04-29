@@ -5,8 +5,8 @@
 #include <stdint.h>
 #include <sys/types.h>
 
-#include "memory-util.h"
 #include "macro.h"
+#include "memory-util.h"
 
 /* See source file for an API description. */
 

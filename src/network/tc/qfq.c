@@ -1,12 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later
  * Copyright © 2020 VMware, Inc. */
 
-#include <linux/pkt_sched.h>
-
 #include "parse-util.h"
 #include "qdisc.h"
 #include "qfq.h"
 #include "string-util.h"
+
+#include <linux/pkt_sched.h>
 
 #define QFQ_MAX_WEIGHT       (1 << 10)
 #define QFQ_MIN_MAX_PACKET   512

@@ -4,7 +4,6 @@
 ***/
 
 #include <arpa/inet.h>
-#include <linux/filter.h>
 #include <netinet/if_ether.h>
 
 #include "arp-util.h"
@@ -12,6 +11,8 @@
 #include "fd-util.h"
 #include "in-addr-util.h"
 #include "unaligned.h"
+
+#include <linux/filter.h>
 
 int arp_update_filter(int fd, const struct in_addr *a, const struct ether_addr *mac) {
         struct sock_filter filter[] = {

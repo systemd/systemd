@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
-#include <linux/loop.h>
 #include <sched.h>
 #include <stdio.h>
 #include <sys/file.h>
@@ -46,6 +45,8 @@
 #include "umask-util.h"
 #include "user-util.h"
 #include "vpick.h"
+
+#include <linux/loop.h>
 
 #define DEV_MOUNT_OPTIONS (MS_NOSUID|MS_STRICTATIME|MS_NOEXEC)
 

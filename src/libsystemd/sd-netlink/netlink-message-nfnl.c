@@ -1,9 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <netinet/in.h>
-#include <linux/netfilter/nfnetlink.h>
-#include <linux/netfilter/nf_tables.h>
-#include <linux/netfilter.h>
 
 #include "sd-netlink.h"
 
@@ -12,6 +9,10 @@
 #include "netlink-internal.h"
 #include "netlink-types.h"
 #include "netlink-util.h"
+
+#include <linux/netfilter.h>
+#include <linux/netfilter/nf_tables.h>
+#include <linux/netfilter/nfnetlink.h>
 
 bool nfproto_is_valid(int nfproto) {
         return IN_SET(nfproto,

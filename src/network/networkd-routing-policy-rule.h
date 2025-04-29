@@ -2,12 +2,13 @@
 #pragma once
 
 #include <inttypes.h>
-#include <linux/fib_rules.h>
 #include <stdbool.h>
 
 #include "conf-parser.h"
 #include "in-addr-prefix-util.h"
 #include "networkd-util.h"
+
+#include <linux/fib_rules.h>
 
 typedef struct Link Link;
 typedef struct Manager Manager;

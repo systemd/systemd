@@ -1,25 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later
  * Copyright © 2019 VMware, Inc. */
 
-#include <linux/pkt_sched.h>
-
 #include "alloc-util.h"
-#include "conf-parser.h"
-#include "in-addr-util.h"
-#include "netlink-util.h"
-#include "networkd-link.h"
-#include "networkd-manager.h"
-#include "networkd-network.h"
-#include "networkd-queue.h"
-#include "parse-util.h"
-#include "qdisc.h"
-#include "set.h"
-#include "string-util.h"
-#include "strv.h"
-#include "tc-util.h"
-
 #include "cake.h"
 #include "codel.h"
+#include "conf-parser.h"
+#include "drr.h"
 #include "ets.h"
 #include "fifo.h"
 #include "fq-codel.h"
@@ -28,16 +14,29 @@
 #include "gred.h"
 #include "hhf.h"
 #include "htb.h"
+#include "in-addr-util.h"
 #include "mq.h"
 #include "multiq.h"
-#include "pie.h"
-#include "qfq.h"
 #include "netem.h"
-#include "drr.h"
+#include "netlink-util.h"
+#include "networkd-link.h"
+#include "networkd-manager.h"
+#include "networkd-network.h"
+#include "networkd-queue.h"
+#include "parse-util.h"
+#include "pie.h"
+#include "qdisc.h"
+#include "qfq.h"
+#include "set.h"
 #include "sfb.h"
 #include "sfq.h"
+#include "string-util.h"
+#include "strv.h"
 #include "tbf.h"
+#include "tc-util.h"
 #include "teql.h"
+
+#include <linux/pkt_sched.h>
 
 const QDiscVTable * const qdisc_vtable[_QDISC_KIND_MAX] = {
         [QDISC_KIND_BFIFO]           = &bfifo_vtable,

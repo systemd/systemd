@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/if_tunnel.h>
-
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-util.h"
@@ -15,6 +13,8 @@
 #include "strv.h"
 #include "strxcpyx.h"
 #include "wifi-util.h"
+
+#include <linux/if_tunnel.h>
 
 /* use 128 kB for receive socket kernel queue, we shouldn't need more here */
 #define RCVBUF_SIZE    (128*1024)

@@ -3,7 +3,6 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
-#include <linux/loop.h>
 #include <sys/file.h>
 #include <sys/mount.h>
 #include <unistd.h>
@@ -55,6 +54,8 @@
 #include "varlink-io.systemd.sysext.h"
 #include "varlink-util.h"
 #include "verbs.h"
+
+#include <linux/loop.h>
 
 typedef enum MutableMode {
         MUTABLE_NO,

@@ -1,10 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "netlink-types-internal.h"
+
 #include <linux/if.h>
 #include <linux/netfilter/nf_tables.h>
 #include <linux/netfilter/nfnetlink.h>
-
-#include "netlink-types-internal.h"
 
 static const NLAPolicy nfnl_nft_table_policies[] = {
         [NFTA_TABLE_NAME]  = BUILD_POLICY_WITH_SIZE(STRING, NFT_TABLE_MAXNAMELEN - 1),

@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
-#include <linux/ipv6.h>
 #include <netinet/in.h>
 #include <poll.h>
 #include <sys/ioctl.h>
@@ -53,12 +52,14 @@
 #include "resolved-socket-graveyard.h"
 #include "resolved-util.h"
 #include "resolved-varlink.h"
-#include "socket-util.h"
 #include "socket-netlink.h"
+#include "socket-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "utf8.h"
 #include "varlink-util.h"
+
+#include <linux/ipv6.h>
 
 #define SEND_TIMEOUT_USEC (200 * USEC_PER_MSEC)
 

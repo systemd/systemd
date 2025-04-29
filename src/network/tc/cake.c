@@ -1,8 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later
  * Copyright © 2020 VMware, Inc. */
 
-#include <linux/pkt_sched.h>
-
 #include "alloc-util.h"
 #include "cake.h"
 #include "conf-parser.h"
@@ -11,6 +9,8 @@
 #include "qdisc.h"
 #include "string-table.h"
 #include "string-util.h"
+
+#include <linux/pkt_sched.h>
 
 static int cake_init(QDisc *qdisc) {
         CommonApplicationsKeptEnhanced *c;

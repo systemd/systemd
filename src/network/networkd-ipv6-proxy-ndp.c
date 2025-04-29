@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <netinet/in.h>
-#include <linux/if.h>
 
 #include "netlink-util.h"
 #include "networkd-ipv6-proxy-ndp.h"
@@ -11,6 +10,8 @@
 #include "networkd-queue.h"
 #include "socket-util.h"
 #include "string-util.h"
+
+#include <linux/if.h>
 
 void network_adjust_ipv6_proxy_ndp(Network *network) {
         assert(network);

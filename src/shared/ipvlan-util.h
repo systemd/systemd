@@ -2,9 +2,10 @@
 #pragma once
 
 #include <netinet/in.h>
-#include <linux/if_link.h>
 
 #include "macro.h"
+
+#include <linux/if_link.h>
 
 typedef enum IPVlanMode {
         NETDEV_IPVLAN_MODE_L2 = IPVLAN_MODE_L2,

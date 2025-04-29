@@ -8,9 +8,8 @@
 #include "sd-id128.h"
 
 #include "fs-util.h"
-#include "time-util.h"
-
 #include "sysupdate-partition.h"
+#include "time-util.h"
 
 typedef struct Resource Resource;
 typedef struct Instance Instance;

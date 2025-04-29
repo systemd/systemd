@@ -2,8 +2,6 @@
 
 #include <errno.h>
 #include <getopt.h>
-#include <linux/fuse.h>
-#include <linux/loop.h>
 #include <stdlib.h>
 #include <sys/file.h>
 #include <sys/ioctl.h>
@@ -15,14 +13,11 @@
 #include <termios.h>
 #include <unistd.h>
 
-#include <linux/fs.h> /* Must be included after <sys/mount.h> */
-
 #include "sd-bus.h"
 #include "sd-daemon.h"
 #include "sd-id128.h"
 
 #include "alloc-util.h"
-#include "ether-addr-util.h"
 #include "barrier.h"
 #include "base-filesystem.h"
 #include "btrfs-util.h"
@@ -45,6 +40,7 @@
 #include "dissect-image.h"
 #include "env-util.h"
 #include "escape.h"
+#include "ether-addr-util.h"
 #include "fd-util.h"
 #include "fdset.h"
 #include "fileio.h"
@@ -111,6 +107,10 @@
 #include "unit-name.h"
 #include "user-util.h"
 #include "vpick.h"
+
+#include <linux/fs.h> /* Must be included after <sys/mount.h> */
+#include <linux/fuse.h>
+#include <linux/loop.h>
 
 /* The notify socket inside the container it can use to talk to nspawn using the sd_notify(3) protocol */
 #define NSPAWN_NOTIFY_SOCKET_PATH "/run/host/notify"

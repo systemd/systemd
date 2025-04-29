@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <arpa/inet.h>
-#include <linux/sockios.h>
 #include <sys/ioctl.h>
 
 #include "sd-json.h"
@@ -19,6 +18,8 @@
 #include "socket-util.h"
 #include "sort-util.h"
 #include "string-table.h"
+
+#include <linux/sockios.h>
 
 #define LLDP_DEFAULT_NEIGHBORS_MAX 128U
 

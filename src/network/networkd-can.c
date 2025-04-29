@@ -2,7 +2,6 @@
 
 /* Make sure the net/if.h header is included before any linux/ one */
 #include <net/if.h>
-#include <linux/can/netlink.h>
 
 #include "networkd-can.h"
 #include "networkd-link.h"
@@ -10,6 +9,8 @@
 #include "networkd-setlink.h"
 #include "parse-util.h"
 #include "string-util.h"
+
+#include <linux/can/netlink.h>
 
 #define CAN_TERMINATION_DEFAULT_OHM_VALUE 120
 

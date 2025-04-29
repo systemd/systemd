@@ -3,7 +3,6 @@
   Copyright © 2010 ProFUSION embedded systems
 ***/
 
-#include <linux/dm-ioctl.h>
 #include <sys/ioctl.h>
 
 #include "sd-device.h"
@@ -17,6 +16,8 @@
 #include "fd-util.h"
 #include "list.h"
 #include "shutdown.h"
+
+#include <linux/dm-ioctl.h>
 
 typedef struct DeviceMapper {
         char *path;

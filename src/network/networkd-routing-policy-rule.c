@@ -2,7 +2,6 @@
 
 /* Make sure the net/if.h header is included before any linux/ one */
 #include <net/if.h>
-#include <linux/fib_rules.h>
 
 #include "af-list.h"
 #include "alloc-util.h"
@@ -24,6 +23,8 @@
 #include "string-util.h"
 #include "strv.h"
 #include "user-util.h"
+
+#include <linux/fib_rules.h>
 
 static const char *const fr_act_type_table[__FR_ACT_MAX] = {
         [FR_ACT_TO_TBL]      = "table",

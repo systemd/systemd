@@ -1,10 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <stdio.h>
-#include <linux/audit.h>
 
 #include "audit-type.h"
 #include "tests.h"
+
+#include <linux/audit.h>
 
 static void print_audit_label(int i) {
         const char *name;

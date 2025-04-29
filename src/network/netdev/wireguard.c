@@ -5,8 +5,6 @@
 
 /* Make sure the net/if.h header is included before any linux/ one */
 #include <net/if.h>
-#include <linux/if_arp.h>
-#include <linux/ipv6_route.h>
 #include <netinet/in.h>
 #include <sys/ioctl.h>
 
@@ -33,6 +31,9 @@
 #include "string-util.h"
 #include "strv.h"
 #include "wireguard.h"
+
+#include <linux/if_arp.h>
+#include <linux/ipv6_route.h>
 
 static void wireguard_resolve_endpoints(NetDev *netdev);
 static int peer_resolve_endpoint(WireguardPeer *peer);

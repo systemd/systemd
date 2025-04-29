@@ -2,7 +2,6 @@
 
 /* Make sure the net/if.h header is included before any linux/ one */
 #include <net/if.h>
-#include <linux/if_arp.h>
 #include <netinet/in.h>
 
 #include "hsr.h"
@@ -11,6 +10,8 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
+
+#include <linux/if_arp.h>
 
 static const char * const hsr_protocol_table[_NETDEV_HSR_PROTOCOL_MAX] = {
         [NETDEV_HSR_PROTOCOL_HSR] = "hsr",

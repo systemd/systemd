@@ -2,10 +2,10 @@
 
 #pragma once
 
-#include <linux/batman_adv.h>
-
 #include "conf-parser.h"
 #include "netdev.h"
+
+#include <linux/batman_adv.h>
 
 #define BATADV_GENL_NAME "batadv"
 

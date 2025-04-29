@@ -3,7 +3,6 @@
   Copyright © 2018 Dell Inc.
 ***/
 
-#include <linux/magic.h>
 #include <stddef.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
@@ -27,6 +26,8 @@
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
+
+#include <linux/magic.h>
 
 #define HIBERNATION_SWAP_THRESHOLD 0.98
 

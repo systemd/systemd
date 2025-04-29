@@ -2,7 +2,6 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <linux/types.h>
 #include <sys/resource.h>
 #include <sys/stat.h>
 #include <sys/time.h>
@@ -22,6 +21,8 @@
 #include "nulstr-util.h"
 #include "stat-util.h"
 #include "strv.h"
+
+#include <linux/types.h>
 
 #if BPF_FRAMEWORK
 /* libbpf, clang and llc compile time dependencies are satisfied */

@@ -6,7 +6,6 @@
 
 #include <fcntl.h>
 #include <getopt.h>
-#include <linux/loop.h>
 #include <sys/file.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
@@ -82,6 +81,8 @@
 #include "user-util.h"
 #include "utf8.h"
 #include "xattr-util.h"
+
+#include <linux/loop.h>
 
 /* If not configured otherwise use a minimal partition size of 10M */
 #define DEFAULT_MIN_SIZE (10ULL*1024ULL*1024ULL)

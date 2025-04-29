@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <net/ethernet.h>
-#include <linux/nl80211.h>
 
 #include "ether-addr-util.h"
 #include "netlink-util.h"
@@ -11,6 +10,8 @@
 #include "networkd-wiphy.h"
 #include "string-util.h"
 #include "wifi-util.h"
+
+#include <linux/nl80211.h>
 
 int link_get_wlan_interface(Link *link) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;

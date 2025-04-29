@@ -2,7 +2,6 @@
 
 /* Make sure the net/if.h header is included before any linux/ one */
 #include <net/if.h>
-#include <linux/if.h>
 
 #include "bond.h"
 #include "dhcp6-internal.h"
@@ -18,6 +17,8 @@
 #include "test-tables.h"
 #include "tests.h"
 #include "tunnel.h"
+
+#include <linux/if.h>
 
 int main(int argc, char **argv) {
         test_setup_logging(LOG_DEBUG);

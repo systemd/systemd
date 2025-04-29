@@ -1,9 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 /* Make sure the net/if.h header is included before any linux/ one */
-#include <net/if.h>
 #include <errno.h>
-#include <linux/veth.h>
+#include <net/if.h>
 #include <stdlib.h>
 #include <unistd.h>
 
@@ -17,6 +16,8 @@
 #include "parse-util.h"
 #include "string-util.h"
 #include "tests.h"
+
+#include <linux/veth.h>
 
 static void ll_handler(sd_ipv4ll *ll, int event, void *userdata) {
         assert_se(ll);

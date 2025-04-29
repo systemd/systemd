@@ -2,8 +2,6 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <linux/kcmp.h>
-#include <linux/magic.h>
 #include <sys/ioctl.h>
 #include <sys/resource.h>
 #include <sys/stat.h>
@@ -29,6 +27,9 @@
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "tmpfile-util.h"
+
+#include <linux/kcmp.h>
+#include <linux/magic.h>
 
 /* The maximum number of iterations in the loop to close descriptors in the fallback case
  * when /proc/self/fd/ is inaccessible. */

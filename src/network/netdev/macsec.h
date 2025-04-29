@@ -2,13 +2,14 @@
 #pragma once
 
 #include <netinet/in.h>
-#include <linux/if_macsec.h>
 
 #include "ether-addr-util.h"
 #include "in-addr-util.h"
 #include "netdev.h"
 #include "networkd-util.h"
 #include "sparse-endian.h"
+
+#include <linux/if_macsec.h>
 
 /* See the definition of MACSEC_NUM_AN in kernel's drivers/net/macsec.c */
 #define MACSEC_MAX_ASSOCIATION_NUMBER 4

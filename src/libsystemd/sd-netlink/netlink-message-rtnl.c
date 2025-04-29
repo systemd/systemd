@@ -1,10 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <netinet/in.h>
-#include <linux/fib_rules.h>
-#include <linux/if_addrlabel.h>
-#include <linux/if_bridge.h>
-#include <linux/nexthop.h>
 #include <stdbool.h>
 #include <unistd.h>
 
@@ -16,6 +12,11 @@
 #include "netlink-types.h"
 #include "netlink-util.h"
 #include "socket-util.h"
+
+#include <linux/fib_rules.h>
+#include <linux/if_addrlabel.h>
+#include <linux/if_bridge.h>
+#include <linux/nexthop.h>
 
 static bool rtnl_message_type_is_neigh(uint16_t type) {
         return IN_SET(type, RTM_NEWNEIGH, RTM_GETNEIGH, RTM_DELNEIGH);

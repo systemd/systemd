@@ -10,12 +10,13 @@
 #include <string.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <linux/if_packet.h>
 
 #include "dhcp6-internal.h"
 #include "dhcp6-protocol.h"
 #include "fd-util.h"
 #include "socket-util.h"
+
+#include <linux/if_packet.h>
 
 int dhcp6_network_bind_udp_socket(int ifindex, const struct in6_addr *local_address) {
         union sockaddr_union src = {

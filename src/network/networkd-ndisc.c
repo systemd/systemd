@@ -5,8 +5,6 @@
 
 #include <arpa/inet.h>
 #include <netinet/icmp6.h>
-#include <linux/if.h>
-#include <linux/if_arp.h>
 
 #include "sd-ndisc.h"
 
@@ -28,6 +26,9 @@
 #include "string-util.h"
 #include "strv.h"
 #include "sysctl-util.h"
+
+#include <linux/if.h>
+#include <linux/if_arp.h>
 
 #define NDISC_DNSSL_MAX 64U
 #define NDISC_RDNSS_MAX 64U

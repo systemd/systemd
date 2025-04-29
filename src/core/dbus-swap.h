@@ -5,8 +5,8 @@
   Copyright © 2010 Maarten Lankhorst
 ***/
 
-#include "sd-bus.h"
 #include "sd-bus-vtable.h"
+#include "sd-bus.h"
 
 #include "unit.h"
 

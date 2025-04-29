@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <netinet/in.h>
-#include <linux/if.h>
 
 #include "alloc-util.h"
 #include "dns-domain.h"
@@ -22,6 +21,8 @@
 #include "set.h"
 #include "strv.h"
 #include "tmpfile-util.h"
+
+#include <linux/if.h>
 
 static int ordered_set_put_dns_servers(OrderedSet **s, int ifindex, struct in_addr_full **dns, unsigned n) {
         int r;

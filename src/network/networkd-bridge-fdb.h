@@ -6,11 +6,12 @@
 ***/
 
 #include <inttypes.h>
-#include <linux/neighbour.h>
 
 #include "conf-parser.h"
 #include "ether-addr-util.h"
 #include "in-addr-util.h"
+
+#include <linux/neighbour.h>
 
 typedef struct Link Link;
 typedef struct Network Network;

@@ -1,14 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <linux/rtnetlink.h>
-
 #include "sd-netlink.h"
 
 #include "ether-addr-util.h"
 #include "in-addr-util.h"
 #include "ordered-set.h"
 #include "socket-util.h"
+
+#include <linux/rtnetlink.h>
 
 #define RTA_FLAGS(rta) ((rta)->rta_type & ~NLA_TYPE_MASK)
 #define RTA_TYPE(rta)  ((rta)->rta_type & NLA_TYPE_MASK)

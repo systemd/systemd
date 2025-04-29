@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <netinet/in.h>
-#include <linux/if.h>
 
 #include "netif-util.h"
 #include "networkd-address.h"
@@ -11,6 +10,8 @@
 #include "networkd-manager.h"
 #include "networkd-queue.h"
 #include "parse-util.h"
+
+#include <linux/if.h>
 
 bool link_ipv4ll_enabled(Link *link) {
         assert(link);

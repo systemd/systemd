@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <linux/bpf.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <sys/syscall.h>
@@ -9,6 +8,8 @@
 #include "fdset.h"
 #include "list.h"
 #include "macro.h"
+
+#include <linux/bpf.h>
 
 typedef struct BPFProgram BPFProgram;
 

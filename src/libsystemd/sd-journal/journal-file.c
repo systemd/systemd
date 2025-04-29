@@ -2,7 +2,6 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <linux/magic.h>
 #include <pthread.h>
 #include <stddef.h>
 #include <sys/mman.h>
@@ -22,11 +21,11 @@
 #include "fs-util.h"
 #include "gcrypt-util.h"
 #include "id128-util.h"
-#include "log.h"
 #include "journal-authenticate.h"
 #include "journal-def.h"
 #include "journal-file.h"
 #include "journal-internal.h"
+#include "log.h"
 #include "lookup3.h"
 #include "memory-util.h"
 #include "missing_fs.h"
@@ -43,6 +42,8 @@
 #include "sync-util.h"
 #include "user-util.h"
 #include "xattr-util.h"
+
+#include <linux/magic.h>
 
 #define DEFAULT_DATA_HASH_TABLE_SIZE (2047ULL*sizeof(HashItem))
 #define DEFAULT_FIELD_HASH_TABLE_SIZE (333ULL*sizeof(HashItem))

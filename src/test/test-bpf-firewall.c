@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/bpf_insn.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -15,6 +14,8 @@
 #include "tests.h"
 #include "unit-serialize.h"
 #include "virt.h"
+
+#include <linux/bpf_insn.h>
 
 int main(int argc, char *argv[]) {
         const struct bpf_insn exit_insn[] = {

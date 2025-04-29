@@ -1,9 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "sd-bus.h"
+
 #include "macro.h"
 #include "memory-util.h"
-#include "sd-bus.h"
 
 typedef struct BusWaitForUnits BusWaitForUnits;
 

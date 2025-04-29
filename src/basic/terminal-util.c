@@ -3,9 +3,6 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
-#include <linux/kd.h>
-#include <linux/tiocl.h>
-#include <linux/vt.h>
 #include <poll.h>
 #include <signal.h>
 #include <stdarg.h>
@@ -52,6 +49,10 @@
 #include "terminal-util.h"
 #include "time-util.h"
 #include "user-util.h"
+
+#include <linux/kd.h>
+#include <linux/tiocl.h>
+#include <linux/vt.h>
 
 static volatile unsigned cached_columns = 0;
 static volatile unsigned cached_lines = 0;

@@ -3,7 +3,6 @@
 /* Make sure the net/if.h header is included before any linux/ one */
 #include <net/if.h>
 #include <netinet/in.h>
-#include <linux/netdevice.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -43,6 +42,8 @@
 #include "string-util.h"
 #include "strv.h"
 #include "tclass.h"
+
+#include <linux/netdevice.h>
 
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 network_hash_ops,

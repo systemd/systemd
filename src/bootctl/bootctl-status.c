@@ -3,9 +3,9 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
-#include "bootctl.h"
 #include "bootctl-status.h"
 #include "bootctl-util.h"
+#include "bootctl.h"
 #include "bootspec.h"
 #include "chase.h"
 #include "devnum-util.h"

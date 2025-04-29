@@ -6,8 +6,9 @@
  * fine given that LGPL-2.1-or-later downgrades to GPL if needed.
  */
 
-#include <linux/types.h>
 #include <stdint.h>
+
+#include <linux/types.h>
 
 /*
  * Bind rule is matched with socket fields accessible to cgroup/bind{4,6} hook

@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <net/if.h>
-#include <linux/if.h>
 #include <getopt.h>
+#include <net/if.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -78,6 +77,8 @@
 #include "vmspawn-scope.h"
 #include "vmspawn-settings.h"
 #include "vmspawn-util.h"
+
+#include <linux/if.h>
 
 #define VM_TAP_HASH_KEY SD_ID128_MAKE(01,d0,c6,4c,2b,df,24,fb,c0,f8,b2,09,7d,59,b2,93)
 

@@ -1,10 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <linux/pkt_sched.h>
-
 #include "conf-parser.h"
 #include "qdisc.h"
+
+#include <linux/pkt_sched.h>
 
 typedef struct EnhancedTransmissionSelection {
         QDisc meta;

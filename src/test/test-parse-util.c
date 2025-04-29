@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
-#include <linux/netfilter/nf_tables.h>
 #include <locale.h>
 #include <math.h>
 #include <sys/socket.h>
@@ -12,6 +11,8 @@
 #include "parse-util.h"
 #include "string-util.h"
 #include "tests.h"
+
+#include <linux/netfilter/nf_tables.h>
 
 TEST(parse_boolean) {
         ASSERT_OK_EQ(parse_boolean("1"), 1);

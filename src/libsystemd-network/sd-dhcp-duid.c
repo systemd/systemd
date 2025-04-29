@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/if_infiniband.h>
 #include <net/ethernet.h>
 #include <net/if_arp.h>
 
@@ -11,6 +10,8 @@
 #include "siphash24.h"
 #include "string-table.h"
 #include "unaligned.h"
+
+#include <linux/if_infiniband.h>
 
 #define HASH_KEY       SD_ID128_MAKE(80,11,8c,c2,fe,4a,03,ee,3e,d6,0c,6f,36,39,14,09)
 #define APPLICATION_ID SD_ID128_MAKE(a5,0a,d1,12,bf,60,45,77,a2,fb,74,1a,b1,95,5b,03)

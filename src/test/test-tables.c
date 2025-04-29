@@ -2,8 +2,8 @@
 
 #include "architecture.h"
 #include "automount.h"
-#include "cgroup.h"
 #include "cgroup-util.h"
+#include "cgroup.h"
 #include "compress.h"
 #include "condition.h"
 #include "confidential-virt.h"

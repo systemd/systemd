@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/if_arp.h>
-
 #include "vcan.h"
+
+#include <linux/if_arp.h>
 
 const NetDevVTable vcan_vtable = {
         .object_size = sizeof(VCan),

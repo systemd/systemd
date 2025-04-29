@@ -2,16 +2,11 @@
 #pragma once
 
 #include <inttypes.h>
-#include <linux/if_ether.h>
-#include <linux/if_infiniband.h>
-#include <linux/if_packet.h>
-#include <linux/netlink.h>
-#include <sys/socket.h> /* linux/vms_sockets.h requires 'struct sockaddr' */
-#include <linux/vm_sockets.h>
 #include <netinet/in.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <string.h>
+#include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/un.h>
 
@@ -22,6 +17,12 @@
 #include "missing_socket.h"
 #include "pidref.h"
 #include "sparse-endian.h"
+
+#include <linux/if_ether.h>
+#include <linux/if_infiniband.h>
+#include <linux/if_packet.h>
+#include <linux/netlink.h>
+#include <linux/vm_sockets.h>
 
 union sockaddr_union {
         /* The minimal, abstract version */
