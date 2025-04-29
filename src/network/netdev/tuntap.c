@@ -228,9 +228,14 @@ static int tuntap_verify(NetDev *netdev, const char *filename) {
 
         if (t->user_name) {
                 UserRecord *ur;
+                UserDBMatch match = USERDB_MATCH_NULL;
 
-                r = userdb_by_name(t->user_name, /* match = */ NULL, USERDB_PARSE_NUMERIC, &ur);
-                if (r < 0)
+                match.disposition_mask = UINT64_C(1) << USER_SYSTEM;
+
+                r = userdb_by_name(t->user_name, &match, USERDB_PARSE_NUMERIC, &ur);
+                if (r == -ENOEXEC)
+                        log_netdev_warning_errno(netdev, r, "User %s is not a system user, ignoring.", t->user_name);
+                else if (r < 0)
                         log_netdev_warning_errno(netdev, r, "Cannot resolve user name %s, ignoring: %m", t->user_name);
                 else
                         t->uid = ur->uid;
@@ -238,9 +243,14 @@ static int tuntap_verify(NetDev *netdev, const char *filename) {
 
         if (t->group_name) {
                 GroupRecord *gr;
+                UserDBMatch match = USERDB_MATCH_NULL;
 
-                r = groupdb_by_name(t->group_name, /* match = */ NULL, USERDB_PARSE_NUMERIC, &gr);
-                if (r < 0)
+                match.disposition_mask = UINT64_C(1) << USER_SYSTEM;
+
+                r = groupdb_by_name(t->group_name, &match, USERDB_PARSE_NUMERIC, &gr);
+                if (r == -ENOEXEC)
+                        log_netdev_warning_errno(netdev, r, "Group %s is not a system group, ignoring.", t->group_name);
+                else if (r < 0)
                         log_netdev_warning_errno(netdev, r, "Cannot resolve group name %s, ignoring: %m", t->group_name);
                 else
                         t->gid = gr->gid;

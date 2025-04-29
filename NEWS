@@ -46,6 +46,9 @@ CHANGES WITH 258 in spe:
           owned by a non-system user/group. It is recommended to check udev
           rules files with 'udevadm verify' and/or 'udevadm test' commands if
           the specified user/group in OWNER=/GROUP= are valid.
+          Similarly, systemd-networkd refuses User=/Group= settings with a
+          non-system user/group specified in .netdev files for Tun/Tap
+          interfaces.
 
         * systemd-cryptenroll, systemd-repart and systemd-creds no longer
           default to locking TPM2 enrollments to the current, literal value of
