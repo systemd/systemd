@@ -13,10 +13,12 @@
 #include "alloc-util.h"
 #include "daemon-util.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "socket-util.h"
 #include "tuntap.h"
+#include "uid-classification.h"
 #include "user-util.h"
 
 #define TUN_DEV "/dev/net/tun"
@@ -234,6 +236,8 @@ static int tuntap_verify(NetDev *netdev, const char *filename) {
                 r = get_user_creds(&user, &uid, NULL, NULL, NULL, USER_CREDS_ALLOW_MISSING);
                 if (r < 0)
                         log_netdev_warning_errno(netdev, r, "Cannot resolve user name %s, ignoring: %m", t->user_name);
+                else if (!uid_is_system(uid))
+                        log_netdev_warning(netdev, "User '%s' is not a system user (UID="UID_FMT"), ignoring.", t->user_name, uid);
                 else
                         t->uid = uid;
         }
@@ -245,6 +249,8 @@ static int tuntap_verify(NetDev *netdev, const char *filename) {
                 r = get_group_creds(&group, &gid, USER_CREDS_ALLOW_MISSING);
                 if (r < 0)
                         log_netdev_warning_errno(netdev, r, "Cannot resolve group name %s: %m", t->group_name);
+                else if (!gid_is_system(gid))
+                        log_netdev_warning(netdev, "Group '%s' is not a system group (GID="GID_FMT"), ignoring.", t->group_name, gid);
                 else
                         t->gid = gid;
         }
