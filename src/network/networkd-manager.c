@@ -64,7 +64,6 @@
 #include "strv.h"
 #include "sysctl-util.h"
 #include "tclass.h"
-#include "tmpfile-util.h"
 #include "tuntap.h"
 #include "udev-util.h"
 

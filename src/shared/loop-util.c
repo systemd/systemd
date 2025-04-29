@@ -33,7 +33,6 @@
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
-#include "tmpfile-util.h"
 
 static void cleanup_clear_loop_close(int *fd) {
         if (*fd < 0)

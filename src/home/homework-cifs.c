@@ -16,7 +16,6 @@
 #include "process-util.h"
 #include "stat-util.h"
 #include "strv.h"
-#include "tmpfile-util.h"
 
 int home_setup_cifs(
                 UserRecord *h,

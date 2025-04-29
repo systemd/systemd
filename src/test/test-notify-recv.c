@@ -12,7 +12,6 @@
 #include "rm-rf.h"
 #include "socket-util.h"
 #include "tests.h"
-#include "tmpfile-util.h"
 
 typedef struct Context {
         unsigned data;

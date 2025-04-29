@@ -35,7 +35,6 @@
 #include "signal-util.h"
 #include "strv.h"
 #include "terminal-util.h"
-#include "tmpfile-util.h"
 #include "user-util.h"
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_class, machine_class, MachineClass);
