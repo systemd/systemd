@@ -246,6 +246,10 @@ udevadm trigger -s net
 udevadm trigger -S net
 udevadm trigger -a subsystem=net
 udevadm trigger --attr-match hello=world
+udevadm trigger -a subsystem
+udevadm trigger -A subsystem=net
+udevadm trigger --attr-nomatch hello=world
+udevadm trigger -A subsystem
 udevadm trigger -p DEVNAME=null
 udevadm trigger --property-match HELLO=world
 udevadm trigger -g systemd
