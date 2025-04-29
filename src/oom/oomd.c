@@ -123,7 +123,7 @@ static int run(int argc, char *argv[]) {
         int fd = n == 1 ? SD_LISTEN_FDS_START : -EBADF;
 
         /* SwapTotal is always available in /proc/meminfo and defaults to 0, even on swap-disabled kernels. */
-        r = get_proc_field("/proc/meminfo", "SwapTotal", WHITESPACE, &swap);
+        r = get_proc_field("/proc/meminfo", "SwapTotal", &swap);
         if (r < 0)
                 return log_error_errno(r, "Failed to get SwapTotal from /proc/meminfo: %m");
 

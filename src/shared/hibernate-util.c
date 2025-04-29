@@ -428,7 +428,7 @@ static int get_proc_meminfo_active(unsigned long long *ret) {
 
         assert(ret);
 
-        r = get_proc_field("/proc/meminfo", "Active(anon)", WHITESPACE, &active_str);
+        r = get_proc_field("/proc/meminfo", "Active(anon)", &active_str);
         if (r < 0)
                 return log_debug_errno(r, "Failed to retrieve Active(anon) from /proc/meminfo: %m");
 

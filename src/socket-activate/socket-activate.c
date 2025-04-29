@@ -49,7 +49,7 @@ static int add_epoll(int epoll_fd, int fd) {
         return 0;
 }
 
-static int open_sockets(int *ret_epoll_fd, bool accept) {
+static int open_sockets(int *ret_epoll_fd) {
         _cleanup_close_ int epoll_fd = -EBADF;
         int n, r, count = 0;
 
@@ -463,7 +463,7 @@ static int run(int argc, char **argv) {
 
         assert(!strv_isempty(exec_argv));
 
-        n = open_sockets(&epoll_fd, arg_accept);
+        n = open_sockets(&epoll_fd);
         if (n < 0)
                 return n;
         if (n == 0)
