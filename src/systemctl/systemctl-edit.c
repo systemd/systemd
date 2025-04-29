@@ -7,10 +7,10 @@
 #include "path-util.h"
 #include "pretty-print.h"
 #include "selinux-util.h"
+#include "systemctl.h"
 #include "systemctl-daemon-reload.h"
 #include "systemctl-edit.h"
 #include "systemctl-util.h"
-#include "systemctl.h"
 #include "terminal-util.h"
 
 int verb_cat(int argc, char *argv[], void *userdata) {

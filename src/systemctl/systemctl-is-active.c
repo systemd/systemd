@@ -4,10 +4,10 @@
 #include "bus-locator.h"
 #include "pretty-print.h"
 #include "syslog-util.h"
+#include "systemctl.h"
 #include "systemctl-is-active.h"
 #include "systemctl-sysv-compat.h"
 #include "systemctl-util.h"
-#include "systemctl.h"
 
 static int check_unit_generic(int code, const UnitActiveState good_states[], size_t nb_states, char **args) {
         _cleanup_strv_free_ char **names = NULL;

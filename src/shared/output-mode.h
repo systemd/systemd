@@ -2,6 +2,7 @@
 #pragma once
 
 #include "sd-json.h"
+
 #include "macro.h"
 
 typedef enum OutputMode {

@@ -4,9 +4,9 @@
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "sort-util.h"
+#include "systemctl.h"
 #include "systemctl-list-unit-files.h"
 #include "systemctl-util.h"
-#include "systemctl.h"
 #include "terminal-util.h"
 
 static int compare_unit_file_list(const UnitFileList *a, const UnitFileList *b) {

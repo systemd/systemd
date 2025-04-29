@@ -19,11 +19,11 @@
 
 #include <errno.h>
 #include <inttypes.h>
-#include <net/ethernet.h>
-#include <netinet/in.h>
 #include <linux/filter.h>
 #include <linux/neighbour.h>
 #include <linux/rtnetlink.h>
+#include <net/ethernet.h>
+#include <netinet/in.h>
 
 #include "sd-event.h"
 

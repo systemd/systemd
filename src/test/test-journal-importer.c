@@ -1,12 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <fcntl.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 #include "alloc-util.h"
-#include "log.h"
 #include "journal-importer.h"
+#include "log.h"
 #include "path-util.h"
 #include "string-util.h"
 #include "tests.h"

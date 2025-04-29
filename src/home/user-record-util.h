@@ -3,8 +3,8 @@
 
 #include "sd-bus.h"
 
-#include "user-record.h"
 #include "group-record.h"
+#include "user-record.h"
 
 /* We intentionally use snake_case instead of the usual camelCase here to further
  * reduce the chance of collision with a field any legitimate user record may ever

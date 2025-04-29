@@ -39,10 +39,10 @@
 #include "string-table.h"
 #include "strv.h"
 #include "uid-classification.h"
+#include "user-record.h"
 #include "user-record-password-quality.h"
 #include "user-record-sign.h"
 #include "user-record-util.h"
-#include "user-record.h"
 #include "user-util.h"
 
 /* Retry to deactivate home directories again and again every 15s until it works */

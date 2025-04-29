@@ -2,9 +2,9 @@
 
 #include "bus-error.h"
 #include "bus-locator.h"
+#include "systemctl.h"
 #include "systemctl-set-property.h"
 #include "systemctl-util.h"
-#include "systemctl.h"
 
 static int set_property_one(sd_bus *bus, const char *name, char **properties) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;

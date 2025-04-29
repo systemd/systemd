@@ -2,8 +2,8 @@
 
 #include <sys/stat.h>
 
-#include "env-file-label.h"
 #include "env-file.h"
+#include "env-file-label.h"
 #include "selinux-util.h"
 
 int write_env_file_label(int dir_fd, const char *fname, char **headers, char **l) {

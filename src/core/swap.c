@@ -10,8 +10,8 @@
 #include "alloc-util.h"
 #include "dbus-swap.h"
 #include "dbus-unit.h"
-#include "device-util.h"
 #include "device.h"
+#include "device-util.h"
 #include "escape.h"
 #include "exit-status.h"
 #include "fd-util.h"
@@ -26,8 +26,8 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "swap.h"
-#include "unit-name.h"
 #include "unit.h"
+#include "unit-name.h"
 #include "virt.h"
 
 static const UnitActiveState state_translation_table[_SWAP_STATE_MAX] = {

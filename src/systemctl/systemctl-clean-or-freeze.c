@@ -3,9 +3,9 @@
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-wait-for-units.h"
+#include "systemctl.h"
 #include "systemctl-clean-or-freeze.h"
 #include "systemctl-util.h"
-#include "systemctl.h"
 
 int verb_clean_or_freeze(int argc, char *argv[], void *userdata) {
         _cleanup_(bus_wait_for_units_freep) BusWaitForUnits *w = NULL;

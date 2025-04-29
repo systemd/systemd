@@ -2,11 +2,11 @@
 #ifndef _IF_TUNNEL_H_
 #define _IF_TUNNEL_H_
 
-#include <linux/types.h>
-#include <linux/if.h>
-#include <linux/ip.h>
-#include <linux/in6.h>
 #include <asm/byteorder.h>
+#include <linux/if.h>
+#include <linux/in6.h>
+#include <linux/ip.h>
+#include <linux/types.h>
 
 
 #define SIOCGETTUNNEL   (SIOCDEVPRIVATE + 0)

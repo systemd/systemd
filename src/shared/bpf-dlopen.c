@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "dlfcn-util.h"
 #include "bpf-dlopen.h"
+#include "dlfcn-util.h"
 #include "log.h"
 #include "strv.h"
 

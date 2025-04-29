@@ -5,8 +5,8 @@
 #include <unistd.h>
 
 #include "format-util.h"
-#include "install-printf.h"
 #include "install.h"
+#include "install-printf.h"
 #include "macro.h"
 #include "specifier.h"
 #include "string-util.h"

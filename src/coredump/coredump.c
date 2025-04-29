@@ -2,10 +2,10 @@
 
 #include <errno.h>
 #include <stdio.h>
+#include <sys/auxv.h>
 #include <sys/mount.h>
 #include <sys/prctl.h>
 #include <sys/statvfs.h>
-#include <sys/auxv.h>
 #include <sys/xattr.h>
 #include <unistd.h>
 

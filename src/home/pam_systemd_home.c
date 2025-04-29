@@ -19,8 +19,8 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "strv.h"
-#include "user-record-util.h"
 #include "user-record.h"
+#include "user-record-util.h"
 #include "user-util.h"
 
 typedef enum AcquireHomeFlags {

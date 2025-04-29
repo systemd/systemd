@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "parse-util.h"
 #include "percent-util.h"
 #include "string-util.h"
-#include "parse-util.h"
 
 static int parse_parts_value_whole(const char *p, const char *symbol) {
         const char *pc, *n;

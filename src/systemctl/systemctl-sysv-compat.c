@@ -13,8 +13,8 @@
 #include "path-util.h"
 #include "process-util.h"
 #include "strv.h"
-#include "systemctl-sysv-compat.h"
 #include "systemctl.h"
+#include "systemctl-sysv-compat.h"
 
 int talk_initctl(char rl) {
 #if HAVE_SYSV_COMPAT

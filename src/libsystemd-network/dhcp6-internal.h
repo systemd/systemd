@@ -8,8 +8,8 @@
 #include <net/ethernet.h>
 #include <netinet/in.h>
 
-#include "sd-event.h"
 #include "sd-dhcp6-client.h"
+#include "sd-event.h"
 
 #include "dhcp-duid-internal.h"
 #include "dhcp6-client-internal.h"

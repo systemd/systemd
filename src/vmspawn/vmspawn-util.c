@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <unistd.h>
 #include <linux/vhost.h>
 #include <sys/ioctl.h>
+#include <unistd.h>
 
 #include "sd-json.h"
 
