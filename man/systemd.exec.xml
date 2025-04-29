@@ -61,7 +61,7 @@
       paths. This is equivalent to having them listed explicitly in
       <varname>RequiresMountsFor=</varname>.</para></listitem>
 
-      <listitem><para>Similarly, units with <varname>PrivateTmp=</varname> enabled automatically get mount
+      <listitem><para>Similarly, units with <varname>PrivateTmp=yes</varname> automatically get mount
       unit dependencies for all mounts required to access <filename>/tmp/</filename> and
       <filename>/var/tmp/</filename>. They will also gain an automatic <varname>After=</varname> dependency
       on
@@ -1805,19 +1805,27 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
 
         <para>This setting is useful to secure access to temporary files of the process, but makes sharing
         between processes via <filename>/tmp/</filename> or <filename>/var/tmp/</filename> impossible.
-        If not set to <literal>disconnected</literal>, it is possible to run two or more units within
-        the same private <filename>/tmp/</filename> and <filename>/var/tmp/</filename> namespace by using
-        the <varname>JoinsNamespaceOf=</varname> directive, see
+        If set to <literal>yes</literal>, it is possible to run two or more units within the same private
+        <filename>/tmp/</filename> and <filename>/var/tmp/</filename> namespace by using the
+        <varname>JoinsNamespaceOf=</varname> directive, see
         <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        for details. This setting is implied if <varname>DynamicUser=</varname> is set. For this setting,
-        the same restrictions regarding mount propagation and privileges apply as for
-        <varname>ReadOnlyPaths=</varname> and related calls, see above. If set to <literal>true</literal>
-        (as opposed to <literal>disconnected</literal>), this has the side effect of adding
+        for details. For this setting, the same restrictions regarding mount
+        propagation and privileges apply as for <varname>ReadOnlyPaths=</varname> and related calls, see
+        above. If set to <literal>true</literal>, this has the side effect of adding
         <varname>Requires=</varname> and <varname>After=</varname> dependencies on all mount units necessary
         to access <filename>/tmp/</filename> and <filename>/var/tmp/</filename> on the host. Moreover, an
         implicitly <varname>After=</varname> ordering on
         <citerefentry><refentrytitle>systemd-tmpfiles-setup.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-        is added.</para>
+        is added. If set to <literal>disconnected</literal>, this <emphasis>neither</emphasis> adds
+        <varname>Requires=</varname>, <varname>After=</varname> dependencies on
+        <filename>var.mount</filename>, <emphasis>nor</emphasis> <varname>After=</varname> ordering on
+        <citerefentry><refentrytitle>systemd-tmpfiles-setup.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+        If the service needs to access files under <filename>/var/</filename>, then the service should have
+        explicit dependency on <varname>RequiresMountsFor=/var/</varname> and <varname>After=</varname>
+        ordering on
+        <citerefentry><refentrytitle>systemd-tmpfiles-setup.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+        This setting with <literal>disconnected</literal> is implied if <varname>DynamicUser=</varname> is
+        set.</para>
 
         <para>Note that the implementation of this setting might be impossible (for example if mount namespaces are not
         available), and the unit should be written in a way that does not solely rely on this setting for
