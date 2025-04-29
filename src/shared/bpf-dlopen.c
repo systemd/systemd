@@ -51,12 +51,10 @@ DLSYM_PROTOTYPE(ring_buffer__poll) = NULL;
 
 /* new symbols available from libbpf 0.7.0 */
 int (*sym_bpf_map_create)(enum bpf_map_type,  const char *, __u32, __u32, __u32, const struct bpf_map_create_opts *);
-int (*sym_libbpf_probe_bpf_prog_type)(enum bpf_prog_type, const void *);
 struct bpf_map* (*sym_bpf_object__next_map)(const struct bpf_object *obj, const struct bpf_map *map);
 
 /* compat symbols removed in libbpf 1.0 */
 int (*sym_bpf_create_map)(enum bpf_map_type,  int key_size, int value_size, int max_entries, __u32 map_flags);
-bool (*sym_bpf_probe_prog_type)(enum bpf_prog_type, __u32);
 
 _printf_(2,0)
 static int bpf_print_func(enum libbpf_print_level level, const char *fmt, va_list ap) {
@@ -106,11 +104,9 @@ int dlopen_bpf_full(int log_level) {
                                 dl, LOG_DEBUG,
 #if MODERN_LIBBPF
                                 /* Don't exist anymore in new libbpf, hence cannot type check them */
-                                DLSYM_ARG_FORCE(bpf_create_map),
-                                DLSYM_ARG_FORCE(bpf_probe_prog_type)
+                                DLSYM_ARG_FORCE(bpf_create_map)
 #else
-                                DLSYM_ARG(bpf_create_map),
-                                DLSYM_ARG(bpf_probe_prog_type)
+                                DLSYM_ARG(bpf_create_map)
 #endif
                 );
 
@@ -123,12 +119,10 @@ int dlopen_bpf_full(int log_level) {
                                 dl, LOG_DEBUG,
 #if MODERN_LIBBPF
                                 DLSYM_ARG(bpf_map_create),
-                                DLSYM_ARG(libbpf_probe_bpf_prog_type),
                                 DLSYM_ARG(bpf_object__next_map)
 #else
                                 /* These symbols did not exist in old libbpf, hence we cannot type check them */
                                 DLSYM_ARG_FORCE(bpf_map_create),
-                                DLSYM_ARG_FORCE(libbpf_probe_bpf_prog_type),
                                 DLSYM_ARG_FORCE(bpf_object__next_map)
 #endif
                 );
