@@ -293,6 +293,18 @@ COREDUMP_FILENAME=/var/lib/systemd/coredump/core.Web….552351.….zst
       </varlistentry>
 
       <varlistentry>
+        <term><varname>COREDUMP_DUMPABLE=</varname></term>
+
+        <listitem><para>The <constant>PR_GET_DUMPABLE</constant> field as reported by the kernel, see
+        <citerefentry
+        project='man-pages'><refentrytitle>prctl</refentrytitle><manvolnum>2</manvolnum></citerefentry>.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>COREDUMP_OPEN_FDS=</varname></term>
 
         <listitem><para>Information about open file descriptors, in the following format:</para>
