@@ -13,10 +13,12 @@
 #include "alloc-util.h"
 #include "daemon-util.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "socket-util.h"
 #include "tuntap.h"
+#include "uid-classification.h"
 #include "user-util.h"
 
 #define TUN_DEV "/dev/net/tun"
@@ -175,30 +177,13 @@ static int netdev_create_tuntap(NetDev *netdev) {
                         return log_netdev_error_errno(netdev, errno, "TUNSETQUEUE failed: %m");
         }
 
-        if (t->user_name) {
-                const char *user = t->user_name;
-                uid_t uid;
-
-                r = get_user_creds(&user, &uid, NULL, NULL, NULL, USER_CREDS_ALLOW_MISSING);
-                if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Cannot resolve user name %s: %m", t->user_name);
-
-                if (ioctl(fd, TUNSETOWNER, uid) < 0)
+        if (t->uid != 0)
+                if (ioctl(fd, TUNSETOWNER, t->uid) < 0)
                         return log_netdev_error_errno(netdev, errno, "TUNSETOWNER failed: %m");
-        }
 
-        if (t->group_name) {
-                const char *group = t->group_name;
-                gid_t gid;
-
-                r = get_group_creds(&group, &gid, USER_CREDS_ALLOW_MISSING);
-                if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Cannot resolve group name %s: %m", t->group_name);
-
-                if (ioctl(fd, TUNSETGROUP, gid) < 0)
+        if (t->gid != 0)
+                if (ioctl(fd, TUNSETGROUP, t->gid) < 0)
                         return log_netdev_error_errno(netdev, errno, "TUNSETGROUP failed: %m");
-
-        }
 
         if (ioctl(fd, TUNSETPERSIST, 1) < 0)
                 return log_netdev_error_errno(netdev, errno, "TUNSETPERSIST failed: %m");
@@ -227,6 +212,9 @@ static void tuntap_done(NetDev *netdev) {
 }
 
 static int tuntap_verify(NetDev *netdev, const char *filename) {
+        TunTap *t = TUNTAP(netdev);
+        int r;
+
         assert(netdev);
 
         if (netdev->mtu != 0)
@@ -240,6 +228,32 @@ static int tuntap_verify(NetDev *netdev, const char *filename) {
                                    "MACAddress= configured for %s device in %s will be ignored.\n"
                                    "Please set it in the corresponding .network file.",
                                    netdev_kind_to_string(netdev->kind), filename);
+
+        if (t->user_name) {
+                const char *user = t->user_name;
+                uid_t uid;
+
+                r = get_user_creds(&user, &uid, NULL, NULL, NULL, USER_CREDS_ALLOW_MISSING);
+                if (r < 0)
+                        log_netdev_warning_errno(netdev, r, "Cannot resolve user name %s, ignoring: %m", t->user_name);
+                else if (!uid_is_system(uid))
+                        log_netdev_warning(netdev, "User '%s' is not a system user (UID="UID_FMT"), ignoring.", t->user_name, uid);
+                else
+                        t->uid = uid;
+        }
+
+        if (t->group_name) {
+                const char *group = t->group_name;
+                gid_t gid;
+
+                r = get_group_creds(&group, &gid, USER_CREDS_ALLOW_MISSING);
+                if (r < 0)
+                        log_netdev_warning_errno(netdev, r, "Cannot resolve group name %s: %m", t->group_name);
+                else if (!gid_is_system(gid))
+                        log_netdev_warning(netdev, "Group '%s' is not a system group (GID="GID_FMT"), ignoring.", t->group_name, gid);
+                else
+                        t->gid = gid;
+        }
 
         return 0;
 }
