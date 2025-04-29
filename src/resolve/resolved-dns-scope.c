@@ -929,7 +929,7 @@ static int dns_scope_multicast_membership(DnsScope *s, bool b, struct in_addr in
         } else if (s->family == AF_INET6) {
                 struct ipv6_mreq mreq = {
                         .ipv6mr_multiaddr = in6,
-                        .ipv6mr_interface = s->link->ifindex,
+                        .ipv6mr_ifindex = s->link->ifindex,
                 };
 
                 if (s->protocol == DNS_PROTOCOL_LLMNR)
