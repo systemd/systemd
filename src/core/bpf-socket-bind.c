@@ -129,11 +129,6 @@ int bpf_socket_bind_supported(void) {
         if (dlopen_bpf_full(LOG_WARNING) < 0)
                 return false;
 
-        if (!compat_libbpf_probe_bpf_prog_type(BPF_PROG_TYPE_CGROUP_SOCK_ADDR, /*opts=*/NULL)) {
-                log_debug("bpf-socket-bind: BPF program type cgroup_sock_addr is not supported");
-                return false;
-        }
-
         r = prepare_socket_bind_bpf(/*unit=*/NULL, /*allow_rules=*/NULL, /*deny_rules=*/NULL, &obj);
         if (r < 0) {
                 log_debug_errno(r, "bpf-socket-bind: socket bind filtering is not supported: %m");

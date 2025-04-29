@@ -83,11 +83,6 @@ int bpf_restrict_ifaces_supported(void) {
         if (dlopen_bpf_full(LOG_WARNING) < 0)
                 return (supported = false);
 
-        if (!compat_libbpf_probe_bpf_prog_type(BPF_PROG_TYPE_CGROUP_SKB, /*opts=*/NULL)) {
-                log_debug("restrict-interfaces: BPF program type cgroup_skb is not supported");
-                return (supported = false);
-        }
-
         r = prepare_restrict_ifaces_bpf(NULL, true, NULL, &obj);
         if (r < 0) {
                 log_debug_errno(r, "restrict-interfaces: Failed to load BPF object: %m");
