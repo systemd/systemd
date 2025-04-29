@@ -190,25 +190,6 @@ static int device_monitor_handler(sd_device_monitor *m, sd_device *dev, void *us
         return 0;
 }
 
-static char* keyval(const char *str, const char **key, const char **val) {
-        char *buf, *pos;
-
-        buf = strdup(str);
-        if (!buf)
-                return NULL;
-
-        pos = strchr(buf, '=');
-        if (pos) {
-                pos[0] = 0;
-                pos++;
-        }
-
-        *key = buf;
-        *val = pos;
-
-        return buf;
-}
-
 static int add_match_parent(sd_device_enumerator *e, const char *s, const char *dir) {
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
         int r;
@@ -246,12 +227,11 @@ static int setup_matches(sd_device_enumerator *e) {
         }
 
         STRV_FOREACH(a, arg_attr_match) {
-                _cleanup_free_ char *buf = NULL;
-                const char *k, *v;
+                _cleanup_free_ char *k = NULL, *v = NULL;
 
-                buf = keyval(*a, &k, &v);
-                if (!buf)
-                        return log_oom();
+                r = parse_key_value_argument(*a, /* require_value= */ false, &k, &v);
+                if (r < 0)
+                        return r;
 
                 r = sd_device_enumerator_add_match_sysattr(e, k, v, /* match= */ true);
                 if (r < 0)
@@ -259,12 +239,11 @@ static int setup_matches(sd_device_enumerator *e) {
         }
 
         STRV_FOREACH(a, arg_attr_nomatch) {
-                _cleanup_free_ char *buf = NULL;
-                const char *k, *v;
+                _cleanup_free_ char *k = NULL, *v = NULL;
 
-                buf = keyval(*a, &k, &v);
-                if (!buf)
-                        return log_oom();
+                r = parse_key_value_argument(*a, /* require_value= */ false, &k, &v);
+                if (r < 0)
+                        return r;
 
                 r = sd_device_enumerator_add_match_sysattr(e, k, v, /* match= */ false);
                 if (r < 0)
@@ -272,12 +251,11 @@ static int setup_matches(sd_device_enumerator *e) {
         }
 
         STRV_FOREACH(p, arg_property_match) {
-                _cleanup_free_ char *buf = NULL;
-                const char *k, *v;
+                _cleanup_free_ char *k = NULL, *v = NULL;
 
-                buf = keyval(*p, &k, &v);
-                if (!buf)
-                        return log_oom();
+                r = parse_key_value_argument(*p, /* require_value= */ true, &k, &v);
+                if (r < 0)
+                        return r;
 
                 r = sd_device_enumerator_add_match_property(e, k, v);
                 if (r < 0)
