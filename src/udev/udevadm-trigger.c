@@ -24,9 +24,9 @@
 #include "virt.h"
 
 typedef enum {
-        TYPE_DEVICES,
-        TYPE_SUBSYSTEMS,
-        TYPE_ALL,
+        SCAN_TYPE_DEVICES,
+        SCAN_TYPE_SUBSYSTEMS,
+        SCAN_TYPE_ALL,
 } ScanType;
 
 static bool arg_verbose = false;
@@ -34,7 +34,7 @@ static bool arg_dry_run = false;
 static bool arg_quiet = false;
 static bool arg_uuid = false;
 static bool arg_settle = false;
-static ScanType arg_scan_type = TYPE_DEVICES;
+static ScanType arg_scan_type = SCAN_TYPE_DEVICES;
 static sd_device_action_t arg_action = SD_DEVICE_CHANGE;
 static char **arg_devices = NULL;
 static char **arg_attr_match = NULL;
@@ -402,11 +402,11 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 't':
                         if (streq(optarg, "devices"))
-                                arg_scan_type = TYPE_DEVICES;
+                                arg_scan_type = SCAN_TYPE_DEVICES;
                         else if (streq(optarg, "subsystems"))
-                                arg_scan_type = TYPE_SUBSYSTEMS;
+                                arg_scan_type = SCAN_TYPE_SUBSYSTEMS;
                         else if (streq(optarg, "all"))
-                                arg_scan_type = TYPE_ALL;
+                                arg_scan_type = SCAN_TYPE_ALL;
                         else
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown type --type=%s", optarg);
                         break;
@@ -585,17 +585,17 @@ int trigger_main(int argc, char *argv[], void *userdata) {
         }
 
         switch (arg_scan_type) {
-        case TYPE_SUBSYSTEMS:
+        case SCAN_TYPE_SUBSYSTEMS:
                 r = device_enumerator_scan_subsystems(e);
                 if (r < 0)
                         return log_error_errno(r, "Failed to scan subsystems: %m");
                 break;
-        case TYPE_DEVICES:
+        case SCAN_TYPE_DEVICES:
                 r = device_enumerator_scan_devices(e);
                 if (r < 0)
                         return log_error_errno(r, "Failed to scan devices: %m");
                 break;
-        case TYPE_ALL:
+        case SCAN_TYPE_ALL:
                 r = device_enumerator_scan_devices_and_subsystems(e);
                 if (r < 0)
                         return log_error_errno(r, "Failed to scan devices and subsystems: %m");
