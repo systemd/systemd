@@ -10,6 +10,7 @@
 #include <sys/types.h>
 
 #include "alloc-util.h"
+#include "bitfield.h"
 #include "daemon-util.h"
 #include "fd-util.h"
 #include "networkd-link.h"
@@ -228,9 +229,14 @@ static int tuntap_verify(NetDev *netdev, const char *filename) {
 
         if (t->user_name) {
                 _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
+                UserDBMatch match = USERDB_MATCH_NULL;
 
-                r = userdb_by_name(t->user_name, /* match = */ NULL, USERDB_PARSE_NUMERIC, &ur);
-                if (r < 0)
+                match.disposition_mask = INDEX_TO_MASK(uint64_t, USER_SYSTEM);
+
+                r = userdb_by_name(t->user_name, &match, USERDB_PARSE_NUMERIC, &ur);
+                if (r == -ENOEXEC)
+                        log_netdev_warning_errno(netdev, r, "User %s is not a system user, ignoring.", t->user_name);
+                else if (r < 0)
                         log_netdev_warning_errno(netdev, r, "Cannot resolve user name %s, ignoring: %m", t->user_name);
                 else
                         t->uid = ur->uid;
@@ -238,9 +244,14 @@ static int tuntap_verify(NetDev *netdev, const char *filename) {
 
         if (t->group_name) {
                 _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
+                UserDBMatch match = USERDB_MATCH_NULL;
 
-                r = groupdb_by_name(t->group_name, /* match = */ NULL, USERDB_PARSE_NUMERIC, &gr);
-                if (r < 0)
+                match.disposition_mask = INDEX_TO_MASK(uint64_t, USER_SYSTEM);
+
+                r = groupdb_by_name(t->group_name, &match, USERDB_PARSE_NUMERIC, &gr);
+                if (r == -ENOEXEC)
+                        log_netdev_warning_errno(netdev, r, "Group %s is not a system group, ignoring.", t->group_name);
+                else if (r < 0)
                         log_netdev_warning_errno(netdev, r, "Cannot resolve group name %s, ignoring: %m", t->group_name);
                 else
                         t->gid = gr->gid;
