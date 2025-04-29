@@ -145,6 +145,28 @@ int parse_resolve_name_timing(const char *str, ResolveNameTiming *ret) {
         return 1;
 }
 
+int parse_key_value_argument(const char *s, char **key, char **value) {
+        _cleanup_free_ char *k = NULL, *v = NULL;
+        int r;
+
+        assert(s);
+        assert(key);
+        assert(value);
+
+        r = extract_many_words(&s, "=", EXTRACT_DONT_COALESCE_SEPARATORS, &k, &v);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse key/value pair %s: %m", s);
+        if (r < 2)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Missing '=' in key/value pair %s.", s);
+
+        if (!filename_is_valid(k))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "%s is not a valid key name", k);
+
+        free_and_replace(*key, k);
+        free_and_replace(*value, v);
+        return 0;
+}
+
 static int udev_ping_via_ctrl(usec_t timeout_usec, bool ignore_connection_failure) {
         _cleanup_(udev_ctrl_unrefp) UdevCtrl *uctrl = NULL;
         int r;
