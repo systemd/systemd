@@ -25,8 +25,8 @@
 #include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
-#include "unit-name.h"
 #include "unit.h"
+#include "unit-name.h"
 
 static const UnitActiveState state_translation_table[_PATH_STATE_MAX] = {
         [PATH_DEAD]    = UNIT_INACTIVE,

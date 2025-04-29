@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 /* Make sure the net/if.h header is included before any linux/ one */
-#include <net/if.h>
 #include <linux/fib_rules.h>
+#include <net/if.h>
 
 #include "af-list.h"
 #include "alloc-util.h"

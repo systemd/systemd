@@ -3,9 +3,9 @@
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "dissect-image.h"
+#include "systemctl.h"
 #include "systemctl-mount.h"
 #include "systemctl-util.h"
-#include "systemctl.h"
 
 int verb_bind(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;

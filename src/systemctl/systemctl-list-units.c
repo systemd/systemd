@@ -11,9 +11,9 @@
 #include "path-util.h"
 #include "set.h"
 #include "sort-util.h"
+#include "systemctl.h"
 #include "systemctl-list-units.h"
 #include "systemctl-util.h"
-#include "systemctl.h"
 #include "terminal-util.h"
 
 static int get_unit_list_recursive(

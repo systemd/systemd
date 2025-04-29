@@ -2,10 +2,10 @@
 
 #include "bus-error.h"
 #include "bus-locator.h"
+#include "systemctl.h"
 #include "systemctl-reset-failed.h"
 #include "systemctl-trivial-method.h"
 #include "systemctl-util.h"
-#include "systemctl.h"
 
 int verb_reset_failed(int argc, char *argv[], void *userdata) {
         _cleanup_strv_free_ char **names = NULL;

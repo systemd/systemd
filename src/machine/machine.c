@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
-#include <unistd.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 #include "sd-messages.h"
 
@@ -21,8 +21,8 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "hashmap.h"
-#include "machine-dbus.h"
 #include "machine.h"
+#include "machine-dbus.h"
 #include "machined.h"
 #include "mkdir-label.h"
 #include "namespace-util.h"
