@@ -9,7 +9,9 @@ struct TunTap {
         NetDev meta;
 
         char *user_name;
+        uid_t uid;
         char *group_name;
+        gid_t gid;
         bool multi_queue;
         bool packet_info;
         bool vnet_hdr;
