@@ -2179,7 +2179,8 @@ static int verify_shutdown_creds(
                 sd_bus_error *error) {
 
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
-        bool multiple_sessions, blocked, interactive, error_or_denial = false;
+        bool multiple_sessions, blocked, interactive;
+        _unused_ bool error_or_denial = false;
         Inhibitor *offending = NULL;
         uid_t uid;
         int r;
@@ -2280,7 +2281,7 @@ static int verify_shutdown_creds(
          * to catch. In any case, it also means that the payload guarded by
          * these polkit calls should never be executed, and hence we should
          * never reach this point. */
-        assert_se(!error_or_denial);
+        assert(!error_or_denial);
 
         return 0;
 }
@@ -3775,7 +3776,7 @@ static int method_inhibit(sd_bus_message *message, void *userdata, sd_bus_error 
         InhibitMode mm;
         InhibitWhat w;
         uid_t uid;
-        bool error_or_denial = false;
+        _unused_ bool error_or_denial = false;
         int r;
 
         assert(message);
@@ -3841,7 +3842,7 @@ static int method_inhibit(sd_bus_message *message, void *userdata, sd_bus_error 
          * to catch. In any case, it also means that the payload guarded by
          * these polkit calls should never be executed, and hence we should
          * never reach this point. */
-        assert_se(!error_or_denial);
+        assert(!error_or_denial);
 
         r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_EUID|SD_BUS_CREDS_PID|SD_BUS_CREDS_PIDFD, &creds);
         if (r < 0)
