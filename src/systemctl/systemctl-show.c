@@ -37,7 +37,6 @@
 #include "systemctl-list-machines.h"
 #include "systemctl-list-units.h"
 #include "systemctl-show.h"
-#include "systemctl-sysv-compat.h"
 #include "systemctl-util.h"
 #include "systemctl.h"
 #include "terminal-util.h"

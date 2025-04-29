@@ -45,10 +45,7 @@
     for examples and descriptions of standard systemd targets.</para>
 
     <para>Target units provide a more flexible replacement for SysV runlevels in the classic SysV init
-    system. For compatibility reasons special target units such as <filename>runlevel3.target</filename>
-    exist which are used by the SysV runlevel compatibility code in systemd, see
-    <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
-    details.</para>
+    system.</para>
 
     <para>Note that a target unit file must not be empty, lest it be considered a masked unit. It is
     recommended to provide a [Unit] section which includes informative <varname>Description=</varname> and
