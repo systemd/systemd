@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "analyze.h"
 #include "analyze-cat-config.h"
+#include "analyze.h"
 #include "conf-files.h"
 #include "constants.h"
 #include "path-util.h"

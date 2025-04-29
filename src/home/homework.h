@@ -11,8 +11,8 @@
 #include "missing_fs.h"
 #include "missing_keyctl.h"
 #include "missing_syscall.h"
-#include "user-record.h"
 #include "user-record-util.h"
+#include "user-record.h"
 
 typedef struct HomeSetup {
         char *dm_name;   /* "home-<username>" */

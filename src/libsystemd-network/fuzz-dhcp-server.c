@@ -4,11 +4,10 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#include "sd-dhcp-server.c"
-
 #include "fuzz.h"
 #include "path-util.h"
 #include "rm-rf.h"
+#include "sd-dhcp-server.c"
 #include "tmpfile-util.h"
 
 /* stub out network so that the server doesn't send */

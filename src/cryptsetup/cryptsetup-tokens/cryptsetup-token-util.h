@@ -2,9 +2,9 @@
 
 #pragma once
 
+#include <libcryptsetup.h>
 #include <stdbool.h>
 #include <stddef.h>
-#include <libcryptsetup.h>
 
 /* crypt_dump() internal indentation magic */
 #define CRYPT_DUMP_LINE_SEP "\n\t            "

@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <netinet/in.h>
-#include <sys/socket.h>
 #include <linux/batman_adv.h>
 #include <linux/can/netlink.h>
 #include <linux/can/vxcan.h>
@@ -25,6 +23,8 @@
 #include <linux/rtnetlink.h>
 #include <linux/veth.h>
 #include <linux/wireguard.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
 
 #include "missing_network.h"
 #include "netlink-types-internal.h"

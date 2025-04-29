@@ -4,10 +4,10 @@
 
 #include "log.h"
 #include "macro.h"
+#include "tests.h"
 #include "timesyncd-conf.h"
 #include "timesyncd-manager.h"
 #include "timesyncd-server.h"
-#include "tests.h"
 
 TEST(manager_parse_string) {
         /* Make sure that NTP_SERVERS is configured to something

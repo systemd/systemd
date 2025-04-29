@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "catalog.h"
-#include "journalctl.h"
 #include "journalctl-catalog.h"
+#include "journalctl.h"
 #include "log.h"
 #include "path-util.h"
 

@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 /* Make sure the net/if.h header is included before any linux/ one */
-#include <net/if.h>
 #include <linux/if.h>
+#include <net/if.h>
 
 #include "bond.h"
 #include "dhcp6-internal.h"

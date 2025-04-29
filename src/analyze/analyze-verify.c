@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "analyze.h"
-#include "analyze-verify.h"
 #include "analyze-verify-util.h"
+#include "analyze-verify.h"
+#include "analyze.h"
 #include "copy.h"
 #include "rm-rf.h"
 #include "tmpfile-util.h"

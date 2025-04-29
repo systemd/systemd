@@ -5,8 +5,8 @@
 #include "dbus-path.h"
 #include "dbus-util.h"
 #include "list.h"
-#include "path.h"
 #include "path-util.h"
+#include "path.h"
 #include "string-util.h"
 #include "unit.h"
 

@@ -1,11 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-path.h"
+
 #include "alloc-util.h"
 #include "cgroup-util.h"
 #include "format-util.h"
 #include "macro.h"
 #include "manager.h"
-#include "sd-path.h"
 #include "specifier.h"
 #include "string-util.h"
 #include "strv.h"

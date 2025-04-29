@@ -5,8 +5,8 @@
 #include <limits.h>
 
 #include "errno-list.h"
-#include "stat-util.h"
 #include "macro.h"
+#include "stat-util.h"
 
 typedef enum RecurseDirFlags {
         /* Interpreted by readdir_all() */

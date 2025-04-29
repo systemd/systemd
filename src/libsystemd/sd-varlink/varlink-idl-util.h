@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-varlink.h"
 #include "sd-varlink-idl.h"
+#include "sd-varlink.h"
 
 #include "memory-util.h"
 

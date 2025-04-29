@@ -11,9 +11,9 @@
 #include "alloc-util.h"
 #include "async.h"
 #include "fd-util.h"
-#include "logind.h"
 #include "logind-button.h"
 #include "logind-dbus.h"
+#include "logind.h"
 #include "string-util.h"
 
 /* KEY_RESTART is the highest value key in keys_interested. */

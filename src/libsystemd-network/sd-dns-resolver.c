@@ -3,12 +3,12 @@
 #include "dns-resolver-internal.h"
 #include "log.h"
 #include "macro.h"
-#include "unaligned.h"
 #include "socket-netlink.h"
 #include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
+#include "unaligned.h"
 
 void sd_dns_resolver_done(sd_dns_resolver *res) {
         assert(res);
