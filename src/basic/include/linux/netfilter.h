@@ -2,10 +2,9 @@
 #ifndef __LINUX_NETFILTER_H
 #define __LINUX_NETFILTER_H
 
-#include <linux/types.h>
-
 #include <linux/in.h>
 #include <linux/in6.h>
+#include <linux/types.h>
 
 /* Responses from hook functions. */
 #define NF_DROP 0

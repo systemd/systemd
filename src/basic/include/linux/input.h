@@ -10,10 +10,10 @@
 #define _INPUT_H
 
 
-#include <sys/time.h>
-#include <sys/ioctl.h>
-#include <sys/types.h>
 #include <linux/types.h>
+#include <sys/ioctl.h>
+#include <sys/time.h>
+#include <sys/types.h>
 
 #include "input-event-codes.h"
 

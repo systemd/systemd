@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "analyze.h"
 #include "analyze-timestamp.h"
+#include "analyze.h"
 #include "format-table.h"
 #include "terminal-util.h"
 

@@ -6,8 +6,8 @@
 #include "log.h"
 #include "syslog-util.h"
 #include "udev-ctrl.h"
-#include "udev-manager.h"
 #include "udev-manager-ctrl.h"
+#include "udev-manager.h"
 
 /* receive the udevd message from userspace */
 static int on_ctrl_msg(UdevCtrl *uctrl, UdevCtrlMessageType type, const UdevCtrlMessageValue *value, void *userdata) {

@@ -21,8 +21,8 @@
 #define _LINUX_IF_H
 
 #include <linux/libc-compat.h>          /* for compatibility with glibc */
-#include <linux/types.h>		/* for "__kernel_caddr_t" et al	*/
 #include <linux/socket.h>		/* for "struct sockaddr" et al	*/
+#include <linux/types.h>		/* for "__kernel_caddr_t" et al	*/
 		/* for "__user" et al           */
 
 #include <sys/socket.h>			/* for struct sockaddr.		*/

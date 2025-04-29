@@ -3,8 +3,8 @@
  */
 
 /* Make sure the net/if.h header is included before any linux/ one */
-#include <net/if.h>
 #include <linux/nexthop.h>
+#include <net/if.h>
 
 #include "alloc-util.h"
 #include "netlink-util.h"
@@ -13,8 +13,8 @@
 #include "networkd-network.h"
 #include "networkd-nexthop.h"
 #include "networkd-queue.h"
-#include "networkd-route.h"
 #include "networkd-route-util.h"
+#include "networkd-route.h"
 #include "parse-util.h"
 #include "set.h"
 #include "stdio-util.h"

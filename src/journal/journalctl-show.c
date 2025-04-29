@@ -6,10 +6,10 @@
 
 #include "ansi-color.h"
 #include "fileio.h"
-#include "journalctl.h"
 #include "journalctl-filter.h"
 #include "journalctl-show.h"
 #include "journalctl-util.h"
+#include "journalctl.h"
 #include "log.h"
 #include "logs-show.h"
 #include "terminal-util.h"

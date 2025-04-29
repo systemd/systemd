@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <netinet/in.h>
 #include <linux/if.h>
 #include <linux/if_arp.h>
+#include <netinet/in.h>
 
 #include "sd-messages.h"
 
@@ -26,7 +26,6 @@
 #if HAVE_VMLINUX_H
 
 #include "bpf-link.h"
-
 #include "bpf/sysctl_monitor/sysctl-monitor-skel.h"
 #include "bpf/sysctl_monitor/sysctl-write-event.h"
 

@@ -9,8 +9,8 @@
 
 #include "errno-util.h"
 #include "fd-util.h"
-#include "log.h"
 #include "hibernate-util.h"
+#include "log.h"
 #include "tests.h"
 
 static int test_fiemap_one(const char *path) {

@@ -1,8 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "log.h"
 #include "sd-json.h"
+
+#include "log.h"
 
 #if HAVE_ELFUTILS
 int dlopen_dw(void);

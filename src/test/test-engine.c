@@ -4,8 +4,8 @@
 #include <stdio.h>
 
 #include "bus-util.h"
-#include "manager.h"
 #include "manager-dump.h"
+#include "manager.h"
 #include "rm-rf.h"
 #include "service.h"
 #include "slice.h"

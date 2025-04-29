@@ -32,8 +32,8 @@
 #include "tpm2-util.h"
 #include "user-util.h"
 #include "varlink-io.systemd.Credentials.h"
-#include "verbs.h"
 #include "varlink-util.h"
+#include "verbs.h"
 
 typedef enum TranscodeMode {
         TRANSCODE_OFF,

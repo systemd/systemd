@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "analyze.h"
 #include "analyze-service-watchdogs.h"
+#include "analyze.h"
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "parse-util.h"

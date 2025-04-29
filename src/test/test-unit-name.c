@@ -5,10 +5,10 @@
 
 #include "sd-id128.h"
 
-#include "alloc-util.h"
 #include "all-units.h"
-#include "glob-util.h"
+#include "alloc-util.h"
 #include "format-util.h"
+#include "glob-util.h"
 #include "hostname-setup.h"
 #include "hostname-util.h"
 #include "macro.h"

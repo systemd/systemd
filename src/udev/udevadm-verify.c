@@ -14,8 +14,8 @@
 #include "static-destruct.h"
 #include "strv.h"
 #include "udev-rules.h"
-#include "udevadm.h"
 #include "udevadm-util.h"
+#include "udevadm.h"
 
 static ResolveNameTiming arg_resolve_name_timing = RESOLVE_NAME_EARLY;
 static char *arg_root = NULL;

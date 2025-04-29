@@ -1,11 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <netinet/in.h>
 #include <linux/if_arp.h>
+#include <netinet/in.h>
 
 #include "alloc-util.h"
-#include "bond.h"
 #include "bond-util.h"
+#include "bond.h"
 #include "conf-parser.h"
 #include "ether-addr-util.h"
 #include "extract-word.h"

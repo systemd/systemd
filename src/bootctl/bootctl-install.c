@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "bootctl.h"
 #include "bootctl-install.h"
 #include "bootctl-random-seed.h"
 #include "bootctl-util.h"
+#include "bootctl.h"
 #include "chase.h"
 #include "copy.h"
 #include "dirent-util.h"

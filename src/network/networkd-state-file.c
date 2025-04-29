@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <netinet/in.h>
 #include <linux/if.h>
+#include <netinet/in.h>
 
 #include "alloc-util.h"
 #include "dns-domain.h"

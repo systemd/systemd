@@ -5,8 +5,8 @@
 
 #include "alloc-util.h"
 #include "ansi-color.h"
-#include "build.h"
 #include "btrfs-util.h"
+#include "build.h"
 #include "discover-image.h"
 #include "fd-util.h"
 #include "format-util.h"

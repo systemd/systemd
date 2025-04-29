@@ -2,8 +2,8 @@
 
 #pragma once
 
-#include <bpf/libbpf.h>
 #include <stdio.h>
+#include <bpf/libbpf.h>
 
 #include "fdset.h"
 #include "macro.h"
