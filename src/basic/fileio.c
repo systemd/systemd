@@ -889,73 +889,34 @@ int script_get_shebang_interpreter(const char *path, char **ret) {
         return 0;
 }
 
-/**
- * Retrieve one field from a file like /proc/self/status.  pattern
- * should not include whitespace or the delimiter (':'). pattern matches only
- * the beginning of a line. Whitespace before ':' is skipped. Whitespace and
- * zeros after the ':' will be skipped. field must be freed afterwards.
- * terminator specifies the terminating characters of the field value (not
- * included in the value).
- */
-int get_proc_field(const char *filename, const char *pattern, const char *terminator, char **field) {
-        _cleanup_free_ char *status = NULL;
-        char *t, *f;
+int get_proc_field(const char *path, const char *key, char **ret) {
+        _cleanup_free_ char *contents = NULL;
         int r;
 
-        assert(terminator);
-        assert(filename);
-        assert(pattern);
-        assert(field);
+        /* Retrieve one field from a file like /proc/self/status. "key" matches the beginning of the line
+         * and should not include whitespace or the delimiter (':').
+         * Whitespaces after the ':' will be skipped. Only the first element is returned
+         * (i.e. for /proc/meminfo line "MemTotal: 1024 kB" -> return "1024"). */
 
-        r = read_full_virtual_file(filename, &status, NULL);
+        assert(path);
+        assert(key);
+
+        r = read_full_file(path, &contents, /* ret_size = */ NULL);
         if (r < 0)
                 return r;
 
-        t = status;
+        char *l = find_line_startswith(contents, strjoina(key, ":"));
+        if (!l)
+                return -ENODATA;
 
-        do {
-                bool pattern_ok;
+        if (ret) {
+                char *s = strdupcspn(skip_leading_chars(l, " \t"), WHITESPACE);
+                if (!s)
+                        return -ENOMEM;
 
-                do {
-                        t = strstr(t, pattern);
-                        if (!t)
-                                return -ENOENT;
-
-                        /* Check that pattern occurs in beginning of line. */
-                        pattern_ok = (t == status || t[-1] == '\n');
-
-                        t += strlen(pattern);
-
-                } while (!pattern_ok);
-
-                t += strspn(t, " \t");
-                if (!*t)
-                        return -ENOENT;
-
-        } while (*t != ':');
-
-        t++;
-
-        if (*t) {
-                t += strspn(t, " \t");
-
-                /* Also skip zeros, because when this is used for
-                 * capabilities, we don't want the zeros. This way the
-                 * same capability set always maps to the same string,
-                 * irrespective of the total capability set size. For
-                 * other numbers it shouldn't matter. */
-                t += strspn(t, "0");
-                /* Back off one char if there's nothing but whitespace
-                   and zeros */
-                if (!*t || isspace(*t))
-                        t--;
+                *ret = s;
         }
 
-        f = strdupcspn(t, terminator);
-        if (!f)
-                return -ENOMEM;
-
-        *field = f;
         return 0;
 }
 
