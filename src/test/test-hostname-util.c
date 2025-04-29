@@ -7,7 +7,6 @@
 #include "hostname-util.h"
 #include "string-util.h"
 #include "tests.h"
-#include "tmpfile-util.h"
 
 TEST(hostname_is_valid) {
         assert_se(hostname_is_valid("foobar", 0));

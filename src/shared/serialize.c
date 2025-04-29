@@ -15,7 +15,6 @@
 #include "process-util.h"
 #include "serialize.h"
 #include "strv.h"
-#include "tmpfile-util.h"
 
 int serialize_item(FILE *f, const char *key, const char *value) {
         assert(f);

@@ -68,7 +68,6 @@
 #include "string-table.h"
 #include "strv.h"
 #include "tc.h"
-#include "tmpfile-util.h"
 #include "tuntap.h"
 #include "udev-util.h"
 #include "vrf.h"

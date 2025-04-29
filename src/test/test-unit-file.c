@@ -10,7 +10,6 @@
 #include "special.h"
 #include "strv.h"
 #include "tests.h"
-#include "tmpfile-util.h"
 #include "unit-file.h"
 
 TEST(unit_validate_alias_symlink_and_warn) {
