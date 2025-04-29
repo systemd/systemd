@@ -24,7 +24,7 @@
 
   <refsynopsisdiv>
     <funcsynopsis>
-      <funcsynopsisinfo>#include &lt;systemd/sd-link.h&gt;</funcsynopsisinfo>
+      <funcsynopsisinfo>#include &lt;systemd/sd-varlink.h&gt;</funcsynopsisinfo>
 
       <funcprototype>
         <funcdef>int <function>sd_varlink_set_description</function></funcdef>
