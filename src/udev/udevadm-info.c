@@ -873,28 +873,6 @@ static int ensure_device_enumerator(sd_device_enumerator **e) {
         return 0;
 }
 
-static int parse_key_value_argument(const char *s, char **key, char **value) {
-        _cleanup_free_ char *k = NULL, *v = NULL;
-        int r;
-
-        assert(s);
-        assert(key);
-        assert(value);
-
-        r = extract_many_words(&s, "=", EXTRACT_DONT_COALESCE_SEPARATORS, &k, &v);
-        if (r < 0)
-                return log_error_errno(r, "Failed to parse key/value pair %s: %m", s);
-        if (r < 2)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Missing '=' in key/value pair %s.", s);
-
-        if (!filename_is_valid(k))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "%s is not a valid key name", k);
-
-        free_and_replace(*key, k);
-        free_and_replace(*value, v);
-        return 0;
-}
-
 int info_main(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         _cleanup_strv_free_ char **devices = NULL;
