@@ -12,9 +12,9 @@
 #include "macro.h"
 #include "special.h"
 #include "string-util.h"
+#include "systemctl.h"
 #include "systemctl-start-unit.h"
 #include "systemctl-util.h"
-#include "systemctl.h"
 #include "terminal-util.h"
 
 static const struct {

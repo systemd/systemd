@@ -4,11 +4,11 @@
 #include "fd-util.h"
 #include "nss-systemd.h"
 #include "strv.h"
-#include "user-record-nss.h"
 #include "user-record.h"
+#include "user-record-nss.h"
 #include "user-util.h"
-#include "userdb-glue.h"
 #include "userdb.h"
+#include "userdb-glue.h"
 
 UserDBFlags nss_glue_userdb_flags(void) {
         UserDBFlags flags = USERDB_EXCLUDE_NSS;

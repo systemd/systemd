@@ -21,10 +21,10 @@
 #include "fstab-util.h"
 #include "io-util.h"
 #include "label-util.h"
-#include "mkdir-label.h"
 #include "manager.h"
-#include "mount-util.h"
+#include "mkdir-label.h"
 #include "mount.h"
+#include "mount-util.h"
 #include "mountpoint-util.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -34,8 +34,8 @@
 #include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
-#include "unit-name.h"
 #include "unit.h"
+#include "unit-name.h"
 
 static const UnitActiveState state_translation_table[_AUTOMOUNT_STATE_MAX] = {
         [AUTOMOUNT_DEAD]    = UNIT_INACTIVE,

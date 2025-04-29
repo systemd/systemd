@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <sys/mount.h>
 #include <linux/loop.h>
+#include <sys/mount.h>
 
 #include "sd-daemon.h"
 #include "sd-varlink.h"

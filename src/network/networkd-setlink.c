@@ -1,10 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <netinet/in.h>
 #include <linux/if.h>
 #include <linux/if_arp.h>
 #include <linux/if_bridge.h>
 #include <linux/ipv6.h>
+#include <netinet/in.h>
 
 #include "device-private.h"
 #include "missing_network.h"

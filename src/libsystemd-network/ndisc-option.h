@@ -8,8 +8,8 @@
 #include <netinet/ip6.h>
 #include <sys/uio.h>
 
-#include "sd-ndisc-protocol.h"
 #include "sd-dns-resolver.h"
+#include "sd-ndisc-protocol.h"
 
 #include "icmp6-packet.h"
 #include "macro.h"

@@ -2,8 +2,8 @@
 
 #include "alloc-util.h"
 #include "bus-map-properties.h"
-#include "bus-message-util.h"
 #include "bus-message.h"
+#include "bus-message-util.h"
 #include "bus-util.h"
 #include "log.h"
 #include "strv.h"

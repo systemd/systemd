@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 #ifndef _NFNETLINK_H
 #define _NFNETLINK_H
-#include <linux/types.h>
 #include <linux/netfilter/nfnetlink_compat.h>
+#include <linux/types.h>
 
 enum nfnetlink_groups {
 	NFNLGRP_NONE,

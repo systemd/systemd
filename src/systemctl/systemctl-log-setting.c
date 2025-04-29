@@ -4,9 +4,9 @@
 #include "bus-locator.h"
 #include "pretty-print.h"
 #include "syslog-util.h"
+#include "systemctl.h"
 #include "systemctl-log-setting.h"
 #include "systemctl-util.h"
-#include "systemctl.h"
 #include "verb-log-control.h"
 
 static void give_log_control1_hint(const char *name) {

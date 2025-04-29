@@ -2,10 +2,10 @@
 
 #include "bus-error.h"
 #include "bus-locator.h"
+#include "systemctl.h"
 #include "systemctl-is-enabled.h"
 #include "systemctl-sysv-compat.h"
 #include "systemctl-util.h"
-#include "systemctl.h"
 
 static int show_installation_targets_client_side(const char *name) {
         InstallChange *changes = NULL;

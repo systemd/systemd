@@ -24,11 +24,11 @@
 #include "process-util.h"
 #include "sort-util.h"
 #include "string-table.h"
+#include "sysupdate.h"
 #include "sysupdate-cache.h"
 #include "sysupdate-instance.h"
 #include "sysupdate-pattern.h"
 #include "sysupdate-resource.h"
-#include "sysupdate.h"
 #include "utf8.h"
 
 void resource_destroy(Resource *rr) {

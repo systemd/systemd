@@ -6,8 +6,8 @@
 #include "bus-polkit.h"
 #include "fd-util.h"
 #include "memfd-util.h"
-#include "oomd-manager-bus.h"
 #include "oomd-manager.h"
+#include "oomd-manager-bus.h"
 #include "user-util.h"
 
 static int bus_method_dump_by_fd(sd_bus_message *message, void *userdata, sd_bus_error *error) {

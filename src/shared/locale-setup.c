@@ -3,8 +3,8 @@
 #include <errno.h>
 #include <sys/stat.h>
 
-#include "env-file-label.h"
 #include "env-file.h"
+#include "env-file-label.h"
 #include "env-util.h"
 #include "errno-util.h"
 #include "fd-util.h"

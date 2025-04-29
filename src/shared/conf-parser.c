@@ -8,9 +8,11 @@
 #include <stdlib.h>
 #include <sys/types.h>
 
+#include "sd-id128.h"
+
 #include "alloc-util.h"
-#include "chase.h"
 #include "calendarspec.h"
+#include "chase.h"
 #include "conf-files.h"
 #include "conf-parser.h"
 #include "constants.h"
@@ -36,7 +38,6 @@
 #include "percent-util.h"
 #include "process-util.h"
 #include "rlimit-util.h"
-#include "sd-id128.h"
 #include "set.h"
 #include "signal-util.h"
 #include "socket-util.h"

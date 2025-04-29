@@ -4,8 +4,8 @@
 
 typedef struct Wireguard Wireguard;
 
-#include <netinet/in.h>
 #include <linux/wireguard.h>
+#include <netinet/in.h>
 
 #include "sd-event.h"
 #include "sd-resolve.h"

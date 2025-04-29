@@ -2,7 +2,6 @@
 #pragma once
 
 #include "libudev.h"
-
 #include "macro.h"
 #include "memory-util.h"
 

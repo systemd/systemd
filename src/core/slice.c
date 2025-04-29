@@ -13,8 +13,8 @@
 #include "special.h"
 #include "string-util.h"
 #include "strv.h"
-#include "unit-name.h"
 #include "unit.h"
+#include "unit-name.h"
 
 static const UnitActiveState state_translation_table[_SLICE_STATE_MAX] = {
         [SLICE_DEAD]   = UNIT_INACTIVE,

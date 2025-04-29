@@ -6,9 +6,9 @@
 #  include <unistd.h>
 #endif
 
+#include "libcrypt-util.h"
 #include "strv.h"
 #include "tests.h"
-#include "libcrypt-util.h"
 
 static void test_crypt_preferred_method(void) {
         log_info("/* %s */", __func__);

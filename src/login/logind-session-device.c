@@ -7,8 +7,8 @@
 #include <sys/ioctl.h>
 #include <sys/types.h>
 
-#include "sd-device.h"
 #include "sd-daemon.h"
+#include "sd-device.h"
 
 #include "alloc-util.h"
 #include "bus-util.h"

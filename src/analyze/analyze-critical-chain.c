@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "analyze.h"
 #include "analyze-critical-chain.h"
 #include "analyze-time-data.h"
-#include "analyze.h"
 #include "bus-error.h"
 #include "copy.h"
 #include "path-util.h"

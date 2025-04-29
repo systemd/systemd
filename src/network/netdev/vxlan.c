@@ -1,18 +1,18 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 /* Make sure the net/if.h header is included before any linux/ one */
+#include <linux/if_arp.h>
 #include <net/if.h>
 #include <netinet/in.h>
-#include <linux/if_arp.h>
 
-#include "conf-parser.h"
 #include "alloc-util.h"
+#include "conf-parser.h"
 #include "extract-word.h"
 #include "networkd-link.h"
+#include "parse-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
-#include "parse-util.h"
 #include "vxlan.h"
 
 static const char* const df_table[_NETDEV_VXLAN_DF_MAX] = {

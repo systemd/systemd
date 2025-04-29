@@ -2,10 +2,10 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <linux/watchdog.h>
 #include <sys/ioctl.h>
 #include <syslog.h>
 #include <unistd.h>
-#include <linux/watchdog.h>
 
 #include "sd-messages.h"
 
