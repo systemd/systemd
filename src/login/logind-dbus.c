@@ -2396,7 +2396,6 @@ static int method_do_shutdown_or_sleep(
 
                         case SLEEP_NOT_CONFIGURED:
                         case SLEEP_STATE_OR_MODE_NOT_SUPPORTED:
-                        case SLEEP_ALARM_NOT_SUPPORTED:
                                 return sd_bus_error_setf(error, BUS_ERROR_SLEEP_VERB_NOT_SUPPORTED,
                                                          "Sleep verb '%s' is not configured or configuration is not supported by kernel",
                                                          sleep_operation_to_string(a->sleep_operation));

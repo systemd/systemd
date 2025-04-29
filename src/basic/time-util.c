@@ -1594,8 +1594,10 @@ bool clock_supported(clockid_t clock) {
 
         case CLOCK_MONOTONIC:
         case CLOCK_REALTIME:
+        case CLOCK_REALTIME_ALARM:
         case CLOCK_BOOTTIME:
-                /* These three are always available in our baseline, and work in timerfd, as of kernel 3.15 */
+        case CLOCK_BOOTTIME_ALARM:
+                /* These we assume always available in our baseline, and work in timerfd */
                 return true;
 
         default:

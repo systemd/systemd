@@ -290,12 +290,6 @@ static int s2h_supported(const SleepConfig *sleep_config, SleepSupport *ret_supp
         assert(sleep_config);
         assert(ret_support);
 
-        if (!clock_supported(CLOCK_BOOTTIME_ALARM)) {
-                log_debug("CLOCK_BOOTTIME_ALARM is not supported, can't perform %s.", sleep_operation_to_string(SLEEP_SUSPEND_THEN_HIBERNATE));
-                *ret_support = SLEEP_ALARM_NOT_SUPPORTED;
-                return false;
-        }
-
         FOREACH_ELEMENT(i, operations) {
                 r = sleep_supported_internal(sleep_config, *i, /* check_allowed = */ false, &support);
                 if (r < 0)
