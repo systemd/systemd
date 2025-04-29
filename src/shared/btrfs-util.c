@@ -3,6 +3,8 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
+#include <linux/btrfs.h>
+#include <linux/btrfs_tree.h>
 #include <linux/loop.h>
 #include <linux/magic.h>
 #include <stddef.h>
