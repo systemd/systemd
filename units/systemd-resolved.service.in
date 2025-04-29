@@ -15,10 +15,10 @@ Documentation=https://systemd.io/WRITING_NETWORK_CONFIGURATION_MANAGERS
 Documentation=https://systemd.io/WRITING_RESOLVER_CLIENTS
 
 DefaultDependencies=no
-After=systemd-sysctl.service systemd-sysusers.service
+After=systemd-sysctl.service systemd-sysusers.service systemd-resolved-varlink.socket systemd-resolved-monitor.socket
 Before=sysinit.target network.target nss-lookup.target shutdown.target initrd-switch-root.target
 Conflicts=shutdown.target initrd-switch-root.target
-Wants=nss-lookup.target
+Wants=nss-lookup.target systemd-resolved-varlink.socket systemd-resolved-monitor.socket
 
 [Service]
 AmbientCapabilities=CAP_SETPCAP CAP_NET_RAW CAP_NET_BIND_SERVICE
@@ -57,3 +57,4 @@ ImportCredential=network.search_domains
 [Install]
 WantedBy=sysinit.target
 Alias=dbus-org.freedesktop.resolve1.service
+Also=systemd-resolved-varlink.socket systemd-resolved-monitor.socket
