@@ -1,12 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/if_arp.h>
-#include <linux/if_link.h>
-
 #include "ipoib.h"
 #include "networkd-network.h"
 #include "parse-util.h"
 #include "string-table.h"
+
+#include <linux/if_arp.h>
+#include <linux/if_link.h>
 
 assert_cc((int) IP_OVER_INFINIBAND_MODE_DATAGRAM  == (int) IPOIB_MODE_DATAGRAM);
 assert_cc((int) IP_OVER_INFINIBAND_MODE_CONNECTED == (int) IPOIB_MODE_CONNECTED);

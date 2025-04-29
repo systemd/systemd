@@ -2,9 +2,9 @@
 
 #include "vmlinux.h"
 
-#include <bpf/bpf_helpers.h>
-
 #include "sysctl-write-event.h"
+
+#include <bpf/bpf_helpers.h>
 
 struct {
         __uint(type, BPF_MAP_TYPE_CGROUP_ARRAY);

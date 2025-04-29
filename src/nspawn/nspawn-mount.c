@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/mount.h>
-#include <linux/magic.h>
 
 #include "alloc-util.h"
 #include "chase.h"
@@ -26,6 +25,8 @@
 #include "strv.h"
 #include "tmpfile-util.h"
 #include "user-util.h"
+
+#include <linux/magic.h>
 
 CustomMount* custom_mount_add(CustomMount **l, size_t *n, CustomMountType t) {
         CustomMount *ret;

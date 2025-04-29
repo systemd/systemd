@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/magic.h>
 #include <sys/ioctl.h>
 #include <sys/vfs.h>
 
@@ -12,6 +11,8 @@
 #include "missing_xfs.h"
 #include "resize-fs.h"
 #include "stat-util.h"
+
+#include <linux/magic.h>
 
 int resize_fs(int fd, uint64_t sz, uint64_t *ret_size) {
         struct statfs sfs;

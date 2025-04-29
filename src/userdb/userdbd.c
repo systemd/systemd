@@ -4,10 +4,10 @@
 #include <sys/types.h>
 
 #include "daemon-util.h"
-#include "userdbd-manager.h"
 #include "log.h"
 #include "main-func.h"
 #include "signal-util.h"
+#include "userdbd-manager.h"
 
 /* This service offers two Varlink services, both implementing io.systemd.UserDatabase:
  *

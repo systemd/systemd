@@ -2,9 +2,9 @@
  * Copyright © 2019 VMware, Inc. */
 #pragma once
 
-#include <linux/pkt_sched.h>
-
 #include "time-util.h"
+
+#include <linux/pkt_sched.h>
 
 int tc_init(double *ret_ticks_in_usec, uint32_t *ret_hz);
 int tc_time_to_tick(usec_t t, uint32_t *ret);

@@ -2,12 +2,13 @@
  * Copyright © 2020 VMware, Inc. */
 
 #include <netinet/in.h>
-#include <linux/if_arp.h>
 
 #include "bareudp.h"
 #include "netlink-util.h"
 #include "networkd-manager.h"
 #include "string-table.h"
+
+#include <linux/if_arp.h>
 
 static const char* const bare_udp_protocol_table[_BARE_UDP_PROTOCOL_MAX] = {
         [BARE_UDP_PROTOCOL_IPV4]    = "ipv4",

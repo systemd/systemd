@@ -107,6 +107,29 @@ ForEachMacros:
   - STRV_FOREACH
   - STRV_FOREACH_BACKWARDS
   - STRV_FOREACH_PAIR
+IncludeBlocks: Regroup
+IncludeCategories:
+  # "vmlinux.h" must always be included first in BPF programs before anything else.
+  - Regex:           '^"vmlinux.h"$'
+    Priority:        1
+  # <linux/*.h> headers must be included after all glibc headers have been included,
+  # so we order them after all other headers, as our own headers might include glibc
+  # headers transitively.
+  - Regex:           '^<linux/.*\.h>$'
+    Priority:        5
+  # <bpf/*.h> headers must be included after <linux/types.h> by design.
+  - Regex:           '^<bpf/.*\.h>$'
+    Priority:        6
+  - Regex:           '^<.*\.h>$'
+    Priority:        2
+  - Regex:           '^"sd-.*\.h"$'
+    Priority:        3
+  - Regex:           '^"audit_type-to-name.h"$'
+    Priority:        7
+  - Regex:           '.*'
+    Priority:        4
+# Make sure the "main header" is not treated any differently than other headers.
+IncludeIsMainRegex: '^$'
 IndentPPDirectives: AfterHash
 IndentWidth: 8
 IndentWrappedFunctionNames: true

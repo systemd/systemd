@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/mount.h>
-#include <linux/loop.h>
 
 #include "sd-daemon.h"
 #include "sd-varlink.h"
@@ -30,6 +29,8 @@
 #include "user-util.h"
 #include "varlink-io.systemd.MountFileSystem.h"
 #include "varlink-util.h"
+
+#include <linux/loop.h>
 
 #define ITERATIONS_MAX 64U
 #define RUNTIME_MAX_USEC (5 * USEC_PER_MINUTE)

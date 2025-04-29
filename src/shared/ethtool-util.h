@@ -3,11 +3,12 @@
 
 #include <macro.h>
 #include <net/ethernet.h>
-#include <linux/ethtool.h>
 
 #include "conf-parser.h"
 #include "ether-addr-util.h"
 #include "time-util.h"
+
+#include <linux/ethtool.h>
 
 #define N_ADVERTISE 4
 

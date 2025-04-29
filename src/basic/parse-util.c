@@ -2,8 +2,6 @@
 
 #include <errno.h>
 #include <inttypes.h>
-#include <linux/ipv6.h>
-#include <linux/netfilter/nf_tables.h>
 #include <net/if.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -21,6 +19,9 @@
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
+
+#include <linux/ipv6.h>
+#include <linux/netfilter/nf_tables.h>
 
 int parse_boolean(const char *v) {
         if (!v)

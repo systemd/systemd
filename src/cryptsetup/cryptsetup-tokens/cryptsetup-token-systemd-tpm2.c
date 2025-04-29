@@ -3,8 +3,8 @@
 #include <errno.h>
 #include <libcryptsetup.h>
 
-#include "cryptsetup-token.h"
 #include "cryptsetup-token-util.h"
+#include "cryptsetup-token.h"
 #include "hexdecoct.h"
 #include "json-util.h"
 #include "luks2-tpm2.h"

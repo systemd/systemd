@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <grp.h>
-#include <linux/magic.h>
 #include <math.h>
 #include <openssl/pem.h>
 #include <pwd.h>
@@ -58,6 +57,8 @@
 #include "varlink-io.systemd.UserDatabase.h"
 #include "varlink-io.systemd.service.h"
 #include "varlink-util.h"
+
+#include <linux/magic.h>
 
 /* Where to look for private/public keys that are used to sign the user records. We are not using
  * CONF_PATHS_NULSTR() here since we want to insert /var/lib/systemd/home/ in the middle. And we insert that

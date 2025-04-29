@@ -1,14 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <linux/if_link.h>
-
 #include "sd-device.h"
 #include "sd-netlink.h"
 
 #include "conf-parser.h"
 #include "ether-addr-util.h"
 #include "hashmap.h"
+
+#include <linux/if_link.h>
 
 typedef enum SRIOVLinkState {
         SR_IOV_LINK_STATE_AUTO = IFLA_VF_LINK_STATE_AUTO,

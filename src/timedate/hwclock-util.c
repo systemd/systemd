@@ -1,13 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
-#include <linux/rtc.h>
 #include <sys/ioctl.h>
 #include <sys/time.h>
 
 #include "errno-util.h"
 #include "fd-util.h"
 #include "hwclock-util.h"
+
+#include <linux/rtc.h>
 
 int hwclock_get(struct tm *tm /* input + output! */) {
         _cleanup_close_ int fd = -EBADF;

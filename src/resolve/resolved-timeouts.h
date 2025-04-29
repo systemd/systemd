@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "time-util.h"
 #include "resolved-def.h"
+#include "time-util.h"
 
 /* LLMNR Jitter interval, see RFC 4795 Section 7 */
 #define LLMNR_JITTER_INTERVAL_USEC (100 * USEC_PER_MSEC)

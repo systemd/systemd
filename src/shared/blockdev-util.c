@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/blkpg.h>
 #include <sys/file.h>
 #include <sys/ioctl.h>
 #include <sys/mount.h>
@@ -21,6 +20,8 @@
 #include "fs-util.h"
 #include "missing_magic.h"
 #include "parse-util.h"
+
+#include <linux/blkpg.h>
 
 static int fd_get_devnum(int fd, BlockDeviceLookupFlag flags, dev_t *ret) {
         struct stat st;

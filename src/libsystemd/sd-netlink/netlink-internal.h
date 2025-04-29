@@ -1,8 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <linux/netlink.h>
-
 #include "sd-netlink.h"
 
 #include "list.h"
@@ -10,6 +8,8 @@
 #include "ordered-set.h"
 #include "prioq.h"
 #include "time-util.h"
+
+#include <linux/netlink.h>
 
 #define NETLINK_DEFAULT_TIMEOUT_USEC ((usec_t) (25 * USEC_PER_SEC))
 

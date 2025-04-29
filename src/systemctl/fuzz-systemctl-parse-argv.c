@@ -11,8 +11,8 @@
 #include "static-destruct.h"
 #include "stdio-util.h"
 #include "strv.h"
-#include "systemctl.h"
 #include "systemctl-util.h"
+#include "systemctl.h"
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_strv_free_ char **argv = NULL;

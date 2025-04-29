@@ -1,12 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/prctl.h>
 #include <netinet/in.h>
 #include <pwd.h>
 #include <sys/prctl.h>
 #include <sys/socket.h>
 #include <sys/wait.h>
 #include <unistd.h>
+
+#include <linux/prctl.h>
 
 #define TEST_CAPABILITY_C
 

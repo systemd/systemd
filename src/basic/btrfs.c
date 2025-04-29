@@ -1,12 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/btrfs.h>
 #include <sys/ioctl.h>
 
 #include "btrfs.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "path-util.h"
+
+#include <linux/btrfs.h>
 
 int btrfs_validate_subvolume_name(const char *name) {
 

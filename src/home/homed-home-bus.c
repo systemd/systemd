@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/capability.h>
-
 #include "bus-common-errors.h"
 #include "bus-polkit.h"
 #include "fd-util.h"
@@ -15,6 +13,8 @@
 #include "strv.h"
 #include "user-record-util.h"
 #include "user-util.h"
+
+#include <linux/capability.h>
 
 static int property_get_unix_record(
                 sd_bus *bus,

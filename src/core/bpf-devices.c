@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fnmatch.h>
-#include <linux/bpf_insn.h>
 
 #include "bpf-devices.h"
 #include "bpf-program.h"
@@ -14,6 +13,8 @@
 #include "path-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
+
+#include <linux/bpf_insn.h>
 
 #define PASS_JUMP_OFF 4096
 

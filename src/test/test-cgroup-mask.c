@@ -2,8 +2,8 @@
 
 #include <stdio.h>
 
-#include "cgroup.h"
 #include "cgroup-util.h"
+#include "cgroup.h"
 #include "macro.h"
 #include "manager.h"
 #include "rm-rf.h"

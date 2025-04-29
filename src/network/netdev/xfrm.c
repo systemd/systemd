@@ -1,10 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/if_arp.h>
-
 #include "missing_network.h"
 #include "networkd-link.h"
 #include "xfrm.h"
+
+#include <linux/if_arp.h>
 
 static int xfrm_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *message) {
         assert(message);

@@ -1,9 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
-#include <linux/filter.h>
-#include <linux/netlink.h>
-#include <linux/sockios.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
 
@@ -30,6 +27,10 @@
 #include "string-util.h"
 #include "strv.h"
 #include "uid-range.h"
+
+#include <linux/filter.h>
+#include <linux/netlink.h>
+#include <linux/sockios.h>
 
 #define log_monitor(m, format, ...)                                     \
         log_debug("sd-device-monitor(%s): " format, strna(m ? m->description : NULL), ##__VA_ARGS__)

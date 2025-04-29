@@ -10,8 +10,8 @@
 #include "parse-util.h"
 #include "serialize.h"
 #include "string-table.h"
-#include "unit.h"
 #include "unit-serialize.h"
+#include "unit.h"
 #include "user-util.h"
 
 /* Make sure out values fit in the bitfield. */

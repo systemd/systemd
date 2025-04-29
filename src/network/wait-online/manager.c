@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <netinet/ether.h>
-#include <linux/if.h>
 #include <fnmatch.h>
+#include <netinet/ether.h>
 
 #include "sd-event.h"
 #include "sd-json.h"
@@ -16,6 +15,8 @@
 #include "netlink-util.h"
 #include "strv.h"
 #include "time-util.h"
+
+#include <linux/if.h>
 
 static bool link_in_command_line_interfaces(Link *link, Manager *m) {
         assert(link);

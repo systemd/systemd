@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <linux/if_infiniband.h>
 #include <net/ethernet.h>
 #include <stdbool.h>
 
@@ -9,6 +8,8 @@
 #include "in-addr-util.h"
 #include "macro.h"
 #include "memory-util.h"
+
+#include <linux/if_infiniband.h>
 
 /* This is MAX_ADDR_LEN as defined in linux/netdevice.h, but net/if_arp.h
  * defines a macro of the same name with a much lower size. */

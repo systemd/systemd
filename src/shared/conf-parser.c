@@ -2,15 +2,16 @@
 
 #include <errno.h>
 #include <limits.h>
-#include <linux/ipv6.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>
 
+#include "sd-id128.h"
+
 #include "alloc-util.h"
-#include "chase.h"
 #include "calendarspec.h"
+#include "chase.h"
 #include "conf-files.h"
 #include "conf-parser.h"
 #include "constants.h"
@@ -36,7 +37,6 @@
 #include "percent-util.h"
 #include "process-util.h"
 #include "rlimit-util.h"
-#include "sd-id128.h"
 #include "set.h"
 #include "signal-util.h"
 #include "socket-util.h"
@@ -46,6 +46,8 @@
 #include "syslog-util.h"
 #include "time-util.h"
 #include "utf8.h"
+
+#include <linux/ipv6.h>
 
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(config_file_hash_ops_fclose,
                                               char, path_hash_func, path_compare,

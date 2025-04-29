@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/capability.h>
 #include <stdlib.h>
 
 #include "alloc-util.h"
@@ -22,6 +21,8 @@
 #include "strv.h"
 #include "terminal-util.h"
 #include "user-util.h"
+
+#include <linux/capability.h>
 
 enum {
         CAP_OFFSET_INHERITABLE = 0,

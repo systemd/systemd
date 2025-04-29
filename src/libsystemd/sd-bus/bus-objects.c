@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/capability.h>
-
 #include "alloc-util.h"
 #include "bus-internal.h"
 #include "bus-introspect.h"
@@ -14,6 +12,8 @@
 #include "set.h"
 #include "string-util.h"
 #include "strv.h"
+
+#include <linux/capability.h>
 
 static int node_vtable_get_userdata(
                 sd_bus *bus,

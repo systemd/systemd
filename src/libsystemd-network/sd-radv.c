@@ -3,10 +3,9 @@
   Copyright © 2017 Intel Corporation. All rights reserved.
 ***/
 
-#include <linux/ipv6.h>
+#include <arpa/inet.h>
 #include <netinet/icmp6.h>
 #include <netinet/in.h>
-#include <arpa/inet.h>
 
 #include "sd-radv.h"
 
@@ -28,6 +27,8 @@
 #include "string-util.h"
 #include "strv.h"
 #include "unaligned.h"
+
+#include <linux/ipv6.h>
 
 int sd_radv_new(sd_radv **ret) {
         _cleanup_(sd_radv_unrefp) sd_radv *ra = NULL;

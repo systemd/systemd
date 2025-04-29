@@ -2,6 +2,11 @@
 
 #include <netinet/in.h>
 #include <sys/socket.h>
+
+#include "missing_network.h"
+#include "netlink-genl.h"
+#include "netlink-types-internal.h"
+
 #include <linux/batman_adv.h>
 #include <linux/fou.h>
 #include <linux/genetlink.h>
@@ -10,10 +15,6 @@
 #include <linux/l2tp.h>
 #include <linux/nl80211.h>
 #include <linux/wireguard.h>
-
-#include "missing_network.h"
-#include "netlink-genl.h"
-#include "netlink-types-internal.h"
 
 /***************** genl ctrl type systems *****************/
 static const NLAPolicy genl_ctrl_mcast_group_policies[] = {

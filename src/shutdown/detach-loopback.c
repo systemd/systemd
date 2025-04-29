@@ -3,9 +3,10 @@
   Copyright © 2010 ProFUSION embedded systems
 ***/
 
-#include <linux/loop.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
+
+#include <linux/loop.h>
 
 #if HAVE_VALGRIND_MEMCHECK_H
 #include <valgrind/memcheck.h>

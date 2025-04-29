@@ -4,8 +4,8 @@
 
 #include "alloc-util.h"
 #include "string-util.h"
-#include "vmspawn-util.h"
 #include "tests.h"
+#include "vmspawn-util.h"
 
 #define _ESCAPE_QEMU_VALUE_CHECK(str, correct, varname) \
         do {                                            \

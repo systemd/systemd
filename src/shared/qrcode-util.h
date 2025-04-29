@@ -1,10 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-#include <stdio.h>
 #include <errno.h>
 #include <limits.h>
+#include <stdbool.h>
+#include <stdio.h>
 
 #if HAVE_QRENCODE
 int dlopen_qrencode(void);

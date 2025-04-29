@@ -2,13 +2,14 @@
 #pragma once
 
 #include <errno.h>
-#include <linux/if_link.h>
 #include <stdbool.h>
 
 #include "sd-netlink.h"
 
 #include "conf-parser.h"
 #include "macro.h"
+
+#include <linux/if_link.h>
 
 typedef struct Link Link;
 

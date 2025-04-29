@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <linux/if_link.h>
-
 #include "conf-parser.h"
+
+#include <linux/if_link.h>
 
 typedef enum GeneveDF {
         NETDEV_GENEVE_DF_UNSET    = GENEVE_DF_UNSET,

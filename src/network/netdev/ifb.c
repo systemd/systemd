@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later
  * Copyright © 2019 VMware, Inc. */
 
-#include <linux/if_arp.h>
-
 #include "ifb.h"
+
+#include <linux/if_arp.h>
 
 const NetDevVTable ifb_vtable = {
         .object_size = sizeof(IntermediateFunctionalBlock),

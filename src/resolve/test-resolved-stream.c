@@ -26,10 +26,11 @@
 #if ENABLE_DNS_OVER_TLS
 #include "resolved-dnstls.h"
 #endif
+#include "sd-event.h"
+
 #include "resolved-dns-server.h"
 #include "resolved-dns-stream.h"
 #include "resolved-manager.h"
-#include "sd-event.h"
 #include "sparse-endian.h"
 #include "tests.h"
 

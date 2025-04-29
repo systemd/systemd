@@ -1,8 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/if.h>
-#include <linux/if_link.h>
-#include <linux/nl80211.h>
 #include <stdint.h>
 
 #include "sd-bus.h"
@@ -12,6 +9,10 @@
 #include "ether-addr-util.h"
 #include "ethtool-util.h"
 #include "in-addr-util.h"
+
+#include <linux/if.h>
+#include <linux/if_link.h>
+#include <linux/nl80211.h>
 
 typedef struct VxLanInfo {
         uint32_t vni;

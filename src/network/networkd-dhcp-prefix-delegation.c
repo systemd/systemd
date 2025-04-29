@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/ipv6_route.h>
-
 #include "dhcp6-lease-internal.h"
 #include "hashmap.h"
 #include "in-addr-prefix-util.h"
@@ -20,6 +18,8 @@
 #include "string-util.h"
 #include "strv.h"
 #include "tunnel.h"
+
+#include <linux/ipv6_route.h>
 
 bool link_dhcp_pd_is_enabled(Link *link) {
         assert(link);

@@ -5,8 +5,6 @@
 
 #include <errno.h>
 #include <sys/ioctl.h>
-#include <linux/if_arp.h>
-#include <linux/if_infiniband.h>
 
 #include "sd-dhcp6-client.h"
 
@@ -26,6 +24,9 @@
 #include "sort-util.h"
 #include "strv.h"
 #include "web-util.h"
+
+#include <linux/if_arp.h>
+#include <linux/if_infiniband.h>
 
 #define DHCP6_CLIENT_DONT_DESTROY(client) \
         _cleanup_(sd_dhcp6_client_unrefp) _unused_ sd_dhcp6_client *_dont_destroy_##client = sd_dhcp6_client_ref(client)

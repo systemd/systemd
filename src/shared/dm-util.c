@@ -1,12 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
-#include <linux/dm-ioctl.h>
 #include <sys/ioctl.h>
 
 #include "dm-util.h"
 #include "fd-util.h"
 #include "string-util.h"
+
+#include <linux/dm-ioctl.h>
 
 int dm_deferred_remove_cancel(const char *name) {
         _cleanup_close_ int fd = -EBADF;

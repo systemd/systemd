@@ -14,12 +14,13 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <linux/videodev2.h>
 
 #include "build.h"
 #include "fd-util.h"
 #include "log.h"
 #include "main-func.h"
+
+#include <linux/videodev2.h>
 
 static const char *arg_device = NULL;
 

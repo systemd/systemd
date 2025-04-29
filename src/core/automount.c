@@ -3,7 +3,6 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
-#include <linux/auto_dev-ioctl.h>
 #include <sys/epoll.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
@@ -21,8 +20,8 @@
 #include "fstab-util.h"
 #include "io-util.h"
 #include "label-util.h"
-#include "mkdir-label.h"
 #include "manager.h"
+#include "mkdir-label.h"
 #include "mount-util.h"
 #include "mount.h"
 #include "mountpoint-util.h"
@@ -36,6 +35,8 @@
 #include "string-util.h"
 #include "unit-name.h"
 #include "unit.h"
+
+#include <linux/auto_dev-ioctl.h>
 
 static const UnitActiveState state_translation_table[_AUTOMOUNT_STATE_MAX] = {
         [AUTOMOUNT_DEAD]    = UNIT_INACTIVE,

@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/capability.h>
-
 #include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "bus-message-util.h"
@@ -20,6 +18,8 @@
 #include "user-record-sign.h"
 #include "user-record-util.h"
 #include "user-util.h"
+
+#include <linux/capability.h>
 
 static int property_get_auto_login(
                 sd_bus *bus,

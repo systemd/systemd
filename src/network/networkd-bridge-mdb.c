@@ -2,7 +2,6 @@
 
 /* Make sure the net/if.h header is included before any linux/ one */
 #include <net/if.h>
-#include <linux/if_bridge.h>
 
 #include "netlink-util.h"
 #include "networkd-bridge-mdb.h"
@@ -13,6 +12,8 @@
 #include "networkd-util.h"
 #include "string-util.h"
 #include "vlan-util.h"
+
+#include <linux/if_bridge.h>
 
 #define STATIC_BRIDGE_MDB_ENTRIES_PER_NETWORK_MAX 1024U
 

@@ -7,7 +7,6 @@
 #include <sys/mman.h>
 #include <sys/signalfd.h>
 #include <sys/statvfs.h>
-#include <linux/sockios.h>
 
 #include "sd-daemon.h"
 #include "sd-journal.h"
@@ -67,6 +66,8 @@
 #include "syslog-util.h"
 #include "uid-classification.h"
 #include "user-util.h"
+
+#include <linux/sockios.h>
 
 #define USER_JOURNALS_MAX 1024
 

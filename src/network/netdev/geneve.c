@@ -2,7 +2,6 @@
 
 /* Make sure the net/if.h header is included before any linux/ one */
 #include <net/if.h>
-#include <linux/if_arp.h>
 #include <netinet/in.h>
 
 #include "alloc-util.h"
@@ -15,6 +14,8 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
+
+#include <linux/if_arp.h>
 
 #define GENEVE_FLOW_LABEL_MAX_MASK 0xFFFFFU
 #define DEFAULT_GENEVE_DESTINATION_PORT 6081

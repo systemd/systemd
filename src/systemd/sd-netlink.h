@@ -21,13 +21,14 @@
 #include <inttypes.h>
 #include <net/ethernet.h>
 #include <netinet/in.h>
-#include <linux/filter.h>
-#include <linux/neighbour.h>
-#include <linux/rtnetlink.h>
 
 #include "sd-event.h"
 
 #include "_sd-common.h"
+
+#include <linux/filter.h>
+#include <linux/neighbour.h>
+#include <linux/rtnetlink.h>
 
 _SD_BEGIN_DECLARATIONS;
 

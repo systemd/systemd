@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/netdevice.h>
 #include <netinet/ether.h>
 #include <unistd.h>
 
@@ -39,6 +38,8 @@
 #include "strv.h"
 #include "udev-builtin.h"
 #include "utf8.h"
+
+#include <linux/netdevice.h>
 
 static const Specifier link_specifier_table[] = {
         COMMON_SYSTEM_SPECIFIERS,

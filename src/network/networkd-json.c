@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/nexthop.h>
-
 #include "dhcp-lease-internal.h"
 #include "dhcp-server-lease-internal.h"
 #include "dhcp6-internal.h"
@@ -27,6 +25,8 @@
 #include "udev-util.h"
 #include "user-util.h"
 #include "wifi-util.h"
+
+#include <linux/nexthop.h>
 
 static int address_append_json(Address *address, bool serializing, sd_json_variant **array) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;

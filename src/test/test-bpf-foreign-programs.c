@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
-#include <linux/bpf_insn.h>
 #include <string.h>
 #include <sys/mman.h>
 #include <unistd.h>
@@ -16,6 +15,8 @@
 #include "tests.h"
 #include "unit.h"
 #include "virt.h"
+
+#include <linux/bpf_insn.h>
 
 struct Test {
         const char *option_name;

@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
-#include <linux/loop.h>
 #include <pthread.h>
 #include <sys/file.h>
 #include <sys/ioctl.h>
@@ -26,6 +25,8 @@
 #include "tmpfile-util.h"
 #include "user-util.h"
 #include "virt.h"
+
+#include <linux/loop.h>
 
 static unsigned arg_n_threads = 5;
 static unsigned arg_n_iterations = 3;

@@ -3,8 +3,6 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
-#include <linux/loop.h>
-#include <linux/magic.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -33,6 +31,9 @@
 #include "stat-util.h"
 #include "string-util.h"
 #include "time-util.h"
+
+#include <linux/loop.h>
+#include <linux/magic.h>
 
 /* WARNING: Be careful with file system ioctls! When we get an fd, we
  * need to make sure it either refers to only a regular file or

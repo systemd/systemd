@@ -16,8 +16,8 @@
 #include "strv.h"
 
 #if HAVE_OPENSSL
-#  include <openssl/rsa.h>
 #  include <openssl/ec.h>
+#  include <openssl/rsa.h>
 
 #  if !defined(OPENSSL_NO_ENGINE) && !defined(OPENSSL_NO_DEPRECATED_3_0)
 #    include <openssl/engine.h>

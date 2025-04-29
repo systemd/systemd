@@ -1,10 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 /* Make sure the net/if.h header is included before any linux/ one */
-#include <net/if.h>
 #include <arpa/inet.h>
 #include <errno.h>
-#include <linux/net_namespace.h>
+#include <net/if.h>
 #include <string.h>
 
 #include "alloc-util.h"
@@ -19,6 +18,8 @@
 #include "socket-netlink.h"
 #include "socket-util.h"
 #include "string-util.h"
+
+#include <linux/net_namespace.h>
 
 int socket_address_parse(SocketAddress *a, const char *s) {
         uint16_t port;

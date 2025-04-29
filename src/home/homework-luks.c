@@ -1,10 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/loop.h>
 #include <poll.h>
 #include <sys/file.h>
 #include <sys/ioctl.h>
 #include <sys/xattr.h>
+
+#include <linux/loop.h>
 
 #if HAVE_VALGRIND_MEMCHECK_H
 #include <valgrind/memcheck.h>

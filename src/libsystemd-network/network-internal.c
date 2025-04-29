@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <arpa/inet.h>
-#include <linux/if.h>
 #include <netinet/ether.h>
 
 #include "sd-ndisc.h"
@@ -15,6 +14,8 @@
 #include "network-internal.h"
 #include "parse-util.h"
 #include "strv.h"
+
+#include <linux/if.h>
 
 size_t serialize_in_addrs(FILE *f,
                           const struct in_addr *addresses,

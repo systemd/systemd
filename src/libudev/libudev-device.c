@@ -1,12 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 /* Make sure the net/if.h header is included before any linux/ one */
-#include <net/if.h>
 #include <ctype.h>
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <linux/sockios.h>
+#include <net/if.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -17,7 +16,6 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include "libudev.h"
 #include "sd-device.h"
 
 #include "alloc-util.h"
@@ -25,8 +23,11 @@
 #include "device-util.h"
 #include "libudev-device-internal.h"
 #include "libudev-list-internal.h"
+#include "libudev.h"
 #include "parse-util.h"
 #include "time-util.h"
+
+#include <linux/sockios.h>
 
 /**
  * SECTION:libudev-device

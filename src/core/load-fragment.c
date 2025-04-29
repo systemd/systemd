@@ -5,7 +5,6 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <linux/oom.h>
 #include <sched.h>
 #include <sys/resource.h>
 
@@ -74,6 +73,8 @@
 #include "user-util.h"
 #include "utf8.h"
 #include "web-util.h"
+
+#include <linux/oom.h>
 
 static int parse_socket_protocol(const char *s) {
         int r;

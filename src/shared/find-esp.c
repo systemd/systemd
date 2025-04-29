@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/magic.h>
 #include <sys/vfs.h>
 
 #include "sd-device.h"
@@ -23,6 +22,8 @@
 #include "stat-util.h"
 #include "string-util.h"
 #include "virt.h"
+
+#include <linux/magic.h>
 
 typedef enum VerifyESPFlags {
         VERIFY_ESP_SEARCHING         = 1 << 0, /* Downgrade various "not found" logs to debug level */

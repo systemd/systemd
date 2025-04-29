@@ -1,12 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 /* Make sure the net/if.h header is included before any linux/ one */
-#include <net/if.h>
-
 #include <fcntl.h>
-#include <linux/if_tun.h>
-#include <linux/nsfs.h>
-#include <linux/veth.h>
+#include <net/if.h>
 #include <sys/eventfd.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
@@ -50,6 +46,10 @@
 #include "varlink-io.systemd.NamespaceResource.h"
 #include "varlink-io.systemd.UserDatabase.h"
 #include "varlink-util.h"
+
+#include <linux/if_tun.h>
+#include <linux/nsfs.h>
+#include <linux/veth.h>
 
 #define ITERATIONS_MAX 64U
 #define RUNTIME_MAX_USEC (5 * USEC_PER_MINUTE)

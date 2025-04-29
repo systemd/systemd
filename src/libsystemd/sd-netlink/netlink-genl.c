@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/genetlink.h>
-
 #include "sd-netlink.h"
 
 #include "alloc-util.h"
@@ -9,6 +7,8 @@
 #include "netlink-genl.h"
 #include "netlink-internal.h"
 #include "netlink-types.h"
+
+#include <linux/genetlink.h>
 
 typedef struct GenericNetlinkFamily {
         sd_netlink *genl;

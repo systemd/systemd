@@ -2,9 +2,10 @@
 #pragma once
 
 #include <netinet/in.h>
-#include <linux/if_bonding.h>
 
 #include "macro.h"
+
+#include <linux/if_bonding.h>
 
 /*
  * Maximum number of targets supported by the kernel for a single
