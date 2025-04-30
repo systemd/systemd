@@ -11,6 +11,9 @@ ENV{ID_SYSFS_ATTRIBUTE_MODEL}=="product_version", ENV{ID_MODEL}="$attr{product_v
 ENV{ID_VENDOR}=="", ENV{ID_VENDOR}="$attr{board_vendor}"
 ENV{ID_MODEL}=="", ENV{ID_MODEL}="$attr{board_name}"
 
+# stock keeping unit
+ENV{ID_PRODUCT_SKU_IS_RUBBISH}!="1", ENV{ID_SKU}="$attr{product_sku}"
+
 # chassis asset tag
 ENV{MODALIAS}!="", ATTR{chassis_asset_tag}!="", IMPORT{builtin}="hwdb '$attr{modalias}cat$attr{chassis_asset_tag}:'"
 ENV{ID_CHASSIS_ASSET_TAG_IS_RUBBISH}!="1", ENV{ID_CHASSIS_ASSET_TAG}="$attr{chassis_asset_tag}"
