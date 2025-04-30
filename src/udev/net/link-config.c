@@ -855,30 +855,35 @@ static int link_generate_alternative_names(Link *link) {
 }
 
 static int sr_iov_configure(Link *link, sd_netlink **rtnl, SRIOV *sr_iov) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
 
         assert(link);
         assert(rtnl);
         assert(link->ifindex > 0);
 
-        if (!*rtnl) {
-                r = sd_netlink_open(rtnl);
+        for (SRIOVAttribute attr = 0; attr < _SR_IOV_ATTRIBUTE_MAX; attr++) {
+                if (!sr_iov_has_config(sr_iov, attr))
+                        continue;
+
+                if (!*rtnl) {
+                        r = sd_netlink_open(rtnl);
+                        if (r < 0)
+                                return r;
+                }
+
+                _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+                r = sd_rtnl_message_new_link(*rtnl, &req, RTM_SETLINK, link->ifindex);
+                if (r < 0)
+                        return r;
+
+                r = sr_iov_set_netlink_message(sr_iov, attr, req);
+                if (r < 0)
+                        return r;
+
+                r = sd_netlink_call(*rtnl, req, 0, NULL);
                 if (r < 0)
                         return r;
         }
-
-        r = sd_rtnl_message_new_link(*rtnl, &req, RTM_SETLINK, link->ifindex);
-        if (r < 0)
-                return r;
-
-        r = sr_iov_set_netlink_message(sr_iov, req);
-        if (r < 0)
-                return r;
-
-        r = sd_netlink_call(*rtnl, req, 0, NULL);
-        if (r < 0)
-                return r;
 
         return 0;
 }
@@ -923,7 +928,7 @@ static int link_apply_sr_iov_config(Link *link) {
                 r = sr_iov_configure(link, &link->event->rtnl, sr_iov);
                 if (r < 0)
                         log_link_warning_errno(link, r,
-                                               "Failed to configure SR-IOV virtual function %"PRIu32", ignoring: %m",
+                                               "Failed to set up SR-IOV virtual function %"PRIu32", ignoring: %m",
                                                sr_iov->vf);
         }
 

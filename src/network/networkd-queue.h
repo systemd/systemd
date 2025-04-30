@@ -5,6 +5,7 @@
 
 #include "alloc-util.h"
 #include "hash-funcs.h"
+#include "netif-sriov.h"
 
 typedef struct Link Link;
 typedef struct NetDev NetDev;
@@ -44,7 +45,13 @@ typedef enum RequestType {
         REQUEST_TYPE_SET_LINK_MAC,                     /* Setting MAC address. */
         REQUEST_TYPE_SET_LINK_MASTER,                  /* Setting IFLA_MASTER. */
         REQUEST_TYPE_SET_LINK_MTU,                     /* Setting MTU. */
-        REQUEST_TYPE_SRIOV,
+        _REQUEST_TYPE_SRIOV_BASE,
+        REQUEST_TYPE_SRIOV_VF_MAC          = _REQUEST_TYPE_SRIOV_BASE + SR_IOV_VF_MAC,
+        REQUEST_TYPE_SRIOV_VF_SPOOFCHK     = _REQUEST_TYPE_SRIOV_BASE + SR_IOV_VF_SPOOFCHK,
+        REQUEST_TYPE_SRIOV_VF_RSS_QUERY_EN = _REQUEST_TYPE_SRIOV_BASE + SR_IOV_VF_RSS_QUERY_EN,
+        REQUEST_TYPE_SRIOV_VF_TRUST        = _REQUEST_TYPE_SRIOV_BASE + SR_IOV_VF_TRUST,
+        REQUEST_TYPE_SRIOV_VF_LINK_STATE   = _REQUEST_TYPE_SRIOV_BASE + SR_IOV_VF_LINK_STATE,
+        REQUEST_TYPE_SRIOV_VF_VLAN_LIST    = _REQUEST_TYPE_SRIOV_BASE + SR_IOV_VF_VLAN_LIST,
         REQUEST_TYPE_TC_CLASS,
         REQUEST_TYPE_TC_QDISC,
         REQUEST_TYPE_UP_DOWN,
