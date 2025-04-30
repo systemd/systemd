@@ -8,6 +8,7 @@ basic_dns_sources = files(
         'resolved-dns-rr.c',
         'resolved-dns-answer.c',
         'resolved-dns-question.c',
+        'resolved-dns-browse-services.c',
         'resolved-util.c',
         'dns-type.c',
 )
@@ -282,6 +283,15 @@ executables += [
         },
         resolve_fuzz_template + {
                 'sources' : files('fuzz-resource-record.c'),
+        },
+        test_template + {
+                'sources' : [
+                        files('test-dns-browse-services.c'),
+                        basic_dns_sources,
+                        systemd_resolved_sources,
+                ],
+                'dependencies' : systemd_resolved_dependencies,
+                'include_directories' : resolve_includes,
         },
 ]
 

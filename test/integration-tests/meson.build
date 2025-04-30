@@ -100,6 +100,7 @@ foreach dirname : [
         'TEST-85-NETWORK',
         'TEST-86-MULTI-PROFILE-UKI',
         'TEST-87-AUX-UTILS-VM',
+        'TEST-88-RESOLVED-MDNS',
 ]
         subdir(dirname)
 endforeach
