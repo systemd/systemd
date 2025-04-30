@@ -114,6 +114,7 @@ int sd_netlink_message_read_u8(sd_netlink_message *m, uint16_t attr_type, uint8_
 int sd_netlink_message_read_u16(sd_netlink_message *m, uint16_t attr_type, uint16_t *ret);
 int sd_netlink_message_read_u32(sd_netlink_message *m, uint16_t attr_type, uint32_t *ret);
 int sd_netlink_message_read_u64(sd_netlink_message *m, uint16_t attr_type, uint64_t *ret);
+int sd_netlink_message_read_s32(sd_netlink_message *m, uint16_t attr_type, int32_t *ret);
 int sd_netlink_message_read_ether_addr(sd_netlink_message *m, uint16_t attr_type, struct ether_addr *ret);
 int sd_netlink_message_read_cache_info(sd_netlink_message *m, uint16_t attr_type, struct ifa_cacheinfo *ret);
 int sd_netlink_message_read_in_addr(sd_netlink_message *m, uint16_t attr_type, struct in_addr *ret);
