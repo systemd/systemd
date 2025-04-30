@@ -2,8 +2,8 @@
 
 #include "sd-json.h"
 
-#include "cryptenroll-wipe.h"
 #include "cryptenroll.h"
+#include "cryptenroll-wipe.h"
 #include "json-util.h"
 #include "log.h"
 #include "memory-util.h"

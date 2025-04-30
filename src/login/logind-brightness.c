@@ -4,8 +4,8 @@
 #include "bus-util.h"
 #include "device-util.h"
 #include "hash-funcs.h"
-#include "logind-brightness.h"
 #include "logind.h"
+#include "logind-brightness.h"
 #include "process-util.h"
 #include "stdio-util.h"
 

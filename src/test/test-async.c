@@ -10,8 +10,8 @@
 #include "path-util.h"
 #include "process-util.h"
 #include "signal-util.h"
-#include "time-util.h"
 #include "tests.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 
 TEST(asynchronous_sync) {

@@ -3,10 +3,9 @@
   Copyright © 2015-2017 Jason A. Donenfeld <Jason@zx2c4.com>. All Rights Reserved.
 ***/
 
-/* Make sure the net/if.h header is included before any linux/ one */
-#include <net/if.h>
 #include <linux/if_arp.h>
 #include <linux/ipv6_route.h>
+#include <net/if.h>
 #include <netinet/in.h>
 #include <sys/ioctl.h>
 
@@ -22,8 +21,8 @@
 #include "memory-util.h"
 #include "netlink-util.h"
 #include "networkd-manager.h"
-#include "networkd-route-util.h"
 #include "networkd-route.h"
+#include "networkd-route-util.h"
 #include "networkd-util.h"
 #include "parse-helpers.h"
 #include "parse-util.h"

@@ -2,8 +2,8 @@
 
 #include "sd-bus.h"
 
-#include "analyze-dump.h"
 #include "analyze.h"
+#include "analyze-dump.h"
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-message-util.h"

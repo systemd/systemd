@@ -4,8 +4,8 @@
 
 #include "alloc-util.h"
 #include "coredump-util.h"
-#include "fileio.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "format-util.h"
 #include "macro.h"
 #include "tests.h"

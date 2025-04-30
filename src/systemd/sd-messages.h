@@ -17,9 +17,8 @@
   along with systemd; If not, see <https://www.gnu.org/licenses/>.
 ***/
 
-#include "sd-id128.h"
-
 #include "_sd-common.h"
+#include "sd-id128.h"
 
 _SD_BEGIN_DECLARATIONS;
 

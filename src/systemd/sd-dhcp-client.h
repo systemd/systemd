@@ -22,16 +22,15 @@
 #include <inttypes.h>
 #include <net/ethernet.h>
 #include <netinet/in.h>
-#include <sys/types.h>
 #include <stdbool.h>
+#include <sys/types.h>
 
+#include "_sd-common.h"
 #include "sd-device.h"
 #include "sd-dhcp-client-id.h"
 #include "sd-dhcp-lease.h"
 #include "sd-dhcp-option.h"
 #include "sd-event.h"
-
-#include "_sd-common.h"
 
 _SD_BEGIN_DECLARATIONS;
 

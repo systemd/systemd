@@ -14,6 +14,8 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include "sd-event.h"
+
 #include "fd-util.h"
 #include "log.h"
 #include "macro.h"
@@ -23,13 +25,10 @@
 #include "resolved-dns-packet.h"
 #include "resolved-dns-question.h"
 #include "resolved-dns-rr.h"
-#if ENABLE_DNS_OVER_TLS
-#include "resolved-dnstls.h"
-#endif
 #include "resolved-dns-server.h"
 #include "resolved-dns-stream.h"
+#include "resolved-dnstls.h"
 #include "resolved-manager.h"
-#include "sd-event.h"
 #include "sparse-endian.h"
 #include "tests.h"
 

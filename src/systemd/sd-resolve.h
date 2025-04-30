@@ -27,9 +27,8 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 
-#include "sd-event.h"
-
 #include "_sd-common.h"
+#include "sd-event.h"
 
 _SD_BEGIN_DECLARATIONS;
 

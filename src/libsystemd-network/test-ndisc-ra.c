@@ -3,8 +3,8 @@
   Copyright © 2017 Intel Corporation. All rights reserved.
 ***/
 
-#include <netinet/icmp6.h>
 #include <arpa/inet.h>
+#include <netinet/icmp6.h>
 #include <unistd.h>
 
 #include "sd-radv.h"

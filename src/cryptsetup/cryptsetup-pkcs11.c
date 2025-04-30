@@ -1,10 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
-#include <unistd.h>
-#include <sys/stat.h>
 #include <p11-kit/p11-kit.h>
 #include <p11-kit/uri.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include "sd-json.h"
 

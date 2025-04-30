@@ -3,8 +3,8 @@
 
 #include <sys/types.h>
 
-#include "openssl-util.h"
 #include "macro-fundamental.h"
+#include "openssl-util.h"
 #include "sparse-endian.h"
 #include "uki.h"
 
