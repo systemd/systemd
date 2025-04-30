@@ -55,12 +55,12 @@ _hostnamectl() {
                 return 0
                 ;;
         esac
-        COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+        COMPREPLY=( $(compgen -W "$comps" -- "$cur") )
         return 0
     fi
 
     if [[ $cur = -* ]]; then
-        COMPREPLY=( $(compgen -W '${OPTS[*]}' -- "$cur") )
+        COMPREPLY=( $(compgen -W "${OPTS[*]}" -- "$cur") )
         return 0
     fi
 
@@ -70,6 +70,15 @@ _hostnamectl() {
         [NAME]='hostname deployment location'
         [CHASSIS]='chassis'
     )
+
+    if [[ $cur == s* ]]; then
+        local cmds="${VERBS[STANDALONE]}"
+        for w in ${VERBS[ICONS]} ${VERBS[NAME]} ${VERBS[CHASSIS]}; do
+            cmds+=" set-$w"
+        done
+        COMPREPLY=( $(compgen -W "$cmds" -- "$cur") )
+        return 0
+    fi
 
     for ((i=0; i < COMP_CWORD; i++)); do
         if __contains_word "${COMP_WORDS[i]}" ${VERBS[*]}; then
@@ -86,7 +95,7 @@ _hostnamectl() {
         comps=''
     fi
 
-    COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+    COMPREPLY=( $(compgen -W "$comps" -- "$cur") )
     return 0
 }
 
