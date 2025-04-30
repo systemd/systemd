@@ -572,7 +572,7 @@ int dns_stream_new(
 
         if (tfo_address) {
                 s->tfo_address = *tfo_address;
-                s->tfo_salen = SOCKADDR_LEN(*tfo_address);
+                s->tfo_salen = sockaddr_len(tfo_address);
         }
 
         *ret = TAKE_PTR(s);
