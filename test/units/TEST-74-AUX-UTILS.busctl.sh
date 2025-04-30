@@ -108,3 +108,12 @@ busctl get-property -j \
 # Invalid argument
 (! busctl set-property org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager \
                        KExecWatchdogUSec t "foo")
+
+# Invalid destination
+(! busctl get-property '*' /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager Version)
+
+# Invalid object
+(! busctl get-property org.freedesktop.systemd1 '*' org.freedesktop.systemd1.Manager Version)
+
+# Invalid interface
+(! busctl get-property org.freedesktop.systemd1 /org/freedesktop/systemd1 '*' Version)
