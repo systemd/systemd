@@ -15,4 +15,8 @@ ENV{ID_MODEL}=="", ENV{ID_MODEL}="$attr{board_name}"
 ENV{MODALIAS}!="", ATTR{chassis_asset_tag}!="", IMPORT{builtin}="hwdb '$attr{modalias}cat$attr{chassis_asset_tag}:'"
 ENV{ID_CHASSIS_ASSET_TAG_IS_RUBBISH}!="1", ENV{ID_CHASSIS_ASSET_TAG}="$attr{chassis_asset_tag}"
 
+# sku
+ENV{MODALIAS}!="", ATTR{product_sku}!="", IMPORT{builtin}="hwdb '$attr{modalias}psku$attr{product_sku}:'"
+ENV{ID_PRODUCT_SKU_IS_RUBBISH}!="1", ENV{ID_SKU}="$attr{product_sku}"
+
 LABEL="dmi_end"
