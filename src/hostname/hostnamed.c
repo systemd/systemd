@@ -66,6 +66,7 @@ typedef enum {
         PROP_LOCATION,
         PROP_HARDWARE_VENDOR,
         PROP_HARDWARE_MODEL,
+        PROP_HARDWARE_SKU,
 
         /* Read from /etc/os-release (or /usr/lib/os-release) */
         PROP_OS_PRETTY_NAME,
@@ -170,7 +171,8 @@ static void context_read_machine_info(Context *c) {
                       (UINT64_C(1) << PROP_DEPLOYMENT) |
                       (UINT64_C(1) << PROP_LOCATION) |
                       (UINT64_C(1) << PROP_HARDWARE_VENDOR) |
-                      (UINT64_C(1) << PROP_HARDWARE_MODEL));
+                      (UINT64_C(1) << PROP_HARDWARE_MODEL) |
+                      (UINT64_C(1) << PROP_HARDWARE_SKU));
 
         r = parse_env_file(NULL, "/etc/machine-info",
                            "PRETTY_HOSTNAME", &c->data[PROP_PRETTY_HOSTNAME],
@@ -179,7 +181,8 @@ static void context_read_machine_info(Context *c) {
                            "DEPLOYMENT", &c->data[PROP_DEPLOYMENT],
                            "LOCATION", &c->data[PROP_LOCATION],
                            "HARDWARE_VENDOR", &c->data[PROP_HARDWARE_VENDOR],
-                           "HARDWARE_MODEL", &c->data[PROP_HARDWARE_MODEL]);
+                           "HARDWARE_MODEL", &c->data[PROP_HARDWARE_MODEL],
+                           "HARDWARE_SKU", &c->data[PROP_HARDWARE_SKU]);
         if (r < 0 && r != -ENOENT)
                 log_warning_errno(r, "Failed to read /etc/machine-info, ignoring: %m");
 
@@ -354,6 +357,27 @@ static int get_hardware_vendor(Context *c, char **ret) {
 
 static int get_hardware_model(Context *c, char **ret) {
         return get_dmi_properties(c, STRV_MAKE_CONST("ID_MODEL_FROM_DATABASE", "ID_MODEL"), ret);
+}
+
+static int get_hardware_sku(Context *c, char **ret) {
+        _cleanup_free_ char *model = NULL, *sku = NULL;
+        int r;
+
+        r = get_dmi_property(c, "ID_SKU", &sku);
+        if (r < 0)
+                return r;
+
+        /* Suppress reporting the SKU field, if it's the same string as the
+         * model field, which it appears to be on various systems */
+        r = get_hardware_model(c, &model);
+        if (r < 0) {
+                if (r != -ENOENT)
+                        return r;
+        } else if (streq_ptr(sku, model))
+                return -ENOENT;
+
+        *ret = TAKE_PTR(sku);
+        return 0;
 }
 
 static int get_sysattr(sd_device *device, const char *key, char **ret) {
@@ -824,7 +848,8 @@ static int property_get_hardware_property(
 
         assert(reply);
         assert(c);
-        assert(IN_SET(prop, PROP_HARDWARE_VENDOR, PROP_HARDWARE_MODEL));
+        assert(IN_SET(prop, PROP_HARDWARE_VENDOR, PROP_HARDWARE_MODEL,
+                      PROP_HARDWARE_SKU));
         assert(getter);
 
         context_read_machine_info(c);
@@ -857,6 +882,18 @@ static int property_get_hardware_model(
                 sd_bus_error *error) {
 
         return property_get_hardware_property(reply, userdata, PROP_HARDWARE_MODEL, get_hardware_model);
+}
+
+static int property_get_hardware_sku(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        return property_get_hardware_property(reply, userdata, PROP_HARDWARE_SKU, get_hardware_sku);
 }
 
 static int property_get_firmware_version(
@@ -1539,7 +1576,7 @@ static int method_get_hardware_serial(sd_bus_message *m, void *userdata, sd_bus_
 static int build_describe_response(Context *c, bool privileged, sd_json_variant **ret) {
         _cleanup_free_ char *hn = NULL, *dhn = NULL, *in = NULL,
                 *chassis = NULL, *vendor = NULL, *model = NULL, *serial = NULL, *firmware_version = NULL,
-                *firmware_vendor = NULL, *chassis_asset_tag = NULL;
+                *firmware_vendor = NULL, *chassis_asset_tag = NULL, *sku = NULL;
         _cleanup_strv_free_ char **os_release_pairs = NULL, **machine_info_pairs = NULL;
         usec_t firmware_date = USEC_INFINITY, eol = USEC_INFINITY;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
@@ -1575,6 +1612,8 @@ static int build_describe_response(Context *c, bool privileged, sd_json_variant 
                 (void) get_hardware_vendor(c, &vendor);
         if (isempty(c->data[PROP_HARDWARE_MODEL]))
                 (void) get_hardware_model(c, &model);
+        if (isempty(c->data[PROP_HARDWARE_SKU]))
+                (void) get_hardware_sku(c, &sku);
 
         if (privileged) {
                 /* The product UUID and hardware serial is only available to privileged clients */
@@ -1628,6 +1667,7 @@ static int build_describe_response(Context *c, bool privileged, sd_json_variant 
                         SD_JSON_BUILD_PAIR_STRING("HardwareVendor", vendor ?: c->data[PROP_HARDWARE_VENDOR]),
                         SD_JSON_BUILD_PAIR_STRING("HardwareModel", model ?: c->data[PROP_HARDWARE_MODEL]),
                         SD_JSON_BUILD_PAIR_STRING("HardwareSerial", serial),
+                        SD_JSON_BUILD_PAIR_STRING("HardwareSKU", sku ?: c->data[PROP_HARDWARE_SKU]),
                         SD_JSON_BUILD_PAIR_STRING("FirmwareVersion", firmware_version),
                         SD_JSON_BUILD_PAIR_STRING("FirmwareVendor", firmware_vendor),
                         JSON_BUILD_PAIR_FINITE_USEC("FirmwareDate", firmware_date),
@@ -1699,6 +1739,7 @@ static const sd_bus_vtable hostname_vtable[] = {
         SD_BUS_PROPERTY("OperatingSystemImageVersion", "s", property_get_os_release_field, offsetof(Context, data[PROP_OS_IMAGE_VERSION]), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("HardwareVendor", "s", property_get_hardware_vendor, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("HardwareModel", "s", property_get_hardware_model, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("HardwareSKU", "s", property_get_hardware_sku, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("FirmwareVersion", "s", property_get_firmware_version, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("FirmwareVendor", "s", property_get_firmware_vendor, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("FirmwareDate", "t", property_get_firmware_date, 0, SD_BUS_VTABLE_PROPERTY_CONST),

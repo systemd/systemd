@@ -23,6 +23,16 @@ dmi:*:pnTobefilledbyO.E.M.:*
 dmi:*:pnToBeFilledByO.E.M.:*
     ID_PRODUCT_NAME_IS_RUBBISH=1
 
+dmi:*:skuDefaultstring:*
+dmi:*:skuDefault string:*
+dmi:*:skuN/A:*
+dmi:*:skuO.E.M.:*
+dmi:*:skuOEM:*
+dmi:*:skuTobefilledbyO.E.M.:*
+dmi:*:skuToBeFilledByO.E.M.:*
+dmi:*:skuTo Be Filled By O.E.M.:*
+    ID_PRODUCT_SKU_IS_RUBBISH=1
+
 dmi:*:catDefaultstring:*
 dmi:*:catDefault string:*
 dmi:*:catN/A:*

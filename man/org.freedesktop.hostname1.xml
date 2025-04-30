@@ -94,6 +94,8 @@ node /org/freedesktop/hostname1 {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s HardwareModel = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s HardwareSKU = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s FirmwareVersion = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s FirmwareVendor = '...';
@@ -179,6 +181,8 @@ node /org/freedesktop/hostname1 {
     <variablelist class="dbus-property" generated="True" extra-ref="HardwareVendor"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="HardwareModel"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="HardwareSKU"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="FirmwareVersion"/>
 
@@ -306,9 +310,11 @@ node /org/freedesktop/hostname1 {
     to the <varname>IMAGE_ID=</varname> and <varname>IMAGE_VERSION=</varname> fields of the
     <filename>os-release</filename> file.</para>
 
-    <para><varname>HardwareVendor</varname> and <varname>HardwareModel</varname> expose information about the
-    vendor of the hardware of the system. If no such information can be determined these properties are set
-    to empty strings.</para>
+    <para><varname>HardwareVendor</varname>, <varname>HardwareModel</varname>, and <varname>HardwareSKU</varname>
+    expose vendor information about the hardware of the system. The stock keeping unit (SKU) describes a
+    distinct type of hardware for sale, purchase or inventory management. The SKU is only available if it
+    deviates from the model. If no such information can be determined these properties are set to empty
+    strings.</para>
 
     <para><varname>FirmwareVersion</varname> and <varname>FirmwareVendor</varname> expose information about
     the system's firmware, i.e. a version string and a vendor name. If no such information can be determined
@@ -473,8 +479,9 @@ node /org/freedesktop/hostname1 {
       <varname>FirmwareDate</varname> were added in version 253.</para>
       <para><varname>MachineID</varname>, <varname>BootID</varname> and
       <varname>VSockCID</varname> were added in version 256.</para>
-      <para><varname>ChassisAssetTag</varname>, <varname>OperatingSystemImageID</varname> and
-      <varname>OperatingSystemImageVersion</varname> were added in version 258.</para>
+      <para><varname>ChassisAssetTag</varname>, <varname>OperatingSystemImageID</varname>,
+      <varname>OperatingSystemImageVersion</varname>, and <varname>HardwareSKU</varname>
+      were added in version 258.</para>
     </refsect2>
   </refsect1>
 
