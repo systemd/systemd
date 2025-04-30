@@ -935,6 +935,26 @@ int sd_netlink_message_read_u64(sd_netlink_message *m, uint16_t attr_type, uint6
         return 0;
 }
 
+int sd_netlink_message_read_s32(sd_netlink_message *m, uint16_t attr_type, int32_t *ret) {
+        bool net_byteorder;
+        int32_t s;
+        int r;
+
+        assert_return(m, -EINVAL);
+
+        r = netlink_message_read_impl(
+                        m, attr_type, /* strict = */ true,
+                        NETLINK_TYPE_S32, sizeof(int32_t),
+                        ret ? &s : NULL, &net_byteorder);
+        if (r < 0)
+                return r;
+
+        if (ret)
+                *ret = net_byteorder ? (int32_t) be32toh(s) : s;
+
+        return 0;
+}
+
 int sd_netlink_message_read_ether_addr(sd_netlink_message *m, uint16_t attr_type, struct ether_addr *ret) {
         assert_return(m, -EINVAL);
 
