@@ -3,8 +3,8 @@
 
 #include <sys/stat.h>
 
-#include "efivars-fundamental.h"
 #include "efivars.h"
+#include "efivars-fundamental.h"
 #include "log.h"
 
 /* Various calls that interface with EFI variables implementing https://systemd.io/BOOT_LOADER_INTERFACE */

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "analyze-syscall-filter.h"
 #include "analyze.h"
+#include "analyze-syscall-filter.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "nulstr-util.h"

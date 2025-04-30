@@ -23,9 +23,8 @@
 #include <netinet/in.h>
 #include <sys/types.h>
 
-#include "sd-dhcp6-option.h"
-
 #include "_sd-common.h"
+#include "sd-dhcp6-option.h"
 
 _SD_BEGIN_DECLARATIONS;
 

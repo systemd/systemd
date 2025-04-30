@@ -1,10 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-/* Make sure the net/if.h header is included before any linux/ one */
-#include <net/if.h>
 #include <linux/fou.h>
-#include <netinet/in.h>
 #include <linux/ip.h>
+#include <net/if.h>
+#include <netinet/in.h>
 
 #include "conf-parser.h"
 #include "fou-tunnel.h"

@@ -3,10 +3,9 @@
   Copyright © 2014 Intel Corporation. All rights reserved.
 ***/
 
-/* Make sure the net/if.h header is included before any linux/ one */
-#include <net/if.h>
 #include <errno.h>
 #include <linux/if_packet.h>
+#include <net/if.h>
 #include <netinet/icmp6.h>
 #include <netinet/in.h>
 #include <netinet/ip6.h>
@@ -34,13 +33,13 @@ int icmp6_bind(int ifindex, bool is_router) {
         if (is_router) {
                 mreq = (struct ipv6_mreq) {
                         .ipv6mr_multiaddr = IN6_ADDR_ALL_ROUTERS_MULTICAST,
-                        .ipv6mr_interface = ifindex,
+                        .ipv6mr_ifindex = ifindex,
                 };
                 ICMP6_FILTER_SETPASS(ND_ROUTER_SOLICIT, &filter);
         } else {
                 mreq = (struct ipv6_mreq) {
                         .ipv6mr_multiaddr = IN6_ADDR_ALL_NODES_MULTICAST,
-                        .ipv6mr_interface = ifindex,
+                        .ipv6mr_ifindex = ifindex,
                 };
                 ICMP6_FILTER_SETPASS(ND_ROUTER_ADVERT, &filter);
                 ICMP6_FILTER_SETPASS(ND_NEIGHBOR_ADVERT, &filter);
@@ -76,7 +75,7 @@ int icmp6_bind(int ifindex, bool is_router) {
         if (r < 0)
                 return r;
 
-        r = setsockopt_int(s, SOL_IPV6, IPV6_RECVHOPLIMIT, true);
+        r = setsockopt_int(s, IPPROTO_IPV6, IPV6_RECVHOPLIMIT, true);
         if (r < 0)
                 return r;
 
@@ -149,7 +148,7 @@ int icmp6_receive(
 
         assert(!(msg.msg_flags & MSG_TRUNC));
 
-        int *hops = CMSG_FIND_DATA(&msg, SOL_IPV6, IPV6_HOPLIMIT, int);
+        int *hops = CMSG_FIND_DATA(&msg, IPPROTO_IPV6, IPV6_HOPLIMIT, int);
         if (hops && *hops != 255)
                 return -EMULTIHOP;
 

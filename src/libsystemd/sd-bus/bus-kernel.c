@@ -20,12 +20,12 @@
 #include "format-util.h"
 #include "log.h"
 #include "memfd-util.h"
+#include "memory-util.h"
 #include "parse-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "user-util.h"
-#include "memory-util.h"
 
 void close_and_munmap(int fd, void *address, size_t size) {
         if (size > 0) {

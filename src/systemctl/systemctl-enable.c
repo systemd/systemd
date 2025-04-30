@@ -3,12 +3,12 @@
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "path-util.h"
+#include "systemctl.h"
 #include "systemctl-daemon-reload.h"
 #include "systemctl-enable.h"
 #include "systemctl-start-unit.h"
 #include "systemctl-sysv-compat.h"
 #include "systemctl-util.h"
-#include "systemctl.h"
 #include "verbs.h"
 
 static int normalize_link_paths(char **paths) {

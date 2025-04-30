@@ -1,14 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-/* Make sure the net/if.h header is included before any linux/ one */
-#include <net/if.h>
-#include <netinet/ether.h>
-#include <netinet/in.h>
 #include <linux/fou.h>
 #include <linux/genetlink.h>
 #include <linux/if_macsec.h>
 #include <linux/l2tp.h>
 #include <linux/nl80211.h>
+#include <net/if.h>
+#include <netinet/ether.h>
+#include <netinet/in.h>
 #include <unistd.h>
 
 #include "sd-netlink.h"

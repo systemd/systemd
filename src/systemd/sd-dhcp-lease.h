@@ -24,9 +24,8 @@
 #include <netinet/in.h>
 #include <sys/types.h>
 
-#include "sd-dhcp-client-id.h"
-
 #include "_sd-common.h"
+#include "sd-dhcp-client-id.h"
 
 _SD_BEGIN_DECLARATIONS;
 

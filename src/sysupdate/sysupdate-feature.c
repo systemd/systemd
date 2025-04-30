@@ -3,8 +3,8 @@
 #include "conf-parser.h"
 #include "hash-funcs.h"
 #include "path-util.h"
-#include "sysupdate-feature.h"
 #include "sysupdate.h"
+#include "sysupdate-feature.h"
 #include "web-util.h"
 
 static Feature *feature_free(Feature *f) {

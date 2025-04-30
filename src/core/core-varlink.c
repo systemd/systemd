@@ -11,8 +11,8 @@
 #include "unit.h"
 #include "user-util.h"
 #include "varlink-internal.h"
-#include "varlink-io.systemd.UserDatabase.h"
 #include "varlink-io.systemd.ManagedOOM.h"
+#include "varlink-io.systemd.UserDatabase.h"
 #include "varlink-io.systemd.service.h"
 #include "varlink-util.h"
 

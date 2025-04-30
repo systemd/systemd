@@ -3,10 +3,10 @@
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "proc-cmdline.h"
+#include "systemctl.h"
 #include "systemctl-daemon-reload.h"
 #include "systemctl-set-default.h"
 #include "systemctl-util.h"
-#include "systemctl.h"
 
 static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
         char **ret = data;

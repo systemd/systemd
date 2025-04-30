@@ -3,9 +3,10 @@
 
 #include <stdbool.h>
 
+#include "sd-json.h"
+
 #include "bitfield.h"
 #include "io-util.h"
-#include "sd-json.h"
 #include "macro.h"
 #include "openssl-util.h"
 #include "ordered-set.h"

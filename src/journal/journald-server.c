@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/sockios.h>
 #if HAVE_SELINUX
 #include <selinux/selinux.h>
 #endif
@@ -7,7 +8,6 @@
 #include <sys/mman.h>
 #include <sys/signalfd.h>
 #include <sys/statvfs.h>
-#include <linux/sockios.h>
 
 #include "sd-daemon.h"
 #include "sd-journal.h"

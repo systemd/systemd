@@ -9,12 +9,12 @@
 #include "pretty-print.h"
 #include "process-util.h"
 #include "reboot-util.h"
+#include "systemctl.h"
 #include "systemctl-compat-halt.h"
 #include "systemctl-compat-telinit.h"
 #include "systemctl-logind.h"
 #include "systemctl-start-unit.h"
 #include "systemctl-util.h"
-#include "systemctl.h"
 #include "terminal-util.h"
 #include "utmp-wtmp.h"
 

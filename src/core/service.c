@@ -49,8 +49,8 @@
 #include "string-util.h"
 #include "strv.h"
 #include "transaction.h"
-#include "unit-name.h"
 #include "unit.h"
+#include "unit-name.h"
 #include "utf8.h"
 
 #define service_spawn(...) service_spawn_internal(__func__, __VA_ARGS__)

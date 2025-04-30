@@ -5,10 +5,10 @@
 #include "alloc-util.h"
 #include "pretty-print.h"
 #include "reboot-util.h"
+#include "systemctl.h"
 #include "systemctl-compat-shutdown.h"
 #include "systemctl-logind.h"
 #include "systemctl-sysv-compat.h"
-#include "systemctl.h"
 #include "terminal-util.h"
 
 static int shutdown_help(void) {

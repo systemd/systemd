@@ -4,8 +4,8 @@
 #include <bpf/bpf.h>
 #endif
 
-#include "fd-util.h"
 #include "bpf-socket-bind.h"
+#include "fd-util.h"
 #include "unit.h"
 
 #if BPF_FRAMEWORK

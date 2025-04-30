@@ -6,9 +6,9 @@
 #include <lz4.h>
 #endif
 
-#include "dlfcn-util.h"
 #include "alloc-util.h"
 #include "compress.h"
+#include "dlfcn-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "macro.h"

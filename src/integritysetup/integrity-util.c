@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
-#include "integrity-util.h"
-
 #include "extract-word.h"
 #include "fileio.h"
+#include "integrity-util.h"
 #include "log.h"
 #include "path-util.h"
 #include "percent-util.h"
