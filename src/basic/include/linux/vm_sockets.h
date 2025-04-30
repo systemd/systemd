@@ -17,6 +17,8 @@
 #ifndef _VM_SOCKETS_H
 #define _VM_SOCKETS_H
 
+#include <sys/socket.h>
+
 #include <linux/socket.h>
 #include <linux/types.h>
 
