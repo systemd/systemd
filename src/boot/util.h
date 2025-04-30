@@ -112,7 +112,7 @@ static inline Pages xmalloc_initrd_pages(size_t n_pages) {
                         &addr) == EFI_SUCCESS)
                 return (Pages) {
                         .addr = addr,
-                        .n_pages = n_pages,
+                        .n_pages = EFI_SIZE_TO_PAGES(n_pages),
                 };
 #endif
         return xmalloc_pages(
