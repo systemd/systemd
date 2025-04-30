@@ -65,6 +65,7 @@ sd_bus_sources = files(
         'sd-bus/bus-convenience.c',
         'sd-bus/bus-creds.c',
         'sd-bus/bus-dump.c',
+        'sd-bus/bus-dump-json.c',
         'sd-bus/bus-error.c',
         'sd-bus/bus-internal.c',
         'sd-bus/bus-introspect.c',
