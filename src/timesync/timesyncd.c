@@ -205,7 +205,7 @@ static int run(int argc, char *argv[]) {
 
         notify_message = notify_start("READY=1\n"
                                       "STATUS=Daemon is running",
-                                      NOTIFY_STOPPING);
+                                      NOTIFY_STOPPING_MESSAGE);
 
         r = manager_setup_save_time_event(m);
         if (r < 0)

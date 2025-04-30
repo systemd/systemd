@@ -152,7 +152,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to start up daemon: %m");
 
-        notify_msg = notify_start(NOTIFY_READY, NOTIFY_STOPPING);
+        notify_msg = notify_start(NOTIFY_READY_MESSAGE, NOTIFY_STOPPING_MESSAGE);
 
         log_debug("systemd-oomd started%s.", arg_dry_run ? " in dry run mode" : "");
 
