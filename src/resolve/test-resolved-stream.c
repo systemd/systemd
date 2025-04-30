@@ -23,9 +23,7 @@
 #include "resolved-dns-packet.h"
 #include "resolved-dns-question.h"
 #include "resolved-dns-rr.h"
-#if ENABLE_DNS_OVER_TLS
 #include "resolved-dnstls.h"
-#endif
 #include "resolved-dns-server.h"
 #include "resolved-dns-stream.h"
 #include "resolved-manager.h"
