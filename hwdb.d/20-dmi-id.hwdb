@@ -33,6 +33,36 @@ dmi:*:catToBeFilledByO.E.M.:*
 dmi:*:catTo Be Filled By O.E.M.:*
     ID_CHASSIS_ASSET_TAG_IS_RUBBISH=1
 
+dmi:*:pskuDefaultstring:*
+dmi:*:pskuDefault string:*
+dmi:*:pskuN/A:*
+dmi:*:pskuO.E.M.:*
+dmi:*:pskuOEM:*
+dmi:*:pskuTobefilledbyO.E.M.:*
+dmi:*:pskuToBeFilledByO.E.M.:*
+dmi:*:pskuTo Be Filled By O.E.M.:*
+    ID_PRODUCT_SKU_IS_RUBBISH=1
+
+dmi:*:pvDefaultstring:*
+dmi:*:pvDefault string:*
+dmi:*:pvN/A:*
+dmi:*:pvO.E.M.:*
+dmi:*:pvOEM:*
+dmi:*:pvTobefilledbyO.E.M.:*
+dmi:*:pvToBeFilledByO.E.M.:*
+dmi:*:pvTo Be Filled By O.E.M.:*
+    ID_PRODUCT_VERSION_IS_RUBBISH=1
+
+dmi:*:bvDefaultstring:*
+dmi:*:bvDefault string:*
+dmi:*:bvN/A:*
+dmi:*:bvO.E.M.:*
+dmi:*:bvOEM:*
+dmi:*:bvTobefilledbyO.E.M.:*
+dmi:*:bvToBeFilledByO.E.M.:*
+dmi:*:bvTo Be Filled By O.E.M.:*
+    ID_BOARD_VERSION_IS_RUBBISH=1
+
 # Fix "Lenovo" capitalization in /sys/class/dmi/id/sys_vendor
 dmi:bvnLENOVO*
     ID_SYSFS_ATTRIBUTE_MODEL=product_version
