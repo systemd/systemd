@@ -279,7 +279,7 @@ gperf_file = custom_target(
         fname,
         input : ip_protocol_list_txt,
         output : fname,
-        command : [generate_gperfs, 'ip_protocol', 'IPPROTO_', '@INPUT@'],
+        command : [generate_gperfs, 'ip_protocol', 'IPPROTO_', '@INPUT@', '<netinet/in.h>'],
         capture : true)
 
 fname = 'ip-protocol-from-name.h'
