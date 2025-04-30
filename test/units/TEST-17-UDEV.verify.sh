@@ -8,8 +8,6 @@ set -o pipefail
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
-PATH=/var/build:$PATH
-
 # shellcheck disable=SC2317
 cleanup() {
     cd /
