@@ -67,6 +67,7 @@ typedef struct StatusInfo {
         sd_id128_t product_uuid;
         uint32_t vsock_cid;
         const char *hardware_sku;
+        const char *hardware_version;
 } StatusInfo;
 
 static const char* chassis_string_to_glyph(const char *chassis) {
@@ -329,6 +330,14 @@ static int print_status_info(StatusInfo *i) {
                         return table_log_add_error(r);
         }
 
+        if (!isempty(i->hardware_version)) {
+                r = table_add_many(table,
+                                   TABLE_FIELD, "Hardware Version",
+                                   TABLE_STRING, i->hardware_version);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
         if (!isempty(i->firmware_version)) {
                 r = table_add_many(table,
                                    TABLE_FIELD, "Firmware Version",
@@ -423,6 +432,7 @@ static int show_all_names(sd_bus *bus) {
                 { "HardwareVendor",              "s",  NULL,          offsetof(StatusInfo, hardware_vendor)  },
                 { "HardwareModel",               "s",  NULL,          offsetof(StatusInfo, hardware_model)   },
                 { "HardwareSKU",                 "s",  NULL,          offsetof(StatusInfo, hardware_sku)     },
+                { "HardwareVersion",             "s",  NULL,          offsetof(StatusInfo, hardware_version) },
                 { "FirmwareVersion",             "s",  NULL,          offsetof(StatusInfo, firmware_version) },
                 { "FirmwareDate",                "t",  NULL,          offsetof(StatusInfo, firmware_date)    },
                 { "MachineID",                   "ay", bus_map_id128, offsetof(StatusInfo, machine_id)       },
