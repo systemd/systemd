@@ -338,6 +338,8 @@ static int manager_network_monitor_listen(Manager *m) {
         return 0;
 }
 
+static int manager_dns_configuration_listen(Manager *m);
+
 static int on_dns_configuration_event(
                 sd_varlink *link,
                 sd_json_variant *parameters,
@@ -352,6 +354,12 @@ static int on_dns_configuration_event(
         assert(link);
 
         if (error_id) {
+                if (streq(error_id, SD_VARLINK_ERROR_DISCONNECTED)) {
+                        log_debug("DNS configuration monitor disconnected, reconnecting...");
+
+                        return manager_dns_configuration_listen(m);
+                }
+
                 log_warning("DNS configuration event error, ignoring: %s", error_id);
                 return 0;
         }
@@ -410,6 +418,8 @@ static int manager_dns_configuration_listen(Manager *m) {
 
         if (!m->requires_dns)
                 return 0;
+
+        m->varlink_client = sd_varlink_unref(m->varlink_client);
 
         r = sd_varlink_connect_address(&vl, "/run/systemd/resolve/io.systemd.Resolve.Monitor");
         if (r < 0)
