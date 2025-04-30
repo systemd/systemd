@@ -434,6 +434,8 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(UserRecord*, user_record_unref);
 
 int user_record_load(UserRecord *h, sd_json_variant *v, UserRecordLoadFlags flags);
 int user_record_build(UserRecord **ret, ...);
+#define user_record_buildo(ret, ...)                                    \
+        user_record_build((ret), SD_JSON_BUILD_OBJECT(__VA_ARGS__))
 
 const char* user_record_user_name_and_realm(UserRecord *h);
 UserStorage user_record_storage(UserRecord *h);
