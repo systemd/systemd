@@ -12,6 +12,7 @@
 #include <sys/types.h>
 
 #include "alloc-util.h"
+#include "assert-util.h"
 #include "format-util.h"
 #include "macro.h"
 #include "pidref.h"
@@ -22,10 +23,10 @@
                 pid_t _pid_ = (pid);                                    \
                 const char *_field_ = (field);                          \
                 char *_r_;                                              \
-                if (_pid_ == 0) {                                       \
-                        _r_ = newa(char, STRLEN("/proc/self/") + strlen(_field_) + 1); \
-                        strcpy(stpcpy(_r_, "/proc/self/"), _field_);    \
-                } else {                                                \
+                if (_pid_ == 0)                                         \
+                        _r_ = strjoina("/proc/self/", _field_);         \
+                else {                                                  \
+                        assert(_pid_ > 0);                              \
                         _r_ = newa(char, STRLEN("/proc/") + DECIMAL_STR_MAX(pid_t) + 1 + strlen(_field_) + 1); \
                         sprintf(_r_, "/proc/" PID_FMT "/%s", _pid_, _field_); \
                 }                                                       \
