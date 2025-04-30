@@ -291,8 +291,8 @@ This range should be considered reserved for future, special purposes.
 ## Notes on resolvability of user and group names
 
 User names, UIDs, group names and GIDs don't have to be resolvable using NSS
-(i.e. getpwuid() and getpwnam() and friends) all the time.
-However, systemd makes the following requirements:
+(i.e. `getpwuid()` and `getpwnam()` and friends) all the time.  However,
+systemd makes the following requirements:
 
 System users generally have to be resolvable during early boot already.
 This means they should not be provided by any networked service (as those usually
