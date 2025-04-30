@@ -13,6 +13,7 @@
 
 #include "alloc-util.h"
 #include "assert-util.h"
+#include "fileio.h"
 #include "format-util.h"
 #include "macro.h"
 #include "pidref.h"
@@ -32,6 +33,10 @@
                 }                                                       \
                 (const char*) _r_;                                      \
         })
+
+static inline int procfs_file_get_field(pid_t pid, const char *name, const char *key, char **ret) {
+        return get_proc_field(procfs_file_alloca(pid, name), key, ret);
+}
 
 typedef enum ProcessCmdlineFlags {
         PROCESS_CMDLINE_COMM_FALLBACK = 1 << 0,
