@@ -7,6 +7,7 @@
 #include "sd-id128.h"
 #include "sd-json.h"
 
+#include "bitfield.h"
 #include "hashmap.h"
 #include "rlimit-util.h"
 #include "strv.h"
@@ -527,10 +528,19 @@ typedef struct UserDBMatch {
 #define USER_DISPOSITION_MASK_ALL ((UINT64_C(1) << _USER_DISPOSITION_MAX) - UINT64_C(1))
 
 #define USERDB_MATCH_NULL                                       \
-        (UserDBMatch) {                                         \
+        (const UserDBMatch) {                                   \
                 .disposition_mask = USER_DISPOSITION_MASK_ALL,  \
                 .uid_min = 0,                                   \
                 .uid_max = UID_INVALID-1,                       \
+       }
+
+/* Maybe useful when we want to resolve root and system user/group but want to refuse nobody user/group. */
+#define USERDB_MATCH_ROOT_AND_SYSTEM                            \
+        (const UserDBMatch) {                                   \
+                .disposition_mask =                             \
+                        INDEXES_TO_MASK(uint64_t, USER_INTRINSIC, USER_SYSTEM), \
+                .uid_min = 0,                                   \
+                .uid_max = UID_NOBODY - 1,                      \
        }
 
 static inline bool userdb_match_is_set(const UserDBMatch *match) {
