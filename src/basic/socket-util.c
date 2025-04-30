@@ -4,6 +4,7 @@
 #include <errno.h>
 #include <limits.h>
 #include <linux/if.h>
+#include <linux/if_arp.h>
 #include <net/if.h>
 #include <netdb.h>
 #include <netinet/ip.h>
@@ -1348,6 +1349,47 @@ void* cmsg_find_and_copy_data(struct msghdr *mh, int level, int type, void *buf,
                 return NULL;
 
         return memcpy_safe(buf, CMSG_DATA(cmsg), buf_len);
+}
+
+size_t sockaddr_ll_len(const struct sockaddr_ll *sa) {
+        assert(sa->sll_family == AF_PACKET);
+
+        size_t mac_len = sizeof(sa->sll_addr);
+
+        if (be16toh(sa->sll_hatype) == ARPHRD_ETHER)
+                mac_len = MAX(mac_len, (size_t) ETH_ALEN);
+        if (be16toh(sa->sll_hatype) == ARPHRD_INFINIBAND)
+                mac_len = MAX(mac_len, (size_t) INFINIBAND_ALEN);
+
+        return offsetof(struct sockaddr_ll, sll_addr) + mac_len;
+}
+
+size_t sockaddr_un_len(const struct sockaddr_un *sa) {
+        assert(sa->sun_family == AF_UNIX);
+
+        return offsetof(struct sockaddr_un, sun_path) +
+                (sa->sun_path[0] == 0 ?
+                        1 + strnlen(sa->sun_path+1, sizeof(sa->sun_path)-1) :
+                        strnlen(sa->sun_path, sizeof(sa->sun_path))+1);
+}
+
+size_t sockaddr_len(const union sockaddr_union *sa) {
+        switch (sa->sa.sa_family) {
+        case AF_INET:
+                return sizeof(struct sockaddr_in);
+        case AF_INET6:
+                return sizeof(struct sockaddr_in6);
+        case AF_UNIX:
+                return sockaddr_un_len(&sa->un);
+        case AF_PACKET:
+                return sockaddr_ll_len(&sa->ll);
+        case AF_NETLINK:
+                return sizeof(struct sockaddr_nl);
+        case AF_VSOCK:
+                return sizeof(struct sockaddr_vm);
+        default:
+                assert_not_reached();
+        }
 }
 
 int socket_ioctl_fd(void) {

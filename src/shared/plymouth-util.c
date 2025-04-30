@@ -17,7 +17,7 @@ int plymouth_connect(int flags) {
         if (fd < 0)
                 return -errno;
 
-        if (connect(fd, &sa.sa, SOCKADDR_UN_LEN(sa.un)) < 0)
+        if (connect(fd, &sa.sa, sockaddr_un_len(&sa.un)) < 0)
                 return -errno;
 
         return TAKE_FD(fd);
