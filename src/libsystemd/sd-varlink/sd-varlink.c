@@ -41,6 +41,7 @@
 #define VARLINK_BUFFER_MAX (16U*1024U*1024U)
 #define VARLINK_READ_SIZE (64U*1024U)
 #define VARLINK_COLLECT_MAX 1024U
+#define VARLINK_QUEUE_MAX (64U*1024U)
 
 static const char* const varlink_state_table[_VARLINK_STATE_MAX] = {
         [VARLINK_IDLE_CLIENT]              = "idle-client",
@@ -631,6 +632,7 @@ static void varlink_clear(sd_varlink *v) {
 
         LIST_CLEAR(queue, v->output_queue, varlink_json_queue_item_free);
         v->output_queue_tail = NULL;
+        v->n_output_queue = 0;
 
         v->event = sd_event_unref(v->event);
 
@@ -1946,6 +1948,9 @@ static int varlink_enqueue_json(sd_varlink *v, sd_json_variant *m) {
         if (v->n_pushed_fds == 0 && !v->output_queue)
                 return varlink_format_json(v, m);
 
+        if (v->n_output_queue >= VARLINK_QUEUE_MAX)
+                return -ENOBUFS;
+
         /* Otherwise add a queue entry for this */
         q = varlink_json_queue_item_new(m, v->pushed_fds, v->n_pushed_fds);
         if (!q)
@@ -1955,6 +1960,7 @@ static int varlink_enqueue_json(sd_varlink *v, sd_json_variant *m) {
 
         LIST_INSERT_AFTER(queue, v->output_queue, v->output_queue_tail, q);
         v->output_queue_tail = q;
+        v->n_output_queue++;
         return 0;
 }
 
@@ -1968,6 +1974,9 @@ static int varlink_format_queue(sd_varlink *v) {
 
         while (v->output_queue) {
                 _cleanup_free_ int *array = NULL;
+
+                assert(v->n_output_queue > 0);
+
                 VarlinkJsonQueueItem *q = v->output_queue;
 
                 if (v->n_output_fds > 0) /* unwritten fds? if we'd add more we'd corrupt the fd message boundaries, hence wait */
@@ -1992,6 +2001,7 @@ static int varlink_format_queue(sd_varlink *v) {
                 LIST_REMOVE(queue, v->output_queue, q);
                 if (!v->output_queue)
                         v->output_queue_tail = NULL;
+                v->n_output_queue--;
 
                 varlink_json_queue_item_free(q);
         }
@@ -3112,8 +3122,8 @@ _public_ int sd_varlink_push_fd(sd_varlink *v, int fd) {
         if (!v->allow_fd_passing_output)
                 return -EPERM;
 
-        if (v->n_pushed_fds >= INT_MAX)
-                return -ENOMEM;
+        if (v->n_pushed_fds >= SCM_MAX_FD) /* Kernel doesn't support more than 253 fds per message, refuse early hence */
+                return -ENOBUFS;
 
         if (!GREEDY_REALLOC(v->pushed_fds, v->n_pushed_fds + 1))
                 return -ENOMEM;
