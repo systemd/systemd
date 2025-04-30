@@ -117,6 +117,15 @@ busctl get-property -j \
 (! busctl set-property org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager \
                        KExecWatchdogUSec t "foo")
 
+# Invalid destination
+(! busctl get-property '*' /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager Version)
+
+# Invalid object
+(! busctl get-property org.freedesktop.systemd1 '*' org.freedesktop.systemd1.Manager Version)
+
+# Invalid interface
+(! busctl get-property org.freedesktop.systemd1 /org/freedesktop/systemd1 '*' Version)
+
 busctl --quiet --timeout=1 --limit-messages=1 --match "interface=org.freedesktop.systemd1.Manager" monitor
 
 START_USEC=$(date +%s%6N)
