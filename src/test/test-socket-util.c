@@ -134,8 +134,8 @@ TEST(sockaddr_un_len) {
                 .sun_path = "\0foobar",
         };
 
-        assert_se(SOCKADDR_UN_LEN(fs) == offsetof(struct sockaddr_un, sun_path) + strlen(fs.sun_path) + 1);
-        assert_se(SOCKADDR_UN_LEN(abstract) == offsetof(struct sockaddr_un, sun_path) + 1 + strlen(abstract.sun_path + 1));
+        assert_se(sockaddr_un_len(&fs) == offsetof(struct sockaddr_un, sun_path) + strlen(fs.sun_path) + 1);
+        assert_se(sockaddr_un_len(&abstract) == offsetof(struct sockaddr_un, sun_path) + 1 + strlen(abstract.sun_path + 1));
 }
 
 TEST(in_addr_is_multicast) {
@@ -564,14 +564,14 @@ TEST(sockaddr_un_set_path) {
 
         fd1 = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
         assert_se(fd1 >= 0);
-        assert_se(bind(fd1, &sa.sa, SOCKADDR_LEN(sa)) >= 0);
+        assert_se(bind(fd1, &sa.sa, sockaddr_len(&sa)) >= 0);
         assert_se(listen(fd1, 1) >= 0);
 
         sh = unlink_and_free(sh); /* remove temporary symlink */
 
         fd2 = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
         assert_se(fd2 >= 0);
-        assert_se(connect(fd2, &sa.sa, SOCKADDR_LEN(sa)) < 0);
+        assert_se(connect(fd2, &sa.sa, sockaddr_len(&sa)) < 0);
         assert_se(errno == ENOENT); /* we removed the symlink, must fail */
 
         free(j);
@@ -581,7 +581,7 @@ TEST(sockaddr_un_set_path) {
         assert_se(fd3 > 0);
         assert_se(sockaddr_un_set_path(&sa.un, FORMAT_PROC_FD_PATH(fd3)) >= 0); /* connect via O_PATH instead, circumventing 108ch limit */
 
-        assert_se(connect(fd2, &sa.sa, SOCKADDR_LEN(sa)) >= 0);
+        assert_se(connect(fd2, &sa.sa, sockaddr_len(&sa)) >= 0);
 }
 
 TEST(getpeerpidref) {

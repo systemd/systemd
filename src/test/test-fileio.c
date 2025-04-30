@@ -928,7 +928,7 @@ TEST(read_full_file_socket) {
 
         assert_se(sockaddr_un_set_path(&sa.un, j) >= 0);
 
-        assert_se(bind(listener, &sa.sa, SOCKADDR_UN_LEN(sa.un)) >= 0);
+        assert_se(bind(listener, &sa.sa, sockaddr_un_len(&sa.un)) >= 0);
         assert_se(listen(listener, 1) >= 0);
 
         /* Make sure the socket doesn't fit into a struct sockaddr_un, but we can still access it */
