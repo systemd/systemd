@@ -1,22 +1,16 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-resolve_includes = [includes, include_directories('.')]
-
-basic_dns_sources = files(
-        'resolved-dns-dnssec.c',
-        'resolved-dns-packet.c',
-        'resolved-dns-rr.c',
-        'resolved-dns-answer.c',
-        'resolved-dns-question.c',
-        'resolved-util.c',
-        'dns-type.c',
-)
-
 systemd_resolved_sources = files(
+        'dns-type.c',
         'resolved-bus.c',
         'resolved-conf.c',
+        'resolved-dns-answer.c',
         'resolved-dns-cache.c',
+        'resolved-dns-dnssec.c',
+        'resolved-dns-packet.c',
         'resolved-dns-query.c',
+        'resolved-dns-question.c',
+        'resolved-dns-rr.c',
         'resolved-dns-scope.c',
         'resolved-dns-search-domain.c',
         'resolved-dns-server.c',
@@ -36,12 +30,8 @@ systemd_resolved_sources = files(
         'resolved-mdns.c',
         'resolved-resolv-conf.c',
         'resolved-socket-graveyard.c',
+        'resolved-util.c',
         'resolved-varlink.c',
-)
-
-resolvectl_sources = files(
-        'resolvconf-compat.c',
-        'resolvectl.c',
 )
 
 ############################################################
@@ -81,16 +71,6 @@ dns_type_to_name_h = custom_target(
         command : [awk, '-f', '@INPUT0@', '@INPUT1@'],
         capture : true)
 
-generated_sources += [dns_type_from_name_h, dns_type_to_name_h]
-basic_dns_sources += [dns_type_from_name_h, dns_type_to_name_h]
-
-libsystemd_resolve_core = static_library(
-        'systemd-resolve-core',
-        basic_dns_sources,
-        include_directories : includes,
-        dependencies : userspace,
-        build_by_default : false)
-
 resolved_gperf_c = custom_target(
         'resolved_gperf.c',
         input : 'resolved-gperf.gperf',
@@ -103,56 +83,54 @@ resolved_dnssd_gperf_c = custom_target(
         output : 'resolved-dnssd-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
 
-generated_sources += [resolved_gperf_c, resolved_dnssd_gperf_c]
-systemd_resolved_sources += [resolved_gperf_c, resolved_dnssd_gperf_c]
+generated_sources += [dns_type_from_name_h, dns_type_to_name_h, resolved_gperf_c, resolved_dnssd_gperf_c]
+systemd_resolved_sources += [dns_type_from_name_h, dns_type_to_name_h, resolved_gperf_c, resolved_dnssd_gperf_c]
 
-systemd_resolved_dependencies = [threads, libm, libopenssl]
 if conf.get('ENABLE_DNS_OVER_TLS') == 1
         systemd_resolved_sources += files(
                 'resolved-dnstls.c',
         )
 endif
 
-link_with = [
-        libshared,
-        libsystemd_resolve_core,
-]
+resolved_core = static_library(
+        'systemd-resolved-core',
+        systemd_resolved_sources,
+        include_directories : includes,
+        dependencies : userspace,
+        build_by_default : false)
 
 resolve_common_template = {
         'link_with' : [
                 libshared,
-                libsystemd_resolve_core,
+                resolved_core,
         ],
         'dependencies' : [
                 libopenssl,
                 libm,
+                threads,
         ],
 }
+
 resolve_test_template = test_template + resolve_common_template
 resolve_fuzz_template = fuzz_template + resolve_common_template
 
 executables += [
-        libexec_template + {
+        libexec_template + resolve_common_template + {
                 'name' : 'systemd-resolved',
                 'dbus' : true,
                 'conditions' : ['ENABLE_RESOLVE'],
-                'sources' : systemd_resolved_sources +
-                            files('resolved.c'),
-                'include_directories' : resolve_includes,
-                'link_with' : link_with,
-                'dependencies' : systemd_resolved_dependencies,
+                'sources' : files('resolved.c'),
         },
-        executable_template + {
+        executable_template + resolve_common_template + {
                 'name' : 'resolvectl',
                 'public' : true,
                 'conditions' : ['ENABLE_RESOLVE'],
-                'sources' : resolvectl_sources,
-                'link_with' : link_with,
-                'dependencies' : [
-                        libopenssl,
+                'sources' : files(
+                        'resolvconf-compat.c',
+                        'resolvectl.c',
+                ),
+                'dependencies' : resolve_common_template['dependencies'] + [
                         libidn,
-                        libm,
-                        threads,
                 ],
         },
         resolve_test_template + {
@@ -199,76 +177,26 @@ executables += [
                 'sources' : files('test-dnssec-complex.c'),
                 'type' : 'manual',
         },
-        test_template + {
-                'sources' : [
-                        files('test-dns-search-domain.c'),
-                        basic_dns_sources,
-                        systemd_resolved_sources,
-                ],
-                'dependencies' : systemd_resolved_dependencies,
-                'include_directories' : resolve_includes,
+        resolve_test_template + {
+                'sources' : files('test-dns-search-domain.c'),
         },
-        test_template + {
-                'sources' : [
-                        files('test-dns-synthesize.c'),
-                        basic_dns_sources,
-                        systemd_resolved_sources,
-                ],
-                'dependencies' : [
-                        systemd_resolved_dependencies,
-                ],
-                'include_directories' : resolve_includes,
+        resolve_test_template + {
+                'sources' : files('test-dns-synthesize.c'),
         },
-        test_template + {
-                'sources' : [
-                        files('test-dns-zone.c'),
-                        basic_dns_sources,
-                        systemd_resolved_sources,
-                ],
-                'dependencies' : [
-                        systemd_resolved_dependencies,
-                ],
-                'include_directories' : resolve_includes,
+        resolve_test_template + {
+                'sources' : files('test-dns-zone.c'),
         },
-        test_template + {
-                'sources' : [
-                        files('test-resolved-link.c'),
-                        basic_dns_sources,
-                        systemd_resolved_sources,
-                ],
-                'dependencies' : [
-                        systemd_resolved_dependencies,
-                ],
-                'include_directories' : resolve_includes,
+        resolve_test_template + {
+                'sources' : files('test-resolved-link.c'),
         },
-        test_template + {
-                'sources' : [
-                        files('test-dns-query.c'),
-                        basic_dns_sources,
-                        systemd_resolved_sources,
-                ],
-                'dependencies' : [
-                        systemd_resolved_dependencies,
-                ],
-                'include_directories' : resolve_includes,
+        resolve_test_template + {
+                'sources' : files('test-dns-query.c'),
         },
-        test_template + {
-                'sources' : [
-                        files('test-resolved-stream.c'),
-                        basic_dns_sources,
-                        systemd_resolved_sources,
-                ],
-                'dependencies' : systemd_resolved_dependencies,
-                'include_directories' : resolve_includes,
+        resolve_test_template + {
+                'sources' : files('test-resolved-stream.c'),
         },
-        test_template + {
-                'sources' : [
-                        files('test-resolved-dummy-server.c'),
-                        basic_dns_sources,
-                        systemd_resolved_sources,
-                ],
-                'dependencies' : systemd_resolved_dependencies,
-                'include_directories' : resolve_includes,
+        resolve_test_template + {
+                'sources' : files('test-resolved-dummy-server.c'),
                 'type' : 'manual',
         },
         resolve_fuzz_template + {
