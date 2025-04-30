@@ -183,6 +183,17 @@ typedef struct Server {
         ClientContext *pid1_context; /* the context of PID 1 */
 
         sd_varlink_server *varlink_server;
+
+        /* timestamp of most recently processed log messages from each source (CLOCK_REALTIME for the first
+         * two, CLOCK_BOOTTIME for the other) */
+        usec_t native_timestamp, syslog_timestamp, dev_kmsg_timestamp;
+
+        /* Pending synchronization requests, ordered by their timestamp */
+        Prioq *sync_req_realtime_prioq;
+        Prioq *sync_req_boottime_prioq;
+
+        /* Pending synchronization requests with non-zero rqlen counter */
+        LIST_HEAD(SyncReq, sync_req_pending_rqlen);
 } Server;
 
 #define SERVER_MACHINE_ID(s) ((s)->machine_id_field + STRLEN("_MACHINE_ID="))
