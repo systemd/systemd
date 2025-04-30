@@ -1970,16 +1970,16 @@ Ports=eth2</programlisting>
       </varlistentry>
       <varlistentry>
         <term><varname>User=</varname></term>
-        <listitem><para>User to grant access to the
-        <filename>/dev/net/tun</filename> device.</para>
+        <listitem><para>User to grant access to the <filename>/dev/net/tun</filename> device. The specified
+        user must be a system user.</para>
 
         <xi:include href="version-info.xml" xpointer="v215"/>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>Group=</varname></term>
-        <listitem><para>Group to grant access to the
-        <filename>/dev/net/tun</filename> device.</para>
+        <listitem><para>Group to grant access to the <filename>/dev/net/tun</filename> device. The specified
+        group must be a system group.</para>
 
         <xi:include href="version-info.xml" xpointer="v215"/>
         </listitem>
