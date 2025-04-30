@@ -1322,7 +1322,7 @@ static int manager_dns_stub_fd_extra(Manager *m, DnsStubListenerExtra *l, int ty
                         log_debug_errno(r, "Failed to enable fragment size reception, ignoring: %m");
         }
 
-        r = RET_NERRNO(bind(fd, &sa.sa, SOCKADDR_LEN(sa)));
+        r = RET_NERRNO(bind(fd, &sa.sa, sockaddr_len(&sa)));
         if (r < 0)
                 goto fail;
 
