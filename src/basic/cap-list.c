@@ -5,8 +5,8 @@
 
 #include "alloc-util.h"
 #include "bitfield.h"
-#include "capability-util.h"
 #include "cap-list.h"
+#include "capability-util.h"
 #include "extract-word.h"
 #include "log.h"
 #include "macro.h"

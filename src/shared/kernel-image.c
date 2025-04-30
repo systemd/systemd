@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "env-file.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "env-file.h"
 #include "kernel-image.h"
 #include "log.h"
 #include "os-util.h"

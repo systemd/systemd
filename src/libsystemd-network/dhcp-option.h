@@ -4,9 +4,9 @@
 #include <stdint.h>
 
 #include "sd-dhcp-option.h"
-#include "dns-resolver-internal.h"
 
 #include "dhcp-protocol.h"
+#include "dns-resolver-internal.h"
 #include "hash-funcs.h"
 
 struct sd_dhcp_option {

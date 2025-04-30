@@ -4,9 +4,9 @@
 #include "bus-locator.h"
 #include "env-util.h"
 #include "escape.h"
+#include "systemctl.h"
 #include "systemctl-set-environment.h"
 #include "systemctl-util.h"
-#include "systemctl.h"
 
 static int json_transform_message(sd_bus_message *m, sd_json_variant **ret) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;

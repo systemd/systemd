@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <netinet/in.h>
-#include <linux/if_arp.h>
 #include <linux/if.h>
+#include <linux/if_arp.h>
+#include <netinet/in.h>
 
 #include "sd-dhcp-server.h"
 
@@ -12,9 +12,9 @@
 #include "fileio.h"
 #include "network-common.h"
 #include "networkd-address.h"
+#include "networkd-dhcp-server.h"
 #include "networkd-dhcp-server-bus.h"
 #include "networkd-dhcp-server-static-lease.h"
-#include "networkd-dhcp-server.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-network.h"

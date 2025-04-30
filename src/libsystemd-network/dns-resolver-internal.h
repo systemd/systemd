@@ -5,8 +5,8 @@
 
 #include "sd-dns-resolver.h"
 
-#include "macro.h"
 #include "list.h"
+#include "macro.h"
 #include "socket-netlink.h"
 
 /* https://www.iana.org/assignments/dns-svcb/dns-svcb.xhtml#dns-svcparamkeys */

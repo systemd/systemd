@@ -4,17 +4,17 @@
 ***/
 
 #include <arpa/inet.h>
-#include <netinet/icmp6.h>
 #include <linux/if.h>
 #include <linux/if_arp.h>
+#include <netinet/icmp6.h>
 
 #include "sd-ndisc.h"
 
 #include "event-util.h"
 #include "missing_network.h"
 #include "ndisc-router-internal.h"
-#include "networkd-address-generation.h"
 #include "networkd-address.h"
+#include "networkd-address-generation.h"
 #include "networkd-dhcp6.h"
 #include "networkd-manager.h"
 #include "networkd-ndisc.h"

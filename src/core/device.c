@@ -9,9 +9,9 @@
 #include "bus-common-errors.h"
 #include "dbus-device.h"
 #include "dbus-unit.h"
+#include "device.h"
 #include "device-private.h"
 #include "device-util.h"
-#include "device.h"
 #include "log.h"
 #include "manager.h"
 #include "parse-util.h"
@@ -22,8 +22,8 @@
 #include "string-util.h"
 #include "swap.h"
 #include "udev-util.h"
-#include "unit-name.h"
 #include "unit.h"
+#include "unit-name.h"
 
 static const UnitActiveState state_translation_table[_DEVICE_STATE_MAX] = {
         [DEVICE_DEAD]      = UNIT_INACTIVE,

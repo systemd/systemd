@@ -5,9 +5,9 @@
 
 #include "alloc-util.h"
 #include "conf-parser.h"
-#include "pie.h"
 #include "netlink-util.h"
 #include "parse-util.h"
+#include "pie.h"
 #include "string-util.h"
 
 static int pie_fill_message(Link *link, QDisc *qdisc, sd_netlink_message *req) {

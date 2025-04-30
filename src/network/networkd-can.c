@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-/* Make sure the net/if.h header is included before any linux/ one */
-#include <net/if.h>
 #include <linux/can/netlink.h>
+#include <net/if.h>
 
 #include "networkd-can.h"
 #include "networkd-link.h"

@@ -18,9 +18,9 @@
 #include "strv.h"
 #include "syslog-util.h"
 #include "time-util.h"
-#include "udevadm.h"
 #include "udev-ctrl.h"
 #include "udev-varlink.h"
+#include "udevadm.h"
 #include "varlink-util.h"
 #include "virt.h"
 

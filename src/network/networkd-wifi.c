@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <net/ethernet.h>
 #include <linux/nl80211.h>
+#include <net/ethernet.h>
 
 #include "ether-addr-util.h"
 #include "netlink-util.h"

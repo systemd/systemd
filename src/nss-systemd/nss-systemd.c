@@ -17,8 +17,8 @@
 #include "strv.h"
 #include "user-record-nss.h"
 #include "user-util.h"
-#include "userdb-glue.h"
 #include "userdb.h"
+#include "userdb-glue.h"
 
 static const struct passwd root_passwd = {
         .pw_name = (char*) "root",

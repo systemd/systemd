@@ -2,8 +2,8 @@
 
 #include "sd-json.h"
 
-#include "cryptenroll-list.h"
 #include "cryptenroll.h"
+#include "cryptenroll-list.h"
 #include "format-table.h"
 #include "json-util.h"
 #include "log.h"
