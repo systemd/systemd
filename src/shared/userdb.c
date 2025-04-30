@@ -694,24 +694,24 @@ static int userdb_process(
 }
 
 static int synthetic_root_user_build(UserRecord **ret) {
-        return user_record_build(
+        return user_record_buildo(
                         ret,
-                        SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("userName", JSON_BUILD_CONST_STRING("root")),
-                                          SD_JSON_BUILD_PAIR("uid", SD_JSON_BUILD_UNSIGNED(0)),
-                                          SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(0)),
-                                          SD_JSON_BUILD_PAIR("homeDirectory", JSON_BUILD_CONST_STRING("/root")),
-                                          SD_JSON_BUILD_PAIR("disposition", JSON_BUILD_CONST_STRING("intrinsic"))));
+                        SD_JSON_BUILD_PAIR("userName", JSON_BUILD_CONST_STRING("root")),
+                        SD_JSON_BUILD_PAIR("uid", SD_JSON_BUILD_UNSIGNED(0)),
+                        SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(0)),
+                        SD_JSON_BUILD_PAIR("homeDirectory", JSON_BUILD_CONST_STRING("/root")),
+                        SD_JSON_BUILD_PAIR("disposition", JSON_BUILD_CONST_STRING("intrinsic")));
 }
 
 static int synthetic_nobody_user_build(UserRecord **ret) {
-        return user_record_build(
+        return user_record_buildo(
                         ret,
-                        SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("userName", JSON_BUILD_CONST_STRING(NOBODY_USER_NAME)),
-                                          SD_JSON_BUILD_PAIR("uid", SD_JSON_BUILD_UNSIGNED(UID_NOBODY)),
-                                          SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(GID_NOBODY)),
-                                          SD_JSON_BUILD_PAIR("shell", JSON_BUILD_CONST_STRING(NOLOGIN)),
-                                          SD_JSON_BUILD_PAIR("locked", SD_JSON_BUILD_BOOLEAN(true)),
-                                          SD_JSON_BUILD_PAIR("disposition", JSON_BUILD_CONST_STRING("intrinsic"))));
+                        SD_JSON_BUILD_PAIR("userName", JSON_BUILD_CONST_STRING(NOBODY_USER_NAME)),
+                        SD_JSON_BUILD_PAIR("uid", SD_JSON_BUILD_UNSIGNED(UID_NOBODY)),
+                        SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(GID_NOBODY)),
+                        SD_JSON_BUILD_PAIR("shell", JSON_BUILD_CONST_STRING(NOLOGIN)),
+                        SD_JSON_BUILD_PAIR("locked", SD_JSON_BUILD_BOOLEAN(true)),
+                        SD_JSON_BUILD_PAIR("disposition", JSON_BUILD_CONST_STRING("intrinsic")));
 }
 
 static int synthetic_foreign_user_build(uid_t foreign_uid, UserRecord **ret) {
@@ -730,16 +730,15 @@ static int synthetic_foreign_user_build(uid_t foreign_uid, UserRecord **ret) {
         if (asprintf(&rn, "Foreign System Image UID " UID_FMT, foreign_uid) < 0)
                 return -ENOMEM;
 
-        return user_record_build(
+        return user_record_buildo(
                         ret,
-                        SD_JSON_BUILD_OBJECT(
-                                        SD_JSON_BUILD_PAIR("userName", SD_JSON_BUILD_STRING(un)),
-                                        SD_JSON_BUILD_PAIR("realName", SD_JSON_BUILD_STRING(rn)),
-                                        SD_JSON_BUILD_PAIR("uid", SD_JSON_BUILD_UNSIGNED(FOREIGN_UID_BASE + foreign_uid)),
-                                        SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(FOREIGN_UID_BASE + foreign_uid)),
-                                        SD_JSON_BUILD_PAIR("shell", JSON_BUILD_CONST_STRING(NOLOGIN)),
-                                        SD_JSON_BUILD_PAIR("locked", SD_JSON_BUILD_BOOLEAN(true)),
-                                        SD_JSON_BUILD_PAIR("disposition", JSON_BUILD_CONST_STRING("foreign"))));
+                        SD_JSON_BUILD_PAIR("userName", SD_JSON_BUILD_STRING(un)),
+                        SD_JSON_BUILD_PAIR("realName", SD_JSON_BUILD_STRING(rn)),
+                        SD_JSON_BUILD_PAIR("uid", SD_JSON_BUILD_UNSIGNED(FOREIGN_UID_BASE + foreign_uid)),
+                        SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(FOREIGN_UID_BASE + foreign_uid)),
+                        SD_JSON_BUILD_PAIR("shell", JSON_BUILD_CONST_STRING(NOLOGIN)),
+                        SD_JSON_BUILD_PAIR("locked", SD_JSON_BUILD_BOOLEAN(true)),
+                        SD_JSON_BUILD_PAIR("disposition", JSON_BUILD_CONST_STRING("foreign")));
 }
 
 static int user_name_foreign_extract_uid(const char *name, uid_t *ret_uid) {
@@ -1193,19 +1192,19 @@ int userdb_iterator_get(UserDBIterator *iterator, const UserDBMatch *match, User
 }
 
 static int synthetic_root_group_build(GroupRecord **ret) {
-        return group_record_build(
+        return group_record_buildo(
                         ret,
-                        SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("groupName", JSON_BUILD_CONST_STRING("root")),
-                                          SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(0)),
-                                          SD_JSON_BUILD_PAIR("disposition", JSON_BUILD_CONST_STRING("intrinsic"))));
+                        SD_JSON_BUILD_PAIR("groupName", JSON_BUILD_CONST_STRING("root")),
+                        SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(0)),
+                        SD_JSON_BUILD_PAIR("disposition", JSON_BUILD_CONST_STRING("intrinsic")));
 }
 
 static int synthetic_nobody_group_build(GroupRecord **ret) {
-        return group_record_build(
+        return group_record_buildo(
                         ret,
-                        SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("groupName", JSON_BUILD_CONST_STRING(NOBODY_GROUP_NAME)),
-                                          SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(GID_NOBODY)),
-                                          SD_JSON_BUILD_PAIR("disposition", JSON_BUILD_CONST_STRING("intrinsic"))));
+                        SD_JSON_BUILD_PAIR("groupName", JSON_BUILD_CONST_STRING(NOBODY_GROUP_NAME)),
+                        SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(GID_NOBODY)),
+                        SD_JSON_BUILD_PAIR("disposition", JSON_BUILD_CONST_STRING("intrinsic")));
 }
 
 static int synthetic_foreign_group_build(gid_t foreign_gid, GroupRecord **ret) {
@@ -1224,13 +1223,12 @@ static int synthetic_foreign_group_build(gid_t foreign_gid, GroupRecord **ret) {
         if (asprintf(&d, "Foreign System Image GID " GID_FMT, foreign_gid) < 0)
                 return -ENOMEM;
 
-        return group_record_build(
+        return group_record_buildo(
                         ret,
-                        SD_JSON_BUILD_OBJECT(
-                                        SD_JSON_BUILD_PAIR("groupName", SD_JSON_BUILD_STRING(gn)),
-                                        SD_JSON_BUILD_PAIR("description", SD_JSON_BUILD_STRING(d)),
-                                        SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(FOREIGN_UID_BASE + foreign_gid)),
-                                        SD_JSON_BUILD_PAIR("disposition", JSON_BUILD_CONST_STRING("foreign"))));
+                        SD_JSON_BUILD_PAIR("groupName", SD_JSON_BUILD_STRING(gn)),
+                        SD_JSON_BUILD_PAIR("description", SD_JSON_BUILD_STRING(d)),
+                        SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(FOREIGN_UID_BASE + foreign_gid)),
+                        SD_JSON_BUILD_PAIR("disposition", JSON_BUILD_CONST_STRING("foreign")));
 }
 
 static int query_append_gid_match(sd_json_variant **query, const UserDBMatch *match) {
