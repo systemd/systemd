@@ -1274,7 +1274,7 @@ int dns_server_is_accessible(DnsServer *s) {
                         return r;
         }
 
-        r = RET_NERRNO(connect(fd, &sa.sa, SOCKADDR_LEN(sa)));
+        r = RET_NERRNO(connect(fd, &sa.sa, sockaddr_len(&sa)));
         if (!IN_SET(r,
                     0,
                     -ENETUNREACH,

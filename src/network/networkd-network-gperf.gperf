@@ -4,12 +4,14 @@ _Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
 #if __GNUC__ >= 15
 _Pragma("GCC diagnostic ignored \"-Wzero-as-null-pointer-constant\"")
 #endif
+#include <linux/can/netlink.h>
 #include <netinet/icmp6.h>
 #include <stddef.h>
 
 #include "conf-parser.h"
 #include "in-addr-prefix-util.h"
 #include "net-condition.h"
+#include "netif-sriov.h"
 #include "networkd-address-generation.h"
 #include "networkd-address-label.h"
 #include "networkd-address.h"
@@ -38,6 +40,7 @@ _Pragma("GCC diagnostic ignored \"-Wzero-as-null-pointer-constant\"")
 #include "networkd-routing-policy-rule.h"
 #include "networkd-sriov.h"
 #include "qdisc.h"
+#include "socket-util.h"
 #include "tclass.h"
 #include "vlan-util.h"
 

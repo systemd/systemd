@@ -1229,6 +1229,6 @@ int manager_reload(Manager *m, sd_bus_message *message) {
         log_debug("Reloaded.");
         r = 0;
 finish:
-        (void) sd_notify(/* unset_environment= */ false, NOTIFY_READY);
+        (void) sd_notify(/* unset_environment= */ false, NOTIFY_READY_MESSAGE);
         return r;
 }

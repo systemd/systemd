@@ -1240,7 +1240,7 @@ static int run(int argc, char* argv[]) {
         _unused_ _cleanup_(notify_on_cleanup) const char *notify_message =
                 notify_start("READY=1\n"
                              "STATUS=Exposing disks in target mode...",
-                             NOTIFY_STOPPING);
+                             NOTIFY_STOPPING_MESSAGE);
 
         r = sd_event_loop(event);
         if (r < 0)

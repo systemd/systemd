@@ -84,7 +84,7 @@ int main(int argc, char *argv[]) {
 
         /* Make an address -> name query */
         sa.in.sin_addr.s_addr = inet_addr(argc >= 3 ? argv[2] : "193.99.144.71");
-        r = sd_resolve_getnameinfo(resolve, &q2, &sa.sa, SOCKADDR_LEN(sa), 0, SD_RESOLVE_GET_BOTH, getnameinfo_handler, NULL);
+        r = sd_resolve_getnameinfo(resolve, &q2, &sa.sa, sockaddr_len(&sa), 0, SD_RESOLVE_GET_BOTH, getnameinfo_handler, NULL);
         if (r < 0)
                 log_error_errno(r, "sd_resolve_getnameinfo(): %m");
 

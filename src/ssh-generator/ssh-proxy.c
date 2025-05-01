@@ -37,7 +37,7 @@ static int process_vsock_cid(unsigned cid, const char *port) {
         if (fd < 0)
                 return log_error_errno(errno, "Failed to allocate AF_VSOCK socket: %m");
 
-        if (connect(fd, &sa.sa, SOCKADDR_LEN(sa)) < 0)
+        if (connect(fd, &sa.sa, sockaddr_len(&sa)) < 0)
                 return log_error_errno(errno, "Failed to connect to vsock:%u:%u: %m", sa.vm.svm_cid, sa.vm.svm_port);
 
         /* OpenSSH wants us to send a single byte along with the file descriptor, hence do so */

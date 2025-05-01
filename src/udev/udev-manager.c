@@ -234,7 +234,7 @@ void manager_exit(Manager *manager) {
 
         manager->exit = true;
 
-        (void) sd_notify(/* unset= */ false, NOTIFY_STOPPING);
+        (void) sd_notify(/* unset= */ false, NOTIFY_STOPPING_MESSAGE);
 
         /* close sources of new events and discard buffered events */
         manager->ctrl = udev_ctrl_unref(manager->ctrl);
@@ -1407,7 +1407,7 @@ int manager_main(Manager *manager) {
                 log_warning_errno(r, "Failed to apply permissions on static device nodes, ignoring: %m");
 
         _unused_ _cleanup_(notify_on_cleanup) const char *notify_message =
-                notify_start(NOTIFY_READY, NOTIFY_STOPPING);
+                notify_start(NOTIFY_READY_MESSAGE, NOTIFY_STOPPING_MESSAGE);
 
         /* We will start processing events in the loop below. Before starting processing, let's remove the
          * event serialization fd from the fdstore, to avoid retrieving the serialized events again in future

@@ -15,6 +15,7 @@
  */
 
 #if SD_BOOT
+#  include "efi-string.h"
 #  include "util.h"
 #else
 #  include <byteswap.h>
