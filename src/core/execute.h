@@ -330,6 +330,8 @@ struct ExecContext {
         int bind_log_sockets;
         int memory_ksm;
         PrivateTmp private_tmp;
+        PrivateTmp private_var_tmp; /* This is not an independent parameter, but calculated from other
+                                     * parameters in unit_patch_contexts(). */
         bool private_network;
         bool private_devices;
         PrivateUsers private_users;
