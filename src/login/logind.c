@@ -1088,7 +1088,7 @@ static int manager_dispatch_reload_signal(sd_event_source *s, const struct signa
         else
                 log_info("Config file reloaded.");
 
-        (void) sd_notify(/* unset= */ false, NOTIFY_READY);
+        (void) sd_notify(/* unset= */ false, NOTIFY_READY_MESSAGE);
         return 0;
 }
 
@@ -1268,7 +1268,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to fully start up daemon: %m");
 
-        notify_message = notify_start(NOTIFY_READY, NOTIFY_STOPPING);
+        notify_message = notify_start(NOTIFY_READY_MESSAGE, NOTIFY_STOPPING_MESSAGE);
         return manager_run(m);
 }
 

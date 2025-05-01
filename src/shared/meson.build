@@ -12,6 +12,7 @@ shared_sources = files(
         'battery-util.c',
         'binfmt-util.c',
         'bitmap.c',
+        'blkid-util.c',
         'blockdev-list.c',
         'blockdev-util.c',
         'bond-util.c',
@@ -278,7 +279,7 @@ gperf_file = custom_target(
         fname,
         input : ip_protocol_list_txt,
         output : fname,
-        command : [generate_gperfs, 'ip_protocol', 'IPPROTO_', '@INPUT@'],
+        command : [generate_gperfs, 'ip_protocol', 'IPPROTO_', '@INPUT@', '<netinet/in.h>'],
         capture : true)
 
 fname = 'ip-protocol-from-name.h'
@@ -303,9 +304,8 @@ target2 = custom_target(
         command : [awk, '-f', '@INPUT0@', '@INPUT1@'],
         capture : true)
 
-shared_generated_gperf_headers = [target1, target2]
-generated_sources += shared_generated_gperf_headers
-shared_sources += shared_generated_gperf_headers
+generated_sources += [target1, target2]
+shared_sources += [target1, target2]
 
 fname = 'ethtool-link-mode.h'
 ethtool_link_mode_h = custom_target(

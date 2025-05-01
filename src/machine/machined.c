@@ -345,7 +345,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to fully start up daemon: %m");
 
-        r = sd_notify(false, NOTIFY_READY);
+        r = sd_notify(false, NOTIFY_READY_MESSAGE);
         if (r < 0)
                 log_warning_errno(r, "Failed to send readiness notification, ignoring: %m");
 
