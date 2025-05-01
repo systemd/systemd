@@ -176,9 +176,9 @@ int nss_spwd_for_passwd(const struct passwd *pwd, struct spwd *ret_spwd, char **
 
         for (;;) {
                 _cleanup_free_ char *buf = NULL;
-                struct spwd spwd, *result;
+                struct spwd spwd = {}, *result = NULL;
 
-                buf = malloc(buflen);
+                buf = malloc0(buflen);
                 if (!buf)
                         return -ENOMEM;
 
@@ -348,9 +348,9 @@ int nss_sgrp_for_group(const struct group *grp, struct sgrp *ret_sgrp, char **re
 
         for (;;) {
                 _cleanup_free_ char *buf = NULL;
-                struct sgrp sgrp, *result;
+                struct sgrp sgrp = {}, *result = NULL;
 
-                buf = malloc(buflen);
+                buf = malloc0(buflen);
                 if (!buf)
                         return -ENOMEM;
 
