@@ -61,7 +61,10 @@ static inline bool pidref_is_remote(const PidRef *pidref) {
 }
 
 int pidref_acquire_pidfd_id(PidRef *pidref);
-bool pidref_equal(PidRef *a, PidRef *b);
+bool pidref_equal_full(PidRef *a, PidRef *b, bool strict);
+static inline bool pidref_equal(PidRef *a, PidRef *b) {
+        return pidref_equal_full(a, b, false);
+}
 
 /* This turns a pid_t into a PidRef structure, and acquires a pidfd for it, if possible. (As opposed to
  * PIDREF_MAKE_FROM_PID() above, which does not acquire a pidfd.) */
