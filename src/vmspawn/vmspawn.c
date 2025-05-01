@@ -2041,6 +2041,10 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 r = strv_extend_many(&cmdline, "-device", "scsi-hd,drive=vmspawn,bootindex=1");
                 if (r < 0)
                         return log_oom();
+
+                r = grow_image(arg_image, arg_grow_image);
+                if (r < 0)
+                        return r;
         }
 
         if (arg_directory) {
@@ -2335,10 +2339,6 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse $SYSTEMD_VMSPAWN_QEMU_EXTRA: %m");
         }
-
-        r = grow_image(arg_image, arg_grow_image);
-        if (r < 0)
-                return r;
 
         if (DEBUG_LOGGING) {
                 _cleanup_free_ char *joined = quote_command_line(cmdline, SHELL_ESCAPE_EMPTY);
