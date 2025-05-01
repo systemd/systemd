@@ -1188,7 +1188,8 @@
         <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
         The special value <literal>infinity</literal> can be used to limit the total number of start
         attempts, even if they happen at large time intervals.
-        Defaults to <varname>DefaultStartLimitIntervalSec=</varname> in manager configuration file, and may
+        Rate limiting is enabled by default, via
+        <varname>DefaultStartLimitIntervalSec=</varname> in manager configuration file, and may
         be set to 0 to disable any kind of rate limiting. <replaceable>burst</replaceable> is a number and
         defaults to <varname>DefaultStartLimitBurst=</varname> in manager configuration file.</para>
 
@@ -1206,6 +1207,11 @@
         wants to manually start a unit and the start limit interferes with that. Rate-limiting is enforced
         after any unit condition checks are executed, and hence unit activations with failing conditions do
         not count towards the rate limit.</para>
+
+        <para>Because rate limiting is enabled by default and inhibits <varname>Restart=</varname>
+        (including <varname>Restart=</varname><constant>always</constant>),
+        you must set <varname>StartLimitIntervalSec=</varname><constant>0</constant>
+        for services that shall always restart.</para>
 
         <para>When a unit is unloaded due to the garbage collection logic (see above) its rate limit counters
         are flushed out too. This means that configuring start rate limiting for a unit that is not
