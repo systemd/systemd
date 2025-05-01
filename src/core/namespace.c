@@ -736,6 +736,8 @@ static int append_private_tmp(MountList *ml, const NamespaceParameters *p) {
 
         assert(ml);
         assert(p);
+        assert(p->private_tmp == p->private_var_tmp ||
+               (p->private_tmp == PRIVATE_TMP_DISCONNECTED && p->private_var_tmp == PRIVATE_TMP_NO));
 
         if (p->tmp_dir) {
                 assert(p->private_tmp == PRIVATE_TMP_CONNECTED);
@@ -752,7 +754,7 @@ static int append_private_tmp(MountList *ml, const NamespaceParameters *p) {
         }
 
         if (p->var_tmp_dir) {
-                assert(p->private_tmp == PRIVATE_TMP_CONNECTED);
+                assert(p->private_var_tmp == PRIVATE_TMP_CONNECTED);
 
                 me = mount_list_extend(ml);
                 if (!me)
@@ -767,6 +769,20 @@ static int append_private_tmp(MountList *ml, const NamespaceParameters *p) {
 
         if (p->private_tmp != PRIVATE_TMP_DISCONNECTED)
                 return 0;
+
+        if (p->private_var_tmp == PRIVATE_TMP_NO) {
+                me = mount_list_extend(ml);
+                if (!me)
+                        return log_oom_debug();
+                *me = (MountEntry) {
+                        .path_const = "/tmp/",
+                        .mode = MOUNT_PRIVATE_TMPFS,
+                        .options_const = "mode=0700" NESTED_TMPFS_LIMITS,
+                        .flags = MS_NODEV|MS_STRICTATIME,
+                };
+
+                return 0;
+        }
 
         _cleanup_free_ char *tmpfs_dir = NULL, *tmp_dir = NULL, *var_tmp_dir = NULL;
         tmpfs_dir = path_join(p->private_namespace_dir, "unit-private-tmp");
