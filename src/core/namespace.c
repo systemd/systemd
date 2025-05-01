@@ -731,6 +731,86 @@ static int append_tmpfs_mounts(MountList *ml, const TemporaryFileSystem *tmpfs, 
         return 0;
 }
 
+static int append_private_tmp(MountList *ml, const NamespaceParameters *p) {
+        MountEntry *me;
+
+        assert(ml);
+        assert(p);
+
+        if (p->tmp_dir) {
+                assert(p->private_tmp == PRIVATE_TMP_CONNECTED);
+
+                me = mount_list_extend(ml);
+                if (!me)
+                        return log_oom_debug();
+                *me = (MountEntry) {
+                        .path_const = "/tmp/",
+                        .mode = MOUNT_PRIVATE_TMP,
+                        .read_only = streq(p->tmp_dir, RUN_SYSTEMD_EMPTY),
+                        .source_const = p->tmp_dir,
+                };
+        }
+
+        if (p->var_tmp_dir) {
+                assert(p->private_tmp == PRIVATE_TMP_CONNECTED);
+
+                me = mount_list_extend(ml);
+                if (!me)
+                        return log_oom_debug();
+                *me = (MountEntry) {
+                        .path_const = "/var/tmp/",
+                        .mode = MOUNT_PRIVATE_TMP,
+                        .read_only = streq(p->var_tmp_dir, RUN_SYSTEMD_EMPTY),
+                        .source_const = p->var_tmp_dir,
+                };
+        }
+
+        if (p->private_tmp != PRIVATE_TMP_DISCONNECTED)
+                return 0;
+
+        _cleanup_free_ char *tmpfs_dir = NULL, *tmp_dir = NULL, *var_tmp_dir = NULL;
+        tmpfs_dir = path_join(p->private_namespace_dir, "unit-private-tmp");
+        tmp_dir = path_join(tmpfs_dir, "tmp");
+        var_tmp_dir = path_join(tmpfs_dir, "var-tmp");
+        if (!tmpfs_dir || !tmp_dir || !var_tmp_dir)
+                return log_oom_debug();
+
+        me = mount_list_extend(ml);
+        if (!me)
+                return log_oom_debug();
+        *me = (MountEntry) {
+                .path_malloc = TAKE_PTR(tmpfs_dir),
+                .mode = MOUNT_PRIVATE_TMPFS,
+                .options_const = "mode=0700" NESTED_TMPFS_LIMITS,
+                .flags = MS_NODEV|MS_STRICTATIME,
+                .has_prefix = true,
+        };
+
+        me = mount_list_extend(ml);
+        if (!me)
+                return log_oom_debug();
+        *me = (MountEntry) {
+                .source_malloc = TAKE_PTR(tmp_dir),
+                .path_const = "/tmp/",
+                .mode = MOUNT_BIND,
+                .source_dir_mode = 01777,
+                .create_source_dir = true,
+        };
+
+        me = mount_list_extend(ml);
+        if (!me)
+                return log_oom_debug();
+        *me = (MountEntry) {
+                .source_malloc = TAKE_PTR(var_tmp_dir),
+                .path_const = "/var/tmp/",
+                .mode = MOUNT_BIND,
+                .source_dir_mode = 01777,
+                .create_source_dir = true,
+        };
+
+        return 0;
+}
+
 static int append_static_mounts(MountList *ml, const MountEntry *mounts, size_t n, bool ignore_protect) {
         assert(ml);
         assert(mounts || n == 0);
@@ -2452,80 +2532,9 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
         if (r < 0)
                 return r;
 
-        /* When DynamicUser=yes enforce that /tmp/ and /var/tmp/ are disconnected from the host's
-         * directories, as they are world writable and ephemeral uid/gid will be used. */
-        if (p->private_tmp == PRIVATE_TMP_DISCONNECTED) {
-                _cleanup_free_ char *tmpfs_dir = NULL, *tmp_dir = NULL, *var_tmp_dir = NULL;
-                MountEntry *tmpfs_entry, *tmp_entry, *var_tmp_entry;
-
-                tmpfs_dir = path_join(p->private_namespace_dir, "unit-private-tmp");
-                tmp_dir = path_join(tmpfs_dir, "tmp");
-                var_tmp_dir = path_join(tmpfs_dir, "var-tmp");
-                if (!tmpfs_dir || !tmp_dir || !var_tmp_dir)
-                        return log_oom_debug();
-
-                tmpfs_entry = mount_list_extend(&ml);
-                if (!tmpfs_entry)
-                        return log_oom_debug();
-                *tmpfs_entry = (MountEntry) {
-                        .path_malloc = TAKE_PTR(tmpfs_dir),
-                        .mode = MOUNT_PRIVATE_TMPFS,
-                        .options_const = "mode=0700" NESTED_TMPFS_LIMITS,
-                        .flags = MS_NODEV|MS_STRICTATIME,
-                        .has_prefix = true,
-                };
-
-                tmp_entry = mount_list_extend(&ml);
-                if (!tmp_entry)
-                        return log_oom_debug();
-                *tmp_entry = (MountEntry) {
-                        .source_malloc = TAKE_PTR(tmp_dir),
-                        .path_const = "/tmp",
-                        .mode = MOUNT_BIND,
-                        .source_dir_mode = 01777,
-                        .create_source_dir = true,
-                };
-
-                var_tmp_entry = mount_list_extend(&ml);
-                if (!var_tmp_entry)
-                        return log_oom_debug();
-                *var_tmp_entry = (MountEntry) {
-                        .source_malloc = TAKE_PTR(var_tmp_dir),
-                        .path_const = "/var/tmp",
-                        .mode = MOUNT_BIND,
-                        .source_dir_mode = 01777,
-                        .create_source_dir = true,
-                };
-
-        } else if (p->tmp_dir || p->var_tmp_dir) {
-                assert(p->private_tmp == PRIVATE_TMP_CONNECTED);
-
-                if (p->tmp_dir) {
-                        MountEntry *me = mount_list_extend(&ml);
-                        if (!me)
-                                return log_oom_debug();
-
-                        *me = (MountEntry) {
-                                .path_const = "/tmp",
-                                .mode = MOUNT_PRIVATE_TMP,
-                                .read_only = streq(p->tmp_dir, RUN_SYSTEMD_EMPTY),
-                                .source_const = p->tmp_dir,
-                        };
-                }
-
-                if (p->var_tmp_dir) {
-                        MountEntry *me = mount_list_extend(&ml);
-                        if (!me)
-                                return log_oom_debug();
-
-                        *me = (MountEntry) {
-                                .path_const = "/var/tmp",
-                                .mode = MOUNT_PRIVATE_TMP,
-                                .read_only = streq(p->var_tmp_dir, RUN_SYSTEMD_EMPTY),
-                                .source_const = p->var_tmp_dir,
-                        };
-                }
-        }
+        r = append_private_tmp(&ml, p);
+        if (r < 0)
+                return r;
 
         r = append_mount_images(&ml, p->mount_images, p->n_mount_images);
         if (r < 0)
