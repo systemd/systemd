@@ -304,9 +304,8 @@ target2 = custom_target(
         command : [awk, '-f', '@INPUT0@', '@INPUT1@'],
         capture : true)
 
-shared_generated_gperf_headers = [target1, target2]
-generated_sources += shared_generated_gperf_headers
-shared_sources += shared_generated_gperf_headers
+generated_sources += [target1, target2]
+shared_sources += [target1, target2]
 
 fname = 'ethtool-link-mode.h'
 ethtool_link_mode_h = custom_target(
