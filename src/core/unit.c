@@ -1270,15 +1270,24 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
         }
 
         if (c->private_tmp == PRIVATE_TMP_CONNECTED) {
-                r = unit_add_mounts_for(u, "/tmp", UNIT_DEPENDENCY_FILE, UNIT_MOUNT_WANTS);
+                assert(c->private_var_tmp == PRIVATE_TMP_CONNECTED);
+
+                r = unit_add_mounts_for(u, "/tmp/", UNIT_DEPENDENCY_FILE, UNIT_MOUNT_WANTS);
                 if (r < 0)
                         return r;
 
-                r = unit_add_mounts_for(u, "/var/tmp", UNIT_DEPENDENCY_FILE, UNIT_MOUNT_WANTS);
+                r = unit_add_mounts_for(u, "/var/tmp/", UNIT_DEPENDENCY_FILE, UNIT_MOUNT_WANTS);
                 if (r < 0)
                         return r;
 
                 r = unit_add_dependency_by_name(u, UNIT_AFTER, SPECIAL_TMPFILES_SETUP_SERVICE, true, UNIT_DEPENDENCY_FILE);
+                if (r < 0)
+                        return r;
+
+        } else if (c->private_var_tmp == PRIVATE_TMP_DISCONNECTED && !exec_context_with_rootfs(c)) {
+                /* Even if PrivateTmp=disconnected, we still require /var/tmp/ mountpoint to be present,
+                 * i.e. /var/ needs to be mounted. See comments in unit_patch_contexts(). */
+                r = unit_add_mounts_for(u, "/var/", UNIT_DEPENDENCY_FILE, UNIT_MOUNT_WANTS);
                 if (r < 0)
                         return r;
         }
@@ -1292,18 +1301,8 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
                         return r;
         }
 
-        if (!IN_SET(c->std_output,
-                    EXEC_OUTPUT_JOURNAL, EXEC_OUTPUT_JOURNAL_AND_CONSOLE,
-                    EXEC_OUTPUT_KMSG, EXEC_OUTPUT_KMSG_AND_CONSOLE) &&
-            !IN_SET(c->std_error,
-                    EXEC_OUTPUT_JOURNAL, EXEC_OUTPUT_JOURNAL_AND_CONSOLE,
-                    EXEC_OUTPUT_KMSG, EXEC_OUTPUT_KMSG_AND_CONSOLE) &&
-            !c->log_namespace)
-                return 0;
-
         /* If syslog or kernel logging is requested (or log namespacing is), make sure our own logging daemon
          * is run first. */
-
         if (c->log_namespace) {
                 static const struct {
                         const char *template;
@@ -1325,7 +1324,11 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
                         if (r < 0)
                                 return r;
                 }
-        } else {
+        } else if (IN_SET(c->std_output, EXEC_OUTPUT_JOURNAL, EXEC_OUTPUT_JOURNAL_AND_CONSOLE,
+                                         EXEC_OUTPUT_KMSG, EXEC_OUTPUT_KMSG_AND_CONSOLE) ||
+                   IN_SET(c->std_error,  EXEC_OUTPUT_JOURNAL, EXEC_OUTPUT_JOURNAL_AND_CONSOLE,
+                                         EXEC_OUTPUT_KMSG, EXEC_OUTPUT_KMSG_AND_CONSOLE)) {
+
                 r = unit_add_dependency_by_name(u, UNIT_AFTER, SPECIAL_JOURNALD_SOCKET, true, UNIT_DEPENDENCY_FILE);
                 if (r < 0)
                         return r;
@@ -4330,6 +4333,15 @@ int unit_patch_contexts(Unit *u) {
                         ec->no_new_privileges = true;
                         ec->restrict_suid_sgid = true;
                 }
+
+                /* Disable disconnected private tmpfs on /var/tmp/ when DefaultDependencies=no and
+                 * RootImage=/RootDirectory= are not set, as /var/ may be a separated partition.
+                 * See issue #37258. */
+                if (ec->private_tmp == PRIVATE_TMP_DISCONNECTED && !u->default_dependencies && !exec_context_with_rootfs(ec))
+                        ec->private_var_tmp = PRIVATE_TMP_NO;
+                else
+                        /* Otherwise, use the same setting for /tmp/. */
+                        ec->private_var_tmp = ec->private_tmp;
 
                 FOREACH_ARRAY(d, ec->directories, _EXEC_DIRECTORY_TYPE_MAX)
                         exec_directory_sort(d);
