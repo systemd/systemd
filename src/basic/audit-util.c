@@ -37,7 +37,7 @@ static int audit_read_field(const PidRef *pid, const char *field, char **ret) {
 
         _cleanup_free_ char *s = NULL;
         bool enoent = false;
-        r = read_virtual_file(p, SIZE_MAX, &s, /* ret_size= */ NULL);
+        r = read_full_virtual_file(p, &s, /* ret_size= */ NULL);
         if (r == -ENOENT) {
                 if (proc_mounted() == 0)
                         return -ENOSYS;

@@ -141,7 +141,6 @@ int name_to_handle_at_try_fid(
 
 static int fd_fdinfo_mnt_id(int fd, const char *filename, int flags, int *ret_mnt_id) {
         char path[STRLEN("/proc/self/fdinfo/") + DECIMAL_STR_MAX(int)];
-        _cleanup_free_ char *fdinfo = NULL;
         _cleanup_close_ int subfd = -EBADF;
         int r;
 
@@ -158,18 +157,12 @@ static int fd_fdinfo_mnt_id(int fd, const char *filename, int flags, int *ret_mn
                 xsprintf(path, "/proc/self/fdinfo/%i", subfd);
         }
 
-        r = read_full_virtual_file(path, &fdinfo, NULL);
+        _cleanup_free_ char *p = NULL;
+        r = get_proc_field(path, "mnt_id", &p);
         if (r == -ENOENT)
-                return proc_fd_enoent_errno();
+                return -EBADF;
         if (r < 0)
                 return r;
-
-        char *p = find_line_startswith(fdinfo, "mnt_id:");
-        if (!p)
-                return -EBADMSG;
-
-        p = skip_leading_chars(p, /* bad = */ NULL);
-        p[strcspn(p, WHITESPACE)] = 0;
 
         return safe_atoi(p, ret_mnt_id);
 }
