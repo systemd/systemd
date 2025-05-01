@@ -34,7 +34,6 @@
 #include "common-signal.h"
 #include "confidential-virt.h"
 #include "constants.h"
-#include "core-varlink.h"
 #include "creds-util.h"
 #include "daemon-util.h"
 #include "dbus.h"
@@ -101,6 +100,7 @@
 #include "umask-util.h"
 #include "unit-name.h"
 #include "user-util.h"
+#include "varlink.h"
 #include "virt.h"
 #include "watchdog.h"
 

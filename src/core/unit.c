@@ -20,7 +20,6 @@
 #include "cgroup-setup.h"
 #include "cgroup-util.h"
 #include "chase.h"
-#include "core-varlink.h"
 #include "dbus.h"
 #include "dbus-unit.h"
 #include "dropin.h"
@@ -63,6 +62,7 @@
 #include "unit.h"
 #include "unit-name.h"
 #include "user-util.h"
+#include "varlink.h"
 #include "virt.h"
 #if BPF_FRAMEWORK
 #include "bpf-link.h"

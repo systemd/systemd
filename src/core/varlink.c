@@ -2,7 +2,6 @@
 
 #include "sd-varlink.h"
 
-#include "core-varlink.h"
 #include "dynamic-user.h"
 #include "json-util.h"
 #include "manager.h"
@@ -10,6 +9,7 @@
 #include "strv.h"
 #include "unit.h"
 #include "user-util.h"
+#include "varlink.h"
 #include "varlink-internal.h"
 #include "varlink-io.systemd.ManagedOOM.h"
 #include "varlink-io.systemd.UserDatabase.h"

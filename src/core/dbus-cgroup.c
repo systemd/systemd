@@ -11,7 +11,6 @@
 #include "bus-util.h"
 #include "cgroup.h"
 #include "cgroup-util.h"
-#include "core-varlink.h"
 #include "dbus-cgroup.h"
 #include "dbus-util.h"
 #include "errno-util.h"
@@ -28,6 +27,7 @@
 #include "path-util.h"
 #include "percent-util.h"
 #include "socket-util.h"
+#include "varlink.h"
 
 BUS_DEFINE_PROPERTY_GET(bus_property_get_tasks_max, "t", CGroupTasksMax, cgroup_tasks_max_resolve);
 BUS_DEFINE_PROPERTY_GET_ENUM(bus_property_get_cgroup_pressure_watch, cgroup_pressure_watch, CGroupPressureWatch);
