@@ -10,6 +10,12 @@
 #  define ARCHITECTURE_SUPPORTS_SMBIOS 0
 #endif
 
+#if defined(__x86_64__) || defined(__i386__)
+# define ARCHITECTURE_SUPPORTS_VMGENID 1
+#else
+# define ARCHITECTURE_SUPPORTS_VMGENID 0
+#endif
+
 #if defined(__x86_64__) || defined(__arm__) || defined(__aarch64__)
 #  define ARCHITECTURE_SUPPORTS_TPM 1
 #else
