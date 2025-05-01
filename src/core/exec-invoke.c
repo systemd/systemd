@@ -1921,7 +1921,7 @@ static int build_environment(
         assert(cgroup_context);
         assert(ret);
 
-#define N_ENV_VARS 21
+#define N_ENV_VARS 22
         our_env = new0(char*, N_ENV_VARS + _EXEC_DIRECTORY_TYPE_MAX);
         if (!our_env)
                 return -ENOMEM;
@@ -2175,6 +2175,21 @@ static int build_environment(
 
         if (p->notify_socket) {
                 x = strjoin("NOTIFY_SOCKET=", exec_get_private_notify_socket_path(c, p, needs_sandboxing) ?: p->notify_socket);
+                if (!x)
+                        return -ENOMEM;
+
+                our_env[n_env++] = x;
+        }
+
+        assert(c->private_var_tmp >= 0 && c->private_var_tmp < _PRIVATE_TMP_MAX);
+        if (c->private_tmp != c->private_var_tmp) {
+                assert(c->private_tmp == PRIVATE_TMP_DISCONNECTED);
+                assert(c->private_var_tmp == PRIVATE_TMP_NO);
+
+                /* When private tmpfs is enabled only on /tmp/, then explicitly set $TMPDIR to suggest the
+                 * service to use /tmp/. */
+
+                x = strdup("TMPDIR=/tmp");
                 if (!x)
                         return -ENOMEM;
 
@@ -3589,6 +3604,7 @@ static int apply_mount_namespace(
                 .private_ipc = needs_sandboxing && exec_needs_ipc_namespace(context),
                 .private_pids = needs_sandboxing && exec_needs_pid_namespace(context) ? context->private_pids : PRIVATE_PIDS_NO,
                 .private_tmp = needs_sandboxing ? context->private_tmp : PRIVATE_TMP_NO,
+                .private_var_tmp = needs_sandboxing ? context->private_var_tmp : PRIVATE_TMP_NO,
 
                 .mount_apivfs = needs_sandboxing && exec_context_get_effective_mount_apivfs(context),
                 .bind_log_sockets = needs_sandboxing && exec_context_get_effective_bind_log_sockets(context),
