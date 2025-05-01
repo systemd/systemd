@@ -73,7 +73,7 @@ int udev_ctrl_new_from_fd(UdevCtrl **ret, int fd) {
                 .sun_path = "/run/udev/control",
         };
 
-        uctrl->addrlen = SOCKADDR_UN_LEN(uctrl->saddr.un);
+        uctrl->addrlen = sockaddr_un_len(&uctrl->saddr.un);
 
         *ret = TAKE_PTR(uctrl);
         return 0;

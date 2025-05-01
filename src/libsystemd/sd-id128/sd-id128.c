@@ -23,7 +23,7 @@
 #include "stat-util.h"
 #include "user-util.h"
 
-_public_ char *sd_id128_to_string(sd_id128_t id, char s[_SD_ARRAY_STATIC SD_ID128_STRING_MAX]) {
+_public_ char *sd_id128_to_string(sd_id128_t id, char s[static SD_ID128_STRING_MAX]) {
         size_t k = 0;
 
         assert_return(s, NULL);
@@ -39,7 +39,7 @@ _public_ char *sd_id128_to_string(sd_id128_t id, char s[_SD_ARRAY_STATIC SD_ID12
         return s;
 }
 
-_public_ char *sd_id128_to_uuid_string(sd_id128_t id, char s[_SD_ARRAY_STATIC SD_ID128_UUID_STRING_MAX]) {
+_public_ char *sd_id128_to_uuid_string(sd_id128_t id, char s[static SD_ID128_UUID_STRING_MAX]) {
         size_t k = 0;
 
         assert_return(s, NULL);

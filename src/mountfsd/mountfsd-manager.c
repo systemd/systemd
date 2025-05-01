@@ -256,7 +256,7 @@ int manager_startup(Manager *m) {
                 (void) sockaddr_un_unlink(&sockaddr.un);
 
                 WITH_UMASK(0000)
-                        if (bind(m->listen_fd, &sockaddr.sa, SOCKADDR_UN_LEN(sockaddr.un)) < 0)
+                        if (bind(m->listen_fd, &sockaddr.sa, sockaddr_un_len(&sockaddr.un)) < 0)
                                 return log_error_errno(errno, "Failed to bind socket: %m");
 
                 if (listen(m->listen_fd, SOMAXCONN) < 0)

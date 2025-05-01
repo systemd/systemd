@@ -685,7 +685,7 @@ int sd_lldp_neighbor_tlv_is_type(sd_lldp_neighbor *n, uint8_t type) {
         return type == k;
 }
 
-int sd_lldp_neighbor_tlv_get_oui(sd_lldp_neighbor *n, uint8_t oui[_SD_ARRAY_STATIC 3], uint8_t *subtype) {
+int sd_lldp_neighbor_tlv_get_oui(sd_lldp_neighbor *n, uint8_t oui[static 3], uint8_t *subtype) {
         const uint8_t *d;
         size_t length;
         int r;
@@ -714,7 +714,7 @@ int sd_lldp_neighbor_tlv_get_oui(sd_lldp_neighbor *n, uint8_t oui[_SD_ARRAY_STAT
         return 0;
 }
 
-int sd_lldp_neighbor_tlv_is_oui(sd_lldp_neighbor *n, const uint8_t oui[_SD_ARRAY_STATIC 3], uint8_t subtype) {
+int sd_lldp_neighbor_tlv_is_oui(sd_lldp_neighbor *n, const uint8_t oui[static 3], uint8_t subtype) {
         uint8_t k[3], st;
         int r;
 

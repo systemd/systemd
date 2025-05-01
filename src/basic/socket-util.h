@@ -240,60 +240,15 @@ void* cmsg_find_and_copy_data(struct msghdr *mh, int level, int type, void *buf,
 
 /*
  * Certain hardware address types (e.g Infiniband) do not fit into sll_addr
- * (8 bytes) and run over the structure. This macro returns the correct size that
+ * (8 bytes) and run over the structure. This function returns the correct size that
  * must be passed to kernel.
  */
-#define SOCKADDR_LL_LEN(sa)                                             \
-        ({                                                              \
-                const struct sockaddr_ll *_sa = &(sa);                  \
-                size_t _mac_len = sizeof(_sa->sll_addr);                \
-                assert(_sa->sll_family == AF_PACKET);                   \
-                if (be16toh(_sa->sll_hatype) == ARPHRD_ETHER)           \
-                        _mac_len = MAX(_mac_len, (size_t) ETH_ALEN);    \
-                if (be16toh(_sa->sll_hatype) == ARPHRD_INFINIBAND)      \
-                        _mac_len = MAX(_mac_len, (size_t) INFINIBAND_ALEN); \
-                offsetof(struct sockaddr_ll, sll_addr) + _mac_len;      \
-        })
+size_t sockaddr_ll_len(const struct sockaddr_ll *sa);
 
 /* Covers only file system and abstract AF_UNIX socket addresses, but not unnamed socket addresses. */
-#define SOCKADDR_UN_LEN(sa)                                             \
-        ({                                                              \
-                const struct sockaddr_un *_sa = &(sa);                  \
-                assert(_sa->sun_family == AF_UNIX);                     \
-                offsetof(struct sockaddr_un, sun_path) +                \
-                        (_sa->sun_path[0] == 0 ?                        \
-                         1 + strnlen(_sa->sun_path+1, sizeof(_sa->sun_path)-1) : \
-                         strnlen(_sa->sun_path, sizeof(_sa->sun_path))+1); \
-        })
+size_t sockaddr_un_len(const struct sockaddr_un *sa);
 
-#define SOCKADDR_LEN(saddr)                                             \
-        ({                                                              \
-                const union sockaddr_union *__sa = &(saddr);            \
-                size_t _len;                                            \
-                switch (__sa->sa.sa_family) {                           \
-                case AF_INET:                                           \
-                        _len = sizeof(struct sockaddr_in);              \
-                        break;                                          \
-                case AF_INET6:                                          \
-                        _len = sizeof(struct sockaddr_in6);             \
-                        break;                                          \
-                case AF_UNIX:                                           \
-                        _len = SOCKADDR_UN_LEN(__sa->un);               \
-                        break;                                          \
-                case AF_PACKET:                                         \
-                        _len = SOCKADDR_LL_LEN(__sa->ll);               \
-                        break;                                          \
-                case AF_NETLINK:                                        \
-                        _len = sizeof(struct sockaddr_nl);              \
-                        break;                                          \
-                case AF_VSOCK:                                          \
-                        _len = sizeof(struct sockaddr_vm);              \
-                        break;                                          \
-                default:                                                \
-                        assert_not_reached();                           \
-                }                                                       \
-                _len;                                                   \
-        })
+size_t sockaddr_len(const union sockaddr_union *sa);
 
 int socket_ioctl_fd(void);
 

@@ -154,7 +154,7 @@ int bus_event_loop_with_idle(
 
                         /* Inform the service manager that we are going down, so that it will queue all
                          * further start requests, instead of assuming we are still running. */
-                        (void) sd_notify(false, NOTIFY_STOPPING);
+                        (void) sd_notify(false, NOTIFY_STOPPING_MESSAGE);
 
                         r = bus_async_unregister_and_exit(e, bus, name);
                         if (r < 0)

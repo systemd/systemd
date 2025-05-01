@@ -230,7 +230,7 @@ _public_ int sd_journal_sendv(const struct iovec *iov, int n) {
         };
         struct msghdr mh = {
                 .msg_name = (struct sockaddr*) &sa.sa,
-                .msg_namelen = SOCKADDR_UN_LEN(sa.un),
+                .msg_namelen = sockaddr_un_len(&sa.un),
         };
         ssize_t k;
         bool have_syslog_identifier = false;

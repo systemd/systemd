@@ -2057,7 +2057,7 @@ static int dispatch_notify_event(sd_event_source *es, int fd, uint32_t revents, 
          * there's something to send it will be turned on again. */
 
         if (!s->sent_notify_ready) {
-                if (send(s->notify_fd, NOTIFY_READY, strlen(NOTIFY_READY), MSG_DONTWAIT) < 0) {
+                if (send(s->notify_fd, NOTIFY_READY_MESSAGE, strlen(NOTIFY_READY_MESSAGE), MSG_DONTWAIT) < 0) {
                         if (errno == EAGAIN)
                                 return 0;
 
