@@ -330,6 +330,7 @@ struct ExecContext {
         int bind_log_sockets;
         int memory_ksm;
         PrivateTmp private_tmp;
+        PrivateTmp private_var_tmp;
         bool private_network;
         bool private_devices;
         PrivateUsers private_users;
