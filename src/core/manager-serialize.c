@@ -3,7 +3,6 @@
 #include "sd-varlink.h"
 
 #include "clean-ipc.h"
-#include "core-varlink.h"
 #include "dbus.h"
 #include "dynamic-user.h"
 #include "fd-util.h"
@@ -18,6 +17,7 @@
 #include "syslog-util.h"
 #include "unit-serialize.h"
 #include "user-util.h"
+#include "varlink.h"
 #include "varlink-serialize.h"
 
 int manager_open_serialization(Manager *m, FILE **ret_f) {
