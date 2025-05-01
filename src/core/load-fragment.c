@@ -25,7 +25,6 @@
 #include "capability-util.h"
 #include "cgroup-setup.h"
 #include "conf-parser.h"
-#include "core-varlink.h"
 #include "cpu-set-util.h"
 #include "creds-util.h"
 #include "env-util.h"
@@ -73,6 +72,7 @@
 #include "unit-printf.h"
 #include "user-util.h"
 #include "utf8.h"
+#include "varlink.h"
 #include "web-util.h"
 
 static int parse_socket_protocol(const char *s) {

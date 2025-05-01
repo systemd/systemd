@@ -10,7 +10,6 @@ libcore_sources = files(
         'bpf-restrict-ifaces.c',
         'bpf-socket-bind.c',
         'cgroup.c',
-        'core-varlink.c',
         'dbus-automount.c',
         'dbus-cgroup.c',
         'dbus-device.c',
@@ -63,6 +62,7 @@ libcore_sources = files(
         'unit-printf.c',
         'unit-serialize.c',
         'unit.c',
+        'varlink.c',
 )
 
 if conf.get('BPF_FRAMEWORK') == 1
