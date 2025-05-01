@@ -93,20 +93,25 @@ static Event* event_free(Event *event) {
         if (!event)
                 return NULL;
 
-        assert(event->manager);
+        if (event->manager) {
+                if (event->manager->last_event == event)
+                        event->manager->last_event = event->event_prev;
+                LIST_REMOVE(event, event->manager->events, event);
+        }
 
-        LIST_REMOVE(event, event->manager->events, event);
+        if (event->worker)
+                event->worker->event = NULL;
+
         sd_device_unref(event->dev);
 
         sd_event_source_unref(event->retry_event_source);
         sd_event_source_unref(event->timeout_warning_event);
         sd_event_source_unref(event->timeout_event);
 
-        if (event->worker)
-                event->worker->event = NULL;
-
         return mfree(event);
 }
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(Event*, event_free);
 
 static Worker* worker_free(Worker *worker) {
         if (!worker)
@@ -827,7 +832,6 @@ static int event_queue_insert(Manager *manager, sd_device *dev) {
         const char *devpath, *devpath_old = NULL, *id = NULL, *devnode = NULL;
         sd_device_action_t action;
         uint64_t seqnum;
-        Event *event;
         int r;
 
         assert(manager);
@@ -858,12 +862,11 @@ static int event_queue_insert(Manager *manager, sd_device *dev) {
         if (r < 0 && r != -ENOENT)
                 return r;
 
-        event = new(Event, 1);
+        _cleanup_(event_freep) Event *event = new(Event, 1);
         if (!event)
                 return -ENOMEM;
 
         *event = (Event) {
-                .manager = manager,
                 .dev = sd_device_ref(dev),
                 .seqnum = seqnum,
                 .action = action,
@@ -874,7 +877,25 @@ static int event_queue_insert(Manager *manager, sd_device *dev) {
                 .state = EVENT_QUEUED,
         };
 
-        LIST_APPEND(event, manager->events, event);
+        Event *prev = NULL;
+        LIST_FOREACH_BACKWARDS(event, i, manager->last_event) {
+                if (i->seqnum < event->seqnum) {
+                        prev = i;
+                        break;
+                }
+                if (i->seqnum == event->seqnum)
+                        return log_device_warning_errno(dev, SYNTHETIC_ERRNO(EALREADY), "The event (SEQNUM=%"PRIu64") has been already queued.", event->seqnum);
+        }
+
+        LIST_INSERT_AFTER(event, manager->events, prev, event);
+        if (prev == manager->last_event)
+                manager->last_event = event;
+        else
+                log_device_debug(dev, "Unordered event is received (last queued event seqnum=%"PRIu64", newly received event seqnum=%"PRIu64"), reordering.",
+                                 manager->last_event->seqnum, event->seqnum);
+
+        event->manager = manager;
+        TAKE_PTR(event);
         log_device_uevent(dev, "Device is queued");
 
         if (!manager->queue_file_created) {
