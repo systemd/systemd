@@ -14,6 +14,7 @@
 #include "proto/device-path.h"
 #include "proto/loaded-image.h"
 #include "secure-boot.h"
+#include "shim.h"
 #include "util.h"
 
 #define STUB_PAYLOAD_GUID \
@@ -41,10 +42,16 @@ static bool validate_payload(
         return true;
 }
 
-static EFI_STATUS load_image(EFI_HANDLE parent, const void *source, size_t len, EFI_HANDLE *ret_image) {
+static EFI_STATUS load_image(EFI_HANDLE parent, EFI_LOADED_IMAGE_PROTOCOL *loaded_image, const void *source, size_t len, EFI_HANDLE *ret_image) {
+        EFI_STATUS ret;
+
         assert(parent);
         assert(source);
         assert(ret_image);
+
+        ret = shim_load_kernel(parent, loaded_image, source, len, ret_image);
+        if (ret != EFI_UNSUPPORTED) /* If shim is too old then we fallback to security override */
+                return ret;
 
         /* We could pass a NULL device path, but it's nicer to provide something and it allows us to identify
          * the loaded image from within the security hooks. */
@@ -77,7 +84,7 @@ static EFI_STATUS load_image(EFI_HANDLE parent, const void *source, size_t len, 
                                 .device_path = &payload_device_path.payload.Header,
                         });
 
-        EFI_STATUS ret = BS->LoadImage(
+        ret = BS->LoadImage(
                         /*BootPolicy=*/false,
                         parent,
                         &payload_device_path.payload.Header,
@@ -92,6 +99,7 @@ static EFI_STATUS load_image(EFI_HANDLE parent, const void *source, size_t len, 
 
 EFI_STATUS linux_exec(
                 EFI_HANDLE parent,
+                EFI_LOADED_IMAGE_PROTOCOL *loaded_linux,
                 const char16_t *cmdline,
                 const struct iovec *kernel,
                 const struct iovec *initrd) {
@@ -120,7 +128,7 @@ EFI_STATUS linux_exec(
                 return log_error_status(err, "Bad kernel image: %m");
 
         _cleanup_(unload_imagep) EFI_HANDLE kernel_image = NULL;
-        err = load_image(parent, kernel->iov_base, kernel->iov_len, &kernel_image);
+        err = load_image(parent, loaded_linux, kernel->iov_base, kernel->iov_len, &kernel_image);
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Error loading kernel image: %m");
 
@@ -141,7 +149,7 @@ EFI_STATUS linux_exec(
                 return log_error_status(err, "Error registering initrd: %m");
 
         log_wait();
-        err = BS->StartImage(kernel_image, NULL, NULL);
+        err = shim_start_image(kernel_image);
 
         /* Try calling the kernel compat entry point if one exists. */
         if (err == EFI_UNSUPPORTED && compat_address > 0) {
