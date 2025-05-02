@@ -61,6 +61,7 @@ extern const DevlinkMatchVTable devlink_match_port_index_vtable;
 extern const DevlinkMatchVTable devlink_match_port_split_vtable;
 extern const DevlinkMatchVTable devlink_match_port_ifname_vtable;
 extern const DevlinkMatchVTable devlink_match_param_vtable;
+extern const DevlinkMatchVTable devlink_match_health_reporter_vtable;
 
 typedef enum DevlinkMatchCheckResult {
         DEVLINK_MATCH_CHECK_RESULT_MATCH,
