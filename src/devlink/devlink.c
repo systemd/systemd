@@ -17,6 +17,7 @@
 #include "devlink-nested.h"
 #include "devlink-dev.h"
 #include "devlink-port-cache.h"
+#include "devlink-ifname-tracker.h"
 #include "devlinkd-manager.h"
 
 const DevlinkVTable * const devlink_vtable[_DEVLINK_KIND_MAX] = {
@@ -50,6 +51,9 @@ static Devlink *devlink_free(Devlink *devlink) {
         assert(devlink);
 
         devlink->expected_removal_timeout_event_source = sd_event_source_disable_unref(devlink->expected_removal_timeout_event_source);
+
+        if (devlink->in_ifname_tracker)
+                devlink_ifname_tracker_del(devlink);
 
         if (devlink->in_hashmap)
                 hashmap_remove(devlink->manager->devlink_objs, &devlink->key);
@@ -230,6 +234,10 @@ static int devlink_load_one(Manager *m, const char *filename) {
         } else if (r < 0) {
                 return r;
         }
+
+        r = devlink_ifname_tracker_add(devlink);
+        if (r < 0)
+                return r;
 
         devlink_ref(devlink);
 
