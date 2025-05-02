@@ -70,7 +70,7 @@ $ mkosi -f sandbox -- meson compile -C build mkosi && mkosi -f sandbox -- meson 
 The integration tests use the same mkosi configuration that's used when you run
 mkosi in the systemd reposistory, so any local modifications to the mkosi
 configuration (e.g. in `mkosi/mkosi.local.conf`) are automatically picked up and used
-by the integration tests as well.
+<!-- by the integration tests as well. -->
 
 ## Iterating on an integration test
 
