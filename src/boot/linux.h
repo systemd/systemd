@@ -3,9 +3,11 @@
 
 #include "efi.h"
 #include "iovec-util-fundamental.h"
+#include "proto/loaded-image.h"
 
 EFI_STATUS linux_exec(
                 EFI_HANDLE parent,
+                EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
                 const char16_t *cmdline,
                 const struct iovec *kernel,
                 const struct iovec *initrd);
