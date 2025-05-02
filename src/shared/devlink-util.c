@@ -14,6 +14,7 @@ static const char * const devlink_cmd_table[__DEVLINK_CMD_MAX] = {
         [DEVLINK_CMD_PORT_PARAM_GET] = "port_param_get",
         [DEVLINK_CMD_PORT_PARAM_NEW] = "port_param_new",
         [DEVLINK_CMD_PORT_PARAM_DEL] = "port_param_del",
+        [DEVLINK_CMD_HEALTH_REPORTER_GET] = "health_reporter_get",
 };
 
 DEFINE_STRING_TABLE_LOOKUP_TO_STRING(devlink_cmd, int);
