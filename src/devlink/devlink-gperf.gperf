@@ -9,6 +9,7 @@ _Pragma("GCC diagnostic ignored \"-Wzero-as-null-pointer-constant\"")
 #include "devlink-dev.h"
 #include "devlink-port.h"
 #include "devlink-param.h"
+#include "devlink-health-reporter.h"
 %}
 struct ConfigPerfItem;
 %null_strings
@@ -30,3 +31,6 @@ Match.Name,                               config_parse_string,                  
 Dev.EswitchMode,                          config_parse_devlink_dev_eswitch_mode,               0,                  offsetof(DevlinkDev, eswitch_mode)
 Port.SplitCount,                          config_parse_uint32,                                 0,                  offsetof(DevlinkPort, split_count)
 Param.Value,                              config_parse_string,                                 0,                  offsetof(DevlinkParam, value)
+HealthReporter.GracePeriod,               config_parse_devlink_health_reporter_grace_period,   0,                  0
+HealthReporter.AutoRecover,               config_parse_devlink_health_reporter_auto_recover,   0,                  0
+HealthReporter.AutoDump,                  config_parse_devlink_health_reporter_auto_dump,      0,                  0
