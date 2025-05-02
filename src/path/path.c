@@ -9,6 +9,7 @@
 
 #include "alloc-util.h"
 #include "build.h"
+#include "errno-util.h"
 #include "log.h"
 #include "macro.h"
 #include "main-func.h"

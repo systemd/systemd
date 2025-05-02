@@ -11,6 +11,7 @@
 #include "sd-device.h"
 
 #include "architecture.h"
+#include "argv-util.h"
 #include "blockdev-util.h"
 #include "build.h"
 #include "chase.h"

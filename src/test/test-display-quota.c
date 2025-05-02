@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "bitfield.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "log.h"

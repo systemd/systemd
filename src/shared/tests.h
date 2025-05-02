@@ -184,25 +184,21 @@ static inline int run_test_table(void) {
         return r;
 }
 
-#define DEFINE_TEST_MAIN_FULL(log_level, intro, outro)    \
-        int main(int argc, char *argv[]) {                \
-                int (*_intro)(void) = intro;              \
-                int (*_outro)(void) = outro;              \
-                int _r, _q;                               \
-                test_setup_logging(log_level);            \
-                save_argc_argv(argc, argv);               \
-                _r = _intro ? _intro() : EXIT_SUCCESS;    \
-                if (_r == EXIT_SUCCESS)                   \
-                        _r = run_test_table();            \
-                _q = _outro ? _outro() : EXIT_SUCCESS;    \
-                static_destruct();                        \
-                if (_r < 0)                               \
-                        return EXIT_FAILURE;              \
-                if (_r != EXIT_SUCCESS)                   \
-                        return _r;                        \
-                if (_q < 0)                               \
-                        return EXIT_FAILURE;              \
-                return _q;                                \
+typedef int (*IntroOutroFunction)(void);
+
+/* static_destruct() has to be in the same linking unit as the variables to destroy so we pass the function
+ * as an argument instead of calling it directly. */
+int _define_test_main_impl(
+                int argc,
+                char *argv[],
+                int log_level,
+                IntroOutroFunction intro,
+                IntroOutroFunction outro,
+                typeof(static_destruct) _static_destruct);
+
+#define DEFINE_TEST_MAIN_FULL(log_level, intro, outro)                                               \
+        int main(int argc, char *argv[]) {                                                           \
+                return _define_test_main_impl(argc, argv, log_level, intro, outro, static_destruct); \
         }
 
 #define DEFINE_TEST_MAIN_WITH_INTRO(log_level, intro)   \
