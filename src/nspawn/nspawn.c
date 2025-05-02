@@ -3660,7 +3660,7 @@ static int setup_notify_child(const void *directory) {
         (void) sockaddr_un_unlink(&sa.un);
 
         WITH_UMASK(0577) { /* only set "w" bit, which is all that's necessary for connecting from the container */
-                r = bind(fd, &sa.sa, SOCKADDR_UN_LEN(sa.un));
+                r = bind(fd, &sa.sa, sockaddr_un_len(&sa.un));
                 if (r < 0)
                         return log_error_errno(errno, "bind(" NSPAWN_NOTIFY_SOCKET_PATH ") failed: %m");
         }

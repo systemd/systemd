@@ -225,8 +225,7 @@ executables += [
                             generated_gperf_headers,
         },
         test_template + {
-                'sources' : files('test-arphrd-util.c') +
-                            generated_gperf_headers,
+                'sources' : files('test-arphrd-util.c')
         },
         test_template + {
                 'sources' : files('test-ask-password-api.c'),
@@ -249,8 +248,7 @@ executables += [
                 'type' : 'manual',
         },
         test_template + {
-                'sources' : files('test-cap-list.c') +
-                            generated_gperf_headers,
+                'sources' : files('test-cap-list.c'),
                 'dependencies' : libcap,
         },
         test_template + {
@@ -313,8 +311,7 @@ executables += [
                 'timeout' : 180,
         },
         test_template + {
-                'sources' : files('test-ip-protocol-list.c') +
-                            shared_generated_gperf_headers,
+                'sources' : files('test-ip-protocol-list.c'),
         },
         test_template + {
                 'sources' : files('test-ipcrm.c'),

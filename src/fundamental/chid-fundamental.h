@@ -3,7 +3,7 @@
 #pragma once
 
 #if SD_BOOT
-#  include "efi-string.h"
+#  include "efi.h"
 #else
 #  include <uchar.h>
 #endif

@@ -328,7 +328,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        notify_stop = notify_start(NOTIFY_READY, NOTIFY_STOPPING);
+        notify_stop = notify_start(NOTIFY_READY_MESSAGE, NOTIFY_STOPPING_MESSAGE);
 
         while (!server.quit) {
                 struct epoll_event event;

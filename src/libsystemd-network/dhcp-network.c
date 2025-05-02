@@ -136,7 +136,7 @@ static int _bind_raw_socket(
         /* We may overflow link->ll. link->ll_buffer ensures we have enough space. */
         memcpy(link->ll.sll_addr, bcast_addr->bytes, bcast_addr->length);
 
-        r = bind(s, &link->sa, SOCKADDR_LL_LEN(link->ll));
+        r = bind(s, &link->sa, sockaddr_ll_len(&link->ll));
         if (r < 0)
                 return -errno;
 
@@ -258,7 +258,7 @@ int dhcp_network_send_raw_socket(
         assert(packet);
         assert(len > 0);
 
-        if (sendto(s, packet, len, 0, &link->sa, SOCKADDR_LL_LEN(link->ll)) < 0)
+        if (sendto(s, packet, len, 0, &link->sa, sockaddr_ll_len(&link->ll)) < 0)
                 return -errno;
 
         return 0;
