@@ -13,6 +13,7 @@ const DevlinkMatchVTable * const devlink_match_vtable[] = {
         &devlink_match_port_index_vtable,
         &devlink_match_port_split_vtable,
         &devlink_match_port_ifname_vtable,
+        &devlink_match_param_vtable,
 };
 
 #define DEVLINK_MATCH_VTABLE_SIZE ELEMENTSOF(devlink_match_vtable)
