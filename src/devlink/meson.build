@@ -26,6 +26,8 @@ sources = files(
         'devlink-ifname-tracker.h',
         'devlink-port.c',
         'devlink-port.h',
+        'devlink-param.c',
+        'devlink-param.h',
         'devlinkd-manager.c',
         'devlinkd-manager.h',
 )
