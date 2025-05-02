@@ -23,6 +23,8 @@ sources = files(
         'devlink-port-cache.h',
         'devlink-ifname-tracker.c',
         'devlink-ifname-tracker.h',
+        'devlink-port.c',
+        'devlink-port.h',
         'devlinkd-manager.c',
         'devlinkd-manager.h',
 )
