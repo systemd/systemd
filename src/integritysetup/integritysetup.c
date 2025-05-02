@@ -5,6 +5,7 @@
 #include <sys/stat.h>
 
 #include "alloc-util.h"
+#include "argv-util.h"
 #include "cryptsetup-util.h"
 #include "fileio.h"
 #include "hexdecoct.h"

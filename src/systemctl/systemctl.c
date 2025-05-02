@@ -6,6 +6,7 @@
 
 #include "sd-daemon.h"
 
+#include "argv-util.h"
 #include "build.h"
 #include "bus-util.h"
 #include "capsule-util.h"

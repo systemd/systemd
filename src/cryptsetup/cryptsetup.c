@@ -13,6 +13,7 @@
 #include "sd-messages.h"
 
 #include "alloc-util.h"
+#include "argv-util.h"
 #include "ask-password-api.h"
 #include "build.h"
 #include "cryptsetup-fido2.h"

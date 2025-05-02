@@ -11,6 +11,7 @@
 #include "blockdev-util.h"
 #include "dissect-image.h"
 #include "fd-util.h"
+#include "log.h"
 #include "main-func.h"
 #include "mkfs-util.h"
 #include "path-util.h"
