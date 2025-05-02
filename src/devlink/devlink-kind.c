@@ -10,6 +10,7 @@ static const char* const devlink_kind_table[_DEVLINK_KIND_MAX] = {
         [DEVLINK_KIND_DEV] = "dev",
         [DEVLINK_KIND_PORT_CACHE] = "internal_port_cache", /* internal kind */
         [DEVLINK_KIND_PORT] = "port",
+        [DEVLINK_KIND_PARAM] = "param",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(devlink_kind, DevlinkKind);
