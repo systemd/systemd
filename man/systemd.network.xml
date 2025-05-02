@@ -37,6 +37,14 @@
     <para>The main network file must have the extension <filename>.network</filename>; other
     extensions are ignored. Networks are applied to links whenever the links appear.</para>
 
+    <para>Note that not all settings and configurations can be made with <filename>.network</filename>
+    files, and that it may be necessary to use
+    <citerefentry><refentrytitle>systemd.link</refentrytitle><manvolnum>5</manvolnum></citerefentry>)
+    or
+    <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>)
+    files in conjuction with <filename>.network</filename> files when working with physical and virtual
+    network devices respectively.</para>
+
     <para>The <filename>.network</filename> files are read from the files located in the system network
     directories <filename>/usr/lib/systemd/network</filename> and
     <filename>/usr/local/lib/systemd/network</filename>
