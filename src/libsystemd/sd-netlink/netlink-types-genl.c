@@ -233,6 +233,12 @@ static const NLAPolicy genl_wireguard_policies[] = {
         [WGDEVICE_A_PEERS]       = BUILD_POLICY_NESTED(genl_wireguard_peer),
 };
 
+static const NLAPolicy genl_devlink_param_policies[] = {
+        [DEVLINK_ATTR_PARAM_NAME]                      = BUILD_POLICY(STRING),
+};
+
+DEFINE_POLICY_SET(genl_devlink_param);
+
 static const NLAPolicy genl_devlink_nested_devlink_policies[] = {
         [DEVLINK_ATTR_BUS_NAME]                        = BUILD_POLICY(STRING),
         [DEVLINK_ATTR_DEV_NAME]                        = BUILD_POLICY(STRING),
@@ -249,6 +255,8 @@ static const NLAPolicy genl_devlink_policies[] = {
         [DEVLINK_ATTR_PORT_SPLIT_COUNT]                = BUILD_POLICY(U32),
         [DEVLINK_ATTR_PORT_SPLIT_GROUP]                = BUILD_POLICY(U32),
         [DEVLINK_ATTR_ESWITCH_MODE]                    = BUILD_POLICY(U16),
+        [DEVLINK_ATTR_PARAM]                           = BUILD_POLICY_NESTED(genl_devlink_param),
+        [DEVLINK_ATTR_PARAM_NAME]                      = BUILD_POLICY(STRING),
         [DEVLINK_ATTR_RELOAD_ACTION]                   = BUILD_POLICY(U8),
         [DEVLINK_ATTR_NESTED_DEVLINK]                  = BUILD_POLICY_NESTED(genl_devlink_nested_devlink),
 };
