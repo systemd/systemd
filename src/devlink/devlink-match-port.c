@@ -10,6 +10,8 @@
 
 #include "devlink-match.h"
 #include "devlink-match-port.h"
+#include "devlink-port-cache.h"
+#include "devlink-ifname-tracker.h"
 
 static int devlink_match_port_index_genl_read(
                 sd_netlink_message *message,
@@ -126,4 +128,83 @@ const DevlinkMatchVTable devlink_match_port_split_vtable = {
         .copy_func = devlink_match_port_split_copy_func,
         .duplicate_func = devlink_match_port_split_duplicate_func,
         .genl_read = devlink_match_port_split_genl_read,
+};
+
+static void devlink_match_port_ifname_free(DevlinkMatch *match) {
+        DevlinkMatchPort *port = &match->port;
+
+        port->ifname = mfree(port->ifname);
+}
+
+static bool devlink_match_port_ifname_check(const DevlinkMatch *match, bool explicit) {
+        const DevlinkMatchPort *port = &match->port;
+
+        if (!port->ifname) {
+                log_debug("Match ifname not configured.");
+                return false;
+        }
+        return true;
+}
+
+static void devlink_match_port_ifname_log_prefix(char **buf, int *len, const DevlinkMatch *match) {
+        const DevlinkMatchPort *port = &match->port;
+
+        BUFFER_APPEND(*buf, *len, "ifname %s split %s", port->ifname, port->split ? "true" : "false");
+}
+
+static void devlink_match_port_ifname_hash_func(const DevlinkMatch *match, struct siphash *state) {
+        const DevlinkMatchPort *port = &match->port;
+
+        assert(port->ifname);
+
+        string_hash_func(port->ifname, state);
+}
+
+static int devlink_match_port_ifname_compare_func(const DevlinkMatch *x, const DevlinkMatch *y) {
+        const DevlinkMatchPort *xport = &x->port;
+        const DevlinkMatchPort *yport = &y->port;
+
+        assert(xport->ifname);
+        assert(yport->ifname);
+
+        return strcmp(xport->ifname, yport->ifname);
+}
+
+static int devlink_match_port_ifname_genl_read(
+                sd_netlink_message *message,
+                Manager *m,
+                DevlinkMatch *match) {
+        DevlinkMatchCommon *common = &match->common;
+        DevlinkMatchPort *port = &match->port;
+        DevlinkMatchDev *dev = &match->dev;
+        uint64_t ifindex;
+        int r;
+
+        if (!dev->bus_name || !dev->dev_name || !common->index_valid || !m)
+                return -EINVAL;
+
+        /* Do not rely on ifname/ifindex contained in the message:
+         * 1) Some messages, like param, do not contain these attributes at all.
+         * 2) Port messages containe ifname but if ifname changes, message
+         *    is not generated for this change.
+         * 3) Alternative ifnames are not handled in devlink messages at all.
+         * So instead, query the port cache for ifindex and then obtain ifname
+         * from tracker that stores info coming in over RT Netlink.
+         */
+
+        r = devlink_port_cache_query_by_match(m, match, &ifindex);
+        if (r < 0)
+                return r;
+
+        return devlink_ifname_tracker_query(m, ifindex, &port->ifname);
+}
+
+const DevlinkMatchVTable devlink_match_port_ifname_vtable = {
+        .bit = DEVLINK_MATCH_BIT_PORT_IFNAME,
+        .free = devlink_match_port_ifname_free,
+        .check = devlink_match_port_ifname_check,
+        .log_prefix = devlink_match_port_ifname_log_prefix,
+        .hash_func = devlink_match_port_ifname_hash_func,
+        .compare_func = devlink_match_port_ifname_compare_func,
+        .genl_read = devlink_match_port_ifname_genl_read,
 };

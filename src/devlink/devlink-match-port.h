@@ -4,6 +4,7 @@
 #include "conf-parser-forward.h"
 
 typedef struct DevlinkMatchPort {
+        char *ifname;
         bool split;
         bool split_explicit;
 } DevlinkMatchPort;
