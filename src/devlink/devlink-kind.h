@@ -9,6 +9,7 @@ typedef enum DevlinkKind {
         DEVLINK_KIND_DEV,
         DEVLINK_KIND_PORT_CACHE, /* internal kind */
         DEVLINK_KIND_PORT,
+        DEVLINK_KIND_PARAM,
         _DEVLINK_KIND_MAX,
         _DEVLINK_KIND_INVALID = -EINVAL,
 } DevlinkKind;
