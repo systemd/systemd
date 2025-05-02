@@ -3,6 +3,8 @@
 
 #include <linux/devlink.h>
 
+#include "list.h"
+
 #include "devlink-key.h"
 #include "devlink-match.h"
 #include "devlinkd-manager.h"
@@ -16,9 +18,11 @@ typedef struct Devlink {
         char *filename;
         char **dropins;
         bool in_hashmap;
+        bool in_ifname_tracker;
         bool expected_removal;
         sd_event_source *expected_removal_timeout_event_source;
         Hashmap *stats_by_path;
+        LIST_FIELDS(struct Devlink, ifname_tracker);
 } Devlink;
 
 typedef enum DevlinkMonitorCommandRetval {
