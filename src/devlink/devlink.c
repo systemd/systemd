@@ -20,6 +20,7 @@
 #include "devlink-nested.h"
 #include "devlink-dev.h"
 #include "devlink-port.h"
+#include "devlink-param.h"
 #include "devlink-port-cache.h"
 #include "devlink-ifname-tracker.h"
 #include "devlinkd-manager.h"
@@ -30,6 +31,7 @@ const DevlinkVTable * const devlink_vtable[_DEVLINK_KIND_MAX] = {
         [DEVLINK_KIND_DEV] = &devlink_dev_vtable,
         [DEVLINK_KIND_PORT_CACHE] = &devlink_port_cache_vtable,
         [DEVLINK_KIND_PORT] = &devlink_port_vtable,
+        [DEVLINK_KIND_PARAM] = &devlink_param_vtable,
 };
 
 static Devlink *devlink_alloc(Manager *m, DevlinkKind kind) {
