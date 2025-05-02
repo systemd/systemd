@@ -10,6 +10,7 @@ typedef enum DevlinkMatchBitPosition {
         DEVLINK_MATCH_BIT_POSITION_DEV,
         DEVLINK_MATCH_BIT_POSITION_COMMON_INDEX,
         DEVLINK_MATCH_BIT_POSITION_PORT_SPLIT,
+        DEVLINK_MATCH_BIT_POSITION_PORT_IFNAME,
         _DEVLINK_MATCH_BIT_POSITION_MAX,
         _DEVLINK_MATCH_BIT_POSITION_INVALID = -1,
 } DevlinkMatchBitPosition;
@@ -18,6 +19,7 @@ typedef enum DevlinkMatchBit {
         DEVLINK_MATCH_BIT_DEV = 1 << DEVLINK_MATCH_BIT_POSITION_DEV,
         DEVLINK_MATCH_BIT_COMMON_INDEX = 1 << DEVLINK_MATCH_BIT_POSITION_COMMON_INDEX,
         DEVLINK_MATCH_BIT_PORT_SPLIT = 1 << DEVLINK_MATCH_BIT_POSITION_PORT_SPLIT,
+        DEVLINK_MATCH_BIT_PORT_IFNAME = 1 << DEVLINK_MATCH_BIT_POSITION_PORT_IFNAME,
 } DevlinkMatchBit;
 
 const char* devlink_match_bit_to_string(DevlinkMatchBit bit);
@@ -54,6 +56,7 @@ typedef struct DevlinkMatchVTable {
 extern const DevlinkMatchVTable devlink_match_dev_vtable;
 extern const DevlinkMatchVTable devlink_match_port_index_vtable;
 extern const DevlinkMatchVTable devlink_match_port_split_vtable;
+extern const DevlinkMatchVTable devlink_match_port_ifname_vtable;
 
 typedef enum DevlinkMatchCheckResult {
         DEVLINK_MATCH_CHECK_RESULT_MATCH,
