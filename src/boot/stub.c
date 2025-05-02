@@ -1278,7 +1278,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
                         (const uint8_t*) loaded_image->ImageBase + sections[UNIFIED_SECTION_LINUX].memory_offset,
                         sections[UNIFIED_SECTION_LINUX].memory_size);
 
-        err = linux_exec(image, cmdline, &kernel, &final_initrd);
+        err = linux_exec(image, loaded_image, cmdline, &kernel, &final_initrd);
         graphics_mode(false);
         return err;
 }
