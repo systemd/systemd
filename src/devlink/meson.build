@@ -14,6 +14,7 @@ sources = files(
         'devlink-match-port.c',
         'devlink-match-port.h',
         'devlink-match-param.c',
+        'devlink-match-health-reporter.c',
         'devlink-reload.c',
         'devlink-reload.h',
         'devlink-nested.c',
