@@ -2719,7 +2719,9 @@ install_data('LICENSE.GPL2',
 install_subdir('LICENSES',
                install_dir : docdir)
 
+install_emptydir(systemenvgeneratordir)
 install_emptydir(systemdstatedir)
+install_emptydir(userenvgeneratordir)
 
 #####################################################################
 
