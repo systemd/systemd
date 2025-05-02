@@ -22,6 +22,8 @@ sources = files('''
         devlink-dev.h
         devlink-port.c
         devlink-port.h
+        devlink-param.c
+        devlink-param.h
         devlink-port-cache.c
         devlink-port-cache.h
         devlink-ifname-tracker.c
