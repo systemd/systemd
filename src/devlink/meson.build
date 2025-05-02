@@ -13,6 +13,7 @@ sources = files(
         'devlink-match-dev.h',
         'devlink-match-port.c',
         'devlink-match-port.h',
+        'devlink-match-param.c',
         'devlink-reload.c',
         'devlink-reload.h',
         'devlink-nested.c',
