@@ -27,6 +27,8 @@ struct Manager {
         unsigned config_generation;
         KindInfo kind_info[_DEVLINK_KIND_MAX];
         Hashmap *port_cache_by_ifindex;
+        Hashmap *ifname_tracker_by_ifindex;
+        Hashmap *ifname_tracker_by_ifname;
 };
 
 int manager_rtnl_query_one(Manager *m, uint32_t ifindex);
