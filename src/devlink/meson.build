@@ -29,6 +29,8 @@ sources = files(
         'devlink-port.h',
         'devlink-param.c',
         'devlink-param.h',
+        'devlink-health-reporter.c',
+        'devlink-health-reporter.h',
         'devlinkd-manager.c',
         'devlinkd-manager.h',
 )

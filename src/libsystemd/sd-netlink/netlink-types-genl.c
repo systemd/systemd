@@ -309,6 +309,9 @@ DEFINE_POLICY_SET(genl_devlink_param);
 
 static const NLAPolicy genl_devlink_health_reporter_policies[] = {
         [DEVLINK_ATTR_HEALTH_REPORTER_NAME]            = BUILD_POLICY(STRING),
+        [DEVLINK_ATTR_HEALTH_REPORTER_GRACEFUL_PERIOD] = BUILD_POLICY(U64),
+        [DEVLINK_ATTR_HEALTH_REPORTER_AUTO_RECOVER]    = BUILD_POLICY(U8),
+        [DEVLINK_ATTR_HEALTH_REPORTER_AUTO_DUMP]       = BUILD_POLICY(U8),
 };
 
 DEFINE_POLICY_SET(genl_devlink_health_reporter);
@@ -337,6 +340,9 @@ static const NLAPolicy genl_devlink_policies[] = {
         [DEVLINK_ATTR_RELOAD_ACTION]                   = BUILD_POLICY(U8),
         [DEVLINK_ATTR_HEALTH_REPORTER]                 = BUILD_POLICY_NESTED(genl_devlink_health_reporter),
         [DEVLINK_ATTR_HEALTH_REPORTER_NAME]            = BUILD_POLICY(STRING),
+        [DEVLINK_ATTR_HEALTH_REPORTER_GRACEFUL_PERIOD] = BUILD_POLICY(U64),
+        [DEVLINK_ATTR_HEALTH_REPORTER_AUTO_RECOVER]    = BUILD_POLICY(U8),
+        [DEVLINK_ATTR_HEALTH_REPORTER_AUTO_DUMP]       = BUILD_POLICY(U8),
         [DEVLINK_ATTR_NESTED_DEVLINK]                  = BUILD_POLICY_NESTED(genl_devlink_nested_devlink),
 };
 
