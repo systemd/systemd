@@ -30,8 +30,45 @@ struct ShimLock {
         EFI_STATUS __sysv_abi__ (*read_header) (void *data, uint32_t datasize, void *context);
 };
 
+typedef struct {
+        EFI_STATUS (EFIAPI *LoadImage)(
+                bool BootPolicy,
+                EFI_HANDLE ParentImageHandle,
+                EFI_DEVICE_PATH *DevicePath,
+                void *SourceBuffer,
+                size_t SourceSize,
+                EFI_HANDLE *ImageHandle);
+        EFI_STATUS (EFIAPI *StartImage)(
+                EFI_HANDLE ImageHandle,
+                size_t *ExitDataSize,
+                char16_t **ExitData);
+        EFI_STATUS (EFIAPI *Exit)(
+                EFI_HANDLE ImageHandle,
+                EFI_STATUS ExitStatus,
+                size_t ExitDataSize,
+                char16_t *ExitData);
+        EFI_STATUS (EFIAPI *UnloadImage)(EFI_HANDLE ImageHandle);
+} ShimImageLoader;
+
+typedef struct {
+        VENDOR_DEVICE_PATH VendorHeader;
+        char SectionName[8];
+} ShimLoadedSectionDevicePath;
+
+#define SHIM_LOADED_SECTION_DEVICE_PATH_TYPE    4 /* media device path type */
+#define SHIM_LOADED_SECTION_DEVICE_PATH_SUBTYPE 3 /* vendor-defined subtype */
+
 #define SHIM_LOCK_GUID \
         { 0x605dab50, 0xe046, 0x4300, { 0xab, 0xb6, 0x3d, 0xd8, 0x10, 0xdd, 0x8b, 0x23 } }
+
+#define SHIM_IMAGE_LOADER_GUID \
+        { 0x1f492041, 0xfadb, 0x4e59, { 0x9e, 0x57, 0x7c, 0xaf, 0xe7, 0x3a, 0x55, 0xab } }
+
+#define SHIM_LOADED_IMAGE_GUID \
+        { 0x6e6baeb8, 0x7108, 0x4179, { 0x94, 0x9d, 0xa3, 0x49, 0x34, 0x15, 0xec, 0x97 } }
+
+#define SHIM_LOADED_SECTION_DEVICE_PATH_GUID \
+        { 0xa0cd13d0, 0xa41a, 0x4028, { 0x8a, 0xa7, 0x7c, 0x87, 0xf2, 0x8f, 0x0f, 0xf4 } }
 
 bool shim_loaded(void) {
         struct ShimLock *shim_lock;
@@ -90,6 +127,18 @@ EFI_STATUS shim_load_image(
         assert(device_path);
         assert(ret_image);
 
+        /* Same as shim_start_image(), if the new shim protocol is available, use it, so that we do not need
+         * to override the security protocol, and UKIs with unsigned kernels can be loaded too */
+        ShimImageLoader *shim_image_loader;
+        if (BS->LocateProtocol(MAKE_GUID_PTR(SHIM_IMAGE_LOADER), NULL, (void **) &shim_image_loader) == EFI_SUCCESS)
+                return shim_image_loader->LoadImage(
+                                /* BootPolicy= */ boot_policy,
+                                parent,
+                                (EFI_DEVICE_PATH *) device_path,
+                                /* SourceBuffer= */ NULL,
+                                /* SourceSize= */ 0,
+                                ret_image);
+
         bool have_shim = shim_loaded();
 
         if (have_shim)
@@ -106,6 +155,74 @@ EFI_STATUS shim_load_image(
                 uninstall_security_override();
 
         return ret;
+}
+
+EFI_STATUS shim_start_image(EFI_HANDLE image) {
+        ShimImageLoader *shim_image_loader;
+
+        assert(image);
+
+        /* If the new shim with the loader protocol is available, use it so that in case a UKI with an
+         * unsigned kernel is loaded, it can cache the sections and verify it later when sd-stub loads
+         * it again. Otherwise fallback to the boot services protocol. */
+
+        if (BS->LocateProtocol(MAKE_GUID_PTR(SHIM_IMAGE_LOADER), NULL, (void **) &shim_image_loader) == EFI_SUCCESS)
+                return shim_image_loader->StartImage(image, NULL, NULL);
+
+        return BS->StartImage(image, NULL, NULL);
+}
+
+EFI_STATUS shim_load_kernel(
+                EFI_HANDLE parent,
+                EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
+                const void *source,
+                size_t len,
+                EFI_HANDLE *ret_image) {
+
+        ShimImageLoader *shim_image_loader;
+
+        assert(parent);
+        assert(loaded_image);
+        assert(source);
+        assert(ret_image);
+
+        if (BS->LocateProtocol(MAKE_GUID_PTR(SHIM_IMAGE_LOADER), NULL, (void **) &shim_image_loader) != EFI_SUCCESS)
+                return EFI_UNSUPPORTED;
+
+        /* If we are running after shim and the new loader protocol is available, then we don't need to
+         * override the security protocol (which is only part of the PI spec, not the UEFI spec, so it's not
+         * guaranteed to be available), as shim natively supports loading the inner unsigned kernel as long
+         * as it's part of a signed UKI, by passing a specific struct which indicates which section to check
+         * against. */
+        struct {
+                ShimLoadedSectionDevicePath shim_loaded_section_dp;
+                EFI_DEVICE_PATH end;
+        } _packed_ payload_device_path = {
+                .shim_loaded_section_dp = {
+                        .VendorHeader = {
+                                .Header = {
+                                        .Type = SHIM_LOADED_SECTION_DEVICE_PATH_TYPE,
+                                        .SubType = SHIM_LOADED_SECTION_DEVICE_PATH_SUBTYPE,
+                                        .Length = sizeof(payload_device_path.shim_loaded_section_dp),
+                                },
+                                .Guid = SHIM_LOADED_SECTION_DEVICE_PATH_GUID,
+                        },
+                        .SectionName = ".linux\0", /* Need to include padding */
+                },
+                .end = {
+                        .Type = END_DEVICE_PATH_TYPE,
+                        .SubType = END_ENTIRE_DEVICE_PATH_SUBTYPE,
+                        .Length = sizeof(payload_device_path.end),
+                },
+        };
+
+        return shim_image_loader->LoadImage(
+                        /* BootPolicy= */ false,
+                        loaded_image,
+                        (EFI_DEVICE_PATH *) &payload_device_path,
+                        (void *) source,
+                        len,
+                        ret_image);
 }
 
 void shim_retain_protocol(void) {
