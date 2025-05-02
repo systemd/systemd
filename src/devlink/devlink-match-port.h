@@ -2,5 +2,6 @@
 #pragma once
 
 typedef struct DevlinkMatchPort {
+        char *ifname;
         bool split;
 } DevlinkMatchPort;

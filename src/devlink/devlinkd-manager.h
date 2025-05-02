@@ -17,6 +17,8 @@ struct Manager {
         sd_event *event;
         sd_event_source *periodic_enumeration_event_source;
         Hashmap *devlink_objs;
+        Hashmap *ifname_tracker_by_ifindex;
+        Hashmap *ifname_tracker_by_ifname;
         Hashmap *port_cache_by_ifindex;
         Hashmap *reload;
 };
