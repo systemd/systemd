@@ -4,5 +4,6 @@
 typedef struct DevlinkMatchPort {
         uint32_t index;
         bool index_valid;
+        char *ifname;
         bool split;
 } DevlinkMatchPort;

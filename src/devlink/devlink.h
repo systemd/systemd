@@ -19,8 +19,10 @@ typedef struct Devlink {
         unsigned n_ref;
         char *filename;
         bool in_hashmap;
+        bool in_ifname_tracker;
         bool expected_removal;
         sd_event_source *expected_removal_timeout_event_source;
+        LIST_FIELDS(struct Devlink, ifname_tracker);
 } Devlink;
 
 typedef enum DevlinkMonitorCommandRetval {
