@@ -13,6 +13,7 @@ typedef enum DevlinkMatchBit {
         DEVLINK_MATCH_BIT_DEV = 1 << 0,
         DEVLINK_MATCH_BIT_PORT_INDEX = 1 << 1,
         DEVLINK_MATCH_BIT_PORT_SPLIT = 1 << 2,
+        DEVLINK_MATCH_BIT_PORT_IFNAME = 1 << 3,
 } DevlinkMatchBit;
 
 typedef uint32_t DevlinkMatchSet;
@@ -46,6 +47,7 @@ typedef struct DevlinkMatchVTable {
 extern const DevlinkMatchVTable devlink_match_dev_vtable;
 extern const DevlinkMatchVTable devlink_match_port_index_vtable;
 extern const DevlinkMatchVTable devlink_match_port_split_vtable;
+extern const DevlinkMatchVTable devlink_match_port_ifname_vtable;
 
 void devlink_match_fini(DevlinkMatch *match);
 bool devlink_match_check(const DevlinkMatch *match, DevlinkMatchSet matchset);
