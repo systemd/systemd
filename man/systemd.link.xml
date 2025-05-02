@@ -33,6 +33,11 @@
     <citerefentry><refentrytitle>systemd.syntax</refentrytitle><manvolnum>7</manvolnum></citerefentry> for a
     general description of the syntax.</para>
 
+    <para>Note that some distributions may incorporate <filename>.link</filename> files in their early boot
+    facilities (e.g. by including copies of the <filename>.link</filename> files in initramfs). As such it
+    may be necessary to take manual steps to ensure that any local changes are consistent with early-boot
+    storage facilities. The relevant distribution-specific documentation should be consulted.</para>
+
     <para>The <filename>.link</filename> files are read from the files located in the system network
     directory <filename>/usr/lib/systemd/network</filename> and
     <filename>/usr/local/lib/systemd/network</filename>
