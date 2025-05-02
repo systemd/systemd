@@ -32,8 +32,12 @@ static int devlink_port_cache_genl_cmd_new_msg_process(
         r = hashmap_ensure_put(&m->port_cache_by_ifindex, &devlink_port_cache_by_ifindex_hash_ops, &port_cache->ifindex, devlink);
         if (r < 0)
                 return r;
-        if (r == 1)
+        if (r == 1) {
                 log_devlink_debug(devlink, "Added ifindex \"%" PRIu32 "\"\n", ifindex);
+                r = manager_rtnl_query_one(m, ifindex);
+                if (r < 0)
+                        return r;
+        }
 
         return DEVLINK_MONITOR_COMMAND_RETVAL_OK;
 }

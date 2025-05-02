@@ -11,6 +11,7 @@ static const char* const devlink_match_bit_position_table[_DEVLINK_MATCH_BIT_POS
         [DEVLINK_MATCH_BIT_POSITION_DEV] = "Handle",
         [DEVLINK_MATCH_BIT_POSITION_COMMON_INDEX] = "Index",
         [DEVLINK_MATCH_BIT_POSITION_PORT_SPLIT] = "Split",
+        [DEVLINK_MATCH_BIT_POSITION_PORT_IFNAME] = "NetdevName",
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(devlink_match_bit_position, DevlinkMatchBitPosition);
@@ -23,6 +24,7 @@ const DevlinkMatchVTable * const devlink_match_vtable[] = {
         &devlink_match_dev_vtable,
         &devlink_match_port_index_vtable,
         &devlink_match_port_split_vtable,
+        &devlink_match_port_ifname_vtable,
 };
 
 #define DEVLINK_MATCH_VTABLE_SIZE ELEMENTSOF(devlink_match_vtable)
