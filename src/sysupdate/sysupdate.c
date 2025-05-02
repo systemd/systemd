@@ -3,6 +3,8 @@
 #include <getopt.h>
 #include <unistd.h>
 
+#include "sd-daemon.h"
+
 #include "build.h"
 #include "chase.h"
 #include "conf-files.h"

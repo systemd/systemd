@@ -4,6 +4,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "argv-util.h"
 #include "cgroup-util.h"
 #include "dropin.h"
 #include "escape.h"
@@ -1086,6 +1087,20 @@ bool generator_soft_rebooted(void) {
         }
 
         return (cached = (u > 0));
+}
+
+int generator_intro(int argc, char *argv[], void *userdata) {
+        log_setup_generator();
+        if (!IN_SET(argc, 2, 4))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "This program takes one or three arguments.");
+
+        return 0;
+}
+
+int generator_run(int argc, char *argv[], void *userdata) {
+        GeneratorRunFunction impl = ASSERT_PTR(userdata);
+        return impl(argv[1], argv[argc == 4 ? 2 : 1], argv[argc == 4 ? 3 : 1]);
 }
 
 GptAutoRoot parse_gpt_auto_root(const char *switch_name, const char *value) {

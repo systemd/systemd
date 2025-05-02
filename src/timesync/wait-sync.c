@@ -13,6 +13,7 @@
 
 #include "sd-event.h"
 
+#include "errno-util.h"
 #include "fd-util.h"
 #include "inotify-util.h"
 #include "main-func.h"

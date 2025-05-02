@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <sys/utsname.h>
 
+#include "argv-util.h"
 #include "boot-entry.h"
 #include "build.h"
 #include "chase.h"
