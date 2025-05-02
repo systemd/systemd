@@ -982,7 +982,7 @@ static int run(int argc, char **argv) {
 
         notify_message = notify_start("READY=1\n"
                                       "STATUS=Processing input...",
-                                      NOTIFY_STOPPING);
+                                      NOTIFY_STOPPING_MESSAGE);
 
         for (;;) {
                 r = sd_event_get_state(u.event);

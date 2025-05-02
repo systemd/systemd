@@ -86,7 +86,7 @@ TEST(fake_pressure) {
         socket_fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
         assert_se(socket_fd >= 0);
         assert_se(sockaddr_un_set_path(&sa.un, k) >= 0);
-        assert_se(bind(socket_fd, &sa.sa, SOCKADDR_UN_LEN(sa.un)) >= 0);
+        assert_se(bind(socket_fd, &sa.sa, sockaddr_un_len(&sa.un)) >= 0);
         assert_se(listen(socket_fd, 1) >= 0);
 
         /* Ideally we'd just allocate this on the stack, but AddressSanitizer doesn't like it if threads

@@ -680,16 +680,16 @@ int local_outbounds(
                  * make use of the binding and return it. Hence, let's not unnecessarily fail early here: we
                  * can still easily detect if the auto-binding worked or not, by comparing the bound IP
                  * address with zero — which we do below. */
-                if (connect(fd, &sa.sa, SOCKADDR_LEN(sa)) < 0)
+                if (connect(fd, &sa.sa, sockaddr_len(&sa)) < 0)
                         log_debug_errno(errno, "Failed to connect SOCK_DGRAM socket to gateway, ignoring: %m");
 
                 /* Let's now read the socket address of the socket. A routing decision should have been
                  * made. Let's verify that and use the data. */
-                salen = SOCKADDR_LEN(sa);
+                salen = sockaddr_len(&sa);
                 if (getsockname(fd, &sa.sa, &salen) < 0)
                         return -errno;
                 assert(sa.sa.sa_family == i->family);
-                assert(salen == SOCKADDR_LEN(sa));
+                assert(salen == sockaddr_len(&sa));
 
                 switch (i->family) {
 

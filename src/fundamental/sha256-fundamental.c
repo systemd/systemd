@@ -21,6 +21,12 @@
    License along with the GNU C Library; if not, see
    <https://www.gnu.org/licenses/>.  */
 
+#if SD_BOOT
+#  include "efi-string.h"
+#else
+#  include <string.h>
+#endif
+
 #include "assert-fundamental.h"
 #include "macro-fundamental.h"
 #include "memory-util-fundamental.h"

@@ -478,7 +478,7 @@ static int run(int argc, char **argv) {
                 if (r < 0)
                         return r;
 
-                notify = notify_start(NOTIFY_READY, NOTIFY_STOPPING);
+                notify = notify_start(NOTIFY_READY_MESSAGE, NOTIFY_STOPPING_MESSAGE);
         }
 
         for (;;) {

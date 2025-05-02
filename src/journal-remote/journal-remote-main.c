@@ -1180,7 +1180,7 @@ static int run(int argc, char **argv) {
         log_debug("%s running as pid "PID_FMT,
                   program_invocation_short_name, getpid_cached());
 
-        notify_message = notify_start(NOTIFY_READY, NOTIFY_STOPPING);
+        notify_message = notify_start(NOTIFY_READY_MESSAGE, NOTIFY_STOPPING_MESSAGE);
 
         while (s.active) {
                 r = sd_event_get_state(s.event);
