@@ -12,5 +12,9 @@
 #include "efi.h"
 
 bool shim_loaded(void);
-EFI_STATUS shim_load_image(EFI_HANDLE parent, const EFI_DEVICE_PATH *device_path, bool boot_policy, EFI_HANDLE *ret_image);
+bool shim_loader_available(void);
+EFI_STATUS shim_load_image_full(EFI_HANDLE parent, const EFI_DEVICE_PATH *device_path, bool boot_policy, const void *source, size_t len, EFI_HANDLE *ret_image);
+static inline EFI_STATUS shim_load_image(EFI_HANDLE parent, const EFI_DEVICE_PATH *device_path, bool boot_policy, EFI_HANDLE *ret_image) {
+        return shim_load_image_full(parent, device_path, boot_policy, /* source= */ NULL, /* len= */ 0, ret_image);
+}
 void shim_retain_protocol(void);

@@ -14,6 +14,7 @@
 #include "proto/device-path.h"
 #include "proto/loaded-image.h"
 #include "secure-boot.h"
+#include "shim.h"
 #include "util.h"
 
 #define STUB_PAYLOAD_GUID \
@@ -92,6 +93,7 @@ static EFI_STATUS load_image(EFI_HANDLE parent, const void *source, size_t len, 
 
 EFI_STATUS linux_exec(
                 EFI_HANDLE parent,
+                EFI_HANDLE loaded_linux,
                 const char16_t *cmdline,
                 const struct iovec *kernel,
                 const struct iovec *initrd) {
@@ -120,7 +122,10 @@ EFI_STATUS linux_exec(
                 return log_error_status(err, "Bad kernel image: %m");
 
         _cleanup_(unload_imagep) EFI_HANDLE kernel_image = NULL;
-        err = load_image(parent, kernel->iov_base, kernel->iov_len, &kernel_image);
+        if (shim_loader_available())
+                err = shim_load_image_full(loaded_linux, /* device_path= */ NULL, /* boot_policy= */ false, kernel->iov_base, kernel->iov_len, &kernel_image);
+        else
+                err = load_image(parent, kernel->iov_base, kernel->iov_len, &kernel_image);
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Error loading kernel image: %m");
 

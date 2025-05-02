@@ -30,13 +30,42 @@ struct ShimLock {
         EFI_STATUS __sysv_abi__ (*read_header) (void *data, uint32_t datasize, void *context);
 };
 
+typedef struct {
+        EFI_STATUS (EFIAPI *LoadImage)(
+                bool BootPolicy,
+                EFI_HANDLE ParentImageHandle,
+                EFI_DEVICE_PATH *DevicePath,
+                void *SourceBuffer,
+                size_t SourceSize,
+                EFI_HANDLE *ImageHandle);
+        EFI_STATUS (EFIAPI *StartImage)(
+                EFI_HANDLE ImageHandle,
+                size_t *ExitDataSize,
+                char16_t **ExitData);
+        EFI_STATUS (EFIAPI *Exit)(
+                EFI_HANDLE ImageHandle,
+                EFI_STATUS ExitStatus,
+                size_t ExitDataSize,
+                char16_t *ExitData);
+        EFI_STATUS (EFIAPI *UnloadImage)(EFI_HANDLE ImageHandle);
+} ShimImageLoader;
+
 #define SHIM_LOCK_GUID \
         { 0x605dab50, 0xe046, 0x4300, { 0xab, 0xb6, 0x3d, 0xd8, 0x10, 0xdd, 0x8b, 0x23 } }
+
+#define SHIM_IMAGE_LOADER_GUID \
+        { 0x1f492041, 0xfadb, 0x4e59, { 0x9e, 0x57, 0x7c, 0xaf, 0xe7, 0x3a, 0x55, 0xab } }
 
 bool shim_loaded(void) {
         struct ShimLock *shim_lock;
 
         return BS->LocateProtocol(MAKE_GUID_PTR(SHIM_LOCK), NULL, (void **) &shim_lock) == EFI_SUCCESS;
+}
+
+bool shim_loader_available(void) {
+        ShimImageLoader *shim_image_loader;
+
+        return BS->LocateProtocol(MAKE_GUID_PTR(SHIM_IMAGE_LOADER), NULL, (void **) &shim_image_loader) == EFI_SUCCESS;
 }
 
 static bool shim_validate(
@@ -81,15 +110,35 @@ static bool shim_validate(
         return shim_lock->shim_verify(file_buffer, file_size) == EFI_SUCCESS;
 }
 
-EFI_STATUS shim_load_image(
+EFI_STATUS shim_load_image_full(
                 EFI_HANDLE parent,
                 const EFI_DEVICE_PATH *device_path,
                 bool boot_policy,
+                const void *source,
+                size_t len,
                 EFI_HANDLE *ret_image) {
 
-        assert(device_path);
+        assert(device_path || source);
+        assert(len > 0 || !source);
         assert(ret_image);
 
+        /* If we are running after shim and the new loader protocol is available, then we don't need to
+         * override the security protocol (which is only part of the PI spec, not the UEFI spec, so it's not
+         * guaranteed to be available), instead just call into shim's own loader. This has the additional
+         * benefit that if a UKI is being loaded, shim natively supports loading the inner unsigned kernel
+         * as long as it's part of a signed UKI that was previously loaded with LoadImage(), and it will also
+         * check it for DBX/MOKX/SBAT revocations. */
+        ShimImageLoader *shim_image_loader;
+        if (BS->LocateProtocol(MAKE_GUID_PTR(SHIM_IMAGE_LOADER), NULL, (void **) &shim_image_loader) == EFI_SUCCESS)
+                return shim_image_loader->LoadImage(
+                                /* BootPolicy= */ boot_policy,
+                                parent,
+                                (EFI_DEVICE_PATH *) device_path,
+                                (void *) source,
+                                len,
+                                ret_image);
+
+        // TODO: drop lock protocol once Shim < 16 is no longer supported
         bool have_shim = shim_loaded();
 
         if (have_shim)
@@ -99,8 +148,8 @@ EFI_STATUS shim_load_image(
                         /* BootPolicy= */ boot_policy,
                         parent,
                         (EFI_DEVICE_PATH *) device_path,
-                        /* SourceBuffer= */ NULL,
-                        /* SourceSize= */ 0,
+                        (void *) source,
+                        len,
                         ret_image);
         if (have_shim)
                 uninstall_security_override();
