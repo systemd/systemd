@@ -207,9 +207,16 @@
       details on system extension images. The generated <command>cpio</command> archive containing these
       system extension images is measured into TPM PCR 13 (if a TPM is present).</para></listitem>
 
-      <!-- Note: the actual suffix we look for for sysexts is just *.raw (not *.sysext.raw), for
+      <!-- Note: the actual suffix we look for for non-vendor sysexts is just *.raw (not *.sysext.raw), for
            compatibility reasons with old versions. But we want people to name their system extensions
            properly, hence we document the *.sysext.raw suffix only. -->
+
+      <listitem><para>Similarly, files
+      <filename><replaceable>foo</replaceable>.efi.extra.vendor.d/*.sysext.raw</filename> are packed up in a
+      <command>cpio</command> archive and placed in the <filename>/.extra/sysext/</filename> directory in the
+      initrd file heirarchy. This alternate directory exists for OS vendors to ship system extension
+      images that shall persist across an OS factory reset. This archive is similarly measured into TPM
+      PCR 13 (if a TPM is present).</para></listitem>
 
       <listitem><para>Similarly, files
       <filename><replaceable>foo</replaceable>.efi.extra.d/*.confext.raw</filename> are packed up in a
@@ -221,13 +228,23 @@
       these configuration extension images is measured into TPM PCR 12 (if a TPM is present).</para></listitem>
 
       <listitem><para>Similarly, files
-      <filename><replaceable>foo</replaceable>.efi.extra.d/*.addon.efi</filename> are loaded and verified as
-      PE binaries and specific sections are loaded from them. Addons are used to pass additional kernel
-      command line parameters (<literal>.cmdline</literal> section), or DeviceTree blobs
+      <filename><replaceable>foo</replaceable>.efi.extra.vendor.d/*.confext.raw</filename> are packed up in a
+      <command>cpio</command> archive and placed in the <filename>/.extra/confext/</filename> directory in
+      the initrd file heirarchy. This archive is similarly measured into TPM PCR 12 (if a TPM is present).
+      </para></listitem>
+
+      <listitem><para>Similarly, files
+      <filename><replaceable>foo</replaceable>.efi.extra.d/*.addon.efi</filename>,
+      <filename><replaceable>foo</replaceable>.efi.extra.vendor.d/*.addon.efi</filename>,
+      <filename>/loader/addons/*.addon.efi</filename>, and
+      <filename>/loader/vendor-addons/*.addon.efi</filename> are loaded and
+      verified as PE binaries and specific sections are loaded from them. Addons are used to pass additional
+      kernel command line parameters (<literal>.cmdline</literal> section), or Devicetree blobs
       (<literal>.dtb</literal> section), additional initrds (<literal>.initrd</literal> section),
-      and microcode updates (<literal>.ucode</literal> section). Addons allow those resources to be passed
-      regardless of the kernel version being booted, for example allowing platform vendors to ship
-      platform-specific configuration.</para>
+      and microcode updates (<literal>.ucode</literal> section). The addons found under
+      <filename>/loader/addons/</filename> or <filename>/loader/vendor-addons/</filename> allow those
+      resources to be passed regardless of the kernel version being booted, for example allowing platform
+      vendors to ship platform-specific configuration.</para>
 
       <para>In case Secure Boot is enabled, these files will be validated using keys in UEFI DB, Shim's DB or
       Shim's MOK, and only loaded if the check passes. Additionally, if both the addon and the UKI contain a
@@ -239,8 +256,8 @@
       <ulink url="https://github.com/rhboot/shim/blob/main/SBAT.md">Shim documentation</ulink>.</para>
 
       <para>Addon files are sorted, loaded, and measured into TPM PCR 12 (if a TPM is present) and appended
-      to the kernel command line. UKI command line options are listed first, then options from addons in
-      <filename>/loader/addons/*.addon.efi</filename>, and finally UKI-specific addons. Device tree blobs are
+      to the kernel command line. UKI command line options are listed first, then options from global addons in
+      <filename>/loader/addons/</filename> and others, and finally UKI-specific addons. Device tree blobs are
       loaded and measured following the same algorithm. Microcode addons are passed to the kernel in inverse
       order (UKI specific addons, global addons, UKI embedded section). This is because the microcode update
       driver stops on the first matching filename. Addons are always loaded in the same order based on
@@ -252,17 +269,11 @@
       an attestation service so that improper use of your signed addons can be detected and dealt with using
       one of the aforementioned revocation mechanisms.</para></listitem>
 
-      <listitem><para>Files <filename>/loader/credentials/*.cred</filename> are packed up in a
+      <listitem><para>Similarly, files <filename>/loader/credentials/*.cred</filename> are packed up in a
       <command>cpio</command> archive and placed in the <filename>/.extra/global_credentials/</filename>
       directory of the initrd file hierarchy. This is supposed to be used to pass additional credentials to
       the initrd, regardless of the kernel version being booted. The generated <command>cpio</command>
       archive is measured into TPM PCR 12 (if a TPM is present).</para></listitem>
-
-      <listitem><para>Additionally, files <filename>/loader/addons/*.addon.efi</filename> are loaded and
-      verified as PE binaries, and <literal>.cmdline</literal>, <literal>.dtb</literal>,
-      <literal>.initrd</literal>, and <literal>.ucode</literal> sections are parsed from them.
-      This is supposed to be used to pass additional command line parameters, DeviceTree blobs, initrds,
-      and microcode updates to the kernel, regardless of the kernel version being booted.</para></listitem>
     </itemizedlist>
 
     <para>These mechanisms may be used to parameterize and extend trusted (i.e. signed), immutable initrd
