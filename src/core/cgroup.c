@@ -1019,7 +1019,8 @@ static int lookup_block_device(const char *p, dev_t *ret) {
         }
 
         /* If this is a LUKS/DM device, recursively try to get the originating block device */
-        while (block_get_originating(*ret, ret) > 0);
+        while (block_get_originating(*ret, ret) >= 0)
+                ;
 
         /* If this is a partition, try to get the originating block device */
         (void) block_get_whole_disk(*ret, ret);

@@ -21,6 +21,7 @@
 
 #include "battery-capacity.h"
 #include "battery-util.h"
+#include "blockdev-util.h"
 #include "build.h"
 #include "bus-error.h"
 #include "bus-locator.h"
@@ -61,7 +62,7 @@ static int write_efi_hibernate_location(const HibernationDevice *hibernation_dev
         _cleanup_free_ char *formatted = NULL, *id = NULL, *image_id = NULL,
                        *version_id = NULL, *image_version = NULL;
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
-        const char *uuid_str;
+        const char *uuid_str, *part_designator = NULL;
         sd_id128_t uuid;
         struct utsname uts = {};
         int r, log_level_ignore = required ? LOG_WARNING : LOG_DEBUG;
@@ -87,6 +88,15 @@ static int write_efi_hibernate_location(const HibernationDevice *hibernation_dev
                 return log_full_errno(log_level, r, "Failed to parse ID_FS_UUID '%s' for device '%s': %m",
                                       uuid_str, hibernation_device->path);
 
+        _cleanup_(sd_device_unrefp) sd_device *origin = NULL;
+        r = block_device_get_originating(device, &origin);
+        if (r == -ENOENT)
+                r = sd_device_get_property_value(device, "ID_DISSECT_PART_DESIGNATOR", &part_designator);
+        else if (r >= 0)
+                r = sd_device_get_property_value(origin, "ID_DISSECT_PART_DESIGNATOR", &part_designator);
+        if (r < 0 && r != -ENOENT)
+                log_debug_errno(r, "Failed to get partition designator of '%s', ignoring: %m", hibernation_device->path);
+
         if (uname(&uts) < 0)
                 log_full_errno(log_level_ignore, errno, "Failed to get kernel info, ignoring: %m");
 
@@ -102,6 +112,7 @@ static int write_efi_hibernate_location(const HibernationDevice *hibernation_dev
                         &v,
                         SD_JSON_BUILD_PAIR_UUID("uuid", uuid),
                         SD_JSON_BUILD_PAIR_UNSIGNED("offset", hibernation_device->offset),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!part_designator, "autoSwap", SD_JSON_BUILD_BOOLEAN(streq_ptr(part_designator, "swap"))),
                         SD_JSON_BUILD_PAIR_CONDITION(!isempty(uts.release), "kernelVersion", SD_JSON_BUILD_STRING(uts.release)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!id, "osReleaseId", SD_JSON_BUILD_STRING(id)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!image_id, "osReleaseImageId", SD_JSON_BUILD_STRING(image_id)),
