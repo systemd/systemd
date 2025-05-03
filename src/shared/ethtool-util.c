@@ -13,6 +13,7 @@
 #include "log.h"
 #include "macro-fundamental.h"
 #include "memory-util.h"
+#include "parse-util.h"
 #include "socket-util.h"
 #include "string-table.h"
 #include "strv.h"

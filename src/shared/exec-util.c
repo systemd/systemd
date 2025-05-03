@@ -505,7 +505,7 @@ ExecCommandFlags exec_command_flags_from_string(const char *s) {
         if (streq(s, "ambient")) /* Compatibility with ambient hack, removed in v258, map to no bits set */
                 return 0;
 
-        idx = string_table_lookup(exec_command_strings, ELEMENTSOF(exec_command_strings), s);
+        idx = string_table_lookup_from_string(exec_command_strings, ELEMENTSOF(exec_command_strings), s);
         if (idx < 0)
                 return _EXEC_COMMAND_FLAGS_INVALID;
 

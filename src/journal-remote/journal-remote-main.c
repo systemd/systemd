@@ -20,6 +20,7 @@
 #include "microhttpd-util.h"
 #include "parse-argument.h"
 #include "parse-helpers.h"
+#include "parse-util.h"
 #include "pretty-print.h"
 #include "process-util.h"
 #include "rlimit-util.h"
