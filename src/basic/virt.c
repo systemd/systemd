@@ -18,6 +18,7 @@
 #include "log.h"
 #include "macro.h"
 #include "namespace-util.h"
+#include "parse-util.h"
 #include "process-util.h"
 #include "stat-util.h"
 #include "string-table.h"

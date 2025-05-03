@@ -15,6 +15,7 @@
 #include "fileio.h"
 #include "find-esp.h"
 #include "log.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "pe-binary.h"
 #include "pretty-print.h"

@@ -3,6 +3,7 @@
 #include "format-table.h"
 #include "log.h"
 #include "parse-argument.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "signal-util.h"
 #include "stdio-util.h"
