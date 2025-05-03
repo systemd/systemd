@@ -66,9 +66,6 @@ struct PTYForward {
         sd_event_source *sigwinch_event_source;
         sd_event_source *exit_event_source;
 
-        struct termios saved_stdin_attr;
-        struct termios saved_stdout_attr;
-
         bool close_input_fd:1;
         bool close_output_fd:1;
 
@@ -130,9 +127,6 @@ static void pty_forward_disconnect(PTYForward *f) {
         f->event = sd_event_unref(f->event);
 
         if (f->output_fd >= 0) {
-                if (f->saved_stdout)
-                        (void) tcsetattr(f->output_fd, TCSANOW, &f->saved_stdout_attr);
-
                 /* STDIN/STDOUT should not be non-blocking normally, so let's reset it */
                 (void) fd_nonblock(f->output_fd, false);
 
@@ -161,9 +155,6 @@ static void pty_forward_disconnect(PTYForward *f) {
         }
 
         if (f->input_fd >= 0) {
-                if (f->saved_stdin)
-                        (void) tcsetattr(f->input_fd, TCSANOW, &f->saved_stdin_attr);
-
                 (void) fd_nonblock(f->input_fd, false);
                 if (f->close_input_fd)
                         f->input_fd = safe_close(f->input_fd);
@@ -1000,40 +991,7 @@ int pty_forward_new(
         (void) ioctl(master, TIOCSWINSZ, &ws);
 
         if (!FLAGS_SET(flags, PTY_FORWARD_READ_ONLY)) {
-                bool same;
-
                 assert(f->input_fd >= 0);
-
-                r = fd_inode_same(f->input_fd, f->output_fd);
-                if (r < 0)
-                        return r;
-                same = r > 0;
-
-                if (tcgetattr(f->input_fd, &f->saved_stdin_attr) >= 0) {
-                        struct termios raw_stdin_attr;
-
-                        f->saved_stdin = true;
-
-                        raw_stdin_attr = f->saved_stdin_attr;
-                        cfmakeraw(&raw_stdin_attr);
-
-                        if (!same)
-                                raw_stdin_attr.c_oflag = f->saved_stdin_attr.c_oflag;
-
-                        (void) tcsetattr(f->input_fd, TCSANOW, &raw_stdin_attr);
-                }
-
-                if (!same && tcgetattr(f->output_fd, &f->saved_stdout_attr) >= 0) {
-                        struct termios raw_stdout_attr;
-
-                        f->saved_stdout = true;
-
-                        raw_stdout_attr = f->saved_stdout_attr;
-                        cfmakeraw(&raw_stdout_attr);
-                        raw_stdout_attr.c_iflag = f->saved_stdout_attr.c_iflag;
-                        raw_stdout_attr.c_lflag = f->saved_stdout_attr.c_lflag;
-                        (void) tcsetattr(f->output_fd, TCSANOW, &raw_stdout_attr);
-                }
 
                 r = sd_event_add_io(f->event, &f->stdin_event_source, f->input_fd, EPOLLIN|EPOLLET, on_stdin_event, f);
                 if (r < 0 && r != -EPERM)
