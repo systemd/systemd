@@ -19,6 +19,7 @@
 #include "mount-util.h"
 #include "mountpoint-util.h"
 #include "parse-argument.h"
+#include "parse-util.h"
 #include "pretty-print.h"
 #include "static-destruct.h"
 #include "string-table.h"

@@ -62,6 +62,7 @@
 #include "openssl-util.h"
 #include "parse-argument.h"
 #include "parse-helpers.h"
+#include "parse-util.h"
 #include "pretty-print.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
