@@ -10,6 +10,7 @@
 #include "format-util.h"
 #include "log.h"
 #include "macro.h"
+#include "parse-util.h"
 #include "process-util.h"
 #include "rlimit-util.h"
 #include "string-table.h"
