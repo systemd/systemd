@@ -22,6 +22,7 @@
 #include "macro.h"
 #include "netlink-internal.h"
 #include "netlink-util.h"
+#include "parse-util.h"
 #include "socket-util.h"
 #include "string-table.h"
 #include "time-util.h"

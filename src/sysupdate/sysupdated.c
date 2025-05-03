@@ -26,6 +26,7 @@
 #include "mkdir-label.h"
 #include "notify-recv.h"
 #include "os-util.h"
+#include "parse-util.h"
 #include "process-util.h"
 #include "service-util.h"
 #include "signal-util.h"
