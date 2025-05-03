@@ -2635,7 +2635,7 @@ static EFI_STATUS call_image_start(
         }
 
         efivar_set_time_usec(MAKE_GUID_PTR(LOADER), u"LoaderTimeExecUSec", 0);
-        err = BS->StartImage(image, NULL, NULL);
+        err = shim_start_image(image);
         graphics_mode(false);
         if (err == EFI_SUCCESS)
                 return EFI_SUCCESS;
