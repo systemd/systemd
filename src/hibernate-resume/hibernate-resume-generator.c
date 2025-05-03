@@ -2,6 +2,9 @@
 
 #include "alloc-util.h"
 #include "dropin.h"
+#include "efi-loader.h"
+#include "fd-util.h"
+#include "fileio.h"
 #include "generator.h"
 #include "hibernate-resume-config.h"
 #include "initrd-util.h"
@@ -15,6 +18,7 @@
 #include "unit-name.h"
 
 static const char *arg_dest = NULL;
+static const char *arg_dest_late = NULL;
 static char *arg_resume_options = NULL;
 static char *arg_root_options = NULL;
 static bool arg_noresume = false;
@@ -54,6 +58,58 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
         return 0;
 }
 
+static int add_dissected_swap_cryptsetup(void) {
+
+#if HAVE_LIBCRYPTSETUP
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_free_ char *d = NULL;
+        int r;
+
+        r = unit_name_from_path("/dev/disk/by-designator/swap-luks", ".device", &d);
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate unit name: %m");
+
+        r = generator_open_unit_file(arg_dest_late, /* source = */ NULL, "systemd-cryptsetup@swap.service", &f);
+        if (r < 0)
+                return r;
+
+        r = generator_write_cryptsetup_unit_section(f, /* source = */ NULL);
+        if (r < 0)
+                return r;
+
+        fprintf(f,
+                "Before=umount.target cryptsetup.target\n"
+                "Conflicts=umount.target\n"
+                "BindsTo=%s\n"
+                "After=%s\n",
+                d, d);
+
+        r = generator_write_cryptsetup_service_section(
+                        f, "swap", "/dev/disk/by-designator/swap-luks",
+                        /* key_file = */ NULL,
+                        efi_measured_uki(LOG_DEBUG) > 0 ? "tpm2-device=auto" : NULL); /* Enable TPM2 based unlocking automatically, if we have a TPM.
+                                                                                         This follows what gpt-auto does. */
+        if (r < 0)
+                return r;
+
+        r = fflush_and_check(f);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write cryptsetup unit for /dev/disk/by-designator/swap-luks: %m");
+
+        r = generator_write_device_timeout(arg_dest_late,
+                                           "/dev/disk/by-designator/swap-luks",
+                                           arg_resume_options ?: arg_root_options, /* filtered = */ NULL);
+        if (r < 0)
+                return r;
+
+        return generator_add_symlink(arg_dest_late, d, "wants", "systemd-cryptsetup@swap.service");
+#else
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                               "systemd-hibernate-resume-generator was compiled without libcryptsetup support, "
+                               "not generating cryptsetup unit for /dev/disk/by-designator/swap-luks.");
+#endif
+}
+
 static int process_resume(const HibernateInfo *info) {
         _cleanup_free_ char *device_unit = NULL;
         int r;
@@ -89,6 +145,12 @@ static int process_resume(const HibernateInfo *info) {
         if (r < 0)
                 return log_error_errno(r, "Failed to write device dependency drop-in: %m");
 
+        /* Generate cryptsetup unit for /dev/disk/by-designator/swap-luks if we hibernated into it, but only
+         * if resume= is not specified, on the assumption that the user would have everything configured
+         * manually otherwise. */
+        if (!info->cmdline && info->efi->auto_swap)
+                (void) add_dissected_swap_cryptsetup();
+
         return generator_add_symlink(arg_dest, SPECIAL_SYSINIT_TARGET, "wants", SPECIAL_HIBERNATE_RESUME_SERVICE);
 }
 
@@ -97,6 +159,7 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
         int r;
 
         arg_dest = ASSERT_PTR(dest);
+        arg_dest_late = ASSERT_PTR(dest_late);
 
         /* Don't even consider resuming outside of initrd. */
         if (!in_initrd()) {
