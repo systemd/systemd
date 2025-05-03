@@ -16,6 +16,8 @@ typedef struct EFIHibernateLocation {
         sd_id128_t uuid;
         uint64_t offset;
 
+        bool auto_swap;
+
         char *kernel_version;
         char *id;
         char *image_id;
