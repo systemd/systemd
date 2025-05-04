@@ -458,9 +458,30 @@ static int nexthop_acquire_id(Manager *manager, NextHop *nexthop) {
         return -EBUSY;
 }
 
-void log_nexthop_debug(const NextHop *nexthop, const char *str, Manager *manager) {
-        _cleanup_free_ char *state = NULL, *group = NULL, *flags = NULL;
+static int nexthop_to_string(const NextHop *nexthop, Manager *manager, char **ret) {
+        _cleanup_free_ char *group = NULL, *flags = NULL;
+
+        assert(nexthop);
+        assert(manager);
+        assert(ret);
+
+        (void) route_flags_to_string_alloc(nexthop->flags, &flags);
+
         struct nexthop_grp *nhg;
+        HASHMAP_FOREACH(nhg, nexthop->group)
+                (void) strextendf_with_separator(&group, ",", "%"PRIu32":%"PRIu32, nhg->id, nhg->weight+1u);
+
+        if (asprintf(ret, "id: %"PRIu32", gw: %s, blackhole: %s, group: %s, flags: %s",
+                     nexthop->id,
+                     IN_ADDR_TO_STRING(nexthop->family, &nexthop->gw.address),
+                     yes_no(nexthop->blackhole), strna(group), strna(flags)) < 0)
+                return -ENOMEM;
+
+        return 0;
+}
+
+void log_nexthop_debug(const NextHop *nexthop, const char *str, Manager *manager) {
+        _cleanup_free_ char *state = NULL, *nexthop_str = NULL;
         Link *link = NULL;
 
         assert(nexthop);
@@ -472,16 +493,10 @@ void log_nexthop_debug(const NextHop *nexthop, const char *str, Manager *manager
 
         (void) link_get_by_index(manager, nexthop->ifindex, &link);
         (void) network_config_state_to_string_alloc(nexthop->state, &state);
-        (void) route_flags_to_string_alloc(nexthop->flags, &flags);
+        (void) nexthop_to_string(nexthop, manager, &nexthop_str);
 
-        HASHMAP_FOREACH(nhg, nexthop->group)
-                (void) strextendf_with_separator(&group, ",", "%"PRIu32":%"PRIu32, nhg->id, nhg->weight+1u);
-
-        log_link_debug(link, "%s %s nexthop (%s): id: %"PRIu32", gw: %s, blackhole: %s, group: %s, flags: %s",
-                       str, strna(network_config_source_to_string(nexthop->source)), strna(state),
-                       nexthop->id,
-                       IN_ADDR_TO_STRING(nexthop->family, &nexthop->gw.address),
-                       yes_no(nexthop->blackhole), strna(group), strna(flags));
+        log_link_debug(link, "%s %s nexthop (%s): %s",
+                       str, strna(network_config_source_to_string(nexthop->source)), strna(state), strna(nexthop_str));
 }
 
 static void nexthop_forget_dependents(NextHop *nexthop, Manager *manager) {
