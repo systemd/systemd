@@ -5,6 +5,7 @@
 #include "devlink-kind.h"
 
 static const char* const devlink_kind_table[_DEVLINK_KIND_MAX] = {
+        [DEVLINK_KIND_RELOAD] = "internal_reload", /* internal kind */
         [DEVLINK_KIND_NESTED] = "internal_nested", /* internal kind */
         [DEVLINK_KIND_DEV] = "dev",
 };
