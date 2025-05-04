@@ -8,6 +8,7 @@ static const char* const devlink_kind_table[_DEVLINK_KIND_MAX] = {
         [DEVLINK_KIND_RELOAD] = "internal_reload", /* internal kind */
         [DEVLINK_KIND_NESTED] = "internal_nested", /* internal kind */
         [DEVLINK_KIND_DEV] = "dev",
+        [DEVLINK_KIND_PORT_CACHE] = "internal_port_cache", /* internal kind */
 };
 
 DEFINE_STRING_TABLE_LOOKUP(devlink_kind, DevlinkKind);
