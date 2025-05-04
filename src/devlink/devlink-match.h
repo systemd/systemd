@@ -7,9 +7,12 @@
 #include "siphash24.h"
 
 #include "devlink-match-dev.h"
+#include "devlink-match-port.h"
 
 typedef enum DevlinkMatchBit {
         DEVLINK_MATCH_BIT_DEV = 1 << 0,
+        DEVLINK_MATCH_BIT_PORT_INDEX = 1 << 1,
+        DEVLINK_MATCH_BIT_PORT_SPLIT = 1 << 2,
 } DevlinkMatchBit;
 
 typedef uint32_t DevlinkMatchSet;
@@ -22,6 +25,7 @@ typedef struct DevlinkMatchCommon {
 typedef struct DevlinkMatch {
         DevlinkMatchCommon common;
         DevlinkMatchDev dev;
+        DevlinkMatchPort port;
 } DevlinkMatch;
 
 struct Manager;
@@ -40,6 +44,8 @@ typedef struct DevlinkMatchVTable {
 } DevlinkMatchVTable;
 
 extern const DevlinkMatchVTable devlink_match_dev_vtable;
+extern const DevlinkMatchVTable devlink_match_port_index_vtable;
+extern const DevlinkMatchVTable devlink_match_port_split_vtable;
 
 void devlink_match_fini(DevlinkMatch *match);
 bool devlink_match_check(const DevlinkMatch *match, DevlinkMatchSet matchset);
