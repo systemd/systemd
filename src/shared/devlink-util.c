@@ -6,6 +6,8 @@
 static const char * const devlink_cmd_table[__DEVLINK_CMD_MAX] = {
         [DEVLINK_CMD_NEW] = "new",
         [DEVLINK_CMD_DEL] = "del",
+        [DEVLINK_CMD_PORT_NEW] = "port_new",
+        [DEVLINK_CMD_PORT_DEL] = "port_del",
 };
 
 DEFINE_STRING_TABLE_LOOKUP_TO_STRING(devlink_cmd, int);
