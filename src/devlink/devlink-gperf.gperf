@@ -21,4 +21,6 @@ struct ConfigPerfItem;
 %%
 Match.Kind,                               config_parse_devlink_kind,                           0,                  offsetof(Devlink, key.kind)
 Match.Handle,                             config_parse_devlink_dev_handle,                     0,                  offsetof(Devlink, key.match.dev)
+Match.Index,                              config_parse_devlink_index,                          0,                  offsetof(Devlink, key.match.common)
+Match.Split,                              config_parse_devlink_port_split,                     0,                  offsetof(Devlink, key.match.port)
 Dev.EswitchMode,                          config_parse_devlink_dev_eswitch_mode,               0,                  offsetof(DevlinkDev, eswitch_mode)
