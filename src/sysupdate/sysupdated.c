@@ -33,6 +33,7 @@
 #include "socket-util.h"
 #include "string-table.h"
 #include "sysupdate-util.h"
+#include "utf8.h"
 
 #define FEATURES_DROPIN_NAME "systemd-sysupdate-enabled"
 

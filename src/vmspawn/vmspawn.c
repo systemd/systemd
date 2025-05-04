@@ -75,6 +75,7 @@
 #include "time-util.h"
 #include "tmpfile-util.h"
 #include "unit-name.h"
+#include "utf8.h"
 #include "vmspawn-mount.h"
 #include "vmspawn-register.h"
 #include "vmspawn-scope.h"
