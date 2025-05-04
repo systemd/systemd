@@ -5,10 +5,8 @@
 #include <stddef.h>
 #include <string.h>
 
-#include "alloc-util.h"
 #include "macro.h"
 #include "string-util-fundamental.h"
-#include "utf8.h"
 
 /* What is interpreted as whitespace? */
 #define WHITESPACE          " \t\n\r"
@@ -225,9 +223,7 @@ static inline int strdup_to(char **ret, const char *src) {
 }
 
 bool string_is_safe(const char *p) _pure_;
-static inline bool string_is_safe_ascii(const char *p) {
-        return ascii_is_valid(p) && string_is_safe(p);
-}
+bool string_is_safe_ascii(const char *p) _pure_;
 
 DISABLE_WARNING_STRINGOP_TRUNCATION;
 static inline void strncpy_exact(char *buf, const char *src, size_t buf_len) {
@@ -254,15 +250,7 @@ static inline void* memory_startswith_no_case(const void *p, size_t sz, const ch
         return (uint8_t*) p + n;
 }
 
-static inline char* str_realloc(char *p) {
-        /* Reallocate *p to actual size. Ignore failure, and return the original string on error. */
-
-        if (!p)
-                return NULL;
-
-        return realloc(p, strlen(p) + 1) ?: p;
-}
-
+char* str_realloc(char *p);
 char* string_erase(char *x);
 
 int string_truncate_lines(const char *s, size_t n_lines, char **ret);
