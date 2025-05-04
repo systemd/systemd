@@ -854,38 +854,32 @@ static int link_generate_alternative_names(Link *link) {
         return 0;
 }
 
-static int sr_iov_configure(Link *link, sd_netlink **rtnl, SRIOV *sr_iov) {
+static int sr_iov_configure(Link *link, sd_netlink **rtnl, SRIOV *sr_iov, SRIOVAttribute attr) {
         int r;
 
         assert(link);
         assert(rtnl);
         assert(link->ifindex > 0);
 
-        for (SRIOVAttribute attr = 0; attr < _SR_IOV_ATTRIBUTE_MAX; attr++) {
-                if (!sr_iov_has_config(sr_iov, attr))
-                        continue;
+        if (!sr_iov_has_config(sr_iov, attr))
+                return 0;
 
-                if (!*rtnl) {
-                        r = sd_netlink_open(rtnl);
-                        if (r < 0)
-                                return r;
-                }
-
-                _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
-                r = sd_rtnl_message_new_link(*rtnl, &req, RTM_SETLINK, link->ifindex);
-                if (r < 0)
-                        return r;
-
-                r = sr_iov_set_netlink_message(sr_iov, attr, req);
-                if (r < 0)
-                        return r;
-
-                r = sd_netlink_call(*rtnl, req, 0, NULL);
+        if (!*rtnl) {
+                r = sd_netlink_open(rtnl);
                 if (r < 0)
                         return r;
         }
 
-        return 0;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        r = sd_rtnl_message_new_link(*rtnl, &req, RTM_SETLINK, link->ifindex);
+        if (r < 0)
+                return r;
+
+        r = sr_iov_set_netlink_message(sr_iov, attr, req);
+        if (r < 0)
+                return r;
+
+        return sd_netlink_call(*rtnl, req, 0, NULL);
 }
 
 static int link_apply_sr_iov_config(Link *link) {
@@ -911,25 +905,27 @@ static int link_apply_sr_iov_config(Link *link) {
 
         r = sr_iov_get_num_vfs(link->event->dev, &n);
         if (r < 0) {
-                log_link_warning_errno(link, r, "Failed to get the number of SR-IOV virtual functions, ignoring [SR-IOV] sections: %m");
+                log_link_warning_errno(link, r, "Failed to get the number of SR-IOV virtual functions, ignoring all [SR-IOV] sections: %m");
                 return 0;
         }
         if (n == 0) {
-                log_link_warning(link, "No SR-IOV virtual function exists, ignoring [SR-IOV] sections: %m");
+                log_link_warning(link, "No SR-IOV virtual function exists, ignoring all [SR-IOV] sections: %m");
                 return 0;
         }
 
         ORDERED_HASHMAP_FOREACH(sr_iov, link->config->sr_iov_by_section) {
                 if (sr_iov->vf >= n) {
-                        log_link_warning(link, "SR-IOV virtual function %"PRIu32" does not exist, ignoring.", sr_iov->vf);
+                        log_link_warning(link, "SR-IOV virtual function %"PRIu32" does not exist, ignoring [SR-IOV] section for the virtual function.", sr_iov->vf);
                         continue;
                 }
 
-                r = sr_iov_configure(link, &link->event->rtnl, sr_iov);
-                if (r < 0)
-                        log_link_warning_errno(link, r,
-                                               "Failed to set up SR-IOV virtual function %"PRIu32", ignoring: %m",
-                                               sr_iov->vf);
+                for (SRIOVAttribute attr = 0; attr < _SR_IOV_ATTRIBUTE_MAX; attr++) {
+                        r = sr_iov_configure(link, &link->event->rtnl, sr_iov, attr);
+                        if (r < 0)
+                                log_link_warning_errno(link, r,
+                                                       "Failed to set up %s for SR-IOV virtual function %"PRIu32", ignoring: %m",
+                                                       sr_iov_attribute_to_string(attr), sr_iov->vf);
+                }
         }
 
         return 0;

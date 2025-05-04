@@ -17,7 +17,9 @@ static int sr_iov_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req,
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0)
-                log_link_message_warning_errno(link, m, r, "Failed to set up SR-IOV virtual function, ignoring");
+                log_link_message_warning_errno(link, m, r, "Failed to set up %s for SR-IOV virtual function %"PRIu32", ignoring",
+                                               sr_iov_attribute_to_string(req->type - _REQUEST_TYPE_SRIOV_BASE),
+                                               sr_iov->vf);
 
         if (link->sr_iov_messages == 0) {
                 log_link_debug(link, "Applied settings for SR-IOV virtual functions.");
@@ -70,7 +72,8 @@ static int sr_iov_process_request(Request *req, Link *link, SRIOV *sr_iov) {
         r = sr_iov_configure(sr_iov, link, req);
         if (r < 0)
                 return log_link_warning_errno(link, r,
-                                              "Failed to set up SR-IOV virtual function %"PRIu32": %m",
+                                              "Failed to set up %s for SR-IOV virtual function %"PRIu32": %m",
+                                              sr_iov_attribute_to_string(req->type - _REQUEST_TYPE_SRIOV_BASE),
                                               sr_iov->vf);
 
         return 1;
@@ -103,8 +106,8 @@ int link_request_sr_iov_vfs(Link *link) {
                                         NULL);
                         if (r < 0)
                                 return log_link_warning_errno(link, r,
-                                                              "Failed to request to set up SR-IOV virtual function %"PRIu32": %m",
-                                                              sr_iov->vf);
+                                                              "Failed to request to set up %s for SR-IOV virtual function %"PRIu32": %m",
+                                                              sr_iov_attribute_to_string(attr), sr_iov->vf);
                 }
         }
 
@@ -112,7 +115,7 @@ int link_request_sr_iov_vfs(Link *link) {
                 link->sr_iov_configured = true;
                 link_check_ready(link);
         } else
-                log_link_debug(link, "Setting up SR-IOV virtual functions.");
+                log_link_debug(link, "Applying settings for SR-IOV virtual functions.");
 
         return 0;
 }
