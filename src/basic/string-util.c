@@ -1113,6 +1113,19 @@ bool string_is_safe(const char *p) {
         return true;
 }
 
+bool string_is_safe_ascii(const char *p) {
+        return ascii_is_valid(p) && string_is_safe(p);
+}
+
+char* str_realloc(char *p) {
+        /* Reallocate *p to actual size. Ignore failure, and return the original string on error. */
+
+        if (!p)
+                return NULL;
+
+        return realloc(p, strlen(p) + 1) ?: p;
+}
+
 char* string_erase(char *x) {
         if (!x)
                 return NULL;
