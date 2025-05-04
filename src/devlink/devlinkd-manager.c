@@ -392,12 +392,14 @@ int manager_new(Manager **ret) {
 Manager* manager_free(Manager *m) {
         if (!m)
                 return NULL;
+
         manager_periodic_enumeration_stop(m);
         m->bus = sd_bus_unref(m->bus);
         m->event = sd_event_unref(m->event);
         m->genl = sd_netlink_unref(m->genl);
         m->rtnl = sd_netlink_unref(m->rtnl);
         m->devlink_objs = hashmap_free(m->devlink_objs);
+        m->reload = hashmap_free(m->reload);
 
         return mfree(m);
 }
