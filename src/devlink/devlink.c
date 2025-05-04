@@ -18,12 +18,14 @@
 #include "devlink-reload.h"
 #include "devlink-nested.h"
 #include "devlink-dev.h"
+#include "devlink-port-cache.h"
 #include "devlinkd-manager.h"
 
 const DevlinkVTable * const devlink_vtable[_DEVLINK_KIND_MAX] = {
         [DEVLINK_KIND_RELOAD] = &devlink_reload_vtable,
         [DEVLINK_KIND_NESTED] = &devlink_nested_vtable,
         [DEVLINK_KIND_DEV] = &devlink_dev_vtable,
+        [DEVLINK_KIND_PORT_CACHE] = &devlink_port_cache_vtable,
 };
 
 static Devlink *devlink_alloc(Manager *m, DevlinkKind kind) {
