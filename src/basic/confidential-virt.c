@@ -9,6 +9,7 @@
 #include <threads.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "confidential-virt.h"
 #include "confidential-virt-fundamental.h"
 #include "errno-util.h"
