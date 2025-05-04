@@ -17,6 +17,7 @@ struct Manager {
         sd_event *event;
         sd_event_source *periodic_enumeration_event_source;
         Hashmap *devlink_objs;
+        Hashmap *reload;
 };
 
 int manager_rtnl_query_one(Manager *m, uint32_t ifindex);
