@@ -292,6 +292,7 @@ Manager* manager_free(Manager *m) {
                 return NULL;
 
         m->devlink_objs = hashmap_free(m->devlink_objs);
+        m->port_cache_by_ifindex = hashmap_free(m->port_cache_by_ifindex);
         m->reload = hashmap_free(m->reload);
 
         sd_netlink_unref(m->genl);
