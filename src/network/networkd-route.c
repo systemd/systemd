@@ -417,22 +417,14 @@ int route_dup(const Route *src, const RouteNextHop *nh, Route **ret) {
         return 0;
 }
 
-void log_route_debug(const Route *route, const char *str, Manager *manager) {
-        _cleanup_free_ char *state = NULL, *nexthop = NULL, *prefsrc = NULL,
+static int route_to_string(const Route *route, Manager *manager, char **ret) {
+        _cleanup_free_ char *nexthop = NULL, *prefsrc = NULL,
                 *table = NULL, *scope = NULL, *proto = NULL, *flags = NULL;
         const char *dst, *src;
-        Link *link = NULL;
 
         assert(route);
-        assert(str);
         assert(manager);
-
-        if (!DEBUG_LOGGING)
-                return;
-
-        (void) route_get_link(manager, route, &link);
-
-        (void) network_config_state_to_string_alloc(route->state, &state);
+        assert(ret);
 
         dst = in_addr_is_set(route->family, &route->dst) || route->dst_prefixlen > 0 ?
                 IN_ADDR_PREFIX_TO_STRING(route->family, &route->dst, route->dst_prefixlen) : NULL;
@@ -448,14 +440,37 @@ void log_route_debug(const Route *route, const char *str, Manager *manager) {
         (void) route_protocol_full_to_string_alloc(route->protocol, &proto);
         (void) route_flags_to_string_alloc(route->flags, &flags);
 
-        log_link_debug(link,
-                       "%s %s route (%s): dst: %s, src: %s, %s, prefsrc: %s, "
-                       "table: %s, priority: %"PRIu32", "
-                       "proto: %s, scope: %s, type: %s, flags: %s",
-                       str, strna(network_config_source_to_string(route->source)), strna(state),
-                       strna(dst), strna(src), strna(nexthop), strna(prefsrc),
-                       strna(table), route->priority,
-                       strna(proto), strna(scope), strna(route_type_to_string(route->type)), strna(flags));
+        if (asprintf(ret,
+                     "dst: %s, src: %s, %s, prefsrc: %s, "
+                     "table: %s, priority: %"PRIu32", "
+                     "proto: %s, scope: %s, "
+                     "type: %s, flags: %s",
+                     strna(dst), strna(src), strna(nexthop), strna(prefsrc),
+                     strna(table), route->priority,
+                     strna(proto), strna(scope),
+                     strna(route_type_to_string(route->type)), strna(flags)) < 0)
+                return -ENOMEM;
+
+        return 0;
+}
+
+void log_route_debug(const Route *route, const char *str, Manager *manager) {
+        _cleanup_free_ char *state = NULL, *route_str = NULL;
+        Link *link = NULL;
+
+        assert(route);
+        assert(str);
+        assert(manager);
+
+        if (!DEBUG_LOGGING)
+                return;
+
+        (void) route_get_link(manager, route, &link);
+        (void) network_config_state_to_string_alloc(route->state, &state);
+        (void) route_to_string(route, manager, &route_str);
+
+        log_link_debug(link, "%s %s route (%s): %s",
+                       str, strna(network_config_source_to_string(route->source)), strna(state), strna(route_str));
 }
 
 static void route_forget(Manager *manager, Route *route, const char *msg) {
