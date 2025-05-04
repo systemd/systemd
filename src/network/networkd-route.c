@@ -785,12 +785,12 @@ static int route_update_on_existing(Request *req) {
         return 0;
 }
 
-int route_configure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Request *req, const char *error_msg) {
+int route_configure_handler_internal(sd_netlink_message *m, Request *req, Route *route) {
         int r;
 
         assert(m);
         assert(req);
-        assert(error_msg);
+        assert(route);
 
         Link *link = ASSERT_PTR(req->link);
 
@@ -808,7 +808,10 @@ int route_configure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Re
                 return 1;
         }
         if (r < 0) {
-                log_link_message_warning_errno(link, m, r, error_msg);
+                _cleanup_free_ char *str = NULL;
+                (void) route_to_string(route, link->manager, &str);
+                log_link_message_warning_errno(link, m, r, "Failed to configure %s route (%s)",
+                                               network_config_source_to_string(route->source), strna(str));
                 link_enter_failed(link);
                 return 0;
         }
@@ -1032,9 +1035,11 @@ int link_request_route(
 static int static_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, Route *route) {
         int r;
 
+        assert(req);
         assert(link);
+        assert(route);
 
-        r = route_configure_handler_internal(rtnl, m, req, "Could not set static route");
+        r = route_configure_handler_internal(m, req, route);
         if (r <= 0)
                 return r;
 

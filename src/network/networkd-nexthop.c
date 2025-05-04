@@ -689,16 +689,19 @@ static int nexthop_configure(NextHop *nexthop, Link *link, Request *req) {
         return request_call_netlink_async(link->manager->rtnl, m, req);
 }
 
-int nexthop_configure_handler_internal(sd_netlink_message *m, Link *link, const char *error_msg) {
+int nexthop_configure_handler_internal(sd_netlink_message *m, Link *link, NextHop *nexthop) {
         int r;
 
         assert(m);
         assert(link);
-        assert(error_msg);
+        assert(nexthop);
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
-                log_link_message_warning_errno(link, m, r, error_msg);
+                _cleanup_free_ char *str = NULL;
+                (void) nexthop_to_string(nexthop, link->manager, &str);
+                log_link_message_warning_errno(link, m, r, "Failed to set %s nexthop (%s)",
+                                               network_config_source_to_string(nexthop->source), strna(str));
                 link_enter_failed(link);
                 return 0;
         }
@@ -711,7 +714,7 @@ static int static_nexthop_handler(sd_netlink *rtnl, sd_netlink_message *m, Reque
 
         assert(link);
 
-        r = nexthop_configure_handler_internal(m, link, "Failed to set static nexthop");
+        r = nexthop_configure_handler_internal(m, link, nexthop);
         if (r <= 0)
                 return r;
 
