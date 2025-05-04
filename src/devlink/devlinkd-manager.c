@@ -291,6 +291,7 @@ Manager* manager_free(Manager *m) {
                 return NULL;
 
         m->devlink_objs = hashmap_free(m->devlink_objs);
+        m->reload = hashmap_free(m->reload);
 
         sd_netlink_unref(m->genl);
 
