@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "log.h"
 #include "nss-test-util.h"
 #include "string-util.h"
