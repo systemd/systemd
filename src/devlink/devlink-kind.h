@@ -4,6 +4,7 @@
 #include "conf-parser.h"
 
 typedef enum DevlinkKind {
+        DEVLINK_KIND_RELOAD, /* internal kind */
         DEVLINK_KIND_NESTED, /* internal kind */
         DEVLINK_KIND_DEV,
         _DEVLINK_KIND_MAX,
