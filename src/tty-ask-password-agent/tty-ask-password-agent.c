@@ -215,13 +215,11 @@ static int process_one_password_file(const char *filename, FILE *f) {
         if (not_after > 0 && now(CLOCK_MONOTONIC) > not_after)
                 return 0;
 
-        if (arg_query_pid != 0) {
-                if (pid != arg_query_pid) {
-                        if (arg_action == ACTION_QUERY)
-                                log_info("Not querying '%s' (PID " PID_FMT "), ignored by query 'pid=" PID_FMT "'.", strna(message), pid, arg_query_pid);
+        if (arg_query_pid != 0 && pid != arg_query_pid) {
+                if (arg_action == ACTION_QUERY)
+                        log_info("Not querying '%s' (PID " PID_FMT "), ignored by query 'pid=" PID_FMT "'.", strna(message), pid, arg_query_pid);
 
-                        return 0;
-                }
+                return 0;
         }
         
         if (pid > 0 && pid_is_alive(pid) <= 0)
@@ -322,40 +320,6 @@ static int wall_tty_block(void) {
                 return log_debug_errno(errno, "Failed to open %s: %m", p);
 
         return fd;
-}
-
-static int parse_filter(const char *arg) {
-        const char *l;
-        bool strict = false;
-        int r;
-        pid_t p;
-
-        assert(arg || !strict);
-
-        if (!arg)
-                goto default_noarg;
-
-        if (streq(arg, "all")) {
-                arg_query_pid = 0;
-                return 1;
-        }
-
-        l = startswith(arg, "pid="); // IDEA: Support other filter values
-
-        r = parse_pid(l /* "--filter=pid=XXX" */ ?: arg /* "--filter=XXX" */, &p);
-        if (r < 0 || p <= 0) {
-                if (!strict)
-                        goto default_noarg;
-
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse --filter='%s'.", arg);
-        }
-
-        arg_query_pid = p;
-        return 1;
-
-default_noarg:
-        arg_query_pid = 0;
-        return 0;
 }
 
 static int process_password_files(const char *path) {
@@ -502,7 +466,7 @@ static int help(void) {
                "     --version           Show package version\n"
                "     --list              Show pending password requests\n"
                "     --query             Process pending password requests\n"
-               "     --filter[=REQUEST]  Filter only the requests from process ID\n"
+               "     --from-pid=<PID>    Filter only the requests from process with id=PID\n"
                "     --watch             Continuously process password requests\n"
                "     --wall              Continuously forward password requests to wall\n"
                "     --plymouth          Ask question with Plymouth instead of on TTY\n"
@@ -535,7 +499,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "version",  no_argument,       NULL, ARG_VERSION  },
                 { "list",     no_argument,       NULL, ARG_LIST     },
                 { "query",    no_argument,       NULL, ARG_QUERY    },
-                { "from-pid", required_argument, NULL, ARG_FILTER  },
+                { "from-pid", required_argument, NULL, ARG_FILTER   },
                 { "watch",    no_argument,       NULL, ARG_WATCH    },
                 { "wall",     no_argument,       NULL, ARG_WALL     },
                 { "plymouth", no_argument,       NULL, ARG_PLYMOUTH },
@@ -566,12 +530,13 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_action = ACTION_QUERY;
                         break;
 
-              case ARG_FILTER:
-                        r = parse_filter(optarg ?: argv[optind]);
+                case ARG_FILTER:
+                        if (!isempty(optarg))
+                                r = parse_pid(optarg, &arg_query_pid);
+
                         if (r < 0)
-                                return r;
-                        if (r > 0 && !optarg)
-                                optind++;
+                                return log_error_errno(r, "Failed to refer to --filter-pid='%s': %m", optarg);
+
                         break;
 
                 case ARG_WATCH:
