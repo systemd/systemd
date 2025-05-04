@@ -11,6 +11,8 @@ sources = files(
         'devlink-match.h',
         'devlink-match-dev.c',
         'devlink-match-dev.h',
+        'devlink-reload.c',
+        'devlink-reload.h',
         'devlink-nested.c',
         'devlink-nested.h',
         'devlink-dev.c',
