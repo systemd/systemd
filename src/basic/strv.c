@@ -1126,28 +1126,28 @@ static int string_strv_hashmap_put_internal(Hashmap *h, const char *key, const c
         return 1;
 }
 
-int _string_strv_hashmap_put(Hashmap **h, const char *key, const char *value  HASHMAP_DEBUG_PARAMS) {
+int string_strv_hashmap_put(Hashmap **h, const char *key, const char *value) {
         int r;
 
         assert(h);
         assert(key);
         assert(value);
 
-        r = _hashmap_ensure_allocated(h, &string_hash_ops_free_strv_free  HASHMAP_DEBUG_PASS_ARGS);
+        r = hashmap_ensure_allocated(h, &string_hash_ops_free_strv_free);
         if (r < 0)
                 return r;
 
         return string_strv_hashmap_put_internal(*h, key, value);
 }
 
-int _string_strv_ordered_hashmap_put(OrderedHashmap **h, const char *key, const char *value  HASHMAP_DEBUG_PARAMS) {
+int string_strv_ordered_hashmap_put(OrderedHashmap **h, const char *key, const char *value) {
         int r;
 
         assert(h);
         assert(key);
         assert(value);
 
-        r = _ordered_hashmap_ensure_allocated(h, &string_hash_ops_free_strv_free  HASHMAP_DEBUG_PASS_ARGS);
+        r = ordered_hashmap_ensure_allocated(h, &string_hash_ops_free_strv_free);
         if (r < 0)
                 return r;
 
