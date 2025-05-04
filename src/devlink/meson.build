@@ -19,6 +19,8 @@ sources = files(
         'devlink-nested.h',
         'devlink-dev.c',
         'devlink-dev.h',
+        'devlink-port-cache.c',
+        'devlink-port-cache.h',
         'devlinkd-manager.c',
         'devlinkd-manager.h',
 )

@@ -7,6 +7,7 @@ typedef enum DevlinkKind {
         DEVLINK_KIND_RELOAD, /* internal kind */
         DEVLINK_KIND_NESTED, /* internal kind */
         DEVLINK_KIND_DEV,
+        DEVLINK_KIND_PORT_CACHE, /* internal kind */
         _DEVLINK_KIND_MAX,
         _DEVLINK_KIND_INVALID = -EINVAL,
 } DevlinkKind;
