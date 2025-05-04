@@ -531,8 +531,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_FILTER:
-                        if (!isempty(optarg))
-                                r = parse_pid(optarg, &arg_query_pid);
+                        r = parse_pid(optarg, &arg_query_pid);
 
                         if (r < 0)
                                 return log_error_errno(r, "Failed to refer to --filter-pid='%s': %m", optarg);
