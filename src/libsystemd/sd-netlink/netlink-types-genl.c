@@ -245,6 +245,7 @@ static const NLAPolicy genl_devlink_policies[] = {
         [DEVLINK_ATTR_BUS_NAME]                        = BUILD_POLICY(STRING),
         [DEVLINK_ATTR_DEV_NAME]                        = BUILD_POLICY(STRING),
         [DEVLINK_ATTR_PORT_INDEX]                      = BUILD_POLICY(U32),
+        [DEVLINK_ATTR_PORT_NETDEV_IFINDEX]             = BUILD_POLICY(U32),
         [DEVLINK_ATTR_PORT_SPLIT_GROUP]                = BUILD_POLICY(U32),
         [DEVLINK_ATTR_ESWITCH_MODE]                    = BUILD_POLICY(U16),
         [DEVLINK_ATTR_RELOAD_ACTION]                   = BUILD_POLICY(U8),
