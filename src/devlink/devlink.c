@@ -15,10 +15,12 @@
 #include "devlink.h"
 #include "devlink-kind.h"
 #include "devlink-key.h"
+#include "devlink-nested.h"
 #include "devlink-dev.h"
 #include "devlinkd-manager.h"
 
 const DevlinkVTable * const devlink_vtable[_DEVLINK_KIND_MAX] = {
+        [DEVLINK_KIND_NESTED] = &devlink_nested_vtable,
         [DEVLINK_KIND_DEV] = &devlink_dev_vtable,
 };
 
