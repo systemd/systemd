@@ -5,13 +5,16 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "argv-util.h"
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-unit-util.h"
+#include "bus-util.h"
 #include "chase.h"
 #include "creds-util.h"
 #include "efi-loader.h"
 #include "env-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fstab-util.h"

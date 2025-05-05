@@ -61,6 +61,7 @@
 #include "networkd-state-file.h"
 #include "networkd-sysctl.h"
 #include "networkd-wifi.h"
+#include "parse-util.h"
 #include "set.h"
 #include "socket-util.h"
 #include "stdio-util.h"
@@ -380,7 +381,7 @@ void link_set_state(Link *link, LinkState state) {
 
         link->state = state;
 
-        link_send_changed(link, "AdministrativeState", NULL);
+        link_send_changed(link, "AdministrativeState");
         link_dirty(link);
 }
 

@@ -6,6 +6,7 @@
 #include <sys/utsname.h>
 
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "color-util.h"
 #include "conf-files.h"
 #include "constants.h"

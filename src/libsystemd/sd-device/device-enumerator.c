@@ -1,11 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
+#include <fnmatch.h>
 #include <unistd.h>
 
 #include "sd-device.h"
 
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "device-enumerator-private.h"
 #include "device-filter.h"
 #include "device-util.h"

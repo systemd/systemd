@@ -6,6 +6,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "arphrd-util.h"
 #include "bareudp.h"
 #include "batadv.h"

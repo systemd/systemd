@@ -6,8 +6,10 @@
 #include <stddef.h>
 #include <sys/socket.h>
 
-#include "hash-funcs.h"
+#include "assert-util.h"
 #include "macro.h"
+
+struct siphash;
 
 union in_addr_union {
         struct in_addr in;

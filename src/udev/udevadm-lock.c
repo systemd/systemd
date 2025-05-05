@@ -10,6 +10,7 @@
 #include "device-util.h"
 #include "fd-util.h"
 #include "fdset.h"
+#include "hash-funcs.h"
 #include "lock-util.h"
 #include "main-func.h"
 #include "parse-util.h"

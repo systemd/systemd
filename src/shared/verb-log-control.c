@@ -3,6 +3,7 @@
 #include "alloc-util.h"
 #include "bus-error.h"
 #include "log.h"
+#include "string-util.h"
 #include "strv.h"
 #include "syslog-util.h"
 #include "verb-log-control.h"

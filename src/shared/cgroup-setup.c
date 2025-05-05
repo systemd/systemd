@@ -15,6 +15,7 @@
 #include "path-util.h"
 #include "process-util.h"
 #include "recurse-dir.h"
+#include "set.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "user-util.h"
