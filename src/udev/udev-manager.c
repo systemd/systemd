@@ -22,6 +22,7 @@
 #include "signal-util.h"
 #include "socket-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "syslog-util.h"
 #include "udev-builtin.h"
 #include "udev-config.h"

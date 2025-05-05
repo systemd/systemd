@@ -29,6 +29,7 @@
 #include "random-util.h"
 #include "recurse-dir.h"
 #include "socket-util.h"
+#include "strv.h"
 #include "terminal-util.h"
 #include "udev-util.h"
 
