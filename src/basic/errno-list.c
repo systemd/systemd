@@ -3,6 +3,7 @@
 #include <errno.h>
 #include <string.h>
 
+#include "assert-util.h"
 #include "errno-list.h"
 #include "macro.h"
 
