@@ -27,6 +27,7 @@
 #include "devnum-util.h"
 #include "env-util.h"
 #include "errno-list.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
@@ -52,6 +53,7 @@
 #include "terminal-util.h"
 #include "time-util.h"
 #include "user-util.h"
+#include "utf8.h"
 
 static volatile unsigned cached_columns = 0;
 static volatile unsigned cached_lines = 0;

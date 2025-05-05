@@ -2,6 +2,7 @@
 
 #include <unistd.h>
 
+#include "errno-util.h"
 #include "generator-setup.h"
 #include "macro.h"
 #include "mkdir-label.h"

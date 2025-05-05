@@ -3,6 +3,7 @@
 #include <sys/file.h>
 
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "ansi-color.h"
 #include "bitfield.h"
 #include "constants.h"
@@ -38,6 +39,7 @@
 #include "sync-util.h"
 #include "time-util.h"
 #include "tpm2-util.h"
+#include "user-util.h"
 #include "virt.h"
 
 #if HAVE_OPENSSL

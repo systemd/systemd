@@ -5,9 +5,11 @@
 #include <limits.h>
 #include <sys/stat.h>
 
+#include "alloc-util.h"
 #include "build.h"
 #include "conf-files.h"
 #include "constants.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "log.h"

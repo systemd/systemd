@@ -3,6 +3,7 @@
 #include <sys/xattr.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -13,6 +14,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "procfs-util.h"
+#include "set.h"
 #include "signal-util.h"
 #include "sort-util.h"
 #include "stat-util.h"

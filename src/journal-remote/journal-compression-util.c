@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "alloc-util.h"
 #include "extract-word.h"
 #include "journal-compression-util.h"
 #include "parse-util.h"

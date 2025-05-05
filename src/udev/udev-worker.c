@@ -18,6 +18,7 @@
 #include "process-util.h"
 #include "signal-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "udev-error.h"
 #include "udev-event.h"
 #include "udev-rules.h"

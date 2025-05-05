@@ -3,10 +3,12 @@
 #include <sys/mount.h>
 
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "blockdev-util.h"
 #include "chase.h"
 #include "devnum-util.h"
 #include "escape.h"
+#include "log.h"
 #include "main-func.h"
 #include "mkdir.h"
 #include "mount-util.h"

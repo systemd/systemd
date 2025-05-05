@@ -2,6 +2,7 @@
 
 #include <sys/mount.h>
 
+#include "alloc-util.h"
 #include "bitfield.h"
 #include "cap-list.h"
 #include "cgroup-util.h"
@@ -9,6 +10,7 @@
 #include "env-util.h"
 #include "fs-util.h"
 #include "glyph-util.h"
+#include "hashmap.h"
 #include "hexdecoct.h"
 #include "hostname-setup.h"
 #include "hostname-util.h"

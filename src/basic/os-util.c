@@ -1,10 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "chase.h"
 #include "dirent-util.h"
 #include "env-file.h"
 #include "env-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"

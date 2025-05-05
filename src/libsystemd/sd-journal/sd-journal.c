@@ -38,6 +38,7 @@
 #include "prioq.h"
 #include "process-util.h"
 #include "replace-var.h"
+#include "set.h"
 #include "sort-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"

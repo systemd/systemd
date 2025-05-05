@@ -3,11 +3,10 @@
 
 #include <stdbool.h>
 
-#include "hashmap.h"
-#include "macro.h"
-#include "set.h"
+#include "memory-util.h"
 
 typedef struct FDSet FDSet;
+typedef struct Iterator Iterator;
 
 FDSet* fdset_new(void);
 FDSet* fdset_free(FDSet *s);

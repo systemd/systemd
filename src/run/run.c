@@ -7,10 +7,12 @@
 #include <sys/types.h>
 
 #include "sd-bus.h"
+#include "sd-daemon.h"
 #include "sd-event.h"
 #include "sd-json.h"
 
 #include "alloc-util.h"
+#include "argv-util.h"
 #include "ask-password-agent.h"
 #include "build.h"
 #include "bus-error.h"

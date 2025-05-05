@@ -18,6 +18,7 @@
 #endif
 
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "label.h"
@@ -27,6 +28,7 @@
 #include "path-util.h"
 #include "selinux-util.h"
 #include "stdio-util.h"
+#include "string-util.h"
 #include "time-util.h"
 
 #if HAVE_SELINUX

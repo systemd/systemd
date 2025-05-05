@@ -12,6 +12,7 @@
 
 #include "MurmurHash2.h"
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "device-filter.h"
 #include "device-monitor-private.h"
 #include "device-private.h"

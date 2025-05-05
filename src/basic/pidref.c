@@ -9,6 +9,7 @@
 #include "pidfd-util.h"
 #include "pidref.h"
 #include "process-util.h"
+#include "set.h"
 #include "signal-util.h"
 
 int pidref_acquire_pidfd_id(PidRef *pidref) {

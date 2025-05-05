@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
 #include <stdbool.h>
@@ -9,7 +10,8 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#include "set.h"
+typedef struct Hashmap Hashmap;
+typedef struct Set Set;
 
 typedef enum CopyFlags {
         COPY_REFLINK                      = 1 << 0,  /* Try to reflink */

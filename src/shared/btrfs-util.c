@@ -21,6 +21,7 @@
 #include "chase.h"
 #include "chattr-util.h"
 #include "copy.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
