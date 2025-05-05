@@ -38,6 +38,7 @@
 #include "sync-util.h"
 #include "time-util.h"
 #include "tpm2-util.h"
+#include "user-util.h"
 #include "virt.h"
 
 #if HAVE_OPENSSL

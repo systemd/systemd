@@ -3,6 +3,7 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "log.h"

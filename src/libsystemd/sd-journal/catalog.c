@@ -14,6 +14,7 @@
 #include "alloc-util.h"
 #include "catalog.h"
 #include "conf-files.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
