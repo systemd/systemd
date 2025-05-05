@@ -14,6 +14,8 @@
 #include "sd-event.h"
 #include "sd-id128.h"
 
+#include "alloc-util.h"
+#include "alloca-util.h"
 #include "bus-common-errors.h"
 #include "bus-internal.h"
 #include "bus-label.h"
@@ -31,6 +33,7 @@
 #include "socket-util.h"
 #include "stdio-util.h"
 #include "string-table.h"
+#include "strv.h"
 #include "uid-classification.h"
 
 static int name_owner_change_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {

@@ -10,6 +10,7 @@
 #include <sys/wait.h>
 
 #include "alloc-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "lock-util.h"

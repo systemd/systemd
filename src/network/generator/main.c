@@ -2,8 +2,10 @@
 
 #include <getopt.h>
 
+#include "alloc-util.h"
 #include "build.h"
 #include "creds-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "generator.h"
@@ -123,7 +125,9 @@ static int context_save(Context *context) {
         Link *link;
         int r;
 
-        const char *p = prefix_roota(arg_root, NETWORK_UNIT_DIRECTORY);
+        _cleanup_free_ char *p = path_join(arg_root, NETWORK_UNIT_DIRECTORY);
+        if (!p)
+                return log_oom();
 
         r = mkdir_p(p, 0755);
         if (r < 0)

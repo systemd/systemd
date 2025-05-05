@@ -3,12 +3,14 @@
 
 #include <stdbool.h>
 
-#include "hashmap.h"
 #include "path-lookup.h"
 #include "time-util.h"
 #include "unit-name.h"
 
 typedef enum UnitFileState UnitFileState;
+
+typedef struct Hashmap Hashmap;
+typedef struct Set Set;
 
 enum UnitFileState {
         UNIT_FILE_ENABLED,

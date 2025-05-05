@@ -2,6 +2,7 @@
 
 #include "sd-json.h"
 
+#include "alloc-util.h"
 #include "efivars.h"
 #include "env-util.h"
 #include "factory-reset.h"

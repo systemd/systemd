@@ -12,6 +12,7 @@
 #include "btrfs.h"
 #include "chattr-util.h"
 #include "dirent-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
@@ -364,6 +365,10 @@ int stat_warn_permissions(const char *path, const struct stat *st) {
         return 0;
 }
 
+int access_nofollow(const char *path, mode_t mode) {
+        return RET_NERRNO(faccessat(AT_FDCWD, path, mode, AT_SYMLINK_NOFOLLOW));
+}
+
 int fd_warn_permissions(const char *path, int fd) {
         struct stat st;
 
@@ -423,6 +428,10 @@ int touch_file(const char *path, bool parents, usec_t stamp, uid_t uid, gid_t gi
         ret = fchmod_and_chown(fd, mode, uid, gid);
 
         return RET_GATHER(ret, touch_fd(fd, stamp));
+}
+
+int touch(const char *path) {
+        return touch_file(path, false, USEC_INFINITY, UID_INVALID, GID_INVALID, MODE_INVALID);
 }
 
 int symlinkat_idempotent(const char *from, int atfd, const char *to, bool make_relative) {
@@ -674,6 +683,16 @@ int unlink_or_warn(const char *filename) {
                         return log_error_errno(errno, "Failed to remove \"%s\": %m", filename);
 
         return 0;
+}
+
+char *rmdir_and_free(char *p) {
+        PROTECT_ERRNO;
+
+        if (!p)
+                return NULL;
+
+        (void) rmdir(p);
+        return mfree(p);
 }
 
 int access_fd(int fd, int mode) {

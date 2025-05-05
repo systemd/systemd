@@ -106,20 +106,20 @@ void log_setup_generator(void);
 
 bool generator_soft_rebooted(void);
 
+int generator_intro(int argc, char *argv[], void *userdata);
+
+typedef int (*GeneratorRunFunction)(const char*, const char*, const char*);
+
+int generator_run(int argc, char *argv[], void *userdata);
+
 /* Similar to DEFINE_MAIN_FUNCTION, but initializes logging and assigns positional arguments. */
 #define DEFINE_MAIN_GENERATOR_FUNCTION(impl)                            \
         _DEFINE_MAIN_FUNCTION(                                          \
-                ({                                                      \
-                        log_setup_generator();                          \
-                        if (!IN_SET(argc, 2, 4))                        \
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), \
-                                                       "This program takes one or three arguments."); \
-                }),                                                     \
-                impl(argv[1],                                           \
-                     argv[argc == 4 ? 2 : 1],                           \
-                     argv[argc == 4 ? 3 : 1]),                          \
+                generator_intro,                                        \
+                generator_run,                                          \
                 exit_failure_if_negative,                               \
-                exit_failure_if_negative)
+                exit_failure_if_negative,                               \
+                (GeneratorRunFunction) impl)
 
 typedef enum GptAutoRoot {
         GPT_AUTO_ROOT_OFF = 0,       /* root= set to something else */

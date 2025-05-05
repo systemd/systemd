@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "alloc-util.h"
+#include "alloca-util.h"
 #include "dlfcn-util.h"
 #include "log.h"
 #include "macro.h"

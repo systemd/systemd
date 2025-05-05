@@ -4,6 +4,8 @@
 #include <fido.h>
 #endif
 
+#include "alloc-util.h"
+#include "alloca-util.h"
 #include "ask-password-api.h"
 #include "errno-util.h"
 #include "fido2-util.h"
@@ -19,6 +21,7 @@
 #include "log.h"
 #include "memory-util.h"
 #include "random-util.h"
+#include "string-util.h"
 #include "strv.h"
 
 #if HAVE_LIBFIDO2

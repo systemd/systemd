@@ -10,6 +10,7 @@
 #include "sd-id128.h"
 
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "chattr-util.h"
 #include "efivars.h"
 #include "fd-util.h"

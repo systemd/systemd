@@ -11,6 +11,7 @@
 #include "ether-addr-util.h"
 #include "event-util.h"
 #include "fd-util.h"
+#include "hashmap.h"
 #include "lldp-neighbor.h"
 #include "lldp-network.h"
 #include "lldp-rx-internal.h"

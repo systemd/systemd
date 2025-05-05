@@ -7,7 +7,6 @@
 #include "sd-id128.h"
 #include "sd-json.h"
 
-#include "hashmap.h"
 #include "rlimit-util.h"
 #include "strv.h"
 #include "time-util.h"

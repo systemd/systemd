@@ -1,9 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <fnmatch.h>
 #include <unistd.h>
 
 #include "sd-login.h"
 
+#include "alloc-util.h"
 #include "ansi-color.h"
 #include "bus-map-properties.h"
 #include "hostname-setup.h"

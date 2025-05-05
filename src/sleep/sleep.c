@@ -19,6 +19,7 @@
 #include "sd-json.h"
 #include "sd-messages.h"
 
+#include "alloc-util.h"
 #include "battery-capacity.h"
 #include "battery-util.h"
 #include "build.h"
