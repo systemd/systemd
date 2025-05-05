@@ -14,6 +14,7 @@
 #include "sd-path.h"
 
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "blockdev-util.h"
 #include "btrfs-util.h"
 #include "chase.h"

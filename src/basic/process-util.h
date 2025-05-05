@@ -12,6 +12,7 @@
 #include <sys/types.h>
 
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "assert-util.h"
 #include "fileio.h"
 #include "format-util.h"

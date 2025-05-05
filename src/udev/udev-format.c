@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "device-util.h"
 #include "errno-util.h"
 #include "parse-util.h"

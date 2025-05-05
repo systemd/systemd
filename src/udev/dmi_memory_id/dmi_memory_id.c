@@ -45,6 +45,7 @@
 #include <getopt.h>
 
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "build.h"
 #include "fileio.h"
 #include "main-func.h"

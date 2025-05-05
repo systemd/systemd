@@ -15,6 +15,7 @@
 #include "sd-id128.h"
 
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "bus-common-errors.h"
 #include "bus-internal.h"
 #include "bus-label.h"

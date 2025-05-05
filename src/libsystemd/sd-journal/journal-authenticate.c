@@ -4,6 +4,7 @@
 #include <sys/mman.h>
 
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "fd-util.h"
 #include "fsprg.h"
 #include "gcrypt-util.h"

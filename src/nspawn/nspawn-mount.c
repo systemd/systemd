@@ -4,6 +4,7 @@
 #include <sys/mount.h>
 
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "chase.h"
 #include "escape.h"
 #include "fd-util.h"

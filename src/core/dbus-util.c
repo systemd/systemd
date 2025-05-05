@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "alloca-util.h"
 #include "bus-polkit.h"
 #include "bus-util.h"
 #include "dbus-util.h"

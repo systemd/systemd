@@ -14,6 +14,7 @@
 #include "sd-event.h"
 
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "chattr-util.h"
 #include "compress.h"
 #include "env-util.h"

@@ -3,6 +3,7 @@
 #include <sys/file.h>
 
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "ansi-color.h"
 #include "bitfield.h"
 #include "constants.h"

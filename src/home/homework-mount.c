@@ -4,6 +4,7 @@
 #include <sys/mount.h>
 
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "glyph-util.h"

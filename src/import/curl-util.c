@@ -4,6 +4,7 @@
 #include <fcntl.h>
 
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "curl-util.h"
 #include "fd-util.h"
 #include "locale-util.h"

@@ -4,6 +4,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "bus-internal.h"
 #include "bus-message.h"
 #include "bus-signature.h"
