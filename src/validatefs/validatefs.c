@@ -7,6 +7,7 @@
 #include "build.h"
 #include "chase.h"
 #include "device-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "initrd-util.h"
 #include "main-func.h"
