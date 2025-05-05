@@ -4,6 +4,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "dns-domain.h"
 #include "fd-util.h"
 #include "fileio.h"

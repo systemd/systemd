@@ -13,6 +13,7 @@
 #include "sd-messages.h"
 
 #include "alloc-util.h"
+#include "argv-util.h"
 #include "ask-password-api.h"
 #include "build.h"
 #include "cryptsetup-fido2.h"
@@ -25,6 +26,7 @@
 #include "efi-loader.h"
 #include "env-util.h"
 #include "escape.h"
+#include "extract-word.h"
 #include "fileio.h"
 #include "fs-util.h"
 #include "fstab-util.h"

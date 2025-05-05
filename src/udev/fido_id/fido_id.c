@@ -15,6 +15,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "build.h"
 #include "device-private.h"
 #include "device-util.h"

@@ -23,6 +23,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "chase.h"
 #include "device-private.h"
 #include "device-util.h"

@@ -24,6 +24,7 @@
 #include "process-util.h"
 #include "sort-util.h"
 #include "string-table.h"
+#include "strv.h"
 #include "sysupdate.h"
 #include "sysupdate-cache.h"
 #include "sysupdate-instance.h"

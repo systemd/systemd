@@ -3,6 +3,13 @@
 
 #include <stdbool.h>
 
+#include "macro.h"
+#include "path-lookup.h"
+#include "strv.h"
+#include "unit-file.h"
+#include "unit-name.h"
+
+typedef struct Hashmap Hashmap;
 typedef enum UnitFilePresetMode UnitFilePresetMode;
 typedef enum InstallChangeType InstallChangeType;
 typedef enum UnitFileFlags UnitFileFlags;
@@ -10,13 +17,6 @@ typedef enum InstallMode InstallMode;
 typedef struct InstallChange InstallChange;
 typedef struct UnitFileList UnitFileList;
 typedef struct InstallInfo InstallInfo;
-
-#include "hashmap.h"
-#include "macro.h"
-#include "path-lookup.h"
-#include "strv.h"
-#include "unit-file.h"
-#include "unit-name.h"
 
 enum UnitFilePresetMode {
         UNIT_FILE_PRESET_FULL,

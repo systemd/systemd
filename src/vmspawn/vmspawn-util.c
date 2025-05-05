@@ -7,11 +7,13 @@
 #include "sd-json.h"
 
 #include "architecture.h"
+#include "alloc-util.h"
 #include "conf-files.h"
 #include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "hashmap.h"
 #include "json-util.h"
 #include "log.h"
 #include "macro.h"

@@ -10,6 +10,7 @@
 
 #include "alloc-util.h"
 #include "errno-util.h"
+#include "hash-funcs.h"
 #include "in-addr-util.h"
 #include "logarithm.h"
 #include "macro.h"

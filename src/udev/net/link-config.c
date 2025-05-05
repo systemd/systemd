@@ -8,6 +8,7 @@
 #include "sd-netlink.h"
 
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "arphrd-util.h"
 #include "conf-files.h"
 #include "conf-parser.h"

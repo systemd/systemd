@@ -1,8 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/sysmacros.h>
+
 #include "alloc-util.h"
 #include "devnum-util.h"
 #include "env-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "glyph-util.h"
 #include "in-addr-util.h"
@@ -13,7 +16,9 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "stat-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "syslog-util.h"
 #include "user-util.h"
 

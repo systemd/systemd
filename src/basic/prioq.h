@@ -3,10 +3,11 @@
 
 #include <stdbool.h>
 
-#include "hashmap.h"
+#include "memory-util.h"
 #include "macro.h"
 
 typedef struct Prioq Prioq;
+typedef int (*compare_func_t)(const void *a, const void *b);
 
 #define PRIOQ_IDX_NULL (UINT_MAX)
 

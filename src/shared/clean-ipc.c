@@ -13,6 +13,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "clean-ipc.h"
 #include "dirent-util.h"
 #include "fd-util.h"

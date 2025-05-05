@@ -3,9 +3,11 @@
 #include <getopt.h>
 
 #include "sd-bus.h"
+#include "sd-daemon.h"
 #include "sd-json.h"
 
 #include "alloc-util.h"
+#include "alloca-util.h"
 #include "bitfield.h"
 #include "build.h"
 #include "bus-dump.h"

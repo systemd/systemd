@@ -4,9 +4,11 @@
 #include "sd-device.h"
 
 #include "device-private.h"
-#include "hashmap.h"
 #include "set.h"
 #include "time-util.h"
+
+typedef struct Hashmap Hashmap;
+typedef struct OrderedHashmap OrderedHashmap;
 
 #define LATEST_UDEV_DATABASE_VERSION 1
 

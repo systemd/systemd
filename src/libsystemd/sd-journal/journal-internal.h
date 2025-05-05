@@ -3,16 +3,20 @@
 
 #include <inttypes.h>
 #include <stdbool.h>
+#include <stdlib.h>
 #include <sys/types.h>
 
 #include "sd-id128.h"
 #include "sd-journal.h"
 
-#include "hashmap.h"
 #include "journal-def.h"
 #include "journal-file.h"
 #include "list.h"
 #include "prioq.h"
+
+typedef struct Hashmap Hashmap;
+typedef struct Set Set;
+typedef struct IteratedCache IteratedCache;
 
 #define JOURNAL_FILES_MAX 7168u
 

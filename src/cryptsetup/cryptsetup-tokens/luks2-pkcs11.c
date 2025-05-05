@@ -5,6 +5,7 @@
 
 #include "sd-json.h"
 
+#include "alloc-util.h"
 #include "cryptsetup-token-util.h"
 #include "escape.h"
 #include "hexdecoct.h"

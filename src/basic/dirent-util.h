@@ -5,6 +5,7 @@
 #include <errno.h>
 #include <stdbool.h>
 
+#include "assert-util.h"
 #include "macro.h"
 #include "path-util.h"
 
