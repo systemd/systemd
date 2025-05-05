@@ -16,6 +16,7 @@
 #include "socket-netlink.h"
 #include "socket-util.h"
 #include "special.h"
+#include "string-util.h"
 #include "virt.h"
 
 /* A small generator binding potentially five or more SSH sockets:
