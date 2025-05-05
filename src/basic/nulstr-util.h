@@ -6,7 +6,7 @@
 #include <stdbool.h>
 #include <string.h>
 
-#include "set.h"
+typedef struct Set Set;
 
 #define NULSTR_FOREACH(i, l)                                    \
         for (typeof(*(l)) *(i) = (l); (i) && *(i); (i) = strchr((i), 0)+1)

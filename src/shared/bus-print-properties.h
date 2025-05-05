@@ -6,7 +6,8 @@
 #include "sd-bus.h"
 
 #include "macro.h"
-#include "set.h"
+
+typedef struct Set Set;
 
 typedef enum BusPrintPropertyFlags {
         BUS_PRINT_PROPERTY_ONLY_VALUE = 1 << 0,  /* e.g. systemctl --value */

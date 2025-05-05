@@ -9,10 +9,15 @@
 #include <syslog.h>
 
 #include "alloc-util.h"
-#include "hashmap.h"
 #include "log.h"
 #include "macro.h"
 #include "time-util.h"
+
+struct siphash;
+
+typedef struct Hashmap Hashmap;
+typedef struct HashmapBase HashmapBase;
+typedef struct OrderedHashmap OrderedHashmap;
 
 /* An abstract parser for simple, line based, shallow configuration files consisting of variable assignments only. */
 
@@ -187,18 +192,9 @@ int _hashmap_by_section_find_unused_line(
                 HashmapBase *entries_by_section,
                 const char *filename,
                 unsigned *ret);
-static inline int hashmap_by_section_find_unused_line(
-                Hashmap *entries_by_section,
-                const char *filename,
-                unsigned *ret) {
-        return _hashmap_by_section_find_unused_line(HASHMAP_BASE(entries_by_section), filename, ret);
-}
-static inline int ordered_hashmap_by_section_find_unused_line(
-                OrderedHashmap *entries_by_section,
-                const char *filename,
-                unsigned *ret) {
-        return _hashmap_by_section_find_unused_line(HASHMAP_BASE(entries_by_section), filename, ret);
-}
+
+int hashmap_by_section_find_unused_line(Hashmap *entries_by_section, const char *filename, unsigned *ret);
+int ordered_hashmap_by_section_find_unused_line(OrderedHashmap *entries_by_section, const char *filename, unsigned *ret);
 
 static inline bool section_is_invalid(ConfigSection *section) {
         /* If this returns false, then it does _not_ mean the section is valid. */

@@ -38,7 +38,7 @@ typedef struct IteratedCache IteratedCache;   /* Caches the iterated order of on
 /* Ideally the Iterator would be an opaque struct, but it is instantiated
  * by hashmap users, so the definition has to be here. Do not use its fields
  * directly. */
-typedef struct {
+typedef struct Iterator {
         const void *next_key; /* expected value of that entry's key pointer */
         unsigned idx;         /* index of an entry to be iterated next */
 #if ENABLE_DEBUG_HASHMAP
