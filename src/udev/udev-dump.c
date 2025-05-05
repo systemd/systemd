@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
+#include "alloc-util.h"
 #include "ansi-color.h"
 #include "device-private.h"
 #include "device-util.h"
@@ -8,6 +9,7 @@
 #include "fs-util.h"
 #include "json-util.h"
 #include "parse-util.h"
+#include "strv.h"
 #include "udev-builtin.h"
 #include "udev-dump.h"
 #include "udev-event.h"
