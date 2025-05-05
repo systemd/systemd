@@ -672,25 +672,11 @@ static int service_verify(Service *s) {
         assert(s);
         assert(UNIT(s)->load_state == UNIT_LOADED);
 
-        for (ServiceExecCommand c = 0; c < _SERVICE_EXEC_COMMAND_MAX; c++)
-                LIST_FOREACH(command, command, s->exec_command[c]) {
-                        if (!path_is_absolute(command->path) && !filename_is_valid(command->path))
-                                return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC),
-                                                            "Service %s= binary path \"%s\" is neither a valid executable name nor an absolute path. Refusing.",
-                                                            command->path,
-                                                            service_exec_command_to_string(c));
-                        if (strv_isempty(command->argv))
-                                return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC),
-                                                            "Service has an empty argv in %s=. Refusing.",
-                                                            service_exec_command_to_string(c));
-                }
-
         if (!s->exec_command[SERVICE_EXEC_START] && !s->exec_command[SERVICE_EXEC_STOP] &&
             UNIT(s)->success_action == EMERGENCY_ACTION_NONE)
                 /* FailureAction= only makes sense if one of the start or stop commands is specified.
                  * SuccessAction= will be executed unconditionally if no commands are specified. Hence,
                  * either a command or SuccessAction= are required. */
-
                 return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Service has no ExecStart=, ExecStop=, or SuccessAction=. Refusing.");
 
         if (s->type != SERVICE_ONESHOT && !s->exec_command[SERVICE_EXEC_START])
