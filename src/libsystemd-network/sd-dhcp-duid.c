@@ -4,6 +4,7 @@
 #include <net/ethernet.h>
 #include <net/if_arp.h>
 
+#include "alloc-util.h"
 #include "dhcp-duid-internal.h"
 #include "hexdecoct.h"
 #include "netif-util.h"
