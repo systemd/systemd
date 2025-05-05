@@ -970,7 +970,7 @@ static int context_on_acquire_progress(const Transfer *t, const Instance *inst, 
         assert(overall <= 100);
 
         log_debug("Transfer %zu/%zu is %u%% complete (%u%% overall).", i+1, n, percentage, overall);
-        return sd_notifyf(/* unset= */ false, "X_SYSUPDATE_PROGRESS=%u\n"
+        return sd_notifyf(/* unset_environment=*/ false, "X_SYSUPDATE_PROGRESS=%u\n"
                                               "X_SYSUPDATE_TRANSFERS_LEFT=%zu\n"
                                               "X_SYSUPDATE_TRANSFERS_DONE=%zu\n"
                                               "STATUS=Updating to '%s' (%u%% complete).",
@@ -1027,7 +1027,7 @@ static int context_apply(
 
         log_info("Selected update '%s' for install.", us->version);
 
-        (void) sd_notifyf(/* unset= */ false,
+        (void) sd_notifyf(/* unset_environment=*/ false,
                           "READY=1\n"
                           "X_SYSUPDATE_VERSION=%s\n"
                           "STATUS=Making room for '%s'.", us->version, us->version);
@@ -1045,7 +1045,7 @@ static int context_apply(
         if (arg_sync)
                 sync();
 
-        (void) sd_notifyf(/* unset= */ false,
+        (void) sd_notifyf(/* unset_environment=*/ false,
                           "STATUS=Updating to '%s'.", us->version);
 
         /* There should now be one instance picked for each transfer, and the order is the same */
@@ -1070,7 +1070,7 @@ static int context_apply(
         if (arg_sync)
                 sync();
 
-        (void) sd_notifyf(/* unset= */ false,
+        (void) sd_notifyf(/* unset_environment=*/ false,
                           "STATUS=Installing '%s'.", us->version);
 
         for (size_t i = 0; i < c->n_transfers; i++) {

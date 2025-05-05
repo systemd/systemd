@@ -2074,7 +2074,7 @@ static int dns_transaction_make_packet(DnsTransaction *t) {
                 r = dns_packet_new_query(
                                 &p, t->scope->protocol,
                                 /* min_alloc_dsize = */ 0,
-                                /* dnssec_cd = */ !FLAGS_SET(t->query_flags, SD_RESOLVED_NO_VALIDATE) &&
+                                /* dnssec_checking_disabled = */ !FLAGS_SET(t->query_flags, SD_RESOLVED_NO_VALIDATE) &&
                                                   t->scope->dnssec_mode != DNSSEC_NO);
                 if (r < 0)
                         return r;
