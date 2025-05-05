@@ -2,6 +2,8 @@
 
 #if HAVE_BLKID
 
+#include <errno.h>
+
 #include "blkid-util.h"
 #include "string-util.h"
 
