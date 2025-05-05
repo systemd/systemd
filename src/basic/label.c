@@ -3,6 +3,7 @@
 #include <errno.h>
 #include <stddef.h>
 
+#include "assert-util.h"
 #include "label.h"
 #include "macro.h"
 

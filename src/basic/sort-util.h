@@ -3,6 +3,7 @@
 
 #include <stdlib.h>
 
+#include "assert-util.h"
 #include "macro.h"
 
 /* This is the same as glibc's internal __compar_d_fn_t type. glibc exports a public comparison_fn_t, for the
